@@ -31,6 +31,10 @@ vi.mock("@/server/assistant/guided-conversation/service", () => ({
   applyGuidedConversationCommand: vi.fn(),
 }));
 
+vi.mock("@/server/assistant/plan-iteration/service", () => ({
+  handlePlanRevisionMessage: vi.fn(),
+}));
+
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
 import { createAssistantMessage } from "@/server/repositories/assistant-message";
 import {
@@ -38,12 +42,14 @@ import {
   toAssistantModelRequest,
 } from "@/server/assistant/context/context-builder";
 import { evaluateToolCall } from "@/server/assistant/tools/policy";
+import { handlePlanRevisionMessage } from "@/server/assistant/plan-iteration/service";
 
 const mockGetThread = vi.mocked(getAssistantThreadById);
 const mockCreateMessage = vi.mocked(createAssistantMessage);
 const mockBuildContext = vi.mocked(buildAssistantContext);
 const mockToAssistantModelRequest = vi.mocked(toAssistantModelRequest);
 const mockEvaluateTool = vi.mocked(evaluateToolCall);
+const mockHandlePlanRevision = vi.mocked(handlePlanRevisionMessage);
 
 function mockModelClient(events: AssistantStreamEvent[]): AssistantModelClient {
   return {
@@ -81,6 +87,7 @@ const baseInput = {
 describe("runAssistantTurn", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockHandlePlanRevision.mockResolvedValue({ kind: "continue" });
     mockGetThread.mockResolvedValue({
       id: "thread-1",
       clientProfileId: "profile-1",
@@ -337,5 +344,60 @@ describe("runAssistantTurn", () => {
     expect(persistedContents).toHaveLength(1);
     expect(persistedContents[0]).toBe("Resposta visível");
     expect(persistedContents[0]).not.toContain(OPEN);
+  });
+
+  it("routes campaign-thread feedback through plan revision before generic LLM", async () => {
+    mockGetThread.mockResolvedValue({
+      id: "thread-1",
+      clientProfileId: "profile-1",
+      campaignId: "campaign-1",
+    } as Awaited<ReturnType<typeof getAssistantThreadById>>);
+    mockHandlePlanRevision.mockResolvedValue({
+      kind: "action_card",
+      content: "Altera CTAs",
+      actionRecordId: "action-plan-1",
+    });
+
+    const streamSpy = vi.fn();
+    const throwingClient: AssistantModelClient = {
+      async *stream() {
+        streamSpy();
+        throw new Error("model stream should not be called");
+      },
+    };
+
+    const turnEvents = [];
+    for await (const event of runAssistantTurn({
+      ...baseInput,
+      userMessage: "Ajuste o CTA do plano",
+      modelClient: throwingClient,
+    })) {
+      turnEvents.push(event);
+    }
+
+    expect(mockHandlePlanRevision).toHaveBeenCalled();
+    expect(streamSpy).not.toHaveBeenCalled();
+    expect(turnEvents).toContainEqual({
+      type: "action_card",
+      actionRecordId: "action-plan-1",
+      status: "pending",
+    });
+  });
+
+  it("skips plan revision branch for non-campaign threads", async () => {
+    mockGetThread.mockResolvedValue({
+      id: "thread-1",
+      clientProfileId: "profile-1",
+    } as Awaited<ReturnType<typeof getAssistantThreadById>>);
+
+    const events: AssistantStreamEvent[] = [{ type: "done" }];
+    for await (const _event of runAssistantTurn({
+      ...baseInput,
+      modelClient: mockModelClient(events),
+    })) {
+      // drain
+    }
+
+    expect(mockHandlePlanRevision).not.toHaveBeenCalled();
   });
 });

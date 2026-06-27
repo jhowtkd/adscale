@@ -4,6 +4,7 @@ import {
   getRiskLabelVariant,
   isTerminalActionStatus,
   parseActionCardDisplay,
+  shouldShowCreditImpact,
 } from "./contract-display";
 
 describe("contract-display", () => {
@@ -30,6 +31,37 @@ describe("contract-display", () => {
     it("returns null for invalid display", () => {
       expect(parseActionCardDisplay(null)).toBeNull();
       expect(parseActionCardDisplay({ actionType: "x" })).toBeNull();
+    });
+
+    it("parses revise_creative_plan extended fields", () => {
+      const result = parseActionCardDisplay({
+        label: "Confirmar revisão do plano",
+        actionType: "revise_creative_plan",
+        summary: "Altera CTAs",
+        sourceVersionLabel: "v2",
+        writes: ["Cria v3 do plano"],
+        creditImpact: { kind: "fixed", credits: 0 },
+      });
+
+      expect(result).toMatchObject({
+        label: "Confirmar revisão do plano",
+        actionType: "revise_creative_plan",
+        summary: "Altera CTAs",
+        sourceVersionLabel: "v2",
+        writes: ["Cria v3 do plano"],
+      });
+    });
+  });
+
+  describe("shouldShowCreditImpact", () => {
+    it("hides credit copy for revise_creative_plan", () => {
+      expect(
+        shouldShowCreditImpact({
+          label: "Confirmar revisão do plano",
+          actionType: "revise_creative_plan",
+          creditImpact: { kind: "fixed", credits: 0 },
+        })
+      ).toBe(false);
     });
   });
 
