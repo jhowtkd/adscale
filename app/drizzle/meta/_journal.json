@@ -442,6 +442,13 @@
       "when": 1783339200000,
       "tag": "0063_assistant_action_guided_binding",
       "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1783425600000,
+      "tag": "0064_assistant_artifact_versions",
+      "breakpoints": true
     }
   ]
 }

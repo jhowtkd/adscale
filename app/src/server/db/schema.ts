@@ -2315,6 +2315,91 @@ export const assistantGuidedFlowTransitions = adscaleSchema.table(
   ]
 );
 
+// ============================================
+// Assistant artifact versioning (Phase 203)
+// ============================================
+
+export const assistantArtifactLineages = adscaleSchema.table(
+  "assistant_artifact_lineages",
+  {
+    id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    artifactType: text("artifact_type").notNull(),
+    workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    clientProfileId: uuid("client_profile_id").notNull().references(() => clientProfiles.id, { onDelete: "cascade" }),
+    campaignId: uuid("campaign_id").notNull().references(() => campaigns.id, { onDelete: "cascade" }),
+    threadId: uuid("thread_id").notNull().references(() => assistantThreads.id, { onDelete: "cascade" }),
+    originalArtifactId: uuid("original_artifact_id").notNull(),
+    origin: text("origin").notNull(),
+    formatKey: text("format_key"),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("assistant_artifact_lineages_source_uidx").on(table.artifactType, table.originalArtifactId),
+    index("assistant_artifact_lineages_scope_idx").on(table.workspaceId, table.clientProfileId, table.campaignId, table.threadId),
+  ]
+);
+
+export const assistantArtifactVersions = adscaleSchema.table(
+  "assistant_artifact_versions",
+  {
+    id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    lineageId: uuid("lineage_id").notNull().references(() => assistantArtifactLineages.id, { onDelete: "cascade" }),
+    workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    clientProfileId: uuid("client_profile_id").notNull().references(() => clientProfiles.id, { onDelete: "cascade" }),
+    campaignId: uuid("campaign_id").notNull().references(() => campaigns.id, { onDelete: "cascade" }),
+    threadId: uuid("thread_id").notNull().references(() => assistantThreads.id, { onDelete: "cascade" }),
+    versionNumber: integer("version_number").notNull(),
+    sourceVersionId: uuid("source_version_id"),
+    status: text("status").notNull().default("ready"),
+    snapshot: jsonb("snapshot").$type<import("../../lib/assistant/artifact-version").ArtifactVersionSnapshot>().notNull(),
+    provenance: jsonb("provenance").$type<import("../../lib/assistant/artifact-version").ArtifactVersionProvenance>().notNull(),
+    feedback: text("feedback"),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("assistant_artifact_versions_lineage_number_uidx").on(table.lineageId, table.versionNumber),
+    index("assistant_artifact_versions_scope_idx").on(table.workspaceId, table.clientProfileId, table.campaignId, table.threadId),
+    index("assistant_artifact_versions_lineage_created_idx").on(table.lineageId, table.createdAt),
+    foreignKey({ columns: [table.sourceVersionId], foreignColumns: [table.id], name: "assistant_artifact_versions_source_fk" }).onDelete("set null"),
+  ]
+);
+
+export const assistantArtifactLineageHeads = adscaleSchema.table(
+  "assistant_artifact_lineage_heads",
+  {
+    lineageId: uuid("lineage_id").primaryKey().references(() => assistantArtifactLineages.id, { onDelete: "cascade" }),
+    approvedCurrentVersionId: uuid("approved_current_version_id").references(() => assistantArtifactVersions.id, { onDelete: "set null" }),
+    workingVersionId: uuid("working_version_id").references(() => assistantArtifactVersions.id, { onDelete: "set null" }),
+    revision: integer("revision").notNull().default(0),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  }
+);
+
+export const assistantArtifactProposals = adscaleSchema.table(
+  "assistant_artifact_proposals",
+  {
+    id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    lineageId: uuid("lineage_id").notNull().references(() => assistantArtifactLineages.id, { onDelete: "cascade" }),
+    sourceVersionId: uuid("source_version_id").notNull().references(() => assistantArtifactVersions.id, { onDelete: "cascade" }),
+    workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    clientProfileId: uuid("client_profile_id").notNull().references(() => clientProfiles.id, { onDelete: "cascade" }),
+    campaignId: uuid("campaign_id").notNull().references(() => campaigns.id, { onDelete: "cascade" }),
+    threadId: uuid("thread_id").notNull().references(() => assistantThreads.id, { onDelete: "cascade" }),
+    proposalType: text("proposal_type").notNull(),
+    status: text("status").notNull().default("pending"),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+    feedback: text("feedback"),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("assistant_artifact_proposals_scope_idx").on(table.workspaceId, table.clientProfileId, table.campaignId, table.threadId),
+    index("assistant_artifact_proposals_lineage_created_idx").on(table.lineageId, table.createdAt),
+    check("assistant_artifact_proposals_status_check", sql`${table.status} in ('pending', 'stale', 'confirmed', 'canceled')`),
+  ]
+);
+
 export const assistantGuidedFlowEvents = adscaleSchema.table(
   "assistant_guided_flow_events",
   {
