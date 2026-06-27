@@ -1,15 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v13.9
-milestone_name: Copiloto Criativo Iterativo
-status: roadmap_defined
-last_updated: "2026-06-27T20:00:00-03:00"
-last_activity: 2026-06-27
+milestone: v13.7
+milestone_name: Qualidade Operacional das Jornadas Guiadas
+status: Roadmap defined
+stopped_at: Phase 203 context gathered
+last_updated: "2026-06-27T19:53:49.120Z"
+last_activity: 2026-06-27 — v13.9 requirements and phases 203-207 defined
 progress:
-  total_phases: 5
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_phases: 19
+  completed_phases: 9
+  total_plans: 15
+  completed_plans: 20
   percent: 0
 ---
 
@@ -74,6 +75,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-06-27
-Stopped at: v13.9 roadmap ready; Phase 203 next
-Resume file: None
+Last session: 2026-06-27T19:53:49.115Z
+Stopped at: Phase 203 context gathered
+Resume file: .planning/phases/203-artifact-version-foundation/203-CONTEXT.md
