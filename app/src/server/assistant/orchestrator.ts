@@ -17,6 +17,7 @@ import { createAssistantMessage } from "@/server/repositories/assistant-message"
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
 import { containsDeniedPersistenceKeys } from "@/server/repositories/assistant-types";
 import { getGuidedFlowByThread } from "@/server/repositories/guided-flow";
+import { handlePlanRevisionMessage } from "@/server/assistant/plan-iteration/service";
 import { listToolsForProvider } from "@/server/assistant/tools/registry";
 import { evaluateToolCall } from "@/server/assistant/tools/policy";
 
@@ -164,6 +165,47 @@ export async function* runAssistantTurn(
   }
 
   const intentResult = classifyUserIntent(input.userMessage);
+
+  if (thread.campaignId) {
+    const planRevision = await handlePlanRevisionMessage({
+      workspaceId: input.workspaceId,
+      clientProfileId: input.clientProfileId,
+      threadId: input.threadId,
+      userId: input.userId,
+      scope: {
+        workspaceId: input.workspaceId,
+        clientProfileId: input.clientProfileId,
+        campaignId: thread.campaignId,
+        threadId: input.threadId,
+      },
+      userMessage: input.userMessage,
+    });
+
+    if (planRevision.kind === "assistant") {
+      const assistantMessage = await createAssistantMessage(input.workspaceId, {
+        threadId: input.threadId,
+        type: "assistant",
+        content: planRevision.content,
+      });
+      yield { type: "done", assistantMessageId: assistantMessage.id };
+      return;
+    }
+
+    if (planRevision.kind === "action_card") {
+      const assistantMessage = await createAssistantMessage(input.workspaceId, {
+        threadId: input.threadId,
+        type: "assistant",
+        content: planRevision.content,
+      });
+      yield {
+        type: "action_card",
+        actionRecordId: planRevision.actionRecordId,
+        status: "pending",
+      };
+      yield { type: "done", assistantMessageId: assistantMessage.id };
+      return;
+    }
+  }
 
   if (intentResult.kind === "clarify") {
     const assistantMessage = await createAssistantMessage(input.workspaceId, {

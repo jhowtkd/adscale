@@ -69,4 +69,32 @@ describe("AssistantActionCard", () => {
     ).not.toBeInTheDocument();
     expect(screen.getByText("status.completed")).toBeInTheDocument();
   });
+
+  it("renders summary-only plan revision card without credit copy", () => {
+    render(
+      <AssistantActionCard
+        threadId="thread-1"
+        payload={{
+          actionRecordId: "action-2",
+          status: "pending",
+          display: {
+            label: "Confirmar revisão do plano",
+            actionType: "revise_creative_plan",
+            summary: "Revisão do plano com alterações em: ctas.",
+            sourceVersionLabel: "v2",
+            writes: ["Cria v3 do plano", "Não altera a versão aprovada atual"],
+            creditImpact: { kind: "fixed", credits: 0 },
+            confirmationPolicy: "required",
+          },
+        }}
+      />
+    );
+
+    expect(screen.getByText(/Revisão do plano/)).toBeInTheDocument();
+    expect(screen.getByText(/Revisando v2/)).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Confirmar revisão do plano" })
+    ).toBeInTheDocument();
+    expect(screen.queryByText("creditImpact")).not.toBeInTheDocument();
+  });
 });

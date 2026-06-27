@@ -5,6 +5,13 @@ export type ClientActionCardDisplay = {
   creditImpact?: unknown;
   riskCopyLines?: string[];
   confirmationPolicy?: string;
+  summary?: string;
+  sourceVersionLabel?: string;
+  approvedVersionLabel?: string | null;
+  workingDiffersFromApproved?: boolean;
+  writes?: string[];
+  proposalStatus?: "pending" | "stale";
+  mismatchWarning?: string;
 };
 
 export type ActionCardStatus =
@@ -51,7 +58,41 @@ export function parseActionCardDisplay(
       typeof record.confirmationPolicy === "string"
         ? record.confirmationPolicy
         : undefined,
+    summary: typeof record.summary === "string" ? record.summary : undefined,
+    sourceVersionLabel:
+      typeof record.sourceVersionLabel === "string"
+        ? record.sourceVersionLabel
+        : undefined,
+    approvedVersionLabel:
+      typeof record.approvedVersionLabel === "string"
+        ? record.approvedVersionLabel
+        : record.approvedVersionLabel === null
+          ? null
+          : undefined,
+    workingDiffersFromApproved:
+      typeof record.workingDiffersFromApproved === "boolean"
+        ? record.workingDiffersFromApproved
+        : undefined,
+    writes: Array.isArray(record.writes)
+      ? record.writes.filter((line): line is string => typeof line === "string")
+      : undefined,
+    proposalStatus:
+      record.proposalStatus === "pending" || record.proposalStatus === "stale"
+        ? record.proposalStatus
+        : undefined,
+    mismatchWarning:
+      typeof record.mismatchWarning === "string"
+        ? record.mismatchWarning
+        : undefined,
   };
+}
+
+export function shouldShowCreditImpact(display: ClientActionCardDisplay): boolean {
+  if (display.actionType === "revise_creative_plan") return false;
+  const creditImpact = display.creditImpact;
+  if (!creditImpact || typeof creditImpact !== "object") return true;
+  const record = creditImpact as Record<string, unknown>;
+  return !(record.kind === "fixed" && record.credits === 0);
 }
 
 export function formatCreditImpact(creditImpact: unknown): string {

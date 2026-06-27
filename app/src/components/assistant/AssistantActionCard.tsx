@@ -9,6 +9,7 @@ import {
   getRiskLabelVariant,
   isTerminalActionStatus,
   parseActionCardDisplay,
+  shouldShowCreditImpact,
   type ActionCardStatus,
 } from "@/lib/assistant/contract-display";
 import {
@@ -66,6 +67,9 @@ export default function AssistantActionCard({
       ? (payload.jobRef as Record<string, unknown>)
       : null;
 
+  const isRevisePlan = display?.actionType === "revise_creative_plan";
+  const confirmLabel = isRevisePlan ? "Confirmar revisão do plano" : t("confirm");
+
   return (
     <div
       className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)] p-4"
@@ -87,12 +91,46 @@ export default function AssistantActionCard({
 
       {display ? (
         <dl className="mt-3 space-y-2 text-xs text-[var(--text-secondary)]">
-          <div>
-            <dt className="font-medium text-[var(--text-muted)]">
-              {t("creditImpact")}
-            </dt>
-            <dd>{formatCreditImpact(display.creditImpact)}</dd>
-          </div>
+          {display.summary ? (
+            <div>
+              <dt className="font-medium text-[var(--text-muted)]">Resumo</dt>
+              <dd>{display.summary}</dd>
+            </div>
+          ) : null}
+          {display.sourceVersionLabel ? (
+            <div>
+              <dt className="font-medium text-[var(--text-muted)]">Versão fonte</dt>
+              <dd>Revisando {display.sourceVersionLabel}</dd>
+            </div>
+          ) : null}
+          {display.mismatchWarning ? (
+            <div className="text-[var(--warning-text)]">{display.mismatchWarning}</div>
+          ) : null}
+          {display.writes && display.writes.length > 0 ? (
+            <div>
+              <dt className="font-medium text-[var(--text-muted)]">Efeitos</dt>
+              <dd>
+                <ul className="mt-1 list-disc space-y-1 pl-4">
+                  {display.writes.map((line) => (
+                    <li key={line}>{line}</li>
+                  ))}
+                </ul>
+              </dd>
+            </div>
+          ) : null}
+          {display.proposalStatus === "stale" ? (
+            <div className="text-[var(--warning-text)]">
+              Esta proposta pode estar obsoleta. Atualize antes de confirmar.
+            </div>
+          ) : null}
+          {shouldShowCreditImpact(display) ? (
+            <div>
+              <dt className="font-medium text-[var(--text-muted)]">
+                {t("creditImpact")}
+              </dt>
+              <dd>{formatCreditImpact(display.creditImpact)}</dd>
+            </div>
+          ) : null}
           {display.confirmationPolicy ? (
             <div>
               <dt className="font-medium text-[var(--text-muted)]">
@@ -145,7 +183,7 @@ export default function AssistantActionCard({
             onClick={handleConfirm}
             disabled={!threadId || isMutating}
           >
-            {t("confirm")}
+            {confirmLabel}
           </Button>
           <Button
             type="button"
