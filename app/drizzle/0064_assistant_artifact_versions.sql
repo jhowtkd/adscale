@@ -59,7 +59,7 @@ ALTER TABLE "adscale_app"."assistant_artifact_lineages" ADD CONSTRAINT "assistan
 ALTER TABLE "adscale_app"."assistant_artifact_lineages" ADD CONSTRAINT "assistant_artifact_lineages_thread_fk" FOREIGN KEY ("thread_id") REFERENCES "adscale_app"."assistant_threads"("id") ON DELETE cascade;
 --> statement-breakpoint
 ALTER TABLE "adscale_app"."assistant_artifact_versions" ADD CONSTRAINT "assistant_artifact_versions_lineage_fk" FOREIGN KEY ("lineage_id") REFERENCES "adscale_app"."assistant_artifact_lineages"("id") ON DELETE cascade;
-ALTER TABLE "adscale_app"."assistant_artifact_versions" ADD CONSTRAINT "assistant_artifact_versions_source_fk" FOREIGN KEY ("source_version_id") REFERENCES "adscale_app"."assistant_artifact_versions"("id") ON DELETE set null;
+ALTER TABLE "adscale_app"."assistant_artifact_versions" ADD CONSTRAINT "assistant_artifact_versions_source_fk" FOREIGN KEY ("source_version_id") REFERENCES "adscale_app"."assistant_artifact_versions"("id") ON DELETE restrict;
 ALTER TABLE "adscale_app"."assistant_artifact_versions" ADD CONSTRAINT "assistant_artifact_versions_workspace_fk" FOREIGN KEY ("workspace_id") REFERENCES "adscale_app"."workspaces"("id") ON DELETE cascade;
 ALTER TABLE "adscale_app"."assistant_artifact_versions" ADD CONSTRAINT "assistant_artifact_versions_client_fk" FOREIGN KEY ("client_profile_id") REFERENCES "adscale_app"."client_profiles"("id") ON DELETE cascade;
 ALTER TABLE "adscale_app"."assistant_artifact_versions" ADD CONSTRAINT "assistant_artifact_versions_campaign_fk" FOREIGN KEY ("campaign_id") REFERENCES "adscale_app"."campaigns"("id") ON DELETE cascade;

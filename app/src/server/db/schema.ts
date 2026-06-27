@@ -2361,7 +2361,7 @@ export const assistantArtifactVersions = adscaleSchema.table(
     uniqueIndex("assistant_artifact_versions_lineage_number_uidx").on(table.lineageId, table.versionNumber),
     index("assistant_artifact_versions_scope_idx").on(table.workspaceId, table.clientProfileId, table.campaignId, table.threadId),
     index("assistant_artifact_versions_lineage_created_idx").on(table.lineageId, table.createdAt),
-    foreignKey({ columns: [table.sourceVersionId], foreignColumns: [table.id], name: "assistant_artifact_versions_source_fk" }).onDelete("set null"),
+    foreignKey({ columns: [table.sourceVersionId], foreignColumns: [table.id], name: "assistant_artifact_versions_source_fk" }).onDelete("restrict"),
   ]
 );
 

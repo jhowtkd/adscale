@@ -4,6 +4,10 @@ import type {
   ArtifactVersionProvenance,
   ArtifactVersionSnapshot,
 } from "@/lib/assistant/artifact-version";
+import {
+  artifactVersionProvenanceSchema,
+  artifactVersionSnapshotSchema,
+} from "@/lib/assistant/artifact-version";
 import { db } from "../db";
 import {
   assistantArtifactLineageHeads,
@@ -58,7 +62,24 @@ export function assertArtifactScope(
 }
 
 export function assertSafeArtifactJson(value: unknown, label: string) {
-  if (containsDeniedPersistenceKeys(value)) {
+  const artifactDeniedKeys = new Set([
+    "prompt",
+    "inputPrompt",
+    "providerPayload",
+    "rawProviderPayload",
+    "generationLog",
+  ]);
+  const seen = new Set<unknown>();
+  const hasArtifactDeniedKey = (candidate: unknown): boolean => {
+    if (!candidate || typeof candidate !== "object") return false;
+    if (seen.has(candidate)) return false;
+    seen.add(candidate);
+    if (Array.isArray(candidate)) return candidate.some(hasArtifactDeniedKey);
+    return Object.entries(candidate as Record<string, unknown>).some(
+      ([key, nested]) => artifactDeniedKeys.has(key) || hasArtifactDeniedKey(nested)
+    );
+  };
+  if (containsDeniedPersistenceKeys(value) || hasArtifactDeniedKey(value)) {
     throw new ArtifactVersionValidationError(`${label} contains denied keys`);
   }
 }
@@ -203,6 +224,8 @@ export async function createAdoptedArtifact(input: {
 }) {
   assertSafeArtifactJson(input.snapshot, "snapshot");
   assertSafeArtifactJson(input.provenance, "provenance");
+  const snapshot = artifactVersionSnapshotSchema.parse(input.snapshot);
+  const provenance = artifactVersionProvenanceSchema.parse(input.provenance);
 
   return db.transaction(async (tx) => {
     const lineageId = crypto.randomUUID();
@@ -227,8 +250,8 @@ export async function createAdoptedArtifact(input: {
         versionNumber: 1,
         sourceVersionId: null,
         status: input.status,
-        snapshot: input.snapshot,
-        provenance: input.provenance,
+        snapshot,
+        provenance,
         feedback: null,
       })
       .returning();
@@ -256,6 +279,8 @@ export async function createArtifactVersion(input: {
 }) {
   assertSafeArtifactJson(input.snapshot, "snapshot");
   assertSafeArtifactJson(input.provenance, "provenance");
+  const snapshot = artifactVersionSnapshotSchema.parse(input.snapshot);
+  const provenance = artifactVersionProvenanceSchema.parse(input.provenance);
   const lineage = await getArtifactLineage(input.scope, input.lineageId);
   const source = await getArtifactVersion(input.scope, input.sourceVersionId);
   if (!lineage || !source || source.lineageId !== input.lineageId) {
@@ -275,8 +300,8 @@ export async function createArtifactVersion(input: {
         versionNumber: (counter?.value ?? 0) + 1,
         sourceVersionId: input.sourceVersionId,
         status: input.status,
-        snapshot: input.snapshot,
-        provenance: input.provenance,
+        snapshot,
+        provenance,
         feedback: input.feedback?.slice(0, 2_000) ?? null,
       })
       .returning();
@@ -427,4 +452,3 @@ export async function staleSiblingProposals(input: {
     )
     .returning();
 }
-

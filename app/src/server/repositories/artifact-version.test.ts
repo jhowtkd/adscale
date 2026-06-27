@@ -35,6 +35,15 @@ describe("artifact version repository invariants", () => {
     ).toThrow(ArtifactVersionValidationError);
   });
 
+  it("rejects prompt and provider payload fields outside the shared denylist", () => {
+    expect(() =>
+      assertSafeArtifactJson(
+        { intendedChange: { inputPrompt: "hidden", providerPayload: {} } },
+        "payload"
+      )
+    ).toThrow(ArtifactVersionValidationError);
+  });
+
   it("allows pending proposals to become stale, confirmed, or canceled", () => {
     expect(isValidProposalTransition("pending", "stale")).toBe(true);
     expect(isValidProposalTransition("pending", "confirmed")).toBe(true);
@@ -47,4 +56,3 @@ describe("artifact version repository invariants", () => {
     expect(isValidProposalTransition("canceled", "pending")).toBe(false);
   });
 });
-
