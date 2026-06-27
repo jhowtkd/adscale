@@ -49,21 +49,58 @@
         "command": "npm test -- --run tests/unit/release/v13-8-release-evidence.test.ts"
       }
     },
-    "verifiedAt": "2026-06-27T17:32:02.117Z"
+    "verifiedAt": "2026-06-27T18:25:00.000Z"
   },
   "stagingEvidence": {
     "status": "pending",
-    "note": "Human staging walks for both adaptive journeys still required",
+    "note": "Human staging walks for both adaptive journeys still required. Operator action needed.",
     "warning": "Staging human evidence still pending — see docs/staging/guided-journeys-v13-8-runbook.md",
-    "gateStatus": "blocked"
+    "gateStatus": "blocked",
+    "infrastructureVerified": {
+      "verifiedAt": "2026-06-27T18:25:00Z",
+      "method": "SQL query via in-app /api/internal-debug/db-audit (Phase 202 audit)",
+      "serviceId": "srv-d8goos77f7vs73f1k5eg",
+      "deployId": "dep-d9017r28qa3s7395v74g",
+      "tablesExist": {
+        "public.__drizzle_migrations": true,
+        "adscale_app.assistant_guided_flows": true,
+        "adscale_app.assistant_guided_flow_events": true,
+        "adscale_app.assistant_guided_flow_transitions": true,
+        "adscale_app.assistant_action_records": true
+      },
+      "migrations0062": {
+        "id": 62,
+        "hash": "38e7524dc7a38f5ec82f96c208c926e4ca65bb4b9d5e4267b42419aa29ae0628",
+        "expectedColumnsPresent": true,
+        "columns": [
+          "adscale_app.assistant_guided_flows.revision",
+          "adscale_app.assistant_guided_flows.schema_version",
+          "adscale_app.assistant_guided_flows.recoverable_error"
+        ]
+      },
+      "migrations0063": {
+        "id": 63,
+        "hash": "2ed33c81deb5e01d26085b92a28209f7ccf3cba5166470af1f9de0a9d75127fc",
+        "expectedColumnsPresent": true,
+        "columns": [
+          "adscale_app.assistant_action_records.source_flow_revision",
+          "adscale_app.assistant_action_records.source_snapshot_digest"
+        ]
+      },
+      "notes": "Migrations verified via direct SQL read against production database. No external DB connection (Render Postgres free tier blocks external)."
+    }
   },
   "operationalSample": {
     "status": "insufficient_sample",
     "guidedStarts": 0,
+    "verifiedAt": "2026-06-27T18:25:00Z",
+    "verifiedVia": "SQL count(*) from adscale_app.assistant_guided_flow_events where event_key = 'guided_flow_started'",
+    "result": "0 rows — no real guided_flow_started events have been emitted in production",
     "gateStatus": "blocked",
-    "warning": "Operational guided starts remain insufficient"
+    "warning": "Operational guided starts remain insufficient. Operator must run guided journeys in production to reach ≥5 starts."
   },
   "inheritedDebt": {
-    "liveInngestLifecycle": "unverified"
+    "liveInngestLifecycle": "unverified",
+    "note": "Inngest dashboard access not available from this environment. Cannot verify live action lifecycle completion/failure without operator pulling Inngest logs."
   }
 }
