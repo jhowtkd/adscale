@@ -2,7 +2,7 @@
 
 ## Milestones
 
-- ⚠ **v13.8 Conversa Guiada Adaptativa** - Phases 195-200 verified; implementation green, release evidence pending 2026-06-27
+- ⚠ **v13.8 Conversa Guiada Adaptativa** - Phases 195-200 verified; gap closure 201-202 in progress 2026-06-27
 - ✅ **v13.7 Qualidade Operacional das Jornadas Guiadas** - Phases 190-194 (shipped 2026-06-26; tech debt: human staging walks + insufficient operational sample)
 - ✅ **v13.6 Jornadas Guiadas do Chat Estratégico** - Phases 184-189 (shipped 2026-06-26; tech debt: staging diagnosis/briefing + live lifecycle verify)
 - ✅ **v13.5 Assistente Conversacional de Ações** - Phases 177-183 (shipped 2026-06-25; tech debt: EXEC-04 live lifecycle human verify, migrations 0056/0057 ops)
@@ -30,6 +30,8 @@
 - [x] **Phase 198: Inline Assets and Recovery** - Keep scoped asset selection, upload, replacement, partial failure, and retry inside the active turn.
 - [x] **Phase 199: Reviewed Actions, Accessibility, and Automated UAT** - Bind safe action confirmation to reviewed state and verify both journeys across interaction modes.
 - [x] **Phase 200: Real Staging Evidence and Release Gate** - Prove both journeys in staging and publish a release verdict that keeps evidence gaps explicit.
+- [ ] **Phase 201: Automated UAT Gap Closure** - Complete QA-02/QA-03 Playwright scenario matrix, accessibility/keyboard coverage, and login flake fixes.
+- [ ] **Phase 202: Staging Release Gate** - Execute staging journeys, verify Inngest lifecycle, collect ≥5 operational guided starts, pass gate without `--allow-pending-staging`.
 
 ## Phase Details
 
@@ -100,6 +102,29 @@
   2. Staging evidence exercises both journeys with real provider, storage, persistence, action confirmation, recovery, resume, and telemetry, or names the exact pending human/live blocker.
   3. Release claims remain blocked when staging evidence is pending, guided starts remain zero or insufficient, or the inherited live Inngest lifecycle is unverified.
 **Plans**: TBD
+
+### Phase 201: Automated UAT Gap Closure
+**Goal**: Close QA-02 and QA-03 with full authenticated Playwright scenario matrix and accessibility coverage.
+**Depends on**: Phase 200
+**Requirements**: QA-02, QA-03
+**Gap Closure**: Closes audit tech debt for partial accessibility and Playwright matrices.
+**Success Criteria** (what must be TRUE):
+  1. Playwright covers correction, reload/resume, switch/restart, replacement, retry, conflict, stale card, and confirmation for both journeys (mocked API).
+  2. Keyboard navigation, focus, status announcements, and accessible errors verified in component and browser tests.
+  3. Login helper retries reduce intermittent auth flakes in guided E2E.
+**Plans**: 201-01
+
+### Phase 202: Staging Release Gate
+**Goal**: Pass v13.8 release gate without staging bypass and archive milestone when evidence is complete.
+**Depends on**: Phase 201
+**Requirements**: QA-04 (evidence completion)
+**Gap Closure**: Closes human staging, operational sample, and live Inngest lifecycle gaps.
+**Success Criteria** (what must be TRUE):
+  1. Both journeys recorded in staging evidence with safe operator notes.
+  2. Operational guided starts ≥5 with `sufficient` sample status.
+  3. Live Inngest action lifecycle verified with safe evidence note.
+  4. `npm run v13-8-release-gate` passes without `--allow-pending-staging`.
+**Plans**: 202-01
 
 ## Inherited Evidence Debt
 

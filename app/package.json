@@ -14,6 +14,7 @@
     "lint": "eslint",
     "test": "vitest run --config config/vitest.config.ts --passWithNoTests",
     "test:e2e": "playwright test",
+    "test:guided-e2e": "node scripts/run-guided-e2e.mjs",
     "test:visual-release": "playwright test --config playwright.release.config.ts",
     "release-gate": "node scripts/run-release-gate.mjs",
     "test:db:setup": "tsx scripts/setup-test-db.ts",

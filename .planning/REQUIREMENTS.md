@@ -110,8 +110,8 @@
 | ACT-03 | Phase 199 | Complete |
 | ACT-04 | Phase 199 | Complete |
 | QA-01 | Phase 199 | Complete |
-| QA-02 | Phase 199 | Partial |
-| QA-03 | Phase 199 | Unsatisfied |
+| QA-02 | Phase 201 | Partial |
+| QA-03 | Phase 201 | Partial |
 | QA-04 | Phase 200 | Complete |
 
 **Coverage:**
@@ -119,8 +119,8 @@
 - Mapped to phases: 30
 - Unmapped: 0
 - Satisfied after gap closure: 28
-- Partial: 2 (QA-02, QA-03)
-- Unsatisfied implementation requirements: 0
+- Pending gap closure: 2 (QA-02, QA-03 partial in Phase 201)
+- Partial: 0
 
 ---
 *Requirements defined: 2026-06-26*

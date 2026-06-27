@@ -49,4 +49,21 @@ describe("GuidedFlowResumeBanner", () => {
 
     expect(container.firstChild).toBeNull();
   });
+
+  it("shows recoverable error message instead of missing field hint", () => {
+    render(
+      <GuidedFlowResumeBanner
+        guidedFlow={{
+          ...flow,
+          recoverableError: {
+            code: "upload_failed",
+            message: "Falha no upload. Tente novamente.",
+          },
+        }}
+      />
+    );
+
+    expect(screen.getByText("Falha no upload. Tente novamente.")).toBeInTheDocument();
+    expect(screen.queryByText("2 pending")).not.toBeInTheDocument();
+  });
 });

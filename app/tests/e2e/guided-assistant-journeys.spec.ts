@@ -1,4 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import { loginGuidedJourney, mockClientProfiles } from "./support/guided-auth";
 
 /**
  * v13.6 guided journey smoke — authenticated shell, journey cards and
@@ -6,43 +7,6 @@ import { expect, test, type Page } from "@playwright/test";
  */
 
 const createdAt = "2026-06-26T12:00:00.000Z";
-const EMAIL = "dev-admin@adscale.local";
-const PASSWORD = "DevAdmin123!";
-
-async function login(page: Page): Promise<void> {
-  await page.addInitScript(() => {
-    window.localStorage.setItem("adscale_cookie_consent", "necessary");
-  });
-  await page.goto("/login");
-  await page.locator("#email").fill(EMAIL);
-  await page.locator("#login-password").fill(PASSWORD);
-  await page.locator("form:has(#email) button[type=submit]").click();
-  await page.waitForURL((url) => !url.pathname.startsWith("/login"), {
-    timeout: 30_000,
-  });
-}
-
-async function mockAssistantShellData(page: Page): Promise<void> {
-  await page.route("**/api/client-profiles", async (route) => {
-    await route.fulfill({
-      json: {
-        profiles: [
-          {
-            id: "client-e2e",
-            workspaceId: "workspace-e2e",
-            name: "Cliente E2E",
-            description: null,
-            visualNotes: null,
-            toneNotes: null,
-            constraints: null,
-            createdAt,
-            updatedAt: createdAt,
-          },
-        ],
-      },
-    });
-  });
-}
 
 function assistantThreadDetail(status: "pending" | "running") {
   return {
@@ -162,8 +126,8 @@ async function mockAssistantActionConfirmFlow(page: Page) {
 
 test.describe("guided assistant journeys", () => {
   test.beforeEach(async ({ page }) => {
-    await mockAssistantShellData(page);
-    await login(page);
+    await mockClientProfiles(page);
+    await loginGuidedJourney(page);
   });
 
   test("start surface shows both guided journey cards", async ({ page }) => {
