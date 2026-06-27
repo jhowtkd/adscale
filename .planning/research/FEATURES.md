@@ -1,174 +1,222 @@
 # Feature Research
 
-**Domain:** Multi-brand taste calibration in AI creative SaaS (ADScale v13.2)
-**Researched:** 2026-06-23
-**Confidence:** HIGH (ecosystem patterns verified via official docs + ADScale codebase); MEDIUM (competitive feature parity — marketing pages, not full product audits)
+**Domain:** Adaptive guided creative-assistant journeys in an AI creative SaaS (ADScale v13.8)
+**Researched:** 2026-06-26
+**Confidence:** HIGH for interaction patterns and repository baseline; MEDIUM for the exact branching policy until staging behavior is observed
+
+## Scope and Baseline
+
+This research covers only the new adaptive conversational layer for the existing `/assistant` journeys. It does not re-scope thread persistence, multi-client isolation, action contracts, action cards, credit confirmation, or operational telemetry already delivered in v13.5-v13.7.
+
+The live implementation already provides:
+
+- one persisted `assistant_guided_flows` record per thread with `path`, `status`, `currentStep`, `slots`, missing fields, assets, references, and campaign linkage;
+- two paths: `existing_creative` and `from_zero`;
+- fixed transitions for creative selection/diagnosis and brief/reference collection;
+- confirmable action cards for writes and credit-bearing work;
+- lifecycle telemetry and a path/step funnel;
+- a progressive briefing implementation outside `/assistant` with one field group at a time, suggestions, edit, skip, and persistence.
+
+The current `/assistant` gap is not another chat model. It is a controlled conversational journey that can vary the next question from known state, accept corrections at any point, and recover without discarding valid work. Adaptivity should remain bounded by an explicit journey graph and typed slot contracts; model output may suggest values or classify an answer, but must not become the source of truth for state transitions or side effects.
 
 ## Feature Landscape
 
 ### Table Stakes (Users Expect These)
 
-Features operators and brand teams assume exist when a platform claims per-brand AI creative control. Missing these makes multi-brand calibration feel incomplete even if backend plumbing exists.
+Missing these capabilities makes an “adaptive conversation” feel like a form with chat styling.
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| **Per-brand identity container** | Every major creative SaaS scopes voice/guidelines to a brand or client profile, not campaign name heuristics | LOW | ADScale already has `client_profiles` (tone, constraints, colors, fonts). v13.2 must treat `clientProfileId` as the canonical brand key — not string-matching `"Cenbrap"`. |
-| **Declarative voice / constitution per brand** | Jasper IQ, Adobe GenStudio Brands, and Writer all store voice, tone, vocabulary, and visual rules as structured config applied at generation time — not ad hoc prompts | MEDIUM | Today only `CENBRAP_VOICE` is registered in `resolveClientVoice()` with a hardcoded review gate. Table stakes = Olhar constitution + client voice overlay configurable per `clientProfile`, stored and versioned. |
-| **Bounded prompt constraints from approved rules** | Industry pattern: brand rules become machine-readable directives injected into generation, not post-hoc editing only (Adobe GenStudio guidelines, AdCP brief constraints, ESGA governed templates) | LOW–MEDIUM | `buildBrandTastePromptSection` + `buildCorpusQualityPromptSection` exist; `derivationJob` loads `corpus_quality` rules by `clientProfileId`. Must generalize all taste categories and enforce prompt order: Olhar global → brand voice → brand-taste rules → corpus_quality. |
-| **Human approve-before-apply** | Enterprise creative ops universally require propose → review → approve before rules affect output (Jasper style guide, GenStudio publish, Corevexa governance states) | LOW | v13.0 shipped approve/reject/deprecate for `calibration_rules`; corpus path uses `client_learning_proposals` accept flow. Table stakes = same gate for every brand, not Cenbrap-only scripts. |
-| **Brand isolation** | Multi-brand agencies expect zero cross-contamination of rules, voice, or corpus slices (Writer: separate style guides per brand; Jasper: multiple Brand Voices) | MEDIUM | DB already scopes `calibration_rules` and `calibration_signals` by `(workspaceId, clientProfileId)`. Must verify prompt-builder, advisor, and owner UI never merge rules across profiles. |
-| **Inspectable profile + active rules** | Operators need to answer "what does the system think this brand likes/rejects?" before trusting generation (GenStudio brand validation panel; Writer voice calibration UI) | MEDIUM | `buildBrandTasteProfile()` computes evidence level, patterns, source composition — but no owner-only per-brand inspection surface is productized. Table stakes for v13.2. |
-| **Evidence level + sample honesty** | Regulated and agency buyers expect explicit "uncalibrated / fixture-only / insufficient sample" states, not implied quality (ADScale claims gate; GenStudio content scoring with guideline violations) | LOW | v13.0 `evidenceLevel`, `sourceComposition`, claims matrix exist. Must apply per `clientProfile`, not only Cenbrap calibration reports. |
-| **Separation of creative judgment vs export compliance** | Creative SaaS that mixes "on brand" with "legal/export OK" erodes trust; dual verdict is becoming a category norm for ad creative | LOW | ADScale Olhar + export dual verdict (v12.7) is ahead of table stakes. Preserve: `factual_issue` and export rules must not be weakened by taste or corpus_quality overlays. |
+| **One decision per turn** | Progressive-disclosure and conversation guidance consistently reduce cognitive load by asking one focused question at a time | MEDIUM | Replace the eight-field `FromZeroBriefPanel` with a turn renderer. Group product + offer only when the relationship is necessary to answer coherently. |
+| **State-aware next question** | Users expect the assistant not to ask for information already known from the client profile, campaign, asset analysis, or earlier answers | HIGH | Use deterministic eligibility/requiredness rules over typed slots. Skip satisfied steps and branch only on material gaps or uncertainty. |
+| **Visible understanding with lightweight correction** | A conversational assistant must show what it understood so a wrong inference is caught immediately | MEDIUM | Implicitly confirm low-risk parameters in the next prompt; provide `Corrigir` beside inferred or transformed values. Avoid a yes/no confirmation after every answer. |
+| **Back and edit without replaying the journey** | Established question-flow patterns let users revisit completed answers with values preserved | HIGH | Editing from the summary should return directly to the summary after any newly required dependent question, not force traversal through all later steps. |
+| **Editable review before commitment** | Users need one coherent view of the brief/diagnosis and proposed result before a campaign write or credit-bearing action | MEDIUM | Reuse action cards for final execution; add a journey summary with per-section `Editar` controls before the action card is proposed. |
+| **Explicit optional/unknown handling** | Users do not always know audience, objection, constraint, or platform yet | MEDIUM | Support `Não sei`, `Sugerir para mim`, and `Pular` only where the field contract allows it. Persist unknown separately from unanswered so the assistant does not loop. |
+| **Quick replies plus free text** | Suggested choices accelerate common answers, while free text prevents the journey from becoming a rigid wizard | MEDIUM | Quick replies are contextual accelerators, never the only valid input unless the domain is genuinely closed (for example, path choice). |
+| **Resume with exact context** | A persisted guided journey should reopen at the unresolved decision, with prior answers and assets intact | MEDIUM | Extend the existing resume banner to summarize the last confirmed decision and the next required one. Do not reconstruct state from transcript text. |
+| **Switch path and restart controls** | A user who selected the wrong starting path must be able to recover without opening a new thread | HIGH | `Trocar caminho` preserves compatible slots only after showing what will be retained/discarded. `Reiniciar` is explicit and reversible until confirmed. |
+| **Inline asset/reference add, replace, remove, retry** | Asset-dependent journeys cannot send users away to repair the current step | HIGH | Selection, upload, replacement, and upload/analysis failure recovery belong in the active turn. Preserve successful items when one item fails. |
+| **Context-specific recovery** | Repeating the same failed prompt or generic “try again” does not help users progress | MEDIUM | First repair: concise rephrase. Second repair: narrower options/example. System failure: retain state and offer retry, replace, or continue only when safe. |
+| **Adaptive progress orientation** | Users need orientation, but a fixed “step 3 of 8” becomes false when the route branches | LOW | Show stable phases (`Briefing`, `Referências`, `Plano`) and completed/current state. Use numeric counts only inside a currently known fixed set. |
+| **Accessible interaction feedback** | Dynamic turns, validation, uploads, and errors must remain understandable by keyboard and assistive technology | MEDIUM | Move focus to the new turn/error, associate errors with controls, announce async completion, and retain valid input after errors. |
 
 ### Differentiators (Competitive Advantage)
 
-Features that set ADScale apart from static brand-kit tools (Canva) or copy-only voice platforms (Jasper/Writer). Not universally expected, but aligned with ADScale core value: learned creative criterion, not just variation volume.
+These capabilities fit ADScale's core value better than a generic conversational wrapper.
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| **Corpus → profile → rules closed loop** | Most competitors rely on uploaded PDFs or manual voice docs; few close the loop from *generated ad outputs* → human eval → learned constraints on the next generation for that brand | HIGH | Corpus learning design (`corpus_quality` proposals, aggregator thresholds) is partially shipped. Differentiator when wired for any `clientProfile` via global owner corpus (v13.1), not Cenbrap fixtures alone. |
-| **Mismatch-driven rule extraction** | Learning from system-vs-human disagreement (too permissive, voice nuance, acceptable override) is richer than "user said bad" thumbs-down | MEDIUM | v13.0 `extractRuleCandidatesFromSignals` + mismatch buckets. Extending corpus evals into `calibration_signals` multiplies learning surface beyond Olhar contact-sheet decisions. |
-| **Uncertainty queue / teach-when-informative** | Reduces operator throughput burden — human review only when the decision changes the model (v13.0 QUEUE) | MEDIUM | Rare in self-serve creative tools; common in ML ops / HITL eval platforms. Keep as differentiator; do not collapse into "review everything." |
-| **Cross-client pattern → global rubric** | Client-first learning that promotes to global scoring/gate adjustments when ≥2 brands share a failure pattern | HIGH | `client_learning_proposals` → `rubric_calibration_adjustments` path per corpus design. Enterprise-grade; Jasper/Canva do not expose this for *visual* ad quality. |
-| **Art-direction constitution (Olhar) + brand overlay** | Positions ADScale as judging figure, gestalt, voice, invite — not checklist QA | MEDIUM | Global Olhar is shipped; per-brand overlay via voice + taste rules is the v13.2 productization step. |
-| **Source-composition-aware claims** | Honest distinction between `synthetic_fixture`, `operator_imported`, and `real_customer` evidence | LOW | Strong trust differentiator for beta/enterprise narrative; most competitors overclaim "AI learns your brand" without sample gates. |
-| **Prompt provenance with rule IDs** | Verdict explanations reference `rule:{id}` — auditable why a constraint fired | LOW | APPLY-03 shipped; extend to corpus_quality and per-brand owner dashboards. |
+| **Creative-readiness routing** | The journey asks only what is needed to produce a generation-ready creative decision, not to complete every possible campaign field | HIGH | Requiredness depends on action contract, path, existing evidence, and confidence. Missing data unrelated to the next useful action stays deferred. |
+| **Uncertainty-led diagnosis repair** | In `Já tenho peça`, the system explicitly invites correction of low-confidence offer, audience, CTA, or objective before proposing improvement | HIGH | Rank `missingFields` and low-confidence slots; ask the highest-impact uncertainty first and update both diagnosis context and campaign draft coherently. |
+| **Suggestion with provenance** | A suggested answer is more trustworthy when users know whether it came from brand profile, selected creative, previous campaign, or assistant inference | MEDIUM | Use compact source labels such as `Da peça`, `Da marca`, or `Sugestão`. Do not expose model internals or confidence decimals. |
+| **Dependency-aware correction** | Changing the offer can reopen promise/CTA review without invalidating unrelated references or brand constraints | HIGH | Define slot dependencies and stale-derived markers. Never silently overwrite downstream answers; mark affected values for review. |
+| **Result-oriented action cards** | The final choice describes the outcome and preserved constraints, not an internal action-contract name | LOW | Keep the existing execution/credit contract, but frame choices as `Criar plano para estas referências` or `Gerar variações preservando X`. |
+| **Dual-mode acceleration** | Most users follow the guided turn, while experienced operators can open an editable summary and change several fields directly | MEDIUM | Reuse the existing full-fields disclosure pattern as an escape hatch. The guided route remains primary; bulk editing is not a separate source of truth. |
+| **Journey-quality telemetry for repair** | ADScale can distinguish normal progression from confusion, correction, path switching, upload recovery, and repeated repair | MEDIUM | Extend the existing event vocabulary rather than creating a second analytics stream. Measure whether repair leads to progress, not just event volume. |
 
 ### Anti-Features (Commonly Requested, Often Problematic)
 
 | Feature | Why Requested | Why Problematic | Alternative |
 |---------|---------------|-----------------|-------------|
-| **Auto-approve learned rules** | Faster "AI learns automatically" marketing | Single noisy slice or fixture corpus permanently poisons brand prompts; no accountability | Keep propose + owner accept; optional bootstrap *candidates* only |
-| **End-user (non-owner) taste profile UI** | "Let clients manage their own brand" | Workspace users lack calibration authority; risks conflicting rules and support burden | Owner-only profile + rules surface; workspace users see outcomes in generation quality, not governance |
-| **Freeform operator notes → prompt mutation** | Quick fix from corpus review notes | Unbounded prompt drift, privacy leakage, non-reproducible constraints | Canonical failure-reason → directive mapping (`corpus_quality`); notes as evidence only |
-| **Per-item auto-regenerate on corpus reject** | Immediate correction feels responsive | Conflates eval workflow with generation spend; bypasses rule generalization | Accept proposal → next generation for that `clientProfile` inherits constraint |
-| **Fine-tuning / custom image model per brand** | "True" brand learning | Cost, ops, and evidence burden before rule loop proves value (v13.0 explicit out of scope) | Bounded prompt constraints + rubric adjustments |
-| **Commercial quality / agreement claims without sample** | Sales pressure | Destroys trust; v12.6–v13.1 gates exist for a reason | Per-brand claims matrix with `sampleGuidance` and source composition |
-| **Blending media performance (CTR/CPA) into taste rules** | "Optimize what wins" | Different evidence type; conflates media outcome with art-direction judgment | Defer PERFLOOK; keep performance in v12.1 learning track |
-| **Unlimited active rules per brand** | "Capture every nuance" | Prompt bloat, conflicting directives, model ignores tail | Cap (~10) `corpus_quality` + bounded brand-taste rules; deprecate stale rules |
-| **Global default voice from one brand** | Simpler until "we have more clients" | Cenbrap hardcode is exactly this anti-pattern | Explicit per-`clientProfile` config; null voice = Olhar global only |
-| **Customer-facing "AI agreement rate" dashboard** | Proof of value | Misleading at low N; agreement is an internal calibration metric | Owner evidence artifacts with withheld/null metrics until sufficient |
+| **Open-ended autonomous agent controls the journey** | Feels maximally conversational | Non-deterministic transitions, weak resumability, difficult testing, and side-effect risk | Explicit journey graph + typed slots; model limited to extraction, suggestions, and wording |
+| **LLM decides every next question** | Appears more adaptive | Adds latency/cost and can ask irrelevant or repeated questions | Deterministic next-step policy with model-assisted content only where ambiguity exists |
+| **Transcript as canonical state** | Avoids extending structured persistence | Corrections, retries, and resume become fragile; old answers remain ambiguous | Persist canonical answers, source, confirmation state, and dependency status in guided-flow slots |
+| **Confirm every answer explicitly** | Seems safer | Creates confirmation fatigue and makes the conversation robotic | Implicit confirmation for low-risk facts; explicit confirmation only for ambiguity, writing, cost, or hard-to-reverse actions |
+| **Fixed percentage or fixed step count across a branching flow** | Familiar progress UI | Becomes inaccurate when questions are skipped or reopened | Stable phase indicator plus current decision and completed sections |
+| **Silent inference and auto-fill** | Reduces visible work | Users cannot detect wrong assumptions before they contaminate creative direction | Show suggested/inferred values with source and one-step correction |
+| **Restart after any correction or failed upload** | Simplifies implementation | Punishes users and discards trustworthy context | Patch the affected slot/asset, preserve valid state, recompute only dependent steps |
+| **Execute immediately after the final answer** | Removes a click | Violates the existing confirmation principle for writes and credits | Editable summary, then an explicit outcome-oriented action card |
+| **Unlimited quick-reply menus** | Makes every state look guided | Overwhelms users and hides valid free-form answers | Two to four high-value choices, `Outro`, and free text |
+| **Mandatory conversational small talk or persona theatrics** | Makes the assistant feel human | Increases turn count and obscures the creative decision | Brief acknowledgements that carry context forward |
+| **Generic workflow-builder framework in v13.8** | Promises reuse for future journeys | Expands scope before the two known journeys prove the interaction contract | Build a small typed engine for these two paths, extracting only demonstrated shared primitives |
+| **New recommendation/quality intelligence** | “Adaptive” can imply smarter creative strategy | Mixes journey UX with a separate model-quality milestone | Reuse existing diagnosis, brand context, and suggestion logic; improve how decisions are collected and corrected |
+
+## Established Pattern Comparison
+
+This comparison uses documented interaction behavior, not vendor feature claims.
+
+| Pattern | Proven Behavior | Limitation for ADScale | v13.8 Adaptation |
+|---------|-----------------|------------------------|------------------|
+| **GOV.UK question pages** | One focused question, a reliable back action, preserved answers, and “I do not know” when valid | Page-by-page navigation can feel heavy inside chat | One active decision turn with back/edit controls and persisted answers |
+| **GOV.UK check answers** | Review before submission; change a section and return directly to review; ask new dependent questions only when needed | Assumes mostly deterministic forms | Use an editable brief/diagnosis summary and dependency-aware revalidation before returning |
+| **Google conversation confirmations/corrections** | Implicit confirmation for common parameters, explicit confirmation for costly/irreversible actions, one-step correction | Written chat can support richer controls than voice | Pair concise acknowledgement with `Corrigir`; reserve action card confirmation for write/cost |
+| **Google conversational repair** | Context-specific reprompt, escalating help, alternatives after repeated failure | Voice “no input” mechanics do not directly apply | Track no-match/system-repair attempts per decision; narrow choices without discarding typed input |
+| **W3C multi-page forms** | Logical groups, progress orientation, optional-step clarity, revisiting completed steps with data saved | Fixed step indicators can misrepresent branching | Stable phase progress, accessible async announcements, retained input and linked errors |
+| **Existing ADScale guided briefing** | Suggestions, accept/edit/skip, one field group at a time, campaign persistence | Local component state, linear order, no path switching or dependency-aware review | Reuse the domain mapping and interaction vocabulary inside persisted `/assistant` journey state |
 
 ## Feature Dependencies
 
-```
-clientProfile (brand container)
-    └──requires──> workspace membership + campaign.clientProfileId
-                       └──requires──> v1 client_profiles schema (shipped)
+```text
+Typed journey definition (paths, states, allowed transitions)
+    |--requires--> canonical persisted slot state
+    |                 |--requires--> answer value + source + confirmation/unknown status
+    |                 `--requires--> asset/reference lifecycle state
+    |--enables----> deterministic next-decision policy
+    |                 |--enables--> skipped satisfied questions
+    |                 `--enables--> uncertainty-led clarification
+    `--enables----> validated back/edit/switch/restart operations
 
-Per-brand Olhar / voice config
-    └──requires──> clientProfile
-    └──enhances──> prompt-builder generation-direction section
-    └──replaces──> Cenbrap hardcoded resolveClientVoice + voice-review-gate
+Contextual suggestions
+    |--requires--> canonical slots + client/campaign/asset context
+    `--enhances--> quick replies and implicit confirmation
 
-calibration_signals (per brand)
-    └──requires──> human decisions OR corpus evaluations mapped to clientProfileId
-    └──feeds──> buildBrandTasteProfile()
-                       └──feeds──> evidenceLevel + uncertainty queue
+Dependency-aware correction
+    |--requires--> slot dependency map
+    `--enables----> accurate editable summary
+                         `--precedes--> action-card proposal
+                                            `--precedes--> existing confirmation/execution pipeline
 
-Rule candidates (brand-taste categories)
-    └──requires──> calibration_signals (mismatch batches)
-    └──requires──> owner approve flow (v13.0 RULE-03)
+Inline upload/replace/retry
+    |--requires--> asset/reference lifecycle state
+    `--enhances--> both guided paths
 
-corpus_quality rules
-    └──requires──> global corpus evaluations (v13.1)
-    └──requires──> client_learning_proposals aggregator (≥3 evals, |delta|≥15)
-    └──requires──> owner accept → calibration_rule
-    └──requires──> clientProfileId on corpus item (capture path)
+Adaptive telemetry
+    |--requires--> stable transition/repair event semantics
+    `--enhances--> existing guided-flow funnel and staging UAT
 
-Prompt constraint application
-    └──requires──> approved calibration_rules scoped to clientProfileId
-    └──requires──> derivationJob load-corpus-quality-rules step
-    └──conflicts──> unapproved / deprecated rules (must not inject)
-
-Owner-only profile + rules UI
-    └──requires──> buildBrandTasteProfile API + list rules by clientProfile
-    └──requires──> requirePlatformOwner guard
-    └──enhances──> LearningProposalsTab (already owner-only)
-
-Per-brand claims gate
-    └──requires──> profile sourceComposition + decisionCount per clientProfile
-    └──requires──> existing EVIDENCE-02 claims matrix
+Open-ended agent state control --conflicts--> deterministic resume, auditability, and safe confirmation
+Fixed step count              --conflicts--> branching and dependency-aware correction
 ```
 
 ### Dependency Notes
 
-- **Corpus learning requires `clientProfileId`:** Corpus items without a resolvable profile are captured but not promoted — v13.2 should surface these as operator exceptions, not silent drops.
-- **Brand-taste rules and corpus_quality rules stack:** Corpus design specifies prompt order Olhar → brand-taste → corpus_quality; reversing or merging categories risks export-safety regression (APPLY-04).
-- **Voice config and taste rules are complementary:** Voice = declarative constitution; taste rules = empirical learning from human judgment. Neither replaces the other.
-- **Bootstrap depends on signal volume:** Profile moves from `uncalibrated` → `seed_calibrated` (≥5 decisions) → `assisted` (≥10) → `evidence_backed` (≥10 + ≥3 real_customer). Corpus-only bootstrap must write compatible signals or adjust thresholds explicitly.
+- **The journey engine requires canonical slot metadata, not only values.** Adaptivity needs to distinguish user-provided, inferred, suggested, explicitly unknown, confirmed, and stale-derived values.
+- **Back/edit/switch/restart require transition commands.** Directly patching arbitrary `currentStep` strings cannot enforce valid navigation or define what is preserved.
+- **Correction requires dependencies.** Offer may affect promise and CTA; selected creative affects diagnosis; replacing references affects the proposed plan. Unrelated confirmed values should remain untouched.
+- **The summary must precede the action proposal.** Existing action cards protect execution, but they cannot correct an incomplete or misunderstood brief by themselves.
+- **Inline asset recovery depends on per-item status.** The current arrays of IDs represent success only; upload, analysis, failure, replacement, and retry need explicit UI/domain state even if only completed IDs remain durable assets.
+- **Telemetry depends on stable semantics.** Add transition reasons and events such as `guided_answer_corrected`, `guided_path_switched`, and `guided_repair_succeeded`; never put raw answer text, prompts, or signed URLs in metadata.
 
 ## MVP Definition
 
-### Launch With (v13.2)
+### Launch With (v13.8)
 
-Minimum to productize multi-brand calibration for any `clientProfile` with owner-only governance and corpus-fed learning.
+Minimum viable milestone: both existing journeys become progressive, correctable, resumable conversations while retaining the current safe action boundary.
 
-- [ ] **Per-`clientProfile` voice/Olhar config** — Replace Cenbrap string-matching and hardcoded `CENBRAP_VOICE_REVIEW_STATUS` with profile-attached constitution (DB fields or `client_voice` records keyed by `clientProfileId`).
-- [ ] **Owner-only brand taste profile view** — Inspect evidence level, source composition, positive/rejection/quase patterns per brand.
-- [ ] **Owner-only approved rules list per brand** — Categories, rationale, supporting signal IDs, approve/deprecate actions (reuse v13.0 flows scoped by profile).
-- [ ] **Corpus evaluations → client-scoped learning** — Aggregator and accept path operational for any brand with sufficient evals (infrastructure largely shipped; generalize wiring and tests off Cenbrap).
-- [ ] **Prompt injection for all approved rule types per brand** — `corpus_quality` + brand-taste categories in `derivationJob` / `prompt-builder`, capped and ordered.
-- [ ] **Per-brand claims gate** — Sample guidance and permitted/prohibited claims keyed to profile evidence, not only Cenbrap runner output.
+- [ ] **Typed journey states and commands for both paths** — support answer, back, edit, switch path, restart, resume, retry, and complete through validated transitions.
+- [ ] **Canonical adaptive slot state** — persist answer, origin, confidence band where relevant, confirmation/unknown status, and stale-derived dependencies without relying on transcript parsing.
+- [ ] **`Produzir do zero` progressive briefing** — one decision per turn, contextual suggestion, two-to-four quick replies where useful, free text, valid skip/unknown handling, and stable phase progress.
+- [ ] **Editable from-zero summary** — review product/offer, audience, promise, CTA, platforms, constraints, and selected references; edit a section and return to review after dependent questions.
+- [ ] **Collaborative `Já tenho peça` diagnosis** — expose assumptions and uncertain brief fields, collect corrections before improvement proposal, and preserve high-confidence extracted facts.
+- [ ] **Inline creative/reference lifecycle** — select or upload, add/remove/replace, retain successful assets, and recover from upload/analysis failure in the active turn.
+- [ ] **Outcome-oriented action proposal** — show exactly what will be created/changed and the preserved constraints before the existing confirmation/credit workflow.
+- [ ] **Resume and path-change UX** — resume at the unresolved decision; explain retained/discarded context before switching or restarting.
+- [ ] **Adaptive repair and accessibility** — contextual error recovery, preserved input, focus/live-region behavior, keyboard operation, and no dead-end state.
+- [ ] **Telemetry extension and staging UAT** — cover corrections, navigation, switch/restart, upload recovery, summary edits, and final action handoff across both paths without logging sensitive content.
 
-### Add After Validation (v13.2.x)
+### Add After Validation (v13.8.x)
 
-- [ ] **Corpus eval → `calibration_signal` adapter** — Unify Olhar contact-sheet decisions and corpus human evals into one signal stream for richer profiles (trigger: ≥2 brands with corpus-only learning, no Olhar decisions).
-- [ ] **Profile bootstrap from imported history** — One-shot seed from accumulated evaluations when a new `clientProfile` is linked to existing corpus items.
-- [ ] **Cross-client global proposal UI polish** — Surface sustaining client rules in global proposal detail (API exists; UX depth).
-- [ ] **Voice document upload / AI extract** — GenStudio-style PDF → constitution (trigger: operator manual entry pain).
+- [ ] **Telemetry-tuned branch ordering** — change question priority only after real step/repair evidence identifies friction.
+- [ ] **Cross-thread answer reuse with explicit consent** — offer a prior campaign answer when users repeatedly enter the same value for a client.
+- [ ] **Richer suggestion provenance detail** — add source drill-down only if users distrust or frequently correct suggestions.
+- [ ] **Bulk-edit power mode refinements** — improve multi-field editing if experienced users consistently abandon the one-turn route.
+- [ ] **Alternative reference recommendations** — suggest existing client references when inline selection repeatedly stalls, without changing the minimum-reference policy silently.
 
-### Future Consideration (v2+)
+### Future Consideration (v14+)
 
-- [ ] **MULTI-01: Client-managed voice UI** — Workspace admins edit voice; deferred in v13.0 for owner calibration authority.
-- [ ] **MULTI-02: Cross-client profile comparison** — Analytics across brands without rule leakage.
-- [ ] **PERFLOOK: Performance-blended recommendations** — Separate milestone.
-- [ ] **Runtime global rubric apply without deploy** — Depends on Phase 132 evolution.
-- [ ] **Auto-regenerate on corpus `intent=regenerate`** — Explicitly out of corpus v1 scope.
+- [ ] **New guided journey types** — wait until the two current paths validate the shared engine primitives.
+- [ ] **Natural-language global commands across arbitrary screens** — broader assistant orchestration is outside this journey milestone.
+- [ ] **Model-learned dynamic question policy** — requires sufficient real journey outcomes and a safe offline evaluation contract.
+- [ ] **Multi-user collaborative journey editing** — conflict resolution and presence are not needed to validate individual adaptive journeys.
+- [ ] **Voice input/output** — different repair, latency, accessibility, and confirmation constraints.
 
 ## Feature Prioritization Matrix
 
-| Feature | User Value | Implementation Cost | Priority | Existing dependency |
-|---------|------------|---------------------|----------|-------------------|
-| Per-`clientProfile` voice config (de-Cenbrap) | HIGH | MEDIUM | P1 | `client_profiles`, `client-voice.ts` |
-| Owner profile + rules inspection UI | HIGH | MEDIUM | P1 | `buildBrandTasteProfile`, calibration APIs |
-| Corpus → `corpus_quality` accept → prompt | HIGH | LOW | P1 | Shipped in derivation job; generalize QA |
-| Approve/deprecate rules per brand | HIGH | LOW | P1 | v13.0 RULE-03 |
-| Per-brand claims / evidence gate | HIGH | LOW | P1 | v13.0 EVIDENCE-02, calibration-evidence |
-| Corpus → calibration_signals bridge | MEDIUM | MEDIUM | P2 | v13.0 SIGNAL model |
-| Uncertainty queue per brand | MEDIUM | LOW | P2 | v13.0 QUEUE |
-| Cross-client → global rubric promotion | MEDIUM | MEDIUM | P2 | proposals + rubric_calibration_adjustments |
-| Voice PDF upload / AI extract | LOW | HIGH | P3 | None |
-| Client self-serve voice management | LOW | HIGH | P3 | MULTI-01 deferred |
+| Feature | User Value | Implementation Cost | Priority |
+|---------|------------|---------------------|----------|
+| Typed states + validated transition commands | HIGH | HIGH | P1 |
+| Canonical slot metadata and dependency map | HIGH | HIGH | P1 |
+| Progressive `from_zero` turns | HIGH | MEDIUM | P1 |
+| Editable review summary | HIGH | MEDIUM | P1 |
+| Diagnosis uncertainty correction | HIGH | HIGH | P1 |
+| Back/edit/resume | HIGH | HIGH | P1 |
+| Switch path/restart with retention preview | HIGH | MEDIUM | P1 |
+| Inline asset/reference recovery | HIGH | HIGH | P1 |
+| Outcome-oriented action cards | HIGH | LOW | P1 |
+| Adaptive repair + accessible dynamic feedback | HIGH | MEDIUM | P1 |
+| Adaptive telemetry + two-path staging UAT | HIGH | MEDIUM | P1 |
+| Cross-thread answer reuse | MEDIUM | HIGH | P2 |
+| Telemetry-tuned branch ordering | MEDIUM | MEDIUM | P2 |
+| Model-learned question policy | LOW | HIGH | P3 |
+| Generic journey builder | LOW | HIGH | P3 |
 
-**Priority key:** P1 = v13.2 launch; P2 = shortly after first multi-brand operator cycle; P3 = post-PMF.
+**Priority key:**
 
-## Competitor Feature Analysis
+- **P1:** Required for v13.8 to truthfully claim adaptive, correctable guided conversation.
+- **P2:** Add only after real use shows a repeatable friction or reuse opportunity.
+- **P3:** Defer; does not validate the milestone's core behavior.
 
-| Feature | Jasper IQ | Adobe GenStudio | Canva Brand Kit | Writer | ADScale v13.2 approach |
-|---------|-----------|-----------------|-----------------|--------|------------------------|
-| Per-brand voice container | Brand Voice + Style Guide + Visual Guidelines | Brands (upload PDF / manual / URL) | Multiple Brand Kits (visual) | Voice profiles + terms + style guides | `clientProfile` + Olhar constitution + existing profile fields |
-| Learning from outputs | Limited; mostly static KB | Content scoring vs guidelines | No eval loop | Style enforcement on drafts | **Corpus eval → proposals → rules → prompt** (differentiator) |
-| Approve before apply | Admin-defined rules | Draft → publish brand | Brand Controls / approval | Admin style guides | Owner accept proposals + rule approve flow |
-| Visual ad constraints | Visual Guidelines (brief-level) | Channel + image guidelines | Colors/fonts/logos | Text-focused | Prompt constraints for hierarchy, gestalt, CTA legibility |
-| Evidence / compliance scoring | Off-brand flags | Brand validation score | Template lock | Real-time rule violations | Evidence level + claims gate + source labels |
-| Multi-brand isolation | Multiple Brand Voices (plan limits) | Published brands per org | Multiple kits | Multiple style guides | `clientProfileId` scoping + owner-only governance |
-| Human calibration loop | Manual voice tuning | Human review workflows | Design approval | Voice calibration from samples | Mismatch extraction + uncertainty queue + corpus loop |
+## Milestone Boundary
+
+v13.8 is complete when a user can finish either path by handling one meaningful decision at a time, correct any mistaken assumption without starting over, repair asset failures inline, review the resulting brief/diagnosis, and explicitly confirm the proposed write or credit-bearing action. The journey must resume from persisted canonical state and produce telemetry that explains progression and repair without storing sensitive content.
+
+v13.8 is not complete merely because the assistant emits more conversational copy around the current fixed panels. It also does not require a general agent platform, new creative-quality intelligence, new action contracts, or removal of the existing action-card confirmation boundary.
 
 ## Sources
 
-- ADScale `.planning/PROJECT.md`, `.planning/milestones/v13.0-REQUIREMENTS.md`, `docs/superpowers/specs/2026-06-21-corpus-learning-loop-design.md` (HIGH — product intent and shipped baseline)
-- ADScale codebase: `client-voice.ts`, `taste-profile.ts`, `taste-application.ts`, `derivation.ts`, `client_learning_proposals` schema (HIGH — implementation truth)
-- [Jasper IQ Help Center](https://help.jasper.ai/hc/en-us/articles/18618654325787-Jasper-IQ) (MEDIUM — brand voice structure)
-- [Adobe GenStudio — Add Guidelines](https://experienceleague.adobe.com/en/docs/genstudio-for-performance-marketing/user-guide/guidelines/add-guidelines) (HIGH — per-brand guideline → generation pattern)
-- [Adobe GenStudio — Brands](https://experienceleague.adobe.com/en/docs/genstudio-for-performance-marketing/user-guide/guidelines/brands) (HIGH — validation + publish workflow)
-- [Writer — Brand systems](https://writer.com/blog/new-roundup-may-2026/) (MEDIUM — voice + terms + style guide composition)
-- [Writer — Voice calibration](https://support.writer.com/article/250-how-to-calibrate-voice-for-your-content) (MEDIUM — example-based calibration)
-- [AdCP AI Creative Overview](https://docs.adcontextprotocol.org/docs/creative/ai-creative-overview) (MEDIUM — brief constraints, approve-system-not-every-ad)
-- [Corevexa Creative Ops Panel](https://docs.corevexa.com/creative-ops-panel/) (MEDIUM — governance state machine)
-- Industry voice-guide patterns (Atom Writer, iMarkInfotech 2026 templates) (LOW — general AI voice doc structure, not AD-specific)
+### Repository Evidence (HIGH)
+
+- `.planning/PROJECT.md` — milestone goal, target features, and guiding principle.
+- `app/src/lib/guided-flow/types.ts`, `app/src/lib/hooks/use-guided-flow.ts` — current path/status/initial-step contract and client mutation boundary.
+- `app/src/server/repositories/guided-flow.ts`, `app/src/server/db/schema.ts` — persisted guided-flow scope, slots, transitions, and telemetry tables.
+- `app/src/components/assistant/FromZeroBriefPanel.tsx`, `CreativeDiagnosisPanel.tsx`, `FromZeroReferencesPanel.tsx`, `AssistantChatCore.tsx` — current monolithic panels and fixed step rendering.
+- `app/src/server/assistant/guided-paths/from-zero.ts`, `existing-creative.ts` — fixed server transitions, missing-field derivation, diagnosis assumptions, and campaign side effects.
+- `app/src/components/workspace/GuidedBriefingPanel.tsx`, `app/src/server/ai/guided-briefing.ts` — reusable progressive question, suggestion, edit, skip, and mapping behavior already present elsewhere in the app.
+- `app/src/components/assistant/AssistantActionCard.tsx` — existing confirmation, risk, credit, and execution-status boundary.
+
+### Established Interaction Guidance (HIGH)
+
+- [GOV.UK Design System — Question pages](https://design-system.service.gov.uk/patterns/question-pages/) — one question at a time, back, unknown responses, and preserved answers.
+- [GOV.UK Design System — Check answers](https://design-system.service.gov.uk/patterns/check-answers/) — editable review, return-to-review behavior, and dependent follow-up questions.
+- [Google Conversation Design — Questions](https://developers.google.com/assistant/conversation-design/questions) — one question per turn, narrow-focus disambiguation, and high-cost confirmation.
+- [Google Conversation Design — Confirmations](https://developers.google.com/assistant/conversation-design/confirmations) — implicit vs explicit confirmation and one-step corrections.
+- [Google Conversation Design — Errors](https://developers.google.com/assistant/conversation-design/errors) — context-specific repair, escalating help, and transparent system-error recovery.
+- [W3C WAI — Multi-page forms](https://www.w3.org/WAI/tutorials/forms/multi-page/) — logical stages, progress, optional steps, and review of completed steps.
+- [W3C WAI — Validating input](https://www.w3.org/WAI/tutorials/forms/validation/) — forgiving input, client/server validation, correction, undo, and confirmation for consequential changes.
+- [W3C WAI — User notification](https://www.w3.org/WAI/tutorials/forms/notifications/) — concise inline and overall feedback for dynamic success/error states.
+- [U.S. Web Design System — Progress easily](https://designsystem.digital.gov/patterns/complete-a-complex-form/progress-easily/) — progressive disclosure and step-by-step reduction of cognitive load.
 
 ---
-*Feature research for: ADScale v13.2 Calibração Multi-Marca*
-*Researched: 2026-06-23*
+*Feature research for: ADScale v13.8 Conversa Guiada Adaptativa*
+*Researched: 2026-06-26*
