@@ -14,10 +14,10 @@
 
 ### Plan Iteration
 
-- [ ] **PLAN-01**: User feedback creates a proposed plan revision without changing the current approved plan.
+- [x] **PLAN-01**: User feedback creates a proposed plan revision without changing the current approved plan.
 - [ ] **PLAN-02**: User can review semantic plan changes before confirming any write.
-- [ ] **PLAN-03**: User confirmation creates a new immutable plan version linked to its source version.
-- [ ] **PLAN-04**: Each plan version preserves strategy, angles, hooks, CTAs, constraints, and source feedback as typed provenance.
+- [x] **PLAN-03**: User confirmation creates a new immutable plan version linked to its source version.
+- [x] **PLAN-04**: Each plan version preserves strategy, angles, hooks, CTAs, constraints, and source feedback as typed provenance.
 
 ### Creative Iteration
 
@@ -74,10 +74,10 @@
 | VERS-02 | Phase 203 | Complete |
 | VERS-03 | Phase 203 | Complete |
 | VERS-04 | Phase 203 | Complete |
-| PLAN-01 | Phase 204 | Pending |
+| PLAN-01 | Phase 204 | Complete |
 | PLAN-02 | Phase 204 | Pending |
-| PLAN-03 | Phase 204 | Pending |
-| PLAN-04 | Phase 204 | Pending |
+| PLAN-03 | Phase 204 | Complete |
+| PLAN-04 | Phase 204 | Complete |
 | CREV-01 | Phase 205 | Pending |
 | CREV-02 | Phase 205 | Pending |
 | CREV-03 | Phase 205 | Pending |

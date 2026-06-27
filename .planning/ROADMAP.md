@@ -64,7 +64,7 @@
 **Plans**: 2 plans
 
 Plans:
-- [ ] 204-01-PLAN.md — Core domain: semantic diff, proposal service, revise_creative_plan contract, confirm handler, draft persistence
+- [x] 204-01-PLAN.md — Core domain: semantic diff, proposal service, revise_creative_plan contract, confirm handler, draft persistence
 - [ ] 204-02-PLAN.md — Orchestrator integration, API routes, summary-only action card, tests
 
 ### Phase 205: Creative Iteration Loop
@@ -341,7 +341,7 @@ Archive: [v13.3-ROADMAP.md](milestones/v13.3-ROADMAP.md) · [v13.3-REQUIREMENTS.
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 203. Artifact Version Foundation | 2/2 | Complete    | 2026-06-27 |
-| 204. Plan Iteration Loop | 0/2 | Not started | — |
+| 204. Plan Iteration Loop | 1/2 | In Progress|  |
 | 205. Creative Iteration Loop | 0/TBD | Not started | — |
 | 206. Version Compare and Approval | 0/TBD | Not started | — |
 | 207. Iterative Copilot Integration and UAT | 0/TBD | Not started | — |

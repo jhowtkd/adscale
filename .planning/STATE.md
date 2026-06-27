@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v13.7
 milestone_name: Qualidade Operacional das Jornadas Guiadas
-status: Ready to discuss
-stopped_at: Phase 204 planned
-last_updated: "2026-06-27T21:55:42.649Z"
-last_activity: 2026-06-27 — Phase 203 artifact version foundation completed
+status: In Progress
+stopped_at: Completed 204-01-PLAN.md
+last_updated: "2026-06-27T22:05:36.783Z"
+last_activity: 2026-06-27 — Completed 204-01 plan revision core domain
 progress:
   total_phases: 19
   completed_phases: 10
   total_plans: 19
-  completed_plans: 22
-  percent: 20
+  completed_plans: 23
+  percent: 21
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 
 ## Current Position
 
-Phase: 204 of 207 (not started)
-Plan: —
-Status: Ready to discuss
-Last activity: 2026-06-27 — Phase 203 artifact version foundation completed
+Phase: 204 of 207 (in progress)
+Plan: 2 of 2 in phase
+Status: In Progress
+Last activity: 2026-06-27 — Completed 204-01 plan revision core domain
 
-Progress: [██░░░░░░░░] 20%
+Progress: [██░░░░░░░░] 21%
 
 ## Previous Milestone
 
@@ -51,6 +51,7 @@ Progress: [██░░░░░░░░] 20%
 | 195 | 2 | 2 | ~40m |
 | 196-200 | 6 | 6 | ~25m |
 | 201 | 1 | 1 | ~45m |
+| Phase 204-plan-iteration-loop P01 | 45 | 3 tasks | 18 files |
 
 ## Accumulated Context
 
@@ -61,10 +62,12 @@ Progress: [██░░░░░░░░] 20%
 - Diagnosis corrections invalidate dependent proposals via transition engine.
 - Release verdict remains `passed_with_tech_debt` until staging evidence and operational sample exist.
 - Guided E2E uses API sign-in and reuses an existing dev server when port 3000 is up.
+- [Phase 204]: Semantic changes and summaries are server-computed; LLM limited to snapshot fields
+- [Phase 204]: Confirm binds proposal digest and updates working head only
 
 ### Pending Todos
 
-- Discuss and plan Phase 204.
+- Execute 204-02 orchestrator, API, and action-card wiring.
 
 ### Accepted Debt
 
@@ -75,6 +78,6 @@ Progress: [██░░░░░░░░] 20%
 
 ## Session Continuity
 
-Last session: 2026-06-27T21:55:42.647Z
-Stopped at: Phase 204 planned
-Resume file: .planning/phases/204-plan-iteration-loop/204-01-PLAN.md
+Last session: 2026-06-27T22:05:36.780Z
+Stopped at: Completed 204-01-PLAN.md
+Resume file: .planning/phases/204-plan-iteration-loop/204-02-PLAN.md
