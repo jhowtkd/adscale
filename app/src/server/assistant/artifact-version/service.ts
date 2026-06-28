@@ -17,6 +17,7 @@ import {
   findArtifactLineageOwner,
   getArtifactHead,
   getArtifactLineage,
+  getArtifactVersion,
   listArtifactLineages,
   listArtifactProposals,
   listArtifactVersions,
@@ -164,12 +165,31 @@ async function getLineagePresentation(
 ): Promise<ArtifactVersionPresentation> {
   const lineage = await getArtifactLineage(scope, lineageId);
   if (!lineage) throw new ArtifactVersionValidationError("Lineage not found");
-  const [versions, head, proposals, previouslyApprovedVersionIds] = await Promise.all([
+  const [pageVersions, head, proposals, previouslyApprovedVersionIds] = await Promise.all([
     listArtifactVersions(scope, lineageId),
     getArtifactHead(scope, lineageId),
     listArtifactProposals(scope, lineageId),
     listPreviouslyApprovedVersionIds(scope, lineageId),
   ]);
+  const pageVersionIds = new Set(pageVersions.map((version) => version.id));
+  const missingHeadIds = [
+    head?.approvedCurrentVersionId,
+    head?.workingVersionId,
+  ].filter(
+    (versionId): versionId is string =>
+      typeof versionId === "string" && !pageVersionIds.has(versionId)
+  );
+  const missingHeadVersions = await Promise.all(
+    [...new Set(missingHeadIds)].map((versionId) =>
+      getArtifactVersion(scope, versionId)
+    )
+  );
+  const versions = [
+    ...pageVersions,
+    ...missingHeadVersions.filter(
+      (version) => version !== null && version.lineageId === lineageId
+    ),
+  ];
   const previouslyApproved = new Set(previouslyApprovedVersionIds);
   const versionSummaries = versions.map((version) =>
     artifactVersionSummarySchema.parse({

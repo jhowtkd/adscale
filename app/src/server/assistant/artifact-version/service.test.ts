@@ -14,6 +14,7 @@ vi.mock("@/server/repositories/artifact-version", async (original) => {
     findArtifactLineageOwner: vi.fn(),
     getArtifactHead: vi.fn(),
     getArtifactLineage: vi.fn(),
+    getArtifactVersion: vi.fn(),
     listArtifactLineages: vi.fn(),
     listArtifactProposals: vi.fn(),
     listArtifactVersions: vi.fn(),
@@ -29,6 +30,7 @@ import {
   findArtifactLineageOwner,
   getArtifactHead,
   getArtifactLineage,
+  getArtifactVersion,
   listArtifactLineages,
   listArtifactProposals,
   listArtifactVersions,
@@ -126,5 +128,47 @@ describe("artifact version service", () => {
     expect(state.lineages[0]?.approvedCurrent?.id).toBe(id("7"));
     expect(state.lineages[0]?.working?.id).toBe(id("8"));
     expect(state.lineages[0]?.working?.previouslyApproved).toBe(true);
+  });
+
+  it("keeps head versions visible when they fall outside the history page", async () => {
+    const lineageId = id("6");
+    const approvedId = id("7");
+    const workingId = id("8");
+    const makeVersion = (versionId: string, versionNumber: number) => ({
+      id: versionId,
+      lineageId,
+      versionNumber,
+      sourceVersionId: null,
+      status: "ready",
+      snapshot: { type: "plan" as const, strategy: null, angles: [], hooks: [], ctas: [], constraints: null },
+      provenance: { origin: "revision" as const, originalArtifactId: id("5"), sourceVersionId: null, messageId: null, actionId: null, planVersionId: null, format: null, generationMode: null },
+      feedback: null,
+      createdAt: new Date(),
+    });
+    vi.mocked(listArtifactLineages).mockResolvedValue([{
+      id: lineageId, artifactType: "plan", originalArtifactId: id("5"),
+    }] as never);
+    vi.mocked(getArtifactLineage).mockResolvedValue({
+      id: lineageId, artifactType: "plan", originalArtifactId: id("5"),
+    } as never);
+    vi.mocked(listArtifactVersions).mockResolvedValue([
+      makeVersion(id("99"), 99),
+    ] as never);
+    vi.mocked(getArtifactHead).mockResolvedValue({
+      lineageId, approvedCurrentVersionId: approvedId, workingVersionId: workingId, revision: 3,
+    } as never);
+    vi.mocked(getArtifactVersion).mockImplementation(async (_scope, versionId) =>
+      versionId === approvedId
+        ? makeVersion(approvedId, 1) as never
+        : makeVersion(workingId, 2) as never
+    );
+
+    const state = await getThreadArtifactVersionState(thread.workspaceId, thread.id);
+
+    expect(state.lineages[0]?.approvedCurrent?.id).toBe(approvedId);
+    expect(state.lineages[0]?.working?.id).toBe(workingId);
+    expect(state.lineages[0]?.versions.map((version) => version.id)).toEqual([
+      id("99"), approvedId, workingId,
+    ]);
   });
 });
