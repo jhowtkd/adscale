@@ -18,6 +18,8 @@ import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
 import { containsDeniedPersistenceKeys } from "@/server/repositories/assistant-types";
 import { getGuidedFlowByThread } from "@/server/repositories/guided-flow";
 import { handlePlanRevisionMessage } from "@/server/assistant/plan-iteration/service";
+import { classifyCreativeRevisionIntent } from "@/server/assistant/creative-iteration/intent";
+import { handleCreativeRevisionMessage } from "@/server/assistant/creative-iteration/service";
 import { listToolsForProvider } from "@/server/assistant/tools/registry";
 import { evaluateToolCall } from "@/server/assistant/tools/policy";
 
@@ -167,43 +169,100 @@ export async function* runAssistantTurn(
   const intentResult = classifyUserIntent(input.userMessage);
 
   if (thread.campaignId) {
-    const planRevision = await handlePlanRevisionMessage({
-      workspaceId: input.workspaceId,
-      clientProfileId: input.clientProfileId,
-      threadId: input.threadId,
-      userId: input.userId,
-      scope: {
-        workspaceId: input.workspaceId,
-        clientProfileId: input.clientProfileId,
-        campaignId: thread.campaignId,
-        threadId: input.threadId,
-      },
-      userMessage: input.userMessage,
-    });
+    const revisionIntent = classifyCreativeRevisionIntent(input.userMessage);
 
-    if (planRevision.kind === "assistant") {
+    if (revisionIntent.kind === "ambiguous") {
       const assistantMessage = await createAssistantMessage(input.workspaceId, {
         threadId: input.threadId,
         type: "assistant",
-        content: planRevision.content,
+        content: "Você quer revisar o plano ou o criativo?",
       });
       yield { type: "done", assistantMessageId: assistantMessage.id };
       return;
     }
 
-    if (planRevision.kind === "action_card") {
-      const assistantMessage = await createAssistantMessage(input.workspaceId, {
+    if (revisionIntent.kind === "plan") {
+      const planRevision = await handlePlanRevisionMessage({
+        workspaceId: input.workspaceId,
+        clientProfileId: input.clientProfileId,
         threadId: input.threadId,
-        type: "assistant",
-        content: planRevision.content,
+        userId: input.userId,
+        scope: {
+          workspaceId: input.workspaceId,
+          clientProfileId: input.clientProfileId,
+          campaignId: thread.campaignId,
+          threadId: input.threadId,
+        },
+        userMessage: input.userMessage,
       });
-      yield {
-        type: "action_card",
-        actionRecordId: planRevision.actionRecordId,
-        status: "pending",
-      };
-      yield { type: "done", assistantMessageId: assistantMessage.id };
-      return;
+
+      if (planRevision.kind === "assistant") {
+        const assistantMessage = await createAssistantMessage(input.workspaceId, {
+          threadId: input.threadId,
+          type: "assistant",
+          content: planRevision.content,
+        });
+        yield { type: "done", assistantMessageId: assistantMessage.id };
+        return;
+      }
+
+      if (planRevision.kind === "action_card") {
+        const assistantMessage = await createAssistantMessage(input.workspaceId, {
+          threadId: input.threadId,
+          type: "assistant",
+          content: planRevision.content,
+        });
+        yield {
+          type: "action_card",
+          actionRecordId: planRevision.actionRecordId,
+          status: "pending",
+        };
+        yield { type: "done", assistantMessageId: assistantMessage.id };
+        return;
+      }
+    }
+
+    if (revisionIntent.kind === "creative") {
+      const creativeRevision = await handleCreativeRevisionMessage({
+        workspaceId: input.workspaceId,
+        clientProfileId: input.clientProfileId,
+        threadId: input.threadId,
+        userId: input.userId,
+        scope: {
+          workspaceId: input.workspaceId,
+          clientProfileId: input.clientProfileId,
+          campaignId: thread.campaignId,
+          threadId: input.threadId,
+        },
+        userMessage: input.userMessage,
+        attachmentReferenceIds:
+          input.attachments?.map((a) => a.assetId).filter(Boolean) ?? [],
+      });
+
+      if (creativeRevision.kind === "assistant") {
+        const assistantMessage = await createAssistantMessage(input.workspaceId, {
+          threadId: input.threadId,
+          type: "assistant",
+          content: creativeRevision.content,
+        });
+        yield { type: "done", assistantMessageId: assistantMessage.id };
+        return;
+      }
+
+      if (creativeRevision.kind === "action_card") {
+        const assistantMessage = await createAssistantMessage(input.workspaceId, {
+          threadId: input.threadId,
+          type: "assistant",
+          content: creativeRevision.content,
+        });
+        yield {
+          type: "action_card",
+          actionRecordId: creativeRevision.actionRecordId,
+          status: "pending",
+        };
+        yield { type: "done", assistantMessageId: assistantMessage.id };
+        return;
+      }
     }
   }
 

@@ -366,6 +366,7 @@ describe("runAssistantTurn", () => {
       clientProfileId: "profile-1",
       campaignId: "campaign-1",
     } as Awaited<ReturnType<typeof getAssistantThreadById>>);
+    mockClassifyCreativeIntent.mockReturnValue({ kind: "plan" });
     mockHandlePlanRevision.mockResolvedValue({
       kind: "action_card",
       content: "Altera CTAs",
