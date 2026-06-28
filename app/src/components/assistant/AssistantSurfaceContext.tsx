@@ -22,6 +22,7 @@ interface AssistantSurfaceActions {
   startNewChat: () => void;
   registerStartNewChat: (handler: () => void) => void;
   versionComparisonRequest: VersionComparisonRequest | null;
+  versionComparisonTrigger: HTMLElement | null;
   openVersionComparison: (request: VersionComparisonRequest) => void;
   closeVersionComparison: () => void;
 }
@@ -49,6 +50,8 @@ export function AssistantSurfaceProvider({ children }: { children: ReactNode }) 
   );
   const [versionComparisonRequest, setVersionComparisonRequest] =
     useState<VersionComparisonRequest | null>(null);
+  const [versionComparisonTrigger, setVersionComparisonTrigger] =
+    useState<HTMLElement | null>(null);
 
   const registerFocusTree = useCallback((handler: () => void) => {
     focusTreeRef.current = handler;
@@ -75,12 +78,22 @@ export function AssistantSurfaceProvider({ children }: { children: ReactNode }) 
   }, []);
 
   const openVersionComparison = useCallback(
-    (request: VersionComparisonRequest) => setVersionComparisonRequest(request),
+    (request: VersionComparisonRequest) => {
+      setVersionComparisonTrigger(
+        document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null
+      );
+      setVersionComparisonRequest(request);
+    },
     []
   );
 
   const closeVersionComparison = useCallback(
-    () => setVersionComparisonRequest(null),
+    () => {
+      setVersionComparisonRequest(null);
+      setVersionComparisonTrigger(null);
+    },
     []
   );
 
@@ -97,6 +110,7 @@ export function AssistantSurfaceProvider({ children }: { children: ReactNode }) 
       startNewChat,
       registerStartNewChat,
       versionComparisonRequest,
+      versionComparisonTrigger,
       openVersionComparison,
       closeVersionComparison,
     }),
@@ -110,6 +124,7 @@ export function AssistantSurfaceProvider({ children }: { children: ReactNode }) 
       startNewChat,
       registerStartNewChat,
       versionComparisonRequest,
+      versionComparisonTrigger,
       openVersionComparison,
       closeVersionComparison,
     ]

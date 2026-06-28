@@ -1,15 +1,13 @@
 "use client";
 
 import {
-  useEffect,
-  useMemo,
   useRef,
   useState,
   type KeyboardEvent,
   type PointerEvent,
   type WheelEvent,
 } from "react";
-import { AlertTriangle, CheckCircle2, Minus, Plus, RotateCcw, X } from "lucide-react";
+import { CheckCircle2, Minus, Plus, RotateCcw, X } from "lucide-react";
 import type {
   ArtifactVersionComparison,
   ArtifactVersionPresentation,
@@ -311,16 +309,6 @@ export default function VersionComparisonDialog({
   const [mutationError, setMutationError] = useState<string | null>(null);
   const conflictHeadingRef = useRef<HTMLHeadingElement>(null);
 
-  useEffect(() => {
-    setVersionAId(request.versionAId);
-    setVersionBId(request.versionBId);
-    setConflict(null);
-    setConfirmationOpen(false);
-    setAcknowledgement(null);
-    setMutationError(null);
-    setReviewLinkedPlan(false);
-  }, [request]);
-
   const comparison = useAssistantArtifactComparison({
     threadId: open ? request.threadId : null,
     lineageId: lineage?.lineageId ?? null,
@@ -349,21 +337,18 @@ export default function VersionComparisonDialog({
   });
   const busy = submitting || promotionMutation.isPending || acknowledgeMutation.isPending;
 
-  useEffect(() => {
-    if (
-      acknowledgement &&
-      (acknowledgement.officialId !== planOfficial?.id ||
-        acknowledgement.linkedId !== linkedPlan?.id ||
-        (linkedComparison.data && acknowledgement.revision !== linkedComparison.data.headRevision))
-    ) {
-      setAcknowledgement(null);
-    }
-  }, [acknowledgement, linkedComparison.data, linkedPlan?.id, planOfficial?.id]);
+  const validAcknowledgement =
+    acknowledgement &&
+    acknowledgement.officialId === planOfficial?.id &&
+    acknowledgement.linkedId === linkedPlan?.id &&
+    (!linkedComparison.data || acknowledgement.revision === linkedComparison.data.headRevision)
+      ? acknowledgement
+      : null;
 
   const canPromote =
     targetEligibility.eligible &&
     !success &&
-    (!needsPlanReview || Boolean(acknowledgement));
+    (!needsPlanReview || Boolean(validAcknowledgement));
   const actionLabel = target
     ? `${target.previouslyApproved || target.status === "approved" ? "Promover" : "Aprovar"} ${versionLabel(target)}`
     : "Aprovar versão";
@@ -415,13 +400,13 @@ export default function VersionComparisonDialog({
               ...baseCommand,
               type: "creative",
               planTransition:
-                needsPlanReview && planLineage && linkedPlan && planOfficial && linkedComparison.data && acknowledgement
+                needsPlanReview && planLineage && linkedPlan && planOfficial && linkedComparison.data && validAcknowledgement
                   ? {
                       lineageId: planLineage.lineageId,
                       targetVersionId: linkedPlan.id,
                       expectedOfficialVersionId: planOfficial.id,
                       expectedRevision: linkedComparison.data.headRevision,
-                      acknowledgementId: acknowledgement.id,
+                      acknowledgementId: validAcknowledgement.id,
                     }
                   : null,
             }
@@ -518,14 +503,14 @@ export default function VersionComparisonDialog({
                   <p>Antes: {conflict.previous}. Agora: {conflict.current}.</p>
                   <Button type="button" variant="outline" className="mt-2 min-h-11" onClick={() => { setConflict(null); void comparison.refetch(); }}>Revisar estado atualizado</Button>
                 </div>
-              ) : needsPlanReview && !acknowledgement ? (
+              ) : needsPlanReview && !validAcknowledgement ? (
                 <div className="rounded-md bg-[var(--warning-bg)] p-3 text-[var(--warning-text)]">
                   <p>Revise o plano vinculado antes da promoção conjunta.</p>
                   <Button type="button" variant="outline" className="mt-2 min-h-11" onClick={() => setReviewLinkedPlan(true)}>
                     Comparar plano {linkedPlan ? versionLabel(linkedPlan) : "v?"} com {planOfficial ? versionLabel(planOfficial) : "v?"}
                   </Button>
                 </div>
-              ) : acknowledgement ? (
+              ) : validAcknowledgement ? (
                 <p className="inline-flex items-center gap-2"><CheckCircle2 className="size-4" /> Plano comparado</p>
               ) : (
                 <p>{targetEligibility.reason}</p>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { useAssistantChat } from "@/lib/hooks/use-assistant-chat";
 import type { AssistantChatMessage } from "@/lib/hooks/use-assistant-chat";
@@ -105,6 +105,7 @@ export default function AssistantChatCore({
   );
   const {
     versionComparisonRequest,
+    versionComparisonTrigger,
     openVersionComparison,
     closeVersionComparison,
   } = useAssistantSurface();
@@ -115,21 +116,14 @@ export default function AssistantChatCore({
     scrollTop: number;
     trigger: HTMLElement | null;
   } | null>(null);
-  const previousComparisonRequestRef = useRef(versionComparisonRequest);
 
-  if (
-    versionComparisonRequest &&
-    previousComparisonRequestRef.current !== versionComparisonRequest
-  ) {
+  useLayoutEffect(() => {
+    if (!versionComparisonRequest) return;
     comparisonRestoreRef.current = {
       scrollTop: messageScrollerRef.current?.scrollTop ?? 0,
-      trigger:
-        typeof document !== "undefined" && document.activeElement instanceof HTMLElement
-          ? document.activeElement
-          : null,
+      trigger: versionComparisonTrigger,
     };
-  }
-  previousComparisonRequestRef.current = versionComparisonRequest;
+  }, [versionComparisonRequest, versionComparisonTrigger]);
 
   useEffect(() => {
     if (!threadId || !pendingFirstMessage || sendingRef.current) {
@@ -173,7 +167,6 @@ export default function AssistantChatCore({
     if (next) return;
     const restore = comparisonRestoreRef.current;
     closeVersionComparison();
-    previousComparisonRequestRef.current = null;
     setTimeout(() => {
       if (restore && messageScrollerRef.current) {
         messageScrollerRef.current.scrollTop = restore.scrollTop;
@@ -286,6 +279,7 @@ export default function AssistantChatCore({
       />
       {versionComparisonRequest && versionComparisonRequest.threadId === threadId ? (
         <VersionComparisonDialog
+          key={`${versionComparisonRequest.lineageId}:${versionComparisonRequest.versionAId}:${versionComparisonRequest.versionBId}`}
           open
           request={versionComparisonRequest}
           lineages={data?.artifactVersionState?.lineages ?? []}
