@@ -4,11 +4,13 @@ Human audit gate for authenticated product copy in `app/messages/en.json` and `a
 
 Derived from Phase 170 context, [`conceituacao.md`](./conceituacao.md) §4.2–4.4, and Phase 168/169 claim-gate constraints. `conceituacao.md` remains **reference-only** — production marketing copy stays frozen until founder approval.
 
+> {{ status: 2026-06-27 — vocabulário canônico renomeado de "Curator > operator" pra **inteligência criativa em escala** (decisão fundador, ver `conceituacao.md` §1.1). Este checklist continua referenciando "Curator" porque copy de produto (`app/messages/`) e os testes i18n ainda usam o termo. Quando a execução descongelar, revisar: (a) as strings em `app/messages/en.json` + `pt-BR.json` (tagline `Curator Workflow`, copy de onboarding, etc.); (b) o regex `CURATOR_VOCABULARY` em `tests/unit/i18n/product-narrative-copy.test.ts` (substituir por "quem decide / inteligência criativa em escala"); (c) este critério #1 e os labels dos testes. Fora de escopo da rodada atual (produção congelada). }}
+
 ## Criteria
 
 Every in-app copy change in Phase 170 must pass all seven criteria:
 
-1. Reflects **Curator > operator** at workflow decision points (onboarding, empty states, wizard intros, generation CTAs, review approve/reject guidance).
+1. Reflects **Curator > operator** at workflow decision points (onboarding, empty states, wizard intros, generation CTAs, review approve/reject guidance). {{ status: ver nota acima — termo em transição pra "quem decide / inteligência criativa em escala" }}
 2. No overclaim of full automation ("AI decides alone", "magic", "one click does everything").
 3. No performance lift, ROAS/CPA improvement, or speed-multiple claims unless backed by verified product data (none available — **withhold**).
 4. No customer-real, agreement-rate, or quality-improvement proof implied.

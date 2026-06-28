@@ -86,7 +86,7 @@ Esqueleto completo por tipo (opinião vs educação): ADR [`0007-carrossel-hibri
 | 1 | Gancho polêmico | Gancho de problema |
 | 2 | Provocação (por que a maioria erra) | Contexto (por que é problema) |
 | 3–5 | Argumento 1/2/3 com prova | Passo 1/2/3 imperativo |
-| 6 | Síntese + tese Curator > operator | Resultado esperado (número/prova) |
+| 6 | Síntese + tese da inteligência criativa em escala | Resultado esperado (número/prova) |
 | 7 | CTA | CTA |
 
 **Design system:** tokens do [`design.md`](../../../design.md), Inter Extra Bold + Regular, accent `#00e85e`, ink `#0a0a0a`. Fonte mínima 28pt no export.
@@ -137,8 +137,7 @@ Esqueleto completo por tipo (opinião vs educação): ADR [`0007-carrossel-hibri
 ```
 Jhonatan Soares
 Construindo ADScale — IA que escala criativos pra performance.
-{{ nota: tagline "Curator > operator" em revisão — Jhonatan questionou em 2026-06-27 }}
-Lab Notes toda semana.
+Inteligência criativa em escala. Lab Notes toda semana.
 🇧🇷 Brasil
 ↓ waitlist aberta
 ```

@@ -54,6 +54,9 @@ export function useAssistantChat(threadId: string | null) {
       const controller = new AbortController();
       abortRef.current = controller;
 
+      const ABSOLUTE_TIMEOUT_MS = 120_000;
+      const absoluteTimer = setTimeout(() => controller.abort(), ABSOLUTE_TIMEOUT_MS);
+
       setError(null);
       setIsStreaming(true);
       setStreamingText("");
@@ -170,12 +173,15 @@ export function useAssistantChat(threadId: string | null) {
           err instanceof Error ? err.message : "Erro ao enviar mensagem";
         setError(message);
       } finally {
+        clearTimeout(absoluteTimer);
         if (abortRef.current === controller) {
           abortRef.current = null;
         }
         if (!controller.signal.aborted) {
           setIsStreaming(false);
           setStreamingText("");
+        } else if (controller.signal.reason === "timeout") {
+          setError("O assistente demorou demais para responder. Tente novamente.");
         }
       }
     },

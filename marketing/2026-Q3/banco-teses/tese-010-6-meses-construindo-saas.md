@@ -13,7 +13,7 @@
 
 2. **O que eu achava que era problema não era.** Inicialmente pensei que o gargalo era "geração de imagem" (e ia competir com Midjourney). Conversando com ICP, descobri que o gargalo real era "briefing + organização" — geração tem 50+ ferramentas, organização tem 3-5. ADScale reposicionou pra organização.
 
-3. **ICP prefere 1 tese clara a 5 opções.** Copy tipo "ADScale faz X, Y, Z, W, K" confunde. Copy tipo "ADScale defende Curator > operator, aqui está por quê" engaja. Decisão de cortar de 5 pilares pra 3 (Lab Notes A/B/C) veio de ouvir ICP reclamar de "feed confuso".
+3. **ICP prefere 1 tese clara a 5 opções.** Copy tipo "ADScale faz X, Y, Z, W, K" confunde. Copy tipo "ADScale defende inteligência criativa em escala, aqui está por quê" engaja. Decisão de cortar de 5 pilares pra 3 (Lab Notes A/B/C) veio de ouvir ICP reclamar de "feed confuso".
 
 **Implicação:** Founder solo deve gastar mais tempo **respondendo DMs** e **lendo replies** do que planejando pauta. O insight de produto e o insight de marketing vêm do mesmo lugar: a pergunta real do ICP.
 

@@ -25,6 +25,16 @@ const PersonaSimulationSheet = dynamic(() => import("@/components/workspace/Pers
   loading: () => null,
 });
 
+const DerivationReviewSheet = dynamic(() => import("@/components/workspace/DerivationReviewSheet"), {
+  ssr: false,
+  loading: () => null,
+});
+
+const EstilizarModal = dynamic(() => import("@/components/workspace/EstilizarModal"), {
+  ssr: false,
+  loading: () => null,
+});
+
 import PilotUploadPanel from "@/components/workspace/PilotUploadPanel";
 import GuidedBriefingPanel from "@/components/workspace/GuidedBriefingPanel";
 import PilotSidebar from "@/components/workspace/PilotSidebar";
@@ -37,8 +47,6 @@ import WorkspaceStageStrip from "@/components/workspace/WorkspaceStageStrip";
 import DerivationGrid from "@/components/workspace/DerivationGrid";
 import StrategyRecipePanel from "@/components/workspace/StrategyRecipePanel";
 import ClientApprovalPackagePanel from "@/components/workspace/ClientApprovalPackagePanel";
-import EstilizarModal from "@/components/workspace/EstilizarModal";
-import DerivationReviewSheet from "@/components/workspace/DerivationReviewSheet";
 import RegenerateFeedbackDialog, {
   DerivationLoadErrorBanner,
 } from "@/components/workspace/RegenerateFeedbackDialog";

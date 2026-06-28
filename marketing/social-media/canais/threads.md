@@ -113,11 +113,9 @@ Métricas universais: [`_shared.md`](_shared.md) §7.
 ```
 ADScale
 IA que escala criativos pra performance sem contratar +1 designer.
-Curator > operator. Lab Notes toda semana.
+Inteligência criativa em escala. Lab Notes toda semana.
 🇧🇷 Brasil
 ```
-
-> {{ nota: tagline "Curator > operator" em revisão — Jhonatan questionou em 2026-06-27 }}
 
 ---
 

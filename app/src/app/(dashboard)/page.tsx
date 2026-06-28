@@ -3,7 +3,7 @@
 import { useDashboardStats } from "@/lib/hooks/use-dashboard-stats";
 import type { CreditChartRange } from "@/server/repositories/dashboard";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useOnboarding } from "@/lib/hooks/use-onboarding";
 import dynamic from "next/dynamic";
 import { Search, Plus, LayoutGrid, List } from "lucide-react";
@@ -85,9 +85,13 @@ export default function DashboardPage() {
 
   const showTour = !isOnboardingLoading && !onboardingCompleted;
 
-  const filteredCampaigns = stats?.recentCampaigns.filter((campaign) =>
-    campaign.name.toLowerCase().includes(searchQuery.toLowerCase())
-  ) ?? [];
+  const filteredCampaigns = useMemo(
+    () => {
+      const q = searchQuery.toLowerCase();
+      return stats?.recentCampaigns.filter((campaign) => campaign.name.toLowerCase().includes(q)) ?? [];
+    },
+    [stats, searchQuery]
+  );
 
   if (error && !stats) {
     return <DashboardError />;

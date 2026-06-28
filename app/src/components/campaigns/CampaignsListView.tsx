@@ -108,7 +108,7 @@ export default function CampaignsListView({
                   campaign={campaign}
                   index={index}
                   selected={selectedIds.has(campaign.id)}
-                  onSelect={(checked) => onToggleSelect(campaign.id, checked)}
+                  onSelect={onToggleSelect}
                   onDuplicate={onDuplicate}
                   onArchive={onArchive}
                   onDelete={onDelete}
@@ -128,7 +128,7 @@ export default function CampaignsListView({
               campaign={campaign}
               index={index}
               selected={selectedIds.has(campaign.id)}
-              onSelect={(checked) => onToggleSelect(campaign.id, checked)}
+              onSelect={onToggleSelect}
               onDuplicate={onDuplicate}
               onArchive={onArchive}
               onDelete={onDelete}

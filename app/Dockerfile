@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1.6
+
 # Build stage
 FROM node:20-alpine AS builder
 
@@ -5,7 +7,7 @@ WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm npm ci
 
 # Copy source code
 COPY . .
@@ -31,14 +33,11 @@ RUN adduser --system --uid 1001 nextjs
 
 # Copy necessary files from builder
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/drizzle ./drizzle
 COPY --from=builder --chown=nextjs:nodejs /app/drizzle.config.ts ./
-COPY --from=builder --chown=nextjs:nodejs /app/package*.json ./
 
-# Install drizzle-kit for migrations
-RUN npm ci --only=production
+# Install drizzle-kit for migrations only (standalone image already has traced deps)
+RUN --mount=type=cache,target=/root/.npm npm install --no-save --omit=dev drizzle-kit
 
 COPY --chown=nextjs:nodejs docker/entrypoint.sh ./
 RUN chmod +x entrypoint.sh

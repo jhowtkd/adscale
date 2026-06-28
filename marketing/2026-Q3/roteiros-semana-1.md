@@ -384,7 +384,7 @@ Mata a adaptação de formato à mão.
 
 Designer que usa IA não é substituído.
 É promovido.
-(De "operator" pra "curator".)
+(De "operator" pra "quem decide".)
 
 → Link na bio
 → Waitlist aberta
@@ -501,7 +501,7 @@ adaptação automática de formato —
 Em vez de 5 criativos, 50.
 Em vez de 3 dias, 20 minutos.
 
-Designer continua sendo curator.
+Designer continua sendo quem decide.
 Só não é mais operator."
 ```
 
@@ -558,7 +558,7 @@ tempo humano. A parte chata escala pior.
 
 Solução: briefing estruturado (5 campos,
 2 minutos) + IA faz a parte repetitiva.
-Designer vira curator, não operator.
+Designer vira quem decide, não operator.
 
 Resultado: uma agência foi de 8 pra 200
 criativos por semana. Mesma equipe.
@@ -572,7 +572,7 @@ Link na bio. 14 dias grátis quando lançar.
 ### Notas de produção
 - **Cenário:** Jhonatan em close fixo, fundo limpo (parede neutra ou estúdio simples). Luz frontal neutra. Sem cortes pra tela, sem produto aparecendo — é só a pessoa explicando. (Esse é o ponto do feedback: não é unboxing, é aula.)
 - **Cortes:** secos entre blocos, a cada 8-10s. Cada corte marca virada de argumento (premissa → gargalo → tese → evidência → CTA). Sem transição suave — cortes secos pra dar ritmo de paper sendo apresentado.
-- **Texto na tela:** Inter 800, branco, com palavras-chave em verde accent (`#00e85e`). Highlights devem entrar nos momentos exatos da fala: "briefing estruturado" (em verde), "5 campos, 2 minutos" (em verde), "curator" (em verde), "200" (em verde, número grande estilo stat).
+- **Texto na tela:** Inter 800, branco, com palavras-chave em verde accent (`#00e85e`). Highlights devem entrar nos momentos exatos da fala: "briefing estruturado" (em verde), "5 campos, 2 minutos" (em verde), "quem decide" (em verde), "200" (em verde, número grande estilo stat).
 - **Sem trilha de fundo com voz:** só música + voz do Jhonatan. Música: synthwave/lo-fi cinematic.
 - **Duração ideal:** 55-60s. Se apertar, cortar o trecho "comitê de ética, mas com replicabilidade" — a piada é boa mas não essencial.
 - **Tom de voz:** didático, fluído, sem pausas longas. Jhonatan fala como se tivesse acabado de descobrir algo e quisesse explicar pra quem quiser ouvir. Não tem pressa, mas também não enrola. Humor vem em camada fina (deadpan), não em piada.

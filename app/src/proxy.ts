@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { getMutationRateLimitCategory } from "@/lib/api-rate-limit-category";
 import { rateLimit } from "@/lib/rate-limit";
 import { isValidLocale, defaultLocale } from "@/i18n/config";
+import { logger } from "@/lib/logger";
 
 const PROTECTED_PREFIXES = ["/campaigns", "/settings"];
 const PROTECTED_EXACT = ["/"];
@@ -52,7 +53,8 @@ function getMarketingUrl(): string | null {
     const url = new URL(raw);
     const path = url.pathname.replace(/\/$/, "");
     return path ? `${url.origin}${path}` : url.origin;
-  } catch {
+  } catch (err) {
+    logger.error("[proxy] invalid MARKETING_URL env var", { raw, error: err });
     return null;
   }
 }

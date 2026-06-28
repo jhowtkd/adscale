@@ -32,7 +32,7 @@ interface CampaignTableRowProps {
   campaign: Campaign;
   index: number;
   selected: boolean;
-  onSelect: (checked: boolean) => void;
+  onSelect: (id: string, checked: boolean) => void;
   onDuplicate: (id: string) => void;
   onArchive: (id: string) => void;
   onDelete: (id: string) => void;
@@ -120,7 +120,7 @@ function CampaignTableRow({
           type="checkbox"
           aria-label={`Select ${campaign.name}`}
           checked={selected}
-          onChange={(e) => onSelect(e.target.checked)}
+          onChange={(e) => onSelect(campaign.id, e.target.checked)}
           className={cn(
             "size-[18px] rounded-sm border border-[var(--border-medium)] appearance-none cursor-pointer",
             "checked:bg-[var(--accent-green)] checked:border-[var(--accent-green)]",

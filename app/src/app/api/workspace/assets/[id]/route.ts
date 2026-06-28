@@ -9,6 +9,7 @@ import {
 } from "@/server/repositories/workspace-asset";
 import { deleteObject } from "@/server/storage/r2";
 import { isWorkspaceAssetKey } from "@/server/repositories/asset";
+import { logger } from "@/lib/logger";
 
 const updateSchema = z.object({
   name: z.string().trim().min(1).max(255).optional(),
@@ -96,8 +97,12 @@ export async function DELETE(
     // Delete from R2 first
     try {
       await deleteObject(asset.key);
-    } catch {
-      // Ignore R2 deletion errors (file may already be gone)
+    } catch (err) {
+      logger.warn("[workspace-asset] R2 delete failed — possible orphan", {
+        assetId: id,
+        key: asset.key,
+        error: err,
+      });
     }
 
     await deleteWorkspaceAsset(id, workspace.id);

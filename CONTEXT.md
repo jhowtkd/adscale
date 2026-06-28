@@ -1,24 +1,24 @@
 # CONTEXT — ADScale
 
 > **Fonte canônica do "o que é o ADScale, em que acredita, e como opera."**
-> Tudo passa pelo crivo da crença central `Curator > operator`.
-> Última atualização: 2026-06-26.
+> Tudo passa pelo crivo da tese central **inteligência criativa em escala** (antes chamada "Curator > operator", reformulada em 2026-06-27).
+> Última atualização: 2026-06-27.
 
 ---
 
 ## 1. Visão geral (uma frase)
 
-ADScale é a cadeira de **curator** pra produção de criativos de performance. O humano deixa de ser **operator** (quem executa cada variação manualmente) e vira **curator** (quem define briefing, supervisiona geração, aprova/descarta e itera).
+ADScale é a infraestrutura da **inteligência criativa em escala** pra produção de criativos de performance. O humano deixa de ser **operator** (quem executa cada variação manualmente) e vira **quem decide** (quem define briefing, supervisiona geração, aprova/descarta e itera).
 
 A IA **reposiciona** o humano. Não substitui. [isso ficou vago e pouco rescritivo. tá muito lúdico]
 
 ---
 
-## 2. Crença central
+## 2. Tese central
 
-> **Curator > operator.**
+> **Inteligência criativa em escala.**
 
-Worldview-level, não feature-level — é o que diferencia ADScale de AdCreative.ai / Pencil / Madgicx (que vendem "IA gera").
+Worldview-level, não feature-level — é o que diferencia ADScale de AdCreative.ai / Pencil / Madgicx (que vendem "IA gera"). A IA faz o operacional; o humano decide o estratégico; os dois viram hábito.
 
 Detalhe completo: `[marketing/brand/conceituacao.md](marketing/brand/conceituacao.md)` (Pacote Conceitual v0, 2026-06-24).
 
@@ -44,7 +44,7 @@ Detalhe: `[marketing/social-media/canais/_shared.md](marketing/social-media/cana
 
 | Pilar | Nome                        | Peso    | O que defende                                                                                                                                | Esqueleto                                                                 |
 | ----- | --------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| **A** | **Lab Notes — Tese**        | **40%** | Opinião fundamentada. {{ nota-Jhonatan-2026-06-27: "acho que esse conceito [Curator > operator] não vai pegar viu" — pendente reformular ou abandonar }} IA reposiciona, não substitui. Mercado, hype, polêmica. | Provocação → argumento → prova, ou Mito → realidade → como                |
+| **A** | **Lab Notes — Tese**        | **40%** | Opinião fundamentada. Defende a tese da **inteligência criativa em escala**: IA reposiciona, não substitui. Mercado, hype, polêmica. {{ status: 2026-06-27 — claim reformulado de "Curator > operator" pra "inteligência criativa em escala" }} | Provocação → argumento → prova, ou Mito → realidade → como                |
 | **B** | **Lab Notes — Experimento** | **40%** | Processo, números, throughput. Bastidor técnico. Como o ADScale funciona. Educação prática.                                                  | Premissa → gargalo → tese → demo → evidência, ou Passo a passo imperativo |
 | **C** | **Lab Notes — Bastidor**    | **20%** | Pegada pessoal do Jhonatan. O que aprendeu construindo. Decisões técnicas. Build in public.                                                  | Essa semana → o que aprendi, ou Antes/depois + número                     |
 
@@ -176,7 +176,8 @@ Detalhes: `[marketing/2026-Q3/fontes-pauta.md](marketing/2026-Q3/fontes-pauta.md
 | ✅ Trava        | Regra do Reel: tela liberada quando faz sentido narrativo (sem dogma)                         |
 | ✅ Trava        | Brasil-only (ADR 0010) — LinkedIn vira PT-BR, EN sai                                          |
 | ✅ Trava        | Threads entra como canal novo (ADR 0011) — substitui YouTube, reaproveita LI/IG               |
-| 🟡 Em revisão  | Conceituação v0 — Jhonatan questionou "Curator > operator" como difícil de entender (2026-06-27) — pendente reformular ou abandonar |
+| ✅ Trava        | Tese central reformulada: "inteligência criativa em escala" (2026-06-27) — substituiu "Curator > operator" na conceituação, CONTEXT, canais, ADRs e teses |
+| 🟡 Em revisão  | Copy de produto (i18n `app/messages/en.json` + testes) ainda diz "Curator" — quando execução descongelar, revisar pra refletir nova tese |
 | 🟡 Em execução | Reescrita da documentação v2 (CONTEXT + ADRs + canais + calendário + ritual + stack + fontes) |
 | 🟡 Em execução | Banco de Teses seed (10 teses) + Kanban alinhado                                              |
 | ⏸ Congelado    | Produção de copy/execução (até documentação ser aprovada)                                     |

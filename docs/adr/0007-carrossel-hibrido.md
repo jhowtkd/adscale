@@ -8,7 +8,7 @@
 
 O `marketing/2026-Q3/plano-marketing-completo.md` (2026-06-23) classificava o carrossel de segunda como **"carrossel educativo"**, fixo. O `marketing/social-media/canais/instagram.md` (2026-06-23) abria espaço ("lista, framework, passo a passo, comparação") mas não fechava o uso pra opinião.
 
-O problema: 100% dos carrosséis serem educação cria **fadiga** (parece curso online) e **dilui a tese** (Curator > operator aparece pouco no carrossel, mesmo sendo a crença central).
+O problema: 100% dos carrosséis serem educação cria **fadiga** (parece curso online) e **dilui a tese** (inteligência criativa em escala aparece pouco no carrossel, mesmo sendo a tese central).
 
 ## Decisão
 
@@ -28,7 +28,7 @@ Carrossel Instagram vira **híbrido por post**: cada carrossel pode ser **opini�
 | **3** | Argumento 1 (com prova) | Passo 1 (verbo no imperativo) |
 | **4** | Argumento 2 (com prova) | Passo 2 (verbo no imperativo) |
 | **5** | Argumento 3 (com prova) | Passo 3 (verbo no imperativo) |
-| **6** | Síntese + tese Curator > operator | Resultado esperado (número ou prova) |
+| **6** | Síntese + tese da inteligência criativa em escala | Resultado esperado (número ou prova) |
 | **7** | CTA (link, save, comentário) | CTA (link, save, comentário) |
 
 **Visual:** mesmo design system (tokens do `design.md`, Inter Extra Bold + Regular, accent `#00e85e`, ink `#0a0a0a`). Sem mudança visual entre os 2 tipos — o feed parece Lab Notes unificado.

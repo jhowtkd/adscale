@@ -118,8 +118,8 @@ LinkedIn funciona como **rede**, não canal de broadcast. 30 minutos por dia:
 
 ```
 Founder, ADScale
-Building AI that helps marketing teams ship 10x more ad creatives
-without scaling headcount. {{ nota: tagline "Curator > operator" em revisão — Jhonatan questionou em 2026-06-27 }}
+Inteligência criativa em escala pra produção de criativos de ads.
+IA faz o operacional. Humano decide o estratégico. Os dois viram hábito.
 Previously: [breve, só se relevante]
 🇧🇷 Brasil
 ```

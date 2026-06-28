@@ -46,15 +46,31 @@ export default function KanbanBoard({ campaigns }: KanbanBoardProps) {
   const t = useTranslations("campaign");
 
   const columns = useMemo(() => {
+    const byStatus = new Map<string, UiCampaign[]>();
+    for (const c of campaigns) {
+      const bucket = byStatus.get(c.status) ?? [];
+      bucket.push(c);
+      byStatus.set(c.status, bucket);
+    }
+    for (const list of byStatus.values()) {
+      list.sort(
+        (a, b) =>
+          new Date(b.lastModified).getTime() -
+          new Date(a.lastModified).getTime()
+      );
+    }
     return columnConfig.map((col) => {
-      const colCampaigns = campaigns
-        .filter((c) => col.statuses.includes(c.status))
-        .sort(
-          (a, b) =>
-            new Date(b.lastModified).getTime() -
-            new Date(a.lastModified).getTime()
-        );
-
+      const seen = new Set<string>();
+      const colCampaigns: UiCampaign[] = [];
+      for (const status of col.statuses) {
+        const bucket = byStatus.get(status) ?? [];
+        for (const c of bucket) {
+          if (!seen.has(c.id)) {
+            colCampaigns.push(c);
+            seen.add(c.id);
+          }
+        }
+      }
       return {
         ...col,
         title: t(col.titleKey),

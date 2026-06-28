@@ -104,18 +104,18 @@ A base está em [`brand/conceituacao.md`](../brand/conceituacao.md) v0 + [`brand
 ```
 Jhonatan Soares
 Construindo ADScale — IA que escala criativos pra performance.
-Curator > operator. Lab Notes toda semana.
-BR + EUA 🇧🇷🇺🇸
+Inteligência criativa em escala. Lab Notes toda semana.
+🇧🇷 Brasil
 ↓ waitlist aberta
 ```
 
-**LinkedIn (EN):**
+**LinkedIn (PT-BR):**
 ```
 Founder, ADScale
-Building AI that helps marketing teams ship 10x more ad creatives
-without scaling headcount. Curator > operator.
+Inteligência criativa em escala pra produção de criativos de ads.
+IA faz o operacional. Humano decide o estratégico. Os dois viram hábito.
 Previously: [breve, só se relevante]
-🇧🇷🇺🇸 BR + US
+🇧🇷 Brasil
 ```
 
 ---

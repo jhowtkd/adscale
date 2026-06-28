@@ -34,7 +34,7 @@
 - [ ] "5 ferramentas que toda agência precisa (e o ADScale é só uma)" — Pilar: A-Tese — origem: trend do nicho
 - [ ] "3 erros que cometi no 1º deploy do ADScale" — Pilar: C-Bastidor — origem: bastidor ADScale
 - [ ] "Por que contratar 1 designer a mais não escala o problema" — Pilar: A-Tese — origem: pergunta ICP
-- [ ] "Curator vs operator: a diferença em 1 exemplo de campanha" — Pilar: A-Tese — origem: crença central
+- [ ] "Quem decide vs operator: a diferença em 1 exemplo de campanha" — Pilar: A-Tese — origem: tese central
 - [ ] "Briefing estruturado em 3 passos (ângulo, público, prova)" — Pilar: B-Experimento — origem: iteração com ICP
 - [ ] "Por que a curadoria humana no fim do workflow não é gargalo" — Pilar: B-Experimento — origem: benchmark Meta Ads
 - [ ] "Case: como uma agência fez 200 criativos em 1 semana" — Pilar: B-Experimento — origem: caso beta

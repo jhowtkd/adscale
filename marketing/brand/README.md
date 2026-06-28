@@ -7,7 +7,7 @@
 
 **[`conceituacao.md`](./conceituacao.md) — Pacote Conceitual v0**
 
-Esse doc é a fonte canônica. Consolida **posicionamento + narrativa + tom + identidade verbal** numa estrutura só, e é onde mora a crença central **"Curator > operator"**.
+Esse doc é a fonte canônica. Consolida **posicionamento + narrativa + tom + identidade verbal** numa estrutura só, e é onde mora a tese central **"inteligência criativa em escala"** (antes chamada "Curator > operator", reformulada em 2026-06-27).
 
 Os arquivos abaixo (v1, 2026-06-23) ficam **mantidos como referência histórica** para rastreabilidade, mas **não devem ser usados como fonte primária** pra copy nova. Ver seção "Migracao de v1" em `conceituacao.md` § Parte 6 pra ver o que mudou.
 
@@ -15,7 +15,7 @@ Os arquivos abaixo (v1, 2026-06-23) ficam **mantidos como referência histórica
 
 | Arquivo | Status | Função |
 |---------|--------|--------|
-| **[`conceituacao.md`](./conceituacao.md)** | **v0 — canônico (2026-06-24)** | Pacote conceitual completo: posicionamento (Curator > operator) + narrativa + tom + identidade verbal. |
+| **[`conceituacao.md`](./conceituacao.md)** | **v0 — canônico (2026-06-24, tese atualizada 2026-06-27)** | Pacote conceitual completo: posicionamento (inteligência criativa em escala) + narrativa + tom + identidade verbal. |
 | [`tom-de-voz.md`](./tom-de-voz.md) | v1 — deprecated (2026-06-23) | Tom de voz original. Mantido como referência histórica. |
 | [`mensagens-chave.md`](./mensagens-chave.md) | v1 — deprecated (2026-06-23) | Mensagens-chave originais. Mantido como referência histórica. |
 | `identidade-visual.md` | em breve | Paleta, tipografia, estilo de imagem para social media. |

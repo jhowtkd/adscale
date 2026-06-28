@@ -35,7 +35,7 @@ Todos os canais operam com os mesmos 3 pilares (ADR 0001):
 
 | Pilar | Nome | Peso | Função primária |
 |-------|------|------|-----------------|
-| **A** | Lab Notes — Tese | 40% | Opinião fundamentada. {{ nota: "Curator > operator" foi questionado pelo Jhonatan em 2026-06-27 como "muito difícil de entender". Pendente reformulação ou abandono — perguntar antes de propagar. }} Polemiza. |
+| **A** | Lab Notes — Tese | 40% | Opinião fundamentada. Defende a tese da **inteligência criativa em escala** (antes "Curator > operator", reformulada 2026-06-27). Polemiza. |
 | **B** | Lab Notes — Experimento | 40% | Processo, números, throughput, bastidor técnico. |
 | **C** | Lab Notes — Bastidor | 20% | Pegada pessoal do Jhonatan. Aprendizados de construir. |
 
@@ -67,8 +67,8 @@ Detalhe: [`brand/conceituacao.md`](../../brand/conceituacao.md) Parte 3 + ADR `0
 
 ### Canônico (usar sempre que couber)
 
-- **Curator / curador estratégico**
-- **Operator / operador** (o papel antigo que o curator substitui)
+- **Estrategista criativo / quem decide** (papel do humano na nova divisão de trabalho)
+- **Operator / operador** (o papel antigo que **quem decide** substitui)
 - Variação / derivação (de criativo)
 - Briefing / plano criativo
 - Hook / ângulo / CTA
@@ -158,11 +158,11 @@ Detalhe: [`brand/conceituacao.md`](../../brand/conceituacao.md) Parte 4.
 
 | Papel | Quem | Quando |
 |-------|------|--------|
-| **Curator** | Jhonatan | Briefing, priorização, aprovação {{ nota: termo em revisão, ver pergunta 2026-06-27 }} |
-| **Operador** | Ferramentas (banco de teses, kanban, mavis review) | Execução mecânica {{ nota: termo em revisão, ver pergunta 2026-06-27 }} |
+| **Quem decide** | Jhonatan | Briefing, priorização, aprovação |
+| **Operador** | Ferramentas (banco de teses, kanban, mavis review) | Execução mecânica |
 | **Gatekeeper** | Mavis (este agente) | Revisão automatizada antes de publicar |
 
-**Por que essa divisão:** {{ pendência: crença central `Curator > operator` foi questionada pelo Jhonatan em 2026-06-27 ("muito difícil de entender"). Pendente decisão: reformular vocabulário, abandonar o conceito, ou manter como está. Atualizar [`CONTEXT.md`](../../../CONTEXT.md) e `tese-001` depois. }}
+**Por que essa divisão:** separa **estratégia** (humano decide) de **execução** (ferramentas/IA executam). É a tese da inteligência criativa em escala em formato operacional — humano no loop, IA no batch. Reflete decisão 2026-06-27 (substitui "Curator > operator").
 
 ---
 

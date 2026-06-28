@@ -52,7 +52,7 @@ plano criativo, variações em batch,
 adaptação automática de formato.
 Em vez de cinco criativos, cinquenta.
 Em vez de três dias, vinte minutos.
-Designer vira curator. Não operator.
+Designer vira quem decide. Não operator.
 
 Seis semanas de beta.
 Uma agência foi de oito pra duzentos criativos por semana.
@@ -216,7 +216,7 @@ Adicione texto em momentos-chave (cor `#00e85e`, fonte Inter 800):
 |-------|---------------|---------|
 | ~0:25 | "briefing estruturado" | médio |
 | ~0:28 | "5 campos, 2 minutos" | pequeno |
-| ~0:35 | "curator" | grande (palavra única) |
+| ~0:35 | "quem decide" | grande (palavra única) |
 | ~0:50 | "200" | **ENORME** (estilo stat) |
 | ~0:55 | "ADSCALE" | médio |
 
@@ -280,7 +280,7 @@ tempo humano. A parte chata escala pior.
 
 Solução: briefing estruturado (5 campos,
 2 minutos) + IA faz a parte repetitiva.
-Designer vira curator, não operator.
+Designer vira quem decide, não operator.
 
 Resultado: uma agência foi de 8 pra 200
 criativos por semana. Mesma equipe.

@@ -85,7 +85,7 @@ Stack de produção entra **depois**, se a cadência travar. Não antes.
 |---|-------|-----------|
 | 1 | Tom founder-cientista (não coach, não guru, não corporativo) | Sim |
 | 2 | Peso dos pilares A/B/C (Pilar C ≤ 20% no mês) | Não (alerta) |
-| 3 | Vocabulário canônico presente (Curator, briefing, batch, throughput) | Alerta |
+| 3 | Vocabulário canônico presente (quem decide / inteligência criativa em escala, briefing, batch, throughput) | Alerta |
 | 4 | Vocabulário proibido ausente (revolucionário, disruptivo, IA mágica, sinônimo de "drop/hype/cool/streetwear") | Sim |
 | 5 | Pseudo-ciência ausente ("lab notebook" / "paper 0X" / "anomalia" em copy visível) | Sim |
 | 6 | Regra 80/20/0 do ADR 0008 (zero íntimo) | Sim |

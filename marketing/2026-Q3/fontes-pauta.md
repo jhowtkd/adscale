@@ -126,7 +126,7 @@ Tier 1 está dividido em 3 sub-tiers porque o ADScale está em **pré-lançament
 
 **Por que 30% (não 50%):**
 
-- Concorrência informa, mas não dita. ADScale tem tese própria (Curator > operator).
+- Concorrência informa, mas não dita. ADScale tem tese própria (inteligência criativa em escala).
 - 50% viraria "ADScale vs X" toda semana — cansa o ICP.
 - Pilar A (Lab Notes — Tese) é o **consumidor natural** desse tier.
 
@@ -278,7 +278,7 @@ marketing/2026-Q3/banco-teses/
 │   │   ├── seo-keywords-YYYY-WW.md
 │   │   └── trends-YYYY-WW.md
 │   └── (Tier 1 fica em inbox porque flui mais rápido)
-├── tese-001-curator-maior-que-operator.md
+├── tese-001-inteligencia-criativa-em-escala.md
 ├── tese-002-briefing-estruturado-5-campos.md
 ├── tese-003-batch-em-vez-de-projeto.md
 └── ... (uma por arquivo)

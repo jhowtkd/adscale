@@ -8,7 +8,7 @@
 
 O `marketing/social-media/plano-redes-sociais.md` (versão 2026-06-23) operava com **5 pilares** (Bastidor 25% / Educação 30% / Opinião 15% / Casos 15% / Comunidade 15%). Resultado: diluição de mensagem, dificuldade de manter voz consistente, e sobreposição entre pilares (Bastidor e Casos frequentemente disputavam o mesmo post).
 
-A conceituação v0 (2026-06-24) introduziu "Curator > operator" como **crença central**, o que pede um sistema de pilares mais **focado**, com peso claro e com a metáfora de laboratório consolidada.
+A conceituação v0 (2026-06-24) introduziu "inteligência criativa em escala" (anteriormente chamada "Curator > operator", renomeada em 2026-06-27) como **tese central**, o que pede um sistema de pilares mais **focado**, com peso claro e com a metáfora de laboratório consolidada.
 
 ## Decisão
 
@@ -16,7 +16,7 @@ Adotar **3 pilares canônicos**, todos sob a metáfora **Lab Notes** (caderno de
 
 | Pilar | Nome | Peso | Função primária |
 |-------|------|------|-----------------|
-| **A** | **Lab Notes — Tese** | **40%** | Opinião fundamentada. Defende Curator > operator, polemiza, posiciona ADScale contra concorrentes. |
+| **A** | **Lab Notes — Tese** | **40%** | Opinião fundamentada. Defende a tese da **inteligência criativa em escala**, polemiza, posiciona ADScale contra concorrentes. |
 | **B** | **Lab Notes — Experimento** | **40%** | Processo, números, throughput, bastidor técnico, educação prática. Mostra COMO funciona. |
 | **C** | **Lab Notes — Bastidor** | **20%** | Pegada pessoal do Jhonatan. O que aprendeu construindo, decisões técnicas, aprendizados. |
 

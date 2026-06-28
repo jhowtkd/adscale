@@ -8,7 +8,7 @@ done
 echo "✅ PostgreSQL disponível"
 
 echo "🔄 Rodando migrações do banco..."
-npx drizzle-kit migrate
+./node_modules/.bin/drizzle-kit migrate
 
 echo "🚀 Iniciando aplicação..."
 exec node server.js

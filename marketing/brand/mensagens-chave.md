@@ -8,13 +8,13 @@
 
 ## Pilar A — Lab Notes · Tese (40% do conteúdo)
 
-> **Curator > operator.**
-> A IA reposiciona o humano — sai da cadeira de operator (quem executa cada variação manualmente) e senta na cadeira de curator (quem define briefing, supervisiona geração, aprova/descarta e itera).
+> **Inteligência criativa em escala.**
+> A IA reposiciona o humano — sai da cadeira de operator (quem executa cada variação manualmente) e senta na cadeira de quem decide (quem define briefing, supervisiona geração, aprova/descarta e itera).
 
 **Defesa:**
 - A parte repetitiva da produção criativa (variação, adaptação de formato, retrabalho) some com IA.
 - A parte estratégica (briefing, priorização de ângulo, decisão do que vai pro ar) fica com o humano — e fica **mais visível**.
-- "IA mata o designer" é framing errado. O designer sai de operator pra curator — e roda mais.
+- "IA mata o designer" é framing errado. O designer sai de operator pra quem decide — e roda mais.
 
 **Quando usar:** posts que polemizam, comparam com concorrentes (AdCreative.ai, Pencil, Madgicx), ou defendem a worldview.
 
@@ -25,7 +25,7 @@
 ## Pilar B — Lab Notes · Experimento (40% do conteúdo)
 
 > **Briefing estruturado + batch em vez de projeto + curadoria contínua = 10x criativos sem inflar headcount.**
-> ADScale é uma cadeira de curator, não uma ferramenta de geração.
+> ADScale é a infraestrutura da inteligência criativa em escala, não uma ferramenta de geração.
 
 **Defesa:**
 - Briefing estruturado (5 campos, 2 minutos) elimina retrabalho.
@@ -59,8 +59,8 @@
 | # v1 | v1 (deprecated 2026-06-23) | v2 (canônico 2026-06-25) |
 |-----|----------------------------|---------------------------|
 | 1 | Velocidade de teste é a nova vantagem competitiva | **Absorvida** em Pilar B (batch = mais velocidade). |
-| 2 | IA substitui o operacional, não o estratégico | **Reframeada** como Pilar A (Curator > operator). |
-| 3 | Ferramenta boa vira hábito; ferramenta ruim vira despesa | **Mantida como tese implícita** no Pilar B (cadeira de curator = hábito, não one-shot). |
+| 2 | IA substitui o operacional, não o estratégico | **Reframeada** como Pilar A (inteligência criativa em escala). |
+| 3 | Ferramenta boa vira hábito; ferramenta ruim vira despesa | **Mantida como tese implícita** no Pilar B (cadeira de quem decide = hábito, não one-shot). |
 | 4 | Agência que escala criativo escala margem | **Reframeada como Pilar B** (universalizada: "time que escala criativo escala margem"). |
 | 5 | Construir em público > fingir perfeição | **Tornou-se Pilar C inteiro** (build in public). |
 

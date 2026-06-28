@@ -1,19 +1,19 @@
-# Tese #007 — Concorrentes vendem "IA gera"; ADScale vende "IA gera + humano cura"
+# Tese #007 — Concorrentes vendem "IA gera"; ADScale vende "inteligência criativa em escala"
 
 > **Pilar:** A — Tese (40%)
 > **Tier de origem:** 2 (concorrência)
-> **Data:** 2026-06-26
+> **Data:** 2026-06-26 (atualizada 2026-06-27 — claim renomeado)
 > **Status:** ready
 
-**Claim:** AdCreative.ai, Pencil, Madgicx vendem **"IA gera criativos"** (posicionamento de geração). ADScale vende **"IA gera + humano cura"** (posicionamento de organização). Diferença sutil mas defensável.
+**Claim:** AdCreative.ai, Pencil, Madgicx vendem **"IA gera criativos"** (posicionamento de geração). ADScale vende **"inteligência criativa em escala"** (posicionamento de organização: humano decide + IA escala). Diferença sutil mas defensável.
 
 **Prova:**
 - **AdCreative.ai:** site diz "AI creative generator". Copy fala em output automático.
 - **Pencil:** site diz "AI creative platform". Copy fala em geração + performance prediction.
 - **Madgicx:** foco em mídia (bidding) com algum suporte a criativo.
-- **ADScale:** copy fala em "cadeira de curator", "briefing estruturado", "curadoria no fim". Posicionamento **organizacional**, não geracional.
+- **ADScale:** copy fala em "inteligência criativa em escala", "briefing estruturado", "humano que decide". Posicionamento **organizacional**, não geracional.
 
-Nenhum dos 3 concorrentes menciona **curadoria humana no workflow** como feature principal.
+Nenhum dos 3 concorrentes menciona **decisão humana no loop** como feature principal.
 
 **Implicação:** ADScale compete em organização (mercado em formação, "creative ops"), não em geração (mercado commoditizado). Diferença importa porque geração tem 50+ players; organização tem 3-5. ADScale quer ser a referência de "creative ops", não "creative gen".
 

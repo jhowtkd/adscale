@@ -10,6 +10,7 @@ import {
 import { getAvailableCreditGrants, getActiveSubscriptionByWorkspace } from "./billing";
 import { getCreditTransactionsForWorkspace } from "./credit-transactions";
 import { getPresignedDownloadUrl } from "@/server/storage/r2";
+import { logger } from "@/lib/logger";
 
 export type AnalyticsPeriod = "week" | "month" | "quarter";
 export type CreditChartRange = "7" | "30" | "90";
@@ -241,7 +242,8 @@ export async function getDashboardStats(
       }
       try {
         thumbnailUrlByCampaign.set(campaignId, await getPresignedDownloadUrl(outputKey));
-      } catch {
+      } catch (err) {
+        logger.warn("[dashboard] thumbnail presign failed", { campaignId, error: err });
         thumbnailUrlByCampaign.set(campaignId, null);
       }
     })

@@ -20,25 +20,25 @@
 
 ## Parte 1 — Posicionamento
 
-### 1.1 A crenca central
+### 1.1 A tese central
 
-> **Curator > operator.**
+> **Inteligência criativa em escala.**
 
-ADScale defende que o trabalho criativo em performance marketing esta passando por uma mudanca de papel: o humano deixa de ser o **operator** (quem executa cada variacao manualmente) e vira o **curator** (quem define o briefing, supervisiona a geracao, aprova ou descarta, e itera com base no que funciona).
+ADScale defende que o trabalho criativo em performance marketing esta passando por uma mudanca de papel: o humano deixa de ser o **operator** (quem executa cada variacao manualmente) e vira **quem decide** (quem define o briefing, supervisiona a geracao, aprova ou descarta, e itera com base no que funciona).
 
-A IA nao substitui o humano. A IA **reposiciona** o humano. E a diferenca entre "IA mata o designer" e "IA te promove de operator a curator".
+A IA nao substitui o humano. A IA **reposiciona** o humano. E a diferenca entre "IA mata o designer" e "IA te promove de operator a quem decide".
 
-> *PT-BR: a partir daqui, "curator" e usado em EN como termo canonico. Equivalente conceitual: curador estrategico, diretor de criacao. Nao confundir com "operador" — que tem conotacao mecanica e descreve o papel antigo, nao a profissao do humano.*
+> *PT-BR: "inteligência criativa em escala" e a tese em uma frase. Papeis: **quem decide** (humano, lado estrategico) vs. **operator** (humano executando variacao manual ou IA executando o batch — papel antigo, maquinesco). Equivalente a "curador estrategico / diretor de criacao" no vocabulario tradicional, mas evitamos o anglicismo "curator" por estar saturado no LinkedIn 2023-2024. Nao confundir "operator" com "operador" generico — descreve o papel antigo de execucao, nao a profissao do humano.*
 
 ### 1.2 Mecanismos (como a crenca se concretiza no produto)
 
-| Mecanismo | O que e | Como o humano exerce o papel de curator |
+| Mecanismo | O que e | Como o humano exerce o papel de quem decide |
 |---|---|---|
-| **Briefing antes de imagem** | Estruturar plano criativo antes de gerar qualquer variacao. | O curator define angulo, publico, gancho, prova. Nao chega no botao "gerar" sem brief. |
-| **Variacao como batch** | Tratar 1 criativo como input para dezenas de derivacoes sistematicas. | O curator orquestra o batch (qual base, quais angulos, quantas derivacoes) — nao gera uma a uma. |
-| **Aprovacao/refinamento humano** | IA gera, humano cura. Nao e "IA decide sozinha". | O curator ve o resultado, mata o que e lixo, refina o que tem potencial, aprova o que vai pro ar. |
+| **Briefing antes de imagem** | Estruturar plano criativo antes de gerar qualquer variacao. | Quem decide define angulo, publico, gancho, prova. Nao chega no botao "gerar" sem brief. |
+| **Variacao como batch** | Tratar 1 criativo como input para dezenas de derivacoes sistematicas. | Quem decide orquestra o batch (qual base, quais angulos, quantas derivacoes) — nao gera uma a uma. |
+| **Aprovacao/refinamento humano** | IA gera, humano decide. Nao e "IA decide sozinha". | Quem decide ve o resultado, mata o que e lixo, refina o que tem potencial, aprova o que vai pro ar. |
 
-Cada um desses mecanismos e uma **interface do papel de curator**. ADScale e, no fundo, uma cadeira de curator — nao uma ferramenta de geracao.
+Cada um desses mecanismos e uma **interface do papel de quem decide**. ADScale e, no fundo, a infraestrutura da **inteligência criativa em escala** — nao uma ferramenta de geracao.
 
 ### 1.3 Mercado: com quem compete, contra quem nao compete
 
@@ -48,8 +48,8 @@ Cada um desses mecanismos e uma **interface do papel de curator**. ADScale e, no
 - **Madgicx** — foca em gestao de midia com algum suporte a criativos.
 
 **O angulo da ADScale contra eles:**
-- AdCreative.ai diz "IA gera". ADScale diz "IA gera, mas o curator decide". Diferenca sutil mas defensavel.
-- Pencil diz "IA preve performance". ADScale diz "performance vem de iteracao rapida com curator humano, nao de score preditivo".
+- AdCreative.ai diz "IA gera". ADScale diz "IA gera, mas humano decide". Diferenca sutil mas defensavel.
+- Pencil diz "IA preve performance". ADScale diz "performance vem de iteracao rapida com humano que decide, nao de score preditivo".
 - Madgicx e mais sobre bidding. ADScale nao compete diretamente.
 
 **Quem NAO compete (anti-positioning):**
@@ -57,7 +57,7 @@ Cada um desses mecanismos e uma **interface do papel de curator**. ADScale e, no
 - **Adobe Firefly** — geracao de imagem generica. Nao tem contexto de performance.
 - **Midjourney** — geracao de imagem artistica. Nao tem contexto de anuncio.
 
-ADScale nao compete em "geracao de imagem". Compete em **"escala de producao criativa para performance"**. A diferenca importa porque o mercado de geracao de imagem e commoditizado (qualquer um com $10M pode treinar um modelo melhor). O mercado de "como organizar o trabalho criativo para performance" nao e commoditizado e e onde a crenca "Curator > operator" e defensavel.
+ADScale nao compete em "geracao de imagem". Compete em **"escala de producao criativa para performance"**. A diferenca importa porque o mercado de geracao de imagem e commoditizado (qualquer um com $10M pode treinar um modelo melhor). O mercado de "como organizar o trabalho criativo para performance" nao e commoditizado e e onde a tese da **inteligência criativa em escala** e defensavel.
 
 ### 1.4 ICP (publico-alvo)
 
@@ -73,7 +73,7 @@ Qualquer pessoa ou time que produz criativos para anuncios pagos (Meta, TikTok, 
 **Por que sem hierarquia:** copy primario (sales page, sequencia de e-mails) fala com todos. Conteudo de topo de funil (Reels, carrosseis, posts) varia o exemplo a cada post — um fala de freelancer, outro de time interno, outro de agencia — pra dar textura sem fechar em persona.
 
 **Anti-ICP (nao e pra eles):**
-- Quem quer "IA que faz tudo sozinha". A crenca "curator > operator" pressupoe humano no loop.
+- Quem quer "IA que faz tudo sozinha". A tese da **inteligência criativa em escala** pressupoe humano no loop.
 - Quem produz criativo artesanal de marca (fashion, luxo, cinema). ADScale e para performance, nao para brand building.
 - Quem tem budget e prefere contratar +1 designer em vez de adotar ferramenta.
 
@@ -97,7 +97,7 @@ Jhonatan, founder tecnico, trabalhava com criacao de criativos pra ads — seja 
 
 Variacao virou projeto. Cada criativo era um job. Quando o cliente queria testar 10 angulos, isso era 10 jobs. Quando o algoritmo pedia 50 variacoes por mes, isso era uma crise de headcount.
 
-O insight fundador nao foi "IA pode gerar imagens". Foi: **"o gargalo nao e geracao, e organizacao. O humano ta fazendo trabalho de executor quando deveria ta fazendo trabalho de curator."**
+O insight fundador nao foi "IA pode gerar imagens". Foi: **"o gargalo nao e geracao, e organizacao. O humano ta fazendo trabalho de executor quando deveria ta fazendo trabalho de quem decide."**
 
 ### 2.2 Tensao (o problema do operator)
 
@@ -111,28 +111,28 @@ O mercado de performance marketing tem uma doenca cronica: a **escada do operato
 
 A escada do operator e o **modelo mental padrao** da industria. E ela que a ADScale quer quebrar.
 
-### 2.3 Resolucao (ADScale como cadeira de curator)
+### 2.3 Resolucao (ADScale como infraestrutura da inteligência criativa em escala)
 
-ADScale reposiciona o humano. Em vez de "como faco mais rapido?", a pergunta vira "como defino melhor o briefing e curo melhor o resultado?"
+ADScale reposiciona o humano. Em vez de "como faco mais rapido?", a pergunta vira "como defino melhor o briefing e decido melhor sobre o resultado?"
 
-A cadeira de curator tem 3 apoios:
-1. **Briefing estruturado** — o curator nao chuta angulo, segue um metodo.
-2. **Batch orquestrado** — o curator nao gera uma a uma, comanda o batch.
-3. **Curadoria continua** — o curator mata o ruim, refina o bom, escala o vencedor.
+A cadeira de quem decide tem 3 apoios:
+1. **Briefing estruturado** — quem decide nao chuta angulo, segue um metodo.
+2. **Batch orquestrado** — quem decide nao gera uma a uma, comanda o batch.
+3. **Curadoria continua** — quem decide mata o ruim, refina o bom, escala o vencedor.
 
 O ganho nao e "10x mais velocidade". O ganho e **"o trabalho bracal sai do caminho, e o trabalho estrategico fica visivel"**.
 
-### 2.4 Promessa (curator em escala)
+### 2.4 Promessa (inteligência criativa em escala)
 
 A promessa da ADScale, em uma frase:
 
-> "ADScale te tira da cadeira de operator e te coloca na cadeira de curator. Voce pensa o briefing uma vez. A IA executa as variacoes. Voce curada os resultados. Escala sem contratar."
+> "ADScale te tira da cadeira de operator e te coloca na cadeira de quem decide. Voce pensa o briefing uma vez. A IA executa as variacoes. Voce decide sobre os resultados. Escala sem contratar."
 
 A promessa nao e "IA faz tudo". E "IA faz o operacional, humano faz o estrategico, e os dois viram habito".
 
 ### 2.5 Futuro (visao)
 
-Em 2-3 anos, a categoria "creative ops" vai ser padronizada como existe hoje "growth ops" ou "revops". Toda agencia e time interno vai ter alguem com o titulo "creative curator" ou "head of curation". ADScale quer ser a infraestrutura dessa categoria — a cadeira que essa pessoa senta.
+Em 2-3 anos, a categoria "creative ops" vai ser padronizada como existe hoje "growth ops" ou "revops". Toda agencia e time interno vai ter alguem dedicado a decisao criativa em escala. ADScale quer ser a infraestrutura dessa categoria — a cadeira que essa pessoa senta.
 
 Nao e uma visao de "IA que substitui humanos". E visao de "humanos que operam em outro nivel porque a IA tira o trabalho mecanico do caminho".
 
@@ -168,7 +168,7 @@ A persona e a de um **cientista num laboratorio** — observa, experimenta, docu
 2. **Tecnico > motivacional.** Quando der pra ser especifico, seja. "10 derivacoes em 8 minutos" > "produza mais, mais rapido".
 3. **Confianca > empolgacao.** A gente nao promete revolucao. A gente mostra o que construiu e como funciona.
 4. **Pessoal, mas nao intimo.** Jhonatan aparece como founder, nao como influenciador. Bastidores, decisoes, aprendizados — sem expor vida pessoal.
-5. **PT-BR only.** ADScale opera 100% em portugues brasileiro (Brasil-only, ver ADR 0010). Bilíngue (PT + EN) foi suspenso. Exceções: termos canonicos em EN quando nao ha traducao natural (ex.: "Curator", "Lab Notes", "build in public").
+5. **PT-BR only.** ADScale opera 100% em portugues brasileiro (Brasil-only, ver ADR 0010). Bilíngue (PT + EN) foi suspenso. Exceções: termos canonicos em EN quando nao ha traducao natural (ex.: "Lab Notes", "build in public", "batch").
 
 ### 3.4 Estrutura de post (4 esqueletos)
 
@@ -214,8 +214,8 @@ A persona e a de um **cientista num laboratorio** — observa, experimenta, docu
 
 **Palavras que usamos:**
 
-- **Curator / curador estrategico** (papel do humano na nova divisao de trabalho)
-- **Operator / operador** (o papel antigo que o curator substitui)
+- **Estrategista criativo / quem decide** (papel do humano na nova divisao de trabalho)
+- **Operator / operador** (o papel antigo que **quem decide** substitui)
 - Variacao / derivacao (de criativo)
 - Briefing / plano criativo
 - Hook / angulo / CTA
@@ -241,7 +241,7 @@ A persona e a de um **cientista num laboratorio** — observa, experimenta, docu
 | "Solucao completa" | dizemos **o que** esta incluso |
 | "Basta poucos cliques" | dizemos **quantos cliques** ou **quanto tempo** |
 | "IA que faz tudo" | "IA faz o operacional, humano faz o estrategico" |
-| "Substitui o designer" | "reposiciona o humano de operator pra curator" |
+| "Substitui o designer" | "reposiciona o humano de operator pra quem decide" |
 | "Drop", "drop fake", "limited edition", "hype", "cool", "streetwear" | (vocabulario sneaker/RAD, proibido — ADScale e empresa de **tecnologia**, nao de streetwear) |
 
 ### 4.3 Frases que nunca escrevemos
@@ -253,13 +253,13 @@ A persona e a de um **cientista num laboratorio** — observa, experimenta, docu
 
 ### 4.4 Do/dont com exemplos
 
-#### ✅ Bom (alinhado com crenca Curator > operator)
+#### ✅ Bom (alinhado com a tese da inteligência criativa em escala)
 
-> "Subi um criativo, gerei 24 variacoes em 11 minutos, aprovei 9. Antes eu esperava 2 dias pelo designer. O que mudou nao foi o modelo — foi parar de tratar variacao como projeto e comecar a tratar como batch. **Eu sai do banquinho de operator e sentei na cadeira de curator.**"
+> "Subi um criativo, gerei 24 variacoes em 11 minutos, aprovei 9. Antes eu esperava 2 dias pelo designer. O que mudou nao foi o modelo — foi parar de tratar variacao como projeto e comecar a tratar como batch. **Eu sai do banquinho de operator e sentei na cadeira de quem decide.**"
 
-> "Mito: IA mata o designer. Realidade: IA mata o retrabalho. O designer que vira curator roda 5x mais criativo por mes — porque parou de fazer trabalho de executor."
+> "Mito: IA mata o designer. Realidade: IA mata o retrabalho. O designer que vira quem decide roda 5x mais criativo por mes — porque parou de fazer trabalho de executor."
 
-> "Briefing estruturado e o que separa operator de curator. Operator chega no botao 'gerar' e espera a IA decidir. Curator define angulo, publico, prova — e usa a IA pra executar, nao pra pensar."
+> "Briefing estruturado e o que separa operator de quem decide. Operator chega no botao 'gerar' e espera a IA decidir. Quem decide define angulo, publico, prova — e usa a IA pra executar, nao pra pensar."
 
 #### ❌ Mau (generico SaaS)
 
@@ -277,7 +277,7 @@ Esse pacote conceitual **nao e copy de execucao**. E o **framework** que toda co
 
 Quando alguem (humano ou IA) for escrever uma headline de sales page, um Reels script, um post de LinkedIn, ou um e-mail de sequencia — o checklist e:
 
-1. A copy reflete "Curator > operator" como crenca central? (Se nao, reescreve.)
+1. A copy reflete a tese da **inteligência criativa em escala**? (Se nao, reescreve.)
 2. A copy respeita o ICP amplo (exemplos rotativos, sem fechar em persona)?
 3. A copy usa o vocabulario canonico e evita o proibido?
 4. A copy soa como founder-cientista (humor fino, tecnico, sem coaching)?
@@ -306,7 +306,7 @@ Os arquivos abaixo ficam **mantidos como referencia historica** mas nao sao mais
 - Persona verbal: sai "founder fala com founder de agencia", entra "founder-cientista fala com qualquer profissional de marketing que produz criativos".
 - Humor: vira regra explicita (antes era implicito).
 - Vocabulario canonico expandido com termos da persona laboratorio (protocolo, hipotese, grupo de controle, etc.).
-- Termo canonico **"Curator > operator"** adicionado (era Pilar 2 vago em v1, agora vira crenca central).
+- Termo canonico **"inteligência criativa em escala"** adicionado (era Pilar 2 vago em v1 — antes chamado "Curator > operator" — agora vira tese central).
 
 ### `marketing/brand/mensagens-chave.md` (v1, 2026-06-23)
 
@@ -315,20 +315,20 @@ Os arquivos abaixo ficam **mantidos como referencia historica** mas nao sao mais
 | # v1 | v1 (deprecated) | v0 (canonical) |
 |-----|-----------------|----------------|
 | 1 | Velocidade de teste e a nova vantagem competitiva. | Mantida. |
-| 2 | IA substitui o operacional, nao o estrategico. | **Reframeada.** Agora e consequencia da crenca central: "IA reposiciona o humano de operator pra curator — sai do executor, entra no estrategico." |
+| 2 | IA substitui o operacional, nao o estrategico. | **Reframeada.** Agora e consequencia da tese central: "IA reposiciona o humano de operator pra quem decide — sai do executor, entra no estrategico." |
 | 3 | Ferramenta boa vira habito, ferramenta ruim vira despesa. | Mantida. |
 | 4 | Agencia que escala criativo escala margem. | **Reframeada** pra ICP amplo: "Time que escala criativo escala margem — sem aumentar headcount, sem aumentar prazo." |
 | 5 | Construir em publico > fingir perfeicao. | Mantida. |
 
-**Novas mensagens adicionadas (vindas da crenca central):**
+**Novas mensagens adicionadas (vindas da tese central):**
 
-- "Curator > operator." A crenca em uma frase.
-- "ADScale e uma cadeira de curator, nao uma ferramenta de geracao."
-- "Briefing antes de imagem. Batch em vez de projeto. Curadoria no fim."
+- "Inteligência criativa em escala." A tese em uma frase.
+- "ADScale e a infraestrutura da inteligência criativa em escala, nao uma ferramenta de geracao."
+- "Briefing antes de imagem. Batch em vez de projeto. Decisao no fim."
 
 ### Arquivos em outros diretorios que precisam de copy atualizada (fora do escopo desse pacote)
 
-Quando a execucao for descongelada, esses arquivos vao precisar de copy revisada pra refletir Curator > operator + ICP amplo. Lista:
+Quando a execucao for descongelada, esses arquivos vao precisar de copy revisada pra refletir a tese da **inteligência criativa em escala** + ICP amplo. Lista:
 
 - `marketing/launch/plano-lancamento.md`
 - `marketing/launch/canais-aquisicao.md`

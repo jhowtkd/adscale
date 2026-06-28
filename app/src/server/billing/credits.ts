@@ -15,6 +15,7 @@ import { db } from "@/server/db";
 import { user } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 import { logger } from "@/lib/logger";
+import { captureException } from "@/lib/sentry";
 import { resolveCreditOperationKey } from "./credit-operation-key";
 import { recordBetaAnalyticsEvent } from "@/server/beta-analytics/record";
 import { createCreditTransaction } from "@/server/repositories/credit-transactions";
@@ -288,7 +289,10 @@ export async function recordUsage(input: {
         description: input.action,
       });
     } catch (txErr) {
-      logger.warn("[recordUsage] failed to create credit transaction", txErr);
+      logger.error("[recordUsage] failed to create credit transaction", { error: txErr, workspaceId: input.workspaceId, amount: -check.amount });
+      captureException(txErr, {
+        tags: { component: "billing-ledger", workspaceId: input.workspaceId, action: input.action },
+      });
     }
   }
 

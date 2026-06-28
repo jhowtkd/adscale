@@ -55,13 +55,13 @@
 
 7 pautas em `~/stalker/runs/2026-W26/pautas.md`:
 
-- **P1** Lead magnet "Comment CURATOR" (Pilar B) — prioridade alta.
+- **P1** Lead magnet "Comment DECIDE" (Pilar B) — prioridade alta.
 - **P2** TESE-ÚNICA Reels (Pilar A) — prioridade alta.
 - **P3** REFRAME Reels "Briefing? Não" (Pilar A).
 - **P4** DATA-RICH Cannes Lions (Pilar A).
 - **P5** BASTIDOR build in public (Pilar C) — exige conteúdo real.
 - **P6** Post curto fundador-cientista (Pilar A).
-- **P7** Ranking Curator do mês (Pilar B) — exige dados públicos reais.
+- **P7** Ranking do mês de quem decide (Pilar B) — exige dados públicos reais.
 
 > {{ status: pautas em ⏸ aguardando aprovação. Fase 7 (geração de copy final) só roda com OK de Jhonatan. }}
 
