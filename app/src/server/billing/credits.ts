@@ -329,3 +329,100 @@ export async function recordUsage(input: {
 
   return { status: "recorded" as const, usage, check };
 }
+
+export async function refundCredits(input: {
+  workspaceId: string;
+  action: CreditAction;
+  idempotencyKey: string;
+  amount?: number;
+  metadata?: Record<string, unknown>;
+  userId?: string;
+}): Promise<{ status: "refunded" | "duplicate" }> {
+  const existing = await getUsageByIdempotencyKey(
+    input.workspaceId,
+    input.idempotencyKey
+  );
+  if (existing) {
+    return { status: "duplicate" as const };
+  }
+
+  const refundAmount = creditAmount(input.action, input.amount);
+  const meta = input.metadata ?? {};
+
+  const devAdminWorkspace = await workspaceHasDevAdminOwner(input.workspaceId);
+
+  if (!devAdminWorkspace) {
+    try {
+      await db.transaction(async (tx) => {
+        const grants = await getAvailableCreditGrants(
+          input.workspaceId,
+          tx,
+          true
+        );
+        if (grants.length === 0) {
+          return;
+        }
+        const target = grants[0];
+        await updateCreditGrantRemaining(
+          target.id,
+          target.remaining + refundAmount,
+          tx
+        );
+      });
+    } catch (err) {
+      logger.error("[refundCredits] failed to credit grant", {
+        error: err,
+        workspaceId: input.workspaceId,
+        amount: refundAmount,
+      });
+      throw err;
+    }
+  }
+
+  await trackUsage(
+    input.workspaceId,
+    input.action,
+    devAdminWorkspace ? 0 : -refundAmount,
+    {
+      ...meta,
+      refund: true,
+      creditAmount: refundAmount,
+      devAdminBypass: devAdminWorkspace || undefined,
+    },
+    input.idempotencyKey
+  );
+
+  if (input.userId) {
+    try {
+      await createCreditTransaction({
+        userId: input.userId,
+        workspaceId: input.workspaceId,
+        campaignId: typeof meta.campaignId === "string" ? meta.campaignId : null,
+        derivationId:
+          typeof meta.sourceDerivationId === "string"
+            ? meta.sourceDerivationId
+            : typeof meta.derivationId === "string"
+              ? meta.derivationId
+              : null,
+        amount: refundAmount,
+        type: "refund",
+        description: `${input.action}_refund`,
+      });
+    } catch (txErr) {
+      logger.error("[refundCredits] failed to create refund transaction", {
+        error: txErr,
+        workspaceId: input.workspaceId,
+        amount: refundAmount,
+      });
+      captureException(txErr, {
+        tags: {
+          component: "billing-ledger",
+          workspaceId: input.workspaceId,
+          action: input.action,
+        },
+      });
+    }
+  }
+
+  return { status: "refunded" as const };
+}
