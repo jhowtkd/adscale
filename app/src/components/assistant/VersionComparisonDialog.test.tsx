@@ -151,7 +151,9 @@ describe("VersionComparisonDialog", () => {
       <VersionComparisonDialog open request={request} lineages={[lineage]} onOpenChange={onOpenChange} />
     );
 
-    expect(screen.getByRole("button", { name: "Fechar comparação" })).toBeDisabled();
+    expect(
+      screen.getAllByRole("button", { name: "Fechar comparação" })
+    ).toEqual(expect.arrayContaining([expect.objectContaining({ disabled: true })]));
     expect(screen.getByRole("button", { name: "Aprovar v2" })).toBeDisabled();
   });
 });
