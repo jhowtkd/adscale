@@ -150,7 +150,7 @@ npm run preflight:stripe -- --app-url=https://...  # optional live Stripe checks
 npm run test -- src/lib/hooks/use-billing.test.tsx src/server/billing/events.test.ts src/app/api/billing/webhook/route.test.ts src/server/billing/credits.test.ts src/server/billing/gates.test.ts src/server/billing/sessions.test.ts src/app/api/billing/checkout/route.test.ts src/app/api/billing/portal/route.test.ts tests/integration/auth-workspace-access.test.ts
 ```
 
-The v12.0 billing regression gate is the full Vitest suite (`npm test` — 1061 passing tests per [TESTING.md](./TESTING.md)). Manual Stripe smoke steps are in [`app/README.md`](../app/README.md#manual-stripe-smoke).
+The v12.0 billing regression gate is the full Vitest suite (`npm test` — current count in [TESTING.md](./TESTING.md)). Manual Stripe smoke steps are in [`app/README.md`](../app/README.md#manual-stripe-smoke).
 
 ## Database migrations
 

@@ -126,7 +126,7 @@ Production configuration is defined in `render.yaml` and completed in the **Rend
 
 ### Must set manually (`sync: false`)
 
-`OPENAI_API_KEY`, all `R2_*`, `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`, `RESEND_API_KEY`, `RESEND_WAITLIST_SEGMENT_ID`, `EMAIL_FROM`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and the three `STRIPE_*_PRICE_ID` values.
+`OPENAI_API_KEY`, all `R2_*`, `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`, `RESEND_API_KEY`, `RESEND_WAITLIST_SEGMENT_ID`, `EMAIL_FROM`, `MINIMAX_API_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and the three `STRIPE_*_PRICE_ID` values. (`MINIMAX_API_KEY` is Zod-required at runtime — see `app/src/server/validation/env.ts`.)
 
 For Resend: create an API key in the Resend dashboard and set `RESEND_API_KEY`. Revoke and replace any key that was exposed in chat or logs. `EMAIL_FROM` can start as `ADScale <onboarding@resend.dev>` for smoke tests; for production, verify your sending domain in Resend and use an address on that domain. Set `RESEND_WAITLIST_SEGMENT_ID` to the Resend Audiences segment ID used by waitlist contact sync (`app/src/server/services/resend-contacts.ts`).
 

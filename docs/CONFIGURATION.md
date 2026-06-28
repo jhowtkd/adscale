@@ -21,6 +21,8 @@ Runtime secrets and service URLs are read from `process.env`. The canonical list
 | `OPENAI_API_KEY` | Yes | — | OpenAI API key; must start with `sk-`. |
 | `OPENAI_TEXT_MODEL` | No | `gpt-5-mini` | Text model for AI features. |
 | `OPENAI_IMAGE_MODEL` | No | `gpt-image-2-2026-04-21` | Image model for AI features. |
+| `MINIMAX_API_KEY` | Yes | — | MiniMax chat-model API key; required by the assistant orchestrator (`app/src/server/assistant/minimax-client.ts`). Zod-validated as non-empty. |
+| `MINIMAX_MODEL` | No | `MiniMax-M3` | MiniMax chat model identifier; defaults to `MiniMax-M3` if unset. |
 | `R2_ACCOUNT_ID` | Yes | — | Cloudflare R2 account ID. |
 | `R2_ACCESS_KEY_ID` | Yes | — | R2 access key ID. |
 | `R2_SECRET_ACCESS_KEY` | Yes | — | R2 secret access key. |
@@ -192,6 +194,7 @@ Defaults enforced by Zod (applied when the variable is unset or empty at parse t
 |----------|---------|
 | `OPENAI_TEXT_MODEL` | `gpt-5-mini` |
 | `OPENAI_IMAGE_MODEL` | `gpt-image-2-2026-04-21` |
+| `MINIMAX_MODEL` | `MiniMax-M3` |
 
 Code defaults not in Zod:
 

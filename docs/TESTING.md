@@ -75,7 +75,7 @@ Equivalent to:
 vitest run --config config/vitest.config.ts --passWithNoTests
 ```
 
-The project currently has **340** Vitest test files (`*.test.ts` / `*.test.tsx`) under `app/src/` (co-located with source) and `app/tests/` (shared unit/integration suites). A full local run reports **~2200** tests (exact count grows with the codebase; one billing regression gate test is skipped by default).
+The project currently has **464** Vitest test files (`*.test.ts` / `*.test.tsx`) — **342** under `app/src/` (co-located with source) and **122** under `app/tests/` (shared unit/integration suites, excluding `tests/e2e/`). A full local run reports **~2200** tests (exact count grows with the codebase; one billing regression gate test is skipped by default). Refresh with `find app/src app/tests -name "*.test.ts" -o -name "*.test.tsx" | grep -v node_modules | wc -l`.
 
 ### Watch mode (development)
 
@@ -133,6 +133,9 @@ E2E specs live in `app/tests/e2e/` and use the `*.spec.ts` suffix. They are **no
 | `visual-a11y-gate.spec.ts` | Accessibility gate at mobile and desktop viewports |
 | `visual-foundations.spec.ts` | Visual baseline capture for foundations phase evidence |
 | `visual-shell.spec.ts` | App shell and navigation layout checks |
+| `assistant-happy-path.spec.ts` | Assistant orchestrator happy-path user journey |
+| `guided-assistant-journeys.spec.ts` | Guided assistant flows across multi-step briefs |
+| `guided-assistant-scenarios.spec.ts` | Scenario variants for guided assistant behavior |
 
 **Prerequisites for `test:e2e` (restyle and general E2E):**
 
@@ -257,7 +260,7 @@ No minimum coverage thresholds are defined in `app/config/vitest.config.ts` or e
 | Postgres service | `postgres:16-alpine`, database `adscale_test`, port `5432` |
 | Install | `cd app && npm ci` |
 | Lint | `cd app && npm run lint` |
-| Typecheck | `cd app && npm run typecheck` — the workflow expects this script; if it is missing from `app/package.json`, use `npx tsc --noEmit` locally (see [DEVELOPMENT.md](./DEVELOPMENT.md)) |
+| Typecheck | **⚠ CI gap:** `cd app && npm run typecheck` — the script is **not yet defined** in `app/package.json`, so the workflow currently fails at this step. Local fallback: `npx tsc --noEmit` from `app/` (see [DEVELOPMENT.md](./DEVELOPMENT.md)). Track adding a `"typecheck": "tsc --noEmit"` script to `app/package.json` to unblock CI. |
 | Migrations | `cd app && npx drizzle-kit migrate` with `DATABASE_URL=postgres://test:test@localhost:5432/adscale_test` |
 | **Tests** | `cd app && npm test -- --run` with `DATABASE_URL` and `NODE_ENV=test` |
 | Build | `cd app && npm run build` (with test env vars for auth, OpenAI, R2, Inngest) |

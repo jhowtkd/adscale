@@ -105,6 +105,7 @@ Replace placeholder secrets before starting the app—values like `replace-with-
 | `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY` | Use `local` for both when running the Inngest dev server locally |
 | `RESEND_API_KEY` | Must start with `re_` |
 | `EMAIL_FROM` | Sender string (example: `ADScale <onboarding@resend.dev>`) |
+| `MINIMAX_API_KEY` | MiniMax chat-model key required by the assistant orchestrator (`app/src/server/assistant/minimax-client.ts`); fails Zod validation if unset |
 
 **Stripe (required for billing UI and credit gates)**
 
@@ -291,5 +292,5 @@ The Drizzle journal may be out of sync if migrations were applied manually. See 
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** — Components, data flow, and directory layout
 - **[CONFIGURATION.md](CONFIGURATION.md)** — Complete environment and config reference
 - **[DEVELOPMENT.md](DEVELOPMENT.md)** — Day-to-day dev workflow, scripts, lint, and PR process
-- **[TESTING.md](TESTING.md)** — Running Vitest (**1061 tests**) and database test setup
+- **[TESTING.md](TESTING.md)** — Running Vitest (~2200 tests across **464** test files; both numbers grow with the codebase) and database test setup
 - **`app/README.md`** — Stripe test mode, focused billing test commands, and Docker notes (`app/DOCKER.md`)
