@@ -484,5 +484,19 @@ describeDb("artifact promotion transaction", () => {
       [ids.derivation1]: "completed",
       [ids.derivation2]: "approved",
     });
+
+    await expect(
+      promoteArtifactVersion({
+        scope,
+        command: {
+          type: "plan",
+          operationId,
+          lineageId: ids.planLineage,
+          targetVersionId: ids.planV1,
+          expectedOfficialVersionId: ids.planV2,
+          expectedRevision: 1,
+        },
+      })
+    ).rejects.toThrow("Operation ID belongs to a different promotion command");
   });
 });

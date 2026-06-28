@@ -722,13 +722,52 @@ async function appendApprovalEvent(
 async function promotionRowsForOperation(
   tx: ArtifactTx,
   scope: ArtifactScope,
-  operationId: string
+  command: ArtifactPromotionCommand
 ) {
   const events = await tx.select().from(assistantArtifactApprovalEvents).where(and(
-    eq(assistantArtifactApprovalEvents.operationId, operationId),
+    eq(assistantArtifactApprovalEvents.operationId, command.operationId),
     approvalScope(scope)
   ));
   if (events.length === 0) return [];
+  const expectedTargets = [
+    {
+      artifactType: command.type,
+      lineageId: command.lineageId,
+      promotedVersionId: command.targetVersionId,
+      previousOfficialVersionId: command.expectedOfficialVersionId,
+    },
+    ...(command.type === "creative" && command.planTransition
+      ? [{
+          artifactType: "plan" as const,
+          lineageId: command.planTransition.lineageId,
+          promotedVersionId: command.planTransition.targetVersionId,
+          previousOfficialVersionId:
+            command.planTransition.expectedOfficialVersionId,
+        }]
+      : []),
+  ];
+  const targetKey = (target: {
+    artifactType: string;
+    lineageId: string;
+    promotedVersionId: string;
+    previousOfficialVersionId: string | null;
+  }) =>
+    [
+      target.artifactType,
+      target.lineageId,
+      target.promotedVersionId,
+      target.previousOfficialVersionId ?? "",
+    ].join(":");
+  const actualKeys = events.map(targetKey).sort();
+  const expectedKeys = expectedTargets.map(targetKey).sort();
+  if (
+    actualKeys.length !== expectedKeys.length ||
+    actualKeys.some((key, index) => key !== expectedKeys[index])
+  ) {
+    throw new ArtifactVersionValidationError(
+      "Operation ID belongs to a different promotion command"
+    );
+  }
   const versions = await tx.select({
     id: assistantArtifactVersions.id,
     versionNumber: assistantArtifactVersions.versionNumber,
@@ -768,10 +807,13 @@ export async function promoteArtifactVersion(input: {
   command: ArtifactPromotionCommand;
 }) {
   return db.transaction(async (tx) => {
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtextextended(${input.command.operationId}, 0))`
+    );
     const replay = await promotionRowsForOperation(
       tx,
       input.scope,
-      input.command.operationId
+      input.command
     );
     if (replay.length > 0) {
       return { promotions: replay, staleProposalCount: 0, replayed: true };
