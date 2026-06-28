@@ -2,17 +2,17 @@
 gsd_state_version: 1.0
 milestone: v13.9
 milestone_name: Copiloto Criativo Iterativo
-current_plan: "206-01"
+current_plan: 206-02
 status: executing
-stopped_at: Completed 206-01-PLAN.md
-last_updated: "2026-06-28T17:33:34.642Z"
-last_activity: 2026-06-28 -- Plan 206-01 comparison contract complete
+stopped_at: Completed 206-02-PLAN.md
+last_updated: "2026-06-28T17:57:00.051Z"
+last_activity: 2026-06-28 -- Plan 206-02 atomic promotion complete
 progress:
   total_phases: 5
   completed_phases: 3
   total_plans: 13
-  completed_plans: 10
-  percent: 77
+  completed_plans: 11
+  percent: 60
 ---
 
 # Project State
@@ -27,13 +27,13 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 ## Current Position
 
 Phase: 206 of 207 (executing)
-Plan: 1 of 4 in phase
-Current Plan: 206-01
+Plan: 2 of 4 in phase
+Current Plan: 206-02
 Total Plans in Phase: 4
 Status: In progress
-Last activity: 2026-06-28 -- Plan 206-01 comparison contract complete
+Last activity: 2026-06-28 -- Plan 206-02 atomic promotion complete
 
-Progress: [████████░░] 77%
+Progress: [█████████░] 85%
 
 ## Previous Milestone
 
@@ -59,6 +59,7 @@ Progress: [████████░░] 77%
 | Phase 205 P04 | 7min | 3 tasks | 9 files |
 | Phase 205 P03 | 8min | 3 tasks | 9 files |
 | Phase 206 P01 | 25min | 2 tasks | 7 files |
+| Phase 206 P02 | 18min | 3 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -78,6 +79,9 @@ Progress: [████████░░] 77%
 - [Phase 206]: Comparison responses use a strict positive allowlist separate from persisted version snapshots.
 - [Phase 206]: Plan list comparison preserves canonical order and uses occurrence-aware matching for deterministic duplicate-safe moves.
 - [Phase 206]: Creative intent comes from confirmed persisted proposals, with persisted feedback as the safe fallback.
+- [Phase 206]: Promotion re-reads scoped targets and performs every head, canonical, proposal, and history write in one transaction.
+- [Phase 206]: Expected official IDs plus revisions drive non-retrying conflict recovery.
+- [Phase 206]: Compound promotion is operation-idempotent and makes no billing or credit call.
 
 ### Pending Todos
 
@@ -92,6 +96,6 @@ Progress: [████████░░] 77%
 
 ## Session Continuity
 
-Last session: 2026-06-28T17:33:34.638Z
-Stopped at: Completed 206-01-PLAN.md
+Last session: 2026-06-28T17:56:41.474Z
+Stopped at: Completed 206-02-PLAN.md
 Resume file: None
