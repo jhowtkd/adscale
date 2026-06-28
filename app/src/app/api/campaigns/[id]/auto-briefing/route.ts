@@ -7,7 +7,6 @@ import { getCampaignById } from "@/server/repositories/campaign";
 import { downloadBuffer } from "@/server/storage/r2";
 import { analyzeImageContent } from "@/server/ai/image-analysis";
 import { spendCreditsOrApiError } from "@/server/billing/gates";
-import { logger } from "@/lib/logger";
 
 const postBodySchema = z.object({
   imageKey: z.string().min(1),
@@ -108,7 +107,6 @@ export async function POST(
       },
     });
   } catch (error) {
-    logger.warn("[auto-briefing.POST] analysis failed", error);
     return handleApiError(error, "campaigns.auto-briefing.POST");
   }
 }

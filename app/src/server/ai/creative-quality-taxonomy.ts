@@ -46,12 +46,6 @@ export const SCORE_BREAKDOWN_TO_CRITERION: Record<string, CreativeQualityDimensi
   variationLevelFit: "variationLevelFit",
 };
 
-/** @deprecated Use SCORE_BREAKDOWN_TO_CRITERION */
-export const SCORE_BREAKDOWN_ALIASES = SCORE_BREAKDOWN_TO_CRITERION;
-
-/** @deprecated Use CREATIVE_QA_CORE_CRITERIA */
-export const CREATIVE_QA_CRITERIA = CREATIVE_QA_CORE_CRITERIA;
-
 export function mapScoreBreakdownKeyToCriterion(
   key: string
 ): CreativeQualityDimensionId | null {

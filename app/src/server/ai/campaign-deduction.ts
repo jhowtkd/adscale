@@ -2,6 +2,7 @@ import { getOpenAI } from "@/server/ai/utils";
 import { z } from "zod";
 import { zodResponseFormat } from "openai/helpers/zod";
 import { AiDeducedFields, aiDeducedFieldsSchema } from "../validation/ai-deduction";
+import { logger } from "@/lib/logger";
 
 const CampaignDeductionResponseSchema = z.object({
   product: z.object({
@@ -99,11 +100,11 @@ Be concise but accurate. Do not invent information not present in the image.`,
       });
       return validated;
     } catch (error) {
-      console.error("Failed to parse AI deduction response:", error);
+      logger.error("[campaign-deduction] failed to parse AI deduction response", { error });
       return {};
     }
   } catch (error) {
-    console.error("AI analysis failed:", error);
+    logger.error("[campaign-deduction] AI analysis failed", { error });
     return {};
   }
 }

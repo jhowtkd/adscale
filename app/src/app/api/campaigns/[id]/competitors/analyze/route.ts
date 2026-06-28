@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { isAllowedImageType, validateImageMagicBytes } from "@/lib/upload-config";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { checkRateLimit } from "@/lib/with-rate-limit";
-import { logger } from "@/lib/logger";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getCampaignById } from "@/server/repositories/campaign";
 import { analyzeCompetitorCreative } from "@/server/ai/competitor-analyzer";
@@ -97,7 +96,6 @@ export async function POST(
 
     return NextResponse.json({ analysis: merged });
   } catch (error) {
-    logger.error("[competitors/analyze] analysis failed", error);
     return handleApiError(error, "campaigns.[id].competitors.analyze.POST");
   }
 }

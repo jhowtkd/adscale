@@ -5,7 +5,14 @@ import { listFactualIssueAlerts } from "@/server/human-quality/learning/factual-
 import { generateAndPersistClientLearningProposals } from "@/server/human-quality/learning/generate";
 
 export const learningProposalAggregatorJob = inngest.createFunction(
-  { id: "learning-proposal-aggregator", triggers: [{ cron: "0 6 * * *" }] },
+  {
+    id: "learning-proposal-aggregator",
+    triggers: [{ cron: "0 6 * * *" }],
+    retries: 3,
+    onFailure: async ({ error }) => {
+      logger.error("[learningProposalAggregatorJob] failed after retries", { error });
+    },
+  },
   async ({ step }) => {
     const clientResult = await step.run("generate-client-proposals", async () => {
       const result = await generateAndPersistClientLearningProposals();

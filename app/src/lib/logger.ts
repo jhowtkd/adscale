@@ -34,11 +34,45 @@ interface Logger {
   child: (namespace: string) => Logger;
 }
 
+let sentryModule: typeof import("@sentry/nextjs") | null | undefined;
+
+async function loadSentry(): Promise<typeof import("@sentry/nextjs") | null> {
+  if (!process.env.SENTRY_DSN) return null;
+  if (sentryModule !== undefined) return sentryModule;
+  try {
+    sentryModule = await import("@sentry/nextjs");
+  } catch {
+    sentryModule = null;
+  }
+  return sentryModule;
+}
+
+function forwardToSentry(level: LogLevel, args: unknown[]): void {
+  if (level !== "error" && level !== "warn") return;
+  if (!process.env.SENTRY_DSN) return;
+  if (typeof window !== "undefined") return;
+  void loadSentry().then((Sentry) => {
+    if (!Sentry) return;
+    for (const arg of args) {
+      if (arg instanceof Error) {
+        if (level === "error") Sentry.captureException(arg);
+      }
+    }
+    const stringArgs = args.filter((a): a is string => typeof a === "string");
+    if (stringArgs.length > 0 && args.every((a) => !(a instanceof Error))) {
+      const message = stringArgs.join(" ");
+      if (level === "error") Sentry.captureMessage(message, "error");
+      else if (level === "warn") Sentry.captureMessage(message, "warning");
+    }
+  });
+}
+
 function createLogger(namespace?: string): Logger {
   const prefix = namespace ? `[${namespace}]` : "";
 
   function log(level: LogLevel, ...args: unknown[]) {
     if (!shouldLog(level)) return;
+    forwardToSentry(level, args);
     const timestamp = new Date().toISOString();
     const label = `${timestamp} ${level.toUpperCase().padStart(5)} ${prefix}`;
     if (level === "error") {

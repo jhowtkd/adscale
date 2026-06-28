@@ -74,6 +74,7 @@ import {
   DERIVATION_USER_SAFE_ERROR,
   sanitizeDerivationFailureError,
 } from "./derivation-error-sanitizer";
+import * as Sentry from "@sentry/nextjs";
 
 const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 120_000 });
 const IMAGE_GENERATION_TIMEOUT_MS = 5 * 60 * 1000;
@@ -252,6 +253,12 @@ export const derivationJob = inngest.createFunction(
         campaignId,
         technicalDetail,
       });
+      if (process.env.SENTRY_DSN) {
+        Sentry.captureException(error, {
+          tags: { component: "inngest", fn: "generate-derivation", errorId },
+          extra: { derivationId, campaignId, workspaceId, assistantActionId, triggeredByUserId, technicalDetail },
+        });
+      }
       await step.run("mark-failed", async () => {
         await db
           .update(derivations)

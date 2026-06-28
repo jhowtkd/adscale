@@ -1,9 +1,11 @@
 import { z } from "zod";
 import { apiError, apiSuccess, handleApiError } from "@/lib/api-response";
+import { checkRateLimit } from "@/lib/with-rate-limit";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getCampaignById, updateCampaign } from "@/server/repositories/campaign";
 import { getOpenAI } from "@/server/ai/utils";
 import { zodResponseFormat } from "openai/helpers/zod";
+import { logger } from "@/lib/logger";
 
 const suggestCtasSchema = z.object({
   campaignContext: z.object({
@@ -33,6 +35,8 @@ export async function POST(
       requireWorkspaceAccess(request),
       params,
     ]);
+    const rateLimitResult = await checkRateLimit(request, { category: "ai", workspaceId: workspace.id });
+    if (rateLimitResult) return rateLimitResult;
 
     // Verify campaign exists and belongs to workspace
     const campaign = await getCampaignById(campaignId, workspace.id);
@@ -139,7 +143,7 @@ Return only valid JSON matching the schema.`,
     const validated = CtaSuggestionsResponseSchema.parse(parsed);
     return validated.suggestions;
   } catch (error) {
-    console.error("Failed to parse CTA suggestions response:", error);
+    logger.error("[suggest-ctas] failed to parse AI response", { error });
     return getDefaultSuggestions();
   }
 }

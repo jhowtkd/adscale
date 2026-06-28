@@ -9,20 +9,11 @@ import { buildClientVoiceFromConfig } from "../voices/client-voice";
 import { artVariationContractFixture } from "../prompt-builder.test-fixtures";
 
 const resolveVoiceForClientProfile = vi.fn();
-const resolveClientVoice = vi.fn();
 
 vi.mock("../voices/voice-config-resolver", () => ({
   resolveVoiceForClientProfile: (...args: unknown[]) =>
     resolveVoiceForClientProfile(...args),
 }));
-
-vi.mock("../voices/client-voice", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../voices/client-voice")>();
-  return {
-    ...actual,
-    resolveClientVoice: (...args: unknown[]) => resolveClientVoice(...args),
-  };
-});
 
 const cenbrapVoice = buildClientVoiceFromConfig({
   voiceId: CENBRAP_VOICE.id,
@@ -55,7 +46,6 @@ describe("buildGenerationDirectionSection", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    resolveClientVoice.mockReturnValue(null);
     resolveVoiceForClientProfile.mockResolvedValue(null);
   });
 
@@ -99,16 +89,6 @@ describe("buildGenerationDirectionSection", () => {
     expect(section).toContain("Professor authority card");
     expect(section).toContain("Vertical editorial stack");
     expect(section).toContain("Badge wall competes with hook");
-  });
-
-  it("does not call legacy resolveClientVoice", async () => {
-    await buildGenerationDirectionSection({
-      ...baseInput,
-      workspaceId: "ws-1",
-      clientProfileId: "profile-cenbrap",
-    });
-
-    expect(resolveClientVoice).not.toHaveBeenCalled();
   });
 
   it("does not inject voice when campaign name matches Cenbrap but clientProfileId is absent", async () => {

@@ -4,6 +4,7 @@ import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getAssetWithMetadata, updateAssetMetadata } from "@/server/repositories/asset";
 import { analyzeCampaignCreative } from "@/server/ai/campaign-deduction";
 import { getPublicUrl } from "@/server/storage/r2";
+import { logger } from "@/lib/logger";
 
 const analyzeSchema = z.object({
   assetId: z.string().uuid(),
@@ -70,7 +71,7 @@ export async function POST(
         cached: false,
       });
     } catch (aiError) {
-      console.error("AI analysis failed:", aiError);
+      logger.error("[analyze] AI analysis failed", { assetId, error: aiError });
 
       // Graceful degradation: mark as failed but don't error
       await updateAssetMetadata(assetId, workspace.id, {

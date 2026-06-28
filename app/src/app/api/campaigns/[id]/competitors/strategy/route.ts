@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { checkRateLimit } from "@/lib/with-rate-limit";
-import { logger } from "@/lib/logger";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getCampaignById } from "@/server/repositories/campaign";
 import { getCompetitorAnalysesByCampaign } from "@/server/repositories/competitor-analysis";
@@ -108,7 +107,6 @@ export async function POST(
 
     return NextResponse.json({ strategy });
   } catch (error) {
-    logger.error("[competitors/strategy] strategy generation failed", error);
     return handleApiError(error, "campaigns.[id].competitors.strategy.POST");
   }
 }

@@ -9,7 +9,14 @@ import {
 } from "@/server/services/notifications";
 
 export const trialNotificationJob = inngest.createFunction(
-  { id: "trial-expiring-notification", triggers: [{ cron: "0 9 * * *" }] },
+  {
+    id: "trial-expiring-notification",
+    triggers: [{ cron: "0 9 * * *" }],
+    retries: 3,
+    onFailure: async ({ error }) => {
+      logger.error("[trialNotificationJob] failed after retries", { error });
+    },
+  },
   async ({ step }) => {
     const now = new Date();
     const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
@@ -30,19 +37,17 @@ export const trialNotificationJob = inngest.createFunction(
 
     logger.info(`[trialNotificationJob] found ${expiringTrials.length} trials expiring in ~3 days`);
 
-    await Promise.all(
-      expiringTrials.map((sub) =>
-        step.run(`notify-trial-${sub.id}`, async () => {
+    const processed = await step.run("notify-trials", async () => {
+      let notified = 0;
+      for (const sub of expiringTrials) {
         const endDate = sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd) : null;
         const daysLeft = endDate
           ? Math.ceil((endDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000))
           : 0;
-
-        try {
-          const recipients = await getWorkspaceNotificationRecipients(sub.workspaceId);
-          await Promise.all(
-            recipients.map(async (recipient) => {
-              if (!recipient.trialExpiringNotifiedAt || recipient.trialExpiringNotifiedAt < twoDaysFromNow) {
+        const recipients = await getWorkspaceNotificationRecipients(sub.workspaceId);
+        await Promise.all(
+          recipients.map(async (recipient) => {
+            if (!recipient.trialExpiringNotifiedAt || recipient.trialExpiringNotifiedAt < twoDaysFromNow) {
               await sendTrialExpiringEmail({
                 to: recipient.email,
                 daysLeft,
@@ -52,16 +57,14 @@ export const trialNotificationJob = inngest.createFunction(
                 .update(user)
                 .set({ trialExpiringNotifiedAt: new Date() })
                 .where(eq(user.id, recipient.userId));
-              }
-            })
-          );
-        } catch (err) {
-          logger.warn(`[trialNotificationJob] failed to notify for subscription=${sub.id}`, err);
-        }
-        })
-      )
-    );
+              notified += 1;
+            }
+          })
+        );
+      }
+      return notified;
+    });
 
-    return { processed: expiringTrials.length };
+    return { processed };
   }
 );

@@ -21,11 +21,6 @@ export async function deleteObject(key: string) {
   return objectStorage.delete(key);
 }
 
-/** @deprecated Use `objectStorage.head` */
-export async function headObject(key: string) {
-  return objectStorage.head(key);
-}
-
 /** @deprecated Use `objectStorage.signedUploadUrl` */
 export async function getPresignedUploadUrl(
   key: string,

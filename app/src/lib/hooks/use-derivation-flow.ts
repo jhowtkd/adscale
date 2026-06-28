@@ -40,11 +40,5 @@ export function useDerivationFlow() {
     setPendingOutputLearningApplication,
     openDerivePanel,
     closeFlow,
-    /** @deprecated use isDerivePanelOpen */
-    isStrategyRecipeOpen: isOpen,
-    /** @deprecated use derivePanelSession */
-    strategyRecipeSession: sessionKey,
-    /** @deprecated use openDerivePanel */
-    openChooser: openDerivePanel,
   };
 }
