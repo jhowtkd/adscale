@@ -279,6 +279,9 @@ export const artifactPromotionEffectSchema = z
     creditImpact: z.literal(0),
   })
   .strict();
+export type ArtifactPromotionEffect = z.infer<
+  typeof artifactPromotionEffectSchema
+>;
 
 export const artifactPromotionResultSchema = z
   .object({
@@ -286,6 +289,9 @@ export const artifactPromotionResultSchema = z
     state: z.array(artifactVersionPresentationSchema).min(1).max(2),
   })
   .strict();
+export type ArtifactPromotionResult = z.infer<
+  typeof artifactPromotionResultSchema
+>;
 
 export const artifactPromotionConflictSchema = z
   .object({

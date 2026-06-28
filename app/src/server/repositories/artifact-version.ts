@@ -1,5 +1,6 @@
-import { and, desc, eq, max, ne, sql } from "drizzle-orm";
+import { and, desc, eq, max, ne, or, sql } from "drizzle-orm";
 import type {
+  ArtifactPromotionCommand,
   ArtifactProposalPayload,
   ArtifactType,
   ArtifactVersionProvenance,
@@ -13,10 +14,15 @@ import {
 import { db } from "../db";
 import {
   assistantActionRecords,
+  assistantArtifactApprovalEvents,
+  assistantArtifactComparisonAcknowledgements,
   assistantArtifactLineageHeads,
   assistantArtifactLineages,
   assistantArtifactProposals,
   assistantArtifactVersions,
+  campaigns,
+  creativePlans,
+  derivations,
 } from "../db/schema";
 import { containsDeniedPersistenceKeys } from "./assistant-types";
 
@@ -123,6 +129,22 @@ const proposalScope = (scope: ArtifactScope) =>
     eq(assistantArtifactProposals.clientProfileId, scope.clientProfileId),
     eq(assistantArtifactProposals.campaignId, scope.campaignId),
     eq(assistantArtifactProposals.threadId, scope.threadId)
+  );
+
+const approvalScope = (scope: ArtifactScope) =>
+  and(
+    eq(assistantArtifactApprovalEvents.workspaceId, scope.workspaceId),
+    eq(assistantArtifactApprovalEvents.clientProfileId, scope.clientProfileId),
+    eq(assistantArtifactApprovalEvents.campaignId, scope.campaignId),
+    eq(assistantArtifactApprovalEvents.threadId, scope.threadId)
+  );
+
+const acknowledgementScope = (scope: ArtifactScope) =>
+  and(
+    eq(assistantArtifactComparisonAcknowledgements.workspaceId, scope.workspaceId),
+    eq(assistantArtifactComparisonAcknowledgements.clientProfileId, scope.clientProfileId),
+    eq(assistantArtifactComparisonAcknowledgements.campaignId, scope.campaignId),
+    eq(assistantArtifactComparisonAcknowledgements.threadId, scope.threadId)
   );
 
 export async function findArtifactLineageOwner(
@@ -512,4 +534,370 @@ export async function listArtifactProposalsByPlanVersion(input: {
         proposalScope(input.scope)
       )
     );
+}
+
+type ArtifactTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+async function loadPromotionTarget(
+  tx: ArtifactTx,
+  scope: ArtifactScope,
+  target: { lineageId: string; targetVersionId: string; expectedRevision: number },
+  artifactType: ArtifactType
+) {
+  const [[lineage], [head], [version]] = await Promise.all([
+    tx.select().from(assistantArtifactLineages).where(and(
+      eq(assistantArtifactLineages.id, target.lineageId),
+      lineageScope(scope)
+    )).limit(1),
+    tx.select().from(assistantArtifactLineageHeads).where(
+      eq(assistantArtifactLineageHeads.lineageId, target.lineageId)
+    ).limit(1),
+    tx.select().from(assistantArtifactVersions).where(and(
+      eq(assistantArtifactVersions.id, target.targetVersionId),
+      eq(assistantArtifactVersions.lineageId, target.lineageId),
+      versionScope(scope)
+    )).limit(1),
+  ]);
+  if (!lineage || lineage.artifactType !== artifactType || !head || !version) {
+    throw new ArtifactVersionValidationError("Promotion target not found in scope");
+  }
+  const [priorApproval] = await tx
+    .select({ id: assistantArtifactApprovalEvents.id })
+    .from(assistantArtifactApprovalEvents)
+    .where(and(
+      eq(assistantArtifactApprovalEvents.promotedVersionId, version.id),
+      approvalScope(scope)
+    ))
+    .limit(1);
+  if (
+    version.status !== "ready" &&
+    version.status !== "approved" &&
+    !priorApproval
+  ) {
+    throw new ArtifactVersionValidationError("Version is not eligible for promotion");
+  }
+  if (head.approvedCurrentVersionId === version.id) {
+    throw new ArtifactVersionValidationError("Version is already official");
+  }
+  return { lineage, head, version };
+}
+
+async function casPromotionHead(
+  tx: ArtifactTx,
+  input: {
+    scope: ArtifactScope;
+    lineageId: string;
+    targetVersionId: string;
+    expectedRevision: number;
+  }
+) {
+  const [updated] = await tx
+    .update(assistantArtifactLineageHeads)
+    .set({
+      approvedCurrentVersionId: input.targetVersionId,
+      workingVersionId: input.targetVersionId,
+      revision: input.expectedRevision + 1,
+      updatedAt: new Date(),
+    })
+    .where(and(
+      eq(assistantArtifactLineageHeads.lineageId, input.lineageId),
+      eq(assistantArtifactLineageHeads.revision, input.expectedRevision)
+    ))
+    .returning();
+  if (!updated) {
+    const [head] = await tx.select().from(assistantArtifactLineageHeads).where(
+      eq(assistantArtifactLineageHeads.lineageId, input.lineageId)
+    ).limit(1);
+    throw new ArtifactHeadConflictError("Artifact head revision conflict", head ?? null);
+  }
+}
+
+async function syncCanonicalPlan(
+  tx: ArtifactTx,
+  scope: ArtifactScope,
+  originalPlanId: string,
+  snapshot: Extract<ArtifactVersionSnapshot, { type: "plan" }>
+) {
+  const [plan] = await tx.update(creativePlans).set({
+    strategy: snapshot.strategy,
+    angles: snapshot.angles,
+    hooks: snapshot.hooks,
+    ctas: snapshot.ctas,
+    status: "approved",
+    updatedAt: new Date(),
+  }).where(and(
+    eq(creativePlans.id, originalPlanId),
+    eq(creativePlans.workspaceId, scope.workspaceId),
+    eq(creativePlans.campaignId, scope.campaignId)
+  )).returning({ id: creativePlans.id });
+  if (!plan) throw new ArtifactVersionValidationError("Canonical plan write failed");
+
+  const [campaign] = await tx.update(campaigns).set({
+    constraints: snapshot.constraints,
+    updatedAt: new Date(),
+  }).where(and(
+    eq(campaigns.id, scope.campaignId),
+    eq(campaigns.workspaceId, scope.workspaceId),
+    eq(campaigns.clientProfileId, scope.clientProfileId)
+  )).returning({ id: campaigns.id });
+  if (!campaign) throw new ArtifactVersionValidationError("Canonical campaign write failed");
+}
+
+async function stalePromotionProposals(
+  tx: ArtifactTx,
+  scope: ArtifactScope,
+  lineageId: string,
+  previousVersionId: string | null,
+  includePlanDependents: boolean
+) {
+  if (!previousVersionId) return [];
+  return tx.update(assistantArtifactProposals).set({
+    status: "stale",
+    updatedAt: new Date(),
+  }).where(and(
+    eq(assistantArtifactProposals.status, "pending"),
+    proposalScope(scope),
+    or(
+      and(
+        eq(assistantArtifactProposals.lineageId, lineageId),
+        eq(assistantArtifactProposals.sourceVersionId, previousVersionId)
+      ),
+      includePlanDependents
+        ? and(
+            eq(assistantArtifactProposals.proposalType, "creative_revision"),
+            sql`${assistantArtifactProposals.payload}->>'planVersionId' = ${previousVersionId}`
+          )
+        : undefined
+    )
+  )).returning({ id: assistantArtifactProposals.id });
+}
+
+async function appendApprovalEvent(
+  tx: ArtifactTx,
+  input: {
+    scope: ArtifactScope;
+    operationId: string;
+    artifactType: ArtifactType;
+    lineageId: string;
+    promotedVersionId: string;
+    previousOfficialVersionId: string | null;
+  }
+) {
+  const [event] = await tx.insert(assistantArtifactApprovalEvents).values({
+    operationId: input.operationId,
+    artifactType: input.artifactType,
+    lineageId: input.lineageId,
+    promotedVersionId: input.promotedVersionId,
+    previousOfficialVersionId: input.previousOfficialVersionId,
+    ...input.scope,
+  }).returning();
+  if (!event) throw new ArtifactVersionValidationError("Approval history write failed");
+  return event;
+}
+
+async function promotionRowsForOperation(
+  tx: ArtifactTx,
+  scope: ArtifactScope,
+  operationId: string
+) {
+  const events = await tx.select().from(assistantArtifactApprovalEvents).where(and(
+    eq(assistantArtifactApprovalEvents.operationId, operationId),
+    approvalScope(scope)
+  ));
+  if (events.length === 0) return [];
+  const versions = await tx.select({
+    id: assistantArtifactVersions.id,
+    versionNumber: assistantArtifactVersions.versionNumber,
+  }).from(assistantArtifactVersions).where(versionScope(scope));
+  const byId = new Map(versions.map((version) => [version.id, version.versionNumber]));
+  return events.map((event) => ({
+    artifactType: event.artifactType as ArtifactType,
+    lineageId: event.lineageId,
+    previousVersionNumber: event.previousOfficialVersionId
+      ? byId.get(event.previousOfficialVersionId) ?? null
+      : null,
+    targetVersionNumber: byId.get(event.promotedVersionId)!,
+  }));
+}
+
+export async function createComparisonAcknowledgement(input: {
+  scope: ArtifactScope;
+  creativeTargetVersionId: string;
+  planLineageId: string;
+  linkedPlanVersionId: string;
+  comparedOfficialPlanVersionId: string;
+  expectedPlanRevision: number;
+}) {
+  const [created] = await db.insert(assistantArtifactComparisonAcknowledgements).values({
+    creativeTargetVersionId: input.creativeTargetVersionId,
+    planLineageId: input.planLineageId,
+    linkedPlanVersionId: input.linkedPlanVersionId,
+    comparedOfficialPlanVersionId: input.comparedOfficialPlanVersionId,
+    comparedPlanHeadRevision: input.expectedPlanRevision,
+    ...input.scope,
+  }).returning();
+  return created!;
+}
+
+export async function promoteArtifactVersion(input: {
+  scope: ArtifactScope;
+  command: ArtifactPromotionCommand;
+}) {
+  return db.transaction(async (tx) => {
+    const replay = await promotionRowsForOperation(
+      tx,
+      input.scope,
+      input.command.operationId
+    );
+    if (replay.length > 0) {
+      return { promotions: replay, staleProposalCount: 0, replayed: true };
+    }
+
+    const primary = await loadPromotionTarget(
+      tx,
+      input.scope,
+      input.command,
+      input.command.type
+    );
+    const promotions: Awaited<ReturnType<typeof promotionRowsForOperation>> = [];
+    let staleProposalCount = 0;
+
+    if (input.command.type === "plan") {
+      if (primary.version.snapshot.type !== "plan") {
+        throw new ArtifactVersionValidationError("Plan snapshot mismatch");
+      }
+      await casPromotionHead(tx, { scope: input.scope, ...input.command });
+      await syncCanonicalPlan(
+        tx,
+        input.scope,
+        primary.lineage.originalArtifactId,
+        primary.version.snapshot
+      );
+      staleProposalCount += (await stalePromotionProposals(
+        tx,
+        input.scope,
+        primary.lineage.id,
+        primary.head.approvedCurrentVersionId,
+        true
+      )).length;
+      await appendApprovalEvent(tx, {
+        scope: input.scope,
+        operationId: input.command.operationId,
+        artifactType: "plan",
+        lineageId: primary.lineage.id,
+        promotedVersionId: primary.version.id,
+        previousOfficialVersionId: primary.head.approvedCurrentVersionId,
+      });
+      promotions.push({
+        artifactType: "plan",
+        lineageId: primary.lineage.id,
+        previousVersionNumber: primary.head.approvedCurrentVersionId
+          ? (await tx.select({ versionNumber: assistantArtifactVersions.versionNumber }).from(assistantArtifactVersions).where(eq(assistantArtifactVersions.id, primary.head.approvedCurrentVersionId)).limit(1))[0]?.versionNumber ?? null
+          : null,
+        targetVersionNumber: primary.version.versionNumber,
+      });
+    } else {
+      if (primary.version.snapshot.type !== "creative" || !primary.version.snapshot.planVersionId) {
+        throw new ArtifactVersionValidationError("Creative has no exact plan binding");
+      }
+      const [linkedPlan] = await tx.select().from(assistantArtifactVersions).where(and(
+        eq(assistantArtifactVersions.id, primary.version.snapshot.planVersionId),
+        versionScope(input.scope)
+      )).limit(1);
+      if (!linkedPlan || linkedPlan.snapshot.type !== "plan") {
+        throw new ArtifactVersionValidationError("Linked plan version not found");
+      }
+      const plan = await loadPromotionTarget(tx, input.scope, {
+        lineageId: linkedPlan.lineageId,
+        targetVersionId: linkedPlan.id,
+        expectedRevision: input.command.planTransition?.expectedRevision ?? -1,
+      }, "plan").catch((error) => {
+        if (
+          error instanceof ArtifactVersionValidationError &&
+          error.message === "Version is already official"
+        ) return null;
+        throw error;
+      });
+      const [planHead] = await tx.select().from(assistantArtifactLineageHeads).where(
+        eq(assistantArtifactLineageHeads.lineageId, linkedPlan.lineageId)
+      ).limit(1);
+      if (!planHead) throw new ArtifactVersionValidationError("Linked plan head not found");
+
+      if (planHead.approvedCurrentVersionId !== linkedPlan.id) {
+        const transition = input.command.planTransition;
+        if (!transition || transition.lineageId !== linkedPlan.lineageId || transition.targetVersionId !== linkedPlan.id || !plan) {
+          throw new ArtifactVersionValidationError("Exact linked plan transition required");
+        }
+        const [acknowledgement] = await tx
+          .select()
+          .from(assistantArtifactComparisonAcknowledgements)
+          .where(and(
+            eq(assistantArtifactComparisonAcknowledgements.id, transition.acknowledgementId),
+            eq(assistantArtifactComparisonAcknowledgements.creativeTargetVersionId, primary.version.id),
+            eq(assistantArtifactComparisonAcknowledgements.planLineageId, linkedPlan.lineageId),
+            eq(assistantArtifactComparisonAcknowledgements.linkedPlanVersionId, linkedPlan.id),
+            eq(assistantArtifactComparisonAcknowledgements.comparedOfficialPlanVersionId, planHead.approvedCurrentVersionId!),
+            eq(assistantArtifactComparisonAcknowledgements.comparedPlanHeadRevision, transition.expectedRevision),
+            acknowledgementScope(input.scope)
+          ))
+          .limit(1);
+        if (!acknowledgement || planHead.revision !== transition.expectedRevision) {
+          throw new ArtifactVersionValidationError("Linked plan comparison acknowledgement is stale or invalid");
+        }
+        await casPromotionHead(tx, { scope: input.scope, ...transition });
+        await syncCanonicalPlan(tx, input.scope, plan.lineage.originalArtifactId, linkedPlan.snapshot);
+        staleProposalCount += (await stalePromotionProposals(tx, input.scope, linkedPlan.lineageId, planHead.approvedCurrentVersionId, true)).length;
+        await appendApprovalEvent(tx, {
+          scope: input.scope,
+          operationId: input.command.operationId,
+          artifactType: "plan",
+          lineageId: linkedPlan.lineageId,
+          promotedVersionId: linkedPlan.id,
+          previousOfficialVersionId: planHead.approvedCurrentVersionId,
+        });
+        const [previousPlan] = await tx.select({ versionNumber: assistantArtifactVersions.versionNumber }).from(assistantArtifactVersions).where(eq(assistantArtifactVersions.id, planHead.approvedCurrentVersionId!)).limit(1);
+        promotions.push({ artifactType: "plan", lineageId: linkedPlan.lineageId, previousVersionNumber: previousPlan?.versionNumber ?? null, targetVersionNumber: linkedPlan.versionNumber });
+      } else if (input.command.planTransition !== null) {
+        throw new ArtifactVersionValidationError("Plan transition is not required");
+      }
+
+      await casPromotionHead(tx, { scope: input.scope, ...input.command });
+      const creativeSnapshot = primary.version.snapshot;
+      const [approved] = await tx.update(derivations).set({ status: "approved", updatedAt: new Date() }).where(and(
+        eq(derivations.id, creativeSnapshot.derivationId),
+        eq(derivations.workspaceId, input.scope.workspaceId),
+        eq(derivations.campaignId, input.scope.campaignId)
+      )).returning({ id: derivations.id });
+      if (!approved) throw new ArtifactVersionValidationError("Canonical creative write failed");
+      if (primary.head.approvedCurrentVersionId) {
+        const [previous] = await tx.select({ snapshot: assistantArtifactVersions.snapshot }).from(assistantArtifactVersions).where(and(
+          eq(assistantArtifactVersions.id, primary.head.approvedCurrentVersionId),
+          versionScope(input.scope)
+        )).limit(1);
+        if (previous?.snapshot.type === "creative" && previous.snapshot.derivationId !== creativeSnapshot.derivationId) {
+          const [demoted] = await tx.update(derivations).set({ status: "completed", updatedAt: new Date() }).where(and(
+            eq(derivations.id, previous.snapshot.derivationId),
+            eq(derivations.workspaceId, input.scope.workspaceId),
+            eq(derivations.campaignId, input.scope.campaignId)
+          )).returning({ id: derivations.id });
+          if (!demoted) throw new ArtifactVersionValidationError("Previous creative demotion failed");
+        }
+      }
+      staleProposalCount += (await stalePromotionProposals(tx, input.scope, primary.lineage.id, primary.head.approvedCurrentVersionId, false)).length;
+      await appendApprovalEvent(tx, {
+        scope: input.scope,
+        operationId: input.command.operationId,
+        artifactType: "creative",
+        lineageId: primary.lineage.id,
+        promotedVersionId: primary.version.id,
+        previousOfficialVersionId: primary.head.approvedCurrentVersionId,
+      });
+      const [previousCreative] = primary.head.approvedCurrentVersionId
+        ? await tx.select({ versionNumber: assistantArtifactVersions.versionNumber }).from(assistantArtifactVersions).where(eq(assistantArtifactVersions.id, primary.head.approvedCurrentVersionId)).limit(1)
+        : [];
+      promotions.push({ artifactType: "creative", lineageId: primary.lineage.id, previousVersionNumber: previousCreative?.versionNumber ?? null, targetVersionNumber: primary.version.versionNumber });
+    }
+
+    return { promotions, staleProposalCount, replayed: false };
+  });
 }
