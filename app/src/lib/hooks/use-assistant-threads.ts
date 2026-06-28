@@ -3,6 +3,10 @@ import { STALE_TIME } from "@/lib/query-config";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { GuidedFlow } from "./use-guided-flow";
 import type { GuidedFlowPresentation } from "@/lib/guided-flow/commands";
+import {
+  artifactVersionPresentationSchema,
+  type ArtifactVersionPresentation,
+} from "@/lib/assistant/artifact-version";
 
 export interface AssistantThread {
   id: string;
@@ -31,6 +35,7 @@ export interface AssistantMessage {
 export interface AssistantThreadDetail {
   thread: AssistantThread;
   messages: AssistantMessage[];
+  artifactVersionState?: { lineages: ArtifactVersionPresentation[] };
   guidedFlow?: GuidedFlow;
   guidedPresentation?: GuidedFlowPresentation;
 }
@@ -86,6 +91,15 @@ async function fetchAssistantThread(
   return {
     thread: mapThread(data.thread as AssistantThread),
     messages: (data.messages as AssistantMessage[]).map(mapMessage),
+    ...(data.artifactVersionState
+      ? {
+          artifactVersionState: {
+            lineages: (data.artifactVersionState.lineages as unknown[]).map(
+              (lineage) => artifactVersionPresentationSchema.parse(lineage)
+            ),
+          },
+        }
+      : {}),
     ...(data.guidedFlow
       ? {
           guidedFlow: data.guidedFlow as GuidedFlow,
