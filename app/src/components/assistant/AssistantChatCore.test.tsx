@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AssistantChatCore from "./AssistantChatCore";
+import { AssistantSurfaceProvider, useAssistantSurface } from "./AssistantSurfaceContext";
 
 const mockSendMessage = vi.fn();
 const mockUseAssistantChat = vi.fn();
@@ -29,6 +30,32 @@ vi.mock("./AssistantActionCard", () => ({
     <div data-testid="action-card">{String(payload.actionRecordId)}</div>
   ),
 }));
+
+vi.mock("./VersionComparisonDialog", () => ({
+  default: ({ onOpenChange }: { onOpenChange: (open: boolean) => void }) => (
+    <div data-testid="comparison-host">
+      <button type="button" onClick={() => onOpenChange(false)}>close comparison</button>
+    </div>
+  ),
+}));
+
+function ComparisonTrigger() {
+  const { openVersionComparison } = useAssistantSurface();
+  return (
+    <button
+      type="button"
+      onClick={() => openVersionComparison({
+        threadId: "thread-1",
+        lineageId: "lineage-1",
+        artifactType: "plan",
+        versionAId: "version-1",
+        versionBId: "version-2",
+      })}
+    >
+      compare trigger
+    </button>
+  );
+}
 
 describe("AssistantChatCore", () => {
   beforeEach(() => {
@@ -155,6 +182,37 @@ describe("AssistantChatCore", () => {
     await vi.waitFor(() => {
       expect(mockSendMessage).toHaveBeenCalledWith("Hello assistant");
       expect(clearDraft).toHaveBeenCalled();
+    });
+  });
+
+  it("mounts one comparison host and restores exact scroll and trigger focus", async () => {
+    mockUseAssistantThread.mockReturnValue({
+      data: {
+        thread: { id: "thread-1", campaignId: "campaign-1" },
+        messages: [],
+        artifactVersionState: { lineages: [] },
+      },
+      isLoading: false,
+    });
+    render(
+      <AssistantSurfaceProvider>
+        <ComparisonTrigger />
+        <AssistantChatCore threadId="thread-1" />
+      </AssistantSurfaceProvider>
+    );
+    const scroller = screen.getByTestId("assistant-message-list");
+    scroller.scrollTop = 137;
+    const trigger = screen.getByRole("button", { name: "compare trigger" });
+    trigger.focus();
+    fireEvent.click(trigger);
+    scroller.scrollTop = 0;
+
+    expect(screen.getAllByTestId("comparison-host")).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "close comparison" }));
+
+    await vi.waitFor(() => {
+      expect(scroller.scrollTop).toBe(137);
+      expect(trigger).toHaveFocus();
     });
   });
 });

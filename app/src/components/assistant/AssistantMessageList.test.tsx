@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { createRef } from "react";
 import { render, screen } from "@testing-library/react";
 import AssistantMessageList from "./AssistantMessageList";
 
@@ -7,6 +8,23 @@ vi.mock("./markdown-lite", () => ({
 }));
 
 describe("AssistantMessageList", () => {
+  it("exposes the actual overflow container for exact scroll restoration", () => {
+    const scrollContainerRef = createRef<HTMLDivElement>();
+    render(
+      <AssistantMessageList
+        messages={[]}
+        streamingText=""
+        isStreaming={false}
+        threadId="thread-1"
+        scrollContainerRef={scrollContainerRef}
+      />
+    );
+
+    expect(scrollContainerRef.current).toBe(
+      screen.getByTestId("assistant-message-list")
+    );
+  });
+
   it("does not render get_thread_context tool JSON in the transcript", () => {
     render(
       <AssistantMessageList

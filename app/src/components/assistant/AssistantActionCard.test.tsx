@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AssistantActionCard from "./AssistantActionCard";
+import type { ArtifactVersionPresentation } from "@/lib/assistant/artifact-version";
 
 const mockConfirmMutate = vi.fn();
 const mockCancelMutate = vi.fn();
@@ -68,6 +69,80 @@ describe("AssistantActionCard", () => {
       screen.queryByRole("button", { name: "confirm" })
     ).not.toBeInTheDocument();
     expect(screen.getByText("status.completed")).toBeInTheDocument();
+  });
+
+  it("shows canonical history shortcuts only for a completed version-producing action", () => {
+    const openVersionComparison = vi.fn();
+    const lineageId = "00000000-0000-4000-8000-000000000001";
+    const officialId = "00000000-0000-4000-8000-000000000002";
+    const producedId = "00000000-0000-4000-8000-000000000003";
+    const artifactId = "00000000-0000-4000-8000-000000000004";
+    const makeVersion = (id: string, versionNumber: number, actionId: string | null) => ({
+      id,
+      lineageId,
+      versionNumber,
+      sourceVersionId: null,
+      status: versionNumber === 1 ? "approved" : "ready",
+      snapshot: { type: "plan" as const, strategy: null, angles: [], hooks: [], ctas: [], constraints: null },
+      provenance: {
+        origin: "revision" as const,
+        originalArtifactId: artifactId,
+        sourceVersionId: null,
+        messageId: null,
+        actionId,
+        planVersionId: null,
+        format: null,
+        generationMode: null,
+      },
+      feedback: null,
+      createdAt: new Date(),
+    });
+    const official = makeVersion(officialId, 1, null);
+    const produced = makeVersion(producedId, 2, "action-2");
+    const lineages: ArtifactVersionPresentation[] = [{
+      lineageId,
+      artifactType: "plan",
+      approvedCurrent: official,
+      working: produced,
+      versions: [official, produced],
+      pendingProposals: [],
+      generationStatus: null,
+    }];
+
+    render(
+      <AssistantActionCard
+        threadId="thread-1"
+        artifactLineages={lineages}
+        openVersionComparison={openVersionComparison}
+        payload={{
+          actionRecordId: "action-2",
+          status: "completed",
+          display: { label: "Revisão", actionType: "revise_creative_plan" },
+        }}
+      />
+    );
+
+    expect(screen.getByRole("button", { name: "Ver no histórico" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Comparar com a oficial" }));
+    expect(openVersionComparison).toHaveBeenCalledWith({
+      threadId: "thread-1",
+      lineageId,
+      artifactType: "plan",
+      versionAId: officialId,
+      versionBId: producedId,
+    });
+  });
+
+  it("does not show version shortcuts for unrelated completed actions", () => {
+    render(
+      <AssistantActionCard
+        threadId="thread-1"
+        artifactLineages={[]}
+        openVersionComparison={vi.fn()}
+        payload={{ ...basePayload, status: "completed" }}
+      />
+    );
+    expect(screen.queryByRole("button", { name: "Ver no histórico" })).not.toBeInTheDocument();
   });
 
   it("renders summary-only plan revision card without credit copy", () => {
