@@ -19,10 +19,14 @@ import {
 } from "@/lib/hooks/use-assistant-actions";
 import { cn } from "@/lib/utils";
 import CreditConfirmModal from "./CreditConfirmModal";
+import type { ArtifactVersionPresentation } from "@/lib/assistant/artifact-version";
+import type { VersionComparisonRequest } from "./AssistantSurfaceContext";
 
 export interface AssistantActionCardProps {
   threadId: string | null;
   payload: Record<string, unknown>;
+  artifactLineages?: ArtifactVersionPresentation[];
+  openVersionComparison?: (request: VersionComparisonRequest) => void;
 }
 
 function parseStatus(payload: Record<string, unknown>): ActionCardStatus {
@@ -75,6 +79,8 @@ function resolveProposalId(
 export default function AssistantActionCard({
   threadId,
   payload,
+  artifactLineages = [],
+  openVersionComparison,
 }: AssistantActionCardProps) {
   const t = useTranslations("assistant.actionCard");
   const confirmMutation = useConfirmAssistantAction();
@@ -92,6 +98,20 @@ export default function AssistantActionCard({
   const isMutating = confirmMutation.isPending || cancelMutation.isPending;
   const isRevisePlan = display?.actionType === "revise_creative_plan";
   const isReviseCreative = display?.actionType === "revise_creative";
+  const producedVersion =
+    status === "completed" && (isRevisePlan || isReviseCreative)
+      ? artifactLineages.flatMap((lineage) =>
+          lineage.versions.map((version) => ({ lineage, version }))
+        ).find(({ version }) => version.provenance.actionId === actionRecordId)
+      : undefined;
+  const producedOfficial = producedVersion?.lineage.approvedCurrent ?? null;
+  const canCompareProduced = Boolean(
+    threadId &&
+      producedVersion &&
+      producedOfficial &&
+      producedOfficial.id !== producedVersion.version.id &&
+      openVersionComparison
+  );
 
   const handleConfirm = () => {
     if (!threadId || !actionRecordId || !isPending) {
@@ -344,6 +364,47 @@ export default function AssistantActionCard({
             className="mt-2"
           >
             Tentar novamente
+          </Button>
+        </div>
+      ) : null}
+
+      {producedVersion ? (
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="min-h-11"
+            onClick={() => {
+              const history = document.querySelector<HTMLElement>(
+                '[data-testid="version-history"]'
+              );
+              if (!history) return;
+              history.tabIndex = -1;
+              history.scrollIntoView?.({ block: "start" });
+              history.focus({ preventScroll: true });
+            }}
+          >
+            Ver no histórico
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="min-h-11"
+            disabled={!canCompareProduced}
+            onClick={() => {
+              if (!threadId || !producedOfficial || !producedVersion || !openVersionComparison) return;
+              openVersionComparison({
+                threadId,
+                lineageId: producedVersion.lineage.lineageId,
+                artifactType: producedVersion.lineage.artifactType,
+                versionAId: producedOfficial.id,
+                versionBId: producedVersion.version.id,
+              });
+            }}
+          >
+            Comparar com a oficial
           </Button>
         </div>
       ) : null}

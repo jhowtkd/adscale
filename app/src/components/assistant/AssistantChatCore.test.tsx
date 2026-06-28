@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import type { ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AssistantChatCore from "./AssistantChatCore";
 import { AssistantSurfaceProvider, useAssistantSurface } from "./AssistantSurfaceContext";
@@ -57,6 +58,10 @@ function ComparisonTrigger() {
   );
 }
 
+function renderCore(ui: ReactElement) {
+  return render(<AssistantSurfaceProvider>{ui}</AssistantSurfaceProvider>);
+}
+
 describe("AssistantChatCore", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -80,7 +85,7 @@ describe("AssistantChatCore", () => {
   });
 
   it("disables input when threadId is null", () => {
-    render(<AssistantChatCore threadId={null} variant="full" />);
+    renderCore(<AssistantChatCore threadId={null} variant="full" />);
 
     const input = screen.getByRole("textbox");
     expect(input).toBeDisabled();
@@ -88,7 +93,7 @@ describe("AssistantChatCore", () => {
   });
 
   it("calls sendMessage when user submits with a thread", () => {
-    render(<AssistantChatCore threadId="thread-1" variant="full" />);
+    renderCore(<AssistantChatCore threadId="thread-1" variant="full" />);
 
     const input = screen.getByRole("textbox");
     fireEvent.change(input, { target: { value: "Hello assistant" } });
@@ -126,7 +131,7 @@ describe("AssistantChatCore", () => {
       sendMessage: mockSendMessage,
     });
 
-    render(<AssistantChatCore threadId="thread-1" variant="full" />);
+    renderCore(<AssistantChatCore threadId="thread-1" variant="full" />);
 
     expect(screen.getByText("Hi")).toBeInTheDocument();
     expect(screen.getByText("Hello there")).toBeInTheDocument();
@@ -142,7 +147,7 @@ describe("AssistantChatCore", () => {
       isLoading: false,
     });
 
-    render(<AssistantChatCore threadId="thread-1" variant="full" />);
+    renderCore(<AssistantChatCore threadId="thread-1" variant="full" />);
 
     expect(mockUsePlanFeedbackDraft).toHaveBeenCalledWith("thread-1", {
       enabled: true,
@@ -170,13 +175,17 @@ describe("AssistantChatCore", () => {
     });
     mockSendMessage.mockResolvedValue(undefined);
 
-    const { rerender } = render(
+    const { rerender } = renderCore(
       <AssistantChatCore threadId="thread-1" variant="full" />
     );
 
     const input = screen.getByRole("textbox");
     fireEvent.change(input, { target: { value: "Hello assistant" } });
-    rerender(<AssistantChatCore threadId="thread-1" variant="full" />);
+    rerender(
+      <AssistantSurfaceProvider>
+        <AssistantChatCore threadId="thread-1" variant="full" />
+      </AssistantSurfaceProvider>
+    );
     fireEvent.click(screen.getByRole("button", { name: "send" }));
 
     await vi.waitFor(() => {

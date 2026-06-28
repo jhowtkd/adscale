@@ -1,7 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, type Ref } from "react";
 import { cn } from "@/lib/utils";
+import type { ArtifactVersionPresentation } from "@/lib/assistant/artifact-version";
+import type { VersionComparisonRequest } from "./AssistantSurfaceContext";
 import { stripThinkBlocks } from "@/server/assistant/model/reasoning-sanitizer";
 import { renderMarkdownLite } from "./markdown-lite";
 import AssistantActionCard from "./AssistantActionCard";
@@ -18,6 +20,9 @@ export interface AssistantMessageListProps {
   streamingText: string;
   isStreaming: boolean;
   threadId: string | null;
+  scrollContainerRef?: Ref<HTMLDivElement>;
+  artifactLineages?: ArtifactVersionPresentation[];
+  openVersionComparison?: (request: VersionComparisonRequest) => void;
 }
 
 function looksLikeJsonPayload(value: string): boolean {
@@ -123,6 +128,9 @@ export default function AssistantMessageList({
   streamingText,
   isStreaming,
   threadId,
+  scrollContainerRef,
+  artifactLineages,
+  openVersionComparison,
 }: AssistantMessageListProps) {
   const sanitizedStreamingText = useMemo(
     () => (isStreaming && streamingText ? stripThinkBlocks(streamingText) : ""),
@@ -131,6 +139,7 @@ export default function AssistantMessageList({
 
   return (
     <div
+      ref={scrollContainerRef}
       className="flex flex-1 flex-col gap-3 overflow-y-auto p-4"
       data-testid="assistant-message-list"
     >
@@ -141,6 +150,8 @@ export default function AssistantMessageList({
               key={message.id}
               threadId={threadId}
               payload={message.payload}
+              artifactLineages={artifactLineages}
+              openVersionComparison={openVersionComparison}
             />
           );
         }

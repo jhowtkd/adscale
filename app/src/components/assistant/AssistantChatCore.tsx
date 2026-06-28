@@ -21,6 +21,8 @@ import CreativeDiagnosisPanel from "./CreativeDiagnosisPanel";
 import FromZeroProgressiveBriefPanel from "./FromZeroProgressiveBriefPanel";
 import FromZeroReferencesPanel from "./FromZeroReferencesPanel";
 import GuidedFlowControls from "./GuidedFlowControls";
+import VersionComparisonDialog from "./VersionComparisonDialog";
+import { useAssistantSurface } from "./AssistantSurfaceContext";
 
 export interface AssistantChatCoreProps {
   threadId: string | null;
@@ -101,8 +103,33 @@ export default function AssistantChatCore({
     threadId,
     { enabled: draftEnabled }
   );
+  const {
+    versionComparisonRequest,
+    openVersionComparison,
+    closeVersionComparison,
+  } = useAssistantSurface();
 
   const sendingRef = useRef(false);
+  const messageScrollerRef = useRef<HTMLDivElement>(null);
+  const comparisonRestoreRef = useRef<{
+    scrollTop: number;
+    trigger: HTMLElement | null;
+  } | null>(null);
+  const previousComparisonRequestRef = useRef(versionComparisonRequest);
+
+  if (
+    versionComparisonRequest &&
+    previousComparisonRequestRef.current !== versionComparisonRequest
+  ) {
+    comparisonRestoreRef.current = {
+      scrollTop: messageScrollerRef.current?.scrollTop ?? 0,
+      trigger:
+        typeof document !== "undefined" && document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null,
+    };
+  }
+  previousComparisonRequestRef.current = versionComparisonRequest;
 
   useEffect(() => {
     if (!threadId || !pendingFirstMessage || sendingRef.current) {
@@ -140,6 +167,20 @@ export default function AssistantChatCore({
       }
     };
     void send();
+  };
+
+  const handleComparisonOpenChange = (next: boolean) => {
+    if (next) return;
+    const restore = comparisonRestoreRef.current;
+    closeVersionComparison();
+    previousComparisonRequestRef.current = null;
+    setTimeout(() => {
+      if (restore && messageScrollerRef.current) {
+        messageScrollerRef.current.scrollTop = restore.scrollTop;
+      }
+      restore?.trigger?.focus({ preventScroll: true });
+      comparisonRestoreRef.current = null;
+    }, 0);
   };
 
   return (
@@ -219,6 +260,9 @@ export default function AssistantChatCore({
             streamingText={streamingText}
             isStreaming={isStreaming}
             threadId={threadId}
+            scrollContainerRef={messageScrollerRef}
+            artifactLineages={data?.artifactVersionState?.lineages}
+            openVersionComparison={openVersionComparison}
           />
         </>
       )}
@@ -240,6 +284,14 @@ export default function AssistantChatCore({
         draftText={draftEnabled ? draftText : undefined}
         onDraftTextChange={draftEnabled ? onDraftTextChange : undefined}
       />
+      {versionComparisonRequest && versionComparisonRequest.threadId === threadId ? (
+        <VersionComparisonDialog
+          open
+          request={versionComparisonRequest}
+          lineages={data?.artifactVersionState?.lineages ?? []}
+          onOpenChange={handleComparisonOpenChange}
+        />
+      ) : null}
     </div>
   );
 }
