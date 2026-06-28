@@ -29,7 +29,7 @@
 - [x] **Phase 204: Plan Iteration Loop** - Turn chat feedback into inspectable, confirmed, immutable plan revisions. (completed 2026-06-27)
 - [x] **Phase 205: Creative Iteration Loop** - Generate creative revisions from feedback with exact lineage, credits, idempotency, and recovery. (completed 2026-06-28)
 - [x] **Phase 206: Version Compare and Approval** - Compare two versions, approve/promote current version, and reject stale conflicts. (completed 2026-06-28)
-- [ ] **Phase 207: Iterative Copilot Integration and UAT** - Integrate both artifact loops, telemetry, reload, browser coverage, and milestone audit.
+- [x] **Phase 207: Iterative Copilot Integration and UAT** - Integrate both artifact loops, telemetry, reload, browser coverage, and milestone audit. (completed 2026-06-28)
 
 ## Phase Details
 
@@ -125,20 +125,20 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 207-01-PLAN.md — Artifact-iteration telemetry table, sanitizer, repository
+- [x] 207-01-PLAN.md — Artifact-iteration telemetry table, sanitizer, repository
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 207-02-PLAN.md — Service-boundary emits + owner analytics route
-- [ ] 207-03-PLAN.md — Nyquist test gaps: cross-thread, reload, stale card
+- [x] 207-02-PLAN.md — Service-boundary emits + owner analytics route
+- [x] 207-03-PLAN.md — Nyquist test gaps: cross-thread, reload, stale card
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 207-04-PLAN.md — Playwright desktop/mobile iteration loop E2E
+- [x] 207-04-PLAN.md — Playwright desktop/mobile iteration loop E2E
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 207-05-PLAN.md — v13.9 release gate + milestone audit
+- [x] 207-05-PLAN.md — v13.9 release gate + milestone audit
 
 ## Inherited Evidence Debt
 
@@ -156,4 +156,4 @@ Plans:
 | 204. Plan Iteration Loop | 2/2 | Complete    | 2026-06-27 |
 | 205. Creative Iteration Loop | 4/4 | Complete    | 2026-06-28 |
 | 206. Version Compare and Approval | 4/4 | Complete   | 2026-06-28 |
-| 207. Iterative Copilot Integration and UAT | 0/5 | Planned | — |
+| 207. Iterative Copilot Integration and UAT | 5/5 | Complete   | 2026-06-28 |
