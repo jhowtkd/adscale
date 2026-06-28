@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v13.9
 milestone_name: Copiloto Criativo Iterativo
-current_plan: 206-02
+current_plan: 3
 status: executing
-stopped_at: Completed 206-02-PLAN.md
-last_updated: "2026-06-28T17:57:00.051Z"
-last_activity: 2026-06-28 -- Plan 206-02 atomic promotion complete
+stopped_at: Completed 206-03-PLAN.md
+last_updated: "2026-06-28T18:13:08.913Z"
+last_activity: 2026-06-28 -- Plan 206-03 version history and client hooks complete
 progress:
   total_phases: 5
   completed_phases: 3
   total_plans: 13
-  completed_plans: 11
+  completed_plans: 12
   percent: 60
 ---
 
@@ -27,13 +27,13 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 ## Current Position
 
 Phase: 206 of 207 (executing)
-Plan: 2 of 4 in phase
-Current Plan: 206-02
+Plan: 3 of 4 in phase
+Current Plan: 3
 Total Plans in Phase: 4
 Status: In progress
-Last activity: 2026-06-28 -- Plan 206-02 atomic promotion complete
+Last activity: 2026-06-28 -- Plan 206-03 version history and client hooks complete
 
-Progress: [█████████░] 85%
+Progress: [█████████░] 92%
 
 ## Previous Milestone
 
@@ -60,6 +60,7 @@ Progress: [█████████░] 85%
 | Phase 205 P03 | 8min | 3 tasks | 9 files |
 | Phase 206 P01 | 25min | 2 tasks | 7 files |
 | Phase 206 P02 | 18min | 3 tasks | 13 files |
+| Phase 206 P03 | 10min | 2 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -82,6 +83,9 @@ Progress: [█████████░] 85%
 - [Phase 206]: Promotion re-reads scoped targets and performs every head, canonical, proposal, and history write in one transaction.
 - [Phase 206]: Expected official IDs plus revisions drive non-retrying conflict recovery.
 - [Phase 206]: Compound promotion is operation-idempotent and makes no billing or credit call.
+- [Phase 206]: Thread reload parses lineage state through the shared strict presentation schema. — Central parsing preserves nested dates and response safety.
+- [Phase 206]: Comparison requests reuse the existing assistant surface context and TanStack Query. — Transient UI state needs no new store or modal manager.
+- [Phase 206]: Previously-official labels derive from scoped append-only approval events. — Immutable ready snapshot status cannot prove prior promotion.
 
 ### Pending Todos
 
@@ -96,6 +100,6 @@ Progress: [█████████░] 85%
 
 ## Session Continuity
 
-Last session: 2026-06-28T17:56:41.474Z
-Stopped at: Completed 206-02-PLAN.md
+Last session: 2026-06-28T18:11:43.038Z
+Stopped at: Completed 206-03-PLAN.md
 Resume file: None
