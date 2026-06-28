@@ -29,8 +29,8 @@ describe("artifact version comparison contracts", () => {
 
     expect(angles?.changes).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ kind: "move", value: "B", beforeIndex: 1, afterIndex: 2 }),
-        expect.objectContaining({ kind: "move", value: "A", beforeIndex: 2, afterIndex: 1 }),
+        expect.objectContaining({ kind: "move", before: "B", after: "B", beforeIndex: 1, afterIndex: 2 }),
+        expect.objectContaining({ kind: "move", before: "A", after: "A", beforeIndex: 2, afterIndex: 1 }),
       ])
     );
   });
@@ -47,6 +47,17 @@ describe("artifact version comparison contracts", () => {
     ]);
     expect(hooks?.changes[1]).toMatchObject({ before: "Remove", after: "Edited" });
     expect(hooks?.changes[2]).toMatchObject({ before: "Edit me", after: "Added" });
+
+    const [added] = buildPlanSemanticComparison(
+      { ...plan, hooks: ["Keep"] },
+      { ...plan, hooks: ["Keep", "Added"] }
+    );
+    const [removed] = buildPlanSemanticComparison(
+      { ...plan, hooks: ["Keep", "Removed"] },
+      { ...plan, hooks: ["Keep"] }
+    );
+    expect(added?.changes.at(-1)).toMatchObject({ kind: "add", after: "Added" });
+    expect(removed?.changes.at(-1)).toMatchObject({ kind: "remove", before: "Removed" });
   });
 
   it("rejects persisted creative internals from the response DTO", () => {

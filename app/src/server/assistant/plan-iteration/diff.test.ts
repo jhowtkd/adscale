@@ -26,10 +26,12 @@ describe("buildPlanSemanticChanges", () => {
     expect(changes.map((change) => change.field).sort()).toEqual(["ctas", "strategy"]);
   });
 
-  it("compares list fields by normalized content, not reference identity", () => {
+  it("reports list reordering as a semantic change", () => {
     const before = { ...baseSnapshot, angles: ["B", "A"] };
     const after = { ...baseSnapshot, angles: ["A", "B"] };
-    expect(buildPlanSemanticChanges(before, after)).toEqual([]);
+    expect(buildPlanSemanticChanges(before, after)).toEqual([
+      { field: "angles", description: "Campo ângulos atualizado" },
+    ]);
   });
 
   it("detects list content changes after normalization", () => {

@@ -144,3 +144,70 @@ export const artifactVersionPresentationSchema = z
 export type ArtifactVersionPresentation = z.infer<
   typeof artifactVersionPresentationSchema
 >;
+
+export const comparisonVersionHeaderSchema = z
+  .object({
+    versionNumber: z.number().int().positive(),
+    status: z.string().trim().min(1).max(50),
+    createdAt: z.coerce.date(),
+    feedback: boundedText.nullable(),
+  })
+  .strict();
+
+export const planComparisonChangeSchema = z
+  .object({
+    kind: z.enum(["add", "remove", "edit", "move", "unchanged"]),
+    before: z.string().max(2_000).nullable(),
+    after: z.string().max(2_000).nullable(),
+    beforeIndex: z.number().int().nonnegative().nullable(),
+    afterIndex: z.number().int().nonnegative().nullable(),
+  })
+  .strict();
+
+export const planComparisonFieldSchema = z
+  .object({
+    field: z.enum(["strategy", "angles", "hooks", "ctas", "constraints"]),
+    label: z.string().trim().min(1).max(100),
+    changed: z.boolean(),
+    changes: z.array(planComparisonChangeSchema).max(100),
+  })
+  .strict();
+
+const creativeComparisonVersionSchema = comparisonVersionHeaderSchema.extend({
+  previewUrl: z.string().url().nullable(),
+  previewError: z.enum(["preview_unavailable"]).nullable(),
+  format: z.string().trim().max(50).nullable(),
+  dimensions: z
+    .object({
+      width: z.number().int().positive(),
+      height: z.number().int().positive(),
+    })
+    .strict()
+    .nullable(),
+  cta: z.string().trim().max(500).nullable(),
+  boundPlanVersion: z.string().trim().max(50).nullable(),
+  intendedChanges: boundedTextList,
+}).strict();
+
+export const artifactVersionComparisonSchema = z.discriminatedUnion("type", [
+  z
+    .object({
+      type: z.literal("plan"),
+      headRevision: z.number().int().nonnegative(),
+      versionA: comparisonVersionHeaderSchema,
+      versionB: comparisonVersionHeaderSchema,
+      fields: z.array(planComparisonFieldSchema).max(5),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("creative"),
+      headRevision: z.number().int().nonnegative(),
+      versionA: creativeComparisonVersionSchema,
+      versionB: creativeComparisonVersionSchema,
+    })
+    .strict(),
+]);
+export type ArtifactVersionComparison = z.infer<
+  typeof artifactVersionComparisonSchema
+>;
