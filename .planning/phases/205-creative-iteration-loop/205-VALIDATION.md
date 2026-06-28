@@ -1,8 +1,8 @@
 ---
 phase: 205
 slug: creative-iteration-loop
-status: draft
-nyquist_compliant: false
+status: planned
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-06-27
 ---
@@ -39,21 +39,17 @@ created: 2026-06-27
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
 | 205-01-01 | 01 | 1 | CREV-01 | unit | `npx vitest run app/src/server/assistant/creative-iteration/intent.test.ts` | ❌ W0 | ⬜ pending |
-| 205-01-02 | 01 | 1 | CREV-01 | unit | `npx vitest run app/src/server/assistant/creative-iteration/service.test.ts` | ❌ W0 | ⬜ pending |
-| 205-01-03 | 01 | 1 | CREV-01 | unit | `npx vitest run app/src/server/assistant/creative-iteration/proposal.test.ts -t "proposeCreativeRevision"` | ❌ W0 | ⬜ pending |
-| 205-01-04 | 01 | 1 | CREV-01 | unit | `npx vitest run app/src/server/assistant/orchestrator.test.ts -t "creative"` | ❌ W0 (extend) | ⬜ pending |
-| 205-02-01 | 02 | 1 | CREV-02 | component | `npx vitest run app/src/components/assistant/AssistantActionCard.test.tsx -t "creative"` | ❌ W0 (extend) | ⬜ pending |
+| 205-01-02 | 01 | 1 | CREV-01, SAFE-02 | unit | `npx vitest run app/src/server/assistant/creative-iteration/draft.test.ts` | ❌ W0 | ⬜ pending |
+| 205-01-03 | 01 | 1 | CREV-01, SAFE-02 | unit | `npx vitest run app/src/server/assistant/creative-iteration/proposal.test.ts -t "proposeCreativeRevision"` | ❌ W0 | ⬜ pending |
+| 205-02-01 | 02 | 1 | CREV-04, SAFE-02 | unit | `npx vitest run app/src/server/billing/credits.test.ts -t "refundCredits"` | ❌ W0 (extend) | ⬜ pending |
 | 205-02-02 | 02 | 1 | CREV-02 | component | `npx vitest run app/src/components/assistant/CreditConfirmModal.test.tsx` | ❌ W0 | ⬜ pending |
+| 205-02-03 | 02 | 1 | CREV-02 | component | `npx vitest run app/src/components/assistant/AssistantActionCard.test.tsx -t "creative"` | ❌ W0 (extend) | ⬜ pending |
 | 205-03-01 | 03 | 2 | CREV-03 | unit | `npx vitest run app/src/server/assistant/action-execution/handlers/revise-creative.test.ts` | ❌ W0 | ⬜ pending |
-| 205-03-02 | 03 | 2 | CREV-03 | integration | `npx vitest run app/src/server/jobs/derivation.test.ts -t "creative revision"` | ❌ W0 (extend) | ⬜ pending |
-| 205-04-01 | 04 | 2 | CREV-04 | unit | `npx vitest run app/src/server/billing/credits.test.ts -t "refundCredits"` | ❌ W0 (extend) | ⬜ pending |
-| 205-04-02 | 04 | 2 | CREV-04 | unit | `npx vitest run app/src/server/assistant/creative-iteration/proposal.test.ts -t "cancel"` | ❌ W0 | ⬜ pending |
-| 205-04-03 | 04 | 2 | SAFE-02 | unit | `npx vitest run app/src/server/assistant/creative-iteration/proposal.test.ts -t "idempotent"` | ❌ W0 | ⬜ pending |
-| 205-04-04 | 04 | 2 | SAFE-02 | integration | `npx vitest run app/src/server/jobs/derivation.test.ts -t "idempotency"` | ❌ W0 (extend) | ⬜ pending |
-| 205-04-05 | 04 | 2 | SAFE-02 | unit | `npx vitest run app/src/server/assistant/action-execution/handlers/revise-creative.test.ts -t "retry"` | ❌ W0 | ⬜ pending |
-| 205-04-06 | 04 | 2 | SAFE-02 | unit | `npx vitest run app/src/server/assistant/creative-iteration/proposal.test.ts -t "one active"` | ❌ W0 | ⬜ pending |
-| 205-04-07 | 04 | 2 | CREV-04, SAFE-02 | integration | `npx vitest run app/src/server/assistant/artifact-version/service.test.ts -t "creative"` | ❌ W0 (extend) | ⬜ pending |
-| 205-05-01 | 05 | 2 | CREV-01..04 | unit | `npx vitest run app/src/app/api/assistant/actions/[actionId]/confirm/route.test.ts -t "creative"` | ❌ W0 (extend) | ⬜ pending |
+| 205-03-02 | 03 | 2 | CREV-03, SAFE-02 | unit | `npx vitest run app/src/server/assistant/action-execution/handlers/revise-creative.test.ts -t "retry"` | ❌ W0 | ⬜ pending |
+| 205-03-03 | 03 | 2 | CREV-03, CREV-04, SAFE-02 | integration | `npx vitest run app/src/server/jobs/derivation.test.ts -t "creative revision"` | ❌ W0 (extend) | ⬜ pending |
+| 205-04-01 | 04 | 2 | CREV-01, CREV-04, SAFE-02 | unit | `npx vitest run app/src/server/assistant/creative-iteration/service.test.ts app/src/server/assistant/artifact-version/service.test.ts` | ❌ W0 (extend) | ⬜ pending |
+| 205-04-02 | 04 | 2 | CREV-01 | unit | `npx vitest run app/src/server/assistant/orchestrator.test.ts -t "creative"` | ❌ W0 (extend) | ⬜ pending |
+| 205-04-03 | 04 | 2 | CREV-01 | unit | `npx vitest run app/src/app/api/assistant/threads/[threadId]/creative-revisions/route.test.ts` | ❌ W0 | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
