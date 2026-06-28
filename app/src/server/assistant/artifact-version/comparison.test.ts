@@ -205,6 +205,15 @@ describe("compareArtifactVersions", () => {
       expect.arrayContaining([expect.objectContaining({ kind: "move" })])
     );
     expect(head).toEqual({ revision: 4, approvedCurrentVersionId: ids.versionA, workingVersionId: ids.versionB });
+    expect(getArtifactLineage).toHaveBeenCalledWith(
+      {
+        workspaceId: "ws-1",
+        clientProfileId: "client-1",
+        campaignId: "campaign-1",
+        threadId: "thread-1",
+      },
+      ids.lineage
+    );
   });
 
   it.each([
@@ -224,6 +233,21 @@ describe("compareArtifactVersions", () => {
         lineageId: ids.lineage,
         versionAId,
         versionBId,
+      })
+    ).rejects.toBeInstanceOf(ArtifactVersionValidationError);
+  });
+
+  it("fails closed when scoped IDs are unknown", async () => {
+    vi.mocked(getArtifactLineage).mockResolvedValue(null);
+    vi.mocked(getArtifactVersion).mockResolvedValue(null);
+    vi.mocked(getArtifactHead).mockResolvedValue(null);
+    await expect(
+      compareArtifactVersions({
+        workspaceId: "ws-1",
+        threadId: "thread-1",
+        lineageId: ids.lineage,
+        versionAId: ids.versionA,
+        versionBId: ids.versionB,
       })
     ).rejects.toBeInstanceOf(ArtifactVersionValidationError);
   });
@@ -248,11 +272,22 @@ describe("compareArtifactVersions", () => {
       .mockRejectedValueOnce(new Error("storage down"))
       .mockResolvedValueOnce("https://signed.example/b");
     vi.mocked(getAssistantActionById).mockResolvedValue({
+      threadId: "thread-1",
       inputSnapshot: { proposalId: ids.proposal },
     } as never);
     vi.mocked(getArtifactProposal).mockResolvedValue({
       status: "confirmed",
-      payload: { type: "creative_revision", intendedChanges: ["Aumentar contraste"] },
+      payload: {
+        type: "creative_revision",
+        schemaVersion: 1,
+        summary: "Mais contraste",
+        intendedChanges: ["Aumentar contraste"],
+        format: "1:1",
+        referenceIds: [],
+        creditImpact: 1,
+        writes: ["Criar versão"],
+        planVersionId: ids.planVersion,
+      },
     } as never);
 
     const result = await compareArtifactVersions({
