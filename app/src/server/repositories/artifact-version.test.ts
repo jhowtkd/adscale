@@ -5,6 +5,10 @@ import {
   assertSafeArtifactJson,
   isValidProposalTransition,
 } from "./artifact-version";
+import {
+  artifactPromotionCommandSchema,
+  comparisonAcknowledgementCommandSchema,
+} from "../../lib/assistant/artifact-version";
 
 const scope = {
   workspaceId: "ws-1",
@@ -54,5 +58,61 @@ describe("artifact version repository invariants", () => {
     expect(isValidProposalTransition("stale", "confirmed")).toBe(false);
     expect(isValidProposalTransition("confirmed", "pending")).toBe(false);
     expect(isValidProposalTransition("canceled", "pending")).toBe(false);
+  });
+
+  it("requires every promotion head revision and rejects mixed or unknown targets", () => {
+    const plan = {
+      type: "plan",
+      operationId: "00000000-0000-4000-8000-000000000001",
+      lineageId: "00000000-0000-4000-8000-000000000002",
+      targetVersionId: "00000000-0000-4000-8000-000000000003",
+      expectedRevision: 2,
+    };
+
+    expect(artifactPromotionCommandSchema.safeParse(plan).success).toBe(true);
+    expect(
+      artifactPromotionCommandSchema.safeParse({
+        ...plan,
+        expectedRevision: undefined,
+      }).success
+    ).toBe(false);
+    expect(
+      artifactPromotionCommandSchema.safeParse({
+        ...plan,
+        planTransition: null,
+      }).success
+    ).toBe(false);
+    expect(
+      artifactPromotionCommandSchema.safeParse({
+        ...plan,
+        unknown: true,
+      }).success
+    ).toBe(false);
+  });
+
+  it("binds comparison acknowledgement to both versions, lineage, and revision", () => {
+    const command = {
+      creativeTargetVersionId: "00000000-0000-4000-8000-000000000001",
+      planLineageId: "00000000-0000-4000-8000-000000000002",
+      linkedPlanVersionId: "00000000-0000-4000-8000-000000000003",
+      comparedOfficialPlanVersionId: "00000000-0000-4000-8000-000000000004",
+      expectedPlanRevision: 3,
+    };
+
+    expect(comparisonAcknowledgementCommandSchema.safeParse(command).success).toBe(
+      true
+    );
+    expect(
+      comparisonAcknowledgementCommandSchema.safeParse({
+        ...command,
+        expectedPlanRevision: undefined,
+      }).success
+    ).toBe(false);
+    expect(
+      comparisonAcknowledgementCommandSchema.safeParse({
+        ...command,
+        clientApproved: true,
+      }).success
+    ).toBe(false);
   });
 });
