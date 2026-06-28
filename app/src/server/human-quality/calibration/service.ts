@@ -33,6 +33,9 @@ export async function persistProposedAdjustments(
 ): Promise<ProposedAdjustment[]> {
   const persistedAdjustments: ProposedAdjustment[] = [];
 
+  if (proposals.length === 0) return persistedAdjustments;
+
+  const existingKeys = new Set<string>();
   for (const proposal of proposals) {
     const existing = await findProposedAdjustmentBySlice(
       proposal.sliceKey,
@@ -40,10 +43,16 @@ export async function persistProposedAdjustments(
       proposal.targetModule,
       proposal.targetKey
     );
-
     if (existing) {
-      continue;
+      existingKeys.add(
+        `${proposal.adjustmentVersion}::${proposal.targetModule}::${proposal.targetKey}::${proposal.sliceKey}`
+      );
     }
+  }
+
+  for (const proposal of proposals) {
+    const key = `${proposal.adjustmentVersion}::${proposal.targetModule}::${proposal.targetKey}::${proposal.sliceKey}`;
+    if (existingKeys.has(key)) continue;
 
     await insertProposedAdjustment({
       adjustmentVersion: proposal.adjustmentVersion,

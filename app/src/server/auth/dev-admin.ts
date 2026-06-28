@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 
 import { db } from "@/server/db";
 import { user, workspaceMembers } from "@/server/db/schema";
@@ -30,10 +30,9 @@ export async function repairDevAdminAccount(email: string): Promise<number> {
     .from(user)
     .where(sql`lower(trim(${user.email})) = ${normalized}`);
 
-  for (const row of rows) {
-    await db.delete(user).where(eq(user.id, row.id));
-  }
+  if (rows.length === 0) return 0;
 
+  await db.delete(user).where(inArray(user.id, rows.map((r) => r.id)));
   return rows.length;
 }
 

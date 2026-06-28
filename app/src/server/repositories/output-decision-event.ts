@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, lte } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lte } from "drizzle-orm";
 import { db } from "../db";
 import {
   outputDecisionEvents,
@@ -39,6 +39,25 @@ export async function listOutputDecisionEventsForClient(
       )
     )
     .orderBy(desc(outputDecisionEvents.createdAt));
+}
+
+export async function listOutputDecisionEventsForDerivations(
+  derivationIds: string[],
+  workspaceId: string,
+  limit: number = 20
+): Promise<OutputDecisionEvent[]> {
+  if (derivationIds.length === 0) return [];
+  return db
+    .select()
+    .from(outputDecisionEvents)
+    .where(
+      and(
+        eq(outputDecisionEvents.workspaceId, workspaceId),
+        inArray(outputDecisionEvents.derivationId, derivationIds)
+      )
+    )
+    .orderBy(desc(outputDecisionEvents.createdAt))
+    .limit(limit * derivationIds.length);
 }
 
 export async function listOutputDecisionEvents(

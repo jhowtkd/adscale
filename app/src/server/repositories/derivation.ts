@@ -104,6 +104,23 @@ export async function getDerivationsByCampaign(
     .orderBy(desc(derivations.createdAt));
 }
 
+export async function getDerivationsByCampaigns(
+  campaignIds: string[],
+  workspaceId: string
+) {
+  if (campaignIds.length === 0) return [];
+  return db
+    .select()
+    .from(derivations)
+    .where(
+      and(
+        inArray(derivations.campaignId, campaignIds),
+        eq(derivations.workspaceId, workspaceId)
+      )
+    )
+    .orderBy(desc(derivations.createdAt));
+}
+
 export async function updateDerivationStatus(
   id: string,
   workspaceId: string,

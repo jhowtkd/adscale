@@ -91,16 +91,16 @@ export async function syncOutputLearningsForClient(input: {
   const upserted: ClientOutputLearning[] = [];
 
   return db.transaction(async (tx) => {
-    for (const row of existing) {
-      const key = rowIdentityKey(row);
-      if (!draftKeys.has(key) && row.status !== "removed") {
-        const [updated] = await tx
-          .update(clientOutputLearnings)
-          .set({ status: "removed", updatedAt: new Date() })
-          .where(eq(clientOutputLearnings.id, row.id))
-          .returning();
-        if (updated) removed.push(updated);
-      }
+    const idsToRemove = existing
+      .filter((row) => !draftKeys.has(rowIdentityKey(row)) && row.status !== "removed")
+      .map((row) => row.id);
+    if (idsToRemove.length > 0) {
+      const removedRows = await tx
+        .update(clientOutputLearnings)
+        .set({ status: "removed", updatedAt: new Date() })
+        .where(inArray(clientOutputLearnings.id, idsToRemove))
+        .returning();
+      removed.push(...removedRows);
     }
 
     for (const draft of input.drafts) {
