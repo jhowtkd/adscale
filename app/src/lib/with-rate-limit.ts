@@ -5,12 +5,15 @@ import { logger } from "./logger";
 interface RateLimitOptions {
   category?: RateLimitCategory;
   workspaceId?: string;
+  identifier?: string;
 }
 
 export async function checkRateLimit(request: Request, options: RateLimitOptions = {}) {
   const result = await (options.workspaceId
     ? rateLimitWorkspace(request, options.workspaceId, options.category ?? "ai")
-    : rateLimit(request, options.category ?? "general"));
+    : options.identifier
+      ? rateLimit(request, options.category ?? "general", options.identifier)
+      : rateLimit(request, options.category ?? "general"));
 
   if (!result.success) {
     logger.warn("Rate limit exceeded", {

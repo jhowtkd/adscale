@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
+import { checkRateLimit } from "@/lib/with-rate-limit";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getDerivationById } from "@/server/repositories/derivation";
 import { getCampaignById } from "@/server/repositories/campaign";
@@ -29,6 +30,8 @@ export async function POST(
       requireWorkspaceAccess(request),
       params,
     ]);
+    const rateLimitResult = await checkRateLimit(request, { category: "ai", workspaceId: workspace.id });
+    if (rateLimitResult) return rateLimitResult;
 
     const derivation = await getDerivationById(derivationId, workspace.id);
     if (!derivation) {

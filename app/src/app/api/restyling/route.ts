@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isAllowedImageType, validateImageMagicBytes } from "@/lib/upload-config";
 import { apiError, handleApiError } from "@/lib/api-response";
+import { checkRateLimit } from "@/lib/with-rate-limit";
 import { logger } from "@/lib/logger";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { createCampaign, deleteCampaign } from "@/server/repositories/campaign";
@@ -17,6 +18,8 @@ const MAX_SIZE = 50 * 1024 * 1024;
 export async function POST(request: Request) {
   try {
     const { user, workspace } = await requireWorkspaceAccess(request);
+    const rateLimitResult = await checkRateLimit(request, { category: "ai", workspaceId: workspace.id });
+    if (rateLimitResult) return rateLimitResult;
     const [locale, formData] = await Promise.all([
       getUserLocale(user.id),
       request.formData(),

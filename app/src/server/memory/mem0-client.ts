@@ -1,4 +1,5 @@
 import { MemoryClient } from "mem0ai";
+import "server-only";
 import { env } from "@/server/validation/env";
 import { logger } from "@/lib/logger";
 

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { apiError, handleApiError } from "@/lib/api-response";
+import { checkRateLimit } from "@/lib/with-rate-limit";
 import { validateShareToken } from "@/lib/share-token";
 import { getDerivationById } from "@/server/repositories/derivation";
 import { objectStorage } from "@/server/storage";
@@ -10,6 +11,8 @@ export async function GET(
 ) {
   try {
     const { token, derivationId } = await params;
+    const rateLimitResult = await checkRateLimit(_request, { category: "read", identifier: token });
+    if (rateLimitResult) return rateLimitResult;
     const link = await validateShareToken(token);
 
     if (!link) {

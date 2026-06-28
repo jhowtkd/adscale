@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
+import { checkRateLimit } from "@/lib/with-rate-limit";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import {
   createAssistantThread,
@@ -54,6 +55,8 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const { workspace } = await requireWorkspaceAccess(request);
+    const rateLimitResult = await checkRateLimit(request, { category: "ai", workspaceId: workspace.id });
+    if (rateLimitResult) return rateLimitResult;
     const body = await request.json();
     const parsed = createThreadSchema.safeParse(body);
 

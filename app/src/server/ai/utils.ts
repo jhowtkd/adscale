@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import "server-only";
 import { z } from "zod";
 import { env } from "@/server/validation/env";
 

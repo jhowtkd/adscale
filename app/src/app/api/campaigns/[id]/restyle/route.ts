@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { logger } from "@/lib/logger";
 import { apiError, handleApiError } from "@/lib/api-response";
+import { checkRateLimit } from "@/lib/with-rate-limit";
 import { eq, and, sql } from "drizzle-orm";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import {
@@ -67,6 +68,8 @@ export async function POST(
       requireWorkspaceAccess(request),
       params,
     ]);
+    const rateLimitResult = await checkRateLimit(request, { category: "ai", workspaceId: workspace.id });
+    if (rateLimitResult) return rateLimitResult;
     const [locale, campaign] = await Promise.all([
       getUserLocale(user.id),
       getCampaignById(campaignId, workspace.id),

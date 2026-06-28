@@ -1,4 +1,5 @@
 import { betterAuth } from "better-auth";
+import "server-only";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { magicLink } from "better-auth/plugins/magic-link";
 import { db } from "../db";

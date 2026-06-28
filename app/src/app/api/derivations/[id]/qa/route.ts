@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { apiError, handleApiError } from "@/lib/api-response";
+import { checkRateLimit } from "@/lib/with-rate-limit";
 import { logger } from "@/lib/logger";
 import { recordBetaAnalyticsEvent } from "@/server/beta-analytics/record";
 import { getBetaSessionIdFromRequest } from "@/server/beta-analytics/session";
@@ -56,6 +57,8 @@ export async function POST(
       requireWorkspaceAccess(request),
       params,
     ]);
+    const rateLimitResult = await checkRateLimit(request, { category: "ai", workspaceId: workspace.id });
+    if (rateLimitResult) return rateLimitResult;
     const [locale, derivation] = await Promise.all([
       getUserLocale(user.id),
       getDerivationById(id, workspace.id),

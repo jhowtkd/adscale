@@ -4,6 +4,7 @@ import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
 import { runAssistantTurn } from "@/server/assistant/orchestrator";
 import { encodeAssistantSseEvent } from "@/server/assistant/stream/sse";
 import { apiError, handleApiError } from "@/lib/api-response";
+import { checkRateLimit } from "@/lib/with-rate-limit";
 import { isAllowedImageType } from "@/lib/upload-config";
 import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
 import { getPublicUrl } from "@/server/storage/r2";
@@ -79,6 +80,8 @@ export async function POST(
       requireWorkspaceAccess(request),
       params,
     ]);
+    const rateLimitResult = await checkRateLimit(request, { category: "ai", workspaceId: workspace.id });
+    if (rateLimitResult) return rateLimitResult;
 
     const thread = await getAssistantThreadById(workspace.id, threadId);
     if (!thread) {

@@ -10,15 +10,17 @@ export default defineConfig({
     // Playwright E2E specs (tests/e2e) run via `npm run test:e2e`, not vitest.
     exclude: [...configDefaults.exclude, "tests/e2e/**"],
     setupFiles: ["./tests/setup.ts"],
-    env: process.env.TEST_DATABASE_URL
-      ? {
-          TEST_DATABASE_URL: process.env.TEST_DATABASE_URL,
-        }
-      : undefined,
+    env: {
+      ...(process.env.TEST_DATABASE_URL
+        ? { TEST_DATABASE_URL: process.env.TEST_DATABASE_URL }
+        : {}),
+      E2E_DISABLE_RATE_LIMIT: "true",
+    },
   },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "../src"),
+      "server-only": path.resolve(__dirname, "../tests/stubs/server-only.ts"),
     },
   },
 });
