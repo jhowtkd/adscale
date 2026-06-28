@@ -1,4 +1,5 @@
 import { getActionContract } from "@/server/assistant/action-contracts/registry";
+import { emitArtifactIterationTelemetry } from "@/server/assistant/artifact-iteration-telemetry";
 import { confirmCreativeRevision } from "@/server/assistant/creative-iteration/proposal";
 import { spendCreditsOrApiError } from "@/server/billing/gates";
 import { logger } from "@/lib/logger";
@@ -88,6 +89,25 @@ export async function executeReviseCreative(
     actionId: ctx.actionId,
   });
 
+  const artifactScope = {
+    workspaceId: ctx.workspaceId,
+    clientProfileId: ctx.clientProfileId,
+    campaignId: thread.campaignId,
+    threadId: ctx.threadId,
+  };
+
+  if (attempt > 0) {
+    emitArtifactIterationTelemetry({
+      scope: artifactScope,
+      eventKey: "retry_requested",
+      metadata: {
+        artifactType: "creative",
+        actionId: ctx.actionId,
+        isRetry: true,
+      },
+    });
+  }
+
   const format =
     typeof ctx.inputSnapshot.format === "string"
       ? ctx.inputSnapshot.format
@@ -118,11 +138,31 @@ export async function executeReviseCreative(
         planVersionId: inputSnapshot.planVersionId,
       },
     });
+    emitArtifactIterationTelemetry({
+      scope: artifactScope,
+      eventKey: "generation_enqueued",
+      metadata: {
+        artifactType: "creative",
+        lineageId: inputSnapshot.lineageId,
+        actionId: ctx.actionId,
+        proposalId: inputSnapshot.proposalId,
+        headRevision: inputSnapshot.lineageHeadRevision,
+      },
+    });
   } catch (sendErr) {
     logger.error(
       `[executeReviseCreative] event send FAILED derivationId=${derivation.id}`,
       sendErr
     );
+    emitArtifactIterationTelemetry({
+      scope: artifactScope,
+      eventKey: "generation_failed",
+      metadata: {
+        artifactType: "creative",
+        actionId: ctx.actionId,
+        reasonCode: "enqueue_failed",
+      },
+    });
     await updateDerivationStatus(derivation.id, ctx.workspaceId, "failed");
     throw new AssistantActionExecutionError(
       "Falha ao enfileirar a geração da revisão do criativo.",

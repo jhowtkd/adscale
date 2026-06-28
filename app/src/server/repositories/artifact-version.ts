@@ -11,6 +11,7 @@ import {
   artifactVersionProvenanceSchema,
   artifactVersionSnapshotSchema,
 } from "@/lib/assistant/artifact-version";
+import { emitArtifactIterationTelemetry } from "@/server/assistant/artifact-iteration-telemetry";
 import { db } from "../db";
 import {
   assistantActionRecords,
@@ -806,7 +807,18 @@ export async function promoteArtifactVersion(input: {
   scope: ArtifactScope;
   command: ArtifactPromotionCommand;
 }) {
-  return db.transaction(async (tx) => {
+  emitArtifactIterationTelemetry({
+    scope: input.scope,
+    eventKey: "promotion_requested",
+    metadata: {
+      artifactType: input.command.type,
+      lineageId: input.command.lineageId,
+      operationId: input.command.operationId,
+      headRevision: input.command.expectedRevision,
+    },
+  });
+
+  const result = await db.transaction(async (tx) => {
     const existingEvents = await tx
       .select()
       .from(assistantArtifactApprovalEvents)
@@ -965,4 +977,22 @@ export async function promoteArtifactVersion(input: {
 
     return { promotions, staleProposalCount, replayed: false };
   });
+
+  if (!result.replayed) {
+    for (const promotion of result.promotions) {
+      emitArtifactIterationTelemetry({
+        scope: input.scope,
+        eventKey: "promotion_succeeded",
+        metadata: {
+          artifactType: promotion.artifactType,
+          lineageId: promotion.lineageId,
+          targetVersionNumber: promotion.targetVersionNumber,
+          operationId: input.command.operationId,
+          replayed: false,
+        },
+      });
+    }
+  }
+
+  return result;
 }

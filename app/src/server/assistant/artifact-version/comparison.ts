@@ -6,6 +6,7 @@ import {
   type ArtifactVersionComparison,
 } from "@/lib/assistant/artifact-version";
 import { getTargetDimensions } from "@/lib/formats";
+import { emitArtifactIterationTelemetry } from "@/server/assistant/artifact-iteration-telemetry";
 import { getAssistantActionById } from "@/server/repositories/assistant-action";
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
 import {
@@ -132,7 +133,7 @@ export async function compareArtifactVersions(input: {
   if (lineage.artifactType === "plan") {
     const before = planVersionSnapshotSchema.parse(versionA.snapshot);
     const after = planVersionSnapshotSchema.parse(versionB.snapshot);
-    return artifactVersionComparisonSchema.parse({
+    const comparison = artifactVersionComparisonSchema.parse({
       type: "plan",
       headRevision: head.revision,
       versionA: versionHeader(versionA),
@@ -143,14 +144,38 @@ export async function compareArtifactVersions(input: {
         input.includeUnchanged ?? false
       ),
     });
+    emitArtifactIterationTelemetry({
+      scope,
+      eventKey: "comparison_opened",
+      metadata: {
+        artifactType: "plan",
+        lineageId: input.lineageId,
+        sourceVersionNumber: versionA.versionNumber,
+        targetVersionNumber: versionB.versionNumber,
+        headRevision: head.revision,
+      },
+    });
+    return comparison;
   }
   if (lineage.artifactType !== "creative") {
     throw new ArtifactVersionValidationError("Invalid artifact type");
   }
-  return artifactVersionComparisonSchema.parse({
+  const comparison = artifactVersionComparisonSchema.parse({
     type: "creative",
     headRevision: head.revision,
     versionA: await creativeVersion(scope, versionA),
     versionB: await creativeVersion(scope, versionB),
   });
+  emitArtifactIterationTelemetry({
+    scope,
+    eventKey: "comparison_opened",
+    metadata: {
+      artifactType: "creative",
+      lineageId: input.lineageId,
+      sourceVersionNumber: versionA.versionNumber,
+      targetVersionNumber: versionB.versionNumber,
+      headRevision: head.revision,
+    },
+  });
+  return comparison;
 }

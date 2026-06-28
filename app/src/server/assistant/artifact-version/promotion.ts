@@ -3,6 +3,7 @@ import type {
   ArtifactPromotionEffect,
 } from "@/lib/assistant/artifact-version";
 import { artifactPromotionEffectSchema } from "@/lib/assistant/artifact-version";
+import { emitArtifactIterationTelemetry } from "@/server/assistant/artifact-iteration-telemetry";
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
 import {
   ArtifactVersionValidationError,
@@ -109,6 +110,17 @@ export async function acknowledgeLinkedPlanComparison(input: {
   const created = await createComparisonAcknowledgement({
     scope,
     ...input.command,
+  });
+  emitArtifactIterationTelemetry({
+    scope,
+    eventKey: "comparison_acknowledged",
+    metadata: {
+      artifactType: "creative",
+      lineageId: creative.lineageId,
+      sourceVersionNumber: creative.versionNumber,
+      targetVersionNumber: linkedPlan.versionNumber,
+      headRevision: input.command.expectedPlanRevision,
+    },
   });
   return {
     id: created.id,

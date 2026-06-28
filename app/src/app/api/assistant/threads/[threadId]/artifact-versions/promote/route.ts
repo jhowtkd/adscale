@@ -5,6 +5,7 @@ import {
   artifactPromotionConflictSchema,
   artifactPromotionResultSchema,
 } from "@/lib/assistant/artifact-version";
+import { emitArtifactIterationTelemetry } from "@/server/assistant/artifact-iteration-telemetry";
 import { promoteThreadArtifactVersion } from "@/server/assistant/artifact-version/promotion";
 import { getThreadArtifactVersionState } from "@/server/assistant/artifact-version/service";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
@@ -77,6 +78,24 @@ export async function POST(
           : "nenhuma",
         state: affected,
       });
+      const thread = await getAssistantThreadById(workspaceId, threadId);
+      if (thread?.campaignId) {
+        emitArtifactIterationTelemetry({
+          scope: {
+            workspaceId,
+            clientProfileId: thread.clientProfileId,
+            campaignId: thread.campaignId,
+            threadId,
+          },
+          eventKey: "promotion_conflict",
+          reasonCode: "concurrent_head_change",
+          metadata: {
+            artifactType: command.type,
+            lineageId: changedTarget.lineageId,
+            headRevision: command.expectedRevision,
+          },
+        });
+      }
       return NextResponse.json(conflict, { status: 409 });
     }
     if (error instanceof ArtifactVersionValidationError) {

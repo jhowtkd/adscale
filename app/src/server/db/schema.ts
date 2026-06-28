@@ -2572,6 +2572,66 @@ export type NewAssistantGuidedFlowTransition =
 export type AssistantGuidedFlowEvent = typeof assistantGuidedFlowEvents.$inferSelect;
 export type NewAssistantGuidedFlowEvent = typeof assistantGuidedFlowEvents.$inferInsert;
 
+export const assistantArtifactIterationEvents = adscaleSchema.table(
+  "assistant_artifact_iteration_events",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    clientProfileId: uuid("client_profile_id")
+      .notNull()
+      .references(() => clientProfiles.id, { onDelete: "cascade" }),
+    threadId: uuid("thread_id")
+      .notNull()
+      .references(() => assistantThreads.id, { onDelete: "cascade" }),
+    campaignId: uuid("campaign_id").references(() => campaigns.id, {
+      onDelete: "set null",
+    }),
+    actionRecordId: uuid("action_record_id").references(
+      () => assistantActionRecords.id,
+      { onDelete: "set null" }
+    ),
+    path: text("path").notNull(),
+    step: text("step").notNull(),
+    eventKey: text("event_key").notNull(),
+    reasonCode: text("reason_code"),
+    metadata: jsonb("metadata")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    occurredAt: timestamp("occurred_at", { mode: "date" }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("assistant_artifact_iteration_events_workspace_occurred_idx").on(
+      table.workspaceId,
+      table.occurredAt
+    ),
+    index("assistant_artifact_iteration_events_workspace_client_path_occurred_idx").on(
+      table.workspaceId,
+      table.clientProfileId,
+      table.path,
+      table.occurredAt
+    ),
+    index("assistant_artifact_iteration_events_thread_occurred_idx").on(
+      table.threadId,
+      table.occurredAt
+    ),
+    index("assistant_artifact_iteration_events_action_record_occurred_idx").on(
+      table.actionRecordId,
+      table.occurredAt
+    ),
+  ]
+);
+
+export type AssistantArtifactIterationEvent =
+  typeof assistantArtifactIterationEvents.$inferSelect;
+export type NewAssistantArtifactIterationEvent =
+  typeof assistantArtifactIterationEvents.$inferInsert;
+
 export const assistantGuidedFlowStagingEvidence = adscaleSchema.table(
   "assistant_guided_flow_staging_evidence",
   {

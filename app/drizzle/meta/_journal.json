@@ -470,6 +470,13 @@
       "when": 1783684800000,
       "tag": "0067_assistant_artifact_approvals",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1783771200000,
+      "tag": "0068_assistant_artifact_iteration_events",
+      "breakpoints": true
     }
   ]
 }

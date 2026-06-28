@@ -1,5 +1,6 @@
 import { planVersionSnapshotSchema } from "@/lib/assistant/artifact-version";
 import { getOpenAI } from "@/server/ai/utils";
+import { emitArtifactIterationTelemetry } from "@/server/assistant/artifact-iteration-telemetry";
 import { adoptArtifactForThread } from "@/server/assistant/artifact-version/service";
 import { buildPlanSnapshot } from "@/server/assistant/artifact-version/snapshots";
 import { env } from "@/server/validation/env";
@@ -293,6 +294,18 @@ export async function proposePlanRevision(input: {
     feedback,
   });
 
+  emitArtifactIterationTelemetry({
+    scope: input.scope,
+    eventKey: "proposal_created",
+    metadata: {
+      artifactType: "plan",
+      lineageId: source.lineageId,
+      sourceVersionNumber: source.sourceVersionNumber,
+      proposalId: proposal.id,
+      headRevision: head?.revision ?? 0,
+    },
+  });
+
   await clearPlanFeedbackDraft(input.scope);
 
   const result: PlanRevisionProposalResult = {
@@ -431,6 +444,21 @@ export async function confirmPlanRevision(input: {
     lineageId: input.lineageId,
     expectedRevision: head.revision,
     workingVersionId: created.id,
+  });
+
+  emitArtifactIterationTelemetry({
+    scope: input.scope,
+    eventKey: "proposal_confirmed",
+    metadata: {
+      artifactType: "plan",
+      lineageId: input.lineageId,
+      sourceVersionNumber: sourceVersion.versionNumber,
+      targetVersionNumber: created.versionNumber,
+      proposalId: input.proposalId,
+      ...(input.actionId ? { actionId: input.actionId } : {}),
+      headRevision: updatedHead.revision,
+      idempotent: false,
+    },
   });
 
   return {

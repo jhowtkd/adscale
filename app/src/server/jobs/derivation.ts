@@ -72,6 +72,7 @@ import { loadPromptCalibrationContext } from "../brand-taste/prompt-calibration-
 import { syncAssistantActionFromJob } from "../repositories/assistant-job-sync";
 import { getAssistantActionById } from "../repositories/assistant-action";
 import { getAssistantThreadById } from "../repositories/assistant-thread";
+import { emitArtifactIterationTelemetry } from "@/server/assistant/artifact-iteration-telemetry";
 import { refundCredits } from "../billing/credits";
 import {
   createArtifactVersion,
@@ -318,6 +319,26 @@ export const derivationJob = inngest.createFunction(
               refundErr
             );
           }
+        });
+        await step.run("emit-generation-failed-telemetry", async () => {
+          const action = await getAssistantActionById(workspaceId, assistantActionId);
+          if (!action) return;
+          const thread = await getAssistantThreadById(workspaceId, action.threadId);
+          if (!thread?.campaignId) return;
+          emitArtifactIterationTelemetry({
+            scope: {
+              workspaceId,
+              clientProfileId: thread.clientProfileId,
+              campaignId: thread.campaignId,
+              threadId: thread.id,
+            },
+            eventKey: "generation_failed",
+            metadata: {
+              artifactType: "creative",
+              actionId: assistantActionId,
+              reasonCode: "derivation_failed",
+            },
+          });
         });
       }
       await step.realtime.publish("status-failed", derivationChannel({ derivationId }).status, {
@@ -1023,6 +1044,17 @@ export const derivationJob = inngest.createFunction(
           lineageId: input.lineageId,
           expectedRevision: head.revision,
           workingVersionId: created.id,
+        });
+
+        emitArtifactIterationTelemetry({
+          scope,
+          eventKey: "generation_succeeded",
+          metadata: {
+            artifactType: "creative",
+            lineageId: input.lineageId,
+            versionNumber: created.versionNumber,
+            actionId: assistantActionId,
+          },
         });
 
         logger.info(

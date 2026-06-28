@@ -2,6 +2,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { creativeVersionSnapshotSchema } from "@/lib/assistant/artifact-version";
 import type { ArtifactProposalPayload } from "@/lib/assistant/artifact-version";
 import { getOpenAI } from "@/server/ai/utils";
+import { emitArtifactIterationTelemetry } from "@/server/assistant/artifact-iteration-telemetry";
 import {
   ArtifactVersionValidationError,
   createArtifactProposal,
@@ -333,6 +334,18 @@ export async function proposeCreativeRevision(input: {
 
   const head = await getArtifactHead(input.scope, source.lineageId);
 
+  emitArtifactIterationTelemetry({
+    scope: input.scope,
+    eventKey: "proposal_created",
+    metadata: {
+      artifactType: "creative",
+      lineageId: source.lineageId,
+      sourceVersionNumber: source.sourceVersionNumber,
+      proposalId: proposal.id,
+      headRevision: head?.revision ?? 0,
+    },
+  });
+
   const result: CreativeRevisionProposalResult = {
     kind: "proposal",
     proposalId: proposal.id,
@@ -498,6 +511,20 @@ export async function confirmCreativeRevision(input: {
     scope: input.scope,
     proposalId: input.proposalId,
     nextStatus: "confirmed",
+  });
+
+  emitArtifactIterationTelemetry({
+    scope: input.scope,
+    eventKey: "proposal_confirmed",
+    metadata: {
+      artifactType: "creative",
+      lineageId: input.lineageId,
+      sourceVersionNumber: sourceVersion.versionNumber,
+      proposalId: input.proposalId,
+      ...(input.actionId ? { actionId: input.actionId } : {}),
+      headRevision: head.revision,
+      idempotent: false,
+    },
   });
 
   return {

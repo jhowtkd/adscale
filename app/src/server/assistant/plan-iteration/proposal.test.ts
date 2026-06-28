@@ -24,8 +24,12 @@ vi.mock("./draft", () => ({
   clearPlanFeedbackDraft: vi.fn(() => Promise.resolve(false)),
   savePlanFeedbackDraft: vi.fn(() => Promise.resolve({ draftText: "" })),
 }));
+vi.mock("@/server/assistant/artifact-iteration-telemetry", () => ({
+  emitArtifactIterationTelemetry: vi.fn(),
+}));
 
 import { adoptArtifactForThread } from "@/server/assistant/artifact-version/service";
+import { emitArtifactIterationTelemetry } from "@/server/assistant/artifact-iteration-telemetry";
 import {
   createArtifactProposal,
   getArtifactHead,
@@ -41,6 +45,8 @@ import {
   proposePlanRevision,
   resolvePlanRevisionSource,
 } from "./proposal";
+
+const mockEmitTelemetry = vi.mocked(emitArtifactIterationTelemetry);
 
 const scope = {
   workspaceId: "ws-1",
@@ -195,6 +201,18 @@ describe("proposePlanRevision", () => {
       expect.objectContaining({
         proposalType: "plan_revision",
         sourceVersionId: workingVersionId,
+      })
+    );
+    expect(mockEmitTelemetry).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scope,
+        eventKey: "proposal_created",
+        metadata: expect.objectContaining({
+          artifactType: "plan",
+          lineageId,
+          sourceVersionNumber: 2,
+          headRevision: 3,
+        }),
       })
     );
     const head = await getArtifactHead(scope, lineageId);

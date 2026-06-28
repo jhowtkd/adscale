@@ -17,13 +17,19 @@ vi.mock("@/server/assistant/artifact-version/promotion", () => ({
 vi.mock("@/server/assistant/artifact-version/service", () => ({
   getThreadArtifactVersionState: vi.fn(),
 }));
+vi.mock("@/server/assistant/artifact-iteration-telemetry", () => ({
+  emitArtifactIterationTelemetry: vi.fn(),
+}));
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
 }));
 
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
+import { emitArtifactIterationTelemetry } from "@/server/assistant/artifact-iteration-telemetry";
 import { promoteThreadArtifactVersion } from "@/server/assistant/artifact-version/promotion";
 import { getThreadArtifactVersionState } from "@/server/assistant/artifact-version/service";
+
+const mockEmitTelemetry = vi.mocked(emitArtifactIterationTelemetry);
 
 const oldId = "00000000-0000-4000-8000-000000000001";
 const targetId = "00000000-0000-4000-8000-000000000002";
@@ -80,7 +86,11 @@ const state = {
 describe("promotion route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(getAssistantThreadById).mockResolvedValue({ id: "thread-1" } as never);
+    vi.mocked(getAssistantThreadById).mockResolvedValue({
+      id: "thread-1",
+      clientProfileId: "client-1",
+      campaignId: "campaign-1",
+    } as never);
   });
 
   it("delegates exactly once and returns a zero-credit safe result", async () => {
@@ -109,6 +119,17 @@ describe("promotion route", () => {
       previousOfficialLabel: "v1",
       currentOfficialLabel: "v2",
     });
+    expect(mockEmitTelemetry).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventKey: "promotion_conflict",
+        reasonCode: "concurrent_head_change",
+        metadata: expect.objectContaining({
+          artifactType: "plan",
+          lineageId,
+          headRevision: 0,
+        }),
+      })
+    );
     expect(promoteThreadArtifactVersion).toHaveBeenCalledTimes(1);
   });
 
