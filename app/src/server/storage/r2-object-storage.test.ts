@@ -19,12 +19,17 @@ vi.mock("@aws-sdk/client-s3", () => {
     }
   }
 
+  class NoSuchKey extends Error {
+    name = "NoSuchKey";
+  }
+
   return {
     S3Client,
     PutObjectCommand: Command,
     GetObjectCommand: Command,
     DeleteObjectCommand: Command,
     HeadObjectCommand: Command,
+    NoSuchKey,
   };
 });
 
@@ -73,8 +78,13 @@ describe("R2ObjectStorage", () => {
       contentLength: 42,
     });
 
-    mocks.send.mockRejectedValueOnce(new Error("not found"));
+    const notFound = new Error("missing") as Error & { $metadata?: { httpStatusCode?: number } };
+    notFound.$metadata = { httpStatusCode: 404 };
+    mocks.send.mockRejectedValueOnce(notFound);
     await expect(storage.head("missing.png")).resolves.toBeNull();
+
+    mocks.send.mockRejectedValueOnce(new Error("auth failure"));
+    await expect(storage.head("missing.png")).rejects.toThrow("auth failure");
   });
 
   it("caches signed download urls within the adapter", async () => {

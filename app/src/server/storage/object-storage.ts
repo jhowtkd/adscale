@@ -3,9 +3,12 @@ export interface StorageMetadata {
   contentLength?: number;
 }
 
+import type { Readable } from "stream";
+
 export interface ObjectStorage {
   put(key: string, data: Buffer, contentType: string): Promise<void>;
-  get(key: string): Promise<Buffer>;
+  get(key: string, signal?: AbortSignal): Promise<Buffer>;
+  getStream?(key: string, signal?: AbortSignal): Promise<Readable>;
   delete(key: string): Promise<void>;
   head(key: string): Promise<StorageMetadata | null>;
   signedUploadUrl(key: string, contentType: string, contentLength: number): Promise<string>;

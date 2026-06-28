@@ -1,14 +1,19 @@
+import "server-only";
 import {
   S3Client,
   PutObjectCommand,
   GetObjectCommand,
   DeleteObjectCommand,
   HeadObjectCommand,
+  NoSuchKey,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { Readable } from "stream";
+import { logger } from "@/lib/logger";
 import { ObjectStorage, StorageMetadata } from "./object-storage";
 import { env } from "../validation/env";
+
+const R2_GET_STREAM_TIMEOUT_MS = 30_000;
 
 const DOWNLOAD_URL_CACHE_TTL_MS = 4 * 60 * 1000;
 const DOWNLOAD_URL_CACHE_MAX_ENTRIES = 1000;
@@ -72,12 +77,12 @@ export class R2ObjectStorage implements ObjectStorage {
     await this.client.send(command);
   }
 
-  async get(key: string): Promise<Buffer> {
+  async get(key: string, signal?: AbortSignal): Promise<Buffer> {
     const command = new GetObjectCommand({
       Bucket: env.R2_BUCKET,
       Key: key,
     });
-    const response = await this.client.send(command);
+    const response = await this.client.send(command, { abortSignal: signal });
     if (!response.Body) {
       throw new Error("Empty response body");
     }
@@ -86,10 +91,48 @@ export class R2ObjectStorage implements ObjectStorage {
     const chunks: Buffer[] = [];
 
     return new Promise((resolve, reject) => {
+      let settled = false;
+      const watchdog = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        stream.destroy();
+        reject(new Error(`R2 download stream timed out after ${R2_GET_STREAM_TIMEOUT_MS}ms (key=${key})`));
+      }, R2_GET_STREAM_TIMEOUT_MS);
+
+      const onAbort = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(watchdog);
+        stream.destroy();
+        reject(new DOMException("Aborted", "AbortError"));
+      };
+      signal?.addEventListener("abort", onAbort, { once: true });
+
       stream.on("data", (chunk: Buffer) => chunks.push(chunk));
-      stream.on("end", () => resolve(Buffer.concat(chunks)));
-      stream.on("error", reject);
+      stream.on("end", () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(watchdog);
+        signal?.removeEventListener("abort", onAbort);
+        stream.removeAllListeners();
+        resolve(Buffer.concat(chunks));
+      });
+      stream.on("error", (err) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(watchdog);
+        signal?.removeEventListener("abort", onAbort);
+        stream.destroy();
+        reject(err);
+      });
     });
+  }
+
+  async getStream(key: string, signal?: AbortSignal): Promise<Readable> {
+    const command = new GetObjectCommand({ Bucket: env.R2_BUCKET, Key: key });
+    const response = await this.client.send(command, { abortSignal: signal });
+    if (!response.Body) throw new Error("Empty response body");
+    return response.Body as Readable;
   }
 
   async delete(key: string): Promise<void> {
@@ -111,8 +154,11 @@ export class R2ObjectStorage implements ObjectStorage {
         contentType: result.ContentType ?? undefined,
         contentLength: result.ContentLength ?? undefined,
       };
-    } catch {
-      return null;
+    } catch (err) {
+      const status = (err as { $metadata?: { httpStatusCode?: number } })?.$metadata?.httpStatusCode;
+      if (err instanceof NoSuchKey || status === 404) return null;
+      logger.error("[r2] head failed", { key, error: err });
+      throw err;
     }
   }
 
