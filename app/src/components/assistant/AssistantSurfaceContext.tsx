@@ -21,6 +21,17 @@ interface AssistantSurfaceActions {
   setPendingFirstMessage: (message: string | null) => void;
   startNewChat: () => void;
   registerStartNewChat: (handler: () => void) => void;
+  versionComparisonRequest: VersionComparisonRequest | null;
+  openVersionComparison: (request: VersionComparisonRequest) => void;
+  closeVersionComparison: () => void;
+}
+
+export interface VersionComparisonRequest {
+  threadId: string;
+  lineageId: string;
+  artifactType: "plan" | "creative";
+  versionAId: string;
+  versionBId: string;
 }
 
 const AssistantSurfaceContext = createContext<AssistantSurfaceActions | null>(
@@ -36,6 +47,8 @@ export function AssistantSurfaceProvider({ children }: { children: ReactNode }) 
   const [pendingFirstMessage, setPendingFirstMessage] = useState<string | null>(
     null
   );
+  const [versionComparisonRequest, setVersionComparisonRequest] =
+    useState<VersionComparisonRequest | null>(null);
 
   const registerFocusTree = useCallback((handler: () => void) => {
     focusTreeRef.current = handler;
@@ -61,6 +74,16 @@ export function AssistantSurfaceProvider({ children }: { children: ReactNode }) 
     startNewChatRef.current();
   }, []);
 
+  const openVersionComparison = useCallback(
+    (request: VersionComparisonRequest) => setVersionComparisonRequest(request),
+    []
+  );
+
+  const closeVersionComparison = useCallback(
+    () => setVersionComparisonRequest(null),
+    []
+  );
+
   const value = useMemo(
     () => ({
       focusTree,
@@ -73,6 +96,9 @@ export function AssistantSurfaceProvider({ children }: { children: ReactNode }) 
       setPendingFirstMessage,
       startNewChat,
       registerStartNewChat,
+      versionComparisonRequest,
+      openVersionComparison,
+      closeVersionComparison,
     }),
     [
       focusTree,
@@ -83,6 +109,9 @@ export function AssistantSurfaceProvider({ children }: { children: ReactNode }) 
       pendingFirstMessage,
       startNewChat,
       registerStartNewChat,
+      versionComparisonRequest,
+      openVersionComparison,
+      closeVersionComparison,
     ]
   );
 

@@ -8,6 +8,7 @@ import {
   type AssistantMessage,
 } from "@/lib/hooks/use-assistant-threads";
 import AssistantReviewPanel from "./AssistantReviewPanel";
+import VersionHistory from "./VersionHistory";
 
 export interface AssistantContextPanelProps {
   threadId: string | null;
@@ -83,7 +84,10 @@ export default function AssistantContextPanel({
       </h2>
 
       {isLoading ? (
-        <p className="text-sm text-[var(--text-muted)]">{t("loading")}</p>
+        <>
+          <p className="text-sm text-[var(--text-muted)]">{t("loading")}</p>
+          <VersionHistory threadId={threadId} lineages={[]} isLoading />
+        </>
       ) : (
         <>
           <section data-testid="context-contract-readiness">
@@ -139,6 +143,11 @@ export default function AssistantContextPanel({
           </section>
 
           <AssistantReviewPanel threadId={threadId} />
+
+          <VersionHistory
+            threadId={threadId}
+            lineages={data?.artifactVersionState?.lineages ?? []}
+          />
 
           <section data-testid="context-job-status">
             <h3 className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">
