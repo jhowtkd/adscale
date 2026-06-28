@@ -21,7 +21,7 @@
 
 ### Creative Iteration
 
-- [ ] **CREV-01**: User feedback on a selected creative creates an inspectable revision proposal tied to the source creative.
+- [x] **CREV-01**: User feedback on a selected creative creates an inspectable revision proposal tied to the source creative.
 - [x] **CREV-02**: User sees intended visual change, format, references, credit impact, and writes before confirming generation.
 - [ ] **CREV-03**: User confirmation generates a new creative version linked to the source creative and exact plan version.
 - [x] **CREV-04**: Failed or canceled generation leaves the source version current and supports idempotent retry.
@@ -37,7 +37,7 @@
 ### Safety and Verification
 
 - [x] **SAFE-01**: Every version, proposal, comparison, and approval is isolated by workspace, client profile, campaign, and assistant thread.
-- [ ] **SAFE-02**: Confirmations, credit spends, generation jobs, callbacks, and retries cannot create duplicate versions or charges.
+- [x] **SAFE-02**: Confirmations, credit spends, generation jobs, callbacks, and retries cannot create duplicate versions or charges.
 - [x] **SAFE-03**: Persisted version snapshots exclude reasoning, signed URLs, raw provider payloads, and unallowlisted prompt data.
 - [ ] **QA-01**: Operator can query safe telemetry for proposal, confirmation, generation, comparison, approval, promotion, failure, and retry events.
 - [ ] **QA-02**: Repository, API, component, contract, and authenticated Playwright tests cover plan and creative iteration, reload, conflict, failure, retry, comparison, approval, and promotion.
@@ -78,7 +78,7 @@
 | PLAN-02 | Phase 204 | Pending |
 | PLAN-03 | Phase 204 | Complete |
 | PLAN-04 | Phase 204 | Complete |
-| CREV-01 | Phase 205 | Pending |
+| CREV-01 | Phase 205 | Complete |
 | CREV-02 | Phase 205 | Complete |
 | CREV-03 | Phase 205 | Pending |
 | CREV-04 | Phase 205 | Complete |
@@ -88,7 +88,7 @@
 | APPR-02 | Phase 206 | Pending |
 | APPR-03 | Phase 206 | Pending |
 | SAFE-01 | Phase 203 | Complete |
-| SAFE-02 | Phase 205 | Pending |
+| SAFE-02 | Phase 205 | Complete |
 | SAFE-03 | Phase 203 | Complete |
 | QA-01 | Phase 207 | Pending |
 | QA-02 | Phase 207 | Pending |
