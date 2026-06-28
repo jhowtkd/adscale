@@ -302,7 +302,13 @@ export default function VersionComparisonDialog({
   const [success, setSuccess] = useState<string | null>(null);
   const [conflict, setConflict] = useState<{ previous: string; current: string } | null>(null);
   const [reviewLinkedPlan, setReviewLinkedPlan] = useState(false);
-  const [acknowledgementId, setAcknowledgementId] = useState<string | null>(null);
+  const [acknowledgement, setAcknowledgement] = useState<{
+    id: string;
+    revision: number;
+    officialId: string;
+    linkedId: string;
+  } | null>(null);
+  const [mutationError, setMutationError] = useState<string | null>(null);
   const conflictHeadingRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
@@ -310,7 +316,8 @@ export default function VersionComparisonDialog({
     setVersionBId(request.versionBId);
     setConflict(null);
     setConfirmationOpen(false);
-    setAcknowledgementId(null);
+    setAcknowledgement(null);
+    setMutationError(null);
     setReviewLinkedPlan(false);
   }, [request]);
 
@@ -342,7 +349,21 @@ export default function VersionComparisonDialog({
   });
   const busy = submitting || promotionMutation.isPending || acknowledgeMutation.isPending;
 
-  const canPromote = targetEligibility.eligible && (!needsPlanReview || Boolean(acknowledgementId));
+  useEffect(() => {
+    if (
+      acknowledgement &&
+      (acknowledgement.officialId !== planOfficial?.id ||
+        acknowledgement.linkedId !== linkedPlan?.id ||
+        (linkedComparison.data && acknowledgement.revision !== linkedComparison.data.headRevision))
+    ) {
+      setAcknowledgement(null);
+    }
+  }, [acknowledgement, linkedComparison.data, linkedPlan?.id, planOfficial?.id]);
+
+  const canPromote =
+    targetEligibility.eligible &&
+    !success &&
+    (!needsPlanReview || Boolean(acknowledgement));
   const actionLabel = target
     ? `${target.previouslyApproved || target.status === "approved" ? "Promover" : "Aprovar"} ${versionLabel(target)}`
     : "Aprovar versão";
@@ -354,21 +375,32 @@ export default function VersionComparisonDialog({
 
   const acknowledgeLinkedPlan = async () => {
     if (!target || !planLineage || !linkedPlan || !planOfficial || !linkedComparison.data) return;
-    const receipt = await acknowledgeMutation.mutateAsync({
-      creativeTargetVersionId: target.id,
-      planLineageId: planLineage.lineageId,
-      linkedPlanVersionId: linkedPlan.id,
-      comparedOfficialPlanVersionId: planOfficial.id,
-      expectedPlanRevision: linkedComparison.data.headRevision,
-    });
-    setAcknowledgementId(receipt.id);
-    setReviewLinkedPlan(false);
+    setMutationError(null);
+    try {
+      const receipt = await acknowledgeMutation.mutateAsync({
+        creativeTargetVersionId: target.id,
+        planLineageId: planLineage.lineageId,
+        linkedPlanVersionId: linkedPlan.id,
+        comparedOfficialPlanVersionId: planOfficial.id,
+        expectedPlanRevision: linkedComparison.data.headRevision,
+      });
+      setAcknowledgement({
+        id: receipt.id,
+        revision: linkedComparison.data.headRevision,
+        officialId: planOfficial.id,
+        linkedId: linkedPlan.id,
+      });
+      setReviewLinkedPlan(false);
+    } catch {
+      setMutationError("Não foi possível registrar a revisão do plano. Revise o estado e tente novamente.");
+    }
   };
 
   const promote = async () => {
     if (!target || !official || !comparison.data || !canPromote) return;
     setSubmitting(true);
     setConflict(null);
+    setMutationError(null);
     try {
       const baseCommand = {
         operationId: crypto.randomUUID(),
@@ -383,13 +415,13 @@ export default function VersionComparisonDialog({
               ...baseCommand,
               type: "creative",
               planTransition:
-                needsPlanReview && planLineage && linkedPlan && planOfficial && linkedComparison.data && acknowledgementId
+                needsPlanReview && planLineage && linkedPlan && planOfficial && linkedComparison.data && acknowledgement
                   ? {
                       lineageId: planLineage.lineageId,
                       targetVersionId: linkedPlan.id,
                       expectedOfficialVersionId: planOfficial.id,
                       expectedRevision: linkedComparison.data.headRevision,
-                      acknowledgementId,
+                      acknowledgementId: acknowledgement.id,
                     }
                   : null,
             }
@@ -400,12 +432,14 @@ export default function VersionComparisonDialog({
     } catch (error) {
       if (error instanceof ArtifactPromotionConflictError) {
         setConfirmationOpen(false);
-        setAcknowledgementId(null);
+        setAcknowledgement(null);
         setConflict({
           previous: error.recovery.previousOfficialLabel,
           current: error.recovery.currentOfficialLabel,
         });
         queueMicrotask(() => conflictHeadingRef.current?.focus());
+      } else {
+        setMutationError("Não foi possível atualizar a versão oficial. Revise o estado e tente novamente.");
       }
     } finally {
       setSubmitting(false);
@@ -441,7 +475,7 @@ export default function VersionComparisonDialog({
                       setter(next as string);
                       setConfirmationOpen(false);
                       setConflict(null);
-                      setAcknowledgementId(null);
+                      setAcknowledgement(null);
                     }}>
                       <SelectTrigger className="mt-1 min-h-11 w-full"><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -484,19 +518,20 @@ export default function VersionComparisonDialog({
                   <p>Antes: {conflict.previous}. Agora: {conflict.current}.</p>
                   <Button type="button" variant="outline" className="mt-2 min-h-11" onClick={() => { setConflict(null); void comparison.refetch(); }}>Revisar estado atualizado</Button>
                 </div>
-              ) : needsPlanReview && !acknowledgementId ? (
+              ) : needsPlanReview && !acknowledgement ? (
                 <div className="rounded-md bg-[var(--warning-bg)] p-3 text-[var(--warning-text)]">
                   <p>Revise o plano vinculado antes da promoção conjunta.</p>
                   <Button type="button" variant="outline" className="mt-2 min-h-11" onClick={() => setReviewLinkedPlan(true)}>
                     Comparar plano {linkedPlan ? versionLabel(linkedPlan) : "v?"} com {planOfficial ? versionLabel(planOfficial) : "v?"}
                   </Button>
                 </div>
-              ) : acknowledgementId ? (
+              ) : acknowledgement ? (
                 <p className="inline-flex items-center gap-2"><CheckCircle2 className="size-4" /> Plano comparado</p>
               ) : (
                 <p>{targetEligibility.reason}</p>
               )}
               <p aria-live="polite" className="mt-1">{success}</p>
+              {mutationError ? <p role="alert" className="mt-1 text-[var(--danger-text)]">{mutationError}</p> : null}
             </div>
             <Button type="button" variant="outline" disabled={busy} onClick={() => handleOpenChange(false)}>Fechar comparação</Button>
             <Button type="button" disabled={!canPromote || busy || Boolean(conflict)} onClick={() => setConfirmationOpen(true)}>{actionLabel}</Button>
