@@ -223,6 +223,22 @@ export async function listArtifactVersions(
     .limit(Math.min(Math.max(limit, 1), 100));
 }
 
+export async function listPreviouslyApprovedVersionIds(
+  scope: ArtifactScope,
+  lineageId: string
+) {
+  const rows = await db
+    .select({ versionId: assistantArtifactApprovalEvents.promotedVersionId })
+    .from(assistantArtifactApprovalEvents)
+    .where(
+      and(
+        eq(assistantArtifactApprovalEvents.lineageId, lineageId),
+        approvalScope(scope)
+      )
+    );
+  return rows.map((row) => row.versionId);
+}
+
 export async function getArtifactHead(
   scope: ArtifactScope,
   lineageId: string

@@ -152,7 +152,9 @@ export default function VersionHistory({
             {versions.map((version) => {
               const isOfficial = official?.id === version.id;
               const isWorking = working?.id === version.id;
-              const wasOfficial = !isOfficial && version.status === "approved";
+              const wasOfficial =
+                !isOfficial &&
+                (version.previouslyApproved || version.status === "approved");
               return (
                 <li
                   key={version.id}

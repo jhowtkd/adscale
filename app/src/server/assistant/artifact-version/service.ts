@@ -20,6 +20,7 @@ import {
   listArtifactLineages,
   listArtifactProposals,
   listArtifactVersions,
+  listPreviouslyApprovedVersionIds,
   type ArtifactScope,
 } from "@/server/repositories/artifact-version";
 import {
@@ -163,11 +164,13 @@ async function getLineagePresentation(
 ): Promise<ArtifactVersionPresentation> {
   const lineage = await getArtifactLineage(scope, lineageId);
   if (!lineage) throw new ArtifactVersionValidationError("Lineage not found");
-  const [versions, head, proposals] = await Promise.all([
+  const [versions, head, proposals, previouslyApprovedVersionIds] = await Promise.all([
     listArtifactVersions(scope, lineageId),
     getArtifactHead(scope, lineageId),
     listArtifactProposals(scope, lineageId),
+    listPreviouslyApprovedVersionIds(scope, lineageId),
   ]);
+  const previouslyApproved = new Set(previouslyApprovedVersionIds);
   const versionSummaries = versions.map((version) =>
     artifactVersionSummarySchema.parse({
       id: version.id,
@@ -178,6 +181,7 @@ async function getLineagePresentation(
       snapshot: version.snapshot,
       provenance: version.provenance,
       feedback: version.feedback,
+      previouslyApproved: previouslyApproved.has(version.id),
       createdAt: version.createdAt,
     })
   );

@@ -69,6 +69,7 @@ export const artifactVersionSummarySchema = z
     snapshot: artifactVersionSnapshotSchema,
     provenance: artifactVersionProvenanceSchema,
     feedback: z.string().max(2_000).nullable(),
+    previouslyApproved: z.boolean().optional(),
     createdAt: z.coerce.date(),
   })
   .strict();
