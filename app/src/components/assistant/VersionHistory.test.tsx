@@ -174,6 +174,25 @@ describe("VersionHistory", () => {
     );
   });
 
+  it("opens a ready version for first approval when no official exists", () => {
+    renderHistory([{ ...planLineage, approvedCurrent: null }], false, true);
+    const readyRow = screen.getAllByRole("listitem")[0]!;
+
+    fireEvent.click(
+      within(readyRow).getByRole("button", { name: "Comparar para aprovar" })
+    );
+
+    expect(screen.getByTestId("comparison-request")).toHaveTextContent(
+      JSON.stringify({
+        threadId: "thread-1",
+        lineageId: ids.planLineage,
+        artifactType: "plan",
+        versionAId: ids.official,
+        versionBId: ids.working,
+      })
+    );
+  });
+
   it("keeps lineage options isolated", () => {
     renderHistory([planLineage, creativeLineage], false, true);
     fireEvent.change(screen.getByRole("combobox", { name: "Linha do artefato" }), {

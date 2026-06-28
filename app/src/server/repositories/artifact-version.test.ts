@@ -91,6 +91,12 @@ describe("artifact version repository invariants", () => {
     expect(
       artifactPromotionCommandSchema.safeParse({
         ...plan,
+        expectedOfficialVersionId: null,
+      }).success
+    ).toBe(true);
+    expect(
+      artifactPromotionCommandSchema.safeParse({
+        ...plan,
         expectedRevision: undefined,
       }).success
     ).toBe(false);
@@ -289,6 +295,39 @@ describeDb("artifact promotion transaction", () => {
     const events = await db.select().from(assistantArtifactApprovalEvents).where(eq(assistantArtifactApprovalEvents.workspaceId, ids.workspace));
     expect(head).toMatchObject({ approvedCurrentVersionId: ids.planV1, revision: 0 });
     expect(events).toHaveLength(0);
+  });
+
+  it("promotes the first official version from a null head", async () => {
+    const { ids, scope } = await seedPromotionFixture();
+    await db
+      .update(assistantArtifactLineageHeads)
+      .set({ approvedCurrentVersionId: null })
+      .where(eq(assistantArtifactLineageHeads.lineageId, ids.planLineage));
+
+    const result = await promoteArtifactVersion({
+      scope,
+      command: {
+        type: "plan",
+        operationId: crypto.randomUUID(),
+        lineageId: ids.planLineage,
+        targetVersionId: ids.planV2,
+        expectedOfficialVersionId: null,
+        expectedRevision: 0,
+      },
+    });
+
+    const [head] = await db
+      .select()
+      .from(assistantArtifactLineageHeads)
+      .where(eq(assistantArtifactLineageHeads.lineageId, ids.planLineage));
+    expect(result.promotions).toEqual([
+      expect.objectContaining({ previousVersionNumber: null, targetVersionNumber: 2 }),
+    ]);
+    expect(head).toMatchObject({
+      approvedCurrentVersionId: ids.planV2,
+      workingVersionId: ids.planV2,
+      revision: 1,
+    });
   });
 
   it("rolls back plan CAS, canonical writes, proposal staling, and history when creative CAS conflicts", async () => {

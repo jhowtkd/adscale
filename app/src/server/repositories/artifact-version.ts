@@ -560,7 +560,7 @@ async function loadPromotionTarget(
   target: {
     lineageId: string;
     targetVersionId: string;
-    expectedOfficialVersionId: string;
+    expectedOfficialVersionId: string | null;
     expectedRevision: number;
   },
   artifactType: ArtifactType

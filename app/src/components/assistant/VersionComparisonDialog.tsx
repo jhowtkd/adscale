@@ -382,7 +382,7 @@ export default function VersionComparisonDialog({
   };
 
   const promote = async () => {
-    if (!target || !official || !comparison.data || !canPromote) return;
+    if (!target || !comparison.data || !canPromote) return;
     setSubmitting(true);
     setConflict(null);
     setMutationError(null);
@@ -391,7 +391,7 @@ export default function VersionComparisonDialog({
         operationId: crypto.randomUUID(),
         lineageId: lineage!.lineageId,
         targetVersionId: target.id,
-        expectedOfficialVersionId: official.id,
+        expectedOfficialVersionId: official?.id ?? null,
         expectedRevision: comparison.data.headRevision,
       };
       await promotionMutation.mutateAsync(
@@ -529,7 +529,9 @@ export default function VersionComparisonDialog({
           <DialogHeader>
             <DialogTitle>{needsPlanReview ? "Tornar plano e criativo oficiais?" : `Tornar ${target ? versionLabel(target) : "a versão"} oficial?`}</DialogTitle>
             <DialogDescription>
-              {official && target ? `A versão oficial muda de ${versionLabel(official)} para ${versionLabel(target)}.` : "Revise a transição."}
+              {target
+                ? `A versão oficial muda de ${official ? versionLabel(official) : "nenhuma"} para ${versionLabel(target)}.`
+                : "Revise a transição."}
             </DialogDescription>
           </DialogHeader>
           <DialogBody className="space-y-3 text-sm">
