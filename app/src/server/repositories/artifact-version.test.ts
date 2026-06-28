@@ -83,6 +83,7 @@ describe("artifact version repository invariants", () => {
       operationId: "00000000-0000-4000-8000-000000000001",
       lineageId: "00000000-0000-4000-8000-000000000002",
       targetVersionId: "00000000-0000-4000-8000-000000000003",
+      expectedOfficialVersionId: "00000000-0000-4000-8000-000000000004",
       expectedRevision: 2,
     };
 
@@ -279,6 +280,7 @@ describeDb("artifact promotion transaction", () => {
         operationId: crypto.randomUUID(),
         lineageId: ids.planLineage,
         targetVersionId: ids.planV2,
+        expectedOfficialVersionId: ids.planV1,
         expectedRevision: 0,
       },
     })).rejects.toThrow("Canonical plan write failed");
@@ -324,10 +326,12 @@ describeDb("artifact promotion transaction", () => {
         operationId: crypto.randomUUID(),
         lineageId: ids.creativeLineage,
         targetVersionId: ids.creativeV2,
+        expectedOfficialVersionId: ids.creativeV1,
         expectedRevision: 99,
         planTransition: {
           lineageId: ids.planLineage,
           targetVersionId: ids.planV2,
+          expectedOfficialVersionId: ids.planV1,
           expectedRevision: 0,
           acknowledgementId,
         },
@@ -407,10 +411,12 @@ describeDb("artifact promotion transaction", () => {
       operationId,
       lineageId: ids.creativeLineage,
       targetVersionId: ids.creativeV2,
+      expectedOfficialVersionId: ids.creativeV1,
       expectedRevision: 0,
       planTransition: {
         lineageId: ids.planLineage,
         targetVersionId: ids.planV2,
+        expectedOfficialVersionId: ids.planV1,
         expectedRevision: 0,
         acknowledgementId,
       },
