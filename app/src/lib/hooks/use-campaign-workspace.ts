@@ -14,7 +14,7 @@ import { useReviewDerivation } from "@/lib/hooks/use-review";
 import type { ReviewDecision } from "@/lib/hooks/use-review";
 import { useCreateDeliveryPackage } from "@/lib/hooks/use-delivery-package";
 import { useCreativeQa } from "@/lib/hooks/use-creative-qa";
-import { usePlan, useGeneratePlan, useUpdatePlanStatus } from "./use-plan";
+import { useGeneratePlan, useUpdatePlanStatus } from "./use-plan";
 import { useSaveDerivationAsReference } from "@/lib/hooks/use-client-profiles";
 import { useGenerateLandingPage } from "@/lib/hooks/use-landing-page";
 import type { DeliveryFormat } from "@/components/workspace/DeliveryPackageModal";
@@ -94,7 +94,6 @@ export function useCampaignWorkspace(
   const saveDerivationAsReference = useSaveDerivationAsReference();
   const generateLandingPage = useGenerateLandingPage();
   const creativeQa = useCreativeQa();
-  const { data: planData } = usePlan(campaignId);
   const generatePlanMutation = useGeneratePlan(campaignId);
   const updatePlanStatusMutation = useUpdatePlanStatus(campaignId);
 
@@ -747,7 +746,6 @@ export function useCampaignWorkspace(
     restylePending: restyleCampaign.isPending,
     exportPending: exportMutation.isPending,
     deliveryPackagePending: createDeliveryPackage.isPending,
-    planData,
     generatePlanPending: generatePlanMutation.isPending,
     updatePlanStatusPending: updatePlanStatusMutation.isPending,
   };

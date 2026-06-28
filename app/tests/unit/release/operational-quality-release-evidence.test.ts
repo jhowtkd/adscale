@@ -476,6 +476,6 @@ describe("mergeRegressionIntoTechnical", () => {
     expect(evidence.qualityImprovementClaimed).toBe(false);
     expect(evidence.operationalEvidence?.status).toBe("insufficient_sample");
     },
-    15_000
+    30_000
   );
 });

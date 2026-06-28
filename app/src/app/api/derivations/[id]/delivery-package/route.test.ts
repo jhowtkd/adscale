@@ -16,7 +16,7 @@ vi.mock("@/server/repositories/user", () => ({
 
 vi.mock("@/server/repositories/derivation", () => ({
   getDerivationById: vi.fn(),
-  createDerivation: vi.fn(),
+  createPackageChildIfAbsent: vi.fn(),
   getActivePackageChildren: vi.fn(),
   updateDerivationStatus: vi.fn(),
 }));
@@ -42,14 +42,14 @@ vi.mock("next-intl/server", () => ({
 
 import {
   getDerivationById,
-  createDerivation,
+  createPackageChildIfAbsent,
   getActivePackageChildren,
   updateDerivationStatus,
 } from "@/server/repositories/derivation";
 import { updateCampaign } from "@/server/repositories/campaign";
 import { inngest } from "@/server/jobs/client";
 const mockGetDerivationById = vi.mocked(getDerivationById);
-const mockCreateDerivation = vi.mocked(createDerivation);
+const mockCreatePackageChildIfAbsent = vi.mocked(createPackageChildIfAbsent);
 const mockGetActivePackageChildren = vi.mocked(getActivePackageChildren);
 const mockUpdateDerivationStatus = vi.mocked(updateDerivationStatus);
 const mockUpdateCampaign = vi.mocked(updateCampaign);
@@ -116,7 +116,7 @@ describe("POST /api/derivations/[id]/delivery-package", () => {
 
     expect(res.status).toBe(409);
     expect(body.code).toBe("derivationHardFailures");
-    expect(mockCreateDerivation).not.toHaveBeenCalled();
+    expect(mockCreatePackageChildIfAbsent).not.toHaveBeenCalled();
   });
 
   it("returns 409 when approved source has invalid qualityVerdict", async () => {
@@ -137,7 +137,7 @@ describe("POST /api/derivations/[id]/delivery-package", () => {
 
     expect(res.status).toBe(409);
     expect(body.code).toBe("derivationHardFailures");
-    expect(mockCreateDerivation).not.toHaveBeenCalled();
+    expect(mockCreatePackageChildIfAbsent).not.toHaveBeenCalled();
   });
 
   it("rejects unapproved source", async () => {
@@ -168,7 +168,9 @@ describe("POST /api/derivations/[id]/delivery-package", () => {
       variantIndex: 0,
     } as Awaited<ReturnType<typeof getDerivationById>>);
 
-    mockCreateDerivation.mockImplementation(async (input) => ({
+    mockCreatePackageChildIfAbsent.mockImplementation(async (input) => ({
+      created: true as const,
+      child: {
       id: `child-${input.format}`,
       campaignId: input.campaignId,
       workspaceId: input.workspaceId,
@@ -198,6 +200,7 @@ describe("POST /api/derivations/[id]/delivery-package", () => {
       inputPrompt: null,
       createdAt: new Date(),
       updatedAt: new Date(),
+      },
     }));
 
     const res = await POST(
@@ -206,7 +209,7 @@ describe("POST /api/derivations/[id]/delivery-package", () => {
     );
     const body = await res.json();
 
-    expect(mockCreateDerivation).toHaveBeenCalledTimes(2);
+    expect(mockCreatePackageChildIfAbsent).toHaveBeenCalledTimes(2);
     expect(body.readyFormats).toEqual(["1:1"]);
     expect(body.queued).toEqual([
       expect.objectContaining({ format: "4:5" }),
@@ -237,7 +240,7 @@ describe("POST /api/derivations/[id]/delivery-package", () => {
     );
     const body = await res.json();
 
-    expect(mockCreateDerivation).toHaveBeenCalledTimes(1);
+    expect(mockCreatePackageChildIfAbsent).toHaveBeenCalledTimes(1);
     expect(body.queued).toEqual([expect.objectContaining({ format: "9:16" })]);
     expect(body.skipped).toEqual(["4:5"]);
   });
@@ -255,7 +258,9 @@ describe("POST /api/derivations/[id]/delivery-package", () => {
       variantIndex: 0,
     } as Awaited<ReturnType<typeof getDerivationById>>);
 
-    mockCreateDerivation.mockImplementation(async (input) => ({
+    mockCreatePackageChildIfAbsent.mockImplementation(async (input) => ({
+      created: true as const,
+      child: {
       id: `child-${input.format}`,
       campaignId: input.campaignId,
       workspaceId: input.workspaceId,
@@ -285,6 +290,7 @@ describe("POST /api/derivations/[id]/delivery-package", () => {
       inputPrompt: null,
       createdAt: new Date(),
       updatedAt: new Date(),
+      },
     }));
 
     const res = await POST(
@@ -335,7 +341,9 @@ describe("POST /api/derivations/[id]/delivery-package", () => {
       variantIndex: 0,
     } as Awaited<ReturnType<typeof getDerivationById>>);
 
-    mockCreateDerivation.mockImplementation(async (input) => ({
+    mockCreatePackageChildIfAbsent.mockImplementation(async (input) => ({
+      created: true as const,
+      child: {
       id: `child-${input.format}`,
       campaignId: input.campaignId,
       workspaceId: input.workspaceId,
@@ -365,6 +373,7 @@ describe("POST /api/derivations/[id]/delivery-package", () => {
       inputPrompt: null,
       createdAt: new Date(),
       updatedAt: new Date(),
+      },
     }));
     mockInngestSend
       .mockRejectedValueOnce(new Error("worker unavailable"))

@@ -5,6 +5,7 @@ const baseEnv = {
   BETTER_AUTH_SECRET: "test-secret-with-more-than-thirty-two-characters",
   BETTER_AUTH_URL: "http://localhost:3000",
   OPENAI_API_KEY: "sk-test",
+  MINIMAX_API_KEY: "minimax-test",
   OPENAI_TEXT_MODEL: "gpt-5-mini",
   OPENAI_IMAGE_MODEL: "gpt-image-2-2026-04-21",
   R2_ACCOUNT_ID: "r2-account",

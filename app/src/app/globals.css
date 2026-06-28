@@ -394,6 +394,21 @@
    Animation Keyframes
    ============================================ */
 
+@keyframes toast-progress {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+.animate-toast-progress {
+  animation-name: toast-progress;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
 @keyframes pulse-dot {
   0%, 100% {
     transform: scale(1);

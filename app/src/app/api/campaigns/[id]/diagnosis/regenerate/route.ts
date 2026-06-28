@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
 import { logger } from "@/lib/logger";
 import { apiError, handleApiError } from "@/lib/api-response";
+import { checkRateLimit } from "@/lib/with-rate-limit";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
-import { getCampaignById, updateCampaign } from "@/server/repositories/campaign";
+import {
+  getCampaignById,
+  updateCampaign,
+  claimCreativeDiagnosisAnalysis,
+} from "@/server/repositories/campaign";
 import { getAssetsByCampaign } from "@/server/repositories/asset";
 import { downloadBuffer } from "@/server/storage/r2";
 import { analyzeCreativeDiagnosis } from "@/server/ai/creative-diagnosis";
@@ -18,6 +23,12 @@ export async function POST(
       params,
     ]);
 
+    const rateLimitResult = await checkRateLimit(request, {
+      category: "ai",
+      workspaceId: workspace.id,
+    });
+    if (rateLimitResult) return rateLimitResult;
+
     const campaign = await getCampaignById(id, workspace.id);
     if (!campaign) {
       return apiError("campaignNotFound", 404);
@@ -26,7 +37,12 @@ export async function POST(
     if (campaign.generationMode !== "art_variation") {
       return apiError("diagnosisOnlyForArtVariation", 400);
     }
-    if (campaign.creativeDiagnosisStatus === "analyzing") {
+
+    const claim = await claimCreativeDiagnosisAnalysis(id, workspace.id);
+    if (claim === "not_found") {
+      return apiError("campaignNotFound", 404);
+    }
+    if (claim === "in_progress") {
       return apiError("diagnosisInProgress", 429);
     }
 
@@ -37,11 +53,12 @@ export async function POST(
       idempotencyKey: `diagnosis-regenerate:${id}`,
       metadata: { campaignId: id },
     });
-    if (creditError) return creditError;
-
-    await updateCampaign(id, workspace.id, {
-      creativeDiagnosisStatus: "analyzing",
-    });
+    if (creditError) {
+      await updateCampaign(id, workspace.id, {
+        creativeDiagnosisStatus: "failed",
+      });
+      return creditError;
+    }
 
     const assets = await getAssetsByCampaign(id, workspace.id);
     const asset = assets[0];

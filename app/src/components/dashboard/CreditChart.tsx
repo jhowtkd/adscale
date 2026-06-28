@@ -6,29 +6,14 @@ import { cn } from "@/lib/utils";
 import Panel from "@/components/layout/Panel";
 import type { CreditChartRange } from "@/server/repositories/dashboard";
 
-const ResponsiveContainer = dynamic(
-  () => import("recharts").then((mod) => mod.ResponsiveContainer),
-  { ssr: false },
-);
-const BarChart = dynamic(() => import("recharts").then((mod) => mod.BarChart), {
+const CreditChartBars = dynamic(() => import("./CreditChartBars"), {
   ssr: false,
+  loading: () => (
+    <div className="flex h-full items-center justify-center text-sm text-[var(--text-muted)]">
+      …
+    </div>
+  ),
 });
-const Bar = dynamic(() => import("recharts").then((mod) => mod.Bar), {
-  ssr: false,
-});
-const XAxis = dynamic(() => import("recharts").then((mod) => mod.XAxis), {
-  ssr: false,
-});
-const YAxis = dynamic(() => import("recharts").then((mod) => mod.YAxis), {
-  ssr: false,
-});
-const Tooltip = dynamic(() => import("recharts").then((mod) => mod.Tooltip), {
-  ssr: false,
-});
-const CartesianGrid = dynamic(
-  () => import("recharts").then((mod) => mod.CartesianGrid),
-  { ssr: false },
-);
 
 interface DataPoint {
   date: string;
@@ -54,7 +39,6 @@ export default function CreditChart({ data, range, onRangeChange, isFetching }: 
   const locale = useLocale();
   const hasUsage = data.some((point) => point.used > 0);
   const maxValue = Math.max(...data.map((d) => d.used), 1);
-  const isWeekly = range === "90";
 
   return (
     <Panel padding="none">
@@ -87,43 +71,7 @@ export default function CreditChart({ data, range, onRangeChange, isFetching }: 
             <p className="text-xs text-[var(--text-muted)]">{t("noDataHint")}</p>
           </div>
         ) : (
-          <ResponsiveContainer width="100%" height={240} minWidth={0}>
-            <BarChart data={data} margin={{ top: 5, right: 5, left: -10, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border-dim)" vertical={false} />
-              <XAxis
-                dataKey="date"
-                tickFormatter={(date) =>
-                  new Date(date).toLocaleDateString(locale, {
-                    ...(isWeekly
-                      ? { month: "short", day: "numeric" }
-                      : { weekday: range === "7" ? "short" : undefined, day: "numeric" }),
-                  })
-                }
-                tick={{ fill: "var(--text-secondary)", fontSize: 12 }}
-                axisLine={{ stroke: "var(--border-dim)" }}
-                tickLine={false}
-                interval={range === "30" ? 4 : range === "90" ? 1 : 0}
-              />
-              <YAxis
-                tick={{ fill: "var(--text-secondary)", fontSize: 12 }}
-                axisLine={false}
-                tickLine={false}
-                domain={[0, maxValue]}
-              />
-              <Tooltip
-                cursor={{ fill: "var(--accent-green-dim)" }}
-                contentStyle={{
-                  background: "var(--surface-base)",
-                  border: "1px solid var(--border-dim)",
-                  borderRadius: "var(--radius-md)",
-                  fontSize: "13px",
-                }}
-                labelStyle={{ color: "var(--text-primary)" }}
-                itemStyle={{ color: "var(--text-secondary)" }}
-              />
-              <Bar dataKey="used" fill="var(--accent-green)" radius={[3, 3, 0, 0]} opacity={0.85} />
-            </BarChart>
-          </ResponsiveContainer>
+          <CreditChartBars data={data} range={range} locale={locale} maxValue={maxValue} />
         )}
       </div>
     </Panel>

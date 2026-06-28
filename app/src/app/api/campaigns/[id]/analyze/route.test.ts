@@ -17,6 +17,7 @@ vi.mock("@/server/auth/workspace", () => ({
 vi.mock("@/server/repositories/asset", () => ({
   getAssetWithMetadata: vi.fn(),
   updateAssetMetadata: vi.fn(),
+  claimAssetAnalysis: vi.fn().mockResolvedValue("claimed"),
 }));
 
 vi.mock("@/server/ai/campaign-deduction", () => ({

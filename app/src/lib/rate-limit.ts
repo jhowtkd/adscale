@@ -90,6 +90,24 @@ class MemoryStore implements RateLimitStore {
 // UpstashRedisStore (serverless-safe)
 /* ------------------------------------------------------------------ */
 
+const SLIDING_WINDOW_LUA = `
+local key = KEYS[1]
+local now = tonumber(ARGV[1])
+local windowStart = tonumber(ARGV[2])
+local limit = tonumber(ARGV[3])
+local member = ARGV[4]
+local ttl = tonumber(ARGV[5])
+
+redis.call('ZREMRANGEBYSCORE', key, '0', windowStart)
+local count = redis.call('ZCARD', key)
+if count >= limit then
+  return {0, count}
+end
+redis.call('ZADD', key, now, member)
+redis.call('EXPIRE', key, ttl)
+return {1, count + 1}
+`;
+
 class UpstashRedisStore implements RateLimitStore {
   private url: string;
   private token: string;
@@ -102,43 +120,41 @@ class UpstashRedisStore implements RateLimitStore {
   async hit(key: string, windowMs: number, maxRequests: number): Promise<RateLimitResult> {
     const now = Date.now();
     const windowStart = now - windowMs;
+    const member = `${now}:${crypto.randomUUID()}`;
+    const ttlSeconds = Math.ceil(windowMs / 1000) * 2;
 
-    // Use Upstash Redis JSON array pipeline:
-    // 1. RPUSH the new timestamp
-    // 2. EXPIRE the key
-    // 3. LRANGE to get all timestamps
-    // 4. Filter out stale entries client-side (Upstash free tier doesn't support Redis streams easily)
-    // A simpler approach: use a Redis sorted set (ZADD) with timestamp as score, then ZREMRANGEBYSCORE + ZCARD
-
-    const pipeline = [
-      ["ZADD", key, String(now), String(now)],
-      ["ZREMRANGEBYSCORE", key, "0", String(windowStart)],
-      ["ZCARD", key],
-      ["EXPIRE", key, String(Math.ceil(windowMs / 1000) * 2)],
-    ];
-
-    const res = await fetch(`${this.url}/pipeline`, {
+    const res = await fetch(this.url, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${this.token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(pipeline),
+      body: JSON.stringify([
+        "EVAL",
+        SLIDING_WINDOW_LUA,
+        "1",
+        key,
+        String(now),
+        String(windowStart),
+        String(maxRequests),
+        member,
+        String(ttlSeconds),
+      ]),
       signal: AbortSignal.timeout(5000),
     });
 
     if (!res.ok) {
-      logger.warn("Upstash Redis rate-limit pipeline failed", { status: res.status });
-      // Fail closed — block request if Redis is down to prevent abuse
+      logger.warn("Upstash Redis rate-limit eval failed", { status: res.status });
       return { success: false, limit: maxRequests, remaining: 0, reset: now + windowMs };
     }
 
-    const results = (await res.json()) as Array<{ result: number | null; error?: string }>;
-    const count = (results[2]?.result ?? 0) as number;
+    const payload = (await res.json()) as { result?: number[] | null };
+    const result = payload.result ?? [0, maxRequests];
+    const allowed = result[0] === 1;
+    const count = result[1] ?? maxRequests;
 
-    const success = count <= maxRequests;
     return {
-      success,
+      success: allowed,
       limit: maxRequests,
       remaining: Math.max(0, maxRequests - count),
       reset: now + windowMs,

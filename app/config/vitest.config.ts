@@ -2,12 +2,16 @@ import { defineConfig, configDefaults } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import path from "path";
 
-export default defineConfig({
+const shared = {
   plugins: [react()],
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "../src"),
+      "server-only": path.resolve(__dirname, "../tests/stubs/server-only.ts"),
+    },
+  },
   test: {
-    environment: "jsdom",
     globals: true,
-    // Playwright E2E specs (tests/e2e) run via `npm run test:e2e`, not vitest.
     exclude: [...configDefaults.exclude, "tests/e2e/**"],
     setupFiles: ["./tests/setup.ts"],
     env: {
@@ -17,10 +21,38 @@ export default defineConfig({
       E2E_DISABLE_RATE_LIMIT: "true",
     },
   },
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "../src"),
-      "server-only": path.resolve(__dirname, "../tests/stubs/server-only.ts"),
-    },
+};
+
+const nodeIncludes = [
+  "src/server/**/*.test.ts",
+  "src/app/api/**/*.test.ts",
+  "tests/integration/**/*.test.ts",
+];
+
+export default defineConfig({
+  ...shared,
+  test: {
+    ...shared.test,
+    projects: [
+      {
+        ...shared,
+        test: {
+          ...shared.test,
+          name: "node",
+          environment: "node",
+          include: nodeIncludes,
+        },
+      },
+      {
+        ...shared,
+        test: {
+          ...shared.test,
+          name: "jsdom",
+          environment: "jsdom",
+          include: ["src/**/*.test.ts", "src/**/*.test.tsx", "tests/**/*.test.ts", "tests/**/*.test.tsx"],
+          exclude: [...shared.test.exclude, ...nodeIncludes],
+        },
+      },
+    ],
   },
 });

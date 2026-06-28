@@ -11,11 +11,12 @@ vi.mock("../../repositories/derivation", () => ({
 }));
 vi.mock("../../repositories/performance", () => ({
   listPerformanceSnapshotsByCampaign: vi.fn(),
-  getPerformanceSnapshotBySourceKey: vi.fn(),
+  getPerformanceSnapshotsBySourceKeys: vi.fn(),
+  bulkUpsertPerformanceSnapshots: vi.fn(),
 }));
 vi.mock("../../repositories/performance-import", () => ({
   createPerformanceImportBatch: vi.fn(),
-  createPerformanceImportRow: vi.fn(),
+  createPerformanceImportRows: vi.fn(),
   updatePerformanceImportBatchCounts: vi.fn(),
   listPerformanceImportBatchesByCampaign: vi.fn(),
   getPerformanceImportBatchById: vi.fn(),
@@ -30,7 +31,6 @@ vi.mock("../service", () => ({
       super(code);
     }
   },
-  recordPerformanceSnapshot: vi.fn(),
 }));
 
 import { db } from "../../db";
@@ -38,17 +38,17 @@ import { getCampaignById } from "../../repositories/campaign";
 import { getDerivationsByCampaign } from "../../repositories/derivation";
 import {
   createPerformanceImportBatch,
-  createPerformanceImportRow,
+  createPerformanceImportRows,
   getPerformanceImportBatchById,
   listPerformanceImportBatchesByCampaign,
   listPerformanceImportRowsByBatch,
   updatePerformanceImportBatchCounts,
 } from "../../repositories/performance-import";
 import {
-  getPerformanceSnapshotBySourceKey,
+  bulkUpsertPerformanceSnapshots,
+  getPerformanceSnapshotsBySourceKeys,
   listPerformanceSnapshotsByCampaign,
 } from "../../repositories/performance";
-import { recordPerformanceSnapshot } from "../service";
 import { normalizePlacement } from "../placement";
 import { buildPerformanceSourceKey } from "../source-key";
 import {
@@ -174,10 +174,15 @@ describe("import service", () => {
     vi.mocked(createPerformanceImportBatch).mockResolvedValue({
       id: "batch-1",
     } as never);
-    vi.mocked(getPerformanceSnapshotBySourceKey).mockResolvedValue(null);
-    vi.mocked(recordPerformanceSnapshot).mockResolvedValue({
-      id: "snapshot-1",
-    } as never);
+    vi.mocked(getPerformanceSnapshotsBySourceKeys).mockResolvedValue(new Map());
+    vi.mocked(bulkUpsertPerformanceSnapshots).mockResolvedValue(
+      new Map([
+        [
+          preview.rows[0]?.sourceKey ?? "missing",
+          { id: "snapshot-1", sourceKey: preview.rows[0]?.sourceKey ?? "missing" },
+        ],
+      ] as never)
+    );
 
     const result = await confirmImport({
       campaignId,
@@ -190,7 +195,8 @@ describe("import service", () => {
 
     expect(result.batchId).toBe("batch-1");
     expect(result.createdCount).toBe(1);
-    expect(createPerformanceImportRow).toHaveBeenCalled();
+    expect(createPerformanceImportRows).toHaveBeenCalled();
+    expect(bulkUpsertPerformanceSnapshots).toHaveBeenCalled();
     expect(updatePerformanceImportBatchCounts).toHaveBeenCalled();
   });
 
@@ -290,13 +296,25 @@ describe("import service", () => {
     vi.mocked(createPerformanceImportBatch).mockResolvedValue({
       id: "batch-2",
     } as never);
-    vi.mocked(getPerformanceSnapshotBySourceKey).mockResolvedValue({
-      id: "snapshot-existing",
-      sourceKey,
-    } as never);
-    vi.mocked(recordPerformanceSnapshot).mockResolvedValue({
-      id: "snapshot-updated",
-    } as never);
+    vi.mocked(getPerformanceSnapshotsBySourceKeys).mockResolvedValue(
+      new Map([
+        [
+          sourceKey,
+          {
+            id: "snapshot-existing",
+            sourceKey,
+          },
+        ],
+      ] as never)
+    );
+    vi.mocked(bulkUpsertPerformanceSnapshots).mockResolvedValue(
+      new Map([
+        [
+          sourceKey,
+          { id: "snapshot-updated", sourceKey },
+        ],
+      ] as never)
+    );
 
     const result = await confirmImport({
       campaignId,
@@ -308,8 +326,13 @@ describe("import service", () => {
     });
 
     expect(result.updatedCount).toBe(1);
-    expect(createPerformanceImportRow).toHaveBeenCalledWith(
-      expect.objectContaining({ status: "updated", snapshotId: "snapshot-updated" }),
+    expect(createPerformanceImportRows).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          status: "updated",
+          snapshotId: "snapshot-updated",
+        }),
+      ]),
       expect.anything()
     );
   });

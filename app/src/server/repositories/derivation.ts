@@ -88,6 +88,73 @@ export async function createDerivation(data: CreateDerivationInput) {
   return result[0];
 }
 
+type DbOrTx = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+export async function createPackageChildIfAbsent(
+  data: CreateDerivationInput & { parentId: string; format: string },
+  tx?: DbOrTx
+) {
+  const run = async (client: DbOrTx) => {
+    await client
+      .select({ id: derivations.id })
+      .from(derivations)
+      .where(
+        and(
+          eq(derivations.id, data.parentId),
+          eq(derivations.workspaceId, data.workspaceId)
+        )
+      )
+      .for("update");
+
+    const active = await client
+      .select()
+      .from(derivations)
+      .where(
+        and(
+          eq(derivations.parentId, data.parentId),
+          eq(derivations.workspaceId, data.workspaceId),
+          eq(derivations.generationMode, "format_adaptation"),
+          eq(derivations.format, data.format),
+          inArray(derivations.status, ["queued", "processing"])
+        )
+      )
+      .limit(1);
+
+    if (active[0]) {
+      return { child: active[0], created: false as const };
+    }
+
+    const [child] = await client
+      .insert(derivations)
+      .values({
+        campaignId: data.campaignId,
+        workspaceId: data.workspaceId,
+        planId: data.planId ?? null,
+        parentId: data.parentId,
+        status: data.status ?? "queued",
+        feedback: data.feedback ?? null,
+        format: data.format,
+        generationMode: data.generationMode ?? "format_adaptation",
+        variantIndex: data.variantIndex ?? null,
+        ctaText: data.ctaText ?? null,
+        styleAssetId: data.styleAssetId ?? null,
+        isPreview: data.isPreview ?? false,
+        creativeContract: data.creativeContract ?? null,
+        regenerationCorrectionBrief: data.regenerationCorrectionBrief ?? null,
+        outputLearningApplication: data.outputLearningApplication ?? null,
+      })
+      .returning();
+
+    return { child, created: true as const };
+  };
+
+  if (tx) {
+    return run(tx);
+  }
+
+  return db.transaction(run);
+}
+
 export async function getDerivationsByCampaign(
   campaignId: string,
   workspaceId: string

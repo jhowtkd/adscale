@@ -6,7 +6,7 @@ import { assertDerivationApprovable } from "@/server/ai/creative-quality-gate";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import {
   getDerivationById,
-  createDerivation,
+  createPackageChildIfAbsent,
   getActivePackageChildren,
   updateDerivationStatus,
 } from "@/server/repositories/derivation";
@@ -87,7 +87,7 @@ export async function POST(
     }
 
     const queuedResults = await Promise.all(formatsToCreate.map(async (format) => {
-      const child = await createDerivation({
+      const { child, created } = await createPackageChildIfAbsent({
         campaignId: source.campaignId,
         workspaceId: workspace.id,
         planId: source.planId ?? undefined,
@@ -98,6 +98,10 @@ export async function POST(
         ctaText: source.ctaText ?? undefined,
         format,
       });
+
+      if (!created) {
+        return { status: "skipped" as const, id: child.id, format };
+      }
 
       try {
         await inngest.send({
@@ -125,16 +129,22 @@ export async function POST(
       }
     }));
 
-    const { queued, failed } = queuedResults.reduce<{
+    const { queued, failed, skippedFromRace } = queuedResults.reduce<{
       queued: { id: string; format: string }[];
       failed: { id: string; format: string }[];
+      skippedFromRace: { id: string; format: string }[];
     }>(
       (acc, { status, id, format }) => {
-        const target = status === "queued" ? acc.queued : acc.failed;
-        target.push({ id, format });
+        if (status === "queued") {
+          acc.queued.push({ id, format });
+        } else if (status === "failed") {
+          acc.failed.push({ id, format });
+        } else {
+          acc.skippedFromRace.push({ id, format });
+        }
         return acc;
       },
-      { queued: [], failed: [] }
+      { queued: [], failed: [], skippedFromRace: [] }
     );
 
     if (queued.length > 0) {
@@ -163,7 +173,7 @@ export async function POST(
         readyFormats,
         queued,
         failed,
-        skipped: [...activeFormats],
+        skipped: [...activeFormats, ...skippedFromRace.map((item) => item.format)],
       },
     });
 
@@ -172,7 +182,7 @@ export async function POST(
       readyFormats,
       queued,
       failed,
-      skipped: [...activeFormats],
+      skipped: [...activeFormats, ...skippedFromRace.map((item) => item.format)],
     });
   } catch (error) {
     return handleApiError(error, "derivations.[id].delivery-package.POST");

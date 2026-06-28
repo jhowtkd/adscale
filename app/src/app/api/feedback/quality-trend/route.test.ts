@@ -86,7 +86,6 @@ describe("/api/feedback/quality-trend GET", () => {
       format: undefined,
       clientProfileId: undefined,
       primaryFailureReason: undefined,
-      capturedAt: expect.any(String),
     });
   });
 
@@ -105,7 +104,6 @@ describe("/api/feedback/quality-trend GET", () => {
       format: "1:1",
       clientProfileId: CLIENT_PROFILE_ID,
       primaryFailureReason: "visual_overload",
-      capturedAt: expect.any(String),
     });
   });
 

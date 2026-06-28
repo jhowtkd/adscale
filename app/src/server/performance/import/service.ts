@@ -5,18 +5,22 @@ import { getCampaignById } from "../../repositories/campaign";
 import { getDerivationsByCampaign } from "../../repositories/derivation";
 import {
   createPerformanceImportBatch,
-  createPerformanceImportRow,
+  createPerformanceImportRows,
   getPerformanceImportBatchById,
   listPerformanceImportBatchesByCampaign,
   listPerformanceImportRowsByBatch,
   updatePerformanceImportBatchCounts,
+  type DbOrTx,
 } from "../../repositories/performance-import";
 import {
-  getPerformanceSnapshotBySourceKey,
+  bulkUpsertPerformanceSnapshots,
+  getPerformanceSnapshotsBySourceKeys,
   listPerformanceSnapshotsByCampaign,
+  type UpsertPerformanceSnapshotInput,
 } from "../../repositories/performance";
 import { dispatchLearningRecomputeForCampaign } from "../learning/dispatch";
-import { PerformanceDomainError, recordPerformanceSnapshot } from "../service";
+import { PerformanceDomainError } from "../service";
+import { normalizePlacement } from "../placement";
 import { isColumnMappingComplete } from "./map-row";
 import { parseCsv } from "./csv-parse";
 import {
@@ -32,7 +36,9 @@ import type {
   ManualImportInput,
   MappableCsvColumn,
   ParseOptions,
+  PreviewRow,
 } from "./types";
+import type { CanonicalPerformanceSnapshotInput } from "../validation";
 import { CSV_MAX_BYTES, CSV_MAX_ROWS, OPTIONAL_CSV_COLUMNS, REQUIRED_CSV_COLUMNS } from "./types";
 
 export const parseOptionsSchema = z
@@ -184,6 +190,181 @@ export interface ConfirmImportResult {
   invalidCount: number;
 }
 
+function buildSnapshotUpsertInput(input: {
+  workspaceId: string;
+  userId: string;
+  clientProfileId: string;
+  campaignId: string;
+  batchId: string;
+  rowIndex: number;
+  canonical: CanonicalPerformanceSnapshotInput;
+  sourceKey: string;
+}): UpsertPerformanceSnapshotInput {
+  const normalizedPlacement = normalizePlacement(
+    input.canonical.platform,
+    input.canonical.placementRaw
+  );
+
+  return {
+    workspaceId: input.workspaceId,
+    clientProfileId: input.clientProfileId,
+    campaignId: input.campaignId,
+    derivationId: input.canonical.derivationId,
+    platform: input.canonical.platform,
+    placement: normalizedPlacement.placement,
+    placementRaw: normalizedPlacement.placementRaw,
+    adAccountId: input.canonical.adAccountId ?? null,
+    startDate: input.canonical.startDate,
+    endDate: input.canonical.endDate,
+    sourceTimezone: input.canonical.sourceTimezone,
+    currency: input.canonical.currency,
+    impressions: input.canonical.metrics.impressions,
+    clicks: input.canonical.metrics.clicks,
+    spend: input.canonical.metrics.spend,
+    conversions: input.canonical.metrics.conversions,
+    conversionValue: input.canonical.metrics.conversionValue,
+    sourceType: input.canonical.sourceType,
+    externalCampaignId: input.canonical.externalCampaignId ?? null,
+    externalAdGroupId: input.canonical.externalAdGroupId ?? null,
+    externalAdId: input.canonical.externalAdId ?? null,
+    sourceKey: input.sourceKey,
+    scopeKind: input.canonical.scope.kind,
+    scopeDimensions:
+      input.canonical.scope.kind === "segment"
+        ? input.canonical.scope.dimensions
+        : null,
+    sourceMetadata: {
+      importBatchId: input.batchId,
+      importRowIndex: input.rowIndex,
+      ...(input.canonical.sourceMetadata ?? {}),
+    },
+    createdByUserId: input.userId,
+  };
+}
+
+async function persistImportRows(input: {
+  batchId: string;
+  previewRows: PreviewRow[];
+  workspaceId: string;
+  userId: string;
+  clientProfileId: string;
+  campaignId: string;
+  tx: DbOrTx;
+}): Promise<{
+  createdCount: number;
+  updatedCount: number;
+  ignoredCount: number;
+}> {
+  const counts = {
+    createdCount: 0,
+    updatedCount: 0,
+    ignoredCount: 0,
+  };
+
+  const validRows = input.previewRows.filter((row) => row.status !== "invalid");
+  const sourceKeys = validRows
+    .map((row) => row.sourceKey)
+    .filter((sourceKey): sourceKey is string => Boolean(sourceKey));
+
+  const existingBySourceKey = await getPerformanceSnapshotsBySourceKeys(
+    sourceKeys,
+    input.workspaceId,
+    input.tx
+  );
+
+  const rowsToUpsert: Array<{
+    row: PreviewRow;
+    upsertInput: UpsertPerformanceSnapshotInput;
+  }> = [];
+  const importRows: Array<{
+    batchId: string;
+    rowIndex: number;
+    status: ImportRowStatus;
+    errors: PreviewRow["errors"] | null;
+    snapshotId: string | null;
+    sourceKey: string | null;
+  }> = [];
+
+  for (const row of input.previewRows) {
+    if (row.status === "invalid") {
+      importRows.push({
+        batchId: input.batchId,
+        rowIndex: row.rowIndex,
+        status: "invalid",
+        errors: row.errors,
+        snapshotId: null,
+        sourceKey: null,
+      });
+      continue;
+    }
+
+    const canonical = row.canonical!;
+    const sourceKey = row.sourceKey!;
+    const existing = existingBySourceKey.get(sourceKey);
+
+    if (existing && snapshotMatchesInput(existing, canonical)) {
+      counts.ignoredCount += 1;
+      importRows.push({
+        batchId: input.batchId,
+        rowIndex: row.rowIndex,
+        status: "ignored",
+        errors: null,
+        snapshotId: existing.id,
+        sourceKey,
+      });
+      continue;
+    }
+
+    rowsToUpsert.push({
+      row,
+      upsertInput: buildSnapshotUpsertInput({
+        workspaceId: input.workspaceId,
+        userId: input.userId,
+        clientProfileId: input.clientProfileId,
+        campaignId: input.campaignId,
+        batchId: input.batchId,
+        rowIndex: row.rowIndex,
+        canonical,
+        sourceKey,
+      }),
+    });
+  }
+
+  const upsertedBySourceKey = await bulkUpsertPerformanceSnapshots(
+    rowsToUpsert.map((entry) => entry.upsertInput),
+    input.tx
+  );
+
+  for (const { row, upsertInput } of rowsToUpsert) {
+    const saved = upsertedBySourceKey.get(upsertInput.sourceKey);
+    if (!saved) {
+      throw new PerformanceDomainError("performanceSnapshotUpsertFailed", 500);
+    }
+
+    const existing = existingBySourceKey.get(upsertInput.sourceKey);
+    const status: ImportRowStatus = existing ? "updated" : "created";
+    if (existing) {
+      counts.updatedCount += 1;
+    } else {
+      counts.createdCount += 1;
+    }
+
+    importRows.push({
+      batchId: input.batchId,
+      rowIndex: row.rowIndex,
+      status,
+      errors: null,
+      snapshotId: saved.id,
+      sourceKey: upsertInput.sourceKey,
+    });
+  }
+
+  importRows.sort((left, right) => left.rowIndex - right.rowIndex);
+  await createPerformanceImportRows(importRows, input.tx);
+
+  return counts;
+}
+
 export async function confirmImport(input: {
   campaignId: string;
   workspaceId: string;
@@ -195,7 +376,11 @@ export async function confirmImport(input: {
   columnMapping?: ColumnMapping | null;
   parseOptions: ParseOptions;
 }): Promise<ConfirmImportResult> {
-  await assertCampaignAccess(input.campaignId, input.workspaceId);
+  const campaign = await assertCampaignAccess(input.campaignId, input.workspaceId);
+  const clientProfileId = campaign.clientProfileId;
+  if (!clientProfileId) {
+    throw new PerformanceDomainError("performanceClientProfileRequired", 409);
+  }
 
   const counts = {
     createdCount: 0,
@@ -223,72 +408,19 @@ export async function confirmImport(input: {
       tx
     );
 
-    for (const row of input.preview.rows) {
-      if (row.status === "invalid") {
-        await createPerformanceImportRow(
-          {
-            batchId: batch.id,
-            rowIndex: row.rowIndex,
-            status: "invalid",
-            errors: row.errors,
-            snapshotId: null,
-            sourceKey: null,
-          },
-          tx
-        );
-        continue;
-      }
+    const persistedCounts = await persistImportRows({
+      batchId: batch.id,
+      previewRows: input.preview.rows,
+      workspaceId: input.workspaceId,
+      userId: input.userId,
+      clientProfileId,
+      campaignId: input.campaignId,
+      tx,
+    });
 
-      const canonical = row.canonical!;
-      const existing = row.sourceKey
-        ? await getPerformanceSnapshotBySourceKey(
-            row.sourceKey,
-            input.workspaceId
-          )
-        : null;
-
-      let status: ImportRowStatus;
-      let snapshotId: string | null = null;
-
-      if (existing && snapshotMatchesInput(existing, canonical)) {
-        status = "ignored";
-        snapshotId = existing.id;
-        counts.ignoredCount += 1;
-      } else {
-        const saved = await recordPerformanceSnapshot({
-          workspaceId: input.workspaceId,
-          userId: input.userId,
-          snapshot: {
-            ...canonical,
-            sourceMetadata: {
-              importBatchId: batch.id,
-              importRowIndex: row.rowIndex,
-            },
-          },
-        });
-
-        if (existing) {
-          status = "updated";
-          counts.updatedCount += 1;
-        } else {
-          status = "created";
-          counts.createdCount += 1;
-        }
-        snapshotId = saved.id;
-      }
-
-      await createPerformanceImportRow(
-        {
-          batchId: batch.id,
-          rowIndex: row.rowIndex,
-          status,
-          errors: null,
-          snapshotId,
-          sourceKey: row.sourceKey ?? null,
-        },
-        tx
-      );
-    }
+    counts.createdCount = persistedCounts.createdCount;
+    counts.updatedCount = persistedCounts.updatedCount;
+    counts.ignoredCount = persistedCounts.ignoredCount;
 
     await updatePerformanceImportBatchCounts(batch.id, counts, tx);
 

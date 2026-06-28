@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useState, useRef } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { Upload, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -39,7 +39,18 @@ export function RestylingUpload({
 }: RestylingUploadProps) {
   const [isDragActive, setIsDragActive] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!value) {
+      setPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(value);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [value]);
 
   const handleDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -142,15 +153,16 @@ export function RestylingUpload({
         <div className="relative rounded-xl border border-[var(--border-dim)] bg-[var(--surface-raised)] overflow-hidden animate-fade-in transition-all duration-250">
           <div className="flex items-center gap-4 p-4">
             <div className="size-16 rounded-lg overflow-hidden bg-[var(--neutral)] flex-shrink-0">
-              <Image
-                src={URL.createObjectURL(value)}
-                alt={value.name}
-                className="size-full object-cover"
-              
-        width={800}
-        height={800}
-        unoptimized
-      />
+              {previewUrl ? (
+                <Image
+                  src={previewUrl}
+                  alt={value.name}
+                  className="size-full object-cover"
+                  width={800}
+                  height={800}
+                  unoptimized
+                />
+              ) : null}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-[var(--text-primary)] truncate">

@@ -142,7 +142,7 @@ describe("POST /api/feedback/human-quality-corpus/candidates/[id]/promote", () =
     expect(res.status).toBe(400);
     expect(mockPromote).not.toHaveBeenCalled();
     const body = await res.json();
-    expect(body.error).toBe("validation_error");
+    expect(body.code).toBe("validation_error");
   });
 
   it("maps promotion invalid_source_label to 400", async () => {
@@ -167,6 +167,6 @@ describe("POST /api/feedback/human-quality-corpus/candidates/[id]/promote", () =
 
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.error).toBe("invalid_source_label");
+    expect(body.code).toBe("invalid_source_label");
   });
 });

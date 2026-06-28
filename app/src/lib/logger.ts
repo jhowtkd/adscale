@@ -22,6 +22,24 @@ function resolveMinLogLevel(): LogLevel {
 
 const MIN_LOG_LEVEL = resolveMinLogLevel();
 
+const RATE_LIMIT_SENTRY_WINDOW_MS = 60_000;
+const RATE_LIMIT_SENTRY_MAX_PER_WINDOW = 3;
+const rateLimitSentryBuckets = new Map<string, { count: number; windowStart: number }>();
+
+function shouldForwardRateLimitWarnToSentry(message: string): boolean {
+  if (!message.includes("Rate limit")) return true;
+
+  const now = Date.now();
+  const bucket = rateLimitSentryBuckets.get(message) ?? { count: 0, windowStart: now };
+  if (now - bucket.windowStart > RATE_LIMIT_SENTRY_WINDOW_MS) {
+    bucket.count = 0;
+    bucket.windowStart = now;
+  }
+  bucket.count += 1;
+  rateLimitSentryBuckets.set(message, bucket);
+  return bucket.count <= RATE_LIMIT_SENTRY_MAX_PER_WINDOW;
+}
+
 function shouldLog(level: LogLevel): boolean {
   return LOG_LEVEL_RANK[level] >= LOG_LEVEL_RANK[MIN_LOG_LEVEL];
 }
@@ -51,6 +69,16 @@ function forwardToSentry(level: LogLevel, args: unknown[]): void {
   if (level !== "error" && level !== "warn") return;
   if (!process.env.SENTRY_DSN) return;
   if (typeof window !== "undefined") return;
+
+  const stringArgs = args.filter((a): a is string => typeof a === "string");
+  const headline = stringArgs[0] ?? "";
+  if (level === "warn" && headline && !shouldForwardRateLimitWarnToSentry(headline)) {
+    return;
+  }
+  if (headline === "[api-error]") {
+    return;
+  }
+
   void loadSentry().then((Sentry) => {
     if (!Sentry) return;
     for (const arg of args) {
@@ -58,7 +86,6 @@ function forwardToSentry(level: LogLevel, args: unknown[]): void {
         if (level === "error") Sentry.captureException(arg);
       }
     }
-    const stringArgs = args.filter((a): a is string => typeof a === "string");
     if (stringArgs.length > 0 && args.every((a) => !(a instanceof Error))) {
       const message = stringArgs.join(" ");
       if (level === "error") Sentry.captureMessage(message, "error");

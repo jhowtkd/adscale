@@ -133,9 +133,9 @@ describe("BrandTasteProfilePanel", () => {
     renderPanel();
 
     expect(
-      await screen.findByText(/Evidência apenas de fixture\/operador/i)
+      await screen.findByText(/Evidência apenas de fixture\/seed/i)
     ).toBeInTheDocument();
-    expect(screen.getByText(/não validado com cliente real/i)).toBeInTheDocument();
+    expect(screen.getByText(/não cliente real/i)).toBeInTheDocument();
   });
 
   it("shows forbidden message on 403", async () => {

@@ -78,9 +78,11 @@ describe.each(MODE_FORMAT_MATRIX)(
 
 describe("TEST-03 cross-format identity consistency", () => {
   it("format_adaptation prompts for 1:1, 4:5, 9:16 share dominant idea and CTA", async () => {
-    const prompts = FORMATS.map((format) =>
-      buildDerivationPrompt(
-        derivationConfigFromContract(baseContract("format_adaptation", format))
+    const prompts = await Promise.all(
+      FORMATS.map((format) =>
+        buildDerivationPrompt(
+          derivationConfigFromContract(baseContract("format_adaptation", format))
+        )
       )
     );
 

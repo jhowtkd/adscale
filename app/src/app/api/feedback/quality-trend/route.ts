@@ -37,11 +37,12 @@ export async function GET(request: Request) {
     await requireCalibrationAccess(request, parsed.data.workspaceId ?? null);
 
     const cachedTrend = unstable_cache(
-      async (input: Parameters<typeof runQualityTrend>[0]) => (await runQualityTrend(input)).report,
+      async (input: Omit<Parameters<typeof runQualityTrend>[0], "capturedAt">) =>
+        (await runQualityTrend(input)).report,
       ["quality-trend"],
       { revalidate: 60, tags: ["quality-trend"] }
     );
-    const report = await cachedTrend({ ...parsed.data, capturedAt: new Date().toISOString() });
+    const report = await cachedTrend(parsed.data);
 
     return NextResponse.json({ report });
   } catch (error) {

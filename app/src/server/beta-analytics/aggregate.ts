@@ -477,18 +477,25 @@ function dedupeReadinessOverrideSignals(
     kept.push(signal);
   }
 
+  const overrideTimesBySessionStage = new Map<string, number[]>();
+  for (const signal of kept) {
+    if (signal.kind !== "event" || signal.action !== "overridden") continue;
+    const key = `${signal.sessionId}:${signal.stage}`;
+    const times = overrideTimesBySessionStage.get(key) ?? [];
+    times.push(new Date(signal.createdAt).getTime());
+    overrideTimesBySessionStage.set(key, times);
+  }
+
   const withoutDuplicateNotes = kept.filter((signal) => {
     if (signal.kind !== "operator_note") return true;
     const noteTime = new Date(signal.createdAt).getTime();
-    const hasMatchingOverride = kept.some((other) => {
-      if (other.kind !== "event" || other.action !== "overridden") return false;
-      if (other.sessionId !== signal.sessionId || other.stage !== signal.stage) {
-        return false;
-      }
-      const delta = Math.abs(new Date(other.createdAt).getTime() - noteTime);
-      return delta <= OVERRIDE_DEDUP_WINDOW_MS;
-    });
-    return !hasMatchingOverride;
+    const overrideTimes = overrideTimesBySessionStage.get(
+      `${signal.sessionId}:${signal.stage}`
+    );
+    if (!overrideTimes) return true;
+    return !overrideTimes.some(
+      (overrideTime) => Math.abs(overrideTime - noteTime) <= OVERRIDE_DEDUP_WINDOW_MS
+    );
   });
 
   return withoutDuplicateNotes.sort(

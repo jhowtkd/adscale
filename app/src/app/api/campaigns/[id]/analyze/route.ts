@@ -1,7 +1,11 @@
 import { z } from "zod";
 import { apiError, apiSuccess, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
-import { getAssetWithMetadata, updateAssetMetadata } from "@/server/repositories/asset";
+import {
+  getAssetWithMetadata,
+  updateAssetMetadata,
+  claimAssetAnalysis,
+} from "@/server/repositories/asset";
 import { analyzeCampaignCreative } from "@/server/ai/campaign-deduction";
 import { getPublicUrl } from "@/server/storage/r2";
 import { logger } from "@/lib/logger";
@@ -28,20 +32,18 @@ export async function POST(
 
     const { assetId } = parsed.data;
 
-    // Get the asset and verify it belongs to this campaign/workspace
     const asset = await getAssetWithMetadata(assetId, workspace.id);
     if (!asset || asset.campaignId !== campaignId) {
       return apiError("assetNotFound", 404);
     }
 
-    // Check if we have a recent cached analysis (within 24h)
     const analyzedAt = asset.analyzedAt;
-    const cacheValid = analyzedAt && 
+    const cacheValid = analyzedAt &&
       asset.analysisStatus === "completed" &&
       (Date.now() - new Date(analyzedAt).getTime()) < 24 * 60 * 60 * 1000;
-    
+
     const cachedResult = (asset.metadata as Record<string, unknown> | undefined)?.analysisResult as Record<string, unknown> | undefined;
-    
+
     if (cacheValid && cachedResult && Object.keys(cachedResult).length > 0) {
       return apiSuccess({
         analysis: cachedResult,
@@ -50,17 +52,18 @@ export async function POST(
       });
     }
 
-    // Update status to pending
-    await updateAssetMetadata(assetId, workspace.id, {}, "pending");
+    const claim = await claimAssetAnalysis(assetId, workspace.id);
+    if (claim === "not_found") {
+      return apiError("assetNotFound", 404);
+    }
+    if (claim === "in_progress") {
+      return apiError("analysisInProgress", 429);
+    }
 
     try {
-      // Construct public URL from the asset key
       const imageUrl = getPublicUrl(asset.key);
-
-      // Call AI analysis with the asset URL
       const result = await analyzeCampaignCreative(imageUrl);
 
-      // Store result in metadata
       await updateAssetMetadata(assetId, workspace.id, {
         analysisResult: result,
       }, "completed");
@@ -73,7 +76,6 @@ export async function POST(
     } catch (aiError) {
       logger.error("[analyze] AI analysis failed", { assetId, error: aiError });
 
-      // Graceful degradation: mark as failed but don't error
       await updateAssetMetadata(assetId, workspace.id, {
         analysisResult: {},
       }, "failed");

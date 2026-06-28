@@ -215,10 +215,20 @@ export async function recordUsage(input: {
 
   const devAdminWorkspace = await workspaceHasDevAdminOwner(input.workspaceId);
 
-  if (!devAdminWorkspace) {
-    let remainingToDebit = check.amount;
-    try {
-      await db.transaction(async (tx) => {
+  let usage: Awaited<ReturnType<typeof trackUsage>>;
+  try {
+    usage = await db.transaction(async (tx) => {
+      const duplicate = await getUsageByIdempotencyKey(
+        input.workspaceId,
+        input.idempotencyKey,
+        tx
+      );
+      if (duplicate) {
+        throw new Error("duplicate_usage");
+      }
+
+      if (!devAdminWorkspace) {
+        let remainingToDebit = check.amount;
         const grants = await getAvailableCreditGrants(input.workspaceId, tx, true);
         const balance = totalRemaining(grants);
         if (balance < check.amount) {
@@ -240,37 +250,47 @@ export async function recordUsage(input: {
         await Promise.all(
           debits.map((debit) => updateCreditGrantRemaining(debit.id, debit.remaining, tx))
         );
-      });
-    } catch (err) {
-      if (err instanceof Error && err.message === "insufficient_credits") {
-        const blockedCheck = {
-          ...check,
-          allowed: false as const,
-          reason: "insufficient_credits" as const,
-        };
-        if (input.userId) {
-          emitCreditBlockedAnalytics({ ...input, userId: input.userId }, blockedCheck);
-        }
-        return {
-          status: "blocked" as const,
-          check: blockedCheck,
-        };
       }
-      throw err;
-    }
-  }
 
-  const usage = await trackUsage(
-    input.workspaceId,
-    input.action,
-    devAdminWorkspace ? 0 : check.amount,
-    {
-      ...(input.metadata ?? {}),
-      creditAmount: check.amount,
-      devAdminBypass: devAdminWorkspace || undefined,
-    },
-    input.idempotencyKey
-  );
+      return trackUsage(
+        input.workspaceId,
+        input.action,
+        devAdminWorkspace ? 0 : check.amount,
+        {
+          ...(input.metadata ?? {}),
+          creditAmount: check.amount,
+          devAdminBypass: devAdminWorkspace || undefined,
+        },
+        input.idempotencyKey,
+        tx
+      );
+    });
+  } catch (err) {
+    if (err instanceof Error && err.message === "duplicate_usage") {
+      const duplicate = await getUsageByIdempotencyKey(
+        input.workspaceId,
+        input.idempotencyKey
+      );
+      if (duplicate) {
+        return { status: "duplicate" as const, usage: duplicate };
+      }
+    }
+    if (err instanceof Error && err.message === "insufficient_credits") {
+      const blockedCheck = {
+        ...check,
+        allowed: false as const,
+        reason: "insufficient_credits" as const,
+      };
+      if (input.userId) {
+        emitCreditBlockedAnalytics({ ...input, userId: input.userId }, blockedCheck);
+      }
+      return {
+        status: "blocked" as const,
+        check: blockedCheck,
+      };
+    }
+    throw err;
+  }
 
   if (input.userId && !devAdminWorkspace) {
     try {

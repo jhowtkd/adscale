@@ -634,7 +634,7 @@ export function OwnerAnalyticsPanel({
                     <>
                       <FunnelSection title={t("sections.guidedFlowPathFunnel")}>
                         <p className="mb-3 text-xs text-[var(--text-secondary)]">
-                          {guidedFlow.operationalEvidence.note}
+                          {guidedFlow.operationalEvidence?.note}
                         </p>
                         <FunnelTable
                           title=""

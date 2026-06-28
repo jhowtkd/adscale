@@ -3,6 +3,15 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 vi.mock("./assistant-action", () => ({
   transitionAssistantAction: vi.fn(),
   sanitizeSafeError: vi.fn((value: string | null | undefined) => value ?? null),
+  getAssistantActionById: vi.fn().mockResolvedValue(null),
+}));
+
+vi.mock("./assistant-thread", () => ({
+  getAssistantThreadById: vi.fn(),
+}));
+
+vi.mock("@/server/assistant/guided-paths/action-integration", () => ({
+  transitionGuidedFlowAfterAction: vi.fn(),
 }));
 
 import { transitionAssistantAction } from "./assistant-action";

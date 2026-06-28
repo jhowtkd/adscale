@@ -98,7 +98,7 @@ function renderPanel() {
 describe("OwnerAnalyticsPanel", () => {
   it("renders funnel tables when analytics load", async () => {
     mockApiFetch.mockImplementation(async (url: string) => {
-      if (url.includes("funnel")) {
+      if (url.includes("funnel") && !url.includes("guided-flow")) {
         return {
           ok: true,
           status: 200,
@@ -114,6 +114,30 @@ describe("OwnerAnalyticsPanel", () => {
             sessionStageTimeline: [],
             readinessOverrides: [],
             totals: { events: 1, sessions: 1 },
+          }),
+        } as Response;
+      }
+      if (url.includes("guided-flow-funnel")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            implementationCoverage: {
+              telemetryEnabled: true,
+              pathsCovered: [],
+              eventKeysObserved: [],
+            },
+            operationalEvidence: {
+              sampleSufficient: false,
+              minSampleThreshold: 10,
+              observedStarts: 0,
+              note: "Insufficient guided-flow sample for this filter window.",
+            },
+            pathFunnel: [],
+            stepDropoff: [],
+            topBlockers: [],
+            investigationLinks: [],
+            totals: { events: 0 },
           }),
         } as Response;
       }

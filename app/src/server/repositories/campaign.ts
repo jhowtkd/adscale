@@ -1,4 +1,4 @@
-import { eq, and, desc, asc, sql, ilike, inArray } from "drizzle-orm";
+import { eq, and, desc, asc, sql, ilike, inArray, lt, or, isNull } from "drizzle-orm";
 import { db } from "../db";
 import { campaigns, derivations } from "../db/schema";
 
@@ -526,6 +526,57 @@ export async function updateCampaign(
     .where(and(eq(campaigns.id, id), eq(campaigns.workspaceId, workspaceId)))
     .returning();
   return result[0] ?? null;
+}
+
+const DEFAULT_DIAGNOSIS_STALE_MS = 5 * 60 * 1000;
+
+export async function claimCreativeDiagnosisAnalysis(
+  campaignId: string,
+  workspaceId: string,
+  staleAfterMs = DEFAULT_DIAGNOSIS_STALE_MS
+): Promise<"claimed" | "in_progress" | "not_found"> {
+  const staleBefore = new Date(Date.now() - staleAfterMs);
+  const now = new Date();
+
+  const claimed = await db
+    .update(campaigns)
+    .set({
+      creativeDiagnosisStatus: "analyzing",
+      creativeDiagnosisUpdatedAt: now,
+      updatedAt: now,
+    })
+    .where(
+      and(
+        eq(campaigns.id, campaignId),
+        eq(campaigns.workspaceId, workspaceId),
+        or(
+          sql`${campaigns.creativeDiagnosisStatus} IS DISTINCT FROM 'analyzing'`,
+          and(
+            eq(campaigns.creativeDiagnosisStatus, "analyzing"),
+            or(
+              isNull(campaigns.creativeDiagnosisUpdatedAt),
+              lt(campaigns.creativeDiagnosisUpdatedAt, staleBefore)
+            )
+          )
+        )
+      )
+    )
+    .returning({ id: campaigns.id });
+
+  if (claimed.length > 0) {
+    return "claimed";
+  }
+
+  const existing = await getCampaignById(campaignId, workspaceId);
+  if (!existing) {
+    return "not_found";
+  }
+
+  if (existing.creativeDiagnosisStatus === "analyzing") {
+    return "in_progress";
+  }
+
+  return "claimed";
 }
 
 export async function deleteCampaign(id: string, workspaceId: string) {

@@ -11,6 +11,7 @@ vi.mock("@/server/repositories/human-quality-feedback-artifact", () => ({
 vi.mock("@/server/repositories/calibration-rule", () => ({
   getApprovedCorpusQualityRuleForFailure: vi.fn(),
   insertCalibrationRule: vi.fn(),
+  listApprovedCalibrationRulesByCategories: vi.fn().mockResolvedValue([]),
 }));
 
 vi.mock("@/server/repositories/client-learning-proposal", () => ({

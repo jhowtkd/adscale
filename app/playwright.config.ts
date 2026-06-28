@@ -15,8 +15,6 @@ export default defineConfig({
   // test a generous budget.
   timeout: 240_000,
   expect: { timeout: 15_000 },
-  fullyParallel: false,
-  workers: 1,
   retries: 0,
   reporter: [["list"]],
   use: {
@@ -27,7 +25,17 @@ export default defineConfig({
   },
   projects: [
     {
-      name: "chromium",
+      name: "isolated-visual",
+      testMatch: /visual-(shell|foundations|release-gate|a11y-gate)\.spec\.ts$/,
+      fullyParallel: true,
+      workers: 2,
+      use: { ...devices["Desktop Chrome"] },
+    },
+    {
+      name: "serial-flows",
+      testMatch: /(restyle|assistant|guided).*\.spec\.ts$/,
+      fullyParallel: false,
+      workers: 1,
       use: { ...devices["Desktop Chrome"] },
     },
   ],

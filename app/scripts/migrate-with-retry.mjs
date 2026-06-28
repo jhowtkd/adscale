@@ -10,7 +10,13 @@ const attempts = Number(process.env.DB_MIGRATE_ATTEMPTS ?? 5);
 const delayMs = Number(process.env.DB_MIGRATE_DELAY_MS ?? 8000);
 
 function sleep(ms) {
-  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function retryDelayMs(attempt) {
+  const exponential = delayMs * 2 ** (attempt - 1);
+  const jitter = 0.5 + Math.random() * 0.5;
+  return Math.round(exponential * jitter);
 }
 
 function logDbTarget() {
@@ -181,7 +187,8 @@ for (let attempt = 1; attempt <= attempts; attempt += 1) {
     if (!isTransientDbError(error) || attempt === attempts) {
       process.exit(1);
     }
-    console.log(`[db:migrate] retrying in ${delayMs}ms`);
-    sleep(delayMs);
+    const backoff = retryDelayMs(attempt);
+    console.log(`[db:migrate] retrying in ${backoff}ms`);
+    await sleep(backoff);
   }
 }

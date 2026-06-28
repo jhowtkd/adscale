@@ -12,6 +12,7 @@ import { db } from "../db";
 import {
   createPerformanceImportBatch,
   createPerformanceImportRow,
+  createPerformanceImportRows,
   getPerformanceImportBatchById,
   listPerformanceImportBatchesByCampaign,
   listPerformanceImportRowsByBatch,
@@ -96,6 +97,33 @@ describe("performance-import repository", () => {
     });
 
     expect(result.status).toBe("created");
+  });
+
+  it("creates import rows in batches", async () => {
+    const values = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(db.insert).mockReturnValue({ values } as never);
+
+    await createPerformanceImportRows([
+      {
+        batchId: "batch-1",
+        rowIndex: 0,
+        status: "created",
+        snapshotId: "snapshot-1",
+        sourceKey: "a".repeat(64),
+      },
+      {
+        batchId: "batch-1",
+        rowIndex: 1,
+        status: "ignored",
+        snapshotId: "snapshot-2",
+        sourceKey: "b".repeat(64),
+      },
+    ]);
+
+    expect(values).toHaveBeenCalledWith([
+      expect.objectContaining({ rowIndex: 0 }),
+      expect.objectContaining({ rowIndex: 1 }),
+    ]);
   });
 
   it("lists batches scoped to workspace and campaign", async () => {

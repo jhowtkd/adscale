@@ -1,4 +1,4 @@
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "../db";
 import { assistantMessages, assistantThreads } from "../db/schema";
 import {
@@ -106,8 +106,15 @@ export async function createAssistantMessage(
   return row;
 }
 
-export async function listAssistantMessages(workspaceId: string, threadId: string) {
-  return db
+export const DEFAULT_ASSISTANT_MESSAGE_LIST_LIMIT = 100;
+
+export async function listAssistantMessages(
+  workspaceId: string,
+  threadId: string,
+  options?: { limit?: number }
+) {
+  const limit = options?.limit ?? DEFAULT_ASSISTANT_MESSAGE_LIST_LIMIT;
+  const rows = await db
     .select()
     .from(assistantMessages)
     .where(
@@ -116,7 +123,10 @@ export async function listAssistantMessages(workspaceId: string, threadId: strin
         eq(assistantMessages.threadId, threadId)
       )
     )
-    .orderBy(asc(assistantMessages.sequence));
+    .orderBy(desc(assistantMessages.sequence))
+    .limit(limit);
+
+  return rows.reverse();
 }
 
 export async function updateActionCardPayload(

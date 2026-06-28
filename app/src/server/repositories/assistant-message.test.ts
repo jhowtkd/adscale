@@ -10,7 +10,7 @@ vi.mock("../db", () => {
   const chain = {
     from: vi.fn(() => chain),
     where: vi.fn(() => chain),
-    orderBy: vi.fn(async () => state.selectResults.shift() ?? []),
+    orderBy: vi.fn(() => chain),
     limit: vi.fn(async () => state.selectResults.shift() ?? []),
     then(resolve: (value: unknown) => void) {
       resolve(state.selectResults.shift() ?? []);
@@ -95,12 +95,14 @@ describe("assistant-message repository", () => {
 
   it("lists messages ordered by sequence", async () => {
     state.selectResults.push([
-      { id: "m1", sequence: 1 },
       { id: "m2", sequence: 2 },
+      { id: "m1", sequence: 1 },
     ]);
 
     const messages = await listAssistantMessages("ws-1", "thread-1");
     expect(messages).toHaveLength(2);
+    expect(messages[0]?.sequence).toBe(1);
+    expect(messages[1]?.sequence).toBe(2);
   });
 
   it("updates action card payload status in place", async () => {

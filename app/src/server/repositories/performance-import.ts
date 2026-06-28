@@ -11,6 +11,8 @@ import {
 
 export type DbOrTx = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
 
+const IMPORT_ROW_BATCH_SIZE = 500;
+
 export async function createPerformanceImportBatch(
   input: NewPerformanceImportBatch,
   tx: DbOrTx = db
@@ -46,6 +48,20 @@ export async function createPerformanceImportRow(
 ): Promise<PerformanceImportRow> {
   const [row] = await tx.insert(performanceImportRows).values(input).returning();
   return row;
+}
+
+export async function createPerformanceImportRows(
+  inputs: NewPerformanceImportRow[],
+  tx: DbOrTx = db
+): Promise<void> {
+  if (inputs.length === 0) {
+    return;
+  }
+
+  for (let index = 0; index < inputs.length; index += IMPORT_ROW_BATCH_SIZE) {
+    const chunk = inputs.slice(index, index + IMPORT_ROW_BATCH_SIZE);
+    await tx.insert(performanceImportRows).values(chunk);
+  }
 }
 
 export async function listPerformanceImportBatchesByCampaign(

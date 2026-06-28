@@ -199,7 +199,6 @@ export default function CampaignWorkspacePage() {
     createDerivationsPending,
     exportPending,
     deliveryPackagePending,
-    planData,
     generatePlanPending,
     updatePlanStatusPending,
   } = useCampaignWorkspace(campaignId, isNew, {

@@ -59,7 +59,7 @@ describe("POST /api/campaigns/[id]/assets/upload", () => {
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body.error).toBe("fileTooLarge");
+    expect(body.code).toBe("fileTooLarge");
     expect(uploadBuffer).not.toHaveBeenCalled();
   });
 });

@@ -67,7 +67,7 @@ describe("POST /api/campaigns/[id]/assets/complete", () => {
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body.error).toBe("assetTypeMismatch");
+    expect(body.code).toBe("assetTypeMismatch");
     expect(storage.keys()).not.toContain(key);
     expect(createAsset).not.toHaveBeenCalled();
     expect(markPendingUploadCompleted).not.toHaveBeenCalled();
@@ -96,7 +96,7 @@ describe("POST /api/campaigns/[id]/assets/complete", () => {
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body.error).toBe("assetSizeMismatch");
+    expect(body.code).toBe("assetSizeMismatch");
     expect(storage.keys()).not.toContain(key);
     expect(createAsset).not.toHaveBeenCalled();
     expect(markPendingUploadCompleted).not.toHaveBeenCalled();

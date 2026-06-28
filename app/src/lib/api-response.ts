@@ -97,12 +97,16 @@ export async function handleApiError(error: unknown, context: string) {
 
   const errorId = crypto.randomUUID();
   const serialized = serializeError(error);
-  logger.error("[api-error]", {
+  const sentryError =
+    error instanceof Error ? error : new Error(typeof serialized.message === "string" ? serialized.message : "API error");
+
+  captureException(sentryError, {
     errorId,
     context,
     error: serialized,
+    source: "handleApiError",
   });
-  captureException(error, { errorId, context });
+  logger.error("[api-error]", { errorId, context, error: serialized });
 
   return apiError("internalError", 500, {
     errorId,

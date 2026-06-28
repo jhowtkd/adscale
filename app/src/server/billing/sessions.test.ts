@@ -49,6 +49,17 @@ describe("billing sessions", () => {
       null as unknown as Awaited<ReturnType<typeof getBillingCustomerByWorkspace>>
     );
     stripeMocks.customerCreate.mockResolvedValue({ id: "cus_new" });
+    mockGetBillingCustomerByWorkspace
+      .mockResolvedValueOnce(
+        null as unknown as Awaited<ReturnType<typeof getBillingCustomerByWorkspace>>
+      )
+      .mockResolvedValueOnce({
+        id: "billing-customer-id",
+        workspaceId: "workspace-1",
+        stripeCustomerId: "cus_new",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
     mockSaveBillingCustomer.mockResolvedValue({
       id: "billing-customer-id",
       workspaceId: "workspace-1",
@@ -67,11 +78,14 @@ describe("billing sessions", () => {
       planKey: "growth",
     });
 
-    expect(stripeMocks.customerCreate).toHaveBeenCalledWith({
-      email: "user@example.com",
-      name: "Acme",
-      metadata: { workspaceId: "workspace-1", userId: "user-1" },
-    });
+    expect(stripeMocks.customerCreate).toHaveBeenCalledWith(
+      {
+        email: "user@example.com",
+        name: "Acme",
+        metadata: { workspaceId: "workspace-1", userId: "user-1" },
+      },
+      { idempotencyKey: "billing-customer:workspace-1" }
+    );
     expect(mockSaveBillingCustomer).toHaveBeenCalledWith({
       workspaceId: "workspace-1",
       stripeCustomerId: "cus_new",

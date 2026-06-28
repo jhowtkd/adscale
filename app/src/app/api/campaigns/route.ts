@@ -67,12 +67,15 @@ export async function GET(request: Request) {
     const offset = limit && page > 1 ? (page - 1) * limit : 0;
 
     const cachedPage = unstable_cache(
-      async (workspaceId: string, opts: Parameters<typeof getCampaignsPage>[1]) =>
-        getCampaignsPage(workspaceId, opts),
-      ["campaigns-page"],
-      { revalidate: 60, tags: ["campaigns", "campaigns-page"] }
+      async (opts: Parameters<typeof getCampaignsPage>[1]) =>
+        getCampaignsPage(workspace.id, opts),
+      ["campaigns-page", workspace.id],
+      {
+        revalidate: 60,
+        tags: [`campaigns:${workspace.id}`, "campaigns", "campaigns-page"],
+      }
     );
-    const result = await cachedPage(workspace.id, {
+    const result = await cachedPage({
       searchQuery,
       statusFilter,
       platformFilter,
@@ -130,6 +133,7 @@ export async function POST(request: Request) {
       status: "draft",
     });
 
+    revalidateTag(`campaigns:${workspace.id}`, "default");
     revalidateTag("campaigns", "default");
 
     await recordBrandMemoryEvent({

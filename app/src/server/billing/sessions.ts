@@ -24,21 +24,25 @@ async function getOrCreateStripeCustomer(workspace: BillingWorkspace, user: Bill
     return existing.stripeCustomerId;
   }
 
-  const customer = await stripe.customers.create({
-    email: user.email ?? undefined,
-    name: workspace.name ?? user.name ?? undefined,
-    metadata: {
-      workspaceId: workspace.id,
-      userId: user.id,
+  const customer = await stripe.customers.create(
+    {
+      email: user.email ?? undefined,
+      name: workspace.name ?? user.name ?? undefined,
+      metadata: {
+        workspaceId: workspace.id,
+        userId: user.id,
+      },
     },
-  });
+    { idempotencyKey: `billing-customer:${workspace.id}` }
+  );
 
   await saveBillingCustomer({
     workspaceId: workspace.id,
     stripeCustomerId: customer.id,
   });
 
-  return customer.id;
+  const persisted = await getBillingCustomerByWorkspace(workspace.id);
+  return persisted?.stripeCustomerId ?? customer.id;
 }
 
 function urlWithReturnPath(baseUrl: string, returnPath?: string) {

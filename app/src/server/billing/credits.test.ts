@@ -251,8 +251,9 @@ describe("credit entitlement service", () => {
       "workspace-1",
       "image_derivation",
       5,
-      { derivationId: "123", creditAmount: 5 },
-      "derivation:123"
+      { derivationId: "123", creditAmount: 5, devAdminBypass: undefined },
+      "derivation:123",
+      expect.anything()
     );
     expect(result.status).toBe("recorded");
   });

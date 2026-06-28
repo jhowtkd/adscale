@@ -189,7 +189,19 @@ describe("runScoreCalibration orchestrator", () => {
         proposedAt: new Date("2026-06-17"),
         createdAt: new Date("2026-06-17"),
       })),
-      listProposedAdjustments: vi.fn(),
+      listProposedAdjustments: vi.fn().mockResolvedValue([
+        {
+          id: "adj-new",
+          status: "proposed",
+          adjustmentVersion: "1.1.0",
+          targetModule: "visual_scoring",
+          targetKey: "visual_overload",
+          rationale: "Reduce visual overload tolerance",
+          evidenceRefs: { corpusItemIds: ["item-1", "item-2", "item-3"] },
+          proposedAt: new Date("2026-06-17"),
+          createdAt: new Date("2026-06-17"),
+        },
+      ]),
     }));
 
     const { runScoreCalibration } = await import(
@@ -247,7 +259,19 @@ describe("runScoreCalibration orchestrator", () => {
         status: "proposed",
       }),
       insertProposedAdjustment: vi.fn(),
-      listProposedAdjustments: vi.fn(),
+      listProposedAdjustments: vi.fn().mockResolvedValue([
+        {
+          id: "adj-existing",
+          status: "proposed",
+          adjustmentVersion: "1.1.0",
+          targetModule: "visual_scoring",
+          targetKey: "visual_overload",
+          rationale: "Existing proposal",
+          evidenceRefs: { corpusItemIds: ["item-1", "item-2", "item-3"] },
+          proposedAt: new Date("2026-06-17"),
+          createdAt: new Date("2026-06-17"),
+        },
+      ]),
     }));
 
     const { runScoreCalibration } = await import(

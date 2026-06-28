@@ -173,7 +173,7 @@ describe("POST /api/restyling", () => {
 
     expect(response.status).toBe(400);
     const body = await response.json();
-    expect(body.error).toBe("invalidInput");
+    expect(body.code).toBe("invalidInput");
   });
 
   it("returns 400 when base image is missing", async () => {
@@ -187,7 +187,7 @@ describe("POST /api/restyling", () => {
 
     expect(response.status).toBe(400);
     const body = await response.json();
-    expect(body.error).toBe("invalidInput");
+    expect(body.code).toBe("invalidInput");
   });
 
   it("returns 400 for invalid file type", async () => {
@@ -203,7 +203,7 @@ describe("POST /api/restyling", () => {
 
     expect(response.status).toBe(400);
     const body = await response.json();
-    expect(body.error).toBe("invalidFileType");
+    expect(body.code).toBe("invalidFileType");
   });
 
   it("returns 400 for file too large (>50MB)", async () => {
@@ -219,7 +219,7 @@ describe("POST /api/restyling", () => {
 
     expect(response.status).toBe(400);
     const body = await response.json();
-    expect(body.error).toBe("fileTooLarge");
+    expect(body.code).toBe("fileTooLarge");
   });
 
   it("returns 402 when credits insufficient", async () => {

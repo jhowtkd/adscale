@@ -15,11 +15,12 @@ function mockEvaluatedQuery(rows: unknown[]) {
   const mockLimit = vi.fn().mockResolvedValue(rows);
   const mockOrderBy = vi.fn().mockReturnValue({ limit: mockLimit });
   const mockWhere = vi.fn().mockReturnValue({ orderBy: mockOrderBy });
-  const mockInnerJoin = vi.fn().mockReturnValue({ where: mockWhere });
+  const mockLeftJoin = vi.fn().mockReturnValue({ where: mockWhere });
+  const mockInnerJoin = vi.fn().mockReturnValue({ leftJoin: mockLeftJoin });
   const mockFrom = vi.fn().mockReturnValue({ innerJoin: mockInnerJoin });
   (db.select as ReturnType<typeof vi.fn>).mockReturnValue({ from: mockFrom });
 
-  return { mockWhere, mockLimit, mockInnerJoin };
+  return { mockWhere, mockLimit, mockInnerJoin, mockLeftJoin };
 }
 
 describe("listEvaluatedCorpusWithEvaluations", () => {

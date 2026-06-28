@@ -2,31 +2,60 @@ import { and, desc, eq } from "drizzle-orm";
 import { db } from "../db";
 import { usageEvents } from "../db/schema";
 
+type DbOrTx = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+function isUniqueIdempotencyViolation(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: string }).code === "23505"
+  );
+}
+
 export async function trackUsage(
   workspaceId: string,
   type: string,
   amount: number,
   metadata?: Record<string, unknown>,
-  idempotencyKey?: string
+  idempotencyKey?: string,
+  tx?: DbOrTx
 ) {
-  const result = await db
-    .insert(usageEvents)
-    .values({
-      workspaceId,
-      type,
-      amount,
-      idempotencyKey,
-      metadata: metadata ?? null,
-    })
-    .returning();
-  return result[0];
+  const client = tx ?? db;
+  try {
+    const result = await client
+      .insert(usageEvents)
+      .values({
+        workspaceId,
+        type,
+        amount,
+        idempotencyKey,
+        metadata: metadata ?? null,
+      })
+      .returning();
+    return result[0];
+  } catch (error) {
+    if (idempotencyKey && isUniqueIdempotencyViolation(error)) {
+      const existing = await getUsageByIdempotencyKey(
+        workspaceId,
+        idempotencyKey,
+        tx
+      );
+      if (existing) {
+        return existing;
+      }
+    }
+    throw error;
+  }
 }
 
 export async function getUsageByIdempotencyKey(
   workspaceId: string,
-  idempotencyKey: string
+  idempotencyKey: string,
+  tx?: DbOrTx
 ) {
-  const rows = await db
+  const client = tx ?? db;
+  const rows = await client
     .select()
     .from(usageEvents)
     .where(

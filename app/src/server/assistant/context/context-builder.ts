@@ -88,7 +88,7 @@ export async function buildAssistantContext(
 
   const [profile, messages, brandKit, brandMemory] = await Promise.all([
     getClientProfile(input.workspaceId, input.clientProfileId),
-    listAssistantMessages(input.workspaceId, input.threadId),
+    listAssistantMessages(input.workspaceId, input.threadId, { limit: messageLimit }),
     getBrandKit(input.workspaceId, input.clientProfileId).catch(() => null),
     getBrandMemoryContext({
       workspaceId: input.workspaceId,
@@ -107,7 +107,7 @@ export async function buildAssistantContext(
     }
   }
 
-  const recentMessages = messages.slice(-messageLimit).map(mapMessage);
+  const recentMessages = messages.map(mapMessage);
 
   const assembled: AllowedContextShape = {
     clientProfile: pickAllowedFields(

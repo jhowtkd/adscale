@@ -251,6 +251,10 @@ export const derivationJob = inngest.createFunction(
   {
     id: "generate-derivation",
     retries: 2,
+    concurrency: [
+      { limit: 8, scope: "account" },
+      { limit: 3, key: "event.data.workspaceId" },
+    ],
     onFailure: async ({ event, error, step }) => {
       const originalEvent = event.data.event;
       const { derivationId, campaignId, workspaceId, triggeredByUserId, assistantActionId, generationMode } = originalEvent.data;

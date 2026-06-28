@@ -91,48 +91,50 @@ export async function exportAllApproved(
 
   const zip = new JSZip();
   const folder = zip.folder("derivations") || zip;
-  let addedFiles = 0;
+  const safeName = campaign.name.replace(/[^a-z0-9]/gi, "-").toLowerCase();
 
   const limit = pLimit(4);
-  const results = await Promise.all(
-    items.map((d) =>
+  const outcomes = await Promise.all(
+    items.map((derivation, index) =>
       limit(async () => {
-        if (!d.outputKey) {
-          logger.warn(`[exportAllApproved] skipping derivation without outputKey id=${d.id}`);
-          return null;
+        if (!derivation.outputKey) {
+          logger.warn(
+            `[exportAllApproved] skipping derivation without outputKey id=${derivation.id}`
+          );
+          return false;
         }
+
         try {
-          const buffer = await storage.get(d.outputKey);
-          const storedFormat = d.format?.toLowerCase() as
+          const buffer = await storage.get(derivation.outputKey);
+          const storedFormat = derivation.format?.toLowerCase() as
             | "png"
             | "jpeg"
             | "webp"
             | undefined;
           const finalBuffer =
             storedFormat === format ? buffer : await convertImage(buffer, format);
-          return { d, finalBuffer };
+          folder.file(`${safeName}-${index + 1}.${format}`, finalBuffer);
+          return true;
         } catch (error) {
-          logger.error(`[exportAllApproved] failed to add derivation id=${d.id} key=${d.outputKey}`, error);
-          return null;
+          logger.error(
+            `[exportAllApproved] failed to add derivation id=${derivation.id} key=${derivation.outputKey}`,
+            error
+          );
+          return false;
         }
       })
     )
   );
 
-  for (const result of results) {
-    if (!result) continue;
-    const { finalBuffer } = result;
-    const safeName = campaign.name.replace(/[^a-z0-9]/gi, "-").toLowerCase();
-    const fileName = `${safeName}-${addedFiles + 1}.${format}`;
-    folder.file(fileName, finalBuffer);
-    addedFiles++;
-  }
-
+  const addedFiles = outcomes.filter(Boolean).length;
   if (addedFiles === 0) {
     throw new Error("No exportable approved derivations");
   }
 
-  const zipBuffer = await zip.generateAsync({ type: "nodebuffer" });
+  const zipBuffer = await zip.generateAsync({
+    type: "nodebuffer",
+    streamFiles: true,
+  });
   const zipKey = `exports/${workspaceId}/${campaignId}/${Date.now()}-all.zip`;
   await storage.put(zipKey, zipBuffer, "application/zip");
 

@@ -78,6 +78,7 @@ describe("artifact version contracts", () => {
         referenceIds: [],
         creditImpact: 1,
         writes: ["new derivation"],
+        planVersionId: id,
       })
     ).toMatchObject({ type: "creative_revision", creditImpact: 1 });
 

@@ -9,7 +9,9 @@ vi.mock("../db", () => ({
 
 import { db } from "../db";
 import {
+  bulkUpsertPerformanceSnapshots,
   getPerformanceSnapshotById,
+  getPerformanceSnapshotsBySourceKeys,
   listPerformanceSnapshotsByCampaign,
   listPerformanceSnapshotsByDerivation,
   upsertPerformanceSnapshot,
@@ -69,6 +71,37 @@ describe("performance repository", () => {
     expect(onConflictDoUpdate).toHaveBeenCalledWith(
       expect.objectContaining({ target: expect.any(Array) })
     );
+  });
+
+  it("loads snapshots by source keys in batches", async () => {
+    const where = vi.fn().mockResolvedValue([snapshot]);
+    const from = vi.fn().mockReturnValue({ where });
+    vi.mocked(db.select).mockReturnValue({ from } as never);
+
+    const result = await getPerformanceSnapshotsBySourceKeys(
+      [snapshot.sourceKey],
+      "workspace-1"
+    );
+
+    expect(result.get(snapshot.sourceKey)?.id).toBe("snapshot-1");
+    expect(where).toHaveBeenCalledOnce();
+  });
+
+  it("bulk upserts snapshots and returns them keyed by source key", async () => {
+    const returning = vi.fn().mockResolvedValue([snapshot]);
+    const onConflictDoUpdate = vi.fn().mockReturnValue({ returning });
+    const values = vi.fn().mockReturnValue({ onConflictDoUpdate });
+    vi.mocked(db.insert).mockReturnValue({ values } as never);
+
+    const input = { ...snapshot };
+    delete (input as Partial<typeof snapshot>).id;
+    delete (input as Partial<typeof snapshot>).createdAt;
+    delete (input as Partial<typeof snapshot>).updatedAt;
+
+    const result = await bulkUpsertPerformanceSnapshots([input]);
+
+    expect(result.get(snapshot.sourceKey)?.id).toBe("snapshot-1");
+    expect(values).toHaveBeenCalledWith([input]);
   });
 
   it("scopes lookup by id to the workspace", async () => {

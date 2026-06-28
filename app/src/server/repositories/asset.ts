@@ -1,4 +1,4 @@
-import { eq, and, desc, lt } from "drizzle-orm";
+import { eq, and, desc, lt, or, sql, isNull } from "drizzle-orm";
 import { db } from "../db";
 import { campaignAssets, pendingUploads } from "../db/schema";
 
@@ -186,4 +186,53 @@ export async function getAssetWithMetadata(
     )
     .limit(1);
   return result[0] ?? null;
+}
+
+const DEFAULT_ANALYSIS_STALE_MS = 5 * 60 * 1000;
+
+export async function claimAssetAnalysis(
+  assetId: string,
+  workspaceId: string,
+  staleAfterMs = DEFAULT_ANALYSIS_STALE_MS
+): Promise<"claimed" | "in_progress" | "not_found"> {
+  const staleBefore = new Date(Date.now() - staleAfterMs);
+
+  const claimed = await db
+    .update(campaignAssets)
+    .set({
+      analysisStatus: "analyzing",
+      analyzedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(campaignAssets.id, assetId),
+        eq(campaignAssets.workspaceId, workspaceId),
+        or(
+          sql`${campaignAssets.analysisStatus} IS DISTINCT FROM 'analyzing'`,
+          and(
+            eq(campaignAssets.analysisStatus, "analyzing"),
+            or(
+              isNull(campaignAssets.analyzedAt),
+              lt(campaignAssets.analyzedAt, staleBefore)
+            )
+          )
+        )
+      )
+    )
+    .returning({ id: campaignAssets.id });
+
+  if (claimed.length > 0) {
+    return "claimed";
+  }
+
+  const existing = await getAssetWithMetadata(assetId, workspaceId);
+  if (!existing) {
+    return "not_found";
+  }
+
+  if (existing.analysisStatus === "analyzing") {
+    return "in_progress";
+  }
+
+  return "claimed";
 }
