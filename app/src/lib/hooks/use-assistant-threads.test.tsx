@@ -38,6 +38,76 @@ const threadFixture = {
   updatedAt: new Date().toISOString(),
 };
 
+const versionId = "00000000-0000-4000-8000-000000000001";
+const lineageId = "00000000-0000-4000-8000-000000000002";
+const artifactId = "00000000-0000-4000-8000-000000000003";
+
+const artifactVersionStateFixture = {
+  lineages: [
+    {
+      lineageId,
+      artifactType: "plan",
+      approvedCurrent: {
+        id: versionId,
+        lineageId,
+        versionNumber: 1,
+        sourceVersionId: null,
+        status: "approved",
+        snapshot: {
+          type: "plan",
+          strategy: "Estratégia",
+          angles: [],
+          hooks: [],
+          ctas: [],
+          constraints: null,
+        },
+        provenance: {
+          origin: "native",
+          originalArtifactId: artifactId,
+          sourceVersionId: null,
+          messageId: null,
+          actionId: null,
+          planVersionId: null,
+          format: null,
+          generationMode: null,
+        },
+        feedback: null,
+        createdAt: "2026-06-28T12:00:00.000Z",
+      },
+      working: null,
+      versions: [],
+      pendingProposals: [
+        {
+          id: "00000000-0000-4000-8000-000000000004",
+          lineageId,
+          sourceVersionId: versionId,
+          proposalType: "plan_revision",
+          status: "pending",
+          feedback: "Mais direto",
+          payload: {
+            type: "plan_revision",
+            schemaVersion: 1,
+            summary: "Encurtar",
+            proposedSnapshot: {
+              type: "plan",
+              strategy: "Direta",
+              angles: [],
+              hooks: [],
+              ctas: [],
+              constraints: null,
+            },
+            changes: [{ field: "strategy", description: "Encurtar" }],
+            writes: ["Nova versão"],
+          },
+          createdAt: "2026-06-28T12:01:00.000Z",
+          updatedAt: "2026-06-28T12:02:00.000Z",
+        },
+      ],
+      generationStatus: null,
+    },
+  ],
+};
+
 describe("useAssistantThreads", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -140,6 +210,31 @@ describe("useAssistantThread", () => {
       "/api/assistant/threads/thread-1"
     );
     expect(result.current.data?.messages).toHaveLength(1);
+  });
+
+  it("preserves version state and coerces nested timestamps", async () => {
+    mockApiFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          thread: threadFixture,
+          messages: [],
+          artifactVersionState: artifactVersionStateFixture,
+        }),
+    } as unknown as Response);
+
+    const { result } = renderHook(() => useAssistantThread("thread-1"), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => {
+      expect(result.current.data?.artifactVersionState?.lineages).toHaveLength(1);
+    });
+
+    const lineage = result.current.data!.artifactVersionState!.lineages[0]!;
+    expect(lineage.approvedCurrent?.createdAt).toBeInstanceOf(Date);
+    expect(lineage.pendingProposals[0]?.createdAt).toBeInstanceOf(Date);
+    expect(lineage.pendingProposals[0]?.updatedAt).toBeInstanceOf(Date);
   });
 
   it("does not fetch when threadId is null", () => {
