@@ -30,6 +30,10 @@ vi.mock("@/server/repositories/artifact-version", async (original) => {
   };
 });
 
+vi.mock("@/server/repositories/workspace-asset", () => ({
+  getWorkspaceAssetById: vi.fn(),
+}));
+
 import { classifyCreativeRevisionIntent } from "./intent";
 import { proposeCreativeRevision } from "./proposal";
 import { validateProposeAction } from "@/server/assistant/action-contracts/validate";
@@ -118,7 +122,6 @@ describe("buildReviseCreativeActionDisplay", () => {
       workingDiffersFromApproved: true,
       intendedChanges: ["Cor de fundo: azul"],
       format: "1:1",
-      referenceCount: 2,
       planVersionLabel: "v2",
       writes: ["Gera nova versão do criativo", "Cobra 5 créditos"],
       proposalStatus: "pending",
@@ -128,6 +131,7 @@ describe("buildReviseCreativeActionDisplay", () => {
       { id: "ref-1", name: "Hero shot", thumbnailUrl: null },
       { id: "ref-2", name: "Logo dark", thumbnailUrl: null },
     ]);
+    expect(display.referenceCount).toBeUndefined();
     expect(display.mismatchWarning).toContain("v2");
   });
 

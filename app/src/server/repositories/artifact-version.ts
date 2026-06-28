@@ -492,3 +492,24 @@ export async function findActiveGenerationForLineage(
     .limit(1);
   return rows.length > 0;
 }
+
+export async function listArtifactProposalsByPlanVersion(input: {
+  scope: ArtifactScope;
+  planVersionId: string;
+}) {
+  return db
+    .select({
+      id: assistantArtifactProposals.id,
+      status: assistantArtifactProposals.status,
+      proposalType: assistantArtifactProposals.proposalType,
+    })
+    .from(assistantArtifactProposals)
+    .where(
+      and(
+        eq(assistantArtifactProposals.proposalType, "creative_revision"),
+        eq(assistantArtifactProposals.status, "pending"),
+        sql`${assistantArtifactProposals.payload}->>'planVersionId' = ${input.planVersionId}`,
+        proposalScope(input.scope)
+      )
+    );
+}
