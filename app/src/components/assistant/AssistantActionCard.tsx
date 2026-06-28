@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +18,7 @@ import {
   useConfirmAssistantAction,
 } from "@/lib/hooks/use-assistant-actions";
 import { cn } from "@/lib/utils";
+import CreditConfirmModal from "./CreditConfirmModal";
 
 export interface AssistantActionCardProps {
   threadId: string | null;
@@ -29,6 +31,15 @@ function parseStatus(payload: Record<string, unknown>): ActionCardStatus {
     return status as ActionCardStatus;
   }
   return "pending";
+}
+
+function extractCreditCost(creditImpact: unknown): number | null {
+  if (!creditImpact || typeof creditImpact !== "object") return null;
+  const record = creditImpact as Record<string, unknown>;
+  if (typeof record.credits === "number") return record.credits;
+  const label = typeof record.label === "string" ? record.label : "";
+  const match = label.match(/(\d+)/);
+  return match ? Number.parseInt(match[1], 10) : null;
 }
 
 function resolveProposalId(
@@ -68,6 +79,7 @@ export default function AssistantActionCard({
   const t = useTranslations("assistant.actionCard");
   const confirmMutation = useConfirmAssistantAction();
   const cancelMutation = useCancelAssistantAction();
+  const [showCreditModal, setShowCreditModal] = useState(false);
 
   const actionRecordId =
     typeof payload.actionRecordId === "string" ? payload.actionRecordId : "";
@@ -75,25 +87,51 @@ export default function AssistantActionCard({
   const display = parseActionCardDisplay(payload.display);
   const isPending = status === "pending";
   const isActive = status === "confirmed" || status === "running";
+  const isFailed = status === "failed";
   const isTerminal = isTerminalActionStatus(status);
   const isMutating = confirmMutation.isPending || cancelMutation.isPending;
   const isRevisePlan = display?.actionType === "revise_creative_plan";
+  const isReviseCreative = display?.actionType === "revise_creative";
 
   const handleConfirm = () => {
     if (!threadId || !actionRecordId || !isPending) {
       return;
     }
+    if (isReviseCreative) {
+      setShowCreditModal(true);
+      return;
+    }
     confirmMutation.mutate({ actionId: actionRecordId, threadId });
+  };
+
+  const handleModalConfirm = () => {
+    if (!threadId || !actionRecordId) {
+      return;
+    }
+    confirmMutation.mutate({ actionId: actionRecordId, threadId });
+    setShowCreditModal(false);
+  };
+
+  const handleModalCancel = () => {
+    setShowCreditModal(false);
   };
 
   const handleCancel = () => {
     if (!threadId || !actionRecordId || isTerminal) {
       return;
     }
-    const proposalId = isRevisePlan
-      ? resolveProposalId(payload, display)
-      : undefined;
+    const proposalId =
+      isRevisePlan || isReviseCreative
+        ? resolveProposalId(payload, display)
+        : undefined;
     cancelMutation.mutate({ actionId: actionRecordId, threadId, proposalId });
+  };
+
+  const handleRetry = () => {
+    if (!threadId || !actionRecordId) {
+      return;
+    }
+    confirmMutation.mutate({ actionId: actionRecordId, threadId });
   };
 
   const jobRef =
@@ -101,7 +139,13 @@ export default function AssistantActionCard({
       ? (payload.jobRef as Record<string, unknown>)
       : null;
 
-  const confirmLabel = isRevisePlan ? "Confirmar revisão do plano" : t("confirm");
+  const confirmLabel = isRevisePlan
+    ? "Confirmar revisão do plano"
+    : isReviseCreative
+      ? "Confirmar revisão do criativo"
+      : t("confirm");
+
+  const creditCost = extractCreditCost(display?.creditImpact) ?? 5;
 
   return (
     <div
@@ -138,6 +182,63 @@ export default function AssistantActionCard({
           ) : null}
           {display.mismatchWarning ? (
             <div className="text-[var(--warning-text)]">{display.mismatchWarning}</div>
+          ) : null}
+          {isReviseCreative &&
+          display.intendedChanges &&
+          display.intendedChanges.length > 0 ? (
+            <div>
+              <dt className="font-medium text-[var(--text-muted)]">
+                Mudanças pretendidas
+              </dt>
+              <dd>
+                <ul className="mt-1 list-disc space-y-1 pl-4">
+                  {display.intendedChanges.map((change) => (
+                    <li key={change}>{change}</li>
+                  ))}
+                </ul>
+              </dd>
+            </div>
+          ) : null}
+          {isReviseCreative && display.format ? (
+            <div>
+              <dt className="font-medium text-[var(--text-muted)]">Formato</dt>
+              <dd>{display.format}</dd>
+            </div>
+          ) : null}
+          {isReviseCreative &&
+          display.referenceItems &&
+          display.referenceItems.length > 0 ? (
+            <div>
+              <dt className="font-medium text-[var(--text-muted)]">Referências</dt>
+              <dd>
+                <ul className="mt-1 space-y-2">
+                  {display.referenceItems.map((item) => (
+                    <li key={item.id} className="flex items-center gap-2">
+                      {item.thumbnailUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={item.thumbnailUrl}
+                          alt={item.name}
+                          className="size-8 rounded object-cover"
+                        />
+                      ) : null}
+                      <span>{item.name}</span>
+                    </li>
+                  ))}
+                </ul>
+              </dd>
+            </div>
+          ) : isReviseCreative && typeof display.referenceCount === "number" ? (
+            <div>
+              <dt className="font-medium text-[var(--text-muted)]">Referências</dt>
+              <dd>{display.referenceCount} referências</dd>
+            </div>
+          ) : null}
+          {isReviseCreative && display.planVersionLabel ? (
+            <div>
+              <dt className="font-medium text-[var(--text-muted)]">Plano</dt>
+              <dd>Plano: {display.planVersionLabel}</dd>
+            </div>
           ) : null}
           {display.writes && display.writes.length > 0 ? (
             <div>
@@ -228,6 +329,33 @@ export default function AssistantActionCard({
             {t("cancel")}
           </Button>
         </div>
+      ) : null}
+
+      {isFailed && isReviseCreative ? (
+        <div className="mt-4">
+          <p className="text-xs text-[var(--warning-text)]">
+            A geração falhou. Você pode tentar novamente.
+          </p>
+          <Button
+            type="button"
+            size="sm"
+            onClick={handleRetry}
+            disabled={!threadId || isMutating}
+            className="mt-2"
+          >
+            Tentar novamente
+          </Button>
+        </div>
+      ) : null}
+
+      {isReviseCreative ? (
+        <CreditConfirmModal
+          open={showCreditModal}
+          creditCost={creditCost}
+          isPending={confirmMutation.isPending}
+          onConfirm={handleModalConfirm}
+          onCancel={handleModalCancel}
+        />
       ) : null}
     </div>
   );

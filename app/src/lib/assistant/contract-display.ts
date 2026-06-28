@@ -12,6 +12,15 @@ export type ClientActionCardDisplay = {
   writes?: string[];
   proposalStatus?: "pending" | "stale";
   mismatchWarning?: string;
+  intendedChanges?: string[];
+  format?: string | null;
+  referenceCount?: number;
+  referenceItems?: {
+    id: string;
+    name: string;
+    thumbnailUrl: string | null;
+  }[];
+  planVersionLabel?: string | null;
 };
 
 export type ActionCardStatus =
@@ -84,11 +93,44 @@ export function parseActionCardDisplay(
       typeof record.mismatchWarning === "string"
         ? record.mismatchWarning
         : undefined,
+    intendedChanges: Array.isArray(record.intendedChanges)
+      ? record.intendedChanges.filter(
+          (line): line is string => typeof line === "string"
+        )
+      : undefined,
+    format:
+      typeof record.format === "string"
+        ? record.format
+        : record.format === null
+          ? null
+          : undefined,
+    referenceCount:
+      typeof record.referenceCount === "number" ? record.referenceCount : undefined,
+    referenceItems: Array.isArray(record.referenceItems)
+      ? record.referenceItems
+          .filter(
+            (item): item is Record<string, unknown> =>
+              typeof item === "object" && item !== null
+          )
+          .map((item) => ({
+            id: typeof item.id === "string" ? item.id : "",
+            name: typeof item.name === "string" ? item.name : "",
+            thumbnailUrl:
+              typeof item.thumbnailUrl === "string" ? item.thumbnailUrl : null,
+          }))
+      : undefined,
+    planVersionLabel:
+      typeof record.planVersionLabel === "string"
+        ? record.planVersionLabel
+        : record.planVersionLabel === null
+          ? null
+          : undefined,
   };
 }
 
 export function shouldShowCreditImpact(display: ClientActionCardDisplay): boolean {
   if (display.actionType === "revise_creative_plan") return false;
+  if (display.actionType === "revise_creative") return true;
   const creditImpact = display.creditImpact;
   if (!creditImpact || typeof creditImpact !== "object") return true;
   const record = creditImpact as Record<string, unknown>;
