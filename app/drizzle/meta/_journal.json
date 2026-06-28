@@ -463,6 +463,13 @@
       "when": 1783598400000,
       "tag": "0066_assistant_creative_feedback_drafts",
       "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1783684800000,
+      "tag": "0067_assistant_artifact_approvals",
+      "breakpoints": true
     }
   ]
 }

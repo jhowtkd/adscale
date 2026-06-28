@@ -2376,6 +2376,49 @@ export const assistantArtifactLineageHeads = adscaleSchema.table(
   }
 );
 
+export const assistantArtifactApprovalEvents = adscaleSchema.table(
+  "assistant_artifact_approval_events",
+  {
+    id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    operationId: uuid("operation_id").notNull(),
+    artifactType: text("artifact_type").notNull(),
+    lineageId: uuid("lineage_id").notNull().references(() => assistantArtifactLineages.id, { onDelete: "cascade" }),
+    promotedVersionId: uuid("promoted_version_id").notNull().references(() => assistantArtifactVersions.id, { onDelete: "restrict" }),
+    previousOfficialVersionId: uuid("previous_official_version_id").references(() => assistantArtifactVersions.id, { onDelete: "restrict" }),
+    workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    clientProfileId: uuid("client_profile_id").notNull().references(() => clientProfiles.id, { onDelete: "cascade" }),
+    campaignId: uuid("campaign_id").notNull().references(() => campaigns.id, { onDelete: "cascade" }),
+    threadId: uuid("thread_id").notNull().references(() => assistantThreads.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("assistant_artifact_approval_events_operation_lineage_uidx").on(table.operationId, table.lineageId),
+    index("assistant_artifact_approval_events_scope_idx").on(table.workspaceId, table.clientProfileId, table.campaignId, table.threadId),
+    index("assistant_artifact_approval_events_lineage_created_idx").on(table.lineageId, table.createdAt),
+  ]
+);
+
+export const assistantArtifactComparisonAcknowledgements = adscaleSchema.table(
+  "assistant_artifact_comparison_acknowledgements",
+  {
+    id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    creativeTargetVersionId: uuid("creative_target_version_id").notNull().references(() => assistantArtifactVersions.id, { onDelete: "cascade" }),
+    planLineageId: uuid("plan_lineage_id").notNull().references(() => assistantArtifactLineages.id, { onDelete: "cascade" }),
+    linkedPlanVersionId: uuid("linked_plan_version_id").notNull().references(() => assistantArtifactVersions.id, { onDelete: "cascade" }),
+    comparedOfficialPlanVersionId: uuid("compared_official_plan_version_id").notNull().references(() => assistantArtifactVersions.id, { onDelete: "cascade" }),
+    comparedPlanHeadRevision: integer("compared_plan_head_revision").notNull(),
+    workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    clientProfileId: uuid("client_profile_id").notNull().references(() => clientProfiles.id, { onDelete: "cascade" }),
+    campaignId: uuid("campaign_id").notNull().references(() => campaigns.id, { onDelete: "cascade" }),
+    threadId: uuid("thread_id").notNull().references(() => assistantThreads.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("assistant_artifact_comparison_ack_scope_idx").on(table.workspaceId, table.clientProfileId, table.campaignId, table.threadId),
+    index("assistant_artifact_comparison_ack_plan_created_idx").on(table.planLineageId, table.createdAt),
+  ]
+);
+
 export const assistantPlanFeedbackDrafts = adscaleSchema.table(
   "assistant_plan_feedback_drafts",
   {

@@ -211,3 +211,88 @@ export const artifactVersionComparisonSchema = z.discriminatedUnion("type", [
 export type ArtifactVersionComparison = z.infer<
   typeof artifactVersionComparisonSchema
 >;
+
+const promotionTargetSchema = z
+  .object({
+    lineageId: z.string().uuid(),
+    targetVersionId: z.string().uuid(),
+    expectedRevision: z.number().int().nonnegative(),
+  })
+  .strict();
+
+export const artifactPromotionCommandSchema = z.discriminatedUnion("type", [
+  promotionTargetSchema
+    .extend({
+      type: z.literal("plan"),
+      operationId: z.string().uuid(),
+    })
+    .strict(),
+  promotionTargetSchema
+    .extend({
+      type: z.literal("creative"),
+      operationId: z.string().uuid(),
+      planTransition: promotionTargetSchema
+        .extend({ acknowledgementId: z.string().uuid() })
+        .strict()
+        .nullable(),
+    })
+    .strict(),
+]);
+export type ArtifactPromotionCommand = z.infer<
+  typeof artifactPromotionCommandSchema
+>;
+
+export const comparisonAcknowledgementCommandSchema = z
+  .object({
+    creativeTargetVersionId: z.string().uuid(),
+    planLineageId: z.string().uuid(),
+    linkedPlanVersionId: z.string().uuid(),
+    comparedOfficialPlanVersionId: z.string().uuid(),
+    expectedPlanRevision: z.number().int().nonnegative(),
+  })
+  .strict();
+export type ComparisonAcknowledgementCommand = z.infer<
+  typeof comparisonAcknowledgementCommandSchema
+>;
+
+export const comparisonAcknowledgementSchema =
+  comparisonAcknowledgementCommandSchema
+    .extend({
+      id: z.string().uuid(),
+      createdAt: z.coerce.date(),
+    })
+    .strict();
+
+const promotionTransitionSchema = z
+  .object({
+    artifactType: artifactTypeSchema,
+    fromVersion: z.string().trim().min(1).max(50),
+    toVersion: z.string().trim().min(1).max(50),
+  })
+  .strict();
+
+export const artifactPromotionEffectSchema = z
+  .object({
+    transitions: z.array(promotionTransitionSchema).min(1).max(2),
+    canonicalWrites: boundedTextList,
+    staleProposalCount: z.number().int().nonnegative(),
+    creditImpact: z.literal(0),
+  })
+  .strict();
+
+export const artifactPromotionResultSchema = z
+  .object({
+    effect: artifactPromotionEffectSchema,
+    state: z.array(artifactVersionPresentationSchema).min(1).max(2),
+  })
+  .strict();
+
+export const artifactPromotionConflictSchema = z
+  .object({
+    error: z.literal("revisionConflict"),
+    message: z.string().trim().min(1).max(500),
+    previousOfficialLabel: z.string().trim().min(1).max(50),
+    currentOfficialLabel: z.string().trim().min(1).max(50),
+    state: z.array(artifactVersionPresentationSchema).min(1).max(2),
+  })
+  .strict();
