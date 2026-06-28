@@ -1,4 +1,4 @@
-import { and, desc, eq, max, ne } from "drizzle-orm";
+import { and, desc, eq, max, ne, sql } from "drizzle-orm";
 import type {
   ArtifactProposalPayload,
   ArtifactType,
@@ -12,6 +12,7 @@ import {
 } from "@/lib/assistant/artifact-version";
 import { db } from "../db";
 import {
+  assistantActionRecords,
   assistantArtifactLineageHeads,
   assistantArtifactLineages,
   assistantArtifactProposals,
@@ -471,4 +472,23 @@ export async function staleSiblingProposals(input: {
       )
     )
     .returning();
+}
+
+export async function findActiveGenerationForLineage(
+  scope: ArtifactScope,
+  lineageId: string
+) {
+  const rows = await db
+    .select({ id: assistantActionRecords.id })
+    .from(assistantActionRecords)
+    .where(
+      and(
+        eq(assistantActionRecords.workspaceId, scope.workspaceId),
+        eq(assistantActionRecords.threadId, scope.threadId),
+        eq(assistantActionRecords.status, "running"),
+        sql`${assistantActionRecords.inputSnapshot}->>'lineageId' = ${lineageId}`
+      )
+    )
+    .limit(1);
+  return rows.length > 0;
 }

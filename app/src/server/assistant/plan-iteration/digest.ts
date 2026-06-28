@@ -13,18 +13,9 @@ function stable(value: unknown): string {
 }
 
 export function canonicalProposalPayloadDigest(
-  payload: Extract<ArtifactProposalPayload, { type: "plan_revision" }>
+  payload: ArtifactProposalPayload
 ): string {
   return createHash("sha256")
-    .update(
-      stable({
-        type: payload.type,
-        schemaVersion: payload.schemaVersion,
-        summary: payload.summary,
-        proposedSnapshot: payload.proposedSnapshot,
-        changes: payload.changes,
-        writes: payload.writes,
-      })
-    )
+    .update(stable(payload))
     .digest("hex");
 }

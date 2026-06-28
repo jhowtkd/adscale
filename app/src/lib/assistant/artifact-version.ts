@@ -101,6 +101,7 @@ export const artifactProposalPayloadSchema = z.discriminatedUnion("type", [
       referenceIds: z.array(z.string().uuid()).max(50),
       creditImpact: z.number().int().nonnegative(),
       writes: boundedTextList,
+      planVersionId: z.string().uuid(),
     })
     .strict(),
 ]);
