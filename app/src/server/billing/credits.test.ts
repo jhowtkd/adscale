@@ -18,6 +18,15 @@ vi.mock("@/server/beta-analytics/record", () => ({
   recordBetaAnalyticsEvent: vi.fn(() => Promise.resolve({ id: "event-1" })),
 }));
 
+vi.mock("@/server/repositories/credit-transactions", () => ({
+  createCreditTransaction: vi.fn(),
+}));
+
+vi.mock("@/server/auth/dev-admin", () => ({
+  workspaceHasDevAdminOwner: vi.fn(() => Promise.resolve(false)),
+  DEV_ADMIN_CREDIT_BALANCE: 999_999,
+}));
+
 vi.spyOn(db, "transaction").mockImplementation(async (callback) => callback({} as never));
 
 import { db } from "@/server/db";
@@ -32,7 +41,9 @@ import {
   trackUsage,
 } from "@/server/repositories/usage";
 import { recordBetaAnalyticsEvent } from "@/server/beta-analytics/record";
-import { canSpend, recordUsage } from "./credits";
+import { createCreditTransaction } from "@/server/repositories/credit-transactions";
+import { workspaceHasDevAdminOwner } from "@/server/auth/dev-admin";
+import { canSpend, recordUsage, refundCredits } from "./credits";
 
 const mockGetWorkspaceBillingAccess = vi.mocked(getWorkspaceBillingAccess);
 const mockGetAvailableCreditGrants = vi.mocked(getAvailableCreditGrants);
@@ -40,6 +51,8 @@ const mockUpdateCreditGrantRemaining = vi.mocked(updateCreditGrantRemaining);
 const mockGetUsageByIdempotencyKey = vi.mocked(getUsageByIdempotencyKey);
 const mockTrackUsage = vi.mocked(trackUsage);
 const mockRecordBetaAnalyticsEvent = vi.mocked(recordBetaAnalyticsEvent);
+const mockCreateCreditTransaction = vi.mocked(createCreditTransaction);
+const mockWorkspaceHasDevAdminOwner = vi.mocked(workspaceHasDevAdminOwner);
 
 const VALID_SESSION_ID = "550e8400-e29b-41d4-a716-446655440000";
 
@@ -373,6 +386,171 @@ describe("credit entitlement service", () => {
     await flushAnalytics();
 
     expect(result.status).toBe("recorded");
+  });
+});
+
+describe("refundCredits", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetUsageByIdempotencyKey.mockResolvedValue(
+      null as unknown as Awaited<ReturnType<typeof getUsageByIdempotencyKey>>
+    );
+    mockWorkspaceHasDevAdminOwner.mockResolvedValue(false);
+    mockGetAvailableCreditGrants.mockResolvedValue([grant("grant-1", 10)]);
+    mockCreateCreditTransaction.mockResolvedValue({
+      id: "tx-1",
+      userId: "user-1",
+      workspaceId: "workspace-1",
+      campaignId: null,
+      derivationId: null,
+      amount: 5,
+      type: "refund",
+      description: "image_derivation_refund",
+      createdAt: new Date(),
+    });
+    mockTrackUsage.mockResolvedValue({
+      id: "usage-r1",
+      workspaceId: "workspace-1",
+      type: "image_derivation",
+      amount: -5,
+      idempotencyKey: "refund-key",
+      metadata: { refund: true, creditAmount: 5 },
+      createdAt: new Date(),
+    });
+  });
+
+  it("credits grants back and creates refund transaction", async () => {
+    mockGetAvailableCreditGrants.mockResolvedValue([grant("grant-1", 8)]);
+
+    const result = await refundCredits({
+      workspaceId: "workspace-1",
+      action: "image_derivation",
+      idempotencyKey: "assistant-action:action-1:refund",
+      userId: "user-1",
+      metadata: { actionId: "action-1", derivationId: "derivation-1" },
+    });
+
+    expect(result.status).toBe("refunded");
+    expect(mockUpdateCreditGrantRemaining).toHaveBeenCalledWith(
+      "grant-1",
+      13,
+      expect.anything()
+    );
+    expect(mockTrackUsage).toHaveBeenCalledWith(
+      "workspace-1",
+      "image_derivation",
+      -5,
+      expect.objectContaining({
+        refund: true,
+        creditAmount: 5,
+        actionId: "action-1",
+        derivationId: "derivation-1",
+      }),
+      "assistant-action:action-1:refund"
+    );
+    expect(mockCreateCreditTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user-1",
+        workspaceId: "workspace-1",
+        amount: 5,
+        type: "refund",
+        description: "image_derivation_refund",
+        derivationId: "derivation-1",
+      })
+    );
+  });
+
+  it("returns duplicate on repeat idempotency key without double-crediting", async () => {
+    const existingUsage = {
+      id: "usage-r1",
+      workspaceId: "workspace-1",
+      type: "image_derivation",
+      amount: -5,
+      idempotencyKey: "assistant-action:action-1:refund",
+      metadata: { refund: true, creditAmount: 5 },
+      createdAt: new Date(),
+    };
+    mockGetUsageByIdempotencyKey.mockResolvedValue(existingUsage);
+
+    const result = await refundCredits({
+      workspaceId: "workspace-1",
+      action: "image_derivation",
+      idempotencyKey: "assistant-action:action-1:refund",
+    });
+
+    expect(result.status).toBe("duplicate");
+    expect(mockUpdateCreditGrantRemaining).not.toHaveBeenCalled();
+    expect(mockTrackUsage).not.toHaveBeenCalled();
+    expect(mockCreateCreditTransaction).not.toHaveBeenCalled();
+  });
+
+  it("does not modify grants for dev-admin workspaces but still records transaction", async () => {
+    mockWorkspaceHasDevAdminOwner.mockResolvedValue(true);
+
+    const result = await refundCredits({
+      workspaceId: "workspace-1",
+      action: "image_derivation",
+      idempotencyKey: "assistant-action:action-dev:refund",
+      userId: "user-1",
+      metadata: { actionId: "action-dev" },
+    });
+
+    expect(result.status).toBe("refunded");
+    expect(mockUpdateCreditGrantRemaining).not.toHaveBeenCalled();
+    expect(mockTrackUsage).toHaveBeenCalledWith(
+      "workspace-1",
+      "image_derivation",
+      0,
+      expect.objectContaining({
+        refund: true,
+        creditAmount: 5,
+        devAdminBypass: true,
+      }),
+      "assistant-action:action-dev:refund"
+    );
+    expect(mockCreateCreditTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        amount: 5,
+        type: "refund",
+        userId: "user-1",
+      })
+    );
+  });
+
+  it("does not call canSpend — refund is unconditional", async () => {
+    mockGetAvailableCreditGrants.mockResolvedValue([]);
+
+    const result = await refundCredits({
+      workspaceId: "workspace-1",
+      action: "image_derivation",
+      idempotencyKey: "assistant-action:action-empty:refund",
+      userId: "user-1",
+    });
+
+    expect(result.status).toBe("refunded");
+    expect(mockGetWorkspaceBillingAccess).not.toHaveBeenCalled();
+    expect(mockTrackUsage).toHaveBeenCalled();
+  });
+
+  it("uses default credit cost when amount is not provided", async () => {
+    const result = await refundCredits({
+      workspaceId: "workspace-1",
+      action: "landing_page",
+      idempotencyKey: "assistant-action:action-lp:refund",
+      userId: "user-1",
+    });
+
+    expect(result.status).toBe("refunded");
+    expect(mockTrackUsage).toHaveBeenCalledWith(
+      "workspace-1",
+      "landing_page",
+      -10,
+      expect.objectContaining({ creditAmount: 10 }),
+      "assistant-action:action-lp:refund"
+    );
+    expect(mockCreateCreditTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({ amount: 10, type: "refund" })
+    );
   });
 });
 
