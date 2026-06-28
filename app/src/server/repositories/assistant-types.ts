@@ -34,7 +34,7 @@ export const ACTION_TRANSITIONS: Record<ActionStatus, ActionStatus[]> = {
   confirmed: ["running", "canceled"],
   running: ["completed", "failed", "canceled"],
   completed: [],
-  failed: [],
+  failed: ["confirmed"],
   canceled: [],
 };
 

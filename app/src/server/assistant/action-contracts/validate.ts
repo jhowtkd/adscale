@@ -77,7 +77,7 @@ export async function revalidateOnConfirm(
     throw new AssistantActionValidationError("action_not_found");
   }
 
-  if (action.status !== "pending") {
+  if (action.status !== "pending" && action.status !== "failed") {
     throw new InvalidActionTransitionError(
       action.status as ActionStatus,
       "confirmed"

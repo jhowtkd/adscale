@@ -22,6 +22,7 @@ import { executeQuickSaveReference } from "./handlers/quick-save-reference";
 import { executeStartCompleteCampaign } from "./handlers/start-complete-campaign";
 import { executeCreateCreativePlan } from "./handlers/create-creative-plan";
 import { executeReviseCreativePlan } from "./handlers/revise-creative-plan";
+import { executeReviseCreative } from "./handlers/revise-creative";
 import type { ActionExecutionContext, ActionExecutionResult } from "./types";
 import { AssistantActionExecutionError } from "./types";
 
@@ -39,6 +40,7 @@ const HANDLERS: Record<string, Handler> = {
   start_complete_campaign: executeStartCompleteCampaign,
   create_creative_plan: executeCreateCreativePlan,
   revise_creative_plan: executeReviseCreativePlan,
+  revise_creative: executeReviseCreative,
 };
 
 export async function executeConfirmedAssistantAction(
