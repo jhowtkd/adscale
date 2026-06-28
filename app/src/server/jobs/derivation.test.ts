@@ -2126,7 +2126,7 @@ describe("creative revision callback (failure path)", () => {
   });
 
   it("onFailure refunds credits when assistantActionId present and mode is creative_revision", async () => {
-    const onFailure = (derivationJob as unknown as { opts: { onFailure: Function } }).opts.onFailure;
+    const onFailure = (derivationJob as unknown as { opts: { onFailure: (...args: unknown[]) => Promise<unknown> } }).opts.onFailure;
     expect(onFailure).toBeDefined();
 
     await onFailure({
@@ -2174,7 +2174,7 @@ describe("creative revision callback (failure path)", () => {
   });
 
   it("onFailure does NOT refund for non-creative-revision derivations", async () => {
-    const onFailure = (derivationJob as unknown as { opts: { onFailure: Function } }).opts.onFailure;
+    const onFailure = (derivationJob as unknown as { opts: { onFailure: (...args: unknown[]) => Promise<unknown> } }).opts.onFailure;
 
     await onFailure({
       event: {
@@ -2206,7 +2206,7 @@ describe("creative revision callback (failure path)", () => {
   });
 
   it("onFailure does NOT refund when assistantActionId is missing", async () => {
-    const onFailure = (derivationJob as unknown as { opts: { onFailure: Function } }).opts.onFailure;
+    const onFailure = (derivationJob as unknown as { opts: { onFailure: (...args: unknown[]) => Promise<unknown> } }).opts.onFailure;
 
     await onFailure({
       event: {
@@ -2238,7 +2238,7 @@ describe("creative revision callback (failure path)", () => {
 
   it("onFailure swallows refund errors so failure cleanup is not blocked", async () => {
     mockRefundCredits.mockRejectedValue(new Error("refund db unreachable"));
-    const onFailure = (derivationJob as unknown as { opts: { onFailure: Function } }).opts.onFailure;
+    const onFailure = (derivationJob as unknown as { opts: { onFailure: (...args: unknown[]) => Promise<unknown> } }).opts.onFailure;
 
     await expect(
       onFailure({
