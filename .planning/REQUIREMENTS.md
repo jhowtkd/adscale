@@ -28,8 +28,8 @@
 
 ### Comparison and Approval
 
-- [ ] **COMP-01**: User can select and compare two versions from the same artifact lineage.
-- [ ] **COMP-02**: Plan comparison shows semantic field changes; creative comparison shows actual previews plus safe metadata and change summary.
+- [x] **COMP-01**: User can select and compare two versions from the same artifact lineage.
+- [x] **COMP-02**: Plan comparison shows semantic field changes; creative comparison shows actual previews plus safe metadata and change summary.
 - [ ] **APPR-01**: User can approve a ready version as current without spending credits.
 - [ ] **APPR-02**: User can promote an older version as current without deleting newer versions or descendants.
 - [ ] **APPR-03**: User cannot approve a stale, superseded, cross-lineage, or conflicting version.
@@ -82,8 +82,8 @@
 | CREV-02 | Phase 205 | Complete |
 | CREV-03 | Phase 205 | Complete |
 | CREV-04 | Phase 205 | Complete |
-| COMP-01 | Phase 206 | Pending |
-| COMP-02 | Phase 206 | Pending |
+| COMP-01 | Phase 206 | Complete |
+| COMP-02 | Phase 206 | Complete |
 | APPR-01 | Phase 206 | Pending |
 | APPR-02 | Phase 206 | Pending |
 | APPR-03 | Phase 206 | Pending |

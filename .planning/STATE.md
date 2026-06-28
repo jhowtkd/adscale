@@ -2,17 +2,17 @@
 gsd_state_version: 1.0
 milestone: v13.9
 milestone_name: Copiloto Criativo Iterativo
-current_plan: —
+current_plan: "206-01"
 status: executing
-stopped_at: Phase 206 UI-SPEC approved
-last_updated: "2026-06-28T14:04:59.661Z"
-last_activity: 2026-06-28 -- Phase 206 planning complete
+stopped_at: Completed 206-01-PLAN.md
+last_updated: "2026-06-28T17:33:34.642Z"
+last_activity: 2026-06-28 -- Plan 206-01 comparison contract complete
 progress:
   total_phases: 5
   completed_phases: 3
   total_plans: 13
-  completed_plans: 9
-  percent: 60
+  completed_plans: 10
+  percent: 77
 ---
 
 # Project State
@@ -26,14 +26,14 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 
 ## Current Position
 
-Phase: 206 of 207 (context gathered)
-Plan: 0 of TBD in phase
-Current Plan: —
+Phase: 206 of 207 (executing)
+Plan: 1 of 4 in phase
+Current Plan: 206-01
 Total Plans in Phase: 4
-Status: Ready to execute
-Last activity: 2026-06-28 -- Phase 206 planning complete
+Status: In progress
+Last activity: 2026-06-28 -- Plan 206-01 comparison contract complete
 
-Progress: [██████░░░░] 60%
+Progress: [████████░░] 77%
 
 ## Previous Milestone
 
@@ -43,7 +43,7 @@ Progress: [██████░░░░] 60%
 
 **Velocity:**
 
-- Total plans completed: 9
+- Total plans completed: 10
 - Average duration: ~30 min/plan
 - Total execution time: ~3.5 hours
 
@@ -58,6 +58,7 @@ Progress: [██████░░░░] 60%
 | Phase 205 P01 | 45 | 3 tasks | 12 files |
 | Phase 205 P04 | 7min | 3 tasks | 9 files |
 | Phase 205 P03 | 8min | 3 tasks | 9 files |
+| Phase 206 P01 | 25min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -74,9 +75,9 @@ Progress: [██████░░░░] 60%
 - [Phase 205]: Unified intent classifier (plan/creative/ambiguous/continue) routes campaign-thread feedback before generic LLM
 - [Phase 205]: Action card inputSnapshot includes planVersionId for creative handler plan binding
 - [Phase 205]: markCreativeProposalsStaleOnPlanChange queries payload JSON path (no DB migration for planVersionId)
-- [Phase 205]: Retry idempotency key uses action.jobRefs.length as attempt index (never Date.now()) — deterministic, replayable across retries on same action record.
-- [Phase 205]: Phase 205 added failed → confirmed transition + revalidateOnConfirm allows failed status (deviation, Rule 3 blocking) — needed for retry button on AssistantActionCard to work as designed by CONTEXT.md.
-- [Phase 205]: Derivation success callback gated on action.status in {canceled, failed} — canceled in-flight generation leaves source creative current with NO child version created (CONTEXT invariant).
+- [Phase 206]: Comparison responses use a strict positive allowlist separate from persisted version snapshots.
+- [Phase 206]: Plan list comparison preserves canonical order and uses occurrence-aware matching for deterministic duplicate-safe moves.
+- [Phase 206]: Creative intent comes from confirmed persisted proposals, with persisted feedback as the safe fallback.
 
 ### Pending Todos
 
@@ -91,6 +92,6 @@ Progress: [██████░░░░] 60%
 
 ## Session Continuity
 
-Last session: 2026-06-28T13:34:30.866Z
-Stopped at: Phase 206 UI-SPEC approved
-Resume file: .planning/phases/206-version-compare-and-approval/206-UI-SPEC.md
+Last session: 2026-06-28T17:33:34.638Z
+Stopped at: Completed 206-01-PLAN.md
+Resume file: None
