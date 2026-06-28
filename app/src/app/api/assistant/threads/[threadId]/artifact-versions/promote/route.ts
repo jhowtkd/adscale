@@ -60,7 +60,7 @@ export async function POST(
           const lineage = affected.find(
             (candidate) => candidate.lineageId === target.lineageId
           );
-          return lineage?.approvedCurrent?.id !== target.expectedOfficialVersionId;
+          return (lineage?.approvedCurrent?.id ?? null) !== (target.expectedOfficialVersionId ?? null);
         }) ?? targets[0];
       const changedLineage = affected.find(
         (lineage) => lineage.lineageId === changedTarget.lineageId

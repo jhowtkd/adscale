@@ -560,7 +560,7 @@ async function loadPromotionTarget(
   target: {
     lineageId: string;
     targetVersionId: string;
-    expectedOfficialVersionId: string;
+    expectedOfficialVersionId: string | null;
     expectedRevision: number;
   },
   artifactType: ArtifactType
@@ -744,6 +744,45 @@ async function promotionRowsForOperation(
   }));
 }
 
+function replayMatchesCommand(
+  events: Array<{
+    artifactType: string;
+    lineageId: string;
+    promotedVersionId: string;
+  }>,
+  command: ArtifactPromotionCommand
+) {
+  if (command.type === "plan") {
+    return (
+      events.length === 1 &&
+      events[0]!.artifactType === "plan" &&
+      events[0]!.lineageId === command.lineageId &&
+      events[0]!.promotedVersionId === command.targetVersionId
+    );
+  }
+
+  const creative = events.find((event) => event.artifactType === "creative");
+  if (
+    !creative ||
+    creative.lineageId !== command.lineageId ||
+    creative.promotedVersionId !== command.targetVersionId
+  ) {
+    return false;
+  }
+
+  const planEvents = events.filter((event) => event.artifactType === "plan");
+  const transition = command.planTransition;
+  if (!transition) {
+    return planEvents.length === 0;
+  }
+
+  return (
+    planEvents.length === 1 &&
+    planEvents[0]!.lineageId === transition.lineageId &&
+    planEvents[0]!.promotedVersionId === transition.targetVersionId
+  );
+}
+
 export async function createComparisonAcknowledgement(input: {
   scope: ArtifactScope;
   creativeTargetVersionId: string;
@@ -768,12 +807,24 @@ export async function promoteArtifactVersion(input: {
   command: ArtifactPromotionCommand;
 }) {
   return db.transaction(async (tx) => {
-    const replay = await promotionRowsForOperation(
-      tx,
-      input.scope,
-      input.command.operationId
-    );
-    if (replay.length > 0) {
+    const existingEvents = await tx
+      .select()
+      .from(assistantArtifactApprovalEvents)
+      .where(and(
+        eq(assistantArtifactApprovalEvents.operationId, input.command.operationId),
+        approvalScope(input.scope)
+      ));
+    if (existingEvents.length > 0) {
+      if (!replayMatchesCommand(existingEvents, input.command)) {
+        throw new ArtifactVersionValidationError(
+          "Operation ID reused for a different command"
+        );
+      }
+      const replay = await promotionRowsForOperation(
+        tx,
+        input.scope,
+        input.command.operationId
+      );
       return { promotions: replay, staleProposalCount: 0, replayed: true };
     }
 

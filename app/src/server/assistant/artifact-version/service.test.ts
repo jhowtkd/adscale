@@ -14,6 +14,7 @@ vi.mock("@/server/repositories/artifact-version", async (original) => {
     findArtifactLineageOwner: vi.fn(),
     getArtifactHead: vi.fn(),
     getArtifactLineage: vi.fn(),
+    getArtifactVersion: vi.fn(),
     listArtifactLineages: vi.fn(),
     listArtifactProposals: vi.fn(),
     listArtifactVersions: vi.fn(),
@@ -29,6 +30,7 @@ import {
   findArtifactLineageOwner,
   getArtifactHead,
   getArtifactLineage,
+  getArtifactVersion,
   listArtifactLineages,
   listArtifactProposals,
   listArtifactVersions,
@@ -126,5 +128,38 @@ describe("artifact version service", () => {
     expect(state.lineages[0]?.approvedCurrent?.id).toBe(id("7"));
     expect(state.lineages[0]?.working?.id).toBe(id("8"));
     expect(state.lineages[0]?.working?.previouslyApproved).toBe(true);
+  });
+
+  it("includes head pointers that fall outside the version history window", async () => {
+    vi.mocked(listArtifactLineages).mockResolvedValue([{
+      id: id("6"), artifactType: "plan", originalArtifactId: id("5"),
+    }] as never);
+    vi.mocked(getArtifactLineage).mockResolvedValue({
+      id: id("6"), artifactType: "plan", originalArtifactId: id("5"),
+    } as never);
+    const recentVersion = {
+      id: id("9"), lineageId: id("6"), versionNumber: 51, sourceVersionId: id("8"),
+      status: "ready",
+      snapshot: { type: "plan", strategy: null, angles: [], hooks: [], ctas: [], constraints: null },
+      provenance: { origin: "revision", originalArtifactId: id("5"), sourceVersionId: id("8"), messageId: null, actionId: null, planVersionId: null, format: null, generationMode: null },
+      feedback: null, createdAt: new Date(),
+    };
+    const officialVersion = {
+      id: id("7"), lineageId: id("6"), versionNumber: 1, sourceVersionId: null,
+      status: "approved",
+      snapshot: { type: "plan", strategy: "Old", angles: [], hooks: [], ctas: [], constraints: null },
+      provenance: { origin: "legacy_import", originalArtifactId: id("5"), sourceVersionId: null, messageId: null, actionId: null, planVersionId: null, format: null, generationMode: null },
+      feedback: null, createdAt: new Date(),
+    };
+    vi.mocked(listArtifactVersions).mockResolvedValue([recentVersion] as never);
+    vi.mocked(getArtifactVersion).mockResolvedValue(officialVersion as never);
+    vi.mocked(getArtifactHead).mockResolvedValue({
+      lineageId: id("6"), approvedCurrentVersionId: id("7"), workingVersionId: id("9"), revision: 2,
+    } as never);
+
+    const state = await getThreadArtifactVersionState(thread.workspaceId, thread.id);
+    expect(state.lineages[0]?.approvedCurrent?.versionNumber).toBe(1);
+    expect(state.lineages[0]?.working?.versionNumber).toBe(51);
+    expect(state.lineages[0]?.versions).toHaveLength(2);
   });
 });

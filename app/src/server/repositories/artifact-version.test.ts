@@ -91,6 +91,12 @@ describe("artifact version repository invariants", () => {
     expect(
       artifactPromotionCommandSchema.safeParse({
         ...plan,
+        expectedOfficialVersionId: null,
+      }).success
+    ).toBe(true);
+    expect(
+      artifactPromotionCommandSchema.safeParse({
+        ...plan,
         expectedRevision: undefined,
       }).success
     ).toBe(false);
@@ -445,5 +451,64 @@ describeDb("artifact promotion transaction", () => {
       [ids.derivation1]: "completed",
       [ids.derivation2]: "approved",
     });
+  });
+
+  it("approves the first official version when the head has no current official", async () => {
+    const { ids, scope } = await seedPromotionFixture();
+    await db
+      .update(assistantArtifactLineageHeads)
+      .set({ approvedCurrentVersionId: null, revision: 0 })
+      .where(eq(assistantArtifactLineageHeads.lineageId, ids.planLineage));
+
+    const result = await promoteArtifactVersion({
+      scope,
+      command: {
+        type: "plan",
+        operationId: crypto.randomUUID(),
+        lineageId: ids.planLineage,
+        targetVersionId: ids.planV1,
+        expectedOfficialVersionId: null,
+        expectedRevision: 0,
+      },
+    });
+
+    const [head] = await db
+      .select()
+      .from(assistantArtifactLineageHeads)
+      .where(eq(assistantArtifactLineageHeads.lineageId, ids.planLineage));
+
+    expect(result.replayed).toBe(false);
+    expect(head).toMatchObject({
+      approvedCurrentVersionId: ids.planV1,
+      workingVersionId: ids.planV1,
+      revision: 1,
+    });
+  });
+
+  it("rejects replay when the operation id belongs to a different command", async () => {
+    const { ids, scope } = await seedPromotionFixture();
+    const operationId = crypto.randomUUID();
+    const command = {
+      type: "plan" as const,
+      operationId,
+      lineageId: ids.planLineage,
+      targetVersionId: ids.planV2,
+      expectedOfficialVersionId: ids.planV1,
+      expectedRevision: 0,
+    };
+
+    await promoteArtifactVersion({ scope, command });
+
+    await expect(
+      promoteArtifactVersion({
+        scope,
+        command: {
+          ...command,
+          targetVersionId: ids.planV1,
+          expectedOfficialVersionId: ids.planV2,
+          expectedRevision: 1,
+        },
+      })
+    ).rejects.toThrow("Operation ID reused for a different command");
   });
 });

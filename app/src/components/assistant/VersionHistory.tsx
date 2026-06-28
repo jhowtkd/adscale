@@ -77,11 +77,15 @@ export default function VersionHistory({
 
   const official = selectedLineage?.approvedCurrent ?? null;
   const working = selectedLineage?.working ?? null;
-  const hasDefaultPair = Boolean(
-    official && working && official.id !== working.id
-  );
+  const compareAnchor = official ?? working;
   const versions = [...(selectedLineage?.versions ?? [])].sort(
     (left, right) => right.versionNumber - left.versionNumber
+  );
+  const otherVersion = versions.find((version) => version.id !== working?.id);
+  const defaultVersionAId = official?.id ?? otherVersion?.id ?? null;
+  const defaultVersionBId = working?.id ?? null;
+  const hasDefaultPair = Boolean(
+    defaultVersionAId && defaultVersionBId && defaultVersionAId !== defaultVersionBId
   );
 
   return (
@@ -134,12 +138,13 @@ export default function VersionHistory({
               className="w-full whitespace-normal"
               disabled={!hasDefaultPair}
               onClick={() => {
-                if (selectedLineage && official && working) {
-                  openPair(selectedLineage, official.id, working.id);
-                }
+                if (!selectedLineage || !defaultVersionAId || !defaultVersionBId) return;
+                openPair(selectedLineage, defaultVersionAId, defaultVersionBId);
               }}
             >
-              Comparar oficial e versão em trabalho
+              {official
+                ? "Comparar oficial e versão em trabalho"
+                : "Comparar versões em trabalho"}
             </Button>
             {!hasDefaultPair ? (
               <p className="mt-1 text-xs text-[var(--text-muted)]">
@@ -190,13 +195,15 @@ export default function VersionHistory({
                       {version.feedback}
                     </p>
                   ) : null}
-                  {!isOfficial && official ? (
+                  {!isOfficial && compareAnchor && compareAnchor.id !== version.id ? (
                     <button
                       type="button"
                       className="mt-2 min-h-11 text-left text-xs font-medium text-[var(--accent-primary)] underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]"
-                      onClick={() => openPair(selectedLineage!, official.id, version.id)}
+                      onClick={() =>
+                        openPair(selectedLineage!, compareAnchor.id, version.id)
+                      }
                     >
-                      Comparar com a oficial
+                      {official ? "Comparar com a oficial" : "Comparar com a versão em trabalho"}
                     </button>
                   ) : null}
                 </li>

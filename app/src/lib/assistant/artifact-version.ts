@@ -217,7 +217,7 @@ const promotionTargetSchema = z
   .object({
     lineageId: z.string().uuid(),
     targetVersionId: z.string().uuid(),
-    expectedOfficialVersionId: z.string().uuid(),
+    expectedOfficialVersionId: z.string().uuid().nullable(),
     expectedRevision: z.number().int().nonnegative(),
   })
   .strict();

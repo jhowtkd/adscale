@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useEffect,
   useRef,
   useState,
   type KeyboardEvent,
@@ -160,7 +161,7 @@ function CreativeComparison({
   onRetry: () => void;
 }) {
   const [view, setView] = useState<View>({ zoom: 1, x: 0, y: 0 });
-  const [failed, setFailed] = useState<Record<"A" | "B", boolean>>({ A: false, B: false });
+  const [failed, setFailed] = useState<Record<string, boolean>>({});
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const lastPoint = useRef<{ x: number; y: number } | null>(null);
   const pinchDistance = useRef<number | null>(null);
@@ -210,8 +211,16 @@ function CreativeComparison({
     updateZoom(view.zoom + (event.deltaY > 0 ? -0.1 : 0.1));
   };
 
+  const versionIdentity = (value: typeof comparison.versionA) =>
+    `${value.versionNumber}:${value.previewUrl ?? ""}`;
+
+  useEffect(() => {
+    setFailed({});
+  }, [versionIdentity(comparison.versionA), versionIdentity(comparison.versionB)]);
+
   const renderPreview = (side: "A" | "B", value: typeof comparison.versionA) => {
-    const hasError = failed[side] || value.previewError || !value.previewUrl;
+    const failureKey = `${side}:${versionIdentity(value)}`;
+    const hasError = failed[failureKey] || value.previewError || !value.previewUrl;
     return (
       <section className="space-y-3" aria-label={`Versão ${side}`}>
         <VersionHeader label={`Versão ${side}`} version={value} />
@@ -233,7 +242,7 @@ function CreativeComparison({
                 variant="outline"
                 className="mt-3 min-h-11"
                 onClick={() => {
-                  setFailed((current) => ({ ...current, [side]: false }));
+                  setFailed((current) => ({ ...current, [failureKey]: false }));
                   onRetry();
                 }}
               >
@@ -247,7 +256,7 @@ function CreativeComparison({
               alt={`Prévia do criativo v${value.versionNumber}, ${value.format ?? "formato não informado"}`}
               className="h-full w-full object-contain motion-reduce:transition-none"
               style={{ transform: `scale(${view.zoom}) translate(${view.x * 100}%, ${view.y * 100}%)` }}
-              onError={() => setFailed((current) => ({ ...current, [side]: true }))}
+              onError={() => setFailed((current) => ({ ...current, [failureKey]: true }))}
             />
           )}
         </div>
@@ -382,7 +391,7 @@ export default function VersionComparisonDialog({
   };
 
   const promote = async () => {
-    if (!target || !official || !comparison.data || !canPromote) return;
+    if (!target || !comparison.data || !canPromote) return;
     setSubmitting(true);
     setConflict(null);
     setMutationError(null);
@@ -391,7 +400,7 @@ export default function VersionComparisonDialog({
         operationId: crypto.randomUUID(),
         lineageId: lineage!.lineageId,
         targetVersionId: target.id,
-        expectedOfficialVersionId: official.id,
+        expectedOfficialVersionId: official?.id ?? null,
         expectedRevision: comparison.data.headRevision,
       };
       await promotionMutation.mutateAsync(
@@ -529,7 +538,11 @@ export default function VersionComparisonDialog({
           <DialogHeader>
             <DialogTitle>{needsPlanReview ? "Tornar plano e criativo oficiais?" : `Tornar ${target ? versionLabel(target) : "a versão"} oficial?`}</DialogTitle>
             <DialogDescription>
-              {official && target ? `A versão oficial muda de ${versionLabel(official)} para ${versionLabel(target)}.` : "Revise a transição."}
+              {official && target
+                ? `A versão oficial muda de ${versionLabel(official)} para ${versionLabel(target)}.`
+                : target
+                  ? `${versionLabel(target)} se tornará a primeira versão oficial desta linha.`
+                  : "Revise a transição."}
             </DialogDescription>
           </DialogHeader>
           <DialogBody className="space-y-3 text-sm">

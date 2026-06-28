@@ -17,6 +17,7 @@ import {
   findArtifactLineageOwner,
   getArtifactHead,
   getArtifactLineage,
+  getArtifactVersion,
   listArtifactLineages,
   listArtifactProposals,
   listArtifactVersions,
@@ -170,8 +171,24 @@ async function getLineagePresentation(
     listArtifactProposals(scope, lineageId),
     listPreviouslyApprovedVersionIds(scope, lineageId),
   ]);
+  const versionIds = new Set(versions.map((version) => version.id));
+  const missingHeadVersionIds = [
+    head?.approvedCurrentVersionId,
+    head?.workingVersionId,
+  ].filter((id): id is string => Boolean(id && !versionIds.has(id)));
+  const headVersions =
+    missingHeadVersionIds.length > 0
+      ? (
+          await Promise.all(
+            missingHeadVersionIds.map((versionId) =>
+              getArtifactVersion(scope, versionId)
+            )
+          )
+        ).filter((version): version is NonNullable<typeof version> => version !== null)
+      : [];
+  const allVersions = [...versions, ...headVersions];
   const previouslyApproved = new Set(previouslyApprovedVersionIds);
-  const versionSummaries = versions.map((version) =>
+  const versionSummaries = allVersions.map((version) =>
     artifactVersionSummarySchema.parse({
       id: version.id,
       lineageId: version.lineageId,

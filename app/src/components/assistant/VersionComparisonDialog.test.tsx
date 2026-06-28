@@ -156,4 +156,98 @@ describe("VersionComparisonDialog", () => {
     ).toEqual(expect.arrayContaining([expect.objectContaining({ disabled: true })]));
     expect(screen.getByRole("button", { name: "Aprovar v2" })).toBeDisabled();
   });
+
+  it("clears a failed creative preview when the selected version changes", async () => {
+    const creativeLineage: ArtifactVersionPresentation = {
+      lineageId: ids.lineage,
+      artifactType: "creative",
+      approvedCurrent: version(ids.official, 1, "approved"),
+      working: version(ids.target, 2, "ready"),
+      versions: [version(ids.official, 1, "approved"), version(ids.target, 2, "ready")],
+      pendingProposals: [],
+      generationStatus: null,
+    };
+    const creativeRequest = {
+      ...request,
+      artifactType: "creative" as const,
+    };
+    const comparisonA = {
+      type: "creative" as const,
+      headRevision: 1,
+      versionA: {
+        id: ids.official,
+        versionNumber: 1,
+        status: "approved",
+        createdAt: new Date(),
+        feedback: null,
+        previewUrl: "https://example.com/bad.png",
+        previewError: null,
+        format: "1:1",
+        dimensions: { width: 1080, height: 1080 },
+        boundPlanVersion: "v1",
+        cta: null,
+        intendedChanges: [],
+      },
+      versionB: {
+        id: ids.target,
+        versionNumber: 2,
+        status: "ready",
+        createdAt: new Date(),
+        feedback: null,
+        previewUrl: "https://example.com/good.png",
+        previewError: null,
+        format: "1:1",
+        dimensions: { width: 1080, height: 1080 },
+        boundPlanVersion: "v1",
+        cta: null,
+        intendedChanges: [],
+      },
+    };
+    const comparisonB = {
+      ...comparisonA,
+      versionA: {
+        ...comparisonA.versionA,
+        versionNumber: 3,
+        previewUrl: "https://example.com/fixed.png",
+      },
+    };
+
+    mocks.comparison.mockReturnValue({
+      data: comparisonA,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+
+    const { rerender } = render(
+      <VersionComparisonDialog
+        open
+        request={creativeRequest}
+        lineages={[creativeLineage]}
+        onOpenChange={vi.fn()}
+      />
+    );
+
+    const image = screen.getByAltText(/Prévia do criativo v1/i);
+    fireEvent.error(image);
+    expect(screen.getByText("Não foi possível carregar esta prévia.")).toBeInTheDocument();
+
+    mocks.comparison.mockReturnValue({
+      data: comparisonB,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+    rerender(
+      <VersionComparisonDialog
+        open
+        request={{ ...creativeRequest, versionAId: ids.target }}
+        lineages={[creativeLineage]}
+        onOpenChange={vi.fn()}
+      />
+    );
+
+    expect(screen.getByAltText(/Prévia do criativo v3/i)).toBeInTheDocument();
+    expect(screen.queryByText("Não foi possível carregar esta prévia.")).not.toBeInTheDocument();
+  });
 });
