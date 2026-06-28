@@ -17,6 +17,7 @@ vi.mock("@/server/repositories/artifact-version", async (original) => {
     listArtifactLineages: vi.fn(),
     listArtifactProposals: vi.fn(),
     listArtifactVersions: vi.fn(),
+    listPreviouslyApprovedVersionIds: vi.fn(),
   };
 });
 
@@ -31,6 +32,7 @@ import {
   listArtifactLineages,
   listArtifactProposals,
   listArtifactVersions,
+  listPreviouslyApprovedVersionIds,
 } from "@/server/repositories/artifact-version";
 import {
   ArtifactLineageOwnershipError,
@@ -52,6 +54,7 @@ describe("artifact version service", () => {
     vi.mocked(getAssistantThreadById).mockResolvedValue(thread as never);
     vi.mocked(findArtifactLineageOwner).mockResolvedValue(null);
     vi.mocked(listArtifactProposals).mockResolvedValue([]);
+    vi.mocked(listPreviouslyApprovedVersionIds).mockResolvedValue([]);
   });
 
   it("adopts an approved legacy plan as v1 and mirrors approval", async () => {
@@ -117,10 +120,11 @@ describe("artifact version service", () => {
     vi.mocked(getArtifactHead).mockResolvedValue({
       lineageId: id("6"), approvedCurrentVersionId: id("7"), workingVersionId: id("8"), revision: 1,
     } as never);
+    vi.mocked(listPreviouslyApprovedVersionIds).mockResolvedValue([id("8")]);
 
     const state = await getThreadArtifactVersionState(thread.workspaceId, thread.id);
     expect(state.lineages[0]?.approvedCurrent?.id).toBe(id("7"));
     expect(state.lineages[0]?.working?.id).toBe(id("8"));
+    expect(state.lineages[0]?.working?.previouslyApproved).toBe(true);
   });
 });
-

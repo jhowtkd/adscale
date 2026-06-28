@@ -69,7 +69,10 @@ const planLineage: ArtifactVersionPresentation = {
   approvedCurrent: planVersion(ids.official, 2, "approved"),
   working: planVersion(ids.working, 3, "ready", "Mais direto"),
   versions: [
-    planVersion(ids.previous, 1, "approved", "Primeira direção"),
+    {
+      ...planVersion(ids.previous, 1, "ready", "Primeira direção"),
+      previouslyApproved: true,
+    },
     planVersion(ids.official, 2, "approved"),
     planVersion(ids.working, 3, "ready", "Mais direto"),
   ],
