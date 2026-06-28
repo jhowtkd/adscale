@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "./route";
-import { ArtifactHeadConflictError } from "@/server/repositories/artifact-version";
+import {
+  ArtifactHeadConflictError,
+  ArtifactVersionValidationError,
+} from "@/server/repositories/artifact-version";
 
 vi.mock("@/server/auth/workspace", () => ({
   requireWorkspaceAccess: vi.fn(() => Promise.resolve({ workspace: { id: "ws-1" } })),
@@ -33,13 +36,42 @@ const command = {
   expectedOfficialVersionId: oldId,
   expectedRevision: 0,
 };
+const version = (id: string, versionNumber: number, status: string) => ({
+  id,
+  lineageId,
+  versionNumber,
+  sourceVersionId: null,
+  status,
+  snapshot: {
+    type: "plan" as const,
+    strategy: null,
+    angles: [],
+    hooks: [],
+    ctas: [],
+    constraints: null,
+  },
+  provenance: {
+    origin: "native" as const,
+    originalArtifactId: "00000000-0000-4000-8000-000000000005",
+    sourceVersionId: null,
+    messageId: null,
+    actionId: null,
+    planVersionId: null,
+    format: null,
+    generationMode: null,
+  },
+  feedback: null,
+  createdAt: new Date("2026-06-28T00:00:00Z"),
+});
+const oldVersion = version(oldId, 1, "approved");
+const targetVersion = version(targetId, 2, "ready");
 const state = {
   lineages: [{
     lineageId,
     artifactType: "plan",
-    approvedCurrent: { id: targetId, versionNumber: 2 },
-    working: { id: targetId, versionNumber: 2 },
-    versions: [{ id: oldId, versionNumber: 1 }, { id: targetId, versionNumber: 2 }],
+    approvedCurrent: targetVersion,
+    working: targetVersion,
+    versions: [oldVersion, targetVersion],
     pendingProposals: [],
     generationStatus: null,
   }],
@@ -59,7 +91,7 @@ describe("promotion route", () => {
         staleProposalCount: 0,
         creditImpact: 0,
       },
-      state: [],
+      state: state.lineages,
     });
     const response = await POST(new Request("http://localhost/api", { method: "POST", body: JSON.stringify(command) }), { params: Promise.resolve({ threadId: "thread-1" }) });
     expect(response.status).toBe(200);
@@ -77,6 +109,27 @@ describe("promotion route", () => {
       previousOfficialLabel: "v1",
       currentOfficialLabel: "v2",
     });
+    expect(promoteThreadArtifactVersion).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects caller-selected scope before promotion", async () => {
+    const response = await POST(new Request("http://localhost/api", {
+      method: "POST",
+      body: JSON.stringify({ ...command, workspaceId: "other", threadId: "other" }),
+    }), { params: Promise.resolve({ threadId: "thread-1" }) });
+    expect(response.status).toBe(400);
+    expect(promoteThreadArtifactVersion).not.toHaveBeenCalled();
+  });
+
+  it("maps ineligible and forged commands to 400 without retry", async () => {
+    vi.mocked(promoteThreadArtifactVersion).mockRejectedValue(
+      new ArtifactVersionValidationError("not eligible")
+    );
+    const response = await POST(new Request("http://localhost/api", {
+      method: "POST",
+      body: JSON.stringify(command),
+    }), { params: Promise.resolve({ threadId: "thread-1" }) });
+    expect(response.status).toBe(400);
     expect(promoteThreadArtifactVersion).toHaveBeenCalledTimes(1);
   });
 });

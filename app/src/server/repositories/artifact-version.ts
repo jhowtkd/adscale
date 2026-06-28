@@ -541,7 +541,12 @@ type ArtifactTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 async function loadPromotionTarget(
   tx: ArtifactTx,
   scope: ArtifactScope,
-  target: { lineageId: string; targetVersionId: string; expectedRevision: number },
+  target: {
+    lineageId: string;
+    targetVersionId: string;
+    expectedOfficialVersionId: string;
+    expectedRevision: number;
+  },
   artifactType: ArtifactType
 ) {
   const [[lineage], [head], [version]] = await Promise.all([
@@ -560,6 +565,9 @@ async function loadPromotionTarget(
   ]);
   if (!lineage || lineage.artifactType !== artifactType || !head || !version) {
     throw new ArtifactVersionValidationError("Promotion target not found in scope");
+  }
+  if (head.approvedCurrentVersionId !== target.expectedOfficialVersionId) {
+    throw new ArtifactHeadConflictError("Artifact head changed", head);
   }
   const [priorApproval] = await tx
     .select({ id: assistantArtifactApprovalEvents.id })
@@ -807,17 +815,6 @@ export async function promoteArtifactVersion(input: {
       if (!linkedPlan || linkedPlan.snapshot.type !== "plan") {
         throw new ArtifactVersionValidationError("Linked plan version not found");
       }
-      const plan = await loadPromotionTarget(tx, input.scope, {
-        lineageId: linkedPlan.lineageId,
-        targetVersionId: linkedPlan.id,
-        expectedRevision: input.command.planTransition?.expectedRevision ?? -1,
-      }, "plan").catch((error) => {
-        if (
-          error instanceof ArtifactVersionValidationError &&
-          error.message === "Version is already official"
-        ) return null;
-        throw error;
-      });
       const [planHead] = await tx.select().from(assistantArtifactLineageHeads).where(
         eq(assistantArtifactLineageHeads.lineageId, linkedPlan.lineageId)
       ).limit(1);
@@ -825,9 +822,10 @@ export async function promoteArtifactVersion(input: {
 
       if (planHead.approvedCurrentVersionId !== linkedPlan.id) {
         const transition = input.command.planTransition;
-        if (!transition || transition.lineageId !== linkedPlan.lineageId || transition.targetVersionId !== linkedPlan.id || !plan) {
+        if (!transition || transition.lineageId !== linkedPlan.lineageId || transition.targetVersionId !== linkedPlan.id) {
           throw new ArtifactVersionValidationError("Exact linked plan transition required");
         }
+        const plan = await loadPromotionTarget(tx, input.scope, transition, "plan");
         const [acknowledgement] = await tx
           .select()
           .from(assistantArtifactComparisonAcknowledgements)

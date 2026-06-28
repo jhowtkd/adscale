@@ -16,6 +16,7 @@ vi.mock("next-intl/server", () => ({
 
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
 import { acknowledgeLinkedPlanComparison } from "@/server/assistant/artifact-version/promotion";
+import { ArtifactVersionValidationError } from "@/server/repositories/artifact-version";
 
 const command = {
   creativeTargetVersionId: "00000000-0000-4000-8000-000000000001",
@@ -32,7 +33,11 @@ describe("comparison acknowledgement route", () => {
   });
 
   it("creates only a strict server-verified acknowledgement", async () => {
-    vi.mocked(acknowledgeLinkedPlanComparison).mockResolvedValue({ id: command.creativeTargetVersionId } as never);
+    vi.mocked(acknowledgeLinkedPlanComparison).mockResolvedValue({
+      id: command.creativeTargetVersionId,
+      ...command,
+      createdAt: new Date("2026-06-28T00:00:00Z"),
+    });
     const response = await POST(new Request("http://localhost/api", {
       method: "POST",
       body: JSON.stringify(command),
@@ -47,6 +52,27 @@ describe("comparison acknowledgement route", () => {
       body: JSON.stringify({ ...command, clientApproved: true, workspaceId: "other" }),
     }), { params: Promise.resolve({ threadId: "thread-1" }) });
     expect(response.status).toBe(400);
+    expect(acknowledgeLinkedPlanComparison).not.toHaveBeenCalled();
+  });
+
+  it("rejects a forged or stale receipt observed by the server", async () => {
+    vi.mocked(acknowledgeLinkedPlanComparison).mockRejectedValue(
+      new ArtifactVersionValidationError("stale acknowledgement")
+    );
+    const response = await POST(new Request("http://localhost/api", {
+      method: "POST",
+      body: JSON.stringify(command),
+    }), { params: Promise.resolve({ threadId: "thread-1" }) });
+    expect(response.status).toBe(400);
+  });
+
+  it("requires a thread visible in the authenticated workspace", async () => {
+    vi.mocked(getAssistantThreadById).mockResolvedValue(null);
+    const response = await POST(new Request("http://localhost/api", {
+      method: "POST",
+      body: JSON.stringify(command),
+    }), { params: Promise.resolve({ threadId: "other-thread" }) });
+    expect(response.status).toBe(404);
     expect(acknowledgeLinkedPlanComparison).not.toHaveBeenCalled();
   });
 });
