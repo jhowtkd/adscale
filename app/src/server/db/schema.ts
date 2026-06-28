@@ -2404,6 +2404,34 @@ export const assistantPlanFeedbackDrafts = adscaleSchema.table(
   ]
 );
 
+export const assistantCreativeFeedbackDrafts = adscaleSchema.table(
+  "assistant_creative_feedback_drafts",
+  {
+    threadId: uuid("thread_id")
+      .primaryKey()
+      .references(() => assistantThreads.id, { onDelete: "cascade" }),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    clientProfileId: uuid("client_profile_id")
+      .notNull()
+      .references(() => clientProfiles.id, { onDelete: "cascade" }),
+    campaignId: uuid("campaign_id")
+      .notNull()
+      .references(() => campaigns.id, { onDelete: "cascade" }),
+    draftText: text("draft_text").notNull().default(""),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("assistant_creative_feedback_drafts_scope_idx").on(
+      table.workspaceId,
+      table.clientProfileId,
+      table.campaignId,
+      table.threadId
+    ),
+  ]
+);
+
 export const assistantArtifactProposals = adscaleSchema.table(
   "assistant_artifact_proposals",
   {
