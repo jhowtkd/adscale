@@ -51,6 +51,33 @@ describe("contract-display", () => {
         writes: ["Cria v3 do plano"],
       });
     });
+
+    it("parses revise_creative extended fields with references and planVersionLabel", () => {
+      const result = parseActionCardDisplay({
+        label: "Confirmar revisão do criativo",
+        actionType: "revise_creative",
+        summary: "Ajustar cor de fundo",
+        intendedChanges: ["Mudar cor de fundo", "Ajustar contraste"],
+        format: "1:1",
+        referenceCount: 3,
+        referenceItems: [
+          { id: "ref-1", name: "Hero shot", thumbnailUrl: null },
+        ],
+        planVersionLabel: "v2",
+        writes: ["Gera nova versão"],
+        creditImpact: { kind: "creditAction", action: "image_derivation", label: "5 créditos" },
+      });
+
+      expect(result).toMatchObject({
+        label: "Confirmar revisão do criativo",
+        actionType: "revise_creative",
+        intendedChanges: ["Mudar cor de fundo", "Ajustar contraste"],
+        format: "1:1",
+        referenceCount: 3,
+        referenceItems: [{ id: "ref-1", name: "Hero shot", thumbnailUrl: null }],
+        planVersionLabel: "v2",
+      });
+    });
   });
 
   describe("shouldShowCreditImpact", () => {
@@ -62,6 +89,16 @@ describe("contract-display", () => {
           creditImpact: { kind: "fixed", credits: 0 },
         })
       ).toBe(false);
+    });
+
+    it("shows credit copy for revise_creative", () => {
+      expect(
+        shouldShowCreditImpact({
+          label: "Confirmar revisão do criativo",
+          actionType: "revise_creative",
+          creditImpact: { kind: "fixed", credits: 5 },
+        })
+      ).toBe(true);
     });
   });
 

@@ -122,4 +122,111 @@ describe("AssistantActionCard", () => {
       proposalId: "proposal-99",
     });
   });
+
+  describe("creative revision (revise_creative)", () => {
+    const creativePayload = {
+      actionRecordId: "creative-action-1",
+      status: "pending",
+      display: {
+        label: "Confirmar revisão do criativo",
+        actionType: "revise_creative",
+        summary: "Ajustar cor de fundo para tons mais quentes",
+        intendedChanges: ["Mudar cor de fundo", "Ajustar contraste do texto"],
+        format: "1:1",
+        referenceCount: 3,
+        planVersionLabel: "v2",
+        writes: ["Gera nova versão do criativo", "Cobra 5 créditos"],
+        creditImpact: { kind: "creditAction", action: "image_derivation", label: "5 créditos" },
+        riskLabel: "medium",
+        confirmationPolicy: "required",
+        proposalId: "creative-proposal-1",
+      },
+    };
+
+    it("renders summary, intendedChanges, format, referenceCount, planVersionLabel, writes", () => {
+      render(<AssistantActionCard threadId="thread-1" payload={creativePayload} />);
+
+      expect(screen.getByText(/Ajustar cor de fundo/)).toBeInTheDocument();
+      expect(screen.getByText("Mudar cor de fundo")).toBeInTheDocument();
+      expect(screen.getByText("Ajustar contraste do texto")).toBeInTheDocument();
+      expect(screen.getByText("1:1")).toBeInTheDocument();
+      expect(screen.getByText("3 referências")).toBeInTheDocument();
+      expect(screen.getByText(/Plano: v2/)).toBeInTheDocument();
+      expect(screen.getByText("5 créditos")).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Confirmar revisão do criativo" })
+      ).toBeInTheDocument();
+    });
+
+    it("renders reference items with thumbnails when provided", () => {
+      const payloadWithItems = {
+        ...creativePayload,
+        display: {
+          ...creativePayload.display,
+          referenceItems: [
+            { id: "ref-1", name: "Hero shot", thumbnailUrl: "https://example.com/hero.jpg" },
+            { id: "ref-2", name: "Logo dark", thumbnailUrl: null },
+          ],
+        },
+      };
+
+      render(<AssistantActionCard threadId="thread-1" payload={payloadWithItems} />);
+
+      expect(screen.getByText("Hero shot")).toBeInTheDocument();
+      expect(screen.getByText("Logo dark")).toBeInTheDocument();
+      expect(screen.getByAltText("Hero shot")).toBeInTheDocument();
+    });
+
+    it("opens CreditConfirmModal on confirm click instead of mutating directly", () => {
+      render(<AssistantActionCard threadId="thread-1" payload={creativePayload} />);
+
+      fireEvent.click(
+        screen.getByRole("button", { name: "Confirmar revisão do criativo" })
+      );
+
+      expect(screen.getByTestId("credit-confirm-modal")).toBeInTheDocument();
+      expect(mockConfirmMutate).not.toHaveBeenCalled();
+    });
+
+    it("calls confirm mutation when modal Confirmar button is clicked", () => {
+      render(<AssistantActionCard threadId="thread-1" payload={creativePayload} />);
+
+      fireEvent.click(
+        screen.getByRole("button", { name: "Confirmar revisão do criativo" })
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
+
+      expect(mockConfirmMutate).toHaveBeenCalledWith({
+        actionId: "creative-action-1",
+        threadId: "thread-1",
+      });
+    });
+
+    it("cancels creative proposal with proposalId cascade", () => {
+      render(<AssistantActionCard threadId="thread-1" payload={creativePayload} />);
+
+      fireEvent.click(screen.getByRole("button", { name: "cancel" }));
+      expect(mockCancelMutate).toHaveBeenCalledWith({
+        actionId: "creative-action-1",
+        threadId: "thread-1",
+        proposalId: "creative-proposal-1",
+      });
+    });
+
+    it("shows retry button on failed creative revision", () => {
+      render(
+        <AssistantActionCard
+          threadId="thread-1"
+          payload={{ ...creativePayload, status: "failed" }}
+        />
+      );
+
+      const retryBtn = screen.getByRole("button", { name: "Tentar novamente" });
+      fireEvent.click(retryBtn);
+      expect(mockConfirmMutate).toHaveBeenCalledWith({
+        actionId: "creative-action-1",
+        threadId: "thread-1",
+      });
+    });
+  });
 });
