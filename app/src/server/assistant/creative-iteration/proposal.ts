@@ -366,6 +366,47 @@ export async function cancelCreativeRevision(scope: ArtifactScope, proposalId: s
   });
 }
 
+import {
+  transitionAssistantAction,
+} from "@/server/repositories/assistant-action";
+import {
+  updateDerivationStatus,
+} from "@/server/repositories/derivation";
+
+export async function cancelRunningCreativeRevision(input: {
+  scope: ArtifactScope;
+  actionId: string;
+  derivationId: string;
+}): Promise<{ actionStatus: "canceled"; derivationStatus: "canceled" }> {
+  const derivationRow = await updateDerivationStatus(
+    input.derivationId,
+    input.scope.workspaceId,
+    "canceled"
+  );
+  if (!derivationRow) {
+    throw new ArtifactVersionValidationError("Derivation not found for cancel");
+  }
+
+  const updatedAction = await transitionAssistantAction(
+    input.scope.workspaceId,
+    input.actionId,
+    "canceled",
+    {
+      safeError: "Geração cancelada pelo usuário.",
+    }
+  );
+  if (!updatedAction) {
+    throw new ArtifactVersionValidationError(
+      "Action not found for running cancel"
+    );
+  }
+
+  return {
+    actionStatus: "canceled",
+    derivationStatus: "canceled",
+  };
+}
+
 export async function confirmCreativeRevision(input: {
   scope: ArtifactScope;
   proposalId: string;

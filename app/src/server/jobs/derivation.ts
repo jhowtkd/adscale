@@ -70,6 +70,16 @@ import { getTargetDimensions, formatToOpenAIImageSize, toOpenAISdkImageSize } fr
 import { captureAndAutoPromote } from "../human-quality/auto-promote";
 import { loadPromptCalibrationContext } from "../brand-taste/prompt-calibration-loader";
 import { syncAssistantActionFromJob } from "../repositories/assistant-job-sync";
+import { getAssistantActionById } from "../repositories/assistant-action";
+import { getAssistantThreadById } from "../repositories/assistant-thread";
+import { refundCredits } from "../billing/credits";
+import {
+  createArtifactVersion,
+  getArtifactHead,
+  getArtifactLineage,
+  listArtifactVersions,
+  updateArtifactHead,
+} from "../repositories/artifact-version";
 import {
   DERIVATION_USER_SAFE_ERROR,
   sanitizeDerivationFailureError,
@@ -243,7 +253,7 @@ export const derivationJob = inngest.createFunction(
     retries: 2,
     onFailure: async ({ event, error, step }) => {
       const originalEvent = event.data.event;
-      const { derivationId, campaignId, workspaceId, triggeredByUserId, assistantActionId } = originalEvent.data;
+      const { derivationId, campaignId, workspaceId, triggeredByUserId, assistantActionId, generationMode } = originalEvent.data;
       const { userMessage, technicalDetail } = sanitizeDerivationFailureError(error);
       const errorId = crypto.randomUUID();
       logger.error("[Inngest onFailure] derivation failed", {
@@ -279,6 +289,33 @@ export const derivationJob = inngest.createFunction(
           });
         }
       });
+      if (assistantActionId && generationMode === "creative_revision") {
+        await step.run("refund-creative-revision", async () => {
+          try {
+            const result = await refundCredits({
+              workspaceId,
+              action: "image_derivation",
+              idempotencyKey: `assistant-action:${assistantActionId}:refund`,
+              amount: 5,
+              metadata: {
+                actionId: assistantActionId,
+                derivationId,
+                campaignId,
+                mode: "creative_revision",
+              },
+              userId: triggeredByUserId,
+            });
+            logger.info(
+              `[derivationJob onFailure] refundCredits ${result.status} assistantActionId=${assistantActionId} derivationId=${derivationId}`
+            );
+          } catch (refundErr) {
+            logger.error(
+              `[derivationJob onFailure] refundCredits FAILED assistantActionId=${assistantActionId} derivationId=${derivationId}`,
+              refundErr
+            );
+          }
+        });
+      }
       await step.realtime.publish("status-failed", derivationChannel({ derivationId }).status, {
         derivationId,
         status: "failed",
@@ -877,6 +914,118 @@ export const derivationJob = inngest.createFunction(
         });
       }
     });
+
+    // 4a. Creative revision callback — create child creative version when
+    // generation succeeded AND the user has not canceled the action while
+    // it was running. Source creative remains current on cancel.
+    if (assistantActionId && effectiveGenerationMode === "creative_revision") {
+      await step.run("create-creative-version", async () => {
+        const action = await getAssistantActionById(workspaceId, assistantActionId);
+        if (!action) {
+          logger.warn(
+            `[derivationJob] creative_revision skipped — action ${assistantActionId} not found`
+          );
+          return;
+        }
+        if (action.status === "canceled" || action.status === "failed") {
+          logger.info(
+            `[derivationJob] creative_revision skipped — action ${assistantActionId} status=${action.status} (source remains current)`
+          );
+          return;
+        }
+
+        const input = action.inputSnapshot as {
+          lineageId?: string;
+          sourceVersionId?: string;
+          planVersionId?: string;
+        };
+        if (!input?.lineageId || !input?.sourceVersionId || !input?.planVersionId) {
+          logger.warn(
+            `[derivationJob] creative_revision missing lineage/source/plan in inputSnapshot`,
+            { assistantActionId }
+          );
+          return;
+        }
+
+        const thread = await getAssistantThreadById(workspaceId, action.threadId);
+        if (!thread?.campaignId) {
+          logger.warn(
+            `[derivationJob] creative_revision skipped — thread ${action.threadId} has no campaign`
+          );
+          return;
+        }
+        const scope = {
+          workspaceId,
+          clientProfileId: thread.clientProfileId,
+          campaignId: thread.campaignId,
+          threadId: thread.id,
+        };
+
+        const lineage = await getArtifactLineage(scope, input.lineageId);
+        if (!lineage || lineage.artifactType !== "creative") {
+          logger.warn(
+            `[derivationJob] creative_revision skipped — lineage ${input.lineageId} not creative`
+          );
+          return;
+        }
+        const head = await getArtifactHead(scope, input.lineageId);
+        if (!head) {
+          logger.warn(
+            `[derivationJob] creative_revision skipped — no head for lineage ${input.lineageId}`
+          );
+          return;
+        }
+
+        const versions = await listArtifactVersions(scope, input.lineageId);
+        const existing = versions.find((v) => {
+          const provenance = v.provenance as { actionId?: string | null };
+          return provenance?.actionId === assistantActionId;
+        });
+        if (existing) {
+          logger.info(
+            `[derivationJob] creative revision already exists for actionId=${assistantActionId}; skipping duplicate`
+          );
+          return;
+        }
+
+        const created = await createArtifactVersion({
+          scope,
+          lineageId: input.lineageId,
+          sourceVersionId: input.sourceVersionId,
+          status: "ready",
+          snapshot: {
+            type: "creative",
+            derivationId,
+            outputKey: generated.outputKey,
+            format: generated.targetFormat,
+            generationMode: generated.effectiveGenerationMode,
+            ctaText: effectiveCtaText ?? null,
+            planVersionId: input.planVersionId,
+          },
+          provenance: {
+            origin: "revision",
+            originalArtifactId: lineage.originalArtifactId,
+            sourceVersionId: input.sourceVersionId,
+            messageId: null,
+            actionId: assistantActionId,
+            planVersionId: input.planVersionId,
+            format: generated.targetFormat,
+            generationMode: generated.effectiveGenerationMode,
+          },
+        });
+
+        await updateArtifactHead({
+          scope,
+          lineageId: input.lineageId,
+          expectedRevision: head.revision,
+          workingVersionId: created.id,
+        });
+
+        logger.info(
+          `[derivationJob] creative version ${created.id} created for lineage ${input.lineageId}`
+        );
+      });
+    }
     await step.realtime.publish("status-completed", derivationChannel({ derivationId }).status, {
       derivationId,
       status: "completed",

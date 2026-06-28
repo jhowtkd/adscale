@@ -132,9 +132,56 @@ vi.mock("../repositories/assistant-job-sync", () => ({
   syncAssistantActionFromJob: mockSyncAssistantActionFromJob,
 }));
 
+const mockGetAssistantActionById = vi.hoisted(() => vi.fn(() => Promise.resolve(null)));
+const mockGetAssistantThreadById = vi.hoisted(() => vi.fn(() => Promise.resolve(null)));
+
+vi.mock("../repositories/assistant-action", () => ({
+  getAssistantActionById: mockGetAssistantActionById,
+}));
+
+vi.mock("../repositories/assistant-thread", () => ({
+  getAssistantThreadById: mockGetAssistantThreadById,
+}));
+
+const mockRefundCredits = vi.hoisted(() => vi.fn(() => Promise.resolve({ status: "refunded" as const })));
+
+vi.mock("../billing/credits", () => ({
+  refundCredits: mockRefundCredits,
+}));
+
+const mockCreateArtifactVersion = vi.hoisted(() => vi.fn(() => Promise.resolve({
+  id: "version-new-1",
+  lineageId: "lineage-1",
+  versionNumber: 2,
+  sourceVersionId: "version-source-1",
+  status: "ready",
+  snapshot: { type: "creative", derivationId: "derivation-id", outputKey: "derivations/derivation-id/output.png", format: "1:1", generationMode: "creative_revision", ctaText: null, planVersionId: "plan-version-1" },
+  provenance: { origin: "revision", originalArtifactId: "00000000-0000-4000-8000-000000000501", sourceVersionId: "version-source-1", messageId: null, actionId: "action-1", planVersionId: "plan-version-1", format: "1:1", generationMode: "creative_revision" },
+  feedback: null,
+  createdAt: new Date(),
+})));
+const mockGetArtifactLineage = vi.hoisted(() => vi.fn(() => Promise.resolve(null)));
+const mockGetArtifactHead = vi.hoisted(() => vi.fn(() => Promise.resolve(null)));
+const mockListArtifactVersions = vi.hoisted(() => vi.fn(() => Promise.resolve([])));
+const mockUpdateArtifactHead = vi.hoisted(() => vi.fn(() => Promise.resolve({
+  lineageId: "lineage-1",
+  approvedCurrentVersionId: "version-source-1",
+  workingVersionId: "version-new-1",
+  revision: 1,
+})));
+
+vi.mock("../repositories/artifact-version", () => ({
+  createArtifactVersion: mockCreateArtifactVersion,
+  getArtifactLineage: mockGetArtifactLineage,
+  getArtifactHead: mockGetArtifactHead,
+  listArtifactVersions: mockListArtifactVersions,
+  updateArtifactHead: mockUpdateArtifactHead,
+}));
+
 vi.mock("./client", () => ({
   inngest: {
-    createFunction: vi.fn((_opts: unknown, handler: unknown) => ({
+    createFunction: vi.fn((opts: unknown, handler: unknown) => ({
+      opts,
       fn: handler,
     })),
     realtime: {
@@ -189,6 +236,10 @@ const mockOrderBy = vi.fn(() => ({
   limit: mockLimit,
 }));
 
+vi.mock("../repositories/notification", () => ({
+  createNotification: vi.fn(() => Promise.resolve()),
+}));
+
 vi.mock("../db", () => ({
   db: {
     select: vi.fn(() => ({
@@ -203,6 +254,11 @@ vi.mock("../db", () => ({
       set: vi.fn(() => ({
         where: vi.fn(() => Promise.resolve()),
         returning: vi.fn(() => Promise.resolve([{ status: "processing" }])),
+      })),
+    })),
+    insert: vi.fn(() => ({
+      values: vi.fn(() => ({
+        returning: vi.fn(() => Promise.resolve([{ id: "notification-1" }])),
       })),
     })),
   },
@@ -1679,5 +1735,539 @@ describe("derivationJob — format adaptation generation sizes (gpt-image-2)", (
         args: [1080, 1350, expect.objectContaining({ fit: "cover" })],
       })
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Creative revision callbacks (Phase 205 — Plan 03)
+// ---------------------------------------------------------------------------
+
+const CREATIVE_LINEAGE_ID = "00000000-0000-4000-8000-000000000101";
+const CREATIVE_SOURCE_VERSION_ID = "00000000-0000-4000-8000-000000000201";
+const CREATIVE_PLAN_VERSION_ID = "00000000-0000-4000-8000-000000000401";
+const CREATIVE_ORIGINAL_ID = "00000000-0000-4000-8000-000000000501";
+const CREATIVE_THREAD_ID = "thread-creative-1";
+const CREATIVE_CAMPAIGN_ID = "campaign-creative-1";
+
+function buildCreativeRevisionActionRecord(overrides: Partial<{
+  status: string;
+  inputSnapshot: Record<string, unknown>;
+  jobRefs: unknown[];
+}> = {}) {
+  return {
+    id: "action-creative-1",
+    workspaceId: "workspace-1",
+    threadId: CREATIVE_THREAD_ID,
+    messageId: "message-creative-1",
+    status: overrides.status ?? "completed",
+    inputSnapshot: overrides.inputSnapshot ?? {
+      proposalId: "00000000-0000-4000-8000-000000000301",
+      lineageId: CREATIVE_LINEAGE_ID,
+      sourceVersionId: CREATIVE_SOURCE_VERSION_ID,
+      payloadDigest: "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+      planVersionId: CREATIVE_PLAN_VERSION_ID,
+    },
+    jobRefs: overrides.jobRefs ?? [],
+  };
+}
+
+function buildCreativeRevisionThread() {
+  return {
+    id: CREATIVE_THREAD_ID,
+    workspaceId: "workspace-1",
+    clientProfileId: "client-1",
+    campaignId: CREATIVE_CAMPAIGN_ID,
+  };
+}
+
+function buildCreativeLineage() {
+  return {
+    id: CREATIVE_LINEAGE_ID,
+    workspaceId: "workspace-1",
+    clientProfileId: "client-1",
+    campaignId: CREATIVE_CAMPAIGN_ID,
+    threadId: CREATIVE_THREAD_ID,
+    artifactType: "creative",
+    originalArtifactId: CREATIVE_ORIGINAL_ID,
+    origin: "legacy_import",
+    formatKey: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+}
+
+function buildCreativeHead(revision = 0) {
+  return {
+    lineageId: CREATIVE_LINEAGE_ID,
+    approvedCurrentVersionId: CREATIVE_SOURCE_VERSION_ID,
+    workingVersionId: CREATIVE_SOURCE_VERSION_ID,
+    revision,
+    updatedAt: new Date(),
+  };
+}
+
+async function setupCreativeRevisionJob(overrides: {
+  actionStatus?: string;
+  inputSnapshot?: Record<string, unknown>;
+  derivationStatus?: string;
+  outputKey?: string;
+  format?: string;
+  generationMode?: string;
+  ctaText?: string;
+} = {}) {
+  mockGetDerivationById.mockResolvedValue({
+    id: "derivation-id",
+    campaignId: CREATIVE_CAMPAIGN_ID,
+    workspaceId: "workspace-1",
+    parentId: null,
+    status: overrides.derivationStatus ?? "queued",
+    generationMode: "creative_revision",
+    format: overrides.format ?? "1:1",
+    ctaText: overrides.ctaText ?? null,
+    variantIndex: 0,
+    feedback: null,
+    prompt: null,
+    qualityScore: null,
+    scoreStatus: "pending",
+  } as Awaited<ReturnType<typeof getDerivationById>>);
+
+  mockGetCampaignById.mockResolvedValue({
+    id: CREATIVE_CAMPAIGN_ID,
+    workspaceId: "workspace-1",
+    name: "Creative Campaign",
+    client: "Acme",
+    product: "Widget",
+    objective: null,
+    audience: null,
+    platforms: null,
+    tone: null,
+    offer: "20% off",
+    constraints: null,
+    notes: null,
+    status: "generating",
+    generationMode: "creative_revision",
+    creativeLevel: "balanced",
+    styleIntensity: "medium",
+    creativeDiagnosisStatus: "pending",
+    creativeDiagnosis: null,
+    creativeDiagnosisSource: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  } as Awaited<ReturnType<typeof getCampaignById>>);
+
+  mockGetAssetsByCampaign.mockResolvedValue([]);
+  mockGetPlanByCampaign.mockResolvedValue(null as never);
+
+  mockGetAssistantActionById.mockResolvedValue(
+    buildCreativeRevisionActionRecord({
+      status: overrides.actionStatus ?? "completed",
+      inputSnapshot: overrides.inputSnapshot,
+    })
+  );
+  mockGetAssistantThreadById.mockResolvedValue(buildCreativeRevisionThread());
+
+  mockGetArtifactLineage.mockResolvedValue(buildCreativeLineage() as never);
+  mockGetArtifactHead.mockResolvedValue(buildCreativeHead(0) as never);
+  mockListArtifactVersions.mockResolvedValue([] as never);
+  mockCreateArtifactVersion.mockResolvedValue({
+    id: "version-new-1",
+    lineageId: CREATIVE_LINEAGE_ID,
+    versionNumber: 2,
+    sourceVersionId: CREATIVE_SOURCE_VERSION_ID,
+    status: "ready",
+    snapshot: {
+      type: "creative",
+      derivationId: "derivation-id",
+      outputKey: overrides.outputKey ?? "derivations/derivation-id/output.png",
+      format: overrides.format ?? "1:1",
+      generationMode: "creative_revision",
+      ctaText: overrides.ctaText ?? null,
+      planVersionId: CREATIVE_PLAN_VERSION_ID,
+    },
+    provenance: {
+      origin: "revision",
+      originalArtifactId: CREATIVE_ORIGINAL_ID,
+      sourceVersionId: CREATIVE_SOURCE_VERSION_ID,
+      messageId: null,
+      actionId: "action-creative-1",
+      planVersionId: CREATIVE_PLAN_VERSION_ID,
+      format: overrides.format ?? "1:1",
+      generationMode: "creative_revision",
+    },
+    feedback: null,
+    createdAt: new Date(),
+  } as never);
+  mockUpdateArtifactHead.mockResolvedValue(buildCreativeHead(1) as never);
+}
+
+describe("creative revision callback (success path)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUpdateDerivationPromptProvenance.mockResolvedValue({});
+    sharpOperations.length = 0;
+    mockOpenAIImages.edit.mockResolvedValue({
+      data: [{ b64_json: "bW9ja2ltYWdl", revised_prompt: "revised" }],
+    });
+    mockOpenAIImages.generate.mockResolvedValue({
+      data: [{ b64_json: "bW9ja2ltYWdl", revised_prompt: "revised" }],
+    });
+    mockGetBrandKit.mockResolvedValue(null as never);
+    mockResolveCampaignClientProfileId.mockResolvedValue(null);
+    mockGetCompetitorAnalysesByCampaign.mockResolvedValue([]);
+    mockGetBrandMemoryContext.mockResolvedValue({ items: [], block: "" });
+    mockGetAssistantActionById.mockReset();
+    mockGetAssistantThreadById.mockReset();
+    mockGetArtifactLineage.mockReset();
+    mockGetArtifactHead.mockReset();
+    mockListArtifactVersions.mockReset();
+    mockCreateArtifactVersion.mockReset();
+    mockUpdateArtifactHead.mockReset();
+    mockSyncAssistantActionFromJob.mockClear();
+    mockRefundCredits.mockClear();
+  });
+
+  it("creates a creative version linked to the source and updates working head", async () => {
+    await setupCreativeRevisionJob({ actionStatus: "completed" });
+
+    await runDerivationJob({
+      derivationId: "derivation-id",
+      campaignId: CREATIVE_CAMPAIGN_ID,
+      workspaceId: "workspace-1",
+      triggeredByUserId: "user-1",
+      locale: "pt-BR",
+      generationMode: "creative_revision",
+      variantIndex: 0,
+      ctaText: "Comprar agora",
+      format: "1:1",
+      assistantActionId: "action-creative-1",
+      planVersionId: CREATIVE_PLAN_VERSION_ID,
+    });
+
+    expect(mockCreateArtifactVersion).toHaveBeenCalledTimes(1);
+    expect(mockCreateArtifactVersion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        lineageId: CREATIVE_LINEAGE_ID,
+        sourceVersionId: CREATIVE_SOURCE_VERSION_ID,
+        status: "ready",
+        snapshot: expect.objectContaining({
+          type: "creative",
+          derivationId: "derivation-id",
+          outputKey: expect.stringMatching(/^derivations\/derivation-id\/.+\.png$/),
+          format: "1:1",
+          generationMode: "creative_revision",
+          planVersionId: CREATIVE_PLAN_VERSION_ID,
+        }),
+        provenance: expect.objectContaining({
+          origin: "revision",
+          actionId: "action-creative-1",
+          planVersionId: CREATIVE_PLAN_VERSION_ID,
+        }),
+      })
+    );
+    expect(mockUpdateArtifactHead).toHaveBeenCalledWith(
+      expect.objectContaining({
+        lineageId: CREATIVE_LINEAGE_ID,
+        expectedRevision: 0,
+        workingVersionId: "version-new-1",
+      })
+    );
+  });
+
+  it("does NOT create creative version when action is canceled", async () => {
+    await setupCreativeRevisionJob({ actionStatus: "canceled" });
+
+    await runDerivationJob({
+      derivationId: "derivation-id",
+      campaignId: CREATIVE_CAMPAIGN_ID,
+      workspaceId: "workspace-1",
+      triggeredByUserId: "user-1",
+      locale: "pt-BR",
+      generationMode: "creative_revision",
+      variantIndex: 0,
+      ctaText: null,
+      format: "1:1",
+      assistantActionId: "action-creative-1",
+      planVersionId: CREATIVE_PLAN_VERSION_ID,
+    });
+
+    expect(mockCreateArtifactVersion).not.toHaveBeenCalled();
+    expect(mockUpdateArtifactHead).not.toHaveBeenCalled();
+  });
+
+  it("does NOT create creative version when action is failed", async () => {
+    await setupCreativeRevisionJob({ actionStatus: "failed" });
+
+    await runDerivationJob({
+      derivationId: "derivation-id",
+      campaignId: CREATIVE_CAMPAIGN_ID,
+      workspaceId: "workspace-1",
+      triggeredByUserId: "user-1",
+      locale: "pt-BR",
+      generationMode: "creative_revision",
+      variantIndex: 0,
+      ctaText: null,
+      format: "1:1",
+      assistantActionId: "action-creative-1",
+      planVersionId: CREATIVE_PLAN_VERSION_ID,
+    });
+
+    expect(mockCreateArtifactVersion).not.toHaveBeenCalled();
+    expect(mockUpdateArtifactHead).not.toHaveBeenCalled();
+  });
+
+  it("success callback is idempotent — second callback skips version creation", async () => {
+    await setupCreativeRevisionJob({ actionStatus: "completed" });
+    mockListArtifactVersions.mockResolvedValue([
+      {
+        id: "version-existing-1",
+        lineageId: CREATIVE_LINEAGE_ID,
+        versionNumber: 2,
+        sourceVersionId: CREATIVE_SOURCE_VERSION_ID,
+        status: "ready",
+        snapshot: {
+          type: "creative",
+          derivationId: "derivation-id",
+          outputKey: "derivations/derivation-id/output.png",
+          format: "1:1",
+          generationMode: "creative_revision",
+          ctaText: null,
+          planVersionId: CREATIVE_PLAN_VERSION_ID,
+        },
+        provenance: {
+          origin: "revision",
+          originalArtifactId: CREATIVE_ORIGINAL_ID,
+          sourceVersionId: CREATIVE_SOURCE_VERSION_ID,
+          messageId: null,
+          actionId: "action-creative-1",
+          planVersionId: CREATIVE_PLAN_VERSION_ID,
+          format: "1:1",
+          generationMode: "creative_revision",
+        },
+        feedback: null,
+        createdAt: new Date(),
+      },
+    ] as never);
+
+    await runDerivationJob({
+      derivationId: "derivation-id",
+      campaignId: CREATIVE_CAMPAIGN_ID,
+      workspaceId: "workspace-1",
+      triggeredByUserId: "user-1",
+      locale: "pt-BR",
+      generationMode: "creative_revision",
+      variantIndex: 0,
+      ctaText: null,
+      format: "1:1",
+      assistantActionId: "action-creative-1",
+      planVersionId: CREATIVE_PLAN_VERSION_ID,
+    });
+
+    expect(mockCreateArtifactVersion).not.toHaveBeenCalled();
+    expect(mockUpdateArtifactHead).not.toHaveBeenCalled();
+  });
+
+  it("non-creative-revision derivation does NOT touch artifact version or lineage head", async () => {
+    await setupCreativeRevisionJob({ actionStatus: "completed" });
+
+    await runDerivationJob({
+      derivationId: "derivation-id",
+      campaignId: CREATIVE_CAMPAIGN_ID,
+      workspaceId: "workspace-1",
+      triggeredByUserId: "user-1",
+      locale: "pt-BR",
+      generationMode: "art_variation",
+      variantIndex: 0,
+      ctaText: null,
+      format: "1:1",
+    });
+
+    expect(mockCreateArtifactVersion).not.toHaveBeenCalled();
+    expect(mockUpdateArtifactHead).not.toHaveBeenCalled();
+    expect(mockGetAssistantActionById).not.toHaveBeenCalled();
+  });
+
+  it("missing lineage/source/planVersionId in inputSnapshot skips version creation safely", async () => {
+    await setupCreativeRevisionJob({
+      actionStatus: "completed",
+      inputSnapshot: {
+        proposalId: "00000000-0000-4000-8000-000000000301",
+        lineageId: CREATIVE_LINEAGE_ID,
+        sourceVersionId: CREATIVE_SOURCE_VERSION_ID,
+        payloadDigest: "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+      },
+    });
+
+    await runDerivationJob({
+      derivationId: "derivation-id",
+      campaignId: CREATIVE_CAMPAIGN_ID,
+      workspaceId: "workspace-1",
+      triggeredByUserId: "user-1",
+      locale: "pt-BR",
+      generationMode: "creative_revision",
+      variantIndex: 0,
+      ctaText: null,
+      format: "1:1",
+      assistantActionId: "action-creative-1",
+    });
+
+    expect(mockCreateArtifactVersion).not.toHaveBeenCalled();
+    expect(mockUpdateArtifactHead).not.toHaveBeenCalled();
+  });
+});
+
+describe("creative revision callback (failure path)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetAssistantActionById.mockReset();
+    mockGetAssistantThreadById.mockReset();
+    mockRefundCredits.mockReset();
+    mockSyncAssistantActionFromJob.mockClear();
+    mockRefundCredits.mockResolvedValue({ status: "refunded" } as never);
+  });
+
+  it("onFailure refunds credits when assistantActionId present and mode is creative_revision", async () => {
+    const onFailure = (derivationJob as unknown as { opts: { onFailure: Function } }).opts.onFailure;
+    expect(onFailure).toBeDefined();
+
+    await onFailure({
+      event: {
+        data: {
+          event: {
+            data: {
+              derivationId: "derivation-id",
+              campaignId: CREATIVE_CAMPAIGN_ID,
+              workspaceId: "workspace-1",
+              triggeredByUserId: "user-1",
+              assistantActionId: "action-creative-1",
+              generationMode: "creative_revision",
+              locale: "pt-BR",
+              variantIndex: 0,
+              ctaText: null,
+              format: "1:1",
+            },
+          },
+        },
+      },
+      error: new Error("image generation failed"),
+      step: {
+        run: vi.fn(async (_name: string, fn: () => Promise<unknown>) => fn()),
+        realtime: { publish: vi.fn(() => Promise.resolve()) },
+      },
+    });
+
+    expect(mockRefundCredits).toHaveBeenCalledTimes(1);
+    expect(mockRefundCredits).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId: "workspace-1",
+        action: "image_derivation",
+        idempotencyKey: "assistant-action:action-creative-1:refund",
+        amount: 5,
+        metadata: expect.objectContaining({
+          actionId: "action-creative-1",
+          derivationId: "derivation-id",
+          campaignId: CREATIVE_CAMPAIGN_ID,
+          mode: "creative_revision",
+        }),
+        userId: "user-1",
+      })
+    );
+  });
+
+  it("onFailure does NOT refund for non-creative-revision derivations", async () => {
+    const onFailure = (derivationJob as unknown as { opts: { onFailure: Function } }).opts.onFailure;
+
+    await onFailure({
+      event: {
+        data: {
+          event: {
+            data: {
+              derivationId: "derivation-id",
+              campaignId: CREATIVE_CAMPAIGN_ID,
+              workspaceId: "workspace-1",
+              triggeredByUserId: "user-1",
+              assistantActionId: "action-art-1",
+              generationMode: "art_variation",
+              locale: "pt-BR",
+              variantIndex: 0,
+              ctaText: null,
+              format: "1:1",
+            },
+          },
+        },
+      },
+      error: new Error("image generation failed"),
+      step: {
+        run: vi.fn(async (_name: string, fn: () => Promise<unknown>) => fn()),
+        realtime: { publish: vi.fn(() => Promise.resolve()) },
+      },
+    });
+
+    expect(mockRefundCredits).not.toHaveBeenCalled();
+  });
+
+  it("onFailure does NOT refund when assistantActionId is missing", async () => {
+    const onFailure = (derivationJob as unknown as { opts: { onFailure: Function } }).opts.onFailure;
+
+    await onFailure({
+      event: {
+        data: {
+          event: {
+            data: {
+              derivationId: "derivation-id",
+              campaignId: CREATIVE_CAMPAIGN_ID,
+              workspaceId: "workspace-1",
+              triggeredByUserId: "user-1",
+              generationMode: "creative_revision",
+              locale: "pt-BR",
+              variantIndex: 0,
+              ctaText: null,
+              format: "1:1",
+            },
+          },
+        },
+      },
+      error: new Error("image generation failed"),
+      step: {
+        run: vi.fn(async (_name: string, fn: () => Promise<unknown>) => fn()),
+        realtime: { publish: vi.fn(() => Promise.resolve()) },
+      },
+    });
+
+    expect(mockRefundCredits).not.toHaveBeenCalled();
+  });
+
+  it("onFailure swallows refund errors so failure cleanup is not blocked", async () => {
+    mockRefundCredits.mockRejectedValue(new Error("refund db unreachable"));
+    const onFailure = (derivationJob as unknown as { opts: { onFailure: Function } }).opts.onFailure;
+
+    await expect(
+      onFailure({
+        event: {
+          data: {
+            event: {
+              data: {
+                derivationId: "derivation-id",
+                campaignId: CREATIVE_CAMPAIGN_ID,
+                workspaceId: "workspace-1",
+                triggeredByUserId: "user-1",
+                assistantActionId: "action-creative-1",
+                generationMode: "creative_revision",
+                locale: "pt-BR",
+                variantIndex: 0,
+                ctaText: null,
+                format: "1:1",
+              },
+            },
+          },
+        },
+        error: new Error("image generation failed"),
+        step: {
+          run: vi.fn(async (_name: string, fn: () => Promise<unknown>) => fn()),
+          realtime: { publish: vi.fn(() => Promise.resolve()) },
+        },
+      })
+    ).resolves.not.toThrow();
+
+    expect(mockRefundCredits).toHaveBeenCalledTimes(1);
   });
 });
