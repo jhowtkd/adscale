@@ -309,16 +309,16 @@ return {
 
 All other implementation claims are verified from current repository files or locked phase documents. The two assumptions above should become explicit planner acceptance criteria, not silent choices.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Canonical creative demotion semantics**
    - What we know: outside-assistant creative approval is represented by `derivations.status === "approved"`; multiple formats/lineages can legitimately be approved. [VERIFIED: derivation repository]
    - Gap: there is no lineage ID on `derivations`, so only the previous version snapshot identifies which record to demote.
-   - Recommendation: demote only the prior approved-current snapshot's derivation to `completed`, never other campaign derivations; lock this in transaction tests.
+   - Resolution: Plan 02 demotes only the prior approved-current snapshot's derivation to `completed`, never other campaign derivations, and locks the rule in transaction tests.
 
 2. **Exact vs target dimensions**
    - What we know: `getTargetDimensions` provides canonical dimensions per format; derivation rows do not persist width/height. [VERIFIED: schema and formats]
-   - Recommendation: label/display format contract dimensions in Phase 206. Do not download and inspect images during comparison unless product explicitly requires actual decoded pixels.
+   - Resolution: Plans 01 and 04 display canonical format-contract dimensions. Phase 206 does not download images to infer decoded pixel dimensions.
 
 ## Environment Availability
 
