@@ -5,6 +5,10 @@ vi.mock("@/server/auth/calibration-access", () => ({
   requireCalibrationAccess: vi.fn(),
 }));
 
+vi.mock("next/cache", () => ({
+  unstable_cache: <T extends (...args: never[]) => unknown>(fn: T) => fn,
+}));
+
 vi.mock("@/server/human-quality/trend/service", () => ({
   runQualityTrend: vi.fn(),
 }));

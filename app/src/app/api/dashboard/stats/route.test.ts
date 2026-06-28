@@ -22,6 +22,10 @@ vi.mock("@/server/repositories/dashboard", async (importOriginal) => {
   };
 });
 
+vi.mock("next/cache", () => ({
+  unstable_cache: <T extends (...args: never[]) => unknown>(fn: T) => fn,
+}));
+
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
 }));

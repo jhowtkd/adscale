@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { unstable_cache } from "next/cache";
 import { handleApiError } from "@/lib/api-response";
 import { requirePlatformOwner } from "@/server/auth/platform-owner";
 import { summarizeOwnerCreditSignals } from "@/server/beta-analytics/credit-signals";
@@ -11,7 +12,13 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const filters = parseOwnerAnalyticsQuery(searchParams);
 
-    const events = await listBetaAnalyticsEventsForOwner({
+    const cachedEvents = unstable_cache(
+      async (args: Parameters<typeof listBetaAnalyticsEventsForOwner>[0]) =>
+        listBetaAnalyticsEventsForOwner(args),
+      ["credit-signals-events"],
+      { revalidate: 60, tags: ["feedback-credit-signals"] }
+    );
+    const events = await cachedEvents({
       workspaceId: filters.workspaceId,
       sessionId: filters.sessionId,
       from: filters.from,

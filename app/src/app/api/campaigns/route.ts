@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { unstable_cache } from "next/cache";
+import { revalidateTag } from "next/cache";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
@@ -64,7 +66,13 @@ export async function GET(request: Request) {
     const limit = limitParam ? parsePositiveInt(limitParam, 10) : undefined;
     const offset = limit && page > 1 ? (page - 1) * limit : 0;
 
-    const result = await getCampaignsPage(workspace.id, {
+    const cachedPage = unstable_cache(
+      async (workspaceId: string, opts: Parameters<typeof getCampaignsPage>[1]) =>
+        getCampaignsPage(workspaceId, opts),
+      ["campaigns-page"],
+      { revalidate: 60, tags: ["campaigns", "campaigns-page"] }
+    );
+    const result = await cachedPage(workspace.id, {
       searchQuery,
       statusFilter,
       platformFilter,
@@ -121,6 +129,8 @@ export async function POST(request: Request) {
       ...parsed.data,
       status: "draft",
     });
+
+    revalidateTag("campaigns", "default");
 
     await recordBrandMemoryEvent({
       type: "campaign_created_or_updated",

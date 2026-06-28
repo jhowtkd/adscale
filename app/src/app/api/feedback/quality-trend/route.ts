@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { unstable_cache } from "next/cache";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireCalibrationAccess } from "@/server/auth/calibration-access";
@@ -35,10 +36,12 @@ export async function GET(request: Request) {
 
     await requireCalibrationAccess(request, parsed.data.workspaceId ?? null);
 
-    const { report } = await runQualityTrend({
-      ...parsed.data,
-      capturedAt: new Date().toISOString(),
-    });
+    const cachedTrend = unstable_cache(
+      async (input: Parameters<typeof runQualityTrend>[0]) => (await runQualityTrend(input)).report,
+      ["quality-trend"],
+      { revalidate: 60, tags: ["quality-trend"] }
+    );
+    const report = await cachedTrend({ ...parsed.data, capturedAt: new Date().toISOString() });
 
     return NextResponse.json({ report });
   } catch (error) {

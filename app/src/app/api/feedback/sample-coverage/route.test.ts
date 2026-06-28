@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GET } from "./route";
 
+vi.mock("next/cache", () => ({
+  unstable_cache: <T extends (...args: never[]) => unknown>(fn: T) => fn,
+}));
+
 vi.mock("@/server/auth/calibration-access", () => ({
   requireCalibrationAccess: vi.fn(),
 }));

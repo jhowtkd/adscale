@@ -1,10 +1,11 @@
+import { cache } from "react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "./index";
 
-export async function getSession() {
+export const getSession = cache(async () => {
   return auth.api.getSession({ headers: await headers() });
-}
+});
 
 export async function requireAuth(redirectTo = "/login") {
   const session = await getSession();
@@ -14,6 +15,6 @@ export async function requireAuth(redirectTo = "/login") {
   return session;
 }
 
-export async function getSessionFromHeaders(requestHeaders: Headers) {
+export const getSessionFromHeaders = cache(async (requestHeaders: Headers) => {
   return auth.api.getSession({ headers: requestHeaders });
-}
+});

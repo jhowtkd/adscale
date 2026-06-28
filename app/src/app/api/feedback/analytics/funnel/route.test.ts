@@ -3,6 +3,10 @@ import { GET as getFunnel } from "./route";
 import { GET as getCreditSignals } from "../credit-signals/route";
 import { GET as getExport } from "../export.csv/route";
 
+vi.mock("next/cache", () => ({
+  unstable_cache: <T extends (...args: never[]) => unknown>(fn: T) => fn,
+}));
+
 vi.mock("@/server/auth/platform-owner", () => ({
   requirePlatformOwner: vi.fn(),
 }));

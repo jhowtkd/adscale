@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { eq, and, asc, desc, sql, ne } from "drizzle-orm";
 import { db } from "../db";
 import { workspaces, workspaceMembers } from "../db/schema";
@@ -113,7 +114,7 @@ export async function updateWorkspaceSettings(
 /** Prefer the user's own (owner) workspace; fall back to admin/member memberships. */
 const workspaceMembershipPriority = sql`CASE ${workspaceMembers.role} WHEN 'owner' THEN 0 WHEN 'admin' THEN 1 ELSE 2 END`;
 
-export async function getWorkspaceForUser(userId: string) {
+export const getWorkspaceForUser = cache(async (userId: string) => {
   const member = await db
     .select()
     .from(workspaceMembers)
@@ -130,7 +131,7 @@ export async function getWorkspaceForUser(userId: string) {
     .limit(1);
 
   return workspace[0] ?? null;
-}
+});
 
 export async function createWorkspace(data: {
   name: string;

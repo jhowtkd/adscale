@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { unstable_cache } from "next/cache";
 import { handleApiError } from "@/lib/api-response";
 import { requirePlatformOwner } from "@/server/auth/platform-owner";
 import { buildAnalyticsFunnelSummary } from "@/server/beta-analytics/aggregate";
@@ -12,17 +13,33 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const filters = parseOwnerAnalyticsQuery(searchParams);
 
-    const events = await listBetaAnalyticsEventsForOwner({
-      workspaceId: filters.workspaceId,
-      sessionId: filters.sessionId,
-      from: filters.from,
-      to: filters.to,
-    });
+    const cachedBuild = unstable_cache(
+      async (
+        eventsArgs: Parameters<typeof listBetaAnalyticsEventsForOwner>[0],
+        sessionsArgs: Parameters<typeof listBetaSessions>[0]
+      ): Promise<[Awaited<ReturnType<typeof listBetaAnalyticsEventsForOwner>>, Awaited<ReturnType<typeof listBetaSessions>>]> => {
+        const [events, sessions] = await Promise.all([
+          listBetaAnalyticsEventsForOwner(eventsArgs),
+          listBetaSessions(sessionsArgs),
+        ]);
+        return [events, sessions];
+      },
+      ["funnel-events"],
+      { revalidate: 60, tags: ["feedback-funnel"] }
+    );
 
-    const sessions = await listBetaSessions({
-      workspaceId: filters.workspaceId,
-      activeOnly: false,
-    });
+    const [events, sessions] = await cachedBuild(
+      {
+        workspaceId: filters.workspaceId,
+        sessionId: filters.sessionId,
+        from: filters.from,
+        to: filters.to,
+      },
+      {
+        workspaceId: filters.workspaceId,
+        activeOnly: false,
+      }
+    );
 
     const filteredSessions = filters.sessionId
       ? sessions.filter((session) => session.id === filters.sessionId)
