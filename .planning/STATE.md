@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v13.7
 milestone_name: Qualidade Operacional das Jornadas Guiadas
-current_plan: 3
+current_plan: 4
 status: executing
-stopped_at: Completed 205-04-PLAN.md
-last_updated: "2026-06-28T00:51:31.782Z"
+stopped_at: Completed 205-03-PLAN.md
+last_updated: "2026-06-28T00:55:51.730Z"
 last_activity: 2026-06-28
 progress:
   total_phases: 19
-  completed_phases: 11
+  completed_phases: 12
   total_plans: 24
-  completed_plans: 28
+  completed_plans: 29
   percent: 21
 ---
 
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 
 Phase: 205 of 207 (in progress)
 Plan: 2 of 4 in phase
-Current Plan: 3
+Current Plan: 4
 Total Plans in Phase: 4
 Status: In Progress
 Last activity: 2026-06-28
@@ -57,6 +57,7 @@ Progress: [██░░░░░░░░] 21%
 | Phase 204-plan-iteration-loop P01 | 45 | 3 tasks | 18 files |
 | Phase 205 P01 | 45 | 3 tasks | 12 files |
 | Phase 205 P04 | 7min | 3 tasks | 9 files |
+| Phase 205 P03 | 8min | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -73,6 +74,9 @@ Progress: [██░░░░░░░░] 21%
 - [Phase 205]: Unified intent classifier (plan/creative/ambiguous/continue) routes campaign-thread feedback before generic LLM
 - [Phase 205]: Action card inputSnapshot includes planVersionId for creative handler plan binding
 - [Phase 205]: markCreativeProposalsStaleOnPlanChange queries payload JSON path (no DB migration for planVersionId)
+- [Phase 205]: Retry idempotency key uses action.jobRefs.length as attempt index (never Date.now()) — deterministic, replayable across retries on same action record.
+- [Phase 205]: Phase 205 added failed → confirmed transition + revalidateOnConfirm allows failed status (deviation, Rule 3 blocking) — needed for retry button on AssistantActionCard to work as designed by CONTEXT.md.
+- [Phase 205]: Derivation success callback gated on action.status in {canceled, failed} — canceled in-flight generation leaves source creative current with NO child version created (CONTEXT invariant).
 
 ### Pending Todos
 
@@ -87,6 +91,6 @@ Progress: [██░░░░░░░░] 21%
 
 ## Session Continuity
 
-Last session: 2026-06-28T00:51:31.779Z
-Stopped at: Completed 205-04-PLAN.md
+Last session: 2026-06-28T00:55:51.728Z
+Stopped at: Completed 205-03-PLAN.md
 Resume file: None

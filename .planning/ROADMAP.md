@@ -27,7 +27,7 @@
 
 - [x] **Phase 203: Artifact Version Foundation** - Persist immutable plan/creative versions, lineage, current pointer, scope, and safe snapshots. (completed 2026-06-27)
 - [x] **Phase 204: Plan Iteration Loop** - Turn chat feedback into inspectable, confirmed, immutable plan revisions. (completed 2026-06-27)
-- [ ] **Phase 205: Creative Iteration Loop** - Generate creative revisions from feedback with exact lineage, credits, idempotency, and recovery.
+- [x] **Phase 205: Creative Iteration Loop** - Generate creative revisions from feedback with exact lineage, credits, idempotency, and recovery. (completed 2026-06-28)
 - [ ] **Phase 206: Version Compare and Approval** - Compare two versions, approve/promote current version, and reject stale conflicts.
 - [ ] **Phase 207: Iterative Copilot Integration and UAT** - Integrate both artifact loops, telemetry, reload, browser coverage, and milestone audit.
 - [x] **Phase 195: Adaptive Journey State and Transition Contract** - Make every guided turn resumable, correctable, deterministic, and conflict-safe.
@@ -348,6 +348,6 @@ Archive: [v13.3-ROADMAP.md](milestones/v13.3-ROADMAP.md) · [v13.3-REQUIREMENTS.
 |-------|----------------|--------|-----------|
 | 203. Artifact Version Foundation | 2/2 | Complete    | 2026-06-27 |
 | 204. Plan Iteration Loop | 2/2 | Complete    | 2026-06-27 |
-| 205. Creative Iteration Loop | 3/4 | In Progress|  |
+| 205. Creative Iteration Loop | 4/4 | Complete   | 2026-06-28 |
 | 206. Version Compare and Approval | 0/TBD | Not started | — |
 | 207. Iterative Copilot Integration and UAT | 0/TBD | Not started | — |
