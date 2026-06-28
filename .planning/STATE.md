@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v13.7
 milestone_name: Qualidade Operacional das Jornadas Guiadas
 status: executing
-stopped_at: Phase 205 context gathered
-last_updated: "2026-06-27T23:44:20.121Z"
-last_activity: 2026-06-27 — Completed 204-01 plan revision core domain
+stopped_at: Completed 205-02-PLAN.md
+last_updated: "2026-06-28T00:38:01.514Z"
+last_activity: 2026-06-28 — Completed 205-02 billing refund + creative revision UI
 progress:
   total_phases: 19
   completed_phases: 11
-  total_plans: 20
-  completed_plans: 25
+  total_plans: 24
+  completed_plans: 26
   percent: 21
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-26)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
-**Current focus:** Phase 204 Plan Iteration Loop
+**Current focus:** Phase 205 Creative Iteration Loop
 
 ## Current Position
 
-Phase: 204 of 207 (in progress)
-Plan: 2 of 2 in phase
+Phase: 205 of 207 (in progress)
+Plan: 2 of 3 in phase
 Status: In Progress
-Last activity: 2026-06-27 — Completed 204-01 plan revision core domain
+Last activity: 2026-06-28 — Completed 205-02 billing refund + creative revision UI
 
 Progress: [██░░░░░░░░] 21%
 
@@ -64,6 +64,7 @@ Progress: [██░░░░░░░░] 21%
 - Guided E2E uses API sign-in and reuses an existing dev server when port 3000 is up.
 - [Phase 204]: Semantic changes and summaries are server-computed; LLM limited to snapshot fields
 - [Phase 204]: Confirm binds proposal digest and updates working head only
+- [Phase 205]: Refund is unconditional (no canSpend) — reversal never blocked
 
 ### Pending Todos
 
@@ -78,6 +79,6 @@ Progress: [██░░░░░░░░] 21%
 
 ## Session Continuity
 
-Last session: 2026-06-27T23:44:20.119Z
-Stopped at: Phase 205 context gathered
-Resume file: .planning/phases/205-creative-iteration-loop/205-CONTEXT.md
+Last session: 2026-06-28T00:38:01.511Z
+Stopped at: Completed 205-02-PLAN.md
+Resume file: None

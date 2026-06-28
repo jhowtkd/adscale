@@ -22,9 +22,9 @@
 ### Creative Iteration
 
 - [ ] **CREV-01**: User feedback on a selected creative creates an inspectable revision proposal tied to the source creative.
-- [ ] **CREV-02**: User sees intended visual change, format, references, credit impact, and writes before confirming generation.
+- [x] **CREV-02**: User sees intended visual change, format, references, credit impact, and writes before confirming generation.
 - [ ] **CREV-03**: User confirmation generates a new creative version linked to the source creative and exact plan version.
-- [ ] **CREV-04**: Failed or canceled generation leaves the source version current and supports idempotent retry.
+- [x] **CREV-04**: Failed or canceled generation leaves the source version current and supports idempotent retry.
 
 ### Comparison and Approval
 
@@ -79,9 +79,9 @@
 | PLAN-03 | Phase 204 | Complete |
 | PLAN-04 | Phase 204 | Complete |
 | CREV-01 | Phase 205 | Pending |
-| CREV-02 | Phase 205 | Pending |
+| CREV-02 | Phase 205 | Complete |
 | CREV-03 | Phase 205 | Pending |
-| CREV-04 | Phase 205 | Pending |
+| CREV-04 | Phase 205 | Complete |
 | COMP-01 | Phase 206 | Pending |
 | COMP-02 | Phase 206 | Pending |
 | APPR-01 | Phase 206 | Pending |
