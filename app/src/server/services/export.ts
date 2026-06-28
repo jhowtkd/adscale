@@ -1,4 +1,6 @@
 import JSZip from "jszip";
+import pLimit from "p-limit";
+import "server-only";
 import { logger } from "@/lib/logger";
 import sharp from "sharp";
 import { ObjectStorage } from "../storage/object-storage";
@@ -91,27 +93,30 @@ export async function exportAllApproved(
   const folder = zip.folder("derivations") || zip;
   let addedFiles = 0;
 
+  const limit = pLimit(4);
   const results = await Promise.all(
-    items.map(async (d) => {
-      if (!d.outputKey) {
-        logger.warn(`[exportAllApproved] skipping derivation without outputKey id=${d.id}`);
-        return null;
-      }
-      try {
-        const buffer = await storage.get(d.outputKey);
-        const storedFormat = d.format?.toLowerCase() as
-          | "png"
-          | "jpeg"
-          | "webp"
-          | undefined;
-        const finalBuffer =
-          storedFormat === format ? buffer : await convertImage(buffer, format);
-        return { d, finalBuffer };
-      } catch (error) {
-        logger.error(`[exportAllApproved] failed to add derivation id=${d.id} key=${d.outputKey}`, error);
-        return null;
-      }
-    })
+    items.map((d) =>
+      limit(async () => {
+        if (!d.outputKey) {
+          logger.warn(`[exportAllApproved] skipping derivation without outputKey id=${d.id}`);
+          return null;
+        }
+        try {
+          const buffer = await storage.get(d.outputKey);
+          const storedFormat = d.format?.toLowerCase() as
+            | "png"
+            | "jpeg"
+            | "webp"
+            | undefined;
+          const finalBuffer =
+            storedFormat === format ? buffer : await convertImage(buffer, format);
+          return { d, finalBuffer };
+        } catch (error) {
+          logger.error(`[exportAllApproved] failed to add derivation id=${d.id} key=${d.outputKey}`, error);
+          return null;
+        }
+      })
+    )
   );
 
   for (const result of results) {

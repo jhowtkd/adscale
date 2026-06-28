@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import JSZip from "jszip";
+import pLimit from "p-limit";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { rateLimit } from "@/lib/rate-limit";
@@ -47,17 +48,20 @@ export async function POST(request: Request) {
     const zip = new JSZip();
     let addedFiles = 0;
 
+    const concurrency = pLimit(4);
     const files = await Promise.all(
-      items.map(async (d) => {
-        if (!d.outputKey) return null;
-        try {
-          const buffer = await downloadBuffer(d.outputKey);
-          const ext = d.format?.toLowerCase() || "png";
-          return { fileName: `derivation-${d.id}.${ext}`, buffer };
-        } catch {
-          return null;
-        }
-      })
+      items.map((d) =>
+        concurrency(async () => {
+          if (!d.outputKey) return null;
+          try {
+            const buffer = await downloadBuffer(d.outputKey);
+            const ext = d.format?.toLowerCase() || "png";
+            return { fileName: `derivation-${d.id}.${ext}`, buffer };
+          } catch {
+            return null;
+          }
+        })
+      )
     );
     for (const file of files) {
       if (!file) continue;
