@@ -58,7 +58,7 @@ jobs:
         run: cd app && npm run build
         env:
           DATABASE_URL: postgres://test:test@localhost:5432/adscale_test
-          BETTER_AUTH_SECRET: 01234567890123456789012345678901
+          BETTER_AUTH_SECRET: "01234567890123456789012345678901"
           BETTER_AUTH_URL: http://localhost:3000
           OPENAI_API_KEY: sk-test1234567890123456789012345678901234567890
           OPENAI_TEXT_MODEL: gpt-4o
