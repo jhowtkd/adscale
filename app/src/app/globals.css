@@ -152,6 +152,10 @@
   --shell-sidebar-rail: 4rem;
   --shell-bottom-nav: 4.75rem;
   --shell-sticky-gap: 0.5rem;
+  --shell-v6-gap: 1rem;
+  --shell-v6-sidebar-width: 14.5rem;
+  --shell-v6-topbar-offset: calc(var(--shell-v6-gap) * 2 + var(--shell-topbar-desktop));
+  --shell-v6-main-offset-left: calc(var(--shell-v6-gap) * 2 + var(--shell-v6-sidebar-width));
   --shell-safe-bottom: calc(var(--shell-bottom-nav) + env(safe-area-inset-bottom, 0px));
   --page-gutter-mobile: 1rem;
   --page-gutter-tablet: 1.5rem;
@@ -650,6 +654,58 @@
   .layer-sticky { z-index: var(--layer-sticky); }
   .layer-shell { z-index: var(--layer-shell); }
   .layer-shell-floating { z-index: var(--layer-shell-floating); }
+
+  /* Redesign v6 — BYQ-style floating shell (see shell.css in mockup ref) */
+  .v6-shell-sidebar {
+    position: fixed;
+    top: var(--shell-v6-gap);
+    left: var(--shell-v6-gap);
+    bottom: var(--shell-v6-gap);
+    z-index: calc(var(--layer-shell-floating) + 1);
+    display: flex;
+    width: var(--shell-v6-sidebar-width);
+    flex-direction: column;
+    gap: 0.25rem;
+    overflow-y: auto;
+    border-radius: 1rem;
+    border: 1px solid var(--border-default);
+    background: var(--surface-raised);
+    padding: 0.875rem 0.75rem;
+    box-shadow:
+      0 16px 40px rgb(0 0 0 / 0.65),
+      0 4px 12px rgb(0 0 0 / 0.4),
+      inset 0 1px 0 rgb(255 255 255 / 0.06);
+    backdrop-filter: blur(24px) saturate(140%);
+  }
+
+  .v6-shell-topbar {
+    position: fixed;
+    top: var(--shell-v6-gap);
+    right: var(--shell-v6-gap);
+    left: var(--shell-v6-main-offset-left);
+    z-index: var(--layer-shell-floating);
+    display: flex;
+    height: var(--shell-topbar-desktop);
+    align-items: center;
+    gap: 1rem;
+    border-radius: 1rem;
+    border: 1px solid var(--border-default);
+    background: var(--surface-raised);
+    padding-inline: 1rem;
+    box-shadow:
+      0 16px 40px rgb(0 0 0 / 0.6),
+      0 4px 12px rgb(0 0 0 / 0.35),
+      inset 0 1px 0 rgb(255 255 255 / 0.05);
+    backdrop-filter: blur(24px) saturate(140%);
+  }
+
+  .v6-shell-main {
+    min-height: 100vh;
+    padding-top: var(--shell-v6-topbar-offset);
+    padding-right: var(--shell-v6-gap);
+    padding-bottom: 2rem;
+    padding-left: var(--shell-v6-main-offset-left);
+  }
   .layer-popover { z-index: var(--layer-popover); }
   .layer-backdrop { z-index: var(--layer-backdrop); }
   .layer-overlay { z-index: var(--layer-overlay); }

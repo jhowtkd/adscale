@@ -119,7 +119,7 @@ export default function TopBar({
   variant = "floating",
 }: {
   onMenuClick?: () => void;
-  variant?: "floating" | "inline";
+  variant?: "floating" | "inline" | "v6-floating";
 }) {
   const tCommon = useTranslations("common");
   const tNav = useTranslations("navigation");
@@ -204,11 +204,18 @@ export default function TopBar({
 
   const isTopBarHidden = isMobile && scrollDirection === "down";
   const isInline = variant === "inline";
+  const isV6Floating = variant === "v6-floating";
+  const v6ContextLabel =
+    pathname === "/v6" || pathname.startsWith("/v6/topbar-promo")
+      ? tNav("dashboard")
+      : headerTitle || tNav("dashboard");
 
   return (
     <header
       className={cn(
-        isInline
+        isV6Floating
+          ? "v6-shell-topbar"
+          : isInline
           ? "relative grid h-14 grid-cols-[1fr_auto_1fr] items-center gap-4 border-b border-[var(--border-subtle)] bg-[var(--canvas)] px-6 lg:px-8"
           : cn(
               "layer-shell-floating fixed top-0 right-0 left-0 flex items-center justify-between gap-3 sm:gap-4",
@@ -223,9 +230,13 @@ export default function TopBar({
       <div
         className={cn(
           "flex min-w-0 items-center gap-3 overflow-hidden sm:gap-8",
-          isInline ? "shrink-0" : "flex-1"
+          isV6Floating ? "min-w-0 flex-1 pr-4" : isInline ? "shrink-0" : "flex-1"
         )}
       >
+        {isV6Floating ? (
+          <p className="truncate text-[13px] text-[var(--text-muted)]">{v6ContextLabel}</p>
+        ) : (
+        <>
         {/* Logo — scales with viewport while preserving SVG aspect ratio (813×142) */}
         <Link
           href="/"
@@ -270,17 +281,20 @@ export default function TopBar({
             ) : null}
           </>
         )}
+        </>
+        )}
       </div>
 
-      {/* Center: inline mode toggle */}
-      {isInline && (
-        <div className="flex justify-center px-4">
+      {/* Center: inline / v6 mode toggle */}
+      {(isInline || isV6Floating) && (
+        <div className={cn("flex shrink-0 justify-center px-4", isV6Floating && "flex-none")}>
           <ModeToggle
             isChatMode={isChatMode}
             panelLabel={tAssistant("panel")}
             chatLabel={tAssistant("chat")}
             onSelectPanel={switchToPanel}
             onSelectChat={switchToChat}
+            tone={isV6Floating ? "v6" : "default"}
           />
         </div>
       )}
@@ -289,10 +303,10 @@ export default function TopBar({
       <div
         className={cn(
           "flex shrink-0 items-center",
-          isInline ? "justify-end gap-3" : "gap-2 sm:gap-2.5"
+          isInline || isV6Floating ? "min-w-0 flex-1 justify-end gap-2 sm:gap-3" : "gap-2 sm:gap-2.5"
         )}
       >
-        {!isInline && (
+        {!isInline && !isV6Floating && (
           <ModeToggle
             isChatMode={isChatMode}
             panelLabel={tAssistant("panel")}
@@ -302,10 +316,19 @@ export default function TopBar({
           />
         )}
         <LanguageSwitcher className="[&_button]:size-9 [&_button]:justify-center [&_button]:gap-0 [&_button]:px-0 sm:[&_button]:h-9 sm:[&_button]:w-auto sm:[&_button]:gap-1 sm:[&_button]:px-2 [&_button_svg]:hidden sm:[&_button_svg]:block" />
-        <FeedbackTriggerButton />
-        <ThemeToggle className="size-9 sm:size-10" />
+        {!isV6Floating && <FeedbackTriggerButton />}
+        {!isV6Floating && <ThemeToggle className="size-9 sm:size-10" />}
 
-        {isDashboard && (
+        {isV6Floating && (
+          <Link
+            href="/docs"
+            className="hidden items-center gap-2 rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] px-3.5 py-2 text-[13px] font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-inset)] sm:inline-flex"
+          >
+            Documentação
+          </Link>
+        )}
+
+        {(isDashboard || isV6Floating) && (
           <Link
             href="/campaigns?new=1"
             aria-label={tCampaign("new")}
@@ -319,7 +342,7 @@ export default function TopBar({
           </Link>
         )}
 
-        {!isDashboard && (
+        {!isDashboard && !isV6Floating && (
           <div className="relative">
             {/* Notification Bell */}
             <button
@@ -365,7 +388,7 @@ export default function TopBar({
           </div>
         )}
 
-        {/* User Avatar */}
+        {!isV6Floating && (
         <DropdownMenu>
           <DropdownMenuTrigger
             className={cn(
@@ -449,6 +472,7 @@ export default function TopBar({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        )}
       </div>
     </header>
   );
@@ -701,28 +725,39 @@ function ModeToggle({
   chatLabel,
   onSelectPanel,
   onSelectChat,
+  tone = "default",
 }: {
   isChatMode: boolean;
   panelLabel: string;
   chatLabel: string;
   onSelectPanel: () => void;
   onSelectChat: () => void;
+  tone?: "default" | "v6";
 }) {
+  const isV6 = tone === "v6";
   return (
     <div
       role="group"
       aria-label="Application mode"
-      className="flex items-center rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)] p-0.5"
+      className={cn(
+        "flex items-center p-0.5",
+        isV6
+          ? "h-8 gap-0.5 rounded-[10px] border border-[var(--border-default)] bg-[var(--surface-base)]"
+          : "rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)]"
+      )}
     >
       <button
         type="button"
         aria-pressed={!isChatMode}
         onClick={onSelectPanel}
         className={cn(
-          "rounded-md px-2 py-1 text-[11px] font-medium transition-colors sm:px-2.5 sm:py-1.5 sm:text-xs",
+          "rounded-md font-medium transition-colors",
+          isV6 ? "h-6 px-3.5 text-xs" : "rounded-md px-2 py-1 text-[11px] sm:px-2.5 sm:py-1.5 sm:text-xs",
           !isChatMode
-            ? "bg-[var(--accent-green-dim)] text-[var(--accent-green-text)]"
-            : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+            ? isV6
+              ? "bg-[var(--accent-primary)] font-semibold text-[var(--text-on-accent)] shadow-sm"
+              : "bg-[var(--accent-green-dim)] text-[var(--accent-green-text)]"
+            : "text-[var(--text-secondary)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)]"
         )}
       >
         {panelLabel}
@@ -732,10 +767,13 @@ function ModeToggle({
         aria-pressed={isChatMode}
         onClick={onSelectChat}
         className={cn(
-          "flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium transition-colors sm:px-2.5 sm:py-1.5 sm:text-xs",
+          "flex items-center gap-1.5 rounded-md font-medium transition-colors",
+          isV6 ? "h-6 px-3.5 text-xs" : "rounded-md px-2 py-1 text-[11px] sm:px-2.5 sm:py-1.5 sm:text-xs",
           isChatMode
-            ? "bg-[var(--accent-green-dim)] text-[var(--accent-green-text)]"
-            : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+            ? isV6
+              ? "bg-[var(--accent-primary)] font-semibold text-[var(--text-on-accent)] shadow-sm"
+              : "bg-[var(--accent-green-dim)] text-[var(--accent-green-text)]"
+            : "text-[var(--text-secondary)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)]"
         )}
       >
         {chatLabel}
