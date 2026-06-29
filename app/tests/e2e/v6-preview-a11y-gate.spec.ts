@@ -14,6 +14,13 @@ const V6_PREVIEW_ROUTES = [
   "/v6/campaign-workspace",
   "/v6/library",
   "/v6/settings",
+  "/v6/chat-full",
+  "/v6/chat-drawer",
+  "/v6/library-empty",
+  "/v6/chat-thread-curta",
+  "/v6/error-state",
+  "/v6/onboarding",
+  "/v6/assistant-empty",
 ] as const;
 
 async function runAxe(page: import("@playwright/test").Page) {

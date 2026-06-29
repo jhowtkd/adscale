@@ -221,6 +221,13 @@ export default function TopBar({
     if (pathname.startsWith("/v6/settings")) {
       return tNav("settings");
     }
+    if (
+      pathname.startsWith("/v6/chat") ||
+      pathname.startsWith("/v6/assistant-empty") ||
+      pathname.startsWith("/v6/onboarding")
+    ) {
+      return tAssistant("headerTitle");
+    }
     return headerTitle || tNav("dashboard");
   })();
 

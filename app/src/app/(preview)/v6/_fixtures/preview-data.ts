@@ -109,6 +109,92 @@ export const previewSettingsCards = [
   { title: "Planos", description: "Starter / Pro / Scale — compare benefícios e faça upgrade.", badge: "Captura pendente", badgeClass: "warning" as const, enabled: false },
 ] as const;
 
+export type PreviewChatRole = "user" | "assistant" | "action_card" | "error";
+
+export const previewChatThreads = [
+  { id: "1", client: "Cenbrap", title: "Verão 2024 — Natura", active: true },
+  { id: "2", client: "Cenbrap", title: "Black Friday — Far.me", active: false },
+  { id: "3", client: "DoBem", title: "Lançamento Verão", active: false },
+] as const;
+
+export const previewChatContext = {
+  campaign: "Verão 2024 — Natura",
+  objective: "Awareness de lançamento",
+  audience: "Mulheres 25-40, skincare natural",
+  tone: "Inspirador e natural",
+  platforms: "Instagram, Facebook",
+  credits: 142,
+} as const;
+
+export const previewChatMessagesFull = [
+  {
+    id: "m1",
+    role: "assistant" as const,
+    content:
+      "Olá! Vou te ajudar a montar o briefing da campanha **Verão 2024 — Natura**. Qual é o objetivo principal — awareness, conversão ou retenção?",
+  },
+  {
+    id: "m2",
+    role: "user" as const,
+    content: "Awareness de lançamento. Público mulheres 25-40, tom inspirador e natural.",
+  },
+  {
+    id: "m3",
+    role: "assistant" as const,
+    content:
+      "Perfeito. Resumi o briefing abaixo. Quando estiver ok, posso gerar um piloto com 3 variações em 9:16.",
+  },
+  {
+    id: "m4",
+    role: "action_card" as const,
+    content: "Gerar piloto — 3 variações 9:16",
+    payload: {
+      title: "Gerar piloto",
+      description: "3 variações em formato 9:16 com base no briefing aprovado.",
+      credits: 24,
+      status: "pending",
+      risk: "low",
+    },
+  },
+  {
+    id: "m5",
+    role: "assistant" as const,
+    content: "Enquanto isso, quer ajustar tom, CTA ou plataformas antes de confirmar?",
+  },
+] as const;
+
+export const previewChatMessagesShort = previewChatMessagesFull.slice(0, 3);
+
+export const previewOnboardingSteps = [
+  {
+    step: 1,
+    title: "Conecte seu workspace",
+    description: "Importe logos e paleta do Brand Kit para o ADScale entender sua marca.",
+    cta: "Configurar Brand Kit",
+  },
+  {
+    step: 2,
+    title: "Crie sua primeira campanha",
+    description: "Use o modo Chat ou o fluxo clássico — briefing guiado em minutos.",
+    cta: "Nova campanha",
+  },
+  {
+    step: 3,
+    title: "Aprove o piloto",
+    description: "Revise variações, ajuste com feedback e libere o lote completo.",
+    cta: "Ver exemplo",
+  },
+] as const;
+
+export const previewErrorState = {
+  title: "Não foi possível gerar as variações",
+  message:
+    "O serviço de geração retornou um erro temporário. Seus créditos não foram debitados.",
+  code: "GEN_TIMEOUT_504",
+  retryLabel: "Tentar novamente",
+  supportLabel: "Reportar problema",
+} as const;
+
 export const mockupIndex = [
   { slug: "topbar-promo", name: "08 — TopBar com toggle + hero Chat", file: "08-chat-promo-dashboard.html" },
   { slug: "dashboard", name: "01 — Dashboard", file: "01-dashboard.html" },
@@ -116,11 +202,11 @@ export const mockupIndex = [
   { slug: "campaign-workspace", name: "03 — Workspace", file: "03-campaign-workspace.html" },
   { slug: "library", name: "04 — Biblioteca", file: "04-library.html" },
   { slug: "settings", name: "05 — Configurações", file: "05-settings.html" },
-  { slug: "chat-full", name: "06 — Chat modo completo", file: "06-chat-mode-full.html", status: "planejado" },
-  { slug: "chat-drawer", name: "07 — Chat drawer", file: "07-chat-mode-drawer.html", status: "planejado" },
-  { slug: "library-empty", name: "09 — Biblioteca vazia", file: "09-library-empty-state.html", status: "planejado" },
-  { slug: "chat-thread-curta", name: "10 — Chat thread curta", file: "10-chat-thread-curta.html", status: "planejado" },
-  { slug: "error-state", name: "11 — Error state", file: "11-error-state.html", status: "planejado" },
-  { slug: "onboarding", name: "12 — Onboarding first use", file: "12-onboarding-first-use.html", status: "planejado" },
-  { slug: "assistant-empty", name: "13 — Assistant empty state", file: "13-assistant-empty-state.html", status: "planejado" },
+  { slug: "chat-full", name: "06 — Chat modo completo", file: "06-chat-mode-full.html" },
+  { slug: "chat-drawer", name: "07 — Chat drawer", file: "07-chat-mode-drawer.html" },
+  { slug: "library-empty", name: "09 — Biblioteca vazia", file: "09-library-empty-state.html" },
+  { slug: "chat-thread-curta", name: "10 — Chat thread curta", file: "10-chat-thread-curta.html" },
+  { slug: "error-state", name: "11 — Error state", file: "11-error-state.html" },
+  { slug: "onboarding", name: "12 — Onboarding first use", file: "12-onboarding-first-use.html" },
+  { slug: "assistant-empty", name: "13 — Assistant empty state", file: "13-assistant-empty-state.html" },
 ] as const;
