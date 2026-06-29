@@ -684,13 +684,16 @@ function ModeToggle({
         aria-pressed={isChatMode}
         onClick={onSelectChat}
         className={cn(
-          "rounded-md px-2 py-1 text-[11px] font-medium transition-colors sm:px-2.5 sm:py-1.5 sm:text-xs",
+          "flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium transition-colors sm:px-2.5 sm:py-1.5 sm:text-xs",
           isChatMode
             ? "bg-[var(--accent-green-dim)] text-[var(--accent-green-text)]"
             : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
         )}
       >
         {chatLabel}
+        <span className="rounded bg-[var(--accent-primary)] px-1 py-px font-mono text-[8px] font-semibold leading-none text-[var(--text-on-accent)]">
+          NOVO
+        </span>
       </button>
     </div>
   );

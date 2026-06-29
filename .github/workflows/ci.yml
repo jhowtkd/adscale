@@ -81,3 +81,20 @@ jobs:
           STRIPE_SCALE_PRICE_ID: price_scale
           STRIPE_SUCCESS_URL: http://localhost:3000/settings?tab=billing&checkout=success
           STRIPE_CANCEL_URL: http://localhost:3000/settings?tab=plans&checkout=cancel
+
+      - name: Start app for e2e
+        run: |
+          cd app && npm run start &
+          sleep 5
+        env:
+          DATABASE_URL: postgres://test:test@localhost:5432/adscale_test
+          BETTER_AUTH_SECRET: "01234567890123456789012345678901"
+          BETTER_AUTH_URL: http://localhost:3000
+          APP_URL: http://localhost:3000
+          NODE_ENV: production
+
+      - name: Run v6 preview a11y gate
+        run: cd app && npx playwright test --grep "v6 preview a11y gate"
+        env:
+          DATABASE_URL: postgres://test:test@localhost:5432/adscale_test
+          E2E_BASE_URL: http://localhost:3000
