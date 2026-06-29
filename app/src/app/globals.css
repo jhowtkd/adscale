@@ -344,6 +344,45 @@
 }
 
 /* ============================================
+   Redesign v6 — Token Translation Reference
+   ============================================
+   Mockups v5 (06/07/09/10) use legacy token names defined ONLY in
+   _review/public/tokens-v6.css (lines 182-213). These names do NOT exist
+   in production. During component migration, translate legacy → canonical
+   (defined above in .dark { }). NEVER alias legacy names in production:
+   - Creates dual source of truth.
+   - --ink is especially dangerous: tokens-v6.css:186 defines --ink as
+     oklch(0.15 0.008 145) (= canvas), but production :root (line 241)
+     defines --ink as var(--text-on-accent). Aliasing in .dark would
+     override the production value and cause visual regression.
+
+   Translation table (apply during migration, never alias in production):
+
+   --surface-0      → --canvas
+   --surface-1      → --surface-base
+   --surface-2      → --surface-raised
+   --surface-3      → --surface-inset
+   --text-1         → --text-primary
+   --text-2         → --text-secondary
+   --text-3         → --text-muted
+   --accent         → --accent-primary
+   --accent-bright  → --accent-primary-hover
+   --accent-dim     → --accent-primary-subtle
+   --accent-text    → --text-on-accent
+   --amber          → --warning-text
+   --rose           → --danger-text
+   --gold           → --warning-text
+   --ink            → --text-on-accent  (NEVER use the mockup's oklch literal)
+   --r-sm           → --radius-control
+   --r-md           → --radius-panel
+   --r-lg           → --radius-object
+   --r-xl           → --radius-overlay
+   --sidebar-w      → --shell-sidebar-expanded  (15rem = 240px)
+   --topbar-h       → --shell-topbar-desktop     (3.5rem = 56px)
+   --context-w      → hardcode 320px (AssistantShell.tsx:42) or add new token
+   ============================================ */
+
+/* ============================================
    Base Styles
    ============================================ */
 
