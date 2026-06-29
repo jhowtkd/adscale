@@ -53,10 +53,18 @@ export const previewBriefingRows = [
   { key: "Restrições", value: "Manter identidade visual orgânica" },
 ];
 
+export const previewCampaignList = [
+  { initials: "CB", name: "Cenbrap em Dobro - Teste", variations: 12, approved: 11, status: "Concluída", statusClass: "success" as const, updated: "há 2 dias" },
+  { initials: "T5", name: "Teste 5", variations: 6, approved: 3, status: "Piloto", statusClass: "warning" as const, updated: "há 1 dia" },
+  { initials: "CB", name: "Cenbrap em Dobro", variations: 18, approved: 16, status: "Aprovada", statusClass: "info" as const, updated: "há 4 dias" },
+  { initials: "NR1", name: "Cenbrap NR1", variations: 3, approved: 2, status: "Rascunho", statusClass: "neutral" as const, updated: "há 1 semana" },
+  { initials: "VN", name: "Verão 2024 — Natura", variations: 24, approved: 9, status: "Gerando", statusClass: "warning" as const, updated: "2 min" },
+];
+
 export const mockupIndex = [
   { slug: "topbar-promo", name: "08 — TopBar com toggle + hero Chat", file: "08-chat-promo-dashboard.html" },
   { slug: "dashboard", name: "01 — Dashboard", file: "01-dashboard.html" },
-  { slug: "campaigns", name: "02 — Campanhas", file: "02-campaigns.html", status: "planejado" },
+  { slug: "campaigns", name: "02 — Campanhas", file: "02-campaigns.html" },
   { slug: "campaign-workspace", name: "03 — Workspace", file: "03-campaign-workspace.html", status: "planejado" },
   { slug: "library", name: "04 — Biblioteca", file: "04-library.html", status: "planejado" },
   { slug: "settings", name: "05 — Configurações", file: "05-settings.html", status: "planejado" },

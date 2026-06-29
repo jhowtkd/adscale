@@ -205,10 +205,15 @@ export default function TopBar({
   const isTopBarHidden = isMobile && scrollDirection === "down";
   const isInline = variant === "inline";
   const isV6Floating = variant === "v6-floating";
-  const v6ContextLabel =
-    pathname === "/v6" || pathname.startsWith("/v6/topbar-promo")
-      ? tNav("dashboard")
-      : headerTitle || tNav("dashboard");
+  const v6ContextLabel = (() => {
+    if (pathname === "/v6" || pathname.startsWith("/v6/topbar-promo") || pathname.startsWith("/v6/dashboard")) {
+      return tNav("dashboard");
+    }
+    if (pathname.startsWith("/v6/campaigns")) {
+      return tNav("campaigns");
+    }
+    return headerTitle || tNav("dashboard");
+  })();
 
   return (
     <header

@@ -1,10 +1,19 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { previewBilling, previewUser } from "../_fixtures/preview-data";
 
 const initials = `${previewUser.firstName[0] ?? ""}${previewUser.lastName[0] ?? ""}`.toUpperCase();
 
 export default function V6PreviewSidebar() {
+  const pathname = usePathname();
+  const isDashboard =
+    pathname === "/v6" ||
+    pathname.startsWith("/v6/dashboard") ||
+    pathname.startsWith("/v6/topbar-promo");
+
   return (
     <aside className="v6-shell-sidebar" aria-label="Navegação principal">
       <div className="mb-2.5 flex items-center gap-2 border-b border-[var(--border-subtle)] px-2 pb-4 pt-2">
@@ -35,8 +44,8 @@ export default function V6PreviewSidebar() {
       </div>
 
       <nav className="flex flex-col gap-0.5">
-        <NavItem href="/v6/topbar-promo" active label="Dashboard" />
-        <NavItem href="#" label="Campanhas" count="12" />
+        <NavItem href="/v6/dashboard" active={isDashboard} label="Dashboard" />
+        <NavItem href="/v6/campaigns" active={pathname.startsWith("/v6/campaigns")} label="Campanhas" count="12" />
         <NavItem href="#" label="Biblioteca" />
         <NavItem href="#" label="Briefings" />
       </nav>
