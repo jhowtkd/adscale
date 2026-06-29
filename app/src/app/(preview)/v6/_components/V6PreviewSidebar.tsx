@@ -13,6 +13,9 @@ export default function V6PreviewSidebar() {
     pathname === "/v6" ||
     pathname.startsWith("/v6/dashboard") ||
     pathname.startsWith("/v6/topbar-promo");
+  const isCampaigns =
+    pathname.startsWith("/v6/campaigns") || pathname.startsWith("/v6/campaign-workspace");
+  const isLibrary = pathname.startsWith("/v6/library");
 
   return (
     <aside className="v6-shell-sidebar" aria-label="Navegação principal">
@@ -45,8 +48,8 @@ export default function V6PreviewSidebar() {
 
       <nav className="flex flex-col gap-0.5">
         <NavItem href="/v6/dashboard" active={isDashboard} label="Dashboard" />
-        <NavItem href="/v6/campaigns" active={pathname.startsWith("/v6/campaigns")} label="Campanhas" count="12" />
-        <NavItem href="#" label="Biblioteca" />
+        <NavItem href="/v6/campaigns" active={isCampaigns} label="Campanhas" count="12" />
+        <NavItem href="/v6/library" active={isLibrary} label="Biblioteca" />
         <NavItem href="#" label="Briefings" />
       </nav>
 

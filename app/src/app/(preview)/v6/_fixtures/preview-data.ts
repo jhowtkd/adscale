@@ -61,13 +61,61 @@ export const previewCampaignList = [
   { initials: "VN", name: "Verão 2024 — Natura", variations: 24, approved: 9, status: "Gerando", statusClass: "warning" as const, updated: "2 min" },
 ];
 
+export const previewWorkspace = {
+  name: "Cenbrap em Dobro — Teste",
+  status: "Piloto",
+  statusClass: "warning" as const,
+  meta: "Campanha ativa desde 18/05/2026 · Cliente Cenbrap · 12 derivações em revisão",
+  currentStage: 1,
+  stages: ["Piloto", "Derivar", "Revisar", "Aprovar", "Entrega"] as const,
+  briefingSliders: [
+    { label: "Idade do público", value: 78 },
+    { label: "Chance de oferta", value: 80 },
+    { label: "Legibilidade", value: 85 },
+    { label: "Urgência", value: 62 },
+    { label: "Proximidade", value: 54 },
+  ],
+  briefingRules: [
+    "CTA principal no quadrante superior direito, sempre acima da dobra.",
+    'Evitar fundos escuros em combinações com selo "Cenbrap".',
+    "Linha de oferta limitada a 7 palavras; sem caixa alta inteira.",
+    'Selo "Garantia Cenbrap" presente em todas as peças.',
+  ],
+  derivations: [
+    { art: "EM DOBRO", title: "Dobra Verão · 9:16", variations: "2 variações", version: "v3", score: 92, status: "Pronto", statusClass: "success" as const, gradient: "from-emerald-900/80 to-teal-800/60" },
+    { art: "SELO 2X", title: "Carrossel · 4 slides", variations: "1 variação", version: "v2", score: 88, status: "Revisão", statusClass: "warning" as const, gradient: "from-amber-900/70 to-orange-800/50" },
+    { art: "GARANTIA", title: "Story · 9:16 vertical", variations: "3 variações", version: "v1", score: 71, status: "Rascunho", statusClass: "info" as const, gradient: "from-slate-800/80 to-slate-700/60" },
+    { art: "PROMO", title: "Feed quadrado · 1:1", variations: "4 variações", version: "v2", score: 85, status: "Pronto", statusClass: "success" as const, gradient: "from-violet-900/70 to-purple-800/50" },
+  ],
+};
+
+export const previewLibraryAssets = [
+  { glyph: "HERO", name: "Hero Cenbrap v2", tags: ["Hero", "Curso"], size: "1080×1080", weight: "245 KB", gradient: "from-emerald-800/90 to-teal-700/70" },
+  { glyph: "LOGO", name: "Logo Cenbrap", tags: ["Logo"], size: "800×200", weight: "18 KB", gradient: "from-slate-800/90 to-slate-600/70" },
+  { glyph: "PAT-01", name: "Background pattern 01", tags: ["Background", "Pattern"], size: "1920×1080", weight: "1.2 MB", gradient: "from-indigo-900/80 to-blue-800/60" },
+  { glyph: "TEST", name: "Card testimonial João", tags: ["Testimonial"], size: "600×600", weight: "89 KB", gradient: "from-rose-900/70 to-pink-800/50" },
+  { glyph: "PROMO", name: "Banner promo Q3", tags: ["Banner", "Promo"], size: "1200×628", weight: "156 KB", gradient: "from-amber-900/80 to-yellow-800/60" },
+  { glyph: "LOGO", name: "Logo NR1", tags: ["Logo"], size: "800×200", weight: "22 KB", gradient: "from-zinc-800/90 to-zinc-600/70" },
+  { glyph: "PROD", name: "Product shot Cenbrap", tags: ["Product"], size: "1080×1080", weight: "312 KB", gradient: "from-cyan-900/80 to-sky-800/60" },
+  { glyph: "PAT-02", name: "Background pattern 02", tags: ["Background"], size: "1920×1080", weight: "980 KB", gradient: "from-violet-900/80 to-purple-800/60" },
+];
+
+export const previewSettingsCards = [
+  { title: "Equipe", description: "Convide membros, gerencie papéis e permissões de acesso ao workspace.", badge: "Implementado", badgeClass: "success" as const, enabled: true },
+  { title: "Brand Kit", description: "Logos, paletas, tipografia e regras de voz que o laboratório usa como guia.", badge: "Implementado", badgeClass: "success" as const, enabled: true },
+  { title: "Perfil", description: "Seu nome, foto e dados pessoais visíveis para o time.", badge: "Fora do laboratório", badgeClass: "neutral" as const, enabled: false },
+  { title: "Workspace", description: "Nome, domínio e identidade visual do workspace compartilhado.", badge: "Fora do laboratório", badgeClass: "neutral" as const, enabled: false },
+  { title: "Faturamento", description: "Plano atual, método de pagamento e histórico de cobranças via Stripe.", badge: "Captura pendente", badgeClass: "warning" as const, enabled: false },
+  { title: "Planos", description: "Starter / Pro / Scale — compare benefícios e faça upgrade.", badge: "Captura pendente", badgeClass: "warning" as const, enabled: false },
+] as const;
+
 export const mockupIndex = [
   { slug: "topbar-promo", name: "08 — TopBar com toggle + hero Chat", file: "08-chat-promo-dashboard.html" },
   { slug: "dashboard", name: "01 — Dashboard", file: "01-dashboard.html" },
   { slug: "campaigns", name: "02 — Campanhas", file: "02-campaigns.html" },
-  { slug: "campaign-workspace", name: "03 — Workspace", file: "03-campaign-workspace.html", status: "planejado" },
-  { slug: "library", name: "04 — Biblioteca", file: "04-library.html", status: "planejado" },
-  { slug: "settings", name: "05 — Configurações", file: "05-settings.html", status: "planejado" },
+  { slug: "campaign-workspace", name: "03 — Workspace", file: "03-campaign-workspace.html" },
+  { slug: "library", name: "04 — Biblioteca", file: "04-library.html" },
+  { slug: "settings", name: "05 — Configurações", file: "05-settings.html" },
   { slug: "chat-full", name: "06 — Chat modo completo", file: "06-chat-mode-full.html", status: "planejado" },
   { slug: "chat-drawer", name: "07 — Chat drawer", file: "07-chat-mode-drawer.html", status: "planejado" },
   { slug: "library-empty", name: "09 — Biblioteca vazia", file: "09-library-empty-state.html", status: "planejado" },

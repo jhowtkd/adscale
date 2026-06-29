@@ -6,7 +6,15 @@ const axePath = path.resolve(process.cwd(), "node_modules/axe-core/axe.min.js");
 
 const DEFERRED_RULES = new Set(["color-contrast", "color-contrast-enhanced"]);
 
-const V6_PREVIEW_ROUTES = ["/v6", "/v6/topbar-promo"] as const;
+const V6_PREVIEW_ROUTES = [
+  "/v6",
+  "/v6/topbar-promo",
+  "/v6/dashboard",
+  "/v6/campaigns",
+  "/v6/campaign-workspace",
+  "/v6/library",
+  "/v6/settings",
+] as const;
 
 async function runAxe(page: import("@playwright/test").Page) {
   await page.addScriptTag({ path: axePath });

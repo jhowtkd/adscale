@@ -209,8 +209,17 @@ export default function TopBar({
     if (pathname === "/v6" || pathname.startsWith("/v6/topbar-promo") || pathname.startsWith("/v6/dashboard")) {
       return tNav("dashboard");
     }
+    if (pathname.startsWith("/v6/campaign-workspace")) {
+      return "Cenbrap em Dobro — Teste";
+    }
     if (pathname.startsWith("/v6/campaigns")) {
       return tNav("campaigns");
+    }
+    if (pathname.startsWith("/v6/library")) {
+      return "Biblioteca";
+    }
+    if (pathname.startsWith("/v6/settings")) {
+      return tNav("settings");
     }
     return headerTitle || tNav("dashboard");
   })();
