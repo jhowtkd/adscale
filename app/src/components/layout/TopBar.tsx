@@ -691,7 +691,7 @@ function ModeToggle({
         )}
       >
         {chatLabel}
-        <span className="rounded bg-[var(--accent-primary)] px-1 py-px font-mono text-[8px] font-semibold leading-none text-[var(--text-on-accent)]">
+        <span aria-hidden="true" className="rounded bg-[var(--accent-primary)] px-1 py-px font-mono text-[8px] font-semibold leading-none text-[var(--text-on-accent)]">
           NOVO
         </span>
       </button>
