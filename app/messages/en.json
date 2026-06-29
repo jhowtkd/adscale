@@ -376,7 +376,7 @@
       "error": "We couldn't load your missions right now.",
       "retry": "Try again",
       "updating": "Updating missions",
-      "empty": "No active mission yet.",
+      "empty": "No active mission right now. Click \"View path\" to see your next steps.",
       "allCompleteTitle": "Path complete!",
       "allCompleteDescription": "You've mastered the full ADScale creative workflow. Keep refining campaigns and testing new angles.",
       "skipMission": "Skip for now",

@@ -376,7 +376,7 @@
       "error": "Não foi possível carregar suas missões agora.",
       "retry": "Tentar novamente",
       "updating": "Atualizando missões",
-      "empty": "Nenhuma missão ativa ainda.",
+      "empty": "Nenhuma missão ativa no momento. Clique em \"Ver trilha\" para ver os próximos passos.",
       "allCompleteTitle": "Trilha completa!",
       "allCompleteDescription": "Você dominou o fluxo criativo completo do ADScale. Continue refinando campanhas e testando novos ângulos.",
       "skipMission": "Pular por agora",
