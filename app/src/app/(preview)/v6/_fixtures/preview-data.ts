@@ -37,9 +37,25 @@ export const previewActivity = [
   { thumb: "🎯", name: "Retenção Q4 — SaaS interno", author: "Jhonatan Soares", updated: "3h", status: "Aprovada", statusClass: "approved", platforms: "LI", variations: "24 / 24" },
 ];
 
+export const previewRecipes = [
+  { icon: "🧪", name: "Awareness → Awareness Verão", desc: "Variáveis: tom, paleta, plataforma. 8 derivações.", count: "8 vars" },
+  { icon: "🧪", name: "Conversão Direta — Skincare", desc: "CTA forte + prova + oferta. 12 derivações.", count: "12 vars" },
+  { icon: "🧪", name: "Retenção Q4 — SaaS", desc: "Reabordagem de carrinho abandonado. 6 derivações.", count: "6 vars" },
+  { icon: "🧪", name: "Awareness Feminino 25-40", desc: "Inspirador, lifestyle, prova social. 16 derivações.", count: "16 vars" },
+];
+
+export const previewBriefingRows = [
+  { key: "Objetivo", value: "Awareness de lançamento" },
+  { key: "Público", value: "Mulheres 25-40, skincare natural" },
+  { key: "Tom", value: "Inspirador e natural" },
+  { key: "Plataformas", value: "Instagram, Facebook" },
+  { key: "CTA", value: "Descubra a linha" },
+  { key: "Restrições", value: "Manter identidade visual orgânica" },
+];
+
 export const mockupIndex = [
   { slug: "topbar-promo", name: "08 — TopBar com toggle + hero Chat", file: "08-chat-promo-dashboard.html" },
-  { slug: "dashboard", name: "01 — Dashboard", file: "01-dashboard.html", status: "planejado" },
+  { slug: "dashboard", name: "01 — Dashboard", file: "01-dashboard.html" },
   { slug: "campaigns", name: "02 — Campanhas", file: "02-campaigns.html", status: "planejado" },
   { slug: "campaign-workspace", name: "03 — Workspace", file: "03-campaign-workspace.html", status: "planejado" },
   { slug: "library", name: "04 — Biblioteca", file: "04-library.html", status: "planejado" },

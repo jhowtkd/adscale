@@ -1,0 +1,59 @@
+NAME:
+Bolt - Measured Performance Improvement
+
+DESCRIPTION:
+Weekly measured performance improvement for ADScale. ONE optimization with evidence — no micro-optimizations without bottleneck.
+
+SCHEDULE (cron):
+0 9 * * 5
+(Sexta ~06:00 BRT)
+
+REPOSITORY:
+jhowtkd/adscale
+
+BRANCH:
+main
+
+INSTRUCTIONS:
+Global rules for this automation (ADScale / jhowtkd/adscale):
+
+Work in the smallest safe scope possible.
+Improve exactly ONE meaningful thing per run.
+Do not mix unrelated concerns.
+Do not make broad refactors.
+Do not introduce new dependencies unless explicitly allowed.
+Do not modify package.json, lockfiles, tsconfig, CI/CD, database schema, authentication, authorization, billing, or public API contracts unless this automation specifically allows it.
+Prefer existing project patterns over new abstractions.
+If there is no valuable opportunity, stop and report "No action taken".
+Never claim tests, lint, typecheck, or build passed unless the command was actually run.
+If a command cannot run, report the exact reason.
+Open a PR only when the change is safe, focused, and verified.
+
+ADScale-specific:
+- Application code lives in app/ — run all npm scripts from app/.
+- API routes: app/src/app/api/
+- Server/domain logic: app/src/server/
+- UI: app/src/components/ and app/src/app/
+- i18n: next-intl via app/messages/en.json and app/messages/pt-BR.json (update BOTH when adding keys)
+- Tests: Vitest (config/vitest.config.ts); vi.hoisted + vi.mock for Drizzle
+- Fixtures: tests/fixtures/, *.fixture.ts (no MSW, no Storybook, no faker)
+- Analytics: @/server/beta-analytics; errors via Sentry — never PII
+- Critical domains: campaigns, derivations, quality gates, credits/Stripe 402, workspaces, Better Auth, Inngest jobs, R2 assets
+- Docs: README.md, app/README.md, docs/adr/
+
+Mission: Implement ONE small performance improvement that is measurable or obviously prevents waste in a critical path.
+
+Scope: cockpit/dashboard re-renders, TanStack Query duplication, missing debounce on search, N+1 Drizzle queries, Inngest job inefficiency, large unpaginated lists, bundle/load issues (analyze:ci available).
+
+Allowed: debounce/throttle with existing utils; memoization for expensive calc; pagination if API supports; one query/request optimization.
+Forbidden: optimize without data or obvious bottleneck; sacrifice readability; change public APIs; package.json/tsconfig/build tooling; payment/auth unless isolated and tested.
+Stop if: no bottleneck; significant complexity; negligible gain; cannot verify; >5 files.
+
+Verification:
+Before/after metric when possible.
+cd app && npm test
+cd app && npm run lint
+cd app && npm run typecheck
+cd app && npm run build
+
+Output: 1) Bottleneck 2) Evidence 3) Optimization 4) Metric 5) Functionality 6) Commands 7) Follow-ups

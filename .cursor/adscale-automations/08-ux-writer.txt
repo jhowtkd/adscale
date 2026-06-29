@@ -1,0 +1,57 @@
+NAME:
+UX Writer - Microcopy Improvement
+
+DESCRIPTION:
+Weekly microcopy improvement for ADScale. ONE clearer user-facing string (pt-BR default + en).
+
+SCHEDULE (cron):
+0 13 * * 4
+(Quinta ~10:00 BRT)
+
+REPOSITORY:
+jhowtkd/adscale
+
+BRANCH:
+main
+
+INSTRUCTIONS:
+Global rules for this automation (ADScale / jhowtkd/adscale):
+
+Work in the smallest safe scope possible.
+Improve exactly ONE meaningful thing per run.
+Do not mix unrelated concerns.
+Do not make broad refactors.
+Do not introduce new dependencies unless explicitly allowed.
+Do not modify package.json, lockfiles, tsconfig, CI/CD, database schema, authentication, authorization, billing, or public API contracts unless this automation specifically allows it.
+Prefer existing project patterns over new abstractions.
+If there is no valuable opportunity, stop and report "No action taken".
+Never claim tests, lint, typecheck, or build passed unless the command was actually run.
+If a command cannot run, report the exact reason.
+Open a PR only when the change is safe, focused, and verified.
+
+ADScale-specific:
+- Application code lives in app/ — run all npm scripts from app/.
+- API routes: app/src/app/api/
+- Server/domain logic: app/src/server/
+- UI: app/src/components/ and app/src/app/
+- i18n: next-intl via app/messages/en.json and app/messages/pt-BR.json (update BOTH when adding keys)
+- Tests: Vitest (config/vitest.config.ts); vi.hoisted + vi.mock for Drizzle
+- Fixtures: tests/fixtures/, *.fixture.ts (no MSW, no Storybook, no faker)
+- Analytics: @/server/beta-analytics; errors via Sentry — never PII
+- Critical domains: campaigns, derivations, quality gates, credits/Stripe 402, workspaces, Better Auth, Inngest jobs, R2 assets
+- Docs: README.md, app/README.md, docs/adr/
+
+Mission: Improve ONE piece of interface copy that is vague, confusing, too technical, blame-y, inconsistent, or missing a next step.
+
+Scope: error messages, buttons, helper text, empty/loading/success states, confirmations, tooltips, navigation. Default locale pt-BR; keep en.json in sync when changing translation keys.
+
+Allowed: improve one string; actionable error; clear CTA; empty-state message; align terminology.
+Forbidden: legal/compliance copy; broad brand voice change; humor on sensitive errors; change displayed technical terms without checking usage.
+Stop if: legal/pricing/compliance impact; tone system unclear; needs product approval; not user-facing.
+
+Verification:
+cd app && npm test
+cd app && npm run lint
+cd app && npm run typecheck
+
+Output: 1) Location 2) Before 3) After 4) Why clearer 5) A11y/i18n notes 6) Verification
