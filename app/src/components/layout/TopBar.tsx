@@ -114,7 +114,13 @@ function safeTranslate(t: (k: string) => string, key: string): string | null {
   return value;
 }
 
-export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
+export default function TopBar({
+  onMenuClick,
+  variant = "floating",
+}: {
+  onMenuClick?: () => void;
+  variant?: "floating" | "inline";
+}) {
   const tCommon = useTranslations("common");
   const tNav = useTranslations("navigation");
   const tCampaign = useTranslations("campaign");
@@ -197,30 +203,48 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
   };
 
   const isTopBarHidden = isMobile && scrollDirection === "down";
+  const isInline = variant === "inline";
 
   return (
     <header
       className={cn(
-        "layer-shell-floating fixed top-0 right-0 left-0 flex items-center justify-between gap-3 sm:gap-4",
-        "shell-topbar-height border-b border-[var(--border-dim)] bg-[var(--surface-base)]",
-        "transition-transform duration-300 ease-out",
-        isDashboard ? "px-4 sm:px-6 lg:px-8" : "px-4 sm:px-6",
-        isTopBarHidden && "-translate-y-full"
+        isInline
+          ? "relative grid h-14 grid-cols-[1fr_auto_1fr] items-center gap-4 border-b border-[var(--border-subtle)] bg-[var(--canvas)] px-6 lg:px-8"
+          : cn(
+              "layer-shell-floating fixed top-0 right-0 left-0 flex items-center justify-between gap-3 sm:gap-4",
+              "shell-topbar-height border-b border-[var(--border-dim)] bg-[var(--surface-base)]",
+              "transition-transform duration-300 ease-out",
+              isDashboard ? "px-4 sm:px-6 lg:px-8" : "px-4 sm:px-6",
+              isTopBarHidden && "-translate-y-full"
+            )
       )}
     >
       {/* Left: Logo + Navigation */}
-      <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden sm:gap-8">
+      <div
+        className={cn(
+          "flex min-w-0 items-center gap-3 overflow-hidden sm:gap-8",
+          isInline ? "shrink-0" : "flex-1"
+        )}
+      >
         {/* Logo — scales with viewport while preserving SVG aspect ratio (813×142) */}
         <Link
           href="/"
-          className="flex min-w-0 shrink items-center rounded-md py-0.5 sm:shrink-0 sm:px-2"
+          className={cn(
+            "flex min-w-0 shrink items-center rounded-md py-0.5",
+            isInline ? "sm:shrink-0" : "sm:shrink-0 sm:px-2"
+          )}
           aria-label="ADScale — Dashboard"
         >
           <Image
             src="/images/logo.svg"
             alt=""
             aria-hidden="true"
-            className="topbar-logo block h-[clamp(0.8rem,2.56vw,1.6rem)] w-auto max-w-full object-contain object-left sm:h-[1.4rem] md:h-[1.6rem]"
+            className={cn(
+              "topbar-logo block w-auto max-w-full object-contain object-left",
+              isInline
+                ? "h-5 sm:h-6"
+                : "h-[clamp(0.8rem,2.56vw,1.6rem)] sm:h-[1.4rem] md:h-[1.6rem]"
+            )}
             style={{ filter: "var(--logo-filter)" }}
             width={813}
             height={142}
@@ -230,29 +254,53 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
           />
         </Link>
 
-        {/* Navigation */}
-        <nav className="hidden md:flex items-center gap-1">
-          <NavLink href="/" icon={LayoutDashboard} label={tNav("dashboard")} active={pathname === "/"} />
-          <NavLink href="/campaigns" icon={FolderOpen} label={tNav("campaigns")} active={pathname.startsWith("/campaigns")} />
-          <NavLink href="/settings" icon={Settings} label={tNav("settings")} active={pathname.startsWith("/settings")} />
-        </nav>
+        {!isInline && (
+          <>
+            {/* Navigation */}
+            <nav className="hidden md:flex items-center gap-1">
+              <NavLink href="/" icon={LayoutDashboard} label={tNav("dashboard")} active={pathname === "/"} />
+              <NavLink href="/campaigns" icon={FolderOpen} label={tNav("campaigns")} active={pathname.startsWith("/campaigns")} />
+              <NavLink href="/settings" icon={Settings} label={tNav("settings")} active={pathname.startsWith("/settings")} />
+            </nav>
 
-        {!isDashboard && headerTitle ? (
-          <p className="hidden min-w-0 truncate text-sm font-semibold text-[var(--text-primary)] lg:block lg:max-w-[10rem] xl:max-w-xs">
-            {headerTitle}
-          </p>
-        ) : null}
+            {!isDashboard && headerTitle ? (
+              <p className="hidden min-w-0 truncate text-sm font-semibold text-[var(--text-primary)] lg:block lg:max-w-[10rem] xl:max-w-xs">
+                {headerTitle}
+              </p>
+            ) : null}
+          </>
+        )}
       </div>
 
+      {/* Center: inline mode toggle */}
+      {isInline && (
+        <div className="flex justify-center px-4">
+          <ModeToggle
+            isChatMode={isChatMode}
+            panelLabel={tAssistant("panel")}
+            chatLabel={tAssistant("chat")}
+            onSelectPanel={switchToPanel}
+            onSelectChat={switchToChat}
+          />
+        </div>
+      )}
+
       {/* Right: Actions */}
-      <div className="flex shrink-0 items-center gap-2 sm:gap-2.5">
-        <ModeToggle
-          isChatMode={isChatMode}
-          panelLabel={tAssistant("panel")}
-          chatLabel={tAssistant("chat")}
-          onSelectPanel={switchToPanel}
-          onSelectChat={switchToChat}
-        />
+      <div
+        className={cn(
+          "flex shrink-0 items-center",
+          isInline ? "justify-end gap-3" : "gap-2 sm:gap-2.5"
+        )}
+      >
+        {!isInline && (
+          <ModeToggle
+            isChatMode={isChatMode}
+            panelLabel={tAssistant("panel")}
+            chatLabel={tAssistant("chat")}
+            onSelectPanel={switchToPanel}
+            onSelectChat={switchToChat}
+          />
+        )}
         <LanguageSwitcher className="[&_button]:size-9 [&_button]:justify-center [&_button]:gap-0 [&_button]:px-0 sm:[&_button]:h-9 sm:[&_button]:w-auto sm:[&_button]:gap-1 sm:[&_button]:px-2 [&_button_svg]:hidden sm:[&_button_svg]:block" />
         <FeedbackTriggerButton />
         <ThemeToggle className="size-9 sm:size-10" />

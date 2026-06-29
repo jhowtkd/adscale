@@ -11,8 +11,8 @@ export default function V6PreviewLayout({
     <FeedbackProvider>
       <MissionInsightProvider>
         <div className="min-h-screen bg-[var(--canvas)]">
-          <TopBar />
-          <main id="main" className="shell-offset-top content-operational mx-auto px-4 py-6 sm:px-6 lg:px-8">
+          <TopBar variant="inline" />
+          <main id="main" className="content-operational mx-auto p-6 lg:p-8">
             {children}
           </main>
         </div>
