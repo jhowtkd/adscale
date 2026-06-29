@@ -12,6 +12,7 @@
     "start": "next start",
     "start:prod": "node scripts/start-with-inngest-sync.mjs",
     "lint": "eslint",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run --config config/vitest.config.ts --passWithNoTests",
     "test:e2e": "playwright test",
     "test:guided-e2e": "node scripts/run-guided-e2e.mjs",

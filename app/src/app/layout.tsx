@@ -60,13 +60,13 @@ export default async function RootLayout({
   const [locale, messages] = await Promise.all([getLocale(), getMessages()]);
 
   return (
-    <html lang={locale} className={`${inter.variable} ${spaceMono.variable} ${pressStart.variable} light antialiased`} suppressHydrationWarning data-scroll-behavior="smooth">
+    <html lang={locale} className={`${inter.variable} ${spaceMono.variable} ${pressStart.variable} dark antialiased`} suppressHydrationWarning data-scroll-behavior="smooth">
       <head>
         <link rel="preconnect" href="https://r2.adscale.com" />
         <link rel="dns-prefetch" href="https://r2.adscale.com" />
       </head>
       <body className="min-h-screen bg-background text-foreground font-sans">
-        <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
         <a
           href="#main"
           className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:bg-[var(--surface-base)] focus:text-[var(--text-primary)] focus:rounded-md focus:shadow-lg focus:ring-2 focus:ring-[var(--accent-green)]"

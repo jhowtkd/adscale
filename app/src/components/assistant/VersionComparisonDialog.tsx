@@ -214,10 +214,6 @@ function CreativeComparison({
   const versionIdentity = (value: typeof comparison.versionA) =>
     `${value.versionNumber}:${value.previewUrl ?? ""}`;
 
-  useEffect(() => {
-    setFailed({});
-  }, [versionIdentity(comparison.versionA), versionIdentity(comparison.versionB)]);
-
   const renderPreview = (side: "A" | "B", value: typeof comparison.versionA) => {
     const failureKey = `${side}:${versionIdentity(value)}`;
     const hasError = failed[failureKey] || value.previewError || !value.previewUrl;

@@ -476,7 +476,7 @@ export function transitionJourney(
         [command.field]: command.value,
       };
 
-      let next = invalidateDependents(
+      const next = invalidateDependents(
         {
           ...state,
           slots: {
