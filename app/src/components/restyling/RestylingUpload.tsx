@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { Upload, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -39,18 +39,18 @@ export function RestylingUpload({
 }: RestylingUploadProps) {
   const [isDragActive, setIsDragActive] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const previewUrl = useMemo(
+    () => (value ? URL.createObjectURL(value) : null),
+    [value]
+  );
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!value) {
-      setPreviewUrl(null);
+    if (!previewUrl) {
       return;
     }
-    const url = URL.createObjectURL(value);
-    setPreviewUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [value]);
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
 
   const handleDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault();

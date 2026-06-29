@@ -2,7 +2,7 @@
 
 import { apiFetch } from "@/lib/api-client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, startTransition } from "react";
 
 const DEBOUNCE_MS = 500;
 
@@ -63,20 +63,22 @@ export function usePlanFeedbackDraft(
   });
 
   useEffect(() => {
-    if (!threadId || !isActive) {
-      hydratedThreadRef.current = null;
-      setDraftText("");
-      lastServerValueRef.current = "";
-      return;
-    }
+    startTransition(() => {
+      if (!threadId || !isActive) {
+        hydratedThreadRef.current = null;
+        setDraftText("");
+        lastServerValueRef.current = "";
+        return;
+      }
 
-    if (serverDraft === undefined || hydratedThreadRef.current === threadId) {
-      return;
-    }
+      if (serverDraft === undefined || hydratedThreadRef.current === threadId) {
+        return;
+      }
 
-    hydratedThreadRef.current = threadId;
-    setDraftText(serverDraft);
-    lastServerValueRef.current = serverDraft;
+      hydratedThreadRef.current = threadId;
+      setDraftText(serverDraft);
+      lastServerValueRef.current = serverDraft;
+    });
   }, [threadId, isActive, serverDraft]);
 
   useEffect(() => {
