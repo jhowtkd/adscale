@@ -1485,6 +1485,27 @@
     "privacyTab": "Privacy",
     "creditHistoryTab": "Usage History",
     "managePreferences": "Manage your profile, workspace, and preferences.",
+    "v6": {
+      "sectionLabel": "settings",
+      "title": "Workspace settings",
+      "subtitle": "Manage profile, team, brand, billing, and integrations in one place",
+      "openCard": "Open →",
+      "unavailable": "—",
+      "teamCard": "Invite members and manage workspace roles and permissions.",
+      "brandKitCard": "Logos, palettes, typography, and voice rules that guide the lab.",
+      "profileCard": "Your name, photo, and personal details visible to the team.",
+      "workspaceCard": "Shared workspace name, domain, and visual identity.",
+      "billingCard": "Current plan, payment method, and Stripe billing history.",
+      "creditHistoryCard": "Track where your credits were used.",
+      "plansCard": "Starter / Pro / Scale — compare benefits and upgrade.",
+      "integrationsCard": "Connect Meta, Google, TikTok, and webhooks to your flow.",
+      "privacyCard": "Privacy preferences and account data controls.",
+      "badges": {
+        "implemented": "Implemented",
+        "outsideLab": "Outside the lab",
+        "capturePending": "Capture pending"
+      }
+    },
     "onboarding": {
       "preferences": "Onboarding Preferences",
       "restartDescription": "The tour will be shown again on your next dashboard visit.",
@@ -1925,7 +1946,15 @@
     "deleteConfirmTitle": "Confirm deletion",
     "chooseFromLibrary": "Choose from library",
     "useAsset": "Use this asset",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "v6": {
+      "sectionLabel": "Workspace · Assets",
+      "subtitle": "Assets, references, and workspace materials",
+      "searchPlaceholder": "Search asset by name or tag…",
+      "countSummary": "{shown} of {total} assets",
+      "dropzoneAria": "Drag files here or click to select",
+      "deleteAsset": "Delete asset"
+    }
   },
   "copyGenerator": {
     "title": "Copy Variants",
@@ -2118,7 +2147,8 @@
       "send": "Send",
       "noThreadHint": "Select a thread to start chatting",
       "close": "Close",
-      "loading": "Loading conversation…"
+      "loading": "Loading conversation…",
+      "headerSubtitle": "active conversation"
     },
     "drawer": {
       "title": "Campaign assistant",

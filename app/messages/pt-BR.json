@@ -1485,6 +1485,27 @@
     "privacyTab": "Privacidade",
     "creditHistoryTab": "Histórico de uso",
     "managePreferences": "Gerencie seu perfil, workspace e preferências.",
+    "v6": {
+      "sectionLabel": "configurações",
+      "title": "Configurações do workspace",
+      "subtitle": "Gerencie perfil, equipe, marca, cobrança e integrações em um só lugar",
+      "openCard": "Abrir →",
+      "unavailable": "—",
+      "teamCard": "Convide membros, gerencie papéis e permissões de acesso ao workspace.",
+      "brandKitCard": "Logos, paletas, tipografia e regras de voz que o laboratório usa como guia.",
+      "profileCard": "Seu nome, foto e dados pessoais visíveis para o time.",
+      "workspaceCard": "Nome, domínio e identidade visual do workspace compartilhado.",
+      "billingCard": "Plano atual, método de pagamento e histórico de cobranças via Stripe.",
+      "creditHistoryCard": "Acompanhe onde seus créditos foram utilizados.",
+      "plansCard": "Starter / Pro / Scale — compare benefícios e faça upgrade.",
+      "integrationsCard": "Conecte Meta, Google, TikTok e webhooks ao seu fluxo.",
+      "privacyCard": "Preferências de privacidade e dados da conta.",
+      "badges": {
+        "implemented": "Implementado",
+        "outsideLab": "Fora do laboratório",
+        "capturePending": "Captura pendente"
+      }
+    },
     "onboarding": {
       "preferences": "Preferências de Onboarding",
       "restartDescription": "O tour será exibido novamente na próxima visita ao dashboard.",
@@ -1926,7 +1947,15 @@
     "deleteConfirmTitle": "Confirmar exclusão",
     "chooseFromLibrary": "Escolher da biblioteca",
     "useAsset": "Usar este asset",
-    "cancel": "Cancelar"
+    "cancel": "Cancelar",
+    "v6": {
+      "sectionLabel": "Workspace · Assets",
+      "subtitle": "Assets, referências e materiais do workspace",
+      "searchPlaceholder": "Buscar asset por nome ou tag…",
+      "countSummary": "{shown} de {total} assets",
+      "dropzoneAria": "Arraste arquivos aqui ou clique para selecionar",
+      "deleteAsset": "Excluir asset"
+    }
   },
   "copyGenerator": {
     "title": "Copy Alternativas",
@@ -2147,7 +2176,8 @@
       "send": "Enviar",
       "noThreadHint": "Selecione uma thread para começar a conversar",
       "close": "Fechar",
-      "loading": "Carregando conversa…"
+      "loading": "Carregando conversa…",
+      "headerSubtitle": "conversa ativa"
     },
     "drawer": {
       "title": "Assistente da campanha",
