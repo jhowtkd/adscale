@@ -71,6 +71,7 @@ import OutputLearningRecommendationCard, {
   type RecipePrefillPayload,
 } from "@/components/campaigns/OutputLearningRecommendationCard";
 import CampaignClientSubtitle from "@/components/campaigns/CampaignClientSubtitle";
+import ClientProfileLinkControl from "@/components/campaigns/ClientProfileLinkControl";
 import PlatformsDrawer from "@/components/campaigns/PlatformsDrawer";
 import { formatCampaignPlatforms } from "@/lib/campaign-platforms";
 import type { StrategyRecipePrefill } from "@/lib/hooks/use-strategy-recipe";
@@ -87,7 +88,12 @@ import { useUpdateCampaign } from "@/lib/hooks/use-campaigns";
 import { resolveConversionGateFromBilling } from "@/lib/billing/conversion-client";
 import { useDerivationFlow } from "@/lib/hooks/use-derivation-flow";
 import { usePreflightScore } from "@/lib/hooks/use-preflight";
-import { useBrandKit } from "@/lib/hooks/use-brand-kit";
+import {
+  resolveBrandKitClientProfileId,
+  shouldFetchBrandKit,
+  useBrandKit,
+} from "@/lib/hooks/use-brand-kit";
+import { useClientProfiles } from "@/lib/hooks/use-client-profiles";
 import { useTranslations } from "next-intl";
 import {
   applyCampaignDeepLink,
@@ -223,7 +229,28 @@ export default function CampaignWorkspacePage() {
   const { data: billingStatus } = useBillingStatus();
 
   const { data: campaignAssets } = useCampaignAssets(campaignId);
-  const { data: brandKit } = useBrandKit(campaign?.clientProfileId ?? undefined);
+  const { data: clientProfiles, isSuccess: clientProfilesLoaded } = useClientProfiles();
+  const brandKitClientProfileId = useMemo(
+    () =>
+      resolveBrandKitClientProfileId({
+        clientProfileId: campaign?.clientProfileId,
+        clientProfiles,
+      }),
+    [campaign?.clientProfileId, clientProfiles]
+  );
+  const brandKitQueryEnabled = useMemo(
+    () =>
+      Boolean(campaign) &&
+      shouldFetchBrandKit({
+        clientProfileId: campaign?.clientProfileId,
+        clientProfiles,
+        profilesLoaded: clientProfilesLoaded,
+      }),
+    [campaign, clientProfiles, clientProfilesLoaded]
+  );
+  const { data: brandKit } = useBrandKit(brandKitClientProfileId, {
+    enabled: brandKitQueryEnabled,
+  });
   const reviewDerivation = useMemo(
     () => allDerivations.find((item) => item.id === reviewDerivationId) ?? null,
     [allDerivations, reviewDerivationId]
@@ -500,6 +527,15 @@ export default function CampaignWorkspacePage() {
           onAddPlatform={() => setPlatformsDrawerOpen(true)}
         />
       )}
+
+      {campaign && !campaign.clientProfileId ? (
+        <ClientProfileLinkControl
+          campaignId={campaignId}
+          clientName={campaign.client}
+          clientProfileId={campaign.clientProfileId}
+          variant="banner"
+        />
+      ) : null}
 
       <PlatformsDrawer
         open={platformsDrawerOpen}

@@ -4,13 +4,11 @@ import Image from "next/image";
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
-import { ImageIcon, Target, Users, MessageSquare, Monitor, MousePointer, Loader2, UserPlus } from "lucide-react";
+import { ImageIcon, Target, Users, MessageSquare, Monitor, MousePointer, Loader2 } from "lucide-react";
 import { useCampaignAssets } from "@/lib/hooks/use-assets";
-import { useUpdateCampaign } from "@/lib/hooks/use-campaigns";
-import { useClientProfiles, useCreateClientProfile } from "@/lib/hooks/use-client-profiles";
-import { useAppStore } from "@/lib/store";
 import Panel from "@/components/layout/Panel";
 import CreativeReadinessPanel from "@/components/workspace/CreativeReadinessPanel";
+import ClientProfileLinkControl from "@/components/campaigns/ClientProfileLinkControl";
 
 interface PilotSidebarProps {
   campaignId: string;
@@ -55,132 +53,6 @@ function BriefingRow({ icon, label, value }: BriefingRowProps) {
         </p>
         <p className="mt-0.5 truncate text-sm text-[var(--text-primary)]">{value}</p>
       </div>
-    </div>
-  );
-}
-
-function ClientProfileLinkControl({
-  campaignId,
-  clientName,
-  clientProfileId,
-}: {
-  campaignId: string;
-  clientName?: string | null;
-  clientProfileId?: string | null;
-}) {
-  const t = useTranslations("campaign.pilotSidebar");
-  const addToast = useAppStore((s) => s.addToast);
-  const { data: profiles = [], isLoading } = useClientProfiles();
-  const updateCampaign = useUpdateCampaign(campaignId);
-  const createProfile = useCreateClientProfile();
-  const selectedProfile = profiles.find((profile) => profile.id === clientProfileId);
-  const isSaving = updateCampaign.isPending || createProfile.isPending;
-  const hasClientName = Boolean(clientName?.trim());
-  const canCreateProfile = hasClientName && profiles.length === 0;
-  const isEmptyState = profiles.length === 0 && !hasClientName;
-
-  const handleProfileChange = (value: string) => {
-    updateCampaign.mutate(
-      { clientProfileId: value === "none" ? null : value },
-      {
-        onSuccess: () => addToast("success", t("toastProfileLinked")),
-        onError: (error) =>
-          addToast(
-            "error",
-            error instanceof Error ? error.message : t("toastProfileLinkFailed")
-          ),
-      }
-    );
-  };
-
-  const handleCreateProfile = () => {
-    const name = clientName?.trim();
-    if (!name) return;
-    createProfile.mutate(
-      { name },
-      {
-        onSuccess: (profile) => {
-          updateCampaign.mutate(
-            { clientProfileId: profile.id },
-            {
-              onSuccess: () => addToast("success", t("toastProfileCreatedAndLinked")),
-              onError: (error) =>
-                addToast(
-                  "error",
-                  error instanceof Error ? error.message : t("toastProfileCreatedLinkFailed")
-                ),
-            }
-          );
-        },
-        onError: (error) =>
-          addToast(
-            "error",
-            error instanceof Error ? error.message : t("toastProfileCreateFailed")
-          ),
-      }
-    );
-  };
-
-  return (
-    <div className="border-t border-[var(--border-dim)] pt-4">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ghost)]">
-          {t("clientProfileLabel")}
-        </p>
-        {selectedProfile ? (
-          <span className="rounded-full bg-[var(--accent-green-dim)] px-2 py-0.5 text-[10px] font-medium text-[var(--accent-green-text)]">
-            {t("linkedBadge")}
-          </span>
-        ) : (
-          <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-300">
-            {t("pendingBadge")}
-          </span>
-        )}
-      </div>
-
-      {profiles.length > 0 ? (
-        <select
-          value={clientProfileId ?? "none"}
-          disabled={isLoading || isSaving}
-          onChange={(event) => handleProfileChange(event.target.value)}
-          aria-label={t("clientProfileLabel")}
-          className={cn(
-            "h-9 w-full rounded-md border bg-[var(--surface-base)] px-2 text-xs text-[var(--text-primary)] transition-colors disabled:opacity-60",
-            !selectedProfile
-              ? "border-[var(--accent-green)]/60 hover:border-[var(--accent-green)] focus:border-[var(--accent-green)] focus:ring-2 focus:ring-[var(--accent-green-dim)]"
-              : "border-[var(--border-dim)]"
-          )}
-        >
-          <option value="none">{t("noProfileLinked")}</option>
-          {profiles.map((profile) => (
-            <option key={profile.id} value={profile.id}>
-              {profile.name}
-            </option>
-          ))}
-        </select>
-      ) : isEmptyState ? (
-        <div className="rounded-md border border-dashed border-[var(--border-medium)] bg-[var(--surface-base)] px-3 py-2.5 text-xs text-[var(--text-muted)]">
-          {t("addClientNameHint")}
-        </div>
-      ) : (
-        <button
-          type="button"
-          disabled={!canCreateProfile || isSaving}
-          onClick={handleCreateProfile}
-          className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-3 text-xs font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-raised)] disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {isSaving ? (
-            <Loader2 size={12} className="animate-spin" aria-hidden="true" />
-          ) : (
-            <UserPlus size={12} aria-hidden="true" />
-          )}
-          {isSaving ? t("saving") : t("createProfileFromClient")}
-        </button>
-      )}
-
-      <p className="mt-2 text-[11px] leading-snug text-[var(--text-muted)]">
-        {t("profileLinkHelp")}
-      </p>
     </div>
   );
 }
@@ -260,11 +132,13 @@ export default function PilotSidebar({
           </h3>
         </div>
 
-        <ClientProfileLinkControl
-          campaignId={campaignId}
-          clientName={campaign.client}
-          clientProfileId={campaign.clientProfileId}
-        />
+        <div className="border-t border-[var(--border-dim)] pt-4">
+          <ClientProfileLinkControl
+            campaignId={campaignId}
+            clientName={campaign.client}
+            clientProfileId={campaign.clientProfileId}
+          />
+        </div>
 
         {hasBriefing ? (
           <div className="border-t border-[var(--border-dim)] pt-4 animate-fade-in">

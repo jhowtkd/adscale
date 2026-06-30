@@ -20,6 +20,27 @@ async function fetchPreflight(campaignId: string, assetId: string): Promise<Pref
   return res.json() as Promise<PreflightResponse>;
 }
 
+const PREFLIGHT_POLL_INTERVAL_MS = 3_000;
+const PREFLIGHT_POLL_TIMEOUT_MS = 120_000;
+
+async function waitForPreflightCompletion(
+  campaignId: string,
+  assetId: string
+): Promise<PreflightResponse> {
+  const deadline = Date.now() + PREFLIGHT_POLL_TIMEOUT_MS;
+
+  while (Date.now() < deadline) {
+    const result = await fetchPreflight(campaignId, assetId);
+    if (result.status === "completed") return result;
+    if (result.status === "failed") {
+      throw new Error("Preflight analysis failed");
+    }
+    await new Promise((resolve) => setTimeout(resolve, PREFLIGHT_POLL_INTERVAL_MS));
+  }
+
+  throw new Error("Preflight analysis timed out");
+}
+
 async function analyzePreflight(
   campaignId: string,
   assetId: string,
@@ -29,10 +50,16 @@ async function analyzePreflight(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(options?.force ? { force: true } : {}),
-    timeoutMs: 120_000,
+    timeoutMs: PREFLIGHT_POLL_TIMEOUT_MS,
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
+    const err = (await res.json().catch(() => ({}))) as {
+      error?: string;
+      code?: string;
+    };
+    if (res.status === 429 && err.code === "analysisInProgress") {
+      return waitForPreflightCompletion(campaignId, assetId);
+    }
     throw new Error(err.error || "Preflight analysis failed");
   }
   return res.json() as Promise<PreflightResponse>;
@@ -55,6 +82,8 @@ export function usePreflightScore({
     },
     enabled: !!campaignId && !!assetId && campaignId !== "new",
     staleTime: 5 * 60 * 1000,
+    refetchInterval: (query) =>
+      query.state.data?.status === "analyzing" ? PREFLIGHT_POLL_INTERVAL_MS : false,
   });
 }
 

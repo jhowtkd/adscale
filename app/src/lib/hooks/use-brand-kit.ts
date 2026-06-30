@@ -223,11 +223,43 @@ async function clearBrandKit(clientProfileId?: string): Promise<BrandKitWithUrl 
   };
 }
 
-export function useBrandKit(clientProfileId?: string) {
+export function resolveBrandKitClientProfileId(options: {
+  clientProfileId?: string | null;
+  clientProfiles?: { id: string }[] | null;
+}): string | undefined {
+  if (options.clientProfileId) return options.clientProfileId;
+  if (options.clientProfiles?.length === 1) return options.clientProfiles[0].id;
+  return undefined;
+}
+
+export function shouldFetchBrandKit(options: {
+  clientProfileId?: string | null;
+  clientProfiles?: { id: string }[] | null;
+  profilesLoaded: boolean;
+}): boolean {
+  if (options.clientProfileId) return true;
+  if (!options.profilesLoaded) return false;
+  return (options.clientProfiles?.length ?? 0) <= 1;
+}
+
+function shouldRetryBrandKitQuery(error: unknown): boolean {
+  return !(
+    error instanceof BrandKitAmbiguousError ||
+    error instanceof BrandKitProfileNotFoundError
+  );
+}
+
+export function useBrandKit(
+  clientProfileId?: string,
+  options?: { enabled?: boolean }
+) {
   return useQuery({
     queryKey: ["brand-kit", clientProfileId ?? null],
     queryFn: () => fetchBrandKit(clientProfileId),
     staleTime: STALE_TIME.STATIC,
+    enabled: options?.enabled ?? true,
+    retry: (failureCount, error) =>
+      shouldRetryBrandKitQuery(error) && failureCount < 3,
   });
 }
 
