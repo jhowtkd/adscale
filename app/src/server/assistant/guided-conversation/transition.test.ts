@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { JourneyState } from "./state";
-import { transitionJourney, GuidedTransitionError } from "./transition";
+import {
+  allowedCommandsForState,
+  transitionJourney,
+  GuidedTransitionError,
+} from "./transition";
 
 function baseState(overrides: Partial<JourneyState> = {}): JourneyState {
   return {
@@ -39,6 +43,18 @@ describe("transitionJourney", () => {
         { type: "back" }
       )
     ).toThrow(GuidedTransitionError);
+  });
+
+  it("does not offer back on the first step after returning from a later step", () => {
+    const state = baseState({
+      currentStep: "collect_brief",
+      slots: {
+        navigationHistory: ["collect_brief", "review_brief", "collect_brief"],
+        answers: { product: { value: "Shoes", source: "user", confirmed: true } },
+      },
+    });
+
+    expect(allowedCommandsForState(state)).not.toContain("back");
   });
 
   it("invalidates dependent fields on edit_field", () => {

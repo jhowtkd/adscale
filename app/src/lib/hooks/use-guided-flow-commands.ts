@@ -34,7 +34,10 @@ async function postGuidedCommand(
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.message ?? err.error ?? "Command failed");
+    const details = err.details as { message?: string } | undefined;
+    throw new Error(
+      details?.message ?? err.message ?? err.error ?? "Command failed"
+    );
   }
 
   return res.json();

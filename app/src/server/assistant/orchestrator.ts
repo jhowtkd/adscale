@@ -4,6 +4,7 @@ import { buildFromZeroPromptAugment } from "@/server/assistant/guided-paths/from
 import { applyGuidedConversationCommand } from "@/server/assistant/guided-conversation/service";
 import { journeyStateFromRow } from "@/server/assistant/guided-conversation/state";
 import { presentJourneyState } from "@/server/assistant/guided-conversation/presenter";
+import { allowedCommandsForState } from "@/server/assistant/guided-conversation/transition";
 import {
   buildIntentPromptAugment,
   buildAttachmentPromptAugment,
@@ -124,7 +125,10 @@ export async function* runAssistantTurn(
       | { type: "answer_brief"; field: string; value: string }
       | null = null;
 
-    if (/^(voltar|volte|anterior)$/.test(normalized)) {
+    if (
+      /^(voltar|volte|anterior)$/.test(normalized) &&
+      allowedCommandsForState(state).includes("back")
+    ) {
       command = { type: "back" };
     } else if (/^(reiniciar|recomeçar|recomecar)$/.test(normalized)) {
       command = { type: "restart" };
