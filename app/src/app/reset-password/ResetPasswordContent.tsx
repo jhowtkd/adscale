@@ -4,6 +4,8 @@ import { Suspense, useReducer } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import AuthCard from "@/components/auth/AuthCard";
 import AuthPageShell from "@/components/auth/AuthPageShell";
+import { AuthV6ErrorAlert, AuthV6SuccessAlert } from "@/components/auth/v6/AuthV6Alert";
+import AuthV6Header from "@/components/auth/v6/AuthV6Header";
 import PasswordInput from "@/components/auth/PasswordInput";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,10 +24,18 @@ interface ResetPasswordState {
 
 function resetPasswordReducer(
   state: ResetPasswordState,
-  payload: Partial<ResetPasswordState>
+  payload: Partial<ResetPasswordState>,
 ): ResetPasswordState {
   return { ...state, ...payload };
 }
+
+const authFieldClass =
+  "rounded-[var(--radius-control)] border-[var(--border-default)] bg-[var(--surface-raised)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]";
+
+const authPrimaryButtonClass =
+  "w-full rounded-[var(--radius-control)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] hover:bg-[var(--accent-primary-hover)]";
+
+const authTextLinkClass = "font-medium text-[var(--accent-primary-text)] hover:underline";
 
 export default function ResetPasswordContent() {
   return (
@@ -39,11 +49,9 @@ function ResetPasswordLoading() {
   const t = useTranslations("auth");
 
   return (
-    <AuthPageShell>
+    <AuthPageShell showBranding={false}>
       <AuthCard>
-        <div className="space-y-2 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">{t("loading")}</h1>
-        </div>
+        <AuthV6Header sectionLabel={t("v6.accessLabel")} title={t("loading")} subtitle="" showLogo />
       </AuthCard>
     </AuthPageShell>
   );
@@ -102,49 +110,41 @@ function ResetPasswordContentInner() {
   }
 
   return (
-    <AuthPageShell>
+    <AuthPageShell showBranding={false}>
       <AuthCard>
         <div className="space-y-6">
-          <div className="space-y-2 text-center">
-            <h1 className="text-2xl font-semibold tracking-tight">
-              {t("resetPasswordTitle")}
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              {t("resetPasswordSubtitle")}
-            </p>
-          </div>
+          <AuthV6Header
+            sectionLabel={t("v6.accessLabel")}
+            title={t("resetPasswordTitle")}
+            subtitle={t("resetPasswordSubtitle")}
+            showLogo
+          />
 
           {success ? (
             <div className="space-y-4">
-              <div className="rounded-md bg-[var(--accent-green)]/10 px-3 py-2 text-sm text-[var(--accent-green-text)]">
-                {t("passwordResetSuccess")}
-              </div>
-              <p className="text-center text-sm text-muted-foreground">
-                <Link href="/login" className="underline hover:text-primary">
+              <AuthV6SuccessAlert>{t("passwordResetSuccess")}</AuthV6SuccessAlert>
+              <p className="text-center text-sm text-[var(--text-secondary)]">
+                <Link href="/login" className={authTextLinkClass}>
                   {t("backToSignIn")}
                 </Link>
               </p>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
-              {error && (
-                <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                  {error}
-                </div>
-              )}
+              {error ? <AuthV6ErrorAlert>{error}</AuthV6ErrorAlert> : null}
               <div className="space-y-2">
                 <PasswordInput
                   id="new-password"
                   label={t("newPassword")}
                   placeholder={t("createPasswordPlaceholder")}
                   value={newPassword}
-	                  onChange={(value) => dispatch({ newPassword: value })}
+                  onChange={(value) => dispatch({ newPassword: value })}
                   showStrengthMeter
                   autoComplete="new-password"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="confirm-password">
+                <Label htmlFor="confirm-password" className="text-[var(--text-primary)]">
                   {t("confirmNewPassword")}
                 </Label>
                 <Input
@@ -153,19 +153,16 @@ function ResetPasswordContentInner() {
                   autoComplete="new-password"
                   placeholder={t("createPasswordPlaceholder")}
                   value={confirmPassword}
-	                  onChange={(e) => dispatch({ confirmPassword: e.target.value })}
+                  onChange={(e) => dispatch({ confirmPassword: e.target.value })}
                   required
+                  className={authFieldClass}
                 />
               </div>
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={loading || !token}
-              >
+              <Button type="submit" className={authPrimaryButtonClass} disabled={loading || !token}>
                 {loading ? t("resettingPassword") : t("resetPassword")}
               </Button>
-              <p className="text-center text-sm text-muted-foreground">
-                <Link href="/login" className="underline hover:text-primary">
+              <p className="text-center text-sm text-[var(--text-secondary)]">
+                <Link href="/login" className={authTextLinkClass}>
                   {t("backToSignIn")}
                 </Link>
               </p>

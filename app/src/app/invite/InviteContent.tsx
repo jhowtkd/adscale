@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import AuthCard from "@/components/auth/AuthCard";
 import AuthPageShell from "@/components/auth/AuthPageShell";
+import { AuthV6ErrorAlert, AuthV6SuccessAlert } from "@/components/auth/v6/AuthV6Alert";
+import AuthV6Header from "@/components/auth/v6/AuthV6Header";
 import { Button } from "@/components/ui/button";
 import { useTranslations } from "next-intl";
 import { authClient } from "@/lib/auth-client";
@@ -38,11 +40,9 @@ function InviteLoading() {
   const t = useTranslations("auth");
 
   return (
-    <AuthPageShell>
+    <AuthPageShell showBranding={false}>
       <AuthCard>
-        <div className="space-y-2 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">{t("loading")}</h1>
-        </div>
+        <AuthV6Header sectionLabel={t("v6.accessLabel")} title={t("loading")} subtitle="" showLogo />
       </AuthCard>
     </AuthPageShell>
   );
@@ -106,52 +106,43 @@ function InviteContentInner() {
       : t("genericError");
 
   return (
-    <AuthPageShell>
+    <AuthPageShell showBranding={false}>
       <AuthCard>
         <div className="space-y-6">
-          <div className="space-y-2 text-center">
-            <h1 className="text-2xl font-semibold tracking-tight">
-              {t("inviteTitle")}
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              {t("inviteSubtitle")}
-            </p>
-          </div>
+          <AuthV6Header
+            sectionLabel={t("v6.accessLabel")}
+            title={t("inviteTitle")}
+            subtitle={t("inviteSubtitle")}
+            showLogo
+          />
 
           {status === "loading" && (
-            <div className="text-center text-sm text-muted-foreground">
-              {t("processingInvite")}
-            </div>
+            <div className="text-center text-sm text-[var(--text-secondary)]">{t("processingInvite")}</div>
           )}
 
           {status === "success" && (
             <div className="space-y-4">
-              <div className="rounded-md bg-[var(--accent-green)]/10 px-3 py-2 text-sm text-[var(--accent-green-text)]">
-                {t("inviteSuccess")}
-              </div>
-              <p className="text-center text-sm text-muted-foreground">
-                {t("redirecting")}
-              </p>
+              <AuthV6SuccessAlert>{t("inviteSuccess")}</AuthV6SuccessAlert>
+              <p className="text-center text-sm text-[var(--text-secondary)]">{t("redirecting")}</p>
             </div>
           )}
 
           {status === "error" && (
             <div className="space-y-4">
-              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {error}
-              </div>
+              <AuthV6ErrorAlert>{error}</AuthV6ErrorAlert>
               <div className="flex justify-center gap-3">
                 <Button variant="outline" onClick={() => router.push("/login")}>
                   {t("backToSignIn")}
                 </Button>
                 {token && (
-	                  <Button
-	                    onClick={() => {
-	                      hasStartedRef.current = true;
-	                      acceptInviteMutation.reset();
-	                      acceptInviteMutation.mutate(token);
-	                    }}
-	                  >
+                  <Button
+                    className="rounded-[var(--radius-control)] bg-[var(--accent-primary)] text-[var(--text-on-accent)]"
+                    onClick={() => {
+                      hasStartedRef.current = true;
+                      acceptInviteMutation.reset();
+                      acceptInviteMutation.mutate(token);
+                    }}
+                  >
                     {t("retry")}
                   </Button>
                 )}

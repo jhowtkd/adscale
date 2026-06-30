@@ -3,16 +3,18 @@
 import { useReducer } from "react";
 import AuthCard from "@/components/auth/AuthCard";
 import AuthPageShell from "@/components/auth/AuthPageShell";
+import { AuthV6ErrorAlert, AuthV6SuccessAlert } from "@/components/auth/v6/AuthV6Alert";
+import AuthV6Header from "@/components/auth/v6/AuthV6Header";
 import PasswordInput from "@/components/auth/PasswordInput";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import { useTranslations } from "next-intl";
 import SocialAuthButtons from "@/components/auth/SocialAuthButtons";
 import { authClient } from "@/lib/auth-client";
+import { cn } from "@/lib/utils";
 
 interface LoginState {
   email: string;
@@ -51,6 +53,14 @@ function safeCallbackPath(value: string | null): string {
   }
   return value;
 }
+
+const authFieldClass =
+  "rounded-[var(--radius-control)] border-[var(--border-default)] bg-[var(--surface-raised)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]";
+
+const authPrimaryButtonClass =
+  "w-full rounded-[var(--radius-control)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] hover:bg-[var(--accent-primary-hover)]";
+
+const authTextLinkClass = "font-medium text-[var(--accent-primary-text)] hover:underline";
 
 export default function LoginContent() {
   const router = useRouter();
@@ -109,64 +119,47 @@ export default function LoginContent() {
   }
 
   return (
-    <AuthPageShell videoSrc="/videos/auth-login-background.mp4">
+    <AuthPageShell>
       <AuthCard>
         <div className="space-y-6">
-          <div className="space-y-2 text-center">
-            <div className="flex justify-center pb-1">
-              <Image
-                src="/images/logo.svg"
-                alt="ADScale"
-                className="h-8 w-auto object-contain"
-                width={813}
-                height={142}
-                priority
-                unoptimized
-              />
-            </div>
-            <h1 className="text-2xl font-semibold tracking-tight">{t("welcomeBack")}</h1>
-            <p className="text-sm text-muted-foreground">
-              {t("signInSubtitle")}
-            </p>
-          </div>
+          <AuthV6Header
+            sectionLabel={t("v6.accessLabel")}
+            title={t("welcomeBack")}
+            subtitle={t("signInSubtitle")}
+          />
 
           {showMagicLink ? (
             <form onSubmit={handleMagicLink} className="space-y-4">
-              {error && (
-                <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                  {error}
-                </div>
-              )}
+              {error ? <AuthV6ErrorAlert>{error}</AuthV6ErrorAlert> : null}
               {magicLinkSent ? (
-                <div className="rounded-md bg-[var(--accent-green)]/10 px-3 py-2 text-sm text-[var(--accent-green-text)]">
-                  {t("magicLinkSent")}
-                </div>
+                <AuthV6SuccessAlert>{t("magicLinkSent")}</AuthV6SuccessAlert>
               ) : (
                 <>
                   <div className="space-y-2">
-                    <Label htmlFor="magic-email">{t("email")}</Label>
+                    <Label htmlFor="magic-email" className="text-[var(--text-primary)]">
+                      {t("email")}
+                    </Label>
                     <Input
                       id="magic-email"
                       type="email"
                       autoComplete="email"
                       placeholder={t("emailPlaceholder")}
                       value={email}
-	                      onChange={(e) => dispatch({ type: "patch", payload: { email: e.target.value } })}
+                      onChange={(e) => dispatch({ type: "patch", payload: { email: e.target.value } })}
                       required
+                      className={authFieldClass}
                     />
                   </div>
-                  <Button type="submit" className="w-full" disabled={magicLinkLoading}>
+                  <Button type="submit" className={authPrimaryButtonClass} disabled={magicLinkLoading}>
                     {magicLinkLoading ? t("sendingMagicLink") : t("sendMagicLink")}
                   </Button>
                 </>
               )}
-              <p className="text-center text-sm text-muted-foreground">
+              <p className="text-center text-sm text-[var(--text-secondary)]">
                 <button
                   type="button"
-	                  onClick={() => {
-	                    dispatch({ type: "backToPassword" });
-	                  }}
-                  className="underline hover:text-primary"
+                  onClick={() => dispatch({ type: "backToPassword" })}
+                  className={authTextLinkClass}
                 >
                   {t("backToLogin")}
                 </button>
@@ -175,30 +168,28 @@ export default function LoginContent() {
           ) : (
             <>
               <form onSubmit={handleSubmit} className="space-y-4">
-                {error && (
-                  <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                    {error}
-                  </div>
-                )}
+                {error ? <AuthV6ErrorAlert>{error}</AuthV6ErrorAlert> : null}
                 <div className="space-y-2">
-                  <Label htmlFor="email">{t("email")}</Label>
+                  <Label htmlFor="email" className="text-[var(--text-primary)]">
+                    {t("email")}
+                  </Label>
                   <Input
                     id="email"
                     type="email"
                     autoComplete="email"
                     placeholder={t("emailPlaceholder")}
                     value={email}
-	                    onChange={(e) => dispatch({ type: "patch", payload: { email: e.target.value } })}
+                    onChange={(e) => dispatch({ type: "patch", payload: { email: e.target.value } })}
                     required
+                    className={authFieldClass}
                   />
                 </div>
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="login-password">{t("password")}</Label>
-                    <Link
-                      href="/forgot-password"
-                      className="text-xs text-[var(--text-secondary)] underline hover:text-primary py-2 px-1 -mx-1"
-                    >
+                  <div className="flex items-center justify-between gap-2">
+                    <Label htmlFor="login-password" className="text-[var(--text-primary)]">
+                      {t("password")}
+                    </Label>
+                    <Link href="/forgot-password" className={cn("text-xs", authTextLinkClass)}>
                       {t("forgotPassword")}
                     </Link>
                   </div>
@@ -206,32 +197,30 @@ export default function LoginContent() {
                     id="login-password"
                     placeholder={t("passwordPlaceholder")}
                     value={password}
-	                    onChange={(value) => dispatch({ type: "patch", payload: { password: value } })}
+                    onChange={(value) => dispatch({ type: "patch", payload: { password: value } })}
                     autoComplete="current-password"
                   />
                 </div>
-                <Button type="submit" className="w-full" disabled={loading}>
+                <Button type="submit" className={authPrimaryButtonClass} disabled={loading}>
                   {loading ? t("signingIn") : t("signIn")}
                 </Button>
               </form>
 
               <SocialAuthButtons mode="login" callbackURL={callbackUrl} />
 
-              <div className="space-y-3 text-center">
+              <div className="text-center">
                 <button
                   type="button"
-	                  onClick={() => {
-	                    dispatch({ type: "patch", payload: { showMagicLink: true, error: "" } });
-	                  }}
-                  className="text-sm text-[var(--text-secondary)] underline hover:text-primary py-2 px-1"
+                  onClick={() => dispatch({ type: "patch", payload: { showMagicLink: true, error: "" } })}
+                  className={cn("text-sm", authTextLinkClass)}
                 >
                   {t("magicLink")}
                 </button>
               </div>
 
-              <p className="text-center text-sm text-muted-foreground">
+              <p className="text-center text-sm text-[var(--text-secondary)]">
                 {t("noAccount")}{" "}
-                <Link href="/signup" className="underline hover:text-primary p-1">
+                <Link href="/signup" className={authTextLinkClass}>
                   {t("signUp")}
                 </Link>
               </p>
