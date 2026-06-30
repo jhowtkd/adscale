@@ -678,6 +678,14 @@
     backdrop-filter: blur(24px) saturate(140%);
   }
 
+  .v6-sidebar-logo {
+    margin-inline: auto;
+    object-fit: contain;
+    object-position: center;
+    filter: brightness(0) invert(1);
+    opacity: 0.42;
+  }
+
   .v6-shell-topbar {
     position: fixed;
     top: var(--shell-v6-gap);

@@ -19,14 +19,13 @@ export default function V6PreviewSidebar() {
 
   return (
     <aside className="v6-shell-sidebar" aria-label="Navegação principal">
-      <div className="mb-2.5 flex items-center gap-2 border-b border-[var(--border-subtle)] px-2 pb-4 pt-2">
-        <Link href="/v6" className="flex min-w-0 items-center rounded-md py-0.5" aria-label="ADScale">
+      <div className="mb-2.5 border-b border-[var(--border-subtle)] px-2 pb-4 pt-2">
+        <Link href="/v6" className="flex w-full justify-center rounded-md py-0.5" aria-label="ADScale">
           <Image
             src="/images/logo.svg"
             alt=""
             aria-hidden="true"
-            className="block h-[22px] w-auto max-w-[130px] object-contain object-left"
-            style={{ filter: "var(--logo-filter)" }}
+            className="v6-sidebar-logo block h-[22px] w-auto max-w-[130px]"
             width={813}
             height={142}
             priority
