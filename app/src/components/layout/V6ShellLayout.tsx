@@ -6,7 +6,6 @@ import AppSidebar from "./AppSidebar";
 import { FeedbackProvider } from "@/components/feedback/FeedbackProvider";
 import { MissionInsightProvider } from "@/components/mission-insights/MissionInsightProvider";
 import FeedbackBreadcrumbTracker from "@/components/feedback/FeedbackBreadcrumbTracker";
-import DeploymentVersionGuard from "./DeploymentVersionGuard";
 
 export default function V6ShellLayout({
   children,
@@ -21,7 +20,6 @@ export default function V6ShellLayout({
         <div className="min-h-screen bg-[var(--canvas)]">
           <Suspense fallback={null}>
             <FeedbackBreadcrumbTracker />
-            <DeploymentVersionGuard />
           </Suspense>
           <AppSidebar variant={sidebarVariant} />
           <TopBar variant="v6-floating" />
