@@ -2,7 +2,7 @@ import { apiFetch } from "@/lib/api-client";
 import { STALE_TIME } from "@/lib/query-config";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-export type BillingAccessKind = "paid" | "beta" | "none";
+export type BillingAccessKind = "paid" | "beta" | "tester" | "none";
 
 export type BillingSubscriptionStatus =
   | "trialing"

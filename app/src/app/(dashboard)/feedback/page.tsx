@@ -7,6 +7,7 @@ import { apiFetch } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { BetaSessionsPanel } from "@/components/feedback/BetaSessionsPanel";
+import { TesterProfilesPanel } from "@/components/feedback/TesterProfilesPanel";
 import { OwnerAnalyticsPanel } from "@/components/feedback/OwnerAnalyticsPanel";
 import { GuidedFlowFeedbackPanel } from "@/components/feedback/GuidedFlowFeedbackPanel";
 import { cn } from "@/lib/utils";
@@ -191,6 +192,7 @@ export default function FeedbackTriagePage() {
       <PageHeader title={t("title")} description={t("description")} />
 
       <OwnerAnalyticsPanel sessionOptions={sessionOptions} />
+      <TesterProfilesPanel />
       <GuidedFlowFeedbackPanel />
       <BetaSessionsPanel />
       <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">

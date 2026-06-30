@@ -40,7 +40,6 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
-import ThemeToggle from "@/components/ui/ThemeToggle";
 import FeedbackTriggerButton from "@/components/feedback/FeedbackTriggerButton";
 import { formatDistanceToNow, isToday, isYesterday, isThisWeek } from "date-fns";
 import {
@@ -348,7 +347,6 @@ export default function TopBar({
         )}
         <LanguageSwitcher className="[&_button]:size-9 [&_button]:justify-center [&_button]:gap-0 [&_button]:px-0 sm:[&_button]:h-9 sm:[&_button]:w-auto sm:[&_button]:gap-1 sm:[&_button]:px-2 [&_button_svg]:hidden sm:[&_button_svg]:block" />
         {!isV6Floating && <FeedbackTriggerButton />}
-        {!isV6Floating && <ThemeToggle className="size-9 sm:size-10" />}
 
         {isV6Floating && (
           <Link

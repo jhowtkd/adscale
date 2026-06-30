@@ -54,6 +54,9 @@ function resolveAccessLabel(
   if (access?.kind === "beta") {
     return t("accessLabels.beta", { remaining: access.remainingAds ?? 0 });
   }
+  if (access?.kind === "tester") {
+    return t("accessLabels.tester");
+  }
   if (subscription?.planKey) {
     const planName =
       planConfig[subscription.planKey as keyof typeof planConfig]?.name ?? subscription.planKey;
@@ -69,6 +72,7 @@ function resolveStatusLabel(
   const access = billingStatus?.access;
   const status = billingStatus?.subscriptionStatus;
   if (access?.kind === "beta") return t("statusLabels.beta");
+  if (access?.kind === "tester") return t("statusLabels.tester");
   if (status === "past_due") return t("statusLabels.pastDue");
   if (status === "canceled") return t("statusLabels.canceled");
   if (status === "trialing") return t("statusLabels.trial");

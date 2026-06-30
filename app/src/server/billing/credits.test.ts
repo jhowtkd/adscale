@@ -22,9 +22,9 @@ vi.mock("@/server/repositories/credit-transactions", () => ({
   createCreditTransaction: vi.fn(),
 }));
 
-vi.mock("@/server/auth/dev-admin", () => ({
-  workspaceHasDevAdminOwner: vi.fn(() => Promise.resolve(false)),
-  DEV_ADMIN_CREDIT_BALANCE: 999_999,
+vi.mock("@/server/billing/unlimited-access", () => ({
+  workspaceHasUnlimitedBillingAccess: vi.fn(() => Promise.resolve(false)),
+  UNLIMITED_CREDIT_BALANCE: 999_999,
 }));
 
 vi.spyOn(db, "transaction").mockImplementation(async (callback) => callback({} as never));
@@ -42,7 +42,7 @@ import {
 } from "@/server/repositories/usage";
 import { recordBetaAnalyticsEvent } from "@/server/beta-analytics/record";
 import { createCreditTransaction } from "@/server/repositories/credit-transactions";
-import { workspaceHasDevAdminOwner } from "@/server/auth/dev-admin";
+import { workspaceHasUnlimitedBillingAccess } from "@/server/billing/unlimited-access";
 import { canSpend, recordUsage, refundCredits } from "./credits";
 
 const mockGetWorkspaceBillingAccess = vi.mocked(getWorkspaceBillingAccess);
@@ -52,7 +52,7 @@ const mockGetUsageByIdempotencyKey = vi.mocked(getUsageByIdempotencyKey);
 const mockTrackUsage = vi.mocked(trackUsage);
 const mockRecordBetaAnalyticsEvent = vi.mocked(recordBetaAnalyticsEvent);
 const mockCreateCreditTransaction = vi.mocked(createCreditTransaction);
-const mockWorkspaceHasDevAdminOwner = vi.mocked(workspaceHasDevAdminOwner);
+const mockWorkspaceHasUnlimitedBillingAccess = vi.mocked(workspaceHasUnlimitedBillingAccess);
 
 const VALID_SESSION_ID = "550e8400-e29b-41d4-a716-446655440000";
 
@@ -251,7 +251,7 @@ describe("credit entitlement service", () => {
       "workspace-1",
       "image_derivation",
       5,
-      { derivationId: "123", creditAmount: 5, devAdminBypass: undefined },
+      { derivationId: "123", creditAmount: 5, unlimitedBillingBypass: undefined },
       "derivation:123",
       expect.anything()
     );
@@ -396,7 +396,7 @@ describe("refundCredits", () => {
     mockGetUsageByIdempotencyKey.mockResolvedValue(
       null as unknown as Awaited<ReturnType<typeof getUsageByIdempotencyKey>>
     );
-    mockWorkspaceHasDevAdminOwner.mockResolvedValue(false);
+    mockWorkspaceHasUnlimitedBillingAccess.mockResolvedValue(false);
     mockGetAvailableCreditGrants.mockResolvedValue([grant("grant-1", 10)]);
     mockCreateCreditTransaction.mockResolvedValue({
       id: "tx-1",
@@ -485,8 +485,8 @@ describe("refundCredits", () => {
     expect(mockCreateCreditTransaction).not.toHaveBeenCalled();
   });
 
-  it("does not modify grants for dev-admin workspaces but still records transaction", async () => {
-    mockWorkspaceHasDevAdminOwner.mockResolvedValue(true);
+  it("does not modify grants for unlimited billing workspaces but still records transaction", async () => {
+    mockWorkspaceHasUnlimitedBillingAccess.mockResolvedValue(true);
 
     const result = await refundCredits({
       workspaceId: "workspace-1",
@@ -505,7 +505,7 @@ describe("refundCredits", () => {
       expect.objectContaining({
         refund: true,
         creditAmount: 5,
-        devAdminBypass: true,
+        unlimitedBillingBypass: true,
       }),
       "assistant-action:action-dev:refund"
     );

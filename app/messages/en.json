@@ -2640,11 +2640,13 @@
       },
       "accessLabels": {
         "beta": "Beta ({remaining} ads remaining)",
+        "tester": "Tester (unlimited usage)",
         "noPlan": "No active plan",
         "plan": "{plan}"
       },
       "statusLabels": {
         "beta": "Beta access",
+        "tester": "Tester",
         "pastDue": "Payment pending",
         "trial": "Trial (14 days)",
         "active": "Active",
