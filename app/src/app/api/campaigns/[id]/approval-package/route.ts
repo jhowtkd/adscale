@@ -6,7 +6,6 @@ import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import {
   buildApprovalPackageSnapshot,
   expandPackageDerivationIds,
-  getApprovedRootDerivations,
   getPackageEligibleRoots,
   inferSelectedRootIdsFromPackage,
   type DerivationLike,
