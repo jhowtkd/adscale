@@ -11,6 +11,7 @@ import { SentryErrorBoundary } from "@/components/providers/SentryErrorBoundary"
 import ToastStack from "@/components/providers/ToastStack";
 import ThemeProvider from "@/components/providers/ThemeProvider";
 import MotionProvider from "@/components/providers/MotionProvider";
+import ClientRuntimeGuards from "@/components/layout/ClientRuntimeGuards";
 import "./globals.css";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -93,6 +94,7 @@ export default async function RootLayout({
                         }}
                       />
                       <ToastStack />
+                      <ClientRuntimeGuards />
                     </div>
                   </MotionProvider>
                 </SentryErrorBoundary>

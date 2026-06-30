@@ -32,10 +32,25 @@ export default function DeploymentVersionGuard() {
     }
 
     void checkBuildId();
-    const interval = window.setInterval(checkBuildId, 5 * 60 * 1000);
+
+    const interval = window.setInterval(checkBuildId, 60 * 1000);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void checkBuildId();
+      }
+    };
+    const onWindowFocus = () => {
+      void checkBuildId();
+    };
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("focus", onWindowFocus);
+
     return () => {
       cancelled = true;
       window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("focus", onWindowFocus);
     };
   }, []);
 
