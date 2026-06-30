@@ -1,17 +1,16 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useMemo } from "react";
 import { m } from "framer-motion";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import ProfileTab from "@/components/settings/ProfileTab";
-import PageFrame from "@/components/layout/PageFrame";
-import PageHeader from "@/components/layout/PageHeader";
-import ResponsiveTabs from "@/components/layout/ResponsiveTabs";
 import SettingsTabSkeleton from "@/components/settings/SettingsTabSkeleton";
+import SettingsV6View from "@/components/settings/v6/SettingsV6View";
+import { buildSettingsV6Labels } from "@/components/settings/v6/build-settings-v6-labels";
+import { mapSettingsToV6Cards } from "@/components/settings/v6/map-settings-v6";
 import { useTranslations } from "next-intl";
-import { Badge } from "@/components/ui/badge";
-import { resolveSettingsTab, settingsTabs } from "./settings-tabs";
+import { resolveSettingsTab } from "./settings-tabs";
 
 const WorkspaceTab = dynamic(() => import("@/components/settings/WorkspaceTab"), {
   loading: () => <SettingsTabSkeleton />,
@@ -66,42 +65,32 @@ function SettingsContent() {
   const requestedTab = searchParams.get("tab");
   const activeTab = resolveSettingsTab(requestedTab);
 
+  const labels = useMemo(() => buildSettingsV6Labels(t), [t]);
+  const cards = useMemo(() => mapSettingsToV6Cards({ t, tc }), [t, tc]);
+
+  const panel = (
+    <m.div key={activeTab} variants={tabVariants} initial="hidden" animate="visible">
+      {activeTab === "profile" && <ProfileTab />}
+      {activeTab === "workspace" && <WorkspaceTab />}
+      {activeTab === "brandKit" && <BrandKitTab />}
+      {activeTab === "team" && <TeamTab />}
+      {activeTab === "billing" && <BillingTab />}
+      {activeTab === "creditHistory" && <CreditHistoryTab />}
+      {activeTab === "plans" && <PlansTab />}
+      {activeTab === "integrations" && <IntegrationsTab />}
+      {activeTab === "privacy" && <PrivacyTab />}
+    </m.div>
+  );
+
   return (
-    <PageFrame width="operational" className="space-y-6">
-      <PageHeader title={t("title")} description={t("managePreferences")} />
-
-      <ResponsiveTabs
-        ariaLabel={t("title")}
-        activeId={activeTab}
-        onSelect={(id) => router.replace(`/settings?tab=${id}`, { scroll: false })}
-        items={settingsTabs.map((tab) => ({
-          id: tab.id,
-          label: t(tab.labelKey),
-          disabled: !tab.enabled,
-          badge: !tab.enabled ? (
-            <Badge variant="secondary" className="text-[var(--text-muted)]">
-              {tc("comingSoon")}
-            </Badge>
-          ) : undefined,
-        }))}
+    <div className="pb-10">
+      <SettingsV6View
+        labels={labels}
+        cards={cards}
+        activeCardId={activeTab}
+        onSelectCard={(id) => router.replace(`/settings?tab=${id}`, { scroll: false })}
+        panel={panel}
       />
-
-      <m.div
-        key={activeTab}
-        variants={tabVariants}
-        initial="hidden"
-        animate="visible"
-      >
-        {activeTab === "profile" && <ProfileTab />}
-        {activeTab === "workspace" && <WorkspaceTab />}
-        {activeTab === "brandKit" && <BrandKitTab />}
-        {activeTab === "team" && <TeamTab />}
-        {activeTab === "billing" && <BillingTab />}
-        {activeTab === "creditHistory" && <CreditHistoryTab />}
-        {activeTab === "plans" && <PlansTab />}
-        {activeTab === "integrations" && <IntegrationsTab />}
-        {activeTab === "privacy" && <PrivacyTab />}
-      </m.div>
-    </PageFrame>
+    </div>
   );
 }
