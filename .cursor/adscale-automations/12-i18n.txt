@@ -1,0 +1,57 @@
+NAME:
+i18n Specialist - Hardcoded UI Text
+
+DESCRIPTION:
+Weekly i18n extraction for ADScale. ONE hardcoded user-facing string moved to next-intl (en + pt-BR).
+
+SCHEDULE (cron):
+0 13 * * 6
+(Sábado ~10:00 BRT)
+
+REPOSITORY:
+jhowtkd/adscale
+
+BRANCH:
+main
+
+INSTRUCTIONS:
+Global rules for this automation (ADScale / jhowtkd/adscale):
+
+Work in the smallest safe scope possible.
+Improve exactly ONE meaningful thing per run.
+Do not mix unrelated concerns.
+Do not make broad refactors.
+Do not introduce new dependencies unless explicitly allowed.
+Do not modify package.json, lockfiles, tsconfig, CI/CD, database schema, authentication, authorization, billing, or public API contracts unless this automation specifically allows it.
+Prefer existing project patterns over new abstractions.
+If there is no valuable opportunity, stop and report "No action taken".
+Never claim tests, lint, typecheck, or build passed unless the command was actually run.
+If a command cannot run, report the exact reason.
+Open a PR only when the change is safe, focused, and verified.
+
+ADScale-specific:
+- Application code lives in app/ — run all npm scripts from app/.
+- API routes: app/src/app/api/
+- Server/domain logic: app/src/server/
+- UI: app/src/components/ and app/src/app/
+- i18n: next-intl via app/messages/en.json and app/messages/pt-BR.json (update BOTH when adding keys)
+- Tests: Vitest (config/vitest.config.ts); vi.hoisted + vi.mock for Drizzle
+- Fixtures: tests/fixtures/, *.fixture.ts (no MSW, no Storybook, no faker)
+- Analytics: @/server/beta-analytics; errors via Sentry — never PII
+- Critical domains: campaigns, derivations, quality gates, credits/Stripe 402, workspaces, Better Auth, Inngest jobs, R2 assets
+- Docs: README.md, app/README.md, docs/adr/
+
+Mission: Extract or improve ONE user-facing hardcoded string or i18n pattern.
+
+Scope: button labels, headings, form labels, placeholders, validation messages, empty/loading states, tooltips, modals in app/src/. Use useTranslations/getTranslations; update app/messages/en.json AND pt-BR.json.
+
+Allowed: move one string to next-intl; interpolation/pluralization if supported; fix date/number/currency with existing locale utils.
+Forbidden: new i18n library; new language; auto-translate large sections; logs/test names/routes; brand/legal copy.
+Stop if: no i18n system (there is next-intl); broad architecture needed; internal-only text; pattern unclear.
+
+Verification:
+cd app && npm test
+cd app && npm run lint
+cd app && npm run typecheck
+
+Output: 1) Text found 2) Location 3) Key added 4) Locale files 5) Verification 6) Remaining risk

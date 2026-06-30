@@ -2,18 +2,33 @@
 
 import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, useMemo } from "react";
-import Link from "next/link";
-import { Trash2, MessageSquare } from "lucide-react";
 import { useAppStore } from "@/lib/store";
 import dynamic from "next/dynamic";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
-import { Badge } from "@/components/ui/badge";
-import PageFrame from "@/components/layout/PageFrame";
-import PageHeader from "@/components/layout/PageHeader";
-import PageSection from "@/components/layout/PageSection";
-import Panel from "@/components/layout/Panel";
 import { useUploadAsset, useCampaignAssets } from "@/lib/hooks/use-assets";
 import type { DeliveryFormat } from "@/components/workspace/DeliveryPackageModal";
+import {
+  CampaignWorkspaceBriefingV6Panel,
+  CampaignWorkspaceV6Chrome,
+} from "@/components/campaigns/v6/workspace/CampaignWorkspaceV6View";
+import type {
+  CampaignWorkspaceV6Labels,
+  CampaignWorkspaceV6ViewModel,
+} from "@/components/campaigns/v6/workspace/campaign-workspace-v6-types";
+import { buildCampaignWorkspaceV6Labels } from "@/components/campaigns/v6/workspace/build-campaign-workspace-v6-labels";
+import { mapCampaignWorkspaceToV6View } from "@/components/campaigns/v6/workspace/map-campaign-workspace-v6";
+
+const EMPTY_WORKSPACE_VIEW: CampaignWorkspaceV6ViewModel = {
+  name: "",
+  status: "draft",
+  statusVariant: "neutral",
+  meta: "",
+  currentStage: 0,
+  stages: [],
+  briefingSliders: [],
+  briefingRules: [],
+  derivations: [],
+};
 
 const DeliveryPackageModal = dynamic(() => import("@/components/workspace/DeliveryPackageModal"), {
   ssr: false,
@@ -43,13 +58,13 @@ import {
   type GuidedBriefingHints,
 } from "@/server/ai/guided-briefing";
 import WorkspaceActionBar from "@/components/workspace/WorkspaceActionBar";
-import WorkspaceStageStrip from "@/components/workspace/WorkspaceStageStrip";
 import DerivationGrid from "@/components/workspace/DerivationGrid";
 import StrategyRecipePanel from "@/components/workspace/StrategyRecipePanel";
 import ClientApprovalPackagePanel from "@/components/workspace/ClientApprovalPackagePanel";
 import RegenerateFeedbackDialog, {
   DerivationLoadErrorBanner,
 } from "@/components/workspace/RegenerateFeedbackDialog";
+import PageSection from "@/components/layout/PageSection";
 
 import OutputLearningRecommendationCard, {
   type OutputLearningAcceptPayload,
@@ -235,6 +250,27 @@ export default function CampaignWorkspacePage() {
       topIssue: issues[0],
     };
   }, [preflightData?.readiness?.blockingIssues, readinessOverrideActive]);
+
+  const workspaceLabels = useMemo(
+    () => buildCampaignWorkspaceV6Labels(tCampaign, tc, tAssistant),
+    [tCampaign, tc, tAssistant],
+  );
+
+  const workspaceView = useMemo(
+    () =>
+      campaign
+        ? mapCampaignWorkspaceToV6View({
+            campaign,
+            derivations: allDerivations,
+            workspaceState,
+            tStatus: (key) => tCampaign(`status.${key}`),
+            tWorkspace: (key, values) => tCampaign(`v6.${key}`, values),
+            formatDate: (date) =>
+              date.toLocaleDateString(undefined, { day: "2-digit", month: "2-digit", year: "numeric" }),
+          })
+        : EMPTY_WORKSPACE_VIEW,
+    [campaign, allDerivations, workspaceState, tCampaign],
+  );
 
   useEffect(() => {
     if (isLoading || isNew || !campaign) return;
@@ -446,25 +482,17 @@ export default function CampaignWorkspacePage() {
   };
 
   return (
-    <PageFrame
-      width="workspace"
-      className="min-w-0 workspace-scroll-padding shell-offset-bottom-mobile"
-    >
-      <CampaignWorkspaceHeader
+    <div className="min-w-0 space-y-4 pb-10 workspace-scroll-padding shell-offset-bottom-mobile">
+      <CampaignWorkspaceV6Chrome
+        view={workspaceView}
+        labels={workspaceLabels}
         campaignId={campaignId}
-        campaignName={campaign?.name ?? ""}
         isDraft={isDraft}
-        isNew={isNew}
-        backLabel={tc("backToCampaigns")}
-        deleteLabel={tc("deleteDraft")}
         onDelete={handleDeleteClick}
         onOpenAssistant={() => setAssistantDrawerOpen(true)}
-        assistantOpenLabel={tAssistant("open")}
         assistantDisabled={!campaign?.clientProfileId}
         assistantDisabledTooltip={tAssistant("missingClientTooltip")}
       />
-
-      <WorkspaceStageStrip workspaceState={workspaceState} className="mb-4 border-b border-[var(--border-dim)] pb-4" />
 
       {campaign && (
         <CampaignClientSubtitle
@@ -484,6 +512,8 @@ export default function CampaignWorkspacePage() {
         campaignId={campaignId}
         campaign={campaign}
         workspaceState={workspaceState}
+        workspaceView={workspaceView}
+        workspaceLabels={workspaceLabels}
         analysis={analysis}
         allDerivations={allDerivations}
         onPreview={handlePreview}
@@ -649,94 +679,7 @@ export default function CampaignWorkspacePage() {
         onDeleteDialogOpenChange={setShowDeleteDialog}
         onConfirmDelete={handleDelete}
       />
-    </PageFrame>
-  );
-}
-
-interface CampaignWorkspaceHeaderProps {
-  campaignId: string;
-  campaignName: string;
-  isDraft: boolean;
-  isNew: boolean;
-  backLabel: string;
-  deleteLabel: string;
-  onDelete: () => void;
-  onOpenAssistant: () => void;
-  assistantOpenLabel: string;
-  assistantDisabled?: boolean;
-  assistantDisabledTooltip?: string;
-}
-
-function CampaignWorkspaceHeader({
-  campaignId,
-  campaignName,
-  isDraft,
-  isNew,
-  backLabel,
-  deleteLabel,
-  onDelete,
-  onOpenAssistant,
-  assistantOpenLabel,
-  assistantDisabled,
-  assistantDisabledTooltip,
-}: CampaignWorkspaceHeaderProps) {
-  const tCampaign = useTranslations("campaign");
-  return (
-    <PageHeader
-      className="mb-2"
-      description={
-        <Link
-          href="/campaigns"
-          className="inline-flex items-center gap-1.5 text-sm text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
-        >
-          ← {backLabel}
-        </Link>
-      }
-      title={campaignName}
-      meta={
-        <Badge variant="success" className="font-mono text-[10px] font-bold uppercase tracking-[0.2em]">
-          <span
-            className="inline-block size-1.5 rounded-full bg-[var(--success-dot)]"
-            aria-hidden="true"
-          />
-          {tCampaign("pilotSidebar.pilotBadge")}
-        </Badge>
-      }
-      actions={
-        <>
-          {!isNew ? (
-            <button
-              type="button"
-              onClick={onOpenAssistant}
-              disabled={assistantDisabled}
-              title={assistantDisabled ? assistantDisabledTooltip : assistantOpenLabel}
-              aria-label={assistantOpenLabel}
-              className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-md border border-[var(--border-dim)] px-3 py-2 text-sm text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <MessageSquare size={16} aria-hidden="true" />
-              <span className="hidden sm:inline">{assistantOpenLabel}</span>
-            </button>
-          ) : null}
-          {!isNew ? (
-            <ContextualFeedbackButton
-              contextKind="campaign"
-              campaignId={campaignId}
-            />
-          ) : null}
-          {isDraft && !isNew ? (
-            <button
-              type="button"
-              onClick={onDelete}
-              className="min-h-10 shrink-0 rounded-md p-2 text-[var(--danger-text)] transition-colors hover:bg-[var(--danger-bg)]"
-              title={deleteLabel}
-              aria-label={deleteLabel}
-            >
-              <Trash2 size={16} />
-            </button>
-          ) : null}
-        </>
-      }
-    />
+    </div>
   );
 }
 
@@ -744,6 +687,8 @@ interface CampaignWorkspaceCardProps {
   campaignId: string;
   campaign: WorkspaceHookResult["campaign"];
   workspaceState: WorkspaceState;
+  workspaceView: CampaignWorkspaceV6ViewModel;
+  workspaceLabels: CampaignWorkspaceV6Labels;
   analysis: {
     detectedConcept: string;
     tone: string;
@@ -820,6 +765,8 @@ function CampaignWorkspaceCard({
   campaignId,
   campaign,
   workspaceState,
+  workspaceView,
+  workspaceLabels,
   analysis,
   allDerivations,
   onPreview,
@@ -866,12 +813,9 @@ function CampaignWorkspaceCard({
   const tCampaign = useTranslations("campaign");
 
   return (
-    <Panel
-      className="min-h-[400px]"
-      padding={workspaceState === "piloto" ? "md" : "none"}
-    >
+    <section className="min-h-[400px] rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-5 sm:p-8">
       {workspaceState === "piloto" && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
           <div id="mission-assets">
             <PilotUploadPanel
               campaignId={campaignId}
@@ -905,50 +849,37 @@ function CampaignWorkspaceCard({
         workspaceState === "derivando" ||
         workspaceState === "estilizando" ||
         workspaceState === "gerando") && (
-        <div className="flex flex-col gap-6 p-4 sm:p-6 lg:flex-row">
-          <details className="group lg:hidden rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)]">
-            <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-[var(--text-primary)] [&::-webkit-details-marker]:hidden">
-              {tCampaign("pilotSidebar.briefingReadinessSummary")}
-            </summary>
-            <div className="border-t border-[var(--border-dim)] p-4">
-              <PilotSidebar
-                campaignId={campaignId}
-                campaign={{
-                  name: campaign?.name || "",
-                  client: campaign?.client,
-                  clientProfileId: campaign?.clientProfileId,
-                }}
-                briefing={{
-                  objective: analysis.suggestedObjective,
-                  audience: analysis.suggestedAudience,
-                  tone: analysis.suggestedTone,
-                  platforms: analysis.suggestedPlatforms,
-                  ctaText: analysis.suggestedCta,
-                }}
-                onReadinessOverride={onReadinessOverride}
-              />
+        <div className="grid gap-8 lg:grid-cols-2">
+          <div className="space-y-6">
+            <details className="group lg:hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-raised)]">
+              <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-[var(--text-primary)] [&::-webkit-details-marker]:hidden">
+                {tCampaign("pilotSidebar.briefingReadinessSummary")}
+              </summary>
+              <div className="border-t border-[var(--border-subtle)] p-4">
+                <PilotSidebar
+                  campaignId={campaignId}
+                  campaign={{
+                    name: campaign?.name || "",
+                    client: campaign?.client,
+                    clientProfileId: campaign?.clientProfileId,
+                  }}
+                  briefing={{
+                    objective: analysis.suggestedObjective,
+                    audience: analysis.suggestedAudience,
+                    tone: analysis.suggestedTone,
+                    platforms: analysis.suggestedPlatforms,
+                    ctaText: analysis.suggestedCta,
+                  }}
+                  onReadinessOverride={onReadinessOverride}
+                />
+              </div>
+            </details>
+            <div className="hidden lg:block">
+              <CampaignWorkspaceBriefingV6Panel view={workspaceView} labels={workspaceLabels} />
             </div>
-          </details>
-          <div className="hidden shrink-0 lg:block lg:w-[280px]">
-            <PilotSidebar
-              campaignId={campaignId}
-              campaign={{
-                name: campaign?.name || "",
-                client: campaign?.client,
-                clientProfileId: campaign?.clientProfileId,
-              }}
-              briefing={{
-                objective: analysis.suggestedObjective,
-                audience: analysis.suggestedAudience,
-                tone: analysis.suggestedTone,
-                platforms: analysis.suggestedPlatforms,
-                ctaText: analysis.suggestedCta,
-              }}
-              onReadinessOverride={onReadinessOverride}
-            />
           </div>
-          <div className="flex-1 min-w-0 space-y-6">
-            <div id="mission-output-learnings" className="px-4 sm:px-6">
+          <div className="min-w-0 space-y-6">
+            <div id="mission-output-learnings">
               <OutputLearningRecommendationCard
                 campaignId={campaignId}
                 onAccept={onOutputLearningAccept}
@@ -1030,7 +961,7 @@ function CampaignWorkspaceCard({
           </div>
         </div>
       )}
-    </Panel>
+    </section>
   );
 }
 

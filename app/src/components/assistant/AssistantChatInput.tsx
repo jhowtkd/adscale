@@ -111,7 +111,7 @@ export default function AssistantChatInput({
     <form
       onSubmit={handleSubmit}
       className={cn(
-        "border-t border-[var(--border-dim)] bg-[var(--surface-base)] p-4",
+        "border-t border-[var(--border-subtle)] bg-[var(--surface-base)] p-3",
         dragOver && "ring-2 ring-inset ring-[var(--accent-primary)]"
       )}
       data-testid="assistant-chat-input"
@@ -168,7 +168,7 @@ export default function AssistantChatInput({
         </p>
       ) : null}
 
-      <div className="flex items-end gap-2">
+      <div className="flex items-end gap-2 rounded-[var(--radius-panel)] border border-[var(--border-default)] bg-[var(--surface-raised)] p-2">
         <input
           ref={fileInputRef}
           type="file"
@@ -187,6 +187,7 @@ export default function AssistantChatInput({
           disabled={disabled || isStreaming || isUploading}
           aria-label="Anexar imagem"
           onClick={() => fileInputRef.current?.click()}
+          className="shrink-0"
         >
           <ImagePlus className="size-4" aria-hidden="true" />
         </Button>
@@ -199,17 +200,17 @@ export default function AssistantChatInput({
           placeholder={t("inputPlaceholder")}
           rows={2}
           className={cn(
-            "min-h-[44px] flex-1 resize-none rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)] disabled:cursor-not-allowed disabled:opacity-50"
+            "min-h-[2.5rem] flex-1 resize-none bg-transparent px-2 py-1 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
           )}
         />
         <Button
           type="submit"
-          size="sm"
+          size="icon"
           disabled={!canSend}
           aria-label={t("send")}
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-[var(--radius-control)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] hover:bg-[var(--accent-primary)]"
         >
           <Send className="size-4" aria-hidden="true" />
-          {t("send")}
         </Button>
       </div>
     </form>

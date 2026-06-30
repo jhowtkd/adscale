@@ -1,0 +1,57 @@
+NAME:
+Sentinel - Security Drift Check
+
+DESCRIPTION:
+Weekly security drift check for ADScale. Fixes ONE real security issue or adds ONE hardening improvement. Security before aesthetics.
+
+SCHEDULE (cron):
+0 9 * * 1
+(Segunda ~06:00 BRT)
+
+REPOSITORY:
+jhowtkd/adscale
+
+BRANCH:
+main
+
+INSTRUCTIONS:
+Global rules for this automation (ADScale / jhowtkd/adscale):
+
+Work in the smallest safe scope possible.
+Improve exactly ONE meaningful thing per run.
+Do not mix unrelated concerns.
+Do not make broad refactors.
+Do not introduce new dependencies unless explicitly allowed.
+Do not modify package.json, lockfiles, tsconfig, CI/CD, database schema, authentication, authorization, billing, or public API contracts unless this automation specifically allows it.
+Prefer existing project patterns over new abstractions.
+If there is no valuable opportunity, stop and report "No action taken".
+Never claim tests, lint, typecheck, or build passed unless the command was actually run.
+If a command cannot run, report the exact reason.
+Open a PR only when the change is safe, focused, and verified.
+
+ADScale-specific:
+- Application code lives in app/ — run all npm scripts from app/.
+- API routes: app/src/app/api/
+- Server/domain logic: app/src/server/
+- UI: app/src/components/ and app/src/app/
+- i18n: next-intl via app/messages/en.json and app/messages/pt-BR.json (update BOTH when adding keys)
+- Tests: Vitest (config/vitest.config.ts); vi.hoisted + vi.mock for Drizzle
+- Fixtures: tests/fixtures/, *.fixture.ts (no MSW, no Storybook, no faker)
+- Analytics: @/server/beta-analytics; errors via Sentry — never PII
+- Critical domains: campaigns, derivations, quality gates, credits/Stripe 402, workspaces, Better Auth, Inngest jobs, R2 assets
+- Docs: README.md, app/README.md, docs/adr/
+
+Mission: Identify and fix ONE real security issue or add ONE concrete security hardening improvement.
+
+Scope — prioritize: hardcoded secrets; injection in Drizzle/SQL; path traversal; unsafe R2 uploads/presign; missing Better Auth or workspace authorization; sensitive data in responses/logs; Stripe webhook validation; missing Zod validation.
+
+Allowed: remove/protect secrets; parameterized queries; Zod validation; hide stack traces; security regression test.
+Forbidden: exploit details in PR; custom crypto; broad auth changes; new security deps; disable security for tests.
+Stop if: exploitability unclear; coordinated disclosure needed; no real issue.
+
+Verification:
+cd app && npm test
+cd app && npm run lint
+cd app && npm run typecheck
+
+Output: 1) Severity 2) Finding 3) Impact 4) Fix 5) Regression test 6) Commands/results 7) Remaining concerns 8) PR or why not

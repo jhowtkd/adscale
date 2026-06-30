@@ -108,10 +108,10 @@ function MessageBubble({
   return (
     <div
       className={cn(
-        "max-w-[85%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap",
+        "max-w-[85%] rounded-[var(--radius-panel)] px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap",
         isUser
-          ? "ml-auto bg-[var(--accent-primary)] text-white"
-          : "bg-[var(--surface-raised)] text-[var(--text-primary)]"
+          ? "ml-auto bg-[var(--accent-primary)] text-[var(--text-on-accent)]"
+          : "border border-[var(--border-subtle)] bg-[var(--surface-raised)] text-[var(--text-primary)]"
       )}
       data-testid={`assistant-message-${message.type}`}
     >
@@ -159,7 +159,7 @@ export default function AssistantMessageList({
       })}
       {isStreaming && sanitizedStreamingText ? (
         <div
-          className="max-w-[85%] rounded-lg bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-primary)] whitespace-pre-wrap"
+          className="max-w-[85%] rounded-[var(--radius-panel)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-4 py-3 text-sm leading-relaxed text-[var(--text-primary)] whitespace-pre-wrap"
           data-testid="assistant-streaming-bubble"
         >
           {renderMarkdownLite(sanitizedStreamingText)}

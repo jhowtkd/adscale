@@ -1,0 +1,58 @@
+NAME:
+Tester - Meaningful Test Gap
+
+DESCRIPTION:
+Weekly meaningful test gap for ADScale. Adds or improves ONE useful test with real edge-case verification — not coverage theater.
+
+SCHEDULE (cron):
+0 13 * * 1
+(Segunda ~10:00 BRT)
+
+REPOSITORY:
+jhowtkd/adscale
+
+BRANCH:
+main
+
+INSTRUCTIONS:
+Global rules for this automation (ADScale / jhowtkd/adscale):
+
+Work in the smallest safe scope possible.
+Improve exactly ONE meaningful thing per run.
+Do not mix unrelated concerns.
+Do not make broad refactors.
+Do not introduce new dependencies unless explicitly allowed.
+Do not modify package.json, lockfiles, tsconfig, CI/CD, database schema, authentication, authorization, billing, or public API contracts unless this automation specifically allows it.
+Prefer existing project patterns over new abstractions.
+If there is no valuable opportunity, stop and report "No action taken".
+Never claim tests, lint, typecheck, or build passed unless the command was actually run.
+If a command cannot run, report the exact reason.
+Open a PR only when the change is safe, focused, and verified.
+
+ADScale-specific:
+- Application code lives in app/ — run all npm scripts from app/.
+- API routes: app/src/app/api/
+- Server/domain logic: app/src/server/
+- UI: app/src/components/ and app/src/app/
+- i18n: next-intl via app/messages/en.json and app/messages/pt-BR.json (update BOTH when adding keys)
+- Tests: Vitest (config/vitest.config.ts); vi.hoisted + vi.mock for Drizzle
+- Fixtures: tests/fixtures/, *.fixture.ts (no MSW, no Storybook, no faker)
+- Analytics: @/server/beta-analytics; errors via Sentry — never PII
+- Critical domains: campaigns, derivations, quality gates, credits/Stripe 402, workspaces, Better Auth, Inngest jobs, R2 assets
+- Docs: README.md, app/README.md, docs/adr/
+
+Mission: Add ONE meaningful test or improve ONE weak test so the codebase is safer to change.
+
+Scope — prioritize: auth, workspace isolation, credits/billing 402, derivation quality gate verdicts, Stripe webhooks, Zod validation, API routes without adjacent *.test.ts, Inngest handlers, recent merges lacking tests.
+
+Allowed: focused unit/integration/regression test; fix flaky test; edge cases (null, empty, boundary, permission denied, API errors); mock externals with vi.hoisted patterns.
+Forbidden: coverage chasing; implementation-detail tests; slow/flaky tests; new testing libraries; production behavior changes for testability.
+Stop if: no valuable gap; major refactor needed; no mock pattern for external service; test cannot be verified.
+
+Verification:
+Run new/changed test in isolation first.
+cd app && npm test
+cd app && npm run lint
+cd app && npm run typecheck
+
+Output: 1) Gap 2) Test added/improved 3) Risk prevented 4) Edge cases 5) Verification 6) Coverage if available 7) PR or why not

@@ -1,16 +1,11 @@
 "use client";
 
-import { Suspense } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
-import TopBar from "./TopBar";
 import Footer from "./Footer";
-import { FeedbackProvider } from "@/components/feedback/FeedbackProvider";
-import { MissionInsightProvider } from "@/components/mission-insights/MissionInsightProvider";
-import FeedbackBreadcrumbTracker from "@/components/feedback/FeedbackBreadcrumbTracker";
-import DeploymentVersionGuard from "./DeploymentVersionGuard";
+import V6ShellLayout from "./V6ShellLayout";
 import { FolderOpen, LayoutDashboard, Settings } from "lucide-react";
 
 interface AppShellProps {
@@ -22,30 +17,14 @@ export default function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
 
   return (
-    <FeedbackProvider>
-    <MissionInsightProvider>
-    <div className="min-h-screen bg-[var(--deep-bg)]">
-      <Suspense fallback={null}>
-        <FeedbackBreadcrumbTracker />
-        <DeploymentVersionGuard />
-      </Suspense>
-      {/* Top Bar */}
-      <TopBar />
-
-      {/* Main Content Area */}
-      <main
-        id="main"
-        className="dot-grid shell-offset-top shell-offset-bottom-mobile min-h-screen"
-      >
-        <div className="relative min-w-0 overflow-x-clip shell-min-height-below-topbar">
-          {children}
-        </div>
+    <V6ShellLayout>
+      <main id="main" className="v6-shell-main dot-grid shell-offset-bottom-mobile min-h-screen">
+        <div className="relative min-w-0 overflow-x-clip shell-min-height-below-topbar">{children}</div>
         <Footer />
       </main>
 
-      {/* Bottom Navigation - Mobile */}
       <nav
-        className="layer-shell-floating fixed bottom-0 left-0 right-0 grid grid-cols-3 border-t border-[var(--border-dim)] bg-[var(--surface-base)] p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:hidden"
+        className="layer-shell-floating fixed bottom-0 left-0 right-0 z-[calc(var(--layer-shell-floating)+2)] grid grid-cols-3 border-t border-[var(--border-dim)] bg-[var(--surface-base)] p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:hidden"
         aria-label="Primary mobile navigation"
       >
         <MobileNavItem
@@ -67,9 +46,7 @@ export default function AppShell({ children }: AppShellProps) {
           active={pathname.startsWith("/settings")}
         />
       </nav>
-    </div>
-    </MissionInsightProvider>
-    </FeedbackProvider>
+    </V6ShellLayout>
   );
 }
 

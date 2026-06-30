@@ -678,6 +678,14 @@
     backdrop-filter: blur(24px) saturate(140%);
   }
 
+  .v6-sidebar-logo {
+    margin-inline: auto;
+    object-fit: contain;
+    object-position: center;
+    filter: brightness(0) invert(1);
+    opacity: 0.42;
+  }
+
   .v6-shell-topbar {
     position: fixed;
     top: var(--shell-v6-gap);
@@ -705,6 +713,20 @@
     padding-right: var(--shell-v6-gap);
     padding-bottom: 2rem;
     padding-left: var(--shell-v6-main-offset-left);
+  }
+
+  @media (max-width: 767px) {
+    .v6-shell-sidebar {
+      display: none;
+    }
+
+    .v6-shell-topbar {
+      left: var(--shell-v6-gap);
+    }
+
+    .v6-shell-main {
+      padding-left: var(--shell-v6-gap);
+    }
   }
   .layer-popover { z-index: var(--layer-popover); }
   .layer-backdrop { z-index: var(--layer-backdrop); }

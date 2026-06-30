@@ -1,0 +1,20 @@
+export type SettingsV6BadgeVariant = "success" | "warning" | "neutral";
+
+export type SettingsV6Card = {
+  id: string;
+  title: string;
+  description: string;
+  badge: string;
+  badgeVariant: SettingsV6BadgeVariant;
+  enabled: boolean;
+  icon: string;
+  href: string;
+};
+
+export type SettingsV6Labels = {
+  sectionLabel: string;
+  title: string;
+  subtitle: string;
+  openCard: string;
+  unavailable: string;
+};

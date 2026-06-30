@@ -2,8 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import AppShell from "./AppShell";
-import { FeedbackProvider } from "@/components/feedback/FeedbackProvider";
-import { MissionInsightProvider } from "@/components/mission-insights/MissionInsightProvider";
+import V6ShellLayout from "./V6ShellLayout";
 
 export default function DashboardShellSwitcher({
   children,
@@ -15,9 +14,9 @@ export default function DashboardShellSwitcher({
 
   if (isAssistant) {
     return (
-      <FeedbackProvider>
-        <MissionInsightProvider>{children}</MissionInsightProvider>
-      </FeedbackProvider>
+      <V6ShellLayout>
+        <div className="v6-shell-main min-h-screen shell-offset-bottom-mobile">{children}</div>
+      </V6ShellLayout>
     );
   }
 

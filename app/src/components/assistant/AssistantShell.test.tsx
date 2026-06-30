@@ -2,10 +2,6 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import AssistantShell from "./AssistantShell";
 
-vi.mock("@/components/layout/TopBar", () => ({
-  default: () => <div data-testid="top-bar" />,
-}));
-
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
 }));
@@ -24,7 +20,6 @@ describe("AssistantShell", () => {
     expect(screen.getByTestId("assistant-desktop-sidebar")).toHaveTextContent("Sidebar slot");
     expect(screen.getByTestId("assistant-desktop-main")).toHaveTextContent("Main slot");
     expect(screen.getByTestId("assistant-desktop-context")).toHaveTextContent("Context slot");
-    expect(screen.getByTestId("top-bar")).toBeInTheDocument();
   });
 
   it("renders mobile tabs and switches visible panel", () => {

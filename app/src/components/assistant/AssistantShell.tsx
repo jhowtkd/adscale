@@ -2,7 +2,6 @@
 
 import { useState, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import TopBar from "@/components/layout/TopBar";
 import { cn } from "@/lib/utils";
 import AssistantMobileTabs, { type AssistantMobileTab } from "./AssistantMobileTabs";
 
@@ -31,10 +30,7 @@ export default function AssistantShell({
   };
 
   return (
-    <div className="min-h-screen bg-[var(--deep-bg)]">
-      <TopBar />
-
-      <div className="shell-offset-top min-h-screen bg-[var(--surface-base)]">
+    <div className="min-h-[var(--shell-min-height-below-topbar,100vh)] bg-[var(--surface-base)]">
         <div
           data-testid="assistant-desktop-layout"
           className={cn(
@@ -44,7 +40,7 @@ export default function AssistantShell({
         >
           <aside
             data-testid="assistant-desktop-sidebar"
-            className="border-r border-[var(--border-dim)] bg-[var(--surface-base)]"
+            className="border-r border-[var(--border-subtle)] bg-[var(--surface-base)]"
           >
             {sidebar}
           </aside>
@@ -52,7 +48,7 @@ export default function AssistantShell({
           <main
             id="main"
             data-testid="assistant-desktop-main"
-            className="relative min-w-0 border-[var(--border-dim)] bg-[var(--surface-base)]"
+            className="relative min-w-0 bg-[var(--surface-base)]"
           >
             {main}
             {!contextOpen ? (
@@ -60,7 +56,7 @@ export default function AssistantShell({
                 type="button"
                 onClick={toggleContext}
                 aria-label="Expand context panel"
-                className="absolute right-2 top-2 flex size-8 items-center justify-center rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                className="absolute right-2 top-2 flex size-8 items-center justify-center rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
               >
                 <ChevronLeft size={16} aria-hidden="true" />
               </button>
@@ -70,13 +66,13 @@ export default function AssistantShell({
           {contextOpen ? (
             <aside
               data-testid="assistant-desktop-context"
-              className="relative border-l border-[var(--border-dim)] bg-[var(--surface-base)]"
+              className="relative border-l border-[var(--border-subtle)] bg-[var(--surface-base)]"
             >
               <button
                 type="button"
                 onClick={toggleContext}
                 aria-label="Collapse context panel"
-                className="absolute left-2 top-2 z-10 flex size-8 items-center justify-center rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                className="absolute left-2 top-2 z-10 flex size-8 items-center justify-center rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
               >
                 <ChevronRight size={16} aria-hidden="true" />
               </button>
@@ -99,7 +95,6 @@ export default function AssistantShell({
             <div data-testid="assistant-mobile-context">{contextPanel}</div>
           ) : null}
         </div>
-      </div>
 
       <AssistantMobileTabs activeTab={mobileTab} onTabChange={setMobileTab} />
     </div>

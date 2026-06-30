@@ -93,6 +93,9 @@ export default function AssistantChatCore({
   onPendingFirstMessageConsumed,
 }: AssistantChatCoreProps) {
   const t = useTranslations("assistant.chat");
+  const tMode = useTranslations("assistant.mode");
+  const tTree = useTranslations("assistant.tree");
+  const tGuided = useTranslations("assistant.guidedFlow");
   const { data, isLoading } = useAssistantThread(threadId, {
     pollWhileActive: true,
   });
@@ -149,6 +152,10 @@ export default function AssistantChatCore({
 
   const inputDisabled = !threadId;
 
+  const chatSubtitle = data?.guidedFlow
+    ? tGuided("resumeLabel")
+    : `${tMode("chat")} · ${t("headerSubtitle")}`;
+
   const handleSend = (text: string, attachments?: ChatAttachment[]) => {
     const send = async () => {
       if (attachments?.length) {
@@ -186,7 +193,7 @@ export default function AssistantChatCore({
       data-variant={variant}
     >
       {onClose ? (
-        <div className="flex items-center justify-end border-b border-[var(--border-dim)] px-4 py-2">
+        <div className="flex items-center justify-end border-b border-[var(--border-subtle)] px-4 py-2">
           <button
             type="button"
             onClick={onClose}
@@ -195,6 +202,20 @@ export default function AssistantChatCore({
             {t("close")}
           </button>
         </div>
+      ) : null}
+
+      {variant === "full" && threadId && data?.thread && !onClose ? (
+        <header
+          className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3"
+          data-testid="assistant-chat-header"
+        >
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-[var(--text-primary)]">
+              {data.thread.name?.trim() || tTree("untitled")}
+            </p>
+            <p className="truncate text-xs text-[var(--text-muted)]">{chatSubtitle}</p>
+          </div>
+        </header>
       ) : null}
 
       {isLoading && threadId ? (
