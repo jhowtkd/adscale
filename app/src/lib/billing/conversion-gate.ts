@@ -3,7 +3,7 @@ import type {
 } from "@/lib/billing/conversion-contract";
 import type { BillingPlanKey } from "@/server/billing/plans";
 
-type AccessKind = "paid" | "beta" | "none";
+type AccessKind = "paid" | "beta" | "tester" | "none";
 type SubscriptionStatus = "trialing" | "active" | "past_due" | "canceled" | "none";
 
 type BlockedSpendCheck =

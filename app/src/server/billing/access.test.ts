@@ -8,6 +8,7 @@ vi.mock("@/server/repositories/billing", () => ({
 
 vi.mock("@/server/repositories/entitlements", () => ({
   getActiveBetaEntitlementByWorkspace: vi.fn(),
+  getActiveTesterEntitlementByWorkspace: vi.fn(),
 }));
 
 import {
@@ -15,7 +16,10 @@ import {
   getAvailableCreditGrants,
   getLatestSubscriptionByWorkspace,
 } from "@/server/repositories/billing";
-import { getActiveBetaEntitlementByWorkspace } from "@/server/repositories/entitlements";
+import {
+  getActiveBetaEntitlementByWorkspace,
+  getActiveTesterEntitlementByWorkspace,
+} from "@/server/repositories/entitlements";
 import {
   getWorkspaceBillingAccess,
   normalizeSubscriptionStatus,
@@ -25,6 +29,7 @@ const mockGetActiveSubscription = vi.mocked(getActiveSubscriptionByWorkspace);
 const mockGetLatestSubscription = vi.mocked(getLatestSubscriptionByWorkspace);
 const mockGetAvailableCreditGrants = vi.mocked(getAvailableCreditGrants);
 const mockGetActiveBetaEntitlement = vi.mocked(getActiveBetaEntitlementByWorkspace);
+const mockGetActiveTesterEntitlement = vi.mocked(getActiveTesterEntitlementByWorkspace);
 
 const activeSubscription = {
   id: "subscription-id",
@@ -75,6 +80,7 @@ describe("getWorkspaceBillingAccess", () => {
     vi.clearAllMocks();
     mockGetAvailableCreditGrants.mockResolvedValue([grant(20)]);
     mockGetActiveBetaEntitlement.mockResolvedValue(null);
+    mockGetActiveTesterEntitlement.mockResolvedValue(null);
     mockGetLatestSubscription.mockResolvedValue(null);
   });
 
@@ -104,6 +110,30 @@ describe("getWorkspaceBillingAccess", () => {
     expect(access.subscriptionStatus).toBe("trialing");
     expect(access.hasSpendAccess).toBe(true);
     expect(access.remainingAds).toBe(4);
+  });
+
+  it("returns tester access with unlimited spend", async () => {
+    mockGetActiveSubscription.mockResolvedValue(null);
+    mockGetActiveTesterEntitlement.mockResolvedValue({
+      id: "tester-1",
+      workspaceId: "workspace-1",
+      kind: "tester",
+      status: "active",
+      sourceCode: null,
+      redeemedByUserId: null,
+      metadata: { notes: "QA cohort" },
+      startsAt: new Date(),
+      expiresAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const access = await getWorkspaceBillingAccess("workspace-1");
+
+    expect(access.kind).toBe("tester");
+    expect(access.label).toBe("Tester");
+    expect(access.hasSpendAccess).toBe(true);
+    expect(access.creditBalance).toBe(999_999);
   });
 
   it("returns beta access without subscription", async () => {

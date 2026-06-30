@@ -21,3 +21,18 @@ export async function getLocaleByEmail(email: string): Promise<string> {
     .limit(1);
   return result[0]?.locale ?? defaultLocale;
 }
+
+export async function getUserByEmail(email: string) {
+  const normalized = email.trim().toLowerCase();
+  const rows = await db
+    .select({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+    })
+    .from(user)
+    .where(eq(sql`lower(${user.email})`, normalized))
+    .limit(1);
+
+  return rows[0] ?? null;
+}

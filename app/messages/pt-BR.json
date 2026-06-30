@@ -2669,11 +2669,13 @@
       },
       "accessLabels": {
         "beta": "Beta ({remaining} anúncios restantes)",
+        "tester": "Tester (uso ilimitado)",
         "noPlan": "Sem plano ativo",
         "plan": "{plan}"
       },
       "statusLabels": {
         "beta": "Acesso beta",
+        "tester": "Tester",
         "pastDue": "Pagamento pendente",
         "trial": "Trial (14 dias)",
         "active": "Ativo",
@@ -2717,5 +2719,9 @@
       "label": "Restaurar dados de demonstração",
       "stub": "Restauração de demo ainda indisponível — em breve."
     }
+  },
+  "testerMode": {
+    "badge": "Tester",
+    "badgeAriaLabel": "Conta tester com uso ilimitado"
   }
 }

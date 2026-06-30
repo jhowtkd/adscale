@@ -21,9 +21,9 @@ import { recordBetaAnalyticsEvent } from "@/server/beta-analytics/record";
 import { createCreditTransaction } from "@/server/repositories/credit-transactions";
 import { z } from "zod";
 import {
-  DEV_ADMIN_CREDIT_BALANCE,
-  workspaceHasDevAdminOwner,
-} from "@/server/auth/dev-admin";
+  UNLIMITED_CREDIT_BALANCE,
+  workspaceHasUnlimitedBillingAccess,
+} from "@/server/billing/unlimited-access";
 
 export const CREDIT_COSTS = {
   creative_plan: 1,
@@ -154,11 +154,11 @@ export async function canSpend(
 ): Promise<SpendCheck> {
   const required = creditAmount(action, amount);
 
-  if (await workspaceHasDevAdminOwner(workspaceId)) {
+  if (await workspaceHasUnlimitedBillingAccess(workspaceId)) {
     return {
       allowed: true,
       amount: required,
-      balance: DEV_ADMIN_CREDIT_BALANCE,
+      balance: UNLIMITED_CREDIT_BALANCE,
     };
   }
 
@@ -213,7 +213,7 @@ export async function recordUsage(input: {
     return { status: "blocked" as const, check };
   }
 
-  const devAdminWorkspace = await workspaceHasDevAdminOwner(input.workspaceId);
+  const unlimitedBillingBypass = await workspaceHasUnlimitedBillingAccess(input.workspaceId);
 
   let usage: Awaited<ReturnType<typeof trackUsage>>;
   try {
@@ -227,7 +227,7 @@ export async function recordUsage(input: {
         throw new Error("duplicate_usage");
       }
 
-      if (!devAdminWorkspace) {
+      if (!unlimitedBillingBypass) {
         let remainingToDebit = check.amount;
         const grants = await getAvailableCreditGrants(input.workspaceId, tx, true);
         const balance = totalRemaining(grants);
@@ -255,11 +255,11 @@ export async function recordUsage(input: {
       return trackUsage(
         input.workspaceId,
         input.action,
-        devAdminWorkspace ? 0 : check.amount,
+        unlimitedBillingBypass ? 0 : check.amount,
         {
           ...(input.metadata ?? {}),
           creditAmount: check.amount,
-          devAdminBypass: devAdminWorkspace || undefined,
+          unlimitedBillingBypass: unlimitedBillingBypass || undefined,
         },
         input.idempotencyKey,
         tx
@@ -292,7 +292,7 @@ export async function recordUsage(input: {
     throw err;
   }
 
-  if (input.userId && !devAdminWorkspace) {
+  if (input.userId && !unlimitedBillingBypass) {
     try {
       const meta = input.metadata ?? {};
       await createCreditTransaction({
@@ -316,10 +316,10 @@ export async function recordUsage(input: {
     }
   }
 
-  const newBalance = devAdminWorkspace
-    ? DEV_ADMIN_CREDIT_BALANCE
+  const newBalance = unlimitedBillingBypass
+    ? UNLIMITED_CREDIT_BALANCE
     : check.balance - check.amount;
-  if (!devAdminWorkspace && newBalance < 10) {
+  if (!unlimitedBillingBypass && newBalance < 10) {
     try {
       const recipients = await getWorkspaceNotificationRecipients(input.workspaceId);
       const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -369,9 +369,9 @@ export async function refundCredits(input: {
   const refundAmount = creditAmount(input.action, input.amount);
   const meta = input.metadata ?? {};
 
-  const devAdminWorkspace = await workspaceHasDevAdminOwner(input.workspaceId);
+  const unlimitedBillingBypass = await workspaceHasUnlimitedBillingAccess(input.workspaceId);
 
-  if (!devAdminWorkspace) {
+  if (!unlimitedBillingBypass) {
     try {
       await db.transaction(async (tx) => {
         const grants = await getAvailableCreditGrants(
@@ -402,12 +402,12 @@ export async function refundCredits(input: {
   await trackUsage(
     input.workspaceId,
     input.action,
-    devAdminWorkspace ? 0 : -refundAmount,
+    unlimitedBillingBypass ? 0 : -refundAmount,
     {
       ...meta,
       refund: true,
       creditAmount: refundAmount,
-      devAdminBypass: devAdminWorkspace || undefined,
+      unlimitedBillingBypass: unlimitedBillingBypass || undefined,
     },
     input.idempotencyKey
   );
