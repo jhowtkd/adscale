@@ -18,6 +18,8 @@ import {
   type NotificationLike,
 } from "@/lib/notifications/grouping";
 import { isDemoUser, type UserLike } from "@/lib/demo-gating";
+import { useBillingStatus } from "@/lib/hooks/use-billing";
+import AccountStatusBadge from "@/components/layout/AccountStatusBadge";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -173,7 +175,9 @@ export default function TopBar({
   const sessionUserForDemo: UserLike | null = sessionUser
     ? { id: sessionUser.id, email: sessionUser.email, name: sessionUser.name }
     : null;
+  const { data: billingStatus } = useBillingStatus();
   const isDemoUserFlag = isDemoUser(sessionUserForDemo);
+  const isTesterAccount = billingStatus?.access?.kind === "tester";
 
   const headerTitle = useMemo(
     () =>
@@ -440,14 +444,10 @@ export default function TopBar({
                 {sessionUser?.email || user.email}
               </span>
             </div>
-            {isDemoUserFlag && (
-              <div className="px-2 pb-2">
-                <span
-                  aria-label={tDemoMode("badgeAriaLabel")}
-                  className="inline-flex items-center rounded-full bg-[var(--accent-green-dim)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--accent-green-text)]"
-                >
-                  {tDemoMode("badge")}
-                </span>
+            {(isDemoUserFlag || isTesterAccount) && (
+              <div className="flex flex-wrap gap-1.5 px-2 pb-2">
+                {isDemoUserFlag ? <AccountStatusBadge variant="demo" /> : null}
+                {isTesterAccount ? <AccountStatusBadge variant="tester" /> : null}
               </div>
             )}
             <DropdownMenuSeparator />

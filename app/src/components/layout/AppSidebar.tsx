@@ -7,7 +7,7 @@ import { useTranslations } from "next-intl";
 import { useAppStore } from "@/lib/store";
 import { useCampaigns } from "@/lib/hooks/use-campaigns";
 import { useBillingStatus } from "@/lib/hooks/use-billing";
-import { authClient } from "@/lib/auth-client";
+import AccountStatusBadge from "@/components/layout/AccountStatusBadge";
 
 type AppSidebarVariant = "production" | "preview";
 
@@ -33,6 +33,7 @@ export default function AppSidebar({ variant = "production" }: { variant?: AppSi
     .map((part) => part[0]?.toUpperCase() ?? "")
     .join("") || "U";
   const planLabel = billingStatus?.access?.label ?? billing.planName;
+  const isTesterAccount = billingStatus?.access?.kind === "tester";
 
   const isDashboard = isPreview
     ? pathname === "/v6" || pathname.startsWith("/v6/dashboard") || pathname.startsWith("/v6/topbar-promo")
@@ -138,8 +139,15 @@ export default function AppSidebar({ variant = "production" }: { variant?: AppSi
             {initials}
           </span>
           <div className="min-w-0">
-            <p className="truncate text-[13px] font-semibold text-[var(--text-primary)]">{displayName}</p>
-            <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--text-muted)]">{planLabel}</p>
+            <div className="flex min-w-0 items-center gap-2">
+              <p className="truncate text-[13px] font-semibold text-[var(--text-primary)]">{displayName}</p>
+              {isTesterAccount ? <AccountStatusBadge variant="tester" /> : null}
+            </div>
+            {!isTesterAccount ? (
+              <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--text-muted)]">
+                {planLabel}
+              </p>
+            ) : null}
           </div>
         </Link>
       </div>

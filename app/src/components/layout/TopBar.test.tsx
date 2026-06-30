@@ -29,6 +29,10 @@ vi.mock("@/lib/hooks/use-notifications", () => ({
   useClearAllNotifications: vi.fn(() => ({ mutate: vi.fn() })),
 }));
 
+vi.mock("@/lib/hooks/use-billing", () => ({
+  useBillingStatus: vi.fn(() => ({ data: undefined })),
+}));
+
 const mockPush = vi.fn();
 const mockUsePathname = vi.fn(() => "/campaigns");
 const mockUseSearchParams = vi.fn(() => new URLSearchParams());

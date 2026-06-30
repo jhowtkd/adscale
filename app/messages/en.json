@@ -2690,5 +2690,9 @@
       "label": "Restore demo data",
       "stub": "Demo restore is not available yet — coming soon."
     }
+  },
+  "testerMode": {
+    "badge": "Tester",
+    "badgeAriaLabel": "Tester account with unlimited usage"
   }
 }

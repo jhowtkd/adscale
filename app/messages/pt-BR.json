@@ -2719,5 +2719,9 @@
       "label": "Restaurar dados de demonstração",
       "stub": "Restauração de demo ainda indisponível — em breve."
     }
+  },
+  "testerMode": {
+    "badge": "Tester",
+    "badgeAriaLabel": "Conta tester com uso ilimitado"
   }
 }
