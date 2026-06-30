@@ -576,7 +576,6 @@ export function allowedCommandsForState(state: JourneyState): GuidedCommand["typ
 
   commands.push("back", "switch_path", "preview_switch", "restart", "edit_field");
 
-  const history = navigationHistory(state);
   const backTarget =
     state.path === "from_zero"
       ? fromZeroBackTarget(state.currentStep)
@@ -584,7 +583,7 @@ export function allowedCommandsForState(state: JourneyState): GuidedCommand["typ
         ? existingCreativeBackTarget(state.currentStep)
         : null;
 
-  if (!backTarget && history.length <= 1) {
+  if (!backTarget) {
     return commands.filter((c) => c !== "back");
   }
 
