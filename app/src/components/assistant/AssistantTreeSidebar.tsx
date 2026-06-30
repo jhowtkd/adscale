@@ -102,23 +102,25 @@ export default function AssistantTreeSidebar({
       className="flex h-full flex-col"
       data-testid="assistant-tree-sidebar"
     >
-      <div className="flex items-center justify-between border-b border-[var(--border-dim)] px-3 py-2">
-        <span className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">
+      <div className="border-b border-[var(--border-subtle)] p-3">
+        <p className="font-mono text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
           {t("title")}
-        </span>
+        </p>
         <Button
           type="button"
-          variant="ghost"
-          size="icon-xs"
+          variant="default"
+          size="sm"
+          className="mt-2 w-full rounded-[var(--radius-control)] bg-[var(--accent-primary)] text-xs font-medium text-[var(--text-on-accent)] hover:bg-[var(--accent-primary)]"
           aria-label={t("newClient")}
           onClick={onNewClient}
         >
           <Plus className="size-3.5" aria-hidden="true" />
+          {t("newClient")}
         </Button>
       </div>
 
       <div className="px-3 py-2">
-        <div className="flex items-center gap-2 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-2 py-1.5">
+        <div className="flex items-center gap-2 rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-2 py-1.5">
           <Search className="size-3.5 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
           <input
             type="text"
@@ -263,24 +265,25 @@ function ProjectNode({
                         aria-current={isActive ? "true" : undefined}
                         onClick={() => handleSelect(thread.id)}
                         className={cn(
-                          "flex w-full items-center gap-2 rounded-md px-6 py-1.5 text-left text-sm transition-colors",
+                          "flex w-full flex-col rounded-[var(--radius-control)] px-2.5 py-2 text-left transition-colors",
                           isActive
-                            ? "bg-[var(--surface-raised)] text-[var(--text-primary)]"
-                            : "text-[var(--text-secondary)] hover:bg-[var(--surface-secondary)] hover:text-[var(--text-primary)]"
+                            ? "bg-[var(--accent-primary-subtle)] text-[var(--accent-primary-text)]"
+                            : "text-[var(--text-secondary)] hover:bg-[var(--surface-raised)]"
                         )}
                       >
-                        <span
-                          className="size-1.5 shrink-0 rounded-full bg-[var(--accent-red)]"
-                          aria-hidden="true"
-                        />
-                        <span className="flex-1 truncate">{label}</span>
-                        {thread.isDefault ? (
-                          <span className="shrink-0 text-[10px] uppercase tracking-wide text-[var(--text-muted)]">
-                            default
+                        <span className="block truncate text-[11px] text-[var(--text-muted)]">
+                          {clientName}
+                        </span>
+                        <span className="flex items-center gap-2">
+                          <span className="flex-1 truncate text-sm font-medium">{label}</span>
+                          {thread.isDefault ? (
+                            <span className="shrink-0 text-[10px] uppercase tracking-wide text-[var(--text-muted)]">
+                              default
+                            </span>
+                          ) : null}
+                          <span className="shrink-0 text-[10px] text-[var(--text-muted)]">
+                            {formatRelativeTime(thread.updatedAt, new Date(), RELATIVE_LABELS)}
                           </span>
-                        ) : null}
-                        <span className="shrink-0 text-[10px] text-[var(--text-muted)]">
-                          {formatRelativeTime(thread.updatedAt, new Date(), RELATIVE_LABELS)}
                         </span>
                       </button>
                     </li>
