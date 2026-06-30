@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { handleApiError } from "@/lib/api-response";
+import { z } from "zod";
+import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import {
   getNotificationsByUser,
@@ -7,11 +8,27 @@ import {
   deleteNotificationsByUser,
 } from "@/server/repositories/notification";
 
+const listQuerySchema = z.object({
+  limit: z.preprocess(
+    (v) => (v === null || v === "" ? undefined : v),
+    z.coerce.number().int().positive().max(100).optional()
+  ),
+});
+
 export async function GET(request: Request) {
   try {
     const { user, workspace } = await requireWorkspaceAccess(request);
     const { searchParams } = new URL(request.url);
-    const limit = parseInt(searchParams.get("limit") ?? "50", 10);
+
+    const parsed = listQuerySchema.safeParse({
+      limit: searchParams.get("limit") ?? undefined,
+    });
+
+    if (!parsed.success) {
+      return apiError("invalidInput", 400, parsed.error.flatten());
+    }
+
+    const limit = parsed.data.limit ?? 50;
     const items = await getNotificationsByUser(user.id, workspace.id, limit);
     return NextResponse.json({ notifications: items });
   } catch (error) {

@@ -61,6 +61,39 @@ describe("GET /api/notifications", () => {
     expect(body.notifications[0].id).toBe("notif-1");
     expect(mockGetNotificationsByUser).toHaveBeenCalledWith("user-1", "workspace-1", 50);
   });
+
+  it("passes a validated custom limit to the repository", async () => {
+    mockGetNotificationsByUser.mockResolvedValue([]);
+
+    const res = await GET(
+      new Request("http://localhost/api/notifications?limit=25")
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockGetNotificationsByUser).toHaveBeenCalledWith("user-1", "workspace-1", 25);
+  });
+
+  it("returns 400 for non-numeric limit query values", async () => {
+    const res = await GET(
+      new Request("http://localhost/api/notifications?limit=abc")
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(body.code).toBe("invalidInput");
+    expect(mockGetNotificationsByUser).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 when limit exceeds the maximum", async () => {
+    const res = await GET(
+      new Request("http://localhost/api/notifications?limit=101")
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(body.code).toBe("invalidInput");
+    expect(mockGetNotificationsByUser).not.toHaveBeenCalled();
+  });
 });
 
 describe("PATCH /api/notifications", () => {
