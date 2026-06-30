@@ -5,6 +5,20 @@ import { apiFetch } from "@/lib/api-client";
 import { STALE_TIME } from "@/lib/query-config";
 import type { DashboardStats, AnalyticsPeriod, CreditChartRange } from "@/server/repositories/dashboard";
 
+export function normalizeDashboardStats(raw: DashboardStats): DashboardStats {
+  return {
+    ...raw,
+    recentCampaigns: raw.recentCampaigns.map((campaign) => ({
+      ...campaign,
+      updatedAt: new Date(campaign.updatedAt),
+    })),
+    recentActivity: raw.recentActivity.map((activity) => ({
+      ...activity,
+      createdAt: new Date(activity.createdAt),
+    })),
+  };
+}
+
 async function fetchDashboardStats(
   period: AnalyticsPeriod,
   creditRange: CreditChartRange
@@ -16,7 +30,8 @@ async function fetchDashboardStats(
     }
   );
   if (!res.ok) throw new Error("Failed to fetch dashboard stats");
-  return (await res.json()) as DashboardStats;
+  const raw = (await res.json()) as DashboardStats;
+  return normalizeDashboardStats(raw);
 }
 
 export function useDashboardStats(

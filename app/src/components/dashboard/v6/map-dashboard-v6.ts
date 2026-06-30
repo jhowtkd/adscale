@@ -57,8 +57,8 @@ function statusLabel(status: string, tStatus: (key: string) => string): string {
   return status;
 }
 
-function formatRelativeTime(date: Date, labels: RelativeTimeLabels, now = new Date()): string {
-  const diffMs = now.getTime() - date.getTime();
+function formatRelativeTime(date: Date | string, labels: RelativeTimeLabels, now = new Date()): string {
+  const diffMs = now.getTime() - new Date(date).getTime();
   const diffMin = Math.floor(diffMs / 60_000);
   if (diffMin < 1) return labels.now;
   if (diffMin < 60) return labels.minutes(diffMin);
