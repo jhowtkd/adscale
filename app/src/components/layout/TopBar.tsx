@@ -63,6 +63,7 @@ interface RouteTitleArgs {
   tCommon: (k: string) => string;
   tSettings: (k: string) => string;
   tAssistant: (k: string) => string;
+  tLibrary: (k: string) => string;
 }
 
 export function deriveRouteTitle({
@@ -72,6 +73,7 @@ export function deriveRouteTitle({
   tCommon,
   tSettings,
   tAssistant,
+  tLibrary,
 }: RouteTitleArgs): string {
   if (pathname === "/") return tNav("dashboard");
 
@@ -84,7 +86,7 @@ export function deriveRouteTitle({
   }
 
   if (pathname === "/library" || pathname.startsWith("/library/")) {
-    return "Biblioteca";
+    return tLibrary("title");
   }
 
   if (CAMPAIGN_DETAIL_PATH_REGEX.test(pathname)) {
@@ -130,6 +132,7 @@ export default function TopBar({
   const tCampaign = useTranslations("campaign");
   const tSettings = useTranslations("settings");
   const tAssistant = useTranslations("assistant.mode");
+  const tLibrary = useTranslations("library");
   const tNotificationPanel = useTranslations("notificationPanel");
   const tDemoMode = useTranslations("demoMode");
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -182,8 +185,9 @@ export default function TopBar({
         tCommon,
         tSettings,
         tAssistant,
+        tLibrary,
       }),
-    [pathname, campaignDetailTitle, tNav, tCommon, tSettings, tAssistant]
+    [pathname, campaignDetailTitle, tNav, tCommon, tSettings, tAssistant, tLibrary]
   );
 
   const switchToChat = () => {

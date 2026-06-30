@@ -267,6 +267,7 @@ const ptTitleDict = {
     "team.title": "Equipe",
   },
   "assistant.mode": { panel: "Painel", chat: "Chat", headerTitle: "Assistente" },
+  library: { title: "Biblioteca" },
 };
 
 const enTitleDict = {
@@ -279,6 +280,7 @@ const enTitleDict = {
     "team.title": "Team",
   },
   "assistant.mode": { panel: "Panel", chat: "Chat", headerTitle: "Assistant" },
+  library: { title: "Library" },
 };
 
 function makeTranslator(dict: typeof ptTitleDict) {
@@ -291,59 +293,67 @@ describe("deriveRouteTitle", () => {
   const tCommon = makeTranslator(ptTitleDict)("common");
   const tSettings = makeTranslator(ptTitleDict)("settings");
   const tAssistant = makeTranslator(ptTitleDict)("assistant.mode");
+  const tLibrary = makeTranslator(ptTitleDict)("library");
+  const baseArgs = { tNav, tCommon, tSettings, tAssistant, tLibrary };
 
   it("returns Dashboard label for /", () => {
     expect(
-      deriveRouteTitle({ pathname: "/", campaignDetailTitle: "", tNav, tCommon, tSettings, tAssistant })
+      deriveRouteTitle({ pathname: "/", campaignDetailTitle: "", ...baseArgs })
     ).toBe("Dashboard");
   });
 
   it("returns Assistente for /assistant", () => {
     expect(
-      deriveRouteTitle({ pathname: "/assistant", campaignDetailTitle: "", tNav, tCommon, tSettings, tAssistant })
+      deriveRouteTitle({ pathname: "/assistant", campaignDetailTitle: "", ...baseArgs })
     ).toBe("Assistente");
   });
 
   it("returns Campanhas for /campaigns", () => {
     expect(
-      deriveRouteTitle({ pathname: "/campaigns", campaignDetailTitle: "", tNav, tCommon, tSettings, tAssistant })
+      deriveRouteTitle({ pathname: "/campaigns", campaignDetailTitle: "", ...baseArgs })
     ).toBe("Campanhas");
   });
 
   it("returns Campanhas for /campaigns/new", () => {
     expect(
-      deriveRouteTitle({ pathname: "/campaigns/new", campaignDetailTitle: "", tNav, tCommon, tSettings, tAssistant })
+      deriveRouteTitle({ pathname: "/campaigns/new", campaignDetailTitle: "", ...baseArgs })
     ).toBe("Campanhas");
   });
 
   it("returns the campaign detail title from the store on /campaigns/[id]", () => {
     expect(
-      deriveRouteTitle({ pathname: "/campaigns/abc-123", campaignDetailTitle: "Cenbrap em Dobro", tNav, tCommon, tSettings, tAssistant })
+      deriveRouteTitle({ pathname: "/campaigns/abc-123", campaignDetailTitle: "Cenbrap em Dobro", ...baseArgs })
     ).toBe("Cenbrap em Dobro");
   });
 
   it("falls back to Campanhas on /campaigns/[id] when the store title is empty", () => {
     expect(
-      deriveRouteTitle({ pathname: "/campaigns/abc-123", campaignDetailTitle: "", tNav, tCommon, tSettings, tAssistant })
+      deriveRouteTitle({ pathname: "/campaigns/abc-123", campaignDetailTitle: "", ...baseArgs })
     ).toBe("Campanhas");
   });
 
   it("returns Configurações for /settings", () => {
     expect(
-      deriveRouteTitle({ pathname: "/settings", campaignDetailTitle: "", tNav, tCommon, tSettings, tAssistant })
+      deriveRouteTitle({ pathname: "/settings", campaignDetailTitle: "", ...baseArgs })
     ).toBe("Configurações");
   });
 
   it("appends the tab label on /settings/[tab]", () => {
     expect(
-      deriveRouteTitle({ pathname: "/settings/profile", campaignDetailTitle: "", tNav, tCommon, tSettings, tAssistant })
+      deriveRouteTitle({ pathname: "/settings/profile", campaignDetailTitle: "", ...baseArgs })
     ).toBe("Configurações · Perfil");
+  });
+
+  it("returns Biblioteca for /library", () => {
+    expect(
+      deriveRouteTitle({ pathname: "/library", campaignDetailTitle: "", ...baseArgs })
+    ).toBe("Biblioteca");
   });
 
   it("capitalizes the last segment as a fallback for unknown routes", () => {
     expect(
-      deriveRouteTitle({ pathname: "/library", campaignDetailTitle: "", tNav, tCommon, tSettings, tAssistant })
-    ).toBe("Library");
+      deriveRouteTitle({ pathname: "/custom-tool", campaignDetailTitle: "", ...baseArgs })
+    ).toBe("Custom Tool");
   });
 
   it("respects the EN dictionary for /assistant, /campaigns and /settings", () => {
@@ -351,15 +361,26 @@ describe("deriveRouteTitle", () => {
     const tCommonEn = makeTranslator(enTitleDict)("common");
     const tSettingsEn = makeTranslator(enTitleDict)("settings");
     const tAssistantEn = makeTranslator(enTitleDict)("assistant.mode");
+    const tLibraryEn = makeTranslator(enTitleDict)("library");
+    const enArgs = {
+      tNav: tNavEn,
+      tCommon: tCommonEn,
+      tSettings: tSettingsEn,
+      tAssistant: tAssistantEn,
+      tLibrary: tLibraryEn,
+    };
     expect(
-      deriveRouteTitle({ pathname: "/assistant", campaignDetailTitle: "", tNav: tNavEn, tCommon: tCommonEn, tSettings: tSettingsEn, tAssistant: tAssistantEn })
+      deriveRouteTitle({ pathname: "/assistant", campaignDetailTitle: "", ...enArgs })
     ).toBe("Assistant");
     expect(
-      deriveRouteTitle({ pathname: "/campaigns", campaignDetailTitle: "", tNav: tNavEn, tCommon: tCommonEn, tSettings: tSettingsEn, tAssistant: tAssistantEn })
+      deriveRouteTitle({ pathname: "/campaigns", campaignDetailTitle: "", ...enArgs })
     ).toBe("Campaigns");
     expect(
-      deriveRouteTitle({ pathname: "/settings", campaignDetailTitle: "", tNav: tNavEn, tCommon: tCommonEn, tSettings: tSettingsEn, tAssistant: tAssistantEn })
+      deriveRouteTitle({ pathname: "/settings", campaignDetailTitle: "", ...enArgs })
     ).toBe("Settings");
+    expect(
+      deriveRouteTitle({ pathname: "/library", campaignDetailTitle: "", ...enArgs })
+    ).toBe("Library");
   });
 });
 
