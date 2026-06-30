@@ -110,4 +110,46 @@ describe("useAnalyzePreflight", () => {
       queryKey: ["campaign-assets", "camp-1"],
     });
   });
+
+  it("polls GET when POST returns analysisInProgress", async () => {
+    vi.useFakeTimers();
+
+    mockApiFetch
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 429,
+        json: () => Promise.resolve({ code: "analysisInProgress", error: "Analysis already in progress" }),
+      } as unknown as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ ...sampleResponse, status: "analyzing" }),
+      } as unknown as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(sampleResponse),
+      } as unknown as Response);
+
+    const { result } = renderHook(() => useAnalyzePreflight(), {
+      wrapper: createWrapper(),
+    });
+
+    const responsePromise = result.current.mutateAsync({
+      campaignId: "camp-1",
+      assetId: "asset-1",
+    });
+
+    await vi.runAllTimersAsync();
+    const response = await responsePromise;
+
+    expect(response.status).toBe("completed");
+    expect(mockApiFetch).toHaveBeenCalledTimes(3);
+    expect(mockApiFetch.mock.calls[0]?.[1]).toEqual(
+      expect.objectContaining({ method: "POST" })
+    );
+    expect(mockApiFetch.mock.calls[1]?.[0]).toBe(
+      "/api/campaigns/camp-1/assets/asset-1/preflight"
+    );
+
+    vi.useRealTimers();
+  });
 });
