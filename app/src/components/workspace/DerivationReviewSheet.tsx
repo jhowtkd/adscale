@@ -14,7 +14,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { scoreCappedForDisplay } from "@/lib/derivation-quality";
+import { scoreCappedForDisplay } from "@/lib/derivation-display";
 import {
   getExportDisplay,
   getOlharDisplay,
@@ -23,7 +23,8 @@ import {
   type ReviewDecision,
   validateDirectionReason,
   verdictBadgeClassName,
-} from "@/lib/derivation-review-display";
+} from "@/lib/derivation-display";
+import { DerivationAutoRetryBadge } from "@/components/workspace/DerivationAutoRetryBadge";
 import { apiFetch } from "@/lib/api-client";
 import { useAppStore } from "@/lib/store";
 import type { Derivation } from "@/lib/mock-data";
@@ -331,6 +332,10 @@ export default function DerivationReviewSheet({
               <h3 className="text-sm font-semibold text-[var(--text-primary)]">
                 {tr("olharPanelTitle")}
               </h3>
+              <DerivationAutoRetryBadge
+                derivation={derivation}
+                className="inline-flex items-center rounded-md border border-sky-500/35 bg-sky-500/10 px-2 py-0.5 text-xs font-semibold text-sky-400"
+              />
               {olharDisplay ? (
                 <span
                   className={cn(

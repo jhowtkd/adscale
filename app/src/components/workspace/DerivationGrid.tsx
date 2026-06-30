@@ -8,7 +8,7 @@ import DerivationPreviewGateFooter from "./DerivationPreviewGateFooter";
 import type { BatchCreditBreakdown } from "@/server/ai/strategy-recipes";
 import type { ConversionErrorPayload } from "@/lib/billing/conversion-contract";
 import type { ReviewDerivationVariables } from "@/lib/hooks/use-review";
-import { mapDecisionToStatus } from "@/lib/derivation-review-display";
+import { mapDecisionToStatus } from "@/lib/derivation-display";
 
 // ============================================
 // Types

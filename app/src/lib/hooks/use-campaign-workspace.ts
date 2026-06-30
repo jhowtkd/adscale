@@ -21,7 +21,7 @@ import type { DeliveryFormat } from "@/components/workspace/DeliveryPackageModal
 import {
   buildRegenerationFeedback,
   derivationNeedsRegenerateDialog,
-} from "@/lib/derivation-regeneration-feedback";
+} from "@/lib/derivation-display";
 import { useTranslations } from "next-intl";
 import {
   getBatchCreditBreakdown,
@@ -249,6 +249,8 @@ export function useCampaignWorkspace(
         polishSuggestions: d.polishSuggestions ?? undefined,
         styleAssetId: d.styleAssetId ?? undefined,
         isPreview: d.isPreview,
+        autoRetryAttempted: d.autoRetryAttempted,
+        autoRetryReason: d.autoRetryReason ?? undefined,
         createdAt: d.createdAt,
         updatedAt: d.updatedAt,
       };

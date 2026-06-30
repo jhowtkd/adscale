@@ -3,7 +3,7 @@ import {
   type RecipeCreativeLevel,
   type StrategyRecipeId,
 } from "@/server/ai/strategy-recipes";
-import { DERIVATION_FORMATS, type DerivationFormat } from "@/lib/derivation-formats";
+import { DERIVATION_FORMATS, type DerivationFormat } from "@/lib/derivation-display";
 import type { SupportedVariableKey } from "../learning/types";
 import type { NextExperimentPrefill } from "./types";
 

@@ -15,14 +15,15 @@ import { useExport } from "@/lib/hooks/use-export";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAppStore } from "@/lib/store";
-import { scoreCappedForDisplay } from "@/lib/derivation-quality";
+import { scoreCappedForDisplay } from "@/lib/derivation-display";
 import {
   getExportDisplay,
   getOlharDisplay,
   getPackageEligibilityHintKey,
   isNormalApprovalBlocked,
   verdictBadgeClassName,
-} from "@/lib/derivation-review-display";
+} from "@/lib/derivation-display";
+import { DerivationAutoRetryBadge } from "@/components/workspace/DerivationAutoRetryBadge";
 
 // ============================================
 // Types
@@ -476,6 +477,7 @@ export default function DerivationCard({
                 {t("improvableOutputBadge")}
               </span>
             ) : null}
+            <DerivationAutoRetryBadge derivation={derivation} />
             {displayScore != null && (
               <div className="inline-flex items-center gap-1 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)]/60 px-1.5 py-0.5 opacity-80">
                 <span className="text-[10px] font-medium text-[var(--text-muted)]">

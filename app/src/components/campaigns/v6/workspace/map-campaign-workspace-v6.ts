@@ -1,6 +1,6 @@
 import type { Derivation } from "@/lib/mock-data";
 import type { WorkspaceState } from "@/lib/hooks/use-campaign-workspace";
-import { scoreCappedForDisplay } from "@/lib/derivation-quality";
+import { scoreCappedForDisplay } from "@/lib/derivation-display";
 import type {
   CampaignWorkspaceV6ViewModel,
   WorkspaceV6BadgeVariant,
