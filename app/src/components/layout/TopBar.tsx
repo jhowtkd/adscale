@@ -83,6 +83,10 @@ export function deriveRouteTitle({
     return tCommon("pageTitle");
   }
 
+  if (pathname === "/library" || pathname.startsWith("/library/")) {
+    return "Biblioteca";
+  }
+
   if (CAMPAIGN_DETAIL_PATH_REGEX.test(pathname)) {
     return campaignDetailTitle || tCommon("pageTitle");
   }
@@ -206,27 +210,29 @@ export default function TopBar({
   const isInline = variant === "inline";
   const isV6Floating = variant === "v6-floating";
   const v6ContextLabel = (() => {
-    if (pathname === "/v6" || pathname.startsWith("/v6/topbar-promo") || pathname.startsWith("/v6/dashboard")) {
-      return tNav("dashboard");
-    }
-    if (pathname.startsWith("/v6/campaign-workspace")) {
-      return "Cenbrap em Dobro — Teste";
-    }
-    if (pathname.startsWith("/v6/campaigns")) {
-      return tNav("campaigns");
-    }
-    if (pathname.startsWith("/v6/library")) {
-      return "Biblioteca";
-    }
-    if (pathname.startsWith("/v6/settings")) {
-      return tNav("settings");
-    }
-    if (
-      pathname.startsWith("/v6/chat") ||
-      pathname.startsWith("/v6/assistant-empty") ||
-      pathname.startsWith("/v6/onboarding")
-    ) {
-      return tAssistant("headerTitle");
+    if (pathname.startsWith("/v6/")) {
+      if (pathname === "/v6" || pathname.startsWith("/v6/topbar-promo") || pathname.startsWith("/v6/dashboard")) {
+        return tNav("dashboard");
+      }
+      if (pathname.startsWith("/v6/campaign-workspace")) {
+        return "Cenbrap em Dobro — Teste";
+      }
+      if (pathname.startsWith("/v6/campaigns")) {
+        return tNav("campaigns");
+      }
+      if (pathname.startsWith("/v6/library")) {
+        return "Biblioteca";
+      }
+      if (pathname.startsWith("/v6/settings")) {
+        return tNav("settings");
+      }
+      if (
+        pathname.startsWith("/v6/chat") ||
+        pathname.startsWith("/v6/assistant-empty") ||
+        pathname.startsWith("/v6/onboarding")
+      ) {
+        return tAssistant("headerTitle");
+      }
     }
     return headerTitle || tNav("dashboard");
   })();

@@ -14,6 +14,14 @@ vi.mock("./TopBar", () => ({
   default: () => <div data-testid="top-bar" />,
 }));
 
+vi.mock("./AppSidebar", () => ({
+  default: () => <aside data-testid="app-sidebar" />,
+}));
+
+vi.mock("./V6ShellLayout", () => ({
+  default: ({ children }: { children: React.ReactNode }) => <div data-testid="v6-shell">{children}</div>,
+}));
+
 vi.mock("./Footer", () => ({
   default: () => <footer data-testid="footer" />,
 }));

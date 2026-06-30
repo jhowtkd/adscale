@@ -714,6 +714,20 @@
     padding-bottom: 2rem;
     padding-left: var(--shell-v6-main-offset-left);
   }
+
+  @media (max-width: 767px) {
+    .v6-shell-sidebar {
+      display: none;
+    }
+
+    .v6-shell-topbar {
+      left: var(--shell-v6-gap);
+    }
+
+    .v6-shell-main {
+      padding-left: var(--shell-v6-gap);
+    }
+  }
   .layer-popover { z-index: var(--layer-popover); }
   .layer-backdrop { z-index: var(--layer-backdrop); }
   .layer-overlay { z-index: var(--layer-overlay); }

@@ -2,7 +2,6 @@
 
 import { useState, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import TopBar from "@/components/layout/TopBar";
 import { cn } from "@/lib/utils";
 import AssistantMobileTabs, { type AssistantMobileTab } from "./AssistantMobileTabs";
 
@@ -31,10 +30,7 @@ export default function AssistantShell({
   };
 
   return (
-    <div className="min-h-screen bg-[var(--deep-bg)]">
-      <TopBar />
-
-      <div className="shell-offset-top min-h-screen bg-[var(--surface-base)]">
+    <div className="min-h-[var(--shell-min-height-below-topbar,100vh)] bg-[var(--surface-base)]">
         <div
           data-testid="assistant-desktop-layout"
           className={cn(
@@ -99,7 +95,6 @@ export default function AssistantShell({
             <div data-testid="assistant-mobile-context">{contextPanel}</div>
           ) : null}
         </div>
-      </div>
 
       <AssistantMobileTabs activeTab={mobileTab} onTabChange={setMobileTab} />
     </div>
