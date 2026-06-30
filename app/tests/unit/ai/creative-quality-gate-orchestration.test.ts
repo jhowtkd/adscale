@@ -7,6 +7,7 @@ vi.mock("@/server/ai/creative-qa", () => ({
 
 vi.mock("@/server/repositories/derivation", () => ({
   getDerivationById: vi.fn(),
+  updateDerivationDualVerdict: vi.fn(),
   updateDerivationQualityGate: vi.fn(),
   updateDerivationQa: vi.fn(),
   updateDerivationScore: vi.fn(),
@@ -15,6 +16,7 @@ vi.mock("@/server/repositories/derivation", () => ({
 import { analyzeCreativeQa } from "@/server/ai/creative-qa";
 import {
   getDerivationById,
+  updateDerivationDualVerdict,
   updateDerivationQualityGate,
   updateDerivationQa,
   updateDerivationScore,
@@ -23,6 +25,7 @@ import { runCompletedDerivationQualityGate } from "@/server/ai/creative-quality-
 
 const mockAnalyzeCreativeQa = vi.mocked(analyzeCreativeQa);
 const mockGetDerivationById = vi.mocked(getDerivationById);
+const mockUpdateDerivationDualVerdict = vi.mocked(updateDerivationDualVerdict);
 const mockUpdateDerivationQualityGate = vi.mocked(updateDerivationQualityGate);
 const mockUpdateDerivationQa = vi.mocked(updateDerivationQa);
 const mockUpdateDerivationScore = vi.mocked(updateDerivationScore);
@@ -77,6 +80,7 @@ function passedChecklist() {
 describe("runCompletedDerivationQualityGate", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUpdateDerivationDualVerdict.mockResolvedValue({} as never);
     mockUpdateDerivationQualityGate.mockResolvedValue({} as never);
     mockUpdateDerivationQa.mockResolvedValue({} as never);
     mockUpdateDerivationScore.mockResolvedValue({} as never);
@@ -138,6 +142,38 @@ describe("runCompletedDerivationQualityGate", () => {
         qualityGatedAt: expect.any(Date),
       })
     );
+    expect(mockUpdateDerivationDualVerdict).toHaveBeenCalledWith(
+      "deriv-1",
+      "ws-1",
+      expect.objectContaining({
+        exportStatus: expect.objectContaining({ value: "ajuste_menor" }),
+      })
+    );
+  });
+
+  it("persists exportStatus ok when QA passes without hard failures", async () => {
+    mockAnalyzeCreativeQa.mockResolvedValue({
+      status: "ready",
+      checklist: passedChecklist(),
+      issues: [],
+      suggestions: [],
+    });
+    mockGetDerivationById.mockResolvedValue({
+      qualityScore: 92,
+      scoreIssues: [],
+      scoreStatus: "analyzed",
+      scoreBreakdown: null,
+    } as never);
+
+    await runCompletedDerivationQualityGate(baseInput);
+
+    expect(mockUpdateDerivationDualVerdict).toHaveBeenCalledWith(
+      "deriv-1",
+      "ws-1",
+      expect.objectContaining({
+        exportStatus: expect.objectContaining({ value: "ok" }),
+      })
+    );
   });
 
   it("on analyzeCreativeQa error persists improvable fallback with qualityGatedAt", async () => {
@@ -146,6 +182,7 @@ describe("runCompletedDerivationQualityGate", () => {
     await runCompletedDerivationQualityGate(baseInput);
 
     expect(mockUpdateDerivationQa).not.toHaveBeenCalled();
+    expect(mockUpdateDerivationDualVerdict).not.toHaveBeenCalled();
     expect(mockUpdateDerivationQualityGate).toHaveBeenCalledWith(
       "deriv-1",
       "ws-1",

@@ -31,6 +31,7 @@ import {
 } from "./creative-quality-taxonomy";
 import {
   getDerivationById,
+  updateDerivationDualVerdict,
   updateDerivationQualityGate,
   updateDerivationQa,
   updateDerivationScore,
@@ -38,6 +39,8 @@ import {
 } from "../repositories/derivation";
 import { buildHardFailureRegenerationSuggestion } from "./creative-score";
 import { applyScoreCeilings } from "./creative-score-ceilings";
+import { validateExportReadiness } from "./export-validation";
+import { buildPassagemOlharVerdict } from "./olhar/olhar-qa";
 import {
   isBlockingExportStatus,
   isBlockingOlharVerdict,
@@ -742,6 +745,33 @@ async function persistQualityGateFallback(
   });
 }
 
+async function persistDualVerdictFromQualityGate(input: {
+  derivationId: string;
+  workspaceId: string;
+  contract: CreativeContract;
+  derivation: RunCompletedDerivationQualityGateInput["derivation"];
+  hardFailures: CreativeHardFailure[];
+  qa: Awaited<ReturnType<typeof analyzeCreativeQa>>;
+  gatedAt: Date;
+}): Promise<void> {
+  const exportStatus = validateExportReadiness({
+    contract: input.contract,
+    observedCtaText: input.derivation.ctaText,
+    hardFailures: input.hardFailures,
+  });
+
+  const olharVerdict = buildPassagemOlharVerdict({
+    hardFailures: input.hardFailures,
+    qa: input.qa,
+    evaluatedAt: input.gatedAt.toISOString(),
+  });
+
+  await updateDerivationDualVerdict(input.derivationId, input.workspaceId, {
+    exportStatus,
+    ...(olharVerdict !== null ? { olharVerdict } : {}),
+  });
+}
+
 export async function runCompletedDerivationQualityGate(
   input: RunCompletedDerivationQualityGateInput
 ): Promise<void> {
@@ -806,6 +836,16 @@ export async function runCompletedDerivationQualityGate(
         regenerationSuggestion,
       });
     }
+
+    await persistDualVerdictFromQualityGate({
+      derivationId: input.derivationId,
+      workspaceId: input.workspaceId,
+      contract: input.contract,
+      derivation: input.derivation,
+      hardFailures,
+      qa,
+      gatedAt,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     logger.warn(
