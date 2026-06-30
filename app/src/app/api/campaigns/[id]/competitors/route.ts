@@ -8,7 +8,7 @@ import {
   createCompetitorAnalysis,
 } from "@/server/repositories/competitor-analysis";
 import { isWorkspaceAssetKey } from "@/server/repositories/asset";
-import { getPublicUrl } from "@/server/storage/r2";
+import { objectStorage } from "@/server/storage";
 
 const createSchema = z.object({
   name: z.string().min(1),
@@ -40,7 +40,7 @@ export async function GET(
 
     const withUrls = analyses.map((a) => ({
       ...a,
-      screenshotUrls: (a.screenshots ?? []).map((key) => getPublicUrl(key)),
+      screenshotUrls: (a.screenshots ?? []).map((key) => objectStorage.publicUrl(key)),
     }));
 
     return NextResponse.json({ competitors: withUrls });
@@ -100,7 +100,7 @@ export async function POST(
 
     const withUrls = {
       ...analysis,
-      screenshotUrls: (analysis.screenshots ?? []).map((key) => getPublicUrl(key)),
+      screenshotUrls: (analysis.screenshots ?? []).map((key) => objectStorage.publicUrl(key)),
     };
 
     return NextResponse.json({ competitor: withUrls }, { status: 201 });

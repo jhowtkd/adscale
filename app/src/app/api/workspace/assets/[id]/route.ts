@@ -7,7 +7,7 @@ import {
   updateWorkspaceAsset,
   deleteWorkspaceAsset,
 } from "@/server/repositories/workspace-asset";
-import { deleteObject } from "@/server/storage/r2";
+import { objectStorage } from "@/server/storage";
 import { isWorkspaceAssetKey } from "@/server/repositories/asset";
 import { logger } from "@/lib/logger";
 
@@ -96,7 +96,7 @@ export async function DELETE(
 
     // Delete from R2 first
     try {
-      await deleteObject(asset.key);
+      await objectStorage.delete(asset.key);
     } catch (err) {
       logger.warn("[workspace-asset] R2 delete failed — possible orphan", {
         assetId: id,

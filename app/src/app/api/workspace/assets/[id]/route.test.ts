@@ -20,9 +20,10 @@ vi.mock("@/server/repositories/asset", () => ({
   isWorkspaceAssetKey: vi.fn(),
 }));
 
-vi.mock("@/server/storage/r2", () => ({
-  deleteObject: vi.fn(),
-}));
+vi.mock("@/server/storage", () => ({
+  objectStorage: {
+    delete: vi.fn(),
+  },}));
 
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
@@ -34,13 +35,13 @@ import {
   deleteWorkspaceAsset,
 } from "@/server/repositories/workspace-asset";
 import { isWorkspaceAssetKey } from "@/server/repositories/asset";
-import { deleteObject } from "@/server/storage/r2";
+import { objectStorage } from "@/server/storage";
 
 const mockGetWorkspaceAssetById = vi.mocked(getWorkspaceAssetById);
 const mockUpdateWorkspaceAsset = vi.mocked(updateWorkspaceAsset);
 const mockDeleteWorkspaceAsset = vi.mocked(deleteWorkspaceAsset);
 const mockIsWorkspaceAssetKey = vi.mocked(isWorkspaceAssetKey);
-const mockDeleteObject = vi.mocked(deleteObject);
+const mockDeleteObject = vi.mocked(objectStorage.delete);
 
 function makeParams(id: string) {
   return Promise.resolve({ id });

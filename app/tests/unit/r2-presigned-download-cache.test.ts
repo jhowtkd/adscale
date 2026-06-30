@@ -26,9 +26,9 @@ describe("R2 presigned download URL cache", () => {
   it("reuses the same signed URL for repeated requests to the same key", async () => {
     getSignedUrlMock.mockResolvedValueOnce("https://cdn.example.com/file-1");
 
-    const { getPresignedDownloadUrl } = await import("@/server/storage/r2");
-    const first = await getPresignedDownloadUrl("campaigns/camp-1/file.png");
-    const second = await getPresignedDownloadUrl("campaigns/camp-1/file.png");
+    const { objectStorage } = await import("@/server/storage");
+    const first = await objectStorage.signedDownloadUrl("campaigns/camp-1/file.png");
+    const second = await objectStorage.signedDownloadUrl("campaigns/camp-1/file.png");
 
     expect(first).toBe("https://cdn.example.com/file-1");
     expect(second).toBe("https://cdn.example.com/file-1");
@@ -40,9 +40,9 @@ describe("R2 presigned download URL cache", () => {
       .mockResolvedValueOnce("https://cdn.example.com/file-1")
       .mockResolvedValueOnce("https://cdn.example.com/file-2");
 
-    const { getPresignedDownloadUrl } = await import("@/server/storage/r2");
-    const first = await getPresignedDownloadUrl("campaigns/camp-1/file.png");
-    const second = await getPresignedDownloadUrl("campaigns/camp-1/other.png");
+    const { objectStorage } = await import("@/server/storage");
+    const first = await objectStorage.signedDownloadUrl("campaigns/camp-1/file.png");
+    const second = await objectStorage.signedDownloadUrl("campaigns/camp-1/other.png");
 
     expect(first).toBe("https://cdn.example.com/file-1");
     expect(second).toBe("https://cdn.example.com/file-2");

@@ -4,10 +4,11 @@ vi.mock("@/server/auth/session", () => ({
   getSessionFromHeaders: vi.fn(),
 }));
 
-vi.mock("@/server/storage/r2", () => ({
-  uploadBuffer: vi.fn(),
-  getPublicUrl: vi.fn((key: string) => `https://cdn.example/${key}`),
-}));
+vi.mock("@/server/storage", () => ({
+  objectStorage: {
+    put: vi.fn(),
+    publicUrl: vi.fn((key: string) => `https://cdn.example/${key}`),
+  },}));
 
 vi.mock("@/lib/upload-config", () => ({
   isAllowedImageType: vi.fn((type: string) => type === "image/png"),
@@ -23,13 +24,13 @@ vi.mock("next-intl/server", () => ({
 }));
 
 import { getSessionFromHeaders } from "@/server/auth/session";
-import { uploadBuffer } from "@/server/storage/r2";
+import { objectStorage } from "@/server/storage";
 import { isAllowedImageType, validateImageMagicBytes } from "@/lib/upload-config";
 import { updateUserAvatar } from "@/server/repositories/user-profile";
 import { POST } from "./route";
 
 const mockGetSession = vi.mocked(getSessionFromHeaders);
-const mockUploadBuffer = vi.mocked(uploadBuffer);
+const mockUploadBuffer = vi.mocked(objectStorage.put);
 const mockIsAllowedImageType = vi.mocked(isAllowedImageType);
 const mockValidateMagicBytes = vi.mocked(validateImageMagicBytes);
 const mockUpdateUserAvatar = vi.mocked(updateUserAvatar);

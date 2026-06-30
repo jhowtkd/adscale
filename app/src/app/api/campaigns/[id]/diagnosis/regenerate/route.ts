@@ -9,7 +9,7 @@ import {
   claimCreativeDiagnosisAnalysis,
 } from "@/server/repositories/campaign";
 import { getAssetsByCampaign } from "@/server/repositories/asset";
-import { downloadBuffer } from "@/server/storage/r2";
+import { objectStorage } from "@/server/storage";
 import { analyzeCreativeDiagnosis } from "@/server/ai/creative-diagnosis";
 import { spendCreditsOrApiError } from "@/server/billing/gates";
 
@@ -71,7 +71,7 @@ export async function POST(
     }
 
     try {
-      const imageBuffer = await downloadBuffer(asset.key);
+      const imageBuffer = await objectStorage.get(asset.key);
       const result = await analyzeCreativeDiagnosis({
         campaign: {
           name: campaign.name,

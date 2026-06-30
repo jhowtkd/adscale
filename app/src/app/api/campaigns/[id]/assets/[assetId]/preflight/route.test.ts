@@ -30,9 +30,10 @@ vi.mock("@/server/repositories/asset", () => ({
   updateAssetMetadata: vi.fn(),
 }));
 
-vi.mock("@/server/storage/r2", () => ({
-  downloadBuffer: vi.fn(),
-}));
+vi.mock("@/server/storage", () => ({
+  objectStorage: {
+    get: vi.fn(),
+  },}));
 
 vi.mock("@/server/ai/preflight-analysis", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/server/ai/preflight-analysis")>();

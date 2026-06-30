@@ -27,10 +27,11 @@ vi.mock("@/server/db/repositories/brand-kit", () => ({
   upsertBrandKit: vi.fn(),
 }));
 
-vi.mock("@/server/storage/r2", () => ({
-  uploadBuffer: vi.fn(),
-  getPublicUrl: vi.fn((key: string) => `https://cdn.example/${key}`),
-}));
+vi.mock("@/server/storage", () => ({
+  objectStorage: {
+    put: vi.fn(),
+    publicUrl: vi.fn((key: string) => `https://cdn.example/${key}`),
+  },}));
 
 vi.mock("@/lib/upload-config", () => ({
   isAllowedImageType: vi.fn(() => true),

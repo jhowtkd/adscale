@@ -13,8 +13,7 @@ import {
   deleteBrandKit,
 } from "@/server/db/repositories/brand-kit";
 import { getClientProfiles } from "@/server/repositories/client-reference";
-import { deleteObject } from "@/server/storage/r2";
-import { getPublicUrl } from "@/server/storage/r2";
+import { objectStorage } from "@/server/storage";
 import { isWorkspaceAssetKey } from "@/server/repositories/asset";
 
 const brandKitSchema = z.object({
@@ -104,7 +103,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       brandKit,
-      logoUrl: brandKit?.logoAssetKey ? getPublicUrl(brandKit.logoAssetKey) : null,
+      logoUrl: brandKit?.logoAssetKey ? objectStorage.publicUrl(brandKit.logoAssetKey) : null,
     });
   } catch (error) {
     const brandKitError = await handleBrandKitError(error);
@@ -136,7 +135,7 @@ export async function POST(request: Request) {
     const brandKit = await upsertBrandKit(workspace.id, brandKitData, clientProfileId);
     return NextResponse.json({
       brandKit,
-      logoUrl: brandKit.logoAssetKey ? getPublicUrl(brandKit.logoAssetKey) : null,
+      logoUrl: brandKit.logoAssetKey ? objectStorage.publicUrl(brandKit.logoAssetKey) : null,
     });
   } catch (error) {
     const brandKitError = await handleBrandKitError(error);
@@ -168,7 +167,7 @@ export async function DELETE(request: Request) {
 
     if (existing?.logoAssetKey) {
       try {
-        await deleteObject(existing.logoAssetKey);
+        await objectStorage.delete(existing.logoAssetKey);
       } catch {
         // Ignore R2 deletion errors (file may already be gone)
       }

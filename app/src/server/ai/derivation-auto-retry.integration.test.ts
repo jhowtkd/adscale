@@ -19,10 +19,11 @@ vi.mock("openai", () => ({
   })),
 }));
 
-vi.mock("../storage/r2", () => ({
-  downloadBuffer: vi.fn((key: string) => Promise.resolve(Buffer.from(`buffer:${key}`))),
-  uploadBuffer: vi.fn(() => Promise.resolve()),
-}));
+vi.mock("@/server/storage", () => ({
+  objectStorage: {
+    get: vi.fn((key: string) => Promise.resolve(Buffer.from(`buffer:${key}`))),
+    put: vi.fn(() => Promise.resolve()),
+  },}));
 
 vi.mock("../repositories/derivation", () => ({
   getDerivationById: vi.fn(),
@@ -45,11 +46,11 @@ vi.mock("./prompt-builder", () => ({
 }));
 
 import { getDerivationById } from "../repositories/derivation";
-import { downloadBuffer } from "../storage/r2";
+import { objectStorage } from "@/server/storage";
 import { runDerivationAutoRetry } from "./derivation-auto-retry";
 
 const mockGetDerivationById = vi.mocked(getDerivationById);
-const mockDownloadBuffer = vi.mocked(downloadBuffer);
+const mockDownloadBuffer = vi.mocked(objectStorage.get);
 
 const baseContract = {
   generationMode: "restyling" as const,

@@ -18,9 +18,10 @@ vi.mock("@/server/repositories/asset", () => ({
   getAssetsByCampaign: vi.fn(),
 }));
 
-vi.mock("@/server/storage/r2", () => ({
-  downloadBuffer: vi.fn(),
-}));
+vi.mock("@/server/storage", () => ({
+  objectStorage: {
+    get: vi.fn(),
+  },}));
 
 vi.mock("@/server/ai/smart-resize", () => ({
   analyzeSmartResize: vi.fn(),
@@ -35,12 +36,12 @@ vi.mock("next-intl/server", () => ({
 
 import { getCampaignById } from "@/server/repositories/campaign";
 import { getAssetsByCampaign } from "@/server/repositories/asset";
-import { downloadBuffer } from "@/server/storage/r2";
+import { objectStorage } from "@/server/storage";
 import { analyzeSmartResize } from "@/server/ai/smart-resize";
 
 const mockGetCampaignById = vi.mocked(getCampaignById);
 const mockGetAssetsByCampaign = vi.mocked(getAssetsByCampaign);
-const mockDownloadBuffer = vi.mocked(downloadBuffer);
+const mockDownloadBuffer = vi.mocked(objectStorage.get);
 const mockAnalyzeSmartResize = vi.mocked(analyzeSmartResize);
 
 function makeParams(id: string) {

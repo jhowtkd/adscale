@@ -6,7 +6,7 @@ import { checkRateLimit } from "@/lib/with-rate-limit";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getCampaignById, updateCampaign } from "@/server/repositories/campaign";
 import { getAssetsByCampaign } from "@/server/repositories/asset";
-import { downloadBuffer } from "@/server/storage/r2";
+import { objectStorage } from "@/server/storage";
 import {
   analyzeCreativeDiagnosis,
   normalizeCreativeDiagnosis,
@@ -77,7 +77,7 @@ export async function POST(
     }
 
     try {
-      const imageBuffer = await downloadBuffer(asset.key);
+      const imageBuffer = await objectStorage.get(asset.key);
       const result = await analyzeCreativeDiagnosis({
         campaign: {
           name: campaign.name,

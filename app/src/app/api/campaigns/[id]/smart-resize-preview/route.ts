@@ -3,7 +3,7 @@ import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getCampaignById } from "@/server/repositories/campaign";
 import { getAssetsByCampaign } from "@/server/repositories/asset";
-import { downloadBuffer } from "@/server/storage/r2";
+import { objectStorage } from "@/server/storage";
 import { analyzeSmartResize, getPlatformRules } from "@/server/ai/smart-resize";
 
 export async function GET(
@@ -29,7 +29,7 @@ export async function GET(
     }
 
     // Download and analyze
-    const buffer = await downloadBuffer(baseAsset.key);
+    const buffer = await objectStorage.get(baseAsset.key);
     const base64Image = Buffer.from(buffer).toString("base64");
     const analysis = await analyzeSmartResize(base64Image);
 

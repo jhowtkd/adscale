@@ -1,6 +1,6 @@
 import OpenAI, { toFile } from "openai";
 import { env } from "../validation/env";
-import { downloadBuffer, uploadBuffer } from "../storage/r2";
+import { objectStorage } from "@/server/storage";
 import { buildDerivationPrompt } from "./prompt-builder";
 import type { CreativeContract } from "./creative-contract";
 import type { CreativeHardFailure } from "./creative-quality-gate";
@@ -61,7 +61,7 @@ export async function runDerivationAutoRetry(
 
   logger.info(`[auto-retry] derivationId=${input.derivationId} failures=${hardFailures.map((f) => f.code).join(",")}`);
 
-  const referenceBuffer = await downloadBuffer(input.referenceKey);
+  const referenceBuffer = await objectStorage.get(input.referenceKey);
   const openaiSize = toOpenAISdkImageSize(
     formatToOpenAIImageSize(input.targetFormat, {
       isPreview: input.isPreview,
@@ -87,7 +87,7 @@ export async function runDerivationAutoRetry(
         `[auto-retry] restyling retry missing styleReferenceKey derivationId=${input.derivationId}`
       );
     } else {
-      const styleBuffer = await downloadBuffer(input.styleReferenceKey);
+      const styleBuffer = await objectStorage.get(input.styleReferenceKey);
       const styleImage = await toFile(styleBuffer, "style-reference", {
         type: input.styleReferenceMimeType ?? "image/png",
       });
@@ -129,7 +129,7 @@ export async function runDerivationAutoRetry(
   }
 
   const key = `derivations/${input.derivationId}/${Date.now()}-retry.png`;
-  await uploadBuffer(key, buffer, "image/png");
+  await objectStorage.put(key, buffer, "image/png");
 
   const revisedPrompt = first.revised_prompt ?? "";
   await updateDerivationPromptProvenance(input.derivationId, input.workspaceId, {

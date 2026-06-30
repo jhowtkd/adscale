@@ -4,7 +4,7 @@ import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { createWorkspaceAsset, deleteWorkspaceAsset, getWorkspaceAssets } from "@/server/repositories/workspace-asset";
-import { uploadBuffer, getPublicUrl } from "@/server/storage/r2";
+import { objectStorage } from "@/server/storage";
 import { inngest } from "@/server/jobs/client";
 
 const MAX_SIZE = 50 * 1024 * 1024;
@@ -78,7 +78,7 @@ export async function POST(request: Request) {
         createdAsset = asset;
         return asset;
       }),
-      uploadBuffer(key, buffer, file.type),
+      objectStorage.put(key, buffer, file.type),
     ]).catch(async (error) => {
       if (createdAsset) {
         await deleteWorkspaceAsset(createdAsset.id, workspace.id).catch(() => null);
@@ -93,7 +93,7 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json(
-      { asset: { ...asset, url: getPublicUrl(asset.key) } },
+      { asset: { ...asset, url: objectStorage.publicUrl(asset.key) } },
       { status: 201 }
     );
   } catch (error) {
@@ -143,7 +143,7 @@ export async function GET(request: Request) {
 
     const assetsWithUrl = assets.map((asset) => ({
       ...asset,
-      url: getPublicUrl(asset.key),
+      url: objectStorage.publicUrl(asset.key),
     }));
 
     return NextResponse.json({ assets: assetsWithUrl });

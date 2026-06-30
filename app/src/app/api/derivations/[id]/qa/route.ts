@@ -14,7 +14,7 @@ import {
 import { computeQualityGateFromAnalysis } from "@/server/ai/creative-quality-gate";
 import { getCampaignById } from "@/server/repositories/campaign";
 import { getUserLocale } from "@/server/repositories/user";
-import { downloadBuffer } from "@/server/storage/r2";
+import { objectStorage } from "@/server/storage";
 import { analyzeCreativeQa } from "@/server/ai/creative-qa";
 import { buildPassagemOlharVerdict } from "@/server/ai/olhar/olhar-qa";
 import { spendCreditsOrApiError } from "@/server/billing/gates";
@@ -102,7 +102,7 @@ export async function POST(
     const campaign = await getCampaignById(derivation.campaignId, workspace.id);
     if (!campaign) return apiError("campaignNotFound", 404);
 
-    const imageBuffer = await downloadBuffer(derivation.outputKey);
+    const imageBuffer = await objectStorage.get(derivation.outputKey);
 
     const derivationGenerationMode = (derivation.generationMode ?? "art_variation") as CreativeContract["generationMode"];
     const qaContract: CreativeContract = {

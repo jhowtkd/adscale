@@ -7,7 +7,7 @@ import {
   updateFeedbackReportStatus,
   type FeedbackStatus,
 } from "@/server/repositories/feedback";
-import { getPresignedDownloadUrl } from "@/server/storage/r2";
+import { objectStorage } from "@/server/storage";
 import { db } from "@/server/db";
 import { campaignAssets, derivations, workspaceAssets } from "@/server/db/schema";
 import { and, eq } from "drizzle-orm";
@@ -32,7 +32,7 @@ async function resolveAssetLinks(
         kind: ref.kind,
         id: ref.id,
         key: ref.key,
-        url: await getPresignedDownloadUrl(ref.key),
+        url: await objectStorage.signedDownloadUrl(ref.key),
       });
       continue;
     }
@@ -53,7 +53,7 @@ async function resolveAssetLinks(
           kind: ref.kind,
           id: ref.id,
           key: asset.key,
-          url: await getPresignedDownloadUrl(asset.key),
+          url: await objectStorage.signedDownloadUrl(asset.key),
         });
       }
       continue;
@@ -75,7 +75,7 @@ async function resolveAssetLinks(
           kind: ref.kind,
           id: ref.id,
           key: asset.key,
-          url: await getPresignedDownloadUrl(asset.key),
+          url: await objectStorage.signedDownloadUrl(asset.key),
         });
       }
     }

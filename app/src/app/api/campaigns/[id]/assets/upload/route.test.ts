@@ -18,9 +18,10 @@ vi.mock("@/server/repositories/asset", () => ({
   createAsset: vi.fn(),
 }));
 
-vi.mock("@/server/storage/r2", () => ({
-  uploadBuffer: vi.fn(),
-}));
+vi.mock("@/server/storage", () => ({
+  objectStorage: {
+    put: vi.fn(),
+  },}));
 
 vi.mock("@/lib/upload-config", () => ({
   isAllowedImageType: vi.fn((type: string) => type === "image/png"),
@@ -33,11 +34,11 @@ vi.mock("next-intl/server", () => ({
 
 import { getCampaignById } from "@/server/repositories/campaign";
 import { createAsset } from "@/server/repositories/asset";
-import { uploadBuffer } from "@/server/storage/r2";
+import { objectStorage } from "@/server/storage";
 
 const mockGetCampaignById = vi.mocked(getCampaignById);
 const mockCreateAsset = vi.mocked(createAsset);
-const mockUploadBuffer = vi.mocked(uploadBuffer);
+const mockUploadBuffer = vi.mocked(objectStorage.put);
 
 const CAMP_ID = "550e8400-e29b-41d4-a716-446655440000";
 

@@ -24,9 +24,10 @@ vi.mock("@/server/repositories/campaign", () => ({
   getCampaignById: vi.fn(),
 }));
 
-vi.mock("@/server/storage/r2", () => ({
-  downloadBuffer: vi.fn(),
-}));
+vi.mock("@/server/storage", () => ({
+  objectStorage: {
+    get: vi.fn(),
+  },}));
 
 vi.mock("@/server/ai/creative-qa", () => ({
   analyzeCreativeQa: vi.fn(),
@@ -54,7 +55,7 @@ import {
   updateDerivationQualityGate,
 } from "@/server/repositories/derivation";
 import { getCampaignById } from "@/server/repositories/campaign";
-import { downloadBuffer } from "@/server/storage/r2";
+import { objectStorage } from "@/server/storage";
 import { analyzeCreativeQa } from "@/server/ai/creative-qa";
 import { recordBetaAnalyticsEvent } from "@/server/beta-analytics/record";
 
@@ -64,7 +65,7 @@ const mockGetDerivationById = vi.mocked(getDerivationById);
 const mockUpdateDerivationQa = vi.mocked(updateDerivationQa);
 const mockUpdateDerivationQualityGate = vi.mocked(updateDerivationQualityGate);
 const mockGetCampaignById = vi.mocked(getCampaignById);
-const mockDownloadBuffer = vi.mocked(downloadBuffer);
+const mockDownloadBuffer = vi.mocked(objectStorage.get);
 const mockAnalyzeCreativeQa = vi.mocked(analyzeCreativeQa);
 const mockRecordBetaAnalyticsEvent = vi.mocked(recordBetaAnalyticsEvent);
 

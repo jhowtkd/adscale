@@ -12,9 +12,10 @@ vi.mock("@/server/repositories/feedback", () => ({
   updateFeedbackReportStatus: vi.fn(),
 }));
 
-vi.mock("@/server/storage/r2", () => ({
-  getPresignedDownloadUrl: vi.fn(() => Promise.resolve("https://signed.example/asset")),
-}));
+vi.mock("@/server/storage", () => ({
+  objectStorage: {
+    signedDownloadUrl: vi.fn(() => Promise.resolve("https://signed.example/asset")),
+  },}));
 
 vi.mock("@/server/db", () => ({
   db: {

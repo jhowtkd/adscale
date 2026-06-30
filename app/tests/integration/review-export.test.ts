@@ -14,15 +14,16 @@ vi.mock("@/server/jobs/client", () => ({
   },
 }));
 
-vi.mock("@/server/storage/r2", () => ({
-  getPresignedDownloadUrl: vi.fn().mockResolvedValue("https://cdn.example.com/file.png"),
-  uploadBuffer: vi.fn().mockResolvedValue(undefined),
-  downloadBuffer: vi.fn().mockResolvedValue(Buffer.from("fake-image")),
-}));
+vi.mock("@/server/storage", () => ({
+  objectStorage: {
+    signedDownloadUrl: vi.fn().mockResolvedValue("https://cdn.example.com/file.png"),
+    put: vi.fn().mockResolvedValue(undefined),
+    get: vi.fn().mockResolvedValue(Buffer.from("fake-image")),
+  },}));
 
 import { db } from "@/server/db";
 import { inngest } from "@/server/jobs/client";
-import { getPresignedDownloadUrl } from "@/server/storage/r2";
+import { objectStorage } from "@/server/storage";
 import {
   updateDerivationStatus,
   createDerivation,
@@ -92,9 +93,9 @@ describe("review and export flow", () => {
   });
 
   it("export returns a presigned URL", async () => {
-    const url = await getPresignedDownloadUrl("exports/ws-123/deriv-1/1700000000000.png");
+    const url = await objectStorage.signedDownloadUrl("exports/ws-123/deriv-1/1700000000000.png");
 
     expect(url).toBe("https://cdn.example.com/file.png");
-    expect(getPresignedDownloadUrl).toHaveBeenCalledWith("exports/ws-123/deriv-1/1700000000000.png");
+    expect(objectStorage.signedDownloadUrl).toHaveBeenCalledWith("exports/ws-123/deriv-1/1700000000000.png");
   });
 });

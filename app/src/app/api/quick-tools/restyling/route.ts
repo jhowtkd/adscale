@@ -7,7 +7,7 @@ import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { createCampaign, deleteCampaign } from "@/server/repositories/campaign";
 import { createAsset } from "@/server/repositories/asset";
 import { createDerivation } from "@/server/repositories/derivation";
-import { uploadBuffer, deleteObject } from "@/server/storage/r2";
+import { objectStorage } from "@/server/storage";
 import { inngest } from "@/server/jobs/client";
 import { getUserLocale } from "@/server/repositories/user";
 import { parseStyleIntensity } from "@/lib/style-intensity";
@@ -119,8 +119,8 @@ export async function POST(request: Request) {
       styleImage.arrayBuffer().then((buffer) => Buffer.from(buffer)),
     ]);
     await Promise.all([
-      uploadBuffer(baseKey, baseBuffer, baseImage.type),
-      uploadBuffer(styleKey, styleBuffer, styleImage.type),
+      objectStorage.put(baseKey, baseBuffer, baseImage.type),
+      objectStorage.put(styleKey, styleBuffer, styleImage.type),
     ]);
 
     try {
@@ -172,8 +172,8 @@ export async function POST(request: Request) {
     } catch (err) {
       // Compensating transaction: clean up R2 files and DB campaign on failure
       await Promise.all([
-        deleteObject(baseKey).catch((e) => logger.error("cleanup failed", e)),
-        deleteObject(styleKey).catch((e) => logger.error("cleanup failed", e)),
+        objectStorage.delete(baseKey).catch((e) => logger.error("cleanup failed", e)),
+        objectStorage.delete(styleKey).catch((e) => logger.error("cleanup failed", e)),
         deleteCampaign(campaign.id, workspace.id).catch((e) => logger.error("cleanup failed", e)),
       ]);
       throw err;

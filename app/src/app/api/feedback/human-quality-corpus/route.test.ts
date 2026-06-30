@@ -36,9 +36,10 @@ vi.mock("@/server/db", () => ({
   },
 }));
 
-vi.mock("@/server/storage/r2", () => ({
-  getPresignedDownloadUrl: vi.fn(() => Promise.resolve("https://signed.example/preview.png")),
-}));
+vi.mock("@/server/storage", () => ({
+  objectStorage: {
+    signedDownloadUrl: vi.fn(() => Promise.resolve("https://signed.example/preview.png")),
+  },}));
 
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),

@@ -20,7 +20,8 @@ import { db } from "@/server/db";
 import { derivations } from "@/server/db/schema";
 import { getUserLocale } from "@/server/repositories/user";
 import { getAssetsByCampaign } from "@/server/repositories/asset";
-import { getPresignedDownloadUrl } from "@/server/storage/r2";
+import { objectStorage } from "@/server/storage";
+import { serializeDerivationForApi } from "@/server/ai/derivation-auto-retry-observability";
 import { spendCreditsOrApiError } from "@/server/billing/gates";
 import { z } from "zod";
 
@@ -216,10 +217,12 @@ export async function GET(
 
     const items = await getDerivationsByCampaign(campaignId, workspace.id);
     const derivationsWithImageUrl = await Promise.all(
-      items.map(async (d) => ({
-        ...d,
-        imageUrl: d.outputKey ? await getPresignedDownloadUrl(d.outputKey) : null,
-      }))
+      items.map(async (d) =>
+        serializeDerivationForApi({
+          ...d,
+          imageUrl: d.outputKey ? await objectStorage.signedDownloadUrl(d.outputKey) : null,
+        })
+      )
     );
     return NextResponse.json({ derivations: derivationsWithImageUrl });
   } catch (error) {

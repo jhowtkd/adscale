@@ -13,11 +13,7 @@ import {
 } from "@/server/repositories/landing-page";
 import { generateLandingPageStructure } from "@/server/ai/landing-page";
 import { renderLandingPageHtml } from "@/server/services/landing-page-renderer";
-import {
-  uploadBuffer,
-  getPresignedDownloadUrl,
-  getPublicUrl,
-} from "@/server/storage/r2";
+import { objectStorage } from "@/server/storage";
 import { spendCreditsOrApiError } from "@/server/billing/gates";
 
 export async function POST(
@@ -51,7 +47,7 @@ export async function POST(
     const existingPages = await getLandingPagesByDerivation(workspace.id, derivation.id);
     const completedPage = existingPages.find((page) => page.status === "completed" && page.htmlKey);
     if (completedPage?.htmlKey) {
-      const downloadUrl = await getPresignedDownloadUrl(completedPage.htmlKey);
+      const downloadUrl = await objectStorage.signedDownloadUrl(completedPage.htmlKey);
       return NextResponse.json({
         landingPage: completedPage,
         downloadUrl,
@@ -97,11 +93,11 @@ export async function POST(
         }
       );
 
-      const imageUrl = getPublicUrl(derivation.outputKey);
+      const imageUrl = objectStorage.publicUrl(derivation.outputKey);
       const html = renderLandingPageHtml({ structure, imageUrl });
 
       const htmlKey = `landing-pages/${workspace.id}/${derivation.id}/${Date.now()}.html`;
-      await uploadBuffer(htmlKey, Buffer.from(html, "utf-8"), "text/html");
+      await objectStorage.put(htmlKey, Buffer.from(html, "utf-8"), "text/html");
 
       const [completed, downloadUrl] = await Promise.all([
         completeLandingPage({
@@ -111,7 +107,7 @@ export async function POST(
           structure,
           htmlKey,
         }),
-        getPresignedDownloadUrl(htmlKey),
+        objectStorage.signedDownloadUrl(htmlKey),
       ]);
       const expiresAt = new Date(Date.now() + 300 * 1000).toISOString();
 

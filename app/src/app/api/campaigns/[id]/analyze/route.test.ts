@@ -24,9 +24,10 @@ vi.mock("@/server/ai/campaign-deduction", () => ({
   analyzeCampaignCreative: vi.fn(),
 }));
 
-vi.mock("@/server/storage/r2", () => ({
-  getPublicUrl: vi.fn((key: string) => `https://r2.example.com/${key}`),
-}));
+vi.mock("@/server/storage", () => ({
+  objectStorage: {
+    publicUrl: vi.fn((key: string) => `https://r2.example.com/${key}`),
+  },}));
 
 import { getAssetWithMetadata, updateAssetMetadata } from "@/server/repositories/asset";
 import { analyzeCampaignCreative } from "@/server/ai/campaign-deduction";

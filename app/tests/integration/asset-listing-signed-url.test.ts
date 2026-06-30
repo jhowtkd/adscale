@@ -12,14 +12,15 @@ vi.mock("@/server/repositories/asset", () => ({
   getAssetsByCampaign: vi.fn(),
 }));
 
-vi.mock("@/server/storage/r2", () => ({
-  getPresignedDownloadUrl: vi.fn().mockResolvedValue("https://r2.example.com/signed?X-Amz-Signature=abc123"),
-}));
+vi.mock("@/server/storage", () => ({
+  objectStorage: {
+    signedDownloadUrl: vi.fn().mockResolvedValue("https://r2.example.com/signed?X-Amz-Signature=abc123"),
+  },}));
 
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getCampaignById } from "@/server/repositories/campaign";
 import { getAssetsByCampaign } from "@/server/repositories/asset";
-import { getPresignedDownloadUrl } from "@/server/storage/r2";
+import { objectStorage } from "@/server/storage";
 import { GET } from "@/app/api/campaigns/[id]/assets/route";
 
 describe("GET /api/campaigns/[id]/assets", () => {
@@ -49,6 +50,6 @@ describe("GET /api/campaigns/[id]/assets", () => {
     expect(response.status).toBe(200);
     expect(body.assets).toHaveLength(1);
     expect(body.assets[0].url).toBe("https://r2.example.com/signed?X-Amz-Signature=abc123");
-    expect(getPresignedDownloadUrl).toHaveBeenCalledWith("campaigns/camp-456/uuid-1.png");
+    expect(objectStorage.signedDownloadUrl).toHaveBeenCalledWith("campaigns/camp-456/uuid-1.png");
   });
 });

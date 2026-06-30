@@ -10,7 +10,7 @@ import {
   getGuidedFlowByThread,
 } from "@/server/repositories/guided-flow";
 import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
-import { downloadBuffer } from "@/server/storage/r2";
+import { objectStorage } from "@/server/storage";
 
 export interface BriefingSnapshot {
   client: string;
@@ -182,7 +182,7 @@ export async function analyzeExistingCreativeForJourney(input: {
     throw new GuidedFlowValidationError("Client profile not found");
   }
 
-  const imageBuffer = await downloadBuffer(workspaceAsset.key);
+  const imageBuffer = await objectStorage.get(workspaceAsset.key);
   const mimeType = mimeTypeFromKey(workspaceAsset.key);
   const content = await analyzeImageContent(imageBuffer, mimeType);
   const extracted = mapContentBriefToBriefingFields(content);

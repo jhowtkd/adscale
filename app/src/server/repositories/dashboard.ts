@@ -9,7 +9,7 @@ import {
 } from "./derivation";
 import { getAvailableCreditGrants, getActiveSubscriptionByWorkspace } from "./billing";
 import { getCreditTransactionsForWorkspace } from "./credit-transactions";
-import { getPresignedDownloadUrl } from "@/server/storage/r2";
+import { objectStorage } from "@/server/storage";
 import { logger } from "@/lib/logger";
 
 export type AnalyticsPeriod = "week" | "month" | "quarter";
@@ -241,7 +241,7 @@ export async function getDashboardStats(
         return;
       }
       try {
-        thumbnailUrlByCampaign.set(campaignId, await getPresignedDownloadUrl(outputKey));
+        thumbnailUrlByCampaign.set(campaignId, await objectStorage.signedDownloadUrl(outputKey));
       } catch (err) {
         logger.warn("[dashboard] thumbnail presign failed", { campaignId, error: err });
         thumbnailUrlByCampaign.set(campaignId, null);

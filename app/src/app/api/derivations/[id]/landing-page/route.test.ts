@@ -33,11 +33,12 @@ vi.mock("@/server/services/landing-page-renderer", () => ({
   renderLandingPageHtml: vi.fn(() => "<html>test</html>"),
 }));
 
-vi.mock("@/server/storage/r2", () => ({
-  uploadBuffer: vi.fn(),
-  getPresignedDownloadUrl: vi.fn(() => Promise.resolve("https://cdn.example.com/download")),
-  getPublicUrl: vi.fn(() => "https://cdn.example.com/image.png"),
-}));
+vi.mock("@/server/storage", () => ({
+  objectStorage: {
+    put: vi.fn(),
+    signedDownloadUrl: vi.fn(() => Promise.resolve("https://cdn.example.com/download")),
+    publicUrl: vi.fn(() => "https://cdn.example.com/image.png"),
+  },}));
 
 vi.mock("@/server/billing/gates", () => ({
   spendCreditsOrApiError: vi.fn(() => Promise.resolve(null)),
@@ -56,7 +57,7 @@ import {
   getLandingPagesByDerivation,
 } from "@/server/repositories/landing-page";
 import { generateLandingPageStructure } from "@/server/ai/landing-page";
-import { uploadBuffer } from "@/server/storage/r2";
+import { objectStorage } from "@/server/storage";
 
 const mockGetDerivationById = vi.mocked(getDerivationById);
 const mockGetCampaignById = vi.mocked(getCampaignById);
@@ -65,7 +66,7 @@ const mockCompleteLandingPage = vi.mocked(completeLandingPage);
 const mockFailLandingPage = vi.mocked(failLandingPage);
 const mockGetLandingPagesByDerivation = vi.mocked(getLandingPagesByDerivation);
 const mockGenerateLandingPageStructure = vi.mocked(generateLandingPageStructure);
-const mockUploadBuffer = vi.mocked(uploadBuffer);
+const mockUploadBuffer = vi.mocked(objectStorage.put);
 
 function requestFor(id: string): Request {
   return new Request(`http://localhost/api/derivations/${id}/landing-page`, {

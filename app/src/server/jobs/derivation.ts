@@ -9,7 +9,7 @@ import {
   getUserLocale,
   sendDerivationCompleteEmail,
 } from "@/server/services/notifications";
-import { uploadBuffer, downloadBuffer } from "../storage/r2";
+import { objectStorage } from "@/server/storage";
 import { buildDerivationPrompt } from "../ai/prompt-builder";
 import {
   FACTUAL_SOURCE_RULES,
@@ -42,6 +42,10 @@ import {
   type DerivationGenerationLog,
 } from "../ai/generation-log";
 import { runDerivationAutoRetry, shouldAutoRetryDerivation } from "../ai/derivation-auto-retry";
+import {
+  emitDerivationAutoRetryOutcome,
+  emitDerivationAutoRetryTriggered,
+} from "../beta-analytics/derivation-auto-retry-telemetry";
 import { buildHardFailureRegenerationSuggestion } from "../ai/creative-score";
 import type { CreativeHardFailure } from "../ai/creative-quality-gate";
 import {
@@ -662,12 +666,12 @@ export const derivationJob = inngest.createFunction(
 
       if (usesParentOutput && parentDerivation?.outputKey) {
         logger.info(`[generate-and-store-output] downloading parent output key=${parentDerivation.outputKey}`);
-        referenceBuffer = await downloadBuffer(parentDerivation.outputKey);
+        referenceBuffer = await objectStorage.get(parentDerivation.outputKey);
         referenceMimeType = "image/png";
         logger.info(`[generate-and-store-output] downloaded ${referenceBuffer.length} bytes from parent`);
       } else if (effectiveGenerationMode !== "restyling" && asset) {
         logger.info(`[generate-and-store-output] downloading asset key=${asset.key}`);
-        referenceBuffer = await downloadBuffer(asset.key);
+        referenceBuffer = await objectStorage.get(asset.key);
         referenceMimeType = asset.type;
         logger.info(`[generate-and-store-output] downloaded ${referenceBuffer.length} bytes`);
       }
@@ -769,8 +773,8 @@ export const derivationJob = inngest.createFunction(
         const baseAsset = restylingBaseAsset!;
         const styleAsset = restylingStyleAsset!;
 
-        const baseBuffer = await downloadBuffer(baseAsset.key);
-        const styleBuffer = await downloadBuffer(styleAsset.key);
+        const baseBuffer = await objectStorage.get(baseAsset.key);
+        const styleBuffer = await objectStorage.get(styleAsset.key);
 
         const baseFile = await toFile(baseBuffer, "base-image", { type: baseAsset.type });
         const styleFile = await toFile(styleBuffer, "style-reference", { type: styleAsset.type });
@@ -888,7 +892,7 @@ export const derivationJob = inngest.createFunction(
 
       const key = `derivations/${derivationId}/${Date.now()}.png`;
       logger.info(`[generate-and-store-output] uploading ${buffer.length} bytes to ${key}`);
-      await uploadBuffer(key, buffer, "image/png");
+      await objectStorage.put(key, buffer, "image/png");
       logger.info(`[generate-and-store-output] upload success key=${key}`);
 
       const revisedPrompt = result.revised_prompt || derivation.prompt || "";
@@ -1138,7 +1142,7 @@ export const derivationJob = inngest.createFunction(
     await step.run("score-derivation", async () => {
       logger.info(`[score-derivation] derivationId=${derivationId} outputKey=${generated.outputKey}`);
       try {
-        const scoreBuffer = await downloadBuffer(generated.outputKey);
+        const scoreBuffer = await objectStorage.get(generated.outputKey);
         await scoreCompletedDerivation(
           derivationId,
           workspaceId,
@@ -1166,7 +1170,7 @@ export const derivationJob = inngest.createFunction(
     await step.run("quality-gate", async () => {
       logger.info(`[quality-gate] derivationId=${derivationId} outputKey=${generated.outputKey}`);
       try {
-        const gateBuffer = await downloadBuffer(generated.outputKey);
+        const gateBuffer = await objectStorage.get(generated.outputKey);
         await runCompletedDerivationQualityGate({
           derivationId,
           workspaceId,
@@ -1240,6 +1244,23 @@ export const derivationJob = inngest.createFunction(
           scoreIssues: Array.isArray(row.scoreIssues) ? (row.scoreIssues as string[]) : [],
           qaChecklist: (row.qaChecklist as Record<string, { note?: string }> | null) ?? {},
         });
+
+      const preRetryFailureCodes = hardFailures.map((failure) => failure.code);
+
+      if (triggeredByUserId) {
+        emitDerivationAutoRetryTriggered(
+          {
+            workspaceId,
+            userId: triggeredByUserId,
+            campaignId,
+            derivationId,
+            generationMode: retryMode,
+            targetFormat: generated.targetFormat,
+            isPreview: isPreview ?? derivation.isPreview ?? false,
+          },
+          preRetryFailureCodes
+        );
+      }
 
       let referenceKey: string;
       let referenceMimeType: string;
@@ -1386,7 +1407,10 @@ export const derivationJob = inngest.createFunction(
         derivationId,
       });
 
-      return result;
+      return {
+        ...result,
+        preRetryFailureCodes,
+      };
     });
 
     let finalOutputKey = generated.outputKey;
@@ -1396,7 +1420,7 @@ export const derivationJob = inngest.createFunction(
 
       await step.run("score-derivation-after-retry", async () => {
         try {
-          const scoreBuffer = await downloadBuffer(retried.outputKey);
+          const scoreBuffer = await objectStorage.get(retried.outputKey);
           await scoreCompletedDerivation(
             derivationId,
             workspaceId,
@@ -1420,7 +1444,7 @@ export const derivationJob = inngest.createFunction(
 
       await step.run("quality-gate-after-retry", async () => {
         try {
-          const gateBuffer = await downloadBuffer(retried.outputKey);
+          const gateBuffer = await objectStorage.get(retried.outputKey);
           await runCompletedDerivationQualityGate({
             derivationId,
             workspaceId,
@@ -1448,6 +1472,31 @@ export const derivationJob = inngest.createFunction(
           logger.warn(`[quality-gate-after-retry] failed derivationId=${derivationId}`, error);
         }
       });
+
+      if (triggeredByUserId) {
+        await step.run("emit-auto-retry-analytics", async () => {
+          const row = await getDerivationById(derivationId, workspaceId);
+          if (!row) return;
+
+          const postFailures = Array.isArray(row.hardFailures)
+            ? (row.hardFailures as CreativeHardFailure[])
+            : [];
+
+          emitDerivationAutoRetryOutcome(
+            {
+              workspaceId,
+              userId: triggeredByUserId,
+              campaignId,
+              derivationId,
+              generationMode: generated.effectiveGenerationMode,
+              targetFormat: generated.targetFormat,
+              isPreview: isPreview ?? derivation.isPreview ?? false,
+            },
+            retried.preRetryFailureCodes,
+            postFailures
+          );
+        });
+      }
     }
 
     // 6. Track usage

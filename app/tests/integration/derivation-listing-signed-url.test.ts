@@ -33,14 +33,15 @@ vi.mock("@/server/repositories/derivation", () => ({
   getDerivationsByCampaign: vi.fn(),
 }));
 
-vi.mock("@/server/storage/r2", () => ({
-  getPresignedDownloadUrl: vi.fn().mockResolvedValue("https://r2.example.com/signed?X-Amz-Signature=abc123"),
-}));
+vi.mock("@/server/storage", () => ({
+  objectStorage: {
+    signedDownloadUrl: vi.fn().mockResolvedValue("https://r2.example.com/signed?X-Amz-Signature=abc123"),
+  },}));
 
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getCampaignById } from "@/server/repositories/campaign";
 import { getDerivationsByCampaign } from "@/server/repositories/derivation";
-import { getPresignedDownloadUrl } from "@/server/storage/r2";
+import { objectStorage } from "@/server/storage";
 import { GET } from "@/app/api/campaigns/[id]/derivations/route";
 
 describe("GET /api/campaigns/[id]/derivations", () => {
@@ -60,7 +61,15 @@ describe("GET /api/campaigns/[id]/derivations", () => {
 
   it("returns signed download URLs for derivations with outputKey", async () => {
     (getDerivationsByCampaign as ReturnType<typeof vi.fn>).mockResolvedValue([
-      { id: "deriv-1", outputKey: "derivations/deriv-1/123.png", status: "completed" },
+      {
+        id: "deriv-1",
+        outputKey: "derivations/deriv-1/123.png",
+        status: "completed",
+        generationLog: {
+          autoRetryAttempted: true,
+          autoRetryReason: "cta_drift",
+        },
+      },
       { id: "deriv-2", outputKey: null, status: "failed" },
     ]);
 
@@ -71,7 +80,10 @@ describe("GET /api/campaigns/[id]/derivations", () => {
     expect(response.status).toBe(200);
     expect(body.derivations).toHaveLength(2);
     expect(body.derivations[0].imageUrl).toBe("https://r2.example.com/signed?X-Amz-Signature=abc123");
-    expect(getPresignedDownloadUrl).toHaveBeenCalledWith("derivations/deriv-1/123.png");
+    expect(body.derivations[0].autoRetryAttempted).toBe(true);
+    expect(body.derivations[0].autoRetryReason).toBe("cta_drift");
+    expect(body.derivations[0].generationLog).toBeUndefined();
+    expect(objectStorage.signedDownloadUrl).toHaveBeenCalledWith("derivations/deriv-1/123.png");
     expect(body.derivations[1].imageUrl).toBeNull();
   });
 });

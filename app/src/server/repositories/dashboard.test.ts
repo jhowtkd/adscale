@@ -11,9 +11,10 @@ vi.mock("./derivation", () => ({
   getLatestDerivationOutputKeysByCampaignIds: vi.fn(),
 }));
 
-vi.mock("@/server/storage/r2", () => ({
-  getPresignedDownloadUrl: vi.fn(),
-}));
+vi.mock("@/server/storage", () => ({
+  objectStorage: {
+    signedDownloadUrl: vi.fn(),
+  },}));
 
 vi.mock("./billing", () => ({
   getAvailableCreditGrants: vi.fn(),
@@ -32,7 +33,7 @@ import {
 import { getDerivationDashboardAnalytics, getLatestDerivationOutputKeysByCampaignIds } from "./derivation";
 import { getAvailableCreditGrants, getActiveSubscriptionByWorkspace } from "./billing";
 import { getCreditTransactionsForWorkspace } from "./credit-transactions";
-import { getPresignedDownloadUrl } from "@/server/storage/r2";
+import { objectStorage } from "@/server/storage";
 import { getDashboardStats } from "./dashboard";
 
 const mockGetCampaigns = vi.mocked(getCampaigns);
@@ -40,7 +41,7 @@ const mockGetWorkspaceCampaignCount = vi.mocked(getWorkspaceCampaignCount);
 const mockGetCampaignPeriodCounts = vi.mocked(getCampaignPeriodCounts);
 const mockGetDerivationDashboardAnalytics = vi.mocked(getDerivationDashboardAnalytics);
 const mockGetLatestDerivationOutputKeysByCampaignIds = vi.mocked(getLatestDerivationOutputKeysByCampaignIds);
-const mockGetPresignedDownloadUrl = vi.mocked(getPresignedDownloadUrl);
+const mockGetPresignedDownloadUrl = vi.mocked(objectStorage.signedDownloadUrl);
 const mockGetAvailableCreditGrants = vi.mocked(getAvailableCreditGrants);
 const mockGetActiveSubscriptionByWorkspace = vi.mocked(getActiveSubscriptionByWorkspace);
 const mockGetCreditTransactionsForWorkspace = vi.mocked(getCreditTransactionsForWorkspace);

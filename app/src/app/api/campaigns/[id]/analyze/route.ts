@@ -7,7 +7,7 @@ import {
   claimAssetAnalysis,
 } from "@/server/repositories/asset";
 import { analyzeCampaignCreative } from "@/server/ai/campaign-deduction";
-import { getPublicUrl } from "@/server/storage/r2";
+import { objectStorage } from "@/server/storage";
 import { logger } from "@/lib/logger";
 
 const analyzeSchema = z.object({
@@ -61,7 +61,7 @@ export async function POST(
     }
 
     try {
-      const imageUrl = getPublicUrl(asset.key);
+      const imageUrl = objectStorage.publicUrl(asset.key);
       const result = await analyzeCampaignCreative(imageUrl);
 
       await updateAssetMetadata(assetId, workspace.id, {
