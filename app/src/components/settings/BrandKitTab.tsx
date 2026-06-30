@@ -19,6 +19,7 @@ import {
   BrandKitProfileNotFoundError,
   type AvailableWorkspace,
 } from "@/lib/hooks/use-brand-kit";
+import { useClientProfiles, useCreateClientProfile } from "@/lib/hooks/use-client-profiles";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 const FOCUS_RING =
@@ -152,9 +153,13 @@ export default function BrandKitTab() {
   const addToast = useAppStore((s) => s.addToast);
   const t = useTranslations("settings");
   const tc = useTranslations("common");
+  const tClient = useTranslations("campaign.pilotSidebar");
 
   const [selectedProfileId, setSelectedProfileId] = useState<string | undefined>(undefined);
   const [pendingProfileChoice, setPendingProfileChoice] = useState<string>("");
+  const [newClientName, setNewClientName] = useState("");
+  const { data: clientProfiles = [], isSuccess: clientProfilesLoaded } = useClientProfiles();
+  const createClientProfile = useCreateClientProfile();
   const { data: brandKit, isLoading, isError, error } = useBrandKit(selectedProfileId);
   const updateBrandKit = useUpdateBrandKit(selectedProfileId);
   const extractBrandKit = useExtractBrandKit(selectedProfileId);
@@ -167,6 +172,29 @@ export default function BrandKitTab() {
     error instanceof BrandKitProfileNotFoundError ? error : null;
   const availableWorkspaces: AvailableWorkspace[] =
     ambiguityError?.availableWorkspaces ?? [];
+  const needsClientProfileSetup =
+    clientProfilesLoaded && !selectedProfileId && (clientProfiles.length === 0 || Boolean(ambiguityError));
+
+  const handleCreateClientProfile = () => {
+    const name = newClientName.trim();
+    if (!name) return;
+
+    createClientProfile.mutate(
+      { name },
+      {
+        onSuccess: (profile) => {
+          setNewClientName("");
+          setSelectedProfileId(profile.id);
+          addToast("success", tClient("toastProfileCreatedAndLinked"));
+        },
+        onError: (error) =>
+          addToast(
+            "error",
+            error instanceof Error ? error.message : tClient("toastProfileCreateFailed")
+          ),
+      }
+    );
+  };
 
   const [state, updateState] = useReducer(brandKitReducer, initialBrandKitState);
   const {
@@ -416,7 +444,7 @@ export default function BrandKitTab() {
       )}
 
       {/* Ambiguous Workspace — profile selector CTA */}
-      {ambiguityError && !isLoading && (
+      {needsClientProfileSetup && !isLoading && (
         <m.div
           variants={itemVariants}
           className="rounded-lg border border-[var(--accent-green)]/40 bg-[var(--accent-green-dim)] px-4 py-4 space-y-3"
@@ -428,51 +456,90 @@ export default function BrandKitTab() {
               id="brand-kit-workspace-selector-title"
               className="text-sm font-semibold text-[var(--text-primary)]"
             >
-              {t("brandKit.workspaceSelector.title")}
+              {clientProfiles.length === 0
+                ? tClient("newClientTitle")
+                : t("brandKit.workspaceSelector.title")}
             </h4>
             <p className="text-xs text-[var(--text-secondary)] mt-1">
-              {t("brandKit.workspaceSelector.description")}
+              {clientProfiles.length === 0
+                ? tClient("newClientDescription")
+                : t("brandKit.workspaceSelector.description")}
             </p>
           </div>
-          <select
-            value={pendingProfileChoice}
-            onChange={(e) => setPendingProfileChoice(e.target.value)}
-            aria-label={t("brandKit.workspaceSelector.placeholder")}
-            className={cn(
-              "w-full h-10 rounded-md border px-3 text-sm",
-              "bg-[var(--surface-base)] text-[var(--text-primary)]",
-              "focus:outline-none focus:border-[var(--accent-green)] focus:ring-[3px] focus:ring-[var(--accent-green-dim)0.15)]",
-              "transition-all duration-200 border-[var(--border-dim)]"
-            )}
-          >
-            <option value="">{t("brandKit.workspaceSelector.placeholder")}</option>
-            {availableWorkspaces.map((workspace) => (
-              <option key={workspace.id} value={workspace.id}>
-                {workspace.name}
-              </option>
-            ))}
-          </select>
-          <div className="flex justify-end gap-2">
+          {ambiguityError ? (
+            <>
+              <select
+                value={pendingProfileChoice}
+                onChange={(e) => setPendingProfileChoice(e.target.value)}
+                aria-label={t("brandKit.workspaceSelector.placeholder")}
+                className={cn(
+                  "w-full h-10 rounded-md border px-3 text-sm",
+                  "bg-[var(--surface-base)] text-[var(--text-primary)]",
+                  "focus:outline-none focus:border-[var(--accent-green)] focus:ring-[3px] focus:ring-[var(--accent-green-dim)0.15)]",
+                  "transition-all duration-200 border-[var(--border-dim)]"
+                )}
+              >
+                <option value="">{t("brandKit.workspaceSelector.placeholder")}</option>
+                {availableWorkspaces.map((workspace) => (
+                  <option key={workspace.id} value={workspace.id}>
+                    {workspace.name}
+                  </option>
+                ))}
+              </select>
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setPendingProfileChoice("");
+                    setSelectedProfileId(undefined);
+                  }}
+                >
+                  {t("brandKit.workspaceSelector.cancel")}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={!pendingProfileChoice}
+                  onClick={() => {
+                    setSelectedProfileId(pendingProfileChoice);
+                  }}
+                >
+                  {t("brandKit.workspaceSelector.confirm")}
+                </Button>
+              </div>
+              <p className="text-xs text-[var(--text-secondary)]">{tClient("existingClientLabel")}</p>
+            </>
+          ) : null}
+          <div className="space-y-2">
+            <label htmlFor="brand-kit-new-client-name" className="block text-xs font-medium text-[var(--text-secondary)]">
+              {tClient("clientNameLabel")}
+            </label>
+            <input
+              id="brand-kit-new-client-name"
+              type="text"
+              value={newClientName}
+              onChange={(e) => setNewClientName(e.target.value)}
+              placeholder={tClient("clientNamePlaceholder")}
+              disabled={createClientProfile.isPending}
+              className={cn(
+                "w-full h-10 rounded-md border px-3 text-sm",
+                "bg-[var(--surface-base)] text-[var(--text-primary)]",
+                "placeholder:text-[var(--text-muted)]",
+                FOCUS_RING,
+                "transition-all duration-200 border-[var(--border-dim)]"
+              )}
+            />
+          </div>
+          <div className="flex justify-end">
             <Button
               type="button"
               size="sm"
-              variant="ghost"
-              onClick={() => {
-                setPendingProfileChoice("");
-                setSelectedProfileId(undefined);
-              }}
+              disabled={!newClientName.trim() || createClientProfile.isPending}
+              onClick={handleCreateClientProfile}
             >
-              {t("brandKit.workspaceSelector.cancel")}
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              disabled={!pendingProfileChoice}
-              onClick={() => {
-                setSelectedProfileId(pendingProfileChoice);
-              }}
-            >
-              {t("brandKit.workspaceSelector.confirm")}
+              {createClientProfile.isPending ? tClient("saving") : tClient("createClientProfile")}
             </Button>
           </div>
         </m.div>
@@ -491,7 +558,7 @@ export default function BrandKitTab() {
       )}
 
       {/* Form */}
-      {!isLoading && !isError && (
+      {!isLoading && !needsClientProfileSetup && !isError && (
         <div className="space-y-6">
           {/* Name */}
           <m.div variants={itemVariants} className="space-y-2">

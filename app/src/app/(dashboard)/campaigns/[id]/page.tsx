@@ -71,6 +71,7 @@ import OutputLearningRecommendationCard, {
   type RecipePrefillPayload,
 } from "@/components/campaigns/OutputLearningRecommendationCard";
 import CampaignClientSubtitle from "@/components/campaigns/CampaignClientSubtitle";
+import ClientProfileLinkControl from "@/components/campaigns/ClientProfileLinkControl";
 import PlatformsDrawer from "@/components/campaigns/PlatformsDrawer";
 import { formatCampaignPlatforms } from "@/lib/campaign-platforms";
 import type { StrategyRecipePrefill } from "@/lib/hooks/use-strategy-recipe";
@@ -526,6 +527,15 @@ export default function CampaignWorkspacePage() {
           onAddPlatform={() => setPlatformsDrawerOpen(true)}
         />
       )}
+
+      {campaign && !campaign.clientProfileId ? (
+        <ClientProfileLinkControl
+          campaignId={campaignId}
+          clientName={campaign.client}
+          clientProfileId={campaign.clientProfileId}
+          variant="banner"
+        />
+      ) : null}
 
       <PlatformsDrawer
         open={platformsDrawerOpen}

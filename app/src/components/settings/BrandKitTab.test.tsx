@@ -33,6 +33,20 @@ vi.mock("next-intl", () => ({
       };
       return labels[key] ?? key;
     }
+    if (namespace === "campaign.pilotSidebar") {
+      const labels: Record<string, string> = {
+        newClientTitle: "Who is this campaign for?",
+        newClientDescription: "Enter the client name to create a profile.",
+        clientNameLabel: "Client name",
+        clientNamePlaceholder: "e.g. Acme",
+        existingClientLabel: "Or link an existing client",
+        createClientProfile: "Create client",
+        saving: "Saving…",
+        toastProfileCreatedAndLinked: "Profile created and linked.",
+        toastProfileCreateFailed: "Could not create the profile.",
+      };
+      return labels[key] ?? key;
+    }
     return key;
   }),
 }));
@@ -107,10 +121,17 @@ const {
 });
 
 const useBrandKitMock = vi.fn();
+const useClientProfilesMock = vi.fn();
+const useCreateClientProfileMock = vi.fn(() => ({ mutate: vi.fn(), isPending: false }));
 const useUpdateBrandKitMock = vi.fn(() => ({ mutate: vi.fn(), isPending: false }));
 const useExtractBrandKitMock = vi.fn(() => ({ mutate: vi.fn(), isPending: false }));
 const useUploadLogoMock = vi.fn(() => ({ mutate: vi.fn(), isPending: false }));
 const useClearBrandKitMock = vi.fn(() => ({ mutate: vi.fn(), isPending: false }));
+
+vi.mock("@/lib/hooks/use-client-profiles", () => ({
+  useClientProfiles: () => useClientProfilesMock(),
+  useCreateClientProfile: () => useCreateClientProfileMock(),
+}));
 
 vi.mock("@/lib/hooks/use-brand-kit", () => {
   // The mock must export the SAME class reference the component imports and
@@ -155,6 +176,11 @@ beforeEach(() => {
     isError: false,
     error: null,
   });
+  useClientProfilesMock.mockReturnValue({
+    data: PROFILES,
+    isSuccess: true,
+    isLoading: false,
+  });
 });
 
 describe("BrandKitTab — workspace selector on 409", () => {
@@ -176,6 +202,7 @@ describe("BrandKitTab — workspace selector on 409", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Acme" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Beta Corp" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Client name")).toBeInTheDocument();
   });
 
   it("re-requests the brand kit with the selected clientProfileId on confirm", async () => {

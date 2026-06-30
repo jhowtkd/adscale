@@ -62,6 +62,12 @@ vi.mock("next-intl", () => ({
         pendingBadge: "Pendente",
         noProfileLinked: "Sem perfil vinculado",
         createProfileFromClient: "Criar perfil a partir deste cliente",
+        createClientProfile: "Criar cliente",
+        newClientTitle: "Qual é o cliente desta campanha?",
+        newClientDescription: "Informe o nome do cliente para criar o perfil.",
+        clientNameLabel: "Nome do cliente",
+        clientNamePlaceholder: "Ex.: Acme",
+        existingClientLabel: "Ou vincule um cliente existente",
         saving: "Salvando…",
         addClientNameHint: "Adicione um nome de cliente à campanha para criar um perfil.",
         profileLinkHelp: "Necessário para aprendizados e revisão de qualidade.",
@@ -116,7 +122,7 @@ describe("PilotSidebar", () => {
   it("lets the operator link an existing client profile to the campaign", () => {
     renderSidebar();
 
-    fireEvent.change(screen.getByLabelText("Perfil do cliente"), {
+    fireEvent.change(screen.getByLabelText("Ou vincule um cliente existente"), {
       target: { value: "profile-1" },
     });
 
@@ -135,14 +141,14 @@ describe("PilotSidebar", () => {
 
     renderSidebar();
 
-    fireEvent.click(screen.getByRole("button", { name: "Criar perfil a partir deste cliente" }));
+    fireEvent.click(screen.getByRole("button", { name: "Criar cliente" }));
 
     expect(createProfileMutate).toHaveBeenCalledWith(
       { name: "CENBRAP" },
       expect.objectContaining({ onSuccess: expect.any(Function) })
     );
     expect(updateCampaignMutate).toHaveBeenCalledWith(
-      { clientProfileId: "profile-created" },
+      { clientProfileId: "profile-created", client: "CENBRAP" },
       expect.objectContaining({ onSuccess: expect.any(Function) })
     );
   });
