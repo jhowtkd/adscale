@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { useAppStore } from "@/lib/store";
 import { useCampaigns } from "@/lib/hooks/use-campaigns";
 import { useBillingStatus } from "@/lib/hooks/use-billing";
+import { authClient } from "@/lib/auth-client";
 import AccountStatusBadge from "@/components/layout/AccountStatusBadge";
 
 type AppSidebarVariant = "production" | "preview";

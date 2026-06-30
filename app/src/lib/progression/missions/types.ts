@@ -34,7 +34,7 @@ export interface MissionItem {
 export interface MissionCreditContext {
   remainingCredits: number;
   remainingAds: number | null;
-  accessKind: "paid" | "beta" | "none";
+  accessKind: "paid" | "beta" | "tester" | "none";
   showUpgradePrompt: boolean;
 }
 
