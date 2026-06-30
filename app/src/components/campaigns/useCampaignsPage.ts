@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import type { Campaign } from "@/lib/mock-data";
 import { toast } from "sonner";
@@ -42,6 +42,20 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const searchQuery = searchParams.get("q") ?? "";
+  const [searchInput, setSearchInput] = useState(searchQuery);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    setSearchInput(searchQuery);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+      }
+    };
+  }, []);
 
   const newParam = searchParams.get("new");
   const shouldOpenNewModal =
@@ -81,6 +95,11 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
   const [saveTemplateCampaign, setSaveTemplateCampaign] = useState<Campaign | null>(null);
 
   const updateSearchQuery = useCallback((value: string) => {
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+      searchDebounceRef.current = null;
+    }
+
     const params = new URLSearchParams(searchParams.toString());
     if (value.trim()) {
       params.set("q", value);
@@ -92,6 +111,17 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
     setCurrentPage(1);
     setSelectedIds(new Set());
   }, [router, searchParams]);
+
+  const handleSearchChange = useCallback(
+    (value: string) => {
+      setSearchInput(value);
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+      }
+      searchDebounceRef.current = setTimeout(() => updateSearchQuery(value), 300);
+    },
+    [updateSearchQuery],
+  );
 
   const updateStatusFilter = useCallback((value: StatusFilter) => {
     setStatusFilter(value);
@@ -329,6 +359,8 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
     itemsPerPage,
     setItemsPerPage,
     searchQuery,
+    searchInput,
+    handleSearchChange,
     deleteTarget,
     setDeleteTarget,
     saveTemplateCampaign,

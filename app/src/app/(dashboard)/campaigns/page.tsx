@@ -81,12 +81,12 @@ function CampaignsListContent() {
     setSelectedIds,
     setCurrentPage,
     itemsPerPage,
-    searchQuery,
+    searchInput,
+    handleSearchChange,
     deleteTarget,
     setDeleteTarget,
     saveTemplateCampaign,
     setSaveTemplateCampaign,
-    updateSearchQuery,
     updateStatusFilter,
     updatePlatformFilter,
     updateSortOption,
@@ -191,8 +191,8 @@ function CampaignsListContent() {
         rows={rows}
         totalCount={totalCount}
         isLoading={isLoading}
-        searchQuery={searchQuery}
-        onSearchChange={updateSearchQuery}
+        searchQuery={searchInput}
+        onSearchChange={handleSearchChange}
         statusFilter={statusFilter}
         statusFilterLabel={statusFilterLabel}
         onStatusChange={updateStatusFilter}
