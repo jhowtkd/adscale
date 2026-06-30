@@ -18,6 +18,18 @@ import type {
 import { buildCampaignWorkspaceV6Labels } from "@/components/campaigns/v6/workspace/build-campaign-workspace-v6-labels";
 import { mapCampaignWorkspaceToV6View } from "@/components/campaigns/v6/workspace/map-campaign-workspace-v6";
 
+const EMPTY_WORKSPACE_VIEW: CampaignWorkspaceV6ViewModel = {
+  name: "",
+  status: "draft",
+  statusVariant: "neutral",
+  meta: "",
+  currentStage: 0,
+  stages: [],
+  briefingSliders: [],
+  briefingRules: [],
+  derivations: [],
+};
+
 const DeliveryPackageModal = dynamic(() => import("@/components/workspace/DeliveryPackageModal"), {
   ssr: false,
   loading: () => null,
@@ -239,6 +251,27 @@ export default function CampaignWorkspacePage() {
     };
   }, [preflightData?.readiness?.blockingIssues, readinessOverrideActive]);
 
+  const workspaceLabels = useMemo(
+    () => buildCampaignWorkspaceV6Labels(tCampaign, tc, tAssistant),
+    [tCampaign, tc, tAssistant],
+  );
+
+  const workspaceView = useMemo(
+    () =>
+      campaign
+        ? mapCampaignWorkspaceToV6View({
+            campaign,
+            derivations: allDerivations,
+            workspaceState,
+            tStatus: (key) => tCampaign(`status.${key}`),
+            tWorkspace: (key, values) => tCampaign(`v6.${key}`, values),
+            formatDate: (date) =>
+              date.toLocaleDateString(undefined, { day: "2-digit", month: "2-digit", year: "numeric" }),
+          })
+        : EMPTY_WORKSPACE_VIEW,
+    [campaign, allDerivations, workspaceState, tCampaign],
+  );
+
   useEffect(() => {
     if (isLoading || isNew || !campaign) return;
 
@@ -437,25 +470,6 @@ export default function CampaignWorkspacePage() {
 
   const isDraft = campaign?.status === "draft";
   const platformsText = formatCampaignPlatforms(campaign?.platforms);
-
-  const workspaceLabels = useMemo(
-    () => buildCampaignWorkspaceV6Labels(tCampaign, tc, tAssistant),
-    [tCampaign, tc, tAssistant],
-  );
-
-  const workspaceView = useMemo(
-    () =>
-      mapCampaignWorkspaceToV6View({
-        campaign,
-        derivations: allDerivations,
-        workspaceState,
-        tStatus: (key) => tCampaign(`status.${key}`),
-        tWorkspace: (key, values) => tCampaign(`v6.${key}`, values),
-        formatDate: (date) =>
-          date.toLocaleDateString(undefined, { day: "2-digit", month: "2-digit", year: "numeric" }),
-      }),
-    [campaign, allDerivations, workspaceState, tCampaign],
-  );
 
   const handleSavePlatforms = async (platforms: string[]) => {
     try {
