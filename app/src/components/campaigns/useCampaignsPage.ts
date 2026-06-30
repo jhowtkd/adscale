@@ -42,12 +42,15 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const searchQuery = searchParams.get("q") ?? "";
-  const [searchInput, setSearchInput] = useState(searchQuery);
+  const [pendingSearch, setPendingSearch] = useState<string | null>(null);
+  const [prevUrlSearchQuery, setPrevUrlSearchQuery] = useState(searchQuery);
+  const searchInput = pendingSearch ?? searchQuery;
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    setSearchInput(searchQuery);
-  }, [searchQuery]);
+  if (searchQuery !== prevUrlSearchQuery) {
+    setPrevUrlSearchQuery(searchQuery);
+    setPendingSearch(null);
+  }
 
   useEffect(() => {
     return () => {
@@ -94,12 +97,7 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [saveTemplateCampaign, setSaveTemplateCampaign] = useState<Campaign | null>(null);
 
-  const updateSearchQuery = useCallback((value: string) => {
-    if (searchDebounceRef.current) {
-      clearTimeout(searchDebounceRef.current);
-      searchDebounceRef.current = null;
-    }
-
+  const applySearchQueryToUrl = useCallback((value: string) => {
     const params = new URLSearchParams(searchParams.toString());
     if (value.trim()) {
       params.set("q", value);
@@ -112,15 +110,33 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
     setSelectedIds(new Set());
   }, [router, searchParams]);
 
+  const clearSearchQuery = useCallback(() => {
+    setPendingSearch(null);
+    applySearchQueryToUrl("");
+  }, [applySearchQueryToUrl]);
+
   const handleSearchChange = useCallback(
     (value: string) => {
-      setSearchInput(value);
+      setPendingSearch(value);
       if (searchDebounceRef.current) {
         clearTimeout(searchDebounceRef.current);
       }
-      searchDebounceRef.current = setTimeout(() => updateSearchQuery(value), 300);
+      const scheduledValue = value;
+      searchDebounceRef.current = setTimeout(() => {
+        let shouldApply = false;
+        setPendingSearch((current) => {
+          if (current !== scheduledValue) {
+            return current;
+          }
+          shouldApply = true;
+          return null;
+        });
+        if (shouldApply) {
+          applySearchQueryToUrl(scheduledValue);
+        }
+      }, 300);
     },
-    [updateSearchQuery],
+    [applySearchQueryToUrl],
   );
 
   const updateStatusFilter = useCallback((value: StatusFilter) => {
@@ -148,11 +164,11 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
   }, []);
 
   const clearFilters = useCallback(() => {
-    updateSearchQuery("");
+    clearSearchQuery();
     setStatusFilter("all");
     setPlatformFilter("all");
     setCurrentPage(1);
-  }, [updateSearchQuery]);
+  }, [clearSearchQuery]);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / itemsPerPage));
   const visibleCurrentPage = Math.min(currentPage, totalPages);
@@ -162,7 +178,7 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
     if (searchQuery) {
       filters.push({
         label: `${tc("search")}: "${searchQuery}"`,
-        onRemove: () => updateSearchQuery(""),
+        onRemove: clearSearchQuery,
       });
     }
     if (statusFilter !== "all") {
@@ -182,7 +198,7 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
     searchQuery,
     statusFilter,
     platformFilter,
-    updateSearchQuery,
+    clearSearchQuery,
     updateStatusFilter,
     updatePlatformFilter,
     t,
@@ -365,7 +381,7 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
     setDeleteTarget,
     saveTemplateCampaign,
     setSaveTemplateCampaign,
-    updateSearchQuery,
+    clearSearchQuery,
     updateStatusFilter,
     updatePlatformFilter,
     updateSortOption,
