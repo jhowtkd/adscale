@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import type { Campaign } from "@/lib/mock-data";
 import { toast } from "sonner";
@@ -42,6 +42,23 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const searchQuery = searchParams.get("q") ?? "";
+  const [pendingSearch, setPendingSearch] = useState<string | null>(null);
+  const [prevUrlSearchQuery, setPrevUrlSearchQuery] = useState(searchQuery);
+  const searchInput = pendingSearch ?? searchQuery;
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  if (searchQuery !== prevUrlSearchQuery) {
+    setPrevUrlSearchQuery(searchQuery);
+    setPendingSearch(null);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+      }
+    };
+  }, []);
 
   const newParam = searchParams.get("new");
   const shouldOpenNewModal =
@@ -80,7 +97,7 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [saveTemplateCampaign, setSaveTemplateCampaign] = useState<Campaign | null>(null);
 
-  const updateSearchQuery = useCallback((value: string) => {
+  const applySearchQueryToUrl = useCallback((value: string) => {
     const params = new URLSearchParams(searchParams.toString());
     if (value.trim()) {
       params.set("q", value);
@@ -92,6 +109,35 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
     setCurrentPage(1);
     setSelectedIds(new Set());
   }, [router, searchParams]);
+
+  const clearSearchQuery = useCallback(() => {
+    setPendingSearch(null);
+    applySearchQueryToUrl("");
+  }, [applySearchQueryToUrl]);
+
+  const handleSearchChange = useCallback(
+    (value: string) => {
+      setPendingSearch(value);
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+      }
+      const scheduledValue = value;
+      searchDebounceRef.current = setTimeout(() => {
+        let shouldApply = false;
+        setPendingSearch((current) => {
+          if (current !== scheduledValue) {
+            return current;
+          }
+          shouldApply = true;
+          return null;
+        });
+        if (shouldApply) {
+          applySearchQueryToUrl(scheduledValue);
+        }
+      }, 300);
+    },
+    [applySearchQueryToUrl],
+  );
 
   const updateStatusFilter = useCallback((value: StatusFilter) => {
     setStatusFilter(value);
@@ -118,11 +164,11 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
   }, []);
 
   const clearFilters = useCallback(() => {
-    updateSearchQuery("");
+    clearSearchQuery();
     setStatusFilter("all");
     setPlatformFilter("all");
     setCurrentPage(1);
-  }, [updateSearchQuery]);
+  }, [clearSearchQuery]);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / itemsPerPage));
   const visibleCurrentPage = Math.min(currentPage, totalPages);
@@ -132,7 +178,7 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
     if (searchQuery) {
       filters.push({
         label: `${tc("search")}: "${searchQuery}"`,
-        onRemove: () => updateSearchQuery(""),
+        onRemove: clearSearchQuery,
       });
     }
     if (statusFilter !== "all") {
@@ -152,7 +198,7 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
     searchQuery,
     statusFilter,
     platformFilter,
-    updateSearchQuery,
+    clearSearchQuery,
     updateStatusFilter,
     updatePlatformFilter,
     t,
@@ -329,11 +375,13 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
     itemsPerPage,
     setItemsPerPage,
     searchQuery,
+    searchInput,
+    handleSearchChange,
     deleteTarget,
     setDeleteTarget,
     saveTemplateCampaign,
     setSaveTemplateCampaign,
-    updateSearchQuery,
+    clearSearchQuery,
     updateStatusFilter,
     updatePlatformFilter,
     updateSortOption,
