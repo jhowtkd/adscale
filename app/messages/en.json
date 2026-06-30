@@ -1401,7 +1401,21 @@
     "processingInvite": "Processing your invitation...",
     "inviteSuccess": "You have successfully joined the workspace!",
     "redirecting": "Redirecting to dashboard...",
-    "invalidToken": "Invalid or missing invitation token"
+    "invalidToken": "Invalid or missing invitation token",
+    "consentRequired": "You must accept the Terms of Use and Privacy Policy to continue.",
+    "consentPrefix": "I agree to the",
+    "v6": {
+      "sectionLabel": "ADScale",
+      "accessLabel": "access",
+      "brandTitle": "Creative curation with AI in the loop",
+      "brandSubtitle": "From a base creative and brief to a batch of ready variations — you brief, AI assists, you curate what ships.",
+      "featureBriefTitle": "Structured briefing",
+      "featureBriefBody": "Capture objective, audience, and tone before generating any variation.",
+      "featureBatchTitle": "Derivation batches",
+      "featureBatchBody": "Generate multiple versions from the same base creative with quality controls.",
+      "featureReviewTitle": "Review and approval",
+      "featureReviewBody": "Approve, reject, and export only what's ready to go live."
+    }
   },
   "settings": {
     "title": "Settings",

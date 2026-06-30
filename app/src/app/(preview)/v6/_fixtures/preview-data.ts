@@ -209,4 +209,5 @@ export const mockupIndex = [
   { slug: "error-state", name: "11 — Error state", file: "11-error-state.html" },
   { slug: "onboarding", name: "12 — Onboarding first use", file: "12-onboarding-first-use.html" },
   { slug: "assistant-empty", name: "13 — Assistant empty state", file: "13-assistant-empty-state.html" },
+  { slug: "login", name: "14 — Login / Acesso", file: "14-login.html" },
 ] as const;

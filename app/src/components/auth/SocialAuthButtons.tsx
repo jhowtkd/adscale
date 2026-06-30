@@ -51,7 +51,7 @@ export default function SocialAuthButtons({ mode, callbackURL = "/" }: SocialAut
     <div className="space-y-3">
       <div className="relative">
         <div className="absolute inset-0 flex items-center">
-          <span className="w-full border-t border-[var(--border-dim)]" />
+          <span className="w-full border-t border-[var(--border-subtle)]" />
         </div>
         <div className="relative flex justify-center text-xs uppercase">
           <span className="bg-[var(--surface-base)] px-2 text-[var(--text-secondary)]">
@@ -64,7 +64,7 @@ export default function SocialAuthButtons({ mode, callbackURL = "/" }: SocialAut
         <Button
           type="button"
           variant="outline"
-          className="w-full gap-2 border-[var(--border-dim)] bg-[var(--surface-raised)] hover:bg-[var(--surface-base)] text-[var(--text-primary)] min-h-[44px]"
+          className="w-full gap-2 rounded-[var(--radius-control)] border-[var(--border-default)] bg-[var(--surface-raised)] text-[var(--text-primary)] hover:bg-[var(--surface-base)] min-h-[44px]"
           onClick={() => handleSocialSignIn("google")}
           disabled={loading !== null}
         >
@@ -75,7 +75,7 @@ export default function SocialAuthButtons({ mode, callbackURL = "/" }: SocialAut
         <Button
           type="button"
           variant="outline"
-          className="w-full gap-2 border-[var(--border-dim)] bg-[var(--surface-raised)] hover:bg-[var(--surface-base)] text-[var(--text-primary)] min-h-[44px]"
+          className="w-full gap-2 rounded-[var(--radius-control)] border-[var(--border-default)] bg-[var(--surface-raised)] text-[var(--text-primary)] hover:bg-[var(--surface-base)] min-h-[44px]"
           onClick={() => handleSocialSignIn("github")}
           disabled={loading !== null}
         >
@@ -87,11 +87,11 @@ export default function SocialAuthButtons({ mode, callbackURL = "/" }: SocialAut
       {mode === "signup" && (
         <p className="text-center text-[11px] text-[var(--text-secondary)] leading-relaxed">
           {t("socialConsentPrefix")}{" "}
-          <Link href="/terms" className="text-[var(--accent-green)] hover:underline" target="_blank">
+          <Link href="/terms" className="text-[var(--accent-primary-text)] hover:underline" target="_blank">
             {t("terms")}
           </Link>{" "}
           {t("and")}{" "}
-          <Link href="/privacy" className="text-[var(--accent-green)] hover:underline" target="_blank">
+          <Link href="/privacy" className="text-[var(--accent-primary-text)] hover:underline" target="_blank">
             {t("privacy")}
           </Link>
           .

@@ -1,47 +1,37 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useReducedMotion } from "@/lib/hooks/use-reduced-motion";
+import { useTranslations } from "next-intl";
+import AuthV6BrandingPanel from "./v6/AuthV6BrandingPanel";
+import { buildAuthV6BrandingLabels } from "./v6/build-auth-v6-labels";
 
 interface AuthPageShellProps {
   children: ReactNode;
+  /** @deprecated Video background removed in v6 auth shell; kept for API compatibility. */
   videoSrc?: string;
+  showBranding?: boolean;
 }
 
-export default function AuthPageShell({ children, videoSrc }: AuthPageShellProps) {
-  const prefersReducedMotion = useReducedMotion();
-  const showVideo = Boolean(videoSrc) && !prefersReducedMotion;
+export default function AuthPageShell({ children, showBranding = true }: AuthPageShellProps) {
+  const t = useTranslations("auth");
+  const brandingLabels = buildAuthV6BrandingLabels(t);
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[var(--deep-bg)] px-4 relative overflow-hidden">
-      {showVideo ? (
-        <>
-          <video
-            autoPlay
-            loop
-            muted
-            playsInline
-            aria-hidden
-            className="absolute inset-0 size-full object-cover"
-            src={videoSrc}
-          />
-          <div
-            className="absolute inset-0 bg-[var(--deep-bg)]/55 pointer-events-none"
-            aria-hidden
-          />
-        </>
-      ) : (
-        <div className="absolute inset-0 dot-grid opacity-50" aria-hidden />
-      )}
+    <main className="relative flex min-h-screen items-center justify-center bg-[var(--canvas)] px-4 py-8">
+      <div className="pointer-events-none absolute inset-0 dot-grid opacity-40" aria-hidden />
       <div
-        className="absolute top-1/4 left-1/4 size-[500px] bg-[var(--accent-green)]/[0.02] rounded-full blur-[120px] pointer-events-none"
+        className="pointer-events-none absolute left-1/4 top-1/4 size-[420px] rounded-full bg-[var(--accent-primary)]/[0.04] blur-[120px]"
         aria-hidden
       />
       <div
-        className="absolute bottom-1/4 right-1/4 size-[400px] bg-[var(--accent-green)]/[0.01] rounded-full blur-[100px] pointer-events-none"
+        className="pointer-events-none absolute bottom-1/4 right-1/4 size-[360px] rounded-full bg-[var(--accent-primary)]/[0.03] blur-[100px]"
         aria-hidden
       />
-      <div className="relative z-10 w-full flex justify-center">{children}</div>
+
+      <div className="relative z-10 flex w-full max-w-5xl flex-col gap-6 lg:flex-row lg:items-stretch lg:gap-8">
+        {showBranding ? <AuthV6BrandingPanel labels={brandingLabels} /> : null}
+        <div className="flex flex-1 items-center justify-center">{children}</div>
+      </div>
     </main>
   );
 }

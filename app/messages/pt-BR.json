@@ -1401,7 +1401,21 @@
     "processingInvite": "Processando seu convite...",
     "inviteSuccess": "Você entrou no workspace com sucesso!",
     "redirecting": "Redirecionando para o dashboard...",
-    "invalidToken": "Token de convite inválido ou ausente"
+    "invalidToken": "Token de convite inválido ou ausente",
+    "consentRequired": "Você precisa aceitar os Termos de Uso e a Política de Privacidade para continuar.",
+    "consentPrefix": "Eu concordo com os",
+    "v6": {
+      "sectionLabel": "ADScale",
+      "accessLabel": "acesso",
+      "brandTitle": "Curadoria criativa com IA no loop",
+      "brandSubtitle": "De uma peça base e um briefing a um lote de variações prontas — você faz o briefing, a IA auxilia, você cura o que vai ao ar.",
+      "featureBriefTitle": "Briefing estruturado",
+      "featureBriefBody": "Capture objetivo, público e tom antes de gerar qualquer variação.",
+      "featureBatchTitle": "Lotes de derivações",
+      "featureBatchBody": "Gere múltiplas versões a partir da mesma peça base com controle de qualidade.",
+      "featureReviewTitle": "Revisão e aprovação",
+      "featureReviewBody": "Aprove, rejeite e exporte só o que está pronto para ir ao ar."
+    }
   },
   "settings": {
     "title": "Configurações",

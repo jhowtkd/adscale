@@ -86,14 +86,14 @@ export default function PasswordInput({
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           className={cn(
-            "w-full h-10 rounded-md border px-3 pr-10 text-sm",
-            "bg-[var(--surface-base)] text-[var(--text-primary)]",
+            "w-full h-10 rounded-[var(--radius-control)] border px-3 pr-10 text-sm",
+            "bg-[var(--surface-raised)] text-[var(--text-primary)]",
             "placeholder:text-[var(--text-muted)]",
-            "focus:outline-none focus:ring-[3px] focus:shadow-[0_0_0_3px_var(--accent-green-dim)0.1)]",
+            "focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)]/20 focus:border-[var(--accent-primary)]",
             "transition-all duration-200",
             error
-              ? "border-[var(--accent-rose)] focus:border-[var(--accent-rose)] focus:ring-[rgba(244,63,94,0.15)]"
-              : "border-[var(--border-dim)] focus:border-[var(--accent-green)] focus:ring-[var(--accent-green-dim)0.15)]"
+              ? "border-[var(--danger-border)] focus:border-[var(--danger-border)]"
+              : "border-[var(--border-default)]"
           )}
         />
 
