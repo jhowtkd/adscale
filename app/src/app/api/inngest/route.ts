@@ -1,6 +1,5 @@
 import { serve } from "inngest/next";
 import { inngest } from "@/server/jobs/client";
-import { env } from "@/server/validation/env";
 import { derivationJob } from "@/server/jobs/derivation";
 import { trialNotificationJob } from "@/server/jobs/trial-notifications";
 import { workspaceAssetAnalyzeJob } from "@/server/jobs/workspace-asset";
@@ -22,7 +21,6 @@ if (process.env.NODE_ENV === "production" && process.env.INNGEST_DEV) {
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
-  signingKey: env.INNGEST_SIGNING_KEY,
   functions: [
     derivationJob,
     trialNotificationJob,

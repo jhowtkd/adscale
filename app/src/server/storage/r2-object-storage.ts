@@ -79,8 +79,6 @@ export class R2ObjectStorage implements ObjectStorage {
       // HTML/SVG/SVG-with-script from executing in a browser on the public
       // bucket origin — defense against stored XSS via content-type spoofing.
       ContentDisposition: "attachment",
-      // Don't let the bucket/CDN sniff a different type than what we set.
-      XAmzMetaContentType: contentType,
     });
     await this.client.send(command);
   }
