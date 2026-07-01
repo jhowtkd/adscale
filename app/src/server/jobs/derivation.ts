@@ -19,7 +19,6 @@ import { resolveCanonicalCreative } from "../ai/canonical-creative-contract";
 import { resolveInputSourceClassification, assertParentFactualLineage } from "../ai/factual-visual-separation";
 import type {
   CreativeContract,
-  ImageOperation,
   PromptProvenance,
   SourceDescriptor,
   SourcePackage,
@@ -62,14 +61,19 @@ import {
 import { resolveCampaignClientProfileId } from "../repositories/client-reference";
 import { getCompetitorAnalysesByCampaign } from "../repositories/competitor-analysis";
 import { getBrandMemoryContext } from "@/server/memory/brand-memory-context";
-import OpenAI, { toFile } from "openai";
 import { env } from "../validation/env";
 import {
   scoreDerivationHeuristic,
   analyzeDerivationCreative,
 } from "@/server/ai/creative-score";
 import { normalizeCreativeDiagnosis } from "@/server/ai/creative-diagnosis";
-import { getTargetDimensions, formatToOpenAIImageSize, toOpenAISdkImageSize } from "@/lib/formats";
+import { formatToOpenAIImageSize, toOpenAISdkImageSize } from "@/lib/formats";
+import {
+  buildGenerationPromptContext,
+  executeGenerationStep,
+  type BuildGenerationPromptContextInput,
+  type GenerationReferenceInput,
+} from "../ai/derivation-pipeline";
 import { captureAndAutoPromote } from "../human-quality/auto-promote";
 import { loadPromptCalibrationContext } from "../brand-taste/prompt-calibration-loader";
 import { syncAssistantActionFromJob } from "../repositories/assistant-job-sync";
@@ -89,10 +93,6 @@ import {
   sanitizeDerivationFailureError,
 } from "./derivation-error-sanitizer";
 import * as Sentry from "@sentry/nextjs";
-import { normalizeGeneratedImage } from "@/server/ai/derivation-pipeline";
-
-const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 120_000 });
-const IMAGE_GENERATION_TIMEOUT_MS = 5 * 60 * 1000;
 
 type CampaignAsset = Awaited<ReturnType<typeof getAssetsByCampaign>>[number];
 
@@ -126,21 +126,7 @@ function resolveRestylingStyleAsset(
 // post-processing shared by the initial generation path and the auto-retry
 // path. Re-exported here so existing importers of jobs/derivation.ts keep
 // working unchanged.
-export { normalizeGeneratedImage };
-
-function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-  let timeout: NodeJS.Timeout;
-
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timeout = setTimeout(() => {
-      reject(new Error(`${label} timed out after ${Math.round(ms / 1000)}s`));
-    }, ms);
-  });
-
-  return Promise.race([promise, timeoutPromise]).finally(() => {
-    clearTimeout(timeout);
-  });
-}
+export { normalizeGeneratedImage } from "@/server/ai/derivation-pipeline";
 
 export async function scoreCompletedDerivation(
   derivationId: string,
@@ -644,67 +630,36 @@ export const derivationJob = inngest.createFunction(
         throw new Error("Parent derivation output is missing. Cannot perform package format adaptation without the approved winner image.");
       }
 
+      const promptContextInput = {
+        campaign,
+        plan,
+        asset: promptAsset,
+        feedback: derivation.feedback,
+        locale,
+        generationMode: effectiveGenerationMode as BuildGenerationPromptContextInput["generationMode"],
+        variantIndex: variantIndex ?? derivation.variantIndex ?? 0,
+        ctaText: effectiveCtaText,
+        targetFormat,
+        packageSource: sourcePackage,
+        clientReferences,
+        brandMemory,
+        campaignMemoryBlock,
+        contract: resolvedContract,
+        brandKit: brandKit ?? undefined,
+        competitorAnalyses,
+        brandTasteSection: calibrationContext.brandTasteSection,
+        corpusQualitySection: calibrationContext.corpusQualitySection,
+      };
+
+      const prompt = await buildDerivationPrompt(
+        buildGenerationPromptContext(promptContextInput)
+      );
       const openaiSize = toOpenAISdkImageSize(
         formatToOpenAIImageSize(targetFormat, {
           isPreview,
           modelName: env.OPENAI_IMAGE_MODEL,
         })
       );
-
-      const prompt = await buildDerivationPrompt({
-        campaign,
-        plan,
-        asset: promptAsset,
-        feedback: derivation.feedback,
-        locale,
-        generationMode: effectiveGenerationMode,
-        variantIndex: variantIndex ?? derivation.variantIndex ?? 0,
-        ctaText: effectiveCtaText,
-        targetFormat,
-        creativeLevel: campaign.creativeLevel ?? "balanced",
-        creativeDiagnosis: normalizeCreativeDiagnosis(campaign.creativeDiagnosis) ?? null,
-        packageSource: sourcePackage,
-        clientReferences,
-        brandMemory,
-        campaignMemoryBlock,
-        contract: resolvedContract,
-        brandKit: brandKit ? {
-          name: brandKit.name,
-          description: brandKit.description ?? undefined,
-          visualNotes: brandKit.visualNotes ?? undefined,
-          toneNotes: brandKit.toneNotes ?? undefined,
-          constraints: brandKit.constraints ?? undefined,
-          colors: Array.isArray(brandKit.brandColors) ? brandKit.brandColors as string[] : undefined,
-          fonts: Array.isArray(brandKit.brandFonts) ? brandKit.brandFonts as string[] : undefined,
-          logoAssetKey: brandKit.logoAssetKey ?? undefined,
-          toneOfVoice: brandKit.toneOfVoice ?? undefined,
-          prohibitedElements: brandKit.prohibitedElements ?? undefined,
-          requiredElements: brandKit.requiredElements ?? undefined,
-        } : null,
-        competitorAnalyses: competitorAnalyses.map((a) => {
-          const analysis = (a.analysis ?? {}) as Record<string, unknown>;
-          const vp = analysis.visualPatterns as Record<string, unknown> | undefined;
-          const msg = analysis.messaging as Record<string, unknown> | undefined;
-          return {
-            visualPatterns: {
-              colors: Array.isArray(vp?.colors) ? vp.colors as string[] : undefined,
-              composition: typeof vp?.composition === "string" ? vp.composition : undefined,
-              typography: typeof vp?.typography === "string" ? vp.typography : undefined,
-            },
-            messaging: {
-              headlineStyle: typeof msg?.headlineStyle === "string" ? msg.headlineStyle : undefined,
-              ctaStyle: typeof msg?.ctaStyle === "string" ? msg.ctaStyle : undefined,
-              offerType: typeof msg?.offerType === "string" ? msg.offerType : undefined,
-            },
-            strengths: Array.isArray(a.strengths) ? a.strengths as string[] : [],
-            weaknesses: Array.isArray(a.weaknesses) ? a.weaknesses as string[] : [],
-            differentiationOpportunities: Array.isArray(a.differentiators) ? a.differentiators as string[] : [],
-          };
-        }),
-        preflightResult: promptAsset?.metadata ? (promptAsset.metadata as Record<string, unknown>).preflightResult as import("@/server/ai/preflight-analysis").PreflightResult | undefined : null,
-        brandTasteSection: calibrationContext.brandTasteSection,
-        corpusQualitySection: calibrationContext.corpusQualitySection,
-      });
       logger.info(`[generate-and-store-output] model=${env.OPENAI_IMAGE_MODEL} hasAsset=${!!asset} locale=${locale ?? "default"}`);
 
       await inngest.realtime.publish(derivationChannel({ derivationId }).status, {
@@ -730,153 +685,57 @@ export const derivationJob = inngest.createFunction(
         inputPrompt: prompt,
       });
 
-      let result: OpenAI.Images.Image;
-      let imageOperation: ImageOperation;
-
+      let reference: GenerationReferenceInput;
       if (effectiveGenerationMode === "restyling") {
         const baseAsset = restylingBaseAsset!;
         const styleAsset = restylingStyleAsset!;
-
         const baseBuffer = await objectStorage.get(baseAsset.key);
         const styleBuffer = await objectStorage.get(styleAsset.key);
-
-        const baseFile = await toFile(baseBuffer, "base-image", { type: baseAsset.type });
-        const styleFile = await toFile(styleBuffer, "style-reference", { type: styleAsset.type });
-
-        const response = await withTimeout(
-          openai.images.edit({
-            model: env.OPENAI_IMAGE_MODEL,
-            image: [baseFile, styleFile],
-            prompt,
-            n: 1,
-            size: openaiSize,
-          }),
-          IMAGE_GENERATION_TIMEOUT_MS,
-          "OpenAI image edit (restyling)"
-        );
-
-        const first = response.data?.[0];
-        if (!first) {
-          throw new Error("No image data returned from OpenAI");
-        }
-        logger.info(`[generate-and-store-output] restyling edit success`);
-        result = first;
-        imageOperation = "edit";
+        reference = {
+          kind: "restyling",
+          baseBuffer,
+          baseMimeType: baseAsset.type,
+          styleBuffer,
+          styleMimeType: styleAsset.type,
+        };
       } else if (referenceBuffer && referenceMimeType) {
-        // Try edit mode first (works for art_variation and format_adaptation)
-        const referenceImage = await toFile(referenceBuffer, "reference-image", {
-          type: referenceMimeType,
-        });
-
-        try {
-          const response = await withTimeout(
-            openai.images.edit({
-              model: env.OPENAI_IMAGE_MODEL,
-              image: referenceImage,
-              prompt,
-              n: 1,
-              size: openaiSize,
-            }),
-            IMAGE_GENERATION_TIMEOUT_MS,
-            "OpenAI image edit"
-          );
-          const first = response.data?.[0];
-          if (!first) {
-            throw new Error("No image data returned from OpenAI");
-          }
-          logger.info(`[generate-and-store-output] edit success mode=${effectiveGenerationMode} url=${first.url ? "yes" : "no"} b64=${first.b64_json ? "yes" : "no"}`);
-          result = first;
-          imageOperation = "edit";
-        } catch (editErr) {
-          // Fallback to generate for format_adaptation if edit fails
-          if (effectiveGenerationMode === "format_adaptation") {
-            logger.warn(`[generate-and-store-output] edit failed for format_adaptation, falling back to generate:`, editErr);
-            const response = await withTimeout(
-              openai.images.generate({
-                model: env.OPENAI_IMAGE_MODEL,
-                prompt,
-                n: 1,
-                size: openaiSize,
-              }),
-              IMAGE_GENERATION_TIMEOUT_MS,
-              "OpenAI image generation (fallback)"
-            );
-            const first = response.data?.[0];
-            if (!first) {
-              throw new Error("No image data returned from OpenAI fallback");
-            }
-            logger.info(`[generate-and-store-output] fallback generate success`);
-            result = first;
-            imageOperation = "generation_fallback";
-          } else {
-            throw editErr;
-          }
-        }
+        reference = {
+          kind: "single",
+          buffer: referenceBuffer,
+          mimeType: referenceMimeType,
+          allowGenerateFallback: effectiveGenerationMode === "format_adaptation",
+        };
       } else {
-        // No asset — generate from scratch
-        const response = await withTimeout(
-          openai.images.generate({
-            model: env.OPENAI_IMAGE_MODEL,
-            prompt,
-            n: 1,
-            size: openaiSize,
-          }),
-          IMAGE_GENERATION_TIMEOUT_MS,
-          "OpenAI image generation"
-        );
-        const first = response.data?.[0];
-        if (!first) {
-          throw new Error("No image data returned from OpenAI");
-        }
-        logger.info(`[generate-and-store-output] generate success (no asset)`);
-        result = first;
-        imageOperation = "generate";
+        reference = { kind: "none" };
       }
 
-      let buffer: Buffer;
-      if (result.b64_json) {
-        buffer = Buffer.from(result.b64_json, "base64");
-      } else if (result.url) {
-        const imageResponse = await fetch(result.url, { signal: AbortSignal.timeout(30_000) });
-        if (!imageResponse.ok) {
-          throw new Error(
-            `Failed to download generated image: ${imageResponse.status} ${imageResponse.statusText}`
-          );
-        }
-        buffer = Buffer.from(await imageResponse.arrayBuffer());
-      } else {
-        throw new Error("No image data returned");
-      }
+      const stepResult = await executeGenerationStep({
+        derivationId,
+        promptContext: promptContextInput,
+        reference,
+        isPreview,
+      });
 
-      // Normalize output dimensions based on target format
-      const dimensions = getTargetDimensions(targetFormat, isPreview);
-      if (dimensions) {
-        buffer = await normalizeGeneratedImage(buffer, dimensions, effectiveGenerationMode);
-      }
+      const revisedPrompt = stepResult.revisedPrompt || derivation.prompt || "";
 
-      const key = `derivations/${derivationId}/${Date.now()}.png`;
-      logger.info(`[generate-and-store-output] uploading ${buffer.length} bytes to ${key}`);
-      await objectStorage.put(key, buffer, "image/png");
-      logger.info(`[generate-and-store-output] upload success key=${key}`);
-
-      const revisedPrompt = result.revised_prompt || derivation.prompt || "";
+      logger.info(`[generate-and-store-output] upload success key=${stepResult.outputKey}`);
 
       promptProvenance = {
         ...promptProvenance,
         revisedPrompt,
-        imageOperation,
-        outputKey: key,
+        imageOperation: stepResult.imageOperation,
+        outputKey: stepResult.outputKey,
       };
 
       await updateDerivationPromptProvenance(derivationId, workspaceId, {
         creativeContract: resolvedContract,
         promptProvenance,
-        inputPrompt: prompt,
+        inputPrompt: stepResult.prompt,
         prompt: revisedPrompt,
       });
 
       return {
-        outputKey: key,
+        outputKey: stepResult.outputKey,
         revisedPrompt,
         targetFormat,
         effectiveGenerationMode,

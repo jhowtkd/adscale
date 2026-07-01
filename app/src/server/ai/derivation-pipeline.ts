@@ -262,9 +262,9 @@ export interface ExecuteGenerationStepResult {
  * "generate-and-store-output" step in jobs/derivation.ts and the inline
  * OpenAI call in ai/derivation-auto-retry.ts.
  *
- * NOT wired into derivationJob yet (see PR4 in
- * docs/architecture-refactor-plan.md) — persistence of promptProvenance
- * around the OpenAI call still lives in the caller until that migration.
+ * Wired into derivationJob initial generation (PR4, arch/refactor-2026-q3).
+ * Auto-retry still uses its own path until PR5. Persistence of promptProvenance
+ * before/after the OpenAI call remains in the job caller.
  */
 export async function executeGenerationStep(
   ctx: ExecuteGenerationStepContext
