@@ -124,6 +124,8 @@ export interface Derivation {
   exportStatus?: ExportStatusPayload | null;
   styleAssetId?: string | null;
   isPreview?: boolean;
+  autoRetryAttempted?: boolean;
+  autoRetryReason?: string | null;
   annotations?: Annotation[];
   createdAt: Date;
   completedAt?: Date;

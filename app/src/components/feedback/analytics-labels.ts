@@ -12,6 +12,7 @@ export function useAnalyticsLabels() {
   const tRecipe = useTranslations("strategy.recipes");
   const tStep = useTranslations("guidedBriefing.steps");
   const tDimension = useTranslations("readiness.dimensions");
+  const tDerivation = useTranslations("derivation");
 
   const missionLabel = (key: string) => {
     if (tMission.has(`${key}.label`)) return tMission(`${key}.label`);
@@ -44,6 +45,13 @@ export function useAnalyticsLabels() {
     return formatFallbackKey(key);
   };
 
+  const generationModeLabel = (key: string) => {
+    if (tDerivation.has(`generationMode.${key}`)) {
+      return tDerivation(`generationMode.${key}`);
+    }
+    return operationLabel(key);
+  };
+
   const assistanceLabel = (key: string) => {
     if (t.has(`assistanceLevels.${key}`)) return t(`assistanceLevels.${key}`);
     return formatFallbackKey(key);
@@ -67,6 +75,7 @@ export function useAnalyticsLabels() {
     stepLabel,
     dimensionLabel,
     operationLabel,
+    generationModeLabel,
     assistanceLabel,
     guidedPathLabel,
     blockerLabel,

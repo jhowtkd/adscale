@@ -159,6 +159,27 @@ type GuidedFlowFunnelResponse = {
   totals: { events: number };
 };
 
+type DerivationAutoRetryFunnelSummary = {
+  triggered: number;
+  succeeded: number;
+  unchanged: number;
+  successRate: number | null;
+  byGenerationMode: Array<{
+    generationMode: string;
+    triggered: number;
+    succeeded: number;
+    unchanged: number;
+    successRate: number | null;
+  }>;
+  byFailureCode: Array<{
+    reasonCode: string;
+    triggered: number;
+    succeeded: number;
+    unchanged: number;
+    successRate: number | null;
+  }>;
+};
+
 type FunnelResponse = {
   missionFunnel: MissionFunnelRow[];
   cockpitStageFunnel: CockpitStageFunnelRow[];
@@ -174,6 +195,7 @@ type FunnelResponse = {
   postPreviewStall?: PostPreviewStallSummary;
   draftToShareTiming?: DraftToShareTimingSummary;
   shareEngagementByAssistance?: ShareEngagementByAssistanceRow[];
+  derivationAutoRetryFunnel?: DerivationAutoRetryFunnelSummary;
   totals: { events: number; sessions: number };
 };
 
@@ -401,6 +423,7 @@ export function OwnerAnalyticsPanel({
     stepLabel,
     dimensionLabel,
     operationLabel,
+    generationModeLabel,
     assistanceLabel,
     guidedPathLabel,
     blockerLabel,
@@ -615,6 +638,84 @@ export function OwnerAnalyticsPanel({
                       ])}
                     />
                   </FunnelSection>
+
+                  {funnel.derivationAutoRetryFunnel ? (
+                    <FunnelSection title={t("sections.derivationAutoRetry")}>
+                      <FunnelTable
+                        title={t("sections.derivationAutoRetryOverall")}
+                        noDataLabel={noDataLabel}
+                        headers={[
+                          t("columns.triggered"),
+                          t("columns.succeeded"),
+                          t("columns.unchanged"),
+                          t("columns.rate"),
+                        ]}
+                        rows={[
+                          [
+                            <CountCell
+                              key="triggered"
+                              value={funnel.derivationAutoRetryFunnel.triggered}
+                              highlight="positive"
+                            />,
+                            <CountCell
+                              key="succeeded"
+                              value={funnel.derivationAutoRetryFunnel.succeeded}
+                              highlight="positive"
+                            />,
+                            <CountCell
+                              key="unchanged"
+                              value={funnel.derivationAutoRetryFunnel.unchanged}
+                              highlight="warning"
+                            />,
+                            <RateCell
+                              key="rate"
+                              rate={funnel.derivationAutoRetryFunnel.successRate}
+                            />,
+                          ],
+                        ]}
+                      />
+                      <FunnelTable
+                        title={t("sections.derivationAutoRetryByMode")}
+                        noDataLabel={noDataLabel}
+                        headers={[
+                          t("columns.generationMode"),
+                          t("columns.triggered"),
+                          t("columns.succeeded"),
+                          t("columns.unchanged"),
+                          t("columns.rate"),
+                        ]}
+                        rows={funnel.derivationAutoRetryFunnel.byGenerationMode.map((row) => [
+                          <span key="label" className="font-medium text-[var(--text-primary)]">
+                            {generationModeLabel(row.generationMode)}
+                          </span>,
+                          <CountCell key="triggered" value={row.triggered} highlight="positive" />,
+                          <CountCell key="succeeded" value={row.succeeded} highlight="positive" />,
+                          <CountCell key="unchanged" value={row.unchanged} highlight="warning" />,
+                          <RateCell key="rate" rate={row.successRate} />,
+                        ])}
+                      />
+                      <FunnelTable
+                        title={t("sections.derivationAutoRetryByFailure")}
+                        noDataLabel={noDataLabel}
+                        headers={[
+                          t("columns.failureCode"),
+                          t("columns.triggered"),
+                          t("columns.succeeded"),
+                          t("columns.unchanged"),
+                          t("columns.rate"),
+                        ]}
+                        rows={funnel.derivationAutoRetryFunnel.byFailureCode.map((row) => [
+                          <span key="label" className="font-medium text-[var(--text-primary)]">
+                            {row.reasonCode}
+                          </span>,
+                          <CountCell key="triggered" value={row.triggered} highlight="positive" />,
+                          <CountCell key="succeeded" value={row.succeeded} highlight="positive" />,
+                          <CountCell key="unchanged" value={row.unchanged} highlight="warning" />,
+                          <RateCell key="rate" rate={row.successRate} />,
+                        ])}
+                      />
+                    </FunnelSection>
+                  ) : null}
 
                   <FunnelSection title={t("sections.guidedBriefingAbandon")}>
                     <FunnelTable

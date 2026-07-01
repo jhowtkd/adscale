@@ -4,6 +4,7 @@ import {
   aggregateCreditSpendByStage,
   aggregateCreditSurprises,
   aggregateCreditSurprisesByOperation,
+  aggregateDerivationAutoRetryFunnel,
   aggregateDraftToShareTiming,
   aggregateGuidedBriefingAbandonByStep,
   aggregateMissionFunnel,
@@ -293,6 +294,86 @@ describe("beta analytics aggregate", () => {
     ]);
   });
 
+  it("aggregates derivation auto-retry funnel by mode and failure code", () => {
+    const base = ANALYTICS_FIXTURE_EVENTS[0]!;
+    const events = [
+      {
+        ...base,
+        id: "evt-retry-triggered",
+        derivationId: "deriv-1",
+        eventKey: "derivation_auto_retry_triggered",
+        properties: { operation: "art_variation", reasonCode: "cta_drift" },
+      },
+      {
+        ...base,
+        id: "evt-retry-succeeded",
+        derivationId: "deriv-1",
+        eventKey: "derivation_auto_retry_succeeded",
+        properties: { operation: "art_variation", reasonCode: "cleared" },
+      },
+      {
+        ...base,
+        id: "evt-retry-triggered-2",
+        derivationId: "deriv-2",
+        eventKey: "derivation_auto_retry_triggered",
+        properties: {
+          operation: "format_adaptation",
+          reasonCode: "unreadable_required_text",
+        },
+      },
+      {
+        ...base,
+        id: "evt-retry-unchanged",
+        derivationId: "deriv-2",
+        eventKey: "derivation_auto_retry_unchanged",
+        properties: {
+          operation: "format_adaptation",
+          reasonCode: "unreadable_required_text",
+        },
+      },
+    ];
+
+    const summary = aggregateDerivationAutoRetryFunnel(events);
+    expect(summary).toEqual({
+      triggered: 2,
+      succeeded: 1,
+      unchanged: 1,
+      successRate: 0.5,
+      byGenerationMode: [
+        {
+          generationMode: "art_variation",
+          triggered: 1,
+          succeeded: 1,
+          unchanged: 0,
+          successRate: 1,
+        },
+        {
+          generationMode: "format_adaptation",
+          triggered: 1,
+          succeeded: 0,
+          unchanged: 1,
+          successRate: 0,
+        },
+      ],
+      byFailureCode: [
+        {
+          reasonCode: "cta_drift",
+          triggered: 1,
+          succeeded: 1,
+          unchanged: 0,
+          successRate: 1,
+        },
+        {
+          reasonCode: "unreadable_required_text",
+          triggered: 1,
+          succeeded: 0,
+          unchanged: 1,
+          successRate: 0,
+        },
+      ],
+    });
+  });
+
   it("builds full funnel summary with totals", () => {
     const summary = buildAnalyticsFunnelSummary(ANALYTICS_FIXTURE_EVENTS);
 
@@ -304,6 +385,14 @@ describe("beta analytics aggregate", () => {
     expect(summary.creditSpendByStage.length).toBeGreaterThan(0);
     expect(summary.shareLinkOpens).toEqual([]);
     expect(summary.postPreviewStall.rows).toEqual([]);
+    expect(summary.derivationAutoRetryFunnel).toEqual({
+      triggered: 0,
+      succeeded: 0,
+      unchanged: 0,
+      successRate: null,
+      byGenerationMode: [],
+      byFailureCode: [],
+    });
   });
 
   it("exports events as CSV rows", () => {

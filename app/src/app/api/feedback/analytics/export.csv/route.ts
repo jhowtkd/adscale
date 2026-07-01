@@ -52,6 +52,18 @@ export async function GET(request: Request) {
           `${row.stage},${row.entered},${row.completed},${row.abandoned}`
       ),
       "",
+      "# derivation_auto_retry_funnel",
+      "scope,triggered,succeeded,unchanged,success_rate",
+      `overall,${summary.derivationAutoRetryFunnel.triggered},${summary.derivationAutoRetryFunnel.succeeded},${summary.derivationAutoRetryFunnel.unchanged},${summary.derivationAutoRetryFunnel.successRate ?? ""}`,
+      ...summary.derivationAutoRetryFunnel.byGenerationMode.map(
+        (row) =>
+          `mode:${row.generationMode},${row.triggered},${row.succeeded},${row.unchanged},${row.successRate ?? ""}`
+      ),
+      ...summary.derivationAutoRetryFunnel.byFailureCode.map(
+        (row) =>
+          `failure:${row.reasonCode},${row.triggered},${row.succeeded},${row.unchanged},${row.successRate ?? ""}`
+      ),
+      "",
       "# credit_surprises_by_operation",
       "operation,surprise_count,total_delta,max_abs_delta",
       ...summary.creditSurprisesByOperation.map(
