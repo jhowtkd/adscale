@@ -12,7 +12,7 @@ import {
 } from "../services/email";
 import { getLocaleByEmail, getUserLocale } from "../repositories/user";
 import { buildTrustedOrigins } from "./config";
-import { isRateLimitDisabled } from "@/lib/rate-limit";
+import { isRateLimitDisabled, isDevOnlyFeatureEnabled } from "@/lib/rate-limit";
 import { rememberResetUrl } from "./e2e-reset-store";
 import {
   ensureDevAdminEmailVerified,
@@ -41,8 +41,9 @@ export const auth = betterAuth({
     revokeSessionsOnPasswordReset: true,
     sendResetPassword: async ({ user, url }) => {
       // E2E only: stash the reset URL so the dev endpoint can hand it to the
-      // test runner (no inbox to read in the cloud browser).
-      if (isRateLimitDisabled()) {
+      // test runner (no inbox to read in the cloud browser). Hard-gated by
+      // NODE_ENV so this never stashes tokens in a production deploy.
+      if (isDevOnlyFeatureEnabled()) {
         rememberResetUrl(user.email, url);
       }
       const locale = await getUserLocale(user.id);

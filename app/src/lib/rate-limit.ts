@@ -209,6 +209,19 @@ export function isRateLimitDisabled(): boolean {
   return flag === "1" || flag === "true" || flag === "yes";
 }
 
+/**
+ * Hard gate for dev-only features that must NEVER run in production
+ * (e.g. the reset-token backdoor, dev-admin auto-verify, E2E helpers).
+ *
+ * Combines a code-level NODE_ENV check (not circumventable by env drift)
+ * with the E2E flag. Use this — not bare isRateLimitDisabled() — for any
+ * feature whose exposure would be a security incident.
+ */
+export function isDevOnlyFeatureEnabled(): boolean {
+  if (process.env.NODE_ENV === "production") return false;
+  return isRateLimitDisabled();
+}
+
 export async function rateLimit(
   request: Request,
   category: RateLimitCategory,
