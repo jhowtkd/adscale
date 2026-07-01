@@ -93,7 +93,7 @@
     "showingResults": "Showing {start}-{end} of {total} campaigns",
     "noCampaignsMatch": "No campaigns match your search",
     "adjustFilters": "Try adjusting your search terms or filters",
-    "noCampaignsYet": "No campaigns in your curation queue",
+    "noCampaignsYet": "No campaigns in your approval queue",
     "createFirstCampaign": "Define a structured brief, generate variations as a batch, then approve what ships—create your first campaign to begin.",
     "clearAllFilters": "Clear all filters",
     "errorLoading": "Error loading campaigns",
@@ -426,7 +426,7 @@
       "viewGrid": "Grid view",
       "viewList": "List view",
       "emptyNoResults": "No campaigns match your search",
-      "emptyNoCampaigns": "Your curation queue is empty",
+      "emptyNoCampaigns": "Your approval queue is empty",
       "emptyAdjustSearch": "Try adjusting your search terms",
       "emptyCreateHint": "Define your brief, run a batch of variations, then approve what ships—start with your first campaign.",
       "createCampaign": "Create campaign",
@@ -1633,7 +1633,7 @@
     "v6": {
       "sectionLabel": "ADScale",
       "accessLabel": "access",
-      "brandTitle": "Creative curation with AI in the loop",
+      "brandTitle": "Creative supervision with AI in the loop",
       "brandSubtitle": "From a base creative and brief to a batch of ready variations — you brief, AI assists, you approve what ships.",
       "featureBriefTitle": "Structured briefing",
       "featureBriefBody": "Capture objective, audience, and tone before generating any variation.",
@@ -2260,7 +2260,7 @@
     "formats": "Formats",
     "deleteConfirm": "Are you sure you want to delete this template?",
     "emptyTitle": "No briefing templates yet",
-    "emptyDescription": "Save a campaign briefing as a template to reuse your curation patterns in new campaigns."
+    "emptyDescription": "Save a campaign briefing as a template to reuse your briefing and approval patterns in new campaigns."
   },
   "library": {
     "title": "Library",

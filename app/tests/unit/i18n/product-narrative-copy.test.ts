@@ -89,6 +89,8 @@ const FORBIDDEN_RULES: ForbiddenRule[] = [
   { id: "10x", pattern: /\b10x\b/i },
   { id: "roas", pattern: /\broas\b/i },
   { id: "scale-without-hiring", pattern: /scale without hiring/i },
+  { id: "curator-en", pattern: /\b(curator|curate|curation)\b/i },
+  { id: "curator-pt", pattern: /\b(curador|curadoria|curar|cura)\b/i },
 ];
 
 const CURATOR_STEP_KEYS = [
