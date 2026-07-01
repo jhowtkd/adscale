@@ -1,21 +1,12 @@
 import { z } from "zod";
+import { MAX_TELEMETRY_BYTES, TELEMETRY_DENIED_KEY_NAMES } from "@/server/sanitize/constants";
+import { findDeniedKeys } from "@/server/sanitize/core";
 import { ALLOWED_PROPERTY_KEYS } from "./types";
 
-export const MAX_PROPERTIES_BYTES = 32 * 1024;
+export const MAX_PROPERTIES_BYTES = MAX_TELEMETRY_BYTES;
 
-const DENIED_KEY_NAMES = new Set([
-  "prompt",
-  "email",
-  "message",
-  "url",
-  "assetUrl",
-  "token",
-  "authToken",
-  "breadcrumbs",
-  "diagnosticContext",
-  "note",
-  "freeText",
-]);
+/** @deprecated Use TELEMETRY_DENIED_KEY_NAMES from @/server/sanitize */
+export const DENIED_KEY_NAMES = TELEMETRY_DENIED_KEY_NAMES;
 
 const scalarValueSchema = z.union([
   z.string(),
@@ -41,10 +32,6 @@ export class BetaEventPropertiesValidationError extends Error {
     this.name = "BetaEventPropertiesValidationError";
     this.details = details;
   }
-}
-
-function findDeniedKeys(input: Record<string, unknown>): string[] {
-  return Object.keys(input).filter((key) => DENIED_KEY_NAMES.has(key));
 }
 
 export function enforcePropertiesSize(

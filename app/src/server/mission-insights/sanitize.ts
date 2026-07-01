@@ -1,4 +1,4 @@
-import { sanitizeDiagnosticContext } from "@/server/feedback/sanitize";
+import { sanitizeDiagnosticContext } from "@/server/sanitize/diagnostic";
 import { MISSION_DEFINITIONS } from "@/server/progression/missions/definitions";
 import type {
   MissionInsightAction,
