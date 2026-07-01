@@ -40,8 +40,8 @@ vi.mock("@/server/storage", () => ({
     publicUrl: vi.fn(() => "https://cdn.example.com/image.png"),
   },}));
 
-vi.mock("@/server/billing/gates", () => ({
-  spendCreditsOrApiError: vi.fn(() => Promise.resolve(null)),
+vi.mock("@/server/billing/paywall", () => ({
+  spendOrApiError: vi.fn(() => Promise.resolve(null)),
 }));
 
 vi.mock("next-intl/server", () => ({

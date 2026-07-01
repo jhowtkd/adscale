@@ -11,7 +11,7 @@ import {
 import { getAssetsByCampaign } from "@/server/repositories/asset";
 import { objectStorage } from "@/server/storage";
 import { analyzeCreativeDiagnosis } from "@/server/ai/creative-diagnosis";
-import { spendCreditsOrApiError } from "@/server/billing/gates";
+import { spendOrApiError } from "@/server/billing/paywall";
 
 export async function POST(
   request: Request,
@@ -46,7 +46,7 @@ export async function POST(
       return apiError("diagnosisInProgress", 429);
     }
 
-    const creditError = await spendCreditsOrApiError({
+    const creditError = await spendOrApiError({
       workspaceId: workspace.id,
       action: "creative_qa",
       amount: 1,

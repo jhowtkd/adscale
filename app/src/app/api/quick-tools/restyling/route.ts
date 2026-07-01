@@ -11,7 +11,7 @@ import { objectStorage } from "@/server/storage";
 import { inngest } from "@/server/jobs/client";
 import { getUserLocale } from "@/server/repositories/user";
 import { parseStyleIntensity } from "@/lib/style-intensity";
-import { spendCreditsOrApiError } from "@/server/billing/gates";
+import { spendOrApiError } from "@/server/billing/paywall";
 
 const MAX_SIZE = 50 * 1024 * 1024; // 50MB
 
@@ -82,7 +82,7 @@ export async function POST(request: Request) {
       return apiError("invalidInput", 400, { message: "Invalid style intensity" });
     }
 
-    const creditError = await spendCreditsOrApiError({
+    const creditError = await spendOrApiError({
       workspaceId: workspace.id,
       action: "restyling",
       idempotencyKey: [

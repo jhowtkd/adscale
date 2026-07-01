@@ -6,7 +6,7 @@ vi.mock("@/server/ai/utils", () => ({
     chat: { completions: { create: vi.fn(() => Promise.resolve({ choices: [{ message: { content: JSON.stringify({ strategy: "S", angles: ["A"], hooks: ["H"], ctas: ["Buy"] }) } }] })) } },
   })),
 }));
-vi.mock("@/server/billing/gates", () => ({ spendCreditsOrApiError: vi.fn(() => Promise.resolve(null)) }));
+vi.mock("@/server/billing/paywall", () => ({ spendOrApiError: vi.fn(() => Promise.resolve(null)) }));
 vi.mock("@/server/validation/env", () => ({ env: { OPENAI_TEXT_MODEL: "test-model" } }));
 vi.mock("@/server/repositories/campaign", () => ({ createCampaign: vi.fn() }));
 vi.mock("@/server/repositories/plan", () => ({ createPlan: vi.fn() }));

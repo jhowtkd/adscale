@@ -11,7 +11,7 @@ import {
   analyzeCreativeDiagnosis,
   normalizeCreativeDiagnosis,
 } from "@/server/ai/creative-diagnosis";
-import { spendCreditsOrApiError } from "@/server/billing/gates";
+import { spendOrApiError } from "@/server/billing/paywall";
 
 const updateDiagnosisSchema = z.object({
   diagnosis: z.object({
@@ -52,7 +52,7 @@ export async function POST(
       });
     }
 
-    const creditError = await spendCreditsOrApiError({
+    const creditError = await spendOrApiError({
       workspaceId: workspace.id,
       action: "creative_qa",
       amount: 1,

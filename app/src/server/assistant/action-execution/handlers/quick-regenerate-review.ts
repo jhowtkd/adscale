@@ -7,7 +7,7 @@ import {
 } from "@/server/ai/regeneration-correction-brief";
 import type { CreativeHardFailure } from "@/server/ai/creative-quality-gate";
 import { getActionContract } from "@/server/assistant/action-contracts/registry";
-import { spendCreditsOrApiError } from "@/server/billing/gates";
+import { spendOrApiError } from "@/server/billing/paywall";
 import { inngest } from "@/server/jobs/client";
 import { recordCampaignMemoryEntry } from "@/server/memory/campaign-memory-context";
 import { getCampaignById, refreshCampaignStatus, updateCampaign } from "@/server/repositories/campaign";
@@ -73,7 +73,7 @@ export async function executeQuickRegenerate(ctx: ActionExecutionContext) {
     throw new AssistantActionExecutionError("Derivation not found", "derivation_not_found");
   }
 
-  const creditError = await spendCreditsOrApiError({
+  const creditError = await spendOrApiError({
     workspaceId: ctx.workspaceId,
     action: "regeneration",
     amount: 5,

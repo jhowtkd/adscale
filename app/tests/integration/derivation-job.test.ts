@@ -114,8 +114,8 @@ vi.mock("@/server/storage", () => ({
     get: vi.fn().mockResolvedValue(Buffer.from("fake-image")),
   },}));
 
-vi.mock("@/server/billing/gates", () => ({
-  spendCreditsOrApiError: vi.fn().mockResolvedValue(null),
+vi.mock("@/server/billing/paywall", () => ({
+  spendOrApiError: vi.fn().mockResolvedValue(null),
 }));
 
 import { db } from "@/server/db";

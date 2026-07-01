@@ -30,8 +30,8 @@ vi.mock("@/server/jobs/client", () => ({
   inngest: { send: vi.fn() },
 }));
 
-vi.mock("@/server/billing/gates", () => ({
-  spendCreditsOrApiError: vi.fn(() => Promise.resolve(null)),
+vi.mock("@/server/billing/paywall", () => ({
+  spendOrApiError: vi.fn(() => Promise.resolve(null)),
 }));
 
 vi.mock("next-intl/server", () => ({

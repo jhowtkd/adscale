@@ -31,20 +31,20 @@ vi.mock("@/server/ai/image-analysis", () => ({
   analyzeImageContent: vi.fn(),
 }));
 
-vi.mock("@/server/billing/gates", () => ({
-  spendCreditsOrApiError: vi.fn(() => Promise.resolve(null)),
+vi.mock("@/server/billing/paywall", () => ({
+  spendOrApiError: vi.fn(() => Promise.resolve(null)),
 }));
 
 import { NextResponse } from "next/server";
 import { getCampaignById } from "@/server/repositories/campaign";
 import { objectStorage } from "@/server/storage";
 import { analyzeImageContent } from "@/server/ai/image-analysis";
-import { spendCreditsOrApiError } from "@/server/billing/gates";
+import { spendOrApiError } from "@/server/billing/paywall";
 
 const mockGetCampaignById = vi.mocked(getCampaignById);
 const mockDownloadBuffer = vi.mocked(objectStorage.get);
 const mockAnalyzeImageContent = vi.mocked(analyzeImageContent);
-const mockSpendCredits = vi.mocked(spendCreditsOrApiError);
+const mockSpendCredits = vi.mocked(spendOrApiError);
 
 describe("POST /api/campaigns/:id/auto-briefing", () => {
   beforeEach(() => {

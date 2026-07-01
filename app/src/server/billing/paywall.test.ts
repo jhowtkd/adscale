@@ -3,24 +3,28 @@ import { parseConversionErrorPayload } from "@/lib/billing/conversion-contract";
 
 vi.mock("./credits", () => ({
   recordUsage: vi.fn(),
+  canSpend: vi.fn(),
 }));
 
 vi.mock("./access", () => ({
   getWorkspaceBillingAccess: vi.fn(),
 }));
 
-vi.mock("./conversion", () => ({
-  buildConversionErrorPayloadForWorkspace: vi.fn(),
+vi.mock("@/lib/api-response", () => ({
+  apiError: vi.fn((code: string, status: number, details?: unknown) => ({
+    status,
+    json: async () => ({ code, details }),
+  })),
 }));
 
 import { recordUsage } from "./credits";
 import { getWorkspaceBillingAccess } from "./access";
-import { buildConversionErrorPayloadForWorkspace } from "./conversion";
-import { getAccess, getAccessFromBilling, spend } from "./paywall";
+import { apiError } from "@/lib/api-response";
+import { getAccess, getAccessFromBilling, spend, spendOrApiError } from "./paywall";
 
 const mockRecordUsage = vi.mocked(recordUsage);
 const mockGetWorkspaceBillingAccess = vi.mocked(getWorkspaceBillingAccess);
-const mockBuildConversionPayload = vi.mocked(buildConversionErrorPayloadForWorkspace);
+const mockApiError = vi.mocked(apiError);
 
 const paidAccess = {
   kind: "paid" as const,
@@ -35,18 +39,17 @@ const paidAccess = {
   testerEntitlement: null,
 };
 
-const conversionPayload = {
-  reason: "beta_exhausted" as const,
-  recommendedAction: "checkout" as const,
-  suggestedPlan: "starter" as const,
-  amount: 5,
-  balance: 0,
-  returnPath: "/campaigns/c1",
-  analytics: {
-    reasonCode: "beta_exhausted",
-    estimateCredits: 5,
-    operation: "image_derivation",
-  },
+const betaExhaustedAccess = {
+  kind: "beta" as const,
+  label: "Acesso beta",
+  creditBalance: 0,
+  remainingAds: 0,
+  hasSpendAccess: true,
+  subscriptionStatus: "none" as const,
+  subscription: null,
+  latestSubscription: null,
+  betaEntitlement: { id: "beta-1" },
+  testerEntitlement: null,
 };
 
 describe("paywall.spend", () => {
@@ -95,38 +98,26 @@ describe("paywall.spend", () => {
         reason: "insufficient_credits",
       },
     });
-    mockBuildConversionPayload.mockResolvedValue(conversionPayload);
+    mockGetWorkspaceBillingAccess.mockResolvedValue(betaExhaustedAccess as typeof paidAccess);
 
     const result = await spend({
       workspaceId: "workspace-1",
       action: "image_derivation",
       idempotencyKey: "usage-key",
       returnPath: "/campaigns/c1",
-      userId: "user-1",
     });
 
-    expect(result).toEqual({
-      ok: false,
-      status: 402,
-      conversionPayload,
-    });
-    expect(mockBuildConversionPayload).toHaveBeenCalledWith({
-      workspaceId: "workspace-1",
-      check: {
-        allowed: false,
-        amount: 5,
-        balance: 0,
-        reason: "insufficient_credits",
-      },
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+
+    expect(result.conversionPayload).toMatchObject({
+      reason: "beta_exhausted",
+      recommendedAction: "checkout",
+      amount: 5,
+      balance: 0,
       returnPath: "/campaigns/c1",
-      operation: "image_derivation",
     });
-    expect(mockRecordUsage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        workspaceId: "workspace-1",
-        userId: "user-1",
-      })
-    );
+    expect(mockGetWorkspaceBillingAccess).toHaveBeenCalledWith("workspace-1");
   });
 
   it("keeps conversion payload compatible with the client contract parser", async () => {
@@ -139,7 +130,12 @@ describe("paywall.spend", () => {
         reason: "inactive_subscription",
       },
     });
-    mockBuildConversionPayload.mockResolvedValue(conversionPayload);
+    mockGetWorkspaceBillingAccess.mockResolvedValue({
+      ...paidAccess,
+      kind: "none",
+      hasSpendAccess: false,
+      subscriptionStatus: "none",
+    } as typeof paidAccess);
 
     const result = await spend({
       workspaceId: "workspace-1",
@@ -169,6 +165,91 @@ describe("paywall.spend", () => {
         idempotencyKey: "usage-key",
       })
     ).resolves.toEqual({ ok: true, creditsSpent: 5 });
+  });
+});
+
+describe("paywall.spendOrApiError", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("allows requests when usage is recorded", async () => {
+    mockRecordUsage.mockResolvedValue({
+      status: "recorded",
+      usage: {},
+      check: { allowed: true, amount: 5, balance: 20 },
+    } as Awaited<ReturnType<typeof recordUsage>>);
+
+    await expect(
+      spendOrApiError({
+        workspaceId: "workspace-1",
+        action: "image_derivation",
+        idempotencyKey: "test-key",
+      })
+    ).resolves.toBeNull();
+  });
+
+  it("returns structured conversion payload when usage is blocked", async () => {
+    mockRecordUsage.mockResolvedValue({
+      status: "blocked",
+      check: {
+        allowed: false,
+        amount: 5,
+        balance: 0,
+        reason: "insufficient_credits",
+      },
+    });
+    mockGetWorkspaceBillingAccess.mockResolvedValue(betaExhaustedAccess as typeof paidAccess);
+
+    const response = await spendOrApiError({
+      workspaceId: "workspace-1",
+      action: "image_derivation",
+      idempotencyKey: "test-key",
+      returnPath: "/campaigns/c1",
+    });
+    const body = await response?.json();
+
+    expect(response?.status).toBe(402);
+    expect(body?.code).toBe("beta_exhausted");
+    expect(body?.details).toMatchObject({
+      reason: "beta_exhausted",
+      recommendedAction: "checkout",
+      returnPath: "/campaigns/c1",
+    });
+    expect(mockApiError).toHaveBeenCalledWith(
+      "beta_exhausted",
+      402,
+      expect.objectContaining({
+        reason: "beta_exhausted",
+        returnPath: "/campaigns/c1",
+      })
+    );
+  });
+
+  it("forwards userId to recordUsage for analytics emission", async () => {
+    mockRecordUsage.mockResolvedValue({
+      status: "blocked",
+      check: {
+        allowed: false,
+        amount: 5,
+        balance: 0,
+        reason: "insufficient_credits",
+      },
+    });
+    mockGetWorkspaceBillingAccess.mockResolvedValue(betaExhaustedAccess as typeof paidAccess);
+
+    await spendOrApiError({
+      workspaceId: "workspace-1",
+      action: "image_derivation",
+      idempotencyKey: "test-key",
+      userId: "user-1",
+    });
+
+    expect(mockRecordUsage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user-1",
+      })
+    );
   });
 });
 

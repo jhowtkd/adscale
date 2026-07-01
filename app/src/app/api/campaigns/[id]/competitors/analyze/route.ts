@@ -5,7 +5,7 @@ import { checkRateLimit } from "@/lib/with-rate-limit";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getCampaignById } from "@/server/repositories/campaign";
 import { analyzeCompetitorCreative } from "@/server/ai/competitor-analyzer";
-import { spendCreditsOrApiError } from "@/server/billing/gates";
+import { spendOrApiError } from "@/server/billing/paywall";
 
 const MAX_SIZE = 50 * 1024 * 1024; // 50MB
 const MAX_FILES = 3;
@@ -74,7 +74,7 @@ export async function POST(
     const name = (formData.get("name") as string | null) ?? undefined;
     const platform = (formData.get("platform") as string | null) ?? undefined;
 
-    const creditError = await spendCreditsOrApiError({
+    const creditError = await spendOrApiError({
       workspaceId: workspace.id,
       action: "image_derivation",
       amount: 5,

@@ -13,7 +13,7 @@ import {
   type CreativeReadinessResult,
 } from "@/server/ai/creative-readiness";
 import { logger } from "@/lib/logger";
-import { spendCreditsOrApiError } from "@/server/billing/gates";
+import { spendOrApiError } from "@/server/billing/paywall";
 import { recordBetaAnalyticsEvent } from "@/server/beta-analytics/record";
 import { getBetaSessionIdFromRequest } from "@/server/beta-analytics/session";
 
@@ -334,7 +334,7 @@ export async function POST(
       }
     }
 
-    const creditError = await spendCreditsOrApiError({
+    const creditError = await spendOrApiError({
       workspaceId: workspace.id,
       action: "creative_qa",
       amount: 1,

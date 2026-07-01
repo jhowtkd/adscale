@@ -4,8 +4,8 @@ const mockActionState = vi.hoisted(() => ({
   jobRefs: [] as Array<{ kind: string; id: string }>,
 }));
 
-vi.mock("@/server/billing/gates", () => ({
-  spendCreditsOrApiError: vi.fn(),
+vi.mock("@/server/billing/paywall", () => ({
+  spendOrApiError: vi.fn(),
 }));
 
 vi.mock("@/server/assistant/creative-iteration/proposal", () => ({
@@ -48,7 +48,7 @@ vi.mock("@/server/jobs/client", () => ({
 }));
 
 import "@/server/assistant/action-contracts/contracts";
-import { spendCreditsOrApiError } from "@/server/billing/gates";
+import { spendOrApiError } from "@/server/billing/paywall";
 import { confirmCreativeRevision } from "@/server/assistant/creative-iteration/proposal";
 import { createDerivation, updateDerivationStatus } from "@/server/repositories/derivation";
 import { getAssistantActionById } from "@/server/repositories/assistant-action";
@@ -57,7 +57,7 @@ import { reviseCreativeInputSchema } from "@/server/assistant/action-contracts/c
 import { getActionContract } from "@/server/assistant/action-contracts/registry";
 import { executeReviseCreative } from "./revise-creative";
 
-const mockSpendCredits = vi.mocked(spendCreditsOrApiError);
+const mockSpendCredits = vi.mocked(spendOrApiError);
 const mockConfirm = vi.mocked(confirmCreativeRevision);
 const mockCreateDerivation = vi.mocked(createDerivation);
 const mockUpdateDerivationStatus = vi.mocked(updateDerivationStatus);

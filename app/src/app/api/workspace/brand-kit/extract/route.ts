@@ -4,7 +4,7 @@ import { apiError, handleApiError } from "@/lib/api-response";
 import { checkRateLimit } from "@/lib/with-rate-limit";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { extractBrandKitFromImage } from "@/server/ai/brand-kit-extractor";
-import { spendCreditsOrApiError } from "@/server/billing/gates";
+import { spendOrApiError } from "@/server/billing/paywall";
 
 const MAX_SIZE = 10 * 1024 * 1024;
 
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
       return apiError("fileTooLarge", 400);
     }
 
-    const creditError = await spendCreditsOrApiError({
+    const creditError = await spendOrApiError({
       workspaceId: workspace.id,
       action: "creative_qa",
       amount: 1,

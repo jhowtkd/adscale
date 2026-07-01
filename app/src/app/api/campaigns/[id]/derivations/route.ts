@@ -22,7 +22,7 @@ import { derivations } from "@/server/db/schema";
 import { getUserLocale } from "@/server/repositories/user";
 import { getAssetsByCampaign } from "@/server/repositories/asset";
 import { objectStorage } from "@/server/storage";
-import { spendCreditsOrApiError } from "@/server/billing/gates";
+import { spendOrApiError } from "@/server/billing/paywall";
 import {
   deriveRegenerationPreview,
   derivationHasRegenerationPreview,
@@ -186,7 +186,7 @@ export async function POST(
     }
 
     const jobsToCreate = isPreview ? jobs.slice(0, 1) : jobs;
-    const creditError = await spendCreditsOrApiError({
+    const creditError = await spendOrApiError({
       workspaceId: workspace.id,
       action: "image_derivation",
       amount: jobsToCreate.length * 5,

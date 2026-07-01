@@ -43,8 +43,8 @@ vi.mock("@/server/ai/preflight-analysis", async (importOriginal) => {
   };
 });
 
-vi.mock("@/server/billing/gates", () => ({
-  spendCreditsOrApiError: vi.fn(() => Promise.resolve(null)),
+vi.mock("@/server/billing/paywall", () => ({
+  spendOrApiError: vi.fn(() => Promise.resolve(null)),
 }));
 
 vi.mock("@/server/beta-analytics/record", () => ({
@@ -54,14 +54,14 @@ vi.mock("@/server/beta-analytics/record", () => ({
 import { getCampaignById } from "@/server/repositories/campaign";
 import { getAssetWithMetadata, updateAssetMetadata } from "@/server/repositories/asset";
 import { analyzePreflight } from "@/server/ai/preflight-analysis";
-import { spendCreditsOrApiError } from "@/server/billing/gates";
+import { spendOrApiError } from "@/server/billing/paywall";
 import { recordBetaAnalyticsEvent } from "@/server/beta-analytics/record";
 
 const mockGetCampaign = vi.mocked(getCampaignById);
 const mockGetAsset = vi.mocked(getAssetWithMetadata);
 const mockUpdateAsset = vi.mocked(updateAssetMetadata);
 const mockAnalyzePreflight = vi.mocked(analyzePreflight);
-const mockSpendCredits = vi.mocked(spendCreditsOrApiError);
+const mockSpendCredits = vi.mocked(spendOrApiError);
 const mockRecordBetaAnalyticsEvent = vi.mocked(recordBetaAnalyticsEvent);
 
 const samplePreflight = {
@@ -253,7 +253,7 @@ describe("POST /api/campaigns/[id]/assets/[assetId]/preflight", () => {
     );
   });
 
-  it("emits credit_blocked when spendCreditsOrApiError returns 402", async () => {
+  it("emits credit_blocked when spendOrApiError returns 402", async () => {
     mockGetAsset.mockResolvedValue({
       ...completedAsset,
       analysisStatus: "pending",

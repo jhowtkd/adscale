@@ -17,7 +17,7 @@ import { getUserLocale } from "@/server/repositories/user";
 import { objectStorage } from "@/server/storage";
 import { analyzeCreativeQa } from "@/server/ai/creative-qa";
 import { buildPassagemOlharVerdict } from "@/server/ai/olhar/olhar-qa";
-import { spendCreditsOrApiError } from "@/server/billing/gates";
+import { spendOrApiError } from "@/server/billing/paywall";
 import { recordBrandMemoryEvent } from "@/server/memory/brand-memory-dispatch";
 import { resolveCtaSemantics } from "@/server/ai/creative-contract";
 import type { CreativeContract } from "@/server/ai/creative-contract";
@@ -90,7 +90,7 @@ export async function POST(
       });
     }
 
-    const creditError = await spendCreditsOrApiError({
+    const creditError = await spendOrApiError({
       workspaceId: workspace.id,
       action: "creative_qa",
       amount: 1,

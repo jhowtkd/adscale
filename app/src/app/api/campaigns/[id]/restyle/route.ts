@@ -22,7 +22,7 @@ import { getUserLocale } from "@/server/repositories/user";
 import { getAssetsByCampaign } from "@/server/repositories/asset";
 import { objectStorage } from "@/server/storage";
 import { serializeDerivationForApi } from "@/server/ai/derivation-auto-retry-observability";
-import { spendCreditsOrApiError } from "@/server/billing/gates";
+import { spendOrApiError } from "@/server/billing/paywall";
 import { z } from "zod";
 
 const restyleSchema = z.object({
@@ -139,7 +139,7 @@ export async function POST(
     });
 
     // Spend credits
-    const creditError = await spendCreditsOrApiError({
+    const creditError = await spendOrApiError({
       workspaceId: workspace.id,
       action: "image_derivation",
       amount: 5,

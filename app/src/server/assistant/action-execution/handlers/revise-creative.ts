@@ -1,7 +1,7 @@
 import { getActionContract } from "@/server/assistant/action-contracts/registry";
 import { emitArtifactIterationTelemetry } from "@/server/assistant/artifact-iteration-telemetry";
 import { confirmCreativeRevision } from "@/server/assistant/creative-iteration/proposal";
-import { spendCreditsOrApiError } from "@/server/billing/gates";
+import { spendOrApiError } from "@/server/billing/paywall";
 import { logger } from "@/lib/logger";
 import { getAssistantActionById } from "@/server/repositories/assistant-action";
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
@@ -54,7 +54,7 @@ export async function executeReviseCreative(
   const attempt = resolveAttemptIndex(ctx.inputSnapshot) + jobRefs.length;
   const idempotencyKey = buildRetryIdempotencyKey(ctx.actionId, attempt);
 
-  const creditError = await spendCreditsOrApiError({
+  const creditError = await spendOrApiError({
     workspaceId: ctx.workspaceId,
     action: "image_derivation",
     amount: 5,

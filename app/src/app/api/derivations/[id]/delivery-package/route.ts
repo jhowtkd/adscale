@@ -13,7 +13,7 @@ import {
 import { updateCampaign } from "@/server/repositories/campaign";
 import { getUserLocale } from "@/server/repositories/user";
 import { inngest } from "@/server/jobs/client";
-import { spendCreditsOrApiError } from "@/server/billing/gates";
+import { spendOrApiError } from "@/server/billing/paywall";
 import { recordBrandMemoryEvent } from "@/server/memory/brand-memory-dispatch";
 
 const bodySchema = z.object({
@@ -76,7 +76,7 @@ export async function POST(
     );
 
     if (formatsToCreate.length > 0) {
-      const creditError = await spendCreditsOrApiError({
+      const creditError = await spendOrApiError({
         workspaceId: workspace.id,
         action: "delivery_package_child",
         amount: formatsToCreate.length * 5,

@@ -12,7 +12,7 @@ import { getActionContract } from "./registry";
 import { buildRiskCopyLines } from "./risk-copy";
 import "./contracts";
 import { getGuidedFlowByThread } from "@/server/repositories/guided-flow";
-import { canSpend } from "@/server/billing/credits";
+import { checkSpend } from "@/server/billing/paywall";
 import {
   assertGuidedActionReady,
   guidedActionSnapshotDigest,
@@ -106,7 +106,7 @@ export async function revalidateOnConfirm(
   }
 
   if (contract.creditImpact.kind === "creditAction") {
-    const creditCheck = await canSpend(workspaceId, contract.creditImpact.action);
+    const creditCheck = await checkSpend(workspaceId, contract.creditImpact.action);
     if (!creditCheck.allowed) {
       throw new AssistantActionValidationError(creditCheck.reason);
     }

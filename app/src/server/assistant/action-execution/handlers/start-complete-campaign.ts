@@ -2,7 +2,7 @@ import { logger } from "@/lib/logger";
 import { getActionContract } from "@/server/assistant/action-contracts/registry";
 import { buildPlanPrompt } from "@/server/ai/prompt-builder";
 import { getOpenAI } from "@/server/ai/utils";
-import { spendCreditsOrApiError } from "@/server/billing/gates";
+import { spendOrApiError } from "@/server/billing/paywall";
 import { inngest } from "@/server/jobs/client";
 import { env } from "@/server/validation/env";
 import { z } from "zod";
@@ -93,7 +93,7 @@ export async function executeStartCompleteCampaign(ctx: ActionExecutionContext) 
 
   let plan = await getPlanByCampaign(campaignId, ctx.workspaceId);
   if (!plan) {
-    const creditError = await spendCreditsOrApiError({
+    const creditError = await spendOrApiError({
       workspaceId: ctx.workspaceId,
       action: "creative_plan",
       idempotencyKey: `assistant-action:${ctx.actionId}:creative_plan`,
@@ -131,7 +131,7 @@ export async function executeStartCompleteCampaign(ctx: ActionExecutionContext) 
     plan = await createPlan(campaignId, ctx.workspaceId, planPayload);
   }
 
-  const previewCreditError = await spendCreditsOrApiError({
+  const previewCreditError = await spendOrApiError({
     workspaceId: ctx.workspaceId,
     action: "image_derivation",
     amount: 5,

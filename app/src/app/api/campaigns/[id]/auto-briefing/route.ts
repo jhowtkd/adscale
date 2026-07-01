@@ -6,7 +6,7 @@ import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getCampaignById } from "@/server/repositories/campaign";
 import { objectStorage } from "@/server/storage";
 import { analyzeImageContent } from "@/server/ai/image-analysis";
-import { spendCreditsOrApiError } from "@/server/billing/gates";
+import { spendOrApiError } from "@/server/billing/paywall";
 
 const postBodySchema = z.object({
   imageKey: z.string().min(1),
@@ -77,7 +77,7 @@ export async function POST(
 
     const { imageKey } = parsed.data;
 
-    const creditError = await spendCreditsOrApiError({
+    const creditError = await spendOrApiError({
       workspaceId: workspace.id,
       action: "creative_qa",
       amount: 1,

@@ -27,10 +27,9 @@ vi.mock("@/server/repositories/assistant-message", () => ({
 vi.mock("@/server/repositories/guided-flow", () => ({
   getGuidedFlowByThread: vi.fn(),
 }));
-vi.mock("@/server/billing/credits", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/server/billing/credits")>();
-  return { ...actual, canSpend: vi.fn(() => Promise.resolve({ allowed: true, amount: 5, balance: 50 })) };
-});
+vi.mock("@/server/billing/paywall", () => ({
+  checkSpend: vi.fn(() => Promise.resolve({ allowed: true, amount: 5, balance: 50 })),
+}));
 
 import {
   AssistantActionValidationError,
@@ -39,13 +38,13 @@ import {
 } from "@/server/repositories/assistant-action";
 import { getAssistantMessageById } from "@/server/repositories/assistant-message";
 import { getGuidedFlowByThread } from "@/server/repositories/guided-flow";
-import { canSpend } from "@/server/billing/credits";
+import { checkSpend } from "@/server/billing/paywall";
 import { revalidateOnConfirm } from "./validate";
 
 const mockGetAction = vi.mocked(getAssistantActionById);
 const mockGetMessage = vi.mocked(getAssistantMessageById);
 const mockGetFlow = vi.mocked(getGuidedFlowByThread);
-const mockCanSpend = vi.mocked(canSpend);
+const mockCanSpend = vi.mocked(checkSpend);
 
 const WORKSPACE_ID = "ws-1";
 const ACTION_ID = "action-1";

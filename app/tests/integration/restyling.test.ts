@@ -47,8 +47,8 @@ vi.mock("@/server/repositories/derivation", () => ({
   createDerivation: vi.fn(),
 }));
 
-vi.mock("@/server/billing/gates", () => ({
-  spendCreditsOrApiError: vi.fn(),
+vi.mock("@/server/billing/paywall", () => ({
+  spendOrApiError: vi.fn(),
 }));
 
 import { inngest } from "@/server/jobs/client";
@@ -58,7 +58,7 @@ import { getUserLocale } from "@/server/repositories/user";
 import { createCampaign, deleteCampaign } from "@/server/repositories/campaign";
 import { createAsset } from "@/server/repositories/asset";
 import { createDerivation } from "@/server/repositories/derivation";
-import { spendCreditsOrApiError } from "@/server/billing/gates";
+import { spendOrApiError } from "@/server/billing/paywall";
 import { POST } from "@/app/api/restyling/route";
 
 function createMockFile(name: string, type: string, size: number): File {
@@ -103,7 +103,7 @@ describe("POST /api/restyling", () => {
       workspace: { id: workspaceId, name: "Test Workspace" },
     });
     (getUserLocale as ReturnType<typeof vi.fn>).mockResolvedValue("en");
-    (spendCreditsOrApiError as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (spendOrApiError as ReturnType<typeof vi.fn>).mockResolvedValue(null);
     (createCampaign as ReturnType<typeof vi.fn>).mockResolvedValue({ id: campaignId });
     (objectStorage.put as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
     (createAsset as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "asset-1" });
@@ -224,7 +224,7 @@ describe("POST /api/restyling", () => {
   });
 
   it("returns 402 when credits insufficient", async () => {
-    (spendCreditsOrApiError as ReturnType<typeof vi.fn>).mockResolvedValue(
+    (spendOrApiError as ReturnType<typeof vi.fn>).mockResolvedValue(
       NextResponse.json({ error: "insufficientCredits" }, { status: 402 })
     );
 

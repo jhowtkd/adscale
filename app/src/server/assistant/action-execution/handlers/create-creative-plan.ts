@@ -2,7 +2,7 @@ import { z } from "zod";
 import { getActionContract } from "@/server/assistant/action-contracts/registry";
 import { buildPlanPrompt } from "@/server/ai/prompt-builder";
 import { getOpenAI } from "@/server/ai/utils";
-import { spendCreditsOrApiError } from "@/server/billing/gates";
+import { spendOrApiError } from "@/server/billing/paywall";
 import { env } from "@/server/validation/env";
 import { createCampaign } from "@/server/repositories/campaign";
 import { createPlan } from "@/server/repositories/plan";
@@ -58,7 +58,7 @@ export async function executeCreateCreativePlan(ctx: ActionExecutionContext) {
     throw new AssistantActionExecutionError("Client profile not found", "scope_mismatch");
   }
 
-  const creditError = await spendCreditsOrApiError({
+  const creditError = await spendOrApiError({
     workspaceId: ctx.workspaceId,
     action: "creative_plan",
     idempotencyKey: `assistant-action:${ctx.actionId}:creative_plan`,

@@ -14,7 +14,7 @@ import {
 import { generateLandingPageStructure } from "@/server/ai/landing-page";
 import { renderLandingPageHtml } from "@/server/services/landing-page-renderer";
 import { objectStorage } from "@/server/storage";
-import { spendCreditsOrApiError } from "@/server/billing/gates";
+import { spendOrApiError } from "@/server/billing/paywall";
 
 export async function POST(
   request: Request,
@@ -58,7 +58,7 @@ export async function POST(
       return apiError("landingPageGenerationInProgress", 429);
     }
 
-    const creditError = await spendCreditsOrApiError({
+    const creditError = await spendOrApiError({
       workspaceId: workspace.id,
       action: "landing_page",
       idempotencyKey: `landing-page:${derivation.id}`,
