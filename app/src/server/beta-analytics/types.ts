@@ -52,13 +52,21 @@ export const PHASE_107_BETA_EVENT_KEYS = [
   "next_experiment_dismissed",
 ] as const;
 
+export const PHASE_121_BETA_EVENT_KEYS = [
+  "derivation_auto_retry_triggered",
+  "derivation_auto_retry_succeeded",
+  "derivation_auto_retry_unchanged",
+] as const;
+
 export const BETA_EVENT_KEYS = [
   ...PHASE_76_BETA_EVENT_KEYS,
   ...PHASE_107_BETA_EVENT_KEYS,
+  ...PHASE_121_BETA_EVENT_KEYS,
 ] as const;
 
 export type Phase76BetaEventKey = (typeof PHASE_76_BETA_EVENT_KEYS)[number];
 export type Phase107BetaEventKey = (typeof PHASE_107_BETA_EVENT_KEYS)[number];
+export type Phase121BetaEventKey = (typeof PHASE_121_BETA_EVENT_KEYS)[number];
 export type BetaEventKey = (typeof BETA_EVENT_KEYS)[number];
 
 const EVENT_KEY_PATTERN = /^[a-z][a-z0-9_]*$/;

@@ -109,6 +109,26 @@ export interface ShareEngagementByAssistanceRow {
   openRate: number | null;
 }
 
+export interface DerivationAutoRetryBucket {
+  triggered: number;
+  succeeded: number;
+  unchanged: number;
+  successRate: number | null;
+}
+
+export interface DerivationAutoRetryByGenerationModeRow extends DerivationAutoRetryBucket {
+  generationMode: string;
+}
+
+export interface DerivationAutoRetryByFailureCodeRow extends DerivationAutoRetryBucket {
+  reasonCode: string;
+}
+
+export interface DerivationAutoRetryFunnelSummary extends DerivationAutoRetryBucket {
+  byGenerationMode: DerivationAutoRetryByGenerationModeRow[];
+  byFailureCode: DerivationAutoRetryByFailureCodeRow[];
+}
+
 export interface AnalyticsFunnelSummary {
   missionFunnel: MissionFunnelRow[];
   cockpitStageFunnel: CockpitStageFunnelRow[];
@@ -124,6 +144,7 @@ export interface AnalyticsFunnelSummary {
   postPreviewStall: PostPreviewStallSummary;
   draftToShareTiming: DraftToShareTimingSummary;
   shareEngagementByAssistance: ShareEngagementByAssistanceRow[];
+  derivationAutoRetryFunnel: DerivationAutoRetryFunnelSummary;
   totals: {
     events: number;
     sessions: number;
@@ -361,6 +382,93 @@ export function aggregateSessionStageTimeline(
 }
 
 const OVERRIDE_DEDUP_WINDOW_MS = 5 * 60 * 1000;
+
+type AutoRetryBucketCounts = {
+  triggered: number;
+  succeeded: number;
+  unchanged: number;
+};
+
+function finalizeAutoRetryBucket(
+  counts: AutoRetryBucketCounts
+): DerivationAutoRetryBucket {
+  const { triggered, succeeded, unchanged } = counts;
+  return {
+    triggered,
+    succeeded,
+    unchanged,
+    successRate: triggered > 0 ? succeeded / triggered : null,
+  };
+}
+
+function bumpAutoRetryBucket(
+  map: Map<string, AutoRetryBucketCounts>,
+  key: string,
+  outcome: "triggered" | "succeeded" | "unchanged"
+) {
+  const current = map.get(key) ?? { triggered: 0, succeeded: 0, unchanged: 0 };
+  current[outcome] += 1;
+  map.set(key, current);
+}
+
+export function aggregateDerivationAutoRetryFunnel(
+  events: BetaAnalyticsEvent[]
+): DerivationAutoRetryFunnelSummary {
+  const outcomeByDerivation = new Map<string, "succeeded" | "unchanged">();
+
+  for (const event of events) {
+    if (!event.derivationId) continue;
+    if (event.eventKey === "derivation_auto_retry_succeeded") {
+      outcomeByDerivation.set(event.derivationId, "succeeded");
+    }
+    if (event.eventKey === "derivation_auto_retry_unchanged") {
+      outcomeByDerivation.set(event.derivationId, "unchanged");
+    }
+  }
+
+  const overall: AutoRetryBucketCounts = { triggered: 0, succeeded: 0, unchanged: 0 };
+  const byGenerationMode = new Map<string, AutoRetryBucketCounts>();
+  const byFailureCode = new Map<string, AutoRetryBucketCounts>();
+
+  for (const event of events) {
+    if (event.eventKey !== "derivation_auto_retry_triggered") continue;
+
+    overall.triggered += 1;
+    const generationMode = propString(event, "operation") ?? "unknown";
+    const reasonCode = propString(event, "reasonCode") ?? "unknown";
+    bumpAutoRetryBucket(byGenerationMode, generationMode, "triggered");
+    bumpAutoRetryBucket(byFailureCode, reasonCode, "triggered");
+
+    const outcome = event.derivationId
+      ? outcomeByDerivation.get(event.derivationId)
+      : undefined;
+    if (outcome === "succeeded") {
+      overall.succeeded += 1;
+      bumpAutoRetryBucket(byGenerationMode, generationMode, "succeeded");
+      bumpAutoRetryBucket(byFailureCode, reasonCode, "succeeded");
+    } else if (outcome === "unchanged") {
+      overall.unchanged += 1;
+      bumpAutoRetryBucket(byGenerationMode, generationMode, "unchanged");
+      bumpAutoRetryBucket(byFailureCode, reasonCode, "unchanged");
+    }
+  }
+
+  return {
+    ...finalizeAutoRetryBucket(overall),
+    byGenerationMode: [...byGenerationMode.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([generationMode, counts]) => ({
+        generationMode,
+        ...finalizeAutoRetryBucket(counts),
+      })),
+    byFailureCode: [...byFailureCode.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([reasonCode, counts]) => ({
+        reasonCode,
+        ...finalizeAutoRetryBucket(counts),
+      })),
+  };
+}
 
 export function aggregateRecipeFunnel(
   events: BetaAnalyticsEvent[]
@@ -787,6 +895,7 @@ export function buildAnalyticsFunnelSummary(
       events,
       sessions
     ),
+    derivationAutoRetryFunnel: aggregateDerivationAutoRetryFunnel(events),
     totals: {
       events: events.length,
       sessions: sessionIds.size,
