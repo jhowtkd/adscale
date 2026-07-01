@@ -55,7 +55,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const { workspace } = await requireWorkspaceAccess(request);
-    const rateLimitResult = await checkRateLimit(request, { category: "ai", workspaceId: workspace.id });
+    const rateLimitResult = await checkRateLimit(new URL(request.url).pathname, request, { category: "ai", workspaceId: workspace.id });
     if (rateLimitResult) return rateLimitResult;
     const body = await request.json();
     const parsed = createThreadSchema.safeParse(body);

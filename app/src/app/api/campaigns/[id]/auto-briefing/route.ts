@@ -58,7 +58,7 @@ export async function POST(
       params,
     ]);
 
-    const rateLimitResult = await checkRateLimit(request, {
+    const rateLimitResult = await checkRateLimit(new URL(request.url).pathname, request, {
       category: "ai",
       workspaceId: workspace.id,
     });

@@ -21,6 +21,7 @@ export { sanitizeBreadcrumbs, sanitizeDiagnosticContext } from "./diagnostic";
 
 export {
   sanitizeForTelemetry,
+  type MissionInsightTelemetryInput,
   type TelemetrySanitizeKind,
   type TelemetrySanitizeOptions,
 } from "./telemetry";

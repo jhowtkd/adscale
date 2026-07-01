@@ -1,12 +1,13 @@
 import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import {
   buildRateLimitExceededResponse,
-  checkMutationRateLimit,
   checkRateLimit,
   getMutationRateLimitCategory,
   isRateLimitDisabled,
   rateLimit,
 } from "./rate-limit";
+import { checkRateLimit as checkProxyRateLimit } from "./rate-limit-proxy";
+import { getRateLimitStore } from "./rate-limit-store";
 
 describe("rateLimit E2E bypass", () => {
   const original = process.env.E2E_DISABLE_RATE_LIMIT;
@@ -108,18 +109,34 @@ describe("checkRateLimit", () => {
     }
   });
 
-  it("returns null when the request is allowed", async () => {
+  it("classifies pathname and returns null when the request is allowed", async () => {
     const request = new Request("http://localhost:3000/api/campaigns/camp-1/plan", {
       method: "POST",
     });
 
     await expect(
-      checkRateLimit(request, { category: "ai", workspaceId: "workspace-1" })
+      checkRateLimit("/api/campaigns/camp-1/plan", request, {
+        category: "ai",
+        workspaceId: "workspace-1",
+      })
+    ).resolves.toBeNull();
+  });
+
+  it("uses explicit category override when provided", async () => {
+    const request = new Request("http://localhost:3000/api/share/token/asset/1", {
+      method: "GET",
+    });
+
+    await expect(
+      checkRateLimit("/api/share/token/asset/1", request, {
+        category: "read",
+        identifier: "token",
+      })
     ).resolves.toBeNull();
   });
 });
 
-describe("checkMutationRateLimit", () => {
+describe("rate-limit-proxy edge entry", () => {
   const original = process.env.E2E_DISABLE_RATE_LIMIT;
 
   beforeEach(() => {
@@ -140,8 +157,12 @@ describe("checkMutationRateLimit", () => {
     });
 
     await expect(
-      checkMutationRateLimit(request, "/api/campaigns/camp-1/derivations")
+      checkProxyRateLimit("/api/campaigns/camp-1/derivations", request)
     ).resolves.toBeNull();
     expect(getMutationRateLimitCategory("/api/campaigns/camp-1/derivations")).toBe("ai");
+  });
+
+  it("does not initialize the store at module import time", () => {
+    expect(() => getRateLimitStore()).not.toThrow();
   });
 });

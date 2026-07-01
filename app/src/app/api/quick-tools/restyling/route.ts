@@ -18,7 +18,7 @@ const MAX_SIZE = 50 * 1024 * 1024; // 50MB
 export async function POST(request: Request) {
   try {
     const { user, workspace } = await requireWorkspaceAccess(request);
-    const rateLimitResult = await checkRateLimit(request, { category: "ai", workspaceId: workspace.id });
+    const rateLimitResult = await checkRateLimit(new URL(request.url).pathname, request, { category: "ai", workspaceId: workspace.id });
     if (rateLimitResult) return rateLimitResult;
     const [locale, formData] = await Promise.all([
       getUserLocale(user.id),

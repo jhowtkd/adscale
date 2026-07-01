@@ -11,7 +11,7 @@ export async function GET(
 ) {
   try {
     const { token, derivationId } = await params;
-    const rateLimitResult = await checkRateLimit(_request, { category: "read", identifier: token });
+    const rateLimitResult = await checkRateLimit(new URL(_request.url).pathname, _request, { category: "read", identifier: token });
     if (rateLimitResult) return rateLimitResult;
     const link = await validateShareToken(token);
 

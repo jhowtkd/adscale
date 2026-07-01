@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { checkMutationRateLimit } from "@/lib/rate-limit";
+import { checkRateLimit } from "@/lib/rate-limit-proxy";
 import { isValidLocale, defaultLocale } from "@/i18n/config";
 import { logger } from "@/lib/logger";
 
@@ -76,7 +76,7 @@ export async function proxy(request: NextRequest) {
 
   // Rate limit API mutations
   if (isApiMutation(request)) {
-    const rateLimitResponse = await checkMutationRateLimit(request, pathname);
+    const rateLimitResponse = await checkRateLimit(pathname, request);
     if (rateLimitResponse) {
       return rateLimitResponse;
     }

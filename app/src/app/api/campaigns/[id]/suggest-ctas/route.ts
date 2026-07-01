@@ -35,7 +35,7 @@ export async function POST(
       requireWorkspaceAccess(request),
       params,
     ]);
-    const rateLimitResult = await checkRateLimit(request, { category: "ai", workspaceId: workspace.id });
+    const rateLimitResult = await checkRateLimit(new URL(request.url).pathname, request, { category: "ai", workspaceId: workspace.id });
     if (rateLimitResult) return rateLimitResult;
 
     // Verify campaign exists and belongs to workspace

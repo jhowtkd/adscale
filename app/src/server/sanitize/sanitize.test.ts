@@ -146,14 +146,14 @@ describe("telemetry sanitizer core", () => {
     });
 
     it("routes mission_insight kind to mission sanitizer", () => {
-      const result = sanitizeForTelemetry(null, {
-        kind: "mission_insight",
-        input: {
+      const result = sanitizeForTelemetry(
+        {
           moment: "preview_first",
           missionKey: "preview",
           action: "dismissed",
         },
-      });
+        { kind: "mission_insight" }
+      );
 
       expect(result).toMatchObject({
         moment: "preview_first",
