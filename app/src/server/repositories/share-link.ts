@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "../db";
 import { shareLinks } from "../db/schema";
 
@@ -29,6 +29,29 @@ export async function getShareLinkByToken(token: string) {
     .where(eq(shareLinks.token, token))
     .limit(1);
   return result[0] ?? null;
+}
+
+/**
+ * Revoke a share link so its token can no longer be validated, even before
+ * its expiry. Scoped to the owning workspace so a user can only revoke
+ * their own links.
+ */
+export async function revokeShareLinkForCampaign(
+  campaignId: string,
+  workspaceId: string
+): Promise<number> {
+  const result = await db
+    .update(shareLinks)
+    .set({ revokedAt: new Date() })
+    .where(
+      and(
+        eq(shareLinks.campaignId, campaignId),
+        eq(shareLinks.workspaceId, workspaceId),
+        sql`${shareLinks.revokedAt} IS NULL`
+      )
+    )
+    .returning();
+  return result.length;
 }
 
 export async function getLatestShareLinkForCampaign(

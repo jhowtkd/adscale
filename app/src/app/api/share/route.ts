@@ -5,12 +5,16 @@ import { logger } from "@/lib/logger";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { recordBetaAnalyticsEvent } from "@/server/beta-analytics/record";
 import { getBetaSessionIdFromRequest } from "@/server/beta-analytics/session";
-import { createShareToken } from "@/lib/share-token";
+import { createShareToken, revokeShareToken } from "@/lib/share-token";
 import { rateLimit } from "@/lib/rate-limit";
 
 const bodySchema = z.object({
   campaignId: z.string().uuid(),
   derivationIds: z.array(z.string().uuid()).min(1).max(50),
+});
+
+const revokeSchema = z.object({
+  campaignId: z.string().uuid(),
 });
 
 export async function POST(request: Request) {
@@ -54,5 +58,26 @@ export async function POST(request: Request) {
     return NextResponse.json({ shareUrl, expiresAt: expiresAt.toISOString() });
   } catch (error) {
     return handleApiError(error, "share.POST");
+  }
+}
+
+/**
+ * Revoke the active share link for a campaign. The token immediately stops
+ * validating (before its expiry). Workspace-scoped: a user can only revoke
+ * share links for campaigns in their own workspace.
+ */
+export async function DELETE(request: Request) {
+  try {
+    const { workspace } = await requireWorkspaceAccess(request);
+    const body = await request.json();
+    const parsed = revokeSchema.safeParse(body);
+    if (!parsed.success) {
+      return apiError("invalidRequestBody", 400);
+    }
+
+    const revoked = await revokeShareToken(parsed.data.campaignId, workspace.id);
+    return NextResponse.json({ revoked });
+  } catch (error) {
+    return handleApiError(error, "share.DELETE");
   }
 }

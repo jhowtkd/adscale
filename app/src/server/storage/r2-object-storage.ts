@@ -73,6 +73,12 @@ export class R2ObjectStorage implements ObjectStorage {
       Key: key,
       Body: data,
       ContentType: contentType,
+      // Force download rather than inline rendering when a user navigates
+      // directly to the object URL. <img> tags still render images normally
+      // (they ignore Content-Disposition), but this prevents uploaded
+      // HTML/SVG/SVG-with-script from executing in a browser on the public
+      // bucket origin — defense against stored XSS via content-type spoofing.
+      ContentDisposition: "attachment",
     });
     await this.client.send(command);
   }
@@ -172,10 +178,13 @@ export class R2ObjectStorage implements ObjectStorage {
       Key: key,
       ContentType: contentType,
       ContentLength: contentLength,
+      // Same defense as put(): force attachment disposition so a spoofed
+      // Content-Type (e.g. text/html via presign) can't render inline.
+      ContentDisposition: "attachment",
     });
     return getSignedUrl(this.client, command, {
       expiresIn: 300,
-      signableHeaders: new Set(["content-type"]),
+      signableHeaders: new Set(["content-type", "content-disposition"]),
     });
   }
 

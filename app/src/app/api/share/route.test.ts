@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { POST } from "./route";
+import { POST, DELETE } from "./route";
 
 const VALID_SESSION_ID = "550e8400-e29b-41d4-a716-446655440000";
 const CAMPAIGN_ID = "550e8400-e29b-41d4-a716-446655440001";
@@ -29,6 +29,7 @@ vi.mock("@/lib/share-token", () => ({
       expiresAt: new Date("2026-12-31T00:00:00.000Z"),
     })
   ),
+  revokeShareToken: vi.fn(() => Promise.resolve(1)),
 }));
 
 vi.mock("@/server/beta-analytics/record", () => ({
@@ -99,5 +100,35 @@ describe("POST /api/share", () => {
         sessionId: VALID_SESSION_ID,
       })
     );
+  });
+});
+
+describe("DELETE /api/share", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("revokes the share link for the campaign", async () => {
+    const req = new Request("http://localhost/api/share", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ campaignId: CAMPAIGN_ID }),
+    });
+
+    const res = await DELETE(req);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.revoked).toBe(1);
+  });
+
+  it("rejects an invalid body", async () => {
+    const req = new Request("http://localhost/api/share", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ campaignId: "not-a-uuid" }),
+    });
+
+    const res = await DELETE(req);
+    expect(res.status).toBe(400);
   });
 });

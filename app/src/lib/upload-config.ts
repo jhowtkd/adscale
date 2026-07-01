@@ -17,6 +17,21 @@ export function isAllowedImageType(type: string): type is AllowedImageType {
   return ALLOWED_IMAGE_TYPES.includes(type as AllowedImageType);
 }
 
+/**
+ * Sanitize a user-supplied filename before embedding it in a storage key.
+ *
+ * Strips path separators and anything that isn't a safe filename character,
+ * and collapses `..` sequences. This prevents key-injection / path traversal
+ * (e.g. a filename of `../../workspaces/<other>/x` writing into another
+ * workspace's key prefix). Always combine the result with a server-generated
+ * uuid prefix and a fixed key structure.
+ */
+export function sanitizeStorageFilename(name: string): string {
+  return name
+    .replace(/[^a-zA-Z0-9.-]/g, "_")
+    .replace(/\.{2,}/g, ".");
+}
+
 // Magic bytes for image validation (prevents spoofing file.type)
 const MAGIC_BYTES: Record<AllowedImageType, number[][]> = {
   "image/png": [[0x89, 0x50, 0x4e, 0x47]],

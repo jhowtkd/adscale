@@ -176,9 +176,17 @@ function createStore(): RateLimitStore {
   }
 
   if (process.env.NODE_ENV === "production") {
+    // In a single-instance deploy (e.g. Render starter, a lone container)
+    // the in-memory store is correct and reliable. In a serverless /
+    // multi-instance deploy it resets per cold start per instance, making
+    // rate limits ineffective. We can't detect topology here, so surface
+    // a loud warning naming both vars so operators can act.
     logger.warn(
-      "Rate limiter falling back to in-memory store. In serverless environments this is unreliable. " +
-        "Set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN to use Redis."
+      "Rate limiter is using the in-memory store in production. This is only " +
+        "safe on a single-instance deploy. For serverless / autoscaling, set " +
+        "UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN to use Redis, " +
+        "otherwise all rate limits (auth, ai, general) are effectively no-ops " +
+        "across instances."
     );
   }
 
@@ -207,6 +215,19 @@ function getClientIdentifier(request: Request): string {
 export function isRateLimitDisabled(): boolean {
   const flag = process.env.E2E_DISABLE_RATE_LIMIT;
   return flag === "1" || flag === "true" || flag === "yes";
+}
+
+/**
+ * Hard gate for dev-only features that must NEVER run in production
+ * (e.g. the reset-token backdoor, dev-admin auto-verify, E2E helpers).
+ *
+ * Combines a code-level NODE_ENV check (not circumventable by env drift)
+ * with the E2E flag. Use this — not bare isRateLimitDisabled() — for any
+ * feature whose exposure would be a security incident.
+ */
+export function isDevOnlyFeatureEnabled(): boolean {
+  if (process.env.NODE_ENV === "production") return false;
+  return isRateLimitDisabled();
 }
 
 export async function rateLimit(

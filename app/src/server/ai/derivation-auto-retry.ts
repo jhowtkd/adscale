@@ -2,6 +2,7 @@ import OpenAI, { toFile } from "openai";
 import { env } from "../validation/env";
 import { downloadBuffer, uploadBuffer } from "../storage/r2";
 import { buildDerivationPrompt } from "./prompt-builder";
+import { fetchProviderUrlSafe } from "./safe-fetch";
 import type { CreativeContract } from "./creative-contract";
 import type { CreativeHardFailure } from "./creative-quality-gate";
 import { shouldAutoRetryDerivation } from "./derivation-auto-retry-policy";
@@ -114,11 +115,7 @@ export async function runDerivationAutoRetry(
   if (first.b64_json) {
     buffer = Buffer.from(first.b64_json, "base64");
   } else if (first.url) {
-    const imageResponse = await fetch(first.url, { signal: AbortSignal.timeout(30_000) });
-    if (!imageResponse.ok) {
-      throw new Error(`Failed to download auto-retry image: ${imageResponse.status}`);
-    }
-    buffer = Buffer.from(await imageResponse.arrayBuffer());
+    buffer = await fetchProviderUrlSafe(first.url);
   } else {
     throw new Error("No image data returned from auto-retry");
   }

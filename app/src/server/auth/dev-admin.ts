@@ -6,6 +6,13 @@ import { user, workspaceMembers } from "@/server/db/schema";
 export const DEV_ADMIN_CREDIT_BALANCE = 999_999;
 
 export function parseDevAdminEmails(): Set<string> {
+  // Security: this entire mechanism is dev-only. If DEV_ADMIN_EMAIL ever
+  // leaks into a production env, the listed address becomes an auto-verified
+  // platform-owner superuser that bypasses email verification. Hard-gate it
+  // behind NODE_ENV so the set is always empty in production regardless of
+  // the env var.
+  if (process.env.NODE_ENV === "production") return new Set();
+
   const raw = process.env.DEV_ADMIN_EMAIL ?? "";
   return new Set(
     raw

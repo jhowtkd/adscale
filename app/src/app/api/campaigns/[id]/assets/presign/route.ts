@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { isAllowedImageType } from "@/lib/upload-config";
+import { isAllowedImageType, sanitizeStorageFilename } from "@/lib/upload-config";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
@@ -50,7 +50,8 @@ export async function POST(
 
     await failExpiredPendingUploads();
 
-    const key = `campaigns/${campaignId}/${crypto.randomUUID()}-${filename}`;
+    const safeName = sanitizeStorageFilename(filename);
+    const key = `campaigns/${campaignId}/${crypto.randomUUID()}-${safeName}`;
     const url = await getPresignedUploadUrl(key, contentType, contentLength);
     const expiresAt = new Date(Date.now() + PRESIGN_TTL_SECONDS * 1000);
 

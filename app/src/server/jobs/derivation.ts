@@ -11,6 +11,7 @@ import {
 } from "@/server/services/notifications";
 import { uploadBuffer, downloadBuffer } from "../storage/r2";
 import { buildDerivationPrompt } from "../ai/prompt-builder";
+import { fetchProviderUrlSafe } from "../ai/safe-fetch";
 import {
   FACTUAL_SOURCE_RULES,
   resolveCtaSemantics,
@@ -869,13 +870,7 @@ export const derivationJob = inngest.createFunction(
       if (result.b64_json) {
         buffer = Buffer.from(result.b64_json, "base64");
       } else if (result.url) {
-        const imageResponse = await fetch(result.url, { signal: AbortSignal.timeout(30_000) });
-        if (!imageResponse.ok) {
-          throw new Error(
-            `Failed to download generated image: ${imageResponse.status} ${imageResponse.statusText}`
-          );
-        }
-        buffer = Buffer.from(await imageResponse.arrayBuffer());
+        buffer = await fetchProviderUrlSafe(result.url);
       } else {
         throw new Error("No image data returned");
       }

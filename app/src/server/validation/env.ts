@@ -4,6 +4,17 @@ const stripeServerKeySchema = z.string().refine((value) => value.startsWith("sk_
   message: "Stripe server key must start with sk_ or rk_",
 });
 
+/**
+ * Inngest signing key must be a real secret in production. The dev default
+ * "local" disables signature verification and lets anyone POST fake jobs.
+ */
+const inngestSigningKeySchema = z.string().refine((value) => {
+  if (process.env.NODE_ENV === "production" && value === "local") return false;
+  return true;
+}, {
+  message: 'INNGEST_SIGNING_KEY must be a real secret in production (got "local")',
+});
+
 export const envSchema = z.object({
   DATABASE_URL: z.string().url(),
   BETTER_AUTH_SECRET: z.string().min(32),
@@ -19,7 +30,7 @@ export const envSchema = z.object({
   R2_BUCKET: z.string(),
   R2_PUBLIC_BASE_URL: z.string().url(),
   INNGEST_EVENT_KEY: z.string(),
-  INNGEST_SIGNING_KEY: z.string(),
+  INNGEST_SIGNING_KEY: inngestSigningKeySchema,
   RESEND_API_KEY: z.string().startsWith("re_"),
   EMAIL_FROM: z.string().min(3),
   APP_URL: z.string().url(),
@@ -41,6 +52,7 @@ export const envSchema = z.object({
   GITHUB_CLIENT_ID: z.string().optional(),
   GITHUB_CLIENT_SECRET: z.string().optional(),
   BETA_ACCESS_CODES: z.string().optional(),
+  NOTIFICATION_WEBHOOK_SECRET: z.string().min(16).optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

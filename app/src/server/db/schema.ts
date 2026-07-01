@@ -1272,6 +1272,7 @@ export const shareLinks = adscaleSchema.table(
     derivationIds: text("derivation_ids").array().notNull(),
     expiresAt: timestamp("expires_at", { mode: "date" }).notNull(),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    revokedAt: timestamp("revoked_at", { mode: "date" }),
   },
   (table) => [
     index("share_links_token_idx").on(table.token),
