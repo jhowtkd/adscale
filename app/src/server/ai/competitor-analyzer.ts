@@ -35,10 +35,31 @@ export type DifferentiationStrategy = z.infer<typeof strategySchema>;
 
 // ── Prompt builders ───────────────────────────────────────────────────
 
+/**
+ * Sanitize a user-supplied string before interpolating it into an LLM prompt.
+ * Mitigates indirect prompt injection by:
+ *  - capping length (so an attacker can't flood the context window),
+ *  - collapsing newlines/tabs (so injected instructions can't start new lines
+ *    that look like separate system directives),
+ *  - stripping common injection phrasing.
+ * The result is always wrapped as an opaque value when used in the prompt.
+ */
+function sanitizePromptInput(value: string, maxLen = 120): string {
+  return value
+    .replace(/[\r\n\t]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, maxLen);
+}
+
 function buildAnalyzePrompt(competitorName?: string, platform?: string): string {
   const contextParts: string[] = [];
-  if (competitorName) contextParts.push(`Competitor name: ${competitorName}`);
-  if (platform) contextParts.push(`Platform: ${platform}`);
+  if (competitorName) {
+    contextParts.push(`Competitor name: ${sanitizePromptInput(competitorName)}`);
+  }
+  if (platform) {
+    contextParts.push(`Platform: ${sanitizePromptInput(platform)}`);
+  }
 
   return `You are a senior creative strategist analyzing a competitor's advertising creative.
 ${contextParts.length > 0 ? contextParts.join("\n") : ""}
