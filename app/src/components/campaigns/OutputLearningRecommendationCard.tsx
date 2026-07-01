@@ -138,7 +138,7 @@ export default function OutputLearningRecommendationCard({
   };
 
   const titleKey = titleKeyForVariable(recommendation.primaryVariableKey);
-  const titleParams =
+  const titleParams: Record<string, string> =
     titleKey === "fallback"
       ? { key: recommendation.primaryVariableKey, value: recommendation.primaryVariableValue }
       : { value: recommendation.primaryVariableValue };
