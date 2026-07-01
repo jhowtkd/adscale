@@ -2,7 +2,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { logger } from "@/lib/logger";
 import { getActionContract } from "@/server/assistant/action-contracts/registry";
 import { getAssetWithMetadata, getAssetsByCampaign } from "@/server/repositories/asset";
-import { spendCreditsOrApiError } from "@/server/billing/gates";
+import { spendOrApiError } from "@/server/billing/paywall";
 import { updateCampaign } from "@/server/repositories/campaign";
 import {
   createDerivation,
@@ -103,7 +103,7 @@ export async function executeQuickRestyle(ctx: ActionExecutionContext) {
     );
   }
 
-  const creditError = await spendCreditsOrApiError({
+  const creditError = await spendOrApiError({
     workspaceId: ctx.workspaceId,
     action: "restyling",
     amount: 5,

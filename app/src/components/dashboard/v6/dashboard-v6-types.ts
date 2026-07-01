@@ -80,4 +80,13 @@ export type DashboardV6Labels = {
   briefingTitle: string;
   editBriefing: string;
   goToActions: string;
+  activityEmptyTitle: string;
+  activityEmptyDescription: string;
+  activityEmptyAction: string;
+  recipesEmptyTitle: string;
+  recipesEmptyDescription: string;
+  recipesEmptyAction: string;
+  briefingEmptyTitle: string;
+  briefingEmptyDescription: string;
+  briefingEmptyAction: string;
 };

@@ -1,7 +1,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "../db";
 import { derivations } from "../db/schema";
-import { getPresignedDownloadUrl } from "../storage/r2";
+import { objectStorage } from "@/server/storage";
 
 export async function getPreviewUrlsForDerivations(
   refs: Array<{ workspaceId: string; derivationId: string }>
@@ -38,7 +38,7 @@ export async function getPreviewUrlsForDerivations(
       const outputKey = outputKeyById.get(ref.derivationId);
       previewByDerivationId.set(
         ref.derivationId,
-        outputKey ? await getPresignedDownloadUrl(outputKey) : null
+        outputKey ? await objectStorage.signedDownloadUrl(outputKey) : null
       );
     })
   );

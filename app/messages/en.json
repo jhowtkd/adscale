@@ -195,7 +195,200 @@
     "pageTitle": "Campaigns"
   },
   "campaigns": {
-    "previewPendingBatchCta": "Continue → batch"
+    "previewPendingBatchCta": "Continue → batch",
+    "hypotheses": {
+      "loading": "Loading hypotheses…",
+      "loadError": "Could not load hypotheses.",
+      "insufficientDerivations": "Create at least two derivations and import results before registering hypotheses.",
+      "title": "Creative hypotheses",
+      "subtitle": "Experiments with a primary variable and honest verdicts on imported data.",
+      "newHypothesis": "New hypothesis",
+      "cancel": "Cancel",
+      "errors": {
+        "distinctVariants": "Select distinct control and variant.",
+        "rationaleRequired": "Enter the hypothesis rationale.",
+        "createFailed": "Failed to create hypothesis.",
+        "compareFailed": "Comparison failed.",
+        "minDerivations": "Select at least two derivations."
+      },
+      "form": {
+        "variableKey": "Primary variable",
+        "variableKeyPlaceholder": "e.g. cta, format, headline",
+        "primaryMetric": "Primary metric",
+        "expectedDirection": "Expected direction",
+        "increase": "Increase",
+        "decrease": "Decrease",
+        "rationale": "Rationale",
+        "control": "Control",
+        "variant": "Variant",
+        "select": "Select…",
+        "platformOptional": "Platform (optional)",
+        "anyPlatform": "Any",
+        "submit": "Register hypothesis"
+      },
+      "empty": "No hypotheses registered yet.",
+      "controlledTag": "Controlled hypothesis · variable: {variable}",
+      "compare": "Compare",
+      "delete": "Delete",
+      "variantRole": "{role}: {label}",
+      "observationalTitle": "Observational comparison",
+      "observationalSubtitle": "Compare derivations without a formal hypothesis. Results are labeled as media observation.",
+      "observationalCompare": "Compare (observational)",
+      "lastComparison": "Latest comparison: {verdict}",
+      "viewReport": "View report",
+      "report": {
+        "controlled": "Controlled hypothesis",
+        "observational": "Media observation",
+        "period": "Period: {start} — {end}{platform}{objective}",
+        "platformSuffix": " · {platform}",
+        "objectiveSuffix": " · Objective: {objective}",
+        "variant": "Variant",
+        "impressions": "Impressions",
+        "clicks": "Clicks",
+        "deltaVsControl": "Δ vs control",
+        "controlSuffix": " (control)",
+        "disclaimer": "Observational comparison does not imply causality or statistical significance."
+      },
+      "metrics": {
+        "ctr": "CTR",
+        "cpc": "CPC",
+        "cpa": "CPA",
+        "roas": "ROAS",
+        "conversions": "Conversions",
+        "clicks": "Clicks",
+        "impressions": "Impressions",
+        "spend": "Spend",
+        "conversion_value": "Conversion value"
+      },
+      "verdicts": {
+        "winner": "Winner identified",
+        "no_clear_winner": "No clear winner",
+        "insufficient_evidence": "Insufficient evidence",
+        "not_comparable": "Not comparable"
+      },
+      "outcomes": {
+        "supported": "Supported",
+        "contradicted": "Contradicted",
+        "inconclusive": "Inconclusive"
+      }
+    },
+    "learnings": {
+      "loading": "Loading learnings…",
+      "loadError": "Failed to load learnings.",
+      "noClientProfile": "Link a client profile to this campaign to consolidate performance learnings.",
+      "source": "Source: {source}",
+      "sourceMem0": "Mem0 + canonical Postgres",
+      "sourcePostgres": "Canonical Postgres",
+      "recompute": "Recompute learnings",
+      "recomputing": "Recomputing…",
+      "empty": "No approved learnings yet. Complete hypothesis comparisons with enough evidence to generate reusable patterns.",
+      "sample": "Sample",
+      "sampleValue": "{impressions} impressions · {campaigns} campaign(s)",
+      "recency": "Recency",
+      "context": "Context",
+      "evidence": "Evidence",
+      "evidenceValue": "{supporting} favorable · {contradicting} contradicting",
+      "contradictionWarning": "Contradicting evidence exists — treat as contextual pattern, not an absolute rule.",
+      "confidence": {
+        "low": "Low",
+        "medium": "Medium",
+        "high": "High"
+      }
+    },
+    "performanceImport": {
+      "tabs": {
+        "manual": "Manual",
+        "csv": "CSV",
+        "history": "History"
+      },
+      "errors": {
+        "previewFailed": "Preview failed.",
+        "confirmFailed": "Failed to confirm import."
+      },
+      "confirmSuccess": "Import complete: {created} created, {updated} updated, {ignored} ignored, {invalid} invalid.",
+      "fields": {
+        "derivation": "Derivation",
+        "platform": "Platform",
+        "placement": "Placement",
+        "startDate": "Start (YYYY-MM-DD)",
+        "endDate": "End (YYYY-MM-DD)",
+        "impressions": "Impressions",
+        "clicks": "Clicks",
+        "spend": "Spend",
+        "conversions": "Conversions",
+        "conversionValue": "Conversion value",
+        "currency": "Currency"
+      },
+      "select": "Select…",
+      "preview": "Preview",
+      "previewCsv": "Preview CSV",
+      "confirm": "Confirm import",
+      "csvFile": "CSV file",
+      "history": {
+        "date": "Date",
+        "type": "Type",
+        "file": "File",
+        "counts": "C/U/I/X",
+        "empty": "No imports recorded."
+      },
+      "parseOptions": {
+        "defaultCurrency": "Default currency",
+        "locale": "Locale",
+        "decimalSeparator": "Decimal separator",
+        "percentFormat": "Percent format",
+        "percentExample": "1.5%",
+        "fractionExample": "0.015"
+      },
+      "previewTable": {
+        "summary": "{valid} valid · {invalid} invalid · {create} new · {update} updates · {ignore} ignored",
+        "row": "#",
+        "status": "Status",
+        "action": "Action",
+        "errors": "Errors"
+      }
+    },
+    "nextExperiment": {
+      "loading": "Loading next experiment recommendation…",
+      "eyebrow": "Suggested next experiment",
+      "titles": {
+        "cta": "Test CTA \"{value}\"",
+        "format": "Prioritize format {value}",
+        "recipe": "Use recipe {value}",
+        "style": "Explore style {value}"
+      },
+      "confidence": "Confidence {level}",
+      "sample": "Sample",
+      "sampleValue": "{impressions} impressions · {campaigns} campaign(s)",
+      "evidence": "Evidence",
+      "evidenceValue": "{count} learning(s) · score {score}",
+      "contradictions": "{count} contradicting evidence — review before scaling.",
+      "accept": "Accept and open recipe",
+      "edit": "Edit before generating",
+      "dismiss": "Dismiss",
+      "disclaimer": "No automatic changes to campaign, media, or budget — you confirm each step."
+    },
+    "outputLearning": {
+      "loading": "Loading output learning recommendation…",
+      "eyebrow": "Suggested output learning",
+      "titles": {
+        "cta": "Test CTA \"{value}\"",
+        "format": "Prioritize format {value}",
+        "generationMode": "Use mode {value}",
+        "stylePolicy": "Apply style {value}",
+        "fallback": "Explore {key} {value}"
+      },
+      "confidence": "Confidence {level}",
+      "sample": "Sample",
+      "sampleValue": "{events} event(s) · {campaigns} campaign(s)",
+      "evidence": "Evidence",
+      "evidenceValue": "{count} learning(s) · score {score}",
+      "avoidPatternsTitle": "Patterns to avoid (informational — does not change prompt)",
+      "contradictions": "{count} contradicting evidence — review before scaling.",
+      "accept": "Accept and open recipe",
+      "edit": "Edit before generating",
+      "dismiss": "Dismiss",
+      "disclaimer": "Limited variables only (CTA, mode, format, recipe, style) — no prompt changes."
+    }
   },
   "dashboard": {
     "period": {
@@ -297,7 +490,16 @@
       "relativeMinutes": "{count} min",
       "relativeHours": "{count}h",
       "relativeOneDay": "1 day ago",
-      "relativeDays": "{count} days ago"
+      "relativeDays": "{count} days ago",
+      "activityEmptyTitle": "No recent activity",
+      "activityEmptyDescription": "Campaigns and derivations you work on will show up here.",
+      "activityEmptyAction": "Create campaign",
+      "recipesEmptyTitle": "No saved recipes yet",
+      "recipesEmptyDescription": "Save a briefing as a template to reuse it in your next campaign.",
+      "recipesEmptyAction": "Browse templates",
+      "briefingEmptyTitle": "No active briefing",
+      "briefingEmptyDescription": "Start a campaign briefing or pick a template to see fields here.",
+      "briefingEmptyAction": "New campaign"
     },
     "laboratory": {
       "title": "Ads Laboratory",
@@ -1436,12 +1638,21 @@
       "title": "Workspace",
       "namePlaceholder": "Your workspace name",
       "descriptionPlaceholder": "Your curator workspace for briefing, batches, and review",
-      "urlPlaceholder": "https://yourcompany.com"
+      "urlPlaceholder": "https://yourcompany.com",
+      "readOnlyNotice": "You have view-only access to workspace settings. Ask an admin to make changes."
     },
     "team": {
       "title": "Team",
       "invitePlaceholder": "colleague@company.com",
-      "roleLabel": "Role"
+      "roleLabel": "Role",
+      "statusActive": "Active",
+      "statusPending": "Pending",
+      "emptyTitle": "No team members yet",
+      "emptyDescription": "Invite colleagues to collaborate on campaigns and creative reviews.",
+      "editRole": "Edit role",
+      "removeMember": "Remove member",
+      "removeConfirmTitle": "Remove team member?",
+      "removeConfirmDescription": "{name} will lose access to this workspace immediately."
     },
     "integrations": {
       "connected": "Connected",
@@ -1531,6 +1742,86 @@
       "restartDescription": "The tour will be shown again on your next dashboard visit.",
       "restartTour": "Restart Welcome Tour",
       "restarting": "Restarting..."
+    },
+    "privacy": {
+      "exportTitle": "Export my data",
+      "exportDescription": "Download a complete copy of your personal data in JSON format. Includes campaigns, derivations, assets, and creative plans.",
+      "exportButton": "Export data (JSON)",
+      "exporting": "Exporting…",
+      "exportError": "Failed to export data. Please try again.",
+      "legalTitle": "Legal documents",
+      "privacyPolicy": "Privacy Policy",
+      "termsOfUse": "Terms of Use",
+      "deleteTitle": "Delete account",
+      "deleteDescription": "This will permanently remove all your campaigns, images, and data. Personal data will be anonymized per applicable privacy law.",
+      "deleteButton": "I want to delete my account",
+      "deleteConfirmHint": "To confirm, type {keyword} in the field below:",
+      "deleteConfirmKeyword": "DELETE",
+      "deleteConfirmPlaceholder": "DELETE",
+      "deleteConfirmAria": "Confirm account deletion",
+      "deleteConfirmButton": "Confirm deletion",
+      "deleting": "Deleting…",
+      "deleteErrorKeyword": "Type \"DELETE\" to confirm.",
+      "deleteError": "Failed to delete account. Please try again."
+    },
+    "plans": {
+      "title": "Plans and limits",
+      "subtitle": "Trial to experiment, three paid tiers in BRL, and clear credit limits.",
+      "statCredits": "Credits",
+      "statCampaigns": "Campaigns",
+      "statImages": "Images",
+      "statStatus": "Status",
+      "statMargin": "Margin",
+      "statusTrial": "Trial",
+      "limitsSummary": "{credits} credits · {campaigns} campaigns · {images} images",
+      "selectPlan": "Select plan",
+      "opening": "Opening…",
+      "trialIncluded": "Trial included",
+      "compareTitle": "Comparison",
+      "compareResource": "Feature",
+      "comparePrice": "Price",
+      "compareCredits": "Credits",
+      "compareCampaigns": "Campaigns",
+      "compareImages": "Images",
+      "compareRestyling": "Restyling",
+      "compareTeam": "Team",
+      "compareQueue": "Queue",
+      "compareIncluded": "Included",
+      "compareDash": "—",
+      "compareTeamBasic": "Basic",
+      "compareTeamPermissions": "Permissions",
+      "compareQueueStandard": "Standard",
+      "compareQueuePriority": "Priority",
+      "tiers": {
+        "trial": {
+          "name": "Trial",
+          "badge": "Trial",
+          "description": "Try the tool with one real campaign.",
+          "period": "one-time",
+          "features": ["1 test campaign", "6 images total", "Restyling included", "No auto-renewal"]
+        },
+        "starter": {
+          "name": "Starter",
+          "badge": "Entry",
+          "description": "For freelancers and small monthly tests.",
+          "period": "month",
+          "features": ["1 campaign per month", "6 images per month", "History and gallery", "Manual export"]
+        },
+        "growth": {
+          "name": "Growth",
+          "badge": "Recommended",
+          "description": "For recurring campaign workflows.",
+          "period": "month",
+          "features": ["4 campaigns per month", "24 images per month", "Restyling included", "Basic team"]
+        },
+        "scale": {
+          "name": "Scale",
+          "badge": "Volume",
+          "description": "For teams that need controlled volume.",
+          "period": "month",
+          "features": ["12 campaigns per month", "72 images per month", "Team and permissions", "Priority queue"]
+        }
+      }
     },
     "brandKit": {
       "title": "Brand Kit",
@@ -1919,14 +2210,15 @@
     "back": "Back",
     "next": "Next",
     "finish": "Get started",
+    "stepProgress": "Step {current} of {total}: {title}",
     "step1Title": "Welcome to ADScale",
     "step1Desc": "You are the curator in this workspace. Define your brief here, run variations as a batch, and approve what ships.",
-    "step2Title": "Briefing inputs",
-    "step2Desc": "Quick actions feed your briefing—a base creative, library assets, or restyling gives you a starting point for the next batch.",
+    "step2Title": "Active production",
+    "step2Desc": "Your top campaign in progress lives here—track briefing completion, variations, approvals, and credits at a glance.",
     "step3Title": "Your curation queue",
     "step3Desc": "Recent campaigns are your review queue. Open a campaign to curate variants, approve what ships, and export delivery packages.",
-    "step4Title": "Start with a brief",
-    "step4Desc": "Create a new campaign with a structured brief before generation—from scratch or from a saved template.",
+    "step4Title": "Recipe shortcuts",
+    "step4Desc": "Saved templates and recipes jump-start new batches—pick one to pre-fill briefing fields and launch faster.",
     "step5Title": "Workspace credits",
     "step5Desc": "Credits power batch generation in your workspace. Track available balance and monthly usage here."
   },
@@ -1960,6 +2252,8 @@
     "deleteConfirmDescription": "Are you sure you want to delete \"{name}\"? This action cannot be undone.",
     "emptyTitle": "No assets in your library yet",
     "emptyDescription": "Upload base creatives, logos, and references—they feed your briefing and batch workflow.",
+    "errorTitle": "Couldn't load your library",
+    "errorDescription": "Something went wrong while fetching your assets. Please try again.",
     "dropzoneLabel": "Drag and drop images here or click Upload",
     "dropzoneHint": "PNG, JPEG, WebP · Max 50MB",
     "uploadAriaLabel": "Upload library asset",
@@ -1973,7 +2267,9 @@
       "searchPlaceholder": "Search asset by name or tag…",
       "countSummary": "{shown} of {total} assets",
       "dropzoneAria": "Drag files here or click to select",
-      "deleteAsset": "Delete asset"
+      "deleteAsset": "Delete asset",
+      "loadMore": "Load more",
+      "loadingMore": "Loading…"
     }
   },
   "copyGenerator": {
@@ -2056,7 +2352,8 @@
       "body": "Start chatting with the ADScale assistant. Your work is saved into projects and conversations in the sidebar.",
       "selectTree": "Browse conversations",
       "createClient": "Create client",
-      "selectThread": "Select a thread from the tree to start chatting."
+      "selectThread": "Send a message below to start this conversation.",
+      "threadTitle": "No messages yet"
     },
     "start": {
       "promptIn": "What should we work on in {project}?",
@@ -2067,6 +2364,7 @@
       "send": "Send",
       "submitting": "Creating conversation…",
       "chooseProject": "Choose project",
+      "createError": "Could not start the conversation. Try again.",
       "noProjectsTitle": "Let's start by creating a project",
       "noProjectsBody": "Projects organize campaigns and assistant conversations. Create your first one to begin.",
       "createFirstClient": "Create first project",
@@ -2109,6 +2407,7 @@
         "loading": "Loading assets…",
         "emptyLibrary": "No library assets yet. Upload an image above.",
         "uploadFailed": "Upload failed",
+        "uploading": "Uploading…",
         "selectFailed": "Failed to select creative",
         "diagnosisTitle": "Creative diagnosis",
         "assumptions": "Extracted assumptions",
@@ -2135,7 +2434,21 @@
         "referencesSubtitle": "Select at least {min} references ({count} selected).",
         "loading": "Loading references…",
         "empty": "No references available. Save client references or upload library assets.",
+        "upload": "Upload reference",
+        "uploading": "Uploading…",
         "continue": "Continue to creative plan"
+      },
+      "controls": {
+        "updateError": "Could not update the journey.",
+        "retry": "Try again",
+        "back": "Back",
+        "restart": "Restart",
+        "switchPath": "Switch path",
+        "retained": "Will be kept: {items}.",
+        "cleared": "Will be cleared: {items}.",
+        "nothing": "nothing",
+        "confirm": "Confirm",
+        "cancel": "Cancel"
       }
     },
     "createClient": {
@@ -2168,7 +2481,9 @@
       "noThreadHint": "Select a thread to start chatting",
       "close": "Close",
       "loading": "Loading conversation…",
-      "headerSubtitle": "active conversation"
+      "headerSubtitle": "active conversation",
+      "streaming": "Assistant is responding…",
+      "uploading": "Uploading…"
     },
     "drawer": {
       "title": "Campaign assistant",
@@ -2326,6 +2641,23 @@
       "performance": "Performance",
       "mission": "Mission insight",
       "other": "Other"
+    },
+    "guidedFlowQuality": {
+      "title": "Guided journey quality feedback",
+      "description": "Record read-only operational feedback on diagnosis utility or creative plan readiness.",
+      "workspaceId": "Workspace ID",
+      "threadId": "Thread ID",
+      "feedbackType": "Feedback type",
+      "rating": "Rating",
+      "reason": "Reason (optional, max 256)",
+      "select": "Select…",
+      "submit": "Save feedback",
+      "saved": "Saved",
+      "saveError": "Could not save feedback.",
+      "types": {
+        "diagnosis_utility": "Diagnosis utility",
+        "creative_plan_readiness": "Creative plan readiness"
+      }
     },
     "triage": {
       "title": "Beta feedback triage",

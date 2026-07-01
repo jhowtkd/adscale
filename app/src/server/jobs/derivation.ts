@@ -9,9 +9,8 @@ import {
   getUserLocale,
   sendDerivationCompleteEmail,
 } from "@/server/services/notifications";
-import { uploadBuffer, downloadBuffer } from "../storage/r2";
+import { objectStorage } from "@/server/storage";
 import { buildDerivationPrompt } from "../ai/prompt-builder";
-import { fetchProviderUrlSafe } from "../ai/safe-fetch";
 import {
   FACTUAL_SOURCE_RULES,
   resolveCtaSemantics,
@@ -20,7 +19,6 @@ import { resolveCanonicalCreative } from "../ai/canonical-creative-contract";
 import { resolveInputSourceClassification, assertParentFactualLineage } from "../ai/factual-visual-separation";
 import type {
   CreativeContract,
-  ImageOperation,
   PromptProvenance,
   SourceDescriptor,
   SourcePackage,
@@ -43,6 +41,10 @@ import {
   type DerivationGenerationLog,
 } from "../ai/generation-log";
 import { runDerivationAutoRetry, shouldAutoRetryDerivation } from "../ai/derivation-auto-retry";
+import {
+  emitDerivationAutoRetryOutcome,
+  emitDerivationAutoRetryTriggered,
+} from "../beta-analytics/derivation-auto-retry-telemetry";
 import { buildHardFailureRegenerationSuggestion } from "../ai/creative-score";
 import type { CreativeHardFailure } from "../ai/creative-quality-gate";
 import {
@@ -59,15 +61,19 @@ import {
 import { resolveCampaignClientProfileId } from "../repositories/client-reference";
 import { getCompetitorAnalysesByCampaign } from "../repositories/competitor-analysis";
 import { getBrandMemoryContext } from "@/server/memory/brand-memory-context";
-import OpenAI, { toFile } from "openai";
-import sharp from "sharp";
 import { env } from "../validation/env";
 import {
   scoreDerivationHeuristic,
   analyzeDerivationCreative,
 } from "@/server/ai/creative-score";
 import { normalizeCreativeDiagnosis } from "@/server/ai/creative-diagnosis";
-import { getTargetDimensions, formatToOpenAIImageSize, toOpenAISdkImageSize } from "@/lib/formats";
+import { formatToOpenAIImageSize, toOpenAISdkImageSize } from "@/lib/formats";
+import {
+  buildGenerationPromptContext,
+  executeGenerationStep,
+  type BuildGenerationPromptContextInput,
+  type GenerationReferenceInput,
+} from "../ai/derivation-pipeline";
 import { captureAndAutoPromote } from "../human-quality/auto-promote";
 import { loadPromptCalibrationContext } from "../brand-taste/prompt-calibration-loader";
 import { syncAssistantActionFromJob } from "../repositories/assistant-job-sync";
@@ -87,9 +93,6 @@ import {
   sanitizeDerivationFailureError,
 } from "./derivation-error-sanitizer";
 import * as Sentry from "@sentry/nextjs";
-
-const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 120_000 });
-const IMAGE_GENERATION_TIMEOUT_MS = 5 * 60 * 1000;
 
 type CampaignAsset = Awaited<ReturnType<typeof getAssetsByCampaign>>[number];
 
@@ -119,61 +122,11 @@ function resolveRestylingStyleAsset(
   return assets.find(isUsableStyleAsset) ?? null;
 }
 
-export async function normalizeGeneratedImage(
-  buffer: Buffer,
-  dimensions: { width: number; height: number },
-  generationMode: "art_variation" | "format_adaptation" | "restyling",
-) {
-  if (generationMode === "format_adaptation") {
-    return sharp(buffer)
-      .resize(dimensions.width, dimensions.height, {
-        fit: "cover",
-        position: "attention",
-      })
-      .png()
-      .toBuffer();
-  }
-
-  const backgroundPosition = "centre";
-
-  const background = await sharp(buffer)
-    .resize(dimensions.width, dimensions.height, {
-      fit: "cover",
-      position: backgroundPosition,
-    })
-    .blur(24)
-    .modulate({ brightness: 0.82, saturation: 0.9 })
-    .png()
-    .toBuffer();
-
-  const foreground = await sharp(buffer)
-    .resize(dimensions.width, dimensions.height, {
-      fit: "contain",
-      position: "centre",
-      background: { r: 0, g: 0, b: 0, alpha: 0 },
-    })
-    .png()
-    .toBuffer();
-
-  return sharp(background)
-    .composite([{ input: foreground, gravity: "centre" }])
-    .png()
-    .toBuffer();
-}
-
-function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-  let timeout: NodeJS.Timeout;
-
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timeout = setTimeout(() => {
-      reject(new Error(`${label} timed out after ${Math.round(ms / 1000)}s`));
-    }, ms);
-  });
-
-  return Promise.race([promise, timeoutPromise]).finally(() => {
-    clearTimeout(timeout);
-  });
-}
+// Moved to ai/derivation-pipeline.ts (PR3, arch/refactor-2026-q3): pure image
+// post-processing shared by the initial generation path and the auto-retry
+// path. Re-exported here so existing importers of jobs/derivation.ts keep
+// working unchanged.
+export { normalizeGeneratedImage } from "@/server/ai/derivation-pipeline";
 
 export async function scoreCompletedDerivation(
   derivationId: string,
@@ -663,12 +616,12 @@ export const derivationJob = inngest.createFunction(
 
       if (usesParentOutput && parentDerivation?.outputKey) {
         logger.info(`[generate-and-store-output] downloading parent output key=${parentDerivation.outputKey}`);
-        referenceBuffer = await downloadBuffer(parentDerivation.outputKey);
+        referenceBuffer = await objectStorage.get(parentDerivation.outputKey);
         referenceMimeType = "image/png";
         logger.info(`[generate-and-store-output] downloaded ${referenceBuffer.length} bytes from parent`);
       } else if (effectiveGenerationMode !== "restyling" && asset) {
         logger.info(`[generate-and-store-output] downloading asset key=${asset.key}`);
-        referenceBuffer = await downloadBuffer(asset.key);
+        referenceBuffer = await objectStorage.get(asset.key);
         referenceMimeType = asset.type;
         logger.info(`[generate-and-store-output] downloaded ${referenceBuffer.length} bytes`);
       }
@@ -677,67 +630,36 @@ export const derivationJob = inngest.createFunction(
         throw new Error("Parent derivation output is missing. Cannot perform package format adaptation without the approved winner image.");
       }
 
+      const promptContextInput = {
+        campaign,
+        plan,
+        asset: promptAsset,
+        feedback: derivation.feedback,
+        locale,
+        generationMode: effectiveGenerationMode as BuildGenerationPromptContextInput["generationMode"],
+        variantIndex: variantIndex ?? derivation.variantIndex ?? 0,
+        ctaText: effectiveCtaText,
+        targetFormat,
+        packageSource: sourcePackage,
+        clientReferences,
+        brandMemory,
+        campaignMemoryBlock,
+        contract: resolvedContract,
+        brandKit: brandKit ?? undefined,
+        competitorAnalyses,
+        brandTasteSection: calibrationContext.brandTasteSection,
+        corpusQualitySection: calibrationContext.corpusQualitySection,
+      };
+
+      const prompt = await buildDerivationPrompt(
+        buildGenerationPromptContext(promptContextInput)
+      );
       const openaiSize = toOpenAISdkImageSize(
         formatToOpenAIImageSize(targetFormat, {
           isPreview,
           modelName: env.OPENAI_IMAGE_MODEL,
         })
       );
-
-      const prompt = await buildDerivationPrompt({
-        campaign,
-        plan,
-        asset: promptAsset,
-        feedback: derivation.feedback,
-        locale,
-        generationMode: effectiveGenerationMode,
-        variantIndex: variantIndex ?? derivation.variantIndex ?? 0,
-        ctaText: effectiveCtaText,
-        targetFormat,
-        creativeLevel: campaign.creativeLevel ?? "balanced",
-        creativeDiagnosis: normalizeCreativeDiagnosis(campaign.creativeDiagnosis) ?? null,
-        packageSource: sourcePackage,
-        clientReferences,
-        brandMemory,
-        campaignMemoryBlock,
-        contract: resolvedContract,
-        brandKit: brandKit ? {
-          name: brandKit.name,
-          description: brandKit.description ?? undefined,
-          visualNotes: brandKit.visualNotes ?? undefined,
-          toneNotes: brandKit.toneNotes ?? undefined,
-          constraints: brandKit.constraints ?? undefined,
-          colors: Array.isArray(brandKit.brandColors) ? brandKit.brandColors as string[] : undefined,
-          fonts: Array.isArray(brandKit.brandFonts) ? brandKit.brandFonts as string[] : undefined,
-          logoAssetKey: brandKit.logoAssetKey ?? undefined,
-          toneOfVoice: brandKit.toneOfVoice ?? undefined,
-          prohibitedElements: brandKit.prohibitedElements ?? undefined,
-          requiredElements: brandKit.requiredElements ?? undefined,
-        } : null,
-        competitorAnalyses: competitorAnalyses.map((a) => {
-          const analysis = (a.analysis ?? {}) as Record<string, unknown>;
-          const vp = analysis.visualPatterns as Record<string, unknown> | undefined;
-          const msg = analysis.messaging as Record<string, unknown> | undefined;
-          return {
-            visualPatterns: {
-              colors: Array.isArray(vp?.colors) ? vp.colors as string[] : undefined,
-              composition: typeof vp?.composition === "string" ? vp.composition : undefined,
-              typography: typeof vp?.typography === "string" ? vp.typography : undefined,
-            },
-            messaging: {
-              headlineStyle: typeof msg?.headlineStyle === "string" ? msg.headlineStyle : undefined,
-              ctaStyle: typeof msg?.ctaStyle === "string" ? msg.ctaStyle : undefined,
-              offerType: typeof msg?.offerType === "string" ? msg.offerType : undefined,
-            },
-            strengths: Array.isArray(a.strengths) ? a.strengths as string[] : [],
-            weaknesses: Array.isArray(a.weaknesses) ? a.weaknesses as string[] : [],
-            differentiationOpportunities: Array.isArray(a.differentiators) ? a.differentiators as string[] : [],
-          };
-        }),
-        preflightResult: promptAsset?.metadata ? (promptAsset.metadata as Record<string, unknown>).preflightResult as import("@/server/ai/preflight-analysis").PreflightResult | undefined : null,
-        brandTasteSection: calibrationContext.brandTasteSection,
-        corpusQualitySection: calibrationContext.corpusQualitySection,
-      });
       logger.info(`[generate-and-store-output] model=${env.OPENAI_IMAGE_MODEL} hasAsset=${!!asset} locale=${locale ?? "default"}`);
 
       await inngest.realtime.publish(derivationChannel({ derivationId }).status, {
@@ -763,147 +685,58 @@ export const derivationJob = inngest.createFunction(
         inputPrompt: prompt,
       });
 
-      let result: OpenAI.Images.Image;
-      let imageOperation: ImageOperation;
-
+      let reference: GenerationReferenceInput;
       if (effectiveGenerationMode === "restyling") {
         const baseAsset = restylingBaseAsset!;
         const styleAsset = restylingStyleAsset!;
-
-        const baseBuffer = await downloadBuffer(baseAsset.key);
-        const styleBuffer = await downloadBuffer(styleAsset.key);
-
-        const baseFile = await toFile(baseBuffer, "base-image", { type: baseAsset.type });
-        const styleFile = await toFile(styleBuffer, "style-reference", { type: styleAsset.type });
-
-        const response = await withTimeout(
-          openai.images.edit({
-            model: env.OPENAI_IMAGE_MODEL,
-            image: [baseFile, styleFile],
-            prompt,
-            n: 1,
-            size: openaiSize,
-          }),
-          IMAGE_GENERATION_TIMEOUT_MS,
-          "OpenAI image edit (restyling)"
-        );
-
-        const first = response.data?.[0];
-        if (!first) {
-          throw new Error("No image data returned from OpenAI");
-        }
-        logger.info(`[generate-and-store-output] restyling edit success`);
-        result = first;
-        imageOperation = "edit";
+        const baseBuffer = await objectStorage.get(baseAsset.key);
+        const styleBuffer = await objectStorage.get(styleAsset.key);
+        reference = {
+          kind: "restyling",
+          baseBuffer,
+          baseMimeType: baseAsset.type,
+          styleBuffer,
+          styleMimeType: styleAsset.type,
+        };
       } else if (referenceBuffer && referenceMimeType) {
-        // Try edit mode first (works for art_variation and format_adaptation)
-        const referenceImage = await toFile(referenceBuffer, "reference-image", {
-          type: referenceMimeType,
-        });
-
-        try {
-          const response = await withTimeout(
-            openai.images.edit({
-              model: env.OPENAI_IMAGE_MODEL,
-              image: referenceImage,
-              prompt,
-              n: 1,
-              size: openaiSize,
-            }),
-            IMAGE_GENERATION_TIMEOUT_MS,
-            "OpenAI image edit"
-          );
-          const first = response.data?.[0];
-          if (!first) {
-            throw new Error("No image data returned from OpenAI");
-          }
-          logger.info(`[generate-and-store-output] edit success mode=${effectiveGenerationMode} url=${first.url ? "yes" : "no"} b64=${first.b64_json ? "yes" : "no"}`);
-          result = first;
-          imageOperation = "edit";
-        } catch (editErr) {
-          // Fallback to generate for format_adaptation if edit fails
-          if (effectiveGenerationMode === "format_adaptation") {
-            logger.warn(`[generate-and-store-output] edit failed for format_adaptation, falling back to generate:`, editErr);
-            const response = await withTimeout(
-              openai.images.generate({
-                model: env.OPENAI_IMAGE_MODEL,
-                prompt,
-                n: 1,
-                size: openaiSize,
-              }),
-              IMAGE_GENERATION_TIMEOUT_MS,
-              "OpenAI image generation (fallback)"
-            );
-            const first = response.data?.[0];
-            if (!first) {
-              throw new Error("No image data returned from OpenAI fallback");
-            }
-            logger.info(`[generate-and-store-output] fallback generate success`);
-            result = first;
-            imageOperation = "generation_fallback";
-          } else {
-            throw editErr;
-          }
-        }
+        reference = {
+          kind: "single",
+          buffer: referenceBuffer,
+          mimeType: referenceMimeType,
+          allowGenerateFallback: effectiveGenerationMode === "format_adaptation",
+        };
       } else {
-        // No asset — generate from scratch
-        const response = await withTimeout(
-          openai.images.generate({
-            model: env.OPENAI_IMAGE_MODEL,
-            prompt,
-            n: 1,
-            size: openaiSize,
-          }),
-          IMAGE_GENERATION_TIMEOUT_MS,
-          "OpenAI image generation"
-        );
-        const first = response.data?.[0];
-        if (!first) {
-          throw new Error("No image data returned from OpenAI");
-        }
-        logger.info(`[generate-and-store-output] generate success (no asset)`);
-        result = first;
-        imageOperation = "generate";
+        reference = { kind: "none" };
       }
 
-      let buffer: Buffer;
-      if (result.b64_json) {
-        buffer = Buffer.from(result.b64_json, "base64");
-      } else if (result.url) {
-        buffer = await fetchProviderUrlSafe(result.url);
-      } else {
-        throw new Error("No image data returned");
-      }
+      const stepResult = await executeGenerationStep({
+        derivationId,
+        promptContext: promptContextInput,
+        reference,
+        isPreview,
+      });
 
-      // Normalize output dimensions based on target format
-      const dimensions = getTargetDimensions(targetFormat, isPreview);
-      if (dimensions) {
-        buffer = await normalizeGeneratedImage(buffer, dimensions, effectiveGenerationMode);
-      }
 
-      const key = `derivations/${derivationId}/${Date.now()}.png`;
-      logger.info(`[generate-and-store-output] uploading ${buffer.length} bytes to ${key}`);
-      await uploadBuffer(key, buffer, "image/png");
-      logger.info(`[generate-and-store-output] upload success key=${key}`);
+      const revisedPrompt = stepResult.revisedPrompt || derivation.prompt || "";
 
-      const revisedPrompt = result.revised_prompt || derivation.prompt || "";
+      logger.info(`[generate-and-store-output] upload success key=${stepResult.outputKey}`);
 
       promptProvenance = {
         ...promptProvenance,
         revisedPrompt,
-        imageOperation,
-        outputKey: key,
+        imageOperation: stepResult.imageOperation,
+        outputKey: stepResult.outputKey,
       };
 
       await updateDerivationPromptProvenance(derivationId, workspaceId, {
         creativeContract: resolvedContract,
         promptProvenance,
-        inputPrompt: prompt,
+        inputPrompt: stepResult.prompt,
         prompt: revisedPrompt,
       });
 
       return {
-        outputKey: key,
+        outputKey: stepResult.outputKey,
         revisedPrompt,
         targetFormat,
         effectiveGenerationMode,
@@ -1133,7 +966,7 @@ export const derivationJob = inngest.createFunction(
     await step.run("score-derivation", async () => {
       logger.info(`[score-derivation] derivationId=${derivationId} outputKey=${generated.outputKey}`);
       try {
-        const scoreBuffer = await downloadBuffer(generated.outputKey);
+        const scoreBuffer = await objectStorage.get(generated.outputKey);
         await scoreCompletedDerivation(
           derivationId,
           workspaceId,
@@ -1161,7 +994,7 @@ export const derivationJob = inngest.createFunction(
     await step.run("quality-gate", async () => {
       logger.info(`[quality-gate] derivationId=${derivationId} outputKey=${generated.outputKey}`);
       try {
-        const gateBuffer = await downloadBuffer(generated.outputKey);
+        const gateBuffer = await objectStorage.get(generated.outputKey);
         await runCompletedDerivationQualityGate({
           derivationId,
           workspaceId,
@@ -1236,6 +1069,23 @@ export const derivationJob = inngest.createFunction(
           qaChecklist: (row.qaChecklist as Record<string, { note?: string }> | null) ?? {},
         });
 
+      const preRetryFailureCodes = hardFailures.map((failure) => failure.code);
+
+      if (triggeredByUserId) {
+        emitDerivationAutoRetryTriggered(
+          {
+            workspaceId,
+            userId: triggeredByUserId,
+            campaignId,
+            derivationId,
+            generationMode: retryMode,
+            targetFormat: generated.targetFormat,
+            isPreview: isPreview ?? derivation.isPreview ?? false,
+          },
+          preRetryFailureCodes
+        );
+      }
+
       let referenceKey: string;
       let referenceMimeType: string;
       let styleReferenceKey: string | undefined;
@@ -1286,7 +1136,7 @@ export const derivationJob = inngest.createFunction(
         correctionFeedback,
         contract: generated.resolvedContract,
         targetFormat: generated.targetFormat,
-        generationMode: generated.effectiveGenerationMode as "art_variation" | "format_adaptation" | "restyling",
+        generationMode: retryMode,
         isPreview: isPreview ?? derivation.isPreview ?? false,
         promptContext: {
           campaign,
@@ -1294,55 +1144,17 @@ export const derivationJob = inngest.createFunction(
           asset,
           feedback: correctionFeedback,
           locale,
-          generationMode: effectiveGenerationMode,
+          generationMode: effectiveGenerationMode as BuildGenerationPromptContextInput["generationMode"],
           variantIndex: variantIndex ?? derivation.variantIndex ?? 0,
           ctaText: effectiveCtaText,
           targetFormat,
-          creativeLevel: campaign.creativeLevel ?? "balanced",
-          creativeDiagnosis: normalizeCreativeDiagnosis(campaign.creativeDiagnosis) ?? null,
           packageSource,
           clientReferences,
           brandMemory,
           campaignMemoryBlock,
           contract: generated.resolvedContract,
-          brandKit: brandKit
-            ? {
-                name: brandKit.name,
-                description: brandKit.description ?? undefined,
-                visualNotes: brandKit.visualNotes ?? undefined,
-                toneNotes: brandKit.toneNotes ?? undefined,
-                constraints: brandKit.constraints ?? undefined,
-                colors: Array.isArray(brandKit.brandColors) ? (brandKit.brandColors as string[]) : undefined,
-                fonts: Array.isArray(brandKit.brandFonts) ? (brandKit.brandFonts as string[]) : undefined,
-                logoAssetKey: brandKit.logoAssetKey ?? undefined,
-                toneOfVoice: brandKit.toneOfVoice ?? undefined,
-                prohibitedElements: brandKit.prohibitedElements ?? undefined,
-                requiredElements: brandKit.requiredElements ?? undefined,
-              }
-            : null,
-          competitorAnalyses: competitorAnalyses.map((a) => {
-            const analysis = (a.analysis ?? {}) as Record<string, unknown>;
-            const vp = analysis.visualPatterns as Record<string, unknown> | undefined;
-            const msg = analysis.messaging as Record<string, unknown> | undefined;
-            return {
-              visualPatterns: {
-                colors: Array.isArray(vp?.colors) ? (vp.colors as string[]) : undefined,
-                composition: typeof vp?.composition === "string" ? vp.composition : undefined,
-                typography: typeof vp?.typography === "string" ? vp.typography : undefined,
-              },
-              messaging: {
-                headlineStyle: typeof msg?.headlineStyle === "string" ? msg.headlineStyle : undefined,
-                ctaStyle: typeof msg?.ctaStyle === "string" ? msg.ctaStyle : undefined,
-                offerType: typeof msg?.offerType === "string" ? msg.offerType : undefined,
-              },
-              strengths: Array.isArray(a.strengths) ? (a.strengths as string[]) : [],
-              weaknesses: Array.isArray(a.weaknesses) ? (a.weaknesses as string[]) : [],
-              differentiationOpportunities: Array.isArray(a.differentiators) ? (a.differentiators as string[]) : [],
-            };
-          }),
-          preflightResult: asset?.metadata
-            ? ((asset.metadata as Record<string, unknown>).preflightResult as import("@/server/ai/preflight-analysis").PreflightResult | undefined)
-            : null,
+          brandKit: brandKit ?? undefined,
+          competitorAnalyses,
           brandTasteSection: calibrationContext.brandTasteSection,
           corpusQualitySection: calibrationContext.corpusQualitySection,
         },
@@ -1381,7 +1193,10 @@ export const derivationJob = inngest.createFunction(
         derivationId,
       });
 
-      return result;
+      return {
+        ...result,
+        preRetryFailureCodes,
+      };
     });
 
     let finalOutputKey = generated.outputKey;
@@ -1391,7 +1206,7 @@ export const derivationJob = inngest.createFunction(
 
       await step.run("score-derivation-after-retry", async () => {
         try {
-          const scoreBuffer = await downloadBuffer(retried.outputKey);
+          const scoreBuffer = await objectStorage.get(retried.outputKey);
           await scoreCompletedDerivation(
             derivationId,
             workspaceId,
@@ -1415,7 +1230,7 @@ export const derivationJob = inngest.createFunction(
 
       await step.run("quality-gate-after-retry", async () => {
         try {
-          const gateBuffer = await downloadBuffer(retried.outputKey);
+          const gateBuffer = await objectStorage.get(retried.outputKey);
           await runCompletedDerivationQualityGate({
             derivationId,
             workspaceId,
@@ -1443,6 +1258,31 @@ export const derivationJob = inngest.createFunction(
           logger.warn(`[quality-gate-after-retry] failed derivationId=${derivationId}`, error);
         }
       });
+
+      if (triggeredByUserId) {
+        await step.run("emit-auto-retry-analytics", async () => {
+          const row = await getDerivationById(derivationId, workspaceId);
+          if (!row) return;
+
+          const postFailures = Array.isArray(row.hardFailures)
+            ? (row.hardFailures as CreativeHardFailure[])
+            : [];
+
+          emitDerivationAutoRetryOutcome(
+            {
+              workspaceId,
+              userId: triggeredByUserId,
+              campaignId,
+              derivationId,
+              generationMode: generated.effectiveGenerationMode,
+              targetFormat: generated.targetFormat,
+              isPreview: isPreview ?? derivation.isPreview ?? false,
+            },
+            retried.preRetryFailureCodes,
+            postFailures
+          );
+        });
+      }
     }
 
     // 6. Track usage

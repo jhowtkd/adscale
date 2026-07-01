@@ -4,23 +4,11 @@ import { previewHeroMeta } from "../_fixtures/preview-data";
 
 export default function ChatPromoHero() {
   return (
-    <section
-      className="relative overflow-hidden rounded-[var(--radius-object)] border border-[var(--accent-primary-subtle)] p-6 sm:p-8"
-      style={{
-        background:
-          "radial-gradient(circle at 80% 20%, color-mix(in oklch, var(--accent-primary) 20%, transparent), transparent 60%), linear-gradient(180deg, color-mix(in oklch, var(--accent-primary) 4%, transparent), transparent)",
-      }}
-    >
+    <section className="gradient-hero-surface relative overflow-hidden rounded-[var(--radius-object)] border border-[var(--border-subtle)] p-6 sm:p-8">
       <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:gap-8">
         <div className="flex-1.4 space-y-4 lg:flex-[1.4]">
-          <span className="inline-flex items-center gap-2 rounded-full border px-3 py-1 font-mono text-[11px] font-medium uppercase tracking-wider"
-            style={{
-              background: "color-mix(in oklch, var(--accent-primary) 18%, transparent)",
-              borderColor: "color-mix(in oklch, var(--accent-primary) 40%, transparent)",
-              color: "var(--accent-primary-hover)",
-            }}
-          >
-            <span className="animate-pulse-dot inline-block h-1.5 w-1.5 rounded-full bg-[var(--accent-primary)]" />
+          <span className="inline-flex items-center gap-2 rounded-full border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-1 font-mono text-[11px] font-medium uppercase tracking-wider text-[var(--text-secondary)]">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--neutral-dot)]" />
             Novo · Modo Chat
           </span>
 

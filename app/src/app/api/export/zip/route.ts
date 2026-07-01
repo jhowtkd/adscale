@@ -8,7 +8,7 @@ import { rateLimit } from "@/lib/rate-limit";
 import { db } from "@/server/db";
 import { derivations } from "@/server/db/schema";
 import { eq, and, inArray } from "drizzle-orm";
-import { downloadBuffer } from "@/server/storage/r2";
+import { objectStorage } from "@/server/storage";
 
 const bodySchema = z.object({
   derivationIds: z.array(z.string().uuid()).min(1).max(50),
@@ -54,7 +54,7 @@ export async function POST(request: Request) {
         concurrency(async () => {
           if (!d.outputKey) return null;
           try {
-            const buffer = await downloadBuffer(d.outputKey);
+            const buffer = await objectStorage.get(d.outputKey);
             const ext = d.format?.toLowerCase() || "png";
             return { fileName: `derivation-${d.id}.${ext}`, buffer };
           } catch {

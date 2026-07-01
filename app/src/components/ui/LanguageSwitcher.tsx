@@ -56,7 +56,7 @@ export default function LanguageSwitcher({ className }: { className?: string }) 
         onClick={() => setOpen((value) => !value)}
         className={cn(
           "flex h-9 items-center gap-1 rounded-full border border-[var(--border-dim)] bg-[var(--surface-raised)] px-2 text-sm",
-          "hover:border-[var(--border-medium)] focus:border-[var(--accent-green)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-green-dim)0.15)]",
+          "hover:border-[var(--border-medium)] focus:border-[var(--accent-green)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-green-dim)]",
           isPending && "opacity-50 cursor-wait"
         )}
         aria-label={t("label")}

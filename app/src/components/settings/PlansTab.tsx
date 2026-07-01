@@ -1,15 +1,21 @@
 "use client";
 
-import { m } from "framer-motion";
-import { Check, Crown, Sparkles } from "lucide-react";
+import { m, useReducedMotion } from "framer-motion";
+import { Check, Crown, Package } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { brlCurrency, calculateForecast, planTiers } from "./pricing-model";
 import { useStartCheckout } from "@/lib/hooks/use-billing";
 
 const forecast = calculateForecast();
 
+const compareTeamKeys = ["compareDash", "compareDash", "compareTeamBasic", "compareTeamPermissions"] as const;
+const compareQueueKeys = ["compareQueueStandard", "compareQueueStandard", "compareQueueStandard", "compareQueuePriority"] as const;
+
 export default function PlansTab() {
+  const t = useTranslations("settings.plans");
   const checkout = useStartCheckout();
+  const reducedMotion = useReducedMotion();
 
   async function startPlanCheckout(planName: string) {
     const planKey = planName.toLowerCase();
@@ -19,31 +25,31 @@ export default function PlansTab() {
 
   return (
     <m.div
-      initial={{ opacity: 0, y: 8 }}
+      initial={reducedMotion ? false : { opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25 }}
+      transition={{ duration: reducedMotion ? 0 : 0.25 }}
       className="space-y-6"
     >
       <div>
-        <h3 className="text-[18px] font-semibold text-[var(--text-primary)]">
-          Planos e limites
-        </h3>
-        <p className="mt-1 text-sm text-[var(--text-secondary)]">
-          Trial para experimentar, três tiers pagos em reais e limites claros por créditos.
-        </p>
+        <h3 className="product-section-title text-[var(--text-primary)]">{t("title")}</h3>
+        <p className="mt-1 text-sm text-[var(--text-secondary)]">{t("subtitle")}</p>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-4">
+      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
         {planTiers.map((tier) => {
+          const tierKey = tier.key;
+          const features = t.raw(`tiers.${tierKey}.features`) as string[];
           const protectedCost = forecast.protectedCampaignCostBrl * tier.campaigns;
-          const margin = tier.priceBrl > 0 ? Math.round(((tier.priceBrl - protectedCost) / tier.priceBrl) * 100) : null;
+          const margin =
+            tier.priceBrl > 0 ? Math.round(((tier.priceBrl - protectedCost) / tier.priceBrl) * 100) : null;
+
           return (
             <article
-              key={tier.name}
+              key={tierKey}
               className={cn(
-                "relative flex min-h-[360px] flex-col rounded-lg border bg-[var(--surface-base)] p-5",
+                "relative flex flex-col rounded-lg border bg-[var(--surface-base)] p-5",
                 tier.recommended
-                  ? "border-[var(--accent-green)] shadow-[0_12px_32px_var(--accent-green-dim)0.14)]"
+                  ? "border-[var(--accent-green)] shadow-[0_12px_32px_var(--accent-green-dim)]"
                   : "border-[var(--border-dim)]"
               )}
             >
@@ -56,36 +62,38 @@ export default function PlansTab() {
                       : "bg-[var(--surface-raised)] text-[var(--text-secondary)]"
                   )}
                 >
-                  {tier.badge}
+                  {t(`tiers.${tierKey}.badge`)}
                 </span>
                 {tier.recommended ? (
-                  <Crown size={16} className="text-[var(--accent-green)]" />
+                  <Crown size={16} className="text-[var(--accent-green)]" aria-hidden="true" />
                 ) : (
-                  <Sparkles size={16} className="text-[var(--text-muted)]" />
+                  <Package size={16} className="text-[var(--text-muted)]" aria-hidden="true" />
                 )}
               </div>
 
-              <h4 className="text-lg font-semibold text-[var(--text-primary)]">{tier.name}</h4>
-              <p className="mt-1 min-h-10 text-sm text-[var(--text-secondary)]">{tier.description}</p>
+              <h4 className="text-lg font-semibold text-[var(--text-primary)]">{t(`tiers.${tierKey}.name`)}</h4>
+              <p className="mt-1 min-h-10 text-sm text-[var(--text-secondary)]">{t(`tiers.${tierKey}.description`)}</p>
 
               <div className="mt-5">
                 <span className="text-3xl font-semibold text-[var(--text-primary)]">
                   {brlCurrency.format(tier.priceBrl)}
                 </span>
-                <span className="text-sm text-[var(--text-secondary)]">/{tier.period}</span>
+                <span className="text-sm text-[var(--text-secondary)]">/{t(`tiers.${tierKey}.period`)}</span>
               </div>
 
-              <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
-                <PlanStat label="Créditos" value={tier.credits.toString()} />
-                <PlanStat label="Campanhas" value={tier.campaigns.toString()} />
-                <PlanStat label="Imagens" value={tier.images.toString()} />
-                <PlanStat label={tier.trial ? "Status" : "Margem"} value={tier.trial ? "Trial" : `${margin}%`} />
-              </div>
+              <p className="mt-3 text-xs text-[var(--text-muted)]">
+                {t("limitsSummary", {
+                  credits: tier.credits,
+                  campaigns: tier.campaigns,
+                  images: tier.images,
+                })}
+                {!tier.trial && margin != null ? ` · ${t("statMargin")} ${margin}%` : null}
+              </p>
 
               <ul className="mt-5 flex-1 space-y-2">
-                {tier.features.map((feature) => (
+                {features.map((feature) => (
                   <li key={feature} className="flex gap-2 text-sm text-[var(--text-secondary)]">
-                    <Check size={15} className="mt-0.5 shrink-0 text-[var(--accent-green)]" />
+                    <Check size={15} className="mt-0.5 shrink-0 text-[var(--accent-green)]" aria-hidden="true" />
                     <span>{feature}</span>
                   </li>
                 ))}
@@ -96,13 +104,13 @@ export default function PlansTab() {
                 onClick={() => startPlanCheckout(tier.name)}
                 disabled={tier.trial || checkout.isPending}
                 className={cn(
-                  "mt-5 h-10 rounded-md text-sm font-medium transition-all disabled:cursor-not-allowed disabled:opacity-60",
+                  "mt-5 min-h-[var(--control-touch)] rounded-md text-sm font-medium transition-all disabled:cursor-not-allowed disabled:opacity-60",
                   tier.recommended
-                    ? "bg-[var(--accent-green)] text-[var(--accent-green-on-fill)] hover:bg-[var(--accent-green-light)]"
+                    ? "bg-[var(--accent-green)] text-[var(--text-on-accent)] hover:bg-[var(--accent-green-light)]"
                     : "border border-[var(--border-dim)] bg-[var(--surface-raised)] text-[var(--text-primary)] hover:border-[var(--border-medium)]"
                 )}
               >
-                {checkout.isPending ? "Abrindo..." : tier.trial ? "Trial incluso" : "Selecionar plano"}
+                {checkout.isPending ? t("opening") : tier.trial ? t("trialIncluded") : t("selectPlan")}
               </button>
             </article>
           );
@@ -110,27 +118,41 @@ export default function PlansTab() {
       </div>
 
       <section className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-5">
-        <h3 className="text-[15px] font-semibold text-[var(--text-primary)]">
-          Comparativo
-        </h3>
+        <h3 className="text-[15px] font-semibold text-[var(--text-primary)]">{t("compareTitle")}</h3>
         <div className="mt-4 overflow-x-auto">
           <table className="w-full min-w-[760px] text-sm">
             <thead>
               <tr className="border-b border-[var(--border-dim)] text-left text-xs uppercase text-[var(--text-muted)]">
-                <th className="py-3 pr-4 font-medium">Recurso</th>
+                <th className="py-3 pr-4 font-medium">{t("compareResource")}</th>
                 {planTiers.map((tier) => (
-                  <th key={tier.name} className="px-4 py-3 font-medium">{tier.name}</th>
+                  <th key={tier.key} className="px-4 py-3 font-medium">
+                    {t(`tiers.${tier.key}.name`)}
+                  </th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border-dim)]">
-              <CompareRow label="Preço" values={planTiers.map((tier) => `${brlCurrency.format(tier.priceBrl)}/${tier.period}`)} />
-              <CompareRow label="Créditos" values={planTiers.map((tier) => `${tier.credits}`)} />
-              <CompareRow label="Campanhas" values={planTiers.map((tier) => `${tier.campaigns}`)} />
-              <CompareRow label="Imagens" values={planTiers.map((tier) => `${tier.images}`)} />
-              <CompareRow label="Restilização" values={["Incluída", "Incluída", "Incluída", "Incluída"]} />
-              <CompareRow label="Equipe" values={["-", "-", "Básica", "Permissões"]} />
-              <CompareRow label="Fila" values={["Padrão", "Padrão", "Padrão", "Prioritária"]} />
+              <CompareRow
+                label={t("comparePrice")}
+                values={planTiers.map(
+                  (tier) => `${brlCurrency.format(tier.priceBrl)}/${t(`tiers.${tier.key}.period`)}`
+                )}
+              />
+              <CompareRow label={t("compareCredits")} values={planTiers.map((tier) => `${tier.credits}`)} />
+              <CompareRow label={t("compareCampaigns")} values={planTiers.map((tier) => `${tier.campaigns}`)} />
+              <CompareRow label={t("compareImages")} values={planTiers.map((tier) => `${tier.images}`)} />
+              <CompareRow
+                label={t("compareRestyling")}
+                values={planTiers.map(() => t("compareIncluded"))}
+              />
+              <CompareRow
+                label={t("compareTeam")}
+                values={compareTeamKeys.map((key) => t(key))}
+              />
+              <CompareRow
+                label={t("compareQueue")}
+                values={compareQueueKeys.map((key) => t(key))}
+              />
             </tbody>
           </table>
         </div>
@@ -139,21 +161,12 @@ export default function PlansTab() {
   );
 }
 
-function PlanStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md bg-[var(--surface-raised)] p-2">
-      <p className="text-xs text-[var(--text-muted)]">{label}</p>
-      <p className="mt-0.5 font-semibold text-[var(--text-primary)]">{value}</p>
-    </div>
-  );
-}
-
 function CompareRow({ label, values }: { label: string; values: string[] }) {
   return (
     <tr>
       <td className="py-3 pr-4 font-medium text-[var(--text-primary)]">{label}</td>
-      {values.map((value) => (
-        <td key={`${label}-${value}`} className="px-4 py-3 text-[var(--text-secondary)]">
+      {values.map((value, index) => (
+        <td key={`${label}-${index}`} className="px-4 py-3 text-[var(--text-secondary)]">
           {value}
         </td>
       ))}

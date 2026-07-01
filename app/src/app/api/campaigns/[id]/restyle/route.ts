@@ -20,8 +20,9 @@ import { db } from "@/server/db";
 import { derivations } from "@/server/db/schema";
 import { getUserLocale } from "@/server/repositories/user";
 import { getAssetsByCampaign } from "@/server/repositories/asset";
-import { getPresignedDownloadUrl } from "@/server/storage/r2";
-import { spendCreditsOrApiError } from "@/server/billing/gates";
+import { objectStorage } from "@/server/storage";
+import { serializeDerivationForApi } from "@/server/ai/derivation-auto-retry-observability";
+import { spendOrApiError } from "@/server/billing/paywall";
 import { z } from "zod";
 
 const restyleSchema = z.object({
@@ -138,7 +139,7 @@ export async function POST(
     });
 
     // Spend credits
-    const creditError = await spendCreditsOrApiError({
+    const creditError = await spendOrApiError({
       workspaceId: workspace.id,
       action: "image_derivation",
       amount: 5,
@@ -216,10 +217,12 @@ export async function GET(
 
     const items = await getDerivationsByCampaign(campaignId, workspace.id);
     const derivationsWithImageUrl = await Promise.all(
-      items.map(async (d) => ({
-        ...d,
-        imageUrl: d.outputKey ? await getPresignedDownloadUrl(d.outputKey) : null,
-      }))
+      items.map(async (d) =>
+        serializeDerivationForApi({
+          ...d,
+          imageUrl: d.outputKey ? await objectStorage.signedDownloadUrl(d.outputKey) : null,
+        })
+      )
     );
     return NextResponse.json({ derivations: derivationsWithImageUrl });
   } catch (error) {

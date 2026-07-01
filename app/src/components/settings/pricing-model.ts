@@ -20,6 +20,7 @@ export const pricingAssumptions = {
 
 export const planTiers = [
   {
+    key: "trial" as const,
     name: "Trial",
     priceBrl: 0,
     credits: 30,
@@ -32,6 +33,7 @@ export const planTiers = [
     trial: true,
   },
   {
+    key: "starter" as const,
     name: "Starter",
     priceBrl: 47,
     credits: 30,
@@ -43,6 +45,7 @@ export const planTiers = [
     features: ["1 campanha por mês", "6 imagens por mês", "Histórico e galeria", "Exportação manual"],
   },
   {
+    key: "growth" as const,
     name: "Growth",
     priceBrl: 147,
     credits: 120,
@@ -55,6 +58,7 @@ export const planTiers = [
     recommended: true,
   },
   {
+    key: "scale" as const,
     name: "Scale",
     priceBrl: 397,
     credits: 360,

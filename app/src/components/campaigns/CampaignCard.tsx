@@ -33,9 +33,9 @@ function CampaignCard({ campaign, index }: CampaignCardProps) {
   return (
     <div
       className={cn("animate-fade-in",
-        "group rounded-xl glass-card overflow-hidden",
-        "transition-all duration-300 ease-out",
-        "hover:border-[var(--accent-green)]/30 hover:shadow-[0_0_40px_var(--accent-green-dim),0_12px_32px_rgba(0,0,0,0.4)] hover:-translate-y-1",
+        "group rounded-xl border border-[var(--border-dim)] bg-[var(--surface-base)] overflow-hidden",
+        "transition-colors duration-300 ease-out",
+        "hover:border-[var(--accent-green)]/30 hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)]",
         "cursor-pointer"
       )}
       style={{ animationDelay: `${index * 80}ms` }}
@@ -82,7 +82,7 @@ function CampaignCard({ campaign, index }: CampaignCardProps) {
 
           {/* Hover overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-            <span className="text-sm font-semibold text-[var(--ink)] bg-[var(--accent-green)] px-4 py-2 rounded-md translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
+            <span className="translate-y-2 rounded-md bg-[var(--text-primary)] px-4 py-2 text-sm font-semibold text-[var(--surface-base)] transition-transform duration-300 group-hover:translate-y-0">
               {tCampaign("brief")}
             </span>
           </div>

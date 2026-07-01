@@ -14,7 +14,7 @@ import { refreshCampaignStatus, updateCampaign, getCampaignById } from "@/server
 import { getUserLocale } from "@/server/repositories/user";
 import { getLatestOpenFeedbackReportForDerivation } from "@/server/repositories/feedback";
 import { inngest } from "@/server/jobs/client";
-import { spendCreditsOrApiError } from "@/server/billing/gates";
+import { spendOrApiError } from "@/server/billing/paywall";
 import { resolveCtaSemantics } from "@/server/ai/creative-contract";
 import type { CreativeContract } from "@/server/ai/creative-contract";
 import {
@@ -172,7 +172,7 @@ export async function POST(
     const feedback = resolved.promptFeedback;
 
     const regenerationRequestId = crypto.randomUUID();
-    const creditError = await spendCreditsOrApiError({
+    const creditError = await spendOrApiError({
       workspaceId: workspace.id,
       action: "regeneration",
       idempotencyKey: `regeneration:${id}:${regenerationRequestId}`,

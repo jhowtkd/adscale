@@ -2,6 +2,9 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { TrendingDown, TrendingUp } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useReducedMotion } from "@/lib/hooks/use-reduced-motion";
 import type { DashboardV6Labels, DashboardV6ViewModel } from "./dashboard-v6-types";
 
 type DashboardV6ViewProps = {
@@ -19,19 +22,23 @@ export default function DashboardV6View({
   isLoading = false,
   interactive = true,
 }: DashboardV6ViewProps) {
+  const reducedMotion = useReducedMotion();
+  const pulseClass = reducedMotion ? "" : "animate-pulse";
+  const pulseDotClass = reducedMotion ? "" : "animate-pulse-dot";
+
   return (
     <div className="space-y-8">
       <header className="space-y-2" data-tour-step="1">
         <h1 className="product-page-title text-[var(--text-primary)]">
           {isLoading ? (
-            <span className="inline-block h-8 w-64 animate-pulse rounded bg-[var(--surface-raised)]" />
+            <span className={cn("inline-block h-8 w-64 rounded bg-[var(--surface-raised)]", pulseClass)} />
           ) : (
             labels.greeting.replace("{firstName}", view.firstName)
           )}
         </h1>
         <p className="text-sm text-[var(--text-secondary)]">
           {isLoading ? (
-            <span className="inline-block h-4 w-80 animate-pulse rounded bg-[var(--surface-raised)]" />
+            <span className={cn("inline-block h-4 w-80 rounded bg-[var(--surface-raised)]", pulseClass)} />
           ) : (
             summary
           )}
@@ -46,7 +53,7 @@ export default function DashboardV6View({
                   key={`kpi-skeleton-${index}`}
                   className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-5"
                 >
-                  <KpiSkeleton />
+                  <KpiSkeleton pulseClass={pulseClass} />
                 </li>
               ))
             : view.kpis.map((kpi, index) => (
@@ -56,13 +63,17 @@ export default function DashboardV6View({
                   {...(index === 3 ? { "data-tour-step": "5" } : {})}
                 >
                   <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
-                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--accent-primary)]" />
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--neutral-dot)]" />
                     {kpi.label}
                   </div>
                   <div className="mt-2 text-2xl font-semibold tabular-nums text-[var(--text-primary)]">{kpi.value}</div>
-                  <div className="mt-1 text-xs text-[var(--text-secondary)]">
-                    {kpi.trendDir === "up" && <span aria-hidden="true">▲ </span>}
-                    {kpi.trendDir === "down" && <span aria-hidden="true">▼ </span>}
+                  <div className="mt-1 flex items-center gap-1 text-xs text-[var(--text-secondary)]">
+                    {kpi.trendDir === "up" ? (
+                      <TrendingUp size={12} className="text-[var(--success-text)]" aria-hidden="true" />
+                    ) : null}
+                    {kpi.trendDir === "down" ? (
+                      <TrendingDown size={12} className="text-[var(--danger-text)]" aria-hidden="true" />
+                    ) : null}
                     {kpi.trend}
                   </div>
                 </li>
@@ -71,18 +82,17 @@ export default function DashboardV6View({
       </section>
 
       {isLoading ? (
-        <HeroSkeleton />
+        <HeroSkeleton pulseClass={pulseClass} />
       ) : view.hero ? (
         <section
           className="relative overflow-hidden rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-6 sm:p-8"
           aria-label={labels.heroProduction}
           data-tour-step="2"
         >
-          <HeroGradient />
           <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:gap-8">
             <div className="flex-1 space-y-4">
               <span className="inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-wider text-[var(--accent-primary-text)]">
-                <span className="animate-pulse-dot inline-block h-1.5 w-1.5 rounded-full bg-[var(--accent-primary)]" />
+                <span className={cn("inline-block h-1.5 w-1.5 rounded-full bg-[var(--neutral-dot)]", pulseDotClass)} />
                 {labels.heroProduction} · {view.hero.badge}
               </span>
               <h2 className="product-page-title text-[var(--text-primary)]">{view.hero.name}</h2>
@@ -91,14 +101,14 @@ export default function DashboardV6View({
                 <ActionLink
                   interactive={interactive}
                   href={`/campaigns/${view.hero.id}`}
-                  className="inline-flex items-center gap-2 rounded-[var(--radius-control)] bg-[var(--accent-primary)] px-5 py-2.5 text-sm font-medium text-[var(--text-on-accent)]"
+                  className="inline-flex min-h-[var(--control-touch)] items-center gap-2 rounded-[var(--radius-control)] bg-[var(--accent-primary)] px-5 py-2.5 text-sm font-medium text-[var(--text-on-accent)] transition-colors hover:bg-[var(--accent-primary-hover)]"
                 >
                   {labels.openCampaign}
                 </ActionLink>
                 <ActionLink
                   interactive={interactive}
                   href={`/campaigns/${view.hero.id}?tab=brief`}
-                  className="inline-flex items-center gap-2 rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-5 py-2.5 text-sm font-medium text-[var(--text-primary)]"
+                  className="inline-flex min-h-[var(--control-touch)] items-center gap-2 rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-5 py-2.5 text-sm font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-inset)]"
                 >
                   {labels.viewBriefing}
                 </ActionLink>
@@ -126,6 +136,7 @@ export default function DashboardV6View({
         labels={labels}
         isLoading={isLoading}
         interactive={interactive}
+        pulseClass={pulseClass}
       />
 
       <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
@@ -138,7 +149,7 @@ export default function DashboardV6View({
           {isLoading ? (
             <ul className="mt-4 space-y-2.5">
               {Array.from({ length: 3 }).map((_, i) => (
-                <li key={i} className="h-14 animate-pulse rounded-[var(--radius-control)] bg-[var(--surface-raised)]" />
+                <li key={i} className={cn("h-14 rounded-[var(--radius-control)] bg-[var(--surface-raised)]", pulseClass)} />
               ))}
             </ul>
           ) : view.recipes.length > 0 ? (
@@ -166,7 +177,14 @@ export default function DashboardV6View({
               ))}
             </ul>
           ) : (
-            <p className="mt-4 text-sm text-[var(--text-muted)]">—</p>
+            <SectionEmpty
+              title={labels.recipesEmptyTitle}
+              description={labels.recipesEmptyDescription}
+              actionLabel={labels.recipesEmptyAction}
+              actionHref="/templates"
+              interactive={interactive}
+              className="mt-4"
+            />
           )}
         </section>
 
@@ -175,7 +193,7 @@ export default function DashboardV6View({
           {isLoading ? (
             <div className="mt-4 space-y-3">
               {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="h-8 animate-pulse rounded bg-[var(--surface-raised)]" />
+                <div key={i} className={cn("h-8 rounded bg-[var(--surface-raised)]", pulseClass)} />
               ))}
             </div>
           ) : view.briefingRows.length > 0 ? (
@@ -206,7 +224,14 @@ export default function DashboardV6View({
               </div>
             </>
           ) : (
-            <p className="mt-4 text-sm text-[var(--text-muted)]">—</p>
+            <SectionEmpty
+              title={labels.briefingEmptyTitle}
+              description={labels.briefingEmptyDescription}
+              actionLabel={labels.briefingEmptyAction}
+              actionHref="/campaigns?new=1"
+              interactive={interactive}
+              className="mt-4"
+            />
           )}
         </section>
       </div>
@@ -227,16 +252,54 @@ function ActionLink({
 }) {
   if (!interactive) {
     return (
-      <button type="button" className={className}>
+      <button
+        type="button"
+        className={`${className} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]`}
+      >
         {children}
       </button>
     );
   }
 
   return (
-    <Link href={href} className={className}>
+    <Link
+      href={href}
+      className={`${className} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]`}
+    >
       {children}
     </Link>
+  );
+}
+
+function SectionEmpty({
+  title,
+  description,
+  actionLabel,
+  actionHref,
+  interactive,
+  className = "p-6",
+}: {
+  title: string;
+  description: string;
+  actionLabel: string;
+  actionHref: string;
+  interactive: boolean;
+  className?: string;
+}) {
+  return (
+    <div className={`${className} space-y-3`}>
+      <div>
+        <p className="text-sm font-medium text-[var(--text-primary)]">{title}</p>
+        <p className="mt-1 text-sm text-[var(--text-secondary)]">{description}</p>
+      </div>
+      <ActionLink
+        interactive={interactive}
+        href={actionHref}
+        className="inline-flex min-h-[var(--control-touch)] items-center rounded-[var(--radius-control)] bg-[var(--accent-primary)] px-4 py-2 text-sm font-medium text-[var(--text-on-accent)] transition-colors hover:bg-[var(--accent-primary-hover)]"
+      >
+        {actionLabel}
+      </ActionLink>
+    </div>
   );
 }
 
@@ -251,28 +314,18 @@ function MetaRow({ label, value, accent }: { label: string; value: string; accen
   );
 }
 
-function HeroGradient() {
-  return (
-    <div
-      className="pointer-events-none absolute inset-0"
-      style={{
-        background:
-          "radial-gradient(circle at 0% 50%, color-mix(in oklch, var(--accent-primary) 10%, transparent), transparent 50%), radial-gradient(circle at 100% 0%, color-mix(in oklch, var(--accent-primary) 8%, transparent), transparent 50%)",
-      }}
-    />
-  );
-}
-
 function ActivitySection({
   view,
   labels,
   isLoading,
   interactive,
+  pulseClass = "animate-pulse",
 }: {
   view: DashboardV6ViewModel;
   labels: DashboardV6Labels;
   isLoading: boolean;
   interactive: boolean;
+  pulseClass?: string;
 }) {
   return (
     <section aria-label={labels.activityTitle} data-tour-step="3">
@@ -291,7 +344,7 @@ function ActivitySection({
       </div>
       <div className="overflow-hidden rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)]">
         {isLoading ? (
-          <div className="h-48 animate-pulse bg-[var(--surface-raised)]" />
+          <div className={cn("h-48 bg-[var(--surface-raised)]", pulseClass)} />
         ) : view.activity.length > 0 ? (
           <table className="w-full text-left text-sm">
             <thead className="border-b border-[var(--border-subtle)] bg-[var(--surface-raised)] font-mono text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
@@ -318,7 +371,10 @@ function ActivitySection({
                 <tr key={row.id} className="hover:bg-[var(--surface-raised)]">
                   <td className="px-4 py-3">
                     {interactive ? (
-                      <Link href={row.href} className="flex items-center gap-3">
+                      <Link
+                        href={row.href}
+                        className="flex items-center gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] rounded-sm"
+                      >
                         <ActivityRowContent row={row} />
                       </Link>
                     ) : (
@@ -338,7 +394,13 @@ function ActivitySection({
             </tbody>
           </table>
         ) : (
-          <p className="p-6 text-sm text-[var(--text-muted)]">—</p>
+          <SectionEmpty
+            title={labels.activityEmptyTitle}
+            description={labels.activityEmptyDescription}
+            actionLabel={labels.activityEmptyAction}
+            actionHref="/campaigns?new=1"
+            interactive={interactive}
+          />
         )}
       </div>
     </section>
@@ -385,16 +447,23 @@ function StatusPill({ variant, label }: { variant: string; label: string }) {
   );
 }
 
-function KpiSkeleton() {
+function KpiSkeleton({ pulseClass = "animate-pulse" }: { pulseClass?: string }) {
   return (
     <>
-      <div className="h-3 w-20 animate-pulse rounded bg-[var(--surface-raised)]" />
-      <div className="mt-2 h-7 w-16 animate-pulse rounded bg-[var(--surface-raised)]" />
-      <div className="mt-1 h-3 w-24 animate-pulse rounded bg-[var(--surface-raised)]" />
+      <div className={cn("h-3 w-20 rounded bg-[var(--surface-raised)]", pulseClass)} />
+      <div className={cn("mt-2 h-7 w-16 rounded bg-[var(--surface-raised)]", pulseClass)} />
+      <div className={cn("mt-1 h-3 w-24 rounded bg-[var(--surface-raised)]", pulseClass)} />
     </>
   );
 }
 
-function HeroSkeleton() {
-  return <div className="h-48 animate-pulse rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-raised)]" />;
+function HeroSkeleton({ pulseClass = "animate-pulse" }: { pulseClass?: string }) {
+  return (
+    <div
+      className={cn(
+        "h-48 rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-raised)]",
+        pulseClass
+      )}
+    />
+  );
 }

@@ -54,10 +54,11 @@ vi.mock("openai", () => ({
   })),
 }));
 
-vi.mock("../storage/r2", () => ({
-  uploadBuffer: vi.fn(() => Promise.resolve()),
-  downloadBuffer: vi.fn(() => Promise.resolve(Buffer.from("mock-image"))),
-}));
+vi.mock("@/server/storage", () => ({
+  objectStorage: {
+    put: vi.fn(() => Promise.resolve()),
+    get: vi.fn(() => Promise.resolve(Buffer.from("mock-image"))),
+  },}));
 
 vi.mock("../repositories/campaign", () => ({
   getCampaignById: vi.fn(),
@@ -278,7 +279,7 @@ import { getPlanByCampaign } from "../repositories/plan";
 import { getBrandKit } from "../db/repositories/brand-kit";
 import { getCompetitorAnalysesByCampaign } from "../repositories/competitor-analysis";
 import { getClientReferencesByIds, resolveCampaignClientProfileId } from "../repositories/client-reference";
-import { downloadBuffer } from "../storage/r2";
+import { objectStorage } from "@/server/storage";
 import { getBrandMemoryContext } from "@/server/memory/brand-memory-context";
 import { env } from "../validation/env";
 
@@ -290,7 +291,7 @@ const mockGetBrandKit = vi.mocked(getBrandKit);
 const mockGetCompetitorAnalysesByCampaign = vi.mocked(getCompetitorAnalysesByCampaign);
 const mockGetClientReferencesByIds = vi.mocked(getClientReferencesByIds);
 const mockResolveCampaignClientProfileId = vi.mocked(resolveCampaignClientProfileId);
-const mockDownloadBuffer = vi.mocked(downloadBuffer);
+const mockDownloadBuffer = vi.mocked(objectStorage.get);
 const mockGetBrandMemoryContext = vi.mocked(getBrandMemoryContext);
 const mockRunCompletedDerivationQualityGate = vi.mocked(runCompletedDerivationQualityGate);
 const mockRunDerivationAutoRetry = vi.mocked(runDerivationAutoRetry);

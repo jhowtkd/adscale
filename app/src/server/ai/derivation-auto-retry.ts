@@ -1,28 +1,18 @@
-import OpenAI, { toFile } from "openai";
 import { env } from "../validation/env";
-import { downloadBuffer, uploadBuffer } from "../storage/r2";
-import { buildDerivationPrompt } from "./prompt-builder";
-import { fetchProviderUrlSafe } from "./safe-fetch";
+import { objectStorage } from "@/server/storage";
 import type { CreativeContract } from "./creative-contract";
 import type { CreativeHardFailure } from "./creative-quality-gate";
 import { shouldAutoRetryDerivation } from "./derivation-auto-retry-policy";
 import { getDerivationById, updateDerivationPromptProvenance } from "../repositories/derivation";
-import { normalizeGeneratedImage } from "../jobs/derivation";
-import { formatToOpenAIImageSize, getTargetDimensions, toOpenAISdkImageSize } from "@/lib/formats";
+import { formatToOpenAIImageSize, toOpenAISdkImageSize } from "@/lib/formats";
 import { logger } from "@/lib/logger";
-
-const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 120_000 });
-const IMAGE_GENERATION_TIMEOUT_MS = 5 * 60 * 1000;
+import {
+  executeGenerationStep,
+  type BuildGenerationPromptContextInput,
+  type GenerationReferenceInput,
+} from "./derivation-pipeline";
 
 export { shouldAutoRetryDerivation } from "./derivation-auto-retry-policy";
-
-function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-  let timeout: NodeJS.Timeout;
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timeout = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
-  });
-  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timeout!));
-}
 
 export interface AutoRetryDerivationInput {
   derivationId: string;
@@ -33,11 +23,47 @@ export interface AutoRetryDerivationInput {
   styleReferenceKey?: string;
   styleReferenceMimeType?: string;
   correctionFeedback: string;
-  promptContext: Parameters<typeof buildDerivationPrompt>[0];
+  promptContext: BuildGenerationPromptContextInput;
   contract: CreativeContract;
   targetFormat: string;
   generationMode: "art_variation" | "format_adaptation" | "restyling";
   isPreview?: boolean;
+}
+
+async function resolveAutoRetryReference(
+  input: AutoRetryDerivationInput
+): Promise<GenerationReferenceInput> {
+  const referenceBuffer = await objectStorage.get(input.referenceKey);
+
+  if (input.generationMode === "restyling") {
+    if (!input.styleReferenceKey) {
+      logger.warn(
+        `[auto-retry] restyling retry missing styleReferenceKey derivationId=${input.derivationId}`
+      );
+      return {
+        kind: "single",
+        buffer: referenceBuffer,
+        mimeType: input.referenceMimeType,
+        allowGenerateFallback: false,
+      };
+    }
+
+    const styleBuffer = await objectStorage.get(input.styleReferenceKey);
+    return {
+      kind: "restyling",
+      baseBuffer: referenceBuffer,
+      baseMimeType: input.referenceMimeType,
+      styleBuffer,
+      styleMimeType: input.styleReferenceMimeType ?? "image/png",
+    };
+  }
+
+  return {
+    kind: "single",
+    buffer: referenceBuffer,
+    mimeType: input.referenceMimeType,
+    allowGenerateFallback: false,
+  };
 }
 
 export async function runDerivationAutoRetry(
@@ -62,7 +88,20 @@ export async function runDerivationAutoRetry(
 
   logger.info(`[auto-retry] derivationId=${input.derivationId} failures=${hardFailures.map((f) => f.code).join(",")}`);
 
-  const referenceBuffer = await downloadBuffer(input.referenceKey);
+  const reference = await resolveAutoRetryReference(input);
+  const promptContextInput: BuildGenerationPromptContextInput = {
+    ...input.promptContext,
+    feedback: input.correctionFeedback,
+  };
+
+  const stepResult = await executeGenerationStep({
+    derivationId: input.derivationId,
+    promptContext: promptContextInput,
+    reference,
+    isPreview: input.isPreview,
+    autoRetry: { correctionFeedback: input.correctionFeedback },
+  });
+
   const openaiSize = toOpenAISdkImageSize(
     formatToOpenAIImageSize(input.targetFormat, {
       isPreview: input.isPreview,
@@ -70,71 +109,14 @@ export async function runDerivationAutoRetry(
     })
   );
 
-  const prompt = `${await buildDerivationPrompt({
-    ...input.promptContext,
-    feedback: input.correctionFeedback,
-  })}\n\nAUTO-RETRY CORRECTION:\nThe previous output failed QA. Fix these issues exactly:\n${input.correctionFeedback}`;
+  const revisedPrompt = stepResult.revisedPrompt;
 
-  const referenceImage = await toFile(
-    referenceBuffer,
-    input.generationMode === "restyling" ? "base-image" : "reference-image",
-    { type: input.referenceMimeType }
-  );
-
-  let editImage: OpenAI.Images.ImageEditParams["image"] = referenceImage;
-  if (input.generationMode === "restyling") {
-    if (!input.styleReferenceKey) {
-      logger.warn(
-        `[auto-retry] restyling retry missing styleReferenceKey derivationId=${input.derivationId}`
-      );
-    } else {
-      const styleBuffer = await downloadBuffer(input.styleReferenceKey);
-      const styleImage = await toFile(styleBuffer, "style-reference", {
-        type: input.styleReferenceMimeType ?? "image/png",
-      });
-      editImage = [referenceImage, styleImage];
-    }
-  }
-
-  const response = await withTimeout(
-    openai.images.edit({
-      model: env.OPENAI_IMAGE_MODEL,
-      image: editImage,
-      prompt,
-      n: 1,
-      size: openaiSize,
-    }),
-    IMAGE_GENERATION_TIMEOUT_MS,
-    "OpenAI image edit (auto-retry)"
-  );
-
-  const first = response.data?.[0];
-  if (!first) throw new Error("No image data returned from OpenAI auto-retry");
-
-  let buffer: Buffer;
-  if (first.b64_json) {
-    buffer = Buffer.from(first.b64_json, "base64");
-  } else if (first.url) {
-    buffer = await fetchProviderUrlSafe(first.url);
-  } else {
-    throw new Error("No image data returned from auto-retry");
-  }
-
-  const dimensions = getTargetDimensions(input.targetFormat, input.isPreview);
-  if (dimensions) {
-    buffer = await normalizeGeneratedImage(buffer, dimensions, input.generationMode);
-  }
-
-  const key = `derivations/${input.derivationId}/${Date.now()}-retry.png`;
-  await uploadBuffer(key, buffer, "image/png");
-
-  const revisedPrompt = first.revised_prompt ?? "";
   await updateDerivationPromptProvenance(input.derivationId, input.workspaceId, {
     creativeContract: input.contract,
     promptProvenance: {
       ...(row.promptProvenance ?? {
         schemaVersion: 1,
-        inputPrompt: prompt,
+        inputPrompt: stepResult.prompt,
         model: env.OPENAI_IMAGE_MODEL,
         requestedSize: openaiSize,
         sourcePackage: "campaign_asset",
@@ -142,14 +124,14 @@ export async function runDerivationAutoRetry(
         generationMode: input.generationMode,
         targetFormat: input.targetFormat,
       }),
-      inputPrompt: prompt,
+      inputPrompt: stepResult.prompt,
       revisedPrompt,
       imageOperation: "edit",
-      outputKey: key,
+      outputKey: stepResult.outputKey,
     },
-    inputPrompt: prompt,
+    inputPrompt: stepResult.prompt,
     prompt: revisedPrompt,
   });
 
-  return { outputKey: key, revisedPrompt };
+  return { outputKey: stepResult.outputKey, revisedPrompt };
 }

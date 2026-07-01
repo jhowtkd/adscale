@@ -20,10 +20,11 @@ vi.mock("@/server/jobs/client", () => ({
   },
 }));
 
-vi.mock("@/server/storage/r2", () => ({
-  uploadBuffer: vi.fn().mockResolvedValue(undefined),
-  deleteObject: vi.fn().mockResolvedValue(undefined),
-}));
+vi.mock("@/server/storage", () => ({
+  objectStorage: {
+    put: vi.fn().mockResolvedValue(undefined),
+    delete: vi.fn().mockResolvedValue(undefined),
+  },}));
 
 vi.mock("@/server/auth/workspace", () => ({
   requireWorkspaceAccess: vi.fn(),
@@ -46,18 +47,18 @@ vi.mock("@/server/repositories/derivation", () => ({
   createDerivation: vi.fn(),
 }));
 
-vi.mock("@/server/billing/gates", () => ({
-  spendCreditsOrApiError: vi.fn(),
+vi.mock("@/server/billing/paywall", () => ({
+  spendOrApiError: vi.fn(),
 }));
 
 import { inngest } from "@/server/jobs/client";
-import { uploadBuffer, deleteObject } from "@/server/storage/r2";
+import { objectStorage } from "@/server/storage";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getUserLocale } from "@/server/repositories/user";
 import { createCampaign, deleteCampaign } from "@/server/repositories/campaign";
 import { createAsset } from "@/server/repositories/asset";
 import { createDerivation } from "@/server/repositories/derivation";
-import { spendCreditsOrApiError } from "@/server/billing/gates";
+import { spendOrApiError } from "@/server/billing/paywall";
 import { POST } from "@/app/api/restyling/route";
 
 function createMockFile(name: string, type: string, size: number): File {
@@ -102,9 +103,9 @@ describe("POST /api/restyling", () => {
       workspace: { id: workspaceId, name: "Test Workspace" },
     });
     (getUserLocale as ReturnType<typeof vi.fn>).mockResolvedValue("en");
-    (spendCreditsOrApiError as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (spendOrApiError as ReturnType<typeof vi.fn>).mockResolvedValue(null);
     (createCampaign as ReturnType<typeof vi.fn>).mockResolvedValue({ id: campaignId });
-    (uploadBuffer as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+    (objectStorage.put as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
     (createAsset as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "asset-1" });
     (createDerivation as ReturnType<typeof vi.fn>).mockResolvedValue({ id: derivationId });
     (inngest.send as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
@@ -137,7 +138,7 @@ describe("POST /api/restyling", () => {
       })
     );
 
-    expect(uploadBuffer).toHaveBeenCalledTimes(2);
+    expect(objectStorage.put).toHaveBeenCalledTimes(2);
 
     expect(createAsset).toHaveBeenCalledTimes(2);
     expect(createAsset).toHaveBeenCalledWith(
@@ -223,7 +224,7 @@ describe("POST /api/restyling", () => {
   });
 
   it("returns 402 when credits insufficient", async () => {
-    (spendCreditsOrApiError as ReturnType<typeof vi.fn>).mockResolvedValue(
+    (spendOrApiError as ReturnType<typeof vi.fn>).mockResolvedValue(
       NextResponse.json({ error: "insufficientCredits" }, { status: 402 })
     );
 
@@ -253,7 +254,7 @@ describe("POST /api/restyling", () => {
 
     await POST(createMockRequest(formData));
 
-    expect(deleteObject).toHaveBeenCalledTimes(2);
+    expect(objectStorage.delete).toHaveBeenCalledTimes(2);
     expect(deleteCampaign).toHaveBeenCalledWith(campaignId, workspaceId);
   });
 });

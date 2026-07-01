@@ -34,9 +34,10 @@ vi.mock("@/server/repositories/assistant-thread", () => ({
   linkThreadToCampaign: vi.fn(),
 }));
 
-vi.mock("@/server/storage/r2", () => ({
-  downloadBuffer: vi.fn(),
-}));
+vi.mock("@/server/storage", () => ({
+  objectStorage: {
+    get: vi.fn(),
+  },}));
 
 vi.mock("@/server/ai/image-analysis", () => ({
   analyzeImageContent: vi.fn(),
@@ -52,7 +53,7 @@ import { getClientProfile } from "@/server/repositories/client-reference";
 import { createCampaign, updateCampaign } from "@/server/repositories/campaign";
 import { createAsset } from "@/server/repositories/asset";
 import { linkThreadToCampaign } from "@/server/repositories/assistant-thread";
-import { downloadBuffer } from "@/server/storage/r2";
+import { objectStorage } from "@/server/storage";
 import { analyzeImageContent } from "@/server/ai/image-analysis";
 import { analyzeCreativeDiagnosis } from "@/server/ai/creative-diagnosis";
 
@@ -63,7 +64,7 @@ const mockCreateCampaign = vi.mocked(createCampaign);
 const mockUpdateCampaign = vi.mocked(updateCampaign);
 const mockCreateAsset = vi.mocked(createAsset);
 const mockLinkThread = vi.mocked(linkThreadToCampaign);
-const mockDownload = vi.mocked(downloadBuffer);
+const mockDownload = vi.mocked(objectStorage.get);
 const mockAnalyzeImage = vi.mocked(analyzeImageContent);
 const mockAnalyzeDiagnosis = vi.mocked(analyzeCreativeDiagnosis);
 

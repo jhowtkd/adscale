@@ -10,11 +10,11 @@ vi.mock("@/server/validation/env", () => ({
   },
 }));
 
-import { getPresignedUploadUrl } from "@/server/storage/r2";
+import { objectStorage } from "@/server/storage";
 
 describe("R2 presigned upload URL", () => {
   it("includes content-type in signed headers", async () => {
-    const url = await getPresignedUploadUrl(
+    const url = await objectStorage.signedUploadUrl(
       "campaigns/camp-1/test.png",
       "image/png",
       1024

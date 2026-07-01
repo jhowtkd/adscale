@@ -146,7 +146,7 @@ export default function SaveTemplateModal({
             <Button
               type="submit"
               disabled={createTemplate.isPending}
-              className="bg-[var(--accent-blue)] text-white hover:bg-[var(--accent-blue-light)]"
+              className="bg-[var(--accent-blue)] text-[var(--text-on-accent)] hover:bg-[var(--accent-blue-light)]"
             >
               {createTemplate.isPending ? tCommon("saving") : tCommon("save")}
             </Button>

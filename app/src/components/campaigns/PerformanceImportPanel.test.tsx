@@ -3,6 +3,27 @@ import { render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import PerformanceImportPanel from "./PerformanceImportPanel";
 
+vi.mock("next-intl", () => ({
+  useTranslations: (ns: string) => (key: string) => {
+    const pt: Record<string, Record<string, string>> = {
+      "campaigns.performanceImport": {
+        "tabs.manual": "Manual",
+        "tabs.csv": "CSV",
+        "tabs.history": "Histórico",
+        "fields.derivation": "Derivação",
+        select: "Selecione…",
+        preview: "Pré-visualizar",
+        confirm: "Confirmar importação",
+      },
+      "campaigns.performanceImport.parseOptions": {},
+      "campaigns.performanceImport.previewTable": {},
+    };
+    const flat = pt[ns] ?? {};
+    return flat[key] ?? key;
+  },
+  useLocale: () => "pt-BR",
+}));
+
 vi.mock("@/lib/hooks/use-performance-import", () => ({
   usePerformanceImportBatches: vi.fn(() => ({ data: [], isLoading: false })),
   usePreviewManualImport: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),

@@ -113,9 +113,9 @@ const VisualCampaignCard = memo(function VisualCampaignCard({
   return (
     <article
       className={cn(
-        "group relative rounded-2xl glass-card overflow-hidden animate-fade-in",
-        "transition-all duration-300 ease-out",
-        !reducedMotion && "will-change-transform hover:-translate-y-1 hover:scale-[1.01]",
+        "group relative overflow-hidden rounded-2xl border border-[var(--border-dim)] bg-[var(--surface-base)] animate-fade-in",
+        "transition-colors duration-300",
+        !reducedMotion && "will-change-transform hover:border-[var(--border-medium)]",
         "hover:border-[var(--accent-green)]/40 hover:shadow-[0_0_24px_var(--accent-green-dim),0_4px_16px_rgba(0,0,0,0.3)]",
         "focus-within:border-[var(--accent-green)]/50 focus-within:shadow-[0_0_24px_var(--accent-green-dim)]",
         !reducedMotion && "active:scale-[0.98] active:duration-100",

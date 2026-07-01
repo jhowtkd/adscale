@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useReducer, useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { m } from "framer-motion";
+import { m, useReducedMotion } from "framer-motion";
 import { Check, Upload, X, Wand2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/store";
@@ -93,6 +93,7 @@ function TagInput({
   normalizer?: (tag: string) => string;
 }) {
   const [input, setInput] = useState("");
+  const tc = useTranslations("common");
 
   const normalize = (tag: string) => (normalizer ? normalizer(tag) : tag);
 
@@ -117,7 +118,7 @@ function TagInput({
       className={cn(
         "w-full min-h-[40px] rounded-md border px-2 py-1.5 flex flex-wrap gap-1.5",
         "bg-[var(--surface-base)] border-[var(--border-dim)]",
-        "focus-within:border-[var(--accent-green)] focus-within:ring-[3px] focus-within:ring-[var(--accent-green-dim)0.15)]",
+        "focus-within:border-[var(--accent-green)] focus-within:ring-[3px] focus-within:ring-[var(--accent-green-dim)]",
         "transition-all duration-200"
       )}
     >
@@ -130,6 +131,7 @@ function TagInput({
           <button
             type="button"
             onClick={() => onChange(tags.filter((t) => t !== tag))}
+            aria-label={`${tc("remove")} ${tag}`}
             className="hover:text-[var(--accent-rose)]"
           >
             <X size={12} />
@@ -154,6 +156,7 @@ export default function BrandKitTab() {
   const t = useTranslations("settings");
   const tc = useTranslations("common");
   const tClient = useTranslations("campaign.pilotSidebar");
+  const reducedMotion = useReducedMotion();
 
   const [selectedProfileId, setSelectedProfileId] = useState<string | undefined>(undefined);
   const [pendingProfileChoice, setPendingProfileChoice] = useState<string>("");
@@ -387,7 +390,7 @@ export default function BrandKitTab() {
   return (
     <m.div
       variants={containerVariants}
-      initial="hidden"
+      initial={reducedMotion ? false : "hidden"}
       animate="show"
       className="max-w-[720px] space-y-8"
     >
@@ -475,7 +478,7 @@ export default function BrandKitTab() {
                 className={cn(
                   "w-full h-10 rounded-md border px-3 text-sm",
                   "bg-[var(--surface-base)] text-[var(--text-primary)]",
-                  "focus:outline-none focus:border-[var(--accent-green)] focus:ring-[3px] focus:ring-[var(--accent-green-dim)0.15)]",
+                  "focus:outline-none focus:border-[var(--accent-green)] focus:ring-[3px] focus:ring-[var(--accent-green-dim)]",
                   "transition-all duration-200 border-[var(--border-dim)]"
                 )}
               >
@@ -533,6 +536,7 @@ export default function BrandKitTab() {
             />
           </div>
           <div className="flex justify-end">
+
             <Button
               type="button"
               size="sm"
@@ -575,7 +579,7 @@ export default function BrandKitTab() {
                 "w-full h-10 rounded-md border px-3 text-sm",
                 "bg-[var(--surface-base)] text-[var(--text-primary)]",
                 "placeholder:text-[var(--text-muted)]",
-                "focus:outline-none focus:border-[var(--accent-green)] focus:ring-[3px] focus:ring-[var(--accent-green-dim)0.15)]",
+                "focus:outline-none focus:border-[var(--accent-green)] focus:ring-[3px] focus:ring-[var(--accent-green-dim)]",
                 "transition-all duration-200 border-[var(--border-dim)]"
               )}
             />
@@ -611,7 +615,7 @@ export default function BrandKitTab() {
               <div className="flex items-center gap-4 rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-3">
                 <Image
                   src={brandKit.logoUrl}
-                  alt="Logo"
+                  alt={name ? `${name} logo` : t("brandKit.logo")}
                   className="size-16 object-contain rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)]"
                 
         width={800}
@@ -629,6 +633,7 @@ export default function BrandKitTab() {
                 <button
                   type="button"
                   onClick={() => updateState({ logoAssetKey: null })}
+                  aria-label={tc("remove")}
                   className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--accent-rose)] hover:bg-[var(--surface-raised)] transition-all"
                 >
                   <Trash2 size={14} />
@@ -848,7 +853,7 @@ export default function BrandKitTab() {
                 !hasChanges || saveState !== "idle" || updateBrandKit.isPending
               }
               className={cn(
-                "h-10 px-5 rounded-md text-sm font-medium text-white flex items-center gap-2",
+                "h-10 px-5 rounded-md text-sm font-medium text-[var(--accent-green-on-fill)] flex items-center gap-2",
                 "bg-[var(--accent-green)] hover:bg-[var(--accent-green-light)]",
                 "active:scale-[0.98] active:brightness-90",
                 "transition-all duration-200",
@@ -876,7 +881,7 @@ export default function BrandKitTab() {
           {/* Danger Zone */}
           <m.div
             variants={itemVariants}
-            className="rounded-xl border border-[rgba(244,63,94,0.3)] p-5 space-y-4"
+            className="rounded-xl border border-[var(--danger-border)] p-5 space-y-4"
           >
             <div className="flex items-center gap-2">
               <Trash2 size={16} className="text-[var(--accent-rose)]" />
@@ -891,7 +896,7 @@ export default function BrandKitTab() {
               onClick={() => updateState({ showClearDialog: true })}
               disabled={clearBrandKit.isPending || !brandKit}
               className={cn(
-                "h-9 px-4 rounded-md text-sm font-medium text-white",
+                "h-9 px-4 rounded-md text-sm font-medium text-[var(--accent-green-on-fill)]",
                 "bg-[var(--accent-rose)] hover:brightness-110",
                 "active:scale-[0.98]",
                 "transition-all duration-200",

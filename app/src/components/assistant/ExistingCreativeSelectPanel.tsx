@@ -23,6 +23,7 @@ export default function ExistingCreativeSelectPanel({
   const t = useTranslations("assistant.guidedFlow.existingCreative");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const { data, isLoading } = useWorkspaceAssets({ limit: 12 });
   const selectCreative = useGuidedFlowCommand(threadId);
 
@@ -30,11 +31,14 @@ export default function ExistingCreativeSelectPanel({
 
   const handleFile = async (file: File) => {
     setError(null);
+    setIsUploading(true);
     try {
       const uploaded = await uploadChatAttachment(file);
       await handlePick(uploaded.assetId);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("uploadFailed"));
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -51,7 +55,7 @@ export default function ExistingCreativeSelectPanel({
     }
   };
 
-  const busy = selectCreative.isPending;
+  const busy = selectCreative.isPending || isUploading;
 
   return (
     <div
@@ -86,7 +90,7 @@ export default function ExistingCreativeSelectPanel({
           ) : (
             <Upload className="mr-2 size-4" aria-hidden="true" />
           )}
-          {t("upload")}
+          {isUploading ? t("uploading") : t("upload")}
         </Button>
       </div>
 
@@ -108,7 +112,7 @@ export default function ExistingCreativeSelectPanel({
                 onClick={() => void handlePick(asset.id)}
                 data-testid={`existing-creative-asset-${asset.id}`}
                 className={cn(
-                  "relative aspect-square overflow-hidden rounded-lg border border-[var(--border-dim)] bg-[var(--surface-secondary)]",
+                  "relative aspect-square overflow-hidden rounded-lg border border-[var(--border-dim)] bg-[var(--surface-inset)]",
                   "hover:border-[var(--accent-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]",
                   busy && "pointer-events-none opacity-50"
                 )}

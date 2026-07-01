@@ -8,7 +8,7 @@ import {
   generateDifferentiationStrategy,
   type CompetitorAnalysisResult,
 } from "@/server/ai/competitor-analyzer";
-import { spendCreditsOrApiError } from "@/server/billing/gates";
+import { spendOrApiError } from "@/server/billing/paywall";
 
 export async function POST(
   request: Request,
@@ -80,7 +80,7 @@ export async function POST(
       return apiError("invalidInput", 400, { detail: "No analyzed competitor data available" });
     }
 
-    const creditError = await spendCreditsOrApiError({
+    const creditError = await spendOrApiError({
       workspaceId: workspace.id,
       action: "creative_plan",
       amount: 1,

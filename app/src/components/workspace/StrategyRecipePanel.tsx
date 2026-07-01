@@ -28,7 +28,7 @@ import {
 import {
   DERIVATION_FORMATS,
   type DerivationFormat,
-} from "@/lib/derivation-formats";
+} from "@/lib/derivation-display";
 import type { CreativeReadinessResult } from "@/server/ai/creative-readiness";
 import {
   STRATEGY_RECIPE_IDS,

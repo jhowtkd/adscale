@@ -13,7 +13,7 @@ import {
   deleteCopyVariantsByDerivation,
 } from "@/server/repositories/copy-variant";
 import { generateCopyVariants } from "@/server/ai/copy-generator";
-import { spendCreditsOrApiError } from "@/server/billing/gates";
+import { spendOrApiError } from "@/server/billing/paywall";
 
 const generateSchema = z.object({
   count: z.number().int().min(3).max(10).optional(),
@@ -50,7 +50,7 @@ export async function POST(
     }
 
     // Spend credits
-    const creditError = await spendCreditsOrApiError({
+    const creditError = await spendOrApiError({
       workspaceId: workspace.id,
       action: "copy_generation",
       amount: 2,

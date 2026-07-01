@@ -1,13 +1,15 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { m } from "framer-motion";
-import { UserPlus, Edit, Trash2 } from "lucide-react";
+import { m, useReducedMotion } from "framer-motion";
+import { UserPlus, Edit, Trash2, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/store";
 import { useTranslations } from "next-intl";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import EmptyState from "@/components/ui/EmptyState";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import {
   useWorkspaceMembers,
   useRemoveMember,
@@ -43,10 +45,10 @@ const roleConfig: Record<
   TeamMember["role"],
   { color: string; bg: string }
 > = {
-  Owner: { color: "var(--accent-amber)", bg: "rgba(245,158,11,0.12)" },
-  Admin: { color: "var(--accent-rose)", bg: "rgba(244,63,94,0.12)" },
+  Owner: { color: "var(--warning-text)", bg: "var(--warning-bg)" },
+  Admin: { color: "var(--info-text)", bg: "var(--info-bg)" },
   Editor: { color: "var(--accent-green)", bg: "var(--accent-green-dim)" },
-  Viewer: { color: "var(--text-muted)", bg: "rgba(71,85,105,0.12)" },
+  Viewer: { color: "var(--neutral-text)", bg: "var(--neutral-bg)" },
 };
 
 const roleKeyMap: Record<TeamMember["role"], string> = {
@@ -70,6 +72,7 @@ export default function TeamTab() {
   const addToast = useAppStore((s) => s.addToast);
   const t = useTranslations("settings");
   const tc = useTranslations("common");
+  const reducedMotion = useReducedMotion();
 
   const { data: membersData, isLoading, isError, error } = useWorkspaceMembers();
   const removeMember = useRemoveMember();
@@ -77,6 +80,7 @@ export default function TeamTab() {
 
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<"Editor" | "Admin" | "Viewer">("Editor");
+  const [memberPendingRemoval, setMemberPendingRemoval] = useState<TeamMember | null>(null);
 
   const members: TeamMember[] = useMemo(() => {
     if (!membersData) return [];
@@ -111,20 +115,25 @@ export default function TeamTab() {
 
   const handleRemove = (member: TeamMember) => {
     if (member.role === "Owner") return;
-    removeMember.mutate(member.id, {
-      onSuccess: () => {
-        addToast("success", tc("memberRemoved"));
-      },
-      onError: (err) => {
-        addToast("error", err.message || tc("error"));
-      },
-    });
+    setMemberPendingRemoval(member);
+  };
+
+  const confirmRemove = async () => {
+    if (!memberPendingRemoval) return;
+    try {
+      await removeMember.mutateAsync(memberPendingRemoval.id);
+      addToast("success", tc("memberRemoved"));
+      setMemberPendingRemoval(null);
+    } catch (err) {
+      addToast("error", (err as Error).message || tc("error"));
+      throw err;
+    }
   };
 
   return (
     <m.div
       variants={containerVariants}
-      initial="hidden"
+      initial={reducedMotion ? false : "hidden"}
       animate="show"
       className="max-w-[720px] space-y-8"
     >
@@ -181,8 +190,25 @@ export default function TeamTab() {
         </m.div>
       )}
 
+      {/* Empty State */}
+      {!isLoading && !isError && members.length === 0 && (
+        <EmptyState
+          icon={Users}
+          title={t("team.emptyTitle")}
+          description={t("team.emptyDescription")}
+          action={{
+            label: t("invite"),
+            icon: UserPlus,
+            onClick: () => {
+              const el = document.getElementById("invite-section");
+              el?.scrollIntoView({ behavior: "smooth", block: "center" });
+            },
+          }}
+        />
+      )}
+
       {/* Members List */}
-      {!isLoading && !isError && (
+      {!isLoading && !isError && members.length > 0 && (
         <div className="space-y-2">
           {members.map((member, index) => (
             <m.div
@@ -203,7 +229,7 @@ export default function TeamTab() {
                   "size-9 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0",
                   member.status === "Pending"
                     ? "bg-[var(--border-dim)] text-[var(--text-muted)]"
-                    : "bg-primary/10 text-primary"
+                    : "bg-[var(--accent-green-dim)] text-[var(--accent-green-text)]"
                 )}
               >
                 {getInitials(member.name)}
@@ -239,7 +265,7 @@ export default function TeamTab() {
                     : "text-[var(--text-muted)]"
                 )}
               >
-                {member.status}
+                {member.status === "Active" ? t("team.statusActive") : t("team.statusPending")}
               </span>
 
               {/* Actions */}
@@ -247,6 +273,7 @@ export default function TeamTab() {
                 <div className="flex items-center gap-1 flex-shrink-0">
                   <button type="button"
                     onClick={() => addToast("info", tc("roleManagementComingSoon"))}
+                    aria-label={t("team.editRole")}
                     className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-all"
                   >
                     <Edit size={14} />
@@ -254,6 +281,7 @@ export default function TeamTab() {
                   <button type="button"
                     onClick={() => handleRemove(member)}
                     disabled={removeMember.isPending}
+                    aria-label={t("team.removeMember")}
                     className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--accent-rose)] hover:bg-[var(--surface-raised)] transition-all disabled:opacity-50"
                   >
                     <Trash2 size={14} />
@@ -277,7 +305,7 @@ export default function TeamTab() {
         <h3 className="text-[15px] font-semibold text-[var(--text-primary)] mb-4">
           {t("inviteTeamMembers")}
         </h3>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <div className="flex-1">
             <label htmlFor="invite-email" className="sr-only">
               {t("emailAddress")}
@@ -292,7 +320,7 @@ export default function TeamTab() {
                 "w-full h-10 rounded-md border px-3 text-sm",
                 "bg-[var(--surface-base)] text-[var(--text-primary)]",
                 "placeholder:text-[var(--text-muted)]",
-                "focus:outline-none focus:border-[var(--accent-green)] focus:ring-[3px] focus:ring-[var(--accent-green-dim)0.15)]",
+                "focus:outline-none focus:border-[var(--accent-green)] focus:ring-[3px] focus:ring-[var(--accent-green-dim)]",
                 "transition-all duration-200 border-[var(--border-dim)]"
               )}
             />
@@ -306,9 +334,9 @@ export default function TeamTab() {
               value={inviteRole}
               onChange={(e) => setInviteRole(e.target.value as "Editor" | "Admin" | "Viewer")}
               className={cn(
-                "h-10 rounded-md border px-3 text-sm",
+                "h-10 w-full rounded-md border px-3 text-sm sm:w-auto",
                 "bg-[var(--surface-base)] text-[var(--text-primary)]",
-                "focus:outline-none focus:border-primary",
+                "focus:outline-none focus:border-[var(--accent-green)] focus:ring-[3px] focus:ring-[var(--accent-green-dim)]",
                 "transition-all duration-200 border-[var(--border-dim)]",
                 "appearance-none cursor-pointer"
               )}
@@ -322,7 +350,7 @@ export default function TeamTab() {
             onClick={handleSendInvite}
             disabled={inviteMember.isPending}
             className={cn(
-              "h-10 px-4 rounded-md text-sm font-medium text-white",
+              "h-10 px-4 rounded-md text-sm font-medium text-[var(--text-on-accent)]",
               "bg-[var(--accent-green)] hover:bg-[var(--accent-green-light)]",
               "active:scale-[0.98]",
               "transition-all duration-200",
@@ -336,6 +364,23 @@ export default function TeamTab() {
           {t("inviteEmailNote")}
         </p>
       </m.div>
+
+      <ConfirmDialog
+        open={memberPendingRemoval !== null}
+        onOpenChange={(open) => {
+          if (!open) setMemberPendingRemoval(null);
+        }}
+        title={t("team.removeConfirmTitle")}
+        description={
+          memberPendingRemoval
+            ? t("team.removeConfirmDescription", { name: memberPendingRemoval.name })
+            : ""
+        }
+        confirmLabel={tc("delete")}
+        variant="destructive"
+        onConfirm={confirmRemove}
+        isLoading={removeMember.isPending}
+      />
     </m.div>
   );
 }

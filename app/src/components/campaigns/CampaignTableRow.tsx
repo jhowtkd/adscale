@@ -123,9 +123,9 @@ function CampaignTableRow({
           onChange={(e) => onSelect(campaign.id, e.target.checked)}
           className={cn(
             "size-[18px] rounded-sm border border-[var(--border-medium)] appearance-none cursor-pointer",
-            "checked:bg-[var(--accent-green)] checked:border-[var(--accent-green)]",
+            "checked:bg-[var(--neutral-dot)] checked:border-[var(--neutral-dot)]",
             "checked:bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22white%22%3E%3Cpath%20d%3D%22M12.207%204.793a1%201%20%2001%200%201.414l-5%205a1%201%20%200%2001-1.414%200l-2-2a1%201%20%200%20011.414-1.414L6.5%209.086l4.293-4.293a1%201%20%200%20011.414%200z%22%2F%3E%3C%2Fsvg%3E')]",
-            "indeterminate:bg-[var(--accent-green)] indeterminate:border-[var(--accent-green)]",
+            "indeterminate:bg-[var(--neutral-dot)] indeterminate:border-[var(--neutral-dot)]",
             "indeterminate:bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22white%22%3E%3Cpath%20d%3D%22M3%208h10v1H3z%22%2F%3E%3C%2Fsvg%3E')]",
             "transition-colors duration-150"
           )}
@@ -158,16 +158,17 @@ function CampaignTableRow({
           {/* Mobile: actions dropdown */}
           <div className="md:hidden shrink-0" onClick={(e) => e.stopPropagation()}>
             <DropdownMenu>
-              <DropdownMenuTrigger
-                className={cn(
-                  "flex items-center justify-center size-8 rounded-md",
-                  "text-[var(--text-muted)]",
-                  "hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)]",
-                  "transition-all duration-200"
-                )}
-              >
-                <MoreHorizontal size={16} />
-              </DropdownMenuTrigger>
+            <DropdownMenuTrigger
+              aria-label={tCampaigns("v6.actionsFor", { name: campaign.name })}
+              className={cn(
+                "flex min-h-11 min-w-11 items-center justify-center rounded-md",
+                "text-[var(--text-muted)]",
+                "hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)]",
+                "transition-all duration-200"
+              )}
+            >
+              <MoreHorizontal size={16} />
+            </DropdownMenuTrigger>
               <DropdownMenuContent align="end" sideOffset={4} className="w-44">
                 <DropdownMenuItem
                   onClick={() => { router.push(`/campaigns/${campaign.id}`); }}
@@ -274,8 +275,9 @@ function CampaignTableRow({
           <DropdownMenu>
             <DropdownMenuTrigger
               onClick={(e: React.MouseEvent) => e.stopPropagation()}
+              aria-label={tCampaigns("v6.actionsFor", { name: campaign.name })}
               className={cn(
-                "flex items-center justify-center size-8 rounded-md",
+                "flex min-h-11 min-w-11 items-center justify-center rounded-md",
                 "text-[var(--text-muted)] opacity-0 group-hover:opacity-100",
                 "hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)]",
                 "transition-all duration-200",

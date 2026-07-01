@@ -41,13 +41,14 @@ vi.mock("@/server/jobs/client", () => ({
   inngest: { send: vi.fn() },
 }));
 
-vi.mock("@/server/billing/gates", () => ({
-  spendCreditsOrApiError: vi.fn(() => Promise.resolve(null)),
+vi.mock("@/server/billing/paywall", () => ({
+  spendOrApiError: vi.fn(() => Promise.resolve(null)),
 }));
 
-vi.mock("@/server/storage/r2", () => ({
-  getPresignedDownloadUrl: vi.fn(),
-}));
+vi.mock("@/server/storage", () => ({
+  objectStorage: {
+    signedDownloadUrl: vi.fn(),
+  },}));
 
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
@@ -67,8 +68,8 @@ import {
 } from "@/server/repositories/derivation";
 import { getAssetsByCampaign } from "@/server/repositories/asset";
 import { inngest } from "@/server/jobs/client";
-import { spendCreditsOrApiError } from "@/server/billing/gates";
-import { getPresignedDownloadUrl } from "@/server/storage/r2";
+import { spendOrApiError } from "@/server/billing/paywall";
+import { objectStorage } from "@/server/storage";
 
 const mockDbSelect = vi.mocked(db.select);
 const mockGetCampaignById = vi.mocked(getCampaignById);
@@ -79,8 +80,8 @@ const mockGetDerivationsByCampaign = vi.mocked(getDerivationsByCampaign);
 const mockUpdateDerivationStatus = vi.mocked(updateDerivationStatus);
 const mockGetAssetsByCampaign = vi.mocked(getAssetsByCampaign);
 const mockInngestSend = vi.mocked(inngest.send);
-const mockSpendCredits = vi.mocked(spendCreditsOrApiError);
-const mockGetPresignedDownloadUrl = vi.mocked(getPresignedDownloadUrl);
+const mockSpendCredits = vi.mocked(spendOrApiError);
+const mockGetPresignedDownloadUrl = vi.mocked(objectStorage.signedDownloadUrl);
 
 function makeParams(id: string) {
   return Promise.resolve({ id });

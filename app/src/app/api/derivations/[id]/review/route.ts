@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
-import { MIN_DIRECTION_REASON_LENGTH } from "@/lib/derivation-review-display";
+import { MIN_DIRECTION_REASON_LENGTH } from "@/lib/derivation-display";
 import { logger } from "@/lib/logger";
 import { assertDerivationApprovable } from "@/server/ai/creative-quality-gate";
 import {

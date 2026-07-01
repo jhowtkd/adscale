@@ -1,6 +1,7 @@
 import type { Derivation } from "@/lib/mock-data";
 import type { WorkspaceState } from "@/lib/hooks/use-campaign-workspace";
-import { scoreCappedForDisplay } from "@/lib/derivation-quality";
+import { scoreCappedForDisplay } from "@/lib/derivation-display";
+import { pickSurfaceGradient } from "@/lib/v6-surface-gradients";
 import type {
   CampaignWorkspaceV6ViewModel,
   WorkspaceV6BadgeVariant,
@@ -20,15 +21,6 @@ type WorkspaceCampaignSource = {
   styleIntensity?: string | null;
   constraints?: string | null;
 };
-
-const GRADIENTS = [
-  "from-emerald-900/80 to-teal-800/60",
-  "from-amber-900/70 to-orange-800/50",
-  "from-slate-800/80 to-slate-700/60",
-  "from-violet-900/70 to-purple-800/50",
-  "from-cyan-900/80 to-sky-800/60",
-  "from-rose-900/70 to-pink-800/50",
-];
 
 function statusToBadge(status: WorkspaceCampaignSource["status"]): { label: string; variant: WorkspaceV6BadgeVariant } {
   if (status === "completed") return { label: "completed", variant: "success" };
@@ -150,7 +142,7 @@ export function mapCampaignWorkspaceToV6View({
       score,
       status: tStatus(knownStatuses.has(statusKey) ? statusKey : "draft"),
       statusVariant: derivationStatusToBadge(derivation.status),
-      gradient: GRADIENTS[index % GRADIENTS.length],
+      gradient: pickSurfaceGradient(index),
       href: undefined,
     };
   });

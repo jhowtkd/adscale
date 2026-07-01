@@ -234,7 +234,7 @@ export default function AutoBriefingSheet({
                 {!preview && (
                   <label
                     htmlFor="auto-briefing-file"
-                    className="mt-3 inline-block px-4 py-2 rounded-md text-sm font-medium bg-[var(--accent-blue)] text-white hover:bg-[var(--accent-blue-light)] cursor-pointer transition-colors"
+                    className="mt-3 inline-block cursor-pointer rounded-md bg-[var(--accent-blue)] px-4 py-2 text-sm font-medium text-[var(--text-on-accent)] transition-colors hover:bg-[var(--accent-blue-light)]"
                   >
                     {tc("chooseFile")}
                   </label>

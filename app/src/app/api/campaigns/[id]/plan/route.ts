@@ -14,7 +14,7 @@ import {
 import { buildPlanPrompt } from "@/server/ai/prompt-builder";
 import { env } from "@/server/validation/env";
 import { getOpenAI } from "@/server/ai/utils";
-import { spendCreditsOrApiError } from "@/server/billing/gates";
+import { spendOrApiError } from "@/server/billing/paywall";
 import {
   shouldSendToUser,
   getUserLocale,
@@ -75,7 +75,7 @@ export async function POST(
       return NextResponse.json({ plan: existingPlan, cached: true });
     }
 
-    const creditError = await spendCreditsOrApiError({
+    const creditError = await spendOrApiError({
       workspaceId: workspace.id,
       action: "creative_plan",
       idempotencyKey: `creative-plan:${campaignId}`,

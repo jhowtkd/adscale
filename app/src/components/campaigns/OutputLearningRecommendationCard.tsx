@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { useRecordBetaEvent } from "@/lib/hooks/use-record-beta-event";
 import {
@@ -8,7 +9,6 @@ import {
   useOutputLearningRecommendation,
   type OutputGenerationPrefill,
 } from "@/lib/hooks/use-output-learning-recommendation";
-import { CONFIDENCE_LABELS } from "@/lib/hooks/use-performance-learnings";
 import { buildApplicationSnapshotFromAccept } from "@/server/human-quality/application-schema";
 import type { OutputLearningApplicationSnapshot } from "@/server/human-quality/corpus";
 
@@ -33,12 +33,14 @@ function toRecipePrefill(prefill: OutputGenerationPrefill): RecipePrefillPayload
   return { recipeId, config };
 }
 
-function primaryLabel(variableKey: string, variableValue: string): string {
-  if (variableKey === "cta") return `Testar CTA "${variableValue}"`;
-  if (variableKey === "format") return `Priorizar formato ${variableValue}`;
-  if (variableKey === "generation_mode") return `Usar modo ${variableValue}`;
-  if (variableKey === "style_policy") return `Aplicar estilo ${variableValue}`;
-  return `Explorar ${variableKey} ${variableValue}`;
+function titleKeyForVariable(
+  variableKey: string,
+): "cta" | "format" | "generationMode" | "stylePolicy" | "fallback" {
+  if (variableKey === "cta") return "cta";
+  if (variableKey === "format") return "format";
+  if (variableKey === "generation_mode") return "generationMode";
+  if (variableKey === "style_policy") return "stylePolicy";
+  return "fallback";
 }
 
 export default function OutputLearningRecommendationCard({
@@ -46,6 +48,8 @@ export default function OutputLearningRecommendationCard({
   onAccept,
   onEdit,
 }: OutputLearningRecommendationCardProps) {
+  const t = useTranslations("campaigns.outputLearning");
+  const tConfidence = useTranslations("campaigns.learnings.confidence");
   const { data, isLoading, isError } = useOutputLearningRecommendation(campaignId);
   const { recordEvent } = useRecordBetaEvent(campaignId);
   const viewedRef = useRef(false);
@@ -75,11 +79,7 @@ export default function OutputLearningRecommendationCard({
   }, [campaignId, dismissed, recommendation, recordEvent]);
 
   if (isLoading) {
-    return (
-      <p className="text-sm text-[var(--text-secondary)]">
-        Carregando recomendação de output learning…
-      </p>
-    );
+    return <p className="text-sm text-[var(--text-secondary)]">{t("loading")}</p>;
   }
 
   if (isError || data?.status !== "ready" || !recommendation || dismissed) {
@@ -89,7 +89,7 @@ export default function OutputLearningRecommendationCard({
   const handleDismiss = () => {
     sessionStorage.setItem(
       outputRecommendationDismissStorageKey(campaignId, recommendation.id),
-      "1"
+      "1",
     );
     recordEvent("output_learning_recommendation_dismissed", {
       recommendationId: recommendation.id,
@@ -118,7 +118,7 @@ export default function OutputLearningRecommendationCard({
       traceId: recommendation.appliedLearningTrace.traceId,
       evidenceEventCount: recommendation.appliedLearningTrace.entries.reduce(
         (count, entry) => count + entry.evidenceEventIds.length,
-        0
+        0,
       ),
       blockedFieldCount: recommendation.appliedLearningTrace.blockedFields.length,
     });
@@ -137,42 +137,47 @@ export default function OutputLearningRecommendationCard({
     onEdit(prefill);
   };
 
+  const titleKey = titleKeyForVariable(recommendation.primaryVariableKey);
+  const titleParams: Record<string, string> =
+    titleKey === "fallback"
+      ? { key: recommendation.primaryVariableKey, value: recommendation.primaryVariableValue }
+      : { value: recommendation.primaryVariableValue };
+
   return (
-    <article className="rounded-lg border border-[var(--accent-green)]/30 bg-[var(--bg-elevated)] p-4">
+    <article className="rounded-lg border border-[var(--accent-green)]/30 bg-[var(--surface-raised)] p-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--accent-green-text)]">
-            Aprendizado de output sugerido
+            {t("eyebrow")}
           </p>
           <h3 className="mt-1 text-base font-medium text-[var(--text-primary)]">
-            {primaryLabel(
-              recommendation.primaryVariableKey,
-              recommendation.primaryVariableValue
-            )}
+            {t(`titles.${titleKey}`, titleParams)}
           </h3>
         </div>
-        <span className="rounded bg-[var(--bg-surface)] px-2 py-0.5 text-xs">
-          Confiança {CONFIDENCE_LABELS[recommendation.confidence]}
+        <span className="rounded bg-[var(--surface-base)] px-2 py-0.5 text-xs">
+          {t("confidence", { level: tConfidence(recommendation.confidence) })}
         </span>
       </header>
 
-      <p className="mt-3 text-sm text-[var(--text-primary)]">
-        {recommendation.justification}
-      </p>
+      <p className="mt-3 text-sm text-[var(--text-primary)]">{recommendation.justification}</p>
 
       <dl className="mt-4 grid gap-3 text-xs text-[var(--text-secondary)] sm:grid-cols-2">
         <div>
-          <dt className="font-medium text-[var(--text-primary)]">Amostra</dt>
+          <dt className="font-medium text-[var(--text-primary)]">{t("sample")}</dt>
           <dd>
-            {recommendation.sampleEventCount} evento(s) ·{" "}
-            {recommendation.sampleCampaignCount} campanha(s)
+            {t("sampleValue", {
+              events: recommendation.sampleEventCount,
+              campaigns: recommendation.sampleCampaignCount,
+            })}
           </dd>
         </div>
         <div>
-          <dt className="font-medium text-[var(--text-primary)]">Evidências</dt>
+          <dt className="font-medium text-[var(--text-primary)]">{t("evidence")}</dt>
           <dd>
-            {recommendation.evidence.length} aprendizado(s) · score{" "}
-            {recommendation.confidenceScore}
+            {t("evidenceValue", {
+              count: recommendation.evidence.length,
+              score: recommendation.confidenceScore,
+            })}
           </dd>
         </div>
       </dl>
@@ -182,7 +187,7 @@ export default function OutputLearningRecommendationCard({
           {recommendation.evidence.map((item) => (
             <li
               key={item.learningId}
-              className="rounded border border-[var(--border-dim)] bg-[var(--bg-surface)] px-3 py-2"
+              className="rounded border border-[var(--border-dim)] bg-[var(--surface-base)] px-3 py-2"
             >
               {item.statement}
             </li>
@@ -191,8 +196,8 @@ export default function OutputLearningRecommendationCard({
       ) : null}
 
       {recommendation.avoidPatterns.length > 0 ? (
-        <div className="mt-3 rounded border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
-          <p className="font-medium">Padrões a evitar (informativo — não altera prompt)</p>
+        <div className="mt-3 rounded border border-[var(--warning-border)] bg-[var(--warning-bg)] px-3 py-2 text-xs text-[var(--warning-text)]">
+          <p className="font-medium">{t("avoidPatternsTitle")}</p>
           <ul className="mt-1 space-y-1">
             {recommendation.avoidPatterns.map((item) => (
               <li key={item.pattern}>{item.statement}</li>
@@ -202,27 +207,24 @@ export default function OutputLearningRecommendationCard({
       ) : null}
 
       {recommendation.contradictions.length > 0 ? (
-        <p className="mt-3 text-xs text-amber-600 dark:text-amber-400">
-          {recommendation.contradictions.length} evidência(s) contraditória(s) —
-          revise antes de escalar.
+        <p className="mt-3 text-xs text-[var(--warning-text)]">
+          {t("contradictions", { count: recommendation.contradictions.length })}
         </p>
       ) : null}
 
       <div className="mt-4 flex flex-wrap gap-2">
         <Button type="button" size="sm" onClick={handleAccept}>
-          Aceitar e abrir receita
+          {t("accept")}
         </Button>
         <Button type="button" size="sm" variant="outline" onClick={handleEdit}>
-          Editar antes de gerar
+          {t("edit")}
         </Button>
         <Button type="button" size="sm" variant="ghost" onClick={handleDismiss}>
-          Ignorar
+          {t("dismiss")}
         </Button>
       </div>
 
-      <p className="mt-3 text-[11px] text-[var(--text-secondary)]">
-        Apenas variáveis limitadas (CTA, modo, formato, receita, estilo) — sem alteração de prompt.
-      </p>
+      <p className="mt-3 text-[11px] text-[var(--text-secondary)]">{t("disclaimer")}</p>
     </article>
   );
 }

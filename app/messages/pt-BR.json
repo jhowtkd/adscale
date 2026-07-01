@@ -195,7 +195,200 @@
     "pageTitle": "Campanhas"
   },
   "campaigns": {
-    "previewPendingBatchCta": "Continuar → batch"
+    "previewPendingBatchCta": "Continuar → batch",
+    "hypotheses": {
+      "loading": "Carregando hipóteses…",
+      "loadError": "Não foi possível carregar as hipóteses.",
+      "insufficientDerivations": "Crie pelo menos duas derivações e importe resultados antes de registrar hipóteses.",
+      "title": "Hipóteses criativas",
+      "subtitle": "Experimentos com variável principal e vereditos honestos sobre os dados importados.",
+      "newHypothesis": "Nova hipótese",
+      "cancel": "Cancelar",
+      "errors": {
+        "distinctVariants": "Selecione controle e variação distintos.",
+        "rationaleRequired": "Informe a justificativa da hipótese.",
+        "createFailed": "Erro ao criar hipótese.",
+        "compareFailed": "Erro na comparação.",
+        "minDerivations": "Selecione pelo menos duas derivações."
+      },
+      "form": {
+        "variableKey": "Variável principal",
+        "variableKeyPlaceholder": "ex: cta, formato, headline",
+        "primaryMetric": "Métrica primária",
+        "expectedDirection": "Direção esperada",
+        "increase": "Aumentar",
+        "decrease": "Diminuir",
+        "rationale": "Justificativa",
+        "control": "Controle",
+        "variant": "Variação",
+        "select": "Selecione…",
+        "platformOptional": "Plataforma (opcional)",
+        "anyPlatform": "Qualquer",
+        "submit": "Registrar hipótese"
+      },
+      "empty": "Nenhuma hipótese registrada ainda.",
+      "controlledTag": "Hipótese controlada · variável: {variable}",
+      "compare": "Comparar",
+      "delete": "Excluir",
+      "variantRole": "{role}: {label}",
+      "observationalTitle": "Comparação observacional",
+      "observationalSubtitle": "Compare derivações sem hipótese formal. O resultado é rotulado como observação de mídia.",
+      "observationalCompare": "Comparar (observacional)",
+      "lastComparison": "Última comparação: {verdict}",
+      "viewReport": "Ver relatório",
+      "report": {
+        "controlled": "Hipótese controlada",
+        "observational": "Observação de mídia",
+        "period": "Período: {start} — {end}{platform}{objective}",
+        "platformSuffix": " · {platform}",
+        "objectiveSuffix": " · Objetivo: {objective}",
+        "variant": "Variante",
+        "impressions": "Impressões",
+        "clicks": "Cliques",
+        "deltaVsControl": "Δ vs controle",
+        "controlSuffix": " (controle)",
+        "disclaimer": "Comparação observacional — não implica causalidade nem significância estatística."
+      },
+      "metrics": {
+        "ctr": "CTR",
+        "cpc": "CPC",
+        "cpa": "CPA",
+        "roas": "ROAS",
+        "conversions": "Conversões",
+        "clicks": "Cliques",
+        "impressions": "Impressões",
+        "spend": "Investimento",
+        "conversion_value": "Valor de conversão"
+      },
+      "verdicts": {
+        "winner": "Vencedor identificado",
+        "no_clear_winner": "Sem vencedor claro",
+        "insufficient_evidence": "Evidência insuficiente",
+        "not_comparable": "Não comparável"
+      },
+      "outcomes": {
+        "supported": "Suportada",
+        "contradicted": "Contrariada",
+        "inconclusive": "Inconclusiva"
+      }
+    },
+    "learnings": {
+      "loading": "Carregando aprendizados…",
+      "loadError": "Falha ao carregar aprendizados.",
+      "noClientProfile": "Vincule um perfil de cliente à campanha para consolidar aprendizados de performance.",
+      "source": "Fonte: {source}",
+      "sourceMem0": "Mem0 + Postgres canônico",
+      "sourcePostgres": "Postgres canônico",
+      "recompute": "Recalcular aprendizados",
+      "recomputing": "Recalculando…",
+      "empty": "Nenhum aprendizado aprovado ainda. Conclua comparações de hipóteses com evidência suficiente para gerar padrões reutilizáveis.",
+      "sample": "Amostra",
+      "sampleValue": "{impressions} impressões · {campaigns} campanha(s)",
+      "recency": "Recência",
+      "context": "Contexto",
+      "evidence": "Evidências",
+      "evidenceValue": "{supporting} favorável(is) · {contradicting} contraditória(s)",
+      "contradictionWarning": "Há evidências contraditórias — trate como padrão contextual, não regra absoluta.",
+      "confidence": {
+        "low": "Baixa",
+        "medium": "Média",
+        "high": "Alta"
+      }
+    },
+    "performanceImport": {
+      "tabs": {
+        "manual": "Manual",
+        "csv": "CSV",
+        "history": "Histórico"
+      },
+      "errors": {
+        "previewFailed": "Erro na pré-visualização",
+        "confirmFailed": "Erro ao confirmar importação"
+      },
+      "confirmSuccess": "Importação concluída: {created} criados, {updated} atualizados, {ignored} ignorados, {invalid} inválidos.",
+      "fields": {
+        "derivation": "Derivação",
+        "platform": "Plataforma",
+        "placement": "Placement",
+        "startDate": "Início (AAAA-MM-DD)",
+        "endDate": "Fim (AAAA-MM-DD)",
+        "impressions": "Impressões",
+        "clicks": "Cliques",
+        "spend": "Investimento",
+        "conversions": "Conversões",
+        "conversionValue": "Valor conversão",
+        "currency": "Moeda"
+      },
+      "select": "Selecione…",
+      "preview": "Pré-visualizar",
+      "previewCsv": "Pré-visualizar CSV",
+      "confirm": "Confirmar importação",
+      "csvFile": "Arquivo CSV",
+      "history": {
+        "date": "Data",
+        "type": "Tipo",
+        "file": "Arquivo",
+        "counts": "C/U/I/X",
+        "empty": "Nenhuma importação registrada."
+      },
+      "parseOptions": {
+        "defaultCurrency": "Moeda padrão",
+        "locale": "Locale",
+        "decimalSeparator": "Separador decimal",
+        "percentFormat": "Percentual",
+        "percentExample": "1,5%",
+        "fractionExample": "0,015"
+      },
+      "previewTable": {
+        "summary": "{valid} válidas · {invalid} inválidas · {create} novas · {update} atualizações · {ignore} ignoradas",
+        "row": "#",
+        "status": "Status",
+        "action": "Ação",
+        "errors": "Erros"
+      }
+    },
+    "nextExperiment": {
+      "loading": "Carregando recomendação de próximo experimento…",
+      "eyebrow": "Próximo experimento sugerido",
+      "titles": {
+        "cta": "Testar CTA \"{value}\"",
+        "format": "Priorizar formato {value}",
+        "recipe": "Usar receita {value}",
+        "style": "Explorar estilo {value}"
+      },
+      "confidence": "Confiança {level}",
+      "sample": "Amostra",
+      "sampleValue": "{impressions} impressões · {campaigns} campanha(s)",
+      "evidence": "Evidências",
+      "evidenceValue": "{count} aprendizado(s) · score {score}",
+      "contradictions": "{count} evidência(s) contraditória(s) — revise antes de escalar.",
+      "accept": "Aceitar e abrir receita",
+      "edit": "Editar antes de gerar",
+      "dismiss": "Ignorar",
+      "disclaimer": "Nenhuma alteração automática em campanha, mídia ou orçamento — você confirma cada passo."
+    },
+    "outputLearning": {
+      "loading": "Carregando recomendação de output learning…",
+      "eyebrow": "Aprendizado de output sugerido",
+      "titles": {
+        "cta": "Testar CTA \"{value}\"",
+        "format": "Priorizar formato {value}",
+        "generationMode": "Usar modo {value}",
+        "stylePolicy": "Aplicar estilo {value}",
+        "fallback": "Explorar {key} {value}"
+      },
+      "confidence": "Confiança {level}",
+      "sample": "Amostra",
+      "sampleValue": "{events} evento(s) · {campaigns} campanha(s)",
+      "evidence": "Evidências",
+      "evidenceValue": "{count} aprendizado(s) · score {score}",
+      "avoidPatternsTitle": "Padrões a evitar (informativo — não altera prompt)",
+      "contradictions": "{count} evidência(s) contraditória(s) — revise antes de escalar.",
+      "accept": "Aceitar e abrir receita",
+      "edit": "Editar antes de gerar",
+      "dismiss": "Ignorar",
+      "disclaimer": "Apenas variáveis limitadas (CTA, modo, formato, receita, estilo) — sem alteração de prompt."
+    }
   },
   "dashboard": {
     "period": {
@@ -297,7 +490,16 @@
       "relativeMinutes": "{count} min",
       "relativeHours": "{count}h",
       "relativeOneDay": "há 1 dia",
-      "relativeDays": "há {count} dias"
+      "relativeDays": "há {count} dias",
+      "activityEmptyTitle": "Nenhuma atividade recente",
+      "activityEmptyDescription": "Campanhas e derivações em que você trabalhar aparecerão aqui.",
+      "activityEmptyAction": "Criar campanha",
+      "recipesEmptyTitle": "Nenhuma receita salva ainda",
+      "recipesEmptyDescription": "Salve um briefing como template para reutilizar na próxima campanha.",
+      "recipesEmptyAction": "Ver templates",
+      "briefingEmptyTitle": "Nenhum briefing ativo",
+      "briefingEmptyDescription": "Inicie um briefing de campanha ou escolha um template para ver os campos aqui.",
+      "briefingEmptyAction": "Nova campanha"
     },
     "laboratory": {
       "title": "Laboratório de Ads",
@@ -1436,12 +1638,21 @@
       "title": "Workspace",
       "namePlaceholder": "Nome do workspace",
       "descriptionPlaceholder": "Seu workspace de curadoria para briefing, lotes e revisão",
-      "urlPlaceholder": "https://suempresa.com"
+      "urlPlaceholder": "https://suempresa.com",
+      "readOnlyNotice": "Você tem acesso somente leitura às configurações do workspace. Peça a um administrador para fazer alterações."
     },
     "team": {
       "title": "Time",
       "invitePlaceholder": "colega@empresa.com",
-      "roleLabel": "Função"
+      "roleLabel": "Função",
+      "statusActive": "Ativo",
+      "statusPending": "Pendente",
+      "emptyTitle": "Nenhum membro no time ainda",
+      "emptyDescription": "Convide colegas para colaborar em campanhas e revisões de criativos.",
+      "editRole": "Editar função",
+      "removeMember": "Remover membro",
+      "removeConfirmTitle": "Remover membro do time?",
+      "removeConfirmDescription": "{name} perderá acesso a este workspace imediatamente."
     },
     "integrations": {
       "connected": "Conectado",
@@ -1531,6 +1742,86 @@
       "restartDescription": "O tour será exibido novamente na próxima visita ao dashboard.",
       "restartTour": "Reiniciar Tour de Boas-vindas",
       "restarting": "Reiniciando..."
+    },
+    "privacy": {
+      "exportTitle": "Exportar meus dados",
+      "exportDescription": "Baixe uma cópia completa dos seus dados pessoais em formato JSON. Inclui campanhas, derivações, assets e planos criativos.",
+      "exportButton": "Exportar dados (JSON)",
+      "exporting": "Exportando…",
+      "exportError": "Erro ao exportar dados. Tente novamente.",
+      "legalTitle": "Documentos legais",
+      "privacyPolicy": "Política de Privacidade",
+      "termsOfUse": "Termos de Uso",
+      "deleteTitle": "Excluir conta",
+      "deleteDescription": "Esta ação remove permanentemente todas as suas campanhas, imagens e dados. Seus dados pessoais serão anonimizados conforme a LGPD.",
+      "deleteButton": "Quero excluir minha conta",
+      "deleteConfirmHint": "Para confirmar, digite {keyword} no campo abaixo:",
+      "deleteConfirmKeyword": "DELETE",
+      "deleteConfirmPlaceholder": "DELETE",
+      "deleteConfirmAria": "Confirmar exclusão da conta",
+      "deleteConfirmButton": "Confirmar exclusão",
+      "deleting": "Excluindo…",
+      "deleteErrorKeyword": "Digite \"DELETE\" para confirmar.",
+      "deleteError": "Erro ao excluir conta. Tente novamente."
+    },
+    "plans": {
+      "title": "Planos e limites",
+      "subtitle": "Trial para experimentar, três tiers pagos em reais e limites claros por créditos.",
+      "statCredits": "Créditos",
+      "statCampaigns": "Campanhas",
+      "statImages": "Imagens",
+      "statStatus": "Status",
+      "statMargin": "Margem",
+      "statusTrial": "Trial",
+      "limitsSummary": "{credits} créditos · {campaigns} campanhas · {images} imagens",
+      "selectPlan": "Selecionar plano",
+      "opening": "Abrindo…",
+      "trialIncluded": "Trial incluso",
+      "compareTitle": "Comparativo",
+      "compareResource": "Recurso",
+      "comparePrice": "Preço",
+      "compareCredits": "Créditos",
+      "compareCampaigns": "Campanhas",
+      "compareImages": "Imagens",
+      "compareRestyling": "Restilização",
+      "compareTeam": "Equipe",
+      "compareQueue": "Fila",
+      "compareIncluded": "Incluída",
+      "compareDash": "—",
+      "compareTeamBasic": "Básica",
+      "compareTeamPermissions": "Permissões",
+      "compareQueueStandard": "Padrão",
+      "compareQueuePriority": "Prioritária",
+      "tiers": {
+        "trial": {
+          "name": "Trial",
+          "badge": "Teste",
+          "description": "Para experimentar a ferramenta com uma campanha real.",
+          "period": "único",
+          "features": ["1 campanha de teste", "6 imagens totais", "Restilização liberada", "Sem renovação automática"]
+        },
+        "starter": {
+          "name": "Starter",
+          "badge": "Entrada",
+          "description": "Para freelancers e pequenos testes mensais.",
+          "period": "mês",
+          "features": ["1 campanha por mês", "6 imagens por mês", "Histórico e galeria", "Exportação manual"]
+        },
+        "growth": {
+          "name": "Growth",
+          "badge": "Recomendado",
+          "description": "Para quem roda campanhas recorrentes.",
+          "period": "mês",
+          "features": ["4 campanhas por mês", "24 imagens por mês", "Restilização inclusa", "Equipe básica"]
+        },
+        "scale": {
+          "name": "Scale",
+          "badge": "Volume",
+          "description": "Para times que precisam de volume controlado.",
+          "period": "mês",
+          "features": ["12 campanhas por mês", "72 imagens por mês", "Equipe e permissões", "Prioridade de fila"]
+        }
+      }
     },
     "brandKit": {
       "title": "Brand Kit",
@@ -1920,14 +2211,15 @@
     "back": "Voltar",
     "next": "Próximo",
     "finish": "Começar",
+    "stepProgress": "Passo {current} de {total}: {title}",
     "step1Title": "Bem-vindo ao ADScale",
     "step1Desc": "Você é o curador neste workspace. Defina seu briefing aqui, rode variações em batch e aprove o que vai ao ar.",
-    "step2Title": "Entradas de briefing",
-    "step2Desc": "As ações rápidas alimentam seu briefing—criativo base, biblioteca ou restilização dão ponto de partida para o próximo batch.",
+    "step2Title": "Produção ativa",
+    "step2Desc": "Sua campanha em andamento fica aqui—acompanhe briefing, variações, aprovações e créditos de relance.",
     "step3Title": "Sua fila de curadoria",
     "step3Desc": "Campanhas recentes são sua fila de revisão. Abra uma campanha para curar variações, aprovar o que entrega e exportar pacotes.",
-    "step4Title": "Comece pelo briefing",
-    "step4Desc": "Crie uma campanha com briefing estruturado antes da geração—do zero ou a partir de um template salvo.",
+    "step4Title": "Atalhos de receitas",
+    "step4Desc": "Templates e receitas salvos aceleram novos batches—escolha um para pré-preencher o briefing e lançar mais rápido.",
     "step5Title": "Créditos do workspace",
     "step5Desc": "Créditos sustentam geração em batch no workspace. Acompanhe saldo disponível e consumo mensal aqui."
   },
@@ -1961,6 +2253,8 @@
     "deleteConfirmDescription": "Tem certeza que deseja excluir \"{name}\"? Esta ação não pode ser desfeita.",
     "emptyTitle": "Nenhum asset na biblioteca ainda",
     "emptyDescription": "Envie criativos base, logos e referências—eles alimentam seu briefing e fluxo de batch.",
+    "errorTitle": "Não foi possível carregar sua biblioteca",
+    "errorDescription": "Algo deu errado ao buscar seus assets. Tente novamente.",
     "dropzoneLabel": "Arraste e solte imagens aqui ou clique em Upload",
     "dropzoneHint": "PNG, JPEG, WebP · Máx 50MB",
     "uploadAriaLabel": "Enviar asset para biblioteca",
@@ -1974,7 +2268,9 @@
       "searchPlaceholder": "Buscar asset por nome ou tag…",
       "countSummary": "{shown} de {total} assets",
       "dropzoneAria": "Arraste arquivos aqui ou clique para selecionar",
-      "deleteAsset": "Excluir asset"
+      "deleteAsset": "Excluir asset",
+      "loadMore": "Carregar mais",
+      "loadingMore": "Carregando…"
     }
   },
   "copyGenerator": {
@@ -2057,7 +2353,8 @@
       "body": "Comece a conversar com o assistente do ADScale. Seu trabalho fica salvo em projetos e conversas na barra lateral.",
       "selectTree": "Ver conversas",
       "createClient": "Criar cliente",
-      "selectThread": "Selecione uma thread na árvore para começar a conversar."
+      "selectThread": "Envie uma mensagem abaixo para começar esta conversa.",
+      "threadTitle": "Nenhuma mensagem ainda"
     },
     "start": {
       "promptIn": "No que devemos trabalhar em {project}?",
@@ -2068,6 +2365,7 @@
       "send": "Enviar",
       "submitting": "Criando conversa…",
       "chooseProject": "Escolher projeto",
+      "createError": "Não foi possível iniciar a conversa. Tente novamente.",
       "noProjectsTitle": "Vamos começar criando um projeto",
       "noProjectsBody": "Projetos organizam campanhas e conversas do assistente. Crie o primeiro para começar.",
       "createFirstClient": "Criar primeiro projeto",
@@ -2111,6 +2409,7 @@
         "loading": "Carregando ativos…",
         "emptyLibrary": "Nenhum ativo na biblioteca. Envie uma imagem acima.",
         "uploadFailed": "Falha no upload",
+        "uploading": "Enviando…",
         "selectFailed": "Falha ao selecionar criativo",
         "retry": "Tentar novamente",
         "diagnosisTitle": "Diagnóstico da peça",
@@ -2143,7 +2442,21 @@
         "referencesSubtitle": "Selecione pelo menos {min} referências ({count} selecionadas).",
         "loading": "Carregando referências…",
         "empty": "Nenhuma referência disponível. Salve referências no cliente ou envie ativos na biblioteca.",
+        "upload": "Enviar referência",
+        "uploading": "Enviando…",
         "continue": "Continuar para o plano criativo"
+      },
+      "controls": {
+        "updateError": "Não foi possível atualizar a jornada.",
+        "retry": "Tentar novamente",
+        "back": "Voltar",
+        "restart": "Reiniciar",
+        "switchPath": "Trocar caminho",
+        "retained": "Será mantido: {items}.",
+        "cleared": "Será limpo: {items}.",
+        "nothing": "nada",
+        "confirm": "Confirmar",
+        "cancel": "Cancelar"
       },
       "progressive": {
         "reviewTitle": "Revise o brief antes de continuar",
@@ -2197,7 +2510,9 @@
       "noThreadHint": "Selecione uma thread para começar a conversar",
       "close": "Fechar",
       "loading": "Carregando conversa…",
-      "headerSubtitle": "conversa ativa"
+      "headerSubtitle": "conversa ativa",
+      "streaming": "Assistente respondendo…",
+      "uploading": "Enviando…"
     },
     "drawer": {
       "title": "Assistente da campanha",
@@ -2355,6 +2670,23 @@
       "performance": "Performance",
       "mission": "Insight de missão",
       "other": "Outro"
+    },
+    "guidedFlowQuality": {
+      "title": "Feedback de qualidade da jornada guiada",
+      "description": "Registre feedback operacional somente leitura sobre utilidade do diagnóstico ou prontidão do plano criativo.",
+      "workspaceId": "ID do workspace",
+      "threadId": "ID da thread",
+      "feedbackType": "Tipo de feedback",
+      "rating": "Avaliação",
+      "reason": "Motivo (opcional, máx. 256)",
+      "select": "Selecione…",
+      "submit": "Salvar feedback",
+      "saved": "Salvo",
+      "saveError": "Não foi possível salvar o feedback.",
+      "types": {
+        "diagnosis_utility": "Utilidade do diagnóstico",
+        "creative_plan_readiness": "Prontidão do plano criativo"
+      }
     },
     "triage": {
       "title": "Triagem de feedback beta",

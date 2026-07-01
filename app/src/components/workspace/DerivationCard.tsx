@@ -15,14 +15,15 @@ import { useExport } from "@/lib/hooks/use-export";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAppStore } from "@/lib/store";
-import { scoreCappedForDisplay } from "@/lib/derivation-quality";
+import { scoreCappedForDisplay } from "@/lib/derivation-display";
 import {
   getExportDisplay,
   getOlharDisplay,
   getPackageEligibilityHintKey,
   isNormalApprovalBlocked,
   verdictBadgeClassName,
-} from "@/lib/derivation-review-display";
+} from "@/lib/derivation-display";
+import { DerivationAutoRetryBadge } from "@/components/workspace/DerivationAutoRetryBadge";
 
 // ============================================
 // Types
@@ -119,8 +120,8 @@ function ProgressRing({ progress }: { progress: number }) {
         />
         <defs>
           <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="var(--accent-green)" />
-            <stop offset="100%" stopColor="var(--accent-green)" />
+            <stop offset="0%" stopColor="var(--text-muted)" />
+            <stop offset="100%" stopColor="var(--text-disabled)" />
           </linearGradient>
         </defs>
       </svg>
@@ -262,8 +263,8 @@ export default function DerivationCard({
   const locale = useLocale();
   const isCompleted = derivation.status === "completed";
   const platformStyle = platformColors[derivation.platform] || {
-    bg: "rgba(99,102,241,0.12)",
-    text: "#818cf8",
+    bg: "var(--neutral-bg)",
+    text: "var(--neutral-text)",
   };
 
   const isGeneratingOverlay =
@@ -287,7 +288,7 @@ export default function DerivationCard({
   const qaStatusColor = (
     {
       ready: "text-[var(--accent-green)]",
-      warning: "text-amber-500",
+      warning: "text-[var(--warning-text)]",
       review: "text-[var(--accent-rose)]",
     } as Record<string, string>
   )[derivation.qaStatus ?? ""] ?? "text-[var(--text-muted)]";
@@ -343,11 +344,11 @@ export default function DerivationCard({
   return (
     <div
       className={cn(
-        "animate-fade-in group glass-card rounded-[15px] overflow-hidden transition-all duration-300",
+        "animate-fade-in group rounded-[15px] border border-[var(--border-subtle)] bg-[var(--surface-base)] overflow-hidden transition-all duration-300",
         derivation.isPreview
           ? "border-dashed border-orange-400/60"
           : "",
-        isCompleted && !derivation.isPreview && "hover:border-[var(--border-medium)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.08)] hover:-translate-y-1",
+        isCompleted && !derivation.isPreview && "hover:border-[var(--border-medium)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.08)]",
         isSelectedForCompare && "ring-2 ring-[var(--accent-green)] border-[var(--accent-green)]"
       )}
       style={{ animationDelay: `${index * 80}ms` }}
@@ -467,15 +468,16 @@ export default function DerivationCard({
               </span>
             ) : null}
             {!olharDisplay && derivation.qualityVerdict === "invalid" ? (
-              <span className="inline-flex items-center rounded-md border border-rose-500/40 bg-rose-500/10 px-2 py-0.5 text-[10px] font-semibold text-rose-400">
+              <span className="inline-flex items-center rounded-md border border-[var(--danger-border)] bg-[var(--danger-bg)] px-2 py-0.5 text-[10px] font-semibold text-[var(--danger-text)]">
                 {t("invalidOutputBadge")}
               </span>
             ) : null}
             {!olharDisplay && derivation.qualityVerdict === "improvable" ? (
-              <span className="inline-flex items-center rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-500">
+              <span className="inline-flex items-center rounded-md border border-[var(--warning-border)] bg-[var(--warning-bg)] px-2 py-0.5 text-[10px] font-semibold text-[var(--warning-text)]">
                 {t("improvableOutputBadge")}
               </span>
             ) : null}
+            <DerivationAutoRetryBadge derivation={derivation} />
             {displayScore != null && (
               <div className="inline-flex items-center gap-1 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)]/60 px-1.5 py-0.5 opacity-80">
                 <span className="text-[10px] font-medium text-[var(--text-muted)]">
@@ -528,7 +530,7 @@ export default function DerivationCard({
         {derivation.qualityVerdict === "invalid" &&
         derivation.hardFailures &&
         derivation.hardFailures.length > 0 ? (
-          <ul className="space-y-1 rounded-md border border-rose-500/20 bg-rose-500/5 p-2">
+          <ul className="space-y-1 rounded-md border border-[var(--danger-border)] bg-[var(--danger-bg)] p-2">
             {derivation.hardFailures.slice(0, 3).map((failure) => {
               const title = tr(`hardFailureCodes.${failure.code}` as "hardFailureCodes.cta_drift");
               const detail =
@@ -552,7 +554,7 @@ export default function DerivationCard({
         {derivation.qualityVerdict === "improvable" &&
         derivation.polishSuggestions &&
         derivation.polishSuggestions.length > 0 ? (
-          <p className="text-[11px] text-amber-500/90 line-clamp-2">
+          <p className="line-clamp-2 text-[11px] text-[var(--warning-text)]">
             {derivation.polishSuggestions[0]}
           </p>
         ) : null}
@@ -645,7 +647,7 @@ export default function DerivationCard({
                   className={cn(
                     "p-1.5 rounded-md transition-all duration-150",
                     isSelectedForCompare
-                      ? "text-[var(--accent-green-text)] bg-[var(--accent-green)]/10"
+                      ? "bg-[var(--neutral-bg)] text-[var(--text-primary)]"
                       : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)]"
                   )}
                 >
@@ -664,7 +666,7 @@ export default function DerivationCard({
                 size="sm"
                 onClick={() => handleRegenerate()}
                 disabled={isRegenerating}
-                className="w-fit bg-rose-500/90 text-white hover:bg-rose-500"
+                className="w-fit bg-[var(--danger-bg)] text-[var(--danger-text)] hover:bg-[var(--danger-border)]"
               >
                 <RefreshCw className="size-4 mr-1" />
                 {t("regenerateWithFixes")}

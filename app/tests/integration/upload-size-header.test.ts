@@ -16,13 +16,14 @@ vi.mock("@/server/repositories/asset", () => ({
   createAsset: vi.fn(),
 }));
 
-vi.mock("@/server/storage/r2", () => ({
-  uploadBuffer: vi.fn().mockResolvedValue(undefined),
-}));
+vi.mock("@/server/storage", () => ({
+  objectStorage: {
+    put: vi.fn().mockResolvedValue(undefined),
+  },}));
 
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getCampaignById } from "@/server/repositories/campaign";
-import { uploadBuffer } from "@/server/storage/r2";
+import { objectStorage } from "@/server/storage";
 import { POST } from "@/app/api/campaigns/[id]/assets/upload/route";
 
 describe("POST /api/campaigns/[id]/assets/upload", () => {
@@ -60,6 +61,6 @@ describe("POST /api/campaigns/[id]/assets/upload", () => {
 
     expect(response.status).toBe(400);
     expect(body.code).toBe("fileTooLarge");
-    expect(uploadBuffer).not.toHaveBeenCalled();
+    expect(objectStorage.put).not.toHaveBeenCalled();
   });
 });

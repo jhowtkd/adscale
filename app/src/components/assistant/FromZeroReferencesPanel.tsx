@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
-import { ImageIcon, Upload } from "lucide-react";
+import { ImageIcon, Loader2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useClientReferences } from "@/lib/hooks/use-client-profiles";
@@ -30,6 +30,7 @@ export default function FromZeroReferencesPanel({
     () => new Set(guidedFlow.referenceIds ?? [])
   );
   const [error, setError] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const { data: refs = [] } = useClientReferences(clientProfileId);
   const { data: assetsData, isLoading } = useWorkspaceAssets({ limit: 24 });
   const saveReferences = useGuidedFlowCommand(threadId);
@@ -101,17 +102,33 @@ export default function FromZeroReferencesPanel({
           event.target.value = "";
           if (!file) return;
           setError(null);
+          setIsUploading(true);
           void uploadChatAttachment(file)
             .then((asset) => {
               setSelected((current) => new Set([...current, asset.assetId]));
             })
             .catch((cause) => {
               setError(cause instanceof Error ? cause.message : t("saveFailed"));
+            })
+            .finally(() => {
+              setIsUploading(false);
             });
         }}
       />
-      <Button type="button" size="sm" variant="outline" className="mt-3" onClick={() => uploadRef.current?.click()}>
-        <Upload className="mr-2 size-4" aria-hidden="true" /> Enviar referência
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        className="mt-3"
+        disabled={isUploading || saveReferences.isPending}
+        onClick={() => uploadRef.current?.click()}
+      >
+        {isUploading ? (
+          <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" />
+        ) : (
+          <Upload className="mr-2 size-4" aria-hidden="true" />
+        )}
+        {isUploading ? t("uploading") : t("upload")}
       </Button>
 
       {isLoading ? (
@@ -129,7 +146,7 @@ export default function FromZeroReferencesPanel({
                 onClick={() => toggle(item.id)}
                 data-testid={`from-zero-ref-${item.id}`}
                 className={cn(
-                  "relative aspect-square overflow-hidden rounded-lg border bg-[var(--surface-secondary)]",
+                  "relative aspect-square overflow-hidden rounded-lg border bg-[var(--surface-raised)]",
                   isSelected
                     ? "border-[var(--accent-primary)] ring-2 ring-[var(--accent-primary)]"
                     : "border-[var(--border-dim)]"

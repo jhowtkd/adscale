@@ -5,7 +5,7 @@ import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getCampaignById } from "@/server/repositories/campaign";
 import { createAsset } from "@/server/repositories/asset";
-import { uploadBuffer } from "@/server/storage/r2";
+import { objectStorage } from "@/server/storage";
 
 const MAX_SIZE = 50 * 1024 * 1024;
 
@@ -84,7 +84,7 @@ export async function POST(
     const key = `campaigns/${campaignId}/${crypto.randomUUID()}-${safeName}`;
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    await uploadBuffer(key, buffer, file.type);
+    await objectStorage.put(key, buffer, file.type);
 
     const asset = await createAsset(workspace.id, campaignId, {
       key,

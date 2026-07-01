@@ -11,7 +11,7 @@ export default function AdsScientistProgressCard() {
   const { data, isLoading, isError, refetch, isFetching } = useProgression();
 
   if (isLoading && !data) {    return (
-      <div className="glass-card rounded-xl overflow-hidden" aria-busy="true">
+      <div className="overflow-hidden rounded-xl border border-[var(--border-dim)] bg-[var(--surface-base)]" aria-busy="true">
         <div className="px-5 py-4 border-b border-[var(--border-dim)]">
           <div className="h-4 w-40 bg-[var(--surface-raised)] rounded animate-pulse" />
         </div>
@@ -26,7 +26,7 @@ export default function AdsScientistProgressCard() {
 
   if (isError && !data) {
     return (
-      <div className="glass-card rounded-xl overflow-hidden">
+      <div className="overflow-hidden rounded-xl border border-[var(--border-dim)] bg-[var(--surface-base)]">
         <div className="px-5 py-4 border-b border-[var(--border-dim)] flex items-center gap-2">
           <FlaskConical size={16} className="text-[var(--accent-green)]" aria-hidden="true" />
           <h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("title")}</h2>
@@ -62,7 +62,7 @@ export default function AdsScientistProgressCard() {
     : undefined;
 
   return (
-    <div className="glass-card rounded-xl overflow-hidden">
+    <div className="overflow-hidden rounded-xl border border-[var(--border-dim)] bg-[var(--surface-base)]">
       <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border-dim)]">
         <div className="flex items-center gap-2">
           <FlaskConical size={16} className="text-[var(--accent-green)]" aria-hidden="true" />
@@ -98,7 +98,7 @@ export default function AdsScientistProgressCard() {
             aria-label={t("progressAria", { percent: progressPercent })}
           >
             <div
-              className="h-full rounded-full bg-[var(--accent-green)] transition-all duration-500"
+              className="gradient-progress h-full rounded-full transition-all duration-500"
               style={{ width: `${progressPercent}%` }}
             />
           </div>
@@ -128,7 +128,7 @@ export default function AdsScientistProgressCard() {
           ) : (
             <Link
               href={nextAction.href}
-              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg border-2 border-[var(--accent-green)]/40 bg-[var(--accent-green)]/10 px-4 py-2.5 text-xs font-mono uppercase tracking-wider text-[var(--accent-green-text)] hover:bg-[var(--accent-green)]/20 transition-colors"
+              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--accent-green)] px-4 py-2.5 text-xs font-mono uppercase tracking-wider text-[var(--accent-green-on-fill)] transition-colors hover:bg-[var(--accent-green-light)]"
             >
               {t("cta")}
               <ArrowRight size={14} aria-hidden="true" />

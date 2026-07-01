@@ -14,10 +14,10 @@ import {
 import { computeQualityGateFromAnalysis } from "@/server/ai/creative-quality-gate";
 import { getCampaignById } from "@/server/repositories/campaign";
 import { getUserLocale } from "@/server/repositories/user";
-import { downloadBuffer } from "@/server/storage/r2";
+import { objectStorage } from "@/server/storage";
 import { analyzeCreativeQa } from "@/server/ai/creative-qa";
 import { buildPassagemOlharVerdict } from "@/server/ai/olhar/olhar-qa";
-import { spendCreditsOrApiError } from "@/server/billing/gates";
+import { spendOrApiError } from "@/server/billing/paywall";
 import { recordBrandMemoryEvent } from "@/server/memory/brand-memory-dispatch";
 import { resolveCtaSemantics } from "@/server/ai/creative-contract";
 import type { CreativeContract } from "@/server/ai/creative-contract";
@@ -90,7 +90,7 @@ export async function POST(
       });
     }
 
-    const creditError = await spendCreditsOrApiError({
+    const creditError = await spendOrApiError({
       workspaceId: workspace.id,
       action: "creative_qa",
       amount: 1,
@@ -102,7 +102,7 @@ export async function POST(
     const campaign = await getCampaignById(derivation.campaignId, workspace.id);
     if (!campaign) return apiError("campaignNotFound", 404);
 
-    const imageBuffer = await downloadBuffer(derivation.outputKey);
+    const imageBuffer = await objectStorage.get(derivation.outputKey);
 
     const derivationGenerationMode = (derivation.generationMode ?? "art_variation") as CreativeContract["generationMode"];
     const qaContract: CreativeContract = {

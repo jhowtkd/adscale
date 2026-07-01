@@ -1,12 +1,15 @@
 "use client";
 
 import { useMemo, type Ref } from "react";
+import { useTranslations } from "next-intl";
+import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ArtifactVersionPresentation } from "@/lib/assistant/artifact-version";
 import type { VersionComparisonRequest } from "./AssistantSurfaceContext";
 import { stripThinkBlocks } from "@/server/assistant/model/reasoning-sanitizer";
 import { renderMarkdownLite } from "./markdown-lite";
 import AssistantActionCard from "./AssistantActionCard";
+import AssistantEmptyState from "./AssistantEmptyState";
 
 export interface AssistantDisplayMessage {
   id: string;
@@ -110,7 +113,7 @@ function MessageBubble({
       className={cn(
         "max-w-[85%] rounded-[var(--radius-panel)] px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap",
         isUser
-          ? "ml-auto bg-[var(--accent-primary)] text-[var(--text-on-accent)]"
+          ? "ml-auto bg-[var(--surface-inset)] text-[var(--text-primary)]"
           : "border border-[var(--border-subtle)] bg-[var(--surface-raised)] text-[var(--text-primary)]"
       )}
       data-testid={`assistant-message-${message.type}`}
@@ -132,10 +135,12 @@ export default function AssistantMessageList({
   artifactLineages,
   openVersionComparison,
 }: AssistantMessageListProps) {
+  const t = useTranslations("assistant.chat");
   const sanitizedStreamingText = useMemo(
     () => (isStreaming && streamingText ? stripThinkBlocks(streamingText) : ""),
     [isStreaming, streamingText]
   );
+  const showEmptyThread = messages.length === 0 && !isStreaming;
 
   return (
     <div
@@ -143,6 +148,9 @@ export default function AssistantMessageList({
       className="flex flex-1 flex-col gap-3 overflow-y-auto p-4"
       data-testid="assistant-message-list"
     >
+      {showEmptyThread ? (
+        <AssistantEmptyState variant="thread" />
+      ) : null}
       {messages.map((message) => {
         if (message.type === "action_card") {
           return (
@@ -163,6 +171,17 @@ export default function AssistantMessageList({
           data-testid="assistant-streaming-bubble"
         >
           {renderMarkdownLite(sanitizedStreamingText)}
+        </div>
+      ) : null}
+      {isStreaming && !sanitizedStreamingText ? (
+        <div
+          className="flex max-w-[85%] items-center gap-2 rounded-[var(--radius-panel)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-4 py-3 text-sm text-[var(--text-muted)]"
+          data-testid="assistant-streaming-indicator"
+          role="status"
+          aria-live="polite"
+        >
+          <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden="true" />
+          {t("streaming")}
         </div>
       ) : null}
     </div>

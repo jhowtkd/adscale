@@ -35,10 +35,11 @@ vi.mock("@/server/db/repositories/brand-kit", () => ({
   deleteBrandKit: vi.fn(),
 }));
 
-vi.mock("@/server/storage/r2", () => ({
-  getPublicUrl: vi.fn((key: string) => `https://cdn.example/${key}`),
-  deleteObject: vi.fn(),
-}));
+vi.mock("@/server/storage", () => ({
+  objectStorage: {
+    publicUrl: vi.fn((key: string) => `https://cdn.example/${key}`),
+    delete: vi.fn(),
+  },}));
 
 vi.mock("@/server/repositories/asset", () => ({
   isWorkspaceAssetKey: vi.fn(() => Promise.resolve(true)),

@@ -8,28 +8,28 @@ interface BriefingRestoreBannerProps {
 
 export default function BriefingRestoreBanner({ tBriefing, onRestore, onDiscard }: BriefingRestoreBannerProps) {
   return (
-    <div className="max-w-[720px] mx-auto mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 animate-fade-in">
+    <div className="mx-auto mb-4 max-w-[720px] animate-fade-in rounded-lg border border-[var(--warning-border)] bg-[var(--warning-bg)] p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-medium text-amber-900">
+          <p className="text-sm font-medium text-[var(--warning-text)]">
             {tBriefing("draftFoundTitle")}
           </p>
-          <p className="text-xs text-amber-700 mt-0.5">
+          <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
             {tBriefing("draftFoundDesc")}
           </p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex shrink-0 items-center gap-2">
           <button
             type="button"
             onClick={onDiscard}
-            className="text-xs font-medium text-amber-700 hover:text-amber-900 transition-colors"
+            className="min-h-9 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
           >
             {tBriefing("discard")}
           </button>
           <button
             type="button"
             onClick={onRestore}
-            className="inline-flex items-center rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700 transition-colors"
+            className="inline-flex min-h-9 items-center rounded-md bg-[var(--accent-primary)] px-3 py-1.5 text-xs font-medium text-[var(--text-on-accent)] transition-colors hover:bg-[var(--accent-primary-hover)]"
           >
             {tBriefing("restore")}
           </button>

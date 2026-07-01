@@ -5,7 +5,7 @@ import { checkRateLimit } from "@/lib/with-rate-limit";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getCampaignById } from "@/server/repositories/campaign";
 import { getAssetWithMetadata, updateAssetMetadata } from "@/server/repositories/asset";
-import { downloadBuffer } from "@/server/storage/r2";
+import { objectStorage } from "@/server/storage";
 import { analyzePreflight, preflightResultSchema } from "@/server/ai/preflight-analysis";
 import {
   buildCreativeReadiness,
@@ -13,7 +13,7 @@ import {
   type CreativeReadinessResult,
 } from "@/server/ai/creative-readiness";
 import { logger } from "@/lib/logger";
-import { spendCreditsOrApiError } from "@/server/billing/gates";
+import { spendOrApiError } from "@/server/billing/paywall";
 import { recordBetaAnalyticsEvent } from "@/server/beta-analytics/record";
 import { getBetaSessionIdFromRequest } from "@/server/beta-analytics/session";
 
@@ -334,7 +334,7 @@ export async function POST(
       }
     }
 
-    const creditError = await spendCreditsOrApiError({
+    const creditError = await spendOrApiError({
       workspaceId: workspace.id,
       action: "creative_qa",
       amount: 1,
@@ -349,7 +349,7 @@ export async function POST(
     await updateAssetMetadata(assetId, workspace.id, {}, "analyzing");
 
     try {
-      const imageBuffer = await downloadBuffer(asset.key);
+      const imageBuffer = await objectStorage.get(asset.key);
       const locale = request.headers.get("accept-language")?.includes("pt") ? "pt-BR" : "en";
 
       const result = await analyzePreflight({

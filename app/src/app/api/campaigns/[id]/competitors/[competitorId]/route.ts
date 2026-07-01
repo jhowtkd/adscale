@@ -9,8 +9,7 @@ import {
   deleteCompetitorAnalysis,
 } from "@/server/repositories/competitor-analysis";
 import { isWorkspaceAssetKey } from "@/server/repositories/asset";
-import { deleteObject } from "@/server/storage/r2";
-import { getPublicUrl } from "@/server/storage/r2";
+import { objectStorage } from "@/server/storage";
 
 const updateSchema = z.object({
   name: z.string().min(1).optional(),
@@ -89,7 +88,7 @@ export async function PATCH(
 
     const withUrls = {
       ...updated,
-      screenshotUrls: (updated.screenshots ?? []).map((key) => getPublicUrl(key)),
+      screenshotUrls: (updated.screenshots ?? []).map((key) => objectStorage.publicUrl(key)),
     };
 
     return NextResponse.json({ competitor: withUrls });
@@ -122,7 +121,7 @@ export async function DELETE(
     if (existing.screenshots && existing.screenshots.length > 0) {
       await Promise.all(
         existing.screenshots.map((key) =>
-          deleteObject(key).catch(() => {
+          objectStorage.delete(key).catch(() => {
             // Ignore errors for individual deletions
           })
         )

@@ -95,17 +95,19 @@ export default function CreditHistoryTab() {
 
   return (
     <div className="space-y-6">
-      {/* Summary cards */}
-      <div className="grid gap-4 sm:grid-cols-3">
-        <SummaryCard
+      {/* Summary */}
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] px-4 py-3 text-sm">
+        <SummaryInline
           label={t("totalSpent")}
           value={summary ? summary.totalSpent.toString() : "—"}
         />
-        <SummaryCard
+        <span className="hidden h-4 w-px bg-[var(--border-dim)] sm:block" aria-hidden />
+        <SummaryInline
           label={t("remainingCredits")}
           value={summary ? summary.remainingCredits.toString() : "—"}
         />
-        <SummaryCard
+        <span className="hidden h-4 w-px bg-[var(--border-dim)] sm:block" aria-hidden />
+        <SummaryInline
           label={t("averagePerCampaign")}
           value={summary ? summary.averagePerCampaign.toString() : "—"}
         />
@@ -179,7 +181,7 @@ export default function CreditHistoryTab() {
                 />
                 <Bar dataKey="amount" radius={[4, 4, 0, 0]}>
                   {chartData.map((entry) => (
-                    <Cell key={entry.date} fill="var(--accent-green)" />
+                    <Cell key={entry.date} fill="var(--text-muted)" />
                   ))}
                 </Bar>
               </BarChart>
@@ -204,7 +206,7 @@ export default function CreditHistoryTab() {
           <TableBody>
             {isError ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-8 text-center text-sm text-red-500">
+                <TableCell colSpan={6} className="py-8 text-center text-sm text-[var(--danger-text)]">
                   {tc("error")}
                 </TableCell>
               </TableRow>
@@ -238,7 +240,7 @@ export default function CreditHistoryTab() {
                     <span
                       className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
                       style={{
-                        background: TYPE_COLORS[tx.type] ? `${TYPE_COLORS[tx.type]}20` : 'rgba(141, 141, 152, 0.12)',
+                        background: TYPE_COLORS[tx.type] ? `${TYPE_COLORS[tx.type]}20` : 'var(--neutral-bg)',
                         color: TYPE_COLORS[tx.type] ?? 'var(--text-secondary)',
                       }}
                     >
@@ -266,11 +268,11 @@ export default function CreditHistoryTab() {
   );
 }
 
-function SummaryCard({ label, value }: { label: string; value: string }) {
+function SummaryInline({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-4">
-      <p className="text-xs font-medium text-[var(--text-muted)]">{label}</p>
-      <p className="mt-1 text-2xl font-semibold text-[var(--text-primary)]">{value}</p>
+    <div className="flex items-baseline gap-2">
+      <span className="text-[var(--text-secondary)]">{label}</span>
+      <span className="font-medium tabular-nums text-[var(--text-primary)]">{value}</span>
     </div>
   );
 }

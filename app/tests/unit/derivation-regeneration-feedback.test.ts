@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   buildRegenerationFeedback,
   derivationNeedsRegenerateDialog,
-} from "@/lib/derivation-regeneration-feedback";
+} from "@/lib/derivation-display";
 
 describe("buildRegenerationFeedback", () => {
   it("prefers regenerationSuggestion from API", () => {

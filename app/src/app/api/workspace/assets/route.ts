@@ -3,8 +3,8 @@ import { isAllowedImageType, validateImageMagicBytes, sanitizeStorageFilename } 
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
-import { createWorkspaceAsset, deleteWorkspaceAsset, getWorkspaceAssets } from "@/server/repositories/workspace-asset";
-import { uploadBuffer, getPublicUrl } from "@/server/storage/r2";
+import { createWorkspaceAsset, deleteWorkspaceAsset, getWorkspaceAssets, getWorkspaceAssetsCount } from "@/server/repositories/workspace-asset";
+import { objectStorage } from "@/server/storage";
 import { inngest } from "@/server/jobs/client";
 
 const MAX_SIZE = 50 * 1024 * 1024;
@@ -78,7 +78,7 @@ export async function POST(request: Request) {
         createdAsset = asset;
         return asset;
       }),
-      uploadBuffer(key, buffer, file.type),
+      objectStorage.put(key, buffer, file.type),
     ]).catch(async (error) => {
       if (createdAsset) {
         await deleteWorkspaceAsset(createdAsset.id, workspace.id).catch(() => null);
@@ -93,7 +93,7 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json(
-      { asset: { ...asset, url: getPublicUrl(asset.key) } },
+      { asset: { ...asset, url: objectStorage.publicUrl(asset.key) } },
       { status: 201 }
     );
   } catch (error) {
@@ -107,7 +107,7 @@ const listSchema = z.object({
   type: z.string().optional(),
   source: z.string().optional(),
   page: z.preprocess((v) => (v === null || v === "" ? undefined : v), z.coerce.number().int().positive().optional()),
-  limit: z.preprocess((v) => (v === null || v === "" ? undefined : v), z.coerce.number().int().positive().max(100).optional()),
+  limit: z.preprocess((v) => (v === null || v === "" ? undefined : v), z.coerce.number().int().positive().max(200).optional()),
 });
 
 export async function GET(request: Request) {
@@ -132,21 +132,24 @@ export async function GET(request: Request) {
     const page = parsed.data.page ?? 1;
     const offset = (page - 1) * limit;
 
-    const assets = await getWorkspaceAssets(workspace.id, {
+    const filters = {
       query: parsed.data.q,
       tags: parsed.data.tags ? parsed.data.tags.split(",") : undefined,
       type: parsed.data.type,
       source: parsed.data.source,
-      limit,
-      offset,
-    });
+    };
+
+    const [assets, total] = await Promise.all([
+      getWorkspaceAssets(workspace.id, { ...filters, limit, offset }),
+      getWorkspaceAssetsCount(workspace.id, filters),
+    ]);
 
     const assetsWithUrl = assets.map((asset) => ({
       ...asset,
-      url: getPublicUrl(asset.key),
+      url: objectStorage.publicUrl(asset.key),
     }));
 
-    return NextResponse.json({ assets: assetsWithUrl });
+    return NextResponse.json({ assets: assetsWithUrl, total });
   } catch (error) {
     return handleApiError(error, "workspace.assets.GET");
   }

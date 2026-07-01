@@ -3,7 +3,7 @@ import { handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getCampaignById } from "@/server/repositories/campaign";
 import { getAssetsByCampaign } from "@/server/repositories/asset";
-import { getPresignedDownloadUrl } from "@/server/storage/r2";
+import { objectStorage } from "@/server/storage";
 
 export async function GET(
   request: Request,
@@ -24,7 +24,7 @@ export async function GET(
     const withUrls = await Promise.all(
       assets.map(async (asset) => ({
         ...asset,
-        url: await getPresignedDownloadUrl(asset.key),
+        url: await objectStorage.signedDownloadUrl(asset.key),
       }))
     );
 

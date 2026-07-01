@@ -107,14 +107,15 @@ vi.mock("@/server/ai/image-analysis", () => ({
   }),
 }));
 
-vi.mock("@/server/storage/r2", () => ({
-  uploadBuffer: vi.fn().mockResolvedValue(undefined),
-  deleteObject: vi.fn().mockResolvedValue(undefined),
-  downloadBuffer: vi.fn().mockResolvedValue(Buffer.from("fake-image")),
-}));
+vi.mock("@/server/storage", () => ({
+  objectStorage: {
+    put: vi.fn().mockResolvedValue(undefined),
+    delete: vi.fn().mockResolvedValue(undefined),
+    get: vi.fn().mockResolvedValue(Buffer.from("fake-image")),
+  },}));
 
-vi.mock("@/server/billing/gates", () => ({
-  spendCreditsOrApiError: vi.fn().mockResolvedValue(null),
+vi.mock("@/server/billing/paywall", () => ({
+  spendOrApiError: vi.fn().mockResolvedValue(null),
 }));
 
 import { db } from "@/server/db";

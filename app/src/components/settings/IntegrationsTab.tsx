@@ -1,6 +1,6 @@
 "use client";
 
-import { m } from "framer-motion";
+import { m, useReducedMotion } from "framer-motion";
 import {
   Megaphone,
   Search,
@@ -72,7 +72,7 @@ const integrations: Integration[] = [
     description: "Upload variations to TikTok Ad Library",
     icon: <Music size={22} />,
     status: "not_connected",
-    iconBg: "rgba(225,29,72,0.12)",
+    iconBg: "var(--danger-bg)",
     iconColor: "var(--accent-rose)",
   },
   {
@@ -90,7 +90,7 @@ const integrations: Integration[] = [
     description: "Send events to your custom endpoint",
     icon: <Webhook size={22} />,
     status: "not_connected",
-    iconBg: "rgba(212,160,23,0.12)",
+    iconBg: "var(--warning-bg)",
     iconColor: "var(--accent-amber)",
   },
   {
@@ -141,6 +141,7 @@ export default function IntegrationsTab() {
   const addToast = useAppStore((s) => s.addToast);
   const t = useTranslations("settings");
   const tc = useTranslations("common");
+  const reducedMotion = useReducedMotion();
   const [integrationStates, setIntegrationStates] = useState<
     Record<string, IntegrationStatus>
   >(
@@ -167,7 +168,7 @@ export default function IntegrationsTab() {
   return (
     <m.div
       variants={containerVariants}
-      initial="hidden"
+      initial={reducedMotion ? false : "hidden"}
       animate="show"
       className="max-w-[720px]"
     >
@@ -186,7 +187,7 @@ export default function IntegrationsTab() {
                 "bg-[var(--surface-base)] border transition-all duration-200",
                 isConnected
                   ? "border-[var(--accent-teal)]/30"
-                  : "border-[var(--border-dim)] hover:border-[var(--border-medium)] hover:-translate-y-0.5"
+                  : "border-[var(--border-dim)] hover:border-[var(--border-medium)]"
               )}
             >
               <div className="flex items-start gap-3">

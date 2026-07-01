@@ -1,7 +1,7 @@
 import { inngest } from "./client";
 import { logger } from "@/lib/logger";
 import { updateWorkspaceAsset } from "@/server/repositories/workspace-asset";
-import { downloadBuffer } from "@/server/storage/r2";
+import { objectStorage } from "@/server/storage";
 import { env } from "@/server/validation/env";
 import OpenAI from "openai";
 
@@ -29,7 +29,7 @@ export const workspaceAssetAnalyzeJob = inngest.createFunction(
     logger.info(`[workspaceAssetAnalyzeJob] START assetId=${assetId}`);
 
     const imageBuffer = await step.run("download-image", async () => {
-      return downloadBuffer(key);
+      return objectStorage.get(key);
     });
 
     const buffer = Buffer.isBuffer(imageBuffer)

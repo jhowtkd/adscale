@@ -5,7 +5,7 @@ import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getCampaignById } from "@/server/repositories/campaign";
 import { createPendingUpload, failExpiredPendingUploads } from "@/server/repositories/asset";
-import { getPresignedUploadUrl } from "@/server/storage/r2";
+import { objectStorage } from "@/server/storage";
 
 const presignSchema = z.object({
   filename: z.string().min(1),
@@ -52,7 +52,7 @@ export async function POST(
 
     const safeName = sanitizeStorageFilename(filename);
     const key = `campaigns/${campaignId}/${crypto.randomUUID()}-${safeName}`;
-    const url = await getPresignedUploadUrl(key, contentType, contentLength);
+    const url = await objectStorage.signedUploadUrl(key, contentType, contentLength);
     const expiresAt = new Date(Date.now() + PRESIGN_TTL_SECONDS * 1000);
 
     await createPendingUpload({

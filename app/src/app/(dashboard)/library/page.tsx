@@ -2,7 +2,8 @@
 
 import { useReducer, useRef, useCallback, useEffect, useMemo } from "react";
 import { useTranslations } from "next-intl";
-import { Upload, ImageIcon } from "lucide-react";
+import { toast } from "sonner";
+import { Upload, ImageIcon, AlertCircle } from "lucide-react";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import EmptyState from "@/components/ui/EmptyState";
 import {
@@ -14,9 +15,13 @@ import LibraryV6View from "@/components/library/v6/LibraryV6View";
 import { buildLibraryV6Labels } from "@/components/library/v6/build-library-v6-labels";
 import { mapWorkspaceAssetToV6 } from "@/components/library/v6/map-library-v6";
 
+const PAGE_SIZE = 24;
+const MAX_LIMIT = 200;
+
 interface LibraryState {
   search: string;
   debouncedSearch: string;
+  limit: number;
   isUploading: boolean;
   uploadProgress: number;
   dragOver: boolean;
@@ -26,6 +31,7 @@ interface LibraryState {
 const initialLibraryState: LibraryState = {
   search: "",
   debouncedSearch: "",
+  limit: PAGE_SIZE,
   isUploading: false,
   uploadProgress: 0,
   dragOver: false,
@@ -46,11 +52,15 @@ export default function LibraryPage() {
   const tCommon = useTranslations("common");
   const queryClient = useQueryClient();
   const [state, updateState] = useReducer(libraryReducer, initialLibraryState);
-  const { search, debouncedSearch, isUploading, uploadProgress, dragOver, deleteTarget } = state;
+  const { search, debouncedSearch, limit, isUploading, uploadProgress, dragOver, deleteTarget } = state;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const xhrRef = useRef<XMLHttpRequest | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const { data, isLoading } = useWorkspaceAssets({ q: debouncedSearch || undefined });
+  const { data, isLoading, isFetching, isError } = useWorkspaceAssets({
+    q: debouncedSearch || undefined,
+    limit,
+  });
   const deleteAsset = useDeleteWorkspaceAsset();
   const labels = useMemo(() => buildLibraryV6Labels(t), [t]);
 
@@ -58,10 +68,22 @@ export default function LibraryPage() {
     () => (data?.assets ?? []).map((asset, index) => mapWorkspaceAssetToV6(asset, index, formatSize)),
     [data?.assets],
   );
+  const totalCount = data?.total ?? assets.length;
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
 
   const handleSearch = (value: string) => {
-    updateState({ search: value });
-    setTimeout(() => updateState({ debouncedSearch: value }), 300);
+    updateState({ search: value, limit: PAGE_SIZE });
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => updateState({ debouncedSearch: value }), 300);
+  };
+
+  const handleLoadMore = () => {
+    updateState({ limit: Math.min(limit + PAGE_SIZE, MAX_LIMIT) });
   };
 
   const handleDelete = async () => {
@@ -96,12 +118,22 @@ export default function LibraryPage() {
         xhrRef.current = null;
         if (xhr.status === 201) {
           queryClient.invalidateQueries({ queryKey: ["workspace-assets"] });
+        } else {
+          const message = (() => {
+            try {
+              return JSON.parse(xhr.responseText)?.error;
+            } catch {
+              return undefined;
+            }
+          })();
+          toast.error(message || tCommon("error"));
         }
       });
 
       xhr.addEventListener("error", () => {
         updateState({ isUploading: false, uploadProgress: 0 });
         xhrRef.current = null;
+        toast.error(tCommon("error"));
       });
 
       xhr.addEventListener("abort", () => {
@@ -112,7 +144,7 @@ export default function LibraryPage() {
       xhr.open("POST", "/api/workspace/assets");
       xhr.send(formData);
     },
-    [queryClient],
+    [queryClient, tCommon],
   );
 
   useEffect(() => {
@@ -143,26 +175,35 @@ export default function LibraryPage() {
     [handleUpload],
   );
 
-  const emptyState =
-    !isLoading && assets.length === 0 ? (
-      <EmptyState
-        icon={ImageIcon}
-        title={t("emptyTitle")}
-        description={t("emptyDescription")}
-        action={
-          debouncedSearch
-            ? {
-                label: tCommon("clearFilters"),
-                onClick: () => handleSearch(""),
-              }
-            : {
-                label: t("upload"),
-                onClick: () => fileInputRef.current?.click(),
-                icon: Upload,
-              }
-        }
-      />
-    ) : undefined;
+  const emptyState = isError ? (
+    <EmptyState
+      icon={AlertCircle}
+      title={t("errorTitle")}
+      description={t("errorDescription")}
+      action={{
+        label: tCommon("retry"),
+        onClick: () => queryClient.invalidateQueries({ queryKey: ["workspace-assets"] }),
+      }}
+    />
+  ) : !isLoading && assets.length === 0 ? (
+    <EmptyState
+      icon={ImageIcon}
+      title={t("emptyTitle")}
+      description={t("emptyDescription")}
+      action={
+        debouncedSearch
+          ? {
+              label: tCommon("clearFilters"),
+              onClick: () => handleSearch(""),
+            }
+          : {
+              label: t("upload"),
+              onClick: () => fileInputRef.current?.click(),
+              icon: Upload,
+            }
+      }
+    />
+  ) : undefined;
 
   return (
     <div className="pb-10">
@@ -179,7 +220,7 @@ export default function LibraryPage() {
         labels={labels}
         assets={assets}
         shownCount={assets.length}
-        totalCount={assets.length}
+        totalCount={totalCount}
         isLoading={isLoading}
         searchQuery={search}
         onSearchChange={handleSearch}
@@ -196,6 +237,8 @@ export default function LibraryPage() {
         onUploadClick={() => fileInputRef.current?.click()}
         onDeleteAsset={(id, name) => updateState({ deleteTarget: { id, name } })}
         emptyState={emptyState}
+        onLoadMore={handleLoadMore}
+        isLoadingMore={isFetching && !isLoading}
       />
 
       <ConfirmDialog
@@ -207,7 +250,7 @@ export default function LibraryPage() {
             ? t("deleteConfirmDescription", { name: deleteTarget.name })
             : t("deleteConfirm")
         }
-        confirmLabel={t("deleteConfirmTitle")}
+        confirmLabel={tCommon("delete")}
         cancelLabel={tCommon("cancel")}
         variant="destructive"
         isLoading={deleteAsset.isPending}

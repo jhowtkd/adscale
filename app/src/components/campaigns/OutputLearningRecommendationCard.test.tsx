@@ -4,6 +4,24 @@ import OutputLearningRecommendationCard from "./OutputLearningRecommendationCard
 
 const recordEvent = vi.fn();
 
+vi.mock("next-intl", () => ({
+  useTranslations: (ns: string) => (key: string, vars?: Record<string, string>) => {
+    if (ns === "campaigns.learnings.confidence") {
+      const levels: Record<string, string> = { high: "Alta", medium: "Média", low: "Baixa" };
+      return levels[key] ?? key;
+    }
+    const map: Record<string, string> = {
+      loading: "Carregando recomendação de output learning…",
+      eyebrow: "Aprendizado de output sugerido",
+      "titles.cta": `Testar CTA "${vars?.value ?? ""}"`,
+      confidence: `Confiança ${vars?.level ?? ""}`,
+      accept: "Aceitar e abrir receita",
+    };
+    return map[key] ?? key;
+  },
+  useLocale: () => "pt-BR",
+}));
+
 vi.mock("@/lib/hooks/use-record-beta-event", () => ({
   useRecordBetaEvent: () => ({ recordEvent }),
 }));

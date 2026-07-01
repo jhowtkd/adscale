@@ -3,7 +3,7 @@ import { isAllowedImageType, validateImageMagicBytes } from "@/lib/upload-config
 import { apiError, handleApiError } from "@/lib/api-response";
 import { getSessionFromHeaders } from "@/server/auth/session";
 import { updateUserAvatar } from "@/server/repositories/user-profile";
-import { uploadBuffer, getPublicUrl } from "@/server/storage/r2";
+import { objectStorage } from "@/server/storage";
 
 const MAX_SIZE = 10 * 1024 * 1024;
 
@@ -47,9 +47,9 @@ export async function POST(request: Request) {
     const key = `users/${session.user.id}/avatar/${crypto.randomUUID()}-${safeName}`;
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    await uploadBuffer(key, buffer, file.type);
+    await objectStorage.put(key, buffer, file.type);
 
-    const avatarUrl = getPublicUrl(key);
+    const avatarUrl = objectStorage.publicUrl(key);
     await updateUserAvatar(session.user.id, avatarUrl);
 
     return NextResponse.json({ avatarUrl });

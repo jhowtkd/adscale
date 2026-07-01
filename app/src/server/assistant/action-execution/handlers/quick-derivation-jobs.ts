@@ -1,7 +1,7 @@
 import { logger } from "@/lib/logger";
 import { assertDerivationApprovable } from "@/server/ai/creative-quality-gate";
 import { getActionContract } from "@/server/assistant/action-contracts/registry";
-import { spendCreditsOrApiError } from "@/server/billing/gates";
+import { spendOrApiError } from "@/server/billing/paywall";
 import { inngest } from "@/server/jobs/client";
 import { updateCampaign } from "@/server/repositories/campaign";
 import {
@@ -36,7 +36,7 @@ export async function executeQuickFormatAdapt(ctx: ActionExecutionContext) {
     );
   }
 
-  const creditError = await spendCreditsOrApiError({
+  const creditError = await spendOrApiError({
     workspaceId: ctx.workspaceId,
     action: "image_derivation",
     amount: 5,
@@ -148,7 +148,7 @@ export async function executeQuickPackage(ctx: ActionExecutionContext) {
     );
   }
 
-  const creditError = await spendCreditsOrApiError({
+  const creditError = await spendOrApiError({
     workspaceId: ctx.workspaceId,
     action: "delivery_package_child",
     amount: generatableFormats.length * 5,

@@ -68,11 +68,11 @@ function CampaignListCard({
 
   return (
     <div
-      aria-label={`${campaign.name}, status ${campaign.status}`}
+      aria-labelledby={`campaign-${campaign.id}-name`}
       className={cn("animate-fade-in",
-        "group relative rounded-xl border bg-[var(--surface-base)] p-4 transition-all duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-green)]",
+        "group relative rounded-xl border bg-[var(--surface-base)] p-4 transition-all duration-150 cursor-pointer outline-none focus-within:ring-2 focus-within:ring-[var(--focus-ring)]",
         selected
-          ? "border-[var(--accent-green)] bg-[var(--accent-green-dim)]"
+          ? "border-[var(--border-strong)] bg-[var(--surface-inset)]"
           : "border-[var(--border-dim)] hover:border-[var(--border-medium)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)]"
       )}
       style={{ animationDelay: `${index * 50}ms` }}
@@ -95,7 +95,7 @@ function CampaignListCard({
       <div className="relative z-10 flex items-start gap-3">
         {/* Checkbox */}
         <div
-          className="shrink-0 pt-0.5"
+          className="flex shrink-0 items-center justify-center pt-0.5"
           onClick={(e) => e.stopPropagation()}
         >
           <label className="sr-only" htmlFor={`select-${campaign.id}`}>Select {campaign.name}</label>
@@ -107,7 +107,7 @@ function CampaignListCard({
             onChange={(e) => onSelect(campaign.id, e.target.checked)}
             className={cn(
               "size-[18px] rounded-sm border border-[var(--border-medium)] appearance-none cursor-pointer",
-              "checked:bg-[var(--accent-green)] checked:border-[var(--accent-green)]",
+              "checked:bg-[var(--neutral-dot)] checked:border-[var(--neutral-dot)]",
               "checked:bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22white%22%3E%3Cpath%20d%3D%22M12.207%204.793a1%201%20%200%2001%200%201.414l-5%205a1%201%20%200%2001-1.414%200l-2-2a1%201%20%200%20011.414-1.414L6.5%209.086l4.293-4.293a1%201%20%200%20011.414%200z%22%2F%3E%3C%2Fsvg%3E')]",
               "transition-colors duration-150"
             )}
@@ -125,7 +125,10 @@ function CampaignListCard({
 
         {/* Name + Platforms */}
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-[var(--text-primary)] group-hover:text-[var(--accent-green)] transition-colors duration-150 truncate">
+          <p
+            id={`campaign-${campaign.id}-name`}
+            className="truncate text-sm font-semibold text-[var(--text-primary)] transition-colors duration-150 group-hover:text-[var(--text-secondary)]"
+          >
             {campaign.name}
           </p>
           <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
@@ -136,8 +139,8 @@ function CampaignListCard({
                   key={platform}
                   className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
                   style={{
-                    backgroundColor: colors?.bg || "rgba(99,102,241,0.12)",
-                    color: colors?.text || "#818cf8",
+                    backgroundColor: colors?.bg || "var(--neutral-bg)",
+                    color: colors?.text || "var(--neutral-text)",
                   }}
                 >
                   {platform}
@@ -151,8 +154,9 @@ function CampaignListCard({
         <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
           <DropdownMenu>
             <DropdownMenuTrigger
+              aria-label={tCampaigns("v6.actionsFor", { name: campaign.name })}
               className={cn(
-                "flex items-center justify-center size-8 rounded-md",
+                "flex min-h-11 min-w-11 items-center justify-center rounded-md",
                 "text-[var(--text-muted)]",
                 "hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)]",
                 "transition-all duration-200"

@@ -30,9 +30,10 @@ vi.mock("@/server/repositories/workspace-asset", () => ({
   getWorkspaceAssetById: vi.fn(),
 }));
 
-vi.mock("@/server/storage/r2", () => ({
-  getPublicUrl: vi.fn((key: string) => `https://cdn.example/${key}`),
-}));
+vi.mock("@/server/storage", () => ({
+  objectStorage: {
+    publicUrl: vi.fn((key: string) => `https://cdn.example/${key}`),
+  },}));
 
 import { requireWorkspaceAccess, requireRole } from "@/server/auth/workspace";
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";

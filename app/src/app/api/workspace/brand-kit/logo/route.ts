@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { isAllowedImageType, validateImageMagicBytes } from "@/lib/upload-config";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
-import { uploadBuffer, getPublicUrl } from "@/server/storage/r2";
+import { objectStorage } from "@/server/storage";
 import { createClientReference } from "@/server/repositories/client-reference";
 import {
   BrandKitAmbiguityError,
@@ -56,7 +56,7 @@ export async function POST(request: Request) {
     const key = `workspaces/${workspace.id}/brand-kit/${crypto.randomUUID()}-${safeName}`;
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    await uploadBuffer(key, buffer, file.type);
+    await objectStorage.put(key, buffer, file.type);
 
     let brandKit = clientProfileId
       ? await getBrandKit(workspace.id, clientProfileId)
@@ -89,7 +89,7 @@ export async function POST(request: Request) {
       {
         reference: {
           ...reference,
-          url: getPublicUrl(key),
+          url: objectStorage.publicUrl(key),
         },
         logoAssetKey: key,
       },

@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import type { ReactNode } from "react";
-import { Search, Upload } from "lucide-react";
+import { Search, Upload, X } from "lucide-react";
 import type { LibraryV6Asset, LibraryV6Labels } from "./library-v6-types";
 
 type LibraryV6ViewProps = {
@@ -25,6 +25,8 @@ type LibraryV6ViewProps = {
   onDeleteAsset?: (id: string, name: string) => void;
   emptyState?: ReactNode;
   useImagePreview?: boolean;
+  onLoadMore?: () => void;
+  isLoadingMore?: boolean;
 };
 
 export default function LibraryV6View({
@@ -47,6 +49,8 @@ export default function LibraryV6View({
   onDeleteAsset,
   emptyState,
   useImagePreview = true,
+  onLoadMore,
+  isLoadingMore = false,
 }: LibraryV6ViewProps) {
   return (
     <div className="space-y-6">
@@ -62,7 +66,7 @@ export default function LibraryV6View({
           type="button"
           onClick={interactive ? onUploadClick : undefined}
           disabled={isUploading}
-          className="inline-flex shrink-0 items-center gap-2 rounded-[var(--radius-control)] bg-[var(--accent-primary)] px-4 py-2 text-sm font-medium text-[var(--text-on-accent)] disabled:opacity-60"
+          className="inline-flex shrink-0 items-center gap-2 rounded-[var(--radius-control)] bg-[var(--accent-primary)] px-4 py-2 text-sm font-medium text-[var(--text-on-accent)] transition-colors hover:bg-[var(--accent-primary-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-60"
         >
           <Upload size={16} aria-hidden="true" />
           {isUploading ? `${uploadProgress}%` : labels.upload}
@@ -71,9 +75,9 @@ export default function LibraryV6View({
 
       <section className="overflow-hidden rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)]">
         <div
-          className={`flex flex-col items-center justify-center gap-2 border-b border-dashed px-6 py-10 text-center transition-colors ${
+          className={`flex flex-col items-center justify-center gap-2 border-b border-dashed px-6 py-10 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] ${
             dragOver
-              ? "border-[var(--accent-primary)] bg-[var(--accent-primary-subtle)]"
+              ? "border-[var(--border-strong)] bg-[var(--surface-inset)]"
               : "border-[var(--border-default)] bg-[var(--surface-raised)]"
           }`}
           role="button"
@@ -94,9 +98,7 @@ export default function LibraryV6View({
           onDragLeave={interactive ? onDragLeave : undefined}
           onDrop={interactive ? onDrop : undefined}
         >
-          <span className="text-2xl text-[var(--text-muted)]" aria-hidden="true">
-            ↑
-          </span>
+          <Upload size={24} className="text-[var(--text-muted)]" aria-hidden="true" />
           <p className="text-sm font-medium text-[var(--text-primary)]">{labels.dropzoneTitle}</p>
           <p className="text-xs text-[var(--text-muted)]">{labels.dropzoneHint}</p>
         </div>
@@ -115,7 +117,7 @@ export default function LibraryV6View({
               value={searchQuery}
               onChange={interactive && onSearchChange ? (e) => onSearchChange(e.target.value) : undefined}
               readOnly={!interactive}
-              className="w-full rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] py-2 pl-9 pr-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
+              className="w-full rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] py-2 pl-9 pr-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             />
           </div>
           <p className="shrink-0 font-mono text-xs text-[var(--text-muted)]">
@@ -150,6 +152,19 @@ export default function LibraryV6View({
         ) : (
           <div className="p-6">{emptyState}</div>
         )}
+
+        {!isLoading && interactive && shownCount < totalCount ? (
+          <div className="flex justify-center border-t border-[var(--border-subtle)] p-4">
+            <button
+              type="button"
+              onClick={onLoadMore}
+              disabled={isLoadingMore}
+              className="rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-inset)] disabled:opacity-60"
+            >
+              {isLoadingMore ? labels.loadingMore : labels.loadMore}
+            </button>
+          </div>
+        ) : null}
       </section>
     </div>
   );
@@ -170,7 +185,7 @@ function AssetCard({
 }) {
   return (
     <article className="group overflow-hidden rounded-[var(--radius-panel)] border border-[var(--border-subtle)] bg-[var(--surface-raised)]">
-      <div className={`relative flex h-32 items-center justify-center bg-gradient-to-br ${asset.gradient}`}>
+      <div className={`relative flex h-32 items-center justify-center ${asset.gradient}`}>
         {useImagePreview && asset.imageUrl ? (
           <Image
             src={asset.imageUrl}
@@ -181,16 +196,16 @@ function AssetCard({
             unoptimized
           />
         ) : (
-          <span className="font-mono text-sm font-bold tracking-widest text-white/80">{asset.glyph}</span>
+          <span className="font-mono text-sm font-bold tracking-widest text-[var(--text-muted)]">{asset.glyph}</span>
         )}
         {interactive && onDelete ? (
           <button
             type="button"
             aria-label={labels.deleteAsset}
             onClick={() => onDelete(asset.id, asset.name)}
-            className="absolute right-2 top-2 rounded-[var(--radius-control)] bg-black/50 px-2 py-1 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100"
+            className="absolute right-2 top-2 flex size-9 items-center justify-center rounded-[var(--radius-control)] bg-[color-mix(in_oklch,var(--text-primary)_55%,transparent)] text-[var(--text-on-accent)] opacity-100 transition-opacity focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
           >
-            ✕
+            <X size={14} aria-hidden="true" />
           </button>
         ) : null}
       </div>

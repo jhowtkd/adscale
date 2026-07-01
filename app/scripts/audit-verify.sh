@@ -29,9 +29,12 @@ if grep -q "getCampaigns" src/server/repositories/campaign.ts 2>/dev/null; then
 fi
 
 # C4: Cache presigned URLs sem limite (Map simples)
-if [ -f src/server/storage/r2.ts ]; then
-  if grep -q "new Map()" src/server/storage/r2.ts 2>/dev/null; then
-    COUNT=$((COUNT + 1))
+if [ -f src/server/storage/r2-object-storage.ts ]; then
+  if grep -q "new Map()" src/server/storage/r2-object-storage.ts 2>/dev/null; then
+    # Map simples = unbounded. Só falha se não houver limite (maxSize) próximo.
+    if ! grep -q "maxSize" src/server/storage/r2-object-storage.ts 2>/dev/null; then
+      COUNT=$((COUNT + 1))
+    fi
   fi
 fi
 

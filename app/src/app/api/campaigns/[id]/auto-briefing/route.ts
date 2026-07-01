@@ -4,9 +4,9 @@ import { apiError, handleApiError } from "@/lib/api-response";
 import { checkRateLimit } from "@/lib/with-rate-limit";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getCampaignById } from "@/server/repositories/campaign";
-import { downloadBuffer } from "@/server/storage/r2";
+import { objectStorage } from "@/server/storage";
 import { analyzeImageContent } from "@/server/ai/image-analysis";
-import { spendCreditsOrApiError } from "@/server/billing/gates";
+import { spendOrApiError } from "@/server/billing/paywall";
 
 const postBodySchema = z.object({
   imageKey: z.string().min(1),
@@ -77,7 +77,7 @@ export async function POST(
 
     const { imageKey } = parsed.data;
 
-    const creditError = await spendCreditsOrApiError({
+    const creditError = await spendOrApiError({
       workspaceId: workspace.id,
       action: "creative_qa",
       amount: 1,
@@ -86,7 +86,7 @@ export async function POST(
     });
     if (creditError) return creditError;
 
-    const imageBuffer = await downloadBuffer(imageKey);
+    const imageBuffer = await objectStorage.get(imageKey);
 
     const mimeType = imageKey.endsWith(".png")
       ? "image/png"

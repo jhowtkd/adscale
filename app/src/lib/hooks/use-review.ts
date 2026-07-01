@@ -3,7 +3,7 @@ import {
   mapDecisionToStatus,
   type ReviewDecision,
   validateDirectionReason,
-} from "@/lib/derivation-review-display";
+} from "@/lib/derivation-display";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { useAppStore } from "@/lib/store";

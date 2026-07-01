@@ -6,12 +6,12 @@ import { checkRateLimit } from "@/lib/with-rate-limit";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getCampaignById, updateCampaign } from "@/server/repositories/campaign";
 import { getAssetsByCampaign } from "@/server/repositories/asset";
-import { downloadBuffer } from "@/server/storage/r2";
+import { objectStorage } from "@/server/storage";
 import {
   analyzeCreativeDiagnosis,
   normalizeCreativeDiagnosis,
 } from "@/server/ai/creative-diagnosis";
-import { spendCreditsOrApiError } from "@/server/billing/gates";
+import { spendOrApiError } from "@/server/billing/paywall";
 
 const updateDiagnosisSchema = z.object({
   diagnosis: z.object({
@@ -52,7 +52,7 @@ export async function POST(
       });
     }
 
-    const creditError = await spendCreditsOrApiError({
+    const creditError = await spendOrApiError({
       workspaceId: workspace.id,
       action: "creative_qa",
       amount: 1,
@@ -77,7 +77,7 @@ export async function POST(
     }
 
     try {
-      const imageBuffer = await downloadBuffer(asset.key);
+      const imageBuffer = await objectStorage.get(asset.key);
       const result = await analyzeCreativeDiagnosis({
         campaign: {
           name: campaign.name,

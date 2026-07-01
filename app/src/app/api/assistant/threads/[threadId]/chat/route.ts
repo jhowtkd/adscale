@@ -8,7 +8,7 @@ import { logger } from "@/lib/logger";
 import { checkRateLimit } from "@/lib/with-rate-limit";
 import { isAllowedImageType } from "@/lib/upload-config";
 import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
-import { getPublicUrl } from "@/server/storage/r2";
+import { objectStorage } from "@/server/storage";
 
 const attachmentSchema = z.object({
   assetId: z.string().uuid(),
@@ -63,7 +63,7 @@ async function normalizeAttachments(
     normalized.push({
       assetId: asset.id,
       key: asset.key,
-      url: getPublicUrl(asset.key),
+      url: objectStorage.publicUrl(asset.key),
       type: asset.type,
       name: asset.name,
       size: asset.size ?? attachment.size,

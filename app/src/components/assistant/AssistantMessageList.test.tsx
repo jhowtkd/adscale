@@ -3,8 +3,16 @@ import { createRef } from "react";
 import { render, screen } from "@testing-library/react";
 import AssistantMessageList from "./AssistantMessageList";
 
+vi.mock("next-intl", () => ({
+  useTranslations: () => (key: string) => key,
+}));
+
 vi.mock("./markdown-lite", () => ({
   renderMarkdownLite: (value: string) => value,
+}));
+
+vi.mock("./AssistantEmptyState", () => ({
+  default: () => <div data-testid="assistant-thread-empty-state" />,
 }));
 
 describe("AssistantMessageList", () => {

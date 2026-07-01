@@ -13,6 +13,8 @@ export const previewLibraryLabels: LibraryV6Labels = {
   searchAria: "Buscar asset",
   countSummary: "{shown} de {total} assets",
   deleteAsset: "Excluir asset",
+  loadMore: "Carregar mais",
+  loadingMore: "Carregando…",
 };
 
 export const previewLibraryAssetsView: LibraryV6Asset[] = previewLibraryAssets.map((asset, index) => ({

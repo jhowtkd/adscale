@@ -1,4 +1,4 @@
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, count } from "drizzle-orm";
 import { db } from "../db";
 import { workspaceAssets } from "../db/schema";
 
@@ -30,22 +30,25 @@ export async function createWorkspaceAsset(data: CreateWorkspaceAssetInput) {
   return result[0];
 }
 
-export async function getWorkspaceAssets(
-  workspaceId: string,
-  options: {
-    query?: string;
-    tags?: string[];
-    type?: string;
-    source?: string;
-    limit?: number;
-    offset?: number;
-  } = {}
-) {
+interface WorkspaceAssetFilters {
+  query?: string;
+  tags?: string[];
+  type?: string;
+  source?: string;
+}
+
+function buildAssetConditions(workspaceId: string, options: WorkspaceAssetFilters) {
   const conditions = [eq(workspaceAssets.workspaceId, workspaceId)];
 
   if (options.query) {
+    const pattern = "%" + options.query + "%";
     conditions.push(
-      sql`${workspaceAssets.name} ILIKE ${"%" + options.query + "%"} OR ${workspaceAssets.aiDescription} ILIKE ${"%" + options.query + "%"}`
+      sql`(${workspaceAssets.name} ILIKE ${pattern}
+        OR ${workspaceAssets.aiDescription} ILIKE ${pattern}
+        OR EXISTS (
+          SELECT 1 FROM jsonb_array_elements_text(COALESCE(${workspaceAssets.tags}, '[]'::jsonb)) AS tag
+          WHERE tag ILIKE ${pattern}
+        ))`
     );
   }
 
@@ -63,6 +66,17 @@ export async function getWorkspaceAssets(
     );
   }
 
+  return conditions;
+}
+
+export async function getWorkspaceAssets(
+  workspaceId: string,
+  options: WorkspaceAssetFilters & {
+    limit?: number;
+    offset?: number;
+  } = {}
+) {
+  const conditions = buildAssetConditions(workspaceId, options);
   const limit = options.limit ?? 24;
   const offset = options.offset ?? 0;
 
@@ -73,6 +87,18 @@ export async function getWorkspaceAssets(
     .orderBy(desc(workspaceAssets.createdAt))
     .limit(limit)
     .offset(offset);
+}
+
+export async function getWorkspaceAssetsCount(
+  workspaceId: string,
+  options: WorkspaceAssetFilters = {}
+) {
+  const conditions = buildAssetConditions(workspaceId, options);
+  const result = await db
+    .select({ count: count() })
+    .from(workspaceAssets)
+    .where(and(...conditions));
+  return result[0]?.count ?? 0;
 }
 
 export async function getWorkspaceAssetById(id: string, workspaceId: string) {

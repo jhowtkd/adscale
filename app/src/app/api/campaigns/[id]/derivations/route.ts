@@ -21,8 +21,8 @@ import { db } from "@/server/db";
 import { derivations } from "@/server/db/schema";
 import { getUserLocale } from "@/server/repositories/user";
 import { getAssetsByCampaign } from "@/server/repositories/asset";
-import { getPresignedDownloadUrl } from "@/server/storage/r2";
-import { spendCreditsOrApiError } from "@/server/billing/gates";
+import { objectStorage } from "@/server/storage";
+import { spendOrApiError } from "@/server/billing/paywall";
 import {
   deriveRegenerationPreview,
   derivationHasRegenerationPreview,
@@ -32,6 +32,7 @@ import {
   outputLearningApplicationSchema,
   sanitizeOutputLearningApplication,
 } from "@/server/human-quality/application-schema";
+import { serializeDerivationForApi } from "@/server/ai/derivation-auto-retry-observability";
 
 const STALE_ACTIVE_DERIVATION_MINUTES = 10;
 
@@ -185,7 +186,7 @@ export async function POST(
     }
 
     const jobsToCreate = isPreview ? jobs.slice(0, 1) : jobs;
-    const creditError = await spendCreditsOrApiError({
+    const creditError = await spendOrApiError({
       workspaceId: workspace.id,
       action: "image_derivation",
       amount: jobsToCreate.length * 5,
@@ -287,10 +288,10 @@ export async function GET(
     const items = await getDerivationsByCampaign(campaignId, workspace.id);
     const derivationsWithImageUrl = await Promise.all(
       items.map(async (d) => {
-        const base = {
+        const base = serializeDerivationForApi({
           ...d,
-          imageUrl: d.outputKey ? await getPresignedDownloadUrl(d.outputKey) : null,
-        };
+          imageUrl: d.outputKey ? await objectStorage.signedDownloadUrl(d.outputKey) : null,
+        });
         if (!derivationHasRegenerationPreview(d)) {
           return base;
         }

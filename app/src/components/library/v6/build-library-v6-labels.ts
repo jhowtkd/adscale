@@ -16,5 +16,7 @@ export function buildLibraryV6Labels(t: Translate): LibraryV6Labels {
     searchAria: t("v6.searchPlaceholder"),
     countSummary: t("v6.countSummary"),
     deleteAsset: t("v6.deleteAsset"),
+    loadMore: t("v6.loadMore"),
+    loadingMore: t("v6.loadingMore"),
   };
 }
