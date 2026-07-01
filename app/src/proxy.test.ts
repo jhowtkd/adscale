@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { proxy } from "./src/proxy";
+import { proxy } from "./proxy";
 
 function requestFor(path: string, cookies: Record<string, string> = {}) {
   const url = `http://localhost:3000${path}`;

@@ -1,7 +1,7 @@
 {
   "metadata": {
     "title": "ADScale — Fluxo de supervisão para variações criativas",
-    "description": "De uma peça base e um briefing a um lote de variações prontas — você faz o briefing, a IA auxilia, você cura o que vai ao ar."
+    "description": "De uma peça base e um briefing a um lote de variações prontas — você faz o briefing, a IA auxilia, você aprova o que vai ao ar."
   },
   "navigation": {
     "dashboard": "Dashboard",
@@ -845,7 +845,7 @@
       },
       "formatAdaptation": {
         "label": "Variar formato",
-        "description": "Adaptações de formato com auxílio da IA para 1:1, 4:5 e 9:16 — você cura as saídas antes de exportar"
+        "description": "Adaptações de formato com auxílio da IA para 1:1, 4:5 e 9:16 — você supervisiona as saídas antes de exportar"
       }
     },
     "continueToPlan": "Continuar para Plano",
@@ -921,7 +921,7 @@
       },
       "formatAdaptation": {
         "label": "Variar formato",
-        "description": "Adaptações de formato com auxílio da IA para 1:1, 4:5 e 9:16 — você cura as saídas antes de exportar"
+        "description": "Adaptações de formato com auxílio da IA para 1:1, 4:5 e 9:16 — você supervisiona as saídas antes de exportar"
       },
       "restyling": {
         "label": "Restilização",
@@ -1612,7 +1612,7 @@
       "sectionLabel": "ADScale",
       "accessLabel": "acesso",
       "brandTitle": "Supervisão criativa com IA no loop",
-      "brandSubtitle": "De uma peça base e um briefing a um lote de variações prontas — você faz o briefing, a IA auxilia, você cura o que vai ao ar.",
+      "brandSubtitle": "De uma peça base e um briefing a um lote de variações prontas — você faz o briefing, a IA auxilia, você aprova o que vai ao ar.",
       "featureBriefTitle": "Briefing estruturado",
       "featureBriefBody": "Capture objetivo, público e tom antes de gerar qualquer variação.",
       "featureBatchTitle": "Lotes de derivações",
