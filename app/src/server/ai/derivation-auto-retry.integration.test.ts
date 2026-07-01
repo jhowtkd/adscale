@@ -30,7 +30,7 @@ vi.mock("../repositories/derivation", () => ({
   updateDerivationPromptProvenance: vi.fn(() => Promise.resolve({})),
 }));
 
-vi.mock("../jobs/derivation", () => ({
+vi.mock("./derivation-pipeline", () => ({
   normalizeGeneratedImage: vi.fn((buffer: Buffer) => Promise.resolve(buffer)),
 }));
 

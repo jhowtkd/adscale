@@ -6,7 +6,7 @@ import type { CreativeContract } from "./creative-contract";
 import type { CreativeHardFailure } from "./creative-quality-gate";
 import { shouldAutoRetryDerivation } from "./derivation-auto-retry-policy";
 import { getDerivationById, updateDerivationPromptProvenance } from "../repositories/derivation";
-import { normalizeGeneratedImage } from "../jobs/derivation";
+import { normalizeGeneratedImage } from "./derivation-pipeline";
 import { formatToOpenAIImageSize, getTargetDimensions, toOpenAISdkImageSize } from "@/lib/formats";
 import { logger } from "@/lib/logger";
 

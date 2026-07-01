@@ -63,7 +63,6 @@ import { resolveCampaignClientProfileId } from "../repositories/client-reference
 import { getCompetitorAnalysesByCampaign } from "../repositories/competitor-analysis";
 import { getBrandMemoryContext } from "@/server/memory/brand-memory-context";
 import OpenAI, { toFile } from "openai";
-import sharp from "sharp";
 import { env } from "../validation/env";
 import {
   scoreDerivationHeuristic,
@@ -90,6 +89,7 @@ import {
   sanitizeDerivationFailureError,
 } from "./derivation-error-sanitizer";
 import * as Sentry from "@sentry/nextjs";
+import { normalizeGeneratedImage } from "@/server/ai/derivation-pipeline";
 
 const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 120_000 });
 const IMAGE_GENERATION_TIMEOUT_MS = 5 * 60 * 1000;
@@ -122,47 +122,11 @@ function resolveRestylingStyleAsset(
   return assets.find(isUsableStyleAsset) ?? null;
 }
 
-export async function normalizeGeneratedImage(
-  buffer: Buffer,
-  dimensions: { width: number; height: number },
-  generationMode: "art_variation" | "format_adaptation" | "restyling",
-) {
-  if (generationMode === "format_adaptation") {
-    return sharp(buffer)
-      .resize(dimensions.width, dimensions.height, {
-        fit: "cover",
-        position: "attention",
-      })
-      .png()
-      .toBuffer();
-  }
-
-  const backgroundPosition = "centre";
-
-  const background = await sharp(buffer)
-    .resize(dimensions.width, dimensions.height, {
-      fit: "cover",
-      position: backgroundPosition,
-    })
-    .blur(24)
-    .modulate({ brightness: 0.82, saturation: 0.9 })
-    .png()
-    .toBuffer();
-
-  const foreground = await sharp(buffer)
-    .resize(dimensions.width, dimensions.height, {
-      fit: "contain",
-      position: "centre",
-      background: { r: 0, g: 0, b: 0, alpha: 0 },
-    })
-    .png()
-    .toBuffer();
-
-  return sharp(background)
-    .composite([{ input: foreground, gravity: "centre" }])
-    .png()
-    .toBuffer();
-}
+// Moved to ai/derivation-pipeline.ts (PR3, arch/refactor-2026-q3): pure image
+// post-processing shared by the initial generation path and the auto-retry
+// path. Re-exported here so existing importers of jobs/derivation.ts keep
+// working unchanged.
+export { normalizeGeneratedImage };
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   let timeout: NodeJS.Timeout;
