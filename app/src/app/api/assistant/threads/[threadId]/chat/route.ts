@@ -4,6 +4,7 @@ import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
 import { runAssistantTurn } from "@/server/assistant/orchestrator";
 import { encodeAssistantSseEvent } from "@/server/assistant/stream/sse";
 import { apiError, handleApiError } from "@/lib/api-response";
+import { logger } from "@/lib/logger";
 import { checkRateLimit } from "@/lib/with-rate-limit";
 import { isAllowedImageType } from "@/lib/upload-config";
 import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
@@ -146,9 +147,15 @@ export async function POST(
             }
           }
         } catch (error) {
+          // Surface a generic message to the client and capture the real
+          // error (which may contain provider/internal details) on the
+          // server via Sentry through handleApiError's logging path.
+          // Avoids leaking raw exception text (DB errors, hostnames, SDK
+          // diagnostics) over the SSE channel.
+          logger.error("[assistant.chat] stream error", error);
           controller.enqueue(
             encodeAssistantSseEvent("error", {
-              message: error instanceof Error ? error.message : "Stream error",
+              message: "assistantStreamError",
             })
           );
         } finally {
