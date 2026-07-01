@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { isAllowedImageType, validateImageMagicBytes } from "@/lib/upload-config";
+import { isAllowedImageType, validateImageMagicBytes, sanitizeStorageFilename } from "@/lib/upload-config";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
@@ -60,7 +60,7 @@ export async function POST(request: Request) {
       return apiError("invalidInput", 400, parsed.error.flatten());
     }
 
-    const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_").replace(/\.{2,}/g, ".");
+    const safeName = sanitizeStorageFilename(file.name);
     const key = `workspaces/${workspace.id}/assets/${crypto.randomUUID()}-${safeName}`;
     const buffer = Buffer.from(await file.arrayBuffer());
 
