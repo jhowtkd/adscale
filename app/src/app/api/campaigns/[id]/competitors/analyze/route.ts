@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { isAllowedImageType, validateImageMagicBytes } from "@/lib/upload-config";
 import { apiError, handleApiError } from "@/lib/api-response";
-import { checkRateLimit } from "@/lib/with-rate-limit";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getCampaignById } from "@/server/repositories/campaign";
 import { analyzeCompetitorCreative } from "@/server/ai/competitor-analyzer";

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { apiError, handleApiError } from "@/lib/api-response";
-import { checkRateLimit } from "@/lib/with-rate-limit";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { validateShareToken } from "@/lib/share-token";
 import { getDerivationById } from "@/server/repositories/derivation";
 import { objectStorage } from "@/server/storage";

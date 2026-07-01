@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { isAllowedImageType, validateImageMagicBytes } from "@/lib/upload-config";
 import { apiError, handleApiError } from "@/lib/api-response";
-import { checkRateLimit } from "@/lib/with-rate-limit";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { extractBrandKitFromImage } from "@/server/ai/brand-kit-extractor";
 import { spendOrApiError } from "@/server/billing/paywall";

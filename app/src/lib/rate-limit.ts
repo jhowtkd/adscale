@@ -9,11 +9,12 @@
  * external store) otherwise rate limits will be per-instance only.
  */
 
+import { NextResponse } from "next/server";
 import { logger } from "./logger";
 
 export type RateLimitCategory = "auth" | "ai" | "general" | "read";
 
-interface RateLimitResult {
+export interface RateLimitResult {
   success: boolean;
   limit: number;
   remaining: number;
@@ -31,6 +32,20 @@ const DEFAULTS: Record<RateLimitCategory, LimiterOptions> = {
   general: { windowMs: 60 * 1000, maxRequests: 30 },
   read: { windowMs: 60 * 1000, maxRequests: 60 },
 };
+
+/** AI-heavy campaign mutations — keep on the strict `ai` bucket. */
+const AI_CAMPAIGN_MUTATION_PATTERNS: RegExp[] = [
+  /\/derivations\/?$/,
+  /\/diagnosis(\/regenerate)?\/?$/,
+  /\/auto-briefing\/?$/,
+  /\/analyze\/?$/,
+  /\/restyle\/?$/,
+  /\/suggest-ctas\/?$/,
+  /\/smart-resize-preview\/?$/,
+  /\/competitors\/analyze\/?$/,
+  /\/competitors\/strategy\/?$/,
+  /\/assets\/[^/]+\/preflight\/?$/,
+];
 
 /* ------------------------------------------------------------------ */
 // Storage interface
@@ -236,4 +251,91 @@ export async function rateLimitWorkspace(
   category: RateLimitCategory = "ai"
 ): Promise<RateLimitResult> {
   return rateLimit(request, category, workspaceId);
+}
+
+export function getMutationRateLimitCategory(pathname: string): RateLimitCategory {
+  if (pathname.startsWith("/api/auth")) {
+    return "auth";
+  }
+
+  if (pathname.includes("/assets/upload")) {
+    return "general";
+  }
+
+  if (
+    pathname.startsWith("/api/derivations") ||
+    pathname.startsWith("/api/restyling") ||
+    pathname.startsWith("/api/quick-tools")
+  ) {
+    return "ai";
+  }
+
+  if (pathname.startsWith("/api/campaigns")) {
+    const isAiMutation = AI_CAMPAIGN_MUTATION_PATTERNS.some((pattern) =>
+      pattern.test(pathname)
+    );
+    return isAiMutation ? "ai" : "general";
+  }
+
+  return "general";
+}
+
+export function buildRateLimitExceededResponse(result: RateLimitResult): NextResponse {
+  return NextResponse.json(
+    {
+      error: "rateLimitExceeded",
+      message: "Too many requests. Please try again later.",
+      retryAfter: Math.ceil((result.reset - Date.now()) / 1000),
+    },
+    {
+      status: 429,
+      headers: {
+        "X-RateLimit-Limit": String(result.limit),
+        "X-RateLimit-Remaining": String(result.remaining),
+        "X-RateLimit-Reset": String(Math.ceil(result.reset / 1000)),
+      },
+    }
+  );
+}
+
+export interface CheckRateLimitOptions {
+  category?: RateLimitCategory;
+  workspaceId?: string;
+  identifier?: string;
+}
+
+export async function checkRateLimit(
+  request: Request,
+  options: CheckRateLimitOptions = {}
+): Promise<NextResponse | null> {
+  const category = options.category ?? "general";
+  const result = await (options.workspaceId
+    ? rateLimitWorkspace(request, options.workspaceId, category)
+    : options.identifier
+      ? rateLimit(request, category, options.identifier)
+      : rateLimit(request, category));
+
+  if (!result.success) {
+    logger.warn("Rate limit exceeded", {
+      category,
+      workspaceId: options.workspaceId,
+      remaining: result.remaining,
+    });
+    return buildRateLimitExceededResponse(result);
+  }
+
+  return null;
+}
+
+/** Edge-safe entry used by proxy.ts for API mutation rate limiting. */
+export async function checkMutationRateLimit(
+  request: Request,
+  pathname: string
+): Promise<NextResponse | null> {
+  const category = getMutationRateLimitCategory(pathname);
+  const result = await rateLimit(request, category);
+  if (!result.success) {
+    return buildRateLimitExceededResponse(result);
+  }
+  return null;
 }

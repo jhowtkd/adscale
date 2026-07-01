@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getMutationRateLimitCategory } from "@/lib/api-rate-limit-category";
-import { rateLimit } from "@/lib/rate-limit";
+import { checkMutationRateLimit } from "@/lib/rate-limit";
 import { isValidLocale, defaultLocale } from "@/i18n/config";
 import { logger } from "@/lib/logger";
 
@@ -77,25 +76,9 @@ export async function proxy(request: NextRequest) {
 
   // Rate limit API mutations
   if (isApiMutation(request)) {
-    const category = getMutationRateLimitCategory(pathname);
-
-    const result = await rateLimit(request, category);
-    if (!result.success) {
-      return NextResponse.json(
-        {
-          error: "rateLimitExceeded",
-          message: "Too many requests. Please try again later.",
-          retryAfter: Math.ceil((result.reset - Date.now()) / 1000),
-        },
-        {
-          status: 429,
-          headers: {
-            "X-RateLimit-Limit": String(result.limit),
-            "X-RateLimit-Remaining": String(result.remaining),
-            "X-RateLimit-Reset": String(Math.ceil(result.reset / 1000)),
-          },
-        }
-      );
+    const rateLimitResponse = await checkMutationRateLimit(request, pathname);
+    if (rateLimitResponse) {
+      return rateLimitResponse;
     }
   }
 

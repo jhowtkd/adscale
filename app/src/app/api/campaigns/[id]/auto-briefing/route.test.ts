@@ -14,7 +14,7 @@ vi.mock("@/server/auth/workspace", () => ({
   ),
 }));
 
-vi.mock("@/lib/with-rate-limit", () => ({
+vi.mock("@/lib/rate-limit", () => ({
   checkRateLimit: vi.fn(() => Promise.resolve(null)),
 }));
 

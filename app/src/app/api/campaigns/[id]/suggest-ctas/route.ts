@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { apiError, apiSuccess, handleApiError } from "@/lib/api-response";
-import { checkRateLimit } from "@/lib/with-rate-limit";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getCampaignById, updateCampaign } from "@/server/repositories/campaign";
 import { getOpenAI } from "@/server/ai/utils";
