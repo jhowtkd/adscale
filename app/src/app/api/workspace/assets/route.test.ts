@@ -13,6 +13,7 @@ vi.mock("@/server/auth/workspace", () => ({
 vi.mock("@/server/repositories/workspace-asset", () => ({
   createWorkspaceAsset: vi.fn(),
   getWorkspaceAssets: vi.fn(),
+  getWorkspaceAssetsCount: vi.fn(() => Promise.resolve(0)),
 }));
 
 vi.mock("@/server/storage", () => ({

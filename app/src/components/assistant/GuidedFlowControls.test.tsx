@@ -1,8 +1,10 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { NextIntlClientProvider } from "next-intl";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import GuidedFlowControls from "./GuidedFlowControls";
 import type { GuidedFlowPresentation } from "@/lib/guided-flow/commands";
+import messages from "../../../messages/pt-BR.json";
 
 const mockMutateAsync = vi.fn();
 
@@ -35,10 +37,12 @@ function renderControls(override?: Partial<GuidedFlowPresentation>) {
   });
   return render(
     <QueryClientProvider client={queryClient}>
-      <GuidedFlowControls
-        threadId="thread-1"
-        presentation={{ ...presentation, ...override }}
-      />
+      <NextIntlClientProvider locale="pt-BR" messages={messages}>
+        <GuidedFlowControls
+          threadId="thread-1"
+          presentation={{ ...presentation, ...override }}
+        />
+      </NextIntlClientProvider>
     </QueryClientProvider>
   );
 }

@@ -57,6 +57,7 @@ vi.mock("framer-motion", () => ({
       <div {...(props as Record<string, unknown>)}>{children}</div>
     ),
   },
+  useReducedMotion: () => false,
 }));
 
 vi.mock("@/components/ui/skeleton", () => ({

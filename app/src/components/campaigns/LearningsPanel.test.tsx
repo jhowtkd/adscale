@@ -1,6 +1,17 @@
 import { render, screen } from "@testing-library/react";
+import { NextIntlClientProvider } from "next-intl";
 import { describe, expect, it, vi } from "vitest";
+import type { ReactNode } from "react";
 import LearningsPanel from "./LearningsPanel";
+import messages from "../../../messages/pt-BR.json";
+
+function renderWithIntl(node: ReactNode) {
+  return render(
+    <NextIntlClientProvider locale="pt-BR" messages={messages}>
+      {node}
+    </NextIntlClientProvider>
+  );
+}
 
 vi.mock("@/lib/hooks/use-performance-learnings", () => ({
   CONFIDENCE_LABELS: { low: "Baixa", medium: "Média", high: "Alta" },
@@ -24,7 +35,7 @@ describe("LearningsPanel", () => {
       isError: false,
     } as ReturnType<typeof useCampaignLearnings>);
 
-    render(<LearningsPanel campaignId="campaign-1" />);
+    renderWithIntl(<LearningsPanel campaignId="campaign-1" />);
     expect(
       screen.getByText(/Vincule um perfil de cliente à campanha/)
     ).toBeInTheDocument();
@@ -67,7 +78,7 @@ describe("LearningsPanel", () => {
       isPending: false,
     } as ReturnType<typeof useRecomputeCampaignLearnings>);
 
-    render(<LearningsPanel campaignId="campaign-1" />);
+    renderWithIntl(<LearningsPanel campaignId="campaign-1" />);
     expect(screen.getByText(/CTA tende a aumentar CTR/)).toBeInTheDocument();
     expect(screen.getByText(/Média/)).toBeInTheDocument();
     expect(screen.getByText(/1 favorável/)).toBeInTheDocument();

@@ -1,6 +1,17 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { NextIntlClientProvider } from "next-intl";
+import type { ReactNode } from "react";
 import HypothesesPanel from "./HypothesesPanel";
+import messages from "../../../messages/pt-BR.json";
+
+function renderWithIntl(node: ReactNode) {
+  return render(
+    <NextIntlClientProvider locale="pt-BR" messages={messages}>
+      {node}
+    </NextIntlClientProvider>
+  );
+}
 
 vi.mock("@/lib/hooks/use-hypotheses", () => ({
   useCampaignHypotheses: () => ({ data: { hypotheses: [] }, isLoading: false }),
@@ -24,7 +35,7 @@ vi.mock("@/lib/hooks/use-hypotheses", () => ({
 
 describe("HypothesesPanel", () => {
   it("prompts for derivations when fewer than two", () => {
-    render(
+    renderWithIntl(
       <HypothesesPanel
         campaignId="camp-1"
         derivations={[{ id: "d1", label: "A" }]}
@@ -36,7 +47,7 @@ describe("HypothesesPanel", () => {
   });
 
   it("renders hypothesis section when derivations exist", () => {
-    render(
+    renderWithIntl(
       <HypothesesPanel
         campaignId="camp-1"
         derivations={[
