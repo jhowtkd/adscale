@@ -61,14 +61,14 @@ function IssueSummary({
   }
 
   return (
-    <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-secondary)] px-3 py-3 space-y-3 text-sm">
+    <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-3 py-3 space-y-3 text-sm">
       <p className="font-medium text-[var(--text-primary)]">{t("regenerationWhatWeFix")}</p>
       {primaryReason ? (
         <p className="text-[var(--text-secondary)]">{primaryReason}</p>
       ) : null}
       {hasBlocking ? (
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-[var(--text-tertiary)] mb-1">
+          <p className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)] mb-1">
             {t("regenerationBlocking")}
           </p>
           <ul className="list-disc pl-5 space-y-1 text-[var(--text-secondary)]">
@@ -98,7 +98,7 @@ function IssueSummary({
       ) : null}
       {hasAdvisory ? (
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-[var(--text-tertiary)] mb-1">
+          <p className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)] mb-1">
             {t("regenerationAdvisory")}
           </p>
           <ul className="list-disc pl-5 space-y-1 text-[var(--text-secondary)]">

@@ -212,7 +212,7 @@ function ProjectNode({
 
   return (
     <li>
-      <div className="group flex items-center gap-1.5 rounded-md px-2 py-1.5 hover:bg-[var(--surface-secondary)]">
+      <div className="group flex items-center gap-1.5 rounded-md px-2 py-1.5 hover:bg-[var(--surface-raised)]">
         <button
           type="button"
           aria-expanded={isExpanded}

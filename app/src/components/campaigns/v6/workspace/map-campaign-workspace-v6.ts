@@ -25,9 +25,9 @@ const GRADIENTS = [
   "from-emerald-900/80 to-teal-800/60",
   "from-amber-900/70 to-orange-800/50",
   "from-slate-800/80 to-slate-700/60",
-  "from-violet-900/70 to-purple-800/50",
+  "from-stone-800/80 to-stone-700/60",
   "from-cyan-900/80 to-sky-800/60",
-  "from-rose-900/70 to-pink-800/50",
+  "from-rose-900/70 to-rose-800/50",
 ];
 
 function statusToBadge(status: WorkspaceCampaignSource["status"]): { label: string; variant: WorkspaceV6BadgeVariant } {

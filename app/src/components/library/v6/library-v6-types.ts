@@ -21,4 +21,6 @@ export type LibraryV6Labels = {
   searchAria: string;
   countSummary: string;
   deleteAsset: string;
+  loadMore: string;
+  loadingMore: string;
 };

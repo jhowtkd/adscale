@@ -26,6 +26,15 @@ export function buildDashboardV6Labels(t: Translate): Omit<DashboardV6Labels, "g
     briefingTitle: t("briefingTitle"),
     editBriefing: t("editBriefing"),
     goToActions: t("goToActions"),
+    activityEmptyTitle: t("activityEmptyTitle"),
+    activityEmptyDescription: t("activityEmptyDescription"),
+    activityEmptyAction: t("activityEmptyAction"),
+    recipesEmptyTitle: t("recipesEmptyTitle"),
+    recipesEmptyDescription: t("recipesEmptyDescription"),
+    recipesEmptyAction: t("recipesEmptyAction"),
+    briefingEmptyTitle: t("briefingEmptyTitle"),
+    briefingEmptyDescription: t("briefingEmptyDescription"),
+    briefingEmptyAction: t("briefingEmptyAction"),
   };
 }
 

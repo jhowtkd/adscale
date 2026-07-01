@@ -158,16 +158,17 @@ function CampaignTableRow({
           {/* Mobile: actions dropdown */}
           <div className="md:hidden shrink-0" onClick={(e) => e.stopPropagation()}>
             <DropdownMenu>
-              <DropdownMenuTrigger
-                className={cn(
-                  "flex items-center justify-center size-8 rounded-md",
-                  "text-[var(--text-muted)]",
-                  "hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)]",
-                  "transition-all duration-200"
-                )}
-              >
-                <MoreHorizontal size={16} />
-              </DropdownMenuTrigger>
+            <DropdownMenuTrigger
+              aria-label={tCampaigns("v6.actionsFor", { name: campaign.name })}
+              className={cn(
+                "flex min-h-11 min-w-11 items-center justify-center rounded-md",
+                "text-[var(--text-muted)]",
+                "hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)]",
+                "transition-all duration-200"
+              )}
+            >
+              <MoreHorizontal size={16} />
+            </DropdownMenuTrigger>
               <DropdownMenuContent align="end" sideOffset={4} className="w-44">
                 <DropdownMenuItem
                   onClick={() => { router.push(`/campaigns/${campaign.id}`); }}
@@ -274,8 +275,9 @@ function CampaignTableRow({
           <DropdownMenu>
             <DropdownMenuTrigger
               onClick={(e: React.MouseEvent) => e.stopPropagation()}
+              aria-label={tCampaigns("v6.actionsFor", { name: campaign.name })}
               className={cn(
-                "flex items-center justify-center size-8 rounded-md",
+                "flex min-h-11 min-w-11 items-center justify-center rounded-md",
                 "text-[var(--text-muted)] opacity-0 group-hover:opacity-100",
                 "hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)]",
                 "transition-all duration-200",

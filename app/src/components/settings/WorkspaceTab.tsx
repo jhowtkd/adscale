@@ -1,7 +1,7 @@
 "use client";
 
 import { useReducer, useEffect, useRef, useMemo } from "react";
-import { m } from "framer-motion";
+import { m, useReducedMotion } from "framer-motion";
 import { Check, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/store";
@@ -13,7 +13,7 @@ import {
 } from "@/lib/hooks/use-workspace-settings";
 
 const FOCUS_RING =
-  "focus:outline-none focus:border-primary focus:ring-[3px] focus:ring-primary/15";
+  "focus:outline-none focus:border-[var(--accent-green)] focus:ring-[3px] focus:ring-[var(--accent-green-dim)]";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -59,6 +59,7 @@ export default function WorkspaceTab() {
   const addToast = useAppStore((s) => s.addToast);
   const t = useTranslations("settings");
   const tc = useTranslations("common");
+  const reducedMotion = useReducedMotion();
 
   const { data: settings, isLoading, isError, error } = useWorkspaceSettings();
   const updateSettings = useUpdateWorkspaceSettings();
@@ -137,7 +138,7 @@ export default function WorkspaceTab() {
   return (
     <m.div
       variants={containerVariants}
-      initial="hidden"
+      initial={reducedMotion ? false : "hidden"}
       animate="show"
       className="max-w-[560px] space-y-8"
     >
@@ -172,6 +173,15 @@ export default function WorkspaceTab() {
               {t("workspaceInformation")}
             </m.h3>
 
+            {!canEdit && (
+              <m.div
+                variants={itemVariants}
+                className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)] px-4 py-3 text-sm text-[var(--text-secondary)]"
+              >
+                {t("workspace.readOnlyNotice")}
+              </m.div>
+            )}
+
             <m.div variants={itemVariants} className="space-y-2">
               <label className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
                 {t("workspaceName")}
@@ -182,12 +192,14 @@ export default function WorkspaceTab() {
                 value={name}
                 onChange={(e) => updateForm({ name: e.target.value })}
                 placeholder={t("workspace.namePlaceholder")}
+                disabled={!canEdit}
                 className={cn(
                   "w-full h-10 rounded-md border px-3 text-sm",
                   "bg-[var(--surface-base)] text-[var(--text-primary)]",
                   "placeholder:text-[var(--text-muted)]",
-                  "focus:outline-none focus:border-[var(--accent-green)] focus:ring-[3px] focus:ring-[var(--accent-green-dim)0.15)]",
-                  "transition-all duration-200 border-[var(--border-dim)]"
+                  "focus:outline-none focus:border-[var(--accent-green)] focus:ring-[3px] focus:ring-[var(--accent-green-dim)]",
+                  "transition-all duration-200 border-[var(--border-dim)]",
+                  "disabled:opacity-60 disabled:cursor-not-allowed"
                 )}
               />
             </m.div>
@@ -209,9 +221,11 @@ export default function WorkspaceTab() {
                       slug: e.target.value.replace(/[^a-z0-9-]/g, ""),
                     })
                   }
+                  disabled={!canEdit}
                   className={cn(
                     "flex-1 bg-transparent text-[var(--text-primary)] outline-none",
-                    "placeholder:text-[var(--text-muted)]"
+                    "placeholder:text-[var(--text-muted)]",
+                    "disabled:opacity-60 disabled:cursor-not-allowed"
                   )}
                 />
               </div>
@@ -227,12 +241,14 @@ export default function WorkspaceTab() {
                 onChange={(e) => updateForm({ description: e.target.value })}
                 placeholder={t("workspace.descriptionPlaceholder")}
                 rows={3}
+                disabled={!canEdit}
                 className={cn(
                   "w-full rounded-md border px-3 py-2 text-sm resize-none",
                   "bg-[var(--surface-base)] text-[var(--text-primary)]",
                   "placeholder:text-[var(--text-muted)]",
                   FOCUS_RING,
-                  "transition-all duration-200 border-[var(--border-dim)]"
+                  "transition-all duration-200 border-[var(--border-dim)]",
+                  "disabled:opacity-60 disabled:cursor-not-allowed"
                 )}
               />
             </m.div>
@@ -245,12 +261,14 @@ export default function WorkspaceTab() {
                 aria-label={t("industry")}
                 value={industry}
                 onChange={(e) => updateForm({ industry: e.target.value })}
+                disabled={!canEdit}
                 className={cn(
                   "w-full h-10 rounded-md border px-3 text-sm",
                   "bg-[var(--surface-base)] text-[var(--text-primary)]",
                   FOCUS_RING,
                   "transition-all duration-200 border-[var(--border-dim)]",
-                  "appearance-none cursor-pointer"
+                  "appearance-none cursor-pointer",
+                  "disabled:opacity-60 disabled:cursor-not-allowed"
                 )}
               >
                 <option>Marketing & Advertising</option>
@@ -276,12 +294,14 @@ export default function WorkspaceTab() {
                 value={website}
                 onChange={(e) => updateForm({ website: e.target.value })}
                 placeholder={t("workspace.urlPlaceholder")}
+                disabled={!canEdit}
                 className={cn(
                   "w-full h-10 rounded-md border px-3 text-sm",
                   "bg-[var(--surface-base)] text-[var(--text-primary)]",
                   "placeholder:text-[var(--text-muted)]",
                   FOCUS_RING,
-                  "transition-all duration-200 border-[var(--border-dim)]"
+                  "transition-all duration-200 border-[var(--border-dim)]",
+                  "disabled:opacity-60 disabled:cursor-not-allowed"
                 )}
               />
             </m.div>
@@ -291,14 +311,17 @@ export default function WorkspaceTab() {
                 {t("timeZone")}
               </label>
               <select
+                aria-label={t("timeZone")}
                 value={timezone}
                 onChange={(e) => updateForm({ timezone: e.target.value })}
+                disabled={!canEdit}
                 className={cn(
                   "w-full h-10 rounded-md border px-3 text-sm",
                   "bg-[var(--surface-base)] text-[var(--text-primary)]",
                   FOCUS_RING,
                   "transition-all duration-200 border-[var(--border-dim)]",
-                  "appearance-none cursor-pointer"
+                  "appearance-none cursor-pointer",
+                  "disabled:opacity-60 disabled:cursor-not-allowed"
                 )}
               >
                 <option value="America/New_York">Eastern Time (ET)</option>
@@ -326,7 +349,7 @@ export default function WorkspaceTab() {
                 updateSettings.isPending
               }
               className={cn(
-                "h-10 px-5 rounded-md text-sm font-medium text-white flex items-center gap-2",
+                "h-10 px-5 rounded-md text-sm font-medium text-[var(--text-on-accent)] flex items-center gap-2",
                 "bg-[var(--accent-green)] hover:bg-[var(--accent-green-light)]",
                 "active:scale-[0.98] active:brightness-90",
                 "transition-all duration-200",
@@ -337,7 +360,7 @@ export default function WorkspaceTab() {
                 <m.div
                   animate={{ rotate: 360 }}
                   transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                  className="size-4 border-2 border-white/30 border-t-white rounded-full"
+                  className="size-4 border-2 border-[var(--text-on-accent)]/30 border-t-[var(--text-on-accent)] rounded-full"
                 />
               )}
               {saveState === "saved" && <Check size={16} />}
@@ -354,10 +377,7 @@ export default function WorkspaceTab() {
           {/* Danger Zone */}
           <m.div
             variants={itemVariants}
-            className="rounded-xl border border-[rgba(244,63,94,0.3)] p-5 space-y-4"
-            style={{
-              animation: "none",
-            }}
+            className="rounded-xl border border-[var(--danger-border)] p-5 space-y-4"
           >
             <div className="flex items-center gap-2">
               <AlertTriangle size={16} className="text-[var(--accent-rose)]" />
@@ -371,11 +391,13 @@ export default function WorkspaceTab() {
             <button
               type="button"
               onClick={() => addToast("error", tc("comingSoon"))}
+              disabled={!canEdit}
               className={cn(
-                "h-9 px-4 rounded-md text-sm font-medium text-white",
+                "h-9 px-4 rounded-md text-sm font-medium text-[var(--text-on-accent)]",
                 "bg-[var(--accent-rose)] hover:brightness-110",
                 "active:scale-[0.98]",
-                "transition-all duration-200"
+                "transition-all duration-200",
+                "disabled:opacity-50 disabled:cursor-not-allowed"
               )}
             >
               {t("deleteWorkspace")}

@@ -1,3 +1,4 @@
+import { formatCampaignPlatforms } from "@/lib/campaign-platforms";
 import type { CampaignTemplate } from "@/lib/hooks/use-templates";
 import type { DashboardStats } from "@/server/repositories/dashboard";
 import type {
@@ -188,7 +189,7 @@ export function mapDashboardToV6View({
     subtitle: `${authorName} · ${formatRelativeTime(campaign.updatedAt, tRelative)}`,
     status: statusLabel(campaign.status, tStatus),
     statusClass: statusToClass(campaign.status),
-    platforms: "—",
+    platforms: formatCampaignPlatforms(campaign.platforms) ?? "—",
     variations: `${campaign.approvedCount} / ${campaign.pieceCount}`,
     updated: formatRelativeTime(campaign.updatedAt, tRelative),
   }));

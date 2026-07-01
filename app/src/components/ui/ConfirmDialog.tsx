@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   Dialog,
   DialogContent,
@@ -30,20 +31,21 @@ export default function ConfirmDialog({
   title = "Confirmar ação",
   description = "Tem certeza que deseja continuar? Esta ação não pode ser desfeita.",
   confirmLabel = "Confirmar",
-  cancelLabel = "Cancelar",
+  cancelLabel,
   variant = "destructive",
   onConfirm,
   isLoading = false,
 }: ConfirmDialogProps) {
+  const tCommon = useTranslations("common");
   const [loading, setLoading] = useState(false);
 
   const handleConfirm = async () => {
     setLoading(true);
     try {
       await onConfirm();
+      onOpenChange(false);
     } finally {
       setLoading(false);
-      onOpenChange(false);
     }
   };
 
@@ -69,7 +71,7 @@ export default function ConfirmDialog({
             disabled={loading || isLoading}
             className="border-[var(--border-dim)] text-[var(--text-secondary)]"
           >
-            {cancelLabel}
+            {cancelLabel ?? tCommon("cancel")}
           </Button>
           <Button
             variant={variant}
@@ -77,11 +79,11 @@ export default function ConfirmDialog({
             disabled={loading || isLoading}
             className={
               variant === "destructive"
-                ? "bg-[var(--accent-rose)] text-white hover:bg-[var(--accent-rose)]/80"
+                ? "bg-[var(--accent-rose)] text-[var(--text-on-accent)] hover:bg-[var(--accent-rose)]/80"
                 : ""
             }
           >
-            {loading || isLoading ? "Carregando..." : confirmLabel}
+            {loading || isLoading ? tCommon("loading") : confirmLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

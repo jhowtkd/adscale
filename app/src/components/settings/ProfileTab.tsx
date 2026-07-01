@@ -1,7 +1,7 @@
 "use client";
 
 import { useReducer, useRef, useEffect, useMemo, useState } from "react";
-import { m } from "framer-motion";
+import { m, useReducedMotion } from "framer-motion";
 import { Camera, Check, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/store";
@@ -59,6 +59,7 @@ export default function ProfileTab() {
   const addToast = useAppStore((s) => s.addToast);
   const t = useTranslations("settings");
   const tc = useTranslations("common");
+  const reducedMotion = useReducedMotion();
 
   const { data: profile, isPending, isError, error } = useUserProfile();
   const updateProfile = useUpdateUserProfile();
@@ -213,7 +214,7 @@ export default function ProfileTab() {
   }
 
   return (
-    <m.div variants={containerVariants} initial="hidden" animate="show" className="space-y-8">
+    <m.div variants={containerVariants} initial={reducedMotion ? false : "hidden"} animate="show" className="space-y-8">
       <div className="grid gap-8 lg:grid-cols-[minmax(0,220px)_1fr] lg:gap-10 xl:grid-cols-[minmax(0,240px)_minmax(0,1fr)]">
         <ProfileAvatarSection
           t={t}
@@ -241,7 +242,7 @@ export default function ProfileTab() {
           {onboardingCompleted && (
             <m.div
               variants={itemVariants}
-              className="rounded-xl border border-[var(--border-dim)] bg-[var(--surface-base)]/60 px-4 py-4 sm:px-5"
+              className="rounded-xl border border-[var(--border-dim)] bg-[var(--surface-raised)] px-4 py-4 sm:px-5"
             >
               <h3 className="text-sm font-medium text-[var(--text-primary)]">
                 {t("onboarding.preferences")}
@@ -283,7 +284,7 @@ export default function ProfileTab() {
             uploadAvatar.isPending
           }
           className={cn(
-            "flex h-10 items-center gap-2 rounded-md px-5 text-sm font-medium text-white",
+            "flex h-10 items-center gap-2 rounded-md px-5 text-sm font-medium text-[var(--accent-green-on-fill)]",
             "bg-[var(--accent-green)] hover:bg-[var(--accent-green-light)]",
             "active:scale-[0.98] active:brightness-90",
             "transition-all duration-200",
@@ -353,7 +354,7 @@ function ProfileAvatarSection({
               animate={{ opacity: 1 }}
               transition={{ duration: 0.2 }}
               src={avatarPreview}
-              alt="Avatar"
+              alt={`${firstName} ${lastName}`.trim() || t("changeAvatar")}
               className="size-full object-cover"
             />
           ) : (
@@ -370,11 +371,11 @@ function ProfileAvatarSection({
           aria-label={t("changeAvatar")}
           className={cn(
             "absolute inset-0 flex cursor-pointer items-center justify-center rounded-full",
-            "bg-black/40 opacity-0 group-hover:opacity-100",
+            "bg-[color-mix(in_oklch,var(--text-primary)_45%,transparent)] opacity-0 group-hover:opacity-100",
             "transition-opacity duration-200"
           )}
         >
-          <Camera size={20} className="text-white" />
+          <Camera size={20} className="text-[var(--text-on-accent)]" />
         </button>
 
         <input

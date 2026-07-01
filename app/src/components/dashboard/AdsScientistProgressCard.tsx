@@ -11,7 +11,7 @@ export default function AdsScientistProgressCard() {
   const { data, isLoading, isError, refetch, isFetching } = useProgression();
 
   if (isLoading && !data) {    return (
-      <div className="glass-card rounded-xl overflow-hidden" aria-busy="true">
+      <div className="overflow-hidden rounded-xl border border-[var(--border-dim)] bg-[var(--surface-base)]" aria-busy="true">
         <div className="px-5 py-4 border-b border-[var(--border-dim)]">
           <div className="h-4 w-40 bg-[var(--surface-raised)] rounded animate-pulse" />
         </div>
@@ -26,7 +26,7 @@ export default function AdsScientistProgressCard() {
 
   if (isError && !data) {
     return (
-      <div className="glass-card rounded-xl overflow-hidden">
+      <div className="overflow-hidden rounded-xl border border-[var(--border-dim)] bg-[var(--surface-base)]">
         <div className="px-5 py-4 border-b border-[var(--border-dim)] flex items-center gap-2">
           <FlaskConical size={16} className="text-[var(--accent-green)]" aria-hidden="true" />
           <h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("title")}</h2>
@@ -62,7 +62,7 @@ export default function AdsScientistProgressCard() {
     : undefined;
 
   return (
-    <div className="glass-card rounded-xl overflow-hidden">
+    <div className="overflow-hidden rounded-xl border border-[var(--border-dim)] bg-[var(--surface-base)]">
       <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border-dim)]">
         <div className="flex items-center gap-2">
           <FlaskConical size={16} className="text-[var(--accent-green)]" aria-hidden="true" />

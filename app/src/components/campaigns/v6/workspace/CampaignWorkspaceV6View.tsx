@@ -338,10 +338,10 @@ function DerivationCard({
   return (
     <li className="overflow-hidden rounded-[var(--radius-panel)] border border-[var(--border-subtle)] bg-[var(--surface-raised)]">
       <div className={`relative flex h-28 items-center justify-center bg-gradient-to-br ${derivation.gradient}`}>
-        <span className="font-mono text-lg font-bold tracking-widest text-white/90">{derivation.art}</span>
+        <span className="font-mono text-lg font-bold tracking-widest text-[var(--text-on-accent)]">{derivation.art}</span>
         <WorkspaceBadge variant={derivation.statusVariant} label={derivation.status} className="absolute left-2 top-2" />
         {derivation.score != null ? (
-          <span className="absolute right-2 top-2 rounded bg-black/40 px-1.5 py-0.5 font-mono text-xs text-white">
+          <span className="absolute right-2 top-2 rounded bg-[color-mix(in_oklch,var(--text-primary)_55%,transparent)] px-1.5 py-0.5 font-mono text-xs text-[var(--text-on-accent)]">
             {derivation.score}
           </span>
         ) : null}

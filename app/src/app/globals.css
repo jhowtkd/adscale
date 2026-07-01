@@ -239,6 +239,7 @@
   --accent-green-text: var(--accent-primary-text);
   --accent-green-on-fill: var(--text-on-accent);
   --accent-green-dim: var(--accent-primary-subtle);
+  --accent-rose-dim: var(--danger-bg);
   --ghost: var(--text-muted);
   --pale: var(--surface-inset);
   --cream: var(--surface-raised);

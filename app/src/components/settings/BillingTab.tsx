@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useReducer, useState } from "react";
-import { AlertTriangle, Calculator, CreditCard, DollarSign, ShieldCheck, TrendingUp, Check, Zap, Crown, Sparkles, XCircle } from "lucide-react";
+import { AlertTriangle, CreditCard, TrendingUp, Check, Zap, Crown, Sparkles, XCircle } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
@@ -177,7 +177,7 @@ export default function BillingTab() {
 
   if (isError) {
     return (
-      <div className="animate-fade-in rounded-lg border border-destructive/30 bg-destructive/10 p-6 text-sm text-destructive">
+      <div className="animate-fade-in rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] p-6 text-sm text-[var(--danger-text)]">
         {t("error")}
       </div>
     );
@@ -186,7 +186,7 @@ export default function BillingTab() {
   return (
     <div className="animate-fade-in space-y-6">
       {isPastDue && !isBeta && (
-        <div className="rounded-lg border border-[var(--status-amber-bg)] bg-[var(--status-amber-bg)]/30 p-4 text-sm text-[var(--status-amber-text)]">
+        <div className="rounded-lg border border-[var(--warning-border)] bg-[var(--warning-bg)] p-4 text-sm text-[var(--warning-text)]">
           <div className="flex items-center gap-2 font-medium">
             <AlertTriangle size={16} />
             {t("pastDue.title")}
@@ -208,7 +208,7 @@ export default function BillingTab() {
       {isCanceled && !isBeta && (
         <div className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)] p-4 text-sm">
           <div className="flex items-center gap-2 font-medium text-[var(--text-primary)]">
-            <XCircle size={16} className="text-destructive" />
+            <XCircle size={16} className="text-[var(--danger-text)]" />
             {t("canceled.title")}
           </div>
           <p className="mt-2 text-[var(--text-secondary)]">{t("canceled.body")}</p>
@@ -240,7 +240,7 @@ export default function BillingTab() {
       )}
 
       {(billingStatus?.creditBalance ?? 0) <= 10 && hasSpendAccess && !isBeta && (
-        <div className="rounded-lg border border-[var(--status-amber-bg)] bg-[var(--status-amber-bg)]/30 p-4 text-sm text-[var(--status-amber-text)]">
+        <div className="rounded-lg border border-[var(--warning-border)] bg-[var(--warning-bg)] p-4 text-sm text-[var(--warning-text)]">
           {isTrialing
             ? t("lowCredits.trial", { credits: billingStatus?.creditBalance ?? 0 })
             : t("lowCredits.paid", { credits: billingStatus?.creditBalance ?? 0 })}
@@ -269,36 +269,9 @@ export default function BillingTab() {
               {redeemBeta.isPending ? t("noAccess.redeeming") : t("noAccess.action")}
             </button>
           </div>
-          {betaError ? <p className="mt-2 text-sm text-destructive">{betaError}</p> : null}
+          {betaError ? <p className="mt-2 text-sm text-[var(--danger-text)]">{betaError}</p> : null}
         </section>
       )}
-
-      <div className="grid gap-4 lg:grid-cols-4">
-        <MetricCard
-          icon={Calculator}
-          label={t("forecast.campaignCost")}
-          value={brlCurrency.format(forecast.campaignCostBrl)}
-          caption={`${usdCurrency.format(forecast.campaignCost)} USD`}
-        />
-        <MetricCard
-          icon={TrendingUp}
-          label={t("forecast.monthlyCost")}
-          value={brlCurrency.format(forecast.monthlyCostBrl)}
-          caption={`${campaignsPerMonth}/mo`}
-        />
-        <MetricCard
-          icon={ShieldCheck}
-          label={t("forecast.cushion")}
-          value={brlCurrency.format(forecast.cushionBrl)}
-          caption={t("forecast.cushionCaption")}
-        />
-        <MetricCard
-          icon={DollarSign}
-          label={t("forecast.imageCost")}
-          value={brlCurrency.format(forecast.imageCostBrl)}
-          caption={`${usdCurrency.format(forecast.imageCost)} USD`}
-        />
-      </div>
 
       {!hasSpendAccess && (
         <section className="space-y-4">
@@ -309,7 +282,7 @@ export default function BillingTab() {
               ([key, plan]) => (
                 <div
                   key={key}
-                  className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-5 transition-all hover:-translate-y-0.5 hover:shadow-md"
+                  className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-5 transition-colors hover:border-[var(--border-medium)]"
                 >
                   <div className="mb-4 flex size-10 items-center justify-center rounded-md" style={{ background: `${plan.color}20`, color: plan.color }}>
                     <plan.icon size={20} />
@@ -335,7 +308,7 @@ export default function BillingTab() {
                     type="button"
                     onClick={() => checkout.mutate({ planKey: key })}
                     disabled={checkout.isPending}
-                    className="mt-5 h-10 w-full rounded-md text-sm font-medium text-white transition-all hover:opacity-90 disabled:opacity-60"
+                    className="mt-5 h-10 w-full rounded-md text-sm font-medium text-[var(--text-on-accent)] transition-opacity hover:opacity-90 disabled:opacity-60"
                     style={{ background: plan.color }}
                   >
                     {checkout.isPending ? t("plans.redirecting") : t("plans.startTrial")}
@@ -368,6 +341,29 @@ export default function BillingTab() {
             <NumberField label={t("forecast.reference")} value={referenceImageTokens} onChange={(value) => updateForecastInputs({ referenceImageTokens: value })} />
             <NumberField label={t("forecast.generatedImage")} value={generatedImageTokens} onChange={(value) => updateForecastInputs({ generatedImageTokens: value })} />
           </div>
+
+          <dl className="mt-5 space-y-2 border-t border-[var(--border-dim)] pt-4 text-sm">
+            <ForecastRow
+              label={t("forecast.campaignCost")}
+              value={brlCurrency.format(forecast.campaignCostBrl)}
+              caption={`${usdCurrency.format(forecast.campaignCost)} USD`}
+            />
+            <ForecastRow
+              label={t("forecast.monthlyCost")}
+              value={brlCurrency.format(forecast.monthlyCostBrl)}
+              caption={`${campaignsPerMonth}/mo`}
+            />
+            <ForecastRow
+              label={t("forecast.cushion")}
+              value={brlCurrency.format(forecast.cushionBrl)}
+              caption={t("forecast.cushionCaption")}
+            />
+            <ForecastRow
+              label={t("forecast.imageCost")}
+              value={brlCurrency.format(forecast.imageCostBrl)}
+              caption={`${usdCurrency.format(forecast.imageCost)} USD`}
+            />
+          </dl>
         </div>
 
         <div className="space-y-4">
@@ -376,7 +372,7 @@ export default function BillingTab() {
               <CreditCard size={18} className="text-[var(--accent-green)]" />
               <h3 className="text-[15px] font-semibold text-[var(--text-primary)]">{t("financial.title")}</h3>
               {isTrialing && (
-                <span className="ml-auto rounded-full bg-[var(--status-amber-bg)] px-2 py-0.5 text-xs font-medium text-[var(--status-amber-text)]">
+                <span className="ml-auto rounded-full bg-[var(--warning-bg)] px-2 py-0.5 text-xs font-medium text-[var(--warning-text)]">
                   {t("financial.trialBadge")}
                 </span>
               )}
@@ -510,25 +506,22 @@ export default function BillingTab() {
   );
 }
 
-function MetricCard({
-  icon: Icon,
+function ForecastRow({
   label,
   value,
   caption,
 }: {
-  icon: typeof Calculator;
   label: string;
   value: string;
   caption: string;
 }) {
   return (
-    <div className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-4">
-      <div className="mb-3 flex size-9 items-center justify-center rounded-md bg-[var(--accent-green-dim)] text-[var(--accent-green-text)]">
-        <Icon size={18} />
-      </div>
-      <p className="text-xs font-medium text-[var(--text-muted)]">{label}</p>
-      <p className="mt-1 text-xl font-semibold text-[var(--text-primary)]">{value}</p>
-      <p className="mt-1 text-xs text-[var(--text-secondary)]">{caption}</p>
+    <div className="flex items-baseline justify-between gap-3 border-b border-[var(--border-dim)] pb-2 last:border-b-0 last:pb-0">
+      <dt className="text-[var(--text-secondary)]">{label}</dt>
+      <dd className="text-right">
+        <span className="font-medium text-[var(--text-primary)]">{value}</span>
+        <span className="ml-2 text-xs text-[var(--text-muted)]">{caption}</span>
+      </dd>
     </div>
   );
 }
@@ -550,7 +543,7 @@ function NumberField({
         min={0}
         value={value}
         onChange={(event) => onChange(Number(event.target.value) || 0)}
-        className="h-9 w-full rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent-green)] focus:ring-2 focus:ring-[var(--accent-green-dim)0.15)]"
+        className="h-9 w-full rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent-green)] focus:ring-2 focus:ring-[var(--accent-green-dim)]"
       />
     </label>
   );

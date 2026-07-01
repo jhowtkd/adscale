@@ -33,9 +33,9 @@ function CampaignCard({ campaign, index }: CampaignCardProps) {
   return (
     <div
       className={cn("animate-fade-in",
-        "group rounded-xl glass-card overflow-hidden",
-        "transition-all duration-300 ease-out",
-        "hover:border-[var(--accent-green)]/30 hover:shadow-[0_0_40px_var(--accent-green-dim),0_12px_32px_rgba(0,0,0,0.4)] hover:-translate-y-1",
+        "group rounded-xl border border-[var(--border-dim)] bg-[var(--surface-base)] overflow-hidden",
+        "transition-colors duration-300 ease-out",
+        "hover:border-[var(--accent-green)]/30 hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)]",
         "cursor-pointer"
       )}
       style={{ animationDelay: `${index * 80}ms` }}

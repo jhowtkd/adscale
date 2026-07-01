@@ -2,16 +2,22 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Download, Trash2, AlertTriangle, Shield, FileText } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { Download, Trash2, AlertTriangle, Shield, FileText, Loader2 } from "lucide-react";
 import { apiFetch } from "@/lib/api-client";
 
 export default function PrivacyTab() {
+  const t = useTranslations("settings.privacy");
+  const tCommon = useTranslations("common");
+  const [exporting, setExporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmText, setConfirmText] = useState("");
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [error, setError] = useState("");
 
   async function handleExport() {
+    setError("");
+    setExporting(true);
     try {
       const res = await apiFetch("/api/user/export");
       if (!res.ok) throw new Error("Failed to export data");
@@ -24,13 +30,15 @@ export default function PrivacyTab() {
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      setError("Erro ao exportar dados. Tente novamente.");
+      setError(t("exportError"));
+    } finally {
+      setExporting(false);
     }
   }
 
   async function handleDelete() {
-    if (confirmText !== "DELETE") {
-      setError('Digite "DELETE" para confirmar.');
+    if (confirmText !== t("deleteConfirmKeyword")) {
+      setError(t("deleteErrorKeyword"));
       return;
     }
     setError("");
@@ -44,101 +52,87 @@ export default function PrivacyTab() {
       if (!res.ok) throw new Error("Failed to delete account");
       window.location.href = "/";
     } catch {
-      setError("Erro ao excluir conta. Tente novamente.");
+      setError(t("deleteError"));
       setDeleting(false);
     }
   }
 
   return (
     <div className="animate-fade-in space-y-6">
-      {/* Data Export */}
       <div className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-5">
         <div className="mb-4 flex items-center gap-2">
           <Download size={18} className="text-[var(--accent-green)]" />
-          <h3 className="text-[15px] font-semibold text-[var(--text-primary)]">
-            Exportar meus dados
-          </h3>
+          <h3 className="text-[15px] font-semibold text-[var(--text-primary)]">{t("exportTitle")}</h3>
         </div>
-        <p className="text-sm text-[var(--text-secondary)]">
-          Baixe uma copia completa dos seus dados pessoais em formato JSON.
-          Inclui campanhas, derivacoes, assets e planos criativos.
-        </p>
+        <p className="text-sm text-[var(--text-secondary)]">{t("exportDescription")}</p>
         <button
           type="button"
           onClick={handleExport}
-          className="mt-4 inline-flex h-9 items-center gap-2 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-4 text-sm font-medium text-[var(--text-primary)] transition-all hover:bg-[var(--deep-bg)]"
+          disabled={exporting}
+          className="mt-4 inline-flex min-h-[var(--control-touch)] items-center gap-2 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-4 text-sm font-medium text-[var(--text-primary)] transition-all hover:bg-[var(--surface-inset)] disabled:opacity-60"
         >
-          <Download size={16} />
-          Exportar dados (JSON)
+          {exporting ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : <Download size={16} aria-hidden="true" />}
+          {exporting ? t("exporting") : t("exportButton")}
         </button>
       </div>
 
-      {/* Legal Links */}
       <div className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-5">
         <div className="mb-4 flex items-center gap-2">
           <FileText size={18} className="text-[var(--accent-green)]" />
-          <h3 className="text-[15px] font-semibold text-[var(--text-primary)]">
-            Documentos legais
-          </h3>
+          <h3 className="text-[15px] font-semibold text-[var(--text-primary)]">{t("legalTitle")}</h3>
         </div>
         <div className="flex flex-wrap gap-3">
           <Link
             href="/privacy"
             target="_blank"
-            className="inline-flex items-center gap-2 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-4 py-2 text-sm text-[var(--text-primary)] transition-all hover:bg-[var(--deep-bg)]"
+            className="inline-flex min-h-[var(--control-touch)] items-center gap-2 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-4 py-2 text-sm text-[var(--text-primary)] transition-all hover:bg-[var(--surface-inset)]"
           >
-            <Shield size={16} />
-            Politica de Privacidade
+            <Shield size={16} aria-hidden="true" />
+            {t("privacyPolicy")}
           </Link>
           <Link
             href="/terms"
             target="_blank"
-            className="inline-flex items-center gap-2 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-4 py-2 text-sm text-[var(--text-primary)] transition-all hover:bg-[var(--deep-bg)]"
+            className="inline-flex min-h-[var(--control-touch)] items-center gap-2 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-4 py-2 text-sm text-[var(--text-primary)] transition-all hover:bg-[var(--surface-inset)]"
           >
-            <FileText size={16} />
-            Termos de Uso
+            <FileText size={16} aria-hidden="true" />
+            {t("termsOfUse")}
           </Link>
         </div>
       </div>
 
-      {/* Account Deletion */}
-      <div className="rounded-lg border border-[var(--status-rose-bg)] bg-[var(--status-rose-bg)]/10 p-5">
+      <div className="rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] p-5">
         <div className="mb-4 flex items-center gap-2">
-          <Trash2 size={18} className="text-[var(--accent-rose)]" />
-          <h3 className="text-[15px] font-semibold text-[var(--text-primary)]">
-            Excluir conta
-          </h3>
+          <Trash2 size={18} className="text-[var(--danger-text)]" />
+          <h3 className="text-[15px] font-semibold text-[var(--text-primary)]">{t("deleteTitle")}</h3>
         </div>
-        <p className="text-sm text-[var(--text-secondary)]">
-          Esta acao ira remover permanentemente todas as suas campanhas, imagens e dados.
-          Seus dados pessoais serao anonimizados nos termos da LGPD.
-        </p>
+        <p className="text-sm text-[var(--text-secondary)]">{t("deleteDescription")}</p>
         {!showDeleteDialog ? (
           <button
             type="button"
             onClick={() => setShowDeleteDialog(true)}
-            className="mt-4 inline-flex h-9 items-center gap-2 rounded-md border border-[var(--accent-rose)] bg-[var(--accent-rose)]/10 px-4 text-sm font-medium text-[var(--accent-rose)] transition-all hover:bg-[var(--accent-rose)]/20"
+            className="mt-4 inline-flex min-h-[var(--control-touch)] items-center gap-2 rounded-md border border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 text-sm font-medium text-[var(--danger-text)] transition-all hover:bg-[color-mix(in_oklch,var(--danger-bg)_80%,var(--accent-rose)_20%)]"
           >
-            <AlertTriangle size={16} />
-            Quero excluir minha conta
+            <AlertTriangle size={16} aria-hidden="true" />
+            {t("deleteButton")}
           </button>
         ) : (
           <div className="mt-4 space-y-3">
-            {error && (
-              <div className="rounded-md bg-[var(--accent-rose)]/10 px-3 py-2 text-sm text-[var(--accent-rose)]">
+            {error ? (
+              <div className="rounded-md border border-[var(--danger-border)] bg-[var(--danger-bg)] px-3 py-2 text-sm text-[var(--danger-text)]" role="alert">
                 {error}
               </div>
-            )}
+            ) : null}
             <p className="text-xs text-[var(--text-secondary)]">
-              Para confirmar, digite <strong>DELETE</strong> no campo abaixo:
+              {t("deleteConfirmHint", { keyword: t("deleteConfirmKeyword") })}
             </p>
             <input
-              aria-label="Confirm delete account"
+              aria-label={t("deleteConfirmAria")}
               type="text"
               value={confirmText}
               onChange={(e) => setConfirmText(e.target.value)}
-              placeholder="DELETE"
-              className="h-9 w-full rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent-rose)]"
+              placeholder={t("deleteConfirmPlaceholder")}
+              className="h-11 w-full rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-3 text-sm text-[var(--text-primary)] outline-none focus-visible:border-[var(--danger-border)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             />
             <div className="flex gap-2">
               <button
@@ -148,17 +142,17 @@ export default function PrivacyTab() {
                   setConfirmText("");
                   setError("");
                 }}
-                className="h-9 flex-1 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] text-sm font-medium text-[var(--text-primary)] transition-all hover:bg-[var(--deep-bg)]"
+                className="min-h-[var(--control-touch)] flex-1 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] text-sm font-medium text-[var(--text-primary)] transition-all hover:bg-[var(--surface-inset)]"
               >
-                Cancelar
+                {tCommon("cancel")}
               </button>
               <button
                 type="button"
                 onClick={handleDelete}
                 disabled={deleting}
-                className="h-9 flex-1 rounded-md bg-[var(--accent-rose)] text-sm font-medium text-white transition-all hover:opacity-90 disabled:opacity-60"
+                className="min-h-[var(--control-touch)] flex-1 rounded-md bg-[var(--accent-rose)] text-sm font-medium text-[var(--text-on-accent)] transition-all hover:opacity-90 disabled:opacity-60"
               >
-                {deleting ? "Excluindo..." : "Confirmar exclusao"}
+                {deleting ? t("deleting") : t("deleteConfirmButton")}
               </button>
             </div>
           </div>

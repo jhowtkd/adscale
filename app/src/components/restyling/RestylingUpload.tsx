@@ -152,7 +152,7 @@ export function RestylingUpload({
       {value ? (
         <div className="relative rounded-xl border border-[var(--border-dim)] bg-[var(--surface-raised)] overflow-hidden animate-fade-in transition-all duration-250">
           <div className="flex items-center gap-4 p-4">
-            <div className="size-16 rounded-lg overflow-hidden bg-[var(--neutral)] flex-shrink-0">
+            <div className="size-16 rounded-lg overflow-hidden bg-[var(--surface-inset)] flex-shrink-0">
               {previewUrl ? (
                 <Image
                   src={previewUrl}

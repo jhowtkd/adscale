@@ -13,37 +13,24 @@ interface KanbanCardProps {
   index: number;
 }
 
-const statusBorderColors: Record<string, string> = {
-  draft: "var(--status-draft-dot)",
-  active: "var(--status-active-dot)",
-  queued: "var(--status-queued-dot)",
-  processing: "var(--status-processing-dot)",
-  generating: "var(--status-generating-dot)",
-  completed: "var(--status-completed-dot)",
-  approved: "var(--status-approved-dot)",
-  rejected: "var(--status-rejected-dot)",
-  failed: "var(--status-failed-dot)",
-};
-
 function KanbanCard({ campaign, index }: KanbanCardProps) {
-  const borderColor = statusBorderColors[campaign.status] ?? "var(--border-dim)";
-
   return (
     <Link
       href={`/campaigns/${campaign.id}`}
       className={cn(
         "animate-fade-in block rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] overflow-hidden",
         "transition-all duration-200",
-        "hover:border-[var(--border-medium)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] hover:-translate-y-0.5",
+        "hover:border-[var(--border-medium)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
         "cursor-pointer"
       )}
-      style={{
-        animationDelay: `${index * 40}ms`,
-        borderLeftWidth: "3px",
-        borderLeftColor: borderColor,
-      }}
+      style={{ animationDelay: `${index * 40}ms` }}
     >
       <div className="p-3">
+        <div className="mb-2">
+          <StatusBadge status={campaign.status} className="text-[10px] px-1.5 py-0.5" />
+        </div>
+
         {/* Campaign name */}
         <h4 className="text-sm font-semibold text-[var(--text-primary)] truncate leading-tight">
           {campaign.name}
@@ -65,21 +52,20 @@ function KanbanCard({ campaign, index }: KanbanCardProps) {
                 key={platform}
                 className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium"
                 style={{
-                  backgroundColor: colors?.bg || "rgba(99,102,241,0.12)",
-                  color: colors?.text || "#818cf8",
+                  backgroundColor: colors?.bg || "var(--neutral-bg)",
+                  color: colors?.text || "var(--neutral-text)",
                 }}
               >
                 {platform}
               </span>
             );
           })}
-          {campaign.platforms.length > 2 && (
-            <span className="text-[10px] text-[var(--text-muted)]">
-              +{campaign.platforms.length - 2}
-            </span>
-          )}
-          <div className="ml-auto">
-            <StatusBadge status={campaign.status} showDot={false} className="text-[10px] px-1.5 py-0.5" />
+          <div className="ml-auto shrink-0">
+            {campaign.platforms.length > 2 ? (
+              <span className="text-[10px] text-[var(--text-muted)]">
+                +{campaign.platforms.length - 2}
+              </span>
+            ) : null}
           </div>
         </div>
       </div>

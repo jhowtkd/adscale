@@ -31,6 +31,15 @@ export const previewDashboardLabels = {
   briefingTitle: "Briefing ativo",
   editBriefing: "Editar",
   goToActions: "Ir para ações",
+  activityEmptyTitle: "Nenhuma atividade recente",
+  activityEmptyDescription: "Campanhas e derivações em que você trabalhar aparecerão aqui.",
+  activityEmptyAction: "Criar campanha",
+  recipesEmptyTitle: "Nenhuma receita salva ainda",
+  recipesEmptyDescription: "Salve um briefing como template para reutilizar na próxima campanha.",
+  recipesEmptyAction: "Ver templates",
+  briefingEmptyTitle: "Nenhum briefing ativo",
+  briefingEmptyDescription: "Inicie um briefing de campanha ou escolha um template para ver os campos aqui.",
+  briefingEmptyAction: "Nova campanha",
 };
 
 export const previewDashboardView: DashboardV6ViewModel = {

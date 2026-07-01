@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   HYPOTHESIS_PRIMARY_METRICS,
   type HypothesisPrimaryMetric,
@@ -8,14 +9,12 @@ import {
 import { PERFORMANCE_PLATFORMS } from "@/server/performance/types";
 import type { VariantComparisonReport } from "@/server/performance/hypothesis/types";
 import {
-  OUTCOME_LABELS,
   useCampaignComparisons,
   useCampaignHypotheses,
   useCompareHypothesis,
   useCreateHypothesis,
   useDeleteHypothesis,
   useObservationalComparison,
-  VERDICT_LABELS,
 } from "@/lib/hooks/use-hypotheses";
 
 interface DerivationOption {
@@ -28,39 +27,27 @@ interface HypothesesPanelProps {
   derivations: DerivationOption[];
 }
 
-const METRIC_LABELS: Record<HypothesisPrimaryMetric, string> = {
-  ctr: "CTR",
-  cpc: "CPC",
-  cpa: "CPA",
-  roas: "ROAS",
-  conversions: "Conversões",
-  clicks: "Cliques",
-  impressions: "Impressões",
-  spend: "Investimento",
-  conversion_value: "Valor de conversão",
-};
-
 function ComparisonReportView({ report }: { report: VariantComparisonReport }) {
+  const t = useTranslations("campaigns.hypotheses");
+
   return (
-    <div className="mt-3 space-y-3 rounded-md border border-[var(--border-dim)] bg-[var(--bg-elevated)] p-3 text-sm">
+    <div className="mt-3 space-y-3 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] p-3 text-sm">
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--text-secondary)]">
-          {report.kind === "controlled_hypothesis"
-            ? "Hipótese controlada"
-            : "Observação de mídia"}
+          {report.kind === "controlled_hypothesis" ? t("report.controlled") : t("report.observational")}
         </span>
-        <span className="rounded bg-[var(--bg-surface)] px-2 py-0.5 text-xs">
-          {VERDICT_LABELS[report.verdict]}
+        <span className="rounded bg-[var(--surface-base)] px-2 py-0.5 text-xs">
+          {t(`verdicts.${report.verdict}`)}
         </span>
         {report.outcome ? (
-          <span className="rounded bg-[var(--bg-surface)] px-2 py-0.5 text-xs">
-            {OUTCOME_LABELS[report.outcome]}
+          <span className="rounded bg-[var(--surface-base)] px-2 py-0.5 text-xs">
+            {t(`outcomes.${report.outcome}`)}
           </span>
         ) : null}
       </div>
 
       {report.exclusions.length > 0 ? (
-        <ul className="list-disc pl-4 text-xs text-amber-600 dark:text-amber-400">
+        <ul className="list-disc pl-4 text-xs text-[var(--warning-text)]">
           {report.exclusions.map((e) => (
             <li key={e.code}>{e.message}</li>
           ))}
@@ -69,9 +56,12 @@ function ComparisonReportView({ report }: { report: VariantComparisonReport }) {
 
       {report.period ? (
         <p className="text-xs text-[var(--text-secondary)]">
-          Período: {report.period.startDate} — {report.period.endDate}
-          {report.platform ? ` · ${report.platform}` : ""}
-          {report.objective ? ` · Objetivo: ${report.objective}` : ""}
+          {t("report.period", {
+            start: report.period.startDate,
+            end: report.period.endDate,
+            platform: report.platform ? t("report.platformSuffix", { platform: report.platform }) : "",
+            objective: report.objective ? t("report.objectiveSuffix", { objective: report.objective }) : "",
+          })}
         </p>
       ) : null}
 
@@ -79,33 +69,27 @@ function ComparisonReportView({ report }: { report: VariantComparisonReport }) {
         <table className="w-full min-w-[480px] text-left text-xs">
           <thead>
             <tr className="border-b border-[var(--border-dim)] text-[var(--text-secondary)]">
-              <th className="py-1 pr-2">Variante</th>
-              <th className="py-1 pr-2">{METRIC_LABELS[report.primaryMetric]}</th>
-              <th className="py-1 pr-2">Impressões</th>
-              <th className="py-1 pr-2">Cliques</th>
-              <th className="py-1">Δ vs controle</th>
+              <th className="py-1 pr-2">{t("report.variant")}</th>
+              <th className="py-1 pr-2">{t(`metrics.${report.primaryMetric}`)}</th>
+              <th className="py-1 pr-2">{t("report.impressions")}</th>
+              <th className="py-1 pr-2">{t("report.clicks")}</th>
+              <th className="py-1">{t("report.deltaVsControl")}</th>
             </tr>
           </thead>
           <tbody>
             {report.variants.map((v) => {
-              const diff = report.differences.find(
-                (d) => d.derivationId === v.derivationId
-              );
+              const diff = report.differences.find((d) => d.derivationId === v.derivationId);
               return (
                 <tr key={v.derivationId} className="border-b border-[var(--border-dim)]/50">
                   <td className="py-1.5 pr-2">
                     {v.label ?? v.derivationId.slice(0, 8)}
-                    {v.role === "control" ? " (controle)" : ""}
+                    {v.role === "control" ? t("report.controlSuffix") : ""}
                   </td>
-                  <td className="py-1.5 pr-2 tabular-nums">
-                    {v.primaryMetricValue ?? "—"}
-                  </td>
+                  <td className="py-1.5 pr-2 tabular-nums">{v.primaryMetricValue ?? "—"}</td>
                   <td className="py-1.5 pr-2 tabular-nums">{v.sampleSize.impressions}</td>
                   <td className="py-1.5 pr-2 tabular-nums">{v.sampleSize.clicks}</td>
                   <td className="py-1.5 tabular-nums">
-                    {diff?.relativeDelta
-                      ? `${(Number(diff.relativeDelta) * 100).toFixed(1)}%`
-                      : "—"}
+                    {diff?.relativeDelta ? `${(Number(diff.relativeDelta) * 100).toFixed(1)}%` : "—"}
                   </td>
                 </tr>
               );
@@ -114,29 +98,20 @@ function ComparisonReportView({ report }: { report: VariantComparisonReport }) {
         </table>
       </div>
 
-      <p className="text-[10px] text-[var(--text-secondary)]">
-        Comparação observacional — não implica causalidade nem significância estatística.
-      </p>
+      <p className="text-[10px] text-[var(--text-secondary)]">{t("report.disclaimer")}</p>
     </div>
   );
 }
 
-export default function HypothesesPanel({
-  campaignId,
-  derivations,
-}: HypothesesPanelProps) {
+export default function HypothesesPanel({ campaignId, derivations }: HypothesesPanelProps) {
+  const t = useTranslations("campaigns.hypotheses");
   const [showForm, setShowForm] = useState(false);
-  const [activeReport, setActiveReport] = useState<VariantComparisonReport | null>(
-    null
-  );
+  const [activeReport, setActiveReport] = useState<VariantComparisonReport | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   const [variableKey, setVariableKey] = useState("cta");
-  const [primaryMetric, setPrimaryMetric] =
-    useState<HypothesisPrimaryMetric>("ctr");
-  const [expectedDirection, setExpectedDirection] = useState<"increase" | "decrease">(
-    "increase"
-  );
+  const [primaryMetric, setPrimaryMetric] = useState<HypothesisPrimaryMetric>("ctr");
+  const [expectedDirection, setExpectedDirection] = useState<"increase" | "decrease">("increase");
   const [rationale, setRationale] = useState("");
   const [controlId, setControlId] = useState("");
   const [variantId, setVariantId] = useState("");
@@ -157,17 +132,17 @@ export default function HypothesesPanel({
 
   const derivationMap = useMemo(
     () => new Map(derivations.map((d) => [d.id, d.label])),
-    [derivations]
+    [derivations],
   );
 
   const handleCreate = async () => {
     setMessage(null);
     if (!controlId || !variantId || controlId === variantId) {
-      setMessage("Selecione controle e variação distintos.");
+      setMessage(t("errors.distinctVariants"));
       return;
     }
     if (!rationale.trim()) {
-      setMessage("Informe a justificativa da hipótese.");
+      setMessage(t("errors.rationaleRequired"));
       return;
     }
     try {
@@ -185,7 +160,7 @@ export default function HypothesesPanel({
       setShowForm(false);
       setRationale("");
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : "Erro ao criar hipótese");
+      setMessage(err instanceof Error ? err.message : t("errors.createFailed"));
     }
   };
 
@@ -195,14 +170,14 @@ export default function HypothesesPanel({
       const result = await compareHypothesis.mutateAsync(hypothesisId);
       setActiveReport(result.report);
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : "Erro na comparação");
+      setMessage(err instanceof Error ? err.message : t("errors.compareFailed"));
     }
   };
 
   const handleObservational = async () => {
     setMessage(null);
     if (obsIds.length < 2) {
-      setMessage("Selecione pelo menos duas derivações.");
+      setMessage(t("errors.minDerivations"));
       return;
     }
     try {
@@ -213,44 +188,48 @@ export default function HypothesesPanel({
       });
       setActiveReport(result.report);
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : "Erro na comparação");
+      setMessage(err instanceof Error ? err.message : t("errors.compareFailed"));
     }
   };
 
   const toggleObsId = (id: string) => {
-    setObsIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
+    setObsIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
   if (derivations.length < 2) {
+    return <p className="text-sm text-[var(--text-secondary)]">{t("insufficientDerivations")}</p>;
+  }
+
+  if (hypothesesQuery.isLoading || comparisonsQuery.isLoading) {
+    return <p className="text-sm text-[var(--text-secondary)]">{t("loading")}</p>;
+  }
+
+  if (hypothesesQuery.isError || comparisonsQuery.isError) {
     return (
-      <p className="text-sm text-[var(--text-secondary)]">
-        Crie pelo menos duas derivações e importe resultados antes de registrar hipóteses.
+      <p className="text-sm text-[var(--danger-text)]" role="alert">
+        {t("loadError")}
       </p>
     );
   }
 
   return (
-    <div className="space-y-4 rounded-lg border border-[var(--border-dim)] bg-[var(--bg-surface)] p-4">
+    <div className="space-y-4 rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h3 className="text-sm font-medium">Hipóteses criativas</h3>
-          <p className="text-xs text-[var(--text-secondary)]">
-            Experimentos com variável principal e vereditos honestos sobre os dados importados.
-          </p>
+          <h3 className="text-sm font-medium text-[var(--text-primary)]">{t("title")}</h3>
+          <p className="text-xs text-[var(--text-secondary)]">{t("subtitle")}</p>
         </div>
         <button
           type="button"
-          className="rounded-md border border-[var(--border-dim)] px-3 py-1.5 text-xs hover:bg-[var(--bg-elevated)]"
+          className="min-h-9 rounded-md border border-[var(--border-dim)] px-3 py-1.5 text-xs hover:bg-[var(--surface-raised)]"
           onClick={() => setShowForm((v) => !v)}
         >
-          {showForm ? "Cancelar" : "Nova hipótese"}
+          {showForm ? t("cancel") : t("newHypothesis")}
         </button>
       </div>
 
       {message ? (
-        <p className="text-xs text-red-500" role="alert">
+        <p className="text-xs text-[var(--danger-text)]" role="alert">
           {message}
         </p>
       ) : null}
@@ -258,47 +237,43 @@ export default function HypothesesPanel({
       {showForm ? (
         <div className="grid gap-3 rounded-md border border-dashed border-[var(--border-dim)] p-3 text-sm">
           <label className="grid gap-1">
-            <span className="text-xs text-[var(--text-secondary)]">Variável principal</span>
+            <span className="text-xs text-[var(--text-secondary)]">{t("form.variableKey")}</span>
             <input
               className="rounded border border-[var(--border-dim)] bg-transparent px-2 py-1"
               value={variableKey}
               onChange={(e) => setVariableKey(e.target.value)}
-              placeholder="ex: cta, formato, headline"
+              placeholder={t("form.variableKeyPlaceholder")}
             />
           </label>
           <div className="grid grid-cols-2 gap-3">
             <label className="grid gap-1">
-              <span className="text-xs text-[var(--text-secondary)]">Métrica primária</span>
+              <span className="text-xs text-[var(--text-secondary)]">{t("form.primaryMetric")}</span>
               <select
                 className="rounded border border-[var(--border-dim)] bg-transparent px-2 py-1"
                 value={primaryMetric}
-                onChange={(e) =>
-                  setPrimaryMetric(e.target.value as HypothesisPrimaryMetric)
-                }
+                onChange={(e) => setPrimaryMetric(e.target.value as HypothesisPrimaryMetric)}
               >
                 {HYPOTHESIS_PRIMARY_METRICS.map((m) => (
                   <option key={m} value={m}>
-                    {METRIC_LABELS[m]}
+                    {t(`metrics.${m}`)}
                   </option>
                 ))}
               </select>
             </label>
             <label className="grid gap-1">
-              <span className="text-xs text-[var(--text-secondary)]">Direção esperada</span>
+              <span className="text-xs text-[var(--text-secondary)]">{t("form.expectedDirection")}</span>
               <select
                 className="rounded border border-[var(--border-dim)] bg-transparent px-2 py-1"
                 value={expectedDirection}
-                onChange={(e) =>
-                  setExpectedDirection(e.target.value as "increase" | "decrease")
-                }
+                onChange={(e) => setExpectedDirection(e.target.value as "increase" | "decrease")}
               >
-                <option value="increase">Aumentar</option>
-                <option value="decrease">Diminuir</option>
+                <option value="increase">{t("form.increase")}</option>
+                <option value="decrease">{t("form.decrease")}</option>
               </select>
             </label>
           </div>
           <label className="grid gap-1">
-            <span className="text-xs text-[var(--text-secondary)]">Justificativa</span>
+            <span className="text-xs text-[var(--text-secondary)]">{t("form.rationale")}</span>
             <textarea
               className="min-h-[72px] rounded border border-[var(--border-dim)] bg-transparent px-2 py-1"
               value={rationale}
@@ -307,13 +282,13 @@ export default function HypothesesPanel({
           </label>
           <div className="grid grid-cols-2 gap-3">
             <label className="grid gap-1">
-              <span className="text-xs text-[var(--text-secondary)]">Controle</span>
+              <span className="text-xs text-[var(--text-secondary)]">{t("form.control")}</span>
               <select
                 className="rounded border border-[var(--border-dim)] bg-transparent px-2 py-1"
                 value={controlId}
                 onChange={(e) => setControlId(e.target.value)}
               >
-                <option value="">Selecione…</option>
+                <option value="">{t("form.select")}</option>
                 {derivations.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.label}
@@ -322,13 +297,13 @@ export default function HypothesesPanel({
               </select>
             </label>
             <label className="grid gap-1">
-              <span className="text-xs text-[var(--text-secondary)]">Variação</span>
+              <span className="text-xs text-[var(--text-secondary)]">{t("form.variant")}</span>
               <select
                 className="rounded border border-[var(--border-dim)] bg-transparent px-2 py-1"
                 value={variantId}
                 onChange={(e) => setVariantId(e.target.value)}
               >
-                <option value="">Selecione…</option>
+                <option value="">{t("form.select")}</option>
                 {derivations.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.label}
@@ -338,13 +313,13 @@ export default function HypothesesPanel({
             </label>
           </div>
           <label className="grid gap-1">
-            <span className="text-xs text-[var(--text-secondary)]">Plataforma (opcional)</span>
+            <span className="text-xs text-[var(--text-secondary)]">{t("form.platformOptional")}</span>
             <select
               className="rounded border border-[var(--border-dim)] bg-transparent px-2 py-1"
               value={platform}
               onChange={(e) => setPlatform(e.target.value)}
             >
-              <option value="">Qualquer</option>
+              <option value="">{t("form.anyPlatform")}</option>
               {PERFORMANCE_PLATFORMS.map((p) => (
                 <option key={p} value={p}>
                   {p}
@@ -354,38 +329,33 @@ export default function HypothesesPanel({
           </label>
           <button
             type="button"
-            className="justify-self-start rounded-md bg-primary px-3 py-1.5 text-xs text-primary-foreground disabled:opacity-50"
+            className="justify-self-start rounded-md bg-[var(--accent-primary)] px-3 py-1.5 text-xs text-[var(--text-on-accent)] disabled:opacity-50"
             disabled={createHypothesis.isPending}
             onClick={handleCreate}
           >
-            Registrar hipótese
+            {t("form.submit")}
           </button>
         </div>
       ) : null}
 
       {hypotheses.length === 0 ? (
-        <p className="text-xs text-[var(--text-secondary)]">
-          Nenhuma hipótese registrada ainda.
-        </p>
+        <p className="text-xs text-[var(--text-secondary)]">{t("empty")}</p>
       ) : (
         <ul className="space-y-2">
           {hypotheses.map((h) => (
-            <li
-              key={h.id}
-              className="rounded-md border border-[var(--border-dim)] p-3 text-sm"
-            >
+            <li key={h.id} className="rounded-md border border-[var(--border-dim)] p-3 text-sm">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
-                  <p className="font-medium">
-                    {h.title ?? h.variableKey} · {METRIC_LABELS[h.primaryMetric]}
+                  <p className="font-medium text-[var(--text-primary)]">
+                    {h.title ?? h.variableKey} · {t(`metrics.${h.primaryMetric}`)}
                   </p>
                   <p className="text-xs text-[var(--text-secondary)]">{h.rationale}</p>
                   <p className="mt-1 text-[10px] uppercase tracking-wide text-[var(--text-secondary)]">
-                    Hipótese controlada · variável: {h.variableKey}
+                    {t("controlledTag", { variable: h.variableKey })}
                   </p>
                   {h.outcome ? (
-                    <span className="mt-1 inline-block rounded bg-[var(--bg-elevated)] px-2 py-0.5 text-xs">
-                      {OUTCOME_LABELS[h.outcome]}
+                    <span className="mt-1 inline-block rounded bg-[var(--surface-raised)] px-2 py-0.5 text-xs">
+                      {t(`outcomes.${h.outcome}`)}
                     </span>
                   ) : null}
                 </div>
@@ -396,22 +366,24 @@ export default function HypothesesPanel({
                     disabled={compareHypothesis.isPending}
                     onClick={() => handleCompare(h.id)}
                   >
-                    Comparar
+                    {t("compare")}
                   </button>
                   <button
                     type="button"
-                    className="rounded border border-red-500/40 px-2 py-1 text-xs text-red-500"
+                    className="rounded border border-[var(--danger-border)] px-2 py-1 text-xs text-[var(--danger-text)]"
                     onClick={() => deleteHypothesis.mutate(h.id)}
                   >
-                    Excluir
+                    {t("delete")}
                   </button>
                 </div>
               </div>
               <p className="mt-2 text-xs text-[var(--text-secondary)]">
                 {h.variants
-                  .map(
-                    (v) =>
-                      `${v.role}: ${derivationMap.get(v.derivationId) ?? v.derivationId.slice(0, 8)}`
+                  .map((v) =>
+                    t("variantRole", {
+                      role: v.role,
+                      label: derivationMap.get(v.derivationId) ?? v.derivationId.slice(0, 8),
+                    }),
                   )
                   .join(" · ")}
               </p>
@@ -422,11 +394,9 @@ export default function HypothesesPanel({
 
       <div className="border-t border-[var(--border-dim)] pt-4">
         <h4 className="text-xs font-medium uppercase tracking-wide text-[var(--text-secondary)]">
-          Comparação observacional
+          {t("observationalTitle")}
         </h4>
-        <p className="mb-2 text-xs text-[var(--text-secondary)]">
-          Compare derivações sem hipótese formal — resultado rotulado como observação de mídia.
-        </p>
+        <p className="mb-2 text-xs text-[var(--text-secondary)]">{t("observationalSubtitle")}</p>
         <div className="flex flex-wrap gap-2">
           {derivations.map((d) => (
             <label
@@ -450,17 +420,17 @@ export default function HypothesesPanel({
           >
             {HYPOTHESIS_PRIMARY_METRICS.map((m) => (
               <option key={m} value={m}>
-                {METRIC_LABELS[m]}
+                {t(`metrics.${m}`)}
               </option>
             ))}
           </select>
           <button
             type="button"
-            className="rounded-md border border-[var(--border-dim)] px-3 py-1.5 text-xs"
+            className="min-h-9 rounded-md border border-[var(--border-dim)] px-3 py-1.5 text-xs"
             disabled={observational.isPending}
             onClick={handleObservational}
           >
-            Comparar (observacional)
+            {t("observationalCompare")}
           </button>
         </div>
       </div>
@@ -469,16 +439,14 @@ export default function HypothesesPanel({
 
       {recentComparisons.length > 0 && !activeReport ? (
         <div className="text-xs text-[var(--text-secondary)]">
-          Última comparação: {VERDICT_LABELS[recentComparisons[0]!.verdict]}
+          {t("lastComparison", { verdict: t(`verdicts.${recentComparisons[0]!.verdict}`) })}
           {recentComparisons[0]?.variantResults ? (
             <button
               type="button"
               className="ml-2 underline"
-              onClick={() =>
-                setActiveReport(recentComparisons[0]!.variantResults ?? null)
-              }
+              onClick={() => setActiveReport(recentComparisons[0]!.variantResults ?? null)}
             >
-              Ver relatório
+              {t("viewReport")}
             </button>
           ) : null}
         </div>

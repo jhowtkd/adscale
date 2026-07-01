@@ -152,7 +152,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
             onChange={(e) => updateField("name", e.target.value)}
             className={cn(
               "h-10 bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]",
-              "focus:border-[var(--accent-green)] focus:ring-[3px] focus:ring-[var(--accent-green-dim)0.15)]",
+              "focus:border-[var(--accent-green)] focus:ring-[3px] focus:ring-[var(--accent-green-dim)]",
               errors.name && "border-[var(--accent-rose)] ring-[3px] ring-[rgba(244,63,94,0.15)]"
             )}
             autoFocus
@@ -176,7 +176,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
             onChange={(e) => updateField("client", e.target.value)}
             className={cn(
               "h-10 bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]",
-              "focus:border-[var(--accent-green)] focus:ring-[3px] focus:ring-[var(--accent-green-dim)0.15)]",
+              "focus:border-[var(--accent-green)] focus:ring-[3px] focus:ring-[var(--accent-green-dim)]",
               errors.client && "border-[var(--accent-rose)] ring-[3px] ring-[rgba(244,63,94,0.15)]"
             )}
           />
@@ -229,7 +229,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
             rows={2}
             value={formData.audience}
             onChange={(e) => updateField("audience", e.target.value)}
-            className="bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-green)] focus:ring-[3px] focus:ring-[var(--accent-green-dim)0.15)] resize-none"
+            className="bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-green)] focus:ring-[3px] focus:ring-[var(--accent-green-dim)] resize-none"
           />
         </div>
 
@@ -243,7 +243,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
             rows={2}
             value={formData.constraints}
             onChange={(e) => updateField("constraints", e.target.value)}
-            className="bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-blue)] focus:ring-[3px] focus:ring-[rgba(99,102,241,0.15)] resize-none"
+            className="bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-green)] focus:ring-[3px] focus:ring-[var(--accent-green-dim)] resize-none"
           />
           <p className="text-xs text-[var(--text-muted)] mt-1">
             {tBriefing("constraintsHelp")}
@@ -271,7 +271,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
               rows={3}
               value={formData.notes}
               onChange={(e) => updateField("notes", e.target.value)}
-              className="bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-green)] focus:ring-[3px] focus:ring-[var(--accent-green-dim)0.15)] resize-none"
+              className="bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-green)] focus:ring-[3px] focus:ring-[var(--accent-green-dim)] resize-none"
             />
           </div>
         )}
@@ -322,7 +322,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
           <button
             type="button"
             onClick={handleContinue}
-            className="inline-flex items-center justify-center rounded-md px-6 py-2.5 text-sm font-medium text-[var(--accent-green-on-fill)] transition-all duration-200 bg-[var(--accent-green)] hover:bg-[var(--accent-green-light)] hover:-translate-y-px active:scale-[0.98]"
+            className="inline-flex items-center justify-center rounded-md bg-[var(--accent-green)] px-6 py-2.5 text-sm font-medium text-[var(--accent-green-on-fill)] transition-colors duration-200 hover:bg-[var(--accent-green-light)] active:scale-[0.98]"
           >
             {tBriefing("saveContinue")}
           </button>

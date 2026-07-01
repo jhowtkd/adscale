@@ -3,7 +3,7 @@
 import { useMemo, useState, type FormEvent, type KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { ArrowUp, Loader2, Mic, Plus } from "lucide-react";
+import { ArrowUp, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useClientProfiles } from "@/lib/hooks/use-client-profiles";
@@ -139,6 +139,16 @@ export default function AssistantStartComposer({
     !createThread.isPending &&
     !upsertGuidedFlow.isPending;
   const journeyDisabled = createThread.isPending || upsertGuidedFlow.isPending;
+  const threadError =
+    createThread.error instanceof Error
+      ? createThread.error.message
+      : createThread.isError
+        ? t("createError")
+        : upsertGuidedFlow.error instanceof Error
+          ? upsertGuidedFlow.error.message
+          : upsertGuidedFlow.isError
+            ? t("createError")
+            : null;
 
   return (
     <div
@@ -153,6 +163,12 @@ export default function AssistantStartComposer({
         onSelectPath={(path) => void startJourney(path)}
         disabled={journeyDisabled}
       />
+
+      {threadError ? (
+        <p className="w-full max-w-2xl rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-3 text-sm text-[var(--danger-text)]" role="alert">
+          {threadError}
+        </p>
+      ) : null}
 
       <form
         onSubmit={handleSubmit}
@@ -173,49 +189,27 @@ export default function AssistantStartComposer({
             aria-label={promptHeading}
           />
           <div className="flex items-center justify-between gap-2 px-3 pb-3">
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-label={t("accessFull")}
-                className="text-[var(--text-muted)]"
-              >
-                <Plus className="size-4" aria-hidden="true" />
-              </Button>
-              <span className="rounded-md border border-[var(--border-dim)] px-2 py-1 text-xs text-[var(--text-secondary)]">
-                {t("accessFull")}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-label={t("modelHigh")}
-                className="text-[var(--text-muted)]"
-              >
-                <Mic className="size-4" aria-hidden="true" />
-              </Button>
-              <Button
-                type="submit"
-                size="icon"
-                disabled={!canSend}
-                aria-label={t("send")}
-                className={cn(
-                  "rounded-full",
-                  canSend
-                    ? "bg-[var(--accent-primary)] text-white"
-                    : "bg-[var(--surface-secondary)] text-[var(--text-muted)]"
-                )}
-              >
+            <span className="rounded-md border border-[var(--border-dim)] px-2 py-1 text-xs text-[var(--text-secondary)]">
+              {t("accessFull")}
+            </span>
+            <Button
+              type="submit"
+              size="icon"
+              disabled={!canSend}
+              aria-label={t("send")}
+              className={cn(
+                "size-11 rounded-full",
+                canSend
+                  ? "bg-[var(--accent-primary)] text-[var(--text-on-accent)] hover:bg-[var(--accent-primary-hover)]"
+                  : "bg-[var(--surface-inset)] text-[var(--text-muted)]"
+              )}
+            >
                 {createThread.isPending ? (
                   <Loader2 className="size-4 animate-spin" aria-hidden="true" />
                 ) : (
                   <ArrowUp className="size-4" aria-hidden="true" />
                 )}
-              </Button>
-            </div>
+            </Button>
           </div>
         </div>
       </form>

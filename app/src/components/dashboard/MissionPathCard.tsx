@@ -49,7 +49,7 @@ export default function MissionPathCard() {
 
   if (isLoading && !data) {
     return (
-      <div className="glass-card rounded-xl overflow-hidden mt-4" aria-busy="true">
+      <div className="mt-4 overflow-hidden rounded-xl border border-[var(--border-dim)] bg-[var(--surface-base)]" aria-busy="true">
         <div className="px-5 py-4 border-b border-[var(--border-dim)]">
           <div className="h-4 w-48 bg-[var(--surface-raised)] rounded animate-pulse" />
         </div>
@@ -63,7 +63,7 @@ export default function MissionPathCard() {
 
   if (isError && !data) {
     return (
-      <div className="glass-card rounded-xl overflow-hidden mt-4">
+      <div className="mt-4 overflow-hidden rounded-xl border border-[var(--border-dim)] bg-[var(--surface-base)]">
         <div className="px-5 py-4 border-b border-[var(--border-dim)] flex items-center gap-2">
           <FlaskConical size={16} className="text-[var(--accent-green)]" aria-hidden="true" />
           <h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("title")}</h2>
@@ -100,7 +100,7 @@ export default function MissionPathCard() {
   const allComplete = completedCount === totalCount;
 
   return (
-    <div className="glass-card rounded-xl overflow-hidden mt-4">
+    <div className="mt-4 overflow-hidden rounded-xl border border-[var(--border-dim)] bg-[var(--surface-base)]">
       <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border-dim)]">
         <div className="flex items-center gap-2">
           <FlaskConical size={16} className="text-[var(--accent-green)]" aria-hidden="true" />

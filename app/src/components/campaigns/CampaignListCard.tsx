@@ -68,9 +68,9 @@ function CampaignListCard({
 
   return (
     <div
-      aria-label={`${campaign.name}, status ${campaign.status}`}
+      aria-labelledby={`campaign-${campaign.id}-name`}
       className={cn("animate-fade-in",
-        "group relative rounded-xl border bg-[var(--surface-base)] p-4 transition-all duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-green)]",
+        "group relative rounded-xl border bg-[var(--surface-base)] p-4 transition-all duration-150 cursor-pointer outline-none focus-within:ring-2 focus-within:ring-[var(--accent-green)]",
         selected
           ? "border-[var(--accent-green)] bg-[var(--accent-green-dim)]"
           : "border-[var(--border-dim)] hover:border-[var(--border-medium)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)]"
@@ -95,7 +95,7 @@ function CampaignListCard({
       <div className="relative z-10 flex items-start gap-3">
         {/* Checkbox */}
         <div
-          className="shrink-0 pt-0.5"
+          className="flex shrink-0 items-center justify-center pt-0.5"
           onClick={(e) => e.stopPropagation()}
         >
           <label className="sr-only" htmlFor={`select-${campaign.id}`}>Select {campaign.name}</label>
@@ -125,7 +125,10 @@ function CampaignListCard({
 
         {/* Name + Platforms */}
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-[var(--text-primary)] group-hover:text-[var(--accent-green)] transition-colors duration-150 truncate">
+          <p
+            id={`campaign-${campaign.id}-name`}
+            className="text-sm font-semibold text-[var(--text-primary)] group-hover:text-[var(--accent-green)] transition-colors duration-150 truncate"
+          >
             {campaign.name}
           </p>
           <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
@@ -136,8 +139,8 @@ function CampaignListCard({
                   key={platform}
                   className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
                   style={{
-                    backgroundColor: colors?.bg || "rgba(99,102,241,0.12)",
-                    color: colors?.text || "#818cf8",
+                    backgroundColor: colors?.bg || "var(--neutral-bg)",
+                    color: colors?.text || "var(--neutral-text)",
                   }}
                 >
                   {platform}
@@ -151,8 +154,9 @@ function CampaignListCard({
         <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
           <DropdownMenu>
             <DropdownMenuTrigger
+              aria-label={tCampaigns("v6.actionsFor", { name: campaign.name })}
               className={cn(
-                "flex items-center justify-center size-8 rounded-md",
+                "flex min-h-11 min-w-11 items-center justify-center rounded-md",
                 "text-[var(--text-muted)]",
                 "hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)]",
                 "transition-all duration-200"

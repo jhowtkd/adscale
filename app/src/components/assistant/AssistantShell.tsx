@@ -30,11 +30,11 @@ export default function AssistantShell({
   };
 
   return (
-    <div className="min-h-[var(--shell-min-height-below-topbar,100vh)] bg-[var(--surface-base)]">
+    <div className="min-h-screen bg-[var(--surface-base)]">
         <div
           data-testid="assistant-desktop-layout"
           className={cn(
-            "hidden min-h-[var(--shell-min-height-below-topbar,100vh)] md:grid",
+            "hidden min-h-screen md:grid",
             contextOpen ? "grid-cols-[240px_1fr_320px]" : "grid-cols-[240px_1fr]"
           )}
         >
@@ -83,7 +83,7 @@ export default function AssistantShell({
 
         <div
           data-testid="assistant-mobile-layout"
-          className="shell-offset-bottom-mobile min-h-[var(--shell-min-height-below-topbar,100vh)] md:hidden"
+          className="shell-offset-bottom-mobile min-h-screen md:hidden"
         >
           {mobileTab === "tree" ? (
             <div data-testid="assistant-mobile-tree">{sidebar}</div>

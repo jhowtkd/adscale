@@ -1,4 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 import { apiFetch } from "@/lib/api-client";
 import { STALE_TIME } from "@/lib/query-config";
 
@@ -38,7 +40,7 @@ export function useWorkspaceAssets(options: {
   const queryString = params.toString();
   const url = `/api/workspace/assets${queryString ? `?${queryString}` : ""}`;
 
-  return useQuery<{ assets: WorkspaceAsset[] }>({
+  return useQuery<{ assets: WorkspaceAsset[]; total: number }>({
     queryKey: ["workspace-assets", options],
     queryFn: async () => {
       const res = await apiFetch(url);
@@ -51,6 +53,7 @@ export function useWorkspaceAssets(options: {
 
 export function useDeleteWorkspaceAsset() {
   const queryClient = useQueryClient();
+  const t = useTranslations("common");
 
   return useMutation({
     mutationFn: async (id: string) => {
@@ -62,6 +65,9 @@ export function useDeleteWorkspaceAsset() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["workspace-assets"] });
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : t("error"));
     },
   });
 }

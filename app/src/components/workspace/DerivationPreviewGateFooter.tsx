@@ -105,7 +105,7 @@ export default function DerivationPreviewGateFooter({
             <p className="font-medium text-[var(--text-primary)]">{t("batchCostPending")}</p>
           )}
           {insufficient ? (
-            <p className="text-[var(--destructive)]">
+            <p className="text-[var(--danger-text)]">
               {conversionPayload
                 ? tConversion(`reasons.${conversionPayload.reason}`)
                 : t("insufficientCredits", {
