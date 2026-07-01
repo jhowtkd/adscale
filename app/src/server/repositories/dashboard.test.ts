@@ -101,6 +101,7 @@ describe("getDashboardStats", () => {
     expect(result.creditsRemaining).toBe(500);
     expect(result.subscription.planKey).toBe("starter");
     expect(result.recentCampaigns).toHaveLength(1);
+    expect(result.recentCampaigns[0]?.platforms).toEqual(["Meta"]);
     expect(result.recentCampaigns[0]?.thumbnailUrl).toBeNull();
     expect(result.creditUsageSeries).toHaveLength(7);
     expect(mockGetCreditTransactionsForWorkspace).toHaveBeenCalledWith(

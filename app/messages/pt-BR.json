@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "title": "ADScale — Fluxo de curadoria para variações criativas",
+    "title": "ADScale — Fluxo de supervisão para variações criativas",
     "description": "De uma peça base e um briefing a um lote de variações prontas — você faz o briefing, a IA auxilia, você cura o que vai ao ar."
   },
   "navigation": {
@@ -9,6 +9,8 @@
     "templates": "Templates",
     "settings": "Configurações",
     "restyling": "Restilização",
+    "creativeIntelligence": "Inteligência criativa",
+    "more": "Mais",
     "logout": "Sair",
     "login": "Entrar",
     "signup": "Criar conta",
@@ -85,7 +87,7 @@
     "showingResults": "Mostrando {start}-{end} de {total} campanhas",
     "noCampaignsMatch": "Nenhuma campanha corresponde à sua busca",
     "adjustFilters": "Tente ajustar seus termos de busca ou filtros",
-    "noCampaignsYet": "Nenhuma campanha na sua fila de curadoria",
+    "noCampaignsYet": "Nenhuma campanha na sua fila de aprovação",
     "createFirstCampaign": "Defina um briefing estruturado, gere variações em batch e cure o que vai ao ar—crie sua primeira campanha para começar.",
     "clearAllFilters": "Limpar todos os filtros",
     "errorLoading": "Erro ao carregar campanhas",
@@ -329,7 +331,7 @@
         "type": "Tipo",
         "file": "Arquivo",
         "counts": "C/U/I/X",
-        "empty": "Nenhuma importação registrada."
+        "empty": "Nenhuma importação registrada. Use as abas \"Manual\" ou \"CSV\" para enviar resultados de performance."
       },
       "parseOptions": {
         "defaultCurrency": "Moeda padrão",
@@ -418,7 +420,7 @@
       "viewGrid": "Visualização em grade",
       "viewList": "Visualização em lista",
       "emptyNoResults": "Nenhuma campanha corresponde à busca",
-      "emptyNoCampaigns": "Sua fila de curadoria está vazia",
+      "emptyNoCampaigns": "Sua fila de aprovação está vazia",
       "emptyAdjustSearch": "Tente ajustar os termos de busca",
       "emptyCreateHint": "Defina seu briefing, rode um batch de variações e cure o que vai ao ar—comece pela sua primeira campanha.",
       "createCampaign": "Criar campanha",
@@ -765,7 +767,7 @@
       "Google": "Google Ads"
     },
     "manageCampaigns": "Faça briefing, gere lotes e cure campanhas no seu workspace",
-    "manageCampaignsShort": "Briefing → lote → curadoria de variações criativas",
+    "manageCampaignsShort": "Briefing → lote → supervisão de variações criativas",
     "listSubtitle": "{count, plural, one {# campanha} other {# campanhas}}",
     "searchPlaceholder": "Buscar campanhas...",
     "v6": {
@@ -1231,7 +1233,7 @@
     "qaReady": "Pronta",
     "qaWarning": "Atenção",
     "qaReview": "Revisar",
-    "emptyTitle": "Nenhuma variação para curar ainda",
+    "emptyTitle": "Nenhuma variação para revisar ainda",
     "emptyDescription": "Defina seu briefing e rode um batch de geração—as variações aparecerão aqui para você aprovar ou refinar.",
     "emptyAction": "Rodar batch de geração",
     "selectAll": "Selecionar tudo",
@@ -1553,7 +1555,7 @@
     "welcomeBack": "Bem-vindo de volta",
     "signInSubtitle": "Entre na sua conta ADScale",
     "createAccountTitle": "Crie sua conta",
-    "signUpSubtitle": "Entre como curador — a IA auxilia em lotes de variações a partir da sua peça base; você aprova o que vai ao ar.",
+    "signUpSubtitle": "Entre para supervisionar variações — a IA auxilia em lotes a partir da sua peça base; você aprova o que vai ao ar.",
     "name": "Nome",
     "signingIn": "Entrando...",
     "creatingAccount": "Criando conta...",
@@ -1609,7 +1611,7 @@
     "v6": {
       "sectionLabel": "ADScale",
       "accessLabel": "acesso",
-      "brandTitle": "Curadoria criativa com IA no loop",
+      "brandTitle": "Supervisão criativa com IA no loop",
       "brandSubtitle": "De uma peça base e um briefing a um lote de variações prontas — você faz o briefing, a IA auxilia, você cura o que vai ao ar.",
       "featureBriefTitle": "Briefing estruturado",
       "featureBriefBody": "Capture objetivo, público e tom antes de gerar qualquer variação.",
@@ -1631,7 +1633,7 @@
     "workspace": {
       "title": "Workspace",
       "namePlaceholder": "Nome do workspace",
-      "descriptionPlaceholder": "Seu workspace de curadoria para briefing, lotes e revisão",
+      "descriptionPlaceholder": "Seu workspace de supervisão para briefing, lotes e revisão",
       "urlPlaceholder": "https://suempresa.com",
       "readOnlyNotice": "Você tem acesso somente leitura às configurações do workspace. Peça a um administrador para fazer alterações."
     },
@@ -1722,7 +1724,7 @@
       "workspaceCard": "Nome, domínio e identidade visual do workspace compartilhado.",
       "billingCard": "Plano atual, método de pagamento e histórico de cobranças via Stripe.",
       "creditHistoryCard": "Acompanhe onde seus créditos foram utilizados.",
-      "plansCard": "Starter / Pro / Scale — compare benefícios e faça upgrade.",
+      "plansCard": "Starter / Growth / Scale — compare benefícios e faça upgrade.",
       "integrationsCard": "Conecte Meta, Google, TikTok e webhooks ao seu fluxo.",
       "privacyCard": "Preferências de privacidade e dados da conta.",
       "badges": {
@@ -1963,6 +1965,7 @@
     "styleReference": "Referência de estilo",
     "ctaInheritedFromBase": "Herdado do criativo base",
     "notSpecified": "Não informado",
+    "notYetEvaluated": "Ainda não avaliado",
     "assetNotAvailable": "Asset indisponível",
     "styleNotProvided": "Não informado",
     "unknownMode": "Modo não informado",
@@ -2048,7 +2051,7 @@
     "generation": "Config. do lote",
     "plan": "Lote de variações",
     "gallery": "Galeria",
-    "review": "Curadoria",
+    "review": "Supervisão",
     "continueToUpload": "Continuar para peça base →",
     "backToBrief": "← Voltar para Briefing",
     "continueToGeneration": "Continuar para config. do lote →",
@@ -2058,7 +2061,7 @@
     "generatePlan": "Gerar lote de variações →",
     "startGeneration": "Iniciar geração do lote →",
     "backToPlan": "← Voltar para Galeria",
-    "reviewAll": "Curar lote →",
+    "reviewAll": "Revisar lote →",
     "backToGallery": "← Voltar para Galeria",
     "exportSelected": "Exportar selecionados",
     "goToStep": "Ir para {step}",
@@ -2207,13 +2210,13 @@
     "finish": "Começar",
     "stepProgress": "Passo {current} de {total}: {title}",
     "step1Title": "Bem-vindo ao ADScale",
-    "step1Desc": "Você é o curador neste workspace. Defina seu briefing aqui, rode variações em batch e aprove o que vai ao ar.",
-    "step2Title": "Produção ativa",
-    "step2Desc": "Sua campanha em andamento fica aqui—acompanhe briefing, variações, aprovações e créditos de relance.",
-    "step3Title": "Sua fila de curadoria",
-    "step3Desc": "Campanhas recentes são sua fila de revisão. Abra uma campanha para curar variações, aprovar o que entrega e exportar pacotes.",
-    "step4Title": "Atalhos de receitas",
-    "step4Desc": "Templates e receitas salvos aceleram novos batches—escolha um para pré-preencher o briefing e lançar mais rápido.",
+    "step1Desc": "Você supervisiona este workspace. Defina seu briefing aqui, rode variações em batch e aprove o que vai ao ar.",
+    "step2Title": "Entradas de briefing",
+    "step2Desc": "As ações rápidas alimentam seu briefing—criativo base, biblioteca ou restilização dão ponto de partida para o próximo batch.",
+    "step3Title": "Sua fila de aprovação",
+    "step3Desc": "Campanhas recentes são sua fila de revisão. Abra uma campanha para revisar variações, tomar decisões de aprovação e exportar pacotes.",
+    "step4Title": "Comece pelo briefing",
+    "step4Desc": "Crie uma campanha com briefing estruturado antes da geração—do zero ou a partir de um template salvo."
     "step5Title": "Créditos do workspace",
     "step5Desc": "Créditos sustentam geração em batch no workspace. Acompanhe saldo disponível e consumo mensal aqui."
   },
@@ -2236,7 +2239,7 @@
     "formats": "Formatos",
     "deleteConfirm": "Tem certeza que deseja excluir este template?",
     "emptyTitle": "Nenhum template de briefing ainda",
-    "emptyDescription": "Salve o briefing de uma campanha como template para reutilizar seus padrões de curadoria em novas campanhas."
+    "emptyDescription": "Salve o briefing de uma campanha como template para reutilizar seus padrões de briefing e aprovação em novas campanhas."
   },
   "library": {
     "title": "Biblioteca",
@@ -2610,11 +2613,11 @@
       "preview": "Obrigado pelo interesse — avisaremos quando abrirmos.",
       "title": "Você entrou na lista de espera",
       "body": "Recebemos seu cadastro. Quando o ADScale abrir para novos usuários, você será um dos primeiros a saber.",
-      "text": "Você está na lista de espera do ADScale. Avisaremos por email quando abrirmos o acesso."
+      "text": "Você está na lista de espera do ADScale. Avisaremos por e-mail quando abrirmos o acesso."
     }
   },
   "waitlist": {
-    "duplicateEmail": "Este email já está na nossa lista de espera."
+    "duplicateEmail": "Este e-mail já está na nossa lista de espera."
   },
   "notifications": {
     "derivationCompleteSubject": "Suas variações criativas estão prontas",

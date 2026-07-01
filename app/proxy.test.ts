@@ -53,6 +53,11 @@ describe("proxy auth routing", () => {
     expect(res.headers.get("location")).toBe("http://localhost:3000/");
   });
 
+  it("sets X-Robots-Tag on auth entry paths", async () => {
+    const res = await proxy(requestFor("/login"));
+    expect(res.headers.get("X-Robots-Tag")).toBe("noindex, nofollow");
+  });
+
   it("falls back to /login for / when MARKETING_URL is unset", async () => {
     delete process.env.MARKETING_URL;
     const res = await proxy(requestFor("/"));

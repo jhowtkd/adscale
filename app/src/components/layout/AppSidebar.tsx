@@ -116,18 +116,13 @@ export default function AppSidebar({ variant = "production" }: { variant?: AppSi
         <NavItem
           href={isPreview ? "#" : "/assistant"}
           active={!isPreview && pathname.startsWith("/assistant")}
-          label="Curador IA"
+          label={tNav("creativeIntelligence")}
           badge="BETA"
         />
         <NavItem
           href={isPreview ? "#" : "/restyling"}
           active={!isPreview && pathname.startsWith("/restyling")}
           label={tNav("restyling")}
-        />
-        <NavItem
-          href={isPreview ? "#" : "/templates"}
-          active={!isPreview && pathname.startsWith("/templates")}
-          label="Receita de estratégia"
         />
       </div>
 

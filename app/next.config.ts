@@ -33,6 +33,7 @@ const marketingUpstream =
   "https://adscale-marketing.onrender.com";
 
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
   output: 'standalone',
   outputFileTracingRoot: process.cwd(),
   async rewrites() {

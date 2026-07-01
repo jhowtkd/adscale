@@ -120,6 +120,10 @@ export async function proxy(request: NextRequest) {
 
   const response = NextResponse.next();
 
+  if (isAuthEntryPath(pathname)) {
+    response.headers.set("X-Robots-Tag", "noindex, nofollow");
+  }
+
   if (!request.cookies.get("locale")?.value) {
     response.cookies.set("locale", locale, {
       maxAge: 60 * 60 * 24 * 365,

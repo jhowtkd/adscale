@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "title": "ADScale — Curator Workflow for Creative Variations",
-    "description": "From one base creative and brief to a batch of platform-ready variations — you brief, AI assists, you curate what ships."
+    "title": "ADScale — Supervision Workflow for Creative Variations",
+    "description": "From one base creative and brief to a batch of platform-ready variations — you brief, AI assists, you approve what ships."
   },
   "navigation": {
     "dashboard": "Dashboard",
@@ -9,6 +9,8 @@
     "templates": "Templates",
     "settings": "Settings",
     "restyling": "Restyling",
+    "creativeIntelligence": "Creative intelligence",
+    "more": "More",
     "logout": "Logout",
     "login": "Login",
     "signup": "Sign up",
@@ -86,7 +88,7 @@
     "noCampaignsMatch": "No campaigns match your search",
     "adjustFilters": "Try adjusting your search terms or filters",
     "noCampaignsYet": "No campaigns in your curation queue",
-    "createFirstCampaign": "Define a structured brief, generate variations as a batch, then curate what ships—create your first campaign to begin.",
+    "createFirstCampaign": "Define a structured brief, generate variations as a batch, then approve what ships—create your first campaign to begin.",
     "clearAllFilters": "Clear all filters",
     "errorLoading": "Error loading campaigns",
     "deleteCampaignConfirm": "Are you sure you want to delete \"{name}\"? This action cannot be undone.",
@@ -329,7 +331,7 @@
         "type": "Type",
         "file": "File",
         "counts": "C/U/I/X",
-        "empty": "No imports recorded."
+        "empty": "No imports yet. Use the Manual or CSV tabs to upload performance results."
       },
       "parseOptions": {
         "defaultCurrency": "Default currency",
@@ -420,7 +422,7 @@
       "emptyNoResults": "No campaigns match your search",
       "emptyNoCampaigns": "Your curation queue is empty",
       "emptyAdjustSearch": "Try adjusting your search terms",
-      "emptyCreateHint": "Define your brief, run a batch of variations, then curate what ships—start with your first campaign.",
+      "emptyCreateHint": "Define your brief, run a batch of variations, then approve what ships—start with your first campaign.",
       "createCampaign": "Create campaign",
       "errorTitle": "Failed to load",
       "errorDescription": "Could not load dashboard",
@@ -764,8 +766,8 @@
       "TikTok": "TikTok Ads",
       "Google": "Google Ads"
     },
-    "manageCampaigns": "Brief, generate batches, and curate campaigns in your workspace",
-    "manageCampaignsShort": "Brief → batch → curate creative variations",
+    "manageCampaigns": "Brief, generate batches, and supervise campaigns in your workspace",
+    "manageCampaignsShort": "Brief → batch → supervise creative variations",
     "listSubtitle": "{count, plural, one {# campaign} other {# campaigns}}",
     "searchPlaceholder": "Search campaigns...",
     "v6": {
@@ -813,7 +815,7 @@
     "viewBoard": "Board",
     "deleteTitle": "Delete campaign",
     "createNew": "Create New Campaign",
-    "createDescription": "Start with briefing and your base creative. Generate a variation batch, then curate what ships.",
+    "createDescription": "Start with briefing and your base creative. Generate a variation batch, then approve what ships.",
     "clientProfile": "Client Profile",
     "selectClientProfile": "Select a client profile",
     "keyCreative": "Key Creative",
@@ -843,7 +845,7 @@
       },
       "formatAdaptation": {
         "label": "Vary format",
-        "description": "AI-assisted format adaptations to 1:1, 4:5, and 9:16 — you curate outputs before export"
+        "description": "AI-assisted format adaptations to 1:1, 4:5, and 9:16 — you supervise outputs before export"
       }
     },
     "continueToPlan": "Continue to Plan",
@@ -919,7 +921,7 @@
       },
       "formatAdaptation": {
         "label": "Vary format",
-        "description": "AI-assisted format adaptations to 1:1, 4:5, and 9:16 — you curate outputs before export"
+        "description": "AI-assisted format adaptations to 1:1, 4:5, and 9:16 — you supervise outputs before export"
       },
       "restyling": {
         "label": "Restyling",
@@ -1231,7 +1233,7 @@
     "qaReady": "Ready",
     "qaWarning": "Warning",
     "qaReview": "Review",
-    "emptyTitle": "No variants to curate yet",
+    "emptyTitle": "No variants to review yet",
     "emptyDescription": "Define your brief and run a generation batch—variations will appear here for you to approve or refine.",
     "emptyAction": "Run batch generation",
     "selectAll": "Select all",
@@ -1553,7 +1555,7 @@
     "welcomeBack": "Welcome back",
     "signInSubtitle": "Sign in to your ADScale account",
     "createAccountTitle": "Create your account",
-    "signUpSubtitle": "Join as curator — AI assists with variation batches from your base creative; you approve what ships.",
+    "signUpSubtitle": "Join to supervise variations — AI assists with variation batches from your base creative; you approve what ships.",
     "name": "Name",
     "signingIn": "Signing in...",
     "creatingAccount": "Creating account...",
@@ -1610,7 +1612,7 @@
       "sectionLabel": "ADScale",
       "accessLabel": "access",
       "brandTitle": "Creative curation with AI in the loop",
-      "brandSubtitle": "From a base creative and brief to a batch of ready variations — you brief, AI assists, you curate what ships.",
+      "brandSubtitle": "From a base creative and brief to a batch of ready variations — you brief, AI assists, you approve what ships.",
       "featureBriefTitle": "Structured briefing",
       "featureBriefBody": "Capture objective, audience, and tone before generating any variation.",
       "featureBatchTitle": "Derivation batches",
@@ -1631,7 +1633,7 @@
     "workspace": {
       "title": "Workspace",
       "namePlaceholder": "Your workspace name",
-      "descriptionPlaceholder": "Your curator workspace for briefing, batches, and review",
+      "descriptionPlaceholder": "Your supervision workspace for briefing, batches, and review",
       "urlPlaceholder": "https://yourcompany.com",
       "readOnlyNotice": "You have view-only access to workspace settings. Ask an admin to make changes."
     },
@@ -1722,7 +1724,7 @@
       "workspaceCard": "Shared workspace name, domain, and visual identity.",
       "billingCard": "Current plan, payment method, and Stripe billing history.",
       "creditHistoryCard": "Track where your credits were used.",
-      "plansCard": "Starter / Pro / Scale — compare benefits and upgrade.",
+      "plansCard": "Starter / Growth / Scale — compare benefits and upgrade.",
       "integrationsCard": "Connect Meta, Google, TikTok, and webhooks to your flow.",
       "privacyCard": "Privacy preferences and account data controls.",
       "badges": {
@@ -1962,6 +1964,7 @@
     "styleReference": "Style reference",
     "ctaInheritedFromBase": "Inherited from base creative",
     "notSpecified": "Not specified",
+    "notYetEvaluated": "Not yet evaluated",
     "assetNotAvailable": "Asset unavailable",
     "styleNotProvided": "Not provided",
     "unknownMode": "Mode not specified",
@@ -2047,7 +2050,7 @@
     "generation": "Batch setup",
     "plan": "Variation batch",
     "gallery": "Gallery",
-    "review": "Curation",
+    "review": "Supervision",
     "continueToUpload": "Continue to base creative →",
     "backToBrief": "← Back to Briefing",
     "continueToGeneration": "Continue to batch setup →",
@@ -2057,7 +2060,7 @@
     "generatePlan": "Generate variation batch →",
     "startGeneration": "Start batch generation →",
     "backToPlan": "← Back to Gallery",
-    "reviewAll": "Curate batch →",
+    "reviewAll": "Review batch →",
     "backToGallery": "← Back to Gallery",
     "exportSelected": "Export Selected",
     "goToStep": "Go to {step}",
@@ -2206,13 +2209,13 @@
     "finish": "Get started",
     "stepProgress": "Step {current} of {total}: {title}",
     "step1Title": "Welcome to ADScale",
-    "step1Desc": "You are the curator in this workspace. Define your brief here, run variations as a batch, and approve what ships.",
-    "step2Title": "Active production",
-    "step2Desc": "Your top campaign in progress lives here—track briefing completion, variations, approvals, and credits at a glance.",
-    "step3Title": "Your curation queue",
-    "step3Desc": "Recent campaigns are your review queue. Open a campaign to curate variants, approve what ships, and export delivery packages.",
-    "step4Title": "Recipe shortcuts",
-    "step4Desc": "Saved templates and recipes jump-start new batches—pick one to pre-fill briefing fields and launch faster.",
+    "step1Desc": "You supervise this workspace. Define your brief here, run variations as a batch, and approve what ships.",
+    "step2Title": "Briefing inputs",
+    "step2Desc": "Quick actions feed your briefing—a base creative, library assets, or restyling gives you a starting point for the next batch.",
+    "step3Title": "Your review queue",
+    "step3Desc": "Recent campaigns are your review queue. Open a campaign to review variants, make approval decisions, and export delivery packages.",
+    "step4Title": "Start with a brief",
+    "step4Desc": "Create a new campaign with a structured brief before generation—from scratch or from a saved template."
     "step5Title": "Workspace credits",
     "step5Desc": "Credits power batch generation in your workspace. Track available balance and monthly usage here."
   },
