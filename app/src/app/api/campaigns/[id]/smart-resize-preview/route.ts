@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { apiError, handleApiError } from "@/lib/api-response";
+import { checkRateLimit } from "@/lib/with-rate-limit";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getCampaignById } from "@/server/repositories/campaign";
 import { getAssetsByCampaign } from "@/server/repositories/asset";
@@ -15,6 +16,15 @@ export async function GET(
       requireWorkspaceAccess(request),
       params,
     ]);
+
+    // Rate limit: every GET triggers a paid OpenAI (gpt-4o-mini) call + an
+    // R2 download. Without this, a workspace member (or a hijacked session)
+    // could loop the endpoint for unbounded cost. Matches every sibling AI route.
+    const rateLimitResult = await checkRateLimit(request, {
+      category: "ai",
+      workspaceId: workspace.id,
+    });
+    if (rateLimitResult) return rateLimitResult;
 
     const campaign = await getCampaignById(campaignId, workspace.id);
     if (!campaign) {
