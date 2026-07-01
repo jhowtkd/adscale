@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
+import { checkRateLimit } from "@/lib/with-rate-limit";
 import {
   shouldSendToUser,
   getUserLocale,
@@ -9,6 +10,20 @@ import {
   sendLowCreditsEmail,
   sendTrialExpiringEmail,
 } from "@/server/services/notifications";
+import { env } from "@/server/validation/env";
+
+/**
+ * Constant-time string comparison to prevent timing side-channels when
+ * comparing the webhook secret. Returns false early on length mismatch
+ * (which itself reveals length, but not content — acceptable for a
+ * high-entropy secret, and we still constant-time-compare the hashes).
+ */
+function safeEqualSecret(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
+}
 
 const webhookSchema = z.discriminatedUnion("type", [
   z.object({
@@ -44,9 +59,15 @@ const webhookSchema = z.discriminatedUnion("type", [
 
 export async function POST(request: Request) {
   try {
-    // Verify webhook secret to prevent unauthorized access
-    const secret = request.headers.get("x-webhook-secret");
-    if (secret !== process.env.NOTIFICATION_WEBHOOK_SECRET) {
+    // Rate limit to prevent brute-forcing the shared secret.
+    const rateLimitResult = await checkRateLimit(request, { category: "auth" });
+    if (rateLimitResult) return rateLimitResult;
+
+    // Verify webhook secret to prevent unauthorized access.
+    // Constant-time compare to prevent timing-based byte recovery.
+    const providedSecret = request.headers.get("x-webhook-secret");
+    const expectedSecret = env.NOTIFICATION_WEBHOOK_SECRET;
+    if (!providedSecret || !expectedSecret || !safeEqualSecret(providedSecret, expectedSecret)) {
       return apiError("unauthorized", 401);
     }
 
