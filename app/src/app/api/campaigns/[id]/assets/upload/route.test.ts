@@ -25,6 +25,7 @@ vi.mock("@/server/storage/r2", () => ({
 vi.mock("@/lib/upload-config", () => ({
   isAllowedImageType: vi.fn((type: string) => type === "image/png"),
   validateImageMagicBytes: vi.fn(() => Promise.resolve(true)),
+  sanitizeStorageFilename: vi.fn((name: string) => name),
 }));
 
 vi.mock("next-intl/server", () => ({
