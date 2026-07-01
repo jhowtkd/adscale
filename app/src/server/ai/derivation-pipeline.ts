@@ -180,7 +180,7 @@ export function buildGenerationPromptContext(
     creativeLevel: campaign.creativeLevel ?? "balanced",
     creativeDiagnosis: normalizeCreativeDiagnosis(campaign.creativeDiagnosis) ?? null,
     packageSource,
-    clientReferences,
+    clientReferences: clientReferences ?? [],
     brandMemory,
     campaignMemoryBlock,
     contract,
@@ -199,7 +199,7 @@ export function buildGenerationPromptContext(
           requiredElements: brandKit.requiredElements ?? undefined,
         }
       : null,
-    competitorAnalyses: competitorAnalyses.map((a) => {
+    competitorAnalyses: (competitorAnalyses ?? []).map((a) => {
       const analysis = (a.analysis ?? {}) as Record<string, unknown>;
       const vp = analysis.visualPatterns as Record<string, unknown> | undefined;
       const msg = analysis.messaging as Record<string, unknown> | undefined;
@@ -245,6 +245,8 @@ export interface ExecuteGenerationStepContext {
   promptContext: BuildGenerationPromptContextInput;
   reference: GenerationReferenceInput;
   isPreview?: boolean;
+  /** When set, appends the QA correction suffix, uses a `-retry.png` key, and disables edit→generate fallback. */
+  autoRetry?: { correctionFeedback: string };
 }
 
 export interface ExecuteGenerationStepResult {
@@ -262,15 +264,19 @@ export interface ExecuteGenerationStepResult {
  * "generate-and-store-output" step in jobs/derivation.ts and the inline
  * OpenAI call in ai/derivation-auto-retry.ts.
  *
- * Wired into derivationJob initial generation (PR4, arch/refactor-2026-q3).
- * Auto-retry still uses its own path until PR5. Persistence of promptProvenance
- * before/after the OpenAI call remains in the job caller.
+ * Wired into derivationJob initial generation (PR4) and auto-retry (PR5,
+ * arch/refactor-2026-q3). Persistence of promptProvenance before/after the
+ * OpenAI call remains in the job caller for initial generation; auto-retry
+ * provenance is updated inside runDerivationAutoRetry after the step returns.
  */
 export async function executeGenerationStep(
   ctx: ExecuteGenerationStepContext
 ): Promise<ExecuteGenerationStepResult> {
   const promptContext = buildGenerationPromptContext(ctx.promptContext);
-  const prompt = await buildDerivationPrompt(promptContext);
+  let prompt = await buildDerivationPrompt(promptContext);
+  if (ctx.autoRetry) {
+    prompt = `${prompt}\n\nAUTO-RETRY CORRECTION:\nThe previous output failed QA. Fix these issues exactly:\n${ctx.autoRetry.correctionFeedback}`;
+  }
   const openaiSize = toOpenAISdkImageSize(
     formatToOpenAIImageSize(ctx.promptContext.targetFormat, {
       isPreview: ctx.isPreview,
@@ -306,7 +312,9 @@ export async function executeGenerationStep(
     result = first;
     imageOperation = "edit";
   } else if (ctx.reference.kind === "single") {
-    const referenceImage = await toFile(ctx.reference.buffer, "reference-image", {
+    const referenceFileName =
+      ctx.promptContext.generationMode === "restyling" ? "base-image" : "reference-image";
+    const referenceImage = await toFile(ctx.reference.buffer, referenceFileName, {
       type: ctx.reference.mimeType,
     });
 
@@ -328,7 +336,7 @@ export async function executeGenerationStep(
       result = first;
       imageOperation = "edit";
     } catch (editErr) {
-      if (ctx.reference.allowGenerateFallback) {
+      if (ctx.reference.allowGenerateFallback && !ctx.autoRetry) {
         logger.warn(`[executeGenerationStep] edit failed, falling back to generate:`, editErr);
         const response = await withTimeout(
           openai.images.generate({
@@ -387,7 +395,9 @@ export async function executeGenerationStep(
     buffer = await normalizeGeneratedImage(buffer, dimensions, ctx.promptContext.generationMode);
   }
 
-  const key = `derivations/${ctx.derivationId}/${Date.now()}.png`;
+  const key = ctx.autoRetry
+    ? `derivations/${ctx.derivationId}/${Date.now()}-retry.png`
+    : `derivations/${ctx.derivationId}/${Date.now()}.png`;
   await objectStorage.put(key, buffer, "image/png");
 
   const revisedPrompt = result.revised_prompt || "";

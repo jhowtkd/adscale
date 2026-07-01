@@ -395,4 +395,55 @@ describe("executeGenerationStep", () => {
     expect(mockOpenAIImages.edit).not.toHaveBeenCalled();
     expect(result.imageOperation).toBe("generate");
   });
+
+  it("appends auto-retry correction suffix and uses -retry.png output key", async () => {
+    const result = await executeGenerationStep({
+      derivationId: "derivation-retry",
+      promptContext: canonicalPromptContextInput(),
+      reference: {
+        kind: "single",
+        buffer: Buffer.from("reference"),
+        mimeType: "image/png",
+        allowGenerateFallback: true,
+      },
+      autoRetry: { correctionFeedback: "Fix CTA drift" },
+    });
+
+    expect(buildDerivationPrompt).toHaveBeenCalled();
+    expect(mockOpenAIImages.edit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: expect.stringContaining("AUTO-RETRY CORRECTION"),
+      })
+    );
+    expect(mockOpenAIImages.edit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: expect.stringContaining("Fix CTA drift"),
+      })
+    );
+    expect(result.outputKey).toMatch(/^derivations\/derivation-retry\/\d+-retry\.png$/);
+    expect(mockOpenAIImages.generate).not.toHaveBeenCalled();
+  });
+
+  it("does not fall back to generate on auto-retry when edit fails", async () => {
+    mockOpenAIImages.edit.mockRejectedValueOnce(new Error("edit unsupported"));
+
+    await expect(
+      executeGenerationStep({
+        derivationId: "derivation-retry-fail",
+        promptContext: {
+          ...canonicalPromptContextInput(),
+          generationMode: "format_adaptation",
+        },
+        reference: {
+          kind: "single",
+          buffer: Buffer.from("reference"),
+          mimeType: "image/png",
+          allowGenerateFallback: true,
+        },
+        autoRetry: { correctionFeedback: "Fix layout" },
+      })
+    ).rejects.toThrow("edit unsupported");
+
+    expect(mockOpenAIImages.generate).not.toHaveBeenCalled();
+  });
 });

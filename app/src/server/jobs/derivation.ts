@@ -1135,7 +1135,7 @@ export const derivationJob = inngest.createFunction(
         correctionFeedback,
         contract: generated.resolvedContract,
         targetFormat: generated.targetFormat,
-        generationMode: generated.effectiveGenerationMode as "art_variation" | "format_adaptation" | "restyling",
+        generationMode: retryMode,
         isPreview: isPreview ?? derivation.isPreview ?? false,
         promptContext: {
           campaign,
@@ -1143,55 +1143,17 @@ export const derivationJob = inngest.createFunction(
           asset,
           feedback: correctionFeedback,
           locale,
-          generationMode: effectiveGenerationMode,
+          generationMode: effectiveGenerationMode as BuildGenerationPromptContextInput["generationMode"],
           variantIndex: variantIndex ?? derivation.variantIndex ?? 0,
           ctaText: effectiveCtaText,
           targetFormat,
-          creativeLevel: campaign.creativeLevel ?? "balanced",
-          creativeDiagnosis: normalizeCreativeDiagnosis(campaign.creativeDiagnosis) ?? null,
           packageSource,
           clientReferences,
           brandMemory,
           campaignMemoryBlock,
           contract: generated.resolvedContract,
-          brandKit: brandKit
-            ? {
-                name: brandKit.name,
-                description: brandKit.description ?? undefined,
-                visualNotes: brandKit.visualNotes ?? undefined,
-                toneNotes: brandKit.toneNotes ?? undefined,
-                constraints: brandKit.constraints ?? undefined,
-                colors: Array.isArray(brandKit.brandColors) ? (brandKit.brandColors as string[]) : undefined,
-                fonts: Array.isArray(brandKit.brandFonts) ? (brandKit.brandFonts as string[]) : undefined,
-                logoAssetKey: brandKit.logoAssetKey ?? undefined,
-                toneOfVoice: brandKit.toneOfVoice ?? undefined,
-                prohibitedElements: brandKit.prohibitedElements ?? undefined,
-                requiredElements: brandKit.requiredElements ?? undefined,
-              }
-            : null,
-          competitorAnalyses: competitorAnalyses.map((a) => {
-            const analysis = (a.analysis ?? {}) as Record<string, unknown>;
-            const vp = analysis.visualPatterns as Record<string, unknown> | undefined;
-            const msg = analysis.messaging as Record<string, unknown> | undefined;
-            return {
-              visualPatterns: {
-                colors: Array.isArray(vp?.colors) ? (vp.colors as string[]) : undefined,
-                composition: typeof vp?.composition === "string" ? vp.composition : undefined,
-                typography: typeof vp?.typography === "string" ? vp.typography : undefined,
-              },
-              messaging: {
-                headlineStyle: typeof msg?.headlineStyle === "string" ? msg.headlineStyle : undefined,
-                ctaStyle: typeof msg?.ctaStyle === "string" ? msg.ctaStyle : undefined,
-                offerType: typeof msg?.offerType === "string" ? msg.offerType : undefined,
-              },
-              strengths: Array.isArray(a.strengths) ? (a.strengths as string[]) : [],
-              weaknesses: Array.isArray(a.weaknesses) ? (a.weaknesses as string[]) : [],
-              differentiationOpportunities: Array.isArray(a.differentiators) ? (a.differentiators as string[]) : [],
-            };
-          }),
-          preflightResult: asset?.metadata
-            ? ((asset.metadata as Record<string, unknown>).preflightResult as import("@/server/ai/preflight-analysis").PreflightResult | undefined)
-            : null,
+          brandKit: brandKit ?? undefined,
+          competitorAnalyses,
           brandTasteSection: calibrationContext.brandTasteSection,
           corpusQualitySection: calibrationContext.corpusQualitySection,
         },

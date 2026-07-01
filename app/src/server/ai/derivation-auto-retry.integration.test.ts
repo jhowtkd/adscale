@@ -30,8 +30,15 @@ vi.mock("../repositories/derivation", () => ({
   updateDerivationPromptProvenance: vi.fn(() => Promise.resolve({})),
 }));
 
-vi.mock("./derivation-pipeline", () => ({
-  normalizeGeneratedImage: vi.fn((buffer: Buffer) => Promise.resolve(buffer)),
+vi.mock("sharp", () => ({
+  default: vi.fn(() => ({
+    resize: vi.fn().mockReturnThis(),
+    blur: vi.fn().mockReturnThis(),
+    modulate: vi.fn().mockReturnThis(),
+    composite: vi.fn().mockReturnThis(),
+    png: vi.fn().mockReturnThis(),
+    toBuffer: vi.fn(() => Promise.resolve(Buffer.from("normalized"))),
+  })),
 }));
 
 vi.mock("../validation/env", () => ({
@@ -41,13 +48,18 @@ vi.mock("../validation/env", () => ({
   },
 }));
 
-vi.mock("./prompt-builder", () => ({
-  buildDerivationPrompt: vi.fn(() => "prompt"),
-}));
+vi.mock("./prompt-builder", async () => {
+  const actual = await vi.importActual<typeof import("./prompt-builder")>("./prompt-builder");
+  return {
+    ...actual,
+    buildDerivationPrompt: vi.fn(() => Promise.resolve("prompt")),
+  };
+});
 
 import { getDerivationById } from "../repositories/derivation";
 import { objectStorage } from "@/server/storage";
 import { runDerivationAutoRetry } from "./derivation-auto-retry";
+import type { BuildGenerationPromptContextInput } from "./derivation-pipeline";
 
 const mockGetDerivationById = vi.mocked(getDerivationById);
 const mockDownloadBuffer = vi.mocked(objectStorage.get);
@@ -78,10 +90,14 @@ const baseInput = {
   referenceMimeType: "image/png",
   correctionFeedback: "Fix style contamination",
   promptContext: {
-    campaign: { name: "Test" },
+    campaign: { name: "Test" } as BuildGenerationPromptContextInput["campaign"],
     generationMode: "restyling" as const,
     targetFormat: "1:1",
     contract: baseContract,
+    variantIndex: 0,
+    packageSource: "campaign_asset" as const,
+    clientReferences: [],
+    competitorAnalyses: [],
   },
   contract: baseContract,
   targetFormat: "1:1",
