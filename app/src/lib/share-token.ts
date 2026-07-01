@@ -1,6 +1,7 @@
 import {
   createShareLink,
   getShareLinkByToken,
+  revokeShareLinkForCampaign,
 } from "@/server/repositories/share-link";
 
 const SHARE_LINK_TTL_DAYS = 7;
@@ -49,6 +50,7 @@ export async function validateShareToken(
   const link = await getShareLinkByToken(token);
   if (!link) return null;
   if (new Date() > link.expiresAt) return null;
+  if (link.revokedAt) return null;
 
   return {
     campaignId: link.campaignId,
@@ -56,4 +58,16 @@ export async function validateShareToken(
     derivationIds: link.derivationIds,
     expiresAt: link.expiresAt,
   };
+}
+
+/**
+ * Revoke the active share link for a campaign (workspace-scoped). Once
+ * revoked, the token immediately fails validation even before expiry.
+ * Returns the number of links revoked (0 if none active).
+ */
+export async function revokeShareToken(
+  campaignId: string,
+  workspaceId: string
+): Promise<number> {
+  return revokeShareLinkForCampaign(campaignId, workspaceId);
 }
