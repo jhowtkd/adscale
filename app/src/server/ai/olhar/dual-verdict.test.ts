@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildOlharVerdictFromFailures,
+  isDerivationBlockedByVerdictPayloads,
   normalizeExportStatusPayload,
   normalizeOlharVerdictPayload,
   validateExportStatusPayload,
@@ -177,5 +178,54 @@ describe("buildOlharVerdictFromFailures", () => {
         ],
       })?.value
     ).toBe("confusa");
+  });
+});
+
+describe("isDerivationBlockedByVerdictPayloads", () => {
+  const evaluatedAt = "2026-06-19T12:00:00.000Z";
+
+  it("returns false when no verdict payloads are present", () => {
+    expect(isDerivationBlockedByVerdictPayloads({})).toBe(false);
+  });
+
+  it("blocks on blocking olhar verdict values", () => {
+    expect(
+      isDerivationBlockedByVerdictPayloads({
+        olharVerdict: {
+          ...validOlharPayload,
+          value: "confusa",
+        },
+      })
+    ).toBe(true);
+  });
+
+  it("does not block on non-blocking olhar verdict values", () => {
+    expect(
+      isDerivationBlockedByVerdictPayloads({
+        olharVerdict: validOlharPayload,
+      })
+    ).toBe(false);
+  });
+
+  it("blocks on bloqueado export status", () => {
+    expect(
+      isDerivationBlockedByVerdictPayloads({
+        exportStatus: {
+          value: "bloqueado",
+          evaluatedAt,
+        },
+      })
+    ).toBe(true);
+  });
+
+  it("does not block on non-blocking export status", () => {
+    expect(
+      isDerivationBlockedByVerdictPayloads({
+        exportStatus: {
+          value: "ok",
+          evaluatedAt,
+        },
+      })
+    ).toBe(false);
   });
 });

@@ -1,6 +1,7 @@
 import {
   isBlockingExportStatus,
   isBlockingOlharVerdict,
+  isDerivationBlockedByVerdictPayloads,
   type ExportStatusPayload,
   type OlharVerdictPayload,
 } from "./olhar/dual-verdict";
@@ -52,19 +53,7 @@ export type ApprovalPackageSnapshot = {
 export function isDerivationPackageBlockedByVerdict(
   derivation: Pick<DerivationLike, "olharVerdict" | "exportStatus">
 ): boolean {
-  if (
-    derivation.olharVerdict?.value &&
-    isBlockingOlharVerdict(derivation.olharVerdict.value)
-  ) {
-    return true;
-  }
-  if (
-    derivation.exportStatus?.value &&
-    isBlockingExportStatus(derivation.exportStatus.value)
-  ) {
-    return true;
-  }
-  return false;
+  return isDerivationBlockedByVerdictPayloads(derivation);
 }
 
 export function isDerivationApprovalOverride(derivation: DerivationLike): boolean {
