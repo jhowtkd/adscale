@@ -96,20 +96,24 @@ const CURATOR_STEP_KEYS = [
   "step2Desc",
   "step3Desc",
   "step4Desc",
-  "step5Desc",
 ] as const;
 
-const CURATOR_VOCABULARY = /\b(curator|curate|brief|batch)\b/i;
-const CURATOR_VOCABULARY_PT = /\b(curador|curar|briefing|lote)\b/i;
+const CURATOR_STEP_KEYS_FORBIDDEN_ONLY = ["step5Desc"] as const;
 
-const WORKFLOW_CURATOR_KEYS_EN: Array<{ path: string; label: string }> = [
+const CURATOR_FORBIDDEN_EN = /\b(curator|curate|curation)\b/i;
+const CURATOR_FORBIDDEN_PT = /\b(curador|curar|curadoria)\b/i;
+
+const CANONICAL_VOCABULARY_EN = /\b(brief|briefing|decision|supervision|supervise|approval|approve|review)\b/i;
+const CANONICAL_VOCABULARY_PT = /\b(briefing|decis[aã]o|supervis[aã]o|supervisionar|aprova[cç][aã]o|aprovar|revisar)\b/i;
+
+const WORKFLOW_CANONICAL_KEYS_EN: Array<{ path: string; label: string }> = [
   { path: "metadata.description", label: "metadata.description" },
   { path: "auth.signUpSubtitle", label: "auth.signUpSubtitle" },
   { path: "campaign.createDescription", label: "campaign.createDescription" },
   { path: "steps.reviewAll", label: "steps.reviewAll" },
 ];
 
-const WORKFLOW_CURATOR_KEYS_PT: Array<{ path: string; label: string }> = [
+const WORKFLOW_CANONICAL_KEYS_PT: Array<{ path: string; label: string }> = [
   { path: "metadata.description", label: "metadata.description" },
   { path: "auth.signUpSubtitle", label: "auth.signUpSubtitle" },
   { path: "campaign.createDescription", label: "campaign.createDescription" },
@@ -260,32 +264,45 @@ describe("product narrative copy guard (Phase 170 / BRAND-04)", () => {
     });
   });
 
-  describe("curator vocabulary (Plan 02)", () => {
+  describe("canonical product vocabulary (Plan 02)", () => {
     for (const stepKey of CURATOR_STEP_KEYS) {
-      it(`onboarding.${stepKey} includes curator vocabulary`, () => {
+      it(`onboarding.${stepKey} avoids curator vocabulary and uses canonical terms`, () => {
         const onboarding = getAtPath(en as JsonObject, "onboarding");
         expect(onboarding).toBeDefined();
         const desc = onboarding?.[stepKey];
         expect(typeof desc).toBe("string");
-        expect(CURATOR_VOCABULARY.test(desc as string)).toBe(true);
+        expect(CURATOR_FORBIDDEN_EN.test(desc as string)).toBe(false);
+        expect(CANONICAL_VOCABULARY_EN.test(desc as string)).toBe(true);
+      });
+    }
+
+    for (const stepKey of CURATOR_STEP_KEYS_FORBIDDEN_ONLY) {
+      it(`onboarding.${stepKey} avoids curator vocabulary`, () => {
+        const onboarding = getAtPath(en as JsonObject, "onboarding");
+        expect(onboarding).toBeDefined();
+        const desc = onboarding?.[stepKey];
+        expect(typeof desc).toBe("string");
+        expect(CURATOR_FORBIDDEN_EN.test(desc as string)).toBe(false);
       });
     }
   });
 
-  describe("curator vocabulary (Plan 03 workflow)", () => {
-    for (const { path, label } of WORKFLOW_CURATOR_KEYS_EN) {
-      it(`${label} includes curator vocabulary (en)`, () => {
+  describe("canonical product vocabulary (Plan 03 workflow)", () => {
+    for (const { path, label } of WORKFLOW_CANONICAL_KEYS_EN) {
+      it(`${label} avoids curator vocabulary and uses canonical terms (en)`, () => {
         const value = getStringAtPath(en as JsonObject, path);
         expect(typeof value).toBe("string");
-        expect(CURATOR_VOCABULARY.test(value as string)).toBe(true);
+        expect(CURATOR_FORBIDDEN_EN.test(value as string)).toBe(false);
+        expect(CANONICAL_VOCABULARY_EN.test(value as string)).toBe(true);
       });
     }
 
-    for (const { path, label } of WORKFLOW_CURATOR_KEYS_PT) {
-      it(`${label} includes curator vocabulary (pt-BR)`, () => {
+    for (const { path, label } of WORKFLOW_CANONICAL_KEYS_PT) {
+      it(`${label} avoids curator vocabulary and uses canonical terms (pt-BR)`, () => {
         const value = getStringAtPath(ptBR as JsonObject, path);
         expect(typeof value).toBe("string");
-        expect(CURATOR_VOCABULARY_PT.test(value as string)).toBe(true);
+        expect(CURATOR_FORBIDDEN_PT.test(value as string)).toBe(false);
+        expect(CANONICAL_VOCABULARY_PT.test(value as string)).toBe(true);
       });
     }
   });

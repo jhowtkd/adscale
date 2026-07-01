@@ -35,12 +35,12 @@ function formatCredits(value: number): string {
 
 function formatTrend(change: number, suffix: string): { trend: string; trendDir: "up" | "down" | "neutral" } {
   if (change > 0) {
-    return { trend: `+${change} ${suffix}`, trendDir: "up" };
+    return { trend: `+${change}% ${suffix}`, trendDir: "up" };
   }
   if (change < 0) {
-    return { trend: `${change} ${suffix}`, trendDir: "down" };
+    return { trend: `${change}% ${suffix}`, trendDir: "down" };
   }
-  return { trend: suffix, trendDir: "neutral" };
+  return { trend: `0% ${suffix}`, trendDir: "neutral" };
 }
 
 function statusToClass(status: string): DashboardV6ActivityRow["statusClass"] {

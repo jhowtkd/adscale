@@ -56,13 +56,19 @@ describe("AppShell", () => {
     expect(screen.queryAllByRole("main")).toHaveLength(1);
   });
 
-  it("renders mobile primary navigation with safe-area padding class", () => {
+  it("renders five mobile destinations and the More sheet trigger", () => {
     render(
       <AppShell>
         <p>Page body</p>
       </AppShell>
     );
 
-    expect(screen.getByRole("navigation", { name: /primary mobile navigation/i })).toBeInTheDocument();
+    const nav = screen.getByRole("navigation", { name: /primary mobile navigation/i });
+    expect(nav).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /dashboard/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /campaigns/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /creativeIntelligence/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /title/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /more/i })).toBeInTheDocument();
   });
 });

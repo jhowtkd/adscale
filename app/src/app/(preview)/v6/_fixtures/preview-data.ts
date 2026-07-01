@@ -108,7 +108,7 @@ export const previewSettingsCards = [
   { title: "Perfil", description: "Seu nome, foto e dados pessoais visíveis para o time.", badge: "Fora do laboratório", badgeClass: "neutral" as const, enabled: false },
   { title: "Workspace", description: "Nome, domínio e identidade visual do workspace compartilhado.", badge: "Fora do laboratório", badgeClass: "neutral" as const, enabled: false },
   { title: "Faturamento", description: "Plano atual, método de pagamento e histórico de cobranças via Stripe.", badge: "Captura pendente", badgeClass: "warning" as const, enabled: false },
-  { title: "Planos", description: "Starter / Pro / Scale — compare benefícios e faça upgrade.", badge: "Captura pendente", badgeClass: "warning" as const, enabled: false },
+  { title: "Planos", description: "Starter / Growth / Scale — compare benefícios e faça upgrade.", badge: "Captura pendente", badgeClass: "warning" as const, enabled: false },
 ] as const;
 
 export type PreviewChatRole = "user" | "assistant" | "action_card" | "error";

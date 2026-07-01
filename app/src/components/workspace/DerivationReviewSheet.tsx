@@ -346,7 +346,7 @@ export default function DerivationReviewSheet({
                   {tr(olharDisplay.labelKey)}
                 </span>
               ) : (
-                <span className="text-xs text-[var(--text-muted)]">{tr("notSpecified")}</span>
+                <span className="text-xs text-[var(--text-muted)]">{tr("notYetEvaluated")}</span>
               )}
             </div>
 
@@ -575,7 +575,7 @@ export default function DerivationReviewSheet({
                     {tr(exportDisplay.labelKey)}
                   </span>
                 ) : (
-                  <span className="text-xs text-[var(--text-muted)]">{tr("notSpecified")}</span>
+                  <span className="text-xs text-[var(--text-muted)]">{tr("notYetEvaluated")}</span>
                 )}
               </div>
               {exportStatus?.issues?.length ? (
