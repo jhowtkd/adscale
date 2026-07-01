@@ -116,6 +116,28 @@ describe("VersionComparisonDialog", () => {
     expect(promote).toHaveBeenCalledTimes(1);
   });
 
+  it("confirms the first official version from an empty official head", () => {
+    const promote = vi.fn().mockResolvedValue({ effect: {}, state: [] });
+    mocks.promote.mockReturnValue({ mutateAsync: promote, isPending: false, reset: vi.fn() });
+    const firstApprovalLineage = { ...lineage, approvedCurrent: null };
+
+    render(
+      <VersionComparisonDialog
+        open
+        request={request}
+        lineages={[firstApprovalLineage]}
+        onOpenChange={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Aprovar v2" }));
+    expect(screen.getByText("A versão oficial muda de nenhuma para v2.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Tornar v2 oficial" }));
+    expect(promote).toHaveBeenCalledWith(
+      expect.objectContaining({ expectedOfficialVersionId: null })
+    );
+  });
+
   it("keeps the workspace open and announces a conflict without retrying", async () => {
     const conflict = Object.assign(new Error("conflict"), {
       recovery: {

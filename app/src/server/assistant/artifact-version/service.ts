@@ -165,28 +165,31 @@ async function getLineagePresentation(
 ): Promise<ArtifactVersionPresentation> {
   const lineage = await getArtifactLineage(scope, lineageId);
   if (!lineage) throw new ArtifactVersionValidationError("Lineage not found");
-  const [versions, head, proposals, previouslyApprovedVersionIds] = await Promise.all([
+  const [pageVersions, head, proposals, previouslyApprovedVersionIds] = await Promise.all([
     listArtifactVersions(scope, lineageId),
     getArtifactHead(scope, lineageId),
     listArtifactProposals(scope, lineageId),
     listPreviouslyApprovedVersionIds(scope, lineageId),
   ]);
-  const versionIds = new Set(versions.map((version) => version.id));
-  const missingHeadVersionIds = [
+  const pageVersionIds = new Set(pageVersions.map((version) => version.id));
+  const missingHeadIds = [
     head?.approvedCurrentVersionId,
     head?.workingVersionId,
-  ].filter((id): id is string => Boolean(id && !versionIds.has(id)));
-  const headVersions =
-    missingHeadVersionIds.length > 0
-      ? (
-          await Promise.all(
-            missingHeadVersionIds.map((versionId) =>
-              getArtifactVersion(scope, versionId)
-            )
-          )
-        ).filter((version): version is NonNullable<typeof version> => version !== null)
-      : [];
-  const allVersions = [...versions, ...headVersions];
+  ].filter(
+    (versionId): versionId is string =>
+      typeof versionId === "string" && !pageVersionIds.has(versionId)
+  );
+  const missingHeadVersions = await Promise.all(
+    [...new Set(missingHeadIds)].map((versionId) =>
+      getArtifactVersion(scope, versionId)
+    )
+  );
+  const allVersions = [
+    ...pageVersions,
+    ...missingHeadVersions.filter(
+      (version) => version !== null && version.lineageId === lineageId
+    ),
+  ];
   const previouslyApproved = new Set(previouslyApprovedVersionIds);
   const versionSummaries = allVersions.map((version) =>
     artifactVersionSummarySchema.parse({

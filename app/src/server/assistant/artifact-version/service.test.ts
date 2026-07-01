@@ -130,36 +130,45 @@ describe("artifact version service", () => {
     expect(state.lineages[0]?.working?.previouslyApproved).toBe(true);
   });
 
-  it("includes head pointers that fall outside the version history window", async () => {
+  it("keeps head versions visible when they fall outside the history page", async () => {
+    const lineageId = id("6");
+    const approvedId = id("7");
+    const workingId = id("8");
+    const makeVersion = (versionId: string, versionNumber: number) => ({
+      id: versionId,
+      lineageId,
+      versionNumber,
+      sourceVersionId: null,
+      status: "ready",
+      snapshot: { type: "plan" as const, strategy: null, angles: [], hooks: [], ctas: [], constraints: null },
+      provenance: { origin: "revision" as const, originalArtifactId: id("5"), sourceVersionId: null, messageId: null, actionId: null, planVersionId: null, format: null, generationMode: null },
+      feedback: null,
+      createdAt: new Date(),
+    });
     vi.mocked(listArtifactLineages).mockResolvedValue([{
-      id: id("6"), artifactType: "plan", originalArtifactId: id("5"),
+      id: lineageId, artifactType: "plan", originalArtifactId: id("5"),
     }] as never);
     vi.mocked(getArtifactLineage).mockResolvedValue({
-      id: id("6"), artifactType: "plan", originalArtifactId: id("5"),
+      id: lineageId, artifactType: "plan", originalArtifactId: id("5"),
     } as never);
-    const recentVersion = {
-      id: id("9"), lineageId: id("6"), versionNumber: 51, sourceVersionId: id("8"),
-      status: "ready",
-      snapshot: { type: "plan", strategy: null, angles: [], hooks: [], ctas: [], constraints: null },
-      provenance: { origin: "revision", originalArtifactId: id("5"), sourceVersionId: id("8"), messageId: null, actionId: null, planVersionId: null, format: null, generationMode: null },
-      feedback: null, createdAt: new Date(),
-    };
-    const officialVersion = {
-      id: id("7"), lineageId: id("6"), versionNumber: 1, sourceVersionId: null,
-      status: "approved",
-      snapshot: { type: "plan", strategy: "Old", angles: [], hooks: [], ctas: [], constraints: null },
-      provenance: { origin: "legacy_import", originalArtifactId: id("5"), sourceVersionId: null, messageId: null, actionId: null, planVersionId: null, format: null, generationMode: null },
-      feedback: null, createdAt: new Date(),
-    };
-    vi.mocked(listArtifactVersions).mockResolvedValue([recentVersion] as never);
-    vi.mocked(getArtifactVersion).mockResolvedValue(officialVersion as never);
+    vi.mocked(listArtifactVersions).mockResolvedValue([
+      makeVersion(id("99"), 99),
+    ] as never);
     vi.mocked(getArtifactHead).mockResolvedValue({
-      lineageId: id("6"), approvedCurrentVersionId: id("7"), workingVersionId: id("9"), revision: 2,
+      lineageId, approvedCurrentVersionId: approvedId, workingVersionId: workingId, revision: 3,
     } as never);
+    vi.mocked(getArtifactVersion).mockImplementation(async (_scope, versionId) =>
+      versionId === approvedId
+        ? makeVersion(approvedId, 1) as never
+        : makeVersion(workingId, 2) as never
+    );
 
     const state = await getThreadArtifactVersionState(thread.workspaceId, thread.id);
-    expect(state.lineages[0]?.approvedCurrent?.versionNumber).toBe(1);
-    expect(state.lineages[0]?.working?.versionNumber).toBe(51);
-    expect(state.lineages[0]?.versions).toHaveLength(2);
+
+    expect(state.lineages[0]?.approvedCurrent?.id).toBe(approvedId);
+    expect(state.lineages[0]?.working?.id).toBe(workingId);
+    expect(state.lineages[0]?.versions.map((version) => version.id)).toEqual([
+      id("99"), approvedId, workingId,
+    ]);
   });
 });

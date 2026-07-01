@@ -534,11 +534,9 @@ export default function VersionComparisonDialog({
           <DialogHeader>
             <DialogTitle>{needsPlanReview ? "Tornar plano e criativo oficiais?" : `Tornar ${target ? versionLabel(target) : "a versão"} oficial?`}</DialogTitle>
             <DialogDescription>
-              {official && target
-                ? `A versão oficial muda de ${versionLabel(official)} para ${versionLabel(target)}.`
-                : target
-                  ? `${versionLabel(target)} se tornará a primeira versão oficial desta linha.`
-                  : "Revise a transição."}
+              {target
+                ? `A versão oficial muda de ${official ? versionLabel(official) : "nenhuma"} para ${versionLabel(target)}.`
+                : "Revise a transição."}
             </DialogDescription>
           </DialogHeader>
           <DialogBody className="space-y-3 text-sm">

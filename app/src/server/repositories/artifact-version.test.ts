@@ -297,6 +297,39 @@ describeDb("artifact promotion transaction", () => {
     expect(events).toHaveLength(0);
   });
 
+  it("promotes the first official version from a null head", async () => {
+    const { ids, scope } = await seedPromotionFixture();
+    await db
+      .update(assistantArtifactLineageHeads)
+      .set({ approvedCurrentVersionId: null })
+      .where(eq(assistantArtifactLineageHeads.lineageId, ids.planLineage));
+
+    const result = await promoteArtifactVersion({
+      scope,
+      command: {
+        type: "plan",
+        operationId: crypto.randomUUID(),
+        lineageId: ids.planLineage,
+        targetVersionId: ids.planV2,
+        expectedOfficialVersionId: null,
+        expectedRevision: 0,
+      },
+    });
+
+    const [head] = await db
+      .select()
+      .from(assistantArtifactLineageHeads)
+      .where(eq(assistantArtifactLineageHeads.lineageId, ids.planLineage));
+    expect(result.promotions).toEqual([
+      expect.objectContaining({ previousVersionNumber: null, targetVersionNumber: 2 }),
+    ]);
+    expect(head).toMatchObject({
+      approvedCurrentVersionId: ids.planV2,
+      workingVersionId: ids.planV2,
+      revision: 1,
+    });
+  });
+
   it("rolls back plan CAS, canonical writes, proposal staling, and history when creative CAS conflicts", async () => {
     const { ids, scope } = await seedPromotionFixture();
     const acknowledgementId = crypto.randomUUID();
@@ -451,6 +484,20 @@ describeDb("artifact promotion transaction", () => {
       [ids.derivation1]: "completed",
       [ids.derivation2]: "approved",
     });
+
+    await expect(
+      promoteArtifactVersion({
+        scope,
+        command: {
+          type: "plan",
+          operationId,
+          lineageId: ids.planLineage,
+          targetVersionId: ids.planV1,
+          expectedOfficialVersionId: ids.planV2,
+          expectedRevision: 1,
+        },
+      })
+    ).rejects.toThrow("Operation ID belongs to a different promotion command");
   });
 
   it("approves the first official version when the head has no current official", async () => {

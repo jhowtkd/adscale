@@ -723,13 +723,52 @@ async function appendApprovalEvent(
 async function promotionRowsForOperation(
   tx: ArtifactTx,
   scope: ArtifactScope,
-  operationId: string
+  command: ArtifactPromotionCommand
 ) {
   const events = await tx.select().from(assistantArtifactApprovalEvents).where(and(
-    eq(assistantArtifactApprovalEvents.operationId, operationId),
+    eq(assistantArtifactApprovalEvents.operationId, command.operationId),
     approvalScope(scope)
   ));
   if (events.length === 0) return [];
+  const expectedTargets = [
+    {
+      artifactType: command.type,
+      lineageId: command.lineageId,
+      promotedVersionId: command.targetVersionId,
+      previousOfficialVersionId: command.expectedOfficialVersionId,
+    },
+    ...(command.type === "creative" && command.planTransition
+      ? [{
+          artifactType: "plan" as const,
+          lineageId: command.planTransition.lineageId,
+          promotedVersionId: command.planTransition.targetVersionId,
+          previousOfficialVersionId:
+            command.planTransition.expectedOfficialVersionId,
+        }]
+      : []),
+  ];
+  const targetKey = (target: {
+    artifactType: string;
+    lineageId: string;
+    promotedVersionId: string;
+    previousOfficialVersionId: string | null;
+  }) =>
+    [
+      target.artifactType,
+      target.lineageId,
+      target.promotedVersionId,
+      target.previousOfficialVersionId ?? "",
+    ].join(":");
+  const actualKeys = events.map(targetKey).sort();
+  const expectedKeys = expectedTargets.map(targetKey).sort();
+  if (
+    actualKeys.length !== expectedKeys.length ||
+    actualKeys.some((key, index) => key !== expectedKeys[index])
+  ) {
+    throw new ArtifactVersionValidationError(
+      "Operation ID belongs to a different promotion command"
+    );
+  }
   const versions = await tx.select({
     id: assistantArtifactVersions.id,
     versionNumber: assistantArtifactVersions.versionNumber,
@@ -745,44 +784,6 @@ async function promotionRowsForOperation(
   }));
 }
 
-function replayMatchesCommand(
-  events: Array<{
-    artifactType: string;
-    lineageId: string;
-    promotedVersionId: string;
-  }>,
-  command: ArtifactPromotionCommand
-) {
-  if (command.type === "plan") {
-    return (
-      events.length === 1 &&
-      events[0]!.artifactType === "plan" &&
-      events[0]!.lineageId === command.lineageId &&
-      events[0]!.promotedVersionId === command.targetVersionId
-    );
-  }
-
-  const creative = events.find((event) => event.artifactType === "creative");
-  if (
-    !creative ||
-    creative.lineageId !== command.lineageId ||
-    creative.promotedVersionId !== command.targetVersionId
-  ) {
-    return false;
-  }
-
-  const planEvents = events.filter((event) => event.artifactType === "plan");
-  const transition = command.planTransition;
-  if (!transition) {
-    return planEvents.length === 0;
-  }
-
-  return (
-    planEvents.length === 1 &&
-    planEvents[0]!.lineageId === transition.lineageId &&
-    planEvents[0]!.promotedVersionId === transition.targetVersionId
-  );
-}
 
 export async function createComparisonAcknowledgement(input: {
   scope: ArtifactScope;
@@ -819,24 +820,15 @@ export async function promoteArtifactVersion(input: {
   });
 
   const result = await db.transaction(async (tx) => {
-    const existingEvents = await tx
-      .select()
-      .from(assistantArtifactApprovalEvents)
-      .where(and(
-        eq(assistantArtifactApprovalEvents.operationId, input.command.operationId),
-        approvalScope(input.scope)
-      ));
-    if (existingEvents.length > 0) {
-      if (!replayMatchesCommand(existingEvents, input.command)) {
-        throw new ArtifactVersionValidationError(
-          "Operation ID reused for a different command"
-        );
-      }
-      const replay = await promotionRowsForOperation(
-        tx,
-        input.scope,
-        input.command.operationId
-      );
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtextextended(${input.command.operationId}, 0))`
+    );
+    const replay = await promotionRowsForOperation(
+      tx,
+      input.scope,
+      input.command
+    );
+    if (replay.length > 0) {
       return { promotions: replay, staleProposalCount: 0, replayed: true };
     }
 

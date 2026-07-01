@@ -157,6 +157,8 @@ export default function VersionHistory({
             {versions.map((version) => {
               const isOfficial = official?.id === version.id;
               const isWorking = working?.id === version.id;
+              const comparisonBase =
+                official ?? versions.find((candidate) => candidate.id !== version.id);
               const wasOfficial =
                 !isOfficial &&
                 (version.previouslyApproved || version.status === "approved");
@@ -195,15 +197,13 @@ export default function VersionHistory({
                       {version.feedback}
                     </p>
                   ) : null}
-                  {!isOfficial && compareAnchor && compareAnchor.id !== version.id ? (
+                  {!isOfficial && comparisonBase ? (
                     <button
                       type="button"
                       className="mt-2 min-h-11 text-left text-xs font-medium text-[var(--accent-primary)] underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]"
-                      onClick={() =>
-                        openPair(selectedLineage!, compareAnchor.id, version.id)
-                      }
+                      onClick={() => openPair(selectedLineage!, comparisonBase.id, version.id)}
                     >
-                      {official ? "Comparar com a oficial" : "Comparar com a versão em trabalho"}
+                      {official ? "Comparar com a oficial" : "Comparar para aprovar"}
                     </button>
                   ) : null}
                 </li>
