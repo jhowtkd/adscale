@@ -113,7 +113,7 @@ function MessageBubble({
       className={cn(
         "max-w-[85%] rounded-[var(--radius-panel)] px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap",
         isUser
-          ? "ml-auto bg-[var(--accent-primary)] text-[var(--text-on-accent)]"
+          ? "ml-auto bg-[var(--surface-inset)] text-[var(--text-primary)]"
           : "border border-[var(--border-subtle)] bg-[var(--surface-raised)] text-[var(--text-primary)]"
       )}
       data-testid={`assistant-message-${message.type}`}

@@ -120,8 +120,8 @@ function ProgressRing({ progress }: { progress: number }) {
         />
         <defs>
           <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="var(--accent-green)" />
-            <stop offset="100%" stopColor="var(--accent-green)" />
+            <stop offset="0%" stopColor="var(--text-muted)" />
+            <stop offset="100%" stopColor="var(--text-disabled)" />
           </linearGradient>
         </defs>
       </svg>
@@ -647,7 +647,7 @@ export default function DerivationCard({
                   className={cn(
                     "p-1.5 rounded-md transition-all duration-150",
                     isSelectedForCompare
-                      ? "text-[var(--accent-green-text)] bg-[var(--accent-green)]/10"
+                      ? "bg-[var(--neutral-bg)] text-[var(--text-primary)]"
                       : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)]"
                   )}
                 >

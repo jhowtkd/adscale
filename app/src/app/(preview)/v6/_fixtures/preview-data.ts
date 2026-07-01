@@ -1,3 +1,5 @@
+import { V6_SURFACE_GRADIENTS } from "@/lib/v6-surface-gradients";
+
 export const previewUser = {
   firstName: "Jhonatan",
   lastName: "Soares",
@@ -82,22 +84,22 @@ export const previewWorkspace = {
     'Selo "Garantia Cenbrap" presente em todas as peças.',
   ],
   derivations: [
-    { art: "EM DOBRO", title: "Dobra Verão · 9:16", variations: "2 variações", version: "v3", score: 92, status: "Pronto", statusClass: "success" as const, gradient: "from-emerald-900/80 to-teal-800/60" },
-    { art: "SELO 2X", title: "Carrossel · 4 slides", variations: "1 variação", version: "v2", score: 88, status: "Revisão", statusClass: "warning" as const, gradient: "from-amber-900/70 to-orange-800/50" },
-    { art: "GARANTIA", title: "Story · 9:16 vertical", variations: "3 variações", version: "v1", score: 71, status: "Rascunho", statusClass: "info" as const, gradient: "from-slate-800/80 to-slate-700/60" },
-    { art: "PROMO", title: "Feed quadrado · 1:1", variations: "4 variações", version: "v2", score: 85, status: "Pronto", statusClass: "success" as const, gradient: "from-stone-800/80 to-stone-700/60" },
+    { art: "EM DOBRO", title: "Dobra Verão · 9:16", variations: "2 variações", version: "v3", score: 92, status: "Pronto", statusClass: "success" as const, gradient: V6_SURFACE_GRADIENTS[0] },
+    { art: "SELO 2X", title: "Carrossel · 4 slides", variations: "1 variação", version: "v2", score: 88, status: "Revisão", statusClass: "warning" as const, gradient: V6_SURFACE_GRADIENTS[1] },
+    { art: "GARANTIA", title: "Story · 9:16 vertical", variations: "3 variações", version: "v1", score: 71, status: "Rascunho", statusClass: "info" as const, gradient: V6_SURFACE_GRADIENTS[2] },
+    { art: "PROMO", title: "Feed quadrado · 1:1", variations: "4 variações", version: "v2", score: 85, status: "Pronto", statusClass: "success" as const, gradient: V6_SURFACE_GRADIENTS[3] },
   ],
 };
 
 export const previewLibraryAssets = [
-  { glyph: "HERO", name: "Hero Cenbrap v2", tags: ["Hero", "Curso"], size: "1080×1080", weight: "245 KB", gradient: "from-emerald-800/90 to-teal-700/70" },
-  { glyph: "LOGO", name: "Logo Cenbrap", tags: ["Logo"], size: "800×200", weight: "18 KB", gradient: "from-slate-800/90 to-slate-600/70" },
-  { glyph: "PAT-01", name: "Background pattern 01", tags: ["Background", "Pattern"], size: "1920×1080", weight: "1.2 MB", gradient: "from-stone-800/90 to-stone-600/70" },
-  { glyph: "TEST", name: "Card testimonial João", tags: ["Testimonial"], size: "600×600", weight: "89 KB", gradient: "from-rose-900/70 to-pink-800/50" },
-  { glyph: "PROMO", name: "Banner promo Q3", tags: ["Banner", "Promo"], size: "1200×628", weight: "156 KB", gradient: "from-amber-900/80 to-yellow-800/60" },
-  { glyph: "LOGO", name: "Logo NR1", tags: ["Logo"], size: "800×200", weight: "22 KB", gradient: "from-zinc-800/90 to-zinc-600/70" },
-  { glyph: "PROD", name: "Product shot Cenbrap", tags: ["Product"], size: "1080×1080", weight: "312 KB", gradient: "from-cyan-900/80 to-sky-800/60" },
-  { glyph: "PAT-02", name: "Background pattern 02", tags: ["Background"], size: "1920×1080", weight: "980 KB", gradient: "from-teal-900/80 to-emerald-800/60" },
+  { glyph: "HERO", name: "Hero Cenbrap v2", tags: ["Hero", "Curso"], size: "1080×1080", weight: "245 KB", gradient: V6_SURFACE_GRADIENTS[0] },
+  { glyph: "LOGO", name: "Logo Cenbrap", tags: ["Logo"], size: "800×200", weight: "18 KB", gradient: V6_SURFACE_GRADIENTS[1] },
+  { glyph: "PAT-01", name: "Background pattern 01", tags: ["Background", "Pattern"], size: "1920×1080", weight: "1.2 MB", gradient: V6_SURFACE_GRADIENTS[2] },
+  { glyph: "TEST", name: "Card testimonial João", tags: ["Testimonial"], size: "600×600", weight: "89 KB", gradient: V6_SURFACE_GRADIENTS[3] },
+  { glyph: "PROMO", name: "Banner promo Q3", tags: ["Banner", "Promo"], size: "1200×628", weight: "156 KB", gradient: V6_SURFACE_GRADIENTS[4] },
+  { glyph: "LOGO", name: "Logo NR1", tags: ["Logo"], size: "800×200", weight: "22 KB", gradient: V6_SURFACE_GRADIENTS[5] },
+  { glyph: "PROD", name: "Product shot Cenbrap", tags: ["Product"], size: "1080×1080", weight: "312 KB", gradient: V6_SURFACE_GRADIENTS[0] },
+  { glyph: "PAT-02", name: "Background pattern 02", tags: ["Background"], size: "1920×1080", weight: "980 KB", gradient: V6_SURFACE_GRADIENTS[1] },
 ];
 
 export const previewSettingsCards = [

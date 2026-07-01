@@ -136,7 +136,7 @@ export default function AppSidebar({ variant = "production" }: { variant?: AppSi
           href={isPreview ? "#" : "/settings"}
           className="flex items-center gap-2 rounded-[var(--radius-control)] px-2 py-2 transition-colors hover:bg-[var(--surface-base)]"
         >
-          <span className="grid h-[30px] w-[30px] shrink-0 place-items-center rounded-full bg-[var(--accent-primary)] text-[11px] font-bold text-[var(--text-on-accent)]">
+          <span className="grid h-[30px] w-[30px] shrink-0 place-items-center rounded-full bg-[var(--neutral-bg)] text-[11px] font-bold text-[var(--text-primary)]">
             {initials}
           </span>
           <div className="min-w-0">

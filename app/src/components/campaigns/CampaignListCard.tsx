@@ -70,9 +70,9 @@ function CampaignListCard({
     <div
       aria-labelledby={`campaign-${campaign.id}-name`}
       className={cn("animate-fade-in",
-        "group relative rounded-xl border bg-[var(--surface-base)] p-4 transition-all duration-150 cursor-pointer outline-none focus-within:ring-2 focus-within:ring-[var(--accent-green)]",
+        "group relative rounded-xl border bg-[var(--surface-base)] p-4 transition-all duration-150 cursor-pointer outline-none focus-within:ring-2 focus-within:ring-[var(--focus-ring)]",
         selected
-          ? "border-[var(--accent-green)] bg-[var(--accent-green-dim)]"
+          ? "border-[var(--border-strong)] bg-[var(--surface-inset)]"
           : "border-[var(--border-dim)] hover:border-[var(--border-medium)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)]"
       )}
       style={{ animationDelay: `${index * 50}ms` }}
@@ -107,7 +107,7 @@ function CampaignListCard({
             onChange={(e) => onSelect(campaign.id, e.target.checked)}
             className={cn(
               "size-[18px] rounded-sm border border-[var(--border-medium)] appearance-none cursor-pointer",
-              "checked:bg-[var(--accent-green)] checked:border-[var(--accent-green)]",
+              "checked:bg-[var(--neutral-dot)] checked:border-[var(--neutral-dot)]",
               "checked:bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22white%22%3E%3Cpath%20d%3D%22M12.207%204.793a1%201%20%200%2001%200%201.414l-5%205a1%201%20%200%2001-1.414%200l-2-2a1%201%20%200%20011.414-1.414L6.5%209.086l4.293-4.293a1%201%20%200%20011.414%200z%22%2F%3E%3C%2Fsvg%3E')]",
               "transition-colors duration-150"
             )}
@@ -127,7 +127,7 @@ function CampaignListCard({
         <div className="min-w-0 flex-1">
           <p
             id={`campaign-${campaign.id}-name`}
-            className="text-sm font-semibold text-[var(--text-primary)] group-hover:text-[var(--accent-green)] transition-colors duration-150 truncate"
+            className="truncate text-sm font-semibold text-[var(--text-primary)] transition-colors duration-150 group-hover:text-[var(--text-secondary)]"
           >
             {campaign.name}
           </p>

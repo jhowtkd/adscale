@@ -146,7 +146,7 @@ export default function MissionPathCard() {
             aria-label={t("progressAria", { percent: progressPercent })}
           >
             <div
-              className="h-full rounded-full bg-[var(--accent-green)] transition-all duration-500"
+              className="gradient-progress h-full rounded-full transition-all duration-500"
               style={{ width: `${progressPercent}%` }}
             />
           </div>
@@ -240,7 +240,7 @@ function ActiveMissionPanel({
         <div className="mt-4 flex flex-col gap-2">
           <Link
             href={mission.href}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-lg border-2 border-[var(--accent-green)]/40 bg-[var(--accent-green)]/10 px-4 py-2.5 text-xs font-mono uppercase tracking-wider text-[var(--accent-green-text)] hover:bg-[var(--accent-green)]/20 transition-colors"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--accent-green)] px-4 py-2.5 text-xs font-mono uppercase tracking-wider text-[var(--accent-green-on-fill)] transition-colors hover:bg-[var(--accent-green-light)]"
           >
             {t("cta")}
           </Link>

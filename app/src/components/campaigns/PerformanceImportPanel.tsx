@@ -158,7 +158,7 @@ export default function PerformanceImportPanel({
             onClick={() => setTab(key)}
             className={`min-h-9 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
               tab === key
-                ? "bg-[var(--accent-green)] text-[var(--text-on-accent)]"
+                ? "border border-[var(--border-default)] bg-[var(--surface-inset)] text-[var(--text-primary)]"
                 : "bg-[var(--surface-raised)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
             }`}
           >

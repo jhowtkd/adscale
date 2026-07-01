@@ -61,8 +61,8 @@ export default function CampaignsListView({
                     onChange={(e) => onToggleSelectAll(e.target.checked)}
                     className={cn(
                       "size-[18px] rounded-sm border border-[var(--border-medium)] appearance-none cursor-pointer",
-                      "checked:bg-[var(--accent-green)] checked:border-[var(--accent-green)]",
-                      "indeterminate:bg-[var(--accent-green)] indeterminate:border-[var(--accent-green)]",
+                      "checked:bg-[var(--neutral-dot)] checked:border-[var(--neutral-dot)]",
+                      "indeterminate:bg-[var(--neutral-dot)] indeterminate:border-[var(--neutral-dot)]",
                       "transition-colors duration-150"
                     )}
                     style={
@@ -77,7 +77,7 @@ export default function CampaignsListView({
                               backgroundImage: `url("data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22white%22%3E%3Cpath%20d%3D%22M3%208h10v1H3z%22%2F%3E%3C%2Fsvg%3E")`,
                               backgroundRepeat: "no-repeat",
                               backgroundPosition: "center",
-                              backgroundColor: "var(--accent-green)",
+                              backgroundColor: "var(--neutral-dot)",
                             }
                           : {}
                     }

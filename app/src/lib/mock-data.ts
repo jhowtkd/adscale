@@ -493,9 +493,9 @@ const mockDashboardStats: DashboardStats = {
 // ============================================
 
 export const platformColors: Record<AdPlatform, { bg: string; text: string }> = {
-  Meta: { bg: "var(--accent-green-dim)", text: "var(--accent-green-text)" },
-  TikTok: { bg: "rgba(225,29,72,0.12)", text: "var(--accent-rose)" },
-  Google: { bg: "var(--accent-green-dim)", text: "var(--accent-green-text)" },
+  Meta: { bg: "var(--neutral-bg)", text: "var(--neutral-text)" },
+  TikTok: { bg: "var(--neutral-bg)", text: "var(--neutral-text)" },
+  Google: { bg: "var(--neutral-bg)", text: "var(--neutral-text)" },
 };
 
 // ============================================

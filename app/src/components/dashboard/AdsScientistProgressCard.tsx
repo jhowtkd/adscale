@@ -98,7 +98,7 @@ export default function AdsScientistProgressCard() {
             aria-label={t("progressAria", { percent: progressPercent })}
           >
             <div
-              className="h-full rounded-full bg-[var(--accent-green)] transition-all duration-500"
+              className="gradient-progress h-full rounded-full transition-all duration-500"
               style={{ width: `${progressPercent}%` }}
             />
           </div>
@@ -128,7 +128,7 @@ export default function AdsScientistProgressCard() {
           ) : (
             <Link
               href={nextAction.href}
-              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg border-2 border-[var(--accent-green)]/40 bg-[var(--accent-green)]/10 px-4 py-2.5 text-xs font-mono uppercase tracking-wider text-[var(--accent-green-text)] hover:bg-[var(--accent-green)]/20 transition-colors"
+              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--accent-green)] px-4 py-2.5 text-xs font-mono uppercase tracking-wider text-[var(--accent-green-on-fill)] transition-colors hover:bg-[var(--accent-green-light)]"
             >
               {t("cta")}
               <ArrowRight size={14} aria-hidden="true" />

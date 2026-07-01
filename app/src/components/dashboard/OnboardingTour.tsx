@@ -208,7 +208,7 @@ export function OnboardingTour({ steps, onComplete, onSkip }: OnboardingTourProp
       {highlightPos.width > 0 && (
         <div
           className={cn(
-            "absolute rounded-xl border-2 border-[var(--accent-green)] shadow-[0_0_0_4px_var(--accent-green-dim),0_0_24px_var(--accent-green-dim)] pointer-events-none",
+            "absolute rounded-xl border-2 border-[var(--border-strong)] shadow-[0_0_0_4px_var(--neutral-bg),0_0_24px_color-mix(in_oklch,var(--text-muted)_12%,transparent)] pointer-events-none",
             motionClass
           )}
           style={{
@@ -246,8 +246,8 @@ export function OnboardingTour({ steps, onComplete, onSkip }: OnboardingTourProp
 
         <div className="mb-3 flex items-start justify-between gap-3">
           <div className="flex items-center gap-2">
-            <div className="flex size-7 items-center justify-center rounded-md bg-[var(--accent-green-dim)]">
-              <Sparkles size={14} className="text-[var(--accent-green-text)]" aria-hidden="true" />
+            <div className="flex size-7 items-center justify-center rounded-md bg-[var(--neutral-bg)]">
+              <Sparkles size={14} className="text-[var(--text-secondary)]" aria-hidden="true" />
             </div>
             <h3 className="text-[15px] font-semibold text-[var(--text-primary)]">
               {stepTitle}
@@ -280,14 +280,14 @@ export function OnboardingTour({ steps, onComplete, onSkip }: OnboardingTourProp
                 className={cn(
                   "flex min-h-11 min-w-11 items-center justify-center rounded-full transition-colors duration-200",
                   i === currentStep
-                    ? "bg-[var(--accent-green-dim)]"
+                    ? "bg-[var(--neutral-bg)]"
                     : "hover:bg-[var(--deep-bg)]"
                 )}
               >
                 <span
                   className={cn(
                     "block rounded-full transition-all duration-200",
-                    i === currentStep ? "h-1.5 w-5 bg-[var(--accent-green)]" : "size-1.5 bg-[var(--border-dim)]"
+                    i === currentStep ? "h-1.5 w-5 bg-[var(--neutral-dot)]" : "size-1.5 bg-[var(--border-dim)]"
                   )}
                   aria-hidden="true"
                 />

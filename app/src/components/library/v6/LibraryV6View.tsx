@@ -77,7 +77,7 @@ export default function LibraryV6View({
         <div
           className={`flex flex-col items-center justify-center gap-2 border-b border-dashed px-6 py-10 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] ${
             dragOver
-              ? "border-[var(--accent-primary)] bg-[var(--accent-primary-subtle)]"
+              ? "border-[var(--border-strong)] bg-[var(--surface-inset)]"
               : "border-[var(--border-default)] bg-[var(--surface-raised)]"
           }`}
           role="button"
@@ -185,7 +185,7 @@ function AssetCard({
 }) {
   return (
     <article className="group overflow-hidden rounded-[var(--radius-panel)] border border-[var(--border-subtle)] bg-[var(--surface-raised)]">
-      <div className={`relative flex h-32 items-center justify-center bg-gradient-to-br ${asset.gradient}`}>
+      <div className={`relative flex h-32 items-center justify-center ${asset.gradient}`}>
         {useImagePreview && asset.imageUrl ? (
           <Image
             src={asset.imageUrl}
@@ -196,7 +196,7 @@ function AssetCard({
             unoptimized
           />
         ) : (
-          <span className="font-mono text-sm font-bold tracking-widest text-[var(--text-on-accent)]/80">{asset.glyph}</span>
+          <span className="font-mono text-sm font-bold tracking-widest text-[var(--text-muted)]">{asset.glyph}</span>
         )}
         {interactive && onDelete ? (
           <button

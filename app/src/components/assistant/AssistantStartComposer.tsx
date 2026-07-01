@@ -221,7 +221,7 @@ export default function AssistantStartComposer({
           className="flex items-center gap-2 rounded-md border border-[var(--border-dim)] px-3 py-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
         >
           <span
-            className="size-3.5 rounded-sm bg-[var(--accent-primary)]"
+            className="size-3.5 rounded-sm bg-[var(--neutral-dot)]"
             aria-hidden="true"
           />
           {activeClient?.name ?? t("chooseProject")}

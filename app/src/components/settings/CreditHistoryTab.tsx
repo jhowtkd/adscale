@@ -181,7 +181,7 @@ export default function CreditHistoryTab() {
                 />
                 <Bar dataKey="amount" radius={[4, 4, 0, 0]}>
                   {chartData.map((entry) => (
-                    <Cell key={entry.date} fill="var(--accent-green)" />
+                    <Cell key={entry.date} fill="var(--text-muted)" />
                   ))}
                 </Bar>
               </BarChart>

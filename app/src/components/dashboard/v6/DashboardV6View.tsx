@@ -63,7 +63,7 @@ export default function DashboardV6View({
                   {...(index === 3 ? { "data-tour-step": "5" } : {})}
                 >
                   <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
-                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--accent-primary)]" />
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--neutral-dot)]" />
                     {kpi.label}
                   </div>
                   <div className="mt-2 text-2xl font-semibold tabular-nums text-[var(--text-primary)]">{kpi.value}</div>
@@ -92,7 +92,7 @@ export default function DashboardV6View({
           <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:gap-8">
             <div className="flex-1 space-y-4">
               <span className="inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-wider text-[var(--accent-primary-text)]">
-                <span className={cn("inline-block h-1.5 w-1.5 rounded-full bg-[var(--accent-primary)]", pulseDotClass)} />
+                <span className={cn("inline-block h-1.5 w-1.5 rounded-full bg-[var(--neutral-dot)]", pulseDotClass)} />
                 {labels.heroProduction} · {view.hero.badge}
               </span>
               <h2 className="product-page-title text-[var(--text-primary)]">{view.hero.name}</h2>
