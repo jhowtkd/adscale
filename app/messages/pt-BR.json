@@ -329,7 +329,7 @@
         "type": "Tipo",
         "file": "Arquivo",
         "counts": "C/U/I/X",
-        "empty": "Nenhuma importação registrada."
+        "empty": "Nenhuma importação registrada. Use as abas \"Manual\" ou \"CSV\" para enviar resultados de performance."
       },
       "parseOptions": {
         "defaultCurrency": "Moeda padrão",
