@@ -18,12 +18,7 @@ export default function LibraryEmptyPreviewPage() {
       </header>
 
       <section className="overflow-hidden rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)]">
-        <div
-          className="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center"
-          role="button"
-          tabIndex={0}
-          aria-label="Enviar primeiro asset"
-        >
+        <div className="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center">
           <span className="grid h-14 w-14 place-items-center rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] text-2xl text-[var(--text-muted)]">
             📁
           </span>
