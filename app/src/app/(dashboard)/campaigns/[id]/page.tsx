@@ -847,7 +847,6 @@ function CampaignWorkspaceCard({
             </div>
             <WorkspaceActionBar
               onDerivar={() => onOpenDerivar()}
-              onEstilizar={() => undefined}
               readinessBlocking={readinessBlocking}
               disabled={isGenerating}
             />

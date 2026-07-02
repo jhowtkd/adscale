@@ -13,7 +13,15 @@ vi.mock("next-intl", () => ({
 }));
 
 describe("Estilizar regression", () => {
-  it("WorkspaceActionBar still exposes independent Estilizar entry", () => {
+  it("hides the Estilizar button when no onEstilizar handler is provided", () => {
+    render(<WorkspaceActionBar onDerivar={vi.fn()} />);
+
+    expect(
+      screen.queryByRole("button", { name: /workspace\.actionBar\.estilizar/i })
+    ).not.toBeInTheDocument();
+  });
+
+  it("still renders the Estilizar button when an onEstilizar handler is provided", () => {
     const onEstilizar = vi.fn();
     render(<WorkspaceActionBar onDerivar={vi.fn()} onEstilizar={onEstilizar} />);
 
@@ -24,9 +32,7 @@ describe("Estilizar regression", () => {
   });
 
   it("WorkspaceActionBar uses shell-backed sticky layering", () => {
-    const { container } = render(
-      <WorkspaceActionBar onDerivar={vi.fn()} onEstilizar={vi.fn()} />,
-    );
+    const { container } = render(<WorkspaceActionBar onDerivar={vi.fn()} />);
 
     expect(container.firstElementChild).toHaveClass("workspace-sticky-top", "layer-sticky");
     expect(container.firstElementChild).not.toHaveClass("top-14", "z-10");
