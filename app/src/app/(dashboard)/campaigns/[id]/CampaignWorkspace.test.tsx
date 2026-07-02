@@ -151,9 +151,7 @@ vi.mock("@/components/assistant/AssistantChatCore", () => ({
 
 // Avoid loading heavy dynamically-imported client components.
 vi.mock("@/components/workspace/DeliveryPackageModal", () => ({ default: () => null }));
-vi.mock("@/components/workspace/PersonaSimulationSheet", () => ({ default: () => null }));
 vi.mock("@/components/workspace/DerivationReviewSheet", () => ({ default: () => null }));
-vi.mock("@/components/workspace/EstilizarModal", () => ({ default: () => null }));
 
 // Components that pull provider/DB context we don't want in this layout test.
 vi.mock("@/components/feedback/ContextualFeedbackButton", () => ({
