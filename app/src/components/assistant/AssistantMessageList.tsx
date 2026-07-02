@@ -5,9 +5,19 @@ import { useTranslations } from "next-intl";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ArtifactVersionPresentation } from "@/lib/assistant/artifact-version";
+import {
+  isQuickAction,
+  resolveDisplayContract,
+  toActionCardLifecycleStatus,
+} from "@/lib/assistant/display-contract";
+import {
+  useCancelAssistantAction,
+  useConfirmAssistantAction,
+} from "@/lib/hooks/use-assistant-actions";
 import type { VersionComparisonRequest } from "./AssistantSurfaceContext";
 import { stripThinkBlocks } from "@/server/assistant/model/reasoning-sanitizer";
 import { renderMarkdownLite } from "./markdown-lite";
+import { ActionCard } from "./ActionCard";
 import AssistantActionCard from "./AssistantActionCard";
 import AssistantEmptyState from "./AssistantEmptyState";
 
@@ -126,6 +136,126 @@ function MessageBubble({
   );
 }
 
+/**
+ * Renders a `propose_action` card inside the chat thread.
+ *
+ * `quick_action`-family proposals use the new contract-driven {@link ActionCard}
+ * (Task 7). `complete_campaign`-family proposals keep the bespoke legacy
+ * {@link AssistantActionCard}, which carries credit-confirmation gating,
+ * version-comparison shortcuts and reference thumbnails that the generic card
+ * does not replicate yet.
+ *
+ * The new card is driven entirely by the `display` object the server serializes
+ * into the message payload (label, actionType, riskLabel, riskCopyLines,
+ * confirmationPolicy, creditImpact). The server action-contract registry is
+ * "server-only", so it cannot be imported here; {@link resolveDisplayContract}
+ * reconstructs a contract-shaped object from that payload instead.
+ */
+function ActionCardMessage({
+  message,
+  threadId,
+  artifactLineages,
+  openVersionComparison,
+}: {
+  message: AssistantDisplayMessage;
+  threadId: string | null;
+  artifactLineages?: ArtifactVersionPresentation[];
+  openVersionComparison?: (request: VersionComparisonRequest) => void;
+}) {
+  const display = message.payload.display;
+  const actionType =
+    display && typeof display === "object"
+      ? (display as Record<string, unknown>).actionType
+      : undefined;
+
+  if (!isQuickAction(typeof actionType === "string" ? actionType : undefined)) {
+    return (
+      <AssistantActionCard
+        key={message.id}
+        threadId={threadId}
+        payload={message.payload}
+        artifactLineages={artifactLineages}
+        openVersionComparison={openVersionComparison}
+      />
+    );
+  }
+
+  return (
+    <QuickActionCard
+      key={message.id}
+      threadId={threadId}
+      payload={message.payload}
+    />
+  );
+}
+
+/**
+ * New contract-driven ActionCard for quick actions. Confirm/Cancel are wired to
+ * the existing confirm/cancel endpoints via the TanStack Query hooks.
+ */
+function QuickActionCard({
+  threadId,
+  payload,
+}: {
+  threadId: string | null;
+  payload: Record<string, unknown>;
+}) {
+  const confirmMutation = useConfirmAssistantAction();
+  const cancelMutation = useCancelAssistantAction();
+
+  const contract = resolveDisplayContract(payload.display);
+  const actionRecordId =
+    typeof payload.actionRecordId === "string" ? payload.actionRecordId : "";
+  const rawStatus = typeof payload.status === "string" ? payload.status : "pending";
+  const lifecycleStatus = toActionCardLifecycleStatus(rawStatus);
+  const isPending = lifecycleStatus === "pending";
+  const isMutating = confirmMutation.isPending || cancelMutation.isPending;
+
+  const inputSnapshot =
+    payload.inputSnapshot && typeof payload.inputSnapshot === "object"
+      ? (payload.inputSnapshot as Record<string, unknown>)
+      : {};
+
+  const handleConfirm = () => {
+    if (!threadId || !actionRecordId || !isPending || isMutating) {
+      return;
+    }
+    confirmMutation.mutate({ actionId: actionRecordId, threadId });
+  };
+
+  const handleCancel = () => {
+    if (!threadId || !actionRecordId || isMutating) {
+      return;
+    }
+    cancelMutation.mutate({ actionId: actionRecordId, threadId });
+  };
+
+  if (!contract) {
+    // Defensive: if the payload is malformed, fall back to the legacy card
+    // rather than rendering nothing.
+    return (
+      <AssistantActionCard threadId={threadId} payload={payload} />
+    );
+  }
+
+  return (
+    <div data-testid="assistant-action-card-propose">
+      <ActionCard
+        contract={contract}
+        snapshot={inputSnapshot}
+        status={isPending ? "pending" : lifecycleStatus}
+        errorMessage={
+          lifecycleStatus === "error"
+            ? cancelMutation.error?.message || confirmMutation.error?.message
+            : undefined
+        }
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+      />
+    </div>
+  );
+}
+
 export default function AssistantMessageList({
   messages,
   streamingText,
@@ -154,10 +284,10 @@ export default function AssistantMessageList({
       {messages.map((message) => {
         if (message.type === "action_card") {
           return (
-            <AssistantActionCard
+            <ActionCardMessage
               key={message.id}
+              message={message}
               threadId={threadId}
-              payload={message.payload}
               artifactLineages={artifactLineages}
               openVersionComparison={openVersionComparison}
             />
