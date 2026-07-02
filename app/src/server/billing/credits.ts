@@ -34,6 +34,7 @@ export const CREDIT_COSTS = {
   landing_page: 10,
   creative_qa: 1,
   copy_generation: 2,
+  personaSimulation: 3,
 } as const;
 
 export type CreditAction = keyof typeof CREDIT_COSTS;
