@@ -70,8 +70,12 @@ export function resolveWorkspaceStage({
   derivationCount,
   reviewCount,
   approvedCount,
+  isGenerating,
 }: WorkspaceV6StageContext): number {
   if (workspaceState === "setup") return 1;
+  // While derivations are actively generating, nothing is reviewable yet —
+  // keep the stage-pill on Derive (2) instead of advancing to Review.
+  if (isGenerating) return 2;
   // In "trabalho", the stage is derived from derivation progress.
   if (reviewCount > 0) return 3;
   if (approvedCount > 0) return 4;
@@ -83,6 +87,7 @@ export function mapCampaignWorkspaceToV6View({
   campaign,
   derivations,
   workspaceState,
+  isGenerating,
   tStatus,
   tWorkspace,
   formatDate,
@@ -90,6 +95,7 @@ export function mapCampaignWorkspaceToV6View({
   campaign: WorkspaceCampaignSource;
   derivations: Derivation[];
   workspaceState: WorkspaceState;
+  isGenerating?: boolean;
   tStatus: (key: string) => string;
   tWorkspace: (key: string, values?: Record<string, string | number>) => string;
   formatDate: (date: Date) => string;
@@ -159,6 +165,7 @@ export function mapCampaignWorkspaceToV6View({
       derivationCount: derivations.length,
       reviewCount,
       approvedCount,
+      isGenerating,
     }),
     stages,
     briefingSliders,

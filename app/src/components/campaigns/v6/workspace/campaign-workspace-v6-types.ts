@@ -52,4 +52,9 @@ export type WorkspaceV6StageContext = {
   derivationCount: number;
   reviewCount: number;
   approvedCount: number;
+  /**
+   * True while derivations are actively being generated (queued/processing).
+   * During generation nothing is reviewable yet, so the stage stays on Derive.
+   */
+  isGenerating?: boolean;
 };

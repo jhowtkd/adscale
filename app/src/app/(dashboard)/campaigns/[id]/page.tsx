@@ -282,13 +282,14 @@ export default function CampaignWorkspacePage() {
             campaign,
             derivations: allDerivations,
             workspaceState,
+            isGenerating,
             tStatus: (key) => tCampaign(`status.${key}`),
             tWorkspace: (key, values) => tCampaign(`v6.${key}`, values),
             formatDate: (date) =>
               date.toLocaleDateString(undefined, { day: "2-digit", month: "2-digit", year: "numeric" }),
           })
         : EMPTY_WORKSPACE_VIEW,
-    [campaign, allDerivations, workspaceState, tCampaign],
+    [campaign, allDerivations, workspaceState, isGenerating, tCampaign],
   );
 
   useEffect(() => {
