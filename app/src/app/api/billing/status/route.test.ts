@@ -18,14 +18,20 @@ vi.mock("@/server/billing/access", () => ({
   PAST_DUE_SPEND_POLICY: "existing_credits_spendable",
 }));
 
+vi.mock("@/server/repositories/workspace", () => ({
+  getMemberRole: vi.fn(),
+}));
+
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getWorkspaceBillingAccess } from "@/server/billing/access";
 import { getBillingCustomerByWorkspace } from "@/server/repositories/billing";
+import { getMemberRole } from "@/server/repositories/workspace";
 import { GET } from "./route";
 
 const mockRequireWorkspaceAccess = vi.mocked(requireWorkspaceAccess);
 const mockGetWorkspaceBillingAccess = vi.mocked(getWorkspaceBillingAccess);
 const mockGetBillingCustomer = vi.mocked(getBillingCustomerByWorkspace);
+const mockGetMemberRole = vi.mocked(getMemberRole);
 
 describe("billing status route", () => {
   beforeEach(() => {
@@ -35,6 +41,7 @@ describe("billing status route", () => {
       user: { id: "user-1", email: "test@example.com", name: "Test" },
     } as Awaited<ReturnType<typeof requireWorkspaceAccess>>);
     mockGetBillingCustomer.mockResolvedValue(null);
+    mockGetMemberRole.mockResolvedValue("owner");
   });
 
   it("returns beta access without subscription", async () => {
@@ -233,5 +240,26 @@ describe("billing status route", () => {
       recoveryAction: "portal",
       spendPolicy: "existing_credits_spendable",
     });
+  });
+
+  it("surfaces the workspace member role on access for client-side role gates", async () => {
+    mockGetWorkspaceBillingAccess.mockResolvedValue({
+      kind: "paid",
+      label: "Assinatura ativa",
+      creditBalance: 10,
+      remainingAds: null,
+      hasSpendAccess: true,
+      subscriptionStatus: "active",
+      subscription: null,
+      latestSubscription: null,
+      betaEntitlement: null,
+    } as Awaited<ReturnType<typeof getWorkspaceBillingAccess>>);
+    mockGetMemberRole.mockResolvedValue("member");
+
+    const response = await GET(new Request("http://localhost/api/billing/status"));
+    const body = await response.json();
+
+    expect(mockGetMemberRole).toHaveBeenCalledWith("workspace-1", "user-1");
+    expect(body.billing.access.role).toBe("member");
   });
 });

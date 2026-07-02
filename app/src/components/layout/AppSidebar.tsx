@@ -35,8 +35,10 @@ export default function AppSidebar({ variant = "production" }: { variant?: AppSi
     .join("") || "U";
   const planLabel = billingStatus?.access?.label ?? billing.planName;
   const isTesterAccount = billingStatus?.access?.kind === "tester";
-  const accessKind = billingStatus?.access?.kind;
-  const isOwnerOrAdmin = accessKind === "owner" || accessKind === "admin";
+  // Workspace membership role (owner/admin/member) drives operational gating.
+  // access.kind is billing entitlement (paid/beta/tester/none), not a role.
+  const accessRole = billingStatus?.access?.role;
+  const isOwnerOrAdmin = accessRole === "owner" || accessRole === "admin";
 
   const isDashboard = isPreview
     ? pathname === "/v6" || pathname.startsWith("/v6/dashboard") || pathname.startsWith("/v6/topbar-promo")

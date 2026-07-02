@@ -8,13 +8,15 @@ import {
 } from "@/server/billing/access";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getBillingCustomerByWorkspace } from "@/server/repositories/billing";
+import { getMemberRole } from "@/server/repositories/workspace";
 
 export async function GET(request: Request) {
   try {
-    const { workspace } = await requireWorkspaceAccess(request);
-    const [customer, access] = await Promise.all([
+    const { user, workspace } = await requireWorkspaceAccess(request);
+    const [customer, access, role] = await Promise.all([
       getBillingCustomerByWorkspace(workspace.id),
       getWorkspaceBillingAccess(workspace.id),
+      getMemberRole(workspace.id, user.id),
     ]);
 
     const subscriptionRecord = access.latestSubscription;
@@ -32,6 +34,7 @@ export async function GET(request: Request) {
         subscriptionStatus: access.subscriptionStatus,
         access: {
           kind: access.kind,
+          role: role ?? undefined,
           label: access.label,
           remainingAds: access.remainingAds,
           hasSpendAccess: access.hasSpendAccess,

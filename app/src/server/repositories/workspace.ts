@@ -184,3 +184,28 @@ export async function verifyMembership(workspaceId: string, userId: string) {
 
   return member.length > 0;
 }
+
+/**
+ * Returns the workspace membership role for a user (`owner`/`admin`/`member`),
+ * or `null` if the user is not a member. Used to surface the current user's
+ * role on the billing status payload for client-side role gates (e.g. /feedback).
+ */
+export async function getMemberRole(
+  workspaceId: string,
+  userId: string
+): Promise<"owner" | "admin" | "member" | null> {
+  const member = await db
+    .select({ role: workspaceMembers.role })
+    .from(workspaceMembers)
+    .where(
+      and(
+        eq(workspaceMembers.workspaceId, workspaceId),
+        eq(workspaceMembers.userId, userId)
+      )
+    )
+    .limit(1);
+
+  const role = member[0]?.role;
+  if (role === "owner" || role === "admin" || role === "member") return role;
+  return null;
+}
