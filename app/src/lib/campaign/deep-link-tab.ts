@@ -34,8 +34,8 @@ export function scrollToCampaignDeepLink(tab: CampaignTabDeepLink): void {
 }
 
 export interface CampaignDeepLinkActions {
-  goToPilot: () => void;
-  goToActions: () => void;
+  goToSetup: () => void;
+  goToTrabalho: () => void;
   hasDerivations?: boolean;
   openStrategyRecipe?: () => void;
 }
@@ -47,30 +47,30 @@ export function applyCampaignDeepLink(
 ): void {
   switch (tab) {
     case "assets":
-      actions.goToPilot();
+      actions.goToSetup();
       break;
     case "readiness":
       if (actions.hasDerivations) {
-        actions.goToActions();
+        actions.goToTrabalho();
       } else {
-        actions.goToPilot();
+        actions.goToSetup();
       }
       break;
     case "briefing":
-      actions.goToPilot();
+      actions.goToSetup();
       break;
     case "recipe":
-      actions.goToActions();
+      actions.goToTrabalho();
       actions.openStrategyRecipe?.();
       break;
     case "generate":
-      actions.goToActions();
+      actions.goToTrabalho();
       actions.openStrategyRecipe?.();
       break;
     case "review":
     case "export":
     case "share":
-      actions.goToActions();
+      actions.goToTrabalho();
       break;
     default:
       break;

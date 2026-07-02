@@ -153,29 +153,41 @@ export default function DashboardV6View({
               ))}
             </ul>
           ) : view.recipes.length > 0 ? (
-            <ul className="mt-4 space-y-2.5">
-              {view.recipes.map((recipe) => (
-                <li key={recipe.id}>
-                  <ActionLink
-                    interactive={interactive}
-                    href={recipe.href}
-                    className="flex items-center gap-3 rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-3 transition-colors hover:border-[var(--border-default)]"
-                  >
-                    <span
-                      className="grid h-8 w-8 place-items-center rounded-[var(--radius-control)] bg-[var(--accent-primary-subtle)] text-sm"
-                      aria-hidden="true"
+            <>
+              <ul className="mt-4 space-y-2.5">
+                {view.recipes.map((recipe) => (
+                  <li key={recipe.id}>
+                    <ActionLink
+                      interactive={interactive}
+                      href={recipe.href}
+                      className="flex items-center gap-3 rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-3 transition-colors hover:border-[var(--border-default)]"
                     >
-                      {recipe.icon}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-[var(--text-primary)]">{recipe.name}</p>
-                      <p className="truncate text-xs text-[var(--text-muted)]">{recipe.desc}</p>
-                    </div>
-                    <span className="shrink-0 font-mono text-[11px] text-[var(--text-muted)]">{recipe.count}</span>
-                  </ActionLink>
-                </li>
-              ))}
-            </ul>
+                      <span
+                        className="grid h-8 w-8 place-items-center rounded-[var(--radius-control)] bg-[var(--accent-primary-subtle)] text-sm"
+                        aria-hidden="true"
+                      >
+                        {recipe.icon}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-[var(--text-primary)]">{recipe.name}</p>
+                        <p className="truncate text-xs text-[var(--text-muted)]">{recipe.desc}</p>
+                      </div>
+                      <span className="shrink-0 font-mono text-[11px] text-[var(--text-muted)]">
+                        {recipe.count}
+                      </span>
+                    </ActionLink>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-4">
+                <Link
+                  href="/templates"
+                  className="text-sm text-[var(--accent-primary)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] rounded-sm"
+                >
+                  {labels.templatesLink}
+                </Link>
+              </div>
+            </>
           ) : (
             <SectionEmpty
               title={labels.recipesEmptyTitle}

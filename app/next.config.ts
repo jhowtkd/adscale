@@ -91,6 +91,15 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async redirects() {
+    // Standalone restyle pages were removed; restyle is now exclusively a
+    // quick_restyle action within the campaign chat. Redirect old URLs to
+    // /campaigns so existing links/bookmarks don't 404.
+    return [
+      { source: "/restyling", destination: "/campaigns", permanent: false },
+      { source: "/quick-tools/restyling", destination: "/campaigns", permanent: false },
+    ];
+  },
 };
 
 const sentryOptions = {

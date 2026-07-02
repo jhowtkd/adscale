@@ -28,6 +28,7 @@ export interface ValidateProposeActionResult {
   display: {
     label: string;
     actionType: string;
+    intentFamily: ActionContract["intentFamily"];
     riskLabel: string;
     creditImpact: ActionContract["creditImpact"];
     riskCopyLines: string[];
@@ -58,6 +59,7 @@ export async function validateProposeAction(
     display: {
       label: parsed.label,
       actionType: parsed.actionType,
+      intentFamily: contract.intentFamily,
       riskLabel: contract.riskLabel,
       creditImpact: contract.creditImpact,
       riskCopyLines,

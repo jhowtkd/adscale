@@ -4,6 +4,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 export type BillingAccessKind = "paid" | "beta" | "tester" | "none";
 
+/**
+ * Workspace membership role of the current user. Surfaced on the billing
+ * status payload so client-side role gates (e.g. /feedback) can react to it
+ * without a separate request. Mirrors `WorkspaceMemberRole`.
+ */
+export type BillingAccessRole = "owner" | "admin" | "member";
+
 export type BillingSubscriptionStatus =
   | "trialing"
   | "active"
@@ -20,6 +27,11 @@ export interface BillingStatus {
   subscriptionStatus: BillingSubscriptionStatus;
   access: {
     kind: BillingAccessKind;
+    /**
+     * Workspace membership role of the current user (`owner`/`admin`/`member`).
+     * May be absent for legacy/edge payloads; treat absence as non-privileged.
+     */
+    role?: BillingAccessRole;
     label: string;
     remainingAds: number | null;
     hasSpendAccess: boolean;

@@ -664,6 +664,23 @@
   .content-wide { --content-max: var(--content-wide); }
   .content-fluid { --content-max: 100%; }
 
+  /* Campaign workspace: 2-column split (main + permanent assistant panel). */
+  .workspace-split {
+    gap: 1rem;
+  }
+
+  .workspace-chat {
+    min-width: 0;
+  }
+
+  /* The chat panel is sticky on desktop so it stays in view while the main
+     column scrolls. */
+  @media (min-width: 64rem) {
+    .workspace-chat {
+      height: calc(100vh - var(--shell-topbar-desktop) - var(--shell-sticky-gap) - 1rem);
+    }
+  }
+
   .product-page-title {
     font-size: var(--text-page);
     line-height: 1.25;

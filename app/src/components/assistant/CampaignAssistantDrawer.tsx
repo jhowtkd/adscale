@@ -1,27 +1,50 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import {
-  Sheet,
-  SheetBody,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import { useCreateAssistantThread } from "@/lib/hooks/use-assistant-threads";
 import AssistantChatCore from "./AssistantChatCore";
 
 export interface CampaignAssistantDrawerProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  /**
+   * Kept for backward compatibility but no longer used — the panel is always
+   * mounted. When migrating call sites to the new name, prefer
+   * `CampaignAssistantPanel`.
+   */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   campaignId: string;
   clientProfileId: string;
 }
 
-export default function CampaignAssistantDrawer({
-  open,
-  onOpenChange,
+/**
+ * Permanent assistant panel for the campaign workspace.
+ *
+ * Previously a `Sheet` (modal overlay) gated behind an `open` toggle. It is now
+ * an always-mounted panel rendered in a fixed 380px column on desktop and a
+ * toggleable tab on mobile. The thread-creation logic is unchanged.
+ *
+ * The `CampaignAssistantPanel` name is the preferred export going forward; the
+ * default export keeps the historical `CampaignAssistantDrawer` name so
+ * existing imports continue to resolve.
+ */
+export function CampaignAssistantPanel({
+  campaignId,
+  clientProfileId,
+}: CampaignAssistantDrawerProps) {
+  return (
+    <CampaignAssistantDrawerPanel
+      campaignId={campaignId}
+      clientProfileId={clientProfileId}
+    />
+  );
+}
+
+export default function CampaignAssistantDrawer(props: CampaignAssistantDrawerProps) {
+  return <CampaignAssistantPanel {...props} />;
+}
+
+function CampaignAssistantDrawerPanel({
   campaignId,
   clientProfileId,
 }: CampaignAssistantDrawerProps) {
@@ -29,12 +52,8 @@ export default function CampaignAssistantDrawer({
   const createThread = useCreateAssistantThread();
   const [threadId, setThreadId] = useState<string | null>(null);
 
-  const handleClose = useCallback(() => {
-    onOpenChange(false);
-  }, [onOpenChange]);
-
   useEffect(() => {
-    if (!open || threadId || !clientProfileId) {
+    if (threadId || !clientProfileId) {
       return;
     }
 
@@ -56,44 +75,31 @@ export default function CampaignAssistantDrawer({
     return () => {
       cancelled = true;
     };
-  }, [open, threadId, clientProfileId, campaignId, createThread]);
+  }, [threadId, clientProfileId, campaignId, createThread]);
 
   const resolveError = createThread.error
     ? createThread.error instanceof Error
       ? createThread.error.message
       : t("errorResolve")
     : null;
-  const missingClient = open && !clientProfileId;
-  const resolving =
-    open && Boolean(clientProfileId) && !threadId && !resolveError;
+  const missingClient = !clientProfileId;
+  const resolving = Boolean(clientProfileId) && !threadId && !resolveError;
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" size="xl" className="flex flex-col p-0">
-        <SheetHeader>
-          <SheetTitle>{t("title")}</SheetTitle>
-        </SheetHeader>
-
-        <SheetBody className="flex min-h-0 flex-1 flex-col p-0">
-          {missingClient ? (
-            <p className="p-4 text-sm text-[var(--danger-text)]" role="alert">
-              {t("errorMissingClient")}
-            </p>
-          ) : resolving ? (
-            <p className="p-4 text-sm text-[var(--text-muted)]">{t("loading")}</p>
-          ) : resolveError ? (
-            <p className="p-4 text-sm text-[var(--danger-text)]" role="alert">
-              {resolveError}
-            </p>
-          ) : (
-            <AssistantChatCore
-              threadId={threadId}
-              variant="drawer"
-              onClose={handleClose}
-            />
-          )}
-        </SheetBody>
-      </SheetContent>
-    </Sheet>
+    <div className="flex h-full min-h-0 flex-col">
+      {missingClient ? (
+        <p className="p-4 text-sm text-[var(--danger-text)]" role="alert">
+          {t("errorMissingClient")}
+        </p>
+      ) : resolving ? (
+        <p className="p-4 text-sm text-[var(--text-muted)]">{t("loading")}</p>
+      ) : resolveError ? (
+        <p className="p-4 text-sm text-[var(--danger-text)]" role="alert">
+          {resolveError}
+        </p>
+      ) : (
+        <AssistantChatCore threadId={threadId} variant="drawer" />
+      )}
+    </div>
   );
 }

@@ -261,6 +261,30 @@ describe("TopBar notifications", () => {
   });
 });
 
+describe("TopBar navigation quick-links", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUsePathname.mockReturnValue("/campaigns");
+    mockUseSearchParams.mockReturnValue(new URLSearchParams());
+    sessionStorage.clear();
+    mockUseNotifications.mockReturnValue({ data: [] } as ReturnType<typeof useNotifications>);
+  });
+
+  it("does not surface Templates or Restyling nav links", () => {
+    render(<TopBar />, { wrapper: createWrapper() });
+
+    expect(screen.queryByRole("link", { name: /templates/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /restyling/i })).not.toBeInTheDocument();
+  });
+
+  it("still renders the core Dashboard, Campaigns and Settings nav links", () => {
+    render(<TopBar />, { wrapper: createWrapper() });
+
+    expect(screen.getByRole("link", { name: "campaigns" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "settings" })).toBeInTheDocument();
+  });
+});
+
 const ptTitleDict = {
   navigation: { dashboard: "Dashboard", campaigns: "Campanhas", settings: "Configurações" },
   common: { pageTitle: "Campanhas", notifications: "Notificações" },

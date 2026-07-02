@@ -18,6 +18,7 @@ import {
   executeQuickReview,
 } from "./handlers/quick-regenerate-review";
 import { executeQuickRestyle } from "./handlers/quick-restyle";
+import { executeQuickPersonaSimulate } from "./handlers/quick-persona-simulate";
 import { executeQuickSaveReference } from "./handlers/quick-save-reference";
 import { executeStartCompleteCampaign } from "./handlers/start-complete-campaign";
 import { executeCreateCreativePlan } from "./handlers/create-creative-plan";
@@ -37,6 +38,7 @@ const HANDLERS: Record<string, Handler> = {
   quick_review: executeQuickReview,
   quick_save_reference: executeQuickSaveReference,
   quick_package: executeQuickPackage,
+  quick_persona_simulate: executeQuickPersonaSimulate,
   start_complete_campaign: executeStartCompleteCampaign,
   create_creative_plan: executeCreateCreativePlan,
   revise_creative_plan: executeReviseCreativePlan,

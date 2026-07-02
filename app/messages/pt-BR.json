@@ -15,7 +15,13 @@
     "workspace": "Workspace",
     "account": "Conta",
     "collapse": "Recolher",
-    "expand": "Expandir"
+    "expand": "Expandir",
+    "curadorIA": "Curador IA",
+    "sectionPrincipal": "Principal",
+    "sectionCriar": "Criar",
+    "sectionOperacao": "Operação",
+    "feedback": "Feedback",
+    "quality": "Quality"
   },
   "language": {
     "label": "Idioma",
@@ -497,6 +503,7 @@
       "recipesEmptyTitle": "Nenhuma receita salva ainda",
       "recipesEmptyDescription": "Salve um briefing como template para reutilizar na próxima campanha.",
       "recipesEmptyAction": "Ver templates",
+      "templatesLink": "Templates",
       "briefingEmptyTitle": "Nenhum briefing ativo",
       "briefingEmptyDescription": "Inicie um briefing de campanha ou escolha um template para ver os campos aqui.",
       "briefingEmptyAction": "Nova campanha"
@@ -893,6 +900,12 @@
       "toastProfileCreatedLinkFailed": "Perfil criado, mas não foi possível vincular.",
       "toastProfileCreateFailed": "Não foi possível criar o perfil.",
       "briefingReadinessSummary": "Briefing e readiness"
+    },
+    "workspace": {
+      "assistantLabel": "Assistente da campanha",
+      "viewToggleLabel": "Visualização do workspace",
+      "gridTab": "Grade",
+      "chatTab": "Chat"
     },
     "deleteDialog": {
       "title": "Excluir campanha",
@@ -2534,6 +2547,10 @@
       "riskDetails": "Detalhes de risco",
       "confirm": "Confirmar",
       "cancel": "Cancelar",
+      "edit": "Editar",
+      "executing": "Gerando…",
+      "errorTitle": "Falha",
+      "successTitle": "Concluído",
       "status": {
         "pending": "Aguardando confirmação",
         "confirmed": "Confirmada",

@@ -37,6 +37,7 @@ export const previewDashboardLabels = {
   recipesEmptyTitle: "Nenhuma receita salva ainda",
   recipesEmptyDescription: "Salve um briefing como template para reutilizar na próxima campanha.",
   recipesEmptyAction: "Ver templates",
+  templatesLink: "Templates",
   briefingEmptyTitle: "Nenhum briefing ativo",
   briefingEmptyDescription: "Inicie um briefing de campanha ou escolha um template para ver os campos aqui.",
   briefingEmptyAction: "Nova campanha",

@@ -1,9 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
+import { useBillingStatus } from "@/lib/hooks/use-billing";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { BetaSessionsPanel } from "@/components/feedback/BetaSessionsPanel";
@@ -86,6 +88,20 @@ export default function FeedbackTriagePage() {
   const t = useTranslations("feedback.triage");
   const tFeedback = useTranslations("feedback");
   const queryClient = useQueryClient();
+  const router = useRouter();
+  const { data: billingStatus } = useBillingStatus();
+
+  // Operational tooling: restrict to owner/admin workspace roles. Member (and
+  // any non-privileged role) is redirected to /campaigns. See Task 12.
+  const accessRole = billingStatus?.access?.role;
+  const isOwnerOrAdmin = accessRole === "owner" || accessRole === "admin";
+
+  useEffect(() => {
+    if (accessRole && !isOwnerOrAdmin) {
+      router.replace("/campaigns");
+    }
+  }, [accessRole, isOwnerOrAdmin, router]);
+
   const [status, setStatus] = useState("");
   const [severity, setSeverity] = useState("");
   const [category, setCategory] = useState("");
@@ -183,6 +199,11 @@ export default function FeedbackTriagePage() {
       </div>
     );
   }
+
+  // While billing status is loading, or once a non-allowed role is known,
+  // render nothing so operational content never flashes to end users. Hooks
+  // above all run unconditionally; this early return is safe.
+  if (!isOwnerOrAdmin) return null;
 
   const reports = data?.reports ?? [];
   const detail = detailQuery.data;

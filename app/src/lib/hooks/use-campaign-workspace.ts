@@ -40,11 +40,8 @@ import {
 import type { OutputLearningApplicationSnapshot } from "@/server/human-quality/corpus";
 
 export type WorkspaceState =
-  | "piloto"           // upload + briefing
-  | "acoes"            // action buttons + derivation grid
-  | "derivando"        // configuring derivation
-  | "estilizando"      // configuring styling
-  | "gerando";         // loading while generating
+  | "setup"            // upload + briefing
+  | "trabalho";        // action buttons + derivation grid (+ inline config / loading)
 
 export function useCampaignWorkspace(
   campaignId: string,
@@ -147,34 +144,29 @@ export function useCampaignWorkspace(
   }, [setCurrentPageTitle, campaign?.name, tc]);
 
   // Workspace state
-  const [workspaceState, setWorkspaceState] = useState<WorkspaceState>("piloto");
+  const [workspaceState, setWorkspaceState] = useState<WorkspaceState>("setup");
   const hasActiveDerivations = Boolean(
     derivationsData?.some(
       (d) => d.status === "queued" || d.status === "processing"
     )
   );
 
-  const resolvedWorkspaceState =
-    workspaceState === "gerando" &&
-    derivationsData?.length &&
-    !hasActiveDerivations
-      ? "acoes"
-      : workspaceState;
+  // Loading state is now a derived boolean, not a state value.
+  // Active derivations (queued/processing) drive the "generating" UI while in trabalho.
+  const isGenerating = hasActiveDerivations;
 
+  // Auto-promote to "trabalho" once derivations exist and we are past setup.
   const visibleWorkspaceState =
     !isLoading &&
     !isNew &&
     derivationsData &&
     derivationsData.length > 0 &&
-    resolvedWorkspaceState === "piloto"
-      ? "acoes"
-      : resolvedWorkspaceState;
+    workspaceState === "setup"
+      ? "trabalho"
+      : workspaceState;
 
-  const goToPilot = useCallback(() => setWorkspaceState("piloto"), []);
-  const goToActions = useCallback(() => setWorkspaceState("acoes"), []);
-  const goToDerivation = useCallback(() => setWorkspaceState("derivando"), []);
-  const goToStyling = useCallback(() => setWorkspaceState("estilizando"), []);
-  const goToGenerating = useCallback(() => setWorkspaceState("gerando"), []);
+  const goToSetup = useCallback(() => setWorkspaceState("setup"), []);
+  const goToTrabalho = useCallback(() => setWorkspaceState("trabalho"), []);
 
   const savePilot = useCallback(
     async (assetId: string, briefing: {
@@ -201,7 +193,7 @@ export function useCampaignWorkspace(
         throw new Error("Failed to save pilot");
       }
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId] });
-      setWorkspaceState("acoes");
+      setWorkspaceState("trabalho");
     },
     [campaignId, queryClient]
   );
@@ -292,7 +284,7 @@ export function useCampaignWorkspace(
         {
           onSuccess: () => {
             addToast("success", options?.preview ? tc("previewQueued") : tc("derivationsQueued"));
-            setWorkspaceState("acoes");
+            setWorkspaceState("trabalho");
             if (campaign && !isNew) updateCampaign.mutate({ status: "generating" });
             if (options?.preview && missionInsight) {
               missionInsight.maybePromptMissionInsight({
@@ -306,7 +298,7 @@ export function useCampaignWorkspace(
           },
           onError: (error) => {
             addToast("error", options?.preview ? tc("failedQueuePreview") : tc("failedQueueDerivations"));
-            setWorkspaceState("acoes");
+            setWorkspaceState("trabalho");
             if (isInsufficientCreditsError(error) && missionInsight) {
               missionInsight.maybePromptMissionInsight({
                 moment: "credit_friction",
@@ -377,15 +369,15 @@ export function useCampaignWorkspace(
       if (!campaign || isNew) return;
       if (restyleCampaign.isPending) return;
 
-      setWorkspaceState("gerando");
+      setWorkspaceState("trabalho");
       restyleCampaign.mutate(input, {
         onSuccess: () => {
           addToast("success", tc("derivationsQueued"));
-          setWorkspaceState("acoes");
+          setWorkspaceState("trabalho");
         },
         onError: () => {
           addToast("error", tc("failedQueueDerivations"));
-          setWorkspaceState("acoes");
+          setWorkspaceState("trabalho");
         },
       });
     },
@@ -695,15 +687,13 @@ export function useCampaignWorkspace(
     reviewDerivationId,
     regenerateDialog,
     workspaceState: visibleWorkspaceState,
+    isGenerating,
     savingReferenceId,
     deliveryModalOpen,
     selectedDeliverySource,
     handleDeliveryModalOpenChange,
-    goToPilot,
-    goToActions,
-    goToDerivation,
-    goToStyling,
-    goToGenerating,
+    goToSetup,
+    goToTrabalho,
     savePilot,
     handleGenerateDerivations,
     configureAndGenerate,

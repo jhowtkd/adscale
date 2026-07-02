@@ -1,6 +1,7 @@
 import { registerActionContract } from "../registry";
 import { quickFormatAdaptContract } from "./quick-format-adapt";
 import { quickPackageContract } from "./quick-package";
+import { quickPersonaSimulateContract } from "./quick-persona-simulate";
 import { quickRegenerateContract } from "./quick-regenerate";
 import { quickRestyleContract } from "./quick-restyle";
 import { quickReviewContract } from "./quick-review";
@@ -16,6 +17,7 @@ registerActionContract(quickRegenerateContract);
 registerActionContract(quickReviewContract);
 registerActionContract(quickSaveReferenceContract);
 registerActionContract(quickPackageContract);
+registerActionContract(quickPersonaSimulateContract);
 registerActionContract(startCompleteCampaignContract);
 registerActionContract(createCreativePlanContract);
 registerActionContract(reviseCreativePlanContract);

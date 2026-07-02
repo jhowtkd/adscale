@@ -3,9 +3,10 @@
 import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, useMemo } from "react";
 import { useAppStore } from "@/lib/store";
+import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
-import { useUploadAsset, useCampaignAssets } from "@/lib/hooks/use-assets";
+import { useCampaignAssets } from "@/lib/hooks/use-assets";
 import type { DeliveryFormat } from "@/components/workspace/DeliveryPackageModal";
 import {
   CampaignWorkspaceBriefingV6Panel,
@@ -35,17 +36,7 @@ const DeliveryPackageModal = dynamic(() => import("@/components/workspace/Delive
   loading: () => null,
 });
 
-const PersonaSimulationSheet = dynamic(() => import("@/components/workspace/PersonaSimulationSheet"), {
-  ssr: false,
-  loading: () => null,
-});
-
 const DerivationReviewSheet = dynamic(() => import("@/components/workspace/DerivationReviewSheet"), {
-  ssr: false,
-  loading: () => null,
-});
-
-const EstilizarModal = dynamic(() => import("@/components/workspace/EstilizarModal"), {
   ssr: false,
   loading: () => null,
 });
@@ -61,9 +52,7 @@ import WorkspaceActionBar from "@/components/workspace/WorkspaceActionBar";
 import DerivationGrid from "@/components/workspace/DerivationGrid";
 import StrategyRecipePanel from "@/components/workspace/StrategyRecipePanel";
 import ClientApprovalPackagePanel from "@/components/workspace/ClientApprovalPackagePanel";
-import RegenerateFeedbackDialog, {
-  DerivationLoadErrorBanner,
-} from "@/components/workspace/RegenerateFeedbackDialog";
+import { DerivationLoadErrorBanner } from "@/components/workspace/DerivationLoadErrorBanner";
 import PageSection from "@/components/layout/PageSection";
 
 import OutputLearningRecommendationCard, {
@@ -80,12 +69,10 @@ import CampaignSkeleton from "@/components/campaigns/CampaignSkeleton";
 import CampaignErrorState from "@/components/campaigns/CampaignErrorState";
 import CampaignNotFoundState from "@/components/campaigns/CampaignNotFoundState";
 
-import CampaignAssistantDrawer from "@/components/assistant/CampaignAssistantDrawer";
+import { CampaignAssistantPanel } from "@/components/assistant/CampaignAssistantDrawer";
 import { useCampaignWorkspace } from "@/lib/hooks/use-campaign-workspace";
 import type { ReviewDerivationVariables } from "@/lib/hooks/use-review";
-import { useBillingStatus } from "@/lib/hooks/use-billing";
 import { useUpdateCampaign } from "@/lib/hooks/use-campaigns";
-import { resolveConversionGateFromBilling } from "@/lib/billing/conversion-client";
 import { useDerivationFlow } from "@/lib/hooks/use-derivation-flow";
 import { usePreflightScore } from "@/lib/hooks/use-preflight";
 import {
@@ -119,15 +106,9 @@ export default function CampaignWorkspacePage() {
 
   const tc = useTranslations("common");
   const tCampaign = useTranslations("campaign");
-  const tAssistant = useTranslations("assistant.drawer");
+  const tWorkspaceMobile = useTranslations("campaign.workspace");
   const addToast = useAppStore((s) => s.addToast);
-  const uploadAsset = useUploadAsset(campaignId);
   const updateCampaign = useUpdateCampaign(campaignId);
-
-  const [personaSimulation, setPersonaSimulation] = useState<{
-    isOpen: boolean;
-    selectedId: string | null;
-  }>({ isOpen: false, selectedId: null });
 
   const [analysis, setAnalysis] = useState({
     detectedConcept: "",
@@ -141,9 +122,9 @@ export default function CampaignWorkspacePage() {
     suggestedCta: "",
   });
   const pilotAssetIdRef = useRef<string | null>(null);
-  const [showEstilizarModal, setShowEstilizarModal] = useState(false);
-  const [assistantDrawerOpen, setAssistantDrawerOpen] = useState(false);
   const [platformsDrawerOpen, setPlatformsDrawerOpen] = useState(false);
+  // Mobile (< lg) toggles between the workspace grid and the chat panel.
+  const [mobileView, setMobileView] = useState<"grid" | "chat">("grid");
   const {
     isDerivePanelOpen,
     derivePanelSession,
@@ -166,33 +147,25 @@ export default function CampaignWorkspacePage() {
     refetchDerivations,
     allDerivations,
     reviewDerivationId,
-    regenerateDialog,
     handleCloseReview,
-    handleConfirmRegenerate,
-    handleCloseRegenerateDialog,
     handleRequestRegenerate,
     approvedDerivation,
     workspaceState,
+    isGenerating,
     savingReferenceId,
     deliveryModalOpen,
     selectedDeliverySource,
     handleDeliveryModalOpenChange,
-    goToPilot,
-    goToActions,
-    goToDerivation,
-    goToStyling,
-    goToGenerating,
+    goToSetup,
+    goToTrabalho,
     savePilot,
     handleGenerateDerivations,
     configureAndGenerate,
-    handleRestyle,
     handleGenerateLandingPage,
     handleSaveAsReference,
     hasActivePreview,
     previewDerivation,
     showPreviewGate,
-    batchCreditEstimate,
-    batchCreditBreakdown,
     approvePreviewToBatch,
     handlePreview,
     handleDownloadDerivation,
@@ -225,8 +198,6 @@ export default function CampaignWorkspacePage() {
   } = useCampaignWorkspace(campaignId, isNew, {
     pendingOutputLearningApplication,
   });
-
-  const { data: billingStatus } = useBillingStatus();
 
   const { data: campaignAssets } = useCampaignAssets(campaignId);
   const { data: clientProfiles, isSuccess: clientProfilesLoaded } = useClientProfiles();
@@ -279,8 +250,8 @@ export default function CampaignWorkspacePage() {
   }, [preflightData?.readiness?.blockingIssues, readinessOverrideActive]);
 
   const workspaceLabels = useMemo(
-    () => buildCampaignWorkspaceV6Labels(tCampaign, tc, tAssistant),
-    [tCampaign, tc, tAssistant],
+    () => buildCampaignWorkspaceV6Labels(tCampaign, tc),
+    [tCampaign, tc],
   );
 
   const workspaceView = useMemo(
@@ -290,13 +261,14 @@ export default function CampaignWorkspacePage() {
             campaign,
             derivations: allDerivations,
             workspaceState,
+            isGenerating,
             tStatus: (key) => tCampaign(`status.${key}`),
             tWorkspace: (key, values) => tCampaign(`v6.${key}`, values),
             formatDate: (date) =>
               date.toLocaleDateString(undefined, { day: "2-digit", month: "2-digit", year: "numeric" }),
           })
         : EMPTY_WORKSPACE_VIEW,
-    [campaign, allDerivations, workspaceState, tCampaign],
+    [campaign, allDerivations, workspaceState, isGenerating, tCampaign],
   );
 
   useEffect(() => {
@@ -313,8 +285,8 @@ export default function CampaignWorkspacePage() {
     appliedDeepLinkRef.current = deepLinkKey;
 
     applyCampaignDeepLink(parsed.tab, parsed.mode, {
-      goToPilot,
-      goToActions,
+      goToSetup,
+      goToTrabalho,
       hasDerivations: allDerivations.length > 0,
       openStrategyRecipe: openDerivePanel,
     });
@@ -322,21 +294,13 @@ export default function CampaignWorkspacePage() {
     allDerivations.length,
     campaign,
     campaignId,
-    goToActions,
-    goToPilot,
+    goToTrabalho,
+    goToSetup,
     isLoading,
     isNew,
     openDerivePanel,
     searchParams,
   ]);
-
-  const handleSimulatePersonas = (derivationId: string) => {
-    setPersonaSimulation({ isOpen: true, selectedId: derivationId });
-  };
-
-  const handleClosePersonaModal = () => {
-    setPersonaSimulation({ isOpen: false, selectedId: null });
-  };
 
   const handleAssetUploaded = (assetId: string) => {
     pilotAssetIdRef.current = assetId;
@@ -373,24 +337,6 @@ export default function CampaignWorkspacePage() {
     client: campaign?.client ?? undefined,
   };
 
-  const previewConversionPayload = useMemo(() => {
-    if (!showPreviewGate) return null;
-    const requiredCredits = batchCreditBreakdown?.totalCredits ?? batchCreditEstimate ?? 0;
-    if (requiredCredits <= 0) return null;
-    return resolveConversionGateFromBilling({
-      billing: billingStatus,
-      requiredCredits,
-      returnPath: `/campaigns/${campaignId}?tab=generate&mode=preview`,
-      operation: "batch",
-    });
-  }, [
-    showPreviewGate,
-    batchCreditBreakdown,
-    batchCreditEstimate,
-    billingStatus,
-    campaignId,
-  ]);
-
   const handleGuidedBriefingComplete = async (briefing: {
     objective?: string;
     audience?: string;
@@ -418,12 +364,12 @@ export default function CampaignWorkspacePage() {
 
   const handleCloseDerivationFlow = () => {
     closeFlow();
-    goToActions();
+    goToTrabalho();
   };
 
   const handleOpenDerivar = (prefill?: StrategyRecipePrefill | null) => {
     openDerivePanel(prefill);
-    goToDerivation();
+    goToTrabalho();
   };
 
   const handleOutputLearningAccept = (payload: OutputLearningAcceptPayload) => {
@@ -432,7 +378,7 @@ export default function CampaignWorkspacePage() {
       recipeId: payload.prefill.recipeId,
       ...payload.prefill.config,
     });
-    goToDerivation();
+    goToTrabalho();
   };
 
   const handleOutputLearningEdit = (prefill: RecipePrefillPayload) => {
@@ -440,7 +386,7 @@ export default function CampaignWorkspacePage() {
       recipeId: prefill.recipeId,
       ...prefill.config,
     });
-    goToDerivation();
+    goToTrabalho();
   };
 
   const handleDerivePreview = async (patch: {
@@ -450,38 +396,10 @@ export default function CampaignWorkspacePage() {
     targetFormats?: string[];
   }) => {
     closeFlow();
-    goToGenerating();
+    goToTrabalho();
     await configureAndGenerate(patch, { preview: true });
   };
 
-  const handleEstilizarSubmit = async (data: {
-    styleReferenceFiles: File[];
-    intensity: string;
-  }) => {
-    const styleAssetIds: string[] = [];
-    if (data.styleReferenceFiles.length > 0) {
-      try {
-        for (const file of data.styleReferenceFiles) {
-          const asset = await uploadAsset.mutateAsync({
-            file,
-            role: "style_reference",
-          });
-          styleAssetIds.push(asset.id);
-        }
-      } catch {
-        addToast("error", tCampaign("styleReferenceUploadFailed"));
-        return;
-      }
-    }
-
-    setShowEstilizarModal(false);
-    void handleRestyle({
-      styleAssetIds: styleAssetIds.length > 0 ? styleAssetIds : undefined,
-      styleIntensity: data.intensity as "soft" | "medium" | "strong",
-    });
-  };
-
-  if (isNew) return <CampaignSkeleton />;
   if (isLoading) return <CampaignSkeleton />;
   if (isError) {
     return (
@@ -509,112 +427,153 @@ export default function CampaignWorkspacePage() {
   };
 
   return (
-    <div className="min-w-0 space-y-4 pb-10 workspace-scroll-padding shell-offset-bottom-mobile">
-      <CampaignWorkspaceV6Chrome
-        view={workspaceView}
-        labels={workspaceLabels}
-        campaignId={campaignId}
-        isDraft={isDraft}
-        onDelete={handleDeleteClick}
-        onOpenAssistant={() => setAssistantDrawerOpen(true)}
-        assistantDisabled={!campaign?.clientProfileId}
-        assistantDisabledTooltip={tAssistant("missingClientTooltip")}
-      />
+    <div className="min-w-0 pb-10 workspace-scroll-padding shell-offset-bottom-mobile">
+      <div className="workspace-split lg:grid lg:grid-cols-[1fr_380px] lg:items-start">
+        {/* Main workspace column. Always visible on desktop; toggled on mobile. */}
+        <div
+          className={cn(
+            "workspace-main min-w-0 space-y-4 lg:block",
+            mobileView === "grid" ? "block" : "hidden lg:block"
+          )}
+        >
+          <CampaignWorkspaceV6Chrome
+            view={workspaceView}
+            labels={workspaceLabels}
+            campaignId={campaignId}
+            isDraft={isDraft}
+            onDelete={handleDeleteClick}
+          />
 
-      {campaign && (
-        <CampaignClientSubtitle
-          platformsText={platformsText}
-          onAddPlatform={() => setPlatformsDrawerOpen(true)}
-        />
-      )}
+          {campaign && (
+            <CampaignClientSubtitle
+              platformsText={platformsText}
+              onAddPlatform={() => setPlatformsDrawerOpen(true)}
+            />
+          )}
 
-      {campaign && !campaign.clientProfileId ? (
-        <ClientProfileLinkControl
-          campaignId={campaignId}
-          clientName={campaign.client}
-          clientProfileId={campaign.clientProfileId}
-          variant="banner"
-        />
-      ) : null}
+          {campaign && !campaign.clientProfileId ? (
+            <ClientProfileLinkControl
+              campaignId={campaignId}
+              clientName={campaign.client}
+              clientProfileId={campaign.clientProfileId}
+              variant="banner"
+            />
+          ) : null}
 
-      <PlatformsDrawer
-        open={platformsDrawerOpen}
-        onOpenChange={setPlatformsDrawerOpen}
-        selectedPlatforms={campaign?.platforms ?? []}
-        isSaving={updateCampaign.isPending}
-        onSave={handleSavePlatforms}
-      />
-      <CampaignWorkspaceCard
-        campaignId={campaignId}
-        campaign={campaign}
-        workspaceState={workspaceState}
-        workspaceView={workspaceView}
-        workspaceLabels={workspaceLabels}
-        analysis={analysis}
-        allDerivations={allDerivations}
-        onPreview={handlePreview}
-        onDownload={handleDownloadDerivation}
-        onRegenerate={handleRegenerateDerivation}
-        onApprove={handleApproveDerivation}
-        onReject={handleRejectDerivation}
-        onCreateDeliveryPackage={handleCreateDeliveryPackage}
-        onRunQa={handleRunQa}
-        onSaveAsReference={handleSaveAsReference}
-        onGenerateLandingPage={handleGenerateLandingPage}
-        onSimulatePersonas={handleSimulatePersonas}
-        qaAnalyzingId={
-          creativeQaPending && creativeQaVariables?.derivationId
-            ? creativeQaVariables.derivationId
-            : null
-        }
-        regeneratingId={
-          regeneratePending && regenerateVariables?.id ? regenerateVariables.id : null
-        }
-        landingPageGeneratingId={
-          landingPagePending && landingPageVariables?.derivationId
-            ? landingPageVariables.derivationId
-            : null
-        }
-        simulatingPersonasId={personaSimulation.selectedId}
-        savingReferenceId={savingReferenceId}
-        reviewPending={reviewPending}
-        reviewVariables={reviewVariables ?? null}
-        onAssetUploaded={handleAssetUploaded}
-        onAnalysisComplete={handleAnalysisComplete}
-        onGuidedBriefingComplete={handleGuidedBriefingComplete}
-        guidedBriefingHints={guidedBriefingHints}
-        showPreviewGate={showPreviewGate}
-        previewDerivation={previewDerivation}
-        batchCreditEstimate={batchCreditEstimate}
-        batchCreditBreakdown={batchCreditBreakdown}
-        creditBalance={billingStatus?.creditBalance}
-        previewConversionPayload={previewConversionPayload}
-        onApprovePreviewBatch={approvePreviewToBatch}
-        onReviseStrategyRecipe={() => {
-          openDerivePanel();
-          goToDerivation();
-        }}
-        createDerivationsPending={createDerivationsPending}
-        onOpenDerivar={handleOpenDerivar}
-        onOutputLearningAccept={handleOutputLearningAccept}
-        onOutputLearningEdit={handleOutputLearningEdit}
-        onOpenEstilizar={() => {
-          setShowEstilizarModal(true);
-          goToStyling();
-        }}
-        isDerivationsError={isDerivationsError}
-        derivationsErrorKind={derivationsErrorKind}
-        onRetryDerivations={() => void refetchDerivations()}
-        readinessBlocking={readinessBlocking}
-        onReadinessOverride={() => setReadinessOverrideActive(true)}
-      />
+          <PlatformsDrawer
+            open={platformsDrawerOpen}
+            onOpenChange={setPlatformsDrawerOpen}
+            selectedPlatforms={campaign?.platforms ?? []}
+            isSaving={updateCampaign.isPending}
+            onSave={handleSavePlatforms}
+          />
+          <CampaignWorkspaceCard
+            campaignId={campaignId}
+            campaign={campaign}
+            workspaceState={workspaceState}
+            isGenerating={isGenerating}
+            workspaceView={workspaceView}
+            workspaceLabels={workspaceLabels}
+            analysis={analysis}
+            allDerivations={allDerivations}
+            onPreview={handlePreview}
+            onDownload={handleDownloadDerivation}
+            onRegenerate={handleRegenerateDerivation}
+            onApprove={handleApproveDerivation}
+            onReject={handleRejectDerivation}
+            onCreateDeliveryPackage={handleCreateDeliveryPackage}
+            onRunQa={handleRunQa}
+            onSaveAsReference={handleSaveAsReference}
+            onGenerateLandingPage={handleGenerateLandingPage}
+            qaAnalyzingId={
+              creativeQaPending && creativeQaVariables?.derivationId
+                ? creativeQaVariables.derivationId
+                : null
+            }
+            regeneratingId={
+              regeneratePending && regenerateVariables?.id ? regenerateVariables.id : null
+            }
+            landingPageGeneratingId={
+              landingPagePending && landingPageVariables?.derivationId
+                ? landingPageVariables.derivationId
+                : null
+            }
+            savingReferenceId={savingReferenceId}
+            reviewPending={reviewPending}
+            reviewVariables={reviewVariables ?? null}
+            onAssetUploaded={handleAssetUploaded}
+            onAnalysisComplete={handleAnalysisComplete}
+            onGuidedBriefingComplete={handleGuidedBriefingComplete}
+            guidedBriefingHints={guidedBriefingHints}
+            showPreviewGate={showPreviewGate}
+            previewDerivation={previewDerivation}
+            onApprovePreviewBatch={approvePreviewToBatch}
+            createDerivationsPending={createDerivationsPending}
+            onOpenDerivar={handleOpenDerivar}
+            onOutputLearningAccept={handleOutputLearningAccept}
+            onOutputLearningEdit={handleOutputLearningEdit}
+            isDerivationsError={isDerivationsError}
+            derivationsErrorKind={derivationsErrorKind}
+            onRetryDerivations={() => void refetchDerivations()}
+            readinessBlocking={readinessBlocking}
+            onReadinessOverride={() => setReadinessOverrideActive(true)}
+          />
+        </div>
 
-      <CampaignAssistantDrawer
-        open={assistantDrawerOpen}
-        onOpenChange={setAssistantDrawerOpen}
-        campaignId={campaignId}
-        clientProfileId={campaign?.clientProfileId ?? ""}
-      />
+        {/* Permanent assistant panel. Fixed column on desktop; toggled on mobile. */}
+        <aside
+          aria-label={tWorkspaceMobile("assistantLabel")}
+          className={cn(
+            "workspace-chat border-l border-[var(--border-subtle)] lg:block",
+            mobileView === "chat"
+              ? "block min-h-[60vh]"
+              : "hidden lg:block"
+          )}
+        >
+          <div className="flex h-full min-h-0 flex-col lg:sticky lg:top-[calc(var(--shell-topbar-desktop)+var(--shell-sticky-gap))] lg:h-[calc(100vh-var(--shell-topbar-desktop)-var(--shell-sticky-gap)-1rem)]">
+            <CampaignAssistantPanel
+              campaignId={campaignId}
+              clientProfileId={campaign?.clientProfileId ?? ""}
+            />
+          </div>
+        </aside>
+      </div>
+
+      {/* Mobile-only Grid/Chat tab toggle (hidden on >= lg). */}
+      <div
+        role="tablist"
+        aria-label={tWorkspaceMobile("viewToggleLabel")}
+        className="workspace-mobile-tabs mt-4 grid grid-cols-2 gap-2 lg:hidden"
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mobileView === "grid"}
+          onClick={() => setMobileView("grid")}
+          className={cn(
+            "rounded-[var(--radius-control)] border px-3 py-2 text-sm font-medium",
+            mobileView === "grid"
+              ? "border-[var(--accent-primary)] bg-[var(--accent-primary-dim)] text-[var(--accent-primary-text)]"
+              : "border-[var(--border-default)] bg-[var(--surface-base)] text-[var(--text-secondary)]"
+          )}
+        >
+          {tWorkspaceMobile("gridTab")}
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mobileView === "chat"}
+          onClick={() => setMobileView("chat")}
+          className={cn(
+            "rounded-[var(--radius-control)] border px-3 py-2 text-sm font-medium",
+            mobileView === "chat"
+              ? "border-[var(--accent-primary)] bg-[var(--accent-primary-dim)] text-[var(--accent-primary-text)]"
+              : "border-[var(--border-default)] bg-[var(--surface-base)] text-[var(--text-secondary)]"
+          )}
+        >
+          {tWorkspaceMobile("chatTab")}
+        </button>
+      </div>
 
       <DerivationReviewSheet
         open={Boolean(reviewDerivationId && reviewDerivation)}
@@ -661,23 +620,11 @@ export default function CampaignWorkspacePage() {
         }
       />
 
-      <RegenerateFeedbackDialog
-        open={Boolean(regenerateDialog)}
-        initialFeedback={regenerateDialog?.feedback ?? ""}
-        primaryReason={regenerateDialog?.primaryReason}
-        issueBreakdown={regenerateDialog?.issueBreakdown}
-        isSubmitting={regeneratePending}
-        onOpenChange={handleCloseRegenerateDialog}
-        onConfirm={handleConfirmRegenerate}
-      />
-
       <CampaignWorkspaceModals
-        campaign={campaign}
         selectedDeliverySource={selectedDeliverySource}
         visibility={{
           delivery: deliveryModalOpen,
           derivePanel: isDerivePanelOpen,
-          estilizar: showEstilizarModal,
           delete: showDeleteDialog,
         }}
         readiness={preflightData?.readiness}
@@ -698,20 +645,13 @@ export default function CampaignWorkspacePage() {
           deliveryPackage: deliveryPackagePending,
           derivation: createDerivationsPending,
         }}
-        personaSimulation={personaSimulation}
         onDeliveryModalOpenChange={handleDeliveryModalOpenChange}
         onDownloadDeliverySource={handleDownloadDeliverySource}
         onConfirmDeliveryPackage={handleConfirmDeliveryPackage}
-        onClosePersonaModal={handleClosePersonaModal}
         onCloseDerivationFlow={handleCloseDerivationFlow}
         campaignId={campaignId}
         campaignCreativeLevel={campaign?.creativeLevel}
         suggestedCta={analysis.suggestedCta}
-        onCloseEstilizar={() => {
-          setShowEstilizarModal(false);
-          goToActions();
-        }}
-        onEstilizarSubmit={handleEstilizarSubmit}
         onDeleteDialogOpenChange={setShowDeleteDialog}
         onConfirmDelete={handleDelete}
       />
@@ -723,6 +663,7 @@ interface CampaignWorkspaceCardProps {
   campaignId: string;
   campaign: WorkspaceHookResult["campaign"];
   workspaceState: WorkspaceState;
+  isGenerating: boolean;
   workspaceView: CampaignWorkspaceV6ViewModel;
   workspaceLabels: CampaignWorkspaceV6Labels;
   analysis: {
@@ -746,11 +687,9 @@ interface CampaignWorkspaceCardProps {
   onRunQa: (id: string) => void;
   onSaveAsReference: (id: string) => void;
   onGenerateLandingPage: (id: string) => void;
-  onSimulatePersonas: (id: string) => void;
   qaAnalyzingId: string | null;
   regeneratingId: string | null;
   landingPageGeneratingId: string | null;
-  simulatingPersonasId: string | null;
   savingReferenceId: string | null;
   reviewPending: boolean;
   reviewVariables: ReviewDerivationVariables | null;
@@ -780,15 +719,9 @@ interface CampaignWorkspaceCardProps {
   onOpenDerivar: (prefill?: StrategyRecipePrefill | null) => void;
   onOutputLearningAccept: (payload: OutputLearningAcceptPayload) => void;
   onOutputLearningEdit: (prefill: RecipePrefillPayload) => void;
-  onOpenEstilizar: () => void;
   showPreviewGate?: boolean;
   previewDerivation?: WorkspaceHookResult["previewDerivation"];
-  batchCreditEstimate?: number;
-  batchCreditBreakdown?: WorkspaceHookResult["batchCreditBreakdown"];
-  creditBalance?: number;
-  previewConversionPayload?: ReturnType<typeof resolveConversionGateFromBilling>;
   onApprovePreviewBatch?: () => void;
-  onReviseStrategyRecipe?: () => void;
   createDerivationsPending?: boolean;
   isDerivationsError?: boolean;
   derivationsErrorKind?: string | null;
@@ -801,6 +734,7 @@ function CampaignWorkspaceCard({
   campaignId,
   campaign,
   workspaceState,
+  isGenerating,
   workspaceView,
   workspaceLabels,
   analysis,
@@ -814,11 +748,9 @@ function CampaignWorkspaceCard({
   onRunQa,
   onSaveAsReference,
   onGenerateLandingPage,
-  onSimulatePersonas,
   qaAnalyzingId,
   regeneratingId,
   landingPageGeneratingId,
-  simulatingPersonasId,
   savingReferenceId,
   reviewPending,
   reviewVariables,
@@ -829,15 +761,9 @@ function CampaignWorkspaceCard({
   onOpenDerivar,
   onOutputLearningAccept,
   onOutputLearningEdit,
-  onOpenEstilizar,
   showPreviewGate,
   previewDerivation,
-  batchCreditEstimate,
-  batchCreditBreakdown,
-  creditBalance,
-  previewConversionPayload,
   onApprovePreviewBatch,
-  onReviseStrategyRecipe,
   createDerivationsPending,
   isDerivationsError,
   derivationsErrorKind,
@@ -850,7 +776,7 @@ function CampaignWorkspaceCard({
 
   return (
     <section className="min-h-[400px] rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-5 sm:p-8">
-      {workspaceState === "piloto" && (
+      {workspaceState === "setup" && (
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
           <div id="mission-assets">
             <PilotUploadPanel
@@ -881,10 +807,7 @@ function CampaignWorkspaceCard({
         </div>
       )}
 
-      {(workspaceState === "acoes" ||
-        workspaceState === "derivando" ||
-        workspaceState === "estilizando" ||
-        workspaceState === "gerando") && (
+      {workspaceState === "trabalho" && (
         <div className="grid gap-8 lg:grid-cols-2">
           <div className="space-y-6">
             <details className="group lg:hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-raised)]">
@@ -924,9 +847,8 @@ function CampaignWorkspaceCard({
             </div>
             <WorkspaceActionBar
               onDerivar={() => onOpenDerivar()}
-              onEstilizar={onOpenEstilizar}
               readinessBlocking={readinessBlocking}
-              disabled={workspaceState === "gerando"}
+              disabled={isGenerating}
             />
             <PageSection id="mission-share" title={tApproval("title")}>
               <ClientApprovalPackagePanel campaignId={campaignId} />
@@ -941,7 +863,7 @@ function CampaignWorkspaceCard({
                   />
                 </div>
               ) : null}
-              {workspaceState === "gerando" && (
+              {isGenerating && (
                 <p className="text-xs text-[var(--text-secondary)] mb-3 flex items-center gap-2">
                   <span className="inline-block size-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                   {tCampaign("generatingDerivations")}
@@ -959,34 +881,20 @@ function CampaignWorkspaceCard({
                 onRunQa={onRunQa}
                 onSaveAsReference={onSaveAsReference}
                 onGenerateLandingPage={onGenerateLandingPage}
-                onSimulatePersonas={onSimulatePersonas}
                 qaAnalyzingId={qaAnalyzingId}
                 regeneratingId={regeneratingId}
                 landingPageGeneratingId={landingPageGeneratingId}
-                simulatingPersonasId={simulatingPersonasId}
                 savingReferenceId={savingReferenceId}
                 reviewPending={reviewPending}
                 reviewVariables={reviewVariables}
                 previewGate={
                   showPreviewGate &&
                   previewDerivation &&
-                  onApprovePreviewBatch &&
-                  onReviseStrategyRecipe
+                  onApprovePreviewBatch
                     ? {
                         campaignId,
                         previewId: previewDerivation.id,
-                        previewCreditsSpent: previewDerivation.creditCost ?? 5,
-                        batchBreakdown:
-                          batchCreditBreakdown ?? {
-                            jobCount: 0,
-                            unitCost: 5,
-                            totalCredits: batchCreditEstimate ?? 0,
-                            generationMode: "art_variation",
-                          },
-                        creditBalance,
-                        conversionPayload: previewConversionPayload,
                         isApproving: createDerivationsPending,
-                        onReviseRecipe: onReviseStrategyRecipe,
                         onApproveBatch: onApprovePreviewBatch,
                       }
                     : undefined
@@ -1004,7 +912,6 @@ function CampaignWorkspaceCard({
 interface CampaignWorkspaceModalVisibility {
   delivery: boolean;
   derivePanel: boolean;
-  estilizar: boolean;
   delete: boolean;
 }
 
@@ -1015,24 +922,16 @@ interface CampaignWorkspaceModalPending {
 }
 
 interface CampaignWorkspaceModalsProps {
-  campaign: WorkspaceHookResult["campaign"];
   selectedDeliverySource: WorkspaceHookResult["selectedDeliverySource"];
   visibility: CampaignWorkspaceModalVisibility;
   pending: CampaignWorkspaceModalPending;
-  personaSimulation: { isOpen: boolean; selectedId: string | null };
   onDeliveryModalOpenChange: (open: boolean) => void;
   onDownloadDeliverySource: () => void;
   onConfirmDeliveryPackage: (formats: DeliveryFormat[]) => void;
-  onClosePersonaModal: () => void;
   onCloseDerivationFlow: () => void;
   campaignId: string;
   campaignCreativeLevel?: string | null;
   suggestedCta?: string;
-  onCloseEstilizar: () => void;
-  onEstilizarSubmit: (data: {
-    styleReferenceFiles: File[];
-    intensity: string;
-  }) => void;
   onDeleteDialogOpenChange: (open: boolean) => void;
   onConfirmDelete: () => void;
   readiness?: import("@/server/ai/creative-readiness").CreativeReadinessResult | null;
@@ -1049,21 +948,16 @@ interface CampaignWorkspaceModalsProps {
 }
 
 function CampaignWorkspaceModals({
-  campaign,
   selectedDeliverySource,
   visibility,
   pending,
-  personaSimulation,
   onDeliveryModalOpenChange,
   onDownloadDeliverySource,
   onConfirmDeliveryPackage,
-  onClosePersonaModal,
   onCloseDerivationFlow,
   campaignId,
   campaignCreativeLevel,
   suggestedCta,
-  onCloseEstilizar,
-  onEstilizarSubmit,
   onDeleteDialogOpenChange,
   onConfirmDelete,
   readiness,
@@ -1088,16 +982,6 @@ function CampaignWorkspaceModals({
         />
       )}
 
-      {personaSimulation.selectedId && (
-        <PersonaSimulationSheet
-          isOpen={personaSimulation.isOpen}
-          onClose={onClosePersonaModal}
-          sourceType="derivation"
-          sourceId={personaSimulation.selectedId}
-          campaignName={campaign?.name}
-        />
-      )}
-
       <StrategyRecipePanel
         campaignId={campaignId}
         open={visibility.derivePanel}
@@ -1119,12 +1003,6 @@ function CampaignWorkspaceModals({
         isSubmitting={pending.derivation}
         onClose={onCloseDerivationFlow}
         onGeneratePreview={onDerivePreview}
-      />
-
-      <EstilizarModal
-        open={visibility.estilizar}
-        onClose={onCloseEstilizar}
-        onSubmit={onEstilizarSubmit}
       />
 
       <ConfirmDialog

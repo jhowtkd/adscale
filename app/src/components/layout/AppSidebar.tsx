@@ -35,6 +35,10 @@ export default function AppSidebar({ variant = "production" }: { variant?: AppSi
     .join("") || "U";
   const planLabel = billingStatus?.access?.label ?? billing.planName;
   const isTesterAccount = billingStatus?.access?.kind === "tester";
+  // Workspace membership role (owner/admin/member) drives operational gating.
+  // access.kind is billing entitlement (paid/beta/tester/none), not a role.
+  const accessRole = billingStatus?.access?.role;
+  const isOwnerOrAdmin = accessRole === "owner" || accessRole === "admin";
 
   const isDashboard = isPreview
     ? pathname === "/v6" || pathname.startsWith("/v6/dashboard") || pathname.startsWith("/v6/topbar-promo")
@@ -86,6 +90,9 @@ export default function AppSidebar({ variant = "production" }: { variant?: AppSi
       </div>
 
       <nav className="flex flex-col gap-0.5">
+        <p className="px-2.5 pb-1 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-muted)]">
+          {tNav("sectionPrincipal")}
+        </p>
         <NavItem
           href={isPreview ? "/v6/dashboard" : "/"}
           active={isDashboard}
@@ -102,34 +109,28 @@ export default function AppSidebar({ variant = "production" }: { variant?: AppSi
           active={isLibrary}
           label={tLibrary("title")}
         />
-        {!isPreview ? (
-          <NavItem href="/templates" active={pathname.startsWith("/templates")} label={tNav("templates")} />
-        ) : (
-          <NavItem href="#" label="Briefings" />
-        )}
       </nav>
 
       <div className="mt-3 flex flex-col gap-0.5 border-t border-[var(--border-subtle)] pt-3">
         <p className="px-2.5 pb-1 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-muted)]">
-          Laboratório
+          {tNav("sectionCriar")}
         </p>
         <NavItem
           href={isPreview ? "#" : "/assistant"}
           active={!isPreview && pathname.startsWith("/assistant")}
-          label="Curador IA"
+          label={tNav("curadorIA")}
           badge="BETA"
         />
-        <NavItem
-          href={isPreview ? "#" : "/restyling"}
-          active={!isPreview && pathname.startsWith("/restyling")}
-          label={tNav("restyling")}
-        />
-        <NavItem
-          href={isPreview ? "#" : "/templates"}
-          active={!isPreview && pathname.startsWith("/templates")}
-          label="Receita de estratégia"
-        />
       </div>
+
+      {isOwnerOrAdmin && (
+        <div className="mt-3 flex flex-col gap-0.5 border-t border-[var(--border-subtle)] pt-3">
+          <p className="px-2.5 pb-1 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-muted)]">
+            {tNav("sectionOperacao")}
+          </p>
+          <NavItem href="/feedback" active={pathname.startsWith("/feedback")} label={tNav("feedback")} />
+        </div>
+      )}
 
       <div className="mt-auto border-t border-[var(--border-subtle)] pt-3">
         <Link

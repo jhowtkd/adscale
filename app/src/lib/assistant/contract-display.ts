@@ -1,6 +1,7 @@
 export type ClientActionCardDisplay = {
   label: string;
   actionType?: string;
+  intentFamily?: string;
   riskLabel?: string;
   creditImpact?: unknown;
   riskCopyLines?: string[];
@@ -55,6 +56,8 @@ export function parseActionCardDisplay(
     label: record.label,
     actionType:
       typeof record.actionType === "string" ? record.actionType : undefined,
+    intentFamily:
+      typeof record.intentFamily === "string" ? record.intentFamily : undefined,
     riskLabel:
       typeof record.riskLabel === "string" ? record.riskLabel : undefined,
     creditImpact: record.creditImpact,

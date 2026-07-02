@@ -122,8 +122,6 @@ test.describe("visual release gate", () => {
     ["SCN-CAMPAIGN-WORKSPACE", (m: VisualManifest) => m.routes.workspace],
     ["SCN-LIBRARY", () => "/library"],
     ["SCN-TEMPLATES", () => "/templates"],
-    ["SCN-RESTYLING", () => "/restyling"],
-    ["SCN-QUICK-RESTYLING", () => "/quick-tools/restyling"],
     ["SCN-FEEDBACK", () => "/feedback"],
     ["SCN-SETTINGS", (m: VisualManifest) => m.routes.settingsProfile],
   ] as const;

@@ -11,7 +11,11 @@ export interface ReadinessBlockingSummary {
 
 interface WorkspaceActionBarProps {
   onDerivar: () => void;
-  onEstilizar: () => void;
+  /**
+   * Optional restyle handler. When omitted, the Estilizar button is hidden
+   * entirely (restyle is now surfaced as a `quick_restyle` chat action).
+   */
+  onEstilizar?: () => void;
   readinessBlocking?: ReadinessBlockingSummary | null;
   disabled?: boolean;
   className?: string;
@@ -54,18 +58,20 @@ export default function WorkspaceActionBar({
       >
         {t("derivar")}
       </Button>
-      <Button
-        type="button"
-        size="sm"
-        variant="outline"
-        disabled={disabled}
-        aria-label={t("estilizar")}
-        onClick={onEstilizar}
-        className="border-[var(--accent-green)]/45 bg-[var(--accent-green)]/12 font-semibold text-[var(--accent-green-text)] hover:border-[var(--accent-green)]/60 hover:bg-[var(--accent-green)]/22 hover:text-[var(--accent-green-text)]"
-      >
-        <Sparkles size={14} aria-hidden="true" />
-        {t("estilizar")}
-      </Button>
+      {onEstilizar ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={disabled}
+          aria-label={t("estilizar")}
+          onClick={onEstilizar}
+          className="border-[var(--accent-green)]/45 bg-[var(--accent-green)]/12 font-semibold text-[var(--accent-green-text)] hover:border-[var(--accent-green)]/60 hover:bg-[var(--accent-green)]/22 hover:text-[var(--accent-green-text)]"
+        >
+          <Sparkles size={14} aria-hidden="true" />
+          {t("estilizar")}
+        </Button>
+      ) : null}
     </div>
   );
 }

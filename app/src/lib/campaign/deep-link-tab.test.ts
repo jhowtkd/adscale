@@ -19,34 +19,34 @@ describe("parseCampaignTabParam", () => {
 });
 
 describe("applyCampaignDeepLink", () => {
-  it("routes readiness to pilot and generate preview to actions + recipe", () => {
-    const goToPilot = vi.fn();
-    const goToActions = vi.fn();
+  it("routes readiness to setup and generate preview to trabalho + recipe", () => {
+    const goToSetup = vi.fn();
+    const goToTrabalho = vi.fn();
     const openStrategyRecipe = vi.fn();
 
-    applyCampaignDeepLink("readiness", undefined, { goToPilot, goToActions });
-    expect(goToPilot).toHaveBeenCalled();
-    expect(goToActions).not.toHaveBeenCalled();
+    applyCampaignDeepLink("readiness", undefined, { goToSetup, goToTrabalho });
+    expect(goToSetup).toHaveBeenCalled();
+    expect(goToTrabalho).not.toHaveBeenCalled();
 
     applyCampaignDeepLink("generate", "preview", {
-      goToPilot,
-      goToActions,
+      goToSetup,
+      goToTrabalho,
       openStrategyRecipe,
     });
-    expect(goToActions).toHaveBeenCalled();
+    expect(goToTrabalho).toHaveBeenCalled();
     expect(openStrategyRecipe).toHaveBeenCalled();
   });
 
-  it("routes review, export, and share to actions surface", () => {
-    const goToPilot = vi.fn();
-    const goToActions = vi.fn();
+  it("routes review, export, and share to the trabalho surface", () => {
+    const goToSetup = vi.fn();
+    const goToTrabalho = vi.fn();
 
     for (const tab of ["review", "export", "share"] as const) {
-      goToPilot.mockClear();
-      goToActions.mockClear();
-      applyCampaignDeepLink(tab, undefined, { goToPilot, goToActions });
-      expect(goToActions).toHaveBeenCalled();
-      expect(goToPilot).not.toHaveBeenCalled();
+      goToSetup.mockClear();
+      goToTrabalho.mockClear();
+      applyCampaignDeepLink(tab, undefined, { goToSetup, goToTrabalho });
+      expect(goToTrabalho).toHaveBeenCalled();
+      expect(goToSetup).not.toHaveBeenCalled();
     }
   });
 });

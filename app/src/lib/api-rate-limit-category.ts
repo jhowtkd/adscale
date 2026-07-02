@@ -23,11 +23,7 @@ export function getMutationRateLimitCategory(pathname: string): RateLimitCategor
     return "general";
   }
 
-  if (
-    pathname.startsWith("/api/derivations") ||
-    pathname.startsWith("/api/restyling") ||
-    pathname.startsWith("/api/quick-tools")
-  ) {
+  if (pathname.startsWith("/api/derivations")) {
     return "ai";
   }
 
