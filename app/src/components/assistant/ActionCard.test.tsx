@@ -87,6 +87,37 @@ describe("ActionCard", () => {
     expect(screen.getByText(/intensidade/i)).toBeInTheDocument();
   });
 
+  it("calls onEditSubmit when Save clicked in edit mode", () => {
+    const onEditSubmit = vi.fn();
+    renderCard({
+      editFields: <label>Intensidade <input /></label>,
+      onEditSubmit,
+    });
+    fireEvent.click(screen.getByRole("button", { name: /editar/i }));
+    // In edit mode the Confirm button triggers handleSubmitEdit
+    fireEvent.click(screen.getByRole("button", { name: /confirmar/i }));
+    expect(onEditSubmit).toHaveBeenCalledOnce();
+  });
+
+  it("returns to non-editing view when Cancel clicked in edit mode", () => {
+    const onEditSubmit = vi.fn();
+    renderCard({
+      // Missing optional styleReferenceId so risk copy renders
+      snapshot: { baseCreativeId: "550e8400-e29b-41d4-a716-446655440000" },
+      editFields: <label>Intensidade <input /></label>,
+      onEditSubmit,
+    });
+    fireEvent.click(screen.getByRole("button", { name: /editar/i }));
+    // Edit fields are visible while editing
+    expect(screen.getByText(/intensidade/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /cancelar/i }));
+    // Back to non-editing: risk copy re-renders, edit fields disappear
+    expect(screen.getByText(/divergir/i)).toBeInTheDocument();
+    expect(screen.queryByText(/intensidade/i)).not.toBeInTheDocument();
+    // Cancel must not trigger a save
+    expect(onEditSubmit).not.toHaveBeenCalled();
+  });
+
   it("does not show Edit button when editFields not provided", () => {
     renderCard();
     expect(
