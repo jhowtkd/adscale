@@ -71,10 +71,8 @@ export function resolveWorkspaceStage({
   reviewCount,
   approvedCount,
 }: WorkspaceV6StageContext): number {
-  if (workspaceState === "piloto") return 1;
-  if (workspaceState === "derivando" || workspaceState === "estilizando" || workspaceState === "gerando") {
-    return 2;
-  }
+  if (workspaceState === "setup") return 1;
+  // In "trabalho", the stage is derived from derivation progress.
   if (reviewCount > 0) return 3;
   if (approvedCount > 0) return 4;
   if (derivationCount > 0) return 3;

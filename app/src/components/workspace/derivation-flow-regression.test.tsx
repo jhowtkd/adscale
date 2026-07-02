@@ -34,15 +34,15 @@ describe("Estilizar regression", () => {
 });
 
 describe("WorkspaceStageStrip", () => {
-  it("marks the pilot stage active in piloto state", () => {
-    render(<WorkspaceStageStrip workspaceState="piloto" />);
+  it("marks the pilot stage active in setup state", () => {
+    render(<WorkspaceStageStrip workspaceState="setup" />);
 
     expect(screen.getByText("workspace.stages.pilot")).toHaveAttribute("aria-current", "step");
     expect(screen.getByText("workspace.stages.workspace")).not.toHaveAttribute("aria-current");
   });
 
-  it("marks the workspace stage active after pilot", () => {
-    render(<WorkspaceStageStrip workspaceState="acoes" />);
+  it("marks the workspace stage active after setup", () => {
+    render(<WorkspaceStageStrip workspaceState="trabalho" />);
 
     expect(screen.getByText("workspace.stages.workspace")).toHaveAttribute("aria-current", "step");
     expect(screen.getByText("workspace.stages.pilot")).not.toHaveAttribute("aria-current");

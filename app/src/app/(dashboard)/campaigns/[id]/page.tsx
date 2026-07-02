@@ -171,15 +171,13 @@ export default function CampaignWorkspacePage() {
     handleRequestRegenerate,
     approvedDerivation,
     workspaceState,
+    isGenerating,
     savingReferenceId,
     deliveryModalOpen,
     selectedDeliverySource,
     handleDeliveryModalOpenChange,
-    goToPilot,
-    goToActions,
-    goToDerivation,
-    goToStyling,
-    goToGenerating,
+    goToSetup,
+    goToTrabalho,
     savePilot,
     handleGenerateDerivations,
     configureAndGenerate,
@@ -307,8 +305,8 @@ export default function CampaignWorkspacePage() {
     appliedDeepLinkRef.current = deepLinkKey;
 
     applyCampaignDeepLink(parsed.tab, parsed.mode, {
-      goToPilot,
-      goToActions,
+      goToSetup,
+      goToTrabalho,
       hasDerivations: allDerivations.length > 0,
       openStrategyRecipe: openDerivePanel,
     });
@@ -316,8 +314,8 @@ export default function CampaignWorkspacePage() {
     allDerivations.length,
     campaign,
     campaignId,
-    goToActions,
-    goToPilot,
+    goToTrabalho,
+    goToSetup,
     isLoading,
     isNew,
     openDerivePanel,
@@ -394,12 +392,12 @@ export default function CampaignWorkspacePage() {
 
   const handleCloseDerivationFlow = () => {
     closeFlow();
-    goToActions();
+    goToTrabalho();
   };
 
   const handleOpenDerivar = (prefill?: StrategyRecipePrefill | null) => {
     openDerivePanel(prefill);
-    goToDerivation();
+    goToTrabalho();
   };
 
   const handleOutputLearningAccept = (payload: OutputLearningAcceptPayload) => {
@@ -408,7 +406,7 @@ export default function CampaignWorkspacePage() {
       recipeId: payload.prefill.recipeId,
       ...payload.prefill.config,
     });
-    goToDerivation();
+    goToTrabalho();
   };
 
   const handleOutputLearningEdit = (prefill: RecipePrefillPayload) => {
@@ -416,7 +414,7 @@ export default function CampaignWorkspacePage() {
       recipeId: prefill.recipeId,
       ...prefill.config,
     });
-    goToDerivation();
+    goToTrabalho();
   };
 
   const handleDerivePreview = async (patch: {
@@ -426,7 +424,7 @@ export default function CampaignWorkspacePage() {
     targetFormats?: string[];
   }) => {
     closeFlow();
-    goToGenerating();
+    goToTrabalho();
     await configureAndGenerate(patch, { preview: true });
   };
 
@@ -524,6 +522,7 @@ export default function CampaignWorkspacePage() {
         campaignId={campaignId}
         campaign={campaign}
         workspaceState={workspaceState}
+        isGenerating={isGenerating}
         workspaceView={workspaceView}
         workspaceLabels={workspaceLabels}
         analysis={analysis}
@@ -568,7 +567,7 @@ export default function CampaignWorkspacePage() {
         onOutputLearningEdit={handleOutputLearningEdit}
         onOpenEstilizar={() => {
           setShowEstilizarModal(true);
-          goToStyling();
+          goToTrabalho();
         }}
         isDerivationsError={isDerivationsError}
         derivationsErrorKind={derivationsErrorKind}
@@ -677,7 +676,7 @@ export default function CampaignWorkspacePage() {
         suggestedCta={analysis.suggestedCta}
         onCloseEstilizar={() => {
           setShowEstilizarModal(false);
-          goToActions();
+          goToTrabalho();
         }}
         onEstilizarSubmit={handleEstilizarSubmit}
         onDeleteDialogOpenChange={setShowDeleteDialog}
@@ -691,6 +690,7 @@ interface CampaignWorkspaceCardProps {
   campaignId: string;
   campaign: WorkspaceHookResult["campaign"];
   workspaceState: WorkspaceState;
+  isGenerating: boolean;
   workspaceView: CampaignWorkspaceV6ViewModel;
   workspaceLabels: CampaignWorkspaceV6Labels;
   analysis: {
@@ -764,6 +764,7 @@ function CampaignWorkspaceCard({
   campaignId,
   campaign,
   workspaceState,
+  isGenerating,
   workspaceView,
   workspaceLabels,
   analysis,
@@ -808,7 +809,7 @@ function CampaignWorkspaceCard({
 
   return (
     <section className="min-h-[400px] rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-5 sm:p-8">
-      {workspaceState === "piloto" && (
+      {workspaceState === "setup" && (
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
           <div id="mission-assets">
             <PilotUploadPanel
@@ -839,10 +840,7 @@ function CampaignWorkspaceCard({
         </div>
       )}
 
-      {(workspaceState === "acoes" ||
-        workspaceState === "derivando" ||
-        workspaceState === "estilizando" ||
-        workspaceState === "gerando") && (
+      {workspaceState === "trabalho" && (
         <div className="grid gap-8 lg:grid-cols-2">
           <div className="space-y-6">
             <details className="group lg:hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-raised)]">
@@ -884,7 +882,7 @@ function CampaignWorkspaceCard({
               onDerivar={() => onOpenDerivar()}
               onEstilizar={onOpenEstilizar}
               readinessBlocking={readinessBlocking}
-              disabled={workspaceState === "gerando"}
+              disabled={isGenerating}
             />
             <PageSection id="mission-share" title={tApproval("title")}>
               <ClientApprovalPackagePanel campaignId={campaignId} />
@@ -899,7 +897,7 @@ function CampaignWorkspaceCard({
                   />
                 </div>
               ) : null}
-              {workspaceState === "gerando" && (
+              {isGenerating && (
                 <p className="text-xs text-[var(--text-secondary)] mb-3 flex items-center gap-2">
                   <span className="inline-block size-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                   {tCampaign("generatingDerivations")}

@@ -3,7 +3,7 @@
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 
-export type WorkspaceStageState = "piloto" | "acoes" | "derivando" | "estilizando" | "gerando";
+export type WorkspaceStageState = "setup" | "trabalho";
 
 export default function WorkspaceStageStrip({
   workspaceState,
@@ -13,7 +13,7 @@ export default function WorkspaceStageStrip({
   className?: string;
 }) {
   const t = useTranslations("workspace.stages");
-  const inPilot = workspaceState === "piloto";
+  const inPilot = workspaceState === "setup";
 
   return (
     <nav
