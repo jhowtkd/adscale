@@ -503,6 +503,7 @@
       "recipesEmptyTitle": "No saved recipes yet",
       "recipesEmptyDescription": "Save a briefing as a template to reuse it in your next campaign.",
       "recipesEmptyAction": "Browse templates",
+      "templatesLink": "Templates",
       "briefingEmptyTitle": "No active briefing",
       "briefingEmptyDescription": "Start a campaign briefing or pick a template to see fields here.",
       "briefingEmptyAction": "New campaign"

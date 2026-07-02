@@ -86,6 +86,7 @@ export type DashboardV6Labels = {
   recipesEmptyTitle: string;
   recipesEmptyDescription: string;
   recipesEmptyAction: string;
+  templatesLink: string;
   briefingEmptyTitle: string;
   briefingEmptyDescription: string;
   briefingEmptyAction: string;

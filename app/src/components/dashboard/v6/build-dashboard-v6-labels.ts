@@ -32,6 +32,7 @@ export function buildDashboardV6Labels(t: Translate): Omit<DashboardV6Labels, "g
     recipesEmptyTitle: t("recipesEmptyTitle"),
     recipesEmptyDescription: t("recipesEmptyDescription"),
     recipesEmptyAction: t("recipesEmptyAction"),
+    templatesLink: t("templatesLink"),
     briefingEmptyTitle: t("briefingEmptyTitle"),
     briefingEmptyDescription: t("briefingEmptyDescription"),
     briefingEmptyAction: t("briefingEmptyAction"),
