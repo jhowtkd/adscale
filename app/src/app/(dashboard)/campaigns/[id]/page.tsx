@@ -83,9 +83,7 @@ import CampaignNotFoundState from "@/components/campaigns/CampaignNotFoundState"
 import CampaignAssistantDrawer from "@/components/assistant/CampaignAssistantDrawer";
 import { useCampaignWorkspace } from "@/lib/hooks/use-campaign-workspace";
 import type { ReviewDerivationVariables } from "@/lib/hooks/use-review";
-import { useBillingStatus } from "@/lib/hooks/use-billing";
 import { useUpdateCampaign } from "@/lib/hooks/use-campaigns";
-import { resolveConversionGateFromBilling } from "@/lib/billing/conversion-client";
 import { useDerivationFlow } from "@/lib/hooks/use-derivation-flow";
 import { usePreflightScore } from "@/lib/hooks/use-preflight";
 import {
@@ -191,8 +189,6 @@ export default function CampaignWorkspacePage() {
     hasActivePreview,
     previewDerivation,
     showPreviewGate,
-    batchCreditEstimate,
-    batchCreditBreakdown,
     approvePreviewToBatch,
     handlePreview,
     handleDownloadDerivation,
@@ -225,8 +221,6 @@ export default function CampaignWorkspacePage() {
   } = useCampaignWorkspace(campaignId, isNew, {
     pendingOutputLearningApplication,
   });
-
-  const { data: billingStatus } = useBillingStatus();
 
   const { data: campaignAssets } = useCampaignAssets(campaignId);
   const { data: clientProfiles, isSuccess: clientProfilesLoaded } = useClientProfiles();
@@ -372,24 +366,6 @@ export default function CampaignWorkspacePage() {
     detectedConcept: analysis.detectedConcept,
     client: campaign?.client ?? undefined,
   };
-
-  const previewConversionPayload = useMemo(() => {
-    if (!showPreviewGate) return null;
-    const requiredCredits = batchCreditBreakdown?.totalCredits ?? batchCreditEstimate ?? 0;
-    if (requiredCredits <= 0) return null;
-    return resolveConversionGateFromBilling({
-      billing: billingStatus,
-      requiredCredits,
-      returnPath: `/campaigns/${campaignId}?tab=generate&mode=preview`,
-      operation: "batch",
-    });
-  }, [
-    showPreviewGate,
-    batchCreditBreakdown,
-    batchCreditEstimate,
-    billingStatus,
-    campaignId,
-  ]);
 
   const handleGuidedBriefingComplete = async (briefing: {
     objective?: string;
@@ -585,15 +561,7 @@ export default function CampaignWorkspacePage() {
         guidedBriefingHints={guidedBriefingHints}
         showPreviewGate={showPreviewGate}
         previewDerivation={previewDerivation}
-        batchCreditEstimate={batchCreditEstimate}
-        batchCreditBreakdown={batchCreditBreakdown}
-        creditBalance={billingStatus?.creditBalance}
-        previewConversionPayload={previewConversionPayload}
         onApprovePreviewBatch={approvePreviewToBatch}
-        onReviseStrategyRecipe={() => {
-          openDerivePanel();
-          goToDerivation();
-        }}
         createDerivationsPending={createDerivationsPending}
         onOpenDerivar={handleOpenDerivar}
         onOutputLearningAccept={handleOutputLearningAccept}
@@ -783,12 +751,7 @@ interface CampaignWorkspaceCardProps {
   onOpenEstilizar: () => void;
   showPreviewGate?: boolean;
   previewDerivation?: WorkspaceHookResult["previewDerivation"];
-  batchCreditEstimate?: number;
-  batchCreditBreakdown?: WorkspaceHookResult["batchCreditBreakdown"];
-  creditBalance?: number;
-  previewConversionPayload?: ReturnType<typeof resolveConversionGateFromBilling>;
   onApprovePreviewBatch?: () => void;
-  onReviseStrategyRecipe?: () => void;
   createDerivationsPending?: boolean;
   isDerivationsError?: boolean;
   derivationsErrorKind?: string | null;
@@ -832,12 +795,7 @@ function CampaignWorkspaceCard({
   onOpenEstilizar,
   showPreviewGate,
   previewDerivation,
-  batchCreditEstimate,
-  batchCreditBreakdown,
-  creditBalance,
-  previewConversionPayload,
   onApprovePreviewBatch,
-  onReviseStrategyRecipe,
   createDerivationsPending,
   isDerivationsError,
   derivationsErrorKind,
@@ -970,23 +928,11 @@ function CampaignWorkspaceCard({
                 previewGate={
                   showPreviewGate &&
                   previewDerivation &&
-                  onApprovePreviewBatch &&
-                  onReviseStrategyRecipe
+                  onApprovePreviewBatch
                     ? {
                         campaignId,
                         previewId: previewDerivation.id,
-                        previewCreditsSpent: previewDerivation.creditCost ?? 5,
-                        batchBreakdown:
-                          batchCreditBreakdown ?? {
-                            jobCount: 0,
-                            unitCost: 5,
-                            totalCredits: batchCreditEstimate ?? 0,
-                            generationMode: "art_variation",
-                          },
-                        creditBalance,
-                        conversionPayload: previewConversionPayload,
                         isApproving: createDerivationsPending,
-                        onReviseRecipe: onReviseStrategyRecipe,
                         onApproveBatch: onApprovePreviewBatch,
                       }
                     : undefined

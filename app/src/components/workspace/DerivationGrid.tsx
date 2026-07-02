@@ -5,8 +5,6 @@ import { Plus } from "lucide-react";
 import type { Derivation } from "@/lib/mock-data";
 import DerivationCard from "./DerivationCard";
 import DerivationPreviewGateFooter from "./DerivationPreviewGateFooter";
-import type { BatchCreditBreakdown } from "@/server/ai/strategy-recipes";
-import type { ConversionErrorPayload } from "@/lib/billing/conversion-contract";
 import type { ReviewDerivationVariables } from "@/lib/hooks/use-review";
 import { mapDecisionToStatus } from "@/lib/derivation-display";
 
@@ -37,12 +35,7 @@ export interface DerivationGridProps {
   previewGate?: {
     campaignId: string;
     previewId: string;
-    previewCreditsSpent: number;
-    batchBreakdown: BatchCreditBreakdown;
-    creditBalance?: number;
-    conversionPayload?: ConversionErrorPayload | null;
     isApproving?: boolean;
-    onReviseRecipe: () => void;
     onApproveBatch: () => void;
   };
 }
@@ -166,13 +159,8 @@ export default function DerivationGrid({
             {isPreviewGateCard ? (
               <DerivationPreviewGateFooter
                 campaignId={previewGate.campaignId}
-                previewCreditsSpent={previewGate.previewCreditsSpent}
-                batchBreakdown={previewGate.batchBreakdown}
-                creditBalance={previewGate.creditBalance}
-                conversionPayload={previewGate.conversionPayload}
                 isApproving={previewGate.isApproving}
                 isGenerating={derivation.status === "generating"}
-                onReviseRecipe={previewGate.onReviseRecipe}
                 onApproveBatch={previewGate.onApproveBatch}
               />
             ) : null}

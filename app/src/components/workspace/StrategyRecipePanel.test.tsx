@@ -40,7 +40,7 @@ describe("StrategyRecipePanel", () => {
     recordEvent.mockClear();
   });
 
-  it("renders three recipe options and credit estimates", () => {
+  it("renders three recipe options", () => {
     const onGeneratePreview = vi.fn();
     render(
       <StrategyRecipePanel
@@ -55,8 +55,23 @@ describe("StrategyRecipePanel", () => {
     expect(screen.getByText("recipes.safe_iteration.name")).toBeInTheDocument();
     expect(screen.getByText("recipes.performance_push.name")).toBeInTheDocument();
     expect(screen.getByText("recipes.visual_differentiation.name")).toBeInTheDocument();
-    expect(screen.getByText(/creditPreview/)).toBeInTheDocument();
-    expect(screen.getByText(/creditBatchEstimate/)).toBeInTheDocument();
+  });
+
+  it("does not display credit cost before execution", () => {
+    render(
+      <StrategyRecipePanel
+        campaignId="camp-1"
+        open
+        campaign={{ ctaVariants: ["Buy"] }}
+        onClose={vi.fn()}
+        onGeneratePreview={vi.fn()}
+      />
+    );
+
+    expect(screen.queryByText(/creditPreview/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/creditBatchEstimate/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/créditos/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/credits/i)).not.toBeInTheDocument();
   });
 
   it("emits cockpit_stage_entered when open", () => {

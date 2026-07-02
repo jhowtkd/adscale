@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import DerivationPreviewGateFooter from "./DerivationPreviewGateFooter";
-import type { BatchCreditBreakdown } from "@/server/ai/strategy-recipes";
 
 const recordEvent = vi.fn();
 
@@ -18,89 +17,45 @@ vi.mock("@/lib/hooks/use-record-beta-event", () => ({
   useRecordBetaEvent: () => ({ recordEvent }),
 }));
 
-vi.mock("@/components/billing/ConversionCta", () => ({
-  ConversionCta: () => <button type="button">conversion-cta</button>,
-}));
-
 const STAGE_PROPS = { stage: "preview", missionKey: "preview" };
-
-const ctaBreakdown: BatchCreditBreakdown = {
-  jobCount: 3,
-  unitCost: 5,
-  totalCredits: 15,
-  generationMode: "art_variation",
-};
 
 describe("DerivationPreviewGateFooter", () => {
   beforeEach(() => {
     recordEvent.mockClear();
   });
 
-  it("shows batch formula, balance, and actions", () => {
+  it("renders the approve action without cost breakdown", () => {
     const onApprove = vi.fn();
-    const onRevise = vi.fn();
 
     render(
       <DerivationPreviewGateFooter
         campaignId="camp-1"
-        previewCreditsSpent={5}
-        batchBreakdown={ctaBreakdown}
-        creditBalance={100}
         onApproveBatch={onApprove}
-        onReviseRecipe={onRevise}
       />
     );
 
-    expect(screen.getByText(/batchFormulaCta/)).toBeInTheDocument();
-    expect(screen.getByText(/balanceRemaining/)).toBeInTheDocument();
-    expect(screen.getByText(/previewSpent/)).toBeInTheDocument();
-    expect(screen.getByText("creditEstimateNote")).toBeInTheDocument();
+    expect(screen.getByText("title")).toBeInTheDocument();
+    expect(screen.getByText("approveBatch")).toBeEnabled();
 
-    fireEvent.click(screen.getByText("approveBatch"));
-    fireEvent.click(screen.getByText("reviseRecipe"));
-
-    expect(onApprove).toHaveBeenCalled();
-    expect(onRevise).toHaveBeenCalled();
+    // No preventive credit cost displays
+    expect(screen.queryByText(/batchFormulaCta/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/batchFormulaFormat/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/balanceRemaining/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/previewSpent/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/insufficientCredits/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/créditos/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("reviseRecipe")).not.toBeInTheDocument();
   });
 
-  it("renders conversion CTA from server contract when provided", () => {
+  it("disables approve while generating", () => {
     render(
       <DerivationPreviewGateFooter
         campaignId="camp-1"
-        previewCreditsSpent={5}
-        batchBreakdown={ctaBreakdown}
-        creditBalance={10}
-        conversionPayload={{
-          reason: "beta_exhausted",
-          recommendedAction: "checkout",
-          suggestedPlan: "starter",
-          amount: 15,
-          balance: 10,
-          returnPath: "/campaigns/camp-1",
-          analytics: { reasonCode: "beta_exhausted", estimateCredits: 15 },
-        }}
+        isGenerating
         onApproveBatch={vi.fn()}
-        onReviseRecipe={vi.fn()}
       />
     );
 
-    expect(screen.getByText("conversion-cta")).toBeInTheDocument();
-    expect(screen.getByText("approveBatch")).toBeDisabled();
-  });
-
-  it("disables approve when balance is insufficient", () => {
-    render(
-      <DerivationPreviewGateFooter
-        campaignId="camp-1"
-        previewCreditsSpent={5}
-        batchBreakdown={ctaBreakdown}
-        creditBalance={10}
-        onApproveBatch={vi.fn()}
-        onReviseRecipe={vi.fn()}
-      />
-    );
-
-    expect(screen.getByText(/insufficientCredits/)).toBeInTheDocument();
     expect(screen.getByText("approveBatch")).toBeDisabled();
   });
 
@@ -109,11 +64,7 @@ describe("DerivationPreviewGateFooter", () => {
     render(
       <DerivationPreviewGateFooter
         campaignId="camp-1"
-        previewCreditsSpent={5}
-        batchBreakdown={ctaBreakdown}
-        creditBalance={100}
         onApproveBatch={onApprove}
-        onReviseRecipe={vi.fn()}
       />
     );
 

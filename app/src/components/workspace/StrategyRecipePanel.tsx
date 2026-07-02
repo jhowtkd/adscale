@@ -425,13 +425,6 @@ export default function StrategyRecipePanel({
               />
             )}
           </div>
-
-          <div className="rounded-lg bg-[var(--surface-raised)] p-3 text-xs text-[var(--text-secondary)]">
-            <p>{t("creditPreview", { credits: recipe.previewCredits })}</p>
-            <p className="mt-1">
-              {t("creditBatchEstimate", { credits: recipe.batchCredits })}
-            </p>
-          </div>
         </DialogBody>
 
         <DialogFooter className="flex-col gap-2 sm:flex-col">

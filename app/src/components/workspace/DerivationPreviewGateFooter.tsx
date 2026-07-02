@@ -2,58 +2,32 @@
 
 import { useEffect } from "react";
 import { useTranslations } from "next-intl";
-import { CheckCircle2, Coins, Pencil, Sparkles } from "lucide-react";
+import { CheckCircle2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useRecordBetaEvent } from "@/lib/hooks/use-record-beta-event";
-import type { BatchCreditBreakdown } from "@/server/ai/strategy-recipes";
-import type { ConversionErrorPayload } from "@/lib/billing/conversion-contract";
-import { ConversionCta } from "@/components/billing/ConversionCta";
 
 interface DerivationPreviewGateFooterProps {
   campaignId: string;
-  previewCreditsSpent: number;
-  batchBreakdown: BatchCreditBreakdown;
-  creditBalance?: number;
-  conversionPayload?: ConversionErrorPayload | null;
   isApproving?: boolean;
   isGenerating?: boolean;
   className?: string;
-  onReviseRecipe: () => void;
   onApproveBatch: () => void;
 }
 
 export default function DerivationPreviewGateFooter({
   campaignId,
-  previewCreditsSpent,
-  batchBreakdown,
-  creditBalance,
-  conversionPayload,
   isApproving,
   isGenerating,
   className,
-  onReviseRecipe,
   onApproveBatch,
 }: DerivationPreviewGateFooterProps) {
   const t = useTranslations("strategyRecipes.previewGate");
-  const tConversion = useTranslations("billing.conversion");
   const { recordEvent } = useRecordBetaEvent(campaignId);
 
   const STAGE_PROPS = { stage: "preview", missionKey: "preview" } as const;
-  const { jobCount, unitCost, totalCredits, generationMode } = batchBreakdown;
 
-  const insufficient =
-    conversionPayload != null ||
-    (typeof creditBalance === "number" &&
-      totalCredits > 0 &&
-      creditBalance < totalCredits);
-
-  const approveDisabled =
-    isApproving ||
-    isGenerating ||
-    jobCount === 0 ||
-    creditBalance === undefined ||
-    insufficient;
+  const approveDisabled = isApproving || isGenerating;
 
   useEffect(() => {
     recordEvent("cockpit_stage_entered", STAGE_PROPS);
@@ -63,11 +37,6 @@ export default function DerivationPreviewGateFooter({
     recordEvent("cockpit_stage_completed", STAGE_PROPS);
     onApproveBatch();
   };
-
-  const batchFormulaKey =
-    generationMode === "format_adaptation"
-      ? "batchFormulaFormat"
-      : "batchFormulaCta";
 
   return (
     <div
@@ -84,71 +53,20 @@ export default function DerivationPreviewGateFooter({
         </div>
       </div>
 
-      <div className="flex items-center gap-2 rounded-lg bg-[var(--surface-base)] px-3 py-2 text-[11px]">
-        <Coins className="size-3.5 text-[var(--accent-green-text)]" />
-        <div className="flex-1 space-y-1">
-          <p>{t("previewSpent", { credits: previewCreditsSpent })}</p>
-          <p className="text-[var(--text-secondary)]">
-            {typeof creditBalance === "number"
-              ? t("balanceRemaining", { balance: creditBalance })
-              : t("balanceLoading")}
-          </p>
-          {jobCount > 0 ? (
-            <p className="font-medium text-[var(--text-primary)]">
-              {t(batchFormulaKey, {
-                count: jobCount,
-                unit: unitCost,
-                total: totalCredits,
-              })}
-            </p>
-          ) : (
-            <p className="font-medium text-[var(--text-primary)]">{t("batchCostPending")}</p>
-          )}
-          {insufficient ? (
-            <p className="text-[var(--danger-text)]">
-              {conversionPayload
-                ? tConversion(`reasons.${conversionPayload.reason}`)
-                : t("insufficientCredits", {
-                    estimate: totalCredits,
-                    balance: creditBalance ?? 0,
-                  })}
-            </p>
-          ) : null}
-          <p className="text-[var(--text-muted)]">{t("creditEstimateNote")}</p>
-        </div>
-      </div>
-
-      {conversionPayload ? (
-        <ConversionCta payload={conversionPayload} className="w-full" />
-      ) : null}
-
-      <div className="flex flex-col gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="h-auto w-full whitespace-normal px-3 py-2 text-center leading-snug"
-          onClick={onReviseRecipe}
-          disabled={isApproving}
-        >
-          <Pencil className="mr-1.5 size-3.5" />
-          {t("reviseRecipe")}
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          className="h-auto w-full whitespace-normal px-3 py-2 text-center leading-snug"
-          onClick={handleApproveBatch}
-          disabled={approveDisabled}
-        >
-          {isApproving ? (
-            <Sparkles className="mr-1.5 size-3.5 animate-spin" />
-          ) : (
-            <CheckCircle2 className="mr-1.5 size-3.5" />
-          )}
-          {t("approveBatch")}
-        </Button>
-      </div>
+      <Button
+        type="button"
+        size="sm"
+        className="h-auto w-full whitespace-normal px-3 py-2 text-center leading-snug"
+        onClick={handleApproveBatch}
+        disabled={approveDisabled}
+      >
+        {isApproving ? (
+          <Sparkles className="mr-1.5 size-3.5 animate-spin" />
+        ) : (
+          <CheckCircle2 className="mr-1.5 size-3.5" />
+        )}
+        {t("approveBatch")}
+      </Button>
     </div>
   );
 }
