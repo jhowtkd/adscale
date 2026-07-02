@@ -2541,6 +2541,10 @@
       "riskDetails": "Detalhes de risco",
       "confirm": "Confirmar",
       "cancel": "Cancelar",
+      "edit": "Editar",
+      "executing": "Gerando…",
+      "errorTitle": "Falha",
+      "successTitle": "Concluído",
       "status": {
         "pending": "Aguardando confirmação",
         "confirmed": "Confirmada",

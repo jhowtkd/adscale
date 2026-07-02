@@ -2512,6 +2512,10 @@
       "riskDetails": "Risk details",
       "confirm": "Confirm",
       "cancel": "Cancel",
+      "edit": "Edit",
+      "executing": "Generating…",
+      "errorTitle": "Failed",
+      "successTitle": "Completed",
       "status": {
         "pending": "Awaiting confirmation",
         "confirmed": "Confirmed",
