@@ -15,7 +15,13 @@
     "workspace": "Workspace",
     "account": "Conta",
     "collapse": "Recolher",
-    "expand": "Expandir"
+    "expand": "Expandir",
+    "curadorIA": "Curador IA",
+    "sectionPrincipal": "Principal",
+    "sectionCriar": "Criar",
+    "sectionOperacao": "Operação",
+    "feedback": "Feedback",
+    "quality": "Quality"
   },
   "language": {
     "label": "Idioma",
