@@ -901,6 +901,12 @@
       "toastProfileCreateFailed": "Não foi possível criar o perfil.",
       "briefingReadinessSummary": "Briefing e readiness"
     },
+    "workspace": {
+      "assistantLabel": "Assistente da campanha",
+      "viewToggleLabel": "Visualização do workspace",
+      "gridTab": "Grade",
+      "chatTab": "Chat"
+    },
     "deleteDialog": {
       "title": "Excluir campanha",
       "description": "Tem certeza que deseja excluir esta campanha? Esta ação não pode ser desfeita.",

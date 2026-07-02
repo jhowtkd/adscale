@@ -5,7 +5,6 @@ export const previewCampaignWorkspaceLabels: CampaignWorkspaceV6Labels = {
   backToCampaigns: "Voltar para campanhas",
   sendFeedback: "Enviar feedback",
   deleteCampaign: "Excluir campanha",
-  openAssistant: "Abrir assistente",
   stagesAria: "Estágios da campanha",
   briefingTitle: "Briefing",
   briefingVersion: "v1",

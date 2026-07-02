@@ -3,12 +3,11 @@ import type { CampaignWorkspaceV6Labels } from "./campaign-workspace-v6-types";
 
 type Translate = ReturnType<typeof useTranslations>;
 
-export function buildCampaignWorkspaceV6Labels(t: Translate, tc: Translate, tAssistant: Translate): CampaignWorkspaceV6Labels {
+export function buildCampaignWorkspaceV6Labels(t: Translate, tc: Translate): CampaignWorkspaceV6Labels {
   return {
     backToCampaigns: tc("backToCampaigns"),
     sendFeedback: t("v6.sendFeedback"),
     deleteCampaign: tc("deleteDraft"),
-    openAssistant: tAssistant("open"),
     stagesAria: t("v6.stagesAria"),
     briefingTitle: t("v6.briefingTitle"),
     briefingVersion: t("v6.briefingVersion"),

@@ -3,6 +3,7 @@
 import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, useMemo } from "react";
 import { useAppStore } from "@/lib/store";
+import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { useUploadAsset, useCampaignAssets } from "@/lib/hooks/use-assets";
@@ -80,7 +81,7 @@ import CampaignSkeleton from "@/components/campaigns/CampaignSkeleton";
 import CampaignErrorState from "@/components/campaigns/CampaignErrorState";
 import CampaignNotFoundState from "@/components/campaigns/CampaignNotFoundState";
 
-import CampaignAssistantDrawer from "@/components/assistant/CampaignAssistantDrawer";
+import { CampaignAssistantPanel } from "@/components/assistant/CampaignAssistantDrawer";
 import { useCampaignWorkspace } from "@/lib/hooks/use-campaign-workspace";
 import type { ReviewDerivationVariables } from "@/lib/hooks/use-review";
 import { useUpdateCampaign } from "@/lib/hooks/use-campaigns";
@@ -117,7 +118,7 @@ export default function CampaignWorkspacePage() {
 
   const tc = useTranslations("common");
   const tCampaign = useTranslations("campaign");
-  const tAssistant = useTranslations("assistant.drawer");
+  const tWorkspaceMobile = useTranslations("campaign.workspace");
   const addToast = useAppStore((s) => s.addToast);
   const uploadAsset = useUploadAsset(campaignId);
   const updateCampaign = useUpdateCampaign(campaignId);
@@ -140,8 +141,9 @@ export default function CampaignWorkspacePage() {
   });
   const pilotAssetIdRef = useRef<string | null>(null);
   const [showEstilizarModal, setShowEstilizarModal] = useState(false);
-  const [assistantDrawerOpen, setAssistantDrawerOpen] = useState(false);
   const [platformsDrawerOpen, setPlatformsDrawerOpen] = useState(false);
+  // Mobile (< lg) toggles between the workspace grid and the chat panel.
+  const [mobileView, setMobileView] = useState<"grid" | "chat">("grid");
   const {
     isDerivePanelOpen,
     derivePanelSession,
@@ -271,8 +273,8 @@ export default function CampaignWorkspacePage() {
   }, [preflightData?.readiness?.blockingIssues, readinessOverrideActive]);
 
   const workspaceLabels = useMemo(
-    () => buildCampaignWorkspaceV6Labels(tCampaign, tc, tAssistant),
-    [tCampaign, tc, tAssistant],
+    () => buildCampaignWorkspaceV6Labels(tCampaign, tc),
+    [tCampaign, tc],
   );
 
   const workspaceView = useMemo(
@@ -484,105 +486,159 @@ export default function CampaignWorkspacePage() {
   };
 
   return (
-    <div className="min-w-0 space-y-4 pb-10 workspace-scroll-padding shell-offset-bottom-mobile">
-      <CampaignWorkspaceV6Chrome
-        view={workspaceView}
-        labels={workspaceLabels}
-        campaignId={campaignId}
-        isDraft={isDraft}
-        onDelete={handleDeleteClick}
-        onOpenAssistant={() => setAssistantDrawerOpen(true)}
-        assistantDisabled={!campaign?.clientProfileId}
-        assistantDisabledTooltip={tAssistant("missingClientTooltip")}
-      />
+    <div className="min-w-0 pb-10 workspace-scroll-padding shell-offset-bottom-mobile">
+      <div className="workspace-split lg:grid lg:grid-cols-[1fr_380px] lg:items-start">
+        {/* Main workspace column. Always visible on desktop; toggled on mobile. */}
+        <div
+          className={cn(
+            "workspace-main min-w-0 space-y-4 lg:block",
+            mobileView === "grid" ? "block" : "hidden lg:block"
+          )}
+        >
+          <CampaignWorkspaceV6Chrome
+            view={workspaceView}
+            labels={workspaceLabels}
+            campaignId={campaignId}
+            isDraft={isDraft}
+            onDelete={handleDeleteClick}
+          />
 
-      {campaign && (
-        <CampaignClientSubtitle
-          platformsText={platformsText}
-          onAddPlatform={() => setPlatformsDrawerOpen(true)}
-        />
-      )}
+          {campaign && (
+            <CampaignClientSubtitle
+              platformsText={platformsText}
+              onAddPlatform={() => setPlatformsDrawerOpen(true)}
+            />
+          )}
 
-      {campaign && !campaign.clientProfileId ? (
-        <ClientProfileLinkControl
-          campaignId={campaignId}
-          clientName={campaign.client}
-          clientProfileId={campaign.clientProfileId}
-          variant="banner"
-        />
-      ) : null}
+          {campaign && !campaign.clientProfileId ? (
+            <ClientProfileLinkControl
+              campaignId={campaignId}
+              clientName={campaign.client}
+              clientProfileId={campaign.clientProfileId}
+              variant="banner"
+            />
+          ) : null}
 
-      <PlatformsDrawer
-        open={platformsDrawerOpen}
-        onOpenChange={setPlatformsDrawerOpen}
-        selectedPlatforms={campaign?.platforms ?? []}
-        isSaving={updateCampaign.isPending}
-        onSave={handleSavePlatforms}
-      />
-      <CampaignWorkspaceCard
-        campaignId={campaignId}
-        campaign={campaign}
-        workspaceState={workspaceState}
-        isGenerating={isGenerating}
-        workspaceView={workspaceView}
-        workspaceLabels={workspaceLabels}
-        analysis={analysis}
-        allDerivations={allDerivations}
-        onPreview={handlePreview}
-        onDownload={handleDownloadDerivation}
-        onRegenerate={handleRegenerateDerivation}
-        onApprove={handleApproveDerivation}
-        onReject={handleRejectDerivation}
-        onCreateDeliveryPackage={handleCreateDeliveryPackage}
-        onRunQa={handleRunQa}
-        onSaveAsReference={handleSaveAsReference}
-        onGenerateLandingPage={handleGenerateLandingPage}
-        onSimulatePersonas={handleSimulatePersonas}
-        qaAnalyzingId={
-          creativeQaPending && creativeQaVariables?.derivationId
-            ? creativeQaVariables.derivationId
-            : null
-        }
-        regeneratingId={
-          regeneratePending && regenerateVariables?.id ? regenerateVariables.id : null
-        }
-        landingPageGeneratingId={
-          landingPagePending && landingPageVariables?.derivationId
-            ? landingPageVariables.derivationId
-            : null
-        }
-        simulatingPersonasId={personaSimulation.selectedId}
-        savingReferenceId={savingReferenceId}
-        reviewPending={reviewPending}
-        reviewVariables={reviewVariables ?? null}
-        onAssetUploaded={handleAssetUploaded}
-        onAnalysisComplete={handleAnalysisComplete}
-        onGuidedBriefingComplete={handleGuidedBriefingComplete}
-        guidedBriefingHints={guidedBriefingHints}
-        showPreviewGate={showPreviewGate}
-        previewDerivation={previewDerivation}
-        onApprovePreviewBatch={approvePreviewToBatch}
-        createDerivationsPending={createDerivationsPending}
-        onOpenDerivar={handleOpenDerivar}
-        onOutputLearningAccept={handleOutputLearningAccept}
-        onOutputLearningEdit={handleOutputLearningEdit}
-        onOpenEstilizar={() => {
-          setShowEstilizarModal(true);
-          goToTrabalho();
-        }}
-        isDerivationsError={isDerivationsError}
-        derivationsErrorKind={derivationsErrorKind}
-        onRetryDerivations={() => void refetchDerivations()}
-        readinessBlocking={readinessBlocking}
-        onReadinessOverride={() => setReadinessOverrideActive(true)}
-      />
+          <PlatformsDrawer
+            open={platformsDrawerOpen}
+            onOpenChange={setPlatformsDrawerOpen}
+            selectedPlatforms={campaign?.platforms ?? []}
+            isSaving={updateCampaign.isPending}
+            onSave={handleSavePlatforms}
+          />
+          <CampaignWorkspaceCard
+            campaignId={campaignId}
+            campaign={campaign}
+            workspaceState={workspaceState}
+            isGenerating={isGenerating}
+            workspaceView={workspaceView}
+            workspaceLabels={workspaceLabels}
+            analysis={analysis}
+            allDerivations={allDerivations}
+            onPreview={handlePreview}
+            onDownload={handleDownloadDerivation}
+            onRegenerate={handleRegenerateDerivation}
+            onApprove={handleApproveDerivation}
+            onReject={handleRejectDerivation}
+            onCreateDeliveryPackage={handleCreateDeliveryPackage}
+            onRunQa={handleRunQa}
+            onSaveAsReference={handleSaveAsReference}
+            onGenerateLandingPage={handleGenerateLandingPage}
+            onSimulatePersonas={handleSimulatePersonas}
+            qaAnalyzingId={
+              creativeQaPending && creativeQaVariables?.derivationId
+                ? creativeQaVariables.derivationId
+                : null
+            }
+            regeneratingId={
+              regeneratePending && regenerateVariables?.id ? regenerateVariables.id : null
+            }
+            landingPageGeneratingId={
+              landingPagePending && landingPageVariables?.derivationId
+                ? landingPageVariables.derivationId
+                : null
+            }
+            simulatingPersonasId={personaSimulation.selectedId}
+            savingReferenceId={savingReferenceId}
+            reviewPending={reviewPending}
+            reviewVariables={reviewVariables ?? null}
+            onAssetUploaded={handleAssetUploaded}
+            onAnalysisComplete={handleAnalysisComplete}
+            onGuidedBriefingComplete={handleGuidedBriefingComplete}
+            guidedBriefingHints={guidedBriefingHints}
+            showPreviewGate={showPreviewGate}
+            previewDerivation={previewDerivation}
+            onApprovePreviewBatch={approvePreviewToBatch}
+            createDerivationsPending={createDerivationsPending}
+            onOpenDerivar={handleOpenDerivar}
+            onOutputLearningAccept={handleOutputLearningAccept}
+            onOutputLearningEdit={handleOutputLearningEdit}
+            onOpenEstilizar={() => {
+              setShowEstilizarModal(true);
+              goToTrabalho();
+            }}
+            isDerivationsError={isDerivationsError}
+            derivationsErrorKind={derivationsErrorKind}
+            onRetryDerivations={() => void refetchDerivations()}
+            readinessBlocking={readinessBlocking}
+            onReadinessOverride={() => setReadinessOverrideActive(true)}
+          />
+        </div>
 
-      <CampaignAssistantDrawer
-        open={assistantDrawerOpen}
-        onOpenChange={setAssistantDrawerOpen}
-        campaignId={campaignId}
-        clientProfileId={campaign?.clientProfileId ?? ""}
-      />
+        {/* Permanent assistant panel. Fixed column on desktop; toggled on mobile. */}
+        <aside
+          aria-label={tWorkspaceMobile("assistantLabel")}
+          className={cn(
+            "workspace-chat border-l border-[var(--border-subtle)] lg:block",
+            mobileView === "chat"
+              ? "block min-h-[60vh]"
+              : "hidden lg:block"
+          )}
+        >
+          <div className="flex h-full min-h-0 flex-col lg:sticky lg:top-[calc(var(--shell-topbar-desktop)+var(--shell-sticky-gap))] lg:h-[calc(100vh-var(--shell-topbar-desktop)-var(--shell-sticky-gap)-1rem)]">
+            <CampaignAssistantPanel
+              campaignId={campaignId}
+              clientProfileId={campaign?.clientProfileId ?? ""}
+            />
+          </div>
+        </aside>
+      </div>
+
+      {/* Mobile-only Grid/Chat tab toggle (hidden on >= lg). */}
+      <div
+        role="tablist"
+        aria-label={tWorkspaceMobile("viewToggleLabel")}
+        className="workspace-mobile-tabs mt-4 grid grid-cols-2 gap-2 lg:hidden"
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mobileView === "grid"}
+          onClick={() => setMobileView("grid")}
+          className={cn(
+            "rounded-[var(--radius-control)] border px-3 py-2 text-sm font-medium",
+            mobileView === "grid"
+              ? "border-[var(--accent-primary)] bg-[var(--accent-primary-dim)] text-[var(--accent-primary-text)]"
+              : "border-[var(--border-default)] bg-[var(--surface-base)] text-[var(--text-secondary)]"
+          )}
+        >
+          {tWorkspaceMobile("gridTab")}
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mobileView === "chat"}
+          onClick={() => setMobileView("chat")}
+          className={cn(
+            "rounded-[var(--radius-control)] border px-3 py-2 text-sm font-medium",
+            mobileView === "chat"
+              ? "border-[var(--accent-primary)] bg-[var(--accent-primary-dim)] text-[var(--accent-primary-text)]"
+              : "border-[var(--border-default)] bg-[var(--surface-base)] text-[var(--text-secondary)]"
+          )}
+        >
+          {tWorkspaceMobile("chatTab")}
+        </button>
+      </div>
 
       <DerivationReviewSheet
         open={Boolean(reviewDerivationId && reviewDerivation)}

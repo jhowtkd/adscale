@@ -36,7 +36,6 @@ export type CampaignWorkspaceV6Labels = {
   backToCampaigns: string;
   sendFeedback: string;
   deleteCampaign: string;
-  openAssistant: string;
   stagesAria: string;
   briefingTitle: string;
   briefingVersion: string;

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Trash2, MessageSquare } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import ContextualFeedbackButton from "@/components/feedback/ContextualFeedbackButton";
 import type {
   CampaignWorkspaceV6Labels,
@@ -18,10 +18,7 @@ type CampaignWorkspaceV6ViewProps = {
   campaignId?: string;
   isDraft?: boolean;
   showAssistant?: boolean;
-  assistantDisabled?: boolean;
-  assistantDisabledTooltip?: string;
   onDelete?: () => void;
-  onOpenAssistant?: () => void;
   briefingSlot?: ReactNode;
   derivationsSlot?: ReactNode;
   onOpenDerivation?: (id: string) => void;
@@ -34,10 +31,7 @@ export function CampaignWorkspaceV6Chrome({
   campaignId,
   isDraft = false,
   showAssistant = true,
-  assistantDisabled,
-  assistantDisabledTooltip,
   onDelete,
-  onOpenAssistant,
 }: Omit<CampaignWorkspaceV6ViewProps, "briefingSlot" | "derivationsSlot" | "onOpenDerivation">) {
   const backHref = interactive ? "/campaigns" : "/v6/campaigns";
 
@@ -59,26 +53,14 @@ export function CampaignWorkspaceV6Chrome({
           <p className="text-sm text-[var(--text-secondary)]">{view.meta}</p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
-          {interactive && showAssistant ? (
-            <button
-              type="button"
-              onClick={onOpenAssistant}
-              disabled={assistantDisabled}
-              title={assistantDisabled ? assistantDisabledTooltip : labels.openAssistant}
-              aria-label={labels.openAssistant}
-              className="inline-flex items-center gap-2 rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <MessageSquare size={16} aria-hidden="true" />
-              <span className="hidden sm:inline">{labels.openAssistant}</span>
-            </button>
-          ) : (
+          {!showAssistant ? (
             <button
               type="button"
               className="inline-flex items-center gap-2 rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] px-3 py-2 text-sm font-medium text-[var(--text-primary)]"
             >
               {labels.sendFeedback}
             </button>
-          )}
+          ) : null}
           {interactive && campaignId ? (
             <ContextualFeedbackButton contextKind="campaign" campaignId={campaignId} />
           ) : null}
@@ -125,10 +107,7 @@ export default function CampaignWorkspaceV6View({
   campaignId,
   isDraft = false,
   showAssistant = true,
-  assistantDisabled,
-  assistantDisabledTooltip,
   onDelete,
-  onOpenAssistant,
   briefingSlot,
   derivationsSlot,
   onOpenDerivation,
@@ -142,10 +121,7 @@ export default function CampaignWorkspaceV6View({
         campaignId={campaignId}
         isDraft={isDraft}
         showAssistant={showAssistant}
-        assistantDisabled={assistantDisabled}
-        assistantDisabledTooltip={assistantDisabledTooltip}
         onDelete={onDelete}
-        onOpenAssistant={onOpenAssistant}
       />
 
       <section className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-5 sm:p-8">
