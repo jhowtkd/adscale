@@ -51,29 +51,17 @@ export function toActionCardLifecycleStatus(
 }
 
 /**
- * Action types whose proposals are rendered by the new contract-driven
- * ActionCard. Everything else keeps the bespoke legacy AssistantActionCard,
- * which carries credit-confirmation gating, version-comparison shortcuts and
- * reference thumbnails that the generic card does not (yet) replicate.
- *
- * These mirror the `intentFamily: "quick_action"` contracts registered on the
- * server. Keeping this list explicit (rather than resolving the family from the
- * server registry, which is "server-only") lets the client decide without a
- * server round-trip. Any actionType not listed here falls back to the legacy
- * card, so newly-registered quick actions degrade gracefully.
+ * Determines whether a serialized {@link ClientActionCardDisplay} represents a
+ * `quick_action`-family proposal. The server writes the contract's
+ * `intentFamily` into the `display` payload at proposal time, so the client can
+ * route off the serialized value directly instead of maintaining a mirror of
+ * the server's quick-action registry (which would silently drift whenever a new
+ * quick-action contract is registered). Anything missing the field degrades
+ * gracefully to the legacy card.
  */
-export const QUICK_ACTION_TYPES = new Set<string>([
-  "quick_restyle",
-  "quick_format_adapt",
-  "quick_regenerate",
-  "quick_review",
-  "quick_save_reference",
-  "quick_package",
-  "quick_persona_simulate",
-]);
-
-export function isQuickAction(actionType: string | undefined): boolean {
-  return typeof actionType === "string" && QUICK_ACTION_TYPES.has(actionType);
+export function isQuickAction(display: unknown): boolean {
+  const parsed = parseActionCardDisplay(display);
+  return parsed?.intentFamily === "quick_action";
 }
 
 function asRiskLabel(value: unknown): RiskLabel {
@@ -137,7 +125,7 @@ export function resolveDisplayContract(
 
   return {
     actionType: parsed.actionType,
-    intentFamily: isQuickAction(parsed.actionType)
+    intentFamily: parsed.intentFamily === "quick_action"
       ? "quick_action"
       : "complete_campaign",
     label: parsed.label,

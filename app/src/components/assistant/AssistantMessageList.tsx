@@ -163,12 +163,8 @@ function ActionCardMessage({
   openVersionComparison?: (request: VersionComparisonRequest) => void;
 }) {
   const display = message.payload.display;
-  const actionType =
-    display && typeof display === "object"
-      ? (display as Record<string, unknown>).actionType
-      : undefined;
 
-  if (!isQuickAction(typeof actionType === "string" ? actionType : undefined)) {
+  if (!isQuickAction(display)) {
     return (
       <AssistantActionCard
         key={message.id}

@@ -110,6 +110,7 @@ describe("validateProposeAction", () => {
     expect(result.display).toEqual({
       label: "Custom label",
       actionType: "quick_restyle",
+      intentFamily: "quick_action",
       riskLabel: "medium",
       creditImpact: expect.objectContaining({
         kind: "creditAction",

@@ -108,6 +108,7 @@ describe("AssistantMessageList", () => {
       display: {
         label: "Restyle rápido",
         actionType: "quick_restyle",
+        intentFamily: "quick_action",
         riskLabel: "medium",
         creditImpact: { kind: "creditAction", action: "restyling", label: "5 créditos" },
         riskCopyLines: ["Sem referência de estilo, o resultado pode divergir."],
@@ -251,6 +252,7 @@ describe("AssistantMessageList", () => {
                 display: {
                   label: "Revisão do plano",
                   actionType: "revise_creative_plan",
+                  intentFamily: "complete_campaign",
                   riskLabel: "medium",
                   riskCopyLines: [],
                   confirmationPolicy: "required",

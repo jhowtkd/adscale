@@ -13,6 +13,7 @@ describe("contract-display", () => {
       const result = parseActionCardDisplay({
         label: "Quick restyle",
         actionType: "quick_restyle",
+        intentFamily: "quick_action",
         riskLabel: "medium",
         creditImpact: { kind: "fixed", credits: 5 },
         riskCopyLines: ["Uses credits"],
@@ -21,6 +22,7 @@ describe("contract-display", () => {
       expect(result).toEqual({
         label: "Quick restyle",
         actionType: "quick_restyle",
+        intentFamily: "quick_action",
         riskLabel: "medium",
         creditImpact: { kind: "fixed", credits: 5 },
         riskCopyLines: ["Uses credits"],
