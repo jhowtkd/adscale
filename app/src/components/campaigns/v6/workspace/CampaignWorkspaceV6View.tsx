@@ -17,7 +17,6 @@ type CampaignWorkspaceV6ViewProps = {
   interactive?: boolean;
   campaignId?: string;
   isDraft?: boolean;
-  showAssistant?: boolean;
   onDelete?: () => void;
   briefingSlot?: ReactNode;
   derivationsSlot?: ReactNode;
@@ -30,7 +29,6 @@ export function CampaignWorkspaceV6Chrome({
   interactive = true,
   campaignId,
   isDraft = false,
-  showAssistant = true,
   onDelete,
 }: Omit<CampaignWorkspaceV6ViewProps, "briefingSlot" | "derivationsSlot" | "onOpenDerivation">) {
   const backHref = interactive ? "/campaigns" : "/v6/campaigns";
@@ -53,7 +51,7 @@ export function CampaignWorkspaceV6Chrome({
           <p className="text-sm text-[var(--text-secondary)]">{view.meta}</p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
-          {!showAssistant ? (
+          {!interactive ? (
             <button
               type="button"
               className="inline-flex items-center gap-2 rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] px-3 py-2 text-sm font-medium text-[var(--text-primary)]"
@@ -106,7 +104,6 @@ export default function CampaignWorkspaceV6View({
   interactive = true,
   campaignId,
   isDraft = false,
-  showAssistant = true,
   onDelete,
   briefingSlot,
   derivationsSlot,
@@ -120,7 +117,6 @@ export default function CampaignWorkspaceV6View({
         interactive={interactive}
         campaignId={campaignId}
         isDraft={isDraft}
-        showAssistant={showAssistant}
         onDelete={onDelete}
       />
 
