@@ -28,22 +28,22 @@ export async function executeStartBrandTraining(
     );
   }
 
-  const inputClientProfileId =
-    typeof parsed.data.clientProfileId === "string"
-      ? parsed.data.clientProfileId
-      : null;
+  // Prefer an explicit id: first from the action input, then from the thread's
+  // bound client profile. Only consult the workspace resolver as a last resort
+  // (sole-profile auto-resolution). Treat blank strings as absent.
+  const inputId = typeof parsed.data.clientProfileId === "string"
+    ? parsed.data.clientProfileId.trim()
+    : "";
+  const threadId = ctx.clientProfileId?.trim() ?? "";
 
-  let resolvedProfileId: string | null = inputClientProfileId;
+  let resolvedProfileId: string | null = inputId || threadId || null;
   let summary: string;
 
   if (resolvedProfileId) {
     summary = "Treinamento de marca iniciado.";
   } else {
     try {
-      resolvedProfileId = await resolveBrandKitProfileId(
-        ctx.workspaceId,
-        ctx.clientProfileId ?? null,
-      );
+      resolvedProfileId = await resolveBrandKitProfileId(ctx.workspaceId, null);
       summary = "Treinamento de marca iniciado.";
     } catch (error) {
       if (error instanceof BrandKitProfileNotFoundError) {
