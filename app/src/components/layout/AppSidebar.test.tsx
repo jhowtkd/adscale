@@ -31,9 +31,9 @@ describe("AppSidebar role-aware navigation", () => {
     });
   });
 
-  it("shows Curador IA under CRIAR section for all users", () => {
+  it("shows Creative intelligence under CRIAR section for all users", () => {
     render(<AppSidebar variant="production" />);
-    expect(screen.getByText("navigation.curadorIA")).toBeInTheDocument();
+    expect(screen.getByText("navigation.creativeIntelligence")).toBeInTheDocument();
   });
 
   it("does NOT show the Laboratório section header", () => {
