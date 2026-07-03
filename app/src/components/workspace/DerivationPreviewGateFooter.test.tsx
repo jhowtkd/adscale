@@ -76,4 +76,36 @@ describe("DerivationPreviewGateFooter", () => {
     expect(recordEvent).toHaveBeenCalledWith("cockpit_stage_completed", STAGE_PROPS);
     expect(onApprove).toHaveBeenCalled();
   });
+
+  it("emits cockpit_stage_abandoned on unmount without approve", () => {
+    const { unmount } = render(
+      <DerivationPreviewGateFooter
+        campaignId="camp-1"
+        onApproveBatch={vi.fn()}
+      />
+    );
+
+    recordEvent.mockClear();
+    unmount();
+
+    expect(recordEvent).toHaveBeenCalledWith("cockpit_stage_abandoned", STAGE_PROPS);
+  });
+
+  it("does not emit cockpit_stage_abandoned after approve", () => {
+    const { unmount } = render(
+      <DerivationPreviewGateFooter
+        campaignId="camp-1"
+        onApproveBatch={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByText("approveBatch"));
+    recordEvent.mockClear();
+    unmount();
+
+    expect(recordEvent).not.toHaveBeenCalledWith(
+      "cockpit_stage_abandoned",
+      STAGE_PROPS
+    );
+  });
 });

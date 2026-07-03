@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { CheckCircle2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -24,16 +24,24 @@ export default function DerivationPreviewGateFooter({
 }: DerivationPreviewGateFooterProps) {
   const t = useTranslations("strategyRecipes.previewGate");
   const { recordEvent } = useRecordBetaEvent(campaignId);
+  const completedRef = useRef(false);
 
   const STAGE_PROPS = { stage: "preview", missionKey: "preview" } as const;
 
   const approveDisabled = isApproving || isGenerating;
 
   useEffect(() => {
+    completedRef.current = false;
     recordEvent("cockpit_stage_entered", STAGE_PROPS);
+    return () => {
+      if (!completedRef.current) {
+        recordEvent("cockpit_stage_abandoned", STAGE_PROPS);
+      }
+    };
   }, [recordEvent]);
 
   const handleApproveBatch = () => {
+    completedRef.current = true;
     recordEvent("cockpit_stage_completed", STAGE_PROPS);
     onApproveBatch();
   };
