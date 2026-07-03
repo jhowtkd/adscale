@@ -5,7 +5,7 @@ import {
   parseFetchFailure,
 } from "@/lib/campaign-load-error";
 import { STALE_TIME } from "@/lib/query-config";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 
 export interface Campaign {
   id: string;
@@ -332,13 +332,19 @@ export function useUpdateCampaigns() {
   });
 }
 
+async function invalidateCampaignDashboardQueries(queryClient: QueryClient) {
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: ["campaigns"] }),
+    queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+  ]);
+}
+
 export function useDeleteCampaign() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: deleteCampaign,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["campaigns"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    onSuccess: async () => {
+      await invalidateCampaignDashboardQueries(queryClient);
     },
   });
 }
@@ -347,9 +353,8 @@ export function useDeleteCampaigns() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: deleteCampaign,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["campaigns"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    onSuccess: async () => {
+      await invalidateCampaignDashboardQueries(queryClient);
     },
   });
 }

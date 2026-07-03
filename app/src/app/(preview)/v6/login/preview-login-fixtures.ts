@@ -13,7 +13,7 @@ export const previewAuthLabels = {
 
 export const previewAuthBranding: AuthV6BrandingLabels = {
   sectionLabel: "ADScale",
-  title: "Curadoria criativa com IA no loop",
+  title: "Supervisão criativa com IA no loop",
   subtitle:
     "De uma peça base e um briefing a um lote de variações prontas — você faz o briefing, a IA auxilia, você cura o que vai ao ar.",
   features: [

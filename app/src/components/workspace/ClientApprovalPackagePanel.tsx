@@ -303,10 +303,10 @@ export default function ClientApprovalPackagePanel({
                       {t("approvalOverrideVerdictContext", {
                         olhar: item.olharVerdictValue
                           ? tr(`olharVerdict.${item.olharVerdictValue}`)
-                          : tr("notSpecified"),
+                          : tr("notYetEvaluated"),
                         export: item.exportStatusValue
                           ? tr(`exportStatus.${item.exportStatusValue}`)
-                          : tr("notSpecified"),
+                          : tr("notYetEvaluated"),
                       })}
                     </p>
                   ) : null}

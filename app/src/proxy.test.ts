@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { proxy } from "./src/proxy";
+import { proxy } from "./proxy";
 
 function requestFor(path: string, cookies: Record<string, string> = {}) {
   const url = `http://localhost:3000${path}`;
@@ -51,6 +51,11 @@ describe("proxy auth routing", () => {
     );
     expect(res.status).toBe(307);
     expect(res.headers.get("location")).toBe("http://localhost:3000/");
+  });
+
+  it("sets X-Robots-Tag on auth entry paths", async () => {
+    const res = await proxy(requestFor("/login"));
+    expect(res.headers.get("X-Robots-Tag")).toBe("noindex, nofollow");
   });
 
   it("falls back to /login for / when MARKETING_URL is unset", async () => {
