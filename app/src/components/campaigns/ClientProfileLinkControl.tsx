@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Loader2, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -31,14 +31,15 @@ export default function ClientProfileLinkControl({
   const updateCampaign = useUpdateCampaign(campaignId);
   const createProfile = useCreateClientProfile();
   const [draftClientName, setDraftClientName] = useState(clientName?.trim() ?? "");
+  const [prevClientName, setPrevClientName] = useState(clientName);
+  if (clientName !== prevClientName) {
+    setPrevClientName(clientName);
+    setDraftClientName(clientName?.trim() ?? "");
+  }
   const selectedProfile = profiles.find((profile) => profile.id === clientProfileId);
   const isSaving = updateCampaign.isPending || createProfile.isPending;
   const needsProfileLink = !clientProfileId;
   const canCreateFromDraft = Boolean(draftClientName.trim());
-
-  useEffect(() => {
-    setDraftClientName(clientName?.trim() ?? "");
-  }, [clientName]);
 
   const handleProfileChange = (value: string) => {
     updateCampaign.mutate(
