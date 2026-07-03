@@ -44,6 +44,13 @@ function buildShareUrl(token: string) {
   return `${baseUrl}/share/${token}`;
 }
 
+function toIsoTimestamp(value: unknown): string | null {
+  if (value == null) return null;
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === "string") return value;
+  return String(value);
+}
+
 function toDerivationLike(
   derivation: Awaited<ReturnType<typeof getDerivationsByCampaign>>[number]
 ): DerivationLike {
@@ -146,7 +153,7 @@ export async function GET(
       selectedRootIds,
       package: snapshot,
       shareUrl: shareLink ? buildShareUrl(shareLink.token) : null,
-      expiresAt: shareLink?.expiresAt.toISOString() ?? null,
+      expiresAt: shareLink ? toIsoTimestamp(shareLink.expiresAt) : null,
     });
   } catch (error) {
     logRouteError("campaigns.[id].approval-package.GET", error);
@@ -279,7 +286,7 @@ export async function POST(
       selectedRootIds,
       package: snapshot,
       shareUrl: buildShareUrl(shareLink.token),
-      expiresAt: shareLink.expiresAt.toISOString(),
+      expiresAt: toIsoTimestamp(shareLink.expiresAt),
     });
   } catch (error) {
     logRouteError("campaigns.[id].approval-package.POST", error);

@@ -137,6 +137,24 @@ describe("GET /api/campaigns/[id]/approval-package", () => {
     });
     expect(res.status).toBe(404);
   });
+
+  it("returns 200 when share link expiresAt is serialized as a string", async () => {
+    mockGetLatestShareLinkForCampaign.mockResolvedValue({
+      token: "share-token",
+      derivationIds: [ROOT_ID],
+      expiresAt: "2026-06-12T00:00:00.000Z",
+    } as unknown as Awaited<ReturnType<typeof getLatestShareLinkForCampaign>>);
+    process.env.NEXT_PUBLIC_APP_URL = "https://app.example.com";
+
+    const res = await GET(new Request("http://localhost"), {
+      params: paramsWith(CAMPAIGN_ID),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.expiresAt).toBe("2026-06-12T00:00:00.000Z");
+    expect(body.shareUrl).toBe("https://app.example.com/share/share-token");
+  });
 });
 
 describe("POST /api/campaigns/[id]/approval-package", () => {
