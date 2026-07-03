@@ -171,6 +171,16 @@ describe("useAssistantThreads", () => {
     expect(result.current.isLoading).toBe(false);
     expect(mockApiFetch).not.toHaveBeenCalled();
   });
+
+  it("does not fetch when enabled is false", () => {
+    const { result } = renderHook(
+      () => useAssistantThreads("profile-1", null, { enabled: false }),
+      { wrapper: createWrapper() }
+    );
+
+    expect(result.current.isLoading).toBe(false);
+    expect(mockApiFetch).not.toHaveBeenCalled();
+  });
 });
 
 describe("useAssistantThread", () => {

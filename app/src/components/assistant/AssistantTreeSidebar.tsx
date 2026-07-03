@@ -198,7 +198,9 @@ function ProjectNode({
 }) {
   const t = useTranslations("assistant.tree");
   const router = useRouter();
-  const { data: threads = [], isLoading } = useAssistantThreads(clientId, null);
+  const { data: threads = [], isLoading } = useAssistantThreads(clientId, null, {
+    enabled: isExpanded,
+  });
 
   const handleSelect = (threadId: string) => {
     onSelectThread(threadId);

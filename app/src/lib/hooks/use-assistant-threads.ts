@@ -143,14 +143,15 @@ export function assistantThreadQueryKey(threadId: string) {
 
 export function useAssistantThreads(
   clientProfileId: string | null,
-  campaignId?: string | null
+  campaignId?: string | null,
+  options?: { enabled?: boolean }
 ) {
   return useQuery({
     queryKey: clientProfileId
       ? assistantThreadsQueryKey(clientProfileId, campaignId)
       : ["assistant", "threads", "disabled"],
     queryFn: () => fetchAssistantThreads(clientProfileId!, campaignId),
-    enabled: !!clientProfileId,
+    enabled: !!clientProfileId && (options?.enabled ?? true),
     staleTime: STALE_TIME.DYNAMIC,
   });
 }
