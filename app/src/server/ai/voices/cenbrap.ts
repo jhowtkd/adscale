@@ -1,17 +1,7 @@
+import type { ClientVoice } from "./client-voice-types";
 import { buildClientVoicePromptLines } from "./voice-prompt-section";
 
-export interface ClientVoice {
-  id: string;
-  displayName: string;
-  matchTerms: string[];
-  principles: string[];
-  positiveSignals: string[];
-  negativeSignals: string[];
-  authorityAndClaims: string[];
-  inviteRhythm: string[];
-  correctButSoulless: string[];
-  buildPromptSection(): string[];
-}
+export type { ClientVoice } from "./client-voice-types";
 
 export const CENBRAP_VOICE: ClientVoice = {
   id: "cenbrap",

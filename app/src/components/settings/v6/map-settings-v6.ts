@@ -7,6 +7,7 @@ const cardMeta: Record<
 > = {
   team: { icon: "👥", descriptionKey: "teamCard", badgeKey: "implemented", badgeVariant: "success" },
   brandKit: { icon: "◇", descriptionKey: "brandKitCard", badgeKey: "implemented", badgeVariant: "success" },
+  brandTraining: { icon: "✦", descriptionKey: "brandTrainingCard", badgeKey: "implemented", badgeVariant: "success" },
   profile: { icon: "👤", descriptionKey: "profileCard", badgeKey: "outsideLab", badgeVariant: "neutral" },
   workspace: { icon: "🖥", descriptionKey: "workspaceCard", badgeKey: "outsideLab", badgeVariant: "neutral" },
   billing: { icon: "💳", descriptionKey: "billingCard", badgeKey: "capturePending", badgeVariant: "warning" },

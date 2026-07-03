@@ -1,9 +1,9 @@
-import type { ClientVoice } from "./cenbrap";
+import type { ClientVoice } from "./client-voice-types";
 import { CENBRAP_VOICE } from "./cenbrap";
 import type { OlharVoiceConfigPayload } from "../../db/schema";
 import { buildClientVoicePromptLines } from "./voice-prompt-section";
 
-export type { ClientVoice } from "./cenbrap";
+export type { ClientVoice } from "./client-voice-types";
 export { CENBRAP_VOICE } from "./cenbrap";
 export { buildClientVoicePromptLines } from "./voice-prompt-section";
 

@@ -2,7 +2,7 @@ import { getOlharVoiceConfigByClientProfileId } from "@/server/repositories/clie
 import type { OlharVoiceReviewStatus } from "@/server/db/schema";
 import { logger } from "@/lib/logger";
 
-import type { ClientVoice } from "./cenbrap";
+import type { ClientVoice } from "./client-voice-types";
 import { buildClientVoiceFromConfig } from "./client-voice";
 
 export interface ResolveVoiceForClientProfileInput {

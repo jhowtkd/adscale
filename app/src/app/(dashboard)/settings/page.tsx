@@ -24,6 +24,11 @@ const BrandKitTab = dynamic(() => import("@/components/settings/BrandKitTab"), {
   loading: () => <SettingsTabSkeleton />,
 });
 
+const BrandTrainingWizard = dynamic(
+  () => import("@/components/brand-training/BrandTrainingWizard").then((m) => m.default),
+  { loading: () => <SettingsTabSkeleton /> },
+);
+
 const BillingTab = dynamic(() => import("@/components/settings/BillingTab"), {
   loading: () => <SettingsTabSkeleton />,
 });
@@ -73,6 +78,7 @@ function SettingsContent() {
       {activeTab === "profile" && <ProfileTab />}
       {activeTab === "workspace" && <WorkspaceTab />}
       {activeTab === "brandKit" && <BrandKitTab />}
+      {activeTab === "brandTraining" && <BrandTrainingWizard />}
       {activeTab === "team" && <TeamTab />}
       {activeTab === "billing" && <BillingTab />}
       {activeTab === "creditHistory" && <CreditHistoryTab />}

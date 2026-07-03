@@ -20,6 +20,7 @@ import {
 import { executeQuickRestyle } from "./handlers/quick-restyle";
 import { executeQuickPersonaSimulate } from "./handlers/quick-persona-simulate";
 import { executeQuickSaveReference } from "./handlers/quick-save-reference";
+import { executeStartBrandTraining } from "./handlers/start-brand-training";
 import { executeStartCompleteCampaign } from "./handlers/start-complete-campaign";
 import { executeCreateCreativePlan } from "./handlers/create-creative-plan";
 import { executeReviseCreativePlan } from "./handlers/revise-creative-plan";
@@ -39,6 +40,7 @@ const HANDLERS: Record<string, Handler> = {
   quick_save_reference: executeQuickSaveReference,
   quick_package: executeQuickPackage,
   quick_persona_simulate: executeQuickPersonaSimulate,
+  start_brand_training: executeStartBrandTraining,
   start_complete_campaign: executeStartCompleteCampaign,
   create_creative_plan: executeCreateCreativePlan,
   revise_creative_plan: executeReviseCreativePlan,
@@ -107,7 +109,10 @@ export async function executeConfirmedAssistantAction(
     if (result.mode === "sync") {
       const completed = await transitionAssistantAction(workspaceId, actionId, "completed", {
         jobRef: result.jobRef,
-        display: { executionSummary: result.resultSummary },
+        display: {
+          executionSummary: result.resultSummary,
+          route: result.route,
+        },
       });
       await transitionGuidedFlowAfterAction({
         workspaceId,
@@ -122,7 +127,10 @@ export async function executeConfirmedAssistantAction(
 
     const running = await transitionAssistantAction(workspaceId, actionId, "running", {
       jobRef: result.jobRef,
-      display: { executionSummary: result.resultSummary },
+      display: {
+        executionSummary: result.resultSummary,
+        route: result.route,
+      },
     });
     await transitionGuidedFlowAfterAction({
       workspaceId,

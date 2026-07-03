@@ -3,6 +3,7 @@ export const settingsTabs = [
   { id: "profile", labelKey: "profileTab", enabled: true },
   { id: "workspace", labelKey: "workspaceTab", enabled: true },
   { id: "brandKit", labelKey: "brandKitTab", enabled: true },
+  { id: "brandTraining", labelKey: "brandTrainingTab", enabled: true },
   { id: "team", labelKey: "teamTab", enabled: true },
   { id: "billing", labelKey: "billingTab", enabled: true },
   { id: "creditHistory", labelKey: "creditHistoryTab", enabled: true },

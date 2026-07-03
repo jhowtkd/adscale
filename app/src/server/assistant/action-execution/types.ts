@@ -34,4 +34,10 @@ export interface ActionExecutionResult {
   jobRef?: JobRef;
   resultSummary?: string;
   campaignId?: string;
+  /**
+   * Optional client-side route the orchestrator should offer as a one-click
+   * continuation from the action card (e.g. opening a wizard). The handler
+   * supplies the destination; the client decides whether and how to navigate.
+   */
+  route?: string;
 }

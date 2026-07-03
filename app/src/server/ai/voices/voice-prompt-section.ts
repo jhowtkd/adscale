@@ -11,7 +11,7 @@ export interface ClientVoicePromptFields {
 export function buildClientVoicePromptLines(fields: ClientVoicePromptFields): string[] {
   return [
     `CLIENT VOICE — ${fields.displayName} (overlay on Olhar ADScale):`,
-    "- This voice describes what feels like Cenbrap and what is anti-Cenbrap. It does not replace global Olhar principles or export compliance.",
+    "- This voice describes what feels on-brand and what is off-brand for this client. It does not replace global Olhar principles or export compliance.",
     "",
     "Principles:",
     ...fields.principles.map((p) => `- ${p}`),
