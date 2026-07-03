@@ -109,6 +109,22 @@ describe("AssistantTreeSidebar", () => {
     );
   });
 
+  it("defers thread queries until the client node is expanded", () => {
+    render(<AssistantTreeSidebar onSelectThread={mockOnSelectThread} />, {
+      wrapper: createWrapper(),
+    });
+
+    expect(mockUseAssistantThreads).toHaveBeenCalledWith("client-1", null, {
+      enabled: false,
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Acme Corp/i }));
+
+    expect(mockUseAssistantThreads).toHaveBeenCalledWith("client-1", null, {
+      enabled: true,
+    });
+  });
+
   it("renders project nodes and expands to show threads directly (flat hierarchy)", async () => {
     render(
       <AssistantTreeSidebar onSelectThread={mockOnSelectThread} />,
