@@ -335,7 +335,7 @@
         "type": "Type",
         "file": "File",
         "counts": "C/U/I/X",
-        "empty": "No imports recorded."
+        "empty": "No imports yet. Use the Manual or CSV tabs to upload performance results."
       },
       "parseOptions": {
         "defaultCurrency": "Default currency",
