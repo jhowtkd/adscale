@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import DerivationCard from "./DerivationCard";
 
 vi.mock("next-intl", () => ({
@@ -34,7 +34,7 @@ const baseDerivation = {
 };
 
 describe("DerivationCard", () => {
-  it("does not pin generating progress at 52% for the first card", () => {
+  it("shows the branded loader (no fake percentage) while generating without an image", () => {
     render(
       <DerivationCard
         derivation={{
@@ -47,36 +47,9 @@ describe("DerivationCard", () => {
       />
     );
 
-    expect(screen.queryByText("52%")).not.toBeInTheDocument();
-    expect(screen.getByText("8%")).toBeInTheDocument();
-  });
-
-  it("advances generating progress over time", () => {
-    vi.useFakeTimers();
-    try {
-      render(
-        <DerivationCard
-          derivation={{
-            ...baseDerivation,
-            status: "generating",
-            imageUrl: undefined,
-          }}
-          index={0}
-          onPreview={vi.fn()}
-        />
-      );
-
-      act(() => {
-        vi.advanceTimersByTime(5000);
-      });
-
-      const progressLabel = screen.getByText(/\d+%/);
-      const progressValue = Number(progressLabel.textContent?.replace("%", ""));
-      expect(progressValue).toBeGreaterThan(8);
-      expect(progressValue).toBeLessThan(90);
-    } finally {
-      vi.useRealTimers();
-    }
+    // The branded AdscaleLoader is an indeterminate state: no numeric %.
+    expect(screen.queryByText(/\d+%/)).not.toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /loading/i })).toBeInTheDocument();
   });
 
   it("hides generating overlay when imageUrl is already available", () => {

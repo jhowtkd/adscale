@@ -3,7 +3,6 @@
 import Image from "next/image";
 /* eslint-disable @next/next/no-img-element */
 
-import { useEffect, useState, startTransition } from "react";
 import { Eye, Download, RefreshCw, Clock, AlertCircle, Check, X, Package, ShieldCheck, BookmarkPlus, FileText, Users, Scale, PenTool } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
@@ -14,6 +13,7 @@ import { platformColors } from "@/lib/mock-data";
 import { useExport } from "@/lib/hooks/use-export";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { AdscaleLoader } from "@/components/animations";
 import { useAppStore } from "@/lib/store";
 import { scoreCappedForDisplay } from "@/lib/derivation-display";
 import {
@@ -59,86 +59,12 @@ interface DerivationCardProps {
 }
 
 // ============================================
-// Progress Ring Component
-// ============================================
-
-function useDerivationGenerationProgress(
-  derivationId: string,
-  isGenerating: boolean
-): number {
-  const [progress, setProgress] = useState(8);
-
-  useEffect(() => {
-    if (!isGenerating) return;
-
-    startTransition(() => setProgress(8));
-    const startedAt = Date.now();
-    const tick = () => {
-      const elapsed = Date.now() - startedAt;
-      const next = Math.min(90, 8 + (1 - Math.exp(-elapsed / 12000)) * 82);
-      setProgress(next);
-    };
-
-    tick();
-    const intervalId = window.setInterval(tick, 400);
-    return () => window.clearInterval(intervalId);
-  }, [derivationId, isGenerating]);
-
-  return isGenerating ? progress : 0;
-}
-
-function ProgressRing({ progress }: { progress: number }) {
-  const radius = 30;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (progress / 100) * circumference;
-
-  return (
-    <div className="relative flex items-center justify-center">
-      <svg width={64} height={64} viewBox="0 0 64 64">
-        {/* Background circle */}
-        <circle
-          cx={32}
-          cy={32}
-          r={radius}
-          fill="none"
-          stroke="var(--border-dim)"
-          strokeWidth={3}
-        />
-        {/* Progress circle */}
-        <circle
-          cx={32}
-          cy={32}
-          r={radius}
-          fill="none"
-          stroke="url(#progressGradient)"
-          strokeWidth={3}
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          className="transition-all duration-500 ease-out"
-          transform="rotate(-90 32 32)"
-        />
-        <defs>
-          <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="var(--text-muted)" />
-            <stop offset="100%" stopColor="var(--text-disabled)" />
-          </linearGradient>
-        </defs>
-      </svg>
-      <span className="absolute text-sm font-semibold text-[var(--text-primary)]">
-        {Math.round(progress)}%
-      </span>
-    </div>
-  );
-}
-
-// ============================================
 // Status Overlay Component
 // ============================================
 
 type DerivationDisplayStatus = Derivation["status"] | "queued";
 
-function StatusOverlay({ status, progress, onRetry }: { status: DerivationDisplayStatus; progress?: number; onRetry?: () => void }) {
+function StatusOverlay({ status, onRetry }: { status: DerivationDisplayStatus; onRetry?: () => void }) {
   const t = useTranslations("derivation");
   const commonT = useTranslations("common");
   switch (status) {
@@ -156,12 +82,9 @@ function StatusOverlay({ status, progress, onRetry }: { status: DerivationDispla
     case "generating":
       return (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/20 rounded-t-[15px]">
-          <ProgressRing progress={progress || 0} />
+          <AdscaleLoader size="sm" label={commonT("loading")} />
           <span className="text-xs font-medium text-[var(--text-primary)] mt-2">
             {commonT("loading")}
-          </span>
-          <span className="text-[10px] text-[var(--text-muted)] mt-0.5">
-            ~8s {t("remaining")}
           </span>
         </div>
       );
@@ -269,10 +192,6 @@ export default function DerivationCard({
 
   const isGeneratingOverlay =
     derivation.status === "generating" && !derivation.imageUrl;
-  const generationProgress = useDerivationGenerationProgress(
-    derivation.id,
-    isGeneratingOverlay
-  );
 
   const isRegenerating = regeneratingId === derivation.id;
   const isQaAnalyzing = qaAnalyzingId === derivation.id;
@@ -419,7 +338,6 @@ export default function DerivationCard({
         {(derivation.status === "failed" || isGeneratingOverlay) && (
           <StatusOverlay
             status={derivation.status === "failed" ? "failed" : "generating"}
-            progress={isGeneratingOverlay ? generationProgress : undefined}
             onRetry={handleRegenerate}
           />
         )}
@@ -516,7 +434,7 @@ export default function DerivationCard({
         </div>
 
         {packageBlockedHintKey ? (
-          <p className="text-[11px] text-rose-400/90 leading-snug">
+          <p className="text-[11px] text-[var(--danger-text)] leading-snug">
             {tr(packageBlockedHintKey)}
           </p>
         ) : null}
@@ -540,10 +458,10 @@ export default function DerivationCard({
                     : failure.message
                   : null;
               return (
-                <li key={failure.code} className="text-[11px] text-rose-300/90 leading-snug">
+                <li key={failure.code} className="text-[11px] text-[var(--danger-text)] leading-snug">
                   <span className="font-medium">{title}</span>
                   {detail ? (
-                    <span className="mt-0.5 block text-[10px] text-rose-300/70">{detail}</span>
+                    <span className="mt-0.5 block text-[10px] text-[var(--text-muted)]">{detail}</span>
                   ) : null}
                 </li>
               );

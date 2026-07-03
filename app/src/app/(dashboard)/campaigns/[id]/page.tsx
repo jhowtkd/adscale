@@ -65,7 +65,7 @@ import PlatformsDrawer from "@/components/campaigns/PlatformsDrawer";
 import { formatCampaignPlatforms } from "@/lib/campaign-platforms";
 import type { StrategyRecipePrefill } from "@/lib/hooks/use-strategy-recipe";
 import ContextualFeedbackButton from "@/components/feedback/ContextualFeedbackButton";
-import CampaignSkeleton from "@/components/campaigns/CampaignSkeleton";
+import { AdscaleLoaderStage } from "@/components/animations";
 import CampaignErrorState from "@/components/campaigns/CampaignErrorState";
 import CampaignNotFoundState from "@/components/campaigns/CampaignNotFoundState";
 
@@ -400,7 +400,7 @@ export default function CampaignWorkspacePage() {
     await configureAndGenerate(patch, { preview: true });
   };
 
-  if (isLoading) return <CampaignSkeleton />;
+  if (isLoading) return <AdscaleLoaderStage label={tc("loading")} />;
   if (isError) {
     return (
       <CampaignErrorState
