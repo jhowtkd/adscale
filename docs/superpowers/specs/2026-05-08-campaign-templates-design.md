@@ -65,8 +65,8 @@ campaign_templates
 |--------|-------|-------------|
 | POST | `/api/templates` | Create template from existing campaign |
 | GET | `/api/templates` | List all templates for workspace |
-| GET | `/api/templates/[id]` | Get single template by ID |
-| DELETE | `/api/templates/[id]` | Delete template |
+| GET | `/api/templates/[id]` | <!-- VERIFY: GET /api/templates/[id] — no GET handler exists; app/src/app/api/templates/[id]/route.ts only exports PATCH — see verification in .planning/tmp/ --> |
+| DELETE | `/api/templates/[id]` | <!-- VERIFY: DELETE /api/templates/[id] — no DELETE handler exists; app/src/app/api/templates/[id]/route.ts only exports PATCH — see verification in .planning/tmp/ --> |
 
 ### Request/Response Schemas
 

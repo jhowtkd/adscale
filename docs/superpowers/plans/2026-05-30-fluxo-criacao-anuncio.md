@@ -24,23 +24,23 @@
 |------|---------------|
 | `app/src/app/api/campaigns/[id]/pilot/route.ts` | Persiste asset como piloto + briefing |
 | `app/src/components/workspace/PilotUploadPanel.tsx` | Upload zone + análise em progresso |
-| `app/src/components/workspace/PilotBriefingForm.tsx` | Formulário de briefing com hints da IA |
+| <!-- VERIFY: app/src/components/workspace/PilotBriefingForm.tsx — see verification in .planning/tmp/ --> | Formulário de briefing com hints da IA |
 | `app/src/components/workspace/PilotSidebar.tsx` | Preview do piloto + resumo do briefing |
-| `app/src/components/workspace/ActionCards.tsx` | Cards Derivar + Estilizar |
-| `app/src/components/workspace/DerivarModal.tsx` | Modal com 4 opções de derivação |
-| `app/src/components/workspace/EstilizarModal.tsx` | Modal de workflow de estilização |
+| <!-- VERIFY: app/src/components/workspace/ActionCards.tsx — see verification in .planning/tmp/ --> | Cards Derivar + Estilizar |
+| <!-- VERIFY: app/src/components/workspace/DerivarModal.tsx — see verification in .planning/tmp/ --> | Modal com 4 opções de derivação |
+| <!-- VERIFY: app/src/components/workspace/EstilizarModal.tsx — see verification in .planning/tmp/ --> | Modal de workflow de estilização |
 | `app/src/components/workspace/DerivationGrid.tsx` | Grid de derivações com status |
 
 ### Deprecated (não removidos ainda — apenas deixam de ser usados)
 | File | Reason |
 |------|--------|
 | `app/src/components/workspace/BriefingStep.tsx` | Funcionalidade absorvida pelo PilotBriefingForm |
-| `app/src/components/workspace/UploadStep.tsx` | Absorvido pelo PilotUploadPanel |
-| `app/src/components/workspace/GenerationStep.tsx` | Substituído pelos modais de ação |
-| `app/src/components/workspace/PlanStep.tsx` | Plano agora é gerado em background |
-| `app/src/components/workspace/DerivationsStep.tsx` | Substituído pelo DerivationGrid |
-| `app/src/components/workspace/StepIndicator.tsx` | Wizard não existe mais |
-| `app/src/components/workspace/WizardNavigationFooter.tsx` | Navegação por passos removida |
+| <!-- VERIFY: app/src/components/workspace/UploadStep.tsx — see verification in .planning/tmp/ --> | Absorvido pelo PilotUploadPanel |
+| <!-- VERIFY: app/src/components/workspace/GenerationStep.tsx — see verification in .planning/tmp/ --> | Substituído pelos modais de ação |
+| <!-- VERIFY: app/src/components/workspace/PlanStep.tsx — see verification in .planning/tmp/ --> | Plano agora é gerado em background |
+| <!-- VERIFY: app/src/components/workspace/DerivationsStep.tsx — see verification in .planning/tmp/ --> | Substituído pelo DerivationGrid |
+| <!-- VERIFY: app/src/components/workspace/StepIndicator.tsx — see verification in .planning/tmp/ --> | Wizard não existe mais |
+| <!-- VERIFY: app/src/components/workspace/WizardNavigationFooter.tsx — see verification in .planning/tmp/ --> | Navegação por passos removida |
 
 ---
 
@@ -104,7 +104,7 @@ git commit -m "feat: simplify new campaign modal to name + brand only"
 ```typescript
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { getSession } from "@/lib/auth/session";
+import { getSession } from "@/server/auth/session";
 import { campaignRepository } from "@/server/repositories/campaign";
 
 const pilotSchema = z.object({

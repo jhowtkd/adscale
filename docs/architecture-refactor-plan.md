@@ -57,6 +57,7 @@ npm test -- sanitize
 | Ordem | PR                                                               | Prioridade | Risco           | Motivo                                 |
 | ----: | ---------------------------------------------------------------- | ---------- | --------------- | -------------------------------------- |
 |     0 | Criar baseline de testes e mapa de imports                       | P0         | Baixo           | Reduz risco antes de refatorar         |
+<!-- VERIFY: PR 1 'Remover `app/src/server/storage/r2.ts` shim' — see verification in .planning/tmp/ (file not found; storage seam is object-storage.ts / r2-object-storage.ts) -->
 |     1 | Remover `server/storage/r2.ts` shim                              | P0         | Baixo           | Deleção clara, baixo acoplamento       |
 |     2 | Consolidar helpers de display de derivation                      | P0         | Baixo           | Pure functions, ganho rápido           |
 |     3 | Criar `ai/derivation-pipeline.ts` sem migrar chamadas            | P0         | Médio           | Base segura para o maior refactor      |
@@ -168,6 +169,7 @@ Produce app/docs/architecture-refactor-baseline.md with status, import map (coun
 
 ---
 
+<!-- VERIFY: PR 1 'Remover `app/src/server/storage/r2.ts` shim' — see verification in .planning/tmp/ (file not found) -->
 # PR 1 — Remover `app/src/server/storage/r2.ts` shim
 
 ## Prioridade
@@ -188,6 +190,7 @@ O review aponta que `r2.ts` é apenas uma camada de re-export deprecated, enquan
 
 ## Arquivos afetados prováveis
 
+<!-- VERIFY: app/src/server/storage/r2.ts (a deletar) — see verification in .planning/tmp/ (file not found) -->
 * `app/src/server/storage/r2.ts` (a deletar)
 * `app/src/server/storage/object-storage.ts`
 * `app/src/server/storage/index.ts`
@@ -285,8 +288,11 @@ Os arquivos atuais são muito pequenos, altamente relacionados e sem seam real. 
 
 Origem:
 
+<!-- VERIFY: app/src/lib/derivation-auto-retry-badge.ts — see verification in .planning/tmp/ (file not found) -->
 * `app/src/lib/derivation-auto-retry-badge.ts`
+<!-- VERIFY: app/src/lib/derivation-formats.ts — see verification in .planning/tmp/ (file not found) -->
 * `app/src/lib/derivation-formats.ts`
+<!-- VERIFY: app/src/lib/derivation-quality.ts — see verification in .planning/tmp/ (file not found) -->
 * `app/src/lib/derivation-quality.ts`
 * `app/src/lib/derivation-regeneration-feedback.ts`
 * `app/src/lib/derivation-review-display.ts`
@@ -654,7 +660,9 @@ Origem (a serem absorvidos em PRs seguintes, **não deletados** neste PR):
 
 * `app/src/server/billing/access.ts`
 * `app/src/server/billing/credits.ts`
+<!-- VERIFY: app/src/server/billing/gates.ts — see verification in .planning/tmp/ (file not found) -->
 * `app/src/server/billing/gates.ts`
+<!-- VERIFY: app/src/server/billing/conversion.ts — see verification in .planning/tmp/ (file not found) -->
 * `app/src/server/billing/conversion.ts`
 * `app/src/server/billing/unlimited-access.ts`
 

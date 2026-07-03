@@ -10,8 +10,8 @@
 
 A Fase 15 do milestone v3.0 adiciona o quick tool de **Restilização** à home do ADScale. A Wave 1 (UI + API) já está implementada:
 
-- Modal `RestylingModal.tsx` coleta nome, cliente, oferta, CTA, observações, intensidade de estilo, imagem base e imagem de referência de estilo
-- `POST /api/quick-tools/restyling` cria campanha com `generationMode: "restyling"`, faz upload das duas imagens para R2, cria dois assets (`role: "base"` e `role: "style_reference"`), cria derivação e dispara evento Inngest
+- Modal `RestylingForm.tsx`/`RestylingUpload.tsx` coleta nome, cliente, oferta, CTA, observações, intensidade de estilo, imagem base e imagem de referência de estilo
+- `POST /api/campaigns/[id]/restyle` cria campanha com `generationMode: "restyling"`, faz upload das duas imagens para R2, cria dois assets (`role: "base"` e `role: "style_reference"`), cria derivação e dispara evento Inngest
 
 O que falta é a **Wave 2**: o job de derivação (`derivation.ts`) deve usar `openai.images.edit` com as duas imagens como entrada, conforme especificado em REST-06, em vez do atual `images.generate` com prompt unificado.
 
@@ -56,7 +56,7 @@ if (effectiveGenerationMode === "restyling") {
     throw new Error("Restyling requires both base and style_reference assets");
   }
 
-  const baseBuffer = await downloadBuffer(baseAsset.key);
+  const baseBuffer = await downloadBuffer(baseAsset.key);  <!-- VERIFY: `downloadBuffer` — nenhuma definição encontrada em app/src; verificação em .planning/tmp/ -->
   const styleBuffer = await downloadBuffer(styleAsset.key);
 
   const baseFile = await toFile(baseBuffer, "base-image", { type: baseAsset.type });
@@ -96,7 +96,7 @@ O prompt deve ser construído com `buildDerivationPrompt()` que já possui a ló
 As seguintes funções e imports podem ser removidos do job (se não forem usados em outro lugar):
 - `analyzeImageContent`
 - `analyzeImageStyle`
-- `buildRestylingPrompt`
+- `buildRestylingPrompt`  <!-- VERIFY: `buildRestylingPrompt` — nenhuma definição encontrada em app/src; verificação em .planning/tmp/ -->
 
 **Nota:** Verificar se essas funções são usadas em outros arquivos antes de remover. Se forem usadas apenas no job, podem ser removidas. Se tiverem outros usos, manter.
 

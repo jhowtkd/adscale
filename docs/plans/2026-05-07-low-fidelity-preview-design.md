@@ -151,7 +151,7 @@ Qualquer edição no brief após preview existente:
 - `app/src/server/jobs/derivation.ts` — resolução reduzida quando isPreview
 - `app/src/app/api/campaigns/[id]/derivations/route.ts` — aceita preview param
 - `app/src/server/repositories/derivation.ts` — createDerivation com isPreview
-- `app/src/components/workspace/DerivationsStep.tsx` — botões de preview
+- `<!-- VERIFY: app/src/components/workspace/DerivationsStep.tsx — botões de preview — see verification in .planning/tmp/ -->`
 - `app/src/components/workspace/DerivationCard.tsx` — badge de preview
 - `app/src/server/repositories/usage.ts` — trackUsage com isPreview
 

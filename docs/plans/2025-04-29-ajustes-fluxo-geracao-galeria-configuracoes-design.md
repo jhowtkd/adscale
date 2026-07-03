@@ -88,7 +88,7 @@ z.object({
 Nova função auxiliar:
 
 ```ts
-function buildCreativityPrompt(level: "conservative" | "balanced" | "bold"): string {
+function buildCreativityPrompt(level: "conservative" | "balanced" | "bold"): string { <!-- VERIFY: function 'buildCreativityPrompt' in codebase — see verification in .planning/tmp/ -->
   const templates = {
     conservative: `CREATIVITY LEVEL: conservative.\nStay close to the reference creative...`,
     balanced: `CREATIVITY LEVEL: balanced.\nCreate a clearly new ad from the same campaign system...`,
@@ -111,7 +111,7 @@ function buildCreativityPrompt(level: "conservative" | "balanced" | "bold"): str
 
 ---
 
-## 4. UI: Galeria (`DerivationsStep`)
+## 4. UI: Galeria (`DerivationsStep`) <!-- VERIFY: component/function 'DerivationsStep' in codebase — see verification in .planning/tmp/ -->
 
 ### Props atualizadas
 
@@ -151,7 +151,7 @@ interface DerivationsStepProps {
 
 ### Preview
 
-- Continua via `onPreview`, controlado pela página pai / `ComparisonView`.
+- Continua via `onPreview`, controlado pela página pai / `ComparisonView`. <!-- VERIFY: component/function 'ComparisonView' in codebase — see verification in .planning/tmp/ -->
 
 ---
 
@@ -185,7 +185,7 @@ interface DerivationsStepProps {
 - Ajustar `StepKey`, `steps`, `WizardStep` e navegação de **4 passos para 3 passos**.
 - Remover estado/transição de review.
 
-### Arquivo `ReviewStep.tsx`
+### Arquivo `ReviewStep.tsx` <!-- VERIFY: app/src/components/workspace/ReviewStep.tsx — see verification in .planning/tmp/ -->
 
 - **Mantido no disco**, apenas desvinculado do fluxo principal.
 

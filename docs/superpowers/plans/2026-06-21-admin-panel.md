@@ -18,45 +18,45 @@
 
 | File | Responsibility |
 |------|----------------|
-| `app/src/app/(admin)/admin/layout.tsx` | Auth gate 404 + `AdminShell` wrapper |
-| `app/src/app/(admin)/admin/page.tsx` | Dashboard page |
-| `app/src/app/(admin)/admin/users/page.tsx` | User list |
-| `app/src/app/(admin)/admin/users/[id]/page.tsx` | User detail + mirror |
-| `app/src/app/(admin)/admin/workspaces/[id]/page.tsx` | Workspace detail |
-| `app/src/app/(admin)/admin/quality/layout.tsx` | Shared quality filters (scope/cohort) |
-| `app/src/app/(admin)/admin/quality/page.tsx` | Redirect → queue |
-| `app/src/app/(admin)/admin/quality/queue/page.tsx` | Corpus queue view |
-| `app/src/app/(admin)/admin/quality/candidates/page.tsx` | Candidates view |
-| `app/src/app/(admin)/admin/quality/calibration/page.tsx` | Calibration view |
-| `app/src/app/(admin)/admin/quality/impact/page.tsx` | Impact view |
-| `app/src/app/(admin)/admin/quality/reports/page.tsx` | Quality improvement view |
-| `app/src/app/(admin)/admin/quality/coverage/page.tsx` | Coverage view |
-| `app/src/app/(admin)/admin/quality/trends/page.tsx` | Trend view |
-| `app/src/app/(admin)/admin/feedbacks/page.tsx` | Feedback triage (moved) |
-| `app/src/app/(admin)/admin/analytics/page.tsx` | Owner analytics |
-| `app/src/app/(admin)/admin/sessions/page.tsx` | Beta sessions |
-| `app/src/components/admin/AdminShell.tsx` | Sidebar + content area layout |
-| `app/src/components/admin/AdminSidebar.tsx` | Nav groups (4 blocos) |
-| `app/src/components/admin/DashboardSummary.tsx` | KPI cards + attention list |
-| `app/src/components/admin/UserListTable.tsx` | Paginated user table |
-| `app/src/components/admin/UserDetailPanel.tsx` | Profile, workspaces, billing |
-| `app/src/components/admin/UserActionsPanel.tsx` | Admin write actions + confirm dialogs |
-| `app/src/components/admin/UserMirrorPanel.tsx` | Read-only user snapshot |
-| `app/src/components/admin/WorkspaceDetailPanel.tsx` | Workspace members + actions |
-| `app/src/components/admin/quality/QualityScopeHeader.tsx` | Global/workspace toggle + cohort |
-| `app/src/components/admin/quality/CorpusQueueView.tsx` | Extracted from HumanQualityCorpusPanel |
-| `app/src/components/admin/quality/CorpusCandidatesView.tsx` | Extracted |
-| `app/src/components/admin/quality/CalibrationView.tsx` | Extracted |
-| `app/src/components/admin/quality/ImpactView.tsx` | Extracted |
-| `app/src/components/admin/quality/QualityReportsView.tsx` | Extracted |
-| `app/src/components/admin/quality/CoverageView.tsx` | Extracted |
-| `app/src/components/admin/quality/TrendView.tsx` | Extracted |
-| `app/src/components/admin/quality/quality-context.tsx` | Shared scope/cohort state from URL |
-| `app/drizzle/0051_admin_audit_log.sql` | Migration |
-| `app/src/server/repositories/admin-audit.ts` | Audit log writes |
-| `app/src/server/repositories/admin-audit.test.ts` | Tests |
-| `app/src/server/repositories/admin-users.ts` | User search, detail, mirror |
-| `app/src/server/repositories/admin-users.test.ts` | Tests |
+| <!-- VERIFY: app/src/app/(admin)/admin/layout.tsx — see verification in .planning/tmp/ --> | Auth gate 404 + `AdminShell` wrapper |
+| <!-- VERIFY: app/src/app/(admin)/admin/page.tsx — see verification in .planning/tmp/ --> | Dashboard page |
+| <!-- VERIFY: app/src/app/(admin)/admin/users/page.tsx — see verification in .planning/tmp/ --> | User list |
+| <!-- VERIFY: app/src/app/(admin)/admin/users/[id]/page.tsx — see verification in .planning/tmp/ --> | User detail + mirror |
+| <!-- VERIFY: app/src/app/(admin)/admin/workspaces/[id]/page.tsx — see verification in .planning/tmp/ --> | Workspace detail |
+| <!-- VERIFY: app/src/app/(admin)/admin/quality/layout.tsx — see verification in .planning/tmp/ --> | Shared quality filters (scope/cohort) |
+| <!-- VERIFY: app/src/app/(admin)/admin/quality/page.tsx — see verification in .planning/tmp/ --> | Redirect → queue |
+| <!-- VERIFY: app/src/app/(admin)/admin/quality/queue/page.tsx — see verification in .planning/tmp/ --> | Corpus queue view |
+| <!-- VERIFY: app/src/app/(admin)/admin/quality/candidates/page.tsx — see verification in .planning/tmp/ --> | Candidates view |
+| <!-- VERIFY: app/src/app/(admin)/admin/quality/calibration/page.tsx — see verification in .planning/tmp/ --> | Calibration view |
+| <!-- VERIFY: app/src/app/(admin)/admin/quality/impact/page.tsx — see verification in .planning/tmp/ --> | Impact view |
+| <!-- VERIFY: app/src/app/(admin)/admin/quality/reports/page.tsx — see verification in .planning/tmp/ --> | Quality improvement view |
+| <!-- VERIFY: app/src/app/(admin)/admin/quality/coverage/page.tsx — see verification in .planning/tmp/ --> | Coverage view |
+| <!-- VERIFY: app/src/app/(admin)/admin/quality/trends/page.tsx — see verification in .planning/tmp/ --> | Trend view |
+| <!-- VERIFY: app/src/app/(admin)/admin/feedbacks/page.tsx — see verification in .planning/tmp/ --> | Feedback triage (moved) |
+| <!-- VERIFY: app/src/app/(admin)/admin/analytics/page.tsx — see verification in .planning/tmp/ --> | Owner analytics |
+| <!-- VERIFY: app/src/app/(admin)/admin/sessions/page.tsx — see verification in .planning/tmp/ --> | Beta sessions |
+| <!-- VERIFY: app/src/components/admin/AdminShell.tsx — see verification in .planning/tmp/ --> | Sidebar + content area layout |
+| <!-- VERIFY: app/src/components/admin/AdminSidebar.tsx — see verification in .planning/tmp/ --> | Nav groups (4 blocos) |
+| <!-- VERIFY: app/src/components/admin/DashboardSummary.tsx — see verification in .planning/tmp/ --> | KPI cards + attention list |
+| <!-- VERIFY: app/src/components/admin/UserListTable.tsx — see verification in .planning/tmp/ --> | Paginated user table |
+| <!-- VERIFY: app/src/components/admin/UserDetailPanel.tsx — see verification in .planning/tmp/ --> | Profile, workspaces, billing |
+| <!-- VERIFY: app/src/components/admin/UserActionsPanel.tsx — see verification in .planning/tmp/ --> | Admin write actions + confirm dialogs |
+| <!-- VERIFY: app/src/components/admin/UserMirrorPanel.tsx — see verification in .planning/tmp/ --> | Read-only user snapshot |
+| <!-- VERIFY: app/src/components/admin/WorkspaceDetailPanel.tsx — see verification in .planning/tmp/ --> | Workspace members + actions |
+| <!-- VERIFY: app/src/components/admin/quality/QualityScopeHeader.tsx — see verification in .planning/tmp/ --> | Global/workspace toggle + cohort |
+| <!-- VERIFY: app/src/components/admin/quality/CorpusQueueView.tsx — see verification in .planning/tmp/ --> | Extracted from HumanQualityCorpusPanel |
+| <!-- VERIFY: app/src/components/admin/quality/CorpusCandidatesView.tsx — see verification in .planning/tmp/ --> | Extracted |
+| <!-- VERIFY: app/src/components/admin/quality/CalibrationView.tsx — see verification in .planning/tmp/ --> | Extracted |
+| <!-- VERIFY: app/src/components/admin/quality/ImpactView.tsx — see verification in .planning/tmp/ --> | Extracted |
+| <!-- VERIFY: app/src/components/admin/quality/QualityReportsView.tsx — see verification in .planning/tmp/ --> | Extracted |
+| <!-- VERIFY: app/src/components/admin/quality/CoverageView.tsx — see verification in .planning/tmp/ --> | Extracted |
+| <!-- VERIFY: app/src/components/admin/quality/TrendView.tsx — see verification in .planning/tmp/ --> | Extracted |
+| <!-- VERIFY: app/src/components/admin/quality/quality-context.tsx — see verification in .planning/tmp/ --> | Shared scope/cohort state from URL |
+| <!-- VERIFY: app/drizzle/0051_admin_audit_log.sql — see verification in .planning/tmp/ --> | Migration |
+| <!-- VERIFY: app/src/server/repositories/admin-audit.ts — see verification in .planning/tmp/ --> | Audit log writes |
+| <!-- VERIFY: app/src/server/repositories/admin-audit.test.ts — see verification in .planning/tmp/ --> | Tests |
+| <!-- VERIFY: app/src/server/repositories/admin-users.ts — see verification in .planning/tmp/ --> | User search, detail, mirror |
+| <!-- VERIFY: app/src/server/repositories/admin-users.test.ts — see verification in .planning/tmp/ --> | Tests |
 | `app/src/server/repositories/admin-dashboard.ts` | KPI aggregations |
 | `app/src/server/repositories/admin-dashboard.test.ts` | Tests |
 | `app/src/app/api/admin/dashboard/summary/route.ts` | Dashboard API |

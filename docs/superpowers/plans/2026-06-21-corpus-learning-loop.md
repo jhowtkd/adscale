@@ -39,7 +39,7 @@
 | `app/src/app/api/admin/quality/learning/proposals/generate/route.ts` | POST agregador |
 | `app/src/app/api/admin/quality/learning/proposals/[id]/accept/route.ts` | POST accept |
 | `app/src/app/api/admin/quality/learning/proposals/[id]/reject/route.ts` | POST reject |
-| `app/src/components/admin/quality/LearningProposalsView.tsx` | UI propostas (Fase 4) |
+| `app/src/components/feedback/LearningProposalsTab.tsx` | UI propostas (Fase 4) |
 | `app/src/app/(admin)/admin/quality/learning/page.tsx` | Rota learning |
 | `app/tests/unit/human-quality/auto-promote.test.ts` | Tests auto-promote |
 | `app/tests/unit/human-quality/ingestion/backfill.test.ts` | Tests backfill |
@@ -945,7 +945,7 @@ git commit -am "feat(corpus): cross-client detection for global calibration prop
 ## Task 13: Learning UI (admin)
 
 **Files:**
-- Create: `app/src/components/admin/quality/LearningProposalsView.tsx`
+- Create: `app/src/components/feedback/LearningProposalsTab.tsx`
 - Create: `app/src/app/(admin)/admin/quality/learning/page.tsx`
 - Modify: `app/src/components/admin/AdminSidebar.tsx`
 

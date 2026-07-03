@@ -26,7 +26,7 @@ The MVP now has the critical production path for prompt quality, workspace auth,
 
 ```bash
 cd app
-npm run test -- src/lib/hooks/use-billing.test.tsx src/server/billing/events.test.ts src/app/api/billing/webhook/route.test.ts src/server/billing/credits.test.ts src/server/billing/gates.test.ts src/server/billing/sessions.test.ts src/app/api/billing/checkout/route.test.ts src/app/api/billing/portal/route.test.ts
+npm run test -- src/lib/hooks/use-billing.test.tsx src/server/billing/events.test.ts src/app/api/billing/webhook/route.test.ts src/server/billing/credits.test.ts <!-- VERIFY: src/server/billing/gates.test.ts — file not found; no gates*.ts exists. Credit-gate logic lives in paywall.ts/access.ts (see .planning/tmp/verify-2026-05-19-finalizacao-prompt-auth-billing-review.md.json) --> src/server/billing/sessions.test.ts src/app/api/billing/checkout/route.test.ts src/app/api/billing/portal/route.test.ts
 ```
 
 Result: 8 files / 28 tests passed.

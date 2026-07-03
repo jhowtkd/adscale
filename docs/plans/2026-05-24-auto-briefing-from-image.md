@@ -85,7 +85,7 @@ User reviews and adjusts
 **Flow:**
 1. Validate workspace access (`requireWorkspaceAccess`)
 2. Validate campaign exists and belongs to workspace
-3. Download image buffer from R2 (`downloadBuffer(imageKey)`)
+3. Download image buffer from R2 (`objectStorage.get(imageKey)`)
 4. Call `analyzeImageContent(buffer, mimeType)` → `ContentBrief`
 5. Call `analyzeImageStyle(buffer, mimeType)` → `StyleBrief` *(optional v1.1)*
 6. Map AI output to `BriefingFormData` partial
@@ -119,7 +119,7 @@ User reviews and adjusts
 - Vision API failure → 500 with `autoBriefingFailed` code
 - Rate limit → 429
 
-**Credit cost:** 1 credit per analysis (reuse `spendCreditsOrApiError` with idempotency key `auto-briefing:${campaignId}:${imageKey}`)
+**Credit cost:** 1 credit per analysis (reuse `spendOrApiError` with idempotency key `auto-briefing:${campaignId}:${imageKey}`)
 
 ### 3.2 No Schema Changes Required
 
@@ -156,7 +156,7 @@ export function useAutoBriefing(campaignId: string) {
 
 ### 4.2 New Component: `AutoBriefingModal`
 
-**File:** `src/components/workspace/AutoBriefingModal.tsx`
+**File:** `src/components/workspace/AutoBriefingSheet.tsx`
 
 **States:**
 1. **Upload** — dropzone with drag-and-drop, accepts PNG/JPG/WebP ≤10MB

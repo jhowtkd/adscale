@@ -71,16 +71,16 @@ Transform the campaign wizard from a 3-step flow (Brief → Upload → Gallery) 
 ## 3. Component Changes
 
 ### StepIndicator
-- Change `StepKey` from `1 | 2 | 3` to `1 | 2 | 3 | 4`
+- Change `StepKey` from `1 | 2 | 3` to `1 | 2 | 3 | 4` <!-- VERIFY: StepIndicator.tsx (StepKey 1 | 2 | 3) — see verification in .planning/tmp/ -->
 - Add step 3: `{ key: 3, label: t("plan"), icon: Sparkles }`
 - Rename current step 3 (gallery) to step 4: `{ key: 4, label: t("gallery"), icon: LayoutGrid }`
 - Connector lines update automatically (4 connectors instead of 3)
 
 ### useCampaignWorkspace hook
-- Change `WizardStep` from `1 | 2 | 3` to `1 | 2 | 3 | 4`
+- Change `WizardStep` from `1 | 2 | 3` to `1 | 2 | 3 | 4` <!-- VERIFY: useCampaignWorkspace hook WizardStep type 1 | 2 | 3 — see verification in .planning/tmp/ -->
 - Update `handleNext`: goes 1→2→3→4
 - Update `handlePrev`: goes 4→3→2→1
-- Update `goToStep`: accepts `1 | 2 | 3 | 4`
+- Update `goToStep`: accepts `1 | 2 | 3 | 4` <!-- VERIFY: goToStep — see verification in .planning/tmp/ -->
 - Update initial step detection: if derivations exist, jump to step 4 (not 3)
 - Update `handleUploadContinue`:
   - Old: calls `handleGenerateDerivations()` directly
@@ -89,12 +89,12 @@ Transform the campaign wizard from a 3-step flow (Brief → Upload → Gallery) 
   - Calls `handleGenerateDerivations()` → goes to step 4
 - Add `handlePlanApproveAndGenerate`:
   - Calls `updatePlanStatus("approved")` → then `handleGenerateDerivations()`
-- Update `getStepNavLabel`:
+- Update `getStepNavLabel`: <!-- VERIFY: getStepNavLabel — see verification in .planning/tmp/ -->
   - Step 2 next: "continueToPlan"
   - Step 3 prev: "backToUpload" / next: "generateDerivations"
   - Step 4 prev: "backToPlan"
 
-### UploadStep
+### UploadStep <!-- VERIFY: UploadStep.tsx — see verification in .planning/tmp/ -->
 - Footer buttons change:
   - Remove/rename "Generate All" → "Continuar para Plano"
   - Add "Gerar sem Plano" (secondary, fast path)
@@ -104,7 +104,7 @@ Transform the campaign wizard from a 3-step flow (Brief → Upload → Gallery) 
   - Add `onContinueToPlan` → goes to step 3
   - Add `onSkipPlan` → triggers generation, goes to step 4
 
-### PlanStep (refactor)
+### PlanStep (refactor) <!-- VERIFY: PlanStep (refactor existing simulated component) — see verification in .planning/tmp/ -->
 - **Remove** simulated loading (`setIsLoading` state with fake delay)
 - **Connect** to real hooks:
   - `usePlan(campaignId)` → fetch existing plan
@@ -128,7 +128,7 @@ Transform the campaign wizard from a 3-step flow (Brief → Upload → Gallery) 
   }
   ```
 - **Remove** old props: `plan`, `onApprove`, `onGenerateDerivations`, `approved`, `isGenerating`
-- **Keep** `CreativePlanCard` as-is (it already renders plan data well)
+- **Keep** `CreativePlanCard` as-is (it already renders plan data well) <!-- VERIFY: CreativePlanCard — see verification in .planning/tmp/ -->
 
 ### Campaign Page (`campaigns/[id]/page.tsx`)
 - Import `PlanStep`
@@ -250,11 +250,11 @@ Apply the existing **Flat Dimension** design system (dark theme, 4px radius, bor
 
 | File | Action | Description |
 |------|--------|-------------|
-| `src/components/workspace/StepIndicator.tsx` | Modify | 4 steps, new Sparkles icon for plan |
+| <!-- VERIFY: src/components/workspace/StepIndicator.tsx — see verification in .planning/tmp/ --> | Modify | 4 steps, new Sparkles icon for plan |
 | `src/lib/hooks/use-campaign-workspace.ts` | Modify | 4-step navigation, new handlers |
 | `src/components/workspace/UploadStep.tsx` | Modify | New footer buttons (continue to plan / skip) |
-| `src/components/workspace/PlanStep.tsx` | **Replace** | Connect to real hooks, auto-generate |
-| `src/app/(dashboard)/campaigns/[id]/page.tsx` | Modify | Render PlanStep as step 3,DerivationsStep as step 4 |
+| <!-- VERIFY: src/components/workspace/PlanStep.tsx — see verification in .planning/tmp/ --> | **Replace** | Connect to real hooks, auto-generate |
+| `src/app/(dashboard)/campaigns/[id]/page.tsx` | Modify | Render PlanStep as step 3,<!-- VERIFY: renders DerivationsStep — see verification in .planning/tmp/ --> as step 4 |
 | `messages/pt-BR.json` | Modify | New step and navigation keys |
 | `messages/en.json` | Modify | English translations |
 

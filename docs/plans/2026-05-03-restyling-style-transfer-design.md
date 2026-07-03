@@ -73,6 +73,7 @@ const [contentBrief, styleBrief] = await Promise.all([
 ]);
 
 // Step 3: Generate from scratch
+<!-- VERIFY: buildRestylingPrompt(contentBrief, styleBrief, campaign, ctaText, locale) — no definition found for buildRestylingPrompt anywhere in source; see verification in .planning/tmp/ -->
 const prompt = buildRestylingPrompt(contentBrief, styleBrief, campaign, ctaText, locale);
 
 openai.images.generate({

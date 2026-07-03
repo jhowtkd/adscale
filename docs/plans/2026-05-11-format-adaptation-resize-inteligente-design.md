@@ -20,7 +20,7 @@ Usar `openai.images.edit()` passando a imagem original como referência visual, 
 
 ```
 Imagem original (formato fonte)
-  → downloadBuffer()
+  → downloadBuffer() <!-- VERIFY: downloadBuffer — no definition found for downloadBuffer; see verification in .planning/tmp/ -->
   → toFile() para multipart/form-data
   → openai.images.edit({
       model: env.OPENAI_IMAGE_MODEL,

@@ -2,21 +2,23 @@
 
 # ADScale Architecture
 
-ADScale is a multi-tenant SaaS for AI-assisted advertising creative production. Teams work inside **workspaces**, define **campaigns** with briefing and assets, and generate **derivations** (image variants) via OpenAI image models. Outputs land in **Cloudflare R2** (S3-compatible object storage); metadata and billing state live in **PostgreSQL** via **Drizzle**. Long-running work runs on **Inngest**; the UI is **Next.js 16** (App Router) with **React 19**, **TanStack Query**, and **Better Auth**.
+ADScale is a multi-tenant SaaS for AI-assisted advertising creative production. Teams work inside **workspaces**, define **campaigns** with briefing and assets, and generate **derivations** (image variants) via OpenAI image models. A conversational **Assistant** (threaded chat with tool-calling, guided flows, and artifact versioning, backed by MiniMax) drives end-to-end creative journeys. Outputs land in **Cloudflare R2** (S3-compatible object storage); metadata and billing state live in **PostgreSQL** via **Drizzle**. Long-running work runs on **Inngest**; the UI is **Next.js 16** (App Router) with **React 19**, **TanStack Query**, and **Better Auth**.
 
 ---
 
 ## System overview
 
-The application follows a classic **browser → Next.js API routes → repositories → Postgres/R2** shape, with **async workers** for derivation generation and brand-memory ingestion. **v12.0** adds real monetization: **Stripe subscriptions**, **credit grants** with FIFO spend, **workspace entitlements** (beta access), and **conversion gates** that return structured 402 payloads when spend is blocked. **v11.10–11.11** carry a closed-loop **beta analytics** pipeline (cockpit events, mission funnels, credit signals) and **owner-facing feedback tooling**. Later phases add a **human-quality corpus** (owner evaluation → learning proposals), **performance import** and **hypothesis comparison** loops, and **client/output learning** projections into brand memory.
+The application follows a classic **browser → Next.js API routes → repositories → Postgres/R2** shape, with **async workers** for derivation generation and brand-memory ingestion. **v12.0** adds real monetization: **Stripe subscriptions**, **credit grants** with FIFO spend, **workspace entitlements** (beta access), and **conversion gates** that return structured 402 payloads when spend is blocked. **v11.10–11.11** carry a closed-loop **beta analytics** pipeline (cockpit events, mission funnels, credit signals) and **owner-facing feedback tooling**. Later phases add a **human-quality corpus** (owner evaluation → learning proposals), **performance import** and **hypothesis comparison** loops, and **client/output learning** projections into brand memory. A dedicated **Assistant** subsystem layers a conversational AI on top of the creative pipeline: threaded chat streams MiniMax completions over SSE, executes registered tools, and runs guided flows (from-zero briefing, existing-creative iteration) with artifact versioning.
 
 | Concern | Implementation |
 |--------|----------------|
 | Web UI & HTTP API | `app/src/app/` (App Router), `app/src/components/`, `app/src/lib/hooks/` |
+| Conversational Assistant | `app/src/server/assistant/` (threads, orchestrator, guided flows, tools, artifact versions); chat streamed via SSE (`api/assistant/threads/[id]/chat`) |
 | Auth & tenancy | Better Auth + `requireWorkspaceAccess()` (`app/src/server/auth/workspace.ts`) |
 | Persistence | Drizzle ORM, schema `adscale_app` (`app/src/server/db/schema.ts`) |
 | Files | `objectStorage` abstraction → R2 (`app/src/server/storage/`) |
-| AI | OpenAI SDK modules under `app/src/server/ai/` (including **Olhar** art-direction verdicts) |
+| AI (creative) | OpenAI SDK modules under `app/src/server/ai/` (including **Olhar** art-direction verdicts) |
+| AI (assistant) | MiniMax LLM via OpenAI-compatible adapter (`app/src/server/assistant/model/`) |
 | Background jobs | Inngest functions registered in `app/src/app/api/inngest/route.ts` |
 | Billing & credits | Stripe webhooks, plans, grants, gates (`app/src/server/billing/`) |
 | Entitlements | Beta tester access (`app/src/server/repositories/entitlements.ts`) |
@@ -34,7 +36,7 @@ The application follows a classic **browser → Next.js API routes → repositor
 1. **Subscription lifecycle** — Checkout Sessions (14-day trial) create Stripe customers and local subscription rows; webhook handlers sync status, grant monthly credits on `invoice.paid`, and mark `past_due` on payment failure.
 2. **Credit entitlements** — Spendable balance is the sum of non-expired `credit_grants.remaining`; debits are FIFO across grants inside a transaction. Plans (`starter` / `growth` / `scale`) map to monthly grants of 30 / 120 / 360 credits.
 3. **Access resolution** — `getWorkspaceBillingAccess()` classifies each workspace as `paid`, `beta`, or `none`, combining active subscription, beta entitlement, and remaining credits (including past-due spend policy).
-4. **Spend gates** — API routes call `spendCreditsOrApiError()` before metered work; blocked spends return HTTP 402 with a `ConversionErrorPayload` (reason, recommended action, suggested plan).
+4. **Spend gates** — API routes call `spendOrApiError()` before metered work; blocked spends return HTTP 402 with a `ConversionErrorPayload` (reason, recommended action, suggested plan).
 5. **Beta redemption** — One-time code redemption creates a `beta_tester` entitlement plus a 50-credit grant (10 ads × 5 credits); codes come from `BETA_ACCESS_CODES` env.
 6. **Billing history** — `credit_transactions` and grant history exposed via `GET /api/billing/history` for the settings UI and dashboard charts.
 
@@ -61,6 +63,7 @@ graph TD
   subgraph Client
     UI[React components]
     Hooks[TanStack Query hooks]
+    AsstChat[Assistant chat / SSE client]
     BetaHook[useRecordBetaEvent]
     ConvGate[conversion-gate client]
     Err[CampaignLoadError]
@@ -69,6 +72,7 @@ graph TD
   subgraph NextApp["Next.js app/src/app"]
     Pages[(dashboard) pages]
     API[api/* Route Handlers]
+    AsstAPI[api/assistant/threads/*]
     BillingAPI[api/billing/*]
     AnalyticsAPI[api/analytics/events]
     FeedbackAPI[api/feedback/*]
@@ -79,6 +83,8 @@ graph TD
   subgraph Server["app/src/server"]
     Auth[auth/workspace]
     Owner[auth/platform-owner]
+    Asst[assistant/* orchestrator]
+    AsstModel[assistant/model MiniMax]
     Repo[repositories/*]
     AI[ai/*]
     Jobs[jobs/*]
@@ -101,21 +107,29 @@ graph TD
     PG[(PostgreSQL)]
     R2[(R2 / S3)]
     OAI[OpenAI]
+    MMX[MiniMax]
     ING[Inngest Cloud]
     STR[Stripe]
     MEM[Mem0]
   end
 
   UI --> Hooks
+  UI --> AsstChat
   UI --> BetaHook
   UI --> ConvGate
   Hooks --> API
   Hooks --> BillingAPI
+  AsstChat --> AsstAPI
   BetaHook --> AnalyticsAPI
   Hooks --> Err
   ConvGate --> BillingAPI
   Pages --> UI
   API --> Auth
+  AsstAPI --> Auth
+  AsstAPI --> Asst
+  Asst --> AsstModel
+  Asst --> Repo
+  Asst --> AI
   BillingAPI --> Auth
   BillingAPI --> BillSessions
   BillingAPI --> BillAccess
@@ -149,6 +163,7 @@ graph TD
   Entitlements --> PG
   Store --> R2
   AI --> OAI
+  AsstModel --> MMX
   ING --> Jobs
   STR --> BillingAPI
   MissionI --> Repo
@@ -168,16 +183,18 @@ Application code lives under `app/` (npm package `adscale-app`). Source is roote
 
 | Path | Role |
 |------|------|
-| `app/src/app/` | App Router: UI routes `(dashboard)/`, public pages, and `api/*` Route Handlers |
-| `app/src/components/` | Presentational and feature components (campaign workspace, billing settings, feedback owner panels, hypotheses, UI primitives) |
+| `app/src/app/` | App Router: UI routes `(dashboard)/`, public pages, and `api/*` Route Handlers (23 groups) |
+| `app/src/components/` | Presentational and feature components (assistant chat/shell, campaign workspace, billing settings, feedback owner panels, hypotheses, UI primitives) |
 | `app/src/lib/` | Client utilities: `api-client`, React Query hooks, `billing/conversion-gate`, `campaign-load-error`, `beta-analytics/constants`, formats, logger |
 | `app/src/server/ai/` | OpenAI-backed creative pipeline: prompts, scoring, QA, quality gate, contract, readiness, preview gate, **Olhar** art-direction verdicts |
+| `app/src/server/assistant/` | Conversational AI: orchestrator, guided flows, action contracts, tool registry/policy, context builder, artifact versioning, MiniMax model adapter, SSE stream encoding |
 | `app/src/server/auth/` | Better Auth config, session helpers, workspace access, platform-owner guard, dev-admin bypass |
 | `app/src/server/billing/` | Stripe client, plans, checkout/portal sessions, webhook event processor, access resolution, credit spend/gates, beta redemption, conversion payloads |
 | `app/src/server/beta-analytics/` | Event types, sanitization, `recordBetaAnalyticsEvent`, aggregation, credit-signal summaries, CSV helpers |
 | `app/src/server/beta-sessions/` | Beta session Zod types shared with repositories |
 | `app/src/server/brand-taste/` | Taste profiles, calibration signal recording, calibration rules |
-| `app/src/server/db/` | Drizzle client + `schema.ts` (all tables in `adscale_app` schema) |
+| `app/src/server/config.ts` | Shared app constants (e.g. invite expiration) |
+| `app/src/server/db/` | Drizzle client (`pg` pool) + `schema.ts` (all tables in `adscale_app` schema) |
 | `app/src/server/feedback/` | Feedback validation, mission-credit-signal classification |
 | `app/src/server/human-quality/` | Corpus queue, evaluations, sampling, calibration, learning proposal generation, trend/impact reports |
 | `app/src/server/jobs/` | Inngest client, `derivationJob`, trial notifications, workspace asset analysis, brand memory, **learning proposal aggregator** |
@@ -187,9 +204,9 @@ Application code lives under `app/` (npm package `adscale-app`). Source is roote
 | `app/src/server/output-learning/` | Output decision recording, aggregation, recommendations |
 | `app/src/server/performance/` | Performance CSV import, snapshots, hypothesis comparison, client performance learnings |
 | `app/src/server/progression/` | Workspace levels and ordered **missions** (definitions, evidence, status, credits) |
-| `app/src/server/repositories/` | Data access layer; includes billing, entitlements, human-quality corpus, performance, output decisions |
-| `app/src/server/services/` | Email, notifications (low-credits alerts), export, landing-page render |
-| `app/src/server/storage/` | `ObjectStorage` interface; `R2ObjectStorage` (`r2-object-storage.ts`), presign helpers (`r2.ts`), in-memory test impl |
+| `app/src/server/repositories/` | Data access layer; includes assistant threads/messages/actions, billing, entitlements, human-quality corpus, performance, output decisions |
+| `app/src/server/services/` | Email, notifications (low-credits alerts), export, landing-page render, Resend contacts |
+| `app/src/server/storage/` | `ObjectStorage` interface; `R2ObjectStorage` (`r2-object-storage.ts`), presign helpers (`storage-helpers.ts`), in-memory test impl |
 | `app/src/server/validation/` | `env` (Zod-validated environment) |
 | `app/src/server/waitlist/` | Waitlist signup schema and normalization |
 | `app/src/i18n/` | `next-intl` message catalogs |
@@ -209,7 +226,7 @@ Tests: `app/tests/` (integration) and co-located `*.test.ts` beside modules. SQL
 
 ### 2. Derivation generation (write + async path)
 
-1. `POST /api/campaigns/[id]/derivations` validates workspace, campaign, credits (`spendCreditsOrApiError`), and concurrency (no other `queued`/`processing` rows).
+1. `POST /api/campaigns/[id]/derivations` validates workspace, campaign, credits (`spendOrApiError`), and concurrency (no other `queued`/`processing` rows).
 2. Creates derivation row(s) and sends Inngest event `derivation.generate` with `derivationId`, `campaignId`, `workspaceId`, locale, format, CTA, `generationMode`, optional `styleAssetId`.
 3. **`derivationJob`** (`app/src/server/jobs/derivation.ts`) runs stepped workflow:
    - Idempotency check → `processing` → load campaign, plan, assets, brand kit, references, brand memory
@@ -275,7 +292,7 @@ Events are deduplicated via `processed_stripe_events`. Unsupported types are ski
 
 ### 6. Credit spend and conversion gates (v12.0)
 
-1. Metered API routes call `spendCreditsOrApiError({ workspaceId, action, idempotencyKey, userId, ... })`.
+1. Metered API routes call `spendOrApiError({ workspaceId, action, idempotencyKey, userId, ... })`.
 2. `recordUsage` checks idempotency (`usage_events` table), then `canSpend` via `getWorkspaceBillingAccess` + available grant balance.
 3. On allow: FIFO debit across `credit_grants.remaining` in a transaction, `trackUsage`, optional `credit_transactions` row, `credit_spend` analytics event, low-credits email if balance &lt; 10.
 4. On block: HTTP **402** with `ConversionErrorPayload` from `buildConversionErrorPayloadForWorkspace` — reasons include `insufficient_credits`, `beta_exhausted`, `subscription_required`, `past_due_recovery`; `recommendedAction` is `checkout`, `portal`, or `billing`.
@@ -346,6 +363,17 @@ Events are deduplicated via `processed_stripe_events`. Unsupported types are ski
 1. Approval, export, and review flows record `output_decision_events` (via `output-learning/output-decision-recorder`).
 2. `recomputeClientOutputLearnings` aggregates events into `client_output_learnings` and projects to brand memory (`output-learning-projection`).
 3. `GET /api/client-profiles/[id]/output-learnings` exposes learnings for strategy surfaces.
+
+### 13. Assistant turn (conversational AI)
+
+1. Client sends a message via `useAssistantChat` → `POST /api/assistant/threads/[threadId]/chat` (workspace-scoped thread bound to a `clientProfileId`).
+2. Route handler resolves `requireWorkspaceAccess`, loads the thread, then opens a `ReadableStream` and iterates `runAssistantTurn({ workspaceId, clientProfileId, threadId, userId, userMessage, attachments })` — an `AsyncGenerator<AssistantTurnEvent>`.
+3. **Orchestrator** (`server/assistant/orchestrator.ts`) builds context (`context/context-builder.ts`, sanitized against a key allowlist), classifies the user intent and guided path (`from-zero` vs `existing-creative`), and streams completions from the **MiniMax** model adapter (`model/minimax-adapter.ts`, OpenAI-compatible client).
+4. The model may emit **tool calls**; `evaluateToolCall` (`tools/policy.ts`) enforces per-tool policy before execution, and `listToolsForProvider` (`tools/registry.ts`) resolves the available toolset. Tool execution surfaces `tool_summary` and `action_card` events.
+5. Each `AssistantTurnEvent` (`text_delta` | `tool_summary` | `action_card` | `done` | `error`) is encoded by `encodeAssistantSseEvent` (`stream/sse.ts`) and written to the response with `Content-Type: text/event-stream`.
+6. The assistant message is persisted on completion; **action contracts** (`action-contracts/`) bind structured actions (e.g. create campaign, run derivation) that the user confirms via `POST /api/assistant/actions/[actionId]/confirm`.
+7. **Artifact versioning** — creative outputs produced in a thread are versioned (`artifact-version/service.ts`), comparable (`compare`, `comparison-acknowledgements`), and promotable (`promote`).
+8. **Guided flows** (`guided-flow/` routes) drive from-zero briefing and existing-creative iteration with staged state transitions and telemetry; plan revisions (`plan-iteration/`) and creative revisions (`creative-iteration/`) are handled as dedicated turn kinds.
 
 ---
 
@@ -438,6 +466,40 @@ Each mission has prerequisites (`MISSION_DEFINITIONS`), optional alignment to pr
 
 ---
 
+## Assistant subsystem
+
+**Module:** `app/src/server/assistant/`
+
+ADScale's conversational AI layer drives the creative journey through threaded chat. Each thread belongs to a workspace and a client profile; the UI lives in `app/src/components/assistant/` (`AssistantShell`, `AssistantChatCore`, `AssistantMessageList`, `AssistantTreeSidebar`, plus guided-flow and version panels) and the React Query hooks in `app/src/lib/hooks/` (`use-assistant-chat`, `use-assistant-threads`, `use-assistant-actions`, `use-assistant-artifact-versions`).
+
+| Submodule | Responsibility |
+|-----------|----------------|
+| `orchestrator.ts` | `runAssistantTurn` async generator — context build, intent/guided-path classification, model streaming, tool dispatch, message persistence |
+| `context/` | `context-builder.ts` (assembles model request), `allowlist.ts` + `sanitize.ts` (key filtering / PII guard) |
+| `model/` | MiniMax LLM via OpenAI-compatible client (`minimax-client.ts`, `minimax-adapter.ts`), reasoning sanitizer (`stripThinkBlocks`) |
+| `action-contracts/` | Intent classifier, structured action contracts, guided binding, risk-copy validation |
+| `tools/` | Tool registry (`registry.ts`), execution policy (`policy.ts`) — model tool calls are gated before execution |
+| `guided-paths/` | `from-zero` and `existing-creative` prompt augments and action integration |
+| `guided-conversation/` | Staged state machine (`state` → `transition` → `presenter`) for guided flows |
+| `creative-iteration/`, `plan-iteration/` | Dedicated turn handlers for creative revisions and plan revisions |
+| `artifact-version/` | Version snapshots, comparison, and promotion of thread-produced artifacts |
+| `stream/sse.ts` | `encodeAssistantSseEvent` — serializes `AssistantTurnEvent` to SSE frames |
+
+**Streaming contract:**
+
+```typescript
+type AssistantTurnEvent =
+  | { type: "text_delta"; text: string }
+  | { type: "tool_summary"; toolName: string; summary: string }
+  | { type: "action_card"; actionRecordId: string; status: "pending" }
+  | { type: "done"; assistantMessageId: string }
+  | { type: "error"; message: string };
+```
+
+**HTTP surface** (`app/src/app/api/assistant/`): thread CRUD (`threads/`), streaming chat (`threads/[id]/chat`), actions (`actions/[id]/confirm|cancel`), artifact proposals (`artifact-proposals/[id]/cancel`), and per-thread guided-flow / plan-revision / creative-revision / artifact-version sub-routes.
+
+---
+
 ## Creative contract (v11.1)
 
 **Module:** `app/src/server/ai/creative-contract.ts`
@@ -499,19 +561,20 @@ Repositories take `workspaceId` as an explicit argument. Drizzle updates include
 
 **Platform-owner routes** use `requirePlatformOwner` — email in `PLATFORM_OWNER_EMAILS` or dev-admin allowlist.
 
-**Representative API groups** under `app/src/app/api/`:
+**Representative API groups** under `app/src/app/api/` (23 groups, 150 `route.ts` handlers):
 
 - `campaigns/`, `derivations/`, `workspace/` (assets, brand-kit, invites, **missions**, **mission-insights**, progression)
 - `campaigns/[id]/restyle`, `performance/`, `hypotheses/`, `competitors/`, `learnings/`, `approval-package/`
+- `assistant/` — threads, streaming chat, actions, artifact versions, guided flows (workspace-scoped)
 - `billing/` — **checkout**, **portal**, **status**, **history**, **beta/redeem**, **webhook**
 - `analytics/events` — workspace-scoped beta event ingest
 - `feedback/` — reports, beta-sessions, human-quality corpus, analytics funnel/credit-signals/export, mission-credit-signals, quality-trend, calibration
 - `admin/quality/` — learning proposal accept/reject/generate, ingestion backfill/status (platform owner)
 - `client-profiles/` — references, memory, output-learnings
-- `dashboard/`, `export/`, `templates/`, `restyling/`, `quick-tools/`
+- `creatives/`, `dashboard/`, `export/`, `templates/`, `user/`, `notifications/`
 - `inngest/` (worker webhook — Inngest signing, no end-user session)
 - `health/`, `share/` (token-based public read paths scope differently)
-- `waitlist/` (public signup)
+- `waitlist/`, `auth/`, `dev/`, `build-id/` (public or system)
 
 ---
 
@@ -531,13 +594,13 @@ Repositories take `workspaceId` as an explicit argument. Drizzle updates include
 
 **Derivation job highlights:** Event `derivation.generate`; retries 2; realtime `derivationChannel`; idempotent skip if `outputKey` already set; dedicated base/style asset resolution for `restyling` mode.
 
-Local dev: `npm run dev` runs Next + Inngest dev (`scripts/dev-with-inngest.mjs`); worker URL `http://localhost:3000/api/inngest`.
+Local dev: `npm run dev` runs Next + Inngest dev (`scripts/dev-with-inngest.mjs`); worker URL `http://localhost:3000/api/inngest`. <!-- VERIFY: Inngest Cloud serving production workers (region, event key) -->
 
 ---
 
 ## AI layer
 
-Modules under `app/src/server/ai/`:
+Modules under `app/src/server/ai/` (creative generation):
 
 | Module | Responsibility |
 |--------|----------------|
@@ -554,11 +617,13 @@ Modules under `app/src/server/ai/`:
 | `competitor-analyzer.ts`, `persona-simulator.ts` | Competitor and persona flows |
 | `creative-diagnosis.ts` | Campaign creative diagnosis |
 | `derivation-auto-retry.ts` | Auto-retry policy for failed generations |
+| `derivation-pipeline.ts` | End-to-end derivation pipeline orchestration |
+| `export-validation.ts` | Export CTA/format validation (hard-failure classification) |
 | `olhar/*` | Art-direction verdicts, dual-verdict constitution, base reading |
 | `smart-resize.ts`, `image-analysis.ts` | Resize preview and image utilities |
 | `voices/client-voice.ts` | Client voice extraction and review gate |
 
-OpenAI calls use `env.OPENAI_API_KEY` and model names from validated env. Image generation timeout in the derivation job is 5 minutes per attempt.
+Image generation uses the OpenAI SDK with `env.OPENAI_API_KEY` and model names from validated env; the **Assistant** conversational layer instead streams MiniMax completions (see [Assistant subsystem](#assistant-subsystem)). Image generation timeout in the derivation job is 5 minutes per attempt.
 
 ---
 
@@ -566,10 +631,13 @@ OpenAI calls use `env.OPENAI_API_KEY` and model names from validated env. Image 
 
 | Abstraction | Location | Role |
 |-------------|----------|------|
+| `runAssistantTurn` | `server/assistant/orchestrator.ts` | Streams an assistant turn (context → model → tools → SSE events) |
+| `AssistantTurnEvent` | `server/assistant/orchestrator.ts` | SSE event union for streamed assistant chat |
+| `evaluateToolCall` | `server/assistant/tools/policy.ts` | Gates model tool calls before execution |
 | `getWorkspaceBillingAccess` | `server/billing/access.ts` | Resolves paid/beta/none access + spend eligibility |
 | `processStripeEvent` | `server/billing/events.ts` | Idempotent webhook → subscription sync + credit grants |
 | `recordUsage` / `canSpend` | `server/billing/credits.ts` | Credit check, FIFO debit, analytics, low-credits email |
-| `spendCreditsOrApiError` | `server/billing/gates.ts` | API-boundary spend gate → 402 conversion payload |
+| `spendOrApiError` | `server/billing/paywall.ts` | API-boundary spend gate → 402 conversion payload |
 | `buildConversionErrorPayload` | `lib/billing/conversion-gate.ts` | Maps blocked spend to checkout/portal/billing CTA |
 | `redeemBetaAccess` | `server/billing/beta.ts` | Beta code → entitlement + grant |
 | `CreativeContract` | `server/ai/creative-contract.ts` | Generation/scoring/QA contract |
@@ -592,15 +660,15 @@ OpenAI calls use `env.OPENAI_API_KEY` and model names from validated env. Image 
 
 ## Data layer
 
-- **ORM:** Drizzle with `pg` pool (`app/src/server/db/index.ts`).
-- **Schema:** PostgreSQL schema `adscale_app` — users/sessions (Better Auth), workspaces, campaigns, assets, derivations (quality gate + `parent_id`), billing tables, notifications, landing pages, beta analytics, feedback, progression, **performance import/snapshots/hypotheses**, **client_performance_learnings**, **client_output_learnings**, **output_decision_events**, **human_quality_corpus_***, **client_learning_proposals**, **calibration_signals/rules**, **rubric_calibration_adjustments**, waitlist signups, etc.
+- **ORM:** Drizzle with `pg` pool (`app/src/server/db/index.ts`); `@neondatabase/serverless` available for serverless compute.
+- **Schema:** PostgreSQL schema `adscale_app` — users/sessions (Better Auth), workspaces, campaigns, assets, derivations (quality gate + `parent_id`), **assistant threads/messages/actions/artifact-versions**, billing tables, notifications, landing pages, beta analytics, feedback, progression, **performance import/snapshots/hypotheses**, **client_performance_learnings**, **client_output_learnings**, **output_decision_events**, **human_quality_corpus_***, **client_learning_proposals**, **calibration_signals/rules**, **rubric_calibration_adjustments**, waitlist signups, etc.
 - **Migrations:** `app/drizzle/*.sql`, managed via `drizzle-kit` (`npm run db:migrate`).
 
 ---
 
 ## Authentication and authorization
 
-- **Better Auth** tables in Drizzle schema; config in `app/src/server/auth/config.ts`; catch-all route at `app/api/auth/[...all]/route.ts`.
+- **Better Auth** tables in Drizzle schema; config in `app/src/server/auth/config.ts`; catch-all route at `app/src/app/api/auth/[...all]/route.ts`.
 - Session resolution: `getSession` / `getSessionFromHeaders` (`server/auth/session.ts`).
 - Workspace membership roles: `owner` | `admin` | `member` (`requireRole` for privileged actions).
 - **Platform owners** — separate guard for internal beta analytics, human-quality corpus, and admin quality routes.
@@ -616,8 +684,9 @@ Binary assets (campaign uploads, derivation outputs, brand kit logos) are stored
 
 ## Frontend architecture (summary)
 
-- **Routing:** App Router with `(dashboard)` layout; `(dashboard)/feedback` for owner analytics and human-quality corpus; settings billing tab.
-- **Server state:** TanStack Query hooks in `app/src/lib/hooks/` (campaigns, derivations, **billing**, export, missions, delivery-package, hypotheses, performance, record-beta-event).
+- **Routing:** App Router with `(dashboard)` layout; `(dashboard)/feedback` for owner analytics and human-quality corpus; `(dashboard)/assistant` for the conversational assistant; settings billing tab.
+- **Server state:** TanStack Query hooks in `app/src/lib/hooks/` (campaigns, derivations, **assistant** chat/threads/actions/versions, **billing**, export, missions, delivery-package, hypotheses, performance, record-beta-event).
+- **Assistant UX:** `AssistantShell` / `AssistantChatCore` consume the SSE stream; `AssistantTreeSidebar`, `VersionHistory`, `VersionComparisonDialog`, `GuidedFlowControls`, and `CreditConfirmModal` support guided flows, versioning, and gated actions.
 - **Billing UX:** `BillingTab`, `CreditPanel`, `CreditChart` consume `/api/billing/status` and `/api/billing/history`; 402 responses handled via `conversion-gate` client helpers.
 - **Mission UX:** `MissionPathCard`, `MissionInsightProvider`, cockpit stage events via `useRecordBetaEvent`.
 - **Owner feedback UI:** `OwnerAnalyticsPanel`, `BetaSessionsPanel`, `HumanQualityCorpusPanel` consume platform-owner analytics and corpus APIs.

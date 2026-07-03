@@ -20,7 +20,7 @@
 - `app/src/server/repositories/billing.ts` — credit/subscription queries
 - `app/src/server/repositories/activity.ts` — activity queries (or check if exists)
 - `app/src/server/db/schema.ts` — table definitions
-- `app/src/lib/hooks/use-dashboard.ts` — existing dashboard hook
+<!-- VERIFY: app/src/lib/hooks/use-dashboard.ts — existing dashboard hook — see verification in .planning/tmp/ (file not found; nearest is app/src/lib/hooks/use-dashboard-stats.ts) -->
 - `app/src/server/ai/prompt-builder.test.ts` — example test pattern
 
 **Design doc:** `docs/plans/2026-05-23-dashboard-redesign-design.md`
@@ -273,6 +273,7 @@ cd /Users/jhonatan/Repos/ADScale_2 && git add app/src/app/api/dashboard/stats/ &
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+// VERIFY: import { useWorkspace } from "./use-workspace" — see verification in .planning/tmp/ (no app/src/lib/hooks/use-workspace.ts; no useWorkspace export found)
 import { useWorkspace } from "./use-workspace";
 
 export interface DashboardStats {
@@ -313,6 +314,7 @@ async function fetchDashboardStats(workspaceId: string): Promise<DashboardStats>
 }
 
 export function useDashboardStats() {
+  // VERIFY: const { workspace } = useWorkspace() — see verification in .planning/tmp/ (no useWorkspace function found in app/src/lib/hooks/)
   const { workspace } = useWorkspace();
 
   return useQuery({
@@ -989,10 +991,15 @@ cd /Users/jhonatan/Repos/ADScale_2 && git add app/src/app/\(dashboard\)/page.tsx
 ### Task 11: Delete Legacy Components
 
 **Files to delete:**
+<!-- VERIFY: app/src/components/dashboard/WelcomeBanner.tsx — see verification in .planning/tmp/ (file not found) -->
 - `app/src/components/dashboard/WelcomeBanner.tsx`
+<!-- VERIFY: app/src/components/dashboard/StatsCardsGrid.tsx — see verification in .planning/tmp/ (file not found) -->
 - `app/src/components/dashboard/StatsCardsGrid.tsx`
+<!-- VERIFY: app/src/components/dashboard/CreditUsagePanel.tsx — see verification in .planning/tmp/ (file not found) -->
 - `app/src/components/dashboard/CreditUsagePanel.tsx`
+<!-- VERIFY: app/src/components/dashboard/QuickActionsGrid.tsx — see verification in .planning/tmp/ (file not found) -->
 - `app/src/components/dashboard/QuickActionsGrid.tsx`
+<!-- VERIFY: app/src/components/dashboard/ActivityFeedPanel.tsx — see verification in .planning/tmp/ (file not found) -->
 - `app/src/components/dashboard/ActivityFeedPanel.tsx`
 - `app/src/components/dashboard/RecentCampaignsSection.tsx`
 - `app/src/components/dashboard/CreditAlertBanner.tsx` (if not used elsewhere)

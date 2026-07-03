@@ -74,6 +74,7 @@ For Stripe webhooks, billing smoke tests, and the full Docker stack, see [`app/R
 |---------|-------------|
 | `npm test` | Vitest single run (`config/vitest.config.ts`) |
 | `npm run test:e2e` | Playwright E2E tests (`tests/e2e/*.spec.ts`; requires running app + Inngest) |
+| `npm run test:guided-e2e` | Guided Playwright E2E run (`scripts/run-guided-e2e.mjs`) |
 | `npm run test:visual-release` | Playwright visual/a11y release specs (`playwright.release.config.ts`) |
 | `npm run test:db:setup` | Start Docker Postgres for tests (port 5433) |
 | `npm run test:db:teardown` | Stop/remove test Postgres container |
@@ -90,6 +91,8 @@ For Stripe webhooks, billing smoke tests, and the full Docker stack, see [`app/R
 | `npm run seed:stripe` | Seed Stripe products/prices for local billing (`scripts/seed-stripe-real.ts`) |
 | `npm run preflight:stripe` | Offline/live Stripe billing preflight (`scripts/preflight-stripe-billing.ts`) |
 | `npm run seed:testsprite` | Seed data for TestSprite workflows (`scripts/seed-testsprite.ts`) |
+| `npm run seed:live-real-customer-corpus` | Seed live real customer corpus (`scripts/seed-live-real-customer-corpus.ts`) |
+| `npm run refresh:v13-3-operational-evidence` | Refresh v13-3 operational evidence (`scripts/refresh-v13-3-operational-evidence.ts`) |
 
 ### Release gates and evidence
 
@@ -102,6 +105,10 @@ These scripts orchestrate phase release checks and write evidence JSON under `.p
 | `npm run output-learning-release-gate` | Output-learning release gate |
 | `npm run real-quality-release-gate` | Real-quality release gate |
 | `npm run operational-quality-release-gate` | Operational-quality release gate |
+| `npm run v13-3-release-gate` | v13.3 release gate (`scripts/run-v13-3-release-gate.mjs`) |
+| `npm run v13-7-release-gate` | v13.7 release gate (`scripts/run-v13-7-release-gate.mjs`) |
+| `npm run v13-8-release-gate` | v13.8 release gate (`scripts/run-v13-8-release-gate.mjs`) |
+| `npm run v13-9-release-gate` | v13.9 release gate (`scripts/run-v13-9-release-gate.mjs`) |
 | `npm run validate:creative` | Check creative validation evidence (final stage) |
 | `npm run validate:creative:live` | Run live creative validation (`scripts/run-creative-validation.ts`) |
 | `npm run score-calibration-evidence` | Score calibration evidence check |
@@ -147,7 +154,7 @@ npm run preflight:stripe -- --app-url=https://...  # optional live Stripe checks
 **Focused billing regression subset** (after broader changes, run the full suite):
 
 ```bash
-npm run test -- src/lib/hooks/use-billing.test.tsx src/server/billing/events.test.ts src/app/api/billing/webhook/route.test.ts src/server/billing/credits.test.ts src/server/billing/gates.test.ts src/server/billing/sessions.test.ts src/app/api/billing/checkout/route.test.ts src/app/api/billing/portal/route.test.ts tests/integration/auth-workspace-access.test.ts
+npm run test -- src/lib/hooks/use-billing.test.tsx src/server/billing/events.test.ts src/app/api/billing/webhook/route.test.ts src/server/billing/credits.test.ts app/src/server/billing/paywall.test.ts src/server/billing/sessions.test.ts src/app/api/billing/checkout/route.test.ts src/app/api/billing/portal/route.test.ts tests/integration/auth-workspace-access.test.ts
 ```
 
 The v12.0 billing regression gate is the full Vitest suite (`npm test` — current count in [TESTING.md](./TESTING.md)). Manual Stripe smoke steps are in [`app/README.md`](../app/README.md#manual-stripe-smoke).
@@ -223,11 +230,11 @@ With `docker compose --profile dev`, the Inngest container targets `http://app:3
 | Tool | Location | How to run |
 |------|----------|------------|
 | **ESLint** | `app/eslint.config.mjs` | `npm run lint` |
-| **TypeScript** | `app/tsconfig.json` (strict) | `npx tsc --noEmit` |
+| **TypeScript** | `app/tsconfig.json` (strict) | `npm run typecheck` |
 
-ESLint 9 uses flat config with `eslint-config-next` (`core-web-vitals` + `typescript` presets). No Prettier, Biome, or `.editorconfig` is configured in this repository. Follow existing patterns in neighboring files (imports, `@/` path alias, server vs client component boundaries).
+ESLint 9 uses flat config (`eslint.config.mjs`) importing `eslint-config-next`'s `core-web-vitals` and `typescript` presets. No Prettier, Biome, or `.editorconfig` is configured in this repository. Follow existing patterns in neighboring files (imports, `@/` path alias, server vs client component boundaries).
 
-CI (`.github/workflows/ci.yml`) enforces **lint**, **typecheck**, **migrations**, **tests**, and **build** on pushes and pull requests to `main`. The workflow runs `npm run typecheck`, but `app/package.json` does not define that script yet — use `npx tsc --noEmit` locally until a `typecheck` script is added (for example `"typecheck": "tsc --noEmit"`).
+CI (`.github/workflows/ci.yml`) enforces **lint**, **typecheck**, **migrations**, **tests**, and **build** on pushes and pull requests to `main`. The `typecheck` script runs `tsc --noEmit` (defined in `app/package.json`); use `npm run typecheck` locally to match CI.
 
 ## Lint and tests
 
@@ -240,8 +247,10 @@ npm run lint
 ### TypeScript
 
 ```bash
-npx tsc --noEmit
+npm run typecheck
 ```
+
+(`tsc --noEmit`, as run in CI.)
 
 ### Unit and integration tests
 
@@ -291,7 +300,7 @@ Focused billing/auth examples are listed in [Billing development](#billing-devel
 
 ```bash
 npm run lint
-npx tsc --noEmit
+npm run typecheck
 npm run db:migrate   # when schema changed
 npm test
 npm run build
@@ -310,12 +319,12 @@ No branch naming convention is documented in `CONTRIBUTING.md` or pull request t
 There is no `.github/PULL_REQUEST_TEMPLATE.md` in this repository. Before opening a PR:
 
 - Target **`main`**.
-- Run lint, TypeScript check, tests, and build from `app/` (see [Lint and tests](#lint-and-tests)).
+- Run lint, typecheck, tests, and build from `app/` (see [Lint and tests](#lint-and-tests)).
 - Include migration files when schema changes (`drizzle/` + `npm run db:migrate` verified locally).
 - Describe user-visible behavior, API changes, and any new or required env vars (update `app/.env.example` when adding configuration).
 - For billing changes, note Stripe webhook/event impact and whether `seed:stripe` or `preflight:stripe` was run.
 
-Reviewers typically expect green CI: install → lint → typecheck → `npx drizzle-kit migrate` against CI Postgres → test → build (`.github/workflows/ci.yml`). Open issues via GitHub Issues; no issue templates are checked in under `.github/ISSUE_TEMPLATE/`.
+Reviewers typically expect green CI: install (`npm ci`) → lint → typecheck → `drizzle-kit migrate` against CI Postgres → test → build (`.github/workflows/ci.yml`). Open issues via GitHub Issues; no issue templates are checked in under `.github/ISSUE_TEMPLATE/`.
 
 ## Related docs
 

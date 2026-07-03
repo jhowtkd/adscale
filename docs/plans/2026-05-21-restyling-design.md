@@ -19,9 +19,9 @@ Add a **dedicated restyling page** at `/restyling` that lets users upload a base
 
 ### Existing Reused Components
 
-- `openai.images.edit` call at `jobs/derivation.ts:326` — already handles restyling mode
-- `buildDerivationPrompt` with `generationMode="restyling"` at `prompt-builder.ts:288`
-- Credit gate cost: `restyling: 5` at `credits.ts:15`
+- `openai.images.edit` call at `app/src/server/ai/derivation-pipeline.ts:300` — already handles restyling mode
+- `buildDerivationPrompt` with `generationMode="restyling"` at `app/src/server/ai/prompt-builder.ts:381`
+- Credit gate cost: `restyling: 5` at `app/src/server/billing/credits.ts:32`
 - `parseStyleIntensity` utility for parsing intensity from form input
 
 ---
@@ -32,24 +32,24 @@ Add a **dedicated restyling page** at `/restyling` that lets users upload a base
 
 | File | Purpose |
 |------|---------|
-| `app/src/app/(dashboard)/restyling/page.tsx` | Main page |
+| <!-- VERIFY: `app/src/app/(dashboard)/restyling/page.tsx` — standalone restyling page not built; see verification in .planning/tmp/ --> | Main page |
 | `app/src/components/restyling/RestylingUpload.tsx` | Drag & drop upload zone for each image |
 | `app/src/components/restyling/RestylingForm.tsx` | Form fields and intensity selector |
-| `app/src/app/api/restyling/route.ts` | POST endpoint |
+| <!-- VERIFY: `app/src/app/api/restyling/route.ts` — standalone endpoint not built; restyle lives at `app/src/app/api/campaigns/[id]/restyle/route.ts` — see verification in .planning/tmp/ --> | POST endpoint |
 
 ### Modified Files
 
 | File | Change |
 |------|--------|
-| `app/src/components/layout/Sidebar.tsx` | Add "Restyling" nav item |
-| `app/src/messages/pt-BR.json` | Add translations |
-| `app/src/messages/en.json` | Add translations |
+| `app/src/components/layout/AppSidebar.tsx` | Add "Restyling" nav item |
+| `app/messages/pt-BR.json` | Add translations |
+| `app/messages/en.json` | Add translations |
 
 ---
 
 ## API Design
 
-### POST /api/restyling
+### POST /api/restyling <!-- VERIFY: no standalone `/api/restyling` route built; restyle implemented at `POST /api/campaigns/[id]/restyle` — see verification in .planning/tmp/ -->
 
 **Request:** `Content-Type: multipart/form-data`
 
@@ -85,7 +85,7 @@ Add a **dedicated restyling page** at `/restyling` that lets users upload a base
 
 **Process:**
 1. Validate inputs
-2. Spend credits via `spendCreditsOrApiError`
+2. Spend credits via `spendOrApiError`
 3. Upload both images to R2
 4. Create `campaign` with `generationMode: "restyling"`
 5. Create two `asset` records: `base` and `style_reference`

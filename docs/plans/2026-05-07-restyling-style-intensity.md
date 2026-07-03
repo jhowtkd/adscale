@@ -158,7 +158,7 @@ cd /Users/jhonatan/Repos/ADScale_2 && git add app/src/server/db/schema.ts app/sr
 **Files:**
 - Modify: `app/src/app/api/campaigns/route.ts`
 - Modify: `app/src/app/api/campaigns/[id]/route.ts`
-- Modify: `app/src/app/api/quick-tools/restyling/route.ts`
+- Modify: `app/src/app/api/campaigns/[id]/restyle/route.ts`
 - Test: `app/tests/integration/campaign-crud.test.ts`
 - Test: create `app/tests/integration/quick-tools-restyling.test.ts`
 
@@ -301,6 +301,7 @@ cd /Users/jhonatan/Repos/ADScale_2 && git add app/src/app/api/campaigns/route.ts
 
 **Step 1: Write failing prompt tests**
 
+<!-- VERIFY: buildRestylingPrompt function — see verification in .planning/tmp/ (no definition found anywhere in source) -->
 Add to `describe("buildRestylingPrompt", ...)`:
 
 ```ts
@@ -490,9 +491,10 @@ cd /Users/jhonatan/Repos/ADScale_2 && git add app/src/server/jobs/derivation.ts 
 ### Task 5: Add Restyling Modal UI Control
 
 **Files:**
-- Modify: `app/src/components/workspace/RestylingModal.tsx`
+- Modify: `app/src/components/restyling/RestylingForm.tsx`
 - Modify: `app/messages/en.json`
 - Modify: `app/messages/pt-BR.json`
+<!-- VERIFY: app/tests/unit/restyling-modal.test.tsx — see verification in .planning/tmp/ (file not found) -->
 - Test: create `app/tests/unit/restyling-modal.test.tsx`
 
 **Step 1: Write failing UI tests**
@@ -519,6 +521,7 @@ it("submits selected styleIntensity", async () => {
 });
 ```
 
+<!-- VERIFY: app/tests/unit/briefing-doctor-ui.test.tsx — see verification in .planning/tmp/ (file not found) -->
 Use the existing translation mock pattern from `app/tests/unit/briefing-doctor-ui.test.tsx`.
 
 **Step 2: Run test and verify failure**

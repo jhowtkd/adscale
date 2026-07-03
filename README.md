@@ -53,7 +53,7 @@ AI-powered creative derivation platform for marketing teams. Upload a base creat
 | Email | [Resend](https://resend.com/) |
 | Monitoring | [Sentry](https://sentry.io/) (`@sentry/nextjs`) |
 | State | [TanStack Query](https://tanstack.com/query), [Zustand](https://github.com/pmndrs/zustand) |
-| Testing | [Vitest](https://vitest.dev/) (2204 tests), Testing Library, [Playwright](https://playwright.dev/) (E2E) |
+| Testing | [Vitest](https://vitest.dev/), Testing Library, [Playwright](https://playwright.dev/) (E2E) |
 
 The runnable application lives in **`app/`** (not the repository root). API routes are under `app/src/app/api/`.
 
@@ -112,7 +112,7 @@ From `app/`:
 npm test
 ```
 
-The test suite runs **2204 Vitest tests** across billing lifecycle, derivation jobs, access policy, conversion surfaces, and account UI. Playwright E2E specs (`npm run test:e2e`) cover browser-only flows such as restyle file uploads. CI runs lint, migrations, tests, and production build on push/PR to `main` (see `.github/workflows/ci.yml`).
+The test suite spans **900+ Vitest test files** across billing lifecycle, derivation jobs, access policy, conversion surfaces, and account UI. Playwright E2E specs (`npm run test:e2e`) cover browser-only flows such as restyle file uploads. CI runs lint, typecheck, migrations, tests, and production build on push/PR to `main` (see `.github/workflows/ci.yml`).
 
 ## Documentation
 

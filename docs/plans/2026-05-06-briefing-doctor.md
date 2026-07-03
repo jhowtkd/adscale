@@ -13,8 +13,8 @@
 ### Task 1: Add local Briefing Doctor rules
 
 **Files:**
-- Create: `app/src/lib/briefing-doctor.ts`
-- Create: `app/tests/unit/briefing-doctor.test.ts`
+- Create: `app/src/lib/briefing-doctor.ts` <!-- VERIFY: app/src/lib/briefing-doctor.ts — see verification in .planning/tmp/ -->
+- Create: `app/tests/unit/briefing-doctor.test.ts` <!-- VERIFY: app/tests/unit/briefing-doctor.test.ts — see verification in .planning/tmp/ -->
 
 **Step 1: Write the failing tests**
 
@@ -23,8 +23,8 @@ Create `app/tests/unit/briefing-doctor.test.ts`:
 ```ts
 import { describe, expect, it } from "vitest";
 import {
-  analyzeBriefingLocal,
-  applyBriefingFieldPatch,
+  analyzeBriefingLocal, <!-- VERIFY: analyzeBriefingLocal — see verification in .planning/tmp/ -->
+  applyBriefingFieldPatch, <!-- VERIFY: applyBriefingFieldPatch — see verification in .planning/tmp/ -->
   type BriefingDoctorInput,
 } from "@/lib/briefing-doctor";
 
@@ -335,8 +335,8 @@ cd /Users/jhonatan/Repos/ADScale_2 && git add app/src/lib/briefing-doctor.ts app
 ### Task 2: Add AI Briefing Doctor endpoint
 
 **Files:**
-- Create: `app/src/app/api/briefing-doctor/analyze/route.ts`
-- Create: `app/tests/integration/briefing-doctor.test.ts`
+- Create: `app/src/app/api/briefing-doctor/analyze/route.ts` <!-- VERIFY: app/src/app/api/briefing-doctor/analyze/route.ts — see verification in .planning/tmp/ -->
+- Create: `app/tests/integration/briefing-doctor.test.ts` <!-- VERIFY: app/tests/integration/briefing-doctor.test.ts — see verification in .planning/tmp/ -->
 
 **Step 1: Write failing endpoint tests**
 
@@ -667,7 +667,7 @@ cd /Users/jhonatan/Repos/ADScale_2 && git add app/src/app/api/briefing-doctor/an
 ### Task 3: Add frontend hook for AI analysis
 
 **Files:**
-- Create: `app/src/lib/hooks/use-briefing-doctor.ts`
+- Create: `app/src/lib/hooks/use-briefing-doctor.ts` <!-- VERIFY: app/src/lib/hooks/use-briefing-doctor.ts — see verification in .planning/tmp/ -->
 
 **Step 1: Create hook types and mutation**
 
@@ -699,7 +699,7 @@ export interface BriefingDoctorAnalysis {
   fieldPatches: BriefingFieldPatch[];
 }
 
-export function useBriefingDoctorAnalysis() {
+export function useBriefingDoctorAnalysis() { <!-- VERIFY: useBriefingDoctorAnalysis — see verification in .planning/tmp/ -->
   return useMutation({
     mutationFn: async (briefing: BriefingDoctorInput): Promise<BriefingDoctorAnalysis> => {
       const res = await apiFetch("/api/briefing-doctor/analyze", {
@@ -916,7 +916,7 @@ cd /Users/jhonatan/Repos/ADScale_2 && git add app/src/components/workspace/Brief
 ### Task 5: Add UI tests for patch application and assistive flow
 
 **Files:**
-- Create: `app/tests/unit/briefing-doctor-ui.test.tsx`
+- Create: `app/tests/unit/briefing-doctor-ui.test.tsx` <!-- VERIFY: app/tests/unit/briefing-doctor-ui.test.tsx — see verification in .planning/tmp/ -->
 
 **Step 1: Write focused component tests**
 

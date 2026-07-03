@@ -18,26 +18,31 @@ This guide describes how to run and write tests for the ADScale Next.js applicat
 
 **Vitest configuration:** `app/config/vitest.config.ts`
 
-- `environment: "jsdom"` — browser-like APIs for UI tests
+- Two test **projects** (workspaces) split by environment:
+  - `node` — `src/server/**/*.test.ts`, `src/app/api/**/*.test.ts`, and `tests/integration/**/*.test.ts` run in the Node environment.
+  - `jsdom` — all other `src/**` and `tests/**` test files run with browser-like DOM APIs (React components, hooks, UI logic).
 - `globals: true` — Vitest globals available (many files still import `describe` / `it` / `expect` / `vi` explicitly)
 - `setupFiles: ["./tests/setup.ts"]` — runs before each test file
 - `exclude: [..., "tests/e2e/**"]` — Playwright specs are not collected by Vitest
-- Path alias `@` → `app/src` (same as the app)
-- When `TEST_DATABASE_URL` is set in the environment, Vitest forwards it into `process.env` for tests that need it
+- Path alias `@` → `app/src` (same as the app); `server-only` is aliased to the `tests/stubs/server-only.ts` stub
+- When `TEST_DATABASE_URL` is set in the environment, Vitest forwards it into `process.env` for tests that need it; `E2E_DISABLE_RATE_LIMIT=true` is set for all tests
 
 **Playwright configuration:**
 
 | Config file | Purpose |
 |-------------|---------|
-| `app/playwright.config.ts` | Local E2E (`npm run test:e2e`) — all `tests/e2e/*.spec.ts` |
-| `app/playwright.release.config.ts` | Visual release gate (`npm run test:visual-release`) — layout and a11y gate specs only |
+| `app/playwright.config.ts` | Local E2E (`npm run test:e2e`) — all `tests/e2e/*.spec.ts`, split into `isolated-visual` and `serial-flows` projects |
+| `app/playwright.release.config.ts` | Visual release gate (`npm run test:visual-release`) — `visual-release-gate` and `visual-a11y-gate` specs across release viewports |
+| `app/playwright.guided.config.ts` | Guided assistant + iterative copilot flows (`npm run test:guided-e2e`) — desktop and mobile projects |
+| `app/playwright.shell.config.ts` | App shell layout checks (`visual-shell.spec.ts`) across 390/768/1280 viewports |
+| `app/playwright.visual.config.ts` | Visual foundations capture (`visual-foundations.spec.ts`) across six viewports |
 
 Shared defaults:
 
-- `testDir: "./tests/e2e"`, `testMatch: /.*\.spec\.ts$/` (release config narrows the match)
+- `testDir: "./tests/e2e"`, `testMatch: /.*\.spec\.ts$/` (release/shell/visual/guided configs narrow the match to their own specs)
 - Default `baseURL`: `http://localhost:3000` (override with `E2E_BASE_URL`)
-- Long timeouts (180–240s per test) for async Inngest/OpenAI image jobs and layout checks
-- Release config starts a dev server via `webServer` (`E2E_DISABLE_RATE_LIMIT=true npm run dev:next`)
+- Long timeouts (120–240s per test) for async Inngest/OpenAI image jobs and layout checks
+- The release, shell, visual, and guided configs start a dev server via `webServer` (`E2E_DISABLE_RATE_LIMIT=true npm run dev:next`); the guided config lets you skip this with `E2E_SKIP_WEBSERVER=true`
 
 **Global setup:** `app/tests/setup.ts` registers jest-dom matchers:
 
@@ -75,7 +80,7 @@ Equivalent to:
 vitest run --config config/vitest.config.ts --passWithNoTests
 ```
 
-The project currently has **464** Vitest test files (`*.test.ts` / `*.test.tsx`) — **342** under `app/src/` (co-located with source) and **122** under `app/tests/` (shared unit/integration suites, excluding `tests/e2e/`). A full local run reports **~2200** tests (exact count grows with the codebase; one billing regression gate test is skipped by default). Refresh with `find app/src app/tests -name "*.test.ts" -o -name "*.test.tsx" | grep -v node_modules | wc -l`.
+The project currently has **494** Vitest test files (`*.test.ts` / `*.test.tsx`) — **372** under `app/src/` (co-located with source) and **122** under `app/tests/` (shared unit/integration suites, excluding `tests/e2e/`). A full local run reports **~2200** tests (exact count grows with the codebase; one billing regression gate test is skipped by default). Refresh with `find app/src app/tests -name "*.test.ts" -o -name "*.test.tsx" | grep -v node_modules | wc -l`.
 
 ### Watch mode (development)
 
@@ -103,7 +108,7 @@ npx vitest run --config config/vitest.config.ts -t "campaign creation"
 Documented in `app/README.md` for quick verification of billing and auth-related changes:
 
 ```bash
-npm run test -- src/lib/hooks/use-billing.test.tsx src/server/billing/events.test.ts src/app/api/billing/webhook/route.test.ts src/server/billing/credits.test.ts src/server/billing/gates.test.ts src/server/billing/sessions.test.ts src/app/api/billing/checkout/route.test.ts src/app/api/billing/portal/route.test.ts tests/integration/auth-workspace-access.test.ts src/server/ai/prompt-builder.test.ts tests/unit/prompt-parser.test.ts
+npm run test -- src/lib/hooks/use-billing.test.tsx src/server/billing/events.test.ts src/app/api/billing/webhook/route.test.ts src/server/billing/credits.test.ts src/server/billing/paywall.test.ts src/server/billing/sessions.test.ts src/app/api/billing/checkout/route.test.ts src/app/api/billing/portal/route.test.ts tests/integration/auth-workspace-access.test.ts src/server/ai/prompt-builder.test.ts tests/unit/prompt-parser.test.ts
 ```
 
 ### Coverage report (optional)
@@ -120,8 +125,9 @@ E2E specs live in `app/tests/e2e/` and use the `*.spec.ts` suffix. They are **no
 
 | Script | Config | Specs |
 |--------|--------|-------|
-| `npm run test:e2e` | `playwright.config.ts` | All E2E specs |
+| `npm run test:e2e` | `playwright.config.ts` | All E2E specs (isolated-visual + serial-flows projects) |
 | `npm run test:visual-release` | `playwright.release.config.ts` | `visual-release-gate.spec.ts`, `visual-a11y-gate.spec.ts` |
+| `npm run test:guided-e2e` | `playwright.guided.config.ts` | `guided-assistant-journeys.spec.ts`, `guided-assistant-scenarios.spec.ts`, `iterative-copilot-loop.desktop.spec.ts`, `iterative-copilot-loop.mobile.spec.ts` |
 | `npm run release-gate` | (orchestrator) | Unit tests, lint, build, then visual release Playwright suite |
 
 **E2E spec files:**
@@ -136,19 +142,26 @@ E2E specs live in `app/tests/e2e/` and use the `*.spec.ts` suffix. They are **no
 | `assistant-happy-path.spec.ts` | Assistant orchestrator happy-path user journey |
 | `guided-assistant-journeys.spec.ts` | Guided assistant flows across multi-step briefs |
 | `guided-assistant-scenarios.spec.ts` | Scenario variants for guided assistant behavior |
+| `iterative-copilot-loop.desktop.spec.ts` | Iterative copilot loop on desktop viewport |
+| `iterative-copilot-loop.mobile.spec.ts` | Iterative copilot loop on mobile viewport |
+| `v6-preview-a11y-gate.spec.ts` | Accessibility gate for the v6 preview surface (run in CI) |
 
 **Prerequisites for `test:e2e` (restyle and general E2E):**
 
 1. App running on `http://localhost:3000` (for example `npm run start` after a build, or a production-like local server).
 2. Inngest dev server available so async image-generation jobs complete.
 3. `E2E_DISABLE_RATE_LIMIT=true` on the app process (restyle upload flows hit rate limits otherwise).
-4. Test fixtures in `app/tests/fixtures/` (`base.png`, `style.png`, etc.) for file-upload scenarios.
+4. Test fixtures in `app/tests/fixtures/` (`base.png`, `base.jpg`, `style.png`, `style.jpg`, and the `creative-corpus/` directory) for file-upload scenarios.
 
 `restyle.spec.ts` logs in with the dev-admin seed credentials and exercises TC014/TC019-style flows with a 240s per-test timeout. These cases require real `<input type="file">` attachments — something the TestSprite cloud runner cannot execute.
 
 **Visual release gate (`test:visual-release`):**
 
 Starts (or reuses) a local dev server automatically via `playwright.release.config.ts` `webServer`. Uses the `visual-foundations@example.test` seed identity from `tests/e2e/support/visual-auth.ts`. Override credentials with `VISUAL_FOUNDATIONS_PASSWORD` if needed.
+
+**Guided E2E (`test:guided-e2e`):**
+
+Runs `scripts/run-guided-e2e.mjs`, which seeds the dev-admin user, waits for the app to be reachable, then runs the guided config against `tests/e2e/` with `tests/e2e/support/guided-auth.ts`. Set `E2E_SKIP_WEBSERVER=true` if a server is already running; the iterative-copilot specs share mocks from `tests/e2e/support/iterative-copilot-mocks.ts`.
 
 Override the target server:
 
@@ -178,7 +191,7 @@ Use the `.test.ts` or `.test.tsx` suffix for Vitest (not `.spec.*`). Reserve `.s
 - Use `@/` imports for application code (resolved via Vitest config).
 - React components: `@testing-library/react` plus jest-dom matchers from setup.
 - Env validation tests live in `app/tests/unit/env-validation.test.ts` and `app/src/server/validation/env.test.ts`; keep required env shapes consistent with `app/.env.example`.
-- E2E: use `@playwright/test`; share helpers from `tests/e2e/support/` (`visual-auth.ts`, `visual-layer-harness.ts`).
+- E2E: use `@playwright/test`; share helpers from `tests/e2e/support/` (`visual-auth.ts`, `visual-layer-harness.ts`, `guided-auth.ts`, `iterative-copilot-mocks.ts`).
 
 ### Unit vs integration
 
@@ -198,18 +211,18 @@ Billing is covered across server logic, API routes, client hooks, and schema con
 
 | Layer | Files |
 |-------|-------|
-| Server billing | `src/server/billing/credits.test.ts`, `gates.test.ts`, `events.test.ts`, `sessions.test.ts`, `access.test.ts`, `beta.test.ts`, `credit-operation-key.test.ts` |
+| Server billing | `src/server/billing/credits.test.ts`, `paywall.test.ts`, `events.test.ts`, `sessions.test.ts`, `access.test.ts`, `beta.test.ts`, `credit-operation-key.test.ts` |
 | Billing API routes | `src/app/api/billing/checkout/route.test.ts`, `portal/route.test.ts`, `webhook/route.test.ts`, `status/route.test.ts`, `history/route.test.ts` |
 | Client hooks / UI | `src/lib/hooks/use-billing.test.tsx`, `src/components/settings/BillingTab.test.tsx` |
 | Conversion contracts | `src/lib/billing/conversion-contract.test.ts`, `src/lib/billing/conversion-gate.test.ts` |
 | Schema | `tests/unit/billing-schema.test.ts` |
-| Credit-gated routes | Co-located route tests that `vi.mock("@/server/billing/gates")` (for example `src/app/api/derivations/[id]/regenerate/route.test.ts`) |
+| Credit-gated routes | Co-located route tests that `vi.mock("@/server/billing/paywall")` (for example `src/app/api/derivations/[id]/regenerate/route.test.ts`) |
 
-**Credit and gate logic** (`credits.test.ts`, `gates.test.ts`):
+**Credit and gate logic** (`credits.test.ts`, `paywall.test.ts`):
 
 - Mock `@/server/billing/access`, `@/server/repositories/billing`, and `@/server/repositories/usage` before importing the module under test.
 - Spy on `db.transaction` when exercising transactional credit deduction.
-- For `spendCreditsOrApiError`, mock `recordUsage` to return `status: "recorded"` (allowed) or `status: "blocked"` (402 with conversion payload).
+- For `spendOrApiError`, mock `recordUsage` to return `status: "recorded"` (allowed) or `status: "blocked"` (402 with conversion payload).
 - Assert blocked responses use HTTP **402** and include structured `code` / `details` (for example `beta_exhausted`, `recommendedAction: "checkout"`).
 
 **Stripe webhook** (`webhook/route.test.ts`):
@@ -231,7 +244,7 @@ Billing is covered across server logic, API routes, client hooks, and schema con
 
 **Credit-gated API routes**:
 
-- Mock `spendCreditsOrApiError` from `@/server/billing/gates` to return `null` (allowed) or a `Response` (blocked) without hitting Stripe or the database.
+- Mock `spendOrApiError` from `@/server/billing/paywall` to return `null` (allowed) or a `Response` (blocked) without hitting Stripe or the database.
 - Keep idempotency keys and `workspaceId` in test fixtures aligned with production call sites.
 
 ---
@@ -260,14 +273,17 @@ No minimum coverage thresholds are defined in `app/config/vitest.config.ts` or e
 | Postgres service | `postgres:16-alpine`, database `adscale_test`, port `5432` |
 | Install | `cd app && npm ci` |
 | Lint | `cd app && npm run lint` |
-| Typecheck | **⚠ CI gap:** `cd app && npm run typecheck` — the script is **not yet defined** in `app/package.json`, so the workflow currently fails at this step. Local fallback: `npx tsc --noEmit` from `app/` (see [DEVELOPMENT.md](./DEVELOPMENT.md)). Track adding a `"typecheck": "tsc --noEmit"` script to `app/package.json` to unblock CI. |
+| Typecheck | `cd app && npm run typecheck` (runs `tsc --noEmit`) |
 | Migrations | `cd app && npx drizzle-kit migrate` with `DATABASE_URL=postgres://test:test@localhost:5432/adscale_test` |
 | **Tests** | `cd app && npm test -- --run` with `DATABASE_URL` and `NODE_ENV=test` |
-| Build | `cd app && npm run build` (with test env vars for auth, OpenAI, R2, Inngest) |
+| Build | `cd app && npm run build` (with test env vars for auth, OpenAI, R2, Inngest, Stripe) |
+| Start app for e2e | `cd app && npm run start &` (production build, port `3000`) |
+| Install Playwright browsers | `cd app && npx playwright install --with-deps chromium` |
+| E2E a11y gate | `cd app && npx playwright test --grep "v6 preview a11y gate"` (`continue-on-error: true`, non-blocking) with `E2E_BASE_URL=http://localhost:3000` |
 
 CI does not run `test:db:setup`; it relies on the GitHub Actions Postgres service and `DATABASE_URL` on port **5432**, while local Docker setup from `test:db:setup` defaults to port **5433**.
 
-CI does **not** run Playwright E2E tests or the visual release gate; those are manual/local verification (or run via `npm run release-gate` before a release).
+CI runs a single Playwright E2E step — the **v6 preview a11y gate** (`v6-preview-a11y-gate.spec.ts`), which is non-blocking (`continue-on-error: true`). The full E2E suite (`test:e2e`), the visual release gate (`test:visual-release`), and the guided flows (`test:guided-e2e`) are **not** run in CI; they are manual/local verification (or run via `npm run release-gate` before a release).
 
 ---
 

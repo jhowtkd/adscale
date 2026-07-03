@@ -493,7 +493,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const campaign = await getCampaignById(derivation.campaignId, workspace.id);
     if (!campaign) return apiError("campaignNotFound", 404);
 
-    const imageBuffer = await downloadBuffer(derivation.outputKey);
+    const imageBuffer = await downloadBuffer(derivation.outputKey);  // <!-- VERIFY: `downloadBuffer` — nenhuma definição encontrada em app/src; verificação em .planning/tmp/ -->
     const qa = await analyzeCreativeQa({
       imageBuffer,
       mimeType: "image/png",
@@ -670,7 +670,7 @@ git commit -m "feat: add creative qa hook"
 **Files:**
 - Modify: `app/src/components/workspace/DerivationCard.tsx`
 - Modify: `app/src/components/workspace/DerivationCard.test.tsx`
-- Modify: `app/src/components/workspace/DerivationsStep.tsx`
+- <!-- VERIFY: `app/src/components/workspace/DerivationsStep.tsx` — arquivo não encontrado; componentes existentes em workspace/ incluem `DerivationGrid.tsx`, `DerivationCard.tsx`; verificação em .planning/tmp/ -->
 - Modify: `app/src/app/(dashboard)/campaigns/[id]/page.tsx`
 - Modify: `app/messages/en.json`
 - Modify: `app/messages/pt-BR.json`

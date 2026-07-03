@@ -314,7 +314,7 @@ rm -rf "app/src/app/(dashboard)/quick-tools"
 
 - [ ] **Step 4: Add redirect for `/restyling` → `/campaigns`**
 
-Create `app/src/app/(dashboard)/restyling.ts` (or use next.config redirects). Simplest: add to `app/next.config.ts` redirects array:
+Create `app/src/app/(dashboard)/restyling.ts` (or use next.config redirects). <!-- VERIFY: app/src/app/(dashboard)/restyling.ts — file not found; redirect handled via next.config.ts instead; see verification in .planning/tmp/ --> Simplest: add to `app/next.config.ts` redirects array:
 
 Read `app/next.config.ts` first. Add to the `redirects()` async function:
 

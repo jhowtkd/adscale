@@ -304,6 +304,7 @@ Append to `src/server/ai/prompt-builder.ts`:
 ```typescript
 import type { ContentBrief, StyleBrief } from "./image-analysis";
 
+<!-- VERIFY: function 'buildRestylingPrompt' — proposed but never implemented under this name; restyling logic folded into buildDerivationPrompt (generationMode === "restyling"). See .planning/tmp/verify-2026-05-03-restyling-style-transfer-plan.md.json -->
 export function buildRestylingPrompt(
   content: ContentBrief,
   style: StyleBrief,

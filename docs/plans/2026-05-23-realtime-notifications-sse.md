@@ -16,7 +16,7 @@
 - `app/package.json` — Inngest v3.54.0
 - `app/src/server/jobs/client.ts` — Inngest client initialization
 - `app/src/app/api/inngest/route.ts` — Inngest serve handler
-- `app/src/server/jobs/derivation.ts` — derivation job (569 lines)
+- `app/src/server/jobs/derivation.ts` — derivation job (1317 lines)
 - `app/src/lib/hooks/use-derivations.ts` — polling hook
 - `app/src/app/(dashboard)/campaigns/[id]/page.tsx` — campaign page
 

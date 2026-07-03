@@ -6,12 +6,12 @@ Internal HTTP API for the ADScale Next.js application (`app/src/app/api`). Consu
 
 | Property | Value |
 |----------|--------|
-| Base URL | Same origin as the deployed app (`APP_URL` / `BETTER_AUTH_URL`) |
+| Base URL | Same origin as the deployed app (`APP_URL` / `BETTER_AUTH_URL`) <!-- VERIFY: confirm deployed base URL for the production API --> |
 | Format | JSON (except multipart uploads, CSV exports, and Stripe webhook raw body) |
 | Auth (default) | Better Auth session cookie + workspace scoping |
-| Max upload | 50 MB per file; images: `image/png`, `image/jpeg`, `image/webp` |
+| Max upload | 10 MB per file; images: `image/png`, `image/jpeg`, `image/webp` |
 
-Route handlers live under `app/src/app/api/**/route.ts` (118 route files).
+Route handlers live under `app/src/app/api/**/route.ts` (150 route files across 23 route groups).
 
 ---
 
@@ -34,11 +34,11 @@ Most business routes call `requireWorkspaceAccess(request)` (`app/src/server/aut
 2. Loads the user's workspace membership.
 3. Returns `{ user, workspace }` or throws `WorkspaceAuthError`.
 
-**Role-gated routes** additionally call `requireRole(workspaceId, userId, allowedRoles)` for `owner` / `admin` / `member` checks (workspace invites, members).
+**Role-gated routes** additionally call `requireRole(workspaceId, userId, allowedRoles)` for `owner` / `admin` / `member` checks (workspace invites, members, assistant chat, workspace settings writes).
 
 ### Platform owner endpoints
 
-Beta feedback console and analytics routes call `requirePlatformOwner(request)` (`app/src/server/auth/platform-owner.ts`):
+Beta feedback console, analytics, and admin routes call `requirePlatformOwner(request)` (`app/src/server/auth/platform-owner.ts`):
 
 1. Resolves the session from request headers.
 2. Checks the user's email against `PLATFORM_OWNER_EMAILS` (comma-separated env) and `DEV_ADMIN_EMAILS`.
@@ -54,17 +54,19 @@ Quality calibration and human-quality analytics routes call `requireCalibrationA
 
 Returns `401 unauthorized` without a session; `403 forbidden` for members or when no workspace can be resolved.
 
-Routes: `GET /api/feedback/quality-trend`, `quality-improvement`, `score-calibration`, `sample-coverage`, `learning-impact`; `PATCH /api/feedback/calibration-adjustments/:id/accept`.
+Routes: `GET /api/feedback/quality-trend`, `quality-improvement`, `score-calibration`, `sample-coverage`, `learning-impact`; `PATCH /api/feedback/calibration-adjustments/:id/accept`, `/reject`.
 
 ### Session-only (no workspace)
 
-These require a valid session but do not use `requireWorkspaceAccess`:
+These require a valid session (via `getSessionFromHeaders` or `requirePlatformOwner` without a workspace) but do not use `requireWorkspaceAccess`:
 
 | Route | Notes |
 |-------|--------|
 | `POST /api/user/locale` | Updates user locale + `locale` cookie |
 | `GET`, `POST /api/user/onboarding` | Onboarding completion flag (returns `{ error: "Unauthorized" }` on 401, not `apiError` shape) |
 | `POST /api/user/onboarding/restart` | Clears onboarding |
+| `GET`, `PATCH /api/user/profile` | User profile fields (name, etc.) |
+| `POST /api/user/profile/avatar` | Avatar upload |
 | `POST /api/workspace/invites/accept` | Accept invite by token |
 | `PATCH /api/workspace/invites` | Accept invite by token (duplicate entry point) |
 
@@ -98,7 +100,7 @@ Accept: application/json
 ### Success responses
 
 - **JSON APIs:** Handlers return `NextResponse.json(payload)` or `apiSuccess(data, status)` — the body is the resource object directly (no global `{ data: ... }` envelope).
-- **Created:** Many `POST` handlers use status `201` with a resource key (e.g. `{ campaign }`, `{ invite }`, `{ event }`, `{ report }`).
+- **Created:** Many `POST` handlers use status `201` with a resource key (e.g. `{ campaign }`, `{ invite }`, `{ event }`, `{ report }`, `{ thread }`).
 - **Downloads:** Export and presign routes return time-limited URLs, e.g. `{ downloadUrl, expiresAt }` or presign fields from R2 helpers.
 - **Redirects:** `GET /api/share/:token/asset/:derivationId` returns `302` to a signed R2 URL.
 - **CSV:** `GET /api/feedback/analytics/export.csv` returns `text/csv` with `Content-Disposition: attachment`.
@@ -131,9 +133,9 @@ Request bodies are validated with **Zod** where noted below. Failures typically 
 
 ### Multipart
 
-- `POST /api/restyling`, `POST /api/quick-tools/restyling` — `multipart/form-data` (campaign + images).
-- `POST /api/workspace/assets` — file upload fields.
 - `POST /api/campaigns/:id/competitors/analyze` — screenshot files.
+- `POST /api/workspace/assets` — file upload fields.
+- `POST /api/workspace/brand-kit/logo`, `POST /api/user/profile/avatar` — image uploads.
 
 ---
 
@@ -144,7 +146,7 @@ Request bodies are validated with **Zod** where noted below. Failures typically 
 | 400 | `invalidRequestBody` | Malformed JSON or failed body parse |
 | 400 | `invalidInput` | Zod / business validation |
 | 400 | `validation_error` | Zod validation (feedback, analytics, beta sessions) |
-| 400 | `fileTooLarge` | File over 50 MB |
+| 400 | `fileTooLarge` | File over 10 MB |
 | 400 | `invalidFileType` | Disallowed MIME / magic bytes |
 | 400 | `missingBaseAsset` | Campaign has no base asset for restyling / derivations |
 | 400 | `performanceCampaignPathMismatch` | Performance snapshot `campaignId` does not match URL |
@@ -156,7 +158,7 @@ Request bodies are validated with **Zod** where noted below. Failures typically 
 | 403 | `forbidden` | Insufficient workspace role or not platform owner |
 | 403 | `derivationNotInShareLink` | Derivation not in share token scope |
 | 403 | `inviteEmailMismatch` | Invite accept email mismatch |
-| 404 | `campaignNotFound`, `derivationNotFound`, `assetNotFound`, `planNotFound`, `clientProfileNotFound`, `inviteNotFound`, `not_found`, `workspace_not_found`, `shareLinkNotFound`, `billingCustomerNotFound`, … | Resource missing or wrong workspace |
+| 404 | `campaignNotFound`, `derivationNotFound`, `assetNotFound`, `planNotFound`, `clientProfileNotFound`, `inviteNotFound`, `not_found`, `workspace_not_found`, `shareLinkNotFound`, `billingCustomerNotFound`, `threadNotFound`, … | Resource missing or wrong workspace |
 | 409 | `derivationsInProgress`, `derivationNotApproved`, `derivationHardFailures`, `sourceDerivationNotApproved`, `invalidApprovalPackageSelection`, … | Conflict / quality gate |
 | 410 | `inviteExpired` | Invite token expired |
 | 429 | `rateLimitExceeded` | Rate limit (handler or middleware) |
@@ -174,13 +176,16 @@ In development, `500` responses may include `details.devError` with stack info.
 
 ### Edge proxy (`app/src/proxy.ts`)
 
-Applies to **API mutations** (`POST`, `PUT`, `PATCH`, `DELETE`) under `/api/*`:
+Applies to **API mutations** (`POST`, `PUT`, `PATCH`, `DELETE`) under `/api/*`. The category is resolved by `getMutationRateLimitCategory()` (`app/src/lib/api-rate-limit-category.ts`):
 
-| Category | Paths (prefix match) | Default window | Max requests |
-|----------|----------------------|----------------|--------------|
-| `auth` | `/api/auth` | 60s | 10 |
-| `ai` | `/api/campaigns`, `/api/derivations`, `/api/restyling`, `/api/quick-tools` | 60s | 5 |
-| `general` | All other API mutations | 60s | 30 |
+| Category | Matched paths | Default window | Max requests |
+|----------|---------------|----------------|--------------|
+| `auth` | `/api/auth/**` | 60s | 10 |
+| `ai` | `/api/derivations/**`, plus AI-heavy campaign mutations: `/campaigns/:id/derivations`, `/diagnosis(/regenerate)`, `/auto-briefing`, `/analyze`, `/restyle`, `/suggest-ctas`, `/smart-resize-preview`, `/competitors/analyze`, `/competitors/strategy`, `/assets/:assetId/preflight` | 60s | 5 |
+| `general` | All other API mutations (campaign CRUD, assets/upload, billing, assistant, workspace, etc.) | 60s | 30 |
+| `read` | (defined but not applied by the proxy, which limits mutations only) | 60s | 60 |
+
+> **Note:** There is no standalone `/api/restyling` or `/api/quick-tools/*` route — restyling is done via `/api/campaigns/:id/restyle`, which the proxy buckets as `ai`.
 
 **429 response (middleware):**
 
@@ -194,7 +199,7 @@ Applies to **API mutations** (`POST`, `PUT`, `PATCH`, `DELETE`) under `/api/*`:
 
 Headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`.
 
-Storage: Upstash Redis when `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` are set; otherwise in-memory per instance (`app/src/lib/rate-limit.ts`).
+Storage: Upstash Redis when `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` are set; otherwise in-memory per instance (`app/src/lib/rate-limit.ts`). In a serverless/multi-instance deploy the in-memory store resets per instance, so configure Upstash for effective limits.
 
 ### Per-route limits
 
@@ -208,24 +213,70 @@ Storage: Upstash Redis when `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN
 
 Dynamic segments use `:id` notation. Auth column: **none**, **session**, **session+workspace**, **platform-owner**, **calibration-access**, **better-auth**, **stripe-signature**, **x-webhook-secret**, **inngest-signing**, **share-token**.
 
+### Auth, health, infra, webhooks
+
 | Method(s) | Path | Auth | Description |
 |-----------|------|------|-------------|
 | GET, POST | `/api/auth/[...all]` | better-auth | Sign-in, sign-up, OAuth, session, password reset |
 | GET | `/api/health` | none | Liveness probe + static asset diagnostics |
 | GET | `/api/build-id` | none | Git commit / build identifier |
 | OPTIONS, POST | `/api/waitlist` | none (CORS) | Marketing-site waitlist signup |
-| GET, POST, PUT | `/api/inngest` | inngest-signing | Inngest job handler (derivation, trial, assets, brand memory) |
+| GET, POST, PUT | `/api/inngest` | inngest-signing | Inngest job handler (derivation, trial, assets, brand memory, learning aggregator) |
+| POST | `/api/billing/webhook` | stripe-signature | Stripe subscription events |
+| POST | `/api/notifications/webhook` | x-webhook-secret | Internal notification email dispatcher |
+
+### Admin (platform-owner only)
+
+| Method(s) | Path | Auth | Description |
+|-----------|------|------|-------------|
+| GET | `/api/admin/quality/brands` | platform-owner | List brand-taste profiles |
+| GET | `/api/admin/quality/brands/:clientProfileId/evidence` | platform-owner | Brand evidence |
+| GET | `/api/admin/quality/brands/:clientProfileId/profile` | platform-owner | Brand profile detail |
+| GET | `/api/admin/quality/brands/:clientProfileId/rules` | platform-owner | Brand rules |
+| GET | `/api/admin/quality/brands/:clientProfileId/voice` | platform-owner | Brand voice |
+| GET | `/api/admin/quality/ingestion/status` | platform-owner | Quality ingestion pipeline status |
+| POST | `/api/admin/quality/ingestion/backfill` | platform-owner | Backfill quality ingestion records |
+| GET | `/api/admin/quality/learning/factual-alerts` | platform-owner | Factual-alerts summary |
 | GET | `/api/admin/quality/learning/proposals` | platform-owner | List client learning proposals |
 | POST | `/api/admin/quality/learning/proposals/generate` | platform-owner | Generate client learning proposals (AI) |
 | POST | `/api/admin/quality/learning/proposals/:id/accept` | platform-owner | Accept learning proposal |
 | POST | `/api/admin/quality/learning/proposals/:id/reject` | platform-owner | Reject learning proposal |
-| GET | `/api/admin/quality/ingestion/status` | platform-owner | Quality ingestion pipeline status |
-| POST | `/api/admin/quality/ingestion/backfill` | platform-owner | Backfill quality ingestion records |
-| POST | `/api/billing/webhook` | stripe-signature | Stripe subscription events |
-| POST | `/api/notifications/webhook` | x-webhook-secret | Internal notification email dispatcher |
+| GET, POST | `/api/admin/testers` | platform-owner | List / create beta tester workspaces |
+| DELETE | `/api/admin/testers/:workspaceId` | platform-owner | Remove beta tester workspace |
+
+### Assistant (session+workspace)
+
+| Method(s) | Path | Description |
+|-----------|------|-------------|
+| GET, POST | `/api/assistant/threads` | List / create assistant threads |
+| GET | `/api/assistant/threads/:threadId` | Get thread (messages, guided flow, artifact state) |
+| POST | `/api/assistant/threads/:threadId/chat` | Send a chat message (role-gated owner/admin/member) |
+| POST | `/api/assistant/threads/:threadId/messages` | Persist a message |
+| POST | `/api/assistant/threads/:threadId/link-campaign` | Link thread to a campaign |
+| GET, POST | `/api/assistant/threads/:threadId/artifact-versions` | List / create artifact versions |
+| POST | `/api/assistant/threads/:threadId/artifact-versions/compare` | Compare two artifact versions |
+| POST | `/api/assistant/threads/:threadId/artifact-versions/comparison-acknowledgements` | Acknowledge a comparison |
+| POST | `/api/assistant/threads/:threadId/artifact-versions/promote` | Promote an artifact version |
+| GET, PUT | `/api/assistant/threads/:threadId/creative-revisions` | List / record creative revisions |
+| GET, PUT | `/api/assistant/threads/:threadId/plan-revisions` | List / record plan revisions |
+| GET, PATCH | `/api/assistant/threads/:threadId/guided-flow` | Get / advance guided flow state |
+| POST | `/api/assistant/threads/:threadId/guided-flow/commands` | Issue a guided-flow command |
+| GET, POST | `/api/assistant/threads/:threadId/guided-flow/feedback` | List / submit guided-flow feedback |
+| POST | `/api/assistant/threads/:threadId/guided-flow/from-zero` | Start a from-zero guided flow |
+| POST, PATCH | `/api/assistant/threads/:threadId/guided-flow/select-creative` | Select / confirm a creative in the flow |
+| POST | `/api/assistant/actions/:actionId/cancel` | Cancel a pending assistant action |
+| POST | `/api/assistant/actions/:actionId/confirm` | Confirm a pending assistant action |
+| POST | `/api/assistant/artifact-proposals/:proposalId/cancel` | Cancel an artifact proposal |
+
+### Analytics and feedback
+
+| Method(s) | Path | Auth | Description |
+|-----------|------|------|-------------|
 | POST | `/api/analytics/events` | session+workspace | Record client beta analytics event |
 | GET | `/api/feedback/analytics/funnel` | platform-owner | Beta funnel analytics summary |
 | GET | `/api/feedback/analytics/credit-signals` | platform-owner | Owner credit-surprise signal summary |
+| GET | `/api/feedback/analytics/artifact-iteration-funnel` | platform-owner | Artifact iteration funnel |
+| GET | `/api/feedback/analytics/guided-flow-funnel` | platform-owner | Guided-flow funnel |
 | GET | `/api/feedback/analytics/export.csv` | platform-owner | CSV export of funnel + raw events |
 | GET, POST | `/api/feedback/beta-sessions` | platform-owner | List / start beta operator sessions |
 | GET, PATCH | `/api/feedback/beta-sessions/:id` | platform-owner | Get / end beta session |
@@ -238,13 +289,20 @@ Dynamic segments use `:id` notation. Auth column: **none**, **session**, **sessi
 | GET | `/api/feedback/sample-coverage` | calibration-access | Corpus sample coverage report |
 | GET | `/api/feedback/learning-impact` | calibration-access | Learning impact metrics |
 | GET | `/api/feedback/global-corpus-evidence` | platform-owner | Global corpus evidence summary |
+| GET | `/api/feedback/guided-flow/staging-evidence` | platform-owner | Guided-flow staging evidence |
 | GET, POST | `/api/feedback/human-quality-corpus` | platform-owner | Human-quality corpus queue |
 | GET | `/api/feedback/human-quality-corpus/candidates` | platform-owner | Corpus promotion candidates |
 | POST | `/api/feedback/human-quality-corpus/candidates/:id/promote` | platform-owner | Promote candidate into corpus |
 | POST | `/api/feedback/human-quality-corpus/:id/evaluation` | platform-owner | Submit corpus item evaluation |
 | PATCH | `/api/feedback/calibration-adjustments/:id/accept` | calibration-access | Accept score calibration adjustment |
+| PATCH | `/api/feedback/calibration-adjustments/:id/reject` | calibration-access | Reject score calibration adjustment |
 | GET, POST | `/api/feedback/reports` | platform-owner (GET) / session+workspace (POST) | List / submit user feedback |
 | GET, PATCH | `/api/feedback/reports/:id` | platform-owner | Feedback detail + triage (`?workspaceId=`) |
+
+### Campaigns
+
+| Method(s) | Path | Auth | Description |
+|-----------|------|------|-------------|
 | GET, POST | `/api/campaigns` | session+workspace | List / create campaigns |
 | GET, PATCH, DELETE | `/api/campaigns/:id` | session+workspace | Get / update / delete campaign |
 | GET, POST, PATCH | `/api/campaigns/:id/plan` | session+workspace | Creative plan (AI generate / read / update) |
@@ -268,18 +326,23 @@ Dynamic segments use `:id` notation. Auth column: **none**, **session**, **sessi
 | GET, POST | `/api/campaigns/:id/comparisons` | session+workspace | List / run observational comparisons |
 | GET | `/api/campaigns/:id/recommendation` | session+workspace | Next experiment recommendation |
 | GET | `/api/campaigns/:id/output-recommendation` | session+workspace | Output-level experiment recommendation |
-| GET, POST | `/api/campaigns/:id/derivations` | session+workspace | List / queue derivations |
+| POST, GET | `/api/campaigns/:id/derivations` | session+workspace | Queue (POST) / list (GET) derivations |
 | GET, POST | `/api/campaigns/:id/approval-package` | session+workspace | Client approval package + share link |
 | GET | `/api/campaigns/:id/assets` | session+workspace | List campaign assets |
 | POST | `/api/campaigns/:id/assets/presign` | session+workspace | R2 presigned upload URL |
 | POST | `/api/campaigns/:id/assets/upload` | session+workspace | Direct asset upload |
 | POST | `/api/campaigns/:id/assets/complete` | session+workspace | Finalize presigned upload |
 | POST | `/api/campaigns/:id/assets/link` | session+workspace | Link external asset URL |
-| GET, POST, PATCH | `/api/campaigns/:id/assets/:assetId/preflight` | session+workspace | Asset preflight check |
+| GET, PATCH, POST | `/api/campaigns/:id/assets/:assetId/preflight` | session+workspace | Asset preflight check |
 | GET, POST | `/api/campaigns/:id/competitors` | session+workspace | List / add competitors |
 | PATCH, DELETE | `/api/campaigns/:id/competitors/:competitorId` | session+workspace | Update / remove competitor |
 | POST | `/api/campaigns/:id/competitors/analyze` | session+workspace | Analyze competitor screenshots |
 | POST | `/api/campaigns/:id/competitors/strategy` | session+workspace | Competitor strategy (AI) |
+
+### Derivations & creatives
+
+| Method(s) | Path | Auth | Description |
+|-----------|------|------|-------------|
 | GET, POST | `/api/derivations/:id/copy-variants` | session+workspace | Generate / list copy variants |
 | PATCH | `/api/derivations/:id/copy-variants/:variantId` | session+workspace | Select copy variant |
 | PATCH | `/api/derivations/:id/review` | session+workspace | Approve / reject derivation |
@@ -289,6 +352,11 @@ Dynamic segments use `:id` notation. Auth column: **none**, **session**, **sessi
 | POST | `/api/derivations/:id/landing-page` | session+workspace | Landing page match generation |
 | POST | `/api/derivations/:id/save-reference` | session+workspace | Save derivation to client library |
 | GET, POST | `/api/creatives/:id/persona-simulation` | session+workspace | Persona simulation |
+
+### Client profiles & templates
+
+| Method(s) | Path | Auth | Description |
+|-----------|------|------|-------------|
 | GET, POST | `/api/client-profiles` | session+workspace | List / create client profiles |
 | GET | `/api/client-profiles/:id/memory` | session+workspace | Brand memory for profile |
 | GET, POST | `/api/client-profiles/:id/learnings` | session+workspace | Client profile learnings |
@@ -296,22 +364,45 @@ Dynamic segments use `:id` notation. Auth column: **none**, **session**, **sessi
 | GET, POST | `/api/client-profiles/:id/references` | session+workspace | Reference library |
 | GET, POST | `/api/templates` | session+workspace | Campaign templates |
 | PATCH | `/api/templates/:id` | session+workspace | Update template |
+
+### Dashboard & notifications
+
+| Method(s) | Path | Auth | Description |
+|-----------|------|------|-------------|
 | GET | `/api/dashboard` | session+workspace | Dashboard summary |
 | GET | `/api/dashboard/stats` | session+workspace | Dashboard statistics |
 | GET, PATCH, DELETE | `/api/notifications` | session+workspace | List / mark all read / clear |
 | PATCH | `/api/notifications/:id/read` | session+workspace | Mark one notification read |
+
+### Export & share
+
+| Method(s) | Path | Auth | Description |
+|-----------|------|------|-------------|
 | POST | `/api/exports` | session+workspace | Export derivation(s) download URL |
 | POST | `/api/export/zip` | session+workspace | ZIP export |
-| POST | `/api/share` | session+workspace | Create share link for derivations |
+| POST, DELETE | `/api/share` | session+workspace | Create / revoke share link for derivations |
 | GET | `/api/share/:token/asset/:derivationId` | share-token | Redirect to signed derivation asset |
-| POST | `/api/restyling` | session+workspace | Standalone restyling (multipart) |
-| POST | `/api/quick-tools/restyling` | session+workspace | Quick restyling tool |
+
+### Billing
+
+All billing routes except the webhook require **session+workspace**.
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
 | GET | `/api/billing/status` | session+workspace | Subscription / credits status |
 | GET | `/api/billing/history` | session+workspace | Billing history |
 | POST | `/api/billing/checkout` | session+workspace | Stripe Checkout session URL |
 | POST | `/api/billing/portal` | session+workspace | Stripe Customer Portal URL |
 | POST | `/api/billing/beta/redeem` | session+workspace | Redeem beta access code |
+| POST | `/api/billing/webhook` | stripe-signature | Stripe subscription events |
+
+### User & workspace
+
+| Method(s) | Path | Auth | Description |
+|-----------|------|------|-------------|
 | POST | `/api/user/locale` | session | Update locale |
+| GET, PATCH | `/api/user/profile` | session | Get / update user profile fields |
+| POST | `/api/user/profile/avatar` | session | Upload avatar |
 | GET | `/api/user/export` | session+workspace | Export user data |
 | DELETE | `/api/user/account` | session+workspace | Delete account (confirmation required) |
 | GET, POST | `/api/user/onboarding` | session | Onboarding status / complete |
@@ -327,6 +418,7 @@ Dynamic segments use `:id` notation. Auth column: **none**, **session**, **sessi
 | GET | `/api/workspace/missions` | session+workspace | Workspace mission progress |
 | POST | `/api/workspace/mission-insights` | session+workspace | Record mission insight moment |
 | GET | `/api/workspace/progression` | session+workspace | Workspace progression state |
+| GET, PATCH | `/api/workspace/settings` | session+workspace | Workspace settings (PATCH requires admin role) |
 | GET | `/api/dev/reset-token` | none (e2e) | E2E password-reset token helper |
 
 ---
@@ -457,7 +549,7 @@ Response: `{ "sent": true, "type" }` or `{ "sent": false, "reason": "notificatio
 
 Response: `{ "event": { ... } }` with status `201`.
 
-**Owner analytics query** (`GET /api/feedback/analytics/funnel`, `credit-signals`, `export.csv`):
+**Owner analytics query** (`GET /api/feedback/analytics/funnel`, `credit-signals`, `artifact-iteration-funnel`, `guided-flow-funnel`, `export.csv`):
 
 | Query param | Description |
 |-------------|-------------|
@@ -674,18 +766,19 @@ Source derivation must be `approved` with output. Queues `format_adaptation` chi
 
 Response: `{ "downloadUrl": "...", "expiresAt": "<iso8601>" }` (5-minute TTL).
 
+### Assistant
+
+**`GET /api/assistant/threads`** query: `campaignId`, `clientId` (both optional; validated but not required).
+
+**`POST /api/assistant/threads`** — creates a thread. Response `201`: `{ thread }`. Errors: `threadNotFound` (404 in legacy reattach path).
+
+**`POST /api/assistant/threads/:threadId/chat`** — sends a user message and runs the assistant turn (role-gated to `owner`/`admin`/`member`).
+
+**`GET`, `PATCH /api/assistant/threads/:threadId/guided-flow`** — reads / advances guided-flow journey state (returned via `presentJourneyState`).
+
+**`POST /api/assistant/actions/:actionId/confirm`** / **`.../cancel`** — resolve a pending assistant action by id.
+
 ### Billing (v12.0)
-
-All billing routes except the webhook require **session+workspace**.
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/billing/status` | Subscription, access kind, credits, past-due / canceled recovery hints |
-| GET | `/api/billing/history` | Credit grants, transactions, spend summary |
-| POST | `/api/billing/checkout` | Create Stripe Checkout session |
-| POST | `/api/billing/portal` | Create Stripe Customer Portal session |
-| POST | `/api/billing/beta/redeem` | Redeem beta access code (`BETA_ACCESS_CODES`) |
-| POST | `/api/billing/webhook` | Stripe subscription events (`stripe-signature`) |
 
 **`planKey` values:** `starter`, `growth`, `scale` (monthly credit grants: 30 / 120 / 360).
 
@@ -783,6 +876,8 @@ Admin invites require `owner` role.
 { "token": "<invite token>" }
 ```
 
+**`GET`, `PATCH /api/workspace/settings`** — `PATCH` requires `owner`/`admin` role (`requireRole`).
+
 ### Share
 
 **`POST /api/share`**
@@ -796,6 +891,8 @@ Admin invites require `owner` role.
 
 `derivationIds`: 1–50 items. Response: `{ "shareUrl", "expiresAt" }`.
 
+**`DELETE /api/share`** — revokes a share link (session+workspace).
+
 ### User
 
 **`POST /api/user/locale`**
@@ -803,6 +900,10 @@ Admin invites require `owner` role.
 ```json
 { "locale": "en" | "pt-BR" }
 ```
+
+**`GET`, `PATCH /api/user/profile`** — profile fields (e.g. name). Session-only (no workspace scoping).
+
+**`POST /api/user/profile/avatar`** — avatar upload (multipart). Session-only.
 
 ### Assets (presign)
 

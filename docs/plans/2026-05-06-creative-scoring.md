@@ -14,7 +14,7 @@
 
 **Files:**
 - Modify: `app/src/server/db/schema.ts`
-- Create: `app/drizzle/0003_creative_scoring.sql`
+- Create: `app/drizzle/0004_creative_scoring.sql`
 - Modify: `app/drizzle/meta/_journal.json`
 - Create/Modify: generated Drizzle metadata snapshot if using `npx drizzle-kit generate`
 
@@ -553,7 +553,7 @@ cd /Users/jhonatan/Repos/ADScale_2 && git add app/src/lib/hooks/use-derivations.
 ### Task 6: Add score display and best-first sorting in the gallery
 
 **Files:**
-- Modify: `app/src/components/workspace/DerivationsStep.tsx`
+- Modify: `app/src/components/workspace/DerivationsStep.tsx` <!-- VERIFY: app/src/components/workspace/DerivationsStep.tsx — file not found; see verification in .planning/tmp/ -->
 - Modify: `app/src/components/workspace/DerivationCard.tsx`
 - Modify: `app/messages/en.json`
 - Modify: `app/messages/pt-BR.json`
@@ -662,8 +662,8 @@ cd /Users/jhonatan/Repos/ADScale_2 && git add app/src/components/workspace/Deriv
 ### Task 7: Add guided regeneration in review
 
 **Files:**
-- Modify: `app/src/components/workspace/ComparisonView.tsx`
-- Modify: `app/src/components/workspace/ReviewStep.tsx`
+- Modify: `app/src/components/workspace/ComparisonView.tsx` <!-- VERIFY: app/src/components/workspace/ComparisonView.tsx — file not found; see verification in .planning/tmp/ -->
+- Modify: `app/src/components/workspace/ReviewStep.tsx` <!-- VERIFY: app/src/components/workspace/ReviewStep.tsx — file not found; see verification in .planning/tmp/ -->
 - Modify: `app/messages/en.json`
 - Modify: `app/messages/pt-BR.json`
 

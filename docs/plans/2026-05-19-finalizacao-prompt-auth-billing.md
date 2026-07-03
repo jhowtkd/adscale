@@ -66,7 +66,7 @@ git commit -m "feat: harden auth workspace baseline"
 - Modify: `app/package.json`
 - Modify: `app/src/server/validation/env.ts`
 - Modify: `app/src/server/db/schema.ts`
-- Create: `app/drizzle/0012_billing.sql`
+- Create: `app/drizzle/0012_billing_foundation.sql`
 - Test: `app/tests/unit/billing-schema.test.ts`
 
 **Step 1: Install Stripe**
@@ -309,7 +309,7 @@ git commit -m "feat: add credit entitlement service"
 **Files:**
 - Modify: `app/src/app/api/campaigns/[id]/plan/route.ts`
 - Modify: `app/src/app/api/campaigns/[id]/derivations/route.ts`
-- Modify: `app/src/app/api/quick-tools/restyling/route.ts`
+- Modify: `app/src/app/api/campaigns/[id]/restyle/route.ts`
 - Modify: `app/src/app/api/derivations/[id]/regenerate/route.ts`
 - Modify: `app/src/app/api/derivations/[id]/delivery-package/route.ts`
 - Modify: `app/src/app/api/derivations/[id]/landing-page/route.ts`

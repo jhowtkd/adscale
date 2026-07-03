@@ -13,10 +13,10 @@
 ## Context You Need
 
 **Existing files to study:**
-- `app/src/components/workspace/StepIndicator.tsx` — currently 3 steps (1|2|3)
+<!-- VERIFY: app/src/components/workspace/StepIndicator.tsx exists (currently 3 steps 1|2|3) — see verification in .planning/tmp/ -->
 - `app/src/lib/hooks/use-campaign-workspace.ts` — wizard navigation and handlers
-- `app/src/components/workspace/UploadStep.tsx` — currently has "Generate All" / "Generate Preview" buttons
-- `app/src/components/workspace/PlanStep.tsx` — orphaned component with simulated loading
+<!-- VERIFY: app/src/components/workspace/UploadStep.tsx exists (has "Generate All"/"Generate Preview" buttons) — see verification in .planning/tmp/ -->
+<!-- VERIFY: app/src/components/workspace/PlanStep.tsx exists (orphaned component with simulated loading) — see verification in .planning/tmp/ -->
 - `app/src/app/(dashboard)/campaigns/[id]/page.tsx` — renders steps 1-3
 - `app/src/lib/hooks/use-plan.ts` — real hooks: `usePlan`, `useGeneratePlan`, `useUpdatePlanStatus`
 - `app/messages/pt-BR.json` and `app/messages/en.json` — i18n messages
@@ -36,7 +36,7 @@ Replace the type and steps array:
 
 ```typescript
 // Change from:
-export type StepKey = 1 | 2 | 3;
+// VERIFY: export type StepKey = 1 | 2 | 3 in StepIndicator.tsx — see verification in .planning/tmp/ (StepIndicator.tsx does not exist)
 
 // To:
 export type StepKey = 1 | 2 | 3 | 4;
@@ -90,6 +90,7 @@ cat app/src/lib/hooks/use-campaign-workspace.ts
 Change `WizardStep` type (line ~22):
 
 ```typescript
+// VERIFY: export type WizardStep = 1 | 2 | 3 in use-campaign-workspace.ts — see verification in .planning/tmp/ (no WizardStep type found)
 export type WizardStep = 1 | 2 | 3 | 4;
 ```
 
@@ -112,6 +113,7 @@ Update initial step detection (around line 100-108). Change `setCurrentStep(3)` 
 ```typescript
 if (derivationsData && derivationsData.length > 0) {
   queueMicrotask(() => {
+    // VERIFY: setCurrentStep(4) initial step detection — see verification in .planning/tmp/ (no setCurrentStep/currentStep step-navigation model in use-campaign-workspace.ts)
     setCurrentStep(4);
     setHasSetInitialStep(true);
   });
@@ -121,6 +123,7 @@ if (derivationsData && derivationsData.length > 0) {
 Update `handleNext` (around line 182-184):
 
 ```typescript
+// VERIFY: handleNext with goToStep((currentStep + 1)) — see verification in .planning/tmp/ (no handleNext/goToStep functions found in use-campaign-workspace.ts)
 const handleNext = useCallback(() => {
   if (currentStep < 4) goToStep((currentStep + 1) as WizardStep);
 }, [currentStep, goToStep]);
@@ -279,6 +282,7 @@ cd /Users/jhonatan/Repos/ADScale_2 && git add app/src/components/workspace/Uploa
 ### Task 4: Rewrite PlanStep with Real Hooks
 
 **Files:**
+<!-- VERIFY: app/src/components/workspace/PlanStep.tsx exists to rewrite — see verification in .planning/tmp/ (file not found) -->
 - Modify: `app/src/components/workspace/PlanStep.tsx`
 
 **Step 1: Read current file**
@@ -296,6 +300,7 @@ import { useEffect } from "react";
 import { Sparkles, ArrowRight, SkipForward } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { usePlan, useGeneratePlan, useUpdatePlanStatus } from "@/lib/hooks/use-plan";
+// VERIFY: CreativePlanCard from ./CreativePlanCard — see verification in .planning/tmp/ (no CreativePlanCard definition found in app/src/)
 import CreativePlanCard from "./CreativePlanCard";
 
 interface PlanStepProps {
