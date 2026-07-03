@@ -4,6 +4,7 @@ import {
   boolean,
   uuid,
   integer,
+  real,
   numeric,
   date,
   jsonb,
@@ -660,6 +661,7 @@ export const derivations = adscaleSchema.table(
     exportStatus: jsonb("export_status").$type<
       import("../ai/olhar/dual-verdict").ExportStatusPayload
     >(),
+    creativeLevel: text("creative_level"),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
   },
@@ -2716,3 +2718,150 @@ export type NewAssistantGuidedFlowFeedback = typeof assistantGuidedFlowFeedback.
 
 export type PersonaSimulation = typeof personaSimulations.$inferSelect;
 export type NewPersonaSimulation = typeof personaSimulations.$inferInsert;
+
+// ============================================
+// Goal-oriented creative agent (pilot)
+// ============================================
+
+export const assistantGoalRuns = adscaleSchema.table(
+  "assistant_goal_runs",
+  {
+    id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    clientProfileId: uuid("client_profile_id")
+      .notNull()
+      .references(() => clientProfiles.id, { onDelete: "cascade" }),
+    threadId: uuid("thread_id")
+      .notNull()
+      .references(() => assistantThreads.id, { onDelete: "cascade" }),
+    campaignId: uuid("campaign_id").references(() => campaigns.id, {
+      onDelete: "set null",
+    }),
+    objective: text("objective").notNull().default(""),
+    stage: text("stage").notNull().default("intake"),
+    brief: jsonb("brief").$type<import("../../lib/assistant/goal").GoalBrief>().notNull().default(sql`'{}'::jsonb`),
+    plan: jsonb("plan").$type<import("../../lib/assistant/goal").GoalPlan>().notNull().default(sql`'{}'::jsonb`),
+    assumptions: jsonb("assumptions").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+    blockers: jsonb("blockers").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+    queuedInstruction: text("queued_instruction"),
+    selectedBaseVersionId: uuid("selected_base_version_id").references(
+      () => assistantArtifactVersions.id,
+      { onDelete: "set null" }
+    ),
+    revision: integer("revision").notNull().default(0),
+    startedByUserId: text("started_by_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    completedAt: timestamp("completed_at", { mode: "date" }),
+    stoppedAt: timestamp("stopped_at", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("assistant_goal_runs_thread_uq").on(table.threadId),
+    index("assistant_goal_runs_scope_idx").on(
+      table.workspaceId,
+      table.clientProfileId,
+      table.threadId
+    ),
+    index("assistant_goal_runs_stage_updated_idx").on(table.stage, table.updatedAt),
+    check(
+      "assistant_goal_runs_stage_check",
+      sql`${table.stage} in ('intake','planning','awaiting_generation','generating_variants','choosing_base','reviewing_base','awaiting_package','generating_package','reviewing_package','completed','stopped','failed')`
+    ),
+  ]
+);
+
+export type AssistantGoalRun = typeof assistantGoalRuns.$inferSelect;
+export type NewAssistantGoalRun = typeof assistantGoalRuns.$inferInsert;
+
+export const assistantArtifactAnnotations = adscaleSchema.table(
+  "assistant_artifact_annotations",
+  {
+    id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    clientProfileId: uuid("client_profile_id")
+      .notNull()
+      .references(() => clientProfiles.id, { onDelete: "cascade" }),
+    threadId: uuid("thread_id")
+      .notNull()
+      .references(() => assistantThreads.id, { onDelete: "cascade" }),
+    goalRunId: uuid("goal_run_id")
+      .notNull()
+      .references(() => assistantGoalRuns.id, { onDelete: "cascade" }),
+    versionId: uuid("version_id")
+      .notNull()
+      .references(() => assistantArtifactVersions.id, { onDelete: "cascade" }),
+    actionRecordId: uuid("action_record_id").references(
+      () => assistantActionRecords.id,
+      { onDelete: "set null" }
+    ),
+    addressedByVersionId: uuid("addressed_by_version_id").references(
+      () => assistantArtifactVersions.id,
+      { onDelete: "set null" }
+    ),
+    x: real("x").notNull(),
+    y: real("y").notNull(),
+    width: real("width").notNull(),
+    height: real("height").notNull(),
+    comment: text("comment").notNull(),
+    status: text("status").notNull().default("draft"),
+    createdByUserId: text("created_by_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("assistant_artifact_annotations_version_status_idx").on(
+      table.versionId,
+      table.status,
+      table.createdAt
+    ),
+    check(
+      "assistant_artifact_annotations_rect_check",
+      sql`${table.x} >= 0 AND ${table.x} <= 1 AND ${table.y} >= 0 AND ${table.y} <= 1 AND ${table.width} > 0 AND ${table.width} <= 1 AND ${table.height} > 0 AND ${table.height} <= 1 AND ${table.x} + ${table.width} <= 1 AND ${table.y} + ${table.height} <= 1`
+    ),
+    check(
+      "assistant_artifact_annotations_status_check",
+      sql`${table.status} in ('draft','submitted','addressed')`
+    ),
+  ]
+);
+
+export type AssistantArtifactAnnotation =
+  typeof assistantArtifactAnnotations.$inferSelect;
+export type NewAssistantArtifactAnnotation =
+  typeof assistantArtifactAnnotations.$inferInsert;
+
+export const clientCorpusConsents = adscaleSchema.table(
+  "client_corpus_consents",
+  {
+    clientProfileId: uuid("client_profile_id")
+      .primaryKey()
+      .references(() => clientProfiles.id, { onDelete: "cascade" }),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    status: text("status").notNull(),
+    reviewedByUserId: text("reviewed_by_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    grantedAt: timestamp("granted_at", { mode: "date" }),
+    revokedAt: timestamp("revoked_at", { mode: "date" }),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    check(
+      "client_corpus_consents_status_check",
+      sql`${table.status} in ('granted','revoked')`
+    ),
+  ]
+);
+
+export type ClientCorpusConsent = typeof clientCorpusConsents.$inferSelect;
+export type NewClientCorpusConsent = typeof clientCorpusConsents.$inferInsert;
