@@ -150,8 +150,8 @@ Add a dedicated creative diagnosis module:
 
 Add campaign repository helpers:
 
-- `updateCreativeDiagnosis(campaignId, workspaceId, diagnosisData)`
-- `getCreativeDiagnosis(campaignId, workspaceId)`
+- `updateCreativeDiagnosis(campaignId, workspaceId, diagnosisData)` <!-- VERIFY: updateCreativeDiagnosis — no definition found in app/src/; see verification in .planning/tmp/ -->
+- `getCreativeDiagnosis(campaignId, workspaceId)` <!-- VERIFY: getCreativeDiagnosis — no definition found in app/src/; see verification in .planning/tmp/ -->
 
 Add or extend API routes for:
 

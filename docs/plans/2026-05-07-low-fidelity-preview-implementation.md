@@ -13,7 +13,7 @@
 ## Contexto
 
 - Design aprovado em: `docs/plans/2026-05-07-low-fidelity-preview-design.md`
-- Arquivos principais: schema.ts, derivation.ts (job), derivations/route.ts (API), DerivationCard.tsx, DerivationStep.tsx
+- Arquivos principais: schema.ts, derivation.ts (job), derivations/route.ts (API), DerivationCard.tsx, <!-- VERIFY: DerivationStep.tsx — see verification in .planning/tmp/ -->
 
 ---
 
@@ -21,7 +21,7 @@
 
 **Files:**
 - Modify: `app/src/server/db/schema.ts`
-- Create: `app/drizzle/0006_add_is_preview_to_derivations.sql`
+- Create: `app/drizzle/0006_stormy_brother_voodoo.sql`
 - Test: `app/tests/unit/repositories/derivation.test.ts`
 
 **Step 1: Ler schema atual**
@@ -156,7 +156,7 @@ git commit -m "feat(api): add preview parameter to derivations route"
 
 **Files:**
 - Modify: `app/src/server/jobs/derivation.ts`
-- Test: `app/tests/unit/format-to-openai-size.test.ts` (novo)
+- Test: <!-- VERIFY: app/tests/unit/format-to-openai-size.test.ts — closest existing test is app/src/lib/formats.test.ts; see verification in .planning/tmp/ -->
 
 **Step 1: Modificar formatToOpenAISize**
 
@@ -251,7 +251,7 @@ git commit -m "feat(ui): add preview badge to DerivationCard"
 ### Task 6: Modificar DerivationsStep para controle de preview
 
 **Files:**
-- Modify: `app/src/components/workspace/DerivationsStep.tsx` (ou equivalente)
+- Modify: <!-- VERIFY: app/src/components/workspace/DerivationsStep.tsx — no single successor (preview flow in DerivationGrid.tsx, DerivationPreviewGateFooter.tsx, use-campaign-workspace.ts); see verification in .planning/tmp/ -->
 
 **Step 1: Ler componente atual**
 

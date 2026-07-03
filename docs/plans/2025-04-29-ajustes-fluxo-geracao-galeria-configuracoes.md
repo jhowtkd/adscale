@@ -350,7 +350,7 @@ git commit -m "feat(ui): add creative level selector in briefing step"
 
 **Files:**
 - Modify: `app/src/components/workspace/DerivationCard.tsx`
-- Modify: `app/src/components/workspace/DerivationsStep.tsx`
+- Modify: `app/src/components/workspace/DerivationsStep.tsx` <!-- VERIFY: app/src/components/workspace/DerivationsStep.tsx — see verification in .planning/tmp/ -->
 
 **Step 1: Atualizar DerivationCard**
 
@@ -480,7 +480,7 @@ Atualizar `steps` array removendo o objeto de review.
 
 Remover import:
 ```ts
-import ReviewStep from "@/components/workspace/ReviewStep";
+import ReviewStep from "@/components/workspace/ReviewStep"; <!-- VERIFY: app/src/components/workspace/ReviewStep.tsx — see verification in .planning/tmp/ -->
 ```
 
 Remover case de renderização:

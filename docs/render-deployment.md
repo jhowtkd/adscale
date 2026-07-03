@@ -68,6 +68,6 @@ https://dashboard.render.com/blueprint/new?repo=https://github.com/jhowtkd/adsca
 
 ## Notes
 
-- Migrations run through `preDeployCommand: npm run db:migrate`.
+- Migrations run through `startCommand: npm run db:migrate && npm run start:prod`.
 - The Docker setup remains useful for local compose runs, but this Blueprint uses Render's Node runtime to avoid coupling production boot to the local compose-only `postgres` hostname.
 - Do not copy values from `.env.docker` or `.env.local` into tracked files.

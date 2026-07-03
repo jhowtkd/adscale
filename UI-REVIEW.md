@@ -207,7 +207,7 @@ As seguintes correções foram aplicadas ao codebase:
 ### ✅ Tipografia & Consistência
 | # | Mudança | Arquivos |
 |---|---|---|
-| 5 | **Fonte mínima padronizada para 12px** — `text-[11px]` → `text-xs`, `text-[10px]` → `text-xs` | `AppShell.tsx`, `Sidebar.tsx`, `TopBar.tsx`, `Dashboard page.tsx`, `Campaigns page.tsx`, `CampaignCard.tsx`, `CampaignTableRow.tsx`, `Footer.tsx`, `PlansTab.tsx`, `StatusBadge.tsx` |
+| 5 | **Fonte mínima padronizada para 12px** — `text-[11px]` → `text-xs`, `text-[10px]` → `text-xs` | `AppShell.tsx`, `AppSidebar.tsx`, `TopBar.tsx`, `Dashboard page.tsx`, `Campaigns page.tsx`, `CampaignCard.tsx`, `CampaignTableRow.tsx`, `Footer.tsx`, `PlansTab.tsx`, `StatusBadge.tsx` |
 
 ### ✅ Responsividade & Mobile
 | # | Mudança | Arquivos |
@@ -248,7 +248,7 @@ A interface do ADScale é **visualmente agradável e funcional**, com um design 
 | 9 | **Framer Motion reduzido** — `StatsCard`, `EmptyState`, `AuthCard`, `AppShell`, `CampaignCard`, `CampaignListCard`, `CampaignTableRow` migrados para CSS transitions (`animate-fade-in`, `hover:-translate-y`) | 7 arquivos |
 | 10 | **Lazy loading de modais** — `NewCampaignModal`, `SaveTemplateModal`, `RestylingModal`, `DeliveryPackageModal` carregados via `next/dynamic` com `ssr: false` | 4 arquivos |
 | 11 | **React.memo em componentes de lista** — `CampaignCard`, `CampaignListCard`, `CampaignTableRow`, `StatsCard` memoizados para evitar re-renderizações desnecessárias | 4 arquivos |
-| 12 | **Componente VirtualList criado** — utilitário com `@tanstack/react-virtual` para windowing em listas >50 itens; fallback automático para renderização normal em listas curtas | `VirtualList.tsx` |
+| 12 | **Componente VirtualList criado** — utilitário com `@tanstack/react-virtual` para windowing em listas >50 itens; fallback automático para renderização normal em listas curtas | <!-- VERIFY: `VirtualList.tsx` com `@tanstack/react-virtual` — nenhum componente VirtualList e nenhuma dependência `@tanstack/react-virtual` encontrados em `app/package.json`; verificação em .planning/tmp/ --> |
 | 13 | **axe-core configurado** — `@axe-core/react` integrado via `A11yProvider`; roda automaticamente em dev reportando violações de contraste, heading-order, labels, landmarks | `A11yProvider.tsx`, `layout.tsx` |
 
 ### Nota Final (após 3 rodadas)

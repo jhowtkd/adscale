@@ -21,7 +21,7 @@
 | A4 | Action proposal | Assistant proposes confirmable improvement action with action card |
 | A5 | Confirmation | Confirm action succeeds or records provider/live failure as blocker — do not hide failure |
 
-Record verdict per check via staging evidence API or `192-EVIDENCE.json`.
+Record verdict per check via staging evidence API or `192-EVIDENCE.template.json`.
 
 ## Checklist B — `from_zero` with 3+ references
 

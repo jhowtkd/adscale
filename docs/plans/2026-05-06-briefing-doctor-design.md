@@ -45,7 +45,7 @@ Use a hybrid design.
 
 ### Local Rules
 
-Create a pure local analyzer, likely under `src/lib/briefing-doctor.ts`.
+Create a pure local analyzer, likely under `src/lib/briefing-doctor.ts`. <!-- VERIFY: src/lib/briefing-doctor.ts — file not found at src/lib/briefing-doctor.ts; see verification in .planning/tmp/ -->
 
 It receives the current `BriefingFormData` and returns deterministic issues. These checks run instantly while the user edits the form.
 
@@ -68,7 +68,7 @@ Local checks should catch:
 Add a new endpoint:
 
 ```txt
-POST /api/briefing-doctor/analyze
+POST /api/briefing-doctor/analyze <!-- VERIFY: POST /api/briefing-doctor/analyze — no route definition found; see verification in .planning/tmp/ -->
 ```
 
 It receives the current briefing and locale. It returns structured JSON:

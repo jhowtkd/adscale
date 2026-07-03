@@ -20,7 +20,7 @@
 ### Day 1 — Backend Foundation
 
 #### T1: Schema + Migration
-**Files:** `src/server/db/schema.ts`, `drizzle/0018_persona_simulations.sql`
+**Files:** `src/server/db/schema.ts`, `drizzle/0019_persona_simulations.sql`
 
 - [ ] Add `persona_simulations` table to schema
 - [ ] Add `persona_simulations` to `adscale_app` schema export
@@ -109,7 +109,7 @@ cd app && npm test -- src/lib/hooks/use-persona-simulation.test.tsx --run
 ```
 
 #### T6: Modal Component
-**Files:** `src/components/workspace/PersonaSimulationModal.tsx`, `.test.tsx`
+**Files:** `src/components/workspace/PersonaSimulationModal.tsx`, `.test.tsx` <!-- VERIFY: src/components/workspace/PersonaSimulationModal.tsx — file not found; see verification in .planning/tmp/ -->
 
 - [ ] `PersonaSimulationModal` — shadcn Dialog, `max-w-5xl`
 - [ ] 2×2 grid on desktop, 1 column on mobile
@@ -132,7 +132,7 @@ cd app && npm test -- src/components/workspace/PersonaSimulationModal.test.tsx -
 ```
 
 #### T7: Trigger Integration
-**Files:** `src/components/workspace/DerivationCard.tsx`, `DerivationsStep.tsx`, campaign page
+**Files:** `src/components/workspace/DerivationCard.tsx`, `DerivationsStep.tsx` <!-- VERIFY: DerivationsStep.tsx — no DerivationsStep component anywhere in app/src; see verification in .planning/tmp/ -->, campaign page
 
 - [ ] Add "Simular personas" action to approved derivation cards
 - [ ] Icon: `Users` (Lucide)

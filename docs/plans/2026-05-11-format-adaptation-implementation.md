@@ -179,12 +179,12 @@ Como agora o modelo vê a imagem diretamente, a extração de visual tokens (lin
 ```typescript
 if (asset) {
   console.log(`[generate-and-store-output] downloading asset key=${asset.key}`);
-  referenceBuffer = await downloadBuffer(asset.key);
+  referenceBuffer = await downloadBuffer(asset.key); <!-- VERIFY: function 'downloadBuffer' — see verification in .planning/tmp/ -->
   console.log(`[generate-and-store-output] downloaded ${referenceBuffer.length} bytes`);
 }
 ```
 
-Remover o bloco `if (effectiveGenerationMode === "format_adaptation")` que chama `buildVisualTokenBrief`.
+Remover o bloco `if (effectiveGenerationMode === "format_adaptation")` que chama `buildVisualTokenBrief`. <!-- VERIFY: function 'buildVisualTokenBrief' — see verification in .planning/tmp/ -->
 
 **Step 5: Commit**
 

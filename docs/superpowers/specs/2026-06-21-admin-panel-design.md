@@ -303,11 +303,11 @@ Dialog de confirmação com resumo do que será alterado antes de executar.
 ### Novos
 
 ```
-app/src/app/(admin)/layout.tsx
-app/src/app/(admin)/admin/page.tsx
-app/src/app/(admin)/admin/users/page.tsx
-app/src/app/(admin)/admin/users/[id]/page.tsx
-app/src/app/(admin)/admin/workspaces/[id]/page.tsx
+<!-- VERIFY: app/src/app/(admin)/layout.tsx — see verification in .planning/tmp/ -->
+<!-- VERIFY: app/src/app/(admin)/admin/page.tsx — see verification in .planning/tmp/ -->
+<!-- VERIFY: app/src/app/(admin)/admin/users/page.tsx — see verification in .planning/tmp/ -->
+<!-- VERIFY: app/src/app/(admin)/admin/users/[id]/page.tsx — see verification in .planning/tmp/ -->
+<!-- VERIFY: app/src/app/(admin)/admin/workspaces/[id]/page.tsx — see verification in .planning/tmp/ -->
 app/src/app/(admin)/admin/quality/layout.tsx
 app/src/app/(admin)/admin/quality/queue/page.tsx
 app/src/app/(admin)/admin/quality/candidates/page.tsx
@@ -319,15 +319,15 @@ app/src/app/(admin)/admin/quality/trends/page.tsx
 app/src/app/(admin)/admin/feedbacks/page.tsx
 app/src/app/(admin)/admin/analytics/page.tsx
 app/src/app/(admin)/admin/sessions/page.tsx
-app/src/components/admin/AdminShell.tsx
-app/src/components/admin/AdminSidebar.tsx
-app/src/components/admin/DashboardSummary.tsx
-app/src/components/admin/UserMirrorPanel.tsx
-app/src/components/admin/UserActionsPanel.tsx
-app/src/app/api/admin/dashboard/summary/route.ts
-app/src/app/api/admin/users/route.ts
-app/src/app/api/admin/users/[id]/route.ts
-app/src/app/api/admin/users/[id]/mirror/route.ts
+<!-- VERIFY: app/src/components/admin/AdminShell.tsx — see verification in .planning/tmp/ -->
+<!-- VERIFY: app/src/components/admin/AdminSidebar.tsx — see verification in .planning/tmp/ -->
+<!-- VERIFY: app/src/components/admin/DashboardSummary.tsx — see verification in .planning/tmp/ -->
+<!-- VERIFY: app/src/components/admin/UserMirrorPanel.tsx — see verification in .planning/tmp/ -->
+<!-- VERIFY: app/src/components/admin/UserActionsPanel.tsx — see verification in .planning/tmp/ -->
+<!-- VERIFY: app/src/app/api/admin/dashboard/summary/route.ts — see verification in .planning/tmp/ -->
+<!-- VERIFY: app/src/app/api/admin/users/route.ts — see verification in .planning/tmp/ -->
+<!-- VERIFY: app/src/app/api/admin/users/[id]/route.ts — see verification in .planning/tmp/ -->
+<!-- VERIFY: app/src/app/api/admin/users/[id]/mirror/route.ts — see verification in .planning/tmp/ -->
 app/src/app/api/admin/workspaces/[id]/route.ts
 app/drizzle/XXXX_admin_audit_log.sql
 app/src/server/repositories/admin-audit.ts

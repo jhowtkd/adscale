@@ -21,7 +21,7 @@ Runtime secrets and service URLs are read from `process.env`. The canonical list
 | `OPENAI_API_KEY` | Yes | — | OpenAI API key; must start with `sk-`. |
 | `OPENAI_TEXT_MODEL` | No | `gpt-5-mini` | Text model for AI features. |
 | `OPENAI_IMAGE_MODEL` | No | `gpt-image-2-2026-04-21` | Image model for AI features. |
-| `MINIMAX_API_KEY` | Yes | — | MiniMax chat-model API key; required by the assistant orchestrator (`app/src/server/assistant/minimax-client.ts`). Zod-validated as non-empty. |
+| `MINIMAX_API_KEY` | Yes | — | MiniMax chat-model API key; required by the assistant orchestrator (`app/src/server/assistant/model/minimax-client.ts`). Zod-validated as non-empty. |
 | `MINIMAX_MODEL` | No | `MiniMax-M3` | MiniMax chat model identifier; defaults to `MiniMax-M3` if unset. |
 | `R2_ACCOUNT_ID` | Yes | — | Cloudflare R2 account ID. |
 | `R2_ACCESS_KEY_ID` | Yes | — | R2 access key ID. |
@@ -29,7 +29,8 @@ Runtime secrets and service URLs are read from `process.env`. The canonical list
 | `R2_BUCKET` | Yes | — | R2 bucket name. |
 | `R2_PUBLIC_BASE_URL` | Yes | — | Public HTTPS base URL for R2 assets (also used for Next.js `images.remotePatterns`). |
 | `INNGEST_EVENT_KEY` | Yes | — | Inngest event key (`local` is fine for local dev). |
-| `INNGEST_SIGNING_KEY` | Yes | — | Inngest signing key (`local` is fine for local dev). |
+| `INNGEST_SIGNING_KEY` | Yes | — | Inngest signing key. `local` disables signature verification and is dev-only — the `inngestSigningKeySchema` rejects `local` when `NODE_ENV=production`. |
+| `INNGEST_DEV` | No | — | Set to disable Inngest signature verification in non-production (`app/src/server/jobs/client.ts`, `app/src/app/api/inngest/route.ts`). The app hard-throws if set while `NODE_ENV=production`. Not in `.env.example` or `envSchema`. |
 | `RESEND_API_KEY` | Yes | — | Resend API key; must start with `re_`. |
 | `EMAIL_FROM` | Yes | — | Default transactional email sender (min. 3 characters). |
 | `RESEND_WAITLIST_SEGMENT_ID` | No (prod: Yes) | — | Resend Audiences segment ID for waitlist contact sync (`app/src/server/services/resend-contacts.ts`). Example: `seg_abc123`. Optional in development (sync skipped when unset); required in production for marketing waitlist sync. Not in `envSchema`. |
@@ -61,10 +62,13 @@ Runtime secrets and service URLs are read from `process.env`. The canonical list
 | `NEXT_PUBLIC_SENTRY_DSN` | No | — | Client-side Sentry DSN for feedback diagnostics (`app/src/lib/feedback/diagnostic-collector.ts`). |
 | `UPSTASH_REDIS_REST_URL` | No | — | Upstash Redis REST URL for distributed rate limiting. |
 | `UPSTASH_REDIS_REST_TOKEN` | No | — | Upstash Redis REST token (pair with URL). |
-| `NOTIFICATION_WEBHOOK_SECRET` | No | — | Shared secret for `POST /api/notifications/webhook` (not in `envSchema`). |
+| `NOTIFICATION_WEBHOOK_SECRET` | No | — | Shared secret for `POST /api/notifications/webhook`. Optional in `envSchema` (must be ≥16 characters if set). |
 | `HUMAN_QUALITY_SYNTHETIC_WORKSPACE_IDS` | No | — | Comma-separated workspace IDs labeled `synthetic_fixture` during human-quality auto-capture (`app/src/server/human-quality/source-label.ts`). All other workspaces default to `real_customer`. Not in `envSchema` or `.env.example`. |
 | `NEXT_PUBLIC_APP_URL` | No | — | Optional public URL for share links and approval packages (`app/src/lib/share-token.ts`). |
 | `NEXT_PUBLIC_APP_VERSION` | No | `unknown` | App version string for feedback diagnostics. |
+| `NEXT_PUBLIC_DERIVATION_AUTO_RETRY_BADGE` | No | — | Set to `true`, `1`, or `yes` to show the auto-retry badge on derivation cards (`app/src/lib/derivation-display.ts`). Off when unset. |
+| `DEMO_WORKSPACE_SLUG` | No | — | Workspace slug (e.g. `adscale-demo`) treated as the public demo surface; fixture campaigns render for this workspace (`app/src/lib/demo-gating.ts`). Not in `envSchema` or `.env.example`. |
+| `DEMO_USER_EMAIL` | No | — | Demo account email; enables a "Demo" badge and restore affordance for that user (`app/src/lib/demo-gating.ts`). Not in `envSchema` or `.env.example`. |
 | `ANALYZE` | No | — | Set to `true` to enable bundle analyzer (`npm run analyze`). |
 | `LOG_LEVEL` | No | `info` | Minimum log level: `debug`, `info`, `warn`, or `error` (`app/src/lib/logger.ts`). |
 | `INNGEST_SERVE_URL` | No | `APP_URL` / `BETTER_AUTH_URL` | Override Inngest function sync URL in `app/scripts/start-with-inngest-sync.mjs`. |
@@ -77,7 +81,7 @@ Runtime secrets and service URLs are read from `process.env`. The canonical list
 | `VERCEL_GIT_COMMIT_SHA` | No | — | Fallback build ID on Vercel (`app/src/app/api/build-id/route.ts`). |
 | `BUILD_ID` | No | — | Generic build ID fallback when Render/Vercel commit vars are unset. |
 
-Variables in `.env.example` but **not** in `envSchema` still matter for tooling and middleware (e.g. `TEST_DATABASE_URL`, `MARKETING_UPSTREAM_URL`, `MARKETING_ALLOWED_ORIGINS`, `RESEND_WAITLIST_SEGMENT_ID`, `SENTRY_*`, `E2E_DISABLE_RATE_LIMIT`, `DEV_ADMIN_EMAIL`). Variables used in code but absent from `.env.example` (e.g. `MEM0_*`, `PLATFORM_OWNER_EMAILS`, `HUMAN_QUALITY_SYNTHETIC_WORKSPACE_IDS`) should be added to `.env.local` when you need that feature.
+Variables in `.env.example` but **not** in `envSchema` still matter for tooling and middleware (e.g. `TEST_DATABASE_URL`, `MARKETING_UPSTREAM_URL`, `MARKETING_ALLOWED_ORIGINS`, `RESEND_WAITLIST_SEGMENT_ID`, `SENTRY_*`, `E2E_DISABLE_RATE_LIMIT`, `DEV_ADMIN_EMAIL`). Variables used in code but absent from `.env.example` (e.g. `MEM0_*`, `PLATFORM_OWNER_EMAILS`, `HUMAN_QUALITY_SYNTHETIC_WORKSPACE_IDS`, `DEMO_WORKSPACE_SLUG`, `DEMO_USER_EMAIL`, `INNGEST_DEV`, `NEXT_PUBLIC_DERIVATION_AUTO_RETRY_BADGE`) should be added to `.env.local` when you need that feature.
 
 ## Env validation (Zod)
 
@@ -89,7 +93,7 @@ Validation lives in `app/src/server/validation/env.ts`:
 
 Import `env` from `@/server/validation/env` in server modules (database, auth, billing, storage, AI, jobs, email). Do not read validated secrets directly from `process.env` in those paths.
 
-Some features read `process.env` directly even when a key exists in `envSchema` (e.g. `BETA_ACCESS_CODES` in `beta.ts`, `MARKETING_URL` in `proxy.ts`). Others are outside `envSchema` entirely (`DEV_ADMIN_EMAIL`, `MARKETING_UPSTREAM_URL` in `next.config.ts`, `HUMAN_QUALITY_SYNTHETIC_WORKSPACE_IDS`, rate-limit flags). Those variables are optional, test-only, or evaluated before the validated `env` object is needed.
+Some features read `process.env` directly even when a key exists in `envSchema` (e.g. `BETA_ACCESS_CODES` in `beta.ts`, `MARKETING_URL` in `proxy.ts`, `MEM0_*` keys). Others are outside `envSchema` entirely (`DEV_ADMIN_EMAIL`, `MARKETING_UPSTREAM_URL` in `next.config.ts`, `HUMAN_QUALITY_SYNTHETIC_WORKSPACE_IDS`, `DEMO_WORKSPACE_SLUG`, `DEMO_USER_EMAIL`, `INNGEST_DEV`, rate-limit flags). Those variables are optional, test-only, or evaluated before the validated `env` object is needed.
 
 CLI scripts that import `env` before other modules should import `app/scripts/load-env.ts` first so `app/.env.local` is loaded:
 
@@ -171,8 +175,8 @@ The script validates env presence, Zod schema, plan-to-price alignment, URL orig
 - Marketing redirect — when `MARKETING_URL` is unset, unauthenticated `/` visitors go to `/login` instead of the marketing site.
 - Marketing proxy — `/hi` rewrites to `MARKETING_UPSTREAM_URL` (defaults to `https://adscale-marketing.onrender.com` when unset).
 - Beta access — off unless `BETA_ACCESS_CODES` lists at least one code.
-- Dev admins — no special treatment unless `DEV_ADMIN_EMAIL` lists one or more addresses.
-- Platform owners — `PLATFORM_OWNER_EMAILS` plus any `DEV_ADMIN_EMAIL` entries can access owner-only admin routes.
+- Dev admins — no special treatment unless `DEV_ADMIN_EMAIL` lists one or more addresses. Hard-gated behind `NODE_ENV`: `parseDevAdminEmails()` returns an empty set in production regardless of the env var (`app/src/server/auth/dev-admin.ts`).
+- Platform owners — `PLATFORM_OWNER_EMAILS` entries can access owner-only admin routes (`app/src/server/auth/platform-owner.ts`).
 - Mem0 brand memory — off unless `env.MEM0_ENABLED === "true"` and `env.MEM0_API_KEY` is set (`mem0-client.ts`).
 - Human-quality source labels — auto-capture defaults to `real_customer`; workspaces listed in `HUMAN_QUALITY_SYNTHETIC_WORKSPACE_IDS` are labeled `synthetic_fixture`.
 - Sentry — disabled when `SENTRY_DSN` is unset (`silent: !process.env.SENTRY_DSN` in `app/next.config.ts`).
@@ -242,7 +246,7 @@ Production URLs in the committed blueprint:
 | `MARKETING_ALLOWED_ORIGINS` | `https://adscale.jhonatansoares.com` |
 | `STRIPE_SUCCESS_URL` | `https://adscale.jhonatansoares.com/settings?tab=billing&checkout=success` |
 | `STRIPE_CANCEL_URL` | `https://adscale.jhonatansoares.com/settings?tab=plans&checkout=cancel` |
-| `DEV_ADMIN_EMAIL` | `jhonatan.marcela@gmail.com` |
+| `PLATFORM_OWNER_EMAILS` | `jhonatan.marcela@gmail.com` |
 
 <!-- VERIFY: Confirm the live Render service URL and custom domain in the Render Dashboard; update BETTER_AUTH_URL, APP_URL, MARKETING_*, and Stripe redirect URLs in render.yaml if they differ -->
 
@@ -253,7 +257,7 @@ Production URLs in the committed blueprint:
 
 ### `app/drizzle.config.ts`
 
-Drizzle Kit config: schema `app/src/server/db/schema.ts`, migrations under `app/drizzle`, PostgreSQL dialect, `schemaFilter: ["adscale_app"]`, credentials from `process.env.DATABASE_URL` (not validated through `env` at CLI time—must be set in the shell). In production, appends `sslmode=require` when `sslmode` is absent.
+Drizzle Kit config: schema `app/src/server/db/schema.ts`, migrations under `app/drizzle`, PostgreSQL dialect, `schemaFilter: ["adscale_app"]`, credentials from `process.env.DATABASE_URL` (not validated through `env` at CLI time—must be set in the shell). In production, appends `uselibpqcompat=true&sslmode=require` when `sslmode` is absent.
 
 ### `app/next.config.ts`
 
@@ -268,7 +272,7 @@ Next.js 16 config: `output: 'standalone'`, `next-intl` plugin, Sentry wrapper, o
 | Environment | How config is supplied |
 |-------------|-------------------------|
 | **Local dev** | `app/.env.local` (from `.env.example`). Run `npm run dev` in `app/` (starts Next.js and Inngest dev server). Auth URLs typically `http://localhost:3000`; marketing upstream typically `http://localhost:5173` proxied at `/hi`. |
-| **Tests** | `TEST_DATABASE_URL`; Vitest may pass it via `app/config/vitest.config.ts`. `NODE_ENV=test` relaxes `env` proxy throws. Setup: `npm run test:db:setup` / teardown: `npm run test:db:teardown`. |
+| **Tests** | `TEST_DATABASE_URL`; Vitest passes it through via `app/config/vitest.config.ts` (which also forces `E2E_DISABLE_RATE_LIMIT=true` in the test env). `NODE_ENV=test` relaxes `env` proxy throws. Setup: `npm run test:db:setup` / teardown: `npm run test:db:teardown`. |
 | **Production (Render)** | `render.yaml` + Dashboard secrets (`sync: false` keys). `DATABASE_URL` from managed Postgres. |
 
 External integrations must use the same public base URL as `APP_URL` / `BETTER_AUTH_URL`:

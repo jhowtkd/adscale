@@ -178,12 +178,9 @@ derivações]  derivações]
 **Hook:** `use-campaign-workspace.ts` (refatorado)
 
 ```ts
-type WorkspaceState = 
-  | "piloto"           // upload + briefing
-  | "acoes"            // botões principais + grid
-  | "derivando"        // configuração de derivação
-  | "estilizando"      // configuração de estilização
-  | "gerando";         // estado de carregamento
+type WorkspaceState =
+  | "setup"            // upload + briefing
+  | "trabalho";        // action buttons + derivation grid (+ inline config / loading)
 
 interface WorkspaceData {
   campaign: Campaign;
@@ -195,7 +192,7 @@ interface WorkspaceData {
 
 **Persistência:**
 - O estado `generationMode`, `creativeLevel`, `targetFormats`, etc. ainda são salvos no registro da campanha
-- A transição `"piloto"` → `"acoes"` persiste o briefing completo
+- A transição `"setup"` → `"trabalho"` persiste o briefing completo
 - Derivações são entidades independentes (tabela `derivations`)
 
 ---
@@ -207,24 +204,24 @@ interface WorkspaceData {
 | Componente | Path | Responsabilidade |
 |------------|------|------------------|
 | `PilotUploadPanel` | `components/workspace/PilotUploadPanel.tsx` | Upload + análise em progresso |
-| `PilotBriefingForm` | `components/workspace/PilotBriefingForm.tsx` | Formulário de briefing sugerido |
 | `PilotSidebar` | `components/workspace/PilotSidebar.tsx` | Preview + resumo do briefing |
-| `ActionCards` | `components/workspace/ActionCards.tsx` | Cards Derivar + Estilizar |
 | `DerivationGrid` | `components/workspace/DerivationGrid.tsx` | Grid de derivações com status |
-| `DerivarModal` | `components/workspace/DerivarModal.tsx` | Modal com 4 opções de derivação |
-| `EstilizarModal` | `components/workspace/EstilizarModal.tsx` | Modal de workflow de estilização |
+| <!-- VERIFY: `PilotBriefingForm` (`components/workspace/PilotBriefingForm.tsx`) — not built; see verification in .planning/tmp/ --> | — | Formulário de briefing sugerido |
+| <!-- VERIFY: `ActionCards` (`components/workspace/ActionCards.tsx`) — not built (closest: `components/assistant/ActionCard.tsx`); see verification in .planning/tmp/ --> | — | Cards Derivar + Estilizar |
+| <!-- VERIFY: `DerivarModal` (`components/workspace/DerivarModal.tsx`) — not built; see verification in .planning/tmp/ --> | — | Modal com 4 opções de derivação |
+| <!-- VERIFY: `EstilizarModal` (`components/workspace/EstilizarModal.tsx`) — removed by later UI simplification; restyle now via `quick_restyle` ActionCard; see verification in .planning/tmp/ --> | — | Modal de workflow de estilização |
 
 ### 8.2 Componentes removidos / deprecados
 
-- `BriefingStep.tsx` — funcionalidade absorvida pelo `PilotBriefingForm`
-- `StepIndicator.tsx` — wizard não existe mais
-- `WizardNavigationFooter.tsx` — não há navegação de passos
+- `BriefingStep.tsx` — ainda existe em `app/src/components/workspace/BriefingStep.tsx` (não foi removido)
+- `StepIndicator.tsx` — <!-- VERIFY: never existed by this name — see verification in .planning/tmp/ -->
+- `WizardNavigationFooter.tsx` — <!-- VERIFY: stale reference, not found — see verification in .planning/tmp/ -->
 
 ### 8.3 Componentes reutilizados
 
-- `PreflightScoreCard` — dentro do `PilotUploadPanel`
+- `PreflightScoreCard` — <!-- VERIFY: no such component; preflight logic in `app/src/server/ai/preflight-analysis.ts` + `app/src/lib/hooks/use-preflight.ts` — see verification in .planning/tmp/ -->
 - `DerivationCard` — dentro do `DerivationGrid`
-- `BulkActionsBar` — mantido para ações em lote no grid
+- `CampaignsBulkActionsBar` (`components/campaigns/CampaignsBulkActionsBar.tsx`) — mantido para ações em lote no grid
 
 ---
 

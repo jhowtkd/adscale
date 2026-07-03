@@ -65,18 +65,21 @@ Workflow: `.github/workflows/ci.yml` (`name: CI`).
 
 **Triggers:** push to `main`, pull requests to `main`.
 
-**Job `test`** (`ubuntu-latest`):
+**Job `test`** (`ubuntu-latest`, Postgres 16 service: `adscale_test` / `test:test@localhost:5432`):
 
 1. Checkout
 2. Node.js 20 with npm cache (`app/package-lock.json`)
 3. `cd app && npm ci`
 4. `npm run lint`
 5. `npm run typecheck`
-6. `npx drizzle-kit migrate` (Postgres 16 service: `adscale_test` / `test:test@localhost:5432`)
+6. `npx drizzle-kit migrate`
 7. `npm test -- --run`
 8. `npm run build` (mock env vars for Zod/build — see workflow file)
+9. Start app for e2e (`npm run start &` against the CI Postgres, `NODE_ENV=production`)
+10. `npx playwright install --with-deps chromium`
+11. `npx playwright test --grep "v6 preview a11y gate"` (a11y gate; `continue-on-error: true`, `E2E_BASE_URL=http://localhost:3000`)
 
-There is **no deploy or release job** in CI. Render deploys when commits land on `main` (`autoDeployTrigger: commit`).
+There is **no deploy or release job** in CI. Render deploys when commits land on `main` (`autoDeployTrigger: commit`). <!-- VERIFY: CI does not deploy — all production deploys happen via Render on push to main -->
 
 ### Render deploy sequence
 
@@ -120,9 +123,10 @@ Production configuration is defined in `render.yaml` and completed in the **Rend
 | `MARKETING_ALLOWED_ORIGINS` | `https://adscale.jhonatansoares.com` |
 | `OPENAI_TEXT_MODEL` | `gpt-5-mini` |
 | `OPENAI_IMAGE_MODEL` | `gpt-image-2-2026-04-21` |
+| `MINIMAX_MODEL` | `MiniMax-M3` |
 | `STRIPE_SUCCESS_URL` | `https://adscale.jhonatansoares.com/settings?tab=billing&checkout=success` |
 | `STRIPE_CANCEL_URL` | `https://adscale.jhonatansoares.com/settings?tab=plans&checkout=cancel` |
-| `DEV_ADMIN_EMAIL` | `jhonatan.marcela@gmail.com` |
+| `PLATFORM_OWNER_EMAILS` | `jhonatan.marcela@gmail.com` |
 
 ### Must set manually (`sync: false`)
 

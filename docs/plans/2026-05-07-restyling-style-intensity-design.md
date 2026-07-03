@@ -71,7 +71,7 @@ If the value is missing, use `medium`. If the value is invalid at an API boundar
 
 ## UI Design
 
-Add a compact segmented control in `RestylingModal`.
+Add a compact segmented control in `RestylingForm`.
 
 Label:
 
@@ -95,7 +95,7 @@ Place the control near the style image input, because it describes how the style
 
 ## Prompt Behavior
 
-`buildRestylingPrompt` receives `styleIntensity`.
+<!-- VERIFY: `buildRestylingPrompt` receives `styleIntensity`. — no definition found; restyling prompt logic lives in prompt-builder.ts (see verification in .planning/tmp/) -->
 
 Prompt additions:
 

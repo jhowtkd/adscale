@@ -13,7 +13,7 @@
 ## Task 1: API Route — POST /api/restyling
 
 **Files:**
-- Create: `app/src/app/api/restyling/route.ts`
+- Create: `app/src/app/api/restyling/route.ts` <!-- VERIFY: app/src/app/api/restyling/route.ts — see verification in .planning/tmp/ -->
 
 **Step 1: Write the route handler**
 
@@ -24,11 +24,11 @@ import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { createCampaign, deleteCampaign } from "@/server/repositories/campaign";
 import { createAsset } from "@/server/repositories/asset";
 import { createDerivation } from "@/server/repositories/derivation";
-import { uploadBuffer, deleteObject } from "@/server/storage/r2";
+import { objectStorage } from "@/server/storage/index"; // VERIFY: was `uploadBuffer, deleteObject from "@/server/storage/r2"` — storage uses objectStorage class in storage/index.ts; see verification in .planning/tmp/
 import { inngest } from "@/server/jobs/client";
 import { getUserLocale } from "@/server/repositories/user";
 import { parseStyleIntensity } from "@/lib/style-intensity";
-import { spendCreditsOrApiError } from "@/server/billing/gates";
+import { spendOrApiError } from "@/server/billing/paywall"; // VERIFY: was `spendCreditsOrApiError from "@/server/billing/gates"` — codebase has spendOrApiError in billing/paywall.ts; see verification in .planning/tmp/
 
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
 const MAX_SIZE = 50 * 1024 * 1024; // 50MB
@@ -518,7 +518,7 @@ git commit -m "feat(ui): add RestylingForm component"
 ## Task 4: Restyling Page
 
 **Files:**
-- Create: `app/src/app/(dashboard)/restyling/page.tsx`
+- Create: `app/src/app/(dashboard)/restyling/page.tsx` <!-- VERIFY: app/src/app/(dashboard)/restyling/page.tsx — see verification in .planning/tmp/ -->
 
 **Step 1: Write the page**
 
@@ -531,7 +531,7 @@ import { useTranslations } from "next-intl";
 import { motion } from "framer-motion";
 import { apiFetch } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/hooks/use-toast"; // VERIFY: was `useToast from "@/hooks/use-toast"` — app uses addToast from useAppStore (@/lib/store) + ToastStack provider; see verification in .planning/tmp/
 import RestylingUpload from "@/components/restyling/RestylingUpload";
 import RestylingForm from "@/components/restyling/RestylingForm";
 
@@ -703,7 +703,7 @@ git commit -m "feat(page): add /restyling dedicated page"
 ## Task 5: Sidebar Navigation
 
 **Files:**
-- Modify: `app/src/components/layout/Sidebar.tsx`
+- Modify: `app/src/components/layout/AppSidebar.tsx` <!-- VERIFY: was `app/src/components/layout/Sidebar.tsx` — actual file is AppSidebar.tsx; see verification in .planning/tmp/ -->
 
 **Step 1: Add Restyling nav item**
 
@@ -732,8 +732,8 @@ git commit -m "feat(ui): add Restyling nav item to sidebar"
 ## Task 6: Translations
 
 **Files:**
-- Modify: `app/src/messages/pt-BR.json`
-- Modify: `app/src/messages/en.json`
+- Modify: `app/messages/pt-BR.json` <!-- VERIFY: was `app/src/messages/pt-BR.json` — messages live at app/messages/pt-BR.json; see verification in .planning/tmp/ -->
+- Modify: `app/messages/en.json` <!-- VERIFY: was `app/src/messages/en.json` — messages live at app/messages/en.json; see verification in .planning/tmp/ -->
 
 **Step 1: Add PT-BR translations**
 
@@ -798,7 +798,7 @@ git commit -m "feat(i18n): add restyling page translations"
 ## Task 7: Integration Test
 
 **Files:**
-- Create: `app/tests/integration/restyling.test.ts`
+- Create: `app/tests/integration/restyling.test.ts` <!-- VERIFY: app/tests/integration/restyling.test.ts — see verification in .planning/tmp/ -->
 
 **Step 1: Write test for POST /api/restyling**
 

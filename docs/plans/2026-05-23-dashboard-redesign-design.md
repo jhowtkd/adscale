@@ -109,7 +109,7 @@ Warning:           #f59e0b
 
 ## 4. Component Specifications
 
-### 4.1 Sidebar (`Sidebar.tsx`)
+### 4.1 Sidebar (`AppSidebar.tsx`)
 
 - **Width:** `64px`
 - **Background:** `#0e0e14`
@@ -171,7 +171,7 @@ Warning:           #f59e0b
 - **Toggle:** 7D / 30D / 90D buttons
 - **Style:** Flat bars, radius 2px, mint fill at 70% opacity
 - **Hover:** Bar fill opacity → 100%
-- **Library:** Use existing Recharts setup (already in AnalyticsSection)
+- **Library:** Use existing Recharts setup (already in AnalyticsSection) <!-- VERIFY: AnalyticsSection — no AnalyticsSection component found in app/src/components/dashboard/; see verification in .planning/tmp/ -->
 
 ### 4.6 Campaign List (`CampaignList.tsx`)
 

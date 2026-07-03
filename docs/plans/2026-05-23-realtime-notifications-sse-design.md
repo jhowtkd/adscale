@@ -204,7 +204,9 @@ export function useCampaignRealtime(campaignId: string, derivationIds: string[])
 | `src/server/jobs/client.ts` | Modify | Update client initialization for v4 |
 | `src/server/jobs/channels.ts` | **Create** | Realtime channel definition |
 | `src/server/jobs/derivation.ts` | Modify | Add `step.realtime.publish()` calls |
+<!-- VERIFY: `src/app/actions/realtime.ts` — arquivo não encontrado; nenhum diretório `app/src/app/actions/` existe; verificação em .planning/tmp/ -->
 | `src/app/actions/realtime.ts` | **Create** | Server Action to mint tokens |
+<!-- VERIFY: `src/lib/hooks/use-derivation-realtime.ts` — arquivo não encontrado; verificação em .planning/tmp/ -->
 | `src/lib/hooks/use-derivation-realtime.ts` | **Create** | Hook wrapping `useRealtime` + cache sync |
 | `src/lib/hooks/use-derivations.ts` | Modify | Reduce polling when real-time is active |
 | `src/app/(dashboard)/campaigns/[id]/page.tsx` | Modify | Wire real-time hook |

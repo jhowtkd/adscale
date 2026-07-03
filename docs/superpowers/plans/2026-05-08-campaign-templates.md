@@ -13,7 +13,7 @@
 ## File Structure
 
 ### New Files
-- `app/src/server/db/migrations/0007_add_campaign_templates.sql` — Database migration
+- `app/drizzle/0006_stormy_brother_voodoo.sql` — Database migration
 - `app/src/server/repositories/template.ts` — Template repository (create, list, get, delete)
 - `app/src/app/api/templates/route.ts` — POST /api/templates, GET /api/templates
 - `app/src/app/api/templates/[id]/route.ts` — GET /api/templates/[id], DELETE /api/templates/[id]
@@ -24,13 +24,13 @@
 
 ### Modified Files
 - `app/src/server/db/schema.ts` — Add `campaignTemplates` table definition
-- `app/src/components/layout/Sidebar.tsx` — Add "Templates" nav item
+- `app/src/components/layout/AppSidebar.tsx` — Add "Templates" nav item
 - `app/src/components/campaigns/NewCampaignModal.tsx` — Add template selector
 - `app/src/components/campaigns/CampaignTableRow.tsx` — Add "Save as template" action
 - `app/src/components/campaigns/CampaignCard.tsx` — Add "Save as template" action (grid view)
 - `app/src/app/(dashboard)/campaigns/page.tsx` — Pass saveTemplate handler to row/card components
-- `app/src/lib/i18n/messages/pt-BR.json` — Add PT-BR translations
-- `app/src/lib/i18n/messages/en.json` — Add EN translations
+- `app/messages/pt-BR.json` — Add PT-BR translations
+- `app/messages/en.json` — Add EN translations
 
 ---
 

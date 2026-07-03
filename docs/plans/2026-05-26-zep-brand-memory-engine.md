@@ -67,6 +67,7 @@ Create a small memory subsystem under `app/src/server/memory/`.
 
 Suggested files:
 
+<!-- VERIFY: `zep-client.ts` — see verification in .planning/tmp/ (file not found; implementation uses app/src/server/memory/mem0-client.ts instead, with mem0ai ^2.4.6 dependency) -->
 - `zep-client.ts`
   - creates the Zep client only when enabled;
   - centralizes graph creation/search/add calls;
@@ -89,8 +90,11 @@ Suggested files:
 
 Add optional env vars:
 
+<!-- VERIFY: ZEP_API_KEY — see verification in .planning/tmp/ (not defined in env.ts; implementation uses MEM0_API_KEY) -->
 - `ZEP_API_KEY`
+<!-- VERIFY: ZEP_ENABLED — see verification in .planning/tmp/ (not defined in env.ts; implementation uses MEM0_ENABLED) -->
 - `ZEP_ENABLED`
+<!-- VERIFY: ZEP_GRAPH_PREFIX — see verification in .planning/tmp/ (not defined in env.ts; implementation uses MEM0_USER_PREFIX) -->
 - `ZEP_GRAPH_PREFIX`
 
 Default behavior:
@@ -101,6 +105,7 @@ Default behavior:
 
 ## Dependency
 
+<!-- VERIFY: @getzep/zep-cloud package — see verification in .planning/tmp/ (package not found in dependencies; app uses mem0ai ^2.4.6 instead) -->
 Add `@getzep/zep-cloud` to `app/package.json`.
 
 Keep the dependency isolated to server-only modules.
@@ -292,6 +297,7 @@ Verification:
 Files likely touched:
 
 - `app/src/app/api/client-profiles/[id]/memory/route.ts`
+<!-- VERIFY: app/src/lib/hooks/use-client-profile-memory.ts — see verification in .planning/tmp/ (file not found; nearest is app/src/lib/hooks/use-client-profiles.ts) -->
 - `app/src/lib/hooks/use-client-profile-memory.ts`
 - campaign briefing/profile-selection UI components;
 - message files `app/messages/pt-BR.json` and `app/messages/en.json`.

@@ -274,9 +274,9 @@ Use:
 - `requireWorkspaceAccess(request)`
 - `getDerivationById(id, workspace.id)`
 - `getCampaignById(derivation.campaignId, workspace.id)`
-- `getPublicUrl(derivation.outputKey)` for image reference in HTML
-- `uploadBuffer(htmlKey, Buffer.from(html), "text/html")`
-- `getPresignedDownloadUrl(htmlKey)`
+- `objectStorage.publicUrl(derivation.outputKey)` for image reference in HTML
+- `objectStorage.put(htmlKey, Buffer.from(html), "text/html")`
+- `objectStorage.signedDownloadUrl(htmlKey)`
 
 Use key format:
 
@@ -357,7 +357,7 @@ git commit -m "feat: add landing page hook"
 **Files:**
 - Modify: `app/src/components/workspace/DerivationCard.tsx`
 - Modify: `app/src/components/workspace/DerivationCard.test.tsx`
-- Modify: `app/src/components/workspace/DerivationsStep.tsx`
+- Modify: `app/src/components/workspace/DerivationsStep.tsx` <!-- VERIFY: app/src/components/workspace/DerivationsStep.tsx — file not found; see verification in .planning/tmp/ -->
 - Modify: `app/src/app/(dashboard)/campaigns/[id]/page.tsx`
 - Modify: `app/messages/en.json`
 - Modify: `app/messages/pt-BR.json`

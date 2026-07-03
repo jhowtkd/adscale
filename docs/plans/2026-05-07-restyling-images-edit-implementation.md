@@ -31,7 +31,7 @@
 ```bash
 grep -r "analyzeImageContent" /Users/jhonatan/Repos/ADScale_2/app/src --include="*.ts" --include="*.tsx"
 grep -r "analyzeImageStyle" /Users/jhonatan/Repos/ADScale_2/app/src --include="*.ts" --include="*.tsx"
-grep -r "buildRestylingPrompt" /Users/jhonatan/Repos/ADScale_2/app/src --include="*.ts" --include="*.tsx"
+grep -r "buildDerivationPrompt" /Users/jhonatan/Repos/ADScale_2/app/src --include="*.ts" --include="*.tsx"
 ```
 
 **Expected:** Se todas as ocorrências forem apenas em `derivation.ts`, podem ser removidas.

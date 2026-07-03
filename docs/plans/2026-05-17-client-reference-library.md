@@ -168,7 +168,7 @@ Include both in `campaignFields`, `createCampaign`, and `updateCampaign`.
 
 **Step 4: Run tests**
 
-Run: `cd app && npx vitest run --config config/vitest.config.ts --passWithNoTests src/server/repositories/client-reference.test.ts src/server/repositories/campaign.test.ts`
+Run: `cd app && npx vitest run --config config/vitest.config.ts --passWithNoTests src/server/repositories/client-reference.test.ts src/server/repositories/campaign.test.ts` <!-- VERIFY: app/src/server/repositories/campaign.test.ts — see verification in .planning/tmp/ -->
 
 Expected: new repository tests pass. If `campaign.test.ts` does not exist, run only the new test and note the absent suite.
 
@@ -280,7 +280,7 @@ export interface ClientReference { ... url?: string }
 export function useClientProfiles()
 export function useCreateClientProfile()
 export function useClientReferences(clientProfileId?: string | null)
-export function useCreateClientReference(clientProfileId: string)
+export function useCreateClientReference(clientProfileId: string) <!-- VERIFY: function 'useCreateClientReference' in codebase — see verification in .planning/tmp/ -->
 export function useSaveDerivationAsReference()
 ```
 
@@ -440,7 +440,7 @@ git commit -m "feat: use client references in generation prompts"
 
 **Files:**
 - Modify: `app/src/components/workspace/DerivationCard.tsx`
-- Modify: `app/src/components/workspace/DerivationsStep.tsx`
+- Modify: `app/src/components/workspace/DerivationsStep.tsx` <!-- VERIFY: app/src/components/workspace/DerivationsStep.tsx — see verification in .planning/tmp/ -->
 - Modify: `app/src/app/(dashboard)/campaigns/[id]/page.tsx`
 - Modify: `app/messages/en.json`
 - Modify: `app/messages/pt-BR.json`

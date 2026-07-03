@@ -341,7 +341,7 @@ git commit -m "feat: adapt delivery packages from approved outputs"
 
 **Files:**
 - Create: `app/src/lib/hooks/use-delivery-package.ts`
-- Test: `app/src/lib/hooks/use-delivery-package.test.ts`
+- Test: `app/src/lib/hooks/use-delivery-package.test.tsx`
 
 **Step 1: Write hook test**
 
@@ -409,7 +409,7 @@ git commit -m "feat: add delivery package mutation hook"
 **Files:**
 - Create: `app/src/components/workspace/DeliveryPackageModal.tsx`
 - Modify: `app/src/components/workspace/DerivationCard.tsx`
-- Modify: `app/src/components/workspace/DerivationsStep.tsx`
+- Modify: `<!-- VERIFY: app/src/components/workspace/DerivationsStep.tsx — file does not exist — see verification in .planning/tmp/ -->`
 - Modify: `app/src/app/(dashboard)/campaigns/[id]/page.tsx`
 - Modify: `app/messages/en.json`
 - Modify: `app/messages/pt-BR.json`
