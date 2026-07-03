@@ -27,6 +27,7 @@ import type {
 import {
   isBlockingExportStatus,
   isBlockingOlharVerdict,
+  isDerivationBlockedByVerdictPayloads,
 } from "@/server/ai/olhar/dual-verdict";
 
 // ---------- Formats ---------------------------------------------------------
@@ -192,13 +193,7 @@ export function isDerivationPackageBlocked(input: {
   qualityVerdict?: "invalid" | "improvable" | "acceptable" | null;
 }): boolean {
   if (input.qualityVerdict === "invalid") return true;
-  if (input.olharVerdict && isBlockingOlharVerdict(input.olharVerdict.value)) {
-    return true;
-  }
-  if (input.exportStatus && isBlockingExportStatus(input.exportStatus.value)) {
-    return true;
-  }
-  return false;
+  return isDerivationBlockedByVerdictPayloads(input);
 }
 
 export function getPackageEligibilityHintKey(input: {

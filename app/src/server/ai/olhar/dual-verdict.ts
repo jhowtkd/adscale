@@ -352,6 +352,26 @@ export function isBlockingExportStatus(value: ExportStatusValue): boolean {
   return value === "bloqueado";
 }
 
+/** True when olhar or export verdict payloads block client-package eligibility. */
+export function isDerivationBlockedByVerdictPayloads(input: {
+  olharVerdict?: OlharVerdictPayload | null;
+  exportStatus?: ExportStatusPayload | null;
+}): boolean {
+  if (
+    input.olharVerdict?.value &&
+    isBlockingOlharVerdict(input.olharVerdict.value)
+  ) {
+    return true;
+  }
+  if (
+    input.exportStatus?.value &&
+    isBlockingExportStatus(input.exportStatus.value)
+  ) {
+    return true;
+  }
+  return false;
+}
+
 export function buildOlharVerdictFromFailures(input: {
   failures: ArtDirectionFailureInput[] | CreativeHardFailure[];
   axes: OlharAxisScores;
