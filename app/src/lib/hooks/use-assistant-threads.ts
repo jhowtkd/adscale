@@ -116,6 +116,7 @@ async function createAssistantThread(payload: {
   campaignId?: string;
   name?: string;
   isDefault?: boolean;
+  experience?: "agent" | "classic";
 }): Promise<AssistantThread> {
   const res = await apiFetch("/api/assistant/threads", {
     method: "POST",

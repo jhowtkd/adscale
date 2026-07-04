@@ -22,13 +22,13 @@ import FromZeroProgressiveBriefPanel from "./FromZeroProgressiveBriefPanel";
 import FromZeroReferencesPanel from "./FromZeroReferencesPanel";
 import GuidedFlowControls from "./GuidedFlowControls";
 import VersionComparisonDialog from "./VersionComparisonDialog";
-import { useAssistantSurface } from "./AssistantSurfaceContext";
+import { useAssistantSurface, type PendingFirstMessage } from "./AssistantSurfaceContext";
 
 export interface AssistantChatCoreProps {
   threadId: string | null;
   variant?: "full" | "drawer";
   onClose?: () => void;
-  pendingFirstMessage?: string | null;
+  pendingFirstMessage?: PendingFirstMessage | null;
   onPendingFirstMessageConsumed?: () => void;
 }
 
@@ -135,7 +135,11 @@ export default function AssistantChatCore({
     sendingRef.current = true;
     const message = pendingFirstMessage;
     onPendingFirstMessageConsumed?.();
-    void sendMessage(message).finally(() => {
+    const payload =
+      message.attachments && message.attachments.length > 0
+        ? { text: message.text, attachments: message.attachments }
+        : message.text;
+    void sendMessage(payload).finally(() => {
       sendingRef.current = false;
     });
   }, [

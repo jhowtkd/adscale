@@ -9,6 +9,12 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import type { ChatAttachment } from "@/lib/assistant/chat-attachments";
+
+export interface PendingFirstMessage {
+  text: string;
+  attachments: ChatAttachment[];
+}
 
 interface AssistantSurfaceActions {
   focusTree: () => void;
@@ -17,8 +23,8 @@ interface AssistantSurfaceActions {
   registerOpenCreateClient: (handler: () => void) => void;
   activeClientId: string | null;
   setActiveClientId: (clientId: string | null) => void;
-  pendingFirstMessage: string | null;
-  setPendingFirstMessage: (message: string | null) => void;
+  pendingFirstMessage: PendingFirstMessage | null;
+  setPendingFirstMessage: (message: PendingFirstMessage | null) => void;
   startNewChat: () => void;
   registerStartNewChat: (handler: () => void) => void;
   versionComparisonRequest: VersionComparisonRequest | null;
@@ -45,9 +51,8 @@ export function AssistantSurfaceProvider({ children }: { children: ReactNode }) 
   const startNewChatRef = useRef<() => void>(() => {});
 
   const [activeClientId, setActiveClientId] = useState<string | null>(null);
-  const [pendingFirstMessage, setPendingFirstMessage] = useState<string | null>(
-    null
-  );
+  const [pendingFirstMessage, setPendingFirstMessage] =
+    useState<PendingFirstMessage | null>(null);
   const [versionComparisonRequest, setVersionComparisonRequest] =
     useState<VersionComparisonRequest | null>(null);
   const [versionComparisonTrigger, setVersionComparisonTrigger] =

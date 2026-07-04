@@ -1817,28 +1817,48 @@
           "badge": "Trial",
           "description": "Try the tool with one real campaign.",
           "period": "one-time",
-          "features": ["1 test campaign", "6 images total", "Restyling included", "No auto-renewal"]
+          "features": [
+            "1 test campaign",
+            "6 images total",
+            "Restyling included",
+            "No auto-renewal"
+          ]
         },
         "starter": {
           "name": "Starter",
           "badge": "Entry",
           "description": "For freelancers and small monthly tests.",
           "period": "month",
-          "features": ["1 campaign per month", "6 images per month", "History and gallery", "Manual export"]
+          "features": [
+            "1 campaign per month",
+            "6 images per month",
+            "History and gallery",
+            "Manual export"
+          ]
         },
         "growth": {
           "name": "Growth",
           "badge": "Recommended",
           "description": "For recurring campaign workflows.",
           "period": "month",
-          "features": ["4 campaigns per month", "24 images per month", "Restyling included", "Basic team"]
+          "features": [
+            "4 campaigns per month",
+            "24 images per month",
+            "Restyling included",
+            "Basic team"
+          ]
         },
         "scale": {
           "name": "Scale",
           "badge": "Volume",
           "description": "For teams that need controlled volume.",
           "period": "month",
-          "features": ["12 campaigns per month", "72 images per month", "Team and permissions", "Priority queue"]
+          "features": [
+            "12 campaigns per month",
+            "72 images per month",
+            "Team and permissions",
+            "Priority queue"
+          ]
         }
       }
     },
@@ -2453,15 +2473,25 @@
           "title": "Produce from zero",
           "subtitle": "Build a strategic brief and visual references before generating"
         }
-      }
+      },
+      "useClassicFlow": "Use classic flow",
+      "useGoalAgent": "Use goal agent",
+      "addImage": "Add image",
+      "removeAttachment": "Remove attachment",
+      "attachmentError": "Could not upload image",
+      "imageAttachment": "Image attachment"
     },
     "guidedFlow": {
       "resumeLabel": "Journey in progress",
       "missingFields": "{count, plural, one {# field pending} other {# fields pending}}",
       "nextActionHint": "Next step: {step}",
       "paths": {
-        "existing_creative": { "title": "I have a creative" },
-        "from_zero": { "title": "Produce from zero" }
+        "existing_creative": {
+          "title": "I have a creative"
+        },
+        "from_zero": {
+          "title": "Produce from zero"
+        }
       },
       "steps": {
         "select_creative": "Select creative",

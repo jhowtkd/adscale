@@ -142,3 +142,74 @@ describe("AssistantStartComposer", () => {
     expect(screen.getByText("noProjectsTitle")).toBeInTheDocument();
   });
 });
+
+describe("AssistantStartComposer goal-agent experience", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseClientProfiles.mockReturnValue({
+      data: [clientFixture],
+      isLoading: false,
+    } as ReturnType<typeof useClientProfiles>);
+    mockMutateAsync.mockResolvedValue({ ...clientFixture, id: "thread-new" });
+  });
+
+  it("hides journey cards and shows the classic-flow toggle when goal-agent is eligible", () => {
+    render(
+      <AssistantStartComposer onSelectThread={vi.fn()} goalAgentEligible />,
+      { wrapper: createWrapper() }
+    );
+
+    expect(
+      screen.queryByTestId("assistant-journey-cards")
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByTestId("assistant-classic-flow-toggle")
+    ).toBeInTheDocument();
+  });
+
+  it("creates the thread with experience=agent by default when eligible", async () => {
+    render(
+      <AssistantStartComposer onSelectThread={vi.fn()} goalAgentEligible />,
+      { wrapper: createWrapper() }
+    );
+
+    const textarea = screen.getByRole("textbox");
+    fireEvent.change(textarea, { target: { value: "Quero vender mais" } });
+    fireEvent.click(screen.getByRole("button", { name: "send" }));
+
+    await waitFor(() => {
+      expect(mockMutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({ experience: "agent" })
+      );
+    });
+  });
+
+  it("creates the thread with experience=classic when the classic toggle is selected", async () => {
+    render(
+      <AssistantStartComposer onSelectThread={vi.fn()} goalAgentEligible />,
+      { wrapper: createWrapper() }
+    );
+
+    fireEvent.click(screen.getByTestId("assistant-classic-flow-toggle"));
+
+    const textarea = screen.getByRole("textbox");
+    fireEvent.change(textarea, { target: { value: "Oi" } });
+    fireEvent.click(screen.getByRole("button", { name: "send" }));
+
+    await waitFor(() => {
+      expect(mockMutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({ experience: "classic" })
+      );
+    });
+  });
+
+  it("renders a native select for the mandatory client when eligible", () => {
+    render(
+      <AssistantStartComposer onSelectThread={vi.fn()} goalAgentEligible />,
+      { wrapper: createWrapper() }
+    );
+
+    const select = screen.getByTestId("assistant-client-select");
+    expect(select.tagName).toBe("SELECT");
+  });
+});

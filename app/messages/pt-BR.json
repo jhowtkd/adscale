@@ -1817,28 +1817,48 @@
           "badge": "Teste",
           "description": "Para experimentar a ferramenta com uma campanha real.",
           "period": "único",
-          "features": ["1 campanha de teste", "6 imagens totais", "Restilização liberada", "Sem renovação automática"]
+          "features": [
+            "1 campanha de teste",
+            "6 imagens totais",
+            "Restilização liberada",
+            "Sem renovação automática"
+          ]
         },
         "starter": {
           "name": "Starter",
           "badge": "Entrada",
           "description": "Para freelancers e pequenos testes mensais.",
           "period": "mês",
-          "features": ["1 campanha por mês", "6 imagens por mês", "Histórico e galeria", "Exportação manual"]
+          "features": [
+            "1 campanha por mês",
+            "6 imagens por mês",
+            "Histórico e galeria",
+            "Exportação manual"
+          ]
         },
         "growth": {
           "name": "Growth",
           "badge": "Recomendado",
           "description": "Para quem roda campanhas recorrentes.",
           "period": "mês",
-          "features": ["4 campanhas por mês", "24 imagens por mês", "Restilização inclusa", "Equipe básica"]
+          "features": [
+            "4 campanhas por mês",
+            "24 imagens por mês",
+            "Restilização inclusa",
+            "Equipe básica"
+          ]
         },
         "scale": {
           "name": "Scale",
           "badge": "Volume",
           "description": "Para times que precisam de volume controlado.",
           "period": "mês",
-          "features": ["12 campanhas por mês", "72 imagens por mês", "Equipe e permissões", "Prioridade de fila"]
+          "features": [
+            "12 campanhas por mês",
+            "72 imagens por mês",
+            "Equipe e permissões",
+            "Prioridade de fila"
+          ]
         }
       }
     },
@@ -2454,15 +2474,25 @@
           "title": "Produzir do zero",
           "subtitle": "Monte um brief estratégico e referências visuais antes de gerar"
         }
-      }
+      },
+      "useClassicFlow": "Usar fluxo clássico",
+      "useGoalAgent": "Usar agente de objetivo",
+      "addImage": "Adicionar imagem",
+      "removeAttachment": "Remover anexo",
+      "attachmentError": "Não foi possível enviar a imagem",
+      "imageAttachment": "Imagem anexada"
     },
     "guidedFlow": {
       "resumeLabel": "Jornada em andamento",
       "missingFields": "{count, plural, one {# campo pendente} other {# campos pendentes}}",
       "nextActionHint": "Próximo passo: {step}",
       "paths": {
-        "existing_creative": { "title": "Já tenho peça" },
-        "from_zero": { "title": "Produzir do zero" }
+        "existing_creative": {
+          "title": "Já tenho peça"
+        },
+        "from_zero": {
+          "title": "Produzir do zero"
+        }
       },
       "steps": {
         "select_creative": "Selecionar criativo",

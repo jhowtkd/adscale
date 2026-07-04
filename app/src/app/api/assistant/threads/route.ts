@@ -9,12 +9,18 @@ import {
   listAssistantThreads,
   AssistantThreadValidationError,
 } from "@/server/repositories/assistant-thread";
+import {
+  AssistantGoalPilotError,
+  resolveAssistantExperience,
+} from "@/server/assistant/goal/pilot";
+import { createGoalRun } from "@/server/repositories/assistant-goal";
 
 const createThreadSchema = z.object({
   clientProfileId: z.string().uuid(),
   campaignId: z.string().uuid().optional(),
   name: z.string().trim().min(1).max(120).optional(),
   isDefault: z.boolean().optional(),
+  experience: z.enum(["agent", "classic"]).optional(),
 });
 
 export async function GET(request: Request) {
@@ -54,7 +60,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { workspace } = await requireWorkspaceAccess(request);
+    const { user, workspace } = await requireWorkspaceAccess(request);
     const rateLimitResult = await checkRateLimit(request, { category: "ai", workspaceId: workspace.id });
     if (rateLimitResult) return rateLimitResult;
     const body = await request.json();
@@ -64,7 +70,14 @@ export async function POST(request: Request) {
       return apiError("invalidInput", 400, parsed.error.flatten());
     }
 
-    const { clientProfileId, campaignId, name, isDefault } = parsed.data;
+    const { clientProfileId, campaignId, name, isDefault, experience } =
+      parsed.data;
+
+    const resolvedExperience = await resolveAssistantExperience({
+      workspaceId: workspace.id,
+      userEmail: user.email,
+      requested: experience,
+    });
 
     const thread =
       campaignId && isDefault
@@ -80,10 +93,25 @@ export async function POST(request: Request) {
             isDefault,
           });
 
-    return NextResponse.json({ thread }, { status: 201 });
+    // The goal-agent pilot owns one creative objective per thread. Creating the
+    // goal run here (not the campaign) keeps the durable pilot state separate
+    // from the legacy guided-flow tables until the brief is ready.
+    if (resolvedExperience === "agent") {
+      await createGoalRun({
+        workspaceId: workspace.id,
+        clientProfileId,
+        threadId: thread.id,
+        userId: user.id,
+      });
+    }
+
+    return NextResponse.json({ thread, experience: resolvedExperience }, { status: 201 });
   } catch (error) {
     if (error instanceof AssistantThreadValidationError) {
       return apiError("threadNotFound", 404);
+    }
+    if (error instanceof AssistantGoalPilotError) {
+      return apiError(error.code, 403);
     }
     return handleApiError(error, "assistant.threads.POST");
   }

@@ -1,25 +1,38 @@
 "use client";
 
-import { useMemo, useState, type FormEvent, type KeyboardEvent } from "react";
+import { useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { ArrowUp, Loader2 } from "lucide-react";
+import { ArrowUp, ImagePlus, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useClientProfiles } from "@/lib/hooks/use-client-profiles";
 import { useCreateAssistantThread } from "@/lib/hooks/use-assistant-threads";
 import { useUpsertGuidedFlow, type GuidedFlowPath } from "@/lib/hooks/use-guided-flow";
+import {
+  uploadChatAttachment,
+  type ChatAttachment,
+} from "@/lib/assistant/chat-attachments";
 import { useAssistantSurface } from "./AssistantSurfaceContext";
 import AssistantJourneyCards from "./AssistantJourneyCards";
 
 export interface AssistantStartComposerProps {
   onSelectThread: (threadId: string) => void;
   onCreateClient?: () => void;
+  /**
+   * Whether the caller qualifies for the goal-agent pilot. The server remains
+   * the authority; this only controls the default composer experience so an
+   * ineligible user never sees the agent UI.
+   */
+  goalAgentEligible?: boolean;
 }
+
+type StartExperience = "agent" | "classic";
 
 export default function AssistantStartComposer({
   onSelectThread,
   onCreateClient,
+  goalAgentEligible = false,
 }: AssistantStartComposerProps) {
   const t = useTranslations("assistant.start");
   const router = useRouter();
@@ -32,8 +45,17 @@ export default function AssistantStartComposer({
     setPendingFirstMessage,
   } = useAssistantSurface();
 
+  const [experience, setExperience] = useState<StartExperience>(
+    goalAgentEligible ? "agent" : "classic"
+  );
   const [value, setValue] = useState("");
   const [clientId, setClientId] = useState<string | null>(activeClientId);
+  const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const isAgent = experience === "agent";
 
   const effectiveClientId = clientId ?? activeClientId ?? clients[0]?.id ?? null;
   const activeClient = useMemo(
@@ -52,6 +74,7 @@ export default function AssistantStartComposer({
       const thread = await createThread.mutateAsync({
         clientProfileId: effectiveClientId,
         name: t(`journeys.${path}.title`),
+        experience: "classic",
       });
       await upsertGuidedFlow.mutateAsync({ threadId: thread.id, path });
       onSelectThread(thread.id);
@@ -61,20 +84,45 @@ export default function AssistantStartComposer({
     }
   };
 
+  const handleFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setUploading(true);
+    setAttachmentError(null);
+    try {
+      const uploaded = await Promise.all(
+        Array.from(files).map((file) => uploadChatAttachment(file))
+      );
+      setAttachments((prev) => [...prev, ...uploaded]);
+    } catch (error) {
+      setAttachmentError(
+        error instanceof Error ? error.message : t("attachmentError")
+      );
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const removeAttachment = (assetId: string) => {
+    setAttachments((prev) => prev.filter((a) => a.assetId !== assetId));
+  };
+
   const submit = async () => {
     const trimmed = value.trim();
-    if (!trimmed || !effectiveClientId || createThread.isPending) {
+    if ((!trimmed && attachments.length === 0) || !effectiveClientId || createThread.isPending) {
       return;
     }
 
     setActiveClientId(effectiveClientId);
-    setPendingFirstMessage(trimmed);
+    setPendingFirstMessage({ text: trimmed, attachments });
     setValue("");
+    setAttachments([]);
 
     try {
       const thread = await createThread.mutateAsync({
         clientProfileId: effectiveClientId,
-        name: trimmed.slice(0, 80),
+        name: trimmed.slice(0, 80) || (attachments.length ? t("imageAttachment") : "Cliente"),
+        experience: isAgent ? "agent" : "classic",
       });
       onSelectThread(thread.id);
       router.replace(`/assistant?threadId=${thread.id}`);
@@ -134,10 +182,11 @@ export default function AssistantStartComposer({
   }
 
   const canSend =
-    !!value.trim() &&
+    (!!value.trim() || attachments.length > 0) &&
     !!effectiveClientId &&
     !createThread.isPending &&
-    !upsertGuidedFlow.isPending;
+    !upsertGuidedFlow.isPending &&
+    !uploading;
   const journeyDisabled = createThread.isPending || upsertGuidedFlow.isPending;
   const threadError =
     createThread.error instanceof Error
@@ -148,7 +197,7 @@ export default function AssistantStartComposer({
           ? upsertGuidedFlow.error.message
           : upsertGuidedFlow.isError
             ? t("createError")
-            : null;
+            : attachmentError;
 
   return (
     <div
@@ -159,10 +208,53 @@ export default function AssistantStartComposer({
         {promptHeading}
       </h1>
 
-      <AssistantJourneyCards
-        onSelectPath={(path) => void startJourney(path)}
-        disabled={journeyDisabled}
-      />
+      {isAgent ? (
+        <div className="w-full max-w-2xl">
+          <label className="sr-only" htmlFor="assistant-client-select">
+            {t("chooseProject")}
+          </label>
+          <select
+            id="assistant-client-select"
+            data-testid="assistant-client-select"
+            value={effectiveClientId ?? ""}
+            onChange={(event) => setClientId(event.target.value || null)}
+            disabled={createThread.isPending}
+            className="block w-full rounded-xl border border-[var(--border-dim)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-primary)] focus-visible:border-[var(--accent-primary)] focus-visible:outline-none"
+          >
+            {clients.map((client) => (
+              <option key={client.id} value={client.id}>
+                {client.name}
+              </option>
+            ))}
+          </select>
+          <div className="mt-2 flex justify-end">
+            <button
+              type="button"
+              data-testid="assistant-classic-flow-toggle"
+              onClick={() => setExperience("classic")}
+              className="text-xs text-[var(--text-muted)] underline-offset-2 hover:text-[var(--text-secondary)] hover:underline"
+            >
+              {t("useClassicFlow")}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <AssistantJourneyCards
+            onSelectPath={(path) => void startJourney(path)}
+            disabled={journeyDisabled}
+          />
+          {goalAgentEligible ? (
+            <button
+              type="button"
+              onClick={() => setExperience("agent")}
+              className="text-xs text-[var(--text-muted)] underline-offset-2 hover:text-[var(--text-secondary)] hover:underline"
+            >
+              {t("useGoalAgent")}
+            </button>
+          ) : null}
+        </>
+      )}
 
       {threadError ? (
         <p className="w-full max-w-2xl rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-3 text-sm text-[var(--danger-text)]" role="alert">
@@ -176,6 +268,26 @@ export default function AssistantStartComposer({
         data-testid="assistant-start-form"
       >
         <div className="overflow-hidden rounded-2xl border border-[var(--border-dim)] bg-[var(--surface-raised)] shadow-lg shadow-black/20 focus-within:border-[var(--accent-primary)]">
+          {attachments.length > 0 ? (
+            <div className="flex flex-wrap gap-2 px-3 pt-3">
+              {attachments.map((attachment) => (
+                <span
+                  key={attachment.assetId}
+                  className="inline-flex items-center gap-1 rounded-md border border-[var(--border-dim)] bg-[var(--surface-inset)] px-2 py-1 text-xs text-[var(--text-secondary)]"
+                >
+                  {attachment.name}
+                  <button
+                    type="button"
+                    onClick={() => removeAttachment(attachment.assetId)}
+                    aria-label={t("removeAttachment")}
+                    className="text-[var(--text-muted)] hover:text-[var(--danger-text)]"
+                  >
+                    <X className="size-3" aria-hidden="true" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          ) : null}
           <textarea
             value={value}
             onChange={(event) => setValue(event.target.value)}
@@ -189,9 +301,35 @@ export default function AssistantStartComposer({
             aria-label={promptHeading}
           />
           <div className="flex items-center justify-between gap-2 px-3 pb-3">
-            <span className="rounded-md border border-[var(--border-dim)] px-2 py-1 text-xs text-[var(--text-secondary)]">
-              {t("accessFull")}
-            </span>
+            <div className="flex items-center gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                multiple
+                onChange={(event) => void handleFiles(event.target.files)}
+                className="hidden"
+                data-testid="assistant-start-file-input"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading || createThread.isPending}
+                aria-label={t("addImage")}
+                className="size-9 rounded-full text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+              >
+                {uploading ? (
+                  <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <ImagePlus className="size-4" aria-hidden="true" />
+                )}
+              </Button>
+              <span className="rounded-md border border-[var(--border-dim)] px-2 py-1 text-xs text-[var(--text-secondary)]">
+                {t("accessFull")}
+              </span>
+            </div>
             <Button
               type="submit"
               size="icon"
@@ -204,29 +342,15 @@ export default function AssistantStartComposer({
                   : "bg-[var(--surface-inset)] text-[var(--text-muted)]"
               )}
             >
-                {createThread.isPending ? (
-                  <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                ) : (
-                  <ArrowUp className="size-4" aria-hidden="true" />
-                )}
+              {createThread.isPending ? (
+                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+              ) : (
+                <ArrowUp className="size-4" aria-hidden="true" />
+              )}
             </Button>
           </div>
         </div>
       </form>
-
-      <div className="flex w-full max-w-2xl items-center justify-between text-xs text-[var(--text-muted)]">
-        <button
-          type="button"
-          onClick={() => setClientId(clients[0]?.id ?? null)}
-          className="flex items-center gap-2 rounded-md border border-[var(--border-dim)] px-3 py-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-        >
-          <span
-            className="size-3.5 rounded-sm bg-[var(--neutral-dot)]"
-            aria-hidden="true"
-          />
-          {activeClient?.name ?? t("chooseProject")}
-        </button>
-      </div>
     </div>
   );
 }

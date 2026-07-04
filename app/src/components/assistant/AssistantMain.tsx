@@ -5,7 +5,13 @@ import AssistantChatCore from "./AssistantChatCore";
 import AssistantStartComposer from "./AssistantStartComposer";
 import { useAssistantSurface } from "./AssistantSurfaceContext";
 
-export default function AssistantMain({ threadId }: { threadId?: string }) {
+export default function AssistantMain({
+  threadId,
+  goalAgentEligible = false,
+}: {
+  threadId?: string;
+  goalAgentEligible?: boolean;
+}) {
   const router = useRouter();
   const { openCreateClient, pendingFirstMessage, setPendingFirstMessage } =
     useAssistantSurface();
@@ -23,6 +29,7 @@ export default function AssistantMain({ threadId }: { threadId?: string }) {
       <AssistantStartComposer
         onSelectThread={handleStartThread}
         onCreateClient={openCreateClient}
+        goalAgentEligible={goalAgentEligible}
       />
     );
   }
