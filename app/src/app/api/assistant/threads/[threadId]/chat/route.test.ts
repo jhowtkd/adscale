@@ -26,6 +26,12 @@ vi.mock("@/server/assistant/orchestrator", () => ({
   runAssistantTurn: vi.fn(),
 }));
 
+// Classic-thread default: no goal run, so the chat route uses the guided
+// orchestrator. Goal-agent streaming is covered by the loop's own tests.
+vi.mock("@/server/repositories/assistant-goal", () => ({
+  getGoalRunByThread: vi.fn().mockResolvedValue(null),
+}));
+
 vi.mock("@/server/repositories/workspace-asset", () => ({
   getWorkspaceAssetById: vi.fn(),
 }));

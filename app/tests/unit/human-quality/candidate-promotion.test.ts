@@ -11,6 +11,12 @@ vi.mock("@/server/repositories/human-quality-corpus", () => ({
   insertCorpusItem: vi.fn(),
 }));
 
+// Goal-agent consent gate: existing tests assume promotion proceeds, so default
+// to an active grant. Individual tests can override to assert the gate.
+vi.mock("@/server/repositories/assistant-goal", () => ({
+  getCorpusConsent: vi.fn().mockResolvedValue({ status: "granted" }),
+}));
+
 import {
   getCorpusCandidateById,
   markCorpusCandidatePromoted,
