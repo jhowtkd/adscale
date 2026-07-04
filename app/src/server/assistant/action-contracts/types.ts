@@ -8,7 +8,7 @@ export type IntentFamily = "quick_action" | "complete_campaign";
 
 export type CreditImpact =
   | { kind: "fixed"; credits: number; label?: string }
-  | { kind: "creditAction"; action: CreditAction; label?: string };
+  | { kind: "creditAction"; action: CreditAction; amount?: number; label?: string };
 
 export interface OptionalFieldMeta {
   key: string;
@@ -26,4 +26,10 @@ export interface ActionContract<T extends z.ZodType = z.ZodType> {
   riskLabel: RiskLabel;
   creditImpact: CreditImpact;
   confirmationPolicy: ConfirmationPolicy;
+  /**
+   * Risk-copy lines shown on every confirmation card for this action, regardless
+   * of which optional fields are present. Goal-agent actions use this to state
+   * the non-refundable billing policy explicitly and unconditionally.
+   */
+  alwaysRiskCopy?: readonly string[];
 }

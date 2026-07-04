@@ -142,8 +142,34 @@ describe("assistant-action repository", () => {
       status: "running",
       display: undefined,
       safeError: null,
-      jobRef: { kind: "derivation", id: "deriv-42" },
+      jobRefs: [{ kind: "derivation", id: "deriv-42" }],
     });
+  });
+
+  it("merges multiple jobRefs idempotently and keeps running status stable", async () => {
+    state.selectResults.push([
+      {
+        id: "action-1",
+        status: "running",
+        messageId: "msg-1",
+        threadId: "thread-1",
+        jobRefs: [{ kind: "derivation", id: "deriv-a" }],
+        safeError: null,
+      },
+    ]);
+    state.updateResult = [{ id: "action-1", status: "running" }];
+
+    // Same-status transition for a sibling job must not throw; it merges the ref.
+    await transitionAssistantAction("ws-1", "action-1", "running", {
+      jobRefs: [{ kind: "derivation", id: "deriv-b" }],
+    });
+
+    expect(mockUpdateCard).toHaveBeenCalledWith("ws-1", "msg-1", expect.objectContaining({
+      jobRefs: [
+        { kind: "derivation", id: "deriv-a" },
+        { kind: "derivation", id: "deriv-b" },
+      ],
+    }));
   });
 
   it("cancels pending action with safe error", async () => {

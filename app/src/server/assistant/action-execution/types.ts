@@ -31,7 +31,14 @@ export interface ActionExecutionContext {
 
 export interface ActionExecutionResult {
   mode: "async" | "sync";
+  /** Single job ref (legacy single-job actions). */
   jobRef?: JobRef;
+  /**
+   * Multiple job refs for aggregate actions (e.g. a three-derivation triplet).
+   * The orchestrator persists all of them idempotently so the aggregate job
+   * sync can wait for every expected job to settle before completing the action.
+   */
+  jobRefs?: JobRef[];
   resultSummary?: string;
   campaignId?: string;
   /**

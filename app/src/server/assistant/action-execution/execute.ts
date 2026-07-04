@@ -109,6 +109,7 @@ export async function executeConfirmedAssistantAction(
     if (result.mode === "sync") {
       const completed = await transitionAssistantAction(workspaceId, actionId, "completed", {
         jobRef: result.jobRef,
+        jobRefs: result.jobRefs,
         display: {
           executionSummary: result.resultSummary,
           route: result.route,
@@ -127,6 +128,7 @@ export async function executeConfirmedAssistantAction(
 
     const running = await transitionAssistantAction(workspaceId, actionId, "running", {
       jobRef: result.jobRef,
+      jobRefs: result.jobRefs,
       display: {
         executionSummary: result.resultSummary,
         route: result.route,

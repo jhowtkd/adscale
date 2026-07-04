@@ -17,6 +17,7 @@ import {
   assertGuidedActionReady,
   guidedActionSnapshotDigest,
 } from "./guided-binding";
+import { getGoalRunScoped } from "@/server/repositories/assistant-goal";
 
 export interface ValidateProposeActionInput {
   actionType: string;
@@ -108,9 +109,37 @@ export async function revalidateOnConfirm(
   }
 
   if (contract.creditImpact.kind === "creditAction") {
-    const creditCheck = await checkSpend(workspaceId, contract.creditImpact.action);
+    // Goal-agent actions carry an explicit `amount` so the spend check matches
+    // the exact credit cost quoted on the confirmation card (e.g. 15 for a
+    // triplet) rather than a single-derivation default.
+    const creditCheck = await checkSpend(
+      workspaceId,
+      contract.creditImpact.action,
+      contract.creditImpact.amount
+    );
     if (!creditCheck.allowed) {
       throw new AssistantActionValidationError(creditCheck.reason);
+    }
+  }
+
+  // Goal-agent actions are scope-bound: the caller's view of the goal must be
+  // current and the planVersionId must belong to that goal's thread. This
+  // prevents a stale confirmation from charging against an outdated plan.
+  const snapshot = action.inputSnapshot as Record<string, unknown>;
+  if (typeof snapshot.goalRunId === "string") {
+    const goal = await getGoalRunScoped(
+      workspaceId,
+      (snapshot.clientProfileId as string) ?? "",
+      action.threadId
+    );
+    if (!goal || goal.id !== snapshot.goalRunId) {
+      throw new AssistantActionValidationError("goal_scope_mismatch");
+    }
+    if (
+      typeof snapshot.goalRevision === "number" &&
+      goal.revision !== snapshot.goalRevision
+    ) {
+      throw new AssistantActionValidationError("stale_goal_revision");
     }
   }
 

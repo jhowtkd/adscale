@@ -52,6 +52,19 @@ function appendJobRef(existing: JobRef[], jobRef?: JobRef): JobRef[] {
   return [...existing, jobRef];
 }
 
+/**
+ * Idempotently merges one or more job refs into the existing set. Multi-job
+ * actions (e.g. a creative triplet) push every ref up front; repeated callbacks
+ * for the same ref are deduped on (kind, id) so replays never duplicate.
+ */
+function mergeJobRefs(existing: JobRef[], additions: JobRef[]): JobRef[] {
+  let result = existing;
+  for (const ref of additions) {
+    result = appendJobRef(result, ref);
+  }
+  return result;
+}
+
 export async function getAssistantActionById(workspaceId: string, actionId: string) {
   const [row] = await db
     .select()
@@ -139,6 +152,7 @@ export async function transitionAssistantAction(
   patch?: {
     safeError?: string | null;
     jobRef?: JobRef;
+    jobRefs?: JobRef[];
     inputSnapshot?: Record<string, unknown>;
     display?: Record<string, unknown>;
   }
@@ -149,7 +163,13 @@ export async function transitionAssistantAction(
   }
 
   const currentStatus = action.status as ActionStatus;
-  if (!isValidActionTransition(currentStatus, nextStatus)) {
+
+  // An identical status is an idempotent patch, not an error. Aggregate job
+  // callbacks (e.g. three derivation jobs reporting running one after another)
+  // merge their job refs and safe display data without throwing, then return
+  // the current status. This keeps multi-job actions alive while any expected
+  // job is still active.
+  if (currentStatus !== nextStatus && !isValidActionTransition(currentStatus, nextStatus)) {
     throw new InvalidActionTransitionError(currentStatus, nextStatus);
   }
 
@@ -164,10 +184,11 @@ export async function transitionAssistantAction(
       ? sanitizeSafeError(patch.safeError)
       : action.safeError;
 
-  const jobRefs = appendJobRef(
-    (action.jobRefs ?? []) as JobRef[],
-    patch?.jobRef
-  );
+  const additions = [
+    ...(patch?.jobRef ? [patch.jobRef] : []),
+    ...(patch?.jobRefs ?? []),
+  ];
+  const jobRefs = mergeJobRefs((action.jobRefs ?? []) as JobRef[], additions);
 
   const [updated] = await db
     .update(assistantActionRecords)
@@ -193,7 +214,7 @@ export async function transitionAssistantAction(
     status: nextStatus,
     display: patch?.display,
     safeError,
-    jobRef: patch?.jobRef,
+    jobRefs,
   });
   await touchAssistantThread(workspaceId, action.threadId);
 

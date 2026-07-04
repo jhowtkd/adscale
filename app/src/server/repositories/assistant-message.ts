@@ -137,6 +137,7 @@ export async function updateActionCardPayload(
     display?: Record<string, unknown>;
     safeError?: string | null;
     jobRef?: JobRef;
+    jobRefs?: JobRef[];
   }
 ) {
   const [existing] = await db
@@ -167,6 +168,9 @@ export async function updateActionCardPayload(
     ...(display !== undefined ? { display } : {}),
     ...(patch.safeError !== undefined ? { safeError: patch.safeError } : {}),
     ...(patch.jobRef !== undefined ? { jobRef: patch.jobRef } : {}),
+    // The card payload mirrors the full job-ref set so the UI can show
+    // aggregate progress instead of only the most recent callback.
+    ...(patch.jobRefs !== undefined ? { jobRefs: patch.jobRefs } : {}),
   };
 
   if (containsDeniedPersistenceKeys(nextPayload)) {
