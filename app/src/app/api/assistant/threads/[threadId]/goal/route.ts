@@ -44,7 +44,7 @@ export async function POST(
 ) {
   try {
     const { threadId } = await params;
-    const { user, workspace } = await requireWorkspaceAccess(request);
+    const { workspace } = await requireWorkspaceAccess(request);
 
     const thread = await getAssistantThreadById(workspace.id, threadId);
     if (!thread) {

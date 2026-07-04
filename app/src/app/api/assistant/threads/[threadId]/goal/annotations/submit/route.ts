@@ -30,6 +30,8 @@ export async function POST(
     const { threadId } = await params;
     const { workspace } = await requireWorkspaceAccess(request);
 
+
+
     const thread = await getAssistantThreadById(workspace.id, threadId);
     if (!thread) {
       return apiError("threadNotFound", 404);

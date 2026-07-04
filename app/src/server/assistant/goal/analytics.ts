@@ -43,7 +43,6 @@ export async function emitGoalEvent(input: GoalEventInput): Promise<void> {
     return;
   }
   // Structured log only — no persistence of prompt/annotation/url content.
-  // eslint-disable-next-line no-console
   console.info("[goal-agent]", input.event, {
     workspaceId: input.workspaceId,
     goalRunId: input.goalRunId,

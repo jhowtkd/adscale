@@ -18,6 +18,7 @@
     "test:guided-e2e": "node scripts/run-guided-e2e.mjs",
     "test:visual-release": "playwright test --config playwright.release.config.ts",
     "release-gate": "node scripts/run-release-gate.mjs",
+    "goal-agent-release-gate": "node scripts/run-goal-agent-release-gate.mjs",
     "test:db:setup": "tsx scripts/setup-test-db.ts",
     "test:db:teardown": "tsx scripts/teardown-test-db.ts",
     "inngest:dev": "inngest-cli dev -u http://localhost:3000/api/inngest",
