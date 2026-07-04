@@ -26,6 +26,10 @@ vi.mock("@/server/memory/brand-memory-context", () => ({
   getBrandMemoryContext: vi.fn(),
 }));
 
+vi.mock("@/server/assistant/goal/service", () => ({
+  resolveGoalContext: vi.fn().mockResolvedValue(null),
+}));
+
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
 import { listAssistantMessages } from "@/server/repositories/assistant-message";
 import { getClientProfile } from "@/server/repositories/client-reference";

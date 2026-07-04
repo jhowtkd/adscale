@@ -6,12 +6,14 @@ import { listAssistantMessages } from "@/server/repositories/assistant-message";
 import {
   getAssistantThreadById,
 } from "@/server/repositories/assistant-thread";
+import { resolveGoalContext } from "@/server/assistant/goal/service";
 import type { AssistantModelMessage, AssistantModelRequest } from "../model/client";
 import {
   type AllowedContextShape,
   BRAND_KIT_ALLOWED_KEYS,
   CAMPAIGN_ALLOWED_KEYS,
   CLIENT_PROFILE_ALLOWED_KEYS,
+  GOAL_ALLOWED_KEYS,
   THREAD_ALLOWED_KEYS,
   pickAllowedFields,
 } from "./allowlist";
@@ -86,13 +88,18 @@ export async function buildAssistantContext(
 
   const messageLimit = input.messageLimit ?? DEFAULT_MESSAGE_LIMIT;
 
-  const [profile, messages, brandKit, brandMemory] = await Promise.all([
+  const [profile, messages, brandKit, brandMemory, goalContext] = await Promise.all([
     getClientProfile(input.workspaceId, input.clientProfileId),
     listAssistantMessages(input.workspaceId, input.threadId, { limit: messageLimit }),
     getBrandKit(input.workspaceId, input.clientProfileId).catch(() => null),
     getBrandMemoryContext({
       workspaceId: input.workspaceId,
       clientProfileId: input.clientProfileId,
+    }),
+    resolveGoalContext({
+      workspaceId: input.workspaceId,
+      clientProfileId: input.clientProfileId,
+      threadId: input.threadId,
     }),
   ]);
 
@@ -154,6 +161,7 @@ export async function buildAssistantContext(
     brandMemory: brandMemory.block
       ? { block: brandMemory.block }
       : null,
+    goal: goalContext as AllowedContextShape["goal"],
   };
 
   try {

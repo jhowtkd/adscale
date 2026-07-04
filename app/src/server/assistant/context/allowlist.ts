@@ -5,6 +5,7 @@ export const CONTEXT_CATEGORIES = [
   "recentMessages",
   "brandKit",
   "brandMemory",
+  "goal",
 ] as const;
 
 export type ContextCategory = (typeof CONTEXT_CATEGORIES)[number];
@@ -54,6 +55,36 @@ export interface BrandMemoryContextShape {
   block: string;
 }
 
+/**
+ * Allowlisted goal-run projection for the model context. Only durable, safe
+ * identifiers and the editable plan/brief state reach the model — never prompts,
+ * output keys, signed URLs, or provider payloads.
+ */
+export interface GoalContext {
+  id: string;
+  revision: number;
+  stage: string;
+  objective: string;
+  planVersionId: string | null;
+  brief: {
+    productOffer: string;
+    audience: string;
+    constraints: string;
+    objective: string;
+    cta: string;
+    referenceIds: string[];
+    baseAssetId: string | null;
+  };
+  plan: {
+    strategy: string;
+    angles: string[];
+    hooks: string[];
+    ctas: string[];
+  };
+  assumptions: string[];
+  blockers: string[];
+}
+
 export interface AllowedContextShape {
   clientProfile?: ClientProfileContext | null;
   campaign?: CampaignContext | null;
@@ -61,6 +92,7 @@ export interface AllowedContextShape {
   recentMessages: MessageContext[];
   brandKit?: BrandKitContext | null;
   brandMemory?: BrandMemoryContextShape | null;
+  goal?: GoalContext | null;
 }
 
 export const CLIENT_PROFILE_ALLOWED_KEYS = ["name", "industry", "tone"] as const;
@@ -77,6 +109,17 @@ export const BRAND_KIT_ALLOWED_KEYS = [
   "visualNotes",
   "toneOfVoice",
   "constraints",
+] as const;
+export const GOAL_ALLOWED_KEYS = [
+  "id",
+  "revision",
+  "stage",
+  "objective",
+  "planVersionId",
+  "brief",
+  "plan",
+  "assumptions",
+  "blockers",
 ] as const;
 
 export function pickAllowedFields<T extends Record<string, unknown>>(
