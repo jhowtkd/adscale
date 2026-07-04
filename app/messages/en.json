@@ -2636,6 +2636,44 @@
       "ready": "Creative ready for review ({format})",
       "openReview": "Open review",
       "noDerivation": "No generated creative to review in this campaign yet."
+    },
+    "goal": {
+      "level": {
+        "conservative": "Conservative",
+        "balanced": "Balanced",
+        "bold": "Bold"
+      },
+      "selectBase": "Select as base",
+      "selected": "Selected",
+      "ready": "Ready",
+      "running": "Generating",
+      "failed": "Failed",
+      "planStep": {
+        "understand": "Understand",
+        "plan": "Plan",
+        "create": "Create",
+        "review": "Review"
+      },
+      "stop": "Stop",
+      "resume": "Resume",
+      "abandon": "Abandon",
+      "stage": {
+        "intake": "Understanding the objective",
+        "planning": "Building the plan",
+        "awaiting_generation": "Ready to generate",
+        "generating_variants": "Generating directions",
+        "choosing_base": "Choose the base",
+        "reviewing_base": "Reviewing the base",
+        "awaiting_package": "Ready for the package",
+        "generating_package": "Generating formats",
+        "reviewing_package": "Reviewing the package",
+        "completed": "Completed",
+        "stopped": "Stopped",
+        "failed": "Failed"
+      },
+      "assumptions": "Assumptions",
+      "blockers": "Missing",
+      "candidates": "Creative direction"
     }
   },
   "analytics": {

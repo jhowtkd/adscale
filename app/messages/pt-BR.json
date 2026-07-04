@@ -2665,6 +2665,44 @@
       "ready": "Peça pronta para revisão ({format})",
       "openReview": "Abrir revisão",
       "noDerivation": "Nenhuma peça gerada para revisar nesta campanha."
+    },
+    "goal": {
+      "level": {
+        "conservative": "Conservador",
+        "balanced": "Equilibrado",
+        "bold": "Ousado"
+      },
+      "selectBase": "Selecionar como base",
+      "selected": "Selecionado",
+      "ready": "Pronto",
+      "running": "Gerando",
+      "failed": "Falhou",
+      "planStep": {
+        "understand": "Entender",
+        "plan": "Planejar",
+        "create": "Criar",
+        "review": "Revisar"
+      },
+      "stop": "Parar",
+      "resume": "Retomar",
+      "abandon": "Abandonar",
+      "stage": {
+        "intake": "Entendendo o objetivo",
+        "planning": "Montando o plano",
+        "awaiting_generation": "Pronto para gerar",
+        "generating_variants": "Gerando direções",
+        "choosing_base": "Escolha a base",
+        "reviewing_base": "Revisando a base",
+        "awaiting_package": "Pronto para o pacote",
+        "generating_package": "Gerando formatos",
+        "reviewing_package": "Revisando o pacote",
+        "completed": "Concluído",
+        "stopped": "Parado",
+        "failed": "Falhou"
+      },
+      "assumptions": "Suposições",
+      "blockers": "Faltam",
+      "candidates": "Direções criativas"
     }
   },
   "analytics": {
