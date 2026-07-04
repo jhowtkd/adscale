@@ -11,6 +11,7 @@ import { startCompleteCampaignContract } from "./start-complete-campaign";
 import { createCreativePlanContract } from "./create-creative-plan";
 import { reviseCreativePlanContract } from "./revise-creative-plan";
 import { reviseCreativeContract } from "./revise-creative";
+import { generateCreativeTripletContract } from "./generate-creative-triplet";
 
 registerActionContract(quickRestyleContract);
 registerActionContract(quickFormatAdaptContract);
@@ -24,3 +25,4 @@ registerActionContract(startCompleteCampaignContract);
 registerActionContract(createCreativePlanContract);
 registerActionContract(reviseCreativePlanContract);
 registerActionContract(reviseCreativeContract);
+registerActionContract(generateCreativeTripletContract);

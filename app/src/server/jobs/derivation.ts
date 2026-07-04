@@ -212,7 +212,7 @@ export const derivationJob = inngest.createFunction(
     ],
     onFailure: async ({ event, error, step }) => {
       const originalEvent = event.data.event;
-      const { derivationId, campaignId, workspaceId, triggeredByUserId, assistantActionId, generationMode } = originalEvent.data;
+      const { derivationId, campaignId, workspaceId, triggeredByUserId, assistantActionId, generationMode, refundPolicy } = originalEvent.data;
       const { userMessage, technicalDetail } = sanitizeDerivationFailureError(error);
       const errorId = crypto.randomUUID();
       logger.error("[Inngest onFailure] derivation failed", {
@@ -248,7 +248,14 @@ export const derivationJob = inngest.createFunction(
           });
         }
       });
-      if (assistantActionId && generationMode === "creative_revision") {
+      // Goal-agent actions are non-refundable: a `refundPolicy` of "none" means
+      // the credit charge was definitive regardless of outcome, so we skip the
+      // legacy creative-revision refund entirely for those derivations.
+      const isRefundable =
+        assistantActionId &&
+        generationMode === "creative_revision" &&
+        refundPolicy !== "none";
+      if (isRefundable) {
         await step.run("refund-creative-revision", async () => {
           try {
             const result = await refundCredits({

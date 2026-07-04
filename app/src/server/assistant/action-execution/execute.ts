@@ -25,6 +25,7 @@ import { executeStartCompleteCampaign } from "./handlers/start-complete-campaign
 import { executeCreateCreativePlan } from "./handlers/create-creative-plan";
 import { executeReviseCreativePlan } from "./handlers/revise-creative-plan";
 import { executeReviseCreative } from "./handlers/revise-creative";
+import { executeGenerateCreativeTriplet } from "./handlers/generate-creative-triplet";
 import type { ActionExecutionContext, ActionExecutionResult } from "./types";
 import { AssistantActionExecutionError } from "./types";
 
@@ -45,6 +46,7 @@ const HANDLERS: Record<string, Handler> = {
   create_creative_plan: executeCreateCreativePlan,
   revise_creative_plan: executeReviseCreativePlan,
   revise_creative: executeReviseCreative,
+  generate_creative_triplet: executeGenerateCreativeTriplet,
 };
 
 export async function executeConfirmedAssistantAction(

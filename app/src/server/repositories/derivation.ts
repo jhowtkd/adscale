@@ -62,6 +62,13 @@ export interface CreateDerivationInput {
   creativeContract?: CreativeContract;
   regenerationCorrectionBrief?: RegenerationCorrectionBriefRecord;
   outputLearningApplication?: OutputLearningApplicationSnapshot | null;
+  /**
+   * Per-derivation creative intensity. When set, the generation pipeline uses
+   * this instead of the campaign's creativeLevel so a controlled triplet can
+   * vary only intensity (conservative/balanced/bold) while keeping every other
+   * prompt input identical.
+   */
+  creativeLevel?: "conservative" | "balanced" | "bold" | "extreme";
 }
 
 export async function createDerivation(data: CreateDerivationInput) {
@@ -83,6 +90,7 @@ export async function createDerivation(data: CreateDerivationInput) {
       creativeContract: data.creativeContract ?? null,
       regenerationCorrectionBrief: data.regenerationCorrectionBrief ?? null,
       outputLearningApplication: data.outputLearningApplication ?? null,
+      creativeLevel: data.creativeLevel ?? null,
     })
     .returning();
   return result[0];
