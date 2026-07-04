@@ -29,6 +29,10 @@
     "pt-BR": "Português (Brasil)",
     "en": "English"
   },
+  "theme": {
+    "switchToLight": "Mudar para modo claro",
+    "switchToDark": "Mudar para modo escuro"
+  },
   "common": {
     "save": "Salvar",
     "cancel": "Cancelar",
