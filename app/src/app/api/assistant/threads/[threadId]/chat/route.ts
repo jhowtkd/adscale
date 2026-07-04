@@ -2,6 +2,8 @@ import { z } from "zod";
 import { requireRole, requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
 import { runAssistantTurn } from "@/server/assistant/orchestrator";
+import { runGoalAgentTurn } from "@/server/assistant/goal/orchestrator-loop";
+import { getGoalRunByThread } from "@/server/repositories/assistant-goal";
 import { encodeAssistantSseEvent } from "@/server/assistant/stream/sse";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { logger } from "@/lib/logger";
@@ -108,14 +110,29 @@ export async function POST(
     const stream = new ReadableStream({
       async start(controller) {
         try {
-          for await (const event of runAssistantTurn({
-            workspaceId: workspace.id,
-            clientProfileId: thread.clientProfileId,
-            threadId,
-            userId: user.id,
-            userMessage: parsed.data.message,
-            attachments,
-          })) {
+          // Goal-agent threads run the bounded tool-result loop; classic
+          // threads keep the existing single-pass guided orchestrator so the
+          // legacy experience is unchanged.
+          const goalRun = await getGoalRunByThread(workspace.id, threadId);
+          const turn =
+            goalRun && goalRun.stage !== "completed" && goalRun.stage !== "stopped"
+              ? runGoalAgentTurn({
+                  workspaceId: workspace.id,
+                  clientProfileId: thread.clientProfileId,
+                  threadId,
+                  userId: user.id,
+                  userMessage: parsed.data.message,
+                })
+              : runAssistantTurn({
+                  workspaceId: workspace.id,
+                  clientProfileId: thread.clientProfileId,
+                  threadId,
+                  userId: user.id,
+                  userMessage: parsed.data.message,
+                  attachments,
+                });
+
+          for await (const event of turn) {
             if (event.type === "text_delta") {
               controller.enqueue(
                 encodeAssistantSseEvent("text_delta", { text: event.text })
@@ -133,6 +150,12 @@ export async function POST(
                   actionRecordId: event.actionRecordId,
                   status: event.status,
                 })
+              );
+            } else if (event.type === "goal_state") {
+              // Tell the client to refetch its goal projection; we never stream
+              // the projection itself over SSE to avoid persisting a stale DTO.
+              controller.enqueue(
+                encodeAssistantSseEvent("goal_state", {})
               );
             } else if (event.type === "done") {
               controller.enqueue(

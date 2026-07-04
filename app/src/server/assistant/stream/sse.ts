@@ -2,6 +2,7 @@ export const ASSISTANT_SSE_EVENTS = [
   "text_delta",
   "tool_summary",
   "action_card",
+  "goal_state",
   "done",
   "error",
 ] as const;

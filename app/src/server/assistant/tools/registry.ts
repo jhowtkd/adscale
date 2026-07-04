@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { WorkspaceMemberRole } from "@/server/auth/workspace";
 import { getThreadContextTool } from "./stubs/get-thread-context";
 import { proposeActionTool } from "./stubs/propose-action";
+import { updateGoalPlanTool } from "./update-goal-plan";
 
 export interface ToolHandlerContext {
   workspaceId: string;
@@ -32,6 +33,7 @@ export interface RegisteredTool {
 export const TOOL_REGISTRY: Record<string, RegisteredTool> = {
   [getThreadContextTool.name]: getThreadContextTool,
   [proposeActionTool.name]: proposeActionTool,
+  [updateGoalPlanTool.name]: updateGoalPlanTool,
 };
 
 export function registerTool(tool: RegisteredTool): void {

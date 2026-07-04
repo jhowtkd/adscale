@@ -29,10 +29,37 @@ export class MiniMaxModelAdapter implements AssistantModelClient {
   async *stream(request: AssistantModelRequest): AsyncIterable<AssistantStreamEvent> {
     const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
       { role: "system", content: request.systemPrompt },
-      ...request.messages.map((message) => ({
-        role: message.role,
-        content: message.content,
-      })),
+      ...request.messages.map((message) => {
+        if (message.role === "user") {
+          return { role: "user" as const, content: message.content };
+        }
+        if (message.role === "tool") {
+          return {
+            role: "tool" as const,
+            tool_call_id: message.toolCallId,
+            content: message.content,
+          };
+        }
+        // assistant turn: map tool calls to the OpenAI tool_calls shape.
+        if (message.toolCalls && message.toolCalls.length > 0) {
+          return {
+            role: "assistant" as const,
+            content: message.content ?? null,
+            tool_calls: message.toolCalls.map((call) => ({
+              id: call.id,
+              type: "function" as const,
+              function: {
+                name: call.name,
+                arguments: call.argumentsJson || "{}",
+              },
+            })),
+          };
+        }
+        return {
+          role: "assistant" as const,
+          content: message.content ?? "",
+        };
+      }),
     ];
 
     const tools = request.tools?.map((tool) => ({

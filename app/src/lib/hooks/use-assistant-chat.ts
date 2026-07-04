@@ -159,6 +159,12 @@ export function useAssistantChat(threadId: string | null) {
                 ? frame.data.message
                 : "Erro no assistente";
             setError(message);
+          } else if (frame.event === "goal_state") {
+            // The server signals a durable goal state change; refetch the thread
+            // so the workspace projection (stage, candidates, package) updates.
+            await queryClient.invalidateQueries({
+              queryKey: assistantThreadQueryKey(threadId),
+            });
           } else if (frame.event === "done") {
             await queryClient.invalidateQueries({
               queryKey: assistantThreadQueryKey(threadId),
