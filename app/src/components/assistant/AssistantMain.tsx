@@ -1,9 +1,11 @@
 "use client";
 
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import AssistantChatCore from "./AssistantChatCore";
 import AssistantStartComposer from "./AssistantStartComposer";
 import { useAssistantSurface } from "./AssistantSurfaceContext";
+import { useAssistantThread } from "@/lib/hooks/use-assistant-threads";
 
 export default function AssistantMain({
   threadId,
@@ -13,8 +15,23 @@ export default function AssistantMain({
   goalAgentEligible?: boolean;
 }) {
   const router = useRouter();
-  const { openCreateClient, pendingFirstMessage, setPendingFirstMessage } =
-    useAssistantSurface();
+  const {
+    openCreateClient,
+    pendingFirstMessage,
+    setPendingFirstMessage,
+    setWorkspaceMode,
+  } = useAssistantSurface();
+
+  // Fetch the active thread so we can switch the shell into workspace mode when
+  // the goal projection has candidates. Classic threads keep conversation mode.
+  const { data } = useAssistantThread(threadId ?? null);
+  const hasCandidates = Boolean(
+    data?.goalProjection && data.goalProjection.candidates.length > 0
+  );
+  useEffect(() => {
+    setWorkspaceMode(hasCandidates);
+    return () => setWorkspaceMode(false);
+  }, [hasCandidates, setWorkspaceMode]);
 
   const handleSelectThread = (id: string) => {
     router.replace(`/assistant?threadId=${id}`);

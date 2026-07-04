@@ -2674,7 +2674,14 @@
       "assumptions": "Assumptions",
       "blockers": "Missing",
       "candidates": "Creative direction",
-      "annotate": "Annotate"
+      "annotate": "Annotate",
+      "annotationDrawingDisabled": "Cannot draw annotations on mobile. Use desktop for rectangle review.",
+      "annotationComment": "Region comment",
+      "annotationCommentPlaceholder": "Describe the change for this region",
+      "cancel": "Cancel",
+      "save": "Save",
+      "addressed": "addressed",
+      "removeAnnotation": "Remove annotation"
     }
   },
   "analytics": {

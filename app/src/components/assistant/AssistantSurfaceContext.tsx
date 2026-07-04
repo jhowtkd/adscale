@@ -31,6 +31,13 @@ interface AssistantSurfaceActions {
   versionComparisonTrigger: HTMLElement | null;
   openVersionComparison: (request: VersionComparisonRequest) => void;
   closeVersionComparison: () => void;
+  /**
+   * True when the active thread is a goal-agent thread with candidates, so the
+   * shell widens the visual workspace column. Set by AssistantMain from the
+   * goal projection; read by AssistantShell.
+   */
+  workspaceMode: boolean;
+  setWorkspaceMode: (enabled: boolean) => void;
 }
 
 export interface VersionComparisonRequest {
@@ -53,6 +60,7 @@ export function AssistantSurfaceProvider({ children }: { children: ReactNode }) 
   const [activeClientId, setActiveClientId] = useState<string | null>(null);
   const [pendingFirstMessage, setPendingFirstMessage] =
     useState<PendingFirstMessage | null>(null);
+  const [workspaceMode, setWorkspaceMode] = useState(false);
   const [versionComparisonRequest, setVersionComparisonRequest] =
     useState<VersionComparisonRequest | null>(null);
   const [versionComparisonTrigger, setVersionComparisonTrigger] =
@@ -118,6 +126,8 @@ export function AssistantSurfaceProvider({ children }: { children: ReactNode }) 
       versionComparisonTrigger,
       openVersionComparison,
       closeVersionComparison,
+      workspaceMode,
+      setWorkspaceMode,
     }),
     [
       focusTree,
@@ -132,6 +142,7 @@ export function AssistantSurfaceProvider({ children }: { children: ReactNode }) 
       versionComparisonTrigger,
       openVersionComparison,
       closeVersionComparison,
+      workspaceMode,
     ]
   );
 

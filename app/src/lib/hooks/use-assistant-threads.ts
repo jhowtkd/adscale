@@ -7,6 +7,10 @@ import {
   artifactVersionPresentationSchema,
   type ArtifactVersionPresentation,
 } from "@/lib/assistant/artifact-version";
+import {
+  assistantGoalPresentationSchema,
+  type AssistantGoalPresentation,
+} from "@/lib/assistant/goal";
 
 export interface AssistantThread {
   id: string;
@@ -38,6 +42,8 @@ export interface AssistantThreadDetail {
   artifactVersionState?: { lineages: ArtifactVersionPresentation[] };
   guidedFlow?: GuidedFlow;
   guidedPresentation?: GuidedFlowPresentation;
+  /** Goal-agent projection; present only for goal-agent threads. */
+  goalProjection?: AssistantGoalPresentation;
 }
 
 function mapThread(thread: AssistantThread): AssistantThread {
@@ -106,6 +112,13 @@ async function fetchAssistantThread(
           guidedPresentation: data.guidedPresentation as
             | GuidedFlowPresentation
             | undefined,
+        }
+      : {}),
+    ...(data.goalProjection
+      ? {
+          goalProjection: assistantGoalPresentationSchema.parse(
+            data.goalProjection
+          ),
         }
       : {}),
   };

@@ -2703,7 +2703,14 @@
       "assumptions": "Suposições",
       "blockers": "Faltam",
       "candidates": "Direções criativas",
-      "annotate": "Anotar"
+      "annotate": "Anotar",
+      "annotationDrawingDisabled": "Não é possível desenhar anotações no celular. Use o desktop para revisar com retângulos.",
+      "annotationComment": "Comentário da região",
+      "annotationCommentPlaceholder": "Descreva a mudança para esta região",
+      "cancel": "Cancelar",
+      "save": "Salvar",
+      "addressed": "atendida",
+      "removeAnnotation": "Remover anotação"
     }
   },
   "analytics": {
