@@ -3,6 +3,7 @@ import type {
   ArtifactPromotionEffect,
 } from "@/lib/assistant/artifact-version";
 import { artifactPromotionEffectSchema } from "@/lib/assistant/artifact-version";
+import { GOAL_FORMATS, type GoalStage } from "@/lib/assistant/goal";
 import { emitArtifactIterationTelemetry } from "@/server/assistant/artifact-iteration-telemetry";
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
 import {
@@ -15,6 +16,8 @@ import {
   type ArtifactScope,
 } from "@/server/repositories/artifact-version";
 import { getThreadArtifactVersionState } from "./service";
+import { getGoalRunScoped, updateGoalRun } from "@/server/repositories/assistant-goal";
+import { getDerivationsByCampaign } from "@/server/repositories/derivation";
 
 export function isArtifactPromotionEligible(
   status: string,
@@ -127,4 +130,74 @@ export async function acknowledgeLinkedPlanComparison(input: {
     ...input.command,
     createdAt: created.createdAt,
   };
+}
+
+/**
+ * After an artifact promotion succeeds, advances the goal stage based on how
+ * many of the four required formats are approved. Runs only when the thread owns
+ * a goal run; classic threads are unaffected.
+ *
+ * - 0–1 approved: awaiting_package
+ * - 1 approved + child jobs running: generating_package
+ * - child jobs settled, <4 approved: reviewing_package
+ * - 4 approved: completed
+ */
+export async function syncGoalRunFromArtifacts(input: {
+  workspaceId: string;
+  clientProfileId: string;
+  threadId: string;
+}): Promise<void> {
+  const goal = await getGoalRunScoped(
+    input.workspaceId,
+    input.clientProfileId,
+    input.threadId
+  );
+  if (!goal || !goal.campaignId) {
+    return;
+  }
+
+  const allDerivations = await getDerivationsByCampaign(
+    goal.campaignId,
+    input.workspaceId
+  );
+  const approvedFormats = new Set(
+    allDerivations
+      .filter((d) => d.status === "approved")
+      .map((d) => d.format ?? "")
+      .filter((f): f is string => f.length > 0 && (GOAL_FORMATS as readonly string[]).includes(f))
+  );
+
+  // Is any non-1:1 child still active (queued/processing)?
+  const packageChildren = allDerivations.filter(
+    (d) =>
+      d.format !== "1:1" &&
+      (GOAL_FORMATS as readonly string[]).includes(d.format ?? "")
+  );
+  const anyChildActive = packageChildren.some((d) =>
+    ["queued", "processing"].includes(d.status)
+  );
+
+  let nextStage: GoalStage;
+  let completedAt: Date | null = null;
+  if (approvedFormats.size >= GOAL_FORMATS.length) {
+    nextStage = "completed";
+    completedAt = new Date();
+  } else if (anyChildActive) {
+    nextStage = "generating_package";
+  } else if (approvedFormats.size >= 1 || packageChildren.length > 0) {
+    nextStage = "reviewing_package";
+  } else {
+    nextStage = "awaiting_package";
+  }
+
+  await updateGoalRun({
+    goalRunId: goal.id,
+    workspaceId: input.workspaceId,
+    clientProfileId: input.clientProfileId,
+    threadId: input.threadId,
+    expectedRevision: goal.revision,
+    patch: { stage: nextStage, completedAt },
+  }).catch(() => {
+    // A revision conflict means a newer transition already landed; that is fine.
+  });
 }

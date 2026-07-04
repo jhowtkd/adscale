@@ -13,6 +13,7 @@ vi.mock("@/server/repositories/assistant-thread", () => ({
 }));
 vi.mock("@/server/assistant/artifact-version/promotion", () => ({
   promoteThreadArtifactVersion: vi.fn(),
+  syncGoalRunFromArtifacts: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock("@/server/assistant/artifact-version/service", () => ({
   getThreadArtifactVersionState: vi.fn(),

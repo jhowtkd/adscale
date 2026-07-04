@@ -7,6 +7,7 @@ import {
 } from "@/lib/assistant/artifact-version";
 import { emitArtifactIterationTelemetry } from "@/server/assistant/artifact-iteration-telemetry";
 import { promoteThreadArtifactVersion } from "@/server/assistant/artifact-version/promotion";
+import { syncGoalRunFromArtifacts } from "@/server/assistant/artifact-version/promotion";
 import { getThreadArtifactVersionState } from "@/server/assistant/artifact-version/service";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
@@ -31,10 +32,16 @@ export async function POST(
     const parsed = artifactPromotionCommandSchema.safeParse(await request.json());
     if (!parsed.success) return apiError("invalidInput", 400);
     command = parsed.data;
+    const result = await promoteThreadArtifactVersion({ workspaceId, threadId, command });
+    // After a promotion, advance the goal stage based on approved formats. This
+    // is a no-op for classic threads (no goal run).
+    await syncGoalRunFromArtifacts({
+      workspaceId,
+      clientProfileId: thread.clientProfileId,
+      threadId,
+    }).catch(() => null);
     return NextResponse.json(
-      artifactPromotionResultSchema.parse(
-        await promoteThreadArtifactVersion({ workspaceId, threadId, command })
-      )
+      artifactPromotionResultSchema.parse(result)
     );
   } catch (error) {
     if (

@@ -2673,7 +2673,8 @@
       },
       "assumptions": "Assumptions",
       "blockers": "Missing",
-      "candidates": "Creative direction"
+      "candidates": "Creative direction",
+      "annotate": "Annotate"
     }
   },
   "analytics": {

@@ -27,6 +27,7 @@ import { executeReviseCreativePlan } from "./handlers/revise-creative-plan";
 import { executeReviseCreative } from "./handlers/revise-creative";
 import { executeGenerateCreativeTriplet } from "./handlers/generate-creative-triplet";
 import { executeReviseCreativeAnnotations } from "./handlers/revise-creative-annotations";
+import { executeGenerateGoalPackage } from "./handlers/generate-goal-package";
 import type { ActionExecutionContext, ActionExecutionResult } from "./types";
 import { AssistantActionExecutionError } from "./types";
 
@@ -49,6 +50,7 @@ const HANDLERS: Record<string, Handler> = {
   revise_creative: executeReviseCreative,
   generate_creative_triplet: executeGenerateCreativeTriplet,
   revise_creative_annotations: executeReviseCreativeAnnotations,
+  generate_goal_package: executeGenerateGoalPackage,
 };
 
 export async function executeConfirmedAssistantAction(

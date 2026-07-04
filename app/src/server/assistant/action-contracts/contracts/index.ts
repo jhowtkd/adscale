@@ -13,6 +13,7 @@ import { reviseCreativePlanContract } from "./revise-creative-plan";
 import { reviseCreativeContract } from "./revise-creative";
 import { generateCreativeTripletContract } from "./generate-creative-triplet";
 import { reviseCreativeAnnotationsContract } from "./revise-creative-annotations";
+import { generateGoalPackageContract } from "./generate-goal-package";
 
 registerActionContract(quickRestyleContract);
 registerActionContract(quickFormatAdaptContract);
@@ -28,3 +29,4 @@ registerActionContract(reviseCreativePlanContract);
 registerActionContract(reviseCreativeContract);
 registerActionContract(generateCreativeTripletContract);
 registerActionContract(reviseCreativeAnnotationsContract);
+registerActionContract(generateGoalPackageContract);
