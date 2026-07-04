@@ -1,39 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { aggregateOutputLearningsFromEvents } from "@/server/output-learning/aggregate";
-import type { OutputDecisionEvent } from "@/server/db/schema";
-
-function baseEvent(
-  overrides: Partial<OutputDecisionEvent> = {}
-): OutputDecisionEvent {
-  return {
-    id: overrides.id ?? crypto.randomUUID(),
-    workspaceId: "ws-1",
-    userId: "user-1",
-    clientProfileId: "profile-1",
-    campaignId: "camp-1",
-    derivationId: "deriv-1",
-    parentDerivationId: null,
-    action: "approved",
-    direction: "positive",
-    strength: "strong",
-    source: "derivations.review.PATCH",
-    contextSnapshot: {
-      generationMode: "art_variation",
-      format: "1:1",
-      ctaText: "Comprar agora",
-    },
-    idempotencyKey: null,
-    createdAt: new Date("2026-06-01T00:00:00.000Z"),
-    ...overrides,
-  };
-}
+import {
+  OUTPUT_DECISION_EVENT_IDS,
+  buildOutputDecisionEvent,
+} from "@/server/repositories/output-decision-event.fixture";
 
 describe("aggregateOutputLearningsFromEvents", () => {
   it("aggregates supporting CTA learnings from approvals", () => {
     const drafts = aggregateOutputLearningsFromEvents([
-      baseEvent(),
-      baseEvent({
-        id: crypto.randomUUID(),
+      buildOutputDecisionEvent(),
+      buildOutputDecisionEvent({
+        id: OUTPUT_DECISION_EVENT_IDS.secondary,
         createdAt: new Date("2026-06-02T00:00:00.000Z"),
       }),
     ]);
@@ -49,9 +26,9 @@ describe("aggregateOutputLearningsFromEvents", () => {
 
   it("marks learning superseded when contradicting evidence dominates", () => {
     const drafts = aggregateOutputLearningsFromEvents([
-      baseEvent(),
-      baseEvent({
-        id: crypto.randomUUID(),
+      buildOutputDecisionEvent(),
+      buildOutputDecisionEvent({
+        id: OUTPUT_DECISION_EVENT_IDS.secondary,
         action: "rejected",
         direction: "negative",
         contextSnapshot: {
@@ -70,7 +47,7 @@ describe("aggregateOutputLearningsFromEvents", () => {
 
   it("creates avoid_pattern learning from rejection reason codes", () => {
     const drafts = aggregateOutputLearningsFromEvents([
-      baseEvent({
+      buildOutputDecisionEvent({
         action: "rejected",
         direction: "negative",
         contextSnapshot: {
@@ -79,8 +56,8 @@ describe("aggregateOutputLearningsFromEvents", () => {
           hardFailures: [{ code: "logo_distorted", message: "Logo distorcido" }],
         },
       }),
-      baseEvent({
-        id: crypto.randomUUID(),
+      buildOutputDecisionEvent({
+        id: OUTPUT_DECISION_EVENT_IDS.secondary,
         action: "regenerated",
         direction: "corrective",
         contextSnapshot: {
@@ -100,7 +77,7 @@ describe("aggregateOutputLearningsFromEvents", () => {
 
   it("skips events without client profile", () => {
     const drafts = aggregateOutputLearningsFromEvents([
-      baseEvent({ clientProfileId: null }),
+      buildOutputDecisionEvent({ clientProfileId: null }),
     ]);
     expect(drafts).toHaveLength(0);
   });

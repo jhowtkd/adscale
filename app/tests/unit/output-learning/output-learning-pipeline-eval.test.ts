@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { aggregateOutputLearningsFromEvents } from "@/server/output-learning/aggregate";
-import type { OutputDecisionEvent } from "@/server/db/schema";
 import type { ClientOutputLearning } from "@/server/db/schema";
 import { getOutputLearningRecommendation } from "@/server/output-learning/recommendation/service";
 import {
@@ -20,30 +19,10 @@ vi.mock("@/server/repositories/client-output-learning", () => ({
 
 import { getCampaignById } from "@/server/repositories/campaign";
 import { listOutputLearningsByClientProfile } from "@/server/repositories/client-output-learning";
-
-function baseEvent(overrides: Partial<OutputDecisionEvent> = {}): OutputDecisionEvent {
-  return {
-    id: overrides.id ?? crypto.randomUUID(),
-    workspaceId: "ws-1",
-    userId: "user-1",
-    clientProfileId: "profile-1",
-    campaignId: "camp-1",
-    derivationId: "deriv-1",
-    parentDerivationId: null,
-    action: "approved",
-    direction: "positive",
-    strength: "strong",
-    source: "derivations.review.PATCH",
-    contextSnapshot: {
-      generationMode: "art_variation",
-      format: "1:1",
-      ctaText: "Comprar agora",
-    },
-    idempotencyKey: null,
-    createdAt: new Date("2026-06-01T00:00:00.000Z"),
-    ...overrides,
-  };
-}
+import {
+  OUTPUT_DECISION_EVENT_IDS,
+  buildOutputDecisionEvent,
+} from "@/server/repositories/output-decision-event.fixture";
 
 const approvedCtaLearning: ClientOutputLearning = {
   id: "learning-cta",
@@ -80,9 +59,9 @@ describe("output learning pipeline eval (EVAL-01)", () => {
 
   it("pipeline:cta-approval-aggregate", () => {
     const drafts = aggregateOutputLearningsFromEvents([
-      baseEvent(),
-      baseEvent({
-        id: crypto.randomUUID(),
+      buildOutputDecisionEvent(),
+      buildOutputDecisionEvent({
+        id: OUTPUT_DECISION_EVENT_IDS.secondary,
         createdAt: new Date("2026-06-02T00:00:00.000Z"),
       }),
     ]);
@@ -95,7 +74,7 @@ describe("output learning pipeline eval (EVAL-01)", () => {
 
   it("pipeline:rejection-avoid-pattern", () => {
     const drafts = aggregateOutputLearningsFromEvents([
-      baseEvent({
+      buildOutputDecisionEvent({
         action: "rejected",
         direction: "negative",
         contextSnapshot: {
@@ -113,7 +92,7 @@ describe("output learning pipeline eval (EVAL-01)", () => {
 
   it("pipeline:regeneration-corrective", () => {
     const drafts = aggregateOutputLearningsFromEvents([
-      baseEvent({
+      buildOutputDecisionEvent({
         action: "regenerated",
         direction: "corrective",
         contextSnapshot: {
@@ -131,9 +110,9 @@ describe("output learning pipeline eval (EVAL-01)", () => {
 
   it("pipeline:contradicting-superseded", () => {
     const drafts = aggregateOutputLearningsFromEvents([
-      baseEvent(),
-      baseEvent({
-        id: crypto.randomUUID(),
+      buildOutputDecisionEvent(),
+      buildOutputDecisionEvent({
+        id: OUTPUT_DECISION_EVENT_IDS.secondary,
         action: "rejected",
         direction: "negative",
         contextSnapshot: {

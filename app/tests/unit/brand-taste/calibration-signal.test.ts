@@ -4,37 +4,12 @@ import {
   sanitizeCalibrationNote,
   validateCalibrationSignalPayload,
 } from "@/server/brand-taste/calibration-signal";
-import type { OutputDecisionEvent } from "@/server/db/schema";
-
-function baseEvent(
-  overrides: Partial<OutputDecisionEvent> = {}
-): OutputDecisionEvent {
-  return {
-    id: "event-1",
-    workspaceId: "ws-1",
-    userId: "user-1",
-    clientProfileId: "client-1",
-    campaignId: "camp-1",
-    derivationId: "deriv-1",
-    parentDerivationId: null,
-    action: "approved",
-    direction: "positive",
-    strength: "strong",
-    source: "test",
-    contextSnapshot: {
-      olharVerdict: { value: "pronta" },
-      exportStatus: { value: "pronta" },
-    },
-    idempotencyKey: null,
-    createdAt: new Date("2026-06-20T12:00:00Z"),
-    ...overrides,
-  };
-}
+import { buildCalibrationOutputDecisionEvent } from "@/server/repositories/output-decision-event.fixture";
 
 describe("calibration-signal", () => {
   it("maps approved event to entra calibration signal", () => {
     const payload = buildCalibrationSignalFromOutputDecisionEvent({
-      event: baseEvent(),
+      event: buildCalibrationOutputDecisionEvent(),
       sourceLabel: "synthetic_fixture",
     });
 
@@ -49,7 +24,7 @@ describe("calibration-signal", () => {
 
   it("maps rejected quase to quase verdict", () => {
     const payload = buildCalibrationSignalFromOutputDecisionEvent({
-      event: baseEvent({
+      event: buildCalibrationOutputDecisionEvent({
         action: "rejected",
         contextSnapshot: {
           reason: { code: "quase", text: "Almost there", source: "direction_reason" },
