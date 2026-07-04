@@ -20,6 +20,14 @@ async function login(page: Page): Promise<void> {
   await page.waitForURL((url) => !url.pathname.startsWith("/login"), {
     timeout: 30_000,
   });
+
+  const clients = await page.request.get("/api/client-profiles");
+  const { profiles } = (await clients.json()) as { profiles: unknown[] };
+  if (profiles.length === 0) {
+    await page.request.post("/api/client-profiles", {
+      data: { name: "Cliente E2E" },
+    });
+  }
 }
 
 test.describe("goal-oriented creative agent pilot", () => {
@@ -29,26 +37,30 @@ test.describe("goal-oriented creative agent pilot", () => {
 
   test("agent pilot composer is available to an eligible owner", async ({ page }) => {
     await page.goto("/assistant");
+    const desktop = page.getByTestId("assistant-desktop-main");
 
     // Eligible users see the native client select + classic-flow toggle.
-    await expect(page.getByTestId("assistant-client-select")).toBeVisible({
+    await expect(desktop.getByTestId("assistant-client-select")).toBeVisible({
       timeout: 15_000,
     });
-    await expect(page.getByTestId("assistant-classic-flow-toggle")).toBeVisible();
+    await expect(desktop.getByTestId("assistant-classic-flow-toggle")).toBeVisible();
   });
 
   test("classic fallback is reachable via the toggle", async ({ page }) => {
     await page.goto("/assistant");
-    await page.getByTestId("assistant-classic-flow-toggle").click();
+    const desktop = page.getByTestId("assistant-desktop-main");
+    await desktop.getByTestId("assistant-classic-flow-toggle").click();
     // Classic mode shows the journey cards again.
-    await expect(page.getByTestId("assistant-journey-cards")).toBeVisible({
+    await expect(desktop.getByTestId("assistant-journey-cards")).toBeVisible({
       timeout: 10_000,
     });
   });
 
   test("mandatory client selection drives the single composer start", async ({ page }) => {
     await page.goto("/assistant");
-    const select = page.getByTestId("assistant-client-select");
+    const select = page
+      .getByTestId("assistant-desktop-main")
+      .getByTestId("assistant-client-select");
     await expect(select).toBeVisible({ timeout: 15_000 });
     // The select has at least one client option.
     const options = select.locator("option");

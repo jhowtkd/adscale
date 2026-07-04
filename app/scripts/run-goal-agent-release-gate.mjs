@@ -40,11 +40,23 @@ const steps = [
   },
   { label: "typecheck", command: "npm", args: ["run", "typecheck"] },
   { label: "lint", command: "npm", args: ["run", "lint"] },
-  { label: "build", command: "npm", args: ["run", "build"] },
+  {
+    label: "build",
+    command: "npm",
+    args: ["run", "build"],
+    // ponytail: local Inngest dev mode must not leak into a production build.
+    env: { INNGEST_DEV: "" },
+  },
   {
     label: "goal-agent e2e",
-    command: "npx",
-    args: ["playwright", "test", "tests/e2e/assistant-goal-agent.spec.ts"],
+    command: "node",
+    args: ["scripts/run-guided-e2e.mjs"],
+    env: {
+      E2E_BASE_URL: "http://localhost:3100",
+      E2E_FORCE_WEBSERVER: "true",
+      E2E_PLAYWRIGHT_CONFIG: "playwright.config.ts",
+      E2E_PLAYWRIGHT_SPEC: "tests/e2e/assistant-goal-agent.spec.ts",
+    },
   },
 ];
 
@@ -54,7 +66,7 @@ for (const step of steps) {
     execFileSync(step.command, step.args, {
       cwd: appDir,
       stdio: "inherit",
-      env: process.env,
+      env: { ...process.env, ...step.env },
     });
   } catch {
     console.error(`\n✗ Release gate FAILED at: ${step.label}`);

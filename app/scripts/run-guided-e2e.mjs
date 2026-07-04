@@ -6,6 +6,9 @@ import { fileURLToPath } from "node:url";
 
 const appDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const baseUrl = process.env.E2E_BASE_URL ?? "http://localhost:3000";
+const playwrightConfig = process.env.E2E_PLAYWRIGHT_CONFIG ?? "playwright.guided.config.ts";
+const playwrightSpec = process.env.E2E_PLAYWRIGHT_SPEC;
+const forceOwnDevServer = process.env.E2E_FORCE_WEBSERVER === "true";
 
 async function waitForServer(maxAttempts = 90) {
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
@@ -39,6 +42,9 @@ function seedDevAdmin() {
         stdio: "pipe",
         env: {
           ...process.env,
+          NODE_OPTIONS: [process.env.NODE_OPTIONS, "--conditions=react-server"]
+            .filter(Boolean)
+            .join(" "),
           DEV_ADMIN_EMAIL: "dev-admin@adscale.local",
           BETTER_AUTH_URL: baseUrl,
         },
@@ -69,14 +75,26 @@ const preferOwnDevServer = process.env.E2E_SKIP_WEBSERVER !== "true";
 
 async function main() {
   if (preferOwnDevServer) {
-    if (await isServerReady()) {
+    if (!forceOwnDevServer && (await isServerReady())) {
       console.log(`[guided-e2e] Reusing existing server at ${baseUrl}`);
     } else {
-      devProcess = spawn("npm", ["run", "dev:next"], {
-        cwd: appDir,
-        stdio: "inherit",
-        env: { ...process.env, E2E_DISABLE_RATE_LIMIT: "true" },
-      });
+      const port = new URL(baseUrl).port || "3000";
+      devProcess = spawn(
+        "npx",
+        ["next", "dev", "--webpack", "--hostname", "0.0.0.0", "--port", port],
+        {
+          cwd: appDir,
+          stdio: "inherit",
+          env: {
+            ...process.env,
+            APP_URL: baseUrl,
+            BETTER_AUTH_URL: baseUrl,
+            DEV_ADMIN_EMAIL: "dev-admin@adscale.local",
+            E2E_DISABLE_RATE_LIMIT: "true",
+            NEXT_PUBLIC_APP_URL: baseUrl,
+          },
+        }
+      );
       await waitForServer();
     }
   }
@@ -85,7 +103,13 @@ async function main() {
 
   const result = spawnSync(
     "npx",
-    ["playwright", "test", "--config", "playwright.guided.config.ts"],
+    [
+      "playwright",
+      "test",
+      "--config",
+      playwrightConfig,
+      ...(playwrightSpec ? [playwrightSpec] : []),
+    ],
     {
       cwd: appDir,
       stdio: "inherit",
