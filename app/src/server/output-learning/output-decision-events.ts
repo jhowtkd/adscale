@@ -56,6 +56,12 @@ export interface OutputDecisionSnapshot {
   referenceLabel?: string | null;
   parentDerivationId?: string | null;
   childDerivationId?: string | null;
+  /**
+   * Goal-agent creative level (conservative/balanced/bold). Selection is weak
+   * client evidence; approval is strong client evidence. Captured as a learning
+   * variable but never auto-promoted to the global corpus.
+   */
+  creativeLevel?: string | null;
 }
 
 const FORBIDDEN_SNAPSHOT_KEYS = new Set([

@@ -18,6 +18,7 @@ export const OUTPUT_SUPPORTED_VARIABLE_KEYS = [
   "format",
   "style_policy",
   "avoid_pattern",
+  "creative_level",
 ] as const;
 export type OutputSupportedVariableKey =
   (typeof OUTPUT_SUPPORTED_VARIABLE_KEYS)[number];

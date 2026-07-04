@@ -11,6 +11,7 @@ import type { HumanQualityCorpusCandidate, HumanQualityCorpusItem } from "@/serv
 import type { HumanQualitySourceLabel } from "./corpus";
 import { classifyCohort, isHumanQualityCorpusCohort } from "./corpus";
 import { parseOwnerPromotionSourceLabel } from "./source-label";
+import { getCorpusConsent } from "@/server/repositories/assistant-goal";
 
 export class CorpusCandidatePromotionError extends Error {
   constructor(
@@ -70,6 +71,20 @@ export async function promoteCorpusCandidateToQueue(
     throw new CorpusCandidatePromotionError(
       "Candidate is missing client profile",
       "missing_client_profile"
+    );
+  }
+
+  // Goal-agent contract: global corpus promotion fails closed without active
+  // client consent. The candidate is retained for owner review, but it never
+  // reaches the global corpus until the client explicitly grants consent.
+  const consent = await getCorpusConsent(
+    candidate.workspaceId,
+    candidate.clientProfileId
+  );
+  if (!consent || consent.status !== "granted") {
+    throw new CorpusCandidatePromotionError(
+      "Client consent is required for corpus promotion",
+      "client_consent_required"
     );
   }
 

@@ -74,7 +74,7 @@ import {
   type BuildGenerationPromptContextInput,
   type GenerationReferenceInput,
 } from "../ai/derivation-pipeline";
-import { captureAndAutoPromote } from "../human-quality/auto-promote";
+import { captureCorpusCandidateFromDerivation } from "../human-quality/candidate-capture";
 import { loadPromptCalibrationContext } from "../brand-taste/prompt-calibration-loader";
 import { syncAssistantActionFromJob } from "../repositories/assistant-job-sync";
 import { getAssistantActionById } from "../repositories/assistant-action";
@@ -1035,12 +1035,10 @@ export const derivationJob = inngest.createFunction(
     if (!isPreview) {
       await step.run("capture-corpus-candidate", async () => {
         try {
-          const result = await captureAndAutoPromote({ workspaceId, derivationId });
-          if (result.promoteError) {
-            logger.warn(
-              `[capture-corpus-candidate] promote failed derivationId=${derivationId}: ${result.promoteError}`
-            );
-          }
+          // Capture-only: the goal-agent contract requires explicit client
+          // consent + platform-owner review before any global corpus promotion.
+          // Auto-promotion is intentionally NOT called here anymore.
+          await captureCorpusCandidateFromDerivation({ workspaceId, derivationId });
         } catch (error) {
           const message = error instanceof Error ? error.message : "Unknown error";
           logger.warn(
