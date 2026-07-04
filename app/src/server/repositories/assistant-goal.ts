@@ -12,6 +12,7 @@ import {
   assistantGoalRuns,
   clientCorpusConsents,
 } from "../db/schema";
+import { resolveGoalCreativeVersion } from "@/server/assistant/goal/service";
 import { getAssistantThreadById } from "./assistant-thread";
 import { containsDeniedPersistenceKeys } from "./assistant-types";
 
@@ -190,6 +191,7 @@ export interface UpdateGoalRunInput {
     assumptions: string[];
     blockers: string[];
     queuedInstruction: string | null;
+    resumeStage: GoalStage | null;
     selectedBaseVersionId: string | null;
     completedAt: Date | null;
     stoppedAt: Date | null;
@@ -273,6 +275,27 @@ export async function upsertAnnotationDraft(input: AnnotationDraftInput) {
     throw new AssistantGoalValidationError("Annotation goal not found");
   }
 
+  const resolvedVersion = await resolveGoalCreativeVersion(
+    {
+      id: goal.id,
+      workspaceId: goal.workspaceId,
+      clientProfileId: goal.clientProfileId,
+      threadId: goal.threadId,
+      campaignId: goal.campaignId,
+      objective: goal.objective,
+      stage: goal.stage,
+      brief: goalBriefSchema.parse(goal.brief),
+      plan: goalPlanSchema.parse(goal.plan),
+      assumptions: goal.assumptions ?? [],
+      blockers: goal.blockers ?? [],
+      revision: goal.revision,
+    },
+    input.versionId
+  );
+  if (!resolvedVersion) {
+    throw new AssistantGoalValidationError("Annotation version not in scope");
+  }
+
   const comment = input.comment.trim();
   if (!comment) {
     throw new AssistantGoalValidationError("Annotation comment required");
@@ -297,6 +320,37 @@ export async function upsertAnnotationDraft(input: AnnotationDraftInput) {
     .returning();
 
   return created!;
+}
+
+export async function deleteAnnotationDraft(input: {
+  workspaceId: string;
+  clientProfileId: string;
+  threadId: string;
+  annotationId: string;
+}) {
+  await assertThreadScope(
+    input.workspaceId,
+    input.threadId,
+    input.clientProfileId
+  );
+
+  const [deleted] = await db
+    .delete(assistantArtifactAnnotations)
+    .where(
+      and(
+        eq(assistantArtifactAnnotations.id, input.annotationId),
+        eq(assistantArtifactAnnotations.workspaceId, input.workspaceId),
+        eq(assistantArtifactAnnotations.clientProfileId, input.clientProfileId),
+        eq(assistantArtifactAnnotations.threadId, input.threadId),
+        eq(assistantArtifactAnnotations.status, "draft")
+      )
+    )
+    .returning();
+
+  if (!deleted) {
+    throw new AssistantGoalValidationError("Annotation not found");
+  }
+  return deleted;
 }
 
 export async function listAnnotationsForVersion(
@@ -399,6 +453,8 @@ export async function markAnnotationsAddressed(
       .where(
         and(
           eq(assistantArtifactAnnotations.workspaceId, input.workspaceId),
+          eq(assistantArtifactAnnotations.clientProfileId, input.clientProfileId),
+          eq(assistantArtifactAnnotations.threadId, input.threadId),
           eq(assistantArtifactAnnotations.versionId, input.sourceVersionId),
           eq(assistantArtifactAnnotations.status, "submitted")
         )

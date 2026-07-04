@@ -36,15 +36,23 @@ vi.mock("../db", () => {
     })),
   });
 
+  const buildDeleteChain = () => ({
+    where: vi.fn(() => ({
+      returning: vi.fn(async () => state.updateReturningRows.shift() ?? []),
+    })),
+  });
+
   return {
     db: {
       select: vi.fn(() => selectChain),
       insert: vi.fn(() => buildInsertChain()),
       update: vi.fn(() => buildUpdateChain()),
+      delete: vi.fn(() => buildDeleteChain()),
       transaction: vi.fn(async (cb: (tx: unknown) => Promise<unknown>) => cb({
         select: vi.fn(() => selectChain),
         insert: vi.fn(() => buildInsertChain()),
         update: vi.fn(() => buildUpdateChain()),
+        delete: vi.fn(() => buildDeleteChain()),
       })),
     },
   };
@@ -54,13 +62,19 @@ vi.mock("./assistant-thread", () => ({
   getAssistantThreadById: vi.fn(),
 }));
 
+vi.mock("@/server/assistant/goal/service", () => ({
+  resolveGoalCreativeVersion: vi.fn(),
+}));
+
 import { getAssistantThreadById } from "./assistant-thread";
+import { resolveGoalCreativeVersion } from "@/server/assistant/goal/service";
 import {
   AssistantGoalConflictError,
   AssistantGoalValidationError,
   createGoalRun,
   getGoalRunByThread,
   getGoalRunScoped,
+  deleteAnnotationDraft,
   grantCorpusConsent,
   listAnnotationsForVersion,
   markAnnotationsAddressed,
@@ -72,6 +86,7 @@ import {
 } from "./assistant-goal";
 
 const mockGetThread = vi.mocked(getAssistantThreadById);
+const mockResolveVersion = vi.mocked(resolveGoalCreativeVersion);
 
 const baseScope = {
   workspaceId: "ws-1",
@@ -218,9 +233,18 @@ describe("assistant-goal repository", () => {
   });
 
   describe("annotations", () => {
+    const scopedGoal = { ...baseGoal, campaignId: "campaign-1" };
+
+    beforeEach(() => {
+      mockResolveVersion.mockResolvedValue({
+        version: { id: "version-1" },
+        derivation: { id: "derivation-1", campaignId: "campaign-1" },
+      } as Awaited<ReturnType<typeof resolveGoalCreativeVersion>>);
+    });
+
     it("persists normalized rectangle coordinates between 0 and 1", async () => {
       // upsertAnnotationDraft reads the scoped goal run before inserting.
-      state.selectResults.push([baseGoal]);
+      state.selectResults.push([scopedGoal]);
       state.insertResults.push([baseAnnotation]);
 
       const ann = await upsertAnnotationDraft(draftInput);
@@ -237,9 +261,15 @@ describe("assistant-goal repository", () => {
     });
 
     it("rejects annotations for a version outside the goal thread", async () => {
-      // Goal exists for thread-1, but the version read is cross-thread.
-      state.selectResults.push([baseGoal]);
+      state.selectResults.push([scopedGoal]);
+      mockResolveVersion.mockResolvedValueOnce(null);
 
+      await expect(
+        upsertAnnotationDraft({ ...draftInput, versionId: "version-other" })
+      ).rejects.toBeInstanceOf(AssistantGoalValidationError);
+    });
+
+    it("rejects annotations when the thread scope does not match", async () => {
       await expect(
         upsertAnnotationDraft({ ...draftInput, threadId: "thread-other" })
       ).rejects.toBeInstanceOf(AssistantGoalValidationError);

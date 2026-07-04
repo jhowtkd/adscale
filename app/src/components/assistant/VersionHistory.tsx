@@ -37,7 +37,11 @@ function originLabel(origin: string) {
 
 function HistorySkeleton() {
   return (
-    <div className="mt-3 space-y-2" aria-label="Carregando histórico de versões">
+    <div
+      className="mt-3 space-y-2"
+      role="status"
+      aria-label="Carregando histórico de versões"
+    >
       {[0, 1, 2].map((item) => (
         <div
           key={item}

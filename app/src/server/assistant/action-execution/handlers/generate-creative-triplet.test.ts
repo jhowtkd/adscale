@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const spendMock = vi.hoisted(() => vi.fn());
 const createDerivationMock = vi.hoisted(() => vi.fn());
 const sendMock = vi.hoisted(() => vi.fn());
+const updateStatusMock = vi.hoisted(() => vi.fn());
 const getGoalMock = vi.hoisted(() => vi.fn());
 const getCampaignMock = vi.hoisted(() => vi.fn());
 
@@ -12,6 +13,7 @@ vi.mock("@/server/billing/paywall", () => ({
 
 vi.mock("@/server/repositories/derivation", () => ({
   createDerivation: createDerivationMock,
+  updateDerivationStatus: updateStatusMock,
 }));
 
 vi.mock("@/server/jobs/client", () => ({
@@ -69,6 +71,15 @@ describe("executeGenerateCreativeTriplet", () => {
       return { id: `deriv-${derivIndex}`, campaignId: "campaign-1" };
     });
     sendMock.mockResolvedValue(undefined);
+    updateStatusMock.mockResolvedValue(undefined);
+  });
+
+  it("marks a triplet slot failed when dispatch fails", async () => {
+    sendMock.mockRejectedValueOnce(new Error("dispatch failed"));
+
+    await executeGenerateCreativeTriplet(ctx);
+
+    expect(updateStatusMock).toHaveBeenCalledWith("deriv-1", "ws-1", "failed");
   });
 
   it("charges 15 credits once before creating jobs", async () => {

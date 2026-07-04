@@ -17,10 +17,12 @@ import {
   updateGoalRun,
 } from "@/server/repositories/assistant-goal";
 import {
+  getArtifactVersion,
   listArtifactLineages,
   listArtifactVersions,
 } from "@/server/repositories/artifact-version";
 import type { ArtifactScope } from "@/server/repositories/artifact-version";
+import { getDerivationById } from "@/server/repositories/derivation";
 
 /**
  * The minimum facts the agent must collect before it can spend credits. The
@@ -69,6 +71,27 @@ export interface GoalRunRow {
   assumptions: string[];
   blockers: string[];
   revision: number;
+}
+
+export async function resolveGoalCreativeVersion(
+  goal: GoalRunRow,
+  versionId: string
+) {
+  if (!goal.campaignId) return null;
+  const scope: ArtifactScope = {
+    workspaceId: goal.workspaceId,
+    clientProfileId: goal.clientProfileId,
+    campaignId: goal.campaignId,
+    threadId: goal.threadId,
+  };
+  const version = await getArtifactVersion(scope, versionId);
+  if (!version || version.snapshot.type !== "creative") return null;
+  const derivation = await getDerivationById(
+    version.snapshot.derivationId,
+    goal.workspaceId
+  );
+  if (!derivation || derivation.campaignId !== goal.campaignId) return null;
+  return { version, derivation };
 }
 
 /**

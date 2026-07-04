@@ -236,6 +236,7 @@ async function getLineagePresentation(
   return {
     lineageId: lineage.id,
     artifactType: lineage.artifactType as ArtifactType,
+    headRevision: head?.revision ?? 0,
     approvedCurrent: head?.approvedCurrentVersionId
       ? byId.get(head.approvedCurrentVersionId) ?? null
       : null,

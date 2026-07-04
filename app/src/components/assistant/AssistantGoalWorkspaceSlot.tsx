@@ -31,6 +31,7 @@ export default function AssistantGoalWorkspaceSlot({
     <AssistantGoalWorkspace
       threadId={threadId}
       projection={data.goalProjection}
+      artifactLineages={data.artifactVersionState?.lineages ?? []}
     />
   );
 }

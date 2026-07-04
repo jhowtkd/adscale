@@ -4,10 +4,8 @@ import {
   listAnnotationsForVersion,
   markAnnotationsAddressed,
 } from "@/server/repositories/assistant-goal";
-import {
-  createDerivation,
-  getDerivationById,
-} from "@/server/repositories/derivation";
+import { createDerivation } from "@/server/repositories/derivation";
+import { resolveGoalCreativeVersion } from "@/server/assistant/goal/service";
 import { spendOrApiError } from "@/server/billing/paywall";
 import { inngest } from "@/server/jobs/client";
 import { AssistantActionExecutionError } from "../types";
@@ -79,15 +77,16 @@ export async function executeReviseCreativeAnnotations(
     throw new AssistantActionExecutionError("Insufficient credits", "credit_blocked");
   }
 
-  const sourceDerivation = await getDerivationById(
-    input.sourceVersionId,
-    ctx.workspaceId
-  );
+  const source = await resolveGoalCreativeVersion(goal, input.sourceVersionId);
+  if (!source) {
+    throw new AssistantActionExecutionError("Source not found", "derivation_not_found");
+  }
+  const sourceDerivation = source.derivation;
 
   const child = await createDerivation({
     campaignId: goal.campaignId,
     workspaceId: ctx.workspaceId,
-    parentId: input.sourceVersionId,
+    parentId: sourceDerivation.id,
     format: "1:1",
     generationMode: "creative_revision",
     variantIndex: 0,

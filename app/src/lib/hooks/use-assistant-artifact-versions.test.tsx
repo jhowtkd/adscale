@@ -66,6 +66,7 @@ function version(id: string, versionNumber: number) {
 const lineageState = {
   lineageId,
   artifactType: "plan",
+  headRevision: 0,
   approvedCurrent: version(versionAId, 1),
   working: version(versionBId, 2),
   versions: [version(versionBId, 2), version(versionAId, 1)],

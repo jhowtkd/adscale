@@ -45,7 +45,7 @@ function deriveAggregateStatus(
   refs: JobRef[],
   statuses: string[],
 ): ActionStatus {
-  if (statuses.length === 0) {
+  if (statuses.length < refs.length) {
     return "running";
   }
   const anyActive = statuses.some((status) =>
@@ -69,14 +69,6 @@ function deriveAggregateStatus(
 }
 
 export async function syncAssistantActionFromJob(input: SyncAssistantActionFromJobInput) {
-  // First merge this job ref + status into the action record idempotently. For
-  // single-job actions this is the whole story (same as before). For multi-job
-  // actions the merge keeps the action `running` while siblings are still active.
-  await transitionAssistantAction(input.workspaceId, input.actionId, STATUS_MAP[input.status], {
-    jobRef: input.jobRef,
-    safeError: sanitizeSafeError(input.safeError),
-  });
-
   const action = await getAssistantActionById(input.workspaceId, input.actionId);
   if (!action) {
     return null;
@@ -100,20 +92,16 @@ export async function syncAssistantActionFromJob(input: SyncAssistantActionFromJ
       rows.map((row) => row.status),
     );
 
-    // Only transition away from running once the aggregate has settled, and only
-    // record the safe error when every job failed.
-    if (aggregateStatus !== STATUS_MAP[input.status]) {
-      await transitionAssistantAction(
-        input.workspaceId,
-        input.actionId,
-        aggregateStatus,
-        {
-          safeError:
-            aggregateStatus === "failed" ? sanitizeSafeError(input.safeError) : null,
-        },
-      );
-    }
   }
+
+  // Apply exactly one transition after the aggregate is known. This prevents a
+  // completed child from prematurely completing the parent and then requiring
+  // the forbidden completed -> running transition while siblings are active.
+  await transitionAssistantAction(input.workspaceId, input.actionId, aggregateStatus, {
+    jobRef: input.jobRef,
+    safeError:
+      aggregateStatus === "failed" ? sanitizeSafeError(input.safeError) : null,
+  });
 
   // Fire the guided-flow / goal callback only once the aggregate is terminal,
   // so downstream transitions see the true final result.

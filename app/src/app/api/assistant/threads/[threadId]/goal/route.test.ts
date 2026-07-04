@@ -64,6 +64,7 @@ const baseGoal = {
   revision: 2,
   stage: "generating_variants",
   campaignId: "campaign-1",
+  resumeStage: null,
 };
 
 function jsonRequest(body: unknown): Request {
@@ -93,7 +94,7 @@ describe("POST /api/assistant/threads/[threadId]/goal", () => {
   });
 
   it("cancels a pending paid action before dispatch on stop", async () => {
-    mockGetAction.mockResolvedValue({ id: "action-1", status: "pending" } as never);
+    mockGetAction.mockResolvedValue({ id: "action-1", status: "pending", threadId } as never);
 
     const response = await call({
       type: "stop",
@@ -110,7 +111,10 @@ describe("POST /api/assistant/threads/[threadId]/goal", () => {
       expect.objectContaining({
         goalRunId,
         expectedRevision: 2,
-        patch: expect.objectContaining({ stage: "stopped" }),
+        patch: expect.objectContaining({
+          stage: "stopped",
+          resumeStage: "generating_variants",
+        }),
       })
     );
   });
@@ -130,6 +134,11 @@ describe("POST /api/assistant/threads/[threadId]/goal", () => {
   });
 
   it("resume returns to the stage derived from artifacts", async () => {
+    mockGetGoal.mockResolvedValue({
+      ...baseGoal,
+      stage: "stopped",
+      resumeStage: "generating_variants",
+    } as never);
     mockUpdateGoal.mockResolvedValue({
       ...baseGoal,
       stage: "awaiting_generation",
@@ -143,6 +152,7 @@ describe("POST /api/assistant/threads/[threadId]/goal", () => {
       expect.objectContaining({
         patch: expect.objectContaining({
           stage: "awaiting_generation",
+          resumeStage: null,
           stoppedAt: null,
         }),
       })

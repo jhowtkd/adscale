@@ -26,7 +26,16 @@ export default function AssistantMain({
   // the goal projection has candidates. Classic threads keep conversation mode.
   const { data } = useAssistantThread(threadId ?? null);
   const hasCandidates = Boolean(
-    data?.goalProjection && data.goalProjection.candidates.length > 0
+    data?.goalProjection &&
+      (data.goalProjection.candidates.length > 0 ||
+        data.goalProjection.packageItems.some((item) => item.status !== "pending") ||
+        [
+          "choosing_base",
+          "reviewing_base",
+          "reviewing_package",
+          "awaiting_package",
+          "generating_package",
+        ].includes(data.goalProjection.stage))
   );
   useEffect(() => {
     setWorkspaceMode(hasCandidates);

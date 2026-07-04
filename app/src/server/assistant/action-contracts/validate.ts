@@ -18,6 +18,7 @@ import {
   guidedActionSnapshotDigest,
 } from "./guided-binding";
 import { getGoalRunScoped } from "@/server/repositories/assistant-goal";
+import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
 
 export interface ValidateProposeActionInput {
   actionType: string;
@@ -127,9 +128,13 @@ export async function revalidateOnConfirm(
   // prevents a stale confirmation from charging against an outdated plan.
   const snapshot = action.inputSnapshot as Record<string, unknown>;
   if (typeof snapshot.goalRunId === "string") {
+    const thread = await getAssistantThreadById(workspaceId, action.threadId);
+    if (!thread) {
+      throw new AssistantActionValidationError("goal_scope_mismatch");
+    }
     const goal = await getGoalRunScoped(
       workspaceId,
-      (snapshot.clientProfileId as string) ?? "",
+      thread.clientProfileId,
       action.threadId
     );
     if (!goal || goal.id !== snapshot.goalRunId) {

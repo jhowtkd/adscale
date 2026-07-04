@@ -4,7 +4,10 @@ import {
 } from "./system-prompt";
 import { listToolsForProvider } from "@/server/assistant/tools/registry";
 import { evaluateToolCall } from "@/server/assistant/tools/policy";
-import { buildAssistantContext } from "@/server/assistant/context/context-builder";
+import {
+  buildAssistantContext,
+  toModelMessages,
+} from "@/server/assistant/context/context-builder";
 import { createMiniMaxModelAdapter } from "@/server/assistant/model/minimax-adapter";
 import { createAssistantMessage } from "@/server/repositories/assistant-message";
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
@@ -25,6 +28,14 @@ export interface GoalAgentTurnInput {
   threadId: string;
   userId: string;
   userMessage: string;
+  attachments?: Array<{
+    assetId: string;
+    key: string;
+    url?: string;
+    type: string;
+    name: string;
+    size: number;
+  }>;
   modelClient?: AssistantModelClient;
 }
 
@@ -63,7 +74,14 @@ export async function* runGoalAgentTurn(
   await createAssistantMessage(input.workspaceId, {
     threadId: input.threadId,
     type: "user",
-    content: input.userMessage.trim(),
+    content:
+      input.userMessage.trim() ||
+      (input.attachments?.length
+        ? `Imagem anexada: ${input.attachments.map((item) => item.name).join(", ")}`
+        : ""),
+    payload: input.attachments?.length
+      ? { attachments: input.attachments }
+      : undefined,
   });
 
   const context = await buildAssistantContext({
@@ -78,13 +96,12 @@ export async function* runGoalAgentTurn(
   // Seed the conversation with the scoped context + the user turn. The system
   // prompt encodes the senior creative-director behavior; the context block
   // carries the durable goal state (stage, brief, plan, blockers, scope ids).
-  const baseMessages: AssistantModelMessage[] = [
-    ...context.recentMessages.map((m) => ({
-      role: "user" as const,
-      content: m.content,
-    })),
-    { role: "user", content: input.userMessage },
-  ];
+  // The persisted user turn is already part of recentMessages. Reuse the
+  // shared role/attachment mapping and drop only its synthetic trailing turn.
+  const baseMessages: AssistantModelMessage[] = toModelMessages(
+    context,
+    input.userMessage
+  ).slice(0, -1);
 
   const request = {
     systemPrompt: buildGoalAgentSystemPrompt(),

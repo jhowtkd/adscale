@@ -1915,6 +1915,7 @@
     "uploadFailed": "Falha no upload. Tente novamente.",
     "generationFailed": "Falha na geração. Tente novamente.",
     "campaignNotFound": "Campanha não encontrada",
+    "goalNotFound": "Objetivo criativo não encontrado",
     "performanceCampaignNotFound": "Campanha não encontrada para os dados de performance",
     "performanceCampaignPathMismatch": "A campanha da requisição não corresponde à URL",
     "performanceClientProfileRequired": "Selecione um perfil de cliente antes de registrar performance",

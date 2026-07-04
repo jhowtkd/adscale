@@ -10,6 +10,7 @@ import {
 } from "@/server/repositories/assistant-goal";
 import { getDerivationsByCampaign } from "@/server/repositories/derivation";
 import { emitGoalEvent } from "@/server/assistant/goal/analytics";
+import { resolveGoalCreativeVersion } from "@/server/assistant/goal/service";
 
 const selectBaseSchema = z
   .object({
@@ -54,10 +55,8 @@ export async function POST(
       goal.campaignId,
       workspace.id
     );
-    const belongs = derivations.some(
-      (d) => d.id === parsed.data.versionId && d.format === "1:1"
-    );
-    if (!belongs) {
+    const selected = await resolveGoalCreativeVersion(goal, parsed.data.versionId);
+    if (!selected || selected.derivation.format !== "1:1") {
       return apiError("invalidInput", 400);
     }
 

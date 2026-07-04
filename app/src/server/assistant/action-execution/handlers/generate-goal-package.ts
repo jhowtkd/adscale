@@ -2,8 +2,9 @@ import { generateGoalPackageInputSchema, PACKAGE_CHILD_FORMATS } from "@/server/
 import { getGoalRunScoped } from "@/server/repositories/assistant-goal";
 import {
   createPackageChildIfAbsent,
-  getDerivationById,
+  updateDerivationStatus,
 } from "@/server/repositories/derivation";
+import { resolveGoalCreativeVersion } from "@/server/assistant/goal/service";
 import { spendOrApiError } from "@/server/billing/paywall";
 import { inngest } from "@/server/jobs/client";
 import { AssistantActionExecutionError } from "../types";
@@ -42,13 +43,11 @@ export async function executeGenerateGoalPackage(
     throw new AssistantActionExecutionError("Goal has no campaign", "execution_failed");
   }
 
-  const baseDerivation = await getDerivationById(
-    input.baseVersionId,
-    ctx.workspaceId
-  );
-  if (!baseDerivation) {
+  const base = await resolveGoalCreativeVersion(goal, input.baseVersionId);
+  if (!base) {
     throw new AssistantActionExecutionError("Base not found", "derivation_not_found");
   }
+  const baseDerivation = base.derivation;
 
   const creditError = await spendOrApiError({
     workspaceId: ctx.workspaceId,
@@ -73,7 +72,7 @@ export async function executeGenerateGoalPackage(
     const { child } = await createPackageChildIfAbsent({
       campaignId: goal.campaignId,
       workspaceId: ctx.workspaceId,
-      parentId: input.baseVersionId,
+      parentId: baseDerivation.id,
       format,
       generationMode: "format_adaptation",
       status: "queued",
@@ -102,7 +101,7 @@ export async function executeGenerateGoalPackage(
         },
       });
     } catch {
-      // Best-effort: the row exists; the aggregate sync marks it failed.
+      await updateDerivationStatus(child.id, ctx.workspaceId, "failed");
     }
     jobRefs.push({ kind: "derivation", id: child.id });
   }

@@ -38,10 +38,10 @@ export default function CreativeTripletGrid({
     >
       {candidates.map((candidate) => {
         const isSelected = selectedBaseVersionId === candidate.versionId;
-        const disabled = candidate.status !== "ready";
+        const disabled = candidate.status !== "ready" || !candidate.versionId;
         return (
           <div
-            key={candidate.versionId}
+            key={candidate.derivationId}
             data-testid={`assistant-triplet-card-${candidate.creativeLevel}`}
             data-creative-level={candidate.creativeLevel}
             className={cn(
@@ -86,7 +86,9 @@ export default function CreativeTripletGrid({
               type="button"
               data-testid={`assistant-triplet-select-${candidate.creativeLevel}`}
               disabled={disabled}
-              onClick={() => onSelectBase(candidate.versionId, expectedRevision)}
+              onClick={() =>
+                candidate.versionId && onSelectBase(candidate.versionId, expectedRevision)
+              }
               className={cn(
                 "w-full rounded-lg px-3 py-2 text-sm font-medium transition",
                 disabled

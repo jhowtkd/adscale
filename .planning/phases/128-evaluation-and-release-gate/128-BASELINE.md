@@ -1,6 +1,6 @@
 # Phase 128 Output Learning Evaluation Baseline
 
-Generated at 2026-07-02T11:37:10.899Z.
+Generated at 2026-07-04T02:32:31.588Z.
 
 **Metric separation (EVAL-02):** quality signals and factual fidelity are tracked in separate JSON sections — never conflated.
 

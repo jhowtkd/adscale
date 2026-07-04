@@ -76,6 +76,7 @@ const state = {
   lineages: [{
     lineageId,
     artifactType: "plan",
+    headRevision: 0,
     approvedCurrent: targetVersion,
     working: targetVersion,
     versions: [oldVersion, targetVersion],

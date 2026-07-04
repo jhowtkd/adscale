@@ -32,6 +32,9 @@ vi.mock("@/server/repositories/derivation", () => ({
 vi.mock("@/server/assistant/goal/analytics", () => ({
   emitGoalEvent: vi.fn(),
 }));
+vi.mock("@/server/assistant/goal/service", () => ({
+  resolveGoalCreativeVersion: vi.fn(),
+}));
 
 vi.mock("@/server/output-learning/output-decision-events", () => ({
   recordOutputDecision: vi.fn(),
@@ -41,12 +44,14 @@ import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
 import { getGoalRunScoped, updateGoalRun } from "@/server/repositories/assistant-goal";
 import { getDerivationsByCampaign } from "@/server/repositories/derivation";
+import { resolveGoalCreativeVersion } from "@/server/assistant/goal/service";
 
 const mockRequireAccess = vi.mocked(requireWorkspaceAccess);
 const mockGetThread = vi.mocked(getAssistantThreadById);
 const mockGetGoal = vi.mocked(getGoalRunScoped);
 const mockUpdateGoal = vi.mocked(updateGoalRun);
 const mockGetDerivations = vi.mocked(getDerivationsByCampaign);
+const mockResolveVersion = vi.mocked(resolveGoalCreativeVersion);
 
 const workspace = { id: "ws-1" };
 const user = { id: "user-1", email: "owner@adscale.com" };
@@ -94,11 +99,15 @@ describe("POST /api/assistant/threads/[threadId]/goal/select-base", () => {
     mockGetDerivations.mockResolvedValue([
       { id: "00000000-0000-4000-8000-000000000011", creativeLevel: "conservative", format: "1:1", status: "completed" },
     ] as never);
+    mockResolveVersion.mockResolvedValue({
+      version: { id: "00000000-0000-4000-8000-000000000021" },
+      derivation: { id: "00000000-0000-4000-8000-000000000011", format: "1:1" },
+    } as never);
   });
 
   it("selects a version belonging to the current triplet", async () => {
     const response = await call({
-      versionId: "00000000-0000-4000-8000-000000000011",
+      versionId: "00000000-0000-4000-8000-000000000021",
       expectedRevision: 4,
     });
 
@@ -107,14 +116,14 @@ describe("POST /api/assistant/threads/[threadId]/goal/select-base", () => {
       expect.objectContaining({
         patch: expect.objectContaining({
           stage: "reviewing_base",
-          selectedBaseVersionId: "00000000-0000-4000-8000-000000000011",
+          selectedBaseVersionId: "00000000-0000-4000-8000-000000000021",
         }),
       })
     );
   });
 
   it("rejects a version outside the goal campaign", async () => {
-    mockGetDerivations.mockResolvedValue([] as never);
+    mockResolveVersion.mockResolvedValue(null);
 
     const response = await call({
       versionId: "00000000-0000-4000-8000-000000000099",

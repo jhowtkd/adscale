@@ -47,6 +47,7 @@ const artifactVersionStateFixture = {
     {
       lineageId,
       artifactType: "plan",
+      headRevision: 0,
       approvedCurrent: {
         id: versionId,
         lineageId,

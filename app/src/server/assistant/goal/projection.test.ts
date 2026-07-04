@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/server/repositories/assistant-goal", () => ({
   getGoalRunScoped: vi.fn(),
@@ -22,10 +22,16 @@ vi.mock("@/server/storage", () => ({
 
 import { getGoalRunScoped } from "@/server/repositories/assistant-goal";
 import { getDerivationsByCampaign } from "@/server/repositories/derivation";
+import {
+  listArtifactLineages,
+  listArtifactVersions,
+} from "@/server/repositories/artifact-version";
 import { buildGoalProjection } from "./projection";
 
 const mockGetGoal = vi.mocked(getGoalRunScoped);
 const mockGetDerivations = vi.mocked(getDerivationsByCampaign);
+const mockListLineages = vi.mocked(listArtifactLineages);
+const mockListVersions = vi.mocked(listArtifactVersions);
 
 const baseGoal = {
   id: "00000000-0000-4000-8000-000000000001",
@@ -68,6 +74,11 @@ function makeDerivation(overrides: Partial<Record<string, unknown>> = {}) {
 }
 
 describe("buildGoalProjection", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockListLineages.mockResolvedValue([]);
+    mockListVersions.mockResolvedValue([]);
+  });
   it("returns null when the thread has no goal run", async () => {
     mockGetGoal.mockResolvedValue(null);
 
@@ -137,6 +148,68 @@ describe("buildGoalProjection", () => {
 
     const levels = projection!.candidates.map((c) => c.creativeLevel);
     expect(levels).toEqual(["conservative", "balanced", "bold"]);
+  });
+
+  it("exposes the artifact version id separately from its derivation id", async () => {
+    const derivationId = "00000000-0000-4000-8000-000000000011";
+    const versionId = "00000000-0000-4000-8000-000000000099";
+    mockGetGoal.mockResolvedValue(baseGoal as never);
+    mockGetDerivations.mockResolvedValue([
+      makeDerivation({ derivationId, id: derivationId }),
+    ] as never);
+    mockListLineages.mockResolvedValue([
+      {
+        id: "00000000-0000-4000-8000-000000000088",
+        artifactType: "creative",
+        originalArtifactId: derivationId,
+      },
+    ] as never);
+    mockListVersions.mockResolvedValue([{ id: versionId }] as never);
+
+    const projection = await buildGoalProjection({
+      workspaceId: "ws-1",
+      clientProfileId: "client-1",
+      threadId: "thread-1",
+    });
+
+    expect(projection!.candidates[0]).toMatchObject({
+      versionId,
+      derivationId,
+    });
+  });
+
+  it("uses the selected base as the 1:1 package item", async () => {
+    const conservativeId = "00000000-0000-4000-8000-000000000011";
+    const balancedId = "00000000-0000-4000-8000-000000000012";
+    const conservativeVersionId = "00000000-0000-4000-8000-000000000091";
+    const balancedVersionId = "00000000-0000-4000-8000-000000000092";
+    mockGetGoal.mockResolvedValue({
+      ...baseGoal,
+      stage: "reviewing_package",
+      selectedBaseVersionId: balancedVersionId,
+    } as never);
+    mockGetDerivations.mockResolvedValue([
+      makeDerivation({ id: conservativeId, creativeLevel: "conservative" }),
+      makeDerivation({ id: balancedId, creativeLevel: "balanced" }),
+    ] as never);
+    mockListLineages.mockResolvedValue([
+      { id: "lineage-1", artifactType: "creative", originalArtifactId: conservativeId },
+      { id: "lineage-2", artifactType: "creative", originalArtifactId: balancedId },
+    ] as never);
+    mockListVersions
+      .mockResolvedValueOnce([{ id: conservativeVersionId }] as never)
+      .mockResolvedValueOnce([{ id: balancedVersionId }] as never);
+
+    const projection = await buildGoalProjection({
+      workspaceId: "ws-1",
+      clientProfileId: "client-1",
+      threadId: "thread-1",
+    });
+
+    expect(projection!.packageItems.find((item) => item.format === "1:1")).toMatchObject({
+      versionId: balancedVersionId,
+      previewUrl: "https://cdn.test/outputs/img.png",
+    });
   });
 
   it("shows a failed slot after a final retry failure", async () => {

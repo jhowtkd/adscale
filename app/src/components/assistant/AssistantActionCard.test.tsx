@@ -102,6 +102,7 @@ describe("AssistantActionCard", () => {
     const lineages: ArtifactVersionPresentation[] = [{
       lineageId,
       artifactType: "plan",
+      headRevision: 0,
       approvedCurrent: official,
       working: produced,
       versions: [official, produced],

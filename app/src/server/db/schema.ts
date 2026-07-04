@@ -2746,6 +2746,7 @@ export const assistantGoalRuns = adscaleSchema.table(
     assumptions: jsonb("assumptions").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
     blockers: jsonb("blockers").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
     queuedInstruction: text("queued_instruction"),
+    resumeStage: text("resume_stage"),
     selectedBaseVersionId: uuid("selected_base_version_id").references(
       () => assistantArtifactVersions.id,
       { onDelete: "set null" }

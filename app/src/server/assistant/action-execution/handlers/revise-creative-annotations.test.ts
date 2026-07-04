@@ -5,13 +5,15 @@ const createDerivationMock = vi.hoisted(() => vi.fn());
 const sendMock = vi.hoisted(() => vi.fn());
 const getGoalMock = vi.hoisted(() => vi.fn());
 const listAnnotationsMock = vi.hoisted(() => vi.fn());
-const getDerivationMock = vi.hoisted(() => vi.fn());
+const resolveVersionMock = vi.hoisted(() => vi.fn());
 const markAddressedMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/billing/paywall", () => ({ spendOrApiError: spendMock }));
 vi.mock("@/server/repositories/derivation", () => ({
   createDerivation: createDerivationMock,
-  getDerivationById: getDerivationMock,
+}));
+vi.mock("@/server/assistant/goal/service", () => ({
+  resolveGoalCreativeVersion: resolveVersionMock,
 }));
 vi.mock("@/server/jobs/client", () => ({ inngest: { send: sendMock } }));
 vi.mock("@/server/repositories/assistant-goal", () => ({
@@ -61,10 +63,13 @@ describe("executeReviseCreativeAnnotations", () => {
       { id: ctx.inputSnapshot.annotationIds[0], comment: "c1", status: "submitted", x: 0.1, y: 0.1, width: 0.2, height: 0.2 },
       { id: ctx.inputSnapshot.annotationIds[1], comment: "c2", status: "submitted", x: 0.5, y: 0.5, width: 0.2, height: 0.2 },
     ]);
-    getDerivationMock.mockResolvedValue({
-      id: ctx.inputSnapshot.sourceVersionId,
-      outputKey: "outputs/source.png",
-      creativeLevel: "balanced",
+    resolveVersionMock.mockResolvedValue({
+      version: { id: ctx.inputSnapshot.sourceVersionId },
+      derivation: {
+        id: "00000000-0000-4000-8000-000000000011",
+        outputKey: "outputs/source.png",
+        creativeLevel: "balanced",
+      },
     });
     createDerivationMock.mockResolvedValue({ id: "child-1", campaignId: "campaign-1" });
     sendMock.mockResolvedValue(undefined);
@@ -85,7 +90,7 @@ describe("executeReviseCreativeAnnotations", () => {
 
     expect(createDerivationMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        parentId: ctx.inputSnapshot.sourceVersionId,
+        parentId: "00000000-0000-4000-8000-000000000011",
         generationMode: "creative_revision",
         format: "1:1",
       })

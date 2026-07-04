@@ -4,6 +4,7 @@ import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
 import {
+  deleteAnnotationDraft,
   getGoalRunScoped,
   listAnnotationsForVersion,
   upsertAnnotationDraft,
@@ -101,5 +102,37 @@ export async function GET(
     return NextResponse.json({ annotations });
   } catch (error) {
     return handleApiError(error, "assistant.goal.annotations.GET");
+  }
+}
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ threadId: string }> }
+) {
+  try {
+    const { threadId } = await params;
+    const { workspace } = await requireWorkspaceAccess(request);
+
+    const thread = await getAssistantThreadById(workspace.id, threadId);
+    if (!thread) {
+      return apiError("threadNotFound", 404);
+    }
+
+    const url = new URL(request.url);
+    const annotationId = url.searchParams.get("annotationId");
+    if (!annotationId) {
+      return apiError("invalidInput", 400);
+    }
+
+    await deleteAnnotationDraft({
+      workspaceId: workspace.id,
+      clientProfileId: thread.clientProfileId,
+      threadId,
+      annotationId,
+    });
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    return handleApiError(error, "assistant.goal.annotations.DELETE");
   }
 }

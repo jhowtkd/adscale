@@ -1,6 +1,9 @@
 import { generateCreativeTripletInputSchema } from "@/server/assistant/action-contracts/contracts/generate-creative-triplet";
 import { getGoalRunScoped } from "@/server/repositories/assistant-goal";
-import { createDerivation } from "@/server/repositories/derivation";
+import {
+  createDerivation,
+  updateDerivationStatus,
+} from "@/server/repositories/derivation";
 import { spendOrApiError } from "@/server/billing/paywall";
 import { inngest } from "@/server/jobs/client";
 import { GOAL_CREATIVE_LEVELS } from "@/lib/assistant/goal";
@@ -117,6 +120,7 @@ export async function executeGenerateCreativeTriplet(
       // Dispatch failed after the row was created and charged: mark this slot
       // failed without refunding. The other two candidates still run.
       // Status update is best-effort; the aggregate job sync handles the rest.
+      await updateDerivationStatus(derivation.id, ctx.workspaceId, "failed");
       jobRefs.push({ kind: "derivation", id: derivation.id });
     }
   }

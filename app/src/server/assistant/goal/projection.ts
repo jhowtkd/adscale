@@ -8,6 +8,11 @@ import { getGoalRunScoped, listAnnotationsForVersion } from "@/server/repositori
 import { getDerivationsByCampaign } from "@/server/repositories/derivation";
 import { objectStorage } from "@/server/storage";
 import type { GoalStage } from "@/lib/assistant/goal";
+import {
+  listArtifactLineages,
+  listArtifactVersions,
+  type ArtifactScope,
+} from "@/server/repositories/artifact-version";
 
 type DerivationRow = Awaited<ReturnType<typeof getDerivationsByCampaign>>[number];
 
@@ -97,6 +102,27 @@ export async function buildGoalProjection(input: {
     goal.campaignId,
     input.workspaceId
   );
+  const scope: ArtifactScope = {
+    workspaceId: input.workspaceId,
+    clientProfileId: input.clientProfileId,
+    campaignId: goal.campaignId,
+    threadId: input.threadId,
+  };
+  const creativeLineages = (await listArtifactLineages(scope)).filter(
+    (lineage) => lineage.artifactType === "creative"
+  );
+  const versionEntries = await Promise.all(
+    creativeLineages.map(async (lineage) => [
+      lineage.originalArtifactId,
+      (await listArtifactVersions(scope, lineage.id, 1))[0] ?? null,
+    ] as const)
+  );
+  const versionByDerivationId = new Map(versionEntries);
+  const derivationIdByVersionId = new Map(
+    versionEntries.flatMap(([derivationId, version]) =>
+      version ? [[version.id, derivationId] as const] : []
+    )
+  );
 
   // Candidates are the 1:1 triplet, rendered in fixed conservative/balanced/bold
   // order regardless of insertion order. A missing level leaves the slot empty.
@@ -113,7 +139,7 @@ export async function buildGoalProjection(input: {
     const derivation = byLevel.get(level);
     if (!derivation) return null;
     return {
-      versionId: derivation.id, // resolved to the artifact version id in a later step
+      versionId: versionByDerivationId.get(derivation.id)?.id ?? null,
       derivationId: derivation.id,
       creativeLevel: level,
       format: derivation.format ?? "1:1",
@@ -131,12 +157,21 @@ export async function buildGoalProjection(input: {
       .filter((f): f is string => Boolean(f))
   );
   const formatItems = GOAL_FORMATS.map((format) => {
-    const derivation = derivations.find(
-      (d) => d.format === format && d.status !== "failed" && d.status !== "rejected"
-    );
+    const selectedBaseDerivationId = goal.selectedBaseVersionId
+      ? derivationIdByVersionId.get(goal.selectedBaseVersionId)
+      : null;
+    const derivation =
+      format === "1:1" && selectedBaseDerivationId
+        ? derivations.find((d) => d.id === selectedBaseDerivationId)
+        : derivations.find(
+            (d) =>
+              d.format === format && d.status !== "failed" && d.status !== "rejected"
+          );
     return {
       format,
-      versionId: derivation?.id ?? null,
+      versionId: derivation
+        ? versionByDerivationId.get(derivation.id)?.id ?? null
+        : null,
       status: approvedFormats.has(format)
         ? ("approved" as const)
         : derivation

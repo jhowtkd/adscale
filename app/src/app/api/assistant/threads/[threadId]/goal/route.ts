@@ -76,7 +76,7 @@ export async function POST(
           workspace.id,
           command.pendingActionId
         );
-        if (action?.status === "pending") {
+        if (action?.status === "pending" && action.threadId === threadId) {
           await cancelAssistantAction(workspace.id, command.pendingActionId);
         }
       }
@@ -86,7 +86,11 @@ export async function POST(
         clientProfileId: thread.clientProfileId,
         threadId,
         expectedRevision: command.expectedRevision,
-        patch: { stage: "stopped", stoppedAt: new Date() },
+        patch: {
+          stage: "stopped",
+          resumeStage: goal.stage as GoalStage,
+          stoppedAt: new Date(),
+        },
       });
       await emitGoalEvent({
         workspaceId: workspace.id,
@@ -103,14 +107,14 @@ export async function POST(
       // Resume returns to the stage derived from the current artifacts/actions.
       // The client refetches the projection to get the authoritative stage; we
       // simply clear the stopped marker and let the derived stage take over.
-      const resumedStage = await deriveResumedStage(goal.stage);
+      const resumedStage = deriveResumedStage(goal.resumeStage);
       await updateGoalRun({
         goalRunId: goal.id,
         workspaceId: workspace.id,
         clientProfileId: thread.clientProfileId,
         threadId,
         expectedRevision: command.expectedRevision,
-        patch: { stage: resumedStage, stoppedAt: null },
+        patch: { stage: resumedStage, resumeStage: null, stoppedAt: null },
       });
       return NextResponse.json({ ok: true, stage: resumedStage });
     }
@@ -149,7 +153,7 @@ export async function POST(
  * generating stage returns to the preceding review/awaiting stage so the user
  * lands on the candidate/package grid rather than mid-generation.
  */
-async function deriveResumedStage(stoppedStage: string): Promise<GoalStage> {
+function deriveResumedStage(stoppedStage: string | null): GoalStage {
   switch (stoppedStage) {
     case "generating_variants":
       return "awaiting_generation";

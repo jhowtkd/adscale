@@ -93,6 +93,7 @@ import {
   sanitizeDerivationFailureError,
 } from "./derivation-error-sanitizer";
 import * as Sentry from "@sentry/nextjs";
+import { finalizeGoalDerivation } from "@/server/assistant/goal/finalize-derivation";
 
 type CampaignAsset = Awaited<ReturnType<typeof getAssetsByCampaign>>[number];
 
@@ -212,7 +213,7 @@ export const derivationJob = inngest.createFunction(
     ],
     onFailure: async ({ event, error, step }) => {
       const originalEvent = event.data.event;
-      const { derivationId, campaignId, workspaceId, triggeredByUserId, assistantActionId, generationMode, refundPolicy } = originalEvent.data;
+      const { derivationId, campaignId, workspaceId, triggeredByUserId, assistantActionId, generationMode, refundPolicy, goalRunId } = originalEvent.data;
       const { userMessage, technicalDetail } = sanitizeDerivationFailureError(error);
       const errorId = crypto.randomUUID();
       logger.error("[Inngest onFailure] derivation failed", {
@@ -245,6 +246,17 @@ export const derivationJob = inngest.createFunction(
             status: "failed",
             jobRef: { kind: "derivation", id: derivationId },
             safeError: DERIVATION_USER_SAFE_ERROR,
+          });
+        }
+        if (assistantActionId && goalRunId) {
+          await finalizeGoalDerivation({
+            workspaceId,
+            actionId: assistantActionId,
+            goalRunId,
+            derivationId,
+            generationMode,
+            userId: triggeredByUserId,
+            outcome: "failed",
           });
         }
       });
@@ -325,7 +337,7 @@ export const derivationJob = inngest.createFunction(
     triggers: [{ event: "derivation.generate" }],
   },
   async ({ event, step }) => {
-    const { derivationId, campaignId, workspaceId, triggeredByUserId, locale, generationMode, variantIndex, ctaText, format, isPreview, styleAssetId, assistantActionId } = event.data;
+    const { derivationId, campaignId, workspaceId, triggeredByUserId, locale, generationMode, variantIndex, ctaText, format, isPreview, styleAssetId, assistantActionId, goalRunId } = event.data;
     logger.info(`[derivationJob] START derivationId=${derivationId} campaignId=${campaignId} locale=${locale ?? "default"}`);
 
     let generationLog: DerivationGenerationLog = createGenerationLog(campaignId, derivationId);
@@ -765,7 +777,7 @@ export const derivationJob = inngest.createFunction(
         })
         .where(eq(derivations.id, derivationId));
       await refreshCampaignStatus(campaignId, workspaceId);
-      if (assistantActionId) {
+      if (assistantActionId && !goalRunId) {
         await syncAssistantActionFromJob({
           workspaceId,
           actionId: assistantActionId,
@@ -904,7 +916,7 @@ export const derivationJob = inngest.createFunction(
       updatedAt: new Date().toISOString(),
     });
 
-    if (triggeredByUserId) {
+    if (triggeredByUserId && !goalRunId) {
       await step.run("notify-completion-inapp", async () => {
         const stillExists = await getDerivationById(derivationId, workspaceId);
         if (!stillExists) {
@@ -927,7 +939,7 @@ export const derivationJob = inngest.createFunction(
     }
 
     // 4b. Send completion email if all derivations are done
-    if (triggeredByUserId) {
+    if (triggeredByUserId && !goalRunId) {
       await step.run("notify-completion-email", async () => {
         const active = await db
           .select({ id: derivations.id })
@@ -1032,7 +1044,7 @@ export const derivationJob = inngest.createFunction(
       }
     });
 
-    if (!isPreview) {
+    if (!isPreview && !goalRunId) {
       await step.run("capture-corpus-candidate", async () => {
         try {
           // Capture-only: the goal-agent contract requires explicit client
@@ -1288,6 +1300,25 @@ export const derivationJob = inngest.createFunction(
           );
         });
       }
+    }
+
+    if (!isPreview && goalRunId) {
+      await step.run("capture-goal-corpus-candidate", async () => {
+        await captureCorpusCandidateFromDerivation({ workspaceId, derivationId });
+      });
+    }
+
+    if (assistantActionId && goalRunId) {
+      await step.run("finalize-goal-derivation", async () => {
+        await finalizeGoalDerivation({
+          workspaceId,
+          actionId: assistantActionId,
+          goalRunId,
+          derivationId,
+          generationMode: generated.effectiveGenerationMode,
+          userId: triggeredByUserId,
+        });
+      });
     }
 
     // 6. Track usage

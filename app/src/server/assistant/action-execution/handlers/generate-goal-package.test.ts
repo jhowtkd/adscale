@@ -4,12 +4,16 @@ const spendMock = vi.hoisted(() => vi.fn());
 const createChildMock = vi.hoisted(() => vi.fn());
 const sendMock = vi.hoisted(() => vi.fn());
 const getGoalMock = vi.hoisted(() => vi.fn());
-const getDerivationMock = vi.hoisted(() => vi.fn());
+const resolveVersionMock = vi.hoisted(() => vi.fn());
+const updateStatusMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/billing/paywall", () => ({ spendOrApiError: spendMock }));
 vi.mock("@/server/repositories/derivation", () => ({
   createPackageChildIfAbsent: createChildMock,
-  getDerivationById: getDerivationMock,
+  updateDerivationStatus: updateStatusMock,
+}));
+vi.mock("@/server/assistant/goal/service", () => ({
+  resolveGoalCreativeVersion: resolveVersionMock,
 }));
 vi.mock("@/server/jobs/client", () => ({ inngest: { send: sendMock } }));
 vi.mock("@/server/repositories/assistant-goal", () => ({
@@ -47,7 +51,7 @@ const goal = {
 };
 
 const baseDerivation = {
-  id: ctx.inputSnapshot.baseVersionId,
+  id: "00000000-0000-4000-8000-000000000011",
   outputKey: "outputs/base.png",
   creativeLevel: "balanced",
   ctaText: "Compre",
@@ -58,7 +62,10 @@ describe("executeGenerateGoalPackage", () => {
     vi.clearAllMocks();
     spendMock.mockResolvedValue(null);
     getGoalMock.mockResolvedValue(goal);
-    getDerivationMock.mockResolvedValue(baseDerivation);
+    resolveVersionMock.mockResolvedValue({
+      version: { id: ctx.inputSnapshot.baseVersionId },
+      derivation: baseDerivation,
+    });
     let i = 0;
     createChildMock.mockImplementation((data: { format: string }) => {
       i += 1;
@@ -68,6 +75,15 @@ describe("executeGenerateGoalPackage", () => {
       };
     });
     sendMock.mockResolvedValue(undefined);
+    updateStatusMock.mockResolvedValue(undefined);
+  });
+
+  it("marks a package slot failed when dispatch fails", async () => {
+    sendMock.mockRejectedValueOnce(new Error("dispatch failed"));
+
+    await executeGenerateGoalPackage(ctx);
+
+    expect(updateStatusMock).toHaveBeenCalledWith("child-1", "ws-1", "failed");
   });
 
   it("charges 15 credits once before dispatch", async () => {
@@ -91,7 +107,7 @@ describe("executeGenerateGoalPackage", () => {
     await executeGenerateGoalPackage(ctx);
 
     for (const call of createChildMock.mock.calls) {
-      expect(call[0].parentId).toBe(ctx.inputSnapshot.baseVersionId);
+      expect(call[0].parentId).toBe(baseDerivation.id);
       expect(call[0].generationMode).toBe("format_adaptation");
       expect(call[0].creativeLevel).toBe("balanced");
     }

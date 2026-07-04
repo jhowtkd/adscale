@@ -3,8 +3,10 @@
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { config as loadDotenv } from "dotenv";
 
 const appDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+loadDotenv({ path: resolve(appDir, ".env.local") });
 const baseUrl = process.env.E2E_BASE_URL ?? "http://localhost:3000";
 const playwrightConfig = process.env.E2E_PLAYWRIGHT_CONFIG ?? "playwright.guided.config.ts";
 const playwrightSpec = process.env.E2E_PLAYWRIGHT_SPEC;
@@ -100,6 +102,24 @@ async function main() {
   }
 
   seedDevAdmin();
+
+  if (playwrightSpec?.includes("assistant-goal-agent")) {
+    execFileSync("npm", ["run", "db:migrate"], {
+      cwd: appDir,
+      stdio: "inherit",
+      env: process.env,
+    });
+    execFileSync("npx", ["tsx", "scripts/seed-goal-agent-e2e.ts"], {
+      cwd: appDir,
+      stdio: "inherit",
+      env: {
+        ...process.env,
+        NODE_OPTIONS: [process.env.NODE_OPTIONS, "--conditions=react-server"]
+          .filter(Boolean)
+          .join(" "),
+      },
+    });
+  }
 
   const result = spawnSync(
     "npx",

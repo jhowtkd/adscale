@@ -122,6 +122,7 @@ export async function POST(
                   threadId,
                   userId: user.id,
                   userMessage: parsed.data.message,
+                  attachments,
                 })
               : runAssistantTurn({
                   workspaceId: workspace.id,

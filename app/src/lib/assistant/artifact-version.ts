@@ -128,6 +128,7 @@ export const artifactVersionPresentationSchema = z
   .object({
     lineageId: z.string().uuid(),
     artifactType: artifactTypeSchema,
+    headRevision: z.number().int().nonnegative(),
     approvedCurrent: artifactVersionSummarySchema.nullable(),
     working: artifactVersionSummarySchema.nullable(),
     versions: z.array(artifactVersionSummarySchema),

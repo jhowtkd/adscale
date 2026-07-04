@@ -76,7 +76,7 @@ export const goalPlanStepStatusSchema = z.enum([
 
 export const goalCandidatePresentationSchema = z
   .object({
-    versionId: z.string().uuid(),
+    versionId: z.string().uuid().nullable(),
     derivationId: z.string().uuid(),
     creativeLevel: z.enum(["conservative", "balanced", "bold"]),
     format: z.string(),
