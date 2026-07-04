@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "milestone": "goal-agent-pilot",
+  "environment": "staging",
+  "capturedAt": null,
+  "owner": null,
+  "testerWorkspaces": [],
+  "graduationReport": {
+    "startedObjectives": 0,
+    "completedObjectives": 0,
+    "distinctClients": 0,
+    "completionRate": 0,
+    "criticalCreditFailures": 0,
+    "criticalScopeFailures": 0,
+    "stageDropoff": { "stopped": 0 },
+    "graduation": {
+      "enoughObjectives": false,
+      "enoughClients": false,
+      "enoughCompletion": false,
+      "noCriticalFailures": true,
+      "passed": false
+    }
+  },
+  "automatedScenarios": {
+    "01_agent_and_classic_fallback": "pending",
+    "02_mandatory_client_selection": "pending",
+    "03_from_zero_blockers": "pending",
+    "04_existing_piece_path": "pending",
+    "05_15_credit_confirmation_copy": "pending",
+    "06_triplet_after_reload": "pending",
+    "07_base_selection": "pending",
+    "08_two_rectangle_annotations": "pending",
+    "09_annotation_history_old_version": "pending",
+    "10_package_confirmation_copy": "pending",
+    "11_four_format_approval": "pending",
+    "12_zip_download": "pending",
+    "13_stop_semantics": "pending",
+    "14_mobile_contract": "pending",
+    "15_cross_client_isolation": "pending"
+  },
+  "manualRunbook": {
+    "creditLedger": "pending",
+    "providerFailureNoRefund": "pending",
+    "scopeIsolation": "pending",
+    "corpusConsent": "pending",
+    "browserNotifications": "pending",
+    "artifactReload": "pending"
+  },
+  "pilotNotes": []
+}

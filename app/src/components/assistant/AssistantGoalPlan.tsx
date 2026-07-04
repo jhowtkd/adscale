@@ -55,6 +55,7 @@ export default function AssistantGoalPlan({
           {onStop && projection.stage !== "stopped" && projection.stage !== "completed" ? (
             <button
               type="button"
+              data-testid="assistant-goal-stop"
               onClick={onStop}
               disabled={isStopping}
               className="rounded-md border border-[var(--border-dim)] px-2 py-1 text-xs text-[var(--text-secondary)] hover:text-[var(--danger-text)] disabled:opacity-50"

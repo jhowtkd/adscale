@@ -111,8 +111,13 @@ export async function createAssistantAction(
         sequence: sql`(SELECT COALESCE(MAX(${assistantMessages.sequence}), 0) + 1 FROM ${assistantMessages} WHERE ${assistantMessages.threadId} = ${input.threadId})`,
         type: "action_card",
         content: input.content,
-        payload: messagePayload,
-        actionRecordId: actionId,
+        payload: {
+          status: messagePayload.status,
+          display: messagePayload.display,
+          sourceFlowRevision: messagePayload.sourceFlowRevision,
+          sourceSnapshotDigest: messagePayload.sourceSnapshotDigest,
+        },
+        actionRecordId: null,
       })
       .returning();
 
@@ -131,6 +136,15 @@ export async function createAssistantAction(
       })
       .returning();
 
+    const [linkedMessage] = await tx
+      .update(assistantMessages)
+      .set({
+        actionRecordId: actionId,
+        payload: messagePayload,
+      })
+      .where(eq(assistantMessages.id, message.id))
+      .returning();
+
     await tx
       .update(assistantThreads)
       .set({ updatedAt: new Date() })
@@ -141,7 +155,7 @@ export async function createAssistantAction(
         )
       );
 
-    return { action, message };
+    return { action, message: linkedMessage ?? message };
   });
 }
 

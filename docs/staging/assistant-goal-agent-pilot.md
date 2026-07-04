@@ -72,3 +72,71 @@ The report must show `graduation.passed = true` only when:
 - `criticalCreditFailures === 0 && criticalScopeFailures === 0`
 
 Snapshot the JSON output as rollout evidence before flipping the pilot to general availability.
+
+## 11. Fifteen automated pilot scenarios
+
+Run locally before staging walks:
+
+```bash
+cd app
+npx tsx scripts/seed-dev-admin.ts --repair --create
+npx tsx scripts/seed-goal-agent-e2e.ts
+npm run goal-agent-release-gate
+```
+
+| # | Scenario | Playwright spec |
+|---|----------|-----------------|
+| 1 | Agent pilot + classic fallback | `assistant-goal-agent.spec.ts` |
+| 2 | Mandatory client selection | same |
+| 3 | From-zero brief blockers | same |
+| 4 | Existing-piece path (attachment / baseAssetId) | same |
+| 5 | Exact 15-credit non-refundable copy | same |
+| 6 | Three neutral candidates after reload | same |
+| 7 | Base selection | same |
+| 8 | Two rectangle annotations | same |
+| 9 | Annotation history on old version | same |
+| 10 | Package 15-credit confirmation | same |
+| 11 | Four formats approved individually | same |
+| 12 | Final ZIP download | same |
+| 13 | Stop before/after dispatch | same |
+| 14 | Mobile monitor without rectangle draw | same |
+| 15 | Cross-client isolation | same |
+
+Record results in `.planning/phases/goal-agent-staging-pilot/GOAL-AGENT-EVIDENCE.json`.
+
+## 12. Pilot bootstrap and graduation snapshot
+
+Grant tester entitlement and seed the graduation sample (20 objectives, 3 clients, ≥60% completed):
+
+```bash
+cd app
+npm run seed:goal-agent-pilot
+npm run snapshot:goal-agent-graduation
+```
+
+On staging, prefer the live API snapshot:
+
+```bash
+curl -H "Cookie: <session>" https://<staging>/api/feedback/analytics/goal-agent \
+  | tee goal-agent-graduation.json
+```
+
+Validate evidence:
+
+```bash
+node scripts/check-goal-agent-staging-evidence.mjs \
+  --evidence ../.planning/phases/goal-agent-staging-pilot/GOAL-AGENT-EVIDENCE.json
+```
+
+## 13. Pilot execution order
+
+**Validação automatizada (concluída 2026-07-04):** `npm run goal-agent-release-gate` — 15 cenários + tooling.
+
+1. ~~Complete all 15 automated scenarios (`goal-agent-release-gate`).~~ **Done**
+2. Grant tester entitlements to ≥3 staging workspaces (`POST /api/admin/testers`).
+3. Run one from-zero and one existing-piece objective with real owners/beta testers; keep classic fallback visible via `assistant-classic-flow-toggle`.
+4. Walk manual runbook sections 3–9 (credits, provider failure, scope, consent, notifications, reload).
+5. Snapshot graduation report; gate must show `graduation.passed = true`.
+6. Fix pilot frictions before evolving background notifications or per-client learning.
+
+Evidência: `.planning/phases/goal-agent-staging-pilot/GOAL-AGENT-EVIDENCE.json` (`status: completed`).

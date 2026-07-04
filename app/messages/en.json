@@ -2682,7 +2682,8 @@
       "cancel": "Cancel",
       "save": "Save",
       "addressed": "addressed",
-      "removeAnnotation": "Remove annotation"
+      "removeAnnotation": "Remove annotation",
+      "downloadZip": "Download package (ZIP)"
     }
   },
   "analytics": {

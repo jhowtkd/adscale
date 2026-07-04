@@ -2711,7 +2711,8 @@
       "cancel": "Cancelar",
       "save": "Salvar",
       "addressed": "atendida",
-      "removeAnnotation": "Remover anotação"
+      "removeAnnotation": "Remover anotação",
+      "downloadZip": "Baixar pacote (ZIP)"
     }
   },
   "analytics": {

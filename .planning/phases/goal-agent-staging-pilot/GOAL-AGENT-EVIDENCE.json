@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "milestone": "goal-agent-pilot",
+  "environment": "local-validation",
+  "status": "completed",
+  "completedAt": "2026-07-04T22:09:00.000-03:00",
+  "owner": "dev-admin@adscale.local",
+  "testerWorkspaces": [],
+  "releaseGate": {
+    "status": "passed",
+    "command": "npm run goal-agent-release-gate",
+    "completedAt": "2026-07-04T20:35:00.000-03:00",
+    "e2eTests": 18,
+    "unitTests": 57
+  },
+  "graduationReport": {
+    "startedObjectives": 0,
+    "completedObjectives": 0,
+    "distinctClients": 0,
+    "completionRate": 0,
+    "criticalCreditFailures": 0,
+    "criticalScopeFailures": 0,
+    "stageDropoff": { "stopped": 0 },
+    "graduation": {
+      "enoughObjectives": false,
+      "enoughClients": false,
+      "enoughCompletion": false,
+      "noCriticalFailures": true,
+      "passed": false
+    },
+    "note": "Gate operacional 20/3/60% exige snapshot em staging após piloto humano; tooling e seed prontos (seed:goal-agent-pilot, snapshot:goal-agent-graduation)."
+  },
+  "automatedScenarios": {
+    "01_agent_and_classic_fallback": "pass",
+    "02_mandatory_client_selection": "pass",
+    "03_from_zero_blockers": "pass",
+    "04_existing_piece_path": "pass",
+    "05_15_credit_confirmation_copy": "pass",
+    "06_triplet_after_reload": "pass",
+    "07_base_selection": "pass",
+    "08_two_rectangle_annotations": "pass",
+    "09_annotation_history_old_version": "pass",
+    "10_package_confirmation_copy": "pass",
+    "11_four_format_approval": "pass",
+    "12_zip_download": "pass",
+    "13_stop_semantics": "pass",
+    "14_mobile_contract": "pass",
+    "15_cross_client_isolation": "pass"
+  },
+  "manualRunbook": {
+    "creditLedger": "deferred",
+    "providerFailureNoRefund": "deferred",
+    "scopeIsolation": "pass",
+    "corpusConsent": "deferred",
+    "browserNotifications": "deferred",
+    "artifactReload": "pass"
+  },
+  "frictionsFixed": [
+    "CreativeAnnotationEditor recebe isMobile no workspace",
+    "assistant-goal-stop e assistant-goal-download-zip no UI",
+    "createAssistantAction corrige ordem FK message/action",
+    "15 cenários Playwright + seed E2E estendido"
+  ],
+  "outOfScopeUntilGraduation": [
+    "background notifications",
+    "per-client learning"
+  ],
+  "pilotNotes": [
+    "Fase de validação automatizada fechada em 2026-07-04: goal-agent-release-gate verde (18 E2E + 57 testes focados).",
+    "Walk manual staging (seções 3–9) e graduation.passed em produção ficam como follow-up de ops antes do GA.",
+    "Fallback clássico validado via cenários 1–2; piloto limitado a owners/testers inalterado."
+  ]
+}

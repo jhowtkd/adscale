@@ -23,16 +23,20 @@ import { createDerivation } from "../src/server/repositories/derivation";
 import {
   createGoalRun,
   updateGoalRun,
+  upsertAnnotationDraft,
 } from "../src/server/repositories/assistant-goal";
 import {
   createAssistantThread,
   linkThreadToCampaign,
 } from "../src/server/repositories/assistant-thread";
+import { createAssistantAction } from "../src/server/repositories/assistant-action";
+import { createWorkspaceAsset } from "../src/server/repositories/workspace-asset";
 import { objectStorage } from "../src/server/storage";
 import { derivations } from "../src/server/db/schema";
 
 const DEV_EMAIL = "dev-admin@adscale.local";
 const CLIENT_NAME = "Goal Agent E2E Client";
+const OTHER_CLIENT_NAME = "Goal Agent E2E Other Client";
 const FIXTURE_PATH = path.resolve(__dirname, "../tests/fixtures/goal-agent-e2e.json");
 
 const PNG_1X1 = Buffer.from(
@@ -94,11 +98,73 @@ async function clearPreviousSeed(workspaceId: string) {
   }
 }
 
-async function ensureClient(workspaceId: string) {
+async function ensureClient(workspaceId: string, name: string) {
   const profiles = await getClientProfiles(workspaceId);
-  const existing = profiles.find((profile) => profile.name === CLIENT_NAME);
+  const existing = profiles.find((profile) => profile.name === name);
   if (existing) return existing;
-  return createClientProfile(workspaceId, { name: CLIENT_NAME });
+  return createClientProfile(workspaceId, { name });
+}
+
+async function seedPendingAction(input: {
+  workspaceId: string;
+  threadId: string;
+  goalRunId: string;
+  goalRevision: number;
+  actionType: "generate_creative_triplet" | "generate_goal_package";
+  planVersionId: string;
+  baseVersionId?: string;
+}) {
+  const isTriplet = input.actionType === "generate_creative_triplet";
+  const inputSnapshot = isTriplet
+    ? {
+        goalRunId: input.goalRunId,
+        goalRevision: input.goalRevision,
+        planVersionId: input.planVersionId,
+        format: "1:1" as const,
+      }
+    : {
+        goalRunId: input.goalRunId,
+        goalRevision: input.goalRevision,
+        planVersionId: input.planVersionId,
+        baseVersionId: input.baseVersionId!,
+      };
+  const riskCopyLines = isTriplet
+    ? ["Cobrança definitiva: não há estorno, inclusive se uma geração falhar."]
+    : [
+        "A peça-base 1:1 já conta no pacote.",
+        "Cobrança definitiva: não há estorno, inclusive se uma geração falhar.",
+      ];
+  const label = isTriplet
+    ? "Gerar três direções criativas"
+    : "Gerar pacote de formatos";
+  const creditImpact = isTriplet
+    ? {
+        kind: "creditAction" as const,
+        action: "image_derivation",
+        amount: 15,
+        label: "15 créditos",
+      }
+    : {
+        kind: "creditAction" as const,
+        action: "delivery_package_child",
+        amount: 15,
+        label: "15 créditos — três formatos adicionais",
+      };
+  const { action } = await createAssistantAction(input.workspaceId, {
+    threadId: input.threadId,
+    content: label,
+    inputSnapshot,
+    display: {
+      label,
+      actionType: input.actionType,
+      intentFamily: "complete_campaign",
+      riskLabel: "high",
+      creditImpact,
+      riskCopyLines,
+      confirmationPolicy: "required",
+    },
+  });
+  return action.id;
 }
 
 async function outputKeyFor(workspaceId: string, label: string) {
@@ -240,13 +306,148 @@ async function seedCampaignBundle(input: {
     selectedBaseVersionId,
     tripletVersionIds: tripletVersions,
     packageVersionIds: packageVersions,
+    goalRevision: goal.revision,
+  };
+}
+
+async function seedIntakeBundle(input: {
+  workspaceId: string;
+  userId: string;
+  clientProfileId: string;
+  campaignLabel: string;
+  threadName: string;
+  brief: typeof READY_BRIEF;
+  blockers: string[];
+  baseAssetId?: string | null;
+}) {
+  const campaign = await createCampaign(input.workspaceId, {
+    name: `Goal Agent E2E ${input.campaignLabel}`,
+    clientProfileId: input.clientProfileId,
+    objective: input.brief.objective,
+    audience: input.brief.audience,
+    product: input.brief.productOffer,
+    constraints: input.brief.constraints,
+    creativeLevel: "balanced",
+    targetFormats: [...GOAL_FORMATS],
+    status: "draft",
+    selectedReferenceIds: [],
+  });
+  await createPlan(campaign.id, input.workspaceId, READY_PLAN);
+
+  const thread = await createAssistantThread(input.workspaceId, {
+    clientProfileId: input.clientProfileId,
+    campaignId: campaign.id,
+    name: input.threadName,
+  });
+  await linkThreadToCampaign(input.workspaceId, thread.id, campaign.id);
+
+  let goal = await createGoalRun({
+    workspaceId: input.workspaceId,
+    clientProfileId: input.clientProfileId,
+    threadId: thread.id,
+    userId: input.userId,
+    objective: input.brief.objective,
+  });
+
+  goal = await updateGoalRun({
+    goalRunId: goal.id,
+    workspaceId: input.workspaceId,
+    clientProfileId: input.clientProfileId,
+    threadId: thread.id,
+    expectedRevision: goal.revision,
+    patch: {
+      campaignId: campaign.id,
+      brief: input.brief,
+      plan: READY_PLAN,
+      assumptions: input.baseAssetId ? ["existing_piece"] : [],
+      blockers: input.blockers,
+      stage: "intake",
+    },
+  });
+
+  return { threadId: thread.id, goalRunId: goal.id, goalRevision: goal.revision };
+}
+
+async function seedCompletedBundle(input: {
+  workspaceId: string;
+  userId: string;
+  clientProfileId: string;
+}) {
+  const bundle = await seedCampaignBundle({
+    workspaceId: input.workspaceId,
+    userId: input.userId,
+    clientProfileId: input.clientProfileId,
+    campaignLabel: "Completed",
+    threadName: "Goal Agent E2E Completed",
+    stage: "reviewing_package",
+  });
+
+  await db
+    .update(derivations)
+    .set({ status: "approved", updatedAt: new Date() })
+    .where(eq(derivations.campaignId, bundle.campaignId));
+
+  await updateGoalRun({
+    goalRunId: bundle.goalRunId,
+    workspaceId: input.workspaceId,
+    clientProfileId: input.clientProfileId,
+    threadId: bundle.threadId,
+    expectedRevision: bundle.goalRevision,
+    patch: {
+      stage: "completed",
+      completedAt: new Date(),
+      selectedBaseVersionId: bundle.selectedBaseVersionId,
+    },
+  });
+
+  return bundle;
+}
+
+async function seedAnnotationHistoryBundle(input: {
+  workspaceId: string;
+  userId: string;
+  clientProfileId: string;
+}) {
+  const bundle = await seedCampaignBundle({
+    workspaceId: input.workspaceId,
+    userId: input.userId,
+    clientProfileId: input.clientProfileId,
+    campaignLabel: "AnnotationHistory",
+    threadName: "Goal Agent E2E Annotation History",
+    stage: "reviewing_base",
+  });
+  const oldVersionId = bundle.tripletVersionIds[0];
+  const currentVersionId = bundle.selectedBaseVersionId;
+  if (!oldVersionId || !currentVersionId) {
+    throw new Error("Annotation history seed missing version ids");
+  }
+
+  await upsertAnnotationDraft({
+    workspaceId: input.workspaceId,
+    clientProfileId: input.clientProfileId,
+    threadId: bundle.threadId,
+    goalRunId: bundle.goalRunId,
+    versionId: oldVersionId,
+    createdByUserId: input.userId,
+    x: 0.1,
+    y: 0.1,
+    width: 0.2,
+    height: 0.2,
+    comment: "Histórico na versão antiga",
+  });
+
+  return {
+    ...bundle,
+    oldVersionId,
+    currentVersionId,
   };
 }
 
 async function main() {
   const { userId, workspaceId } = await resolveDevWorkspace();
   await clearPreviousSeed(workspaceId);
-  const client = await ensureClient(workspaceId);
+  const client = await ensureClient(workspaceId, CLIENT_NAME);
+  const otherClient = await ensureClient(workspaceId, OTHER_CLIENT_NAME);
 
   const triplet = await seedCampaignBundle({
     workspaceId,
@@ -273,13 +474,138 @@ async function main() {
     stage: "reviewing_package",
   });
 
+  const intake = await seedIntakeBundle({
+    workspaceId,
+    userId,
+    clientProfileId: client.id,
+    campaignLabel: "Intake",
+    threadName: "Goal Agent E2E Intake",
+    brief: {
+      ...READY_BRIEF,
+      audience: "",
+      constraints: "",
+    },
+    blockers: ["audience", "constraints"],
+  });
+
+  const baseAsset = await createWorkspaceAsset({
+    workspaceId,
+    key: await outputKeyFor(
+      workspaceId,
+      `existing-piece-${crypto.randomUUID().slice(0, 8)}`
+    ),
+    type: "image",
+    name: "existing-piece.png",
+    size: PNG_1X1.length,
+    source: "upload",
+  });
+  const existingPiece = await seedIntakeBundle({
+    workspaceId,
+    userId,
+    clientProfileId: client.id,
+    campaignLabel: "ExistingPiece",
+    threadName: "Goal Agent E2E Existing Piece",
+    brief: {
+      ...READY_BRIEF,
+      productOffer: "",
+      audience: "",
+      constraints: "",
+      baseAssetId: baseAsset.id,
+    },
+    blockers: ["productOffer", "audience", "constraints"],
+    baseAssetId: baseAsset.id,
+  });
+
+  const tripletAction = await seedCampaignBundle({
+    workspaceId,
+    userId,
+    clientProfileId: client.id,
+    campaignLabel: "TripletAction",
+    threadName: "Goal Agent E2E Triplet Action",
+    stage: "choosing_base",
+  });
+  const tripletPendingActionId = await seedPendingAction({
+    workspaceId,
+    threadId: tripletAction.threadId,
+    goalRunId: tripletAction.goalRunId,
+    goalRevision: tripletAction.goalRevision,
+    actionType: "generate_creative_triplet",
+    planVersionId: crypto.randomUUID(),
+  });
+  await updateGoalRun({
+    goalRunId: tripletAction.goalRunId,
+    workspaceId,
+    clientProfileId: client.id,
+    threadId: tripletAction.threadId,
+    expectedRevision: tripletAction.goalRevision,
+    patch: { stage: "awaiting_generation" },
+  });
+  const tripletActionGoalRevision = tripletAction.goalRevision + 1;
+
+  const packageAction = await seedCampaignBundle({
+    workspaceId,
+    userId,
+    clientProfileId: client.id,
+    campaignLabel: "PackageAction",
+    threadName: "Goal Agent E2E Package Action",
+    stage: "reviewing_base",
+  });
+  const packagePendingActionId = await seedPendingAction({
+    workspaceId,
+    threadId: packageAction.threadId,
+    goalRunId: packageAction.goalRunId,
+    goalRevision: packageAction.goalRevision,
+    actionType: "generate_goal_package",
+    planVersionId: crypto.randomUUID(),
+    baseVersionId: packageAction.selectedBaseVersionId ?? undefined,
+  });
+
+  const completed = await seedCompletedBundle({
+    workspaceId,
+    userId,
+    clientProfileId: client.id,
+  });
+
+  const annotationHistory = await seedAnnotationHistoryBundle({
+    workspaceId,
+    userId,
+    clientProfileId: client.id,
+  });
+
+  const otherClientThread = await createAssistantThread(workspaceId, {
+    clientProfileId: otherClient.id,
+    name: "Goal Agent E2E Other Client Thread",
+  });
+  await createGoalRun({
+    workspaceId,
+    clientProfileId: otherClient.id,
+    threadId: otherClientThread.id,
+    userId,
+    objective: "Objetivo outro cliente",
+  });
+
   const fixture = {
     clientProfileId: client.id,
+    otherClientProfileId: otherClient.id,
     workspaceId,
     tripletThreadId: triplet.threadId,
+    tripletGoalRunId: triplet.goalRunId,
     annotationThreadId: annotation.threadId,
     packageThreadId: packageReview.threadId,
+    intakeThreadId: intake.threadId,
+    existingPieceThreadId: existingPiece.threadId,
+    tripletActionThreadId: tripletAction.threadId,
+    tripletPendingActionId,
+    tripletActionGoalRevision,
+    packageActionThreadId: packageAction.threadId,
+    packagePendingActionId,
+    completedThreadId: completed.threadId,
+    completedGoalRunId: completed.goalRunId,
+    annotationHistoryThreadId: annotationHistory.threadId,
+    annotationHistoryOldVersionId: annotationHistory.oldVersionId,
+    otherClientThreadId: otherClientThread.id,
     selectedBaseVersionId: annotation.selectedBaseVersionId,
+    balancedTripletVersionId: triplet.tripletVersionIds[1] ?? triplet.tripletVersionIds[0],
   };
 
   fs.mkdirSync(path.dirname(FIXTURE_PATH), { recursive: true });

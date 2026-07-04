@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 import type { ArtifactVersionPresentation } from "@/lib/assistant/artifact-version";
@@ -8,6 +8,8 @@ import type { AssistantGoalPresentation } from "@/lib/assistant/goal";
 import { useAssistantGoal } from "@/lib/hooks/use-assistant-goal";
 import { usePromoteAssistantArtifactVersion } from "@/lib/hooks/use-assistant-artifact-versions";
 import { assistantThreadQueryKey } from "@/lib/hooks/use-assistant-threads";
+import { useIsMobile } from "@/lib/hooks/use-media-query";
+import { Button } from "@/components/ui/button";
 import AssistantGoalPlan from "./AssistantGoalPlan";
 import CreativeTripletGrid from "./CreativeTripletGrid";
 import CreativeAnnotationEditor from "./CreativeAnnotationEditor";
@@ -34,6 +36,8 @@ export default function AssistantGoalWorkspace({
 }: AssistantGoalWorkspaceProps) {
   const t = useTranslations("assistant.goal");
   const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
+  const [isDownloading, setIsDownloading] = useState(false);
   const promote = usePromoteAssistantArtifactVersion(threadId);
   const { stop, resume, isStopping } = useGoalLifecycle(threadId, projection.revision);
 
@@ -89,6 +93,27 @@ export default function AssistantGoalWorkspace({
     invalidateThread();
   };
 
+  const handleDownloadZip = async () => {
+    setIsDownloading(true);
+    try {
+      const response = await apiFetch("/api/export/zip", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ goalRunId: projection.id }),
+      });
+      if (!response.ok) return;
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = "adscale-goal-package.zip";
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   return (
     <div
       className="flex min-h-0 flex-col gap-4 overflow-y-auto p-4"
@@ -135,6 +160,7 @@ export default function AssistantGoalWorkspace({
             imageUrl={basePreviewUrl}
             versionId={projection.selectedBaseVersionId}
             annotations={projection.annotations}
+            isMobile={isMobile}
             onAdd={(annotation) => {
               void apiFetch(
                 `/api/assistant/threads/${threadId}/goal/annotations`,
@@ -175,6 +201,20 @@ export default function AssistantGoalWorkspace({
             // Package annotate routes back to base revision in later turns.
           }}
         />
+      ) : null}
+
+      {projection.stage === "completed" ? (
+        <section className="flex flex-col gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={isDownloading}
+            data-testid="assistant-goal-download-zip"
+            onClick={() => void handleDownloadZip()}
+          >
+            {t("downloadZip")}
+          </Button>
+        </section>
       ) : null}
     </div>
   );
