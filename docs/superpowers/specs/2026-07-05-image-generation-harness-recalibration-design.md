@@ -69,7 +69,7 @@ The existing levels remain:
 | Level | Visual-system distance | Composition freedom | Copy freedom |
 | --- | --- | --- | --- |
 | `conservative` | Very close | Refine and rebalance | Condense or simplify |
-| `moderate` | Clearly recognizable | Reorganize | Rewrite while preserving facts |
+| `balanced` | Clearly recognizable | Reorganize | Rewrite while preserving facts |
 | `bold` | Reinterpreted but same campaign | Rebuild | Reduce to essential facts |
 | `extreme` | Preserve only central campaign anchors | New direction | Keep only factual essentials |
 
