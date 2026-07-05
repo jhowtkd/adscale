@@ -1,5 +1,49 @@
 import type { CanonicalCreative } from "./canonical-creative-contract";
 import type { InputSourceClassification } from "./factual-visual-separation";
+import type { CreativeLevel } from "../repositories/campaign";
+
+/**
+ * Fidelity band for creative generation. Aliases the persisted campaign
+ * `CreativeLevel` vocabulary so old rows stay readable without migration.
+ */
+export type CreativeFidelityLevel = CreativeLevel;
+
+const CREATIVE_FIDELITY_LEVELS: readonly CreativeFidelityLevel[] = [
+  "conservative",
+  "balanced",
+  "bold",
+  "extreme",
+];
+
+/**
+ * Normalizes a persisted creative level to the fidelity vocabulary.
+ * Unknown, null, or missing values resolve "balanced" so old rows stay
+ * readable without migration.
+ */
+export function resolveCreativeFidelityLevel(
+  value: string | null | undefined
+): CreativeFidelityLevel {
+  return (CREATIVE_FIDELITY_LEVELS as readonly string[]).includes(value ?? "")
+    ? (value as CreativeFidelityLevel)
+    : "balanced";
+}
+
+/**
+ * Resolved generation policy attached to the persisted contract.
+ * Objective facts stay fixed; CTA presence and copy expression are flexible;
+ * layout numbers are advisory heuristics, never validity rules.
+ */
+export interface CanonicalCreativePolicy {
+  fidelityLevel: CreativeFidelityLevel;
+  cta: { presence: "optional"; wording: "preserve_action_intent" };
+  copy: "facts_fixed_expression_flexible";
+  heuristics: readonly [
+    "three_zones",
+    "free_space_20_percent",
+    "safe_margin_8_percent",
+    "thumbnail_25_percent",
+  ];
+}
 
 export type CtaSemantics =
   | { kind: "explicit"; text: string }
@@ -66,6 +110,10 @@ export interface CreativeContract {
   factualSourceRules?: FactualSourceRules;
   canonicalCreative?: CanonicalCreative;
   inputSourceClassification?: InputSourceClassification;
+  /** Requested fidelity band; absent on old rows, which resolve "balanced". */
+  creativeLevel?: CreativeFidelityLevel;
+  /** Resolved creative policy; absent on old rows, which resolve "balanced". */
+  policy?: CanonicalCreativePolicy;
 }
 
 export type PromptProvenance = {

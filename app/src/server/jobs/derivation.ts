@@ -13,12 +13,17 @@ import { objectStorage } from "@/server/storage";
 import { buildDerivationPrompt } from "../ai/prompt-builder";
 import {
   FACTUAL_SOURCE_RULES,
+  resolveCreativeFidelityLevel,
   resolveCtaSemantics,
 } from "../ai/creative-contract";
-import { resolveCanonicalCreative } from "../ai/canonical-creative-contract";
+import {
+  resolveCanonicalCreative,
+  resolveCanonicalCreativePolicy,
+} from "../ai/canonical-creative-contract";
 import { resolveInputSourceClassification, assertParentFactualLineage } from "../ai/factual-visual-separation";
 import type {
   CreativeContract,
+  CreativeFidelityLevel,
   PromptProvenance,
   SourceDescriptor,
   SourcePackage,
@@ -607,9 +612,18 @@ export const derivationJob = inngest.createFunction(
         childStoredContract?.canonicalCreative ??
         resolveCanonicalCreative(baseResolvedContract, campaign, diagnosis ?? undefined);
 
+      const creativeLevel: CreativeFidelityLevel =
+        childStoredContract?.creativeLevel ??
+        resolveCreativeFidelityLevel(campaign.creativeLevel);
+
       const resolvedContract: CreativeContract = {
         ...baseResolvedContract,
         canonicalCreative,
+        creativeLevel,
+        policy: resolveCanonicalCreativePolicy(
+          effectiveGenerationMode as CreativeContract["generationMode"],
+          creativeLevel
+        ),
         inputSourceClassification: resolveInputSourceClassification(
           { ...baseResolvedContract, canonicalCreative },
           {

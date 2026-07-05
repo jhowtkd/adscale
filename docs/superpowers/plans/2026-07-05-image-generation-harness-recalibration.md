@@ -33,7 +33,7 @@
 - Create: `app/src/server/ai/canonical-creative-policy.test.ts`
 - Modify: `app/src/server/jobs/derivation.ts`
 
-- [ ] **Step 1: Write failing policy-resolution tests**
+- [x] **Step 1: Write failing policy-resolution tests**
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -65,12 +65,12 @@ describe("resolveCanonicalCreativePolicy", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test and verify failure**
+- [x] **Step 2: Run the test and verify failure**
 
 Run: `cd app && npm test -- src/server/ai/canonical-creative-policy.test.ts`  
 Expected: FAIL because `resolveCanonicalCreativePolicy` does not exist.
 
-- [ ] **Step 3: Add the minimal shared types**
+- [x] **Step 3: Add the minimal shared types**
 
 ```ts
 export type CreativeFidelityLevel = "conservative" | "balanced" | "bold" | "extreme";
@@ -94,7 +94,7 @@ export interface CreativeContract {
 }
 ```
 
-- [ ] **Step 4: Implement the resolver in the existing canonical module**
+- [x] **Step 4: Implement the resolver in the existing canonical module**
 
 ```ts
 export function resolveCanonicalCreativePolicy(
@@ -117,12 +117,12 @@ export function resolveCanonicalCreativePolicy(
 
 When `resolveCanonicalCreative` or the derivation job builds the persisted contract, attach `creativeLevel: campaign.creativeLevel ?? "balanced"` and `policy: resolveCanonicalCreativePolicy(mode, level)`. Fallback contracts continue resolving `balanced`, so old rows remain readable without migration.
 
-- [ ] **Step 5: Run focused tests**
+- [x] **Step 5: Run focused tests**
 
 Run: `cd app && npm test -- src/server/ai/canonical-creative-policy.test.ts src/server/ai/creative-contract.test.ts src/server/jobs/derivation.test.ts`  
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add app/src/server/ai/creative-contract.ts app/src/server/ai/canonical-creative-contract.ts app/src/server/ai/canonical-creative-policy.test.ts app/src/server/jobs/derivation.ts app/src/server/jobs/derivation.test.ts

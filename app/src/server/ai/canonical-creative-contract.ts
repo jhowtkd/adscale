@@ -1,4 +1,9 @@
-import type { CreativeContract, CtaSemantics } from "./creative-contract";
+import type {
+  CanonicalCreativePolicy,
+  CreativeContract,
+  CreativeFidelityLevel,
+  CtaSemantics,
+} from "./creative-contract";
 import { resolveAllowedEntitiesForCampaign } from "./creative-corpus";
 
 export interface InvariantIdentity {
@@ -65,6 +70,29 @@ function resolveCtaLine(ctaSemantics: CtaSemantics): string {
     return "inherit from reference";
   }
   return "absent";
+}
+
+/**
+ * Resolves the single canonical creative policy for a generation. The policy
+ * is identical across modes today; the mode parameter keeps the call sites
+ * honest and leaves room for mode-specific policy without a new resolver.
+ * Fallback callers resolve "balanced" so old rows stay readable.
+ */
+export function resolveCanonicalCreativePolicy(
+  _mode: CreativeContract["generationMode"],
+  fidelityLevel: CreativeFidelityLevel = "balanced"
+): CanonicalCreativePolicy {
+  return {
+    fidelityLevel,
+    cta: { presence: "optional", wording: "preserve_action_intent" },
+    copy: "facts_fixed_expression_flexible",
+    heuristics: [
+      "three_zones",
+      "free_space_20_percent",
+      "safe_margin_8_percent",
+      "thumbnail_25_percent",
+    ],
+  };
 }
 
 export function resolveCanonicalCreative(
