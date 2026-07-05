@@ -10,6 +10,8 @@
 
 | Data | Título | Status | PR |
 |------|--------|--------|-----|
+| 2026-07-05 | [Bridge creative score → Olhar narrative](./2026-07-05-creative-score-olhar-narrative-bridge.md) | Proposta | — |
+| 2026-06-30 | [Persistência do dual verdict no pipeline](./2026-06-30-dual-verdict-pipeline-persistence.md) | Proposta | — |
 | 2026-06-29 | [Observabilidade do auto-retry de derivações](./2026-06-29-derivation-auto-retry-observability.md) | Proposta | [#17](https://github.com/jhowtkd/adscale/pull/17) |
 
 ---
