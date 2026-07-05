@@ -1,6 +1,7 @@
 "use client";
 
 import { useTheme } from "next-themes";
+import { useTranslations } from "next-intl";
 import { useSyncExternalStore } from "react";
 import { Sun, Moon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -18,6 +19,7 @@ function getServerMountedSnapshot() {
 }
 
 export default function ThemeToggle({ className }: { className?: string }) {
+  const t = useTranslations("theme");
   const { theme, setTheme, resolvedTheme } = useTheme();
   const mounted = useSyncExternalStore(
     subscribeMounted,
@@ -44,7 +46,7 @@ export default function ThemeToggle({ className }: { className?: string }) {
         "focus-visible:ring-2 focus-visible:ring-[var(--accent-green)] focus-visible:ring-offset-2",
         className
       )}
-      aria-label={isDark ? "Mudar para light mode" : "Mudar para dark mode"}
+      aria-label={isDark ? t("switchToLight") : t("switchToDark")}
     >
       <div className="relative size-4">
         <Sun
