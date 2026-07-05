@@ -18,7 +18,13 @@ cp .env.example .env.local
 
 3. Fill real local credentials in `.env.local`.
 
-4. Run the app with Inngest dev wiring:
+4. Apply database migrations (required before first run):
+
+```bash
+npm run db:migrate
+```
+
+5. Run the app with Inngest dev wiring:
 
 ```bash
 npm run dev
