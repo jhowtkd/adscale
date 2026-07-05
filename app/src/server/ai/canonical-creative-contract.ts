@@ -4,6 +4,7 @@ import type {
   CreativeFidelityLevel,
   CtaSemantics,
 } from "./creative-contract";
+import { resolveCreativeFidelityLevel } from "./creative-contract";
 import { resolveAllowedEntitiesForCampaign } from "./creative-corpus";
 
 export interface InvariantIdentity {
@@ -30,8 +31,8 @@ export interface CanonicalCreative {
 
 export const PRECEDENCE_RULES = `RULE PRECEDENCE (highest wins):
 1. Factual accuracy — no invented entities; preserve Tier mandatory meaning.
-2. Visual hierarchy — max three information zones; Tier condensable/decorative yield to focal hook.
-3. Decoration — styling, glow, card chrome; never overrides facts or hierarchy.`;
+2. Requested fidelity — the resolved fidelity band bounds visual-system distance from the reference.
+3. Art direction — composition, typography, rhythm, and styling rank otherwise eligible outputs; they never override facts or fidelity.`;
 
 export interface CanonicalCampaignInput {
   name?: string | null;
@@ -46,7 +47,6 @@ const DEFAULT_TIERS: ContentTiers = {
   mandatory: [
     "hook/headline",
     "offer/proof",
-    "CTA",
     "logo if present",
     "product/subject",
   ],
@@ -148,6 +148,12 @@ export function buildCanonicalContractPromptSection(
 ): string[] {
   const c =
     contract.canonicalCreative ?? resolveCanonicalCreative(contract);
+  const policy =
+    contract.policy ??
+    resolveCanonicalCreativePolicy(
+      contract.generationMode,
+      resolveCreativeFidelityLevel(contract.creativeLevel)
+    );
   const peopleLabel =
     c.invariantIdentity.people.length > 0
       ? c.invariantIdentity.people.join(", ")
@@ -159,13 +165,19 @@ export function buildCanonicalContractPromptSection(
     `Dominant idea: ${c.dominantIdea}`,
     `Primary hook (Tier 1): ${c.hook}`,
     `Proof/offer zone (Tier 2): ${c.proofZone}`,
-    `CTA (Tier 3): ${resolveCtaLine(contract.ctaSemantics)}`,
+    `CTA reference (optional): ${resolveCtaLine(contract.ctaSemantics)}`,
     `Invariant identity: campaign=${c.invariantIdentity.campaign}; brand=${c.invariantIdentity.brand}; product=${c.invariantIdentity.product}; palette=${c.invariantIdentity.palette}; people=${peopleLabel}`,
+    "",
+    "OBJECTIVE INTEGRITY: brand, product, price, conditions, dates, claims, and target format must remain correct.",
+    "CTA PRESENCE: optional. Preserve the intended action when a CTA is rendered; literal wording is not required.",
+    "COPY: Facts are fixed; headline and supporting expression are flexible and may be rewritten, condensed, or omitted.",
+    `REFERENCE FIDELITY: ${policy.fidelityLevel}. Visual-system recognition governs permitted distance.`,
+    "ADVISORY HEURISTICS: three zones, whitespace, safe margins, and thumbnail checks may guide composition but never override art direction.",
     "",
     "CONTENT TIERS:",
     `- Mandatory (must appear legibly): ${c.tiers.mandatory.join("; ")}`,
     `- Condensable (may merge/shrink): ${c.tiers.condensable.join("; ")}`,
-    `- Decorative (may omit if hook+offer+CTA suffice): ${c.tiers.decorative.join("; ")}`,
+    `- Decorative (may omit if hook+offer suffice): ${c.tiers.decorative.join("; ")}`,
     "",
     PRECEDENCE_RULES,
     "When mode instructions conflict with this block, this block wins.",

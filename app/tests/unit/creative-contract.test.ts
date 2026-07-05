@@ -125,13 +125,13 @@ describe("canonical creative contract", () => {
     expect(section).toContain("CONTENT TIERS:");
     expect(section).toContain("RULE PRECEDENCE");
     expect(section).toContain("Factual accuracy");
-    expect(section).toContain("Visual hierarchy");
-    expect(section).toContain("3. Decoration");
+    expect(section).toContain("Requested fidelity");
+    expect(section).toContain("3. Art direction");
     expect(section.indexOf("Factual accuracy")).toBeLessThan(
-      section.indexOf("Visual hierarchy")
+      section.indexOf("Requested fidelity")
     );
-    expect(section.indexOf("Visual hierarchy")).toBeLessThan(
-      section.indexOf("3. Decoration")
+    expect(section.indexOf("Requested fidelity")).toBeLessThan(
+      section.indexOf("3. Art direction")
     );
     expect(section).toContain(
       "When mode instructions conflict with this block, this block wins."

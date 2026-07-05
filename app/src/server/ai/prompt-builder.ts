@@ -5,8 +5,11 @@ import { buildBrandKitPromptSection } from "./brand-kit-extractor";
 import { buildCompetitorContextPromptSection } from "./competitor-analyzer";
 import { buildPreflightPromptSection } from "./preflight-analysis";
 import type { BrandMemoryContext } from "@/server/memory/brand-memory-context";
-import type { CreativeContract, CtaSemantics } from "./creative-contract";
-import { resolveCtaSemantics } from "./creative-contract";
+import type { CreativeContract } from "./creative-contract";
+import {
+  resolveCreativeFidelityLevel,
+  resolveCtaSemantics,
+} from "./creative-contract";
 import {
   buildCanonicalContractPromptSection,
   resolveCanonicalCreative,
@@ -95,16 +98,16 @@ function imageLanguageInstruction(locale?: string): string {
 }
 
 const conservative = `CREATIVITY LEVEL: conservative.
-OPERATIONAL RULES FOR CONSERVATIVE:
-- Preserve character/product, brand palette, texture, typography style, and visual structure from the reference.
-- Change ONLY: layout/disposition, text content, invite placement and reading path, and minor spacing adjustments.
-- Do not introduce new scenes, unrelated motifs, experimental layouts, or major copy shifts.
+OPERATIONAL RULES FOR CONSERVATIVE (smallest visual-system distance):
+- Stay inside the reference visual system: preserve character/product, brand palette, texture, typography style, and visual structure.
+- Change ONLY: layout/disposition, copy expression within fixed facts, invite placement and reading path, and minor spacing adjustments.
+- Do not introduce new scenes, unrelated motifs, or experimental layouts.
 - Maintain minimal structural change; the result should feel like the same visual universe as the reference.
-- Preserve logo behavior, offer structure, and overall campaign recognition.
+- Preserve logo behavior, offer meaning, and overall campaign recognition.
 - Decorative-only changes (background color, glow, card chrome) without a new visual mechanism are invalid — require a new composition mechanism per MODE rules.`;
 
 const balanced = `CREATIVITY LEVEL: balanced.
-OPERATIONAL RULES FOR BALANCED:
+OPERATIONAL RULES FOR BALANCED (moderate visual-system distance):
 - Create a noticeably new composition while keeping brand identity recognizable.
 - Rebuild layout, visual hierarchy, invite placement and reading path, supporting shapes, rhythm, and spacing.
 - The result should feel like a sibling creative from the same campaign, not a near-copy.
@@ -113,25 +116,24 @@ OPERATIONAL RULES FOR BALANCED:
 - Decorative-only changes (background color, glow, card chrome) without a new visual mechanism are invalid — require a new composition mechanism per MODE rules.`;
 
 const bold = `CREATIVITY LEVEL: bold.
-OPERATIONAL RULES FOR BOLD:
+OPERATIONAL RULES FOR BOLD (large visual-system distance):
 - Change the background structure completely. Use a different scene, texture, or environment.
 - Reorganize visual hierarchy: resize, reposition, and regroup key elements.
 - Apply new lighting treatment, shadows, and color grading while staying within the brand palette.
-- Preserve core brand assets (logo, product), campaign message, offer, and CTA.
-- INVIOLABLE TEXT (mandatory tier): hook/headline, offer line, CTA, and named people/products from the reference must appear with EXACT spelling and punctuation — no typos, abbreviations, or substitutions.
+- Preserve core brand assets (logo, product), campaign message, and offer meaning.
+- FACTS FIXED, EXPRESSION FLEXIBLE: brand, product, price, conditions, dates, claims, and named people/products stay correct; headline and supporting copy may be rewritten or condensed when the composition benefits, and a rendered CTA preserves its action intent.
 - CONSOLIDATION (condensable tier only): merge, shrink, or regroup bullets, badges, and icon rows instead of reproducing every block at equal size; decorative modules may yield per RULE PRECEDENCE.
 - Do not invent a new brand or unrelated visual universe.
 - The result must be clearly a different creative from the same campaign.`;
 
 const extreme = `CREATIVITY LEVEL: extreme.
-OPERATIONAL RULES FOR EXTREME:
+OPERATIONAL RULES FOR EXTREME (maximum visual-system distance):
 - Reimagine the entire visual context: new scene, new environment, new background treatment.
 - Change product angle, framing, scale, or photo treatment dramatically.
 - Rebuild composition from scratch: new hierarchy, new spacing language, new rhythm.
 - Apply bold lighting shifts, contrast changes, and atmospheric treatment.
-- Preserve only: brand identity (logo behavior, palette family), campaign message, offer, and CTA.
-- INVIOLABLE TEXT (mandatory tier): hook/headline, offer line, CTA, and named people/products must be reproduced with EXACT spelling — typos like missing letters are hard failures.
-- INVIOLABLE CONTENT BLOCKS (mandatory tier): professor names, offer badges, and legal copy spelling must survive reorganization; condensable and decorative modules may be merged, regrouped, or omitted per RULE PRECEDENCE.
+- Preserve only: brand identity (logo behavior, palette family), campaign message, and offer meaning.
+- FACTS FIXED, EXPRESSION FLEXIBLE: named people, offer facts, prices, dates, and legal meaning stay correct; headline and supporting expression may be rewritten, condensed, or omitted, and condensable or decorative modules may be merged, regrouped, or omitted per RULE PRECEDENCE.
 - The result should be almost unrecognizable side-by-side with the reference, yet clearly belong to the same campaign when viewed independently.`;
 
 const CREATIVITY_TEMPLATES: Record<string, string> = {
@@ -143,11 +145,11 @@ const CREATIVITY_TEMPLATES: Record<string, string> = {
 
 const VISUAL_HIERARCHY_CONTRACT = `VISUAL HIERARCHY CONTRACT:
 - Express ONE dominant visual idea per piece (the scroll-stopping hook focal point).
-- Limit visible text hierarchy to THREE tiers: (1) primary hook/headline, (2) one supporting proof or offer line, (3) one CTA.
+- A three-tier text hierarchy — (1) primary hook/headline, (2) one supporting proof or offer line, (3) one optional CTA — is a proven default, not a mandatory template.
 - Preserve factual content from the reference in meaning, but do NOT give every fact equal visual weight.
-- Secondary facts (duration labels, badge rows, icon lists, legal copy, bullet pillars) may be merged into one support line, grouped smaller, or omitted from the layout when the hook + offer + CTA already communicate the campaign.
+- Secondary facts (duration labels, badge rows, icon lists, legal copy, bullet pillars) may be merged into one support line, grouped smaller, or omitted from the layout when the hook + offer already communicate the campaign.
 - Do not stack competing cards, icon rows, selos, and badges at the same visual weight.
-- Use deliberate negative space: leave at least ~20% of the canvas free of text or visible information groups.
+- Deliberate negative space helps: keeping around 20% of the canvas free of text or visible information groups is a useful heuristic, not a validity rule.
 - Prefer editorial composition over dashboard-style grid layouts.
 - Avoid generic AI tropes unless they already exist in the brand system: neon glow stacks, holographic grids, glassmorphism cards, excessive lens flares, volumetric CTA pills, and "premium tech" gradient stacks.`;
 
@@ -284,59 +286,16 @@ export interface DerivationPromptConfig {
 }
 
 function buildHardRulesSection(
-  config: Pick<DerivationPromptConfig, "ctaText" | "locale" | "targetFormat"> & {
-    isArtVariation: boolean;
-    hasPlanCtas: boolean;
-    generationMode?: DerivationPromptConfig["generationMode"];
-    ctaSemantics?: CtaSemantics | null;
-  }
+  config: Pick<DerivationPromptConfig, "locale" | "targetFormat">
 ): string[] {
-  const { ctaText, locale, targetFormat = "1:1", isArtVariation, hasPlanCtas, generationMode, ctaSemantics } = config;
+  const { locale, targetFormat = "1:1" } = config;
   const rules = [
     "",
     "HARD RULES / NON-NEGOTIABLE CONTRACT:",
     `- Target format: ${targetFormat}. This target format overrides any flexible layout suggestion.`,
     "- CRITICAL LOGO RULE: Do NOT invent a logo. Preserve the logo ONLY if it already exists in the reference asset. If no logo is visible in the reference, do not add one.",
+    "- FACTUAL INTEGRITY PRECEDENCE: brand, product, price, conditions, dates, and claims must remain correct; factual accuracy outranks requested fidelity, and fidelity outranks art direction.",
   ];
-
-  if (ctaSemantics?.kind === "explicit") {
-    rules.push(
-      `- Applied CTA text for this piece: ${ctaSemantics.text}`,
-      "- CRITICAL LITERAL CTA RULE: The CTA text above is MANDATORY and FINAL.",
-      "- Do not use synonyms, paraphrases, or alternative phrasing for this CTA.",
-      "- Do not translate the CTA into any language.",
-      "- Do not rewrite or rephrase the CTA text.",
-      "- Do not replace it with plan-recommended CTAs or any other text.",
-      "- The exact CTA text above must appear verbatim in the generated output."
-    );
-    if (hasPlanCtas) {
-      rules.push("- CTA Recommendations are secondary context only and must not override the literal CTA text.");
-    }
-  } else if (ctaSemantics?.kind === "inherited") {
-    if (generationMode === "format_adaptation") {
-      rules.push("- Preserve the CTA exactly as it appears in the source creative. Do not add a different CTA or remove the existing CTA.");
-    } else if (generationMode === "restyling") {
-      rules.push("- The base image contains the factual CTA that must be preserved. Apply style language from the style reference only; do not replace the CTA with text from the style reference.");
-    } else {
-      rules.push("- Use the original CTA from the reference creative. Do not add a different CTA or remove the existing CTA.");
-    }
-  } else if (ctaText) {
-    // Fallback: no contract provided, use legacy ctaText behavior
-    rules.push(
-      `- Applied CTA text for this piece: ${ctaText}`,
-      "- CRITICAL LITERAL CTA RULE: The CTA text above is MANDATORY and FINAL.",
-      "- Do not use synonyms, paraphrases, or alternative phrasing for this CTA.",
-      "- Do not translate the CTA into any language.",
-      "- Do not rewrite or rephrase the CTA text.",
-      "- Do not replace it with plan-recommended CTAs or any other text.",
-      "- The exact CTA text above must appear verbatim in the generated output."
-    );
-    if (hasPlanCtas) {
-      rules.push("- CTA Recommendations are secondary context only and must not override the literal CTA text.");
-    }
-  } else if (isArtVariation) {
-    rules.push("- Applied CTA text for this piece: use the original CTA from the reference.");
-  }
 
   const imageLanguage = imageLanguageInstruction(locale).trim();
   if (imageLanguage) {
@@ -360,7 +319,7 @@ function buildArtVariationFallbackPreservation(
   const clientOrProduct = campaign?.client || campaign?.product;
   if (clientOrProduct) fallback.push(`- Brand/product from brief: ${clientOrProduct}.`);
   if (campaign?.offer) fallback.push(`- Offer from brief: ${campaign.offer}.`);
-  if (ctaText) fallback.push(`- Exact CTA for this variation: ${ctaText}.`);
+  if (ctaText) fallback.push(`- CTA action intent from brief: ${ctaText}.`);
   if (campaign?.objective) fallback.push(`- Campaign objective: ${campaign.objective}.`);
   if (campaign?.constraints) fallback.push(`- Constraints: ${campaign.constraints}.`);
   if (asset?.width && asset.height) {
@@ -406,19 +365,9 @@ export async function buildDerivationPrompt(config: DerivationPromptConfig) {
     "You are an advertising derivation engine, not a generic creative generator.",
   ];
 
-  parts.push(
-    ...buildHardRulesSection({
-      ctaText,
-      locale,
-      targetFormat,
-      isArtVariation,
-      hasPlanCtas: Boolean(plan?.ctas?.length),
-      generationMode,
-      ctaSemantics: contract?.ctaSemantics ?? null,
-    })
-  );
+  parts.push(...buildHardRulesSection({ locale, targetFormat }));
 
-  const effectiveContract = resolveEffectiveContractForPrompt({
+  const baseEffectiveContract = resolveEffectiveContractForPrompt({
     contract,
     campaign,
     creativeDiagnosis,
@@ -427,6 +376,13 @@ export async function buildDerivationPrompt(config: DerivationPromptConfig) {
     ctaText,
     asset,
   });
+  const effectiveContract: CreativeContract =
+    baseEffectiveContract.creativeLevel || !effectiveCreativeLevel
+      ? baseEffectiveContract
+      : {
+          ...baseEffectiveContract,
+          creativeLevel: resolveCreativeFidelityLevel(effectiveCreativeLevel),
+        };
   parts.push(...buildCanonicalContractPromptSection(effectiveContract));
   parts.push(...buildIntegrityPromptSection());
 
@@ -639,7 +595,7 @@ export async function buildDerivationPrompt(config: DerivationPromptConfig) {
       const intent = ref.kind === "negative" ? "Avoid repeating this pattern" : "Use as auxiliary visual guidance";
       parts.push(`- ${ref.kind}: ${ref.label}. ${intent}. Notes: ${ref.notes ?? "None"}. Asset: ${ref.assetKey}`);
     }
-    parts.push("These references are auxiliary context only. They must not override the primary campaign asset, literal CTA, target format, or campaign constraints.");
+    parts.push("These references are auxiliary context only. They must not override the primary campaign asset, factual content, target format, or campaign constraints.");
   }
 
   parts.push(

@@ -4,7 +4,6 @@ import { buildCreativeQaPrompt } from "@/server/ai/creative-qa";
 import {
   buildDerivationPrompt,
   extractPromptCanonicalContractSection,
-  extractPromptHardRulesSection,
   extractPromptIntegritySection,
   extractPromptModeSection,
   extractPromptPerModeRulesSection,
@@ -75,7 +74,6 @@ describe.each(MODES)("TEST-01 prompt contract — $name", ({ contract, extra }) 
 
     const integrity = extractPromptIntegritySection(prompt);
     const canonical = extractPromptCanonicalContractSection(prompt);
-    const hardRules = extractPromptHardRulesSection(prompt);
     const perMode = extractPromptPerModeRulesSection(prompt);
     const classification = extractPromptInputClassificationSection(prompt);
 
@@ -94,12 +92,10 @@ describe.each(MODES)("TEST-01 prompt contract — $name", ({ contract, extra }) 
       expect(prompt).toMatch(/three information zones|max three|reading-path/i);
     }
 
+    expect(prompt).toContain("CTA PRESENCE: optional");
+    expect(prompt).toContain("Preserve the intended action when a CTA is rendered");
     if (resolved.ctaSemantics.kind === "explicit") {
-      expect(hardRules).toMatch(/CTA Recommendations are secondary|secondary context only/i);
-    } else {
-      expect(prompt).toMatch(
-        /CTA Recommendations are secondary|plan-recommended CTAs|secondary context only|use those from the base image only/i
-      );
+      expect(prompt).toContain(resolved.ctaSemantics.text);
     }
     expect(integrity).toMatch(/do not invent|ANTI-HALLUCINATION/i);
     expect(classification).toMatch(/INPUT SOURCE CLASSIFICATION/i);

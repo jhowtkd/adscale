@@ -149,10 +149,11 @@ describe("buildDerivationPrompt", () => {
     expect(prompt.indexOf("HARD RULES / NON-NEGOTIABLE CONTRACT")).toBeLessThan(
       prompt.indexOf("Creative Strategy: Use a playful summer concept")
     );
-    expect(prompt.indexOf("CRITICAL LITERAL CTA RULE")).toBeLessThan(
-      prompt.indexOf("CTA Recommendations:")
-    );
-    expect(prompt).toContain("CTA Recommendations are secondary context only and must not override the literal CTA text.");
+    expect(prompt).toContain("CTA PRESENCE: optional");
+    expect(prompt).toContain("Preserve the intended action when a CTA is rendered");
+    expect(prompt).toContain("Facts are fixed; headline and supporting expression are flexible");
+    expect(prompt).not.toContain("CTA text above is MANDATORY and FINAL");
+    expect(prompt).not.toContain("must appear verbatim");
   });
 
   it("describes the reference as approved winner for package format adaptation", async () => {
@@ -219,9 +220,9 @@ describe("buildDerivationPrompt", () => {
     expect(prompt).toContain("ANTI-CROPPING RULE");
     expect(prompt).toContain("REARRANGEMENT RULE");
     expect(prompt).toContain("LAYOUT SAFETY PASS");
-    expect(prompt).toContain("SAFE MARGIN RULE");
+    expect(prompt).toContain("SAFE MARGIN GUIDANCE");
     expect(prompt).toContain("BRAND LOCKUP RULE");
-    expect(prompt).toContain("THUMBNAIL LEGIBILITY RULE");
+    expect(prompt).toContain("THUMBNAIL LEGIBILITY GUIDANCE");
   });
 
   it("requires art_variation to preserve visible ad information while rearranging", async () => {
@@ -260,18 +261,19 @@ describe("buildDerivationPrompt", () => {
     });
 
     expect(prompt).toContain("mandatory tier");
-    expect(prompt).toContain("hook/headline, offer/proof, invite/call-to-action text");
+    expect(prompt).toContain("hook/headline, offer/proof, logo if present, product/subject");
     expect(prompt).toContain("do not crop, hide, truncate, blur, or cover");
     expect(prompt).toContain("mandatory-tier content remains visible, readable, and intentionally arranged");
     expect(prompt).toContain("reduce scale and rebalance whitespace instead of cropping");
-    expect(prompt).toContain("at least 8% of the canvas width/height away from the edges");
+    expect(prompt).toContain("around 8% of the width/height is a useful default");
+    expect(prompt).not.toContain("at least 8% of the canvas");
     expect(prompt).toContain("do not place vertical or horizontal logos flush against any edge");
     expect(prompt).toContain("condensable information such as duration");
     expect(prompt).toContain("Condense or omit condensable and decorative modules per RULE PRECEDENCE");
     expect(prompt).toContain("Rearrange the ad, do not crop out mandatory-tier content");
     expect(prompt).toContain("BRIEF-BASED PRESERVATION FALLBACK");
     expect(prompt).toContain("Brand/product from brief: ADScale");
-    expect(prompt).toContain("Exact CTA for this variation: Teste agora");
+    expect(prompt).toContain("CTA action intent from brief: Teste agora");
     expect(prompt).toContain("Reference asset dimensions: 1080x1080px");
   });
 
@@ -315,7 +317,7 @@ describe("buildDerivationPrompt", () => {
     expect(prompt).toContain("style: Hero shot. Use as auxiliary visual guidance");
     expect(prompt).toContain("negative: Old layout. Avoid repeating this pattern");
     expect(prompt).toContain("These references are auxiliary context only");
-    expect(prompt).toContain("must not override the primary campaign asset, literal CTA, target format, or campaign constraints");
+    expect(prompt).toContain("must not override the primary campaign asset, factual content, target format, or campaign constraints");
   });
 
   it("does not include CLIENT REFERENCE LIBRARY when no references provided", async () => {
@@ -327,7 +329,7 @@ describe("buildDerivationPrompt", () => {
     expect(prompt).not.toContain("CLIENT REFERENCE LIBRARY:");
   });
 
-  it("preserves literal CTA text even with client references", async () => {
+  it("keeps explicit CTA text visible as action reference with client references", async () => {
     const prompt = await buildDerivationPrompt({
       generationMode: "art_variation",
       targetFormat: "1:1",
@@ -337,7 +339,7 @@ describe("buildDerivationPrompt", () => {
       ],
     });
 
-    expect(prompt).toContain("CRITICAL LITERAL CTA RULE");
+    expect(prompt).toContain("CTA PRESENCE: optional");
     expect(prompt).toContain("Buy Now");
     expect(prompt).toContain("CLIENT REFERENCE LIBRARY:");
   });
@@ -365,10 +367,10 @@ describe("buildDerivationPrompt", () => {
 
     expect(prompt).toContain("BRAND MEMORY / LEARNED CONTEXT:");
     expect(prompt).toContain("This brand previously used CTA text Ver ofertas.");
-    expect(prompt).toContain("CRITICAL LITERAL CTA RULE");
-    expect(prompt).toContain("The exact CTA text above must appear verbatim");
-    expect(prompt).toContain("Applied CTA text for this piece: Comprar agora");
-    expect(prompt.indexOf("CRITICAL LITERAL CTA RULE")).toBeLessThan(
+    expect(prompt).toContain("CTA PRESENCE: optional");
+    expect(prompt).toContain("Comprar agora");
+    expect(prompt).not.toContain("must appear verbatim");
+    expect(prompt.indexOf("HARD RULES / NON-NEGOTIABLE CONTRACT")).toBeLessThan(
       prompt.indexOf("BRAND MEMORY / LEARNED CONTEXT:")
     );
     expect(prompt).toContain("Target format: 9:16");
@@ -508,23 +510,23 @@ describe("art variation contract (AIC-02)", () => {
     expect(prompt).toContain("CREATIVITY LEVEL: bold");
     expect(prompt).toContain("OPERATIONAL RULES FOR BOLD");
     expect(prompt).toContain("mandatory tier");
-    expect(prompt).toContain("hook/headline, offer/proof, invite/call-to-action text");
-    expect(prompt).toContain("logo if present");
-    expect(prompt).toContain("product/subject");
+    expect(prompt).toContain("hook/headline, offer/proof, logo if present, product/subject");
     expect(prompt).toContain("CONSOLIDATION (condensable tier only)");
     expect(prompt).toMatch(/composition mechanism|focal hierarchy|CREATIVE MECHANISM/i);
     expect(prompt).toContain("Do not invent a new brand");
 
-    expect(prompt.indexOf("CRITICAL LITERAL CTA RULE")).toBeLessThan(
+    expect(prompt.indexOf("HARD RULES / NON-NEGOTIABLE CONTRACT")).toBeLessThan(
       prompt.indexOf("Creative Strategy:")
     );
-    expect(prompt.indexOf("CRITICAL LITERAL CTA RULE")).toBeLessThan(
+    expect(prompt.indexOf("HARD RULES / NON-NEGOTIABLE CONTRACT")).toBeLessThan(
       prompt.indexOf("BRAND MEMORY / LEARNED CONTEXT:")
     );
-    expect(prompt.indexOf("CRITICAL LITERAL CTA RULE")).toBeLessThan(
+    expect(prompt.indexOf("HARD RULES / NON-NEGOTIABLE CONTRACT")).toBeLessThan(
       prompt.indexOf("Revision Feedback:")
     );
-    expect(prompt).toContain("CTA Recommendations are secondary context only");
+    expect(prompt).toContain("CTA PRESENCE: optional");
+    expect(prompt).not.toContain("CTA text above is MANDATORY and FINAL");
+    expect(prompt).not.toContain("must appear verbatim");
 
     expect(prompt).toContain("Client/Product: Acme Corp");
     expect(prompt).toContain("Offer from brief: Auditoria gratuita");
@@ -542,7 +544,7 @@ describe("art variation contract (AIC-02)", () => {
       )
     );
 
-    expect(prompt).toMatch(/original CTA|preserve.*CTA/i);
+    expect(prompt).toContain("CTA reference (optional): inherit from reference");
     expect(prompt).not.toContain("no CTA required");
   });
 
@@ -554,14 +556,7 @@ describe("art variation contract (AIC-02)", () => {
       "HARD RULES / NON-NEGOTIABLE CONTRACT:
       - Target format: 1:1. This target format overrides any flexible layout suggestion.
       - CRITICAL LOGO RULE: Do NOT invent a logo. Preserve the logo ONLY if it already exists in the reference asset. If no logo is visible in the reference, do not add one.
-      - Applied CTA text for this piece: Comprar agora
-      - CRITICAL LITERAL CTA RULE: The CTA text above is MANDATORY and FINAL.
-      - Do not use synonyms, paraphrases, or alternative phrasing for this CTA.
-      - Do not translate the CTA into any language.
-      - Do not rewrite or rephrase the CTA text.
-      - Do not replace it with plan-recommended CTAs or any other text.
-      - The exact CTA text above must appear verbatim in the generated output.
-      - CTA Recommendations are secondary context only and must not override the literal CTA text.
+      - FACTUAL INTEGRITY PRECEDENCE: brand, product, price, conditions, dates, and claims must remain correct; factual accuracy outranks requested fidelity, and fidelity outranks art direction.
       - Creative strategy, diagnosis, feedback, and client references are flexible guidance only; they must not override these hard rules."
     `);
   });
@@ -580,7 +575,10 @@ describe("format adaptation contract (AIC-03)", () => {
     expect(prompt).toContain("no poster pasted over a background");
     expect(prompt).toContain("no stretched edge filler");
     expect(prompt).toContain("no crowded cluster");
-    expect(prompt).toContain("PRESERVE COPY AND FACTS VERBATIM");
+    expect(prompt).toContain("same campaign and visual system");
+    expect(prompt).toContain("may condense or rewrite non-factual copy");
+    expect(prompt).not.toContain("keeping all copy and facts verbatim");
+    expect(prompt).toContain("PRESERVE FACTS, FLEX EXPRESSION");
     expect(prompt).toContain("VISUAL PROMINENCE");
     expect(prompt).toContain("factual completeness does not require equal visual weight");
     expect(prompt).toContain("only decorative background may bleed to the edges");
@@ -602,28 +600,28 @@ describe("format adaptation contract (AIC-03)", () => {
     expect(extractPromptModeSection(prompt)).toMatchInlineSnapshot(`
       "MODE: format_adaptation — You are EDITING an existing ad to fit a DIFFERENT aspect ratio.
       CAMPAIGN IDENTITY LOCK:
-      - This is an EDIT of the same campaign — preserve people, copy, CTA, brand, and concept.
-      - Only composition, scale, grouping, and safe margins may change.
+      - This is an EDIT of the same campaign and visual system — preserve people, factual copy meaning, brand, and concept.
+      - Composition, scale, grouping, safe margins, and non-factual copy expression may change.
       - Do not recreate the ad as a new concept or introduce a different narrative.
       Dominant idea (must not change): Lead generation
-      You can see the original image. Rebuild the layout for the target format while keeping all copy and facts verbatim (headlines, subheads, CTA, legal copy, offer lines, badge text).
+      You can see the original image. Rebuild the layout for the target format within the same campaign and visual system; facts stay fixed, and you may condense or rewrite non-factual copy (headlines, subheads, supporting lines) to fit the new frame.
       This is a layout adaptation, not a resized poster. Treat the source ad as separate modules: headline, photo/subject, offer or proof, CTA, logo, badges, legal copy, and decorative background.
-      PRESERVE COPY AND FACTS VERBATIM: the original photo/subject, all text copy (headlines, subheads, bullets, CTA), the logo, brand colors, offer/discount text, and legal copy must appear exactly as in the source — no rewrites or omissions of mandatory-tier copy.
-      VISUAL PROMINENCE: factual completeness does not require equal visual weight. Apply the three information zones from VISUAL HIERARCHY CONTRACT and CANONICAL CREATIVE CONTRACT — hook, proof/offer, and CTA may dominate; decorative chrome, badges, and icon rows may shrink or yield to clear zones.
+      PRESERVE FACTS, FLEX EXPRESSION: the original photo/subject, logo, brand colors, offer/discount facts, prices, dates, and legal meaning must stay correct; non-factual copy may be condensed or rewritten, and a rendered CTA must preserve its action intent.
+      VISUAL PROMINENCE: factual completeness does not require equal visual weight. The three information zones from VISUAL HIERARCHY CONTRACT and CANONICAL CREATIVE CONTRACT — hook, proof/offer, and CTA — are a proven default; decorative chrome, badges, and icon rows may shrink or yield to clear zones.
       PRESERVE VISUAL IDENTITY: background color/texture, decorative shapes, icons, and graphic panels should remain recognizable but may be resized or repositioned for the target format.
-      DO NOT: create new photos, rewrite text, add new elements, remove mandatory-tier copy, change factual colors, or invent new brand assets.
+      DO NOT: create new photos, invent new facts or offers, add unrelated elements, change factual colors, or invent new brand assets.
       Target format: 9:16. Rearrange the existing elements into a native composition for this format. Fill the entire canvas edge-to-edge. No blank bands, blurred padding, or letterboxing.
       HARD LAYOUT FAILURES TO AVOID: no blurred side/top/bottom bars, no poster pasted over a background, no stretched edge filler, no crowded cluster of text/photo/CTA/logo, no overlapping information modules.
       Build clear zones with gutters and whitespace. Keep headline, supporting copy, CTA, logo, badges, legal copy, faces, and products inside a central safe area; only decorative background may bleed to the edges.
-      The result must be immediately recognizable as the same ad — same content, same visual identity, just fitting a different frame.
+      The result must be immediately recognizable as the same ad — same campaign and visual system, just fitting a different frame.
       CROSS-FORMAT IDENTITY:
-      - The 1:1, 4:5, and 9:16 outputs must remain the SAME campaign: identical people, copy, CTA, brand, and dominant idea.
+      - The 1:1, 4:5, and 9:16 outputs must remain the SAME campaign: identical people, brand, factual content, and dominant idea.
       - Do not introduce a new narrative, new hero photo, new offer, or new concept when adapting aspect ratio.
-      - Only composition, scale, grouping, and safe margins may change.
+      - Composition, scale, grouping, safe margins, and non-factual copy expression may adapt to the format.
       The uploaded reference image is the approved winning creative from this campaign.
-      Preserve this winner's visible copy, CTA, product, offer, brand cues, and design identity.
+      Preserve this winner's product, offer, factual copy meaning, CTA action intent, brand cues, and design identity.
       Only rearrange the approved winner into the target format. Do not return to the original campaign asset or invent a new concept.
-      For 9:16 (vertical story): create a tall story layout with separate vertical zones. Use the upper zone for headline/brand hook, the middle zone for the photo or main visual, and the lower zone for offer/proof/CTA/logo. Do not squeeze the square layout into the center."
+      For 9:16 (vertical story): create a tall story layout with separate vertical zones — for example, upper zone for headline/brand hook, middle zone for the photo or main visual, lower zone for offer/proof/CTA/logo. Do not squeeze the square layout into the center."
     `);
   });
 
@@ -994,7 +992,7 @@ describe("no preserve-all conflict", () => {
     );
     expect(mode).toMatch(/mandatory tier|visual prominence|three.*zone|hierarchy/i);
     expect(extractPromptCanonicalContractSection(prompt)).toContain("RULE PRECEDENCE");
-    expect(mode).toContain("PRESERVE COPY AND FACTS VERBATIM");
+    expect(mode).toContain("PRESERVE FACTS, FLEX EXPRESSION");
   });
 });
 
@@ -1016,11 +1014,11 @@ describe("CTA semantics contract", () => {
         constraints: null,
       },
     });
-    expect(prompt).toMatch(/use the original CTA|preserve.*CTA|original.*CTA/i);
+    expect(prompt).toContain("CTA reference (optional): inherit from reference");
     expect(prompt).not.toContain("no CTA required");
   });
 
-  it("art_variation with explicit ctaText uses literal CTA rule", async () => {
+  it("art_variation with explicit ctaText renders the CTA as action reference", async () => {
     const prompt = await buildDerivationPrompt({
       generationMode: "art_variation",
       targetFormat: "1:1",
@@ -1038,10 +1036,11 @@ describe("CTA semantics contract", () => {
       },
     });
     expect(prompt).toContain("Comprar agora");
-    expect(prompt.indexOf("HARD RULES")).toBeLessThan(prompt.indexOf("Comprar agora"));
+    expect(prompt).toContain("CTA PRESENCE: optional");
+    expect(prompt).not.toContain("CTA text above is MANDATORY and FINAL");
   });
 
-  it("format_adaptation with null ctaText uses CTA preservation instruction", async () => {
+  it("format_adaptation with null ctaText keeps CTA optional with action intent", async () => {
     const prompt = await buildDerivationPrompt({
       generationMode: "format_adaptation",
       targetFormat: "9:16",
@@ -1058,7 +1057,8 @@ describe("CTA semantics contract", () => {
         constraints: null,
       },
     });
-    expect(prompt).toMatch(/preserve.*CTA|CTA.*source|original.*CTA/i);
+    expect(prompt).toContain("CTA PRESENCE: optional");
+    expect(prompt).toContain("Preserve the intended action when a CTA is rendered");
     expect(prompt).not.toContain("no CTA required");
   });
 
@@ -1248,7 +1248,7 @@ describe("format adaptation helpers (MODE-04/05)", () => {
     const lines = buildFormatAdaptationModeRulesSection({ targetFormat: "9:16" });
     const section = lines.join("\n");
     expect(section).toMatch(/CAMPAIGN IDENTITY LOCK/i);
-    expect(section).toContain("PRESERVE COPY AND FACTS VERBATIM");
+    expect(section).toContain("PRESERVE FACTS, FLEX EXPRESSION");
     expect(section).toMatch(/CROSS-FORMAT IDENTITY/i);
   });
 

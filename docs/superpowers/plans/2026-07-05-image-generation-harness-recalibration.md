@@ -138,7 +138,7 @@ git commit -m "refactor: centralize creative generation policy"
 - Modify: `app/src/server/ai/prompt-builder.test.ts`
 - Modify: `app/tests/unit/ai/quality-prompt-regression.test.ts`
 
-- [ ] **Step 1: Replace literal-contract expectations with policy expectations**
+- [x] **Step 1: Replace literal-contract expectations with policy expectations**
 
 Add focused assertions:
 
@@ -159,12 +159,12 @@ expect(prompt).toContain("may condense or rewrite non-factual copy");
 expect(prompt).not.toContain("keeping all copy and facts verbatim");
 ```
 
-- [ ] **Step 2: Run prompt tests and verify failure**
+- [x] **Step 2: Run prompt tests and verify failure**
 
 Run: `cd app && npm test -- src/server/ai/prompt-builder.test.ts tests/unit/ai/quality-prompt-regression.test.ts`  
 Expected: FAIL on the old literal CTA, verbatim-copy, margin, and three-zone contracts.
 
-- [ ] **Step 3: Render policy once in the canonical contract section**
+- [x] **Step 3: Render policy once in the canonical contract section**
 
 Change the canonical block to emit:
 
@@ -178,7 +178,7 @@ Change the canonical block to emit:
 
 Remove CTA from `DEFAULT_TIERS.mandatory` and change precedence to factual accuracy → requested fidelity → art direction.
 
-- [ ] **Step 4: Delete duplicate hard wording from prompt and per-mode rules**
+- [x] **Step 4: Delete duplicate hard wording from prompt and per-mode rules**
 
 In `buildHardRulesSection`, retain target format, real-logo protection, locale, and factual-integrity precedence. Delete the explicit/inherited literal CTA branches.
 
@@ -190,12 +190,12 @@ In `per-mode-prompt-rules.ts`:
 - retain the four fidelity templates already present in `prompt-builder.ts` but rewrite them around visual-system distance;
 - convert 8%, 20%, three-zone, and 25%-thumbnail language from commands into optional examples.
 
-- [ ] **Step 5: Run focused prompt tests**
+- [x] **Step 5: Run focused prompt tests**
 
 Run: `cd app && npm test -- src/server/ai/prompt-builder.test.ts tests/unit/prompt-builder.test.ts tests/unit/ai/quality-prompt-regression.test.ts tests/unit/ai/regression-prompt-contract.test.ts`  
 Expected: PASS with no literal CTA or numeric aesthetic hard-rule snapshots.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add app/src/server/ai/canonical-creative-contract.ts app/src/server/ai/prompt-builder.ts app/src/server/ai/per-mode-prompt-rules.ts app/src/server/ai/prompt-builder.test.ts app/tests/unit/prompt-builder.test.ts app/tests/unit/ai/quality-prompt-regression.test.ts app/tests/unit/ai/regression-prompt-contract.test.ts

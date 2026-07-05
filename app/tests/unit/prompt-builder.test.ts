@@ -118,21 +118,20 @@ describe("buildDerivationPrompt creativity level", () => {
 });
 
 describe("buildDerivationPrompt CTA contract", () => {
-  it("emits a critical literal CTA rule when ctaText exists", async () => {
+  it("keeps explicit CTA text as an optional action reference", async () => {
     const prompt = await buildDerivationPrompt({
       generationMode: "art_variation",
       ctaText: "Comprar agora",
     });
 
-    expect(prompt).toContain("CRITICAL LITERAL CTA RULE");
     expect(prompt).toContain("Comprar agora");
-    expect(prompt).toContain("Do not use synonyms");
-    expect(prompt).toContain("Do not translate");
-    expect(prompt).toContain("Do not rewrite");
-    expect(prompt).toContain("Do not replace");
+    expect(prompt).toContain("CTA PRESENCE: optional");
+    expect(prompt).toContain("Preserve the intended action when a CTA is rendered");
+    expect(prompt).not.toContain("CTA text above is MANDATORY and FINAL");
+    expect(prompt).not.toContain("must appear verbatim");
   });
 
-  it("keeps plan CTA recommendations secondary when literal ctaText exists", async () => {
+  it("keeps plan CTA recommendations as flexible context alongside the policy", async () => {
     const prompt = await buildDerivationPrompt({
       generationMode: "art_variation",
       ctaText: "Comprar agora",
@@ -145,9 +144,9 @@ describe("buildDerivationPrompt CTA contract", () => {
       },
     });
 
-    expect(prompt).toContain("Applied CTA text for this piece: Comprar agora");
-    expect(prompt).toContain("CTA Recommendations are secondary context only");
-    expect(prompt).toContain("must not override the literal CTA text");
+    expect(prompt).toContain("Comprar agora");
+    expect(prompt).toContain("CTA Recommendations:");
+    expect(prompt).toContain("Facts are fixed; headline and supporting expression are flexible");
   });
 });
 
@@ -207,13 +206,15 @@ describe("buildDerivationPrompt format_adaptation layout contract", () => {
     expect(prompt).toContain("only decorative background may bleed to the edges");
   });
 
-  it("requires explicit verbatim copy preservation for factual content", async () => {
+  it("preserves facts while allowing flexible copy expression", async () => {
     const prompt = await buildDerivationPrompt({
       generationMode: "format_adaptation",
       targetFormat: "4:5",
     });
 
-    expect(prompt).toContain("PRESERVE COPY AND FACTS VERBATIM");
+    expect(prompt).toContain("PRESERVE FACTS, FLEX EXPRESSION");
+    expect(prompt).toContain("may condense or rewrite non-factual copy");
+    expect(prompt).not.toContain("keeping all copy and facts verbatim");
     expect(prompt).toContain("VISUAL PROMINENCE");
   });
 
@@ -269,8 +270,8 @@ describe("buildDerivationPrompt contract fixtures", () => {
     const prompt = await buildDerivationPrompt(
       derivationConfigFromContract(artVariationContractFixture())
     );
-    expect(extractPromptHardRulesSection(prompt)).toContain("Comprar agora");
     expect(extractPromptHardRulesSection(prompt)).toContain("Target format: 1:1");
+    expect(prompt).toContain("Comprar agora");
   });
 
   it("snapshots format adaptation mode for approved_derivation package", async () => {

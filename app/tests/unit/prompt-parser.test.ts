@@ -115,7 +115,7 @@ describe("buildDerivationPrompt", () => {
     expect(prompt).toContain("ANTI-CROPPING RULE");
     expect(prompt).toContain("REARRANGEMENT RULE");
     expect(prompt).toContain("LAYOUT SAFETY PASS");
-    expect(prompt).toContain("SAFE MARGIN RULE");
+    expect(prompt).toContain("SAFE MARGIN GUIDANCE");
   });
 
   it("format_adaptation mode includes target format", async () => {
@@ -125,7 +125,7 @@ describe("buildDerivationPrompt", () => {
     });
     expect(prompt).toContain("MODE: format_adaptation");
     expect(prompt).toContain("Target format: 9:16");
-    expect(prompt).toContain("PRESERVE COPY AND FACTS VERBATIM");
+    expect(prompt).toContain("PRESERVE FACTS, FLEX EXPRESSION");
     expect(prompt).toContain("DO NOT");
     expect(prompt).toContain("For 9:16 (vertical story)");
   });
@@ -137,10 +137,10 @@ describe("buildDerivationPrompt", () => {
     expect(prompt).toContain("Do NOT invent a logo");
   });
 
-  it("includes applied CTA when provided", async () => {
+  it("includes CTA action reference when provided", async () => {
     const prompt = await buildDerivationPrompt({ ctaText: "Compre agora" });
-    expect(prompt).toContain("Applied CTA text for this piece: Compre agora");
-    expect(prompt).toContain("CRITICAL LITERAL CTA RULE");
+    expect(prompt).toContain("Compre agora");
+    expect(prompt).toContain("CTA PRESENCE: optional");
   });
 
   it("keeps hard rules before flexible plan guidance", async () => {
@@ -160,12 +160,10 @@ describe("buildDerivationPrompt", () => {
     expect(prompt.indexOf("HARD RULES / NON-NEGOTIABLE CONTRACT")).toBeLessThan(
       prompt.indexOf("Creative Strategy: Minimalist")
     );
-    expect(prompt.indexOf("CRITICAL LITERAL CTA RULE")).toBeLessThan(
-      prompt.indexOf("CTA Recommendations:")
-    );
+    expect(prompt).toContain("CTA Recommendations:");
     expect(prompt).toContain("Target format: 4:5");
     expect(prompt).toContain("IDIOMA OBRIGATORIO");
-    expect(prompt).toContain("must not override the literal CTA text");
+    expect(prompt).toContain("Compre agora");
   });
 
   it("includes variant index for art_variation", async () => {

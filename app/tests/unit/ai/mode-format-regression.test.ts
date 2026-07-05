@@ -65,7 +65,7 @@ describe.each(MODE_FORMAT_MATRIX)(
       if (mode === "format_adaptation") {
         expect(modeSection).toMatch(/CAMPAIGN IDENTITY LOCK|same campaign/i);
         expect(modeSection).toMatch(/CROSS-FORMAT IDENTITY|1:1, 4:5, and 9:16/i);
-        expect(modeSection).toContain("PRESERVE COPY AND FACTS VERBATIM");
+        expect(modeSection).toContain("PRESERVE FACTS, FLEX EXPRESSION");
       }
 
       if (mode === "restyling") {
