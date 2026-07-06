@@ -48,9 +48,12 @@ export async function GET(
       return apiError("derivationNotFound", 404);
     }
 
-    const signedUrl = await objectStorage.signedDownloadUrl(
-      derivation.outputKey
-    );
+    const outputKey = derivation.outputKey;
+    if (!outputKey) {
+      return apiError("derivationNotFound", 404);
+    }
+
+    const signedUrl = await objectStorage.signedDownloadUrl(outputKey);
 
     return NextResponse.redirect(signedUrl, { status: 302 });
   } catch (error) {
