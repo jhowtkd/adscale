@@ -26,6 +26,7 @@ import {
   FIDELITY_HARD_FAILURE_CODES,
   type CreativeValidationAfterCapture,
 } from "@/server/ai/creative-validation-aggregation";
+import { compareCreativeCaptures } from "./creative-validation-ranking";
 import { shouldAutoRetryDerivation } from "@/server/ai/derivation-auto-retry-policy";
 import { buildHardFailureRegenerationSuggestion } from "@/server/ai/creative-score";
 import { buildDerivationPrompt } from "@/server/ai/prompt-builder";
@@ -505,14 +506,7 @@ function isCaptureBetter(
   existing: CreativeValidationAfterCapture | undefined
 ): boolean {
   if (!existing) return true;
-  const incomingFidelity = capturePassesFactualFidelity(incoming);
-  const existingFidelity = capturePassesFactualFidelity(existing);
-  if (incomingFidelity && !existingFidelity) return true;
-  if (!incomingFidelity && existingFidelity) return false;
-  if (incoming.qualityScore !== existing.qualityScore) {
-    return incoming.qualityScore > existing.qualityScore;
-  }
-  return incoming.hardFailures.length < existing.hardFailures.length;
+  return compareCreativeCaptures(incoming, existing) > 0;
 }
 
 function mergeCapturesByKey<T extends { key: string }>(
