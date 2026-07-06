@@ -455,7 +455,7 @@ async function captureLiveWithAutoRetry(
     );
     buffer = await regenerateAfter(row, contract, openai, correctionFeedback);
     const retryCapture = await scoreAfterCapture(buffer, row, contract);
-    if (isCaptureBetter(retryCapture, capture)) {
+    if (isCaptureBetter(retryCapture, capture, contract)) {
       console.log(
         `auto-retry ${row.key} improved score ${capture.qualityScore} -> ${retryCapture.qualityScore}`
       );
@@ -503,10 +503,16 @@ function loadExistingEvidence(): ExistingEvidence {
 
 function isCaptureBetter(
   incoming: CreativeValidationAfterCapture,
-  existing: CreativeValidationAfterCapture | undefined
+  existing: CreativeValidationAfterCapture | undefined,
+  contract: CreativeContract
 ): boolean {
   if (!existing) return true;
-  return compareCreativeCaptures(incoming, existing) > 0;
+  return (
+    compareCreativeCaptures(
+      { hardFailures: incoming.hardFailures, score: incoming.score, contract },
+      { hardFailures: existing.hardFailures, score: existing.score, contract }
+    ) > 0
+  );
 }
 
 function mergeCapturesByKey<T extends { key: string }>(
@@ -609,7 +615,7 @@ async function main(): Promise<void> {
       for (let attempt = 1; attempt <= options.attempts; attempt++) {
         console.log(`regenerating ${row.key} (attempt ${attempt}/${options.attempts})…`);
         const capture = await captureLiveWithAutoRetry(row, contract, openai!);
-        if (!bestCapture || isCaptureBetter(capture, bestCapture)) {
+        if (!bestCapture || isCaptureBetter(capture, bestCapture, contract)) {
           bestCapture = capture;
         }
         if (
@@ -652,7 +658,7 @@ async function main(): Promise<void> {
     const mergedIncoming = afterCaptures.map((capture) => {
       if (!options.keepIfBetter) return capture;
       const prior = existingAfterByKey.get(capture.key);
-      if (isCaptureBetter(capture, prior)) {
+      if (isCaptureBetter(capture, prior, contract)) {
         return capture;
       }
       console.log(

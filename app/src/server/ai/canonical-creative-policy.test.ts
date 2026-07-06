@@ -24,4 +24,8 @@ describe("resolveCanonicalCreativePolicy", () => {
       "thumbnail_25_percent",
     ]);
   });
+
+  it("records generation mode on the resolved policy", () => {
+    expect(resolveCanonicalCreativePolicy("restyling", "bold").generationMode).toBe("restyling");
+  });
 });

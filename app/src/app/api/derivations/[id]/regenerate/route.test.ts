@@ -244,7 +244,7 @@ describe("POST /api/derivations/[id]/regenerate", () => {
     expect(res.status).toBe(201);
     expect(mockCreateDerivation).toHaveBeenCalledWith(
       expect.objectContaining({
-        feedback: expect.stringMatching(/wrong_brand.*Preserve the exact CTA/s),
+        feedback: expect.stringMatching(/wrong_brand.*action intent/s),
       })
     );
   });

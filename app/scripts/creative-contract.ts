@@ -6,7 +6,7 @@ export interface CreativeContract {
   clientName: string;
   productName: string;
   offer: string;
-  ctaVariants: string[]; // CTA(s) permitido(s) literalmente
+  ctaVariants: string[]; // CTA reference text(s) for action-intent checks
   requiredElements: string[]; // elementos que NÃO podem ser removidos
   optionalElements: string[]; // elementos que PODEM ser alterados
   legalTerms: string[]; // termos legais obrigatórios
@@ -134,14 +134,17 @@ export function extractContractFromAd(
       const failures: string[] = [];
       const warnings: string[] = [];
 
-      // Validate CTA
-      if (outputAnalysis.detectedCta !== undefined) {
+      // Validate CTA — optional presence; paraphrase is allowed under canonical policy.
+      if (outputAnalysis.detectedCta !== undefined && this.ctaVariants.length > 0) {
+        const detected = outputAnalysis.detectedCta?.toLowerCase().trim() ?? "";
         const ctaMatched = this.ctaVariants.some(
-          (v) => v.toLowerCase().trim() === outputAnalysis.detectedCta?.toLowerCase().trim()
+          (v) => v.toLowerCase().trim() === detected
         );
-        if (!ctaMatched) {
-          failures.push(
-            `CTA mismatch: expected one of [${this.ctaVariants.join(", ")}], got "${outputAnalysis.detectedCta}"`
+        if (!detected) {
+          warnings.push("CTA absent in output (allowed under optional CTA policy)");
+        } else if (!ctaMatched) {
+          warnings.push(
+            `CTA reworded: reference was one of [${this.ctaVariants.join(", ")}], got "${outputAnalysis.detectedCta}"`
           );
         }
       }

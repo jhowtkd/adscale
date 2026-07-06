@@ -2,21 +2,21 @@ import { describe, expect, it } from "vitest";
 import { shouldAutoRetryDerivation } from "./derivation-auto-retry-policy";
 
 describe("shouldAutoRetryDerivation (colocated)", () => {
-  it("retries on cta_drift when not yet attempted", () => {
+  it("does not retry advisory cta_drift", () => {
     expect(
       shouldAutoRetryDerivation("art_variation", [{ code: "cta_drift", message: "CTA mismatch" }], false)
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("skips when auto retry already attempted", () => {
     expect(
-      shouldAutoRetryDerivation("art_variation", [{ code: "cta_drift", message: "CTA mismatch" }], true)
+      shouldAutoRetryDerivation("art_variation", [{ code: "wrong_brand", message: "Wrong brand" }], true)
     ).toBe(false);
   });
 
-  it("skips non-retryable failures", () => {
+  it("retries objective failures", () => {
     expect(
       shouldAutoRetryDerivation("art_variation", [{ code: "wrong_brand", message: "Wrong brand" }], false)
-    ).toBe(false);
+    ).toBe(true);
   });
 });

@@ -8,8 +8,12 @@ import { resolveAllowedEntitiesForCampaign } from "./creative-corpus";
 import { buildObservableScoreRubricSection } from "./observable-rubric";
 
 import {
+  buildCtaScoringInstruction,
+  buildRegenerationPreservationInstruction,
+  resolveContractPolicy,
+} from "./canonical-creative-contract";
+import {
   buildRegenerationSuggestion,
-  ctaTextFromContract,
   type BuildSuggestionInput,
 } from "./regeneration-suggestion";
 import { buildRegenerationCorrectionBrief } from "./regeneration-correction-brief";
@@ -273,15 +277,12 @@ After QA, server-side score ceilings (SCR-02) cap qualityScore when hard failure
 }
 
 function buildCtaInstruction(input: AnalyzeInput): string {
-  const ctaSemantics = input.contract?.ctaSemantics;
-  if (ctaSemantics?.kind === "explicit") {
-    return `The exact CTA must remain: ${ctaSemantics.text}. Penalize if CTA is absent or replaced.`;
+  const contract = input.contract;
+  if (!contract) {
+    const ctaText = input.derivation.ctaText ?? "none";
+    return `CTA policy: optional. If rendered, preserve action intent for "${ctaText}" without requiring literal wording.`;
   }
-  if (ctaSemantics?.kind === "inherited") {
-    return `The output must preserve a CTA element from the base creative. The exact text is determined by the base image content. Do NOT penalize for missing explicit CTA text — instead check that a CTA is visually present and consistent with the base creative.`;
-  }
-  const ctaText = input.derivation.ctaText ?? "none";
-  return `The exact CTA, if present, must remain: ${ctaText}.`;
+  return buildCtaScoringInstruction(contract);
 }
 
 export function buildCreativeScorePrompt(input: AnalyzeInput): string {
@@ -308,6 +309,24 @@ export function buildCreativeScorePrompt(input: AnalyzeInput): string {
     targetFormat: input.derivation.format ?? input.contract?.targetFormat ?? undefined,
     dominantIdea: input.contract?.canonicalCreative?.dominantIdea,
   });
+
+  const policy = input.contract
+    ? resolveContractPolicy(input.contract)
+    : resolveContractPolicy({
+        generationMode:
+          (input.derivation.generationMode as CreativeContract["generationMode"]) ??
+          "art_variation",
+        targetFormat: input.derivation.format ?? "unknown",
+        ctaSemantics: { kind: "inherited" },
+        baseAssetId: null,
+        styleAssetId: null,
+        client: null,
+        product: null,
+        offer: null,
+        constraints: null,
+        creativeLevel:
+          (input.derivation.creativeLevel as CreativeContract["creativeLevel"]) ?? "balanced",
+      });
 
   return `Evaluate the generated ad as an art director first, then as an analytics reviewer.
 
@@ -347,23 +366,42 @@ Score each criterion from 0 to 100.
 Provide 1-3 specific issues.
 
 CONTRACT VIOLATIONS IN scoreIssues (required):
-- Any violation of CTA semantics, brand/client, offer, or format layout from the creative contract MUST appear explicitly in scoreIssues (e.g. wrong CTA, brand mismatch, unsupported offer, invalid format layout).
-- Do NOT let a high visualQuality or overall qualityScore hide contract violations — list them in scoreIssues even when the image looks polished.
+- List objective integrity defects only: wrong brand/client, unsupported offer or claim, invented factual entity, severe cropping of rendered factual elements, invalid target format layout, or style-reference factual contamination.
+- CTA absence, paraphrase, prominence, whitespace, zone count, and thumbnail legibility are ranking guidance — do not treat them as contract violations.
+- Do NOT let a high visualQuality or overall qualityScore hide objective integrity defects.
 
 CRITICAL INFORMATION PRESERVATION:
-- Compare the output against the campaign context, exact CTA, offer, product/service, brand cues, and any creative diagnosis / preservation checklist.
-- Penalize heavily if important text, offer, CTA, logo, product, badge, legal/small-print, face, or other information-bearing element appears cropped, hidden, truncated, blurred, overlapped, deleted, or too small to read.
+- Compare the output against campaign facts, offer, product/service, brand cues, and any creative diagnosis / preservation checklist.
+- Penalize heavily only when rendered factual elements (price, brand, product, offer claims, logo, legal facts, faces tied to the campaign) are cropped, hidden, truncated, deleted, or replaced with invented facts.
+- CTA wording may change; CTA display is optional under policy (${policy.cta.presence}, ${policy.cta.wording}).
 - Penalize if the composition changed by merely cropping the source instead of rearranging elements into a deliberate layout.
 - scoreBreakdown MUST include informationPreservation.
 
-CRITICAL: scoreBreakdown MUST include variationLevelFit. Evaluate it as follows based on the selected creativity level:
+CRITICAL: scoreBreakdown MUST include variationLevelFit. Evaluate whether the output sits inside the requested fidelity band (${policy.fidelityLevel}):
 - conservative: did the output preserve layout and recognizable structure? High score if nearly identical structure with minor changes.
 - balanced: did it change composition or concept without losing campaign intent? High score if clearly a sibling creative.
 - bold: did it change background and hierarchy while preserving core brand assets? High score if dramatically different but same campaign.
-- extreme: did it create a fresh reading while preserving product, offer, CTA, and brand constraints? High score if almost unrecognizable side-by-side yet clearly same campaign independently.${allowedEntitiesInstruction}
+- extreme: did it create a fresh reading while preserving core campaign anchors? High score if almost unrecognizable side-by-side yet clearly same campaign independently.${allowedEntitiesInstruction}
 ${rubricSection}
 
-The regenerationSuggestion must preserve the exact CTA text, format, and generation mode.${restylingScoringInstruction}`;
+${buildRegenerationPreservationInstruction(
+  input.contract ?? {
+    generationMode: policy.generationMode,
+    targetFormat: format,
+    ctaSemantics: input.derivation.ctaText
+      ? { kind: "explicit", text: input.derivation.ctaText }
+      : { kind: "inherited" },
+    baseAssetId: null,
+    styleAssetId: null,
+    client: input.campaign.client,
+    product: input.campaign.product,
+    offer: input.campaign.offer,
+    constraints: null,
+    creativeLevel: policy.fidelityLevel,
+    policy,
+  },
+  policy
+)}.${restylingScoringInstruction}`;
 }
 
 export async function analyzeDerivationCreative(input: AnalyzeInput): Promise<ScoreResult> {
@@ -407,7 +445,7 @@ export async function analyzeDerivationCreative(input: AnalyzeInput): Promise<Sc
       generationMode: input.derivation.generationMode,
       scoreIssues: normalized.scoreIssues,
       modelSuggestion:
-        normalized.regenerationSuggestion || "Refine the creative while preserving the exact CTA text.",
+        normalized.regenerationSuggestion || "Refine the creative while preserving campaign facts and format.",
       contract: input.contract ?? null,
     }),
   };

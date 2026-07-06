@@ -28,12 +28,17 @@ export function resolveCreativeFidelityLevel(
     : "balanced";
 }
 
+export type FidelityVerdict = "inside_range" | "outside_range";
+
+export type GenerationMode = "art_variation" | "format_adaptation" | "restyling";
+
 /**
  * Resolved generation policy attached to the persisted contract.
  * Objective facts stay fixed; CTA presence and copy expression are flexible;
  * layout numbers are advisory heuristics, never validity rules.
  */
 export interface CanonicalCreativePolicy {
+  generationMode: GenerationMode;
   fidelityLevel: CreativeFidelityLevel;
   cta: { presence: "optional"; wording: "preserve_action_intent" };
   copy: "facts_fixed_expression_flexible";
@@ -44,6 +49,25 @@ export interface CanonicalCreativePolicy {
     "thumbnail_25_percent",
   ];
 }
+
+/** Objective integrity codes — single source for gate, retry, and ranking. */
+export const OBJECTIVE_INTEGRITY_FAILURE_CODES = [
+  "wrong_brand",
+  "unsupported_offer",
+  "invented_factual_entity",
+  "copied_style_reference_facts",
+  "style_reference_contamination",
+  "replaced_source_subject",
+  "unauthorized_brand_or_ip",
+  "cropped_critical_content",
+  "invalid_format_layout",
+] as const;
+
+export type ObjectiveIntegrityFailureCode = (typeof OBJECTIVE_INTEGRITY_FAILURE_CODES)[number];
+
+export const RETRYABLE_OBJECTIVE_FAILURE_CODES = new Set<ObjectiveIntegrityFailureCode>(
+  OBJECTIVE_INTEGRITY_FAILURE_CODES
+);
 
 export type CtaSemantics =
   | { kind: "explicit"; text: string }
@@ -91,8 +115,6 @@ export const FACTUAL_SOURCE_RULES: FactualSourceRules = {
 };
 
 export type ImageOperation = "edit" | "generation_fallback" | "generate";
-
-export type GenerationMode = "art_variation" | "format_adaptation" | "restyling";
 
 export type { CanonicalCreative, ContentTiers, InvariantIdentity } from "./canonical-creative-contract";
 

@@ -3,6 +3,8 @@ import type {
   CreativeContract,
   CreativeFidelityLevel,
   CtaSemantics,
+  FidelityVerdict,
+  GenerationMode,
 } from "./creative-contract";
 import { resolveCreativeFidelityLevel } from "./creative-contract";
 import { resolveAllowedEntitiesForCampaign } from "./creative-corpus";
@@ -78,11 +80,20 @@ function resolveCtaLine(ctaSemantics: CtaSemantics): string {
  * honest and leaves room for mode-specific policy without a new resolver.
  * Fallback callers resolve "balanced" so old rows stay readable.
  */
+/** Minimum variationLevelFit for the requested fidelity band to count as inside range. */
+export const FIDELITY_RANGE_MIN_SCORE: Record<CreativeFidelityLevel, number> = {
+  conservative: 75,
+  balanced: 60,
+  bold: 50,
+  extreme: 40,
+};
+
 export function resolveCanonicalCreativePolicy(
-  _mode: CreativeContract["generationMode"],
+  mode: GenerationMode,
   fidelityLevel: CreativeFidelityLevel = "balanced"
 ): CanonicalCreativePolicy {
   return {
+    generationMode: mode,
     fidelityLevel,
     cta: { presence: "optional", wording: "preserve_action_intent" },
     copy: "facts_fixed_expression_flexible",
@@ -93,6 +104,66 @@ export function resolveCanonicalCreativePolicy(
       "thumbnail_25_percent",
     ],
   };
+}
+
+export function resolveContractPolicy(contract: CreativeContract): CanonicalCreativePolicy {
+  return (
+    contract.policy ??
+    resolveCanonicalCreativePolicy(
+      contract.generationMode,
+      resolveCreativeFidelityLevel(contract.creativeLevel)
+    )
+  );
+}
+
+export function resolveFidelityVerdict(
+  policy: CanonicalCreativePolicy,
+  variationLevelFit: number | null | undefined
+): FidelityVerdict {
+  const score =
+    typeof variationLevelFit === "number" && Number.isFinite(variationLevelFit)
+      ? variationLevelFit
+      : 0;
+  return score >= FIDELITY_RANGE_MIN_SCORE[policy.fidelityLevel]
+    ? "inside_range"
+    : "outside_range";
+}
+
+export function buildCtaScoringInstruction(
+  contract: CreativeContract,
+  policy: CanonicalCreativePolicy = resolveContractPolicy(contract)
+): string {
+  const ctaSemantics = contract.ctaSemantics;
+  const reference =
+    ctaSemantics.kind === "explicit"
+      ? ctaSemantics.text
+      : ctaSemantics.kind === "inherited"
+        ? "inherit action intent from the reference creative"
+        : "none";
+
+  return [
+    `CTA policy (${policy.cta.presence}, ${policy.cta.wording}): CTA display is optional.`,
+    "If a CTA is rendered, preserve the intended action; literal wording is not required.",
+    `Reference CTA/action: ${reference}.`,
+    "Do not penalize CTA paraphrase, condensation, or absence unless commercial facts are wrong.",
+  ].join(" ");
+}
+
+export function buildRegenerationPreservationInstruction(
+  contract: CreativeContract,
+  policy: CanonicalCreativePolicy = resolveContractPolicy(contract)
+): string {
+  const fmt = contract.targetFormat;
+  const mode = policy.generationMode;
+  const ctaSemantics = contract.ctaSemantics;
+
+  if (ctaSemantics.kind === "explicit") {
+    return `Preserve campaign facts, the ${fmt} format, and the ${mode} generation mode. If a CTA is rendered, preserve action intent for "${ctaSemantics.text}" without requiring literal wording.`;
+  }
+  if (ctaSemantics.kind === "inherited") {
+    return `Preserve campaign facts, the CTA action intent from the reference creative (do not invent unrelated actions), the ${fmt} format, and the ${mode} generation mode.`;
+  }
+  return `Preserve campaign facts, the ${fmt} format, and the ${mode} generation mode. CTA display remains optional.`;
 }
 
 export function resolveCanonicalCreative(
@@ -148,12 +219,7 @@ export function buildCanonicalContractPromptSection(
 ): string[] {
   const c =
     contract.canonicalCreative ?? resolveCanonicalCreative(contract);
-  const policy =
-    contract.policy ??
-    resolveCanonicalCreativePolicy(
-      contract.generationMode,
-      resolveCreativeFidelityLevel(contract.creativeLevel)
-    );
+  const policy = resolveContractPolicy(contract);
   const peopleLabel =
     c.invariantIdentity.people.length > 0
       ? c.invariantIdentity.people.join(", ")

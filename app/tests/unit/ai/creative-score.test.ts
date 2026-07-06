@@ -368,7 +368,7 @@ describe("creative scoring", () => {
     expect(result.scoreStatus).toBe("analyzed");
     expect(result.qualityScore).toBe(84);
     expect(result.scoreBreakdown.informationPreservation).toBe(52);
-    expect(result.regenerationSuggestion).toContain("preserving the exact CTA text");
+    expect(result.regenerationSuggestion).toContain("action intent");
   });
 
   it("builds corrective feedback that preserves CTA and format", () => {
@@ -380,7 +380,7 @@ describe("creative scoring", () => {
       modelSuggestion: "Increase text contrast.",
     });
 
-    expect(suggestion).toContain("Compre agora");
+    expect(suggestion).toContain("action intent");
     expect(suggestion).toContain("4:5");
     expect(suggestion).toContain("format_adaptation");
   });

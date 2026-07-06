@@ -26,7 +26,7 @@ describe("buildRegenerationCorrectionBrief", () => {
 
     expect(brief.promptFeedback).toContain("Hard failures:");
     expect(brief.promptFeedback).toContain("cta_drift: CTA was replaced.");
-    expect(brief.promptFeedback).toContain('Preserve the exact CTA "Shop Now"');
+    expect(brief.promptFeedback).toContain("action intent");
     expect(brief.promptFeedback).toContain("4:5");
     expect(brief.promptFeedback).toContain("art_variation");
     expect(brief.structured.sources).toContain("hard_failures");
@@ -105,7 +105,7 @@ describe("buildRegenerationCorrectionBrief", () => {
     });
 
     expect(brief.promptFeedback.length).toBeLessThanOrEqual(1800);
-    expect(brief.promptFeedback).toContain('Preserve the exact CTA "Shop Now"');
+    expect(brief.promptFeedback).toContain("action intent");
   });
 });
 
@@ -195,7 +195,7 @@ describe("buildRegenerationCorrectionBrief specific correction directives", () =
     });
 
     expect(brief.promptFeedback).toContain("Correction directives:");
-    expect(brief.promptFeedback).toMatch(/restore the contract cta exactly/i);
+    expect(brief.promptFeedback).toMatch(/preserve action intent|intended action/i);
   });
 
   it("generic_template_aesthetic instructs removing generic template stacks", () => {
@@ -222,7 +222,7 @@ describe("buildRegenerationCorrectionBrief specific correction directives", () =
 
     expect(brief.promptFeedback).toContain("Correction directives:");
     expect(brief.promptFeedback).toMatch(/allowed-entity registry|contract-approved entities/i);
-    expect(brief.promptFeedback).toMatch(/restore the contract cta exactly/i);
+    expect(brief.promptFeedback).toMatch(/preserve action intent|intended action/i);
     expect(brief.promptFeedback).toMatch(/three information zones/i);
     expect(brief.promptFeedback).toContain("Hard failures:");
     expect(brief.promptFeedback).toContain("invented_factual_entity:");
@@ -241,7 +241,7 @@ describe("buildRegenerationCorrectionBrief specific correction directives", () =
     });
 
     expect(brief.promptFeedback.length).toBeLessThanOrEqual(1800);
-    expect(brief.promptFeedback).toContain('Preserve the exact CTA "Shop Now"');
+    expect(brief.promptFeedback).toContain("action intent");
   });
 });
 

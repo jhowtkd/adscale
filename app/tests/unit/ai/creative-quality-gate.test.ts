@@ -190,6 +190,34 @@ describe("classifyCreativeQualityGate — hard failures", () => {
     expectHardCode(result, "cropped_critical_content");
   });
 
+  it("keeps subjective informationPreservation notes advisory", () => {
+    const result = classifyCreativeQualityGate({
+      contract: artVariationContract,
+      checklist: checklist({
+        informationPreservation: {
+          status: "failed",
+          note: "Supporting copy could be clearer.",
+        },
+      }),
+    });
+    expect(result.hardFailures).toEqual([]);
+    expect(result.polishSuggestions).toContain("Supporting copy could be clearer.");
+  });
+
+  it("keeps formatFit failed in format_adaptation advisory without layout defect markers", () => {
+    const result = classifyCreativeQualityGate({
+      contract: formatAdaptationContract,
+      checklist: checklist({
+        formatFit: {
+          status: "failed",
+          note: "Composition feels slightly crowded for 9:16.",
+        },
+      }),
+    });
+    expect(result.hardFailures).toHaveLength(0);
+    expect(result.polishSuggestions.some((s) => s.includes("crowded"))).toBe(true);
+  });
+
   it("keeps legibility failure advisory", () => {
     const result = classifyCreativeQualityGate({
       contract: artVariationContract,

@@ -1,4 +1,5 @@
 import type { CreativeContract } from "./creative-contract";
+import { buildRegenerationPreservationInstruction } from "./canonical-creative-contract";
 
 export function ctaTextFromContract(contract: CreativeContract): string | null {
   if (contract.ctaSemantics.kind === "explicit") {
@@ -25,21 +26,15 @@ export function buildRegenerationSuggestion(input: BuildSuggestionInput): string
 
   parts.push(`Suggestion: ${input.modelSuggestion}`);
 
-  const fmt = input.contract?.targetFormat ?? input.format ?? "unknown";
-  const mode = input.contract?.generationMode ?? input.generationMode ?? "unknown";
-
-  const ctaSemantics = input.contract?.ctaSemantics;
-  if (ctaSemantics?.kind === "explicit") {
-    parts.push(
-      `Preserve the exact CTA "${ctaSemantics.text}", the ${fmt} format, and the ${mode} generation mode.`
-    );
-  } else if (ctaSemantics?.kind === "inherited") {
-    parts.push(
-      `Preserve the CTA from the base creative (do not invent or drop the CTA), the ${fmt} format, and the ${mode} generation mode.`
-    );
+  if (input.contract) {
+    parts.push(buildRegenerationPreservationInstruction(input.contract));
   } else {
+    const fmt = input.format ?? "unknown";
+    const mode = input.generationMode ?? "unknown";
     const cta = input.ctaText ?? "none";
-    parts.push(`Preserve the exact CTA "${cta}", the ${fmt} format, and the ${mode} generation mode.`);
+    parts.push(
+      `Preserve campaign facts, the ${fmt} format, and the ${mode} generation mode. If a CTA is rendered, preserve action intent for "${cta}" without requiring literal wording.`
+    );
   }
 
   if (input.contract?.generationMode === "restyling") {

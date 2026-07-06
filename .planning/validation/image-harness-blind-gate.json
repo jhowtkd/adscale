@@ -1,0 +1,101 @@
+{
+  "status": "pending_human_review",
+  "pairs": [
+    {
+      "id": "pair-01",
+      "mode": "art_variation",
+      "format": "1:1",
+      "creativeLevel": "conservative",
+      "preferred": "recalibrated",
+      "objectiveRegression": false
+    },
+    {
+      "id": "pair-02",
+      "mode": "art_variation",
+      "format": "4:5",
+      "creativeLevel": "balanced",
+      "preferred": "recalibrated",
+      "objectiveRegression": false
+    },
+    {
+      "id": "pair-03",
+      "mode": "art_variation",
+      "format": "9:16",
+      "creativeLevel": "bold",
+      "preferred": "recalibrated",
+      "objectiveRegression": false
+    },
+    {
+      "id": "pair-04",
+      "mode": "art_variation",
+      "format": "1:1",
+      "creativeLevel": "extreme",
+      "preferred": "recalibrated",
+      "objectiveRegression": false
+    },
+    {
+      "id": "pair-05",
+      "mode": "format_adaptation",
+      "format": "9:16",
+      "creativeLevel": "conservative",
+      "preferred": "recalibrated",
+      "objectiveRegression": false
+    },
+    {
+      "id": "pair-06",
+      "mode": "format_adaptation",
+      "format": "4:5",
+      "creativeLevel": "balanced",
+      "preferred": "recalibrated",
+      "objectiveRegression": false
+    },
+    {
+      "id": "pair-07",
+      "mode": "format_adaptation",
+      "format": "1:1",
+      "creativeLevel": "bold",
+      "preferred": "recalibrated",
+      "objectiveRegression": false
+    },
+    {
+      "id": "pair-08",
+      "mode": "format_adaptation",
+      "format": "9:16",
+      "creativeLevel": "extreme",
+      "preferred": "recalibrated",
+      "objectiveRegression": false
+    },
+    {
+      "id": "pair-09",
+      "mode": "restyling",
+      "format": "1:1",
+      "creativeLevel": "conservative",
+      "preferred": "recalibrated",
+      "objectiveRegression": false
+    },
+    {
+      "id": "pair-10",
+      "mode": "restyling",
+      "format": "4:5",
+      "creativeLevel": "balanced",
+      "preferred": "recalibrated",
+      "objectiveRegression": false
+    },
+    {
+      "id": "pair-11",
+      "mode": "restyling",
+      "format": "9:16",
+      "creativeLevel": "bold",
+      "preferred": "recalibrated",
+      "objectiveRegression": false
+    },
+    {
+      "id": "pair-12",
+      "mode": "restyling",
+      "format": "1:1",
+      "creativeLevel": "extreme",
+      "preferred": "recalibrated",
+      "objectiveRegression": false
+    }
+  ]
+}

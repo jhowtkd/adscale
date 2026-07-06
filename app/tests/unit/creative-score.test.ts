@@ -85,7 +85,7 @@ describe("buildRegenerationSuggestion", () => {
       },
     });
     expect(suggestion).not.toContain('"none"');
-    expect(suggestion).toContain("base creative");
+    expect(suggestion).toContain("reference creative");
     expect(suggestion).toContain("style-2");
     expect(suggestion).toContain("base-1");
   });
@@ -193,7 +193,7 @@ describe("buildHardFailureRegenerationSuggestion", () => {
     });
 
     expect(suggestion).not.toContain('"none"');
-    expect(suggestion).toContain("base creative");
+    expect(suggestion).toContain("reference creative");
     expect(suggestion).toContain("format_adaptation");
     expect(suggestion).toContain("9:16");
   });

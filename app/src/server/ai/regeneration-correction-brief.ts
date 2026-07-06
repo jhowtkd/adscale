@@ -35,7 +35,7 @@ export const FAILURE_CORRECTION_DIRECTIVES: Partial<
   decorative_only_variation:
     "Introduce a new visual mechanism or layout idea — not background/glow/color-only change.",
   cta_drift:
-    "Restore the contract CTA exactly (or inherited CTA from base for restyling/format).",
+    "If a CTA is rendered, restore the intended action from the contract or inherited base; literal wording is not required.",
   generic_template_aesthetic:
     "Remove generic neon/glass/template stacks unless required by brand; simplify to campaign-specific design.",
   unreadable_required_text:

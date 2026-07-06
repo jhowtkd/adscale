@@ -95,7 +95,7 @@ export const QUALITY_FIXTURES: QualityFixture[] = [
     expectedVerdict: "invalid",
     expectedRegenerationSnippets: [
       "cropped_critical_content",
-      "Preserve the exact CTA",
+      "action intent",
       "1:1",
       "art_variation",
     ],

@@ -3,7 +3,9 @@
  * vs advisory polish, and derives qualityVerdict. Orchestration runs after derivation scoring.
  */
 import { logger } from "@/lib/logger";
-import type { CreativeContract } from "./creative-contract";
+import type { CreativeContract, ObjectiveIntegrityFailureCode } from "./creative-contract";
+import { OBJECTIVE_INTEGRITY_FAILURE_CODES } from "./creative-contract";
+import { resolveContractPolicy } from "./canonical-creative-contract";
 import {
   analyzeCreativeQa,
   type AnalyzeCreativeQaInput,
@@ -88,17 +90,9 @@ const CREATIVE_HARD_FAILURE_CODES = new Set<CreativeHardFailureCode>([
 ]);
 
 /** Objective integrity defects — the only codes the gate still blocks on. */
-export const OBJECTIVE_HARD_FAILURE_CODES = new Set<CreativeHardFailureCode>([
-  "wrong_brand",
-  "unsupported_offer",
-  "invented_factual_entity",
-  "copied_style_reference_facts",
-  "style_reference_contamination",
-  "replaced_source_subject",
-  "unauthorized_brand_or_ip",
-  "cropped_critical_content",
-  "invalid_format_layout",
-]);
+export const OBJECTIVE_HARD_FAILURE_CODES = new Set<ObjectiveIntegrityFailureCode>(
+  OBJECTIVE_INTEGRITY_FAILURE_CODES
+);
 
 const HARD_FAILURE_CODE_ALIASES: Record<string, CreativeHardFailureCode> = {
   copied_style_reference_facts: "style_reference_contamination",
@@ -393,6 +387,7 @@ export function classifyCreativeQualityGate(
   input: ClassifyCreativeQualityGateInput
 ): ClassifyCreativeQualityGateResult {
   const { checklist, contract, scoreIssues = [] } = input;
+  const policy = resolveContractPolicy(contract);
   const hardFailures: CreativeHardFailure[] = [];
   const polishSuggestions: string[] = [];
 
@@ -409,12 +404,26 @@ export function classifyCreativeQualityGate(
         message: note,
         criterion: "informationPreservation",
       });
-    } else {
+    } else if (noteMatches(CROPPED_CONTENT_PATTERN, note)) {
       pushHardFailure(hardFailures, {
         code: "cropped_critical_content",
         message: note,
         criterion: "informationPreservation",
       });
+    } else if (noteMatches(INVENTED_ENTITY_PATTERN, note)) {
+      pushHardFailure(hardFailures, {
+        code: "invented_factual_entity",
+        message: note,
+        criterion: "informationPreservation",
+      });
+    } else if (noteMatches(UNSUPPORTED_OFFER_PATTERN, note)) {
+      pushHardFailure(hardFailures, {
+        code: "unsupported_offer",
+        message: note,
+        criterion: "informationPreservation",
+      });
+    } else {
+      pushUnique(polishSuggestions, note);
     }
   }
 
@@ -429,8 +438,9 @@ export function classifyCreativeQualityGate(
   if (checklist.formatFit.status === "failed") {
     const note = checklist.formatFit.note;
     if (
-      contract.generationMode === "format_adaptation" &&
-      !hasCampaignIdentityDrift(note)
+      policy.generationMode === "format_adaptation" &&
+      !hasCampaignIdentityDrift(note) &&
+      noteMatches(INVALID_FORMAT_LAYOUT_PATTERN, note)
     ) {
       pushHardFailure(hardFailures, {
         code: "invalid_format_layout",
