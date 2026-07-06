@@ -104,6 +104,7 @@ OPERATIONAL RULES FOR CONSERVATIVE (smallest visual-system distance):
 - Do not introduce new scenes, unrelated motifs, or experimental layouts.
 - Maintain minimal structural change; the result should feel like the same visual universe as the reference.
 - Preserve logo behavior, offer meaning, and overall campaign recognition.
+- DISTANCE FROM OTHER BANDS: this output must remain clearly closer to the reference than a balanced sibling — avoid large hierarchy rebuilds or new background scenes.
 - Decorative-only changes (background color, glow, card chrome) without a new visual mechanism are invalid — require a new composition mechanism per MODE rules.`;
 
 const balanced = `CREATIVITY LEVEL: balanced.
@@ -111,7 +112,8 @@ OPERATIONAL RULES FOR BALANCED (moderate visual-system distance):
 - Create a noticeably new composition while keeping brand identity recognizable.
 - Rebuild layout, visual hierarchy, invite placement and reading path, supporting shapes, rhythm, and spacing.
 - The result should feel like a sibling creative from the same campaign, not a near-copy.
-- Ensure perceptible difference in background, composition, invite placement, and visual hierarchy.
+- Ensure perceptible difference in background, composition, invite placement, and visual hierarchy versus conservative outputs.
+- DISTANCE FROM OTHER BANDS: must be visibly more recomposed than conservative, but still more faithful than bold — do not return a near-copy of the reference.
 - Preserve palette, character/product, texture, and brand system from the reference.
 - Decorative-only changes (background color, glow, card chrome) without a new visual mechanism are invalid — require a new composition mechanism per MODE rules.`;
 
@@ -121,6 +123,7 @@ OPERATIONAL RULES FOR BOLD (large visual-system distance):
 - Reorganize visual hierarchy: resize, reposition, and regroup key elements.
 - Apply new lighting treatment, shadows, and color grading while staying within the brand palette.
 - Preserve core brand assets (logo, product), campaign message, and offer meaning.
+- DISTANCE FROM OTHER BANDS: must be visibly more radical than balanced — new scene, new hierarchy, and new rhythm are required; do not stop at a balanced-level rearrangement.
 - FACTS FIXED, EXPRESSION FLEXIBLE: brand, product, price, conditions, dates, claims, and named people/products stay correct; headline and supporting copy may be rewritten or condensed when the composition benefits, and a rendered CTA preserves its action intent.
 - CONSOLIDATION (condensable tier only): merge, shrink, or regroup bullets, badges, and icon rows instead of reproducing every block at equal size; decorative modules may yield per RULE PRECEDENCE.
 - Do not invent a new brand or unrelated visual universe.
@@ -132,9 +135,11 @@ OPERATIONAL RULES FOR EXTREME (maximum visual-system distance):
 - Change product angle, framing, scale, or photo treatment dramatically.
 - Rebuild composition from scratch: new hierarchy, new spacing language, new rhythm.
 - Apply bold lighting shifts, contrast changes, and atmospheric treatment.
-- Preserve only: brand identity (logo behavior, palette family), campaign message, and offer meaning.
+- Preserve campaign palette family (dominant hues and brand color relationships from the reference) — composition may change radically, palette family must not drift.
+- DISTANCE FROM OTHER BANDS: maximum compositional distance — must be the most reinterpreted output in the set while still belonging to the same campaign.
+- Preserve campaign identity, factual entities, palette family, campaign message, and offer meaning.
 - FACTS FIXED, EXPRESSION FLEXIBLE: named people, offer facts, prices, dates, and legal meaning stay correct; headline and supporting expression may be rewritten, condensed, or omitted, and condensable or decorative modules may be merged, regrouped, or omitted per RULE PRECEDENCE.
-- The result should be almost unrecognizable side-by-side with the reference, yet clearly belong to the same campaign when viewed independently.`;
+- The result should use a new compositional mechanism and reading path while remaining recognizably part of the same campaign.`;
 
 const CREATIVITY_TEMPLATES: Record<string, string> = {
   conservative,
@@ -142,6 +147,45 @@ const CREATIVITY_TEMPLATES: Record<string, string> = {
   bold,
   extreme,
 };
+
+const FORMAT_ADAPTATION_FIDELITY_TEMPLATES: Record<string, string> = {
+  conservative: `CREATIVITY LEVEL: conservative.
+- Make only the changes required for a native target-format composition.
+- Keep the source hierarchy and module relationships recognizable; do not squeeze or letterbox the source.`,
+  balanced: `CREATIVITY LEVEL: balanced.
+- Reorganize modules and reading zones for the target format while keeping the source hierarchy recognizable.
+- The result should be visibly more rebuilt than conservative, without changing campaign identity.`,
+  bold: `CREATIVITY LEVEL: bold.
+- Recompose hierarchy, scale, grouping, and reading path aggressively for the target format.
+- The new spatial system must be visibly more transformed than balanced while preserving facts and identity.`,
+  extreme: `CREATIVITY LEVEL: extreme.
+- Build a new spatial system and reading rhythm for the target format.
+- Maximize layout transformation while preserving campaign narrative, facts, entities, and factual-base palette family.`,
+};
+
+const RESTYLING_FIDELITY_TEMPLATES: Record<string, string> = {
+  conservative: `CREATIVITY LEVEL: conservative.
+- Apply subtle texture, typography rhythm, lighting, and compositional treatment.
+- Keep the factual base structure clearly recognizable.`,
+  balanced: `CREATIVITY LEVEL: balanced.
+- Make the style reference language evident while keeping the factual base composition recognizable.
+- Be visibly stronger than conservative without copying the reference ad.`,
+  bold: `CREATIVITY LEVEL: bold.
+- Strongly transform rhythm, typography, texture, lighting, and abstract compositional logic.
+- Preserve factual-base facts, entities, and palette family; do not reproduce the reference ad.`,
+  extreme: `CREATIVITY LEVEL: extreme.
+- Apply the maximum abstract style transfer allowed.
+- Preserve factual-base facts, entities, palette family, and campaign identity; never reproduce the reference ad wholesale.`,
+};
+
+function resolveFidelityTemplate(
+  mode: CreativeContract["generationMode"],
+  level: string
+): string | undefined {
+  if (mode === "format_adaptation") return FORMAT_ADAPTATION_FIDELITY_TEMPLATES[level];
+  if (mode === "restyling") return RESTYLING_FIDELITY_TEMPLATES[level];
+  return CREATIVITY_TEMPLATES[level];
+}
 
 const VISUAL_HIERARCHY_CONTRACT = `VISUAL HIERARCHY CONTRACT:
 - Express ONE dominant visual idea per piece (the scroll-stopping hook focal point).
@@ -456,8 +500,8 @@ export async function buildDerivationPrompt(config: DerivationPromptConfig) {
     }),
   );
 
-  if (generationMode === "art_variation" && effectiveCreativeLevel) {
-    const template = CREATIVITY_TEMPLATES[effectiveCreativeLevel];
+  if (effectiveCreativeLevel) {
+    const template = resolveFidelityTemplate(generationMode, effectiveCreativeLevel);
     if (template) {
       parts.push(template);
     }
@@ -677,6 +721,8 @@ export function buildRestylingFactualSourceRuleSection(): string[] {
     "",
     "RESTYLING FACTUAL-SOURCE RULE:",
     "The base image is the ONLY source of factual content (brand name, product name, offer, CTA, price, course name, logo). The style reference provides visual language (color, typography style, layout composition, mood) only. Do NOT copy factual claims, text, prices, offers, brand names, or CTAs from the style reference into the output.",
+    "Do NOT add brands, logos, wordmarks, or company names absent from the factual base. The campaign registry validates identity but never authorizes inserting a missing mark.",
+    "Do NOT reproduce the style reference as the output ad — restyle the base campaign content with abstract attributes from the style reference.",
   ];
 }
 

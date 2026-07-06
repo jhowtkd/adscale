@@ -665,7 +665,9 @@ describe("restyling contract (AIC-04)", () => {
     );
     expect(extractPromptRestylingFactualSourceSection(prompt)).toMatchInlineSnapshot(`
       "RESTYLING FACTUAL-SOURCE RULE:
-      The base image is the ONLY source of factual content (brand name, product name, offer, CTA, price, course name, logo). The style reference provides visual language (color, typography style, layout composition, mood) only. Do NOT copy factual claims, text, prices, offers, brand names, or CTAs from the style reference into the output."
+      The base image is the ONLY source of factual content (brand name, product name, offer, CTA, price, course name, logo). The style reference provides visual language (color, typography style, layout composition, mood) only. Do NOT copy factual claims, text, prices, offers, brand names, or CTAs from the style reference into the output.
+      Do NOT add brands, logos, wordmarks, or company names absent from the factual base. The campaign registry validates identity but never authorizes inserting a missing mark.
+      Do NOT reproduce the style reference as the output ad — restyle the base campaign content with abstract attributes from the style reference."
     `);
   });
 });
@@ -1335,5 +1337,49 @@ describe("per-mode rules integration (MODE-01–05)", () => {
       }),
     );
     expect(prompt).not.toContain("Hook Copy Options:");
+  });
+});
+
+describe("blind gate follow-up prompt rules", () => {
+  it("includes CTA scale guidance in canonical contract", async () => {
+    const prompt = await buildDerivationPrompt(
+      derivationConfigFromContract(artVariationContractFixture(), { creativeLevel: "balanced" })
+    );
+    expect(prompt).toMatch(/CTA SCALE \(advisory\)/i);
+    expect(prompt).toMatch(/oversized pill buttons/i);
+  });
+
+  it("differentiates fidelity bands with distance-from-other-bands language", async () => {
+    const conservativePrompt = await buildDerivationPrompt(
+      derivationConfigFromContract(artVariationContractFixture(), { creativeLevel: "conservative" })
+    );
+    const extremePrompt = await buildDerivationPrompt(
+      derivationConfigFromContract(artVariationContractFixture(), { creativeLevel: "extreme" })
+    );
+    expect(conservativePrompt).toMatch(/DISTANCE FROM OTHER BANDS/i);
+    expect(extremePrompt).toMatch(/palette family/i);
+    expect(extremePrompt).toMatch(/palette family must not drift/i);
+  });
+
+  it("restyling mode blocks invented brands and style-reference ad paste", async () => {
+    const prompt = await buildDerivationPrompt(derivationConfigFromContract(restylingContractFixture()));
+    expect(prompt).toMatch(/BRAND LOCK/i);
+    expect(prompt).toMatch(/registry validates identity but does not authorize adding/i);
+    expect(prompt).toMatch(/Do NOT reproduce the style reference ad wholesale/i);
+    expect(prompt).toMatch(/Never paste the style reference's full ad layout/i);
+  });
+
+  it("applies operational fidelity guidance to format adaptation and restyling", async () => {
+    const formatPrompt = await buildDerivationPrompt(
+      derivationConfigFromContract(formatAdaptationCampaignAssetContractFixture(), {
+        creativeLevel: "extreme",
+      })
+    );
+    const restylingPrompt = await buildDerivationPrompt(
+      derivationConfigFromContract(restylingContractFixture(), { creativeLevel: "bold" })
+    );
+    expect(formatPrompt).toMatch(/new spatial system and reading rhythm/i);
+    expect(restylingPrompt).toMatch(/strongly transform rhythm, typography, texture/i);
+    expect(restylingPrompt).toMatch(/palette family/i);
   });
 });

@@ -55,7 +55,7 @@ export function mapScoreBreakdownKeyToCriterion(
 // --- Shared regex patterns for gate classification and score-issue promotion ---
 
 export const WRONG_BRAND_PATTERN =
-  /brand mismatch|wrong brand|client mismatch|wrong client|contradicts.*(?:brand|client)|competitor logo|not\s+acme/i;
+  /brand mismatch|wrong brand|added_wrong_brand|client mismatch|wrong client|contradicts.*(?:brand|client)|competitor logo|not\s+acme|(?:brand|logo|wordmark).*(?:absent|not visibly present|ausent|não existe|nao existe).*(?:base|source)|marca.*(?:ausente|não aparece|nao aparece|não existe|nao existe).*(?:base|origem)/i;
 
 export const UNSUPPORTED_OFFER_PATTERN =
   /unsupported claim|unsupported offer|not in contract|not in the contract|invented|fabricated|unsupported factual/i;
@@ -79,7 +79,7 @@ export const INVENTED_ENTITY_PATTERN =
   /invented|hallucinat|not in allowed|allowedentities|allowed entities|not appear in allowed|celebrity athlete|Eric Cantona|Manchester United/i;
 
 export const UNAUTHORIZED_BRAND_PATTERN =
-  /unauthorized brand|unlisted brand|brand not in allowed/i;
+  /unauthorized brand|unlisted brand|brand not in allowed|marca não autorizada|marca nao autorizada/i;
 
 export const STYLE_REFERENCE_CONTAMINATION_PATTERN =
   /style reference contamination|copied.*style reference facts|factual.*from style reference|athlete portraits|team uniforms.*style reference|(?:people|portraits|uniforms).*from style reference/i;

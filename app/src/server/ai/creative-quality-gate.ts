@@ -171,14 +171,6 @@ function classifyBriefMatchFailed(
   polishSuggestions: string[],
   note: string
 ): void {
-  if (noteMatches(UNAUTHORIZED_BRAND_PATTERN, note)) {
-    pushHardFailure(hardFailures, {
-      code: "unauthorized_brand_or_ip",
-      message: note,
-      criterion: "briefMatch",
-    });
-    return;
-  }
   if (noteMatches(REPLACED_SOURCE_SUBJECT_PATTERN, note)) {
     pushHardFailure(hardFailures, {
       code: "replaced_source_subject",
@@ -190,6 +182,14 @@ function classifyBriefMatchFailed(
   if (noteMatches(WRONG_BRAND_PATTERN, note)) {
     pushHardFailure(hardFailures, {
       code: "wrong_brand",
+      message: note,
+      criterion: "briefMatch",
+    });
+    return;
+  }
+  if (noteMatches(UNAUTHORIZED_BRAND_PATTERN, note)) {
+    pushHardFailure(hardFailures, {
+      code: "unauthorized_brand_or_ip",
       message: note,
       criterion: "briefMatch",
     });
@@ -628,6 +628,10 @@ export interface RunCompletedDerivationQualityGateInput {
   workspaceId: string;
   imageBuffer: Buffer;
   mimeType: string;
+  baseImageBuffer?: Buffer;
+  baseMimeType?: string;
+  styleImageBuffer?: Buffer;
+  styleMimeType?: string;
   locale: string;
   campaign: AnalyzeCreativeQaInput["campaign"];
   derivation: AnalyzeCreativeQaInput["derivation"];
@@ -690,6 +694,10 @@ export async function runCompletedDerivationQualityGate(
     const qa = await analyzeCreativeQa({
       imageBuffer: input.imageBuffer,
       mimeType: input.mimeType,
+      baseImageBuffer: input.baseImageBuffer,
+      baseMimeType: input.baseMimeType,
+      styleImageBuffer: input.styleImageBuffer,
+      styleMimeType: input.styleMimeType,
       locale: input.locale,
       campaign: input.campaign,
       derivation: input.derivation,

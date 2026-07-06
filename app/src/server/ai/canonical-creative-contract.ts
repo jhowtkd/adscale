@@ -236,6 +236,7 @@ export function buildCanonicalContractPromptSection(
     "",
     "OBJECTIVE INTEGRITY: brand, product, price, conditions, dates, claims, and target format must remain correct.",
     "CTA PRESENCE: optional. Preserve the intended action when a CTA is rendered; literal wording is not required.",
+    "CTA SCALE (advisory): when a CTA is rendered, proportion it to the layout — avoid oversized pill buttons or bars that dominate the canvas.",
     "COPY: Facts are fixed; headline and supporting expression are flexible and may be rewritten, condensed, or omitted.",
     `REFERENCE FIDELITY: ${policy.fidelityLevel}. Visual-system recognition governs permitted distance.`,
     "ADVISORY HEURISTICS: three zones, whitespace, safe margins, and thumbnail checks may guide composition but never override art direction.",

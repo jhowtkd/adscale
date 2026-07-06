@@ -15,6 +15,15 @@ export type CreativeLevel = "conservative" | "balanced" | "bold" | "extreme";
 
 export type StyleIntensity = "soft" | "medium" | "strong";
 
+export function creativeLevelFromLegacyStyleIntensity(
+  intensity: StyleIntensity | null | undefined
+): CreativeLevel | undefined {
+  if (intensity === "soft") return "conservative";
+  if (intensity === "medium") return "balanced";
+  if (intensity === "strong") return "bold";
+  return undefined;
+}
+
 export type CampaignListSortOption =
   | "newest"
   | "oldest"
@@ -309,7 +318,8 @@ export async function createCampaign(
       generationMode: data.generationMode ?? "art_variation",
       ctaVariants: data.ctaVariants ?? null,
       targetFormats: data.targetFormats ?? null,
-      creativeLevel: data.creativeLevel ?? "balanced",
+      creativeLevel:
+        data.creativeLevel ?? creativeLevelFromLegacyStyleIntensity(data.styleIntensity) ?? "balanced",
       styleIntensity: data.styleIntensity ?? "medium",
       creativeDiagnosisStatus: data.creativeDiagnosisStatus ?? "pending",
       creativeDiagnosis: data.creativeDiagnosis ?? null,
@@ -512,8 +522,10 @@ export async function updateCampaign(
       ...(generationMode !== undefined && { generationMode }),
       ...(ctaVariants !== undefined && { ctaVariants }),
       ...(targetFormats !== undefined && { targetFormats }),
-      ...(creativeLevel !== undefined && { creativeLevel }),
-      ...(styleIntensity !== undefined && { styleIntensity }),
+      ...((creativeLevel !== undefined || styleIntensity !== undefined) && {
+        creativeLevel:
+          creativeLevel ?? creativeLevelFromLegacyStyleIntensity(styleIntensity),
+      }),
       ...(creativeDiagnosisStatus !== undefined && { creativeDiagnosisStatus }),
       ...(creativeDiagnosis !== undefined && { creativeDiagnosis }),
       ...(creativeDiagnosisSource !== undefined && { creativeDiagnosisSource }),

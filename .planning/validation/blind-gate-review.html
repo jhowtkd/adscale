@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>Image Harness Blind Gate Review</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; background: #0f1115; color: #e8eaed; }
+    h1 { margin-bottom: 0.25rem; }
+    p.note { color: #9aa0a6; max-width: 70ch; }
+    .pair { margin: 2rem 0 3rem; padding-bottom: 2rem; border-bottom: 1px solid #2a2f3a; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    figure { margin: 0; }
+    img { width: 100%; border-radius: 8px; border: 1px solid #2a2f3a; background: #1a1d24; }
+    figcaption { margin-top: 0.5rem; font-weight: 600; text-align: center; }
+  </style>
+</head>
+<body>
+  <h1>Image Harness Blind Gate</h1>
+  <p class="note">Compare Option A vs Option B for art direction and finish only. Record choices in <code>.planning/validation/image-harness-blind-gate.json</code>. Flag any objective-integrity regression (wrong brand, invented offer, format failure, style contamination).</p>
+  <section class="pair">
+  <h2>pair-01 — art_variation / 1:1 / conservative</h2>
+  <div class="grid">
+    <figure><img src="blind-gate-images/pair-01-baseline.png" alt="Option A" /><figcaption>Option A</figcaption></figure>
+    <figure><img src="blind-gate-images/pair-01-recalibrated.png" alt="Option B" /><figcaption>Option B</figcaption></figure>
+  </div>
+</section>
+<section class="pair">
+  <h2>pair-02 — art_variation / 4:5 / balanced</h2>
+  <div class="grid">
+    <figure><img src="blind-gate-images/pair-02-baseline.png" alt="Option A" /><figcaption>Option A</figcaption></figure>
+    <figure><img src="blind-gate-images/pair-02-recalibrated.png" alt="Option B" /><figcaption>Option B</figcaption></figure>
+  </div>
+</section>
+<section class="pair">
+  <h2>pair-03 — art_variation / 9:16 / bold</h2>
+  <div class="grid">
+    <figure><img src="blind-gate-images/pair-03-baseline.png" alt="Option A" /><figcaption>Option A</figcaption></figure>
+    <figure><img src="blind-gate-images/pair-03-recalibrated.png" alt="Option B" /><figcaption>Option B</figcaption></figure>
+  </div>
+</section>
+<section class="pair">
+  <h2>pair-04 — art_variation / 1:1 / extreme</h2>
+  <div class="grid">
+    <figure><img src="blind-gate-images/pair-04-baseline.png" alt="Option A" /><figcaption>Option A</figcaption></figure>
+    <figure><img src="blind-gate-images/pair-04-recalibrated.png" alt="Option B" /><figcaption>Option B</figcaption></figure>
+  </div>
+</section>
+<section class="pair">
+  <h2>pair-05 — format_adaptation / 9:16 / conservative</h2>
+  <div class="grid">
+    <figure><img src="blind-gate-images/pair-05-baseline.png" alt="Option A" /><figcaption>Option A</figcaption></figure>
+    <figure><img src="blind-gate-images/pair-05-recalibrated.png" alt="Option B" /><figcaption>Option B</figcaption></figure>
+  </div>
+</section>
+<section class="pair">
+  <h2>pair-06 — format_adaptation / 4:5 / balanced</h2>
+  <div class="grid">
+    <figure><img src="blind-gate-images/pair-06-baseline.png" alt="Option A" /><figcaption>Option A</figcaption></figure>
+    <figure><img src="blind-gate-images/pair-06-recalibrated.png" alt="Option B" /><figcaption>Option B</figcaption></figure>
+  </div>
+</section>
+<section class="pair">
+  <h2>pair-07 — format_adaptation / 1:1 / bold</h2>
+  <div class="grid">
+    <figure><img src="blind-gate-images/pair-07-recalibrated.png" alt="Option A" /><figcaption>Option A</figcaption></figure>
+    <figure><img src="blind-gate-images/pair-07-baseline.png" alt="Option B" /><figcaption>Option B</figcaption></figure>
+  </div>
+</section>
+<section class="pair">
+  <h2>pair-08 — format_adaptation / 9:16 / extreme</h2>
+  <div class="grid">
+    <figure><img src="blind-gate-images/pair-08-baseline.png" alt="Option A" /><figcaption>Option A</figcaption></figure>
+    <figure><img src="blind-gate-images/pair-08-recalibrated.png" alt="Option B" /><figcaption>Option B</figcaption></figure>
+  </div>
+</section>
+<section class="pair">
+  <h2>pair-09 — restyling / 1:1 / conservative</h2>
+  <div class="grid">
+    <figure><img src="blind-gate-images/pair-09-baseline.png" alt="Option A" /><figcaption>Option A</figcaption></figure>
+    <figure><img src="blind-gate-images/pair-09-recalibrated.png" alt="Option B" /><figcaption>Option B</figcaption></figure>
+  </div>
+</section>
+<section class="pair">
+  <h2>pair-10 — restyling / 4:5 / balanced</h2>
+  <div class="grid">
+    <figure><img src="blind-gate-images/pair-10-recalibrated.png" alt="Option A" /><figcaption>Option A</figcaption></figure>
+    <figure><img src="blind-gate-images/pair-10-baseline.png" alt="Option B" /><figcaption>Option B</figcaption></figure>
+  </div>
+</section>
+<section class="pair">
+  <h2>pair-11 — restyling / 9:16 / bold</h2>
+  <div class="grid">
+    <figure><img src="blind-gate-images/pair-11-baseline.png" alt="Option A" /><figcaption>Option A</figcaption></figure>
+    <figure><img src="blind-gate-images/pair-11-recalibrated.png" alt="Option B" /><figcaption>Option B</figcaption></figure>
+  </div>
+</section>
+<section class="pair">
+  <h2>pair-12 — restyling / 1:1 / extreme</h2>
+  <div class="grid">
+    <figure><img src="blind-gate-images/pair-12-baseline.png" alt="Option A" /><figcaption>Option A</figcaption></figure>
+    <figure><img src="blind-gate-images/pair-12-recalibrated.png" alt="Option B" /><figcaption>Option B</figcaption></figure>
+  </div>
+</section>
+</body>
+</html>

@@ -28,6 +28,7 @@ import { z } from "zod";
 const restyleSchema = z.object({
   styleAssetIds: z.array(z.string().uuid()).optional(),
   styleIntensity: z.enum(["soft", "medium", "strong"]).optional(),
+  creativeLevel: z.enum(["conservative", "balanced", "bold", "extreme"]).optional(),
 });
 
 const STALE_ACTIVE_DERIVATION_MINUTES = 10;
@@ -85,7 +86,7 @@ export async function POST(
       return apiError("invalidInput", 400, parsed.error.flatten());
     }
 
-    const { styleAssetIds, styleIntensity } = parsed.data;
+    const { styleAssetIds, styleIntensity, creativeLevel } = parsed.data;
 
     // Rate limit: block if there are already queued/processing derivations
     const existingQueued = await db.select({ id: derivations.id })
@@ -135,7 +136,7 @@ export async function POST(
     // Update campaign for restyling
     await updateCampaign(campaignId, workspace.id, {
       generationMode: "restyling",
-      ...(styleIntensity && { styleIntensity }),
+      ...(creativeLevel ? { creativeLevel } : styleIntensity ? { styleIntensity } : {}),
     });
 
     // Spend credits

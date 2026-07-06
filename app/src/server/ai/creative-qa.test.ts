@@ -340,3 +340,48 @@ describe("styleFidelity criterion", () => {
     expect(result.checklist.styleFidelity).toBeUndefined();
   });
 });
+
+describe("blind gate follow-up QA wording", () => {
+  const restylingInput = {
+    locale: "pt-BR",
+    campaign: {
+      name: "Nova campanha",
+      client: "Instituto Educação+",
+      product: "Curso de capacitação docente",
+      offer: "Matrículas abertas",
+      objective: "Conversions",
+      audience: "Teachers",
+    },
+    derivation: {
+      ctaText: null,
+      format: "1:1",
+      generationMode: "restyling" as const,
+    },
+    contract: {
+      generationMode: "restyling" as const,
+      targetFormat: "1:1",
+      ctaSemantics: { kind: "inherited" as const },
+      baseAssetId: "base-1",
+      styleAssetId: "style-1",
+      client: "Instituto Educação+",
+      product: "Curso de capacitação docente",
+      offer: "Matrículas abertas",
+      constraints: null,
+    },
+  };
+
+  it("flags invented brands in restyling briefMatch", () => {
+    const prompt = buildCreativeQaPrompt(restylingInput);
+    expect(prompt).toMatch(/never permission to add visible content/i);
+    expect(prompt).toMatch(/not visibly present in FACTUAL BASE/i);
+    expect(prompt).toMatch(/even when it exactly matches the campaign client/i);
+    expect(prompt).toMatch(/wrong_brand/i);
+    expect(prompt).toMatch(/invented_factual_entity/i);
+  });
+
+  it("fails style-reference ad paste in styleFidelity", () => {
+    const prompt = buildCreativeQaPrompt(restylingInput);
+    expect(prompt).toMatch(/full ad layout/i);
+    expect(prompt).toMatch(/base-content restyled/i);
+  });
+});

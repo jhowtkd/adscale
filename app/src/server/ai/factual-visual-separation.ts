@@ -104,9 +104,10 @@ export function buildVisualReferenceTransferRuleSection(
     "VISUAL REFERENCE TRANSFER RULE:",
     "The style reference is visual-only — transfer abstract design attributes, never factual content.",
     "The base image remains the sole factual source for people, products, brands, logos, copy, offers, CTAs, and claims.",
-    "ALLOWLIST (abstract style attributes only): ritmo/rhythm, textura/texture, cromia/chroma, tipografia/typography, iluminação/lighting, lógica compositiva/compositional logic.",
+    "ALLOWLIST (abstract style attributes only): ritmo/rhythm, textura/texture, cromia/chroma remapped into the factual base palette, tipografia/typography, iluminação/lighting, lógica compositiva/compositional logic.",
     "DENYLIST (never copy from style reference): pessoas/people, uniformes/uniforms, produtos/products, marcas/brands, logos, textos/texts, alegações/claims.",
     "Never copy factual content from the style reference.",
+    "Never paste the style reference's full ad layout, hero composition, or text blocks — transfer abstract style only onto the base campaign content.",
   ];
 
   if (options?.hasClientStyleReferences) {

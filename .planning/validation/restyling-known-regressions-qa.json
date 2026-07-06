@@ -1,0 +1,123 @@
+{
+  "generatedAt": "2026-07-06T12:32:05.189Z",
+  "results": [
+    {
+      "id": "pair-10",
+      "qa": {
+        "status": "review",
+        "checklist": {
+          "legibility": {
+            "status": "passed",
+            "note": "Título principal 'MATRÍCULAS ABERTAS' (topo central) e CTA 'Ver ofertas' (rodapé central) com boa escala e contraste. Texto descritivo 'Corpo docente referência...' (centro) e nomes nos cartões inferiores legíveis em tamanhos de visualização padrão, apesar de os textos dos cards serem pequenos."
+          },
+          "ctaOffer": {
+            "status": "warning",
+            "note": "CTA alterada para 'Ver ofertas' (botão verde, rodapé central). Versão base exibia 'Ver lista completa' (botão direita). A nova redação muda o foco do convite e pode alterar a intenção da ação; não inventa preço/benefício, mas requer confirmação do briefing."
+          },
+          "informationPreservation": {
+            "status": "warning",
+            "note": "Elementos de credencial (fotos e blocos de nomes) preservados. Porém o cabeçalho original do FACTUAL BASE ('OS MELHORES PROFESSORES...') foi substituído por 'MATRÍCULAS ABERTAS' (topo central) e o botão de ação mudou de posição/rotulo — alteração material da mensagem de topo."
+          },
+          "briefMatch": {
+            "status": "failed",
+            "note": "Saída contém textos/elementos não presentes no FACTUAL BASE: wordmark 'INSTITUTO EDUCAÇÃO+' (topo central) e o novo headline 'MATRÍCULAS ABERTAS' (zona de hook). Também trocou o CTA base 'Ver lista completa' por 'Ver ofertas'. Pela regra de restyling, inserir marcas/wordmarks/textos que não aparecem no FACTUAL BASE é erro (wrong_brand / invenção de elemento factual)."
+          },
+          "formatFit": {
+            "status": "passed",
+            "note": "Dimensão e orientação 4:5 preservadas; composição ocupa a área de forma adequada ao formato sem corte visível de elementos-chave."
+          },
+          "creativeRisk": {
+            "status": "warning",
+            "note": "Hierarquia concorrente: título gigante 'MATRÍCULAS ABERTAS' (centro) domina a leitura e compete com os rostos (cartões médios). Coroa dourada (top-center) e linhas douradas criam ponto de conflito próximo ao wordmark. Três grupos de benefícios/ícones no rodapé dividem atenção com o CTA grande; pode confundir o foco de conversão. Sugerir simplificar zonas e reduzir ornamentos que competem com o CTA."
+          },
+          "styleFidelity": {
+            "status": "failed",
+            "note": "Contaminação visível da referência de estilo: uso de emblema/coroa central e tratamento envelhecido/dourado semelhante ao STYLE REFERENCE (topo e ornamentos). Elementos de composição (coroa sobre título, barras douradas) parecem copiados da referência em vez de restylar o conteúdo do FACTUAL BASE."
+          }
+        },
+        "issues": [
+          "Inserção do wordmark 'INSTITUTO EDUCAÇÃO+' no topo que não existe no FACTUAL BASE (wrong_brand).",
+          "Headline original do FACTUAL BASE ('OS MELHORES PROFESSORES...') removida/substituída por 'MATRÍCULAS ABERTAS' sem evidência na imagem base.",
+          "Contaminação de estilo: coroa/ornamentos dourados e tratamento textural replicam elementos do STYLE REFERENCE em vez de apenas restyling do base image (style fidelity fail).                                                                                                                                              "
+        ],
+        "suggestions": [
+          "Remover qualquer wordmark/logotipo que não esteja presente no FACTUAL BASE ou confirmar autorização explícita do cliente para adicioná‑lo (corrigir 'INSTITUTO EDUCAÇÃO+' topo).",
+          "Restaurar ou conservar a mensagem de topo do FACTUAL BASE ('OS MELHORES PROFESSORES...') ou obter aprovação formal para substituir por 'MATRÍCULAS ABERTAS' — documentar mudança de mensagem.",
+          "Rever CTA: alinhar rótulo com objetivo aprovado (se base era 'Ver lista completa', manter ou justificar mudança para 'Ver ofertas'); manter intenção de ação clara e consistente com a landing page esperada.)                                                                                                                                                                                                                                                                                   ) (keep CTA consistent).                                                                                                                                                                                                                                        )  (sintetizar/confirmar).                                                                                                                                               )"
+        ]
+      },
+      "qualityVerdict": "invalid",
+      "hardFailures": [
+        {
+          "code": "style_reference_contamination",
+          "message": "Contaminação visível da referência de estilo: uso de emblema/coroa central e tratamento envelhecido/dourado semelhante ao STYLE REFERENCE (topo e ornamentos). Elementos de composição (coroa sobre título, barras douradas) parecem copiados da referência em vez de restylar o conteúdo do FACTUAL BASE.",
+          "criterion": "styleFidelity"
+        },
+        {
+          "code": "wrong_brand",
+          "message": "Saída contém textos/elementos não presentes no FACTUAL BASE: wordmark 'INSTITUTO EDUCAÇÃO+' (topo central) e o novo headline 'MATRÍCULAS ABERTAS' (zona de hook). Também trocou o CTA base 'Ver lista completa' por 'Ver ofertas'. Pela regra de restyling, inserir marcas/wordmarks/textos que não aparecem no FACTUAL BASE é erro (wrong_brand / invenção de elemento factual).",
+          "criterion": "briefMatch"
+        }
+      ]
+    },
+    {
+      "id": "pair-09",
+      "qa": {
+        "status": "review",
+        "checklist": {
+          "legibility": {
+            "status": "passed",
+            "note": "Texto principal e subtítulos legíveis em desktop e mobile: 'MATRÍCULAS ABERTAS' (topo), 'CURSO DE CAPACITAÇÃO DOCENTE' (esquerda) e botões 'VER OFERTAS' legíveis com bom contraste."
+          },
+          "ctaOffer": {
+            "status": "passed",
+            "note": "CTA renderizado 'VER OFERTAS' preserva a intenção de ação do criativo original ('Ver lista completa') — não inventa preço ou condições."
+          },
+          "informationPreservation": {
+            "status": "warning",
+            "note": "Rosto e placas com nomes dos docentes preservados (centro e inferior das colunas). Porém, o headline original do FACTUAL BASE ('OS MELHORES PROFESSORES...') foi removido/substituído por 'MATRÍCULAS ABERTAS' — alteração importante do conteúdo visível."
+          },
+          "briefMatch": {
+            "status": "failed",
+            "note": "Adição de elemento textual e wordmark não presente no FACTUAL BASE: palavra‑marca 'INSTITUTO EDUCAÇÃO+' e tagline visível no canto inferior‑direito; headline foi trocado ('OS MELHORES PROFESSORES' → 'MATRÍCULAS ABERTAS'). Essas entidades não aparecem no FACTUAL BASE."
+          },
+          "formatFit": {
+            "status": "passed",
+            "note": "Composição 1:1 respeitada; margens e safe area mantidas para formatos de social."
+          },
+          "creativeRisk": {
+            "status": "warning",
+            "note": "Ritmo visual apertado: bloco de benefícios ícone+texto à esquerda compete com grande manchete 'MATRÍCULAS ABERTAS' e com os três retratos à direita. Observável: três painéis verticais justapostos (centro‑direita) reduzem contraste entre nome do docente e o fundo texturizado — retocar separação pode melhorar leitura em miniaturas."
+          },
+          "styleFidelity": {
+            "status": "failed",
+            "note": "Contaminação do STYLE REFERENCE detectada: textura avermelhada, pincelada sob as placas de nome e a composição geral (bordas arredondadas, selo/crest) foram replicadas — elementos e tratamento visual parecem mais copiados do reference do que apenas 'restyling' do FACTUAL BASE."
+          }
+        },
+        "issues": [
+          "Inclusão do wordmark 'INSTITUTO EDUCAÇÃO+' no canto inferior‑direito não está presente no FACTUAL BASE (elemento adicionado).",
+          "Headline original do FACTUAL BASE ('OS MELHORES PROFESSORES...') foi substituído por 'MATRÍCULAS ABERTAS' sem manter o texto-base visível.",
+          "Contaminação de layout e elementos do STYLE REFERENCE (textura vermelha, pincelada sob nomes, grid de cartão) — composição copiada, não somente restylée."
+        ],
+        "suggestions": [
+          "Remover/justificar a presença do wordmark 'INSTITUTO EDUCAÇÃO+' se ele não constava no FACTUAL BASE; ou garantir permissão visual/documental para incluí‑lo.",
+          "Se a mudança para 'MATRÍCULAS ABERTAS' for necessária, mantenha também o headline original do base (reduzido) ou crie hierarquia clara para não perder a mensagem institucional do FACTUAL BASE.",
+          "Reduzir texturas e pinceladas herdadas do style reference; aplicar cor e tratamento tipográfico que respeitem o conteúdo do FACTUAL BASE para evitar contaminação de estilo e garantir fidelidade ao restyling solicitado."
+        ]
+      },
+      "qualityVerdict": "invalid",
+      "hardFailures": [
+        {
+          "code": "style_reference_contamination",
+          "message": "Contaminação do STYLE REFERENCE detectada: textura avermelhada, pincelada sob as placas de nome e a composição geral (bordas arredondadas, selo/crest) foram replicadas — elementos e tratamento visual parecem mais copiados do reference do que apenas 'restyling' do FACTUAL BASE.",
+          "criterion": "styleFidelity"
+        },
+        {
+          "code": "wrong_brand",
+          "message": "Adição de elemento textual e wordmark não presente no FACTUAL BASE: palavra‑marca 'INSTITUTO EDUCAÇÃO+' e tagline visível no canto inferior‑direito; headline foi trocado ('OS MELHORES PROFESSORES' → 'MATRÍCULAS ABERTAS'). Essas entidades não aparecem no FACTUAL BASE.",
+          "criterion": "briefMatch"
+        }
+      ]
+    }
+  ]
+}

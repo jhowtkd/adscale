@@ -52,7 +52,10 @@ export function buildRestylingModeRulesSection(): string[] {
   return [
     "MODE: restyling — Apply abstract visual language from style reference to factual base content.",
     RESTYLING_ENTITY_LOCK_CHECKLIST,
-    "Abstract style attributes (rhythm, texture, chroma, typography, lighting, compositional logic) may transfer from the style reference per VISUAL REFERENCE TRANSFER RULE above — never factual tokens.",
+    "BRAND LOCK: depict only brands, logos, and wordmarks visibly present in the factual base image. The campaign registry validates identity but does not authorize adding a missing brand mark.",
+    "Abstract style attributes (rhythm, texture, typography, lighting, compositional logic) may transfer from the style reference per VISUAL REFERENCE TRANSFER RULE above — never factual tokens.",
+    "COLOR TRANSFER: preserve the factual base palette family. Transfer contrast, saturation, temperature, and color distribution only when remapped into that palette.",
+    "Do NOT reproduce the style reference ad wholesale (its hero layout, copied text blocks, or full composition paste) — the output must read as the base campaign restyled, not as the style reference ad.",
     "Preserve the base image format/proportions.",
     "Do NOT invent new facts, offers, or CTAs — use those from the base image only.",
     "The result should look like a restyled version of the base image, not a copy of the style reference.",

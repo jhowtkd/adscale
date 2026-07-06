@@ -1,101 +1,275 @@
 {
-  "status": "pending_human_review",
+  "status": "completed",
+  "completedAt": "2026-07-06T09:58:00.000Z",
+  "reviewer": "human",
+  "generatedAt": "2026-07-06T07:43:42.145Z",
+  "instructions": [
+    "Open blind-gate-review.html and compare Option A vs Option B for each pair.",
+    "Set preferred to baseline or recalibrated and objectiveRegression true/false in each pair.",
+    "When all 12 pairs are decided, set status to completed and run check-image-harness-blind-gate.ts."
+  ],
+  "reviewHtml": ".planning/validation/blind-gate-review.html",
+  "summary": {
+    "recalibratedPreferenceCount": 11,
+    "preferenceRate": 0.9167,
+    "objectiveRegressionCount": 2,
+    "gateVerdict": "fail_objective_regression"
+  },
   "pairs": [
     {
       "id": "pair-01",
       "mode": "art_variation",
       "format": "1:1",
       "creativeLevel": "conservative",
+      "canonicalSlug": "teste-3-nr1",
+      "matrixKey": "teste-3-nr1:art_variation:1:1",
+      "baselineImage": ".planning/validation/blind-gate-images/pair-01-baseline.png",
+      "recalibratedImage": ".planning/validation/blind-gate-images/pair-01-recalibrated.png",
+      "baselineSource": "validation-after:teste-3-nr1:art_variation:1:1__00c65d9c.png",
+      "presentation": {
+        "optionA": { "side": "baseline", "image": ".planning/validation/blind-gate-images/pair-01-baseline.png" },
+        "optionB": { "side": "recalibrated", "image": ".planning/validation/blind-gate-images/pair-01-recalibrated.png" }
+      },
+      "reviewerChoice": "optionB",
       "preferred": "recalibrated",
-      "objectiveRegression": false
+      "objectiveRegression": false,
+      "reviewerNote": "Mesmo na opção B o CTA parece um botão gigante."
     },
     {
       "id": "pair-02",
       "mode": "art_variation",
       "format": "4:5",
       "creativeLevel": "balanced",
+      "canonicalSlug": "teste-3-nr1",
+      "matrixKey": "teste-3-nr1:art_variation:4:5",
+      "baselineImage": ".planning/validation/blind-gate-images/pair-02-baseline.png",
+      "recalibratedImage": ".planning/validation/blind-gate-images/pair-02-recalibrated.png",
+      "baselineSource": "corpus:2026-06-11__teste-3__format_adaptation__4x5__c2c12774.png",
+      "presentation": {
+        "optionA": { "side": "baseline", "image": ".planning/validation/blind-gate-images/pair-02-baseline.png" },
+        "optionB": { "side": "recalibrated", "image": ".planning/validation/blind-gate-images/pair-02-recalibrated.png" }
+      },
+      "reviewerChoice": "optionB",
       "preferred": "recalibrated",
-      "objectiveRegression": false
+      "objectiveRegression": false,
+      "reviewerNote": "Não notei diferenças de níveis de conservadorismo entre o pair 1 e o 2."
     },
     {
       "id": "pair-03",
       "mode": "art_variation",
       "format": "9:16",
       "creativeLevel": "bold",
+      "canonicalSlug": "teste-3-nr1",
+      "matrixKey": "teste-3-nr1:art_variation:9:16",
+      "baselineImage": ".planning/validation/blind-gate-images/pair-03-baseline.png",
+      "recalibratedImage": ".planning/validation/blind-gate-images/pair-03-recalibrated.png",
+      "baselineSource": "corpus:2026-06-11__teste-3__format_adaptation__9x16__27069645.png",
+      "presentation": {
+        "optionA": { "side": "baseline", "image": ".planning/validation/blind-gate-images/pair-03-baseline.png" },
+        "optionB": { "side": "recalibrated", "image": ".planning/validation/blind-gate-images/pair-03-recalibrated.png" }
+      },
+      "reviewerChoice": "optionB",
       "preferred": "recalibrated",
-      "objectiveRegression": false
+      "objectiveRegression": false,
+      "reviewerNote": "Mesmo na opção B o CTA parece um botão gigante. Opção A (baseline) reproduziu completamente referência de estilo, não referência de anúncio."
     },
     {
       "id": "pair-04",
       "mode": "art_variation",
       "format": "1:1",
       "creativeLevel": "extreme",
+      "canonicalSlug": "teste-campanha-nr1",
+      "matrixKey": "teste-campanha-nr1:art_variation:1:1",
+      "baselineImage": ".planning/validation/blind-gate-images/pair-04-baseline.png",
+      "recalibratedImage": ".planning/validation/blind-gate-images/pair-04-recalibrated.png",
+      "baselineSource": "validation-after:teste-campanha-nr1:art_variation:1:1__0184f1d4.png",
+      "presentation": {
+        "optionA": { "side": "baseline", "image": ".planning/validation/blind-gate-images/pair-04-baseline.png" },
+        "optionB": { "side": "recalibrated", "image": ".planning/validation/blind-gate-images/pair-04-recalibrated.png" }
+      },
+      "reviewerChoice": "optionB",
       "preferred": "recalibrated",
-      "objectiveRegression": false
+      "objectiveRegression": false,
+      "reviewerNote": "Paleta cromática da referência de anúncio deve ser respeitada até no extremo; considerar opt-in para reestilizar cores."
     },
     {
       "id": "pair-05",
       "mode": "format_adaptation",
       "format": "9:16",
       "creativeLevel": "conservative",
+      "canonicalSlug": "teste-3-nr1",
+      "matrixKey": "teste-3-nr1:format_adaptation:9:16",
+      "baselineImage": ".planning/validation/blind-gate-images/pair-05-baseline.png",
+      "recalibratedImage": ".planning/validation/blind-gate-images/pair-05-recalibrated.png",
+      "baselineSource": "validation-after:teste-3-nr1:format_adaptation:9:16__0f062c8f.png",
+      "presentation": {
+        "optionA": { "side": "baseline", "image": ".planning/validation/blind-gate-images/pair-05-baseline.png" },
+        "optionB": { "side": "recalibrated", "image": ".planning/validation/blind-gate-images/pair-05-recalibrated.png" }
+      },
+      "reviewerChoice": "optionB",
       "preferred": "recalibrated",
-      "objectiveRegression": false
+      "objectiveRegression": false,
+      "reviewerNote": null
     },
     {
       "id": "pair-06",
       "mode": "format_adaptation",
       "format": "4:5",
       "creativeLevel": "balanced",
+      "canonicalSlug": "teste-3-nr1",
+      "matrixKey": "teste-3-nr1:format_adaptation:4:5",
+      "baselineImage": ".planning/validation/blind-gate-images/pair-06-baseline.png",
+      "recalibratedImage": ".planning/validation/blind-gate-images/pair-06-recalibrated.png",
+      "baselineSource": "validation-after:teste-3-nr1:format_adaptation:4:5__21746b36.png",
+      "presentation": {
+        "optionA": { "side": "baseline", "image": ".planning/validation/blind-gate-images/pair-06-baseline.png" },
+        "optionB": { "side": "recalibrated", "image": ".planning/validation/blind-gate-images/pair-06-recalibrated.png" }
+      },
+      "reviewerChoice": "optionB",
       "preferred": "recalibrated",
-      "objectiveRegression": false
+      "objectiveRegression": false,
+      "reviewerNote": "Não notei diferenças de níveis de conservadorismo entre o pair 06 e o 05."
     },
     {
       "id": "pair-07",
       "mode": "format_adaptation",
       "format": "1:1",
       "creativeLevel": "bold",
-      "preferred": "recalibrated",
-      "objectiveRegression": false
+      "canonicalSlug": "teste-3-nr1",
+      "matrixKey": "teste-3-nr1:format_adaptation:1:1",
+      "baselineImage": ".planning/validation/blind-gate-images/pair-07-baseline.png",
+      "recalibratedImage": ".planning/validation/blind-gate-images/pair-07-recalibrated.png",
+      "baselineSource": "corpus:2026-06-11__teste-3__art_variation__1x1__6fc63100.png",
+      "presentation": {
+        "optionA": { "side": "recalibrated", "image": ".planning/validation/blind-gate-images/pair-07-recalibrated.png" },
+        "optionB": { "side": "baseline", "image": ".planning/validation/blind-gate-images/pair-07-baseline.png" }
+      },
+      "reviewerChoice": "optionB",
+      "preferred": "baseline",
+      "objectiveRegression": false,
+      "reviewerNote": "Não notei diferenças de conservadorismo entre pairs 05–07. CTA muito grande no recalibrated (opção A)."
     },
     {
       "id": "pair-08",
       "mode": "format_adaptation",
       "format": "9:16",
       "creativeLevel": "extreme",
+      "canonicalSlug": "teste-3-nr1",
+      "matrixKey": "teste-3-nr1:format_adaptation:9:16",
+      "baselineImage": ".planning/validation/blind-gate-images/pair-08-baseline.png",
+      "recalibratedImage": ".planning/validation/blind-gate-images/pair-08-recalibrated.png",
+      "baselineSource": "validation-after:teste-3-nr1:format_adaptation:9:16__0f062c8f.png",
+      "presentation": {
+        "optionA": { "side": "baseline", "image": ".planning/validation/blind-gate-images/pair-08-baseline.png" },
+        "optionB": { "side": "recalibrated", "image": ".planning/validation/blind-gate-images/pair-08-recalibrated.png" }
+      },
+      "reviewerChoice": "optionB",
       "preferred": "recalibrated",
-      "objectiveRegression": false
+      "objectiveRegression": false,
+      "reviewerNote": "Não notei diferenças de conservadorismo entre pairs 05–08. CTA muito grande."
     },
     {
       "id": "pair-09",
       "mode": "restyling",
       "format": "1:1",
       "creativeLevel": "conservative",
+      "canonicalSlug": "nova-campanha",
+      "matrixKey": "nova-campanha:restyling:1:1",
+      "baselineImage": ".planning/validation/blind-gate-images/pair-09-baseline.png",
+      "recalibratedImage": ".planning/validation/blind-gate-images/pair-09-recalibrated.png",
+      "baselineSource": "validation-after:nova-campanha:restyling:1:1__030e38dc.png",
+      "presentation": {
+        "optionA": { "side": "baseline", "image": ".planning/validation/blind-gate-images/pair-09-baseline.png" },
+        "optionB": { "side": "recalibrated", "image": ".planning/validation/blind-gate-images/pair-09-recalibrated.png" }
+      },
+      "reviewerChoice": "optionB",
       "preferred": "recalibrated",
-      "objectiveRegression": false
+      "objectiveRegression": true,
+      "reviewerNote": "Inventou uma marca; quando não houver marca na campanha isso não deve acontecer."
     },
     {
       "id": "pair-10",
       "mode": "restyling",
       "format": "4:5",
       "creativeLevel": "balanced",
+      "canonicalSlug": "nova-campanha",
+      "matrixKey": "nova-campanha:restyling:4:5",
+      "baselineImage": ".planning/validation/blind-gate-images/pair-10-baseline.png",
+      "recalibratedImage": ".planning/validation/blind-gate-images/pair-10-recalibrated.png",
+      "baselineSource": "corpus:2026-06-11__teste-debuf__restyling__1x1__d7d9d323.png",
+      "presentation": {
+        "optionA": { "side": "recalibrated", "image": ".planning/validation/blind-gate-images/pair-10-recalibrated.png" },
+        "optionB": { "side": "baseline", "image": ".planning/validation/blind-gate-images/pair-10-baseline.png" }
+      },
+      "reviewerChoice": "optionA",
       "preferred": "recalibrated",
-      "objectiveRegression": false
+      "objectiveRegression": true,
+      "reviewerNote": "Inventou uma marca. Opção B (baseline) reproduziu referência de estilo em vez de referência de anúncio."
     },
     {
       "id": "pair-11",
       "mode": "restyling",
       "format": "9:16",
       "creativeLevel": "bold",
+      "canonicalSlug": "nova-campanha",
+      "matrixKey": "nova-campanha:restyling:9:16",
+      "baselineImage": ".planning/validation/blind-gate-images/pair-11-baseline.png",
+      "recalibratedImage": ".planning/validation/blind-gate-images/pair-11-recalibrated.png",
+      "baselineSource": "corpus:2026-06-11__teste-debuf__restyling__1x1__d7d9d323.png",
+      "presentation": {
+        "optionA": { "side": "baseline", "image": ".planning/validation/blind-gate-images/pair-11-baseline.png" },
+        "optionB": { "side": "recalibrated", "image": ".planning/validation/blind-gate-images/pair-11-recalibrated.png" }
+      },
+      "reviewerChoice": "optionB",
       "preferred": "recalibrated",
-      "objectiveRegression": false
+      "objectiveRegression": false,
+      "reviewerNote": null
     },
     {
       "id": "pair-12",
       "mode": "restyling",
       "format": "1:1",
       "creativeLevel": "extreme",
+      "canonicalSlug": "nova-campanha",
+      "matrixKey": "nova-campanha:restyling:1:1",
+      "baselineImage": ".planning/validation/blind-gate-images/pair-12-baseline.png",
+      "recalibratedImage": ".planning/validation/blind-gate-images/pair-12-recalibrated.png",
+      "baselineSource": "validation-after:nova-campanha:restyling:1:1__030e38dc.png",
+      "presentation": {
+        "optionA": { "side": "baseline", "image": ".planning/validation/blind-gate-images/pair-12-baseline.png" },
+        "optionB": { "side": "recalibrated", "image": ".planning/validation/blind-gate-images/pair-12-recalibrated.png" }
+      },
+      "reviewerChoice": "optionB",
       "preferred": "recalibrated",
-      "objectiveRegression": false
+      "objectiveRegression": false,
+      "reviewerNote": "Opção A (baseline) reproduziu referência de estilo em vez de referência de anúncio."
+    }
+  ],
+  "followUpThemes": [
+    {
+      "theme": "cta_prominence",
+      "pairs": ["pair-01", "pair-03", "pair-07", "pair-08"],
+      "action": "Advisory ranking only today; consider prompt guidance for CTA scale proportionate to layout."
+    },
+    {
+      "theme": "fidelity_band_indistinguishable",
+      "pairs": ["pair-02", "pair-06", "pair-07", "pair-08"],
+      "action": "conservative/balanced/bold/extreme prompts may not diverge enough in art_variation and format_adaptation."
+    },
+    {
+      "theme": "invented_brand_restyling",
+      "pairs": ["pair-09", "pair-10"],
+      "action": "Harden restyling objective gate: no invented brand when campaign has no brand asset."
+    },
+    {
+      "theme": "style_reference_vs_ad_reference",
+      "pairs": ["pair-03", "pair-10", "pair-12"],
+      "action": "Baseline corpus issue on some pairs; ensure restyling keeps factual source on base asset only."
+    },
+    {
+      "theme": "palette_preservation_extreme",
+      "pairs": ["pair-04"],
+      "action": "Consider opt-in color restyling separate from composition fidelity at extreme level."
     }
   ]
 }

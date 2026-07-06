@@ -44,7 +44,10 @@ function asCheckStatus(value: unknown): CreativeQaCheckStatus {
 
 function asShortList(value: unknown): string[] {
   return Array.isArray(value)
-    ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0).slice(0, 3)
+    ? value
+        .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+        .slice(0, 3)
+        .map((item) => item.trim())
     : [];
 }
 
@@ -97,6 +100,10 @@ export function normalizeCreativeQaResult(value: unknown): CreativeQaResult {
 export interface AnalyzeCreativeQaInput {
   imageBuffer: Buffer;
   mimeType: string;
+  baseImageBuffer?: Buffer;
+  baseMimeType?: string;
+  styleImageBuffer?: Buffer;
+  styleMimeType?: string;
   locale: string;
   campaign: {
     name: string;
@@ -116,7 +123,17 @@ export interface AnalyzeCreativeQaInput {
   contract?: CreativeContract | null;
 }
 
-export function buildCreativeQaPrompt(input: Omit<AnalyzeCreativeQaInput, "imageBuffer" | "mimeType">) {
+type CreativeQaPromptInput = Omit<
+  AnalyzeCreativeQaInput,
+  | "imageBuffer"
+  | "mimeType"
+  | "baseImageBuffer"
+  | "baseMimeType"
+  | "styleImageBuffer"
+  | "styleMimeType"
+>;
+
+export function buildCreativeQaPrompt(input: CreativeQaPromptInput) {
   const isRestyling = input.contract?.generationMode === "restyling" || input.derivation.generationMode === "restyling";
   const hasStyleRef = Boolean(input.contract?.styleAssetId);
 
@@ -125,14 +142,18 @@ export function buildCreativeQaPrompt(input: Omit<AnalyzeCreativeQaInput, "image
     : CREATIVE_QA_CORE_CRITERIA.join(", ");
 
   const styleFidelityInstruction = isRestyling && hasStyleRef
-    ? `\nFor styleFidelity (restyling mode only): Check whether the output contains factual claims (price, brand name, product name, offer text, CTA text, course name, location) that were copied from the style reference rather than the base image. Mark as failed if such contamination is detected, warning if uncertain, passed if all facts clearly come from the base image content.`
+    ? `\nFor styleFidelity (restyling mode only): Check whether the output contains factual claims (price, brand name, product name, offer text, CTA text, course name, location) that were copied from the style reference rather than the base image. Also fail when the output reproduces the style reference's full ad layout, hero composition, or copied text blocks instead of restyling the base campaign. Mark as failed if such contamination is detected, warning if uncertain, passed if all facts clearly come from the base image content and the composition reads as base-content restyled.`
+    : "";
+
+  const restylingBrandInstruction = isRestyling
+    ? `\nFor briefMatch in restyling: compare OUTPUT against FACTUAL BASE pixel content. Campaign fields and registry entries are context only, never permission to add visible content. Any brand name, logo, or wordmark in OUTPUT that is not visibly present in FACTUAL BASE is a wrong_brand failure — even when it exactly matches the campaign client or allowed registry. If presence or identity is visually uncertain, return warning instead of failed. Mark invented_factual_entity when a fictional company, team, or trademark is invented.`
     : "";
 
   const allowedEntities = resolveAllowedEntitiesForCampaign({
     name: input.campaign.name,
     client: input.campaign.client,
   });
-  const allowedEntitiesInstruction = allowedEntities
+  const allowedEntitiesInstruction = allowedEntities && !isRestyling
     ? `\nFor briefMatch: compare visible people, brands, products, and claims against the campaign allowed entity registry — people: ${allowedEntities.people.join(", ") || "none"}; brands: ${allowedEntities.brands.join(", ")}; products: ${allowedEntities.products.join(", ")}; claims: ${allowedEntities.claims.join(", ")}. Flag invented_factual_entity when the output depicts entities absent from this list.`
     : "";
 
@@ -179,7 +200,7 @@ Evaluate legibility, CTA and offer intent, information preservation, briefing fi
 CTA POLICY: CTA absence and paraphrase are allowed — a creative may omit the CTA or reword it. When a CTA is rendered, ask whether it preserves the same action intent as the campaign CTA; flag ctaOffer as failed only when the rendered CTA invents or changes an offer, price, or claim.
 TEXT INTEGRITY: scan all visible copy for garbled or corrupted words (e.g. "ESPECIALITAS" instead of "ESPECIALISTAS") — these are objective rendering defects, not style choices.
 For informationPreservation, check whether important text, offer, CTA, logo, product/service, badges, small print, faces, and other information-bearing elements from the brief or creative diagnosis were cropped, hidden, truncated, blurred, overlapped, deleted, or made too small to read.
-For art_variation, also check whether the result rearranged elements intentionally instead of solving the variation by cropping the key ad.${styleFidelityInstruction}${allowedEntitiesInstruction}
+For art_variation, also check whether the result rearranged elements intentionally instead of solving the variation by cropping the key ad.${styleFidelityInstruction}${restylingBrandInstruction}${allowedEntitiesInstruction}
 ${rubricSection}
 Do not invent new facts, claims, offers, products, logos, or CTAs.
 Keep issues and suggestions short and actionable.
@@ -188,20 +209,88 @@ Locale for user-facing notes: ${input.locale}.`;
 
 export async function analyzeCreativeQa(input: AnalyzeCreativeQaInput): Promise<CreativeQaResult> {
   const dataUrl = `data:${input.mimeType};base64,${input.imageBuffer.toString("base64")}`;
-  const response = await getOpenAI().responses.create({
-    model: env.OPENAI_TEXT_MODEL,
-    input: [
-      { role: "system", content: "You are an expert creative QA reviewer for paid social ads." },
+  const content: Array<
+    | { type: "input_text"; text: string }
+    | { type: "input_image"; image_url: string; detail: "high" }
+  > = [
+    { type: "input_text", text: buildCreativeQaPrompt(input) },
+    { type: "input_text", text: "OUTPUT:" },
+    { type: "input_image", image_url: dataUrl, detail: "high" },
+  ];
+
+  if (input.baseImageBuffer) {
+    content.push(
+      { type: "input_text", text: "FACTUAL BASE:" },
       {
-        role: "user",
-        content: [
-          { type: "input_text", text: buildCreativeQaPrompt(input) },
-          { type: "input_image", image_url: dataUrl, detail: "high" },
-        ],
+        type: "input_image",
+        image_url: `data:${input.baseMimeType ?? "image/png"};base64,${input.baseImageBuffer.toString("base64")}`,
+        detail: "high",
+      }
+    );
+  }
+  if (input.styleImageBuffer) {
+    content.push(
+      { type: "input_text", text: "STYLE REFERENCE:" },
+      {
+        type: "input_image",
+        image_url: `data:${input.styleMimeType ?? "image/png"};base64,${input.styleImageBuffer.toString("base64")}`,
+        detail: "high",
+      }
+    );
+  }
+  const checklistKeys = [
+    ...CREATIVE_QA_CORE_CRITERIA,
+    ...(input.contract?.generationMode === "restyling" && input.contract.styleAssetId
+      ? ["styleFidelity" as const]
+      : []),
+  ];
+  const checklistItemSchema = {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      status: { type: "string", enum: ["passed", "warning", "failed"] },
+      note: { type: "string" },
+    },
+    required: ["status", "note"],
+  } as const;
+  const response = await getOpenAI().responses.create(
+    {
+      model: env.OPENAI_TEXT_MODEL,
+      input: [
+        { role: "system", content: "You are an expert creative QA reviewer for paid social ads." },
+        {
+          role: "user",
+          content,
+        },
+      ],
+      text: {
+        format: {
+          type: "json_schema",
+          name: "creative_qa",
+          strict: true,
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              status: { type: "string", enum: ["ready", "warning", "review"] },
+              checklist: {
+                type: "object",
+                additionalProperties: false,
+                properties: Object.fromEntries(
+                  checklistKeys.map((key) => [key, checklistItemSchema])
+                ),
+                required: checklistKeys,
+              },
+              issues: { type: "array", items: { type: "string" }, maxItems: 3 },
+              suggestions: { type: "array", items: { type: "string" }, maxItems: 3 },
+            },
+            required: ["status", "checklist", "issues", "suggestions"],
+          },
+        },
       },
-    ],
-    text: { format: { type: "json_object" } },
-  });
+    },
+    { timeout: 180_000, maxRetries: 0 }
+  );
 
   const raw = extractOutputText(response);
   if (!raw) throw new Error("Empty vision response for creative QA");

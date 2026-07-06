@@ -1,0 +1,101 @@
+{
+  "generatedAt": "2026-07-06T12:45:16.707Z",
+  "results": [
+    {
+      "id": "pair-09",
+      "qa": {
+        "status": "review",
+        "checklist": {
+          "legibility": {
+            "status": "warning",
+            "note": "Textos pequenos e de apoio têm contraste e tamanho reduzidos: a linha 'Corpo docente referência, com experiência acadêmica...' (embaixo do subtítulo) e os créditos nas fitas marrons sob cada retrato ('Psiquiatra, Pós-Doutora pela USP') podem ficar ilegíveis em visualização reduzida."
+          },
+          "ctaOffer": {
+            "status": "passed",
+            "note": "CTA presente ('VER OFERTAS') não inventa preço/condição e não altera uma reivindicação; ação corresponde a explorar opções/ofertas (campanha não definiu CTA exato)."
+          },
+          "informationPreservation": {
+            "status": "passed",
+            "note": "Conteúdo informativo do FACTUAL BASE está preservado: manchete, subtítulo, três bullets de benefício, nomes e credenciais dos professores e rostos estão visíveis e sem cortes significativos."
+          },
+          "briefMatch": {
+            "status": "warning",
+            "note": "Inserção do selo 'MATRÍCULAS ABERTAS' no canto superior direito não consta no FACTUAL BASE — adiciona um elemento textual visível que não estava no pixel-base; se a regra do projeto proíbe adicionar conteúdo visível, isso é discrepância."
+          },
+          "formatFit": {
+            "status": "passed",
+            "note": "Formato 1:1 respeitado; composição centralizada e margens adequadas para uso em social square."
+          },
+          "creativeRisk": {
+            "status": "warning",
+            "note": "Concorrência de atenção: manchete gigante (esquerda), selo 'MATRÍCULAS ABERTAS' (topo direito), três ícones-benefício (direita) e três retratos (base) competem pela leitura — risco de fragmentação da mensagem. A fita escura com nomes abaixo dos retratos e o botão de CTA (canto inferior direito) também competem visualmente."
+          },
+          "styleFidelity": {
+            "status": "passed",
+            "note": "Restyling parece derivar do FACTUAL BASE (mesmos textos e composição geral). Não há evidência clara de cópia direta de claims, logotipos ou layout do STYLE REFERENCE que substitua o conteúdo base."
+          }
+        },
+        "issues": [
+          "Texto de apoio 'Corpo docente referência, com experiência acadêmica e prática clínica.' (inferior esquerdo) com 'referência' em verde tem contraste baixo contra o fundo escuro — legibilidade reduzida em thumb.",
+          "Credenciais dos professores nas fitas marrons (ex.: 'Psiquiatra, Pós-Doutora pela USP') estão pequenas e com pouco contraste — risco de não leitura em mobile.",
+          "Selo 'MATRÍCULAS ABERTAS' (canto superior direito) não existe no FACTUAL BASE — elemento visível adicionado ao output que pode violar restrição de não inserir texto novo do briefing diretamente na arte-base sem aprovação explícita (ver briefMatch)."
+        ],
+        "suggestions": [
+          "Aumentar tamanho e contraste dos textos secundários: credenciais nas fitas marrons e a linha 'Corpo docente...' (usar branco ou tom mais claro e +1 a +2px na fonte para mobile).",
+          "Reduzir destaque ou reposicionar o selo 'MATRÍCULAS ABERTAS' (por exemplo, integrar ao rodapé junto ao CTA) ou remover se não estava no arte-base, para evitar adicionar elemento visual não autorizado.",
+          "Simplificar hierarquia visual: reduzir o peso da manchete em 1 nível ou diminuir o brilho/destaque do selo para que os benefícios (ícones + texto) e o CTA tenham leitura mais clara e sequenciada."
+        ]
+      },
+      "qualityVerdict": "improvable",
+      "hardFailures": []
+    },
+    {
+      "id": "pair-10",
+      "qa": {
+        "status": "review",
+        "checklist": {
+          "legibility": {
+            "status": "warning",
+            "note": "Título principal 'MATRÍCULAS ABERTAS' (topo-centro) é muito legível; porém o texto secundário na coluna direita ('EXCELÊNCIA E CONFIANÇA', 'FLEXIBILIDADE', 'INVESTIMENTO QUE VALE A PENA') e as legendas dos docentes no rodapé usam corpo pequeno (área direita média e faixa inferior) que pode perder legibilidade em visualização feed/thumbnail."
+          },
+          "ctaOffer": {
+            "status": "passed",
+            "note": "CTA visível 'VER OFERTAS' (botão verde, canto inferior esquerdo) mantém intenção de convite à ação; não inventa preço ou condição. Atenção: CTA difere do texto da base ('Ver lista completa')."
+          },
+          "informationPreservation": {
+            "status": "failed",
+            "note": "Copiаs importantes do FACTUAL BASE foram alteradas/substituídas: o hook/headline original 'OS MELHORES PROFESSORES' (topo-esquerda no FACTUAL BASE) foi removido e substituído por 'MATRÍCULAS ABERTAS' no OUTPUT (topo-centro). O CTA da base 'Ver lista completa' também foi alterado para 'VER OFERTAS' (botão inferior esquerdo). Essas são mudanças de conteúdo informativo (não apenas de estilo)."
+          },
+          "briefMatch": {
+            "status": "failed",
+            "note": "Em modo restyling o OUTPUT modificou texto-factual do FACTUAL BASE sem evidência visual no base: substituição do título 'OS MELHORES PROFESSORES / FORMANDO OS MELHORES ESPECIALISTAS' por 'MATRÍCULAS ABERTAS / CURSO DE CAPACITAÇÃO DOCENTE' (topo). Isso altera a mensagem central que estava presente no base."
+          },
+          "formatFit": {
+            "status": "passed",
+            "note": "Composição adaptada ao formato 4:5 (layout vertical com três retratos na linha inferior e coluna de benefícios à direita). Margens e cortes aparentes respeitam o formato sem elementos críticos cortados."
+          },
+          "creativeRisk": {
+            "status": "warning",
+            "note": "Risco criativo: hierarquia conflitante — grande manchete 'MATRÍCULAS ABERTAS' (topo) compete com os três retratos em destaque (faixa inferior) e com o botão CTA grande (inferior esquerdo). Ex.: três retratos com moldura dourada e rótulos (rodapé) atraem atenção equivalente ao título, reduzindo foco no invite. Recomendo reduzir escala dos retratos ou elevar espaço negativo ao redor do título e aumentar contraste/size do subtítulo para restaurar fluxo visual."
+          },
+          "styleFidelity": {
+            "status": "warning",
+            "note": "Restyling com sinais de contaminação do STYLE REFERENCE: ícone de coroa no topo-centro (acima do título) não existe no FACTUAL BASE e lembra elemento gráfico do style reference; há também mudança de tom e tratamento tipográfico do título. Não há evidência de cópia textual direta do style reference, mas a presença de elementos novos sugere mistura de referências."
+          }
+        },
+        "issues": [
+          "Alteração não-autorizada do hook/headline: FACTUAL BASE topo-esquerda 'OS MELHORES PROFESSORES / FORMANDO OS MELHORES ESPECIALISTAS' foi substituído por 'MATRÍCULAS ABERTAS / CURSO DE CAPACITAÇÃO DOCENTE' no OUTPUT (topo-centro).",
+          "CTA alterado: FACTUAL BASE usava 'Ver lista completa' (botão verde, coluna direita). OUTPUT exibe 'VER OFERTAS' (botão verde, canto inferior esquerdo) — mudança de copy e posição.",
+          "Legendas e corpo na coluna direita ('EXCELÊNCIA E CONFIANÇA', 'FLEXIBILIDADE', 'INVESTIMENTO...') e as legendas dos docentes na faixa inferior estão em corpo pequeno; risco de ilegibilidade em miniaturas (área direita média e faixa inferior). Citar: blocos de benefício alinhados verticalmente no quadrante direito, textos em branco/ouro de pequeno porte sobre fundo escuro/gradiente dourado-verde.  \n\n(Observação técnica: elementos textuais estão presentes mas tamanho/contraste podem não garantir leitura rápida.)\n\nNota: nomes dos docentes e títulos (‘Dra. Alessandra Diehl’, ‘Dr. Sergio Rachman’, ‘Dra. Maristela Schaufelbergner’) estão visíveis na faixa inferior; certifique-se de conformidade com privacidade/consentimento se necessário.)"
+        ],
+        "suggestions": [
+          "Restaurar a cópia principal do FACTUAL BASE ou confirmar por escrito a troca: se a intenção é promover 'Matrículas abertas', centralizar essa instrução sem apagar o contexto dos docentes; caso contrário, reverter para o headline original.",
+          "Unificar/confirmar CTA: alinhar o texto do botão com a proposta real (ex.: 'Ver lista completa' vs 'Ver ofertas') e manter posição consistente com a base para evitar confusão.",
+          "Aumentar o peso/contraste do corpo na coluna direita e das legendas dos docentes (incrementar tamanho em ~10–15% ou aumentar contraste do texto sobre o fundo) para melhorar legibilidade em thumbnail/feed mobile; teste em 1:1 e 4:5 em escala reduzida (≤200 px de largura) antes de aprovar exportação final.)"
+        ]
+      },
+      "qualityVerdict": "improvable",
+      "hardFailures": []
+    }
+  ]
+}

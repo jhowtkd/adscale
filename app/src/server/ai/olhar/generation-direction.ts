@@ -80,21 +80,38 @@ function buildVariationRangeLines(
   mode: GenerationDirectionInput["generationMode"],
   creativeLevel?: string | null
 ): string[] {
+  const level = creativeLevel ?? "balanced";
   if (mode === "format_adaptation") {
+    const guides: Record<string, string> = {
+      conservative: "Only the changes required for a native target-format composition; keep source hierarchy recognizable.",
+      balanced: "Reorganize modules and zones for the target format while keeping source hierarchy recognizable.",
+      bold: "Recompose hierarchy, scale, grouping, and reading path aggressively for the target format.",
+      extreme: "Build a new spatial system and reading rhythm while preserving narrative, facts, identity, and palette.",
+    };
     return [
+      `Creative level: ${level}`,
+      guides[level] ?? guides.balanced,
       "Native layout rebuild for the target format — same campaign, same copy, new frame.",
       "Composition, scale, grouping, and safe margins may change; narrative and offer may not.",
     ];
   }
 
   if (mode === "restyling") {
+    const guides: Record<string, string> = {
+      conservative: "Subtle treatment; keep the factual base structure clearly recognizable.",
+      balanced: "Make the style language evident while keeping the factual base composition recognizable.",
+      bold: "Strongly transform rhythm, typography, texture, lighting, and abstract compositional logic.",
+      extreme: "Maximum abstract style transfer without changing base facts, entities, palette, or campaign identity.",
+    };
     return [
-      "Visual language only: color, typography rhythm, composition mood from the style reference.",
+      `Creative level: ${level}`,
+      guides[level] ?? guides.balanced,
+      "Visual language only: typography rhythm, texture, lighting, and compositional mood from the style reference.",
+      "Remap chromatic treatment into the factual base palette family.",
       "Factual content locked to the base image — no claims, brands, or CTA from the style reference.",
     ];
   }
 
-  const level = creativeLevel ?? "balanced";
   const guides: Record<string, string> = {
     conservative:
       "Minimal structural change — same visual universe; layout and disposition tweaks only.",
@@ -103,7 +120,7 @@ function buildVariationRangeLines(
     bold:
       "Dramatic background and hierarchy shift while preserving core brand assets and mandatory copy.",
     extreme:
-      "Fresh environment and reading while preserving product, offer, CTA, and brand constraints.",
+      "New compositional mechanism and reading path while preserving campaign, facts, entities, and palette.",
   };
 
   return [

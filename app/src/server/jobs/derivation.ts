@@ -128,6 +128,36 @@ function resolveRestylingStyleAsset(
   return assets.find(isUsableStyleAsset) ?? null;
 }
 
+async function loadRestylingQaReferences(
+  campaignId: string,
+  workspaceId: string,
+  contract: CreativeContract
+) {
+  if (contract.generationMode !== "restyling") return {};
+
+  const assets = await getAssetsByCampaign(campaignId, workspaceId);
+  const baseAsset = contract.baseAssetId
+    ? assets.find((asset) => asset.id === contract.baseAssetId) ?? null
+    : resolveRestylingBaseAsset(assets);
+  const styleAsset = resolveRestylingStyleAsset(
+    assets,
+    contract.styleAssetId,
+    baseAsset?.id ?? null
+  );
+  if (!baseAsset || !styleAsset) return {};
+
+  const [baseImageBuffer, styleImageBuffer] = await Promise.all([
+    objectStorage.get(baseAsset.key),
+    objectStorage.get(styleAsset.key),
+  ]);
+  return {
+    baseImageBuffer,
+    baseMimeType: baseAsset.type ?? "image/png",
+    styleImageBuffer,
+    styleMimeType: styleAsset.type ?? "image/png",
+  };
+}
+
 // Moved to ai/derivation-pipeline.ts (PR3, arch/refactor-2026-q3): pure image
 // post-processing shared by the initial generation path and the auto-retry
 // path. Re-exported here so existing importers of jobs/derivation.ts keep
@@ -1028,6 +1058,11 @@ export const derivationJob = inngest.createFunction(
       logger.info(`[quality-gate] derivationId=${derivationId} outputKey=${generated.outputKey}`);
       try {
         const gateBuffer = await objectStorage.get(generated.outputKey);
+        const qaReferences = await loadRestylingQaReferences(
+          campaignId,
+          workspaceId,
+          generated.resolvedContract
+        );
         await runCompletedDerivationQualityGate({
           derivationId,
           workspaceId,
@@ -1050,6 +1085,7 @@ export const derivationJob = inngest.createFunction(
             generationMode: generated.effectiveGenerationMode,
           },
           contract: generated.resolvedContract,
+          ...qaReferences,
         });
         logger.info(`[quality-gate] done derivationId=${derivationId}`);
       } catch (error) {
@@ -1262,6 +1298,11 @@ export const derivationJob = inngest.createFunction(
       await step.run("quality-gate-after-retry", async () => {
         try {
           const gateBuffer = await objectStorage.get(retried.outputKey);
+          const qaReferences = await loadRestylingQaReferences(
+            campaignId,
+            workspaceId,
+            generated.resolvedContract
+          );
           await runCompletedDerivationQualityGate({
             derivationId,
             workspaceId,
@@ -1284,6 +1325,7 @@ export const derivationJob = inngest.createFunction(
               generationMode: generated.effectiveGenerationMode,
             },
             contract: generated.resolvedContract,
+            ...qaReferences,
           });
         } catch (error) {
           logger.warn(`[quality-gate-after-retry] failed derivationId=${derivationId}`, error);
