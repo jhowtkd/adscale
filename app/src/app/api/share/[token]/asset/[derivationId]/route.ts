@@ -2,8 +2,20 @@ import { NextResponse } from "next/server";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { checkRateLimit } from "@/lib/with-rate-limit";
 import { validateShareToken } from "@/lib/share-token";
+import { isDerivationPackageEligibleByVerdict } from "@/server/ai/client-approval-package";
 import { getDerivationById } from "@/server/repositories/derivation";
 import { objectStorage } from "@/server/storage";
+
+function isShareableDerivation(
+  derivation: NonNullable<Awaited<ReturnType<typeof getDerivationById>>>
+) {
+  return (
+    derivation.status === "approved" &&
+    !derivation.isPreview &&
+    Boolean(derivation.outputKey) &&
+    isDerivationPackageEligibleByVerdict(derivation)
+  );
+}
 
 export async function GET(
   _request: Request,
@@ -28,7 +40,11 @@ export async function GET(
       link.workspaceId
     );
 
-    if (!derivation?.outputKey) {
+    if (
+      !derivation ||
+      derivation.campaignId !== link.campaignId ||
+      !isShareableDerivation(derivation)
+    ) {
       return apiError("derivationNotFound", 404);
     }
 

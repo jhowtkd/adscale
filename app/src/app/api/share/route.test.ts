@@ -32,13 +32,41 @@ vi.mock("@/lib/share-token", () => ({
   revokeShareToken: vi.fn(() => Promise.resolve(1)),
 }));
 
+vi.mock("@/server/repositories/campaign", () => ({
+  getCampaignById: vi.fn(),
+}));
+
+vi.mock("@/server/repositories/derivation", () => ({
+  getDerivationsByCampaign: vi.fn(),
+}));
+
 vi.mock("@/server/beta-analytics/record", () => ({
   recordBetaAnalyticsEvent: vi.fn(() => Promise.resolve({ id: "event-1" })),
 }));
 
+import { createShareToken } from "@/lib/share-token";
+import { getCampaignById } from "@/server/repositories/campaign";
+import { getDerivationsByCampaign } from "@/server/repositories/derivation";
 import { recordBetaAnalyticsEvent } from "@/server/beta-analytics/record";
 
+const mockCreateShareToken = vi.mocked(createShareToken);
+const mockGetCampaignById = vi.mocked(getCampaignById);
+const mockGetDerivationsByCampaign = vi.mocked(getDerivationsByCampaign);
 const mockRecordBetaAnalyticsEvent = vi.mocked(recordBetaAnalyticsEvent);
+
+const approvedDerivation = {
+  id: DERIVATION_ID,
+  parentId: null,
+  status: "approved",
+  outputKey: "out/root-1.png",
+  format: "1:1",
+  generationMode: "art_variation",
+  variantIndex: 0,
+  ctaText: "Shop now",
+  isPreview: false,
+  olharVerdict: null,
+  exportStatus: null,
+};
 
 async function flushAnalytics() {
   await new Promise((resolve) => setImmediate(resolve));
@@ -55,6 +83,31 @@ function postRequest(body: unknown, headers: Record<string, string> = {}) {
 describe("POST /api/share", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetCampaignById.mockResolvedValue({
+      id: CAMPAIGN_ID,
+    } as Awaited<ReturnType<typeof getCampaignById>>);
+    mockGetDerivationsByCampaign.mockResolvedValue([
+      approvedDerivation,
+    ] as Awaited<ReturnType<typeof getDerivationsByCampaign>>);
+  });
+
+  it("rejects unapproved derivations", async () => {
+    mockGetDerivationsByCampaign.mockResolvedValue([
+      {
+        ...approvedDerivation,
+        status: "completed",
+      },
+    ] as Awaited<ReturnType<typeof getDerivationsByCampaign>>);
+
+    const res = await POST(
+      postRequest({
+        campaignId: CAMPAIGN_ID,
+        derivationIds: [DERIVATION_ID],
+      })
+    );
+
+    expect(res.status).toBe(409);
+    expect(mockCreateShareToken).not.toHaveBeenCalled();
   });
 
   it("emits mission_completed with missionKey share on success", async () => {
@@ -67,6 +120,11 @@ describe("POST /api/share", () => {
     await flushAnalytics();
 
     expect(res.status).toBe(200);
+    expect(mockCreateShareToken).toHaveBeenCalledWith(
+      CAMPAIGN_ID,
+      "workspace-1",
+      [DERIVATION_ID]
+    );
     expect(mockRecordBetaAnalyticsEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         eventKey: "mission_completed",
