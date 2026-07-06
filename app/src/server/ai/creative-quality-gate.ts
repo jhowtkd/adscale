@@ -15,14 +15,8 @@ import {
   CAMPAIGN_IDENTITY_DRIFT_PATTERN,
   CAMPAIGN_IDENTITY_SAFE_PATTERN,
   CROPPED_CONTENT_PATTERN,
-  CTA_DRIFT_NOTE_PATTERN,
-  DECORATIVE_ONLY_PATTERN,
-  GENERIC_TEMPLATE_NOTE_MARKERS,
-  ILLEGIBILITY_PATTERN,
   INVENTED_ENTITY_PATTERN,
   INVALID_FORMAT_LAYOUT_PATTERN,
-  MISSING_DOMINANT_IDEA_MARKERS,
-  OVERLOAD_NOTE_MARKERS,
   REPLACED_SOURCE_SUBJECT_PATTERN,
   STYLE_REFERENCE_CONTAMINATION_PATTERN,
   UNAUTHORIZED_BRAND_PATTERN,
@@ -50,6 +44,12 @@ import {
   type OlharVerdictPayload,
 } from "./olhar/dual-verdict";
 
+/**
+ * Full historical code union. Only OBJECTIVE codes are still emitted by the
+ * gate as hard failures; the advisory codes remain in the union for stored
+ * rows, retry policy, and UI compatibility, but classification now routes
+ * their findings to polishSuggestions.
+ */
 export type CreativeHardFailureCode =
   | "cta_drift"
   | "wrong_brand"
@@ -84,6 +84,19 @@ const CREATIVE_HARD_FAILURE_CODES = new Set<CreativeHardFailureCode>([
   "decorative_only_variation",
   "cropped_critical_content",
   "unreadable_required_text",
+  "invalid_format_layout",
+]);
+
+/** Objective integrity defects — the only codes the gate still blocks on. */
+export const OBJECTIVE_HARD_FAILURE_CODES = new Set<CreativeHardFailureCode>([
+  "wrong_brand",
+  "unsupported_offer",
+  "invented_factual_entity",
+  "copied_style_reference_facts",
+  "style_reference_contamination",
+  "replaced_source_subject",
+  "unauthorized_brand_or_ip",
+  "cropped_critical_content",
   "invalid_format_layout",
 ]);
 
@@ -129,14 +142,6 @@ export interface ClassifyCreativeQualityGateResult {
 
 const IMPROVABLE_SCORE_THRESHOLD = 70;
 
-function hasExplicitCta(contract: CreativeContract): boolean {
-  return contract.ctaSemantics.kind === "explicit";
-}
-
-function hasInheritedCta(contract: CreativeContract): boolean {
-  return contract.ctaSemantics.kind === "inherited";
-}
-
 function noteMatches(pattern: RegExp, note: string): boolean {
   return pattern.test(note);
 }
@@ -169,7 +174,7 @@ function pushHardFailure(
 
 function classifyBriefMatchFailed(
   hardFailures: CreativeHardFailure[],
-  contract: CreativeContract,
+  polishSuggestions: string[],
   note: string
 ): void {
   if (noteMatches(UNAUTHORIZED_BRAND_PATTERN, note)) {
@@ -183,17 +188,6 @@ function classifyBriefMatchFailed(
   if (noteMatches(REPLACED_SOURCE_SUBJECT_PATTERN, note)) {
     pushHardFailure(hardFailures, {
       code: "replaced_source_subject",
-      message: note,
-      criterion: "briefMatch",
-    });
-    return;
-  }
-  if (
-    contract.generationMode === "format_adaptation" &&
-    hasCampaignIdentityDrift(note)
-  ) {
-    pushHardFailure(hardFailures, {
-      code: "campaign_identity_drift",
       message: note,
       criterion: "briefMatch",
     });
@@ -221,12 +215,14 @@ function classifyBriefMatchFailed(
       message: note,
       criterion: "briefMatch",
     });
+    return;
   }
+  pushUnique(polishSuggestions, note);
 }
 
 function classifyCtaOfferFailed(
   hardFailures: CreativeHardFailure[],
-  contract: CreativeContract,
+  polishSuggestions: string[],
   note: string
 ): void {
   if (noteMatches(UNSUPPORTED_OFFER_PATTERN, note)) {
@@ -237,27 +233,21 @@ function classifyCtaOfferFailed(
     });
     return;
   }
-  if (hasExplicitCta(contract)) {
+  if (noteMatches(INVENTED_ENTITY_PATTERN, note)) {
     pushHardFailure(hardFailures, {
-      code: "cta_drift",
+      code: "invented_factual_entity",
       message: note,
       criterion: "ctaOffer",
     });
     return;
   }
-  if (hasInheritedCta(contract) && noteMatches(CTA_DRIFT_NOTE_PATTERN, note)) {
-    pushHardFailure(hardFailures, {
-      code: "cta_drift",
-      message: note,
-      criterion: "ctaOffer",
-    });
-  }
+  // CTA absence, paraphrase, and prominence issues are art-direction advice.
+  pushUnique(polishSuggestions, note);
 }
 
 function classifyCreativeRiskFailed(
   hardFailures: CreativeHardFailure[],
   polishSuggestions: string[],
-  contract: CreativeContract,
   note: string
 ): void {
   if (noteMatches(UNSUPPORTED_OFFER_PATTERN, note)) {
@@ -276,41 +266,6 @@ function classifyCreativeRiskFailed(
     });
     return;
   }
-  if (noteMatches(OVERLOAD_NOTE_MARKERS, note)) {
-    pushHardFailure(hardFailures, {
-      code: "visual_overload",
-      message: note,
-      criterion: "creativeRisk",
-    });
-    return;
-  }
-  if (noteMatches(GENERIC_TEMPLATE_NOTE_MARKERS, note)) {
-    pushHardFailure(hardFailures, {
-      code: "generic_template_aesthetic",
-      message: note,
-      criterion: "creativeRisk",
-    });
-    return;
-  }
-  if (noteMatches(MISSING_DOMINANT_IDEA_MARKERS, note)) {
-    pushHardFailure(hardFailures, {
-      code: "missing_dominant_idea",
-      message: note,
-      criterion: "creativeRisk",
-    });
-    return;
-  }
-  if (
-    contract.generationMode === "art_variation" &&
-    noteMatches(DECORATIVE_ONLY_PATTERN, note)
-  ) {
-    pushHardFailure(hardFailures, {
-      code: "decorative_only_variation",
-      message: note,
-      criterion: "creativeRisk",
-    });
-    return;
-  }
   if (noteMatches(STYLE_REFERENCE_CONTAMINATION_PATTERN, note)) {
     pushHardFailure(hardFailures, {
       code: "style_reference_contamination",
@@ -319,6 +274,8 @@ function classifyCreativeRiskFailed(
     });
     return;
   }
+  // Overload, generic template feel, missing dominant idea, and
+  // decorative-only variation are ranking advice, not validity failures.
   pushUnique(polishSuggestions, note);
 }
 
@@ -351,14 +308,6 @@ function classifyScoreIssue(
     });
     return true;
   }
-  if (noteMatches(CTA_DRIFT_NOTE_PATTERN, issue)) {
-    pushHardFailure(hardFailures, {
-      code: "cta_drift",
-      message: issue,
-      criterion: "ctaOffer",
-    });
-    return true;
-  }
   if (noteMatches(REPLACED_SOURCE_SUBJECT_PATTERN, issue)) {
     pushHardFailure(hardFailures, {
       code: "replaced_source_subject",
@@ -375,59 +324,9 @@ function classifyScoreIssue(
     });
     return true;
   }
-  if (noteMatches(ILLEGIBILITY_PATTERN, issue)) {
-    pushHardFailure(hardFailures, {
-      code: "unreadable_required_text",
-      message: issue,
-      criterion: "legibility",
-    });
-    return true;
-  }
-  if (noteMatches(OVERLOAD_NOTE_MARKERS, issue)) {
-    pushHardFailure(hardFailures, {
-      code: "visual_overload",
-      message: issue,
-      criterion: "creativeRisk",
-    });
-    return true;
-  }
-  if (noteMatches(GENERIC_TEMPLATE_NOTE_MARKERS, issue)) {
-    pushHardFailure(hardFailures, {
-      code: "generic_template_aesthetic",
-      message: issue,
-      criterion: "creativeRisk",
-    });
-    return true;
-  }
-  if (noteMatches(MISSING_DOMINANT_IDEA_MARKERS, issue)) {
-    pushHardFailure(hardFailures, {
-      code: "missing_dominant_idea",
-      message: issue,
-      criterion: "creativeRisk",
-    });
-    return true;
-  }
-  if (
-    contract.generationMode === "art_variation" &&
-    noteMatches(DECORATIVE_ONLY_PATTERN, issue)
-  ) {
-    pushHardFailure(hardFailures, {
-      code: "decorative_only_variation",
-      message: issue,
-      criterion: "creativeRisk",
-    });
-    return true;
-  }
-  if (contract.generationMode === "format_adaptation" && hasCampaignIdentityDrift(issue)) {
-    pushHardFailure(hardFailures, {
-      code: "campaign_identity_drift",
-      message: issue,
-      criterion: "formatFit",
-    });
-    return true;
-  }
   if (
     contract.generationMode === "format_adaptation" &&
+    !hasCampaignIdentityDrift(issue) &&
     noteMatches(INVALID_FORMAT_LAYOUT_PATTERN, issue)
   ) {
     pushHardFailure(hardFailures, {
@@ -498,11 +397,8 @@ export function classifyCreativeQualityGate(
   const polishSuggestions: string[] = [];
 
   if (checklist.legibility.status === "failed") {
-    pushHardFailure(hardFailures, {
-      code: "unreadable_required_text",
-      message: checklist.legibility.note,
-      criterion: "legibility",
-    });
+    // Legibility is contextual art-direction advice, not a validity failure.
+    pushUnique(polishSuggestions, checklist.legibility.note);
   }
 
   if (checklist.informationPreservation.status === "failed") {
@@ -531,39 +427,34 @@ export function classifyCreativeQualityGate(
   }
 
   if (checklist.formatFit.status === "failed") {
-    if (contract.generationMode === "format_adaptation") {
-      const note = checklist.formatFit.note;
-      if (hasCampaignIdentityDrift(note)) {
-        pushHardFailure(hardFailures, {
-          code: "campaign_identity_drift",
-          message: note,
-          criterion: "formatFit",
-        });
-      } else {
-        pushHardFailure(hardFailures, {
-          code: "invalid_format_layout",
-          message: note,
-          criterion: "formatFit",
-        });
-      }
+    const note = checklist.formatFit.note;
+    if (
+      contract.generationMode === "format_adaptation" &&
+      !hasCampaignIdentityDrift(note)
+    ) {
+      pushHardFailure(hardFailures, {
+        code: "invalid_format_layout",
+        message: note,
+        criterion: "formatFit",
+      });
     } else {
-      pushUnique(polishSuggestions, checklist.formatFit.note);
+      // Campaign-identity drift and non-adaptation format issues are advisory.
+      pushUnique(polishSuggestions, note);
     }
   }
 
   if (checklist.ctaOffer.status === "failed") {
-    classifyCtaOfferFailed(hardFailures, contract, checklist.ctaOffer.note);
+    classifyCtaOfferFailed(hardFailures, polishSuggestions, checklist.ctaOffer.note);
   }
 
   if (checklist.briefMatch.status === "failed") {
-    classifyBriefMatchFailed(hardFailures, contract, checklist.briefMatch.note);
+    classifyBriefMatchFailed(hardFailures, polishSuggestions, checklist.briefMatch.note);
   }
 
   if (checklist.creativeRisk.status === "failed") {
     classifyCreativeRiskFailed(
       hardFailures,
       polishSuggestions,
-      contract,
       checklist.creativeRisk.note
     );
   }
@@ -583,7 +474,7 @@ export function classifyCreativeQualityGate(
   return { hardFailures, polishSuggestions };
 }
 
-function checklistHasWarning(checklist: CreativeQaChecklistWithStyle): boolean {
+function checklistHasAdvisorySignal(checklist: CreativeQaChecklistWithStyle): boolean {
   const criteria: (keyof CreativeQaChecklistWithStyle)[] = [
     "legibility",
     "ctaOffer",
@@ -593,7 +484,12 @@ function checklistHasWarning(checklist: CreativeQaChecklistWithStyle): boolean {
     "creativeRisk",
     "styleFidelity",
   ];
-  return criteria.some((criterion) => checklist[criterion]?.status === "warning");
+  // Failed criteria that did not map to an objective hard failure are
+  // demoted to advice — they should still keep the verdict at "improvable".
+  return criteria.some((criterion) => {
+    const status = checklist[criterion]?.status;
+    return status === "warning" || status === "failed";
+  });
 }
 
 export type DerivationApprovableResult =
@@ -707,7 +603,10 @@ export function deriveQualityVerdict(input: {
     return "invalid";
   }
 
-  if (input.qualityScore < IMPROVABLE_SCORE_THRESHOLD || checklistHasWarning(input.checklist)) {
+  if (
+    input.qualityScore < IMPROVABLE_SCORE_THRESHOLD ||
+    checklistHasAdvisorySignal(input.checklist)
+  ) {
     return "improvable";
   }
 

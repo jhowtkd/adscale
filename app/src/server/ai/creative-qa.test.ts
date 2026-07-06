@@ -84,12 +84,60 @@ describe("buildCreativeQaPrompt", () => {
     expect(prompt).toContain("4:5");
     expect(prompt).toContain("Passagem Olhar");
     expect(prompt).toContain("Exportacao");
-    expect(prompt).toMatch(/Do NOT treat CTA drift, brand mismatch/i);
+    expect(prompt).toMatch(/invented facts, wrong brand, unsupported offers/i);
     expect(prompt).toContain("Return only JSON");
     expect(prompt).toContain("informationPreservation");
     expect(prompt).toContain("cropped, hidden, truncated, blurred, overlapped, deleted");
     expect(prompt).toMatch(/Checklist keys: legibility, ctaOffer, informationPreservation, briefMatch, formatFit, creativeRisk/);
     expect(prompt).toContain("Allowed status values: ready, warning, review.");
+  });
+});
+
+describe("QA compliance boundary wording", () => {
+  const promptInput = {
+    campaign: {
+      name: "Launch",
+      client: "Acme",
+      product: "Serum",
+      offer: "20% off",
+      objective: "Conversions",
+      audience: "New buyers",
+      tone: "Premium",
+    },
+    derivation: {
+      ctaText: "Shop now",
+      format: "4:5",
+      generationMode: "art_variation",
+    },
+    locale: "en",
+  };
+
+  it("allows CTA absence and paraphrase", () => {
+    const prompt = buildCreativeQaPrompt(promptInput);
+    expect(prompt).toMatch(/CTA absence and paraphrase are allowed/i);
+    expect(prompt).toMatch(/preserves? the (?:same )?action intent/i);
+  });
+
+  it("does not demand character-for-character CTA fidelity", () => {
+    const prompt = buildCreativeQaPrompt(promptInput);
+    expect(prompt).not.toMatch(/character-for-character/i);
+    expect(prompt).not.toMatch(/Flag ctaOffer as failed on any substitution, paraphrase/i);
+  });
+
+  it("reserves failed compliance for objective defects", () => {
+    const prompt = buildCreativeQaPrompt(promptInput);
+    expect(prompt).toMatch(/invented or incorrect facts/i);
+    expect(prompt).toMatch(/unusable .*format|format .*unusable/i);
+    expect(prompt).toMatch(/corruption/i);
+    expect(prompt).toMatch(/cropping/i);
+  });
+
+  it("routes art-direction observations to creativeRisk as ranking advice", () => {
+    const prompt = buildCreativeQaPrompt(promptInput);
+    expect(prompt).toMatch(/creativeRisk.*(?:ranking|advice|advisory)/i);
+    expect(prompt).not.toMatch(
+      /failed.*(?:on checklist criteria when observable defects are present.*)?especially visual overload/is
+    );
   });
 });
 
@@ -135,14 +183,13 @@ describe("observable rubric in QA prompt", () => {
     expect(prompt).toMatch(/failed.*checklist|checklist.*failed/i);
   });
 
-  it("includes observable rubric sections (RUBR-01–04)", () => {
+  it("includes advisory observable rubric sections", () => {
     const prompt = buildCreativeQaPrompt(baseInput);
     const section = extractObservableRubricSection(prompt);
     expect(section.length).toBeGreaterThan(0);
     expect(section).toMatch(/OBSERVABLE DEFECT NOTES/i);
-    expect(section).toMatch(/VISUAL OVERLOAD/i);
-    expect(section).toMatch(/GENERIC TEMPLATE/i);
-    expect(section).toMatch(/THUMBNAIL/i);
+    expect(section).toMatch(/ART DIRECTION \(ranking guidance\)/);
+    expect(section).not.toMatch(/Mark failed/i);
   });
 
   it("preserves checklist keys and JSON return instruction after rubric injection", () => {

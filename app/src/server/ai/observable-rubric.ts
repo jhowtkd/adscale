@@ -1,5 +1,3 @@
-import { getTargetDimensions } from "@/lib/formats";
-
 export const FORBIDDEN_APPROVAL_TERMS = [
   "polished",
   "professional",
@@ -11,31 +9,14 @@ export const FORBIDDEN_APPROVAL_TERMS = [
 export const OBSERVABLE_DEFECT_NOTE_RULE = `OBSERVABLE DEFECT NOTES (required for every failed/warning criterion):
 - Cite VISIBLE evidence: named zones (hook headline, offer card, invite/call-to-action text), exact text snippets, colors, positions (top-left badge row), or counts (four equal-weight information groups).
 - Do NOT approve or excuse with vague praise alone: ${FORBIDDEN_APPROVAL_TERMS.map((t) => `"${t}"`).join(", ")} without citing what is wrong.
-- A high-production look does NOT override hierarchy overload, missing dominant idea, or illegible hook at thumbnail scale.
 - BAD: "Generic visual." / "Looks polished and professional."
 - GOOD: "Four equal-weight glass information groups in center grid compete with headline; neon cyan glow on invite pill." / "NR1 competing equal-weight groups dominate frame and crowd headline, invite, and badge."`;
 
-export const VISUAL_OVERLOAD_RUBRIC = `VISUAL OVERLOAD (fail creativeRisk or briefMatch when ANY apply):
-- No single dominant focal point — hook/headline does not clearly win attention.
-- More than three information zones compete at similar visual weight (e.g. competing equal-weight groups + badge row + secondary invite + icon strip).
-- Multiple competing invites or pill-like treatments fight the primary hook for attention.
-- Mark failed and name the competing zones/modules observed.`;
-
-export const GENERIC_TEMPLATE_RUBRIC = `GENERIC TEMPLATE AESTHETIC (fail creativeRisk when severe AND unjustified):
-- Severe AI-template signals: neon glow stacks, holographic grids, glassmorphism cards, excessive lens flares, volumetric CTA pills, "premium tech" gradient stacks.
-- Fail when these tropes dominate AND are not justified by the campaign brief, brand kit, or source creative.
-- Pass only if tropes are faithful to an existing brand system — state which brand element justifies them.`;
-
-export const CRITERION_MAPPING_HEADER = `CRITERION MAPPING (use existing checklist keys only):
-- visual overload → creativeRisk (primary), briefMatch (secondary when zones obscure campaign message)
-- generic template aesthetic → creativeRisk
-- hook illegible at thumbnail/preview scale → legibility (primary), creativeRisk (secondary)
-- observable defect note quality → applies to all criteria`;
-
-const SCORE_VISUAL_QUALITY_CAPS = `SCORE VISUAL QUALITY CAPS:
-- visualQuality: penalize below 50 for severe generic template aesthetic or visual overload regardless of polish.
-- Do NOT score visualQuality above 70 when hook is illegible at thumbnail scale.
-- scoreIssues must cite visible elements (same OBSERVABLE DEFECT NOTE RULE).`;
+export const ART_DIRECTION_RUBRIC = `ART DIRECTION (ranking guidance):
+- Judge composition, typography, rhythm, contrast, visual treatment, and campaign-specific character.
+- Evaluate comprehension in the intended format and context; do not apply a universal 25% thumbnail threshold.
+- Three zones, whitespace, safe margins, and CTA prominence are optional techniques, not validity rules.
+- Cite visible evidence for every observation.`;
 
 export type ObservableRubricOptions = {
   generationMode?: string;
@@ -44,33 +25,18 @@ export type ObservableRubricOptions = {
   renderTier?: string;
 };
 
-export function buildThumbnailHookRubricLine(targetFormat: string): string {
-  const dims = getTargetDimensions(targetFormat, true);
-  const dimensionText =
-    dims != null ? `${dims.width}×${dims.height}px` : "~25% of full canvas";
-
-  return `THUMBNAIL / PREVIEW SCALE (fail legibility when hook unclear):
-- Mentally evaluate at mobile feed thumbnail size (~25% scale; for this format preview ≈ ${dimensionText}).
-- Primary hook/headline must remain identifiable (readable or unmistakably dominant visually) at that scale.
-- Fail legibility when hook merges into background, shrinks below readable size, or loses to decorative chrome at thumbnail scale.`;
-}
-
 function buildCoreRubricLines(options: ObservableRubricOptions): string[] {
   const lines: string[] = [
     "",
     OBSERVABLE_DEFECT_NOTE_RULE,
     "",
-    VISUAL_OVERLOAD_RUBRIC,
-    "",
-    GENERIC_TEMPLATE_RUBRIC,
-    "",
-    buildThumbnailHookRubricLine(options.targetFormat ?? "1:1"),
-    "",
-    CRITERION_MAPPING_HEADER,
+    ART_DIRECTION_RUBRIC,
   ];
 
   if (options.dominantIdea?.trim()) {
-    lines.push(`Dominant idea reference (must remain visually identifiable): ${options.dominantIdea.trim()}`);
+    lines.push(
+      `Dominant idea reference (ranking guidance — compare how clearly it reads): ${options.dominantIdea.trim()}`
+    );
   }
 
   return lines;
@@ -81,8 +47,7 @@ export function buildObservableQaRubricSection(options: ObservableRubricOptions 
 }
 
 export function buildObservableScoreRubricSection(options: ObservableRubricOptions = {}): string {
-  const lines = [...buildCoreRubricLines(options), "", SCORE_VISUAL_QUALITY_CAPS];
-  return lines.join("\n");
+  return buildCoreRubricLines(options).join("\n");
 }
 
 function indexOfEarliestMarker(
@@ -104,13 +69,12 @@ export function extractObservableRubricSection(prompt: string): string {
   const start = prompt.indexOf("OBSERVABLE DEFECT NOTES");
   if (start === -1) return "";
 
-  const thumbnailStart = prompt.indexOf("THUMBNAIL / PREVIEW SCALE", start);
-  const searchFrom = thumbnailStart !== -1 ? thumbnailStart : start;
+  const artDirectionStart = prompt.indexOf("ART DIRECTION (ranking guidance)", start);
+  const searchFrom = artDirectionStart !== -1 ? artDirectionStart : start;
 
   const end = indexOfEarliestMarker(prompt, searchFrom + 1, [
     "\n\nCampaign:",
     "\nCREATIVITY LEVEL:",
-    "\nSCORE VISUAL QUALITY CAPS:",
     "\nEvaluate the generated ad",
     "\n\nLocale:",
   ]);

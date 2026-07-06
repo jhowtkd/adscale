@@ -86,7 +86,7 @@ describe("runCompletedDerivationQualityGate", () => {
     mockUpdateDerivationScore.mockResolvedValue({} as never);
   });
 
-  it("persists invalid verdict when ctaOffer checklist fails under explicit CTA contract", async () => {
+  it("keeps ctaOffer replacement advisory under explicit CTA contract", async () => {
     mockAnalyzeCreativeQa.mockResolvedValue({
       status: "failed",
       checklist: {
@@ -97,7 +97,65 @@ describe("runCompletedDerivationQualityGate", () => {
         },
       },
       issues: ["CTA mismatch"],
-      suggestions: ["Restore exact CTA"],
+      suggestions: ["Consider restoring the campaign CTA"],
+    });
+    mockGetDerivationById.mockResolvedValue({
+      qualityScore: 92,
+      scoreIssues: [],
+      scoreStatus: "analyzed",
+      scoreBreakdown: {
+        ctaClarity: 90,
+        textLegibility: 88,
+        briefMatch: 90,
+        visualQuality: 92,
+        formatFit: 90,
+        variationLevelFit: 88,
+        informationPreservation: 85,
+      },
+    } as never);
+
+    await runCompletedDerivationQualityGate(baseInput);
+
+    // No hard failures → no score rewrite and no invalid verdict.
+    expect(mockUpdateDerivationScore).not.toHaveBeenCalled();
+    expect(mockUpdateDerivationQa).toHaveBeenCalledWith(
+      "deriv-1",
+      "ws-1",
+      expect.objectContaining({ qaStatus: "failed" })
+    );
+    expect(mockUpdateDerivationQualityGate).toHaveBeenCalledWith(
+      "deriv-1",
+      "ws-1",
+      expect.objectContaining({
+        qualityVerdict: "improvable",
+        hardFailures: [],
+        polishSuggestions: expect.arrayContaining([
+          "CTA was replaced with a different call to action.",
+        ]),
+        qualityGatedAt: expect.any(Date),
+      })
+    );
+    expect(mockUpdateDerivationDualVerdict).toHaveBeenCalledWith(
+      "deriv-1",
+      "ws-1",
+      expect.objectContaining({
+        exportStatus: expect.objectContaining({ value: "ok" }),
+      })
+    );
+  });
+
+  it("persists invalid verdict when ctaOffer checklist reports an unsupported offer", async () => {
+    mockAnalyzeCreativeQa.mockResolvedValue({
+      status: "failed",
+      checklist: {
+        ...passedChecklist(),
+        ctaOffer: {
+          status: "failed",
+          note: "Offer text includes an unsupported claim not in contract.",
+        },
+      },
+      issues: ["Unsupported offer"],
+      suggestions: ["Remove the invented discount"],
     });
     mockGetDerivationById.mockResolvedValue({
       qualityScore: 92,
@@ -120,16 +178,11 @@ describe("runCompletedDerivationQualityGate", () => {
       "deriv-1",
       "ws-1",
       expect.objectContaining({
-        qualityScore: 50,
+        qualityScore: 20,
         regenerationSuggestion: expect.stringMatching(
-          /Hard failures:[\s\S]*cta_drift: CTA was replaced/
+          /Hard failures:[\s\S]*unsupported_offer: Offer text includes an unsupported claim/
         ),
       })
-    );
-    expect(mockUpdateDerivationQa).toHaveBeenCalledWith(
-      "deriv-1",
-      "ws-1",
-      expect.objectContaining({ qaStatus: "failed" })
     );
     expect(mockUpdateDerivationQualityGate).toHaveBeenCalledWith(
       "deriv-1",
@@ -137,7 +190,7 @@ describe("runCompletedDerivationQualityGate", () => {
       expect.objectContaining({
         qualityVerdict: "invalid",
         hardFailures: expect.arrayContaining([
-          expect.objectContaining({ code: "cta_drift" }),
+          expect.objectContaining({ code: "unsupported_offer" }),
         ]),
         qualityGatedAt: expect.any(Date),
       })
@@ -146,7 +199,7 @@ describe("runCompletedDerivationQualityGate", () => {
       "deriv-1",
       "ws-1",
       expect.objectContaining({
-        exportStatus: expect.objectContaining({ value: "ajuste_menor" }),
+        exportStatus: expect.objectContaining({ value: "bloqueado" }),
       })
     );
   });

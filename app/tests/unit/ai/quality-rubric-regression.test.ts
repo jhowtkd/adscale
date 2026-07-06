@@ -6,20 +6,15 @@ import {
 import { buildCreativeQaPrompt } from "@/server/ai/creative-qa";
 import { buildCreativeScorePrompt } from "@/server/ai/creative-score";
 import {
+  ART_DIRECTION_RUBRIC,
   buildObservableQaRubricSection,
   buildObservableScoreRubricSection,
-  buildThumbnailHookRubricLine,
   extractObservableRubricSection,
-  GENERIC_TEMPLATE_RUBRIC,
-  VISUAL_OVERLOAD_RUBRIC,
 } from "@/server/ai/observable-rubric";
 
 const CORE_RUBRIC_MARKERS = [
   "OBSERVABLE DEFECT NOTES",
-  "VISUAL OVERLOAD",
-  "GENERIC TEMPLATE",
-  "THUMBNAIL / PREVIEW SCALE",
-  "CRITERION MAPPING",
+  "ART DIRECTION (ranking guidance)",
 ] as const;
 
 function corpusPromptInput(fixture: CorpusArchetypeFixture) {
@@ -60,31 +55,26 @@ function corpusScoreInput(fixture: CorpusArchetypeFixture) {
   };
 }
 
-describe("observable rubric module — visual overload (RUBR-01)", () => {
-  it("includes dominant focal, zone count, and competing invite rules", () => {
+describe("art-direction rubric is contextual and advisory", () => {
+  it("frames aesthetics as ranking guidance, not validity rules", () => {
     const rubric = buildObservableQaRubricSection({ targetFormat: "1:1" });
 
-    expect(rubric).toMatch(/VISUAL OVERLOAD/i);
-    expect(rubric).toMatch(/dominant focal/i);
-    expect(rubric).toMatch(/more than three|three information zones/i);
-    expect(rubric).toMatch(/competing invites|invite\/call-to-action text/i);
-    expect(VISUAL_OVERLOAD_RUBRIC).toMatch(/creativeRisk|briefMatch/i);
+    expect(rubric).toMatch(/ART DIRECTION \(ranking guidance\)/);
+    expect(rubric).toMatch(/composition, typography, rhythm, contrast/i);
+    expect(rubric).toMatch(/optional techniques, not validity rules/i);
+    expect(ART_DIRECTION_RUBRIC).toMatch(/cite visible evidence/i);
   });
-});
 
-describe("observable rubric module — generic template (RUBR-02)", () => {
-  it("lists trope vocabulary and requires campaign/brand justification", () => {
+  it("does not apply a universal thumbnail threshold or fail/cap commands", () => {
     const rubric = buildObservableQaRubricSection({ targetFormat: "1:1" });
 
-    expect(rubric).toMatch(/GENERIC TEMPLATE/i);
-    expect(rubric).toMatch(/neon glow|glassmorphism|holographic/i);
-    expect(rubric).toMatch(/justified.*campaign|brand/i);
-    expect(GENERIC_TEMPLATE_RUBRIC).toMatch(/premium tech/i);
+    expect(rubric).toMatch(/do not apply a universal 25% thumbnail threshold/i);
+    expect(rubric).not.toMatch(/fail (?:legibility|creativeRisk|briefMatch)/i);
+    expect(rubric).not.toMatch(/Mark failed/i);
+    expect(rubric).not.toMatch(/SCORE VISUAL QUALITY CAPS/i);
   });
-});
 
-describe("observable rubric module — observable defect notes (RUBR-03)", () => {
-  it("forbids polished-only approval and includes good/bad exemplars", () => {
+  it("keeps observable defect note requirements with exemplars", () => {
     const rubric = buildObservableQaRubricSection({ targetFormat: "1:1" });
 
     expect(rubric).toMatch(/OBSERVABLE DEFECT NOTES/i);
@@ -92,18 +82,6 @@ describe("observable rubric module — observable defect notes (RUBR-03)", () =>
     expect(rubric).toMatch(/BAD:/i);
     expect(rubric).toMatch(/GOOD:/i);
     expect(rubric).toMatch(/without citing what is wrong/i);
-  });
-});
-
-describe("observable rubric module — thumbnail preview scale (RUBR-04)", () => {
-  it("cites format-derived preview dimensions for 1:1", () => {
-    const line = buildThumbnailHookRubricLine("1:1");
-    const rubric = buildObservableQaRubricSection({ targetFormat: "1:1" });
-
-    expect(line).toMatch(/270/);
-    expect(line).toMatch(/preview|thumbnail/i);
-    expect(rubric).toMatch(/270/);
-    expect(rubric).toMatch(/THUMBNAIL|PREVIEW SCALE/i);
   });
 });
 
@@ -116,26 +94,25 @@ describe("extractObservableRubricSection", () => {
 
     expect(extracted.length).toBeGreaterThan(0);
     expect(extracted).toMatch(/OBSERVABLE DEFECT NOTES/i);
-    expect(extracted).toMatch(/THUMBNAIL \/ PREVIEW SCALE/i);
+    expect(extracted).toMatch(/ART DIRECTION \(ranking guidance\)/);
     expect(extracted).not.toMatch(/Locale:/);
   });
 });
 
 describe("buildObservableScoreRubricSection", () => {
-  it("includes visualQuality scoring caps beyond QA rubric", () => {
+  it("no longer emits SCORE VISUAL QUALITY CAPS", () => {
     const scoreRubric = buildObservableScoreRubricSection({ targetFormat: "1:1" });
 
-    expect(scoreRubric).toMatch(/SCORE VISUAL QUALITY CAPS/i);
-    expect(scoreRubric).toMatch(/visualQuality.*below 50/i);
-    expect(scoreRubric).toMatch(/above 70.*thumbnail/i);
-    expect(scoreRubric).toMatch(/scoreIssues must cite visible elements/i);
+    expect(scoreRubric).not.toMatch(/SCORE VISUAL QUALITY CAPS/i);
+    expect(scoreRubric).not.toMatch(/below 50/i);
+    expect(scoreRubric).toMatch(/ART DIRECTION \(ranking guidance\)/);
   });
 });
 
 describe.each(CORPUS_ARCHETYPE_FIXTURES)(
   "corpus archetype rubric — $archetype",
   (fixture) => {
-    it("QA prompt includes observable rubric without export-softening", () => {
+    it("QA prompt includes advisory rubric without export-softening", () => {
       const prompt = buildCreativeQaPrompt(corpusPromptInput(fixture));
       const section = extractObservableRubricSection(prompt);
 
@@ -146,7 +123,7 @@ describe.each(CORPUS_ARCHETYPE_FIXTURES)(
       expect(prompt).not.toMatch(/Export must remain allowed/i);
     });
 
-    it("score prompt includes observable rubric parity", () => {
+    it("score prompt includes advisory rubric parity without caps", () => {
       const scorePrompt = buildCreativeScorePrompt(corpusScoreInput(fixture));
       const section = extractObservableRubricSection(scorePrompt);
 
@@ -154,64 +131,7 @@ describe.each(CORPUS_ARCHETYPE_FIXTURES)(
       for (const marker of CORE_RUBRIC_MARKERS) {
         expect(section).toContain(marker);
       }
-      expect(scorePrompt).toMatch(/SCORE VISUAL QUALITY CAPS/i);
+      expect(scorePrompt).not.toMatch(/SCORE VISUAL QUALITY CAPS/i);
     });
   }
 );
-
-describe("visual_overload archetype enables overload note vocabulary (RUBR-01)", () => {
-  it("rubric aligns with corpus creativeRisk note themes", () => {
-    const fixture = CORPUS_ARCHETYPE_FIXTURES.find(
-      (f) => f.archetype === "visual_overload"
-    )!;
-    const prompt = buildCreativeQaPrompt(corpusPromptInput(fixture));
-    const section = extractObservableRubricSection(prompt);
-    const note =
-      (
-        fixture.rawQaModelOutput as {
-          checklist: { creativeRisk: { note: string } };
-        }
-      ).checklist.creativeRisk.note;
-
-    expect(note).toMatch(/competing information zones/i);
-    expect(note).toMatch(/card grid/i);
-    expect(section).toMatch(/competing|information zones/i);
-    expect(section).toMatch(/card grid|dominant focal/i);
-    expect(VISUAL_OVERLOAD_RUBRIC).toMatch(/competing/i);
-  });
-});
-
-describe("generic_template_aesthetic archetype enables generic note vocabulary (RUBR-02)", () => {
-  it("rubric tropes match corpus creativeRisk note themes", () => {
-    const fixture = CORPUS_ARCHETYPE_FIXTURES.find(
-      (f) => f.archetype === "generic_template_aesthetic"
-    )!;
-    const prompt = buildCreativeQaPrompt(corpusPromptInput(fixture));
-    const section = extractObservableRubricSection(prompt);
-    const note =
-      (
-        fixture.rawQaModelOutput as {
-          checklist: { creativeRisk: { note: string } };
-        }
-      ).checklist.creativeRisk.note;
-
-    expect(note).toMatch(/neon|premium-tech|generic/i);
-    expect(section).toMatch(/neon glow|glassmorphism|premium tech/i);
-    expect(GENERIC_TEMPLATE_RUBRIC).toMatch(/neon glow|glassmorphism/i);
-  });
-});
-
-describe("1:1 preview dimensions (RUBR-04)", () => {
-  it("thumbnail rubric cites ~270 preview dimensions for 1:1 corpus fixtures", () => {
-    const oneToOneFixtures = CORPUS_ARCHETYPE_FIXTURES.filter(
-      (f) => f.contract.targetFormat === "1:1"
-    );
-    expect(oneToOneFixtures.length).toBeGreaterThan(0);
-
-    for (const fixture of oneToOneFixtures) {
-      const prompt = buildCreativeQaPrompt(corpusPromptInput(fixture));
-      const section = extractObservableRubricSection(prompt);
-      expect(section).toMatch(/270/);
-    }
-  });
-});

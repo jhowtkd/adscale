@@ -1,18 +1,16 @@
 import type { CreativeHardFailure, CreativeHardFailureCode } from "./creative-quality-gate";
 
+/**
+ * Ceilings apply only to objective hard-failure codes. Advisory art-direction
+ * findings (overload, generic template, CTA drift, legibility, identity drift)
+ * no longer cap scores — they surface as polish suggestions instead.
+ */
 export const SCORE_CEILING_BY_FAILURE: Partial<Record<CreativeHardFailureCode, number>> = {
   invented_factual_entity: 20,
   unsupported_offer: 20,
-  campaign_identity_drift: 15,
   replaced_source_subject: 15,
   wrong_brand: 15,
   unauthorized_brand_or_ip: 15,
-  cta_drift: 50,
-  // 132-adjustment:634f9104-c080-4dda-82c1-4b1298b6a072
-  visual_overload: 50,
-  missing_dominant_idea: 55,
-  generic_template_aesthetic: 55,
-  decorative_only_variation: 60,
   style_reference_contamination: 20,
 };
 
@@ -23,15 +21,9 @@ const FAILURE_BREAKDOWN_CLAMP: Partial<
 > = {
   invented_factual_entity: ["briefMatch", "informationPreservation"],
   unsupported_offer: ["briefMatch", "informationPreservation"],
-  campaign_identity_drift: ["briefMatch", "formatFit", "informationPreservation"],
   replaced_source_subject: ["briefMatch", "informationPreservation"],
   wrong_brand: ["briefMatch"],
   unauthorized_brand_or_ip: ["briefMatch"],
-  cta_drift: ["ctaClarity"],
-  visual_overload: ["visualQuality"],
-  missing_dominant_idea: ["visualQuality"],
-  generic_template_aesthetic: ["visualQuality"],
-  decorative_only_variation: ["variationLevelFit"],
   style_reference_contamination: ["briefMatch", "informationPreservation"],
 };
 

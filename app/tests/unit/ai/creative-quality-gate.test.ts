@@ -78,7 +78,7 @@ function expectHardCode(
 }
 
 describe("classifyCreativeQualityGate — hard failures", () => {
-  it("maps ctaOffer failed + explicit CTA contract to cta_drift", () => {
+  it("keeps ctaOffer paraphrase/replacement advisory even with explicit CTA contract", () => {
     const result = classifyCreativeQualityGate({
       contract: artVariationContract,
       checklist: checklist({
@@ -88,9 +88,9 @@ describe("classifyCreativeQualityGate — hard failures", () => {
         },
       }),
     });
-    expectHardCode(result, "cta_drift");
-    expect(result.hardFailures.find((f) => f.code === "cta_drift")?.criterion).toBe(
-      "ctaOffer"
+    expect(result.hardFailures).toEqual([]);
+    expect(result.polishSuggestions).toContain(
+      "CTA was replaced with a different call to action."
     );
   });
 
@@ -190,7 +190,7 @@ describe("classifyCreativeQualityGate — hard failures", () => {
     expectHardCode(result, "cropped_critical_content");
   });
 
-  it("maps legibility failed to unreadable_required_text", () => {
+  it("keeps legibility failure advisory", () => {
     const result = classifyCreativeQualityGate({
       contract: artVariationContract,
       checklist: checklist({
@@ -200,7 +200,10 @@ describe("classifyCreativeQualityGate — hard failures", () => {
         },
       }),
     });
-    expectHardCode(result, "unreadable_required_text");
+    expect(result.hardFailures).toEqual([]);
+    expect(result.polishSuggestions).toContain(
+      "Required headline and CTA text are illegible."
+    );
   });
 
   it("maps formatFit failed in format_adaptation to invalid_format_layout", () => {
@@ -230,7 +233,7 @@ describe("classifyCreativeQualityGate — hard failures", () => {
     expect(result.polishSuggestions.some((s) => s.includes("crowded"))).toBe(true);
   });
 
-  it("promotes creativeRisk overload note to visual_overload hard failure", () => {
+  it("keeps creativeRisk overload note advisory", () => {
     const overloadFixture = CORPUS_ARCHETYPE_FIXTURES.find(
       (f) => f.id === "corpus-visual-overload"
     )!;
@@ -239,13 +242,13 @@ describe("classifyCreativeQualityGate — hard failures", () => {
       contract: overloadFixture.contract,
       checklist: qa.checklist,
     });
-    expectHardCode(result, "visual_overload");
+    expect(result.hardFailures).toEqual([]);
     expect(
       result.polishSuggestions.some((s) => /competing information zones/i.test(s))
-    ).toBe(false);
+    ).toBe(true);
   });
 
-  it("promotes severe generic template creativeRisk note to generic_template_aesthetic", () => {
+  it("keeps generic template creativeRisk note advisory", () => {
     const genericFixture = CORPUS_ARCHETYPE_FIXTURES.find(
       (f) => f.id === "corpus-generic-template-aesthetic"
     )!;
@@ -254,13 +257,13 @@ describe("classifyCreativeQualityGate — hard failures", () => {
       contract: genericFixture.contract,
       checklist: qa.checklist,
     });
-    expectHardCode(result, "generic_template_aesthetic");
+    expect(result.hardFailures).toEqual([]);
     expect(result.polishSuggestions.some((s) => /generic premium-tech/i.test(s))).toBe(
-      false
+      true
     );
   });
 
-  it("promotes briefMatch campaign drift in format_adaptation to campaign_identity_drift", () => {
+  it("keeps campaign drift in format_adaptation advisory", () => {
     const driftFixture = CORPUS_ARCHETYPE_FIXTURES.find(
       (f) => f.id === "corpus-format-campaign-drift"
     )!;
@@ -269,10 +272,13 @@ describe("classifyCreativeQualityGate — hard failures", () => {
       contract: driftFixture.contract,
       checklist: qa.checklist,
     });
-    expectHardCode(result, "campaign_identity_drift");
+    expect(result.hardFailures).toEqual([]);
+    expect(
+      result.polishSuggestions.some((s) => /different campaign identity/i.test(s))
+    ).toBe(true);
   });
 
-  it("promotes formatFit drift note to campaign_identity_drift before invalid_format_layout", () => {
+  it("keeps formatFit drift note advisory without invalid_format_layout", () => {
     const result = classifyCreativeQualityGate({
       contract: formatAdaptationContract,
       checklist: checklist({
@@ -282,10 +288,10 @@ describe("classifyCreativeQualityGate — hard failures", () => {
         },
       }),
     });
-    expectHardCode(result, "campaign_identity_drift");
-    expect(result.hardFailures.some((f) => f.code === "invalid_format_layout")).toBe(
-      false
-    );
+    expect(result.hardFailures).toEqual([]);
+    expect(
+      result.polishSuggestions.some((s) => /different campaign identity/i.test(s))
+    ).toBe(true);
   });
 
   it("promotes informationPreservation replaced hero note to replaced_source_subject", () => {
@@ -304,27 +310,105 @@ describe("classifyCreativeQualityGate — hard failures", () => {
     );
   });
 
-  it("promotes decorative_only_variation only in art_variation mode", () => {
+  it("keeps decorative-only variation advisory in every mode", () => {
     const note = "background-only recolor without mechanism change";
-    const artResult = classifyCreativeQualityGate({
+    for (const contract of [artVariationContract, formatAdaptationContract]) {
+      const result = classifyCreativeQualityGate({
+        contract,
+        checklist: checklist({
+          creativeRisk: { status: "failed", note },
+        }),
+      });
+      expect(result.hardFailures).toEqual([]);
+      expect(result.polishSuggestions.some((s) => s.includes("background-only"))).toBe(
+        true
+      );
+    }
+  });
+});
+
+describe("classifyCreativeQualityGate — advisory aesthetic boundary", () => {
+  it.each([
+    ["ctaOffer", "CTA is absent"],
+    ["legibility", "Supporting copy is hard to read at thumbnail size"],
+    ["creativeRisk", "Four equal-weight zones create visual overload"],
+    ["creativeRisk", "Generic glassmorphism template"],
+  ] as const)("keeps %s aesthetic failure advisory", (criterion, note) => {
+    const result = classifyCreativeQualityGate({
+      contract: artVariationContract,
+      checklist: checklist({ [criterion]: { status: "failed", note } }),
+    });
+    expect(result.hardFailures).toEqual([]);
+    expect(result.polishSuggestions).toContain(note);
+  });
+
+  it("still blocks invented offers", () => {
+    const result = classifyCreativeQualityGate({
       contract: artVariationContract,
       checklist: checklist({
-        creativeRisk: { status: "failed", note },
+        ctaOffer: { status: "failed", note: "Invented 50% discount not in the campaign." },
       }),
     });
-    expectHardCode(artResult, "decorative_only_variation");
+    expect(result.hardFailures.map(({ code }) => code)).toContain("unsupported_offer");
+  });
 
-    const formatResult = classifyCreativeQualityGate({
+  it.each([
+    ["visual overload", "More than three competing information zones with equal visual weight."],
+    ["generic template", "Generic premium-tech neon template aesthetic without justification."],
+    ["missing dominant idea", "No campaign-specific visual idea; decorative chrome only."],
+    ["decorative-only variation", "background-only recolor without mechanism change"],
+  ] as const)("demotes %s creativeRisk failure to polish", (_label, note) => {
+    const result = classifyCreativeQualityGate({
+      contract: artVariationContract,
+      checklist: checklist({ creativeRisk: { status: "failed", note } }),
+    });
+    expect(result.hardFailures).toEqual([]);
+    expect(result.polishSuggestions).toContain(note);
+  });
+
+  it("demotes campaign identity drift on formatFit to polish", () => {
+    const note =
+      "Layout reads as a different campaign identity, not a faithful NR1 format adaptation.";
+    const result = classifyCreativeQualityGate({
+      contract: formatAdaptationContract,
+      checklist: checklist({ formatFit: { status: "failed", note } }),
+    });
+    expect(result.hardFailures).toEqual([]);
+    expect(result.polishSuggestions).toContain(note);
+  });
+
+  it("keeps invalid format layout hard in format_adaptation", () => {
+    const result = classifyCreativeQualityGate({
       contract: formatAdaptationContract,
       checklist: checklist({
-        creativeRisk: { status: "failed", note },
+        formatFit: {
+          status: "failed",
+          note: "Blur bands and pasted poster layout, not native 9:16.",
+        },
       }),
     });
-    expect(formatResult.hardFailures.some((f) => f.code === "decorative_only_variation")).toBe(
-      false
-    );
-    expect(formatResult.polishSuggestions.some((s) => s.includes("background-only"))).toBe(
-      true
+    expectHardCode(result, "invalid_format_layout");
+  });
+
+  it("demotes advisory score issues instead of promoting them", () => {
+    const result = classifyCreativeQualityGate({
+      contract: artVariationContract,
+      checklist: checklist({}),
+      scoreIssues: [
+        "CTA missing from the composition",
+        "Headline is illegible at thumbnail scale",
+        "More than three competing information zones",
+        "Generic premium-tech neon template aesthetic",
+      ],
+    });
+    expect(result.hardFailures).toEqual([]);
+    expect(result.polishSuggestions).toEqual(
+      expect.arrayContaining([
+        "CTA missing from the composition",
+        "Headline is illegible at thumbnail scale",
+        "More than three competing information zones",
+        "Generic premium-tech neon template aesthetic",
+      ])
     );
   });
 });
@@ -401,7 +485,7 @@ describe("classifyCreativeQualityGate — inherited CTA", () => {
     ctaSemantics: { kind: "inherited" },
   };
 
-  it("maps inherited CTA + ctaOffer failed + missing CTA note to cta_drift", () => {
+  it("keeps inherited CTA + missing CTA note advisory", () => {
     const result = classifyCreativeQualityGate({
       contract: inheritedCtaContract,
       checklist: checklist({
@@ -411,7 +495,8 @@ describe("classifyCreativeQualityGate — inherited CTA", () => {
         },
       }),
     });
-    expectHardCode(result, "cta_drift");
+    expect(result.hardFailures).toEqual([]);
+    expect(result.polishSuggestions).toContain("CTA missing from output");
   });
 
   it("does not hard-fail inherited ctaOffer with vague polish-only note", () => {
@@ -459,15 +544,32 @@ describe("capped score", () => {
       checklist: checklist({
         ctaOffer: {
           status: "failed",
+          note: "Offer text includes an unsupported claim not in contract.",
+        },
+      }),
+      qualityScore: 85,
+    });
+
+    expect(gate.qualityScore).toBeLessThanOrEqual(20);
+    expect(gate.qualityVerdict).toBe("invalid");
+    expect(gate.hardFailures.some((f) => f.code === "unsupported_offer")).toBe(true);
+  });
+
+  it("computeQualityGateFromAnalysis does not cap score for advisory CTA drift", () => {
+    const gate = computeQualityGateFromAnalysis({
+      contract: artVariationContract,
+      checklist: checklist({
+        ctaOffer: {
+          status: "failed",
           note: "CTA missing; does not match contract Shop Now.",
         },
       }),
       qualityScore: 85,
     });
 
-    expect(gate.qualityScore).toBeLessThanOrEqual(50);
-    expect(gate.qualityVerdict).toBe("invalid");
-    expect(gate.hardFailures.some((f) => f.code === "cta_drift")).toBe(true);
+    expect(gate.qualityScore).toBe(85);
+    expect(gate.qualityVerdict).toBe("improvable");
+    expect(gate.hardFailures).toEqual([]);
   });
 
   it("computeQualityGateFromAnalysis caps invented_factual_entity raw 85 to ≤20", () => {
@@ -504,25 +606,21 @@ describe("deriveQualityVerdict", () => {
   });
 
   it("returns invalid when hard failures exist even with high qualityScore", () => {
+    const failedChecklist = checklist({
+      ctaOffer: {
+        status: "failed",
+        note: "Offer text includes an unsupported claim not in contract.",
+      },
+    });
     const { hardFailures } = classifyCreativeQualityGate({
       contract: artVariationContract,
-      checklist: checklist({
-        ctaOffer: {
-          status: "failed",
-          note: "CTA missing; does not match contract Shop Now.",
-        },
-      }),
+      checklist: failedChecklist,
     });
     expect(
       deriveQualityVerdict({
         hardFailures,
         qualityScore: 88,
-        checklist: checklist({
-          ctaOffer: {
-            status: "failed",
-            note: "CTA missing; does not match contract Shop Now.",
-          },
-        }),
+        checklist: failedChecklist,
       })
     ).toBe("invalid");
   });
@@ -722,9 +820,8 @@ describe("normalizeHardFailureCode", () => {
 });
 
 describe("GATE-01 explicit promotion paths", () => {
-  it.each([
-    {
-      name: "unauthorized_brand_or_ip",
+  it("promotes unauthorized_brand_or_ip from failed briefMatch note", () => {
+    const result = classifyCreativeQualityGate({
       contract: artVariationContract,
       checklist: checklist({
         briefMatch: {
@@ -732,22 +829,20 @@ describe("GATE-01 explicit promotion paths", () => {
           note: "Unauthorized brand logo appears; brand not in allowed entities list.",
         },
       }),
-      code: "unauthorized_brand_or_ip" as const,
-    },
-    {
-      name: "missing_dominant_idea",
+    });
+    expectHardCode(result, "unauthorized_brand_or_ip");
+  });
+
+  it("keeps missing dominant idea advisory", () => {
+    const note = "No NR1 audit-specific visual idea; decorative chrome only.";
+    const result = classifyCreativeQualityGate({
       contract: artVariationContract,
       checklist: checklist({
-        creativeRisk: {
-          status: "failed",
-          note: "No NR1 audit-specific visual idea; decorative chrome only.",
-        },
+        creativeRisk: { status: "failed", note },
       }),
-      code: "missing_dominant_idea" as const,
-    },
-  ])("promotes $name from failed checklist note", ({ contract, checklist: cl, code }) => {
-    const result = classifyCreativeQualityGate({ contract, checklist: cl });
-    expectHardCode(result, code);
+    });
+    expect(result.hardFailures).toEqual([]);
+    expect(result.polishSuggestions).toContain(note);
   });
 });
 
@@ -772,26 +867,22 @@ describe("CONTAMINATION_FAILURE_CODES", () => {
 
 describe("GATE-02 score override", () => {
   it("returns invalid when hardFailures exist with qualityScore 85", () => {
+    const failedChecklist = checklist({
+      creativeRisk: {
+        status: "failed",
+        note: "Hallucinated celebrity athlete imported into NR1 compliance creative.",
+      },
+    });
     const { hardFailures } = classifyCreativeQualityGate({
       contract: artVariationContract,
-      checklist: checklist({
-        creativeRisk: {
-          status: "failed",
-          note: "Generic premium-tech neon template aesthetic; no NR1 audit-specific visual idea.",
-        },
-      }),
+      checklist: failedChecklist,
     });
     expect(hardFailures.length).toBeGreaterThan(0);
     expect(
       deriveQualityVerdict({
         hardFailures,
         qualityScore: 85,
-        checklist: checklist({
-          creativeRisk: {
-            status: "failed",
-            note: "Generic premium-tech neon template aesthetic; no NR1 audit-specific visual idea.",
-          },
-        }),
+        checklist: failedChecklist,
       })
     ).toBe("invalid");
   });

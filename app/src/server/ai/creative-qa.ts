@@ -145,9 +145,9 @@ export function buildCreativeQaPrompt(input: Omit<AnalyzeCreativeQaInput, "image
   return `Run two passes on this final ad creative before export.
 
 ## Passagem Olhar (art direction)
-Judge figure, gestalt, voice, and invite at thumbnail scale.
+Judge figure, gestalt, voice, and invite in the intended format and context.
 Name what works and what blocks the creative idea.
-Do NOT treat CTA drift, brand mismatch, format layout, missing required text, or offer/claim mismatches as art-direction opinion — those belong to Exportacao only.
+Factual integrity problems (invented facts, wrong brand, unsupported offers) belong to Exportacao — do not soften them into art-direction opinion.
 
 ## Exportacao (compliance checklist)
 Return only JSON with status, checklist, issues, and suggestions.
@@ -156,7 +156,8 @@ Allowed status values: ready, warning, review.
 Checklist keys: ${checklistKeys}.
 Each checklist item must include status passed/warning/failed and a short note.
 
-Evaluate honestly against the rubric below. Use status "failed" on checklist criteria when observable defects are present — especially visual overload, unjustified generic template aesthetics, or hook illegibility at thumbnail scale.
+Reserve status "failed" for objective defects only: invented or incorrect facts, an unusable output format, image corruption, or severe cropping of factual elements (offer, brand, required legal text).
+Art-direction observations (hierarchy, overload, generic template feel, legibility trade-offs) go in the creativeRisk note as ranking advice — use "warning" plus a specific note, not "failed".
 Overall QA status may be "review" when multiple warnings exist; do not mark "ready" if any criterion is "failed".
 
 Campaign:
@@ -174,9 +175,9 @@ Derivation:
 - Format: ${input.derivation.format ?? "unknown"}
 - Generation mode: ${input.derivation.generationMode ?? "unknown"}
 
-Evaluate legibility, exact CTA and offer preservation, information preservation, briefing fit, format fit, and simple creative risk.
-TEXT FIDELITY (critical): if an exact CTA was provided, the rendered CTA must match character-for-character (case and accents). Flag ctaOffer as failed on any substitution, paraphrase, or capitalization drift.
-TEXT FIDELITY (critical): scan all visible Portuguese copy for typos, missing letters, or garbled words (e.g. "ESPECIALITAS" instead of "ESPECIALISTAS"). Flag legibility as failed when any headline or key claim contains a spelling error.
+Evaluate legibility, CTA and offer intent, information preservation, briefing fit, format fit, and simple creative risk.
+CTA POLICY: CTA absence and paraphrase are allowed — a creative may omit the CTA or reword it. When a CTA is rendered, ask whether it preserves the same action intent as the campaign CTA; flag ctaOffer as failed only when the rendered CTA invents or changes an offer, price, or claim.
+TEXT INTEGRITY: scan all visible copy for garbled or corrupted words (e.g. "ESPECIALITAS" instead of "ESPECIALISTAS") — these are objective rendering defects, not style choices.
 For informationPreservation, check whether important text, offer, CTA, logo, product/service, badges, small print, faces, and other information-bearing elements from the brief or creative diagnosis were cropped, hidden, truncated, blurred, overlapped, deleted, or made too small to read.
 For art_variation, also check whether the result rearranged elements intentionally instead of solving the variation by cropping the key ad.${styleFidelityInstruction}${allowedEntitiesInstruction}
 ${rubricSection}

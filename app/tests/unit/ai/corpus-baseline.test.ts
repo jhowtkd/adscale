@@ -50,20 +50,20 @@ function runCorpusGatePipeline(fixture: CorpusArchetypeFixture) {
 }
 
 describe.each(CORPUS_ARCHETYPE_FIXTURES)("corpus baseline gate — $id", (fixture) => {
-  const runBaselineRejectionTest = it;
-
-  runBaselineRejectionTest(
-    `baseline-red: ${fixture.id} — gate must reject ${fixture.archetype}`,
-    () => {
-      const { gate, verdict } = runCorpusGatePipeline(fixture);
-      expect(verdict).toBe("invalid");
-      expect(
-        fixture.expectedHardFailureCodes.every((code) =>
-          gate.hardFailures.some((f) => f.code === code)
-        )
-      ).toBe(true);
+  it(`baseline: ${fixture.id} — gate matches expected boundary for ${fixture.archetype}`, () => {
+    const { gate, verdict } = runCorpusGatePipeline(fixture);
+    expect(verdict).toBe(fixture.expectedVerdict);
+    expect(
+      fixture.expectedHardFailureCodes.every((code) =>
+        gate.hardFailures.some((f) => f.code === code)
+      )
+    ).toBe(true);
+    if (fixture.expectedVerdict !== "invalid") {
+      // Advisory archetypes must surface as polish, never as blocking failures.
+      expect(gate.hardFailures).toHaveLength(0);
+      expect(gate.polishSuggestions.length).toBeGreaterThan(0);
     }
-  );
+  });
 
   it(`baseline-snapshot: ${fixture.id} current verdict`, () => {
     const { verdict } = runCorpusGatePipeline(fixture);

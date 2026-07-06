@@ -269,14 +269,14 @@ describe("POST /api/derivations/[id]/qa", () => {
         legibility: { status: "passed", note: "Readable" },
         ctaOffer: {
           status: "failed",
-          note: "CTA was replaced with a different call to action.",
+          note: "Offer text includes an unsupported claim not in contract.",
         },
         informationPreservation: { status: "passed", note: "Preserved" },
         briefMatch: { status: "passed", note: "OK" },
         formatFit: { status: "passed", note: "Fits" },
         creativeRisk: { status: "passed", note: "OK" },
       },
-      issues: ["CTA drift"],
+      issues: ["Unsupported offer"],
       suggestions: [],
     });
 
@@ -288,7 +288,7 @@ describe("POST /api/derivations/[id]/qa", () => {
     mockUpdateDerivationQualityGate.mockResolvedValue({
       id: "derivation-id",
       qualityVerdict: "invalid",
-      hardFailures: [{ code: "cta_drift", message: "CTA was replaced with a different call to action." }],
+      hardFailures: [{ code: "unsupported_offer", message: "Offer text includes an unsupported claim not in contract." }],
       polishSuggestions: [],
     } as Awaited<ReturnType<typeof updateDerivationQualityGate>>);
 
@@ -301,7 +301,7 @@ describe("POST /api/derivations/[id]/qa", () => {
     expect(body.qualityVerdict).toBe("invalid");
     expect(body.hardFailures).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ code: "cta_drift" }),
+        expect.objectContaining({ code: "unsupported_offer" }),
       ])
     );
     expect(mockUpdateDerivationQualityGate).toHaveBeenCalledWith(
@@ -310,7 +310,7 @@ describe("POST /api/derivations/[id]/qa", () => {
       expect.objectContaining({
         qualityVerdict: "invalid",
         hardFailures: expect.arrayContaining([
-          expect.objectContaining({ code: "cta_drift" }),
+          expect.objectContaining({ code: "unsupported_offer" }),
         ]),
       })
     );

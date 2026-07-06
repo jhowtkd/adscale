@@ -94,6 +94,16 @@ const TEST_02_MATRIX: MatrixCase[] = [
     expectedCode: "unauthorized_brand_or_ip",
     noteSnippet: /unauthorized brand|allowed entities/i,
   },
+];
+
+interface AdvisoryCase {
+  id: string;
+  contract: CreativeContract;
+  checklist: CreativeQaChecklist & { styleFidelity?: CreativeQaCriterionResult };
+  noteSnippet: RegExp;
+}
+
+const ADVISORY_MATRIX: AdvisoryCase[] = [
   {
     id: "different campaign identity",
     contract: formatAdaptationContract,
@@ -103,7 +113,6 @@ const TEST_02_MATRIX: MatrixCase[] = [
         note: "Layout reads as a different campaign identity, not a faithful format adaptation.",
       },
     }),
-    expectedCode: "campaign_identity_drift",
     noteSnippet: /different campaign/i,
   },
   {
@@ -115,7 +124,6 @@ const TEST_02_MATRIX: MatrixCase[] = [
         note: "Generic premium-tech glassmorphism template with no campaign-specific justification.",
       },
     }),
-    expectedCode: "generic_template_aesthetic",
     noteSnippet: /generic.*template|glassmorphism/i,
   },
   {
@@ -127,7 +135,6 @@ const TEST_02_MATRIX: MatrixCase[] = [
         note: "More than three competing information zones with equal visual weight and a fourth module.",
       },
     }),
-    expectedCode: "visual_overload",
     noteSnippet: /more than three|competing/i,
   },
   {
@@ -139,7 +146,6 @@ const TEST_02_MATRIX: MatrixCase[] = [
         note: "Decorative-only variation: background recolor without a new composition mechanism.",
       },
     }),
-    expectedCode: "decorative_only_variation",
     noteSnippet: /decorative-only|background recolor/i,
   },
 ];
@@ -165,6 +171,28 @@ describe("TEST-02 gate failure matrix", () => {
       gate.polishSuggestions.some((s) => matrixCase.noteSnippet.test(s))
     ).toBe(false);
   });
+
+  it.each(ADVISORY_MATRIX)(
+    "$id stays advisory — polish suggestion, no hard failure",
+    (advisoryCase) => {
+      const gate = classifyCreativeQualityGate({
+        contract: advisoryCase.contract,
+        checklist: advisoryCase.checklist,
+      });
+
+      expect(gate.hardFailures).toEqual([]);
+      expect(
+        gate.polishSuggestions.some((s) => advisoryCase.noteSnippet.test(s))
+      ).toBe(true);
+
+      const verdict = deriveQualityVerdict({
+        hardFailures: gate.hardFailures,
+        qualityScore: 85,
+        checklist: advisoryCase.checklist,
+      });
+      expect(verdict).toBe("improvable");
+    }
+  );
 
   it("restyling style contamination maps to style_reference_contamination", () => {
     const gate = classifyCreativeQualityGate({

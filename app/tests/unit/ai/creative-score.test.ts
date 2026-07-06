@@ -178,14 +178,10 @@ describe("buildCreativeScorePrompt observable rubric", () => {
     },
   };
 
-  it("includes visual overload scoring guidance (RUBR-01)", () => {
+  it("includes advisory art-direction guidance", () => {
     const prompt = buildCreativeScorePrompt(baseInput);
-    expect(prompt).toMatch(/visual overload|visualQuality.*below 50|dominant focal/i);
-  });
-
-  it("includes generic template rubric (RUBR-02)", () => {
-    const prompt = buildCreativeScorePrompt(baseInput);
-    expect(prompt).toMatch(/GENERIC TEMPLATE|generic template/i);
+    expect(prompt).toMatch(/ART DIRECTION \(ranking guidance\)/);
+    expect(prompt).toMatch(/optional techniques, not validity rules/i);
   });
 
   it("includes observable defect note rule (RUBR-03)", () => {
@@ -193,12 +189,7 @@ describe("buildCreativeScorePrompt observable rubric", () => {
     expect(prompt).toMatch(/OBSERVABLE DEFECT|visible elements/i);
   });
 
-  it("includes thumbnail preview scale (RUBR-04)", () => {
-    const prompt = buildCreativeScorePrompt(baseInput);
-    expect(prompt).toMatch(/THUMBNAIL|PREVIEW SCALE|270/i);
-  });
-
-  it("rubric parity with QA", () => {
+  it("rubric parity with QA without score caps", () => {
     const qaPrompt = buildCreativeQaPrompt({
       locale: baseInput.locale,
       campaign: baseInput.campaign,
@@ -208,10 +199,7 @@ describe("buildCreativeScorePrompt observable rubric", () => {
     const scorePrompt = buildCreativeScorePrompt(baseInput);
     const coreRubricMarkers = [
       "OBSERVABLE DEFECT NOTES",
-      "VISUAL OVERLOAD",
-      "GENERIC TEMPLATE",
-      "THUMBNAIL / PREVIEW SCALE",
-      "CRITERION MAPPING",
+      "ART DIRECTION (ranking guidance)",
       "Dominant idea reference",
     ];
 
@@ -220,7 +208,7 @@ describe("buildCreativeScorePrompt observable rubric", () => {
       expect(extractObservableRubricSection(qaPrompt)).toContain(marker);
     }
 
-    expect(scorePrompt).toMatch(/SCORE VISUAL QUALITY CAPS/);
+    expect(scorePrompt).not.toMatch(/SCORE VISUAL QUALITY CAPS/);
   });
 
   it("includes allowedEntities briefMatch block for registry campaigns", () => {

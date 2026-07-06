@@ -117,10 +117,9 @@ describe.each(MODES)("TEST-01 prompt contract — $name", ({ contract, extra }) 
     expect(qaPrompt).toMatch(/allowed entity registry|invented_factual_entity/i);
 
     const qaRubric = extractObservableRubricSection(qaPrompt);
-    expect(qaRubric).toMatch(/VISUAL OVERLOAD/i);
-    expect(qaRubric).toMatch(/GENERIC TEMPLATE/i);
-    expect(qaRubric).toMatch(/THUMBNAIL \/ PREVIEW SCALE/i);
-    expect(qaRubric).toMatch(/three information zones|dominant focal/i);
+    expect(qaRubric).toMatch(/ART DIRECTION \(ranking guidance\)/);
+    expect(qaRubric).toMatch(/optional techniques, not validity rules/i);
+    expect(qaRubric).toMatch(/composition, typography, rhythm/i);
     expect(qaPrompt).not.toMatch(/Export must remain allowed/i);
 
     if (resolved.generationMode === "restyling") {

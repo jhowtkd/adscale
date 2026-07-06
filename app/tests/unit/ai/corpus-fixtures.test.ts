@@ -64,10 +64,20 @@ describe("CORPUS_ARCHETYPE_FIXTURES catalog integrity", () => {
     expect(serialized).not.toContain("Teste_debuf");
   });
 
-  it("targets invalid verdict for all archetypes with documented baseline gap", () => {
+  it("targets invalid verdict only for objective-integrity archetypes", () => {
+    const objectiveArchetypes = new Set<CorpusArchetype>([
+      "invented_factual_entity",
+      "restyling_factual_contamination",
+    ]);
     for (const fixture of CORPUS_ARCHETYPE_FIXTURES) {
-      expect(fixture.expectedVerdict).toBe("invalid");
-      expect(fixture.expectedHardFailureCodes.length).toBeGreaterThan(0);
+      if (objectiveArchetypes.has(fixture.archetype)) {
+        expect(fixture.expectedVerdict).toBe("invalid");
+        expect(fixture.expectedHardFailureCodes.length).toBeGreaterThan(0);
+      } else {
+        // Advisory art-direction archetypes rank lower but stay exportable.
+        expect(fixture.expectedVerdict).toBe("improvable");
+        expect(fixture.expectedHardFailureCodes).toEqual([]);
+      }
       expect(["acceptable", "improvable", "invalid"]).toContain(fixture.baselineVerdict);
     }
   });

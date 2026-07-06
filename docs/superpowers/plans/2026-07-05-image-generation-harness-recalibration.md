@@ -213,7 +213,7 @@ git commit -m "feat: loosen creative prompts within fidelity bands"
 - Modify: `app/src/server/ai/creative-score-ceilings.ts`
 - Modify: `app/tests/unit/ai/creative-score-ceilings.test.ts`
 
-- [ ] **Step 1: Write failing gate tests for the new boundary**
+- [x] **Step 1: Write failing gate tests for the new boundary**
 
 ```ts
 it.each([
@@ -241,12 +241,12 @@ it("still blocks invented offers", () => {
 });
 ```
 
-- [ ] **Step 2: Run gate tests and verify failure**
+- [x] **Step 2: Run gate tests and verify failure**
 
 Run: `cd app && npm test -- tests/unit/ai/creative-quality-gate.test.ts src/server/ai/creative-qa.test.ts tests/unit/ai/creative-score-ceilings.test.ts`  
 Expected: FAIL because CTA drift, illegibility, overload, and generic aesthetics are still promoted or capped.
 
-- [ ] **Step 3: Make the observable rubric contextual and advisory**
+- [x] **Step 3: Make the observable rubric contextual and advisory**
 
 Replace fail/cap language with:
 
@@ -260,7 +260,7 @@ export const ART_DIRECTION_RUBRIC = `ART DIRECTION (ranking guidance):
 
 Remove `SCORE_VISUAL_QUALITY_CAPS` and keep the existing extractor header stable if downstream snapshots depend on it.
 
-- [ ] **Step 4: Rewrite QA compliance wording**
+- [x] **Step 4: Rewrite QA compliance wording**
 
 In `buildCreativeQaPrompt`:
 
@@ -270,7 +270,7 @@ In `buildCreativeQaPrompt`:
 - keep art-direction observations in `creativeRisk` as ranking advice;
 - keep style-reference factual contamination as a failure.
 
-- [ ] **Step 5: Demote subjective hard-failure classifications**
+- [x] **Step 5: Demote subjective hard-failure classifications**
 
 In `classifyCreativeQualityGate`, move these to `polishSuggestions`:
 
@@ -288,12 +288,12 @@ Keep objective codes hard: wrong brand, unsupported offer, invented entity, copi
 
 Update score ceilings so only remaining hard failures have mappings. Numeric scores remain compatibility data.
 
-- [ ] **Step 6: Run focused tests**
+- [x] **Step 6: Run focused tests**
 
 Run: `cd app && npm test -- src/server/ai/creative-qa.test.ts tests/unit/ai/creative-quality-gate.test.ts tests/unit/ai/creative-score-ceilings.test.ts tests/unit/ai/quality-rubric-regression.test.ts`  
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add app/src/server/ai/observable-rubric.ts app/src/server/ai/creative-qa.ts app/src/server/ai/creative-qa.test.ts app/src/server/ai/creative-quality-gate.ts app/tests/unit/ai/creative-quality-gate.test.ts app/src/server/ai/creative-score-ceilings.ts app/tests/unit/ai/creative-score-ceilings.test.ts app/tests/unit/ai/quality-rubric-regression.test.ts
