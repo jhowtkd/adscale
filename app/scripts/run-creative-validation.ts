@@ -441,10 +441,7 @@ async function captureLiveWithAutoRetry(
   let buffer = await regenerateAfter(row, contract, openai);
   let capture = await scoreAfterCapture(buffer, row, contract);
 
-  const shouldRetry =
-    capture.hardFailures.length > 0 &&
-    (shouldAutoRetryDerivation(row.mode, capture.hardFailures, false) ||
-      capture.qualityScore < 75);
+  const shouldRetry = shouldAutoRetryDerivation(row.mode, capture.hardFailures, false);
 
   if (shouldRetry) {
     const correctionFeedback = buildHardFailureRegenerationSuggestion({

@@ -2,40 +2,29 @@ import type { CreativeContract } from "./creative-contract";
 import type { CreativeHardFailure } from "./creative-quality-gate";
 import { normalizeHardFailureCode } from "./creative-quality-gate";
 
-const RETRYABLE_BY_MODE: Record<
-  CreativeContract["generationMode"],
-  ReadonlySet<CreativeHardFailure["code"]>
-> = {
-  art_variation: new Set([
-    "cta_drift",
-    "unreadable_required_text",
-    "decorative_only_variation",
-    "visual_overload",
-  ]),
-  format_adaptation: new Set([
-    "cta_drift",
-    "unreadable_required_text",
-    "invalid_format_layout",
-    "cropped_critical_content",
-  ]),
-  restyling: new Set([
-    "style_reference_contamination",
-    "cta_drift",
-    "unreadable_required_text",
-    "copied_style_reference_facts",
-  ]),
-};
+// Only objective, machine-verifiable failures warrant an automatic retry.
+// Subjective/advisory findings (cta_drift, visual_overload, etc.) surface as
+// polish suggestions instead of triggering regeneration.
+const RETRYABLE_OBJECTIVE_FAILURES: ReadonlySet<CreativeHardFailure["code"]> = new Set([
+  "wrong_brand",
+  "unsupported_offer",
+  "invented_factual_entity",
+  "style_reference_contamination",
+  "replaced_source_subject",
+  "unauthorized_brand_or_ip",
+  "cropped_critical_content",
+  "invalid_format_layout",
+]);
 
 export function shouldAutoRetryDerivation(
-  generationMode: CreativeContract["generationMode"],
+  _generationMode: CreativeContract["generationMode"],
   hardFailures: CreativeHardFailure[] | null | undefined,
   autoRetryAttempted?: boolean
 ): boolean {
   if (autoRetryAttempted) return false;
   if (!hardFailures?.length) return false;
 
-  const retryableCodes = RETRYABLE_BY_MODE[generationMode];
   return hardFailures.some((failure) =>
-    retryableCodes.has(normalizeHardFailureCode(failure.code))
+    RETRYABLE_OBJECTIVE_FAILURES.has(normalizeHardFailureCode(failure.code))
   );
 }

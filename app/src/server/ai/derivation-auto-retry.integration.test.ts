@@ -148,7 +148,7 @@ describe("runDerivationAutoRetry restyling", () => {
   it("uses single image for non-restyling modes", async () => {
     mockGetDerivationById.mockResolvedValue({
       id: "derivation-id",
-      hardFailures: [{ code: "cta_drift", message: "CTA drift" }],
+      hardFailures: [{ code: "wrong_brand", message: "Wrong brand" }],
       generationLog: { autoRetryAttempted: false },
       promptProvenance: null,
     } as Awaited<ReturnType<typeof getDerivationById>>);
