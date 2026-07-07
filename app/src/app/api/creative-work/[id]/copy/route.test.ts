@@ -163,7 +163,7 @@ describe("POST /api/creative-work/[id]/copy", () => {
   });
 
   it("returns the persisted copy on a repeat request without calling OpenAI again", async () => {
-    mockGetCreativeWork.mockResolvedValueOnce({
+    mockGetCreativeWork.mockResolvedValue({
       work: { ...workItem, copy: generatedCopy },
       outputs: [],
     });

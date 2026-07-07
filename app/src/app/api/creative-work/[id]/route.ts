@@ -12,9 +12,7 @@ import {
   IdentitySnapshotMissingAlphaError,
   IdentitySnapshotMissingReferenceError,
 } from "@/server/creative-work/identity";
-import {
-  socialPostCopySchema,
-} from "@/server/creative-work/contracts";
+import { socialPostCopySchema } from "@/server/creative-work/contracts";
 
 const confirmCreativeWorkSchema = z
   .object({
