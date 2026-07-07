@@ -100,7 +100,6 @@ export function BrandTrainingAssets({
         disabled={upload.isPending}
         onFiles={handleFiles}
         onError={(msg) => addToast("error", msg)}
-        errorMessage={upload.isPending ? null : null}
       />
 
       {assetsQuery.isLoading ? (
@@ -194,7 +193,6 @@ function UploadField({
   disabled: boolean;
   onFiles: (files: FileList | null) => void;
   onError: (msg: string) => void;
-  errorMessage: string | null;
 }) {
   const t = useTranslations("brandTraining");
   const [validationError, setValidationError] = useState<string | null>(null);
