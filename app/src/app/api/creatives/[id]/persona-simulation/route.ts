@@ -15,8 +15,14 @@ import {
 import { simulatePersonas } from "@/server/ai/persona-simulator";
 import { recordBrandMemoryEvent } from "@/server/memory/brand-memory-dispatch";
 
+const sourceTypeSchema = z.enum(["derivation", "landing_page"]);
+
 const postBodySchema = z.object({
-  sourceType: z.enum(["derivation", "landing_page"]),
+  sourceType: sourceTypeSchema,
+});
+
+const getQuerySchema = z.object({
+  sourceType: sourceTypeSchema,
 });
 
 export async function POST(
@@ -163,10 +169,13 @@ export async function GET(
     ]);
 
     const { searchParams } = new URL(request.url);
-    const sourceType = searchParams.get("sourceType");
-    if (!sourceType || (sourceType !== "derivation" && sourceType !== "landing_page")) {
-      return apiError("invalidSourceType", 400);
+    const parsed = getQuerySchema.safeParse({
+      sourceType: searchParams.get("sourceType"),
+    });
+    if (!parsed.success) {
+      return apiError("invalidSourceType", 400, parsed.error.flatten());
     }
+    const { sourceType } = parsed.data;
 
     const simulation = await getPersonaSimulationBySource(
       workspace.id,

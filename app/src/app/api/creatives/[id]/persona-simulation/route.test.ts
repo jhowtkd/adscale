@@ -300,6 +300,33 @@ describe("GET /api/creatives/[id]/persona-simulation", () => {
     expect(res.status).toBe(404);
   });
 
+  it("returns 400 with invalidSourceType when sourceType is missing", async () => {
+    const res = await GET(
+      new Request("http://localhost/api/creatives/derivation-id/persona-simulation", {
+        method: "GET",
+      }),
+      { params: paramsWith("derivation-id") }
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(body.code).toBe("invalidSourceType");
+    expect(body.details).toBeDefined();
+    expect(mockGetPersonaSimulationBySource).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 with invalidSourceType when sourceType is invalid", async () => {
+    const res = await GET(getRequest("derivation-id", "invalid"), {
+      params: paramsWith("derivation-id"),
+    });
+    const body = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(body.code).toBe("invalidSourceType");
+    expect(body.details).toBeDefined();
+    expect(mockGetPersonaSimulationBySource).not.toHaveBeenCalled();
+  });
+
   it("returns stale: true when cache is expired", async () => {
     const simulation = makeMockSimulation({
       cacheExpiresAt: new Date(Date.now() - 48 * 60 * 60 * 1000),
