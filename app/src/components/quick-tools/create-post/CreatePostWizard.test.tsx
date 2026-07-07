@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import CreatePostWizard from "./CreatePostWizard";
@@ -187,16 +187,36 @@ describe("CreatePostWizard", () => {
     expect(screen.getByRole("button", { name: "Criar copy" })).toBeDisabled();
   });
 
-  it("shows the 15-credit confirmation before visual generation", async () => {
-    mockUseCreativeWork.mockReturnValue({ data: readyWork, isLoading: false });
+  it("shows the 15-credit confirmation inside the assets step before visual generation", async () => {
+    // The wizard now exposes the 15-credit cost on the assets (identity)
+    // step rather than as a dedicated confirmation step. To land on the
+    // assets step the persisted work must be a draft with copy already
+    // generated (routes to step index 2).
+    const draftWithCopyWork = {
+      work: {
+        ...draftWork.work,
+        copy: { headline: "h", body: "b", cta: "c" },
+      },
+      outputs: [],
+    };
+    mockUseCreativeWork.mockReturnValue({ data: draftWithCopyWork, isLoading: false });
     mockUseClientReferences.mockReturnValue({ data: [approvedReferenceFixture], isLoading: false });
 
     render(<CreatePostWizard workId="work-1" />, { wrapper: createWrapper() });
 
     expect(await screen.findAllByText("15 créditos")).not.toHaveLength(0);
-    expect(
-      screen.getByRole("button", { name: "Confirmar e gerar 3 propostas" }),
-    ).toBeEnabled();
+    const confirmButton = await screen.findByRole("button", {
+      name: "Confirmar e gerar 3 propostas",
+    });
+    // The CTA is disabled until the user selects at least one approved asset.
+    expect(confirmButton).toBeDisabled();
+
+    const checkbox = screen.getByLabelText("Logo principal") as HTMLInputElement;
+    act(() => {
+      checkbox.click();
+    });
+
+    expect(confirmButton).toBeEnabled();
   });
 
   it("renders the three proposal cards in fixed neutral order", async () => {

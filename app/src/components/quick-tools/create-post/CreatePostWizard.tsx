@@ -24,9 +24,9 @@ import {
 } from "@/lib/hooks/use-creative-work";
 import CreativeProposalGrid from "./CreativeProposalGrid";
 
-type StepId = "brief" | "copy" | "assets" | "confirm" | "proposals";
+type StepId = "brief" | "copy" | "assets" | "proposals";
 
-const STEP_ORDER: StepId[] = ["brief", "copy", "assets", "confirm", "proposals"];
+const STEP_ORDER: StepId[] = ["brief", "copy", "assets", "proposals"];
 
 const FORMAT_OPTIONS: Array<{ value: "1:1" | "4:5" | "9:16"; label: string }> = [
   { value: "1:1", label: "1:1" },
@@ -119,8 +119,9 @@ export default function CreatePostWizard({ workId: initialWorkId }: { workId?: s
     if (!detail) return stepIndex;
     const status = detail.work.status;
     if (status === "draft") return detail.work.copy ? 2 : 1;
-    if (status === "ready") return 3;
-    return 4;
+    // "ready" and beyond (generating / completed / failed) all live on the
+    // proposals step now that the confirm step has been folded into assets.
+    return 3;
     // detail is intentionally not listed — we only need the three scalar
     // fields, and adding the whole object would re-run on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -194,14 +195,10 @@ export default function CreatePostWizard({ workId: initialWorkId }: { workId?: s
     }
   };
 
-  // ----- Step 3: confirm identity snapshot ---------------------------------
+  // ----- Step 3: confirm identity + trigger triplet ------------------------
 
-  const handleAdvanceFromAssets = () => {
+  const handleAdvanceFromAssets = async () => {
     if (selectedReferenceIds.length === 0) return;
-    goNext();
-  };
-
-  const handleConfirmAndGenerate = async () => {
     if (!activeWorkId || !detail?.work.copy) return;
     try {
       await confirmMutation.mutateAsync({
@@ -216,7 +213,7 @@ export default function CreatePostWizard({ workId: initialWorkId }: { workId?: s
     }
   };
 
-  // ----- Step 5: proposal grid callbacks -----------------------------------
+  // ----- Step 4: proposal grid callbacks -----------------------------------
 
   const handleRetry = async (outputId: string) => {
     if (!activeWorkId) return;
@@ -325,18 +322,11 @@ export default function CreatePostWizard({ workId: initialWorkId }: { workId?: s
               current.includes(id) ? current.filter((x) => x !== id) : [...current, id],
             )
           }
-          onAdvance={handleAdvanceFromAssets}
-          onBack={goBack}
-        />
-      ) : null}
-
-      {currentStep === "confirm" && detail?.work ? (
-        <ConfirmStep
           credits={VISUAL_TRIPLET_CREDITS}
           isSubmitting={confirmMutation.isPending || triggerMutation.isPending}
-          onConfirm={handleConfirmAndGenerate}
-          onBack={goBack}
           error={confirmMutation.error ?? triggerMutation.error}
+          onAdvance={handleAdvanceFromAssets}
+          onBack={goBack}
         />
       ) : null}
 
@@ -368,7 +358,6 @@ function Stepper({ currentIndex }: { currentIndex: number }) {
     { key: "brief", labelKey: "stepBrief" },
     { key: "copy", labelKey: "stepCopy" },
     { key: "assets", labelKey: "stepAssets" },
-    { key: "confirm", labelKey: "stepConfirm" },
     { key: "proposals", labelKey: "stepProposals" },
   ];
   return (
@@ -575,10 +564,14 @@ function AssetsStep(props: {
   references: Array<{ id: string; label: string; trainingCategory: string; usageMode: string; reason: string }>;
   selectedIds: string[];
   onToggle: (id: string) => void;
+  credits: number;
+  isSubmitting: boolean;
+  error: unknown;
   onAdvance: () => void;
   onBack: () => void;
 }) {
   const tQuick = useTranslations("quickTools.createPost");
+  const tCommon = useTranslations("common");
   const canAdvance = props.selectedIds.length > 0;
 
   return (
@@ -627,29 +620,6 @@ function AssetsStep(props: {
         </ul>
       )}
 
-      <div className="flex justify-between">
-        <Button type="button" variant="ghost" onClick={props.onBack}>
-          {tQuick("back")}
-        </Button>
-        <Button type="button" onClick={props.onAdvance} disabled={!canAdvance}>
-          {tQuick("next")}
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function ConfirmStep(props: {
-  credits: number;
-  isSubmitting: boolean;
-  onConfirm: () => void;
-  onBack: () => void;
-  error: unknown;
-}) {
-  const tQuick = useTranslations("quickTools.createPost");
-  const tCommon = useTranslations("common");
-  return (
-    <div className="space-y-6 rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-6">
       <p className="text-sm text-[var(--text-secondary)]">
         {tQuick("confirmHelp", { credits: props.credits })}
       </p>
@@ -667,7 +637,7 @@ function ConfirmStep(props: {
         <Button type="button" variant="ghost" onClick={props.onBack}>
           {tQuick("back")}
         </Button>
-        <Button type="button" onClick={props.onConfirm} disabled={props.isSubmitting}>
+        <Button type="button" onClick={props.onAdvance} disabled={!canAdvance || props.isSubmitting}>
           {props.isSubmitting ? tQuick("submitting") : tQuick("stepConfirmCta")}
         </Button>
       </div>
