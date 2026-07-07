@@ -132,7 +132,7 @@ export function BrandTrainingAssets({
             asset={asset}
             onApprove={(input) =>
               review.mutate(
-                { ...input, reviewStatus: "approved" },
+                { referenceId: asset.id, ...input, reviewStatus: "approved" },
                 {
                   onSuccess: () => addToast("success", tc("saved")),
                   onError: (err) => addToast("error", err.message),
@@ -141,7 +141,7 @@ export function BrandTrainingAssets({
             }
             onArchive={(input) =>
               review.mutate(
-                { ...input, reviewStatus: "archived" },
+                { referenceId: asset.id, ...input, reviewStatus: "archived" },
                 {
                   onSuccess: () => addToast("success", tc("saved")),
                   onError: (err) => addToast("error", err.message),
