@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getBrandKit } from "@/server/db/repositories/brand-kit";
-import { getClientProfile, getClientReferences } from "@/server/repositories/client-reference";
+import {
+  getClientProfile,
+  getClientReferences,
+  type ClientReferenceKind,
+} from "@/server/repositories/client-reference";
 import { getOlharVoiceConfigByClientProfileId } from "@/server/repositories/client-profile-olhar-config";
 import { resolveBrandProfileStatus } from "@/server/brand-profile/trained-status";
 
@@ -41,7 +45,11 @@ export async function GET(
         brandColors: (brandKit?.brandColors ?? null) as string[] | null,
         brandFonts: (brandKit?.brandFonts ?? null) as string[] | null,
       },
-      references.map((r) => ({ kind: r.kind as never })),
+      references.map((r) => ({
+        kind: r.kind as ClientReferenceKind,
+        trainingCategory: r.trainingCategory,
+        reviewStatus: r.reviewStatus,
+      })),
     );
 
     return NextResponse.json({

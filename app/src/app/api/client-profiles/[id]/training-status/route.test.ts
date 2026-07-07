@@ -118,4 +118,56 @@ describe("GET /api/client-profiles/[id]/training-status", () => {
     expect(body.trained).toBe(true);
     expect(body.voice).toEqual({ configured: true, reviewStatus: "pending_review" });
   });
+
+  it("ignores pending_analysis trained references when computing readiness", async () => {
+    // Pending-analysis assets must NOT satisfy the visual-signal gate,
+    // otherwise the wizard would mark a brand trained before the LLM has
+    // even looked at the image.
+    getClientProfile.mockResolvedValue(mockProfile());
+    getBrandKit.mockResolvedValue({ logoAssetKey: "ws/logo.png", brandColors: null, brandFonts: null });
+    getClientReferences.mockResolvedValue([
+      {
+        kind: "style",
+        trainingCategory: "visual_reference",
+        reviewStatus: "pending_analysis",
+      },
+    ]);
+    getOlharVoiceConfigByClientProfileId.mockResolvedValue(null);
+
+    const res = await GET(
+      new Request(`http://localhost/api/client-profiles/${PROFILE_ID}/training-status`),
+      { params: Promise.resolve({ id: PROFILE_ID }) },
+    );
+
+    const body = await res.json();
+    expect(body.trained).toBe(false);
+    expect(body.missing).toEqual(["visual-signal"]);
+  });
+
+  it("an approved trained logo satisfies the logo gate without a legacy logoAssetKey", async () => {
+    // The route must forward trainingCategory and reviewStatus so the
+    // readiness resolver can accept an approved logo as the logo source.
+    getClientProfile.mockResolvedValue(mockProfile());
+    getBrandKit.mockResolvedValue({ logoAssetKey: null, brandColors: null, brandFonts: null });
+    getClientReferences.mockResolvedValue([
+      {
+        kind: "other",
+        trainingCategory: "logo",
+        reviewStatus: "approved",
+      },
+    ]);
+    getOlharVoiceConfigByClientProfileId.mockResolvedValue(null);
+
+    const res = await GET(
+      new Request(`http://localhost/api/client-profiles/${PROFILE_ID}/training-status`),
+      { params: Promise.resolve({ id: PROFILE_ID }) },
+    );
+
+    const body = await res.json();
+    // The logo gap is closed by the approved trained logo reference; the
+    // visual-signal gap remains because no visual evidence has been
+    // approved yet.
+    expect(body.missing).toEqual(["visual-signal"]);
+    expect(body.trained).toBe(false);
+  });
 });
