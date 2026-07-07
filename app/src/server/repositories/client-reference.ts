@@ -3,6 +3,12 @@ import { db } from "../db";
 import { clientProfiles, clientReferences } from "../db/schema";
 import { isWorkspaceAssetKey } from "./asset";
 import { isWorkspaceDerivationOutputKey } from "./derivation";
+import type {
+  BrandTrainingAnalysis,
+  BrandTrainingCategory,
+  BrandTrainingUsageMode,
+  BrandTrainingReviewStatus,
+} from "../brand-training/contracts";
 
 export type ClientReferenceKind =
   | "style"
@@ -158,4 +164,141 @@ export async function isWorkspaceReferenceAssetKey(
     (await isWorkspaceAssetKey(workspaceId, assetKey)) ||
     (await isWorkspaceDerivationOutputKey(workspaceId, assetKey))
   );
+}
+
+export interface CreateTrainingReferenceInput {
+  clientProfileId: string;
+  assetKey: string;
+  label: string;
+}
+
+export interface TrainingReferenceScope {
+  workspaceId: string;
+  clientProfileId: string;
+  referenceId: string;
+}
+
+export interface RecordTrainingAnalysisInput {
+  trainingCategory: BrandTrainingCategory;
+  usageMode: BrandTrainingUsageMode;
+  analysis: BrandTrainingAnalysis;
+}
+
+export interface ReviewTrainingReferenceInput {
+  trainingCategory: BrandTrainingCategory;
+  usageMode: BrandTrainingUsageMode;
+  analysis: BrandTrainingAnalysis | null;
+  reviewStatus: Extract<BrandTrainingReviewStatus, "approved" | "archived">;
+  reviewedByUserId: string;
+}
+
+export async function createTrainingReference(
+  workspaceId: string,
+  input: CreateTrainingReferenceInput,
+) {
+  const [row] = await db
+    .insert(clientReferences)
+    .values({
+      workspaceId,
+      clientProfileId: input.clientProfileId,
+      assetKey: input.assetKey,
+      label: input.label,
+      kind: "other",
+      reviewStatus: "pending_analysis",
+    })
+    .returning();
+  return row;
+}
+
+export async function getTrainingReferences(
+  workspaceId: string,
+  clientProfileId: string,
+) {
+  return db
+    .select()
+    .from(clientReferences)
+    .where(
+      and(
+        eq(clientReferences.workspaceId, workspaceId),
+        eq(clientReferences.clientProfileId, clientProfileId),
+        inArray(clientReferences.reviewStatus, [
+          "pending_analysis",
+          "pending_approval",
+          "approved",
+          "archived",
+        ]),
+      ),
+    )
+    .orderBy(desc(clientReferences.createdAt));
+}
+
+export async function getApprovedTrainingReferences(
+  workspaceId: string,
+  clientProfileId: string,
+) {
+  return db
+    .select()
+    .from(clientReferences)
+    .where(
+      and(
+        eq(clientReferences.workspaceId, workspaceId),
+        eq(clientReferences.clientProfileId, clientProfileId),
+        eq(clientReferences.reviewStatus, "approved"),
+      ),
+    )
+    .orderBy(desc(clientReferences.createdAt));
+}
+
+export async function recordTrainingAnalysis(
+  scope: TrainingReferenceScope,
+  analysis: RecordTrainingAnalysisInput,
+) {
+  const [row] = await db
+    .update(clientReferences)
+    .set({
+      trainingCategory: analysis.trainingCategory,
+      usageMode: analysis.usageMode,
+      trainingAnalysis: analysis.analysis,
+      reviewStatus: "pending_approval",
+    })
+    .where(
+      and(
+        eq(clientReferences.workspaceId, scope.workspaceId),
+        eq(clientReferences.clientProfileId, scope.clientProfileId),
+        eq(clientReferences.id, scope.referenceId),
+        eq(clientReferences.reviewStatus, "pending_analysis"),
+      ),
+    )
+    .returning();
+  return row;
+}
+
+export async function reviewTrainingReference(
+  scope: TrainingReferenceScope,
+  review: ReviewTrainingReferenceInput,
+) {
+  const [row] = await db
+    .update(clientReferences)
+    .set({
+      trainingCategory: review.trainingCategory,
+      usageMode: review.usageMode,
+      trainingAnalysis: review.analysis,
+      reviewStatus: review.reviewStatus,
+      reviewedAt: new Date(),
+      reviewedByUserId: review.reviewedByUserId,
+    })
+    .where(
+      and(
+        eq(clientReferences.workspaceId, scope.workspaceId),
+        eq(clientReferences.clientProfileId, scope.clientProfileId),
+        eq(clientReferences.id, scope.referenceId),
+        inArray(clientReferences.reviewStatus, [
+          "pending_approval",
+          "approved",
+          "archived",
+        ]),
+      ),
+    )
+    .returning();
+  return row;
 }
