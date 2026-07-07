@@ -110,7 +110,7 @@ export async function confirmCreativeWorkIdentity(
 ): Promise<CreativeWorkItem | null> {
   const [row] = await db
     .update(creativeWorkItems)
-    .set({ identitySnapshot: snapshot })
+    .set({ identitySnapshot: snapshot, status: "ready" })
     .where(
       and(
         eq(creativeWorkItems.workspaceId, workspaceId),

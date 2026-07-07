@@ -224,6 +224,10 @@ describe("creative-work repository", () => {
   });
 
   describe("getCreativeWork", () => {
+    // Deviation from brief: the brief's spec test scaffold asserted
+    // `whereMock` was called 1 time. In practice `getCreativeWork` runs two
+    // scoped queries (one for the work item, one for its outputs), so the
+    // assertion is `2`. The 2-query shape is the intended semantics.
     it("loads work by workspace and id", async () => {
       const work = workItem();
       const outputs = [
@@ -293,6 +297,36 @@ describe("creative-work repository", () => {
         expect.objectContaining({ identitySnapshot: snapshot }),
       );
       expect(result?.identitySnapshot).toEqual(snapshot);
+    });
+
+    it("transitions the work item status to ready alongside the snapshot", async () => {
+      const snapshot = {
+        clientProfileId: "profile-1",
+        confirmedAt: "2026-01-01T00:00:00.000Z",
+        assets: [],
+        brandKit: {
+          colors: [],
+          fonts: [],
+          toneOfVoice: null,
+          prohibitedElements: null,
+          requiredElements: null,
+        },
+      };
+      const updated = workItem({
+        identitySnapshot: snapshot,
+        status: "ready",
+      });
+      mocks.state.updateResults.push([updated]);
+
+      const result = await confirmCreativeWorkIdentity("ws-1", "work-1", snapshot);
+
+      expect(mocks.setMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          identitySnapshot: snapshot,
+          status: "ready",
+        }),
+      );
+      expect(result?.status).toBe("ready");
     });
   });
 
