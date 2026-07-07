@@ -507,7 +507,10 @@
       "templatesLink": "Templates",
       "briefingEmptyTitle": "No active briefing",
       "briefingEmptyDescription": "Start a campaign briefing or pick a template to see fields here.",
-      "briefingEmptyAction": "New campaign"
+      "briefingEmptyAction": "New campaign",
+      "createPostName": "Create post",
+      "createPostDescription": "Briefing + approved identity → 3 visual proposals in one click.",
+      "createPostCount": "15 credits"
     },
     "laboratory": {
       "title": "Ads Laboratory",
@@ -3232,5 +3235,39 @@
   "testerMode": {
     "badge": "Tester",
     "badgeAriaLabel": "Tester account with unlimited usage"
+  },
+  "quickTools": {
+    "createPost": {
+      "title": "Create post",
+      "subtitle": "Generate a social post in 4 stages: briefing, copy, approved identity, and three visual levels.",
+      "stepBrief": "Briefing",
+      "stepCopy": "Copy",
+      "stepAssets": "Identity",
+      "stepConfirm": "Confirm",
+      "stepProposals": "Proposals",
+      "brandLabel": "Brand",
+      "brandPlaceholder": "Select a brand",
+      "briefTheme": "Theme",
+      "briefObjective": "Objective",
+      "briefAudience": "Audience",
+      "briefOffer": "Offer",
+      "formatLabel": "Format",
+      "generatingCopy": "Generating copy...",
+      "headline": "Headline",
+      "body": "Body",
+      "cta": "CTA",
+      "assetsHelp": "Pick the approved references that should anchor the composition.",
+      "noApprovedAssets": "No approved references yet — finish brand training to unlock options.",
+      "confirmHelp": "We will generate 3 visual proposals (conservative, balanced, bold) for {credits} credits.",
+      "confirmCredits": "{credits} credits",
+      "proposalsHelp": "All three proposals were generated in parallel. Pick the winner.",
+      "back": "Back",
+      "next": "Next",
+      "submitting": "Submitting...",
+      "stepCopyCta": "Create copy",
+      "stepConfirmCta": "Confirm and generate 3 proposals",
+      "selectSuccess": "Proposal selected",
+      "saveSuccess": "Proposal saved to library"
+    }
   }
 }

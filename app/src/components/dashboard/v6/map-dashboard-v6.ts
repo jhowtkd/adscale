@@ -194,14 +194,23 @@ export function mapDashboardToV6View({
     updated: formatRelativeTime(campaign.updatedAt, tRelative),
   }));
 
-  const recipes: DashboardV6Recipe[] = templates.slice(0, 4).map((template) => ({
+  const createPost: DashboardV6Recipe = {
+    id: "quick-tool-create-post",
+    icon: "✦",
+    name: tHero("createPostName"),
+    desc: tHero("createPostDescription"),
+    count: tHero("createPostCount"),
+    href: "/quick-tools/create-post",
+  };
+
+  const recipes: DashboardV6Recipe[] = [createPost, ...templates.slice(0, 4).map((template) => ({
     id: template.id,
     icon: "🧪",
     name: template.name,
     desc: template.description ?? template.objective ?? template.audience ?? templateFallback,
     count: template.targetFormats?.length ? varsCount(template.targetFormats.length) : "—",
     href: `/templates`,
-  }));
+  }))].slice(0, 4);
 
   const hero = pickHero(stats, tStatus, tHero);
   const primaryTemplate = templates[0];
