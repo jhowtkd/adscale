@@ -56,7 +56,7 @@ import { generateAndStoreImage } from "./image-generation";
 
 const BASE_INPUT = {
   prompt: "a creative post",
-  targetFormat: "1:1" as const,
+  dimensions: { width: 1080, height: 1080 },
   referenceImages: [] as Array<{ buffer: Buffer; mimeType: string; name: string }>,
 };
 
@@ -117,11 +117,11 @@ describe("generateAndStoreImage", () => {
     );
   });
 
-  it("uses 1024x1280 for 4:5 targetFormat (gpt-image-2 target-aspect size)", async () => {
+  it("uses 1024x1280 for 4:5 dimensions (gpt-image-2 target-aspect size)", async () => {
     await generateAndStoreImage({
       ...BASE_INPUT,
       outputPrefix: "creative-work/output-3",
-      targetFormat: "4:5",
+      dimensions: { width: 1080, height: 1350 },
     });
 
     expect(mockOpenAIImages.generate).toHaveBeenCalledWith(
@@ -129,11 +129,11 @@ describe("generateAndStoreImage", () => {
     );
   });
 
-  it("uses 1152x2048 for 9:16 targetFormat (gpt-image-2 target-aspect size)", async () => {
+  it("uses 1152x2048 for 9:16 dimensions (gpt-image-2 target-aspect size)", async () => {
     await generateAndStoreImage({
       ...BASE_INPUT,
       outputPrefix: "creative-work/output-4",
-      targetFormat: "9:16",
+      dimensions: { width: 1080, height: 1920 },
     });
 
     expect(mockOpenAIImages.generate).toHaveBeenCalledWith(
@@ -141,11 +141,11 @@ describe("generateAndStoreImage", () => {
     );
   });
 
-  it("uses 1024x1024 for 1:1 targetFormat", async () => {
+  it("uses 1024x1024 for 1:1 dimensions", async () => {
     await generateAndStoreImage({
       ...BASE_INPUT,
       outputPrefix: "creative-work/output-5",
-      targetFormat: "1:1",
+      dimensions: { width: 1080, height: 1080 },
     });
 
     expect(mockOpenAIImages.generate).toHaveBeenCalledWith(

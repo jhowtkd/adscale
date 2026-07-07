@@ -4,11 +4,7 @@ import { env } from "../validation/env";
 import { objectStorage } from "@/server/storage";
 import { logger } from "@/lib/logger";
 import { fetchProviderUrlSafe } from "./safe-fetch";
-import {
-  formatToOpenAIImageSize,
-  getTargetDimensions,
-  toOpenAISdkImageSize,
-} from "@/lib/formats";
+import { toOpenAISdkImageSize } from "@/lib/formats";
 import type { ImageOperation } from "./creative-contract";
 
 // R6: keep the SDK client at 120s; withTimeout is the real barrier.
@@ -89,7 +85,14 @@ export interface GenerateAndStoreImageReference {
 
 export interface GenerateAndStoreImageInput {
   prompt: string;
-  targetFormat: "1:1" | "4:5" | "9:16";
+  /**
+   * Resolved target dimensions (width × height) in pixels. The helper derives
+   * both the OpenAI SDK image size and the post-generation normalization size
+   * from this, so callers do not need to forward preview semantics here — the
+   * derivation wrapper resolves `getTargetDimensions(targetFormat, isPreview)`
+   * and passes the result.
+   */
+  dimensions: { width: number; height: number };
   outputPrefix: string;
   referenceImages: GenerateAndStoreImageReference[];
   /**
@@ -105,7 +108,12 @@ export interface GenerateAndStoreImageInput {
 export interface GenerateAndStoreImageResult {
   outputKey: string;
   revisedPrompt: string;
-  imageOperation: ImageOperation;
+  /**
+   * The narrow helper-level operation kind (`generate` vs `edit`). The wider
+   * campaign `ImageOperation` union (which adds `generation_fallback`) is
+   * applied by the derivation wrapper after the fallback retry.
+   */
+  imageOperation: "generate" | "edit";
   buffer: Buffer;
 }
 
@@ -118,24 +126,52 @@ export interface GenerateAndStoreImageResult {
  *
  * Timeout: SDK client 120s; overall `withTimeout` barrier 5 minutes (R6).
  */
+/**
+ * Map a resolved `dimensions` shape to the OpenAI SDK image size string.
+ * Identifies the target format by aspect ratio so callers don't need to forward
+ * the format id or preview semantics — the derivation wrapper resolves those.
+ * Supports the gpt-image-2 target-aspect sizes (1024x1280 for 4:5, 1152x2048
+ * for 9:16) and the legacy SDK sizes for 1:1 and other models.
+ */
+function dimensionsToOpenAISdkSize(dimensions: {
+  width: number;
+  height: number;
+}): ReturnType<typeof toOpenAISdkImageSize> {
+  const ratio = dimensions.width / dimensions.height;
+  const isGptImage2 = env.OPENAI_IMAGE_MODEL.startsWith("gpt-image-2");
+  // 1:1
+  if (Math.abs(ratio - 1) < 0.05) {
+    return isGptImage2 ? toOpenAISdkImageSize("1024x1024") : toOpenAISdkImageSize("1024x1024");
+  }
+  // Portrait: 4:5 (ratio ≈ 0.8) vs 9:16 (ratio ≈ 0.5625)
+  if (ratio < 1) {
+    if (isGptImage2) {
+      return ratio < 0.7
+        ? toOpenAISdkImageSize("1152x2048")
+        : toOpenAISdkImageSize("1024x1280");
+    }
+    return toOpenAISdkImageSize("1024x1536");
+  }
+  // Landscape
+  return toOpenAISdkImageSize("1536x1024");
+}
+
 export async function generateAndStoreImage(
   input: GenerateAndStoreImageInput
 ): Promise<GenerateAndStoreImageResult> {
   const {
     prompt,
-    targetFormat,
+    dimensions,
     outputPrefix,
     referenceImages,
     generationMode = "art_variation",
     outputSuffix = "",
   } = input;
 
-  const openaiSize = toOpenAISdkImageSize(
-    formatToOpenAIImageSize(targetFormat, { modelName: env.OPENAI_IMAGE_MODEL })
-  );
+  const openaiSize = dimensionsToOpenAISdkSize(dimensions);
 
   let result: OpenAI.Images.Image;
-  let imageOperation: ImageOperation;
+  let imageOperation: "generate" | "edit";
 
   if (referenceImages.length > 0) {
     const files = await Promise.all(
@@ -187,10 +223,7 @@ export async function generateAndStoreImage(
     throw new Error("No image data returned");
   }
 
-  const dimensions = getTargetDimensions(targetFormat, false);
-  if (dimensions) {
-    buffer = await normalizeGeneratedImage(buffer, dimensions, generationMode);
-  }
+  buffer = await normalizeGeneratedImage(buffer, dimensions, generationMode);
 
   const key = `${outputPrefix}/${Date.now()}${outputSuffix}.png`;
   await objectStorage.put(key, buffer, "image/png");

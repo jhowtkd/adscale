@@ -12,6 +12,7 @@ import type { CreativeContract, ImageOperation, SourcePackage } from "./creative
 import { normalizeCreativeDiagnosis } from "./creative-diagnosis";
 import {
   formatToOpenAIImageSize,
+  getTargetDimensions,
   toOpenAISdkImageSize,
 } from "@/lib/formats";
 import type { BrandMemoryContext } from "@/server/memory/brand-memory-context";
@@ -245,11 +246,17 @@ export async function executeGenerationStep(
   const outputPrefix = `derivations/${ctx.derivationId}`;
   const outputSuffix = ctx.autoRetry ? "-retry" : "";
 
+  // Resolve target dimensions here so the campaign-neutral helper does not
+  // need to know about preview semantics. Passing already-resolved dimensions
+  // restores the pre-refactor behavior for preview flows.
+  const dimensions =
+    getTargetDimensions(targetFormat, ctx.isPreview) ?? { width: 1024, height: 1024 };
+
   let result: { outputKey: string; revisedPrompt: string; imageOperation: ImageOperation };
   try {
     result = await generateAndStoreImage({
       prompt,
-      targetFormat,
+      dimensions,
       outputPrefix,
       referenceImages,
       generationMode: ctx.promptContext.generationMode,
@@ -270,7 +277,7 @@ export async function executeGenerationStep(
       );
       result = await generateAndStoreImage({
         prompt,
-        targetFormat,
+        dimensions,
         outputPrefix,
         referenceImages: [],
         generationMode: ctx.promptContext.generationMode,
