@@ -381,12 +381,33 @@ export const clientReferences = adscaleSchema.table(
     label: text("label").notNull(),
     kind: text("kind").notNull().default("other"),
     notes: text("notes"),
+    trainingCategory: text("training_category").$type<
+      import("../brand-training/contracts").BrandTrainingCategory
+    >(),
+    usageMode: text("usage_mode").$type<
+      import("../brand-training/contracts").BrandTrainingUsageMode
+    >(),
+    trainingAnalysis: jsonb("training_analysis").$type<
+      import("../brand-training/contracts").BrandTrainingAnalysis
+    >(),
+    reviewStatus: text("review_status").$type<
+      import("../brand-training/contracts").BrandTrainingReviewStatus
+    >(),
+    reviewedAt: timestamp("reviewed_at", { mode: "date" }),
+    reviewedByUserId: text("reviewed_by_user_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
     sourceDerivationId: uuid("source_derivation_id").references(() => derivations.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
   },
   (table) => [
     index("client_references_workspace_id_idx").on(table.workspaceId),
     index("client_references_client_profile_id_idx").on(table.clientProfileId),
+    index("client_references_training_lookup_idx").on(
+      table.workspaceId,
+      table.clientProfileId,
+      table.reviewStatus,
+    ),
   ]
 );
 
