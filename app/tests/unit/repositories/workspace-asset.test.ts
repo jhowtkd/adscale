@@ -14,6 +14,7 @@ import {
   createWorkspaceAsset,
   getWorkspaceAssets,
   getWorkspaceAssetById,
+  getWorkspaceAssetByKey,
   updateWorkspaceAsset,
   deleteWorkspaceAsset,
   isWorkspaceAssetKey,
@@ -100,5 +101,73 @@ describe("workspace-asset repository", () => {
     const result = await isWorkspaceAssetKey(workspaceId, "key-123");
 
     expect(result).toBe(true);
+  });
+
+  it("createWorkspaceAsset persists metadata when provided", async () => {
+    const mockReturning = vi.fn().mockResolvedValue([{ id: "wa-2" }]);
+    const mockValues = vi.fn().mockReturnValue({ returning: mockReturning });
+    (db.insert as ReturnType<typeof vi.fn>).mockReturnValue({ values: mockValues });
+
+    const metadata = { hasAlpha: true, originalMimeType: "image/svg+xml" };
+
+    await createWorkspaceAsset({
+      workspaceId,
+      name: "mark.svg",
+      key: "workspaces/ws-123/brand-training/abc-mark.png",
+      type: "image/png",
+      size: 4096,
+      source: "brand_training",
+      metadata,
+    });
+
+    expect(mockValues).toHaveBeenCalledWith(
+      expect.objectContaining({ workspaceId, metadata }),
+    );
+  });
+
+  it("createWorkspaceAsset omits metadata when not provided", async () => {
+    const mockReturning = vi.fn().mockResolvedValue([{ id: "wa-3" }]);
+    const mockValues = vi.fn().mockReturnValue({ returning: mockReturning });
+    (db.insert as ReturnType<typeof vi.fn>).mockReturnValue({ values: mockValues });
+
+    await createWorkspaceAsset({
+      workspaceId,
+      name: "logo.png",
+      key: "workspaces/ws-123/assets/logo.png",
+      type: "image/png",
+      size: 1024,
+    });
+
+    const inserted = mockValues.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(inserted).not.toHaveProperty("metadata");
+  });
+
+  it("getWorkspaceAssetByKey filters by workspaceId and key", async () => {
+    const mockLimit = vi.fn().mockResolvedValue([{ id: "wa-1" }]);
+    const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit });
+    const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
+    (db.select as ReturnType<typeof vi.fn>).mockReturnValue({ from: mockFrom });
+
+    const result = await getWorkspaceAssetByKey(
+      workspaceId,
+      "workspaces/ws-123/brand-training/abc-logo.png",
+    );
+
+    expect(mockWhere).toHaveBeenCalledWith(expect.anything());
+    expect(result).toEqual({ id: "wa-1" });
+  });
+
+  it("getWorkspaceAssetByKey returns null when no row matches", async () => {
+    const mockLimit = vi.fn().mockResolvedValue([]);
+    const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit });
+    const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
+    (db.select as ReturnType<typeof vi.fn>).mockReturnValue({ from: mockFrom });
+
+    const result = await getWorkspaceAssetByKey(
+      workspaceId,
+      "workspaces/ws-123/brand-training/missing.png",
+    );
+
+    expect(result).toBeNull();
   });
 });
