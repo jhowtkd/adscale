@@ -2887,3 +2887,116 @@ export const clientCorpusConsents = adscaleSchema.table(
 
 export type ClientCorpusConsent = typeof clientCorpusConsents.$inferSelect;
 export type NewClientCorpusConsent = typeof clientCorpusConsents.$inferInsert;
+
+// ============================================
+// Standalone creative work (Create Post aggregate)
+// ============================================
+
+export const creativeWorkItems = adscaleSchema.table(
+  "creative_work_items",
+  {
+    id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    clientProfileId: uuid("client_profile_id")
+      .notNull()
+      .references(() => clientProfiles.id, { onDelete: "cascade" }),
+    createdByUserId: text("created_by_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+    toolKind: text("tool_kind")
+      .notNull()
+      .$type<"social_post">(),
+    status: text("status")
+      .notNull()
+      .default("draft")
+      .$type<import("../creative-work/contracts").CreativeWorkStatus>(),
+    brief: jsonb("brief")
+      .$type<import("../creative-work/contracts").SocialPostBrief>()
+      .notNull(),
+    format: text("format")
+      .notNull()
+      .$type<"1:1" | "4:5" | "9:16">(),
+    copy: jsonb("copy").$type<import("../creative-work/contracts").SocialPostCopy>(),
+    identitySnapshot: jsonb("identity_snapshot").$type<
+      import("../creative-work/contracts").CreativeWorkIdentitySnapshot
+    >(),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("creative_work_items_scope_idx").on(
+      table.workspaceId,
+      table.clientProfileId,
+      table.updatedAt
+    ),
+    check(
+      "creative_work_items_tool_kind_check",
+      sql`${table.toolKind} = 'social_post'`
+    ),
+    check(
+      "creative_work_items_status_check",
+      sql`${table.status} in ('draft','ready','generating','partial','completed','failed')`
+    ),
+    check(
+      "creative_work_items_format_check",
+      sql`${table.format} in ('1:1','4:5','9:16')`
+    ),
+  ]
+);
+
+export type CreativeWorkItem = typeof creativeWorkItems.$inferSelect;
+export type NewCreativeWorkItem = typeof creativeWorkItems.$inferInsert;
+
+export const creativeWorkOutputs = adscaleSchema.table(
+  "creative_work_outputs",
+  {
+    id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    workItemId: uuid("work_item_id")
+      .notNull()
+      .references(() => creativeWorkItems.id, { onDelete: "cascade" }),
+    creativeLevel: text("creative_level")
+      .notNull()
+      .$type<import("../creative-work/contracts").CreativeLevel>(),
+    status: text("status")
+      .notNull()
+      .default("queued")
+      .$type<import("../creative-work/contracts").CreativeWorkOutputStatus>(),
+    outputKey: text("output_key"),
+    cost: integer("cost"),
+    failureCode: text("failure_code"),
+    quality: jsonb("quality"),
+    isSelected: boolean("is_selected").notNull().default(false),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("creative_work_outputs_level_uq").on(
+      table.workItemId,
+      table.creativeLevel
+    ),
+    uniqueIndex("creative_work_outputs_selected_uq")
+      .on(table.workItemId)
+      .where(sql`${table.isSelected} = true`),
+    index("creative_work_outputs_scope_idx").on(
+      table.workspaceId,
+      table.workItemId,
+      table.status
+    ),
+    check(
+      "creative_work_outputs_level_check",
+      sql`${table.creativeLevel} in ('conservative','balanced','bold')`
+    ),
+    check(
+      "creative_work_outputs_status_check",
+      sql`${table.status} in ('queued','processing','completed','failed')`
+    ),
+  ]
+);
+
+export type CreativeWorkOutput = typeof creativeWorkOutputs.$inferSelect;
+export type NewCreativeWorkOutput = typeof creativeWorkOutputs.$inferInsert;

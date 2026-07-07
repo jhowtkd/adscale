@@ -498,6 +498,13 @@
       "when": 1784030400000,
       "tag": "0071_brand_training_assets",
       "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1784116800000,
+      "tag": "0072_standalone_creative_work",
+      "breakpoints": true
     }
   ]
 }
