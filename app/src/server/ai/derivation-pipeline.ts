@@ -1,10 +1,6 @@
-import OpenAI, { toFile } from "openai";
-import sharp from "sharp";
 import { env } from "../validation/env";
-import { objectStorage } from "@/server/storage";
 import { logger } from "@/lib/logger";
 import { buildDerivationPrompt } from "./prompt-builder";
-import { fetchProviderUrlSafe } from "./safe-fetch";
 import type {
   Asset,
   Campaign,
@@ -16,76 +12,19 @@ import type { CreativeContract, ImageOperation, SourcePackage } from "./creative
 import { normalizeCreativeDiagnosis } from "./creative-diagnosis";
 import {
   formatToOpenAIImageSize,
-  getTargetDimensions,
   toOpenAISdkImageSize,
 } from "@/lib/formats";
 import type { BrandMemoryContext } from "@/server/memory/brand-memory-context";
 import type { PreflightResult } from "./preflight-analysis";
+import {
+  generateAndStoreImage,
+  normalizeGeneratedImage,
+  type GenerateAndStoreImageReference,
+} from "./image-generation";
 
-const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 120_000 });
-const IMAGE_GENERATION_TIMEOUT_MS = 5 * 60 * 1000;
-
-function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-  let timeout: NodeJS.Timeout;
-
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timeout = setTimeout(() => {
-      reject(new Error(`${label} timed out after ${Math.round(ms / 1000)}s`));
-    }, ms);
-  });
-
-  return Promise.race([promise, timeoutPromise]).finally(() => {
-    clearTimeout(timeout);
-  });
-}
-
-/**
- * Moved from jobs/derivation.ts (PR3, arch/refactor-2026-q3): this is pure
- * image post-processing shared by the initial generation path and the
- * auto-retry path. Living in ai/ removes the previous ai -> jobs dependency
- * that derivation-auto-retry.ts had on jobs/derivation.ts.
- */
-export async function normalizeGeneratedImage(
-  buffer: Buffer,
-  dimensions: { width: number; height: number },
-  generationMode: "art_variation" | "format_adaptation" | "restyling",
-) {
-  if (generationMode === "format_adaptation") {
-    return sharp(buffer)
-      .resize(dimensions.width, dimensions.height, {
-        fit: "cover",
-        position: "attention",
-      })
-      .png()
-      .toBuffer();
-  }
-
-  const backgroundPosition = "centre";
-
-  const background = await sharp(buffer)
-    .resize(dimensions.width, dimensions.height, {
-      fit: "cover",
-      position: backgroundPosition,
-    })
-    .blur(24)
-    .modulate({ brightness: 0.82, saturation: 0.9 })
-    .png()
-    .toBuffer();
-
-  const foreground = await sharp(buffer)
-    .resize(dimensions.width, dimensions.height, {
-      fit: "contain",
-      position: "centre",
-      background: { r: 0, g: 0, b: 0, alpha: 0 },
-    })
-    .png()
-    .toBuffer();
-
-  return sharp(background)
-    .composite([{ input: foreground, gravity: "centre" }])
-    .png()
-    .toBuffer();
-}
+// Re-export for backward compatibility — jobs/derivation.ts and the
+// derivation-pipeline test import normalizeGeneratedImage from this module.
+export { normalizeGeneratedImage };
 
 /** The subset of a campaign row that prompt-context building reads directly. */
 export type DerivationPipelineCampaign = Campaign & {
@@ -259,16 +198,32 @@ export interface ExecuteGenerationStepResult {
   imageOperation: ImageOperation;
 }
 
+function referenceToInputs(
+  reference: GenerationReferenceInput,
+  generationMode: "art_variation" | "format_adaptation" | "restyling"
+): GenerateAndStoreImageReference[] {
+  if (reference.kind === "restyling") {
+    return [
+      { buffer: reference.baseBuffer, mimeType: reference.baseMimeType, name: "base-image" },
+      { buffer: reference.styleBuffer, mimeType: reference.styleMimeType, name: "style-reference" },
+    ];
+  }
+  if (reference.kind === "single") {
+    const fileName = generationMode === "restyling" ? "base-image" : "reference-image";
+    return [{ buffer: reference.buffer, mimeType: reference.mimeType, name: fileName }];
+  }
+  return [];
+}
+
 /**
  * Deep module for a single derivation generation attempt: build the prompt,
- * call OpenAI, normalize, and store the result. Extracted from the
- * "generate-and-store-output" step in jobs/derivation.ts and the inline
- * OpenAI call in ai/derivation-auto-retry.ts.
+ * call OpenAI, normalize, and store the result. The provider-side work is
+ * delegated to `generateAndStoreImage` in `image-generation.ts`; this wrapper
+ * handles campaign-specific prompt construction and translates
+ * `GenerationReferenceInput` into the helper's `referenceImages` shape.
  *
- * Wired into derivationJob initial generation (PR4) and auto-retry (PR5,
- * arch/refactor-2026-q3). Persistence of promptProvenance before/after the
- * OpenAI call remains in the job caller for initial generation; auto-retry
- * provenance is updated inside runDerivationAutoRetry after the step returns.
+ * Persistence of promptProvenance before/after the provider call remains in
+ * the job caller (see jobs/derivation.ts and derivation-auto-retry.ts).
  */
 export async function executeGenerationStep(
   ctx: ExecuteGenerationStepContext
@@ -285,124 +240,55 @@ export async function executeGenerationStep(
     })
   );
 
-  let result: OpenAI.Images.Image;
-  let imageOperation: ImageOperation;
+  const targetFormat = ctx.promptContext.targetFormat as "1:1" | "4:5" | "9:16";
+  const referenceImages = referenceToInputs(ctx.reference, ctx.promptContext.generationMode);
+  const outputPrefix = `derivations/${ctx.derivationId}`;
+  const outputSuffix = ctx.autoRetry ? "-retry" : "";
 
-  if (ctx.reference.kind === "restyling") {
-    const baseFile = await toFile(ctx.reference.baseBuffer, "base-image", {
-      type: ctx.reference.baseMimeType,
+  let result: { outputKey: string; revisedPrompt: string; imageOperation: ImageOperation };
+  try {
+    result = await generateAndStoreImage({
+      prompt,
+      targetFormat,
+      outputPrefix,
+      referenceImages,
+      generationMode: ctx.promptContext.generationMode,
+      outputSuffix,
     });
-    const styleFile = await toFile(ctx.reference.styleBuffer, "style-reference", {
-      type: ctx.reference.styleMimeType,
-    });
-
-    const response = await withTimeout(
-      openai.images.edit({
-        model: env.OPENAI_IMAGE_MODEL,
-        image: [baseFile, styleFile],
-        prompt,
-        n: 1,
-        size: openaiSize,
-      }),
-      IMAGE_GENERATION_TIMEOUT_MS,
-      "OpenAI image edit (restyling)"
-    );
-    const first = response.data?.[0];
-    if (!first) throw new Error("No image data returned from OpenAI");
-    logger.info(`[executeGenerationStep] restyling edit success`);
-    result = first;
-    imageOperation = "edit";
-  } else if (ctx.reference.kind === "single") {
-    const referenceFileName =
-      ctx.promptContext.generationMode === "restyling" ? "base-image" : "reference-image";
-    const referenceImage = await toFile(ctx.reference.buffer, referenceFileName, {
-      type: ctx.reference.mimeType,
-    });
-
-    try {
-      const response = await withTimeout(
-        openai.images.edit({
-          model: env.OPENAI_IMAGE_MODEL,
-          image: referenceImage,
-          prompt,
-          n: 1,
-          size: openaiSize,
-        }),
-        IMAGE_GENERATION_TIMEOUT_MS,
-        "OpenAI image edit"
+  } catch (editErr) {
+    // Preserve the historical single-reference fallback: retry without the
+    // reference image. Only enabled when `allowGenerateFallback` is set and
+    // we are NOT in an auto-retry context.
+    if (
+      ctx.reference.kind === "single" &&
+      ctx.reference.allowGenerateFallback &&
+      !ctx.autoRetry
+    ) {
+      logger.warn(
+        `[executeGenerationStep] edit failed, falling back to generate:`,
+        editErr
       );
-      const first = response.data?.[0];
-      if (!first) throw new Error("No image data returned from OpenAI");
-      logger.info(`[executeGenerationStep] edit success`);
-      result = first;
-      imageOperation = "edit";
-    } catch (editErr) {
-      if (ctx.reference.allowGenerateFallback && !ctx.autoRetry) {
-        logger.warn(`[executeGenerationStep] edit failed, falling back to generate:`, editErr);
-        const response = await withTimeout(
-          openai.images.generate({
-            model: env.OPENAI_IMAGE_MODEL,
-            prompt,
-            n: 1,
-            size: openaiSize,
-          }),
-          IMAGE_GENERATION_TIMEOUT_MS,
-          "OpenAI image generation (fallback)"
-        );
-        const first = response.data?.[0];
-        if (!first) throw new Error("No image data returned from OpenAI fallback");
-        logger.info(`[executeGenerationStep] fallback generate success`);
-        result = first;
-        imageOperation = "generation_fallback";
-      } else {
-        throw editErr;
-      }
-    }
-  } else {
-    const response = await withTimeout(
-      openai.images.generate({
-        model: env.OPENAI_IMAGE_MODEL,
+      result = await generateAndStoreImage({
         prompt,
-        n: 1,
-        size: openaiSize,
-      }),
-      IMAGE_GENERATION_TIMEOUT_MS,
-      "OpenAI image generation"
-    );
-    const first = response.data?.[0];
-    if (!first) throw new Error("No image data returned from OpenAI");
-    logger.info(`[executeGenerationStep] generate success (no asset)`);
-    result = first;
-    imageOperation = "generate";
+        targetFormat,
+        outputPrefix,
+        referenceImages: [],
+        generationMode: ctx.promptContext.generationMode,
+        outputSuffix,
+      });
+      // Mark the operation so callers can distinguish the fallback path.
+      result = { ...result, imageOperation: "generation_fallback" };
+    } else {
+      throw editErr;
+    }
   }
-
-  let buffer: Buffer;
-  if (result.b64_json) {
-    buffer = Buffer.from(result.b64_json, "base64");
-  } else if (result.url) {
-    buffer = await fetchProviderUrlSafe(result.url);
-  } else {
-    throw new Error("No image data returned");
-  }
-
-  const dimensions = getTargetDimensions(ctx.promptContext.targetFormat, ctx.isPreview);
-  if (dimensions) {
-    buffer = await normalizeGeneratedImage(buffer, dimensions, ctx.promptContext.generationMode);
-  }
-
-  const key = ctx.autoRetry
-    ? `derivations/${ctx.derivationId}/${Date.now()}-retry.png`
-    : `derivations/${ctx.derivationId}/${Date.now()}.png`;
-  await objectStorage.put(key, buffer, "image/png");
-
-  const revisedPrompt = result.revised_prompt || "";
 
   return {
     prompt,
     promptContext,
     openaiSize,
-    outputKey: key,
-    revisedPrompt,
-    imageOperation,
+    outputKey: result.outputKey,
+    revisedPrompt: result.revisedPrompt,
+    imageOperation: result.imageOperation,
   };
 }
