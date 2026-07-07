@@ -2043,7 +2043,42 @@
     "voice_positiveSignals": "Positive signals",
     "voice_negativeSignals": "Negative signals",
     "approveVoice": "Approve voice",
-    "voiceApproved": "Voice approved and active for generation."
+    "voiceApproved": "Voice approved and active for generation.",
+    "assets": {
+      "title": "Approved visual assets",
+      "description": "Upload images that train the brand profile. Each one is analyzed by AI and waits for your explicit approval before it conditions generation.",
+      "uploadLabel": "Upload images for training",
+      "uploadHint": "PNG, JPEG, WebP or SVG. Up to 10MB each.",
+      "uploadFailed": "Could not upload the file. Try a PNG, JPEG, WebP or SVG under 10MB.",
+      "analysisExplanation": "The model inspected this image and proposed a category and usage mode. Approve to add it to your training set or archive to discard.",
+      "category": "Category",
+      "usageMode": "Usage mode",
+      "descriptionField": "Description",
+      "visualAttributes": "Visual attributes",
+      "rules": "Rules",
+      "constraints": "Constraints",
+      "approve": "Approve asset",
+      "archive": "Archive asset",
+      "transparentRequired": "Exact mode requires a transparent background (PNG with alpha). Re-upload a version with alpha or pick another usage mode.",
+      "emptyTitle": "No training assets yet",
+      "emptyDescription": "Upload PNG, JPEG, WebP or SVG references. Approved assets condition campaign generation.",
+      "statusPendingAnalysis": "Awaiting analysis",
+      "statusPendingApproval": "Awaiting approval",
+      "statusApproved": "Approved",
+      "statusArchived": "Archived",
+      "categories": {
+        "logo": "Logo",
+        "graphic": "Graphic element",
+        "character": "Character / mascot",
+        "visual_reference": "Visual reference"
+      },
+      "usageModes": {
+        "exact": "Exact (composite as-is)",
+        "reference": "Reference (inspire the layout)",
+        "rule": "Rule (enforce style)"
+      },
+      "reviewedAt": "Reviewed {when}"
+    }
   },
   "review": {
     "title": "Review",

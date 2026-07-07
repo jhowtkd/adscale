@@ -150,3 +150,136 @@ export function useApproveVoice(clientProfileId: string | null) {
     },
   });
 }
+
+/* ------------------------------------------------------------------ *
+ * Approved visual assets (Tasks 3-5).                                *
+ * ------------------------------------------------------------------ */
+
+export interface BrandTrainingAssetMetadata {
+  hasAlpha?: boolean;
+  originalMimeType?: string;
+}
+
+export interface BrandTrainingAssetRecord {
+  id: string;
+  clientProfileId: string;
+  assetKey: string;
+  label: string;
+  reviewStatus:
+    | "pending_analysis"
+    | "pending_approval"
+    | "approved"
+    | "archived";
+  trainingCategory?:
+    | "logo"
+    | "graphic"
+    | "character"
+    | "visual_reference"
+    | null;
+  usageMode?: "exact" | "reference" | "rule" | null;
+  trainingAnalysis?: {
+    description: string;
+    visualAttributes: string[];
+    rules: string[];
+    constraints: string[];
+    confidence: number;
+  } | null;
+  reviewedAt: string | Date | null;
+  createdAt: string | Date;
+  asset: {
+    id: string;
+    key: string;
+    type: string;
+    metadata?: BrandTrainingAssetMetadata | null;
+  };
+  url: string;
+}
+
+export const brandTrainingAssetsKey = (clientProfileId: string) =>
+  ["brand-training-assets", clientProfileId] as const;
+
+export function useBrandTrainingAssets(clientProfileId: string | null) {
+  return useQuery({
+    queryKey: brandTrainingAssetsKey(clientProfileId ?? ""),
+    queryFn: async (): Promise<BrandTrainingAssetRecord[]> => {
+      const res = await apiFetch(
+        `/api/client-profiles/${clientProfileId}/training-assets`,
+      );
+      if (!res.ok) throw new Error(await readError(res));
+      const data = await res.json();
+      const list = Array.isArray(data?.references) ? data.references : [];
+      return list.filter(
+        (entry: unknown): entry is BrandTrainingAssetRecord =>
+          entry !== null && typeof entry === "object",
+      );
+    },
+    enabled: Boolean(clientProfileId),
+  });
+}
+
+export function useUploadBrandTrainingAsset(clientProfileId: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (file: File): Promise<BrandTrainingAssetRecord> => {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await apiFetch(
+        `/api/client-profiles/${clientProfileId}/training-assets`,
+        { method: "POST", body: formData },
+      );
+      if (!res.ok) throw new Error(await readError(res));
+      const data = await res.json();
+      return data.reference as BrandTrainingAssetRecord;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: brandTrainingAssetsKey(clientProfileId ?? ""),
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["brand-training-status", clientProfileId],
+      });
+    },
+  });
+}
+
+export interface ReviewBrandTrainingAssetInput {
+  referenceId: string;
+  trainingCategory: "logo" | "graphic" | "character" | "visual_reference";
+  usageMode: "exact" | "reference" | "rule";
+  analysis: BrandTrainingAssetRecord["trainingAnalysis"];
+  reviewStatus: "approved" | "archived";
+}
+
+export function useReviewBrandTrainingAsset(clientProfileId: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (
+      input: ReviewBrandTrainingAssetInput,
+    ): Promise<BrandTrainingAssetRecord> => {
+      const res = await apiFetch(
+        `/api/client-profiles/${clientProfileId}/training-assets/${input.referenceId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            trainingCategory: input.trainingCategory,
+            usageMode: input.usageMode,
+            analysis: input.analysis,
+            reviewStatus: input.reviewStatus,
+          }),
+        },
+      );
+      if (!res.ok) throw new Error(await readError(res));
+      const data = await res.json();
+      return data.reference as BrandTrainingAssetRecord;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: brandTrainingAssetsKey(clientProfileId ?? ""),
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["brand-training-status", clientProfileId],
+      });
+    },
+  });
+}
