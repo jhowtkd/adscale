@@ -30,7 +30,7 @@ describe("buildEvidenceHref", () => {
 
   it("falls back to new campaign when no campaign exists", () => {
     expect(buildEvidenceHref("base_creative_uploaded", context(null))).toBe(
-      "/campaigns/new"
+      "/campaigns?new=1"
     );
   });
 });

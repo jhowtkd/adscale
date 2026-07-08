@@ -122,7 +122,7 @@ describe("StrategyRecipePanel", () => {
     );
 
     recordEvent.mockClear();
-    fireEvent.click(screen.getByText("generatePreview"));
+    fireEvent.click(screen.getByText("generateVariations"));
 
     expect(recordEvent).toHaveBeenCalledWith("cockpit_stage_completed", STAGE_PROPS);
     expect(onGeneratePreview).toHaveBeenCalledWith(

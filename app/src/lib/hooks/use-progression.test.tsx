@@ -44,7 +44,7 @@ describe("useProgression", () => {
             key: "campaign_created",
             label: "Primeira campanha",
             description: "Crie sua primeira campanha.",
-            href: "/campaigns/new",
+            href: "/campaigns?new=1",
             blocked: false,
           },
           lastCalculatedAt: "2026-06-06T00:00:00.000Z",

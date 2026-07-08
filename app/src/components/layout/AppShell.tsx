@@ -8,7 +8,7 @@ import { useTranslations } from "next-intl";
 import Footer from "./Footer";
 import V6ShellLayout from "./V6ShellLayout";
 import MobileMoreSheet from "./MobileMoreSheet";
-import { BookOpen, FolderOpen, LayoutDashboard, MoreHorizontal, Sparkles } from "lucide-react";
+import { BookOpen, FolderOpen, LayoutDashboard, MoreHorizontal, Settings } from "lucide-react";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -22,8 +22,7 @@ export default function AppShell({ children }: AppShellProps) {
 
   const moreActive =
     pathname.startsWith("/templates") ||
-    pathname.startsWith("/restyling") ||
-    pathname.startsWith("/settings");
+    pathname.startsWith("/assistant");
 
   return (
     <V6ShellLayout>
@@ -49,16 +48,16 @@ export default function AppShell({ children }: AppShellProps) {
           active={pathname.startsWith("/campaigns")}
         />
         <MobileNavItem
-          href="/assistant"
-          label={tNav("creativeIntelligence")}
-          icon={Sparkles}
-          active={pathname.startsWith("/assistant")}
-        />
-        <MobileNavItem
           href="/library"
           label={tLibrary("title")}
           icon={BookOpen}
           active={pathname.startsWith("/library")}
+        />
+        <MobileNavItem
+          href="/settings"
+          label={tNav("settings")}
+          icon={Settings}
+          active={pathname.startsWith("/settings")}
         />
         <MobileNavButton
           label={tNav("more")}

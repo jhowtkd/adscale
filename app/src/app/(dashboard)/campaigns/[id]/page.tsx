@@ -64,6 +64,11 @@ import ClientProfileLinkControl from "@/components/campaigns/ClientProfileLinkCo
 import PlatformsDrawer from "@/components/campaigns/PlatformsDrawer";
 import { formatCampaignPlatforms } from "@/lib/campaign-platforms";
 import type { StrategyRecipePrefill } from "@/lib/hooks/use-strategy-recipe";
+import {
+  buildRecommendedRecipePatch,
+  type BrandKitSnapshot,
+  type CampaignRecipeContext,
+} from "@/server/ai/strategy-recipes";
 import ContextualFeedbackButton from "@/components/feedback/ContextualFeedbackButton";
 import { AdscaleLoaderStage } from "@/components/animations";
 import CampaignErrorState from "@/components/campaigns/CampaignErrorState";
@@ -85,7 +90,10 @@ import { useTranslations } from "next-intl";
 import {
   applyCampaignDeepLink,
   parseCampaignTabParam,
+  scrollToCampaignDeepLink,
+  type CampaignTabDeepLink,
 } from "@/lib/campaign/deep-link-tab";
+import type { WorkspaceStageNavTab } from "@/components/campaigns/v6/workspace/campaign-workspace-v6-types";
 
 type WorkspaceHookResult = ReturnType<typeof useCampaignWorkspace>;
 type Campaign = NonNullable<WorkspaceHookResult["campaign"]>;
@@ -362,6 +370,17 @@ export default function CampaignWorkspacePage() {
     }
   };
 
+  const handleStageSelect = (tab: WorkspaceStageNavTab) => {
+    const deepTab = tab as CampaignTabDeepLink;
+    if (tab === "briefing") {
+      goToSetup();
+    } else {
+      goToTrabalho();
+    }
+    // Stage strip navigates to sections; does not open the strategy modal.
+    scrollToCampaignDeepLink(deepTab);
+  };
+
   const handleCloseDerivationFlow = () => {
     closeFlow();
     goToTrabalho();
@@ -370,6 +389,56 @@ export default function CampaignWorkspacePage() {
   const handleOpenDerivar = (prefill?: StrategyRecipePrefill | null) => {
     openDerivePanel(prefill);
     goToTrabalho();
+  };
+
+  const campaignRecipeContext = useMemo<CampaignRecipeContext>(
+    () => ({
+      ctaVariants: campaign?.ctaVariants,
+      targetFormats: campaign?.targetFormats,
+      platforms: campaign?.platforms,
+      generationMode: campaign?.generationMode,
+      creativeLevel: campaign?.creativeLevel,
+      suggestedCta: analysis.suggestedCta,
+    }),
+    [
+      campaign?.ctaVariants,
+      campaign?.targetFormats,
+      campaign?.platforms,
+      campaign?.generationMode,
+      campaign?.creativeLevel,
+      analysis.suggestedCta,
+    ]
+  );
+
+  const brandKitSnapshot = useMemo<BrandKitSnapshot | null>(
+    () =>
+      brandKit
+        ? {
+            constraints: brandKit.constraints,
+            toneOfVoice: brandKit.toneOfVoice,
+            prohibitedElements: brandKit.prohibitedElements,
+          }
+        : null,
+    [brandKit]
+  );
+
+  const recommendedRecipe = useMemo(
+    () =>
+      buildRecommendedRecipePatch({
+        readiness: preflightData?.readiness,
+        brandKit: brandKitSnapshot,
+        campaign: campaignRecipeContext,
+      }),
+    [preflightData?.readiness, brandKitSnapshot, campaignRecipeContext]
+  );
+
+  const tRecipes = useTranslations("strategyRecipes");
+  const recommendedRecipeLabel = tRecipes(`recipes.${recommendedRecipe.recipeId}.name`);
+
+  const handleGenerateWithDefaults = async () => {
+    goToTrabalho();
+    const { recipeId: _recipeId, ...patch } = recommendedRecipe;
+    await configureAndGenerate(patch, { preview: true });
   };
 
   const handleOutputLearningAccept = (payload: OutputLearningAcceptPayload) => {
@@ -442,6 +511,7 @@ export default function CampaignWorkspacePage() {
             campaignId={campaignId}
             isDraft={isDraft}
             onDelete={handleDeleteClick}
+            onStageSelect={handleStageSelect}
           />
 
           {campaign && (
@@ -510,6 +580,8 @@ export default function CampaignWorkspacePage() {
             onApprovePreviewBatch={approvePreviewToBatch}
             createDerivationsPending={createDerivationsPending}
             onOpenDerivar={handleOpenDerivar}
+            onGenerateWithDefaults={handleGenerateWithDefaults}
+            recommendedRecipeLabel={recommendedRecipeLabel}
             onOutputLearningAccept={handleOutputLearningAccept}
             onOutputLearningEdit={handleOutputLearningEdit}
             isDerivationsError={isDerivationsError}
@@ -629,14 +701,7 @@ export default function CampaignWorkspacePage() {
         }}
         readiness={preflightData?.readiness}
         brandKit={brandKit}
-        campaignRecipeContext={{
-          ctaVariants: campaign?.ctaVariants,
-          targetFormats: campaign?.targetFormats,
-          platforms: campaign?.platforms,
-          generationMode: campaign?.generationMode,
-          creativeLevel: campaign?.creativeLevel,
-          suggestedCta: analysis.suggestedCta,
-        }}
+        campaignRecipeContext={campaignRecipeContext}
         onDerivePreview={handleDerivePreview}
         derivePanelSession={derivePanelSession}
         recipePrefill={recipePrefill}
@@ -717,6 +782,8 @@ interface CampaignWorkspaceCardProps {
   }) => void;
   guidedBriefingHints: GuidedBriefingHints;
   onOpenDerivar: (prefill?: StrategyRecipePrefill | null) => void;
+  onGenerateWithDefaults: () => void;
+  recommendedRecipeLabel?: string | null;
   onOutputLearningAccept: (payload: OutputLearningAcceptPayload) => void;
   onOutputLearningEdit: (prefill: RecipePrefillPayload) => void;
   showPreviewGate?: boolean;
@@ -759,6 +826,8 @@ function CampaignWorkspaceCard({
   onGuidedBriefingComplete,
   guidedBriefingHints,
   onOpenDerivar,
+  onGenerateWithDefaults,
+  recommendedRecipeLabel,
   onOutputLearningAccept,
   onOutputLearningEdit,
   showPreviewGate,
@@ -846,7 +915,10 @@ function CampaignWorkspaceCard({
               />
             </div>
             <WorkspaceActionBar
-              onDerivar={() => onOpenDerivar()}
+              onGenerate={onGenerateWithDefaults}
+              onAdjustStrategy={() => onOpenDerivar()}
+              recommendedRecipeLabel={recommendedRecipeLabel}
+              isGenerating={isGenerating || Boolean(createDerivationsPending)}
               readinessBlocking={readinessBlocking}
               disabled={isGenerating}
             />
@@ -896,6 +968,7 @@ function CampaignWorkspaceCard({
                         previewId: previewDerivation.id,
                         isApproving: createDerivationsPending,
                         onApproveBatch: onApprovePreviewBatch,
+                        onAdjustStrategy: () => onOpenDerivar(),
                       }
                     : undefined
                 }

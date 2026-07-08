@@ -7,6 +7,7 @@ import ContextualFeedbackButton from "@/components/feedback/ContextualFeedbackBu
 import type {
   CampaignWorkspaceV6Labels,
   CampaignWorkspaceV6ViewModel,
+  WorkspaceStageNavTab,
   WorkspaceV6BadgeVariant,
   WorkspaceV6DerivationCard,
 } from "./campaign-workspace-v6-types";
@@ -21,6 +22,7 @@ type CampaignWorkspaceV6ViewProps = {
   briefingSlot?: ReactNode;
   derivationsSlot?: ReactNode;
   onOpenDerivation?: (id: string) => void;
+  onStageSelect?: (tab: WorkspaceStageNavTab) => void;
 };
 
 export function CampaignWorkspaceV6Chrome({
@@ -30,7 +32,10 @@ export function CampaignWorkspaceV6Chrome({
   campaignId,
   isDraft = false,
   onDelete,
-}: Omit<CampaignWorkspaceV6ViewProps, "briefingSlot" | "derivationsSlot" | "onOpenDerivation">) {
+  onStageSelect,
+}: Omit<CampaignWorkspaceV6ViewProps, "briefingSlot" | "derivationsSlot" | "onOpenDerivation"> & {
+  onStageSelect?: (tab: WorkspaceStageNavTab) => void;
+}) {
   const backHref = interactive ? "/campaigns" : "/v6/campaigns";
 
   return (
@@ -83,7 +88,12 @@ export function CampaignWorkspaceV6Chrome({
         </div>
       </header>
 
-      <WorkspaceStageList view={view} labels={labels} />
+      <WorkspaceStageList
+        view={view}
+        labels={labels}
+        interactive={interactive}
+        onStageSelect={onStageSelect}
+      />
     </div>
   );
 }
@@ -108,6 +118,7 @@ export default function CampaignWorkspaceV6View({
   briefingSlot,
   derivationsSlot,
   onOpenDerivation,
+  onStageSelect,
 }: CampaignWorkspaceV6ViewProps) {
   return (
     <div className="space-y-6">
@@ -118,6 +129,7 @@ export default function CampaignWorkspaceV6View({
         campaignId={campaignId}
         isDraft={isDraft}
         onDelete={onDelete}
+        onStageSelect={onStageSelect}
       />
 
       <section className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-5 sm:p-8">
@@ -141,13 +153,21 @@ export default function CampaignWorkspaceV6View({
   );
 }
 
+const DEFAULT_STAGE_TABS: WorkspaceStageNavTab[] = ["briefing", "generate", "export"];
+
 function WorkspaceStageList({
   view,
   labels,
+  interactive = true,
+  onStageSelect,
 }: {
   view: CampaignWorkspaceV6ViewModel;
   labels: CampaignWorkspaceV6Labels;
+  interactive?: boolean;
+  onStageSelect?: (tab: WorkspaceStageNavTab) => void;
 }) {
+  const stageTabs = view.stageTabs ?? DEFAULT_STAGE_TABS;
+
   return (
     <section aria-label={labels.stagesAria}>
       <ol className="flex flex-wrap items-center gap-2 sm:gap-0">
@@ -155,31 +175,54 @@ function WorkspaceStageList({
           const step = index + 1;
           const isActive = step === view.currentStage;
           const isPast = step < view.currentStage;
+          const tab = stageTabs[index];
+          const canNavigate = interactive && Boolean(onStageSelect) && Boolean(tab);
+
           return (
             <li key={stage} className="flex items-center">
-              <div
-                className={`flex items-center gap-2 rounded-[var(--radius-control)] px-3 py-2 ${
-                  isActive ? "bg-[var(--neutral-bg)]" : ""
-                }`}
-                aria-current={isActive ? "step" : undefined}
-              >
-                <span
-                  className={`grid h-7 w-7 place-items-center rounded-full text-xs font-semibold ${
-                    isActive || isPast
-                      ? "bg-[var(--neutral-dot)] text-[var(--text-on-accent)]"
-                      : "border border-[var(--border-default)] bg-[var(--surface-raised)] text-[var(--text-muted)]"
+              {canNavigate ? (
+                <button
+                  type="button"
+                  onClick={() => onStageSelect?.(tab)}
+                  className={`flex min-h-9 items-center gap-2 rounded-[var(--radius-control)] px-3 py-2 transition-colors duration-[var(--duration-fast)] hover:bg-[var(--surface-raised)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-green)] focus-visible:ring-offset-2 ${
+                    isActive ? "bg-[var(--accent-green-dim)]" : ""
                   }`}
+                  aria-current={isActive ? "step" : undefined}
                 >
-                  {step}
-                </span>
-                <span
-                  className={`text-sm font-medium ${
-                    isActive ? "text-[var(--accent-primary-text)]" : "text-[var(--text-secondary)]"
+                  <StageStepMarker step={step} isActive={isActive} isPast={isPast} />
+                  <span
+                    className={`text-sm font-medium ${
+                      isActive
+                        ? "text-[var(--accent-green-text)]"
+                        : isPast
+                          ? "text-[var(--text-primary)]"
+                          : "text-[var(--text-secondary)]"
+                    }`}
+                  >
+                    {stage}
+                  </span>
+                </button>
+              ) : (
+                <div
+                  className={`flex min-h-9 items-center gap-2 rounded-[var(--radius-control)] px-3 py-2 ${
+                    isActive ? "bg-[var(--accent-green-dim)]" : ""
                   }`}
+                  aria-current={isActive ? "step" : undefined}
                 >
-                  {stage}
-                </span>
-              </div>
+                  <StageStepMarker step={step} isActive={isActive} isPast={isPast} />
+                  <span
+                    className={`text-sm font-medium ${
+                      isActive
+                        ? "text-[var(--accent-green-text)]"
+                        : isPast
+                          ? "text-[var(--text-primary)]"
+                          : "text-[var(--text-secondary)]"
+                    }`}
+                  >
+                    {stage}
+                  </span>
+                </div>
+              )}
               {index < view.stages.length - 1 ? (
                 <span className="mx-1 hidden h-px w-6 bg-[var(--border-default)] sm:block" aria-hidden="true" />
               ) : null}
@@ -188,6 +231,30 @@ function WorkspaceStageList({
         })}
       </ol>
     </section>
+  );
+}
+
+function StageStepMarker({
+  step,
+  isActive,
+  isPast,
+}: {
+  step: number;
+  isActive: boolean;
+  isPast: boolean;
+}) {
+  return (
+    <span
+      className={`grid h-7 w-7 place-items-center rounded-full text-xs font-semibold ${
+        isActive
+          ? "bg-[var(--accent-green)] text-[var(--accent-green-on-fill)]"
+          : isPast
+            ? "bg-[var(--accent-green-dim)] text-[var(--accent-green-text)]"
+            : "border border-[var(--border-default)] bg-[var(--surface-raised)] text-[var(--text-muted)]"
+      }`}
+    >
+      {step}
+    </span>
   );
 }
 

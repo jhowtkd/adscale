@@ -32,7 +32,7 @@ describe("useMissions", () => {
       ok: true,
       json: () =>
         Promise.resolve({
-          missions: [{ key: "setup", status: "active", href: "/campaigns/new" }],
+          missions: [{ key: "setup", status: "active", href: "/campaigns?new=1" }],
           activeMissionKey: "setup",
           completedCount: 0,
           totalCount: 11,

@@ -449,7 +449,7 @@ export default function StrategyRecipePanel({
             ) : (
               <Sparkles className="mr-2 size-4" />
             )}
-            {t("generatePreview")}
+            {t("generateVariations")}
           </Button>
         </DialogFooter>
       </DialogContent>

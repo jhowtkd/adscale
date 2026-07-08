@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useTranslations } from "next-intl";
-import { CheckCircle2, Sparkles } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useRecordBetaEvent } from "@/lib/hooks/use-record-beta-event";
@@ -13,6 +13,7 @@ interface DerivationPreviewGateFooterProps {
   isGenerating?: boolean;
   className?: string;
   onApproveBatch: () => void;
+  onAdjustStrategy?: () => void;
 }
 
 export default function DerivationPreviewGateFooter({
@@ -21,6 +22,7 @@ export default function DerivationPreviewGateFooter({
   isGenerating,
   className,
   onApproveBatch,
+  onAdjustStrategy,
 }: DerivationPreviewGateFooterProps) {
   const t = useTranslations("strategyRecipes.previewGate");
   const { recordEvent } = useRecordBetaEvent(campaignId);
@@ -40,33 +42,50 @@ export default function DerivationPreviewGateFooter({
 
   return (
     <div
+      role="status"
       className={cn(
-        "mt-3 space-y-3 rounded-lg border border-[var(--accent-green)]/30 bg-[var(--accent-green-dim)]/40 p-3",
+        "mt-3 space-y-3 rounded-[var(--radius-control)] border border-[color-mix(in_srgb,var(--accent-amber)_35%,transparent)] bg-[var(--warning-bg)] p-3",
         className
       )}
     >
       <div className="flex items-start gap-2">
-        <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-[var(--accent-green-text)]" />
+        <AlertTriangle className="mt-0.5 size-4 shrink-0 text-[var(--accent-amber)]" aria-hidden="true" />
         <div className="min-w-0 flex-1">
           <p className="text-xs font-semibold text-[var(--text-primary)]">{t("title")}</p>
-          <p className="mt-0.5 text-[11px] text-[var(--text-secondary)]">{t("description")}</p>
+          <p className="mt-0.5 text-[11px] leading-relaxed text-[var(--text-secondary)]">
+            {t("description")}
+          </p>
         </div>
       </div>
 
-      <Button
-        type="button"
-        size="sm"
-        className="h-auto w-full whitespace-normal px-3 py-2 text-center leading-snug"
-        onClick={handleApproveBatch}
-        disabled={approveDisabled}
-      >
-        {isApproving ? (
-          <Sparkles className="mr-1.5 size-3.5 animate-spin" />
-        ) : (
-          <CheckCircle2 className="mr-1.5 size-3.5" />
-        )}
-        {t("approveBatch")}
-      </Button>
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <Button
+          type="button"
+          size="sm"
+          className="h-auto min-h-9 flex-1 whitespace-normal px-3 py-2 text-center leading-snug"
+          onClick={handleApproveBatch}
+          disabled={approveDisabled}
+        >
+          {isApproving ? (
+            <Sparkles className="mr-1.5 size-3.5 animate-spin" aria-hidden="true" />
+          ) : (
+            <CheckCircle2 className="mr-1.5 size-3.5" aria-hidden="true" />
+          )}
+          {t("continueAnyway")}
+        </Button>
+        {onAdjustStrategy ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-auto min-h-9 flex-1 whitespace-normal px-3 py-2 text-center leading-snug"
+            onClick={onAdjustStrategy}
+            disabled={approveDisabled}
+          >
+            {t("adjustStrategy")}
+          </Button>
+        ) : null}
+      </div>
     </div>
   );
 }

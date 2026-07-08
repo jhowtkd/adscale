@@ -217,7 +217,7 @@ export function buildEvidenceHref(
 ): string {
   const campaignId = context.firstCampaignId;
   if (!campaignId) {
-    return "/campaigns/new";
+    return "/campaigns?new=1";
   }
 
   switch (key) {

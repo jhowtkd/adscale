@@ -65,21 +65,19 @@ function styleIntensityValue(intensity?: string | null): number {
   }
 }
 
+/**
+ * Three user-facing phases that match real workspace states:
+ * 1 Preparar (setup) · 2 Gerar (trabalho / generating / review) · 3 Entregar (has approvals)
+ */
 export function resolveWorkspaceStage({
   workspaceState,
-  derivationCount,
-  reviewCount,
+  derivationCount: _derivationCount,
+  reviewCount: _reviewCount,
   approvedCount,
   isGenerating,
 }: WorkspaceV6StageContext): number {
   if (workspaceState === "setup") return 1;
-  // While derivations are actively generating, nothing is reviewable yet —
-  // keep the stage-pill on Derive (2) instead of advancing to Review.
-  if (isGenerating) return 2;
-  // In "trabalho", the stage is derived from derivation progress.
-  if (reviewCount > 0) return 3;
-  if (approvedCount > 0) return 4;
-  if (derivationCount > 0) return 3;
+  if (approvedCount > 0 && !isGenerating) return 3;
   return 2;
 }
 
@@ -102,15 +100,14 @@ export function mapCampaignWorkspaceToV6View({
 }): CampaignWorkspaceV6ViewModel {
   const badge = statusToBadge(campaign.status);
   const reviewCount = derivations.filter((d) => d.status === "active" || d.status === "generating").length;
-  const approvedCount = derivations.filter((d) => d.status === "completed" || d.status === "approved").length;
+  const approvedCount = derivations.filter((d) => d.status === "approved").length;
 
   const stages = [
-    tWorkspace("stagePilot"),
-    tWorkspace("stageDerive"),
-    tWorkspace("stageReview"),
-    tWorkspace("stageApprove"),
-    tWorkspace("stageDelivery"),
+    tWorkspace("stagePrepare"),
+    tWorkspace("stageGenerate"),
+    tWorkspace("stageDeliver"),
   ];
+  const stageTabs = ["briefing", "generate", "export"] as const;
 
   const briefingRules = (campaign.constraints ?? "")
     .split(/\n|(?<=[.!?])\s+/)
@@ -168,6 +165,7 @@ export function mapCampaignWorkspaceToV6View({
       isGenerating,
     }),
     stages,
+    stageTabs: [...stageTabs],
     briefingSliders,
     briefingRules,
     derivations: derivationCards,

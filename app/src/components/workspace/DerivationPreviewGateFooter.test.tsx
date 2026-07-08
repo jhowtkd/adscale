@@ -5,75 +5,62 @@ import DerivationPreviewGateFooter from "./DerivationPreviewGateFooter";
 const recordEvent = vi.fn();
 
 vi.mock("next-intl", () => ({
-  useTranslations: () => (key: string, values?: Record<string, unknown>) => {
-    if (values) {
-      return `${key}:${JSON.stringify(values)}`;
-    }
-    return key;
-  },
+  useTranslations: () => (key: string) => key,
 }));
 
 vi.mock("@/lib/hooks/use-record-beta-event", () => ({
   useRecordBetaEvent: () => ({ recordEvent }),
 }));
 
-const STAGE_PROPS = { stage: "preview", missionKey: "preview" };
-
 describe("DerivationPreviewGateFooter", () => {
   beforeEach(() => {
     recordEvent.mockClear();
   });
 
-  it("renders the approve action without cost breakdown", () => {
-    const onApprove = vi.fn();
-
+  it("shows continue and adjust actions when quality failed", () => {
+    const onApproveBatch = vi.fn();
+    const onAdjustStrategy = vi.fn();
     render(
       <DerivationPreviewGateFooter
         campaignId="camp-1"
-        onApproveBatch={onApprove}
+        onApproveBatch={onApproveBatch}
+        onAdjustStrategy={onAdjustStrategy}
       />
     );
 
     expect(screen.getByText("title")).toBeInTheDocument();
-    expect(screen.getByText("approveBatch")).toBeEnabled();
-
-    // No preventive credit cost displays
-    expect(screen.queryByText(/batchFormulaCta/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/batchFormulaFormat/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/balanceRemaining/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/previewSpent/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/insufficientCredits/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/créditos/i)).not.toBeInTheDocument();
-    expect(screen.queryByText("reviseRecipe")).not.toBeInTheDocument();
+    expect(screen.getByText("continueAnyway")).toBeEnabled();
+    expect(screen.getByText("adjustStrategy")).toBeEnabled();
   });
 
-  it("disables approve while generating", () => {
+  it("disables actions while approving", () => {
     render(
       <DerivationPreviewGateFooter
         campaignId="camp-1"
-        isGenerating
+        isApproving
         onApproveBatch={vi.fn()}
+        onAdjustStrategy={vi.fn()}
       />
     );
 
-    expect(screen.getByText("approveBatch")).toBeDisabled();
+    expect(screen.getByText("continueAnyway")).toBeDisabled();
+    expect(screen.getByText("adjustStrategy")).toBeDisabled();
   });
 
-  it("emits cockpit_stage_entered on mount and completed on approve", () => {
-    const onApprove = vi.fn();
+  it("emits completed and calls onApproveBatch", () => {
+    const onApproveBatch = vi.fn();
     render(
       <DerivationPreviewGateFooter
         campaignId="camp-1"
-        onApproveBatch={onApprove}
+        onApproveBatch={onApproveBatch}
       />
     );
 
-    expect(recordEvent).toHaveBeenCalledWith("cockpit_stage_entered", STAGE_PROPS);
-
-    recordEvent.mockClear();
-    fireEvent.click(screen.getByText("approveBatch"));
-
-    expect(recordEvent).toHaveBeenCalledWith("cockpit_stage_completed", STAGE_PROPS);
-    expect(onApprove).toHaveBeenCalled();
+    fireEvent.click(screen.getByText("continueAnyway"));
+    expect(recordEvent).toHaveBeenCalledWith("cockpit_stage_completed", {
+      stage: "preview",
+      missionKey: "preview",
+    });
+    expect(onApproveBatch).toHaveBeenCalledTimes(1);
   });
 });

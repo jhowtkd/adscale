@@ -82,23 +82,11 @@ describe("TopBar mode toggle", () => {
     mockUseNotifications.mockReturnValue({ data: [] } as ReturnType<typeof useNotifications>);
   });
 
-  it("navigates to /assistant when Chat segment is clicked", () => {
+  it("does not show the mode toggle outside the assistant workspace", () => {
     render(<TopBar />, { wrapper: createWrapper() });
 
-    fireEvent.click(screen.getByRole("button", { name: "chat" }));
-
-    expect(mockPush).toHaveBeenCalledWith("/assistant");
-    expect(sessionStorage.getItem(PANEL_RETURN_KEY)).toBe("/campaigns");
-  });
-
-  it("preserves threadId search param when switching to Chat", () => {
-    mockUseSearchParams.mockReturnValue(new URLSearchParams("threadId=thread-42"));
-
-    render(<TopBar />, { wrapper: createWrapper() });
-
-    fireEvent.click(screen.getByRole("button", { name: "chat" }));
-
-    expect(mockPush).toHaveBeenCalledWith("/assistant?threadId=thread-42");
+    expect(screen.queryByRole("button", { name: "chat" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "panel" })).not.toBeInTheDocument();
   });
 
   it("navigates to stored panel route when Panel is clicked from assistant", () => {

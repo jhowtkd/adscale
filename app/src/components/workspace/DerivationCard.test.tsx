@@ -114,7 +114,11 @@ describe("DerivationCard", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("shows QA button for approved derivation with image", () => {
+  async function openMoreActions() {
+    fireEvent.click(screen.getByRole("button", { name: /moreActions/i }));
+  }
+
+  it("keeps QA in overflow menu for approved derivation with image", async () => {
     render(
       <DerivationCard
         derivation={baseDerivation}
@@ -124,12 +128,12 @@ describe("DerivationCard", () => {
       />
     );
 
-    expect(
-      screen.getByRole("button", { name: /runQa/i })
-    ).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: /runQa/i })).not.toBeInTheDocument();
+    await openMoreActions();
+    expect(await screen.findByRole("menuitem", { name: /runQa/i })).toBeInTheDocument();
   });
 
-  it("does not show QA button for non-approved derivation", () => {
+  it("does not show QA in overflow for non-approved derivation", async () => {
     render(
       <DerivationCard
         derivation={{ ...baseDerivation, status: "completed" }}
@@ -139,12 +143,11 @@ describe("DerivationCard", () => {
       />
     );
 
-    expect(
-      screen.queryByRole("button", { name: /runQa/i })
-    ).not.toBeInTheDocument();
+    await openMoreActions();
+    expect(screen.queryByRole("menuitem", { name: /runQa/i })).not.toBeInTheDocument();
   });
 
-  it("shows rerun label when QA result exists", () => {
+  it("shows rerun label in overflow when QA result exists", async () => {
     render(
       <DerivationCard
         derivation={{ ...baseDerivation, qaStatus: "warning", qaIssues: ["Issue 1"] }}
@@ -154,13 +157,12 @@ describe("DerivationCard", () => {
       />
     );
 
-    expect(
-      screen.getByRole("button", { name: /rerunQa/i })
-    ).toBeInTheDocument();
     expect(screen.getByText("Issue 1")).toBeInTheDocument();
+    await openMoreActions();
+    expect(await screen.findByRole("menuitem", { name: /rerunQa/i })).toBeInTheDocument();
   });
 
-  it("calls onRunQa when QA button is clicked", () => {
+  it("calls onRunQa from overflow menu", async () => {
     const onRunQa = vi.fn();
     render(
       <DerivationCard
@@ -171,11 +173,12 @@ describe("DerivationCard", () => {
       />
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /runQa/i }));
+    await openMoreActions();
+    fireEvent.click(await screen.findByRole("menuitem", { name: /runQa/i }));
     expect(onRunQa).toHaveBeenCalledTimes(1);
   });
 
-  it("shows disabled generate landing page for approved derivations with images", () => {
+  it("shows disabled generate landing page in overflow for approved derivations", async () => {
     render(
       <DerivationCard
         derivation={baseDerivation}
@@ -185,12 +188,13 @@ describe("DerivationCard", () => {
       />
     );
 
-    const btn = screen.getByRole("button", { name: /generateLandingPage/i });
-    expect(btn).toBeInTheDocument();
-    expect(btn).toBeDisabled();
+    await openMoreActions();
+    const item = await screen.findByRole("menuitem", { name: /generateLandingPage/i });
+    expect(item).toBeInTheDocument();
+    expect(item).toHaveAttribute("data-disabled");
   });
 
-  it("does not show generate landing page for unapproved derivations", () => {
+  it("does not show generate landing page in overflow for unapproved derivations", async () => {
     render(
       <DerivationCard
         derivation={{ ...baseDerivation, status: "completed" }}
@@ -200,8 +204,9 @@ describe("DerivationCard", () => {
       />
     );
 
+    await openMoreActions();
     expect(
-      screen.queryByRole("button", { name: /generateLandingPage/i })
+      screen.queryByRole("menuitem", { name: /generateLandingPage/i })
     ).not.toBeInTheDocument();
   });
 
@@ -216,11 +221,11 @@ describe("DerivationCard", () => {
     );
 
     expect(
-      screen.queryByRole("button", { name: /generateLandingPage/i })
+      screen.queryByRole("menuitem", { name: /generateLandingPage/i })
     ).not.toBeInTheDocument();
   });
 
-  it("does not call onGenerateLandingPage when clicked", () => {
+  it("does not call onGenerateLandingPage when overflow item is disabled", async () => {
     const onGenerateLandingPage = vi.fn();
     render(
       <DerivationCard
@@ -231,11 +236,12 @@ describe("DerivationCard", () => {
       />
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /generateLandingPage/i }));
+    await openMoreActions();
+    fireEvent.click(await screen.findByRole("menuitem", { name: /generateLandingPage/i }));
     expect(onGenerateLandingPage).not.toHaveBeenCalled();
   });
 
-  it("shows simulate personas button when callback is provided for approved derivation", () => {
+  it("shows simulate personas in overflow when callback is provided", async () => {
     render(
       <DerivationCard
         derivation={baseDerivation}
@@ -245,12 +251,13 @@ describe("DerivationCard", () => {
       />
     );
 
+    await openMoreActions();
     expect(
-      screen.getByRole("button", { name: /simulatePersonas/i })
+      await screen.findByRole("menuitem", { name: /simulatePersonas/i })
     ).toBeInTheDocument();
   });
 
-  it("does not show simulate personas button when callback is not provided", () => {
+  it("does not show simulate personas when callback is not provided", async () => {
     render(
       <DerivationCard
         derivation={baseDerivation}
@@ -259,12 +266,13 @@ describe("DerivationCard", () => {
       />
     );
 
+    await openMoreActions();
     expect(
-      screen.queryByRole("button", { name: /simulatePersonas/i })
+      screen.queryByRole("menuitem", { name: /simulatePersonas/i })
     ).not.toBeInTheDocument();
   });
 
-  it("calls onSimulatePersonas when clicked", () => {
+  it("calls onSimulatePersonas from overflow menu", async () => {
     const onSimulatePersonas = vi.fn();
     render(
       <DerivationCard
@@ -275,11 +283,12 @@ describe("DerivationCard", () => {
       />
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /simulatePersonas/i }));
+    await openMoreActions();
+    fireEvent.click(await screen.findByRole("menuitem", { name: /simulatePersonas/i }));
     expect(onSimulatePersonas).toHaveBeenCalledTimes(1);
   });
 
-  it("disables simulate personas when active derivation matches", () => {
+  it("disables simulate personas in overflow when active derivation matches", async () => {
     render(
       <DerivationCard
         derivation={baseDerivation}
@@ -290,8 +299,25 @@ describe("DerivationCard", () => {
       />
     );
 
-    const btn = screen.getByRole("button", { name: /simulatePersonas/i });
-    expect(btn).toBeDisabled();
+    await openMoreActions();
+    const item = await screen.findByRole("menuitem", { name: /simulatePersonas/i });
+    expect(item).toHaveAttribute("data-disabled");
+  });
+
+  it("shows approve/reject as primary actions for completed derivations", () => {
+    render(
+      <DerivationCard
+        derivation={{ ...baseDerivation, status: "completed" }}
+        index={0}
+        onPreview={vi.fn()}
+        onApprove={vi.fn()}
+        onReject={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole("button", { name: /approve/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /reject/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /generatePackage/i })).not.toBeInTheDocument();
   });
 
   it("shows invalid verdict badge and hard failures", () => {

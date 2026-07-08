@@ -64,7 +64,7 @@ describe("AdsScientistProgressCard", () => {
           key: "campaign_created",
           label: "Primeira campanha",
           description: "Crie sua primeira campanha.",
-          href: "/campaigns/new",
+          href: "/campaigns?new=1",
           blocked: false,
         },
         lastCalculatedAt: "2026-06-06T00:00:00.000Z",
@@ -81,7 +81,7 @@ describe("AdsScientistProgressCard", () => {
     expect(screen.getByText("Primeira campanha")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Continuar experimento/i })).toHaveAttribute(
       "href",
-      "/campaigns/new"
+      "/campaigns?new=1"
     );
   });
 

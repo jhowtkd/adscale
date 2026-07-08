@@ -88,13 +88,24 @@ describe("v11.6 cockpit path (pure functions)", () => {
     expect(config.ctaVariants.length).toBeGreaterThan(0);
     expect(estimateCreditCost(config)).toBeGreaterThan(0);
 
-    // 5. Preview gate blocks batch until user approves
+    // 5. Preview gate only blocks when quality failed; acceptable auto-continues
     expect(
       shouldShowPreviewGate([
         {
           isPreview: true,
           status: "completed",
           imageUrl: "https://example.com/preview.png",
+          qualityVerdict: "acceptable",
+        },
+      ])
+    ).toBe(false);
+    expect(
+      shouldShowPreviewGate([
+        {
+          isPreview: true,
+          status: "completed",
+          imageUrl: "https://example.com/preview.png",
+          qualityVerdict: "invalid",
         },
       ])
     ).toBe(true);
@@ -104,6 +115,7 @@ describe("v11.6 cockpit path (pure functions)", () => {
           isPreview: true,
           status: "completed",
           imageUrl: "https://example.com/preview.png",
+          qualityVerdict: "invalid",
         },
         { status: "completed", imageUrl: "https://example.com/batch.png" },
       ])

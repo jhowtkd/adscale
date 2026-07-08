@@ -69,7 +69,7 @@ export const previewWorkspace = {
   statusClass: "warning" as const,
   meta: "Campanha ativa desde 18/05/2026 · Cliente Cenbrap · 12 derivações em revisão",
   currentStage: 1,
-  stages: ["Piloto", "Derivar", "Revisar", "Aprovar", "Entrega"] as const,
+  stages: ["Preparar", "Gerar", "Entregar"] as const,
   briefingSliders: [
     { label: "Idade do público", value: 78 },
     { label: "Chance de oferta", value: 80 },

@@ -30,7 +30,7 @@ describe("workspace missions route", () => {
         {
           key: "setup",
           status: "active",
-          href: "/campaigns/new",
+          href: "/campaigns?new=1",
         },
       ],
       activeMissionKey: "setup",

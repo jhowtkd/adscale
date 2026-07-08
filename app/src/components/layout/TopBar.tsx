@@ -319,8 +319,8 @@ export default function TopBar({
         )}
       </div>
 
-      {/* Center: inline / v6 mode toggle */}
-      {(isInline || isV6Floating) && (
+      {/* Center: mode toggle only while in full assistant workspace */}
+      {(isInline || isV6Floating) && isChatMode && (
         <div className={cn("flex shrink-0 justify-center px-4", isV6Floating && "flex-none")}>
           <ModeToggle
             isChatMode={isChatMode}
@@ -340,7 +340,7 @@ export default function TopBar({
           isInline || isV6Floating ? "min-w-0 flex-1 justify-end gap-2 sm:gap-3" : "gap-2 sm:gap-2.5"
         )}
       >
-        {!isInline && !isV6Floating && (
+        {!isInline && !isV6Floating && isChatMode && (
           <ModeToggle
             isChatMode={isChatMode}
             panelLabel={tAssistant("panel")}

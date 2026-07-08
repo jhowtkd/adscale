@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Derivation, AdPlatform, CampaignStatus } from "@/lib/mock-data";
@@ -30,6 +30,8 @@ import {
 } from "@/server/ai/strategy-recipes";
 import {
   getActivePreviewGateDerivation,
+  getReadyPreviewDerivation,
+  shouldAutoContinuePreview,
   shouldShowPreviewGate,
 } from "@/server/ai/preview-gate";
 import { useMissionInsightOptional } from "@/components/mission-insights/MissionInsightProvider";
@@ -363,6 +365,26 @@ export function useCampaignWorkspace(
     if (createDerivations.isPending) return;
     handleGenerateDerivations();
   }, [createDerivations.isPending, handleGenerateDerivations]);
+
+  // Auto-continue preview → batch when quality is acceptable (no manual gate).
+  const autoContinuedPreviewIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!shouldAutoContinuePreview(allDerivations)) return;
+    if (createDerivations.isPending) return;
+    const readyPreview = getReadyPreviewDerivation(allDerivations);
+    if (!readyPreview?.id) return;
+    if (autoContinuedPreviewIdRef.current === readyPreview.id) return;
+
+    autoContinuedPreviewIdRef.current = readyPreview.id;
+    handleGenerateDerivations();
+  }, [allDerivations, createDerivations.isPending, handleGenerateDerivations]);
+
+  // Allow a later retry if auto-continue failed to enqueue the batch.
+  useEffect(() => {
+    if (createDerivations.isError) {
+      autoContinuedPreviewIdRef.current = null;
+    }
+  }, [createDerivations.isError]);
 
   const handleRestyle = useCallback(
     async (input: { styleAssetIds?: string[]; styleIntensity?: string }) => {

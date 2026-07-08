@@ -8,6 +8,7 @@ import {
   estimateCreditCost,
   getBatchCreditBreakdown,
   toCampaignPatch,
+  buildRecommendedRecipePatch,
   type RecipeGenerationConfig,
   type RecipeSuggestionContext,
 } from "./strategy-recipes";
@@ -183,5 +184,14 @@ describe("strategy-recipes", () => {
     );
     expect(patch.generationMode).toBe("art_variation");
     expect(patch.ctaVariants).toEqual(["Shop"]);
+  });
+
+  it("buildRecommendedRecipePatch uses top-ranked recipe defaults", () => {
+    const patch = buildRecommendedRecipePatch({
+      campaign: { ctaVariants: ["Shop Now"] },
+    });
+    expect(patch.recipeId).toBeTruthy();
+    expect(patch.generationMode).toBe("art_variation");
+    expect(patch.ctaVariants).toEqual(["Shop Now"]);
   });
 });

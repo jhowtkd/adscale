@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { LayoutTemplate, Palette, Settings } from "lucide-react";
+import { LayoutTemplate, Sparkles } from "lucide-react";
 import {
   Sheet,
   SheetBody,
@@ -30,16 +30,11 @@ export default function MobileMoreSheet({ open, onOpenChange }: MobileMoreSheetP
       active: pathname.startsWith("/templates"),
     },
     {
-      href: "/restyling",
-      label: tNav("restyling"),
-      icon: Palette,
-      active: pathname.startsWith("/restyling"),
-    },
-    {
-      href: "/settings",
-      label: tNav("settings"),
-      icon: Settings,
-      active: pathname.startsWith("/settings"),
+      href: "/assistant",
+      label: tNav("creativeIntelligenceAdvanced"),
+      icon: Sparkles,
+      active: pathname.startsWith("/assistant"),
+      badge: "BETA",
     },
   ] as const;
 
@@ -50,7 +45,7 @@ export default function MobileMoreSheet({ open, onOpenChange }: MobileMoreSheetP
           <SheetTitle>{tNav("more")}</SheetTitle>
         </SheetHeader>
         <SheetBody className="grid gap-1 pt-2">
-          {items.map(({ href, label, icon: Icon, active }) => (
+          {items.map(({ href, label, icon: Icon, active, badge }) => (
             <Link
               key={href}
               href={href}
@@ -63,7 +58,12 @@ export default function MobileMoreSheet({ open, onOpenChange }: MobileMoreSheetP
               )}
             >
               <Icon size={18} aria-hidden="true" />
-              <span>{label}</span>
+              <span className="min-w-0 flex-1 truncate">{label}</span>
+              {badge ? (
+                <span className="rounded-full border border-[color-mix(in_oklch,var(--warning-text)_40%,transparent)] px-1.5 py-0.5 font-mono text-[9px] text-[var(--warning-text)]">
+                  {badge}
+                </span>
+              ) : null}
             </Link>
           ))}
         </SheetBody>

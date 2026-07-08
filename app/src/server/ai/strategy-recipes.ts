@@ -286,3 +286,20 @@ export function toCampaignPatch(config: RecipeGenerationConfig): {
       : {}),
   };
 }
+
+/** One-click generate: recommended recipe + defaults, no modal. */
+export function buildRecommendedRecipePatch(
+  context: RecipeSuggestionContext,
+  prefill?: {
+    recipeId?: StrategyRecipeId;
+    config?: Partial<RecipeGenerationConfig>;
+  } | null
+): ReturnType<typeof toCampaignPatch> & { recipeId: StrategyRecipeId } {
+  const ranked = rankRecipesForContext(context);
+  const recipeId = prefill?.recipeId ?? ranked[0]?.id ?? STRATEGY_RECIPE_IDS[0];
+  const config = mapRecipeToGenerationConfig(recipeId, context, prefill?.config);
+  return {
+    recipeId,
+    ...toCampaignPatch(config),
+  };
+}

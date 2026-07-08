@@ -37,6 +37,7 @@ export interface DerivationGridProps {
     previewId: string;
     isApproving?: boolean;
     onApproveBatch: () => void;
+    onAdjustStrategy?: () => void;
   };
 }
 
@@ -162,6 +163,7 @@ export default function DerivationGrid({
                 isApproving={previewGate.isApproving}
                 isGenerating={derivation.status === "generating"}
                 onApproveBatch={previewGate.onApproveBatch}
+                onAdjustStrategy={previewGate.onAdjustStrategy}
               />
             ) : null}
           </div>

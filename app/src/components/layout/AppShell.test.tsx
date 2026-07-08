@@ -67,8 +67,10 @@ describe("AppShell", () => {
     expect(nav).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /dashboard/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /campaigns/i })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /creativeIntelligence/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /settings/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /title/i })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /templates/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /creativeIntelligence/i })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /more/i })).toBeInTheDocument();
   });
 });

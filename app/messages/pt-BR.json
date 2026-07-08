@@ -21,6 +21,8 @@
     "sectionPrincipal": "Principal",
     "sectionCriar": "Criar",
     "sectionOperacao": "Operação",
+    "sectionAvancado": "Avançado",
+    "creativeIntelligenceAdvanced": "Assistente (avançado)",
     "feedback": "Feedback",
     "quality": "Quality"
   },
@@ -803,11 +805,14 @@
       "viewAllDerivations": "Ver todas →",
       "openDerivation": "Abrir",
       "moreOptionsFor": "Mais opções para {title}",
-      "stagePilot": "Piloto",
-      "stageDerive": "Derivar",
-      "stageReview": "Revisar",
-      "stageApprove": "Aprovar",
-      "stageDelivery": "Entrega",
+      "stagePilot": "Preparar",
+      "stageDerive": "Gerar",
+      "stageReview": "Gerar",
+      "stageApprove": "Entregar",
+      "stageDelivery": "Entregar",
+      "stagePrepare": "Preparar",
+      "stageGenerate": "Gerar",
+      "stageDeliver": "Entregar",
       "meta": "Campanha ativa desde {date} · Cliente {client} · {reviewCount, plural, one {# derivação em revisão} other {# derivações em revisão}}",
       "sliderAudience": "Idade do público",
       "sliderOffer": "Chance de oferta",
@@ -1013,14 +1018,21 @@
       }
     },
     "actionBar": {
-      "derivar": "Derivar",
+      "derivar": "Gerar variações",
+      "generate": "Gerar variações",
+      "generating": "Gerando…",
+      "adjustStrategy": "Ajustar estratégia",
+      "recommended": "Recomendada",
       "estilizar": "Estilizar",
-      "blocked": "Resolva {count} bloqueio(s) antes de derivar"
+      "blocked": "Resolva {count} bloqueio(s) antes de gerar"
     },
     "stages": {
       "label": "Progresso da campanha",
-      "pilot": "Piloto",
-      "workspace": "Derivações"
+      "pilot": "Preparar",
+      "prepare": "Preparar",
+      "generate": "Gerar",
+      "deliver": "Entregar",
+      "workspace": "Gerar"
     }
   },
   "briefing": {
@@ -1276,6 +1288,7 @@
     "downloadDerivation": "Baixar {name}",
     "regenerateDerivation": "Regenerar {name}",
     "regenerateDerivationWithImprovements": "Regenerar {name} com melhorias sugeridas",
+    "moreActions": "Mais ações para {name}",
     "simulatePersonas": "Simular personas",
     "compare": "Comparar",
     "compareCount": "Comparar ({count})",
@@ -1508,7 +1521,7 @@
   },
   "strategyRecipes": {
     "title": "Escolha uma estratégia de geração",
-    "description": "Selecione uma receita alinhada ao seu objetivo. Você pode ajustar as configurações antes de gerar a prévia.",
+    "description": "Ajuste a receita se quiser. O caminho rápido usa a recomendada com um clique.",
     "recommended": "Recomendada",
     "overridesTitle": "Ajustar configurações",
     "creativeLevel": "Intensidade criativa",
@@ -1520,7 +1533,8 @@
     "targetFormatsHelp": "Selecione um ou mais formatos para adaptar o criativo.",
     "creditPreview": "A prévia usa {credits} créditos",
     "creditBatchEstimate": "Estimativa do lote completo: {credits} créditos",
-    "generatePreview": "Gerar prévia",
+    "generatePreview": "Gerar variações",
+    "generateVariations": "Gerar variações",
     "levels": {
       "conservative": "Conservador",
       "balanced": "Equilibrado",
@@ -1542,8 +1556,8 @@
       }
     },
     "previewGate": {
-      "title": "Prévia pronta — aprove antes do lote completo",
-      "description": "Esta prévia usou o mesmo contrato criativo e quality gate do lote completo.",
+      "title": "Qualidade abaixo do esperado",
+      "description": "A prévia falhou no quality gate. Continue mesmo assim ou ajuste a estratégia antes do lote completo.",
       "qualityVerdict": "Veredito de qualidade: {verdict}",
       "qualityScore": "Score de qualidade: {score}",
       "previewSpent": "Prévia gastou: {credits} créditos",
@@ -1555,8 +1569,10 @@
       "batchCostPending": "Estimativa do lote carrega da sua receita…",
       "insufficientCredits": "Estimativa {estimate} · saldo {balance}",
       "creditEstimateNote": "Estimativas podem diferir do gasto real — confira créditos após a prévia antes de aprovar o lote.",
-      "reviseRecipe": "Revisar receita",
-      "approveBatch": "Aprovar e enfileirar lote"
+      "reviseRecipe": "Ajustar estratégia",
+      "adjustStrategy": "Ajustar estratégia",
+      "continueAnyway": "Continuar mesmo assim",
+      "approveBatch": "Continuar mesmo assim"
     }
   },
   "auth": {
@@ -2515,6 +2531,8 @@
         }
       },
       "useClassicFlow": "Usar fluxo clássico",
+      "campaignPathHint": "Para gerar variações em batch, o caminho recomendado é uma campanha.",
+      "openCampaignWorkspace": "Abrir campanhas",
       "useGoalAgent": "Usar agente de objetivo",
       "addImage": "Adicionar imagem",
       "removeAttachment": "Remover anexo",

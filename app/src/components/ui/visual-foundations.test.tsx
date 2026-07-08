@@ -283,12 +283,12 @@ describe("empty state primitive", () => {
       <EmptyState
         title="No campaigns"
         description="Create your first campaign to begin."
-        action={{ label: "Create campaign", href: "/campaigns/new" }}
+        action={{ label: "Create campaign", href: "/campaigns?new=1" }}
       />
     );
     expect(screen.getByRole("heading", { name: "No campaigns" })).toBeInTheDocument();
     const action = screen.getByRole("button", { name: "Create campaign" });
-    expect(action).toHaveAttribute("href", "/campaigns/new");
+    expect(action).toHaveAttribute("href", "/campaigns?new=1");
     expect(action.className).toContain("rounded-[var(--radius-control)]");
   });
 

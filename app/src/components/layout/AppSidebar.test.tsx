@@ -31,9 +31,17 @@ describe("AppSidebar role-aware navigation", () => {
     });
   });
 
-  it("shows Creative intelligence under CRIAR section for all users", () => {
+  it("does not show a decorative search / ⌘K affordance", () => {
     render(<AppSidebar variant="production" />);
-    expect(screen.getByText("navigation.creativeIntelligence")).toBeInTheDocument();
+    expect(screen.queryByText(/Buscar/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("⌘K")).not.toBeInTheDocument();
+  });
+
+  it("shows assistant under Avançado instead of the primary Criar section", () => {
+    render(<AppSidebar variant="production" />);
+    expect(screen.queryByText("navigation.sectionCriar")).not.toBeInTheDocument();
+    expect(screen.getByText("navigation.sectionAvancado")).toBeInTheDocument();
+    expect(screen.getByText("navigation.creativeIntelligenceAdvanced")).toBeInTheDocument();
   });
 
   it("does NOT show the Laboratório section header", () => {

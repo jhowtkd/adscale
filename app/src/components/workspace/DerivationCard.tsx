@@ -3,7 +3,23 @@
 import Image from "next/image";
 /* eslint-disable @next/next/no-img-element */
 
-import { Eye, Download, RefreshCw, Clock, AlertCircle, Check, X, Package, ShieldCheck, BookmarkPlus, FileText, Users, Scale, PenTool } from "lucide-react";
+import {
+  Eye,
+  Download,
+  RefreshCw,
+  Clock,
+  AlertCircle,
+  Check,
+  X,
+  Package,
+  ShieldCheck,
+  BookmarkPlus,
+  FileText,
+  Users,
+  Scale,
+  PenTool,
+  MoreHorizontal,
+} from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import StatusBadge from "@/components/ui/StatusBadge";
@@ -12,7 +28,13 @@ import { platformColors } from "@/lib/mock-data";
 
 import { useExport } from "@/lib/hooks/use-export";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { AdscaleLoader } from "@/components/animations";
 import { useAppStore } from "@/lib/store";
 import { scoreCappedForDisplay } from "@/lib/derivation-display";
@@ -112,42 +134,6 @@ function StatusOverlay({ status, onRetry }: { status: DerivationDisplayStatus; o
 }
 
 // ============================================
-// Spinner Component
-// ============================================
-
-function Spinner({ className }: { className?: string }) {
-  return (
-    <div
-      className={cn("size-4 border-2 border-current border-t-transparent rounded-full animate-spin", className)}
-    />
-  );
-}
-
-function DerivationActionTooltip({
-  label,
-  children,
-  className,
-  ...buttonProps
-}: {
-  label: string;
-  children: React.ReactNode;
-} & React.ButtonHTMLAttributes<HTMLButtonElement>) {
-  return (
-    <Tooltip>
-      <TooltipTrigger
-        type="button"
-        {...buttonProps}
-        aria-label={buttonProps["aria-label"] ?? label}
-        className={className}
-      >
-        {children}
-      </TooltipTrigger>
-      <TooltipContent side="top">{label}</TooltipContent>
-    </Tooltip>
-  );
-}
-
-// ============================================
 // Main Component
 // ============================================
 
@@ -227,6 +213,13 @@ export default function DerivationCard({
   const exportDisplay = getExportDisplay(derivation.exportStatus);
   const packageBlockedHintKey = getPackageEligibilityHintKey(derivation);
   const approvalBlocked = isNormalApprovalBlocked(derivation);
+  const isApprovedWithImage =
+    derivation.status === "approved" && Boolean(derivation.imageUrl);
+  const showOverflowMenu =
+    derivation.status === "completed" ||
+    derivation.status === "approved" ||
+    derivation.status === "failed" ||
+    Boolean(derivation.imageUrl);
   const generatedAtLabel = new Intl.DateTimeFormat(locale, {
     day: "2-digit",
     month: "2-digit",
@@ -487,98 +480,143 @@ export default function DerivationCard({
           </p>
         )}
 
-        {/* Row 4: Cost + Actions */}
-        <div className="flex items-center justify-between pt-1">
+        {/* Row 4: Cost + stage primary actions + overflow */}
+        <div className="flex items-center justify-between gap-2 pt-1">
           <span className="text-xs text-[var(--text-muted)]">
             ~{derivation.creditCost} {commonT("credits")}
           </span>
 
-          <div className="flex items-center gap-1 opacity-50 group-hover:opacity-100 transition-opacity duration-200">
-            {derivation.regenerationSuggestion && (
-              <DerivationActionTooltip
-                label={t("regenerateWithImprovements")}
-                onClick={() => onRegenerate?.(derivation.id, derivation.regenerationSuggestion || "")}
-                disabled={isRegenerating}
-                aria-label={t("regenerateDerivationWithImprovements", { name: derivation.name })}
-                className={cn(
-                  "p-1.5 rounded-md text-[var(--accent-blue)] hover:text-[var(--accent-blue-light)] hover:bg-[var(--accent-blue)]/10 transition-all duration-150",
-                  isRegenerating && "opacity-50 cursor-wait"
-                )}
-              >
-                <RefreshCw size={16} />
-              </DerivationActionTooltip>
-            )}
-            <DerivationActionTooltip
-              label={commonT("preview")}
-              onClick={() => onPreview(derivation.id)}
-              aria-label={t("previewDerivation", { name: derivation.name })}
-              className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-all duration-150"
-            >
-              <Eye size={16} />
-            </DerivationActionTooltip>
-            <DerivationActionTooltip
-              label={derivation.isPreview ? t("downloadFinalVersion") : commonT("download")}
-              onClick={handleDownload}
-              disabled={exportMutation.isPending || derivation.isPreview}
-              aria-label={t("downloadDerivation", { name: derivation.name })}
-              className={cn(
-                "p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-all duration-150",
-                (exportMutation.isPending || derivation.isPreview) && "opacity-50 cursor-not-allowed"
-              )}
-            >
-              {exportMutation.isPending ? (
-                <Spinner />
-              ) : (
-                <Download size={16} />
-              )}
-            </DerivationActionTooltip>
-            <DerivationActionTooltip
-              label={commonT("regenerate")}
-              onClick={() => handleRegenerate()}
-              disabled={isRegenerating}
-              aria-label={t("regenerateDerivation", { name: derivation.name })}
-              className={cn(
-                "p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-all duration-150",
-                isRegenerating && "opacity-50 cursor-wait"
-              )}
-            >
-              {isRegenerating ? (
-                <Spinner />
-              ) : (
-                <RefreshCw size={16} />
-              )}
-            </DerivationActionTooltip>
-            {isCompleted && (
-              <>
-                <DerivationActionTooltip
-                  label={t("annotate")}
-                  onClick={onAnnotate}
-                  aria-label={t("annotate")}
-                  className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-all duration-150"
-                >
-                  <PenTool size={16} />
-                </DerivationActionTooltip>
-                <DerivationActionTooltip
-                  label={t("compare")}
-                  onClick={onCompare}
-                  aria-label={t("compare")}
+          <div className="flex items-center gap-1">
+            {showOverflowMenu ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  aria-label={t("moreActions", { name: derivation.name })}
                   className={cn(
-                    "p-1.5 rounded-md transition-all duration-150",
-                    isSelectedForCompare
-                      ? "bg-[var(--neutral-bg)] text-[var(--text-primary)]"
-                      : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)]"
+                    "flex size-8 items-center justify-center rounded-md text-[var(--text-muted)]",
+                    "opacity-70 transition-opacity duration-[var(--duration-fast)]",
+                    "hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)] hover:opacity-100",
+                    "focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-green)] focus-visible:ring-offset-2",
+                    "group-hover:opacity-100"
                   )}
                 >
-                  <Scale size={16} />
-                </DerivationActionTooltip>
-              </>
-            )}
+                  <MoreHorizontal size={16} />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" sideOffset={4} className="min-w-44">
+                  <DropdownMenuItem
+                    onClick={() => onPreview(derivation.id)}
+                    className="flex items-center gap-2"
+                  >
+                    <Eye size={14} />
+                    {commonT("preview")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={handleDownload}
+                    disabled={exportMutation.isPending || Boolean(derivation.isPreview)}
+                    className="flex items-center gap-2"
+                  >
+                    <Download size={14} />
+                    {derivation.isPreview ? t("downloadFinalVersion") : commonT("download")}
+                  </DropdownMenuItem>
+                  {onRegenerate ? (
+                    <DropdownMenuItem
+                      onClick={() => handleRegenerate()}
+                      disabled={isRegenerating}
+                      className="flex items-center gap-2"
+                    >
+                      <RefreshCw size={14} />
+                      {commonT("regenerate")}
+                    </DropdownMenuItem>
+                  ) : null}
+                  {derivation.regenerationSuggestion && onRegenerate ? (
+                    <DropdownMenuItem
+                      onClick={() =>
+                        onRegenerate(derivation.id, derivation.regenerationSuggestion || "")
+                      }
+                      disabled={isRegenerating}
+                      className="flex items-center gap-2"
+                    >
+                      <RefreshCw size={14} />
+                      {t("regenerateWithImprovements")}
+                    </DropdownMenuItem>
+                  ) : null}
+                  {isCompleted ? (
+                    <>
+                      {onAnnotate ? (
+                        <DropdownMenuItem
+                          onClick={onAnnotate}
+                          className="flex items-center gap-2"
+                        >
+                          <PenTool size={14} />
+                          {t("annotate")}
+                        </DropdownMenuItem>
+                      ) : null}
+                      {onCompare ? (
+                        <DropdownMenuItem
+                          onClick={onCompare}
+                          className="flex items-center gap-2"
+                        >
+                          <Scale size={14} />
+                          {t("compare")}
+                        </DropdownMenuItem>
+                      ) : null}
+                    </>
+                  ) : null}
+                  {isApprovedWithImage ? (
+                    <>
+                      <DropdownMenuSeparator />
+                      {onRunQa ? (
+                        <DropdownMenuItem
+                          onClick={onRunQa}
+                          disabled={isQaAnalyzing}
+                          className="flex items-center gap-2"
+                        >
+                          <ShieldCheck size={14} />
+                          {derivation.qaStatus && derivation.qaStatus !== "pending"
+                            ? t("rerunQa")
+                            : t("runQa")}
+                        </DropdownMenuItem>
+                      ) : null}
+                      {onSaveAsReference ? (
+                        <DropdownMenuItem
+                          onClick={onSaveAsReference}
+                          disabled={isSavingReference}
+                          className="flex items-center gap-2"
+                        >
+                          <BookmarkPlus size={14} />
+                          {t("saveAsReference")}
+                        </DropdownMenuItem>
+                      ) : null}
+                      {onGenerateLandingPage ? (
+                        <DropdownMenuItem
+                          disabled
+                          className="flex items-center gap-2"
+                          title={commonT("comingSoon")}
+                        >
+                          <FileText size={14} />
+                          {t("generateLandingPage")}
+                        </DropdownMenuItem>
+                      ) : null}
+                      {onSimulatePersonas ? (
+                        <DropdownMenuItem
+                          onClick={onSimulatePersonas}
+                          disabled={isSimulatingPersonas}
+                          className="flex items-center gap-2"
+                        >
+                          <Users size={14} />
+                          {t("simulatePersonas")}
+                        </DropdownMenuItem>
+                      ) : null}
+                    </>
+                  ) : null}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
           </div>
         </div>
 
-        {/* Row 5: Approve / Reject */}
-        {derivation.status === "completed" && onApprove && onReject && (
-          <div className="flex flex-col gap-2 mt-2">
+        {/* Stage primary actions */}
+        {derivation.status === "completed" && onApprove && onReject ? (
+          <div className="mt-2 flex flex-col gap-2">
             {approvalBlocked ? (
               <Button
                 size="sm"
@@ -586,14 +624,14 @@ export default function DerivationCard({
                 disabled={isRegenerating}
                 className="w-fit bg-[var(--danger-bg)] text-[var(--danger-text)] hover:bg-[var(--danger-border)]"
               >
-                <RefreshCw className="size-4 mr-1" />
+                <RefreshCw className="mr-1 size-4" />
                 {t("regenerateWithFixes")}
               </Button>
             ) : null}
             <div className="flex gap-2">
               <Button
                 size="sm"
-                variant="outline"
+                className="min-h-9 flex-1 bg-[var(--accent-green)] text-[var(--accent-green-on-fill)] hover:bg-[var(--accent-green-light)] sm:flex-none"
                 onClick={onApprove}
                 disabled={isApproving || approvalBlocked}
                 title={
@@ -604,109 +642,45 @@ export default function DerivationCard({
                     : undefined
                 }
               >
-                <Check className="size-4 mr-1" />
+                <Check className="mr-1 size-4" />
                 {commonT("approve")}
               </Button>
-              <Button size="sm" variant="outline" onClick={onReject} disabled={isRejecting}>
-                <X className="size-4 mr-1" />
+              <Button
+                size="sm"
+                variant="outline"
+                className="min-h-9"
+                onClick={onReject}
+                disabled={isRejecting}
+              >
+                <X className="mr-1 size-4" />
                 {commonT("reject")}
               </Button>
             </div>
           </div>
-        )}
+        ) : null}
 
-        {/* Row 6: QA + Delivery Package */}
-        {derivation.status === "approved" && derivation.imageUrl && (
-          <div className="flex flex-col gap-2 mt-2">
-            {onCreateDeliveryPackage && (
+        {isApprovedWithImage ? (
+          <div className="mt-2 flex flex-col gap-2">
+            {onCreateDeliveryPackage ? (
               <Button
                 size="sm"
                 onClick={onCreateDeliveryPackage}
-                className="w-fit bg-[var(--accent-green)] text-[var(--accent-green-on-fill)] hover:bg-[var(--accent-green-light)]"
+                className="min-h-9 w-fit bg-[var(--accent-green)] text-[var(--accent-green-on-fill)] hover:bg-[var(--accent-green-light)]"
               >
-                <Package className="size-4 mr-1" />
+                <Package className="mr-1 size-4" />
                 {t("generatePackage")}
               </Button>
-            )}
-            {onRunQa && (
-              <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={onRunQa}
-                  disabled={isQaAnalyzing}
-                  className="border-[var(--border-dim)] text-[var(--text-secondary)] hover:bg-[var(--surface-raised)]"
-                >
-                  {isQaAnalyzing ? (
-                    <Spinner className="mr-1" />
-                  ) : (
-                    <ShieldCheck className="size-4 mr-1" />
-                  )}
-                  {derivation.qaStatus && derivation.qaStatus !== "pending" ? t("rerunQa") : t("runQa")}
-                </Button>
-                {qaLabelKey && (
-                  <span className={cn("text-xs font-medium", qaStatusColor)}>
-                    {t(qaLabelKey)}
-                  </span>
-                )}
-              </div>
-            )}
-            {derivation.qaIssues && derivation.qaIssues.length > 0 && (
-              <p className="text-[11px] text-[var(--text-muted)] line-clamp-1">
+            ) : null}
+            {qaLabelKey ? (
+              <span className={cn("text-xs font-medium", qaStatusColor)}>{t(qaLabelKey)}</span>
+            ) : null}
+            {derivation.qaIssues && derivation.qaIssues.length > 0 ? (
+              <p className="line-clamp-1 text-[11px] text-[var(--text-muted)]">
                 {derivation.qaIssues[0]}
               </p>
-            )}
-            {onSaveAsReference && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={onSaveAsReference}
-                disabled={isSavingReference}
-                className="border-[var(--border-dim)] text-[var(--text-secondary)] hover:bg-[var(--surface-raised)] w-fit"
-              >
-                {isSavingReference ? (
-                  <Spinner className="mr-1" />
-                ) : (
-                  <BookmarkPlus className="size-4 mr-1" />
-                )}
-                {t("saveAsReference")}
-              </Button>
-            )}
-            {onGenerateLandingPage && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={onGenerateLandingPage}
-                disabled
-                title={commonT("comingSoon")}
-                className="border-[var(--accent-blue)] text-[var(--accent-blue)] hover:bg-[var(--accent-blue)]/10 w-fit"
-              >
-                {isGeneratingLandingPage ? (
-                  <Spinner className="mr-1" />
-                ) : (
-                  <FileText className="size-4 mr-1" />
-                )}
-                {t("generateLandingPage")}
-              </Button>
-            )}
-            {onSimulatePersonas && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={onSimulatePersonas}
-                disabled={isSimulatingPersonas}
-                className="border-[var(--accent-purple)] text-[var(--accent-purple)] hover:bg-[var(--accent-purple)]/10 w-fit"
-              >
-                {isSimulatingPersonas ? (
-                  <Spinner className="mr-1" />
-                ) : (
-                  <Users className="size-4 mr-1" />
-                )}
-                {t("simulatePersonas")}
-              </Button>
-            )}
+            ) : null}
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );

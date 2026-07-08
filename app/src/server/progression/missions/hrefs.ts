@@ -26,7 +26,7 @@ export function buildMissionHref(
 ): string {
   const campaignId = context.firstCampaignId;
   if (!campaignId) {
-    return "/campaigns/new";
+    return "/campaigns?new=1";
   }
 
   const progressionKey = MISSION_TO_PROGRESSION[key];

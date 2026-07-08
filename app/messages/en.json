@@ -21,6 +21,8 @@
     "sectionPrincipal": "Principal",
     "sectionCriar": "Criar",
     "sectionOperacao": "Operação",
+    "sectionAvancado": "Advanced",
+    "creativeIntelligenceAdvanced": "Assistant (advanced)",
     "feedback": "Feedback",
     "quality": "Quality"
   },
@@ -803,11 +805,14 @@
       "viewAllDerivations": "View all →",
       "openDerivation": "Open",
       "moreOptionsFor": "More options for {title}",
-      "stagePilot": "Pilot",
-      "stageDerive": "Derive",
-      "stageReview": "Review",
-      "stageApprove": "Approve",
-      "stageDelivery": "Delivery",
+      "stagePilot": "Prepare",
+      "stageDerive": "Generate",
+      "stageReview": "Generate",
+      "stageApprove": "Deliver",
+      "stageDelivery": "Deliver",
+      "stagePrepare": "Prepare",
+      "stageGenerate": "Generate",
+      "stageDeliver": "Deliver",
       "meta": "Campaign active since {date} · Client {client} · {reviewCount, plural, one {# derivation in review} other {# derivations in review}}",
       "sliderAudience": "Audience age",
       "sliderOffer": "Offer likelihood",
@@ -1013,14 +1018,21 @@
       }
     },
     "actionBar": {
-      "derivar": "Derive",
+      "derivar": "Generate variations",
+      "generate": "Generate variations",
+      "generating": "Generating…",
+      "adjustStrategy": "Adjust strategy",
+      "recommended": "Recommended",
       "estilizar": "Restyle",
-      "blocked": "Resolve {count} blocker(s) before deriving"
+      "blocked": "Resolve {count} blocker(s) before generating"
     },
     "stages": {
       "label": "Campaign progress",
-      "pilot": "Pilot",
-      "workspace": "Derivations"
+      "pilot": "Prepare",
+      "prepare": "Prepare",
+      "generate": "Generate",
+      "deliver": "Deliver",
+      "workspace": "Generate"
     }
   },
   "briefing": {
@@ -1276,6 +1288,7 @@
     "downloadDerivation": "Download {name}",
     "regenerateDerivation": "Regenerate {name}",
     "regenerateDerivationWithImprovements": "Regenerate {name} with suggested improvements",
+    "moreActions": "More actions for {name}",
     "simulatePersonas": "Simulate personas",
     "compare": "Compare",
     "compareCount": "Compare ({count})",
@@ -1508,7 +1521,7 @@
   },
   "strategyRecipes": {
     "title": "Choose a generation strategy",
-    "description": "Pick a recipe that matches your goal. You can override settings before generating a preview.",
+    "description": "Adjust the recipe if you want. The fast path uses the recommended one in one click.",
     "recommended": "Recommended",
     "overridesTitle": "Adjust settings",
     "creativeLevel": "Creative intensity",
@@ -1520,7 +1533,8 @@
     "targetFormatsHelp": "Select one or more formats to adapt the creative.",
     "creditPreview": "Preview uses {credits} credits",
     "creditBatchEstimate": "Full batch estimate: {credits} credits",
-    "generatePreview": "Generate preview",
+    "generatePreview": "Generate variations",
+    "generateVariations": "Generate variations",
     "levels": {
       "conservative": "Conservative",
       "balanced": "Balanced",
@@ -1542,8 +1556,8 @@
       }
     },
     "previewGate": {
-      "title": "Preview ready — approve before the full batch",
-      "description": "This preview used the same creative contract and quality gate as the full batch.",
+      "title": "Quality below expectations",
+      "description": "This preview failed the quality gate. Continue anyway or adjust strategy before the full batch.",
       "qualityVerdict": "Quality verdict: {verdict}",
       "qualityScore": "Quality score: {score}",
       "previewSpent": "Preview spent: {credits} credits",
@@ -1555,8 +1569,10 @@
       "batchCostPending": "Batch estimate loads from your recipe…",
       "insufficientCredits": "Estimate {estimate} · balance {balance}",
       "creditEstimateNote": "Estimates may differ from actual spend — check credits after preview before approving batch.",
-      "reviseRecipe": "Revise recipe",
-      "approveBatch": "Approve and queue batch"
+      "reviseRecipe": "Adjust strategy",
+      "adjustStrategy": "Adjust strategy",
+      "continueAnyway": "Continue anyway",
+      "approveBatch": "Continue anyway"
     }
   },
   "auth": {
@@ -2514,6 +2530,8 @@
         }
       },
       "useClassicFlow": "Use classic flow",
+      "campaignPathHint": "To generate variation batches, the recommended path is a campaign workspace.",
+      "openCampaignWorkspace": "Open campaigns",
       "useGoalAgent": "Use goal agent",
       "addImage": "Add image",
       "removeAttachment": "Remove attachment",

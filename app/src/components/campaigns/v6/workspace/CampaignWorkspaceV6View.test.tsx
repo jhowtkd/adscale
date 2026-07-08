@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { CampaignWorkspaceV6Chrome } from "./CampaignWorkspaceV6View";
 import type {
@@ -38,7 +38,8 @@ const view: CampaignWorkspaceV6ViewModel = {
   statusVariant: "success",
   meta: "Meta info",
   currentStage: 2,
-  stages: ["Setup", "Derive", "Review", "Publish"],
+  stages: ["Prepare", "Generate", "Deliver"],
+  stageTabs: ["briefing", "generate", "export"],
   briefingSliders: [],
   briefingRules: [],
   derivations: [],
@@ -71,5 +72,23 @@ describe("CampaignWorkspaceV6Chrome", () => {
     expect(
       screen.queryByRole("button", { name: "Send feedback" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("calls onStageSelect when a phase is clicked", () => {
+    const onStageSelect = vi.fn();
+    render(
+      <CampaignWorkspaceV6Chrome
+        view={view}
+        labels={labels}
+        interactive={true}
+        onStageSelect={onStageSelect}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Prepare/i }));
+    expect(onStageSelect).toHaveBeenCalledWith("briefing");
+
+    fireEvent.click(screen.getByRole("button", { name: /Deliver/i }));
+    expect(onStageSelect).toHaveBeenCalledWith("export");
   });
 });
