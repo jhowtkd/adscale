@@ -212,7 +212,14 @@ export async function generateAndStoreImage(
     derivationId: outputPrefix,
     workspaceId: "",
     jobType: "derivation",
-    candidates: candidateMeta.map(({ winner: _w, ...rest }) => rest),
+    candidates: candidateMeta.map((c) => ({
+      provider: c.provider,
+      model: c.model,
+      outputKey: c.outputKey,
+      durationMs: c.durationMs,
+      costCredits: c.costCredits,
+      rawRequestId: c.rawRequestId,
+    })),
     winnerProvider: winner.candidate.providerMeta.provider,
     aggregateLatencyMs:
       candidates.length > 0

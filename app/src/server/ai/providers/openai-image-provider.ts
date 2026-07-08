@@ -49,7 +49,6 @@ export class OpenAIImageProvider implements ImageGenerationProvider {
     const start = Date.now();
     const openaiSize = dimensionsToOpenAISdkSize(input.dimensions);
     let result: OpenAI.Images.Image;
-    let imageOperation: "generate" | "edit";
 
     if (input.referenceImages.length > 0) {
       const files = await Promise.all(
@@ -74,7 +73,6 @@ export class OpenAIImageProvider implements ImageGenerationProvider {
         `[OpenAIImageProvider] edit success references=${input.referenceImages.length}`
       );
       result = first;
-      imageOperation = "edit";
     } else {
       const response = await withTimeout(
         openai.images.generate({
@@ -90,7 +88,6 @@ export class OpenAIImageProvider implements ImageGenerationProvider {
       if (!first) throw new Error("No image data returned from OpenAI");
       logger.info(`[OpenAIImageProvider] generate success`);
       result = first;
-      imageOperation = "generate";
     }
 
     let buffer: Buffer;

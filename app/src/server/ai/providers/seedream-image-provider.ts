@@ -66,7 +66,6 @@ export class SeedreamImageProvider implements ImageGenerationProvider {
     const start = Date.now();
     const size = dimensionsToSeedreamSize(input.dimensions);
     let result: OpenAI.Images.Image;
-    let imageOperation: "generate" | "edit";
 
     if (input.referenceImages.length > 0) {
       const files = await Promise.all(
@@ -81,7 +80,9 @@ export class SeedreamImageProvider implements ImageGenerationProvider {
           prompt: input.prompt,
           n: 1,
           // ModelArk accepts arbitrary WxH strings; SDK's strict size union doesn't include them.
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           size: size as any,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any),
         SEEDREAM_TIMEOUT_MS,
         "Seedream image edit"
@@ -92,7 +93,6 @@ export class SeedreamImageProvider implements ImageGenerationProvider {
         `[SeedreamImageProvider] edit success references=${input.referenceImages.length}`
       );
       result = first;
-      imageOperation = "edit";
     } else {
       const response = (await withTimeout(
         this.client.images.generate({
@@ -100,7 +100,9 @@ export class SeedreamImageProvider implements ImageGenerationProvider {
           prompt: input.prompt,
           n: 1,
           // ModelArk accepts arbitrary WxH strings; SDK's strict size union doesn't include them.
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           size: size as any,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any),
         SEEDREAM_TIMEOUT_MS,
         "Seedream image generation"
@@ -109,7 +111,6 @@ export class SeedreamImageProvider implements ImageGenerationProvider {
       if (!first) throw new Error("No image data returned from Seedream");
       logger.info(`[SeedreamImageProvider] generate success`);
       result = first;
-      imageOperation = "generate";
     }
 
     let buffer: Buffer;
