@@ -2,8 +2,9 @@ import "server-only";
 import { logger } from "@/lib/logger";
 import { objectStorage } from "@/server/storage";
 import { generateAndStoreImage } from "@/server/ai/image-generation";
-import { analyzeDerivationCreative } from "@/server/ai/creative-score";
+import { analyzeDerivationCreative, type ScoreResult } from "@/server/ai/creative-score";
 import { getClientProfile } from "@/server/repositories/client-reference";
+import { refundCredits } from "@/server/billing/credits";
 import {
   getCreativeWork,
   markCreativeWorkOutputProcessing,
@@ -35,6 +36,14 @@ interface CreativeWorkGenerateEvent {
 
 const OUTPUT_COST = 5;
 const MAX_REFERENCE_IMAGES = 4;
+/**
+ * Outputs scoring below this threshold are treated as `low_quality` failures
+ * — the row is marked failed, the user is refunded, and the UI surfaces the
+ * failure as a retryable proposition. Tuned conservatively: the brief
+ * scoring rubric uses `MEAN_QUALITY_THRESHOLD = 75` for batch validation, so
+ * a per-output cutoff of 60 only rejects clear misses.
+ */
+const OUTPUT_MIN_QUALITY_SCORE = 60;
 
 /**
  * Sanitize arbitrary error messages into a short, user-safe slug. The slug is
@@ -124,27 +133,44 @@ export const creativeWorkOutputJob = inngest.createFunction(
         height: 1280,
       };
 
-      const prompt = buildSocialPostPrompt({
-        format: targetFormat,
-        copy,
-        identitySnapshot,
-        creativeLevel,
-      });
+      // Pre-generator block: prompt assembly + reference image load. Any
+      // failure here happens before the upstream provider is invoked, so
+      // we refund the per-output credit and let the outer catch mark the
+      // output failed. Failures inside `generate-base` and after are
+      // intentionally NOT refunded — the charge covers the dispatch slot.
+      let prompt: string;
+      let referenceImages: Array<{ buffer: Buffer; mimeType: string; name: string }>;
+      try {
+        prompt = buildSocialPostPrompt({
+          format: targetFormat,
+          copy,
+          identitySnapshot,
+          creativeLevel,
+        });
 
-      const referenceAssets = identitySnapshot.assets
-        .filter((asset) => asset.usageMode === "reference")
-        .slice(0, MAX_REFERENCE_IMAGES);
+        const referenceAssets = identitySnapshot.assets
+          .filter((asset) => asset.usageMode === "reference")
+          .slice(0, MAX_REFERENCE_IMAGES);
 
-      const referenceImages = (await step.run("load-reference-images", async () => {
-        const buffers = await Promise.all(
-          referenceAssets.map(async (asset) => ({
-            buffer: await objectStorage.get(asset.assetKey),
-            mimeType: asset.mimeType,
-            name: asset.label,
-          })),
-        );
-        return buffers;
-      })) as unknown as Array<{ buffer: Buffer; mimeType: string; name: string }>;
+        referenceImages = (await step.run("load-reference-images", async () => {
+          const buffers = await Promise.all(
+            referenceAssets.map(async (asset) => ({
+              buffer: await objectStorage.get(asset.assetKey),
+              mimeType: asset.mimeType,
+              name: asset.label,
+            })),
+          );
+          return buffers;
+        })) as unknown as Array<{ buffer: Buffer; mimeType: string; name: string }>;
+      } catch (error) {
+        await refundPreGeneratorOutput({
+          workspaceId,
+          workItemId,
+          outputId,
+          reason: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
+      }
 
       const generated = await step.run("generate-base", async () => {
         return generateAndStoreImage({
@@ -188,9 +214,9 @@ export const creativeWorkOutputJob = inngest.createFunction(
         return getClientProfile(workspaceId, work.clientProfileId);
       })) as unknown as { id: string; name: string } | null;
 
-      await step.run("analyze-quality", async () => {
+      const qualityResult = (await step.run("analyze-quality", async () => {
         try {
-          await analyzeDerivationCreative({
+          return await analyzeDerivationCreative({
             imageBuffer: finalBuffer,
             mimeType: "image/png",
             // R5 mapping: brief fields → AnalyzeInput.campaign
@@ -215,19 +241,50 @@ export const creativeWorkOutputJob = inngest.createFunction(
             contract: null,
           });
         } catch (error) {
-          // Quality analysis is best-effort: never fail the output for it.
+          // Quality analysis is best-effort: never fail the output for it
+          // if the scorer itself crashes — but still persist `null` so the
+          // UI can distinguish "not measured" from "scored below threshold".
           const message = error instanceof Error ? error.message : "Unknown error";
           logger.warn(
             `[creativeWorkOutputJob] analyzeDerivationCreative failed outputId=${outputId}: ${message}`,
           );
+          return null;
         }
-      });
+      })) as unknown as ScoreResult | null;
+
+      // Apply the minimum-quality gate. The result is captured (not
+      // discarded) and persisted on the output row so downstream consumers
+      // can surface breakdown / issues / regeneration suggestions.
+      if (
+        qualityResult &&
+        (qualityResult.scoreStatus === "failed" ||
+          qualityResult.qualityScore < OUTPUT_MIN_QUALITY_SCORE)
+      ) {
+        await refundPreGeneratorOutput({
+          workspaceId,
+          workItemId,
+          outputId,
+          reason: `low_quality score=${qualityResult.qualityScore}`,
+        });
+        await failCreativeWorkOutput(workspaceId, workItemId, outputId, "low_quality");
+        logger.warn(
+          `[creativeWorkOutputJob] low-quality outputId=${outputId} score=${qualityResult.qualityScore} threshold=${OUTPUT_MIN_QUALITY_SCORE}`,
+        );
+        return {
+          success: false,
+          outputId,
+          failureCode: "low_quality",
+        };
+      }
 
       await step.run("mark-completed", async () => {
         await completeCreativeWorkOutput(workspaceId, workItemId, outputId, {
           outputKey: generatedOutputKey,
           cost: OUTPUT_COST,
-          quality: null,
+          // Persist the score when the scorer succeeded; `null` when it
+          // crashed (so the UI can tell "not measured" apart from "scored
+          // and passed").
+          quality: (qualityResult as unknown as Record<string, unknown> | null) ?? null,
         });
       });
 
@@ -270,3 +327,44 @@ export const creativeWorkOutputJob = inngest.createFunction(
     }
   },
 );
+
+/**
+ * Refund the per-output credit when a failure happens BEFORE the upstream
+ * generator was invoked — prompt assembly or reference image load. The
+ * idempotency key is per-output so retries don't double-refund.
+ */
+async function refundPreGeneratorOutput({
+  workspaceId,
+  workItemId,
+  outputId,
+  reason,
+}: {
+  workspaceId: string;
+  workItemId: string;
+  outputId: string;
+  reason: string;
+}): Promise<void> {
+  try {
+    const result = await refundCredits({
+      workspaceId,
+      action: "image_derivation",
+      idempotencyKey: `creative-work:${workItemId}:output:${outputId}:pregen-refund`,
+      amount: OUTPUT_COST,
+      metadata: {
+        creativeWorkId: workItemId,
+        outputId,
+        reason,
+        description: "creative_work_output_pregen_refund",
+      },
+    });
+    logger.info(
+      `[creativeWorkOutputJob] refundCredits pregen outputId=${outputId} status=${result.status} reason=${reason}`,
+    );
+  } catch (refundError) {
+    const detail =
+      refundError instanceof Error ? refundError.message : "Unknown error";
+    logger.error(
+      `[creativeWorkOutputJob] refundCredits pregen FAILED outputId=${outputId}: ${detail}`,
+    );
+  }
+}

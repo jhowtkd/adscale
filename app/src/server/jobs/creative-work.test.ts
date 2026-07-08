@@ -13,6 +13,8 @@ const refreshStatusMock = vi.hoisted(() => vi.fn());
 const objectGetMock = vi.hoisted(() => vi.fn());
 const objectPutMock = vi.hoisted(() => vi.fn());
 
+const refundCreditsMock = vi.hoisted(() => vi.fn());
+
 vi.mock("@/server/repositories/creative-work", () => ({
   getCreativeWork: (...args: unknown[]) => getCreativeWorkMock(...args),
   markCreativeWorkOutputProcessing: (...args: unknown[]) =>
@@ -20,6 +22,10 @@ vi.mock("@/server/repositories/creative-work", () => ({
   completeCreativeWorkOutput: (...args: unknown[]) => completeMock(...args),
   failCreativeWorkOutput: (...args: unknown[]) => failMock(...args),
   refreshCreativeWorkStatus: (...args: unknown[]) => refreshStatusMock(...args),
+}));
+
+vi.mock("@/server/billing/credits", () => ({
+  refundCredits: (...args: unknown[]) => refundCreditsMock(...args),
 }));
 
 vi.mock("@/server/repositories/client-reference", () => ({
@@ -193,6 +199,7 @@ describe("creativeWorkOutputJob", () => {
     completeMock.mockResolvedValue(makeQueuedOutput({ status: "completed" }));
     failMock.mockResolvedValue(makeQueuedOutput({ status: "failed" }));
     refreshStatusMock.mockResolvedValue("completed");
+    refundCreditsMock.mockResolvedValue({ status: "refunded" });
   });
 
   it("has Inngest function id, retries=0, and trigger configured correctly", () => {
@@ -223,9 +230,17 @@ describe("creativeWorkOutputJob", () => {
       expect.objectContaining({
         cost: 5,
         outputKey: expect.stringContaining("creative-work/output-1/"),
+        // The score from `analyzeDerivationCreative` is now persisted on
+        // the output row — it must no longer be silently dropped.
+        quality: expect.objectContaining({
+          scoreStatus: "analyzed",
+          qualityScore: 80,
+        }),
       }),
     );
     expect(refreshStatusMock).toHaveBeenCalledWith("workspace-1", "work-1");
+    // No refund should fire on a happy path.
+    expect(refundCreditsMock).not.toHaveBeenCalled();
   });
 
   it("loads up to four reference-mode asset buffers for image generation", async () => {
@@ -289,6 +304,111 @@ describe("creativeWorkOutputJob", () => {
     );
     expect(refreshStatusMock).toHaveBeenCalledWith("workspace-1", "work-1");
     expect(completeMock).not.toHaveBeenCalled();
+    // Provider failures happen AFTER the generator was invoked — the
+    // charge covers the dispatch slot and is intentionally non-refundable.
+    expect(refundCreditsMock).not.toHaveBeenCalled();
+  });
+
+  it("refunds the per-output credit and marks failed when a reference image load fails (pre-generator)", async () => {
+    getCreativeWorkMock.mockResolvedValue({
+      work: workItem,
+      outputs: [makeQueuedOutput()],
+    });
+    markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+    objectGetMock.mockRejectedValueOnce(new Error("R2 timeout reading ref-1"));
+
+    await runJob();
+
+    expect(refundCreditsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId: "workspace-1",
+        action: "image_derivation",
+        amount: 5,
+        idempotencyKey:
+          "creative-work:work-1:output:output-1:pregen-refund",
+      }),
+    );
+    expect(failMock).toHaveBeenCalled();
+    expect(completeMock).not.toHaveBeenCalled();
+    expect(generateAndStoreImageMock).not.toHaveBeenCalled();
+  });
+
+  it("fails the output as low_quality and refunds when the score is below the threshold", async () => {
+    getCreativeWorkMock.mockResolvedValue({
+      work: workItem,
+      outputs: [makeQueuedOutput()],
+    });
+    markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+    analyzeDerivationCreativeMock.mockResolvedValue({
+      scoreStatus: "analyzed",
+      qualityScore: 30,
+    });
+
+    const result = await runJob();
+
+    expect(result).toEqual(
+      expect.objectContaining({ success: false, failureCode: "low_quality" }),
+    );
+    expect(failMock).toHaveBeenCalledWith(
+      "workspace-1",
+      "work-1",
+      "output-1",
+      "low_quality",
+    );
+    expect(refundCreditsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId: "workspace-1",
+        action: "image_derivation",
+        amount: 5,
+        idempotencyKey:
+          "creative-work:work-1:output:output-1:pregen-refund",
+      }),
+    );
+    expect(completeMock).not.toHaveBeenCalled();
+  });
+
+  it("fails the output as low_quality when the scorer explicitly reports scoreStatus='failed'", async () => {
+    getCreativeWorkMock.mockResolvedValue({
+      work: workItem,
+      outputs: [makeQueuedOutput()],
+    });
+    markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+    analyzeDerivationCreativeMock.mockResolvedValue({
+      scoreStatus: "failed",
+      qualityScore: 0,
+    });
+
+    const result = await runJob();
+
+    expect(result).toEqual(
+      expect.objectContaining({ success: false, failureCode: "low_quality" }),
+    );
+    expect(failMock).toHaveBeenCalledWith(
+      "workspace-1",
+      "work-1",
+      "output-1",
+      "low_quality",
+    );
+  });
+
+  it("persists quality: null when the scorer itself crashes (best-effort)", async () => {
+    getCreativeWorkMock.mockResolvedValue({
+      work: workItem,
+      outputs: [makeQueuedOutput()],
+    });
+    markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+    analyzeDerivationCreativeMock.mockRejectedValue(new Error("scorer 500"));
+
+    await runJob();
+
+    expect(completeMock).toHaveBeenCalledWith(
+      "workspace-1",
+      "work-1",
+      "output-1",
+      expect.objectContaining({ quality: null }),
+    );
+    expect(refundCreditsMock).not.toHaveBeenCalled();
+    expect(failMock).not.toHaveBeenCalled();
   });
 
   it("composes the exact layers over the generated base and overwrites the generated key", async () => {
