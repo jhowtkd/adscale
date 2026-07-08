@@ -79,6 +79,17 @@ function hasPackageOutput(derivation: DerivationLike): boolean {
   return Boolean(derivation.outputKey) && !derivation.isPreview;
 }
 
+/** Approved derivation with render output that passes verdict eligibility (or override). */
+export function isApprovedPackageDerivation(
+  derivation: DerivationLike
+): boolean {
+  return (
+    derivation.status === "approved" &&
+    hasPackageOutput(derivation) &&
+    isDerivationPackageEligibleByVerdict(derivation)
+  );
+}
+
 export function buildCreativeNote(
   derivation: DerivationLike,
   campaign?: CampaignNotesContext
@@ -112,12 +123,7 @@ export function getApprovedRootDerivations(
   derivations: DerivationLike[]
 ): DerivationLike[] {
   return derivations.filter(
-    (d) =>
-      d.status === "approved" &&
-      !d.isPreview &&
-      !d.parentId &&
-      hasPackageOutput(d) &&
-      isDerivationPackageEligibleByVerdict(d)
+    (d) => !d.parentId && isApprovedPackageDerivation(d)
   );
 }
 
@@ -129,8 +135,7 @@ export function getPackageEligibleRoots(
 
   for (const derivation of derivations) {
     if (!derivation.parentId) continue;
-    if (derivation.status !== "approved" || !hasPackageOutput(derivation)) continue;
-    if (!isDerivationPackageEligibleByVerdict(derivation)) continue;
+    if (!isApprovedPackageDerivation(derivation)) continue;
     const siblings = approvedChildrenByParent.get(derivation.parentId) ?? [];
     siblings.push(derivation);
     approvedChildrenByParent.set(derivation.parentId, siblings);
@@ -138,11 +143,7 @@ export function getPackageEligibleRoots(
 
   return derivations.filter((derivation) => {
     if (derivation.parentId || derivation.isPreview) return false;
-    if (
-      derivation.status === "approved" &&
-      hasPackageOutput(derivation) &&
-      isDerivationPackageEligibleByVerdict(derivation)
-    ) {
+    if (isApprovedPackageDerivation(derivation)) {
       return true;
     }
     return (approvedChildrenByParent.get(derivation.id) ?? []).length > 0;
@@ -199,18 +200,9 @@ export function expandPackageDerivationIds(
   for (const rootId of selectedRootIds) {
     const root = byId.get(rootId);
     const children = byParent.get(rootId) ?? [];
-    const approvedChildren = children.filter(
-      (child) =>
-        child.status === "approved" &&
-        hasPackageOutput(child) &&
-        isDerivationPackageEligibleByVerdict(child)
-    );
+    const approvedChildren = children.filter(isApprovedPackageDerivation);
 
-    if (
-      root?.status === "approved" &&
-      hasPackageOutput(root) &&
-      isDerivationPackageEligibleByVerdict(root)
-    ) {
+    if (root && isApprovedPackageDerivation(root)) {
       expanded.push(rootId);
     }
 

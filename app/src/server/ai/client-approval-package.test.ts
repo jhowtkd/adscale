@@ -10,6 +10,7 @@ import {
   isDerivationApprovalOverride,
   isDerivationPackageBlockedByVerdict,
   isDerivationPackageEligibleByVerdict,
+  isApprovedPackageDerivation,
 } from "./client-approval-package";
 
 const baseDerivations = [
@@ -57,6 +58,34 @@ const baseDerivations = [
 ];
 
 describe("client-approval-package", () => {
+  it("requires approved status, output, and verdict eligibility for package derivations", () => {
+    const eligible = baseDerivations[0]!;
+    expect(isApprovedPackageDerivation(eligible)).toBe(true);
+
+    expect(
+      isApprovedPackageDerivation({ ...eligible, status: "completed" })
+    ).toBe(false);
+    expect(
+      isApprovedPackageDerivation({ ...eligible, outputKey: null })
+    ).toBe(false);
+    expect(
+      isApprovedPackageDerivation({ ...eligible, isPreview: true })
+    ).toBe(false);
+    expect(
+      isApprovedPackageDerivation({
+        ...eligible,
+        olharVerdict: { value: "sem_opiniao" },
+      })
+    ).toBe(false);
+    expect(
+      isApprovedPackageDerivation({
+        ...eligible,
+        status: "approved",
+        olharVerdict: { value: "confusa" },
+      })
+    ).toBe(true);
+  });
+
   it("lists approved root derivations only", () => {
     const roots = getApprovedRootDerivations(baseDerivations);
     expect(roots.map((d) => d.id)).toEqual(["root-1", "root-2"]);
