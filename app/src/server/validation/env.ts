@@ -53,6 +53,17 @@ export const envSchema = z.object({
   GITHUB_CLIENT_SECRET: z.string().optional(),
   BETA_ACCESS_CODES: z.string().optional(),
   NOTIFICATION_WEBHOOK_SECRET: z.string().min(16).optional(),
+  // Dual-engine image generation (BytePlus Seedream)
+  BYTEPLUS_API_KEY: z.string().optional(),
+  SEEDREAM_MODEL_NAME: z.string().optional(),
+  SEEDREAM_SAMPLE_RATE: z
+    .string()
+    .optional()
+    .transform((v) => (v === undefined ? 1.0 : Number(v)))
+    .refine((n) => Number.isFinite(n) && n >= 0 && n <= 1, {
+      message: "SEEDREAM_SAMPLE_RATE must be a number between 0 and 1",
+    }),
+  SEEDREAM_BASE_URL: z.string().url().default("https://ark.byteplus.com/v1"),
 });
 
 const parsed = envSchema.safeParse(process.env);

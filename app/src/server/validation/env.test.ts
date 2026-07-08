@@ -66,3 +66,53 @@ describe("envSchema", () => {
     });
   });
 });
+
+describe("dual-engine env vars", () => {
+  let schema: typeof import("./env").envSchema;
+
+  beforeAll(async () => {
+    Object.assign(process.env, { ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy" });
+    schema = (await import("./env")).envSchema;
+  });
+
+  it("rejects SEEDREAM_SAMPLE_RATE > 1", () => {
+    const result = schema.safeParse({
+      ...baseEnv,
+      STRIPE_SECRET_KEY: "sk_test_dummy",
+      SEEDREAM_SAMPLE_RATE: "1.5",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects SEEDREAM_SAMPLE_RATE < 0", () => {
+    const result = schema.safeParse({
+      ...baseEnv,
+      STRIPE_SECRET_KEY: "sk_test_dummy",
+      SEEDREAM_SAMPLE_RATE: "-0.1",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("defaults SEEDREAM_SAMPLE_RATE to 1.0 when missing", () => {
+    const result = schema.safeParse({
+      ...baseEnv,
+      STRIPE_SECRET_KEY: "sk_test_dummy",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.SEEDREAM_SAMPLE_RATE).toBe(1.0);
+    }
+  });
+
+  it("accepts SEEDREAM_SAMPLE_RATE = 0.5", () => {
+    const result = schema.safeParse({
+      ...baseEnv,
+      STRIPE_SECRET_KEY: "sk_test_dummy",
+      SEEDREAM_SAMPLE_RATE: "0.5",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.SEEDREAM_SAMPLE_RATE).toBe(0.5);
+    }
+  });
+});
