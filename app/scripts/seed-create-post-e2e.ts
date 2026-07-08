@@ -414,6 +414,12 @@ async function main(): Promise<void> {
     secondaryClientProfileId: secondary.id,
     approvedLogoReferenceId: logo.id,
     approvedLogoAssetKey: logo.assetKey,
+    // Embed the seeded logo buffer as base64 so the e2e composition test
+    // can exercise the real server pipeline (`composeExactBrandAssets`)
+    // without needing live object-storage access in CI.
+    approvedLogoBufferBase64: logoBuffer.toString("base64"),
+    approvedLogoWidth: 96,
+    approvedLogoHeight: 96,
     approvedVisualReferenceId: visualRef.id,
     approvedVisualReferenceAssetKey: visualRef.assetKey,
     pendingReferenceLabel: "Logo Pendente",

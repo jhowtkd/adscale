@@ -31,9 +31,6 @@ const FIXTURE_PATH = path.resolve(
   "../fixtures/create-post-e2e.json",
 );
 
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-
 interface CreatePostFixture {
   workspaceId: string;
   workspaceName: string | null;
@@ -42,6 +39,9 @@ interface CreatePostFixture {
   secondaryClientProfileId: string;
   approvedLogoReferenceId: string;
   approvedLogoAssetKey: string;
+  approvedLogoBufferBase64: string;
+  approvedLogoWidth: number;
+  approvedLogoHeight: number;
   approvedVisualReferenceId: string;
   approvedVisualReferenceAssetKey: string;
   pendingReferenceLabel: string;
@@ -143,29 +143,30 @@ test.describe("Standalone Create Post acceptance gate", () => {
         reviewStatus: string;
       }>;
     };
+
+    // The seed inserts a `pending_analysis` row that must be filtered out
+    // before reaching the wizard's `approvedReferences` projection. First
+    // assert the seed row is actually present in the raw API response —
+    // otherwise this test would silently pass on a missing fixture.
     const labels = body.references.map((r) => r.label);
     expect(labels).toContain(fixture.pendingReferenceLabel);
     const pending = body.references.find(
       (r) => r.label === fixture.pendingReferenceLabel,
     );
+    expect(pending).toBeDefined();
     expect(pending?.reviewStatus).toBe("pending_analysis");
 
-    // The Create Post assets step only ever renders `approved` rows with
-    // both a category and a usage mode. The seeded pending row has none of
-    // those, so it must be filtered out before reaching the UI.
-    const eligible = body.references.filter(
-      (r) =>
-        r.reviewStatus === "approved" &&
-        r.id !== fixture.pendingReferenceLabel,
-    );
-    const filtered = eligible.filter(
+    // The Create Post assets step only ever renders rows whose
+    // `reviewStatus` is `approved`. The brief requires us to prove that
+    // the pending row never makes it into that projection.
+    const approvedReferences = body.references.filter(
       (r) => r.reviewStatus === "approved",
     );
-    expect(filtered.length).toBeGreaterThan(0);
     expect(
-      filtered.find((r) => r.label === fixture.pendingReferenceLabel),
+      approvedReferences.find((r) => r.label === fixture.pendingReferenceLabel),
       "pending reference must be excluded from the assets step",
     ).toBeUndefined();
+    expect(approvedReferences.length, "at least one approved reference must exist for the wizard").toBeGreaterThan(0);
   });
 
   test("triplet always returns exactly three fixed creative levels", async ({
@@ -309,73 +310,124 @@ test.describe("Standalone Create Post acceptance gate", () => {
     })
       .png()
       .toBuffer();
+    const baseSeed = Buffer.from(base);
 
-    // Pull the logo buffer straight from the seeded asset key.
-    const logoUrl = `/api/creative-work/${fixture.readyWorkId}/outputs/${fixture.readyWorkId}/download`;
-    // The download endpoint is output-scoped; for the visual assertion
-    // we compose the brand asset directly via the same shape the server
-    // uses, so we synthesize the expected logo region inline.
-    const expectedLogoWidth = Math.max(1, Math.round(baseWidth * 0.18));
-    const expectedLogoHeight = expectedLogoWidth;
-    const expectedRegion = await sharp({
-      create: {
-        width: expectedLogoWidth,
-        height: expectedLogoHeight,
-        channels: 4,
-        background: { r: 0, g: 0, b: 0, alpha: 0 },
-      },
-    })
+    // Load the actual seeded logo buffer from the fixture (base64-encoded
+    // by the seed so we don't depend on object-storage availability).
+    const seededLogo = Buffer.from(fixture.approvedLogoBufferBase64, "base64");
+    const seededLogoMeta = await sharp(seededLogo).metadata();
+    expect(seededLogoMeta.width, "seeded logo width must be recorded").toBe(
+      fixture.approvedLogoWidth,
+    );
+    expect(seededLogoMeta.height, "seeded logo height must be recorded").toBe(
+      fixture.approvedLogoHeight,
+    );
+    const logoBuffer = Buffer.from(seededLogo);
+
+    // Call the real server pipeline (`composeExactBrandAssets`) with the
+    // seeded logo buffer and the deterministic magenta base. The
+    // pipeline resizes the logo to `width * widthRatio` (0.18) with
+    // aspect preserved and pins it to the southeast corner.
+    const widthRatio = 0.18;
+    const expectedLogoWidth = Math.max(1, Math.round(baseWidth * widthRatio));
+    const layerWidth = Math.max(1, Math.round(baseWidth * widthRatio));
+    const layerHeight = Math.max(
+      1,
+      Math.round((seededLogoMeta.height ?? fixture.approvedLogoHeight) *
+        (layerWidth / (seededLogoMeta.width ?? fixture.approvedLogoWidth))),
+    );
+
+    // Dynamically import the server's composition module — it has no
+    // transitive `server-only` imports, just `sharp`, so this resolves
+    // cleanly outside the Next.js runtime.
+    const { composeExactBrandAssets } = await import(
+      "../../src/server/creative-work/composite"
+    );
+
+    const composite = await composeExactBrandAssets(
+      base,
+      [
+        {
+          buffer: logoBuffer,
+          gravity: "southeast",
+          widthRatio,
+        },
+      ],
+      { width: baseWidth, height: baseHeight },
+    );
+
+    // Build the expected logo region: the same resize transform applied
+    // by the server pipeline (`fit: "inside"`), preserving aspect ratio.
+    const expectedLogo = await sharp(logoBuffer)
+      .resize(layerWidth, layerHeight, { fit: "inside" })
       .png()
       .toBuffer();
 
     // Compose: pin the transparent placeholder to the southeast corner
-    // using Sharp's `composite` (the same primitive the server uses).
-    const composite = await sharp(base)
-      .composite([
-        {
-          input: expectedRegion,
-          gravity: "southeast",
-        },
-      ])
-      .png()
-      .toBuffer();
+    // using the real `composeExactBrandAssets` pipeline.
 
-    // Extract the bottom-right region of the composite and compare it
-    // bit-for-bit against the expected logo region. Since the logo has
-    // alpha=0 everywhere, the composite MUST not alter the magenta base
-    // beneath it; the channel diff must be exactly zero.
-    const extracted = await sharp(composite)
+    // Extract the bottom-right logo region from the composed image and
+    // compare its per-channel statistics against the resized logo
+    // using `sharp().stats()` — the brief's prescribed assertion. A
+    // pipeline that places the seeded logo correctly must produce a
+    // zero channel difference between the extracted region and the
+    // expected resized logo.
+    const extractedRegion = await sharp(composite)
       .extract({
         left: baseWidth - expectedLogoWidth,
-        top: baseHeight - expectedLogoHeight,
+        top: baseHeight - layerHeight,
         width: expectedLogoWidth,
-        height: expectedLogoHeight,
+        height: layerHeight,
       })
-      .raw()
-      .toBuffer({ resolveWithObject: true });
-
-    const expectedRaw = await sharp(expectedRegion)
       .ensureAlpha()
       .raw()
       .toBuffer();
 
-    // Each channel byte must match. We compare the RGB only — alpha is
-    // intentionally ignored here because we're asserting the magenta base
-    // is unchanged in the logo region (the logo is fully transparent).
+    const expectedRaw = await sharp(expectedLogo)
+      .ensureAlpha()
+      .raw()
+      .toBuffer();
+
+    expect(
+      extractedRegion.length,
+      "extracted logo region must have the same byte length as the expected resized logo",
+    ).toBe(expectedRaw.length);
+
     let diff = 0;
-    for (let i = 0; i < expectedRaw.length; i += 4) {
-      const er = expectedRaw[i] ?? 0;
-      const eg = expectedRaw[i + 1] ?? 0;
-      const eb = expectedRaw[i + 2] ?? 0;
-      const xr = extracted.data[i] ?? 0;
-      const xg = extracted.data[i + 1] ?? 0;
-      const xb = extracted.data[i + 2] ?? 0;
-      diff += Math.abs(er - xr) + Math.abs(eg - xg) + Math.abs(eb - xb);
+    for (let i = 0; i < expectedRaw.length; i += 1) {
+      diff += Math.abs((extractedRegion[i] ?? 0) - (expectedRaw[i] ?? 0));
     }
     expect(
       diff,
-      `expected zero channel diff in the logo region; got ${diff}`,
+      `expected zero channel diff in the logo region after the resize/composition transform; got ${diff}`,
     ).toBe(0);
-    expect(logoUrl).toMatch(new RegExp(`/api/creative-work/${UUID_RE.source}/outputs/${UUID_RE.source}/download`));
+
+    // Sharp `stats()` (per the brief) on the composed logo region must
+    // also report channel stats that match the resized logo's stats.
+    const composedStats = await sharp(composite)
+      .extract({
+        left: baseWidth - expectedLogoWidth,
+        top: baseHeight - layerHeight,
+        width: expectedLogoWidth,
+        height: layerHeight,
+      })
+      .stats();
+    const expectedStats = await sharp(expectedLogo).stats();
+    expect(composedStats.channels).toHaveLength(expectedStats.channels.length);
+    for (let c = 0; c < expectedStats.channels.length; c += 1) {
+      const composedChannel = composedStats.channels[c];
+      const expectedChannel = expectedStats.channels[c];
+      expect(composedChannel).toBeDefined();
+      expect(expectedChannel).toBeDefined();
+      expect(composedChannel!.mean).toBeCloseTo(expectedChannel!.mean, 5);
+      expect(composedChannel!.min).toBeCloseTo(expectedChannel!.min, 5);
+      expect(composedChannel!.max).toBeCloseTo(expectedChannel!.max, 5);
+    }
+
+    // The seed logo buffer must not have been mutated by the pipeline.
+    expect(logoBuffer.equals(seededLogo)).toBe(true);
+
+    // Sanity-check: the base used to compose was not mutated either.
+    expect(baseSeed.equals(base)).toBe(true);
   });
 });
