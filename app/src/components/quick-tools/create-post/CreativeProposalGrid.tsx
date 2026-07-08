@@ -99,8 +99,9 @@ export default function CreativeProposalGrid({
 
             <div className="aspect-square w-full overflow-hidden rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)]">
               {isCompleted && output.outputKey ? (
-                // The download endpoint streams the binary; preview is best-effort
-                // via the same URL when the asset is reachable.
+                // The download endpoint 302-redirects to a short-lived
+                // signed URL; the browser follows the redirect inline and
+                // renders the asset directly inside the grid.
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={`/api/creative-work/${output.workItemId}/outputs/${output.id}/download`}

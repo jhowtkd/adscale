@@ -75,11 +75,24 @@ describe("GET /api/creative-work/[id]/outputs/[outputId]/download", () => {
     vi.restoreAllMocks();
   });
 
-  it("returns a signed download URL for a completed output", async () => {
+  it("redirects to the signed URL by default (browsers and <img src>)", async () => {
     getWorkMock.mockResolvedValue({ work: workItem, outputs: [completedOutput] });
 
     const res = await GET(
       new Request("http://localhost/api/creative-work/work-1/outputs/output-1/download"),
+      { params: makeParams("work-1", "output-1") }
+    );
+
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("https://signed.example.com/asset.png");
+    expect(signedUrlMock).toHaveBeenCalledWith(completedOutput.outputKey);
+  });
+
+  it("returns the JSON envelope when ?format=json is set", async () => {
+    getWorkMock.mockResolvedValue({ work: workItem, outputs: [completedOutput] });
+
+    const res = await GET(
+      new Request("http://localhost/api/creative-work/work-1/outputs/output-1/download?format=json"),
       { params: makeParams("work-1", "output-1") }
     );
     const body = await res.json();
@@ -87,6 +100,21 @@ describe("GET /api/creative-work/[id]/outputs/[outputId]/download", () => {
     expect(res.status).toBe(200);
     expect(body.url).toBe("https://signed.example.com/asset.png");
     expect(signedUrlMock).toHaveBeenCalledWith(completedOutput.outputKey);
+  });
+
+  it("returns the JSON envelope when the caller sends Accept: application/json", async () => {
+    getWorkMock.mockResolvedValue({ work: workItem, outputs: [completedOutput] });
+
+    const res = await GET(
+      new Request("http://localhost/api/creative-work/work-1/outputs/output-1/download", {
+        headers: { Accept: "application/json" },
+      }),
+      { params: makeParams("work-1", "output-1") }
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.url).toBe("https://signed.example.com/asset.png");
   });
 
   it("returns 404 when the work is missing", async () => {

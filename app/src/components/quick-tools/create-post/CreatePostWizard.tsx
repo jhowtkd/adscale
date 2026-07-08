@@ -9,13 +9,13 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   useClientProfiles,
-  useClientReferences,
 } from "@/lib/hooks/use-client-profiles";
 import {
   useConfirmCreativeWork,
   useCreateCreativeWork,
   useCreativeWork,
   useGenerateCopy,
+  useIdentityOptions,
   useRetryOutput,
   useSelectOutput,
   useTriggerTriplet,
@@ -85,23 +85,16 @@ export default function CreatePostWizard({ workId: initialWorkId }: { workId?: s
   const [selectedReferenceIds, setSelectedReferenceIds] = useState<string[]>([]);
 
   const workQuery = useCreativeWork(activeWorkId);
-  const referencesQuery = useClientReferences(clientProfileId);
-  // The /api/client-profiles/[id]/references endpoint returns the full row,
-  // including `trainingCategory`, `usageMode`, and `reviewStatus`. The shared
-  // hook type intentionally only exposes the original fields; widen it here
-  // (without modifying the hook) so we can filter to approved-only.
-  type ApprovedReference = (typeof referencesQuery.data extends (infer R)[] | undefined ? R : never) & {
-    trainingCategory: string | null;
-    usageMode: string | null;
-    reviewStatus: string | null;
-  };
-  const approvedReferences = useMemo<ApprovedReference[]>(
-    () =>
-      ((referencesQuery.data ?? []) as ApprovedReference[]).filter(
-        (ref) =>
-          ref.reviewStatus === "approved" && Boolean(ref.trainingCategory) && Boolean(ref.usageMode),
-      ),
-    [referencesQuery.data],
+
+  // Server-recommended assets, computed from the work item's brief. The
+  // list is category-priority ordered (logo → character/graphic → visual
+  // reference → rule) and each row carries an AI justification. The
+  // wizard renders this instead of the unfiltered approved set so the
+  // brand signal stays tight.
+  const identityOptionsQuery = useIdentityOptions(activeWorkId);
+  const identityOptions = useMemo(
+    () => identityOptionsQuery.data?.options ?? [],
+    [identityOptionsQuery.data]
   );
 
   const createMutation = useCreateCreativeWork();
@@ -155,6 +148,23 @@ export default function CreatePostWizard({ workId: initialWorkId }: { workId?: s
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [detail?.work.id, detail?.work.status, detail?.work.copy, detail, persistedStepIndex]);
 
+  // Pre-select the first three identity options as a sensible default
+  // (logo + visual reference + character/graphic). The user can still
+  // deselect any of them before advancing. We only seed when the user
+  // hasn't already made a choice for the current work item. The
+  // ref-guard keeps this safe — the set-state-in-effect rule is meant
+  // for external system sync, and TanStack Query is exactly that.
+  const lastSeededWorkIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!activeWorkId) return;
+    if (lastSeededWorkIdRef.current === activeWorkId) return;
+    if (identityOptions.length === 0) return;
+    lastSeededWorkIdRef.current = activeWorkId;
+    /* eslint-disable react-hooks/set-state-in-effect */
+    setSelectedReferenceIds(identityOptions.slice(0, 3).map((o) => o.referenceId));
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [activeWorkId, identityOptions]);
+
   // ----- Step navigation helpers -------------------------------------------
 
   const canAdvanceFromBrief =
@@ -199,11 +209,21 @@ export default function CreatePostWizard({ workId: initialWorkId }: { workId?: s
 
   const handleAdvanceFromAssets = async () => {
     if (selectedReferenceIds.length === 0) return;
-    if (!activeWorkId || !detail?.work.copy) return;
+    if (!activeWorkId) return;
+    // Use the locally edited copy rather than the server snapshot: the
+    // Copy step lets the user tweak headline/body/cta in place, and any
+    // in-place edits must reach the server before identity is locked.
+    const trimmedHeadline = headline.trim();
+    const trimmedBody = body.trim();
+    const trimmedCta = cta.trim();
+    if (!trimmedHeadline || !trimmedBody || !trimmedCta) {
+      toast.error(tCommon("error"));
+      return;
+    }
     try {
       await confirmMutation.mutateAsync({
         workItemId: activeWorkId,
-        copy: detail.work.copy,
+        copy: { headline: trimmedHeadline, body: trimmedBody, cta: trimmedCta },
         selectedReferenceIds,
       });
       await triggerMutation.mutateAsync(activeWorkId);
@@ -309,12 +329,12 @@ export default function CreatePostWizard({ workId: initialWorkId }: { workId?: s
 
       {currentStep === "assets" ? (
         <AssetsStep
-          references={approvedReferences.map((r) => ({
-            id: r.id,
-            label: r.label,
-            trainingCategory: r.trainingCategory ?? "",
-            usageMode: r.usageMode ?? "",
-            reason: r.notes ?? "",
+          references={identityOptions.map((option) => ({
+            id: option.referenceId,
+            label: option.label,
+            trainingCategory: option.category,
+            usageMode: option.usageMode,
+            reason: option.reason,
           }))}
           selectedIds={selectedReferenceIds}
           onToggle={(id) =>

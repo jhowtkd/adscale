@@ -108,6 +108,26 @@ function fetchCreativeWork(workItemId: string): Promise<CreativeWorkDetail> {
   });
 }
 
+/**
+ * One row in the wizard's assets step. Mirrors the server-side
+ * `buildIdentityOptions` return value, with the fields the UI needs
+ * stripped to a flat, serialisable shape.
+ */
+export interface IdentityOption {
+  referenceId: string;
+  label: string;
+  category: string;
+  usageMode: string;
+  reason: string;
+}
+
+function fetchIdentityOptions(workItemId: string): Promise<{ options: IdentityOption[] }> {
+  return apiFetch(`/api/creative-work/${workItemId}/identity-options`).then(async (res) => {
+    if (!res.ok) throw new Error(await readError(res));
+    return res.json() as Promise<{ options: IdentityOption[] }>;
+  });
+}
+
 function postJson<T>(url: string, body?: unknown): Promise<T> {
   return apiFetch(url, {
     method: "POST",
@@ -144,6 +164,17 @@ export function useCreativeWork(workItemId: string | null | undefined) {
       // because the row won't progress without user action.
       return data.work.status === "generating" ? 2000 : false;
     },
+  });
+}
+
+export function useIdentityOptions(workItemId: string | null | undefined) {
+  return useQuery({
+    queryKey: ["identity-options", workItemId],
+    queryFn: () => fetchIdentityOptions(workItemId!),
+    enabled: Boolean(workItemId),
+    // The options only change when the underlying work item changes; the
+    // same brief + same client profile is always a stable recommendation.
+    staleTime: 30_000,
   });
 }
 

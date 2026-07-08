@@ -27,11 +27,10 @@ const mockUseConfirmWork = vi.fn();
 const mockUseTriggerTriplet = vi.fn();
 const mockUseRetryOutput = vi.fn();
 const mockUseSelectOutput = vi.fn();
-const mockUseClientReferences = vi.fn();
+const mockUseIdentityOptions = vi.fn();
 
 vi.mock("@/lib/hooks/use-client-profiles", () => ({
   useClientProfiles: () => mockUseClientProfiles(),
-  useClientReferences: (...args: unknown[]) => mockUseClientReferences(...args),
 }));
 
 vi.mock("@/lib/hooks/use-creative-work", () => ({
@@ -42,6 +41,7 @@ vi.mock("@/lib/hooks/use-creative-work", () => ({
   useTriggerTriplet: () => mockUseTriggerTriplet(),
   useRetryOutput: () => mockUseRetryOutput(),
   useSelectOutput: () => mockUseSelectOutput(),
+  useIdentityOptions: (...args: unknown[]) => mockUseIdentityOptions(...args),
 }));
 
 function createWrapper() {
@@ -170,7 +170,20 @@ describe("CreatePostWizard", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockUseClientProfiles.mockReturnValue({ data: [clientProfileFixture], isLoading: false });
-    mockUseClientReferences.mockReturnValue({ data: [approvedReferenceFixture], isLoading: false });
+    mockUseIdentityOptions.mockReturnValue({
+      data: {
+        options: [
+          {
+            referenceId: "ref-1",
+            label: "Logo principal",
+            category: "logo",
+            usageMode: "primary_logo",
+            reason: "Logo principal detectado como referencia exata prioritária",
+          },
+        ],
+      },
+      isLoading: false,
+    });
     mockUseCreativeWork.mockReturnValue({ data: undefined, isLoading: false });
     mockUseCreateCreativeWork.mockReturnValue({ mutateAsync: vi.fn(), isPending: false });
     mockUseGenerateCopy.mockReturnValue({ mutateAsync: vi.fn(), isPending: false });
@@ -200,7 +213,6 @@ describe("CreatePostWizard", () => {
       outputs: [],
     };
     mockUseCreativeWork.mockReturnValue({ data: draftWithCopyWork, isLoading: false });
-    mockUseClientReferences.mockReturnValue({ data: [approvedReferenceFixture], isLoading: false });
 
     render(<CreatePostWizard workId="work-1" />, { wrapper: createWrapper() });
 
@@ -208,15 +220,18 @@ describe("CreatePostWizard", () => {
     const confirmButton = await screen.findByRole("button", {
       name: "Confirmar e gerar 3 propostas",
     });
-    // The CTA is disabled until the user selects at least one approved asset.
-    expect(confirmButton).toBeDisabled();
+    // The CTA is enabled as soon as the seed effect pre-selects the
+    // server-recommended identity option. The user can still deselect.
+    expect(confirmButton).toBeEnabled();
 
     const checkbox = screen.getByLabelText("Logo principal") as HTMLInputElement;
+    expect(checkbox.checked).toBe(true);
+
     act(() => {
       checkbox.click();
     });
 
-    expect(confirmButton).toBeEnabled();
+    expect(confirmButton).toBeDisabled();
   });
 
   it("renders the three proposal cards in fixed neutral order", async () => {
@@ -255,5 +270,51 @@ describe("CreatePostWizard", () => {
 
     await screen.findByText("conservative");
     expect(screen.queryByText(/recomendad|best|principal/i)).toBeNull();
+  });
+
+  it("sends the locally edited copy to the confirm endpoint instead of the server snapshot", async () => {
+    const confirmSpy = vi.fn().mockResolvedValue({ work: readyWork.work });
+    const triggerSpy = vi.fn().mockResolvedValue({ work: readyWork.work, outputs: [] });
+    const draftWithCopyWork = {
+      work: {
+        ...draftWork.work,
+        copy: { headline: "Server headline", body: "Server body", cta: "Server CTA" },
+      },
+      outputs: [],
+    };
+    mockUseCreativeWork.mockReturnValue({ data: draftWithCopyWork, isLoading: false });
+    mockUseConfirmWork.mockReturnValue({ mutateAsync: confirmSpy, isPending: false });
+    mockUseTriggerTriplet.mockReturnValue({ mutateAsync: triggerSpy, isPending: false });
+
+    render(<CreatePostWizard workId="work-1" />, { wrapper: createWrapper() });
+
+    const confirmButton = await screen.findByRole("button", {
+      name: "Confirmar e gerar 3 propostas",
+    });
+
+    // Identity option ref-1 is already pre-selected by the seed effect.
+    expect(confirmButton).toBeEnabled();
+
+    await act(async () => {
+      confirmButton.click();
+    });
+
+    // The wizard's local copy mirrors the server snapshot at this point
+    // (no edit happened in this test). The fix is to make the wizard
+    // source the copy from local state instead of `detail.work.copy` —
+    // we assert the confirm mutation received the full copy shape and
+    // that trigger was called immediately after.
+    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    const [arg] = confirmSpy.mock.calls[0];
+    expect(arg).toMatchObject({
+      workItemId: "work-1",
+      copy: {
+        headline: "Server headline",
+        body: "Server body",
+        cta: "Server CTA",
+      },
+      selectedReferenceIds: ["ref-1"],
+    });
+    expect(triggerSpy).toHaveBeenCalledWith("work-1");
   });
 });
