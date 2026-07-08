@@ -142,7 +142,9 @@ describe("compact prompt section snapshots by generation mode", () => {
     );
     expect(extractPromptRestylingFactualSourceSection(prompt)).toMatchInlineSnapshot(`
       "RESTYLING FACTUAL-SOURCE RULE:
-      The base image is the ONLY source of factual content (brand name, product name, offer, CTA, price, course name, logo). The style reference provides visual language (color, typography style, layout composition, mood) only. Do NOT copy factual claims, text, prices, offers, brand names, or CTAs from the style reference into the output."
+      The base image is the ONLY source of factual content (brand name, product name, offer, CTA, price, course name, logo). The style reference provides visual language (color, typography style, layout composition, mood) only. Do NOT copy factual claims, text, prices, offers, brand names, or CTAs from the style reference into the output.
+      Do NOT add brands, logos, wordmarks, or company names absent from the factual base. The campaign registry validates identity but never authorizes inserting a missing mark.
+      Do NOT reproduce the style reference as the output ad — restyle the base campaign content with abstract attributes from the style reference."
     `);
   });
 });

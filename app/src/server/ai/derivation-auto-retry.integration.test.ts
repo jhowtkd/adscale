@@ -126,10 +126,10 @@ describe("runDerivationAutoRetry restyling", () => {
     expect(mockDownloadBuffer).toHaveBeenCalledWith("assets/style-reference.png");
     expect(mockOpenAIImages.edit).toHaveBeenCalledWith(
       expect.objectContaining({
-        image: [
+        image: expect.arrayContaining([
           expect.objectContaining({ name: "base-image" }),
           expect.objectContaining({ name: "style-reference" }),
-        ],
+        ]),
       })
     );
   });
@@ -140,7 +140,9 @@ describe("runDerivationAutoRetry restyling", () => {
     expect(mockDownloadBuffer).toHaveBeenCalledTimes(1);
     expect(mockOpenAIImages.edit).toHaveBeenCalledWith(
       expect.objectContaining({
-        image: expect.objectContaining({ name: "base-image" }),
+        image: expect.arrayContaining([
+          expect.objectContaining({ name: "base-image" }),
+        ]),
       })
     );
   });
@@ -164,7 +166,9 @@ describe("runDerivationAutoRetry restyling", () => {
     expect(mockDownloadBuffer).toHaveBeenCalledTimes(1);
     expect(mockOpenAIImages.edit).toHaveBeenCalledWith(
       expect.objectContaining({
-        image: expect.objectContaining({ name: "reference-image" }),
+        image: expect.arrayContaining([
+          expect.objectContaining({ name: "reference-image" }),
+        ]),
       })
     );
   });

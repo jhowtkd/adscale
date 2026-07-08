@@ -227,16 +227,16 @@ describe("campaign repository", () => {
     );
   });
 
-  it("updateCampaign updates styleIntensity", async () => {
+  it("updateCampaign updates creativeLevel", async () => {
     const mockReturning = vi.fn().mockResolvedValue([{ id: "camp-1" }]);
     const mockWhere = vi.fn().mockReturnValue({ returning: mockReturning });
     const mockSet = vi.fn().mockReturnValue({ where: mockWhere });
     (db.update as ReturnType<typeof vi.fn>).mockReturnValue({ set: mockSet });
 
-    await updateCampaign("camp-1", workspaceId, { styleIntensity: "soft" });
+    await updateCampaign("camp-1", workspaceId, { creativeLevel: "conservative" });
 
     expect(mockSet).toHaveBeenCalledWith(
-      expect.objectContaining({ styleIntensity: "soft" })
+      expect.objectContaining({ creativeLevel: "conservative" })
     );
   });
 });

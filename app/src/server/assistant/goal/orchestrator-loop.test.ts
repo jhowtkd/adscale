@@ -26,6 +26,7 @@ vi.mock("@/server/assistant/context/context-builder", () => ({
     recentMessages: [],
     goal: null,
   })),
+  toModelMessages: vi.fn((_context: unknown, _userMessage: string) => []),
 }));
 
 vi.mock("@/server/assistant/tools/registry", () => ({

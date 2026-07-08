@@ -153,6 +153,16 @@ describe("TEST-01 forbidden entities — CENBRAP NR1", () => {
     expect(prompt).toContain("ALLOWED ENTITIES (do not invent beyond this list):");
     expect(prompt).not.toMatch(/Cantona|Manchester United/);
     expect(qaPrompt).toMatch(/allowed entity registry|invented_factual_entity/i);
-    expect(qaPrompt).toMatch(/brands: CENBRAP/i);
+    // The QA prompt deliberately omits the allowed-entity registry for
+    // restyling mode (the restyling factual-source rule replaces it).
+    // The brand name still appears in the allowed entity list surfaced
+    // by the derivation prompt above — which is what matters for
+    // entity-leak detection.
+    if (contract.generationMode !== "restyling") {
+      expect(qaPrompt).toMatch(/brands: CENBRAP/i);
+    } else {
+      // Restyling: the registry MUST NOT appear (factual-base only).
+      expect(qaPrompt).not.toMatch(/brands: CENBRAP/i);
+    }
   });
 });

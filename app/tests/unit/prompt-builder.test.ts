@@ -74,12 +74,15 @@ describe("buildDerivationPrompt creativity level", () => {
     expect(prompt).toContain("Do not invent a new brand");
   });
 
-  it("format_adaptation + any creativeLevel does NOT contain CREATIVITY LEVEL", async () => {
+  it("format_adaptation + any creativeLevel emits the matched CREATIVITY LEVEL line", async () => {
+    // Post-migration: format_adaptation uses the same `CREATIVITY LEVEL:
+    // <level>` header as art_variation / restyling, with a mode-specific
+    // body. The header MUST be present so the model can branch on it.
     const prompt = await buildDerivationPrompt({
       generationMode: "format_adaptation",
       creativeLevel: "bold",
     });
-    expect(prompt).not.toContain("CREATIVITY LEVEL");
+    expect(prompt).toContain("CREATIVITY LEVEL: bold");
   });
 
   it("art_variation without creativeLevel defaults to balanced", async () => {

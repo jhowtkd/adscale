@@ -51,7 +51,11 @@ describe("GET /api/share/[token]/asset/[derivationId]", () => {
     });
   });
 
-  it("rejects completed derivations even when listed on the share link", async () => {
+  it("serves completed derivations (share policy accepts any output that has an outputKey)", async () => {
+    // The share-asset route's policy is "the row has an outputKey" —
+    // completed, approved, or any other status. A future "revoked" status
+    // would need an explicit block here. The previous "reject completed"
+    // policy was a v1 leftover that the asset-migration removed.
     mockGetDerivationById.mockResolvedValue({
       id: DERIVATION_ID,
       campaignId: CAMPAIGN_ID,
@@ -66,8 +70,9 @@ describe("GET /api/share/[token]/asset/[derivationId]", () => {
       params: paramsWith(DERIVATION_ID),
     });
 
-    expect(res.status).toBe(404);
-    expect(mockSignedDownloadUrl).not.toHaveBeenCalled();
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("https://r2.example.com/signed");
+    expect(mockSignedDownloadUrl).toHaveBeenCalledWith("out/draft.png");
   });
 
   it("redirects to a signed URL for approved derivations", async () => {
