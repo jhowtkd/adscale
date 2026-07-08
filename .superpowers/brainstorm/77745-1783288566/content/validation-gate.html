@@ -1,0 +1,17 @@
+<h2>Design — validação da recalibração</h2>
+<p class="subtitle">Poucos checks, cada um cobrindo uma falha distinta.</p>
+
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">
+  <div class="card"><div class="card-body"><h3>Contrato</h3><p>Testes unitários provam que modo + fidelidade resolvem bloqueios, liberdades e heurísticas esperados.</p></div></div>
+  <div class="card"><div class="card-body"><h3>Pipeline</h3><p>Testes existentes provam que só falhas objetivas bloqueiam/retry; fidelidade e refinamento apenas filtram e ordenam.</p></div></div>
+  <div class="card"><div class="card-body"><h3>Prompt regressions</h3><p>Snapshots confirmam CTA opcional, copy flexível, fatos preservados e ausência de números estéticos como obrigação.</p></div></div>
+</div>
+
+<div class="mockup" style="margin-top:18px"><div class="mockup-header">Gate humano cego — 12 pares equivalentes</div><div class="mockup-body">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+    <div><h3>Cobertura</h3><ul><li>Mesmos briefings e referências</li><li>Formatos 1:1, 4:5 e 9:16</li><li>Modos e fidelidades representativos</li><li>Antes/depois em ordem aleatória</li></ul></div>
+    <div><h3>Aceite</h3><div style="font-size:36px;font-weight:700;color:#7c6cff">≥ 60%</div><p>preferência pelo novo harness em direção de arte e acabamento</p><p><strong>e zero regressão objetiva</strong></p></div>
+  </div>
+</div></div>
+
+<div class="section" style="margin-top:18px"><h3>Resultado inconclusivo</h3><p>Se ficar abaixo de 60% sem regressão, não se amplia o sistema: revisam-se apenas as regras com evidência recorrente e roda-se outro lote pequeno.</p></div>

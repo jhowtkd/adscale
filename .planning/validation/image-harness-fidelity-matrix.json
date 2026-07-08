@@ -1,0 +1,92 @@
+{
+  "status": "completed",
+  "generatedAt": "2026-07-06T19:59:15.153Z",
+  "criterion": "For each mode, a blind reviewer must correctly identify conservative and extreme. Intermediate ordering is diagnostic only.",
+  "reviewHtml": ".planning/validation/fidelity-matrix-review.html",
+  "groups": [
+    {
+      "mode": "art_variation",
+      "format": "1:1",
+      "options": [
+        {
+          "label": "Option A",
+          "creativeLevel": "extreme",
+          "image": ".planning/validation/fidelity-matrix-images/round-b-art_variation-extreme.png"
+        },
+        {
+          "label": "Option B",
+          "creativeLevel": "conservative",
+          "image": ".planning/validation/fidelity-matrix-images/round-b-art_variation-conservative.png"
+        },
+        {
+          "label": "Option C",
+          "creativeLevel": "bold",
+          "image": ".planning/validation/fidelity-matrix-images/round-b-art_variation-bold.png"
+        },
+        {
+          "label": "Option D",
+          "creativeLevel": "balanced",
+          "image": ".planning/validation/fidelity-matrix-images/round-b-art_variation-balanced.png"
+        }
+      ],
+      "reviewerConservativeOption": "Option B",
+      "reviewerExtremeOption": "Option A"
+    },
+    {
+      "mode": "format_adaptation",
+      "format": "9:16",
+      "options": [
+        {
+          "label": "Option A",
+          "creativeLevel": "conservative",
+          "image": ".planning/validation/fidelity-matrix-images/round-b-format_adaptation-conservative.png"
+        },
+        {
+          "label": "Option B",
+          "creativeLevel": "bold",
+          "image": ".planning/validation/fidelity-matrix-images/round-b-format_adaptation-bold.png"
+        },
+        {
+          "label": "Option C",
+          "creativeLevel": "extreme",
+          "image": ".planning/validation/fidelity-matrix-images/round-b-format_adaptation-extreme.png"
+        },
+        {
+          "label": "Option D",
+          "creativeLevel": "balanced",
+          "image": ".planning/validation/fidelity-matrix-images/round-b-format_adaptation-balanced.png"
+        }
+      ],
+      "reviewerConservativeOption": "Option A",
+      "reviewerExtremeOption": "Option C"
+    },
+    {
+      "mode": "restyling",
+      "format": "1:1",
+      "options": [
+        {
+          "label": "Option A",
+          "creativeLevel": "conservative",
+          "image": ".planning/validation/fidelity-matrix-images/round-b-restyling-conservative.png"
+        },
+        {
+          "label": "Option B",
+          "creativeLevel": "balanced",
+          "image": ".planning/validation/fidelity-matrix-images/round-b-restyling-balanced.png"
+        },
+        {
+          "label": "Option C",
+          "creativeLevel": "extreme",
+          "image": ".planning/validation/fidelity-matrix-images/round-b-restyling-extreme.png"
+        },
+        {
+          "label": "Option D",
+          "creativeLevel": "bold",
+          "image": ".planning/validation/fidelity-matrix-images/round-b-restyling-bold.png"
+        }
+      ],
+      "reviewerConservativeOption": "Option A",
+      "reviewerExtremeOption": "Option C"
+    }
+  ]
+}

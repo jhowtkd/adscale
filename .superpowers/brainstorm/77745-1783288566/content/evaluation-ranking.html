@@ -1,0 +1,22 @@
+<h2>Design — avaliação e seleção</h2>
+<p class="subtitle">Três decisões independentes substituem a nota única que mistura conformidade e gosto.</p>
+
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">
+  <div class="card"><div class="card-body"><div class="letter">1</div><h3>Integridade objetiva</h3><p><strong>Passa ou falha.</strong> Marca, produto, oferta, alegações, formato, corrupção e cortes graves.</p><p>Falhou → um retry corretivo.</p></div></div>
+  <div class="card"><div class="card-body"><div class="letter">2</div><h3>Aderência à fidelidade</h3><p><strong>Dentro ou fora da faixa.</strong> Compara sistema visual e reconhecimento com a referência.</p><p>Fora → não vence o ranking; sem retry automático.</p></div></div>
+  <div class="card"><div class="card-body"><div class="letter">3</div><h3>Direção de arte</h3><p><strong>Ranking relativo.</strong> Composição, tipografia, ritmo, contraste, tratamento e ausência de aparência genérica.</p><p>Baixo refinamento → perde posição; sem bloqueio.</p></div></div>
+</div>
+
+<div class="mockup" style="margin-top:18px"><div class="mockup-header">Fluxo de decisão</div><div class="mockup-body">
+  <div style="display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap">
+    <div class="placeholder">Variações geradas</div><div style="font-size:24px">→</div>
+    <div class="placeholder">Remover falhas objetivas</div><div style="font-size:24px">→</div>
+    <div class="placeholder">Filtrar faixa de fidelidade</div><div style="font-size:24px">→</div>
+    <div style="border:2px solid #7c6cff;border-radius:12px;padding:14px"><strong>Ordenar por acabamento</strong></div>
+  </div>
+</div></div>
+
+<div class="pros-cons" style="margin-top:18px">
+  <div class="pros"><h4>Heurísticas</h4><ul><li>Três zonas, 20% vazio, margem de 8% e thumbnail a 25% podem orientar comentários.</li><li>Nunca causam hard failure, teto de nota ou retry.</li></ul></div>
+  <div class="cons"><h4>Falhas do avaliador</h4><ul><li>Se análise estética falhar, a peça continua disponível.</li><li>Se integridade não puder ser verificada, estado fica inconclusivo; não se inventa aprovação.</li></ul></div>
+</div>
