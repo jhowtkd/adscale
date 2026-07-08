@@ -11,6 +11,7 @@ export interface CreateWorkspaceAssetInput {
   width?: number;
   height?: number;
   source?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export async function createWorkspaceAsset(data: CreateWorkspaceAssetInput) {
@@ -25,6 +26,7 @@ export async function createWorkspaceAsset(data: CreateWorkspaceAssetInput) {
       width: data.width ?? null,
       height: data.height ?? null,
       source: data.source ?? "upload",
+      ...(data.metadata !== undefined && { metadata: data.metadata }),
     })
     .returning();
   return result[0];
@@ -113,6 +115,20 @@ export async function getWorkspaceAssetById(id: string, workspaceId: string) {
     )
     .limit(1);
   return result[0] ?? null;
+}
+
+export async function getWorkspaceAssetByKey(
+  workspaceId: string,
+  key: string
+) {
+  const [row] = await db
+    .select()
+    .from(workspaceAssets)
+    .where(
+      and(eq(workspaceAssets.workspaceId, workspaceId), eq(workspaceAssets.key, key))
+    )
+    .limit(1);
+  return row ?? null;
 }
 
 export async function updateWorkspaceAsset(

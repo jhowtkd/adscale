@@ -1,0 +1,265 @@
+import { beforeEach, describe, expect, it } from "vitest";
+import sharp from "sharp";
+import { composeExactBrandAssets } from "./composite";
+
+async function makeBase(width: number, height: number): Promise<Buffer> {
+  return sharp({
+    create: {
+      width,
+      height,
+      channels: 3,
+      background: { r: 255, g: 255, b: 255 },
+    },
+  })
+    .png()
+    .toBuffer();
+}
+
+async function makeTransparentLayer(
+  width: number,
+  height: number,
+  rgb: { r: number; g: number; b: number } = { r: 255, g: 0, b: 0 }
+): Promise<Buffer> {
+  // Build a fully-opaque RGB layer and then convert to RGBA so the layer has
+  // an alpha channel but every pixel is opaque. This is what an "exact-mode
+  // brand asset with transparency" looks like in practice.
+  const rgbBuffer = await sharp({
+    create: {
+      width,
+      height,
+      channels: 3,
+      background: { r: rgb.r, g: rgb.g, b: rgb.b },
+    },
+  })
+    .png()
+    .toBuffer();
+  return sharp(rgbBuffer).ensureAlpha().png().toBuffer();
+}
+
+async function makeOpaqueLayer(
+  width: number,
+  height: number,
+  rgb: { r: number; g: number; b: number } = { r: 0, g: 0, b: 255 }
+): Promise<Buffer> {
+  return sharp({
+    create: {
+      width,
+      height,
+      channels: 3,
+      background: { r: rgb.r, g: rgb.g, b: rgb.b },
+    },
+  })
+    .png()
+    .toBuffer();
+}
+
+describe("composeExactBrandAssets", () => {
+  beforeEach(() => {
+    // No mocks — these tests exercise real sharp composition.
+  });
+
+  it("places a southeast layer so its pixel fills the bottom-right region", async () => {
+    const base = await makeBase(100, 100);
+    const originalLayer = await makeTransparentLayer(10, 10);
+    const layer = {
+      buffer: Buffer.from(originalLayer),
+      gravity: "southeast" as const,
+      // widthRatio=0.2 produces a 20x20 layer on a 100x100 base, so the
+      // top-left of the southeast-placed region sits at (80, 80).
+      widthRatio: 0.2,
+    };
+
+    const result = await composeExactBrandAssets(base, [layer], {
+      width: 100,
+      height: 100,
+    });
+
+    const pixel = await sharp(result)
+      .extract({ left: 80, top: 80, width: 1, height: 1 })
+      .raw()
+      .toBuffer();
+    expect([...pixel.subarray(0, 3)]).toEqual([255, 0, 0]);
+    expect(layer.buffer.equals(originalLayer)).toBe(true);
+  });
+
+  it("clamps widthRatio below the lower bound to 0.1", async () => {
+    const base = await makeBase(100, 100);
+    const layer = {
+      buffer: await makeTransparentLayer(50, 50),
+      gravity: "southeast" as const,
+      widthRatio: 0.01,
+    };
+
+    // With clamp to 0.1, layer width = 10px. The layer is 50x50 source so it
+    // is scaled to 10x10 (aspect preserved). The southeast corner of that
+    // 10x10 region sits at (90..100, 90..100) on the base.
+    const result = await composeExactBrandAssets(base, [layer], {
+      width: 100,
+      height: 100,
+    });
+
+    const pixel = await sharp(result)
+      .extract({ left: 95, top: 95, width: 1, height: 1 })
+      .raw()
+      .toBuffer();
+    expect([...pixel.subarray(0, 3)]).toEqual([255, 0, 0]);
+  });
+
+  it("clamps widthRatio above the upper bound to 0.8", async () => {
+    const base = await makeBase(100, 100);
+    const layer = {
+      buffer: await makeTransparentLayer(50, 50),
+      gravity: "center" as const,
+      widthRatio: 5,
+    };
+
+    // With clamp to 0.8, layer width = 80px; aspect preserved at 1:1, so a
+    // 80x80 region. Center gravity centers it: left=10..90, top=10..90.
+    const result = await composeExactBrandAssets(base, [layer], {
+      width: 100,
+      height: 100,
+    });
+
+    const pixel = await sharp(result)
+      .extract({ left: 50, top: 50, width: 1, height: 1 })
+      .raw()
+      .toBuffer();
+    expect([...pixel.subarray(0, 3)]).toEqual([255, 0, 0]);
+  });
+
+  it("does not mutate the input layer buffer", async () => {
+    const base = await makeBase(100, 100);
+    const originalLayer = await makeTransparentLayer(20, 20);
+    const layer = {
+      buffer: Buffer.from(originalLayer),
+      gravity: "northwest" as const,
+      widthRatio: 0.2,
+    };
+
+    await composeExactBrandAssets(base, [layer], { width: 100, height: 100 });
+
+    expect(layer.buffer.equals(originalLayer)).toBe(true);
+  });
+
+  it("composites multiple layers in snapshot order", async () => {
+    const base = await makeBase(100, 100);
+    const redLayer = {
+      buffer: await makeTransparentLayer(30, 30, { r: 255, g: 0, b: 0 }),
+      gravity: "center" as const,
+      widthRatio: 0.4,
+    };
+    const blueLayer = {
+      buffer: await makeTransparentLayer(10, 10, { r: 0, g: 0, b: 255 }),
+      gravity: "southeast" as const,
+      widthRatio: 0.2,
+    };
+
+    // Center layer at widthRatio=0.4 → 40x40, centered at (30..70, 30..70).
+    // Southeast layer at widthRatio=0.2 → 20x20, placed at (80..100, 80..100).
+    const result = await composeExactBrandAssets(
+      base,
+      [redLayer, blueLayer],
+      { width: 100, height: 100 }
+    );
+
+    const centerPixel = await sharp(result)
+      .extract({ left: 50, top: 50, width: 1, height: 1 })
+      .raw()
+      .toBuffer();
+    expect([...centerPixel.subarray(0, 3)]).toEqual([255, 0, 0]);
+
+    const southeastPixel = await sharp(result)
+      .extract({ left: 95, top: 95, width: 1, height: 1 })
+      .raw()
+      .toBuffer();
+    expect([...southeastPixel.subarray(0, 3)]).toEqual([0, 0, 255]);
+  });
+
+  it("rejects a layer that does not have alpha", async () => {
+    const base = await makeBase(100, 100);
+    const opaqueLayer = {
+      buffer: await makeOpaqueLayer(10, 10),
+      gravity: "southeast" as const,
+      widthRatio: 0.18,
+    };
+
+    await expect(
+      composeExactBrandAssets(base, [opaqueLayer], { width: 100, height: 100 })
+    ).rejects.toThrow(/alpha/i);
+  });
+
+  it("returns the base unchanged when there are no layers", async () => {
+    const base = await makeBase(100, 100);
+
+    const result = await composeExactBrandAssets(base, [], {
+      width: 100,
+      height: 100,
+    });
+
+    const pixel = await sharp(result)
+      .extract({ left: 50, top: 50, width: 1, height: 1 })
+      .raw()
+      .toBuffer();
+    expect([...pixel.subarray(0, 3)]).toEqual([255, 255, 255]);
+  });
+
+  it("places a northwest layer so its pixel fills the top-left region", async () => {
+    const base = await makeBase(100, 100);
+    const layer = {
+      buffer: await makeTransparentLayer(20, 20),
+      gravity: "northwest" as const,
+      widthRatio: 0.2,
+    };
+
+    const result = await composeExactBrandAssets(base, [layer], {
+      width: 100,
+      height: 100,
+    });
+
+    const pixel = await sharp(result)
+      .extract({ left: 5, top: 5, width: 1, height: 1 })
+      .raw()
+      .toBuffer();
+    expect([...pixel.subarray(0, 3)]).toEqual([255, 0, 0]);
+  });
+
+  it("places a northeast layer so its pixel fills the top-right region", async () => {
+    const base = await makeBase(100, 100);
+    const layer = {
+      buffer: await makeTransparentLayer(20, 20),
+      gravity: "northeast" as const,
+      widthRatio: 0.2,
+    };
+
+    const result = await composeExactBrandAssets(base, [layer], {
+      width: 100,
+      height: 100,
+    });
+
+    const pixel = await sharp(result)
+      .extract({ left: 90, top: 5, width: 1, height: 1 })
+      .raw()
+      .toBuffer();
+    expect([...pixel.subarray(0, 3)]).toEqual([255, 0, 0]);
+  });
+
+  it("places a southwest layer so its pixel fills the bottom-left region", async () => {
+    const base = await makeBase(100, 100);
+    const layer = {
+      buffer: await makeTransparentLayer(20, 20),
+      gravity: "southwest" as const,
+      widthRatio: 0.2,
+    };
+
+    const result = await composeExactBrandAssets(base, [layer], {
+      width: 100,
+      height: 100,
+    });
+
+    const pixel = await sharp(result)
+      .extract({ left: 5, top: 90, width: 1, height: 1 })
+      .raw()
+      .toBuffer();
+    expect([...pixel.subarray(0, 3)]).toEqual([255, 0, 0]);
+  });
+});

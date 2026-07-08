@@ -1,0 +1,85 @@
+import { NextResponse } from "next/server";
+
+import { apiError, handleApiError } from "@/lib/api-response";
+import { reviewTrainingAssetSchema } from "@/server/brand-training/contracts";
+import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import {
+  getClientProfile,
+  getTrainingReferences,
+  reviewTrainingReference,
+} from "@/server/repositories/client-reference";
+import { getWorkspaceAssetByKey } from "@/server/repositories/workspace-asset";
+
+/**
+ * PATCH /api/client-profiles/:id/training-assets/:referenceId
+ *
+ * Authenticated human review for an AI-analyzed brand training asset.
+ *
+ * Trust boundary: only an authenticated workspace member may approve an
+ * asset. The Inngest analysis job (analyze-brand-training-asset) is
+ * responsible only for proposing category/mode and recording analysis;
+ * it MUST NOT set reviewStatus: "approved". Approval is reserved for
+ * this route. The schema's superRefine rejects approval without
+ * analysis, and the route validates the body again before persisting.
+ */
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string; referenceId: string }> },
+) {
+  try {
+    const [{ user, workspace }, { id, referenceId }] = await Promise.all([
+      requireWorkspaceAccess(request),
+      params,
+    ]);
+
+    // Defense-in-depth: validate the body twice — once at the API boundary
+    // and once here so any future caller cannot bypass it.
+    const rawBody = await request.json();
+    const parsed = reviewTrainingAssetSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      return apiError("invalidInput", 400);
+    }
+    const body = parsed.data;
+
+    const profile = await getClientProfile(workspace.id, id);
+    if (!profile) {
+      return apiError("clientProfileNotFound", 404);
+    }
+
+    // For usageMode "exact" we must verify the bound workspace asset has an
+    // alpha channel — exact usage requires transparency, otherwise the
+    // asset cannot be composited as a literal element.
+    if (body.usageMode === "exact") {
+      const references = await getTrainingReferences(workspace.id, id);
+      const reference = references.find((row) => row.id === referenceId);
+      if (!reference) {
+        return apiError("clientProfileNotFound", 404);
+      }
+      const asset = await getWorkspaceAssetByKey(workspace.id, reference.assetKey);
+      const metadata = asset?.metadata as Record<string, unknown> | null | undefined;
+      const hasAlpha = metadata?.hasAlpha === true;
+      if (!hasAlpha) {
+        return apiError("invalidInput", 400);
+      }
+    }
+
+    const updated = await reviewTrainingReference(
+      { workspaceId: workspace.id, clientProfileId: id, referenceId },
+      {
+        trainingCategory: body.trainingCategory,
+        usageMode: body.usageMode,
+        analysis: body.analysis,
+        reviewStatus: body.reviewStatus,
+        reviewedByUserId: user.id,
+      },
+    );
+
+    if (!updated) {
+      return apiError("clientProfileNotFound", 404);
+    }
+
+    return NextResponse.json({ reference: updated });
+  } catch (error) {
+    return handleApiError(error, "client-profiles.[id].training-assets.[referenceId].PATCH");
+  }
+}

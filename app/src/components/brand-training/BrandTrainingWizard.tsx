@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { m } from "framer-motion";
 import {
@@ -35,6 +34,7 @@ import {
   type BrandVoiceConfig,
   type MultiExtractResult,
 } from "@/lib/hooks/use-brand-training";
+import { BrandTrainingAssets } from "./BrandTrainingAssets";
 import { BrandTrainingStepper } from "./BrandTrainingStepper";
 
 type StepId = "profile" | "ingest" | "validate" | "curate" | "voice";
@@ -140,7 +140,7 @@ export default function BrandTrainingWizard() {
             draft={extractResult?.brandKit ?? null}
           />
         ) : stepIndex === 3 ? (
-          <CurateStep clientProfileId={clientProfileId} assets={extractResult?.assets ?? []} />
+          <BrandTrainingAssets clientProfileId={clientProfileId} />
         ) : (
           <VoiceStep clientProfileId={clientProfileId} />
         )}
@@ -517,77 +517,12 @@ function ValidateStep({
   );
 }
 
-/* ------------------------------ Step 4: Curate ------------------------------ */
-
-const CURATE_KINDS = ["style", "product", "layout", "negative"] as const;
-type CurateKind = (typeof CURATE_KINDS)[number];
-
-function CurateStep({
-  clientProfileId,
-  assets,
-}: {
-  clientProfileId: string;
-  assets: MultiExtractResult["assets"];
-}) {
-  const t = useTranslations("brandTraining");
-  const addToast = useAppStore((s) => s.addToast);
-  // Persisted references are created via the existing client-references API.
-  const [markings, setMarkings] = useState<Record<string, CurateKind>>({});
-
-  const creatives = assets.filter((a) => a.kind === "creative");
-
-  const assign = (assetKey: string, kind: CurateKind) => {
-    setMarkings((prev) => ({ ...prev, [assetKey]: kind }));
-    apiCreateReference(clientProfileId, assetKey, kind).then(
-      () => addToast("success", t("referenceSaved")),
-      (err) => addToast("error", err.message),
-    );
-  };
-
-  if (creatives.length === 0) {
-    return (
-      <div className="space-y-2">
-        <h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("curateTitle")}</h2>
-        <p className="text-xs text-[var(--text-muted)]">{t("curateEmpty")}</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-4">
-      <div>
-        <h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("curateTitle")}</h2>
-        <p className="text-xs text-[var(--text-muted)]">{t("curateDesc")}</p>
-      </div>
-      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {creatives.map((asset) => (
-          <li key={asset.assetKey} className="space-y-1.5">
-            <div className="relative aspect-square overflow-hidden rounded-lg border border-[var(--border-dim)]">
-              <Image src={asset.url} alt={asset.fileName} fill className="object-cover" unoptimized />
-            </div>
-            <div className="flex flex-wrap gap-1">
-              {CURATE_KINDS.map((kind) => (
-                <button
-                  key={kind}
-                  type="button"
-                  onClick={() => assign(asset.assetKey, kind)}
-                  className={cn(
-                    "rounded-md border px-1.5 py-0.5 text-[11px] font-medium transition-colors",
-                    markings[asset.assetKey] === kind
-                      ? "border-[var(--accent-green)] bg-[var(--accent-green-dim)] text-[var(--accent-green-text)]"
-                      : "border-[var(--border-dim)] text-[var(--text-muted)] hover:border-[var(--accent-green)]/50",
-                  )}
-                >
-                  {t(`kind_ref_${kind}`)}
-                </button>
-              ))}
-            </div>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
+/* ------------------------------ Step 4 (legacy surface removed) ------------------------------
+ * The previous CurateStep / apiCreateReference flow is replaced by the new
+ * approved-assets panel (`BrandTrainingAssets`). The legacy reference API at
+ * `/api/client-profiles/:id/references` is intentionally left in place because
+ * campaign flows still consume it directly.
+ */
 
 /* ------------------------------ Step 5: Voice ------------------------------ */
 
@@ -738,21 +673,4 @@ function TagInput({
       />
     </div>
   );
-}
-
-async function apiCreateReference(
-  clientProfileId: string,
-  assetKey: string,
-  kind: string,
-) {
-  const res = await fetch(`/api/client-profiles/${clientProfileId}/references`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ assetKey, label: assetKey, kind }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(typeof err.error === "string" ? err.error : "Failed to save reference");
-  }
-  return res.json();
 }

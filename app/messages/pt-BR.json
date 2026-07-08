@@ -507,7 +507,10 @@
       "templatesLink": "Templates",
       "briefingEmptyTitle": "Nenhum briefing ativo",
       "briefingEmptyDescription": "Inicie um briefing de campanha ou escolha um template para ver os campos aqui.",
-      "briefingEmptyAction": "Nova campanha"
+      "briefingEmptyAction": "Nova campanha",
+      "createPostName": "Criar post",
+      "createPostDescription": "Briefing + identidade aprovada → 3 propostas visuais em um clique.",
+      "createPostCount": "15 créditos"
     },
     "laboratory": {
       "title": "Laboratório de Ads",
@@ -2044,7 +2047,42 @@
     "voice_positiveSignals": "Sinais positivos",
     "voice_negativeSignals": "Sinais negativos",
     "approveVoice": "Aprovar voz",
-    "voiceApproved": "Voz aprovada e ativa para geração."
+    "voiceApproved": "Voz aprovada e ativa para geração.",
+    "assets": {
+      "title": "Materiais visuais aprovados",
+      "description": "Suba imagens que treinam o perfil da marca. Cada uma é analisada pela IA e fica aguardando sua aprovação explícita antes de condicionar a geração.",
+      "uploadLabel": "Enviar imagens para treino",
+      "uploadHint": "PNG, JPEG, WebP ou SVG. Até 10MB cada.",
+      "uploadFailed": "Não foi possível enviar o arquivo. Tente um PNG, JPEG, WebP ou SVG abaixo de 10MB.",
+      "analysisExplanation": "O modelo inspecionou esta imagem e propôs uma categoria e modo de uso. Aprove para incluir no conjunto de treino ou arquive para descartar.",
+      "category": "Categoria",
+      "usageMode": "Modo de uso",
+      "descriptionField": "Descrição",
+      "visualAttributes": "Atributos visuais",
+      "rules": "Regras",
+      "constraints": "Restrições",
+      "approve": "Aprovar material",
+      "archive": "Arquivar material",
+      "transparentRequired": "O modo exato exige fundo transparente (PNG com alpha). Suba uma versão com alpha ou escolha outro modo de uso.",
+      "emptyTitle": "Nenhum material de treino ainda",
+      "emptyDescription": "Envie referências em PNG, JPEG, WebP ou SVG. Materiais aprovados condicionam a geração das campanhas.",
+      "statusPendingAnalysis": "Aguardando análise",
+      "statusPendingApproval": "Aguardando aprovação",
+      "statusApproved": "Aprovado",
+      "statusArchived": "Arquivado",
+      "categories": {
+        "logo": "Logo",
+        "graphic": "Elemento gráfico",
+        "character": "Personagem / mascote",
+        "visual_reference": "Referência visual"
+      },
+      "usageModes": {
+        "exact": "Exato (compor como está)",
+        "reference": "Referência (inspirar o layout)",
+        "rule": "Regra (aplicar o estilo)"
+      },
+      "reviewedAt": "Revisado em {when}"
+    }
   },
   "review": {
     "title": "Revisão",
@@ -3226,5 +3264,39 @@
   "testerMode": {
     "badge": "Tester",
     "badgeAriaLabel": "Conta tester com uso ilimitado"
+  },
+  "quickTools": {
+    "createPost": {
+      "title": "Criar post",
+      "subtitle": "Gere um post social em 4 etapas: briefing, copy, identidade aprovada e três níveis visuais.",
+      "stepBrief": "Briefing",
+      "stepCopy": "Copy",
+      "stepAssets": "Identidade",
+      "stepConfirm": "Confirmação",
+      "stepProposals": "Propostas",
+      "brandLabel": "Marca",
+      "brandPlaceholder": "Selecione uma marca",
+      "briefTheme": "Tema",
+      "briefObjective": "Objetivo",
+      "briefAudience": "Público",
+      "briefOffer": "Oferta",
+      "formatLabel": "Formato",
+      "generatingCopy": "Gerando copy...",
+      "headline": "Headline",
+      "body": "Corpo",
+      "cta": "CTA",
+      "assetsHelp": "Selecione as referências aprovadas que devem ser usadas como base da composição.",
+      "noApprovedAssets": "Nenhuma referência aprovada ainda — conclua o treinamento da marca para liberar opções.",
+      "confirmHelp": "Vamos gerar 3 propostas visuais (conservador, equilibrado, ousado) por {credits} créditos.",
+      "confirmCredits": "{credits} créditos",
+      "proposalsHelp": "As três propostas foram geradas em paralelo. Selecione a vencedora.",
+      "back": "Voltar",
+      "next": "Avançar",
+      "submitting": "Enviando...",
+      "stepCopyCta": "Criar copy",
+      "stepConfirmCta": "Confirmar e gerar 3 propostas",
+      "selectSuccess": "Proposta selecionada",
+      "saveSuccess": "Proposta salva na biblioteca"
+    }
   }
 }

@@ -8,6 +8,8 @@ const {
   insertMock,
   valuesMock,
   returningMock,
+  updateMock,
+  setMock,
 } = vi.hoisted(() => {
   const whereMock = vi.fn();
   const orderByMock = vi.fn();
@@ -16,6 +18,8 @@ const {
   const returningMock = vi.fn();
   const valuesMock = vi.fn(() => ({ returning: returningMock }));
   const insertMock = vi.fn(() => ({ values: valuesMock }));
+  const setMock = vi.fn(() => ({ where: whereMock }));
+  const updateMock = vi.fn(() => ({ set: setMock }));
   return {
     whereMock,
     orderByMock,
@@ -24,6 +28,8 @@ const {
     insertMock,
     valuesMock,
     returningMock,
+    updateMock,
+    setMock,
   };
 });
 
@@ -31,6 +37,7 @@ vi.mock("../db", () => ({
   db: {
     select: selectMock,
     insert: insertMock,
+    update: updateMock,
   },
 }));
 
@@ -41,12 +48,17 @@ import {
   getClientReferences,
   getClientReferencesByIds,
   resolveCampaignClientProfileId,
+  createTrainingReference,
+  getTrainingReferences,
+  getApprovedTrainingReferences,
+  recordTrainingAnalysis,
+  reviewTrainingReference,
 } from "./client-reference";
 
 describe("client-reference repository", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    whereMock.mockReturnValue({ orderBy: orderByMock });
+    whereMock.mockReturnValue({ orderBy: orderByMock, returning: returningMock });
     orderByMock.mockResolvedValue([]);
     returningMock.mockResolvedValue([]);
   });
@@ -216,6 +228,129 @@ describe("client-reference repository", () => {
 
       expect(selectMock).not.toHaveBeenCalled();
       expect(result).toEqual([]);
+    });
+  });
+
+  describe("createTrainingReference", () => {
+    it("creates a pending training reference", async () => {
+      returningMock.mockResolvedValue([{ id: "ref-1", reviewStatus: "pending_analysis" }]);
+
+      await createTrainingReference("ws-1", {
+        clientProfileId: "profile-1",
+        assetKey: "workspaces/ws-1/assets/a.png",
+        label: "Ondas",
+      });
+
+      expect(valuesMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          workspaceId: "ws-1",
+          clientProfileId: "profile-1",
+          kind: "other",
+          reviewStatus: "pending_analysis",
+        }),
+      );
+    });
+  });
+
+  describe("getTrainingReferences", () => {
+    it("scopes by workspace and clientProfileId and filters to known statuses", async () => {
+      const rows = [{ id: "ref-1", reviewStatus: "pending_analysis" }];
+      orderByMock.mockResolvedValue(rows);
+
+      const result = await getTrainingReferences("ws-1", "profile-1");
+
+      expect(selectMock).toHaveBeenCalledTimes(1);
+      expect(fromMock).toHaveBeenCalledTimes(1);
+      expect(whereMock).toHaveBeenCalledTimes(1);
+      expect(orderByMock).toHaveBeenCalledTimes(1);
+      expect(result).toBe(rows);
+    });
+  });
+
+  describe("getApprovedTrainingReferences", () => {
+    it("scopes by workspace, profile, and approved status", async () => {
+      const rows = [{ id: "ref-1", reviewStatus: "approved" }];
+      orderByMock.mockResolvedValue(rows);
+
+      const result = await getApprovedTrainingReferences("ws-1", "profile-1");
+
+      expect(selectMock).toHaveBeenCalledTimes(1);
+      expect(fromMock).toHaveBeenCalledTimes(1);
+      expect(whereMock).toHaveBeenCalledTimes(1);
+      expect(orderByMock).toHaveBeenCalledTimes(1);
+      expect(result).toBe(rows);
+    });
+  });
+
+  describe("recordTrainingAnalysis", () => {
+    it("updates only the pending_analysis row inside the triple-id scope", async () => {
+      returningMock.mockResolvedValue([{ id: "ref-1", reviewStatus: "pending_approval" }]);
+
+      const result = await recordTrainingAnalysis(
+        { workspaceId: "ws-1", clientProfileId: "profile-1", referenceId: "ref-1" },
+        {
+          trainingCategory: "graphic",
+          usageMode: "reference",
+          analysis: {
+            description: "Ondas",
+            visualAttributes: ["green"],
+            rules: ["Keep proportions"],
+            constraints: ["Do not recolor"],
+            confidence: 0.9,
+          },
+        },
+      );
+
+      expect(updateMock).toHaveBeenCalledTimes(1);
+      expect(setMock).toHaveBeenCalledTimes(1);
+      expect(whereMock).toHaveBeenCalledTimes(1);
+      expect(returningMock).toHaveBeenCalledTimes(1);
+      expect(result?.id).toBe("ref-1");
+    });
+  });
+
+  describe("reviewTrainingReference", () => {
+    it("records human approval with reviewer identity", async () => {
+      returningMock.mockResolvedValue([{ id: "ref-1", reviewStatus: "approved" }]);
+
+      const result = await reviewTrainingReference(
+        { workspaceId: "ws-1", clientProfileId: "profile-1", referenceId: "ref-1" },
+        {
+          trainingCategory: "graphic",
+          usageMode: "exact",
+          analysis: {
+            description: "Ondas",
+            visualAttributes: ["green"],
+            rules: ["Keep proportions"],
+            constraints: ["Do not recolor"],
+            confidence: 0.9,
+          },
+          reviewStatus: "approved",
+          reviewedByUserId: "user-1",
+        },
+      );
+
+      expect(result?.reviewStatus).toBe("approved");
+      expect(whereMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("sets reviewedAt on archive decisions", async () => {
+      returningMock.mockResolvedValue([{ id: "ref-1", reviewStatus: "archived" }]);
+
+      const result = await reviewTrainingReference(
+        { workspaceId: "ws-1", clientProfileId: "profile-1", referenceId: "ref-1" },
+        {
+          trainingCategory: "graphic",
+          usageMode: "reference",
+          analysis: null,
+          reviewStatus: "archived",
+          reviewedByUserId: "user-1",
+        },
+      );
+
+      expect(result?.reviewStatus).toBe("archived");
+      expect(setMock).toHaveBeenCalledTimes(1);
+      expect(whereMock).toHaveBeenCalledTimes(1);
     });
   });
 });

@@ -61,11 +61,17 @@ const useBrandTrainingStatusMock = vi.fn();
 const useExtractMultiMock = vi.fn();
 const useExtractVoiceMock = vi.fn();
 const useApproveVoiceMock = vi.fn();
+const useBrandTrainingAssetsMock = vi.fn();
+const useUploadBrandTrainingAssetMock = vi.fn();
+const useReviewBrandTrainingAssetMock = vi.fn();
 vi.mock("@/lib/hooks/use-brand-training", () => ({
   useBrandTrainingStatus: () => useBrandTrainingStatusMock(),
   useExtractMulti: () => useExtractMultiMock(),
   useExtractVoice: () => useExtractVoiceMock(),
   useApproveVoice: () => useApproveVoiceMock(),
+  useBrandTrainingAssets: () => useBrandTrainingAssetsMock(),
+  useUploadBrandTrainingAsset: () => useUploadBrandTrainingAssetMock(),
+  useReviewBrandTrainingAsset: () => useReviewBrandTrainingAssetMock(),
 }));
 
 const useBrandKitMock = vi.fn();
@@ -99,6 +105,15 @@ function defaultHooks() {
   useExtractMultiMock.mockReturnValue({ mutate: vi.fn(), isPending: false });
   useExtractVoiceMock.mockReturnValue({ mutate: vi.fn(), isPending: false });
   useApproveVoiceMock.mockReturnValue({ mutate: vi.fn(), isPending: false });
+  useBrandTrainingAssetsMock.mockReturnValue({ data: [], isLoading: false });
+  useUploadBrandTrainingAssetMock.mockReturnValue({
+    mutate: vi.fn(),
+    isPending: false,
+  });
+  useReviewBrandTrainingAssetMock.mockReturnValue({
+    mutate: vi.fn(),
+    isPending: false,
+  });
   useBrandKitMock.mockReturnValue({ data: null });
   useUpdateBrandKitMock.mockReturnValue({ mutate: vi.fn(), isPending: false });
 }
@@ -162,5 +177,55 @@ describe("BrandTrainingWizard", () => {
     render(<BrandTrainingWizard />, { wrapper: createWrapper() });
 
     expect(screen.getByText("brandTraining.trainedBadge")).toBeInTheDocument();
+  });
+
+  it("mounts the approved-assets panel at the curate step", async () => {
+    render(<BrandTrainingWizard />, { wrapper: createWrapper() });
+
+    // Select a profile, then advance to step 3 (curate).
+    fireEvent.click(screen.getByText("Acme"));
+    fireEvent.click(screen.getByText("common.next")); // ingest
+    fireEvent.click(screen.getByText("common.next")); // validate
+    fireEvent.click(screen.getByText("common.next")); // curate
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("brandTraining.assets.title"),
+      ).toBeInTheDocument();
+    });
+    // Native file input is wired up exactly as the brief specifies.
+    const input = document.querySelector<HTMLInputElement>(
+      "#brand-training-files",
+    );
+    expect(input).not.toBeNull();
+    expect(input?.getAttribute("accept")).toBe(
+      "image/png,image/jpeg,image/webp,image/svg+xml",
+    );
+    expect(input?.hasAttribute("multiple")).toBe(true);
+    // Empty state is shown when no assets exist yet.
+    expect(
+      screen.getByText("brandTraining.assets.emptyTitle"),
+    ).toBeInTheDocument();
+  });
+
+  it("preserves prior step state when navigating back from the assets panel", async () => {
+    render(<BrandTrainingWizard />, { wrapper: createWrapper() });
+
+    fireEvent.click(screen.getByText("Acme"));
+    fireEvent.click(screen.getByText("common.next"));
+    fireEvent.click(screen.getByText("common.next"));
+    fireEvent.click(screen.getByText("common.next"));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("brandTraining.assets.title"),
+      ).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText("common.back"));
+    // Validate step is still rendered with its original title (state preserved).
+    expect(
+      screen.getByText("brandTraining.validateTitle"),
+    ).toBeInTheDocument();
   });
 });

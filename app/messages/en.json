@@ -507,7 +507,10 @@
       "templatesLink": "Templates",
       "briefingEmptyTitle": "No active briefing",
       "briefingEmptyDescription": "Start a campaign briefing or pick a template to see fields here.",
-      "briefingEmptyAction": "New campaign"
+      "briefingEmptyAction": "New campaign",
+      "createPostName": "Create post",
+      "createPostDescription": "Briefing + approved identity → 3 visual proposals in one click.",
+      "createPostCount": "15 credits"
     },
     "laboratory": {
       "title": "Ads Laboratory",
@@ -2043,7 +2046,42 @@
     "voice_positiveSignals": "Positive signals",
     "voice_negativeSignals": "Negative signals",
     "approveVoice": "Approve voice",
-    "voiceApproved": "Voice approved and active for generation."
+    "voiceApproved": "Voice approved and active for generation.",
+    "assets": {
+      "title": "Approved visual assets",
+      "description": "Upload images that train the brand profile. Each one is analyzed by AI and waits for your explicit approval before it conditions generation.",
+      "uploadLabel": "Upload images for training",
+      "uploadHint": "PNG, JPEG, WebP or SVG. Up to 10MB each.",
+      "uploadFailed": "Could not upload the file. Try a PNG, JPEG, WebP or SVG under 10MB.",
+      "analysisExplanation": "The model inspected this image and proposed a category and usage mode. Approve to add it to your training set or archive to discard.",
+      "category": "Category",
+      "usageMode": "Usage mode",
+      "descriptionField": "Description",
+      "visualAttributes": "Visual attributes",
+      "rules": "Rules",
+      "constraints": "Constraints",
+      "approve": "Approve asset",
+      "archive": "Archive asset",
+      "transparentRequired": "Exact mode requires a transparent background (PNG with alpha). Re-upload a version with alpha or pick another usage mode.",
+      "emptyTitle": "No training assets yet",
+      "emptyDescription": "Upload PNG, JPEG, WebP or SVG references. Approved assets condition campaign generation.",
+      "statusPendingAnalysis": "Awaiting analysis",
+      "statusPendingApproval": "Awaiting approval",
+      "statusApproved": "Approved",
+      "statusArchived": "Archived",
+      "categories": {
+        "logo": "Logo",
+        "graphic": "Graphic element",
+        "character": "Character / mascot",
+        "visual_reference": "Visual reference"
+      },
+      "usageModes": {
+        "exact": "Exact (composite as-is)",
+        "reference": "Reference (inspire the layout)",
+        "rule": "Rule (enforce style)"
+      },
+      "reviewedAt": "Reviewed {when}"
+    }
   },
   "review": {
     "title": "Review",
@@ -3197,5 +3235,39 @@
   "testerMode": {
     "badge": "Tester",
     "badgeAriaLabel": "Tester account with unlimited usage"
+  },
+  "quickTools": {
+    "createPost": {
+      "title": "Create post",
+      "subtitle": "Generate a social post in 4 stages: briefing, copy, approved identity, and three visual levels.",
+      "stepBrief": "Briefing",
+      "stepCopy": "Copy",
+      "stepAssets": "Identity",
+      "stepConfirm": "Confirm",
+      "stepProposals": "Proposals",
+      "brandLabel": "Brand",
+      "brandPlaceholder": "Select a brand",
+      "briefTheme": "Theme",
+      "briefObjective": "Objective",
+      "briefAudience": "Audience",
+      "briefOffer": "Offer",
+      "formatLabel": "Format",
+      "generatingCopy": "Generating copy...",
+      "headline": "Headline",
+      "body": "Body",
+      "cta": "CTA",
+      "assetsHelp": "Pick the approved references that should anchor the composition.",
+      "noApprovedAssets": "No approved references yet — finish brand training to unlock options.",
+      "confirmHelp": "We will generate 3 visual proposals (conservative, balanced, bold) for {credits} credits.",
+      "confirmCredits": "{credits} credits",
+      "proposalsHelp": "All three proposals were generated in parallel. Pick the winner.",
+      "back": "Back",
+      "next": "Next",
+      "submitting": "Submitting...",
+      "stepCopyCta": "Create copy",
+      "stepConfirmCta": "Confirm and generate 3 proposals",
+      "selectSuccess": "Proposal selected",
+      "saveSuccess": "Proposal saved to library"
+    }
   }
 }

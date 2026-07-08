@@ -5,6 +5,8 @@ import { trialNotificationJob } from "@/server/jobs/trial-notifications";
 import { workspaceAssetAnalyzeJob } from "@/server/jobs/workspace-asset";
 import { brandMemoryIngestJob } from "@/server/jobs/brand-memory";
 import { learningProposalAggregatorJob } from "@/server/jobs/learning-proposal-aggregator";
+import { brandTrainingAnalyzeJob } from "@/server/jobs/brand-training";
+import { creativeWorkOutputJob } from "@/server/jobs/creative-work";
 
 /**
  * Security: refuse to run in "dev" mode (which disables signature
@@ -27,5 +29,7 @@ export const { GET, POST, PUT } = serve({
     workspaceAssetAnalyzeJob,
     brandMemoryIngestJob,
     learningProposalAggregatorJob,
+    brandTrainingAnalyzeJob,
+    creativeWorkOutputJob,
   ],
 });

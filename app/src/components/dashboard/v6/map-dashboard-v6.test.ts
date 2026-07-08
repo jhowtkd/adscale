@@ -59,6 +59,14 @@ const labels = {
   varsCount: (count: number) => `${count} vars`,
 };
 
+const templates = [
+  { id: "t-1", name: "Lançamento", description: null, objective: null, audience: null, tone: null, platforms: [], offer: null, constraints: null, targetFormats: ["1:1", "4:5"] } as never,
+  { id: "t-2", name: "Black Friday", description: null, objective: null, audience: null, tone: null, platforms: [], offer: null, constraints: null, targetFormats: ["1:1"] } as never,
+  { id: "t-3", name: "Natal", description: null, objective: null, audience: null, tone: null, platforms: [], offer: null, constraints: null, targetFormats: ["9:16"] } as never,
+  { id: "t-4", name: "Ano novo", description: null, objective: null, audience: null, tone: null, platforms: [], offer: null, constraints: null, targetFormats: [] } as never,
+  { id: "t-5", name: "Volta às aulas", description: null, objective: null, audience: null, tone: null, platforms: [], offer: null, constraints: null, targetFormats: [] } as never,
+];
+
 describe("mapDashboardToV6View", () => {
   it("renders campaign platforms and uses em dash only when empty", () => {
     const view = mapDashboardToV6View({
@@ -83,5 +91,25 @@ describe("mapDashboardToV6View", () => {
     expect(view.kpis[0]?.trend).toBe("0% vs período anterior");
     expect(view.kpis[1]?.trend).toBe("0% vs período anterior");
     expect(view.kpis[2]?.trend).toBe("0% vs período anterior");
+  });
+
+  it("prepends the create-post quick action to the recipes list", () => {
+    const view = mapDashboardToV6View({
+      stats: baseStats,
+      firstName: "Ana",
+      templates,
+      ...labels,
+    });
+
+    expect(view.recipes).toHaveLength(4);
+    expect(view.recipes[0]?.id).toBe("quick-tool-create-post");
+    expect(view.recipes[0]?.href).toBe("/quick-tools/create-post");
+    expect(view.recipes[0]?.name).toBe("createPostName");
+    expect(view.recipes[0]?.desc).toBe("createPostDescription");
+    expect(view.recipes[0]?.count).toBe("createPostCount");
+    expect(view.recipes[0]?.icon).toBe("✦");
+    expect(view.recipes[1]?.id).toBe("t-1");
+    expect(view.recipes[2]?.id).toBe("t-2");
+    expect(view.recipes[3]?.id).toBe("t-3");
   });
 });
