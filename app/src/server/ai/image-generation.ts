@@ -159,20 +159,62 @@ export async function generateAndStoreImage(
 
   const { candidates: rawCandidates } = await composite.generate(providerInput);
 
-  // Normalize every candidate and upload to R2.
+  // Normalize every candidate and upload to R2. Use `Promise.allSettled` so a
+  // transient R2 failure on one candidate's per-candidate upload does not
+  // fail the entire derivation — the upstream provider has already paid for
+  // the generation. Candidates whose R2 upload failed are kept in memory
+  // (their normalized buffer is still available) and a successful candidate
+  // becomes the winner.
+  const normalizedCandidates = await Promise.all(
+    rawCandidates.map(async (candidate) => {
+      const normalized = await normalizeGeneratedImage(
+        candidate.buffer,
+        dimensions,
+        generationMode
+      );
+      return { candidate, normalized };
+    })
+  );
+
+  const uploadResults = await Promise.allSettled(
+    normalizedCandidates.map(async ({ candidate, normalized }) => {
+      const outputKey = `${outputPrefix}/candidates/${candidate.providerMeta.provider}${outputSuffix}.png`;
+      await objectStorage.put(outputKey, normalized, "image/png");
+      return { candidate, normalized, outputKey };
+    })
+  );
+
   const candidates: { candidate: ImageCandidate; normalized: Buffer; outputKey: string }[] =
-    await Promise.all(
-      rawCandidates.map(async (candidate) => {
-        const normalized = await normalizeGeneratedImage(
-          candidate.buffer,
-          dimensions,
-          generationMode
-        );
-        const outputKey = `${outputPrefix}/candidates/${candidate.providerMeta.provider}${outputSuffix}.png`;
-        await objectStorage.put(outputKey, normalized, "image/png");
-        return { candidate, normalized, outputKey };
-      })
+    uploadResults
+      .map((r) => (r.status === "fulfilled" ? r.value : null))
+      .filter((v): v is { candidate: ImageCandidate; normalized: Buffer; outputKey: string } => v !== null);
+
+  type FailedUpload = { provider: "openai" | "seedream"; reason: unknown };
+  const failedUploads: FailedUpload[] = [];
+  uploadResults.forEach((r, idx) => {
+    if (r.status === "rejected") {
+      failedUploads.push({
+        provider: normalizedCandidates[idx].candidate.providerMeta.provider,
+        reason: r.reason,
+      });
+    }
+  });
+
+  if (failedUploads.length > 0) {
+    logger.warn(
+      `[generateAndStoreImage] ${failedUploads.length}/${normalizedCandidates.length} per-candidate R2 upload(s) failed; continuing with successful candidates`,
+      failedUploads.map((f) => ({ provider: f.provider, reason: f.reason instanceof Error ? f.reason.message : String(f.reason) }))
     );
+  }
+
+  if (candidates.length === 0) {
+    // All R2 uploads failed. Throw so the derivation is marked failed and
+    // the upstream retry/refund flow takes over.
+    const summary = failedUploads
+      .map((f) => `${f.provider}: ${f.reason instanceof Error ? f.reason.message : String(f.reason)}`)
+      .join("; ");
+    throw new Error(`All per-candidate R2 uploads failed: ${summary}`);
+  }
 
   // Pick the winner. Today this is the first candidate (provider order).
   // A future task wires in creative-score per candidate and picks the
