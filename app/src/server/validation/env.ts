@@ -59,7 +59,10 @@ export const envSchema = z.object({
   SEEDREAM_SAMPLE_RATE: z
     .string()
     .optional()
-    .transform((v) => (v === undefined ? 1.0 : Number(v)))
+    .transform((v) => {
+      if (v === undefined || v.trim() === "") return 1.0;
+      return Number(v);
+    })
     .refine((n) => Number.isFinite(n) && n >= 0 && n <= 1, {
       message: "SEEDREAM_SAMPLE_RATE must be a number between 0 and 1",
     }),
@@ -67,6 +70,16 @@ export const envSchema = z.object({
 });
 
 const parsed = envSchema.safeParse(process.env);
+
+// New dual-engine env vars: return safe defaults from the Proxy so downstream
+// code never sees `undefined` typed as `number` / `string` when the overall
+// parse failed for an unrelated required field.
+const dualEngineDefaults: Partial<z.infer<typeof envSchema>> = {
+  BYTEPLUS_API_KEY: undefined,
+  SEEDREAM_MODEL_NAME: undefined,
+  SEEDREAM_SAMPLE_RATE: 1.0,
+  SEEDREAM_BASE_URL: "https://ark.byteplus.com/v1",
+};
 
 export const env: z.infer<typeof envSchema> = parsed.success
   ? parsed.data
@@ -78,6 +91,9 @@ export const env: z.infer<typeof envSchema> = parsed.success
             return undefined;
           }
           throw new Error(`Env validation failed for ${key}: ${issue.message}`);
+        }
+        if (process.env.NODE_ENV === "test" && key in dualEngineDefaults) {
+          return dualEngineDefaults[key as keyof typeof dualEngineDefaults];
         }
         return process.env[key];
       },

@@ -115,4 +115,16 @@ describe("dual-engine env vars", () => {
       expect(result.data.SEEDREAM_SAMPLE_RATE).toBe(0.5);
     }
   });
+
+  it("treats empty-string SEEDREAM_SAMPLE_RATE as default 1.0", () => {
+    const result = schema.safeParse({
+      ...baseEnv,
+      STRIPE_SECRET_KEY: "sk_test_dummy",
+      SEEDREAM_SAMPLE_RATE: "",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.SEEDREAM_SAMPLE_RATE).toBe(1.0);
+    }
+  });
 });
