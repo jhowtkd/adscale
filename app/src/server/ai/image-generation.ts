@@ -1,6 +1,7 @@
 import sharp from "sharp";
 import { objectStorage } from "@/server/storage";
 import { logger } from "@/lib/logger";
+import { recordDualEngineCandidates } from "./generation-log";
 import { OpenAIImageProvider } from "./providers/openai-image-provider";
 import { SeedreamImageProvider } from "./providers/seedream-image-provider";
 import { CompositeImageProvider } from "./providers/composite-image-provider";
@@ -201,6 +202,25 @@ export async function generateAndStoreImage(
   logger.info(
     `[generateAndStoreImage] dual-engine produced ${candidates.length} candidate(s); winner=${winner.candidate.providerMeta.provider}`
   );
+
+  // Emit the telemetry event before returning. `campaignId`/`workspaceId`/
+  // `jobType` are not threaded through this helper yet; we emit with the
+  // metadata we have so analytics can index runs by derivationId even before
+  // the signature extension lands. Follow-up: accept a `telemetry` block.
+  await recordDualEngineCandidates({
+    campaignId: "",
+    derivationId: outputPrefix,
+    workspaceId: "",
+    jobType: "derivation",
+    candidates: candidateMeta.map(({ winner: _w, ...rest }) => rest),
+    winnerProvider: winner.candidate.providerMeta.provider,
+    aggregateLatencyMs:
+      candidates.length > 0
+        ? Math.max(
+            ...candidates.map((c) => c.candidate.providerMeta.durationMs)
+          )
+        : 0,
+  });
 
   return {
     outputKey: finalKey,
