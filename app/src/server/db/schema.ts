@@ -682,6 +682,19 @@ export const derivations = adscaleSchema.table(
     exportStatus: jsonb("export_status").$type<
       import("../ai/olhar/dual-verdict").ExportStatusPayload
     >(),
+    candidates: jsonb("candidates").$type<
+      Array<{
+        provider: "openai" | "seedream";
+        model: string;
+        outputKey: string;
+        durationMs: number;
+        score?: number;
+        quality?: "invalid" | "improvable" | "acceptable";
+        costCredits?: number;
+        rawRequestId?: string;
+        winner: boolean;
+      }>
+    >(),
     creativeLevel: text("creative_level"),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
