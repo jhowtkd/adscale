@@ -11,6 +11,7 @@ import {
   type BuildGenerationPromptContextInput,
   type GenerationReferenceInput,
 } from "./derivation-pipeline";
+import type { GenerationCandidateMeta } from "./image-generation";
 
 export { shouldAutoRetryDerivation } from "./derivation-auto-retry-policy";
 
@@ -68,7 +69,11 @@ async function resolveAutoRetryReference(
 
 export async function runDerivationAutoRetry(
   input: AutoRetryDerivationInput
-): Promise<{ outputKey: string; revisedPrompt: string } | null> {
+): Promise<{
+  outputKey: string;
+  revisedPrompt: string;
+  candidates: (GenerationCandidateMeta & { winner: boolean })[];
+} | null> {
   const row = await getDerivationById(input.derivationId, input.workspaceId);
   if (!row) return null;
 
@@ -133,5 +138,5 @@ export async function runDerivationAutoRetry(
     prompt: revisedPrompt,
   });
 
-  return { outputKey: stepResult.outputKey, revisedPrompt };
+  return { outputKey: stepResult.outputKey, revisedPrompt, candidates: stepResult.candidates };
 }

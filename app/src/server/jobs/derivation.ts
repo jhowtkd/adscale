@@ -805,6 +805,7 @@ export const derivationJob = inngest.createFunction(
         effectiveGenerationMode,
         resolvedContract,
         promptProvenance,
+        candidates: stepResult.candidates,
       };
     });
 
@@ -817,6 +818,7 @@ export const derivationJob = inngest.createFunction(
           status: "completed",
           outputKey: generated.outputKey,
           prompt: generated.revisedPrompt,
+          candidates: generated.candidates,
           updatedAt: new Date(),
         })
         .where(eq(derivations.id, derivationId));
@@ -1235,6 +1237,7 @@ export const derivationJob = inngest.createFunction(
           status: "completed",
           outputKey: result.outputKey,
           prompt: result.revisedPrompt,
+          candidates: result.candidates,
           updatedAt: new Date(),
         })
         .where(eq(derivations.id, derivationId));

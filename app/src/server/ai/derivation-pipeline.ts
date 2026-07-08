@@ -21,6 +21,7 @@ import {
   generateAndStoreImage,
   normalizeGeneratedImage,
   type GenerateAndStoreImageReference,
+  type GenerationCandidateMeta,
 } from "./image-generation";
 
 // Re-export for backward compatibility — jobs/derivation.ts and the
@@ -197,6 +198,13 @@ export interface ExecuteGenerationStepResult {
   outputKey: string;
   revisedPrompt: string;
   imageOperation: ImageOperation;
+  /**
+   * Per-provider candidate summary from the dual-engine orchestrator. Always
+   * present after Task 6; the array has 1 or 2 entries depending on how many
+   * providers succeeded. Persisted on the derivation row so the UI, QA, and
+   * analytics can see which providers ran and which won.
+   */
+  candidates: (GenerationCandidateMeta & { winner: boolean })[];
 }
 
 function referenceToInputs(
@@ -252,7 +260,12 @@ export async function executeGenerationStep(
   const dimensions =
     getTargetDimensions(targetFormat, ctx.isPreview) ?? { width: 1024, height: 1024 };
 
-  let result: { outputKey: string; revisedPrompt: string; imageOperation: ImageOperation };
+  let result: {
+    outputKey: string;
+    revisedPrompt: string;
+    imageOperation: ImageOperation;
+    candidates: (GenerationCandidateMeta & { winner: boolean })[];
+  };
   try {
     result = await generateAndStoreImage({
       prompt,
@@ -297,5 +310,6 @@ export async function executeGenerationStep(
     outputKey: result.outputKey,
     revisedPrompt: result.revisedPrompt,
     imageOperation: result.imageOperation,
+    candidates: result.candidates,
   };
 }
