@@ -39,6 +39,7 @@ Core:
 - `OPENAI_API_KEY`
 - `OPENAI_TEXT_MODEL`
 - `OPENAI_IMAGE_MODEL`
+- `MINIMAX_API_KEY` (assistant chat; `MINIMAX_MODEL` defaults to `MiniMax-M3`)
 - `R2_ACCOUNT_ID`
 - `R2_ACCESS_KEY_ID`
 - `R2_SECRET_ACCESS_KEY`
@@ -46,6 +47,8 @@ Core:
 - `R2_PUBLIC_BASE_URL`
 - `INNGEST_EVENT_KEY`
 - `INNGEST_SIGNING_KEY`
+- `RESEND_API_KEY` (must start with `re_`; use `re_test` placeholder only for tests that mock email)
+- `EMAIL_FROM` (e.g. `ADScale <onboarding@resend.dev>`)
 
 Stripe:
 
