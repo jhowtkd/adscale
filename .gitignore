@@ -22,6 +22,7 @@ dist/
 # Agent/IDE artifacts
 .opencode/
 .playwright-cli/
+.zcode/
 screenshots/
 
 # Project-specific

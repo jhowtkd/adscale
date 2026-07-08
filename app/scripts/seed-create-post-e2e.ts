@@ -314,6 +314,12 @@ async function seedReadyWorkFixture(input: {
 
   const outputs = await createCreativeWorkOutputs(input.workspaceId, work.id);
   for (const output of outputs) {
+    // The retry-route contract only accepts `failed` outputs, so the
+    // retry E2E needs at least one `failed` row in the seed. We mark
+    // `bold` as the failure case (conservative + balanced stay
+    // completed so the visual composition test and the download test
+    // keep their deterministic 64×64 logo region).
+    const isFailed = output.creativeLevel === "bold";
     const buf =
       output.creativeLevel === "conservative"
         ? await buildOpaquePng()
@@ -325,11 +331,11 @@ async function seedReadyWorkFixture(input: {
     await db
       .update(creativeWorkOutputs)
       .set({
-        status: "completed",
-        outputKey: key,
+        status: isFailed ? "failed" : "completed",
+        outputKey: isFailed ? null : key,
         cost: 5,
-        failureCode: null,
-        quality: { e2eFixture: true },
+        failureCode: isFailed ? "provider_error" : null,
+        quality: isFailed ? null : { e2eFixture: true },
         updatedAt: new Date(),
       })
       .where(eq(creativeWorkOutputs.id, output.id));

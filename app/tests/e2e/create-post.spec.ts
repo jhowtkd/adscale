@@ -194,15 +194,18 @@ test.describe("Standalone Create Post acceptance gate", () => {
   }) => {
     const fixture = loadFixture();
 
-    // Find one completed output to retry.
+    // The retry route only accepts `failed` outputs (it 409s on
+    // `completed`/`queued`/`processing`). The seed marks `bold` as
+    // `failed` so we have a deterministic retryable row.
     const detailRes = await request.get(
       `/api/creative-work/${fixture.readyWorkId}`,
     );
     const detail = (await detailRes.json()) as {
       outputs: Array<{ id: string; status: string; creativeLevel: string }>;
     };
-    const target = detail.outputs.find((o) => o.status === "completed");
+    const target = detail.outputs.find((o) => o.status === "failed");
     expect(target).toBeDefined();
+    expect(target!.creativeLevel).toBe("bold");
 
     const retryRes = await request.post(
       `/api/creative-work/${fixture.readyWorkId}/outputs/${target!.id}/retry`,
