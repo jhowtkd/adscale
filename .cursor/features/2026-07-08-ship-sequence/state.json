@@ -1,11 +1,11 @@
 {
   "feature_id": "2026-07-08-ship-sequence",
-  "current_task": "T1",
+  "current_task": "T3",
   "status": "in_progress",
-  "updated_at": "2026-07-08T20:19:00-03:00",
+  "updated_at": "2026-07-08T20:21:00-03:00",
   "tasks": {
     "T1": "done",
-    "T2": "pending",
+    "T2": "done",
     "T3": "pending",
     "T4": "pending",
     "T5": "pending",
@@ -16,6 +16,7 @@
     "T10": "pending"
   },
   "decisions": {
-    "T1": "commit_hygiene"
+    "T1": "commit_hygiene",
+    "T2": "921a8313"
   }
 }

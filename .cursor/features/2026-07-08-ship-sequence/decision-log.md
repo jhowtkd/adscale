@@ -13,3 +13,9 @@
 **Não descartar:** beta daily documenta falha operacional da coleta SQL — útil.
 
 **Não misturar:** dual-engine / UX app code já está nos 20 commits; hygiene fica separado.
+
+## T2 — Commit hygiene (2026-07-08)
+
+**Decision:** committed as `921a8313` — `chore(planning): refresh phase 128 evidence and ship-sequence plan`
+
+Includes phase 128 timestamp refresh, beta daily 2026-07-08, and `.cursor/features/2026-07-08-ship-sequence/`. Working tree clean after commit. F1 complete.

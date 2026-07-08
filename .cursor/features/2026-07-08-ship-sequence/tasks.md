@@ -21,7 +21,7 @@ Status inicial: todas `pending`. Executar **uma task por vez**; marcar `done` s�
 
 ### T2 — Commit hygiene (se T1 = commit)
 - **Fase:** F1
-- **Status:** pending
+- **Status:** done
 - **Deps:** T1
 - **Descrição:** Se T1 escolheu commit: um commit docs/ops só com esses arquivos. Mensagem focada em “why” (evidence refresh / daily beta).
 - **Arquivos:** mesmos de T1
@@ -29,6 +29,7 @@ Status inicial: todas `pending`. Executar **uma task por vez**; marcar `done` s�
 - **Testes:** n/a
 - **Checkpoint:** `git status -sb` sem M/?? desses paths
 - **Skip se:** T1 = não commitar
+- **Resultado:** `921a8313` — working tree limpa; F1 completa
 
 ---
 
