@@ -13,6 +13,8 @@ services:
     startCommand: npm run db:migrate && npm run start:prod
     healthCheckPath: /api/health
     envVars:
+      - key: NODE_OPTIONS
+        value: --max-old-space-size=4096
       - key: NODE_ENV
         value: production
       - key: NEXT_TELEMETRY_DISABLED
