@@ -1,28 +1,86 @@
-import OpenAI, { toFile } from "openai";
 import sharp from "sharp";
-import { env } from "../validation/env";
 import { objectStorage } from "@/server/storage";
 import { logger } from "@/lib/logger";
-import { fetchProviderUrlSafe } from "./safe-fetch";
-import { toOpenAISdkImageSize } from "@/lib/formats";
-import type { ImageOperation } from "./creative-contract";
+import { OpenAIImageProvider } from "./providers/openai-image-provider";
+import { SeedreamImageProvider } from "./providers/seedream-image-provider";
+import { CompositeImageProvider } from "./providers/composite-image-provider";
+import type { ImageCandidate, ImageReference, ProviderGenerateInput } from "./providers/image-provider";
 
-// R6: keep the SDK client at 120s; withTimeout is the real barrier.
-const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 120_000 });
-const IMAGE_GENERATION_TIMEOUT_MS = 5 * 60 * 1000;
+// Re-export ImageReference under the legacy name for backward compatibility —
+// derivation-pipeline.ts and downstream callers still import
+// `GenerateAndStoreImageReference` from this module.
+export type GenerateAndStoreImageReference = ImageReference;
 
-function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-  let timeout: NodeJS.Timeout;
+export type GenerationMode = "art_variation" | "format_adaptation" | "restyling";
 
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timeout = setTimeout(() => {
-      reject(new Error(`${label} timed out after ${Math.round(ms / 1000)}s`));
-    }, ms);
-  });
+/**
+ * Provider-agnostic candidate summary persisted on derivation rows so the UI,
+ * QA, and analytics can see which providers ran and which won.
+ */
+export type GenerationCandidateMeta = {
+  provider: "openai" | "seedream";
+  model: string;
+  outputKey: string;
+  durationMs: number;
+  score?: number;
+  quality?: "invalid" | "improvable" | "acceptable";
+  costCredits?: number;
+  rawRequestId?: string;
+  revisedPrompt?: string;
+};
 
-  return Promise.race([promise, timeoutPromise]).finally(() => {
-    clearTimeout(timeout);
-  });
+export interface GenerateAndStoreImageInput {
+  prompt: string;
+  dimensions: { width: number; height: number };
+  outputPrefix: string;
+  referenceImages: ImageReference[];
+  /**
+   * Optional normalization mode applied after decoding the provider response.
+   * Defaults to `"art_variation"`. Derivation callers may pass
+   * `"format_adaptation"` or `"restyling"` to preserve existing behavior.
+   */
+  generationMode?: GenerationMode;
+  /** Optional suffix appended to the output key (e.g. `-retry`). */
+  outputSuffix?: string;
+}
+
+export interface GenerateAndStoreImageResult {
+  outputKey: string;
+  revisedPrompt: string;
+  /**
+   * The narrow helper-level operation kind (`generate` vs `edit`). The wider
+   * campaign `ImageOperation` union (which adds `generation_fallback`) is
+   * applied by the derivation wrapper after the fallback retry.
+   */
+  imageOperation: "generate" | "edit";
+  buffer: Buffer;
+  /**
+   * Per-provider candidate summary. Always present; has 1 or 2 entries
+   * depending on how many providers succeeded. The `winner` flag marks the
+   * candidate whose `outputKey` matches the result's top-level `outputKey`.
+   */
+  candidates: (GenerationCandidateMeta & { winner: boolean })[];
+}
+
+/**
+ * Lazily build the composite provider so tests that mock the OpenAI SDK
+ * before first import still work.
+ */
+let cachedComposite: CompositeImageProvider | null = null;
+function getCompositeProvider(): CompositeImageProvider {
+  if (cachedComposite) return cachedComposite;
+  cachedComposite = new CompositeImageProvider([
+    new OpenAIImageProvider(),
+    new SeedreamImageProvider(),
+  ]);
+  return cachedComposite;
+}
+
+/**
+ * Test seam: allow callers (especially tests) to inject a custom composite.
+ */
+export function __setCompositeProviderForTests(provider: CompositeImageProvider | null) {
+  cachedComposite = provider;
 }
 
 /**
@@ -38,7 +96,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 export async function normalizeGeneratedImage(
   buffer: Buffer,
   dimensions: { width: number; height: number },
-  generationMode: "art_variation" | "format_adaptation" | "restyling",
+  generationMode: GenerationMode
 ) {
   if (generationMode === "format_adaptation") {
     return sharp(buffer)
@@ -77,85 +135,6 @@ export async function normalizeGeneratedImage(
     .toBuffer();
 }
 
-export interface GenerateAndStoreImageReference {
-  buffer: Buffer;
-  mimeType: string;
-  name: string;
-}
-
-export interface GenerateAndStoreImageInput {
-  prompt: string;
-  /**
-   * Resolved target dimensions (width × height) in pixels. The helper derives
-   * both the OpenAI SDK image size and the post-generation normalization size
-   * from this, so callers do not need to forward preview semantics here — the
-   * derivation wrapper resolves `getTargetDimensions(targetFormat, isPreview)`
-   * and passes the result.
-   */
-  dimensions: { width: number; height: number };
-  outputPrefix: string;
-  referenceImages: GenerateAndStoreImageReference[];
-  /**
-   * Optional normalization mode applied after decoding the provider response.
-   * Defaults to `"art_variation"`. Derivation callers may pass
-   * `"format_adaptation"` or `"restyling"` to preserve existing behavior.
-   */
-  generationMode?: "art_variation" | "format_adaptation" | "restyling";
-  /** Optional suffix appended to the output key (e.g. `-retry`). */
-  outputSuffix?: string;
-}
-
-export interface GenerateAndStoreImageResult {
-  outputKey: string;
-  revisedPrompt: string;
-  /**
-   * The narrow helper-level operation kind (`generate` vs `edit`). The wider
-   * campaign `ImageOperation` union (which adds `generation_fallback`) is
-   * applied by the derivation wrapper after the fallback retry.
-   */
-  imageOperation: "generate" | "edit";
-  buffer: Buffer;
-}
-
-/**
- * Campaign-neutral image generation helper. Calls the OpenAI images API
- * (`generate` for zero references, `edit` for one or more), downloads the
- * result via the safe provider fetcher, normalizes the buffer to the target
- * dimensions, and persists it under `outputPrefix`. Used by the derivation
- * pipeline and the creative-work generation flow.
- *
- * Timeout: SDK client 120s; overall `withTimeout` barrier 5 minutes (R6).
- */
-/**
- * Map a resolved `dimensions` shape to the OpenAI SDK image size string.
- * Identifies the target format by aspect ratio so callers don't need to forward
- * the format id or preview semantics — the derivation wrapper resolves those.
- * Supports the gpt-image-2 target-aspect sizes (1024x1280 for 4:5, 1152x2048
- * for 9:16) and the legacy SDK sizes for 1:1 and other models.
- */
-function dimensionsToOpenAISdkSize(dimensions: {
-  width: number;
-  height: number;
-}): ReturnType<typeof toOpenAISdkImageSize> {
-  const ratio = dimensions.width / dimensions.height;
-  const isGptImage2 = env.OPENAI_IMAGE_MODEL.startsWith("gpt-image-2");
-  // 1:1
-  if (Math.abs(ratio - 1) < 0.05) {
-    return isGptImage2 ? toOpenAISdkImageSize("1024x1024") : toOpenAISdkImageSize("1024x1024");
-  }
-  // Portrait: 4:5 (ratio ≈ 0.8) vs 9:16 (ratio ≈ 0.5625)
-  if (ratio < 1) {
-    if (isGptImage2) {
-      return ratio < 0.7
-        ? toOpenAISdkImageSize("1152x2048")
-        : toOpenAISdkImageSize("1024x1280");
-    }
-    return toOpenAISdkImageSize("1024x1536");
-  }
-  // Landscape
-  return toOpenAISdkImageSize("1536x1024");
-}
-
 export async function generateAndStoreImage(
   input: GenerateAndStoreImageInput
 ): Promise<GenerateAndStoreImageResult> {
@@ -168,72 +147,70 @@ export async function generateAndStoreImage(
     outputSuffix = "",
   } = input;
 
-  const openaiSize = dimensionsToOpenAISdkSize(dimensions);
+  const composite = getCompositeProvider();
+  const providerInput: ProviderGenerateInput = {
+    prompt,
+    dimensions,
+    referenceImages,
+    generationMode,
+    outputPrefix,
+  };
 
-  let result: OpenAI.Images.Image;
-  let imageOperation: "generate" | "edit";
+  const { candidates: rawCandidates } = await composite.generate(providerInput);
 
-  if (referenceImages.length > 0) {
-    const files = await Promise.all(
-      referenceImages.map((ref) =>
-        toFile(ref.buffer, ref.name, { type: ref.mimeType })
-      )
+  // Normalize every candidate and upload to R2.
+  const candidates: { candidate: ImageCandidate; normalized: Buffer; outputKey: string }[] =
+    await Promise.all(
+      rawCandidates.map(async (candidate) => {
+        const normalized = await normalizeGeneratedImage(
+          candidate.buffer,
+          dimensions,
+          generationMode
+        );
+        const outputKey = `${outputPrefix}/candidates/${candidate.providerMeta.provider}${outputSuffix}.png`;
+        await objectStorage.put(outputKey, normalized, "image/png");
+        return { candidate, normalized, outputKey };
+      })
     );
 
-    const response = await withTimeout(
-      openai.images.edit({
-        model: env.OPENAI_IMAGE_MODEL,
-        image: files,
-        prompt,
-        n: 1,
-        size: openaiSize,
-      }),
-      IMAGE_GENERATION_TIMEOUT_MS,
-      "OpenAI image edit"
-    );
-    const first = response.data?.[0];
-    if (!first) throw new Error("No image data returned from OpenAI");
-    logger.info(`[generateAndStoreImage] edit success references=${referenceImages.length}`);
-    result = first;
-    imageOperation = "edit";
-  } else {
-    const response = await withTimeout(
-      openai.images.generate({
-        model: env.OPENAI_IMAGE_MODEL,
-        prompt,
-        n: 1,
-        size: openaiSize,
-      }),
-      IMAGE_GENERATION_TIMEOUT_MS,
-      "OpenAI image generation"
-    );
-    const first = response.data?.[0];
-    if (!first) throw new Error("No image data returned from OpenAI");
-    logger.info(`[generateAndStoreImage] generate success`);
-    result = first;
-    imageOperation = "generate";
-  }
+  // Pick the winner. Today this is the first candidate (provider order).
+  // A future task wires in creative-score per candidate and picks the
+  // highest-scoring one. For the rollout, the order is: openai first,
+  // seedream second; OpenAI wins on tie so behavior is identical to
+  // pre-change when only OpenAI is enabled.
+  const winnerIndex = 0;
+  const winner = candidates[winnerIndex];
 
-  let buffer: Buffer;
-  if (result.b64_json) {
-    buffer = Buffer.from(result.b64_json, "base64");
-  } else if (result.url) {
-    buffer = await fetchProviderUrlSafe(result.url);
-  } else {
-    throw new Error("No image data returned");
-  }
+  // Upload the winner to its expected location so downstream code
+  // (which reads `outputKey`) keeps working unchanged.
+  const finalKey = `${outputPrefix}/${Date.now()}${outputSuffix}.png`;
+  await objectStorage.put(finalKey, winner.normalized, "image/png");
 
-  buffer = await normalizeGeneratedImage(buffer, dimensions, generationMode);
+  const candidateMeta: (GenerationCandidateMeta & { winner: boolean })[] =
+    candidates.map((c, idx) => ({
+      provider: c.candidate.providerMeta.provider,
+      model: c.candidate.providerMeta.model,
+      outputKey: c.outputKey,
+      durationMs: c.candidate.providerMeta.durationMs,
+      costCredits: c.candidate.providerMeta.costCredits,
+      rawRequestId: c.candidate.providerMeta.rawRequestId,
+      revisedPrompt: c.candidate.providerMeta.revisedPrompt,
+      winner: idx === winnerIndex,
+    }));
 
-  const key = `${outputPrefix}/${Date.now()}${outputSuffix}.png`;
-  await objectStorage.put(key, buffer, "image/png");
-
-  const revisedPrompt = result.revised_prompt || "";
+  logger.info(
+    `[generateAndStoreImage] dual-engine produced ${candidates.length} candidate(s); winner=${winner.candidate.providerMeta.provider}`
+  );
 
   return {
-    outputKey: key,
-    revisedPrompt,
-    imageOperation,
-    buffer,
+    outputKey: finalKey,
+    // Surface the winner's revised prompt so the helper-level contract
+    // (downstream reads `result.revisedPrompt`) is preserved. Empty string
+    // when the winner provider doesn't supply one (e.g. Seedream).
+    revisedPrompt: winner.candidate.providerMeta.revisedPrompt ?? "",
+    imageOperation:
+      referenceImages.length > 0 ? "edit" : "generate",
+    buffer: winner.normalized,
+    candidates: candidateMeta,
   };
 }

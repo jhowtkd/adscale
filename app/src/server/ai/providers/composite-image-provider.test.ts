@@ -1,25 +1,7 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { CompositeImageProvider } from "./composite-image-provider";
-import type {
-  ImageCandidate,
-  ImageGenerationProvider,
-  ProviderGenerateInput,
-} from "./image-provider";
-
-function fakeProvider(
-  name: "openai" | "seedream",
-  result?: ImageCandidate,
-  error?: Error
-): ImageGenerationProvider {
-  return {
-    name,
-    generate: vi.fn(async () => {
-      if (error) throw error;
-      if (!result) throw new Error("no result configured");
-      return result;
-    }),
-  };
-}
+import type { ImageCandidate, ProviderGenerateInput } from "./image-provider";
+import { fakeProvider } from "./__test-utils__";
 
 const baseInput: ProviderGenerateInput = {
   prompt: "x",

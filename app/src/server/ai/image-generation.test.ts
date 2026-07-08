@@ -27,6 +27,9 @@ vi.mock("@/server/validation/env", () => ({
   env: {
     OPENAI_API_KEY: "test-key",
     OPENAI_IMAGE_MODEL: "gpt-image-2-2026-04-21",
+    BYTEPLUS_API_KEY: undefined,
+    SEEDREAM_MODEL_NAME: undefined,
+    SEEDREAM_SAMPLE_RATE: 0,
   },
 }));
 
@@ -153,7 +156,10 @@ describe("generateAndStoreImage", () => {
     );
   });
 
-  it("returns revisedPrompt from the provider response", async () => {
+  it("returns revisedPrompt from the winning provider", async () => {
+    // The dual-engine orchestrator surfaces the winner's provider-supplied
+    // revised_prompt on the top-level result so downstream code (e.g.
+    // derivation-pipeline) keeps working unchanged.
     mockOpenAIImages.generate.mockResolvedValueOnce({
       data: [{ b64_json: "bW9ja2ltYWdl", revised_prompt: "sharper, more vivid" }],
     });
@@ -173,5 +179,43 @@ describe("generateAndStoreImage", () => {
     });
 
     expect(Buffer.isBuffer(result.buffer)).toBe(true);
+  });
+
+  it("returns a candidates array with one OpenAI winner when Seedream fails", async () => {
+    // Use the test seam from __setCompositeProviderForTests
+    const { __setCompositeProviderForTests } = await import("./image-generation");
+    const { CompositeImageProvider } = await import("./providers/composite-image-provider");
+    const { fakeProvider } = await import("./providers/__test-utils__");
+    __setCompositeProviderForTests(
+      new CompositeImageProvider(
+        [
+          fakeProvider("openai", {
+            buffer: Buffer.from("openai-out"),
+            mimeType: "image/png",
+            providerMeta: { provider: "openai", model: "gpt-image-2", durationMs: 100 },
+          }),
+          fakeProvider("seedream", undefined, new Error("rate limit")),
+        ],
+        { sampleRate: 1 }
+      )
+    );
+
+    try {
+      const result = await generateAndStoreImage({
+        prompt: "x",
+        dimensions: { width: 1024, height: 1024 },
+        outputPrefix: "derivations/test-candidates",
+        referenceImages: [],
+      });
+      expect(result.candidates).toHaveLength(1);
+      expect(result.candidates[0].provider).toBe("openai");
+      expect(result.candidates[0].winner).toBe(true);
+      // Winner is the first candidate, so its outputKey is the canonical one
+      expect(result.candidates[0].outputKey).toMatch(/^derivations\/test-candidates\/candidates\/openai\.png$/);
+      // The top-level outputKey is the canonical winner key (not the per-candidate key)
+      expect(result.outputKey).toMatch(/^derivations\/test-candidates\/\d+\.png$/);
+    } finally {
+      __setCompositeProviderForTests(null);
+    }
   });
 });

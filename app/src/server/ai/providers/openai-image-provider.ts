@@ -109,6 +109,7 @@ export class OpenAIImageProvider implements ImageGenerationProvider {
         provider: "openai",
         model: env.OPENAI_IMAGE_MODEL,
         durationMs: Date.now() - start,
+        revisedPrompt: result.revised_prompt || undefined,
       },
     };
   }

@@ -40,6 +40,12 @@ export type ImageCandidate = {
     durationMs: number;
     costCredits?: number;
     rawRequestId?: string;
+    /**
+     * Provider-supplied revised prompt, if the provider returns one (OpenAI
+     * does; Seedream does not). The dual-engine orchestrator surfaces the
+     * winner's revisedPrompt on the top-level result for downstream callers.
+     */
+    revisedPrompt?: string;
   };
 };
 
