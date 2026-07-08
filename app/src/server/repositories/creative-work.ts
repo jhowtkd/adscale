@@ -230,6 +230,41 @@ export async function failCreativeWorkOutput(
   return row ?? null;
 }
 
+/**
+ * Directly set the work-item status. Used by the generate API route to
+ * flip `"ready"` → `"generating"` immediately after dispatching the
+ * triplet so the frontend polling hook engages. Aggregate recomputation
+ * is left to {@link refreshCreativeWorkStatus} once outputs settle.
+ */
+export async function setCreativeWorkStatus(
+  workspaceId: string,
+  workItemId: string,
+  status: CreativeWorkStatus
+): Promise<CreativeWorkItem | null> {
+  const [row] = await db
+    .update(creativeWorkItems)
+    .set({ status, updatedAt: new Date() })
+    .where(
+      and(
+        eq(creativeWorkItems.workspaceId, workspaceId),
+        eq(creativeWorkItems.id, workItemId)
+      )
+    )
+    .returning();
+  return row ?? null;
+}
+
+/**
+ * Recomputes the aggregate `creative_work_items.status` from the child
+ * outputs and **persists** the result. The previous implementation only
+ * computed the value in memory and never wrote it back, which meant the
+ * `useCreativeWork` polling hook (keyed on `status === "generating"`)
+ * never engaged after dispatch — the work row stayed at `"ready"`
+ * forever, even when outputs were actively generating.
+ *
+ * Callers receive the resolved status so they can decide whether to take
+ * downstream action (e.g. log a state change).
+ */
 export async function refreshCreativeWorkStatus(
   workspaceId: string,
   workItemId: string
@@ -243,7 +278,17 @@ export async function refreshCreativeWorkStatus(
         eq(creativeWorkOutputs.workItemId, workItemId)
       )
     );
-  return resolveCreativeWorkStatus(outputs.map((o) => o.status));
+  const next = resolveCreativeWorkStatus(outputs.map((o) => o.status));
+  await db
+    .update(creativeWorkItems)
+    .set({ status: next, updatedAt: new Date() })
+    .where(
+      and(
+        eq(creativeWorkItems.workspaceId, workspaceId),
+        eq(creativeWorkItems.id, workItemId)
+      )
+    );
+  return next;
 }
 
 /**

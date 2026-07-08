@@ -7,6 +7,7 @@ import { inngest } from "@/server/jobs/client";
 import {
   getCreativeWork,
   createCreativeWorkOutputs,
+  setCreativeWorkStatus,
 } from "@/server/repositories/creative-work";
 import { CREATIVE_LEVELS } from "@/server/creative-work/contracts";
 
@@ -89,6 +90,11 @@ export async function POST(
         creativeWorkId: id,
       });
     }
+
+    // Flip the work status to `generating` so the wizard's polling hook
+    // engages. `refreshCreativeWorkStatus` will overwrite this with the
+    // next aggregate (partial/completed/failed) once outputs settle.
+    await setCreativeWorkStatus(workspace.id, id, "generating");
 
     return NextResponse.json(
       { work: existing.work, outputs },

@@ -123,6 +123,7 @@ import {
   refreshCreativeWorkStatus,
   selectCreativeWorkOutput,
   setCreativeWorkCopy,
+  setCreativeWorkStatus,
 } from "./creative-work";
 import type {
   SocialPostBrief,
@@ -435,6 +436,11 @@ describe("creative-work repository", () => {
       mocks.state.selectResults.push([]);
       const status = await refreshCreativeWorkStatus("ws-1", "work-1");
       expect(status).toBe("ready");
+      // Aggregate status must be persisted so the wizard's polling hook
+      // can engage; `refreshCreativeWorkStatus` is the single writer.
+      expect(mocks.setMock).toHaveBeenCalledWith(
+        expect.objectContaining({ status: "ready" })
+      );
     });
 
     it("returns partial when outputs are mixed", async () => {
@@ -445,6 +451,9 @@ describe("creative-work repository", () => {
       ]);
       const status = await refreshCreativeWorkStatus("ws-1", "work-1");
       expect(status).toBe("partial");
+      expect(mocks.setMock).toHaveBeenCalledWith(
+        expect.objectContaining({ status: "partial" })
+      );
     });
 
     it("returns completed when all outputs complete", async () => {
@@ -455,6 +464,33 @@ describe("creative-work repository", () => {
       ]);
       const status = await refreshCreativeWorkStatus("ws-1", "work-1");
       expect(status).toBe("completed");
+      expect(mocks.setMock).toHaveBeenCalledWith(
+        expect.objectContaining({ status: "completed" })
+      );
+    });
+
+    it("returns generating when any output is in flight", async () => {
+      mocks.state.selectResults.push([
+        { status: "completed" },
+        { status: "processing" },
+        { status: "queued" },
+      ]);
+      const status = await refreshCreativeWorkStatus("ws-1", "work-1");
+      expect(status).toBe("generating");
+      expect(mocks.setMock).toHaveBeenCalledWith(
+        expect.objectContaining({ status: "generating" })
+      );
+    });
+  });
+
+  describe("setCreativeWorkStatus", () => {
+    it("persists the provided status to the work item", async () => {
+      mocks.state.updateResults.push([workItem({ status: "generating" })]);
+      const result = await setCreativeWorkStatus("ws-1", "work-1", "generating");
+      expect(mocks.setMock).toHaveBeenCalledWith(
+        expect.objectContaining({ status: "generating" })
+      );
+      expect(result?.status).toBe("generating");
     });
   });
 

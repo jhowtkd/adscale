@@ -10,6 +10,7 @@ const refundMock = vi.hoisted(() => vi.fn());
 const sendMock = vi.hoisted(() => vi.fn());
 const getWorkMock = vi.hoisted(() => vi.fn());
 const createOutputsMock = vi.hoisted(() => vi.fn());
+const setStatusMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/auth/workspace", () => ({
   requireWorkspaceAccess: vi.fn(() =>
@@ -35,6 +36,7 @@ vi.mock("@/server/jobs/client", () => ({
 vi.mock("@/server/repositories/creative-work", () => ({
   getCreativeWork: getWorkMock,
   createCreativeWorkOutputs: createOutputsMock,
+  setCreativeWorkStatus: setStatusMock,
 }));
 
 import { getCreativeWork, createCreativeWorkOutputs } from "@/server/repositories/creative-work";
@@ -100,6 +102,7 @@ describe("POST /api/creative-work/[id]/generate", () => {
     sendMock.mockResolvedValue(undefined);
     mockGetCreativeWork.mockResolvedValue({ work: readyWork, outputs: [] });
     mockCreateCreativeWorkOutputs.mockResolvedValue(outputs as never);
+    setStatusMock.mockResolvedValue({ ...readyWork, status: "generating" });
   });
   afterEach(() => {
     vi.restoreAllMocks();
@@ -256,6 +259,28 @@ describe("POST /api/creative-work/[id]/generate", () => {
     expect(res.status).toBe(402);
     expect(mockCreateCreativeWorkOutputs).not.toHaveBeenCalled();
     expect(sendMock).not.toHaveBeenCalled();
+  });
+
+  it("flips the work status to 'generating' after dispatch so polling engages", async () => {
+    const res = await POST(
+      new Request("http://localhost/api/creative-work/work-1/generate", { method: "POST" }),
+      { params: makeParams("work-1") }
+    );
+
+    expect(res.status).toBe(202);
+    expect(setStatusMock).toHaveBeenCalledWith("workspace-1", "work-1", "generating");
+  });
+
+  it("does not flip status to 'generating' when inngest.send throws (refund path)", async () => {
+    sendMock.mockRejectedValueOnce(new Error("inngest down"));
+
+    const res = await POST(
+      new Request("http://localhost/api/creative-work/work-1/generate", { method: "POST" }),
+      { params: makeParams("work-1") }
+    );
+
+    expect(res.status).toBe(502);
+    expect(setStatusMock).not.toHaveBeenCalled();
   });
 
   it("never imports or calls campaign/derivation repositories", async () => {

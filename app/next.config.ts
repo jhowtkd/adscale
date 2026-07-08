@@ -36,6 +36,16 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   output: 'standalone',
   outputFileTracingRoot: process.cwd(),
+  // `INNGEST_DEV` points at the local Inngest dev server and disables
+  // signature verification. It must never be present in a production
+  // build (the Inngest client throws if it is). Next loads `.env.local`
+  // for all commands, so we strip the var here whenever NODE_ENV is
+  // production to make `next build` reproducible and to ensure the
+  // bundled runtime never sees it on Render either.
+  env: {
+    INNGEST_DEV:
+      process.env.NODE_ENV === "production" ? "" : process.env.INNGEST_DEV,
+  },
   async rewrites() {
     return [
       { source: "/hi", destination: `${marketingUpstream}/` },
