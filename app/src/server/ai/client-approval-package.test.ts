@@ -74,6 +74,7 @@ describe("client-approval-package", () => {
     expect(
       isApprovedPackageDerivation({
         ...eligible,
+        status: "completed",
         olharVerdict: { value: "sem_opiniao" },
       })
     ).toBe(false);
