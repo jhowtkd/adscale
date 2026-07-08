@@ -247,7 +247,7 @@ All four are required at startup when `SEEDREAM_SAMPLE_RATE > 0`; the app refuse
 ## Rollout & Rollback
 
 - **Rollout:** ship behind `SEEDREAM_SAMPLE_RATE = 1.0` immediately (per the user's "production direct, no flag" decision). The first 100 derivations are observed in the cockpit's owner analytics view to confirm the win rate is non-degenerate.
-- **Rollback:** set `SEEDREAM_SAMPLE_RATE = 0` (env-only change, redeploy not required if the app reads env at request time, otherwise a redeploy) → Seedream is skipped on every job, OpenAI runs alone, behavior reverts to pre-change. No data migration needed for the rollback path.
+- **Rollback:** set `SEEDREAM_SAMPLE_RATE = 0` (env-only change, no redeploy required — the rate is read from env on every job, so the new value takes effect within seconds across the worker pool) → Seedream is skipped on every job, OpenAI runs alone, behavior reverts to pre-change. No data migration needed for the rollback path.
 - **Targeted dial-back:** set the rate to 0.1 or 0.5 to gather more data per ratio. Useful during the first week to understand cost vs. quality tradeoffs.
 
 ## Open Questions for Implementation
