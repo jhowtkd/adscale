@@ -249,6 +249,33 @@ export async function getApprovedTrainingReferences(
     .orderBy(desc(clientReferences.createdAt));
 }
 
+/**
+ * Load a single training reference scoped to a workspace+profile+id.
+ *
+ * Used by the brand-training analyze job to short-circuit on retry: if the
+ * row is no longer `pending_analysis` (e.g. a previous attempt already
+ * transitioned it to `pending_approval`), we must avoid re-running the
+ * provider call. Returns `null` if the row does not exist.
+ */
+export async function getTrainingReferenceForAnalysis(
+  workspaceId: string,
+  clientProfileId: string,
+  referenceId: string,
+) {
+  const rows = await db
+    .select()
+    .from(clientReferences)
+    .where(
+      and(
+        eq(clientReferences.workspaceId, workspaceId),
+        eq(clientReferences.clientProfileId, clientProfileId),
+        eq(clientReferences.id, referenceId),
+      ),
+    )
+    .limit(1);
+  return rows[0] ?? null;
+}
+
 export async function recordTrainingAnalysis(
   scope: TrainingReferenceScope,
   analysis: RecordTrainingAnalysisInput,

@@ -8,6 +8,7 @@ import {
 const mockCreateChatCompletion = vi.hoisted(() => vi.fn());
 const mockGetObject = vi.hoisted(() => vi.fn());
 const mockRecordTrainingAnalysis = vi.hoisted(() => vi.fn());
+const mockGetTrainingReferenceForAnalysis = vi.hoisted(() => vi.fn());
 
 vi.mock("openai", () => ({
   default: class MockOpenAI {
@@ -28,6 +29,8 @@ vi.mock("@/server/storage", () => ({
 vi.mock("@/server/repositories/client-reference", () => ({
   recordTrainingAnalysis: (...args: unknown[]) =>
     mockRecordTrainingAnalysis(...args),
+  getTrainingReferenceForAnalysis: (...args: unknown[]) =>
+    mockGetTrainingReferenceForAnalysis(...args),
 }));
 
 vi.mock("@/server/validation/env", () => ({
@@ -87,6 +90,12 @@ async function runBrandTrainingAnalyzeJob() {
 describe("brandTrainingAnalyzeJob", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetTrainingReferenceForAnalysis.mockResolvedValue({
+      id: baseEventData.referenceId,
+      workspaceId: baseEventData.workspaceId,
+      clientProfileId: baseEventData.clientProfileId,
+      reviewStatus: "pending_analysis",
+    });
     mockGetObject.mockResolvedValue(Buffer.from("fake-png-bytes"));
     mockCreateChatCompletion.mockResolvedValue({
       choices: [
@@ -227,6 +236,35 @@ describe("brandTrainingAnalyzeJob", () => {
 
     await expect(runBrandTrainingAnalyzeJob()).rejects.toThrow();
     expect(mockRecordTrainingAnalysis).not.toHaveBeenCalled();
+  });
+
+  it("short-circuits on stale retry: does not call OpenAI when reference is no longer pending_analysis", async () => {
+    // Simulate a retry scenario where the previous attempt already transitioned
+    // the row to pending_approval. The job must skip the LLM call entirely so
+    // we don't re-charge OpenAI for already-done work.
+    mockGetTrainingReferenceForAnalysis.mockResolvedValueOnce({
+      id: baseEventData.referenceId,
+      workspaceId: baseEventData.workspaceId,
+      clientProfileId: baseEventData.clientProfileId,
+      reviewStatus: "pending_approval",
+    });
+
+    const result = await runBrandTrainingAnalyzeJob();
+
+    expect(mockGetTrainingReferenceForAnalysis).toHaveBeenCalledWith(
+      baseEventData.workspaceId,
+      baseEventData.clientProfileId,
+      baseEventData.referenceId,
+    );
+    expect(mockGetObject).not.toHaveBeenCalled();
+    expect(mockCreateChatCompletion).not.toHaveBeenCalled();
+    expect(mockRecordTrainingAnalysis).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      success: true,
+      reason: "already_processed",
+      referenceId: baseEventData.referenceId,
+      reviewStatus: "pending_approval",
+    });
   });
 
   it("advertises valid category and mode enums in the system prompt", async () => {

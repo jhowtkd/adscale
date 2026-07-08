@@ -7,7 +7,10 @@ import {
   BRAND_TRAINING_USAGE_MODES,
   brandTrainingAnalysisSchema,
 } from "@/server/brand-training/contracts";
-import { recordTrainingAnalysis } from "@/server/repositories/client-reference";
+import {
+  getTrainingReferenceForAnalysis,
+  recordTrainingAnalysis,
+} from "@/server/repositories/client-reference";
 import { objectStorage } from "@/server/storage";
 import { env } from "@/server/validation/env";
 
@@ -73,6 +76,35 @@ export const brandTrainingAnalyzeJob = inngest.createFunction(
     logger.info(
       `[brandTrainingAnalyzeJob] START referenceId=${data.referenceId} assetKey=${data.assetKey}`,
     );
+
+    // Short-circuit on stale retry: if a previous attempt already moved this
+    // row out of `pending_analysis` (e.g. via recordTrainingAnalysis), the
+    // work is already done. Bail out *before* any OpenAI call so we do not
+    // re-bill the provider. The schema's WHERE clause in recordTrainingAnalysis
+    // already encodes this invariant; this guard exists so we honor it
+    // earlier and avoid the LLM round-trip on retries.
+    const existingRow = await getTrainingReferenceForAnalysis(
+      data.workspaceId,
+      data.clientProfileId,
+      data.referenceId,
+    );
+    if (!existingRow) {
+      logger.warn(
+        `[brandTrainingAnalyzeJob] SKIP reference not found referenceId=${data.referenceId}`,
+      );
+      return { success: false, reason: "reference_not_found", referenceId: data.referenceId };
+    }
+    if (existingRow.reviewStatus !== "pending_analysis") {
+      logger.info(
+        `[brandTrainingAnalyzeJob] SKIP stale retry referenceId=${data.referenceId} reviewStatus=${existingRow.reviewStatus}`,
+      );
+      return {
+        success: true,
+        reason: "already_processed",
+        referenceId: data.referenceId,
+        reviewStatus: existingRow.reviewStatus,
+      };
+    }
 
     const imageBuffer = await step.run("download-asset", async () => {
       const result = await objectStorage.get(data.assetKey);
