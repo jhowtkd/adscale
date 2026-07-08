@@ -64,10 +64,6 @@ export class CompositeImageProvider {
       const summary = errors
         .map((e) => `${e.provider}: ${e.error instanceof Error ? e.error.message : String(e.error)}`)
         .join("; ");
-      const firstErr = errors[0]?.error;
-      if (firstErr instanceof Error) {
-        throw new Error(`All image providers failed: ${summary}`);
-      }
       throw new Error(`All image providers failed: ${summary}`);
     }
 
