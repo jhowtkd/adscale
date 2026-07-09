@@ -65,6 +65,8 @@
     "item": "item",
     "items": "itens",
     "clear": "Limpar",
+    "remove": "Remover",
+    "saved": "Salvo",
     "chooseFile": "Escolher arquivo",
     "clearSearch": "Limpar busca",
     "noNotifications": "Nenhuma notificação nova.",

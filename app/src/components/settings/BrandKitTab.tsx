@@ -15,9 +15,9 @@ import {
   useExtractBrandKit,
   useUploadLogo,
   useClearBrandKit,
-  BrandKitAmbiguousError,
   BrandKitProfileNotFoundError,
-  type AvailableWorkspace,
+  resolveBrandKitClientProfileId,
+  shouldFetchBrandKit,
 } from "@/lib/hooks/use-brand-kit";
 import { useClientProfiles, useCreateClientProfile } from "@/lib/hooks/use-client-profiles";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
@@ -163,20 +163,29 @@ export default function BrandKitTab() {
   const [newClientName, setNewClientName] = useState("");
   const { data: clientProfiles = [], isSuccess: clientProfilesLoaded } = useClientProfiles();
   const createClientProfile = useCreateClientProfile();
-  const { data: brandKit, isLoading, isError, error } = useBrandKit(selectedProfileId);
-  const updateBrandKit = useUpdateBrandKit(selectedProfileId);
-  const extractBrandKit = useExtractBrandKit(selectedProfileId);
-  const uploadLogo = useUploadLogo(selectedProfileId);
-  const clearBrandKit = useClearBrandKit(selectedProfileId);
+  const brandKitClientProfileId = resolveBrandKitClientProfileId({
+    clientProfileId: selectedProfileId,
+    clientProfiles,
+  });
+  const brandKitQueryEnabled = shouldFetchBrandKit({
+    clientProfileId: brandKitClientProfileId,
+    clientProfiles,
+    profilesLoaded: clientProfilesLoaded,
+  });
+  const { data: brandKit, isLoading, isError, error } = useBrandKit(brandKitClientProfileId, {
+    enabled: brandKitQueryEnabled,
+  });
+  const updateBrandKit = useUpdateBrandKit(brandKitClientProfileId);
+  const extractBrandKit = useExtractBrandKit(brandKitClientProfileId);
+  const uploadLogo = useUploadLogo(brandKitClientProfileId);
+  const clearBrandKit = useClearBrandKit(brandKitClientProfileId);
 
-  const ambiguityError =
-    error instanceof BrandKitAmbiguousError ? error : null;
   const profileNotFoundError =
     error instanceof BrandKitProfileNotFoundError ? error : null;
-  const availableWorkspaces: AvailableWorkspace[] =
-    ambiguityError?.availableWorkspaces ?? [];
   const needsClientProfileSetup =
-    clientProfilesLoaded && !selectedProfileId && (clientProfiles.length === 0 || Boolean(ambiguityError));
+    clientProfilesLoaded &&
+    !brandKitClientProfileId &&
+    (clientProfiles.length === 0 || clientProfiles.length > 1);
 
   const handleCreateClientProfile = () => {
     const name = newClientName.trim();
@@ -469,7 +478,7 @@ export default function BrandKitTab() {
                 : t("brandKit.workspaceSelector.description")}
             </p>
           </div>
-          {ambiguityError ? (
+          {clientProfiles.length > 1 ? (
             <>
               <select
                 value={pendingProfileChoice}
@@ -483,9 +492,9 @@ export default function BrandKitTab() {
                 )}
               >
                 <option value="">{t("brandKit.workspaceSelector.placeholder")}</option>
-                {availableWorkspaces.map((workspace) => (
-                  <option key={workspace.id} value={workspace.id}>
-                    {workspace.name}
+                {clientProfiles.map((profile) => (
+                  <option key={profile.id} value={profile.id}>
+                    {profile.name}
                   </option>
                 ))}
               </select>
@@ -550,7 +559,7 @@ export default function BrandKitTab() {
       )}
 
       {/* Profile Not Found / Generic Error State */}
-      {isError && !isLoading && !ambiguityError && (
+      {isError && !isLoading && !needsClientProfileSetup && (
         <m.div
           variants={itemVariants}
           className="rounded-lg border border-[var(--accent-rose)]/30 bg-[var(--accent-rose)]/10 px-4 py-3 text-sm text-[var(--accent-rose)]"

@@ -65,6 +65,8 @@
     "item": "item",
     "items": "items",
     "clear": "Clear",
+    "remove": "Remove",
+    "saved": "Saved",
     "chooseFile": "Choose file",
     "clearSearch": "Clear search",
     "noNotifications": "No new notifications.",

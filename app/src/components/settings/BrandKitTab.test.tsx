@@ -134,11 +134,10 @@ vi.mock("@/lib/hooks/use-client-profiles", () => ({
   useCreateClientProfile: () => useCreateClientProfileMock(),
 }));
 
-vi.mock("@/lib/hooks/use-brand-kit", () => {
-  // The mock must export the SAME class reference the component imports and
-  // checks with `instanceof`, so the ambiguous error created in the test is
-  // recognised as a BrandKitAmbiguousError inside the component.
+vi.mock("@/lib/hooks/use-brand-kit", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/hooks/use-brand-kit")>();
   return {
+    ...actual,
     useBrandKit: (...args: unknown[]) => useBrandKitMock(...args),
     useUpdateBrandKit: () => useUpdateBrandKitMock(),
     useExtractBrandKit: () => useExtractBrandKitMock(),
@@ -184,15 +183,8 @@ beforeEach(() => {
   });
 });
 
-describe("BrandKitTab — workspace selector on 409", () => {
-  it("renders the profile selector when brand-kit load fails with BrandKitAmbiguousError", () => {
-    useBrandKitMock.mockReturnValue({
-      data: undefined,
-      isLoading: false,
-      isError: true,
-      error: new MockBrandKitAmbiguousError("Multiple client profiles", PROFILES),
-    });
-
+describe("BrandKitTab — workspace selector", () => {
+  it("renders the profile selector when multiple client profiles exist", () => {
     render(<BrandKitTab />, { wrapper: createWrapper() });
 
     expect(screen.getByText("Select a client profile")).toBeInTheDocument();
@@ -204,16 +196,10 @@ describe("BrandKitTab — workspace selector on 409", () => {
     expect(screen.getByRole("option", { name: "Acme" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Beta Corp" })).toBeInTheDocument();
     expect(screen.getByLabelText("Client name")).toBeInTheDocument();
+    expect(useBrandKitMock).toHaveBeenCalledWith(undefined, { enabled: false });
   });
 
   it("re-requests the brand kit with the selected clientProfileId on confirm", async () => {
-    useBrandKitMock.mockReturnValue({
-      data: undefined,
-      isLoading: false,
-      isError: true,
-      error: new MockBrandKitAmbiguousError("Multiple client profiles", PROFILES),
-    });
-
     render(<BrandKitTab />, { wrapper: createWrapper() });
 
     const select = screen.getByRole("combobox", {
@@ -225,11 +211,16 @@ describe("BrandKitTab — workspace selector on 409", () => {
     fireEvent.click(confirm);
 
     await waitFor(() => {
-      expect(useBrandKitMock).toHaveBeenCalledWith("profile-a");
+      expect(useBrandKitMock).toHaveBeenCalledWith("profile-a", { enabled: true });
     });
   });
 
-  it("does not render the selector for generic errors", () => {
+  it("does not render the selector for generic errors on single-profile workspaces", () => {
+    useClientProfilesMock.mockReturnValue({
+      data: [{ id: "profile-only", name: "Solo" }],
+      isSuccess: true,
+      isLoading: false,
+    });
     useBrandKitMock.mockReturnValue({
       data: undefined,
       isLoading: false,
