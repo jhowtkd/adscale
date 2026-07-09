@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { LayoutTemplate, Sparkles } from "lucide-react";
+import { LayoutTemplate, Sparkles, type LucideIcon } from "lucide-react";
 import {
   Sheet,
   SheetBody,
@@ -18,11 +18,19 @@ interface MobileMoreSheetProps {
   onOpenChange: (open: boolean) => void;
 }
 
+type MobileMoreItem = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  active: boolean;
+  badge?: string;
+};
+
 export default function MobileMoreSheet({ open, onOpenChange }: MobileMoreSheetProps) {
   const pathname = usePathname();
   const tNav = useTranslations("navigation");
 
-  const items = [
+  const items: MobileMoreItem[] = [
     {
       href: "/templates",
       label: tNav("templates"),
@@ -36,7 +44,7 @@ export default function MobileMoreSheet({ open, onOpenChange }: MobileMoreSheetP
       active: pathname.startsWith("/assistant"),
       badge: "BETA",
     },
-  ] as const;
+  ];
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
