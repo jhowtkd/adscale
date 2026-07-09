@@ -24,7 +24,10 @@
     "sectionAvancado": "Advanced",
     "creativeIntelligenceAdvanced": "Assistant (advanced)",
     "feedback": "Feedback",
-    "quality": "Quality"
+    "quality": "Quality",
+    "brandKit": "Brand Kit",
+    "brandKitBeta": "BETA",
+    "brandKitHint": "Train the client brand"
   },
   "language": {
     "label": "Language",
@@ -418,7 +421,7 @@
       "seconds": "seconds"
     },
     "home": {
-      "title": "Campaigns",
+      "title": "Home",
       "summary": "{totalCampaigns} active campaigns · {derivationsThisMonth} derivations this month",
       "updatingStats": "Updating statistics",
       "searchPlaceholder": "Search...",
@@ -431,6 +434,9 @@
       "emptyAdjustSearch": "Try adjusting your search terms",
       "emptyCreateHint": "Define your brief, run a batch of variations, then approve what ships—start with your first campaign.",
       "createCampaign": "Create campaign",
+      "continueWhereLeftOff": "Continue where I left off",
+      "continueCampaignHint": "Resume {name}",
+      "continueEmpty": "Nothing in progress yet. Create a campaign to get started.",
       "errorTitle": "Failed to load",
       "errorDescription": "Could not load dashboard",
       "retry": "Try again"
@@ -2536,6 +2542,8 @@
       "addImage": "Add image",
       "removeAttachment": "Remove attachment",
       "attachmentError": "Could not upload image",
+      "attachmentTypeError": "Use PNG, JPG, or WebP images only.",
+      "maxAttachments": "You can attach up to 5 images per message.",
       "imageAttachment": "Image attachment"
     },
     "guidedFlow": {
@@ -2644,7 +2652,11 @@
       "loading": "Loading conversation…",
       "headerSubtitle": "active conversation",
       "streaming": "Assistant is responding…",
-      "uploading": "Uploading…"
+      "uploading": "Uploading…",
+      "addImage": "Add image",
+      "removeAttachment": "Remove attachment",
+      "attachmentTypeError": "Use PNG, JPG, or WebP images only.",
+      "maxAttachments": "You can attach up to 5 images per message."
     },
     "drawer": {
       "title": "Campaign assistant",

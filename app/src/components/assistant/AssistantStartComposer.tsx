@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { useCallback, useMemo, useState, type FormEvent, type KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { ArrowUp, ImagePlus, Loader2, X } from "lucide-react";
@@ -10,10 +10,7 @@ import { cn } from "@/lib/utils";
 import { useClientProfiles } from "@/lib/hooks/use-client-profiles";
 import { useCreateAssistantThread } from "@/lib/hooks/use-assistant-threads";
 import { useUpsertGuidedFlow, type GuidedFlowPath } from "@/lib/hooks/use-guided-flow";
-import {
-  uploadChatAttachment,
-  type ChatAttachment,
-} from "@/lib/assistant/chat-attachments";
+import { useChatComposerAttachments } from "@/lib/assistant/use-chat-composer-attachments";
 import { useAssistantSurface } from "./AssistantSurfaceContext";
 import AssistantJourneyCards from "./AssistantJourneyCards";
 
@@ -51,10 +48,27 @@ export default function AssistantStartComposer({
   );
   const [value, setValue] = useState("");
   const [clientId, setClientId] = useState<string | null>(activeClientId);
-  const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
-  const [uploading, setUploading] = useState(false);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const onUploadError = useCallback(
+    (message: string) => setAttachmentError(message),
+    []
+  );
+
+  const {
+    attachments,
+    isUploading: uploading,
+    dragOver,
+    fileInputRef,
+    removeAttachment,
+    clearAttachments,
+    handleFileInputChange,
+    dragHandlers,
+  } = useChatComposerAttachments({
+    onError: onUploadError,
+    maxAttachmentsError: t("maxAttachments"),
+    invalidTypeError: t("attachmentTypeError"),
+  });
 
   const isAgent = experience === "agent";
 
@@ -85,29 +99,6 @@ export default function AssistantStartComposer({
     }
   };
 
-  const handleFiles = async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    setUploading(true);
-    setAttachmentError(null);
-    try {
-      const uploaded = await Promise.all(
-        Array.from(files).map((file) => uploadChatAttachment(file))
-      );
-      setAttachments((prev) => [...prev, ...uploaded]);
-    } catch (error) {
-      setAttachmentError(
-        error instanceof Error ? error.message : t("attachmentError")
-      );
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
-  };
-
-  const removeAttachment = (assetId: string) => {
-    setAttachments((prev) => prev.filter((a) => a.assetId !== assetId));
-  };
-
   const submit = async () => {
     const trimmed = value.trim();
     if ((!trimmed && attachments.length === 0) || !effectiveClientId || createThread.isPending) {
@@ -117,7 +108,7 @@ export default function AssistantStartComposer({
     setActiveClientId(effectiveClientId);
     setPendingFirstMessage({ text: trimmed, attachments });
     setValue("");
-    setAttachments([]);
+    clearAttachments();
 
     try {
       const thread = await createThread.mutateAsync({
@@ -277,7 +268,14 @@ export default function AssistantStartComposer({
         className="w-full max-w-2xl"
         data-testid="assistant-start-form"
       >
-        <div className="overflow-hidden rounded-2xl border border-[var(--border-dim)] bg-[var(--surface-raised)] shadow-lg shadow-black/20 focus-within:border-[var(--accent-primary)]">
+        <div
+          className={cn(
+            "overflow-hidden rounded-2xl border border-[var(--border-dim)] bg-[var(--surface-raised)] shadow-lg shadow-black/20 focus-within:border-[var(--accent-primary)]",
+            dragOver && "border-[var(--accent-primary)] ring-2 ring-inset ring-[var(--accent-primary)]"
+          )}
+          data-testid="assistant-start-dropzone"
+          {...dragHandlers}
+        >
           {attachments.length > 0 ? (
             <div className="flex flex-wrap gap-2 px-3 pt-3">
               {attachments.map((attachment) => (
@@ -317,7 +315,10 @@ export default function AssistantStartComposer({
                 type="file"
                 accept="image/png,image/jpeg,image/webp"
                 multiple
-                onChange={(event) => void handleFiles(event.target.files)}
+                onChange={(event) => {
+                  setAttachmentError(null);
+                  handleFileInputChange(event.target.files);
+                }}
                 className="hidden"
                 data-testid="assistant-start-file-input"
               />

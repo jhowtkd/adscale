@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo } from "react";
+import { Suspense, useEffect, useMemo } from "react";
 import { m } from "framer-motion";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -10,7 +10,7 @@ import SettingsV6View from "@/components/settings/v6/SettingsV6View";
 import { buildSettingsV6Labels } from "@/components/settings/v6/build-settings-v6-labels";
 import { mapSettingsToV6Cards } from "@/components/settings/v6/map-settings-v6";
 import { useTranslations } from "next-intl";
-import { resolveSettingsTab } from "./settings-tabs";
+import { isLegacyBrandSettingsTab, resolveSettingsTab } from "./settings-tabs";
 
 const WorkspaceTab = dynamic(() => import("@/components/settings/WorkspaceTab"), {
   loading: () => <SettingsTabSkeleton />,
@@ -19,15 +19,6 @@ const WorkspaceTab = dynamic(() => import("@/components/settings/WorkspaceTab"),
 const TeamTab = dynamic(() => import("@/components/settings/TeamTab"), {
   loading: () => <SettingsTabSkeleton />,
 });
-
-const BrandKitTab = dynamic(() => import("@/components/settings/BrandKitTab"), {
-  loading: () => <SettingsTabSkeleton />,
-});
-
-const BrandTrainingWizard = dynamic(
-  () => import("@/components/brand-training/BrandTrainingWizard").then((m) => m.default),
-  { loading: () => <SettingsTabSkeleton /> },
-);
 
 const BillingTab = dynamic(() => import("@/components/settings/BillingTab"), {
   loading: () => <SettingsTabSkeleton />,
@@ -68,17 +59,30 @@ function SettingsContent() {
   const t = useTranslations("settings");
   const tc = useTranslations("common");
   const requestedTab = searchParams.get("tab");
+
+  useEffect(() => {
+    if (!isLegacyBrandSettingsTab(requestedTab)) return;
+    const clientProfileId = searchParams.get("clientProfileId");
+    const params = new URLSearchParams();
+    if (requestedTab === "brandTraining") params.set("mode", "training");
+    if (clientProfileId) params.set("clientProfileId", clientProfileId);
+    const qs = params.toString();
+    router.replace(qs ? `/brand-kit?${qs}` : "/brand-kit");
+  }, [requestedTab, searchParams, router]);
+
   const activeTab = resolveSettingsTab(requestedTab);
 
   const labels = useMemo(() => buildSettingsV6Labels(t), [t]);
   const cards = useMemo(() => mapSettingsToV6Cards({ t, tc }), [t, tc]);
 
+  if (isLegacyBrandSettingsTab(requestedTab)) {
+    return <SettingsTabSkeleton />;
+  }
+
   const panel = (
     <m.div key={activeTab} variants={tabVariants} initial="hidden" animate="visible">
       {activeTab === "profile" && <ProfileTab />}
       {activeTab === "workspace" && <WorkspaceTab />}
-      {activeTab === "brandKit" && <BrandKitTab />}
-      {activeTab === "brandTraining" && <BrandTrainingWizard />}
       {activeTab === "team" && <TeamTab />}
       {activeTab === "billing" && <BillingTab />}
       {activeTab === "creditHistory" && <CreditHistoryTab />}

@@ -1,5 +1,8 @@
 import { isAllowedImageType, validateImageMagicBytes } from "@/lib/upload-config";
 
+/** Matches `attachments.max(5)` on the assistant chat API route. */
+export const MAX_CHAT_ATTACHMENTS = 5;
+
 export interface ChatAttachment {
   assetId: string;
   key: string;
@@ -7,6 +10,17 @@ export interface ChatAttachment {
   type: string;
   name: string;
   size: number;
+}
+
+export function collectImageFiles(
+  files: FileList | File[] | null | undefined
+): File[] {
+  if (!files) return [];
+  return Array.from(files).filter((file) => isAllowedImageType(file.type));
+}
+
+export function remainingAttachmentSlots(currentCount: number): number {
+  return Math.max(0, MAX_CHAT_ATTACHMENTS - currentCount);
 }
 
 export async function uploadChatAttachment(file: File): Promise<ChatAttachment> {
@@ -53,4 +67,14 @@ export async function uploadChatAttachment(file: File): Promise<ChatAttachment> 
     name: data.asset.name,
     size: data.asset.size,
   };
+}
+
+export async function uploadChatAttachments(
+  files: File[]
+): Promise<ChatAttachment[]> {
+  const uploaded: ChatAttachment[] = [];
+  for (const file of files) {
+    uploaded.push(await uploadChatAttachment(file));
+  }
+  return uploaded;
 }

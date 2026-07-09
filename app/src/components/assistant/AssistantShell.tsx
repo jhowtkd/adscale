@@ -13,10 +13,12 @@ export default function AssistantShell({
   main,
   contextPanel,
   mode,
+  hideDesktopSidebar = false,
 }: {
   sidebar: ReactNode;
   main: ReactNode;
   contextPanel: ReactNode;
+  hideDesktopSidebar?: boolean;
   /**
    * Workspace mode widens the visual workspace column so the goal-agent
    * candidate/package grid never shrinks below 640px. Conversation mode keeps
@@ -50,19 +52,27 @@ export default function AssistantShell({
           data-testid="assistant-desktop-layout"
           className={cn(
             "hidden min-h-screen md:grid",
-            isWorkspace
-              ? "grid-cols-[220px_minmax(320px,0.65fr)_minmax(640px,1.35fr)]"
-              : contextOpen
-                ? "grid-cols-[240px_1fr_320px]"
-                : "grid-cols-[240px_1fr]"
+            hideDesktopSidebar
+              ? isWorkspace
+                ? "grid-cols-[minmax(320px,0.65fr)_minmax(640px,1.35fr)]"
+                : contextOpen
+                  ? "grid-cols-[1fr_320px]"
+                  : "grid-cols-1"
+              : isWorkspace
+                ? "grid-cols-[220px_minmax(320px,0.65fr)_minmax(640px,1.35fr)]"
+                : contextOpen
+                  ? "grid-cols-[240px_1fr_320px]"
+                  : "grid-cols-[240px_1fr]"
           )}
         >
-          <aside
-            data-testid="assistant-desktop-sidebar"
-            className="border-r border-[var(--border-subtle)] bg-[var(--surface-base)]"
-          >
-            {sidebar}
-          </aside>
+          {!hideDesktopSidebar ? (
+            <aside
+              data-testid="assistant-desktop-sidebar"
+              className="border-r border-[var(--border-subtle)] bg-[var(--surface-base)]"
+            >
+              {sidebar}
+            </aside>
+          ) : null}
 
           <main
             id="main"

@@ -26,7 +26,7 @@ export default function AppShell({ children }: AppShellProps) {
 
   return (
     <V6ShellLayout>
-      <main id="main" className="v6-shell-main dot-grid shell-offset-bottom-mobile min-h-screen">
+      <main id="main" className="v6-shell-main shell-offset-bottom-mobile min-h-screen">
         <div className="relative min-w-0 overflow-x-clip shell-min-height-below-topbar">{children}</div>
         <Footer />
       </main>

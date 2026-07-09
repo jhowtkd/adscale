@@ -106,7 +106,7 @@ export default function BrandTrainingWizard() {
             onSelect={(id) => {
               setClientProfileId(id);
               router.replace(
-                `/settings?tab=brandTraining&clientProfileId=${encodeURIComponent(id)}`,
+                `/brand-kit?mode=training&clientProfileId=${encodeURIComponent(id)}`,
                 { scroll: false },
               );
             }}
@@ -118,7 +118,7 @@ export default function BrandTrainingWizard() {
             onSelect={(id) => {
               setClientProfileId(id);
               router.replace(
-                `/settings?tab=brandTraining&clientProfileId=${encodeURIComponent(id)}`,
+                `/brand-kit?mode=training&clientProfileId=${encodeURIComponent(id)}`,
                 { scroll: false },
               );
             }}
@@ -161,7 +161,7 @@ export default function BrandTrainingWizard() {
               {tc("next")} <ArrowRight size={16} />
             </Button>
           ) : (
-            <Button onClick={() => router.push("/settings?tab=brandKit")} className="gap-1.5">
+            <Button onClick={() => router.push("/brand-kit")} className="gap-1.5">
               <Check size={16} /> {t("finish")}
             </Button>
           )}

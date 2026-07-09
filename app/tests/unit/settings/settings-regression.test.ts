@@ -48,10 +48,13 @@ describe("settings regression guard (TRUST-05)", () => {
     expect(isSettingsTabEnabled("integrations")).toBe(false);
   });
 
-  it("keeps brandKit enabled as default landing tab", () => {
+  it("moves Brand Kit out of settings into a first-class feature route", () => {
     const brandKit = settingsTabs.find((tab) => tab.id === "brandKit");
+    const brandTraining = settingsTabs.find((tab) => (tab as { id: string }).id === "brandTraining");
 
-    expect(brandKit?.enabled).toBe(true);
-    expect(isSettingsTabEnabled("brandKit")).toBe(true);
+    expect(brandKit).toBeUndefined();
+    expect(brandTraining).toBeUndefined();
+    expect(isSettingsTabEnabled("brandKit")).toBe(false);
+    expect(isSettingsTabEnabled("brandTraining")).toBe(false);
   });
 });

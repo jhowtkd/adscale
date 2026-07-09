@@ -1,15 +1,12 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useCallback, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { useCallback, useState, type FormEvent, type KeyboardEvent } from "react";
 import { ImagePlus, Send, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import {
-  uploadChatAttachment,
-  type ChatAttachment,
-} from "@/lib/assistant/chat-attachments";
-import { isAllowedImageType } from "@/lib/upload-config";
+import type { ChatAttachment } from "@/lib/assistant/chat-attachments";
+import { useChatComposerAttachments } from "@/lib/assistant/use-chat-composer-attachments";
 
 export interface AssistantChatInputProps {
   disabled: boolean;
@@ -33,37 +30,34 @@ export default function AssistantChatInput({
   const isControlled = draftText !== undefined && onDraftTextChange !== undefined;
   const value = isControlled ? draftText : localValue;
   const setValue = isControlled ? onDraftTextChange : setLocalValue;
-  const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [dragOver, setDragOver] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const onUploadError = useCallback(
+    (message: string) => setUploadError(message),
+    []
+  );
+
+  const {
+    attachments,
+    isUploading,
+    dragOver,
+    fileInputRef,
+    removeAttachment,
+    clearAttachments,
+    handleFileInputChange,
+    dragHandlers,
+    addFiles,
+  } = useChatComposerAttachments({
+    onError: onUploadError,
+    maxAttachmentsError: t("maxAttachments"),
+    invalidTypeError: t("attachmentTypeError"),
+  });
 
   const canSend =
     !disabled &&
     !isStreaming &&
     !isUploading &&
     (value.trim().length > 0 || attachments.length > 0);
-
-  const addFile = useCallback(async (file: File) => {
-    if (!isAllowedImageType(file.type)) {
-      setUploadError("Use PNG, JPG ou WebP.");
-      return;
-    }
-
-    setUploadError(null);
-    setIsUploading(true);
-    try {
-      const uploaded = await uploadChatAttachment(file);
-      setAttachments((prev) => [...prev, uploaded]);
-    } catch (error) {
-      setUploadError(
-        error instanceof Error ? error.message : "Falha ao enviar imagem"
-      );
-    } finally {
-      setIsUploading(false);
-    }
-  }, []);
 
   const submit = () => {
     if (!canSend) {
@@ -73,7 +67,7 @@ export default function AssistantChatInput({
     if (!isControlled) {
       setLocalValue("");
     }
-    setAttachments([]);
+    clearAttachments();
     setUploadError(null);
   };
 
@@ -91,20 +85,12 @@ export default function AssistantChatInput({
 
   const handlePaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const file = Array.from(event.clipboardData.files).find((item) =>
-      isAllowedImageType(item.type)
+      item.type.startsWith("image/")
     );
     if (!file) return;
     event.preventDefault();
-    void addFile(file);
-  };
-
-  const handleDrop = (event: React.DragEvent) => {
-    event.preventDefault();
-    setDragOver(false);
-    const file = event.dataTransfer.files[0];
-    if (file) {
-      void addFile(file);
-    }
+    setUploadError(null);
+    void addFiles([file]);
   };
 
   return (
@@ -115,12 +101,7 @@ export default function AssistantChatInput({
         dragOver && "ring-2 ring-inset ring-[var(--accent-primary)]"
       )}
       data-testid="assistant-chat-input"
-      onDragOver={(event) => {
-        event.preventDefault();
-        setDragOver(true);
-      }}
-      onDragLeave={() => setDragOver(false)}
-      onDrop={handleDrop}
+      {...dragHandlers}
     >
       {noThread ? (
         <p className="mb-2 text-xs text-[var(--text-muted)]">{t("noThreadHint")}</p>
@@ -148,12 +129,8 @@ export default function AssistantChatInput({
               <button
                 type="button"
                 className="absolute -right-1 -top-1 rounded-full bg-[var(--surface-raised)] p-0.5 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-                aria-label="Remover anexo"
-                onClick={() =>
-                  setAttachments((prev) =>
-                    prev.filter((item) => item.assetId !== attachment.assetId)
-                  )
-                }
+                aria-label={t("removeAttachment")}
+                onClick={() => removeAttachment(attachment.assetId)}
               >
                 <X className="size-3" aria-hidden="true" />
               </button>
@@ -168,24 +145,28 @@ export default function AssistantChatInput({
         </p>
       ) : null}
 
-      <div className="flex items-end gap-2 rounded-[var(--radius-panel)] border border-[var(--border-default)] bg-[var(--surface-raised)] p-2">
+      <div
+        className={cn(
+          "flex items-end gap-2 rounded-[var(--radius-panel)] border border-[var(--border-default)] bg-[var(--surface-raised)] p-2",
+          dragOver && "border-[var(--accent-primary)]"
+        )}
+        data-testid="assistant-chat-input-dropzone"
+      >
         <input
           ref={fileInputRef}
           type="file"
           accept="image/png,image/jpeg,image/webp"
+          multiple
           className="hidden"
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            if (file) void addFile(file);
-            event.target.value = "";
-          }}
+          data-testid="assistant-chat-file-input"
+          onChange={(event) => handleFileInputChange(event.target.files)}
         />
         <Button
           type="button"
           size="sm"
           variant="ghost"
           disabled={disabled || isStreaming || isUploading}
-          aria-label="Anexar imagem"
+          aria-label={t("addImage")}
           onClick={() => fileInputRef.current?.click()}
           className="shrink-0"
         >

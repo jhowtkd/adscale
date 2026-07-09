@@ -12,6 +12,7 @@ function shell(props: {
   main: React.ReactNode;
   contextPanel: React.ReactNode;
   mode?: "conversation" | "workspace";
+  hideDesktopSidebar?: boolean;
 }) {
   return render(
     <AssistantSurfaceProvider>
@@ -62,5 +63,20 @@ describe("AssistantShell", () => {
     const layout = screen.getByTestId("assistant-desktop-layout");
     expect(layout.className).toContain("grid-cols-[220px_minmax(320px,0.65fr)_minmax(640px,1.35fr)]");
     expect(screen.getByTestId("assistant-desktop-workspace")).toHaveTextContent("Workspace slot");
+  });
+
+  it("hides the desktop tree sidebar when hideDesktopSidebar is set", () => {
+    shell({
+      sidebar: <div>Sidebar slot</div>,
+      main: <div>Main slot</div>,
+      contextPanel: <div>Context slot</div>,
+      hideDesktopSidebar: true,
+    });
+
+    expect(screen.queryByTestId("assistant-desktop-sidebar")).not.toBeInTheDocument();
+    expect(screen.getByTestId("assistant-desktop-main")).toHaveTextContent("Main slot");
+    expect(screen.getByTestId("assistant-desktop-layout").className).toContain(
+      "grid-cols-[1fr_320px]"
+    );
   });
 });

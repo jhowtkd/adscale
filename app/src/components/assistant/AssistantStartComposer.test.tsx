@@ -6,6 +6,7 @@ import { AssistantSurfaceProvider } from "./AssistantSurfaceContext";
 
 const mockReplace = vi.fn();
 const mockMutateAsync = vi.fn();
+const mockUploadChatAttachment = vi.fn();
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: mockReplace }),
@@ -37,6 +38,15 @@ vi.mock("@/lib/hooks/use-guided-flow", () => ({
     isPending: false,
   }),
 }));
+
+vi.mock("@/lib/assistant/chat-attachments", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/assistant/chat-attachments")>();
+  return {
+    ...actual,
+    uploadChatAttachment: (...args: Parameters<typeof actual.uploadChatAttachment>) =>
+      mockUploadChatAttachment(...args),
+  };
+});
 
 import { useClientProfiles } from "@/lib/hooks/use-client-profiles";
 
@@ -70,6 +80,14 @@ function createWrapper() {
 describe("AssistantStartComposer", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUploadChatAttachment.mockImplementation(async (file: File) => ({
+      assetId: `asset-${file.name}`,
+      key: `key-${file.name}`,
+      url: `https://example.com/${file.name}`,
+      type: file.type,
+      name: file.name,
+      size: file.size,
+    }));
     mockUseClientProfiles.mockReturnValue({
       data: [clientFixture],
       isLoading: false,
@@ -127,6 +145,53 @@ describe("AssistantStartComposer", () => {
     expect(sendButton).toBeDisabled();
   });
 
+  it("appends a second image attachment chip", async () => {
+    render(
+      <AssistantStartComposer onSelectThread={vi.fn()} />,
+      { wrapper: createWrapper() }
+    );
+
+    const input = screen.getByTestId("assistant-start-file-input");
+
+    fireEvent.change(input, {
+      target: { files: [new File(["a"], "one.png", { type: "image/png" })] },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("one.png")).toBeInTheDocument();
+    });
+
+    fireEvent.change(input, {
+      target: { files: [new File(["b"], "two.png", { type: "image/png" })] },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("two.png")).toBeInTheDocument();
+    });
+
+    expect(screen.getByText("one.png")).toBeInTheDocument();
+    expect(mockUploadChatAttachment).toHaveBeenCalledTimes(2);
+  });
+
+  it("accepts drag-and-drop images on the start composer", async () => {
+    render(
+      <AssistantStartComposer onSelectThread={vi.fn()} />,
+      { wrapper: createWrapper() }
+    );
+
+    const dropzone = screen.getByTestId("assistant-start-dropzone");
+
+    fireEvent.drop(dropzone, {
+      dataTransfer: {
+        files: [new File(["c"], "drop.png", { type: "image/png" })],
+      },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("drop.png")).toBeInTheDocument();
+    });
+  });
+
   it("shows the no-projects empty state when there are no clients", () => {
     mockUseClientProfiles.mockReturnValue({
       data: [],
@@ -146,6 +211,14 @@ describe("AssistantStartComposer", () => {
 describe("AssistantStartComposer goal-agent experience", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUploadChatAttachment.mockImplementation(async (file: File) => ({
+      assetId: `asset-${file.name}`,
+      key: `key-${file.name}`,
+      url: `https://example.com/${file.name}`,
+      type: file.type,
+      name: file.name,
+      size: file.size,
+    }));
     mockUseClientProfiles.mockReturnValue({
       data: [clientFixture],
       isLoading: false,

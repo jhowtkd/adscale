@@ -22,7 +22,7 @@ import { useBillingStatus } from "@/lib/hooks/use-billing";
 import AccountStatusBadge from "@/components/layout/AccountStatusBadge";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useScrollDirection } from "@/lib/hooks/use-scroll-direction";
 import { useIsMobile } from "@/lib/hooks/use-media-query";
 import {
@@ -51,8 +51,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
-const PANEL_RETURN_KEY = "adscale:panel-return";
 
 const CAMPAIGN_DETAIL_PATH_REGEX = /^\/campaigns\/[^/]+$/;
 
@@ -149,7 +147,6 @@ export default function TopBar({
   const markAsRead = useMarkNotificationAsRead();
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const user = useAppStore((s) => s.user);
   const campaignDetailTitle = useAppStore((s) => s.currentPageTitle);
   const sessionUser = session?.user;
@@ -171,7 +168,6 @@ export default function TopBar({
   const notificationItems = notificationsData ?? [];
   const unreadCount = notificationItems.filter((n) => !n.readAt).length;
   const isDashboard = pathname === "/";
-  const isChatMode = pathname.startsWith("/assistant");
   const sessionUserForDemo: UserLike | null = sessionUser
     ? { id: sessionUser.id, email: sessionUser.email, name: sessionUser.name }
     : null;
@@ -192,22 +188,6 @@ export default function TopBar({
       }),
     [pathname, campaignDetailTitle, tNav, tCommon, tSettings, tAssistant, tLibrary]
   );
-
-  const switchToChat = () => {
-    if (!isChatMode) {
-      const query = searchParams.toString();
-      const returnPath = query ? `${pathname}?${query}` : pathname;
-      sessionStorage.setItem(PANEL_RETURN_KEY, returnPath);
-    }
-    const threadId = searchParams.get("threadId");
-    const query = threadId ? `?threadId=${encodeURIComponent(threadId)}` : "";
-    router.push(`/assistant${query}`);
-  };
-
-  const switchToPanel = () => {
-    const stored = sessionStorage.getItem(PANEL_RETURN_KEY);
-    router.push(stored ?? "/");
-  };
 
   const goToSettings = (tab: string) => {
     router.push(`/settings?tab=${tab}`);
@@ -319,20 +299,6 @@ export default function TopBar({
         )}
       </div>
 
-      {/* Center: mode toggle only while in full assistant workspace */}
-      {(isInline || isV6Floating) && isChatMode && (
-        <div className={cn("flex shrink-0 justify-center px-4", isV6Floating && "flex-none")}>
-          <ModeToggle
-            isChatMode={isChatMode}
-            panelLabel={tAssistant("panel")}
-            chatLabel={tAssistant("chat")}
-            onSelectPanel={switchToPanel}
-            onSelectChat={switchToChat}
-            tone={isV6Floating ? "v6" : "default"}
-          />
-        </div>
-      )}
-
       {/* Right: Actions */}
       <div
         className={cn(
@@ -340,15 +306,6 @@ export default function TopBar({
           isInline || isV6Floating ? "min-w-0 flex-1 justify-end gap-2 sm:gap-3" : "gap-2 sm:gap-2.5"
         )}
       >
-        {!isInline && !isV6Floating && isChatMode && (
-          <ModeToggle
-            isChatMode={isChatMode}
-            panelLabel={tAssistant("panel")}
-            chatLabel={tAssistant("chat")}
-            onSelectPanel={switchToPanel}
-            onSelectChat={switchToChat}
-          />
-        )}
         <LanguageSwitcher className="[&_button]:size-9 [&_button]:justify-center [&_button]:gap-0 [&_button]:px-0 sm:[&_button]:h-9 sm:[&_button]:w-auto sm:[&_button]:gap-1 sm:[&_button]:px-2 [&_button_svg]:hidden sm:[&_button_svg]:block" />
         {!isV6Floating && <FeedbackTriggerButton />}
 
@@ -361,7 +318,7 @@ export default function TopBar({
           </Link>
         )}
 
-        {(isDashboard || isV6Floating) && (
+        {isDashboard && !isV6Floating && (
           <Link
             href="/campaigns?new=1"
             aria-label={tCampaign("new")}
@@ -748,72 +705,6 @@ function groupNotificationsByDate(
 }
 
 // Navigation Link Component
-function ModeToggle({
-  isChatMode,
-  panelLabel,
-  chatLabel,
-  onSelectPanel,
-  onSelectChat,
-  tone = "default",
-}: {
-  isChatMode: boolean;
-  panelLabel: string;
-  chatLabel: string;
-  onSelectPanel: () => void;
-  onSelectChat: () => void;
-  tone?: "default" | "v6";
-}) {
-  const isV6 = tone === "v6";
-  return (
-    <div
-      role="group"
-      aria-label="Application mode"
-      className={cn(
-        "flex items-center p-0.5",
-        isV6
-          ? "h-8 gap-0.5 rounded-[10px] border border-[var(--border-default)] bg-[var(--surface-base)]"
-          : "rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)]"
-      )}
-    >
-      <button
-        type="button"
-        aria-pressed={!isChatMode}
-        onClick={onSelectPanel}
-        className={cn(
-          "rounded-md font-medium transition-colors",
-          isV6 ? "h-6 px-3.5 text-xs" : "rounded-md px-2 py-1 text-[11px] sm:px-2.5 sm:py-1.5 sm:text-xs",
-          !isChatMode
-            ? isV6
-              ? "bg-[var(--accent-primary)] font-semibold text-[var(--text-on-accent)] shadow-sm"
-              : "bg-[var(--accent-green-dim)] text-[var(--accent-green-text)]"
-            : "text-[var(--text-secondary)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)]"
-        )}
-      >
-        {panelLabel}
-      </button>
-      <button
-        type="button"
-        aria-pressed={isChatMode}
-        onClick={onSelectChat}
-        className={cn(
-          "flex items-center gap-1.5 rounded-md font-medium transition-colors",
-          isV6 ? "h-6 px-3.5 text-xs" : "rounded-md px-2 py-1 text-[11px] sm:px-2.5 sm:py-1.5 sm:text-xs",
-          isChatMode
-            ? isV6
-              ? "bg-[var(--accent-primary)] font-semibold text-[var(--text-on-accent)] shadow-sm"
-              : "bg-[var(--accent-green-dim)] text-[var(--accent-green-text)]"
-            : "text-[var(--text-secondary)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)]"
-        )}
-      >
-        {chatLabel}
-        <span aria-hidden="true" className="rounded bg-[var(--accent-primary)] px-1 py-px font-mono text-[8px] font-semibold leading-none text-[var(--text-on-accent)]">
-          NOVO
-        </span>
-      </button>
-    </div>
-  );
-}
-
 function NavLink({
   href,
   icon: Icon,

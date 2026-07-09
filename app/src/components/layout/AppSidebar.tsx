@@ -1,21 +1,37 @@
 "use client";
 
+import { Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import {
+  BookOpen,
+  FolderOpen,
+  LayoutDashboard,
+  LogOut,
+  Plus,
+  type LucideIcon,
+} from "lucide-react";
 import { useAppStore } from "@/lib/store";
 import { useCampaigns } from "@/lib/hooks/use-campaigns";
 import { useBillingStatus } from "@/lib/hooks/use-billing";
 import { authClient } from "@/lib/auth-client";
 import AccountStatusBadge from "@/components/layout/AccountStatusBadge";
+import SidebarAssistantModeSwitch from "@/components/layout/SidebarAssistantModeSwitch";
+import SidebarBrandKitFeature from "@/components/layout/SidebarBrandKitFeature";
+import AppSidebarCampaignMap from "@/components/layout/AppSidebarCampaignMap";
+import { GlowingEffect } from "@/components/ui/glowing-effect";
+import { cn } from "@/lib/utils";
 
 type AppSidebarVariant = "production" | "preview";
 
 export default function AppSidebar({ variant = "production" }: { variant?: AppSidebarVariant }) {
   const pathname = usePathname();
+  const router = useRouter();
   const tNav = useTranslations("navigation");
   const tLibrary = useTranslations("library");
+  const tCommon = useTranslations("common");
   const user = useAppStore((s) => s.user);
   const billing = useAppStore((s) => s.billing);
   const { data: session } = authClient.useSession();
@@ -35,8 +51,6 @@ export default function AppSidebar({ variant = "production" }: { variant?: AppSi
     .join("") || "U";
   const planLabel = billingStatus?.access?.label ?? billing.planName;
   const isTesterAccount = billingStatus?.access?.kind === "tester";
-  // Workspace membership role (owner/admin/member) drives operational gating.
-  // access.kind is billing entitlement (paid/beta/tester/none), not a role.
   const accessRole = billingStatus?.access?.role;
   const isOwnerOrAdmin = accessRole === "owner" || accessRole === "admin";
 
@@ -52,9 +66,26 @@ export default function AppSidebar({ variant = "production" }: { variant?: AppSi
 
   const campaignCount = isPreview ? "12" : totalCount > 0 ? String(totalCount) : undefined;
 
+  const handleLogout = () => {
+    void authClient.signOut({
+      fetchOptions: {
+        onSuccess: () => router.push("/login"),
+      },
+    });
+  };
+
   return (
-    <aside className="v6-shell-sidebar" aria-label="Navegação principal">
-      <div className="mb-2.5 border-b border-[var(--border-subtle)] px-2 pb-4 pt-2">
+    <aside className="v6-shell-sidebar relative" aria-label="Navegação principal">
+      <GlowingEffect
+        spread={40}
+        glow
+        disabled={false}
+        proximity={64}
+        inactiveZone={0.01}
+        borderWidth={2}
+      />
+      <div className="relative z-[1] flex min-h-0 flex-1 flex-col gap-1">
+      <div className="mb-2.5 shrink-0 border-b border-[var(--border-subtle)] px-2 pb-4 pt-2">
         <Link href={homeHref} className="flex w-full justify-center rounded-md py-0.5" aria-label="ADScale">
           <Image
             src="/images/logo.svg"
@@ -69,50 +100,72 @@ export default function AppSidebar({ variant = "production" }: { variant?: AppSi
         </Link>
       </div>
 
-      <nav className="flex flex-col gap-0.5">
-        <p className="px-2.5 pb-1 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-muted)]">
-          {tNav("sectionPrincipal")}
-        </p>
-        <NavItem
+      {!isPreview ? (
+        <div className="mb-3 shrink-0 px-1">
+          <Suspense fallback={null}>
+            <SidebarAssistantModeSwitch />
+          </Suspense>
+        </div>
+      ) : null}
+
+      <nav
+        className="mb-3 grid shrink-0 grid-cols-4 gap-1"
+        aria-label={tNav("sectionPrincipal")}
+      >
+        <IconNavItem
           href={isPreview ? "/v6/dashboard" : "/"}
           active={isDashboard}
           label={tNav("dashboard")}
+          icon={LayoutDashboard}
         />
-        <NavItem
+        <IconNavItem
           href={isPreview ? "/v6/campaigns" : "/campaigns"}
           active={isCampaigns}
           label={tNav("campaigns")}
+          icon={FolderOpen}
           count={campaignCount}
         />
-        <NavItem
+        <IconNavItem
           href={isPreview ? "/v6/library" : "/library"}
           active={isLibrary}
           label={tLibrary("title")}
+          icon={BookOpen}
+        />
+        <IconNavItem
+          href={isPreview ? "#" : "/campaigns?new=1"}
+          active={false}
+          label={tCommon("create")}
+          icon={Plus}
         />
       </nav>
 
-      <div className="mt-3 flex flex-col gap-0.5 border-t border-[var(--border-subtle)] pt-3">
-        <p className="px-2.5 pb-1 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-muted)]">
-          {tNav("sectionAvancado")}
-        </p>
-        <NavItem
-          href={isPreview ? "#" : "/assistant"}
-          active={!isPreview && pathname.startsWith("/assistant")}
-          label={tNav("creativeIntelligenceAdvanced")}
-          badge="BETA"
-        />
-      </div>
+      {!isPreview ? (
+        <div className="mb-3 shrink-0 px-1">
+          <Suspense fallback={null}>
+            <SidebarBrandKitFeature />
+          </Suspense>
+        </div>
+      ) : null}
+
+      {!isPreview ? (
+        <div className="min-h-0 flex-1 overflow-hidden border-t border-[var(--border-subtle)] pt-2">
+          <AppSidebarCampaignMap />
+        </div>
+      ) : (
+        <div className="flex-1" />
+      )}
 
       {isOwnerOrAdmin && (
-        <div className="mt-3 flex flex-col gap-0.5 border-t border-[var(--border-subtle)] pt-3">
-          <p className="px-2.5 pb-1 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-muted)]">
-            {tNav("sectionOperacao")}
-          </p>
-          <NavItem href="/feedback" active={pathname.startsWith("/feedback")} label={tNav("feedback")} />
+        <div className="mt-2 shrink-0 border-t border-[var(--border-subtle)] pt-2">
+          <TextNavItem
+            href="/feedback"
+            active={pathname.startsWith("/feedback")}
+            label={tNav("feedback")}
+          />
         </div>
       )}
 
-      <div className="mt-auto border-t border-[var(--border-subtle)] pt-3">
+      <div className="mt-auto shrink-0 border-t border-[var(--border-subtle)] pt-3">
         <Link
           href={isPreview ? "#" : "/settings"}
           className="flex items-center gap-2 rounded-[var(--radius-control)] px-2 py-2 transition-colors hover:bg-[var(--surface-base)]"
@@ -132,44 +185,77 @@ export default function AppSidebar({ variant = "production" }: { variant?: AppSi
             ) : null}
           </div>
         </Link>
+        {!isPreview ? (
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="mt-1 flex w-full items-center gap-2.5 rounded-[var(--radius-control)] px-2.5 py-2 text-[13px] font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-base)] hover:text-[var(--accent-rose)]"
+          >
+            <LogOut size={16} aria-hidden="true" className="shrink-0" />
+            <span>{tNav("logout")}</span>
+          </button>
+        ) : null}
+      </div>
       </div>
     </aside>
   );
 }
 
-function NavItem({
+function IconNavItem({
   href,
   label,
+  icon: Icon,
   active,
   count,
-  badge,
 }: {
   href: string;
   label: string;
+  icon: LucideIcon;
   active?: boolean;
   count?: string;
-  badge?: string;
 }) {
   return (
     <Link
       href={href}
-      className={`flex items-center gap-2.5 rounded-[var(--radius-control)] px-2.5 py-2 text-[13px] font-medium transition-colors ${
+      title={count ? `${label} (${count})` : label}
+      className={cn(
+        "relative flex flex-col items-center gap-1 rounded-[var(--radius-control)] px-1 py-2 text-[10px] font-medium transition-colors",
         active
           ? "bg-[var(--accent-primary-subtle)] text-[var(--accent-primary-text)]"
           : "text-[var(--text-secondary)] hover:bg-[var(--surface-base)] hover:text-[var(--text-primary)]"
-      }`}
+      )}
     >
-      <span className="min-w-0 flex-1 truncate">{label}</span>
+      <Icon size={18} aria-hidden="true" />
+      <span className="max-w-full truncate text-center leading-tight">{label}</span>
       {count ? (
-        <span className="ml-auto rounded border border-[var(--border-subtle)] bg-[var(--surface-base)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--text-muted)]">
+        <span className="absolute right-0.5 top-0.5 rounded border border-[var(--border-subtle)] bg-[var(--surface-base)] px-1 font-mono text-[8px] text-[var(--text-muted)]">
           {count}
         </span>
       ) : null}
-      {badge ? (
-        <span className="ml-auto rounded-full border border-[color-mix(in_oklch,var(--warning-text)_40%,transparent)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--warning-text)]">
-          {badge}
-        </span>
-      ) : null}
+    </Link>
+  );
+}
+
+function TextNavItem({
+  href,
+  label,
+  active,
+}: {
+  href: string;
+  label: string;
+  active?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className={cn(
+        "flex items-center gap-2.5 rounded-[var(--radius-control)] px-2.5 py-2 text-[13px] font-medium transition-colors",
+        active
+          ? "bg-[var(--accent-primary-subtle)] text-[var(--accent-primary-text)]"
+          : "text-[var(--text-secondary)] hover:bg-[var(--surface-base)] hover:text-[var(--text-primary)]"
+      )}
+    >
+      <span className="min-w-0 flex-1 truncate">{label}</span>
     </Link>
   );
 }

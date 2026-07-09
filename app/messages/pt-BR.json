@@ -24,7 +24,10 @@
     "sectionAvancado": "Avançado",
     "creativeIntelligenceAdvanced": "Assistente (avançado)",
     "feedback": "Feedback",
-    "quality": "Quality"
+    "quality": "Quality",
+    "brandKit": "Brand Kit",
+    "brandKitBeta": "BETA",
+    "brandKitHint": "Treine a marca do cliente"
   },
   "language": {
     "label": "Idioma",
@@ -418,7 +421,7 @@
       "seconds": "segundos"
     },
     "home": {
-      "title": "Campanhas",
+      "title": "Início",
       "summary": "{totalCampaigns} campanhas ativas · {derivationsThisMonth} derivações este mês",
       "updatingStats": "Atualizando estatísticas",
       "searchPlaceholder": "Buscar...",
@@ -431,6 +434,9 @@
       "emptyAdjustSearch": "Tente ajustar os termos de busca",
       "emptyCreateHint": "Defina seu briefing, rode um batch de variações e cure o que vai ao ar—comece pela sua primeira campanha.",
       "createCampaign": "Criar campanha",
+      "continueWhereLeftOff": "Continuar de onde parei",
+      "continueCampaignHint": "Retomar {name}",
+      "continueEmpty": "Nada em andamento ainda. Crie uma campanha para começar.",
       "errorTitle": "Erro ao carregar",
       "errorDescription": "Erro ao carregar dashboard",
       "retry": "Tentar novamente"
@@ -2537,6 +2543,8 @@
       "addImage": "Adicionar imagem",
       "removeAttachment": "Remover anexo",
       "attachmentError": "Não foi possível enviar a imagem",
+      "attachmentTypeError": "Use apenas imagens PNG, JPG ou WebP.",
+      "maxAttachments": "Você pode anexar até 5 imagens por mensagem.",
       "imageAttachment": "Imagem anexada"
     },
     "guidedFlow": {
@@ -2673,7 +2681,11 @@
       "loading": "Carregando conversa…",
       "headerSubtitle": "conversa ativa",
       "streaming": "Assistente respondendo…",
-      "uploading": "Enviando…"
+      "uploading": "Enviando…",
+      "addImage": "Adicionar imagem",
+      "removeAttachment": "Remover anexo",
+      "attachmentTypeError": "Use apenas imagens PNG, JPG ou WebP.",
+      "maxAttachments": "Você pode anexar até 5 imagens por mensagem."
     },
     "drawer": {
       "title": "Assistente da campanha",

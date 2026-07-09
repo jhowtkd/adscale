@@ -73,4 +73,14 @@ describe("AppShell", () => {
     expect(screen.queryByRole("link", { name: /creativeIntelligence/i })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /more/i })).toBeInTheDocument();
   });
+
+  it("does not apply the dotted background on the main shell", () => {
+    render(
+      <AppShell>
+        <p>Page body</p>
+      </AppShell>
+    );
+
+    expect(screen.getByRole("main").className).not.toContain("dot-grid");
+  });
 });

@@ -71,52 +71,20 @@ function createWrapper() {
   };
 }
 
-const PANEL_RETURN_KEY = "adscale:panel-return";
-
 describe("TopBar mode toggle", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockUsePathname.mockReturnValue("/campaigns");
+    mockUsePathname.mockReturnValue("/assistant");
     mockUseSearchParams.mockReturnValue(new URLSearchParams());
     sessionStorage.clear();
     mockUseNotifications.mockReturnValue({ data: [] } as ReturnType<typeof useNotifications>);
   });
 
-  it("does not show the mode toggle outside the assistant workspace", () => {
+  it("does not render the mode toggle in the top bar", () => {
     render(<TopBar />, { wrapper: createWrapper() });
 
     expect(screen.queryByRole("button", { name: "chat" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "panel" })).not.toBeInTheDocument();
-  });
-
-  it("navigates to stored panel route when Panel is clicked from assistant", () => {
-    mockUsePathname.mockReturnValue("/assistant");
-    sessionStorage.setItem(PANEL_RETURN_KEY, "/settings");
-
-    render(<TopBar />, { wrapper: createWrapper() });
-
-    fireEvent.click(screen.getByRole("button", { name: "panel" }));
-
-    expect(mockPush).toHaveBeenCalledWith("/settings");
-  });
-
-  it("falls back to / when no panel return path is stored", () => {
-    mockUsePathname.mockReturnValue("/assistant");
-
-    render(<TopBar />, { wrapper: createWrapper() });
-
-    fireEvent.click(screen.getByRole("button", { name: "panel" }));
-
-    expect(mockPush).toHaveBeenCalledWith("/");
-  });
-
-  it("marks Chat segment active on assistant routes", () => {
-    mockUsePathname.mockReturnValue("/assistant");
-
-    render(<TopBar />, { wrapper: createWrapper() });
-
-    expect(screen.getByRole("button", { name: "chat" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("button", { name: "panel" })).toHaveAttribute("aria-pressed", "false");
   });
 });
 
