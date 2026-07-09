@@ -18,27 +18,26 @@ export default function LibraryEmptyPreviewPage() {
       </header>
 
       <section className="overflow-hidden rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)]">
-        <div
-          className="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center"
-          role="button"
-          tabIndex={0}
+        <button
+          type="button"
           aria-label="Enviar primeiro asset"
+          className="flex w-full flex-col items-center justify-center gap-3 px-6 py-16 text-center transition-colors hover:bg-[var(--surface-raised)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
         >
-          <span className="grid h-14 w-14 place-items-center rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] text-2xl text-[var(--text-muted)]">
+          <span
+            className="grid h-14 w-14 place-items-center rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] text-2xl text-[var(--text-muted)]"
+            aria-hidden="true"
+          >
             📁
           </span>
-          <h2 className="text-lg font-semibold text-[var(--text-primary)]">Nenhum asset na biblioteca ainda</h2>
-          <p className="max-w-md text-sm text-[var(--text-secondary)]">
+          <span className="text-lg font-semibold text-[var(--text-primary)]">Nenhum asset na biblioteca ainda</span>
+          <span className="max-w-md text-sm text-[var(--text-secondary)]">
             Envie criativos base, logos e referências — eles alimentam seu briefing e fluxo de batch.
-          </p>
-          <button
-            type="button"
-            className="mt-2 rounded-[var(--radius-control)] bg-[var(--accent-primary)] px-5 py-2.5 text-sm font-medium text-[var(--text-on-accent)]"
-          >
+          </span>
+          <span className="mt-2 rounded-[var(--radius-control)] bg-[var(--accent-primary)] px-5 py-2.5 text-sm font-medium text-[var(--text-on-accent)]">
             Fazer primeiro upload
-          </button>
-          <p className="text-xs text-[var(--text-muted)]">PNG, JPG, WebP até 10 MB</p>
-        </div>
+          </span>
+          <span className="text-xs text-[var(--text-muted)]">PNG, JPG, WebP até 10 MB</span>
+        </button>
       </section>
     </div>
   );
