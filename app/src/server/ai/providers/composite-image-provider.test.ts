@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { CompositeImageProvider } from "./composite-image-provider";
 import type { ImageCandidate, ProviderGenerateInput } from "./image-provider";
-import { fakeProvider } from "./__test-utils__";
+import { fakeProvider } from "../../../../tests/helpers/fake-image-provider";
 
 const baseInput: ProviderGenerateInput = {
   prompt: "x",

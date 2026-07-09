@@ -185,7 +185,7 @@ describe("generateAndStoreImage", () => {
     // Use the test seam from __setCompositeProviderForTests
     const { __setCompositeProviderForTests } = await import("./image-generation");
     const { CompositeImageProvider } = await import("./providers/composite-image-provider");
-    const { fakeProvider } = await import("./providers/__test-utils__");
+    const { fakeProvider } = await import("../../../../tests/helpers/fake-image-provider");
     __setCompositeProviderForTests(
       new CompositeImageProvider(
         [
