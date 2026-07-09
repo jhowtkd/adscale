@@ -376,138 +376,145 @@
     {
       "idx": 53,
       "version": "7",
+      "when": 1782475200000,
+      "tag": "0053_client_profile_olhar_config",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
       "when": 1782561600000,
       "tag": "0054_rubric_calibration_reject",
       "breakpoints": true
     },
     {
-      "idx": 54,
+      "idx": 55,
       "version": "7",
       "when": 1782648000000,
       "tag": "0055_user_workspace_settings",
       "breakpoints": true
     },
     {
-      "idx": 55,
+      "idx": 56,
       "version": "7",
       "when": 1782734400000,
       "tag": "0056_client_profiles_multi_workspace",
       "breakpoints": true
     },
     {
-      "idx": 56,
+      "idx": 57,
       "version": "7",
       "when": 1782820800000,
       "tag": "0057_assistant_conversation",
       "breakpoints": true
     },
     {
-      "idx": 57,
+      "idx": 58,
       "version": "7",
       "when": 1782907200000,
       "tag": "0058_assistant_guided_flow",
       "breakpoints": true
     },
     {
-      "idx": 58,
+      "idx": 59,
       "version": "7",
       "when": 1782993600000,
       "tag": "0059_assistant_guided_flow_events",
       "breakpoints": true
     },
     {
-      "idx": 59,
+      "idx": 60,
       "version": "7",
       "when": 1783080000000,
       "tag": "0060_assistant_guided_flow_staging_evidence",
       "breakpoints": true
     },
     {
-      "idx": 60,
+      "idx": 61,
       "version": "7",
       "when": 1783166400000,
       "tag": "0061_assistant_guided_flow_feedback",
       "breakpoints": true
     },
     {
-      "idx": 61,
+      "idx": 62,
       "version": "7",
       "when": 1783252800000,
       "tag": "0062_assistant_guided_flow_adaptive_state",
       "breakpoints": true
     },
     {
-      "idx": 62,
+      "idx": 63,
       "version": "7",
       "when": 1783339200000,
       "tag": "0063_assistant_action_guided_binding",
       "breakpoints": true
     },
     {
-      "idx": 63,
+      "idx": 64,
       "version": "7",
       "when": 1783425600000,
       "tag": "0064_assistant_artifact_versions",
       "breakpoints": true
     },
     {
-      "idx": 64,
+      "idx": 65,
       "version": "7",
       "when": 1783512000000,
       "tag": "0065_assistant_plan_feedback_drafts",
       "breakpoints": true
     },
     {
-      "idx": 65,
+      "idx": 66,
       "version": "7",
       "when": 1783598400000,
       "tag": "0066_assistant_creative_feedback_drafts",
       "breakpoints": true
     },
     {
-      "idx": 66,
+      "idx": 67,
       "version": "7",
       "when": 1783684800000,
       "tag": "0067_assistant_artifact_approvals",
       "breakpoints": true
     },
     {
-      "idx": 67,
+      "idx": 68,
       "version": "7",
       "when": 1783771200000,
       "tag": "0068_assistant_artifact_iteration_events",
       "breakpoints": true
     },
     {
-      "idx": 68,
+      "idx": 69,
       "version": "7",
       "when": 1783857600000,
       "tag": "0069_share_links_revoked_at",
       "breakpoints": true
     },
     {
-      "idx": 69,
+      "idx": 70,
       "version": "7",
       "when": 1783944000000,
       "tag": "0070_assistant_goal_agent",
       "breakpoints": true
     },
     {
-      "idx": 70,
+      "idx": 71,
       "version": "7",
       "when": 1784030400000,
       "tag": "0071_brand_training_assets",
       "breakpoints": true
     },
     {
-      "idx": 71,
+      "idx": 72,
       "version": "7",
       "when": 1784116800000,
       "tag": "0072_standalone_creative_work",
       "breakpoints": true
     },
     {
-      "idx": 72,
+      "idx": 73,
       "version": "7",
       "when": 1784203200000,
       "tag": "0073_derivations_candidates",

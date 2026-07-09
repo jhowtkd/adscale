@@ -86,7 +86,21 @@ export async function POST(request: Request) {
       }
     }
 
-    const formData = await request.formData();
+    let formData: FormData;
+    try {
+      formData = await request.formData();
+    } catch (parseError) {
+      if (
+        parseError instanceof Error &&
+        /Failed to parse body as FormData/i.test(parseError.message)
+      ) {
+        return apiError("fileTooLarge", 413, {
+          detail:
+            "Upload exceeded the request body limit. Try fewer or smaller images.",
+        });
+      }
+      throw parseError;
+    }
     const clientProfileIdQuery = new URL(request.url).searchParams.get("clientProfileId");
     const clientProfileId = clientProfileIdQuery ?? undefined;
 

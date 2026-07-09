@@ -2,12 +2,16 @@ import { apiFetch } from "@/lib/api-client";
 import { STALE_TIME } from "@/lib/query-config";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
+/** Roles persisted on `workspace_members.role` / invite payloads. */
+export type WorkspaceApiRole = "owner" | "admin" | "member";
+
 export interface WorkspaceMember {
   id: string;
+  userId: string;
   name: string;
   email: string;
   image: string | null;
-  role: "Owner" | "Admin" | "Editor" | "Viewer";
+  role: WorkspaceApiRole | string;
 }
 
 async function fetchWorkspaceMembers(): Promise<WorkspaceMember[]> {
@@ -30,7 +34,10 @@ async function removeMember(userId: string): Promise<void> {
   }
 }
 
-async function inviteMember(payload: { email: string; role: string }): Promise<void> {
+async function inviteMember(payload: {
+  email: string;
+  role: "member" | "admin";
+}): Promise<void> {
   const res = await apiFetch("/api/workspace/invites", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

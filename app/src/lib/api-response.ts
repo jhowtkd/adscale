@@ -48,9 +48,16 @@ export function apiSuccess<T>(data: T, status = 200) {
 
 function serializeError(error: unknown) {
   if (error instanceof Error) {
+    const cause =
+      error.cause instanceof Error
+        ? { name: error.cause.name, message: error.cause.message }
+        : error.cause
+          ? { message: String(error.cause) }
+          : undefined;
     return {
       name: error.name,
       message: error.message,
+      ...(cause ? { cause } : {}),
       stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
     };
   }

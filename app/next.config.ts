@@ -36,6 +36,12 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   output: 'standalone',
   outputFileTracingRoot: process.cwd(),
+  // Brand-kit multi-upload allows up to 12 × 10MB images. Next.js buffers
+  // route-handler bodies at 10MB by default, which truncates the multipart
+  // payload and makes `request.formData()` throw. Match the route's own cap.
+  experimental: {
+    proxyClientMaxBodySize: "120mb",
+  },
   // `INNGEST_DEV` points at the local Inngest dev server and disables
   // signature verification. It must never be present in a production
   // build (the Inngest client throws if it is). Next loads `.env.local`

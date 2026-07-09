@@ -35,6 +35,7 @@ const itemVariants = {
 
 interface TeamMember {
   id: string;
+  userId: string;
   name: string;
   email: string;
   role: "Owner" | "Admin" | "Editor" | "Viewer";
@@ -57,6 +58,31 @@ const roleKeyMap: Record<TeamMember["role"], string> = {
   Editor: "roleEditor",
   Viewer: "roleViewer",
 };
+
+/** Map API roles (`owner`/`admin`/`member`) onto the display labels TeamTab uses. */
+function toDisplayRole(apiRole: string): TeamMember["role"] {
+  switch (apiRole) {
+    case "owner":
+    case "Owner":
+      return "Owner";
+    case "admin":
+    case "Admin":
+      return "Admin";
+    case "member":
+    case "Editor":
+      return "Editor";
+    case "Viewer":
+      return "Viewer";
+    default:
+      return "Viewer";
+  }
+}
+
+function toApiInviteRole(
+  displayRole: "Admin" | "Editor" | "Viewer",
+): "admin" | "member" {
+  return displayRole === "Admin" ? "admin" : "member";
+}
 
 function getInitials(name: string): string {
   if (!name || !name.trim()) return "?";
@@ -86,9 +112,10 @@ export default function TeamTab() {
     if (!membersData) return [];
     return membersData.map((m) => ({
       id: m.id,
+      userId: m.userId,
       name: m.name,
       email: m.email,
-      role: m.role,
+      role: toDisplayRole(m.role),
       status: "Active" as const,
     }));
   }, [membersData]);
@@ -99,7 +126,7 @@ export default function TeamTab() {
       return;
     }
     inviteMember.mutate(
-      { email: inviteEmail.trim(), role: inviteRole },
+      { email: inviteEmail.trim(), role: toApiInviteRole(inviteRole) },
       {
         onSuccess: () => {
           addToast("success", tc("inviteSent"));
@@ -121,7 +148,7 @@ export default function TeamTab() {
   const confirmRemove = async () => {
     if (!memberPendingRemoval) return;
     try {
-      await removeMember.mutateAsync(memberPendingRemoval.id);
+      await removeMember.mutateAsync(memberPendingRemoval.userId);
       addToast("success", tc("memberRemoved"));
       setMemberPendingRemoval(null);
     } catch (err) {
