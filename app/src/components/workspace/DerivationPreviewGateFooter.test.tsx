@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import DerivationPreviewGateFooter from "./DerivationPreviewGateFooter";
 
 const recordEvent = vi.fn();
@@ -12,9 +12,15 @@ vi.mock("@/lib/hooks/use-record-beta-event", () => ({
   useRecordBetaEvent: () => ({ recordEvent }),
 }));
 
+const STAGE_PROPS = { stage: "preview", missionKey: "preview" } as const;
+
 describe("DerivationPreviewGateFooter", () => {
   beforeEach(() => {
     recordEvent.mockClear();
+  });
+
+  afterEach(() => {
+    cleanup();
   });
 
   it("shows continue and adjust actions when quality failed", () => {
@@ -45,6 +51,40 @@ describe("DerivationPreviewGateFooter", () => {
 
     expect(screen.getByText("continueAnyway")).toBeDisabled();
     expect(screen.getByText("adjustStrategy")).toBeDisabled();
+  });
+
+  it("emits cockpit_stage_entered on mount", () => {
+    render(
+      <DerivationPreviewGateFooter campaignId="camp-1" onApproveBatch={vi.fn()} />
+    );
+
+    expect(recordEvent).toHaveBeenCalledWith("cockpit_stage_entered", STAGE_PROPS);
+  });
+
+  it("emits cockpit_stage_abandoned on unmount without approve", () => {
+    const { unmount } = render(
+      <DerivationPreviewGateFooter campaignId="camp-1" onApproveBatch={vi.fn()} />
+    );
+
+    recordEvent.mockClear();
+    unmount();
+
+    expect(recordEvent).toHaveBeenCalledWith("cockpit_stage_abandoned", STAGE_PROPS);
+  });
+
+  it("does not emit abandon after approve completes the stage", () => {
+    const { unmount } = render(
+      <DerivationPreviewGateFooter campaignId="camp-1" onApproveBatch={vi.fn()} />
+    );
+
+    fireEvent.click(screen.getByText("continueAnyway"));
+    recordEvent.mockClear();
+    unmount();
+
+    expect(recordEvent).not.toHaveBeenCalledWith(
+      "cockpit_stage_abandoned",
+      expect.anything()
+    );
   });
 
   it("emits completed and calls onApproveBatch", () => {
