@@ -65,5 +65,6 @@ describe("useDeleteCampaign", () => {
 
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["campaigns"] });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["dashboard"] });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["workspace", "campaign-count"] });
   });
 });

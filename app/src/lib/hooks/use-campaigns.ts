@@ -260,6 +260,32 @@ async function deleteCampaign(id: string): Promise<void> {
   }
 }
 
+const CAMPAIGN_COUNT_QUERY_KEY = ["workspace", "campaign-count"] as const;
+
+async function fetchCampaignCount(): Promise<number> {
+  const res = await apiFetch("/api/campaigns/count");
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Erro ao carregar contagem de campanhas");
+  }
+  const data = (await res.json()) as { count?: number };
+  return typeof data.count === "number" ? data.count : 0;
+}
+
+export function useCampaignCount() {
+  const query = useQuery({
+    queryKey: CAMPAIGN_COUNT_QUERY_KEY,
+    queryFn: fetchCampaignCount,
+    staleTime: STALE_TIME.SEMI_STATIC,
+    refetchOnWindowFocus: true,
+  });
+
+  return {
+    ...query,
+    count: query.data ?? 0,
+  };
+}
+
 export function useCampaigns(filters?: CampaignListQuery) {
   const query = useQuery({
     queryKey: ["campaigns", filters ?? {}],
@@ -303,6 +329,7 @@ export function useCreateCampaign() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["campaigns"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: CAMPAIGN_COUNT_QUERY_KEY });
     },
   });
 }
@@ -336,6 +363,7 @@ async function invalidateCampaignDashboardQueries(queryClient: QueryClient) {
   await Promise.all([
     queryClient.invalidateQueries({ queryKey: ["campaigns"] }),
     queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+    queryClient.invalidateQueries({ queryKey: CAMPAIGN_COUNT_QUERY_KEY }),
   ]);
 }
 
@@ -386,6 +414,7 @@ export function useDuplicateCampaign() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["campaigns"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: CAMPAIGN_COUNT_QUERY_KEY });
     },
   });
 }

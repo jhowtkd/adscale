@@ -14,7 +14,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useAppStore } from "@/lib/store";
-import { useCampaigns } from "@/lib/hooks/use-campaigns";
+import { useCampaignCount } from "@/lib/hooks/use-campaigns";
 import { useBillingStatus } from "@/lib/hooks/use-billing";
 import { authClient } from "@/lib/auth-client";
 import AccountStatusBadge from "@/components/layout/AccountStatusBadge";
@@ -35,7 +35,7 @@ export default function AppSidebar({ variant = "production" }: { variant?: AppSi
   const user = useAppStore((s) => s.user);
   const billing = useAppStore((s) => s.billing);
   const { data: session } = authClient.useSession();
-  const { totalCount } = useCampaigns();
+  const { count: totalCount } = useCampaignCount();
   const { data: billingStatus } = useBillingStatus();
 
   const isPreview = variant === "preview";
