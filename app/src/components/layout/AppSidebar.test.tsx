@@ -16,7 +16,7 @@ vi.mock("@/lib/store", () => ({
       billing: { planName: "Starter" },
     }),
 }));
-vi.mock("@/lib/hooks/use-campaigns", () => ({ useCampaigns: () => ({ totalCount: 0 }) }));
+vi.mock("@/lib/hooks/use-campaigns", () => ({ useCampaignCount: () => ({ count: 0 }) }));
 vi.mock("@/lib/hooks/use-billing", () => ({
   useBillingStatus: vi.fn(),
 }));
