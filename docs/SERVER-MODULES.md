@@ -4,6 +4,8 @@
 
 Reference for the server-side business-logic modules that back ADScale's API routes. Covers the 22 module directories plus the central `config.ts`.
 
+Cognitive organ names (Cortex, Hands, Gaze, …) and how modules wire as a body: [`COGNITIVE-ATLAS.md`](./COGNITIVE-ATLAS.md).
+
 ---
 
 ## Overview

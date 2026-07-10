@@ -4,6 +4,8 @@
 
 ADScale is a multi-tenant SaaS for AI-assisted advertising creative production. Teams work inside **workspaces**, define **campaigns** with briefing and assets, and generate **derivations** (image variants) via OpenAI image models. A conversational **Assistant** (threaded chat with tool-calling, guided flows, and artifact versioning, backed by MiniMax) drives end-to-end creative journeys. Outputs land in **Cloudflare R2** (S3-compatible object storage); metadata and billing state live in **PostgreSQL** via **Drizzle**. Long-running work runs on **Inngest**; the UI is **Next.js 16** (App Router) with **React 19**, **TanStack Query**, and **Better Auth**.
 
+For a ludic map of the creative cognition loop (Cortex, Hands, Gaze/Olhar, Skin, Nerve, Taste, Memory, Marrow, Energy), see [`COGNITIVE-ATLAS.md`](./COGNITIVE-ATLAS.md).
+
 ---
 
 ## System overview
