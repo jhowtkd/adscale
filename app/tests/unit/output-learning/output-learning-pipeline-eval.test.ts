@@ -1,13 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { aggregateOutputLearningsFromEvents } from "@/server/output-learning/aggregate";
 import type { OutputDecisionEvent } from "@/server/db/schema";
-import type { ClientOutputLearning } from "@/server/db/schema";
 import { getOutputLearningRecommendation } from "@/server/output-learning/recommendation/service";
 import {
   buildAppliedLearningTrace,
   filterApprovedPostgresLearnings,
   guardOutputLearningPrefill,
 } from "@/server/output-learning/safety/guards";
+import {
+  buildApprovedCtaClientOutputLearning,
+  CLIENT_OUTPUT_LEARNING_IDS,
+} from "@/server/repositories/client-output-learning.fixture";
 import { evalMatrixKeys } from "../../../scripts/output-learning-eval-matrix";
 
 vi.mock("@/server/repositories/campaign", () => ({
@@ -45,33 +48,7 @@ function baseEvent(overrides: Partial<OutputDecisionEvent> = {}): OutputDecision
   };
 }
 
-const approvedCtaLearning: ClientOutputLearning = {
-  id: "learning-cta",
-  workspaceId: "ws-1",
-  clientProfileId: "profile-1",
-  variableKey: "cta",
-  variableValue: "Comprar agora",
-  scopeGenerationMode: "art_variation",
-  scopeFormat: "1:1",
-  preferenceDirection: "prefer",
-  statement: "preferir CTA Comprar agora",
-  confidence: "high",
-  confidenceScore: "0.8500",
-  sampleEventCount: 4,
-  sampleCampaignCount: 2,
-  supportingEvidence: [
-    { eventId: "evt-1", polarity: "supporting", strength: "strong" },
-    { eventId: "evt-2", polarity: "supporting", strength: "medium" },
-  ],
-  contradictingEvidence: [],
-  algorithmVersion: "1.0.0",
-  status: "approved",
-  mem0MemoryId: null,
-  approvedAt: new Date(),
-  createdAt: new Date(),
-  updatedAt: new Date(),
-  lastEvidenceAt: new Date(),
-};
+const approvedCtaLearning = buildApprovedCtaClientOutputLearning();
 
 describe("output learning pipeline eval (EVAL-01)", () => {
   beforeEach(() => {
@@ -198,14 +175,13 @@ describe("output learning pipeline eval (EVAL-01)", () => {
   });
 
   it("safety:avoid-pattern-hint-only", () => {
-    const avoidLearning: ClientOutputLearning = {
-      ...approvedCtaLearning,
-      id: "avoid-1",
+    const avoidLearning = buildApprovedCtaClientOutputLearning({
+      id: CLIENT_OUTPUT_LEARNING_IDS.avoidPattern,
       variableKey: "avoid_pattern",
       variableValue: "logo_distorted",
       preferenceDirection: "avoid",
       statement: "avoid logo_distorted",
-    };
+    });
 
     const trace = buildAppliedLearningTrace({
       campaignId: "camp-1",
@@ -217,7 +193,9 @@ describe("output learning pipeline eval (EVAL-01)", () => {
       prefillApplied: true,
     });
 
-    const avoidEntry = trace.entries.find((e) => e.learningId === "avoid-1");
+    const avoidEntry = trace.entries.find(
+      (e) => e.learningId === CLIENT_OUTPUT_LEARNING_IDS.avoidPattern
+    );
     expect(avoidEntry?.applied).toBe(false);
     expect(avoidEntry?.guardCode).toBe("avoid_pattern_hint_only");
     expect(trace.avoidPatternHints).toHaveLength(1);

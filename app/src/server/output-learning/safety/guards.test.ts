@@ -1,35 +1,18 @@
 import { describe, expect, it } from "vitest";
-import type { ClientOutputLearning } from "../../db/schema";
+import {
+  buildClientOutputLearning,
+  CLIENT_OUTPUT_LEARNING_IDS,
+} from "../../repositories/client-output-learning.fixture";
 import {
   buildAppliedLearningTrace,
   filterApprovedPostgresLearnings,
   guardOutputLearningPrefill,
 } from "./guards";
 
-const baseLearning: ClientOutputLearning = {
-  id: "learning-1",
-  workspaceId: "ws-1",
+const baseLearning = buildClientOutputLearning({
   clientProfileId: "client-1",
-  variableKey: "style_policy",
-  variableValue: "extreme",
-  scopeGenerationMode: "",
-  scopeFormat: "",
-  preferenceDirection: "prefer",
-  statement: "prefer extreme style",
-  confidence: "high",
   confidenceScore: "0.9",
-  sampleEventCount: 3,
-  sampleCampaignCount: 1,
-  supportingEvidence: [{ eventId: "evt-1", polarity: "supporting", strength: "strong" }],
-  contradictingEvidence: [],
-  algorithmVersion: "1.0.0",
-  status: "approved",
-  mem0MemoryId: null,
-  approvedAt: new Date(),
-  createdAt: new Date(),
-  updatedAt: new Date(),
-  lastEvidenceAt: new Date(),
-};
+});
 
 describe("filterApprovedPostgresLearnings", () => {
   it("keeps only approved learnings (SAFE-02)", () => {
@@ -40,7 +23,7 @@ describe("filterApprovedPostgresLearnings", () => {
     ]);
 
     expect(filtered).toHaveLength(1);
-    expect(filtered[0]?.id).toBe("learning-1");
+    expect(filtered[0]?.id).toBe(CLIENT_OUTPUT_LEARNING_IDS.primary);
   });
 });
 
@@ -99,7 +82,7 @@ describe("buildAppliedLearningTrace", () => {
   it("marks avoid patterns as non-applied hints (SAFE-04)", () => {
     const avoidLearning = {
       ...baseLearning,
-      id: "avoid-1",
+      id: CLIENT_OUTPUT_LEARNING_IDS.avoidPattern,
       variableKey: "avoid_pattern",
       variableValue: "logo_distorted",
       preferenceDirection: "avoid",
@@ -116,7 +99,9 @@ describe("buildAppliedLearningTrace", () => {
       prefillApplied: true,
     });
 
-    const avoidEntry = trace.entries.find((entry) => entry.learningId === "avoid-1");
+    const avoidEntry = trace.entries.find(
+      (entry) => entry.learningId === CLIENT_OUTPUT_LEARNING_IDS.avoidPattern
+    );
     expect(avoidEntry?.applied).toBe(false);
     expect(avoidEntry?.guardCode).toBe("avoid_pattern_hint_only");
     expect(trace.avoidPatternHints).toHaveLength(1);
