@@ -243,7 +243,9 @@ export const derivationJob = inngest.createFunction(
     id: "generate-derivation",
     retries: 2,
     concurrency: [
-      { limit: 8, scope: "account" },
+      // Account-scoped limits require a CEL key (virtual queue name).
+      // Without it, Inngest rejects PUT /api/inngest and background jobs stall.
+      { limit: 8, scope: "account", key: `"openai"` },
       { limit: 3, key: "event.data.workspaceId" },
     ],
     onFailure: async ({ event, error, step }) => {
