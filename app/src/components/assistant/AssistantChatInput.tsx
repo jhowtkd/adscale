@@ -97,7 +97,7 @@ export default function AssistantChatInput({
     <form
       onSubmit={handleSubmit}
       className={cn(
-        "shrink-0 border-t border-[var(--border-subtle)] bg-[var(--surface-base)] p-3",
+        "layer-sticky shrink-0 border-t border-[var(--border-subtle)] bg-[var(--surface-base)] p-3",
         dragOver && "ring-2 ring-inset ring-[var(--accent-primary)]"
       )}
       data-testid="assistant-chat-input"

@@ -7,6 +7,16 @@ vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
 }));
 
+const mockUseIsMobile = vi.fn(() => false);
+
+vi.mock("@/lib/hooks/use-media-query", () => ({
+  useIsMobile: () => mockUseIsMobile(),
+}));
+
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 function shell(props: {
   sidebar: React.ReactNode;
   main: React.ReactNode;
@@ -23,6 +33,7 @@ function shell(props: {
 
 describe("AssistantShell", () => {
   it("renders desktop three-column regions with slot content", () => {
+    mockUseIsMobile.mockReturnValue(false);
     shell({
       sidebar: <div>Sidebar slot</div>,
       main: <div>Main slot</div>,
@@ -36,6 +47,7 @@ describe("AssistantShell", () => {
   });
 
   it("renders mobile tabs and switches visible panel", () => {
+    mockUseIsMobile.mockReturnValue(true);
     shell({
       sidebar: <div>Sidebar slot</div>,
       main: <div>Main slot</div>,
@@ -44,6 +56,7 @@ describe("AssistantShell", () => {
 
     expect(screen.getByTestId("assistant-mobile-layout")).toBeInTheDocument();
     expect(screen.getByTestId("assistant-mobile-chat")).toHaveTextContent("Main slot");
+    expect(screen.queryByTestId("assistant-desktop-layout")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "tree" }));
     expect(screen.getByTestId("assistant-mobile-tree")).toHaveTextContent("Sidebar slot");
@@ -53,6 +66,7 @@ describe("AssistantShell", () => {
   });
 
   it("switches to workspace grid and renders the workspace column in workspace mode", () => {
+    mockUseIsMobile.mockReturnValue(false);
     shell({
       sidebar: <div>Sidebar slot</div>,
       main: <div>Main slot</div>,
@@ -66,6 +80,7 @@ describe("AssistantShell", () => {
   });
 
   it("hides the desktop tree sidebar when hideDesktopSidebar is set", () => {
+    mockUseIsMobile.mockReturnValue(false);
     shell({
       sidebar: <div>Sidebar slot</div>,
       main: <div>Main slot</div>,
