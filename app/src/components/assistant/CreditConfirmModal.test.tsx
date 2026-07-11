@@ -2,6 +2,11 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import CreditConfirmModal from "./CreditConfirmModal";
 
+vi.mock("next-intl", () => ({
+  useTranslations: (namespace?: string) => (key: string) =>
+    namespace === "common" && key === "close" ? "Close" : key,
+}));
+
 describe("CreditConfirmModal", () => {
   beforeEach(() => {
     vi.clearAllMocks();

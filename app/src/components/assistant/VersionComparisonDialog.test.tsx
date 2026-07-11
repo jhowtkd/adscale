@@ -16,6 +16,11 @@ vi.mock("@/lib/hooks/use-assistant-artifact-versions", () => ({
   usePromoteAssistantArtifactVersion: () => mocks.promote(),
 }));
 
+vi.mock("next-intl", () => ({
+  useTranslations: (namespace?: string) => (key: string) =>
+    namespace === "common" && key === "close" ? "Close" : key,
+}));
+
 const ids = {
   lineage: "00000000-0000-4000-8000-000000000001",
   official: "00000000-0000-4000-8000-000000000002",

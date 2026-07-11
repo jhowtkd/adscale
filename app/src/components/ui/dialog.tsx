@@ -75,6 +75,26 @@ const dialogContentVariants = cva(
   }
 )
 
+function DialogCloseButton() {
+  const t = useTranslations("common")
+
+  return (
+    <DialogPrimitive.Close
+      data-slot="dialog-close"
+      render={
+        <Button
+          variant="ghost"
+          className="absolute top-2 right-2 z-[var(--layer-raised)]"
+          size="icon-sm"
+        />
+      }
+    >
+      <XIcon />
+      <span className="sr-only">{t("close")}</span>
+    </DialogPrimitive.Close>
+  )
+}
+
 function DialogContent({
   className,
   children,
@@ -85,8 +105,6 @@ function DialogContent({
   VariantProps<typeof dialogContentVariants> & {
     showCloseButton?: boolean
   }) {
-  const t = useTranslations("common")
-
   return (
     <DialogPortal>
       <DialogOverlay />
@@ -96,21 +114,7 @@ function DialogContent({
         {...props}
       >
         {children}
-        {showCloseButton && (
-          <DialogPrimitive.Close
-            data-slot="dialog-close"
-            render={
-              <Button
-                variant="ghost"
-                className="absolute top-2 right-2 z-[var(--layer-raised)]"
-                size="icon-sm"
-              />
-            }
-          >
-            <XIcon />
-            <span className="sr-only">{t("close")}</span>
-          </DialogPrimitive.Close>
-        )}
+        {showCloseButton ? <DialogCloseButton /> : null}
       </DialogPrimitive.Popup>
     </DialogPortal>
   )
