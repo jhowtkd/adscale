@@ -146,6 +146,7 @@ async function extractBrandKit(file: File): Promise<ExtractedBrandKit> {
   const res = await apiFetch("/api/workspace/brand-kit/extract", {
     method: "POST",
     body: formData,
+    timeoutMs: 120_000,
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));

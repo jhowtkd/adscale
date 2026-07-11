@@ -91,7 +91,12 @@ export function useExtractMulti(clientProfileId: string | null) {
       const url = clientProfileId
         ? `/api/workspace/brand-kit/extract-multi?clientProfileId=${encodeURIComponent(clientProfileId)}`
         : "/api/workspace/brand-kit/extract-multi";
-      const res = await apiFetch(url, { method: "POST", body: formData });
+      const guideCount = entries.filter((e) => e.kind === "guide").length;
+      const timeoutMs = Math.min(
+        300_000,
+        Math.max(120_000, 90_000 + guideCount * 20_000),
+      );
+      const res = await apiFetch(url, { method: "POST", body: formData, timeoutMs });
       if (!res.ok) throw new Error(await readError(res));
       const data = await res.json();
       return data.result as MultiExtractResult;
@@ -115,6 +120,7 @@ export function useExtractVoice(clientProfileId: string | null) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ creativeDescriptions }),
+          timeoutMs: 120_000,
         },
       );
       if (!res.ok) throw new Error(await readError(res));

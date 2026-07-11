@@ -53,6 +53,12 @@ interface MultiExtractResult {
   charges: Array<{ fileName: string; kind: EntryKind; charged: boolean }>;
 }
 
+type PreparedEntry = {
+  entry: z.infer<typeof entriesSchema>[number];
+  file: File;
+  buffer: Buffer;
+};
+
 /**
  * Multi-input brand extraction (plan Fase 4.2).
  *
@@ -122,6 +128,9 @@ export async function POST(request: Request) {
       charges: [],
     };
 
+    const guides: PreparedEntry[] = [];
+    const assets: PreparedEntry[] = [];
+
     for (const entry of parsedEntries) {
       const file = formData.get(entry.fileName);
       if (!(file instanceof File)) {
@@ -139,25 +148,43 @@ export async function POST(request: Request) {
         return apiError("fileTooLarge", 400);
       }
 
-      const buffer = Buffer.from(await file.arrayBuffer());
+      const prepared: PreparedEntry = {
+        entry,
+        file,
+        buffer: Buffer.from(await file.arrayBuffer()),
+      };
 
       if (entry.kind === "guide") {
-        const creditError = await spendOrApiError({
-          workspaceId: workspace.id,
-          action: "creative_qa",
-          amount: 1,
-          idempotencyKey: `brand-kit-extract:${workspace.id}:${file.name}:${file.size}`,
-          metadata: { workspaceId: workspace.id },
-        });
-        if (creditError) return creditError;
-
-        const extracted = await extractBrandKitFromImage(buffer, file.type);
-        accumulateExtracted(result.brandKit, extracted);
-        result.charges.push({ fileName: entry.fileName, kind: entry.kind, charged: true });
-        continue;
+        guides.push(prepared);
+      } else {
+        assets.push(prepared);
       }
+    }
 
-      // logo & creative: persist to object storage (no extraction, no charge)
+    for (const { entry, file } of guides) {
+      const creditError = await spendOrApiError({
+        workspaceId: workspace.id,
+        action: "creative_qa",
+        amount: 1,
+        idempotencyKey: `brand-kit-extract:${workspace.id}:${file.name}:${file.size}`,
+        metadata: { workspaceId: workspace.id },
+      });
+      if (creditError) return creditError;
+    }
+
+    const guideExtractions = await Promise.all(
+      guides.map(async ({ entry, file, buffer }) => {
+        const extracted = await extractBrandKitFromImage(buffer, file.type);
+        return { entry, extracted };
+      }),
+    );
+
+    for (const { entry, extracted } of guideExtractions) {
+      accumulateExtracted(result.brandKit, extracted);
+      result.charges.push({ fileName: entry.fileName, kind: entry.kind, charged: true });
+    }
+
+    for (const { entry, file, buffer } of assets) {
       const safeName = sanitizeStorageFilename(file.name);
       const key =
         entry.kind === "logo"
