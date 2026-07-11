@@ -28,17 +28,15 @@ export const workspaceAssetAnalyzeJob = inngest.createFunction(
     const { assetId, workspaceId, key } = event.data as AnalyzeAssetEvent;
     logger.info(`[workspaceAssetAnalyzeJob] START assetId=${assetId}`);
 
-    const imageBuffer = await step.run("download-image", async () => {
-      return objectStorage.get(key);
-    });
-
-    const buffer = Buffer.isBuffer(imageBuffer)
-      ? imageBuffer
-      : Buffer.from((imageBuffer as { data: number[] }).data);
-    const base64Image = buffer.toString("base64");
-    const dataUri = `data:image/png;base64,${base64Image}`;
-
+    // Download + analyze in one step: returning image bytes as step output
+    // exceeds Inngest's step output size limit for typical brand creatives.
     const analysis = await step.run("analyze-with-vision", async () => {
+      const imageBuffer = await objectStorage.get(key);
+      const buffer = Buffer.isBuffer(imageBuffer)
+        ? imageBuffer
+        : Buffer.from((imageBuffer as { data: number[] }).data);
+      const dataUri = `data:image/png;base64,${buffer.toString("base64")}`;
+
       const response = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         messages: [

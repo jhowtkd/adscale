@@ -106,20 +106,18 @@ export const brandTrainingAnalyzeJob = inngest.createFunction(
       };
     }
 
-    const imageBuffer = await step.run("download-asset", async () => {
-      const result = await objectStorage.get(data.assetKey);
-      return Buffer.isBuffer(result)
-        ? result
-        : Buffer.from((result as unknown as { data: number[] }).data);
-    });
-
-    const buffer = imageBuffer as unknown as Buffer;
-    const base64Image = buffer.toString("base64");
-    const dataUri = `data:${data.mimeType};base64,${base64Image}`;
-
     const model = env.OPENAI_TEXT_MODEL || "gpt-4o-mini";
 
+    // Download + analyze in one step so image bytes never become Inngest step
+    // output (large PNGs exceed the step output size limit and leave rows
+    // stuck in pending_analysis).
     const proposal = await step.run("analyze-with-vision", async () => {
+      const result = await objectStorage.get(data.assetKey);
+      const buffer = Buffer.isBuffer(result)
+        ? result
+        : Buffer.from((result as unknown as { data: number[] }).data);
+      const dataUri = `data:${data.mimeType};base64,${buffer.toString("base64")}`;
+
       const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 60_000 });
       const response = await openai.chat.completions.create({
         model,
