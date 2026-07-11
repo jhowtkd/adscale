@@ -763,9 +763,12 @@
     padding-left: var(--shell-v6-main-offset-left);
   }
 
-  .assistant-shell-host {
+  .v6-shell-main.assistant-shell-host {
     height: calc(100dvh - var(--shell-v6-topbar-offset) - var(--shell-v6-gap));
+    max-height: calc(100dvh - var(--shell-v6-topbar-offset) - var(--shell-v6-gap));
     min-height: 0;
+    padding-bottom: 0;
+    overflow: hidden;
   }
 
   @media (max-width: 767px) {
@@ -781,8 +784,9 @@
       padding-left: var(--shell-v6-gap);
     }
 
-    .assistant-shell-host {
+    .v6-shell-main.assistant-shell-host {
       height: calc(100dvh - var(--shell-v6-topbar-offset) - var(--shell-safe-bottom));
+      max-height: calc(100dvh - var(--shell-v6-topbar-offset) - var(--shell-safe-bottom));
     }
   }
   .layer-popover { z-index: var(--layer-popover); }

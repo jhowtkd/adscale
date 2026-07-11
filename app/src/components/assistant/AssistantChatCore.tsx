@@ -188,42 +188,46 @@ export default function AssistantChatCore({
 
   return (
     <div
-      className="flex min-h-0 flex-1 flex-col overflow-hidden"
+      className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden"
       data-testid="assistant-chat-core"
       data-variant={variant}
     >
-      {onClose ? (
-        <div className="flex items-center justify-end border-b border-[var(--border-subtle)] px-4 py-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-          >
-            {t("close")}
-          </button>
-        </div>
-      ) : null}
-
-      {variant === "full" && threadId && data?.thread && !onClose ? (
-        <header
-          className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3"
-          data-testid="assistant-chat-header"
-        >
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-[var(--text-primary)]">
-              {data.thread.name?.trim() || tTree("untitled")}
-            </p>
-            <p className="truncate text-xs text-[var(--text-muted)]">{chatSubtitle}</p>
+      <div className="row-start-1 min-h-0">
+        {onClose ? (
+          <div className="flex items-center justify-end border-b border-[var(--border-subtle)] px-4 py-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+            >
+              {t("close")}
+            </button>
           </div>
-        </header>
-      ) : null}
+        ) : null}
+
+        {variant === "full" && threadId && data?.thread && !onClose ? (
+          <header
+            className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3"
+            data-testid="assistant-chat-header"
+          >
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-[var(--text-primary)]">
+                {data.thread.name?.trim() || tTree("untitled")}
+              </p>
+              <p className="truncate text-xs text-[var(--text-muted)]">{chatSubtitle}</p>
+            </div>
+          </header>
+        ) : null}
+      </div>
 
       {isLoading && threadId ? (
-        <p className="p-4 text-sm text-[var(--text-muted)]">{t("loading")}</p>
+        <p className="row-start-2 min-h-0 overflow-hidden p-4 text-sm text-[var(--text-muted)]">
+          {t("loading")}
+        </p>
       ) : (
         <div
           ref={messageScrollerRef}
-          className="flex min-h-0 flex-1 flex-col overflow-y-auto"
+          className="row-start-2 flex min-h-0 flex-col overflow-y-auto"
           data-testid="assistant-chat-scroll-region"
         >
           {data?.guidedFlow ? (
@@ -284,23 +288,25 @@ export default function AssistantChatCore({
         </div>
       )}
 
-      {error ? (
-        <p
-          className="px-4 pb-2 text-sm text-[var(--danger-text)]"
-          role="alert"
-        >
-          {error}
-        </p>
-      ) : null}
+      <div className="row-start-3 min-h-0">
+        {error ? (
+          <p
+            className="px-4 pb-2 text-sm text-[var(--danger-text)]"
+            role="alert"
+          >
+            {error}
+          </p>
+        ) : null}
 
-      <AssistantChatInput
+        <AssistantChatInput
         disabled={inputDisabled}
         isStreaming={isStreaming}
         noThread={!threadId}
         onSend={handleSend}
         draftText={draftEnabled ? draftText : undefined}
         onDraftTextChange={draftEnabled ? onDraftTextChange : undefined}
-      />
+        />
+      </div>
       {versionComparisonRequest && versionComparisonRequest.threadId === threadId ? (
         <VersionComparisonDialog
           key={`${versionComparisonRequest.lineageId}:${versionComparisonRequest.versionAId}:${versionComparisonRequest.versionBId}`}
