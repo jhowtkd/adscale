@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, type Ref } from "react";
+import { useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -33,7 +33,6 @@ export interface AssistantMessageListProps {
   streamingText: string;
   isStreaming: boolean;
   threadId: string | null;
-  scrollContainerRef?: Ref<HTMLDivElement>;
   artifactLineages?: ArtifactVersionPresentation[];
   openVersionComparison?: (request: VersionComparisonRequest) => void;
 }
@@ -257,7 +256,6 @@ export default function AssistantMessageList({
   streamingText,
   isStreaming,
   threadId,
-  scrollContainerRef,
   artifactLineages,
   openVersionComparison,
 }: AssistantMessageListProps) {
@@ -270,8 +268,7 @@ export default function AssistantMessageList({
 
   return (
     <div
-      ref={scrollContainerRef}
-      className="flex flex-1 flex-col gap-3 overflow-y-auto p-4"
+      className="flex flex-col gap-3 p-4"
       data-testid="assistant-message-list"
     >
       {showEmptyThread ? (

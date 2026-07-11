@@ -15,7 +15,9 @@ export default function DashboardShellSwitcher({
   if (isAssistant) {
     return (
       <V6ShellLayout>
-        <div className="v6-shell-main min-h-screen shell-offset-bottom-mobile">{children}</div>
+        <div className="v6-shell-main assistant-shell-host flex min-h-0 flex-col overflow-hidden pb-0">
+          {children}
+        </div>
       </V6ShellLayout>
     );
   }

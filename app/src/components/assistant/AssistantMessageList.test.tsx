@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createRef } from "react";
 import { render, screen, fireEvent, within } from "@testing-library/react";
 import AssistantMessageList from "./AssistantMessageList";
 
@@ -28,21 +27,17 @@ describe("AssistantMessageList", () => {
     vi.clearAllMocks();
   });
 
-  it("exposes the actual overflow container for exact scroll restoration", () => {
-    const scrollContainerRef = createRef<HTMLDivElement>();
+  it("renders messages inside the parent scroll region", () => {
     render(
       <AssistantMessageList
         messages={[]}
         streamingText=""
         isStreaming={false}
         threadId="thread-1"
-        scrollContainerRef={scrollContainerRef}
       />
     );
 
-    expect(scrollContainerRef.current).toBe(
-      screen.getByTestId("assistant-message-list")
-    );
+    expect(screen.getByTestId("assistant-message-list")).not.toHaveClass("overflow-y-auto");
   });
 
   it("does not render get_thread_context tool JSON in the transcript", () => {

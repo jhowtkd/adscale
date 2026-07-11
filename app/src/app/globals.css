@@ -763,6 +763,11 @@
     padding-left: var(--shell-v6-main-offset-left);
   }
 
+  .assistant-shell-host {
+    height: calc(100dvh - var(--shell-v6-topbar-offset) - var(--shell-v6-gap));
+    min-height: 0;
+  }
+
   @media (max-width: 767px) {
     .v6-shell-sidebar {
       display: none;
@@ -774,6 +779,10 @@
 
     .v6-shell-main {
       padding-left: var(--shell-v6-gap);
+    }
+
+    .assistant-shell-host {
+      height: calc(100dvh - var(--shell-v6-topbar-offset) - var(--shell-safe-bottom));
     }
   }
   .layer-popover { z-index: var(--layer-popover); }

@@ -209,7 +209,7 @@ describe("AssistantChatCore", () => {
         <AssistantChatCore threadId="thread-1" />
       </AssistantSurfaceProvider>
     );
-    const scroller = screen.getByTestId("assistant-message-list");
+    const scroller = screen.getByTestId("assistant-chat-scroll-region");
     scroller.scrollTop = 137;
     const trigger = screen.getByRole("button", { name: "compare trigger" });
     trigger.focus();

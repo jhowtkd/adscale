@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import pLimit from "p-limit";
 import { z } from "zod";
 import {
   isAllowedImageType,
@@ -18,6 +19,8 @@ import { inngest } from "@/server/jobs/client";
 
 const MAX_SIZE = 10 * 1024 * 1024;
 const MAX_ENTRIES = 12;
+/** Cap parallel vision calls to avoid memory spikes on small Render instances. */
+const GUIDE_EXTRACT_CONCURRENCY = 2;
 
 const entryKindSchema = z.enum(["guide", "logo", "creative"]);
 type EntryKind = z.infer<typeof entryKindSchema>;
@@ -172,11 +175,14 @@ export async function POST(request: Request) {
       if (creditError) return creditError;
     }
 
+    const extractGuide = pLimit(GUIDE_EXTRACT_CONCURRENCY);
     const guideExtractions = await Promise.all(
-      guides.map(async ({ entry, file, buffer }) => {
-        const extracted = await extractBrandKitFromImage(buffer, file.type);
-        return { entry, extracted };
-      }),
+      guides.map(({ entry, file, buffer }) =>
+        extractGuide(async () => {
+          const extracted = await extractBrandKitFromImage(buffer, file.type);
+          return { entry, extracted };
+        }),
+      ),
     );
 
     for (const { entry, extracted } of guideExtractions) {

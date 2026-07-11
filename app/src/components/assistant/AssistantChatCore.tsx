@@ -10,7 +10,6 @@ import {
   useAssistantThread,
   type AssistantMessage,
 } from "@/lib/hooks/use-assistant-threads";
-import { cn } from "@/lib/utils";
 import AssistantChatInput from "./AssistantChatInput";
 import AssistantMessageList, {
   type AssistantDisplayMessage,
@@ -189,10 +188,7 @@ export default function AssistantChatCore({
 
   return (
     <div
-      className={cn(
-        "flex h-full min-h-0 flex-col",
-        variant === "full" ? "min-h-[50vh]" : "min-h-0"
-      )}
+      className="flex min-h-0 flex-1 flex-col overflow-hidden"
       data-testid="assistant-chat-core"
       data-variant={variant}
     >
@@ -225,7 +221,11 @@ export default function AssistantChatCore({
       {isLoading && threadId ? (
         <p className="p-4 text-sm text-[var(--text-muted)]">{t("loading")}</p>
       ) : (
-        <>
+        <div
+          ref={messageScrollerRef}
+          className="flex min-h-0 flex-1 flex-col overflow-y-auto"
+          data-testid="assistant-chat-scroll-region"
+        >
           {data?.guidedFlow ? (
             <>
               <GuidedFlowResumeBanner guidedFlow={data.guidedFlow} />
@@ -278,11 +278,10 @@ export default function AssistantChatCore({
             streamingText={streamingText}
             isStreaming={isStreaming}
             threadId={threadId}
-            scrollContainerRef={messageScrollerRef}
             artifactLineages={data?.artifactVersionState?.lineages}
             openVersionComparison={openVersionComparison}
           />
-        </>
+        </div>
       )}
 
       {error ? (

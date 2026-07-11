@@ -47,11 +47,11 @@ export default function AssistantShell({
   const isWorkspace = mode === "workspace" || surface.workspaceMode;
 
   return (
-    <div className="min-h-screen bg-[var(--surface-base)]">
+    <div className="flex min-h-0 flex-1 flex-col bg-[var(--surface-base)]">
         <div
           data-testid="assistant-desktop-layout"
           className={cn(
-            "hidden min-h-screen md:grid",
+            "hidden min-h-0 flex-1 md:grid",
             hideDesktopSidebar
               ? isWorkspace
                 ? "grid-cols-[minmax(320px,0.65fr)_minmax(640px,1.35fr)]"
@@ -77,7 +77,7 @@ export default function AssistantShell({
           <main
             id="main"
             data-testid="assistant-desktop-main"
-            className="relative min-w-0 bg-[var(--surface-base)]"
+            className="relative flex min-h-0 min-w-0 flex-col overflow-hidden bg-[var(--surface-base)]"
           >
             {main}
             {!isWorkspace && !contextOpen ? (
@@ -102,7 +102,7 @@ export default function AssistantShell({
           ) : contextOpen ? (
             <aside
               data-testid="assistant-desktop-context"
-              className="relative border-l border-[var(--border-subtle)] bg-[var(--surface-base)]"
+              className="relative min-h-0 overflow-hidden border-l border-[var(--border-subtle)] bg-[var(--surface-base)]"
             >
               <button
                 type="button"
@@ -119,16 +119,25 @@ export default function AssistantShell({
 
         <div
           data-testid="assistant-mobile-layout"
-          className="shell-offset-bottom-mobile min-h-screen md:hidden"
+          className="shell-offset-bottom-mobile flex min-h-0 flex-1 flex-col md:hidden"
         >
           {mobileTab === "tree" ? (
-            <div data-testid="assistant-mobile-tree">{sidebar}</div>
+            <div data-testid="assistant-mobile-tree" className="min-h-0 flex-1 overflow-y-auto">
+              {sidebar}
+            </div>
           ) : null}
           {mobileTab === "chat" ? (
-            <div data-testid="assistant-mobile-chat">{main}</div>
+            <div
+              data-testid="assistant-mobile-chat"
+              className="flex min-h-0 flex-1 flex-col overflow-hidden"
+            >
+              {main}
+            </div>
           ) : null}
           {mobileTab === "context" ? (
-            <div data-testid="assistant-mobile-context">{contextPanel}</div>
+            <div data-testid="assistant-mobile-context" className="min-h-0 flex-1 overflow-y-auto">
+              {contextPanel}
+            </div>
           ) : null}
         </div>
 

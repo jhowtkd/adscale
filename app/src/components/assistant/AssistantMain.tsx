@@ -61,11 +61,13 @@ export default function AssistantMain({
   }
 
   return (
-    <AssistantChatCore
-      threadId={threadId}
-      variant="full"
-      pendingFirstMessage={pendingFirstMessage}
-      onPendingFirstMessageConsumed={() => setPendingFirstMessage(null)}
-    />
+    <div className="flex min-h-0 flex-1 flex-col">
+      <AssistantChatCore
+        threadId={threadId}
+        variant="full"
+        pendingFirstMessage={pendingFirstMessage}
+        onPendingFirstMessageConsumed={() => setPendingFirstMessage(null)}
+      />
+    </div>
   );
 }
