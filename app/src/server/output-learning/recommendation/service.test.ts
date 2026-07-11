@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { buildApprovedCtaClientOutputLearning } from "../../repositories/client-output-learning.fixture";
+import {
+  buildApprovedCtaClientOutputLearning,
+  buildOutputLearningEvidenceRef,
+} from "../../repositories/client-output-learning.fixture";
 import { getOutputLearningRecommendation } from "./service";
 
 vi.mock("../../repositories/campaign", () => ({
@@ -19,7 +22,14 @@ const baseLearning = buildApprovedCtaClientOutputLearning({
   scopeFormat: "",
   confidenceScore: "0.8000",
   sampleEventCount: 5,
-  supportingEvidence: [{ eventId: "e1", polarity: "supporting", strength: "strong" }],
+  supportingEvidence: [
+    buildOutputLearningEvidenceRef({
+      eventId: "e1",
+      strength: "strong",
+      variableKey: "cta",
+      variableValue: "Comprar agora",
+    }),
+  ],
 });
 
 describe("getOutputLearningRecommendation", () => {

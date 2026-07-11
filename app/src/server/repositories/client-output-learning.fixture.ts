@@ -1,5 +1,8 @@
 import type { ClientOutputLearning } from "../db/schema";
-import { OUTPUT_DECISION_EVENT_SCOPE } from "./output-decision-event.fixture";
+import type { OutputLearningEvidenceRef } from "../output-learning/types";
+import {
+  OUTPUT_DECISION_EVENT_SCOPE,
+} from "./output-decision-event.fixture";
 
 /** Deterministic learning row IDs for multi-learning test scenarios. */
 export const CLIENT_OUTPUT_LEARNING_IDS = {
@@ -9,6 +12,26 @@ export const CLIENT_OUTPUT_LEARNING_IDS = {
 } as const;
 
 const DEFAULT_TIMESTAMP = new Date("2026-06-01T00:00:00.000Z");
+const DEFAULT_RECORDED_AT = "2026-06-01T00:00:00.000Z";
+
+export function buildOutputLearningEvidenceRef(
+  overrides: Partial<OutputLearningEvidenceRef> & Pick<OutputLearningEvidenceRef, "eventId" | "strength">
+): OutputLearningEvidenceRef {
+  return {
+    campaignId: OUTPUT_DECISION_EVENT_SCOPE.campaignId,
+    derivationId: OUTPUT_DECISION_EVENT_SCOPE.derivationId,
+    action: "approved",
+    direction: "positive",
+    variableKey: "style_policy",
+    variableValue: "extreme",
+    polarity: "supporting",
+    generationMode: null,
+    format: null,
+    reasonCode: null,
+    recordedAt: DEFAULT_RECORDED_AT,
+    ...overrides,
+  };
+}
 
 /** Approved style_policy learning — baseline for safety guard tests. */
 export function buildClientOutputLearning(
@@ -28,7 +51,9 @@ export function buildClientOutputLearning(
     confidenceScore: "0.9000",
     sampleEventCount: 3,
     sampleCampaignCount: 1,
-    supportingEvidence: [{ eventId: "evt-1", polarity: "supporting", strength: "strong" }],
+    supportingEvidence: [
+      buildOutputLearningEvidenceRef({ eventId: "evt-1", strength: "strong" }),
+    ],
     contradictingEvidence: [],
     algorithmVersion: "1.0.0",
     status: "approved",
@@ -57,8 +82,22 @@ export function buildApprovedCtaClientOutputLearning(
     sampleEventCount: 4,
     sampleCampaignCount: 2,
     supportingEvidence: [
-      { eventId: "evt-1", polarity: "supporting", strength: "strong" },
-      { eventId: "evt-2", polarity: "supporting", strength: "medium" },
+      buildOutputLearningEvidenceRef({
+        eventId: "evt-1",
+        strength: "strong",
+        variableKey: "cta",
+        variableValue: "Comprar agora",
+        generationMode: "art_variation",
+        format: "1:1",
+      }),
+      buildOutputLearningEvidenceRef({
+        eventId: "evt-2",
+        strength: "medium",
+        variableKey: "cta",
+        variableValue: "Comprar agora",
+        generationMode: "art_variation",
+        format: "1:1",
+      }),
     ],
     ...overrides,
   });
