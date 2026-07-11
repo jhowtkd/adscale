@@ -172,9 +172,15 @@ export default function BrandKitTab() {
     clientProfiles,
     profilesLoaded: clientProfilesLoaded,
   });
-  const { data: brandKit, isLoading, isError, error } = useBrandKit(brandKitClientProfileId, {
+  const {
+    data: brandKitData,
+    isLoading,
+    isError,
+    error,
+  } = useBrandKit(brandKitClientProfileId, {
     enabled: brandKitQueryEnabled,
   });
+  const brandKit = brandKitQueryEnabled ? brandKitData : undefined;
   const updateBrandKit = useUpdateBrandKit(brandKitClientProfileId);
   const extractBrandKit = useExtractBrandKit(brandKitClientProfileId);
   const uploadLogo = useUploadLogo(brandKitClientProfileId);

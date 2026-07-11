@@ -189,4 +189,41 @@ describe("useAssistantChat", () => {
     unmount();
     expect(capturedSignal?.aborted).toBe(true);
   });
+
+  it("clears live messages and aborts stream when threadId changes", async () => {
+    fetchMock.mockResolvedValue(
+      sseResponse([
+        {
+          event: "action_card",
+          data: {
+            actionRecordId: "action-1",
+            status: "pending",
+            display: { label: "Generate" },
+          },
+        },
+        { event: "done", data: {} },
+      ])
+    );
+
+    const { result, rerender } = renderHook(
+      ({ threadId }: { threadId: string | null }) => useAssistantChat(threadId),
+      {
+        wrapper: createWrapper(),
+        initialProps: { threadId: "thread-1" },
+      }
+    );
+
+    await act(async () => {
+      await result.current.sendMessage("First thread");
+    });
+
+    expect(result.current.messages).toHaveLength(2);
+
+    rerender({ threadId: "thread-2" });
+
+    expect(result.current.messages).toHaveLength(0);
+    expect(result.current.streamingText).toBe("");
+    expect(result.current.isStreaming).toBe(false);
+    expect(result.current.error).toBeNull();
+  });
 });

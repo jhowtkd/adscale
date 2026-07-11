@@ -130,4 +130,31 @@ describe("ClientProfileLinkControl", () => {
       expect.objectContaining({ onSuccess: expect.any(Function) })
     );
   });
+
+  it("lets the operator unlink a linked client profile", () => {
+    useClientProfilesMock.mockReturnValue({
+      data: [
+        { id: "profile-1", name: "CENBRAP" },
+        { id: "profile-2", name: "Acme" },
+      ],
+      isLoading: false,
+    });
+
+    render(
+      <ClientProfileLinkControl
+        campaignId="campaign-1"
+        clientName="CENBRAP"
+        clientProfileId="profile-1"
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText("Perfil do cliente"), {
+      target: { value: "none" },
+    });
+
+    expect(updateCampaignMutate).toHaveBeenCalledWith(
+      { clientProfileId: null },
+      expect.objectContaining({ onSuccess: expect.any(Function) })
+    );
+  });
 });

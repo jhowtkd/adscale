@@ -227,9 +227,10 @@ export default function CampaignWorkspacePage() {
       }),
     [campaign, clientProfiles, clientProfilesLoaded]
   );
-  const { data: brandKit } = useBrandKit(brandKitClientProfileId, {
+  const { data: brandKitData } = useBrandKit(brandKitClientProfileId, {
     enabled: brandKitQueryEnabled,
   });
+  const brandKit = brandKitQueryEnabled ? brandKitData ?? null : null;
   const reviewDerivation = useMemo(
     () => allDerivations.find((item) => item.id === reviewDerivationId) ?? null,
     [allDerivations, reviewDerivationId]

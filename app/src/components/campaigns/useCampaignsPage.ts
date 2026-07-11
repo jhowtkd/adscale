@@ -46,10 +46,28 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
   const [prevUrlSearchQuery, setPrevUrlSearchQuery] = useState(searchQuery);
   const searchInput = pendingSearch ?? searchQuery;
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingUrlApplyRef = useRef<string | null>(null);
+  const pendingSearchRef = useRef<string | null>(null);
 
   if (searchQuery !== prevUrlSearchQuery) {
     setPrevUrlSearchQuery(searchQuery);
-    setPendingSearch(null);
+    setPendingSearch((current) => {
+      if (current === null) {
+        pendingSearchRef.current = null;
+        return null;
+      }
+      if (
+        pendingUrlApplyRef.current !== null &&
+        searchQuery === pendingUrlApplyRef.current
+      ) {
+        pendingUrlApplyRef.current = null;
+        pendingSearchRef.current = current;
+        return current;
+      }
+      pendingUrlApplyRef.current = null;
+      pendingSearchRef.current = null;
+      return null;
+    });
   }
 
   useEffect(() => {
@@ -98,6 +116,7 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
   const [saveTemplateCampaign, setSaveTemplateCampaign] = useState<Campaign | null>(null);
 
   const applySearchQueryToUrl = useCallback((value: string) => {
+    pendingUrlApplyRef.current = value;
     const params = new URLSearchParams(searchParams.toString());
     if (value.trim()) {
       params.set("q", value);
@@ -111,29 +130,28 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
   }, [router, searchParams]);
 
   const clearSearchQuery = useCallback(() => {
+    pendingSearchRef.current = null;
     setPendingSearch(null);
+    pendingUrlApplyRef.current = null;
     applySearchQueryToUrl("");
   }, [applySearchQueryToUrl]);
 
   const handleSearchChange = useCallback(
     (value: string) => {
+      pendingSearchRef.current = value;
       setPendingSearch(value);
       if (searchDebounceRef.current) {
         clearTimeout(searchDebounceRef.current);
       }
       const scheduledValue = value;
       searchDebounceRef.current = setTimeout(() => {
-        let shouldApply = false;
-        setPendingSearch((current) => {
-          if (current !== scheduledValue) {
-            return current;
-          }
-          shouldApply = true;
-          return null;
-        });
-        if (shouldApply) {
-          applySearchQueryToUrl(scheduledValue);
+        const current = pendingSearchRef.current;
+        if (current !== scheduledValue) {
+          return;
         }
+        pendingSearchRef.current = null;
+        setPendingSearch(null);
+        applySearchQueryToUrl(scheduledValue);
       }, 300);
     },
     [applySearchQueryToUrl],

@@ -1,6 +1,6 @@
 import { readAssistantSseStream } from "@/lib/assistant/parse-sse";
 import type { ChatAttachment } from "@/lib/assistant/chat-attachments";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { assistantThreadQueryKey } from "./use-assistant-threads";
 
@@ -26,13 +26,23 @@ export function useAssistantChat(threadId: string | null) {
   const [streamingText, setStreamingText] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [prevThreadId, setPrevThreadId] = useState(threadId);
   const abortRef = useRef<AbortController | null>(null);
 
-  useEffect(() => {
+  if (threadId !== prevThreadId) {
+    setPrevThreadId(threadId);
+    setMessages([]);
+    setStreamingText("");
+    setIsStreaming(false);
+    setError(null);
+  }
+
+  useLayoutEffect(() => {
     return () => {
       abortRef.current?.abort();
+      abortRef.current = null;
     };
-  }, []);
+  }, [threadId]);
 
   const sendMessage = useCallback(
     async (input: string | SendAssistantMessageInput) => {

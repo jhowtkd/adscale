@@ -102,6 +102,7 @@ export default function ClientProfileLinkControl({
           aria-label={t("clientProfileLabel")}
           className="h-9 w-full rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-2 text-xs text-[var(--text-primary)] transition-colors disabled:opacity-60"
         >
+          <option value="none">{t("noProfileLinked")}</option>
           {profiles.map((profile) => (
             <option key={profile.id} value={profile.id}>
               {profile.name}
