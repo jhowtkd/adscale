@@ -20,10 +20,25 @@ vi.mock("@/lib/hooks/use-campaigns", () => ({
     isError: false,
     error: null,
   }),
-  useCreateCampaign: () => ({ mutate: vi.fn() }),
+  useCreateCampaign: () => ({ mutate: vi.fn(), isPending: false }),
   useUpdateCampaigns: () => ({ mutate: vi.fn(), mutateAsync: vi.fn() }),
   useDeleteCampaigns: () => ({ mutate: vi.fn(), mutateAsync: vi.fn() }),
   useDuplicateCampaign: () => ({ mutate: vi.fn() }),
+}));
+
+vi.mock("@/lib/hooks/use-templates", () => ({
+  fetchTemplate: vi.fn(),
+  TemplateLoadError: class TemplateLoadError extends Error {
+    status: number;
+    constructor(status: number, message: string) {
+      super(message);
+      this.status = status;
+    }
+  },
+}));
+
+vi.mock("sonner", () => ({
+  toast: { success: vi.fn(), error: vi.fn() },
 }));
 
 function createSearchParams(initialQuery = "") {

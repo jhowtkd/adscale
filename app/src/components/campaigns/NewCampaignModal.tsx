@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { AnimatePresence, m } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
@@ -27,25 +27,34 @@ interface FormErrors {
   clientName?: string;
 }
 
+export interface NewCampaignSubmitData {
+  name: string;
+  client: string;
+  clientProfileId: string | null;
+}
+
 interface NewCampaignModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (data: {
-    name: string;
-    client: string;
-    clientProfileId: string | null;
-  }) => void;
+  onSubmit: (data: NewCampaignSubmitData) => void;
+  initialValues?: { name: string; clientName: string } | null;
+  templateName?: string | null;
+  submitDisabled?: boolean;
 }
 
 export default function NewCampaignModal({
   open,
   onOpenChange,
   onSubmit,
+  initialValues = null,
+  templateName = null,
+  submitDisabled = false,
 }: NewCampaignModalProps) {
   const tCampaign = useTranslations("campaign");
   const tBriefing = useTranslations("briefing");
   const tCommon = useTranslations("common");
   const tErrors = useTranslations("errors");
+  const tTemplate = useTranslations("template");
 
   const [form, setForm] = useState<NewCampaignForm>({
     name: "",
@@ -56,6 +65,16 @@ export default function NewCampaignModal({
     name: false,
     clientName: false,
   });
+
+  useEffect(() => {
+    if (!open) return;
+    setForm({
+      name: initialValues?.name ?? "",
+      clientName: initialValues?.clientName ?? "",
+    });
+    setErrors({});
+    touchedRef.current = { name: false, clientName: false };
+  }, [open, initialValues?.name, initialValues?.clientName]);
 
   const updateField = useCallback(
     <K extends keyof NewCampaignForm>(field: K, value: NewCampaignForm[K]) => {
@@ -86,28 +105,19 @@ export default function NewCampaignModal({
   const handleSubmit = useCallback(
     (e?: React.FormEvent) => {
       e?.preventDefault();
+      if (submitDisabled) return;
       if (!validate()) return;
       onSubmit({
         name: form.name,
         client: form.clientName,
         clientProfileId: null,
       });
-      setForm({
-        name: "",
-        clientName: "",
-      });
-      setErrors({});
-      touchedRef.current = { name: false, clientName: false };
-      onOpenChange(false);
     },
-    [form, validate, onSubmit, onOpenChange]
+    [form, validate, onSubmit, submitDisabled]
   );
 
   const handleCancel = useCallback(() => {
     onOpenChange(false);
-    setForm({ name: "", clientName: "" });
-    setErrors({});
-    touchedRef.current = { name: false, clientName: false };
   }, [onOpenChange]);
 
   return (
@@ -121,7 +131,9 @@ export default function NewCampaignModal({
             {tCampaign("createNew")}
           </DialogTitle>
           <DialogDescription className="text-sm text-[var(--text-secondary)]">
-            {tCampaign("createDescription")}
+            {templateName
+              ? tTemplate("prefilledFromTemplate", { name: templateName })
+              : tCampaign("createDescription")}
           </DialogDescription>
         </DialogHeader>
 
@@ -207,6 +219,7 @@ export default function NewCampaignModal({
             </Button>
             <Button
               type="submit"
+              disabled={submitDisabled}
               className="bg-[var(--accent-green)] text-[var(--accent-green-on-fill)] hover:opacity-90"
             >
               {tCommon("create")}

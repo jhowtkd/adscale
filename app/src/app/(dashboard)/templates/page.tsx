@@ -25,7 +25,7 @@ export default function TemplatesPage() {
   const updateTemplate = useUpdateTemplate();
 
   const handleUseTemplate = (template: CampaignTemplate) => {
-    router.push(`/campaigns?templateId=${template.id}`);
+    router.push(`/campaigns?new=1&templateId=${template.id}`);
   };
 
   const handleDelete = async (id: string) => {

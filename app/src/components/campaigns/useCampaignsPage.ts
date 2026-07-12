@@ -12,6 +12,11 @@ import {
   useDeleteCampaigns,
   useDuplicateCampaign,
 } from "@/lib/hooks/use-campaigns";
+import {
+  fetchTemplate,
+  TemplateLoadError,
+  type CampaignTemplate,
+} from "@/lib/hooks/use-templates";
 
 import { useTranslations } from "next-intl";
 
@@ -22,11 +27,22 @@ interface CampaignSearchParams {
   toString(): string;
 }
 
+type TemplateLoadState = "idle" | "loading" | "ready" | "error" | "not_found";
+
+function stripCreationParams(searchParams: CampaignSearchParams) {
+  const params = new URLSearchParams(searchParams.toString());
+  params.delete("new");
+  params.delete("templateId");
+  const query = params.toString();
+  return `/campaigns${query ? `?${query}` : ""}`;
+}
+
 export function useCampaignsPage(searchParams: CampaignSearchParams) {
   const router = useRouter();
   const t = useTranslations("campaign");
   const tc = useTranslations("common");
   const te = useTranslations("errors");
+  const tTemplate = useTranslations("template");
 
   const createCampaign = useCreateCampaign();
   const updateCampaigns = useUpdateCampaigns();
@@ -78,13 +94,40 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
     };
   }, []);
 
+  const templateIdParam = searchParams.get("templateId");
   const newParam = searchParams.get("new");
   const shouldOpenNewModal =
     newParam !== null &&
     (newParam === "1" || newParam === "true" || newParam === "");
 
+  const [templateLoadState, setTemplateLoadState] =
+    useState<TemplateLoadState>("idle");
+  const [loadedTemplate, setLoadedTemplate] = useState<CampaignTemplate | null>(
+    null
+  );
+  const [templateRetryToken, setTemplateRetryToken] = useState(0);
+  const activeTemplateLoadRef = useRef<string | null>(null);
+
+  const clearCreationQueryParams = useCallback(() => {
+    const nextUrl = stripCreationParams(searchParams);
+    window.history.replaceState(window.history.state, "", nextUrl);
+  }, [searchParams]);
+
+  const dismissTemplateFlow = useCallback(() => {
+    setTemplateLoadState("idle");
+    setLoadedTemplate(null);
+    setModalOpen(false);
+    activeTemplateLoadRef.current = null;
+    clearCreationQueryParams();
+  }, [clearCreationQueryParams]);
+
+  // Bare ?new=1 (no template): open modal immediately and strip only `new`.
   const [consumedNewParam, setConsumedNewParam] = useState<string | null>(null);
-  if (shouldOpenNewModal && consumedNewParam !== newParam) {
+  if (
+    shouldOpenNewModal &&
+    !templateIdParam &&
+    consumedNewParam !== newParam
+  ) {
     setConsumedNewParam(newParam);
     if (!modalOpen) {
       setModalOpen(true);
@@ -92,14 +135,67 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
   }
 
   useEffect(() => {
-    if (!shouldOpenNewModal || consumedNewParam !== newParam) return;
+    if (!shouldOpenNewModal || templateIdParam || consumedNewParam !== newParam) {
+      return;
+    }
 
     const params = new URLSearchParams(searchParams.toString());
     params.delete("new");
     const query = params.toString();
     const nextUrl = `/campaigns${query ? `?${query}` : ""}`;
     window.history.replaceState(window.history.state, "", nextUrl);
-  }, [shouldOpenNewModal, consumedNewParam, newParam, searchParams]);
+  }, [
+    shouldOpenNewModal,
+    templateIdParam,
+    consumedNewParam,
+    newParam,
+    searchParams,
+  ]);
+
+  // ?templateId=… — load before opening modal; keep params until success/cancel.
+  useEffect(() => {
+    if (!templateIdParam) return;
+
+    const loadKey = `${templateIdParam}:${templateRetryToken}`;
+    if (activeTemplateLoadRef.current === loadKey) return;
+    activeTemplateLoadRef.current = loadKey;
+
+    let cancelled = false;
+    setTemplateLoadState("loading");
+    setLoadedTemplate(null);
+    setModalOpen(false);
+
+    void fetchTemplate(templateIdParam)
+      .then((template) => {
+        if (cancelled) return;
+        setLoadedTemplate(template);
+        setTemplateLoadState("ready");
+        setModalOpen(true);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        const status =
+          err instanceof TemplateLoadError ? err.status : undefined;
+        if (status === 404) {
+          setTemplateLoadState("not_found");
+          toast.error(tTemplate("loadTemplateNotFound"));
+        } else {
+          setTemplateLoadState("error");
+          toast.error(tTemplate("loadTemplateError"));
+        }
+        setLoadedTemplate(null);
+        setModalOpen(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [templateIdParam, templateRetryToken, tTemplate]);
+
+  const retryTemplateLoad = useCallback(() => {
+    activeTemplateLoadRef.current = null;
+    setTemplateRetryToken((n) => n + 1);
+  }, []);
 
   const campaignQuery = {
     searchQuery,
@@ -250,22 +346,69 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
   const allSelected =
     campaigns.length > 0 && campaigns.every((c) => selectedIds.has(c.id));
 
+  const handleModalOpenChange = useCallback(
+    (open: boolean) => {
+      if (!open) {
+        if (templateIdParam) {
+          dismissTemplateFlow();
+          return;
+        }
+        setModalOpen(false);
+        return;
+      }
+      setModalOpen(true);
+    },
+    [templateIdParam, dismissTemplateFlow]
+  );
+
   const handleCreateCampaign = useCallback(
     (data: {
       name: string;
       client: string;
       clientProfileId: string | null;
     }) => {
+      const fromTemplate = loadedTemplate;
       createCampaign.mutate(
         {
           name: data.name,
           client: data.client,
-          clientProfileId: data.clientProfileId,
+          // Generic template: never attach brand/refs from snapshot.
+          clientProfileId: null,
+          ...(fromTemplate
+            ? {
+                product: fromTemplate.product ?? undefined,
+                objective: fromTemplate.objective ?? undefined,
+                audience: fromTemplate.audience ?? undefined,
+                platforms: fromTemplate.platforms ?? undefined,
+                tone: fromTemplate.tone ?? undefined,
+                offer: fromTemplate.offer ?? undefined,
+                constraints: fromTemplate.constraints ?? undefined,
+                notes: fromTemplate.notes ?? undefined,
+                generationMode: fromTemplate.generationMode,
+                creativeLevel: (fromTemplate.creativeLevel as
+                  | "conservative"
+                  | "balanced"
+                  | "bold"
+                  | "extreme"
+                  | null) ?? undefined,
+                styleIntensity: (fromTemplate.styleIntensity as
+                  | "soft"
+                  | "medium"
+                  | "strong"
+                  | null) ?? undefined,
+                ctaVariants: fromTemplate.ctaVariants ?? undefined,
+                targetFormats: fromTemplate.targetFormats ?? undefined,
+              }
+            : {}),
         },
         {
           onSuccess: (campaign) => {
             toast.success(tc("campaignCreated", { name: data.name }));
             setModalOpen(false);
+            setLoadedTemplate(null);
+            setTemplateLoadState("idle");
+            activeTemplateLoadRef.current = null;
+            clearCreationQueryParams();
             router.push(`/campaigns/${campaign.id}`);
           },
           onError: (err) => {
@@ -274,7 +417,7 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
         }
       );
     },
-    [createCampaign, router, tc]
+    [createCampaign, router, tc, loadedTemplate, clearCreationQueryParams]
   );
 
   const handleDuplicate = useCallback(
@@ -372,6 +515,13 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
     return pages;
   }, [visibleCurrentPage, totalPages]);
 
+  const modalInitialValues = loadedTemplate
+    ? {
+        name: loadedTemplate.name,
+        clientName: loadedTemplate.client ?? "",
+      }
+    : null;
+
   return {
     campaigns,
     totalCount,
@@ -381,7 +531,7 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
     viewMode,
     setViewMode,
     modalOpen,
-    setModalOpen,
+    setModalOpen: handleModalOpenChange,
     statusFilter,
     setStatusFilter,
     platformFilter,
@@ -423,8 +573,15 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
     startIndex,
     endIndex,
     pageNumbers,
+    templateLoadState,
+    loadedTemplate,
+    modalInitialValues,
+    retryTemplateLoad,
+    dismissTemplateFlow,
+    createPending: createCampaign.isPending,
     t,
     tc,
     te,
+    tTemplate,
   };
 }
