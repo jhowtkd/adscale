@@ -18,7 +18,6 @@ import { useCampaigns } from "@/lib/hooks/use-campaigns";
 import { useBillingStatus } from "@/lib/hooks/use-billing";
 import { authClient } from "@/lib/auth-client";
 import AccountStatusBadge from "@/components/layout/AccountStatusBadge";
-import SidebarAssistantModeSwitch from "@/components/layout/SidebarAssistantModeSwitch";
 import SidebarBrandKitFeature from "@/components/layout/SidebarBrandKitFeature";
 import AppSidebarCampaignMap from "@/components/layout/AppSidebarCampaignMap";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
@@ -56,7 +55,7 @@ export default function AppSidebar({ variant = "production" }: { variant?: AppSi
 
   const isDashboard = isPreview
     ? pathname === "/v6" || pathname.startsWith("/v6/dashboard") || pathname.startsWith("/v6/topbar-promo")
-    : pathname === "/";
+    : pathname === "/dashboard" || pathname.startsWith("/dashboard/");
   const isCampaigns = isPreview
     ? pathname.startsWith("/v6/campaigns") || pathname.startsWith("/v6/campaign-workspace")
     : pathname.startsWith("/campaigns");
@@ -100,20 +99,12 @@ export default function AppSidebar({ variant = "production" }: { variant?: AppSi
         </Link>
       </div>
 
-      {!isPreview ? (
-        <div className="mb-3 shrink-0 px-1">
-          <Suspense fallback={null}>
-            <SidebarAssistantModeSwitch />
-          </Suspense>
-        </div>
-      ) : null}
-
       <nav
         className="mb-3 grid shrink-0 grid-cols-4 gap-1"
         aria-label={tNav("sectionPrincipal")}
       >
         <IconNavItem
-          href={isPreview ? "/v6/dashboard" : "/"}
+          href={isPreview ? "/v6/dashboard" : "/dashboard"}
           active={isDashboard}
           label={tNav("dashboard")}
           icon={LayoutDashboard}

@@ -6,17 +6,24 @@ import { useTranslations } from "next-intl";
 import { ArrowRight, Plus } from "lucide-react";
 import { useDashboardStats } from "@/lib/hooks/use-dashboard-stats";
 import { resolveContinueTarget } from "@/lib/dashboard/resolve-continue-target";
+import { buildCreatePostQuickTool } from "@/components/dashboard/quick-tool-recipes";
 import { cn } from "@/lib/utils";
 
 const CREATE_HREF = "/campaigns?new=1";
 
 export default function DashboardHomeActions() {
   const t = useTranslations("dashboard.home");
+  const tV6 = useTranslations("dashboard.v6");
   const { data: stats, isLoading, isError, refetch } = useDashboardStats("month", "7");
 
   const continueTarget = useMemo(
     () => resolveContinueTarget(stats?.recentCampaigns ?? []),
     [stats?.recentCampaigns]
+  );
+
+  const createPost = useMemo(
+    () => buildCreatePostQuickTool((key) => tV6(key)),
+    [tV6]
   );
 
   if (isError && !stats) {
@@ -94,6 +101,40 @@ export default function DashboardHomeActions() {
             <p className="mt-1 text-sm text-[var(--text-muted)]">{t("continueEmpty")}</p>
           </div>
         )}
+
+        <section aria-labelledby="home-quick-tools-heading" className="pt-2">
+          <h2
+            id="home-quick-tools-heading"
+            className="mb-3 px-1 font-mono text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
+          >
+            {t("quickToolsTitle")}
+          </h2>
+          <Link
+            href={createPost.href}
+            className={cn(
+              "flex w-full items-center gap-3 rounded-[var(--radius-object)] border border-[var(--border-default)]",
+              "bg-[var(--surface-raised)] p-4 text-left transition-colors",
+              "hover:bg-[var(--surface-inset)]"
+            )}
+          >
+            <span
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-[var(--radius-control)] bg-[var(--accent-primary-subtle)] text-base"
+              aria-hidden="true"
+            >
+              {createPost.icon}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-semibold text-[var(--text-primary)]">
+                {createPost.name}
+              </span>
+              <span className="mt-0.5 block text-xs text-[var(--text-muted)]">{createPost.desc}</span>
+            </span>
+            <span className="shrink-0 font-mono text-[11px] text-[var(--text-muted)]">
+              {createPost.count}
+            </span>
+            <ArrowRight size={16} aria-hidden="true" className="shrink-0 text-[var(--text-muted)]" />
+          </Link>
+        </section>
       </div>
     </div>
   );

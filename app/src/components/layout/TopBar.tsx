@@ -74,7 +74,11 @@ export function deriveRouteTitle({
   tAssistant,
   tLibrary,
 }: RouteTitleArgs): string {
-  if (pathname === "/") return tNav("dashboard");
+  if (pathname === "/") return tNav("home");
+
+  if (pathname === "/dashboard" || pathname.startsWith("/dashboard/")) {
+    return tNav("dashboard");
+  }
 
   if (pathname === "/assistant" || pathname.startsWith("/assistant/")) {
     return tAssistant("headerTitle");
@@ -167,7 +171,7 @@ export default function TopBar({
   }, [displayName]);
   const notificationItems = notificationsData ?? [];
   const unreadCount = notificationItems.filter((n) => !n.readAt).length;
-  const isDashboard = pathname === "/";
+  const isHome = pathname === "/";
   const sessionUserForDemo: UserLike | null = sessionUser
     ? { id: sessionUser.id, email: sessionUser.email, name: sessionUser.name }
     : null;
@@ -221,7 +225,7 @@ export default function TopBar({
         return tAssistant("headerTitle");
       }
     }
-    return headerTitle || tNav("dashboard");
+    return headerTitle || tNav("home");
   })();
 
   return (
@@ -235,7 +239,7 @@ export default function TopBar({
               "layer-shell-floating fixed top-0 right-0 left-0 flex items-center justify-between gap-3 sm:gap-4",
               "shell-topbar-height border-b border-[var(--border-dim)] bg-[var(--surface-base)]",
               "transition-transform duration-300 ease-out",
-              isDashboard ? "px-4 sm:px-6 lg:px-8" : "px-4 sm:px-6",
+              isHome ? "px-4 sm:px-6 lg:px-8" : "px-4 sm:px-6",
               isTopBarHidden && "-translate-y-full"
             )
       )}
@@ -258,7 +262,7 @@ export default function TopBar({
             "flex min-w-0 shrink items-center rounded-md py-0.5",
             isInline ? "sm:shrink-0" : "sm:shrink-0 sm:px-2"
           )}
-          aria-label="ADScale — Dashboard"
+          aria-label="ADScale — Início"
         >
           <Image
             src="/images/logo.svg"
@@ -283,12 +287,12 @@ export default function TopBar({
           <>
             {/* Navigation */}
             <nav className="hidden md:flex items-center gap-1">
-              <NavLink href="/" icon={LayoutDashboard} label={tNav("dashboard")} active={pathname === "/"} />
+              <NavLink href="/dashboard" icon={LayoutDashboard} label={tNav("dashboard")} active={pathname === "/dashboard" || pathname.startsWith("/dashboard/")} />
               <NavLink href="/campaigns" icon={FolderOpen} label={tNav("campaigns")} active={pathname.startsWith("/campaigns")} />
               <NavLink href="/settings" icon={Settings} label={tNav("settings")} active={pathname.startsWith("/settings")} />
             </nav>
 
-            {!isDashboard && headerTitle ? (
+            {!isHome && headerTitle ? (
               <p className="hidden min-w-0 truncate text-sm font-semibold text-[var(--text-primary)] lg:block lg:max-w-[10rem] xl:max-w-xs">
                 {headerTitle}
               </p>
@@ -314,11 +318,11 @@ export default function TopBar({
             href="/docs"
             className="hidden items-center gap-2 rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] px-3.5 py-2 text-[13px] font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-inset)] sm:inline-flex"
           >
-            Documentação
+            {tNav("howToUse")}
           </Link>
         )}
 
-        {isDashboard && !isV6Floating && (
+        {isHome && !isV6Floating && (
           <Link
             href="/campaigns?new=1"
             aria-label={tCampaign("new")}
@@ -332,7 +336,7 @@ export default function TopBar({
           </Link>
         )}
 
-        {!isDashboard && !isV6Floating && (
+        {!isHome && !isV6Floating && (
           <div className="relative">
             {/* Notification Bell */}
             <button

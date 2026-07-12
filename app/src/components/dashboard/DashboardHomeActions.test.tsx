@@ -7,7 +7,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 const useDashboardStatsMock = vi.fn();
 
 vi.mock("next-intl", () => ({
-  useTranslations: () => (key: string, values?: Record<string, string>) => {
+  useTranslations: (ns?: string) => (key: string, values?: Record<string, string>) => {
+    if (ns === "dashboard.v6") {
+      return `dashboard.v6.${key}`;
+    }
     if (key === "continueCampaignHint" && values?.name) {
       return `Continue: ${values.name}`;
     }
@@ -68,6 +71,10 @@ describe("DashboardHomeActions", () => {
     expect(screen.getByRole("link", { name: /Continue: Black Friday/i })).toHaveAttribute(
       "href",
       "/campaigns/camp-1"
+    );
+    expect(screen.getByRole("link", { name: /createPostName/i })).toHaveAttribute(
+      "href",
+      "/quick-tools/create-post"
     );
   });
 

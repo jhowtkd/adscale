@@ -1,6 +1,7 @@
 import { formatCampaignPlatforms } from "@/lib/campaign-platforms";
 import type { CampaignTemplate } from "@/lib/hooks/use-templates";
 import type { DashboardStats } from "@/server/repositories/dashboard";
+import { buildCreatePostQuickTool } from "@/components/dashboard/quick-tool-recipes";
 import type {
   DashboardV6ActivityRow,
   DashboardV6Hero,
@@ -194,14 +195,7 @@ export function mapDashboardToV6View({
     updated: formatRelativeTime(campaign.updatedAt, tRelative),
   }));
 
-  const createPost: DashboardV6Recipe = {
-    id: "quick-tool-create-post",
-    icon: "✦",
-    name: tHero("createPostName"),
-    desc: tHero("createPostDescription"),
-    count: tHero("createPostCount"),
-    href: "/quick-tools/create-post",
-  };
+  const createPost: DashboardV6Recipe = buildCreatePostQuickTool((key) => tHero(key));
 
   const recipes: DashboardV6Recipe[] = [createPost, ...templates.slice(0, 4).map((template) => ({
     id: template.id,

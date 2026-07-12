@@ -5,6 +5,7 @@
   },
   "navigation": {
     "dashboard": "Dashboard",
+    "home": "Home",
     "campaigns": "Campaigns",
     "templates": "Templates",
     "settings": "Settings",
@@ -27,7 +28,11 @@
     "quality": "Quality",
     "brandKit": "Brand Kit",
     "brandKitBeta": "BETA",
-    "brandKitHint": "Train the client brand"
+    "brandKitHint": "Train the client brand",
+    "howToUse": "How to use",
+    "recentWorks": "Recent work",
+    "recentWorksEmpty": "No campaigns yet",
+    "recentWorksCreate": "Create campaign"
   },
   "language": {
     "label": "Language",
@@ -439,6 +444,7 @@
       "continueWhereLeftOff": "Continue where I left off",
       "continueCampaignHint": "Resume {name}",
       "continueEmpty": "Nothing in progress yet. Create a campaign to get started.",
+      "quickToolsTitle": "Quick tools",
       "errorTitle": "Failed to load",
       "errorDescription": "Could not load dashboard",
       "retry": "Try again"

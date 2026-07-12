@@ -37,14 +37,6 @@ vi.mock("./SidebarBrandKitFeature", () => ({
     </a>
   ),
 }));
-vi.mock("./SidebarAssistantModeSwitch", () => ({
-  default: () => (
-    <div role="group" aria-label="assistant.mode.headerTitle">
-      <button type="button">assistant.mode.panel</button>
-      <button type="button">assistant.mode.chat</button>
-    </div>
-  ),
-}));
 
 import AppSidebar from "./AppSidebar";
 import { useBillingStatus } from "@/lib/hooks/use-billing";
@@ -63,14 +55,18 @@ describe("AppSidebar role-aware navigation", () => {
     expect(screen.queryByText("⌘K")).not.toBeInTheDocument();
   });
 
-  it("shows icon nav, Painel/Chat switch, Brand Kit feature, and campaign map", () => {
+  it("shows icon nav, Brand Kit feature, and recent works map — without Chat switch", () => {
     render(<AppSidebar variant="production" />);
     expect(screen.queryByText("navigation.creativeIntelligenceAdvanced")).not.toBeInTheDocument();
     expect(screen.queryByText("navigation.sectionAvancado")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "assistant.mode.panel" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /assistant\.mode\.chat/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "assistant.mode.panel" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /assistant\.mode\.chat/i })).not.toBeInTheDocument();
     expect(screen.getByTestId("sidebar-brand-kit-feature")).toHaveAttribute("href", "/brand-kit");
     expect(screen.getByTestId("campaign-map")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "navigation.dashboard" })).toHaveAttribute(
+      "href",
+      "/dashboard"
+    );
     expect(screen.getByRole("link", { name: "common.create" })).toHaveAttribute(
       "href",
       "/campaigns?new=1"

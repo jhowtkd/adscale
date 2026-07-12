@@ -5,6 +5,7 @@
   },
   "navigation": {
     "dashboard": "Dashboard",
+    "home": "Início",
     "campaigns": "Campanhas",
     "templates": "Templates",
     "settings": "Configurações",
@@ -27,7 +28,11 @@
     "quality": "Quality",
     "brandKit": "Brand Kit",
     "brandKitBeta": "BETA",
-    "brandKitHint": "Treine a marca do cliente"
+    "brandKitHint": "Treine a marca do cliente",
+    "howToUse": "Como usar",
+    "recentWorks": "Trabalhos recentes",
+    "recentWorksEmpty": "Nenhuma campanha ainda",
+    "recentWorksCreate": "Criar campanha"
   },
   "language": {
     "label": "Idioma",
@@ -439,6 +444,7 @@
       "continueWhereLeftOff": "Continuar de onde parei",
       "continueCampaignHint": "Retomar {name}",
       "continueEmpty": "Nada em andamento ainda. Crie uma campanha para começar.",
+      "quickToolsTitle": "Quick tools",
       "errorTitle": "Erro ao carregar",
       "errorDescription": "Erro ao carregar dashboard",
       "retry": "Tentar novamente"

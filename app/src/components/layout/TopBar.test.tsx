@@ -242,7 +242,12 @@ describe("TopBar navigation quick-links", () => {
 });
 
 const ptTitleDict = {
-  navigation: { dashboard: "Dashboard", campaigns: "Campanhas", settings: "Configurações" },
+  navigation: {
+    dashboard: "Dashboard",
+    home: "Início",
+    campaigns: "Campanhas",
+    settings: "Configurações",
+  },
   common: { pageTitle: "Campanhas", notifications: "Notificações" },
   settings: {
     title: "Configurações",
@@ -255,7 +260,12 @@ const ptTitleDict = {
 };
 
 const enTitleDict = {
-  navigation: { dashboard: "Dashboard", campaigns: "Campaigns", settings: "Settings" },
+  navigation: {
+    dashboard: "Dashboard",
+    home: "Home",
+    campaigns: "Campaigns",
+    settings: "Settings",
+  },
   common: { pageTitle: "Campaigns", notifications: "Notifications" },
   settings: {
     title: "Settings",
@@ -280,9 +290,15 @@ describe("deriveRouteTitle", () => {
   const tLibrary = makeTranslator(ptTitleDict)("library");
   const baseArgs = { tNav, tCommon, tSettings, tAssistant, tLibrary };
 
-  it("returns Dashboard label for /", () => {
+  it("returns Início label for /", () => {
     expect(
       deriveRouteTitle({ pathname: "/", campaignDetailTitle: "", ...baseArgs })
+    ).toBe("Início");
+  });
+
+  it("returns Dashboard label for /dashboard", () => {
+    expect(
+      deriveRouteTitle({ pathname: "/dashboard", campaignDetailTitle: "", ...baseArgs })
     ).toBe("Dashboard");
   });
 
