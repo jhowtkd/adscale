@@ -64,7 +64,7 @@
 Plans:
 
 - [x] 204-01-PLAN.md — Core domain: semantic diff, proposal service, revise_creative_plan contract, confirm handler, draft persistence
-- [ ] 204-02-PLAN.md — Orchestrator integration, API routes, summary-only action card, tests
+- [x] 204-02-PLAN.md — Orchestrator integration, API routes, summary-only action card, tests
 
 ### Phase 205: Creative Iteration Loop
 

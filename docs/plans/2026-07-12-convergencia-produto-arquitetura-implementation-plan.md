@@ -1,7 +1,7 @@
 # Plano de convergência de produto e arquitetura do ADScale
 
 **Data:** 2026-07-12  
-**Status:** Proposto para aprovação  
+**Status:** Fase 1 em andamento (Gate 0 fechado)  
 **Direção assumida:** trabalho criativo-first  
 **Estratégia:** migração incremental com gates; nenhum big bang
 

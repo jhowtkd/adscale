@@ -58,8 +58,10 @@
     "quality-trend-evidence": "npx tsx scripts/run-quality-trend.ts --all-workspaces",
     "convergence:check-destinations": "node scripts/check-primary-destinations.mjs",
     "convergence:check-frozen": "node scripts/check-frozen-modules.mjs",
-    "convergence:test": "node --test scripts/convergence-gates.test.mjs",
+    "convergence:check-planning": "node scripts/check-planning-consistency.mjs",
+    "convergence:test": "node --test scripts/convergence-gates.test.mjs scripts/check-planning-consistency.test.mjs",
     "convergence:baseline": "node scripts/capture-convergence-baseline.mjs",
+    "convergence:inventory": "node scripts/generate-surface-inventory.mjs",
     "convergence:gate": "node scripts/run-convergence-gate.mjs"
   },
   "dependencies": {

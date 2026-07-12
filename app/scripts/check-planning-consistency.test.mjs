@@ -1,0 +1,115 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import {
+  parseAcceptedDebtYaml,
+  parseRequirements,
+  parseStateFrontmatter,
+  validatePlanningConsistency,
+} from "./check-planning-consistency.mjs";
+
+test("parseRequirements distinguishes open and complete", () => {
+  const md = `
+- [x] **PLAN-01**: done
+- [ ] **PLAN-02**: pending
+- [X] **CREV-01**: also done
+`;
+  const { open, complete } = parseRequirements(md);
+  assert.deepEqual(open, ["PLAN-02"]);
+  assert.deepEqual(complete, ["PLAN-01", "CREV-01"]);
+});
+
+test("parseAcceptedDebtYaml rejects prose-only debt and reads structured entries", () => {
+  const yaml = `
+accepted_debt:
+  - requirement: PLAN-02
+    reason: "Field-level diff deferred"
+    owner: "Jhonatan"
+    accepted_at: "2026-07-12"
+    carry_forward: true
+`;
+  const debts = parseAcceptedDebtYaml(yaml);
+  assert.equal(debts.length, 1);
+  assert.equal(debts[0].requirement, "PLAN-02");
+  assert.equal(debts[0].carry_forward, true);
+});
+
+test("STATE complete with uncovered open requirement fails", () => {
+  const result = validatePlanningConsistency({
+    requirementsMd: "- [ ] **PLAN-02**: pending\n",
+    stateMd: `---
+status: completed
+progress:
+  percent: 100
+---
+Progress: [██████████] 100%
+`,
+    roadmapMd: "# Roadmap\n",
+    acceptedDebtYaml: "accepted_debt: []\n",
+  });
+  assert.equal(result.ok, false);
+  assert.match(result.errors[0], /PLAN-02/);
+});
+
+test("accepted_debt covers open requirement under complete STATE", () => {
+  const result = validatePlanningConsistency({
+    requirementsMd: "- [ ] **PLAN-02**: pending\n",
+    stateMd: `---
+status: completed
+progress:
+  percent: 100
+---
+`,
+    roadmapMd: "# Roadmap\n",
+    acceptedDebtYaml: `
+accepted_debt:
+  - requirement: PLAN-02
+    reason: "Deferred field diff"
+    owner: "Jhonatan"
+    accepted_at: "2026-07-12"
+    carry_forward: true
+`,
+  });
+  assert.equal(result.ok, true);
+});
+
+test("loose tech debt phrase is ignored", () => {
+  const result = validatePlanningConsistency({
+    requirementsMd: "- [ ] **PLAN-02**: pending\n",
+    stateMd: `---
+status: completed
+---
+tech debt accepted for PLAN-02
+`,
+    roadmapMd: "# Roadmap\n",
+    acceptedDebtYaml: "accepted_debt: []\n",
+  });
+  assert.equal(result.ok, false);
+});
+
+test("frontmatter percent vs 100% bar disagreement fails", () => {
+  const result = validatePlanningConsistency({
+    requirementsMd: "- [x] **PLAN-01**: done\n",
+    stateMd: `---
+status: active
+progress:
+  percent: 72
+---
+Progress: [██████████] 100%
+`,
+    roadmapMd: "# Roadmap\n",
+    acceptedDebtYaml: "accepted_debt: []\n",
+  });
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join("\n"), /disagrees/);
+});
+
+test("parseStateFrontmatter reads nested percent", () => {
+  const data = parseStateFrontmatter(`---
+status: completed
+progress:
+  percent: 72
+---
+`);
+  assert.equal(data.status, "completed");
+  assert.equal(data.progress_percent, 72);
+});
