@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -38,13 +38,16 @@ export default function AssistantShell({
     const stored = window.sessionStorage.getItem(CONTEXT_OPEN_KEY);
     return stored === null ? true : stored === "true";
   });
-  const [mobileTab, setMobileTab] = useState<AssistantMobileTab>("chat");
-
-  useEffect(() => {
-    if (isMobile && activeThreadId) {
-      setMobileTab("chat");
-    }
-  }, [activeThreadId, isMobile]);
+  // Tab preference is keyed by thread so navigating to a new thread lands on
+  // chat without a setState-in-effect sync (lint: react-hooks/set-state-in-effect).
+  const threadTabKey = activeThreadId ?? "_none";
+  const [mobileTabByThread, setMobileTabByThread] = useState<
+    Partial<Record<string, AssistantMobileTab>>
+  >({});
+  const mobileTab = mobileTabByThread[threadTabKey] ?? "chat";
+  const setMobileTab = (tab: AssistantMobileTab) => {
+    setMobileTabByThread((prev) => ({ ...prev, [threadTabKey]: tab }));
+  };
 
   const toggleContext = () => {
     const next = !contextOpen;
