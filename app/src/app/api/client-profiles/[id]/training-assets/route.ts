@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import {
+  autoApprovePendingTrainingReferences,
   createTrainingReference,
   getClientProfile,
   getTrainingReferences,
@@ -30,6 +31,10 @@ export async function GET(
 
     // Workspace ID is resolved exclusively from the session — never from query.
     void new URL(request.url);
+
+    // Promote legacy pending rows (uploaded before auto-approval) so they
+    // condition generation without a missing human-review step.
+    await autoApprovePendingTrainingReferences(workspace.id, id);
 
     const references = await getTrainingReferences(workspace.id, id);
 

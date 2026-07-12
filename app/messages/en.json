@@ -2073,11 +2073,11 @@
     "voiceApproved": "Voice approved and active for generation.",
     "assets": {
       "title": "Approved visual assets",
-      "description": "Upload images that train the brand profile. Each one is analyzed by AI and waits for your explicit approval before it conditions generation.",
+      "description": "Upload images that train the brand profile. Each one is approved automatically on upload and analyzed by AI to condition generation.",
       "uploadLabel": "Upload images for training",
       "uploadHint": "PNG, JPEG, WebP or SVG. Up to 10MB each.",
       "uploadFailed": "Could not upload the file. Try a PNG, JPEG, WebP or SVG under 10MB.",
-      "analysisExplanation": "The model inspected this image and proposed a category and usage mode. Approve to add it to your training set or archive to discard.",
+      "analysisExplanation": "The model inspected this image and classified its category and usage mode. Archive it if you do not want it in the training set.",
       "category": "Category",
       "usageMode": "Usage mode",
       "descriptionField": "Description",

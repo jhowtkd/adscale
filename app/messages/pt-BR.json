@@ -2074,11 +2074,11 @@
     "voiceApproved": "Voz aprovada e ativa para geração.",
     "assets": {
       "title": "Materiais visuais aprovados",
-      "description": "Suba imagens que treinam o perfil da marca. Cada uma é analisada pela IA e fica aguardando sua aprovação explícita antes de condicionar a geração.",
+      "description": "Suba imagens que treinam o perfil da marca. Cada uma é aprovada automaticamente no envio e analisada pela IA para condicionar a geração.",
       "uploadLabel": "Enviar imagens para treino",
       "uploadHint": "PNG, JPEG, WebP ou SVG. Até 10MB cada.",
       "uploadFailed": "Não foi possível enviar o arquivo. Tente um PNG, JPEG, WebP ou SVG abaixo de 10MB.",
-      "analysisExplanation": "O modelo inspecionou esta imagem e propôs uma categoria e modo de uso. Aprove para incluir no conjunto de treino ou arquive para descartar.",
+      "analysisExplanation": "O modelo inspecionou esta imagem e classificou categoria e modo de uso. Você pode arquivar se não quiser usá-la no treino.",
       "category": "Categoria",
       "usageMode": "Modo de uso",
       "descriptionField": "Descrição",

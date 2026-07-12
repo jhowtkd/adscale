@@ -33,11 +33,10 @@ const proposalSchema = z.object({
 
 const SYSTEM_PROMPT = `You are a brand training asset analyst for an advertising platform.
 
-You are given an image uploaded by a brand trainer. Your job is to PROPOSE a category and usage mode for that image so a human reviewer can decide whether to approve it.
+You are given an image uploaded by a brand trainer. Your job is to classify the image so it can condition creative generation.
 
 Important constraints:
-- The fields you return (trainingCategory, usageMode) are PROPOSALS only. You do NOT approve the asset. A human reviewer always makes the final approval decision.
-- Never claim that the asset is "approved" or "ready to use" — only suggest how it COULD be used once a human approves it.
+- Choose the best trainingCategory and usageMode for how this asset should condition generation.
 - usageMode "exact" means the asset should be used verbatim. This is only valid for assets with a transparent background (alpha channel). For PNG/WEBP without alpha, prefer "reference" or "rule".
 - usageMode "reference" means the asset conveys style/mood that should inspire new generated creatives.
 - usageMode "rule" means the asset encodes a constraint that downstream generation must respect.
@@ -77,12 +76,8 @@ export const brandTrainingAnalyzeJob = inngest.createFunction(
       `[brandTrainingAnalyzeJob] START referenceId=${data.referenceId} assetKey=${data.assetKey}`,
     );
 
-    // Short-circuit on stale retry: if a previous attempt already moved this
-    // row out of `pending_analysis` (e.g. via recordTrainingAnalysis), the
-    // work is already done. Bail out *before* any OpenAI call so we do not
-    // re-bill the provider. The schema's WHERE clause in recordTrainingAnalysis
-    // already encodes this invariant; this guard exists so we honor it
-    // earlier and avoid the LLM round-trip on retries.
+    // Short-circuit when enrichment is unnecessary: analysis already exists,
+    // or the row is outside enrichable states. Bail before any OpenAI call.
     const existingRow = await getTrainingReferenceForAnalysis(
       data.workspaceId,
       data.clientProfileId,
@@ -94,7 +89,11 @@ export const brandTrainingAnalyzeJob = inngest.createFunction(
       );
       return { success: false, reason: "reference_not_found", referenceId: data.referenceId };
     }
-    if (existingRow.reviewStatus !== "pending_analysis") {
+    const needsAnalysis =
+      existingRow.reviewStatus === "pending_analysis" ||
+      existingRow.reviewStatus === "pending_approval" ||
+      (existingRow.reviewStatus === "approved" && !existingRow.trainingAnalysis);
+    if (!needsAnalysis) {
       logger.info(
         `[brandTrainingAnalyzeJob] SKIP stale retry referenceId=${data.referenceId} reviewStatus=${existingRow.reviewStatus}`,
       );
@@ -161,10 +160,8 @@ export const brandTrainingAnalyzeJob = inngest.createFunction(
     });
 
     await step.run("persist-proposal", async () => {
-      // Critical invariant: AI analysis MUST NOT set reviewStatus to "approved".
-      // The repository's recordTrainingAnalysis transitions pending_analysis ->
-      // pending_approval. Approval is reserved for the authenticated human
-      // review route (see PATCH /api/client-profiles/:id/training-assets/:referenceId).
+      // Auto-approve: recordTrainingAnalysis persists the proposal and marks
+      // the asset approved so it conditions generation without a human gate.
       await recordTrainingAnalysis(
         {
           workspaceId: data.workspaceId,

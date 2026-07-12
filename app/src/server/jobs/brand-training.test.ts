@@ -120,7 +120,7 @@ describe("brandTrainingAnalyzeJob", () => {
       id: baseEventData.referenceId,
       workspaceId: baseEventData.workspaceId,
       clientProfileId: baseEventData.clientProfileId,
-      reviewStatus: "pending_approval",
+      reviewStatus: "approved",
       trainingCategory: "graphic",
       usageMode: "reference",
     });
@@ -161,7 +161,7 @@ describe("brandTrainingAnalyzeJob", () => {
     );
   });
 
-  it("system prompt forbids the model from claiming approval", async () => {
+  it("classifies the asset for generation conditioning", async () => {
     await runBrandTrainingAnalyzeJob();
     const call = mockCreateChatCompletion.mock.calls[0]?.[0] as {
       messages?: Array<{ role: string; content: unknown }>;
@@ -171,20 +171,19 @@ describe("brandTrainingAnalyzeJob", () => {
       typeof systemMessage?.content === "string"
         ? systemMessage.content
         : "";
-    expect(systemContent.toLowerCase()).toContain("propos");
-    expect(systemContent.toLowerCase()).toContain("not");
-    expect(systemContent.toLowerCase()).toContain("approv");
+    expect(systemContent.toLowerCase()).toContain("classify");
+    expect(systemContent.toLowerCase()).toContain("condition");
   });
 
-  it("never writes reviewStatus: approved", async () => {
+  it("persists analysis via recordTrainingAnalysis (auto-approve happens in repository)", async () => {
     await runBrandTrainingAnalyzeJob();
-    for (const call of mockRecordTrainingAnalysis.mock.calls) {
-      const payload = call[1] as Record<string, unknown>;
-      expect(payload).not.toHaveProperty("reviewStatus");
-    }
-    expect(mockRecordTrainingAnalysis).not.toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({ reviewStatus: "approved" }),
+    expect(mockRecordTrainingAnalysis).toHaveBeenCalledTimes(1);
+    expect(mockRecordTrainingAnalysis).toHaveBeenCalledWith(
+      expect.objectContaining({ referenceId: baseEventData.referenceId }),
+      expect.objectContaining({
+        trainingCategory: "graphic",
+        usageMode: "reference",
+      }),
     );
   });
 
@@ -238,15 +237,21 @@ describe("brandTrainingAnalyzeJob", () => {
     expect(mockRecordTrainingAnalysis).not.toHaveBeenCalled();
   });
 
-  it("short-circuits on stale retry: does not call OpenAI when reference is no longer pending_analysis", async () => {
-    // Simulate a retry scenario where the previous attempt already transitioned
-    // the row to pending_approval. The job must skip the LLM call entirely so
-    // we don't re-charge OpenAI for already-done work.
+  it("short-circuits on stale retry: does not call OpenAI when analysis already exists", async () => {
+    // Simulate a retry where the previous attempt already enriched the approved
+    // row. The job must skip the LLM call entirely so we don't re-charge OpenAI.
     mockGetTrainingReferenceForAnalysis.mockResolvedValueOnce({
       id: baseEventData.referenceId,
       workspaceId: baseEventData.workspaceId,
       clientProfileId: baseEventData.clientProfileId,
-      reviewStatus: "pending_approval",
+      reviewStatus: "approved",
+      trainingAnalysis: {
+        description: "already done",
+        visualAttributes: [],
+        rules: [],
+        constraints: [],
+        confidence: 1,
+      },
     });
 
     const result = await runBrandTrainingAnalyzeJob();
@@ -263,7 +268,7 @@ describe("brandTrainingAnalyzeJob", () => {
       success: true,
       reason: "already_processed",
       referenceId: baseEventData.referenceId,
-      reviewStatus: "pending_approval",
+      reviewStatus: "approved",
     });
   });
 
