@@ -25,6 +25,16 @@ export interface CampaignTemplate {
   updatedAt: Date;
 }
 
+export class TemplateLoadError extends Error {
+  readonly status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "TemplateLoadError";
+    this.status = status;
+  }
+}
+
 async function fetchTemplates(): Promise<CampaignTemplate[]> {
   const res = await apiFetch("/api/templates");
   if (!res.ok) {
@@ -39,11 +49,14 @@ async function fetchTemplates(): Promise<CampaignTemplate[]> {
   }));
 }
 
-async function fetchTemplate(id: string): Promise<CampaignTemplate> {
+export async function fetchTemplate(id: string): Promise<CampaignTemplate> {
   const res = await apiFetch(`/api/templates/${id}`);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Erro ao carregar template");
+    throw new TemplateLoadError(
+      res.status,
+      err.error || "Erro ao carregar template"
+    );
   }
   const data = await res.json();
   const t = data.template as CampaignTemplate;
@@ -104,6 +117,8 @@ function useTemplate(id: string) {
   });
 }
 
+export { useTemplate };
+
 export function useCreateTemplate() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -146,8 +161,9 @@ export function useDeleteTemplate() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: deleteTemplate,
-    onSuccess: () => {
+    onSuccess: (_data, id) => {
       queryClient.invalidateQueries({ queryKey: ["templates"] });
+      queryClient.removeQueries({ queryKey: ["templates", id] });
     },
   });
 }
