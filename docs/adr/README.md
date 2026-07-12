@@ -22,6 +22,7 @@
 | [0010](./0010-brasil-only-suspende-bilingue.md) | Brasil-only (suspende bilíngue). LinkedIn sai de EN → PT-BR. YouTube EN trilha suspensa. | 2026-06-27 | ✅ Aceita |
 | [0011](./0011-threads-como-canal-novo.md) | Threads vira canal oficial no Q3 (substitui YouTube). Reaproveita copy de LI/IG. Sem criação original. | 2026-06-27 | ✅ Aceita |
 | [0012](./0012-cognitive-atlas.md) | Cognitive Atlas — órgãos da cabeça criativa (Cortex, Hands, Gaze/Olhar, Skin, Nerve, Taste, Memory, Marrow, Energy) | 2026-07-09 | ✅ Aceita |
+| [0013](./0013-trabalho-criativo-first.md) | Trabalho criativo-first — convergência de produto e arquitetura (Campanha, Assistente, Quick Tools, Templates, Brand Training como adapters de um único trabalho criativo) | 2026-07-12 | ✅ Aceita |
 
 ---
 

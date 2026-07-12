@@ -97,30 +97,140 @@ export const STAGE_AFTER_EVENT: Record<
 };
 
 /**
- * Mapeia origem + evento existente (vocabulary atual) para o evento
- * canônico equivalente. Usado pela telemetria comparativa da Fase 2
- * (passo 18) sem reescrever os emitters atuais.
+ * Regra de mapeamento de um evento legacy para um evento canônico.
  *
- * `null` significa "sem equivalência canônica direta" — por exemplo,
- * eventos de UI que não compõem o funil de produto.
+ * - `canonical`: evento canônico equivalente, ou `null` quando não há
+ *   equivalência direta (ex.: evento de UI pura).
+ * - `when`: predicado opcional sobre o registro legacy (origem +
+ *   metadata) que deve retornar true para o mapeamento valer. Quando o
+ *   predicado retornar false, o evento legacy fica `unmapped` em vez de
+ *   ser classificado erroneamente.
+ *
+ * Isto evita que eventos com mesmo nome mas significados diferentes
+ * (ex.: `mission_completed` para QA, review, export, share) sejam
+ * contados como entrega criativa.
  */
-export const LEGACY_TO_CANONICAL_EVENT: Record<string, CreativeWorkFunnelEvent | null> =
-  {
-    // guided-flow telemetry (Assistente)
-    guided_flow_started: "creative_work_started",
-    guided_flow_completed: "creative_work_approved",
-    guided_flow_abandoned: "creative_work_abandoned",
+export interface LegacyEventMapping {
+  readonly canonical: CreativeWorkFunnelEvent | null;
+  readonly when?: (record: {
+    readonly origin?: CreativeWorkOrigin | string | null;
+    readonly metadata?: Record<string, unknown> | null;
+  }) => boolean;
+}
 
-    // cockpit / beta-analytics (Campanha)
-    cockpit_stage_entered: null,
-    cockpit_stage_completed: "output_ready",
-    cockpit_stage_abandoned: "creative_work_abandoned",
-    mission_completed: "creative_work_delivered",
-    readiness_completed: "briefing_ready",
+/**
+ * Record do evento legacy recebido pelo mapper.
+ */
+export interface LegacyEventRecord {
+  readonly eventKey: string;
+  readonly origin?: CreativeWorkOrigin | string | null;
+  readonly metadata?: Record<string, unknown> | null;
+}
 
-    // derivations / generation (comum)
-    "image.generation.candidates": "generation_confirmed",
-  };
+/**
+ * `missionKey` (beta-analytics) que identifica unicamente uma entrega
+ * criativa. Outros missionKeys (qa, review, export, share, ...) não
+ * são entrega e ficam `unmapped`.
+ */
+const CREATIVE_DELIVERY_MISSION_KEYS = new Set([
+  "creative_delivery",
+  "delivery_package",
+  "deliver_creatives",
+]);
+
+/**
+ * Mapeia um registro legacy para um evento canônico.
+ *
+ * Retorno:
+ *   - evento canônico quando há mapeamento e o predicado (se houver) passa;
+ *   - `null` quando o mapeamento existe mas o predicado falha (evento
+ *     intencionalmente unmapped, ex.: mission_completed de QA);
+ *   - `null` quando não há mapeamento algum.
+ *
+ * Use `classifyLegacyEvent()` para distinguir os dois casos `null`.
+ */
+export function mapLegacyEvent(
+  record: LegacyEventRecord
+): CreativeWorkFunnelEvent | null {
+  const rule = LEGACY_EVENT_MAP[record.eventKey];
+  if (!rule) return null;
+  if (rule.when && !rule.when(record)) return null;
+  return rule.canonical;
+}
+
+/**
+ * Classificação explícita que distingue "sem mapeamento" de
+ * "mapeamento existe mas não se aplica a este registro".
+ */
+export type LegacyMappingOutcome =
+  | { kind: "mapped"; event: CreativeWorkFunnelEvent }
+  | { kind: "unmapped_inapplicable"; reason: string }
+  | { kind: "unmapped_unknown"; reason: string };
+
+export function classifyLegacyEvent(
+  record: LegacyEventRecord
+): LegacyMappingOutcome {
+  const rule = LEGACY_EVENT_MAP[record.eventKey];
+  if (!rule) {
+    return {
+      kind: "unmapped_unknown",
+      reason: `no mapping declared for event "${record.eventKey}"`,
+    };
+  }
+  if (rule.when && !rule.when(record)) {
+    return {
+      kind: "unmapped_inapplicable",
+      reason: `event "${record.eventKey}" present but predicate rejected this record (e.g. wrong missionKey/origin/metadata)`,
+    };
+  }
+  if (rule.canonical === null) {
+    return {
+      kind: "unmapped_inapplicable",
+      reason: `event "${record.eventKey}" is intentionally UI-only and has no canonical equivalent`,
+    };
+  }
+  return { kind: "mapped", event: rule.canonical };
+}
+
+/**
+ * Tabela de regras legacy → canônico. Adicione aqui à medida que novos
+ * emitters forem identificados; nunca passe um evento ambíguo sem um
+ * predicado `when`.
+ */
+export const LEGACY_EVENT_MAP: Record<string, LegacyEventMapping> = {
+  // guided-flow telemetry (Assistente)
+  guided_flow_started: { canonical: "creative_work_started" },
+  guided_flow_completed: {
+    canonical: "creative_work_approved",
+    when: ({ origin }) => origin === "assistant",
+  },
+  guided_flow_abandoned: { canonical: "creative_work_abandoned" },
+
+  // cockpit / beta-analytics (Campanha)
+  cockpit_stage_entered: { canonical: null },
+  cockpit_stage_completed: { canonical: "output_ready" },
+  cockpit_stage_abandoned: { canonical: "creative_work_abandoned" },
+  readiness_completed: { canonical: "briefing_ready" },
+
+  // mission_completed é deliberadamente NÃO mapeado por padrão. Só vira
+  // creative_work_delivered quando o missionKey dentro de metadata for um
+  // dos identificadores de entrega criativa. Caso contrário fica
+  // unmapped_inapplicable (qa, review, export, share, etc.).
+  mission_completed: {
+    canonical: "creative_work_delivered",
+    when: ({ metadata }) => {
+      const missionKey = metadata?.missionKey;
+      return (
+        typeof missionKey === "string" &&
+        CREATIVE_DELIVERY_MISSION_KEYS.has(missionKey)
+      );
+    },
+  },
+
+  // derivations / generation (comum) — confirmação de geração é o ponto
+  // em que o custo foi debitado e o pipeline foi acionado.
+  "image.generation.candidates": { canonical: "generation_confirmed" },
+};
 
 /**
  * Tipo guard utilitário para validar strings como evento canônico.

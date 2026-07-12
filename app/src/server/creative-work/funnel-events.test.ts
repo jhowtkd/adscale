@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  classifyLegacyEvent,
   CREATIVE_WORK_FUNNEL_EVENTS,
   CREATIVE_WORK_FUNNEL_STAGES,
   CREATIVE_WORK_ORIGINS,
   isCreativeWorkFunnelEvent,
   isCreativeWorkOrigin,
-  LEGACY_TO_CANONICAL_EVENT,
+  mapLegacyEvent,
   STAGE_AFTER_EVENT,
 } from "./funnel-events";
 
@@ -60,13 +61,71 @@ describe("creative-work funnel events", () => {
   });
 
   it("maps legacy telemetry vocabulary onto the canonical funnel", () => {
-    expect(LEGACY_TO_CANONICAL_EVENT.guided_flow_started).toBe(
+    expect(mapLegacyEvent({ eventKey: "guided_flow_started" })).toBe(
       "creative_work_started"
     );
-    expect(LEGACY_TO_CANONICAL_EVENT.mission_completed).toBe(
-      "creative_work_delivered"
-    );
     // UI-only events have no canonical equivalent.
-    expect(LEGACY_TO_CANONICAL_EVENT.cockpit_stage_entered).toBeNull();
+    expect(mapLegacyEvent({ eventKey: "cockpit_stage_entered" })).toBeNull();
+    // Unknown event keys map to null rather than a wrong canonical event.
+    expect(mapLegacyEvent({ eventKey: "some_random_event" })).toBeNull();
+  });
+
+  it("does NOT classify mission_completed as delivered for non-creative missions", () => {
+    // QA / review / export / share completions share the event name; without
+    // the right missionKey they must NOT inflate creative delivery counts.
+    expect(
+      mapLegacyEvent({
+        eventKey: "mission_completed",
+        metadata: { missionKey: "creative_qa" },
+      })
+    ).toBeNull();
+    expect(
+      classifyLegacyEvent({
+        eventKey: "mission_completed",
+        metadata: { missionKey: "share" },
+      }).kind
+    ).toBe("unmapped_inapplicable");
+  });
+
+  it("classifies mission_completed as delivered only for creative-delivery missions", () => {
+    expect(
+      mapLegacyEvent({
+        eventKey: "mission_completed",
+        metadata: { missionKey: "creative_delivery" },
+      })
+    ).toBe("creative_work_delivered");
+    expect(
+      mapLegacyEvent({
+        eventKey: "mission_completed",
+        metadata: { missionKey: "delivery_package" },
+      })
+    ).toBe("creative_work_delivered");
+  });
+
+  it("distinguishes unmapped-unknown from unmapped-inapplicable", () => {
+    expect(
+      classifyLegacyEvent({ eventKey: "never_seen_before" }).kind
+    ).toBe("unmapped_unknown");
+    expect(
+      classifyLegacyEvent({
+        eventKey: "mission_completed",
+        metadata: { missionKey: "export" },
+      }).kind
+    ).toBe("unmapped_inapplicable");
+    expect(
+      classifyLegacyEvent({ eventKey: "guided_flow_started" }).kind
+    ).toBe("mapped");
+  });
+
+  it("restricts guided_flow_completed to assistant origin", () => {
+    expect(
+      mapLegacyEvent({
+        eventKey: "guided_flow_completed",
+        origin: "assistant",
+      })
+    ).toBe("creative_work_approved");
+    expect(
+      mapLegacyEvent({ eventKey: "guided_flow_completed", origin: "campaign" })
+    ).toBeNull();
   });
 });

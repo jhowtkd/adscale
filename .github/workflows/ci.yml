@@ -43,6 +43,9 @@ jobs:
       - name: Run typecheck
         run: cd app && npm run typecheck
 
+      - name: Convergence gates (anti-expansion + frozen modules)
+        run: cd app && npm run convergence:gate
+
       - name: Run migrations
         run: cd app && npx drizzle-kit migrate
         env:

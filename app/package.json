@@ -58,7 +58,8 @@
     "quality-trend-evidence": "npx tsx scripts/run-quality-trend.ts --all-workspaces",
     "convergence:check-destinations": "node scripts/check-primary-destinations.mjs",
     "convergence:check-frozen": "node scripts/check-frozen-modules.mjs",
-    "convergence:baseline": "node scripts/capture-convergence-baseline.mjs"
+    "convergence:baseline": "node scripts/capture-convergence-baseline.mjs",
+    "convergence:gate": "node scripts/run-convergence-gate.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.0.0",

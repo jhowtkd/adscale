@@ -2,14 +2,22 @@
 /**
  * Capture the convergence baseline (Phase 0, step 4).
  *
- * Reads existing telemetry and operational tables and writes a JSON
- * snapshot broken down by creative-work origin (campaign, assistant,
- * quick_tool / Criar Post). The snapshot captures start, completion,
- * abandonment, error and latency counts so Phase 8 can measure whether
- * convergence actually improves the journey.
+ * Reads existing operational tables and writes a JSON snapshot broken
+ * down by creative-work origin (campaign, assistant, quick_tool / Criar
+ * Post). The snapshot captures, per unique journey:
+ *   started, completed, abandoned, failed, median duration.
  *
- * This script is READ-ONLY against the database. It does not write to
- * application tables. It only writes the JSON snapshot file.
+ * Hardening (Gate 0 review):
+ * - A failing mandatory query FAILS the snapshot (non-zero exit). We
+ *   never write a baseline built from zeros caused by a schema, grant
+ *   or connection error.
+ * - An unavailable metric is declared explicitly, never silently zero.
+ * - "median" is computed with PERCENTILE_CONT(0.5), never AVG.
+ * - Counts are per unique journey (campaign id / guided flow id /
+ *   creative work item id), never per raw event.
+ *
+ * This script is READ-ONLY against the database. It only writes the JSON
+ * snapshot file.
  *
  * Usage:
  *   DATABASE_URL=... node app/scripts/capture-convergence-baseline.mjs \
@@ -17,8 +25,7 @@
  *
  * If --since is omitted, the script uses the last 30 days.
  *
- * Plano de convergência, Fase 0, passo 4:
- * docs/plans/2026-07-12-convergencia-produto-arquitetura-implementation-plan.md
+ * Plano de convergência, Fase 0, passo 4.
  */
 import pg from "pg";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -56,186 +63,222 @@ function parseArgs(argv) {
   return { ...args, sinceDate };
 }
 
-function failWithMissingDb() {
-  console.error(
-    "CONVERGENCE-BASELINE: DATABASE_URL is required (set in .env.local or env)."
-  );
-  process.exit(1);
-}
-
-async function safeQuery(client, label, sql, params = []) {
-  try {
-    return await client.query(sql, params);
-  } catch (error) {
-    console.warn(
-      `CONVERGENCE-BASELINE: query "${label}" failed: ${error?.message ?? error}`
-    );
-    return { rows: [], error: error?.message ?? String(error) };
+class BaselineError extends Error {
+  constructor(message, { query } = {}) {
+    super(message);
+    this.name = "BaselineError";
+    this.query = query;
   }
 }
 
-function emptyMetric() {
-  return {
+/**
+ * Mandatory query: any failure (schema, grant, syntax, connection) is
+ * fatal. We never fall back to zeros.
+ */
+async function requireQuery(client, label, sql, params = []) {
+  try {
+    return await client.query(sql, params);
+  } catch (error) {
+    throw new BaselineError(
+      `mandatory query "${label}" failed: ${error?.message ?? error}`,
+      { query: label }
+    );
+  }
+}
+
+/**
+ * Aggregate journey counts from a single status-histogram query.
+ * Returns a metric object with 5 fields, all per unique journey:
+ *   started, completed, abandoned, failed, medianDurationMs.
+ *
+ * abandoned = started - completed - failed (defensive; clamped at 0).
+ * This works even when the source table has no explicit abandoned state
+ * (campaigns, creative_work_items).
+ */
+function metricFromHistogram(rows, { completedStatuses, failedStatuses }) {
+  const metric = {
     started: 0,
     completed: 0,
     abandoned: 0,
     failed: 0,
-    medianDurationMs: null,
-    sampleDurationMs: 0,
+    medianDurationMs: { available: false, valueMs: null, sample: 0 },
+  };
+  for (const row of rows) {
+    const status = row.status ?? "unknown";
+    const count = Number(row.count ?? 0);
+    metric.started += count;
+    if (completedStatuses.includes(status)) metric.completed += count;
+    if (failedStatuses.includes(status)) metric.failed += count;
+  }
+  metric.abandoned = Math.max(
+    0,
+    metric.started - metric.completed - metric.failed
+  );
+  return metric;
+}
+
+function attachMedian(metric, medianRow) {
+  const sample = Number(medianRow?.sample ?? 0);
+  const value =
+    medianRow?.medianMs != null ? Math.round(Number(medianRow.medianMs)) : null;
+  metric.medianDurationMs = {
+    available: sample > 0 && value != null,
+    valueMs: value,
+    sample,
+  };
+  return metric;
+}
+
+async function captureCampaignBaseline(client, sinceDate) {
+  // Per unique campaign (journey = one campaign row).
+  const statusRows = (
+    await requireQuery(
+      client,
+      "campaign_status_histogram",
+      `
+        SELECT
+          COALESCE(status, 'unknown') AS status,
+          COUNT(*)::int AS count
+        FROM adscale_app.campaigns
+        WHERE created_at >= $1
+        GROUP BY status
+      `,
+      [sinceDate]
+    )
+  ).rows;
+
+  const metric = metricFromHistogram(statusRows, {
+    completedStatuses: ["completed"],
+    failedStatuses: ["failed"],
+  });
+
+  const medianRow = (
+    await requireQuery(
+      client,
+      "campaign_duration_median",
+      `
+        SELECT
+          PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY (EXTRACT(EPOCH FROM (updated_at - created_at)) * 1000))::float AS "medianMs",
+          COUNT(*)::int AS sample
+        FROM adscale_app.campaigns
+        WHERE created_at >= $1
+          AND status = 'completed'
+          AND updated_at >= created_at
+      `,
+      [sinceDate]
+    )
+  ).rows[0];
+
+  return {
+    ...attachMedian(metric, medianRow),
+    source: "adscale_app.campaigns",
+    unit: "campaign",
   };
 }
 
-function mergeMetric(metric, row) {
-  metric.started += Number(row.started ?? 0);
-  metric.completed += Number(row.completed ?? 0);
-  metric.abandoned += Number(row.abandoned ?? 0);
-  metric.failed += Number(row.failed ?? 0);
-  return metric;
-}
-
-/**
- * Each origin has a different set of available signals today. The baseline
- * captures what exists now; the gaps are exactly what Phase 8 will fill.
- */
-async function captureCampaignBaseline(client, sinceDate) {
-  const metric = emptyMetric();
-  // Campaigns: count status values directly. Status values today include
-  // 'completed', 'failed' and others (see repository/campaign.ts); we treat
-  // 'completed' as the completion signal and 'failed' as the error signal.
-  const result = await safeQuery(
-    client,
-    "campaign_status",
-    `
-      SELECT
-        COALESCE(status, 'unknown') AS status,
-        COUNT(*)::int AS count
-      FROM adscale_app.campaigns
-      WHERE created_at >= $1
-      GROUP BY status
-    `,
-    [sinceDate]
-  );
-  const byStatus = {};
-  for (const row of result.rows ?? []) {
-    const status = row.status;
-    const count = Number(row.count ?? 0);
-    byStatus[status] = count;
-    metric.started += count;
-    if (status === "completed") metric.completed += count;
-    if (status === "failed") metric.failed += count;
-  }
-
-  const completion = await safeQuery(
-    client,
-    "campaign_completion",
-    `
-      SELECT
-        COUNT(*)::int AS completed,
-        AVG(EXTRACT(EPOCH FROM (updated_at - created_at)) * 1000)::float AS medianDurationMs
-      FROM adscale_app.campaigns
-      WHERE created_at >= $1
-        AND status = 'completed'
-    `,
-    [sinceDate]
-  );
-  if (completion.rows?.[0]) {
-    metric.medianDurationMs =
-      completion.rows[0].medianDurationMs != null
-        ? Math.round(Number(completion.rows[0].medianDurationMs))
-        : null;
-    metric.sampleDurationMs = Number(completion.rows[0].completed ?? 0);
-  }
-  metric.byStatus = byStatus;
-  return metric;
-}
-
 async function captureAssistantBaseline(client, sinceDate) {
-  const metric = emptyMetric();
-  // Assistant: read guided_flow_events.
-  const started = await safeQuery(
-    client,
-    "assistant_started",
-    `
-      SELECT COUNT(*)::int AS started
-      FROM adscale_app.assistant_guided_flow_events
-      WHERE occurred_at >= $1
-        AND event_key IN ('guided_flow_started')
-    `,
-    [sinceDate]
-  );
-  metric.started = Number(started.rows?.[0]?.started ?? 0);
+  // Per unique guided flow (journey = one assistant_guided_flows row).
+  const statusRows = (
+    await requireQuery(
+      client,
+      "assistant_flow_status_histogram",
+      `
+        SELECT
+          COALESCE(status, 'unknown') AS status,
+          COUNT(*)::int AS count
+        FROM adscale_app.assistant_guided_flows
+        WHERE created_at >= $1
+        GROUP BY status
+      `,
+      [sinceDate]
+    )
+  ).rows;
 
-  const completed = await safeQuery(
-    client,
-    "assistant_completed",
-    `
-      SELECT COUNT(*)::int AS completed
-      FROM adscale_app.assistant_guided_flow_events
-      WHERE occurred_at >= $1
-        AND event_key IN ('guided_flow_completed')
-    `,
-    [sinceDate]
-  );
-  metric.completed = Number(completed.rows?.[0]?.completed ?? 0);
+  const metric = metricFromHistogram(statusRows, {
+    completedStatuses: ["completed", "done", "approved"],
+    failedStatuses: ["failed", "error"],
+  });
 
-  const abandoned = await safeQuery(
-    client,
-    "assistant_abandoned",
-    `
-      SELECT COUNT(*)::int AS abandoned
-      FROM adscale_app.assistant_guided_flow_events
-      WHERE occurred_at >= $1
-        AND event_key IN ('guided_flow_abandoned')
-    `,
-    [sinceDate]
-  );
-  metric.abandoned = Number(abandoned.rows?.[0]?.abandoned ?? 0);
+  const medianRow = (
+    await requireQuery(
+      client,
+      "assistant_flow_duration_median",
+      `
+        SELECT
+          PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY (EXTRACT(EPOCH FROM (updated_at - created_at)) * 1000))::float AS "medianMs",
+          COUNT(*)::int AS sample
+        FROM adscale_app.assistant_guided_flows
+        WHERE created_at >= $1
+          AND status IN ('completed', 'done', 'approved')
+          AND updated_at >= created_at
+      `,
+      [sinceDate]
+    )
+  ).rows[0];
 
-  const failed = await safeQuery(
-    client,
-    "assistant_failed",
-    `
-      SELECT COUNT(*)::int AS failed
-      FROM adscale_app.assistant_guided_flow_events
-      WHERE occurred_at >= $1
-        AND event_key IN ('guided_action_failed')
-    `,
-    [sinceDate]
-  );
-  metric.failed = Number(failed.rows?.[0]?.failed ?? 0);
-  return metric;
+  return {
+    ...attachMedian(metric, medianRow),
+    source: "adscale_app.assistant_guided_flows",
+    unit: "guided_flow",
+  };
 }
 
 async function captureQuickToolBaseline(client, sinceDate) {
-  // Quick Tools / Criar Post uses the creative_work_outputs surface.
-  // creative_works is the parent; creative_work_outputs are the rows.
-  const metric = emptyMetric();
-  const statusCounts = await safeQuery(
-    client,
-    "creative_work_status",
-    `
-      SELECT
-        COALESCE(status, 'unknown') AS status,
-        COUNT(*)::int AS started
-      FROM adscale_app.creative_work_items
-      WHERE created_at >= $1
-      GROUP BY status
-    `,
-    [sinceDate]
-  );
-  for (const row of statusCounts.rows ?? []) {
-    const started = Number(row.started ?? 0);
-    metric.started += started;
-    if (row.status === "completed") metric.completed += started;
-    if (row.status === "failed") metric.failed += started;
-  }
-  return metric;
+  // Per unique creative work item (journey = one creative_work_items row).
+  const statusRows = (
+    await requireQuery(
+      client,
+      "creative_work_status_histogram",
+      `
+        SELECT
+          COALESCE(status, 'unknown') AS status,
+          COUNT(*)::int AS count
+        FROM adscale_app.creative_work_items
+        WHERE created_at >= $1
+        GROUP BY status
+      `,
+      [sinceDate]
+    )
+  ).rows;
+
+  const metric = metricFromHistogram(statusRows, {
+    completedStatuses: ["completed"],
+    failedStatuses: ["failed"],
+  });
+
+  const medianRow = (
+    await requireQuery(
+      client,
+      "creative_work_duration_median",
+      `
+        SELECT
+          PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY (EXTRACT(EPOCH FROM (updated_at - created_at)) * 1000))::float AS "medianMs",
+          COUNT(*)::int AS sample
+        FROM adscale_app.creative_work_items
+        WHERE created_at >= $1
+          AND status = 'completed'
+          AND updated_at >= created_at
+      `,
+      [sinceDate]
+    )
+  ).rows[0];
+
+  return {
+    ...attachMedian(metric, medianRow),
+    source: "adscale_app.creative_work_items",
+    unit: "creative_work_item",
+  };
 }
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const databaseUrl = process.env.DATABASE_URL;
-  if (!databaseUrl) failWithMissingDb();
+  if (!databaseUrl) {
+    console.error(
+      "CONVERGENCE-BASELINE: DATABASE_URL is required (set in .env.local or env)."
+    );
+    process.exit(1);
+  }
 
   const client = new pg.Client({ connectionString: databaseUrl });
   await client.connect();
@@ -247,15 +290,25 @@ async function main() {
       captureAssistantBaseline(client, args.sinceDate),
       captureQuickToolBaseline(client, args.sinceDate),
     ]);
+  } catch (error) {
+    if (error instanceof BaselineError) {
+      console.error(`CONVERGENCE-BASELINE: ${error.message}`);
+      console.error(
+        "CONVERGENCE-BASELINE: refusing to write a baseline that may be built from missing data. Fix the query or grant and re-run."
+      );
+      process.exit(1);
+    }
+    throw error;
   } finally {
     await client.end();
   }
 
   const snapshot = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     capturedAt: new Date().toISOString(),
     since: args.sinceDate.toISOString(),
-    note: "Phase 0 baseline. Gaps per origin reflect missing instrumentation today and will be filled by Phase 8.",
+    semantics:
+      "Counts are per unique journey (campaign id / guided flow id / creative work item id), never per raw event. Abandoned = started - completed - failed (defensive; negative clamped to zero). medianDurationMs is PERCENTILE_CONT(0.5). When a metric cannot be computed it is declared { available: false }, never zero.",
     origins: {
       campaign,
       assistant,
@@ -282,11 +335,15 @@ async function main() {
   mkdirSync(dirname(args.outPath), { recursive: true });
   writeFileSync(args.outPath, `${JSON.stringify(snapshot, null, 2)}\n`);
   console.log(`CONVERGENCE-BASELINE: wrote ${args.outPath}`);
+  const fmt = (m) =>
+    `${m.started}/${m.completed}/${m.abandoned}/${m.failed}` +
+    (m.medianDurationMs.available
+      ? `/p50=${m.medianDurationMs.valueMs}ms(n=${m.medianDurationMs.sample})`
+      : "/p50=n/a");
   console.log(
-    `CONVERGENCE-BASELINE: campaign=${campaign.started}/${campaign.completed}, ` +
-      `assistant=${assistant.started}/${assistant.completed}, ` +
-      `quick_tool=${quickTool.started}/${quickTool.completed} ` +
-      `(started/completed since ${args.sinceDate.toISOString()})`
+    `CONVERGENCE-BASELINE: campaign ${fmt(campaign)}, assistant ${fmt(
+      assistant
+    )}, quick_tool ${fmt(quickTool)} (started/completed/abandoned/failed since ${args.sinceDate.toISOString()})`
   );
 }
 
