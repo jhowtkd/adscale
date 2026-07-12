@@ -27,6 +27,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Convergence gates compare the full PR range against origin/main.
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -44,7 +47,7 @@ jobs:
         run: cd app && npm run typecheck
 
       - name: Convergence gates (anti-expansion + frozen modules)
-        run: cd app && npm run convergence:gate
+        run: cd app && npm run convergence:test && npm run convergence:gate
         env:
           # Bootstrap bypass: this PR introduces the freeze manifest for the
           # first time, so base (origin/main) does not yet carry it. Once the

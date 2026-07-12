@@ -147,6 +147,7 @@ async function captureCampaignBaseline(client, sinceDate) {
   ).rows;
 
   const metric = newMetric();
+  metric.failed = availableMetric(0);
   // Campaigns: completed/failed come from status values. Abandoned is
   // NOT derivable from status today (active/draft/pending/analyzing are
   // in-flight, not abandoned). Declare unavailable rather than infer.
@@ -155,16 +156,11 @@ async function captureCampaignBaseline(client, sinceDate) {
     const count = Number(row.count ?? 0);
     metric.started += count;
     if (status === "completed") metric.completed += count;
-    if (status === "failed") metric.failed = availableMetric((metric.failed.available ? metric.failed.value : 0) + count);
+    if (status === "failed") metric.failed = availableMetric(metric.failed.value + count);
   }
   metric.abandoned = unavailable(
     "campaign status has no 'abandoned' value; in-flight states (active/draft/pending/analyzing) must not be misclassified as abandoned"
   );
-  if (!metric.failed.available) {
-    metric.failed = unavailable(
-      "no campaigns with status='failed' in window (signal exists but sample is zero)"
-    );
-  }
 
   const medianRow = (
     await requireQuery(
@@ -231,10 +227,14 @@ async function captureAssistantBaseline(client, sinceDate) {
       client,
       "assistant_action_failed_journeys",
       `
-        SELECT COUNT(DISTINCT COALESCE(guided_flow_id, thread_id))::int AS failed_journeys
-        FROM adscale_app.assistant_guided_flow_events
-        WHERE occurred_at >= $1
-          AND event_key = 'guided_action_failed'
+        SELECT COUNT(DISTINCT flow.id)::int AS failed_journeys
+        FROM adscale_app.assistant_guided_flows flow
+        JOIN adscale_app.assistant_guided_flow_events event
+          ON event.guided_flow_id = flow.id
+          OR (event.guided_flow_id IS NULL AND event.thread_id = flow.thread_id)
+        WHERE flow.created_at >= $1
+          AND event.occurred_at >= flow.created_at
+          AND event.event_key = 'guided_action_failed'
       `,
       [sinceDate]
     )
@@ -285,12 +285,13 @@ async function captureQuickToolBaseline(client, sinceDate) {
   ).rows;
 
   const metric = newMetric();
+  metric.failed = availableMetric(0);
   for (const row of statusRows) {
     const status = row.status ?? "unknown";
     const count = Number(row.count ?? 0);
     metric.started += count;
     if (status === "completed") metric.completed += count;
-    if (status === "failed") metric.failed = availableMetric((metric.failed.available ? metric.failed.value : 0) + count);
+    if (status === "failed") metric.failed = availableMetric(metric.failed.value + count);
   }
   // creative_work_items status check: draft/ready/generating/partial/
   // completed/failed. No 'abandoned' state — declare unavailable rather
@@ -298,11 +299,6 @@ async function captureQuickToolBaseline(client, sinceDate) {
   metric.abandoned = unavailable(
     "creative_work_items status has no 'abandoned' value; draft/ready/generating/partial must not be misclassified as abandoned"
   );
-  if (!metric.failed.available) {
-    metric.failed = unavailable(
-      "no creative_work_items with status='failed' in window (signal exists but sample is zero)"
-    );
-  }
 
   const medianRow = (
     await requireQuery(

@@ -9,7 +9,7 @@
  *
  * Gates:
  *   1. check-primary-destinations.mjs  (anti-expansion)
- *   2. check-frozen-modules.mjs         (frozen modules, HEAD commit)
+ *   2. check-frozen-modules.mjs         (frozen modules, full branch range)
  *
  * The baseline capture is NOT part of this gate because it requires a
  * live DATABASE_URL and is run on demand by ops.
@@ -27,7 +27,7 @@ const appDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 const steps = [
   ["node", ["scripts/check-primary-destinations.mjs"], "anti-expansion gate"],
-  ["node", ["scripts/check-frozen-modules.mjs"], "frozen-modules gate (HEAD)"],
+  ["node", ["scripts/check-frozen-modules.mjs"], "frozen-modules gate (full branch range)"],
 ];
 
 for (const [command, args, label] of steps) {

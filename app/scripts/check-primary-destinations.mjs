@@ -110,10 +110,18 @@ function readBaseManifest(base) {
   }
   const manifestRel = "docs/decisions/allowed-primary-destinations.json";
   try {
-    const blob = git(["show", `${base}:${manifestRel}`], { fatal: false });
-    return { manifest: JSON.parse(blob), present: true };
+    git(["cat-file", "-e", `${base}:${manifestRel}`], { fatal: false });
   } catch {
     return { manifest: null, present: false };
+  }
+  try {
+    const blob = git(["show", `${base}:${manifestRel}`]);
+    return { manifest: JSON.parse(blob), present: true };
+  } catch {
+    console.error(
+      `PRIMARY-DESTINATIONS: manifest at ${base}:${manifestRel} is invalid JSON. Bootstrap cannot bypass a malformed base policy.`
+    );
+    process.exit(1);
   }
 }
 
@@ -142,12 +150,11 @@ function listApiRouteTrees() {
 function listPageRouteFilesUnder(dir) {
   if (!existsSync(dir)) return [];
   const out = [];
-  const visit = (d, depth) => {
-    if (depth > 10) return;
+  const visit = (d) => {
     for (const entry of readdirSync(d, { withFileTypes: true })) {
       const full = join(d, entry.name);
       if (entry.isDirectory()) {
-        visit(full, depth + 1);
+        visit(full);
       } else if (
         entry.isFile() &&
         (entry.name === "page.tsx" ||
@@ -158,7 +165,7 @@ function listPageRouteFilesUnder(dir) {
       }
     }
   };
-  visit(dir, 0);
+  visit(dir);
   return out.sort();
 }
 
@@ -167,16 +174,15 @@ function listPageRouteFilesUnder(dir) {
  * use a name heuristic — any new file in the creative-pipeline directory
  * is flagged, so naming games can't bypass it.
  */
-function listAllSourceFilesUnder(dir, { maxDepth = 8 } = {}) {
+function listAllSourceFilesUnder(dir) {
   if (!existsSync(dir)) return [];
   const out = [];
-  const visit = (d, depth) => {
-    if (depth > maxDepth) return;
+  const visit = (d) => {
     for (const entry of readdirSync(d, { withFileTypes: true })) {
       if (entry.name === "node_modules" || entry.name.startsWith(".")) continue;
       const full = join(d, entry.name);
       if (entry.isDirectory()) {
-        visit(full, depth + 1);
+        visit(full);
       } else if (
         entry.isFile() &&
         (entry.name.endsWith(".ts") || entry.name.endsWith(".tsx"))
@@ -185,7 +191,7 @@ function listAllSourceFilesUnder(dir, { maxDepth = 8 } = {}) {
       }
     }
   };
-  visit(dir, 0);
+  visit(dir);
   return out.sort();
 }
 

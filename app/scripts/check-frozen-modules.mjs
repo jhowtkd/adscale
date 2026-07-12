@@ -30,16 +30,12 @@
  * Plano de convergência, Fase 0, passo 2.
  */
 import { execFileSync } from "node:child_process";
-import { readFileSync, existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "../..");
-const manifestPath = resolve(
-  repoRoot,
-  "docs/decisions/allowed-primary-destinations.json"
-);
+const manifestRel = "docs/decisions/allowed-primary-destinations.json";
 
 function parseArgs(argv) {
   const args = { base: "origin/main", range: null };
@@ -62,16 +58,26 @@ function parseArgs(argv) {
   return args;
 }
 
-function readManifest() {
-  if (!existsSync(manifestPath)) {
-    console.error(`FROZEN-MODULES: manifest not found at ${manifestPath}.`);
+function readPolicyManifest(policyRef) {
+  try {
+    git(["cat-file", "-e", `${policyRef}:${manifestRel}`], { fatal: false });
+  } catch {
+    if (process.env.PRIMARY_DESTINATIONS_ALLOW_BOOTSTRAP === "1") {
+      console.warn(
+        `FROZEN-MODULES: base policy is absent at ${policyRef}:${manifestRel}; bootstrap bypass accepted for the initial freeze PR.`
+      );
+      return null;
+    }
+    console.error(
+      `FROZEN-MODULES: frozen policy is absent at ${policyRef}:${manifestRel}. Refusing to trust the PR's own manifest.`
+    );
     process.exit(1);
   }
   try {
-    return JSON.parse(readFileSync(manifestPath, "utf8"));
+    return JSON.parse(git(["show", `${policyRef}:${manifestRel}`]));
   } catch (error) {
     console.error(
-      `FROZEN-MODULES: manifest is not valid JSON: ${error?.message ?? error}`
+      `FROZEN-MODULES: frozen policy at ${policyRef}:${manifestRel} is invalid JSON. Bootstrap cannot bypass a malformed policy.`
     );
     process.exit(1);
   }
@@ -145,6 +151,23 @@ function resolveRange(args) {
  * returned entry has { sha, files[], message } so we can check the
  * exception clause PER COMMIT (not globally).
  */
+function filesChangedByCommit(sha) {
+  const parents = git(["rev-list", "--parents", "-n", "1", sha])
+    .trim()
+    .split(/\s+/)
+    .slice(1);
+  if (parents.length === 0) {
+    return git(["diff-tree", "--root", "--no-commit-id", "--name-only", "-r", sha])
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+  }
+  return git(["diff", "--name-only", parents[0], sha])
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
 function commitsInRange(since, until) {
   // %x00 is a NUL separator; %x1f is unit separator. Robust against
   // commit messages containing newlines or any printable character.
@@ -160,16 +183,7 @@ function commitsInRange(since, until) {
     const [sha, ...bodyParts] = trimmed.split("\x1f");
     if (!sha) continue;
     const body = bodyParts.join("\x1f");
-    const files = git([
-      "diff-tree",
-      "--no-commit-id",
-      "--name-only",
-      "-r",
-      sha,
-    ])
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean);
+    const files = filesChangedByCommit(sha);
     commits.push({ sha, files, message: body });
   }
   return commits;
@@ -185,7 +199,10 @@ function matchFrozenPath(relFilePath, frozenPaths) {
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
-  const manifest = readManifest();
+  const { since, until } = resolveRange(args);
+  const policyRef = args.range ? since : args.base;
+  const manifest = readPolicyManifest(policyRef);
+  if (!manifest) return;
   const frozen = Array.isArray(manifest.frozenModules)
     ? manifest.frozenModules
     : [];
@@ -197,7 +214,6 @@ function main() {
     (entry.paths ?? []).map((p) => ({ id: entry.id, path: p }))
   );
 
-  const { since, until } = resolveRange(args);
   const commits = commitsInRange(since, until);
 
   if (commits.length === 0) {
@@ -215,7 +231,7 @@ function main() {
       if (match) hits.push({ id: match.id, gitPath: file });
     }
     if (hits.length === 0) continue;
-    const hasException = /^frozen-exception:/im.test(commit.message);
+    const hasException = /^frozen-exception:\s*\S.*$/im.test(commit.message);
     if (!hasException) {
       violations.push({
         sha: commit.sha.slice(0, 10),
