@@ -152,8 +152,13 @@ export async function buildAssistantContext(
         ? {
             toneNotes: brandKit.toneNotes,
             visualNotes: brandKit.visualNotes,
-            toneOfVoice: brandKit.toneNotes,
+            toneOfVoice: brandKit.toneOfVoice,
             constraints: brandKit.constraints,
+            colors: Array.isArray(brandKit.brandColors) ? brandKit.brandColors : [],
+            fonts: Array.isArray(brandKit.brandFonts) ? brandKit.brandFonts : [],
+            logoAssetKey: brandKit.logoAssetKey,
+            prohibitedElements: brandKit.prohibitedElements,
+            requiredElements: brandKit.requiredElements,
           }
         : null,
       BRAND_KIT_ALLOWED_KEYS

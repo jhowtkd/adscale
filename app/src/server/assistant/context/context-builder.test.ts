@@ -104,7 +104,13 @@ describe("buildAssistantContext", () => {
     mockGetBrandKit.mockResolvedValue({
       toneNotes: "Friendly",
       visualNotes: "Clean",
+      toneOfVoice: "Warm and authoritative",
       constraints: "No red",
+      brandColors: ["#112233", "#AABBCC"],
+      brandFonts: ["Montserrat"],
+      logoAssetKey: "workspaces/ws-1/brand-kit/logo.png",
+      prohibitedElements: "No gradients",
+      requiredElements: "Always show the logo",
     } as Awaited<ReturnType<typeof getBrandKit>>);
     mockGetBrandMemory.mockResolvedValue({ items: [], block: "Brand prefers short CTAs." });
   });
@@ -123,6 +129,16 @@ describe("buildAssistantContext", () => {
       })
     );
     expect(result.brandKit?.toneNotes).toBe("Friendly");
+    expect(result.brandKit).toEqual(
+      expect.objectContaining({
+        toneOfVoice: "Warm and authoritative",
+        colors: ["#112233", "#AABBCC"],
+        fonts: ["Montserrat"],
+        logoAssetKey: "workspaces/ws-1/brand-kit/logo.png",
+        prohibitedElements: "No gradients",
+        requiredElements: "Always show the logo",
+      }),
+    );
     expect(result.brandMemory?.block).toContain("CTAs");
   });
 

@@ -175,11 +175,16 @@ export type GenerationReferenceInput =
   | { kind: "none" }
   | { kind: "single"; buffer: Buffer; mimeType: string; allowGenerateFallback: boolean }
   | {
+      kind: "multi";
+      images: Array<{ buffer: Buffer; mimeType: string; name: string }>;
+    }
+  | {
       kind: "restyling";
       baseBuffer: Buffer;
       baseMimeType: string;
       styleBuffer: Buffer;
       styleMimeType: string;
+      brandImages?: Array<{ buffer: Buffer; mimeType: string; name: string }>;
     };
 
 export interface ExecuteGenerationStepContext {
@@ -215,11 +220,15 @@ function referenceToInputs(
     return [
       { buffer: reference.baseBuffer, mimeType: reference.baseMimeType, name: "base-image" },
       { buffer: reference.styleBuffer, mimeType: reference.styleMimeType, name: "style-reference" },
-    ];
+      ...(reference.brandImages ?? []),
+    ].slice(0, 4);
   }
   if (reference.kind === "single") {
     const fileName = generationMode === "restyling" ? "base-image" : "reference-image";
     return [{ buffer: reference.buffer, mimeType: reference.mimeType, name: fileName }];
+  }
+  if (reference.kind === "multi") {
+    return reference.images;
   }
   return [];
 }

@@ -17,7 +17,9 @@ import { socialPostCopySchema } from "@/server/creative-work/contracts";
 const confirmCreativeWorkSchema = z
   .object({
     copy: socialPostCopySchema,
-    selectedReferenceIds: z.array(z.string().uuid()).min(1).max(8),
+    // Empty is allowed: Create Post can lock a Brand-Kit-only identity
+    // snapshot when the brand has no approved training references yet.
+    selectedReferenceIds: z.array(z.string().uuid()).max(8),
   })
   .strict();
 

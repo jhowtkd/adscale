@@ -57,14 +57,27 @@ vi.mock("@/server/db/repositories/brand-kit", () => ({
   upsertBrandKit: (...args: unknown[]) => upsertBrandKit(...args),
 }));
 
-const createClientReference = vi.fn();
+const createTrainingReference = vi.fn();
+const getTrainingReferenceByAssetKey = vi.fn();
 vi.mock("@/server/repositories/client-reference", () => ({
-  createClientReference: (...args: unknown[]) => createClientReference(...args),
+  createTrainingReference: (...args: unknown[]) => createTrainingReference(...args),
+  getTrainingReferenceByAssetKey: (...args: unknown[]) => getTrainingReferenceByAssetKey(...args),
+}));
+
+vi.mock("@/server/brand-training/upload", () => ({
+  normalizeTrainingUpload: vi.fn(async (file: File) => ({
+    buffer: Buffer.from(await file.arrayBuffer()),
+    type: "image/png",
+    extension: "png",
+    hasAlpha: true,
+  })),
 }));
 
 const createWorkspaceAsset = vi.fn();
+const getWorkspaceAssetByKey = vi.fn();
 vi.mock("@/server/repositories/workspace-asset", () => ({
   createWorkspaceAsset: (...args: unknown[]) => createWorkspaceAsset(...args),
+  getWorkspaceAssetByKey: (...args: unknown[]) => getWorkspaceAssetByKey(...args),
 }));
 
 const inngestSend = vi.fn(() => Promise.resolve());
@@ -102,8 +115,10 @@ describe("POST /api/workspace/brand-kit/extract-multi", () => {
     spendOrApiError.mockResolvedValue(null);
     resolveBrandKitProfileId.mockResolvedValue(PROFILE_ID);
     upsertBrandKit.mockResolvedValue({ id: PROFILE_ID });
-    createClientReference.mockResolvedValue({ id: "ref-1" });
+    createTrainingReference.mockResolvedValue({ id: "ref-1" });
+    getTrainingReferenceByAssetKey.mockResolvedValue(null);
     createWorkspaceAsset.mockResolvedValue({ id: "asset-1", key: "k" });
+    getWorkspaceAssetByKey.mockResolvedValue(null);
     extractBrandKitFromImage.mockResolvedValue({
       colors: ["#000000"],
       fonts: ["Inter"],
@@ -154,9 +169,12 @@ describe("POST /api/workspace/brand-kit/extract-multi", () => {
       expect.objectContaining({ logoAssetKey: expect.any(String) }),
       PROFILE_ID,
     );
-    expect(createClientReference).toHaveBeenCalledWith(
+    expect(createTrainingReference).toHaveBeenCalledWith(
       "workspace-1",
-      expect.objectContaining({ kind: "logo" }),
+      expect.objectContaining({ clientProfileId: PROFILE_ID, label: "logo.png" }),
+    );
+    expect(inngestSend).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "brand.training.analyze" }),
     );
 
     const body = await res.json();
@@ -178,8 +196,12 @@ describe("POST /api/workspace/brand-kit/extract-multi", () => {
     expect(createWorkspaceAsset).toHaveBeenCalledWith(
       expect.objectContaining({ workspaceId: "workspace-1", name: "creative.png" }),
     );
+    expect(createTrainingReference).toHaveBeenCalledWith(
+      "workspace-1",
+      expect.objectContaining({ clientProfileId: PROFILE_ID, label: "creative.png" }),
+    );
     expect(inngestSend).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "workspace.asset.analyze" }),
+      expect.objectContaining({ name: "brand.training.analyze" }),
     );
 
     const body = await res.json();

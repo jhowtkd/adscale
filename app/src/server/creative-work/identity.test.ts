@@ -123,6 +123,31 @@ describe("creative-work identity module", () => {
       expect(result.map((item) => item.referenceId)).toEqual(["logo", "rule"]);
     });
 
+    it("surfaces approved logo/graphic/character assets in reference mode as visual guidance", async () => {
+      // Regression: opaque PNGs are approved as usageMode=reference by the
+      // training analyzer. Trained-status counts them, but Create Post used to
+      // drop them in classifyGroup — leaving the identity step empty.
+      mocks.getApprovedTrainingReferencesMock.mockResolvedValue([
+        approvedReference({ id: "logo-ref", trainingCategory: "logo", usageMode: "reference" }),
+        approvedReference({ id: "graphic-ref", trainingCategory: "graphic", usageMode: "reference" }),
+        approvedReference({ id: "char-ref", trainingCategory: "character", usageMode: "reference" }),
+      ]);
+      mocks.selectResults.push([
+        { key: "k1", type: "image/png", metadata: { hasAlpha: false } },
+        { key: "k2", type: "image/png", metadata: { hasAlpha: false } },
+        { key: "k3", type: "image/png", metadata: { hasAlpha: false } },
+      ]);
+
+      const result = await buildIdentityOptions("ws-1", "profile-1", socialBrief);
+
+      expect(result.map((item) => item.referenceId)).toEqual([
+        "char-ref",
+        "graphic-ref",
+        "logo-ref",
+      ]);
+      expect(result.every((item) => item.usageMode === "reference")).toBe(true);
+    });
+
     it("orders by category priority: logo exact, then character/graphic exact, then visual reference, then rules", async () => {
       mocks.getApprovedTrainingReferencesMock.mockResolvedValue([
         approvedReference({ id: "rule-1", trainingCategory: "graphic", usageMode: "rule" }),
@@ -374,6 +399,42 @@ describe("creative-work identity module", () => {
         toneOfVoice: "Direct",
         prohibitedElements: "no clipart",
         requiredElements: "logo",
+      });
+    });
+
+    it("builds a Brand-Kit-only snapshot when no references are selected", async () => {
+      mocks.getApprovedTrainingReferencesMock.mockResolvedValue([]);
+      mocks.getBrandKitMock.mockResolvedValue({
+        id: "profile-1",
+        workspaceId: "ws-1",
+        name: "Acme",
+        brandColors: ["#112233"],
+        brandFonts: ["Geist"],
+        logoAssetKey: "logo.png",
+        toneOfVoice: "Warm",
+        prohibitedElements: null,
+        requiredElements: null,
+        description: null,
+        visualNotes: null,
+        toneNotes: null,
+        constraints: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      const snapshot = await createIdentitySnapshot({
+        workspaceId: "ws-1",
+        clientProfileId: "profile-1",
+        selectedReferenceIds: [],
+      });
+
+      expect(snapshot.assets).toEqual([]);
+      expect(snapshot.brandKit).toEqual({
+        colors: ["#112233"],
+        fonts: ["Geist"],
+        toneOfVoice: "Warm",
+        prohibitedElements: null,
+        requiredElements: null,
       });
     });
   });

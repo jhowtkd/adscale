@@ -384,6 +384,25 @@ describe("executeGenerationStep", () => {
     expect(result.imageOperation).toBe("edit");
   });
 
+  it("sends the campaign source and approved brand references as real images", async () => {
+    await executeGenerationStep({
+      derivationId: "derivation-brand-references",
+      promptContext: canonicalPromptContextInput(),
+      reference: {
+        kind: "multi",
+        images: [
+          { buffer: Buffer.from("base"), mimeType: "image/png", name: "campaign-source" },
+          { buffer: Buffer.from("brand-a"), mimeType: "image/png", name: "brand-reference-a" },
+          { buffer: Buffer.from("brand-b"), mimeType: "image/jpeg", name: "brand-reference-b" },
+        ],
+      },
+    });
+
+    expect(mockOpenAIImages.edit).toHaveBeenCalledWith(
+      expect.objectContaining({ image: [expect.anything(), expect.anything(), expect.anything()] }),
+    );
+  });
+
   it("uses image generate when there is no reference", async () => {
     const result = await executeGenerationStep({
       derivationId: "derivation-5",

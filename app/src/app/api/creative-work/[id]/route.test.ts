@@ -192,8 +192,15 @@ describe("PATCH /api/creative-work/[id]", () => {
     expect(mockConfirmCreativeWorkIdentity).not.toHaveBeenCalled();
   });
 
-  it("returns 400 when selectedReferenceIds is empty", async () => {
+  it("allows an empty selectedReferenceIds list for Brand-Kit-only identity", async () => {
     mockGetCreativeWork.mockResolvedValue({ work: workItem, outputs } as never);
+    const kitOnlySnapshot = { ...identitySnapshot, assets: [] };
+    mockCreateIdentitySnapshot.mockResolvedValue(kitOnlySnapshot as never);
+    mockConfirmCreativeWorkIdentity.mockResolvedValue({
+      ...workItem,
+      status: "ready",
+      identitySnapshot: kitOnlySnapshot,
+    } as never);
 
     const res = await PATCH(
       new Request("http://localhost/api/creative-work/work-1", {
@@ -207,8 +214,10 @@ describe("PATCH /api/creative-work/[id]", () => {
       { params: makeParams("work-1") }
     );
 
-    expect(res.status).toBe(400);
-    expect(mockCreateIdentitySnapshot).not.toHaveBeenCalled();
+    expect(res.status).toBe(200);
+    expect(mockCreateIdentitySnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({ selectedReferenceIds: [] }),
+    );
   });
 
   it("returns 400 when more than 8 references are submitted", async () => {

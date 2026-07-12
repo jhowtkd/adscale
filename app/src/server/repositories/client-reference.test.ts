@@ -232,8 +232,8 @@ describe("client-reference repository", () => {
   });
 
   describe("createTrainingReference", () => {
-    it("creates a pending training reference", async () => {
-      returningMock.mockResolvedValue([{ id: "ref-1", reviewStatus: "pending_analysis" }]);
+    it("creates an auto-approved training reference", async () => {
+      returningMock.mockResolvedValue([{ id: "ref-1", reviewStatus: "approved" }]);
 
       await createTrainingReference("ws-1", {
         clientProfileId: "profile-1",
@@ -246,7 +246,9 @@ describe("client-reference repository", () => {
           workspaceId: "ws-1",
           clientProfileId: "profile-1",
           kind: "other",
-          reviewStatus: "pending_analysis",
+          trainingCategory: "visual_reference",
+          usageMode: "reference",
+          reviewStatus: "approved",
         }),
       );
     });
@@ -283,8 +285,8 @@ describe("client-reference repository", () => {
   });
 
   describe("recordTrainingAnalysis", () => {
-    it("updates only the pending_analysis row inside the triple-id scope", async () => {
-      returningMock.mockResolvedValue([{ id: "ref-1", reviewStatus: "pending_approval" }]);
+    it("auto-approves the pending_analysis row inside the triple-id scope", async () => {
+      returningMock.mockResolvedValue([{ id: "ref-1", reviewStatus: "approved" }]);
 
       const result = await recordTrainingAnalysis(
         { workspaceId: "ws-1", clientProfileId: "profile-1", referenceId: "ref-1" },
@@ -302,7 +304,13 @@ describe("client-reference repository", () => {
       );
 
       expect(updateMock).toHaveBeenCalledTimes(1);
-      expect(setMock).toHaveBeenCalledTimes(1);
+      expect(setMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          trainingCategory: "graphic",
+          usageMode: "reference",
+          reviewStatus: "approved",
+        }),
+      );
       expect(whereMock).toHaveBeenCalledTimes(1);
       expect(returningMock).toHaveBeenCalledTimes(1);
       expect(result?.id).toBe("ref-1");

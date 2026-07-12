@@ -194,6 +194,8 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
   const activeFilters = useMemo(() => {
     const filters: Array<{ label: string; onRemove: () => void }> = [];
     if (searchQuery) {
+      // clearSearchQuery writes pending* refs; chip onRemove only runs on click.
+      // eslint-disable-next-line react-hooks/refs -- event handler, not render read
       filters.push({
         label: `${tc("search")}: "${searchQuery}"`,
         onRemove: clearSearchQuery,

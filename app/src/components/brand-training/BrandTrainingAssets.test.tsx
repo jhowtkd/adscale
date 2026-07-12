@@ -108,7 +108,7 @@ describe("BrandTrainingAssets", () => {
     });
   });
 
-  it("shows analysis and requires explicit approval", async () => {
+  it("shows pending approval cards when legacy pending_approval rows exist", async () => {
     useBrandTrainingAssetsMock.mockReturnValue({
       data: [asset()],
       isLoading: false,

@@ -220,6 +220,12 @@ export function useBrandTrainingAssets(clientProfileId: string | null) {
       );
     },
     enabled: Boolean(clientProfileId),
+    refetchInterval: (query) => {
+      const assets = query.state.data as BrandTrainingAssetRecord[] | undefined;
+      return assets?.some((asset) => asset.reviewStatus === "pending_analysis")
+        ? 2_500
+        : false;
+    },
   });
 }
 

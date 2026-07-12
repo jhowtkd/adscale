@@ -13,14 +13,9 @@ import { getWorkspaceAssetByKey } from "@/server/repositories/workspace-asset";
 /**
  * PATCH /api/client-profiles/:id/training-assets/:referenceId
  *
- * Authenticated human review for an AI-analyzed brand training asset.
- *
- * Trust boundary: only an authenticated workspace member may approve an
- * asset. The Inngest analysis job (analyze-brand-training-asset) is
- * responsible only for proposing category/mode and recording analysis;
- * it MUST NOT set reviewStatus: "approved". Approval is reserved for
- * this route. The schema's superRefine rejects approval without
- * analysis, and the route validates the body again before persisting.
+ * Authenticated review for a brand training asset (archive, or adjust
+ * category/mode on an already-approved upload). New uploads are
+ * auto-approved on create; this route remains for archive / edits.
  */
 export async function PATCH(
   request: Request,

@@ -88,7 +88,13 @@ function classifyGroup(
   ) {
     return "characterGraphicExact";
   }
-  if (category === "visual_reference") return "visualReference";
+  // `reference` mode (and visual_reference category) guide generation without
+  // exact compositing. Logo/graphic/character assets are frequently approved
+  // as `reference` when they lack an alpha channel — they must still appear
+  // in Create Post identity options, otherwise a trained brand looks empty.
+  if (category === "visual_reference" || usageMode === "reference") {
+    return "visualReference";
+  }
   return null;
 }
 
@@ -281,14 +287,18 @@ export async function createIdentitySnapshot(
   )) as ApprovedReferenceRow[];
 
   const approvedById = new Map(approved.map((row) => [row.id, row]));
+  const effectiveReferenceIds =
+    selectedReferenceIds.length > 0
+      ? selectedReferenceIds
+      : approved.slice(0, 3).map((row) => row.id);
 
-  for (const id of selectedReferenceIds) {
+  for (const id of effectiveReferenceIds) {
     if (!approvedById.has(id)) {
       throw new IdentitySnapshotMissingReferenceError(id);
     }
   }
 
-  const selectedRows = selectedReferenceIds.map(
+  const selectedRows = effectiveReferenceIds.map(
     (id) => approvedById.get(id) as ApprovedReferenceRow
   );
 

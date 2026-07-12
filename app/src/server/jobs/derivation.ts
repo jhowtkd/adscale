@@ -57,7 +57,11 @@ import {
   recordCampaignMemoryEntry,
 } from "../memory/campaign-memory-context";
 import { runCompletedDerivationQualityGate } from "../ai/creative-quality-gate";
-import { getClientProfile, getClientReferencesByIds } from "../repositories/client-reference";
+import {
+  getClientProfile,
+  getClientReferencesByIdsForProfile,
+} from "../repositories/client-reference";
+import { getWorkspaceAssetByKey } from "../repositories/workspace-asset";
 import { trackUsage } from "../repositories/usage";
 import {
   getBrandKit,
@@ -72,7 +76,9 @@ import {
   analyzeDerivationCreative,
 } from "@/server/ai/creative-score";
 import { normalizeCreativeDiagnosis } from "@/server/ai/creative-diagnosis";
-import { formatToOpenAIImageSize, toOpenAISdkImageSize } from "@/lib/formats";
+import { formatToOpenAIImageSize, getTargetDimensions, toOpenAISdkImageSize } from "@/lib/formats";
+import { composeExactBrandAssets } from "@/server/creative-work/composite";
+import { buildIdentityOptions, DEFAULT_EXACT_PLACEMENT } from "@/server/creative-work/identity";
 import {
   buildGenerationPromptContext,
   executeGenerationStep,
@@ -473,8 +479,32 @@ export const derivationJob = inngest.createFunction(
     // 3. Fetch selected client references for prompt context
     const clientReferences = await step.run("fetch-client-references", async () => {
       const ids = campaign.selectedReferenceIds ?? [];
-      if (ids.length === 0) return [];
-      const refs = await getClientReferencesByIds(workspaceId, ids);
+      const selected = ids.length > 0 && campaign.clientProfileId
+        ? await getClientReferencesByIdsForProfile(workspaceId, campaign.clientProfileId, ids)
+        : [];
+      const recommendedOptions = campaign.clientProfileId
+        ? await buildIdentityOptions(workspaceId, campaign.clientProfileId, {
+            theme: campaign.product || campaign.name,
+            objective: campaign.objective || campaign.name,
+            audience: campaign.audience || "general audience",
+            offer: campaign.offer || campaign.product || campaign.name,
+          })
+        : [];
+      const recommendedIds = recommendedOptions.map((option) => option.referenceId);
+      const approvedRows = campaign.clientProfileId
+        ? await getClientReferencesByIdsForProfile(
+            workspaceId,
+            campaign.clientProfileId,
+            recommendedIds,
+          )
+        : [];
+      const approvedById = new Map(approvedRows.map((reference) => [reference.id, reference]));
+      const approved = recommendedIds
+        .map((referenceId) => approvedById.get(referenceId))
+        .filter((reference): reference is NonNullable<typeof reference> => Boolean(reference));
+      const refs = Array.from(
+        new Map([...selected, ...approved].map((reference) => [reference.id, reference])).values(),
+      ).slice(0, 4);
       logger.info(`[fetch-client-references] loaded ${refs.length} references`);
       return refs.map((r) => ({
         id: r.id,
@@ -482,6 +512,8 @@ export const derivationJob = inngest.createFunction(
         label: r.label,
         notes: r.notes,
         assetKey: r.assetKey,
+        trainingCategory: r.trainingCategory ?? null,
+        usageMode: r.usageMode ?? null,
       }));
     });
 
@@ -695,6 +727,24 @@ export const derivationJob = inngest.createFunction(
         throw new Error("Parent derivation output is missing. Cannot perform package format adaptation without the approved winner image.");
       }
 
+      const brandReferenceImages = (
+        await Promise.all(
+          clientReferences
+            .filter((reference) => reference.usageMode === "reference")
+            .map(async (reference) => {
+              const assetRecord = await getWorkspaceAssetByKey(workspaceId, reference.assetKey);
+              if (!assetRecord) return null;
+              return {
+                buffer: await objectStorage.get(reference.assetKey),
+                mimeType: assetRecord.type,
+                name: `brand-${reference.trainingCategory ?? reference.kind}-${reference.id}`,
+              };
+            }),
+        )
+      ).filter(
+        (image): image is { buffer: Buffer; mimeType: string; name: string } => image !== null,
+      );
+
       const promptContextInput = {
         campaign,
         plan,
@@ -740,6 +790,8 @@ export const derivationJob = inngest.createFunction(
         requestedSize: openaiSize,
         sourcePackage,
         source: sourceDescriptor,
+        clientProfileId: campaign.clientProfileId ?? null,
+        brandReferenceIds: clientReferences.map((reference) => reference.id),
         generationMode: effectiveGenerationMode as PromptProvenance["generationMode"],
         targetFormat,
       };
@@ -762,7 +814,16 @@ export const derivationJob = inngest.createFunction(
           baseMimeType: baseAsset.type,
           styleBuffer,
           styleMimeType: styleAsset.type,
+          brandImages: brandReferenceImages,
         };
+      } else if (brandReferenceImages.length > 0) {
+        const images = [
+          ...(referenceBuffer && referenceMimeType
+            ? [{ buffer: referenceBuffer, mimeType: referenceMimeType, name: "campaign-source" }]
+            : []),
+          ...brandReferenceImages,
+        ].slice(0, 4);
+        reference = { kind: "multi", images };
       } else if (referenceBuffer && referenceMimeType) {
         reference = {
           kind: "single",
@@ -780,6 +841,29 @@ export const derivationJob = inngest.createFunction(
         reference,
         isPreview,
       });
+
+      const exactBrandReferences = clientReferences.filter(
+        (brandReference) => brandReference.usageMode === "exact",
+      );
+      if (exactBrandReferences.length > 0) {
+        const dimensions = getTargetDimensions(targetFormat) ?? { width: 1024, height: 1024 };
+        const base = await objectStorage.get(stepResult.outputKey);
+        const layers = await Promise.all(
+          exactBrandReferences.map(async (brandReference) => ({
+            buffer: await objectStorage.get(brandReference.assetKey),
+            gravity:
+              DEFAULT_EXACT_PLACEMENT[
+                (brandReference.trainingCategory ?? "logo") as keyof typeof DEFAULT_EXACT_PLACEMENT
+              ]?.gravity ?? "southeast",
+            widthRatio:
+              DEFAULT_EXACT_PLACEMENT[
+                (brandReference.trainingCategory ?? "logo") as keyof typeof DEFAULT_EXACT_PLACEMENT
+              ]?.widthRatio ?? 0.18,
+          })),
+        );
+        const composed = await composeExactBrandAssets(base, layers, dimensions);
+        await objectStorage.put(stepResult.outputKey, composed, "image/png");
+      }
 
 
       const revisedPrompt = stepResult.revisedPrompt || derivation.prompt || "";

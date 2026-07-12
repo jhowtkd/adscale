@@ -49,6 +49,11 @@ export interface BrandKitContext {
   visualNotes?: string | null;
   toneOfVoice?: string | null;
   constraints?: string | null;
+  colors?: string[] | null;
+  fonts?: string[] | null;
+  logoAssetKey?: string | null;
+  prohibitedElements?: string | null;
+  requiredElements?: string | null;
 }
 
 export interface BrandMemoryContextShape {
@@ -109,6 +114,11 @@ export const BRAND_KIT_ALLOWED_KEYS = [
   "visualNotes",
   "toneOfVoice",
   "constraints",
+  "colors",
+  "fonts",
+  "logoAssetKey",
+  "prohibitedElements",
+  "requiredElements",
 ] as const;
 export const GOAL_ALLOWED_KEYS = [
   "id",
