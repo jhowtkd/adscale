@@ -255,7 +255,7 @@ describe("getDashboardStats", () => {
     ] as unknown as Awaited<ReturnType<typeof getCreditTransactionsForWorkspace>>);
 
     const result = await getDashboardStats("ws-1", "month", "7");
-    const todayKey = todayStart.toISOString().split("T")[0];
+    const todayKey = `${todayStart.getFullYear()}-${String(todayStart.getMonth() + 1).padStart(2, "0")}-${String(todayStart.getDate()).padStart(2, "0")}`;
     const todayPoint = result.creditUsageSeries.find((point) => point.date === todayKey);
 
     expect(todayPoint?.used).toBe(5);

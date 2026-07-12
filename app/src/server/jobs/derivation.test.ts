@@ -99,13 +99,20 @@ vi.mock("../ai/creative-quality-gate", async (importOriginal) => {
 });
 
 vi.mock("../repositories/client-reference", () => ({
-  getClientReferencesByIds: vi.fn(() => Promise.resolve([])),
+  getApprovedTrainingReferences: vi.fn(() => Promise.resolve([])),
+  getClientReferencesByIdsForProfile: vi.fn(() => Promise.resolve([])),
   getClientProfile: vi.fn(() => Promise.resolve(null)),
   resolveCampaignClientProfileId: vi.fn(() => Promise.resolve(null)),
 }));
 
 vi.mock("@/server/memory/brand-memory-context", () => ({
   getBrandMemoryContext: vi.fn(() => Promise.resolve({ items: [], block: "" })),
+}));
+
+vi.mock("../brand-taste/prompt-calibration-loader", () => ({
+  loadPromptCalibrationContext: vi.fn(() =>
+    Promise.resolve({ brandTasteSection: null, corpusQualitySection: null }),
+  ),
 }));
 
 vi.mock("@/server/memory/campaign-memory-context", () => ({
@@ -278,7 +285,7 @@ import { getAssetsByCampaign } from "../repositories/asset";
 import { getPlanByCampaign } from "../repositories/plan";
 import { getBrandKit } from "../db/repositories/brand-kit";
 import { getCompetitorAnalysesByCampaign } from "../repositories/competitor-analysis";
-import { getClientReferencesByIds, resolveCampaignClientProfileId } from "../repositories/client-reference";
+import { getClientReferencesByIdsForProfile, resolveCampaignClientProfileId } from "../repositories/client-reference";
 import { objectStorage } from "@/server/storage";
 import { getBrandMemoryContext } from "@/server/memory/brand-memory-context";
 import { env } from "../validation/env";
@@ -289,7 +296,7 @@ const mockGetAssetsByCampaign = vi.mocked(getAssetsByCampaign);
 const mockGetPlanByCampaign = vi.mocked(getPlanByCampaign);
 const mockGetBrandKit = vi.mocked(getBrandKit);
 const mockGetCompetitorAnalysesByCampaign = vi.mocked(getCompetitorAnalysesByCampaign);
-const mockGetClientReferencesByIds = vi.mocked(getClientReferencesByIds);
+const mockGetClientReferencesByIds = vi.mocked(getClientReferencesByIdsForProfile);
 const mockResolveCampaignClientProfileId = vi.mocked(resolveCampaignClientProfileId);
 const mockDownloadBuffer = vi.mocked(objectStorage.get);
 const mockGetBrandMemoryContext = vi.mocked(getBrandMemoryContext);
@@ -670,6 +677,7 @@ describe("derivationJob", () => {
         creativeDiagnosisStatus: "pending",
         creativeDiagnosis: null,
         creativeDiagnosisSource: null,
+        clientProfileId: "profile-1",
         selectedReferenceIds: ["ref-1", "ref-2"],
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -717,6 +725,7 @@ describe("derivationJob", () => {
         {
           id: "ref-1",
           workspaceId: "workspace-1",
+          clientProfileId: "profile-1",
           kind: "layout",
           label: "Layout ref",
           notes: null,
@@ -727,6 +736,7 @@ describe("derivationJob", () => {
         {
           id: "ref-2",
           workspaceId: "workspace-1",
+          clientProfileId: "profile-1",
           kind: "style",
           label: "Style ref",
           notes: null,

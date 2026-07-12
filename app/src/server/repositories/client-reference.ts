@@ -156,6 +156,25 @@ export async function getClientReferencesByIds(
     .orderBy(desc(clientReferences.createdAt));
 }
 
+export async function getClientReferencesByIdsForProfile(
+  workspaceId: string,
+  clientProfileId: string,
+  ids: string[],
+) {
+  if (ids.length === 0) return [];
+  return db
+    .select()
+    .from(clientReferences)
+    .where(
+      and(
+        eq(clientReferences.workspaceId, workspaceId),
+        eq(clientReferences.clientProfileId, clientProfileId),
+        inArray(clientReferences.id, ids),
+      ),
+    )
+    .orderBy(desc(clientReferences.createdAt));
+}
+
 export async function isWorkspaceReferenceAssetKey(
   workspaceId: string,
   assetKey: string
@@ -208,6 +227,25 @@ export async function createTrainingReference(
     })
     .returning();
   return row;
+}
+
+export async function getTrainingReferenceByAssetKey(
+  workspaceId: string,
+  clientProfileId: string,
+  assetKey: string,
+) {
+  const [row] = await db
+    .select()
+    .from(clientReferences)
+    .where(
+      and(
+        eq(clientReferences.workspaceId, workspaceId),
+        eq(clientReferences.clientProfileId, clientProfileId),
+        eq(clientReferences.assetKey, assetKey),
+      ),
+    )
+    .limit(1);
+  return row ?? null;
 }
 
 export async function getTrainingReferences(

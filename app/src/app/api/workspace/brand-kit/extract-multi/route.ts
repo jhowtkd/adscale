@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
+import { createHash } from "node:crypto";
 import pLimit from "p-limit";
 import { z } from "zod";
 import {
   isAllowedImageType,
-  sanitizeStorageFilename,
   validateImageMagicBytes,
 } from "@/lib/upload-config";
 import { apiError, handleApiError } from "@/lib/api-response";
@@ -12,8 +12,15 @@ import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { extractBrandKitFromImage } from "@/server/ai/brand-kit-extractor";
 import { spendOrApiError } from "@/server/billing/paywall";
 import { objectStorage } from "@/server/storage";
-import { createClientReference } from "@/server/repositories/client-reference";
-import { createWorkspaceAsset } from "@/server/repositories/workspace-asset";
+import {
+  createTrainingReference,
+  getTrainingReferenceByAssetKey,
+} from "@/server/repositories/client-reference";
+import {
+  createWorkspaceAsset,
+  getWorkspaceAssetByKey,
+} from "@/server/repositories/workspace-asset";
+import { normalizeTrainingUpload } from "@/server/brand-training/upload";
 import { upsertBrandKit, resolveBrandKitProfileId } from "@/server/db/repositories/brand-kit";
 import { inngest } from "@/server/jobs/client";
 
@@ -190,38 +197,79 @@ export async function POST(request: Request) {
       result.charges.push({ fileName: entry.fileName, kind: entry.kind, charged: true });
     }
 
-    for (const { entry, file, buffer } of assets) {
-      const safeName = sanitizeStorageFilename(file.name);
+    // Persist the extracted draft immediately. The validation step can still
+    // edit and overwrite it, but advancing without pressing Save must not
+    // leave Voice or downstream generation with an empty Brand Kit.
+    if (guideExtractions.length > 0) {
+      const profileId = await resolveBrandKitProfileId(
+        workspace.id,
+        clientProfileId ?? null,
+      );
+      await upsertBrandKit(
+        workspace.id,
+        {
+          brandColors: result.brandKit.colors ?? [],
+          brandFonts: result.brandKit.fonts ?? [],
+          toneOfVoice: result.brandKit.toneOfVoice ?? "",
+          prohibitedElements: result.brandKit.prohibitedElements ?? "",
+          requiredElements: result.brandKit.requiredElements ?? "",
+        },
+        profileId,
+      );
+    }
+
+    for (const { entry, file } of assets) {
+      const normalized = await normalizeTrainingUpload(file);
+      const profileId = await resolveBrandKitProfileId(
+        workspace.id,
+        clientProfileId ?? null,
+      );
+      const digest = createHash("sha256").update(normalized.buffer).digest("hex").slice(0, 24);
       const key =
         entry.kind === "logo"
-          ? `workspaces/${workspace.id}/brand-kit/${crypto.randomUUID()}-${safeName}`
-          : `workspaces/${workspace.id}/assets/${crypto.randomUUID()}-${safeName}`;
+          ? `workspaces/${workspace.id}/brand-kit/${profileId}/${digest}.${normalized.extension}`
+          : `workspaces/${workspace.id}/brand-training/${profileId}/${digest}.${normalized.extension}`;
 
-      await objectStorage.put(key, buffer, file.type);
-
-      if (entry.kind === "logo") {
-        const profileId = await resolveBrandKitProfileId(workspace.id, clientProfileId ?? null);
-        await upsertBrandKit(workspace.id, { logoAssetKey: key }, profileId);
-        await createClientReference(workspace.id, {
-          clientProfileId: profileId,
-          assetKey: key,
-          label: file.name,
-          kind: "logo",
-        });
-      } else {
-        // creative: register as a workspace asset and kick off AI analysis
-        const asset = await createWorkspaceAsset({
+      let asset = await getWorkspaceAssetByKey(workspace.id, key);
+      if (!asset) {
+        await objectStorage.put(key, normalized.buffer, normalized.type);
+        asset = await createWorkspaceAsset({
           workspaceId: workspace.id,
           name: file.name,
           key,
-          type: file.type,
-          size: file.size,
-        });
-        await inngest.send({
-          name: "workspace.asset.analyze",
-          data: { assetId: asset.id, workspaceId: workspace.id, key },
+          type: normalized.type,
+          size: normalized.buffer.byteLength,
+          source: "brand_training",
+          metadata: {
+            hasAlpha: normalized.hasAlpha,
+            originalMimeType: file.type,
+            ingestionKind: entry.kind,
+          },
         });
       }
+
+      if (entry.kind === "logo") {
+        await upsertBrandKit(workspace.id, { logoAssetKey: key }, profileId);
+      }
+
+      const reference =
+        (await getTrainingReferenceByAssetKey(workspace.id, profileId, key)) ??
+        (await createTrainingReference(workspace.id, {
+          clientProfileId: profileId,
+          assetKey: key,
+          label: file.name,
+        }));
+      await inngest.send({
+        name: "brand.training.analyze",
+        data: {
+          workspaceId: workspace.id,
+          clientProfileId: profileId,
+          referenceId: reference.id,
+          assetKey: key,
+          mimeType: normalized.type,
+          hasAlpha: normalized.hasAlpha,
+        },
+      });
 
       result.assets.push({
         kind: entry.kind,

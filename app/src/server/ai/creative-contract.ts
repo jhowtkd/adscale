@@ -147,6 +147,8 @@ export type PromptProvenance = {
   outputKey?: string | null;
   sourcePackage: SourcePackage;
   source: SourceDescriptor | null;
+  clientProfileId?: string | null;
+  brandReferenceIds?: string[];
   imageOperation?: ImageOperation | null;
   generationMode: GenerationMode;
   targetFormat: string;

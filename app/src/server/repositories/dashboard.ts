@@ -32,6 +32,8 @@ function buildCreditUsageSeries(
   range: CreditChartRange,
   now: Date
 ): { date: string; used: number; remaining: number }[] {
+  const localDateKey = (date: Date) =>
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
   const sumUsageBetween = (start: Date, end: Date) =>
     Math.abs(
       creditTransactions
@@ -61,12 +63,11 @@ function buildCreditUsageSeries(
   const days = CREDIT_RANGE_DAYS[range];
   return Array.from({ length: days }, (_, i) => {
     const date = new Date(now.getTime() - (days - 1 - i) * 24 * 60 * 60 * 1000);
-    const dateStr = date.toISOString().split("T")[0];
     const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
     const dayEnd = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
 
     return {
-      date: dateStr,
+      date: localDateKey(dayStart),
       used: sumUsageBetween(dayStart, dayEnd),
       remaining: Math.max(0, creditBalance),
     };

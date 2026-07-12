@@ -287,14 +287,18 @@ export async function createIdentitySnapshot(
   )) as ApprovedReferenceRow[];
 
   const approvedById = new Map(approved.map((row) => [row.id, row]));
+  const effectiveReferenceIds =
+    selectedReferenceIds.length > 0
+      ? selectedReferenceIds
+      : approved.slice(0, 3).map((row) => row.id);
 
-  for (const id of selectedReferenceIds) {
+  for (const id of effectiveReferenceIds) {
     if (!approvedById.has(id)) {
       throw new IdentitySnapshotMissingReferenceError(id);
     }
   }
 
-  const selectedRows = selectedReferenceIds.map(
+  const selectedRows = effectiveReferenceIds.map(
     (id) => approvedById.get(id) as ApprovedReferenceRow
   );
 
