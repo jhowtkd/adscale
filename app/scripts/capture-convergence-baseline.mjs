@@ -7,7 +7,7 @@
  * Post). The snapshot captures, per unique journey:
  *   started, completed, abandoned, failed, median duration.
  *
- * Hardening (Gate 0 review):
+ * Hardening (Gate 0 review rounds 1 + 2):
  * - A failing mandatory query FAILS the snapshot (non-zero exit). We
  *   never write a baseline built from zeros caused by a schema, grant
  *   or connection error.
@@ -15,6 +15,13 @@
  * - "median" is computed with PERCENTILE_CONT(0.5), never AVG.
  * - Counts are per unique journey (campaign id / guided flow id /
  *   creative work item id), never per raw event.
+ * - Abandoned is NEVER computed as "started - completed - failed":
+ *   that formula misclassifies in-flight work. Each origin uses an
+ *   explicit signal (status='abandoned' on guided flows) or declares
+ *   the metric unavailable.
+ * - Assistant failures come from guided_action_failed events aggregated
+ *   by guided_flow_id (one failed journey = at least one failed action),
+ *   never from a status enum that does not exist.
  *
  * This script is READ-ONLY against the database. It only writes the JSON
  * snapshot file.
@@ -87,34 +94,26 @@ async function requireQuery(client, label, sql, params = []) {
 }
 
 /**
- * Aggregate journey counts from a single status-histogram query.
- * Returns a metric object with 5 fields, all per unique journey:
- *   started, completed, abandoned, failed, medianDurationMs.
- *
- * abandoned = started - completed - failed (defensive; clamped at 0).
- * This works even when the source table has no explicit abandoned state
- * (campaigns, creative_work_items).
+ * Metric shape carried per origin. abandoned/failed may be
+ * { available: false } when there is no reliable signal today.
+ * Phase 8 will fill these in.
  */
-function metricFromHistogram(rows, { completedStatuses, failedStatuses }) {
-  const metric = {
+function newMetric() {
+  return {
     started: 0,
     completed: 0,
-    abandoned: 0,
-    failed: 0,
+    abandoned: { available: false, value: null, reason: "not computed" },
+    failed: { available: false, value: null, reason: "not computed" },
     medianDurationMs: { available: false, valueMs: null, sample: 0 },
   };
-  for (const row of rows) {
-    const status = row.status ?? "unknown";
-    const count = Number(row.count ?? 0);
-    metric.started += count;
-    if (completedStatuses.includes(status)) metric.completed += count;
-    if (failedStatuses.includes(status)) metric.failed += count;
-  }
-  metric.abandoned = Math.max(
-    0,
-    metric.started - metric.completed - metric.failed
-  );
-  return metric;
+}
+
+function unavailable(reason) {
+  return { available: false, value: null, reason };
+}
+
+function availableMetric(value) {
+  return { available: true, value: Number(value ?? 0), reason: null };
 }
 
 function attachMedian(metric, medianRow) {
@@ -147,10 +146,25 @@ async function captureCampaignBaseline(client, sinceDate) {
     )
   ).rows;
 
-  const metric = metricFromHistogram(statusRows, {
-    completedStatuses: ["completed"],
-    failedStatuses: ["failed"],
-  });
+  const metric = newMetric();
+  // Campaigns: completed/failed come from status values. Abandoned is
+  // NOT derivable from status today (active/draft/pending/analyzing are
+  // in-flight, not abandoned). Declare unavailable rather than infer.
+  for (const row of statusRows) {
+    const status = row.status ?? "unknown";
+    const count = Number(row.count ?? 0);
+    metric.started += count;
+    if (status === "completed") metric.completed += count;
+    if (status === "failed") metric.failed = availableMetric((metric.failed.available ? metric.failed.value : 0) + count);
+  }
+  metric.abandoned = unavailable(
+    "campaign status has no 'abandoned' value; in-flight states (active/draft/pending/analyzing) must not be misclassified as abandoned"
+  );
+  if (!metric.failed.available) {
+    metric.failed = unavailable(
+      "no campaigns with status='failed' in window (signal exists but sample is zero)"
+    );
+  }
 
   const medianRow = (
     await requireQuery(
@@ -178,6 +192,7 @@ async function captureCampaignBaseline(client, sinceDate) {
 
 async function captureAssistantBaseline(client, sinceDate) {
   // Per unique guided flow (journey = one assistant_guided_flows row).
+  // GuidedFlowStatus = "active" | "completed" | "abandoned" | "blocked".
   const statusRows = (
     await requireQuery(
       client,
@@ -194,10 +209,37 @@ async function captureAssistantBaseline(client, sinceDate) {
     )
   ).rows;
 
-  const metric = metricFromHistogram(statusRows, {
-    completedStatuses: ["completed", "done", "approved"],
-    failedStatuses: ["failed", "error"],
-  });
+  const metric = newMetric();
+  let abandonedCount = 0;
+  for (const row of statusRows) {
+    const status = row.status ?? "unknown";
+    const count = Number(row.count ?? 0);
+    metric.started += count;
+    if (status === "completed") metric.completed += count;
+    if (status === "abandoned") abandonedCount += count;
+  }
+  metric.abandoned = availableMetric(abandonedCount);
+  // Note: 'blocked' is NOT counted as failed here. Blocked = waiting on
+  // user input or a dependency, not an error. Failures come from the
+  // action-level event below.
+
+  // Failures: aggregate guided_action_failed events by guided_flow_id so
+  // each journey is counted at most once. Flows without a guided_flow_id
+  // binding are grouped by thread_id (journey still unique per thread).
+  const failedRows = (
+    await requireQuery(
+      client,
+      "assistant_action_failed_journeys",
+      `
+        SELECT COUNT(DISTINCT COALESCE(guided_flow_id, thread_id))::int AS failed_journeys
+        FROM adscale_app.assistant_guided_flow_events
+        WHERE occurred_at >= $1
+          AND event_key = 'guided_action_failed'
+      `,
+      [sinceDate]
+    )
+  ).rows;
+  metric.failed = availableMetric(Number(failedRows[0]?.failed_journeys ?? 0));
 
   const medianRow = (
     await requireQuery(
@@ -209,7 +251,7 @@ async function captureAssistantBaseline(client, sinceDate) {
           COUNT(*)::int AS sample
         FROM adscale_app.assistant_guided_flows
         WHERE created_at >= $1
-          AND status IN ('completed', 'done', 'approved')
+          AND status = 'completed'
           AND updated_at >= created_at
       `,
       [sinceDate]
@@ -218,7 +260,8 @@ async function captureAssistantBaseline(client, sinceDate) {
 
   return {
     ...attachMedian(metric, medianRow),
-    source: "adscale_app.assistant_guided_flows",
+    source:
+      "adscale_app.assistant_guided_flows + assistant_guided_flow_events (failed)",
     unit: "guided_flow",
   };
 }
@@ -241,10 +284,25 @@ async function captureQuickToolBaseline(client, sinceDate) {
     )
   ).rows;
 
-  const metric = metricFromHistogram(statusRows, {
-    completedStatuses: ["completed"],
-    failedStatuses: ["failed"],
-  });
+  const metric = newMetric();
+  for (const row of statusRows) {
+    const status = row.status ?? "unknown";
+    const count = Number(row.count ?? 0);
+    metric.started += count;
+    if (status === "completed") metric.completed += count;
+    if (status === "failed") metric.failed = availableMetric((metric.failed.available ? metric.failed.value : 0) + count);
+  }
+  // creative_work_items status check: draft/ready/generating/partial/
+  // completed/failed. No 'abandoned' state — declare unavailable rather
+  // than misclassify drafts/ready/generating as abandoned.
+  metric.abandoned = unavailable(
+    "creative_work_items status has no 'abandoned' value; draft/ready/generating/partial must not be misclassified as abandoned"
+  );
+  if (!metric.failed.available) {
+    metric.failed = unavailable(
+      "no creative_work_items with status='failed' in window (signal exists but sample is zero)"
+    );
+  }
 
   const medianRow = (
     await requireQuery(
@@ -304,11 +362,11 @@ async function main() {
   }
 
   const snapshot = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     capturedAt: new Date().toISOString(),
     since: args.sinceDate.toISOString(),
     semantics:
-      "Counts are per unique journey (campaign id / guided flow id / creative work item id), never per raw event. Abandoned = started - completed - failed (defensive; negative clamped to zero). medianDurationMs is PERCENTILE_CONT(0.5). When a metric cannot be computed it is declared { available: false }, never zero.",
+      "Counts are per unique journey (campaign id / guided flow id / creative work item id). abandoned/failed are {available:true|false}; when false, the reason names what is missing — never silently zero. Assistant failures come from guided_action_failed aggregated by guided_flow_id (or thread_id fallback), one journey counted once. blocked status is NOT failure. medianDurationMs is PERCENTILE_CONT(0.5).",
     origins: {
       campaign,
       assistant,
@@ -335,8 +393,11 @@ async function main() {
   mkdirSync(dirname(args.outPath), { recursive: true });
   writeFileSync(args.outPath, `${JSON.stringify(snapshot, null, 2)}\n`);
   console.log(`CONVERGENCE-BASELINE: wrote ${args.outPath}`);
+
+  const fmtValue = (m) =>
+    m.available ? String(m.value) : `n/a(${m.reason ? m.reason.split(";")[0] : ""})`;
   const fmt = (m) =>
-    `${m.started}/${m.completed}/${m.abandoned}/${m.failed}` +
+    `${m.started}/${m.completed}/${fmtValue(m.abandoned)}/${fmtValue(m.failed)}` +
     (m.medianDurationMs.available
       ? `/p50=${m.medianDurationMs.valueMs}ms(n=${m.medianDurationMs.sample})`
       : "/p50=n/a");

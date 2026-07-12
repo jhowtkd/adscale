@@ -3,32 +3,37 @@
  * Anti-expansion gate for the convergence milestone (Phase 0, step 5).
  *
  * This is a REAL gate. It exits non-zero when the working tree introduces
- * any of the following during the freeze:
+ * any new creative surface during the freeze.
  *
- *   1. A new top-level dashboard route group under src/app/(dashboard)/
- *      not present in the frozen snapshot.
- *   2. A new dashboard page/route file (page.tsx/page.ts/route.ts) not
- *      present in the frozen snapshot. Settings/admin/library/etc. are
- *      captured at bootstrap and therefore permitted; only NEW pages
- *      added after the freeze fail.
- *   3. A new top-level API route tree under src/app/api/* not present
- *      in the frozen snapshot (e.g. src/app/api/newsletter/). New routes
- *      inside an existing allowlisted tree are permitted.
- *   4. A new generator-style module under src/server/ai/ not present in
- *      the frozen snapshot and matching the pipeline-name heuristic.
+ * How it works (Gate 0 round 2):
  *
- * Snapshots live in docs/decisions/allowed-primary-destinations.json
- * under `snapshots` (frozen lists captured at Gate 0). The gate diffs
- * the current tree against those lists. Items missing from the snapshot
- * are filled in lazily ONLY when --init-snapshot is passed, so the gate
- * can be bootstrapped once and then enforced.
+ * The frozen snapshot lives in docs/decisions/allowed-primary-destinations.json
+ * under `snapshots`. The gate reads the snapshot from the **base ref**
+ * (default origin/main), NOT from the PR's own checkout — otherwise a
+ * PR could add a new route AND update the snapshot in the same commit
+ * and the gate would silently pass.
+ *
+ * It then walks the current tree and reports any of:
+ *   1. new top-level dashboard route group under src/app/(dashboard)/
+ *   2. new dashboard page/route file (any depth)
+ *   3. new top-level API route tree under src/app/api/
+ *   4. new nested API route tree (e.g. src/app/api/assistant/<new>/
+ *      with its own route.ts where none existed at base)
+ *   5. new .ts/.tsx file under src/server/ai/ (the heuristic filter is
+ *      GONE — every new file in the creative-pipeline directory is
+ *      flagged; name-matching games cannot bypass)
+ *
+ * Security: every git invocation uses execFileSync with an argument
+ * array. The --base ref cannot inject shell commands.
  *
  * Usage:
- *   node app/scripts/check-primary-destinations.mjs                # enforce
+ *   node app/scripts/check-primary-destinations.mjs                # enforce vs origin/main
+ *   node app/scripts/check-primary-destinations.mjs --base main    # enforce vs main
  *   node app/scripts/check-primary-destinations.mjs --init-snapshot # bootstrap
  *
  * Plano de convergência, Fase 0, passo 5.
  */
+import { execFileSync } from "node:child_process";
 import {
   readdirSync,
   readFileSync,
@@ -45,21 +50,71 @@ const manifestPath = resolve(
   repoRoot,
   "docs/decisions/allowed-primary-destinations.json"
 );
+const DEFAULT_BASE = "origin/main";
 
 function parseArgs(argv) {
-  const args = { initSnapshot: false };
+  const args = { initSnapshot: false, base: DEFAULT_BASE };
   for (let i = 0; i < argv.length; i += 1) {
     const token = argv[i];
     if (token === "--init-snapshot") {
       args.initSnapshot = true;
+    } else if (token === "--base") {
+      args.base = argv[i + 1] ?? DEFAULT_BASE;
+      i += 1;
     } else if (token === "--help" || token === "-h") {
       console.log(
-        "Usage: node app/scripts/check-primary-destinations.mjs [--init-snapshot]"
+        "Usage: node app/scripts/check-primary-destinations.mjs [--base <ref> | --init-snapshot]"
       );
       process.exit(0);
     }
   }
   return args;
+}
+
+/**
+ * Run git with an argument array (no shell interpolation).
+ */
+function git(args, { fatal = true } = {}) {
+  try {
+    return execFileSync("git", args, {
+      cwd: repoRoot,
+      encoding: "utf8",
+      stdio: fatal ? "pipe" : ["pipe", "pipe", "pipe"],
+    });
+  } catch (error) {
+    if (fatal) {
+      const stderr = error?.stderr?.toString?.() ?? "";
+      console.error(
+        `PRIMARY-DESTINATIONS: git ${args.join(" ")} failed: ${error?.message ?? error}${stderr ? ` (${stderr.trim()})` : ""}`
+      );
+      process.exit(1);
+    }
+    throw error;
+  }
+}
+
+/**
+ * Read the manifest JSON from the base ref. Returns { manifest, present }.
+ * `present` is false when the base ref doesn't carry the manifest yet —
+ * which is the legitimate bootstrap case for the FIRST convergence PR.
+ * Callers decide how to handle that case.
+ */
+function readBaseManifest(base) {
+  try {
+    git(["rev-parse", "--verify", base], { fatal: false });
+  } catch {
+    console.error(
+      `PRIMARY-DESTINATIONS: base ref "${base}" not found locally. Run "git fetch" or pass --base <local-ref>.`
+    );
+    process.exit(1);
+  }
+  const manifestRel = "docs/decisions/allowed-primary-destinations.json";
+  try {
+    const blob = git(["show", `${base}:${manifestRel}`], { fatal: false });
+    return { manifest: JSON.parse(blob), present: true };
+  } catch {
+    return { manifest: null, present: false };
+  }
 }
 
 function listDashboardRouteGroups() {
@@ -72,9 +127,6 @@ function listDashboardRouteGroups() {
 }
 
 function listApiRouteTrees() {
-  // Top-level subtrees under src/app/api (e.g. campaigns, derivations,
-  // assistant, creative-work, templates, ...). A new subtree here means
-  // a new resource family appeared.
   const apiDir = resolve(appDir, "src/app/api");
   if (!existsSync(apiDir)) return [];
   return readdirSync(apiDir, { withFileTypes: true })
@@ -83,24 +135,15 @@ function listApiRouteTrees() {
     .sort();
 }
 
-function listServerAiModules() {
-  const aiDir = resolve(appDir, "src/server/ai");
-  if (!existsSync(aiDir)) return [];
-  return readdirSync(aiDir).filter((f) => f.endsWith(".ts")).sort();
-}
-
 /**
- * Recursively collect page/route file paths under a Next.js app directory.
- * Each entry is the relative path from that directory (POSIX separators).
- * Used to detect NEW page/route files added after the freeze snapshot —
- * not to ban pages outside allowlisted groups (settings/admin/etc. are
- * legitimate app-shell pages, not creative journeys).
+ * Recursively collect page/route file paths under a directory, relative
+ * POSIX paths. Captures nested files, not just top-level groups.
  */
 function listPageRouteFilesUnder(dir) {
   if (!existsSync(dir)) return [];
   const out = [];
   const visit = (d, depth) => {
-    if (depth > 8) return;
+    if (depth > 10) return;
     for (const entry of readdirSync(d, { withFileTypes: true })) {
       const full = join(d, entry.name);
       if (entry.isDirectory()) {
@@ -119,11 +162,31 @@ function listPageRouteFilesUnder(dir) {
   return out.sort();
 }
 
-const PIPELINE_HEURISTIC =
-  /^(generate|build|run|create|produce|derive|orchestrate|synthesize|render).*(pipeline|flow|engine|generator|chain)\./;
-
-function looksLikeNewCreativePipeline(fileName) {
-  return PIPELINE_HEURISTIC.test(fileName);
+/**
+ * List EVERY .ts/.tsx file under a directory. The round-2 gate does not
+ * use a name heuristic — any new file in the creative-pipeline directory
+ * is flagged, so naming games can't bypass it.
+ */
+function listAllSourceFilesUnder(dir, { maxDepth = 8 } = {}) {
+  if (!existsSync(dir)) return [];
+  const out = [];
+  const visit = (d, depth) => {
+    if (depth > maxDepth) return;
+    for (const entry of readdirSync(d, { withFileTypes: true })) {
+      if (entry.name === "node_modules" || entry.name.startsWith(".")) continue;
+      const full = join(d, entry.name);
+      if (entry.isDirectory()) {
+        visit(full, depth + 1);
+      } else if (
+        entry.isFile() &&
+        (entry.name.endsWith(".ts") || entry.name.endsWith(".tsx"))
+      ) {
+        out.push(relative(dir, full).split(sep).join("/"));
+      }
+    }
+  };
+  visit(dir, 0);
+  return out.sort();
 }
 
 function asSet(value) {
@@ -135,7 +198,7 @@ function diff(current, snapshot) {
   return current.filter((name) => !snapshotSet.has(name));
 }
 
-function readManifest() {
+function readManifestFromWorkingTree() {
   if (!existsSync(manifestPath)) {
     console.error(
       `PRIMARY-DESTINATIONS: manifest not found at ${manifestPath}. Run from repo root.`
@@ -191,10 +254,23 @@ function validateManifest(manifest) {
   return errors;
 }
 
+function buildCurrentSnapshot() {
+  const dashboardDir = resolve(appDir, "src/app/(dashboard)");
+  const apiDir = resolve(appDir, "src/app/api");
+  const aiDir = resolve(appDir, "src/server/ai");
+  return {
+    dashboardRouteGroups: listDashboardRouteGroups(),
+    dashboardPageFiles: listPageRouteFilesUnder(dashboardDir),
+    apiRouteTrees: listApiRouteTrees(),
+    apiRouteFiles: listPageRouteFilesUnder(apiDir),
+    serverAiModules: listAllSourceFilesUnder(aiDir),
+  };
+}
+
 function main() {
   const args = parseArgs(process.argv.slice(2));
-  const manifest = readManifest();
-  const manifestErrors = validateManifest(manifest);
+  const workingManifest = readManifestFromWorkingTree();
+  const manifestErrors = validateManifest(workingManifest);
   if (manifestErrors.length > 0) {
     for (const error of manifestErrors) {
       console.error(`PRIMARY-DESTINATIONS: ${error}`);
@@ -202,81 +278,109 @@ function main() {
     process.exit(1);
   }
 
-  const snapshots = manifest.snapshots ?? {};
+  const current = buildCurrentSnapshot();
 
-  const dashboardDir = resolve(appDir, "src/app/(dashboard)");
-  const currentDashboardGroups = listDashboardRouteGroups();
-  const currentApiTrees = listApiRouteTrees();
-  const currentAiModules = listServerAiModules();
-  const currentDashboardPages = listPageRouteFilesUnder(dashboardDir);
-
-  const newDashboardGroups = diff(
-    currentDashboardGroups,
-    snapshots.dashboardRouteGroups
-  );
-  const newApiTrees = diff(currentApiTrees, snapshots.apiRouteTrees);
-  const newAiModules = diff(currentAiModules, snapshots.serverAiModules).filter(
-    looksLikeNewCreativePipeline
-  );
-  const newDashboardPages = diff(
-    currentDashboardPages,
-    snapshots.dashboardPageFiles
-  );
-
-  // Bootstrap mode: capture the current state as the frozen snapshot.
+  // Bootstrap mode: capture the working tree as the snapshot.
   if (args.initSnapshot) {
-    manifest.snapshots = {
-      dashboardRouteGroups: currentDashboardGroups,
-      dashboardPageFiles: currentDashboardPages,
-      apiRouteTrees: currentApiTrees,
-      serverAiModules: currentAiModules,
+    workingManifest.snapshots = {
+      ...current,
       capturedAt: new Date().toISOString(),
     };
-    writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+    writeFileSync(manifestPath, `${JSON.stringify(workingManifest, null, 2)}\n`);
     console.log(
       `PRIMARY-DESTINATIONS: snapshot initialized at ${manifestPath} ` +
-        `(dashboard groups: ${currentDashboardGroups.length}, dashboard pages: ${currentDashboardPages.length}, api trees: ${currentApiTrees.length}, ai modules: ${currentAiModules.length}).`
+        `(dashboard groups: ${current.dashboardRouteGroups.length}, dashboard pages: ${current.dashboardPageFiles.length}, api trees: ${current.apiRouteTrees.length}, api routes: ${current.apiRouteFiles.length}, ai modules: ${current.serverAiModules.length}).`
     );
     console.log(
-      "PRIMARY-DESTINATIONS: commit this manifest. From now on the gate will reject new entries."
+      "PRIMARY-DESTINATIONS: commit this manifest. The gate enforces from the base ref's snapshot, not this one."
     );
     return;
   }
 
-  if (!manifest.snapshots) {
+  // Enforce: snapshot comes from BASE, not from the PR's own manifest.
+  const { manifest: baseManifest, present: baseHasManifest } =
+    readBaseManifest(args.base);
+
+  if (!baseHasManifest) {
+    // Bootstrap case: base doesn't have the manifest yet. This is the
+    // legitimate state during the FIRST convergence PR that introduces
+    // the freeze. We CANNOT enforce against a non-existent snapshot,
+    // and silently passing would be unsafe. Fail closed with a clear
+    // bootstrap instruction.
     console.error(
-      "PRIMARY-DESTINATIONS: manifest has no `snapshots` block. Run with --init-snapshot first to capture the freeze point, commit, then enforce."
+      `PRIMARY-DESTINATIONS: base ref "${args.base}" does not contain docs/decisions/allowed-primary-destinations.json.`
     );
+    console.error(
+      "PRIMARY-DESTINATIONS: this is expected ONLY for the first convergence PR that bootstraps the freeze. To proceed:"
+    );
+    console.error(
+      "  1. On the base branch, run `node app/scripts/check-primary-destinations.mjs --init-snapshot`, commit the manifest, and merge."
+    );
+    console.error(
+      "  2. Subsequent PRs will enforce against that base snapshot automatically."
+    );
+    console.error(
+      "  3. For the bootstrap PR itself, set PRIMARY_DESTINATIONS_ALLOW_BOOTSTRAP=1 to acknowledge the one-time bypass."
+    );
+    if (process.env.PRIMARY_DESTINATIONS_ALLOW_BOOTSTRAP === "1") {
+      console.warn(
+        "PRIMARY-DESTINATIONS (advisory): PRIMARY_DESTINATIONS_ALLOW_BOOTSTRAP=1 set. Bootstrap bypass active. Reviewer must confirm this is the legit freeze-bootstrap PR."
+      );
+      return;
+    }
     process.exit(1);
   }
 
+  if (!baseManifest.snapshots) {
+    console.error(
+      `PRIMARY-DESTINATIONS: base ref "${args.base}" manifest has no \`snapshots\` block. Bootstrap on base first (--init-snapshot), merge that, then enforce.`
+    );
+    process.exit(1);
+  }
+  const base = baseManifest.snapshots;
+
   const failures = [];
+
+  const newDashboardGroups = diff(
+    current.dashboardRouteGroups,
+    base.dashboardRouteGroups
+  );
   if (newDashboardGroups.length > 0) {
     failures.push(
-      `new top-level dashboard route group(s): ${newDashboardGroups.join(
-        ", "
-      )}. Add to allowed-primary-destinations.json with an approved exception, or remove.`
+      `new top-level dashboard route group(s): ${newDashboardGroups.join(", ")}.`
     );
   }
-  if (newApiTrees.length > 0) {
-    failures.push(
-      `new top-level API route tree(s): ${newApiTrees.join(
-        ", "
-      )}. Add to allowed-primary-destinations.json with an approved exception, or remove.`
-    );
-  }
-  if (newAiModules.length > 0) {
-    failures.push(
-      `new generator-style module(s) under src/server/ai/: ${newAiModules.join(
-        ", "
-      )}. This looks like a new creative pipeline. Route through the canonical pipeline (Fase 3) instead, or add an approved exception.`
-    );
-  }
+
+  const newDashboardPages = diff(
+    current.dashboardPageFiles,
+    base.dashboardPageFiles
+  );
   if (newDashboardPages.length > 0) {
     failures.push(
-      `new dashboard page/route file(s) not present at freeze: ${newDashboardPages.join(
+      `new dashboard page/route file(s): ${newDashboardPages.join(", ")}. A new dashboard page would re-introduce a competing creative journey.`
+    );
+  }
+
+  const newApiTrees = diff(current.apiRouteTrees, base.apiRouteTrees);
+  if (newApiTrees.length > 0) {
+    failures.push(
+      `new top-level API route tree(s): ${newApiTrees.join(", ")}.`
+    );
+  }
+
+  const newApiRoutes = diff(current.apiRouteFiles, base.apiRouteFiles);
+  if (newApiRoutes.length > 0) {
+    failures.push(
+      `new API route file(s) (incl. nested): ${newApiRoutes.join(", ")}. Nested routes under an existing tree are still expansion and require an exception.`
+    );
+  }
+
+  const newAiModules = diff(current.serverAiModules, base.serverAiModules);
+  if (newAiModules.length > 0) {
+    failures.push(
+      `new file(s) under src/server/ai/: ${newAiModules.join(
         ", "
-      )}. A new dashboard page would re-introduce a competing creative journey. Add to the snapshot with an approved exception, or route the work through an allowlisted destination.`
+      )}. Any new file in the creative-pipeline directory is flagged (no name heuristic). Route through the canonical pipeline (Fase 3) or add an approved exception.`
     );
   }
 
@@ -285,14 +389,14 @@ function main() {
       console.error(`PRIMARY-DESTINATIONS: ${failure}`);
     }
     console.error(
-      "PRIMARY-DESTINATIONS: gate failed. Resolve the above or pass --init-snapshot only when bootstrapping."
+      `PRIMARY-DESTINATIONS: gate failed (base ref: ${args.base}). The freeze snapshot on base must be updated through an APPROVED exception, not on this PR.`
     );
     process.exit(1);
   }
 
   console.log(
-    `PRIMARY-DESTINATIONS: manifest valid; ${manifest.allowedPrimaryDestinations.length} destination(s) allowed; ` +
-      `${currentDashboardGroups.length} dashboard group(s); ${currentDashboardPages.length} dashboard page(s); ${currentApiTrees.length} api tree(s); ${currentAiModules.length} ai module(s). No expansion detected.`
+    `PRIMARY-DESTINATIONS: no expansion detected vs base "${args.base}". ` +
+      `${current.dashboardRouteGroups.length} dashboard group(s); ${current.dashboardPageFiles.length} dashboard page(s); ${current.apiRouteTrees.length} api tree(s); ${current.apiRouteFiles.length} api route(s); ${current.serverAiModules.length} ai module(s).`
   );
 }
 

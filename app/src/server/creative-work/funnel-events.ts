@@ -208,7 +208,20 @@ export const LEGACY_EVENT_MAP: Record<string, LegacyEventMapping> = {
 
   // cockpit / beta-analytics (Campanha)
   cockpit_stage_entered: { canonical: null },
-  cockpit_stage_completed: { canonical: "output_ready" },
+  // cockpit_stage_completed is emitted for many stages (briefing,
+  // guided_briefing, strategy_recipe, preview, ...). Only "preview"
+  // approximates "an output exists and is ready to review". Mapping
+  // every stage completion to output_ready would inflate the funnel
+  // (briefing and strategy completions are NOT outputs).
+  cockpit_stage_completed: {
+    canonical: "output_ready",
+    when: ({ metadata }) => {
+      const stage =
+        (metadata?.stage as string | undefined) ??
+        (metadata?.missionKey as string | undefined);
+      return stage === "preview";
+    },
+  },
   cockpit_stage_abandoned: { canonical: "creative_work_abandoned" },
   readiness_completed: { canonical: "briefing_ready" },
 

@@ -128,4 +128,46 @@ describe("creative-work funnel events", () => {
       mapLegacyEvent({ eventKey: "guided_flow_completed", origin: "campaign" })
     ).toBeNull();
   });
+
+  it("maps cockpit_stage_completed to output_ready ONLY for preview stage", () => {
+    // Only "preview" stage means an output exists. Briefing / strategy /
+    // guided_briefing completions must NOT inflate output_ready.
+    expect(
+      mapLegacyEvent({
+        eventKey: "cockpit_stage_completed",
+        metadata: { stage: "preview" },
+      })
+    ).toBe("output_ready");
+    expect(
+      mapLegacyEvent({
+        eventKey: "cockpit_stage_completed",
+        metadata: { stage: "briefing" },
+      })
+    ).toBeNull();
+    expect(
+      mapLegacyEvent({
+        eventKey: "cockpit_stage_completed",
+        metadata: { stage: "guided_briefing" },
+      })
+    ).toBeNull();
+    expect(
+      mapLegacyEvent({
+        eventKey: "cockpit_stage_completed",
+        metadata: { stage: "strategy_recipe" },
+      })
+    ).toBeNull();
+    // missionKey fallback when stage is absent
+    expect(
+      mapLegacyEvent({
+        eventKey: "cockpit_stage_completed",
+        metadata: { missionKey: "preview" },
+      })
+    ).toBe("output_ready");
+    expect(
+      classifyLegacyEvent({
+        eventKey: "cockpit_stage_completed",
+        metadata: { stage: "briefing" },
+      }).kind
+    ).toBe("unmapped_inapplicable");
+  });
 });
