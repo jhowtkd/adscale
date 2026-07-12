@@ -55,7 +55,10 @@
     "seed:live-real-customer-corpus": "tsx scripts/seed-live-real-customer-corpus.ts",
     "refresh:v13-3-operational-evidence": "tsx scripts/refresh-v13-3-operational-evidence.ts",
     "sample-coverage-evidence": "npx tsx scripts/run-sample-coverage.ts --all-workspaces",
-    "quality-trend-evidence": "npx tsx scripts/run-quality-trend.ts --all-workspaces"
+    "quality-trend-evidence": "npx tsx scripts/run-quality-trend.ts --all-workspaces",
+    "convergence:check-destinations": "node scripts/check-primary-destinations.mjs",
+    "convergence:check-frozen": "node scripts/check-frozen-modules.mjs",
+    "convergence:baseline": "node scripts/capture-convergence-baseline.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.0.0",

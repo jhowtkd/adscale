@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "decidedAt": "2026-07-12",
+  "decision": "docs/decisions/2026-07-12-trabalho-criativo-first.md",
+  "plan": "docs/plans/2026-07-12-convergencia-produto-arquitetura-implementation-plan.md",
+  "note": "During the convergence milestone, no new primary creative destinations or creative pipelines may be introduced. Anything not on this list is rejected until Gate 8 lifts the freeze.",
+  "allowedPrimaryDestinations": [
+    {
+      "id": "campaign",
+      "kind": "primary_destination",
+      "description": "Campanha: contexto estratégico que agrupa trabalhos criativos.",
+      "entrypoints": [
+        "/campaigns",
+        "/campaigns/[id]",
+        "src/app/api/campaigns"
+      ]
+    },
+    {
+      "id": "assistant",
+      "kind": "primary_destination",
+      "description": "Assistente: interface conversacional que cria e opera trabalhos criativos.",
+      "entrypoints": [
+        "/assistant",
+        "src/app/api/assistant"
+      ]
+    },
+    {
+      "id": "quick_tool_create_post",
+      "kind": "primary_destination",
+      "description": "Quick Tools / Criar Post: atalho que inicia um trabalho criativo preconfigurado.",
+      "entrypoints": [
+        "/quick-tools/create-post",
+        "src/app/api/creative-work"
+      ]
+    },
+    {
+      "id": "brand_training",
+      "kind": "supporting_module",
+      "description": "Brand Training: módulo independente por marca.",
+      "entrypoints": [
+        "/brand-kit",
+        "src/app/api/client-profiles/[id]/training-status",
+        "src/server/brand-training"
+      ]
+    },
+    {
+      "id": "templates",
+      "kind": "accelerator",
+      "description": "Templates: acelerador que materializa intenção dentro do fluxo canônico.",
+      "entrypoints": [
+        "/templates",
+        "src/app/api/templates"
+      ]
+    }
+  ],
+  "frozenModules": [
+    {
+      "id": "landing_page",
+      "reason": "Não sustenta a jornada central; sem evidência de uso decisório atual.",
+      "paths": [
+        "src/server/ai/landing-page.ts",
+        "src/app/api/derivations/[id]/landing-page",
+        "src/server/repositories/landing-page.ts"
+      ]
+    },
+    {
+      "id": "persona_simulation",
+      "reason": "Idem. Avaliada para remoção/ocultação na Fase 7.",
+      "paths": [
+        "src/server/ai/persona-simulator.ts",
+        "src/app/api/creatives/[id]/persona-simulation",
+        "src/server/repositories/persona-simulation.ts",
+        "src/server/assistant/action-execution/handlers/quick-persona-simulate.ts"
+      ]
+    }
+  ]
+}
