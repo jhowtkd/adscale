@@ -28,6 +28,8 @@ export async function createTemplate(input: CreateTemplateInput) {
 
   const source = campaign[0];
 
+  // Generic template: copy briefing fields only. Do not copy clientProfileId
+  // or selectedReferenceIds — the user picks brand/refs after materialization.
   const result = await db
     .insert(campaignTemplates)
     .values({
@@ -38,9 +40,9 @@ export async function createTemplate(input: CreateTemplateInput) {
       product: source.product,
       objective: source.objective,
       audience: source.audience,
-      platforms: [],
-      tone: null,
-      offer: null,
+      platforms: source.platforms ?? [],
+      tone: source.tone,
+      offer: source.offer,
       constraints: source.constraints,
       notes: source.notes,
       generationMode: source.generationMode,

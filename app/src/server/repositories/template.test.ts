@@ -19,35 +19,42 @@ import {
 const TEST_WORKSPACE_ID = "test-workspace-1";
 
 describe("template repository", () => {
-  it("creates template from campaign", async () => {
+  it("creates template from campaign copying full briefing snapshot", async () => {
     const mockCampaignLimit = vi.fn().mockResolvedValue([{
       id: "campaign-1",
       client: "Test Client",
-      product: null,
-      objective: null,
-      audience: null,
-      platforms: [],
-      tone: null,
-      offer: null,
-      constraints: null,
-      notes: null,
+      product: "Course X",
+      objective: "Leads",
+      audience: "Founders",
+      platforms: ["meta_feed", "tiktok"],
+      tone: "direct",
+      offer: "20% off",
+      constraints: "No fake claims",
+      notes: "Q3 push",
       generationMode: "art_variation",
-      creativeLevel: null,
-      styleIntensity: null,
-      ctaVariants: null,
-      targetFormats: null,
+      creativeLevel: "balanced",
+      styleIntensity: "medium",
+      ctaVariants: ["Buy now"],
+      targetFormats: ["1:1"],
+      clientProfileId: "brand-should-not-copy",
+      selectedReferenceIds: ["ref-should-not-copy"],
     }]);
     const mockCampaignWhere = vi.fn().mockReturnValue({ limit: mockCampaignLimit });
     const mockCampaignFrom = vi.fn().mockReturnValue({ where: mockCampaignWhere });
 
-    const mockReturning = vi.fn().mockResolvedValue([{
-      id: "template-1",
-      name: "My Template",
-      description: "Test template",
-      client: "Test Client",
-      workspaceId: TEST_WORKSPACE_ID,
-    }]);
-    const mockValues = vi.fn().mockReturnValue({ returning: mockReturning });
+    let inserted: Record<string, unknown> | null = null;
+    const mockValues = vi.fn().mockImplementation((values) => {
+      inserted = values;
+      return {
+        returning: vi.fn().mockResolvedValue([{
+          id: "template-1",
+          workspaceId: TEST_WORKSPACE_ID,
+          name: "My Template",
+          description: "Test template",
+          ...values,
+        }]),
+      };
+    });
 
     (db.select as ReturnType<typeof vi.fn>)
       .mockReturnValueOnce({ from: mockCampaignFrom });
@@ -64,6 +71,20 @@ describe("template repository", () => {
     expect(template.description).toBe("Test template");
     expect(template.client).toBe("Test Client");
     expect(template.workspaceId).toBe(TEST_WORKSPACE_ID);
+    expect(inserted).toMatchObject({
+      product: "Course X",
+      objective: "Leads",
+      audience: "Founders",
+      platforms: ["meta_feed", "tiktok"],
+      tone: "direct",
+      offer: "20% off",
+      constraints: "No fake claims",
+      notes: "Q3 push",
+      ctaVariants: ["Buy now"],
+      targetFormats: ["1:1"],
+    });
+    expect(inserted).not.toHaveProperty("clientProfileId");
+    expect(inserted).not.toHaveProperty("selectedReferenceIds");
   });
 
   it("lists templates for workspace", async () => {
