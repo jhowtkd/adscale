@@ -10,7 +10,10 @@
 
 | Data | Título | Status | PR |
 |------|--------|--------|-----|
-| 2026-06-29 | [Observabilidade do auto-retry de derivações](./2026-06-29-derivation-auto-retry-observability.md) | Proposta | [#17](https://github.com/jhowtkd/adscale/pull/17) |
+| 2026-07-12 | [Seleção de vencedor dual-engine por score](./2026-07-12-dual-engine-score-based-winner-selection.md) | Proposta | — |
+| 2026-07-05 | [Ponte score criativo → narrativa Olhar](./2026-07-05-creative-score-olhar-narrative-bridge.md) | Proposta | — |
+| 2026-06-30 | [Persistência do pipeline dual verdict](./2026-06-30-dual-verdict-pipeline-persistence.md) | Implementado (narrativa pendente) | — |
+| 2026-06-29 | [Observabilidade do auto-retry de derivações](./2026-06-29-derivation-auto-retry-observability.md) | Largamente implementado | [#17](https://github.com/jhowtkd/adscale/pull/17) |
 
 ---
 
