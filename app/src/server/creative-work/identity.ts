@@ -88,7 +88,13 @@ function classifyGroup(
   ) {
     return "characterGraphicExact";
   }
-  if (category === "visual_reference") return "visualReference";
+  // `reference` mode (and visual_reference category) guide generation without
+  // exact compositing. Logo/graphic/character assets are frequently approved
+  // as `reference` when they lack an alpha channel — they must still appear
+  // in Create Post identity options, otherwise a trained brand looks empty.
+  if (category === "visual_reference" || usageMode === "reference") {
+    return "visualReference";
+  }
   return null;
 }
 

@@ -14,9 +14,26 @@ vi.mock("next-intl", () => ({
       return `${vars.credits} créditos`;
     }
     if (key === "stepConfirmCta") return "Confirmar e gerar 3 propostas";
+    if (key === "stepConfirmCtaKitOnly") return "Gerar 3 propostas com Brand Kit";
     if (key === "stepCopyCta") return "Criar copy";
+    if (key === "noApprovedAssets") {
+      return "Nenhuma referência visual aprovada ainda. Você pode gerar só com o Brand Kit.";
+    }
+    if (key === "confirmKitOnlyHelp") {
+      return "Sem referências aprovadas — as propostas usarão só o Brand Kit.";
+    }
+    if (key === "noApprovedAssetsCta") return "Abrir curadoria da marca";
     return key;
   },
+}));
+
+vi.mock("@/lib/store", () => ({
+  useAppStore: (selector: (s: { addToast: () => void }) => unknown) =>
+    selector({ addToast: vi.fn() }),
+}));
+
+vi.mock("sonner", () => ({
+  toast: { error: vi.fn(), success: vi.fn() },
 }));
 
 const mockUseClientProfiles = vi.fn();
@@ -232,6 +249,44 @@ describe("CreatePostWizard", () => {
     });
 
     expect(confirmButton).toBeDisabled();
+  });
+
+  it("enables Brand-Kit-only generation when there are no approved references", async () => {
+    const confirmSpy = vi.fn().mockResolvedValue({ work: readyWork.work });
+    const triggerSpy = vi.fn().mockResolvedValue({ work: readyWork.work, outputs: [] });
+    const draftWithCopyWork = {
+      work: {
+        ...draftWork.work,
+        copy: { headline: "h", body: "b", cta: "c" },
+      },
+      outputs: [],
+    };
+    mockUseCreativeWork.mockReturnValue({ data: draftWithCopyWork, isLoading: false });
+    mockUseIdentityOptions.mockReturnValue({ data: { options: [] }, isLoading: false });
+    mockUseConfirmWork.mockReturnValue({ mutateAsync: confirmSpy, isPending: false });
+    mockUseTriggerTriplet.mockReturnValue({ mutateAsync: triggerSpy, isPending: false });
+
+    render(<CreatePostWizard workId="work-1" />, { wrapper: createWrapper() });
+
+    expect(
+      await screen.findByText(/Nenhuma referência visual aprovada ainda/),
+    ).toBeVisible();
+    const kitOnlyButton = await screen.findByRole("button", {
+      name: "Gerar 3 propostas com Brand Kit",
+    });
+    expect(kitOnlyButton).toBeEnabled();
+
+    await act(async () => {
+      kitOnlyButton.click();
+    });
+
+    expect(confirmSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workItemId: "work-1",
+        selectedReferenceIds: [],
+      }),
+    );
+    expect(triggerSpy).toHaveBeenCalledWith("work-1");
   });
 
   it("renders the three proposal cards in fixed neutral order", async () => {

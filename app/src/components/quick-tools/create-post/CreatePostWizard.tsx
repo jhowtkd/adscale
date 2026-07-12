@@ -20,6 +20,7 @@ import {
   useSelectOutput,
   useTriggerTriplet,
   type CreativeWorkOutput,
+  type CreativeWorkIdentitySnapshot,
   type SocialPostBrief,
 } from "@/lib/hooks/use-creative-work";
 import CreativeProposalGrid from "./CreativeProposalGrid";
@@ -208,7 +209,10 @@ export default function CreatePostWizard({ workId: initialWorkId }: { workId?: s
   // ----- Step 3: confirm identity + trigger triplet ------------------------
 
   const handleAdvanceFromAssets = async () => {
-    if (selectedReferenceIds.length === 0) return;
+    // When approved references exist the user must pick at least one. When
+    // none exist we still allow a Brand-Kit-only identity snapshot so a
+    // trained profile (colors/fonts/logo) is not blocked after voice approval.
+    if (selectedReferenceIds.length === 0 && identityOptions.length > 0) return;
     if (!activeWorkId) return;
     // Use the locally edited copy rather than the server snapshot: the
     // Copy step lets the user tweak headline/body/cta in place, and any
@@ -329,6 +333,7 @@ export default function CreatePostWizard({ workId: initialWorkId }: { workId?: s
 
       {currentStep === "assets" ? (
         <AssetsStep
+          clientProfileId={clientProfileId}
           references={identityOptions.map((option) => ({
             id: option.referenceId,
             label: option.label,
@@ -353,6 +358,7 @@ export default function CreatePostWizard({ workId: initialWorkId }: { workId?: s
       {currentStep === "proposals" && detail ? (
         <ProposalsStep
           outputs={detail.outputs}
+          identitySnapshot={detail.work.identitySnapshot}
           onRetry={handleRetry}
           onSelect={handleSelect}
           onSave={handleSave}
@@ -581,6 +587,7 @@ function CopyStep(props: {
 }
 
 function AssetsStep(props: {
+  clientProfileId: string | null;
   references: Array<{ id: string; label: string; trainingCategory: string; usageMode: string; reason: string }>;
   selectedIds: string[];
   onToggle: (id: string) => void;
@@ -592,16 +599,32 @@ function AssetsStep(props: {
 }) {
   const tQuick = useTranslations("quickTools.createPost");
   const tCommon = useTranslations("common");
-  const canAdvance = props.selectedIds.length > 0;
+  const kitOnly = props.references.length === 0;
+  const canAdvance = kitOnly || props.selectedIds.length > 0;
+
+  const curationHref = props.clientProfileId
+    ? `/brand-kit?mode=training&clientProfileId=${encodeURIComponent(props.clientProfileId)}`
+    : "/brand-kit?mode=training";
 
   return (
     <div className="space-y-6 rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-6">
       <p className="text-sm text-[var(--text-secondary)]">{tQuick("assetsHelp")}</p>
 
-      {props.references.length === 0 ? (
-        <p role="status" className="text-sm text-[var(--text-muted)]">
-          {tQuick("noApprovedAssets")}
-        </p>
+      {kitOnly ? (
+        <div className="space-y-3" role="status">
+          <p className="text-sm text-[var(--text-muted)]">
+            {tQuick("noApprovedAssets")}
+          </p>
+          <p className="text-sm text-[var(--text-secondary)]">
+            {tQuick("confirmKitOnlyHelp")}
+          </p>
+          <a
+            href={curationHref}
+            className="inline-flex text-sm font-medium text-[var(--accent-primary)] underline-offset-4 hover:underline"
+          >
+            {tQuick("noApprovedAssetsCta")}
+          </a>
+        </div>
       ) : (
         <ul className="space-y-2">
           {props.references.map((reference) => {
@@ -658,7 +681,11 @@ function AssetsStep(props: {
           {tQuick("back")}
         </Button>
         <Button type="button" onClick={props.onAdvance} disabled={!canAdvance || props.isSubmitting}>
-          {props.isSubmitting ? tQuick("submitting") : tQuick("stepConfirmCta")}
+          {props.isSubmitting
+            ? tQuick("submitting")
+            : kitOnly
+              ? tQuick("stepConfirmCtaKitOnly")
+              : tQuick("stepConfirmCta")}
         </Button>
       </div>
     </div>
@@ -667,6 +694,7 @@ function AssetsStep(props: {
 
 function ProposalsStep(props: {
   outputs: CreativeWorkOutput[];
+  identitySnapshot: CreativeWorkIdentitySnapshot | null;
   onRetry: (outputId: string) => void;
   onSelect: (outputId: string) => void;
   onSave: (outputId: string) => void;
@@ -685,6 +713,32 @@ function ProposalsStep(props: {
 
   return (
     <div className="space-y-4">
+      {props.identitySnapshot ? (
+        <div className="rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-4">
+          <p className="text-sm font-medium text-[var(--text-primary)]">
+            {tQuick("appliedIdentityTitle")}
+          </p>
+          <p className="mt-1 text-xs text-[var(--text-secondary)]">
+            {tQuick("appliedIdentitySummary", {
+              colors: props.identitySnapshot.brandKit.colors.length,
+              fonts: props.identitySnapshot.brandKit.fonts.length,
+              references: props.identitySnapshot.assets.length,
+            })}
+          </p>
+          {props.identitySnapshot.assets.length > 0 ? (
+            <ul className="mt-2 flex flex-wrap gap-2">
+              {props.identitySnapshot.assets.map((asset) => (
+                <li
+                  key={asset.referenceId}
+                  className="rounded-full border border-[var(--border-subtle)] px-2 py-1 text-xs text-[var(--text-secondary)]"
+                >
+                  {asset.label}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
       <p role="status" className="text-sm text-[var(--text-secondary)]">
         {tQuick("proposalsHelp")}
       </p>
