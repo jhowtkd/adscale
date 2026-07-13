@@ -334,7 +334,27 @@ describe("compareProjectionTelemetry", () => {
     vi.mocked(logger.info).mockClear();
   });
 
-  it("logs origin vs canonical without throwing", () => {
+  it("derives expected stage from originStatus and flags enrichment divergence", () => {
+    // completed + selected projects to approved; naive origin map says reviewing
+    const result = compareProjectionTelemetry({
+      workspaceId: WS,
+      origin: "quick_tool",
+      originKind: "creative_work",
+      originId: WORK_ID,
+      originStatus: "completed",
+      canonicalState: "approved",
+      outputCount: 1,
+    });
+    expect(result.expectedStage).toBe("reviewing");
+    expect(result.diverged).toBe(true);
+    expect(logger.info).toHaveBeenCalledOnce();
+    const payload = JSON.parse(String(vi.mocked(logger.info).mock.calls[0][0]));
+    expect(payload.type).toBe("canonical_projection_compare");
+    expect(payload.diverged).toBe(true);
+    expect(payload.expectedStage).toBe("reviewing");
+  });
+
+  it("reports no divergence when projection matches naive origin map", () => {
     const result = compareProjectionTelemetry({
       workspaceId: WS,
       origin: "campaign",
@@ -342,13 +362,9 @@ describe("compareProjectionTelemetry", () => {
       originId: CAMPAIGN_ID,
       originStatus: "active",
       canonicalState: "briefing",
-      expectedStage: "generating",
       outputCount: 0,
     });
-    expect(result.diverged).toBe(true);
-    expect(logger.info).toHaveBeenCalledOnce();
-    const payload = JSON.parse(String(vi.mocked(logger.info).mock.calls[0][0]));
-    expect(payload.type).toBe("canonical_projection_compare");
-    expect(payload.diverged).toBe(true);
+    expect(result.diverged).toBe(false);
+    expect(result.expectedStage).toBe("briefing");
   });
 });

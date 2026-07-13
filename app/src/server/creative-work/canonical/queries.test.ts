@@ -7,7 +7,7 @@ vi.mock("@/server/repositories/campaign", () => ({
 
 vi.mock("@/server/repositories/creative-work", () => ({
   getCreativeWork: vi.fn(),
-  listCreativeWorks: vi.fn(),
+  listCreativeWorksWithOutputs: vi.fn(),
 }));
 
 vi.mock("@/server/repositories/derivation", () => ({
@@ -21,7 +21,7 @@ vi.mock("@/lib/logger", () => ({
 import { getCampaignById, getCampaigns } from "@/server/repositories/campaign";
 import {
   getCreativeWork,
-  listCreativeWorks,
+  listCreativeWorksWithOutputs,
 } from "@/server/repositories/creative-work";
 import { getDerivationsByCampaign } from "@/server/repositories/derivation";
 import {
@@ -29,11 +29,12 @@ import {
   openCanonicalWork,
   resumeCanonicalWork,
 } from "@/server/creative-work/canonical/queries";
+import { logger } from "@/lib/logger";
 
 const mockGetCampaignById = vi.mocked(getCampaignById);
 const mockGetCampaigns = vi.mocked(getCampaigns);
 const mockGetCreativeWork = vi.mocked(getCreativeWork);
-const mockListCreativeWorks = vi.mocked(listCreativeWorks);
+const mockListWithOutputs = vi.mocked(listCreativeWorksWithOutputs);
 const mockGetDerivations = vi.mocked(getDerivationsByCampaign);
 
 const WS = "11111111-1111-4111-8111-111111111111";
@@ -45,7 +46,7 @@ describe("canonical queries isolation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetCampaigns.mockResolvedValue([]);
-    mockListCreativeWorks.mockResolvedValue([]);
+    mockListWithOutputs.mockResolvedValue([]);
     mockGetDerivations.mockResolvedValue([]);
   });
 
@@ -78,34 +79,74 @@ describe("canonical queries isolation", () => {
         previewPendingBatch: false,
       },
     ] as never);
-    mockListCreativeWorks.mockResolvedValue([
+    mockListWithOutputs.mockResolvedValue([
       {
-        id: WORK_ID,
-        workspaceId: WS,
-        clientProfileId: "66666666-6666-4666-8666-666666666666",
-        createdByUserId: "u1",
-        toolKind: "social_post",
-        status: "draft",
-        format: "1:1",
-        brief: {
-          theme: "T",
-          objective: "O",
-          audience: "A",
-          offer: "Off",
+        work: {
+          id: WORK_ID,
+          workspaceId: WS,
+          clientProfileId: "66666666-6666-4666-8666-666666666666",
+          createdByUserId: "u1",
+          toolKind: "social_post",
+          status: "draft",
+          format: "1:1",
+          brief: {
+            theme: "T",
+            objective: "O",
+            audience: "A",
+            offer: "Off",
+          },
+          copy: null,
+          identitySnapshot: null,
+          createdAt: new Date("2026-01-01T00:00:00.000Z"),
+          updatedAt: new Date("2026-01-04T00:00:00.000Z"),
         },
-        copy: null,
-        identitySnapshot: null,
-        createdAt: new Date("2026-01-01T00:00:00.000Z"),
-        updatedAt: new Date("2026-01-04T00:00:00.000Z"),
+        outputs: [],
       },
     ] as never);
 
     const list = await listCanonicalWorks(WS);
     expect(mockGetCampaigns).toHaveBeenCalledWith(WS, 50);
-    expect(mockListCreativeWorks).toHaveBeenCalledWith(WS, 50);
+    expect(mockListWithOutputs).toHaveBeenCalledWith(WS, 50);
     expect(list).toHaveLength(2);
     expect(list[0].originKind).toBe("creative_work");
     expect(list.map((i) => i.workspaceId)).toEqual([WS, WS]);
+  });
+
+  it("list and open both reject generating Creative Work without outputs", async () => {
+    const impossible = {
+      id: WORK_ID,
+      workspaceId: WS,
+      clientProfileId: "66666666-6666-4666-8666-666666666666",
+      createdByUserId: "u1",
+      toolKind: "social_post",
+      status: "generating",
+      format: "1:1",
+      brief: {
+        theme: "T",
+        objective: "O",
+        audience: "A",
+        offer: "Off",
+      },
+      copy: { headline: "H", body: "B", cta: "C" },
+      identitySnapshot: {},
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      updatedAt: new Date("2026-01-04T00:00:00.000Z"),
+    };
+
+    mockListWithOutputs.mockResolvedValue([
+      { work: impossible, outputs: [] },
+    ] as never);
+    mockGetCreativeWork.mockResolvedValue({
+      work: impossible,
+      outputs: [],
+    } as never);
+
+    const list = await listCanonicalWorks(WS);
+    expect(list).toHaveLength(0);
+    expect(logger.warn).toHaveBeenCalled();
+
+    const opened = await openCanonicalWork(WS, `creative_work:${WORK_ID}`);
+    expect(opened).toBeNull();
   });
 
   it("open returns null when campaign is outside workspace", async () => {

@@ -1,4 +1,4 @@
-import { eq, and, asc, desc } from "drizzle-orm";
+import { eq, and, asc, desc, inArray } from "drizzle-orm";
 import { db } from "../db";
 import {
   creativeWorkItems,
@@ -96,6 +96,42 @@ export async function listCreativeWorks(
     .where(eq(creativeWorkItems.workspaceId, workspaceId))
     .orderBy(desc(creativeWorkItems.updatedAt))
     .limit(limit);
+}
+
+/**
+ * Same as listCreativeWorks, but attaches real outputs so list/open share
+ * identical projection rules (no synthetic rows).
+ */
+export async function listCreativeWorksWithOutputs(
+  workspaceId: string,
+  limit = 50
+): Promise<Array<{ work: CreativeWorkItem; outputs: CreativeWorkOutput[] }>> {
+  const works = await listCreativeWorks(workspaceId, limit);
+  if (works.length === 0) return [];
+
+  const ids = works.map((w) => w.id);
+  const outputs = await db
+    .select()
+    .from(creativeWorkOutputs)
+    .where(
+      and(
+        eq(creativeWorkOutputs.workspaceId, workspaceId),
+        inArray(creativeWorkOutputs.workItemId, ids)
+      )
+    )
+    .orderBy(asc(creativeWorkOutputs.creativeLevel));
+
+  const byWork = new Map<string, CreativeWorkOutput[]>();
+  for (const output of outputs) {
+    const list = byWork.get(output.workItemId) ?? [];
+    list.push(output);
+    byWork.set(output.workItemId, list);
+  }
+
+  return works.map((work) => ({
+    work,
+    outputs: byWork.get(work.id) ?? [],
+  }));
 }
 
 export async function setCreativeWorkCopy(

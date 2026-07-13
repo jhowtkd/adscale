@@ -1,11 +1,14 @@
 /**
  * Consultas canônicas origin-agnostic (Phase 2 / item 16).
  * Sempre exigem workspaceId — isolamento igual aos repositórios de origem.
+ *
+ * list e open usam as mesmas regras de projeção (item 15): estados impossíveis
+ * são rejeitados; list não inventa outputs.
  */
 import { getCampaignById, getCampaigns } from "@/server/repositories/campaign";
 import {
   getCreativeWork,
-  listCreativeWorks,
+  listCreativeWorksWithOutputs,
 } from "@/server/repositories/creative-work";
 import { getDerivationsByCampaign } from "@/server/repositories/derivation";
 import {
@@ -36,9 +39,9 @@ export async function listCanonicalWorks(
   options: ListCanonicalWorksOptions = {}
 ): Promise<CanonicalWorkSummary[]> {
   const limit = options.limit ?? 50;
-  const [campaigns, works] = await Promise.all([
+  const [campaigns, worksWithOutputs] = await Promise.all([
     getCampaigns(workspaceId, limit),
-    listCreativeWorks(workspaceId, limit),
+    listCreativeWorksWithOutputs(workspaceId, limit),
   ]);
 
   const campaignSummaries: CanonicalWorkSummary[] = [];
@@ -91,22 +94,8 @@ export async function listCanonicalWorks(
   }
 
   const workSummaries: CanonicalWorkSummary[] = [];
-  for (const w of works) {
+  for (const { work: w, outputs } of worksWithOutputs) {
     try {
-      // List path does not load outputs; synthesize a placeholder so
-      // generating rows stay projectable without a false impossible-state.
-      const listOutputs =
-        w.status === "generating"
-          ? [
-              {
-                id: `${w.id}:list-pending`,
-                status: "processing",
-                creativeLevel: null,
-                outputKey: null,
-                isSelected: false,
-              },
-            ]
-          : [];
       const summary = summarizeCreativeWorkAsCanonicalWork(
         {
           id: w.id,
@@ -121,7 +110,7 @@ export async function listCanonicalWorks(
           createdAt: w.createdAt,
           updatedAt: w.updatedAt,
         },
-        listOutputs
+        outputs
       );
       if (options.emitTelemetry) {
         compareProjectionTelemetry({
@@ -131,7 +120,7 @@ export async function listCanonicalWorks(
           originId: w.id,
           originStatus: w.status,
           canonicalState: summary.state,
-          outputCount: listOutputs.length,
+          outputCount: outputs.length,
         });
       }
       workSummaries.push(summary);
@@ -166,7 +155,18 @@ export async function openCanonicalWork(
       parsed.originId,
       workspaceId
     );
-    const projected = projectCampaignAsCanonicalWork(campaign, derivations);
+    let projected: CanonicalCreativeWork;
+    try {
+      projected = projectCampaignAsCanonicalWork(campaign, derivations);
+    } catch (err) {
+      if (err instanceof ImpossibleCanonicalStateError) {
+        logger.warn(
+          `[canonical.open] reject campaign ${campaign.id}: ${err.code} ${err.message}`
+        );
+        return null;
+      }
+      throw err;
+    }
     if (options.emitTelemetry) {
       compareProjectionTelemetry({
         workspaceId,
@@ -183,7 +183,18 @@ export async function openCanonicalWork(
 
   const row = await getCreativeWork(workspaceId, parsed.originId);
   if (!row) return null;
-  const projected = projectCreativeWorkAsCanonicalWork(row.work, row.outputs);
+  let projected: CanonicalCreativeWork;
+  try {
+    projected = projectCreativeWorkAsCanonicalWork(row.work, row.outputs);
+  } catch (err) {
+    if (err instanceof ImpossibleCanonicalStateError) {
+      logger.warn(
+        `[canonical.open] reject creative_work ${row.work.id}: ${err.code} ${err.message}`
+      );
+      return null;
+    }
+    throw err;
+  }
   if (options.emitTelemetry) {
     compareProjectionTelemetry({
       workspaceId,
