@@ -1,7 +1,7 @@
 # Plano de convergência de produto e arquitetura do ADScale
 
 **Data:** 2026-07-12
-**Status:** Gate 3 aprovado — Fase 4 (save-reference, review, regenerate canônicos)
+**Status:** Gate 3 aprovado — Fase 4 (save/review/regenerate/restyle; Persona diferida Gate 0)
 **Direção assumida:** trabalho criativo-first
 **Estratégia:** migração incremental com gates; nenhum big bang
 
@@ -208,14 +208,16 @@ Cada item abaixo deve resultar em um commit pequeno e manter a aplicação funci
 
 **Objetivo:** impedir que chat replique regras das rotas tradicionais.
 
-28. Criar módulos de aplicação canônicos para adaptar, regenerar, revisar, aprovar, salvar referência, simular persona e preparar entrega.
+28. Criar módulos de aplicação canônicos para: adaptar formato, restyle, regenerar, revisar/aprovar, salvar referência e preparar entrega.
 29. Migrar primeiro uma ação de baixo risco e provar que HTTP e Assistente são adapters do mesmo módulo.
-30. Migrar as demais ações uma por uma, preservando contratos externos.
+30. Migrar as demais ações do escopo (item 28) uma por uma, preservando contratos externos.
 31. Para cada migração, adicionar teste de paridade entre painel e Assistente.
-32. Remover autorização, persistência, cache e memória duplicadas dos handlers do chat.
+32. Remover autorização, persistência, cache e memória duplicadas dos handlers do chat **nas ações migradas**.
 33. Impedir novas ações do Assistente que chamem diretamente repositórios, billing ou jobs.
 
-**Gate 4:** apagar um adapter remove somente transporte/apresentação, nunca uma regra de negócio.
+**Diferido pelo Gate 0 (não entra no Gate 4):** Persona Simulation e Landing Page permanecem congeladas — só segurança, perda de dados, build quebrado ou isolamento. Canonicalizar Persona seria refatoração funcional; proibido enquanto o freeze vigorar. Não usar `frozen-exception:` só para “completar” a Fase 4. Reavaliar expansão só após Gate 8; na Fase 7 decidir esconder/remover.
+
+**Gate 4:** para cada ação **no escopo do item 28**, apagar um adapter remove somente transporte/apresentação, nunca uma regra de negócio. **Persona Simulation está fora do critério de aprovação do Gate 4** enquanto o Gate 0 freeze estiver ativo.
 
 ### Fase 5 — Convergir Criar Post e Templates
 

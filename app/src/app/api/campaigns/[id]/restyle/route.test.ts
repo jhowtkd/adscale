@@ -42,6 +42,7 @@ vi.mock("@/server/jobs/client", () => ({
 }));
 
 vi.mock("@/server/billing/paywall", () => ({
+  spend: vi.fn(() => Promise.resolve({ ok: true, creditsSpent: 5 })),
   spendOrApiError: vi.fn(() => Promise.resolve(null)),
 }));
 
@@ -68,7 +69,7 @@ import {
 } from "@/server/repositories/derivation";
 import { getAssetsByCampaign } from "@/server/repositories/asset";
 import { inngest } from "@/server/jobs/client";
-import { spendOrApiError } from "@/server/billing/paywall";
+import { spend } from "@/server/billing/paywall";
 import { objectStorage } from "@/server/storage";
 
 const mockDbSelect = vi.mocked(db.select);
@@ -80,7 +81,7 @@ const mockGetDerivationsByCampaign = vi.mocked(getDerivationsByCampaign);
 const mockUpdateDerivationStatus = vi.mocked(updateDerivationStatus);
 const mockGetAssetsByCampaign = vi.mocked(getAssetsByCampaign);
 const mockInngestSend = vi.mocked(inngest.send);
-const mockSpendCredits = vi.mocked(spendOrApiError);
+const mockSpendCredits = vi.mocked(spend);
 const mockGetPresignedDownloadUrl = vi.mocked(objectStorage.signedDownloadUrl);
 
 function makeParams(id: string) {
@@ -154,7 +155,7 @@ describe("POST /api/campaigns/[id]/restyle", () => {
       format: "1024x1024",
     } as Awaited<ReturnType<typeof createDerivation>>);
     mockInngestSend.mockResolvedValue(undefined);
-    mockSpendCredits.mockResolvedValue(null);
+    mockSpendCredits.mockResolvedValue({ ok: true, creditsSpent: 5 });
   });
 
   afterEach(() => {
