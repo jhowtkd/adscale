@@ -1,7 +1,7 @@
 # Plano de convergência de produto e arquitetura do ADScale
 
 **Data:** 2026-07-12
-**Status:** Gate 4 aprovado — Fase 5 itens 34–39 implementados; 40–42 (compat/métrica/remoção) pendentes
+**Status:** Gate 5 aprovado — Fase 6 (simplificar workspace e navegação); 40–42 diferidos
 **Direção assumida:** trabalho criativo-first
 **Estratégia:** migração incremental com gates; nenhum big bang
 
@@ -238,6 +238,8 @@ Cada item abaixo deve resultar em um commit pequeno e manter a aplicação funci
 42. Remover persistência e endpoints antigos somente depois de zero uso e migração validada.
 
 **Gate 5:** Criar Post continua rápido, mas seus trabalhos podem ser retomados e revisados pelas outras interfaces.
+
+**Gate 5 — aprovado (2026-07-13):** Standards 0 · Spec 0. Itens 34–39 com resume `workId`, library isolada, materialize + in-flight ref, inventory. Itens 40–42 (compat/métrica/remoção) permanecem diferidos.
 
 ### Fase 6 — Simplificar workspace e navegação
 

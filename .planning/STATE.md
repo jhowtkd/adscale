@@ -4,9 +4,9 @@ milestone: v13.9
 milestone_name: milestone
 current_plan: 5
 status: completed
-stopped_at: Gate 5 P1 fixes — resume workId, library isolate, materialize wired, inventory
-last_updated: "2026-07-13T16:30:00.000Z"
-last_activity: 2026-07-13 -- closed Gate 5 blockers; request re-review
+stopped_at: Gate 5 approved — Phase 6 open (workspace navigation / Trabalhos)
+last_updated: "2026-07-13T17:00:00.000Z"
+last_activity: 2026-07-13 -- Gate 5 approved without findings; open Phase 6 items 43–50
 progress:
   total_phases: 5
   completed_phases: 5
@@ -22,7 +22,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-26)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
-**Current focus:** Convergence Phase 5 — 34–39 shipped; next Gate 5 review or items 40–42
+**Current focus:** Convergence Phase 6 — home entry, Trabalhos nav, workspace task split
 
 ## Current Position
 
@@ -98,5 +98,5 @@ _None — milestone plans 203–207 are complete. Active work is tracked under t
 ## Session Continuity
 
 Last session: 2026-07-13
-Stopped at: Phase 5 34–39 complete; request Gate 5 review (40–42 optional later)
+Stopped at: Gate 5 approved; Phase 6 next — items 43–45 home + Trabalhos nav
 Resume file: docs/plans/2026-07-12-convergencia-produto-arquitetura-implementation-plan.md
