@@ -907,6 +907,10 @@
       "formatAdaptation": {
         "label": "Variar formato",
         "description": "Adaptações de formato com auxílio da IA para 1:1, 4:5 e 9:16 — você supervisiona as saídas antes de exportar"
+      },
+      "restyling": {
+        "label": "Restilização",
+        "description": "Redesenhe um criativo com novo estilo a partir de uma referência visual"
       }
     },
     "continueToPlan": "Continuar para Plano",
@@ -2441,7 +2445,8 @@
     "formats": "Formatos",
     "deleteConfirm": "Tem certeza que deseja excluir este template?",
     "emptyTitle": "Nenhum template de briefing ainda",
-    "emptyDescription": "Salve o briefing de uma campanha como template para reutilizar seus padrões de briefing e aprovação em novas campanhas."
+    "emptyDescription": "Salve o briefing de uma campanha como template para reutilizar seus padrões de briefing e aprovação em novas campanhas.",
+    "delete": "Excluir"
   },
   "library": {
     "title": "Biblioteca",
