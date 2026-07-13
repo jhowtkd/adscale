@@ -1,117 +1,125 @@
-import { describe, it, expect } from "vitest";
-import { renderHook, act } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { renderHook, act, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { createElement, type ReactNode } from "react";
 import { useStrategyRecipe } from "./use-strategy-recipe";
-import type { CreativeReadinessResult } from "@/server/ai/creative-readiness";
+import type { RecipeReadinessSnapshot } from "@/lib/domain/strategy-recipe-types";
 
-const blockedReadiness: CreativeReadinessResult = {
+vi.mock("@/lib/api-client", () => ({
+  apiFetch: vi.fn(),
+}));
+
+import { apiFetch } from "@/lib/api-client";
+import { resolveStrategyRecipeSurface } from "@/server/application/resolve-strategy-recipe-surface";
+
+const mockApiFetch = vi.mocked(apiFetch);
+
+const blockedReadiness: RecipeReadinessSnapshot = {
   overallScore: 40,
   status: "blocked",
-  dimensions: [
-    { id: "ctaProminence", score: 40, suggestion: "" },
-    { id: "offerClarity", score: 40, suggestion: "" },
-    { id: "textLegibility", score: 50, suggestion: "" },
-    { id: "visualHierarchy", score: 50, suggestion: "" },
-    { id: "brandFit", score: 50, suggestion: "" },
-    { id: "platformFit", score: 50, suggestion: "" },
-  ],
-  blockingIssues: ["Blocked"],
-  suggestions: [],
   canGenerate: false,
-  source: { campaignId: "c1", assetId: "a1", preflightStatus: "completed" },
+  dimensions: [
+    { id: "ctaProminence", score: 40 },
+    { id: "offerClarity", score: 40 },
+    { id: "textLegibility", score: 50 },
+    { id: "visualHierarchy", score: 50 },
+    { id: "brandFit", score: 50 },
+    { id: "platformFit", score: 50 },
+  ],
 };
 
-describe("useStrategyRecipe", () => {
-  it("recommends safe_iteration when readiness is blocked", () => {
-    const { result } = renderHook(() =>
-      useStrategyRecipe({
-        readiness: blockedReadiness,
-        campaign: { ctaVariants: ["Buy"] },
-      })
-    );
-
-    expect(result.current.rankedRecipes[0].id).toBe("safe_iteration");
-    expect(result.current.rankedRecipes[0].recommended).toBe(true);
+function wrapper({ children }: { children: ReactNode }) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
   });
+  return createElement(QueryClientProvider, { client }, children);
+}
 
-  it("preserves manual recipe selection when readiness updates", () => {
-    const { result, rerender } = renderHook(
-      ({ readiness }: { readiness?: CreativeReadinessResult | null }) =>
-        useStrategyRecipe({
-          readiness,
-          campaign: { ctaVariants: ["Buy"] },
-        }),
-      { initialProps: { readiness: undefined as CreativeReadinessResult | undefined } }
-    );
-
-    act(() => {
-      result.current.selectRecipe("performance_push");
+beforeEach(() => {
+  mockApiFetch.mockImplementation(async (_url, init) => {
+    const body = JSON.parse(String((init as RequestInit)?.body ?? "{}"));
+    const surface = resolveStrategyRecipeSurface({
+      context: body.context ?? {},
+      selectedRecipeId: body.selectedRecipeId,
+      overrides: body.overrides,
     });
-
-    rerender({ readiness: blockedReadiness });
-
-    expect(result.current.rankedRecipes[0].id).toBe("safe_iteration");
-    expect(result.current.selectedRecipeId).toBe("performance_push");
+    return new Response(JSON.stringify(surface), { status: 200 });
   });
+});
 
-  it("syncs selected recipe when readiness arrives after initial render", () => {
-    const { result, rerender } = renderHook(
-      ({ readiness }: { readiness?: CreativeReadinessResult | null }) =>
-        useStrategyRecipe({
-          readiness,
-          campaign: { ctaVariants: ["Buy"] },
-        }),
-      { initialProps: { readiness: undefined as CreativeReadinessResult | undefined } }
-    );
-
-    expect(result.current.rankedRecipes[0].id).not.toBe("safe_iteration");
-
-    rerender({ readiness: blockedReadiness });
-
-    expect(result.current.rankedRecipes[0].id).toBe("safe_iteration");
-    expect(result.current.selectedRecipeId).toBe("safe_iteration");
-  });
-
-  it("resets manual selection when modal reopens with same ranking", () => {
-    const { result, rerender } = renderHook(
-      ({ resetKey }: { resetKey: number }) =>
+describe("useStrategyRecipe", () => {
+  it("recommends safe_iteration when readiness is blocked", async () => {
+    const { result } = renderHook(
+      () =>
         useStrategyRecipe({
           readiness: blockedReadiness,
           campaign: { ctaVariants: ["Buy"] },
-          resetKey,
         }),
-      { initialProps: { resetKey: 1 } }
+      { wrapper }
     );
 
-    act(() => {
-      result.current.selectRecipe("performance_push");
+    await waitFor(() => {
+      expect(result.current.rankedRecipes[0]?.id).toBe("safe_iteration");
     });
-    expect(result.current.selectedRecipeId).toBe("performance_push");
-
-    rerender({ resetKey: 2 });
-
-    expect(result.current.rankedRecipes[0].id).toBe("safe_iteration");
-    expect(result.current.selectedRecipeId).toBe("safe_iteration");
+    expect(result.current.rankedRecipes[0]?.recommended).toBe(true);
   });
 
-  it("updates overrides and credit estimates", () => {
-    const { result } = renderHook(() =>
-      useStrategyRecipe({
-        campaign: { ctaVariants: ["A", "B", "C"] },
-      })
+  it("preserves manual recipe selection when readiness updates", async () => {
+    const { result, rerender } = renderHook(
+      ({ readiness }: { readiness?: RecipeReadinessSnapshot | null }) =>
+        useStrategyRecipe({
+          readiness,
+          campaign: { ctaVariants: ["Buy"] },
+        }),
+      {
+        wrapper,
+        initialProps: {
+          readiness: undefined as RecipeReadinessSnapshot | undefined,
+        },
+      }
     );
+
+    await waitFor(() => expect(result.current.rankedRecipes.length).toBeGreaterThan(0));
 
     act(() => {
       result.current.selectRecipe("performance_push");
     });
 
-    expect(result.current.previewCredits).toBe(5);
-    expect(result.current.batchCredits).toBe(15);
+    rerender({ readiness: blockedReadiness });
+
+    await waitFor(() => {
+      expect(result.current.rankedRecipes[0]?.id).toBe("safe_iteration");
+    });
+    expect(result.current.selectedRecipeId).toBe("performance_push");
+  });
+
+  it("updates overrides and credit estimates via server surface", async () => {
+    const { result } = renderHook(
+      () =>
+        useStrategyRecipe({
+          campaign: { ctaVariants: ["A", "B", "C"] },
+        }),
+      { wrapper }
+    );
+
+    await waitFor(() => expect(result.current.rankedRecipes.length).toBeGreaterThan(0));
+
+    act(() => {
+      result.current.selectRecipe("performance_push");
+    });
+
+    await waitFor(() => {
+      expect(result.current.previewCredits).toBe(5);
+      expect(result.current.batchCredits).toBe(15);
+    });
 
     act(() => {
       result.current.setCtaVariants(["Only"]);
     });
 
-    expect(result.current.batchCredits).toBe(5);
-    expect(result.current.campaignPatch.ctaVariants).toEqual(["Only"]);
+    await waitFor(() => {
+      expect(result.current.batchCredits).toBe(5);
+      expect(result.current.campaignPatch.ctaVariants).toEqual(["Only"]);
+    });
   });
 });

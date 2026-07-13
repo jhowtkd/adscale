@@ -1,64 +1,35 @@
-import type { CreativeReadinessResult, ReadinessDimensionId } from "./creative-readiness";
+import type { ReadinessDimensionId } from "./creative-readiness";
+import {
+  STRATEGY_RECIPE_IDS,
+  type BrandKitSnapshot,
+  type CampaignRecipeContext,
+  type RecipeCreativeLevel,
+  type RecipeGenerationConfig,
+  type RecipeSuggestionContext,
+  type RankedRecipe,
+  type StrategyRecipeDefinition,
+  type StrategyRecipeId,
+} from "@/lib/domain/strategy-recipe-types";
+
+// Re-export presentation types for server callers (single implementation path).
+export {
+  STRATEGY_RECIPE_IDS,
+  type BrandKitSnapshot,
+  type CampaignRecipeContext,
+  type CampaignRecipePatch,
+  type PreservationEmphasis,
+  type RankedRecipe,
+  type RecipeCreativeLevel,
+  type RecipeGenerationConfig,
+  type RecipeSuggestionContext,
+  type RecommendedRecipePatch,
+  type StrategyRecipeDefinition,
+  type StrategyRecipeId,
+  type StrategyRecipeSurface,
+} from "@/lib/domain/strategy-recipe-types";
 
 /** Keep in sync with `CREDIT_COSTS.image_derivation` in server/billing/credits.ts */
 export const IMAGE_DERIVATION_CREDIT_COST = 5;
-
-export const STRATEGY_RECIPE_IDS = [
-  "safe_iteration",
-  "performance_push",
-  "visual_differentiation",
-] as const;
-
-export type StrategyRecipeId = (typeof STRATEGY_RECIPE_IDS)[number];
-
-export type PreservationEmphasis = "high" | "medium" | "low";
-
-export type RecipeCreativeLevel =
-  | "conservative"
-  | "balanced"
-  | "bold"
-  | "extreme";
-
-export interface RecipeGenerationConfig {
-  generationMode: "art_variation" | "format_adaptation";
-  creativeLevel: RecipeCreativeLevel;
-  ctaVariants: string[];
-  targetFormats?: string[];
-  preservationEmphasis: PreservationEmphasis;
-  styleIntensity?: "soft" | "medium" | "strong";
-}
-
-export interface StrategyRecipeDefinition {
-  id: StrategyRecipeId;
-  defaultConfig: RecipeGenerationConfig;
-}
-
-export interface BrandKitSnapshot {
-  constraints?: string | null;
-  toneOfVoice?: string | null;
-  prohibitedElements?: string | null;
-}
-
-export interface CampaignRecipeContext {
-  ctaVariants?: string[] | null;
-  targetFormats?: string[] | null;
-  platforms?: string[] | null;
-  generationMode?: string | null;
-  creativeLevel?: string | null;
-  suggestedCta?: string | null;
-}
-
-export interface RecipeSuggestionContext {
-  readiness?: CreativeReadinessResult | null;
-  brandKit?: BrandKitSnapshot | null;
-  campaign?: CampaignRecipeContext | null;
-}
-
-export interface RankedRecipe {
-  id: StrategyRecipeId;
-  score: number;
-  recommended: boolean;
-}
 
 const DEFAULT_CTAS = ["Shop Now", "Learn More"];
 
@@ -170,10 +141,10 @@ export function mapRecipeToGenerationConfig(
 }
 
 function dimensionScore(
-  readiness: CreativeReadinessResult | null | undefined,
+  readiness: RecipeSuggestionContext["readiness"],
   id: ReadinessDimensionId
 ): number {
-  return readiness?.dimensions.find((d) => d.id === id)?.score ?? 70;
+  return readiness?.dimensions?.find((d) => d.id === id)?.score ?? 70;
 }
 
 function scoreRecipe(

@@ -29,13 +29,13 @@ import {
   DERIVATION_FORMATS,
   type DerivationFormat,
 } from "@/lib/derivation-display";
-import type { CreativeReadinessResult } from "@/server/ai/creative-readiness";
 import {
   STRATEGY_RECIPE_IDS,
   type BrandKitSnapshot,
   type CampaignRecipeContext,
   type RecipeCreativeLevel,
-} from "@/server/ai/strategy-recipes";
+  type RecipeReadinessSnapshot,
+} from "@/lib/domain/strategy-recipe-types";
 
 const CREATIVE_LEVELS: RecipeCreativeLevel[] = [
   "conservative",
@@ -56,7 +56,7 @@ interface StrategyRecipePanelProps {
   campaignId: string;
   open: boolean;
   recipeSessionKey?: number;
-  readiness?: CreativeReadinessResult | null;
+  readiness?: RecipeReadinessSnapshot | null;
   brandKit?: BrandKitSnapshot | null;
   campaign?: CampaignRecipeContext | null;
   campaignCreativeLevel?: string | null;

@@ -63,12 +63,14 @@ import CampaignClientSubtitle from "@/components/campaigns/CampaignClientSubtitl
 import ClientProfileLinkControl from "@/components/campaigns/ClientProfileLinkControl";
 import PlatformsDrawer from "@/components/campaigns/PlatformsDrawer";
 import { formatCampaignPlatforms } from "@/lib/campaign-platforms";
-import type { StrategyRecipePrefill } from "@/lib/hooks/use-strategy-recipe";
 import {
-  buildRecommendedRecipePatch,
-  type BrandKitSnapshot,
-  type CampaignRecipeContext,
-} from "@/server/ai/strategy-recipes";
+  useRecommendedRecipePatch,
+  type StrategyRecipePrefill,
+} from "@/lib/hooks/use-strategy-recipe";
+import type {
+  BrandKitSnapshot,
+  CampaignRecipeContext,
+} from "@/lib/domain/strategy-recipe-types";
 import ContextualFeedbackButton from "@/components/feedback/ContextualFeedbackButton";
 import { AdscaleLoaderStage } from "@/components/animations";
 import CampaignErrorState from "@/components/campaigns/CampaignErrorState";
@@ -424,18 +426,17 @@ export default function CampaignWorkspacePage() {
     [brandKit]
   );
 
-  const recommendedRecipe = useMemo(
-    () =>
-      buildRecommendedRecipePatch({
-        readiness: preflightData?.readiness,
-        brandKit: brandKitSnapshot,
-        campaign: campaignRecipeContext,
-      }),
-    [preflightData?.readiness, brandKitSnapshot, campaignRecipeContext]
-  );
+  const { recommendedRecipe } = useRecommendedRecipePatch({
+    readiness: preflightData?.readiness,
+    brandKit: brandKitSnapshot,
+    campaign: campaignRecipeContext,
+    enabled: Boolean(campaignId) && campaignId !== "new",
+  });
 
   const tRecipes = useTranslations("strategyRecipes");
-  const recommendedRecipeLabel = tRecipes(`recipes.${recommendedRecipe.recipeId}.name`);
+  const recommendedRecipeLabel = tRecipes(
+    `recipes.${recommendedRecipe.recipeId}.name`
+  );
 
   const handleGenerateWithDefaults = async () => {
     goToTrabalho();

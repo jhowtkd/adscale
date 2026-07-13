@@ -33,6 +33,46 @@ vi.mock("@/lib/hooks/use-art-variation-suggestions", () => ({
   }),
 }));
 
+vi.mock("@/lib/hooks/use-strategy-recipe", () => ({
+  useStrategyRecipe: () => ({
+    rankedRecipes: [
+      { id: "safe_iteration", score: 100, recommended: true },
+      { id: "performance_push", score: 50, recommended: false },
+      { id: "visual_differentiation", score: 40, recommended: false },
+    ],
+    selectedRecipeId: "safe_iteration",
+    resolvedConfig: {
+      generationMode: "art_variation",
+      creativeLevel: "conservative",
+      ctaVariants: ["Buy"],
+      preservationEmphasis: "high",
+    },
+    overrides: {},
+    previewCredits: 5,
+    batchCredits: 5,
+    selectRecipe: vi.fn(),
+    setCreativeLevel: vi.fn(),
+    setCtaVariants: vi.fn(),
+    setGenerationMode: vi.fn(),
+    setTargetFormats: vi.fn(),
+    resetOverrides: vi.fn(),
+    campaignPatch: {
+      generationMode: "art_variation",
+      creativeLevel: "conservative",
+      ctaVariants: ["Buy"],
+    },
+    recommendedRecipe: {
+      recipeId: "safe_iteration",
+      generationMode: "art_variation",
+      creativeLevel: "conservative",
+      ctaVariants: ["Buy"],
+    },
+    isLoading: false,
+    isError: false,
+    refetch: vi.fn(),
+  }),
+}));
+
 const STAGE_PROPS = { stage: "strategy_recipe", missionKey: "strategy_recipe" };
 
 describe("StrategyRecipePanel", () => {
