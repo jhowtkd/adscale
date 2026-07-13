@@ -138,9 +138,10 @@ function CampaignsListContent() {
 
   const labels = useMemo(() => buildCampaignsV6Labels(t, tc), [t, tc]);
   const isListMode = viewMode === "list";
-  const isLoading = isListMode
-    ? worksLoading || metaLoading
-    : campaignsLoading;
+  // Title/count only need canonical works; meta enrich is optional and must not
+  // leave the h1 in a permanent skeleton (UAT S05).
+  const isLoading = isListMode ? worksLoading : campaignsLoading;
+  void metaLoading; // metrics enrich only; do not block title/list chrome
   // List can render with stubs if the campaigns page query fails; only canonical fails hard.
   const isError = isListMode ? worksError : campaignsError;
 
@@ -286,7 +287,7 @@ function CampaignsListContent() {
 
   return (
     <div className="w-full space-y-4 pb-10">
-      <h1 className="sr-only">{labels.sectionLabel}</h1>
+      {/* Visible product-page-title h1 lives in CampaignsV6View */}
 
       <CampaignsBulkActionsBar
         selectedCount={selectedIds.size}
