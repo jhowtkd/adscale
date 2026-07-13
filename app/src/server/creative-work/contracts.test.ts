@@ -18,6 +18,20 @@ describe("creative work contracts", () => {
     ).toBe("4:5");
   });
 
+  it("defaults toolKind to social_post when omitted", () => {
+    const parsed = createCreativeWorkSchema.parse({
+      clientProfileId: "00000000-0000-4000-8000-000000000001",
+      format: "1:1",
+      brief: {
+        theme: "Tema",
+        objective: "Obj",
+        audience: "Aud",
+        offer: "Oferta",
+      },
+    });
+    expect(parsed.toolKind).toBe("social_post");
+  });
+
   it("resolves partial when at least one output failed and one completed", () => {
     expect(resolveCreativeWorkStatus(["completed", "failed", "completed"])).toBe("partial");
   });

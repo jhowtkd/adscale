@@ -14,19 +14,11 @@ vi.mock("@/server/auth/workspace", () => ({
   ),
 }));
 
-vi.mock("@/server/repositories/client-reference", () => ({
-  getClientProfile: vi.fn(),
+const startMock = vi.hoisted(() => vi.fn());
+
+vi.mock("@/server/application/start-social-post-work", () => ({
+  startSocialPostWork: (...args: unknown[]) => startMock(...args),
 }));
-
-vi.mock("@/server/repositories/creative-work", () => ({
-  createCreativeWork: vi.fn(),
-}));
-
-import { getClientProfile } from "@/server/repositories/client-reference";
-import { createCreativeWork } from "@/server/repositories/creative-work";
-
-const mockGetClientProfile = vi.mocked(getClientProfile);
-const mockCreateCreativeWork = vi.mocked(createCreativeWork);
 
 const profileId = "00000000-0000-4000-8000-000000000001";
 
@@ -50,24 +42,31 @@ describe("POST /api/creative-work", () => {
     vi.restoreAllMocks();
   });
 
-  it("returns 201 with the created work item scoped to the authenticated user", async () => {
-    mockGetClientProfile.mockResolvedValue({
-      id: profileId,
-      workspaceId: "workspace-1",
-    } as Awaited<ReturnType<typeof getClientProfile>>);
-    mockCreateCreativeWork.mockResolvedValue({
+  it("returns 201 with work + canonical social_post intent", async () => {
+    const work = {
       id: "work-1",
       workspaceId: "workspace-1",
       clientProfileId: profileId,
-      createdByUserId: "user-1",
       toolKind: "social_post",
       status: "draft",
       brief: validBody.brief,
       format: "4:5",
-      copy: null,
-      identitySnapshot: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+    };
+    startMock.mockResolvedValue({
+      ok: true,
+      value: {
+        work,
+        canonical: {
+          id: "creative_work:work-1",
+          originKind: "creative_work",
+          intent: {
+            kind: "social_post",
+            objective: "Gerar interesse",
+            formatHint: "4:5",
+            platforms: [],
+          },
+        },
+      },
     });
 
     const res = await POST(
@@ -81,19 +80,46 @@ describe("POST /api/creative-work", () => {
 
     expect(res.status).toBe(201);
     expect(body.work.id).toBe("work-1");
-    expect(mockGetClientProfile).toHaveBeenCalledWith("workspace-1", profileId);
-    expect(mockCreateCreativeWork).toHaveBeenCalledWith({
+    expect(body.canonical.intent.kind).toBe("social_post");
+    expect(body.canonical.originKind).toBe("creative_work");
+    expect(startMock).toHaveBeenCalledWith({
       workspaceId: "workspace-1",
+      userId: "user-1",
       clientProfileId: profileId,
-      createdByUserId: "user-1",
-      toolKind: "social_post",
-      brief: validBody.brief,
       format: "4:5",
+      brief: validBody.brief,
     });
   });
 
-  it("returns 404 when the profile does not belong to the workspace", async () => {
-    mockGetClientProfile.mockResolvedValue(null);
+  it("accepts body without toolKind (preconfigured social_post)", async () => {
+    startMock.mockResolvedValue({
+      ok: true,
+      value: {
+        work: { id: "work-2" },
+        canonical: {
+          id: "creative_work:work-2",
+          intent: { kind: "social_post" },
+        },
+      },
+    });
+
+    const { toolKind: _omit, ...withoutToolKind } = validBody;
+    const res = await POST(
+      new Request("http://localhost/api/creative-work", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(withoutToolKind),
+      })
+    );
+    expect(res.status).toBe(201);
+    expect(startMock).toHaveBeenCalled();
+  });
+
+  it("returns 404 when profile is outside workspace", async () => {
+    startMock.mockResolvedValue({
+      ok: false,
+      error: { code: "client_profile_not_found" },
+    });
 
     const res = await POST(
       new Request("http://localhost/api/creative-work", {
@@ -104,7 +130,6 @@ describe("POST /api/creative-work", () => {
     );
 
     expect(res.status).toBe(404);
-    expect(mockCreateCreativeWork).not.toHaveBeenCalled();
   });
 
   it("returns 400 when the brief is invalid", async () => {
@@ -117,7 +142,7 @@ describe("POST /api/creative-work", () => {
     );
 
     expect(res.status).toBe(400);
-    expect(mockCreateCreativeWork).not.toHaveBeenCalled();
+    expect(startMock).not.toHaveBeenCalled();
   });
 
   it("returns 400 when the format is unsupported", async () => {
@@ -130,6 +155,6 @@ describe("POST /api/creative-work", () => {
     );
 
     expect(res.status).toBe(400);
-    expect(mockCreateCreativeWork).not.toHaveBeenCalled();
+    expect(startMock).not.toHaveBeenCalled();
   });
 });

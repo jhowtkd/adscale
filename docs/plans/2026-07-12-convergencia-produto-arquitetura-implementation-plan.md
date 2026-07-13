@@ -1,7 +1,7 @@
 # Plano de convergência de produto e arquitetura do ADScale
 
 **Data:** 2026-07-12
-**Status:** Gate 4 aprovado — Fase 5 (convergir Criar Post e Templates)
+**Status:** Gate 4 aprovado — Fase 5 (item 34: startSocialPostWork; 35–42 pendentes)
 **Direção assumida:** trabalho criativo-first
 **Estratégia:** migração incremental com gates; nenhum big bang
 
