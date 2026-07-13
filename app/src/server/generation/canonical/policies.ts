@@ -1,0 +1,144 @@
+/**
+ * Políticas canônicas de cobrança, reembolso, retry e idempotência (item 21).
+ *
+ * Codifica o comportamento já observado nos jobs — não muda preços.
+ * Callers devem consultar estas funções em vez de reimplementar regras.
+ */
+import {
+  GENERATION_CREDIT_COSTS,
+  type FailurePhase,
+  type GenerationMode,
+  type GenerationSurface,
+  type IdempotencyDecision,
+  type RefundDecision,
+  type RefundPolicy,
+  type RetryDecision,
+} from "./types";
+
+export interface DerivationRefundInput {
+  surface: Extract<GenerationSurface, "campaign" | "assistant">;
+  generationMode: string | null | undefined;
+  refundPolicy?: RefundPolicy | string | null;
+  assistantActionId?: string | null;
+  failurePhase: FailurePhase;
+}
+
+export interface CreativeWorkRefundInput {
+  surface: "quick_tool";
+  failurePhase: FailurePhase;
+  workItemId: string;
+  outputId: string;
+}
+
+/**
+ * Derivation / Assistente refund rules (current production behaviour):
+ * - Charge happens upstream of the job.
+ * - Job refunds only assistant `creative_revision` on job_failure when
+ *   refundPolicy !== "none".
+ * - Pre/post provider and low_quality do not refund inside the derivation job.
+ */
+export function decideDerivationRefund(
+  input: DerivationRefundInput
+): RefundDecision {
+  if (input.failurePhase !== "job_failure") {
+    return {
+      refund: false,
+      reason: `derivation_${input.failurePhase}_no_job_refund`,
+    };
+  }
+
+  if (input.refundPolicy === "none") {
+    return { refund: false, reason: "refund_policy_none" };
+  }
+
+  if (
+    input.assistantActionId &&
+    input.generationMode === "creative_revision"
+  ) {
+    return {
+      refund: true,
+      amount: GENERATION_CREDIT_COSTS.singleDerivation,
+      idempotencyKey: `assistant-action:${input.assistantActionId}:refund`,
+      reason: "assistant_creative_revision_job_failure",
+    };
+  }
+
+  return { refund: false, reason: "derivation_job_failure_non_refundable" };
+}
+
+/**
+ * Criar Post refund rules (current production behaviour):
+ * - Triplet charged upstream (15).
+ * - Per-output refund (5) on pre_provider and low_quality.
+ * - Post-provider failure: no refund.
+ */
+export function decideCreativeWorkRefund(
+  input: CreativeWorkRefundInput
+): RefundDecision {
+  if (
+    input.failurePhase === "pre_provider" ||
+    input.failurePhase === "low_quality"
+  ) {
+    return {
+      refund: true,
+      amount: GENERATION_CREDIT_COSTS.creativeWorkOutput,
+      idempotencyKey: `creative-work:${input.workItemId}:output:${input.outputId}:pregen-refund`,
+      reason:
+        input.failurePhase === "low_quality"
+          ? "creative_work_low_quality"
+          : "creative_work_pre_provider",
+    };
+  }
+
+  if (input.failurePhase === "post_provider") {
+    return { refund: false, reason: "creative_work_post_provider_no_refund" };
+  }
+
+  return { refund: false, reason: "creative_work_job_failure_no_refund" };
+}
+
+export function decideGenerationRefund(
+  input: DerivationRefundInput | CreativeWorkRefundInput
+): RefundDecision {
+  if (input.surface === "quick_tool") {
+    return decideCreativeWorkRefund(input);
+  }
+  return decideDerivationRefund(input);
+}
+
+/** Job-level skip when an output is already materialised. */
+export function decideJobIdempotency(input: {
+  surface: GenerationSurface;
+  hasOutputKey?: boolean;
+  outputStatus?: string | null;
+}): IdempotencyDecision {
+  if (input.surface === "quick_tool") {
+    if (input.outputStatus === "completed") {
+      return { skip: true, reason: "creative_work_output_already_completed" };
+    }
+    return { skip: false, reason: "creative_work_output_pending" };
+  }
+
+  if (input.hasOutputKey) {
+    return { skip: true, reason: "derivation_output_key_present" };
+  }
+  return { skip: false, reason: "derivation_output_pending" };
+}
+
+/**
+ * Auto-retry is derivation-only today (objective hard failures, once).
+ * Criar Post relies on user retry routes — no automatic job retry.
+ */
+export function decideAutoRetry(input: {
+  surface: GenerationSurface;
+  mode?: GenerationMode | string | null;
+  eligibleByPolicy: boolean;
+}): RetryDecision {
+  if (input.surface === "quick_tool") {
+    return { retry: false, reason: "creative_work_no_auto_retry" };
+  }
+  if (!input.eligibleByPolicy) {
+    return { retry: false, reason: "derivation_auto_retry_not_eligible" };
+  }
+  return { retry: true, reason: "derivation_auto_retry_eligible" };
+}

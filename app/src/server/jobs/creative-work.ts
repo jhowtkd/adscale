@@ -26,6 +26,10 @@ import type {
   SocialPostCopy,
 } from "@/server/creative-work/contracts";
 import { inngest } from "./client";
+import {
+  decideCreativeWorkRefund,
+  decideJobIdempotency,
+} from "@/server/generation/canonical/policies";
 
 interface CreativeWorkGenerateEvent {
   workspaceId: string;
@@ -116,9 +120,13 @@ export const creativeWorkOutputJob = inngest.createFunction(
 
       // Idempotency: if a duplicate event arrives after the row already
       // completed, skip provider invocation entirely.
-      if (output.status === "completed") {
+      const idempotency = decideJobIdempotency({
+        surface: "quick_tool",
+        outputStatus: output.status,
+      });
+      if (idempotency.skip) {
         logger.info(
-          `[creativeWorkOutputJob] SKIP duplicate event outputId=${outputId} status=completed`,
+          `[creativeWorkOutputJob] SKIP duplicate event outputId=${outputId} status=completed (${idempotency.reason})`,
         );
         return { success: true, skipped: true, outputId, outputKey: output.outputKey };
       }
@@ -168,6 +176,7 @@ export const creativeWorkOutputJob = inngest.createFunction(
           workItemId,
           outputId,
           reason: error instanceof Error ? error.message : String(error),
+          failurePhase: "pre_provider",
         });
         throw error;
       }
@@ -265,6 +274,7 @@ export const creativeWorkOutputJob = inngest.createFunction(
           workItemId,
           outputId,
           reason: `low_quality score=${qualityResult.qualityScore}`,
+          failurePhase: "low_quality",
         });
         await failCreativeWorkOutput(workspaceId, workItemId, outputId, "low_quality");
         logger.warn(
@@ -338,22 +348,37 @@ async function refundPreGeneratorOutput({
   workItemId,
   outputId,
   reason,
+  failurePhase,
 }: {
   workspaceId: string;
   workItemId: string;
   outputId: string;
   reason: string;
+  failurePhase: "pre_provider" | "low_quality";
 }): Promise<void> {
+  const decision = decideCreativeWorkRefund({
+    surface: "quick_tool",
+    failurePhase,
+    workItemId,
+    outputId,
+  });
+  if (!decision.refund) {
+    logger.info(
+      `[creativeWorkOutputJob] skip refund outputId=${outputId} reason=${decision.reason}`,
+    );
+    return;
+  }
   try {
     const result = await refundCredits({
       workspaceId,
       action: "image_derivation",
-      idempotencyKey: `creative-work:${workItemId}:output:${outputId}:pregen-refund`,
-      amount: OUTPUT_COST,
+      idempotencyKey: decision.idempotencyKey,
+      amount: decision.amount,
       metadata: {
         creativeWorkId: workItemId,
         outputId,
         reason,
+        policyReason: decision.reason,
         description: "creative_work_output_pregen_refund",
       },
     });
