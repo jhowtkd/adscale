@@ -10,34 +10,15 @@ vi.mock("@/server/auth/workspace", () => ({
   ),
 }));
 
-vi.mock("@/server/repositories/derivation", () => ({
-  getDerivationById: vi.fn(),
-}));
+const saveRefMock = vi.hoisted(() => vi.fn());
 
-vi.mock("@/server/repositories/client-reference", () => ({
-  createClientReference: vi.fn(),
-  getClientProfile: vi.fn(() => Promise.resolve({ id: "profile-id", workspaceId: "workspace-1", name: "Acme" })),
-}));
-
-vi.mock("@/server/memory/brand-memory-dispatch", () => ({
-  recordBrandMemoryEvent: vi.fn(() => Promise.resolve()),
-}));
-
-vi.mock("@/server/output-learning/output-decision-recorder", () => ({
-  recordOutputDecisionEvidenceBestEffort: vi.fn(() => Promise.resolve({ id: "evidence-1" })),
+vi.mock("@/server/application/save-derivation-reference", () => ({
+  saveDerivationReference: (...args: unknown[]) => saveRefMock(...args),
 }));
 
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
 }));
-
-import { getDerivationById } from "@/server/repositories/derivation";
-import { createClientReference, getClientProfile } from "@/server/repositories/client-reference";
-import { recordOutputDecisionEvidenceBestEffort } from "@/server/output-learning/output-decision-recorder";
-
-const mockGetDerivationById = vi.mocked(getDerivationById);
-const mockCreateClientReference = vi.mocked(createClientReference);
-const mockGetClientProfile = vi.mocked(getClientProfile);
 
 function requestWith(body: unknown): Request {
   return new Request(
@@ -54,6 +35,8 @@ function paramsWith(id: string) {
   return Promise.resolve({ id });
 }
 
+const profileId = "550e8400-e29b-41d4-a716-446655440001";
+
 describe("POST /api/derivations/[id]/save-reference", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -63,136 +46,109 @@ describe("POST /api/derivations/[id]/save-reference", () => {
     vi.restoreAllMocks();
   });
 
-  it("rejects missing derivation", async () => {
-    mockGetDerivationById.mockResolvedValue(null as never);
-
-    const res = await POST(requestWith({ clientProfileId: "550e8400-e29b-41d4-a716-446655440000", label: "Hero" }), {
-      params: paramsWith("missing-id"),
+  it("maps derivation_not_found to 404", async () => {
+    saveRefMock.mockResolvedValue({
+      ok: false,
+      error: { code: "derivation_not_found" },
     });
+
+    const res = await POST(
+      requestWith({ clientProfileId: profileId, label: "Hero" }),
+      { params: paramsWith("missing-id") }
+    );
     expect(res.status).toBe(404);
   });
 
-  it("rejects non-approved derivation", async () => {
-    mockGetDerivationById.mockResolvedValue({
-      id: "derivation-id",
-      status: "completed",
-      outputKey: "assets/out.png",
-      workspaceId: "workspace-1",
-      campaignId: "campaign-id",
-    } as Awaited<ReturnType<typeof getDerivationById>>);
-
-    const res = await POST(requestWith({ clientProfileId: "550e8400-e29b-41d4-a716-446655440000", label: "Hero" }), {
-      params: paramsWith("derivation-id"),
+  it("maps derivation_not_approved to 409", async () => {
+    saveRefMock.mockResolvedValue({
+      ok: false,
+      error: { code: "derivation_not_approved" },
     });
+
+    const res = await POST(
+      requestWith({ clientProfileId: profileId, label: "Hero" }),
+      { params: paramsWith("derivation-id") }
+    );
     expect(res.status).toBe(409);
   });
 
-  it("rejects derivation without outputKey", async () => {
-    mockGetDerivationById.mockResolvedValue({
-      id: "derivation-id",
-      status: "approved",
-      outputKey: null,
-      workspaceId: "workspace-1",
-      campaignId: "campaign-id",
-    } as Awaited<ReturnType<typeof getDerivationById>>);
-
-    const res = await POST(requestWith({ clientProfileId: "550e8400-e29b-41d4-a716-446655440000", label: "Hero" }), {
-      params: paramsWith("derivation-id"),
+  it("maps derivation_missing_output to 400", async () => {
+    saveRefMock.mockResolvedValue({
+      ok: false,
+      error: { code: "derivation_missing_output" },
     });
+
+    const res = await POST(
+      requestWith({ clientProfileId: profileId, label: "Hero" }),
+      { params: paramsWith("derivation-id") }
+    );
     expect(res.status).toBe(400);
   });
 
-  it("returns 409 when derivation has hard quality failures", async () => {
-    mockGetDerivationById.mockResolvedValue({
-      id: "derivation-id",
-      status: "approved",
-      outputKey: "derivations/derivation-id/123.png",
-      workspaceId: "workspace-1",
-      campaignId: "campaign-id",
-      qualityVerdict: "invalid",
-      hardFailures: [{ code: "wrong_brand", message: "Brand mismatch" }],
-    } as Awaited<ReturnType<typeof getDerivationById>>);
+  it("maps derivation_hard_failures to 409", async () => {
+    saveRefMock.mockResolvedValue({
+      ok: false,
+      error: {
+        code: "derivation_hard_failures",
+        qualityVerdict: "invalid",
+        hardFailures: [{ code: "wrong_brand" }],
+      },
+    });
 
     const res = await POST(
-      requestWith({ clientProfileId: "550e8400-e29b-41d4-a716-446655440001", label: "Winner", kind: "style" }),
+      requestWith({ clientProfileId: profileId, label: "Winner", kind: "style" }),
       { params: paramsWith("derivation-id") }
     );
     const body = await res.json();
 
     expect(res.status).toBe(409);
     expect(body.code).toBe("derivationHardFailures");
-    expect(mockCreateClientReference).not.toHaveBeenCalled();
   });
 
-  it("creates a client reference using the derivation outputKey", async () => {
-    mockGetDerivationById.mockResolvedValue({
-      id: "derivation-id",
-      status: "approved",
-      outputKey: "derivations/derivation-id/123.png",
-      workspaceId: "workspace-1",
-      campaignId: "campaign-id",
-      qualityVerdict: "acceptable",
-      hardFailures: [],
-    } as Awaited<ReturnType<typeof getDerivationById>>);
-
+  it("delegates success to saveDerivationReference and returns 201", async () => {
     const reference = {
       id: "ref-1",
       assetKey: "derivations/derivation-id/123.png",
       label: "Winner",
       kind: "style",
-      clientProfileId: "profile-id",
-      sourceDerivationId: "derivation-id",
     };
-    mockCreateClientReference.mockResolvedValue(
-      reference as Awaited<ReturnType<typeof createClientReference>>
-    );
+    saveRefMock.mockResolvedValue({
+      ok: true,
+      value: { reference, derivation: { id: "derivation-id" }, profile: { id: profileId, name: "Acme" } },
+    });
 
     const res = await POST(
-      requestWith({ clientProfileId: "550e8400-e29b-41d4-a716-446655440001", label: "Winner", kind: "style" }),
+      requestWith({ clientProfileId: profileId, label: "Winner", kind: "style" }),
       { params: paramsWith("derivation-id") }
     );
     const body = await res.json();
 
     expect(res.status).toBe(201);
     expect(body.reference).toEqual(reference);
-    expect(mockCreateClientReference).toHaveBeenCalledWith(
-      "workspace-1",
+    expect(saveRefMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        clientProfileId: "550e8400-e29b-41d4-a716-446655440001",
-        assetKey: "derivations/derivation-id/123.png",
+        workspaceId: "workspace-1",
+        derivationId: "derivation-id",
+        clientProfileId: profileId,
         label: "Winner",
         kind: "style",
-        sourceDerivationId: "derivation-id",
-      })
-    );
-    expect(vi.mocked(recordOutputDecisionEvidenceBestEffort)).toHaveBeenCalledWith(
-      expect.objectContaining({
-        action: "saved_reference",
-        derivationId: "derivation-id",
-        snapshotExtras: expect.objectContaining({
-          referenceKind: "style",
-          referenceLabel: "Winner",
-        }),
+        actorUserId: "user-1",
+        evidenceSource: "derivations.save-reference.POST",
       })
     );
   });
 
-  it("rejects profile outside workspace", async () => {
-    mockGetDerivationById.mockResolvedValue({
-      id: "derivation-id",
-      status: "approved",
-      outputKey: "derivations/derivation-id/123.png",
-      workspaceId: "workspace-1",
-      campaignId: "campaign-id",
-    } as Awaited<ReturnType<typeof getDerivationById>>);
-    mockGetClientProfile.mockResolvedValueOnce(null as never);
+  it("maps client_profile_not_found to 404", async () => {
+    saveRefMock.mockResolvedValue({
+      ok: false,
+      error: { code: "client_profile_not_found" },
+    });
 
     const res = await POST(
-      requestWith({ clientProfileId: "550e8400-e29b-41d4-a716-446655440001", label: "Winner", kind: "style" }),
+      requestWith({ clientProfileId: profileId, label: "Winner", kind: "style" }),
       { params: paramsWith("derivation-id") }
     );
 
     expect(res.status).toBe(404);
-    expect(mockCreateClientReference).not.toHaveBeenCalled();
   });
 });

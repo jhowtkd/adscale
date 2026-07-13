@@ -1,8 +1,8 @@
 # Plano de convergência de produto e arquitetura do ADScale
 
-**Data:** 2026-07-12  
-**Status:** Gate 3 — reavaliado (agent): batch/unit charge + shared post-gen + executor; pronto para reavaliação humana  
-**Direção assumida:** trabalho criativo-first  
+**Data:** 2026-07-12
+**Status:** Gate 3 aprovado — Fase 4 em andamento (save-reference canônico HTTP+Assistente)
+**Direção assumida:** trabalho criativo-first
 **Estratégia:** migração incremental com gates; nenhum big bang
 
 ## 1. Problema

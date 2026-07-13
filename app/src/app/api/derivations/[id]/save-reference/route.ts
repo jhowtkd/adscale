@@ -1,12 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
-import { assertDerivationApprovable } from "@/server/ai/creative-quality-gate";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
-import { getDerivationById } from "@/server/repositories/derivation";
-import { createClientReference, getClientProfile } from "@/server/repositories/client-reference";
-import { recordBrandMemoryEvent } from "@/server/memory/brand-memory-dispatch";
-import { recordOutputDecisionEvidenceBestEffort } from "@/server/output-learning/output-decision-recorder";
+import { saveDerivationReference } from "@/server/application/save-derivation-reference";
 
 const referenceKindSchema = z.enum([
   "style",
@@ -34,89 +30,47 @@ export async function POST(
       params,
     ]);
 
-    const derivation = await getDerivationById(id, workspace.id);
-    if (!derivation) {
-      return apiError("derivationNotFound", 404);
-    }
-    if (derivation.status !== "approved") {
-      return apiError("derivationNotApprovedForQa", 409);
-    }
-    if (!derivation.outputKey) {
-      return apiError("derivationMissingOutput", 400);
-    }
-
-    const approvable = assertDerivationApprovable(derivation);
-    if (!approvable.ok) {
-      return apiError("derivationHardFailures", 409, {
-        qualityVerdict: approvable.qualityVerdict,
-        hardFailures: approvable.hardFailures,
-      });
-    }
-
     const body = await request.json();
     const parsed = saveDerivationReferenceSchema.safeParse(body);
     if (!parsed.success) {
       return apiError("invalidInput", 400, parsed.error.flatten());
     }
 
-    const profile = await getClientProfile(workspace.id, parsed.data.clientProfileId);
-    if (!profile) {
-      return apiError("clientProfileNotFound", 404);
-    }
-
-    const reference = await createClientReference(workspace.id, {
+    const result = await saveDerivationReference({
+      workspaceId: workspace.id,
+      derivationId: id,
       clientProfileId: parsed.data.clientProfileId,
-      assetKey: derivation.outputKey,
       label: parsed.data.label,
       kind: parsed.data.kind,
       notes: parsed.data.notes,
-      sourceDerivationId: id,
+      actorUserId: user.id,
+      evidenceSource: "derivations.save-reference.POST",
     });
 
-    await recordBrandMemoryEvent({
-      type: "creative_saved_as_reference",
-      workspaceId: workspace.id,
-      clientProfileId: profile.id,
-      campaignId: derivation.campaignId,
-      derivationId: derivation.id,
-      occurredAt: reference.createdAt,
-      summary: `Approved creative was saved as "${reference.label}" (${reference.kind}) for brand/client profile "${profile.name}".`,
-      payload: {
-        action: "approved_creative_saved_as_reference",
-        profile: { id: profile.id, name: profile.name },
-        reference: {
-          label: reference.label,
-          kind: reference.kind,
-          notes: reference.notes,
-          assetKey: reference.assetKey,
-        },
-        derivation: {
-          id: derivation.id,
-          format: derivation.format,
-          generationMode: derivation.generationMode,
-          ctaText: derivation.ctaText,
-          qualityScore: derivation.qualityScore,
-          qaStatus: derivation.qaStatus,
-        },
-      },
-    });
+    if (!result.ok) {
+      switch (result.error.code) {
+        case "derivation_not_found":
+          return apiError("derivationNotFound", 404);
+        case "derivation_not_approved":
+          return apiError("derivationNotApprovedForQa", 409);
+        case "derivation_missing_output":
+          return apiError("derivationMissingOutput", 400);
+        case "derivation_hard_failures":
+          return apiError("derivationHardFailures", 409, {
+            qualityVerdict: result.error.qualityVerdict,
+            hardFailures: result.error.hardFailures,
+          });
+        case "client_profile_not_found":
+          return apiError("clientProfileNotFound", 404);
+        default:
+          return apiError("invalidRequest", 400);
+      }
+    }
 
-    void recordOutputDecisionEvidenceBestEffort({
-      workspaceId: workspace.id,
-      userId: user.id,
-      clientProfileId: profile.id,
-      campaignId: derivation.campaignId,
-      derivationId: derivation.id,
-      action: "saved_reference",
-      source: "derivations.save-reference.POST",
-      snapshotInput: derivation,
-      snapshotExtras: {
-        referenceKind: reference.kind,
-        referenceLabel: reference.label,
-      },
-    });
-
-    return NextResponse.json({ reference }, { status: 201 });
+    return NextResponse.json(
+      { reference: result.value.reference },
+      { status: 201 }
+    );
   } catch (error) {
     return handleApiError(error, "derivations.[id].save-reference.POST");
   }
