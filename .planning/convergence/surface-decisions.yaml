@@ -24,7 +24,7 @@ decisions:
   - id: B-templates-use
     evidence: app/src/app/(dashboard)/templates/page.tsx
     decision: manter
-    rationale: "Usar template now materializes briefing via campaigns?new=1&templateId=."
+    rationale: "Usar template loads modal then POST /api/templates/[id]/materialize (server-side canonical materialize)."
 
   - id: B-persona-overflow
     evidence: app/src/components/workspace/DerivationCard.tsx

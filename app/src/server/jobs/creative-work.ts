@@ -321,14 +321,24 @@ export const creativeWorkOutputJob = inngest.createFunction(
       });
 
       // Phase 5 / item 37: library on complete (not only on select).
-      await step.run("ensure-library", async () => {
-        await ensureCreativeWorkOutputInLibrary({
-          workspaceId,
-          outputKey: generatedOutputKey,
-          theme: work.brief.theme,
-          creativeLevel,
+      // Isolated from generation success: a library/storage failure must never
+      // reclassify a completed output as failed (retries: 0).
+      try {
+        await step.run("ensure-library", async () => {
+          await ensureCreativeWorkOutputInLibrary({
+            workspaceId,
+            outputKey: generatedOutputKey,
+            theme: work.brief.theme,
+            creativeLevel,
+          });
         });
-      });
+      } catch (libraryError) {
+        const detail =
+          libraryError instanceof Error ? libraryError.message : String(libraryError);
+        logger.warn(
+          `[creativeWorkOutputJob] ensure-library failed outputId=${outputId} (output stays completed): ${detail}`,
+        );
+      }
 
       logger.info(
         `[creativeWorkOutputJob] DONE outputId=${outputId} outputKey=${generatedOutputKey}`,

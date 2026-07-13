@@ -275,6 +275,26 @@ describe("creativeWorkOutputJob", () => {
     expect(ensureLibraryMock).not.toHaveBeenCalled();
   });
 
+  it("keeps output completed when ensure-library fails (does not mark failed)", async () => {
+    getCreativeWorkMock.mockResolvedValue({
+      work: workItem,
+      outputs: [makeQueuedOutput()],
+    });
+    markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+    ensureLibraryMock.mockRejectedValue(new Error("storage unreachable"));
+
+    const result = await runJob();
+
+    expect(completeMock).toHaveBeenCalled();
+    expect(failMock).not.toHaveBeenCalled();
+    expect(result).toEqual(
+      expect.objectContaining({
+        success: true,
+        outputId: "output-1",
+      })
+    );
+  });
+
   it("loads up to four reference-mode asset buffers for image generation", async () => {
     const manyRefs = Array.from({ length: 6 }, (_, i) => ({
       referenceId: `ref-ref-${i}`,

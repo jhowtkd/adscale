@@ -14,6 +14,7 @@ import {
 } from "@/lib/hooks/use-campaigns";
 import {
   fetchTemplate,
+  materializeTemplate,
   TemplateLoadError,
   type CampaignTemplate,
 } from "@/lib/hooks/use-templates";
@@ -382,46 +383,40 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
       clientProfileId: string | null;
     }) => {
       const fromTemplate = loadedTemplate;
-      createCampaign.mutate(
-        {
+
+      // Phase 5 / item 39: Usar template → server materialize (not client merge).
+      if (fromTemplate) {
+        void materializeTemplate(fromTemplate.id, {
           name: data.name,
           client: data.client,
-          // Generic template: never attach brand/refs from snapshot.
-          clientProfileId: null,
-          ...(fromTemplate
-            ? {
-                product: fromTemplate.product ?? undefined,
-                objective: fromTemplate.objective ?? undefined,
-                audience: fromTemplate.audience ?? undefined,
-                platforms: fromTemplate.platforms ?? undefined,
-                tone: fromTemplate.tone ?? undefined,
-                offer: fromTemplate.offer ?? undefined,
-                constraints: fromTemplate.constraints ?? undefined,
-                notes: fromTemplate.notes ?? undefined,
-                generationMode: fromTemplate.generationMode,
-                creativeLevel: (fromTemplate.creativeLevel as
-                  | "conservative"
-                  | "balanced"
-                  | "bold"
-                  | "extreme"
-                  | null) ?? undefined,
-                styleIntensity: (fromTemplate.styleIntensity as
-                  | "soft"
-                  | "medium"
-                  | "strong"
-                  | null) ?? undefined,
-                ctaVariants: fromTemplate.ctaVariants ?? undefined,
-                targetFormats: fromTemplate.targetFormats ?? undefined,
-              }
-            : {}),
-        },
-        {
-          onSuccess: (campaign) => {
+        })
+          .then(({ campaign }) => {
             toast.success(tc("campaignCreated", { name: data.name }));
             setModalOpen(false);
             setLoadedTemplate(null);
             setTemplateLoadState("idle");
             activeTemplateLoadRef.current = null;
+            clearCreationQueryParams();
+            router.push(`/campaigns/${campaign.id}`);
+          })
+          .catch((err: unknown) => {
+            const message =
+              err instanceof Error ? err.message : tc("failedCreateCampaign");
+            toast.error(message);
+          });
+        return;
+      }
+
+      createCampaign.mutate(
+        {
+          name: data.name,
+          client: data.client,
+          clientProfileId: data.clientProfileId,
+        },
+        {
+          onSuccess: (campaign) => {
+            toast.success(tc("campaignCreated", { name: data.name }));
+            setModalOpen(false);
             clearCreationQueryParams();
             router.push(`/campaigns/${campaign.id}`);
           },

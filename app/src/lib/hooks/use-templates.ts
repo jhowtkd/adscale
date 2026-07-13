@@ -67,6 +67,23 @@ export async function fetchTemplate(id: string): Promise<CampaignTemplate> {
   };
 }
 
+/** Phase 5 / item 39: server-side materialize (not client field merge). */
+export async function materializeTemplate(
+  templateId: string,
+  payload: { name: string; client: string }
+): Promise<{ campaign: { id: string; name: string }; canonical?: unknown }> {
+  const res = await apiFetch(`/api/templates/${templateId}/materialize`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Erro ao materializar template");
+  }
+  return res.json();
+}
+
 async function createTemplate(payload: {
   campaignId: string;
   name: string;

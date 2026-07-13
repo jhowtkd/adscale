@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-07-13T07:25:33.362Z",
+  "generatedAt": "2026-07-13T12:06:46.787Z",
   "schemaVersion": 2,
-  "fingerprint": "b4c035dac4f09a57ca6f07a5cd80dc5509a69e31736e04cc01c55241d0260ed0",
+  "fingerprint": "879a031ac3bd18c14acd13cbcc925c07115fe72ff6424b27d0280dd754eeea3d",
   "counts": {
     "dashboardPages": 14,
-    "apiRoutes": 170,
-    "ctas": 58,
+    "apiRoutes": 171,
+    "ctas": 59,
     "requiringDecision": 2
   },
   "dashboardPages": [
@@ -1139,6 +1139,13 @@
       "requiresDecision": false
     },
     {
+      "id": "api:/api/templates/[id]/materialize",
+      "kind": "api_route",
+      "route": "/api/templates/[id]/materialize",
+      "file": "app/src/app/api/templates/[id]/materialize/route.ts",
+      "requiresDecision": false
+    },
+    {
       "id": "api:/api/templates/[id]",
       "kind": "api_route",
       "route": "/api/templates/[id]",
@@ -1464,12 +1471,21 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/campaigns/useCampaignsPage.ts:426",
+      "id": "nav:app/src/components/campaigns/useCampaignsPage.ts:400",
       "kind": "cta_navigation",
       "destination": "/campaigns/${campaign.id}",
       "file": "app/src/components/campaigns/useCampaignsPage.ts",
-      "line": 426,
-      "evidence": "app/src/components/campaigns/useCampaignsPage.ts:426",
+      "line": 400,
+      "evidence": "app/src/components/campaigns/useCampaignsPage.ts:400",
+      "requiresDecision": false
+    },
+    {
+      "id": "nav:app/src/components/campaigns/useCampaignsPage.ts:421",
+      "kind": "cta_navigation",
+      "destination": "/campaigns/${campaign.id}",
+      "file": "app/src/components/campaigns/useCampaignsPage.ts",
+      "line": 421,
+      "evidence": "app/src/components/campaigns/useCampaignsPage.ts:421",
       "requiresDecision": false
     },
     {

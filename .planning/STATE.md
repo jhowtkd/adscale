@@ -4,9 +4,9 @@ milestone: v13.9
 milestone_name: milestone
 current_plan: 5
 status: completed
-stopped_at: Phase 5 items 34–39 done — wizard commands, library, select/retry/download, templates
-last_updated: "2026-07-13T16:00:00.000Z"
-last_activity: 2026-07-13 -- Phase 5 parallel implement; 197 tests green; 40–42 deferred
+stopped_at: Gate 5 P1 fixes — resume workId, library isolate, materialize wired, inventory
+last_updated: "2026-07-13T16:30:00.000Z"
+last_activity: 2026-07-13 -- closed Gate 5 blockers; request re-review
 progress:
   total_phases: 5
   completed_phases: 5
