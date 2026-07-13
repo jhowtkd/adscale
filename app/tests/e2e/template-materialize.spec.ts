@@ -6,6 +6,8 @@ import { expect, test, type Page } from "@playwright/test";
  * Proves: save template → Usar template → created campaign retains
  * platforms, tone, offer, product and other briefing fields, with
  * clientProfileId left null (generic template).
+ *
+ * Auth: login on `page`, then use `page.request` so API setup shares cookies.
  */
 
 const EMAIL = "dev-admin@adscale.local";
@@ -55,11 +57,11 @@ async function login(page: Page): Promise<void> {
 test.describe("Template materialization", () => {
   test("Usar template creates campaign with full briefing snapshot", async ({
     page,
-    request,
   }) => {
     await login(page);
+    const api = page.request;
 
-    const createRes = await request.post("/api/campaigns", {
+    const createRes = await api.post("/api/campaigns", {
       data: {
         ...BRIEF,
         clientProfileId: null,
@@ -72,7 +74,7 @@ test.describe("Template materialization", () => {
     const sourceId = created.campaign.id;
 
     const templateName = `Tpl ${Date.now()}`;
-    const tplRes = await request.post("/api/templates", {
+    const tplRes = await api.post("/api/templates", {
       data: {
         campaignId: sourceId,
         name: templateName,
@@ -94,18 +96,22 @@ test.describe("Template materialization", () => {
     expect(tplBody.template.offer).toBe(BRIEF.offer);
     expect(tplBody.template.product).toBe(BRIEF.product);
 
-    await page.goto("/templates");
-    await expect(page.getByText(templateName)).toBeVisible({ timeout: 15_000 });
+    const templateId = tplBody.template.id;
 
-    await page
+    await page.goto("/templates");
+    const card = page.getByTestId(`template-card-${templateId}`);
+    await expect(card).toBeVisible({ timeout: 15_000 });
+    await expect(card.getByText(templateName)).toBeVisible();
+
+    await card
       .getByRole("button", { name: /Use template|Usar template/i })
-      .first()
       .click();
 
-    await expect(page).toHaveURL(/templateId=/);
+    await expect(page).toHaveURL(new RegExp(`templateId=${templateId}`));
     await expect(page.locator("#campaign-name")).toBeVisible({ timeout: 15_000 });
 
-    await page.locator("#campaign-name").fill(`Materialized ${Date.now()}`);
+    const materializedName = `Materialized ${Date.now()}`;
+    await page.locator("#campaign-name").fill(materializedName);
     const clientValue = await page.locator("#campaign-client").inputValue();
     if (!clientValue) {
       await page.locator("#campaign-client").fill(BRIEF.client);
@@ -140,10 +146,9 @@ test.describe("Template materialization", () => {
     };
 
     await page.waitForURL(CAMPAIGN_URL_RE, { timeout: 30_000 });
+    await expect(page).not.toHaveURL(/templateId=/);
 
-    const detailRes = await request.get(
-      `/api/campaigns/${postBody.campaign.id}`
-    );
+    const detailRes = await api.get(`/api/campaigns/${postBody.campaign.id}`);
     expect(detailRes.ok()).toBeTruthy();
     const detail = (await detailRes.json()) as {
       campaign: typeof postBody.campaign;

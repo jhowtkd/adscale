@@ -175,7 +175,14 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
       .catch((err: unknown) => {
         if (cancelled) return;
         const status =
-          err instanceof TemplateLoadError ? err.status : undefined;
+          err instanceof TemplateLoadError
+            ? err.status
+            : err &&
+                typeof err === "object" &&
+                "status" in err &&
+                typeof (err as { status: unknown }).status === "number"
+              ? (err as { status: number }).status
+              : undefined;
         if (status === 404) {
           setTemplateLoadState("not_found");
           toast.error(tTemplate("loadTemplateNotFound"));
@@ -189,8 +196,15 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
 
     return () => {
       cancelled = true;
+      // Allow remount (React Strict Mode) to refetch the same templateId.
+      if (activeTemplateLoadRef.current === loadKey) {
+        activeTemplateLoadRef.current = null;
+      }
     };
-  }, [templateIdParam, templateRetryToken, tTemplate]);
+    // tTemplate is a stable message catalog for this mount; including it
+    // re-cancels in-flight fetches every render under next-intl mocks.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- templateId/retry drive reloads
+  }, [templateIdParam, templateRetryToken]);
 
   const retryTemplateLoad = useCallback(() => {
     activeTemplateLoadRef.current = null;

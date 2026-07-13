@@ -30,6 +30,7 @@ const steps = [
   ["node", ["scripts/check-primary-destinations.mjs"], "anti-expansion gate"],
   ["node", ["scripts/check-frozen-modules.mjs"], "frozen-modules gate (full branch range)"],
   ["node", ["scripts/check-planning-consistency.mjs"], "planning-consistency gate"],
+  ["node", ["scripts/check-surface-inventory.mjs"], "surface-inventory gate"],
 ];
 
 for (const [command, args, label] of steps) {

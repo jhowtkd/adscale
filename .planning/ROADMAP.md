@@ -2,7 +2,7 @@
 
 ## Milestones
 
-- 📋 **v13.9 Copiloto Criativo Iterativo** - Phases 203-207 (defined 2026-06-27)
+- ✅ **v13.9 Copiloto Criativo Iterativo** - Phases 203-207 (completed 2026-06-28; REQUIREMENTS closed; staging/ops debt inherited — see Accepted Debt in STATE)
 - ✅ **v13.8 Conversa Guiada Adaptativa** - Phases 195-202 closed 2026-06-27 ([audit](milestones/v13.8-MILESTONE-AUDIT.md); live evidence debt accepted by owner)
 - ✅ **v13.7 Qualidade Operacional das Jornadas Guiadas** - Phases 190-194 (shipped 2026-06-26; tech debt: human staging walks + insufficient operational sample)
 - ✅ **v13.6 Jornadas Guiadas do Chat Estratégico** - Phases 184-189 (shipped 2026-06-26; tech debt: staging diagnosis/briefing + live lifecycle verify)
@@ -82,10 +82,10 @@ Plans:
 
 Plans:
 
-- [ ] 205-01-PLAN.md — Creative iteration core domain: types, intent, digest, draft, proposal service with planVersionId binding
-- [ ] 205-02-PLAN.md — refundCredits billing function, CreditConfirmModal, AssistantActionCard creative revision display
-- [ ] 205-03-PLAN.md — revise_creative contract + handler (charge→enqueue→async), derivation job callbacks (version on success, refund on failure)
-- [ ] 205-04-PLAN.md — Service facade, orchestrator unified intent classifier, creative-revisions draft API route
+- [x] 205-01-PLAN.md — Creative iteration core domain: types, intent, digest, draft, proposal service with planVersionId binding
+- [x] 205-02-PLAN.md — refundCredits billing function, CreditConfirmModal, AssistantActionCard creative revision display
+- [x] 205-03-PLAN.md — revise_creative contract + handler (charge→enqueue→async), derivation job callbacks (version on success, refund on failure)
+- [x] 205-04-PLAN.md — Service facade, orchestrator unified intent classifier, creative-revisions draft API route
 
 ### Phase 206: Version Compare and Approval
 

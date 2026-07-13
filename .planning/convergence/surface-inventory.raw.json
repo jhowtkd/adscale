@@ -1,1342 +1,1833 @@
 {
-  "generatedAt": "2026-07-12T23:52:36.342Z",
-  "schemaVersion": 1,
+  "generatedAt": "2026-07-13T00:07:51.445Z",
+  "schemaVersion": 2,
+  "fingerprint": "b4c035dac4f09a57ca6f07a5cd80dc5509a69e31736e04cc01c55241d0260ed0",
   "counts": {
     "dashboardPages": 14,
     "apiRoutes": 170,
-    "ctas": 58
+    "ctas": 58,
+    "requiringDecision": 2
   },
   "dashboardPages": [
     {
+      "id": "page:/admin/quality/brands/:clientProfileId",
       "kind": "dashboard_page",
       "route": "/admin/quality/brands/:clientProfileId",
-      "file": "app/src/app/(dashboard)/admin/quality/brands/[clientProfileId]/page.tsx"
+      "file": "app/src/app/(dashboard)/admin/quality/brands/[clientProfileId]/page.tsx",
+      "requiresDecision": false
     },
     {
+      "id": "page:/assistant",
       "kind": "dashboard_page",
       "route": "/assistant",
-      "file": "app/src/app/(dashboard)/assistant/page.tsx"
+      "file": "app/src/app/(dashboard)/assistant/page.tsx",
+      "requiresDecision": false
     },
     {
+      "id": "page:/brand-kit",
       "kind": "dashboard_page",
       "route": "/brand-kit",
-      "file": "app/src/app/(dashboard)/brand-kit/page.tsx"
+      "file": "app/src/app/(dashboard)/brand-kit/page.tsx",
+      "requiresDecision": false
     },
     {
+      "id": "page:/campaigns/:id",
       "kind": "dashboard_page",
       "route": "/campaigns/:id",
-      "file": "app/src/app/(dashboard)/campaigns/[id]/page.tsx"
+      "file": "app/src/app/(dashboard)/campaigns/[id]/page.tsx",
+      "requiresDecision": false
     },
     {
+      "id": "page:/campaigns/new",
       "kind": "dashboard_page",
       "route": "/campaigns/new",
-      "file": "app/src/app/(dashboard)/campaigns/new/page.tsx"
+      "file": "app/src/app/(dashboard)/campaigns/new/page.tsx",
+      "requiresDecision": false
     },
     {
+      "id": "page:/campaigns",
       "kind": "dashboard_page",
       "route": "/campaigns",
-      "file": "app/src/app/(dashboard)/campaigns/page.tsx"
+      "file": "app/src/app/(dashboard)/campaigns/page.tsx",
+      "requiresDecision": false
     },
     {
+      "id": "page:/dashboard",
       "kind": "dashboard_page",
       "route": "/dashboard",
-      "file": "app/src/app/(dashboard)/dashboard/page.tsx"
+      "file": "app/src/app/(dashboard)/dashboard/page.tsx",
+      "requiresDecision": false
     },
     {
+      "id": "page:/docs",
       "kind": "dashboard_page",
       "route": "/docs",
-      "file": "app/src/app/(dashboard)/docs/page.tsx"
+      "file": "app/src/app/(dashboard)/docs/page.tsx",
+      "requiresDecision": false
     },
     {
+      "id": "page:/feedback",
       "kind": "dashboard_page",
       "route": "/feedback",
-      "file": "app/src/app/(dashboard)/feedback/page.tsx"
+      "file": "app/src/app/(dashboard)/feedback/page.tsx",
+      "requiresDecision": false
     },
     {
+      "id": "page:/library",
       "kind": "dashboard_page",
       "route": "/library",
-      "file": "app/src/app/(dashboard)/library/page.tsx"
+      "file": "app/src/app/(dashboard)/library/page.tsx",
+      "requiresDecision": false
     },
     {
+      "id": "page:/page.tsx",
       "kind": "dashboard_page",
       "route": "/page.tsx",
-      "file": "app/src/app/(dashboard)/page.tsx"
+      "file": "app/src/app/(dashboard)/page.tsx",
+      "requiresDecision": false
     },
     {
+      "id": "page:/quick-tools/create-post",
       "kind": "dashboard_page",
       "route": "/quick-tools/create-post",
-      "file": "app/src/app/(dashboard)/quick-tools/create-post/page.tsx"
+      "file": "app/src/app/(dashboard)/quick-tools/create-post/page.tsx",
+      "requiresDecision": false
     },
     {
+      "id": "page:/settings",
       "kind": "dashboard_page",
       "route": "/settings",
-      "file": "app/src/app/(dashboard)/settings/page.tsx"
+      "file": "app/src/app/(dashboard)/settings/page.tsx",
+      "requiresDecision": false
     },
     {
+      "id": "page:/templates",
       "kind": "dashboard_page",
       "route": "/templates",
-      "file": "app/src/app/(dashboard)/templates/page.tsx"
+      "file": "app/src/app/(dashboard)/templates/page.tsx",
+      "requiresDecision": false
     }
   ],
   "apiRoutes": [
     {
+      "id": "api:/api/admin/quality/brands/[clientProfileId]/evidence",
       "kind": "api_route",
       "route": "/api/admin/quality/brands/[clientProfileId]/evidence",
-      "file": "app/src/app/api/admin/quality/brands/[clientProfileId]/evidence/route.ts"
+      "file": "app/src/app/api/admin/quality/brands/[clientProfileId]/evidence/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/admin/quality/brands/[clientProfileId]/profile",
       "kind": "api_route",
       "route": "/api/admin/quality/brands/[clientProfileId]/profile",
-      "file": "app/src/app/api/admin/quality/brands/[clientProfileId]/profile/route.ts"
+      "file": "app/src/app/api/admin/quality/brands/[clientProfileId]/profile/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/admin/quality/brands/[clientProfileId]/rules",
       "kind": "api_route",
       "route": "/api/admin/quality/brands/[clientProfileId]/rules",
-      "file": "app/src/app/api/admin/quality/brands/[clientProfileId]/rules/route.ts"
+      "file": "app/src/app/api/admin/quality/brands/[clientProfileId]/rules/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/admin/quality/brands/[clientProfileId]/voice",
       "kind": "api_route",
       "route": "/api/admin/quality/brands/[clientProfileId]/voice",
-      "file": "app/src/app/api/admin/quality/brands/[clientProfileId]/voice/route.ts"
+      "file": "app/src/app/api/admin/quality/brands/[clientProfileId]/voice/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/admin/quality/brands",
       "kind": "api_route",
       "route": "/api/admin/quality/brands",
-      "file": "app/src/app/api/admin/quality/brands/route.ts"
+      "file": "app/src/app/api/admin/quality/brands/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/admin/quality/ingestion/backfill",
       "kind": "api_route",
       "route": "/api/admin/quality/ingestion/backfill",
-      "file": "app/src/app/api/admin/quality/ingestion/backfill/route.ts"
+      "file": "app/src/app/api/admin/quality/ingestion/backfill/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/admin/quality/ingestion/status",
       "kind": "api_route",
       "route": "/api/admin/quality/ingestion/status",
-      "file": "app/src/app/api/admin/quality/ingestion/status/route.ts"
+      "file": "app/src/app/api/admin/quality/ingestion/status/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/admin/quality/learning/factual-alerts",
       "kind": "api_route",
       "route": "/api/admin/quality/learning/factual-alerts",
-      "file": "app/src/app/api/admin/quality/learning/factual-alerts/route.ts"
+      "file": "app/src/app/api/admin/quality/learning/factual-alerts/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/admin/quality/learning/proposals/[id]/accept",
       "kind": "api_route",
       "route": "/api/admin/quality/learning/proposals/[id]/accept",
-      "file": "app/src/app/api/admin/quality/learning/proposals/[id]/accept/route.ts"
+      "file": "app/src/app/api/admin/quality/learning/proposals/[id]/accept/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/admin/quality/learning/proposals/[id]/reject",
       "kind": "api_route",
       "route": "/api/admin/quality/learning/proposals/[id]/reject",
-      "file": "app/src/app/api/admin/quality/learning/proposals/[id]/reject/route.ts"
+      "file": "app/src/app/api/admin/quality/learning/proposals/[id]/reject/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/admin/quality/learning/proposals/generate",
       "kind": "api_route",
       "route": "/api/admin/quality/learning/proposals/generate",
-      "file": "app/src/app/api/admin/quality/learning/proposals/generate/route.ts"
+      "file": "app/src/app/api/admin/quality/learning/proposals/generate/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/admin/quality/learning/proposals",
       "kind": "api_route",
       "route": "/api/admin/quality/learning/proposals",
-      "file": "app/src/app/api/admin/quality/learning/proposals/route.ts"
+      "file": "app/src/app/api/admin/quality/learning/proposals/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/admin/testers/[workspaceId]",
       "kind": "api_route",
       "route": "/api/admin/testers/[workspaceId]",
-      "file": "app/src/app/api/admin/testers/[workspaceId]/route.ts"
+      "file": "app/src/app/api/admin/testers/[workspaceId]/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/admin/testers",
       "kind": "api_route",
       "route": "/api/admin/testers",
-      "file": "app/src/app/api/admin/testers/route.ts"
+      "file": "app/src/app/api/admin/testers/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/analytics/events",
       "kind": "api_route",
       "route": "/api/analytics/events",
-      "file": "app/src/app/api/analytics/events/route.ts"
+      "file": "app/src/app/api/analytics/events/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/assistant/actions/[actionId]/cancel",
       "kind": "api_route",
       "route": "/api/assistant/actions/[actionId]/cancel",
-      "file": "app/src/app/api/assistant/actions/[actionId]/cancel/route.ts"
+      "file": "app/src/app/api/assistant/actions/[actionId]/cancel/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/assistant/actions/[actionId]/confirm",
       "kind": "api_route",
       "route": "/api/assistant/actions/[actionId]/confirm",
-      "file": "app/src/app/api/assistant/actions/[actionId]/confirm/route.ts"
+      "file": "app/src/app/api/assistant/actions/[actionId]/confirm/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/assistant/artifact-proposals/[proposalId]/cancel",
       "kind": "api_route",
       "route": "/api/assistant/artifact-proposals/[proposalId]/cancel",
-      "file": "app/src/app/api/assistant/artifact-proposals/[proposalId]/cancel/route.ts"
+      "file": "app/src/app/api/assistant/artifact-proposals/[proposalId]/cancel/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/assistant/threads/[threadId]/artifact-versions/compare",
       "kind": "api_route",
       "route": "/api/assistant/threads/[threadId]/artifact-versions/compare",
-      "file": "app/src/app/api/assistant/threads/[threadId]/artifact-versions/compare/route.ts"
+      "file": "app/src/app/api/assistant/threads/[threadId]/artifact-versions/compare/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/assistant/threads/[threadId]/artifact-versions/comparison-acknowledgements",
       "kind": "api_route",
       "route": "/api/assistant/threads/[threadId]/artifact-versions/comparison-acknowledgements",
-      "file": "app/src/app/api/assistant/threads/[threadId]/artifact-versions/comparison-acknowledgements/route.ts"
+      "file": "app/src/app/api/assistant/threads/[threadId]/artifact-versions/comparison-acknowledgements/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/assistant/threads/[threadId]/artifact-versions/promote",
       "kind": "api_route",
       "route": "/api/assistant/threads/[threadId]/artifact-versions/promote",
-      "file": "app/src/app/api/assistant/threads/[threadId]/artifact-versions/promote/route.ts"
+      "file": "app/src/app/api/assistant/threads/[threadId]/artifact-versions/promote/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/assistant/threads/[threadId]/artifact-versions",
       "kind": "api_route",
       "route": "/api/assistant/threads/[threadId]/artifact-versions",
-      "file": "app/src/app/api/assistant/threads/[threadId]/artifact-versions/route.ts"
+      "file": "app/src/app/api/assistant/threads/[threadId]/artifact-versions/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/assistant/threads/[threadId]/chat",
       "kind": "api_route",
       "route": "/api/assistant/threads/[threadId]/chat",
-      "file": "app/src/app/api/assistant/threads/[threadId]/chat/route.ts"
+      "file": "app/src/app/api/assistant/threads/[threadId]/chat/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/assistant/threads/[threadId]/creative-revisions",
       "kind": "api_route",
       "route": "/api/assistant/threads/[threadId]/creative-revisions",
-      "file": "app/src/app/api/assistant/threads/[threadId]/creative-revisions/route.ts"
+      "file": "app/src/app/api/assistant/threads/[threadId]/creative-revisions/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/assistant/threads/[threadId]/goal/annotations",
       "kind": "api_route",
       "route": "/api/assistant/threads/[threadId]/goal/annotations",
-      "file": "app/src/app/api/assistant/threads/[threadId]/goal/annotations/route.ts"
+      "file": "app/src/app/api/assistant/threads/[threadId]/goal/annotations/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/assistant/threads/[threadId]/goal/annotations/submit",
       "kind": "api_route",
       "route": "/api/assistant/threads/[threadId]/goal/annotations/submit",
-      "file": "app/src/app/api/assistant/threads/[threadId]/goal/annotations/submit/route.ts"
+      "file": "app/src/app/api/assistant/threads/[threadId]/goal/annotations/submit/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/assistant/threads/[threadId]/goal/corpus-consent",
       "kind": "api_route",
       "route": "/api/assistant/threads/[threadId]/goal/corpus-consent",
-      "file": "app/src/app/api/assistant/threads/[threadId]/goal/corpus-consent/route.ts"
+      "file": "app/src/app/api/assistant/threads/[threadId]/goal/corpus-consent/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/assistant/threads/[threadId]/goal",
       "kind": "api_route",
       "route": "/api/assistant/threads/[threadId]/goal",
-      "file": "app/src/app/api/assistant/threads/[threadId]/goal/route.ts"
+      "file": "app/src/app/api/assistant/threads/[threadId]/goal/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/assistant/threads/[threadId]/goal/select-base",
       "kind": "api_route",
       "route": "/api/assistant/threads/[threadId]/goal/select-base",
-      "file": "app/src/app/api/assistant/threads/[threadId]/goal/select-base/route.ts"
+      "file": "app/src/app/api/assistant/threads/[threadId]/goal/select-base/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/assistant/threads/[threadId]/guided-flow/commands",
       "kind": "api_route",
       "route": "/api/assistant/threads/[threadId]/guided-flow/commands",
-      "file": "app/src/app/api/assistant/threads/[threadId]/guided-flow/commands/route.ts"
+      "file": "app/src/app/api/assistant/threads/[threadId]/guided-flow/commands/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/assistant/threads/[threadId]/guided-flow/feedback",
       "kind": "api_route",
       "route": "/api/assistant/threads/[threadId]/guided-flow/feedback",
-      "file": "app/src/app/api/assistant/threads/[threadId]/guided-flow/feedback/route.ts"
+      "file": "app/src/app/api/assistant/threads/[threadId]/guided-flow/feedback/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/assistant/threads/[threadId]/guided-flow/from-zero",
       "kind": "api_route",
       "route": "/api/assistant/threads/[threadId]/guided-flow/from-zero",
-      "file": "app/src/app/api/assistant/threads/[threadId]/guided-flow/from-zero/route.ts"
+      "file": "app/src/app/api/assistant/threads/[threadId]/guided-flow/from-zero/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/assistant/threads/[threadId]/guided-flow",
       "kind": "api_route",
       "route": "/api/assistant/threads/[threadId]/guided-flow",
-      "file": "app/src/app/api/assistant/threads/[threadId]/guided-flow/route.ts"
+      "file": "app/src/app/api/assistant/threads/[threadId]/guided-flow/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/assistant/threads/[threadId]/guided-flow/select-creative",
       "kind": "api_route",
       "route": "/api/assistant/threads/[threadId]/guided-flow/select-creative",
-      "file": "app/src/app/api/assistant/threads/[threadId]/guided-flow/select-creative/route.ts"
+      "file": "app/src/app/api/assistant/threads/[threadId]/guided-flow/select-creative/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/assistant/threads/[threadId]/link-campaign",
       "kind": "api_route",
       "route": "/api/assistant/threads/[threadId]/link-campaign",
-      "file": "app/src/app/api/assistant/threads/[threadId]/link-campaign/route.ts"
+      "file": "app/src/app/api/assistant/threads/[threadId]/link-campaign/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/assistant/threads/[threadId]/messages",
       "kind": "api_route",
       "route": "/api/assistant/threads/[threadId]/messages",
-      "file": "app/src/app/api/assistant/threads/[threadId]/messages/route.ts"
+      "file": "app/src/app/api/assistant/threads/[threadId]/messages/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/assistant/threads/[threadId]/plan-revisions",
       "kind": "api_route",
       "route": "/api/assistant/threads/[threadId]/plan-revisions",
-      "file": "app/src/app/api/assistant/threads/[threadId]/plan-revisions/route.ts"
+      "file": "app/src/app/api/assistant/threads/[threadId]/plan-revisions/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/assistant/threads/[threadId]",
       "kind": "api_route",
       "route": "/api/assistant/threads/[threadId]",
-      "file": "app/src/app/api/assistant/threads/[threadId]/route.ts"
+      "file": "app/src/app/api/assistant/threads/[threadId]/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/assistant/threads",
       "kind": "api_route",
       "route": "/api/assistant/threads",
-      "file": "app/src/app/api/assistant/threads/route.ts"
+      "file": "app/src/app/api/assistant/threads/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/auth/[...all]",
       "kind": "api_route",
       "route": "/api/auth/[...all]",
-      "file": "app/src/app/api/auth/[...all]/route.ts"
+      "file": "app/src/app/api/auth/[...all]/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/billing/beta/redeem",
       "kind": "api_route",
       "route": "/api/billing/beta/redeem",
-      "file": "app/src/app/api/billing/beta/redeem/route.ts"
+      "file": "app/src/app/api/billing/beta/redeem/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/billing/checkout",
       "kind": "api_route",
       "route": "/api/billing/checkout",
-      "file": "app/src/app/api/billing/checkout/route.ts"
+      "file": "app/src/app/api/billing/checkout/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/billing/history",
       "kind": "api_route",
       "route": "/api/billing/history",
-      "file": "app/src/app/api/billing/history/route.ts"
+      "file": "app/src/app/api/billing/history/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/billing/portal",
       "kind": "api_route",
       "route": "/api/billing/portal",
-      "file": "app/src/app/api/billing/portal/route.ts"
+      "file": "app/src/app/api/billing/portal/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/billing/status",
       "kind": "api_route",
       "route": "/api/billing/status",
-      "file": "app/src/app/api/billing/status/route.ts"
+      "file": "app/src/app/api/billing/status/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/billing/webhook",
       "kind": "api_route",
       "route": "/api/billing/webhook",
-      "file": "app/src/app/api/billing/webhook/route.ts"
+      "file": "app/src/app/api/billing/webhook/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/build-id",
       "kind": "api_route",
       "route": "/api/build-id",
-      "file": "app/src/app/api/build-id/route.ts"
+      "file": "app/src/app/api/build-id/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/campaigns/[id]/analyze",
       "kind": "api_route",
       "route": "/api/campaigns/[id]/analyze",
-      "file": "app/src/app/api/campaigns/[id]/analyze/route.ts"
+      "file": "app/src/app/api/campaigns/[id]/analyze/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/campaigns/[id]/approval-package",
       "kind": "api_route",
       "route": "/api/campaigns/[id]/approval-package",
-      "file": "app/src/app/api/campaigns/[id]/approval-package/route.ts"
+      "file": "app/src/app/api/campaigns/[id]/approval-package/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/campaigns/[id]/assets/[assetId]/preflight",
       "kind": "api_route",
       "route": "/api/campaigns/[id]/assets/[assetId]/preflight",
-      "file": "app/src/app/api/campaigns/[id]/assets/[assetId]/preflight/route.ts"
+      "file": "app/src/app/api/campaigns/[id]/assets/[assetId]/preflight/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/campaigns/[id]/assets/complete",
       "kind": "api_route",
       "route": "/api/campaigns/[id]/assets/complete",
-      "file": "app/src/app/api/campaigns/[id]/assets/complete/route.ts"
+      "file": "app/src/app/api/campaigns/[id]/assets/complete/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/campaigns/[id]/assets/link",
       "kind": "api_route",
       "route": "/api/campaigns/[id]/assets/link",
-      "file": "app/src/app/api/campaigns/[id]/assets/link/route.ts"
+      "file": "app/src/app/api/campaigns/[id]/assets/link/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/campaigns/[id]/assets/presign",
       "kind": "api_route",
       "route": "/api/campaigns/[id]/assets/presign",
-      "file": "app/src/app/api/campaigns/[id]/assets/presign/route.ts"
+      "file": "app/src/app/api/campaigns/[id]/assets/presign/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/campaigns/[id]/assets",
       "kind": "api_route",
       "route": "/api/campaigns/[id]/assets",
-      "file": "app/src/app/api/campaigns/[id]/assets/route.ts"
+      "file": "app/src/app/api/campaigns/[id]/assets/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/campaigns/[id]/assets/upload",
       "kind": "api_route",
       "route": "/api/campaigns/[id]/assets/upload",
-      "file": "app/src/app/api/campaigns/[id]/assets/upload/route.ts"
+      "file": "app/src/app/api/campaigns/[id]/assets/upload/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/campaigns/[id]/auto-briefing",
       "kind": "api_route",
       "route": "/api/campaigns/[id]/auto-briefing",
-      "file": "app/src/app/api/campaigns/[id]/auto-briefing/route.ts"
+      "file": "app/src/app/api/campaigns/[id]/auto-briefing/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/campaigns/[id]/comparisons",
       "kind": "api_route",
       "route": "/api/campaigns/[id]/comparisons",
-      "file": "app/src/app/api/campaigns/[id]/comparisons/route.ts"
+      "file": "app/src/app/api/campaigns/[id]/comparisons/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/campaigns/[id]/competitors/[competitorId]",
       "kind": "api_route",
       "route": "/api/campaigns/[id]/competitors/[competitorId]",
-      "file": "app/src/app/api/campaigns/[id]/competitors/[competitorId]/route.ts"
+      "file": "app/src/app/api/campaigns/[id]/competitors/[competitorId]/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/campaigns/[id]/competitors/analyze",
       "kind": "api_route",
       "route": "/api/campaigns/[id]/competitors/analyze",
-      "file": "app/src/app/api/campaigns/[id]/competitors/analyze/route.ts"
+      "file": "app/src/app/api/campaigns/[id]/competitors/analyze/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/campaigns/[id]/competitors",
       "kind": "api_route",
       "route": "/api/campaigns/[id]/competitors",
-      "file": "app/src/app/api/campaigns/[id]/competitors/route.ts"
+      "file": "app/src/app/api/campaigns/[id]/competitors/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/campaigns/[id]/competitors/strategy",
       "kind": "api_route",
       "route": "/api/campaigns/[id]/competitors/strategy",
-      "file": "app/src/app/api/campaigns/[id]/competitors/strategy/route.ts"
+      "file": "app/src/app/api/campaigns/[id]/competitors/strategy/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/campaigns/[id]/derivations",
       "kind": "api_route",
       "route": "/api/campaigns/[id]/derivations",
-      "file": "app/src/app/api/campaigns/[id]/derivations/route.ts"
+      "file": "app/src/app/api/campaigns/[id]/derivations/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/campaigns/[id]/diagnosis/regenerate",
       "kind": "api_route",
       "route": "/api/campaigns/[id]/diagnosis/regenerate",
-      "file": "app/src/app/api/campaigns/[id]/diagnosis/regenerate/route.ts"
+      "file": "app/src/app/api/campaigns/[id]/diagnosis/regenerate/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/campaigns/[id]/diagnosis",
       "kind": "api_route",
       "route": "/api/campaigns/[id]/diagnosis",
-      "file": "app/src/app/api/campaigns/[id]/diagnosis/route.ts"
+      "file": "app/src/app/api/campaigns/[id]/diagnosis/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/campaigns/[id]/hypotheses/[hypothesisId]/compare",
       "kind": "api_route",
       "route": "/api/campaigns/[id]/hypotheses/[hypothesisId]/compare",
-      "file": "app/src/app/api/campaigns/[id]/hypotheses/[hypothesisId]/compare/route.ts"
+      "file": "app/src/app/api/campaigns/[id]/hypotheses/[hypothesisId]/compare/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/campaigns/[id]/hypotheses/[hypothesisId]",
       "kind": "api_route",
       "route": "/api/campaigns/[id]/hypotheses/[hypothesisId]",
-      "file": "app/src/app/api/campaigns/[id]/hypotheses/[hypothesisId]/route.ts"
+      "file": "app/src/app/api/campaigns/[id]/hypotheses/[hypothesisId]/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/campaigns/[id]/hypotheses",
       "kind": "api_route",
       "route": "/api/campaigns/[id]/hypotheses",
-      "file": "app/src/app/api/campaigns/[id]/hypotheses/route.ts"
+      "file": "app/src/app/api/campaigns/[id]/hypotheses/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/campaigns/[id]/learnings",
       "kind": "api_route",
       "route": "/api/campaigns/[id]/learnings",
-      "file": "app/src/app/api/campaigns/[id]/learnings/route.ts"
+      "file": "app/src/app/api/campaigns/[id]/learnings/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/campaigns/[id]/output-recommendation",
       "kind": "api_route",
       "route": "/api/campaigns/[id]/output-recommendation",
-      "file": "app/src/app/api/campaigns/[id]/output-recommendation/route.ts"
+      "file": "app/src/app/api/campaigns/[id]/output-recommendation/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/campaigns/[id]/performance/import/batches/[batchId]",
       "kind": "api_route",
       "route": "/api/campaigns/[id]/performance/import/batches/[batchId]",
-      "file": "app/src/app/api/campaigns/[id]/performance/import/batches/[batchId]/route.ts"
+      "file": "app/src/app/api/campaigns/[id]/performance/import/batches/[batchId]/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/campaigns/[id]/performance/import/batches",
       "kind": "api_route",
       "route": "/api/campaigns/[id]/performance/import/batches",
-      "file": "app/src/app/api/campaigns/[id]/performance/import/batches/route.ts"
+      "file": "app/src/app/api/campaigns/[id]/performance/import/batches/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/campaigns/[id]/performance/import/confirm",
       "kind": "api_route",
       "route": "/api/campaigns/[id]/performance/import/confirm",
-      "file": "app/src/app/api/campaigns/[id]/performance/import/confirm/route.ts"
+      "file": "app/src/app/api/campaigns/[id]/performance/import/confirm/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/campaigns/[id]/performance/import/preview",
       "kind": "api_route",
       "route": "/api/campaigns/[id]/performance/import/preview",
-      "file": "app/src/app/api/campaigns/[id]/performance/import/preview/route.ts"
+      "file": "app/src/app/api/campaigns/[id]/performance/import/preview/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/campaigns/[id]/performance",
       "kind": "api_route",
       "route": "/api/campaigns/[id]/performance",
-      "file": "app/src/app/api/campaigns/[id]/performance/route.ts"
+      "file": "app/src/app/api/campaigns/[id]/performance/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/campaigns/[id]/pilot",
       "kind": "api_route",
       "route": "/api/campaigns/[id]/pilot",
-      "file": "app/src/app/api/campaigns/[id]/pilot/route.ts"
+      "file": "app/src/app/api/campaigns/[id]/pilot/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/campaigns/[id]/plan",
       "kind": "api_route",
       "route": "/api/campaigns/[id]/plan",
-      "file": "app/src/app/api/campaigns/[id]/plan/route.ts"
+      "file": "app/src/app/api/campaigns/[id]/plan/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/campaigns/[id]/recommendation",
       "kind": "api_route",
       "route": "/api/campaigns/[id]/recommendation",
-      "file": "app/src/app/api/campaigns/[id]/recommendation/route.ts"
+      "file": "app/src/app/api/campaigns/[id]/recommendation/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/campaigns/[id]/restyle",
       "kind": "api_route",
       "route": "/api/campaigns/[id]/restyle",
-      "file": "app/src/app/api/campaigns/[id]/restyle/route.ts"
+      "file": "app/src/app/api/campaigns/[id]/restyle/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/campaigns/[id]",
       "kind": "api_route",
       "route": "/api/campaigns/[id]",
-      "file": "app/src/app/api/campaigns/[id]/route.ts"
+      "file": "app/src/app/api/campaigns/[id]/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/campaigns/[id]/smart-resize-preview",
       "kind": "api_route",
       "route": "/api/campaigns/[id]/smart-resize-preview",
-      "file": "app/src/app/api/campaigns/[id]/smart-resize-preview/route.ts"
+      "file": "app/src/app/api/campaigns/[id]/smart-resize-preview/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/campaigns/[id]/suggest-ctas",
       "kind": "api_route",
       "route": "/api/campaigns/[id]/suggest-ctas",
-      "file": "app/src/app/api/campaigns/[id]/suggest-ctas/route.ts"
+      "file": "app/src/app/api/campaigns/[id]/suggest-ctas/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/campaigns",
       "kind": "api_route",
       "route": "/api/campaigns",
-      "file": "app/src/app/api/campaigns/route.ts"
+      "file": "app/src/app/api/campaigns/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/client-profiles/[id]/learnings",
       "kind": "api_route",
       "route": "/api/client-profiles/[id]/learnings",
-      "file": "app/src/app/api/client-profiles/[id]/learnings/route.ts"
+      "file": "app/src/app/api/client-profiles/[id]/learnings/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/client-profiles/[id]/memory",
       "kind": "api_route",
       "route": "/api/client-profiles/[id]/memory",
-      "file": "app/src/app/api/client-profiles/[id]/memory/route.ts"
+      "file": "app/src/app/api/client-profiles/[id]/memory/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/client-profiles/[id]/output-learnings",
       "kind": "api_route",
       "route": "/api/client-profiles/[id]/output-learnings",
-      "file": "app/src/app/api/client-profiles/[id]/output-learnings/route.ts"
+      "file": "app/src/app/api/client-profiles/[id]/output-learnings/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/client-profiles/[id]/references",
       "kind": "api_route",
       "route": "/api/client-profiles/[id]/references",
-      "file": "app/src/app/api/client-profiles/[id]/references/route.ts"
+      "file": "app/src/app/api/client-profiles/[id]/references/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/client-profiles/[id]/training-assets/[referenceId]",
       "kind": "api_route",
       "route": "/api/client-profiles/[id]/training-assets/[referenceId]",
-      "file": "app/src/app/api/client-profiles/[id]/training-assets/[referenceId]/route.ts"
+      "file": "app/src/app/api/client-profiles/[id]/training-assets/[referenceId]/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/client-profiles/[id]/training-assets",
       "kind": "api_route",
       "route": "/api/client-profiles/[id]/training-assets",
-      "file": "app/src/app/api/client-profiles/[id]/training-assets/route.ts"
+      "file": "app/src/app/api/client-profiles/[id]/training-assets/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/client-profiles/[id]/training-status",
       "kind": "api_route",
       "route": "/api/client-profiles/[id]/training-status",
-      "file": "app/src/app/api/client-profiles/[id]/training-status/route.ts"
+      "file": "app/src/app/api/client-profiles/[id]/training-status/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/client-profiles/[id]/voice/approve",
       "kind": "api_route",
       "route": "/api/client-profiles/[id]/voice/approve",
-      "file": "app/src/app/api/client-profiles/[id]/voice/approve/route.ts"
+      "file": "app/src/app/api/client-profiles/[id]/voice/approve/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/client-profiles/[id]/voice/extract",
       "kind": "api_route",
       "route": "/api/client-profiles/[id]/voice/extract",
-      "file": "app/src/app/api/client-profiles/[id]/voice/extract/route.ts"
+      "file": "app/src/app/api/client-profiles/[id]/voice/extract/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/client-profiles",
       "kind": "api_route",
       "route": "/api/client-profiles",
-      "file": "app/src/app/api/client-profiles/route.ts"
+      "file": "app/src/app/api/client-profiles/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/creative-work/[id]/copy",
       "kind": "api_route",
       "route": "/api/creative-work/[id]/copy",
-      "file": "app/src/app/api/creative-work/[id]/copy/route.ts"
+      "file": "app/src/app/api/creative-work/[id]/copy/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/creative-work/[id]/generate",
       "kind": "api_route",
       "route": "/api/creative-work/[id]/generate",
-      "file": "app/src/app/api/creative-work/[id]/generate/route.ts"
+      "file": "app/src/app/api/creative-work/[id]/generate/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/creative-work/[id]/identity-options",
       "kind": "api_route",
       "route": "/api/creative-work/[id]/identity-options",
-      "file": "app/src/app/api/creative-work/[id]/identity-options/route.ts"
+      "file": "app/src/app/api/creative-work/[id]/identity-options/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/creative-work/[id]/outputs/[outputId]/download",
       "kind": "api_route",
       "route": "/api/creative-work/[id]/outputs/[outputId]/download",
-      "file": "app/src/app/api/creative-work/[id]/outputs/[outputId]/download/route.ts"
+      "file": "app/src/app/api/creative-work/[id]/outputs/[outputId]/download/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/creative-work/[id]/outputs/[outputId]/retry",
       "kind": "api_route",
       "route": "/api/creative-work/[id]/outputs/[outputId]/retry",
-      "file": "app/src/app/api/creative-work/[id]/outputs/[outputId]/retry/route.ts"
+      "file": "app/src/app/api/creative-work/[id]/outputs/[outputId]/retry/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/creative-work/[id]/outputs/[outputId]/select",
       "kind": "api_route",
       "route": "/api/creative-work/[id]/outputs/[outputId]/select",
-      "file": "app/src/app/api/creative-work/[id]/outputs/[outputId]/select/route.ts"
+      "file": "app/src/app/api/creative-work/[id]/outputs/[outputId]/select/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/creative-work/[id]",
       "kind": "api_route",
       "route": "/api/creative-work/[id]",
-      "file": "app/src/app/api/creative-work/[id]/route.ts"
+      "file": "app/src/app/api/creative-work/[id]/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/creative-work",
       "kind": "api_route",
       "route": "/api/creative-work",
-      "file": "app/src/app/api/creative-work/route.ts"
+      "file": "app/src/app/api/creative-work/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/creatives/[id]/persona-simulation",
       "kind": "api_route",
       "route": "/api/creatives/[id]/persona-simulation",
-      "file": "app/src/app/api/creatives/[id]/persona-simulation/route.ts"
+      "file": "app/src/app/api/creatives/[id]/persona-simulation/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/dashboard",
       "kind": "api_route",
       "route": "/api/dashboard",
-      "file": "app/src/app/api/dashboard/route.ts"
+      "file": "app/src/app/api/dashboard/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/dashboard/stats",
       "kind": "api_route",
       "route": "/api/dashboard/stats",
-      "file": "app/src/app/api/dashboard/stats/route.ts"
+      "file": "app/src/app/api/dashboard/stats/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/derivations/[id]/copy-variants/[variantId]",
       "kind": "api_route",
       "route": "/api/derivations/[id]/copy-variants/[variantId]",
-      "file": "app/src/app/api/derivations/[id]/copy-variants/[variantId]/route.ts"
+      "file": "app/src/app/api/derivations/[id]/copy-variants/[variantId]/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/derivations/[id]/copy-variants",
       "kind": "api_route",
       "route": "/api/derivations/[id]/copy-variants",
-      "file": "app/src/app/api/derivations/[id]/copy-variants/route.ts"
+      "file": "app/src/app/api/derivations/[id]/copy-variants/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/derivations/[id]/delivery-package",
       "kind": "api_route",
       "route": "/api/derivations/[id]/delivery-package",
-      "file": "app/src/app/api/derivations/[id]/delivery-package/route.ts"
+      "file": "app/src/app/api/derivations/[id]/delivery-package/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/derivations/[id]/landing-page",
       "kind": "api_route",
       "route": "/api/derivations/[id]/landing-page",
-      "file": "app/src/app/api/derivations/[id]/landing-page/route.ts"
+      "file": "app/src/app/api/derivations/[id]/landing-page/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/derivations/[id]/qa",
       "kind": "api_route",
       "route": "/api/derivations/[id]/qa",
-      "file": "app/src/app/api/derivations/[id]/qa/route.ts"
+      "file": "app/src/app/api/derivations/[id]/qa/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/derivations/[id]/regenerate",
       "kind": "api_route",
       "route": "/api/derivations/[id]/regenerate",
-      "file": "app/src/app/api/derivations/[id]/regenerate/route.ts"
+      "file": "app/src/app/api/derivations/[id]/regenerate/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/derivations/[id]/review",
       "kind": "api_route",
       "route": "/api/derivations/[id]/review",
-      "file": "app/src/app/api/derivations/[id]/review/route.ts"
+      "file": "app/src/app/api/derivations/[id]/review/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/derivations/[id]/save-reference",
       "kind": "api_route",
       "route": "/api/derivations/[id]/save-reference",
-      "file": "app/src/app/api/derivations/[id]/save-reference/route.ts"
+      "file": "app/src/app/api/derivations/[id]/save-reference/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/dev/reset-token",
       "kind": "api_route",
       "route": "/api/dev/reset-token",
-      "file": "app/src/app/api/dev/reset-token/route.ts"
+      "file": "app/src/app/api/dev/reset-token/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/export/zip",
       "kind": "api_route",
       "route": "/api/export/zip",
-      "file": "app/src/app/api/export/zip/route.ts"
+      "file": "app/src/app/api/export/zip/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/exports",
       "kind": "api_route",
       "route": "/api/exports",
-      "file": "app/src/app/api/exports/route.ts"
+      "file": "app/src/app/api/exports/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/feedback/analytics/artifact-iteration-funnel",
       "kind": "api_route",
       "route": "/api/feedback/analytics/artifact-iteration-funnel",
-      "file": "app/src/app/api/feedback/analytics/artifact-iteration-funnel/route.ts"
+      "file": "app/src/app/api/feedback/analytics/artifact-iteration-funnel/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/feedback/analytics/credit-signals",
       "kind": "api_route",
       "route": "/api/feedback/analytics/credit-signals",
-      "file": "app/src/app/api/feedback/analytics/credit-signals/route.ts"
+      "file": "app/src/app/api/feedback/analytics/credit-signals/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/feedback/analytics/export.csv",
       "kind": "api_route",
       "route": "/api/feedback/analytics/export.csv",
-      "file": "app/src/app/api/feedback/analytics/export.csv/route.ts"
+      "file": "app/src/app/api/feedback/analytics/export.csv/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/feedback/analytics/funnel",
       "kind": "api_route",
       "route": "/api/feedback/analytics/funnel",
-      "file": "app/src/app/api/feedback/analytics/funnel/route.ts"
+      "file": "app/src/app/api/feedback/analytics/funnel/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/feedback/analytics/goal-agent",
       "kind": "api_route",
       "route": "/api/feedback/analytics/goal-agent",
-      "file": "app/src/app/api/feedback/analytics/goal-agent/route.ts"
+      "file": "app/src/app/api/feedback/analytics/goal-agent/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/feedback/analytics/guided-flow-funnel",
       "kind": "api_route",
       "route": "/api/feedback/analytics/guided-flow-funnel",
-      "file": "app/src/app/api/feedback/analytics/guided-flow-funnel/route.ts"
+      "file": "app/src/app/api/feedback/analytics/guided-flow-funnel/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/feedback/beta-sessions/[id]/notes",
       "kind": "api_route",
       "route": "/api/feedback/beta-sessions/[id]/notes",
-      "file": "app/src/app/api/feedback/beta-sessions/[id]/notes/route.ts"
+      "file": "app/src/app/api/feedback/beta-sessions/[id]/notes/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/feedback/beta-sessions/[id]",
       "kind": "api_route",
       "route": "/api/feedback/beta-sessions/[id]",
-      "file": "app/src/app/api/feedback/beta-sessions/[id]/route.ts"
+      "file": "app/src/app/api/feedback/beta-sessions/[id]/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/feedback/beta-sessions/[id]/summary",
       "kind": "api_route",
       "route": "/api/feedback/beta-sessions/[id]/summary",
-      "file": "app/src/app/api/feedback/beta-sessions/[id]/summary/route.ts"
+      "file": "app/src/app/api/feedback/beta-sessions/[id]/summary/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/feedback/beta-sessions",
       "kind": "api_route",
       "route": "/api/feedback/beta-sessions",
-      "file": "app/src/app/api/feedback/beta-sessions/route.ts"
+      "file": "app/src/app/api/feedback/beta-sessions/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/feedback/calibration-adjustments/[id]/accept",
       "kind": "api_route",
       "route": "/api/feedback/calibration-adjustments/[id]/accept",
-      "file": "app/src/app/api/feedback/calibration-adjustments/[id]/accept/route.ts"
+      "file": "app/src/app/api/feedback/calibration-adjustments/[id]/accept/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/feedback/calibration-adjustments/[id]/reject",
       "kind": "api_route",
       "route": "/api/feedback/calibration-adjustments/[id]/reject",
-      "file": "app/src/app/api/feedback/calibration-adjustments/[id]/reject/route.ts"
+      "file": "app/src/app/api/feedback/calibration-adjustments/[id]/reject/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/feedback/global-corpus-evidence",
       "kind": "api_route",
       "route": "/api/feedback/global-corpus-evidence",
-      "file": "app/src/app/api/feedback/global-corpus-evidence/route.ts"
+      "file": "app/src/app/api/feedback/global-corpus-evidence/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/feedback/guided-flow/staging-evidence",
       "kind": "api_route",
       "route": "/api/feedback/guided-flow/staging-evidence",
-      "file": "app/src/app/api/feedback/guided-flow/staging-evidence/route.ts"
+      "file": "app/src/app/api/feedback/guided-flow/staging-evidence/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/feedback/human-quality-corpus/[id]/evaluation",
       "kind": "api_route",
       "route": "/api/feedback/human-quality-corpus/[id]/evaluation",
-      "file": "app/src/app/api/feedback/human-quality-corpus/[id]/evaluation/route.ts"
+      "file": "app/src/app/api/feedback/human-quality-corpus/[id]/evaluation/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/feedback/human-quality-corpus/candidates/[id]/promote",
       "kind": "api_route",
       "route": "/api/feedback/human-quality-corpus/candidates/[id]/promote",
-      "file": "app/src/app/api/feedback/human-quality-corpus/candidates/[id]/promote/route.ts"
+      "file": "app/src/app/api/feedback/human-quality-corpus/candidates/[id]/promote/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/feedback/human-quality-corpus/candidates",
       "kind": "api_route",
       "route": "/api/feedback/human-quality-corpus/candidates",
-      "file": "app/src/app/api/feedback/human-quality-corpus/candidates/route.ts"
+      "file": "app/src/app/api/feedback/human-quality-corpus/candidates/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/feedback/human-quality-corpus",
       "kind": "api_route",
       "route": "/api/feedback/human-quality-corpus",
-      "file": "app/src/app/api/feedback/human-quality-corpus/route.ts"
+      "file": "app/src/app/api/feedback/human-quality-corpus/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/feedback/learning-impact",
       "kind": "api_route",
       "route": "/api/feedback/learning-impact",
-      "file": "app/src/app/api/feedback/learning-impact/route.ts"
+      "file": "app/src/app/api/feedback/learning-impact/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/feedback/mission-credit-signals",
       "kind": "api_route",
       "route": "/api/feedback/mission-credit-signals",
-      "file": "app/src/app/api/feedback/mission-credit-signals/route.ts"
+      "file": "app/src/app/api/feedback/mission-credit-signals/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/feedback/quality-improvement",
       "kind": "api_route",
       "route": "/api/feedback/quality-improvement",
-      "file": "app/src/app/api/feedback/quality-improvement/route.ts"
+      "file": "app/src/app/api/feedback/quality-improvement/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/feedback/quality-trend",
       "kind": "api_route",
       "route": "/api/feedback/quality-trend",
-      "file": "app/src/app/api/feedback/quality-trend/route.ts"
+      "file": "app/src/app/api/feedback/quality-trend/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/feedback/reports/[id]",
       "kind": "api_route",
       "route": "/api/feedback/reports/[id]",
-      "file": "app/src/app/api/feedback/reports/[id]/route.ts"
+      "file": "app/src/app/api/feedback/reports/[id]/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/feedback/reports",
       "kind": "api_route",
       "route": "/api/feedback/reports",
-      "file": "app/src/app/api/feedback/reports/route.ts"
+      "file": "app/src/app/api/feedback/reports/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/feedback/sample-coverage",
       "kind": "api_route",
       "route": "/api/feedback/sample-coverage",
-      "file": "app/src/app/api/feedback/sample-coverage/route.ts"
+      "file": "app/src/app/api/feedback/sample-coverage/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/feedback/score-calibration",
       "kind": "api_route",
       "route": "/api/feedback/score-calibration",
-      "file": "app/src/app/api/feedback/score-calibration/route.ts"
+      "file": "app/src/app/api/feedback/score-calibration/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/health",
       "kind": "api_route",
       "route": "/api/health",
-      "file": "app/src/app/api/health/route.ts"
+      "file": "app/src/app/api/health/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/inngest",
       "kind": "api_route",
       "route": "/api/inngest",
-      "file": "app/src/app/api/inngest/route.ts"
+      "file": "app/src/app/api/inngest/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/notifications/[id]/read",
       "kind": "api_route",
       "route": "/api/notifications/[id]/read",
-      "file": "app/src/app/api/notifications/[id]/read/route.ts"
+      "file": "app/src/app/api/notifications/[id]/read/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/notifications",
       "kind": "api_route",
       "route": "/api/notifications",
-      "file": "app/src/app/api/notifications/route.ts"
+      "file": "app/src/app/api/notifications/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/notifications/webhook",
       "kind": "api_route",
       "route": "/api/notifications/webhook",
-      "file": "app/src/app/api/notifications/webhook/route.ts"
+      "file": "app/src/app/api/notifications/webhook/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/share/[token]/asset/[derivationId]",
       "kind": "api_route",
       "route": "/api/share/[token]/asset/[derivationId]",
-      "file": "app/src/app/api/share/[token]/asset/[derivationId]/route.ts"
+      "file": "app/src/app/api/share/[token]/asset/[derivationId]/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/share",
       "kind": "api_route",
       "route": "/api/share",
-      "file": "app/src/app/api/share/route.ts"
+      "file": "app/src/app/api/share/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/templates/[id]",
       "kind": "api_route",
       "route": "/api/templates/[id]",
-      "file": "app/src/app/api/templates/[id]/route.ts"
+      "file": "app/src/app/api/templates/[id]/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/templates",
       "kind": "api_route",
       "route": "/api/templates",
-      "file": "app/src/app/api/templates/route.ts"
+      "file": "app/src/app/api/templates/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/user/account",
       "kind": "api_route",
       "route": "/api/user/account",
-      "file": "app/src/app/api/user/account/route.ts"
+      "file": "app/src/app/api/user/account/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/user/export",
       "kind": "api_route",
       "route": "/api/user/export",
-      "file": "app/src/app/api/user/export/route.ts"
+      "file": "app/src/app/api/user/export/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/user/locale",
       "kind": "api_route",
       "route": "/api/user/locale",
-      "file": "app/src/app/api/user/locale/route.ts"
+      "file": "app/src/app/api/user/locale/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/user/onboarding/restart",
       "kind": "api_route",
       "route": "/api/user/onboarding/restart",
-      "file": "app/src/app/api/user/onboarding/restart/route.ts"
+      "file": "app/src/app/api/user/onboarding/restart/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/user/onboarding",
       "kind": "api_route",
       "route": "/api/user/onboarding",
-      "file": "app/src/app/api/user/onboarding/route.ts"
+      "file": "app/src/app/api/user/onboarding/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/user/profile/avatar",
       "kind": "api_route",
       "route": "/api/user/profile/avatar",
-      "file": "app/src/app/api/user/profile/avatar/route.ts"
+      "file": "app/src/app/api/user/profile/avatar/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/user/profile",
       "kind": "api_route",
       "route": "/api/user/profile",
-      "file": "app/src/app/api/user/profile/route.ts"
+      "file": "app/src/app/api/user/profile/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/waitlist",
       "kind": "api_route",
       "route": "/api/waitlist",
-      "file": "app/src/app/api/waitlist/route.ts"
+      "file": "app/src/app/api/waitlist/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/workspace/assets/[id]",
       "kind": "api_route",
       "route": "/api/workspace/assets/[id]",
-      "file": "app/src/app/api/workspace/assets/[id]/route.ts"
+      "file": "app/src/app/api/workspace/assets/[id]/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/workspace/assets",
       "kind": "api_route",
       "route": "/api/workspace/assets",
-      "file": "app/src/app/api/workspace/assets/route.ts"
+      "file": "app/src/app/api/workspace/assets/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/workspace/brand-kit/extract",
       "kind": "api_route",
       "route": "/api/workspace/brand-kit/extract",
-      "file": "app/src/app/api/workspace/brand-kit/extract/route.ts"
+      "file": "app/src/app/api/workspace/brand-kit/extract/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/workspace/brand-kit/extract-multi",
       "kind": "api_route",
       "route": "/api/workspace/brand-kit/extract-multi",
-      "file": "app/src/app/api/workspace/brand-kit/extract-multi/route.ts"
+      "file": "app/src/app/api/workspace/brand-kit/extract-multi/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/workspace/brand-kit/logo",
       "kind": "api_route",
       "route": "/api/workspace/brand-kit/logo",
-      "file": "app/src/app/api/workspace/brand-kit/logo/route.ts"
+      "file": "app/src/app/api/workspace/brand-kit/logo/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/workspace/brand-kit",
       "kind": "api_route",
       "route": "/api/workspace/brand-kit",
-      "file": "app/src/app/api/workspace/brand-kit/route.ts"
+      "file": "app/src/app/api/workspace/brand-kit/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/workspace/invites/accept",
       "kind": "api_route",
       "route": "/api/workspace/invites/accept",
-      "file": "app/src/app/api/workspace/invites/accept/route.ts"
+      "file": "app/src/app/api/workspace/invites/accept/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/workspace/invites",
       "kind": "api_route",
       "route": "/api/workspace/invites",
-      "file": "app/src/app/api/workspace/invites/route.ts"
+      "file": "app/src/app/api/workspace/invites/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/workspace/members",
       "kind": "api_route",
       "route": "/api/workspace/members",
-      "file": "app/src/app/api/workspace/members/route.ts"
+      "file": "app/src/app/api/workspace/members/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/workspace/mission-insights",
       "kind": "api_route",
       "route": "/api/workspace/mission-insights",
-      "file": "app/src/app/api/workspace/mission-insights/route.ts"
+      "file": "app/src/app/api/workspace/mission-insights/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/workspace/missions",
       "kind": "api_route",
       "route": "/api/workspace/missions",
-      "file": "app/src/app/api/workspace/missions/route.ts"
+      "file": "app/src/app/api/workspace/missions/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/workspace/progression",
       "kind": "api_route",
       "route": "/api/workspace/progression",
-      "file": "app/src/app/api/workspace/progression/route.ts"
+      "file": "app/src/app/api/workspace/progression/route.ts",
+      "requiresDecision": false
     },
     {
+      "id": "api:/api/workspace/settings",
       "kind": "api_route",
       "route": "/api/workspace/settings",
-      "file": "app/src/app/api/workspace/settings/route.ts"
+      "file": "app/src/app/api/workspace/settings/route.ts",
+      "requiresDecision": false
     }
   ],
   "ctas": [
     {
+      "id": "nav:app/src/components/assistant/AssistantStartComposer.tsx:238",
       "kind": "cta_navigation",
       "destination": "/campaigns?new=1",
       "file": "app/src/components/assistant/AssistantStartComposer.tsx",
       "line": 238,
-      "evidence": "app/src/components/assistant/AssistantStartComposer.tsx:238"
+      "evidence": "app/src/components/assistant/AssistantStartComposer.tsx:238",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/auth/SocialAuthButtons.tsx:90",
       "kind": "cta_navigation",
       "destination": "/terms",
       "file": "app/src/components/auth/SocialAuthButtons.tsx",
       "line": 90,
-      "evidence": "app/src/components/auth/SocialAuthButtons.tsx:90"
+      "evidence": "app/src/components/auth/SocialAuthButtons.tsx:90",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/auth/SocialAuthButtons.tsx:94",
       "kind": "cta_navigation",
       "destination": "/privacy",
       "file": "app/src/components/auth/SocialAuthButtons.tsx",
       "line": 94,
-      "evidence": "app/src/components/auth/SocialAuthButtons.tsx:94"
+      "evidence": "app/src/components/auth/SocialAuthButtons.tsx:94",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/brand-training/BrandTrainingWizard.tsx:164",
       "kind": "cta_navigation",
       "destination": "/brand-kit",
       "file": "app/src/components/brand-training/BrandTrainingWizard.tsx",
       "line": 164,
-      "evidence": "app/src/components/brand-training/BrandTrainingWizard.tsx:164"
+      "evidence": "app/src/components/brand-training/BrandTrainingWizard.tsx:164",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/campaigns/CampaignCard.tsx:43",
       "kind": "cta_navigation",
       "destination": "/campaigns/${campaign.id}",
       "file": "app/src/components/campaigns/CampaignCard.tsx",
       "line": 43,
-      "evidence": "app/src/components/campaigns/CampaignCard.tsx:43"
+      "evidence": "app/src/components/campaigns/CampaignCard.tsx:43",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/campaigns/CampaignErrorState.tsx:33",
       "kind": "cta_navigation",
       "destination": "/campaigns",
       "file": "app/src/components/campaigns/CampaignErrorState.tsx",
       "line": 33,
-      "evidence": "app/src/components/campaigns/CampaignErrorState.tsx:33"
+      "evidence": "app/src/components/campaigns/CampaignErrorState.tsx:33",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/campaigns/CampaignListCard.tsx:169",
       "kind": "cta_navigation",
       "destination": "/campaigns/${campaign.id}",
       "file": "app/src/components/campaigns/CampaignListCard.tsx",
       "line": 169,
-      "evidence": "app/src/components/campaigns/CampaignListCard.tsx:169"
+      "evidence": "app/src/components/campaigns/CampaignListCard.tsx:169",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/campaigns/CampaignListCard.tsx:176",
       "kind": "cta_navigation",
       "destination": "/campaigns/${campaign.id}",
       "file": "app/src/components/campaigns/CampaignListCard.tsx",
       "line": 176,
-      "evidence": "app/src/components/campaigns/CampaignListCard.tsx:176"
+      "evidence": "app/src/components/campaigns/CampaignListCard.tsx:176",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/campaigns/CampaignListCard.tsx:81",
       "kind": "cta_navigation",
       "destination": "/campaigns/${campaign.id}",
       "file": "app/src/components/campaigns/CampaignListCard.tsx",
       "line": 81,
-      "evidence": "app/src/components/campaigns/CampaignListCard.tsx:81"
+      "evidence": "app/src/components/campaigns/CampaignListCard.tsx:81",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/campaigns/CampaignNotFoundState.tsx:15",
       "kind": "cta_navigation",
       "destination": "/campaigns",
       "file": "app/src/components/campaigns/CampaignNotFoundState.tsx",
       "line": 15,
-      "evidence": "app/src/components/campaigns/CampaignNotFoundState.tsx:15"
+      "evidence": "app/src/components/campaigns/CampaignNotFoundState.tsx:15",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/campaigns/CampaignTableRow.tsx:77",
       "kind": "cta_navigation",
       "destination": "/campaigns/${campaign.id}",
       "file": "app/src/components/campaigns/CampaignTableRow.tsx",
       "line": 77,
-      "evidence": "app/src/components/campaigns/CampaignTableRow.tsx:77"
+      "evidence": "app/src/components/campaigns/CampaignTableRow.tsx:77",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/campaigns/CampaignTableRow.tsx:83",
       "kind": "cta_navigation",
       "destination": "/campaigns/${campaign.id}",
       "file": "app/src/components/campaigns/CampaignTableRow.tsx",
       "line": 83,
-      "evidence": "app/src/components/campaigns/CampaignTableRow.tsx:83"
+      "evidence": "app/src/components/campaigns/CampaignTableRow.tsx:83",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/campaigns/CampaignTableRow.tsx:174",
       "kind": "cta_navigation",
       "destination": "/campaigns/${campaign.id}",
       "file": "app/src/components/campaigns/CampaignTableRow.tsx",
       "line": 174,
-      "evidence": "app/src/components/campaigns/CampaignTableRow.tsx:174"
+      "evidence": "app/src/components/campaigns/CampaignTableRow.tsx:174",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/campaigns/CampaignTableRow.tsx:181",
       "kind": "cta_navigation",
       "destination": "/campaigns/${campaign.id}",
       "file": "app/src/components/campaigns/CampaignTableRow.tsx",
       "line": 181,
-      "evidence": "app/src/components/campaigns/CampaignTableRow.tsx:181"
+      "evidence": "app/src/components/campaigns/CampaignTableRow.tsx:181",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/campaigns/CampaignTableRow.tsx:291",
       "kind": "cta_navigation",
       "destination": "/campaigns/${campaign.id}",
       "file": "app/src/components/campaigns/CampaignTableRow.tsx",
       "line": 291,
-      "evidence": "app/src/components/campaigns/CampaignTableRow.tsx:291"
+      "evidence": "app/src/components/campaigns/CampaignTableRow.tsx:291",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/campaigns/CampaignTableRow.tsx:298",
       "kind": "cta_navigation",
       "destination": "/campaigns/${campaign.id}",
       "file": "app/src/components/campaigns/CampaignTableRow.tsx",
       "line": 298,
-      "evidence": "app/src/components/campaigns/CampaignTableRow.tsx:298"
+      "evidence": "app/src/components/campaigns/CampaignTableRow.tsx:298",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/campaigns/CampaignTableRow.tsx:149",
       "kind": "cta_navigation",
       "destination": "/campaigns/${campaign.id}",
       "file": "app/src/components/campaigns/CampaignTableRow.tsx",
       "line": 149,
-      "evidence": "app/src/components/campaigns/CampaignTableRow.tsx:149"
+      "evidence": "app/src/components/campaigns/CampaignTableRow.tsx:149",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/campaigns/KanbanCard.tsx:19",
       "kind": "cta_navigation",
       "destination": "/campaigns/${campaign.id}",
       "file": "app/src/components/campaigns/KanbanCard.tsx",
       "line": 19,
-      "evidence": "app/src/components/campaigns/KanbanCard.tsx:19"
+      "evidence": "app/src/components/campaigns/KanbanCard.tsx:19",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/campaigns/useCampaignsPage.ts:426",
       "kind": "cta_navigation",
       "destination": "/campaigns/${campaign.id}",
       "file": "app/src/components/campaigns/useCampaignsPage.ts",
-      "line": 412,
-      "evidence": "app/src/components/campaigns/useCampaignsPage.ts:412"
+      "line": 426,
+      "evidence": "app/src/components/campaigns/useCampaignsPage.ts:426",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/cookie-consent/CookieBanner.tsx:76",
       "kind": "cta_navigation",
       "destination": "/privacy",
       "file": "app/src/components/cookie-consent/CookieBanner.tsx",
       "line": 76,
-      "evidence": "app/src/components/cookie-consent/CookieBanner.tsx:76"
+      "evidence": "app/src/components/cookie-consent/CookieBanner.tsx:76",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/dashboard/CreditPanel.tsx:30",
       "kind": "cta_navigation",
       "destination": "/settings?tab=billing",
       "file": "app/src/components/dashboard/CreditPanel.tsx",
       "line": 30,
-      "evidence": "app/src/components/dashboard/CreditPanel.tsx:30"
+      "evidence": "app/src/components/dashboard/CreditPanel.tsx:30",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/dashboard/DashboardCampaignListView.tsx:81",
       "kind": "cta_navigation",
       "destination": "/campaigns/${campaign.id}",
       "file": "app/src/components/dashboard/DashboardCampaignListView.tsx",
       "line": 81,
-      "evidence": "app/src/components/dashboard/DashboardCampaignListView.tsx:81"
+      "evidence": "app/src/components/dashboard/DashboardCampaignListView.tsx:81",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/dashboard/VisualCampaignCard.tsx:128",
       "kind": "cta_navigation",
       "destination": "/campaigns/${id}",
       "file": "app/src/components/dashboard/VisualCampaignCard.tsx",
       "line": 128,
-      "evidence": "app/src/components/dashboard/VisualCampaignCard.tsx:128"
+      "evidence": "app/src/components/dashboard/VisualCampaignCard.tsx:128",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/dashboard/v6/DashboardV6View.tsx:103",
       "kind": "cta_navigation",
       "destination": "/campaigns/${view.hero.id}",
       "file": "app/src/components/dashboard/v6/DashboardV6View.tsx",
       "line": 103,
-      "evidence": "app/src/components/dashboard/v6/DashboardV6View.tsx:103"
+      "evidence": "app/src/components/dashboard/v6/DashboardV6View.tsx:103",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/dashboard/v6/DashboardV6View.tsx:110",
       "kind": "cta_navigation",
       "destination": "/campaigns/${view.hero.id}?tab=brief",
       "file": "app/src/components/dashboard/v6/DashboardV6View.tsx",
       "line": 110,
-      "evidence": "app/src/components/dashboard/v6/DashboardV6View.tsx:110"
+      "evidence": "app/src/components/dashboard/v6/DashboardV6View.tsx:110",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/dashboard/v6/DashboardV6View.tsx:184",
       "kind": "cta_navigation",
       "destination": "/templates",
       "file": "app/src/components/dashboard/v6/DashboardV6View.tsx",
       "line": 184,
-      "evidence": "app/src/components/dashboard/v6/DashboardV6View.tsx:184"
+      "evidence": "app/src/components/dashboard/v6/DashboardV6View.tsx:184",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/dashboard/v6/DashboardV6View.tsx:351",
       "kind": "cta_navigation",
       "destination": "/campaigns",
       "file": "app/src/components/dashboard/v6/DashboardV6View.tsx",
       "line": 351,
-      "evidence": "app/src/components/dashboard/v6/DashboardV6View.tsx:351"
+      "evidence": "app/src/components/dashboard/v6/DashboardV6View.tsx:351",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/feedback/FactualAlertsPanel.tsx:129",
       "kind": "cta_navigation",
       "destination": "/admin/quality/brands/${alert.clientProfileId}",
       "file": "app/src/components/feedback/FactualAlertsPanel.tsx",
       "line": 129,
-      "evidence": "app/src/components/feedback/FactualAlertsPanel.tsx:129"
+      "evidence": "app/src/components/feedback/FactualAlertsPanel.tsx:129",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/feedback/FactualAlertsPanel.tsx:148",
       "kind": "cta_navigation",
       "destination": "/feedback",
       "file": "app/src/components/feedback/FactualAlertsPanel.tsx",
       "line": 148,
-      "evidence": "app/src/components/feedback/FactualAlertsPanel.tsx:148"
+      "evidence": "app/src/components/feedback/FactualAlertsPanel.tsx:148",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/layout/AppShell.tsx:39",
       "kind": "cta_navigation",
       "destination": "/",
       "file": "app/src/components/layout/AppShell.tsx",
       "line": 39,
-      "evidence": "app/src/components/layout/AppShell.tsx:39"
+      "evidence": "app/src/components/layout/AppShell.tsx:39",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/layout/AppShell.tsx:45",
       "kind": "cta_navigation",
       "destination": "/campaigns",
       "file": "app/src/components/layout/AppShell.tsx",
       "line": 45,
-      "evidence": "app/src/components/layout/AppShell.tsx:45"
+      "evidence": "app/src/components/layout/AppShell.tsx:45",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/layout/AppShell.tsx:51",
       "kind": "cta_navigation",
       "destination": "/library",
       "file": "app/src/components/layout/AppShell.tsx",
       "line": 51,
-      "evidence": "app/src/components/layout/AppShell.tsx:51"
+      "evidence": "app/src/components/layout/AppShell.tsx:51",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/layout/AppShell.tsx:57",
       "kind": "cta_navigation",
       "destination": "/settings",
       "file": "app/src/components/layout/AppShell.tsx",
       "line": 57,
-      "evidence": "app/src/components/layout/AppShell.tsx:57"
+      "evidence": "app/src/components/layout/AppShell.tsx:57",
+      "requiresDecision": false
     },
     {
-      "kind": "cta_navigation",
-      "destination": "/brand-kit",
-      "file": "app/src/components/layout/AppSidebar.test.tsx",
-      "line": 35,
-      "evidence": "app/src/components/layout/AppSidebar.test.tsx:35"
-    },
-    {
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:71",
       "kind": "cta_navigation",
       "destination": "/login",
       "file": "app/src/components/layout/AppSidebar.tsx",
       "line": 71,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:71"
+      "evidence": "app/src/components/layout/AppSidebar.tsx:71",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:152",
       "kind": "cta_navigation",
       "destination": "/feedback",
       "file": "app/src/components/layout/AppSidebar.tsx",
       "line": 152,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:152"
+      "evidence": "app/src/components/layout/AppSidebar.tsx:152",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/layout/Footer.tsx:13",
       "kind": "cta_navigation",
       "destination": "/privacy",
       "file": "app/src/components/layout/Footer.tsx",
       "line": 13,
-      "evidence": "app/src/components/layout/Footer.tsx:13"
+      "evidence": "app/src/components/layout/Footer.tsx:13",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/layout/Footer.tsx:16",
       "kind": "cta_navigation",
       "destination": "/terms",
       "file": "app/src/components/layout/Footer.tsx",
       "line": 16,
-      "evidence": "app/src/components/layout/Footer.tsx:16"
+      "evidence": "app/src/components/layout/Footer.tsx:16",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/layout/SidebarAssistantModeSwitch.tsx:24",
       "kind": "cta_navigation",
       "destination": "/assistant${query}",
       "file": "app/src/components/layout/SidebarAssistantModeSwitch.tsx",
       "line": 24,
-      "evidence": "app/src/components/layout/SidebarAssistantModeSwitch.tsx:24"
+      "evidence": "app/src/components/layout/SidebarAssistantModeSwitch.tsx:24",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/layout/SidebarBrandKitFeature.tsx:20",
       "kind": "cta_navigation",
       "destination": "/brand-kit",
       "file": "app/src/components/layout/SidebarBrandKitFeature.tsx",
       "line": 20,
-      "evidence": "app/src/components/layout/SidebarBrandKitFeature.tsx:20"
+      "evidence": "app/src/components/layout/SidebarBrandKitFeature.tsx:20",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/layout/SidebarRecentWorks.tsx:75",
       "kind": "cta_navigation",
       "destination": "/campaigns?new=1",
       "file": "app/src/components/layout/SidebarRecentWorks.tsx",
       "line": 75,
-      "evidence": "app/src/components/layout/SidebarRecentWorks.tsx:75"
+      "evidence": "app/src/components/layout/SidebarRecentWorks.tsx:75",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/layout/SidebarRecentWorks.tsx:97",
       "kind": "cta_navigation",
       "destination": "/campaigns/${campaign.id}",
       "file": "app/src/components/layout/SidebarRecentWorks.tsx",
       "line": 97,
-      "evidence": "app/src/components/layout/SidebarRecentWorks.tsx:97"
+      "evidence": "app/src/components/layout/SidebarRecentWorks.tsx:97",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/layout/TopBar.tsx:197",
       "kind": "cta_navigation",
       "destination": "/settings?tab=${tab}",
       "file": "app/src/components/layout/TopBar.tsx",
       "line": 197,
-      "evidence": "app/src/components/layout/TopBar.tsx:197"
+      "evidence": "app/src/components/layout/TopBar.tsx:197",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/layout/TopBar.tsx:454",
       "kind": "cta_navigation",
       "destination": "/login",
       "file": "app/src/components/layout/TopBar.tsx",
       "line": 454,
-      "evidence": "app/src/components/layout/TopBar.tsx:454"
+      "evidence": "app/src/components/layout/TopBar.tsx:454",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/layout/TopBar.tsx:260",
       "kind": "cta_navigation",
       "destination": "/",
       "file": "app/src/components/layout/TopBar.tsx",
       "line": 260,
-      "evidence": "app/src/components/layout/TopBar.tsx:260"
+      "evidence": "app/src/components/layout/TopBar.tsx:260",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/layout/TopBar.tsx:290",
       "kind": "cta_navigation",
       "destination": "/dashboard",
       "file": "app/src/components/layout/TopBar.tsx",
       "line": 290,
-      "evidence": "app/src/components/layout/TopBar.tsx:290"
+      "evidence": "app/src/components/layout/TopBar.tsx:290",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/layout/TopBar.tsx:291",
       "kind": "cta_navigation",
       "destination": "/campaigns",
       "file": "app/src/components/layout/TopBar.tsx",
       "line": 291,
-      "evidence": "app/src/components/layout/TopBar.tsx:291"
+      "evidence": "app/src/components/layout/TopBar.tsx:291",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/layout/TopBar.tsx:292",
       "kind": "cta_navigation",
       "destination": "/settings",
       "file": "app/src/components/layout/TopBar.tsx",
       "line": 292,
-      "evidence": "app/src/components/layout/TopBar.tsx:292"
+      "evidence": "app/src/components/layout/TopBar.tsx:292",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/layout/TopBar.tsx:318",
       "kind": "cta_navigation",
       "destination": "/docs",
       "file": "app/src/components/layout/TopBar.tsx",
       "line": 318,
-      "evidence": "app/src/components/layout/TopBar.tsx:318"
+      "evidence": "app/src/components/layout/TopBar.tsx:318",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/layout/TopBar.tsx:327",
       "kind": "cta_navigation",
       "destination": "/campaigns?new=1",
       "file": "app/src/components/layout/TopBar.tsx",
       "line": 327,
-      "evidence": "app/src/components/layout/TopBar.tsx:327"
+      "evidence": "app/src/components/layout/TopBar.tsx:327",
+      "requiresDecision": false
     },
     {
+      "id": "inert:app/src/components/layout/TopBar.tsx:438",
+      "kind": "cta_disabled",
+      "destination": null,
+      "file": "app/src/components/layout/TopBar.tsx",
+      "line": 438,
+      "evidence": "app/src/components/layout/TopBar.tsx:438",
+      "label": null,
+      "hasComingSoon": false,
+      "requiresDecision": true,
+      "note": "always-disabled control"
+    },
+    {
+      "id": "nav:app/src/components/settings/PrivacyTab.tsx:86",
       "kind": "cta_navigation",
       "destination": "/privacy",
       "file": "app/src/components/settings/PrivacyTab.tsx",
       "line": 86,
-      "evidence": "app/src/components/settings/PrivacyTab.tsx:86"
+      "evidence": "app/src/components/settings/PrivacyTab.tsx:86",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/settings/PrivacyTab.tsx:94",
       "kind": "cta_navigation",
       "destination": "/terms",
       "file": "app/src/components/settings/PrivacyTab.tsx",
       "line": 94,
-      "evidence": "app/src/components/settings/PrivacyTab.tsx:94"
+      "evidence": "app/src/components/settings/PrivacyTab.tsx:94",
+      "requiresDecision": false
     },
     {
+      "id": "inert:app/src/components/workspace/DerivationCard.tsx:590",
       "kind": "cta_disabled",
       "destination": null,
       "file": "app/src/components/workspace/DerivationCard.tsx",
-      "line": 636,
-      "evidence": "app/src/components/workspace/DerivationCard.tsx:636",
-      "note": "disabled or comingSoon nearby"
+      "line": 590,
+      "evidence": "app/src/components/workspace/DerivationCard.tsx:590",
+      "label": "generateLandingPage",
+      "hasComingSoon": true,
+      "requiresDecision": true,
+      "note": "disabled + comingSoon"
     },
     {
+      "id": "nav:app/src/app/(dashboard)/admin/quality/brands/[clientProfileId]/page.tsx:23",
       "kind": "cta_navigation",
       "destination": "/admin/quality/brands/${id}",
       "file": "app/src/app/(dashboard)/admin/quality/brands/[clientProfileId]/page.tsx",
       "line": 23,
-      "evidence": "app/src/app/(dashboard)/admin/quality/brands/[clientProfileId]/page.tsx:23"
+      "evidence": "app/src/app/(dashboard)/admin/quality/brands/[clientProfileId]/page.tsx:23",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/app/(dashboard)/brand-kit/page.tsx:43",
       "kind": "cta_navigation",
       "destination": "/brand-kit",
       "file": "app/src/app/(dashboard)/brand-kit/page.tsx",
       "line": 43,
-      "evidence": "app/src/app/(dashboard)/brand-kit/page.tsx:43"
+      "evidence": "app/src/app/(dashboard)/brand-kit/page.tsx:43",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/app/(dashboard)/brand-kit/page.tsx:48",
       "kind": "cta_navigation",
       "destination": "/brand-kit?mode=training",
       "file": "app/src/app/(dashboard)/brand-kit/page.tsx",
       "line": 48,
-      "evidence": "app/src/app/(dashboard)/brand-kit/page.tsx:48"
+      "evidence": "app/src/app/(dashboard)/brand-kit/page.tsx:48",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/app/(dashboard)/templates/page.tsx:28",
       "kind": "cta_navigation",
       "destination": "/campaigns?new=1&templateId=${template.id}",
       "file": "app/src/app/(dashboard)/templates/page.tsx",
       "line": 28,
-      "evidence": "app/src/app/(dashboard)/templates/page.tsx:28"
+      "evidence": "app/src/app/(dashboard)/templates/page.tsx:28",
+      "requiresDecision": false
     },
     {
+      "id": "nav:app/src/app/(dashboard)/templates/page.tsx:54",
       "kind": "cta_navigation",
       "destination": "/campaigns",
       "file": "app/src/app/(dashboard)/templates/page.tsx",
       "line": 54,
-      "evidence": "app/src/app/(dashboard)/templates/page.tsx:54"
+      "evidence": "app/src/app/(dashboard)/templates/page.tsx:54",
+      "requiresDecision": false
     }
   ]
 }

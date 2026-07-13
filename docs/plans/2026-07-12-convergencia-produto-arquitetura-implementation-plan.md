@@ -1,7 +1,7 @@
 # Plano de convergência de produto e arquitetura do ADScale
 
 **Data:** 2026-07-12  
-**Status:** Gate 1 implementado neste branch (Gate 0 fechado)  
+**Status:** Gate 1 pronto para reavaliação (E2E executado; ledger e inventário no convergence:gate)  
 **Direção assumida:** trabalho criativo-first  
 **Estratégia:** migração incremental com gates; nenhum big bang
 

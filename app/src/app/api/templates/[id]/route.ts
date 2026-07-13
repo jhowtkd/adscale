@@ -13,17 +13,29 @@ const updateTemplateSchema = z.object({
   description: z.string().optional(),
 });
 
+const templateIdSchema = z.string().uuid();
+
+async function parseTemplateId(params: Promise<{ id: string }>) {
+  const { id } = await params;
+  const parsed = templateIdSchema.safeParse(id);
+  if (!parsed.success) {
+    return { error: apiError("notFound", 404) as Response };
+  }
+  return { id: parsed.data };
+}
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const [{ workspace }, { id }] = await Promise.all([
+    const [{ workspace }, idResult] = await Promise.all([
       requireWorkspaceAccess(request),
-      params,
+      parseTemplateId(params),
     ]);
+    if ("error" in idResult) return idResult.error;
 
-    const template = await getTemplateById(id, workspace.id);
+    const template = await getTemplateById(idResult.id, workspace.id);
     if (!template) {
       return apiError("notFound", 404);
     }
@@ -39,10 +51,12 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const [{ workspace }, { id }] = await Promise.all([
+    const [{ workspace }, idResult] = await Promise.all([
       requireWorkspaceAccess(request),
-      params,
+      parseTemplateId(params),
     ]);
+    if ("error" in idResult) return idResult.error;
+
     const body = await request.json();
     const parsed = updateTemplateSchema.safeParse(body);
 
@@ -50,7 +64,7 @@ export async function PATCH(
       return apiError("invalidInput", 400, parsed.error.flatten());
     }
 
-    const template = await updateTemplate(id, workspace.id, parsed.data);
+    const template = await updateTemplate(idResult.id, workspace.id, parsed.data);
 
     if (!template) {
       return apiError("notFound", 404);
@@ -73,12 +87,13 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const [{ workspace }, { id }] = await Promise.all([
+    const [{ workspace }, idResult] = await Promise.all([
       requireWorkspaceAccess(request),
-      params,
+      parseTemplateId(params),
     ]);
+    if ("error" in idResult) return idResult.error;
 
-    const deleted = await deleteTemplate(id, workspace.id);
+    const deleted = await deleteTemplate(idResult.id, workspace.id);
     if (!deleted) {
       return apiError("notFound", 404);
     }

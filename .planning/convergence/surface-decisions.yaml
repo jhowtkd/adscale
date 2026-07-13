@@ -1,0 +1,56 @@
+# Machine-readable surface decisions for Convergence Gate 1.
+# Every raw inventory item with requiresDecision=true must match evidence here.
+# Curated rows (non-inert but product-sensitive) may use file-only evidence.
+#
+# decision: manter | fundir | esconder | apagar
+
+decisions:
+  - id: B-landing-page-cta
+    evidence: app/src/components/workspace/DerivationCard.tsx:590
+    decision: esconder
+    rationale: "Always-disabled Generate landing page with comingSoon; frozen module — keep hidden until Phase 7 evidence."
+
+  - id: B-demo-restore-stub
+    evidence: app/src/components/layout/TopBar.tsx:438
+    decision: esconder
+    rationale: "Demo-mode restore stub is intentionally non-functional; not a primary creative path."
+
+  - id: B-templates-use
+    evidence: app/src/app/(dashboard)/templates/page.tsx
+    decision: manter
+    rationale: "Usar template now materializes briefing via campaigns?new=1&templateId=."
+
+  - id: B-persona-overflow
+    evidence: app/src/components/workspace/DerivationCard.tsx
+    decision: esconder
+    rationale: "Persona simulate remains reachable but frozen for expansion; hide in Phase 7 unless usage evidence appears."
+
+  - id: B-persona-assistant
+    evidence: app/src/server/assistant/action-execution/handlers/quick-persona-simulate.ts
+    decision: esconder
+    rationale: "Assistant quick_persona_simulate shares freeze with overflow CTA."
+
+  - id: B-landing-api
+    evidence: app/src/app/api/derivations/[id]/landing-page
+    decision: esconder
+    rationale: "Landing page API retained under freeze; UI already inert."
+
+  - id: B-create-post
+    evidence: app/src/app/(dashboard)/quick-tools/create-post/page.tsx
+    decision: fundir
+    rationale: "Allowed primary destination today; converge into canonical creative work in Phase 5."
+
+  - id: B-assistant
+    evidence: app/src/app/(dashboard)/assistant/page.tsx
+    decision: manter
+    rationale: "Allowed conversational adapter primary destination."
+
+  - id: B-campaigns
+    evidence: app/src/app/(dashboard)/campaigns/page.tsx
+    decision: manter
+    rationale: "Allowed campaign primary destination."
+
+  - id: B-brand-kit
+    evidence: app/src/app/(dashboard)/brand-kit/page.tsx
+    decision: manter
+    rationale: "Independent Brand Training supporting module."

@@ -113,3 +113,130 @@ progress:
   assert.equal(data.status, "completed");
   assert.equal(data.progress_percent, 72);
 });
+
+test("STATE Plan X of Y vs Total Plans in Phase disagreement fails", () => {
+  const result = validatePlanningConsistency({
+    requirementsMd: "- [x] **PLAN-01**: done\n",
+    stateMd: `---
+status: completed
+progress:
+  percent: 100
+  completed_plans: 5
+  total_plans: 5
+---
+Plan: 4 of 4
+Total Plans in Phase: 5
+Progress: [██████████] 100%
+
+### Pending Todos
+
+_None_
+`,
+    roadmapMd: `# Roadmap
+- ✅ **v13.9 Copiloto**
+- [x] **Phase 203: A**
+- [x] **Phase 204: B**
+- [x] **Phase 205: C**
+- [x] **Phase 206: D**
+- [x] **Phase 207: E**
+`,
+    acceptedDebtYaml: "accepted_debt: []\n",
+  });
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join("\n"), /Plan X of Y/);
+});
+
+test("pending todos under complete STATE fail", () => {
+  const result = validatePlanningConsistency({
+    requirementsMd: "- [x] **PLAN-01**: done\n",
+    stateMd: `---
+status: completed
+progress:
+  percent: 100
+  completed_plans: 1
+  total_plans: 1
+---
+Progress: [██████████] 100%
+
+### Pending Todos
+
+- Execute 204-02 orchestrator
+`,
+    roadmapMd: `# Roadmap
+- ✅ **v13.9 Copiloto**
+- [x] **Phase 203: A**
+- [x] **Phase 204: B**
+- [x] **Phase 205: C**
+- [x] **Phase 206: D**
+- [x] **Phase 207: E**
+`,
+    acceptedDebtYaml: "accepted_debt: []\n",
+  });
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join("\n"), /Pending Todos/);
+});
+
+test("📋 v13.9 with all phases checked fails", () => {
+  const result = validatePlanningConsistency({
+    requirementsMd: "- [x] **PLAN-01**: done\n",
+    stateMd: `---
+status: completed
+progress:
+  percent: 100
+  completed_plans: 1
+  total_plans: 1
+---
+Progress: [██████████] 100%
+
+### Pending Todos
+
+_None_
+`,
+    roadmapMd: `# Roadmap
+- 📋 **v13.9 Copiloto**
+- [x] **Phase 203: A**
+- [x] **Phase 204: B**
+- [x] **Phase 205: C**
+- [x] **Phase 206: D**
+- [x] **Phase 207: E**
+
+### Phase 205: Creative
+Plans:
+- [ ] 205-01-PLAN.md — pending
+`,
+    acceptedDebtYaml: "accepted_debt: []\n",
+  });
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join("\n"), /📋/);
+  assert.match(result.errors.join("\n"), /205-01-PLAN/);
+});
+
+test("roadmapClaimsV139Done is enforced when STATE complete without ✅", () => {
+  const result = validatePlanningConsistency({
+    requirementsMd: "- [x] **PLAN-01**: done\n",
+    stateMd: `---
+status: completed
+progress:
+  percent: 100
+  completed_plans: 1
+  total_plans: 1
+---
+Progress: [██████████] 100%
+
+### Pending Todos
+
+_None_
+`,
+    roadmapMd: `# Roadmap
+- 🔄 **v13.9 Copiloto**
+- [x] **Phase 203: A**
+- [x] **Phase 204: B**
+- [x] **Phase 205: C**
+- [x] **Phase 206: D**
+- [x] **Phase 207: E**
+`,
+    acceptedDebtYaml: "accepted_debt: []\n",
+  });
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join("\n"), /does not mark v13\.9 with ✅/);
+});

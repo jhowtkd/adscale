@@ -130,10 +130,54 @@ export function parseStateFrontmatter(markdown) {
     if (/^\d+(\.\d+)?$/.test(value)) value = Number(value);
     data[m[1]] = value;
   }
-  // nested progress.percent
+  // nested progress.percent / completed_plans
   const percent = fence[1].match(/^\s+percent:\s*(\d+)/m);
   if (percent) data.progress_percent = Number(percent[1]);
+  const completedPlans = fence[1].match(/^\s+completed_plans:\s*(\d+)/m);
+  if (completedPlans) data.completed_plans = Number(completedPlans[1]);
+  const totalPlans = fence[1].match(/^\s+total_plans:\s*(\d+)/m);
+  if (totalPlans) data.total_plans = Number(totalPlans[1]);
   return data;
+}
+
+/** Open plan checkboxes under a phase detail section (e.g. 205-01-PLAN.md). */
+export function parseOpenPhasePlans(roadmapMd) {
+  const open = [];
+  const sections = roadmapMd.split(/^### Phase /m).slice(1);
+  for (const section of sections) {
+    const header = section.match(/^(\d+):/);
+    if (!header) continue;
+    const phaseNum = header[1];
+    const phaseChecked = new RegExp(
+      `- \\[x\\] \\*\\*Phase ${phaseNum}:`,
+      "i"
+    ).test(roadmapMd);
+    const progressComplete = new RegExp(
+      `\\|\\s*${phaseNum}\\.[^|]+\\|\\s*\\d+/\\d+\\s*\\|\\s*Complete`,
+      "i"
+    ).test(roadmapMd);
+
+    if (!phaseChecked && !progressComplete) continue;
+
+    const planRe = /- \[([ xX])\]\s+(\d+-[\w.-]*PLAN\.md)/g;
+    let match;
+    while ((match = planRe.exec(section)) !== null) {
+      if (match[1].toLowerCase() !== "x") {
+        open.push({ phase: phaseNum, plan: match[2] });
+      }
+    }
+  }
+  return open;
+}
+
+export function parsePendingTodos(stateMd) {
+  const section = stateMd.match(
+    /### Pending Todos\r?\n([\s\S]*?)(?=\r?\n### |\r?\n## |$)/i
+  );
+  if (!section) return [];
+  const body = section[1].trim();
+  if (!body || /^_?None\b/i.test(body)) return [];
+  return (body.match(/^-\s+.+/gm) || []).map((line) => line.replace(/^-\s+/, "").trim());
 }
 
 export function validatePlanningConsistency({
@@ -185,23 +229,13 @@ export function validatePlanningConsistency({
     );
   }
 
-  // ROADMAP projection: active milestone marked done while requirements open
-  const roadmapClaimsV139Done =
-    /v13\.9[\s\S]{0,200}?(shipped|closed|complete)/i.test(roadmapMd) ||
-    (/Phase 207[\s\S]{0,120}completed/i.test(roadmapMd) &&
-      /📋 \*\*v13\.9/.test(roadmapMd) === false &&
-      /✅ \*\*v13\.9/.test(roadmapMd));
-
-  // Softer check: if ROADMAP lists all phase 203-207 as [x] AND STATE claims
-  // complete, uncovered open reqs already failed above. Additional: ROADMAP
-  // must not use ✅ for v13.9 while uncovered opens exist.
   if (/✅ \*\*v13\.9/.test(roadmapMd) && uncoveredOpen.length > 0) {
     errors.push(
       `ROADMAP marks v13.9 shipped while open requirements lack accepted_debt: ${uncoveredOpen.join(", ")}`
     );
   }
 
-  // Frontmatter percent vs body progress bar honesty when complete claimed
+  // Frontmatter percent vs body progress bar honesty
   if (
     typeof state.progress_percent === "number" &&
     state.progress_percent < 100 &&
@@ -212,8 +246,67 @@ export function validatePlanningConsistency({
     );
   }
 
-  void roadmapClaimsV139Done;
-  void complete;
+  // Plan: X of Y vs Total Plans in Phase: Z
+  const planOf = stateMd.match(/Plan:\s*(\d+)\s+of\s+(\d+)/i);
+  const totalInPhase = stateMd.match(/Total Plans in Phase:\s*(\d+)/i);
+  if (planOf && totalInPhase) {
+    const ofY = Number(planOf[2]);
+    const total = Number(totalInPhase[1]);
+    if (ofY !== total) {
+      errors.push(
+        `STATE Plan X of Y uses Y=${ofY} but Total Plans in Phase=${total}`
+      );
+    }
+  }
+
+  // Frontmatter completed_plans vs total_plans when claiming complete
+  if (
+    claimsComplete &&
+    typeof state.completed_plans === "number" &&
+    typeof state.total_plans === "number" &&
+    state.completed_plans !== state.total_plans
+  ) {
+    errors.push(
+      `STATE claims complete but completed_plans=${state.completed_plans} != total_plans=${state.total_plans}`
+    );
+  }
+
+  // Pending todos must be empty when milestone claims complete
+  const pendingTodos = parsePendingTodos(stateMd);
+  if (claimsComplete && pendingTodos.length > 0) {
+    errors.push(
+      `STATE claims complete but Pending Todos still lists: ${pendingTodos.join("; ")}`
+    );
+  }
+
+  // Phases 203–207 all checked → milestone must not stay 📋
+  const phases203to207Complete = [203, 204, 205, 206, 207].every((n) =>
+    new RegExp(`- \\[x\\] \\*\\*Phase ${n}:`, "i").test(roadmapMd)
+  );
+  if (phases203to207Complete && /📋 \*\*v13\.9/.test(roadmapMd)) {
+    errors.push(
+      "ROADMAP still marks v13.9 as active (📋) while phases 203–207 are all checked complete"
+    );
+  }
+  if (
+    claimsComplete &&
+    phases203to207Complete &&
+    !/✅ \*\*v13\.9/.test(roadmapMd)
+  ) {
+    errors.push(
+      "STATE claims complete and phases 203–207 are checked, but ROADMAP does not mark v13.9 with ✅"
+    );
+  }
+
+  // Open plan checkboxes under completed phases
+  const openPhasePlans = parseOpenPhasePlans(roadmapMd);
+  if (openPhasePlans.length > 0) {
+    errors.push(
+      `ROADMAP has unchecked plans under completed phases: ${openPhasePlans
+        .map((p) => `${p.plan} (phase ${p.phase})`)
+        .join(", ")}`
+    );
+  }
 
   return {
     ok: errors.length === 0,
@@ -223,6 +316,8 @@ export function validatePlanningConsistency({
     uncoveredOpen,
     debts,
     state,
+    pendingTodos,
+    openPhasePlans,
   };
 }
 

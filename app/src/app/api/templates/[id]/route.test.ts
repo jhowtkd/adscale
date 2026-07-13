@@ -80,6 +80,18 @@ describe("GET /api/templates/[id]", () => {
   it("returns 404 for missing template", async () => {
     mockGetTemplateById.mockResolvedValue(null);
 
+    const missingId = "22222222-2222-2222-2222-222222222222";
+    const res = await GET(new Request("http://localhost/api/templates/missing"), {
+      params: Promise.resolve({ id: missingId }),
+    });
+    const body = await res.json();
+
+    expect(res.status).toBe(404);
+    expect(body.error).toBe("notFound");
+    expect(mockGetTemplateById).toHaveBeenCalledWith(missingId, "workspace-1");
+  });
+
+  it("returns 404 for non-UUID ids without hitting the repository", async () => {
     const res = await GET(new Request("http://localhost/api/templates/missing"), {
       params: Promise.resolve({ id: "missing" }),
     });
@@ -87,19 +99,21 @@ describe("GET /api/templates/[id]", () => {
 
     expect(res.status).toBe(404);
     expect(body.error).toBe("notFound");
+    expect(mockGetTemplateById).not.toHaveBeenCalled();
   });
 
   it("returns 404 for cross-workspace isolation (repo scoped null)", async () => {
     // Repository filters by workspaceId; other-workspace ids resolve to null.
     mockGetTemplateById.mockResolvedValue(null);
 
+    const otherId = "33333333-3333-3333-3333-333333333333";
     const res = await GET(
       new Request("http://localhost/api/templates/other-ws"),
-      { params: Promise.resolve({ id: "other-ws" }) }
+      { params: Promise.resolve({ id: otherId }) }
     );
 
     expect(res.status).toBe(404);
-    expect(mockGetTemplateById).toHaveBeenCalledWith("other-ws", "workspace-1");
+    expect(mockGetTemplateById).toHaveBeenCalledWith(otherId, "workspace-1");
   });
 });
 
@@ -147,12 +161,23 @@ describe("DELETE /api/templates/[id]", () => {
   it("returns 404 for cross-workspace delete", async () => {
     mockDeleteTemplate.mockResolvedValue(null);
 
+    const otherId = "44444444-4444-4444-4444-444444444444";
     const res = await DELETE(
       new Request("http://localhost/api/templates/other", { method: "DELETE" }),
-      { params: Promise.resolve({ id: "other" }) }
+      { params: Promise.resolve({ id: otherId }) }
     );
 
     expect(res.status).toBe(404);
-    expect(mockDeleteTemplate).toHaveBeenCalledWith("other", "workspace-1");
+    expect(mockDeleteTemplate).toHaveBeenCalledWith(otherId, "workspace-1");
+  });
+
+  it("returns 404 for non-UUID delete without hitting the repository", async () => {
+    const res = await DELETE(
+      new Request("http://localhost/api/templates/not-a-uuid", { method: "DELETE" }),
+      { params: Promise.resolve({ id: "not-a-uuid" }) }
+    );
+
+    expect(res.status).toBe(404);
+    expect(mockDeleteTemplate).not.toHaveBeenCalled();
   });
 });
