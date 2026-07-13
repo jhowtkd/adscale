@@ -22,7 +22,7 @@ export const previewCampaignWorkspaceView: CampaignWorkspaceV6ViewModel = {
   meta: previewWorkspace.meta,
   currentStage: previewWorkspace.currentStage,
   stages: [...previewWorkspace.stages],
-  stageTabs: ["briefing", "generate", "review", "export"],
+  stageTabs: ["briefing", "generate", "review", "share"],
   briefingSliders: previewWorkspace.briefingSliders.map((slider) => ({ ...slider })),
   briefingRules: [...previewWorkspace.briefingRules],
   derivations: previewWorkspace.derivations.map((derivation, index) => ({

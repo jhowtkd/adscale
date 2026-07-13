@@ -39,7 +39,7 @@ const view: CampaignWorkspaceV6ViewModel = {
   meta: "Meta info",
   currentStage: 2,
   stages: ["Briefing", "Produce", "Review", "Deliver"],
-  stageTabs: ["briefing", "generate", "review", "export"],
+  stageTabs: ["briefing", "generate", "review", "share"],
   briefingSliders: [],
   briefingRules: [],
   derivations: [],
@@ -92,6 +92,6 @@ describe("CampaignWorkspaceV6Chrome", () => {
     expect(onStageSelect).toHaveBeenCalledWith("review");
 
     fireEvent.click(screen.getByRole("button", { name: /Deliver/i }));
-    expect(onStageSelect).toHaveBeenCalledWith("export");
+    expect(onStageSelect).toHaveBeenCalledWith("share");
   });
 });

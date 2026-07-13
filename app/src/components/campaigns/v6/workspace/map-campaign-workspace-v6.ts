@@ -110,7 +110,8 @@ export function mapCampaignWorkspaceToV6View({
     tWorkspace("stageReview"),
     tWorkspace("stageDeliver"),
   ];
-  const stageTabs = ["briefing", "generate", "review", "export"] as const;
+  // Deliver → mission-share (approval/package), not mission-export
+  const stageTabs = ["briefing", "generate", "review", "share"] as const;
 
   const briefingRules = (campaign.constraints ?? "")
     .split(/\n|(?<=[.!?])\s+/)

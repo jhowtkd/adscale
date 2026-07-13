@@ -372,6 +372,7 @@ export default function CampaignWorkspacePage() {
   };
 
   const handleStageSelect = (tab: WorkspaceStageNavTab) => {
+    // share is a valid CampaignTabDeepLink (mission-share / deliver)
     const deepTab = tab as CampaignTabDeepLink;
     if (tab === "briefing") {
       goToSetup();
@@ -923,58 +924,61 @@ function CampaignWorkspaceCard({
               readinessBlocking={readinessBlocking}
               disabled={isGenerating}
             />
-            <PageSection id="mission-share" title={tApproval("title")}>
-              <ClientApprovalPackagePanel campaignId={campaignId} />
-            </PageSection>
+            {/* Phase 6 / item 47: Review and Deliver are distinct tasks (not nested). */}
             <div id="mission-review">
-            <PageSection id="mission-export" title={tCampaign("derivationsSectionTitle")}>
-              {isDerivationsError && derivationsErrorKind ? (
-                <div className="mb-3">
-                  <DerivationLoadErrorBanner
-                    kind={derivationsErrorKind}
-                    onRetry={onRetryDerivations}
-                  />
-                </div>
-              ) : null}
-              {isGenerating && (
-                <p className="text-xs text-[var(--text-secondary)] mb-3 flex items-center gap-2">
-                  <span className="inline-block size-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                  {tCampaign("generatingDerivations")}
-                </p>
-              )}
-              <DerivationGrid
-                derivations={allDerivations}
-                onAddNew={onOpenDerivar}
-                onPreview={onPreview}
-                onDownload={onDownload}
-                onRegenerate={onRegenerate}
-                onApprove={onApprove}
-                onReject={onReject}
-                onCreateDeliveryPackage={onCreateDeliveryPackage}
-                onRunQa={onRunQa}
-                onSaveAsReference={onSaveAsReference}
-                onGenerateLandingPage={onGenerateLandingPage}
-                qaAnalyzingId={qaAnalyzingId}
-                regeneratingId={regeneratingId}
-                landingPageGeneratingId={landingPageGeneratingId}
-                savingReferenceId={savingReferenceId}
-                reviewPending={reviewPending}
-                reviewVariables={reviewVariables}
-                previewGate={
-                  showPreviewGate &&
-                  previewDerivation &&
-                  onApprovePreviewBatch
-                    ? {
-                        campaignId,
-                        previewId: previewDerivation.id,
-                        isApproving: createDerivationsPending,
-                        onApproveBatch: onApprovePreviewBatch,
-                        onAdjustStrategy: () => onOpenDerivar(),
-                      }
-                    : undefined
-                }
-              />
-            </PageSection>
+              <PageSection title={tCampaign("derivationsSectionTitle")}>
+                {isDerivationsError && derivationsErrorKind ? (
+                  <div className="mb-3">
+                    <DerivationLoadErrorBanner
+                      kind={derivationsErrorKind}
+                      onRetry={onRetryDerivations}
+                    />
+                  </div>
+                ) : null}
+                {isGenerating && (
+                  <p className="text-xs text-[var(--text-secondary)] mb-3 flex items-center gap-2">
+                    <span className="inline-block size-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                    {tCampaign("generatingDerivations")}
+                  </p>
+                )}
+                <DerivationGrid
+                  derivations={allDerivations}
+                  onAddNew={onOpenDerivar}
+                  onPreview={onPreview}
+                  onDownload={onDownload}
+                  onRegenerate={onRegenerate}
+                  onApprove={onApprove}
+                  onReject={onReject}
+                  onCreateDeliveryPackage={onCreateDeliveryPackage}
+                  onRunQa={onRunQa}
+                  onSaveAsReference={onSaveAsReference}
+                  onGenerateLandingPage={onGenerateLandingPage}
+                  qaAnalyzingId={qaAnalyzingId}
+                  regeneratingId={regeneratingId}
+                  landingPageGeneratingId={landingPageGeneratingId}
+                  savingReferenceId={savingReferenceId}
+                  reviewPending={reviewPending}
+                  reviewVariables={reviewVariables}
+                  previewGate={
+                    showPreviewGate &&
+                    previewDerivation &&
+                    onApprovePreviewBatch
+                      ? {
+                          campaignId,
+                          previewId: previewDerivation.id,
+                          isApproving: createDerivationsPending,
+                          onApproveBatch: onApprovePreviewBatch,
+                          onAdjustStrategy: () => onOpenDerivar(),
+                        }
+                      : undefined
+                  }
+                />
+              </PageSection>
+            </div>
+            <div id="mission-share">
+              <PageSection title={tApproval("title")}>
+                <ClientApprovalPackagePanel campaignId={campaignId} />
+              </PageSection>
             </div>
           </div>
         </div>

@@ -63,7 +63,6 @@ export default function SidebarRecentWorks() {
               <li key={work.id}>
                 <Link
                   href={work.resumeHref}
-                  prefetch={false}
                   className={cn(
                     "flex items-center gap-2.5 rounded-[var(--radius-control)] px-2 py-2",
                     "transition-colors hover:bg-[var(--surface-inset)]"

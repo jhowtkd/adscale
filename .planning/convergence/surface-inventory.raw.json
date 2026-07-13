@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-07-13T12:52:52.945Z",
+  "generatedAt": "2026-07-13T13:10:31.363Z",
   "schemaVersion": 2,
-  "fingerprint": "06f1e1605f156cc402fd9f10a0b4aa8b4b006df104be126525196a0bffdaec18",
+  "fingerprint": "124003037aec9a7c664006abdc54a505dab70858608d8ec6a228a24357d01005",
   "counts": {
     "dashboardPages": 14,
     "apiRoutes": 171,
@@ -1579,39 +1579,39 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppShell.tsx:39",
+      "id": "nav:app/src/components/layout/AppShell.tsx:42",
       "kind": "cta_navigation",
       "destination": "/",
       "file": "app/src/components/layout/AppShell.tsx",
-      "line": 39,
-      "evidence": "app/src/components/layout/AppShell.tsx:39",
+      "line": 42,
+      "evidence": "app/src/components/layout/AppShell.tsx:42",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppShell.tsx:45",
+      "id": "nav:app/src/components/layout/AppShell.tsx:48",
       "kind": "cta_navigation",
       "destination": "/campaigns",
       "file": "app/src/components/layout/AppShell.tsx",
-      "line": 45,
-      "evidence": "app/src/components/layout/AppShell.tsx:45",
+      "line": 48,
+      "evidence": "app/src/components/layout/AppShell.tsx:48",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppShell.tsx:51",
+      "id": "nav:app/src/components/layout/AppShell.tsx:54",
       "kind": "cta_navigation",
       "destination": "/library",
       "file": "app/src/components/layout/AppShell.tsx",
-      "line": 51,
-      "evidence": "app/src/components/layout/AppShell.tsx:51",
+      "line": 54,
+      "evidence": "app/src/components/layout/AppShell.tsx:54",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppShell.tsx:57",
+      "id": "nav:app/src/components/layout/AppShell.tsx:60",
       "kind": "cta_navigation",
-      "destination": "/settings",
+      "destination": "/brand-kit",
       "file": "app/src/components/layout/AppShell.tsx",
-      "line": 57,
-      "evidence": "app/src/components/layout/AppShell.tsx:57",
+      "line": 60,
+      "evidence": "app/src/components/layout/AppShell.tsx:60",
       "requiresDecision": false
     },
     {

@@ -157,7 +157,7 @@ const DEFAULT_STAGE_TABS: WorkspaceStageNavTab[] = [
   "briefing",
   "generate",
   "review",
-  "export",
+  "share",
 ];
 
 function WorkspaceStageList({

@@ -254,7 +254,7 @@ Cada item abaixo deve resultar em um commit pequeno e manter a aplicação funci
 49. Mover regras de domínio importadas pelo cliente para respostas calculadas no servidor.
 50. Fazer UAT desktop e mobile dos caminhos com e sem campanha.
 
-**Phase 6 WIP (2026-07-13):** itens 43–47 — home com novo trabalho + continuar via `listCanonicalWorks`/`resumeHref`; picker de intenção; nav Trabalhos · Biblioteca · Marcas · Config (logo → home, sem `/trabalhos`); Trabalhos aponta a `/campaigns` (campanha permanece agrupamento); workspace em 4 tarefas (Briefing · Produzir · Revisar · Entregar). Itens 48–50 em aberto (hook modules, domain no server, UAT).
+**Phase 6 WIP (2026-07-13):** itens 43–47 em correção pós-checkpoint — home + continuar (funil canônico, sem approved/delivered como “em andamento”); intent picker documentado como **roteador de superfície** (não persiste `CanonicalIntent`; item 48 **não** inventa `IntentService`); `/campaigns` = listagem canônica com filtros Todos/Campanhas/Posts; mobile Home·Trabalhos·Biblioteca·Marcas·Mais; stages Revisar→`mission-review`, Entregar→`mission-share`. Itens 48–50 em aberto.
 
 **Gate 6:** um usuário inicia, retoma, revisa e entrega sem precisar entender os antigos subsistemas.
 

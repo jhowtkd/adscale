@@ -14,8 +14,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useAppStore } from "@/lib/store";
-import { useCampaigns } from "@/lib/hooks/use-campaigns";
 import { useBillingStatus } from "@/lib/hooks/use-billing";
+import { useCanonicalWorks } from "@/lib/hooks/use-canonical-works";
 import { authClient } from "@/lib/auth-client";
 import AccountStatusBadge from "@/components/layout/AccountStatusBadge";
 import SidebarBrandKitFeature from "@/components/layout/SidebarBrandKitFeature";
@@ -33,7 +33,7 @@ export default function AppSidebar({ variant = "production" }: { variant?: AppSi
   const user = useAppStore((s) => s.user);
   const billing = useAppStore((s) => s.billing);
   const { data: session } = authClient.useSession();
-  const { totalCount } = useCampaigns();
+  const { data: works = [] } = useCanonicalWorks();
   const { data: billingStatus } = useBillingStatus();
 
   const isPreview = variant === "preview";
@@ -62,7 +62,7 @@ export default function AppSidebar({ variant = "production" }: { variant?: AppSi
   const isBrands = !isPreview && pathname.startsWith("/brand-kit");
   const isConfig = !isPreview && pathname.startsWith("/settings");
 
-  const campaignCount = isPreview ? "12" : totalCount > 0 ? String(totalCount) : undefined;
+  const worksCount = isPreview ? "12" : works.length > 0 ? String(works.length) : undefined;
 
   const handleLogout = () => {
     void authClient.signOut({
@@ -107,7 +107,7 @@ export default function AppSidebar({ variant = "production" }: { variant?: AppSi
           active={isWorks}
           label={tNav("works")}
           icon={FolderOpen}
-          count={campaignCount}
+          count={worksCount}
         />
         <IconNavItem
           href={isPreview ? "/v6/library" : "/library"}

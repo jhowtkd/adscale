@@ -5,10 +5,10 @@ type Translate = ReturnType<typeof useTranslations>;
 
 export function buildCampaignsV6Labels(t: Translate, tc: Translate): CampaignsV6Labels {
   return {
-    sectionLabel: tc("pageTitle"),
+    sectionLabel: t("v6.sectionWorks"),
     versionBadge: t("v6.versionBadge"),
-    title: t("v6.title"),
-    subtitle: t("v6.subtitle"),
+    title: t("v6.worksTitle"),
+    subtitle: t("v6.worksSubtitle"),
     sortPrefix: t("v6.sortPrefix"),
     newCampaign: t("new"),
     searchPlaceholder: t("v6.searchPlaceholder"),
@@ -16,6 +16,9 @@ export function buildCampaignsV6Labels(t: Translate, tc: Translate): CampaignsV6
     filtersAria: t("v6.filtersAria"),
     statusChipPrefix: tc("status"),
     platformChipPrefix: tc("platforms"),
+    originAll: t("v6.originAll"),
+    originCampaigns: t("v6.originCampaigns"),
+    originPosts: t("v6.originPosts"),
     viewList: t("v6.viewList"),
     viewGrid: t("v6.viewGrid"),
     viewBoard: t("v6.viewBoard"),

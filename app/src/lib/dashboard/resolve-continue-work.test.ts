@@ -23,15 +23,15 @@ describe("resolveContinueWork", () => {
     expect(resolveContinueWork([])).toEqual({ kind: "empty" });
   });
 
-  it("prefers generating over older resumable", () => {
+  it("prefers generating over older intending", () => {
     const result = resolveContinueWork([
       work({
         id: "campaign:a",
-        name: "Old",
+        name: "Old intending",
         originId: "a",
-        state: "completed",
+        state: "intending",
         resumable: true,
-        updatedAt: "2026-07-13T15:00:00.000Z",
+        updatedAt: "2026-07-13T09:00:00.000Z",
         resumeHref: "/campaigns/a",
       }),
       work({
@@ -55,12 +55,53 @@ describe("resolveContinueWork", () => {
     );
   });
 
+  it("does not treat approved/delivered as continue targets", () => {
+    const result = resolveContinueWork([
+      work({
+        id: "campaign:done",
+        name: "Done",
+        originId: "done",
+        state: "approved",
+        resumable: true,
+        updatedAt: "2026-07-13T15:00:00.000Z",
+        resumeHref: "/campaigns/done",
+      }),
+      work({
+        id: "campaign:shipped",
+        name: "Shipped",
+        originId: "shipped",
+        state: "delivered",
+        resumable: true,
+        updatedAt: "2026-07-13T16:00:00.000Z",
+        resumeHref: "/campaigns/shipped",
+      }),
+    ]);
+    expect(result).toEqual({ kind: "empty" });
+  });
+
+  it("includes intending as in-progress", () => {
+    const result = resolveContinueWork([
+      work({
+        id: "campaign:draft",
+        name: "Draft",
+        originId: "draft",
+        state: "intending",
+        resumable: true,
+        resumeHref: "/campaigns/draft",
+      }),
+    ]);
+    expect(result).toEqual(
+      expect.objectContaining({ kind: "work", name: "Draft" })
+    );
+  });
+
   it("skips non-resumable", () => {
     const result = resolveContinueWork([
       work({
         id: "campaign:z",
         name: "Abandoned",
         originId: "z",
+        state: "generating",
         resumable: false,
         resumeHref: "/campaigns/z",
       }),
