@@ -95,7 +95,8 @@ export function parseDecisionsYaml(text) {
 
 /** Strip volatile fields so freshness compares durable inventory content. */
 export function normalizeInventoryForCompare(inventory) {
-  const { generatedAt: _generatedAt, ...rest } = inventory;
+  const rest = { ...inventory };
+  delete rest.generatedAt;
   return rest;
 }
 

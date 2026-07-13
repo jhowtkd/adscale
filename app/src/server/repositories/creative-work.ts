@@ -1,4 +1,4 @@
-import { eq, and, asc } from "drizzle-orm";
+import { eq, and, asc, desc } from "drizzle-orm";
 import { db } from "../db";
 import {
   creativeWorkItems,
@@ -83,6 +83,19 @@ export async function getCreativeWork(
     .orderBy(asc(creativeWorkOutputs.creativeLevel));
 
   return { work: workRows[0], outputs };
+}
+
+/** Workspace-scoped list for canonical queries (Phase 2). No cross-tenant leak. */
+export async function listCreativeWorks(
+  workspaceId: string,
+  limit = 50
+): Promise<CreativeWorkItem[]> {
+  return db
+    .select()
+    .from(creativeWorkItems)
+    .where(eq(creativeWorkItems.workspaceId, workspaceId))
+    .orderBy(desc(creativeWorkItems.updatedAt))
+    .limit(limit);
 }
 
 export async function setCreativeWorkCopy(

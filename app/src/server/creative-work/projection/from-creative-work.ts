@@ -1,0 +1,151 @@
+import {
+  mapCreativeWorkOutputStatusToCanonical,
+  normalizeCreativeWorkState,
+} from "@/server/creative-work/canonical/status";
+import {
+  makeCanonicalWorkId,
+  requireIso,
+  toIso,
+  type CanonicalCreativeWork,
+  type CanonicalOutput,
+  type CanonicalVersion,
+  type CanonicalWorkSummary,
+} from "@/server/creative-work/canonical/types";
+
+export interface CreativeWorkProjectionSource {
+  id: string;
+  workspaceId: string;
+  clientProfileId: string;
+  toolKind: string;
+  status: string;
+  format: string;
+  brief: {
+    theme?: string | null;
+    objective?: string | null;
+    audience?: string | null;
+    offer?: string | null;
+  } | null;
+  copy: {
+    headline?: string | null;
+    body?: string | null;
+    cta?: string | null;
+  } | null;
+  identitySnapshot: unknown | null;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}
+
+export interface CreativeWorkOutputProjectionSource {
+  id: string;
+  status: string;
+  creativeLevel: string | null;
+  outputKey: string | null;
+  isSelected: boolean | null;
+  createdAt?: Date | string | null;
+}
+
+function resumeHrefForCreativeWork(workItemId: string): string {
+  return `/quick-tools/create-post?workItemId=${workItemId}`;
+}
+
+export function projectCreativeWorkAsCanonicalWork(
+  work: CreativeWorkProjectionSource,
+  outputs: CreativeWorkOutputProjectionSource[] = []
+): CanonicalCreativeWork {
+  const hasCopy = Boolean(work.copy);
+  const hasIdentitySnapshot = work.identitySnapshot != null;
+  const outputStatuses = outputs.map((o) => o.status);
+  const hasSelectedOutput = outputs.some((o) => o.isSelected === true);
+
+  const state = normalizeCreativeWorkState({
+    status: work.status,
+    hasCopy,
+    hasIdentitySnapshot,
+    outputStatuses,
+    hasSelectedOutput,
+  });
+
+  const canonicalOutputs: CanonicalOutput[] = outputs.map((o) => {
+    const status = mapCreativeWorkOutputStatusToCanonical(o.status);
+    return {
+      id: o.id,
+      sourceKind: "creative_work_output" as const,
+      status: o.isSelected ? "approved" : status,
+      format: work.format,
+      creativeLevel: o.creativeLevel,
+      outputKey: o.outputKey,
+      isSelected: o.isSelected === true,
+      versionLabel: o.creativeLevel ?? o.id.slice(0, 8),
+      createdAt: toIso(o.createdAt),
+    };
+  });
+
+  const versions: CanonicalVersion[] = canonicalOutputs.map((o) => ({
+    id: `version:${o.id}`,
+    label: o.versionLabel,
+    outputId: o.id,
+    createdAt: o.createdAt,
+  }));
+
+  const selected =
+    canonicalOutputs.find((o) => o.isSelected) ?? null;
+
+  const theme = work.brief?.theme ?? null;
+  const name = theme?.trim() || `Criar Post ${work.id.slice(0, 8)}`;
+
+  return {
+    id: makeCanonicalWorkId("creative_work", work.id),
+    originKind: "creative_work",
+    originId: work.id,
+    origin: "quick_tool",
+    workspaceId: work.workspaceId,
+    clientProfileId: work.clientProfileId,
+    name,
+    state,
+    intent: {
+      kind: "social_post",
+      objective: work.brief?.objective ?? null,
+      formatHint: work.format,
+      platforms: [],
+    },
+    briefing: {
+      product: null,
+      client: null,
+      audience: work.brief?.audience ?? null,
+      offer: work.brief?.offer ?? null,
+      tone: null,
+      constraints: null,
+      notes: null,
+      headline: work.copy?.headline ?? null,
+      body: work.copy?.body ?? null,
+      cta: work.copy?.cta ?? null,
+      theme,
+    },
+    outputs: canonicalOutputs,
+    versions,
+    selectedOutputId: selected?.id ?? null,
+    createdAt: requireIso(work.createdAt),
+    updatedAt: requireIso(work.updatedAt),
+    resumable: state !== "abandoned" && state !== "failed",
+    resumeHref: resumeHrefForCreativeWork(work.id),
+  };
+}
+
+export function summarizeCreativeWorkAsCanonicalWork(
+  work: CreativeWorkProjectionSource,
+  outputs: CreativeWorkOutputProjectionSource[] = []
+): CanonicalWorkSummary {
+  const full = projectCreativeWorkAsCanonicalWork(work, outputs);
+  return {
+    id: full.id,
+    originKind: full.originKind,
+    originId: full.originId,
+    origin: full.origin,
+    workspaceId: full.workspaceId,
+    name: full.name,
+    state: full.state,
+    updatedAt: full.updatedAt,
+    resumable: full.resumable,
+    resumeHref: full.resumeHref,
+  };
+}
