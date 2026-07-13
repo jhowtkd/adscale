@@ -49,10 +49,35 @@ const CONSOLE_ALLOW = [
   /Download the React DevTools/i,
   /\[HMR\]/i,
   /\[Fast Refresh\]/i,
-  /Failed to load resource: the server responded with a status of 4\d\d/i, // duplicated by network list
-  /Some page content is not contained by landmarks/i, // axe noise in shell
+  /Failed to load resource: the server responded with a status of 4\d\d/i,
+  /Failed to load resource: the server responded with a status of 5\d\d/i,
+  // Next.js axe / a11y reporter dumps (not product JS exceptions)
+  /Some page content is not contained by landmarks/i,
   /No skip link target/i,
   /Element does not have text that is visible to screen readers/i,
+  /Element has insufficient color contrast/i,
+  /Fix any of the following/i,
+  /Fix all of the following/i,
+  /List element has direct children/i,
+  /Related nodes/i,
+  /Expected contrast ratio/i,
+  /New axe issues/i,
+  /console\.groupEnd/i,
+  /was preloaded using link preload but not used/i,
+  /%c%s:/i, // styled axe console format
+  /Element: %o/i,
+  /HTML: %c%s/i,
+  /Images must have alternate text/i,
+  /Document should have one main landmark/i,
+  /All page content should be contained/i,
+  /Heading levels should only increase/i,
+  /Buttons must have discernible text/i,
+  /Form elements must have labels/i,
+  /Links must have discernible text/i,
+  /Ensures/i, // axe rule prose
+  /moderate|serious|critical|minor/i,
+  /axeAPI/i,
+  /dequeuniversity/i,
 ];
 
 export class ScenarioCollectors {

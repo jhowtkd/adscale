@@ -3,14 +3,14 @@
   "password": "DevAdmin123!",
   "workspaceId": "7d8b2e78-558c-46f2-a6fb-8f52ef7aae14",
   "userId": "gWWJjGALUA8aJyCX15fFsD8x2uD2KXbq",
-  "clientProfileId": "e13f6f81-a743-4315-945b-ffb289dafd60",
-  "campaignId": "29f1da5e-1deb-4fd1-a70f-7e54cd5646f3",
-  "campaignName": "Phase6 UAT Campaign Reviewing",
-  "derivationId": "1d64098f-c7d9-479d-a176-058058d9dd06",
-  "templateId": "c1943fc5-f920-4229-8945-15079f369fce",
+  "clientProfileId": "eb5af74c-ce3d-4d13-9334-ea06cef54f2a",
+  "campaignId": "4e392cc3-0a33-4bfb-9593-1a6cf51bd17c",
+  "campaignName": "Phase6 UAT Campanha em revisao",
+  "derivationId": "0ef4e261-26fa-4b78-9891-7e2f62fa9e3d",
+  "templateId": "1c0eb8cf-6569-45ee-95be-9cdf5a7b9a2b",
   "templateName": "Phase6 UAT Template",
-  "workId": "9a219578-58b5-49cc-bda4-52151bd5abb5",
-  "workResumeHref": "/quick-tools/create-post?workId=9a219578-58b5-49cc-bda4-52151bd5abb5",
+  "workId": "bfb78ceb-d764-4808-a099-9aed6be511a5",
+  "workResumeHref": "/quick-tools/create-post?workId=bfb78ceb-d764-4808-a099-9aed6be511a5",
   "emptySearch": "zzz-phase6-uat-empty-no-match",
-  "seededAt": "2026-07-13T17:18:49.576Z"
+  "seededAt": "2026-07-13T18:22:33.295Z"
 }

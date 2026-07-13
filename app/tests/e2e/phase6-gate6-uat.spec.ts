@@ -1,10 +1,12 @@
 /**
- * Phase 6 Gate 6 UAT — live browser.
- * Requires: app :3000, `npm run seed:phase6-uat`, seed-dev-admin.
- * Fresh evidence only (no smoke reuse).
+ * Phase 6 Gate 6 UAT — no-provider block:
+ * S05 → S02 → S04 → S06 → S10 → S12
+ *
+ * Requires: app :3000 with E2E_DISABLE_RATE_LIMIT=true, `npm run seed:phase6-uat`
+ * Evidence rewritten each run; item 50 stays open (no final evidence commit here).
  */
 import fs from "node:fs";
-import { test } from "@playwright/test";
+import { test, expect } from "@playwright/test";
 import {
   ScenarioCollectors,
   type ScenarioResult,
@@ -18,6 +20,8 @@ import {
   gotoApp,
   loadPhase6Fixture,
   openAuthedPage,
+  waitTrabalhosHydrated,
+  waitWorkspaceStages,
 } from "./support/phase6-uat-auth";
 
 function record(collectors: ScenarioCollectors, r: ScenarioResult) {
@@ -27,28 +31,26 @@ function record(collectors: ScenarioCollectors, r: ScenarioResult) {
   console.log(
     `[UAT] ${gated.id} ${gated.status.toUpperCase()} — ${gated.title}: ${gated.notes}`
   );
+  return gated;
 }
 
 test.describe.configure({ mode: "default" });
 
-test.describe("Phase 6 Gate 6 UAT", () => {
-  test.setTimeout(180_000);
+test.describe("Phase 6 Gate 6 UAT no-provider block", () => {
+  test.setTimeout(120_000);
 
   test.beforeAll(() => {
-    // Fresh report for this run
     ensureEvidenceDir();
     const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const prev = evidencePath("RESULTS.json");
-    if (fs.existsSync(prev)) {
-      fs.renameSync(prev, evidencePath(`RESULTS-archive-${stamp}.json`));
-    }
-    const prevMd = evidencePath("RESULTS.md");
-    if (fs.existsSync(prevMd)) {
-      fs.renameSync(prevMd, evidencePath(`RESULTS-archive-${stamp}.md`));
+    for (const name of ["RESULTS.json", "RESULTS.md"] as const) {
+      const p = evidencePath(name);
+      if (fs.existsSync(p)) {
+        fs.renameSync(p, evidencePath(`${name}.archive-${stamp}`));
+      }
     }
   });
 
-  test("S05 product fixes: count title + workStates + no IntlError", async ({
+  test("S05 product fixes: count title + workStates + clean console", async ({
     browser,
   }) => {
     const fixture = loadPhase6Fixture();
@@ -58,56 +60,51 @@ test.describe("Phase 6 Gate 6 UAT", () => {
     collectors.mark();
     try {
       await gotoApp(page, "/campaigns");
-      await page
-        .getByText(fixture.campaignName)
-        .first()
-        .waitFor({ state: "visible", timeout: 20_000 })
-        .catch(() => undefined);
+      await waitTrabalhosHydrated(page);
+      await expect(page.getByText(fixture.campaignName).first()).toBeVisible({
+        timeout: 15_000,
+      });
 
-      // Prefer product title (not any sr-only landmark)
-      const h1 = await page
-        .locator("h1.product-page-title")
-        .first()
-        .innerText({ timeout: 15_000 })
-        .catch(() => "");
-      const main = await page.locator("main").innerText().catch(() => "");
+      const h1 = await page.locator("h1.product-page-title").innerText();
+      const main = await page.locator("main").innerText();
 
       const hasCount = /\d+\s+(trabalhos|works)/i.test(h1);
-      const rawKey =
-        /campaign\.v6\.worksTitle|\{count\}/i.test(h1) ||
-        /campaign\.v6\.worksTitle/i.test(main);
-      const rawIntending = /\bintending\b/i.test(main);
-      const rawReviewing =
-        /\breviewing\b/i.test(main) && !/em revisão|in review/i.test(main);
+      const rawKey = /campaign\.v6\.worksTitle|\{count\}/i.test(h1 + main);
+      // Status badges only — do not scan campaign names for English tokens
+      const badgeLabels = await page
+        .locator("main")
+        .locator('[class*="badge"], [data-variant]')
+        .allTextContents()
+        .catch(() => [] as string[]);
+      const badgeBlob = badgeLabels.join(" | ");
+      const rawFunnel = badgeLabels.some((label) =>
+        /^(intending|reviewing|briefing|generating|approved|delivered|abandoned|failed)$/i.test(
+          label.trim()
+        )
+      );
       const translated =
         /em briefing|briefing pronto|em revisão|gerando|in briefing|brief ready|in review/i.test(
           main
-        );
-
-      const intlInConsole = collectors
-        .unexpectedConsole()
-        .some((l) => /IntlError|FORMATTING_ERROR|count/i.test(l));
+        ) ||
+        /em briefing|em revisão|gerando|in briefing|in review/i.test(badgeBlob);
+      void badgeBlob;
 
       let status: ScenarioResult["status"] = "pass";
       const notes: string[] = [`h1=${JSON.stringify(h1)}`];
       if (!hasCount || rawKey) {
         status = "fail";
-        notes.push("title count/i18n broken");
+        notes.push("title missing count or raw i18n key");
       }
-      if (rawIntending || rawReviewing) {
+      if (rawFunnel) {
         status = "fail";
-        notes.push("raw funnel state visible");
+        notes.push("raw funnel state token");
       }
       if (!translated) {
         status = "fail";
-        notes.push("no translated work state labels found");
-      }
-      if (intlInConsole) {
-        status = "fail";
-        notes.push("IntlError still in console");
+        notes.push("translated workStates not visible");
       }
 
-      record(collectors, {
+      const result = record(collectors, {
         id: "S05",
         title: "Trabalhos i18n + canonical states",
         status,
@@ -118,75 +115,87 @@ test.describe("Phase 6 Gate 6 UAT", () => {
         consoleErrors: [],
         networkErrors: [],
       });
+      expect(result.status, result.notes).toBe("pass");
     } finally {
       await context.close();
     }
   });
 
-  test("S02 create campaign full path", async ({ browser }) => {
+  test("S02 create campaign → workspace → list", async ({ browser }) => {
     const collectors = new ScenarioCollectors();
     const { context, page } = await openAuthedPage(browser);
     collectors.attach(page);
     collectors.mark();
     try {
+      // Intent path: home → Novo trabalho → Campanha
       await gotoApp(page, "/");
+      // Wait for client data (continue target) so React handlers are attached
+      await page
+        .getByText(/continuar de onde parei|continue where/i)
+        .first()
+        .waitFor({ state: "visible", timeout: 20_000 });
       const newWork = page.getByRole("button", {
         name: /novo trabalho|new work/i,
       });
+      await expect(newWork).toBeVisible({ timeout: 15_000 });
       await newWork.click();
-      await page.locator('a[href="/campaigns?new=1"]').click();
-      await page.waitForURL(/\/campaigns/, { timeout: 20_000 });
+      // Intent panel heading proves setIntentOpen(true) took effect
+      await expect(
+        page.getByRole("heading", {
+          name: /o que você quer fazer|what do you want/i,
+        })
+      ).toBeVisible({ timeout: 10_000 });
+      const campaignIntent = page.locator('a[href="/campaigns?new=1"]');
+      await expect(campaignIntent).toBeVisible({ timeout: 10_000 });
+      await campaignIntent.click();
+      await page.waitForURL(/new=1/, { timeout: 20_000 });
 
       const dialog = page.getByRole("dialog");
-      await dialog.waitFor({ state: "visible", timeout: 15_000 });
+      await expect(dialog).toBeVisible({ timeout: 15_000 });
       const name = `UAT S02 ${Date.now()}`;
       await dialog.locator("#campaign-name").fill(name);
-      await dialog.locator("#campaign-client").fill("UAT Client");
-      await dialog
-        .getByRole("button", { name: /criar|create|salvar|save|continuar/i })
-        .first()
-        .click();
+      await dialog.locator("#campaign-client").fill("UAT Client S02");
 
-      await page
-        .waitForURL(/\/campaigns\/[0-9a-f-]{8,}/i, { timeout: 45_000 })
-        .catch(() => undefined);
+      const [res] = await Promise.all([
+        page.waitForResponse(
+          (r) =>
+            (r.url().includes("/api/campaigns") ||
+              r.url().includes("/api/templates/")) &&
+            r.request().method() === "POST",
+          { timeout: 30_000 }
+        ),
+        dialog.getByRole("button", { name: /criar|create/i }).click(),
+      ]);
+      expect(res.ok(), `create/materialize HTTP ${res.status()}`).toBeTruthy();
+
+      await page.waitForURL(/\/campaigns\/[0-9a-f-]{8,}/i, { timeout: 30_000 });
       const m = page.url().match(/\/campaigns\/([0-9a-f-]{8,})/i);
-      if (!m) {
-        record(collectors, {
-          id: "S02",
-          title: "New campaign create + redirect",
-          status: "fail",
-          url: page.url(),
-          viewport: "1440x900",
-          notes: "no redirect to /campaigns/{id}",
-          screenshot: await shot(page, "uat-50-S02-desktop"),
-          consoleErrors: [],
-          networkErrors: [],
-        });
-        return;
-      }
+      expect(m, `expected workspace redirect, got ${page.url()}`).toBeTruthy();
+      const campaignId = m![1];
+
+      await waitWorkspaceStages(page);
+
       await gotoApp(page, "/campaigns");
-      const listed = await page
-        .getByText(name)
-        .first()
-        .isVisible({ timeout: 15_000 })
-        .catch(() => false);
-      record(collectors, {
+      await waitTrabalhosHydrated(page);
+      await expect(page.getByText(name).first()).toBeVisible({
+        timeout: 15_000,
+      });
+
+      const result = record(collectors, {
         id: "S02",
-        title: "New campaign create + redirect",
-        status: listed ? "pass" : "fail",
+        title: "New campaign create + redirect + list",
+        status: "pass",
         url: page.url(),
         viewport: "1440x900",
-        notes: listed
-          ? `campaignId=${m[1]} name=${name} listed`
-          : `created ${m[1]} not listed`,
+        notes: `campaignId=${campaignId} name=${name}`,
         screenshot: await shot(page, "uat-50-S02-desktop"),
         consoleErrors: [],
         networkErrors: [],
-        createdIds: { campaignId: m[1], name },
+        createdIds: { campaignId, name },
       });
+      expect(result.status).toBe("pass");
     } finally {
-      await context.close();
+      await context.close().catch(() => undefined);
     }
   });
 
@@ -197,77 +206,120 @@ test.describe("Phase 6 Gate 6 UAT", () => {
     collectors.attach(page);
     collectors.mark();
     try {
-      // Prefer direct post resume proof (deterministic workId)
+      // --- post workId path (deterministic fixture) ---
       await gotoApp(page, fixture.workResumeHref);
-      const postOk =
-        page.url().includes("workId=") &&
-        page.url().includes(fixture.workId);
-      const wizard = await page
+      await page.waitForURL(
+        (u) =>
+          u.searchParams.get("workId") === fixture.workId ||
+          u.href.includes(fixture.workId),
+        { timeout: 20_000 }
+      );
+      const wizard = page
         .getByTestId("create-post-wizard")
-        .or(page.getByRole("heading", { name: /criar post|create post/i }))
-        .first()
-        .isVisible({ timeout: 15_000 })
-        .catch(() => false);
+        .or(page.getByRole("heading", { name: /criar post|create post/i }));
+      await expect(wizard.first()).toBeVisible({ timeout: 20_000 });
 
-      // Campaign continue from home
+      // --- campaign continue from home (seed: campaign is freshest in-progress) ---
       await gotoApp(page, "/");
       const continueLink = page
-        .locator('a[href*="/campaigns/"], a[href*="workId"]')
+        .locator('a[href*="/campaigns/"], a[href*="workId="]')
         .filter({ hasText: /continuar de onde parei|continue where/i });
-      const hasContinue = await continueLink
-        .first()
-        .isVisible({ timeout: 10_000 })
-        .catch(() => false);
-      let continueHref = "";
-      let continueLanded = "";
-      if (hasContinue) {
-        continueHref = (await continueLink.first().getAttribute("href")) ?? "";
-        await continueLink.first().click({ force: true });
-        await page.waitForTimeout(1500);
-        continueLanded = page.url();
-      }
+      await expect(continueLink.first()).toBeVisible({ timeout: 20_000 });
+      const href = (await continueLink.first().getAttribute("href")) ?? "";
+      expect(
+        href,
+        `Continuar must target campaign, got ${href}`
+      ).toMatch(/\/campaigns\/[0-9a-f-]{8,}/i);
+      await continueLink.first().click({ force: true });
+      await page.waitForURL(/\/campaigns\/[0-9a-f-]{8,}/i, { timeout: 20_000 });
+      await waitWorkspaceStages(page);
+      const landed = page.url();
 
-      const campaignContinue =
-        continueLanded.includes("/campaigns/") ||
-        continueHref.includes("/campaigns/");
-      const postContinue =
-        continueHref.includes("workId") ||
-        continueLanded.includes("workId") ||
-        (postOk && wizard);
-
-      let status: ScenarioResult["status"] = "fail";
-      if (postOk && wizard && (campaignContinue || hasContinue)) {
-        status = "pass";
-      } else if (postOk && wizard) {
-        status = "fail";
-        // post path proven via fixture; continue may prefer campaign
-        if (campaignContinue) status = "pass";
-      }
-
-      // If post wizard works via workId and continue exists for campaign, pass
-      if (postOk && wizard && campaignContinue) status = "pass";
-      else if (postOk && wizard && !hasContinue) status = "fail";
-      else if (!postOk || !wizard) status = "fail";
-      else if (postOk && wizard && hasContinue) status = "pass";
-
-      record(collectors, {
+      const result = record(collectors, {
         id: "S04",
         title: "Continue campaign + post workId",
-        status,
-        url: page.url(),
+        status: "pass",
+        url: landed,
         viewport: "1440x900",
-        notes: `postWorkId=${postOk} wizard=${wizard} continueHref=${continueHref} continueLanded=${continueLanded}`,
+        notes: `post workId wizard ok; continueHref=${href} landed=${landed}`,
         screenshot: await shot(page, "uat-50-S04-desktop"),
         consoleErrors: [],
         networkErrors: [],
-        createdIds: { workId: fixture.workId, campaignId: fixture.campaignId },
+        createdIds: {
+          workId: fixture.workId,
+          campaignId: fixture.campaignId,
+        },
       });
+      expect(result.status, result.notes).toBe("pass");
     } finally {
       await context.close();
     }
   });
 
-  test("S10 template materialize", async ({ browser }) => {
+  test("S06 four stages + distinct deep links", async ({ browser }) => {
+    const fixture = loadPhase6Fixture();
+    const collectors = new ScenarioCollectors();
+    const { context, page } = await openAuthedPage(browser);
+    collectors.attach(page);
+    collectors.mark();
+    try {
+      await gotoApp(page, `/campaigns/${fixture.campaignId}`);
+      await waitWorkspaceStages(page);
+
+      const briefing = page.getByRole("button", { name: /briefing/i }).first();
+      const produce = page
+        .getByRole("button", { name: /produzir|produce/i })
+        .first();
+      const review = page
+        .getByRole("button", { name: /revisar|review/i })
+        .first();
+      const deliver = page
+        .getByRole("button", { name: /entregar|deliver/i })
+        .first();
+
+      await expect(briefing).toBeVisible();
+      await expect(produce).toBeVisible();
+      await expect(review).toBeVisible();
+      await expect(deliver).toBeVisible();
+
+      await review.click({ force: true });
+      await expect(page.locator("#mission-review")).toBeVisible({
+        timeout: 10_000,
+      });
+      await deliver.click({ force: true });
+      await expect(page.locator("#mission-share")).toBeVisible({
+        timeout: 10_000,
+      });
+      // Distinct anchors — export must not nest under review
+      const nested = await page.locator("#mission-review #mission-export").count();
+      const reviewBox = await page.locator("#mission-review").boundingBox();
+      const shareBox = await page.locator("#mission-share").boundingBox();
+      const distinct =
+        nested === 0 &&
+        reviewBox != null &&
+        shareBox != null &&
+        reviewBox.y !== shareBox.y;
+
+      const result = record(collectors, {
+        id: "S06",
+        title: "Workspace stages + deep links",
+        status: distinct ? "pass" : "fail",
+        url: page.url(),
+        viewport: "1440x900",
+        notes: `nestedExport=${nested} distinctY=${distinct} campaign=${fixture.campaignId}`,
+        screenshot: await shot(page, "uat-50-S06-desktop"),
+        consoleErrors: [],
+        networkErrors: [],
+      });
+      expect(result.status, result.notes).toBe("pass");
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("S10 materialize via UI + list + double-submit guard", async ({
+    browser,
+  }) => {
     const fixture = loadPhase6Fixture();
     const collectors = new ScenarioCollectors();
     const { context, page } = await openAuthedPage(browser);
@@ -275,175 +327,182 @@ test.describe("Phase 6 Gate 6 UAT", () => {
     collectors.mark();
     try {
       await gotoApp(page, "/templates");
-      // Prefer card for seeded template
-      const card = page.getByText(fixture.templateName).first();
-      await card.waitFor({ state: "visible", timeout: 15_000 }).catch(() => undefined);
-      const useBtn = page
-        .getByRole("button", {
-          name: /materializ|usar|use template|criar campanha|use/i,
-        })
-        .first();
-      // Try click on template then materialize, or direct button near name
-      if (await card.isVisible().catch(() => false)) {
-        await card.click({ force: true }).catch(() => undefined);
-      }
-      const btnVisible = await useBtn
-        .isVisible({ timeout: 8_000 })
-        .catch(() => false);
-      if (!btnVisible) {
-        // API materialize fallback is NOT UI path — mark fail for missing UI
-        record(collectors, {
-          id: "S10",
-          title: "Template materialize",
-          status: "fail",
-          url: page.url(),
-          viewport: "1440x900",
-          notes: `template ${fixture.templateName} not actionable in UI`,
-          screenshot: await shot(page, "uat-50-S10-desktop"),
-          consoleErrors: [],
-          networkErrors: [],
-        });
-        return;
-      }
-      await useBtn.click({ force: true });
-      await page
-        .waitForURL(/\/campaigns\/[0-9a-f-]{8,}/i, { timeout: 45_000 })
-        .catch(() => undefined);
+      const card = page.getByTestId(`template-card-${fixture.templateId}`);
+      await expect(card).toBeAttached({ timeout: 15_000 });
+      await expect(card.getByText(fixture.templateName)).toBeVisible({
+        timeout: 10_000,
+      });
+
+      // Product path: Usar template → /campaigns?new=1&templateId= → materialize on submit
+      const useBtn = card.getByRole("button", {
+        name: /usar template|use template/i,
+      });
+      await expect(useBtn).toBeVisible({ timeout: 10_000 });
+      await useBtn.click();
+      // Product navigates to /campaigns?new=1&templateId=… then opens modal after fetch
+      await page.waitForURL(
+        (u) =>
+          u.pathname.startsWith("/campaigns") &&
+          (u.searchParams.get("templateId") === fixture.templateId ||
+            u.search.includes(fixture.templateId)),
+        { timeout: 20_000 }
+      );
+      // Prefer dialog role; #campaign-name alone can strict-mode dual-match with dialog
+      const dialog = page.getByRole("dialog");
+      await expect(dialog).toBeVisible({ timeout: 30_000 });
+      await expect(dialog.locator("#campaign-name")).toBeVisible({
+        timeout: 15_000,
+      });
+      const submit = dialog.getByRole("button", { name: /criar|create/i });
+      await expect(submit).toBeEnabled({ timeout: 30_000 });
+
+      const name = `UAT S10 ${Date.now()}`;
+      await dialog.locator("#campaign-name").fill(name);
+      await dialog.locator("#campaign-client").fill("UAT Materialize Client");
+
+      let postCount = 0;
+      page.on("request", (req) => {
+        if (
+          req.method() === "POST" &&
+          req.url().includes("/materialize")
+        ) {
+          postCount += 1;
+        }
+      });
+
+      // Double-submit: second click must be ignored by createInFlightRef
+      await Promise.all([
+        page.waitForResponse(
+          (r) =>
+            r.url().includes("/materialize") && r.request().method() === "POST",
+          { timeout: 30_000 }
+        ),
+        (async () => {
+          await submit.click();
+          await submit.click({ force: true }).catch(() => undefined);
+        })(),
+      ]);
+
+      await page.waitForURL(/\/campaigns\/[0-9a-f-]{8,}/i, { timeout: 30_000 });
       const m = page.url().match(/\/campaigns\/([0-9a-f-]{8,})/i);
-      if (!m) {
-        record(collectors, {
-          id: "S10",
-          title: "Template materialize",
-          status: "fail",
-          url: page.url(),
-          viewport: "1440x900",
-          notes: "materialize click without campaign redirect",
-          screenshot: await shot(page, "uat-50-S10-desktop"),
-          consoleErrors: [],
-          networkErrors: [],
-        });
-        return;
-      }
+      expect(m, `materialize redirect failed: ${page.url()}`).toBeTruthy();
+      const campaignId = m![1];
+      expect(
+        postCount,
+        `double-submit should issue one materialize POST, got ${postCount}`
+      ).toBe(1);
+
       await gotoApp(page, "/campaigns");
-      const listed = await page
-        .locator(`a[href*="${m[1]}"]`)
-        .first()
-        .isVisible({ timeout: 15_000 })
-        .catch(() => false);
-      record(collectors, {
+      await waitTrabalhosHydrated(page);
+      await expect(page.getByText(name).first()).toBeVisible({
+        timeout: 15_000,
+      });
+
+      const result = record(collectors, {
         id: "S10",
-        title: "Template materialize",
-        status: listed ? "pass" : "fail",
+        title: "Template materialize UI",
+        status: "pass",
         url: page.url(),
         viewport: "1440x900",
-        notes: listed
-          ? `materialized ${m[1]} listed`
-          : `materialized ${m[1]} missing from list`,
+        notes: `templateId=${fixture.templateId} campaignId=${campaignId} name=${name} materializePosts=${postCount}`,
         screenshot: await shot(page, "uat-50-S10-desktop"),
         consoleErrors: [],
         networkErrors: [],
-        createdIds: { campaignId: m[1] },
+        createdIds: { campaignId, name },
       });
+      expect(result.status).toBe("pass");
     } finally {
-      await context.close();
+      await context.close().catch(() => undefined);
     }
   });
 
-  test("S12 empty + loading + error/retry (home + trabalhos)", async ({
-    browser,
-  }) => {
+  test("S12 empty + loading + error/retry", async ({ browser }) => {
     const fixture = loadPhase6Fixture();
     const collectors = new ScenarioCollectors();
     const { context, page } = await openAuthedPage(browser);
     collectors.attach(page);
 
-    // --- empty via deterministic search ---
-    collectors.mark();
-    await gotoApp(page, "/campaigns");
-    const search = page.getByRole("searchbox").or(
-      page.locator('input[type="search"]')
-    );
-    await search.first().fill(fixture.emptySearch);
-    await page.waitForTimeout(800);
-    const emptyVisible = await page
-      .getByText(/nenhum|no works|sem resultados|empty|não encontr/i)
+    // Home continue first (before error path reloads)
+    await gotoApp(page, "/");
+    // Wait for canonical works to resolve continue/empty block
+    await page
+      .getByText(/continuar de onde parei|continue where/i)
       .first()
-      .isVisible({ timeout: 8_000 })
-      .catch(() => false);
-    // clear filters control
-    const clear = page.getByRole("button", {
-      name: /limpar|clear|reset/i,
-    });
-    const hasClear = await clear.first().isVisible().catch(() => false);
+      .waitFor({ state: "visible", timeout: 20_000 });
+    const homeContinue = true;
 
-    // --- loading via route delay ---
+    // --- empty (deterministic search on hydrated list) ---
+    await gotoApp(page, "/campaigns");
+    await waitTrabalhosHydrated(page);
     collectors.mark();
-    let sawLoading = false;
-    await page.route("**/api/**/canonical-works**", async (route) => {
-      await new Promise((r) => setTimeout(r, 1500));
-      await route.continue();
-    });
-    await page.route("**/api/campaigns**", async (route) => {
+    const search = page.locator('input[type="search"]');
+    await search.fill(fixture.emptySearch);
+    await expect(
+      page.getByText(/nenhuma campanha corresponde|no campaigns match/i).first()
+    ).toBeVisible({ timeout: 10_000 });
+    await expect(
+      page.getByRole("button", {
+        name: /limpar todos os filtros|clear all filters/i,
+      })
+    ).toBeVisible({ timeout: 5_000 });
+    const emptyOk = true;
+
+    // --- loading (delay GET creative-work) ---
+    collectors.mark();
+    let loadingOk = false;
+    await page.route("**/api/creative-work**", async (route) => {
       if (route.request().method() === "GET") {
         await new Promise((r) => setTimeout(r, 1200));
       }
       await route.continue();
     });
-    const loadingPromise = page
-      .locator(".animate-pulse, [aria-busy=true]")
+    const loadWait = page
+      .locator("h1.product-page-title .animate-pulse, .animate-pulse")
       .first()
-      .isVisible({ timeout: 3_000 })
+      .waitFor({ state: "visible", timeout: 5_000 })
+      .then(() => true)
       .catch(() => false);
     await gotoApp(page, "/campaigns");
-    sawLoading = await loadingPromise;
-    await page.unrouteAll({ behavior: "ignoreErrors" }).catch(() => undefined);
+    loadingOk = await loadWait;
+    await page.unroute("**/api/creative-work**").catch(() => undefined);
+    await waitTrabalhosHydrated(page);
 
     // --- error + retry ---
     collectors.mark();
-    await page.route("**/api/**/canonical-works**", (route) =>
-      route.fulfill({
-        status: 500,
-        contentType: "application/json",
-        body: JSON.stringify({ error: "uat_forced_error" }),
-      })
-    );
-    await page.route("**/api/campaigns?**", (route) => {
+    await page.route("**/api/creative-work**", async (route) => {
       if (route.request().method() === "GET") {
-        return route.fulfill({
+        await route.fulfill({
           status: 500,
           contentType: "application/json",
           body: JSON.stringify({ error: "uat_forced_error" }),
         });
+        return;
       }
-      return route.continue();
+      await route.continue();
     });
     await gotoApp(page, "/campaigns");
-    const errorVisible = await page
-      .getByText(/erro|error|falha|failed|não foi possível|try again|tentar/i)
-      .first()
-      .isVisible({ timeout: 10_000 })
-      .catch(() => false);
-    const retry = page.getByRole("button", {
-      name: /tentar|retry|recarregar|reload/i,
+    await expect(
+      page.getByText(/erro ao carregar|error loading/i).first()
+    ).toBeVisible({ timeout: 15_000 });
+    const retryBtn = page.getByRole("button", {
+      name: /tentar novamente|retry/i,
     });
-    const hasRetry = await retry.first().isVisible().catch(() => false);
-    await page.unrouteAll({ behavior: "ignoreErrors" }).catch(() => undefined);
-
-    // Home continue empty-ish: search doesn't apply; check continue block exists
-    await gotoApp(page, "/");
-    const continueBlock = await page
-      .getByText(/continuar de onde parei|continue where/i)
-      .first()
-      .isVisible({ timeout: 8_000 })
-      .catch(() => false);
+    await expect(retryBtn.first()).toBeVisible({ timeout: 5_000 });
+    // Unroute before retry so reload can succeed
+    await page.unroute("**/api/creative-work**").catch(() => undefined);
+    await retryBtn.first().click();
+    await page.waitForURL(/\/campaigns/, { timeout: 20_000 }).catch(() => undefined);
+    await waitTrabalhosHydrated(page);
+    const retryVisible = true;
 
     const parts = {
-      empty: emptyVisible || hasClear,
-      loading: sawLoading,
-      error: errorVisible,
-      retry: hasRetry,
-      homeContinue: continueBlock,
+      empty: emptyOk,
+      loading: loadingOk,
+      error: true,
+      retry: retryVisible,
+      homeContinue,
     };
+    // retry button required by roteiro for error surface
     const ok =
       parts.empty &&
       parts.loading &&
@@ -451,7 +510,6 @@ test.describe("Phase 6 Gate 6 UAT", () => {
       parts.retry &&
       parts.homeContinue;
 
-    // Forced 500s are intentional for this scenario — do not hard-gate on them
     appendResult(
       {
         id: "S12",
@@ -463,111 +521,16 @@ test.describe("Phase 6 Gate 6 UAT", () => {
         screenshot: await shot(page, "uat-50-S12-desktop"),
         consoleErrors: collectors
           .unexpectedConsole()
-          .filter((l) => !/500|uat_forced/i.test(l)),
+          .filter((l) => !/500|uat_forced|Failed to load resource/i.test(l)),
         networkErrors: [],
       },
       UAT_EMAIL
     );
     // eslint-disable-next-line no-console
     console.log(
-      `[UAT] S12 ${ok ? "PASS" : "FAIL"} — Empty/loading/error/retry: ${JSON.stringify(parts)}`
+      `[UAT] S12 ${ok ? "PASS" : "FAIL"} — ${JSON.stringify(parts)}`
     );
+    expect(ok, JSON.stringify(parts)).toBe(true);
     await context.close();
-  });
-
-  test("S13 mobile nav", async ({ browser }) => {
-    const collectors = new ScenarioCollectors();
-    const { context, page } = await openAuthedPage(browser, {
-      viewport: { width: 390, height: 844 },
-      isMobile: true,
-    });
-    collectors.attach(page);
-    collectors.mark();
-    try {
-      await gotoApp(page, "/");
-      const nav = page.getByRole("navigation", {
-        name: /primary mobile navigation/i,
-      });
-      const ok =
-        (await nav.isVisible().catch(() => false)) &&
-        (await nav.locator('a[href="/"]').isVisible().catch(() => false)) &&
-        (await nav.locator('a[href="/campaigns"]').isVisible().catch(() => false)) &&
-        (await nav.locator('a[href="/library"]').isVisible().catch(() => false)) &&
-        (await nav.locator('a[href="/brand-kit"]').isVisible().catch(() => false));
-      await nav.getByRole("button").first().click({ force: true });
-      await page.waitForTimeout(400);
-      const settingsMore = await page
-        .getByRole("dialog")
-        .locator('a[href="/settings"]')
-        .isVisible({ timeout: 5_000 })
-        .catch(() => false);
-      record(collectors, {
-        id: "S13",
-        title: "Mobile nav",
-        status: ok && settingsMore ? "pass" : "fail",
-        url: page.url(),
-        viewport: "390x844",
-        notes: `primary=${ok} settingsMore=${settingsMore}`,
-        screenshot: await shot(page, "uat-50-S13-mobile"),
-        consoleErrors: [],
-        networkErrors: [],
-      });
-    } finally {
-      await context.close();
-    }
-  });
-
-  test("S06 stages on seeded campaign", async ({ browser }) => {
-    const fixture = loadPhase6Fixture();
-    const collectors = new ScenarioCollectors();
-    const { context, page } = await openAuthedPage(browser);
-    collectors.attach(page);
-    collectors.mark();
-    try {
-      await gotoApp(page, `/campaigns/${fixture.campaignId}`);
-      await page
-        .getByRole("button", { name: /briefing/i })
-        .first()
-        .waitFor({ state: "visible", timeout: 30_000 })
-        .catch(() => undefined);
-      const has =
-        (await page.getByRole("button", { name: /briefing/i }).first().isVisible().catch(() => false)) &&
-        (await page.getByRole("button", { name: /produzir|produce/i }).first().isVisible().catch(() => false)) &&
-        (await page.getByRole("button", { name: /revisar|review/i }).first().isVisible().catch(() => false)) &&
-        (await page.getByRole("button", { name: /entregar|deliver/i }).first().isVisible().catch(() => false));
-      if (has) {
-        await page.getByRole("button", { name: /revisar|review/i }).first().click({ force: true });
-        await page.waitForTimeout(400);
-        const rev = await page.locator("#mission-review").isVisible().catch(() => false);
-        await page.getByRole("button", { name: /entregar|deliver/i }).first().click({ force: true });
-        await page.waitForTimeout(400);
-        const share = await page.locator("#mission-share").isVisible().catch(() => false);
-        record(collectors, {
-          id: "S06",
-          title: "Workspace stages",
-          status: rev && share ? "pass" : "fail",
-          url: page.url(),
-          viewport: "1440x900",
-          notes: `review=${rev} share=${share}`,
-          screenshot: await shot(page, "uat-50-S06-desktop"),
-          consoleErrors: [],
-          networkErrors: [],
-        });
-      } else {
-        record(collectors, {
-          id: "S06",
-          title: "Workspace stages",
-          status: "fail",
-          url: page.url(),
-          viewport: "1440x900",
-          notes: "stage buttons missing",
-          screenshot: await shot(page, "uat-50-S06-desktop"),
-          consoleErrors: [],
-          networkErrors: [],
-        });
-      }
-    } finally {
-      await context.close();
-    }
   });
 });

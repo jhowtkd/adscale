@@ -3,7 +3,7 @@
  *
  * Creates (dev-admin workspace only):
  *   - UAT campaign in reviewing (completed derivation) for continue + stages
- *   - UAT creative_work in generating for post resume via ?workId=
+ *   - UAT creative_work in ready+identity (canonical briefing) for post resume via ?workId=
  *   - UAT template for materialize (S10)
  *   - Client profile + brand kit for create-post paths
  *
@@ -145,7 +145,7 @@ async function main() {
 
   // Campaign for S04 continue + S06 stages (reviewing via completed derivation)
   const campaign = await createCampaign(workspaceId, {
-    name: `${PREFIX} Campaign Reviewing`,
+    name: `${PREFIX} Campanha em revisao`,
     client: "UAT Client",
     clientProfileId: profile.id,
     objective: "Awareness",
@@ -192,7 +192,8 @@ async function main() {
     campaignId: campaign.id,
   });
 
-  // Creative work post for S04 workId resume (in-progress)
+  // Creative work post for S04 workId resume.
+  // Canonical: generating requires ≥1 output row — use ready+identity (briefing) instead.
   const work = await createCreativeWork({
     workspaceId,
     clientProfileId: profile.id,
@@ -212,26 +213,31 @@ async function main() {
     cta: "Saiba mais",
   });
 
-  try {
-    const snap = await createIdentitySnapshot({
-      workspaceId,
-      clientProfileId: profile.id,
-      selectedReferenceIds: [],
-    });
-    await confirmCreativeWorkIdentity(workspaceId, work.id, snap);
-  } catch {
-    /* optional if brand kit alone is enough for projection */
-  }
+  const snap = await createIdentitySnapshot({
+    workspaceId,
+    clientProfileId: profile.id,
+    selectedReferenceIds: [],
+  });
+  await confirmCreativeWorkIdentity(workspaceId, work.id, snap);
 
-  // Keep work in generating so continue treats as in-progress; fresher than campaign
+  // ready + identity → canonical "briefing" (valid, resumable, no ImpossibleCanonicalStateError)
   await db
     .update(creativeWorkItems)
-    .set({ status: "generating", updatedAt: new Date() })
+    .set({
+      status: "ready",
+      updatedAt: new Date(Date.now() - 60_000),
+    })
     .where(eq(creativeWorkItems.id, work.id));
+
+  // Campaign is the freshest in-progress → Home "Continuar" prefers it
+  await db
+    .update(campaigns)
+    .set({ updatedAt: new Date() })
+    .where(eq(campaigns.id, campaign.id));
 
   // Second campaign slightly older for list density
   await createCampaign(workspaceId, {
-    name: `${PREFIX} Campaign Intending`,
+    name: `${PREFIX} Campanha em briefing`,
     client: "UAT Client B",
     objective: "Leads",
     status: "draft",
