@@ -120,7 +120,7 @@ describe("POST /api/creative-work/[id]/generate", () => {
       action: "image_derivation",
       amount: 15,
       idempotencyKey: "creative-work:work-1:triplet",
-      metadata: { creativeWorkId: "work-1", operation_key: "image_derivation" },
+      metadata: { creativeWorkId: "work-1", surface: "quick_tool", operation_key: "image_derivation" },
       userId: "user-1",
       returnPath: "/quick-tools/create-post?workId=work-1",
     });

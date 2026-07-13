@@ -1,7 +1,11 @@
 import "server-only";
 import { logger } from "@/lib/logger";
 import { objectStorage } from "@/server/storage";
-import { generateAndStoreImage } from "@/server/ai/image-generation";
+import { executeCanonicalGeneration } from "@/server/generation/pipeline/execute";
+import {
+  GENERATION_CREDIT_COSTS,
+  type GenerationRequest,
+} from "@/server/generation/canonical/types";
 import { analyzeDerivationCreative, type ScoreResult } from "@/server/ai/creative-score";
 import { getClientProfile } from "@/server/repositories/client-reference";
 import { refundCredits } from "@/server/billing/credits";
@@ -181,14 +185,53 @@ export const creativeWorkOutputJob = inngest.createFunction(
         throw error;
       }
 
-      const generated = await step.run("generate-base", async () => {
-        return generateAndStoreImage({
-          prompt,
-          dimensions,
-          outputPrefix: `creative-work/${outputId}`,
+      const generationRequest: GenerationRequest = {
+        authorship: {
+          workspaceId,
+          userId: work.createdByUserId ?? null,
+        },
+        origin: "quick_tool",
+        surface: "quick_tool",
+        intent: {
+          mode: "social_post",
+          objective: work.brief.objective ?? null,
+        },
+        identity: {
+          clientProfileId: work.clientProfileId,
           referenceImages,
-          generationMode: "art_variation",
-        });
+          brandConstraints: null,
+        },
+        format: {
+          targetFormat,
+          dimensions,
+          constraints: null,
+        },
+        source: {
+          parentId: null,
+          sourceVersionId: null,
+          lineageId: null,
+          packageSource: "creative_work_brief",
+        },
+        prompt: { text: prompt },
+        cost: {
+          chargeAmount: GENERATION_CREDIT_COSTS.creativeWorkOutput,
+          refundPolicy: "default",
+        },
+        idempotency: {
+          billingKey: `creative-work:${workItemId}:output:${outputId}:generate`,
+          skipWhenOutputExists: true,
+        },
+        destination: {
+          kind: "creative_work_output",
+          id: outputId,
+          storagePrefix: `creative-work/${outputId}`,
+          workItemId,
+        },
+      };
+
+      const generated = await step.run("generate-base", async () => {
+        // Same canonical executor as campaign/assistant (Gate 3 / item 25).
+        return executeCanonicalGeneration(generationRequest);
       });
       const generatedBuffer = (generated as unknown as { buffer: Buffer }).buffer;
       const generatedOutputKey = (generated as unknown as { outputKey: string }).outputKey;

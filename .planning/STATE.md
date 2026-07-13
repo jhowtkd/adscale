@@ -4,7 +4,7 @@ milestone: v13.9
 milestone_name: milestone
 current_plan: 5
 status: completed
-stopped_at: Convergence Gate 2 approved — Phase 3 generation pipeline ready for Gate 3 review
+stopped_at: Convergence Gate 3 fixes — canonical executor + Criar Post on shared pipeline
 last_updated: "2026-07-13T07:50:00.000Z"
 last_activity: 2026-07-13 -- Gate 2 approved; Phase 3 canonical generation pipeline implemented
 progress:
@@ -22,7 +22,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-26)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
-**Current focus:** Convergence Phase 3 — unified generation pipeline (Gate 3 review)
+**Current focus:** Convergence Gate 3 re-review — canonical executor shared by all surfaces
 
 ## Current Position
 

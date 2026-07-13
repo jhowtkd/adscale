@@ -88,6 +88,9 @@ vi.mock("../repositories/derivation", () => ({
   updateDerivationScore: vi.fn(),
   updateDerivationPromptProvenance: mockUpdateDerivationPromptProvenance,
   updateDerivationGenerationLog: vi.fn(() => Promise.resolve({})),
+  setDerivationProcessing: vi.fn(() => Promise.resolve({})),
+  completeDerivation: vi.fn(() => Promise.resolve({})),
+  failDerivation: vi.fn(() => Promise.resolve({})),
 }));
 
 vi.mock("../ai/creative-quality-gate", async (importOriginal) => {

@@ -3,6 +3,10 @@ import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { spendOrApiError } from "@/server/billing/paywall";
 import { refundCredits } from "@/server/billing/credits";
+import {
+  GENERATION_CREDIT_COSTS,
+  type GenerationRequest,
+} from "@/server/generation/canonical/types";
 import { inngest } from "@/server/jobs/client";
 import {
   getCreativeWork,
@@ -41,12 +45,57 @@ export async function POST(
       });
     }
 
+    const chargeRequest: GenerationRequest = {
+      authorship: { workspaceId: workspace.id, userId: user.id },
+      origin: "quick_tool",
+      surface: "quick_tool",
+      intent: {
+        mode: "social_post",
+        objective: existing.work.brief.objective ?? null,
+      },
+      identity: {
+        clientProfileId: existing.work.clientProfileId,
+        referenceImages: [],
+        brandConstraints: null,
+      },
+      format: {
+        targetFormat: existing.work.format,
+        dimensions: { width: 1024, height: 1024 },
+        constraints: null,
+      },
+      source: {
+        parentId: null,
+        sourceVersionId: null,
+        lineageId: null,
+        packageSource: "creative_work_brief",
+      },
+      prompt: { text: existing.work.brief.theme || "social_post" },
+      cost: {
+        chargeAmount: GENERATION_CREDIT_COSTS.creativeWorkTriplet,
+        refundPolicy: "default",
+      },
+      idempotency: {
+        billingKey: `creative-work:${id}:triplet`,
+        skipWhenOutputExists: true,
+      },
+      destination: {
+        kind: "creative_work_output",
+        id,
+        storagePrefix: `creative-work/${id}`,
+        workItemId: id,
+      },
+    };
+    // Charge via canonical request fields (same amounts/keys as chargeForGeneration).
     const creditError = await spendOrApiError({
-      workspaceId: workspace.id,
+      workspaceId: chargeRequest.authorship.workspaceId,
       action: "image_derivation",
-      amount: 15,
-      idempotencyKey: `creative-work:${id}:triplet`,
-      metadata: { creativeWorkId: id, operation_key: "image_derivation" },
+      amount: chargeRequest.cost.chargeAmount,
+      idempotencyKey: chargeRequest.idempotency.billingKey,
+      metadata: {
+        creativeWorkId: id,
+        surface: chargeRequest.surface,
+        operation_key: "image_derivation",
+      },
       userId: user.id,
       returnPath: `/quick-tools/create-post?workId=${id}`,
     });
@@ -79,7 +128,7 @@ export async function POST(
         workspaceId: workspace.id,
         action: "image_derivation",
         idempotencyKey: `creative-work:${id}:triplet:dispatch-refund`,
-        amount: 15,
+        amount: GENERATION_CREDIT_COSTS.creativeWorkTriplet,
         metadata: {
           creativeWorkId: id,
           description: "creative_work_dispatch_refund",

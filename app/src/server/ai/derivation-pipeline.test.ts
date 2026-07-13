@@ -297,6 +297,7 @@ describe("executeGenerationStep", () => {
 
   it("uses image edit for a single reference and uploads the normalized output", async () => {
     const result = await executeGenerationStep({
+      workspaceId: "ws-1",
       derivationId: "derivation-1",
       promptContext: canonicalPromptContextInput(),
       reference: {
@@ -324,6 +325,7 @@ describe("executeGenerationStep", () => {
     mockOpenAIImages.edit.mockRejectedValueOnce(new Error("edit unsupported"));
 
     const result = await executeGenerationStep({
+      workspaceId: "ws-1",
       derivationId: "derivation-2",
       promptContext: {
         ...canonicalPromptContextInput(),
@@ -347,6 +349,7 @@ describe("executeGenerationStep", () => {
 
     await expect(
       executeGenerationStep({
+      workspaceId: "ws-1",
         derivationId: "derivation-3",
         promptContext: canonicalPromptContextInput(),
         reference: {
@@ -363,6 +366,7 @@ describe("executeGenerationStep", () => {
 
   it("uses image edit with both images for restyling", async () => {
     const result = await executeGenerationStep({
+      workspaceId: "ws-1",
       derivationId: "derivation-4",
       promptContext: {
         ...canonicalPromptContextInput(),
@@ -386,6 +390,7 @@ describe("executeGenerationStep", () => {
 
   it("sends the campaign source and approved brand references as real images", async () => {
     await executeGenerationStep({
+      workspaceId: "ws-1",
       derivationId: "derivation-brand-references",
       promptContext: canonicalPromptContextInput(),
       reference: {
@@ -405,6 +410,7 @@ describe("executeGenerationStep", () => {
 
   it("uses image generate when there is no reference", async () => {
     const result = await executeGenerationStep({
+      workspaceId: "ws-1",
       derivationId: "derivation-5",
       promptContext: canonicalPromptContextInput(),
       reference: { kind: "none" },
@@ -417,6 +423,7 @@ describe("executeGenerationStep", () => {
 
   it("appends auto-retry correction suffix and uses -retry.png output key", async () => {
     const result = await executeGenerationStep({
+      workspaceId: "ws-1",
       derivationId: "derivation-retry",
       promptContext: canonicalPromptContextInput(),
       reference: {
@@ -448,6 +455,7 @@ describe("executeGenerationStep", () => {
 
     await expect(
       executeGenerationStep({
+      workspaceId: "ws-1",
         derivationId: "derivation-retry-fail",
         promptContext: {
           ...canonicalPromptContextInput(),

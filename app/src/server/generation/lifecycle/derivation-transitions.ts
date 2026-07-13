@@ -1,23 +1,23 @@
 /**
  * Transições de ciclo de vida da derivação (Phase 3 / item 19).
- * Espelha o comportamento atual do job — sem mudar contratos externos.
+ * Persistência apenas via repositories — sempre com workspaceId + id.
  */
-import { db } from "@/server/db";
-import { derivations } from "@/server/db/schema";
-import { eq } from "drizzle-orm";
 import { refreshCampaignStatus } from "@/server/repositories/campaign";
+import {
+  completeDerivation,
+  failDerivation,
+  setDerivationProcessing,
+} from "@/server/repositories/derivation";
 import { syncAssistantActionFromJob } from "@/server/repositories/assistant-job-sync";
 import { DERIVATION_USER_SAFE_ERROR } from "@/server/jobs/derivation-error-sanitizer";
+import type { derivations } from "@/server/db/schema";
 
 export async function markDerivationProcessing(input: {
   derivationId: string;
   workspaceId: string;
   assistantActionId?: string | null;
 }): Promise<void> {
-  await db
-    .update(derivations)
-    .set({ status: "processing", updatedAt: new Date() })
-    .where(eq(derivations.id, input.derivationId));
+  await setDerivationProcessing(input.derivationId, input.workspaceId);
   if (input.assistantActionId) {
     await syncAssistantActionFromJob({
       workspaceId: input.workspaceId,
@@ -34,25 +34,16 @@ export async function markDerivationCompleted(input: {
   workspaceId: string;
   outputKey: string;
   prompt: string | null;
-  candidates?: unknown;
+  candidates?: typeof derivations.$inferInsert.candidates;
   assistantActionId?: string | null;
   /** Goal runs sync via finalizeGoalDerivation — skip assistant sync here. */
   skipAssistantSync?: boolean;
 }): Promise<void> {
-  await db
-    .update(derivations)
-    .set({
-      status: "completed",
-      outputKey: input.outputKey,
-      prompt: input.prompt,
-      ...(input.candidates !== undefined
-        ? {
-            candidates: input.candidates as typeof derivations.$inferInsert.candidates,
-          }
-        : {}),
-      updatedAt: new Date(),
-    })
-    .where(eq(derivations.id, input.derivationId));
+  await completeDerivation(input.derivationId, input.workspaceId, {
+    outputKey: input.outputKey,
+    prompt: input.prompt,
+    candidates: input.candidates,
+  });
   await refreshCampaignStatus(input.campaignId, input.workspaceId);
   if (input.assistantActionId && !input.skipAssistantSync) {
     await syncAssistantActionFromJob({
@@ -71,14 +62,11 @@ export async function markDerivationFailed(input: {
   userMessage: string;
   assistantActionId?: string | null;
 }): Promise<void> {
-  await db
-    .update(derivations)
-    .set({
-      status: "failed",
-      prompt: input.userMessage,
-      updatedAt: new Date(),
-    })
-    .where(eq(derivations.id, input.derivationId));
+  await failDerivation(
+    input.derivationId,
+    input.workspaceId,
+    input.userMessage
+  );
   await refreshCampaignStatus(input.campaignId, input.workspaceId);
   if (input.assistantActionId) {
     await syncAssistantActionFromJob({

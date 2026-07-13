@@ -1,7 +1,7 @@
 # Plano de convergência de produto e arquitetura do ADScale
 
 **Data:** 2026-07-12  
-**Status:** Gate 2 aprovado; Fase 3 (pipeline único de geração) implementada neste branch — Gate 3 pendente de reavaliação  
+**Status:** Gate 3 correções aplicadas (executor canônico único + Criar Post no mesmo pipeline) — pendente reavaliação  
 **Direção assumida:** trabalho criativo-first  
 **Estratégia:** migração incremental com gates; nenhum big bang
 

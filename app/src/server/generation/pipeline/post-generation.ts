@@ -82,11 +82,21 @@ export async function runDerivationQualityGate(input: {
     styleImageBuffer?: Buffer;
     styleMimeType?: string;
   };
+  /** Load restyling refs inside the non-blocking try (Gate 3 regression fix). */
+  loadQaReferences?: () => Promise<{
+    baseImageBuffer?: Buffer;
+    baseMimeType?: string;
+    styleImageBuffer?: Buffer;
+    styleMimeType?: string;
+  }>;
 }): Promise<void> {
   logger.info(
     `[quality-gate] derivationId=${input.derivationId} outputKey=${input.outputKey}`
   );
   try {
+    const qaReferences = input.loadQaReferences
+      ? await input.loadQaReferences()
+      : input.qaReferences;
     const gateBuffer = await objectStorage.get(input.outputKey);
     await runCompletedDerivationQualityGate({
       derivationId: input.derivationId,
@@ -106,7 +116,7 @@ export async function runDerivationQualityGate(input: {
       },
       derivation: input.derivation,
       contract: input.contract,
-      ...input.qaReferences,
+      ...qaReferences,
     });
     logger.info(`[quality-gate] done derivationId=${input.derivationId}`);
   } catch (error) {

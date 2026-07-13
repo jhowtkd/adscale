@@ -18,11 +18,17 @@ import {
 import type { BrandMemoryContext } from "@/server/memory/brand-memory-context";
 import type { PreflightResult } from "./preflight-analysis";
 import {
-  generateAndStoreImage,
   normalizeGeneratedImage,
   type GenerateAndStoreImageReference,
   type GenerationCandidateMeta,
 } from "./image-generation";
+import {
+  executeCanonicalGenerationWithFallback,
+} from "@/server/generation/pipeline/execute";
+import {
+  GENERATION_CREDIT_COSTS,
+  type GenerationRequest,
+} from "@/server/generation/canonical/types";
 
 // Re-export for backward compatibility — jobs/derivation.ts and the
 // derivation-pipeline test import normalizeGeneratedImage from this module.
@@ -189,9 +195,13 @@ export type GenerationReferenceInput =
 
 export interface ExecuteGenerationStepContext {
   derivationId: string;
+  workspaceId: string;
   promptContext: BuildGenerationPromptContextInput;
   reference: GenerationReferenceInput;
   isPreview?: boolean;
+  authoredByUserId?: string | null;
+  clientProfileId?: string | null;
+  surface?: "campaign" | "assistant";
   /** When set, appends the QA correction suffix, uses a `-retry.png` key, and disables edit→generate fallback. */
   autoRetry?: { correctionFeedback: string };
 }
@@ -269,48 +279,60 @@ export async function executeGenerationStep(
   const dimensions =
     getTargetDimensions(targetFormat, ctx.isPreview) ?? { width: 1024, height: 1024 };
 
-  let result: {
-    outputKey: string;
-    revisedPrompt: string;
-    imageOperation: ImageOperation;
-    candidates: (GenerationCandidateMeta & { winner: boolean })[];
-  };
-  try {
-    result = await generateAndStoreImage({
-      prompt,
-      dimensions,
-      outputPrefix,
+  const allowGenerateFallback =
+    ctx.reference.kind === "single" &&
+    Boolean(ctx.reference.allowGenerateFallback) &&
+    !ctx.autoRetry;
+
+  const request: GenerationRequest = {
+    authorship: {
+      workspaceId: ctx.workspaceId,
+      userId: ctx.authoredByUserId ?? null,
+    },
+    origin: ctx.surface === "assistant" ? "assistant" : "campaign",
+    surface: ctx.surface ?? "campaign",
+    intent: {
+      mode: ctx.promptContext.generationMode,
+      objective: ctx.promptContext.campaign.objective ?? null,
+    },
+    identity: {
+      clientProfileId: ctx.clientProfileId ?? null,
       referenceImages,
-      generationMode: ctx.promptContext.generationMode,
+      brandConstraints: null,
+    },
+    format: {
+      targetFormat: ctx.promptContext.targetFormat,
+      dimensions,
+      constraints: null,
+      isPreview: ctx.isPreview,
+    },
+    source: {
+      parentId: null,
+      sourceVersionId: null,
+      lineageId: null,
+      packageSource: ctx.promptContext.packageSource ?? null,
       outputSuffix,
-    });
-  } catch (editErr) {
-    // Preserve the historical single-reference fallback: retry without the
-    // reference image. Only enabled when `allowGenerateFallback` is set and
-    // we are NOT in an auto-retry context.
-    if (
-      ctx.reference.kind === "single" &&
-      ctx.reference.allowGenerateFallback &&
-      !ctx.autoRetry
-    ) {
-      logger.warn(
-        `[executeGenerationStep] edit failed, falling back to generate:`,
-        editErr
-      );
-      result = await generateAndStoreImage({
-        prompt,
-        dimensions,
-        outputPrefix,
-        referenceImages: [],
-        generationMode: ctx.promptContext.generationMode,
-        outputSuffix,
-      });
-      // Mark the operation so callers can distinguish the fallback path.
-      result = { ...result, imageOperation: "generation_fallback" };
-    } else {
-      throw editErr;
-    }
-  }
+      allowGenerateFallback,
+    },
+    prompt: { text: prompt },
+    cost: {
+      chargeAmount: GENERATION_CREDIT_COSTS.singleDerivation,
+      refundPolicy: "default",
+    },
+    idempotency: {
+      billingKey: `derivation:${ctx.derivationId}:generate${outputSuffix}`,
+      skipWhenOutputExists: true,
+    },
+    destination: {
+      kind: "derivation",
+      id: ctx.derivationId,
+      storagePrefix: outputPrefix,
+      campaignId: undefined,
+    },
+  };
+
+  // Canonical executor — same path Criar Post uses (Gate 3).
+  const result = await executeCanonicalGenerationWithFallback(request);
 
   return {
     prompt,

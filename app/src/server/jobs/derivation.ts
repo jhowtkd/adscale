@@ -755,9 +755,13 @@ export const derivationJob = inngest.createFunction(
 
       const stepResult = await executeGenerationStep({
         derivationId,
+        workspaceId,
         promptContext: promptContextInput,
         reference,
         isPreview,
+        authoredByUserId: triggeredByUserId ?? null,
+        clientProfileId: campaign.clientProfileId ?? null,
+        surface: assistantActionId ? "assistant" : "campaign",
       });
 
       const exactBrandReferences = clientReferences.filter(
@@ -1044,11 +1048,6 @@ export const derivationJob = inngest.createFunction(
     });
 
     await step.run("quality-gate", async () => {
-      const qaReferences = await loadRestylingQaReferences(
-        campaignId,
-        workspaceId,
-        generated.resolvedContract
-      );
       await runDerivationQualityGate({
         derivationId,
         workspaceId,
@@ -1061,7 +1060,12 @@ export const derivationJob = inngest.createFunction(
           generationMode: generated.effectiveGenerationMode,
         },
         contract: generated.resolvedContract,
-        qaReferences,
+        loadQaReferences: () =>
+          loadRestylingQaReferences(
+            campaignId,
+            workspaceId,
+            generated.resolvedContract
+          ),
       });
     });
 
@@ -1273,40 +1277,25 @@ export const derivationJob = inngest.createFunction(
       });
 
       await step.run("quality-gate-after-retry", async () => {
-        try {
-          const gateBuffer = await objectStorage.get(retried.outputKey);
-          const qaReferences = await loadRestylingQaReferences(
-            campaignId,
-            workspaceId,
-            generated.resolvedContract
-          );
-          await runCompletedDerivationQualityGate({
-            derivationId,
-            workspaceId,
-            imageBuffer: gateBuffer,
-            mimeType: "image/png",
-            locale: locale ?? "pt-BR",
-            campaign: {
-              name: campaign.name ?? "",
-              client: campaign.client ?? "",
-              product: campaign.product ?? "",
-              offer: campaign.offer ?? "",
-              objective: campaign.objective ?? "",
-              audience: campaign.audience ?? "",
-              tone: campaign.tone,
-              creativeDiagnosis: campaign.creativeDiagnosis,
-            },
-            derivation: {
-              ctaText: ctaText ?? derivation.ctaText ?? null,
-              format: generated.targetFormat,
-              generationMode: generated.effectiveGenerationMode,
-            },
-            contract: generated.resolvedContract,
-            ...qaReferences,
-          });
-        } catch (error) {
-          logger.warn(`[quality-gate-after-retry] failed derivationId=${derivationId}`, error);
-        }
+        await runDerivationQualityGate({
+          derivationId,
+          workspaceId,
+          outputKey: retried.outputKey,
+          locale,
+          campaign,
+          derivation: {
+            ctaText: ctaText ?? derivation.ctaText ?? null,
+            format: generated.targetFormat,
+            generationMode: generated.effectiveGenerationMode,
+          },
+          contract: generated.resolvedContract,
+          loadQaReferences: () =>
+            loadRestylingQaReferences(
+              campaignId,
+              workspaceId,
+              generated.resolvedContract
+            ),
+        });
       });
 
       if (triggeredByUserId) {
