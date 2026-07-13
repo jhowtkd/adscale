@@ -51,9 +51,10 @@ export default function TemplateCard({
   return (
     <m.div
       data-testid={`template-card-${template.id}`}
-      initial={{ opacity: 0, y: 12 }}
+      // Keep opacity at 1 so cards stay visible if motion stalls (headless/a11y)
+      initial={{ opacity: 1, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, delay: index * 0.05 }}
+      transition={{ duration: 0.25, delay: Math.min(index, 6) * 0.04 }}
       className="bg-[var(--surface-raised)] border border-[var(--border-dim)] rounded-lg p-5 hover:border-[var(--border-medium)] transition-colors"
     >
       <div className="flex items-start justify-between mb-3">
