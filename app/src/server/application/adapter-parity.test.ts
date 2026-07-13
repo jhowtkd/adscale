@@ -59,27 +59,8 @@ vi.mock("@/server/beta-analytics/record", () => ({
   recordBetaAnalyticsEvent: vi.fn(() => Promise.resolve({ id: "evt-1" })),
 }));
 
-const passthroughContract = {
-  inputSchema: {
-    safeParse: (input: Record<string, unknown>) => ({
-      success: true as const,
-      data: input,
-    }),
-  },
-};
-
-vi.mock("@/server/assistant/action-contracts/registry", () => ({
-  getActionContract: vi.fn((type: string) => {
-    const known = new Set([
-      "quick_save_reference",
-      "quick_restyle",
-      "quick_regenerate",
-      "quick_review",
-      "quick_package",
-    ]);
-    return known.has(type) ? passthroughContract : null;
-  }),
-}));
+// Real action contracts (registers schemas used by quick_* handlers).
+import "@/server/assistant/action-contracts/contracts";
 
 import { POST as saveReferencePOST } from "@/app/api/derivations/[id]/save-reference/route";
 import { POST as restylePOST } from "@/app/api/campaigns/[id]/restyle/route";
@@ -99,6 +80,8 @@ import { AssistantActionExecutionError } from "@/server/assistant/action-executi
 const profileId = "550e8400-e29b-41d4-a716-446655440001";
 const derivationId = "550e8400-e29b-41d4-a716-446655440010";
 const baseCreativeId = "550e8400-e29b-41d4-a716-446655440020";
+const styleReferenceId = "550e8400-e29b-41d4-a716-446655440030";
+const campaignId = "550e8400-e29b-41d4-a716-446655440040";
 
 function assistantCtx(
   partial: Partial<ActionExecutionContext> & {
@@ -225,21 +208,21 @@ describe("adapter parity: restyle", () => {
       ok: true,
       value: {
         derivation: { id: "d-restyle" },
-        campaignId: "camp-1",
+        campaignId,
       },
     });
 
     const httpRes = await restylePOST(
-      new Request("http://localhost/api/campaigns/camp-1/restyle", {
+      new Request(`http://localhost/api/campaigns/${campaignId}/restyle`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
       }),
-      { params: Promise.resolve({ id: "camp-1" }) }
+      { params: Promise.resolve({ id: campaignId }) }
     );
     expect(restyleMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        campaignId: "camp-1",
+        campaignId,
         billingAction: "image_derivation",
       })
     );
@@ -250,7 +233,7 @@ describe("adapter parity: restyle", () => {
       ok: true,
       value: {
         derivation: { id: "d-restyle-2" },
-        campaignId: "camp-1",
+        campaignId,
       },
     });
 
@@ -259,7 +242,7 @@ describe("adapter parity: restyle", () => {
         actionType: "quick_restyle",
         inputSnapshot: {
           baseCreativeId,
-          styleReferenceId: "style-1",
+          styleReferenceId,
         },
       })
     );
@@ -267,12 +250,63 @@ describe("adapter parity: restyle", () => {
     expect(restyleMock).toHaveBeenCalledWith(
       expect.objectContaining({
         baseCreativeId,
-        styleAssetId: "style-1",
+        styleAssetId: styleReferenceId,
         billingAction: "restyling",
         billingIdempotencyKey: "assistant-action:action-1:quick_restyle",
       })
     );
     expect(restyleMock.mock.calls[0][0]).not.toHaveProperty("campaignId");
+  });
+
+  it("maps not-found equivalently (HTTP campaign 404 / Assistente base asset_not_found)", async () => {
+    restyleMock.mockResolvedValue({
+      ok: false,
+      error: { code: "campaign_not_found" },
+    });
+
+    const httpRes = await restylePOST(
+      new Request(`http://localhost/api/campaigns/${campaignId}/restyle`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      }),
+      { params: Promise.resolve({ id: campaignId }) }
+    );
+    expect(httpRes.status).toBe(404);
+
+    restyleMock.mockResolvedValue({
+      ok: false,
+      error: { code: "base_creative_not_found" },
+    });
+
+    await expect(
+      executeQuickRestyle(
+        assistantCtx({
+          actionType: "quick_restyle",
+          inputSnapshot: { baseCreativeId },
+        })
+      )
+    ).rejects.toMatchObject({
+      code: "asset_not_found",
+    } satisfies Partial<AssistantActionExecutionError>);
+  });
+
+  it("rejects Assistente input that fails the real quick_restyle UUID schema", async () => {
+    await expect(
+      executeQuickRestyle(
+        assistantCtx({
+          actionType: "quick_restyle",
+          inputSnapshot: {
+            baseCreativeId,
+            styleReferenceId: "style-1",
+          },
+        })
+      )
+    ).rejects.toMatchObject({
+      message: "Invalid quick_restyle inputs",
+      code: "execution_failed",
+    } satisfies Partial<AssistantActionExecutionError>);
+    expect(restyleMock).not.toHaveBeenCalled();
   });
 });
 
