@@ -1,0 +1,16 @@
+{
+  "email": "dev-admin@adscale.local",
+  "password": "DevAdmin123!",
+  "workspaceId": "7d8b2e78-558c-46f2-a6fb-8f52ef7aae14",
+  "userId": "gWWJjGALUA8aJyCX15fFsD8x2uD2KXbq",
+  "clientProfileId": "e13f6f81-a743-4315-945b-ffb289dafd60",
+  "campaignId": "29f1da5e-1deb-4fd1-a70f-7e54cd5646f3",
+  "campaignName": "Phase6 UAT Campaign Reviewing",
+  "derivationId": "1d64098f-c7d9-479d-a176-058058d9dd06",
+  "templateId": "c1943fc5-f920-4229-8945-15079f369fce",
+  "templateName": "Phase6 UAT Template",
+  "workId": "9a219578-58b5-49cc-bda4-52151bd5abb5",
+  "workResumeHref": "/quick-tools/create-post?workId=9a219578-58b5-49cc-bda4-52151bd5abb5",
+  "emptySearch": "zzz-phase6-uat-empty-no-match",
+  "seededAt": "2026-07-13T17:18:49.576Z"
+}

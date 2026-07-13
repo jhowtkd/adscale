@@ -34,6 +34,7 @@
     "seed:goal-agent-e2e": "tsx scripts/seed-goal-agent-e2e.ts",
     "seed:goal-agent-pilot": "tsx scripts/seed-goal-agent-pilot.ts",
     "seed:create-post-e2e": "tsx scripts/seed-create-post-e2e.ts",
+    "seed:phase6-uat": "NODE_OPTIONS='--conditions=react-server' tsx scripts/seed-phase6-uat.ts",
     "snapshot:goal-agent-graduation": "tsx scripts/snapshot-goal-agent-graduation.ts",
     "validate:creative": "node scripts/check-creative-validation-evidence.mjs --stage final",
     "validate:creative:live": "npx tsx scripts/run-creative-validation.ts",
