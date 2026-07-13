@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-07-13T13:16:17.769Z",
+  "generatedAt": "2026-07-13T14:17:30.956Z",
   "schemaVersion": 2,
-  "fingerprint": "124003037aec9a7c664006abdc54a505dab70858608d8ec6a228a24357d01005",
+  "fingerprint": "34cae41cf57997a2d850f35dc66cc5622aa2232999c803a1e0702c31494ac2f1",
   "counts": {
     "dashboardPages": 14,
-    "apiRoutes": 171,
-    "ctas": 58,
+    "apiRoutes": 173,
+    "ctas": 59,
     "requiringDecision": 2
   },
   "dashboardPages": [
@@ -1139,6 +1139,13 @@
       "requiresDecision": false
     },
     {
+      "id": "api:/api/strategy-recipe/resolve",
+      "kind": "api_route",
+      "route": "/api/strategy-recipe/resolve",
+      "file": "app/src/app/api/strategy-recipe/resolve/route.ts",
+      "requiresDecision": false
+    },
+    {
       "id": "api:/api/templates/[id]/materialize",
       "kind": "api_route",
       "route": "/api/templates/[id]/materialize",
@@ -1213,6 +1220,13 @@
       "kind": "api_route",
       "route": "/api/waitlist",
       "file": "app/src/app/api/waitlist/route.ts",
+      "requiresDecision": false
+    },
+    {
+      "id": "api:/api/workspace/assets/[id]/file",
+      "kind": "api_route",
+      "route": "/api/workspace/assets/[id]/file",
+      "file": "app/src/app/api/workspace/assets/[id]/file/route.ts",
       "requiresDecision": false
     },
     {
@@ -1760,6 +1774,15 @@
       "hasComingSoon": false,
       "requiresDecision": true,
       "note": "always-disabled control"
+    },
+    {
+      "id": "nav:app/src/components/quick-tools/create-post/CreatePostWizard.tsx:272",
+      "kind": "cta_navigation",
+      "destination": "/library",
+      "file": "app/src/components/quick-tools/create-post/CreatePostWizard.tsx",
+      "line": 272,
+      "evidence": "app/src/components/quick-tools/create-post/CreatePostWizard.tsx:272",
+      "requiresDecision": false
     },
     {
       "id": "nav:app/src/components/settings/PrivacyTab.tsx:86",
