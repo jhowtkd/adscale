@@ -38,8 +38,8 @@ const view: CampaignWorkspaceV6ViewModel = {
   statusVariant: "success",
   meta: "Meta info",
   currentStage: 2,
-  stages: ["Prepare", "Generate", "Deliver"],
-  stageTabs: ["briefing", "generate", "export"],
+  stages: ["Briefing", "Produce", "Review", "Deliver"],
+  stageTabs: ["briefing", "generate", "review", "export"],
   briefingSliders: [],
   briefingRules: [],
   derivations: [],
@@ -85,8 +85,11 @@ describe("CampaignWorkspaceV6Chrome", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /Prepare/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Briefing/i }));
     expect(onStageSelect).toHaveBeenCalledWith("briefing");
+
+    fireEvent.click(screen.getByRole("button", { name: /Review/i }));
+    expect(onStageSelect).toHaveBeenCalledWith("review");
 
     fireEvent.click(screen.getByRole("button", { name: /Deliver/i }));
     expect(onStageSelect).toHaveBeenCalledWith("export");

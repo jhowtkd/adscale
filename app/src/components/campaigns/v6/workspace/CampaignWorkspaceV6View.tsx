@@ -153,7 +153,12 @@ export default function CampaignWorkspaceV6View({
   );
 }
 
-const DEFAULT_STAGE_TABS: WorkspaceStageNavTab[] = ["briefing", "generate", "export"];
+const DEFAULT_STAGE_TABS: WorkspaceStageNavTab[] = [
+  "briefing",
+  "generate",
+  "review",
+  "export",
+];
 
 function WorkspaceStageList({
   view,

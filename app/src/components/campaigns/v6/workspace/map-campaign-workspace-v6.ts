@@ -66,18 +66,20 @@ function styleIntensityValue(intensity?: string | null): number {
 }
 
 /**
- * Three user-facing phases that match real workspace states:
- * 1 Preparar (setup) · 2 Gerar (trabalho / generating / review) · 3 Entregar (has approvals)
+ * Four user tasks (Phase 6 / item 47):
+ * 1 Briefing · 2 Produzir · 3 Revisar · 4 Entregar
  */
 export function resolveWorkspaceStage({
   workspaceState,
-  derivationCount: _derivationCount,
+  derivationCount,
   reviewCount: _reviewCount,
   approvedCount,
   isGenerating,
 }: WorkspaceV6StageContext): number {
   if (workspaceState === "setup") return 1;
-  if (approvedCount > 0 && !isGenerating) return 3;
+  if (isGenerating) return 2;
+  if (approvedCount > 0) return 4;
+  if (derivationCount > 0) return 3;
   return 2;
 }
 
@@ -103,11 +105,12 @@ export function mapCampaignWorkspaceToV6View({
   const approvedCount = derivations.filter((d) => d.status === "approved").length;
 
   const stages = [
-    tWorkspace("stagePrepare"),
-    tWorkspace("stageGenerate"),
+    tWorkspace("stageBriefing"),
+    tWorkspace("stageProduce"),
+    tWorkspace("stageReview"),
     tWorkspace("stageDeliver"),
   ];
-  const stageTabs = ["briefing", "generate", "export"] as const;
+  const stageTabs = ["briefing", "generate", "review", "export"] as const;
 
   const briefingRules = (campaign.constraints ?? "")
     .split(/\n|(?<=[.!?])\s+/)

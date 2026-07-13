@@ -20,8 +20,8 @@ export type WorkspaceV6DerivationCard = {
   href?: string;
 };
 
-/** Deep-link tab keys for clickable stage navigation (1–3). */
-export type WorkspaceStageNavTab = "briefing" | "generate" | "export";
+/** Deep-link tab keys for clickable stage navigation (1–4). Phase 6 / item 47. */
+export type WorkspaceStageNavTab = "briefing" | "generate" | "review" | "export";
 
 export type CampaignWorkspaceV6ViewModel = {
   name: string;

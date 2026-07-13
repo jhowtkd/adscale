@@ -9,27 +9,30 @@ const baseCtx = {
 };
 
 describe("resolveWorkspaceStage", () => {
-  it("returns 1 (Prepare) during setup regardless of generation", () => {
+  it("returns 1 (Briefing) during setup regardless of generation", () => {
     expect(
       resolveWorkspaceStage({ ...baseCtx, workspaceState: "setup", isGenerating: true }),
     ).toBe(1);
   });
 
-  it("stays on Generate (2) while generation is active", () => {
+  it("stays on Produce (2) while generation is active", () => {
     expect(resolveWorkspaceStage({ ...baseCtx, isGenerating: true })).toBe(2);
   });
 
-  it("stays on Generate (2) while reviewing before any approval", () => {
-    expect(resolveWorkspaceStage({ ...baseCtx, reviewCount: 1 })).toBe(2);
-    expect(resolveWorkspaceStage({ ...baseCtx, derivationCount: 1 })).toBe(2);
+  it("moves to Review (3) when derivations exist and nothing approved", () => {
+    expect(resolveWorkspaceStage({ ...baseCtx, reviewCount: 1 })).toBe(3);
+    expect(resolveWorkspaceStage({ ...baseCtx, derivationCount: 1 })).toBe(3);
+  });
+
+  it("stays on Produce (2) with empty trabalho surface", () => {
     expect(resolveWorkspaceStage({ ...baseCtx, derivationCount: 0 })).toBe(2);
   });
 
-  it("advances to Deliver (3) once something is approved and not generating", () => {
-    expect(resolveWorkspaceStage({ ...baseCtx, approvedCount: 1 })).toBe(3);
+  it("advances to Deliver (4) once something is approved and not generating", () => {
+    expect(resolveWorkspaceStage({ ...baseCtx, approvedCount: 1 })).toBe(4);
   });
 
-  it("keeps Generate (2) while generating even if approvals already exist", () => {
+  it("keeps Produce (2) while generating even if approvals already exist", () => {
     expect(
       resolveWorkspaceStage({
         ...baseCtx,
