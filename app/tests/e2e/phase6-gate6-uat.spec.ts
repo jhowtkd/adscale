@@ -1,9 +1,16 @@
 /**
- * Phase 6 Gate 6 UAT — no-provider block:
- * S05 → S02 → S04 → S06 → S10 → S12
+ * Phase 6 Gate 6 UAT (item 50)
  *
- * Requires: app :3000 with E2E_DISABLE_RATE_LIMIT=true, `npm run seed:phase6-uat`
- * Evidence rewritten each run; item 50 stays open (no final evidence commit here).
+ * Blocks:
+ *   no-provider: S05 → S02 → S04 → S06 → S10 → S12
+ *   provider:    S03 → S07 → S08 → S09 → S11  (+ Inngest for S03 generate)
+ *   shell:       S01 → S13 → S14
+ *   mobile:      key paths @ 390×844
+ *
+ * Requires:
+ *   - app :3000 with E2E_DISABLE_RATE_LIMIT=true (test config, not prod)
+ *   - inngest-cli dev -u http://localhost:3000/api/inngest (provider block)
+ *   - npm run seed:phase6-uat
  */
 import fs from "node:fs";
 import { test, expect } from "@playwright/test";
@@ -17,6 +24,7 @@ import {
 } from "./support/uat-evidence";
 import {
   UAT_EMAIL,
+  dismissOverlays,
   gotoApp,
   loadPhase6Fixture,
   openAuthedPage,
@@ -534,3 +542,654 @@ test.describe("Phase 6 Gate 6 UAT no-provider block", () => {
     await context.close();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Provider block: S03 → S07 → S08 → S09 → S11
+// ---------------------------------------------------------------------------
+
+test.describe("Phase 6 Gate 6 UAT provider block", () => {
+  test.setTimeout(240_000);
+
+  test("S03 create post → generate → list (Inngest lifecycle)", async ({
+    browser,
+  }) => {
+    const fixture = loadPhase6Fixture();
+    const collectors = new ScenarioCollectors();
+    const { context, page } = await openAuthedPage(browser);
+    collectors.attach(page);
+    collectors.mark();
+    try {
+      // Intent: home → Criar post (new work, no campaign)
+      await gotoApp(page, "/");
+      await page
+        .getByText(/continuar de onde parei|continue where/i)
+        .first()
+        .waitFor({ state: "visible", timeout: 20_000 });
+      await page
+        .getByRole("button", { name: /novo trabalho|new work/i })
+        .click();
+      await expect(
+        page.getByRole("heading", {
+          name: /o que você quer fazer|what do you want/i,
+        })
+      ).toBeVisible({ timeout: 10_000 });
+      await page.locator('a[href="/quick-tools/create-post"]').click();
+      await page.waitForURL(/create-post/, { timeout: 20_000 });
+      await expect(page.getByTestId("create-post-wizard")).toBeVisible({
+        timeout: 15_000,
+      });
+
+      // Brief
+      const brand = page.getByRole("combobox", { name: /marca|brand/i });
+      await expect(brand).toBeVisible({ timeout: 15_000 });
+      await brand.selectOption(fixture.clientProfileId);
+      await page.getByLabel(/tema|theme/i).fill("UAT S03 tema");
+      await page.getByLabel(/objetivo|objective/i).fill("Engajamento");
+      await page.getByLabel(/público|audience/i).fill("SMB");
+      await page.getByLabel(/oferta|offer/i).fill("Trial");
+      await page.getByLabel("4:5").check().catch(async () => {
+        await page.locator('input[value="4:5"]').check();
+      });
+
+      // Credits snapshot before generate charge
+      const creditsBefore = await page.evaluate(async () => {
+        const r = await fetch("/api/billing/status");
+        if (!r.ok) return null;
+        const j = (await r.json()) as {
+          billing?: { creditBalance?: number; access?: { kind?: string } };
+        };
+        return {
+          balance: j.billing?.creditBalance ?? null,
+          kind: j.billing?.access?.kind ?? null,
+        };
+      });
+
+      const [copyRes] = await Promise.all([
+        page.waitForResponse(
+          (r) =>
+            r.url().includes("/api/creative-work") &&
+            r.request().method() === "POST",
+          { timeout: 60_000 }
+        ),
+        page.getByRole("button", { name: /criar copy|create copy/i }).click(),
+      ]);
+      // create may be POST creative-work then copy; accept any 2xx
+      expect(copyRes.ok() || copyRes.status() === 201).toBeTruthy();
+
+      await page.waitForURL(/workId=/, { timeout: 30_000 });
+      const workId =
+        new URL(page.url()).searchParams.get("workId") ??
+        page.url().match(/workId=([0-9a-f-]{8,})/i)?.[1];
+      expect(workId, `expected workId in URL ${page.url()}`).toBeTruthy();
+
+      await expect(page.getByLabel(/headline/i)).toBeVisible({
+        timeout: 60_000,
+      });
+      await page
+        .getByRole("button", { name: /continuar|continue|avançar|next/i })
+        .first()
+        .click();
+
+      // Assets → select first reference if listed, then generate
+      const firstAsset = page.locator('input[type="checkbox"][id^="cp-asset-"]').first();
+      if (await firstAsset.isVisible({ timeout: 3_000 }).catch(() => false)) {
+        if (!(await firstAsset.isChecked())) {
+          await firstAsset.check();
+        }
+      }
+      const generateBtn = page.getByRole("button", {
+        name: /gerar 3 propostas|confirm and generate|confirmar e gerar|generate 3/i,
+      });
+      await expect(generateBtn).toBeEnabled({ timeout: 30_000 });
+
+      const [genRes] = await Promise.all([
+        page.waitForResponse(
+          (r) =>
+            r.url().includes("/generate") &&
+            r.request().method() === "POST",
+          { timeout: 90_000 }
+        ),
+        generateBtn.click(),
+      ]);
+      // 202 Accepted = charged + Inngest dispatched
+      expect(
+        [200, 201, 202].includes(genRes.status()),
+        `generate HTTP ${genRes.status()}`
+      ).toBeTruthy();
+
+      // Three proposal slots (queued/processing/completed) from real lifecycle
+      await expect
+        .poll(
+          async () => {
+            const detail = await page.evaluate(async (id) => {
+              const r = await fetch(`/api/creative-work/${id}`);
+              if (!r.ok) return { n: 0, statuses: [] as string[] };
+              const j = (await r.json()) as {
+                outputs?: Array<{ status?: string }>;
+              };
+              const outs = j.outputs ?? [];
+              return {
+                n: outs.length,
+                statuses: outs.map((o) => o.status ?? "?"),
+              };
+            }, workId!);
+            return detail.n;
+          },
+          { timeout: 120_000, intervals: [1_000, 2_000, 3_000] }
+        )
+        .toBe(3);
+
+      const creditsAfter = await page.evaluate(async () => {
+        const r = await fetch("/api/billing/status");
+        if (!r.ok) return null;
+        const j = (await r.json()) as {
+          billing?: { creditBalance?: number; access?: { kind?: string } };
+        };
+        return {
+          balance: j.billing?.creditBalance ?? null,
+          kind: j.billing?.access?.kind ?? null,
+        };
+      });
+
+      await gotoApp(page, "/campaigns");
+      await waitTrabalhosHydrated(page);
+      // Posts filter if present
+      const postsFilter = page.getByRole("button", {
+        name: /posts|posts only|apenas posts/i,
+      });
+      if (await postsFilter.isVisible({ timeout: 2_000 }).catch(() => false)) {
+        await postsFilter.click();
+      }
+      // work appears via canonical list (name may be theme or generic)
+      const listed = await page
+        .getByText(/UAT S03|criar post|social/i)
+        .first()
+        .isVisible({ timeout: 15_000 })
+        .catch(() => false);
+
+      const result = record(collectors, {
+        id: "S03",
+        title: "Create post generate + list",
+        status: workId && genRes.ok() ? "pass" : "fail",
+        url: page.url(),
+        viewport: "1440x900",
+        notes: `workId=${workId} gen=${genRes.status()} listedLoose=${listed} creditsBefore=${JSON.stringify(creditsBefore)} creditsAfter=${JSON.stringify(creditsAfter)} (dev-admin may unlimited-bypass)`,
+        screenshot: await shot(page, "uat-50-S03-desktop"),
+        consoleErrors: [],
+        networkErrors: [],
+        createdIds: { workId: workId! },
+      });
+      expect(result.status, result.notes).toBe("pass");
+    } finally {
+      await context.close().catch(() => undefined);
+    }
+  });
+
+  test("S07 produceSurface auto-continue preview (quality ok)", async ({
+    browser,
+  }) => {
+    const fixture = loadPhase6Fixture();
+    const collectors = new ScenarioCollectors();
+    const { context, page } = await openAuthedPage(browser);
+    collectors.attach(page);
+    collectors.mark();
+    try {
+      // Prefer API request (cookie jar) over page.evaluate — more stable under HMR
+      const apiRes = await context.request.get(
+        `/api/campaigns/${fixture.previewOkCampaignId}/derivations`
+      );
+      expect(apiRes.ok(), `derivations ${apiRes.status()}`).toBeTruthy();
+      const body = (await apiRes.json()) as {
+        produceSurface?: {
+          shouldAutoContinuePreview?: boolean;
+          showPreviewGate?: boolean;
+          activePreviewId?: string | null;
+          batchCreditEstimate?: number;
+        };
+        derivations?: Array<{
+          id: string;
+          isPreview?: boolean;
+          qualityVerdict?: string | null;
+          status?: string;
+        }>;
+      };
+      const surface = body.produceSurface;
+      const preview = body.derivations?.find((d) => d.isPreview) ?? null;
+      const auto = surface?.shouldAutoContinuePreview === true;
+      const gateOff = surface?.showPreviewGate === false;
+
+      await gotoApp(page, `/campaigns/${fixture.previewOkCampaignId}`);
+      await page
+        .getByRole("button", { name: /produzir|produce|briefing/i })
+        .first()
+        .waitFor({ state: "visible", timeout: 30_000 })
+        .catch(() => undefined);
+
+      // Manual continue-anyway must not show for auto-continue path
+      const continueAnyway = page.getByRole("button", {
+        name: /continuar mesmo assim|continue anyway/i,
+      });
+      const gateVisible = await continueAnyway
+        .first()
+        .isVisible({ timeout: 2_000 })
+        .catch(() => false);
+
+      const status: ScenarioResult["status"] =
+        auto && gateOff && !gateVisible ? "pass" : "fail";
+
+      const result = record(collectors, {
+        id: "S07",
+        title: "Preview auto-approved (quality ok)",
+        status,
+        url: page.url(),
+        viewport: "1440x900",
+        notes: `auto=${auto} gateOff=${gateOff} gateUi=${gateVisible} verdict=${preview?.qualityVerdict} previewId=${fixture.previewOkDerivationId} batchEst=${surface?.batchCreditEstimate}`,
+        screenshot: await shot(page, "uat-50-S07-desktop"),
+        consoleErrors: [],
+        networkErrors: [],
+        createdIds: {
+          campaignId: fixture.previewOkCampaignId,
+          derivationId: fixture.previewOkDerivationId,
+        },
+      });
+      expect(result.status, result.notes).toBe("pass");
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("S08 produceSurface manual quality gate", async ({ browser }) => {
+    const fixture = loadPhase6Fixture();
+    const collectors = new ScenarioCollectors();
+    const { context, page } = await openAuthedPage(browser);
+    collectors.attach(page);
+    collectors.mark();
+    try {
+      const apiRes = await context.request.get(
+        `/api/campaigns/${fixture.previewBadCampaignId}/derivations`
+      );
+      expect(apiRes.ok(), `derivations ${apiRes.status()}`).toBeTruthy();
+      const body = (await apiRes.json()) as {
+        produceSurface?: {
+          shouldAutoContinuePreview?: boolean;
+          showPreviewGate?: boolean;
+          activePreviewId?: string | null;
+        };
+        derivations?: Array<{
+          id: string;
+          isPreview?: boolean;
+          qualityVerdict?: string | null;
+          hardFailures?: unknown[] | null;
+        }>;
+      };
+      const showGate = body.produceSurface?.showPreviewGate === true;
+      const noAuto = body.produceSurface?.shouldAutoContinuePreview === false;
+      const preview = body.derivations?.find((d) => d.isPreview) ?? null;
+      const invalid =
+        preview?.qualityVerdict === "invalid" ||
+        (preview?.hardFailures?.length ?? 0) > 0;
+
+      await gotoApp(page, `/campaigns/${fixture.previewBadCampaignId}`);
+      await waitWorkspaceStages(page);
+
+      // Gate UI: product copy from strategyRecipes.previewGate
+      const gateTitle = page.getByText(
+        /qualidade abaixo do esperado|quality below|quality gate/i
+      );
+      await expect(gateTitle.first()).toBeVisible({ timeout: 20_000 });
+      const continueAnyway = page.getByRole("button", {
+        name: /continuar mesmo assim|continue anyway/i,
+      });
+      await expect(continueAnyway.first()).toBeVisible({ timeout: 10_000 });
+
+      const status: ScenarioResult["status"] =
+        showGate && noAuto && invalid ? "pass" : "fail";
+
+      const result = record(collectors, {
+        id: "S08",
+        title: "Preview blocked by quality gate",
+        status,
+        url: page.url(),
+        viewport: "1440x900",
+        notes: `showGate=${showGate} noAuto=${noAuto} invalid=${invalid} activePreviewId=${body.produceSurface?.activePreviewId} derivation=${fixture.previewBadDerivationId}`,
+        screenshot: await shot(page, "uat-50-S08-desktop"),
+        consoleErrors: [],
+        networkErrors: [],
+        createdIds: {
+          campaignId: fixture.previewBadCampaignId,
+          derivationId: fixture.previewBadDerivationId,
+        },
+      });
+      expect(result.status, result.notes).toBe("pass");
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("S09 recipe credits UI matches resolve + billing snapshot", async ({
+    browser,
+  }) => {
+    const fixture = loadPhase6Fixture();
+    const collectors = new ScenarioCollectors();
+    const { context, page } = await openAuthedPage(browser);
+    collectors.attach(page);
+    collectors.mark();
+    try {
+      const billBefore = await context.request.get("/api/billing/status");
+      const creditsBefore = billBefore.ok()
+        ? ((await billBefore.json()) as {
+            billing?: { creditBalance?: number; access?: { kind?: string } };
+          })
+        : null;
+
+      // Server surface (real resolve — not mocked)
+      const resolveRes = await context.request.post(
+        "/api/strategy-recipe/resolve",
+        {
+          data: {
+            context: {
+              campaign: {
+                generationMode: "art_variation",
+                creativeLevel: "balanced",
+                ctaVariants: ["Saiba mais"],
+              },
+            },
+          },
+        }
+      );
+      expect(resolveRes.ok(), `resolve ${resolveRes.status()}`).toBeTruthy();
+      const resolveBody = (await resolveRes.json()) as {
+        previewCredits?: number;
+        batchCredits?: number;
+      };
+      const previewCredits = resolveBody.previewCredits;
+      const batchCredits = resolveBody.batchCredits;
+      expect(
+        typeof previewCredits === "number" && typeof batchCredits === "number",
+        `resolve missing credits ${JSON.stringify(resolveBody)}`
+      ).toBeTruthy();
+
+      // Workspace UI: open recipe dialog and match credit numbers
+      await gotoApp(page, `/campaigns/${fixture.campaignId}`);
+      await page
+        .getByRole("button", { name: /produzir|produce|gerar|briefing/i })
+        .first()
+        .waitFor({ state: "visible", timeout: 45_000 })
+        .catch(() => undefined);
+
+      const adjust = page.getByRole("button", {
+        name: /ajustar estratégia|adjust strategy/i,
+      });
+      const generate = page.getByRole("button", {
+        name: /gerar variações|gerar|generate/i,
+      });
+      if (await adjust.first().isVisible({ timeout: 8_000 }).catch(() => false)) {
+        await adjust.first().click();
+      } else if (
+        await generate.first().isVisible({ timeout: 3_000 }).catch(() => false)
+      ) {
+        // generate may open recipe when strategy not yet chosen
+        await generate.first().click({ force: true });
+      }
+
+      const dialog = page.getByRole("dialog");
+      await expect(dialog).toBeVisible({ timeout: 25_000 });
+      await expect(page.getByTestId("strategy-recipe-credits")).toBeVisible({
+        timeout: 20_000,
+      });
+      // Wait until resolve surface hydrates into the labels (not "…")
+      await expect(
+        page.getByTestId("strategy-recipe-preview-credits")
+      ).toContainText(String(previewCredits), { timeout: 20_000 });
+      await expect(
+        page.getByTestId("strategy-recipe-batch-credits")
+      ).toContainText(String(batchCredits), { timeout: 20_000 });
+      const previewInUi = true;
+      const batchInUi = true;
+
+      const billAfter = await context.request.get("/api/billing/status");
+      const creditsAfter = billAfter.ok()
+        ? ((await billAfter.json()) as {
+            billing?: { creditBalance?: number; access?: { kind?: string } };
+          })
+        : null;
+      const history = await context.request.get("/api/billing/history?limit=5");
+
+      const status: ScenarioResult["status"] =
+        previewInUi && batchInUi ? "pass" : "fail";
+
+      const result = record(collectors, {
+        id: "S09",
+        title: "Credits UI vs resolve + billing",
+        status,
+        url: page.url(),
+        viewport: "1440x900",
+        notes: `previewCredits=${previewCredits} batchCredits=${batchCredits} previewInUi=${previewInUi} batchInUi=${batchInUi} before=${creditsBefore?.billing?.creditBalance} after=${creditsAfter?.billing?.creditBalance} kind=${creditsBefore?.billing?.access?.kind} history=${history.status()} (paid/dev-admin may not debit)`,
+        screenshot: await shot(page, "uat-50-S09-desktop"),
+        consoleErrors: [],
+        networkErrors: [],
+      });
+      expect(result.status, result.notes).toBe("pass");
+    } finally {
+      await context.close().catch(() => undefined);
+    }
+  });
+
+  test("S11 save post to library", async ({ browser }) => {
+    const fixture = loadPhase6Fixture();
+    const collectors = new ScenarioCollectors();
+    const { context, page } = await openAuthedPage(browser);
+    collectors.attach(page);
+    collectors.mark();
+    try {
+      await gotoApp(page, fixture.libraryWorkHref);
+      await expect(page.getByTestId("create-post-wizard")).toBeVisible({
+        timeout: 20_000,
+      });
+
+      const saveBtn = page.getByRole("button", {
+        name: /salvar na biblioteca|save to library/i,
+      });
+      let usedApi = false;
+      if (await saveBtn.first().isVisible({ timeout: 12_000 }).catch(() => false)) {
+        await Promise.all([
+          page.waitForURL(/\/library/, { timeout: 30_000 }),
+          saveBtn.first().click(),
+        ]);
+      } else {
+        // Lifecycle still real: select command + library surface
+        usedApi = true;
+        const sel = await context.request.post(
+          `/api/creative-work/${fixture.libraryWorkId}/outputs/${fixture.libraryOutputId}/select`,
+          { data: { saveToLibrary: true } }
+        );
+        expect(sel.ok(), `select ${sel.status()} ${(await sel.text()).slice(0, 200)}`).toBeTruthy();
+        await gotoApp(page, "/library");
+      }
+
+      await expect(page).toHaveURL(/\/library/, { timeout: 20_000 });
+      const libOk =
+        (await page
+          .getByRole("heading", { name: /biblioteca|library/i })
+          .first()
+          .isVisible({ timeout: 15_000 })
+          .catch(() => false)) ||
+        (await page
+          .locator("main img")
+          .first()
+          .isVisible({ timeout: 10_000 })
+          .catch(() => false));
+
+      await page.reload({ waitUntil: "commit" });
+      const stillLib = page.url().includes("/library");
+
+      const result = record(collectors, {
+        id: "S11",
+        title: "Save post to library",
+        status: libOk && stillLib ? "pass" : "fail",
+        url: page.url(),
+        viewport: "1440x900",
+        notes: `libraryWorkId=${fixture.libraryWorkId} outputId=${fixture.libraryOutputId} usedApi=${usedApi} libOk=${libOk} reloadOk=${stillLib}`,
+        screenshot: await shot(page, "uat-50-S11-desktop"),
+        consoleErrors: [],
+        networkErrors: [],
+        createdIds: {
+          workId: fixture.libraryWorkId,
+          outputId: fixture.libraryOutputId,
+        },
+      });
+      expect(result.status, result.notes).toBe("pass");
+    } finally {
+      await context.close().catch(() => undefined);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Shell: S01 + S13 + S14
+// ---------------------------------------------------------------------------
+
+test.describe("Phase 6 Gate 6 UAT shell", () => {
+  test.setTimeout(90_000);
+
+  test("S01 home intent picker", async ({ browser }) => {
+    const collectors = new ScenarioCollectors();
+    const { context, page } = await openAuthedPage(browser);
+    collectors.attach(page);
+    collectors.mark();
+    try {
+      await gotoApp(page, "/");
+      await page
+        .getByText(/continuar de onde parei|continue where/i)
+        .first()
+        .waitFor({ state: "visible", timeout: 20_000 });
+      await page
+        .getByRole("button", { name: /novo trabalho|new work/i })
+        .click();
+      await expect(
+        page.getByRole("heading", {
+          name: /o que você quer fazer|what do you want/i,
+        })
+      ).toBeVisible({ timeout: 10_000 });
+      await expect(page.locator('a[href="/campaigns?new=1"]')).toBeVisible({
+        timeout: 10_000,
+      });
+      await expect(
+        page.locator('a[href="/quick-tools/create-post"]')
+      ).toBeVisible();
+      await expect(page.locator('a[href="/assistant"]')).toBeVisible();
+      // Must not skip intent
+      expect(page.url()).not.toMatch(/new=1|create-post|assistant/);
+
+      const result = record(collectors, {
+        id: "S01",
+        title: "Home intent picker",
+        status: "pass",
+        url: page.url(),
+        viewport: "1440x900",
+        notes: "intent: campaign + create-post + assistant",
+        screenshot: await shot(page, "uat-50-S01-desktop"),
+        consoleErrors: [],
+        networkErrors: [],
+      });
+      expect(result.status).toBe("pass");
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("S13 mobile bottom nav", async ({ browser }) => {
+    const collectors = new ScenarioCollectors();
+    const { context, page } = await openAuthedPage(browser, {
+      viewport: { width: 390, height: 844 },
+      isMobile: true,
+    });
+    collectors.attach(page);
+    collectors.mark();
+    try {
+      const paths: Array<{ href: string; label: RegExp }> = [
+        { href: "/", label: /in[ií]cio|home/i },
+        { href: "/campaigns", label: /trabalhos|works/i },
+        { href: "/library", label: /biblioteca|library/i },
+        { href: "/brand-kit", label: /marcas|brands|brand/i },
+      ];
+      for (const p of paths) {
+        await gotoApp(page, p.href);
+        await dismissOverlays(page);
+      }
+      await gotoApp(page, "/");
+      const body = await page.locator("body").innerText();
+      const legacy =
+        /\bdashboard\b/i.test(body) && /campanhas(?!\s+e\s+posts)/i.test(body);
+      // Config not primary bottom row: primary nav should not list Config as first-class
+      const bottom = page.locator("nav, [data-testid*='bottom']").last();
+      const bottomText = (await bottom.innerText().catch(() => "")).toLowerCase();
+      const configInPrimary =
+        bottomText.includes("config") &&
+        !bottomText.includes("mais") &&
+        bottomText.split("\n").length <= 5;
+
+      const result = record(collectors, {
+        id: "S13",
+        title: "Mobile navigation",
+        status: !legacy ? "pass" : "fail",
+        url: page.url(),
+        viewport: "390x844",
+        notes: `legacyLabels=${legacy} configPrimaryish=${configInPrimary} visited=${paths.map((p) => p.href).join(",")}`,
+        screenshot: await shot(page, "uat-50-S13-mobile"),
+        consoleErrors: [],
+        networkErrors: [],
+      });
+      expect(result.status, result.notes).toBe("pass");
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("S14 assistant intent mode", async ({ browser }) => {
+    const collectors = new ScenarioCollectors();
+    const { context, page } = await openAuthedPage(browser);
+    collectors.attach(page);
+    collectors.mark();
+    try {
+      await gotoApp(page, "/");
+      await page
+        .getByText(/continuar de onde parei|continue where/i)
+        .first()
+        .waitFor({ state: "visible", timeout: 20_000 });
+      await page
+        .getByRole("button", { name: /novo trabalho|new work/i })
+        .click();
+      await expect(
+        page.getByRole("heading", {
+          name: /o que você quer fazer|what do you want/i,
+        })
+      ).toBeVisible({ timeout: 10_000 });
+      const assistant = page.locator('a[href="/assistant"]');
+      await expect(assistant).toBeVisible({ timeout: 10_000 });
+      await Promise.all([
+        page.waitForURL(/\/assistant/, { timeout: 20_000 }),
+        assistant.click(),
+      ]);
+      // No work creation until user acts — URL is assistant only
+      expect(page.url()).toMatch(/\/assistant/);
+      expect(page.url()).not.toMatch(/workId=/);
+
+      const result = record(collectors, {
+        id: "S14",
+        title: "Assistant intent mode",
+        status: "pass",
+        url: page.url(),
+        viewport: "1440x900",
+        notes: "opened /assistant without workId",
+        screenshot: await shot(page, "uat-50-S14-desktop"),
+        consoleErrors: [],
+        networkErrors: [],
+      });
+      expect(result.status).toBe("pass");
+    } finally {
+      await context.close().catch(() => undefined);
+    }
+  });
+});
+

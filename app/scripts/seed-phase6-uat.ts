@@ -3,7 +3,9 @@
  *
  * Creates (dev-admin workspace only):
  *   - UAT campaign in reviewing (completed derivation) for continue + stages
- *   - UAT creative_work in ready+identity (canonical briefing) for post resume via ?workId=
+ *   - Preview OK / preview blocked campaigns for S07/S08 produceSurface
+ *   - UAT creative_work in ready+identity for post resume / generate (S03/S04)
+ *   - Completed creative_work with 3 outputs for S11 library save
  *   - UAT template for materialize (S10)
  *   - Client profile + brand kit for create-post paths
  *
@@ -25,6 +27,8 @@ import {
   campaigns,
   clientProfiles,
   creativeWorkItems,
+  creativeWorkOutputs,
+  derivations,
   user,
   workspaceMembers,
 } from "../src/server/db/schema";
@@ -36,10 +40,24 @@ import {
   createCreativeWork,
   setCreativeWorkCopy,
   confirmCreativeWorkIdentity,
+  createCreativeWorkOutputs,
+  completeCreativeWorkOutput,
+  setCreativeWorkStatus,
 } from "../src/server/repositories/creative-work";
 import { createIdentitySnapshot } from "../src/server/creative-work/identity";
 import { upsertBrandKit } from "../src/server/db/repositories/brand-kit";
 import { createPlan } from "../src/server/repositories/plan";
+import { objectStorage } from "../src/server/storage";
+
+/** 1×1 PNG so signed URLs resolve and the browser does not thrash on 404 loops. */
+const TINY_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+  "base64"
+);
+
+async function putUatPng(key: string) {
+  await objectStorage.put(key, TINY_PNG, "image/png");
+}
 
 const DEV_EMAIL = "dev-admin@adscale.local";
 const PREFIX = "Phase6 UAT";
@@ -229,12 +247,6 @@ async function main() {
     })
     .where(eq(creativeWorkItems.id, work.id));
 
-  // Campaign is the freshest in-progress → Home "Continuar" prefers it
-  await db
-    .update(campaigns)
-    .set({ updatedAt: new Date() })
-    .where(eq(campaigns.id, campaign.id));
-
   // Second campaign slightly older for list density
   await createCampaign(workspaceId, {
     name: `${PREFIX} Campanha em briefing`,
@@ -242,6 +254,140 @@ async function main() {
     objective: "Leads",
     status: "draft",
   });
+
+  // S07 — ready preview with acceptable quality (auto-continue produceSurface)
+  const previewOkCampaign = await createCampaign(workspaceId, {
+    name: `${PREFIX} Preview auto-ok`,
+    client: "UAT Preview OK",
+    clientProfileId: profile.id,
+    objective: "Awareness",
+    product: "ADScale",
+    platforms: ["meta_feed"],
+    generationMode: "art_variation",
+    creativeLevel: "balanced",
+    status: "active",
+    creativeDiagnosisStatus: "ready",
+    ctaVariants: ["Saiba mais"],
+  });
+  const previewOk = await createDerivation({
+    campaignId: previewOkCampaign.id,
+    workspaceId,
+    format: "1:1",
+    generationMode: "art_variation",
+    variantIndex: 0,
+    status: "completed",
+    isPreview: true,
+    creativeLevel: "balanced",
+  });
+  const previewOkKey = `uat/phase6/${previewOk.id}-preview-ok.png`;
+  await putUatPng(previewOkKey);
+  await db
+    .update(derivations)
+    .set({
+      outputKey: previewOkKey,
+      qualityVerdict: "acceptable",
+      hardFailures: [],
+      polishSuggestions: [],
+      qualityGatedAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(eq(derivations.id, previewOk.id));
+
+  // S08 — ready preview blocked by quality gate (manual gate)
+  const previewBadCampaign = await createCampaign(workspaceId, {
+    name: `${PREFIX} Preview gate-block`,
+    client: "UAT Preview Block",
+    clientProfileId: profile.id,
+    objective: "Awareness",
+    product: "ADScale",
+    platforms: ["meta_feed"],
+    generationMode: "art_variation",
+    creativeLevel: "balanced",
+    status: "active",
+    creativeDiagnosisStatus: "ready",
+    ctaVariants: ["Saiba mais"],
+  });
+  const previewBad = await createDerivation({
+    campaignId: previewBadCampaign.id,
+    workspaceId,
+    format: "1:1",
+    generationMode: "art_variation",
+    variantIndex: 0,
+    status: "completed",
+    isPreview: true,
+    creativeLevel: "balanced",
+  });
+  const previewBadKey = `uat/phase6/${previewBad.id}-preview-bad.png`;
+  await putUatPng(previewBadKey);
+  await db
+    .update(derivations)
+    .set({
+      outputKey: previewBadKey,
+      qualityVerdict: "invalid",
+      hardFailures: [
+        {
+          code: "cta_drift",
+          message: "Phase6 UAT forced quality hard failure (cta_drift)",
+        },
+      ],
+      polishSuggestions: ["Ajustar contraste"],
+      qualityGatedAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(eq(derivations.id, previewBad.id));
+
+  // S11 — creative work with three completed outputs (library-save target).
+  // Real OpenAI gen is exercised in S03 when Inngest is up; this fixture
+  // keeps library path deterministic when provider is slow.
+  const libraryWork = await createCreativeWork({
+    workspaceId,
+    clientProfileId: profile.id,
+    createdByUserId: userId,
+    toolKind: "social_post",
+    format: "1:1",
+    brief: {
+      theme: "UAT library save",
+      objective: "engagement",
+      audience: "testers",
+      offer: "demo",
+    },
+  });
+  await setCreativeWorkCopy(workspaceId, libraryWork.id, {
+    headline: "UAT library headline",
+    body: "UAT library body",
+    cta: "Saiba mais",
+  });
+  const librarySnap = await createIdentitySnapshot({
+    workspaceId,
+    clientProfileId: profile.id,
+    selectedReferenceIds: [],
+  });
+  await confirmCreativeWorkIdentity(workspaceId, libraryWork.id, librarySnap);
+  const libraryOutputs = await createCreativeWorkOutputs(
+    workspaceId,
+    libraryWork.id
+  );
+  for (const [i, out] of libraryOutputs.entries()) {
+    const key = `uat/phase6/${libraryWork.id}-out-${i}.png`;
+    await putUatPng(key);
+    await completeCreativeWorkOutput(workspaceId, libraryWork.id, out.id, {
+      outputKey: key,
+      cost: 0,
+      quality: { verdict: "acceptable" },
+    });
+  }
+  await setCreativeWorkStatus(workspaceId, libraryWork.id, "completed");
+  // ensure selected not set yet — UI selects + saveToLibrary
+  await db
+    .update(creativeWorkOutputs)
+    .set({ isSelected: false })
+    .where(eq(creativeWorkOutputs.workItemId, libraryWork.id));
+
+  // Primary continue campaign is freshest in-progress
+  await db
+    .update(campaigns)
+    .set({ updatedAt: new Date() })
+    .where(eq(campaigns.id, campaign.id));
 
   const fixture = {
     email: DEV_EMAIL,
@@ -256,6 +402,13 @@ async function main() {
     templateName: template.name,
     workId: work.id,
     workResumeHref: `/quick-tools/create-post?workId=${work.id}`,
+    previewOkCampaignId: previewOkCampaign.id,
+    previewOkDerivationId: previewOk.id,
+    previewBadCampaignId: previewBadCampaign.id,
+    previewBadDerivationId: previewBad.id,
+    libraryWorkId: libraryWork.id,
+    libraryOutputId: libraryOutputs[0]?.id ?? "",
+    libraryWorkHref: `/quick-tools/create-post?workId=${libraryWork.id}`,
     emptySearch: "zzz-phase6-uat-empty-no-match",
     seededAt: new Date().toISOString(),
   };

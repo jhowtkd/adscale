@@ -32,6 +32,13 @@ export type Phase6UatFixture = {
   templateName: string;
   workId: string;
   workResumeHref: string;
+  previewOkCampaignId: string;
+  previewOkDerivationId: string;
+  previewBadCampaignId: string;
+  previewBadDerivationId: string;
+  libraryWorkId: string;
+  libraryOutputId: string;
+  libraryWorkHref: string;
   emptySearch: string;
   seededAt: string;
 };
