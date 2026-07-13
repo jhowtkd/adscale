@@ -28,6 +28,8 @@ type CampaignsV6ViewProps = {
   onSearchChange?: (value: string) => void;
   originFilter?: WorkOriginFilter;
   onOriginChange?: (value: WorkOriginFilter) => void;
+  /** When false, hide status/platform/sort (list mode — they don't filter canonical rows). */
+  showCampaignFilters?: boolean;
   statusFilter: StatusFilter;
   statusFilterLabel: string;
   onStatusChange?: (value: StatusFilter) => void;
@@ -63,6 +65,7 @@ export default function CampaignsV6View({
   onSearchChange,
   originFilter = "all",
   onOriginChange,
+  showCampaignFilters = true,
   statusFilter,
   statusFilterLabel,
   onStatusChange,
@@ -111,34 +114,36 @@ export default function CampaignsV6View({
           <p className="text-sm text-[var(--text-secondary)]">{labels.subtitle}</p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
-          {interactive && onSortChange ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger
+          {showCampaignFilters ? (
+            interactive && onSortChange ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  type="button"
+                  className="inline-flex items-center gap-2 rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] px-3 py-2 text-[13px] font-medium text-[var(--text-secondary)]"
+                >
+                  {labels.sortPrefix}: {sortLabel}
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="border-[var(--border-subtle)] bg-[var(--surface-raised)]">
+                  {sortOptions.map((option) => (
+                    <DropdownMenuItem
+                      key={option.value}
+                      onClick={() => onSortChange(option.value)}
+                      className={sortOption === option.value ? "text-[var(--accent-primary-text)]" : undefined}
+                    >
+                      {option.label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <button
                 type="button"
                 className="inline-flex items-center gap-2 rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] px-3 py-2 text-[13px] font-medium text-[var(--text-secondary)]"
               >
                 {labels.sortPrefix}: {sortLabel}
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="border-[var(--border-subtle)] bg-[var(--surface-raised)]">
-                {sortOptions.map((option) => (
-                  <DropdownMenuItem
-                    key={option.value}
-                    onClick={() => onSortChange(option.value)}
-                    className={sortOption === option.value ? "text-[var(--accent-primary-text)]" : undefined}
-                  >
-                    {option.label}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] px-3 py-2 text-[13px] font-medium text-[var(--text-secondary)]"
-            >
-              {labels.sortPrefix}: {sortLabel}
-            </button>
-          )}
+              </button>
+            )
+          ) : null}
           <button
             type="button"
             onClick={interactive ? onNewCampaign : undefined}
@@ -192,7 +197,7 @@ export default function CampaignsV6View({
               onChange={onOriginChange}
             />
           ) : null}
-          {originFilter !== "creative_work" ? (
+          {showCampaignFilters ? (
             <>
               <FilterChip
                 interactive={interactive}
@@ -291,7 +296,7 @@ function CampaignRow({
     router.push(row.href);
   };
 
-  const isCampaign = row.originKind === "campaign" && Boolean(row.campaign);
+  const isCampaign = row.originKind === "campaign";
 
   return (
     <li

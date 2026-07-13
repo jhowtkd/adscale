@@ -10,9 +10,31 @@ function stateToBadgeVariant(state: string): CampaignV6BadgeVariant {
   return "neutral";
 }
 
+/** Minimal UiCampaign so bulk actions work without the paginated page slice. */
+export function stubCampaignFromCanonicalWork(
+  work: CanonicalWorkSummary
+): UiCampaign {
+  return {
+    id: work.originId,
+    workspaceId: work.workspaceId,
+    name: work.name,
+    platforms: [],
+    generationMode: "art_variation",
+    status: "active",
+    variations: 0,
+    creditsUsed: 0,
+    totalDerivations: 0,
+    activeDerivations: 0,
+    failedDerivations: 0,
+    completedDerivations: 0,
+    lastModified: new Date(work.updatedAt),
+    createdAt: new Date(work.updatedAt),
+  };
+}
+
 /**
  * Map a canonical work summary into the Trabalhos list row.
- * Campaign bulk actions only when `campaign` is provided.
+ * Campaign rows always get a campaign payload (enriched or stub) so actions stay operational.
  */
 export function mapCanonicalWorkToV6Row({
   work,
@@ -27,17 +49,23 @@ export function mapCanonicalWorkToV6Row({
   formatUpdated: (date: Date) => string;
   tState: (state: string) => string;
 }): CampaignV6Row {
+  const campaignPayload =
+    work.originKind === "campaign"
+      ? (campaign ?? stubCampaignFromCanonicalWork(work))
+      : undefined;
+
   return {
     id: work.originId,
     href: work.resumeHref,
     initials: getCampaignInitials(work.name),
     name: work.name,
-    variations: campaign?.variations ?? campaign?.totalDerivations ?? 0,
-    approved: campaign?.completedDerivations ?? 0,
+    variations:
+      campaignPayload?.variations ?? campaignPayload?.totalDerivations ?? 0,
+    approved: campaignPayload?.completedDerivations ?? 0,
     status: tState(work.state),
     statusVariant: stateToBadgeVariant(work.state),
     updated: formatUpdated(new Date(work.updatedAt)),
-    campaign: work.originKind === "campaign" ? campaign : undefined,
+    campaign: campaignPayload,
     originKind: work.originKind,
     originLabel,
   };

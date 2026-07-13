@@ -8,6 +8,7 @@ import dynamic from "next/dynamic";
 import { formatDistanceToNow } from "date-fns";
 
 import CampaignsBulkActionsBar from "@/components/campaigns/CampaignsBulkActionsBar";
+import CampaignsPagination from "@/components/campaigns/CampaignsPagination";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { useCampaignsPage } from "@/components/campaigns/useCampaignsPage";
 import CampaignsV6View from "@/components/campaigns/v6/CampaignsV6View";
@@ -15,12 +16,16 @@ import { buildCampaignsV6Labels } from "@/components/campaigns/v6/build-campaign
 import { mapCanonicalWorkToV6Row } from "@/components/campaigns/v6/map-canonical-work-to-v6-row";
 import type { WorkOriginFilter } from "@/components/campaigns/v6/campaigns-v6-types";
 import { useCanonicalWorks } from "@/lib/hooks/use-canonical-works";
+import { useCampaigns } from "@/lib/hooks/use-campaigns";
 import {
   getPlatformFilterLabel,
   getSortFilterLabel,
   getStatusFilterLabel,
 } from "@/components/campaigns/filter-labels";
 import type { PlatformFilter, SortOption, StatusFilter } from "@/components/campaigns/types";
+
+/** Matches listCanonicalWorks default so list metadata covers the same universe. */
+const CANONICAL_LIST_LIMIT = 50;
 
 const CampaignsGridView = dynamic(() => import("@/components/campaigns/CampaignsGridView"), {
   loading: () => <div className="h-48 animate-pulse rounded bg-[var(--surface-raised)]" />,
@@ -73,8 +78,14 @@ function CampaignsListContent() {
     error: worksErrorObj,
     refetch: refetchWorks,
   } = useCanonicalWorks();
+  // Same universe as listCanonicalWorks (limit 50) — not the paginated page slice.
+  const { campaigns: campaignsMeta, isLoading: metaLoading } = useCampaigns({
+    limit: CANONICAL_LIST_LIMIT,
+    page: 1,
+  });
   const {
     campaigns,
+    totalCount: campaignsTotalCount,
     isLoading: campaignsLoading,
     isError: campaignsError,
     error,
@@ -87,6 +98,8 @@ function CampaignsListContent() {
     sortOption,
     selectedIds,
     setSelectedIds,
+    setCurrentPage,
+    itemsPerPage,
     searchInput,
     handleSearchChange,
     deleteTarget,
@@ -96,7 +109,10 @@ function CampaignsListContent() {
     updateStatusFilter,
     updatePlatformFilter,
     updateSortOption,
+    updateItemsPerPage,
     clearFilters,
+    totalPages,
+    visibleCurrentPage,
     hasActiveFilters,
     toggleSelect,
     handleCreateCampaign,
@@ -105,6 +121,9 @@ function CampaignsListContent() {
     handleDelete,
     handleBulkArchive,
     handleBulkDelete,
+    startIndex,
+    endIndex,
+    pageNumbers,
     templateLoadState,
     loadedTemplate,
     modalInitialValues,
@@ -118,13 +137,18 @@ function CampaignsListContent() {
   } = useCampaignsPage(searchParams);
 
   const labels = useMemo(() => buildCampaignsV6Labels(t, tc), [t, tc]);
-  const isLoading = worksLoading || campaignsLoading;
-  const isError = worksError || campaignsError;
+  const isListMode = viewMode === "list";
+  const isLoading = isListMode
+    ? worksLoading || metaLoading
+    : campaignsLoading;
+  const isError = isListMode ? worksError || campaignsError : campaignsError;
 
-  const campaignById = useMemo(
-    () => new Map(campaigns.map((c) => [c.id, c])),
-    [campaigns]
-  );
+  const campaignById = useMemo(() => {
+    const map = new Map(campaignsMeta.map((c) => [c.id, c]));
+    // Paginated page may hold fresher metrics for the current grid page.
+    for (const c of campaigns) map.set(c.id, c);
+    return map;
+  }, [campaignsMeta, campaigns]);
 
   const filteredWorks = useMemo(() => {
     let list = canonicalWorks;
@@ -158,7 +182,8 @@ function CampaignsListContent() {
     [filteredWorks, campaignById, labels.originCampaigns, labels.originPosts]
   );
 
-  const totalCount = filteredWorks.length;
+  // List = canonical works count; grid/board = campaign grouping count
+  const displayCount = isListMode ? filteredWorks.length : campaignsTotalCount;
 
   const statusFilterLabel = getStatusFilterLabel(statusFilter, t, tc);
   const platformFilterLabel = getPlatformFilterLabel(platformFilter, t, tc);
@@ -177,22 +202,41 @@ function CampaignsListContent() {
     label: getSortFilterLabel(value, tc),
   }));
 
+  const listEmpty =
+    isListMode &&
+    !isLoading &&
+    !isError &&
+    rows.length === 0;
+  const gridEmpty =
+    !isListMode &&
+    !isLoading &&
+    !isError &&
+    campaigns.length === 0;
+
   const emptyState =
-    !isLoading && !isError && rows.length === 0 ? (
+    listEmpty || gridEmpty ? (
       <EmptyState
-        icon={hasActiveFilters || originFilter !== "all" || searchInput ? Search : ImageOff}
+        icon={
+          hasActiveFilters ||
+          (isListMode && (originFilter !== "all" || searchInput))
+            ? Search
+            : ImageOff
+        }
         title={
-          hasActiveFilters || originFilter !== "all" || searchInput
+          hasActiveFilters ||
+          (isListMode && (originFilter !== "all" || searchInput))
             ? tc("noCampaignsMatch")
             : tc("noCampaignsYet")
         }
         description={
-          hasActiveFilters || originFilter !== "all" || searchInput
+          hasActiveFilters ||
+          (isListMode && (originFilter !== "all" || searchInput))
             ? tc("adjustFilters")
             : tc("createFirstCampaign")
         }
         action={
-          hasActiveFilters || originFilter !== "all" || searchInput
+          hasActiveFilters ||
+          (isListMode && (originFilter !== "all" || searchInput))
             ? {
                 label: tc("clearAllFilters"),
                 onClick: () => {
@@ -205,7 +249,7 @@ function CampaignsListContent() {
       />
     ) : undefined;
 
-  // Grid/board remain campaign-only grouping views
+  // Grid/board remain campaign-only grouping views (status/platform/sort apply here)
   const alternateView =
     viewMode === "grid" ? (
       <CampaignsGridView campaigns={campaigns} />
@@ -250,17 +294,19 @@ function CampaignsListContent() {
       <CampaignsV6View
         labels={labels}
         rows={rows}
-        totalCount={totalCount}
+        totalCount={displayCount}
         isLoading={isLoading}
         searchQuery={searchInput}
         onSearchChange={handleSearchChange}
-        originFilter={originFilter}
-        onOriginChange={(value) => {
-          setOriginFilter(value);
-          if (value === "creative_work" && viewMode !== "list") {
-            setViewMode("list");
-          }
-        }}
+        originFilter={isListMode ? originFilter : "campaign"}
+        onOriginChange={
+          isListMode
+            ? (value) => {
+                setOriginFilter(value);
+              }
+            : undefined
+        }
+        showCampaignFilters={!isListMode}
         statusFilter={statusFilter}
         statusFilterLabel={statusFilterLabel}
         onStatusChange={updateStatusFilter}
@@ -274,7 +320,12 @@ function CampaignsListContent() {
         onSortChange={updateSortOption}
         sortOptions={sortOptions}
         viewMode={viewMode}
-        onViewModeChange={setViewMode}
+        onViewModeChange={(mode) => {
+          setViewMode(mode);
+          if (mode !== "list" && originFilter === "creative_work") {
+            setOriginFilter("all");
+          }
+        }}
         selectedIds={selectedIds}
         onToggleSelect={toggleSelect}
         onNewCampaign={() => setModalOpen(true)}
@@ -282,11 +333,25 @@ function CampaignsListContent() {
         onArchive={handleArchive}
         onDelete={setDeleteTarget}
         onSaveAsTemplate={(campaign) => {
-          if (campaign) setSaveTemplateCampaign(campaign);
+          if (campaign) setSaveTemplateCampaign(campaign as never);
         }}
         alternateView={alternateView}
         emptyState={emptyState}
       />
+
+      {!isListMode && !isLoading && campaignsTotalCount > 0 ? (
+        <CampaignsPagination
+          startIndex={startIndex}
+          endIndex={endIndex}
+          totalCount={campaignsTotalCount}
+          pageNumbers={pageNumbers}
+          visibleCurrentPage={visibleCurrentPage}
+          totalPages={totalPages}
+          itemsPerPage={itemsPerPage}
+          onPageChange={setCurrentPage}
+          onItemsPerPageChange={updateItemsPerPage}
+        />
+      ) : null}
 
       {(templateLoadState === "loading" ||
         templateLoadState === "error" ||
