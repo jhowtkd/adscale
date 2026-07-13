@@ -9,6 +9,7 @@ const markProcessingMock = vi.hoisted(() => vi.fn());
 const completeMock = vi.hoisted(() => vi.fn());
 const failMock = vi.hoisted(() => vi.fn());
 const refreshStatusMock = vi.hoisted(() => vi.fn());
+const ensureLibraryMock = vi.hoisted(() => vi.fn());
 
 const objectGetMock = vi.hoisted(() => vi.fn());
 const objectPutMock = vi.hoisted(() => vi.fn());
@@ -22,6 +23,11 @@ vi.mock("@/server/repositories/creative-work", () => ({
   completeCreativeWorkOutput: (...args: unknown[]) => completeMock(...args),
   failCreativeWorkOutput: (...args: unknown[]) => failMock(...args),
   refreshCreativeWorkStatus: (...args: unknown[]) => refreshStatusMock(...args),
+}));
+
+vi.mock("@/server/application/ensure-creative-work-output-library", () => ({
+  ensureCreativeWorkOutputInLibrary: (...args: unknown[]) =>
+    ensureLibraryMock(...args),
 }));
 
 vi.mock("@/server/billing/credits", () => ({
@@ -200,6 +206,10 @@ describe("creativeWorkOutputJob", () => {
     failMock.mockResolvedValue(makeQueuedOutput({ status: "failed" }));
     refreshStatusMock.mockResolvedValue("completed");
     refundCreditsMock.mockResolvedValue({ status: "refunded" });
+    ensureLibraryMock.mockResolvedValue({
+      asset: { id: "asset-1" },
+      created: true,
+    });
   });
 
   it("has Inngest function id, retries=0, and trigger configured correctly", () => {
@@ -238,9 +248,31 @@ describe("creativeWorkOutputJob", () => {
         }),
       }),
     );
+    // Phase 5 / item 37: library on complete (not only on select).
+    expect(ensureLibraryMock).toHaveBeenCalledWith({
+      workspaceId: "workspace-1",
+      outputKey: expect.stringContaining("creative-work/output-1/"),
+      theme: "Tema do Post",
+      creativeLevel: "balanced",
+    });
+    expect(ensureLibraryMock).toHaveBeenCalledAfter(completeMock);
     expect(refreshStatusMock).toHaveBeenCalledWith("workspace-1", "work-1");
     // No refund should fire on a happy path.
     expect(refundCreditsMock).not.toHaveBeenCalled();
+  });
+
+  it("does not ensure library when generation fails", async () => {
+    getCreativeWorkMock.mockResolvedValue({
+      work: workItem,
+      outputs: [makeQueuedOutput()],
+    });
+    markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+    generateAndStoreImageMock.mockRejectedValue(new Error("provider down"));
+
+    await runJob();
+
+    expect(completeMock).not.toHaveBeenCalled();
+    expect(ensureLibraryMock).not.toHaveBeenCalled();
   });
 
   it("loads up to four reference-mode asset buffers for image generation", async () => {

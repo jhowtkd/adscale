@@ -26,6 +26,8 @@ export interface CampaignProjectionSource {
   constraints: string | null;
   notes: string | null;
   clientProfileId: string | null;
+  /** First entry becomes intent.formatHint (template / campaign target formats). */
+  targetFormats?: string[] | null;
   status: string;
   creativeDiagnosisStatus?: string | null;
   createdAt: Date | string;
@@ -101,7 +103,7 @@ export function projectCampaignAsCanonicalWork(
     intent: {
       kind: "campaign",
       objective: campaign.objective,
-      formatHint: null,
+      formatHint: campaign.targetFormats?.[0] ?? null,
       platforms: campaign.platforms ?? [],
     },
     briefing: {

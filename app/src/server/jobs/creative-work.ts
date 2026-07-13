@@ -31,6 +31,7 @@ import type {
   CreativeWorkIdentitySnapshot,
   SocialPostCopy,
 } from "@/server/creative-work/contracts";
+import { ensureCreativeWorkOutputInLibrary } from "@/server/application/ensure-creative-work-output-library";
 import { inngest } from "./client";
 import {
   decideCreativeWorkRefund,
@@ -316,6 +317,16 @@ export const creativeWorkOutputJob = inngest.createFunction(
           outputKey: generatedOutputKey,
           cost: OUTPUT_COST,
           quality: (postGen.quality as unknown as Record<string, unknown> | null) ?? null,
+        });
+      });
+
+      // Phase 5 / item 37: library on complete (not only on select).
+      await step.run("ensure-library", async () => {
+        await ensureCreativeWorkOutputInLibrary({
+          workspaceId,
+          outputKey: generatedOutputKey,
+          theme: work.brief.theme,
+          creativeLevel,
         });
       });
 

@@ -2,7 +2,21 @@ import { NextResponse } from "next/server";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { startSocialPostWork } from "@/server/application/start-social-post-work";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import { listCanonicalWorks } from "@/server/creative-work/canonical/queries";
 import { createCreativeWorkSchema } from "@/server/creative-work/contracts";
+
+/**
+ * List workspace canonical works (Phase 5 / item 37 — history on complete).
+ */
+export async function GET(request: Request) {
+  try {
+    const { workspace } = await requireWorkspaceAccess(request);
+    const works = await listCanonicalWorks(workspace.id);
+    return NextResponse.json({ works });
+  } catch (error) {
+    return handleApiError(error, "creative-work.GET");
+  }
+}
 
 /**
  * Criar Post create — HTTP adapter only (Phase 5 / items 34–35).

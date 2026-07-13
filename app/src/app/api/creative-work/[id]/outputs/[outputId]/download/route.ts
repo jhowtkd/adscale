@@ -1,19 +1,14 @@
 import { NextResponse } from "next/server";
 import { apiError, handleApiError } from "@/lib/api-response";
+import { resolveCreativeWorkOutputDownload } from "@/server/application/resolve-creative-work-output-download";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
-import { getCreativeWork } from "@/server/repositories/creative-work";
-import { objectStorage } from "@/server/storage";
 
 /**
- * Return a short-lived signed download URL for a completed output. Scoped by
- * workspace + work item + output ID so a foreign workspace can never obtain a
- * URL for someone else's output.
+ * Signed download URL for a completed output — HTTP adapter only (Phase 5 / item 38).
+ * Domain: resolveCreativeWorkOutputDownload.
  *
- * Default behaviour is a 302 redirect to the signed URL — the wizard's
- * `<img src>` and the "Baixar" button both consume the endpoint directly
- * and expect a binary stream, not a JSON envelope. Programmatic callers
- * that want the JSON contract can opt in with `?format=json` or by
- * sending `Accept: application/json`.
+ * Default: 302 redirect for browsers / <img src>. Opt into JSON with
+ * `?format=json` or `Accept: application/json`.
  */
 export async function GET(
   request: Request,
@@ -25,27 +20,28 @@ export async function GET(
       params,
     ]);
 
-    const existing = await getCreativeWork(workspace.id, id);
-    if (!existing) {
-      return apiError("creativeWorkNotFound", 404);
+    const result = await resolveCreativeWorkOutputDownload({
+      workspaceId: workspace.id,
+      workItemId: id,
+      outputId,
+    });
+
+    if (!result.ok) {
+      switch (result.error.code) {
+        case "work_not_found":
+          return apiError("creativeWorkNotFound", 404);
+        case "output_not_found":
+          return apiError("creativeWorkOutputNotFound", 404);
+        case "output_not_ready":
+          return apiError("creativeWorkOutputNotReady", 409, {
+            status: result.error.status,
+          });
+        default:
+          return apiError("invalidRequest", 400);
+      }
     }
 
-    const output = existing.outputs.find((o) => o.id === outputId);
-    if (!output) {
-      return apiError("creativeWorkOutputNotFound", 404);
-    }
-
-    if (output.status !== "completed" || !output.outputKey) {
-      return apiError("creativeWorkOutputNotReady", 409, {
-        status: output.status,
-      });
-    }
-
-    const url = await objectStorage.signedDownloadUrl(output.outputKey);
-
-    // Branch on the request contract. Browsers navigating the URL
-    // directly (preview + download) get the 302 redirect; programmatic
-    // callers asking for JSON keep the original envelope.
+    const { url } = result.value;
     const url2 = new URL(request.url);
     const wantsJson =
       url2.searchParams.get("format") === "json" ||

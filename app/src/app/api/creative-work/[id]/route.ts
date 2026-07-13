@@ -1,21 +1,15 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
+import { confirmSocialPostWork } from "@/server/application/confirm-social-post-work";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
-import {
-  confirmCreativeWorkIdentity,
-  getCreativeWork,
-  setCreativeWorkCopy,
-} from "@/server/repositories/creative-work";
-import {
-  createIdentitySnapshot,
-  IdentitySnapshotMissingAlphaError,
-  IdentitySnapshotMissingReferenceError,
-} from "@/server/creative-work/identity";
+import { projectCreativeWorkAsCanonicalWork } from "@/server/creative-work/projection/from-creative-work";
 import { socialPostCopySchema } from "@/server/creative-work/contracts";
+import { getCreativeWork } from "@/server/repositories/creative-work";
 
 const confirmCreativeWorkSchema = z
   .object({
+    // Legacy wizard body — mapped to CanonicalBriefing write inside the command.
     copy: socialPostCopySchema,
     // Empty is allowed: Create Post can lock a Brand-Kit-only identity
     // snapshot when the brand has no approved training references yet.
@@ -24,8 +18,8 @@ const confirmCreativeWorkSchema = z
   .strict();
 
 /**
- * Standalone create-post detail. The repository scopes the read by
- * `(workspaceId, id)` so a workspace mismatch yields `null` -> 404.
+ * Standalone create-post detail. Attaches CanonicalCreativeWork projection
+ * (Phase 5 / item 36).
  */
 export async function GET(
   request: Request,
@@ -40,16 +34,23 @@ export async function GET(
     if (!result) {
       return apiError("creativeWorkNotFound", 404);
     }
-    return NextResponse.json(result);
+    const canonical = projectCreativeWorkAsCanonicalWork(
+      result.work,
+      result.outputs
+    );
+    return NextResponse.json({
+      work: result.work,
+      outputs: result.outputs,
+      canonical,
+    });
   } catch (error) {
     return handleApiError(error, "creative-work.[id].GET");
   }
 }
 
 /**
- * Confirm the work: persist copy and lock the identity snapshot server-side.
- * The browser submits only `copy` and `selectedReferenceIds`; asset keys,
- * analysis, and Brand Kit content are reloaded from approved references.
+ * Confirm the work: persist copy (via canonical briefing map) and lock
+ * identity snapshot. Domain: confirmSocialPostWork (Phase 5 / item 36).
  */
 export async function PATCH(
   request: Request,
@@ -66,43 +67,38 @@ export async function PATCH(
       return apiError("invalidInput", 400, parsed.error.flatten());
     }
 
-    const existing = await getCreativeWork(workspace.id, id);
-    if (!existing) {
-      return apiError("creativeWorkNotFound", 404);
-    }
-
-    // 1. Persist the copy first so the row carries it once the snapshot is
-    //    attached.
-    await setCreativeWorkCopy(workspace.id, id, parsed.data.copy);
-
-    // 2. Build the immutable identity snapshot server-side. Asset keys,
-    //    analysis, and Brand Kit content are reloaded from approved
-    //    references — never trusted from the browser.
-    const snapshot = await createIdentitySnapshot({
+    const result = await confirmSocialPostWork({
       workspaceId: workspace.id,
-      clientProfileId: existing.work.clientProfileId,
+      workItemId: id,
+      copy: parsed.data.copy,
       selectedReferenceIds: parsed.data.selectedReferenceIds,
     });
 
-    // 3. Attach the snapshot and transition to `ready`.
-    const work = await confirmCreativeWorkIdentity(workspace.id, id, snapshot);
-    if (!work) {
-      return apiError("creativeWorkNotFound", 404);
+    if (!result.ok) {
+      switch (result.error.code) {
+        case "work_not_found":
+          return apiError("creativeWorkNotFound", 404);
+        case "invalid_copy":
+          return apiError("invalidInput", 400);
+        case "identity_reference_not_approved":
+          return apiError("identityReferenceNotApproved", 422, {
+            referenceId: result.error.referenceId,
+          });
+        case "identity_reference_missing_alpha":
+          return apiError("identityReferenceMissingAlpha", 422, {
+            referenceId: result.error.referenceId,
+            category: result.error.category,
+          });
+        default:
+          return apiError("invalidRequest", 400);
+      }
     }
 
-    return NextResponse.json({ work });
+    return NextResponse.json({
+      work: result.value.work,
+      canonical: result.value.canonical,
+    });
   } catch (error) {
-    if (error instanceof IdentitySnapshotMissingReferenceError) {
-      return apiError("identityReferenceNotApproved", 422, {
-        referenceId: error.missingId,
-      });
-    }
-    if (error instanceof IdentitySnapshotMissingAlphaError) {
-      return apiError("identityReferenceMissingAlpha", 422, {
-        referenceId: error.referenceId,
-        category: error.category,
-      });
-    }
     return handleApiError(error, "creative-work.[id].PATCH");
   }
 }

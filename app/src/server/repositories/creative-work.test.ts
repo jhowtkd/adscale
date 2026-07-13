@@ -122,6 +122,7 @@ import {
   markCreativeWorkOutputProcessing,
   refreshCreativeWorkStatus,
   selectCreativeWorkOutput,
+  setCreativeWorkBrief,
   setCreativeWorkCopy,
   setCreativeWorkStatus,
 } from "./creative-work";
@@ -271,6 +272,22 @@ describe("creative-work repository", () => {
         expect.objectContaining({ copy: socialCopy }),
       );
       expect(result?.copy).toEqual(socialCopy);
+    });
+  });
+
+  describe("setCreativeWorkBrief", () => {
+    it("updates the brief scoped by workspace and work id", async () => {
+      const nextBrief = { ...socialBrief, theme: "Atualizado" };
+      const updated = workItem({ brief: nextBrief });
+      mocks.state.updateResults.push([updated]);
+
+      const result = await setCreativeWorkBrief("ws-1", "work-1", nextBrief);
+
+      expect(mocks.updateMock).toHaveBeenCalledTimes(1);
+      expect(mocks.setMock).toHaveBeenCalledWith(
+        expect.objectContaining({ brief: nextBrief }),
+      );
+      expect(result?.brief).toEqual(nextBrief);
     });
   });
 

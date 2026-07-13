@@ -1,16 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
+import { selectCreativeWorkOutputCommand } from "@/server/application/select-creative-work-output";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
-import {
-  getCreativeWork,
-  selectCreativeWorkOutput,
-} from "@/server/repositories/creative-work";
-import {
-  createWorkspaceAsset,
-  getWorkspaceAssetByKey,
-} from "@/server/repositories/workspace-asset";
-import { objectStorage } from "@/server/storage";
 
 const selectOutputSchema = z
   .object({
@@ -19,10 +11,8 @@ const selectOutputSchema = z
   .default({ saveToLibrary: true });
 
 /**
- * Select a completed output as the winner. Optionally saves the PNG to the
- * workspace library as a `creative_work`-sourced asset. Idempotent: repeated
- * calls reuse the existing workspace asset when the same key is already
- * registered.
+ * Select a completed output as the winner — HTTP adapter only (Phase 5 / item 38).
+ * Domain: selectCreativeWorkOutputCommand.
  */
 export async function POST(
   request: Request,
@@ -40,55 +30,32 @@ export async function POST(
     if (!parsed.success) {
       return apiError("invalidInput", 400, parsed.error.flatten());
     }
-    const { saveToLibrary } = parsed.data;
 
-    const existing = await getCreativeWork(workspace.id, id);
-    if (!existing) {
-      return apiError("creativeWorkNotFound", 404);
-    }
+    const result = await selectCreativeWorkOutputCommand({
+      workspaceId: workspace.id,
+      workItemId: id,
+      outputId,
+      saveToLibrary: parsed.data.saveToLibrary,
+    });
 
-    const output = existing.outputs.find((o) => o.id === outputId);
-    if (!output) {
-      return apiError("creativeWorkOutputNotFound", 404);
-    }
-
-    if (output.status !== "completed") {
-      return apiError("creativeWorkOutputNotSelectable", 409, {
-        status: output.status,
-      });
-    }
-
-    if (!output.outputKey) {
-      return apiError("creativeWorkOutputMissingKey", 409);
-    }
-
-    const selected = await selectCreativeWorkOutput(workspace.id, id, outputId);
-    if (!selected) {
-      return apiError("creativeWorkOutputNotFound", 404);
-    }
-
-    if (saveToLibrary) {
-      // Reuse the existing library entry when one is already registered for
-      // this output key (idempotent re-select).
-      const existingAsset = await getWorkspaceAssetByKey(
-        workspace.id,
-        output.outputKey,
-      );
-      if (!existingAsset) {
-        const head = await objectStorage.head(output.outputKey);
-        const size = Number(head?.contentLength ?? 0);
-        await createWorkspaceAsset({
-          workspaceId: workspace.id,
-          name: `Post ${existing.work.brief.theme} - ${output.creativeLevel}`,
-          key: output.outputKey,
-          type: "image/png",
-          size,
-          source: "creative_work",
-        });
+    if (!result.ok) {
+      switch (result.error.code) {
+        case "work_not_found":
+          return apiError("creativeWorkNotFound", 404);
+        case "output_not_found":
+          return apiError("creativeWorkOutputNotFound", 404);
+        case "output_not_selectable":
+          return apiError("creativeWorkOutputNotSelectable", 409, {
+            status: result.error.status,
+          });
+        case "output_missing_key":
+          return apiError("creativeWorkOutputMissingKey", 409);
+        default:
+          return apiError("invalidRequest", 400);
       }
     }
 
-    return NextResponse.json({ output: selected });
+    return NextResponse.json({ output: result.value.output });
   } catch (error) {
     return handleApiError(error, "creative-work.[id].outputs.[outputId].select.POST");
   }

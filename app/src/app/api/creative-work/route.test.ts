@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { POST } from "./route";
+import { GET, POST } from "./route";
 
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
@@ -15,9 +15,14 @@ vi.mock("@/server/auth/workspace", () => ({
 }));
 
 const startMock = vi.hoisted(() => vi.fn());
+const listMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/application/start-social-post-work", () => ({
   startSocialPostWork: (...args: unknown[]) => startMock(...args),
+}));
+
+vi.mock("@/server/creative-work/canonical/queries", () => ({
+  listCanonicalWorks: (...args: unknown[]) => listMock(...args),
 }));
 
 const profileId = "00000000-0000-4000-8000-000000000001";
@@ -33,6 +38,41 @@ const validBody = {
     offer: "Teste gratuito",
   },
 };
+
+describe("GET /api/creative-work", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("returns creative_work canonical summaries", async () => {
+    listMock.mockResolvedValue([
+      {
+        id: "creative_work:aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+        originKind: "creative_work",
+        originId: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+        origin: "quick_tool",
+        workspaceId: "workspace-1",
+        name: "Novo produto",
+        state: "producing",
+        updatedAt: "2026-07-13T12:00:00.000Z",
+        resumable: true,
+        resumeHref: "/criar-post/aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+      },
+    ]);
+
+    const res = await GET(new Request("http://localhost/api/creative-work"));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(listMock).toHaveBeenCalledWith("workspace-1");
+    expect(body.works).toHaveLength(1);
+    expect(body.works[0].originKind).toBe("creative_work");
+    expect(body.works[0].name).toBe("Novo produto");
+  });
+});
 
 describe("POST /api/creative-work", () => {
   beforeEach(() => {
@@ -158,3 +198,4 @@ describe("POST /api/creative-work", () => {
     expect(startMock).not.toHaveBeenCalled();
   });
 });
+

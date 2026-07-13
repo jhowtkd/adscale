@@ -152,6 +152,25 @@ export async function setCreativeWorkCopy(
   return row ?? null;
 }
 
+/** Persist SocialPostBrief JSONB (canonical briefing write → brief column). */
+export async function setCreativeWorkBrief(
+  workspaceId: string,
+  workItemId: string,
+  brief: SocialPostBrief
+): Promise<CreativeWorkItem | null> {
+  const [row] = await db
+    .update(creativeWorkItems)
+    .set({ brief })
+    .where(
+      and(
+        eq(creativeWorkItems.workspaceId, workspaceId),
+        eq(creativeWorkItems.id, workItemId)
+      )
+    )
+    .returning();
+  return row ?? null;
+}
+
 export async function confirmCreativeWorkIdentity(
   workspaceId: string,
   workItemId: string,
@@ -376,4 +395,33 @@ export async function selectCreativeWorkOutput(
 
     return selected ?? null;
   });
+}
+
+/**
+ * Free retry: flip a failed output back to `queued` with a status guard so a
+ * concurrent change loses the race cleanly (returns null). No billing side
+ * effects — the original triplet charge already covered generation.
+ */
+export async function requeueFailedCreativeWorkOutput(
+  workspaceId: string,
+  workItemId: string,
+  outputId: string
+): Promise<CreativeWorkOutput | null> {
+  const [reset] = await db
+    .update(creativeWorkOutputs)
+    .set({
+      status: "queued",
+      failureCode: null,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(creativeWorkOutputs.workspaceId, workspaceId),
+        eq(creativeWorkOutputs.workItemId, workItemId),
+        eq(creativeWorkOutputs.id, outputId),
+        eq(creativeWorkOutputs.status, "failed")
+      )
+    )
+    .returning();
+  return reset ?? null;
 }

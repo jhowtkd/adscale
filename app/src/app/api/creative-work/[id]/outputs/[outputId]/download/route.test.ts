@@ -5,8 +5,7 @@ vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
 }));
 
-const getWorkMock = vi.hoisted(() => vi.fn());
-const signedUrlMock = vi.hoisted(() => vi.fn());
+const resolveMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/auth/workspace", () => ({
   requireWorkspaceAccess: vi.fn(() =>
@@ -17,67 +16,30 @@ vi.mock("@/server/auth/workspace", () => ({
   ),
 }));
 
-vi.mock("@/server/repositories/creative-work", () => ({
-  getCreativeWork: (...args: unknown[]) => getWorkMock(...args),
-}));
-
-vi.mock("@/server/storage", () => ({
-  objectStorage: {
-    signedDownloadUrl: (...args: unknown[]) => signedUrlMock(...args),
-  },
+vi.mock("@/server/application/resolve-creative-work-output-download", () => ({
+  resolveCreativeWorkOutputDownload: (...args: unknown[]) => resolveMock(...args),
 }));
 
 function makeParams(id: string, outputId: string) {
   return Promise.resolve({ id, outputId });
 }
 
-const workItem = {
-  id: "work-1",
-  workspaceId: "workspace-1",
-  clientProfileId: "profile-1",
-  createdByUserId: "user-1",
-  toolKind: "social_post",
-  status: "ready",
-  brief: {
-    theme: "Tema",
-    objective: "Objetivo",
-    audience: "Publico",
-    offer: "Oferta",
-  },
-  format: "4:5",
-  copy: { headline: "H", body: "B", cta: "C" },
-  identitySnapshot: null,
-  createdAt: new Date(),
-  updatedAt: new Date(),
-};
-
-const completedOutput = {
-  id: "output-1",
-  workspaceId: "workspace-1",
-  workItemId: "work-1",
-  creativeLevel: "balanced",
-  status: "completed",
-  outputKey: "creative-work/output-1/1700000000000.png",
-  cost: 5,
-  failureCode: null,
-  quality: null,
-  isSelected: false,
-  createdAt: new Date(),
-  updatedAt: new Date(),
-};
-
 describe("GET /api/creative-work/[id]/outputs/[outputId]/download", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    signedUrlMock.mockResolvedValue("https://signed.example.com/asset.png");
+    resolveMock.mockResolvedValue({
+      ok: true,
+      value: {
+        url: "https://signed.example.com/asset.png",
+        outputKey: "creative-work/output-1/out.png",
+      },
+    });
   });
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it("redirects to the signed URL by default (browsers and <img src>)", async () => {
-    getWorkMock.mockResolvedValue({ work: workItem, outputs: [completedOutput] });
-
+  it("redirects to the signed URL by default", async () => {
     const res = await GET(
       new Request("http://localhost/api/creative-work/work-1/outputs/output-1/download"),
       { params: makeParams("work-1", "output-1") }
@@ -85,26 +47,27 @@ describe("GET /api/creative-work/[id]/outputs/[outputId]/download", () => {
 
     expect(res.status).toBe(302);
     expect(res.headers.get("location")).toBe("https://signed.example.com/asset.png");
-    expect(signedUrlMock).toHaveBeenCalledWith(completedOutput.outputKey);
+    expect(resolveMock).toHaveBeenCalledWith({
+      workspaceId: "workspace-1",
+      workItemId: "work-1",
+      outputId: "output-1",
+    });
   });
 
-  it("returns the JSON envelope when ?format=json is set", async () => {
-    getWorkMock.mockResolvedValue({ work: workItem, outputs: [completedOutput] });
-
+  it("returns JSON when ?format=json is set", async () => {
     const res = await GET(
-      new Request("http://localhost/api/creative-work/work-1/outputs/output-1/download?format=json"),
+      new Request(
+        "http://localhost/api/creative-work/work-1/outputs/output-1/download?format=json"
+      ),
       { params: makeParams("work-1", "output-1") }
     );
     const body = await res.json();
 
     expect(res.status).toBe(200);
     expect(body.url).toBe("https://signed.example.com/asset.png");
-    expect(signedUrlMock).toHaveBeenCalledWith(completedOutput.outputKey);
   });
 
-  it("returns the JSON envelope when the caller sends Accept: application/json", async () => {
-    getWorkMock.mockResolvedValue({ work: workItem, outputs: [completedOutput] });
-
+  it("returns JSON when Accept: application/json", async () => {
     const res = await GET(
       new Request("http://localhost/api/creative-work/work-1/outputs/output-1/download", {
         headers: { Accept: "application/json" },
@@ -117,8 +80,11 @@ describe("GET /api/creative-work/[id]/outputs/[outputId]/download", () => {
     expect(body.url).toBe("https://signed.example.com/asset.png");
   });
 
-  it("returns 404 when the work is missing", async () => {
-    getWorkMock.mockResolvedValue(null);
+  it("maps work_not_found to 404", async () => {
+    resolveMock.mockResolvedValue({
+      ok: false,
+      error: { code: "work_not_found" },
+    });
 
     const res = await GET(
       new Request("http://localhost/api/creative-work/work-1/outputs/output-1/download"),
@@ -126,11 +92,13 @@ describe("GET /api/creative-work/[id]/outputs/[outputId]/download", () => {
     );
 
     expect(res.status).toBe(404);
-    expect(signedUrlMock).not.toHaveBeenCalled();
   });
 
-  it("returns 404 when the output is missing", async () => {
-    getWorkMock.mockResolvedValue({ work: workItem, outputs: [] });
+  it("maps output_not_found to 404", async () => {
+    resolveMock.mockResolvedValue({
+      ok: false,
+      error: { code: "output_not_found" },
+    });
 
     const res = await GET(
       new Request("http://localhost/api/creative-work/work-1/outputs/output-1/download"),
@@ -138,13 +106,12 @@ describe("GET /api/creative-work/[id]/outputs/[outputId]/download", () => {
     );
 
     expect(res.status).toBe(404);
-    expect(signedUrlMock).not.toHaveBeenCalled();
   });
 
-  it("returns 409 when the output is not completed", async () => {
-    getWorkMock.mockResolvedValue({
-      work: workItem,
-      outputs: [{ ...completedOutput, status: "failed", outputKey: null }],
+  it("maps output_not_ready to 409", async () => {
+    resolveMock.mockResolvedValue({
+      ok: false,
+      error: { code: "output_not_ready", status: "failed" },
     });
 
     const res = await GET(
@@ -153,6 +120,5 @@ describe("GET /api/creative-work/[id]/outputs/[outputId]/download", () => {
     );
 
     expect(res.status).toBe(409);
-    expect(signedUrlMock).not.toHaveBeenCalled();
   });
 });

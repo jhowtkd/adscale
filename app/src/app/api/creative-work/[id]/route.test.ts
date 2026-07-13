@@ -14,23 +14,16 @@ vi.mock("@/server/auth/workspace", () => ({
   ),
 }));
 
+const getWorkMock = vi.hoisted(() => vi.fn());
+const confirmMock = vi.hoisted(() => vi.fn());
+
 vi.mock("@/server/repositories/creative-work", () => ({
-  getCreativeWork: vi.fn(),
-  setCreativeWorkCopy: vi.fn(),
-  confirmCreativeWorkIdentity: vi.fn(),
+  getCreativeWork: (...args: unknown[]) => getWorkMock(...args),
 }));
 
-vi.mock("@/server/creative-work/identity", () => ({
-  createIdentitySnapshot: vi.fn(),
+vi.mock("@/server/application/confirm-social-post-work", () => ({
+  confirmSocialPostWork: (...args: unknown[]) => confirmMock(...args),
 }));
-
-import { getCreativeWork, setCreativeWorkCopy, confirmCreativeWorkIdentity } from "@/server/repositories/creative-work";
-import { createIdentitySnapshot } from "@/server/creative-work/identity";
-
-const mockGetCreativeWork = vi.mocked(getCreativeWork);
-const mockSetCreativeWorkCopy = vi.mocked(setCreativeWorkCopy);
-const mockConfirmCreativeWorkIdentity = vi.mocked(confirmCreativeWorkIdentity);
-const mockCreateIdentitySnapshot = vi.mocked(createIdentitySnapshot);
 
 function makeParams(id: string) {
   return Promise.resolve({ id });
@@ -56,27 +49,29 @@ const workItem = {
   format: "4:5",
   copy: null,
   identitySnapshot: null,
-  createdAt: new Date(),
-  updatedAt: new Date(),
+  createdAt: new Date("2026-07-13T12:00:00.000Z"),
+  updatedAt: new Date("2026-07-13T12:00:00.000Z"),
 };
 
 const outputs = [
-  { id: "o1", workItemId: "work-1", creativeLevel: "conservative", status: "queued" },
-  { id: "o2", workItemId: "work-1", creativeLevel: "balanced", status: "queued" },
-  { id: "o3", workItemId: "work-1", creativeLevel: "bold", status: "queued" },
+  {
+    id: "o1",
+    workItemId: "work-1",
+    creativeLevel: "conservative",
+    status: "queued",
+    outputKey: null,
+    isSelected: false,
+    createdAt: new Date("2026-07-13T12:00:00.000Z"),
+  },
 ];
 
-const identitySnapshot = {
-  clientProfileId: profileId,
-  confirmedAt: "2026-07-07T00:00:00.000Z",
-  assets: [],
-  brandKit: {
-    colors: [],
-    fonts: [],
-    toneOfVoice: null,
-    prohibitedElements: null,
-    requiredElements: null,
+const confirmBody = {
+  copy: {
+    headline: "Headline",
+    body: "Body content",
+    cta: "CTA",
   },
+  selectedReferenceIds: [refId1, refId2],
 };
 
 describe("GET /api/creative-work/[id]", () => {
@@ -87,8 +82,8 @@ describe("GET /api/creative-work/[id]", () => {
     vi.restoreAllMocks();
   });
 
-  it("returns the work plus its outputs for the authenticated workspace", async () => {
-    mockGetCreativeWork.mockResolvedValue({ work: workItem, outputs } as never);
+  it("returns work, outputs, and canonical projection", async () => {
+    getWorkMock.mockResolvedValue({ work: workItem, outputs });
 
     const res = await GET(
       new Request("http://localhost/api/creative-work/work-1"),
@@ -98,12 +93,15 @@ describe("GET /api/creative-work/[id]", () => {
 
     expect(res.status).toBe(200);
     expect(body.work.id).toBe("work-1");
-    expect(body.outputs).toHaveLength(3);
-    expect(mockGetCreativeWork).toHaveBeenCalledWith("workspace-1", "work-1");
+    expect(body.outputs).toHaveLength(1);
+    expect(body.canonical.id).toBe("creative_work:work-1");
+    expect(body.canonical.intent.kind).toBe("social_post");
+    expect(body.canonical.briefing.theme).toBe("Tema");
+    expect(getWorkMock).toHaveBeenCalledWith("workspace-1", "work-1");
   });
 
   it("returns 404 when the work does not belong to the workspace", async () => {
-    mockGetCreativeWork.mockResolvedValue(null);
+    getWorkMock.mockResolvedValue(null);
 
     const res = await GET(
       new Request("http://localhost/api/creative-work/work-1"),
@@ -117,34 +115,39 @@ describe("GET /api/creative-work/[id]", () => {
 describe("PATCH /api/creative-work/[id]", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    confirmMock.mockResolvedValue({
+      ok: true,
+      value: {
+        work: {
+          ...workItem,
+          copy: confirmBody.copy,
+          status: "ready",
+          identitySnapshot: { clientProfileId: profileId },
+        },
+        canonical: {
+          id: "creative_work:work-1",
+          originKind: "creative_work",
+          intent: {
+            kind: "social_post",
+            objective: "Objetivo",
+            formatHint: "4:5",
+            platforms: [],
+          },
+          briefing: {
+            headline: confirmBody.copy.headline,
+            body: confirmBody.copy.body,
+            cta: confirmBody.copy.cta,
+            theme: "Tema",
+          },
+        },
+      },
+    });
   });
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  const confirmBody = {
-    copy: {
-      headline: "Headline",
-      body: "Body content",
-      cta: "CTA",
-    },
-    selectedReferenceIds: [refId1, refId2],
-  };
-
-  it("persists copy, builds the identity snapshot server-side, and transitions to ready", async () => {
-    mockGetCreativeWork.mockResolvedValue({ work: workItem, outputs } as never);
-    mockSetCreativeWorkCopy.mockResolvedValue({
-      ...workItem,
-      copy: confirmBody.copy,
-    } as never);
-    mockCreateIdentitySnapshot.mockResolvedValue(identitySnapshot);
-    mockConfirmCreativeWorkIdentity.mockResolvedValue({
-      ...workItem,
-      copy: confirmBody.copy,
-      identitySnapshot,
-      status: "ready",
-    } as never);
-
+  it("delegates to confirmSocialPostWork and returns work + canonical", async () => {
     const res = await PATCH(
       new Request("http://localhost/api/creative-work/work-1", {
         method: "PATCH",
@@ -156,26 +159,21 @@ describe("PATCH /api/creative-work/[id]", () => {
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(body.work.status).toBe("ready");
-    expect(body.work.identitySnapshot).toEqual(identitySnapshot);
-    expect(body.work.copy).toEqual(confirmBody.copy);
-
-    // Snapshot is built server-side; the browser does not pick asset keys or
-    // analysis — those values are reloaded from approved references.
-    expect(mockCreateIdentitySnapshot).toHaveBeenCalledWith({
+    expect(confirmMock).toHaveBeenCalledWith({
       workspaceId: "workspace-1",
-      clientProfileId: profileId,
+      workItemId: "work-1",
+      copy: confirmBody.copy,
       selectedReferenceIds: [refId1, refId2],
     });
-    // createIdentitySnapshot was called BEFORE confirm so the row carries the snapshot.
-    const setOrder = mockSetCreativeWorkCopy.mock.invocationCallOrder[0];
-    const snapshotOrder = mockCreateIdentitySnapshot.mock.invocationCallOrder[0];
-    const confirmOrder = mockConfirmCreativeWorkIdentity.mock.invocationCallOrder[0];
-    expect(snapshotOrder).toBeLessThan(confirmOrder);
+    expect(body.work.status).toBe("ready");
+    expect(body.canonical.id).toBe("creative_work:work-1");
   });
 
-  it("returns 404 when the work does not exist for the workspace", async () => {
-    mockGetCreativeWork.mockResolvedValue(null);
+  it("maps work_not_found → 404", async () => {
+    confirmMock.mockResolvedValue({
+      ok: false,
+      error: { code: "work_not_found" },
+    });
 
     const res = await PATCH(
       new Request("http://localhost/api/creative-work/work-1", {
@@ -187,60 +185,9 @@ describe("PATCH /api/creative-work/[id]", () => {
     );
 
     expect(res.status).toBe(404);
-    expect(mockCreateIdentitySnapshot).not.toHaveBeenCalled();
-    expect(mockSetCreativeWorkCopy).not.toHaveBeenCalled();
-    expect(mockConfirmCreativeWorkIdentity).not.toHaveBeenCalled();
   });
 
-  it("allows an empty selectedReferenceIds list for Brand-Kit-only identity", async () => {
-    mockGetCreativeWork.mockResolvedValue({ work: workItem, outputs } as never);
-    const kitOnlySnapshot = { ...identitySnapshot, assets: [] };
-    mockCreateIdentitySnapshot.mockResolvedValue(kitOnlySnapshot as never);
-    mockConfirmCreativeWorkIdentity.mockResolvedValue({
-      ...workItem,
-      status: "ready",
-      identitySnapshot: kitOnlySnapshot,
-    } as never);
-
-    const res = await PATCH(
-      new Request("http://localhost/api/creative-work/work-1", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          copy: confirmBody.copy,
-          selectedReferenceIds: [],
-        }),
-      }),
-      { params: makeParams("work-1") }
-    );
-
-    expect(res.status).toBe(200);
-    expect(mockCreateIdentitySnapshot).toHaveBeenCalledWith(
-      expect.objectContaining({ selectedReferenceIds: [] }),
-    );
-  });
-
-  it("returns 400 when more than 8 references are submitted", async () => {
-    mockGetCreativeWork.mockResolvedValue({ work: workItem, outputs } as never);
-
-    const ids = Array.from({ length: 9 }, (_, i) =>
-      `00000000-0000-4000-8000-${String(i).padStart(12, "0")}`
-    );
-    const res = await PATCH(
-      new Request("http://localhost/api/creative-work/work-1", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ copy: confirmBody.copy, selectedReferenceIds: ids }),
-      }),
-      { params: makeParams("work-1") }
-    );
-
-    expect(res.status).toBe(400);
-  });
-
-  it("returns 400 when copy fields are missing", async () => {
-    mockGetCreativeWork.mockResolvedValue({ work: workItem, outputs } as never);
-
+  it("returns 400 when copy fields are invalid", async () => {
     const res = await PATCH(
       new Request("http://localhost/api/creative-work/work-1", {
         method: "PATCH",
@@ -254,11 +201,10 @@ describe("PATCH /api/creative-work/[id]", () => {
     );
 
     expect(res.status).toBe(400);
+    expect(confirmMock).not.toHaveBeenCalled();
   });
 
-  it("returns 400 when the browser tries to send asset keys or analysis", async () => {
-    mockGetCreativeWork.mockResolvedValue({ work: workItem, outputs } as never);
-
+  it("returns 400 when the browser tries to send asset keys", async () => {
     const res = await PATCH(
       new Request("http://localhost/api/creative-work/work-1", {
         method: "PATCH",
@@ -267,12 +213,33 @@ describe("PATCH /api/creative-work/[id]", () => {
           copy: confirmBody.copy,
           selectedReferenceIds: [refId1],
           assetKeys: ["browser-supplied-key"],
-          analysis: { foo: "bar" },
         }),
       }),
       { params: makeParams("work-1") }
     );
 
     expect(res.status).toBe(400);
+    expect(confirmMock).not.toHaveBeenCalled();
+  });
+
+  it("maps identity_reference_not_approved → 422", async () => {
+    confirmMock.mockResolvedValue({
+      ok: false,
+      error: {
+        code: "identity_reference_not_approved",
+        referenceId: refId1,
+      },
+    });
+
+    const res = await PATCH(
+      new Request("http://localhost/api/creative-work/work-1", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(confirmBody),
+      }),
+      { params: makeParams("work-1") }
+    );
+
+    expect(res.status).toBe(422);
   });
 });

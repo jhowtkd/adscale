@@ -259,6 +259,22 @@ describe("projectCampaignAsCanonicalWork", () => {
     expect(safe.briefing.product).toBe("Course");
     expect(safe.resumeHref).toBe(`/campaigns/${CAMPAIGN_ID}`);
   });
+
+  it("sets intent.formatHint from targetFormats[0]", () => {
+    const withFormats = projectCampaignAsCanonicalWork(
+      campaignFixture({ targetFormats: ["4:5", "9:16"] })
+    );
+    expect(withFormats.intent.formatHint).toBe("4:5");
+    expect(withFormats.intent.kind).toBe("campaign");
+
+    const empty = projectCampaignAsCanonicalWork(
+      campaignFixture({ targetFormats: [] })
+    );
+    expect(empty.intent.formatHint).toBeNull();
+
+    const missing = projectCampaignAsCanonicalWork(campaignFixture());
+    expect(missing.intent.formatHint).toBeNull();
+  });
 });
 
 describe("projectCreativeWorkAsCanonicalWork (Criar Post fixture)", () => {
