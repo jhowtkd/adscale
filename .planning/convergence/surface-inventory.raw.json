@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-07-13T12:27:37.935Z",
+  "generatedAt": "2026-07-13T12:52:52.945Z",
   "schemaVersion": 2,
-  "fingerprint": "46d8bb7e09b1682eb0079e46850b120d7da7bc7baf4f2416da267d35eb53eca1",
+  "fingerprint": "06f1e1605f156cc402fd9f10a0b4aa8b4b006df104be126525196a0bffdaec18",
   "counts": {
     "dashboardPages": 14,
     "apiRoutes": 171,
-    "ctas": 59,
+    "ctas": 58,
     "requiringDecision": 2
   },
   "dashboardPages": [
@@ -1615,21 +1615,21 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:71",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:70",
       "kind": "cta_navigation",
       "destination": "/login",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 71,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:71",
+      "line": 70,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:70",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:152",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:151",
       "kind": "cta_navigation",
       "destination": "/feedback",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 152,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:152",
+      "line": 151,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:151",
       "requiresDecision": false
     },
     {
@@ -1669,21 +1669,12 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/SidebarRecentWorks.tsx:75",
+      "id": "nav:app/src/components/layout/SidebarRecentWorks.tsx:48",
       "kind": "cta_navigation",
-      "destination": "/campaigns?new=1",
+      "destination": "/",
       "file": "app/src/components/layout/SidebarRecentWorks.tsx",
-      "line": 75,
-      "evidence": "app/src/components/layout/SidebarRecentWorks.tsx:75",
-      "requiresDecision": false
-    },
-    {
-      "id": "nav:app/src/components/layout/SidebarRecentWorks.tsx:97",
-      "kind": "cta_navigation",
-      "destination": "/campaigns/${campaign.id}",
-      "file": "app/src/components/layout/SidebarRecentWorks.tsx",
-      "line": 97,
-      "evidence": "app/src/components/layout/SidebarRecentWorks.tsx:97",
+      "line": 48,
+      "evidence": "app/src/components/layout/SidebarRecentWorks.tsx:48",
       "requiresDecision": false
     },
     {

@@ -8,9 +8,9 @@ import { useTranslations } from "next-intl";
 import {
   BookOpen,
   FolderOpen,
-  LayoutDashboard,
   LogOut,
-  Plus,
+  Settings,
+  Tag,
   type LucideIcon,
 } from "lucide-react";
 import { useAppStore } from "@/lib/store";
@@ -30,7 +30,6 @@ export default function AppSidebar({ variant = "production" }: { variant?: AppSi
   const router = useRouter();
   const tNav = useTranslations("navigation");
   const tLibrary = useTranslations("library");
-  const tCommon = useTranslations("common");
   const user = useAppStore((s) => s.user);
   const billing = useAppStore((s) => s.billing);
   const { data: session } = authClient.useSession();
@@ -53,15 +52,15 @@ export default function AppSidebar({ variant = "production" }: { variant?: AppSi
   const accessRole = billingStatus?.access?.role;
   const isOwnerOrAdmin = accessRole === "owner" || accessRole === "admin";
 
-  const isDashboard = isPreview
-    ? pathname === "/v6" || pathname.startsWith("/v6/dashboard") || pathname.startsWith("/v6/topbar-promo")
-    : pathname === "/dashboard" || pathname.startsWith("/dashboard/");
-  const isCampaigns = isPreview
+  // Phase 6 / item 45: Trabalhos · Biblioteca · Marcas · Config (home via logo)
+  const isWorks = isPreview
     ? pathname.startsWith("/v6/campaigns") || pathname.startsWith("/v6/campaign-workspace")
     : pathname.startsWith("/campaigns");
   const isLibrary = isPreview
     ? pathname.startsWith("/v6/library")
     : pathname.startsWith("/library");
+  const isBrands = !isPreview && pathname.startsWith("/brand-kit");
+  const isConfig = !isPreview && pathname.startsWith("/settings");
 
   const campaignCount = isPreview ? "12" : totalCount > 0 ? String(totalCount) : undefined;
 
@@ -104,15 +103,9 @@ export default function AppSidebar({ variant = "production" }: { variant?: AppSi
         aria-label={tNav("sectionPrincipal")}
       >
         <IconNavItem
-          href={isPreview ? "/v6/dashboard" : "/dashboard"}
-          active={isDashboard}
-          label={tNav("dashboard")}
-          icon={LayoutDashboard}
-        />
-        <IconNavItem
           href={isPreview ? "/v6/campaigns" : "/campaigns"}
-          active={isCampaigns}
-          label={tNav("campaigns")}
+          active={isWorks}
+          label={tNav("works")}
           icon={FolderOpen}
           count={campaignCount}
         />
@@ -123,10 +116,16 @@ export default function AppSidebar({ variant = "production" }: { variant?: AppSi
           icon={BookOpen}
         />
         <IconNavItem
-          href={isPreview ? "#" : "/campaigns?new=1"}
-          active={false}
-          label={tCommon("create")}
-          icon={Plus}
+          href={isPreview ? "#" : "/brand-kit"}
+          active={isBrands}
+          label={tNav("brands")}
+          icon={Tag}
+        />
+        <IconNavItem
+          href={isPreview ? "#" : "/settings"}
+          active={isConfig}
+          label={tNav("config")}
+          icon={Settings}
         />
       </nav>
 

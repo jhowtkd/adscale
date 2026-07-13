@@ -55,7 +55,7 @@ describe("AppSidebar role-aware navigation", () => {
     expect(screen.queryByText("⌘K")).not.toBeInTheDocument();
   });
 
-  it("shows icon nav, Brand Kit feature, and recent works map — without Chat switch", () => {
+  it("shows Trabalhos · Biblioteca · Marcas · Config nav — without Chat switch", () => {
     render(<AppSidebar variant="production" />);
     expect(screen.queryByText("navigation.creativeIntelligenceAdvanced")).not.toBeInTheDocument();
     expect(screen.queryByText("navigation.sectionAvancado")).not.toBeInTheDocument();
@@ -63,13 +63,21 @@ describe("AppSidebar role-aware navigation", () => {
     expect(screen.queryByRole("button", { name: /assistant\.mode\.chat/i })).not.toBeInTheDocument();
     expect(screen.getByTestId("sidebar-brand-kit-feature")).toHaveAttribute("href", "/brand-kit");
     expect(screen.getByTestId("campaign-map")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "navigation.dashboard" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "navigation.works" })).toHaveAttribute(
       "href",
-      "/dashboard"
+      "/campaigns"
     );
-    expect(screen.getByRole("link", { name: "common.create" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "library.title" })).toHaveAttribute(
       "href",
-      "/campaigns?new=1"
+      "/library"
+    );
+    expect(screen.getByRole("link", { name: "navigation.brands" })).toHaveAttribute(
+      "href",
+      "/brand-kit"
+    );
+    expect(screen.getByRole("link", { name: "navigation.config" })).toHaveAttribute(
+      "href",
+      "/settings"
     );
   });
 

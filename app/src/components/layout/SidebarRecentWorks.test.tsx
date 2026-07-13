@@ -4,19 +4,15 @@ import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-const useDashboardStatsMock = vi.fn();
+const useCanonicalWorksMock = vi.fn();
 
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => `navigation.${key}`,
   useLocale: () => "pt-BR",
 }));
 
-vi.mock("@/lib/hooks/use-dashboard-stats", () => ({
-  useDashboardStats: (...args: unknown[]) => useDashboardStatsMock(...args),
-}));
-
-vi.mock("next/image", () => ({
-  default: ({ alt }: { alt?: string }) => <img alt={alt ?? ""} />,
+vi.mock("@/lib/hooks/use-canonical-works", () => ({
+  useCanonicalWorks: (...args: unknown[]) => useCanonicalWorksMock(...args),
 }));
 
 vi.mock("next/link", () => ({
@@ -43,24 +39,37 @@ function wrapper({ children }: { children: React.ReactNode }) {
 
 describe("SidebarRecentWorks", () => {
   beforeEach(() => {
-    useDashboardStatsMock.mockReset();
+    useCanonicalWorksMock.mockReset();
   });
 
-  it("lists recent campaigns as trabalhos recentes", () => {
-    useDashboardStatsMock.mockReturnValue({
-      data: {
-        recentCampaigns: [
-          {
-            id: "camp-1",
-            name: "Black Friday",
-            thumbnailUrl: null,
-            pieceCount: 3,
-            approvedCount: 1,
-            status: "active",
-            updatedAt: new Date("2026-07-01T12:00:00Z"),
-          },
-        ],
-      },
+  it("lists recent canonical works with resumeHref", () => {
+    useCanonicalWorksMock.mockReturnValue({
+      data: [
+        {
+          id: "creative_work:w1",
+          originKind: "creative_work",
+          originId: "w1",
+          origin: "quick_tool",
+          workspaceId: "ws",
+          name: "Post social",
+          state: "generating",
+          updatedAt: "2026-07-01T12:00:00.000Z",
+          resumable: true,
+          resumeHref: "/quick-tools/create-post?workId=w1",
+        },
+        {
+          id: "campaign:c1",
+          originKind: "campaign",
+          originId: "c1",
+          origin: "campaign",
+          workspaceId: "ws",
+          name: "Black Friday",
+          state: "briefing",
+          updatedAt: "2026-07-01T11:00:00.000Z",
+          resumable: true,
+          resumeHref: "/campaigns/c1",
+        },
+      ],
       isLoading: false,
     });
 
@@ -68,15 +77,19 @@ describe("SidebarRecentWorks", () => {
 
     expect(screen.getByTestId("sidebar-recent-works")).toBeInTheDocument();
     expect(screen.getByText("navigation.recentWorks")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Post social/i })).toHaveAttribute(
+      "href",
+      "/quick-tools/create-post?workId=w1"
+    );
     expect(screen.getByRole("link", { name: /Black Friday/i })).toHaveAttribute(
       "href",
-      "/campaigns/camp-1"
+      "/campaigns/c1"
     );
   });
 
-  it("shows empty state when there are no campaigns", () => {
-    useDashboardStatsMock.mockReturnValue({
-      data: { recentCampaigns: [] },
+  it("shows empty state linking to home for new work", () => {
+    useCanonicalWorksMock.mockReturnValue({
+      data: [],
       isLoading: false,
     });
 
@@ -85,7 +98,7 @@ describe("SidebarRecentWorks", () => {
     expect(screen.getByText("navigation.recentWorksEmpty")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "navigation.recentWorksCreate" })).toHaveAttribute(
       "href",
-      "/campaigns?new=1"
+      "/"
     );
   });
 });
