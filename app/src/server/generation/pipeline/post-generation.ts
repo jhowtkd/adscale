@@ -1,15 +1,25 @@
 /**
  * Pós-geração canônica: score → quality gate → corpus (Phase 3 / item 22).
  *
- * O job Inngest continua wrapping cada etapa em `step.run` para durabilidade;
- * estes helpers centralizam a regra sem duplicar a sequência.
+ * Campanha/Assistente e Criar Post compartilham políticas e o scorer;
+ * adapters só preparam o artefato final e persistem o resultado.
  */
 import { logger } from "@/lib/logger";
 import { objectStorage } from "@/server/storage";
 import type { CreativeContract } from "@/server/ai/creative-contract";
 import { runCompletedDerivationQualityGate } from "@/server/ai/creative-quality-gate";
+import {
+  analyzeDerivationCreative,
+  type AnalyzeInput,
+  type ScoreResult,
+} from "@/server/ai/creative-score";
 import { captureCorpusCandidateFromDerivation } from "@/server/human-quality/candidate-capture";
 import { scoreCompletedDerivation } from "@/server/generation/pipeline/score-derivation";
+import {
+  decideCreativeWorkRefund,
+  decidePostGenerationQuality,
+} from "@/server/generation/canonical/policies";
+import type { RefundDecision } from "@/server/generation/canonical/types";
 
 export interface PostGenerationCampaign {
   name: string;
@@ -145,4 +155,81 @@ export async function runDerivationCorpusCapture(input: {
       `[capture-corpus-candidate] failed derivationId=${input.derivationId}: ${message}`
     );
   }
+}
+
+/**
+ * Campaign/Assistant post-generation sequence (item 22).
+ * Jobs may still wrap each step in Inngest `step.run` for durability;
+ * this helper documents the canonical order when running synchronously.
+ */
+export async function runDerivationPostGeneration(input: {
+  score: Parameters<typeof runDerivationScore>[0];
+  qualityGate: Parameters<typeof runDerivationQualityGate>[0];
+  corpus: Parameters<typeof runDerivationCorpusCapture>[0];
+}): Promise<void> {
+  await runDerivationScore(input.score);
+  await runDerivationQualityGate(input.qualityGate);
+  await runDerivationCorpusCapture(input.corpus);
+  decidePostGenerationQuality({ surface: "campaign", quality: null });
+}
+
+export type CreativeWorkPostGenerationResult =
+  | {
+      decision: "accept";
+      quality: ScoreResult | null;
+      reason: string;
+    }
+  | {
+      decision: "reject_low_quality";
+      quality: ScoreResult;
+      reason: string;
+      refund: RefundDecision;
+    };
+
+/**
+ * Criar Post post-generation (item 22): shared score + quality policy.
+ * Brand composition stays in the job adapter (artifact prep before this).
+ * Persistence (complete/fail/refund apply) stays in the adapter.
+ */
+export async function runCreativeWorkPostGeneration(input: {
+  workItemId: string;
+  outputId: string;
+  analyze: AnalyzeInput;
+}): Promise<CreativeWorkPostGenerationResult> {
+  let quality: ScoreResult | null = null;
+  try {
+    quality = await analyzeDerivationCreative(input.analyze);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    logger.warn(
+      `[creative-work-post-generation] analyze failed outputId=${input.outputId}: ${message}`
+    );
+    quality = null;
+  }
+
+  const qualityDecision = decidePostGenerationQuality({
+    surface: "quick_tool",
+    quality,
+  });
+
+  if (!qualityDecision.accept && quality) {
+    const refund = decideCreativeWorkRefund({
+      surface: "quick_tool",
+      failurePhase: "low_quality",
+      workItemId: input.workItemId,
+      outputId: input.outputId,
+    });
+    return {
+      decision: "reject_low_quality",
+      quality,
+      reason: qualityDecision.reason,
+      refund,
+    };
+  }
+
+  return {
+    decision: "accept",
+    quality,
+    reason: qualityDecision.reason,
+  };
 }

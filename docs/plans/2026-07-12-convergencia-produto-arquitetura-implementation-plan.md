@@ -1,7 +1,7 @@
 # Plano de convergência de produto e arquitetura do ADScale
 
 **Data:** 2026-07-12  
-**Status:** Gate 3 correções aplicadas (executor canônico único + Criar Post no mesmo pipeline) — pendente reavaliação  
+**Status:** Gate 3 — pós-geração compartilhada + cobrança lote/unidade; pendente reavaliação  
 **Direção assumida:** trabalho criativo-first  
 **Estratégia:** migração incremental com gates; nenhum big bang
 

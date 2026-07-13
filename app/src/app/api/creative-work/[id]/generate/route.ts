@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
-import { spendOrApiError } from "@/server/billing/paywall";
 import { refundCredits } from "@/server/billing/credits";
+import { chargeForBatchOrApiError } from "@/server/generation/canonical/charge";
 import {
   GENERATION_CREDIT_COSTS,
-  type GenerationRequest,
+  type GenerationBatchCharge,
 } from "@/server/generation/canonical/types";
 import { inngest } from "@/server/jobs/client";
 import {
@@ -16,13 +16,9 @@ import {
 import { CREATIVE_LEVELS } from "@/server/creative-work/contracts";
 
 /**
- * Dispatch the standalone create-post triplet. Charges 15 credits idempotently,
- * creates one output row per `CREATIVE_LEVELS` entry (idempotent), and sends a
- * `creative-work.generate` event per output.
- *
- * Only refunds when `inngest.send` throws BEFORE any job is queued. Individual
- * job failures are handled inside the job (per `creative-work.generate`
- * consumer) — they do NOT refund.
+ * Dispatch the standalone create-post triplet.
+ * Charges via GenerationBatchCharge (not a unit GenerationRequest),
+ * creates one output row per CREATIVE_LEVELS entry, and sends unit jobs.
  */
 export async function POST(
   request: Request,
@@ -45,7 +41,8 @@ export async function POST(
       });
     }
 
-    const chargeRequest: GenerationRequest = {
+    const batchCharge: GenerationBatchCharge = {
+      kind: "batch",
       authorship: { workspaceId: workspace.id, userId: user.id },
       origin: "quick_tool",
       surface: "quick_tool",
@@ -53,51 +50,17 @@ export async function POST(
         mode: "social_post",
         objective: existing.work.brief.objective ?? null,
       },
-      identity: {
-        clientProfileId: existing.work.clientProfileId,
-        referenceImages: [],
-        brandConstraints: null,
-      },
-      format: {
-        targetFormat: existing.work.format,
-        dimensions: { width: 1024, height: 1024 },
-        constraints: null,
-      },
-      source: {
-        parentId: null,
-        sourceVersionId: null,
-        lineageId: null,
-        packageSource: "creative_work_brief",
-      },
-      prompt: { text: existing.work.brief.theme || "social_post" },
-      cost: {
-        chargeAmount: GENERATION_CREDIT_COSTS.creativeWorkTriplet,
-        refundPolicy: "default",
-      },
-      idempotency: {
-        billingKey: `creative-work:${id}:triplet`,
-        skipWhenOutputExists: true,
-      },
-      destination: {
-        kind: "creative_work_output",
-        id,
-        storagePrefix: `creative-work/${id}`,
-        workItemId: id,
-      },
+      parentId: id,
+      unitCount: CREATIVE_LEVELS.length,
+      chargeAmount: GENERATION_CREDIT_COSTS.creativeWorkTriplet,
+      unitChargeAmount: GENERATION_CREDIT_COSTS.creativeWorkOutput,
+      billingKey: `creative-work:${id}:triplet`,
+      refundPolicy: "default",
     };
-    // Charge via canonical request fields (same amounts/keys as chargeForGeneration).
-    const creditError = await spendOrApiError({
-      workspaceId: chargeRequest.authorship.workspaceId,
-      action: "image_derivation",
-      amount: chargeRequest.cost.chargeAmount,
-      idempotencyKey: chargeRequest.idempotency.billingKey,
-      metadata: {
-        creativeWorkId: id,
-        surface: chargeRequest.surface,
-        operation_key: "image_derivation",
-      },
-      userId: user.id,
+
+    const creditError = await chargeForBatchOrApiError(batchCharge, {
       returnPath: `/quick-tools/create-post?workId=${id}`,
+      metadata: { creativeWorkId: id },
     });
     if (creditError) {
       return creditError;
@@ -140,9 +103,6 @@ export async function POST(
       });
     }
 
-    // Flip the work status to `generating` so the wizard's polling hook
-    // engages. `refreshCreativeWorkStatus` will overwrite this with the
-    // next aggregate (partial/completed/failed) once outputs settle.
     await setCreativeWorkStatus(workspace.id, id, "generating");
 
     return NextResponse.json(

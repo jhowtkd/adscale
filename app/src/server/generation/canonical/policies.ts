@@ -142,3 +142,55 @@ export function decideAutoRetry(input: {
   }
   return { retry: true, reason: "derivation_auto_retry_eligible" };
 }
+
+/**
+ * Minimum quality score for surfaces that reject low-quality outputs.
+ * Campaign/assistant score is advisory (gate is separate / non-blocking).
+ */
+export const POST_GENERATION_MIN_QUALITY_SCORE: Record<
+  GenerationSurface,
+  number | null
+> = {
+  quick_tool: 60,
+  campaign: null,
+  assistant: null,
+};
+
+export type PostGenerationQualityDecision =
+  | { accept: true; reason: string }
+  | { accept: false; failurePhase: "low_quality"; reason: string };
+
+/**
+ * Shared post-score quality policy (item 22).
+ * Criar Post rejects below threshold; derivation always accepts here.
+ */
+export function decidePostGenerationQuality(input: {
+  surface: GenerationSurface;
+  quality: {
+    scoreStatus: string;
+    qualityScore: number;
+  } | null;
+}): PostGenerationQualityDecision {
+  const threshold = POST_GENERATION_MIN_QUALITY_SCORE[input.surface];
+  if (threshold == null) {
+    return {
+      accept: true,
+      reason: `${input.surface}_quality_advisory_only`,
+    };
+  }
+  if (!input.quality) {
+    // Scorer crash: preserve prior behaviour — do not reject.
+    return { accept: true, reason: "score_unavailable_accept" };
+  }
+  if (
+    input.quality.scoreStatus === "failed" ||
+    input.quality.qualityScore < threshold
+  ) {
+    return {
+      accept: false,
+      failurePhase: "low_quality",
+      reason: `low_quality score=${input.quality.qualityScore} threshold=${threshold}`,
+    };
+  }
+  return { accept: true, reason: "quality_above_threshold" };
+}

@@ -41,7 +41,7 @@ export async function executeCanonicalGeneration(
     `[executeCanonicalGeneration] surface=${request.surface} destination=${request.destination.kind}:${request.destination.id} mode=${request.intent.mode}`
   );
 
-  let result = await generateAndStoreImage({
+  const result = await generateAndStoreImage({
     prompt: request.prompt.text,
     dimensions: request.format.dimensions,
     outputPrefix: request.destination.storagePrefix,
@@ -50,22 +50,11 @@ export async function executeCanonicalGeneration(
     outputSuffix: request.source.outputSuffix ?? "",
   });
 
-  let imageOperation: GenerationResult["imageOperation"] = result.imageOperation;
-
-  // Preserve derivation single-reference edit→generate fallback.
-  if (
-    request.source.allowGenerateFallback &&
-    request.identity.referenceImages.length > 0 &&
-    !request.source.outputSuffix
-  ) {
-    // Fallback only applies when the first attempt threw — handled below.
-  }
-
   return {
     outputKey: result.outputKey,
     revisedPrompt: result.revisedPrompt,
     buffer: result.buffer,
-    imageOperation,
+    imageOperation: result.imageOperation,
     candidates: result.candidates,
     destination: request.destination,
     surface: request.surface,

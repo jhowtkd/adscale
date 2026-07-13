@@ -2,11 +2,12 @@ import "server-only";
 import { logger } from "@/lib/logger";
 import { objectStorage } from "@/server/storage";
 import { executeCanonicalGeneration } from "@/server/generation/pipeline/execute";
+import { runCreativeWorkPostGeneration } from "@/server/generation/pipeline/post-generation";
 import {
   GENERATION_CREDIT_COSTS,
+  creativeWorkUnitBillingKey,
   type GenerationRequest,
 } from "@/server/generation/canonical/types";
-import { analyzeDerivationCreative, type ScoreResult } from "@/server/ai/creative-score";
 import { getClientProfile } from "@/server/repositories/client-reference";
 import { refundCredits } from "@/server/billing/credits";
 import {
@@ -42,16 +43,8 @@ interface CreativeWorkGenerateEvent {
   creativeLevel: "conservative" | "balanced" | "bold";
 }
 
-const OUTPUT_COST = 5;
+const OUTPUT_COST = GENERATION_CREDIT_COSTS.creativeWorkOutput;
 const MAX_REFERENCE_IMAGES = 4;
-/**
- * Outputs scoring below this threshold are treated as `low_quality` failures
- * — the row is marked failed, the user is refunded, and the UI surfaces the
- * failure as a retryable proposition. Tuned conservatively: the brief
- * scoring rubric uses `MEAN_QUALITY_THRESHOLD = 75` for batch validation, so
- * a per-output cutoff of 60 only rejects clear misses.
- */
-const OUTPUT_MIN_QUALITY_SCORE = 60;
 
 /**
  * Sanitize arbitrary error messages into a short, user-safe slug. The slug is
@@ -218,7 +211,7 @@ export const creativeWorkOutputJob = inngest.createFunction(
           refundPolicy: "default",
         },
         idempotency: {
-          billingKey: `creative-work:${workItemId}:output:${outputId}:generate`,
+          billingKey: creativeWorkUnitBillingKey(workItemId, outputId),
           skipWhenOutputExists: true,
         },
         destination: {
@@ -266,9 +259,11 @@ export const creativeWorkOutputJob = inngest.createFunction(
         return getClientProfile(workspaceId, work.clientProfileId);
       })) as unknown as { id: string; name: string } | null;
 
-      const qualityResult = (await step.run("analyze-quality", async () => {
-        try {
-          return await analyzeDerivationCreative({
+      const postGen = (await step.run("analyze-quality", async () => {
+        return runCreativeWorkPostGeneration({
+          workItemId,
+          outputId,
+          analyze: {
             imageBuffer: finalBuffer,
             mimeType: "image/png",
             // R5 mapping: brief fields → AnalyzeInput.campaign
@@ -291,37 +286,21 @@ export const creativeWorkOutputJob = inngest.createFunction(
             },
             locale: "pt-BR",
             contract: null,
-          });
-        } catch (error) {
-          // Quality analysis is best-effort: never fail the output for it
-          // if the scorer itself crashes — but still persist `null` so the
-          // UI can distinguish "not measured" from "scored below threshold".
-          const message = error instanceof Error ? error.message : "Unknown error";
-          logger.warn(
-            `[creativeWorkOutputJob] analyzeDerivationCreative failed outputId=${outputId}: ${message}`,
-          );
-          return null;
-        }
-      })) as unknown as ScoreResult | null;
+          },
+        });
+      })) as unknown as Awaited<ReturnType<typeof runCreativeWorkPostGeneration>>;
 
-      // Apply the minimum-quality gate. The result is captured (not
-      // discarded) and persisted on the output row so downstream consumers
-      // can surface breakdown / issues / regeneration suggestions.
-      if (
-        qualityResult &&
-        (qualityResult.scoreStatus === "failed" ||
-          qualityResult.qualityScore < OUTPUT_MIN_QUALITY_SCORE)
-      ) {
+      if (postGen.decision === "reject_low_quality") {
         await refundPreGeneratorOutput({
           workspaceId,
           workItemId,
           outputId,
-          reason: `low_quality score=${qualityResult.qualityScore}`,
+          reason: postGen.reason,
           failurePhase: "low_quality",
         });
         await failCreativeWorkOutput(workspaceId, workItemId, outputId, "low_quality");
         logger.warn(
-          `[creativeWorkOutputJob] low-quality outputId=${outputId} score=${qualityResult.qualityScore} threshold=${OUTPUT_MIN_QUALITY_SCORE}`,
+          `[creativeWorkOutputJob] low-quality outputId=${outputId} reason=${postGen.reason}`,
         );
         return {
           success: false,
@@ -334,10 +313,7 @@ export const creativeWorkOutputJob = inngest.createFunction(
         await completeCreativeWorkOutput(workspaceId, workItemId, outputId, {
           outputKey: generatedOutputKey,
           cost: OUTPUT_COST,
-          // Persist the score when the scorer succeeded; `null` when it
-          // crashed (so the UI can tell "not measured" apart from "scored
-          // and passed").
-          quality: (qualityResult as unknown as Record<string, unknown> | null) ?? null,
+          quality: (postGen.quality as unknown as Record<string, unknown> | null) ?? null,
         });
       });
 

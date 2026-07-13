@@ -139,6 +139,27 @@ export const GENERATION_CREDIT_COSTS = {
   goalPackage: 15,
 } as const;
 
+/**
+ * Cobrança de lote (ex.: triplet Criar Post) — NÃO é um GenerationRequest.
+ * Os jobs executam N unit requests com `unitChargeAmount` cada.
+ */
+export interface GenerationBatchCharge {
+  kind: "batch";
+  authorship: GenerationAuthorship;
+  origin: CreativeWorkOrigin;
+  surface: GenerationSurface;
+  intent: GenerationIntent;
+  /** Parent work / package id (metadata + billing scope). */
+  parentId: string;
+  unitCount: number;
+  /** Total credits charged once for the batch. */
+  chargeAmount: number;
+  /** Per-unit credit amount used by each execution job. */
+  unitChargeAmount: number;
+  billingKey: string;
+  refundPolicy: RefundPolicy;
+}
+
 export function assertGenerationRequest(
   request: GenerationRequest
 ): void {
@@ -160,4 +181,57 @@ export function assertGenerationRequest(
   if (!request.format.dimensions.width || !request.format.dimensions.height) {
     throw new Error("GenerationRequest.format.dimensions are required");
   }
+}
+
+export function assertGenerationBatchCharge(
+  batch: GenerationBatchCharge
+): void {
+  if (batch.kind !== "batch") {
+    throw new Error("GenerationBatchCharge.kind must be 'batch'");
+  }
+  if (!batch.authorship.workspaceId) {
+    throw new Error("GenerationBatchCharge.authorship.workspaceId is required");
+  }
+  if (!(batch.unitCount > 0)) {
+    throw new Error("GenerationBatchCharge.unitCount must be > 0");
+  }
+  if (!(batch.chargeAmount > 0) || !(batch.unitChargeAmount > 0)) {
+    throw new Error("GenerationBatchCharge amounts must be > 0");
+  }
+  if (batch.chargeAmount !== batch.unitChargeAmount * batch.unitCount) {
+    throw new Error(
+      "GenerationBatchCharge.chargeAmount must equal unitChargeAmount * unitCount"
+    );
+  }
+  if (!batch.billingKey) {
+    throw new Error("GenerationBatchCharge.billingKey is required");
+  }
+  if (!batch.parentId) {
+    throw new Error("GenerationBatchCharge.parentId is required");
+  }
+}
+
+/** Per-output billing key for Criar Post unit jobs (matches refund keys). */
+export function creativeWorkUnitBillingKey(
+  workItemId: string,
+  outputId: string
+): string {
+  return `creative-work:${workItemId}:output:${outputId}:generate`;
+}
+
+/** Unit cost/idempotency fields derived from a batch charge for one output job. */
+export function unitCostFromBatch(
+  batch: GenerationBatchCharge,
+  outputId: string
+): { cost: GenerationCostPolicy; idempotency: GenerationIdempotency } {
+  return {
+    cost: {
+      chargeAmount: batch.unitChargeAmount,
+      refundPolicy: batch.refundPolicy,
+    },
+    idempotency: {
+      billingKey: creativeWorkUnitBillingKey(batch.parentId, outputId),
+      skipWhenOutputExists: true,
+    },
+  };
 }

@@ -5,6 +5,7 @@ import {
   decideDerivationRefund,
   decideGenerationRefund,
   decideJobIdempotency,
+  decidePostGenerationQuality,
 } from "./policies";
 import { GENERATION_CREDIT_COSTS } from "./types";
 
@@ -141,3 +142,27 @@ describe("parity: same contract surface decisions", () => {
     ).toBe(false);
   });
 });
+
+describe("decidePostGenerationQuality", () => {
+  it("rejects Criar Post below threshold and accepts campaign advisory scores", () => {
+    expect(
+      decidePostGenerationQuality({
+        surface: "quick_tool",
+        quality: { scoreStatus: "analyzed", qualityScore: 40 },
+      }).accept
+    ).toBe(false);
+    expect(
+      decidePostGenerationQuality({
+        surface: "campaign",
+        quality: { scoreStatus: "analyzed", qualityScore: 40 },
+      }).accept
+    ).toBe(true);
+  });
+
+  it("accepts when score is unavailable on quick_tool", () => {
+    expect(
+      decidePostGenerationQuality({ surface: "quick_tool", quality: null }).accept
+    ).toBe(true);
+  });
+});
+
