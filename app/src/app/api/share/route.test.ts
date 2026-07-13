@@ -4,6 +4,37 @@ import { POST, DELETE } from "./route";
 const VALID_SESSION_ID = "550e8400-e29b-41d4-a716-446655440000";
 const CAMPAIGN_ID = "550e8400-e29b-41d4-a716-446655440001";
 const DERIVATION_ID = "550e8400-e29b-41d4-a716-446655440002";
+const OTHER_CAMPAIGN_DERIVATION_ID = "550e8400-e29b-41d4-a716-446655440003";
+const CHILD_DERIVATION_ID = "550e8400-e29b-41d4-a716-446655440004";
+
+const eligibleDerivations = [
+  {
+    id: DERIVATION_ID,
+    parentId: null,
+    status: "approved",
+    outputKey: "out/root.png",
+    format: "1:1",
+    generationMode: "art_variation",
+    variantIndex: 0,
+    ctaText: "Shop now",
+    isPreview: false,
+    olharVerdict: null,
+    exportStatus: null,
+  },
+  {
+    id: CHILD_DERIVATION_ID,
+    parentId: DERIVATION_ID,
+    status: "approved",
+    outputKey: "out/child.png",
+    format: "4:5",
+    generationMode: "format_adaptation",
+    variantIndex: 0,
+    ctaText: "Shop now",
+    isPreview: false,
+    olharVerdict: null,
+    exportStatus: null,
+  },
+];
 
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
@@ -32,13 +63,27 @@ vi.mock("@/lib/share-token", () => ({
   revokeShareToken: vi.fn(() => Promise.resolve(1)),
 }));
 
+vi.mock("@/server/repositories/campaign", () => ({
+  getCampaignById: vi.fn(),
+}));
+
+vi.mock("@/server/repositories/derivation", () => ({
+  getDerivationsByCampaign: vi.fn(),
+}));
+
 vi.mock("@/server/beta-analytics/record", () => ({
   recordBetaAnalyticsEvent: vi.fn(() => Promise.resolve({ id: "event-1" })),
 }));
 
+import { createShareToken } from "@/lib/share-token";
 import { recordBetaAnalyticsEvent } from "@/server/beta-analytics/record";
+import { getCampaignById } from "@/server/repositories/campaign";
+import { getDerivationsByCampaign } from "@/server/repositories/derivation";
 
+const mockCreateShareToken = vi.mocked(createShareToken);
 const mockRecordBetaAnalyticsEvent = vi.mocked(recordBetaAnalyticsEvent);
+const mockGetCampaignById = vi.mocked(getCampaignById);
+const mockGetDerivationsByCampaign = vi.mocked(getDerivationsByCampaign);
 
 async function flushAnalytics() {
   await new Promise((resolve) => setImmediate(resolve));
@@ -55,6 +100,12 @@ function postRequest(body: unknown, headers: Record<string, string> = {}) {
 describe("POST /api/share", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetCampaignById.mockResolvedValue({
+      id: CAMPAIGN_ID,
+    } as Awaited<ReturnType<typeof getCampaignById>>);
+    mockGetDerivationsByCampaign.mockResolvedValue(
+      eligibleDerivations as Awaited<ReturnType<typeof getDerivationsByCampaign>>
+    );
   });
 
   it("emits mission_completed with missionKey share on success", async () => {
@@ -67,6 +118,11 @@ describe("POST /api/share", () => {
     await flushAnalytics();
 
     expect(res.status).toBe(200);
+    expect(mockCreateShareToken).toHaveBeenCalledWith(
+      CAMPAIGN_ID,
+      "workspace-1",
+      [DERIVATION_ID, CHILD_DERIVATION_ID]
+    );
     expect(mockRecordBetaAnalyticsEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         eventKey: "mission_completed",
@@ -100,6 +156,32 @@ describe("POST /api/share", () => {
         sessionId: VALID_SESSION_ID,
       })
     );
+  });
+
+  it("rejects derivations that are not eligible for the campaign", async () => {
+    const res = await POST(
+      postRequest({
+        campaignId: CAMPAIGN_ID,
+        derivationIds: [OTHER_CAMPAIGN_DERIVATION_ID],
+      })
+    );
+
+    expect(res.status).toBe(409);
+    expect(mockCreateShareToken).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 when the campaign is not in the workspace", async () => {
+    mockGetCampaignById.mockResolvedValue(null);
+
+    const res = await POST(
+      postRequest({
+        campaignId: CAMPAIGN_ID,
+        derivationIds: [DERIVATION_ID],
+      })
+    );
+
+    expect(res.status).toBe(404);
+    expect(mockCreateShareToken).not.toHaveBeenCalled();
   });
 });
 

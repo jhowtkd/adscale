@@ -94,4 +94,23 @@ describe("GET /api/share/[token]/asset/[derivationId]", () => {
     expect(res.headers.get("location")).toBe("https://r2.example.com/signed");
     expect(mockSignedDownloadUrl).toHaveBeenCalledWith("out/approved.png");
   });
+
+  it("rejects derivations from a different campaign even when listed in the token", async () => {
+    mockGetDerivationById.mockResolvedValue({
+      id: DERIVATION_ID,
+      campaignId: "other-campaign-id",
+      status: "approved",
+      isPreview: false,
+      outputKey: "out/approved.png",
+      olharVerdict: null,
+      exportStatus: null,
+    } as Awaited<ReturnType<typeof getDerivationById>>);
+
+    const res = await GET(new Request("http://localhost"), {
+      params: paramsWith(DERIVATION_ID),
+    });
+
+    expect(res.status).toBe(403);
+    expect(mockSignedDownloadUrl).not.toHaveBeenCalled();
+  });
 });

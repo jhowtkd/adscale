@@ -32,6 +32,10 @@ export async function GET(
       return apiError("derivationNotFound", 404);
     }
 
+    if (derivation.campaignId !== link.campaignId) {
+      return apiError("derivationNotInShareLink", 403);
+    }
+
     const signedUrl = await objectStorage.signedDownloadUrl(
       derivation.outputKey
     );
