@@ -22,7 +22,12 @@ import { derivations } from "@/server/db/schema";
 import { getUserLocale } from "@/server/repositories/user";
 import { getAssetsByCampaign } from "@/server/repositories/asset";
 import { objectStorage } from "@/server/storage";
-import { spendOrApiError } from "@/server/billing/paywall";
+import { chargeForBatchOrApiError } from "@/server/generation/canonical/charge";
+import {
+  GENERATION_CREDIT_COSTS,
+  type GenerationBatchCharge,
+  type GenerationMode,
+} from "@/server/generation/canonical/types";
 import {
   deriveRegenerationPreview,
   derivationHasRegenerationPreview,
@@ -186,21 +191,35 @@ export async function POST(
     }
 
     const jobsToCreate = isPreview ? jobs.slice(0, 1) : jobs;
-    const creditError = await spendOrApiError({
-      workspaceId: workspace.id,
-      action: "image_derivation",
-      amount: jobsToCreate.length * 5,
-      idempotencyKey: `derivations:${campaignId}:${isPreview ? "preview" : "batch"}:${jobsToCreate
+    const unitChargeAmount = GENERATION_CREDIT_COSTS.singleDerivation;
+    const unitCount = jobsToCreate.length;
+    // Batch charge (not a unit GenerationRequest): jobs execute unit requests later.
+    const batchCharge: GenerationBatchCharge = {
+      kind: "batch",
+      authorship: { workspaceId: workspace.id, userId: user.id },
+      origin: "campaign",
+      surface: "campaign",
+      intent: {
+        mode: (generationMode as GenerationMode) || "art_variation",
+        objective: campaign.objective ?? null,
+      },
+      parentId: campaignId,
+      unitCount,
+      chargeAmount: unitCount * unitChargeAmount,
+      unitChargeAmount,
+      billingKey: `derivations:${campaignId}:${isPreview ? "preview" : "batch"}:${jobsToCreate
         .map((job) => `${job.variantIndex}:${job.ctaText ?? ""}:${job.format}`)
         .join("|")}`,
+      refundPolicy: "default",
+    };
+    const creditError = await chargeForBatchOrApiError(batchCharge, {
       metadata: {
         campaignId,
-        count: jobsToCreate.length,
+        count: unitCount,
         preview: isPreview,
         operation_key: isPreview ? "preview" : "batch",
-        estimateCredits: jobsToCreate.length * 5,
+        estimateCredits: unitCount * unitChargeAmount,
       },
-      userId: user.id,
     });
     if (creditError) return creditError;
 

@@ -4,9 +4,9 @@ milestone: v13.9
 milestone_name: milestone
 current_plan: 5
 status: completed
-stopped_at: Convergence Gate 3 — shared post-gen + batch/unit charge contracts
-last_updated: "2026-07-13T07:50:00.000Z"
-last_activity: 2026-07-13 -- Gate 2 approved; Phase 3 canonical generation pipeline implemented
+stopped_at: Convergence Gate 3 — ready for human re-review after batch charge + post-gen closeout
+last_updated: "2026-07-13T10:30:00.000Z"
+last_activity: 2026-07-13 -- Gate 3 agent re-eval closed P1/P2 gaps (batch charge campaign+post, post-gen apply)
 progress:
   total_phases: 5
   completed_phases: 5
@@ -22,7 +22,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-26)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
-**Current focus:** Convergence Gate 3 re-review — post-gen + batch charge + executor
+**Current focus:** Convergence Gate 3 — agent re-eval PASS on reeval criteria; await human gate
 
 ## Current Position
 

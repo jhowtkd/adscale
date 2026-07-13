@@ -7,6 +7,7 @@ import {
   GENERATION_CREDIT_COSTS,
   creativeWorkUnitBillingKey,
   type GenerationRequest,
+  type RefundDecision,
 } from "@/server/generation/canonical/types";
 import { getClientProfile } from "@/server/repositories/client-reference";
 import { refundCredits } from "@/server/billing/credits";
@@ -291,12 +292,13 @@ export const creativeWorkOutputJob = inngest.createFunction(
       })) as unknown as Awaited<ReturnType<typeof runCreativeWorkPostGeneration>>;
 
       if (postGen.decision === "reject_low_quality") {
-        await refundPreGeneratorOutput({
+        // Adapter applies shared post-gen refund decision — does not re-decide policy.
+        await applyRefundDecision({
           workspaceId,
           workItemId,
           outputId,
           reason: postGen.reason,
-          failurePhase: "low_quality",
+          decision: postGen.refund,
         });
         await failCreativeWorkOutput(workspaceId, workItemId, outputId, "low_quality");
         logger.warn(
@@ -358,29 +360,22 @@ export const creativeWorkOutputJob = inngest.createFunction(
 );
 
 /**
- * Refund the per-output credit when a failure happens BEFORE the upstream
- * generator was invoked — prompt assembly or reference image load. The
- * idempotency key is per-output so retries don't double-refund.
+ * Apply a shared RefundDecision (from policies / post-gen). Adapter-only:
+ * does not re-decide policy.
  */
-async function refundPreGeneratorOutput({
+async function applyRefundDecision({
   workspaceId,
   workItemId,
   outputId,
   reason,
-  failurePhase,
+  decision,
 }: {
   workspaceId: string;
   workItemId: string;
   outputId: string;
   reason: string;
-  failurePhase: "pre_provider" | "low_quality";
+  decision: RefundDecision;
 }): Promise<void> {
-  const decision = decideCreativeWorkRefund({
-    surface: "quick_tool",
-    failurePhase,
-    workItemId,
-    outputId,
-  });
   if (!decision.refund) {
     logger.info(
       `[creativeWorkOutputJob] skip refund outputId=${outputId} reason=${decision.reason}`,
@@ -411,4 +406,37 @@ async function refundPreGeneratorOutput({
       `[creativeWorkOutputJob] refundCredits pregen FAILED outputId=${outputId}: ${detail}`,
     );
   }
+}
+
+/**
+ * Refund the per-output credit when a failure happens BEFORE the upstream
+ * generator was invoked — prompt assembly or reference image load. Policy
+ * decision comes from decideCreativeWorkRefund; this only applies it.
+ */
+async function refundPreGeneratorOutput({
+  workspaceId,
+  workItemId,
+  outputId,
+  reason,
+  failurePhase,
+}: {
+  workspaceId: string;
+  workItemId: string;
+  outputId: string;
+  reason: string;
+  failurePhase: "pre_provider" | "low_quality";
+}): Promise<void> {
+  const decision = decideCreativeWorkRefund({
+    surface: "quick_tool",
+    failurePhase,
+    workItemId,
+    outputId,
+  });
+  await applyRefundDecision({
+    workspaceId,
+    workItemId,
+    outputId,
+    reason,
+    decision,
+  });
 }

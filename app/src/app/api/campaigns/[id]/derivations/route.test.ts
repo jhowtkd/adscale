@@ -45,8 +45,10 @@ vi.mock("@/server/jobs/client", () => ({
   inngest: { send: vi.fn() },
 }));
 
-vi.mock("@/server/billing/paywall", () => ({
-  spendOrApiError: vi.fn(() => Promise.resolve(null)),
+const chargeBatchMock = vi.hoisted(() => vi.fn(() => Promise.resolve(null)));
+
+vi.mock("@/server/generation/canonical/charge", () => ({
+  chargeForBatchOrApiError: (...args: unknown[]) => chargeBatchMock(...args),
 }));
 
 vi.mock("next-intl/server", () => ({
@@ -141,6 +143,28 @@ describe("POST /api/campaigns/[id]/derivations outputLearningApplication", () =>
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it("charges via GenerationBatchCharge (not a unit GenerationRequest)", async () => {
+    const res = await POST(postRequest({}), { params: makeParams("camp-1") });
+    expect(res.status).toBe(201);
+    expect(chargeBatchMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "batch",
+        surface: "campaign",
+        unitCount: 2,
+        unitChargeAmount: 5,
+        chargeAmount: 10,
+        parentId: "camp-1",
+      }),
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          campaignId: "camp-1",
+          count: 2,
+          operation_key: "batch",
+        }),
+      })
+    );
   });
 
   it("persists identical outputLearningApplication on every batch job", async () => {
