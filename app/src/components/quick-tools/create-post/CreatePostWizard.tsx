@@ -261,8 +261,15 @@ export default function CreatePostWizard({ workId: initialWorkId }: { workId?: s
   const handleSave = async (outputId: string) => {
     if (!activeWorkId) return;
     try {
-      await selectMutation.mutateAsync({ workItemId: activeWorkId, outputId, saveToLibrary: true });
+      await selectMutation.mutateAsync({
+        workItemId: activeWorkId,
+        outputId,
+        saveToLibrary: true,
+      });
       addToast("success", tQuick("saveSuccess"));
+      // Land on library so the user can confirm the asset (creative_work keys
+      // render via authenticated /file proxy, not the home feed).
+      router.push("/library");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : tCommon("error"));
     }
