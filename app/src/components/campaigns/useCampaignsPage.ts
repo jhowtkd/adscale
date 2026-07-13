@@ -66,6 +66,8 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingUrlApplyRef = useRef<string | null>(null);
   const pendingSearchRef = useRef<string | null>(null);
+  /** Sync lock: isPending only flips after mutation+rerender; same-tick double click needs this. */
+  const createInFlightRef = useRef(false);
 
   if (searchQuery !== prevUrlSearchQuery) {
     setPrevUrlSearchQuery(searchQuery);
@@ -383,12 +385,20 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
       client: string;
       clientProfileId: string | null;
     }) => {
-      // Guard double-submit while either create path is in flight.
-      if (createCampaign.isPending || materializeFromTemplate.isPending) {
+      // Sync + async guards: ref blocks same-tick double click; isPending covers post-rerender.
+      if (
+        createInFlightRef.current ||
+        createCampaign.isPending ||
+        materializeFromTemplate.isPending
+      ) {
         return;
       }
+      createInFlightRef.current = true;
 
       const fromTemplate = loadedTemplate;
+      const releaseInFlight = () => {
+        createInFlightRef.current = false;
+      };
 
       // Phase 5 / item 39: Usar template → server materialize (not client merge).
       if (fromTemplate) {
@@ -400,6 +410,7 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
           },
           {
             onSuccess: ({ campaign }) => {
+              releaseInFlight();
               toast.success(tc("campaignCreated", { name: data.name }));
               setModalOpen(false);
               setLoadedTemplate(null);
@@ -409,6 +420,7 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
               router.push(`/campaigns/${campaign.id}`);
             },
             onError: (err) => {
+              releaseInFlight();
               toast.error(err.message || tc("failedCreateCampaign"));
             },
           }
@@ -424,12 +436,14 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
         },
         {
           onSuccess: (campaign) => {
+            releaseInFlight();
             toast.success(tc("campaignCreated", { name: data.name }));
             setModalOpen(false);
             clearCreationQueryParams();
             router.push(`/campaigns/${campaign.id}`);
           },
           onError: (err) => {
+            releaseInFlight();
             toast.error(err.message || tc("failedCreateCampaign"));
           },
         }

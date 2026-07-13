@@ -350,11 +350,13 @@ describe("useCampaignsPage template materialization states", () => {
     expect(pushMock).toHaveBeenCalledWith("/campaigns/camp-from-template");
   });
 
-  it("blocks double-submit while materialize is pending", async () => {
+  it("allows only one materialize when handleCreateCampaign is called twice synchronously", async () => {
     const id = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa9";
     mockFetchTemplate.mockResolvedValue(makeTemplate(id));
-    materializePendingRef.current = true;
-    materializeMutateMock.mockClear();
+    materializePendingRef.current = false;
+    materializeMutateMock.mockImplementation(() => {
+      // Do not invoke onSuccess — keep in-flight until second click is evaluated.
+    });
 
     const searchParams = createSearchParams({ templateId: id });
     const { result } = renderHook(() => useCampaignsPage(searchParams));
@@ -363,7 +365,7 @@ describe("useCampaignsPage template materialization states", () => {
       expect(result.current.modalOpen).toBe(true);
     });
 
-    expect(result.current.createPending).toBe(true);
+    expect(result.current.createPending).toBe(false);
 
     act(() => {
       result.current.handleCreateCampaign({
@@ -378,8 +380,11 @@ describe("useCampaignsPage template materialization states", () => {
       });
     });
 
-    expect(materializeMutateMock).not.toHaveBeenCalled();
-    materializePendingRef.current = false;
+    expect(materializeMutateMock).toHaveBeenCalledTimes(1);
+    expect(materializeMutateMock).toHaveBeenCalledWith(
+      { templateId: id, name: "Dup", client: "Acme" },
+      expect.any(Object)
+    );
   });
 
   it("refetches the same templateId after Strict Mode remount", async () => {
