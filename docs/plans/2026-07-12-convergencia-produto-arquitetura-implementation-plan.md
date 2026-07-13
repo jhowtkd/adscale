@@ -1,7 +1,7 @@
 # Plano de convergência de produto e arquitetura do ADScale
 
 **Data:** 2026-07-12
-**Status:** Gate 3 aprovado — Fase 4 em andamento (save-reference canônico HTTP+Assistente)
+**Status:** Gate 3 aprovado — Fase 4 (save-reference + review canônicos HTTP+Assistente)
 **Direção assumida:** trabalho criativo-first
 **Estratégia:** migração incremental com gates; nenhum big bang
 

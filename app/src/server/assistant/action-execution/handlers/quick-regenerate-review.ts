@@ -7,10 +7,11 @@ import {
 } from "@/server/ai/regeneration-correction-brief";
 import type { CreativeHardFailure } from "@/server/ai/creative-quality-gate";
 import { getActionContract } from "@/server/assistant/action-contracts/registry";
+import { reviewDerivation } from "@/server/application/review-derivation";
 import { spendOrApiError } from "@/server/billing/paywall";
 import { inngest } from "@/server/jobs/client";
 import { recordCampaignMemoryEntry } from "@/server/memory/campaign-memory-context";
-import { getCampaignById, refreshCampaignStatus, updateCampaign } from "@/server/repositories/campaign";
+import { refreshCampaignStatus, updateCampaign } from "@/server/repositories/campaign";
 import {
   createDerivation,
   getDerivationById,
@@ -182,21 +183,44 @@ export async function executeQuickReview(ctx: ActionExecutionContext) {
     throw new AssistantActionExecutionError("Invalid quick_review inputs", "execution_failed");
   }
 
-  const derivation = await getDerivationById(parsed.data.derivationId, ctx.workspaceId);
-  if (!derivation) {
-    throw new AssistantActionExecutionError("Derivation not found", "derivation_not_found");
+  const result = await reviewDerivation({
+    workspaceId: ctx.workspaceId,
+    derivationId: parsed.data.derivationId,
+    decision: parsed.data.decision,
+    directionReason: parsed.data.directionReason,
+    actorUserId: ctx.userId,
+    evidenceSource: "assistant.quick_review",
+  });
+
+  if (!result.ok) {
+    switch (result.error.code) {
+      case "derivation_not_found":
+        throw new AssistantActionExecutionError(
+          "Derivation not found",
+          "derivation_not_found"
+        );
+      case "derivation_hard_failures":
+        throw new AssistantActionExecutionError(
+          "Derivation has hard failures",
+          "execution_failed"
+        );
+      case "invalid_direction_reason":
+      case "invalid_input":
+        throw new AssistantActionExecutionError(
+          "Invalid quick_review inputs",
+          "execution_failed"
+        );
+      default:
+        throw new AssistantActionExecutionError(
+          "Review failed",
+          "execution_failed"
+        );
+    }
   }
-
-  const status = parsed.data.decision === "entra" ? "approved" : "rejected";
-
-  await updateDerivationStatus(parsed.data.derivationId, ctx.workspaceId, status);
-  await refreshCampaignStatus(derivation.campaignId, ctx.workspaceId);
-
-  const campaign = await getCampaignById(derivation.campaignId, ctx.workspaceId);
 
   return {
     mode: "sync" as const,
-    jobRef: { kind: "derivation" as const, id: derivation.id },
-    resultSummary: `Review recorded as ${status} for ${campaign?.name ?? "campaign"}`,
+    jobRef: { kind: "derivation" as const, id: result.value.derivation.id },
+    resultSummary: `Review recorded as ${result.value.effectiveStatus} for ${result.value.campaign?.name ?? "campaign"}`,
   };
 }
