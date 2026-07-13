@@ -1,16 +1,22 @@
 # Machine-readable surface decisions for Convergence Gate 1.
-# Every raw inventory item with requiresDecision=true must match evidence here.
-# Curated rows (non-inert but product-sensitive) may use file-only evidence.
+#
+# Blocker decisions (inert CTAs from the scanner) MUST set blockerId to the
+# exact inventory item.id — 1:1, never file-only.
+#
+# Curated decisions (product surfaces) use evidence only; they never cover
+# requiresDecision items.
 #
 # decision: manter | fundir | esconder | apagar
 
 decisions:
   - id: B-landing-page-cta
+    blockerId: "inert:app/src/components/workspace/DerivationCard.tsx:590"
     evidence: app/src/components/workspace/DerivationCard.tsx:590
     decision: esconder
     rationale: "Always-disabled Generate landing page with comingSoon; frozen module — keep hidden until Phase 7 evidence."
 
   - id: B-demo-restore-stub
+    blockerId: "inert:app/src/components/layout/TopBar.tsx:438"
     evidence: app/src/components/layout/TopBar.tsx:438
     decision: esconder
     rationale: "Demo-mode restore stub is intentionally non-functional; not a primary creative path."

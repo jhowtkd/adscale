@@ -1,25 +1,14 @@
 # Surface inventory — Convergence Phase 1
 
-**Raw scan:** [`surface-inventory.raw.json`](./surface-inventory.raw.json) (regenerate with `cd app && npm run convergence:inventory`)
+**Raw scan:** [`surface-inventory.raw.json`](./surface-inventory.raw.json) — regenerate only via `npm run convergence:inventory`
 
-**Decisions (machine-checked):** [`surface-decisions.yaml`](./surface-decisions.yaml)
+**Decisions:** [`surface-decisions.yaml`](./surface-decisions.yaml)
 
-**Gate:** `npm run convergence:check-inventory` (also part of `convergence:gate`)
+**Gate:** `npm run convergence:check-inventory` (also in `convergence:gate`)
 
 ## Rules
 
-1. Scanner flags **inert** CTAs only: bare `disabled` / `disabled={true}` / `comingSoon` (not `disabled={isPending}`).
-2. Every raw item with `requiresDecision: true` must have a matching `evidence` decision.
-3. Curated product surfaces (templates, persona, landing API, primary destinations) must also appear in `surface-decisions.yaml`.
-4. Stale raw JSON is refreshed by the check script; undecided blockers fail CI.
-
-## Decision legend
-
-| Decision | Meaning |
-|----------|---------|
-| `manter` | Keep; consumer works |
-| `fundir` | Merge into canonical flow later |
-| `esconder` | Hide / freeze until evidence |
-| `apagar` | Remove after migration |
-
-Human narrative for each id lives in `surface-decisions.yaml` (`rationale` field).
+1. Scanner flags **inert** CTAs only: bare `disabled` / `disabled={true}` / `comingSoon`.
+2. Every `requiresDecision: true` item needs a decision with matching **`blockerId === item.id`** (1:1). File-only evidence never covers blockers.
+3. Curated product surfaces use `evidence` without `blockerId`.
+4. Stale or tampered raw JSON **fails** the gate (full payload compare vs live scan, ignoring only `generatedAt`); it does not auto-rewrite. Decisions are validated against the live scan.

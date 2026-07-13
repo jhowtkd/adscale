@@ -249,12 +249,29 @@ export function validatePlanningConsistency({
   // Plan: X of Y vs Total Plans in Phase: Z
   const planOf = stateMd.match(/Plan:\s*(\d+)\s+of\s+(\d+)/i);
   const totalInPhase = stateMd.match(/Total Plans in Phase:\s*(\d+)/i);
-  if (planOf && totalInPhase) {
-    const ofY = Number(planOf[2]);
-    const total = Number(totalInPhase[1]);
-    if (ofY !== total) {
+  if (planOf) {
+    const x = Number(planOf[1]);
+    const y = Number(planOf[2]);
+    if (totalInPhase) {
+      const total = Number(totalInPhase[1]);
+      if (y !== total) {
+        errors.push(
+          `STATE Plan X of Y uses Y=${y} but Total Plans in Phase=${total}`
+        );
+      }
+    }
+    if (claimsComplete && x !== y) {
       errors.push(
-        `STATE Plan X of Y uses Y=${ofY} but Total Plans in Phase=${total}`
+        `STATE claims complete but Plan: ${x} of ${y} (expected X === Y)`
+      );
+    }
+    if (
+      claimsComplete &&
+      typeof state.current_plan === "number" &&
+      state.current_plan !== y
+    ) {
+      errors.push(
+        `STATE claims complete but current_plan=${state.current_plan} != phase plan total ${y}`
       );
     }
   }

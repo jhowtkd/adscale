@@ -2,15 +2,19 @@
 /**
  * Surface inventory gate (Convergence Phase 1 Gate 1).
  *
- * 1. Regenerates the raw inventory and fails if the committed JSON is stale.
+ * 1. Rebuilds inventory in memory and FAILS unless committed raw JSON matches
+ *    fresh content (ignoring only generatedAt). Fingerprint-only checks are
+ *    insufficient — tampering ctas while preserving fingerprint must fail.
+ *    Does not rewrite; run `npm run convergence:inventory` to regenerate.
  * 2. Loads human decisions from surface-decisions.yaml.
- * 3. Fails if any raw item with requiresDecision=true lacks a decision.
- * 4. Fails if any decision references unknown evidence / missing id.
+ * 3. Validates decisions against the fresh scan (not the committed payload).
+ * 4. Every requiresDecision item needs exactly one decision with
+ *    blockerId === item.id (1:1). Curated decisions never cover blockers.
  *
  * Usage:
  *   node app/scripts/check-surface-inventory.mjs
  */
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildInventory } from "./generate-surface-inventory.mjs";
@@ -37,10 +41,16 @@ function stripQuotes(value) {
 /**
  * Minimal YAML list parser for decisions.
  *
- * decisions:
- *   - id: B1
- *     evidence: path:line or path
- *     decision: manter|fundir|esconder|apagar
+ * Blocker decisions (required for requiresDecision items):
+ *   - id: B-landing
+ *     blockerId: inert:app/src/.../DerivationCard.tsx:590
+ *     decision: esconder
+ *     rationale: "..."
+ *
+ * Curated decisions (product surfaces, not auto-blockers):
+ *   - id: B-templates-use
+ *     evidence: app/src/.../templates/page.tsx
+ *     decision: manter
  *     rationale: "..."
  */
 export function parseDecisionsYaml(text) {
@@ -64,6 +74,7 @@ export function parseDecisionsYaml(text) {
       if (current) decisions.push(current);
       current = {
         id: stripQuotes(start[1]),
+        blockerId: "",
         evidence: "",
         decision: "",
         rationale: "",
@@ -71,7 +82,9 @@ export function parseDecisionsYaml(text) {
       continue;
     }
     if (!current) continue;
-    const field = line.match(/^\s+(evidence|decision|rationale):\s*(.*)\s*$/);
+    const field = line.match(
+      /^\s+(blockerId|evidence|decision|rationale):\s*(.*)\s*$/
+    );
     if (field) {
       current[field[1]] = stripQuotes(field[2]);
     }
@@ -80,70 +93,93 @@ export function parseDecisionsYaml(text) {
   return decisions;
 }
 
+/** Strip volatile fields so freshness compares durable inventory content. */
+export function normalizeInventoryForCompare(inventory) {
+  const { generatedAt: _generatedAt, ...rest } = inventory;
+  return rest;
+}
+
+export function inventoriesContentEqual(a, b) {
+  return (
+    JSON.stringify(normalizeInventoryForCompare(a)) ===
+    JSON.stringify(normalizeInventoryForCompare(b))
+  );
+}
+
 export function validateSurfaceInventory({ inventory, decisions }) {
   const errors = [];
   const allowed = new Set(["manter", "fundir", "esconder", "apagar"]);
 
   for (const d of decisions) {
     if (!d.id) errors.push("decision missing id");
-    if (!d.evidence) errors.push(`decision ${d.id || "?"} missing evidence`);
     if (!allowed.has(d.decision)) {
       errors.push(
         `decision ${d.id || "?"} has invalid decision "${d.decision}" (expected manter|fundir|esconder|apagar)`
       );
     }
     if (!d.rationale) errors.push(`decision ${d.id || "?"} missing rationale`);
-  }
-
-  const requiring = (inventory.ctas || []).filter((c) => c.requiresDecision);
-  const covered = new Set();
-
-  for (const item of requiring) {
-    const match = decisions.find((d) => {
-      if (!d.evidence) return false;
-      // evidence may be file or file:line
-      const [file, line] = d.evidence.split(":");
-      if (line && /^\d+$/.test(line)) {
-        return item.file === file && String(item.line) === line;
-      }
-      return item.file === d.evidence || item.evidence?.startsWith(d.evidence);
-    });
-    if (!match) {
+    if (!d.blockerId && !d.evidence) {
       errors.push(
-        `undecided blocker: ${item.id} (${item.evidence || item.file}:${item.line}) — ${item.note || item.kind}`
+        `decision ${d.id || "?"} must set blockerId (for inert CTAs) or evidence (for curated surfaces)`
       );
-    } else {
-      covered.add(match.id);
     }
   }
 
-  for (const d of decisions) {
-    const [file, line] = (d.evidence || "").split(":");
-    const hits = requiring.filter((item) => {
-      if (line && /^\d+$/.test(line)) {
-        return item.file === file && String(item.line) === line;
-      }
-      return item.file === d.evidence || item.evidence?.startsWith(d.evidence);
-    });
-    if (hits.length === 0) {
-      const allFiles = [
-        ...(inventory.dashboardPages || []).map((p) => p.file),
-        ...(inventory.apiRoutes || []).map((p) => p.file),
-        ...(inventory.ctas || []).map((p) => p.file),
-      ];
-      const evidencePath = file || d.evidence;
-      const matched = allFiles.some(
-        (f) =>
-          f === evidencePath ||
-          f.startsWith(`${evidencePath}/`) ||
-          evidencePath.length > 0 && f.includes(evidencePath)
+  const requiring = (inventory.ctas || []).filter((c) => c.requiresDecision);
+  const blockerDecisions = decisions.filter((d) => d.blockerId);
+  const curatedDecisions = decisions.filter((d) => !d.blockerId && d.evidence);
+
+  const byBlockerId = new Map();
+  for (const d of blockerDecisions) {
+    if (byBlockerId.has(d.blockerId)) {
+      errors.push(
+        `duplicate blockerId "${d.blockerId}" on decisions ${byBlockerId.get(d.blockerId)} and ${d.id}`
       );
-      const onDisk = existsSync(resolve(repoRoot, evidencePath));
-      if (!matched && !onDisk) {
-        errors.push(
-          `decision ${d.id} evidence not found in inventory or on disk: ${d.evidence}`
-        );
-      }
+    } else {
+      byBlockerId.set(d.blockerId, d.id);
+    }
+  }
+
+  for (const item of requiring) {
+    const matchId = byBlockerId.get(item.id);
+    if (!matchId) {
+      errors.push(
+        `undecided blocker: ${item.id} (${item.evidence || item.file}:${item.line}) — ${item.note || item.kind}`
+      );
+    }
+  }
+
+  for (const d of blockerDecisions) {
+    const hits = requiring.filter((item) => item.id === d.blockerId);
+    if (hits.length === 0) {
+      errors.push(
+        `decision ${d.id} blockerId not found in inventory requiringDecision set: ${d.blockerId}`
+      );
+    } else if (hits.length > 1) {
+      errors.push(
+        `decision ${d.id} blockerId matched ${hits.length} items (expected 1): ${d.blockerId}`
+      );
+    }
+  }
+
+  for (const d of curatedDecisions) {
+    const evidencePath = d.evidence.split(":")[0];
+    const allFiles = [
+      ...(inventory.dashboardPages || []).map((p) => p.file),
+      ...(inventory.apiRoutes || []).map((p) => p.file),
+      ...(inventory.ctas || []).map((p) => p.file),
+    ];
+    const matched = allFiles.some(
+      (f) =>
+        f === evidencePath ||
+        f.startsWith(`${evidencePath}/`) ||
+        (evidencePath.length > 0 && f.includes(evidencePath))
+    );
+    const onDisk = existsSync(resolve(repoRoot, evidencePath));
+    if (!matched && !onDisk) {
+      errors.push(
+        `curated decision ${d.id} evidence not found in inventory or on disk: ${d.evidence}`
+      );
     }
   }
 
@@ -152,14 +188,9 @@ export function validateSurfaceInventory({ inventory, decisions }) {
     errors,
     requiringCount: requiring.length,
     decisionCount: decisions.length,
-    coveredIds: [...covered],
+    blockerDecisionCount: blockerDecisions.length,
+    curatedDecisionCount: curatedDecisions.length,
   };
-}
-
-function stripVolatile(inventory) {
-  const clone = structuredClone(inventory);
-  delete clone.generatedAt;
-  return clone;
 }
 
 function main() {
@@ -177,21 +208,25 @@ function main() {
   const fresh = buildInventory();
   const committed = JSON.parse(readFileSync(rawPath, "utf8"));
 
-  if (fresh.fingerprint !== committed.fingerprint) {
-    // Auto-refresh committed file so CI and local stay honest, then still validate.
-    writeFileSync(rawPath, JSON.stringify(fresh, null, 2) + "\n");
-    console.log(
-      "SURFACE-INVENTORY: refreshed stale surface-inventory.raw.json to match sources."
+  if (!inventoriesContentEqual(fresh, committed)) {
+    console.error(
+      "SURFACE-INVENTORY: FAILED — committed raw inventory does not match current scan."
     );
-  } else if (
-    JSON.stringify(stripVolatile(fresh)) !==
-    JSON.stringify(stripVolatile({ ...committed, fingerprint: fresh.fingerprint }))
-  ) {
-    // fingerprint matched but payload drift — rewrite
-    writeFileSync(rawPath, JSON.stringify(fresh, null, 2) + "\n");
+    console.error(
+      "  Run: npm run convergence:inventory && commit .planning/convergence/surface-inventory.raw.json"
+    );
+    console.error(`  committed fingerprint: ${committed.fingerprint}`);
+    console.error(`  current fingerprint:   ${fresh.fingerprint}`);
+    if (fresh.fingerprint === committed.fingerprint) {
+      console.error(
+        "  fingerprints match but payload differs (possible tampering of ctas/pages/apis)."
+      );
+    }
+    process.exit(1);
   }
 
   const decisions = parseDecisionsYaml(readFileSync(decisionsPath, "utf8"));
+  // Decisions must be checked against the live scan, not a possibly-tampered commit.
   const result = validateSurfaceInventory({
     inventory: fresh,
     decisions,
@@ -206,7 +241,7 @@ function main() {
   }
 
   console.log(
-    `SURFACE-INVENTORY: ok (${result.requiringCount} blockers decided, ${result.decisionCount} decisions)`
+    `SURFACE-INVENTORY: ok (${result.requiringCount} blockers 1:1, ${result.blockerDecisionCount} blocker decisions, ${result.curatedDecisionCount} curated)`
   );
 }
 

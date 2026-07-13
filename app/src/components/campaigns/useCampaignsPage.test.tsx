@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { StrictMode, useEffect } from "react";
+import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { useCampaignsPage } from "./useCampaignsPage";
 import { fetchTemplate, TemplateLoadError } from "@/lib/hooks/use-templates";
 import { toast } from "sonner";
@@ -300,5 +301,68 @@ describe("useCampaignsPage template materialization states", () => {
     expect(result.current.modalOpen).toBe(true);
     expect(replaceStateSpy.mock.calls.length).toBe(callsBeforeCreate);
     replaceStateSpy.mockRestore();
+  });
+
+  it("refetches the same templateId after Strict Mode remount", async () => {
+    const id = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa7";
+    const resolvers: Array<(value: ReturnType<typeof makeTemplate>) => void> =
+      [];
+    mockFetchTemplate.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolvers.push(resolve);
+        })
+    );
+
+    const searchParams = createSearchParams({ templateId: id });
+    const latest = {
+      current: null as ReturnType<typeof useCampaignsPage> | null,
+    };
+
+    // renderHook does not remount effects under StrictMode in this setup;
+    // RTL render + createRoot does (mount → cleanup → remount).
+    function Probe() {
+      const page = useCampaignsPage(searchParams);
+      useEffect(() => {
+        latest.current = page;
+      });
+      return (
+        <div
+          data-testid="template-load-state"
+          data-state={page.templateLoadState}
+          data-modal={page.modalOpen ? "1" : "0"}
+        />
+      );
+    }
+
+    const { getByTestId } = render(
+      <StrictMode>
+        <Probe />
+      </StrictMode>
+    );
+
+    await waitFor(() => {
+      expect(mockFetchTemplate.mock.calls.length).toBeGreaterThanOrEqual(2);
+    });
+    expect(getByTestId("template-load-state")).toHaveAttribute(
+      "data-state",
+      "loading"
+    );
+
+    await act(async () => {
+      resolvers.at(-1)?.(makeTemplate(id));
+    });
+
+    await waitFor(() => {
+      expect(getByTestId("template-load-state")).toHaveAttribute(
+        "data-state",
+        "ready"
+      );
+      expect(getByTestId("template-load-state")).toHaveAttribute(
+        "data-modal",
+        "1"
+      );
+    });
+    expect(latest.current?.templateLoadState).toBe("ready");
   });
 });

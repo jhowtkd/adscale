@@ -114,17 +114,18 @@ progress:
   assert.equal(data.progress_percent, 72);
 });
 
-test("STATE Plan X of Y vs Total Plans in Phase disagreement fails", () => {
+test("STATE Plan 4 of 5 under complete status fails", () => {
   const result = validatePlanningConsistency({
     requirementsMd: "- [x] **PLAN-01**: done\n",
     stateMd: `---
 status: completed
+current_plan: 5
 progress:
   percent: 100
   completed_plans: 5
   total_plans: 5
 ---
-Plan: 4 of 4
+Plan: 4 of 5
 Total Plans in Phase: 5
 Progress: [██████████] 100%
 
@@ -143,8 +144,42 @@ _None_
     acceptedDebtYaml: "accepted_debt: []\n",
   });
   assert.equal(result.ok, false);
-  assert.match(result.errors.join("\n"), /Plan X of Y/);
+  assert.match(result.errors.join("\n"), /X === Y/);
 });
+
+test("STATE complete with current_plan != phase total fails", () => {
+  const result = validatePlanningConsistency({
+    requirementsMd: "- [x] **PLAN-01**: done\n",
+    stateMd: `---
+status: completed
+current_plan: 4
+progress:
+  percent: 100
+  completed_plans: 5
+  total_plans: 5
+---
+Plan: 5 of 5
+Total Plans in Phase: 5
+Progress: [██████████] 100%
+
+### Pending Todos
+
+_None_
+`,
+    roadmapMd: `# Roadmap
+- ✅ **v13.9 Copiloto**
+- [x] **Phase 203: A**
+- [x] **Phase 204: B**
+- [x] **Phase 205: C**
+- [x] **Phase 206: D**
+- [x] **Phase 207: E**
+`,
+    acceptedDebtYaml: "accepted_debt: []\n",
+  });
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join("\n"), /current_plan=4/);
+});
+
 
 test("pending todos under complete STATE fail", () => {
   const result = validatePlanningConsistency({

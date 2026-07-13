@@ -19,7 +19,7 @@ async function parseTemplateId(params: Promise<{ id: string }>) {
   const { id } = await params;
   const parsed = templateIdSchema.safeParse(id);
   if (!parsed.success) {
-    return { error: apiError("notFound", 404) as Response };
+    return { error: await apiError("notFound", 404) };
   }
   return { id: parsed.data };
 }
