@@ -1,7 +1,7 @@
 # Plano de convergência de produto e arquitetura do ADScale
 
 **Data:** 2026-07-12
-**Status:** Gate 3 aprovado — Fase 4 comandos canônicos no escopo (exceto Persona); pronto p/ Gate 4
+**Status:** Gate 4 aprovado — Fase 5 (convergir Criar Post e Templates)
 **Direção assumida:** trabalho criativo-first
 **Estratégia:** migração incremental com gates; nenhum big bang
 
@@ -220,6 +220,8 @@ Cada item abaixo deve resultar em um commit pequeno e manter a aplicação funci
 **Assistente-only aceito no Gate 4 (sem paridade painel):** `adaptFormat` / `quick_format_adapt` — não há rota HTTP de single-format adapt; o painel usa batch de campanha (`format_adaptation`) e `prepareDeliveryPackage` para multi-formato. Não contar `adaptFormat` no item 31 até existir adapter de painel.
 
 **Gate 4:** para cada ação **com paridade painel+Assistente** no item 28, apagar um adapter remove somente transporte/apresentação, nunca uma regra de negócio. **Fora do critério:** Persona (Gate 0), Landing Page (Gate 0), `adaptFormat` (Assistente-only documentado).
+
+**Gate 4 — aprovado (2026-07-13):** Standards 0 · Spec 0. Cinco ações compartilhadas com adapters thin + `adapter-parity` (registry/schemas reais). Persona/Landing excluídos; `adaptFormat` Assistente-only.
 
 ### Fase 5 — Convergir Criar Post e Templates
 
