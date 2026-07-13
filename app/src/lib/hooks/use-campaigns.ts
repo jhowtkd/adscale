@@ -5,7 +5,8 @@ import {
   parseFetchFailure,
 } from "@/lib/campaign-load-error";
 import { STALE_TIME } from "@/lib/query-config";
-import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { invalidateWorkListProjections } from "@/lib/hooks/use-canonical-works";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 export interface Campaign {
   id: string;
@@ -300,9 +301,8 @@ export function useCreateCampaign() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: createCampaign,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["campaigns"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    onSuccess: async () => {
+      await invalidateWorkListProjections(queryClient);
     },
   });
 }
@@ -311,10 +311,11 @@ export function useUpdateCampaign(id: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: Partial<Campaign>) => updateCampaign(id, payload),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["campaigns"] });
-      queryClient.invalidateQueries({ queryKey: ["campaigns", id] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    onSuccess: async () => {
+      await Promise.all([
+        invalidateWorkListProjections(queryClient),
+        queryClient.invalidateQueries({ queryKey: ["campaigns", id] }),
+      ]);
     },
   });
 }
@@ -324,19 +325,13 @@ export function useUpdateCampaigns() {
   return useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: Partial<Campaign> }) =>
       updateCampaign(id, payload),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["campaigns"] });
-      queryClient.invalidateQueries({ queryKey: ["campaigns", variables.id] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    onSuccess: async (_, variables) => {
+      await Promise.all([
+        invalidateWorkListProjections(queryClient),
+        queryClient.invalidateQueries({ queryKey: ["campaigns", variables.id] }),
+      ]);
     },
   });
-}
-
-async function invalidateCampaignDashboardQueries(queryClient: QueryClient) {
-  await Promise.all([
-    queryClient.invalidateQueries({ queryKey: ["campaigns"] }),
-    queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
-  ]);
 }
 
 export function useDeleteCampaign() {
@@ -344,7 +339,7 @@ export function useDeleteCampaign() {
   return useMutation({
     mutationFn: deleteCampaign,
     onSuccess: async () => {
-      await invalidateCampaignDashboardQueries(queryClient);
+      await invalidateWorkListProjections(queryClient);
     },
   });
 }
@@ -354,7 +349,7 @@ export function useDeleteCampaigns() {
   return useMutation({
     mutationFn: deleteCampaign,
     onSuccess: async () => {
-      await invalidateCampaignDashboardQueries(queryClient);
+      await invalidateWorkListProjections(queryClient);
     },
   });
 }
@@ -383,9 +378,8 @@ export function useDuplicateCampaign() {
       });
       return copy;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["campaigns"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    onSuccess: async () => {
+      await invalidateWorkListProjections(queryClient);
     },
   });
 }

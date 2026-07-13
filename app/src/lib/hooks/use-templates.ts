@@ -1,5 +1,6 @@
 import { apiFetch } from "@/lib/api-client";
 import { STALE_TIME } from "@/lib/query-config";
+import { invalidateWorkListProjections } from "@/lib/hooks/use-canonical-works";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 export interface CampaignTemplate {
@@ -84,7 +85,7 @@ export async function materializeTemplate(
   return res.json();
 }
 
-/** Mutation with campaigns/dashboard invalidation + isPending for double-submit. */
+/** Mutation with work-list projection invalidation + isPending for double-submit. */
 export function useMaterializeTemplate() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -97,9 +98,8 @@ export function useMaterializeTemplate() {
       name: string;
       client: string;
     }) => materializeTemplate(templateId, { name, client }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["campaigns"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    onSuccess: async () => {
+      await invalidateWorkListProjections(queryClient);
     },
   });
 }

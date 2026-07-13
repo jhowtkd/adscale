@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
+import { invalidateCanonicalWorks } from "@/lib/hooks/use-canonical-works";
 
 export type CreativeWorkStatus =
   | "draft"
@@ -187,8 +188,11 @@ export function useCreateCreativeWork() {
       format: "1:1" | "4:5" | "9:16";
       brief: SocialPostBrief;
     }) => postJson<{ work: CreativeWorkItem }>("/api/creative-work", input),
-    onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ["creative-work", result.work.id] });
+    onSuccess: async (result) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["creative-work", result.work.id] }),
+        invalidateCanonicalWorks(queryClient),
+      ]);
     },
   });
 }
@@ -198,8 +202,11 @@ export function useGenerateCopy() {
   return useMutation({
     mutationFn: (workItemId: string) =>
       postJson<{ copy: SocialPostCopy }>(`/api/creative-work/${workItemId}/copy`),
-    onSuccess: (_data, workItemId) => {
-      queryClient.invalidateQueries({ queryKey: ["creative-work", workItemId] });
+    onSuccess: async (_data, workItemId) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["creative-work", workItemId] }),
+        invalidateCanonicalWorks(queryClient),
+      ]);
     },
   });
 }
@@ -212,8 +219,13 @@ export function useConfirmCreativeWork() {
         copy: input.copy,
         selectedReferenceIds: input.selectedReferenceIds,
       }),
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["creative-work", variables.workItemId] });
+    onSuccess: async (_data, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["creative-work", variables.workItemId],
+        }),
+        invalidateCanonicalWorks(queryClient),
+      ]);
     },
   });
 }
@@ -225,8 +237,11 @@ export function useTriggerTriplet() {
       postJson<{ work: CreativeWorkItem; outputs: CreativeWorkOutput[] }>(
         `/api/creative-work/${workItemId}/generate`,
       ),
-    onSuccess: (_data, workItemId) => {
-      queryClient.invalidateQueries({ queryKey: ["creative-work", workItemId] });
+    onSuccess: async (_data, workItemId) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["creative-work", workItemId] }),
+        invalidateCanonicalWorks(queryClient),
+      ]);
     },
   });
 }
@@ -238,8 +253,13 @@ export function useRetryOutput() {
       postJson<{ output: CreativeWorkOutput }>(
         `/api/creative-work/${workItemId}/outputs/${outputId}/retry`,
       ),
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["creative-work", variables.workItemId] });
+    onSuccess: async (_data, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["creative-work", variables.workItemId],
+        }),
+        invalidateCanonicalWorks(queryClient),
+      ]);
     },
   });
 }
@@ -260,11 +280,16 @@ export function useSelectOutput() {
         `/api/creative-work/${workItemId}/outputs/${outputId}/select`,
         { saveToLibrary },
       ),
-    onSuccess: (_data, variables) => {
+    onSuccess: async (_data, variables) => {
       // Saving the selected output materialises a new workspace asset. The
       // wizard must therefore invalidate both the work detail and the library.
-      queryClient.invalidateQueries({ queryKey: ["creative-work", variables.workItemId] });
-      queryClient.invalidateQueries({ queryKey: ["workspace-assets"] });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["creative-work", variables.workItemId],
+        }),
+        queryClient.invalidateQueries({ queryKey: ["workspace-assets"] }),
+        invalidateCanonicalWorks(queryClient),
+      ]);
     },
   });
 }

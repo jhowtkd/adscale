@@ -11,6 +11,7 @@ import {
   type DerivationLoadErrorKind,
 } from "@/lib/campaign-load-error";
 import { STALE_TIME } from "@/lib/query-config";
+import { invalidateWorkListProjections } from "@/lib/hooks/use-canonical-works";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 export type { DerivationLoadErrorKind };
@@ -212,9 +213,8 @@ export function useCreateDerivations(campaignId: string) {
       queryClient.invalidateQueries({
         queryKey: ["derivations", campaignId],
       });
-      queryClient.invalidateQueries({ queryKey: ["campaigns"] });
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      void invalidateWorkListProjections(queryClient);
     },
   });
 }
@@ -246,9 +246,8 @@ export function useRestyleCampaign(campaignId: string) {
         mergeDerivations(old, created)
       );
       queryClient.invalidateQueries({ queryKey: ["derivations", campaignId] });
-      queryClient.invalidateQueries({ queryKey: ["campaigns"] });
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      void invalidateWorkListProjections(queryClient);
     },
   });
 }

@@ -141,7 +141,8 @@ function CampaignsListContent() {
   const isLoading = isListMode
     ? worksLoading || metaLoading
     : campaignsLoading;
-  const isError = isListMode ? worksError || campaignsError : campaignsError;
+  // List can render with stubs if the campaigns page query fails; only canonical fails hard.
+  const isError = isListMode ? worksError : campaignsError;
 
   const campaignById = useMemo(() => {
     const map = new Map(campaignsMeta.map((c) => [c.id, c]));
