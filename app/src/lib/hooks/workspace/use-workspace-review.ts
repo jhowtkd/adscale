@@ -6,16 +6,11 @@ import {
   derivationNeedsRegenerateDialog,
 } from "@/lib/derivation-display";
 import type { ReviewDecision } from "@/lib/hooks/use-review";
-import type { UseMutationResult } from "@tanstack/react-query";
-
-type RegenerateVars = { id: string; feedback?: string };
-type ReviewVars = {
-  id?: string;
-  decision?: ReviewDecision;
-  directionReason?: string;
-  overrideReason?: string;
-  status?: "approved" | "rejected";
-};
+import type {
+  CreativeQaHandle,
+  RegenerateDerivationHandle,
+  ReviewDerivationHandle,
+} from "@/lib/hooks/workspace/mutation-handles";
 
 /** Workspace derivation card shape (superset of mock Derivation). */
 type ReviewableDerivation = {
@@ -35,17 +30,11 @@ type ReviewableDerivation = {
 export function useWorkspaceReview(deps: {
   campaignId: string;
   allDerivations: ReviewableDerivation[];
-  regenerateMutation: UseMutationResult<unknown, Error, RegenerateVars, unknown>;
-  reviewMutation: UseMutationResult<unknown, Error, ReviewVars, unknown>;
-  creativeQa: UseMutationResult<
-    unknown,
-    Error,
-    { derivationId: string },
-    unknown
-  >;
+  regenerateMutation: RegenerateDerivationHandle;
+  reviewMutation: ReviewDerivationHandle;
+  creativeQa: CreativeQaHandle;
   addToast: (type: "success" | "error" | "info", message: string) => void;
   tc: (key: string) => string;
-  // Mission insight is optional; keep type loose to avoid coupling modules.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   missionInsight?: { maybePromptMissionInsight: (...args: any[]) => void } | null;
 }) {

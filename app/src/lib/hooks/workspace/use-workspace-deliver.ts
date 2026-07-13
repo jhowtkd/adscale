@@ -3,18 +3,10 @@
 import { useCallback, useState } from "react";
 import type { Derivation } from "@/lib/mock-data";
 import type { DeliveryFormat } from "@/components/workspace/DeliveryPackageModal";
-import type { UseMutationResult } from "@tanstack/react-query";
-
-type ExportVars = {
-  type: "individual";
-  derivationId: string;
-  format: "png" | "jpeg" | "webp";
-};
-
-type DeliveryVars = {
-  derivationId: string;
-  formats: DeliveryFormat[];
-};
+import type {
+  DeliveryPackageHandle,
+  ExportHandle,
+} from "@/lib/hooks/workspace/mutation-handles";
 
 /**
  * Deliver / export package flow (Phase 6 / item 48).
@@ -22,13 +14,8 @@ type DeliveryVars = {
 export function useWorkspaceDeliver(deps: {
   campaignId: string;
   allDerivations: Derivation[];
-  exportMutation: UseMutationResult<unknown, Error, ExportVars, unknown>;
-  createDeliveryPackage: UseMutationResult<
-    unknown,
-    Error,
-    DeliveryVars,
-    unknown
-  >;
+  exportMutation: ExportHandle;
+  createDeliveryPackage: DeliveryPackageHandle;
   addToast: (type: "success" | "error" | "info", message: string) => void;
   tc: (key: string) => string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -2,23 +2,17 @@
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { Derivation } from "@/lib/mock-data";
-import {
-  getBatchCreditBreakdown,
-  type BatchCreditBreakdown,
-  type RecipeGenerationConfig,
-} from "@/server/ai/strategy-recipes";
-import {
-  getActivePreviewGateDerivation,
-  getReadyPreviewDerivation,
-  shouldAutoContinuePreview,
-  shouldShowPreviewGate,
-} from "@/server/ai/preview-gate";
+import type { OutputLearningApplicationSnapshot } from "@/server/human-quality/corpus";
+import type { WorkspaceProduceSurface } from "@/lib/hooks/use-derivations";
 import {
   creditFrictionDiagnostic,
   isInsufficientCreditsError,
 } from "@/lib/mission-insights/helpers";
-import type { OutputLearningApplicationSnapshot } from "@/server/human-quality/corpus";
-import type { UseMutationResult } from "@tanstack/react-query";
+import type {
+  CreateDerivationsHandle,
+  RestyleCampaignHandle,
+  UpdateCampaignHandle,
+} from "@/lib/hooks/workspace/mutation-handles";
 
 type CampaignLike = {
   generationMode?: string | null;
@@ -27,38 +21,23 @@ type CampaignLike = {
   targetFormats?: string[] | null;
 } | null;
 
-type CreateDerivationsVars = {
-  preview?: boolean;
-  outputLearningApplication?: OutputLearningApplicationSnapshot;
-};
-
 /**
  * Produce flow: generate batch, restyle, preview gate, credit estimate.
- * Phase 6 / item 48 — narrow deps, no review/deliver state.
+ * Phase 6 / item 49: preview/credit domain rules come from server produceSurface
+ * (no client import of strategy-recipes / preview-gate).
  */
 export function useWorkspaceProduce(deps: {
   campaignId: string;
   isNew: boolean;
   campaign: CampaignLike;
   allDerivations: Derivation[];
+  /** Server-calculated produce surface (item 49). */
+  produceSurface: WorkspaceProduceSurface | null;
   currentRoute: string;
   pendingOutputLearningApplication: OutputLearningApplicationSnapshot | null;
-  createDerivations: UseMutationResult<
-    unknown,
-    Error,
-    CreateDerivationsVars | undefined,
-    unknown
-  >;
-  restyleCampaign: UseMutationResult<
-    unknown,
-    Error,
-    { styleAssetIds?: string[]; styleIntensity?: string },
-    unknown
-  >;
-  updateCampaign: {
-    mutate: (payload: Record<string, unknown>) => void;
-    mutateAsync: (payload: Record<string, unknown>) => Promise<unknown>;
-  };
+  createDerivations: CreateDerivationsHandle;
+  restyleCampaign: RestyleCampaignHandle;
+  updateCampaign: UpdateCampaignHandle;
   setWorkspaceState: (state: "setup" | "trabalho") => void;
   addToast: (type: "success" | "error" | "info", message: string) => void;
   tc: (key: string) => string;
@@ -70,6 +49,7 @@ export function useWorkspaceProduce(deps: {
     isNew,
     campaign,
     allDerivations,
+    produceSurface,
     currentRoute,
     pendingOutputLearningApplication,
     createDerivations,
@@ -190,15 +170,20 @@ export function useWorkspaceProduce(deps: {
 
   const autoContinuedPreviewIdRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!shouldAutoContinuePreview(allDerivations)) return;
+    if (!produceSurface?.shouldAutoContinuePreview) return;
     if (createDerivations.isPending) return;
-    const readyPreview = getReadyPreviewDerivation(allDerivations);
-    if (!readyPreview?.id) return;
-    if (autoContinuedPreviewIdRef.current === readyPreview.id) return;
+    const previewId = produceSurface.activePreviewId;
+    if (!previewId) return;
+    if (autoContinuedPreviewIdRef.current === previewId) return;
 
-    autoContinuedPreviewIdRef.current = readyPreview.id;
+    autoContinuedPreviewIdRef.current = previewId;
     handleGenerateDerivations();
-  }, [allDerivations, createDerivations.isPending, handleGenerateDerivations]);
+  }, [
+    produceSurface?.shouldAutoContinuePreview,
+    produceSurface?.activePreviewId,
+    createDerivations.isPending,
+    handleGenerateDerivations,
+  ]);
 
   useEffect(() => {
     if (createDerivations.isError) {
@@ -226,44 +211,15 @@ export function useWorkspaceProduce(deps: {
     [restyleCampaign, campaign, isNew, addToast, tc, setWorkspaceState]
   );
 
-  const previewDerivation = useMemo(
-    () => getActivePreviewGateDerivation(allDerivations),
-    [allDerivations]
-  );
+  const previewDerivation = useMemo(() => {
+    const id = produceSurface?.activePreviewId;
+    if (!id) return null;
+    return allDerivations.find((d) => d.id === id) ?? null;
+  }, [produceSurface?.activePreviewId, allDerivations]);
 
-  const showPreviewGate = useMemo(
-    () => shouldShowPreviewGate(allDerivations),
-    [allDerivations]
-  );
-
-  const batchRecipeConfig = useMemo((): RecipeGenerationConfig | null => {
-    if (!campaign) return null;
-    const generationMode =
-      campaign.generationMode === "format_adaptation"
-        ? "format_adaptation"
-        : "art_variation";
-    return {
-      generationMode,
-      creativeLevel:
-        (campaign.creativeLevel as RecipeGenerationConfig["creativeLevel"]) ??
-        "balanced",
-      ctaVariants: (campaign.ctaVariants ?? [])
-        .map((cta) => cta.trim())
-        .filter(Boolean),
-      targetFormats:
-        generationMode === "format_adaptation"
-          ? (campaign.targetFormats ?? [])
-          : undefined,
-      preservationEmphasis: "medium",
-    };
-  }, [campaign]);
-
-  const batchCreditBreakdown = useMemo((): BatchCreditBreakdown | null => {
-    if (!batchRecipeConfig) return null;
-    return getBatchCreditBreakdown(batchRecipeConfig);
-  }, [batchRecipeConfig]);
-
-  const batchCreditEstimate = batchCreditBreakdown?.totalCredits ?? 0;
+  const showPreviewGate = produceSurface?.showPreviewGate ?? false;
+  const batchCreditBreakdown = produceSurface?.batchCreditBreakdown ?? null;
+  const batchCreditEstimate = produceSurface?.batchCreditEstimate ?? 0;
   const hasActivePreview = Boolean(previewDerivation);
 
   return {

@@ -38,6 +38,7 @@ import {
   sanitizeOutputLearningApplication,
 } from "@/server/human-quality/application-schema";
 import { serializeDerivationForApi } from "@/server/ai/derivation-auto-retry-observability";
+import { resolveWorkspaceProduceSurface } from "@/server/application/resolve-workspace-produce-surface";
 
 const STALE_ACTIVE_DERIVATION_MINUTES = 10;
 
@@ -304,6 +305,11 @@ export async function GET(
       await refreshCampaignStatus(campaignId, workspace.id);
     }
 
+    const campaignRow = await getCampaignById(campaignId, workspace.id);
+    if (!campaignRow) {
+      return apiError("campaignNotFound", 404);
+    }
+
     const items = await getDerivationsByCampaign(campaignId, workspace.id);
     const derivationsWithImageUrl = await Promise.all(
       items.map(async (d) => {
@@ -323,7 +329,30 @@ export async function GET(
         };
       })
     );
-    return NextResponse.json({ derivations: derivationsWithImageUrl });
+
+    // Phase 6 / item 49: domain produce rules calculated on the server.
+    const produceSurface = resolveWorkspaceProduceSurface({
+      campaign: {
+        generationMode: campaignRow.generationMode,
+        creativeLevel: campaignRow.creativeLevel,
+        ctaVariants: campaignRow.ctaVariants,
+        targetFormats: campaignRow.targetFormats,
+      },
+      derivations: derivationsWithImageUrl.map((d) => ({
+        id: d.id,
+        isPreview: d.isPreview,
+        status: d.status,
+        imageUrl: d.imageUrl,
+        outputKey: d.outputKey,
+        qualityVerdict: d.qualityVerdict ?? null,
+        hardFailures: d.hardFailures ?? null,
+      })) as Parameters<typeof resolveWorkspaceProduceSurface>[0]["derivations"],
+    });
+
+    return NextResponse.json({
+      derivations: derivationsWithImageUrl,
+      produceSurface,
+    });
   } catch (error) {
     logRouteError("campaigns.[id].derivations.GET", error);
     return handleApiError(error, "campaigns.[id].derivations.GET");

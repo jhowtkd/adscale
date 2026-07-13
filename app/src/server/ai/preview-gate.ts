@@ -7,6 +7,7 @@
  */
 
 export type PreviewGateDerivation = {
+  id?: string;
   isPreview?: boolean;
   status: string;
   imageUrl?: string | null;
