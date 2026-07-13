@@ -1,11 +1,14 @@
 /**
  * Gate 4 adapter parity: exercise real HTTP route + Assistente handler
- * against the same mocked application command.
+ * against the same mocked application command for every shared migration.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const saveRefMock = vi.hoisted(() => vi.fn());
 const restyleMock = vi.hoisted(() => vi.fn());
+const regenerateMock = vi.hoisted(() => vi.fn());
+const reviewMock = vi.hoisted(() => vi.fn());
+const deliveryMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/application/save-derivation-reference", () => ({
   saveDerivationReference: (...args: unknown[]) => saveRefMock(...args),
@@ -13,6 +16,18 @@ vi.mock("@/server/application/save-derivation-reference", () => ({
 
 vi.mock("@/server/application/restyle-campaign", () => ({
   restyleCampaign: (...args: unknown[]) => restyleMock(...args),
+}));
+
+vi.mock("@/server/application/regenerate-derivation", () => ({
+  regenerateDerivation: (...args: unknown[]) => regenerateMock(...args),
+}));
+
+vi.mock("@/server/application/review-derivation", () => ({
+  reviewDerivation: (...args: unknown[]) => reviewMock(...args),
+}));
+
+vi.mock("@/server/application/prepare-delivery-package", () => ({
+  prepareDeliveryPackage: (...args: unknown[]) => deliveryMock(...args),
 }));
 
 vi.mock("@/server/auth/workspace", () => ({
@@ -32,36 +47,52 @@ vi.mock("@/server/repositories/user", () => ({
   getUserLocale: vi.fn(() => Promise.resolve("pt-BR")),
 }));
 
+vi.mock("@/lib/with-rate-limit", () => ({
+  checkRateLimit: vi.fn(() => Promise.resolve(null)),
+}));
+
+vi.mock("@/server/beta-analytics/session", () => ({
+  getBetaSessionIdFromRequest: vi.fn(() => null),
+}));
+
+vi.mock("@/server/beta-analytics/record", () => ({
+  recordBetaAnalyticsEvent: vi.fn(() => Promise.resolve({ id: "evt-1" })),
+}));
+
+const passthroughContract = {
+  inputSchema: {
+    safeParse: (input: Record<string, unknown>) => ({
+      success: true as const,
+      data: input,
+    }),
+  },
+};
+
 vi.mock("@/server/assistant/action-contracts/registry", () => ({
   getActionContract: vi.fn((type: string) => {
-    if (type === "quick_save_reference") {
-      return {
-        inputSchema: {
-          safeParse: (input: Record<string, unknown>) => ({
-            success: true,
-            data: input,
-          }),
-        },
-      };
-    }
-    if (type === "quick_restyle") {
-      return {
-        inputSchema: {
-          safeParse: (input: Record<string, unknown>) => ({
-            success: true,
-            data: input,
-          }),
-        },
-      };
-    }
-    return null;
+    const known = new Set([
+      "quick_save_reference",
+      "quick_restyle",
+      "quick_regenerate",
+      "quick_review",
+      "quick_package",
+    ]);
+    return known.has(type) ? passthroughContract : null;
   }),
 }));
 
 import { POST as saveReferencePOST } from "@/app/api/derivations/[id]/save-reference/route";
 import { POST as restylePOST } from "@/app/api/campaigns/[id]/restyle/route";
+import { POST as regeneratePOST } from "@/app/api/derivations/[id]/regenerate/route";
+import { PATCH as reviewPATCH } from "@/app/api/derivations/[id]/review/route";
+import { POST as deliveryPOST } from "@/app/api/derivations/[id]/delivery-package/route";
 import { executeQuickSaveReference } from "@/server/assistant/action-execution/handlers/quick-save-reference";
 import { executeQuickRestyle } from "@/server/assistant/action-execution/handlers/quick-restyle";
+import {
+  executeQuickRegenerate,
+  executeQuickReview,
+} from "@/server/assistant/action-execution/handlers/quick-regenerate-review";
+import { executeQuickPackage } from "@/server/assistant/action-execution/handlers/quick-derivation-jobs";
 import type { ActionExecutionContext } from "@/server/assistant/action-execution/types";
 import { AssistantActionExecutionError } from "@/server/assistant/action-execution/types";
 
@@ -152,7 +183,6 @@ describe("adapter parity: save-reference", () => {
         kind: "style",
       })
     );
-    // Assistente path must not invent HTTP evidence fields.
     expect(saveRefMock.mock.calls[1][0]).not.toHaveProperty("evidenceSource");
   });
 
@@ -199,7 +229,6 @@ describe("adapter parity: restyle", () => {
       },
     });
 
-    // Restyle HTTP also needs rate-limit / getUserLocale path — use minimal body.
     const httpRes = await restylePOST(
       new Request("http://localhost/api/campaigns/camp-1/restyle", {
         method: "POST",
@@ -208,7 +237,6 @@ describe("adapter parity: restyle", () => {
       }),
       { params: Promise.resolve({ id: "camp-1" }) }
     );
-    // May 201 if command ok; check command call regardless.
     expect(restyleMock).toHaveBeenCalledWith(
       expect.objectContaining({
         campaignId: "camp-1",
@@ -244,7 +272,334 @@ describe("adapter parity: restyle", () => {
         billingIdempotencyKey: "assistant-action:action-1:quick_restyle",
       })
     );
-    // Handler must not pass pre-resolved campaignId from a repository call.
     expect(restyleMock.mock.calls[0][0]).not.toHaveProperty("campaignId");
+  });
+});
+
+describe("adapter parity: regenerate", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("HTTP and Assistente call regenerateDerivation with surface-specific billing/evidence", async () => {
+    regenerateMock.mockResolvedValue({
+      ok: true,
+      value: {
+        derivation: { id: "child-regen" },
+        sourceDerivation: { id: derivationId },
+        primaryReason: "feedback",
+      },
+    });
+
+    const httpRes = await regeneratePOST(
+      new Request("http://localhost/api/derivations/x/regenerate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ feedback: "make bolder" }),
+      }),
+      { params: Promise.resolve({ id: derivationId }) }
+    );
+    expect(httpRes.status).toBe(201);
+    const httpBody = await httpRes.json();
+    expect(httpBody.derivation.id).toBe("child-regen");
+
+    expect(regenerateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId: "workspace-1",
+        derivationId,
+        feedback: "make bolder",
+        userId: "user-1",
+        locale: "pt-BR",
+        evidenceSource: "derivations.regenerate.POST",
+        actorUserId: "user-1",
+      })
+    );
+    expect(regenerateMock.mock.calls[0][0].billingIdempotencyKey).toMatch(
+      /^regeneration:/
+    );
+
+    regenerateMock.mockClear();
+    regenerateMock.mockResolvedValue({
+      ok: true,
+      value: {
+        derivation: { id: "child-regen-2" },
+        sourceDerivation: { id: derivationId },
+        primaryReason: "feedback",
+      },
+    });
+
+    const assistant = await executeQuickRegenerate(
+      assistantCtx({
+        actionType: "quick_regenerate",
+        inputSnapshot: {
+          derivationId,
+          feedback: " make bolder ",
+        },
+      })
+    );
+    expect(assistant.mode).toBe("async");
+    expect(assistant.jobRef).toEqual({
+      kind: "derivation",
+      id: "child-regen-2",
+    });
+    expect(regenerateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId: "workspace-1",
+        derivationId,
+        feedback: "make bolder",
+        userId: "user-1",
+        locale: "pt-BR",
+        billingIdempotencyKey: "assistant-action:action-1:quick_regenerate",
+        assistantActionId: "action-1",
+        evidenceSource: "assistant.quick_regenerate",
+      })
+    );
+  });
+
+  it("maps derivation_not_found equivalently (HTTP 404 / Assistente code)", async () => {
+    regenerateMock.mockResolvedValue({
+      ok: false,
+      error: { code: "derivation_not_found" },
+    });
+
+    const httpRes = await regeneratePOST(
+      new Request("http://localhost/api/derivations/x/regenerate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      }),
+      { params: Promise.resolve({ id: derivationId }) }
+    );
+    expect(httpRes.status).toBe(404);
+
+    await expect(
+      executeQuickRegenerate(
+        assistantCtx({
+          actionType: "quick_regenerate",
+          inputSnapshot: { derivationId },
+        })
+      )
+    ).rejects.toMatchObject({
+      code: "derivation_not_found",
+    } satisfies Partial<AssistantActionExecutionError>);
+  });
+});
+
+describe("adapter parity: review", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("HTTP and Assistente call reviewDerivation with decision + surface evidence", async () => {
+    reviewMock.mockResolvedValue({
+      ok: true,
+      value: {
+        derivation: { id: derivationId, campaignId: "camp-1" },
+        campaign: { name: "Camp" },
+        effectiveStatus: "approved",
+        isOverrideApproval: false,
+      },
+    });
+
+    const httpRes = await reviewPATCH(
+      new Request("http://localhost/api/derivations/x/review", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ decision: "entra" }),
+      }),
+      { params: Promise.resolve({ id: derivationId }) }
+    );
+    expect(httpRes.status).toBe(200);
+    const httpBody = await httpRes.json();
+    expect(httpBody.derivation.id).toBe(derivationId);
+
+    expect(reviewMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId: "workspace-1",
+        derivationId,
+        decision: "entra",
+        actorUserId: "user-1",
+        evidenceSource: "derivations.review.PATCH",
+      })
+    );
+
+    reviewMock.mockClear();
+    reviewMock.mockResolvedValue({
+      ok: true,
+      value: {
+        derivation: { id: derivationId, campaignId: "camp-1" },
+        campaign: { name: "Camp" },
+        effectiveStatus: "rejected",
+        isOverrideApproval: false,
+      },
+    });
+
+    const assistant = await executeQuickReview(
+      assistantCtx({
+        actionType: "quick_review",
+        inputSnapshot: {
+          derivationId,
+          decision: "nao_entra",
+          directionReason: "off brand badly",
+        },
+      })
+    );
+    expect(assistant.mode).toBe("sync");
+    expect(assistant.resultSummary).toContain("rejected");
+    expect(reviewMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId: "workspace-1",
+        derivationId,
+        decision: "nao_entra",
+        directionReason: "off brand badly",
+        actorUserId: "user-1",
+        evidenceSource: "assistant.quick_review",
+      })
+    );
+  });
+
+  it("maps derivation_not_found equivalently (HTTP 404 / Assistente code)", async () => {
+    reviewMock.mockResolvedValue({
+      ok: false,
+      error: { code: "derivation_not_found" },
+    });
+
+    const httpRes = await reviewPATCH(
+      new Request("http://localhost/api/derivations/x/review", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ decision: "entra" }),
+      }),
+      { params: Promise.resolve({ id: derivationId }) }
+    );
+    expect(httpRes.status).toBe(404);
+
+    await expect(
+      executeQuickReview(
+        assistantCtx({
+          actionType: "quick_review",
+          inputSnapshot: { derivationId, decision: "entra" },
+        })
+      )
+    ).rejects.toMatchObject({
+      code: "derivation_not_found",
+    } satisfies Partial<AssistantActionExecutionError>);
+  });
+});
+
+describe("adapter parity: delivery package", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("HTTP and Assistente call prepareDeliveryPackage with surface-specific flags", async () => {
+    deliveryMock.mockResolvedValue({
+      ok: true,
+      value: {
+        source: { id: derivationId, format: "1:1" },
+        requestedFormats: ["1:1", "9:16"],
+        readyFormats: ["1:1"],
+        queued: [{ id: "child-9-16", format: "9:16" }],
+        failed: [],
+        skipped: [],
+      },
+    });
+
+    const httpRes = await deliveryPOST(
+      new Request("http://localhost/api/derivations/x/delivery-package", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ formats: ["1:1", "9:16"] }),
+      }),
+      { params: Promise.resolve({ id: derivationId }) }
+    );
+    expect(httpRes.status).toBe(200);
+    const httpBody = await httpRes.json();
+    expect(httpBody.queued).toEqual([{ id: "child-9-16", format: "9:16" }]);
+
+    expect(deliveryMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId: "workspace-1",
+        sourceDerivationId: derivationId,
+        formats: ["1:1", "9:16"],
+        userId: "user-1",
+        locale: "pt-BR",
+      })
+    );
+    // Panel does not force requireGeneratableFormats.
+    expect(deliveryMock.mock.calls[0][0]).not.toHaveProperty(
+      "requireGeneratableFormats"
+    );
+
+    deliveryMock.mockClear();
+    deliveryMock.mockResolvedValue({
+      ok: true,
+      value: {
+        source: { id: derivationId, format: "1:1" },
+        requestedFormats: ["9:16"],
+        readyFormats: [],
+        queued: [{ id: "child-as", format: "9:16" }],
+        failed: [],
+        skipped: [],
+      },
+    });
+
+    const assistant = await executeQuickPackage(
+      assistantCtx({
+        actionType: "quick_package",
+        inputSnapshot: {
+          sourceDerivationId: derivationId,
+          formats: ["9:16"],
+        },
+      })
+    );
+    expect(assistant.mode).toBe("async");
+    expect(assistant.jobRef).toEqual({
+      kind: "derivation",
+      id: "child-as",
+    });
+    expect(deliveryMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId: "workspace-1",
+        sourceDerivationId: derivationId,
+        formats: ["9:16"],
+        userId: "user-1",
+        locale: "pt-BR",
+        billingIdempotencyKey: "assistant-action:action-1:quick_package",
+        assistantActionId: "action-1",
+        requireGeneratableFormats: true,
+      })
+    );
+  });
+
+  it("maps derivation_not_found equivalently (HTTP 404 / Assistente code)", async () => {
+    deliveryMock.mockResolvedValue({
+      ok: false,
+      error: { code: "derivation_not_found" },
+    });
+
+    const httpRes = await deliveryPOST(
+      new Request("http://localhost/api/derivations/x/delivery-package", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ formats: ["9:16"] }),
+      }),
+      { params: Promise.resolve({ id: derivationId }) }
+    );
+    expect(httpRes.status).toBe(404);
+
+    await expect(
+      executeQuickPackage(
+        assistantCtx({
+          actionType: "quick_package",
+          inputSnapshot: {
+            sourceDerivationId: derivationId,
+            formats: ["9:16"],
+          },
+        })
+      )
+    ).rejects.toMatchObject({
+      code: "derivation_not_found",
+    } satisfies Partial<AssistantActionExecutionError>);
   });
 });
