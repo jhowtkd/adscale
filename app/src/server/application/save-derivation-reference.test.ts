@@ -84,10 +84,10 @@ describe("saveDerivationReference", () => {
     expect(mockCreateRef).not.toHaveBeenCalled();
   });
 
-  it("creates reference and records brand memory for both surfaces", async () => {
+  it("creates reference and records brand memory (command unit)", async () => {
     mockGetDerivation.mockResolvedValue(approved as never);
 
-    const http = await saveDerivationReference({
+    const result = await saveDerivationReference({
       workspaceId: "ws-1",
       derivationId: "d1",
       clientProfileId: "p1",
@@ -96,19 +96,10 @@ describe("saveDerivationReference", () => {
       actorUserId: "u1",
       evidenceSource: "derivations.save-reference.POST",
     });
-    const assistant = await saveDerivationReference({
-      workspaceId: "ws-1",
-      derivationId: "d1",
-      clientProfileId: "p1",
-      label: "Winner",
-      kind: "style",
-    });
 
-    expect(http.ok).toBe(true);
-    expect(assistant.ok).toBe(true);
-    expect(mockCreateRef).toHaveBeenCalledTimes(2);
-    expect(mockMemory).toHaveBeenCalledTimes(2);
-    expect(mockEvidence).toHaveBeenCalledTimes(1);
+    expect(result.ok).toBe(true);
+    expect(mockCreateRef).toHaveBeenCalledTimes(1);
+    expect(mockMemory).toHaveBeenCalledTimes(1);
     expect(mockEvidence).toHaveBeenCalledWith(
       expect.objectContaining({
         action: "saved_reference",
@@ -118,3 +109,4 @@ describe("saveDerivationReference", () => {
     );
   });
 });
+

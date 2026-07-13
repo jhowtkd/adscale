@@ -330,6 +330,25 @@ export async function getApprovedDerivationsByCampaign(
     .orderBy(desc(derivations.createdAt));
 }
 
+/** True when the campaign already has queued/processing derivations. */
+export async function campaignHasActiveDerivations(
+  campaignId: string,
+  workspaceId: string
+): Promise<boolean> {
+  const existingQueued = await db
+    .select({ id: derivations.id })
+    .from(derivations)
+    .where(
+      and(
+        eq(derivations.campaignId, campaignId),
+        eq(derivations.workspaceId, workspaceId),
+        inArray(derivations.status, ["queued", "processing"])
+      )
+    )
+    .limit(1);
+  return existingQueued.length > 0;
+}
+
 export async function getActivePackageChildren({
   parentId,
   workspaceId,

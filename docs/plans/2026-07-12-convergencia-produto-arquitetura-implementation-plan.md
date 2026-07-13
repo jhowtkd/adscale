@@ -217,7 +217,9 @@ Cada item abaixo deve resultar em um commit pequeno e manter a aplicação funci
 
 **Diferido pelo Gate 0 (não entra no Gate 4):** Persona Simulation e Landing Page permanecem congeladas — só segurança, perda de dados, build quebrado ou isolamento. Canonicalizar Persona seria refatoração funcional; proibido enquanto o freeze vigorar. Não usar `frozen-exception:` só para “completar” a Fase 4. Reavaliar expansão só após Gate 8; na Fase 7 decidir esconder/remover.
 
-**Gate 4:** para cada ação **no escopo do item 28**, apagar um adapter remove somente transporte/apresentação, nunca uma regra de negócio. **Persona Simulation está fora do critério de aprovação do Gate 4** enquanto o Gate 0 freeze estiver ativo.
+**Assistente-only aceito no Gate 4 (sem paridade painel):** `adaptFormat` / `quick_format_adapt` — não há rota HTTP de single-format adapt; o painel usa batch de campanha (`format_adaptation`) e `prepareDeliveryPackage` para multi-formato. Não contar `adaptFormat` no item 31 até existir adapter de painel.
+
+**Gate 4:** para cada ação **com paridade painel+Assistente** no item 28, apagar um adapter remove somente transporte/apresentação, nunca uma regra de negócio. **Fora do critério:** Persona (Gate 0), Landing Page (Gate 0), `adaptFormat` (Assistente-only documentado).
 
 ### Fase 5 — Convergir Criar Post e Templates
 

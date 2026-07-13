@@ -4,9 +4,9 @@ milestone: v13.9
 milestone_name: milestone
 current_plan: 5
 status: completed
-stopped_at: Phase 4 scope complete (Persona deferred) — ready for Gate 4 review
-last_updated: "2026-07-13T13:10:00.000Z"
-last_activity: 2026-07-13 -- delivery + format-adapt extracted; Gate 4 pending
+stopped_at: Gate 4 re-eval fixes — restyle repo boundary + adapter parity tests
+last_updated: "2026-07-13T14:00:00.000Z"
+last_activity: 2026-07-13 -- closed Gate 4 P1/P2: no drizzle in app, no repo in quick_restyle
 progress:
   total_phases: 5
   completed_phases: 5
@@ -22,7 +22,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-26)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
-**Current focus:** Convergence Gate 4 review — Phase 4 app commands in scope; Persona excluded
+**Current focus:** Convergence Gate 4 re-review after boundary + parity fixes
 
 ## Current Position
 
@@ -98,5 +98,5 @@ _None — milestone plans 203–207 are complete. Active work is tracked under t
 ## Session Continuity
 
 Last session: 2026-07-13
-Stopped at: Phase 4 commands done (Persona deferred); request Gate 4 review
+Stopped at: Gate 4 fixes landed; request human re-review
 Resume file: docs/plans/2026-07-12-convergencia-produto-arquitetura-implementation-plan.md

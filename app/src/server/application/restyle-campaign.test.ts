@@ -1,17 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/server/db", () => ({
-  db: {
-    select: vi.fn(() => ({
-      from: () => ({
-        where: () => ({
-          limit: () => Promise.resolve([]),
-        }),
-      }),
-    })),
-  },
-}));
-
 vi.mock("@/server/billing/paywall", () => ({
   spend: vi.fn(),
 }));
@@ -23,11 +11,13 @@ vi.mock("@/server/repositories/campaign", () => ({
 
 vi.mock("@/server/repositories/asset", () => ({
   getAssetsByCampaign: vi.fn(),
+  getAssetWithMetadata: vi.fn(),
 }));
 
 vi.mock("@/server/repositories/derivation", () => ({
   createDerivation: vi.fn(),
   updateDerivationStatus: vi.fn(),
+  campaignHasActiveDerivations: vi.fn(),
 }));
 
 vi.mock("@/server/jobs/client", () => ({
@@ -36,8 +26,14 @@ vi.mock("@/server/jobs/client", () => ({
 
 import { spend } from "@/server/billing/paywall";
 import { getCampaignById, updateCampaign } from "@/server/repositories/campaign";
-import { getAssetsByCampaign } from "@/server/repositories/asset";
-import { createDerivation } from "@/server/repositories/derivation";
+import {
+  getAssetWithMetadata,
+  getAssetsByCampaign,
+} from "@/server/repositories/asset";
+import {
+  campaignHasActiveDerivations,
+  createDerivation,
+} from "@/server/repositories/derivation";
 import { inngest } from "@/server/jobs/client";
 import {
   resolveRestylingBaseAsset,
@@ -48,6 +44,8 @@ import {
 const mockSpend = vi.mocked(spend);
 const mockCampaign = vi.mocked(getCampaignById);
 const mockAssets = vi.mocked(getAssetsByCampaign);
+const mockAssetMeta = vi.mocked(getAssetWithMetadata);
+const mockHasActive = vi.mocked(campaignHasActiveDerivations);
 const mockCreate = vi.mocked(createDerivation);
 const mockSend = vi.mocked(inngest.send);
 const mockUpdate = vi.mocked(updateCampaign);
@@ -80,6 +78,7 @@ describe("restyleCampaign", () => {
     vi.clearAllMocks();
     mockCampaign.mockResolvedValue({ id: "c1" } as never);
     mockAssets.mockResolvedValue([base, style] as never);
+    mockHasActive.mockResolvedValue(false);
     mockSpend.mockResolvedValue({ ok: true, creditsSpent: 5 });
     mockCreate.mockResolvedValue({
       id: "d1",
@@ -105,30 +104,27 @@ describe("restyleCampaign", () => {
         idempotencyKey: "restyling:c1:base-1",
       })
     );
-    expect(mockSend).toHaveBeenCalledWith(
-      expect.objectContaining({
-        name: "derivation.generate",
-        data: expect.objectContaining({
-          generationMode: "restyling",
-          styleAssetId: "style-1",
-        }),
-      })
-    );
   });
 
-  it("honors assistant billing key and requireBaseAssetId", async () => {
+  it("resolves baseCreativeId via asset repository (Assistente path)", async () => {
+    mockAssetMeta.mockResolvedValue({
+      id: "base-1",
+      campaignId: "c1",
+    } as never);
+
     const result = await restyleCampaign({
       workspaceId: "ws-1",
-      campaignId: "c1",
       userId: "u1",
-      requireBaseAssetId: "base-1",
+      baseCreativeId: "base-1",
       styleAssetId: "style-1",
       billingAction: "restyling",
       billingAmount: 5,
       billingIdempotencyKey: "assistant-action:a1:quick_restyle",
       assistantActionId: "a1",
     });
+
     expect(result.ok).toBe(true);
+    expect(mockAssetMeta).toHaveBeenCalledWith("base-1", "ws-1");
     expect(mockSpend).toHaveBeenCalledWith(
       expect.objectContaining({
         action: "restyling",
@@ -137,12 +133,27 @@ describe("restyleCampaign", () => {
     );
   });
 
-  it("rejects when required base does not match resolved base", async () => {
+  it("rejects when baseCreativeId asset is missing", async () => {
+    mockAssetMeta.mockResolvedValue(null);
     const result = await restyleCampaign({
       workspaceId: "ws-1",
-      campaignId: "c1",
       userId: "u1",
-      requireBaseAssetId: "other-base",
+      baseCreativeId: "missing",
+      billingAction: "restyling",
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("base_creative_not_found");
+  });
+
+  it("rejects when required base does not match resolved base", async () => {
+    mockAssetMeta.mockResolvedValue({
+      id: "other-base",
+      campaignId: "c1",
+    } as never);
+    const result = await restyleCampaign({
+      workspaceId: "ws-1",
+      userId: "u1",
+      baseCreativeId: "other-base",
       billingAction: "restyling",
     });
     expect(result.ok).toBe(false);

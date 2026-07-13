@@ -4,19 +4,20 @@
  *
  * Billing action/key stay adapter-owned (panel vs chat may use different ledgers).
  */
-import { and, eq, sql } from "drizzle-orm";
 import { logger } from "@/lib/logger";
-import { spend, type SpendResult } from "@/server/billing/paywall";
-import { db } from "@/server/db";
-import { derivations } from "@/server/db/schema";
 import type { CreditAction } from "@/server/billing/credits";
+import { spend, type SpendResult } from "@/server/billing/paywall";
 import { inngest } from "@/server/jobs/client";
-import { getAssetsByCampaign } from "@/server/repositories/asset";
+import {
+  getAssetWithMetadata,
+  getAssetsByCampaign,
+} from "@/server/repositories/asset";
 import {
   getCampaignById,
   updateCampaign,
 } from "@/server/repositories/campaign";
 import {
+  campaignHasActiveDerivations,
   createDerivation,
   updateDerivationStatus,
 } from "@/server/repositories/derivation";
@@ -25,17 +26,25 @@ type CampaignAsset = Awaited<ReturnType<typeof getAssetsByCampaign>>[number];
 
 export type RestyleCampaignInput = {
   workspaceId: string;
-  campaignId: string;
   userId: string;
   locale?: string;
+  /**
+   * Panel entry: campaign-scoped.
+   * Mutually exclusive with baseCreativeId for the resolution path
+   * (baseCreativeId wins when both are set after Assistente resolution).
+   */
+  campaignId?: string;
+  /**
+   * Assistente entry: resolve campaignId + require this asset as restyle base.
+   * Handlers must not call repositories — pass baseCreativeId only.
+   */
+  baseCreativeId?: string;
   /** Prefer first of styleAssetIds; optional auto-pick style_reference. */
   styleAssetId?: string;
   /** When provided, every id must belong to the campaign (HTTP multi-select). */
   styleAssetIds?: string[];
   styleIntensity?: "soft" | "medium" | "strong";
   creativeLevel?: "conservative" | "balanced" | "bold" | "extreme";
-  /** When set, resolved base must equal this asset id (Assistente baseCreativeId). */
-  requireBaseAssetId?: string;
   billingAction: CreditAction;
   /** When omitted, uses historical HTTP key `restyling:{campaignId}:{baseAssetId}`. */
   billingIdempotencyKey?: string;
@@ -45,6 +54,8 @@ export type RestyleCampaignInput = {
 };
 
 export type RestyleCampaignError =
+  | { code: "invalid_input" }
+  | { code: "base_creative_not_found" }
   | { code: "campaign_not_found" }
   | { code: "derivations_in_progress" }
   | { code: "missing_base_asset" }
@@ -58,6 +69,7 @@ export type RestyleCampaignSuccess = {
   derivation: Awaited<ReturnType<typeof createDerivation>>;
   baseAsset: CampaignAsset;
   styleAsset: CampaignAsset;
+  campaignId: string;
 };
 
 export type RestyleCampaignResult =
@@ -92,45 +104,43 @@ export function resolveRestylingStyleAsset(
   );
 }
 
-async function hasQueuedDerivations(
-  campaignId: string,
-  workspaceId: string
-): Promise<boolean> {
-  const existingQueued = await db
-    .select({ id: derivations.id })
-    .from(derivations)
-    .where(
-      and(
-        eq(derivations.campaignId, campaignId),
-        eq(derivations.workspaceId, workspaceId),
-        sql`${derivations.status} IN ('queued', 'processing')`
-      )
-    )
-    .limit(1);
-  return existingQueued.length > 0;
-}
-
 export async function restyleCampaign(
   input: RestyleCampaignInput
 ): Promise<RestyleCampaignResult> {
-  const campaign = await getCampaignById(input.campaignId, input.workspaceId);
+  let campaignId = input.campaignId;
+  let requireBaseAssetId: string | undefined;
+
+  if (input.baseCreativeId) {
+    const baseAssetRow = await getAssetWithMetadata(
+      input.baseCreativeId,
+      input.workspaceId
+    );
+    if (!baseAssetRow) {
+      return { ok: false, error: { code: "base_creative_not_found" } };
+    }
+    campaignId = baseAssetRow.campaignId;
+    requireBaseAssetId = baseAssetRow.id;
+  }
+
+  if (!campaignId) {
+    return { ok: false, error: { code: "invalid_input" } };
+  }
+
+  const campaign = await getCampaignById(campaignId, input.workspaceId);
   if (!campaign) {
     return { ok: false, error: { code: "campaign_not_found" } };
   }
 
-  if (await hasQueuedDerivations(input.campaignId, input.workspaceId)) {
+  if (await campaignHasActiveDerivations(campaignId, input.workspaceId)) {
     return { ok: false, error: { code: "derivations_in_progress" } };
   }
 
-  const assets = await getAssetsByCampaign(input.campaignId, input.workspaceId);
+  const assets = await getAssetsByCampaign(campaignId, input.workspaceId);
   const baseAsset = resolveRestylingBaseAsset(assets);
   if (!baseAsset) {
     return { ok: false, error: { code: "missing_base_asset" } };
   }
-  if (
-    input.requireBaseAssetId &&
-    baseAsset.id !== input.requireBaseAssetId
-  ) {
+  if (requireBaseAssetId && baseAsset.id !== requireBaseAssetId) {
     return { ok: false, error: { code: "invalid_base_asset" } };
   }
 
@@ -164,7 +174,7 @@ export async function restyleCampaign(
     return { ok: false, error: { code: "missing_style_asset" } };
   }
 
-  await updateCampaign(input.campaignId, input.workspaceId, {
+  await updateCampaign(campaignId, input.workspaceId, {
     generationMode: "restyling",
     ...(input.creativeLevel
       ? { creativeLevel: input.creativeLevel }
@@ -174,8 +184,7 @@ export async function restyleCampaign(
   });
 
   const billingIdempotencyKey =
-    input.billingIdempotencyKey ??
-    `restyling:${input.campaignId}:${baseAsset.id}`;
+    input.billingIdempotencyKey ?? `restyling:${campaignId}:${baseAsset.id}`;
 
   const spendResult = await spend({
     workspaceId: input.workspaceId,
@@ -183,7 +192,7 @@ export async function restyleCampaign(
     amount: input.billingAmount,
     idempotencyKey: billingIdempotencyKey,
     metadata: {
-      campaignId: input.campaignId,
+      campaignId,
       mode: "restyling",
       ...input.billingMetadata,
     },
@@ -202,7 +211,7 @@ export async function restyleCampaign(
       : "1:1";
 
   const derivation = await createDerivation({
-    campaignId: input.campaignId,
+    campaignId,
     workspaceId: input.workspaceId,
     status: "queued",
     generationMode: "restyling",
@@ -220,7 +229,7 @@ export async function restyleCampaign(
       name: "derivation.generate",
       data: {
         derivationId: derivation.id,
-        campaignId: input.campaignId,
+        campaignId,
         workspaceId: input.workspaceId,
         triggeredByUserId: input.userId,
         locale: input.locale,
@@ -239,23 +248,19 @@ export async function restyleCampaign(
       `[restyleCampaign] event send FAILED derivationId=${derivation.id}`,
       sendErr
     );
-    await updateDerivationStatus(
-      derivation.id,
-      input.workspaceId,
-      "failed"
-    );
+    await updateDerivationStatus(derivation.id, input.workspaceId, "failed");
     return {
       ok: false,
       error: { code: "dispatch_failed", derivationId: derivation.id },
     };
   }
 
-  await updateCampaign(input.campaignId, input.workspaceId, {
+  await updateCampaign(campaignId, input.workspaceId, {
     status: "generating",
   });
 
   return {
     ok: true,
-    value: { derivation, baseAsset, styleAsset },
+    value: { derivation, baseAsset, styleAsset, campaignId },
   };
 }
