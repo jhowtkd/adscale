@@ -1,14 +1,6 @@
-import { logger } from "@/lib/logger";
-import { assertDerivationApprovable } from "@/server/ai/creative-quality-gate";
 import { getActionContract } from "@/server/assistant/action-contracts/registry";
-import { spendOrApiError } from "@/server/billing/paywall";
-import { inngest } from "@/server/jobs/client";
-import { updateCampaign } from "@/server/repositories/campaign";
-import {
-  createDerivation,
-  getDerivationById,
-  updateDerivationStatus,
-} from "@/server/repositories/derivation";
+import { adaptFormat } from "@/server/application/adapt-format";
+import { prepareDeliveryPackage } from "@/server/application/prepare-delivery-package";
 import type { ActionExecutionContext } from "../types";
 import { AssistantActionExecutionError } from "../types";
 
@@ -22,82 +14,55 @@ export async function executeQuickFormatAdapt(ctx: ActionExecutionContext) {
     );
   }
 
-  const source = await getDerivationById(
-    parsed.data.sourceDerivationId,
-    ctx.workspaceId
-  );
-  if (!source) {
-    throw new AssistantActionExecutionError("Source derivation not found", "derivation_not_found");
-  }
-  if (!source.outputKey) {
-    throw new AssistantActionExecutionError(
-      "Source derivation has no output",
-      "execution_failed"
-    );
-  }
-
-  const creditError = await spendOrApiError({
+  const result = await adaptFormat({
     workspaceId: ctx.workspaceId,
-    action: "image_derivation",
-    amount: 5,
-    idempotencyKey: `assistant-action:${ctx.actionId}:quick_format_adapt`,
-    metadata: {
+    sourceDerivationId: parsed.data.sourceDerivationId,
+    targetFormat: parsed.data.targetFormat,
+    userId: ctx.userId,
+    locale: ctx.locale,
+    billingIdempotencyKey: `assistant-action:${ctx.actionId}:quick_format_adapt`,
+    billingMetadata: {
       actionId: ctx.actionId,
-      sourceDerivationId: source.id,
+      sourceDerivationId: parsed.data.sourceDerivationId,
       targetFormat: parsed.data.targetFormat,
     },
-    userId: ctx.userId,
-  });
-  if (creditError) {
-    throw new AssistantActionExecutionError("Insufficient credits", "credit_blocked");
-  }
-
-  const child = await createDerivation({
-    campaignId: source.campaignId,
-    workspaceId: ctx.workspaceId,
-    planId: source.planId ?? undefined,
-    parentId: source.id,
-    status: "queued",
-    generationMode: "format_adaptation",
-    variantIndex: source.variantIndex ?? undefined,
-    ctaText: source.ctaText ?? undefined,
-    format: parsed.data.targetFormat,
+    assistantActionId: ctx.actionId,
   });
 
-  try {
-    await inngest.send({
-      name: "derivation.generate",
-      data: {
-        derivationId: child.id,
-        campaignId: source.campaignId,
-        workspaceId: ctx.workspaceId,
-        triggeredByUserId: ctx.userId,
-        locale: ctx.locale,
-        generationMode: "format_adaptation",
-        variantIndex: source.variantIndex,
-        ctaText: source.ctaText,
-        format: parsed.data.targetFormat,
-        assistantActionId: ctx.actionId,
-      },
-    });
-  } catch (sendErr) {
-    logger.error(
-      `[executeQuickFormatAdapt] event send FAILED derivationId=${child.id}`,
-      sendErr
-    );
-    await updateDerivationStatus(child.id, ctx.workspaceId, "failed");
-    throw new AssistantActionExecutionError(
-      "Failed to queue format adaptation",
-      "execution_failed"
-    );
+  if (!result.ok) {
+    switch (result.error.code) {
+      case "derivation_not_found":
+        throw new AssistantActionExecutionError(
+          "Source derivation not found",
+          "derivation_not_found"
+        );
+      case "source_missing_output":
+        throw new AssistantActionExecutionError(
+          "Source derivation has no output",
+          "execution_failed"
+        );
+      case "credit_blocked":
+        throw new AssistantActionExecutionError(
+          "Insufficient credits",
+          "credit_blocked"
+        );
+      case "dispatch_failed":
+        throw new AssistantActionExecutionError(
+          "Failed to queue format adaptation",
+          "execution_failed"
+        );
+      default:
+        throw new AssistantActionExecutionError(
+          "Format adaptation failed",
+          "execution_failed"
+        );
+    }
   }
-
-  await updateCampaign(source.campaignId, ctx.workspaceId, { status: "generating" });
 
   return {
     mode: "async" as const,
-    jobRef: { kind: "derivation" as const, id: child.id },
-    resultSummary: `Format adaptation queued (${child.id})`,
+    jobRef: { kind: "derivation" as const, id: result.value.derivation.id },
+    resultSummary: `Format adaptation queued (${result.value.derivation.id})`,
   };
 }
 
@@ -108,108 +73,74 @@ export async function executeQuickPackage(ctx: ActionExecutionContext) {
     throw new AssistantActionExecutionError("Invalid quick_package inputs", "execution_failed");
   }
 
-  const source = await getDerivationById(
-    parsed.data.sourceDerivationId,
-    ctx.workspaceId
-  );
-  if (!source) {
-    throw new AssistantActionExecutionError("Source derivation not found", "derivation_not_found");
-  }
-  if (source.status !== "approved") {
-    throw new AssistantActionExecutionError(
-      "Source derivation must be approved",
-      "execution_failed"
-    );
-  }
-  if (!source.outputKey) {
-    throw new AssistantActionExecutionError(
-      "Source derivation missing output",
-      "execution_failed"
-    );
-  }
-
-  const approvable = assertDerivationApprovable(source);
-  if (!approvable.ok) {
-    throw new AssistantActionExecutionError(
-      "Source derivation has hard failures",
-      "execution_failed"
-    );
-  }
-
-  const requestedFormats = [...new Set(parsed.data.formats)];
-  const generatableFormats = requestedFormats.filter(
-    (format) => format !== source.format
-  );
-
-  if (generatableFormats.length === 0) {
-    throw new AssistantActionExecutionError(
-      "No additional formats to generate",
-      "execution_failed"
-    );
-  }
-
-  const creditError = await spendOrApiError({
+  const result = await prepareDeliveryPackage({
     workspaceId: ctx.workspaceId,
-    action: "delivery_package_child",
-    amount: generatableFormats.length * 5,
-    idempotencyKey: `assistant-action:${ctx.actionId}:quick_package`,
-    metadata: {
-      actionId: ctx.actionId,
-      sourceDerivationId: source.id,
-      formats: generatableFormats,
-    },
+    sourceDerivationId: parsed.data.sourceDerivationId,
+    formats: parsed.data.formats,
     userId: ctx.userId,
-  });
-  if (creditError) {
-    throw new AssistantActionExecutionError("Insufficient credits", "credit_blocked");
-  }
-
-  const firstFormat = generatableFormats[0] as string;
-  const child = await createDerivation({
-    campaignId: source.campaignId,
-    workspaceId: ctx.workspaceId,
-    planId: source.planId ?? undefined,
-    parentId: source.id,
-    status: "queued",
-    generationMode: "format_adaptation",
-    variantIndex: source.variantIndex ?? undefined,
-    ctaText: source.ctaText ?? undefined,
-    format: firstFormat,
+    locale: ctx.locale,
+    billingIdempotencyKey: `assistant-action:${ctx.actionId}:quick_package`,
+    billingMetadata: {
+      actionId: ctx.actionId,
+      sourceDerivationId: parsed.data.sourceDerivationId,
+    },
+    assistantActionId: ctx.actionId,
+    // Assistente still expects at least one new format (historical contract).
+    requireGeneratableFormats: true,
   });
 
-  try {
-    await inngest.send({
-      name: "derivation.generate",
-      data: {
-        derivationId: child.id,
-        campaignId: source.campaignId,
-        workspaceId: ctx.workspaceId,
-        triggeredByUserId: ctx.userId,
-        locale: ctx.locale,
-        generationMode: "format_adaptation",
-        variantIndex: source.variantIndex,
-        ctaText: source.ctaText,
-        format: firstFormat,
-        assistantActionId: ctx.actionId,
-      },
-    });
-  } catch (sendErr) {
-    logger.error(
-      `[executeQuickPackage] event send FAILED derivationId=${child.id}`,
-      sendErr
-    );
-    await updateDerivationStatus(child.id, ctx.workspaceId, "failed");
-    throw new AssistantActionExecutionError(
-      "Failed to queue package generation",
-      "execution_failed"
-    );
+  if (!result.ok) {
+    switch (result.error.code) {
+      case "derivation_not_found":
+        throw new AssistantActionExecutionError(
+          "Source derivation not found",
+          "derivation_not_found"
+        );
+      case "source_not_approved":
+        throw new AssistantActionExecutionError(
+          "Source derivation must be approved",
+          "execution_failed"
+        );
+      case "source_missing_output":
+        throw new AssistantActionExecutionError(
+          "Source derivation missing output",
+          "execution_failed"
+        );
+      case "derivation_hard_failures":
+        throw new AssistantActionExecutionError(
+          "Source derivation has hard failures",
+          "execution_failed"
+        );
+      case "no_formats_to_generate":
+        throw new AssistantActionExecutionError(
+          "No additional formats to generate",
+          "execution_failed"
+        );
+      case "credit_blocked":
+        throw new AssistantActionExecutionError(
+          "Insufficient credits",
+          "credit_blocked"
+        );
+      default:
+        throw new AssistantActionExecutionError(
+          "Package preparation failed",
+          "execution_failed"
+        );
+    }
   }
 
-  await updateCampaign(source.campaignId, ctx.workspaceId, { status: "generating" });
+  const firstQueued = result.value.queued[0];
+  if (!firstQueued) {
+    // All formats ready or already active — success without new job.
+    return {
+      mode: "sync" as const,
+      resultSummary: `Delivery package ready (formats: ${result.value.readyFormats.join(", ") || "none new"})`,
+    };
+  }
 
   return {
     mode: "async" as const,
-    jobRef: { kind: "derivation" as const, id: child.id },
-    resultSummary: `Package format queued (${child.id})`,
+    jobRef: { kind: "derivation" as const, id: firstQueued.id },
+    resultSummary: `Package formats queued (${result.value.queued.length})`,
   };
 }

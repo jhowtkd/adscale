@@ -1,7 +1,7 @@
 # Plano de convergência de produto e arquitetura do ADScale
 
 **Data:** 2026-07-12
-**Status:** Gate 3 aprovado — Fase 4 (save/review/regenerate/restyle; Persona diferida Gate 0)
+**Status:** Gate 3 aprovado — Fase 4 comandos canônicos no escopo (exceto Persona); pronto p/ Gate 4
 **Direção assumida:** trabalho criativo-first
 **Estratégia:** migração incremental com gates; nenhum big bang
 

@@ -31,7 +31,12 @@ vi.mock("@/server/jobs/client", () => ({
 }));
 
 vi.mock("@/server/billing/paywall", () => ({
+  spend: vi.fn(() => Promise.resolve({ ok: true, creditsSpent: 5 })),
   spendOrApiError: vi.fn(() => Promise.resolve(null)),
+}));
+
+vi.mock("@/server/memory/brand-memory-dispatch", () => ({
+  recordBrandMemoryEvent: vi.fn(() => Promise.resolve()),
 }));
 
 vi.mock("next-intl/server", () => ({
