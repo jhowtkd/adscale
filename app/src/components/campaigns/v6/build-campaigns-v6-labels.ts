@@ -7,7 +7,7 @@ export function buildCampaignsV6Labels(t: Translate, tc: Translate): CampaignsV6
   return {
     sectionLabel: t("v6.sectionWorks"),
     versionBadge: t("v6.versionBadge"),
-    title: t("v6.worksTitle"),
+    formatTitle: (count) => t("v6.worksTitle", { count }),
     subtitle: t("v6.worksSubtitle"),
     sortPrefix: t("v6.sortPrefix"),
     newCampaign: t("new"),

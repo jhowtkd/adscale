@@ -90,9 +90,7 @@ export default function CampaignsV6View({
   alternateView,
   emptyState,
 }: CampaignsV6ViewProps) {
-  const title = isLoading
-    ? labels.title
-    : labels.title.replace("{count}", String(totalCount));
+  const title = isLoading ? "" : labels.formatTitle(totalCount);
 
   return (
     <div className="space-y-6">

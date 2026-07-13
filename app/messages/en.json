@@ -816,6 +816,16 @@
       "sectionWorks": "Works",
       "worksTitle": "{count} works",
       "worksSubtitle": "Campaigns and posts in one place. Use the filter to group by type.",
+      "workStates": {
+        "intending": "In briefing",
+        "briefing": "Brief ready",
+        "generating": "Generating",
+        "reviewing": "In review",
+        "approved": "Approved",
+        "delivered": "Delivered",
+        "abandoned": "Abandoned",
+        "failed": "Failed"
+      },
       "originAll": "All",
       "originCampaigns": "Campaigns",
       "originPosts": "Posts",

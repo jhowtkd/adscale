@@ -24,7 +24,8 @@ export type CampaignV6Row = {
 export type CampaignsV6Labels = {
   sectionLabel: string;
   versionBadge: string;
-  title: string;
+  /** Interpolated title — always pass count (fixes IntlError on worksTitle). */
+  formatTitle: (count: number) => string;
   subtitle: string;
   sortPrefix: string;
   newCampaign: string;

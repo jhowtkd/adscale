@@ -177,10 +177,13 @@ function CampaignsListContent() {
               ? labels.originCampaigns
               : labels.originPosts,
           formatUpdated,
-          tState: (state) => state,
+          tState: (state) => {
+            const key = `v6.workStates.${state}` as Parameters<typeof t>[0];
+            return t.has(key) ? t(key) : state;
+          },
         })
       ),
-    [filteredWorks, campaignById, labels.originCampaigns, labels.originPosts]
+    [filteredWorks, campaignById, labels.originCampaigns, labels.originPosts, t]
   );
 
   // List = canonical works count; grid/board = campaign grouping count
@@ -435,7 +438,7 @@ function CampaignsV6ViewSkeleton() {
   const labels = {
     sectionLabel: "Trabalhos",
     versionBadge: "v1",
-    title: "{count} trabalhos",
+    formatTitle: () => "",
     subtitle: "",
     sortPrefix: "Ordenar",
     newCampaign: "Nova campanha",

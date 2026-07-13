@@ -4,7 +4,7 @@ import { previewCampaignList } from "../_fixtures/preview-data";
 export const previewCampaignsLabels: CampaignsV6Labels = {
   sectionLabel: "Trabalhos",
   versionBadge: "v1",
-  title: "12 trabalhos",
+  formatTitle: (count) => `${count} trabalhos`,
   subtitle: "Campanhas e posts no mesmo lugar. Use o filtro para agrupar por tipo.",
   sortPrefix: "Ordenar",
   newCampaign: "+ Nova campanha",
