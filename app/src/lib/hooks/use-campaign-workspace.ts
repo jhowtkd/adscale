@@ -1,54 +1,49 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import type { Derivation, AdPlatform, CampaignStatus } from "@/lib/mock-data";
 import { useAppStore } from "@/lib/store";
-import { useCampaign, useUpdateCampaign } from "@/lib/hooks/use-campaigns";
-import { useDeleteCampaign } from "@/lib/hooks/use-campaigns";
-import { useDerivations, useCreateDerivations, useRestyleCampaign } from "@/lib/hooks/use-derivations";
+import { useCampaign, useUpdateCampaign, useDeleteCampaign } from "@/lib/hooks/use-campaigns";
+import {
+  useDerivations,
+  useCreateDerivations,
+  useRestyleCampaign,
+} from "@/lib/hooks/use-derivations";
 import { useRegenerateDerivation } from "@/lib/hooks/use-regenerate";
 import { useExport } from "@/lib/hooks/use-export";
 import { useReviewDerivation } from "@/lib/hooks/use-review";
-import type { ReviewDecision } from "@/lib/hooks/use-review";
 import { useCreateDeliveryPackage } from "@/lib/hooks/use-delivery-package";
 import { useCreativeQa } from "@/lib/hooks/use-creative-qa";
 import { useGeneratePlan, useUpdatePlanStatus } from "./use-plan";
-import { useSaveDerivationAsReference } from "@/lib/hooks/use-client-profiles";
 import { useGenerateLandingPage } from "@/lib/hooks/use-landing-page";
-import type { DeliveryFormat } from "@/components/workspace/DeliveryPackageModal";
-import {
-  buildRegenerationFeedback,
-  derivationNeedsRegenerateDialog,
-} from "@/lib/derivation-display";
 import { useTranslations } from "next-intl";
-import {
-  getBatchCreditBreakdown,
-  type BatchCreditBreakdown,
-  type RecipeGenerationConfig,
-} from "@/server/ai/strategy-recipes";
-import {
-  getActivePreviewGateDerivation,
-  getReadyPreviewDerivation,
-  shouldAutoContinuePreview,
-  shouldShowPreviewGate,
-} from "@/server/ai/preview-gate";
 import { useMissionInsightOptional } from "@/components/mission-insights/MissionInsightProvider";
-import {
-  creditFrictionDiagnostic,
-  isInsufficientCreditsError,
-} from "@/lib/mission-insights/helpers";
 import type { OutputLearningApplicationSnapshot } from "@/server/human-quality/corpus";
+import { invalidateCanonicalWorks } from "@/lib/hooks/use-canonical-works";
+import { mapWorkspaceDerivations } from "@/lib/hooks/workspace/map-workspace-derivations";
+import {
+  resolveVisibleWorkspaceState,
+  useWorkspaceNavigation,
+  type WorkspaceSurfaceState,
+} from "@/lib/hooks/workspace/use-workspace-navigation";
+import { useWorkspaceProduce } from "@/lib/hooks/workspace/use-workspace-produce";
+import { useWorkspaceReview } from "@/lib/hooks/workspace/use-workspace-review";
+import { useWorkspaceDeliver } from "@/lib/hooks/workspace/use-workspace-deliver";
 
-export type WorkspaceState =
-  | "setup"            // upload + briefing
-  | "trabalho";        // action buttons + derivation grid (+ inline config / loading)
+/** @deprecated Prefer WorkspaceSurfaceState — kept for public API stability. */
+export type WorkspaceState = WorkspaceSurfaceState;
 
+/**
+ * Campaign workspace facade (Phase 6 / item 48).
+ * Composes narrow flow modules: navigation · produce · review · deliver.
+ */
 export function useCampaignWorkspace(
   campaignId: string,
   isNew: boolean,
-  options?: { pendingOutputLearningApplication?: OutputLearningApplicationSnapshot | null }
+  options?: {
+    pendingOutputLearningApplication?: OutputLearningApplicationSnapshot | null;
+  }
 ) {
   const pendingOutputLearningApplication =
     options?.pendingOutputLearningApplication ?? null;
@@ -90,7 +85,6 @@ export function useCampaignWorkspace(
   const exportMutation = useExport();
   const reviewMutation = useReviewDerivation();
   const createDeliveryPackage = useCreateDeliveryPackage();
-  const saveDerivationAsReference = useSaveDerivationAsReference();
   const generateLandingPage = useGenerateLandingPage();
   const creativeQa = useCreativeQa();
   const generatePlanMutation = useGeneratePlan(campaignId);
@@ -145,43 +139,39 @@ export function useCampaignWorkspace(
     setCurrentPageTitle(campaign?.name || tc("campaign"));
   }, [setCurrentPageTitle, campaign?.name, tc]);
 
-  // Workspace state
-  const [workspaceState, setWorkspaceState] = useState<WorkspaceState>("setup");
+  const nav = useWorkspaceNavigation();
+
   const hasActiveDerivations = Boolean(
     derivationsData?.some(
       (d) => d.status === "queued" || d.status === "processing"
     )
   );
-
-  // Loading state is now a derived boolean, not a state value.
-  // Active derivations (queued/processing) drive the "generating" UI while in trabalho.
   const isGenerating = hasActiveDerivations;
 
-  // Auto-promote to "trabalho" once derivations exist and we are past setup.
-  const visibleWorkspaceState =
-    !isLoading &&
-    !isNew &&
-    derivationsData &&
-    derivationsData.length > 0 &&
-    workspaceState === "setup"
-      ? "trabalho"
-      : workspaceState;
-
-  const goToSetup = useCallback(() => setWorkspaceState("setup"), []);
-  const goToTrabalho = useCallback(() => setWorkspaceState("trabalho"), []);
+  const visibleWorkspaceState = resolveVisibleWorkspaceState(
+    nav.workspaceState,
+    {
+      isLoading,
+      isNew,
+      derivationCount: derivationsData?.length ?? 0,
+    }
+  );
 
   const savePilot = useCallback(
-    async (assetId: string, briefing: {
-      product?: string;
-      offer?: string;
-      objective?: string;
-      audience?: string;
-      tone?: string;
-      platforms?: string;
-      ctaText?: string;
-      constraints?: string;
-      notes?: string;
-    }) => {
+    async (
+      assetId: string,
+      briefing: {
+        product?: string;
+        offer?: string;
+        objective?: string;
+        audience?: string;
+        tone?: string;
+        platforms?: string;
+        ctaText?: string;
+        constraints?: string;
+        notes?: string;
+      }
+    ) => {
       const res = await fetch(`/api/campaigns/${campaignId}/pilot`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -195,216 +185,63 @@ export function useCampaignWorkspace(
         throw new Error("Failed to save pilot");
       }
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId] });
-      setWorkspaceState("trabalho");
+      void invalidateCanonicalWorks(queryClient);
+      nav.setWorkspaceState("trabalho");
     },
-    [campaignId, queryClient]
+    [campaignId, queryClient, nav]
   );
 
-  const allDerivations = useMemo(() => {
-    const items = derivationsData ?? [];
-    const mapped = items.map((d, i) => {
-      const status: CampaignStatus =
-        d.status === "queued" || d.status === "processing"
-          ? "generating"
-          : (d.status as CampaignStatus) ?? "draft";
-      const platform: AdPlatform = "Meta";
-      const generationMode = (d.generationMode as "art_variation" | "format_adaptation" | "restyling" | undefined) ?? campaign?.generationMode;
-      const variantIndex = d.variantIndex ?? i;
-      const format = d.format ?? undefined;
-      const ctaText = d.ctaText ?? undefined;
-      const name = generationMode === "format_adaptation" && format
-        ? `${td("format")} ${format}`
-        : `${td("piece")} ${variantIndex + 1}`;
-      return {
-        id: d.id,
-        campaignId: d.campaignId,
-        name,
-        status,
-        platform,
-        prompt: d.prompt ?? "",
-        creditCost: d.cost ? d.cost / 100 : 2.4,
-        imageUrl: d.imageUrl ?? undefined,
-        outputKey: d.outputKey ?? undefined,
-        generationMode,
-        variantIndex,
-        format,
-        ctaText,
-        qualityScore: d.qualityScore ?? undefined,
-        scoreStatus: d.scoreStatus ?? undefined,
-        scoreIssues: d.scoreIssues ?? undefined,
-        regenerationSuggestion: d.regenerationSuggestion ?? undefined,
-        regenerationPrimaryReason: d.regenerationPrimaryReason ?? undefined,
-        regenerationIssueBreakdown: d.regenerationIssueBreakdown ?? undefined,
-        qaStatus: d.qaStatus ?? undefined,
-        qaChecklist: d.qaChecklist ?? undefined,
-        qaIssues: d.qaIssues ?? undefined,
-        qualityVerdict: d.qualityVerdict ?? undefined,
-        hardFailures: d.hardFailures ?? undefined,
-        polishSuggestions: d.polishSuggestions ?? undefined,
-        styleAssetId: d.styleAssetId ?? undefined,
-        isPreview: d.isPreview,
-        autoRetryAttempted: d.autoRetryAttempted,
-        autoRetryReason: d.autoRetryReason ?? undefined,
-        createdAt: d.createdAt,
-        updatedAt: d.updatedAt,
-      };
-    });
-    return mapped;
-  }, [derivationsData, campaign, td]);
+  const allDerivations = useMemo(
+    () =>
+      mapWorkspaceDerivations(
+        (derivationsData ?? []) as Parameters<typeof mapWorkspaceDerivations>[0],
+        campaign,
+        td
+      ),
+    [derivationsData, campaign, td]
+  );
 
   const approvedDerivation = useMemo(
     () => allDerivations.find((derivation) => derivation.status === "approved"),
     [allDerivations]
   );
 
-  const [savingReferenceId, setSavingReferenceId] = useState<string | null>(null);
-  const [deliveryModalOpen, setDeliveryModalOpen] = useState(false);
-  const [selectedDeliverySource, setSelectedDeliverySource] = useState<Derivation | null>(null);
-  const [reviewDerivationId, setReviewDerivationId] = useState<string | null>(null);
-  const [regenerateDialog, setRegenerateDialog] = useState<{
-    id: string;
-    feedback: string;
-    primaryReason?: string;
-    issueBreakdown?: import("@/lib/regeneration-preview-types").RegenerationIssueBreakdown;
-  } | null>(null);
+  const produce = useWorkspaceProduce({
+    campaignId,
+    isNew,
+    campaign,
+    allDerivations,
+    currentRoute,
+    pendingOutputLearningApplication,
+    createDerivations: createDerivations as never,
+    restyleCampaign: restyleCampaign as never,
+    updateCampaign: updateCampaign as never,
+    setWorkspaceState: nav.setWorkspaceState,
+    addToast,
+    tc,
+    missionInsight,
+  });
 
-  const handleDeliveryModalOpenChange = useCallback((open: boolean) => {
-    setDeliveryModalOpen(open);
-    if (!open) setSelectedDeliverySource(null);
-  }, []);
+  const review = useWorkspaceReview({
+    campaignId,
+    allDerivations,
+    regenerateMutation: regenerateMutation as never,
+    reviewMutation: reviewMutation as never,
+    creativeQa: creativeQa as never,
+    addToast,
+    tc,
+    missionInsight,
+  });
 
-  const handleGenerateDerivations = useCallback(
-    (options?: { preview?: boolean }) => {
-      if (createDerivations.isPending) return;
-      createDerivations.mutate(
-        {
-          preview: options?.preview ?? false,
-          ...(pendingOutputLearningApplication
-            ? { outputLearningApplication: pendingOutputLearningApplication }
-            : {}),
-        },
-        {
-          onSuccess: () => {
-            addToast("success", options?.preview ? tc("previewQueued") : tc("derivationsQueued"));
-            setWorkspaceState("trabalho");
-            if (campaign && !isNew) updateCampaign.mutate({ status: "generating" });
-            if (options?.preview && missionInsight) {
-              missionInsight.maybePromptMissionInsight({
-                moment: "preview_first",
-                missionKey: "preview",
-                campaignId: campaignId !== "new" ? campaignId : undefined,
-                route: currentRoute,
-                diagnosticContext: { isPreview: true, operation: "preview_generate" },
-              });
-            }
-          },
-          onError: (error) => {
-            addToast("error", options?.preview ? tc("failedQueuePreview") : tc("failedQueueDerivations"));
-            setWorkspaceState("trabalho");
-            if (isInsufficientCreditsError(error) && missionInsight) {
-              missionInsight.maybePromptMissionInsight({
-                moment: "credit_friction",
-                missionKey: options?.preview ? "preview" : "batch",
-                campaignId: campaignId !== "new" ? campaignId : undefined,
-                route: currentRoute,
-                diagnosticContext: creditFrictionDiagnostic(error),
-              });
-            }
-          },
-        }
-      );
-    },
-    [
-      createDerivations,
-      campaign,
-      isNew,
-      updateCampaign,
-      addToast,
-      tc,
-      campaignId,
-      missionInsight,
-      currentRoute,
-      pendingOutputLearningApplication,
-    ]
-  );
-
-  const configureAndGenerate = useCallback(
-    async (
-      config: {
-        generationMode: "art_variation" | "format_adaptation";
-        ctaVariants?: string[];
-        targetFormats?: string[];
-        creativeLevel?: string;
-      },
-      options?: { preview?: boolean }
-    ) => {
-      if (!campaign || isNew) return;
-
-      try {
-        await updateCampaign.mutateAsync({
-          generationMode: config.generationMode,
-          ...(config.ctaVariants && { ctaVariants: config.ctaVariants }),
-          ...(config.targetFormats && { targetFormats: config.targetFormats }),
-          ...(config.creativeLevel && {
-            creativeLevel: config.creativeLevel as
-              | "conservative"
-              | "balanced"
-              | "bold"
-              | "extreme",
-          }),
-        });
-        handleGenerateDerivations({ preview: options?.preview ?? false });
-      } catch {
-        addToast("error", tc("failedQueueDerivations"));
-      }
-    },
-    [campaign, isNew, updateCampaign, handleGenerateDerivations, addToast, tc]
-  );
-
-  const approvePreviewToBatch = useCallback(() => {
-    if (createDerivations.isPending) return;
-    handleGenerateDerivations();
-  }, [createDerivations.isPending, handleGenerateDerivations]);
-
-  // Auto-continue preview → batch when quality is acceptable (no manual gate).
-  const autoContinuedPreviewIdRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!shouldAutoContinuePreview(allDerivations)) return;
-    if (createDerivations.isPending) return;
-    const readyPreview = getReadyPreviewDerivation(allDerivations);
-    if (!readyPreview?.id) return;
-    if (autoContinuedPreviewIdRef.current === readyPreview.id) return;
-
-    autoContinuedPreviewIdRef.current = readyPreview.id;
-    handleGenerateDerivations();
-  }, [allDerivations, createDerivations.isPending, handleGenerateDerivations]);
-
-  // Allow a later retry if auto-continue failed to enqueue the batch.
-  useEffect(() => {
-    if (createDerivations.isError) {
-      autoContinuedPreviewIdRef.current = null;
-    }
-  }, [createDerivations.isError]);
-
-  const handleRestyle = useCallback(
-    async (input: { styleAssetIds?: string[]; styleIntensity?: string }) => {
-      if (!campaign || isNew) return;
-      if (restyleCampaign.isPending) return;
-
-      setWorkspaceState("trabalho");
-      restyleCampaign.mutate(input, {
-        onSuccess: () => {
-          addToast("success", tc("derivationsQueued"));
-          setWorkspaceState("trabalho");
-        },
-        onError: () => {
-          addToast("error", tc("failedQueueDerivations"));
-          setWorkspaceState("trabalho");
-        },
-      });
-    },
-    [restyleCampaign, campaign, isNew, addToast, tc]
-  );
+  const deliver = useWorkspaceDeliver({
+    campaignId,
+    allDerivations,
+    exportMutation: exportMutation as never,
+    createDeliveryPackage: createDeliveryPackage as never,
+    addToast,
+    tc,
+    missionInsight,
+  });
 
   const handleGenerateLandingPage = useCallback(
     (id: string) => generateLandingPage.mutate({ derivationId: id }),
@@ -412,269 +249,13 @@ export function useCampaignWorkspace(
   );
 
   const handleSaveAsReference = useCallback(
-    (id: string) => {
+    (_id: string) => {
       addToast("info", "Feature unavailable");
     },
     [addToast]
   );
 
-  const previewDerivation = useMemo(
-    () => getActivePreviewGateDerivation(allDerivations),
-    [allDerivations]
-  );
-
-  const showPreviewGate = useMemo(
-    () => shouldShowPreviewGate(allDerivations),
-    [allDerivations]
-  );
-
-  const batchRecipeConfig = useMemo((): RecipeGenerationConfig | null => {
-    if (!campaign) return null;
-    const generationMode =
-      campaign.generationMode === "format_adaptation"
-        ? "format_adaptation"
-        : "art_variation";
-    return {
-      generationMode,
-      creativeLevel:
-        (campaign.creativeLevel as RecipeGenerationConfig["creativeLevel"]) ??
-        "balanced",
-      ctaVariants: (campaign.ctaVariants ?? [])
-        .map((cta) => cta.trim())
-        .filter(Boolean),
-      targetFormats:
-        generationMode === "format_adaptation"
-          ? (campaign.targetFormats ?? [])
-          : undefined,
-      preservationEmphasis: "medium",
-    };
-  }, [campaign]);
-
-  const batchCreditBreakdown = useMemo((): BatchCreditBreakdown | null => {
-    if (!batchRecipeConfig) return null;
-    return getBatchCreditBreakdown(batchRecipeConfig);
-  }, [batchRecipeConfig]);
-
-  const batchCreditEstimate = batchCreditBreakdown?.totalCredits ?? 0;
-
-  const hasActivePreview = Boolean(previewDerivation);
-
-  const handlePreview = useCallback((id: string) => {
-    setReviewDerivationId(id);
-  }, []);
-
-  const handleCloseReview = useCallback(() => {
-    setReviewDerivationId(null);
-  }, []);
-
-  const handleRequestRegenerate = useCallback(
-    (id: string, feedback?: string) => {
-      const derivation = allDerivations.find((item) => item.id === id);
-      if (!derivation) {
-        regenerateMutation.mutate({ id, feedback });
-        return;
-      }
-
-      const built = buildRegenerationFeedback({
-        regenerationSuggestion: derivation.regenerationSuggestion,
-        hardFailures: derivation.hardFailures,
-        regenerationPrimaryReason: derivation.regenerationPrimaryReason,
-        regenerationIssueBreakdown: derivation.regenerationIssueBreakdown,
-      });
-
-      const preset = feedback ?? built.feedbackText;
-      const needsDialog = derivationNeedsRegenerateDialog({
-        hardFailures: derivation.hardFailures,
-        regenerationSuggestion: derivation.regenerationSuggestion,
-        regenerationPrimaryReason: derivation.regenerationPrimaryReason,
-        qualityVerdict: derivation.qualityVerdict,
-        qaChecklist: derivation.qaChecklist,
-      });
-
-      if (needsDialog || preset.trim()) {
-        setRegenerateDialog({
-          id,
-          feedback: preset,
-          primaryReason: built.primaryReason,
-          issueBreakdown: built.issueBreakdown,
-        });
-        return;
-      }
-
-      regenerateMutation.mutate({ id, feedback: undefined });
-    },
-    [allDerivations, regenerateMutation]
-  );
-
-  const handleConfirmRegenerate = useCallback(
-    (feedback: string) => {
-      if (!regenerateDialog) return;
-      regenerateMutation.mutate(
-        { id: regenerateDialog.id, feedback },
-        {
-          onSuccess: () => {
-            setRegenerateDialog(null);
-            setReviewDerivationId(null);
-            missionInsight?.maybePromptMissionInsight({
-              moment: "regeneration_first",
-              missionKey: "regeneration",
-              campaignId,
-              derivationId: regenerateDialog.id,
-              diagnosticContext: { operation: "regenerate" },
-            });
-          },
-        }
-      );
-    },
-    [regenerateDialog, regenerateMutation, missionInsight, campaignId]
-  );
-
-  const handleCloseRegenerateDialog = useCallback((open: boolean) => {
-    if (!open) {
-      setRegenerateDialog(null);
-    }
-  }, []);
-
-  const handleDownloadDerivation = useCallback(
-    (id: string) =>
-      exportMutation.mutate(
-        { type: "individual", derivationId: id, format: "png" },
-        {
-          onSuccess: () => {
-            missionInsight?.maybePromptMissionInsight({
-              moment: "export_first",
-              missionKey: "export",
-              campaignId,
-              derivationId: id,
-              diagnosticContext: { operation: "export", format: "png" },
-            });
-          },
-        }
-      ),
-    [exportMutation, missionInsight, campaignId]
-  );
-
-  const handleRegenerateDerivation = useCallback(
-    (id: string, feedback?: string) => handleRequestRegenerate(id, feedback),
-    [handleRequestRegenerate]
-  );
-
-  const handleApproveDerivation = useCallback(
-    (id: string) => reviewMutation.mutate({ id, decision: "entra" }),
-    [reviewMutation]
-  );
-
-  const handleRejectDerivation = useCallback(
-    (id: string, directionReason?: string) =>
-      reviewMutation.mutate(
-        {
-          id,
-          decision: "nao_entra",
-          ...(directionReason ? { directionReason } : {}),
-        },
-        {
-          onSuccess: () => {
-            missionInsight?.maybePromptMissionInsight({
-              moment: "rejection_first",
-              missionKey: "review",
-              campaignId,
-              derivationId: id,
-              diagnosticContext: { derivationStatus: "rejected" },
-            });
-          },
-        }
-      ),
-    [reviewMutation, missionInsight, campaignId]
-  );
-
-  const handleReviewDecision = useCallback(
-    (
-      id: string,
-      input: {
-        decision: ReviewDecision;
-        directionReason?: string;
-        overrideReason?: string;
-      }
-    ) => {
-      reviewMutation.mutate(
-        { id, ...input },
-        {
-          onSuccess: (_data, variables) => {
-            if (variables.decision === "quase_regenerar" && variables.directionReason) {
-              regenerateMutation.mutate({
-                id,
-                feedback: variables.directionReason,
-              });
-            }
-            if (variables.decision === "nao_entra") {
-              missionInsight?.maybePromptMissionInsight({
-                moment: "rejection_first",
-                missionKey: "review",
-                campaignId,
-                derivationId: id,
-                diagnosticContext: { derivationStatus: "rejected" },
-              });
-            }
-          },
-        }
-      );
-    },
-    [reviewMutation, regenerateMutation, missionInsight, campaignId]
-  );
-
-  const handleRunQa = useCallback(
-    (id: string) => {
-      creativeQa.mutate(
-        { derivationId: id },
-        {
-          onSuccess: () => addToast("success", tc("creativeQaComplete")),
-          onError: () => addToast("error", tc("creativeQaFailed")),
-        }
-      );
-    },
-    [creativeQa, addToast, tc]
-  );
-
-  const handleCreateDeliveryPackage = useCallback(
-    (id: string) => {
-      const derivation = allDerivations.find((d) => d.id === id);
-      if (derivation) {
-        setSelectedDeliverySource(derivation);
-        setDeliveryModalOpen(true);
-      }
-    },
-    [allDerivations]
-  );
-
-  const handleConfirmDeliveryPackage = useCallback(
-    (formats: DeliveryFormat[]) => {
-      if (!selectedDeliverySource) return;
-      createDeliveryPackage.mutate(
-        { derivationId: selectedDeliverySource.id, formats },
-        {
-          onSuccess: () => {
-            addToast("success", tc("packageQueued"));
-            handleDeliveryModalOpenChange(false);
-          },
-          onError: () => addToast("error", tc("packageFailed")),
-        }
-      );
-    },
-    [selectedDeliverySource, createDeliveryPackage, addToast, tc, handleDeliveryModalOpenChange]
-  );
-
-  const handleExportDerivation = useCallback(
-    (id: string, format: string) => {
-      exportMutation.mutate({ type: "individual", derivationId: id, format: format as "png" | "jpeg" | "webp" });
-    },
-    [exportMutation]
-  );
-
-  const handleDownloadDeliverySource = useCallback(() => {
-    if (!selectedDeliverySource) return;
-    handleExportDerivation(selectedDeliverySource.id, "png");
-  }, [selectedDeliverySource, handleExportDerivation]);
-
+  const [savingReferenceId] = useState<string | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const handleDeleteClick = useCallback(() => {
@@ -706,60 +287,59 @@ export function useCampaignWorkspace(
     refetchDerivations,
     allDerivations,
     approvedDerivation,
-    reviewDerivationId,
-    regenerateDialog,
+    reviewDerivationId: review.reviewDerivationId,
+    regenerateDialog: review.regenerateDialog,
     workspaceState: visibleWorkspaceState,
     isGenerating,
     savingReferenceId,
-    deliveryModalOpen,
-    selectedDeliverySource,
-    handleDeliveryModalOpenChange,
-    goToSetup,
-    goToTrabalho,
+    deliveryModalOpen: deliver.deliveryModalOpen,
+    selectedDeliverySource: deliver.selectedDeliverySource,
+    handleDeliveryModalOpenChange: deliver.handleDeliveryModalOpenChange,
+    goToSetup: nav.goToSetup,
+    goToTrabalho: nav.goToTrabalho,
     savePilot,
-    handleGenerateDerivations,
-    configureAndGenerate,
-    handleRestyle,
+    handleGenerateDerivations: produce.handleGenerateDerivations,
+    configureAndGenerate: produce.configureAndGenerate,
+    handleRestyle: produce.handleRestyle,
     handleGenerateLandingPage,
     handleSaveAsReference,
-    hasActivePreview,
-    previewDerivation,
-    showPreviewGate,
-    batchCreditEstimate,
-    batchCreditBreakdown,
-    approvePreviewToBatch,
-    handlePreview,
-    handleCloseReview,
-    handleRequestRegenerate,
-    handleConfirmRegenerate,
-    handleCloseRegenerateDialog,
-    handleDownloadDerivation,
-    handleRegenerateDerivation,
-    handleApproveDerivation,
-    handleRejectDerivation,
-    handleReviewDecision,
-    handleRunQa,
-    handleCreateDeliveryPackage,
-    handleConfirmDeliveryPackage,
-    handleDownloadDeliverySource,
-    handleExportDerivation,
+    hasActivePreview: produce.hasActivePreview,
+    previewDerivation: produce.previewDerivation,
+    showPreviewGate: produce.showPreviewGate,
+    batchCreditEstimate: produce.batchCreditEstimate,
+    batchCreditBreakdown: produce.batchCreditBreakdown,
+    approvePreviewToBatch: produce.approvePreviewToBatch,
+    handlePreview: review.handlePreview,
+    handleCloseReview: review.handleCloseReview,
+    handleRequestRegenerate: review.handleRequestRegenerate,
+    handleConfirmRegenerate: review.handleConfirmRegenerate,
+    handleCloseRegenerateDialog: review.handleCloseRegenerateDialog,
+    handleDownloadDerivation: deliver.handleDownloadDerivation,
+    handleRegenerateDerivation: review.handleRegenerateDerivation,
+    handleApproveDerivation: review.handleApproveDerivation,
+    handleRejectDerivation: review.handleRejectDerivation,
+    handleReviewDecision: review.handleReviewDecision,
+    handleRunQa: review.handleRunQa,
+    handleCreateDeliveryPackage: deliver.handleCreateDeliveryPackage,
+    handleConfirmDeliveryPackage: deliver.handleConfirmDeliveryPackage,
+    handleDownloadDeliverySource: deliver.handleDownloadDeliverySource,
+    handleExportDerivation: deliver.handleExportDerivation,
     handleDelete,
     handleDeleteClick,
     showDeleteDialog,
     setShowDeleteDialog,
-    // Mutation pending states for UI
-    creativeQaPending: creativeQa.isPending,
-    creativeQaVariables: creativeQa.variables,
-    reviewPending: reviewMutation.isPending,
-    reviewVariables: reviewMutation.variables,
-    regeneratePending: regenerateMutation.isPending,
-    regenerateVariables: regenerateMutation.variables,
+    creativeQaPending: review.creativeQaPending,
+    creativeQaVariables: review.creativeQaVariables,
+    reviewPending: review.reviewPending,
+    reviewVariables: review.reviewVariables,
+    regeneratePending: review.regeneratePending,
+    regenerateVariables: review.regenerateVariables,
     landingPagePending: generateLandingPage.isPending,
     landingPageVariables: generateLandingPage.variables,
-    createDerivationsPending: createDerivations.isPending,
-    restylePending: restyleCampaign.isPending,
-    exportPending: exportMutation.isPending,
-    deliveryPackagePending: createDeliveryPackage.isPending,
+    createDerivationsPending: produce.createDerivationsPending,
+    restylePending: produce.restylePending,
+    exportPending: deliver.exportPending,
+    deliveryPackagePending: deliver.deliveryPackagePending,
     generatePlanPending: generatePlanMutation.isPending,
     updatePlanStatusPending: updatePlanStatusMutation.isPending,
   };
