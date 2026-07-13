@@ -97,7 +97,7 @@ describe("StrategyRecipePanel", () => {
     expect(screen.getByText("recipes.visual_differentiation.name")).toBeInTheDocument();
   });
 
-  it("does not display credit cost before execution", () => {
+  it("displays server-derived preview and batch credits", () => {
     render(
       <StrategyRecipePanel
         campaignId="camp-1"
@@ -108,10 +108,8 @@ describe("StrategyRecipePanel", () => {
       />
     );
 
-    expect(screen.queryByText(/creditPreview/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/creditBatchEstimate/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/créditos/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/credits/i)).not.toBeInTheDocument();
+    expect(screen.getByTestId("strategy-recipe-preview-credits")).toBeInTheDocument();
+    expect(screen.getByTestId("strategy-recipe-batch-credits")).toBeInTheDocument();
   });
 
   it("emits cockpit_stage_entered when open", () => {
