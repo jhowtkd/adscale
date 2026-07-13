@@ -2,11 +2,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { StrictMode, useEffect } from "react";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { useCampaignsPage } from "./useCampaignsPage";
-import {
-  fetchTemplate,
-  materializeTemplate,
-  TemplateLoadError,
-} from "@/lib/hooks/use-templates";
+import { fetchTemplate, TemplateLoadError } from "@/lib/hooks/use-templates";
 import { toast } from "sonner";
 
 const replaceMock = vi.fn();
@@ -21,6 +17,8 @@ vi.mock("next-intl", () => ({
 }));
 
 const mutateMock = vi.fn();
+const materializeMutateMock = vi.fn();
+const materializePendingRef = { current: false };
 
 vi.mock("@/lib/hooks/use-campaigns", () => ({
   useCampaigns: () => ({
@@ -48,6 +46,10 @@ vi.mock("@/lib/hooks/use-templates", async () => {
   return {
     fetchTemplate: vi.fn(),
     materializeTemplate: vi.fn(),
+    useMaterializeTemplate: () => ({
+      mutate: materializeMutateMock,
+      isPending: materializePendingRef.current,
+    }),
     TemplateLoadError,
   };
 });
@@ -57,7 +59,6 @@ vi.mock("sonner", () => ({
 }));
 
 const mockFetchTemplate = vi.mocked(fetchTemplate);
-const mockMaterializeTemplate = vi.mocked(materializeTemplate);
 
 function createSearchParams(initial: Record<string, string> = {}) {
   const params = { ...initial };
@@ -157,6 +158,8 @@ describe("useCampaignsPage template materialization states", () => {
   beforeEach(() => {
     vi.useRealTimers();
     mutateMock.mockReset();
+    materializeMutateMock.mockReset();
+    materializePendingRef.current = false;
     mockFetchTemplate.mockReset();
     vi.mocked(toast.error).mockReset();
     window.history.replaceState(null, "", "/campaigns");
@@ -283,7 +286,9 @@ describe("useCampaignsPage template materialization states", () => {
   it("create failure keeps template params until dismiss", async () => {
     const id = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa6";
     mockFetchTemplate.mockResolvedValue(makeTemplate(id));
-    mockMaterializeTemplate.mockRejectedValue(new Error("create failed"));
+    materializeMutateMock.mockImplementation((_payload, opts) => {
+      opts?.onError?.(new Error("create failed"));
+    });
 
     const searchParams = createSearchParams({ templateId: id });
     const replaceStateSpy = vi.spyOn(window.history, "replaceState");
@@ -294,7 +299,7 @@ describe("useCampaignsPage template materialization states", () => {
     });
 
     const callsBeforeCreate = replaceStateSpy.mock.calls.length;
-    await act(async () => {
+    act(() => {
       result.current.handleCreateCampaign({
         name: "X",
         client: "Y",
@@ -302,22 +307,24 @@ describe("useCampaignsPage template materialization states", () => {
       });
     });
 
-    expect(mockMaterializeTemplate).toHaveBeenCalledWith(id, {
-      name: "X",
-      client: "Y",
-    });
+    expect(materializeMutateMock).toHaveBeenCalledWith(
+      { templateId: id, name: "X", client: "Y" },
+      expect.any(Object)
+    );
     expect(mutateMock).not.toHaveBeenCalled();
     expect(result.current.modalOpen).toBe(true);
     expect(replaceStateSpy.mock.calls.length).toBe(callsBeforeCreate);
     replaceStateSpy.mockRestore();
   });
 
-  it("Usar template calls materialize API not createCampaign", async () => {
+  it("Usar template calls materialize mutation not createCampaign", async () => {
     const id = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa8";
     mockFetchTemplate.mockResolvedValue(makeTemplate(id));
-    mockMaterializeTemplate.mockResolvedValue({
-      campaign: { id: "camp-from-template", name: "From Template" },
-      canonical: { id: "campaign:camp-from-template" },
+    materializeMutateMock.mockImplementation((_payload, opts) => {
+      opts?.onSuccess?.({
+        campaign: { id: "camp-from-template", name: "From Template" },
+        canonical: { id: "campaign:camp-from-template" },
+      });
     });
 
     const searchParams = createSearchParams({ templateId: id });
@@ -327,7 +334,7 @@ describe("useCampaignsPage template materialization states", () => {
       expect(result.current.modalOpen).toBe(true);
     });
 
-    await act(async () => {
+    act(() => {
       result.current.handleCreateCampaign({
         name: "From Template",
         client: "Acme",
@@ -335,12 +342,44 @@ describe("useCampaignsPage template materialization states", () => {
       });
     });
 
-    expect(mockMaterializeTemplate).toHaveBeenCalledWith(id, {
-      name: "From Template",
-      client: "Acme",
-    });
+    expect(materializeMutateMock).toHaveBeenCalledWith(
+      { templateId: id, name: "From Template", client: "Acme" },
+      expect.any(Object)
+    );
     expect(mutateMock).not.toHaveBeenCalled();
     expect(pushMock).toHaveBeenCalledWith("/campaigns/camp-from-template");
+  });
+
+  it("blocks double-submit while materialize is pending", async () => {
+    const id = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa9";
+    mockFetchTemplate.mockResolvedValue(makeTemplate(id));
+    materializePendingRef.current = true;
+    materializeMutateMock.mockClear();
+
+    const searchParams = createSearchParams({ templateId: id });
+    const { result } = renderHook(() => useCampaignsPage(searchParams));
+
+    await waitFor(() => {
+      expect(result.current.modalOpen).toBe(true);
+    });
+
+    expect(result.current.createPending).toBe(true);
+
+    act(() => {
+      result.current.handleCreateCampaign({
+        name: "Dup",
+        client: "Acme",
+        clientProfileId: null,
+      });
+      result.current.handleCreateCampaign({
+        name: "Dup",
+        client: "Acme",
+        clientProfileId: null,
+      });
+    });
+
+    expect(materializeMutateMock).not.toHaveBeenCalled();
+    materializePendingRef.current = false;
   });
 
   it("refetches the same templateId after Strict Mode remount", async () => {

@@ -84,6 +84,26 @@ export async function materializeTemplate(
   return res.json();
 }
 
+/** Mutation with campaigns/dashboard invalidation + isPending for double-submit. */
+export function useMaterializeTemplate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      templateId,
+      name,
+      client,
+    }: {
+      templateId: string;
+      name: string;
+      client: string;
+    }) => materializeTemplate(templateId, { name, client }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["campaigns"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+  });
+}
+
 async function createTemplate(payload: {
   campaignId: string;
   name: string;

@@ -14,7 +14,7 @@ import {
 } from "@/lib/hooks/use-campaigns";
 import {
   fetchTemplate,
-  materializeTemplate,
+  useMaterializeTemplate,
   TemplateLoadError,
   type CampaignTemplate,
 } from "@/lib/hooks/use-templates";
@@ -46,6 +46,7 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
   const tTemplate = useTranslations("template");
 
   const createCampaign = useCreateCampaign();
+  const materializeFromTemplate = useMaterializeTemplate();
   const updateCampaigns = useUpdateCampaigns();
   const deleteCampaigns = useDeleteCampaigns();
   const duplicateCampaign = useDuplicateCampaign();
@@ -382,28 +383,36 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
       client: string;
       clientProfileId: string | null;
     }) => {
+      // Guard double-submit while either create path is in flight.
+      if (createCampaign.isPending || materializeFromTemplate.isPending) {
+        return;
+      }
+
       const fromTemplate = loadedTemplate;
 
       // Phase 5 / item 39: Usar template → server materialize (not client merge).
       if (fromTemplate) {
-        void materializeTemplate(fromTemplate.id, {
-          name: data.name,
-          client: data.client,
-        })
-          .then(({ campaign }) => {
-            toast.success(tc("campaignCreated", { name: data.name }));
-            setModalOpen(false);
-            setLoadedTemplate(null);
-            setTemplateLoadState("idle");
-            activeTemplateLoadRef.current = null;
-            clearCreationQueryParams();
-            router.push(`/campaigns/${campaign.id}`);
-          })
-          .catch((err: unknown) => {
-            const message =
-              err instanceof Error ? err.message : tc("failedCreateCampaign");
-            toast.error(message);
-          });
+        materializeFromTemplate.mutate(
+          {
+            templateId: fromTemplate.id,
+            name: data.name,
+            client: data.client,
+          },
+          {
+            onSuccess: ({ campaign }) => {
+              toast.success(tc("campaignCreated", { name: data.name }));
+              setModalOpen(false);
+              setLoadedTemplate(null);
+              setTemplateLoadState("idle");
+              activeTemplateLoadRef.current = null;
+              clearCreationQueryParams();
+              router.push(`/campaigns/${campaign.id}`);
+            },
+            onError: (err) => {
+              toast.error(err.message || tc("failedCreateCampaign"));
+            },
+          }
+        );
         return;
       }
 
@@ -426,7 +435,14 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
         }
       );
     },
-    [createCampaign, router, tc, loadedTemplate, clearCreationQueryParams]
+    [
+      createCampaign,
+      materializeFromTemplate,
+      router,
+      tc,
+      loadedTemplate,
+      clearCreationQueryParams,
+    ]
   );
 
   const handleDuplicate = useCallback(
@@ -587,7 +603,8 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
     modalInitialValues,
     retryTemplateLoad,
     dismissTemplateFlow,
-    createPending: createCampaign.isPending,
+    createPending:
+      createCampaign.isPending || materializeFromTemplate.isPending,
     t,
     tc,
     te,
