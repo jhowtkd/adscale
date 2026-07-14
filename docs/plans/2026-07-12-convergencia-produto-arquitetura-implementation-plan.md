@@ -1,7 +1,7 @@
 # Plano de convergência de produto e arquitetura do ADScale
 
 **Data:** 2026-07-12
-**Status:** Fase 7 em andamento — itens 51–56 concluídos; item 57 é o próximo; 40–42 diferidos
+**Status:** Fase 7 em andamento — itens 51–57 concluídos; item 58 é o próximo; 40–42 diferidos
 **Direção assumida:** trabalho criativo-first
 **Estratégia:** migração incremental com gates; nenhum big bang
 
@@ -270,7 +270,7 @@ Cada item abaixo deve resultar em um commit pequeno e manter a aplicação funci
 54. Apagar rotas, mappers e módulos de preview sem uso restante. **Concluído em 2026-07-14** — árvore `/v6` removida e protegida pelo `convergence:gate`.
 55. Esconder Landing Page e Persona Simulation da navegação quando não houver evidência de uso decisório. **Concluído em 2026-07-14** — adapters de UI e Assistente removidos; engines, APIs, repositórios e persistência permanecem congelados e sem entrada visível.
 56. Manter imports de performance e hipóteses somente se completarem o loop de aprendizado com dados reais. **Concluído em 2026-07-14** — removidos adapters, rotas e implementação server-side após a única amostra disponível ser identificada como UAT sintético; tipos ligados ao schema ficam para o item 58. Output learning permanece por ser um loop canônico separado e ativo.
-57. Dividir o painel owner de qualidade por tarefa, preservando uma consulta compartilhada apenas onde houver invariantes comuns.
+57. Dividir o painel owner de qualidade por tarefa, preservando uma consulta compartilhada apenas onde houver invariantes comuns. **Concluído em 2026-07-14** — analytics de produto e corpus são superfícies irmãs; fila, candidatos, calibração, impacto, qualidade, cobertura e tendência possuem componentes e consultas próprios, montados apenas na tarefa ativa. Escopo e filtro de coorte permanecem compartilhados onde são invariantes de navegação.
 58. Organizar schema e persistência por domínio sem criar abstrações genéricas com um único adapter.
 
 **Gate 7:** não há segunda árvore de produto e toda função visível sustenta a jornada central ou tem evidência de uso.

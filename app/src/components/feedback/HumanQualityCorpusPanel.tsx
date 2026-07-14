@@ -2095,12 +2095,85 @@ function CoverageTabContent({
   );
 }
 
-export function HumanQualityCorpusPanel() {
-  const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<PanelTab>("queue");
-  const [corpusScope, setCorpusScope] = useState<CorpusScope>("global");
-  const [workspaceId, setWorkspaceId] = useState("");
-  const [queueFilters, setQueueFilters] = useState<CorpusQueueFilterState>(DEFAULT_QUEUE_FILTERS);
+type ScopedQualityTaskProps = {
+  corpusScope: CorpusScope;
+  workspaceId: string;
+};
+
+type CohortQualityTaskProps = ScopedQualityTaskProps & {
+  cohortFilter: HumanQualityCorpusCohort | "";
+};
+
+function scopedWorkspaceId({ corpusScope, workspaceId }: ScopedQualityTaskProps) {
+  return corpusScope === "workspace" ? workspaceId : undefined;
+}
+
+function CalibrationTask(props: CohortQualityTaskProps) {
+  const query = useQuery({
+    queryKey: ["score-calibration", props.corpusScope, props.workspaceId, props.cohortFilter],
+    queryFn: () => fetchCalibrationReport(scopedWorkspaceId(props), props.cohortFilter),
+    retry: false,
+  });
+
+  return (
+    <CalibrationTabContent
+      report={query.data}
+      isLoading={query.isLoading}
+      isError={query.isError}
+    />
+  );
+}
+
+function ImpactTask(props: CohortQualityTaskProps) {
+  const query = useQuery({
+    queryKey: ["learning-impact", props.corpusScope, props.workspaceId, props.cohortFilter],
+    queryFn: () => fetchLearningImpactReport(scopedWorkspaceId(props), props.cohortFilter),
+    retry: false,
+  });
+
+  return <ImpactReportView report={query.data} isLoading={query.isLoading} isError={query.isError} />;
+}
+
+function QualityTask(props: CohortQualityTaskProps) {
+  const query = useQuery({
+    queryKey: ["quality-improvement", props.corpusScope, props.workspaceId, props.cohortFilter],
+    queryFn: () => fetchQualityImprovementReport(scopedWorkspaceId(props), props.cohortFilter),
+    retry: false,
+  });
+
+  return (
+    <QualityImprovementReportView
+      report={query.data}
+      isLoading={query.isLoading}
+      isError={query.isError}
+    />
+  );
+}
+
+function CoverageTask(props: CohortQualityTaskProps) {
+  const coverageQuery = useQuery({
+    queryKey: ["sample-coverage", props.corpusScope, props.workspaceId, props.cohortFilter],
+    queryFn: () => fetchSampleCoverage(scopedWorkspaceId(props), props.cohortFilter),
+    retry: false,
+  });
+  const globalEvidenceQuery = useQuery({
+    queryKey: ["global-corpus-evidence", props.cohortFilter],
+    queryFn: () => fetchGlobalCorpusEvidence(props.cohortFilter),
+    enabled: props.corpusScope === "global",
+    retry: false,
+  });
+
+  return (
+    <CoverageTabContent
+      report={coverageQuery.data}
+      globalEvidence={globalEvidenceQuery.data}
+      isLoading={coverageQuery.isLoading || globalEvidenceQuery.isLoading}
+      isError={coverageQuery.isError}
+    />
+  );
+}
+
+function TrendTask(props: ScopedQualityTaskProps) {
   const [cohortFilter, setCohortFilter] = useState<HumanQualityCorpusCohort | "">("");
   const [trendFilters, setTrendFilters] = useState<TrendDimensionFilters>({
     generationMode: "",
@@ -2108,7 +2181,93 @@ export function HumanQualityCorpusPanel() {
     clientProfileId: "",
     primaryFailureReason: "",
   });
-  const [selectedTrendBucketKey, setSelectedTrendBucketKey] = useState("");
+  const [selectedBucketKey, setSelectedBucketKey] = useState("");
+  const query = useQuery({
+    queryKey: [
+      "quality-trend",
+      props.corpusScope,
+      props.workspaceId,
+      cohortFilter,
+      trendFilters.generationMode,
+      trendFilters.format,
+      trendFilters.clientProfileId,
+      trendFilters.primaryFailureReason,
+    ],
+    queryFn: () =>
+      fetchQualityTrendReport(scopedWorkspaceId(props), cohortFilter, trendFilters),
+    retry: false,
+  });
+
+  return (
+    <TrendTabContent
+      report={query.data}
+      isLoading={query.isLoading}
+      isError={query.isError}
+      cohortFilter={cohortFilter}
+      onCohortChange={setCohortFilter}
+      trendFilters={trendFilters}
+      onTrendFiltersChange={setTrendFilters}
+      selectedBucketKey={selectedBucketKey}
+      onSelectedBucketChange={setSelectedBucketKey}
+    />
+  );
+}
+
+function CandidatesTask(props: ScopedQualityTaskProps) {
+  const queryClient = useQueryClient();
+  const [promoteCohort, setPromoteCohort] = useState<HumanQualityCorpusCohort>("baseline");
+  const [promotingCandidateId, setPromotingCandidateId] = useState<string | null>(null);
+  const candidatesQuery = useQuery({
+    queryKey: ["corpus-candidates", props.corpusScope, props.workspaceId],
+    queryFn: () => fetchCorpusCandidates(scopedWorkspaceId(props)),
+    retry: false,
+  });
+  const promoteCandidateMutation = useMutation({
+    mutationFn: async (candidateId: string) => {
+      const res = await apiFetch(
+        `/api/feedback/human-quality-corpus/candidates/${candidateId}/promote`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ cohort: promoteCohort }),
+        }
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err.error as string | undefined) ?? "Promote failed");
+      }
+      return res.json();
+    },
+    onMutate: setPromotingCandidateId,
+    onSettled: () => setPromotingCandidateId(null),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["corpus-candidates"] });
+      void queryClient.invalidateQueries({
+        queryKey: ["human-quality-corpus-queue", props.corpusScope, props.workspaceId],
+      });
+    },
+  });
+
+  return (
+    <CandidatesTabContent
+      items={candidatesQuery.data?.items ?? []}
+      isLoading={candidatesQuery.isLoading}
+      isError={candidatesQuery.isError}
+      promoteCohort={promoteCohort}
+      onPromoteCohortChange={setPromoteCohort}
+      promotingId={promotingCandidateId}
+      onPromote={(candidateId) => promoteCandidateMutation.mutate(candidateId)}
+    />
+  );
+}
+
+export function HumanQualityCorpusPanel() {
+  const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState<PanelTab>("queue");
+  const [corpusScope, setCorpusScope] = useState<CorpusScope>("global");
+  const [workspaceId, setWorkspaceId] = useState("");
+  const [queueFilters, setQueueFilters] = useState<CorpusQueueFilterState>(DEFAULT_QUEUE_FILTERS);
+  const [cohortFilter, setCohortFilter] = useState<HumanQualityCorpusCohort | "">("");
   const [visualScore, setVisualScore] = useState("");
   const [factualPass, setFactualPass] = useState("");
   const [intent, setIntent] = useState("");
@@ -2116,8 +2275,6 @@ export function HumanQualityCorpusPanel() {
   const [otherReasonText, setOtherReasonText] = useState("");
   const [notes, setNotes] = useState("");
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [promoteCohort, setPromoteCohort] = useState<HumanQualityCorpusCohort>("baseline");
-  const [promotingCandidateId, setPromotingCandidateId] = useState<string | null>(null);
 
   const queueQuery = useQuery({
     queryKey: [
@@ -2136,102 +2293,13 @@ export function HumanQualityCorpusPanel() {
         corpusScope === "workspace" ? workspaceId : undefined,
         queueFilters
       ),
-    enabled: corpusScope === "global" || Boolean(workspaceId),
+    enabled:
+      activeTab === "queue" &&
+      (corpusScope === "global" || Boolean(workspaceId)),
     retry: false,
   });
 
-  const analyticsEnabled =
-    corpusScope === "global" || (corpusScope === "workspace" && Boolean(workspaceId));
   const scopedWorkspaceId = corpusScope === "workspace" ? workspaceId : undefined;
-
-  const calibrationQuery = useQuery({
-    queryKey: ["score-calibration", corpusScope, workspaceId, cohortFilter],
-    queryFn: () => fetchCalibrationReport(scopedWorkspaceId, cohortFilter),
-    enabled: analyticsEnabled,
-    retry: false,
-  });
-
-  const impactQuery = useQuery({
-    queryKey: ["learning-impact", corpusScope, workspaceId, cohortFilter],
-    queryFn: () => fetchLearningImpactReport(scopedWorkspaceId, cohortFilter),
-    enabled: analyticsEnabled,
-    retry: false,
-  });
-
-  const qualityQuery = useQuery({
-    queryKey: ["quality-improvement", corpusScope, workspaceId, cohortFilter],
-    queryFn: () => fetchQualityImprovementReport(scopedWorkspaceId, cohortFilter),
-    enabled: analyticsEnabled,
-    retry: false,
-  });
-
-  const coverageQuery = useQuery({
-    queryKey: ["sample-coverage", corpusScope, workspaceId, cohortFilter],
-    queryFn: () => fetchSampleCoverage(scopedWorkspaceId, cohortFilter),
-    enabled: analyticsEnabled,
-    retry: false,
-  });
-
-  const globalEvidenceQuery = useQuery({
-    queryKey: ["global-corpus-evidence", cohortFilter],
-    queryFn: () => fetchGlobalCorpusEvidence(cohortFilter),
-    enabled: corpusScope === "global" && activeTab === "coverage",
-    retry: false,
-  });
-
-  const candidatesQuery = useQuery({
-    queryKey: ["corpus-candidates", corpusScope, workspaceId],
-    queryFn: () =>
-      fetchCorpusCandidates(corpusScope === "workspace" ? workspaceId : undefined),
-    enabled: activeTab === "candidates" && analyticsEnabled,
-    retry: false,
-  });
-
-  const promoteCandidateMutation = useMutation({
-    mutationFn: async (candidateId: string) => {
-      const res = await apiFetch(
-        `/api/feedback/human-quality-corpus/candidates/${candidateId}/promote`,
-        {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ cohort: promoteCohort }),
-        }
-      );
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error((err.error as string | undefined) ?? "Promote failed");
-      }
-      return res.json();
-    },
-    onMutate: (candidateId) => {
-      setPromotingCandidateId(candidateId);
-    },
-    onSettled: () => {
-      setPromotingCandidateId(null);
-    },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["corpus-candidates"] });
-      void queryClient.invalidateQueries({
-        queryKey: ["human-quality-corpus-queue", corpusScope, workspaceId],
-      });
-    },
-  });
-
-  const trendQuery = useQuery({
-    queryKey: [
-      "quality-trend",
-      corpusScope,
-      workspaceId,
-      cohortFilter,
-      trendFilters.generationMode,
-      trendFilters.format,
-      trendFilters.clientProfileId,
-      trendFilters.primaryFailureReason,
-    ],
-    queryFn: () => fetchQualityTrendReport(scopedWorkspaceId, cohortFilter, trendFilters),
-    enabled: analyticsEnabled,
-    retry: false,
-  });
 
   const queueItems = queueQuery.data?.items ?? [];
   const queueProgress = queueQuery.data?.progress ?? null;
@@ -2323,27 +2391,19 @@ export function HumanQualityCorpusPanel() {
         ],
       });
       void queryClient.invalidateQueries({
-        queryKey: ["score-calibration", workspaceId, cohortFilter],
+        queryKey: ["score-calibration"],
       });
       void queryClient.invalidateQueries({
-        queryKey: ["learning-impact", workspaceId, cohortFilter],
+        queryKey: ["learning-impact"],
       });
       void queryClient.invalidateQueries({
-        queryKey: ["quality-improvement", workspaceId, cohortFilter],
+        queryKey: ["quality-improvement"],
       });
       void queryClient.invalidateQueries({
-        queryKey: ["sample-coverage", workspaceId, cohortFilter],
+        queryKey: ["sample-coverage"],
       });
       void queryClient.invalidateQueries({
-        queryKey: [
-          "quality-trend",
-          workspaceId,
-          cohortFilter,
-          trendFilters.generationMode,
-          trendFilters.format,
-          trendFilters.clientProfileId,
-          trendFilters.primaryFailureReason,
-        ],
+        queryKey: ["quality-trend"],
       });
     },
     onError: (error: Error) => {
@@ -2365,32 +2425,8 @@ export function HumanQualityCorpusPanel() {
   }, [visualScore, factualPass, intent, primaryFailureReason, otherReasonText]);
 
   const queueForbidden = queueQuery.isFetched && queueQuery.data === null;
-  const calibrationForbidden = calibrationQuery.isFetched && calibrationQuery.data === null;
-  const impactForbidden = impactQuery.isFetched && impactQuery.data === null;
-  const qualityForbidden = qualityQuery.isFetched && qualityQuery.data === null;
-  const coverageForbidden = coverageQuery.isFetched && coverageQuery.data === null;
-  const trendForbidden = trendQuery.isFetched && trendQuery.data === null;
 
   if (corpusScope === "global" && queueQuery.isFetched && queueForbidden) {
-    return null;
-  }
-
-  if (
-    corpusScope === "workspace" &&
-    workspaceId &&
-    queueQuery.isFetched &&
-    calibrationQuery.isFetched &&
-    impactQuery.isFetched &&
-    qualityQuery.isFetched &&
-    coverageQuery.isFetched &&
-    trendQuery.isFetched &&
-    queueForbidden &&
-    calibrationForbidden &&
-    impactForbidden &&
-    qualityForbidden &&
-    coverageForbidden &&
-    trendForbidden
-  ) {
     return null;
   }
 
@@ -2494,55 +2530,36 @@ export function HumanQualityCorpusPanel() {
                 </label>
               ) : null}
               {activeTab === "calibration" ? (
-                <CalibrationTabContent
-                  report={calibrationQuery.data}
-                  isLoading={calibrationQuery.isLoading}
-                  isError={calibrationQuery.isError}
+                <CalibrationTask
+                  corpusScope={corpusScope}
+                  workspaceId={workspaceId}
+                  cohortFilter={cohortFilter}
                 />
               ) : activeTab === "impact" ? (
-                <ImpactReportView
-                  report={impactQuery.data}
-                  isLoading={impactQuery.isLoading}
-                  isError={impactQuery.isError}
+                <ImpactTask
+                  corpusScope={corpusScope}
+                  workspaceId={workspaceId}
+                  cohortFilter={cohortFilter}
                 />
               ) : activeTab === "quality" ? (
-                <QualityImprovementReportView
-                  report={qualityQuery.data}
-                  isLoading={qualityQuery.isLoading}
-                  isError={qualityQuery.isError}
+                <QualityTask
+                  corpusScope={corpusScope}
+                  workspaceId={workspaceId}
+                  cohortFilter={cohortFilter}
                 />
               ) : activeTab === "coverage" ? (
-                <CoverageTabContent
-                  report={coverageQuery.data}
-                  globalEvidence={globalEvidenceQuery.data}
-                  isLoading={coverageQuery.isLoading || globalEvidenceQuery.isLoading}
-                  isError={coverageQuery.isError}
+                <CoverageTask
+                  corpusScope={corpusScope}
+                  workspaceId={workspaceId}
+                  cohortFilter={cohortFilter}
                 />
               ) : (
-                <TrendTabContent
-                  report={trendQuery.data}
-                  isLoading={trendQuery.isLoading}
-                  isError={trendQuery.isError}
-                  cohortFilter={cohortFilter}
-                  onCohortChange={setCohortFilter}
-                  trendFilters={trendFilters}
-                  onTrendFiltersChange={setTrendFilters}
-                  selectedBucketKey={selectedTrendBucketKey}
-                  onSelectedBucketChange={setSelectedTrendBucketKey}
-                />
+                <TrendTask corpusScope={corpusScope} workspaceId={workspaceId} />
               )}
             </div>
           ) : activeTab === "candidates" ? (
             <div className="space-y-3 pt-2">
-              <CandidatesTabContent
-                items={candidatesQuery.data?.items ?? []}
-                isLoading={candidatesQuery.isLoading}
-                isError={candidatesQuery.isError}
-                promoteCohort={promoteCohort}
-                onPromoteCohortChange={setPromoteCohort}
-                promotingId={promotingCandidateId}
-                onPromote={(candidateId) => promoteCandidateMutation.mutate(candidateId)}
-              />
+              <CandidatesTask corpusScope={corpusScope} workspaceId={workspaceId} />
             </div>
           ) : activeTab === "learning" ? (
             <div className="space-y-6 pt-2">

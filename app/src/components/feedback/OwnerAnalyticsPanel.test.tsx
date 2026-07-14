@@ -167,6 +167,11 @@ describe("OwnerAnalyticsPanel", () => {
     expect(screen.getByText("Export CSV")).toBeInTheDocument();
     expect(screen.getByText("Core funnels")).toBeInTheDocument();
     expect(screen.getByText("Credits and billing")).toBeInTheDocument();
+    expect(
+      mockApiFetch.mock.calls.some(([url]) =>
+        String(url).includes("human-quality-corpus")
+      )
+    ).toBe(false);
   });
 
   it("returns null when owner is forbidden", async () => {

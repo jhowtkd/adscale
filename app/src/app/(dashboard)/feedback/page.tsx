@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { BetaSessionsPanel } from "@/components/feedback/BetaSessionsPanel";
 import { TesterProfilesPanel } from "@/components/feedback/TesterProfilesPanel";
 import { OwnerAnalyticsPanel } from "@/components/feedback/OwnerAnalyticsPanel";
+import { HumanQualityCorpusPanel } from "@/components/feedback/HumanQualityCorpusPanel";
 import { GuidedFlowFeedbackPanel } from "@/components/feedback/GuidedFlowFeedbackPanel";
 import { cn } from "@/lib/utils";
 import PageFrame from "@/components/layout/PageFrame";
@@ -213,6 +214,7 @@ export default function FeedbackTriagePage() {
       <PageHeader title={t("title")} description={t("description")} />
 
       <OwnerAnalyticsPanel sessionOptions={sessionOptions} />
+      <HumanQualityCorpusPanel />
       <TesterProfilesPanel />
       <GuidedFlowFeedbackPanel />
       <BetaSessionsPanel />

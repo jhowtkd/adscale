@@ -26,7 +26,7 @@
 ## Active Product Convergence
 
 - ✅ **Gate 6 / Phase 6 — Workspace and navigation convergence** — items 43–50 completed and owner-approved on 2026-07-14; desktop/mobile UAT S01–S14 passed.
-- 🔄 **Phase 7 — Remove parallel tree and unproven surfaces** — items 51–56 complete; item 57 next.
+- 🔄 **Phase 7 — Remove parallel tree and unproven surfaces** — items 51–57 complete; item 58 next.
 - Evidence: `docs/plans/uat-50-evidence/RESULTS.md`.
 
 ## Phases
