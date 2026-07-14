@@ -42,4 +42,5 @@ yarn-error.log*
 next-env.d.ts
 *.tsv
 .autoresearch-*
-app/tests/fixtures/phase6-uat-storage.json
+/tests/fixtures/phase6-uat.json
+/tests/fixtures/phase6-uat-storage.json

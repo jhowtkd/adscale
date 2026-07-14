@@ -6,6 +6,7 @@ import type {
   SocialPostCopy,
 } from "./contracts";
 import { socialPostCopySchema } from "./contracts";
+import { isE2EControlledProviderEnabled } from "@/server/ai/providers/e2e-controlled-provider";
 
 const SOCIAL_POST_COPY_SYSTEM_PROMPT = [
   "You are a senior Portuguese (pt-BR) social-media copywriter.",
@@ -72,6 +73,14 @@ export async function generateSocialPostCopy(input: {
     "",
     "Write the social post copy in pt-BR following the JSON contract in the system prompt.",
   ].join("\n");
+
+  if (isE2EControlledProviderEnabled()) {
+    return socialPostCopySchema.parse({
+      headline: `UAT: ${brief.theme}`,
+      body: `${brief.objective} para ${brief.audience}. Oferta: ${brief.offer}.`,
+      cta: "Saiba mais",
+    });
+  }
 
   const model = env.OPENAI_TEXT_MODEL || "gpt-4o-mini";
 

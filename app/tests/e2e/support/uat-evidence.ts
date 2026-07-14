@@ -21,6 +21,29 @@ export type ScenarioResult = {
   createdIds?: Record<string, string>;
 };
 
+export function failureResultFromTest(input: {
+  title: string;
+  status: string | undefined;
+  errorMessage?: string;
+  projectName: string;
+}): ScenarioResult | null {
+  if (!input.status || !["failed", "timedOut", "interrupted"].includes(input.status)) {
+    return null;
+  }
+  const id = input.title.match(/\bS(?:0[1-9]|1[0-4])\b/)?.[0];
+  if (!id) return null;
+  const errorMessage = input.errorMessage?.trim() || `Playwright ${input.status}`;
+  return {
+    id,
+    title: input.title,
+    status: "fail",
+    viewport: input.projectName,
+    notes: `Unhandled test failure: ${errorMessage}`,
+    consoleErrors: [],
+    networkErrors: [],
+  };
+}
+
 const EVIDENCE_DIR = path.resolve(
   __dirname,
   "../../../../docs/plans/uat-50-evidence"
@@ -211,7 +234,8 @@ export function writeResults(results: ScenarioResult[], account: string) {
     "",
     "## Environment (test configuration)",
     "",
-    "- Server: `E2E_DISABLE_RATE_LIMIT=true` — **test-only** rate-limit bypass so UAT can drive rapid navigations without 429 noise.",
+    "- Server: optimized local standalone build with `E2E_DISABLE_RATE_LIMIT=true` — **test-only** rate-limit bypass so UAT can drive rapid navigations without 429 noise.",
+    "- Provider: `E2E_CONTROLLED_PROVIDER=true` — deterministic text/image responses; billing, persistence, Inngest, quality policy and storage remain real. The seam only enables on localhost.",
     "- This is **not** production behavior validation. Production must keep rate limits enabled.",
     "- Inngest: local `inngest-cli dev` for provider lifecycle (S03 generate dispatch).",
     "- Account: dev-admin may have unlimited billing bypass (balance may not drop; ledger still records).",

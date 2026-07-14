@@ -171,8 +171,26 @@ export async function openAuthedPage(
 }
 
 export async function gotoApp(page: Page, pathName: string) {
-  await page.goto(pathName, { waitUntil: "commit", timeout: 45_000 });
-  await dismissOverlays(page);
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      await page.goto(pathName, { waitUntil: "commit", timeout: 45_000 });
+      await dismissOverlays(page);
+      return;
+    } catch (error) {
+      lastError = error;
+      const message = error instanceof Error ? error.message : String(error);
+      const transientRestart = /ERR_CONNECTION_REFUSED|ERR_CONNECTION_RESET|ECONNRESET/i.test(
+        message
+      );
+      if (!transientRestart || attempt === 3) throw error;
+      // Next dev intentionally restarts when its memory threshold is reached.
+      // Retry only that short transport outage; HTTP/product failures are not
+      // swallowed and still fail the scenario.
+      await new Promise((resolve) => setTimeout(resolve, attempt * 1_000));
+    }
+  }
+  throw lastError;
 }
 
 /** Wait until Trabalhos product title shows a numeric count (hydrated). */
@@ -184,9 +202,9 @@ export async function waitTrabalhosHydrated(page: Page) {
 }
 
 /** Wait until campaign workspace stage strip is interactive. */
-export async function waitWorkspaceStages(page: Page) {
+export async function waitWorkspaceStages(page: Page, timeout = 30_000) {
   await page
     .getByRole("button", { name: /briefing/i })
     .first()
-    .waitFor({ state: "visible", timeout: 30_000 });
+    .waitFor({ state: "visible", timeout });
 }

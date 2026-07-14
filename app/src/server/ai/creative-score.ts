@@ -12,12 +12,13 @@ import {
   buildRegenerationPreservationInstruction,
   resolveContractPolicy,
 } from "./canonical-creative-contract";
-import {
-  buildRegenerationSuggestion,
-  type BuildSuggestionInput,
-} from "./regeneration-suggestion";
+import { buildRegenerationSuggestion } from "./regeneration-suggestion";
 import { buildRegenerationCorrectionBrief } from "./regeneration-correction-brief";
 import type { OlharVerdictValue } from "./olhar/dual-verdict";
+import {
+  createE2EControlledScore,
+  isE2EControlledProviderEnabled,
+} from "./providers/e2e-controlled-provider";
 
 export interface ScoreResult {
   qualityScore: number;
@@ -405,6 +406,10 @@ ${buildRegenerationPreservationInstruction(
 }
 
 export async function analyzeDerivationCreative(input: AnalyzeInput): Promise<ScoreResult> {
+  if (isE2EControlledProviderEnabled()) {
+    return createE2EControlledScore();
+  }
+
   const base64 = input.imageBuffer.toString("base64");
   const dataUrl = `data:${input.mimeType};base64,${base64}`;
 

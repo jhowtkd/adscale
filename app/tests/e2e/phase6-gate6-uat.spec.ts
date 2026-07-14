@@ -8,18 +8,20 @@
  *   mobile:      key paths @ 390×844
  *
  * Requires:
- *   - app :3000 with E2E_DISABLE_RATE_LIMIT=true (test config, not prod)
+ *   - optimized local build on :3000 with E2E_DISABLE_RATE_LIMIT=true and
+ *     E2E_CONTROLLED_PROVIDER=true (test config, localhost only)
  *   - inngest-cli dev -u http://localhost:3000/api/inngest (provider block)
  *   - npm run seed:phase6-uat
  */
 import fs from "node:fs";
-import { test, expect } from "@playwright/test";
+import { test, expect, type Route } from "@playwright/test";
 import {
   ScenarioCollectors,
   type ScenarioResult,
   appendResult,
   ensureEvidenceDir,
   evidencePath,
+  failureResultFromTest,
   shot,
 } from "./support/uat-evidence";
 import {
@@ -35,7 +37,6 @@ import {
 function record(collectors: ScenarioCollectors, r: ScenarioResult) {
   const gated = collectors.applyHardGates(r);
   appendResult(gated, UAT_EMAIL);
-  // eslint-disable-next-line no-console
   console.log(
     `[UAT] ${gated.id} ${gated.status.toUpperCase()} — ${gated.title}: ${gated.notes}`
   );
@@ -43,6 +44,16 @@ function record(collectors: ScenarioCollectors, r: ScenarioResult) {
 }
 
 test.describe.configure({ mode: "default" });
+
+test.afterEach(async ({}, testInfo) => {
+  const failure = failureResultFromTest({
+    title: testInfo.title,
+    status: testInfo.status,
+    errorMessage: testInfo.error?.message,
+    projectName: testInfo.project.name,
+  });
+  if (failure) appendResult(failure, UAT_EMAIL);
+});
 
 test.describe("Phase 6 Gate 6 UAT no-provider block", () => {
   test.setTimeout(120_000);
@@ -458,12 +469,19 @@ test.describe("Phase 6 Gate 6 UAT no-provider block", () => {
     // --- loading (delay GET creative-work) ---
     collectors.mark();
     let loadingOk = false;
-    await page.route("**/api/creative-work**", async (route) => {
+    const loadingRoute = async (route: Route) => {
       if (route.request().method() === "GET") {
         await new Promise((r) => setTimeout(r, 1200));
       }
       await route.continue();
-    });
+    };
+    await page.route("**/api/creative-work**", loadingRoute);
+    const delayedCreativeWork = page.waitForResponse(
+      (response) =>
+        response.url().includes("/api/creative-work") &&
+        response.request().method() === "GET",
+      { timeout: 15_000 }
+    );
     const loadWait = page
       .locator("h1.product-page-title .animate-pulse, .animate-pulse")
       .first()
@@ -472,12 +490,15 @@ test.describe("Phase 6 Gate 6 UAT no-provider block", () => {
       .catch(() => false);
     await gotoApp(page, "/campaigns");
     loadingOk = await loadWait;
-    await page.unroute("**/api/creative-work**").catch(() => undefined);
+    await delayedCreativeWork;
+    await page
+      .unroute("**/api/creative-work**", loadingRoute)
+      .catch(() => undefined);
     await waitTrabalhosHydrated(page);
 
     // --- error + retry ---
     collectors.mark();
-    await page.route("**/api/creative-work**", async (route) => {
+    const errorRoute = async (route: Route) => {
       if (route.request().method() === "GET") {
         await route.fulfill({
           status: 500,
@@ -487,7 +508,8 @@ test.describe("Phase 6 Gate 6 UAT no-provider block", () => {
         return;
       }
       await route.continue();
-    });
+    };
+    await page.route("**/api/creative-work**", errorRoute);
     await gotoApp(page, "/campaigns");
     await expect(
       page.getByText(/erro ao carregar|error loading/i).first()
@@ -497,7 +519,9 @@ test.describe("Phase 6 Gate 6 UAT no-provider block", () => {
     });
     await expect(retryBtn.first()).toBeVisible({ timeout: 5_000 });
     // Unroute before retry so reload can succeed
-    await page.unroute("**/api/creative-work**").catch(() => undefined);
+    await page
+      .unroute("**/api/creative-work**", errorRoute)
+      .catch(() => undefined);
     await retryBtn.first().click();
     await page.waitForURL(/\/campaigns/, { timeout: 20_000 }).catch(() => undefined);
     await waitTrabalhosHydrated(page);
@@ -534,7 +558,6 @@ test.describe("Phase 6 Gate 6 UAT no-provider block", () => {
       },
       UAT_EMAIL
     );
-    // eslint-disable-next-line no-console
     console.log(
       `[UAT] S12 ${ok ? "PASS" : "FAIL"} — ${JSON.stringify(parts)}`
     );
@@ -559,6 +582,20 @@ test.describe("Phase 6 Gate 6 UAT provider block", () => {
     collectors.attach(page);
     collectors.mark();
     try {
+      // Turbopack may compile this route lazily for tens of seconds on the
+      // first provider scenario. Warm it through the same authenticated
+      // context, and verify the deterministic seed before testing hydration.
+      const profilesResponse = await context.request.get("/api/client-profiles");
+      expect(profilesResponse.ok()).toBe(true);
+      const profilesPayload = (await profilesResponse.json()) as {
+        profiles?: Array<{ id?: string }>;
+      };
+      expect(
+        profilesPayload.profiles?.some(
+          (profile) => profile.id === fixture.clientProfileId
+        )
+      ).toBe(true);
+
       const billBefore = await context.request.get("/api/billing/status");
       const creditsBefore = billBefore.ok()
         ? ((await billBefore.json()) as {
@@ -604,32 +641,50 @@ test.describe("Phase 6 Gate 6 UAT provider block", () => {
       await page.getByLabel(/oferta|offer/i).fill("Trial");
 
       await page.getByRole("button", { name: /criar copy|create copy/i }).click();
-      await page.waitForURL(/workId=/, { timeout: 60_000 });
+      await expect
+        .poll(
+          () => new URL(page.url()).searchParams.get("workId"),
+          { timeout: 60_000, intervals: [250, 500, 1_000] }
+        )
+        .toBeTruthy();
       const workId = new URL(page.url()).searchParams.get("workId");
       expect(workId, `expected workId in URL ${page.url()}`).toBeTruthy();
 
-      // After create+copy the wizard may land on Copy (manual Avançar) or
-      // jump to Assets (draft+copy → persistedStepIndex=2). Poll either path.
+      // Depending on query timing, the persisted draft either shows Copy for
+      // review or promotes directly to Identity. If Copy is shown, require
+      // all provider fields before advancing; never click through an empty
+      // or still-loading snapshot.
       const generateBtn = page.getByRole("button", {
         name: /gerar 3 propostas|confirmar e gerar|generate 3/i,
       });
+      let advancedCopy = false;
       await expect
         .poll(
           async () => {
-            if (await generateBtn.isVisible().catch(() => false)) return "assets";
+            if (await generateBtn.isVisible().catch(() => false)) return true;
             const advance = page.getByRole("button", {
               name: /^avançar$|^next$/i,
             });
-            if (await advance.isEnabled().catch(() => false)) {
+            const copyReady =
+              (await page.getByLabel(/headline/i).inputValue().catch(() => ""))
+                .trim().length > 0 &&
+              (await page.getByLabel(/corpo|body/i).inputValue().catch(() => ""))
+                .trim().length > 0 &&
+              (await page.getByLabel(/^cta$/i).inputValue().catch(() => ""))
+                .trim().length > 0;
+            if (
+              !advancedCopy &&
+              copyReady &&
+              (await advance.isEnabled().catch(() => false))
+            ) {
               await advance.click();
-              return "advanced";
+              advancedCopy = true;
             }
-            return "wait";
+            return false;
           },
-          { timeout: 120_000, intervals: [500, 1_000, 2_000] }
+          { timeout: 90_000, intervals: [500, 1_000, 2_000] }
         )
-        .not.toBe("wait");
-      await expect(generateBtn).toBeVisible({ timeout: 30_000 });
+        .toBe(true);
       const firstAsset = page
         .locator('input[type="checkbox"][id^="cp-asset-"]')
         .first();
@@ -677,13 +732,19 @@ test.describe("Phase 6 Gate 6 UAT provider block", () => {
             const r = await context.request.get(
               `/api/creative-work/${workId}`
             );
-            if (!r.ok()) return 0;
-            const j = (await r.json()) as { outputs?: unknown[] };
-            return Array.isArray(j.outputs) ? j.outputs.length : 0;
+            if (!r.ok()) return "request_failed";
+            const j = (await r.json()) as {
+              outputs?: Array<{ status?: string }>;
+            };
+            if (!Array.isArray(j.outputs)) return "missing_outputs";
+            return j.outputs
+              .map((output) => output.status ?? "unknown")
+              .sort()
+              .join(",");
           },
           { timeout: 120_000, intervals: [1_000, 2_000, 3_000] }
         )
-        .toBe(3);
+        .toBe("completed,completed,completed");
 
       const billAfter = await context.request.get("/api/billing/status");
       const creditsAfter = billAfter.ok()
@@ -1032,7 +1093,7 @@ test.describe("Phase 6 Gate 6 UAT provider block", () => {
       ).toBeVisible({ timeout: 20_000 });
       const libOk = true;
 
-      await page.reload({ waitUntil: "commit" });
+      await gotoApp(page, "/library");
       await expect(
         page.locator("h1").filter({ hasText: /biblioteca|library/i })
       ).toBeVisible({ timeout: 20_000 });
@@ -1065,7 +1126,10 @@ test.describe("Phase 6 Gate 6 UAT provider block", () => {
 // ---------------------------------------------------------------------------
 
 test.describe("Phase 6 Gate 6 UAT shell", () => {
-  test.setTimeout(90_000);
+  // Mobile key-path coverage visits multiple independently compiled routes.
+  // Keep the per-navigation timeout strict while allowing the complete path
+  // enough aggregate time under Next dev compilation.
+  test.setTimeout(180_000);
 
   test("S01 home intent picker", async ({ browser }) => {
     const collectors = new ScenarioCollectors();
@@ -1114,6 +1178,7 @@ test.describe("Phase 6 Gate 6 UAT shell", () => {
   });
 
   test("S13 mobile bottom nav", async ({ browser }) => {
+    const fixture = loadPhase6Fixture();
     const collectors = new ScenarioCollectors();
     const { context, page } = await openAuthedPage(browser, {
       viewport: { width: 390, height: 844 },
@@ -1122,6 +1187,24 @@ test.describe("Phase 6 Gate 6 UAT shell", () => {
     collectors.attach(page);
     collectors.mark();
     try {
+      // Compile the route set before timing mobile rendering. Webpack dev can
+      // spend >45s compiling a route first hit, which is unrelated to the
+      // responsive contract this scenario verifies.
+      for (const route of [
+        "/",
+        "/campaigns",
+        "/library",
+        "/brand-kit",
+        "/templates",
+        `/quick-tools/create-post?workId=${fixture.workId}`,
+        `/campaigns/${fixture.campaignId}`,
+      ]) {
+        const warm = await context.request.get(route, { timeout: 90_000 });
+        expect(warm.ok(), `mobile prewarm ${route}: ${warm.status()}`).toBe(
+          true
+        );
+      }
+
       const paths: Array<{ href: string; label: RegExp }> = [
         { href: "/", label: /in[ií]cio|home/i },
         { href: "/campaigns", label: /trabalhos|works/i },
@@ -1132,6 +1215,28 @@ test.describe("Phase 6 Gate 6 UAT shell", () => {
         await gotoApp(page, p.href);
         await dismissOverlays(page);
       }
+
+      // Main path without campaign: resume an existing canonical post.
+      await gotoApp(
+        page,
+        `/quick-tools/create-post?workId=${fixture.workId}`
+      );
+      await expect(page.getByTestId("create-post-wizard")).toBeVisible({
+        timeout: 20_000,
+      });
+
+      // Main path with campaign: the four task stages remain reachable.
+      await gotoApp(page, `/campaigns/${fixture.campaignId}`);
+      await waitWorkspaceStages(page, 60_000);
+
+      // Template and library surfaces must render at the mobile viewport too.
+      await gotoApp(page, "/templates");
+      await expect(page.getByText(fixture.templateName).first()).toBeVisible({
+        timeout: 20_000,
+      });
+      await gotoApp(page, "/library");
+      await expect(page.locator("main")).toBeVisible();
+
       await gotoApp(page, "/");
       const body = await page.locator("body").innerText();
       const legacy =
@@ -1146,11 +1251,16 @@ test.describe("Phase 6 Gate 6 UAT shell", () => {
 
       const result = record(collectors, {
         id: "S13",
-        title: "Mobile navigation",
+        title: "Mobile navigation + campaign/post key paths",
         status: !legacy ? "pass" : "fail",
         url: page.url(),
         viewport: "390x844",
-        notes: `legacyLabels=${legacy} configPrimaryish=${configInPrimary} visited=${paths.map((p) => p.href).join(",")}`,
+        notes: `legacyLabels=${legacy} configPrimaryish=${configInPrimary} visited=${[
+          ...paths.map((p) => p.href),
+          "/quick-tools/create-post?workId=…",
+          "/campaigns/:id",
+          "/templates",
+        ].join(",")}`,
         screenshot: await shot(page, "uat-50-S13-mobile"),
         consoleErrors: [],
         networkErrors: [],
@@ -1210,4 +1320,3 @@ test.describe("Phase 6 Gate 6 UAT shell", () => {
     }
   });
 });
-
