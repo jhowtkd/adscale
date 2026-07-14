@@ -21,6 +21,37 @@ export type ScenarioResult = {
   createdIds?: Record<string, string>;
 };
 
+export const REQUIRED_UAT_VIEWPORTS = [
+  "1440x900",
+  "1280x800",
+  "390x844",
+  "360x800",
+] as const;
+
+export function expectedGate6EvidenceKeys(): string[] {
+  const scenarioIds = Array.from({ length: 14 }, (_, index) =>
+    `S${String(index + 1).padStart(2, "0")}`
+  );
+  return REQUIRED_UAT_VIEWPORTS.flatMap((viewport) =>
+    scenarioIds
+      .filter((id) => id !== "S13" || viewport.startsWith("3"))
+      .map((id) => `${id}@${viewport}`)
+  );
+}
+
+export function isGate6EvidenceComplete(results: ScenarioResult[]): boolean {
+  const expectedKeys = expectedGate6EvidenceKeys();
+  const byKey = new Map(
+    results.map((result) => [`${result.id}@${result.viewport}`, result])
+  );
+  return (
+    results.length === expectedKeys.length &&
+    byKey.size === expectedKeys.length &&
+    results.every((result) => result.status === "pass") &&
+    expectedKeys.every((key) => byKey.get(key)?.status === "pass")
+  );
+}
+
 export function failureResultFromTest(input: {
   title: string;
   status: string | undefined;
@@ -190,7 +221,9 @@ export class ScenarioCollectors {
 
 export async function shot(page: Page, name: string): Promise<string> {
   ensureEvidenceDir();
-  const file = evidencePath(`${name}.png`);
+  const viewport = page.viewportSize();
+  const suffix = viewport ? `-${viewport.width}x${viewport.height}` : "";
+  const file = evidencePath(`${name}${suffix}.png`);
   await page.screenshot({ path: file, fullPage: false, timeout: 15_000 });
   return file;
 }
@@ -206,8 +239,10 @@ export function appendResult(result: ScenarioResult, account: string) {
   } catch {
     existing = [];
   }
-  // replace same id (re-run) else append
-  const idx = existing.findIndex((r) => r.id === result.id);
+  // A re-run replaces only the same scenario at the same viewport.
+  const idx = existing.findIndex(
+    (r) => r.id === result.id && r.viewport === result.viewport
+  );
   if (idx >= 0) existing[idx] = result;
   else existing.push(result);
   writeResults(existing, account);
@@ -223,6 +258,8 @@ export function writeResults(results: ScenarioResult[], account: string) {
   const fail = results.filter((r) => r.status === "fail").length;
   const blocked = results.filter((r) => r.status === "blocked").length;
   const notExec = results.filter((r) => r.status === "not_executed").length;
+  const complete = isGate6EvidenceComplete(results);
+  const expectedCount = expectedGate6EvidenceKeys().length;
 
   const lines = [
     "# Phase 6 Item 50 UAT Results",
@@ -240,19 +277,19 @@ export function writeResults(results: ScenarioResult[], account: string) {
     "- Inngest: local `inngest-cli dev` for provider lifecycle (S03 generate dispatch).",
     "- Account: dev-admin may have unlimited billing bypass (balance may not drop; ledger still records).",
     "",
-    "| ID | Status | Title | Notes |",
-    "|----|--------|-------|-------|",
+    "| ID | Viewport | Status | Title | Notes |",
+    "|----|----------|--------|-------|-------|",
     ...results.map(
       (r) =>
-        `| ${r.id} | **${r.status}** | ${r.title} | ${r.notes.replace(/\|/g, "/").slice(0, 200)} |`
+        `| ${r.id} | ${r.viewport} | **${r.status}** | ${r.title} | ${r.notes.replace(/\|/g, "/").slice(0, 200)} |`
     ),
     "",
     `Pass: ${pass} · Fail: ${fail} · Blocked: ${blocked} · Not executed: ${notExec}`,
     "",
     "## Gate 6",
-    fail > 0 || blocked > 0 || notExec > 0 || results.length < 14
-      ? "**NOT REQUESTED** — incomplete UAT or fails remain."
-      : "Ready for approval (S01–S14 all pass).",
+    !complete
+      ? `**NOT REQUESTED** — required matrix incomplete (${results.filter((result) => result.status === "pass").length}/${expectedCount} required passes recorded).`
+      : `Ready for approval (${expectedCount}/${expectedCount} required scenario/viewport checks pass).`,
     "",
   ];
   fs.writeFileSync(mdPath, lines.join("\n"));

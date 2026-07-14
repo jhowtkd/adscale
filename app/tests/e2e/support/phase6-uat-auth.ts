@@ -10,6 +10,27 @@ import type { Browser, BrowserContext, Page } from "@playwright/test";
 export const UAT_EMAIL = "dev-admin@adscale.local";
 export const UAT_PASSWORD = "DevAdmin123!";
 
+const VIEWPORTS = {
+  "1440x900": { width: 1440, height: 900 },
+  "1280x800": { width: 1280, height: 800 },
+  "390x844": { width: 390, height: 844 },
+  "360x800": { width: 360, height: 800 },
+} as const;
+
+export type UatViewportLabel = keyof typeof VIEWPORTS;
+
+function resolveUatViewport(): UatViewportLabel {
+  const requested = process.env.PHASE6_UAT_VIEWPORT ?? "1440x900";
+  if (requested in VIEWPORTS) return requested as UatViewportLabel;
+  throw new Error(
+    `Unsupported PHASE6_UAT_VIEWPORT=${requested}. Expected: ${Object.keys(VIEWPORTS).join(", ")}`
+  );
+}
+
+export const UAT_VIEWPORT_LABEL = resolveUatViewport();
+export const UAT_VIEWPORT = VIEWPORTS[UAT_VIEWPORT_LABEL];
+export const UAT_IS_MOBILE = UAT_VIEWPORT.width <= 480;
+
 export const FIXTURE_PATH = path.resolve(
   __dirname,
   "../../fixtures/phase6-uat.json"
@@ -34,6 +55,7 @@ export type Phase6UatFixture = {
   workResumeHref: string;
   previewOkCampaignId: string;
   previewOkDerivationId: string;
+  previewFlowCampaignId: string;
   previewBadCampaignId: string;
   previewBadDerivationId: string;
   libraryWorkId: string;
@@ -156,9 +178,9 @@ export async function openAuthedPage(
   await ensureStorageState(browser);
   const context = await browser.newContext({
     storageState: STORAGE_STATE_PATH,
-    viewport: options?.viewport ?? { width: 1440, height: 900 },
-    isMobile: options?.isMobile,
-    hasTouch: options?.isMobile,
+    viewport: options?.viewport ?? UAT_VIEWPORT,
+    isMobile: options?.isMobile ?? UAT_IS_MOBILE,
+    hasTouch: options?.isMobile ?? UAT_IS_MOBILE,
   });
   const page = await context.newPage();
   await page.addInitScript(() => {

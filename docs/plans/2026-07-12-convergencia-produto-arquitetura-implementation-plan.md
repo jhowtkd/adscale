@@ -258,7 +258,7 @@ Cada item abaixo deve resultar em um commit pequeno e manter a aplicação funci
 
 **Gate 6:** um usuário inicia, retoma, revisa e entrega sem precisar entender os antigos subsistemas.
 
-**Gate 6 — aprovado (2026-07-14):** 14 pass · 0 fail · 0 blocked · 0 not executed; build standalone, Inngest local e provider externo controlado; billing, persistência, qualidade, storage e lifecycle reais. Evidência: `docs/plans/uat-50-evidence/RESULTS.md`.
+**Gate 6 — aprovado (2026-07-14):** 54/54 checks obrigatórios passaram (S01–S14 em quatro viewports; S13 mobile-only), com 0 fail · 0 blocked · 0 not executed; build standalone, Inngest local e provider externo controlado; billing, persistência, policy de qualidade, storage e lifecycle reais. A avaliação de imagem/score é determinística no ambiente E2E. Evidência: `docs/plans/uat-50-evidence/RESULTS.md`.
 
 ### Fase 7 — Remover árvore paralela e superfícies sem prova
 

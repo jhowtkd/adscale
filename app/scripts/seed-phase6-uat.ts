@@ -34,6 +34,7 @@ import {
 } from "../src/server/db/schema";
 import { createCampaign } from "../src/server/repositories/campaign";
 import { createDerivation } from "../src/server/repositories/derivation";
+import { createAsset } from "../src/server/repositories/asset";
 import { createTemplate } from "../src/server/repositories/template";
 import { createClientProfile } from "../src/server/repositories/client-reference";
 import {
@@ -293,6 +294,52 @@ async function main() {
     })
     .where(eq(derivations.id, previewOk.id));
 
+  // S07 end-to-end path starts before preview generation. A real base asset
+  // lets the UI queue the preview, Inngest complete it, and the acceptable
+  // quality policy auto-queue the real batch.
+  const previewFlowCampaign = await createCampaign(workspaceId, {
+    name: `${PREFIX} Preview end-to-end`,
+    client: "UAT Preview Flow",
+    clientProfileId: profile.id,
+    objective: "Awareness",
+    product: "ADScale",
+    platforms: ["meta_feed"],
+    generationMode: "art_variation",
+    creativeLevel: "balanced",
+    status: "active",
+    creativeDiagnosisStatus: "ready",
+    ctaVariants: ["Saiba mais"],
+  });
+  await createPlan(previewFlowCampaign.id, workspaceId, {
+    strategy: "UAT preview flow plan",
+    angles: ["flow angle"],
+    hooks: ["flow hook"],
+    ctas: ["Saiba mais"],
+  });
+  const previewFlowBaseKey = `uat/phase6/${previewFlowCampaign.id}-base.png`;
+  await putUatPng(previewFlowBaseKey);
+  await createAsset(workspaceId, previewFlowCampaign.id, {
+    key: previewFlowBaseKey,
+    type: "image/png",
+    size: TINY_PNG.length,
+    width: 1,
+    height: 1,
+    role: "base",
+  });
+  // Keep the campaign in the production workspace state while leaving the
+  // preview path untouched. A failed historical row is visible/retriable but
+  // cannot satisfy S07's completed-batch assertion.
+  await createDerivation({
+    campaignId: previewFlowCampaign.id,
+    workspaceId,
+    format: "1:1",
+    generationMode: "art_variation",
+    variantIndex: 99,
+    status: "failed",
+    isPreview: false,
+    creativeLevel: "balanced",
+  });
+
   // S08 — ready preview blocked by quality gate (manual gate)
   const previewBadCampaign = await createCampaign(workspaceId, {
     name: `${PREFIX} Preview gate-block`,
@@ -306,6 +353,22 @@ async function main() {
     status: "active",
     creativeDiagnosisStatus: "ready",
     ctaVariants: ["Saiba mais"],
+  });
+  await createPlan(previewBadCampaign.id, workspaceId, {
+    strategy: "UAT manual preview gate plan",
+    angles: ["manual gate angle"],
+    hooks: ["manual gate hook"],
+    ctas: ["Saiba mais"],
+  });
+  const previewBadBaseKey = `uat/phase6/${previewBadCampaign.id}-base.png`;
+  await putUatPng(previewBadBaseKey);
+  await createAsset(workspaceId, previewBadCampaign.id, {
+    key: previewBadBaseKey,
+    type: "image/png",
+    size: TINY_PNG.length,
+    width: 1,
+    height: 1,
+    role: "base",
   });
   const previewBad = await createDerivation({
     campaignId: previewBadCampaign.id,
@@ -404,6 +467,7 @@ async function main() {
     workResumeHref: `/quick-tools/create-post?workId=${work.id}`,
     previewOkCampaignId: previewOkCampaign.id,
     previewOkDerivationId: previewOk.id,
+    previewFlowCampaignId: previewFlowCampaign.id,
     previewBadCampaignId: previewBadCampaign.id,
     previewBadDerivationId: previewBad.id,
     libraryWorkId: libraryWork.id,
