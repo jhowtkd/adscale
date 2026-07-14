@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "../db";
 import { assistantThreads } from "../db/schema";
 import { getCampaignById } from "./campaign";
@@ -169,12 +169,45 @@ export async function getOrCreateDefaultCampaignThread(
     return existing;
   }
 
-  return createAssistantThread(workspaceId, {
-    clientProfileId,
-    campaignId,
-    name: "Padrão",
-    isDefault: true,
-  });
+  // Use the partial unique index as the concurrency primitive. Two campaign
+  // surfaces can request the default thread at the same time; a check followed
+  // by createAssistantThread would let both observe "missing" and one request
+  // fail with assistant_threads_campaign_default_uidx. ON CONFLICT makes the
+  // loser read and return the winner instead.
+  const [created] = await db
+    .insert(assistantThreads)
+    .values({
+      workspaceId,
+      clientProfileId,
+      campaignId,
+      name: "Padrão",
+      isDefault: true,
+    })
+    .onConflictDoNothing({
+      target: [assistantThreads.workspaceId, assistantThreads.campaignId],
+      where: sql`${assistantThreads.isDefault} = true AND ${assistantThreads.campaignId} IS NOT NULL`,
+    })
+    .returning();
+
+  if (created) return created;
+
+  const [concurrentWinner] = await db
+    .select()
+    .from(assistantThreads)
+    .where(
+      and(
+        eq(assistantThreads.workspaceId, workspaceId),
+        eq(assistantThreads.clientProfileId, clientProfileId),
+        eq(assistantThreads.campaignId, campaignId),
+        eq(assistantThreads.isDefault, true)
+      )
+    )
+    .limit(1);
+
+  if (!concurrentWinner) {
+    throw new Error("Default campaign thread conflict resolved without a winner");
+  }
+  return concurrentWinner;
 }
 
 export async function linkThreadToCampaign(

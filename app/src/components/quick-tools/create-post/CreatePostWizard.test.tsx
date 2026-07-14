@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import CreatePostWizard from "./CreatePostWizard";
@@ -80,21 +80,6 @@ const clientProfileFixture = {
   constraints: null,
   createdAt: new Date(),
   updatedAt: new Date(),
-};
-
-const approvedReferenceFixture = {
-  id: "ref-1",
-  workspaceId: "ws-1",
-  clientProfileId: "profile-1",
-  assetKey: "asset-1",
-  label: "Logo principal",
-  kind: "logo",
-  notes: null,
-  trainingCategory: "logo" as const,
-  usageMode: "primary_logo" as const,
-  reviewStatus: "approved" as const,
-  sourceDerivationId: null,
-  createdAt: new Date(),
 };
 
 const draftWork = {
@@ -215,6 +200,92 @@ describe("CreatePostWizard", () => {
 
     expect(screen.getByRole("combobox", { name: "Marca" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Criar copy" })).toBeDisabled();
+  });
+
+  it("promotes Copy to Identity when the persisted copy arrives for the same work", async () => {
+    let detail = draftWork;
+    mockUseCreativeWork.mockImplementation(() => ({
+      data: detail,
+      isLoading: false,
+    }));
+
+    const view = render(<CreatePostWizard workId="work-1" />, {
+      wrapper: createWrapper(),
+    });
+
+    expect(await screen.findByRole("button", { name: "next" })).toBeVisible();
+
+    detail = {
+      work: {
+        ...draftWork.work,
+        copy: { headline: "h", body: "b", cta: "c" },
+      },
+      outputs: [],
+    };
+    view.rerender(<CreatePostWizard workId="work-1" />);
+
+    expect(
+      await screen.findByRole("button", {
+        name: "Confirmar e gerar 3 propostas",
+      })
+    ).toBeVisible();
+  });
+
+  it("keeps a newly generated copy when an older draft snapshot arrives late", async () => {
+    let detail: typeof draftWork | undefined;
+    mockUseCreativeWork.mockImplementation(() => ({
+      data: detail,
+      isLoading: false,
+    }));
+    mockUseCreateCreativeWork.mockReturnValue({
+      mutateAsync: vi.fn().mockResolvedValue({ work: draftWork.work }),
+      isPending: false,
+    });
+    mockUseGenerateCopy.mockReturnValue({
+      mutateAsync: vi.fn().mockImplementation(async () => {
+        // Simulate the pre-copy GET resolving after the provider response but
+        // before React commits the local copy state.
+        detail = draftWork;
+        return {
+          copy: { headline: "Generated headline", body: "Generated body", cta: "Generated CTA" },
+          work: {
+            ...draftWork.work,
+            copy: { headline: "Generated headline", body: "Generated body", cta: "Generated CTA" },
+          },
+        };
+      }),
+      isPending: false,
+    });
+
+    const view = render(<CreatePostWizard />, { wrapper: createWrapper() });
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Marca" }), {
+      target: { value: "profile-1" },
+    });
+    fireEvent.change(screen.getByLabelText("briefTheme"), {
+      target: { value: "Theme" },
+    });
+    fireEvent.change(screen.getByLabelText("briefObjective"), {
+      target: { value: "Objective" },
+    });
+    fireEvent.change(screen.getByLabelText("briefAudience"), {
+      target: { value: "Audience" },
+    });
+    fireEvent.change(screen.getByLabelText("briefOffer"), {
+      target: { value: "Offer" },
+    });
+
+    await act(async () => {
+      screen.getByRole("button", { name: "Criar copy" }).click();
+    });
+    expect(screen.getByLabelText("headline")).toHaveValue("Generated headline");
+
+    detail = draftWork;
+    view.rerender(<CreatePostWizard />);
+
+    expect(screen.getByLabelText("headline")).toHaveValue("Generated headline");
+    expect(screen.getByLabelText("body")).toHaveValue("Generated body");
+    expect(screen.getByLabelText("cta")).toHaveValue("Generated CTA");
   });
 
   it("shows the 15-credit confirmation inside the assets step before visual generation", async () => {

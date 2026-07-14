@@ -121,12 +121,9 @@ export default function CreatePostWizard({ workId: initialWorkId }: { workId?: s
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [detail?.work.id, detail?.work.status, detail?.work.copy, stepIndex]);
 
-  // After a brand-new draft is created, normalise the in-memory state so
-  // later renders don't drift from the persisted snapshot. This is the
-  // canonical "sync from server" pattern that requires an effect: the
-  // external data source (TanStack Query) pushes updates and we mirror them
-  // into local state. We track the last-synced workId in a ref so each
-  // setState only fires once per server-side change.
+  // After a brand-new draft is created, normalise the editable fields once
+  // for that work item. Field values must not be overwritten by later query
+  // refreshes because the Copy step is locally editable.
   const lastSyncedWorkIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (!detail) return;
@@ -145,9 +142,20 @@ export default function CreatePostWizard({ workId: initialWorkId }: { workId?: s
       setBody(detail.work.copy.body);
       setCta(detail.work.copy.cta);
     }
-    setStepIndex((current) => (current >= persistedStepIndex ? current : persistedStepIndex));
     /* eslint-enable react-hooks/set-state-in-effect */
-  }, [detail?.work.id, detail?.work.status, detail?.work.copy, detail, persistedStepIndex]);
+  }, [detail?.work.id, detail?.work.copy, detail]);
+
+  // Step progression follows every persisted lifecycle change for the same
+  // work item. Keeping this separate from the one-time field hydration is
+  // important: copy generation updates an existing draft rather than
+  // creating a new workId.
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    setStepIndex((current) =>
+      current >= persistedStepIndex ? current : persistedStepIndex
+    );
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [persistedStepIndex]);
 
   // Pre-select the first three identity options as a sensible default
   // (logo + visual reference + character/graphic). The user can still
@@ -184,6 +192,7 @@ export default function CreatePostWizard({ workId: initialWorkId }: { workId?: s
     if (!canAdvanceFromBrief) return;
     try {
       let currentId = activeWorkId;
+      let createdWork = false;
       if (!currentId) {
         const result = await createMutation.mutateAsync({
           clientProfileId,
@@ -192,14 +201,29 @@ export default function CreatePostWizard({ workId: initialWorkId }: { workId?: s
           brief,
         });
         currentId = result.work.id;
+        createdWork = true;
         setActiveWorkId(currentId);
-        // Persist the workId in the URL so refresh / share keeps the context.
-        router.replace(`/quick-tools/create-post?workId=${currentId}`);
       }
-      const copyResult = await copyMutation.mutateAsync(currentId);
-      setHeadline(copyResult.copy.headline);
-      setBody(copyResult.copy.body);
-      setCta(copyResult.copy.cta);
+      try {
+        const copyResult = await copyMutation.mutateAsync(currentId);
+        setHeadline(copyResult.copy.headline);
+        setBody(copyResult.copy.body);
+        setCta(copyResult.copy.cta);
+      } finally {
+        if (createdWork) {
+          // Next patches the History API to synchronise search params with
+          // its router. Updating it while POST /copy is in flight aborts that
+          // request, so expose the resumable workId only after the request
+          // settles — on failure as well, so retry does not create a duplicate.
+          const params = new URLSearchParams(window.location.search);
+          params.set("workId", currentId);
+          window.history.replaceState(
+            window.history.state,
+            "",
+            `${window.location.pathname}?${params.toString()}`
+          );
+        }
+      }
       goNext();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : tCommon("error"));

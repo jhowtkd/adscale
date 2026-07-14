@@ -38,9 +38,13 @@ vi.mock("../db", () => {
     db: {
       select: vi.fn(() => chain),
       insert: vi.fn(() => ({
-        values: vi.fn(() => ({
-          returning: vi.fn(async () => state.insertResult),
-        })),
+        values: vi.fn(() => {
+          const returning = vi.fn(async () => state.insertResult);
+          return {
+            returning,
+            onConflictDoNothing: vi.fn(() => ({ returning })),
+          };
+        }),
       })),
       update: vi.fn(() => ({
         set: vi.fn(() => ({
@@ -174,6 +178,31 @@ describe("assistant-thread repository", () => {
 
     expect(first.id).toBe("thread-default");
     expect(second.id).toBe("thread-default");
+  });
+
+  it("returns the concurrent winner when the default insert conflicts", async () => {
+    mockGetCampaignById.mockResolvedValue({
+      id: "camp-1",
+      clientProfileId: "profile-1",
+      client: null,
+    } as Awaited<ReturnType<typeof getCampaignById>>);
+    mockResolveCampaignClientProfileId.mockResolvedValue("profile-1");
+
+    const winner = {
+      id: "thread-winner",
+      workspaceId: "ws-1",
+      clientProfileId: "profile-1",
+      campaignId: "camp-1",
+      isDefault: true,
+      name: "Padrão",
+    };
+    state.selectResults.push([]);
+    state.insertResult = [];
+    state.selectResults.push([winner]);
+
+    await expect(
+      getOrCreateDefaultCampaignThread("ws-1", "profile-1", "camp-1")
+    ).resolves.toEqual(winner);
   });
 
   it("linkThreadToCampaign rejects profile mismatch", async () => {

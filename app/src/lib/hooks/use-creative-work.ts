@@ -200,13 +200,32 @@ export function useCreateCreativeWork() {
 export function useGenerateCopy() {
   const queryClient = useQueryClient();
   return useMutation({
+    onMutate: async (workItemId: string) => {
+      // The detail query starts as soon as a newly-created workId becomes
+      // active. Cancel that pre-copy snapshot so it cannot resolve after the
+      // provider response and overwrite the generated copy in the cache/UI.
+      await queryClient.cancelQueries({
+        queryKey: ["creative-work", workItemId],
+      });
+    },
     mutationFn: (workItemId: string) =>
-      postJson<{ copy: SocialPostCopy }>(`/api/creative-work/${workItemId}/copy`),
-    onSuccess: async (_data, workItemId) => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["creative-work", workItemId] }),
-        invalidateCanonicalWorks(queryClient),
-      ]);
+      postJson<{ copy: SocialPostCopy; work: CreativeWorkItem }>(
+        `/api/creative-work/${workItemId}/copy`
+      ),
+    onSuccess: (result, workItemId) => {
+      const work = {
+        ...result.work,
+        createdAt: new Date(result.work.createdAt),
+        updatedAt: new Date(result.work.updatedAt),
+      };
+      queryClient.setQueryData<CreativeWorkDetail>(
+        ["creative-work", workItemId],
+        (current) => ({ work, outputs: current?.outputs ?? [] })
+      );
+      void queryClient.invalidateQueries({
+        queryKey: ["creative-work", workItemId],
+      });
+      void invalidateCanonicalWorks(queryClient);
     },
   });
 }
