@@ -23,6 +23,12 @@
 - ✅ **v12.1 Memória Criativa e Aprendizado de Performance** - Phases 103-108 (shipped 2026-06-12)
 - ✅ **v12.0 Monetização Real** - Phases 97-102 (shipped 2026-06-11)
 
+## Active Product Convergence
+
+- ✅ **Gate 6 / Phase 6 — Workspace and navigation convergence** — items 43–50 completed and owner-approved on 2026-07-14; desktop/mobile UAT S01–S14 passed.
+- ⏭️ **Phase 7 — Remove parallel tree and unproven surfaces** — next phase; not started by this approval.
+- Evidence: `docs/plans/uat-50-evidence/RESULTS.md`.
+
 ## Phases
 
 - [x] **Phase 203: Artifact Version Foundation** - Persist immutable plan/creative versions, lineage, current pointer, scope, and safe snapshots. (completed 2026-06-27)

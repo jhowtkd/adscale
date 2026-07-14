@@ -1,7 +1,7 @@
 # Plano de convergência de produto e arquitetura do ADScale
 
 **Data:** 2026-07-12
-**Status:** Gate 5 aprovado — Fase 6 (simplificar workspace e navegação); 40–42 diferidos
+**Status:** Gate 6 aprovado — Fase 6 concluída; Fase 7 é a próxima; 40–42 diferidos
 **Direção assumida:** trabalho criativo-first
 **Estratégia:** migração incremental com gates; nenhum big bang
 
@@ -252,11 +252,13 @@ Cada item abaixo deve resultar em um commit pequeno e manter a aplicação funci
 47. Dividir o workspace por tarefas do usuário: briefing, produzir, revisar e entregar.
 48. Substituir o hook monolítico por módulos de fluxo com interfaces estreitas.
 49. Mover regras de domínio importadas pelo cliente para respostas calculadas no servidor.
-50. Fazer UAT desktop e mobile dos caminhos com e sem campanha.
+50. Fazer UAT desktop e mobile dos caminhos com e sem campanha. **Concluído em 2026-07-14** — S01–S14 passaram, com evidência em `docs/plans/uat-50-evidence/RESULTS.md`.
 
-**Phase 6 WIP (2026-07-13):** itens 43–48 **checkpoint aprovados**. Item **49** + **49b** — produce surface e strategy-recipe surface server-derived (`POST /api/strategy-recipe/resolve`; tipos em `lib/domain/strategy-recipe-types`); client sem runtime de `rank/map/estimate/toPatch/buildRecommended`. Item **50**: roteiro em `docs/plans/2026-07-13-phase6-item50-uat-script.md` (executar após 49b verde).
+**Fase 6 concluída (2026-07-14):** itens 43–50 entregues. Item **49** + **49b** mantêm produce surface e strategy-recipe surface server-derived (`POST /api/strategy-recipe/resolve`; tipos em `lib/domain/strategy-recipe-types`); cliente sem runtime de `rank/map/estimate/toPatch/buildRecommended`. Item **50** aprovado com UAT desktop/mobile S01–S14 verde.
 
 **Gate 6:** um usuário inicia, retoma, revisa e entrega sem precisar entender os antigos subsistemas.
+
+**Gate 6 — aprovado (2026-07-14):** 14 pass · 0 fail · 0 blocked · 0 not executed; build standalone, Inngest local e provider externo controlado; billing, persistência, qualidade, storage e lifecycle reais. Evidência: `docs/plans/uat-50-evidence/RESULTS.md`.
 
 ### Fase 7 — Remover árvore paralela e superfícies sem prova
 
@@ -383,4 +385,3 @@ Este plano estará concluído quando:
 - os caminhos antigos tiverem sido removidos, não apenas escondidos;
 - o planejamento não aceitar estados contraditórios;
 - jornadas humanas reais demonstrarem que o fluxo convergido é compreensível e concluível.
-

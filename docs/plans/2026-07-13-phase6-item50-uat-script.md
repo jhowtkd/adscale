@@ -14,6 +14,28 @@
 | Marcas | ≥ 2 client profiles / Brand Kit com assets |
 | Contas | owner e tester (se feedback for testado) |
 
+### Execução automatizada local
+
+Use o build otimizado para evitar que compilação sob demanda e restart de
+memória do Next dev contaminem a evidência:
+
+```bash
+cd app
+npm run build
+E2E_DISABLE_RATE_LIMIT=true E2E_CONTROLLED_PROVIDER=true \
+  APP_URL=http://localhost:3000 HOSTNAME=0.0.0.0 PORT=3000 \
+  node --env-file=.env.local .next/standalone/server.js
+
+# Em outro terminal
+npm run inngest:dev
+npm run seed:phase6-uat
+npx playwright test phase6-gate6-uat --project=serial-flows
+```
+
+O provider controlado substitui somente as respostas externas de texto/imagem.
+Billing, persistência, Inngest, quality policy e storage continuam reais; a
+trava recusa URLs que não sejam localhost.
+
 ## Evidência por cenário (obrigatório)
 
 Para **cada** cenário abaixo registrar:
@@ -149,12 +171,12 @@ Para **cada** cenário abaixo registrar:
 
 ## Critérios de pass do item 50
 
-- [ ] Desktop **e** mobile: S01–S14 sem P1  
-- [ ] Com campanha **e** sem campanha cobertos  
-- [ ] Preview auto + gate manual cobertos  
-- [ ] Créditos UI = response server (S09)  
-- [ ] Zero erros de console bloqueantes nos happy paths  
-- [ ] Evidência (screenshots + notas) anexada ao Gate 6  
+- [x] Desktop **e** mobile: S01–S14 sem P1
+- [x] Com campanha **e** sem campanha cobertos
+- [x] Preview auto + gate manual cobertos
+- [x] Créditos UI = response server (S09)
+- [x] Zero erros de console bloqueantes nos happy paths
+- [x] Evidência (screenshots + notas) anexada ao Gate 6
 
 ## Não é escopo do UAT (já gate de código)
 
@@ -163,4 +185,7 @@ Para **cada** cenário abaixo registrar:
 
 ## Após UAT
 
-Atualizar plan: Gate 6 aprovado **somente** se S01–S14 passarem e 49b permanecer verde no CI.
+**Gate 6 aprovado em 2026-07-14.** S01–S14 passaram no build standalone
+controlado (14 pass · 0 fail · 0 blocked · 0 not executed), o contrato 49b
+permaneceu sem import runtime de `@/server/ai/strategy-recipes` no cliente, e a
+evidência final está em `docs/plans/uat-50-evidence/RESULTS.md`.
