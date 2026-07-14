@@ -40,7 +40,7 @@ vi.mock("../repositories/client-reference", () => ({
   getApprovedTrainingReferences: mocks.getApprovedTrainingReferencesMock,
 }));
 
-vi.mock("../db/repositories/brand-kit", () => ({
+vi.mock("../repositories/brand-kit", () => ({
   getBrandKit: mocks.getBrandKitMock,
 }));
 

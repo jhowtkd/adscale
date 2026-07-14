@@ -6,7 +6,7 @@ const state = vi.hoisted(() => ({
   insertResult: [] as unknown[],
 }));
 
-vi.mock("../../db", () => {
+vi.mock("../db", () => {
   const chain = {
     from: vi.fn(() => chain),
     where: vi.fn(() => chain),

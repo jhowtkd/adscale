@@ -99,7 +99,6 @@ graph TD
     BetaA[beta-analytics/*]
     MissionI[mission-insights]
     HQ[human-quality/*]
-    Perf[performance/*]
     OutLearn[output-learning/*]
     Memory[memory/*]
   end
@@ -185,7 +184,7 @@ Application code lives under `app/` (npm package `adscale-app`). Source is roote
 | Path | Role |
 |------|------|
 | `app/src/app/` | App Router: UI routes `(dashboard)/`, public pages, and `api/*` Route Handlers (23 groups) |
-| `app/src/components/` | Presentational and feature components (assistant chat/shell, campaign workspace, billing settings, feedback owner panels, hypotheses, UI primitives) |
+| `app/src/components/` | Presentational and feature components (assistant chat/shell, campaign workspace, billing settings, feedback owner panels, UI primitives) |
 | `app/src/lib/` | Client utilities: `api-client`, React Query hooks, `billing/conversion-gate`, `campaign-load-error`, `beta-analytics/constants`, formats, logger |
 | `app/src/server/ai/` | OpenAI-backed creative pipeline: prompts, scoring, QA, quality gate, contract, readiness, preview gate, **Olhar** art-direction verdicts |
 | `app/src/server/assistant/` | Conversational AI: orchestrator, guided flows, action contracts, tool registry/policy, context builder, artifact versioning, MiniMax model adapter, SSE stream encoding |
@@ -199,12 +198,12 @@ Application code lives under `app/` (npm package `adscale-app`). Source is roote
 | `app/src/server/feedback/` | Feedback validation, mission-credit-signal classification |
 | `app/src/server/human-quality/` | Corpus queue, evaluations, sampling, calibration, learning proposal generation, trend/impact reports |
 | `app/src/server/jobs/` | Inngest client, `derivationJob`, trial notifications, workspace asset analysis, brand memory, **learning proposal aggregator** |
-| `app/src/server/memory/` | Mem0 brand-memory ingest, context assembly, performance/output learning projections |
+| `app/src/server/memory/` | Mem0 brand-memory ingest, context assembly, and output-learning projections |
 | `app/src/server/mission-insights/` | Sanitize and persist mission insight moments as `feedback_reports` |
 | `app/src/server/olhar-calibration/` | Olhar release evidence and calibration services |
 | `app/src/server/output-learning/` | Output decision recording, aggregation, recommendations |
 | `app/src/server/progression/` | Workspace levels and ordered **missions** (definitions, evidence, status, credits) |
-| `app/src/server/repositories/` | Data access layer; includes assistant threads/messages/actions, billing, entitlements, human-quality corpus, performance, output decisions |
+| `app/src/server/repositories/` | Data access layer; includes assistant threads/messages/actions, billing, entitlements, human-quality corpus, brand kit, and output decisions |
 | `app/src/server/services/` | Email, notifications (low-credits alerts), export, landing-page render, Resend contacts |
 | `app/src/server/storage/` | `ObjectStorage` interface; `R2ObjectStorage` (`r2-object-storage.ts`), presign helpers (`storage-helpers.ts`), in-memory test impl |
 | `app/src/server/validation/` | `env` (Zod-validated environment) |
@@ -557,7 +556,7 @@ Repositories take `workspaceId` as an explicit argument. Drizzle updates include
 **Representative API groups** under `app/src/app/api/` (23 groups, 150 `route.ts` handlers):
 
 - `campaigns/`, `derivations/`, `workspace/` (assets, brand-kit, invites, **missions**, **mission-insights**, progression)
-- `campaigns/[id]/restyle`, `performance/`, `hypotheses/`, `competitors/`, `learnings/`, `approval-package/`
+- `campaigns/[id]/restyle`, `competitors/`, `approval-package/`
 - `assistant/` — threads, streaming chat, actions, artifact versions, guided flows (workspace-scoped)
 - `billing/` — **checkout**, **portal**, **status**, **history**, **beta/redeem**, **webhook**
 - `analytics/events` — workspace-scoped beta event ingest
@@ -653,7 +652,7 @@ Image generation uses the OpenAI SDK with `env.OPENAI_API_KEY` and model names f
 ## Data layer
 
 - **ORM:** Drizzle with `pg` pool (`app/src/server/db/index.ts`); `@neondatabase/serverless` available for serverless compute.
-- **Schema:** PostgreSQL schema `adscale_app` — users/sessions (Better Auth), workspaces, campaigns, assets, derivations (quality gate + `parent_id`), **assistant threads/messages/actions/artifact-versions**, billing tables, notifications, landing pages, beta analytics, feedback, progression, **performance import/snapshots/hypotheses**, **client_performance_learnings**, **client_output_learnings**, **output_decision_events**, **human_quality_corpus_***, **client_learning_proposals**, **calibration_signals/rules**, **rubric_calibration_adjustments**, waitlist signups, etc.
+- **Schema:** PostgreSQL schema `adscale_app` — users/sessions (Better Auth), workspaces, campaigns, assets, derivations (quality gate + `parent_id`), **assistant threads/messages/actions/artifact-versions**, billing tables, notifications, landing pages, beta analytics, feedback, progression, **client_output_learnings**, **output_decision_events**, **human_quality_corpus_***, **client_learning_proposals**, **calibration_signals/rules**, **rubric_calibration_adjustments**, waitlist signups, etc.
 - **Migrations:** `app/drizzle/*.sql`, managed via `drizzle-kit` (`npm run db:migrate`).
 
 ---

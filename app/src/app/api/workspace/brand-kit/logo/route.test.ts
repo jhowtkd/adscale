@@ -15,7 +15,7 @@ vi.mock("@/server/repositories/client-reference", () => ({
   getClientProfiles: vi.fn(),
 }));
 
-vi.mock("@/server/db/repositories/brand-kit", () => ({
+vi.mock("@/server/repositories/brand-kit", () => ({
   BrandKitAmbiguityError: class BrandKitAmbiguityError extends Error {
     name = "BrandKitAmbiguityError";
   },
@@ -47,7 +47,7 @@ import {
   getBrandKit,
   getBrandKitByWorkspace,
   upsertBrandKit,
-} from "@/server/db/repositories/brand-kit";
+} from "@/server/repositories/brand-kit";
 import { createClientReference } from "@/server/repositories/client-reference";
 
 const PROFILE_A = "00000000-0000-4000-8000-000000000001";

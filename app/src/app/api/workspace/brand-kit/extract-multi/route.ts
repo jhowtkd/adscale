@@ -21,7 +21,7 @@ import {
   getWorkspaceAssetByKey,
 } from "@/server/repositories/workspace-asset";
 import { normalizeTrainingUpload } from "@/server/brand-training/upload";
-import { upsertBrandKit, resolveBrandKitProfileId } from "@/server/db/repositories/brand-kit";
+import { upsertBrandKit, resolveBrandKitProfileId } from "@/server/repositories/brand-kit";
 import { inngest } from "@/server/jobs/client";
 
 const MAX_SIZE = 10 * 1024 * 1024;

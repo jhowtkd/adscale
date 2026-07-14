@@ -14,7 +14,7 @@ vi.mock("@/server/repositories/client-reference", () => ({
   getClientProfiles: vi.fn(),
 }));
 
-vi.mock("@/server/db/repositories/brand-kit", () => ({
+vi.mock("@/server/repositories/brand-kit", () => ({
   BrandKitAmbiguityError: class BrandKitAmbiguityError extends Error {
     name = "BrandKitAmbiguityError";
     availableWorkspaces: { id: string; name: string }[] = [];
@@ -56,7 +56,7 @@ import {
   getBrandKitByWorkspace,
   upsertBrandKit,
   deleteBrandKit,
-} from "@/server/db/repositories/brand-kit";
+} from "@/server/repositories/brand-kit";
 
 import { getClientProfiles } from "@/server/repositories/client-reference";
 

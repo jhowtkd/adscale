@@ -62,7 +62,7 @@ import {
 } from "../repositories/client-reference";
 import { getWorkspaceAssetByKey } from "../repositories/workspace-asset";
 import { trackUsage } from "../repositories/usage";
-import { getBrandKit } from "../db/repositories/brand-kit";
+import { getBrandKit } from "../repositories/brand-kit";
 import { resolveCampaignClientProfileId } from "../repositories/client-reference";
 import { getCompetitorAnalysesByCampaign } from "../repositories/competitor-analysis";
 import { getBrandMemoryContext } from "@/server/memory/brand-memory-context";

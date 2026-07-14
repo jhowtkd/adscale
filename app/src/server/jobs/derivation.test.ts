@@ -73,7 +73,7 @@ vi.mock("../repositories/plan", () => ({
   getPlanByCampaign: vi.fn(),
 }));
 
-vi.mock("../db/repositories/brand-kit", () => ({
+vi.mock("../repositories/brand-kit", () => ({
   getBrandKit: vi.fn(),
 }));
 
@@ -286,7 +286,7 @@ import { getDerivationById } from "../repositories/derivation";
 import { getCampaignById } from "../repositories/campaign";
 import { getAssetsByCampaign } from "../repositories/asset";
 import { getPlanByCampaign } from "../repositories/plan";
-import { getBrandKit } from "../db/repositories/brand-kit";
+import { getBrandKit } from "../repositories/brand-kit";
 import { getCompetitorAnalysesByCampaign } from "../repositories/competitor-analysis";
 import { getClientReferencesByIdsForProfile, resolveCampaignClientProfileId } from "../repositories/client-reference";
 import { objectStorage } from "@/server/storage";

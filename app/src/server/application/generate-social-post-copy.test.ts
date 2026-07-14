@@ -9,7 +9,7 @@ vi.mock("@/server/repositories/client-reference", () => ({
   getClientProfile: vi.fn(),
 }));
 
-vi.mock("@/server/db/repositories/brand-kit", () => ({
+vi.mock("@/server/repositories/brand-kit", () => ({
   getBrandKit: vi.fn(),
 }));
 
@@ -23,7 +23,7 @@ vi.mock("@/server/creative-work/copy", () => ({
 
 import { spend } from "@/server/billing/paywall";
 import { generateSocialPostCopy as generateCopy } from "@/server/creative-work/copy";
-import { getBrandKit } from "@/server/db/repositories/brand-kit";
+import { getBrandKit } from "@/server/repositories/brand-kit";
 import { getClientProfile } from "@/server/repositories/client-reference";
 import {
   getCreativeWork,

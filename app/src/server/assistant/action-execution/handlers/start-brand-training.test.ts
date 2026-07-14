@@ -7,14 +7,14 @@ import "@/server/assistant/action-contracts/contracts";
 import {
   BrandKitAmbiguityError,
   BrandKitProfileNotFoundError,
-} from "@/server/db/repositories/brand-kit";
+} from "@/server/repositories/brand-kit";
 import { executeStartBrandTraining } from "./start-brand-training";
 
 const PROFILE_ID = "550e8400-e29b-41d4-a716-446655440000";
 
 const resolveBrandKitProfileId = vi.fn();
 
-vi.mock("@/server/db/repositories/brand-kit", () => {
+vi.mock("@/server/repositories/brand-kit", () => {
   // Errors must be real classes so the handler's `instanceof` checks preserve identity.
   // Defined inside the factory so vi.mock hoisting doesn't break initialization order.
   class MockBrandKitAmbiguityError extends Error {

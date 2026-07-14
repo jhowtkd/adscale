@@ -11,7 +11,7 @@ import {
   getBrandKitByWorkspace,
   upsertBrandKit,
   deleteBrandKit,
-} from "@/server/db/repositories/brand-kit";
+} from "@/server/repositories/brand-kit";
 import { getClientProfiles } from "@/server/repositories/client-reference";
 import { objectStorage } from "@/server/storage";
 import { isWorkspaceAssetKey } from "@/server/repositories/asset";

@@ -1,6 +1,6 @@
 import { eq, and } from "drizzle-orm";
-import { db } from "../../db";
-import { clientProfiles, clientReferences } from "../../db/schema";
+import { db } from "../db";
+import { clientProfiles, clientReferences } from "../db/schema";
 
 export interface BrandKitData {
   name?: string;

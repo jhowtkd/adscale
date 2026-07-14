@@ -2,7 +2,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { db } from "../db";
 import { workspaceAssets } from "../db/schema";
 import { getApprovedTrainingReferences } from "../repositories/client-reference";
-import { getBrandKit } from "../db/repositories/brand-kit";
+import { getBrandKit } from "../repositories/brand-kit";
 import type {
   BrandTrainingAnalysis,
   BrandTrainingCategory,

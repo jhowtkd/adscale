@@ -7,7 +7,7 @@ import type { CanonicalCreativeWork } from "@/server/creative-work/canonical/typ
 import { generateSocialPostCopy as generateCopy } from "@/server/creative-work/copy";
 import type { SocialPostCopy } from "@/server/creative-work/contracts";
 import { spend, type SpendResult } from "@/server/billing/paywall";
-import { getBrandKit } from "@/server/db/repositories/brand-kit";
+import { getBrandKit } from "@/server/repositories/brand-kit";
 import { getClientProfile } from "@/server/repositories/client-reference";
 import {
   getCreativeWork,

@@ -595,8 +595,8 @@ Key stack decisions:
 | Learn before build | Instrument and run operator beta sessions before adding speculative cockpit or progression features | ✓ Good — v11.8 |
 | First-party beta analytics | Operator-scale learning without third-party SDK; PII allowlist at ingest | ✓ Good — v11.8 |
 | Evidence-capped friction fixes | Max 5 surgical UX fixes per milestone with session citations | ✓ Good — v11.8 |
-| Manual/CSV performance ingestion before platform APIs | Validate data model and recommendation value before OAuth, rate-limit, and provider-maintenance complexity | — Pending — v12.1 |
-| Explainable recommendations over opaque ranking | Users need evidence, sample size, and confidence to trust the next creative experiment | — Pending — v12.1 |
+| Manual/CSV performance ingestion before platform APIs | Validate data model and recommendation value before OAuth, rate-limit, and provider-maintenance complexity | ✗ Retired — convergence 2026-07-14; no real usage evidence |
+| Explainable performance recommendations over opaque ranking | Users need evidence, sample size, and confidence to trust the next creative experiment | ✗ Retired with the unproven performance loop — convergence 2026-07-14 |
 | Olhar before export compliance | A creative can be exportable and still weak, or strong and still blocked by factual/export issues; the product must show both truths separately | ✓ Good — v12.7 |
 | Client voice as prompt overlay | Cenbrap validates the structure before multi-client voice management is productized | ✓ Good — v12.7 |
 | Live operator calibration before claims | Agreement/quality claims require reviewable rows, Jhonatan decisions and sufficient sample — infrastructure complete, operator gate open | ✓ Good — v12.8 shipped with tech_debt |

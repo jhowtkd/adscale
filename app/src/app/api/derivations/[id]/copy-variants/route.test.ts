@@ -22,7 +22,7 @@ vi.mock("@/server/repositories/client-reference", () => ({
   resolveCampaignClientProfileId: vi.fn(),
 }));
 
-vi.mock("@/server/db/repositories/brand-kit", () => ({
+vi.mock("@/server/repositories/brand-kit", () => ({
   getBrandKit: vi.fn(),
 }));
 
@@ -47,7 +47,7 @@ vi.mock("next-intl/server", () => ({
 import { getDerivationById } from "@/server/repositories/derivation";
 import { getCampaignById } from "@/server/repositories/campaign";
 import { resolveCampaignClientProfileId } from "@/server/repositories/client-reference";
-import { getBrandKit } from "@/server/db/repositories/brand-kit";
+import { getBrandKit } from "@/server/repositories/brand-kit";
 import {
   createCopyVariant,
   getCopyVariantsByDerivation,

@@ -1,4 +1,4 @@
-import { getBrandKit } from "@/server/db/repositories/brand-kit";
+import { getBrandKit } from "@/server/repositories/brand-kit";
 import { getBrandMemoryContext } from "@/server/memory/brand-memory-context";
 import { getCampaignById } from "@/server/repositories/campaign";
 import { getClientProfile } from "@/server/repositories/client-reference";

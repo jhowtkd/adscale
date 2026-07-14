@@ -46,7 +46,7 @@ import {
   setCreativeWorkStatus,
 } from "../src/server/repositories/creative-work";
 import { createIdentitySnapshot } from "../src/server/creative-work/identity";
-import { upsertBrandKit } from "../src/server/db/repositories/brand-kit";
+import { upsertBrandKit } from "../src/server/repositories/brand-kit";
 import { createPlan } from "../src/server/repositories/plan";
 import { objectStorage } from "../src/server/storage";
 

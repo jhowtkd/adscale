@@ -9,7 +9,7 @@ import {
   extractVoiceFromBrandInputs,
   toOlharVoiceConfigPayload,
 } from "@/server/ai/voices/voice-extractor";
-import { getBrandKit } from "@/server/db/repositories/brand-kit";
+import { getBrandKit } from "@/server/repositories/brand-kit";
 import { getClientProfile, getClientReferences } from "@/server/repositories/client-reference";
 import { upsertOlharVoiceConfig } from "@/server/repositories/client-profile-olhar-config";
 

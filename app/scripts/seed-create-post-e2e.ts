@@ -42,7 +42,7 @@ import {
 import { createClientProfile } from "../src/server/repositories/client-reference";
 import { createWorkspaceAsset } from "../src/server/repositories/workspace-asset";
 import { objectStorage } from "../src/server/storage";
-import { upsertBrandKit } from "../src/server/db/repositories/brand-kit";
+import { upsertBrandKit } from "../src/server/repositories/brand-kit";
 import { createIdentitySnapshot } from "../src/server/creative-work/identity";
 import {
   confirmCreativeWorkIdentity,

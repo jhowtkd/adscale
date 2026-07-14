@@ -3,7 +3,7 @@ import {
   BrandKitAmbiguityError,
   BrandKitProfileNotFoundError,
   resolveBrandKitProfileId,
-} from "@/server/db/repositories/brand-kit";
+} from "@/server/repositories/brand-kit";
 import type { ActionExecutionContext, ActionExecutionResult } from "../types";
 import { AssistantActionExecutionError } from "../types";
 
