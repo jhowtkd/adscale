@@ -16,8 +16,8 @@ decisions:
     rationale: "Always-disabled Generate landing page with comingSoon; frozen module — keep hidden until Phase 7 evidence."
 
   - id: B-demo-restore-stub
-    blockerId: "inert:app/src/components/layout/TopBar.tsx:438"
-    evidence: app/src/components/layout/TopBar.tsx:438
+    blockerId: "inert:app/src/components/layout/TopBar.tsx:410"
+    evidence: app/src/components/layout/TopBar.tsx:410
     decision: esconder
     rationale: "Demo-mode restore stub is intentionally non-functional; not a primary creative path."
 

@@ -1,7 +1,7 @@
 # Plano de convergência de produto e arquitetura do ADScale
 
 **Data:** 2026-07-12
-**Status:** Gate 6 aprovado — Fase 6 concluída; Fase 7 é a próxima; 40–42 diferidos
+**Status:** Fase 7 em andamento — itens 51–54 concluídos; item 55 é o próximo; 40–42 diferidos
 **Direção assumida:** trabalho criativo-first
 **Estratégia:** migração incremental com gates; nenhum big bang
 
@@ -264,10 +264,10 @@ Cada item abaixo deve resultar em um commit pequeno e manter a aplicação funci
 
 **Objetivo:** reduzir custo permanente depois da convergência.
 
-51. Comparar cada preview v6 com a produção e registrar diferenças ainda desejadas.
-52. Migrar diferenças aprovadas para a implementação produtiva.
-53. Fazer fixtures usarem adapters de dados sobre a mesma interface visual.
-54. Apagar rotas, mappers e módulos de preview sem uso restante.
+51. Comparar cada preview v6 com a produção e registrar diferenças ainda desejadas. **Concluído em 2026-07-14** — matriz em `docs/plans/2026-07-14-phase7-preview-retirement.md`; zero diferenças pendentes.
+52. Migrar diferenças aprovadas para a implementação produtiva. **Concluído em 2026-07-14** — nenhuma migração adicional necessária.
+53. Fazer fixtures usarem adapters de dados sobre a mesma interface visual. **Concluído em 2026-07-14** — equivalência confirmada; fixtures paralelas aposentadas.
+54. Apagar rotas, mappers e módulos de preview sem uso restante. **Concluído em 2026-07-14** — árvore `/v6` removida e protegida pelo `convergence:gate`.
 55. Esconder Landing Page e Persona Simulation da navegação quando não houver evidência de uso decisório.
 56. Manter imports de performance e hipóteses somente se completarem o loop de aprendizado com dados reais.
 57. Dividir o painel owner de qualidade por tarefa, preservando uma consulta compartilhada apenas onde houver invariantes comuns.

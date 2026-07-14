@@ -4,7 +4,6 @@ import { resolveWorkspaceStage } from "./map-campaign-workspace-v6";
 const baseCtx = {
   workspaceState: "trabalho" as const,
   derivationCount: 3,
-  reviewCount: 0,
   approvedCount: 0,
 };
 
@@ -20,7 +19,6 @@ describe("resolveWorkspaceStage", () => {
   });
 
   it("moves to Review (3) when derivations exist and nothing approved", () => {
-    expect(resolveWorkspaceStage({ ...baseCtx, reviewCount: 1 })).toBe(3);
     expect(resolveWorkspaceStage({ ...baseCtx, derivationCount: 1 })).toBe(3);
   });
 

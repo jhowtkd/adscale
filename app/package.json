@@ -61,7 +61,7 @@
     "convergence:check-frozen": "node scripts/check-frozen-modules.mjs",
     "convergence:check-planning": "node scripts/check-planning-consistency.mjs",
     "convergence:check-inventory": "node scripts/check-surface-inventory.mjs",
-    "convergence:test": "node --test scripts/convergence-gates.test.mjs scripts/check-planning-consistency.test.mjs scripts/check-surface-inventory.test.mjs",
+    "convergence:test": "node --test scripts/convergence-gates.test.mjs scripts/check-planning-consistency.test.mjs scripts/check-surface-inventory.test.mjs scripts/check-no-parallel-preview.test.mjs",
     "convergence:baseline": "node scripts/capture-convergence-baseline.mjs",
     "convergence:inventory": "node scripts/generate-surface-inventory.mjs",
     "convergence:gate": "node scripts/run-convergence-gate.mjs"

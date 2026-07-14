@@ -7,19 +7,6 @@ export type WorkspaceV6BriefingSlider = {
   value: number;
 };
 
-export type WorkspaceV6DerivationCard = {
-  id: string;
-  art: string;
-  title: string;
-  variations: string;
-  version: string;
-  score: number | null;
-  status: string;
-  statusVariant: WorkspaceV6BadgeVariant;
-  gradient: string;
-  href?: string;
-};
-
 /** Deep-link tab keys for clickable stage navigation (1–4). Phase 6 / item 47. */
 export type WorkspaceStageNavTab = "briefing" | "generate" | "review" | "share";
 
@@ -34,27 +21,20 @@ export type CampaignWorkspaceV6ViewModel = {
   stageTabs?: WorkspaceStageNavTab[];
   briefingSliders: WorkspaceV6BriefingSlider[];
   briefingRules: string[];
-  derivations: WorkspaceV6DerivationCard[];
 };
 
 export type CampaignWorkspaceV6Labels = {
   backToCampaigns: string;
-  sendFeedback: string;
   deleteCampaign: string;
   stagesAria: string;
   briefingTitle: string;
   briefingVersion: string;
   rulesTitle: string;
-  derivationsTitle: string;
-  viewAllDerivations: string;
-  openDerivation: string;
-  moreOptionsFor: (title: string) => string;
 };
 
 export type WorkspaceV6StageContext = {
   workspaceState: WorkspaceState;
   derivationCount: number;
-  reviewCount: number;
   approvedCount: number;
   /**
    * True while derivations are actively being generated (queued/processing).

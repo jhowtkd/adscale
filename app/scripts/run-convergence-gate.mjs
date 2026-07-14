@@ -11,6 +11,7 @@
  *   1. check-primary-destinations.mjs  (anti-expansion)
  *   2. check-frozen-modules.mjs         (frozen modules, full branch range)
  *   3. check-planning-consistency.mjs  (REQUIREMENTS ledger vs STATE/ROADMAP)
+ *   4. check-no-parallel-preview.mjs    (retired /v6 tree cannot return)
  *
  * The baseline capture is NOT part of this gate because it requires a
  * live DATABASE_URL and is run on demand by ops.
@@ -31,6 +32,7 @@ const steps = [
   ["node", ["scripts/check-frozen-modules.mjs"], "frozen-modules gate (full branch range)"],
   ["node", ["scripts/check-planning-consistency.mjs"], "planning-consistency gate"],
   ["node", ["scripts/check-surface-inventory.mjs"], "surface-inventory gate"],
+  ["node", ["scripts/check-no-parallel-preview.mjs"], "no-parallel-preview gate"],
 ];
 
 for (const [command, args, label] of steps) {

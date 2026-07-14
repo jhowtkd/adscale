@@ -28,7 +28,6 @@ const EMPTY_WORKSPACE_VIEW: CampaignWorkspaceV6ViewModel = {
   stages: [],
   briefingSliders: [],
   briefingRules: [],
-  derivations: [],
 };
 
 const DeliveryPackageModal = dynamic(() => import("@/components/workspace/DeliveryPackageModal"), {

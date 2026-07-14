@@ -23,9 +23,7 @@ import AppSidebarCampaignMap from "@/components/layout/AppSidebarCampaignMap";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { cn } from "@/lib/utils";
 
-type AppSidebarVariant = "production" | "preview";
-
-export default function AppSidebar({ variant = "production" }: { variant?: AppSidebarVariant }) {
+export default function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const tNav = useTranslations("navigation");
@@ -35,9 +33,6 @@ export default function AppSidebar({ variant = "production" }: { variant?: AppSi
   const { data: session } = authClient.useSession();
   const { data: works = [] } = useCanonicalWorks();
   const { data: billingStatus } = useBillingStatus();
-
-  const isPreview = variant === "preview";
-  const homeHref = isPreview ? "/v6" : "/";
 
   const displayName =
     session?.user?.name?.trim() || `${user.firstName} ${user.lastName}`.trim() || user.email;
@@ -53,16 +48,12 @@ export default function AppSidebar({ variant = "production" }: { variant?: AppSi
   const isOwnerOrAdmin = accessRole === "owner" || accessRole === "admin";
 
   // Phase 6 / item 45: Trabalhos · Biblioteca · Marcas · Config (home via logo)
-  const isWorks = isPreview
-    ? pathname.startsWith("/v6/campaigns") || pathname.startsWith("/v6/campaign-workspace")
-    : pathname.startsWith("/campaigns");
-  const isLibrary = isPreview
-    ? pathname.startsWith("/v6/library")
-    : pathname.startsWith("/library");
-  const isBrands = !isPreview && pathname.startsWith("/brand-kit");
-  const isConfig = !isPreview && pathname.startsWith("/settings");
+  const isWorks = pathname.startsWith("/campaigns");
+  const isLibrary = pathname.startsWith("/library");
+  const isBrands = pathname.startsWith("/brand-kit");
+  const isConfig = pathname.startsWith("/settings");
 
-  const worksCount = isPreview ? "12" : works.length > 0 ? String(works.length) : undefined;
+  const worksCount = works.length > 0 ? String(works.length) : undefined;
 
   const handleLogout = () => {
     void authClient.signOut({
@@ -84,7 +75,7 @@ export default function AppSidebar({ variant = "production" }: { variant?: AppSi
       />
       <div className="relative z-[1] flex min-h-0 flex-1 flex-col gap-1">
       <div className="mb-2.5 shrink-0 border-b border-[var(--border-subtle)] px-2 pb-4 pt-2">
-        <Link href={homeHref} className="flex w-full justify-center rounded-md py-0.5" aria-label="ADScale">
+        <Link href="/" className="flex w-full justify-center rounded-md py-0.5" aria-label="ADScale">
           <Image
             src="/images/logo.svg"
             alt=""
@@ -103,47 +94,41 @@ export default function AppSidebar({ variant = "production" }: { variant?: AppSi
         aria-label={tNav("sectionPrincipal")}
       >
         <IconNavItem
-          href={isPreview ? "/v6/campaigns" : "/campaigns"}
+          href="/campaigns"
           active={isWorks}
           label={tNav("works")}
           icon={FolderOpen}
           count={worksCount}
         />
         <IconNavItem
-          href={isPreview ? "/v6/library" : "/library"}
+          href="/library"
           active={isLibrary}
           label={tLibrary("title")}
           icon={BookOpen}
         />
         <IconNavItem
-          href={isPreview ? "#" : "/brand-kit"}
+          href="/brand-kit"
           active={isBrands}
           label={tNav("brands")}
           icon={Tag}
         />
         <IconNavItem
-          href={isPreview ? "#" : "/settings"}
+          href="/settings"
           active={isConfig}
           label={tNav("config")}
           icon={Settings}
         />
       </nav>
 
-      {!isPreview ? (
-        <div className="mb-3 shrink-0 px-1">
-          <Suspense fallback={null}>
-            <SidebarBrandKitFeature />
-          </Suspense>
-        </div>
-      ) : null}
+      <div className="mb-3 shrink-0 px-1">
+        <Suspense fallback={null}>
+          <SidebarBrandKitFeature />
+        </Suspense>
+      </div>
 
-      {!isPreview ? (
-        <div className="min-h-0 flex-1 overflow-hidden border-t border-[var(--border-subtle)] pt-2">
-          <AppSidebarCampaignMap />
-        </div>
-      ) : (
-        <div className="flex-1" />
-      )}
+      <div className="min-h-0 flex-1 overflow-hidden border-t border-[var(--border-subtle)] pt-2">
+        <AppSidebarCampaignMap />
+      </div>
 
       {isOwnerOrAdmin && (
         <div className="mt-2 shrink-0 border-t border-[var(--border-subtle)] pt-2">
@@ -157,7 +142,7 @@ export default function AppSidebar({ variant = "production" }: { variant?: AppSi
 
       <div className="mt-auto shrink-0 border-t border-[var(--border-subtle)] pt-3">
         <Link
-          href={isPreview ? "#" : "/settings"}
+          href="/settings"
           className="flex items-center gap-2 rounded-[var(--radius-control)] px-2 py-2 transition-colors hover:bg-[var(--surface-base)]"
         >
           <span className="grid h-[30px] w-[30px] shrink-0 place-items-center rounded-full bg-[var(--neutral-bg)] text-[11px] font-bold text-[var(--text-primary)]">
@@ -175,16 +160,14 @@ export default function AppSidebar({ variant = "production" }: { variant?: AppSi
             ) : null}
           </div>
         </Link>
-        {!isPreview ? (
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="mt-1 flex w-full items-center gap-2.5 rounded-[var(--radius-control)] px-2.5 py-2 text-[13px] font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-base)] hover:text-[var(--accent-rose)]"
-          >
-            <LogOut size={16} aria-hidden="true" className="shrink-0" />
-            <span>{tNav("logout")}</span>
-          </button>
-        ) : null}
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="mt-1 flex w-full items-center gap-2.5 rounded-[var(--radius-control)] px-2.5 py-2 text-[13px] font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-base)] hover:text-[var(--accent-rose)]"
+        >
+          <LogOut size={16} aria-hidden="true" className="shrink-0" />
+          <span>{tNav("logout")}</span>
+        </button>
       </div>
       </div>
     </aside>

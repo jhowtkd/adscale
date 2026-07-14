@@ -20,16 +20,11 @@ vi.mock("@/components/feedback/ContextualFeedbackButton", () => ({
 
 const labels: CampaignWorkspaceV6Labels = {
   backToCampaigns: "Back to campaigns",
-  sendFeedback: "Send feedback",
   deleteCampaign: "Delete campaign",
   stagesAria: "Stages",
   briefingTitle: "Briefing",
   briefingVersion: "v1",
   rulesTitle: "Rules",
-  derivationsTitle: "Derivations",
-  viewAllDerivations: "View all",
-  openDerivation: "Open",
-  moreOptionsFor: (title) => `More options for ${title}`,
 };
 
 const view: CampaignWorkspaceV6ViewModel = {
@@ -42,45 +37,15 @@ const view: CampaignWorkspaceV6ViewModel = {
   stageTabs: ["briefing", "generate", "review", "share"],
   briefingSliders: [],
   briefingRules: [],
-  derivations: [],
 };
 
 describe("CampaignWorkspaceV6Chrome", () => {
-  it("shows Send feedback button in non-interactive (preview) mode", () => {
-    render(
-      <CampaignWorkspaceV6Chrome
-        view={view}
-        labels={labels}
-        interactive={false}
-      />,
-    );
-
-    expect(
-      screen.getByRole("button", { name: "Send feedback" }),
-    ).toBeInTheDocument();
-  });
-
-  it("hides Send feedback button in interactive (production) mode", () => {
-    render(
-      <CampaignWorkspaceV6Chrome
-        view={view}
-        labels={labels}
-        interactive={true}
-      />,
-    );
-
-    expect(
-      screen.queryByRole("button", { name: "Send feedback" }),
-    ).not.toBeInTheDocument();
-  });
-
   it("calls onStageSelect when a phase is clicked", () => {
     const onStageSelect = vi.fn();
     render(
       <CampaignWorkspaceV6Chrome
         view={view}
         labels={labels}
-        interactive={true}
         onStageSelect={onStageSelect}
       />,
     );
