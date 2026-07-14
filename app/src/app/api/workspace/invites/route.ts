@@ -17,6 +17,10 @@ const acceptInviteSchema = z.object({
   token: z.string().min(1),
 });
 
+const deleteQuerySchema = z.object({
+  id: z.string().uuid(),
+});
+
 export async function GET(request: Request) {
   try {
     const { workspace } = await requireWorkspaceAccess(request);
@@ -103,14 +107,16 @@ export async function DELETE(request: Request) {
     const { user, workspace } = await requireWorkspaceAccess(request);
     await requireRole(workspace.id, user.id, ["owner", "admin"]);
 
-    const url = new URL(request.url);
-    const inviteId = url.searchParams.get("id");
+    const { searchParams } = new URL(request.url);
+    const parsed = deleteQuerySchema.safeParse({
+      id: searchParams.get("id") ?? undefined,
+    });
 
-    if (!inviteId) {
-      return apiError("invalidInput", 400);
+    if (!parsed.success) {
+      return apiError("invalidInput", 400, parsed.error.flatten());
     }
 
-    const canceled = await cancelInvitation(inviteId, workspace.id);
+    const canceled = await cancelInvitation(parsed.data.id, workspace.id);
 
     if (!canceled) {
       return apiError("notFound", 404);
