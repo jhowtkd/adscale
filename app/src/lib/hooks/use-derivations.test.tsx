@@ -1,7 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useRestyleCampaign, type Derivation } from "./use-derivations";
+import {
+  hasPendingDerivationWork,
+  useRestyleCampaign,
+  type Derivation,
+} from "./use-derivations";
 
 vi.mock("@/lib/api-client", () => ({
   apiFetch: vi.fn(),
@@ -119,5 +123,24 @@ describe("Derivation dual-verdict types", () => {
 
     expect(derivation.olharVerdict?.value).toBe("quase");
     expect(derivation.exportStatus?.value).toBe("ok");
+  });
+});
+
+describe("hasPendingDerivationWork", () => {
+  it("keeps polling completed previews until quality gating finishes", () => {
+    const preview = {
+      id: "preview-1",
+      status: "completed",
+      isPreview: true,
+      scoreStatus: "computed",
+      qualityGatedAt: null,
+    } as unknown as Derivation;
+
+    expect(hasPendingDerivationWork([preview])).toBe(true);
+    expect(
+      hasPendingDerivationWork([
+        { ...preview, qualityGatedAt: new Date("2026-07-14T00:00:00Z") },
+      ])
+    ).toBe(false);
   });
 });

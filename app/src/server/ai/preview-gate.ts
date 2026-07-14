@@ -24,7 +24,11 @@ export function getReadyPreviewDerivation<T extends PreviewGateDerivation>(
   const preview = derivations.find((d) => d.isPreview);
   if (!preview) return null;
 
-  const hasBatch = derivations.some((d) => !d.isPreview);
+  // A historical failed/rejected batch is not an active continuation and must
+  // not suppress a newer preview's gate decision.
+  const hasBatch = derivations.some(
+    (d) => !d.isPreview && d.status !== "failed" && d.status !== "rejected"
+  );
   if (hasBatch) return null;
 
   if (preview.status === "generating" || preview.status === "queued" || preview.status === "processing") {

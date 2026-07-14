@@ -1584,6 +1584,8 @@
     "targetFormatsHelp": "Selecione um ou mais formatos para adaptar o criativo.",
     "creditPreview": "A prévia usa {credits} créditos",
     "creditBatchEstimate": "Estimativa do lote completo: {credits} créditos",
+    "surfaceError": "Não foi possível carregar a receita estratégica.",
+    "retry": "Tentar novamente",
     "generatePreview": "Gerar variações",
     "generateVariations": "Gerar variações",
     "levels": {

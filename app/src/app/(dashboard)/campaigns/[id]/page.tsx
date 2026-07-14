@@ -848,6 +848,14 @@ function CampaignWorkspaceCard({
 
   return (
     <section className="min-h-[400px] rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-5 sm:p-8">
+      {isDerivationsError && derivationsErrorKind ? (
+        <div className="mb-3">
+          <DerivationLoadErrorBanner
+            kind={derivationsErrorKind}
+            onRetry={onRetryDerivations}
+          />
+        </div>
+      ) : null}
       {workspaceState === "setup" && (
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
           <div id="mission-assets">
@@ -928,14 +936,6 @@ function CampaignWorkspaceCard({
             {/* Phase 6 / item 47: Review and Deliver are distinct tasks (not nested). */}
             <div id="mission-review">
               <PageSection title={tCampaign("derivationsSectionTitle")}>
-                {isDerivationsError && derivationsErrorKind ? (
-                  <div className="mb-3">
-                    <DerivationLoadErrorBanner
-                      kind={derivationsErrorKind}
-                      onRetry={onRetryDerivations}
-                    />
-                  </div>
-                ) : null}
                 {isGenerating && (
                   <p className="text-xs text-[var(--text-secondary)] mb-3 flex items-center gap-2">
                     <span className="inline-block size-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />

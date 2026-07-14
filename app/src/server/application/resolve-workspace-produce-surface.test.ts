@@ -36,5 +36,6 @@ describe("resolveWorkspaceProduceSurface", () => {
 
     expect(surface.shouldAutoContinuePreview).toBe(true);
     expect(surface.showPreviewGate).toBe(false);
+    expect(surface.activePreviewId).toBe("p1");
   });
 });

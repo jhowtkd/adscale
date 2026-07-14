@@ -1584,6 +1584,8 @@
     "targetFormatsHelp": "Select one or more formats to adapt the creative.",
     "creditPreview": "Preview uses {credits} credits",
     "creditBatchEstimate": "Full batch estimate: {credits} credits",
+    "surfaceError": "We couldn't load the strategy recipe.",
+    "retry": "Try again",
     "generatePreview": "Generate variations",
     "generateVariations": "Generate variations",
     "levels": {

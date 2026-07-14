@@ -3,6 +3,11 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import StrategyRecipePanel from "./StrategyRecipePanel";
 
 const recordEvent = vi.fn();
+const strategyRecipeState = vi.hoisted(() => ({
+  isLoading: false,
+  isError: false,
+  refetch: vi.fn(),
+}));
 
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string, values?: Record<string, unknown>) => {
@@ -67,9 +72,9 @@ vi.mock("@/lib/hooks/use-strategy-recipe", () => ({
       creativeLevel: "conservative",
       ctaVariants: ["Buy"],
     },
-    isLoading: false,
-    isError: false,
-    refetch: vi.fn(),
+    isLoading: strategyRecipeState.isLoading,
+    isError: strategyRecipeState.isError,
+    refetch: strategyRecipeState.refetch,
   }),
 }));
 
@@ -78,6 +83,9 @@ const STAGE_PROPS = { stage: "strategy_recipe", missionKey: "strategy_recipe" };
 describe("StrategyRecipePanel", () => {
   beforeEach(() => {
     recordEvent.mockClear();
+    strategyRecipeState.isLoading = false;
+    strategyRecipeState.isError = false;
+    strategyRecipeState.refetch.mockReset();
   });
 
   it("renders three recipe options", () => {
@@ -110,6 +118,23 @@ describe("StrategyRecipePanel", () => {
 
     expect(screen.getByTestId("strategy-recipe-preview-credits")).toBeInTheDocument();
     expect(screen.getByTestId("strategy-recipe-batch-credits")).toBeInTheDocument();
+  });
+
+  it("shows a recoverable error when the server recipe surface fails", () => {
+    strategyRecipeState.isError = true;
+    render(
+      <StrategyRecipePanel
+        campaignId="camp-1"
+        open
+        campaign={{ ctaVariants: ["Buy"] }}
+        onClose={vi.fn()}
+        onGeneratePreview={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole("alert")).toHaveTextContent("surfaceError");
+    fireEvent.click(screen.getByRole("button", { name: "retry" }));
+    expect(strategyRecipeState.refetch).toHaveBeenCalledOnce();
   });
 
   it("emits cockpit_stage_entered when open", () => {

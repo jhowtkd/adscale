@@ -158,6 +158,23 @@ function mergeDerivations(
   return merged;
 }
 
+export function hasPendingDerivationWork(data: Derivation[] | undefined) {
+  return Boolean(
+    data?.some(
+      (d) =>
+        d.status === "queued" ||
+        d.status === "processing" ||
+        d.scoreStatus === "heuristic" ||
+        (d.status === "completed" && d.scoreStatus === "pending") ||
+        // Preview auto-continue depends on the quality gate, which runs after
+        // scoring. Keep polling through that second lifecycle boundary.
+        (d.isPreview &&
+          d.status === "completed" &&
+          d.qualityGatedAt == null)
+    )
+  );
+}
+
 async function createDerivations(
   campaignId: string,
   options?: {
@@ -199,13 +216,7 @@ export function useDerivations(
       if (!enablePolling) return false;
       const payload = query.state.data as DerivationsQueryData | undefined;
       const data = payload?.derivations;
-      const hasPending = data?.some(
-        (d) =>
-          d.status === "queued" ||
-          d.status === "processing" ||
-          d.scoreStatus === "heuristic" ||
-          (d.status === "completed" && d.scoreStatus === "pending")
-      );
+      const hasPending = hasPendingDerivationWork(data);
       if (!hasPending) return false;
 
       // Progressive backoff based on time since first pending observation

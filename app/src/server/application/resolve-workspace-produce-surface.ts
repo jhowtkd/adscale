@@ -3,7 +3,7 @@
  * Client must not import strategy-recipes / preview-gate for these decisions.
  */
 import {
-  getActivePreviewGateDerivation,
+  getReadyPreviewDerivation,
   shouldAutoContinuePreview,
   shouldShowPreviewGate,
   type PreviewGateDerivation,
@@ -63,7 +63,7 @@ export function resolveWorkspaceProduceSurface(
   const batchCreditBreakdown = config
     ? getBatchCreditBreakdown(config)
     : null;
-  const active = getActivePreviewGateDerivation(input.derivations);
+  const active = getReadyPreviewDerivation(input.derivations);
 
   return {
     batchCreditBreakdown,

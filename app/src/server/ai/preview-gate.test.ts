@@ -118,6 +118,20 @@ describe("shouldAutoContinuePreview", () => {
     ).toBe(true);
   });
 
+  it("ignores a historical failed batch when continuing a newer preview", () => {
+    expect(
+      shouldAutoContinuePreview([
+        {
+          isPreview: true,
+          status: "completed",
+          imageUrl: "https://example.com/preview.png",
+          qualityVerdict: "acceptable",
+        },
+        { isPreview: false, status: "failed", imageUrl: null },
+      ])
+    ).toBe(true);
+  });
+
   it("returns false when quality failed", () => {
     expect(
       shouldAutoContinuePreview([

@@ -215,6 +215,25 @@ export default function StrategyRecipePanel({
         </DialogHeader>
 
         <DialogBody className="space-y-4">
+          {recipe.isError ? (
+            <div
+              role="alert"
+              className="flex items-center justify-between gap-3 rounded-lg border border-[var(--status-error)]/30 bg-[var(--status-error)]/10 px-3 py-2"
+            >
+              <p className="text-xs text-[var(--text-primary)]">
+                {t("surfaceError")}
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => void recipe.refetch()}
+              >
+                {t("retry")}
+              </Button>
+            </div>
+          ) : null}
+
           {/* Phase 6 / S09: credits from server resolve surface (not client-estimated) */}
           <div
             role="status"
@@ -453,6 +472,7 @@ export default function StrategyRecipePanel({
             className="w-full"
             disabled={
               isSubmitting ||
+              recipe.isError ||
               (isArtMode
                 ? !canConfirm || isLoadingSuggestions
                 : selectedFormats.length === 0)

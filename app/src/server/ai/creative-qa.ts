@@ -2,6 +2,7 @@ import { env } from "@/server/validation/env";
 import { getOpenAI, extractOutputText } from "./utils";
 import type { CreativeContract } from "./creative-contract";
 import { resolveAllowedEntitiesForCampaign } from "./creative-corpus";
+import { isE2EControlledProviderEnabled } from "./providers/e2e-controlled-provider";
 import {
   CREATIVE_QA_CORE_CRITERIA,
   type CreativeQaCriterion,
@@ -208,6 +209,31 @@ Locale for user-facing notes: ${input.locale}.`;
 }
 
 export async function analyzeCreativeQa(input: AnalyzeCreativeQaInput): Promise<CreativeQaResult> {
+  if (isE2EControlledProviderEnabled()) {
+    const checklist = CREATIVE_QA_CORE_CRITERIA.reduce((acc, criterion) => {
+      acc[criterion] = {
+        status: "passed",
+        note: "Deterministic local E2E quality check passed.",
+      };
+      return acc;
+    }, {} as CreativeQaChecklist);
+    if (
+      input.contract?.generationMode === "restyling" &&
+      input.contract.styleAssetId
+    ) {
+      (checklist as Record<string, CreativeQaCriterionResult>).styleFidelity = {
+        status: "passed",
+        note: "Deterministic local E2E style fidelity check passed.",
+      };
+    }
+    return {
+      status: "ready",
+      checklist,
+      issues: [],
+      suggestions: [],
+    };
+  }
+
   const dataUrl = `data:${input.mimeType};base64,${input.imageBuffer.toString("base64")}`;
   const content: Array<
     | { type: "input_text"; text: string }
