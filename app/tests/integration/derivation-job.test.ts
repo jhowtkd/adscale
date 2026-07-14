@@ -115,6 +115,7 @@ vi.mock("@/server/storage", () => ({
   },}));
 
 vi.mock("@/server/billing/paywall", () => ({
+  spend: vi.fn().mockResolvedValue({ ok: true, balanceAfter: 100 }),
   spendOrApiError: vi.fn().mockResolvedValue(null),
 }));
 

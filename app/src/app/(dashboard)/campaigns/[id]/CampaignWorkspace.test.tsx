@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const mockMutateAsync = vi.fn();
@@ -190,6 +191,17 @@ vi.mock("@/components/campaigns/PlatformsDrawer", () => ({
 
 import Page from "./page";
 
+function renderPage() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <Page />
+    </QueryClientProvider>
+  );
+}
+
 describe("CampaignWorkspacePage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -197,7 +209,7 @@ describe("CampaignWorkspacePage", () => {
   });
 
   it("renders the assistant chat panel by default (not behind a toggle)", async () => {
-    render(<Page />);
+    renderPage();
 
     // The chat panel must be present in the document immediately, without the
     // user having to click an "open assistant" button first.
@@ -215,7 +227,7 @@ describe("CampaignWorkspacePage", () => {
   });
 
   it("does not render an open-assistant toggle button", () => {
-    render(<Page />);
+    renderPage();
 
     // The Sheet trigger / open-assistant button no longer exists.
     expect(
