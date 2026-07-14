@@ -4,9 +4,9 @@ milestone: v13.9
 milestone_name: milestone
 current_plan: 5
 status: completed
-stopped_at: Phase 7 and Gate 7 complete — Phase 8 item 59 next
-last_updated: "2026-07-14T23:24:00.000Z"
-last_activity: 2026-07-14 -- retired orphan persistence and approved Gate 7
+stopped_at: Phase 8 baseline and human-session fixtures ready — item 59 sessions next
+last_updated: "2026-07-14T23:40:00.000Z"
+last_activity: 2026-07-14 -- captured production baseline and prepared guarded human-evidence protocol
 progress:
   total_phases: 5
   completed_phases: 5
@@ -31,7 +31,7 @@ Plan: 5 of 5
 Current Plan: 5
 Total Plans in Phase: 5
 Status: Phase 207 complete; REQUIREMENTS all checked (PLAN-02 closed via 204-VERIFICATION)
-Last activity: 2026-07-14 -- Phase 7 item 58 and Gate 7 completed with schema, migration, inventory, tests and build evidence
+Last activity: 2026-07-14 -- Phase 8 production baseline, evidence checker and deterministic three-brand human-session fixtures prepared
 
 Progress: [██████████] 100%
 
@@ -98,5 +98,5 @@ _None — milestone plans 203–207 are complete. Active work is tracked under t
 ## Session Continuity
 
 Last session: 2026-07-14
-Stopped at: Phase 7 and Gate 7 complete; Phase 8 item 59 (human journeys) next
+Stopped at: Phase 8 preparation complete; item 59 human-operated journeys are next
 Resume file: docs/plans/2026-07-12-convergencia-produto-arquitetura-implementation-plan.md

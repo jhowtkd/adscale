@@ -44,3 +44,4 @@ next-env.d.ts
 .autoresearch-*
 /tests/fixtures/phase6-uat.json
 /tests/fixtures/phase6-uat-storage.json
+/tests/fixtures/phase8-human.json

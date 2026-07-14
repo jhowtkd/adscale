@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "status": "awaiting_human_sessions",
+  "baseline": {
+    "environment": "production",
+    "capturedAt": "2026-07-14T23:31:09.469Z",
+    "since": "2026-06-01T00:00:00.000Z",
+    "path": ".planning/convergence/baseline.json",
+    "captureJobId": "job-d9bccbgqmsqc738cps8g",
+    "note": "Production snapshot captured read-only. Campaign duration has n=12; assistant and quick_tool have no completed duration sample, so superiority cannot be claimed from those historical cohorts alone."
+  },
+  "journeys": [],
+  "corrections": [],
+  "decision": null
+}

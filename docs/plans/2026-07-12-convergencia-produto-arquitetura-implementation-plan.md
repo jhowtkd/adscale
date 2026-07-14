@@ -281,6 +281,8 @@ Cada item abaixo deve resultar em um commit pequeno e manter a aplicação funci
 
 **Objetivo:** provar que a convergência melhora o produto real.
 
+**Preparação concluída em 2026-07-14:** baseline read-only de produção congelado em `.planning/convergence/baseline.json`; protocolo, checker anti-evidência sintética e seed determinístico com três marcas disponíveis. As jornadas abaixo continuam abertas e só serão marcadas após operação humana observada.
+
 59. Executar pelo menos dez jornadas humanas completas: cinco com campanha e cinco sem campanha.
 60. Cobrir ao menos três marcas e dois segmentos, incluindo um fora de educação.
 61. Registrar onde houve dúvida, abandono, retorno, erro, custo inesperado ou perda de contexto.

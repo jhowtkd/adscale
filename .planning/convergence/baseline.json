@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 3,
+  "capturedAt": "2026-07-14T23:31:09.469Z",
+  "since": "2026-06-01T00:00:00.000Z",
+  "environment": "production",
+  "captureJobId": "job-d9bccbgqmsqc738cps8g",
+  "semantics": "Counts are per unique journey (campaign id / guided flow id / creative work item id). abandoned/failed are {available:true|false}; when false, the reason names what is missing — never silently zero. Assistant failures come from guided_action_failed aggregated by guided_flow_id (or thread_id fallback), one journey counted once. blocked status is NOT failure. medianDurationMs is PERCENTILE_CONT(0.5).",
+  "origins": {
+    "campaign": {
+      "started": 18,
+      "completed": 12,
+      "abandoned": {
+        "available": false,
+        "value": null,
+        "reason": "campaign status has no 'abandoned' value; in-flight states (active/draft/pending/analyzing) must not be misclassified as abandoned"
+      },
+      "failed": {
+        "available": true,
+        "value": 1,
+        "reason": null
+      },
+      "medianDurationMs": {
+        "available": true,
+        "valueMs": 6360807,
+        "sample": 12
+      },
+      "source": "adscale_app.campaigns",
+      "unit": "campaign"
+    },
+    "assistant": {
+      "started": 4,
+      "completed": 0,
+      "abandoned": {
+        "available": true,
+        "value": 0,
+        "reason": null
+      },
+      "failed": {
+        "available": true,
+        "value": 0,
+        "reason": null
+      },
+      "medianDurationMs": {
+        "available": false,
+        "valueMs": null,
+        "sample": 0
+      },
+      "source": "adscale_app.assistant_guided_flows + assistant_guided_flow_events (failed)",
+      "unit": "guided_flow"
+    },
+    "quick_tool": {
+      "started": 2,
+      "completed": 0,
+      "abandoned": {
+        "available": false,
+        "value": null,
+        "reason": "creative_work_items status has no 'abandoned' value; draft/ready/generating/partial must not be misclassified as abandoned"
+      },
+      "failed": {
+        "available": true,
+        "value": 0,
+        "reason": null
+      },
+      "medianDurationMs": {
+        "available": false,
+        "valueMs": null,
+        "sample": 0
+      },
+      "source": "adscale_app.creative_work_items",
+      "unit": "creative_work_item"
+    }
+  },
+  "events": {
+    "canonical": [
+      "creative_work_started",
+      "briefing_ready",
+      "generation_confirmed",
+      "output_ready",
+      "creative_work_reviewed",
+      "creative_work_approved",
+      "creative_work_delivered",
+      "creative_work_abandoned",
+      "creative_work_failed",
+      "creative_work_reopened"
+    ],
+    "reference": "src/server/creative-work/funnel-events.ts (CREATIVE_WORK_FUNNEL_EVENTS)"
+  }
+}

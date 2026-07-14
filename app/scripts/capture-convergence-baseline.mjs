@@ -334,16 +334,21 @@ async function main() {
     process.exit(1);
   }
 
-  const client = new pg.Client({ connectionString: databaseUrl });
+  const isLocalDatabase = /(?:localhost|127\.0\.0\.1)/.test(databaseUrl);
+  const client = new pg.Client({
+    connectionString: databaseUrl,
+    ssl: isLocalDatabase ? undefined : { rejectUnauthorized: false },
+    connectionTimeoutMillis: 10_000,
+    query_timeout: 30_000,
+    statement_timeout: 30_000,
+  });
   await client.connect();
 
   let campaign, assistant, quickTool;
   try {
-    [campaign, assistant, quickTool] = await Promise.all([
-      captureCampaignBaseline(client, args.sinceDate),
-      captureAssistantBaseline(client, args.sinceDate),
-      captureQuickToolBaseline(client, args.sinceDate),
-    ]);
+    campaign = await captureCampaignBaseline(client, args.sinceDate);
+    assistant = await captureAssistantBaseline(client, args.sinceDate);
+    quickTool = await captureQuickToolBaseline(client, args.sinceDate);
   } catch (error) {
     if (error instanceof BaselineError) {
       console.error(`CONVERGENCE-BASELINE: ${error.message}`);
