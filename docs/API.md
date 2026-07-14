@@ -314,17 +314,6 @@ Dynamic segments use `:id` notation. Auth column: **none**, **session**, **sessi
 | POST | `/api/campaigns/:id/suggest-ctas` | session+workspace | CTA suggestions (AI) |
 | GET | `/api/campaigns/:id/smart-resize-preview` | session+workspace | Smart resize preview |
 | GET, POST | `/api/campaigns/:id/restyle` | session+workspace | Queue restyling derivation (POST) / list derivations with image URLs (GET) |
-| GET, POST | `/api/campaigns/:id/performance` | session+workspace | List / record performance snapshots |
-| POST | `/api/campaigns/:id/performance/import/preview` | session+workspace | Preview CSV or manual performance import |
-| POST | `/api/campaigns/:id/performance/import/confirm` | session+workspace | Confirm performance import batch |
-| GET | `/api/campaigns/:id/performance/import/batches` | session+workspace | List performance import batches |
-| GET | `/api/campaigns/:id/performance/import/batches/:batchId` | session+workspace | Get performance import batch detail |
-| GET, POST | `/api/campaigns/:id/learnings` | session+workspace | List / recompute campaign learnings |
-| GET, POST | `/api/campaigns/:id/hypotheses` | session+workspace | List / create experiment hypotheses |
-| PATCH, DELETE | `/api/campaigns/:id/hypotheses/:hypothesisId` | session+workspace | Update / delete hypothesis |
-| POST | `/api/campaigns/:id/hypotheses/:hypothesisId/compare` | session+workspace | Run hypothesis comparison |
-| GET, POST | `/api/campaigns/:id/comparisons` | session+workspace | List / run observational comparisons |
-| GET | `/api/campaigns/:id/recommendation` | session+workspace | Next experiment recommendation |
 | GET | `/api/campaigns/:id/output-recommendation` | session+workspace | Output-level experiment recommendation |
 | POST, GET | `/api/campaigns/:id/derivations` | session+workspace | Queue (POST) / list (GET) derivations |
 | GET, POST | `/api/campaigns/:id/approval-package` | session+workspace | Client approval package + share link |
@@ -704,26 +693,6 @@ Creates or updates share link (7-day TTL). May return `invalidApprovalPackageSel
 Both fields optional. Requires a factual base asset and a distinct `style_reference` asset (explicit `styleAssetIds[0]` or auto-selected). Spends 5 credits (`image_derivation`). Response `201`: `{ "derivations": [{ ... }] }`. Sets campaign `generationMode` to `restyling`. Errors: `missingBaseAsset` (400), `assetNotFound` (404), `derivationsInProgress` (429), `failedQueueDerivations` (500).
 
 **`GET /api/campaigns/:id/restyle`** — returns `{ derivations: [...] }` with presigned `imageUrl` per derivation. Fails stale `queued`/`processing` derivations older than 10 minutes before listing.
-
-### Performance and learnings
-
-**`GET /api/campaigns/:id/performance`** — returns `{ snapshots: [...] }`.
-
-**`POST /api/campaigns/:id/performance`** — body validated by `canonicalPerformanceSnapshotInputSchema`; `campaignId` in body must match URL path. Errors include `performanceCampaignPathMismatch` (400) and domain codes from `PerformanceDomainError`.
-
-**`POST /api/campaigns/:id/performance/import/preview`** — accepts `multipart/form-data` (CSV `file` + `columnMapping`) or JSON manual preview payload. May return `importFileTooLarge` (400).
-
-**`POST /api/campaigns/:id/performance/import/confirm`** — confirms a previewed import batch.
-
-**`GET /api/campaigns/:id/performance/import/batches`** — lists import batches; **`GET .../batches/:batchId`** returns batch detail.
-
-**`GET /api/campaigns/:id/learnings`** — query: `q`, `platform`. **`POST`** triggers `recomputeLearningsForCampaign`.
-
-**`GET /api/campaigns/:id/hypotheses`** — returns `{ hypotheses: [...] }`. **`POST`** body: `createHypothesisSchema`.
-
-**`POST /api/campaigns/:id/comparisons`** — body: `observationalComparisonSchema` for observational A/B analysis.
-
-**`GET /api/campaigns/:id/recommendation`** — next experiment recommendation from performance history.
 
 ### Derivations
 

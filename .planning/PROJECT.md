@@ -282,9 +282,7 @@ Phases 109–114 complete; 33/33 requirements; release gate in `playwright.relea
 Phases 103–108 complete; 31/31 requirements; prod migrate 0036–0040 applied on Render (`journal after=41`). Archive: `.planning/milestones/v12.1-*`.
 
 **Delivered:**
-- Manual + CSV performance import with locale/currency normalization and dedup
-- Creative hypotheses, variant comparison, and honest evidence states
-- Client performance learnings (Postgres canonical + Mem0 projection)
+- Output decision learning (Postgres canonical + memory projection)
 - Next-experiment recommendation with editable Strategy Recipe prefill
 - Product-pure UAT (`re-uat-v12.1-product.mjs`) + PATCH `clientProfileId` fix
 
@@ -574,7 +572,6 @@ Key stack decisions:
 - **Image model**: `OPENAI_IMAGE_MODEL=gpt-image-2-2026-04-21`. No silent fallback. If API rejects, show clear config error.
 - **Security**: Do not hardcode API keys. Do not commit `.env`. Validate input, file type, size and workspace access at boundaries.
 - **Learning integrity**: Recommendations must expose evidence, sample size, and confidence; sparse or incomparable data cannot be presented as certainty.
-- **Import-first scope**: Validate the performance-learning model with manual entry and CSV before direct media-platform APIs.
 - **Language model behavior**: Plan and derivation prompts include the target language instruction. No silent fallback to English.
 
 ## Key Decisions

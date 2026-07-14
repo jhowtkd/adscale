@@ -2,7 +2,7 @@
 
 > **Ludic map of the creative head.**  
 > English organ names for an international product language. Product alias in code: **Olhar** = **Gaze**.  
-> Scope: cognition (intent → make → judge → learn). Limbs like ad-performance (**Muscle**) and cockpit missions stay outside this atlas for now.  
+> Scope: cognition (intent → make → judge → learn). Cockpit missions stay outside this atlas for now.
 > Companion to [`ARCHITECTURE.md`](./ARCHITECTURE.md) and [`SERVER-MODULES.md`](./SERVER-MODULES.md).  
 > Decision record: [`adr/0012-cognitive-atlas.md`](./adr/0012-cognitive-atlas.md).  
 > Version: **v0.1** · 2026-07-09  
@@ -282,7 +282,7 @@ Loader also pulls Marrow `corpus_quality` rules into a **separate** prompt secti
 | **Home** | `app/src/server/memory/` |
 | **Brand** | Mem0 — `brand-memory-*.ts`, job `brand-memory.ingest` |
 | **Campaign** | Postgres — `campaign-memory.ts` (~24 entries) |
-| **Projections** | `output-learning-projection.ts`, `performance-learning-projection.ts` |
+| **Projections** | `output-learning-projection.ts` |
 
 Prompt header: `BRAND MEMORY / LEARNED CONTEXT:` + “auxiliary only” disclaimer.
 
@@ -336,7 +336,6 @@ Past-due: existing balance still spendable; new monthly grants suspended until r
 
 | Nickname | Reality | Why deferred |
 |----------|---------|--------------|
-| **Muscle** | `app/src/server/performance/` | Ad metrics / hypotheses — limb, not head |
 | **Progression** | `app/src/server/progression/` | Onboarding missions — UX journey |
 | **Contract** | `ai/creative-contract.ts`, canonical creative | Shared tissue; deserves its own card later |
 | **Circulation** | `app/src/server/jobs/` (Inngest) | Tissue connecting motors |

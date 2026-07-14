@@ -421,11 +421,9 @@ Mem0-backed brand & campaign memory: event ingestion, retrieval, and projection 
 | `prepareBrandMemoryEvent(...)` / `sanitizeBrandMemoryPayload(...)` (`brand-memory-events.ts`) | fn | Event prep + deep sanitize |
 | `ingestBrandMemoryEvent(event)` (`brand-memory-ingest.ts`) | async fn | Writes to Mem0 |
 | `getCampaignMemory(...)` / `recordCampaignMemoryEntry(...)` (`campaign-memory*.ts`) | async fn | Campaign-scoped memory |
-| `projectPerformanceLearning(...)` / `projectPerformanceLearnings(...)` (`performance-learning-projection.ts`) | async fn | Projects performance learnings to Mem0 |
 | `projectOutputLearning(...)` / `projectOutputLearnings(...)` (`output-learning-projection.ts`) | async fn | Projects output learnings to Mem0 |
-| `searchPerformanceLearnings(input)` (`performance-learning-retrieval.ts`) | async fn | Retrieves performance learnings |
 
-**Key types:** `BrandMemoryItem`, `BrandMemoryContext`, `BrandMemoryEvent`, `BrandMemoryEventType`, `CampaignMemoryEntry`, `CampaignMemoryRecord`, `PERFORMANCE_LEARNING_MEMORY_TYPE`, `OUTPUT_LEARNING_MEMORY_TYPE`.
+**Key types:** `BrandMemoryItem`, `BrandMemoryContext`, `BrandMemoryEvent`, `BrandMemoryEventType`, `CampaignMemoryEntry`, `CampaignMemoryRecord`, `OUTPUT_LEARNING_MEMORY_TYPE`.
 
 **Dependencies:** Mem0 SDK, `validation/env`, `repositories/output-decision-event`. Ingestion runs via `jobs/brand-memory.ts`.
 
@@ -476,26 +474,6 @@ Converts owner output-decision events into client output learnings, with confide
 **Key types:** `OutputLearningRecommendation`, `OutputGenerationPrefill`, `OutputEvidencePolarity`, `AppliedLearningTrace`, `GuardPrefillResult`, `OutputDecisionReason`.
 
 **Dependencies:** `repositories/client-output-learning`, `repositories/output-decision-event`, `memory/output-learning-projection`, `human-quality/application-schema`. Recompute dispatch emits via `dispatch.ts`.
-
-### `performance/`
-
-Creative performance snapshots, CSV/manual import, hypothesis comparison, and learning extraction.
-
-**Substructure:** `hypothesis/` (`runHypothesisComparison`, `runObservationalComparison`, `listCampaignComparisons`, `COMPARISON_VERDICTS`), `import/` (`previewCsvImport`, `previewManualImport`, `confirmImport`, `REQUIRED_CSV_COLUMNS`, `CSV_MAX_ROWS`), `learning/` (`recomputeClientLearnings`, `recomputeLearningsForCampaign`, `aggregateLearningsFromComparisons`, `SUPPORTED_VARIABLE_KEYS`), `recommendation/` (`getNextExperimentRecommendation`, `mapLearningToPrefill`).
-
-| Export | Kind | Role |
-|--------|------|------|
-| `recordPerformanceSnapshot(input)` (`service.ts`) | async fn | Records a creative performance snapshot |
-| `getCampaignPerformanceSnapshots(input)` | async fn | Lists snapshots for a campaign |
-| `derivePerformanceMetrics(...)` (`metrics.ts`) | fn | Derives CTR/CPC/etc. from raw metrics |
-| `normalizePlacement(...)` (`placement.ts`) | fn | Normalizes ad placement |
-| `buildPerformanceSourceKey(identity)` (`source-key.ts`) | fn | Deterministic source key |
-| `canonicalPerformanceSnapshotInputSchema` (`validation.ts`) | zod schema | Canonical snapshot validation |
-| `PERFORMANCE_PLATFORMS` (`meta`/`google`/`tiktok`/`other`), `PERFORMANCE_PLACEMENTS`, `PERFORMANCE_SOURCE_TYPES` (`types.ts`) | const | Enumerations |
-
-**Key types:** `PerformanceSnapshotView`, `PerformancePlatform`, `PerformancePlacement`, `PerformanceScope`, `RawPerformanceMetrics`, `NormalizedPlacement`, `NextExperimentRecommendation`, `ComparisonVerdict`.
-
-**Dependencies:** `repositories/performance*`, `repositories/hypothesis`, `repositories/performance-import`, `repositories/client-learning`, `memory/performance-learning-projection`.
 
 ### `progression/`
 

@@ -21,7 +21,6 @@ Memory **recalls** what the brand and campaign already lived — approvals, reje
 | Brand retrieve → prompt | `brand-memory-context.ts` |
 | Campaign memory (Postgres) | `campaign-memory.ts`, `campaign-memory-context.ts` |
 | Nerve projection | `output-learning-projection.ts` |
-| Performance projection | `performance-learning-projection.ts` (+ retrieval helper) |
 | Job | `app/src/server/jobs/brand-memory.ts` |
 
 **Thesis:** Memory is auxiliary. It must not override literal CTA, source image, target format, campaign constraints, or generation mode. If Mem0 is off, the body continues without the brand block.
@@ -129,7 +128,6 @@ More immediate and deterministic than Mem0 — survives Mem0-off.
 | Origin | Mem0 `memoryType` | Module |
 |--------|-------------------|--------|
 | **Nerve** (`client_output_learnings`) | `output_learning` | `output-learning-projection.ts` |
-| **Muscle** (performance learnings) | `performance_learning` | `performance-learning-projection.ts` |
 
 Projection upserts content + metadata; `removed` / `superseded` → delete Mem0 id and clear local pointer.
 
@@ -161,7 +159,6 @@ Ingestion doorway for visual brand assets: `brand-training/` + `jobs/brand-train
 |--------|-----|
 | **Hands** | `getBrandMemoryContext` + `getCampaignMemoryPromptBlock` in derivation job → prompt-builder |
 | **Cortex** | `buildAssistantContext` includes brand memory block (allowlisted) |
-| Performance tools | `performance-learning-retrieval.ts` search helpers |
 
 Prompt stack position (Hands): after Gaze / Taste / corpus — **Memory is soft context**, not hard constraint.
 
@@ -173,7 +170,6 @@ Prompt stack position (Hands): after Gaze / Taste / corpus — **Memory is soft 
 |-----------|-------|-----|
 | In ← Nerve | output learning projection | Mem0 |
 | In ← Human / APIs | brand events + campaign entries | dispatch / Postgres |
-| In ← Muscle | performance learning projection | Mem0 (limb) |
 | Out → Hands | brand + campaign prompt blocks | derivation job |
 | Out → Cortex | brand memory in assistant context | context-builder |
 | Peer Taste | separate; Taste = typed rules | do not conflate |

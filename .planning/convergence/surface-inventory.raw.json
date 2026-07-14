@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-07-14T20:32:51.949Z",
+  "generatedAt": "2026-07-14T20:56:38.029Z",
   "schemaVersion": 2,
-  "fingerprint": "ff2e05cabb447f6e1934fc33b3a0a644a9a3366ecc2d57f5c9b5a70f01ddb05e",
+  "fingerprint": "0ec51b64bd38e7472b87e277af9be2de4faa8480096be558ba6a1ae058413224",
   "counts": {
     "dashboardPages": 14,
-    "apiRoutes": 173,
+    "apiRoutes": 161,
     "ctas": 65,
     "requiringDecision": 1
   },
@@ -502,13 +502,6 @@
       "requiresDecision": false
     },
     {
-      "id": "api:/api/campaigns/[id]/comparisons",
-      "kind": "api_route",
-      "route": "/api/campaigns/[id]/comparisons",
-      "file": "app/src/app/api/campaigns/[id]/comparisons/route.ts",
-      "requiresDecision": false
-    },
-    {
       "id": "api:/api/campaigns/[id]/competitors/[competitorId]",
       "kind": "api_route",
       "route": "/api/campaigns/[id]/competitors/[competitorId]",
@@ -558,73 +551,10 @@
       "requiresDecision": false
     },
     {
-      "id": "api:/api/campaigns/[id]/hypotheses/[hypothesisId]/compare",
-      "kind": "api_route",
-      "route": "/api/campaigns/[id]/hypotheses/[hypothesisId]/compare",
-      "file": "app/src/app/api/campaigns/[id]/hypotheses/[hypothesisId]/compare/route.ts",
-      "requiresDecision": false
-    },
-    {
-      "id": "api:/api/campaigns/[id]/hypotheses/[hypothesisId]",
-      "kind": "api_route",
-      "route": "/api/campaigns/[id]/hypotheses/[hypothesisId]",
-      "file": "app/src/app/api/campaigns/[id]/hypotheses/[hypothesisId]/route.ts",
-      "requiresDecision": false
-    },
-    {
-      "id": "api:/api/campaigns/[id]/hypotheses",
-      "kind": "api_route",
-      "route": "/api/campaigns/[id]/hypotheses",
-      "file": "app/src/app/api/campaigns/[id]/hypotheses/route.ts",
-      "requiresDecision": false
-    },
-    {
-      "id": "api:/api/campaigns/[id]/learnings",
-      "kind": "api_route",
-      "route": "/api/campaigns/[id]/learnings",
-      "file": "app/src/app/api/campaigns/[id]/learnings/route.ts",
-      "requiresDecision": false
-    },
-    {
       "id": "api:/api/campaigns/[id]/output-recommendation",
       "kind": "api_route",
       "route": "/api/campaigns/[id]/output-recommendation",
       "file": "app/src/app/api/campaigns/[id]/output-recommendation/route.ts",
-      "requiresDecision": false
-    },
-    {
-      "id": "api:/api/campaigns/[id]/performance/import/batches/[batchId]",
-      "kind": "api_route",
-      "route": "/api/campaigns/[id]/performance/import/batches/[batchId]",
-      "file": "app/src/app/api/campaigns/[id]/performance/import/batches/[batchId]/route.ts",
-      "requiresDecision": false
-    },
-    {
-      "id": "api:/api/campaigns/[id]/performance/import/batches",
-      "kind": "api_route",
-      "route": "/api/campaigns/[id]/performance/import/batches",
-      "file": "app/src/app/api/campaigns/[id]/performance/import/batches/route.ts",
-      "requiresDecision": false
-    },
-    {
-      "id": "api:/api/campaigns/[id]/performance/import/confirm",
-      "kind": "api_route",
-      "route": "/api/campaigns/[id]/performance/import/confirm",
-      "file": "app/src/app/api/campaigns/[id]/performance/import/confirm/route.ts",
-      "requiresDecision": false
-    },
-    {
-      "id": "api:/api/campaigns/[id]/performance/import/preview",
-      "kind": "api_route",
-      "route": "/api/campaigns/[id]/performance/import/preview",
-      "file": "app/src/app/api/campaigns/[id]/performance/import/preview/route.ts",
-      "requiresDecision": false
-    },
-    {
-      "id": "api:/api/campaigns/[id]/performance",
-      "kind": "api_route",
-      "route": "/api/campaigns/[id]/performance",
-      "file": "app/src/app/api/campaigns/[id]/performance/route.ts",
       "requiresDecision": false
     },
     {
@@ -639,13 +569,6 @@
       "kind": "api_route",
       "route": "/api/campaigns/[id]/plan",
       "file": "app/src/app/api/campaigns/[id]/plan/route.ts",
-      "requiresDecision": false
-    },
-    {
-      "id": "api:/api/campaigns/[id]/recommendation",
-      "kind": "api_route",
-      "route": "/api/campaigns/[id]/recommendation",
-      "file": "app/src/app/api/campaigns/[id]/recommendation/route.ts",
       "requiresDecision": false
     },
     {
@@ -681,13 +604,6 @@
       "kind": "api_route",
       "route": "/api/campaigns",
       "file": "app/src/app/api/campaigns/route.ts",
-      "requiresDecision": false
-    },
-    {
-      "id": "api:/api/client-profiles/[id]/learnings",
-      "kind": "api_route",
-      "route": "/api/client-profiles/[id]/learnings",
-      "file": "app/src/app/api/client-profiles/[id]/learnings/route.ts",
       "requiresDecision": false
     },
     {
