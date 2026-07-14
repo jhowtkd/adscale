@@ -170,7 +170,6 @@ export default function CampaignWorkspacePage() {
     savePilot,
     handleGenerateDerivations,
     configureAndGenerate,
-    handleGenerateLandingPage,
     handleSaveAsReference,
     hasActivePreview,
     previewDerivation,
@@ -197,8 +196,6 @@ export default function CampaignWorkspacePage() {
     reviewVariables,
     regeneratePending,
     regenerateVariables,
-    landingPagePending,
-    landingPageVariables,
     createDerivationsPending,
     exportPending,
     deliveryPackagePending,
@@ -556,7 +553,6 @@ export default function CampaignWorkspacePage() {
             onCreateDeliveryPackage={handleCreateDeliveryPackage}
             onRunQa={handleRunQa}
             onSaveAsReference={handleSaveAsReference}
-            onGenerateLandingPage={handleGenerateLandingPage}
             qaAnalyzingId={
               creativeQaPending && creativeQaVariables?.derivationId
                 ? creativeQaVariables.derivationId
@@ -564,11 +560,6 @@ export default function CampaignWorkspacePage() {
             }
             regeneratingId={
               regeneratePending && regenerateVariables?.id ? regenerateVariables.id : null
-            }
-            landingPageGeneratingId={
-              landingPagePending && landingPageVariables?.derivationId
-                ? landingPageVariables.derivationId
-                : null
             }
             savingReferenceId={savingReferenceId}
             reviewPending={reviewPending}
@@ -753,10 +744,8 @@ interface CampaignWorkspaceCardProps {
   onCreateDeliveryPackage: (id: string) => void;
   onRunQa: (id: string) => void;
   onSaveAsReference: (id: string) => void;
-  onGenerateLandingPage: (id: string) => void;
   qaAnalyzingId: string | null;
   regeneratingId: string | null;
-  landingPageGeneratingId: string | null;
   savingReferenceId: string | null;
   reviewPending: boolean;
   reviewVariables: ReviewDerivationVariables | null;
@@ -816,10 +805,8 @@ function CampaignWorkspaceCard({
   onCreateDeliveryPackage,
   onRunQa,
   onSaveAsReference,
-  onGenerateLandingPage,
   qaAnalyzingId,
   regeneratingId,
-  landingPageGeneratingId,
   savingReferenceId,
   reviewPending,
   reviewVariables,
@@ -952,10 +939,8 @@ function CampaignWorkspaceCard({
                   onCreateDeliveryPackage={onCreateDeliveryPackage}
                   onRunQa={onRunQa}
                   onSaveAsReference={onSaveAsReference}
-                  onGenerateLandingPage={onGenerateLandingPage}
                   qaAnalyzingId={qaAnalyzingId}
                   regeneratingId={regeneratingId}
-                  landingPageGeneratingId={landingPageGeneratingId}
                   savingReferenceId={savingReferenceId}
                   reviewPending={reviewPending}
                   reviewVariables={reviewVariables}

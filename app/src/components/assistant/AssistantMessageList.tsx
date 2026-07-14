@@ -161,7 +161,11 @@ function ActionCardMessage({
   artifactLineages?: ArtifactVersionPresentation[];
   openVersionComparison?: (request: VersionComparisonRequest) => void;
 }) {
-  const display = message.payload.display;
+  const display = message.payload.display as Record<string, unknown> | undefined;
+
+  if (display?.actionType === "quick_persona_simulate") {
+    return null;
+  }
 
   if (!isQuickAction(display)) {
     return (

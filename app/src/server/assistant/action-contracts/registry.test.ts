@@ -44,4 +44,8 @@ describe("ACTION_CONTRACT_REGISTRY", () => {
   it("returns undefined for unknown action types", () => {
     expect(getActionContract("unknown")).toBeUndefined();
   });
+
+  it("does not expose the frozen persona simulation action", () => {
+    expect(getActionContract("quick_persona_simulate")).toBeUndefined();
+  });
 });

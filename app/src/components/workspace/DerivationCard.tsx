@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-/* eslint-disable @next/next/no-img-element */
 
 import {
   Eye,
@@ -14,8 +13,6 @@ import {
   Package,
   ShieldCheck,
   BookmarkPlus,
-  FileText,
-  Users,
   Scale,
   PenTool,
   MoreHorizontal,
@@ -62,8 +59,6 @@ interface DerivationCardProps {
   onCreateDeliveryPackage?: () => void;
   onRunQa?: () => void;
   onSaveAsReference?: () => void;
-  onGenerateLandingPage?: () => void;
-  onSimulatePersonas?: () => void;
   onCompare?: () => void;
   onAnnotate?: () => void;
   isCompareMode?: boolean;
@@ -75,8 +70,6 @@ interface DerivationCardProps {
     rejecting?: boolean;
   };
   regeneratingId?: string | null;
-  landingPageGeneratingId?: string | null;
-  simulatingPersonasId?: string | null;
   gridSize?: "small" | "medium" | "large";
 }
 
@@ -155,15 +148,11 @@ export default function DerivationCard({
   onCreateDeliveryPackage,
   onRunQa,
   onSaveAsReference,
-  onGenerateLandingPage,
-  onSimulatePersonas,
   onCompare,
   onAnnotate,
   qaAnalyzingId,
   interactionState,
   regeneratingId,
-  landingPageGeneratingId,
-  simulatingPersonasId,
 }: DerivationCardProps) {
   const t = useTranslations("derivation");
   const tr = useTranslations("review");
@@ -185,8 +174,6 @@ export default function DerivationCard({
   const isSavingReference = interactionState?.savingReference ?? false;
   const isApproving = interactionState?.approving ?? false;
   const isRejecting = interactionState?.rejecting ?? false;
-  const isGeneratingLandingPage = landingPageGeneratingId === derivation.id;
-  const isSimulatingPersonas = simulatingPersonasId === derivation.id;
   const exportMutation = useExport();
   const addToast = useAppStore((s) => s.addToast);
 
@@ -584,26 +571,6 @@ export default function DerivationCard({
                         >
                           <BookmarkPlus size={14} />
                           {t("saveAsReference")}
-                        </DropdownMenuItem>
-                      ) : null}
-                      {onGenerateLandingPage ? (
-                        <DropdownMenuItem
-                          disabled
-                          className="flex items-center gap-2"
-                          title={commonT("comingSoon")}
-                        >
-                          <FileText size={14} />
-                          {t("generateLandingPage")}
-                        </DropdownMenuItem>
-                      ) : null}
-                      {onSimulatePersonas ? (
-                        <DropdownMenuItem
-                          onClick={onSimulatePersonas}
-                          disabled={isSimulatingPersonas}
-                          className="flex items-center gap-2"
-                        >
-                          <Users size={14} />
-                          {t("simulatePersonas")}
                         </DropdownMenuItem>
                       ) : null}
                     </>

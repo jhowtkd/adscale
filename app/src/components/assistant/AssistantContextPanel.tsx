@@ -15,7 +15,12 @@ export interface AssistantContextPanelProps {
 }
 
 function getActionCardMessages(messages: AssistantMessage[]) {
-  return messages.filter((message) => message.type === "action_card");
+  return messages.filter(
+    (message) =>
+      message.type === "action_card" &&
+      (message.payload.display as Record<string, unknown> | undefined)
+        ?.actionType !== "quick_persona_simulate"
+  );
 }
 
 function getCardStatus(message: AssistantMessage): string {

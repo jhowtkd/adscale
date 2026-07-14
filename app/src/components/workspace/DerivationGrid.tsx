@@ -23,12 +23,8 @@ export interface DerivationGridProps {
   onCreateDeliveryPackage?: (id: string) => void;
   onRunQa?: (id: string) => void;
   onSaveAsReference?: (id: string) => void;
-  onGenerateLandingPage?: (id: string) => void;
-  onSimulatePersonas?: (id: string) => void;
   qaAnalyzingId?: string | null;
   regeneratingId?: string | null;
-  landingPageGeneratingId?: string | null;
-  simulatingPersonasId?: string | null;
   savingReferenceId?: string | null;
   reviewPending?: boolean;
   reviewVariables?: ReviewDerivationVariables | null;
@@ -76,12 +72,8 @@ export default function DerivationGrid({
   onCreateDeliveryPackage,
   onRunQa,
   onSaveAsReference,
-  onGenerateLandingPage,
-  onSimulatePersonas,
   qaAnalyzingId,
   regeneratingId,
-  landingPageGeneratingId,
-  simulatingPersonasId,
   savingReferenceId,
   reviewPending,
   reviewVariables,
@@ -131,20 +123,8 @@ export default function DerivationGrid({
                   ? () => onSaveAsReference(derivation.id)
                   : undefined
               }
-              onGenerateLandingPage={
-                onGenerateLandingPage
-                  ? () => onGenerateLandingPage(derivation.id)
-                  : undefined
-              }
-              onSimulatePersonas={
-                onSimulatePersonas
-                  ? () => onSimulatePersonas(derivation.id)
-                  : undefined
-              }
               qaAnalyzingId={qaAnalyzingId}
               regeneratingId={regeneratingId}
-              landingPageGeneratingId={landingPageGeneratingId}
-              simulatingPersonasId={simulatingPersonasId}
               interactionState={{
                 savingReference: savingReferenceId === derivation.id,
                 approving:

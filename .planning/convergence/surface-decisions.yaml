@@ -9,12 +9,6 @@
 # decision: manter | fundir | esconder | apagar
 
 decisions:
-  - id: B-landing-page-cta
-    blockerId: "inert:app/src/components/workspace/DerivationCard.tsx:590"
-    evidence: app/src/components/workspace/DerivationCard.tsx:590
-    decision: esconder
-    rationale: "Always-disabled Generate landing page with comingSoon; frozen module — keep hidden until Phase 7 evidence."
-
   - id: B-demo-restore-stub
     blockerId: "inert:app/src/components/layout/TopBar.tsx:410"
     evidence: app/src/components/layout/TopBar.tsx:410
@@ -25,16 +19,6 @@ decisions:
     evidence: app/src/app/(dashboard)/templates/page.tsx
     decision: manter
     rationale: "Usar template loads modal then POST /api/templates/[id]/materialize (server-side canonical materialize)."
-
-  - id: B-persona-overflow
-    evidence: app/src/components/workspace/DerivationCard.tsx
-    decision: esconder
-    rationale: "Persona simulate remains reachable but frozen for expansion; hide in Phase 7 unless usage evidence appears."
-
-  - id: B-persona-assistant
-    evidence: app/src/server/assistant/action-execution/handlers/quick-persona-simulate.ts
-    decision: esconder
-    rationale: "Assistant quick_persona_simulate shares freeze with overflow CTA."
 
   - id: B-landing-api
     evidence: app/src/app/api/derivations/[id]/landing-page

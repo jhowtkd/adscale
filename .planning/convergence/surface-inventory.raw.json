@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-07-14T18:25:57.017Z",
+  "generatedAt": "2026-07-14T20:32:51.949Z",
   "schemaVersion": 2,
-  "fingerprint": "1bbb4bcd425b3dfc759fcd3df0bfcfaeaf95dc854aa9555ff4799cc81f3df929",
+  "fingerprint": "ff2e05cabb447f6e1934fc33b3a0a644a9a3366ecc2d57f5c9b5a70f01ddb05e",
   "counts": {
     "dashboardPages": 14,
     "apiRoutes": 173,
-    "ctas": 66,
-    "requiringDecision": 2
+    "ctas": 65,
+    "requiringDecision": 1
   },
   "dashboardPages": [
     {
@@ -1864,18 +1864,6 @@
       "line": 94,
       "evidence": "app/src/components/settings/PrivacyTab.tsx:94",
       "requiresDecision": false
-    },
-    {
-      "id": "inert:app/src/components/workspace/DerivationCard.tsx:590",
-      "kind": "cta_disabled",
-      "destination": null,
-      "file": "app/src/components/workspace/DerivationCard.tsx",
-      "line": 590,
-      "evidence": "app/src/components/workspace/DerivationCard.tsx:590",
-      "label": "generateLandingPage",
-      "hasComingSoon": true,
-      "requiresDecision": true,
-      "note": "disabled + comingSoon"
     },
     {
       "id": "nav:app/src/app/(dashboard)/admin/quality/brands/[clientProfileId]/page.tsx:23",

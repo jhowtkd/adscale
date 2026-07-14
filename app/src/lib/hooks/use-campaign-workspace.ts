@@ -16,7 +16,6 @@ import { useReviewDerivation } from "@/lib/hooks/use-review";
 import { useCreateDeliveryPackage } from "@/lib/hooks/use-delivery-package";
 import { useCreativeQa } from "@/lib/hooks/use-creative-qa";
 import { useGeneratePlan, useUpdatePlanStatus } from "./use-plan";
-import { useGenerateLandingPage } from "@/lib/hooks/use-landing-page";
 import { useTranslations } from "next-intl";
 import { useMissionInsightOptional } from "@/components/mission-insights/MissionInsightProvider";
 import type { OutputLearningApplicationSnapshot } from "@/server/human-quality/corpus";
@@ -86,7 +85,6 @@ export function useCampaignWorkspace(
   const exportMutation = useExport();
   const reviewMutation = useReviewDerivation();
   const createDeliveryPackage = useCreateDeliveryPackage();
-  const generateLandingPage = useGenerateLandingPage();
   const creativeQa = useCreativeQa();
   const generatePlanMutation = useGeneratePlan(campaignId);
   const updatePlanStatusMutation = useUpdatePlanStatus(campaignId);
@@ -245,11 +243,6 @@ export function useCampaignWorkspace(
     missionInsight,
   });
 
-  const handleGenerateLandingPage = useCallback(
-    (id: string) => generateLandingPage.mutate({ derivationId: id }),
-    [generateLandingPage]
-  );
-
   const handleSaveAsReference = useCallback(
     (_id: string) => {
       addToast("info", "Feature unavailable");
@@ -303,7 +296,6 @@ export function useCampaignWorkspace(
     handleGenerateDerivations: produce.handleGenerateDerivations,
     configureAndGenerate: produce.configureAndGenerate,
     handleRestyle: produce.handleRestyle,
-    handleGenerateLandingPage,
     handleSaveAsReference,
     hasActivePreview: produce.hasActivePreview,
     previewDerivation: produce.previewDerivation,
@@ -336,8 +328,6 @@ export function useCampaignWorkspace(
     reviewVariables: review.reviewVariables,
     regeneratePending: review.regeneratePending,
     regenerateVariables: review.regenerateVariables,
-    landingPagePending: generateLandingPage.isPending,
-    landingPageVariables: generateLandingPage.variables,
     createDerivationsPending: produce.createDerivationsPending,
     restylePending: produce.restylePending,
     exportPending: deliver.exportPending,

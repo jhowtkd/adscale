@@ -69,8 +69,7 @@
       "paths": [
         "src/server/ai/persona-simulator.ts",
         "src/app/api/creatives/[id]/persona-simulation",
-        "src/server/repositories/persona-simulation.ts",
-        "src/server/assistant/action-execution/handlers/quick-persona-simulate.ts"
+        "src/server/repositories/persona-simulation.ts"
       ]
     }
   ],
