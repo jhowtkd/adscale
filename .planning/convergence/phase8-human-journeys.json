@@ -480,6 +480,38 @@
       "targetedBreakpointIds": [
         "campaign-assistant-thread-request-loop"
       ]
+    },
+    {
+      "commit": "f8f3054c",
+      "description": "Give assistant thread creation enough time to complete instead of exposing the generic 15-second client abort as a permanent startup failure.",
+      "targetedBreakpointIds": [
+        "campaign-assistant-startup-hang",
+        "campaign-assistant-signal-timeout",
+        "standalone-assistant-thread-startup-timeout"
+      ]
+    },
+    {
+      "commit": "f8f3054c",
+      "description": "Allow synchronous copy generation to outlive the generic request timeout while preserving the returned server snapshot in the query cache.",
+      "targetedBreakpointIds": [
+        "create-post-copy-request-times-out-after-persist",
+        "generated-copy-not-hydrated-without-refresh"
+      ]
+    },
+    {
+      "commit": "f8f3054c",
+      "description": "Keep generated image buffers out of Inngest step output and reload the stored base only when exact-layer composition needs it.",
+      "targetedBreakpointIds": [
+        "creative-work-three-output-jobs-stuck-processing",
+        "creative-work-generation-success-not-finalized"
+      ]
+    },
+    {
+      "commit": "f8f3054c",
+      "description": "Derive the active Create Post work from the current URL so client navigation between resumable works hydrates the requested aggregate.",
+      "targetedBreakpointIds": [
+        "create-post-resume-opens-empty-brief"
+      ]
     }
   ],
   "decision": null
