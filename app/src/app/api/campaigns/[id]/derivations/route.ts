@@ -153,14 +153,11 @@ export async function POST(
         return apiError("noCtasProvided", 400);
       }
 
-      // Infer base format from the first campaign asset
+      // Infer the format when a reference exists; campaigns created from
+      // scratch intentionally have no base asset.
       const assets = await getAssetsByCampaign(campaignId, workspace.id);
       const baseAsset = assets[0];
-      if (!baseAsset) {
-        return apiError("missingBaseAsset", 400);
-      }
-
-      let baseFormat = "1:1";
+      let baseFormat = campaign.targetFormats?.[0] ?? "1:1";
       if (baseAsset?.width && baseAsset?.height && baseAsset.width > 0 && baseAsset.height > 0) {
         const ratio = baseAsset.height / baseAsset.width;
         if (ratio > 1.35) baseFormat = "9:16";

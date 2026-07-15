@@ -2666,6 +2666,7 @@
       "cancel": "Cancel"
     },
     "chat": {
+      "errorGeneric": "The response could not be completed. Try again.",
       "inputPlaceholder": "Type a message…",
       "send": "Send",
       "noThreadHint": "Select a thread to start chatting",

@@ -15,10 +15,14 @@ vi.mock("@/server/auth/workspace", () => ({
 }));
 
 const getWorkMock = vi.hoisted(() => vi.fn());
+const failStaleOutputsMock = vi.hoisted(() => vi.fn());
+const refreshStatusMock = vi.hoisted(() => vi.fn());
 const confirmMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/repositories/creative-work", () => ({
   getCreativeWork: (...args: unknown[]) => getWorkMock(...args),
+  failStaleCreativeWorkOutputs: (...args: unknown[]) => failStaleOutputsMock(...args),
+  refreshCreativeWorkStatus: (...args: unknown[]) => refreshStatusMock(...args),
 }));
 
 vi.mock("@/server/application/confirm-social-post-work", () => ({
@@ -77,6 +81,7 @@ const confirmBody = {
 describe("GET /api/creative-work/[id]", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    failStaleOutputsMock.mockResolvedValue([]);
   });
   afterEach(() => {
     vi.restoreAllMocks();
@@ -109,6 +114,32 @@ describe("GET /api/creative-work/[id]", () => {
     );
 
     expect(res.status).toBe(404);
+  });
+
+  it("turns stale generation into a terminal retryable failure", async () => {
+    failStaleOutputsMock.mockResolvedValue([{ id: "o1", status: "failed" }]);
+    refreshStatusMock.mockResolvedValue("failed");
+    getWorkMock.mockResolvedValue({
+      work: { ...workItem, status: "failed" },
+      outputs: [{ ...outputs[0], status: "failed", failureCode: "generation_timeout" }],
+    });
+
+    const res = await GET(
+      new Request("http://localhost/api/creative-work/work-1"),
+      { params: makeParams("work-1") },
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(failStaleOutputsMock).toHaveBeenCalledWith(
+      "workspace-1",
+      "work-1",
+      expect.any(Date),
+    );
+    expect(refreshStatusMock).toHaveBeenCalledWith("workspace-1", "work-1");
+    expect(body.outputs[0]).toEqual(
+      expect.objectContaining({ status: "failed", failureCode: "generation_timeout" }),
+    );
   });
 });
 

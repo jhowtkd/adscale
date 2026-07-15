@@ -187,6 +187,24 @@ describe("POST /api/campaigns/[id]/derivations outputLearningApplication", () =>
     expect(mockCreateDerivation.mock.calls[0][0].outputLearningApplication).toBeNull();
   });
 
+  it("queues an art variation from scratch when the campaign has no base asset", async () => {
+    mockGetAssetsByCampaign.mockResolvedValue([]);
+
+    const res = await POST(postRequest({ preview: true }), {
+      params: makeParams("camp-1"),
+    });
+
+    expect(res.status).toBe(201);
+    expect(mockCreateDerivation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        campaignId: "camp-1",
+        format: "1:1",
+        isPreview: true,
+      })
+    );
+    expect(mockInngestSend).toHaveBeenCalledTimes(1);
+  });
+
   it("returns 400 for invalid outputLearningApplication body", async () => {
     const res = await POST(
       postRequest({

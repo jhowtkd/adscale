@@ -115,13 +115,17 @@ export default function CreatePostWizard({ workId: initialWorkId }: { workId?: s
     if (!detail) return stepIndex;
     const status = detail.work.status;
     if (status === "draft") return detail.work.copy ? 2 : 1;
-    // "ready" and beyond (generating / completed / failed) all live on the
-    // proposals step now that the confirm step has been folded into assets.
+    // A ready work has a confirmed identity but may not have dispatched its
+    // outputs yet. Keep that resumable state on Identity so the user has a
+    // real generation action instead of three empty proposal placeholders.
+    if (status === "ready" && detail.outputs.length === 0) return 2;
+    // Generating / completed / failed works have concrete output rows and
+    // belong on the proposal grid.
     return 3;
     // detail is intentionally not listed — we only need the three scalar
     // fields, and adding the whole object would re-run on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [detail?.work.id, detail?.work.status, detail?.work.copy, stepIndex]);
+  }, [detail?.work.id, detail?.work.status, detail?.work.copy, detail?.outputs.length, stepIndex]);
 
   // After a brand-new draft is created, normalise the editable fields once
   // for that work item. Field values must not be overwritten by later query
@@ -310,6 +314,24 @@ export default function CreatePostWizard({ workId: initialWorkId }: { workId?: s
   // ----- Rendering ---------------------------------------------------------
 
   const currentStep = STEP_ORDER[stepIndex];
+
+  if (activeWorkId && workQuery.isLoading && !detail) {
+    return (
+      <section
+        aria-label={tQuick("title")}
+        data-testid="create-post-wizard"
+        className="mx-auto flex w-full max-w-4xl flex-col gap-8"
+      >
+        <header className="space-y-1">
+          <h1 className="product-page-title text-[var(--text-primary)]">{tQuick("title")}</h1>
+          <p className="text-sm text-[var(--text-secondary)]">{tQuick("subtitle")}</p>
+        </header>
+        <p role="status" className="text-sm text-[var(--text-secondary)]">
+          {tCommon("loading")}
+        </p>
+      </section>
+    );
+  }
 
   return (
     <section

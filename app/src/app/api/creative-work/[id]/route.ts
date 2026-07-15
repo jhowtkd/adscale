@@ -5,7 +5,13 @@ import { confirmSocialPostWork } from "@/server/application/confirm-social-post-
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { projectCreativeWorkAsCanonicalWork } from "@/server/creative-work/projection/from-creative-work";
 import { socialPostCopySchema } from "@/server/creative-work/contracts";
-import { getCreativeWork } from "@/server/repositories/creative-work";
+import {
+  failStaleCreativeWorkOutputs,
+  getCreativeWork,
+  refreshCreativeWorkStatus,
+} from "@/server/repositories/creative-work";
+
+const GENERATION_LEASE_MS = 15 * 60 * 1000;
 
 const confirmCreativeWorkSchema = z
   .object({
@@ -30,6 +36,14 @@ export async function GET(
       requireWorkspaceAccess(request),
       params,
     ]);
+    const staleOutputs = await failStaleCreativeWorkOutputs(
+      workspace.id,
+      id,
+      new Date(Date.now() - GENERATION_LEASE_MS),
+    );
+    if (staleOutputs.length > 0) {
+      await refreshCreativeWorkStatus(workspace.id, id);
+    }
     const result = await getCreativeWork(workspace.id, id);
     if (!result) {
       return apiError("creativeWorkNotFound", 404);

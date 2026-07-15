@@ -287,6 +287,30 @@ describe("creativeWorkOutputJob", () => {
     });
   });
 
+  it("never returns binary buffers across Inngest step boundaries", async () => {
+    getCreativeWorkMock.mockResolvedValue({
+      work: workItem,
+      outputs: [makeQueuedOutput()],
+    });
+    markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+    const stepResults = new Map<string, unknown>();
+
+    await runJob(baseEvent, (name, result) => stepResults.set(name, result));
+
+    const containsBuffer = (value: unknown): boolean => {
+      if (Buffer.isBuffer(value)) return true;
+      if (Array.isArray(value)) return value.some(containsBuffer);
+      if (value && typeof value === "object") {
+        return Object.values(value).some(containsBuffer);
+      }
+      return false;
+    };
+
+    for (const [name, result] of stepResults) {
+      expect(containsBuffer(result), `${name} returned binary data`).toBe(false);
+    }
+  });
+
   it("does not ensure library when generation fails", async () => {
     getCreativeWorkMock.mockResolvedValue({
       work: workItem,

@@ -1,4 +1,4 @@
-import { eq, and, asc, desc, inArray } from "drizzle-orm";
+import { eq, and, asc, desc, inArray, lt } from "drizzle-orm";
 import { db } from "../db";
 import {
   creativeWorkItems,
@@ -296,6 +296,34 @@ export async function failCreativeWorkOutput(
     )
     .returning();
   return row ?? null;
+}
+
+/**
+ * Reconciles jobs that disappeared after dispatch (for example, a worker
+ * serialization crash). Once the lease expires the output becomes terminal,
+ * which lets the UI offer its existing retry action instead of polling forever.
+ */
+export async function failStaleCreativeWorkOutputs(
+  workspaceId: string,
+  workItemId: string,
+  staleBefore: Date,
+): Promise<CreativeWorkOutput[]> {
+  return db
+    .update(creativeWorkOutputs)
+    .set({
+      status: "failed",
+      failureCode: "generation_timeout",
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(creativeWorkOutputs.workspaceId, workspaceId),
+        eq(creativeWorkOutputs.workItemId, workItemId),
+        inArray(creativeWorkOutputs.status, ["queued", "processing"]),
+        lt(creativeWorkOutputs.updatedAt, staleBefore),
+      ),
+    )
+    .returning();
 }
 
 /**

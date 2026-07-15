@@ -2695,6 +2695,7 @@
       "cancel": "Cancelar"
     },
     "chat": {
+      "errorGeneric": "Não foi possível concluir a resposta. Tente novamente.",
       "inputPlaceholder": "Digite uma mensagem…",
       "send": "Enviar",
       "noThreadHint": "Selecione uma thread para começar a conversar",

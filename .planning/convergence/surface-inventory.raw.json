@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-07-14T23:20:23.763Z",
+  "generatedAt": "2026-07-15T18:25:48.217Z",
   "schemaVersion": 2,
-  "fingerprint": "0ec51b64bd38e7472b87e277af9be2de4faa8480096be558ba6a1ae058413224",
+  "fingerprint": "9050302c487152761a5c7f15eb49ff78e5fe5bc6300552df13db122ada333ff6",
   "counts": {
     "dashboardPages": 14,
     "apiRoutes": 161,
@@ -1755,12 +1755,12 @@
       "note": "always-disabled control"
     },
     {
-      "id": "nav:app/src/components/quick-tools/create-post/CreatePostWizard.tsx:296",
+      "id": "nav:app/src/components/quick-tools/create-post/CreatePostWizard.tsx:302",
       "kind": "cta_navigation",
       "destination": "/library",
       "file": "app/src/components/quick-tools/create-post/CreatePostWizard.tsx",
-      "line": 296,
-      "evidence": "app/src/components/quick-tools/create-post/CreatePostWizard.tsx:296",
+      "line": 302,
+      "evidence": "app/src/components/quick-tools/create-post/CreatePostWizard.tsx:302",
       "requiresDecision": false
     },
     {

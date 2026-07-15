@@ -159,16 +159,16 @@ export const creativeWorkOutputJob = inngest.createFunction(
           .filter((asset) => asset.usageMode === "reference")
           .slice(0, MAX_REFERENCE_IMAGES);
 
-        referenceImages = (await step.run("load-reference-images", async () => {
-          const buffers = await Promise.all(
-            referenceAssets.map(async (asset) => ({
-              buffer: await objectStorage.get(asset.assetKey),
-              mimeType: asset.mimeType,
-              name: asset.label,
-            })),
-          );
-          return buffers;
-        })) as unknown as Array<{ buffer: Buffer; mimeType: string; name: string }>;
+        // Binary payloads cannot cross an Inngest step boundary. The durable
+        // asset keys live in the identity snapshot; buffers stay local to this
+        // invocation and are consumed immediately by the provider.
+        referenceImages = await Promise.all(
+          referenceAssets.map(async (asset) => ({
+            buffer: await objectStorage.get(asset.assetKey),
+            mimeType: asset.mimeType,
+            name: asset.label,
+          })),
+        );
       } catch (error) {
         await refundPreGeneratorOutput({
           workspaceId,
@@ -254,9 +254,9 @@ export const creativeWorkOutputJob = inngest.createFunction(
         });
       }
 
-      const finalBuffer = (await step.run("load-final-buffer", async () => {
-        return objectStorage.get(generatedOutputKey);
-      })) as unknown as Buffer;
+      // Keep the image buffer out of step results; only its storage key is
+      // durable/serializable across Inngest boundaries.
+      const finalBuffer = await objectStorage.get(generatedOutputKey);
 
       const clientProfile = (await step.run("load-client-profile", async () => {
         return getClientProfile(workspaceId, work.clientProfileId);

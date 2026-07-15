@@ -16,6 +16,18 @@ export interface SendAssistantMessageInput {
   attachments?: ChatAttachment[];
 }
 
+function abortAfterConfirmedUnmount(
+  lifecycleVersion: number,
+  lifecycleVersionRef: { current: number },
+  abortRef: { current: AbortController | null },
+) {
+  queueMicrotask(() => {
+    if (lifecycleVersionRef.current !== lifecycleVersion) return;
+    abortRef.current?.abort("unmount");
+    abortRef.current = null;
+  });
+}
+
 function createLocalId(prefix: string) {
   return `${prefix}-${crypto.randomUUID()}`;
 }
@@ -28,6 +40,8 @@ export function useAssistantChat(threadId: string | null) {
   const [error, setError] = useState<string | null>(null);
   const [prevThreadId, setPrevThreadId] = useState(threadId);
   const abortRef = useRef<AbortController | null>(null);
+  const lifecycleVersionRef = useRef(0);
+  const activeThreadRef = useRef(threadId);
 
   if (threadId !== prevThreadId) {
     setPrevThreadId(threadId);
@@ -38,9 +52,18 @@ export function useAssistantChat(threadId: string | null) {
   }
 
   useLayoutEffect(() => {
-    return () => {
-      abortRef.current?.abort();
+    const lifecycleVersion = ++lifecycleVersionRef.current;
+    if (activeThreadRef.current !== threadId) {
+      abortRef.current?.abort("thread_changed");
       abortRef.current = null;
+      activeThreadRef.current = threadId;
+    }
+
+    return () => {
+      // React Strict Mode immediately replays effects in development. Delay
+      // teardown by one microtask so the replay can claim a newer lifecycle;
+      // a real unmount still aborts the in-flight request.
+      abortAfterConfirmedUnmount(lifecycleVersion, lifecycleVersionRef, abortRef);
     };
   }, [threadId]);
 
@@ -65,7 +88,10 @@ export function useAssistantChat(threadId: string | null) {
       abortRef.current = controller;
 
       const ABSOLUTE_TIMEOUT_MS = 120_000;
-      const absoluteTimer = setTimeout(() => controller.abort(), ABSOLUTE_TIMEOUT_MS);
+      const absoluteTimer = setTimeout(
+        () => controller.abort("timeout"),
+        ABSOLUTE_TIMEOUT_MS
+      );
 
       setError(null);
       setIsStreaming(true);
@@ -190,14 +216,14 @@ export function useAssistantChat(threadId: string | null) {
         setError(message);
       } finally {
         clearTimeout(absoluteTimer);
-        if (abortRef.current === controller) {
+        const isCurrentRequest = abortRef.current === controller;
+        if (isCurrentRequest) {
           abortRef.current = null;
-        }
-        if (!controller.signal.aborted) {
           setIsStreaming(false);
           setStreamingText("");
-        } else if (controller.signal.reason === "timeout") {
-          setError("O assistente demorou demais para responder. Tente novamente.");
+          if (controller.signal.reason === "timeout") {
+            setError("O assistente demorou demais para responder. Tente novamente.");
+          }
         }
       }
     },

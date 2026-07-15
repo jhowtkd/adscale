@@ -117,6 +117,7 @@ import {
   completeCreativeWorkOutput,
   createCreativeWork,
   createCreativeWorkOutputs,
+  failStaleCreativeWorkOutputs,
   failCreativeWorkOutput,
   getCreativeWork,
   markCreativeWorkOutputProcessing,
@@ -257,6 +258,31 @@ describe("creative-work repository", () => {
 
       expect(result).toBeNull();
       expect(mocks.whereMock).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("failStaleCreativeWorkOutputs", () => {
+    it("turns only stale queued or processing outputs into retryable failures", async () => {
+      const failed = workOutput({
+        status: "failed",
+        failureCode: "generation_timeout",
+      });
+      mocks.state.updateResults.push([failed]);
+      const staleBefore = new Date("2026-07-15T12:00:00.000Z");
+
+      const result = await failStaleCreativeWorkOutputs(
+        "ws-1",
+        "work-1",
+        staleBefore,
+      );
+
+      expect(mocks.setMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: "failed",
+          failureCode: "generation_timeout",
+        }),
+      );
+      expect(result).toEqual([failed]);
     });
   });
 

@@ -1,8 +1,10 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const mockMutateAsync = vi.fn();
+const mockUpdateCampaign = vi.fn();
+const mockGoToTrabalho = vi.fn();
 
 vi.mock("next-intl", () => ({
   useTranslations: (namespace?: string) => (key: string, values?: Record<string, string>) => {
@@ -59,7 +61,7 @@ vi.mock("@/lib/hooks/use-campaign-workspace", () => ({
     selectedDeliverySource: null,
     handleDeliveryModalOpenChange: vi.fn(),
     goToSetup: vi.fn(),
-    goToTrabalho: vi.fn(),
+    goToTrabalho: mockGoToTrabalho,
     savePilot: vi.fn(),
     handleGenerateDerivations: vi.fn(),
     configureAndGenerate: vi.fn(),
@@ -130,7 +132,7 @@ vi.mock("@/lib/hooks/use-preflight", () => ({
 }));
 
 vi.mock("@/lib/hooks/use-campaigns", () => ({
-  useUpdateCampaign: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useUpdateCampaign: () => ({ mutateAsync: mockUpdateCampaign, isPending: false }),
 }));
 
 vi.mock("@/lib/hooks/use-assistant-threads", () => ({
@@ -165,7 +167,24 @@ vi.mock("@/components/workspace/PilotUploadPanel", () => ({
   default: () => null,
 }));
 vi.mock("@/components/workspace/GuidedBriefingPanel", () => ({
-  default: () => null,
+  default: ({ onComplete }: { onComplete: (briefing: Record<string, string>) => void }) => (
+    <button
+      type="button"
+      onClick={() =>
+        onComplete({
+          product: "Coffee combo",
+          offer: "Same-day delivery",
+          objective: "Increase afternoon orders",
+          audience: "People in the neighborhood",
+          platforms: "Instagram, Facebook",
+          ctaText: "Order now",
+          constraints: "No unsupported claims",
+        })
+      }
+    >
+      Complete briefing
+    </button>
+  ),
 }));
 vi.mock("@/components/workspace/PilotSidebar", () => ({
   default: () => null,
@@ -203,6 +222,7 @@ describe("CampaignWorkspacePage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockMutateAsync.mockResolvedValue({ id: "thread-default-1" });
+    mockUpdateCampaign.mockResolvedValue(undefined);
   });
 
   it("renders the assistant chat panel by default (not behind a toggle)", async () => {
@@ -230,5 +250,22 @@ describe("CampaignWorkspacePage", () => {
     expect(
       screen.queryByRole("button", { name: /open assistant/i })
     ).not.toBeInTheDocument();
+  });
+
+  it("continues a campaign created from scratch after completing its briefing", async () => {
+    renderPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "Complete briefing" }));
+
+    await waitFor(() => {
+      expect(mockUpdateCampaign).toHaveBeenCalledWith(
+        expect.objectContaining({
+          product: "Coffee combo",
+          ctaVariants: ["Order now"],
+          platforms: ["Instagram", "Facebook"],
+        })
+      );
+      expect(mockGoToTrabalho).toHaveBeenCalledTimes(1);
+    });
   });
 });

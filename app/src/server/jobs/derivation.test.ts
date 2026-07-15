@@ -518,6 +518,37 @@ describe("derivationJob", () => {
 
       expect(mockSyncAssistantActionFromJob).not.toHaveBeenCalled();
     });
+
+    it("generates campaign art from scratch when there is no base asset", async () => {
+      await setupMinimalDerivationJob();
+      mockGetAssetsByCampaign.mockResolvedValue([]);
+
+      await runDerivationJob({
+        derivationId: "derivation-id",
+        campaignId: "campaign-id",
+        workspaceId: "workspace-1",
+        locale: "pt-BR",
+        generationMode: "art_variation",
+        variantIndex: 0,
+        ctaText: "Saiba mais",
+        format: "1:1",
+      });
+
+      expect(mockDownloadBuffer).not.toHaveBeenCalledWith("assets/campaign.png");
+      expect(mockOpenAIImages.generate).toHaveBeenCalled();
+      expect(mockOpenAIImages.edit).not.toHaveBeenCalled();
+      expect(mockUpdateDerivationPromptProvenance).toHaveBeenCalledWith(
+        "derivation-id",
+        "workspace-1",
+        expect.objectContaining({
+          creativeContract: expect.objectContaining({ baseAssetId: null }),
+          promptProvenance: expect.objectContaining({
+            sourcePackage: "campaign_asset",
+            imageOperation: "generate",
+          }),
+        }),
+      );
+    });
   });
 
   it("persists contract and provenance for campaign-asset art variation", async () => {

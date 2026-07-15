@@ -354,12 +354,27 @@ export default function CampaignWorkspacePage() {
     product?: string;
     offer?: string;
   }) => {
-    if (!pilotAssetIdRef.current) return;
     try {
-      await savePilot(pilotAssetIdRef.current, {
-        ...briefing,
-        tone: briefing.tone ?? analysis.suggestedTone,
+      const tone = briefing.tone ?? analysis.suggestedTone;
+      if (pilotAssetIdRef.current) {
+        await savePilot(pilotAssetIdRef.current, { ...briefing, tone });
+        return;
+      }
+
+      await updateCampaign.mutateAsync({
+        product: briefing.product,
+        offer: briefing.offer,
+        objective: briefing.objective,
+        audience: briefing.audience,
+        tone,
+        constraints: briefing.constraints,
+        platforms: briefing.platforms
+          ?.split(",")
+          .map((platform) => platform.trim())
+          .filter(Boolean),
+        ctaVariants: briefing.ctaText ? [briefing.ctaText] : undefined,
       });
+      goToTrabalho();
     } catch (error) {
       const message =
         error instanceof Error && error.message === "rateLimitExceeded"

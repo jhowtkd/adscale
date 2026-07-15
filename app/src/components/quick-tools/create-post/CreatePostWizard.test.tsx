@@ -248,6 +248,28 @@ describe("CreatePostWizard", () => {
     ).toBeVisible();
   });
 
+  it("resumes a ready work with no outputs at Identity so generation can be retried", async () => {
+    mockUseCreativeWork.mockReturnValue({ data: readyWork, isLoading: false });
+
+    render(<CreatePostWizard workId="work-1" />, { wrapper: createWrapper() });
+
+    expect(
+      await screen.findByRole("button", {
+        name: "Confirmar e gerar 3 propostas",
+      })
+    ).toBeVisible();
+    expect(screen.queryByText("Nível 1")).toBeNull();
+  });
+
+  it("does not show an empty brief while a resumable work is loading", () => {
+    mockUseCreativeWork.mockReturnValue({ data: undefined, isLoading: true });
+
+    render(<CreatePostWizard workId="work-1" />, { wrapper: createWrapper() });
+
+    expect(screen.queryByLabelText("briefTheme")).toBeNull();
+    expect(screen.getByText("loading")).toBeVisible();
+  });
+
   it("keeps a newly generated copy when an older draft snapshot arrives late", async () => {
     let detail: typeof draftWork | undefined;
     mockUseCreativeWork.mockImplementation(() => ({
