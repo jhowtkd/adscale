@@ -163,6 +163,55 @@
       ],
       "unexpectedCost": false,
       "observerNotes": "The template materialized campaign d2f1c307-1dee-4d84-bc45-9692812bc43d with the expected product, offer, audience, platforms and Horizonte Educacao profile. Database evidence shows zero assets and zero derivations. Clicking continue emitted stage telemetry but made no generation request or useful transition. The screenshot was captured at desktop width although the planned C02 matrix called for mobile; this failed attempt does not count toward the completed sample."
+    },
+    {
+      "scenarioId": "C03-attempt-1",
+      "phase": "before",
+      "participantId": "P01",
+      "mode": "campaign",
+      "brand": "Phase8 Human Cafe Aurora",
+      "segment": "alimentacao_local",
+      "entrySurface": "campaigns",
+      "device": "desktop",
+      "outcome": "failed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-15T09:51:00.135Z",
+      "firstOutputAt": null,
+      "approvedAt": null,
+      "deliveredAt": null,
+      "endedAt": "2026-07-15T10:07:16.237Z",
+      "breakpoints": [
+        {
+          "id": "campaign-create-client-field-obscures-brand-link",
+          "category": "doubt",
+          "severity": "P2",
+          "at": "2026-07-15T09:54:14.845Z",
+          "note": "The participant asked whether typing the seeded brand name into the free-text Client field was the correct way to associate a brand profile; the creation modal did not explain the relationship."
+        },
+        {
+          "id": "campaign-default-brief-invents-client-as-product",
+          "category": "context_loss",
+          "severity": "P1",
+          "at": "2026-07-15T10:04:06.587Z",
+          "note": "The generated briefing copied the client name into product and offer, then fabricated an objective and audience from that name instead of using the seeded Cafe Aurora brand context."
+        },
+        {
+          "id": "campaign-without-base-image-continue-noop",
+          "category": "abandonment",
+          "severity": "P1",
+          "at": "2026-07-15T10:05:41.589Z",
+          "note": "With no arbitrary base image uploaded, repeated clicks on the enabled 'Continuar para acoes' button emitted completion telemetry but produced no generation request, output or useful stage transition. The participant waited four minutes."
+        },
+        {
+          "id": "campaign-assistant-signal-timeout",
+          "category": "error",
+          "severity": "P1",
+          "at": "2026-07-15T10:06:01.570Z",
+          "note": "The mounted campaign assistant showed the raw error 'signal timed out' while the participant was blocked in the briefing stage."
+        }
+      ],
+      "unexpectedCost": false,
+      "observerNotes": "Campaign 7c38fe41-9d2e-4d55-b557-5eaba5279385 correctly linked the existing Cafe Aurora client profile, but persisted the client name as product and offer plus generic generated objective/audience. Database evidence shows zero assets and zero derivations. The participant supplied no arbitrary image, received no output and could not progress beyond briefing."
     }
   ],
   "corrections": [
