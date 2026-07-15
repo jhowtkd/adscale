@@ -285,6 +285,8 @@ Cada item abaixo deve resultar em um commit pequeno e manter a aplicação funci
 
 **Correções de bloqueio em 2026-07-15:** o lote `6e38cf19` fechou criação de campanha sem imagem, serialização dos jobs de Criar Post, retomada, primeiro envio do Assistente, contrato JSON Schema do MiniMax e erros internos expostos. A regressão automatizada passou (126 testes, typecheck e `convergence:gate`), mas as tentativas humanas falhas continuam sem contar como amostra concluída.
 
+**Preflight técnico adicional em 2026-07-15:** `e52397da` fechou o cruzamento incorreto entre nível criativo e output, removeu interação aninhada inválida nos cards e estabilizou a autenticação do UAT. S03, S07, S08, S09, S11 e S12 passaram em ambiente controlado; detalhes e handoff estão em `docs/plans/2026-07-15-phase8-technical-preflight.md`. Isso libera as próximas sessões para outros participantes, mas não substitui evidência humana.
+
 59. Executar pelo menos dez jornadas humanas completas: cinco com campanha e cinco sem campanha.
 60. Cobrir ao menos três marcas e dois segmentos, incluindo um fora de educação.
 61. Registrar onde houve dúvida, abandono, retorno, erro, custo inesperado ou perda de contexto.
