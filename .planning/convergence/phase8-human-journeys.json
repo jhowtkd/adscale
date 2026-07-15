@@ -373,6 +373,34 @@
       ],
       "unexpectedCost": true,
       "observerNotes": "Creative work f73703cb-8707-4383-a20d-6d15b51ff807 persisted the correct 9:16 Cafe Aurora brief and copy. Refresh recovered the copy, then three generation events were published. OpenAI returned a candidate for every output (44.7s, 45.8s and 74.9s), while Seedream was unavailable due missing BYTEPLUS_API_KEY. All three functions subsequently failed and left the work and output rows non-terminal. Provider work was consumed without a user-visible deliverable or recorded cost."
+    },
+    {
+      "scenarioId": "N03-attempt-1",
+      "phase": "before",
+      "participantId": "P01",
+      "mode": "no_campaign",
+      "brand": "Phase8 Human Studio Pulso",
+      "segment": "fitness",
+      "entrySurface": "assistant",
+      "device": "desktop",
+      "outcome": "failed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-15T11:11:31.517Z",
+      "firstOutputAt": null,
+      "approvedAt": null,
+      "deliveredAt": null,
+      "endedAt": "2026-07-15T11:13:40.841Z",
+      "breakpoints": [
+        {
+          "id": "standalone-assistant-thread-startup-timeout",
+          "category": "abandonment",
+          "severity": "P1",
+          "at": "2026-07-15T11:13:19.347Z",
+          "note": "The standalone Assistant opened with the raw error 'signal timed out' before the participant could send a first message. No thread was selected or created, the server did not complete a thread POST, and the database contained zero assistant threads for the Studio Pulso profile."
+        }
+      ],
+      "unexpectedCost": false,
+      "observerNotes": "The primary standalone Assistant surface failed while establishing the conversation, before any user message or model generation. No assistant thread, message, provider call or cost was persisted, so the participant had no recovery path inside the surface."
     }
   ],
   "corrections": [
