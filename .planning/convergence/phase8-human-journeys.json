@@ -639,6 +639,34 @@
       ],
       "unexpectedCost": false,
       "observerNotes": "The same default thread persisted user message sequence 2 and assistant response sequence 3. Runtime returned HTTP 200 and no provider error; database evidence shows no assistant action record, proving the remaining failure is the model-to-tool contract rather than transport or credentials."
+    },
+    {
+      "scenarioId": "C05-after-attempt-1",
+      "phase": "after",
+      "participantId": "P01",
+      "mode": "campaign",
+      "brand": "Phase8 Human Cafe Aurora",
+      "segment": "alimentacao",
+      "entrySurface": "recent_work",
+      "device": "desktop",
+      "outcome": "failed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-15T16:42:57.000Z",
+      "firstOutputAt": null,
+      "approvedAt": null,
+      "deliveredAt": null,
+      "endedAt": "2026-07-15T16:49:00.551Z",
+      "breakpoints": [
+        {
+          "id": "resume-campaign-has-no-resumable-output",
+          "category": "context_loss",
+          "severity": "P1",
+          "at": "2026-07-15T16:49:00.551Z",
+          "note": "Opening the prepared Cafe Aurora resumable campaign returned to onboarding step 4 of 7 with an empty upload area, no previous outputs and no explicit resume action. The screen communicated a new draft rather than completed or recoverable work."
+        }
+      ],
+      "unexpectedCost": false,
+      "observerNotes": "Database evidence confirms the campaign remained draft with creative diagnosis pending, zero assets and zero derivations. One default Assistant thread was created by opening the page, but it contained no visible prior conversation. The participant could not identify anything meaningful to resume and stopped without using the known Produzir bypass."
     }
   ],
   "corrections": [
