@@ -283,6 +283,8 @@ Cada item abaixo deve resultar em um commit pequeno e manter a aplicação funci
 
 **Preparação concluída em 2026-07-14:** baseline read-only de produção congelado em `.planning/convergence/baseline.json`; protocolo, checker anti-evidência sintética e seed determinístico com três marcas disponíveis. As jornadas abaixo continuam abertas e só serão marcadas após operação humana observada.
 
+**Correções de bloqueio em 2026-07-15:** o lote `6e38cf19` fechou criação de campanha sem imagem, serialização dos jobs de Criar Post, retomada, primeiro envio do Assistente, contrato JSON Schema do MiniMax e erros internos expostos. A regressão automatizada passou (126 testes, typecheck e `convergence:gate`), mas as tentativas humanas falhas continuam sem contar como amostra concluída.
+
 59. Executar pelo menos dez jornadas humanas completas: cinco com campanha e cinco sem campanha.
 60. Cobrir ao menos três marcas e dois segmentos, incluindo um fora de educação.
 61. Registrar onde houve dúvida, abandono, retorno, erro, custo inesperado ou perda de contexto.

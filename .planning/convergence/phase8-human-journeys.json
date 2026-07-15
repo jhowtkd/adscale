@@ -862,6 +862,37 @@
       "targetedBreakpointIds": [
         "create-post-resume-opens-empty-brief"
       ]
+    },
+    {
+      "commit": "6e38cf19",
+      "description": "Allow campaigns and materialized templates without a base image to persist their briefing and generate through the canonical from-scratch path.",
+      "targetedBreakpointIds": [
+        "preview-enqueue-fails-without-base-asset",
+        "campaign-without-base-image-continue-noop",
+        "materialized-template-blocked-without-base-image"
+      ]
+    },
+    {
+      "commit": "6e38cf19",
+      "description": "Keep every creative-work image buffer outside Inngest step results and expire disappeared jobs into a retryable terminal failure.",
+      "targetedBreakpointIds": [
+        "creative-work-generation-success-not-finalized",
+        "creative-work-three-output-jobs-stuck-processing"
+      ]
+    },
+    {
+      "commit": "6e38cf19",
+      "description": "Preserve nested tool argument types for MiniMax and protect the first Assistant send from Strict Mode cleanup.",
+      "targetedBreakpointIds": [
+        "campaign-chat-stream-error"
+      ]
+    },
+    {
+      "commit": "6e38cf19",
+      "description": "Hydrate resumable creative work before rendering and keep ready work without outputs on the executable identity step.",
+      "targetedBreakpointIds": [
+        "create-post-resume-opens-empty-brief"
+      ]
     }
   ],
   "decision": null
