@@ -58,7 +58,7 @@ Para campanha, aprovação é aprovar a derivação e entrega é baixar/comparti
 1. Capturar e congelar o baseline de produção antes do rollout.
 2. Rodar C01–C05 e N01–N05; registrar sem corrigir no meio do bloco.
 3. Ordenar breakpoints por frequência, depois severidade.
-4. Corrigir exatamente os três maiores e registrar commits e breakpoints atacados.
+4. Corrigir os três maiores e registrar commits e breakpoints atacados; bloqueios adicionais podem ser corrigidos sem serem escondidos da amostra.
 5. Repetir a matriz com os mesmos briefings e condições equivalentes.
 6. Rodar `npm run convergence:phase8-check`.
 7. Publicar uma decisão: `expand`, `iterate` ou `revert`.

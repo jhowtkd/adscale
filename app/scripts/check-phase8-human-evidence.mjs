@@ -253,8 +253,8 @@ if (!existsSync(evidencePath)) {
       fail("before requires at least one non-education segment");
     }
 
-    if ((evidence.corrections ?? []).length !== 3) {
-      fail("exactly 3 top-breakpoint corrections must be recorded");
+    if ((evidence.corrections ?? []).length < 3) {
+      fail("at least 3 top-breakpoint corrections must be recorded");
     }
     const rankedBreakpoints = rankBreakpointIds(before);
     const observedBreakpointIds = new Set(rankedBreakpoints.map(({ id }) => id));

@@ -65,10 +65,14 @@ describe("CampaignAssistantPanel", () => {
   it("shows loading state while resolving thread", () => {
     mockMutateAsync.mockReturnValue(new Promise(() => {}));
 
-    render(<CampaignAssistantPanel campaignId="camp-1" clientProfileId="client-1" />);
+    const { rerender } = render(
+      <CampaignAssistantPanel campaignId="camp-1" clientProfileId="client-1" />
+    );
+    rerender(<CampaignAssistantPanel campaignId="camp-1" clientProfileId="client-1" />);
 
     expect(screen.getByText("loading")).toBeInTheDocument();
     expect(screen.queryByTestId("assistant-chat-core")).not.toBeInTheDocument();
+    expect(mockMutateAsync).toHaveBeenCalledTimes(1);
   });
 
   it("shows error when clientProfileId is missing", () => {
