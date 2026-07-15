@@ -667,6 +667,34 @@
       ],
       "unexpectedCost": false,
       "observerNotes": "Database evidence confirms the campaign remained draft with creative diagnosis pending, zero assets and zero derivations. One default Assistant thread was created by opening the page, but it contained no visible prior conversation. The participant could not identify anything meaningful to resume and stopped without using the known Produzir bypass."
+    },
+    {
+      "scenarioId": "N01-after-attempt-1",
+      "phase": "after",
+      "participantId": "P01",
+      "mode": "no_campaign",
+      "brand": "Phase8 Human Horizonte Educacao",
+      "segment": "educacao",
+      "entrySurface": "home_create_post",
+      "device": "desktop",
+      "outcome": "failed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-15T16:51:13.000Z",
+      "firstOutputAt": null,
+      "approvedAt": null,
+      "deliveredAt": null,
+      "endedAt": "2026-07-15T16:57:09.573Z",
+      "breakpoints": [
+        {
+          "id": "creative-work-generation-success-not-finalized",
+          "category": "abandonment",
+          "severity": "P1",
+          "at": "2026-07-15T16:57:09.573Z",
+          "note": "Copy and identity completed, and OpenAI successfully generated all three candidate images. Each Inngest function then failed after generation while serializing the final image Buffer from the load-final-buffer step. The work remained generating and every output remained processing without an output key, cost or failure code."
+        }
+      ],
+      "unexpectedCost": true,
+      "observerNotes": "Creative work 33a08630-402f-474f-ac2b-8426d00dd09e persisted the full 1:1 brief, generated copy and identity snapshot. The previous generate-base Buffer correction held, but a second Buffer crossed the Inngest step boundary in load-final-buffer. Provider work and storage completed for all three candidates, yet no user-visible proposal became available and terminal state recovery did not run."
     }
   ],
   "corrections": [
