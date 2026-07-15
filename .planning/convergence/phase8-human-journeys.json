@@ -583,6 +583,34 @@
       ],
       "unexpectedCost": false,
       "observerNotes": "Campaign 25b5dea4-9b0d-4384-a8a5-8e2889e92910 had the correct Cafe Aurora client profile and the campaign Assistant remained available. Database evidence after the attempt shows draft status, zero campaign assets and zero derivations. This third after-round campaign reproduces the same image-gate contradiction, so no additional bypass or provider attempt was required."
+    },
+    {
+      "scenarioId": "C04-after-attempt-1",
+      "phase": "after",
+      "participantId": "P01",
+      "mode": "campaign",
+      "brand": "Phase8 Human Studio Pulso",
+      "segment": "fitness",
+      "entrySurface": "campaign_assistant",
+      "device": "mobile",
+      "outcome": "failed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-15T13:42:36.000Z",
+      "firstOutputAt": null,
+      "approvedAt": null,
+      "deliveredAt": null,
+      "endedAt": "2026-07-15T13:45:40.125Z",
+      "breakpoints": [
+        {
+          "id": "campaign-assistant-provider-auth-failure",
+          "category": "error",
+          "severity": "P1",
+          "at": "2026-07-15T13:45:40.125Z",
+          "note": "The campaign Assistant accepted and persisted the participant message, but generated no response and exposed the raw label 'assistantStreamError'. Runtime evidence identifies the upstream cause as MiniMax HTTP 401 invalid api key (2049)."
+        }
+      ],
+      "unexpectedCost": false,
+      "observerNotes": "The earlier thread-startup timeout is fixed: default thread 79aab9f8-63ed-4576-8c17-95767113f2a5 loaded and persisted the single user message. The useful journey still failed because provider authentication prevented the first assistant output, and the UI offered neither an actionable explanation nor retry guidance."
     }
   ],
   "corrections": [
