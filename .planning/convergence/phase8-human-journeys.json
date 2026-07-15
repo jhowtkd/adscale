@@ -471,6 +471,48 @@
       ],
       "unexpectedCost": true,
       "observerNotes": "Home selected the correct work f73703cb-8707-4383-a20d-6d15b51ff807, but resume did not hydrate any persisted state after more than five minutes. The empty form contradicted the database, which retained the full 9:16 brief and copy plus three non-terminal outputs. No useful action or recovery path was exposed."
+    },
+    {
+      "scenarioId": "C01-after-attempt-1",
+      "phase": "after",
+      "participantId": "P01",
+      "mode": "campaign",
+      "brand": "Phase8 Human Horizonte Educacao",
+      "segment": "educacao",
+      "entrySurface": "home_new_campaign",
+      "device": "desktop",
+      "outcome": "failed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-15T11:50:00.000Z",
+      "firstOutputAt": null,
+      "approvedAt": null,
+      "deliveredAt": null,
+      "endedAt": "2026-07-15T12:03:53.000Z",
+      "breakpoints": [
+        {
+          "id": "campaign-mandatory-shell-friction",
+          "category": "doubt",
+          "severity": "P2",
+          "at": "2026-07-15T11:59:30.079Z",
+          "note": "The participant described the mandatory campaign shell as tedious before reaching the creative work itself. The flow required navigating campaign structure before any useful creative output existed."
+        },
+        {
+          "id": "campaign-base-image-gate-is-inconsistent",
+          "category": "error",
+          "severity": "P1",
+          "at": "2026-07-15T12:01:37.026Z",
+          "note": "Without a base image, 'Continuar para acoes' did not advance, but clicking the Produzir stage bypassed that gate and exposed generation controls. The two navigation paths enforce contradictory prerequisites."
+        },
+        {
+          "id": "preview-enqueue-fails-without-base-asset",
+          "category": "abandonment",
+          "severity": "P1",
+          "at": "2026-07-15T12:03:11.419Z",
+          "note": "After entering Produzir through the stage control, 'Gerar variacoes' returned 'Falha ao enfileirar previa'. The API returned 400, while the campaign remained a draft with zero assets and zero derivations."
+        }
+      ],
+      "unexpectedCost": false,
+      "observerNotes": "Campaign 07ff1668-fa80-478d-9c98-56bc3ffff9d8 was persisted and the campaign Assistant successfully created thread 9befaf85-dbe8-4bcc-95f6-6a61c5c90b5f, confirming the assistant-timeout correction. A local Next.js memory restart caused one transient ChunkLoadError and was recovered; the final product failure was independently reproduced afterward with a stable server."
     }
   ],
   "corrections": [
