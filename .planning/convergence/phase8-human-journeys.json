@@ -128,6 +128,41 @@
       ],
       "unexpectedCost": false,
       "observerNotes": "The intended Horizonte Educacao context was not actually attached: the campaign persisted an empty profile named C01. Eight screenshots are preserved under docs/plans/phase8-human-evidence/c01-before. Database evidence shows one preview, three 1:1 production outputs and four format adaptations; the campaign reached completed, two outputs were approved, chat stored one user message with no assistant reply, and no delivery was completed."
+    },
+    {
+      "scenarioId": "C02-attempt-1",
+      "phase": "before",
+      "participantId": "P01",
+      "mode": "campaign",
+      "brand": "Phase8 Human Horizonte Educacao",
+      "segment": "educacao",
+      "entrySurface": "templates_url",
+      "device": "desktop",
+      "outcome": "failed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-15T07:54:22.483Z",
+      "firstOutputAt": null,
+      "approvedAt": null,
+      "deliveredAt": null,
+      "endedAt": "2026-07-15T08:01:16.441Z",
+      "breakpoints": [
+        {
+          "id": "templates-not-discoverable-from-interface",
+          "category": "doubt",
+          "severity": "P2",
+          "at": "2026-07-15T07:59:48.000Z",
+          "note": "The participant could reach Templates only by entering the URL directly; no discoverable route to the surface was found in the desktop interface."
+        },
+        {
+          "id": "materialized-template-blocked-without-base-image",
+          "category": "abandonment",
+          "severity": "P1",
+          "at": "2026-07-15T08:01:16.441Z",
+          "note": "The materialized campaign displayed a completed briefing and an enabled 'Continuar para acoes' button, but clicking it did not advance without a base image. The UI did not explain that the image was required, and uploading an arbitrary image would invalidate the template workflow."
+        }
+      ],
+      "unexpectedCost": false,
+      "observerNotes": "The template materialized campaign d2f1c307-1dee-4d84-bc45-9692812bc43d with the expected product, offer, audience, platforms and Horizonte Educacao profile. Database evidence shows zero assets and zero derivations. Clicking continue emitted stage telemetry but made no generation request or useful transition. The screenshot was captured at desktop width although the planned C02 matrix called for mobile; this failed attempt does not count toward the completed sample."
     }
   ],
   "corrections": [
