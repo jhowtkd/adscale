@@ -611,6 +611,34 @@
       ],
       "unexpectedCost": false,
       "observerNotes": "The earlier thread-startup timeout is fixed: default thread 79aab9f8-63ed-4576-8c17-95767113f2a5 loaded and persisted the single user message. The useful journey still failed because provider authentication prevented the first assistant output, and the UI offered neither an actionable explanation nor retry guidance."
+    },
+    {
+      "scenarioId": "C04-after-attempt-2",
+      "phase": "after",
+      "participantId": "P01",
+      "mode": "campaign",
+      "brand": "Phase8 Human Studio Pulso",
+      "segment": "fitness",
+      "entrySurface": "campaign_assistant",
+      "device": "mobile",
+      "outcome": "failed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-15T16:35:38.255Z",
+      "firstOutputAt": "2026-07-15T16:35:45.050Z",
+      "approvedAt": null,
+      "deliveredAt": null,
+      "endedAt": "2026-07-15T16:35:56.420Z",
+      "breakpoints": [
+        {
+          "id": "campaign-assistant-tool-call-invalid-arguments",
+          "category": "error",
+          "severity": "P1",
+          "at": "2026-07-15T16:35:56.420Z",
+          "note": "After provider authentication was corrected, MiniMax produced the first natural-language response in about seven seconds but its following tool call failed policy validation with 'invalid_arguments'. The UI exposed the internal denial token and no action record or creative output was created."
+        }
+      ],
+      "unexpectedCost": false,
+      "observerNotes": "The same default thread persisted user message sequence 2 and assistant response sequence 3. Runtime returned HTTP 200 and no provider error; database evidence shows no assistant action record, proving the remaining failure is the model-to-tool contract rather than transport or credentials."
     }
   ],
   "corrections": [
