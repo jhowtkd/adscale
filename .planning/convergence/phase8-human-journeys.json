@@ -401,6 +401,41 @@
       ],
       "unexpectedCost": false,
       "observerNotes": "The primary standalone Assistant surface failed while establishing the conversation, before any user message or model generation. No assistant thread, message, provider call or cost was persisted, so the participant had no recovery path inside the surface."
+    },
+    {
+      "scenarioId": "N04-attempt-1",
+      "phase": "before",
+      "participantId": "P01",
+      "mode": "no_campaign",
+      "brand": "Phase8 Human Studio Pulso",
+      "segment": "fitness",
+      "entrySurface": "home_create_post",
+      "device": "mobile",
+      "outcome": "failed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-15T11:16:42.000Z",
+      "firstOutputAt": null,
+      "approvedAt": null,
+      "deliveredAt": null,
+      "endedAt": "2026-07-15T11:21:59.000Z",
+      "breakpoints": [
+        {
+          "id": "create-post-brand-does-not-prefill-brief",
+          "category": "doubt",
+          "severity": "P2",
+          "at": "2026-07-15T11:18:50.109Z",
+          "note": "Selecting the seeded Studio Pulso brand again left theme, objective, audience and offer entirely blank, requiring external guidance before the participant could proceed."
+        },
+        {
+          "id": "create-post-copy-request-times-out-after-persist",
+          "category": "error",
+          "severity": "P1",
+          "at": "2026-07-15T11:20:17.691Z",
+          "note": "Creating copy returned the raw error 'signal timed out' and left the mobile wizard on Briefing, although the database contained the generated headline, body and CTA. Continuing would require a manual refresh that hides the failed client state."
+        }
+      ],
+      "unexpectedCost": false,
+      "observerNotes": "Creative work b46ef338-c12c-4ebc-891d-327a0e80568d persisted the correct Studio Pulso 4:5 brief and generated copy, but the UI did not receive or hydrate that result. The attempt was stopped before identity confirmation to avoid repeating the provider-cost-without-delivery failure already demonstrated in N02."
     }
   ],
   "corrections": [
