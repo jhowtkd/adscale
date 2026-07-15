@@ -212,6 +212,34 @@
       ],
       "unexpectedCost": false,
       "observerNotes": "Campaign 7c38fe41-9d2e-4d55-b557-5eaba5279385 correctly linked the existing Cafe Aurora client profile, but persisted the client name as product and offer plus generic generated objective/audience. Database evidence shows zero assets and zero derivations. The participant supplied no arbitrary image, received no output and could not progress beyond briefing."
+    },
+    {
+      "scenarioId": "C04-attempt-1",
+      "phase": "before",
+      "participantId": "P01",
+      "mode": "campaign",
+      "brand": "Phase8 Human Studio Pulso",
+      "segment": "fitness",
+      "entrySurface": "campaign_assistant",
+      "device": "mobile",
+      "outcome": "failed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-15T10:15:00.225Z",
+      "firstOutputAt": null,
+      "approvedAt": null,
+      "deliveredAt": null,
+      "endedAt": "2026-07-15T10:18:35.151Z",
+      "breakpoints": [
+        {
+          "id": "campaign-assistant-startup-hang",
+          "category": "abandonment",
+          "severity": "P1",
+          "at": "2026-07-15T10:18:12.467Z",
+          "note": "On mobile, the campaign Chat tab stayed indefinitely on 'Iniciando conversa...' and never exposed an input. No assistant thread request reached the server and no thread was persisted."
+        }
+      ],
+      "unexpectedCost": false,
+      "observerNotes": "The seeded Studio Pulso campaign had complete product, objective, audience, offer and brand profile context. The participant could not send the first message because initialization never completed. Server logs show the campaign, brand-kit, assets and derivations reads, but no POST to create an assistant thread; the database still contains zero threads for this campaign."
     }
   ],
   "corrections": [
