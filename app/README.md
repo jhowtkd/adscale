@@ -78,6 +78,7 @@ Enable events:
 - `customer.subscription.updated`
 - `customer.subscription.deleted`
 - `invoice.paid`
+- `invoice.payment_failed`
 
 For local webhook testing with Stripe CLI:
 
