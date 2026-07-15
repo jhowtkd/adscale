@@ -9,7 +9,135 @@
     "captureJobId": "job-d9bccbgqmsqc738cps8g",
     "note": "Production snapshot captured read-only. Campaign duration has n=12; assistant and quick_tool have no completed duration sample, so superiority cannot be claimed from those historical cohorts alone."
   },
-  "journeys": [],
-  "corrections": [],
+  "journeys": [
+    {
+      "scenarioId": "C01-attempt-1",
+      "phase": "before",
+      "participantId": "P01",
+      "mode": "campaign",
+      "brand": "Phase8 Human Horizonte Educacao",
+      "segment": "educacao",
+      "entrySurface": "home",
+      "device": "desktop",
+      "outcome": "failed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-15T00:23:34.090Z",
+      "firstOutputAt": null,
+      "approvedAt": null,
+      "deliveredAt": null,
+      "endedAt": "2026-07-15T00:32:05.980Z",
+      "breakpoints": [
+        {
+          "id": "campaign-brand-context-not-selected",
+          "category": "context_loss",
+          "severity": "P2",
+          "at": "2026-07-15T00:25:45.677Z",
+          "note": "The participant created an empty client profile named C01 instead of selecting the supplied Horizonte Educacao brand, so the campaign entered the workspace without the intended brand context."
+        },
+        {
+          "id": "campaign-assistant-thread-request-loop",
+          "category": "error",
+          "severity": "P1",
+          "at": "2026-07-15T00:29:42.853Z",
+          "note": "Campaign workspace froze while the mounted assistant panel repeatedly posted the default-thread request; the server observed a sustained request loop."
+        }
+      ],
+      "unexpectedCost": false,
+      "observerNotes": "Human participant reported 'travou aqui'. Campaign creation itself returned 201; the failure occurred after entering the campaign workspace. Local cold compilation was excluded from the breakpoint."
+    },
+    {
+      "scenarioId": "C01-attempt-2",
+      "phase": "before",
+      "participantId": "P01",
+      "mode": "campaign",
+      "brand": "Phase8 Human Horizonte Educacao",
+      "segment": "educacao",
+      "entrySurface": "home",
+      "device": "desktop",
+      "outcome": "failed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-15T07:21:30.656Z",
+      "firstOutputAt": "2026-07-15T07:25:41.163Z",
+      "approvedAt": "2026-07-15T07:29:14.800Z",
+      "deliveredAt": null,
+      "endedAt": "2026-07-15T07:40:25.861Z",
+      "breakpoints": [
+        {
+          "id": "hard-failures-without-recovery-path",
+          "category": "abandonment",
+          "severity": "P1",
+          "at": "2026-07-15T07:23:55.000Z",
+          "note": "The workspace called missing product/offer and later QA findings 'blocking problems', but exposed no place to answer or resolve them; those blockers ultimately prevented export. The participant expected advisory guidance, not a dead end."
+        },
+        {
+          "id": "feedback-prompt-before-first-output",
+          "category": "doubt",
+          "severity": "P2",
+          "at": "2026-07-15T07:24:24.000Z",
+          "note": "The feedback modal asked about the preview before any preview or generated output had been shown."
+        },
+        {
+          "id": "generation-loader-logo-overlap",
+          "category": "error",
+          "severity": "P3",
+          "at": "2026-07-15T07:24:37.000Z",
+          "note": "The loading animation rendered overlapping logo glyphs, visibly colliding in the center of the output card."
+        },
+        {
+          "id": "preview-approval-bypassed",
+          "category": "context_loss",
+          "severity": "P1",
+          "at": "2026-07-15T07:25:41.163Z",
+          "note": "The participant did not perform an explicit pilot approval before the full batch appeared: Peça 1 low quality, Peça 1 high quality, then Peça 2 and Peça 3 high quality. Preview and production versions were not distinguishable as a controlled approval sequence."
+        },
+        {
+          "id": "rejection-direction-has-no-answer-surface",
+          "category": "error",
+          "severity": "P1",
+          "at": "2026-07-15T07:29:31.000Z",
+          "note": "Rejecting required a direction of at least eight characters, while the displayed blocking QA findings had no response or remediation surface."
+        },
+        {
+          "id": "campaign-chat-stream-error",
+          "category": "error",
+          "severity": "P1",
+          "at": "2026-07-15T07:33:40.000Z",
+          "note": "The campaign chat persisted the message 'Teste de chat.' but returned only the raw token assistantStreamError and no assistant response."
+        },
+        {
+          "id": "generation-invents-brand-and-offer",
+          "category": "error",
+          "severity": "P1",
+          "at": "2026-07-15T07:35:11.000Z",
+          "note": "Generated creatives inserted CENBRAP branding, a March promotion and payment claims such as up to 20 installments without supported brand or offer context."
+        },
+        {
+          "id": "format-adaptation-content-bleed",
+          "category": "error",
+          "severity": "P1",
+          "at": "2026-07-15T07:36:08.000Z",
+          "note": "Format adaptations visibly bled or cropped information instead of preserving hierarchy and safe areas across the requested dimensions."
+        },
+        {
+          "id": "delivery-stage-loses-work-history",
+          "category": "context_loss",
+          "severity": "P2",
+          "at": "2026-07-15T07:37:19.000Z",
+          "note": "The delivery stage showed an empty derivation area and blocking brief copy despite the campaign having generated and approved outputs; it did not summarize recent generations or make completed work visible."
+        }
+      ],
+      "unexpectedCost": false,
+      "observerNotes": "The intended Horizonte Educacao context was not actually attached: the campaign persisted an empty profile named C01. Eight screenshots are preserved under docs/plans/phase8-human-evidence/c01-before. Database evidence shows one preview, three 1:1 production outputs and four format adaptations; the campaign reached completed, two outputs were approved, chat stored one user message with no assistant reply, and no delivery was completed."
+    }
+  ],
+  "corrections": [
+    {
+      "commit": "fbfdd292",
+      "description": "Prevent the mounted campaign assistant panel from issuing another default-thread POST while the same campaign/profile request is already in flight.",
+      "targetedBreakpointIds": [
+        "campaign-assistant-thread-request-loop"
+      ]
+    }
+  ],
   "decision": null
 }
