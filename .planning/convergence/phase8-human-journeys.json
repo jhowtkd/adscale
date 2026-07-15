@@ -240,6 +240,48 @@
       ],
       "unexpectedCost": false,
       "observerNotes": "The seeded Studio Pulso campaign had complete product, objective, audience, offer and brand profile context. The participant could not send the first message because initialization never completed. Server logs show the campaign, brand-kit, assets and derivations reads, but no POST to create an assistant thread; the database still contains zero threads for this campaign."
+    },
+    {
+      "scenarioId": "C05-attempt-1",
+      "phase": "before",
+      "participantId": "P01",
+      "mode": "campaign",
+      "brand": "Phase8 Human Cafe Aurora",
+      "segment": "alimentacao_local",
+      "entrySurface": "recent_work",
+      "device": "desktop",
+      "outcome": "failed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-15T10:20:41.906Z",
+      "firstOutputAt": null,
+      "approvedAt": null,
+      "deliveredAt": null,
+      "endedAt": "2026-07-15T10:30:52.671Z",
+      "breakpoints": [
+        {
+          "id": "resume-campaign-has-no-resumable-output",
+          "category": "context_loss",
+          "severity": "P1",
+          "at": "2026-07-15T10:21:19.493Z",
+          "note": "The campaign appeared as a recent task, but opening it returned to an empty briefing state with no asset, derivation or prior output to resume. The seeded scenario did not expose meaningful work-in-progress."
+        },
+        {
+          "id": "preview-enqueue-fails-without-base-asset",
+          "category": "error",
+          "severity": "P1",
+          "at": "2026-07-15T10:27:45.312Z",
+          "note": "Manually entering Produzir exposed generation, but 'Gerar variacoes' ended with the toast 'Falha ao enfileirar previa'. The campaign remained art_variation with zero base assets, and the UI offered no explanation or recovery path."
+        },
+        {
+          "id": "campaign-assistant-startup-hang",
+          "category": "abandonment",
+          "severity": "P1",
+          "at": "2026-07-15T10:27:45.312Z",
+          "note": "The campaign assistant again remained on 'Iniciando conversa...' throughout the attempt. A thread endpoint returned, but no assistant thread or messages were persisted for the campaign."
+        }
+      ],
+      "unexpectedCost": false,
+      "observerNotes": "Campaign 07fff179-686f-4362-9d69-4677612e982e had correct Cafe Aurora briefing fields and brand context, but was seeded as an art_variation draft with zero assets and zero derivations. The participant could navigate directly to Produzir, yet preview enqueue failed and delivery remained unreachable. Database evidence after the attempt still shows zero assets, zero derivations and zero assistant threads."
     }
   ],
   "corrections": [
