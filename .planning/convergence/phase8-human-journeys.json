@@ -555,6 +555,34 @@
       ],
       "unexpectedCost": false,
       "observerNotes": "Templates was discoverable through the mobile Mais menu and the canonical materialization endpoint created campaign e07dd8ab-de54-4be5-905a-d1fbfb2e7f76 with the expected snapshot. One participant mislink was explicitly excluded and the flow was repeated with the correct profile. Despite successful discovery, materialization and relinking, the unchanged base-image contradiction prevented any output."
+    },
+    {
+      "scenarioId": "C03-after-attempt-1",
+      "phase": "after",
+      "participantId": "P01",
+      "mode": "campaign",
+      "brand": "Phase8 Human Cafe Aurora",
+      "segment": "alimentacao",
+      "entrySurface": "home_new_campaign",
+      "device": "desktop",
+      "outcome": "failed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-15T13:21:37.000Z",
+      "firstOutputAt": null,
+      "approvedAt": null,
+      "deliveredAt": null,
+      "endedAt": "2026-07-15T13:27:37.955Z",
+      "breakpoints": [
+        {
+          "id": "campaign-base-image-gate-is-inconsistent",
+          "category": "abandonment",
+          "severity": "P1",
+          "at": "2026-07-15T13:27:37.955Z",
+          "note": "The Cafe Aurora campaign showed 'Briefing concluido' and an enabled 'Continuar para acoes' CTA, but clicking it without an image produced no navigation, state transition or recovery guidance. The participant stopped at the normal path instead of using the known Produzir-stage bypass."
+        }
+      ],
+      "unexpectedCost": false,
+      "observerNotes": "Campaign 25b5dea4-9b0d-4384-a8a5-8e2889e92910 had the correct Cafe Aurora client profile and the campaign Assistant remained available. Database evidence after the attempt shows draft status, zero campaign assets and zero derivations. This third after-round campaign reproduces the same image-gate contradiction, so no additional bypass or provider attempt was required."
     }
   ],
   "corrections": [
