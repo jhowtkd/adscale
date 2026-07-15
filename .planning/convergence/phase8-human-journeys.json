@@ -779,6 +779,48 @@
       ],
       "unexpectedCost": true,
       "observerNotes": "Creative work 0126f21d-1830-4943-a7b2-51428dbb6432 retained the complete Studio Pulso brief, copy and identity snapshot, but remained generating with three processing outputs and no output keys, costs or failure codes. This third after-round reproduction confirms the post-generation finalization defect across all requested brands, formats and entry paths."
+    },
+    {
+      "scenarioId": "N05-after-attempt-1",
+      "phase": "after",
+      "participantId": "P01",
+      "mode": "no_campaign",
+      "brand": "Phase8 Human Cafe Aurora",
+      "segment": "alimentacao",
+      "entrySurface": "home_recent_work",
+      "device": "desktop",
+      "outcome": "failed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-15T17:54:00.000Z",
+      "firstOutputAt": null,
+      "approvedAt": null,
+      "deliveredAt": null,
+      "endedAt": "2026-07-15T17:56:20.128Z",
+      "breakpoints": [
+        {
+          "id": "prepared-work-not-discoverable-from-home",
+          "category": "abandonment",
+          "severity": "P1",
+          "at": "2026-07-15T17:52:23.868Z",
+          "note": "The prepared Cafe Aurora work was absent from both the five-item Home recents and the sidebar recents, so the participant could not enter the planned resume journey without an observer-supplied direct URL."
+        },
+        {
+          "id": "create-post-resume-first-load-empty",
+          "category": "context_loss",
+          "severity": "P1",
+          "at": "2026-07-15T17:55:00.000Z",
+          "note": "On the first direct opening, the participant saw no recovered field values even though the database retained the complete brief, copy and identity snapshot."
+        },
+        {
+          "id": "ready-work-without-outputs-opens-empty-proposals",
+          "category": "abandonment",
+          "severity": "P1",
+          "at": "2026-07-15T17:56:20.128Z",
+          "note": "On the second opening, status ready forced the wizard onto Propostas despite the work having zero outputs. The UI rendered three empty level cards with no generate, back, continue or recovery action."
+        }
+      ],
+      "unexpectedCost": false,
+      "observerNotes": "Creative work 1dbdc992-e350-4f4a-b4a0-0febf5fe67df remains ready with the full Cafe Aurora brief, 1:1 format, copy and identity snapshot, but zero outputs. Resume only partially recovered the aggregate and exposed no executable next step."
     }
   ],
   "corrections": [
