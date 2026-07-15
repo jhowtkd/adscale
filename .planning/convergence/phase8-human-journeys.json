@@ -282,6 +282,55 @@
       ],
       "unexpectedCost": false,
       "observerNotes": "Campaign 07fff179-686f-4362-9d69-4677612e982e had correct Cafe Aurora briefing fields and brand context, but was seeded as an art_variation draft with zero assets and zero derivations. The participant could navigate directly to Produzir, yet preview enqueue failed and delivery remained unreachable. Database evidence after the attempt still shows zero assets, zero derivations and zero assistant threads."
+    },
+    {
+      "scenarioId": "N01-attempt-1",
+      "phase": "before",
+      "participantId": "P01",
+      "mode": "no_campaign",
+      "brand": "Phase8 Human Horizonte Educacao",
+      "segment": "educacao",
+      "entrySurface": "home_create_post",
+      "device": "desktop",
+      "outcome": "failed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-15T10:35:48.254Z",
+      "firstOutputAt": null,
+      "approvedAt": null,
+      "deliveredAt": null,
+      "endedAt": "2026-07-15T10:58:51.551Z",
+      "breakpoints": [
+        {
+          "id": "create-post-brand-does-not-prefill-brief",
+          "category": "doubt",
+          "severity": "P2",
+          "at": "2026-07-15T10:41:24.456Z",
+          "note": "After selecting the seeded Horizonte Educacao brand, the participant still had to ask what to enter for theme, objective, audience and offer; the brand context supplied no defaults or suggestions."
+        },
+        {
+          "id": "generated-copy-not-hydrated-without-refresh",
+          "category": "context_loss",
+          "severity": "P1",
+          "at": "2026-07-15T10:48:15.267Z",
+          "note": "The copy endpoint generated and persisted headline, body and CTA, but the wizard advanced to Copy with all three fields blank and Avancar enabled. A full page refresh was required to recover the persisted result."
+        },
+        {
+          "id": "creative-work-output-level-mapping-misaligned",
+          "category": "error",
+          "severity": "P1",
+          "at": "2026-07-15T10:52:03.160Z",
+          "note": "At enqueue, each output ID was published with a creativeLevel different from the level stored on that same output row: conservative mapped to a row labeled balanced, balanced to bold, and bold to conservative."
+        },
+        {
+          "id": "creative-work-three-output-jobs-stuck-processing",
+          "category": "abandonment",
+          "severity": "P1",
+          "at": "2026-07-15T10:58:32.759Z",
+          "note": "All three generation jobs started, but after more than six minutes none completed or failed. The work remained generating and every proposal remained processing with no output key, cost or failure code."
+        }
+      ],
+      "unexpectedCost": false,
+      "observerNotes": "Creative work 8728db84-8357-42cd-9902-fd4e7113bc75 persisted the correct brief and generated copy. Refresh recovered the copy and allowed identity confirmation, after which three events were received by Inngest. The server logged each canonical generation start but no completion or failure. Database evidence shows the work still generating and all three outputs indefinitely processing."
     }
   ],
   "corrections": [
