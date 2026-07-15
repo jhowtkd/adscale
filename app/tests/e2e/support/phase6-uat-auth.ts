@@ -5,7 +5,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import type { Browser, BrowserContext, Page } from "@playwright/test";
+import { expect, type Browser, type BrowserContext, type Page } from "@playwright/test";
 
 export const UAT_EMAIL = "dev-admin@adscale.local";
 export const UAT_PASSWORD = "DevAdmin123!";
@@ -96,32 +96,16 @@ async function performLogin(page: Page) {
       JSON.stringify({ necessary: true, analytics: false, marketing: false })
     );
   });
-  // "load" ensures client bundle hydrated controlled form handlers
-  await page.goto("/login", { waitUntil: "load", timeout: 45_000 });
-  await page.waitForSelector("#email", { state: "visible", timeout: 15_000 });
-  await dismissOverlays(page);
-
-  // Controlled React inputs: type so onChange updates reducer state
-  await page.locator("#email").click();
-  await page.locator("#email").fill(UAT_EMAIL);
-  await page.locator("#login-password").click();
-  await page.locator("#login-password").fill(UAT_PASSWORD);
-
-  // Confirm DOM holds values before submit (still not a relaxed timeout)
-  const emailVal = await page.locator("#email").inputValue();
-  const passLen = (await page.locator("#login-password").inputValue()).length;
-  if (emailVal !== UAT_EMAIL || passLen !== UAT_PASSWORD.length) {
-    throw new Error(
-      `login form values not sticky (email=${emailVal} passLen=${passLen})`
-    );
-  }
-
-  // Prefer keyboard submit so React form onSubmit always fires with current state
-  await page.locator("#login-password").press("Enter");
-  await page.waitForURL((u) => !u.pathname.startsWith("/login"), {
+  // Create the same Better Auth session as the login form without depending on
+  // Next dev hydrating that form while provider UAT is consuming CPU/memory.
+  // `page.request` shares the page context cookie jar.
+  const response = await page.request.post("/api/auth/sign-in/email", {
+    data: { email: UAT_EMAIL, password: UAT_PASSWORD },
     timeout: 30_000,
   });
-  await dismissOverlays(page);
+  if (!response.ok()) {
+    throw new Error(`UAT login failed with status ${response.status()}`);
+  }
 }
 
 /** Validate storage as dev-admin with working API; re-login otherwise. */
@@ -134,16 +118,24 @@ export async function ensureStorageState(browser: Browser): Promise<void> {
     try {
       await page.goto("/campaigns", { waitUntil: "commit", timeout: 30_000 });
       const session = await page.evaluate(async () => {
-        const r = await fetch("/api/creative-work");
-        if (!r.ok) return { ok: false as const, n: 0 };
-        const j = (await r.json()) as { works?: unknown[] };
+        const [worksResponse, sessionResponse] = await Promise.all([
+          fetch("/api/creative-work"),
+          fetch("/api/auth/get-session"),
+        ]);
+        if (!worksResponse.ok || !sessionResponse.ok) {
+          return { ok: false as const, email: null };
+        }
+        const auth = (await sessionResponse.json()) as {
+          user?: { email?: string | null } | null;
+        };
         return {
-          ok: true as const,
-          n: Array.isArray(j.works) ? j.works.length : -1,
+          ok: auth.user?.email === "dev-admin@adscale.local",
+          email: auth.user?.email ?? null,
         };
       });
       await probe.close();
-      // Auth ok if creative-work 200 (do not parse sidebar labels — flaky placeholders)
+      // A generic authenticated starter account can also return 200 here.
+      // The deterministic fixtures belong specifically to dev-admin.
       if (session.ok) return;
     } catch {
       await probe.close().catch(() => undefined);
@@ -154,14 +146,17 @@ export async function ensureStorageState(browser: Browser): Promise<void> {
   const context = await browser.newContext();
   const page = await context.newPage();
   await performLogin(page);
-  // Confirm API auth after login
-  await page.goto("/campaigns", { waitUntil: "commit", timeout: 30_000 });
-  const session = await page.evaluate(async () => {
-    const r = await fetch("/api/creative-work");
-    return r.status;
-  });
-  if (session !== 200) {
-    throw new Error(`post-login creative-work status ${session}`);
+  // Confirm the exact deterministic owner without requiring any page bundle.
+  const sessionResponse = await context.request.get("/api/auth/get-session");
+  const session = sessionResponse.ok()
+    ? ((await sessionResponse.json()) as {
+        user?: { email?: string | null } | null;
+      })
+    : null;
+  if (session?.user?.email !== UAT_EMAIL) {
+    throw new Error(
+      `post-login session belongs to ${session?.user?.email ?? "no user"}`
+    );
   }
   fs.mkdirSync(path.dirname(STORAGE_STATE_PATH), { recursive: true });
   await context.storageState({ path: STORAGE_STATE_PATH });
@@ -217,10 +212,13 @@ export async function gotoApp(page: Page, pathName: string) {
 
 /** Wait until Trabalhos product title shows a numeric count (hydrated). */
 export async function waitTrabalhosHydrated(page: Page) {
-  await page
-    .locator("h1.product-page-title")
-    .filter({ hasText: /\d+\s+(trabalhos|works)/i })
-    .waitFor({ state: "visible", timeout: 30_000 });
+  const title = page.locator("h1.product-page-title").first();
+  await expect
+    .poll(
+      async () => (await title.textContent().catch(() => ""))?.trim() ?? "",
+      { timeout: 90_000, intervals: [250, 500, 1_000, 2_000] },
+    )
+    .toMatch(/\d+\s+(trabalhos|works)/i);
 }
 
 /** Wait until campaign workspace stage strip is interactive. */

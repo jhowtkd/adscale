@@ -49,7 +49,6 @@ function makeParams(id: string) {
 }
 
 const profileId = "00000000-0000-4000-8000-000000000001";
-const refId = "00000000-0000-4000-8000-000000000010";
 
 const snapshot = {
   clientProfileId: profileId,
@@ -187,6 +186,40 @@ describe("POST /api/creative-work/[id]/generate", () => {
           creativeLevel: "bold",
         },
       },
+    ]);
+  });
+
+  it("keeps each output paired with its persisted creative level regardless of repository order", async () => {
+    mockCreateCreativeWorkOutputs.mockResolvedValue([
+      outputs[1],
+      outputs[2],
+      outputs[0],
+    ] as never);
+
+    await POST(
+      new Request("http://localhost/api/creative-work/work-1/generate", { method: "POST" }),
+      { params: makeParams("work-1") }
+    );
+
+    expect(sendMock).toHaveBeenCalledWith([
+      expect.objectContaining({
+        data: expect.objectContaining({
+          outputId: "output-2",
+          creativeLevel: "balanced",
+        }),
+      }),
+      expect.objectContaining({
+        data: expect.objectContaining({
+          outputId: "output-3",
+          creativeLevel: "bold",
+        }),
+      }),
+      expect.objectContaining({
+        data: expect.objectContaining({
+          outputId: "output-1",
+          creativeLevel: "conservative",
+        }),
+      }),
     ]);
   });
 

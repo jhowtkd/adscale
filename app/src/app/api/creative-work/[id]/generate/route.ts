@@ -69,15 +69,14 @@ export async function POST(
     // Idempotent triplet creation: repeated calls return the same output IDs.
     const outputs = await createCreativeWorkOutputs(workspace.id, id);
 
-    const events = CREATIVE_LEVELS.map((creativeLevel, index) => {
-      const output = outputs[index];
+    const events = outputs.map((output) => {
       return {
         name: "creative-work.generate" as const,
         data: {
           workspaceId: workspace.id,
           workItemId: id,
           outputId: output.id,
-          creativeLevel,
+          creativeLevel: output.creativeLevel,
         },
       };
     });

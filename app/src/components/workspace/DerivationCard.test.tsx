@@ -34,6 +34,20 @@ const baseDerivation = {
 };
 
 describe("DerivationCard", () => {
+  it("renders the failed retry action without nesting it inside another button", () => {
+    render(
+      <DerivationCard
+        derivation={{ ...baseDerivation, status: "failed", imageUrl: undefined }}
+        index={0}
+        onPreview={vi.fn()}
+        onRegenerate={vi.fn()}
+      />
+    );
+
+    const retry = screen.getByRole("button", { name: /retry/i });
+    expect(retry.parentElement?.closest("button")).toBeNull();
+  });
+
   it("shows the branded loader (no fake percentage) while generating without an image", () => {
     render(
       <DerivationCard

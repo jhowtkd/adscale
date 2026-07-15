@@ -202,6 +202,7 @@ export default function DerivationCard({
   const approvalBlocked = isNormalApprovalBlocked(derivation);
   const isApprovedWithImage =
     derivation.status === "approved" && Boolean(derivation.imageUrl);
+  const canPreview = isCompleted && Boolean(derivation.imageUrl);
   const showOverflowMenu =
     derivation.status === "completed" ||
     derivation.status === "approved" ||
@@ -253,17 +254,22 @@ export default function DerivationCard({
       style={{ animationDelay: `${index * 80}ms` }}
     >
       {/* ---- Image Area ---- */}
-      <button
-        type="button"
-        disabled={!isCompleted || !derivation.imageUrl}
+      <div
+        role={canPreview ? "button" : undefined}
+        tabIndex={canPreview ? 0 : undefined}
         className={cn(
           "relative block w-full overflow-hidden rounded-lg bg-muted border-0 p-0 text-left",
           aspectClass,
-          isCompleted && derivation.imageUrl && "cursor-pointer"
+          canPreview && "cursor-pointer"
         )}
-        onClick={
-          isCompleted && derivation.imageUrl
-            ? () => onPreview(derivation.id)
+        onClick={canPreview ? () => onPreview(derivation.id) : undefined}
+        onKeyDown={
+          canPreview
+            ? (event) => {
+                if (event.key !== "Enter" && event.key !== " ") return;
+                event.preventDefault();
+                onPreview(derivation.id);
+              }
             : undefined
         }
       >
@@ -321,7 +327,7 @@ export default function DerivationCard({
             onRetry={handleRegenerate}
           />
         )}
-      </button>
+      </div>
 
       {/* ---- Info Area ---- */}
       <div className="p-3.5 space-y-2">
