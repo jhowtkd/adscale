@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "status": "awaiting_human_sessions",
+  "status": "collecting",
   "baseline": {
     "environment": "production",
     "capturedAt": "2026-07-14T23:31:09.469Z",
