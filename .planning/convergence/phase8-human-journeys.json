@@ -513,6 +513,48 @@
       ],
       "unexpectedCost": false,
       "observerNotes": "Campaign 07ff1668-fa80-478d-9c98-56bc3ffff9d8 was persisted and the campaign Assistant successfully created thread 9befaf85-dbe8-4bcc-95f6-6a61c5c90b5f, confirming the assistant-timeout correction. A local Next.js memory restart caused one transient ChunkLoadError and was recovered; the final product failure was independently reproduced afterward with a stable server."
+    },
+    {
+      "scenarioId": "C02-after-attempt-1",
+      "phase": "after",
+      "participantId": "P01",
+      "mode": "campaign",
+      "brand": "Phase8 Human Horizonte Educacao",
+      "segment": "educacao",
+      "entrySurface": "templates",
+      "device": "mobile",
+      "outcome": "failed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-15T13:02:56.000Z",
+      "firstOutputAt": null,
+      "approvedAt": null,
+      "deliveredAt": null,
+      "endedAt": "2026-07-15T13:20:23.000Z",
+      "breakpoints": [
+        {
+          "id": "template-materialization-loses-client-profile",
+          "category": "context_loss",
+          "severity": "P2",
+          "at": "2026-07-15T13:10:54.017Z",
+          "note": "The template materialized the client name but not its existing client-profile relationship, forcing the participant to manually relink Horizonte Educacao before Brand Kit and quality context became available."
+        },
+        {
+          "id": "campaign-base-image-gate-is-inconsistent",
+          "category": "error",
+          "severity": "P1",
+          "at": "2026-07-15T13:17:15.176Z",
+          "note": "The materialized campaign again did not advance through the normal briefing CTA without an uploaded image, while the Produzir stage remained directly accessible."
+        },
+        {
+          "id": "preview-enqueue-fails-without-base-asset",
+          "category": "abandonment",
+          "severity": "P1",
+          "at": "2026-07-15T13:19:20.207Z",
+          "note": "Both preview attempts returned 'Falha ao enfileirar previa' and HTTP 400. The campaign remained draft with zero assets and zero derivations."
+        }
+      ],
+      "unexpectedCost": false,
+      "observerNotes": "Templates was discoverable through the mobile Mais menu and the canonical materialization endpoint created campaign e07dd8ab-de54-4be5-905a-d1fbfb2e7f76 with the expected snapshot. One participant mislink was explicitly excluded and the flow was repeated with the correct profile. Despite successful discovery, materialization and relinking, the unchanged base-image contradiction prevented any output."
     }
   ],
   "corrections": [
