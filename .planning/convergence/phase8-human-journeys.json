@@ -436,6 +436,41 @@
       ],
       "unexpectedCost": false,
       "observerNotes": "Creative work b46ef338-c12c-4ebc-891d-327a0e80568d persisted the correct Studio Pulso 4:5 brief and generated copy, but the UI did not receive or hydrate that result. The attempt was stopped before identity confirmation to avoid repeating the provider-cost-without-delivery failure already demonstrated in N02."
+    },
+    {
+      "scenarioId": "N05-attempt-1",
+      "phase": "before",
+      "participantId": "P01",
+      "mode": "no_campaign",
+      "brand": "Phase8 Human Cafe Aurora",
+      "segment": "alimentacao_local",
+      "entrySurface": "home_continue",
+      "device": "desktop",
+      "outcome": "failed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-15T11:23:13.000Z",
+      "firstOutputAt": null,
+      "approvedAt": null,
+      "deliveredAt": null,
+      "endedAt": "2026-07-15T11:33:57.000Z",
+      "breakpoints": [
+        {
+          "id": "create-post-resume-opens-empty-brief",
+          "category": "context_loss",
+          "severity": "P1",
+          "at": "2026-07-15T11:33:19.707Z",
+          "note": "Home correctly linked 'Continuar de onde parei' to the Cafe Aurora work ID, but the destination rendered a new empty Briefing with no selected brand, fields or recovered progress. The database still held the original brief, copy, generating status and three processing outputs."
+        },
+        {
+          "id": "creative-work-generation-success-not-finalized",
+          "category": "abandonment",
+          "severity": "P1",
+          "at": "2026-07-15T11:33:57.000Z",
+          "note": "On resume, the work remained generating and all three outputs remained processing with no output key, cost or failure code, despite the three successful provider generations observed during N02."
+        }
+      ],
+      "unexpectedCost": true,
+      "observerNotes": "Home selected the correct work f73703cb-8707-4383-a20d-6d15b51ff807, but resume did not hydrate any persisted state after more than five minutes. The empty form contradicted the database, which retained the full 9:16 brief and copy plus three non-terminal outputs. No useful action or recovery path was exposed."
     }
   ],
   "corrections": [
