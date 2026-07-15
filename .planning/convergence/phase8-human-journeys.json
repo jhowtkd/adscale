@@ -331,6 +331,48 @@
       ],
       "unexpectedCost": false,
       "observerNotes": "Creative work 8728db84-8357-42cd-9902-fd4e7113bc75 persisted the correct brief and generated copy. Refresh recovered the copy and allowed identity confirmation, after which three events were received by Inngest. The server logged each canonical generation start but no completion or failure. Database evidence shows the work still generating and all three outputs indefinitely processing."
+    },
+    {
+      "scenarioId": "N02-attempt-1",
+      "phase": "before",
+      "participantId": "P01",
+      "mode": "no_campaign",
+      "brand": "Phase8 Human Cafe Aurora",
+      "segment": "alimentacao_local",
+      "entrySurface": "create_post",
+      "device": "mobile",
+      "outcome": "failed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-15T11:01:44.211Z",
+      "firstOutputAt": null,
+      "approvedAt": null,
+      "deliveredAt": null,
+      "endedAt": "2026-07-15T11:08:22.222Z",
+      "breakpoints": [
+        {
+          "id": "create-post-copy-request-times-out-after-persist",
+          "category": "error",
+          "severity": "P1",
+          "at": "2026-07-15T11:04:45.038Z",
+          "note": "Creating copy returned the raw client error 'signal timed out' even though headline, body and CTA were persisted. A full refresh was again required to recover the result."
+        },
+        {
+          "id": "creative-work-output-level-mapping-misaligned",
+          "category": "error",
+          "severity": "P1",
+          "at": "2026-07-15T11:06:26.006Z",
+          "note": "The output IDs were again enqueued with creative levels different from their persisted rows, reproducing the conservative-to-balanced, balanced-to-bold and bold-to-conservative rotation."
+        },
+        {
+          "id": "creative-work-generation-success-not-finalized",
+          "category": "abandonment",
+          "severity": "P1",
+          "at": "2026-07-15T11:07:51.652Z",
+          "note": "OpenAI successfully generated all three candidate images, but each Inngest function failed afterward. The work remained generating and all outputs remained processing with no final output key, cost or failure code."
+        }
+      ],
+      "unexpectedCost": true,
+      "observerNotes": "Creative work f73703cb-8707-4383-a20d-6d15b51ff807 persisted the correct 9:16 Cafe Aurora brief and copy. Refresh recovered the copy, then three generation events were published. OpenAI returned a candidate for every output (44.7s, 45.8s and 74.9s), while Seedream was unavailable due missing BYTEPLUS_API_KEY. All three functions subsequently failed and left the work and output rows non-terminal. Provider work was consumed without a user-visible deliverable or recorded cost."
     }
   ],
   "corrections": [
