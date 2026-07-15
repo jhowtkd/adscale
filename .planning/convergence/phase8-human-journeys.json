@@ -723,6 +723,34 @@
       ],
       "unexpectedCost": true,
       "observerNotes": "Creative work 79929f3a-b5a5-4cdd-bf12-7bedd99448d1 retained its copy and identity snapshot, but remained generating with three processing outputs and no output keys, costs or failure codes. The independent mobile and Cafe Aurora reproduction confirms the final-buffer serialization defect is format-, brand- and viewport-independent."
+    },
+    {
+      "scenarioId": "N03-after-attempt-1",
+      "phase": "after",
+      "participantId": "P01",
+      "mode": "no_campaign",
+      "brand": "Phase8 Human Studio Pulso",
+      "segment": "fitness",
+      "entrySurface": "assistant",
+      "device": "desktop",
+      "outcome": "failed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-15T17:27:14.000Z",
+      "firstOutputAt": null,
+      "approvedAt": null,
+      "deliveredAt": null,
+      "endedAt": "2026-07-15T17:33:52.759Z",
+      "breakpoints": [
+        {
+          "id": "standalone-assistant-first-message-aborted-by-lifecycle",
+          "category": "abandonment",
+          "severity": "P1",
+          "at": "2026-07-15T17:33:52.759Z",
+          "note": "The standalone Assistant displayed the participant message optimistically and stayed on 'Assistente respondendo...' for more than six minutes, while the database contained the thread but zero messages, actions or goal runs. The first-send effect is consumed before completion; the Strict Mode cleanup aborts its request, and the aborted path never clears isStreaming unless the signal reason equals timeout."
+        }
+      ],
+      "unexpectedCost": false,
+      "observerNotes": "Thread 275db726-d339-41f8-857c-09ee45ed08cd was created for Studio Pulso, but the chat POST did not persist the optimistic user message and no provider or job work began. The context panel correctly reflected zero actions and zero active jobs, contradicting the permanent responding indicator."
     }
   ],
   "corrections": [
