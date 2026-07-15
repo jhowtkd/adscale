@@ -751,6 +751,34 @@
       ],
       "unexpectedCost": false,
       "observerNotes": "Thread 275db726-d339-41f8-857c-09ee45ed08cd was created for Studio Pulso, but the chat POST did not persist the optimistic user message and no provider or job work began. The context panel correctly reflected zero actions and zero active jobs, contradicting the permanent responding indicator."
+    },
+    {
+      "scenarioId": "N04-after-attempt-1",
+      "phase": "after",
+      "participantId": "P01",
+      "mode": "no_campaign",
+      "brand": "Phase8 Human Studio Pulso",
+      "segment": "fitness",
+      "entrySurface": "home_create_post",
+      "device": "mobile",
+      "outcome": "failed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-15T17:45:20.033Z",
+      "firstOutputAt": null,
+      "approvedAt": null,
+      "deliveredAt": null,
+      "endedAt": "2026-07-15T17:48:59.784Z",
+      "breakpoints": [
+        {
+          "id": "creative-work-generation-success-not-finalized",
+          "category": "abandonment",
+          "severity": "P1",
+          "at": "2026-07-15T17:48:59.784Z",
+          "note": "The Home-to-Create-Post mobile journey completed brief, copy and identity, and OpenAI generated all three 4:5 candidates. All three Inngest functions then failed after provider execution, leaving every proposal on PROCESSANDO/Gerando indefinitely."
+        }
+      ],
+      "unexpectedCost": true,
+      "observerNotes": "Creative work 0126f21d-1830-4943-a7b2-51428dbb6432 retained the complete Studio Pulso brief, copy and identity snapshot, but remained generating with three processing outputs and no output keys, costs or failure codes. This third after-round reproduction confirms the post-generation finalization defect across all requested brands, formats and entry paths."
     }
   ],
   "corrections": [
