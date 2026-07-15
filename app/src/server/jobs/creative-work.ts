@@ -226,9 +226,9 @@ export const creativeWorkOutputJob = inngest.createFunction(
 
       const generated = await step.run("generate-base", async () => {
         // Same canonical executor as campaign/assistant (Gate 3 / item 25).
-        return executeCanonicalGeneration(generationRequest);
+        const result = await executeCanonicalGeneration(generationRequest);
+        return { outputKey: result.outputKey };
       });
-      const generatedBuffer = (generated as unknown as { buffer: Buffer }).buffer;
       const generatedOutputKey = (generated as unknown as { outputKey: string }).outputKey;
 
       const exactAssets = identitySnapshot.assets.filter(
@@ -237,15 +237,16 @@ export const creativeWorkOutputJob = inngest.createFunction(
 
       if (exactAssets.length > 0) {
         await step.run("compose-exact-layers", async () => {
-          const layers = await Promise.all(
-            exactAssets.map(async (asset) => ({
+          const [baseBuffer, layers] = await Promise.all([
+            objectStorage.get(generatedOutputKey),
+            Promise.all(exactAssets.map(async (asset) => ({
               buffer: await objectStorage.get(asset.assetKey),
               gravity: asset.placement!.gravity as BrandAssetGravity,
               widthRatio: asset.placement!.widthRatio,
-            })),
-          );
+            }))),
+          ]);
           const composed = await composeExactBrandAssets(
-            generatedBuffer,
+            baseBuffer,
             layers,
             dimensions,
           );

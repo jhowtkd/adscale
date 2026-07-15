@@ -129,9 +129,10 @@ function fetchIdentityOptions(workItemId: string): Promise<{ options: IdentityOp
   });
 }
 
-function postJson<T>(url: string, body?: unknown): Promise<T> {
+function postJson<T>(url: string, body?: unknown, timeoutMs?: number): Promise<T> {
   return apiFetch(url, {
     method: "POST",
+    timeoutMs,
     headers: { "Content-Type": "application/json" },
     body: body === undefined ? "{}" : JSON.stringify(body),
   }).then(async (res) => {
@@ -210,7 +211,9 @@ export function useGenerateCopy() {
     },
     mutationFn: (workItemId: string) =>
       postJson<{ copy: SocialPostCopy; work: CreativeWorkItem }>(
-        `/api/creative-work/${workItemId}/copy`
+        `/api/creative-work/${workItemId}/copy`,
+        undefined,
+        120_000,
       ),
     onSuccess: (result, workItemId) => {
       const work = {

@@ -294,6 +294,7 @@ describe("useCreateAssistantThread", () => {
       "/api/assistant/threads",
       expect.objectContaining({
         method: "POST",
+        timeoutMs: 60_000,
         body: JSON.stringify({
           clientProfileId: "profile-1",
           campaignId: "camp-1",

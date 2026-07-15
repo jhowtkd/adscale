@@ -79,11 +79,13 @@ export default function CreatePostWizard({ workId: initialWorkId }: { workId?: s
   const [format, setFormat] = useState<"1:1" | "4:5" | "9:16">("1:1");
   const [brief, setBrief] = useState<BriefFormState>(EMPTY_BRIEF);
   const [stepIndex, setStepIndex] = useState<number>(0);
-  const [activeWorkId, setActiveWorkId] = useState<string | null>(workId);
+  const [createdWorkId, setCreatedWorkId] = useState<string | null>(null);
   const [headline, setHeadline] = useState("");
   const [body, setBody] = useState("");
   const [cta, setCta] = useState("");
   const [selectedReferenceIds, setSelectedReferenceIds] = useState<string[]>([]);
+
+  const activeWorkId = workId ?? createdWorkId;
 
   const workQuery = useCreativeWork(activeWorkId);
 
@@ -202,7 +204,7 @@ export default function CreatePostWizard({ workId: initialWorkId }: { workId?: s
         });
         currentId = result.work.id;
         createdWork = true;
-        setActiveWorkId(currentId);
+        setCreatedWorkId(currentId);
       }
       try {
         const copyResult = await copyMutation.mutateAsync(currentId);

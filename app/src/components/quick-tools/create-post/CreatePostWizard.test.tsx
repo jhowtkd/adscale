@@ -202,6 +202,23 @@ describe("CreatePostWizard", () => {
     expect(screen.getByRole("button", { name: "Criar copy" })).toBeDisabled();
   });
 
+  it("hydrates a different work when navigation changes only workId", async () => {
+    mockUseCreativeWork.mockImplementation((id: string | null) => ({
+      data: id
+        ? { work: { ...draftWork.work, id }, outputs: [] }
+        : undefined,
+      isLoading: false,
+    }));
+    const view = render(<CreatePostWizard workId="work-1" />, {
+      wrapper: createWrapper(),
+    });
+
+    view.rerender(<CreatePostWizard workId="work-2" />);
+
+    await act(async () => {});
+    expect(mockUseCreativeWork).toHaveBeenLastCalledWith("work-2");
+  });
+
   it("promotes Copy to Identity when the persisted copy arrives for the same work", async () => {
     let detail = draftWork;
     mockUseCreativeWork.mockImplementation(() => ({

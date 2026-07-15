@@ -177,10 +177,17 @@ function makeQueuedOutput(overrides: Partial<{ id: string; status: string; creat
   };
 }
 
-async function runJob(eventData: GenerateEvent = baseEvent) {
+async function runJob(
+  eventData: GenerateEvent = baseEvent,
+  onStepResult?: (name: string, result: unknown) => void,
+) {
   const event = { data: eventData };
   const step = {
-    run: vi.fn(async (_name: string, fn: () => Promise<unknown>) => fn()),
+    run: vi.fn(async (name: string, fn: () => Promise<unknown>) => {
+      const result = await fn();
+      onStepResult?.(name, result);
+      return result;
+    }),
   };
   return (creativeWorkOutputJob as unknown as {
     fn: (args: { event: unknown; step: unknown }) => Promise<unknown>;
@@ -190,7 +197,11 @@ async function runJob(eventData: GenerateEvent = baseEvent) {
 describe("creativeWorkOutputJob", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    objectGetMock.mockResolvedValue(Buffer.from("png-bytes"));
+    objectGetMock.mockImplementation(async (key: string) =>
+      key.startsWith("creative-work/output-1/")
+        ? Buffer.from("generated-png")
+        : Buffer.from("png-bytes"),
+    );
     generateAndStoreImageMock.mockResolvedValue({
       outputKey: "creative-work/output-1/1700000000000.png",
       revisedPrompt: "revised",
@@ -259,6 +270,21 @@ describe("creativeWorkOutputJob", () => {
     expect(refreshStatusMock).toHaveBeenCalledWith("workspace-1", "work-1");
     // No refund should fire on a happy path.
     expect(refundCreditsMock).not.toHaveBeenCalled();
+  });
+
+  it("does not return the generated image buffer from an Inngest step", async () => {
+    getCreativeWorkMock.mockResolvedValue({
+      work: workItem,
+      outputs: [makeQueuedOutput()],
+    });
+    markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+    const stepResults = new Map<string, unknown>();
+
+    await runJob(baseEvent, (name, result) => stepResults.set(name, result));
+
+    expect(stepResults.get("generate-base")).toEqual({
+      outputKey: "creative-work/output-1/1700000000000.png",
+    });
   });
 
   it("does not ensure library when generation fails", async () => {
