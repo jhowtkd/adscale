@@ -40,6 +40,7 @@ coverage/
 tmp/
 .worktrees/
 .playwright-mcp/
+.superpowers/
 autoresearch-results-plan.tsv
 mockup-*.png
 mockup-*.html
