@@ -37,6 +37,26 @@ export type CreativeWorkInputSnapshot = {
 };
 export type CreativeWorkStatus = "draft" | "ready" | "generating" | "partial" | "completed" | "failed";
 export type CreativeWorkOutputStatus = "queued" | "processing" | "completed" | "failed";
+export type CreativeWorkOutputPlan = {
+  creativeLevel: CreativeLevel;
+  targetFormat: CreativeWorkFormat;
+  versionNumber: 1;
+};
+
+export const creativeWorkIntentSchema = z.enum(CREATIVE_WORK_INTENTS);
+export const creativeWorkFormatSchema = z.enum(["1:1", "4:5", "9:16"]);
+export const creativeWorkSettingsSchema = z.object({
+  targetFormats: z.array(creativeWorkFormatSchema),
+});
+export const creativeWorkPreparationSchema = z.object({
+  intent: creativeWorkIntentSchema,
+  format: creativeWorkFormatSchema,
+  settings: creativeWorkSettingsSchema,
+}).superRefine((value, context) => {
+  if (value.intent === "format_adaptation" && value.settings.targetFormats.length === 0) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["settings", "targetFormats"], message: "targetFormatsRequired" });
+  }
+});
 
 export const socialPostBriefSchema = z.object({
   theme: z.string().trim().min(1).max(240),
@@ -58,13 +78,12 @@ export function quoteCreativeWork(input: {
   intent: CreativeWorkIntent;
   format: CreativeWorkFormat;
   targetFormats: readonly CreativeWorkFormat[];
-}): { unitCount: number; credits: number } {
-  const unitCount = input.intent === "format_adaptation"
-    ? input.targetFormats.length
-    : input.intent === "variations" || input.intent === "social_post"
-      ? CREATIVE_LEVELS.length
-      : 1;
-  return { unitCount, credits: unitCount * 5 };
+}): { plans: CreativeWorkOutputPlan[]; unitCount: number; credits: number } {
+  const plans: CreativeWorkOutputPlan[] = input.intent === "variations" || input.intent === "social_post"
+    ? CREATIVE_LEVELS.map((creativeLevel) => ({ creativeLevel, targetFormat: input.format, versionNumber: 1 }))
+    : (input.intent === "format_adaptation" ? input.targetFormats : [input.format])
+      .map((targetFormat) => ({ creativeLevel: "balanced", targetFormat, versionNumber: 1 }));
+  return { plans, unitCount: plans.length, credits: plans.length * 5 };
 }
 
 export interface CreativeWorkIdentityAssetSnapshot {

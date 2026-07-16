@@ -23,6 +23,7 @@ import {
   type CreativeWorkInputSnapshot,
   type CreativeSourceStatus,
   type CreativeSourceUsage,
+  type CreativeWorkOutputPlan,
 } from "../creative-work/contracts";
 import { getClientProfile, resolveCampaignClientProfileId } from "./client-reference";
 import { getCampaignById } from "./campaign";
@@ -129,12 +130,45 @@ export type CreativeWorkDraftPatch = Partial<{
 }>;
 
 export async function updateCreativeWorkDraft(workspaceId: string, workItemId: string, patch: CreativeWorkDraftPatch): Promise<CreativeWorkItem | null> {
-  const [row] = await db.update(creativeWorkItems).set({ ...patch, updatedAt: new Date() }).where(and(
+  const [row] = await db.update(creativeWorkItems).set({
+    ...patch,
+    updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
+  }).where(and(
     eq(creativeWorkItems.workspaceId, workspaceId),
     eq(creativeWorkItems.id, workItemId),
     eq(creativeWorkItems.status, "draft"),
   )).returning();
   return row ?? null;
+}
+
+export async function updateCreativeWorkDraftIfUnchanged(
+  workspaceId: string,
+  workItemId: string,
+  expectedUpdatedAt: Date,
+  patch: CreativeWorkDraftPatch,
+): Promise<CreativeWorkItem | null> {
+  const [row] = await db.update(creativeWorkItems).set({
+    ...patch,
+    updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
+  }).where(and(
+    eq(creativeWorkItems.workspaceId, workspaceId),
+    eq(creativeWorkItems.id, workItemId),
+    eq(creativeWorkItems.status, "draft"),
+    eq(creativeWorkItems.updatedAt, expectedUpdatedAt),
+  )).returning();
+  return row ?? null;
+}
+
+export function withCreativeWorkPreparationLock<T>(
+  workspaceId: string,
+  workItemId: string,
+  callback: () => Promise<T>,
+): Promise<T> {
+  // ponytail: holds one DB connection during the model call; move to a lease/state-machine if preparation throughput matters.
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`${workspaceId}:${workItemId}:prepare`}))`);
+    return callback();
+  });
 }
 
 export async function getCreativeWork(
@@ -202,28 +236,55 @@ export async function createCreativeWorkSource(input: CreateCreativeWorkSourceIn
     eq(originTable.id, originId),
   )).limit(1);
   if (!origin) return null;
-  const [row] = await db.insert(creativeWorkSources).values(input).returning();
-  return row ?? null;
+  return db.transaction(async (tx) => {
+    const [row] = await tx.insert(creativeWorkSources).values(input).returning();
+    if (!row) return null;
+    await tx.update(creativeWorkItems).set({
+      updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
+    }).where(and(
+      eq(creativeWorkItems.workspaceId, input.workspaceId),
+      eq(creativeWorkItems.id, input.workItemId),
+    )).returning();
+    return row;
+  });
 }
 
 export type CreativeWorkSourcePatch = Partial<Pick<CreativeWorkSource, "usage" | "status" | "contentAnalysis" | "styleAnalysis" | "failureCode">>;
 
 export async function updateCreativeWorkSource(workspaceId: string, workItemId: string, sourceId: string, patch: CreativeWorkSourcePatch): Promise<CreativeWorkSource | null> {
-  const [row] = await db.update(creativeWorkSources).set({ ...patch, updatedAt: new Date() }).where(and(
-    eq(creativeWorkSources.workspaceId, workspaceId),
-    eq(creativeWorkSources.workItemId, workItemId),
-    eq(creativeWorkSources.id, sourceId),
-  )).returning();
-  return row ?? null;
+  return db.transaction(async (tx) => {
+    const [row] = await tx.update(creativeWorkSources).set({ ...patch, updatedAt: new Date() }).where(and(
+      eq(creativeWorkSources.workspaceId, workspaceId),
+      eq(creativeWorkSources.workItemId, workItemId),
+      eq(creativeWorkSources.id, sourceId),
+    )).returning();
+    if (!row) return null;
+    await tx.update(creativeWorkItems).set({
+      updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
+    }).where(and(
+      eq(creativeWorkItems.workspaceId, workspaceId),
+      eq(creativeWorkItems.id, workItemId),
+    )).returning();
+    return row;
+  });
 }
 
 export async function deleteCreativeWorkSource(workspaceId: string, workItemId: string, sourceId: string): Promise<CreativeWorkSource | null> {
-  const [row] = await db.delete(creativeWorkSources).where(and(
-    eq(creativeWorkSources.workspaceId, workspaceId),
-    eq(creativeWorkSources.workItemId, workItemId),
-    eq(creativeWorkSources.id, sourceId),
-  )).returning();
-  return row ?? null;
+  return db.transaction(async (tx) => {
+    const [row] = await tx.delete(creativeWorkSources).where(and(
+      eq(creativeWorkSources.workspaceId, workspaceId),
+      eq(creativeWorkSources.workItemId, workItemId),
+      eq(creativeWorkSources.id, sourceId),
+    )).returning();
+    if (!row) return null;
+    await tx.update(creativeWorkItems).set({
+      updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
+    }).where(and(
+      eq(creativeWorkItems.workspaceId, workspaceId),
+      eq(creativeWorkItems.id, workItemId),
+    )).returning();
+    return row;
+  });
 }
 
 /** Workspace-scoped list for canonical queries (Phase 2). No cross-tenant leak. */
@@ -373,10 +434,7 @@ export async function createCreativeWorkOutputs(
   return rows;
 }
 
-export type CreativeWorkOutputPlan = {
-  creativeLevel: (typeof CREATIVE_LEVELS)[number];
-  targetFormat: CreativeWorkFormat;
-};
+export type { CreativeWorkOutputPlan } from "../creative-work/contracts";
 
 export async function createPlannedCreativeWorkOutputs(workspaceId: string, workItemId: string, plans: CreativeWorkOutputPlan[]): Promise<CreativeWorkOutput[]> {
   if (plans.length === 0) return [];

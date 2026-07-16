@@ -3,18 +3,26 @@ import { apiError, handleApiError } from "@/lib/api-response";
 import { startSocialPostWork } from "@/server/application/start-social-post-work";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { listCanonicalWorks } from "@/server/creative-work/canonical/queries";
-import { createCreativeWorkSchema } from "@/server/creative-work/contracts";
-import { CREATIVE_WORK_INTENTS } from "@/server/creative-work/contracts";
+import {
+  createCreativeWorkSchema,
+  creativeWorkFormatSchema,
+  creativeWorkIntentSchema,
+  creativeWorkPreparationSchema,
+  creativeWorkSettingsSchema,
+} from "@/server/creative-work/contracts";
 import { z } from "zod";
 
 const createDraftSchema = z.object({
   clientProfileId: z.string().uuid(),
   draftKey: z.string().uuid(),
-  request: z.string(),
-  intent: z.enum(CREATIVE_WORK_INTENTS),
-  format: z.enum(["1:1", "4:5", "9:16"]),
-  settings: z.object({ targetFormats: z.array(z.enum(["1:1", "4:5", "9:16"])) }),
-}).strict();
+  request: z.string().trim().min(1),
+  intent: creativeWorkIntentSchema,
+  format: creativeWorkFormatSchema,
+  settings: creativeWorkSettingsSchema,
+}).strict().superRefine((value, context) => {
+  const parsed = creativeWorkPreparationSchema.safeParse(value);
+  if (!parsed.success) parsed.error.issues.forEach((issue) => context.addIssue(issue));
+});
 
 const createBodySchema = z.union([createDraftSchema, createCreativeWorkSchema]);
 

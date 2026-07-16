@@ -5,7 +5,13 @@ import { confirmSocialPostWork } from "@/server/application/confirm-social-post-
 import { prepareCreativeWork } from "@/server/application/prepare-creative-work";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { projectCreativeWorkAsCanonicalWork } from "@/server/creative-work/projection/from-creative-work";
-import { CREATIVE_WORK_INTENTS, socialPostCopySchema } from "@/server/creative-work/contracts";
+import {
+  creativeWorkFormatSchema,
+  creativeWorkIntentSchema,
+  creativeWorkPreparationSchema,
+  creativeWorkSettingsSchema,
+  socialPostCopySchema,
+} from "@/server/creative-work/contracts";
 import {
   failStaleCreativeWorkOutputs,
   getCreativeWork,
@@ -28,10 +34,13 @@ const confirmCreativeWorkSchema = z
 const autosaveSchema = z.object({
   action: z.literal("autosave"),
   request: z.string(),
-  intent: z.enum(CREATIVE_WORK_INTENTS),
-  format: z.enum(["1:1", "4:5", "9:16"]),
-  settings: z.object({ targetFormats: z.array(z.enum(["1:1", "4:5", "9:16"])) }),
-}).strict();
+  intent: creativeWorkIntentSchema,
+  format: creativeWorkFormatSchema,
+  settings: creativeWorkSettingsSchema,
+}).strict().superRefine((value, context) => {
+  const parsed = creativeWorkPreparationSchema.safeParse(value);
+  if (!parsed.success) parsed.error.issues.forEach((issue) => context.addIssue(issue));
+});
 const prepareSchema = z.object({ action: z.literal("prepare") }).strict();
 const patchCreativeWorkSchema = z.union([autosaveSchema, prepareSchema, confirmCreativeWorkSchema]);
 
@@ -118,8 +127,8 @@ export async function PATCH(
       const prepared = await prepareCreativeWork({ workspaceId: workspace.id, workItemId: id });
       if (!prepared.ok) {
         if (prepared.error.code === "work_not_found") return apiError("creativeWorkNotFound", 404);
-        if (prepared.error.code === "sources_not_ready") return apiError("creativeWorkSourcesNotReady", 409);
-        return apiError("creativeWorkInputRequired", 422);
+        if (prepared.error.code === "missing_input") return apiError("creativeWorkInputRequired", 422);
+        return apiError("creativeWorkNotReady", 409);
       }
       return NextResponse.json(prepared.value);
     }

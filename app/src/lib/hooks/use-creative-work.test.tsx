@@ -12,10 +12,11 @@ import {
 
 vi.mock("@/lib/api-client", () => ({ apiFetch: vi.fn() }));
 vi.mock("@/lib/hooks/use-canonical-works", () => ({
-  invalidateCanonicalWorks: vi.fn(),
+  invalidateCanonicalWorks: vi.fn(() => Promise.resolve()),
 }));
 
 import { apiFetch } from "@/lib/api-client";
+import { invalidateCanonicalWorks } from "@/lib/hooks/use-canonical-works";
 
 const mockApiFetch = vi.mocked(apiFetch);
 
@@ -42,7 +43,9 @@ describe("draft mutations", () => {
       : { workItemId: "work-1", ...(_name === "autosave" ? { request: "r", intent: "variations" as const, format: "4:5" as const, settings: { targetFormats: [] } } : {}) };
     await act(() => result.current.mutateAsync(input as never));
     expect(mockApiFetch).toHaveBeenCalledWith(url, expect.objectContaining({ method }));
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["creative-work"] });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["creative-work", "work-1"] });
+    expect(invalidateCanonicalWorks).toHaveBeenCalledWith(queryClient);
   });
 });
 

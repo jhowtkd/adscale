@@ -143,7 +143,7 @@ describe("POST /api/creative-work", () => {
     startMock.mockResolvedValue({ ok: true, value: {
       work: { id: "same-work", title: body.request, brief: null },
       canonical: { id: "creative_work:same-work" },
-      quote: [{}, {}, {}],
+      quote: { plans: [{}, {}, {}], unitCount: 3, credits: 15 },
     } });
     const first = await POST(new Request("http://localhost/api/creative-work", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
@@ -155,9 +155,35 @@ describe("POST /api/creative-work", () => {
     expect(second.status).toBe(201);
     const firstBody = await first.json();
     expect(firstBody.work).toEqual(expect.objectContaining({ id: "same-work", title: body.request, brief: null }));
-    expect(firstBody.quote).toHaveLength(3);
+    expect(firstBody.quote).toMatchObject({ unitCount: 3, credits: 15 });
     expect((await second.json()).work.id).toBe("same-work");
     expect(startMock).toHaveBeenLastCalledWith(expect.objectContaining({ draftKey: body.draftKey, request: body.request }));
+  });
+
+  it("rejects an empty draft request before calling the command", async () => {
+    const res = await POST(new Request("http://localhost/api/creative-work", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientProfileId: profileId,
+        draftKey: "00000000-0000-4000-8000-000000000099",
+        request: "   ", intent: "variations", format: "4:5", settings: { targetFormats: [] },
+      }),
+    }));
+    expect(res.status).toBe(400);
+    expect(startMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects format adaptation without target formats", async () => {
+    const res = await POST(new Request("http://localhost/api/creative-work", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientProfileId: profileId,
+        draftKey: "00000000-0000-4000-8000-000000000099",
+        request: "Adaptar", intent: "format_adaptation", format: "4:5", settings: { targetFormats: [] },
+      }),
+    }));
+    expect(res.status).toBe(400);
+    expect(startMock).not.toHaveBeenCalled();
   });
 
   it("accepts body without toolKind (preconfigured social_post)", async () => {

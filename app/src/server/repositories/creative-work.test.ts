@@ -80,7 +80,10 @@ const mocks = vi.hoisted(() => {
 
   const txSetReturningMock = vi.fn();
   const txSetMock = vi.fn(() => ({
-    where: vi.fn(() => ({ returning: txSetReturningMock })),
+    where: vi.fn((condition: unknown) => {
+      whereMock(condition);
+      return { returning: txSetReturningMock };
+    }),
   }));
   const txUpdateMock = vi.fn(() => ({ set: txSetMock }));
   const executeMock = vi.fn();
@@ -91,6 +94,7 @@ const mocks = vi.hoisted(() => {
         update: txUpdateMock,
         select: selectMock,
         insert: insertMock,
+        delete: deleteMock,
         execute: executeMock,
       })
   );
@@ -166,6 +170,8 @@ import {
   setCreativeWorkStatus,
   updateCreativeWorkSource,
   updateCreativeWorkDraft,
+  updateCreativeWorkDraftIfUnchanged,
+  withCreativeWorkPreparationLock,
 } from "./creative-work";
 import type {
   SocialPostBrief,
@@ -303,6 +309,17 @@ describe("creative-work repository", () => {
       expect(result.id).toBe("draft-1");
     });
 
+    it("returns the existing scoped draft after a draftKey conflict", async () => {
+      const existing = workItem({ id: "same-draft", draftKey: "draft-key", brief: null });
+      mocks.state.onConflictResults.push([]);
+      mocks.state.selectResults.push([existing]);
+      const result = await createCreativeWorkDraft({
+        workspaceId: "ws-1", clientProfileId: "profile-1", createdByUserId: "user-1",
+        draftKey: "draft-key", intent: "single", title: "Draft", request: "One ad",
+      });
+      expect(result?.id).toBe("same-draft");
+    });
+
     it("rejects a draft when the client profile is outside the workspace", async () => {
       scopeMocks.getClientProfile.mockResolvedValue(null);
       const result = await createCreativeWorkDraft({
@@ -338,7 +355,7 @@ describe("creative-work repository", () => {
     });
 
     it("rejects a source update outside the scoped work", async () => {
-      mocks.state.updateResults.push([]);
+      mocks.state.txUpdateResults.push([]);
       const result = await updateCreativeWorkSource("ws-2", "work-1", "source-1", { status: "ready" });
       expect(result).toBeNull();
       const query = serializedCondition(mocks.whereMock.mock.calls[0][0]);
@@ -399,14 +416,44 @@ describe("creative-work repository", () => {
       expect(mocks.setMock).toHaveBeenCalledWith(expect.objectContaining({ title: "New title" }));
     });
 
+    it("updates preparation only when updatedAt still matches", async () => {
+      const capturedAt = new Date("2026-07-16T12:00:00.000Z");
+      mocks.state.updateResults.push([]);
+      await expect(updateCreativeWorkDraftIfUnchanged("ws-1", "work-1", capturedAt, { title: "Stale" }))
+        .resolves.toBeNull();
+      const query = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]);
+      expect(query.sql).toContain('"creative_work_items"."updated_at"');
+      expect(query.params).toHaveLength(4);
+    });
+
+    it("holds the preparation callback under a work-scoped advisory transaction lock", async () => {
+      const callback = vi.fn(async () => "prepared");
+      await expect(withCreativeWorkPreparationLock("ws-1", "work-1", callback)).resolves.toBe("prepared");
+      expect(mocks.executeMock).toHaveBeenCalledOnce();
+      expect(callback).toHaveBeenCalledOnce();
+      expect(mocks.executeMock.mock.invocationCallOrder[0]).toBeLessThan(callback.mock.invocationCallOrder[0]);
+    });
+
     it("creates a source with exactly one origin delegated to the DB constraint", async () => {
       const source = { id: "source-1", workspaceId: "ws-1", workItemId: "work-1", assetId: "asset-1", templateId: null };
       mocks.state.selectResults.push([{ id: "work-1" }], [{ id: "asset-1" }]);
       mocks.state.insertResults.push([source]);
+      mocks.state.txUpdateResults.push([workItem()]);
       await expect(createCreativeWorkSource({
         workspaceId: "ws-1", workItemId: "work-1", assetId: "asset-1", usage: "both", status: "uploaded",
       })).resolves.toEqual(source);
       expect(mocks.valuesMock).toHaveBeenCalledWith(expect.objectContaining({ assetId: "asset-1", usage: "both" }));
+      expect(mocks.txUpdateMock).toHaveBeenCalledWith(expect.anything());
+    });
+
+    it("touches the parent work after updating or deleting a source", async () => {
+      const source = { id: "source-1", workspaceId: "ws-1", workItemId: "work-1", status: "ready" };
+      mocks.state.txUpdateResults.push([source], [workItem()]);
+      await updateCreativeWorkSource("ws-1", "work-1", "source-1", { status: "ready" });
+      mocks.state.deleteResults.push([source]);
+      mocks.state.txUpdateResults.push([workItem()]);
+      await deleteCreativeWorkSource("ws-1", "work-1", "source-1");
+      expect(mocks.txUpdateMock).toHaveBeenCalledTimes(3);
     });
 
     it("creates deterministic initial output plans", async () => {

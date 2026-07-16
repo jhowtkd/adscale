@@ -131,6 +131,24 @@ describe("startSocialPostWork", () => {
       draftKey: "draft-key", brief: null, title: "Promoção de matrícula para julho",
     }));
     expect(mockCreateDraft.mock.calls[0][0]).not.toHaveProperty("campaignId");
-    if (result.ok) expect(result.value.quote).toHaveLength(3);
+    if (result.ok) expect(result.value.quote).toMatchObject({ unitCount: 3, credits: 15 });
+  });
+
+  it("returns the same repository draft for a repeated draft key", async () => {
+    const persisted = {
+      id: "same-work", workspaceId: "ws-1", clientProfileId: profileId, createdByUserId: "u-1",
+      draftKey: "draft-key", toolKind: "single", title: "Uma peça", request: "Uma peça",
+      status: "draft", brief: null, format: "4:5", settings: { targetFormats: [] },
+      copy: null, identitySnapshot: null, createdAt: new Date(), updatedAt: new Date(),
+    } as never;
+    mockProfile.mockResolvedValue({ id: profileId } as never);
+    mockCreateDraft.mockResolvedValue(persisted);
+    const input = { workspaceId: "ws-1", userId: "u-1", clientProfileId: profileId,
+      draftKey: "draft-key", request: "Uma peça", intent: "single" as const,
+      format: "4:5" as const, settings: { targetFormats: [] } };
+    const [first, second] = await Promise.all([startSocialPostWork(input), startSocialPostWork(input)]);
+    expect(first.ok && first.value.work.id).toBe("same-work");
+    expect(second.ok && second.value.work.id).toBe("same-work");
+    expect(mockCreateDraft).toHaveBeenCalledTimes(2);
   });
 });

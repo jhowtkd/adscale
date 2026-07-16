@@ -19,8 +19,13 @@ import {
   type CreateCreativeWorkInput,
 } from "@/server/repositories/creative-work";
 import type { CreativeWorkItem } from "@/server/db/schema";
-import type { CreativeWorkIntent, CreativeWorkSettings } from "@/server/creative-work/contracts";
-import { deriveCreativeWorkTitle, quoteCreativeWork, type CreativeOutputPlan } from "@/server/creative-work/prepare";
+import {
+  quoteCreativeWork,
+  type CreativeWorkIntent,
+  type CreativeWorkOutputPlan,
+  type CreativeWorkSettings,
+} from "@/server/creative-work/contracts";
+import { deriveCreativeWorkTitle } from "@/server/creative-work/prepare";
 
 /** Fixed intent for the short Criar Post path (item 34). */
 export const SOCIAL_POST_TOOL_KIND = "social_post" as const;
@@ -53,7 +58,7 @@ export type StartSocialPostWorkSuccess = {
   work: CreativeWorkItem;
   /** Origin-agnostic view with intent.kind === "social_post". */
   canonical: CanonicalCreativeWork;
-  quote: CreativeOutputPlan[];
+  quote: { plans: CreativeWorkOutputPlan[]; unitCount: number; credits: number };
 };
 
 export type StartSocialPostWorkResult =

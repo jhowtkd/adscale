@@ -229,7 +229,12 @@ describe("PATCH /api/creative-work/[id]", () => {
     expect(prepareMock).toHaveBeenCalledWith({ workspaceId: "workspace-1", workItemId: "work-1" });
   });
 
-  it.each([["sources_not_ready", 409], ["missing_input", 422]])("maps prepare %s to %i", async (code, status) => {
+  it.each([
+    ["sources_not_ready", 409],
+    ["work_not_draft", 409],
+    ["stale_input", 409],
+    ["missing_input", 422],
+  ])("maps prepare %s to %i", async (code, status) => {
     prepareMock.mockResolvedValue({ ok: false, error: { code } });
     const res = await PATCH(new Request("http://localhost/api/creative-work/work-1", {
       method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "prepare" }),
