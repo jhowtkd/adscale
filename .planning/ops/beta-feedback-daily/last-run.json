@@ -1,8 +1,8 @@
 {
-  "exportedAt": "2026-07-12T12:01:46Z",
-  "from": "2026-07-04T09:01:57-03:00",
-  "to": "2026-07-12T09:01:46-03:00",
+  "exportedAt": "2026-07-14T12:05:58Z",
+  "from": "2026-07-13T09:07:15-03:00",
+  "to": "2026-07-14T09:05:58-03:00",
   "total": 0,
   "openCount": 0,
-  "status": "fallback_service_logs_no_hits_render_job_timed_out_twice"
+  "status": "fallback_service_logs_no_hits_render_jobs_no_markers_twice_no_local_database_url"
 }
