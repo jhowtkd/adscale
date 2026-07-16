@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { SQL } from "drizzle-orm";
+import { PgDialect } from "drizzle-orm/pg-core";
 import type { CreativeWorkItem, CreativeWorkOutput } from "../db/schema";
 
 const mocks = vi.hoisted(() => {
@@ -31,8 +33,8 @@ const mocks = vi.hoisted(() => {
       fromMock();
       return chain;
     });
-    chain.where = vi.fn(() => {
-      whereMock();
+    chain.where = vi.fn((condition: unknown) => {
+      whereMock(condition);
       return chain;
     });
     chain.orderBy = vi.fn(() => {
@@ -65,7 +67,10 @@ const mocks = vi.hoisted(() => {
 
   const setReturningMock = vi.fn();
   const setMock = vi.fn(() => ({
-    where: vi.fn(() => ({ returning: setReturningMock })),
+    where: vi.fn((condition: unknown) => {
+      whereMock(condition);
+      return { returning: setReturningMock };
+    }),
   }));
   const updateMock = vi.fn(() => ({ set: setMock }));
   const deleteReturningMock = vi.fn();
@@ -166,6 +171,12 @@ import type {
   SocialPostBrief,
   SocialPostCopy,
 } from "../creative-work/contracts";
+
+const dialect = new PgDialect();
+
+function serializedCondition(condition: unknown) {
+  return dialect.sqlToQuery(condition as SQL);
+}
 
 const socialBrief: SocialPostBrief = {
   theme: "Novo produto",
@@ -330,7 +341,11 @@ describe("creative-work repository", () => {
       mocks.state.updateResults.push([]);
       const result = await updateCreativeWorkSource("ws-2", "work-1", "source-1", { status: "ready" });
       expect(result).toBeNull();
-      expect(mocks.setMock).toHaveBeenCalledTimes(1);
+      const query = serializedCondition(mocks.whereMock.mock.calls[0][0]);
+      expect(query.sql).toContain('"creative_work_sources"."workspace_id"');
+      expect(query.sql).toContain('"creative_work_sources"."work_item_id"');
+      expect(query.sql).toContain('"creative_work_sources"."id"');
+      expect(query.params).toEqual(["ws-2", "work-1", "source-1"]);
     });
 
     it("rejects a revision when its parent is outside the scoped work", async () => {
@@ -345,6 +360,13 @@ describe("creative-work repository", () => {
       );
       expect(result).toBeNull();
       expect(mocks.insertMock).not.toHaveBeenCalled();
+      const parentScope = mocks.whereMock.mock.calls
+        .map(([condition]) => serializedCondition(condition))
+        .find((query) => query.params.includes("output-1"));
+      expect(parentScope?.sql).toContain('"creative_work_outputs"."workspace_id"');
+      expect(parentScope?.sql).toContain('"creative_work_outputs"."work_item_id"');
+      expect(parentScope?.sql).toContain('"creative_work_outputs"."id"');
+      expect(parentScope?.params).toEqual(["ws-2", "work-1", "output-1"]);
     });
 
     it("creates consecutive revisions and returns the same row for a repeated operation key", async () => {
@@ -364,6 +386,10 @@ describe("creative-work repository", () => {
       await expect(createCreativeWorkRevision("ws-1", "work-1", "revision-key-2", "output-1", "Ignored retry", null)).resolves.toEqual(revision2);
       expect(mocks.valuesMock).toHaveBeenNthCalledWith(1, expect.objectContaining({ versionNumber: 2, operationKey: "revision-key-2" }));
       expect(mocks.valuesMock).toHaveBeenNthCalledWith(2, expect.objectContaining({ versionNumber: 3, operationKey: "revision-key-3" }));
+      expect(mocks.executeMock).toHaveBeenCalledTimes(2);
+      expect(mocks.selectMock.mock.calls[3][0]).toEqual({ maxVersion: expect.anything() });
+      expect(mocks.executeMock.mock.invocationCallOrder[0]).toBeLessThan(mocks.selectMock.mock.invocationCallOrder[3]);
+      expect(mocks.executeMock.mock.invocationCallOrder[0]).toBeLessThan(mocks.insertMock.mock.invocationCallOrder[0]);
     });
 
     it("updates draft preparation fields under workspace scope", async () => {
