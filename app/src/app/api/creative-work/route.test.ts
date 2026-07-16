@@ -131,6 +131,35 @@ describe("POST /api/creative-work", () => {
     });
   });
 
+  it("creates the same three-unit draft for a repeated draftKey", async () => {
+    const body = {
+      clientProfileId: profileId,
+      draftKey: "00000000-0000-4000-8000-000000000099",
+      request: "Promoção de matrícula para julho",
+      intent: "variations",
+      format: "4:5",
+      settings: { targetFormats: [] },
+    };
+    startMock.mockResolvedValue({ ok: true, value: {
+      work: { id: "same-work", title: body.request, brief: null },
+      canonical: { id: "creative_work:same-work" },
+      quote: [{}, {}, {}],
+    } });
+    const first = await POST(new Request("http://localhost/api/creative-work", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    }));
+    const second = await POST(new Request("http://localhost/api/creative-work", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    }));
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(201);
+    const firstBody = await first.json();
+    expect(firstBody.work).toEqual(expect.objectContaining({ id: "same-work", title: body.request, brief: null }));
+    expect(firstBody.quote).toHaveLength(3);
+    expect((await second.json()).work.id).toBe("same-work");
+    expect(startMock).toHaveBeenLastCalledWith(expect.objectContaining({ draftKey: body.draftKey, request: body.request }));
+  });
+
   it("accepts body without toolKind (preconfigured social_post)", async () => {
     startMock.mockResolvedValue({
       ok: true,

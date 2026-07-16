@@ -118,18 +118,21 @@ export async function createCreativeWorkDraft(input: CreateCreativeWorkDraftInpu
 }
 
 export type CreativeWorkDraftPatch = Partial<{
+  toolKind: CreativeWorkIntent;
   title: string;
   request: string;
   format: CreativeWorkFormat;
   settings: CreativeWorkSettings;
   inputSnapshot: CreativeWorkInputSnapshot | null;
   brief: SocialPostBrief | null;
+  copy: SocialPostCopy | null;
 }>;
 
 export async function updateCreativeWorkDraft(workspaceId: string, workItemId: string, patch: CreativeWorkDraftPatch): Promise<CreativeWorkItem | null> {
   const [row] = await db.update(creativeWorkItems).set({ ...patch, updatedAt: new Date() }).where(and(
     eq(creativeWorkItems.workspaceId, workspaceId),
     eq(creativeWorkItems.id, workItemId),
+    eq(creativeWorkItems.status, "draft"),
   )).returning();
   return row ?? null;
 }

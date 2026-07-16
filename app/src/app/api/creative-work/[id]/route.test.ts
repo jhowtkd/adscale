@@ -18,15 +18,21 @@ const getWorkMock = vi.hoisted(() => vi.fn());
 const failStaleOutputsMock = vi.hoisted(() => vi.fn());
 const refreshStatusMock = vi.hoisted(() => vi.fn());
 const confirmMock = vi.hoisted(() => vi.fn());
+const updateDraftMock = vi.hoisted(() => vi.fn());
+const prepareMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/repositories/creative-work", () => ({
   getCreativeWork: (...args: unknown[]) => getWorkMock(...args),
   failStaleCreativeWorkOutputs: (...args: unknown[]) => failStaleOutputsMock(...args),
   refreshCreativeWorkStatus: (...args: unknown[]) => refreshStatusMock(...args),
+  updateCreativeWorkDraft: (...args: unknown[]) => updateDraftMock(...args),
 }));
 
 vi.mock("@/server/application/confirm-social-post-work", () => ({
   confirmSocialPostWork: (...args: unknown[]) => confirmMock(...args),
+}));
+vi.mock("@/server/application/prepare-creative-work", () => ({
+  prepareCreativeWork: (...args: unknown[]) => prepareMock(...args),
 }));
 
 function makeParams(id: string) {
@@ -198,6 +204,37 @@ describe("PATCH /api/creative-work/[id]", () => {
     });
     expect(body.work.status).toBe("ready");
     expect(body.canonical.id).toBe("creative_work:work-1");
+  });
+
+  it("autosaves only editable fields and preserves clientProfileId", async () => {
+    getWorkMock.mockResolvedValue({ work: workItem, outputs: [], sources: [] });
+    updateDraftMock.mockResolvedValue({ ...workItem, request: "Novo pedido", brief: null });
+    const res = await PATCH(new Request("http://localhost/api/creative-work/work-1", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "autosave", request: "Novo pedido", intent: "variations", format: "1:1", settings: { targetFormats: [] } }),
+    }), { params: makeParams("work-1") });
+    expect(res.status).toBe(200);
+    expect(updateDraftMock).toHaveBeenCalledWith("workspace-1", "work-1", {
+      request: "Novo pedido", toolKind: "variations", format: "1:1", settings: { targetFormats: [] }, brief: null, copy: null, inputSnapshot: null,
+    });
+    expect(updateDraftMock.mock.calls[0][2]).not.toHaveProperty("clientProfileId");
+  });
+
+  it("prepares through the existing detail patch", async () => {
+    prepareMock.mockResolvedValue({ ok: true, value: { work: workItem, quote: [{}, {}, {}] } });
+    const res = await PATCH(new Request("http://localhost/api/creative-work/work-1", {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "prepare" }),
+    }), { params: makeParams("work-1") });
+    expect(res.status).toBe(200);
+    expect(prepareMock).toHaveBeenCalledWith({ workspaceId: "workspace-1", workItemId: "work-1" });
+  });
+
+  it.each([["sources_not_ready", 409], ["missing_input", 422]])("maps prepare %s to %i", async (code, status) => {
+    prepareMock.mockResolvedValue({ ok: false, error: { code } });
+    const res = await PATCH(new Request("http://localhost/api/creative-work/work-1", {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "prepare" }),
+    }), { params: makeParams("work-1") });
+    expect(res.status).toBe(status);
   });
 
   it("maps work_not_found → 404", async () => {

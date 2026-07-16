@@ -3,7 +3,10 @@ import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   creativeWorkRefetchInterval,
+  useAutosaveCreativeWork,
+  useCreateCreativeWorkDraft,
   useGenerateCopy,
+  usePrepareCreativeWork,
   useTriggerTriplet,
 } from "./use-creative-work";
 
@@ -15,6 +18,33 @@ vi.mock("@/lib/hooks/use-canonical-works", () => ({
 import { apiFetch } from "@/lib/api-client";
 
 const mockApiFetch = vi.mocked(apiFetch);
+
+function wrapperWith(queryClient: QueryClient) {
+  return ({ children }: { children: React.ReactNode }) => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+}
+
+describe("draft mutations", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it.each([
+    ["create", useCreateCreativeWorkDraft, "/api/creative-work", "POST"],
+    ["autosave", useAutosaveCreativeWork, "/api/creative-work/work-1", "PATCH"],
+    ["prepare", usePrepareCreativeWork, "/api/creative-work/work-1", "PATCH"],
+  ] as const)("%s invalidates list and draft detail", async (_name, hook, url, method) => {
+    mockApiFetch.mockResolvedValue({ ok: true, json: async () => ({ work: { id: "work-1" } }) } as Response);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidate = vi.spyOn(queryClient, "invalidateQueries");
+    const { result } = renderHook(() => hook(), { wrapper: wrapperWith(queryClient) });
+    const input = _name === "create"
+      ? { clientProfileId: "p", draftKey: "d", request: "r", intent: "variations" as const, format: "4:5" as const, settings: { targetFormats: [] } }
+      : { workItemId: "work-1", ...(_name === "autosave" ? { request: "r", intent: "variations" as const, format: "4:5" as const, settings: { targetFormats: [] } } : {}) };
+    await act(() => result.current.mutateAsync(input as never));
+    expect(mockApiFetch).toHaveBeenCalledWith(url, expect.objectContaining({ method }));
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["creative-work", "work-1"] });
+  });
+});
 
 describe("creativeWorkRefetchInterval", () => {
   it("keeps polling a partial work while any proposal is still processing", () => {

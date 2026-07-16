@@ -4,6 +4,19 @@ import { startSocialPostWork } from "@/server/application/start-social-post-work
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { listCanonicalWorks } from "@/server/creative-work/canonical/queries";
 import { createCreativeWorkSchema } from "@/server/creative-work/contracts";
+import { CREATIVE_WORK_INTENTS } from "@/server/creative-work/contracts";
+import { z } from "zod";
+
+const createDraftSchema = z.object({
+  clientProfileId: z.string().uuid(),
+  draftKey: z.string().uuid(),
+  request: z.string(),
+  intent: z.enum(CREATIVE_WORK_INTENTS),
+  format: z.enum(["1:1", "4:5", "9:16"]),
+  settings: z.object({ targetFormats: z.array(z.enum(["1:1", "4:5", "9:16"])) }),
+}).strict();
+
+const createBodySchema = z.union([createDraftSchema, createCreativeWorkSchema]);
 
 /**
  * List workspace canonical works (Phase 5 / item 37 — history on complete).
@@ -26,18 +39,20 @@ export async function POST(request: Request) {
   try {
     const { user, workspace } = await requireWorkspaceAccess(request);
 
-    const parsed = createCreativeWorkSchema.safeParse(await request.json());
+    const parsed = createBodySchema.safeParse(await request.json());
     if (!parsed.success) {
       return apiError("invalidInput", 400, parsed.error.flatten());
     }
 
-    const result = await startSocialPostWork({
-      workspaceId: workspace.id,
-      userId: user.id,
-      clientProfileId: parsed.data.clientProfileId,
-      format: parsed.data.format,
-      brief: parsed.data.brief,
-    });
+    const result = await startSocialPostWork("draftKey" in parsed.data
+      ? { workspaceId: workspace.id, userId: user.id, ...parsed.data }
+      : {
+          workspaceId: workspace.id,
+          userId: user.id,
+          clientProfileId: parsed.data.clientProfileId,
+          format: parsed.data.format,
+          brief: parsed.data.brief,
+        });
 
     if (!result.ok) {
       if (result.error.code === "client_profile_not_found") {
@@ -51,6 +66,7 @@ export async function POST(request: Request) {
       {
         work: result.value.work,
         canonical: result.value.canonical,
+        quote: result.value.quote,
       },
       { status: 201 }
     );

@@ -2,13 +2,15 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { confirmSocialPostWork } from "@/server/application/confirm-social-post-work";
+import { prepareCreativeWork } from "@/server/application/prepare-creative-work";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { projectCreativeWorkAsCanonicalWork } from "@/server/creative-work/projection/from-creative-work";
-import { socialPostCopySchema } from "@/server/creative-work/contracts";
+import { CREATIVE_WORK_INTENTS, socialPostCopySchema } from "@/server/creative-work/contracts";
 import {
   failStaleCreativeWorkOutputs,
   getCreativeWork,
   refreshCreativeWorkStatus,
+  updateCreativeWorkDraft,
 } from "@/server/repositories/creative-work";
 
 const GENERATION_LEASE_MS = 15 * 60 * 1000;
@@ -22,6 +24,16 @@ const confirmCreativeWorkSchema = z
     selectedReferenceIds: z.array(z.string().uuid()).max(8),
   })
   .strict();
+
+const autosaveSchema = z.object({
+  action: z.literal("autosave"),
+  request: z.string(),
+  intent: z.enum(CREATIVE_WORK_INTENTS),
+  format: z.enum(["1:1", "4:5", "9:16"]),
+  settings: z.object({ targetFormats: z.array(z.enum(["1:1", "4:5", "9:16"])) }),
+}).strict();
+const prepareSchema = z.object({ action: z.literal("prepare") }).strict();
+const patchCreativeWorkSchema = z.union([autosaveSchema, prepareSchema, confirmCreativeWorkSchema]);
 
 /**
  * Standalone create-post detail. Attaches CanonicalCreativeWork projection
@@ -76,9 +88,40 @@ export async function PATCH(
       params,
     ]);
 
-    const parsed = confirmCreativeWorkSchema.safeParse(await request.json());
+    const parsed = patchCreativeWorkSchema.safeParse(await request.json());
     if (!parsed.success) {
       return apiError("invalidInput", 400, parsed.error.flatten());
+    }
+
+    if ("action" in parsed.data && parsed.data.action === "autosave") {
+      const aggregate = await getCreativeWork(workspace.id, id);
+      if (!aggregate) return apiError("creativeWorkNotFound", 404);
+      if (aggregate.work.status !== "draft") return apiError("creativeWorkNotDraft", 409);
+      const unchanged = aggregate.work.request === parsed.data.request &&
+        aggregate.work.toolKind === parsed.data.intent &&
+        aggregate.work.format === parsed.data.format &&
+        JSON.stringify(aggregate.work.settings) === JSON.stringify(parsed.data.settings);
+      const work = unchanged ? aggregate.work : await updateCreativeWorkDraft(workspace.id, id, {
+        request: parsed.data.request,
+        toolKind: parsed.data.intent,
+        format: parsed.data.format,
+        settings: parsed.data.settings,
+        brief: null,
+        copy: null,
+        inputSnapshot: null,
+      });
+      if (!work) return apiError("creativeWorkNotFound", 404);
+      return NextResponse.json({ work });
+    }
+
+    if ("action" in parsed.data && parsed.data.action === "prepare") {
+      const prepared = await prepareCreativeWork({ workspaceId: workspace.id, workItemId: id });
+      if (!prepared.ok) {
+        if (prepared.error.code === "work_not_found") return apiError("creativeWorkNotFound", 404);
+        if (prepared.error.code === "sources_not_ready") return apiError("creativeWorkSourcesNotReady", 409);
+        return apiError("creativeWorkInputRequired", 422);
+      }
+      return NextResponse.json(prepared.value);
     }
 
     const result = await confirmSocialPostWork({

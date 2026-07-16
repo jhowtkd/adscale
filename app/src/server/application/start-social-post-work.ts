@@ -14,21 +14,37 @@ import type {
 import { getClientProfile } from "@/server/repositories/client-reference";
 import {
   createCreativeWork,
+  createCreativeWorkDraft,
   type CreativeWorkFormat,
   type CreateCreativeWorkInput,
 } from "@/server/repositories/creative-work";
 import type { CreativeWorkItem } from "@/server/db/schema";
+import type { CreativeWorkIntent, CreativeWorkSettings } from "@/server/creative-work/contracts";
+import { deriveCreativeWorkTitle, quoteCreativeWork, type CreativeOutputPlan } from "@/server/creative-work/prepare";
 
 /** Fixed intent for the short Criar Post path (item 34). */
 export const SOCIAL_POST_TOOL_KIND = "social_post" as const;
 
-export type StartSocialPostWorkInput = {
+type StartSocialPostLegacyInput = {
   workspaceId: string;
   userId: string;
   clientProfileId: string;
   format: CreativeWorkFormat;
   brief: SocialPostBrief;
 };
+
+type StartSocialPostDraftInput = {
+  workspaceId: string;
+  userId: string;
+  clientProfileId: string;
+  draftKey: string;
+  request: string;
+  intent: CreativeWorkIntent;
+  format: CreativeWorkFormat;
+  settings: CreativeWorkSettings;
+};
+
+export type StartSocialPostWorkInput = StartSocialPostLegacyInput | StartSocialPostDraftInput;
 
 export type StartSocialPostWorkError =
   | { code: "client_profile_not_found" };
@@ -37,6 +53,7 @@ export type StartSocialPostWorkSuccess = {
   work: CreativeWorkItem;
   /** Origin-agnostic view with intent.kind === "social_post". */
   canonical: CanonicalCreativeWork;
+  quote: CreativeOutputPlan[];
 };
 
 export type StartSocialPostWorkResult =
@@ -44,7 +61,7 @@ export type StartSocialPostWorkResult =
   | { ok: false; error: StartSocialPostWorkError };
 
 export function buildSocialPostCreateInput(
-  input: StartSocialPostWorkInput
+  input: StartSocialPostLegacyInput
 ): CreateCreativeWorkInput {
   return {
     workspaceId: input.workspaceId,
@@ -68,7 +85,21 @@ export async function startSocialPostWork(
     return { ok: false, error: { code: "client_profile_not_found" } };
   }
 
-  const work = await createCreativeWork(buildSocialPostCreateInput(input));
+  const work = "draftKey" in input
+    ? await createCreativeWorkDraft({
+        workspaceId: input.workspaceId,
+        clientProfileId: input.clientProfileId,
+        createdByUserId: input.userId,
+        draftKey: input.draftKey,
+        intent: input.intent,
+        title: deriveCreativeWorkTitle(input.request),
+        request: input.request,
+        format: input.format,
+        settings: input.settings,
+        brief: null,
+      })
+    : await createCreativeWork(buildSocialPostCreateInput(input));
+  if (!work) return { ok: false, error: { code: "client_profile_not_found" } };
 
   const canonical = projectCreativeWorkAsCanonicalWork(
     {
@@ -99,5 +130,10 @@ export async function startSocialPostWork(
     );
   }
 
-  return { ok: true, value: { work, canonical } };
+  const quote = quoteCreativeWork({
+    intent: work.toolKind,
+    format: work.format,
+    targetFormats: work.settings?.targetFormats ?? [],
+  });
+  return { ok: true, value: { work, canonical, quote } };
 }

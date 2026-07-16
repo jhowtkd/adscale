@@ -24,8 +24,10 @@ export type CreativeWorkFormat = "1:1" | "4:5" | "9:16";
 export type CreativeWorkSettings = { targetFormats: CreativeWorkFormat[] };
 export type CreativeWorkInputSnapshot = {
   request: string;
+  settings: CreativeWorkSettings;
   sources: Array<{
     sourceId: string;
+    updatedAt: string;
     assetKey: string | null;
     mimeType: string | null;
     usage: CreativeSourceUsage;

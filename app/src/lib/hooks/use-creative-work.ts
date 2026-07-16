@@ -55,10 +55,14 @@ export interface CreativeWorkItem {
   workspaceId: string;
   clientProfileId: string;
   createdByUserId: string;
-  toolKind: "social_post";
+  draftKey: string | null;
+  title: string;
+  request: string;
+  toolKind: "social_post" | "variations" | "single" | "format_adaptation" | "restyle";
   status: CreativeWorkStatus;
   brief: SocialPostBrief;
   format: "1:1" | "4:5" | "9:16";
+  settings: { targetFormats: Array<"1:1" | "4:5" | "9:16"> };
   copy: SocialPostCopy | null;
   identitySnapshot: CreativeWorkIdentitySnapshot | null;
   createdAt: Date | string;
@@ -206,6 +210,57 @@ export function useCreateCreativeWork() {
         invalidateCanonicalWorks(queryClient),
       ]);
     },
+  });
+}
+
+type CreativeDraftInput = {
+  clientProfileId: string;
+  draftKey: string;
+  request: string;
+  intent: CreativeWorkItem["toolKind"];
+  format: CreativeWorkItem["format"];
+  settings: CreativeWorkItem["settings"];
+};
+
+type CreativeWorkDraftItem = Omit<CreativeWorkItem, "brief"> & { brief: SocialPostBrief | null };
+
+async function invalidateCreativeDraft(queryClient: ReturnType<typeof useQueryClient>, workItemId: string) {
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: ["creative-work"] }),
+    queryClient.invalidateQueries({ queryKey: ["creative-work", workItemId] }),
+    invalidateCanonicalWorks(queryClient),
+  ]);
+}
+
+export function useCreateCreativeWorkDraft() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreativeDraftInput) => postJson<{ work: CreativeWorkDraftItem }>("/api/creative-work", input),
+    onSuccess: (_data, _input) => invalidateCreativeDraft(queryClient, _data.work.id),
+  });
+}
+
+export function useAutosaveCreativeWork() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: Omit<CreativeDraftInput, "clientProfileId" | "draftKey"> & { workItemId: string }) =>
+      patchJson<{ work: CreativeWorkDraftItem }>(`/api/creative-work/${input.workItemId}`, {
+        action: "autosave",
+        request: input.request,
+        intent: input.intent,
+        format: input.format,
+        settings: input.settings,
+      }),
+    onSuccess: (_data, input) => invalidateCreativeDraft(queryClient, input.workItemId),
+  });
+}
+
+export function usePrepareCreativeWork() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { workItemId: string }) =>
+      patchJson<{ work: CreativeWorkDraftItem }>(`/api/creative-work/${input.workItemId}`, { action: "prepare" }),
+    onSuccess: (_data, input) => invalidateCreativeDraft(queryClient, input.workItemId),
   });
 }
 
