@@ -6,6 +6,7 @@ import { AlertTriangle, CheckCircle2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useRecordBetaEvent } from "@/lib/hooks/use-record-beta-event";
+import { useMissionInsightOptional } from "@/components/mission-insights/MissionInsightProvider";
 
 interface DerivationPreviewGateFooterProps {
   campaignId: string;
@@ -26,6 +27,7 @@ export default function DerivationPreviewGateFooter({
 }: DerivationPreviewGateFooterProps) {
   const t = useTranslations("strategyRecipes.previewGate");
   const { recordEvent } = useRecordBetaEvent(campaignId);
+  const missionInsight = useMissionInsightOptional();
 
   const STAGE_PROPS = { stage: "preview", missionKey: "preview" } as const;
 
@@ -33,7 +35,17 @@ export default function DerivationPreviewGateFooter({
 
   useEffect(() => {
     recordEvent("cockpit_stage_entered", STAGE_PROPS);
-  }, [recordEvent]);
+    missionInsight?.maybePromptMissionInsight({
+      moment: "preview_first",
+      missionKey: "preview",
+      campaignId,
+      route: window.location.pathname,
+      diagnosticContext: {
+        isPreview: true,
+        operation: "preview_visible",
+      },
+    });
+  }, [campaignId, missionInsight, recordEvent]);
 
   const handleApproveBatch = () => {
     recordEvent("cockpit_stage_completed", STAGE_PROPS);

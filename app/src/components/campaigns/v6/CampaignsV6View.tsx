@@ -12,7 +12,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { PlatformFilter, SortOption, StatusFilter, ViewMode } from "@/components/campaigns/types";
-import type { CampaignsV6Labels, CampaignV6Row } from "./campaigns-v6-types";
+import type {
+  CampaignsV6Labels,
+  CampaignV6Row,
+  WorkOriginFilter,
+} from "./campaigns-v6-types";
 
 type CampaignsV6ViewProps = {
   labels: CampaignsV6Labels;
@@ -22,6 +26,10 @@ type CampaignsV6ViewProps = {
   interactive?: boolean;
   searchQuery: string;
   onSearchChange?: (value: string) => void;
+  originFilter?: WorkOriginFilter;
+  onOriginChange?: (value: WorkOriginFilter) => void;
+  /** When false, hide status/platform/sort (list mode — they don't filter canonical rows). */
+  showCampaignFilters?: boolean;
   statusFilter: StatusFilter;
   statusFilterLabel: string;
   onStatusChange?: (value: StatusFilter) => void;
@@ -55,6 +63,9 @@ export default function CampaignsV6View({
   interactive = true,
   searchQuery,
   onSearchChange,
+  originFilter = "all",
+  onOriginChange,
+  showCampaignFilters = true,
   statusFilter,
   statusFilterLabel,
   onStatusChange,
@@ -79,9 +90,7 @@ export default function CampaignsV6View({
   alternateView,
   emptyState,
 }: CampaignsV6ViewProps) {
-  const title = isLoading
-    ? labels.title
-    : labels.title.replace("{count}", String(totalCount));
+  const title = isLoading ? "" : labels.formatTitle(totalCount);
 
   return (
     <div className="space-y-6">
@@ -103,34 +112,36 @@ export default function CampaignsV6View({
           <p className="text-sm text-[var(--text-secondary)]">{labels.subtitle}</p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
-          {interactive && onSortChange ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger
+          {showCampaignFilters ? (
+            interactive && onSortChange ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  type="button"
+                  className="inline-flex items-center gap-2 rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] px-3 py-2 text-[13px] font-medium text-[var(--text-secondary)]"
+                >
+                  {labels.sortPrefix}: {sortLabel}
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="border-[var(--border-subtle)] bg-[var(--surface-raised)]">
+                  {sortOptions.map((option) => (
+                    <DropdownMenuItem
+                      key={option.value}
+                      onClick={() => onSortChange(option.value)}
+                      className={sortOption === option.value ? "text-[var(--accent-primary-text)]" : undefined}
+                    >
+                      {option.label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <button
                 type="button"
                 className="inline-flex items-center gap-2 rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] px-3 py-2 text-[13px] font-medium text-[var(--text-secondary)]"
               >
                 {labels.sortPrefix}: {sortLabel}
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="border-[var(--border-subtle)] bg-[var(--surface-raised)]">
-                {sortOptions.map((option) => (
-                  <DropdownMenuItem
-                    key={option.value}
-                    onClick={() => onSortChange(option.value)}
-                    className={sortOption === option.value ? "text-[var(--accent-primary-text)]" : undefined}
-                  >
-                    {option.label}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] px-3 py-2 text-[13px] font-medium text-[var(--text-secondary)]"
-            >
-              {labels.sortPrefix}: {sortLabel}
-            </button>
-          )}
+              </button>
+            )
+          ) : null}
           <button
             type="button"
             onClick={interactive ? onNewCampaign : undefined}
@@ -164,21 +175,45 @@ export default function CampaignsV6View({
             />
           </div>
 
-          <FilterChip
-            interactive={interactive}
-            label={`${labels.statusChipPrefix}: ${statusFilterLabel}`}
-            count={statusFilter === "all" ? String(totalCount) : undefined}
-            options={statusOptions}
-            value={statusFilter}
-            onChange={onStatusChange}
-          />
-          <FilterChip
-            interactive={interactive}
-            label={`${labels.platformChipPrefix}: ${platformFilterLabel}`}
-            options={platformOptions}
-            value={platformFilter}
-            onChange={onPlatformChange}
-          />
+          {onOriginChange ? (
+            <FilterChip
+              interactive={interactive}
+              label={
+                originFilter === "campaign"
+                  ? labels.originCampaigns
+                  : originFilter === "creative_work"
+                    ? labels.originPosts
+                    : labels.originAll
+              }
+              count={String(totalCount)}
+              options={[
+                { value: "all" as const, label: labels.originAll },
+                { value: "campaign" as const, label: labels.originCampaigns },
+                { value: "creative_work" as const, label: labels.originPosts },
+              ]}
+              value={originFilter}
+              onChange={onOriginChange}
+            />
+          ) : null}
+          {showCampaignFilters ? (
+            <>
+              <FilterChip
+                interactive={interactive}
+                label={`${labels.statusChipPrefix}: ${statusFilterLabel}`}
+                count={statusFilter === "all" ? String(totalCount) : undefined}
+                options={statusOptions}
+                value={statusFilter}
+                onChange={onStatusChange}
+              />
+              <FilterChip
+                interactive={interactive}
+                label={`${labels.platformChipPrefix}: ${platformFilterLabel}`}
+                options={platformOptions}
+                value={platformFilter}
+                onChange={onPlatformChange}
+              />
+            </>
+          ) : null}
 
           <div className="ml-auto inline-flex rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] p-0.5">
             <ViewToggle
@@ -259,6 +294,8 @@ function CampaignRow({
     router.push(row.href);
   };
 
+  const isCampaign = row.originKind === "campaign";
+
   return (
     <li
       className="grid grid-cols-[auto_40px_minmax(0,1fr)_auto_auto_auto] items-center gap-3 px-4 py-3 hover:bg-[var(--surface-raised)] sm:gap-3.5"
@@ -278,7 +315,7 @@ function CampaignRow({
         checked={selected}
         onChange={(e) => onToggleSelect?.(row.id, e.target.checked)}
         onClick={(e) => e.stopPropagation()}
-        disabled={!interactive}
+        disabled={!interactive || !isCampaign}
         className="size-4 accent-[var(--accent-primary)]"
       />
       <span
@@ -296,10 +333,16 @@ function CampaignRow({
           <p className="truncate font-medium text-[var(--text-primary)]">{row.name}</p>
         )}
         <p className="text-xs text-[var(--text-muted)]">
-          {row.variations} {labels.variationsLabel} ·{" "}
-          <span className="text-[var(--accent-primary-text)]">
-            {row.approved} {labels.approvedLabel}
-          </span>
+          <span className="font-mono uppercase tracking-wide">{row.originLabel}</span>
+          {isCampaign ? (
+            <>
+              {" · "}
+              {row.variations} {labels.variationsLabel} ·{" "}
+              <span className="text-[var(--accent-primary-text)]">
+                {row.approved} {labels.approvedLabel}
+              </span>
+            </>
+          ) : null}
         </p>
       </div>
       <CampaignBadge variant={row.statusVariant} label={row.status} />
@@ -316,13 +359,19 @@ function CampaignRow({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="border-[var(--border-subtle)] bg-[var(--surface-raised)]">
             <DropdownMenuItem onClick={() => router.push(row.href)}>{labels.openCampaign}</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onDuplicate?.(row.id)}>{labels.duplicate}</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onSaveAsTemplate?.(row.campaign)}>{labels.saveAsTemplate}</DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => onArchive?.(row.id)}>{labels.archive}</DropdownMenuItem>
-            <DropdownMenuItem className="text-[var(--danger-text)]" onClick={() => onDelete?.(row.id)}>
-              {labels.delete}
-            </DropdownMenuItem>
+            {isCampaign ? (
+              <>
+                <DropdownMenuItem onClick={() => onDuplicate?.(row.id)}>{labels.duplicate}</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onSaveAsTemplate?.(row.campaign)}>
+                  {labels.saveAsTemplate}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => onArchive?.(row.id)}>{labels.archive}</DropdownMenuItem>
+                <DropdownMenuItem className="text-[var(--danger-text)]" onClick={() => onDelete?.(row.id)}>
+                  {labels.delete}
+                </DropdownMenuItem>
+              </>
+            ) : null}
           </DropdownMenuContent>
         </DropdownMenu>
       ) : (

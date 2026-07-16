@@ -219,6 +219,58 @@ export async function updateDerivationStatus(
   return result[0] ?? null;
 }
 
+/** Mark processing with composite workspace scope (Phase 3 / Gate 3). */
+export async function setDerivationProcessing(
+  id: string,
+  workspaceId: string
+) {
+  return updateDerivationStatus(id, workspaceId, "processing");
+}
+
+export async function completeDerivation(
+  id: string,
+  workspaceId: string,
+  data: {
+    outputKey: string;
+    prompt: string | null;
+    candidates?: typeof derivations.$inferInsert.candidates;
+  }
+) {
+  const result = await db
+    .update(derivations)
+    .set({
+      status: "completed",
+      outputKey: data.outputKey,
+      prompt: data.prompt,
+      ...(data.candidates !== undefined ? { candidates: data.candidates } : {}),
+      updatedAt: new Date(),
+    })
+    .where(
+      and(eq(derivations.id, id), eq(derivations.workspaceId, workspaceId))
+    )
+    .returning();
+  return result[0] ?? null;
+}
+
+export async function failDerivation(
+  id: string,
+  workspaceId: string,
+  userMessage: string
+) {
+  const result = await db
+    .update(derivations)
+    .set({
+      status: "failed",
+      prompt: userMessage,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(eq(derivations.id, id), eq(derivations.workspaceId, workspaceId))
+    )
+    .returning();
+  return result[0] ?? null;
+}
+
 export async function failStaleActiveDerivations(
   campaignId: string,
   workspaceId: string,
@@ -276,6 +328,25 @@ export async function getApprovedDerivationsByCampaign(
       )
     )
     .orderBy(desc(derivations.createdAt));
+}
+
+/** True when the campaign already has queued/processing derivations. */
+export async function campaignHasActiveDerivations(
+  campaignId: string,
+  workspaceId: string
+): Promise<boolean> {
+  const existingQueued = await db
+    .select({ id: derivations.id })
+    .from(derivations)
+    .where(
+      and(
+        eq(derivations.campaignId, campaignId),
+        eq(derivations.workspaceId, workspaceId),
+        inArray(derivations.status, ["queued", "processing"])
+      )
+    )
+    .limit(1);
+  return existingQueued.length > 0;
 }
 
 export async function getActivePackageChildren({

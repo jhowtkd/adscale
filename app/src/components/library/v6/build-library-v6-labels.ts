@@ -14,7 +14,9 @@ export function buildLibraryV6Labels(t: Translate): LibraryV6Labels {
     dropzoneAria: t("v6.dropzoneAria"),
     searchPlaceholder: t("v6.searchPlaceholder"),
     searchAria: t("v6.searchPlaceholder"),
-    countSummary: t("v6.countSummary"),
+    // Template with {shown}/{total} filled in LibraryV6View via .replace —
+    // t.raw avoids ICU FORMATTING_ERROR when values are not passed here.
+    countSummary: String(t.raw("v6.countSummary")),
     deleteAsset: t("v6.deleteAsset"),
     loadMore: t("v6.loadMore"),
     loadingMore: t("v6.loadingMore"),

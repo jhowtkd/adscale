@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
-import { spendOrApiError } from "@/server/billing/paywall";
 import { refundCredits } from "@/server/billing/credits";
+import { chargeForBatchOrApiError } from "@/server/generation/canonical/charge";
+import {
+  GENERATION_CREDIT_COSTS,
+  type GenerationBatchCharge,
+} from "@/server/generation/canonical/types";
 import { inngest } from "@/server/jobs/client";
 import {
   getCreativeWork,
@@ -12,13 +16,9 @@ import {
 import { CREATIVE_LEVELS } from "@/server/creative-work/contracts";
 
 /**
- * Dispatch the standalone create-post triplet. Charges 15 credits idempotently,
- * creates one output row per `CREATIVE_LEVELS` entry (idempotent), and sends a
- * `creative-work.generate` event per output.
- *
- * Only refunds when `inngest.send` throws BEFORE any job is queued. Individual
- * job failures are handled inside the job (per `creative-work.generate`
- * consumer) — they do NOT refund.
+ * Dispatch the standalone create-post triplet.
+ * Charges via GenerationBatchCharge (not a unit GenerationRequest),
+ * creates one output row per CREATIVE_LEVELS entry, and sends unit jobs.
  */
 export async function POST(
   request: Request,
@@ -41,14 +41,26 @@ export async function POST(
       });
     }
 
-    const creditError = await spendOrApiError({
-      workspaceId: workspace.id,
-      action: "image_derivation",
-      amount: 15,
-      idempotencyKey: `creative-work:${id}:triplet`,
-      metadata: { creativeWorkId: id, operation_key: "image_derivation" },
-      userId: user.id,
+    const batchCharge: GenerationBatchCharge = {
+      kind: "batch",
+      authorship: { workspaceId: workspace.id, userId: user.id },
+      origin: "quick_tool",
+      surface: "quick_tool",
+      intent: {
+        mode: "social_post",
+        objective: existing.work.brief.objective ?? null,
+      },
+      parentId: id,
+      unitCount: CREATIVE_LEVELS.length,
+      chargeAmount: GENERATION_CREDIT_COSTS.creativeWorkTriplet,
+      unitChargeAmount: GENERATION_CREDIT_COSTS.creativeWorkOutput,
+      billingKey: `creative-work:${id}:triplet`,
+      refundPolicy: "default",
+    };
+
+    const creditError = await chargeForBatchOrApiError(batchCharge, {
       returnPath: `/quick-tools/create-post?workId=${id}`,
+      metadata: { creativeWorkId: id },
     });
     if (creditError) {
       return creditError;
@@ -57,15 +69,14 @@ export async function POST(
     // Idempotent triplet creation: repeated calls return the same output IDs.
     const outputs = await createCreativeWorkOutputs(workspace.id, id);
 
-    const events = CREATIVE_LEVELS.map((creativeLevel, index) => {
-      const output = outputs[index];
+    const events = outputs.map((output) => {
       return {
         name: "creative-work.generate" as const,
         data: {
           workspaceId: workspace.id,
           workItemId: id,
           outputId: output.id,
-          creativeLevel,
+          creativeLevel: output.creativeLevel,
         },
       };
     });
@@ -79,7 +90,7 @@ export async function POST(
         workspaceId: workspace.id,
         action: "image_derivation",
         idempotencyKey: `creative-work:${id}:triplet:dispatch-refund`,
-        amount: 15,
+        amount: GENERATION_CREDIT_COSTS.creativeWorkTriplet,
         metadata: {
           creativeWorkId: id,
           description: "creative_work_dispatch_refund",
@@ -91,9 +102,6 @@ export async function POST(
       });
     }
 
-    // Flip the work status to `generating` so the wizard's polling hook
-    // engages. `refreshCreativeWorkStatus` will overwrite this with the
-    // next aggregate (partial/completed/failed) once outputs settle.
     await setCreativeWorkStatus(workspace.id, id, "generating");
 
     return NextResponse.json(

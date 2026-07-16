@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/api-client";
+import { invalidateCanonicalWorks } from "@/lib/hooks/use-canonical-works";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 export function useCreativeQa() {
@@ -19,6 +20,7 @@ export function useCreativeQa() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["derivations"] });
       queryClient.invalidateQueries({ queryKey: ["campaigns"] });
+      void invalidateCanonicalWorks(queryClient);
     },
   });
 }

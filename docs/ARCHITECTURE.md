@@ -10,7 +10,7 @@ For a ludic map of the creative cognition loop (Cortex, Hands, Gaze/Olhar, Skin,
 
 ## System overview
 
-The application follows a classic **browser → Next.js API routes → repositories → Postgres/R2** shape, with **async workers** for derivation generation and brand-memory ingestion. **v12.0** adds real monetization: **Stripe subscriptions**, **credit grants** with FIFO spend, **workspace entitlements** (beta access), and **conversion gates** that return structured 402 payloads when spend is blocked. **v11.10–11.11** carry a closed-loop **beta analytics** pipeline (cockpit events, mission funnels, credit signals) and **owner-facing feedback tooling**. Later phases add a **human-quality corpus** (owner evaluation → learning proposals), **performance import** and **hypothesis comparison** loops, and **client/output learning** projections into brand memory. A dedicated **Assistant** subsystem layers a conversational AI on top of the creative pipeline: threaded chat streams MiniMax completions over SSE, executes registered tools, and runs guided flows (from-zero briefing, existing-creative iteration) with artifact versioning.
+The application follows a classic **browser → Next.js API routes → repositories → Postgres/R2** shape, with **async workers** for derivation generation and brand-memory ingestion. **v12.0** adds real monetization: **Stripe subscriptions**, **credit grants** with FIFO spend, **workspace entitlements** (beta access), and **conversion gates** that return structured 402 payloads when spend is blocked. **v11.10–11.11** carry a closed-loop **beta analytics** pipeline (cockpit events, mission funnels, credit signals) and **owner-facing feedback tooling**. Later phases add a **human-quality corpus** (owner evaluation → learning proposals) and **output learning** projections into brand memory. A dedicated **Assistant** subsystem layers a conversational AI on top of the creative pipeline: threaded chat streams MiniMax completions over SSE, executes registered tools, and runs guided flows (from-zero briefing, existing-creative iteration) with artifact versioning.
 
 | Concern | Implementation |
 |--------|----------------|
@@ -28,7 +28,6 @@ The application follows a classic **browser → Next.js API routes → repositor
 | Beta analytics | `app/src/server/beta-analytics/` — event ingest, sanitization, aggregation, CSV export |
 | Feedback & beta ops | `app/src/server/feedback/`, `app/src/server/mission-insights/`, owner routes under `api/feedback/` |
 | Human quality loop | `app/src/server/human-quality/` — corpus queue, evaluations, calibration, learning proposals |
-| Performance & hypotheses | `app/src/server/performance/` — CSV import, snapshots, variant comparisons, client learnings |
 | Output learning | `app/src/server/output-learning/` — decision events → client output learnings → Mem0 projection |
 | Brand taste & Olhar calibration | `app/src/server/brand-taste/`, `app/src/server/olhar-calibration/` |
 | Admin quality ops | Platform-owner routes under `api/admin/quality/` |
@@ -100,7 +99,6 @@ graph TD
     BetaA[beta-analytics/*]
     MissionI[mission-insights]
     HQ[human-quality/*]
-    Perf[performance/*]
     OutLearn[output-learning/*]
     Memory[memory/*]
   end
@@ -186,7 +184,7 @@ Application code lives under `app/` (npm package `adscale-app`). Source is roote
 | Path | Role |
 |------|------|
 | `app/src/app/` | App Router: UI routes `(dashboard)/`, public pages, and `api/*` Route Handlers (23 groups) |
-| `app/src/components/` | Presentational and feature components (assistant chat/shell, campaign workspace, billing settings, feedback owner panels, hypotheses, UI primitives) |
+| `app/src/components/` | Presentational and feature components (assistant chat/shell, campaign workspace, billing settings, feedback owner panels, UI primitives) |
 | `app/src/lib/` | Client utilities: `api-client`, React Query hooks, `billing/conversion-gate`, `campaign-load-error`, `beta-analytics/constants`, formats, logger |
 | `app/src/server/ai/` | OpenAI-backed creative pipeline: prompts, scoring, QA, quality gate, contract, readiness, preview gate, **Olhar** art-direction verdicts |
 | `app/src/server/assistant/` | Conversational AI: orchestrator, guided flows, action contracts, tool registry/policy, context builder, artifact versioning, MiniMax model adapter, SSE stream encoding |
@@ -200,13 +198,12 @@ Application code lives under `app/` (npm package `adscale-app`). Source is roote
 | `app/src/server/feedback/` | Feedback validation, mission-credit-signal classification |
 | `app/src/server/human-quality/` | Corpus queue, evaluations, sampling, calibration, learning proposal generation, trend/impact reports |
 | `app/src/server/jobs/` | Inngest client, `derivationJob`, trial notifications, workspace asset analysis, brand memory, **learning proposal aggregator** |
-| `app/src/server/memory/` | Mem0 brand-memory ingest, context assembly, performance/output learning projections |
+| `app/src/server/memory/` | Mem0 brand-memory ingest, context assembly, and output-learning projections |
 | `app/src/server/mission-insights/` | Sanitize and persist mission insight moments as `feedback_reports` |
 | `app/src/server/olhar-calibration/` | Olhar release evidence and calibration services |
 | `app/src/server/output-learning/` | Output decision recording, aggregation, recommendations |
-| `app/src/server/performance/` | Performance CSV import, snapshots, hypothesis comparison, client performance learnings |
 | `app/src/server/progression/` | Workspace levels and ordered **missions** (definitions, evidence, status, credits) |
-| `app/src/server/repositories/` | Data access layer; includes assistant threads/messages/actions, billing, entitlements, human-quality corpus, performance, output decisions |
+| `app/src/server/repositories/` | Data access layer; includes assistant threads/messages/actions, billing, entitlements, human-quality corpus, brand kit, and output decisions |
 | `app/src/server/services/` | Email, notifications (low-credits alerts), export, landing-page render, Resend contacts |
 | `app/src/server/storage/` | `ObjectStorage` interface; `R2ObjectStorage` (`r2-object-storage.ts`), presign helpers (`storage-helpers.ts`), in-memory test impl |
 | `app/src/server/validation/` | `env` (Zod-validated environment) |
@@ -353,14 +350,7 @@ Events are deduplicated via `processed_stripe_events`. Unsupported types are ski
 5. Ingestion backfill/status: `POST /api/admin/quality/ingestion/backfill`, `GET /api/admin/quality/ingestion/status`.
 6. Trend and calibration surfaces: `GET /api/feedback/quality-trend`, `score-calibration`, `calibration-adjustments/[id]/accept`.
 
-### 11. Performance import & client learnings
-
-1. `POST /api/campaigns/[id]/performance/import/preview` parses CSV rows; `confirm` persists `performance_import_batches` and `performance_import_rows`.
-2. Snapshots land in `creative_performance_snapshots`; hypotheses and variant comparisons use `creative_hypotheses`, `hypothesis_variants`, `variant_comparisons`.
-3. `recomputeClientLearnings` (`performance/learning/service.ts`) aggregates comparison evidence into `client_performance_learnings` and projects into Mem0 via `performance-learning-projection`.
-4. Campaign UI (`HypothesesPanel`, performance routes) reads comparisons and recommendations.
-
-### 12. Output decision learning
+### 11. Output decision learning
 
 1. Approval, export, and review flows record `output_decision_events` (via `output-learning/output-decision-recorder`).
 2. `recomputeClientOutputLearnings` aggregates events into `client_output_learnings` and projects to brand memory (`output-learning-projection`).
@@ -566,7 +556,7 @@ Repositories take `workspaceId` as an explicit argument. Drizzle updates include
 **Representative API groups** under `app/src/app/api/` (23 groups, 150 `route.ts` handlers):
 
 - `campaigns/`, `derivations/`, `workspace/` (assets, brand-kit, invites, **missions**, **mission-insights**, progression)
-- `campaigns/[id]/restyle`, `performance/`, `hypotheses/`, `competitors/`, `learnings/`, `approval-package/`
+- `campaigns/[id]/restyle`, `competitors/`, `approval-package/`
 - `assistant/` — threads, streaming chat, actions, artifact versions, guided flows (workspace-scoped)
 - `billing/` — **checkout**, **portal**, **status**, **history**, **beta/redeem**, **webhook**
 - `analytics/events` — workspace-scoped beta event ingest
@@ -649,7 +639,6 @@ Image generation uses the OpenAI SDK with `env.OPENAI_API_KEY` and model names f
 | `getWorkspaceMissions` | `server/progression/missions/service.ts` | Mission path status |
 | `generateAndPersistClientLearningProposals` | `server/human-quality/learning/generate.ts` | Corpus → client learning proposals |
 | `learningProposalAggregatorJob` | `server/jobs/learning-proposal-aggregator.ts` | Scheduled proposal generation |
-| `recomputeClientLearnings` | `server/performance/learning/service.ts` | Performance comparisons → client learnings |
 | `recomputeClientOutputLearnings` | `server/output-learning/service.ts` | Output decisions → client output learnings |
 | `CampaignLoadError` | `lib/campaign-load-error.ts` | Client load error taxonomy |
 | `requireWorkspaceAccess` | `server/auth/workspace.ts` | API tenancy guard |
@@ -663,7 +652,7 @@ Image generation uses the OpenAI SDK with `env.OPENAI_API_KEY` and model names f
 ## Data layer
 
 - **ORM:** Drizzle with `pg` pool (`app/src/server/db/index.ts`); `@neondatabase/serverless` available for serverless compute.
-- **Schema:** PostgreSQL schema `adscale_app` — users/sessions (Better Auth), workspaces, campaigns, assets, derivations (quality gate + `parent_id`), **assistant threads/messages/actions/artifact-versions**, billing tables, notifications, landing pages, beta analytics, feedback, progression, **performance import/snapshots/hypotheses**, **client_performance_learnings**, **client_output_learnings**, **output_decision_events**, **human_quality_corpus_***, **client_learning_proposals**, **calibration_signals/rules**, **rubric_calibration_adjustments**, waitlist signups, etc.
+- **Schema:** PostgreSQL schema `adscale_app` — users/sessions (Better Auth), workspaces, campaigns, assets, derivations (quality gate + `parent_id`), **assistant threads/messages/actions/artifact-versions**, billing tables, notifications, landing pages, beta analytics, feedback, progression, **client_output_learnings**, **output_decision_events**, **human_quality_corpus_***, **client_learning_proposals**, **calibration_signals/rules**, **rubric_calibration_adjustments**, waitlist signups, etc.
 - **Migrations:** `app/drizzle/*.sql`, managed via `drizzle-kit` (`npm run db:migrate`).
 
 ---
@@ -687,12 +676,11 @@ Binary assets (campaign uploads, derivation outputs, brand kit logos) are stored
 ## Frontend architecture (summary)
 
 - **Routing:** App Router with `(dashboard)` layout; `(dashboard)/feedback` for owner analytics and human-quality corpus; `(dashboard)/assistant` for the conversational assistant; settings billing tab.
-- **Server state:** TanStack Query hooks in `app/src/lib/hooks/` (campaigns, derivations, **assistant** chat/threads/actions/versions, **billing**, export, missions, delivery-package, hypotheses, performance, record-beta-event).
+- **Server state:** TanStack Query hooks in `app/src/lib/hooks/` (campaigns, derivations, **assistant** chat/threads/actions/versions, **billing**, export, missions, delivery-package, output learning, record-beta-event).
 - **Assistant UX:** `AssistantShell` / `AssistantChatCore` consume the SSE stream; `AssistantTreeSidebar`, `VersionHistory`, `VersionComparisonDialog`, `GuidedFlowControls`, and `CreditConfirmModal` support guided flows, versioning, and gated actions.
 - **Billing UX:** `BillingTab`, `CreditPanel`, `CreditChart` consume `/api/billing/status` and `/api/billing/history`; 402 responses handled via `conversion-gate` client helpers.
 - **Mission UX:** `MissionPathCard`, `MissionInsightProvider`, cockpit stage events via `useRecordBetaEvent`.
 - **Owner feedback UI:** `OwnerAnalyticsPanel`, `BetaSessionsPanel`, `HumanQualityCorpusPanel` consume platform-owner analytics and corpus APIs.
-- **Performance UX:** `HypothesesPanel`, learnings panels, performance import flows.
 - **UI state:** Zustand where needed (`app/src/lib/store.ts`).
 - **i18n:** `next-intl` (`app/src/i18n.ts`, message files under `app/src/i18n/`).
 - **Observability:** Sentry (`@sentry/nextjs`), structured logging via `app/src/lib/logger.ts`.

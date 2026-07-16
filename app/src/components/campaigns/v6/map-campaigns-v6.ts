@@ -36,5 +36,7 @@ export function mapCampaignToV6Row({
     statusVariant: statusToBadgeVariant(campaign.status),
     updated: formatUpdated(campaign.lastModified),
     campaign,
+    originKind: "campaign",
+    originLabel: "Campaign",
   };
 }

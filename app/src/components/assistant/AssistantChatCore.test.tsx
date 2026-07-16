@@ -138,6 +138,21 @@ describe("AssistantChatCore", () => {
     expect(screen.getByText("Thinking")).toBeInTheDocument();
   });
 
+  it("does not expose internal assistant error codes to the user", () => {
+    mockUseAssistantChat.mockReturnValue({
+      messages: [],
+      streamingText: "",
+      isStreaming: false,
+      error: "assistantStreamError",
+      sendMessage: mockSendMessage,
+    });
+
+    renderCore(<AssistantChatCore threadId="thread-1" variant="full" />);
+
+    expect(screen.getByRole("alert")).toHaveTextContent("errorGeneric");
+    expect(screen.queryByText("assistantStreamError")).not.toBeInTheDocument();
+  });
+
   it("enables plan feedback draft hook for campaign threads", () => {
     mockUseAssistantThread.mockReturnValue({
       data: {

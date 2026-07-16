@@ -12,6 +12,12 @@ import {
   useDeleteCampaigns,
   useDuplicateCampaign,
 } from "@/lib/hooks/use-campaigns";
+import {
+  fetchTemplate,
+  useMaterializeTemplate,
+  TemplateLoadError,
+  type CampaignTemplate,
+} from "@/lib/hooks/use-templates";
 
 import { useTranslations } from "next-intl";
 
@@ -22,13 +28,25 @@ interface CampaignSearchParams {
   toString(): string;
 }
 
+type TemplateLoadState = "idle" | "loading" | "ready" | "error" | "not_found";
+
+function stripCreationParams(searchParams: CampaignSearchParams) {
+  const params = new URLSearchParams(searchParams.toString());
+  params.delete("new");
+  params.delete("templateId");
+  const query = params.toString();
+  return `/campaigns${query ? `?${query}` : ""}`;
+}
+
 export function useCampaignsPage(searchParams: CampaignSearchParams) {
   const router = useRouter();
   const t = useTranslations("campaign");
   const tc = useTranslations("common");
   const te = useTranslations("errors");
+  const tTemplate = useTranslations("template");
 
   const createCampaign = useCreateCampaign();
+  const materializeFromTemplate = useMaterializeTemplate();
   const updateCampaigns = useUpdateCampaigns();
   const deleteCampaigns = useDeleteCampaigns();
   const duplicateCampaign = useDuplicateCampaign();
@@ -48,6 +66,8 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingUrlApplyRef = useRef<string | null>(null);
   const pendingSearchRef = useRef<string | null>(null);
+  /** Sync lock: isPending only flips after mutation+rerender; same-tick double click needs this. */
+  const createInFlightRef = useRef(false);
 
   if (searchQuery !== prevUrlSearchQuery) {
     setPrevUrlSearchQuery(searchQuery);
@@ -78,13 +98,40 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
     };
   }, []);
 
+  const templateIdParam = searchParams.get("templateId");
   const newParam = searchParams.get("new");
   const shouldOpenNewModal =
     newParam !== null &&
     (newParam === "1" || newParam === "true" || newParam === "");
 
+  const [templateLoadState, setTemplateLoadState] =
+    useState<TemplateLoadState>("idle");
+  const [loadedTemplate, setLoadedTemplate] = useState<CampaignTemplate | null>(
+    null
+  );
+  const [templateRetryToken, setTemplateRetryToken] = useState(0);
+  const activeTemplateLoadRef = useRef<string | null>(null);
+
+  const clearCreationQueryParams = useCallback(() => {
+    const nextUrl = stripCreationParams(searchParams);
+    window.history.replaceState(window.history.state, "", nextUrl);
+  }, [searchParams]);
+
+  const dismissTemplateFlow = useCallback(() => {
+    setTemplateLoadState("idle");
+    setLoadedTemplate(null);
+    setModalOpen(false);
+    activeTemplateLoadRef.current = null;
+    clearCreationQueryParams();
+  }, [clearCreationQueryParams]);
+
+  // Bare ?new=1 (no template): open modal immediately and strip only `new`.
   const [consumedNewParam, setConsumedNewParam] = useState<string | null>(null);
-  if (shouldOpenNewModal && consumedNewParam !== newParam) {
+  if (
+    shouldOpenNewModal &&
+    !templateIdParam &&
+    consumedNewParam !== newParam
+  ) {
     setConsumedNewParam(newParam);
     if (!modalOpen) {
       setModalOpen(true);
@@ -92,14 +139,81 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
   }
 
   useEffect(() => {
-    if (!shouldOpenNewModal || consumedNewParam !== newParam) return;
+    if (!shouldOpenNewModal || templateIdParam || consumedNewParam !== newParam) {
+      return;
+    }
 
     const params = new URLSearchParams(searchParams.toString());
     params.delete("new");
     const query = params.toString();
     const nextUrl = `/campaigns${query ? `?${query}` : ""}`;
     window.history.replaceState(window.history.state, "", nextUrl);
-  }, [shouldOpenNewModal, consumedNewParam, newParam, searchParams]);
+  }, [
+    shouldOpenNewModal,
+    templateIdParam,
+    consumedNewParam,
+    newParam,
+    searchParams,
+  ]);
+
+  // ?templateId=… — load before opening modal; keep params until success/cancel.
+  useEffect(() => {
+    if (!templateIdParam) return;
+
+    const loadKey = `${templateIdParam}:${templateRetryToken}`;
+    if (activeTemplateLoadRef.current === loadKey) return;
+    activeTemplateLoadRef.current = loadKey;
+
+    let cancelled = false;
+    setTemplateLoadState("loading");
+    setLoadedTemplate(null);
+    setModalOpen(false);
+
+    void fetchTemplate(templateIdParam)
+      .then((template) => {
+        if (cancelled) return;
+        setLoadedTemplate(template);
+        setTemplateLoadState("ready");
+        setModalOpen(true);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        const status =
+          err instanceof TemplateLoadError
+            ? err.status
+            : err &&
+                typeof err === "object" &&
+                "status" in err &&
+                typeof (err as { status: unknown }).status === "number"
+              ? (err as { status: number }).status
+              : undefined;
+        if (status === 404) {
+          setTemplateLoadState("not_found");
+          toast.error(tTemplate("loadTemplateNotFound"));
+        } else {
+          setTemplateLoadState("error");
+          toast.error(tTemplate("loadTemplateError"));
+        }
+        setLoadedTemplate(null);
+        setModalOpen(false);
+      });
+
+    return () => {
+      cancelled = true;
+      // Allow remount (React Strict Mode) to refetch the same templateId.
+      if (activeTemplateLoadRef.current === loadKey) {
+        activeTemplateLoadRef.current = null;
+      }
+    };
+    // tTemplate is a stable message catalog for this mount; including it
+    // re-cancels in-flight fetches every render under next-intl mocks.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- templateId/retry drive reloads
+  }, [templateIdParam, templateRetryToken]);
+
+  const retryTemplateLoad = useCallback(() => {
+    activeTemplateLoadRef.current = null;
+    setTemplateRetryToken((n) => n + 1);
+  }, []);
 
   const campaignQuery = {
     searchQuery,
@@ -250,12 +364,71 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
   const allSelected =
     campaigns.length > 0 && campaigns.every((c) => selectedIds.has(c.id));
 
+  const handleModalOpenChange = useCallback(
+    (open: boolean) => {
+      if (!open) {
+        if (templateIdParam) {
+          dismissTemplateFlow();
+          return;
+        }
+        setModalOpen(false);
+        return;
+      }
+      setModalOpen(true);
+    },
+    [templateIdParam, dismissTemplateFlow]
+  );
+
   const handleCreateCampaign = useCallback(
     (data: {
       name: string;
       client: string;
       clientProfileId: string | null;
     }) => {
+      // Sync + async guards: ref blocks same-tick double click; isPending covers post-rerender.
+      if (
+        createInFlightRef.current ||
+        createCampaign.isPending ||
+        materializeFromTemplate.isPending
+      ) {
+        return;
+      }
+      createInFlightRef.current = true;
+
+      const fromTemplate = loadedTemplate;
+      const releaseInFlight = () => {
+        createInFlightRef.current = false;
+      };
+
+      // Phase 5 / item 39: Usar template → server materialize (not client merge).
+      if (fromTemplate) {
+        materializeFromTemplate.mutate(
+          {
+            templateId: fromTemplate.id,
+            name: data.name,
+            client: data.client,
+            clientProfileId: data.clientProfileId,
+          },
+          {
+            onSuccess: ({ campaign }) => {
+              releaseInFlight();
+              toast.success(tc("campaignCreated", { name: data.name }));
+              setModalOpen(false);
+              setLoadedTemplate(null);
+              setTemplateLoadState("idle");
+              activeTemplateLoadRef.current = null;
+              clearCreationQueryParams();
+              router.push(`/campaigns/${campaign.id}`);
+            },
+            onError: (err) => {
+              releaseInFlight();
+              toast.error(err.message || tc("failedCreateCampaign"));
+            },
+          }
+        );
+        return;
+      }
+
       createCampaign.mutate(
         {
           name: data.name,
@@ -264,17 +437,27 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
         },
         {
           onSuccess: (campaign) => {
+            releaseInFlight();
             toast.success(tc("campaignCreated", { name: data.name }));
             setModalOpen(false);
+            clearCreationQueryParams();
             router.push(`/campaigns/${campaign.id}`);
           },
           onError: (err) => {
+            releaseInFlight();
             toast.error(err.message || tc("failedCreateCampaign"));
           },
         }
       );
     },
-    [createCampaign, router, tc]
+    [
+      createCampaign,
+      materializeFromTemplate,
+      router,
+      tc,
+      loadedTemplate,
+      clearCreationQueryParams,
+    ]
   );
 
   const handleDuplicate = useCallback(
@@ -372,6 +555,13 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
     return pages;
   }, [visibleCurrentPage, totalPages]);
 
+  const modalInitialValues = loadedTemplate
+    ? {
+        name: loadedTemplate.name,
+        clientName: loadedTemplate.client ?? "",
+      }
+    : null;
+
   return {
     campaigns,
     totalCount,
@@ -381,7 +571,7 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
     viewMode,
     setViewMode,
     modalOpen,
-    setModalOpen,
+    setModalOpen: handleModalOpenChange,
     statusFilter,
     setStatusFilter,
     platformFilter,
@@ -423,8 +613,16 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
     startIndex,
     endIndex,
     pageNumbers,
+    templateLoadState,
+    loadedTemplate,
+    modalInitialValues,
+    retryTemplateLoad,
+    dismissTemplateFlow,
+    createPending:
+      createCampaign.isPending || materializeFromTemplate.isPending,
     t,
     tc,
     te,
+    tTemplate,
   };
 }

@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/api-client";
+import { invalidateCanonicalWorks } from "@/lib/hooks/use-canonical-works";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { DeliveryFormat } from "@/components/workspace/DeliveryPackageModal";
 
@@ -30,6 +31,7 @@ export function useCreateDeliveryPackage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["derivations"] });
       queryClient.invalidateQueries({ queryKey: ["campaigns"] });
+      void invalidateCanonicalWorks(queryClient);
     },
   });
 }

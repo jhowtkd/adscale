@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { renderHook, waitFor, act } from "@testing-library/react";
+import { render, renderHook, screen, waitFor, act } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { StrictMode, useEffect, useRef } from "react";
 import { encodeAssistantSseEvent } from "@/server/assistant/stream/sse";
 import { useAssistantChat } from "./use-assistant-chat";
 
@@ -167,6 +168,37 @@ describe("useAssistantChat", () => {
     expect(signals).toHaveLength(2);
   });
 
+  it("does not abort the first message during the Strict Mode effect replay", async () => {
+    let capturedSignal: AbortSignal | undefined;
+    fetchMock.mockImplementation((_url, init) => {
+      capturedSignal = init?.signal as AbortSignal | undefined;
+      return Promise.resolve(sseResponse([{ event: "done", data: {} }]));
+    });
+
+    function FirstMessageHarness() {
+      const { sendMessage, isStreaming } = useAssistantChat("thread-1");
+      const sentRef = useRef(false);
+      useEffect(() => {
+        if (sentRef.current) return;
+        sentRef.current = true;
+        void sendMessage("First message");
+      }, [sendMessage]);
+      return <span>{isStreaming ? "streaming" : "idle"}</span>;
+    }
+
+    render(
+      <StrictMode>
+        <QueryClientProvider client={new QueryClient()}>
+          <FirstMessageHarness />
+        </QueryClientProvider>
+      </StrictMode>
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.getByText("idle")).toBeInTheDocument());
+    expect(capturedSignal?.aborted).toBe(false);
+  });
+
   it("aborts in-flight stream on unmount", async () => {
     let capturedSignal: AbortSignal | undefined;
     fetchMock.mockImplementation((_url, init) => {
@@ -187,7 +219,7 @@ describe("useAssistantChat", () => {
     });
 
     unmount();
-    expect(capturedSignal?.aborted).toBe(true);
+    await waitFor(() => expect(capturedSignal?.aborted).toBe(true));
   });
 
   it("clears live messages and aborts stream when threadId changes", async () => {

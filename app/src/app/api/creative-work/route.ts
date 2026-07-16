@@ -1,14 +1,26 @@
 import { NextResponse } from "next/server";
 import { apiError, handleApiError } from "@/lib/api-response";
+import { startSocialPostWork } from "@/server/application/start-social-post-work";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
-import { getClientProfile } from "@/server/repositories/client-reference";
-import { createCreativeWork } from "@/server/repositories/creative-work";
+import { listCanonicalWorks } from "@/server/creative-work/canonical/queries";
 import { createCreativeWorkSchema } from "@/server/creative-work/contracts";
 
 /**
- * Standalone create-post workflow: kick off a new work item in `draft` status.
- * Validates the profile belongs to the authenticated workspace before writing
- * anything.
+ * List workspace canonical works (Phase 5 / item 37 — history on complete).
+ */
+export async function GET(request: Request) {
+  try {
+    const { workspace } = await requireWorkspaceAccess(request);
+    const works = await listCanonicalWorks(workspace.id);
+    return NextResponse.json({ works });
+  } catch (error) {
+    return handleApiError(error, "creative-work.GET");
+  }
+}
+
+/**
+ * Criar Post create — HTTP adapter only (Phase 5 / items 34–35).
+ * Domain: startSocialPostWork (intent social_post, no campaign).
  */
 export async function POST(request: Request) {
   try {
@@ -19,21 +31,29 @@ export async function POST(request: Request) {
       return apiError("invalidInput", 400, parsed.error.flatten());
     }
 
-    const profile = await getClientProfile(workspace.id, parsed.data.clientProfileId);
-    if (!profile) {
-      return apiError("clientProfileNotFound", 404);
-    }
-
-    const work = await createCreativeWork({
+    const result = await startSocialPostWork({
       workspaceId: workspace.id,
+      userId: user.id,
       clientProfileId: parsed.data.clientProfileId,
-      createdByUserId: user.id,
-      toolKind: parsed.data.toolKind,
-      brief: parsed.data.brief,
       format: parsed.data.format,
+      brief: parsed.data.brief,
     });
 
-    return NextResponse.json({ work }, { status: 201 });
+    if (!result.ok) {
+      if (result.error.code === "client_profile_not_found") {
+        return apiError("clientProfileNotFound", 404);
+      }
+      return apiError("invalidRequest", 400);
+    }
+
+    // `work` kept for existing UI; `canonical` is the Phase 5 contract.
+    return NextResponse.json(
+      {
+        work: result.value.work,
+        canonical: result.value.canonical,
+      },
+      { status: 201 }
+    );
   } catch (error) {
     return handleApiError(error, "creative-work.POST");
   }

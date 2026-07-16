@@ -77,6 +77,39 @@ describe("POST /api/campaigns", () => {
     expect(body.campaign).toBeDefined();
   });
 
+  it("accepts platforms, tone, and offer from template materialization", async () => {
+    const res = await POST(
+      new Request("http://localhost/api/campaigns", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "From Template",
+          client: "Acme",
+          product: "Course X",
+          objective: "Leads",
+          audience: "Founders",
+          platforms: ["meta_feed", "tiktok"],
+          tone: "direct",
+          offer: "20% off",
+          clientProfileId: null,
+        }),
+      })
+    );
+
+    expect(res.status).toBe(201);
+    expect(mockCreateCampaign).toHaveBeenCalledWith(
+      "workspace-1",
+      expect.objectContaining({
+        platforms: ["meta_feed", "tiktok"],
+        tone: "direct",
+        offer: "20% off",
+        product: "Course X",
+        clientProfileId: null,
+        status: "draft",
+      })
+    );
+  });
+
   it("rejects creation without client", async () => {
     const res = await POST(
       new Request("http://localhost/api/campaigns", {

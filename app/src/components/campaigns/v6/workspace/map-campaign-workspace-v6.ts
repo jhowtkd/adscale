@@ -1,11 +1,8 @@
 import type { Derivation } from "@/lib/mock-data";
 import type { WorkspaceState } from "@/lib/hooks/use-campaign-workspace";
-import { scoreCappedForDisplay } from "@/lib/derivation-display";
-import { pickSurfaceGradient } from "@/lib/v6-surface-gradients";
 import type {
   CampaignWorkspaceV6ViewModel,
   WorkspaceV6BadgeVariant,
-  WorkspaceV6DerivationCard,
   WorkspaceV6StageContext,
 } from "./campaign-workspace-v6-types";
 
@@ -28,13 +25,6 @@ function statusToBadge(status: WorkspaceCampaignSource["status"]): { label: stri
   if (status === "active") return { label: "active", variant: "info" };
   if (status === "failed") return { label: "failed", variant: "warning" };
   return { label: "draft", variant: "neutral" };
-}
-
-function derivationStatusToBadge(status: string): WorkspaceV6BadgeVariant {
-  if (status === "completed" || status === "approved") return "success";
-  if (status === "generating" || status === "processing" || status === "queued") return "warning";
-  if (status === "active") return "info";
-  return "neutral";
 }
 
 function creativeLevelValue(level?: string | null): number {
@@ -66,18 +56,19 @@ function styleIntensityValue(intensity?: string | null): number {
 }
 
 /**
- * Three user-facing phases that match real workspace states:
- * 1 Preparar (setup) · 2 Gerar (trabalho / generating / review) · 3 Entregar (has approvals)
+ * Four user tasks (Phase 6 / item 47):
+ * 1 Briefing · 2 Produzir · 3 Revisar · 4 Entregar
  */
 export function resolveWorkspaceStage({
   workspaceState,
-  derivationCount: _derivationCount,
-  reviewCount: _reviewCount,
+  derivationCount,
   approvedCount,
   isGenerating,
 }: WorkspaceV6StageContext): number {
   if (workspaceState === "setup") return 1;
-  if (approvedCount > 0 && !isGenerating) return 3;
+  if (isGenerating) return 2;
+  if (approvedCount > 0) return 4;
+  if (derivationCount > 0) return 3;
   return 2;
 }
 
@@ -103,11 +94,13 @@ export function mapCampaignWorkspaceToV6View({
   const approvedCount = derivations.filter((d) => d.status === "approved").length;
 
   const stages = [
-    tWorkspace("stagePrepare"),
-    tWorkspace("stageGenerate"),
+    tWorkspace("stageBriefing"),
+    tWorkspace("stageProduce"),
+    tWorkspace("stageReview"),
     tWorkspace("stageDeliver"),
   ];
-  const stageTabs = ["briefing", "generate", "export"] as const;
+  // Deliver → mission-share (approval/package), not mission-export
+  const stageTabs = ["briefing", "generate", "review", "share"] as const;
 
   const briefingRules = (campaign.constraints ?? "")
     .split(/\n|(?<=[.!?])\s+/)
@@ -123,31 +116,6 @@ export function mapCampaignWorkspaceToV6View({
     { label: tWorkspace("sliderProximity"), value: styleIntensityValue(campaign.styleIntensity) },
   ];
 
-  const derivationCards: WorkspaceV6DerivationCard[] = derivations.slice(0, 8).map((derivation, index) => {
-    const score = scoreCappedForDisplay(derivation.qualityScore, derivation.qualityVerdict);
-    const statusKey = derivation.status;
-    const knownStatuses = new Set(["draft", "active", "generating", "completed", "failed", "approved"]);
-    const art = derivation.name
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((part) => part[0]?.toUpperCase() ?? "")
-      .join("")
-      .slice(0, 8) || "AD";
-
-    return {
-      id: derivation.id,
-      art,
-      title: derivation.name,
-      variations: tWorkspace("derivationVariations", { count: 1 }),
-      version: `v${(derivation.variantIndex ?? 0) + 1}`,
-      score,
-      status: tStatus(knownStatuses.has(statusKey) ? statusKey : "draft"),
-      statusVariant: derivationStatusToBadge(derivation.status),
-      gradient: pickSurfaceGradient(index),
-      href: undefined,
-    };
-  });
-
   return {
     name: campaign.name,
     status: tStatus(badge.label),
@@ -160,7 +128,6 @@ export function mapCampaignWorkspaceToV6View({
     currentStage: resolveWorkspaceStage({
       workspaceState,
       derivationCount: derivations.length,
-      reviewCount,
       approvedCount,
       isGenerating,
     }),
@@ -168,6 +135,5 @@ export function mapCampaignWorkspaceToV6View({
     stageTabs: [...stageTabs],
     briefingSliders,
     briefingRules,
-    derivations: derivationCards,
   };
 }

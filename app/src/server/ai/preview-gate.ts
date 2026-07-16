@@ -2,11 +2,11 @@
  * Pure preview-gate visibility rules for the strategy cockpit.
  * Extracted from use-campaign-workspace for testability (CQA-01).
  *
- * Happy path: preview completes with acceptable quality → auto-continue to batch
- * (no manual gate). Gate only interrupts when quality fails.
+ * Every completed preview requires explicit approval before the full batch.
  */
 
 export type PreviewGateDerivation = {
+  id?: string;
   isPreview?: boolean;
   status: string;
   imageUrl?: string | null;
@@ -15,7 +15,7 @@ export type PreviewGateDerivation = {
   hardFailures?: Array<{ code: string; message: string }> | null;
 };
 
-/** Ready preview with output, no batch yet — candidate for gate or auto-continue. */
+/** Ready preview with output and no batch yet — awaiting explicit approval. */
 export function getReadyPreviewDerivation<T extends PreviewGateDerivation>(
   derivations: T[]
 ): T | null {
@@ -23,7 +23,11 @@ export function getReadyPreviewDerivation<T extends PreviewGateDerivation>(
   const preview = derivations.find((d) => d.isPreview);
   if (!preview) return null;
 
-  const hasBatch = derivations.some((d) => !d.isPreview);
+  // A historical failed/rejected batch is not an active continuation and must
+  // not suppress a newer preview's gate decision.
+  const hasBatch = derivations.some(
+    (d) => !d.isPreview && d.status !== "failed" && d.status !== "rejected"
+  );
   if (hasBatch) return null;
 
   if (preview.status === "generating" || preview.status === "queued" || preview.status === "processing") {
@@ -33,22 +37,11 @@ export function getReadyPreviewDerivation<T extends PreviewGateDerivation>(
   return preview.imageUrl || preview.outputKey ? preview : null;
 }
 
-/** Quality failed — user must decide continue vs adjust. */
-export function previewNeedsManualGate(
-  preview: PreviewGateDerivation
-): boolean {
-  if (preview.qualityVerdict === "invalid") return true;
-  if ((preview.hardFailures?.length ?? 0) > 0) return true;
-  return false;
-}
-
-/** Gate UI only when ready preview has a quality failure. */
+/** A ready preview remains gated until the user explicitly starts the batch. */
 export function getActivePreviewGateDerivation<T extends PreviewGateDerivation>(
   derivations: T[]
 ): T | null {
-  const preview = getReadyPreviewDerivation(derivations);
-  if (!preview) return null;
-  return previewNeedsManualGate(preview) ? preview : null;
+  return getReadyPreviewDerivation(derivations);
 }
 
 export function shouldShowPreviewGate(
@@ -57,21 +50,10 @@ export function shouldShowPreviewGate(
   return getActivePreviewGateDerivation(derivations) != null;
 }
 
-/** Ready preview with acceptable quality — auto-queue the full batch. */
+/** Kept in the response contract for compatibility; continuation is always manual. */
 export function shouldAutoContinuePreview(
   derivations: PreviewGateDerivation[]
 ): boolean {
-  const preview = getReadyPreviewDerivation(derivations);
-  if (!preview) return false;
-  if (previewNeedsManualGate(preview)) return false;
-  // Wait until the preview finished (completed / failed / approved), not mid-flight.
-  if (
-    preview.status !== "completed" &&
-    preview.status !== "failed" &&
-    preview.status !== "approved" &&
-    preview.status !== "rejected"
-  ) {
-    return false;
-  }
-  return true;
+  void derivations;
+  return false;
 }

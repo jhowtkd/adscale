@@ -16,7 +16,9 @@ vi.mock("@/lib/store", () => ({
       billing: { planName: "Starter" },
     }),
 }));
-vi.mock("@/lib/hooks/use-campaigns", () => ({ useCampaigns: () => ({ totalCount: 0 }) }));
+vi.mock("@/lib/hooks/use-canonical-works", () => ({
+  useCanonicalWorks: () => ({ data: [], isLoading: false }),
+}));
 vi.mock("@/lib/hooks/use-billing", () => ({
   useBillingStatus: vi.fn(),
 }));
@@ -50,36 +52,48 @@ describe("AppSidebar role-aware navigation", () => {
   });
 
   it("does not show a decorative search / ⌘K affordance", () => {
-    render(<AppSidebar variant="production" />);
+    render(<AppSidebar />);
     expect(screen.queryByText(/Buscar/i)).not.toBeInTheDocument();
     expect(screen.queryByText("⌘K")).not.toBeInTheDocument();
   });
 
-  it("shows icon nav, Brand Kit feature, and recent works map — without Chat switch", () => {
-    render(<AppSidebar variant="production" />);
+  it("shows Trabalhos · Biblioteca · Marcas · Config nav — without Chat switch", () => {
+    render(<AppSidebar />);
     expect(screen.queryByText("navigation.creativeIntelligenceAdvanced")).not.toBeInTheDocument();
     expect(screen.queryByText("navigation.sectionAvancado")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "assistant.mode.panel" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /assistant\.mode\.chat/i })).not.toBeInTheDocument();
     expect(screen.getByTestId("sidebar-brand-kit-feature")).toHaveAttribute("href", "/brand-kit");
     expect(screen.getByTestId("campaign-map")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "navigation.dashboard" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "navigation.works" })).toHaveAttribute(
       "href",
-      "/dashboard"
+      "/campaigns"
     );
-    expect(screen.getByRole("link", { name: "common.create" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "library.title" })).toHaveAttribute(
       "href",
-      "/campaigns?new=1"
+      "/library"
+    );
+    expect(screen.getByRole("link", { name: "navigation.brands" })).toHaveAttribute(
+      "href",
+      "/brand-kit"
+    );
+    expect(screen.getByRole("link", { name: "navigation.config" })).toHaveAttribute(
+      "href",
+      "/settings"
+    );
+    expect(screen.getByRole("link", { name: "navigation.templates" })).toHaveAttribute(
+      "href",
+      "/templates"
     );
   });
 
   it("does NOT show the Laboratório section header", () => {
-    render(<AppSidebar variant="production" />);
+    render(<AppSidebar />);
     expect(screen.queryByText("Laboratório")).not.toBeInTheDocument();
   });
 
   it("hides OPERACAO section header but keeps Feedback link for owner/admin roles", () => {
-    render(<AppSidebar variant="production" />);
+    render(<AppSidebar />);
     expect(screen.queryByText("navigation.sectionOperacao")).not.toBeInTheDocument();
     expect(screen.getByText("navigation.feedback")).toBeInTheDocument();
   });
@@ -88,13 +102,13 @@ describe("AppSidebar role-aware navigation", () => {
     vi.mocked(useBillingStatus).mockReturnValue({
       data: { access: { kind: "tester", label: "Tester" }, creditBalance: 10 },
     } as ReturnType<typeof useBillingStatus>);
-    render(<AppSidebar variant="production" />);
+    render(<AppSidebar />);
     expect(screen.queryByText("navigation.sectionOperacao")).not.toBeInTheDocument();
     expect(screen.queryByText("navigation.feedback")).not.toBeInTheDocument();
   });
 
   it("shows logout in the sidebar footer and signs out on click", () => {
-    render(<AppSidebar variant="production" />);
+    render(<AppSidebar />);
 
     const logoutButton = screen.getByRole("button", { name: "navigation.logout" });
     expect(logoutButton).toBeInTheDocument();

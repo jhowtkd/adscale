@@ -29,7 +29,7 @@ import type {
   SourcePackage,
 } from "../ai/creative-contract";
 
-import { getCampaignById, refreshCampaignStatus } from "../repositories/campaign";
+import { getCampaignById } from "../repositories/campaign";
 import { createNotification } from "../repositories/notification";
 import { getAssetsByCampaign } from "../repositories/asset";
 import { getPlanByCampaign } from "../repositories/plan";
@@ -37,7 +37,6 @@ import {
   getDerivationById,
   updateDerivationGenerationLog,
   updateDerivationPromptProvenance,
-  updateDerivationScore,
 } from "../repositories/derivation";
 import {
   appendGenerationLogStep,
@@ -63,18 +62,11 @@ import {
 } from "../repositories/client-reference";
 import { getWorkspaceAssetByKey } from "../repositories/workspace-asset";
 import { trackUsage } from "../repositories/usage";
-import {
-  getBrandKit,
-  getBrandKitByWorkspace,
-} from "../db/repositories/brand-kit";
+import { getBrandKit } from "../repositories/brand-kit";
 import { resolveCampaignClientProfileId } from "../repositories/client-reference";
 import { getCompetitorAnalysesByCampaign } from "../repositories/competitor-analysis";
 import { getBrandMemoryContext } from "@/server/memory/brand-memory-context";
 import { env } from "../validation/env";
-import {
-  scoreDerivationHeuristic,
-  analyzeDerivationCreative,
-} from "@/server/ai/creative-score";
 import { normalizeCreativeDiagnosis } from "@/server/ai/creative-diagnosis";
 import { formatToOpenAIImageSize, getTargetDimensions, toOpenAISdkImageSize } from "@/lib/formats";
 import { composeExactBrandAssets } from "@/server/creative-work/composite";
@@ -87,7 +79,6 @@ import {
 } from "../ai/derivation-pipeline";
 import { captureCorpusCandidateFromDerivation } from "../human-quality/candidate-capture";
 import { loadPromptCalibrationContext } from "../brand-taste/prompt-calibration-loader";
-import { syncAssistantActionFromJob } from "../repositories/assistant-job-sync";
 import { getAssistantActionById } from "../repositories/assistant-action";
 import { getAssistantThreadById } from "../repositories/assistant-thread";
 import { emitArtifactIterationTelemetry } from "@/server/assistant/artifact-iteration-telemetry";
@@ -99,12 +90,21 @@ import {
   listArtifactVersions,
   updateArtifactHead,
 } from "../repositories/artifact-version";
-import {
-  DERIVATION_USER_SAFE_ERROR,
-  sanitizeDerivationFailureError,
-} from "./derivation-error-sanitizer";
+import { sanitizeDerivationFailureError } from "./derivation-error-sanitizer";
 import * as Sentry from "@sentry/nextjs";
 import { finalizeGoalDerivation } from "@/server/assistant/goal/finalize-derivation";
+import { decideAutoRetry, decideDerivationRefund, decideJobIdempotency } from "@/server/generation/canonical/policies";
+import {
+  markDerivationCompleted,
+  markDerivationFailed,
+  markDerivationProcessing,
+} from "@/server/generation/lifecycle/derivation-transitions";
+import {
+  runDerivationCorpusCapture,
+  runDerivationQualityGate,
+  runDerivationScore,
+} from "@/server/generation/pipeline/post-generation";
+import { scoreCompletedDerivation } from "@/server/generation/pipeline/score-derivation";
 
 type CampaignAsset = Awaited<ReturnType<typeof getAssetsByCampaign>>[number];
 
@@ -170,79 +170,8 @@ async function loadRestylingQaReferences(
 // working unchanged.
 export { normalizeGeneratedImage } from "@/server/ai/derivation-pipeline";
 
-export async function scoreCompletedDerivation(
-  derivationId: string,
-  workspaceId: string,
-  normalizedBuffer: Buffer,
-  campaign: {
-    name: string;
-    client: string | null;
-    product: string | null;
-    offer: string | null;
-    objective: string | null;
-    audience: string | null;
-    creativeLevel?: string | null;
-    creativeDiagnosis?: unknown;
-  },
-  derivation: {
-    ctaText: string | null;
-    format: string | null;
-    generationMode: string | null;
-    feedback: string | null;
-    parentId: string | null;
-    creativeLevel?: string | null;
-  },
-  locale?: string,
-  contract?: CreativeContract | null
-) {
-  const effectiveGenerationMode = derivation.generationMode ?? "art_variation";
-  const targetFormat = derivation.format ?? "1:1";
-
-  try {
-    const heuristicScore = scoreDerivationHeuristic({
-      status: "completed",
-      format: targetFormat,
-      generationMode: effectiveGenerationMode,
-      ctaText: derivation.ctaText,
-      parentId: derivation.parentId,
-    });
-    await updateDerivationScore(derivationId, workspaceId, heuristicScore);
-
-    try {
-      const visualScore = await analyzeDerivationCreative({
-        imageBuffer: normalizedBuffer,
-        mimeType: "image/png",
-        campaign: {
-          name: campaign.name,
-          client: campaign.client ?? "",
-          product: campaign.product ?? "",
-          offer: campaign.offer ?? "",
-          objective: campaign.objective ?? "",
-          audience: campaign.audience ?? "",
-        },
-        derivation: {
-          ctaText: derivation.ctaText,
-          format: targetFormat,
-          generationMode: effectiveGenerationMode,
-          feedback: derivation.feedback,
-          creativeLevel: campaign.creativeLevel ?? null,
-          creativeDiagnosis: campaign.creativeDiagnosis ?? null,
-        },
-        locale: locale ?? "pt-BR",
-        contract: contract ?? null,
-      });
-      await updateDerivationScore(derivationId, workspaceId, visualScore);
-    } catch (error) {
-      logger.warn("[generate-and-store-output] creative visual scoring failed", error);
-      await updateDerivationScore(derivationId, workspaceId, {
-        ...heuristicScore,
-        scoreStatus: "failed",
-      });
-    }
-  } catch (error) {
-    logger.warn("[generate-and-store-output] creative scoring failed", error);
-  }
-}
+// scoreCompletedDerivation imported from generation/pipeline (Phase 3).
+export { scoreCompletedDerivation };
 
 export const derivationJob = inngest.createFunction(
   {
@@ -273,24 +202,13 @@ export const derivationJob = inngest.createFunction(
         });
       }
       await step.run("mark-failed", async () => {
-        await db
-          .update(derivations)
-          .set({
-            status: "failed",
-            prompt: userMessage,
-            updatedAt: new Date(),
-          })
-          .where(eq(derivations.id, derivationId));
-        await refreshCampaignStatus(campaignId, workspaceId);
-        if (assistantActionId) {
-          await syncAssistantActionFromJob({
-            workspaceId,
-            actionId: assistantActionId,
-            status: "failed",
-            jobRef: { kind: "derivation", id: derivationId },
-            safeError: DERIVATION_USER_SAFE_ERROR,
-          });
-        }
+        await markDerivationFailed({
+          derivationId,
+          campaignId,
+          workspaceId,
+          userMessage,
+          assistantActionId,
+        });
         if (assistantActionId && goalRunId) {
           await finalizeGoalDerivation({
             workspaceId,
@@ -303,26 +221,29 @@ export const derivationJob = inngest.createFunction(
           });
         }
       });
-      // Goal-agent actions are non-refundable: a `refundPolicy` of "none" means
-      // the credit charge was definitive regardless of outcome, so we skip the
-      // legacy creative-revision refund entirely for those derivations.
-      const isRefundable =
-        assistantActionId &&
-        generationMode === "creative_revision" &&
-        refundPolicy !== "none";
-      if (isRefundable) {
+      // Canonical refund policy (Phase 3): job refunds only assistant
+      // creative_revision when refundPolicy !== "none".
+      const refundDecision = decideDerivationRefund({
+        surface: assistantActionId ? "assistant" : "campaign",
+        generationMode,
+        refundPolicy,
+        assistantActionId,
+        failurePhase: "job_failure",
+      });
+      if (refundDecision.refund) {
         await step.run("refund-creative-revision", async () => {
           try {
             const result = await refundCredits({
               workspaceId,
               action: "image_derivation",
-              idempotencyKey: `assistant-action:${assistantActionId}:refund`,
-              amount: 5,
+              idempotencyKey: refundDecision.idempotencyKey,
+              amount: refundDecision.amount,
               metadata: {
                 actionId: assistantActionId,
                 derivationId,
                 campaignId,
                 mode: "creative_revision",
+                reason: refundDecision.reason,
               },
               userId: triggeredByUserId,
             });
@@ -402,26 +323,23 @@ export const derivationJob = inngest.createFunction(
         .limit(1);
       return row[0] ?? null;
     });
-    if (existing?.outputKey) {
-      logger.info(`[derivationJob] SKIP derivationId=${derivationId} already has outputKey=${existing.outputKey}`);
+    const idempotency = decideJobIdempotency({
+      surface: "campaign",
+      hasOutputKey: Boolean(existing?.outputKey),
+    });
+    if (idempotency.skip && existing?.outputKey) {
+      logger.info(`[derivationJob] SKIP derivationId=${derivationId} already has outputKey=${existing.outputKey} (${idempotency.reason})`);
       return { success: true, derivationId, outputKey: existing.outputKey, skipped: true };
     }
 
     // 1. Update status to processing
     await step.run("mark-processing", async () => {
       logger.info(`[mark-processing] derivationId=${derivationId}`);
-      await db
-        .update(derivations)
-        .set({ status: "processing", updatedAt: new Date() })
-        .where(eq(derivations.id, derivationId));
-      if (assistantActionId) {
-        await syncAssistantActionFromJob({
-          workspaceId,
-          actionId: assistantActionId,
-          status: "processing",
-          jobRef: { kind: "derivation", id: derivationId },
-        });
-      }
+      await markDerivationProcessing({
+        derivationId,
+        workspaceId,
+        assistantActionId,
+      });
     });
     await step.realtime.publish("status-processing", derivationChannel({ derivationId }).status, {
       derivationId,
@@ -837,9 +755,13 @@ export const derivationJob = inngest.createFunction(
 
       const stepResult = await executeGenerationStep({
         derivationId,
+        workspaceId,
         promptContext: promptContextInput,
         reference,
         isPreview,
+        authoredByUserId: triggeredByUserId ?? null,
+        clientProfileId: campaign.clientProfileId ?? null,
+        surface: assistantActionId ? "assistant" : "campaign",
       });
 
       const exactBrandReferences = clientReferences.filter(
@@ -898,25 +820,16 @@ export const derivationJob = inngest.createFunction(
     // 4. Update derivation as completed
     await step.run("mark-completed", async () => {
       logger.info(`[mark-completed] derivationId=${derivationId} outputKey=${generated.outputKey}`);
-      await db
-        .update(derivations)
-        .set({
-          status: "completed",
-          outputKey: generated.outputKey,
-          prompt: generated.revisedPrompt,
-          candidates: generated.candidates,
-          updatedAt: new Date(),
-        })
-        .where(eq(derivations.id, derivationId));
-      await refreshCampaignStatus(campaignId, workspaceId);
-      if (assistantActionId && !goalRunId) {
-        await syncAssistantActionFromJob({
-          workspaceId,
-          actionId: assistantActionId,
-          status: "completed",
-          jobRef: { kind: "derivation", id: derivationId },
-        });
-      }
+      await markDerivationCompleted({
+        derivationId,
+        campaignId,
+        workspaceId,
+        outputKey: generated.outputKey,
+        prompt: generated.revisedPrompt,
+        candidates: generated.candidates,
+        assistantActionId,
+        skipAssistantSync: Boolean(goalRunId),
+      });
     });
 
     // 4a. Creative revision callback — create child creative version when
@@ -1113,88 +1026,57 @@ export const derivationJob = inngest.createFunction(
       });
     }
 
-    // 5. Score derivation (non-blocking; runs after completed)
+    // 5. Score / quality / corpus via canonical post-generation helpers (Phase 3).
+    // Inngest step names preserved for durability + characterization tests.
     await step.run("score-derivation", async () => {
-      logger.info(`[score-derivation] derivationId=${derivationId} outputKey=${generated.outputKey}`);
-      try {
-        const scoreBuffer = await objectStorage.get(generated.outputKey);
-        await scoreCompletedDerivation(
-          derivationId,
-          workspaceId,
-          scoreBuffer,
-          campaign,
-          {
-            ctaText: ctaText ?? derivation.ctaText ?? null,
-            format: generated.targetFormat,
-            generationMode: generated.effectiveGenerationMode,
-            feedback: derivation.feedback ?? null,
-            parentId: derivation.parentId ?? null,
-            creativeLevel: campaign.creativeLevel ?? null,
-          },
-          locale,
-          generated.resolvedContract
-        );
-        logger.info(`[score-derivation] done derivationId=${derivationId}`);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "Unknown error";
-        logger.warn(`[score-derivation] failed derivationId=${derivationId}: ${message}`);
-      }
+      await runDerivationScore({
+        derivationId,
+        workspaceId,
+        outputKey: generated.outputKey,
+        campaign,
+        derivation: {
+          ctaText: ctaText ?? derivation.ctaText ?? null,
+          format: generated.targetFormat,
+          generationMode: generated.effectiveGenerationMode,
+          feedback: derivation.feedback ?? null,
+          parentId: derivation.parentId ?? null,
+          creativeLevel: campaign.creativeLevel ?? null,
+        },
+        locale,
+        contract: generated.resolvedContract,
+      });
     });
 
-    // 5b. Quality gate (non-blocking; runs after scoring)
     await step.run("quality-gate", async () => {
-      logger.info(`[quality-gate] derivationId=${derivationId} outputKey=${generated.outputKey}`);
-      try {
-        const gateBuffer = await objectStorage.get(generated.outputKey);
-        const qaReferences = await loadRestylingQaReferences(
-          campaignId,
-          workspaceId,
-          generated.resolvedContract
-        );
-        await runCompletedDerivationQualityGate({
-          derivationId,
-          workspaceId,
-          imageBuffer: gateBuffer,
-          mimeType: "image/png",
-          locale: locale ?? "pt-BR",
-          campaign: {
-            name: campaign.name ?? "",
-            client: campaign.client ?? "",
-            product: campaign.product ?? "",
-            offer: campaign.offer ?? "",
-            objective: campaign.objective ?? "",
-            audience: campaign.audience ?? "",
-            tone: campaign.tone,
-            creativeDiagnosis: campaign.creativeDiagnosis,
-          },
-          derivation: {
-            ctaText: ctaText ?? derivation.ctaText ?? null,
-            format: generated.targetFormat,
-            generationMode: generated.effectiveGenerationMode,
-          },
-          contract: generated.resolvedContract,
-          ...qaReferences,
-        });
-        logger.info(`[quality-gate] done derivationId=${derivationId}`);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "Unknown error";
-        logger.warn(`[quality-gate] step failed derivationId=${derivationId}: ${message}`);
-      }
+      await runDerivationQualityGate({
+        derivationId,
+        workspaceId,
+        outputKey: generated.outputKey,
+        locale,
+        campaign,
+        derivation: {
+          ctaText: ctaText ?? derivation.ctaText ?? null,
+          format: generated.targetFormat,
+          generationMode: generated.effectiveGenerationMode,
+        },
+        contract: generated.resolvedContract,
+        loadQaReferences: () =>
+          loadRestylingQaReferences(
+            campaignId,
+            workspaceId,
+            generated.resolvedContract
+          ),
+      });
     });
 
     if (!isPreview && !goalRunId) {
       await step.run("capture-corpus-candidate", async () => {
-        try {
-          // Capture-only: the goal-agent contract requires explicit client
-          // consent + platform-owner review before any global corpus promotion.
-          // Auto-promotion is intentionally NOT called here anymore.
-          await captureCorpusCandidateFromDerivation({ workspaceId, derivationId });
-        } catch (error) {
-          const message = error instanceof Error ? error.message : "Unknown error";
-          logger.warn(
-            `[capture-corpus-candidate] failed derivationId=${derivationId}: ${message}`
-          );
-        }
+        // Capture-only: goal-agent requires consent before corpus promotion.
+        await runDerivationCorpusCapture({
+          workspaceId,
+          derivationId,
+          enabled: true,
+        });
       });
     }
 
@@ -1211,7 +1093,17 @@ export const derivationJob = inngest.createFunction(
         | "art_variation"
         | "format_adaptation"
         | "restyling";
-      if (!shouldAutoRetryDerivation(retryMode, hardFailures, log.autoRetryAttempted)) {
+      const eligibleByPolicy = shouldAutoRetryDerivation(
+        retryMode,
+        hardFailures,
+        log.autoRetryAttempted
+      );
+      const retryDecision = decideAutoRetry({
+        surface: "campaign",
+        mode: retryMode,
+        eligibleByPolicy,
+      });
+      if (!retryDecision.retry) {
         return null;
       }
 
@@ -1385,40 +1277,25 @@ export const derivationJob = inngest.createFunction(
       });
 
       await step.run("quality-gate-after-retry", async () => {
-        try {
-          const gateBuffer = await objectStorage.get(retried.outputKey);
-          const qaReferences = await loadRestylingQaReferences(
-            campaignId,
-            workspaceId,
-            generated.resolvedContract
-          );
-          await runCompletedDerivationQualityGate({
-            derivationId,
-            workspaceId,
-            imageBuffer: gateBuffer,
-            mimeType: "image/png",
-            locale: locale ?? "pt-BR",
-            campaign: {
-              name: campaign.name ?? "",
-              client: campaign.client ?? "",
-              product: campaign.product ?? "",
-              offer: campaign.offer ?? "",
-              objective: campaign.objective ?? "",
-              audience: campaign.audience ?? "",
-              tone: campaign.tone,
-              creativeDiagnosis: campaign.creativeDiagnosis,
-            },
-            derivation: {
-              ctaText: ctaText ?? derivation.ctaText ?? null,
-              format: generated.targetFormat,
-              generationMode: generated.effectiveGenerationMode,
-            },
-            contract: generated.resolvedContract,
-            ...qaReferences,
-          });
-        } catch (error) {
-          logger.warn(`[quality-gate-after-retry] failed derivationId=${derivationId}`, error);
-        }
+        await runDerivationQualityGate({
+          derivationId,
+          workspaceId,
+          outputKey: retried.outputKey,
+          locale,
+          campaign,
+          derivation: {
+            ctaText: ctaText ?? derivation.ctaText ?? null,
+            format: generated.targetFormat,
+            generationMode: generated.effectiveGenerationMode,
+          },
+          contract: generated.resolvedContract,
+          loadQaReferences: () =>
+            loadRestylingQaReferences(
+              campaignId,
+              workspaceId,
+              generated.resolvedContract
+            ),
+        });
       });
 
       if (triggeredByUserId) {

@@ -5,6 +5,10 @@ import { recordDualEngineCandidates } from "./generation-log";
 import { OpenAIImageProvider } from "./providers/openai-image-provider";
 import { SeedreamImageProvider } from "./providers/seedream-image-provider";
 import { CompositeImageProvider } from "./providers/composite-image-provider";
+import {
+  E2EControlledImageProvider,
+  isE2EControlledProviderEnabled,
+} from "./providers/e2e-controlled-provider";
 import type { ImageCandidate, ImageReference, ProviderGenerateInput } from "./providers/image-provider";
 
 // Re-export ImageReference under the legacy name for backward compatibility —
@@ -70,6 +74,12 @@ export interface GenerateAndStoreImageResult {
 let cachedComposite: CompositeImageProvider | null = null;
 function getCompositeProvider(): CompositeImageProvider {
   if (cachedComposite) return cachedComposite;
+  if (isE2EControlledProviderEnabled()) {
+    cachedComposite = new CompositeImageProvider([
+      new E2EControlledImageProvider(),
+    ]);
+    return cachedComposite;
+  }
   cachedComposite = new CompositeImageProvider([
     new OpenAIImageProvider(),
     new SeedreamImageProvider(),

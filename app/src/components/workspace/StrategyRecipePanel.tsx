@@ -29,13 +29,13 @@ import {
   DERIVATION_FORMATS,
   type DerivationFormat,
 } from "@/lib/derivation-display";
-import type { CreativeReadinessResult } from "@/server/ai/creative-readiness";
 import {
   STRATEGY_RECIPE_IDS,
   type BrandKitSnapshot,
   type CampaignRecipeContext,
   type RecipeCreativeLevel,
-} from "@/server/ai/strategy-recipes";
+  type RecipeReadinessSnapshot,
+} from "@/lib/domain/strategy-recipe-types";
 
 const CREATIVE_LEVELS: RecipeCreativeLevel[] = [
   "conservative",
@@ -56,7 +56,7 @@ interface StrategyRecipePanelProps {
   campaignId: string;
   open: boolean;
   recipeSessionKey?: number;
-  readiness?: CreativeReadinessResult | null;
+  readiness?: RecipeReadinessSnapshot | null;
   brandKit?: BrandKitSnapshot | null;
   campaign?: CampaignRecipeContext | null;
   campaignCreativeLevel?: string | null;
@@ -215,6 +215,46 @@ export default function StrategyRecipePanel({
         </DialogHeader>
 
         <DialogBody className="space-y-4">
+          {recipe.isError ? (
+            <div
+              role="alert"
+              className="flex items-center justify-between gap-3 rounded-lg border border-[var(--status-error)]/30 bg-[var(--status-error)]/10 px-3 py-2"
+            >
+              <p className="text-xs text-[var(--text-primary)]">
+                {t("surfaceError")}
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => void recipe.refetch()}
+              >
+                {t("retry")}
+              </Button>
+            </div>
+          ) : null}
+
+          {/* Phase 6 / S09: credits from server resolve surface (not client-estimated) */}
+          <div
+            role="status"
+            data-testid="strategy-recipe-credits"
+            className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)] px-3 py-2 text-xs text-[var(--text-secondary)]"
+          >
+            <p data-testid="strategy-recipe-preview-credits">
+              {recipe.isLoading
+                ? t("creditPreview", { credits: "…" })
+                : t("creditPreview", { credits: recipe.previewCredits })}
+            </p>
+            <p
+              data-testid="strategy-recipe-batch-credits"
+              className="mt-0.5 text-[var(--text-primary)]"
+            >
+              {recipe.isLoading
+                ? t("creditBatchEstimate", { credits: "…" })
+                : t("creditBatchEstimate", { credits: recipe.batchCredits })}
+            </p>
+          </div>
+
           <div className="space-y-2">
             {STRATEGY_RECIPE_IDS.map((id) => {
               const ranked = recipe.rankedRecipes.find((r) => r.id === id);
@@ -432,6 +472,7 @@ export default function StrategyRecipePanel({
             className="w-full"
             disabled={
               isSubmitting ||
+              recipe.isError ||
               (isArtMode
                 ? !canConfirm || isLoadingSuggestions
                 : selectedFormats.length === 0)

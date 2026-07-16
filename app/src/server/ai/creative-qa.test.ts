@@ -8,10 +8,44 @@ vi.mock("@/server/validation/env", () => ({
 }));
 
 import {
+  analyzeCreativeQa,
   normalizeCreativeQaResult,
   buildCreativeQaPrompt,
   extractObservableRubricSection,
 } from "./creative-qa";
+
+describe("analyzeCreativeQa controlled E2E seam", () => {
+  it("returns deterministic passed observations while leaving policy evaluation downstream", async () => {
+    vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv("E2E_CONTROLLED_PROVIDER", "true");
+
+    const result = await analyzeCreativeQa({
+      imageBuffer: Buffer.from("controlled"),
+      mimeType: "image/png",
+      locale: "pt-BR",
+      campaign: {
+        name: "UAT",
+        client: "ADScale",
+        product: "ADScale",
+        offer: "",
+        objective: "Awareness",
+        audience: "Marketers",
+      },
+      derivation: {
+        ctaText: "Saiba mais",
+        format: "1:1",
+        generationMode: "art_variation",
+      },
+    });
+
+    expect(result.status).toBe("ready");
+    expect(Object.values(result.checklist)).toHaveLength(6);
+    expect(Object.values(result.checklist).every((item) => item.status === "passed")).toBe(true);
+    expect(result.issues).toEqual([]);
+
+    vi.unstubAllEnvs();
+  });
+});
 
 describe("normalizeCreativeQaResult", () => {
   it("normalizes a complete QA result", () => {

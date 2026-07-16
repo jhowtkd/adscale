@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useClientProfiles } from "@/lib/hooks/use-client-profiles";
 
 interface NewCampaignForm {
   name: string;
@@ -27,35 +28,64 @@ interface FormErrors {
   clientName?: string;
 }
 
+export interface NewCampaignSubmitData {
+  name: string;
+  client: string;
+  clientProfileId: string | null;
+}
+
 interface NewCampaignModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (data: {
-    name: string;
-    client: string;
-    clientProfileId: string | null;
-  }) => void;
+  onSubmit: (data: NewCampaignSubmitData) => void;
+  initialValues?: { name: string; clientName: string } | null;
+  templateName?: string | null;
+  submitDisabled?: boolean;
 }
 
 export default function NewCampaignModal({
   open,
   onOpenChange,
   onSubmit,
+  initialValues = null,
+  templateName = null,
+  submitDisabled = false,
 }: NewCampaignModalProps) {
   const tCampaign = useTranslations("campaign");
   const tBriefing = useTranslations("briefing");
   const tCommon = useTranslations("common");
   const tErrors = useTranslations("errors");
+  const tTemplate = useTranslations("template");
 
-  const [form, setForm] = useState<NewCampaignForm>({
-    name: "",
-    clientName: "",
-  });
+  const initialForm = {
+    name: initialValues?.name ?? "",
+    clientName: initialValues?.clientName ?? "",
+  };
+  const formSourceKey = `${open}\u0000${initialForm.name}\u0000${initialForm.clientName}`;
+  const [appliedFormSourceKey, setAppliedFormSourceKey] = useState(formSourceKey);
+  const [form, setForm] = useState<NewCampaignForm>(initialForm);
   const [errors, setErrors] = useState<FormErrors>({});
+  const [clientProfileId, setClientProfileId] = useState<string | null>(null);
+  const { data: clientProfiles = [] } = useClientProfiles();
   const touchedRef = useRef<Record<keyof NewCampaignForm, boolean>>({
     name: false,
     clientName: false,
   });
+
+  if (appliedFormSourceKey !== formSourceKey) {
+    setAppliedFormSourceKey(formSourceKey);
+    setForm(initialForm);
+    setErrors({});
+    setClientProfileId(null);
+  }
+
+  const normalizedClient = form.clientName.trim().toLocaleLowerCase();
+  const exactProfileMatch = normalizedClient
+    ? clientProfiles.find(
+      (profile) => profile.name.trim().toLocaleLowerCase() === normalizedClient
+    )
+    : undefined;
+  const effectiveClientProfileId = clientProfileId ?? exactProfileMatch?.id ?? null;
 
   const updateField = useCallback(
     <K extends keyof NewCampaignForm>(field: K, value: NewCampaignForm[K]) => {
@@ -86,28 +116,19 @@ export default function NewCampaignModal({
   const handleSubmit = useCallback(
     (e?: React.FormEvent) => {
       e?.preventDefault();
+      if (submitDisabled) return;
       if (!validate()) return;
       onSubmit({
         name: form.name,
         client: form.clientName,
-        clientProfileId: null,
+        clientProfileId: effectiveClientProfileId,
       });
-      setForm({
-        name: "",
-        clientName: "",
-      });
-      setErrors({});
-      touchedRef.current = { name: false, clientName: false };
-      onOpenChange(false);
     },
-    [form, validate, onSubmit, onOpenChange]
+    [effectiveClientProfileId, form, validate, onSubmit, submitDisabled]
   );
 
   const handleCancel = useCallback(() => {
     onOpenChange(false);
-    setForm({ name: "", clientName: "" });
-    setErrors({});
-    touchedRef.current = { name: false, clientName: false };
   }, [onOpenChange]);
 
   return (
@@ -121,7 +142,9 @@ export default function NewCampaignModal({
             {tCampaign("createNew")}
           </DialogTitle>
           <DialogDescription className="text-sm text-[var(--text-secondary)]">
-            {tCampaign("createDescription")}
+            {templateName
+              ? tTemplate("prefilledFromTemplate", { name: templateName })
+              : tCampaign("createDescription")}
           </DialogDescription>
         </DialogHeader>
 
@@ -162,13 +185,49 @@ export default function NewCampaignModal({
             </div>
 
             <div className="space-y-1.5">
+              <Label htmlFor="campaign-client-profile" className="text-[13px] text-[var(--text-secondary)]">
+                {tCampaign("clientProfile")}
+              </Label>
+              <select
+                id="campaign-client-profile"
+                value={effectiveClientProfileId ?? ""}
+                onChange={(event) => {
+                  const profile = clientProfiles.find(
+                    (candidate) => candidate.id === event.target.value
+                  );
+                  setClientProfileId(profile?.id ?? null);
+                  if (profile) updateField("clientName", profile.name);
+                }}
+                className="h-10 w-full rounded-[var(--radius-control)] border border-[var(--border-dim)] bg-[var(--surface-base)] px-3 text-sm text-[var(--text-primary)]"
+              >
+                <option value="">{tCampaign("customClient")}</option>
+                {clientProfiles.map((profile) => (
+                  <option key={profile.id} value={profile.id}>
+                    {profile.name}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-[var(--text-muted)]">
+                {tCampaign("clientProfileHint")}
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
               <Label htmlFor="campaign-client" className="text-[13px] text-[var(--text-secondary)]">
                 {tCampaign("client")} <span className="text-[var(--accent-rose)]">*</span>
               </Label>
               <Input
                 id="campaign-client"
                 value={form.clientName}
-                onChange={(e) => updateField("clientName", e.target.value)}
+                onChange={(e) => {
+                  updateField("clientName", e.target.value);
+                  const normalizedClient = e.target.value.trim().toLocaleLowerCase();
+                  const exactMatch = clientProfiles.find(
+                    (profile) =>
+                      profile.name.trim().toLocaleLowerCase() === normalizedClient
+                  );
+                  setClientProfileId(exactMatch?.id ?? null);
+                }}
                 onBlur={() => {
                   touchedRef.current = { ...touchedRef.current, clientName: true };
                 }}
@@ -207,6 +266,7 @@ export default function NewCampaignModal({
             </Button>
             <Button
               type="submit"
+              disabled={submitDisabled}
               className="bg-[var(--accent-green)] text-[var(--accent-green-on-fill)] hover:opacity-90"
             >
               {tCommon("create")}

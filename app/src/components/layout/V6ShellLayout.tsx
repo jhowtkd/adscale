@@ -8,13 +8,7 @@ import { MissionInsightProvider } from "@/components/mission-insights/MissionIns
 import FeedbackBreadcrumbTracker from "@/components/feedback/FeedbackBreadcrumbTracker";
 import { AssistantSurfaceProvider } from "@/components/assistant/AssistantSurfaceContext";
 
-export default function V6ShellLayout({
-  children,
-  sidebarVariant = "production",
-}: {
-  children: ReactNode;
-  sidebarVariant?: "production" | "preview";
-}) {
+export default function V6ShellLayout({ children }: { children: ReactNode }) {
   return (
     <AssistantSurfaceProvider>
       <FeedbackProvider>
@@ -23,8 +17,8 @@ export default function V6ShellLayout({
             <Suspense fallback={null}>
               <FeedbackBreadcrumbTracker />
             </Suspense>
-            <AppSidebar variant={sidebarVariant} />
-            <TopBar variant="v6-floating" />
+            <AppSidebar />
+            <TopBar variant="shell-floating" />
             {children}
           </div>
         </MissionInsightProvider>

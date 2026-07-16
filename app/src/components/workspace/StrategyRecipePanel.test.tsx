@@ -3,6 +3,11 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import StrategyRecipePanel from "./StrategyRecipePanel";
 
 const recordEvent = vi.fn();
+const strategyRecipeState = vi.hoisted(() => ({
+  isLoading: false,
+  isError: false,
+  refetch: vi.fn(),
+}));
 
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string, values?: Record<string, unknown>) => {
@@ -33,11 +38,54 @@ vi.mock("@/lib/hooks/use-art-variation-suggestions", () => ({
   }),
 }));
 
+vi.mock("@/lib/hooks/use-strategy-recipe", () => ({
+  useStrategyRecipe: () => ({
+    rankedRecipes: [
+      { id: "safe_iteration", score: 100, recommended: true },
+      { id: "performance_push", score: 50, recommended: false },
+      { id: "visual_differentiation", score: 40, recommended: false },
+    ],
+    selectedRecipeId: "safe_iteration",
+    resolvedConfig: {
+      generationMode: "art_variation",
+      creativeLevel: "conservative",
+      ctaVariants: ["Buy"],
+      preservationEmphasis: "high",
+    },
+    overrides: {},
+    previewCredits: 5,
+    batchCredits: 5,
+    selectRecipe: vi.fn(),
+    setCreativeLevel: vi.fn(),
+    setCtaVariants: vi.fn(),
+    setGenerationMode: vi.fn(),
+    setTargetFormats: vi.fn(),
+    resetOverrides: vi.fn(),
+    campaignPatch: {
+      generationMode: "art_variation",
+      creativeLevel: "conservative",
+      ctaVariants: ["Buy"],
+    },
+    recommendedRecipe: {
+      recipeId: "safe_iteration",
+      generationMode: "art_variation",
+      creativeLevel: "conservative",
+      ctaVariants: ["Buy"],
+    },
+    isLoading: strategyRecipeState.isLoading,
+    isError: strategyRecipeState.isError,
+    refetch: strategyRecipeState.refetch,
+  }),
+}));
+
 const STAGE_PROPS = { stage: "strategy_recipe", missionKey: "strategy_recipe" };
 
 describe("StrategyRecipePanel", () => {
   beforeEach(() => {
     recordEvent.mockClear();
+    strategyRecipeState.isLoading = false;
+    strategyRecipeState.isError = false;
+    strategyRecipeState.refetch.mockReset();
   });
 
   it("renders three recipe options", () => {
@@ -57,7 +105,7 @@ describe("StrategyRecipePanel", () => {
     expect(screen.getByText("recipes.visual_differentiation.name")).toBeInTheDocument();
   });
 
-  it("does not display credit cost before execution", () => {
+  it("displays server-derived preview and batch credits", () => {
     render(
       <StrategyRecipePanel
         campaignId="camp-1"
@@ -68,10 +116,25 @@ describe("StrategyRecipePanel", () => {
       />
     );
 
-    expect(screen.queryByText(/creditPreview/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/creditBatchEstimate/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/créditos/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/credits/i)).not.toBeInTheDocument();
+    expect(screen.getByTestId("strategy-recipe-preview-credits")).toBeInTheDocument();
+    expect(screen.getByTestId("strategy-recipe-batch-credits")).toBeInTheDocument();
+  });
+
+  it("shows a recoverable error when the server recipe surface fails", () => {
+    strategyRecipeState.isError = true;
+    render(
+      <StrategyRecipePanel
+        campaignId="camp-1"
+        open
+        campaign={{ ctaVariants: ["Buy"] }}
+        onClose={vi.fn()}
+        onGeneratePreview={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole("alert")).toHaveTextContent("surfaceError");
+    fireEvent.click(screen.getByRole("button", { name: "retry" }));
+    expect(strategyRecipeState.refetch).toHaveBeenCalledOnce();
   });
 
   it("emits cockpit_stage_entered when open", () => {

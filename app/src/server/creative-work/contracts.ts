@@ -51,9 +51,13 @@ export interface CreativeWorkIdentitySnapshot {
   };
 }
 
+/**
+ * Create-body for Criar Post. `toolKind` is optional and ignored for routing —
+ * the server always starts with intent social_post (Phase 5 / item 34).
+ */
 export const createCreativeWorkSchema = z.object({
   clientProfileId: z.string().uuid(),
-  toolKind: z.literal("social_post"),
+  toolKind: z.literal("social_post").optional().default("social_post"),
   format: z.enum(["1:1", "4:5", "9:16"]),
   brief: socialPostBriefSchema,
 });

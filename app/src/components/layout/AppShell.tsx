@@ -8,7 +8,7 @@ import { useTranslations } from "next-intl";
 import Footer from "./Footer";
 import V6ShellLayout from "./V6ShellLayout";
 import MobileMoreSheet from "./MobileMoreSheet";
-import { BookOpen, FolderOpen, LayoutDashboard, MoreHorizontal, Settings } from "lucide-react";
+import { BookOpen, FolderOpen, Home, MoreHorizontal, Tag } from "lucide-react";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -20,9 +20,12 @@ export default function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
 
+  // Phase 6 / item 45: Home · Trabalhos · Biblioteca · Marcas · Mais (Config in More)
   const moreActive =
     pathname.startsWith("/templates") ||
-    pathname.startsWith("/assistant");
+    pathname.startsWith("/assistant") ||
+    pathname.startsWith("/settings") ||
+    pathname.startsWith("/feedback");
 
   return (
     <V6ShellLayout>
@@ -37,13 +40,13 @@ export default function AppShell({ children }: AppShellProps) {
       >
         <MobileNavItem
           href="/"
-          label={tNav("dashboard")}
-          icon={LayoutDashboard}
-          active={pathname === "/"}
+          label={tNav("home")}
+          icon={Home}
+          active={pathname === "/" || pathname === "/dashboard" || pathname.startsWith("/dashboard/")}
         />
         <MobileNavItem
           href="/campaigns"
-          label={tNav("campaigns")}
+          label={tNav("works")}
           icon={FolderOpen}
           active={pathname.startsWith("/campaigns")}
         />
@@ -54,10 +57,10 @@ export default function AppShell({ children }: AppShellProps) {
           active={pathname.startsWith("/library")}
         />
         <MobileNavItem
-          href="/settings"
-          label={tNav("settings")}
-          icon={Settings}
-          active={pathname.startsWith("/settings")}
+          href="/brand-kit"
+          label={tNav("brands")}
+          icon={Tag}
+          active={pathname.startsWith("/brand-kit")}
         />
         <MobileNavButton
           label={tNav("more")}
@@ -80,7 +83,7 @@ function MobileNavItem({
 }: {
   href: string;
   label: string;
-  icon: typeof LayoutDashboard;
+  icon: typeof Home;
   active: boolean;
 }) {
   return (

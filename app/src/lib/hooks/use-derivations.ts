@@ -11,6 +11,7 @@ import {
   type DerivationLoadErrorKind,
 } from "@/lib/campaign-load-error";
 import { STALE_TIME } from "@/lib/query-config";
+import { invalidateWorkListProjections } from "@/lib/hooks/use-canonical-works";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 export type { DerivationLoadErrorKind };
@@ -71,7 +72,28 @@ export interface Derivation {
   updatedAt: Date;
 }
 
-async function fetchDerivations(campaignId: string): Promise<Derivation[]> {
+/** Server-calculated produce rules (Phase 6 / item 49). */
+export type WorkspaceProduceSurface = {
+  batchCreditBreakdown: {
+    jobCount: number;
+    unitCost: number;
+    totalCredits: number;
+    generationMode: string;
+  } | null;
+  batchCreditEstimate: number;
+  showPreviewGate: boolean;
+  shouldAutoContinuePreview: boolean;
+  activePreviewId: string | null;
+};
+
+export type DerivationsQueryData = {
+  derivations: Derivation[];
+  produceSurface: WorkspaceProduceSurface | null;
+};
+
+async function fetchDerivations(
+  campaignId: string
+): Promise<DerivationsQueryData> {
   try {
     const res = await apiFetch(`/api/campaigns/${campaignId}/derivations`);
     if (!res.ok) {
@@ -86,14 +108,17 @@ async function fetchDerivations(campaignId: string): Promise<Derivation[]> {
     }
     const data = await res.json();
     const raw = data.derivations as Derivation[];
-    return raw.map((d) => ({
-      ...d,
-      createdAt: new Date(d.createdAt),
-      updatedAt: new Date(d.updatedAt),
-      scoredAt: d.scoredAt ? new Date(d.scoredAt) : null,
-      qaAnalyzedAt: d.qaAnalyzedAt ? new Date(d.qaAnalyzedAt) : null,
-      qualityGatedAt: d.qualityGatedAt ? new Date(d.qualityGatedAt) : null,
-    }));
+    return {
+      derivations: raw.map((d) => ({
+        ...d,
+        createdAt: new Date(d.createdAt),
+        updatedAt: new Date(d.updatedAt),
+        scoredAt: d.scoredAt ? new Date(d.scoredAt) : null,
+        qaAnalyzedAt: d.qaAnalyzedAt ? new Date(d.qaAnalyzedAt) : null,
+        qualityGatedAt: d.qualityGatedAt ? new Date(d.qualityGatedAt) : null,
+      })),
+      produceSurface: (data.produceSurface as WorkspaceProduceSurface) ?? null,
+    };
   } catch (error) {
     if (error instanceof CampaignLoadError) {
       throw error;
@@ -131,6 +156,23 @@ function mergeDerivations(
     (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
   );
   return merged;
+}
+
+export function hasPendingDerivationWork(data: Derivation[] | undefined) {
+  return Boolean(
+    data?.some(
+      (d) =>
+        d.status === "queued" ||
+        d.status === "processing" ||
+        d.scoreStatus === "heuristic" ||
+        (d.status === "completed" && d.scoreStatus === "pending") ||
+        // Preview approval depends on the quality gate, which runs after
+        // scoring. Keep polling through that second lifecycle boundary.
+        (d.isPreview &&
+          d.status === "completed" &&
+          d.qualityGatedAt == null)
+    )
+  );
 }
 
 async function createDerivations(
@@ -172,14 +214,9 @@ export function useDerivations(
     staleTime: STALE_TIME.DYNAMIC,
     refetchInterval: (query) => {
       if (!enablePolling) return false;
-      const data = query.state.data as Derivation[] | undefined;
-      const hasPending = data?.some(
-        (d) =>
-          d.status === "queued" ||
-          d.status === "processing" ||
-          d.scoreStatus === "heuristic" ||
-          (d.status === "completed" && d.scoreStatus === "pending")
-      );
+      const payload = query.state.data as DerivationsQueryData | undefined;
+      const data = payload?.derivations;
+      const hasPending = hasPendingDerivationWork(data);
       if (!hasPending) return false;
 
       // Progressive backoff based on time since first pending observation
@@ -193,6 +230,9 @@ export function useDerivations(
 
   return {
     ...query,
+    /** Back-compat: callers still treat `data` as Derivation[]. */
+    data: query.data?.derivations,
+    produceSurface: query.data?.produceSurface ?? null,
     errorKind: query.error ? getLoadErrorKind(query.error) : null,
     loadError: query.error,
   };
@@ -206,15 +246,18 @@ export function useCreateDerivations(campaignId: string) {
       outputLearningApplication?: OutputLearningApplicationSnapshot;
     }) => createDerivations(campaignId, options),
     onSuccess: (created) => {
-      queryClient.setQueryData<Derivation[]>(["derivations", campaignId], (old) =>
-        mergeDerivations(old, created)
+      queryClient.setQueryData<DerivationsQueryData>(
+        ["derivations", campaignId],
+        (old) => ({
+          derivations: mergeDerivations(old?.derivations, created),
+          produceSurface: old?.produceSurface ?? null,
+        })
       );
       queryClient.invalidateQueries({
         queryKey: ["derivations", campaignId],
       });
-      queryClient.invalidateQueries({ queryKey: ["campaigns"] });
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      void invalidateWorkListProjections(queryClient);
     },
   });
 }
@@ -242,13 +285,16 @@ export function useRestyleCampaign(campaignId: string) {
     mutationFn: (input: { styleAssetIds?: string[]; styleIntensity?: string }) =>
       restyleCampaign(campaignId, input),
     onSuccess: (created) => {
-      queryClient.setQueryData<Derivation[]>(["derivations", campaignId], (old) =>
-        mergeDerivations(old, created)
+      queryClient.setQueryData<DerivationsQueryData>(
+        ["derivations", campaignId],
+        (old) => ({
+          derivations: mergeDerivations(old?.derivations, created),
+          produceSurface: old?.produceSurface ?? null,
+        })
       );
       queryClient.invalidateQueries({ queryKey: ["derivations", campaignId] });
-      queryClient.invalidateQueries({ queryKey: ["campaigns"] });
       queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      void invalidateWorkListProjections(queryClient);
     },
   });
 }

@@ -28,7 +28,7 @@ describe("shouldShowPreviewGate", () => {
     ).toBe(false);
   });
 
-  it("returns false when preview is complete with acceptable quality", () => {
+  it("requires explicit approval when preview is complete with acceptable quality", () => {
     expect(
       shouldShowPreviewGate([
         {
@@ -38,7 +38,7 @@ describe("shouldShowPreviewGate", () => {
           qualityVerdict: "acceptable",
         },
       ])
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("returns true when preview quality failed", () => {
@@ -78,7 +78,7 @@ describe("shouldShowPreviewGate", () => {
     ).toBe(false);
   });
 
-  it("returns the active preview row only when quality failed", () => {
+  it("returns any ready preview until the batch starts", () => {
     const preview = {
       isPreview: true,
       status: "completed",
@@ -94,7 +94,7 @@ describe("shouldShowPreviewGate", () => {
           qualityVerdict: "acceptable",
         },
       ])
-    ).toBeNull();
+    ).toEqual({ ...preview, qualityVerdict: "acceptable" });
     expect(
       getActivePreviewGateDerivation([
         preview,
@@ -105,7 +105,7 @@ describe("shouldShowPreviewGate", () => {
 });
 
 describe("shouldAutoContinuePreview", () => {
-  it("returns true when preview is ready and quality is acceptable", () => {
+  it("never continues without explicit pilot approval", () => {
     expect(
       shouldAutoContinuePreview([
         {
@@ -115,7 +115,21 @@ describe("shouldAutoContinuePreview", () => {
           qualityVerdict: "acceptable",
         },
       ])
-    ).toBe(true);
+    ).toBe(false);
+  });
+
+  it("ignores a historical failed batch when continuing a newer preview", () => {
+    expect(
+      shouldAutoContinuePreview([
+        {
+          isPreview: true,
+          status: "completed",
+          imageUrl: "https://example.com/preview.png",
+          qualityVerdict: "acceptable",
+        },
+        { isPreview: false, status: "failed", imageUrl: null },
+      ])
+    ).toBe(false);
   });
 
   it("returns false when quality failed", () => {
@@ -151,6 +165,6 @@ describe("shouldAutoContinuePreview", () => {
       qualityVerdict: "acceptable" as const,
     };
     expect(getReadyPreviewDerivation([preview])).toEqual(preview);
-    expect(getActivePreviewGateDerivation([preview])).toBeNull();
+    expect(getActivePreviewGateDerivation([preview])).toEqual(preview);
   });
 });

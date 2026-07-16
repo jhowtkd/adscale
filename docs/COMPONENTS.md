@@ -15,7 +15,7 @@ The `app/src/components/` tree holds every React component in the ADScale web cl
 | `assistant/` | 31 | Conversational AI surface: shell, chat core, message list, tree sidebar, guided-flow panels, artifact versioning |
 | `auth/` | 7 | Sign-in / sign-up cards, password input with strength meter, social auth, plus `auth/v6` redesign |
 | `billing/` | 1 | `ConversionCta` — the conversion-gate call-to-action rendered on HTTP 402 spend blocks |
-| `campaigns/` | 28 | Campaign list/grid/board views, cards, filter toolbar, kanban, performance import, hypotheses & learnings, plus `campaigns/v6` |
+| `campaigns/` | Campaign UI | Campaign list/grid/board views, cards, filter toolbar, kanban, and output learning |
 | `cookie-consent/` | 1 | GDPR-style cookie consent banner with localStorage-persisted preferences |
 | `dashboard/` | 13 | Home dashboard: mission path, credit panel/charts, masonry grid, activity feed, onboarding tour, plus `dashboard/v6` |
 | `feedback/` | 13 | Contextual feedback modal/provider plus owner-facing quality cockpit (corpus, learning proposals, analytics, beta sessions) |
@@ -152,7 +152,7 @@ Sign-in / sign-up UI built for Better Auth.
 
 ### `campaigns/` — campaign management
 
-Two layers: a classic set of presentational components (list/grid/board, cards, filters, skeletons) and feature panels (performance import, hypotheses, learnings, recommendations), plus the `v6/` redesign.
+Campaign list/grid/board views, cards, filters, skeletons, and the active output-learning recommendation.
 
 **Views & cards** (props centered on a `Campaign` from `@/lib/mock-data`):
 
@@ -177,14 +177,7 @@ Two layers: a classic set of presentational components (list/grid/board, cards, 
 - **`useCreativeAnalysis(campaignId)`** — `useMutation` wrapper for creative analysis.
 - **`filter-labels.ts`** — `getStatusFilterLabel()`, `getPlatformFilterLabel()`, `getSortFilterLabel()` with a `TranslateFn` abstraction (testable without next-intl).
 
-**Feature panels:**
-
-- `HypothesesPanel({ campaignId, derivations })` — renders `VariantComparisonReport` (`ComparisonReportView`).
-- `LearningsPanel({ campaignId })` — `PerformanceLearning` cards.
-- `PerformanceImportPanel({ campaignId })` — CSV/manual import with tabs `PanelTab = "manual" | "csv" | "history"`, `ParseOptionsFields`, `PreviewTable`.
-- `NextExperimentRecommendationCard` — exports `RecipePrefillPayload`; `OutputLearningRecommendationCard` shows projected learnings.
-
-**`campaigns/v6/`** redesign: `CampaignsV6View` (re-uses `campaigns/types.ts` filters), `map-campaigns-v6.ts` + `campaigns-v6-types.ts` view-models, `build-campaigns-v6-labels.ts`. **`campaigns/v6/workspace/CampaignWorkspaceV6View`** exposes `CampaignWorkspaceV6Chrome`, `CampaignWorkspaceBriefingV6Panel`, plus `WorkspaceStageList`/`BriefingPanel`/`DerivationsPanel` internals.
+**Learning:** `OutputLearningRecommendationCard` is the mounted recommendation adapter.
 
 ### `cookie-consent/` — GDPR banner
 

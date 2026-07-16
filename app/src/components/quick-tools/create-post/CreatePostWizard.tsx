@@ -79,11 +79,13 @@ export default function CreatePostWizard({ workId: initialWorkId }: { workId?: s
   const [format, setFormat] = useState<"1:1" | "4:5" | "9:16">("1:1");
   const [brief, setBrief] = useState<BriefFormState>(EMPTY_BRIEF);
   const [stepIndex, setStepIndex] = useState<number>(0);
-  const [activeWorkId, setActiveWorkId] = useState<string | null>(workId);
+  const [createdWorkId, setCreatedWorkId] = useState<string | null>(null);
   const [headline, setHeadline] = useState("");
   const [body, setBody] = useState("");
   const [cta, setCta] = useState("");
   const [selectedReferenceIds, setSelectedReferenceIds] = useState<string[]>([]);
+
+  const activeWorkId = workId ?? createdWorkId;
 
   const workQuery = useCreativeWork(activeWorkId);
 
@@ -113,20 +115,21 @@ export default function CreatePostWizard({ workId: initialWorkId }: { workId?: s
     if (!detail) return stepIndex;
     const status = detail.work.status;
     if (status === "draft") return detail.work.copy ? 2 : 1;
-    // "ready" and beyond (generating / completed / failed) all live on the
-    // proposals step now that the confirm step has been folded into assets.
+    // A ready work has a confirmed identity but may not have dispatched its
+    // outputs yet. Keep that resumable state on Identity so the user has a
+    // real generation action instead of three empty proposal placeholders.
+    if (status === "ready" && detail.outputs.length === 0) return 2;
+    // Generating / completed / failed works have concrete output rows and
+    // belong on the proposal grid.
     return 3;
     // detail is intentionally not listed — we only need the three scalar
     // fields, and adding the whole object would re-run on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [detail?.work.id, detail?.work.status, detail?.work.copy, stepIndex]);
+  }, [detail?.work.id, detail?.work.status, detail?.work.copy, detail?.outputs.length, stepIndex]);
 
-  // After a brand-new draft is created, normalise the in-memory state so
-  // later renders don't drift from the persisted snapshot. This is the
-  // canonical "sync from server" pattern that requires an effect: the
-  // external data source (TanStack Query) pushes updates and we mirror them
-  // into local state. We track the last-synced workId in a ref so each
-  // setState only fires once per server-side change.
+  // After a brand-new draft is created, normalise the editable fields once
+  // for that work item. Field values must not be overwritten by later query
+  // refreshes because the Copy step is locally editable.
   const lastSyncedWorkIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (!detail) return;
@@ -145,9 +148,20 @@ export default function CreatePostWizard({ workId: initialWorkId }: { workId?: s
       setBody(detail.work.copy.body);
       setCta(detail.work.copy.cta);
     }
-    setStepIndex((current) => (current >= persistedStepIndex ? current : persistedStepIndex));
     /* eslint-enable react-hooks/set-state-in-effect */
-  }, [detail?.work.id, detail?.work.status, detail?.work.copy, detail, persistedStepIndex]);
+  }, [detail?.work.id, detail?.work.copy, detail]);
+
+  // Step progression follows every persisted lifecycle change for the same
+  // work item. Keeping this separate from the one-time field hydration is
+  // important: copy generation updates an existing draft rather than
+  // creating a new workId.
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    setStepIndex((current) =>
+      current >= persistedStepIndex ? current : persistedStepIndex
+    );
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [persistedStepIndex]);
 
   // Pre-select the first three identity options as a sensible default
   // (logo + visual reference + character/graphic). The user can still
@@ -184,6 +198,7 @@ export default function CreatePostWizard({ workId: initialWorkId }: { workId?: s
     if (!canAdvanceFromBrief) return;
     try {
       let currentId = activeWorkId;
+      let createdWork = false;
       if (!currentId) {
         const result = await createMutation.mutateAsync({
           clientProfileId,
@@ -192,14 +207,29 @@ export default function CreatePostWizard({ workId: initialWorkId }: { workId?: s
           brief,
         });
         currentId = result.work.id;
-        setActiveWorkId(currentId);
-        // Persist the workId in the URL so refresh / share keeps the context.
-        router.replace(`/quick-tools/create-post?workId=${currentId}`);
+        createdWork = true;
+        setCreatedWorkId(currentId);
       }
-      const copyResult = await copyMutation.mutateAsync(currentId);
-      setHeadline(copyResult.copy.headline);
-      setBody(copyResult.copy.body);
-      setCta(copyResult.copy.cta);
+      try {
+        const copyResult = await copyMutation.mutateAsync(currentId);
+        setHeadline(copyResult.copy.headline);
+        setBody(copyResult.copy.body);
+        setCta(copyResult.copy.cta);
+      } finally {
+        if (createdWork) {
+          // Next patches the History API to synchronise search params with
+          // its router. Updating it while POST /copy is in flight aborts that
+          // request, so expose the resumable workId only after the request
+          // settles — on failure as well, so retry does not create a duplicate.
+          const params = new URLSearchParams(window.location.search);
+          params.set("workId", currentId);
+          window.history.replaceState(
+            window.history.state,
+            "",
+            `${window.location.pathname}?${params.toString()}`
+          );
+        }
+      }
       goNext();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : tCommon("error"));
@@ -248,21 +278,18 @@ export default function CreatePostWizard({ workId: initialWorkId }: { workId?: s
     }
   };
 
-  const handleSelect = async (outputId: string) => {
-    if (!activeWorkId) return;
-    try {
-      await selectMutation.mutateAsync({ workItemId: activeWorkId, outputId, saveToLibrary: false });
-      addToast("success", tQuick("selectSuccess"));
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : tCommon("error"));
-    }
-  };
-
   const handleSave = async (outputId: string) => {
     if (!activeWorkId) return;
     try {
-      await selectMutation.mutateAsync({ workItemId: activeWorkId, outputId, saveToLibrary: true });
+      await selectMutation.mutateAsync({
+        workItemId: activeWorkId,
+        outputId,
+        saveToLibrary: true,
+      });
       addToast("success", tQuick("saveSuccess"));
+      // Land on library so the user can confirm the asset (creative_work keys
+      // render via authenticated /file proxy, not the home feed).
+      router.push("/library");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : tCommon("error"));
     }
@@ -277,6 +304,24 @@ export default function CreatePostWizard({ workId: initialWorkId }: { workId?: s
   // ----- Rendering ---------------------------------------------------------
 
   const currentStep = STEP_ORDER[stepIndex];
+
+  if (activeWorkId && workQuery.isLoading && !detail) {
+    return (
+      <section
+        aria-label={tQuick("title")}
+        data-testid="create-post-wizard"
+        className="mx-auto flex w-full max-w-4xl flex-col gap-8"
+      >
+        <header className="space-y-1">
+          <h1 className="product-page-title text-[var(--text-primary)]">{tQuick("title")}</h1>
+          <p className="text-sm text-[var(--text-secondary)]">{tQuick("subtitle")}</p>
+        </header>
+        <p role="status" className="text-sm text-[var(--text-secondary)]">
+          {tCommon("loading")}
+        </p>
+      </section>
+    );
+  }
 
   return (
     <section
@@ -360,11 +405,9 @@ export default function CreatePostWizard({ workId: initialWorkId }: { workId?: s
           outputs={detail.outputs}
           identitySnapshot={detail.work.identitySnapshot}
           onRetry={handleRetry}
-          onSelect={handleSelect}
           onSave={handleSave}
           onDownload={handleDownload}
           isRetrying={(id) => retryMutation.isPending && retryMutation.variables?.outputId === id}
-          isSelecting={(id) => selectMutation.isPending && selectMutation.variables?.outputId === id}
           isSaving={(id) =>
             selectMutation.isPending && selectMutation.variables?.outputId === id && (selectMutation.variables?.saveToLibrary ?? false)
           }
@@ -696,11 +739,9 @@ function ProposalsStep(props: {
   outputs: CreativeWorkOutput[];
   identitySnapshot: CreativeWorkIdentitySnapshot | null;
   onRetry: (outputId: string) => void;
-  onSelect: (outputId: string) => void;
   onSave: (outputId: string) => void;
   onDownload: (outputId: string) => void;
   isRetrying: (outputId: string) => boolean;
-  isSelecting: (outputId: string) => boolean;
   isSaving: (outputId: string) => boolean;
 }) {
   const tQuick = useTranslations("quickTools.createPost");
@@ -745,11 +786,9 @@ function ProposalsStep(props: {
       <CreativeProposalGrid
         outputs={sortedOutputs}
         onRetry={props.onRetry}
-        onSelect={props.onSelect}
         onSave={props.onSave}
         onDownload={props.onDownload}
         isRetrying={props.isRetrying}
-        isSelecting={props.isSelecting}
         isSaving={props.isSaving}
       />
     </div>

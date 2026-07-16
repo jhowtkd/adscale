@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-/* eslint-disable @next/next/no-img-element */
 
 import {
   Eye,
@@ -14,8 +13,6 @@ import {
   Package,
   ShieldCheck,
   BookmarkPlus,
-  FileText,
-  Users,
   Scale,
   PenTool,
   MoreHorizontal,
@@ -62,8 +59,6 @@ interface DerivationCardProps {
   onCreateDeliveryPackage?: () => void;
   onRunQa?: () => void;
   onSaveAsReference?: () => void;
-  onGenerateLandingPage?: () => void;
-  onSimulatePersonas?: () => void;
   onCompare?: () => void;
   onAnnotate?: () => void;
   isCompareMode?: boolean;
@@ -75,8 +70,6 @@ interface DerivationCardProps {
     rejecting?: boolean;
   };
   regeneratingId?: string | null;
-  landingPageGeneratingId?: string | null;
-  simulatingPersonasId?: string | null;
   gridSize?: "small" | "medium" | "large";
 }
 
@@ -155,15 +148,11 @@ export default function DerivationCard({
   onCreateDeliveryPackage,
   onRunQa,
   onSaveAsReference,
-  onGenerateLandingPage,
-  onSimulatePersonas,
   onCompare,
   onAnnotate,
   qaAnalyzingId,
   interactionState,
   regeneratingId,
-  landingPageGeneratingId,
-  simulatingPersonasId,
 }: DerivationCardProps) {
   const t = useTranslations("derivation");
   const tr = useTranslations("review");
@@ -185,8 +174,6 @@ export default function DerivationCard({
   const isSavingReference = interactionState?.savingReference ?? false;
   const isApproving = interactionState?.approving ?? false;
   const isRejecting = interactionState?.rejecting ?? false;
-  const isGeneratingLandingPage = landingPageGeneratingId === derivation.id;
-  const isSimulatingPersonas = simulatingPersonasId === derivation.id;
   const exportMutation = useExport();
   const addToast = useAppStore((s) => s.addToast);
 
@@ -215,6 +202,7 @@ export default function DerivationCard({
   const approvalBlocked = isNormalApprovalBlocked(derivation);
   const isApprovedWithImage =
     derivation.status === "approved" && Boolean(derivation.imageUrl);
+  const canPreview = isCompleted && Boolean(derivation.imageUrl);
   const showOverflowMenu =
     derivation.status === "completed" ||
     derivation.status === "approved" ||
@@ -266,17 +254,22 @@ export default function DerivationCard({
       style={{ animationDelay: `${index * 80}ms` }}
     >
       {/* ---- Image Area ---- */}
-      <button
-        type="button"
-        disabled={!isCompleted || !derivation.imageUrl}
+      <div
+        role={canPreview ? "button" : undefined}
+        tabIndex={canPreview ? 0 : undefined}
         className={cn(
           "relative block w-full overflow-hidden rounded-lg bg-muted border-0 p-0 text-left",
           aspectClass,
-          isCompleted && derivation.imageUrl && "cursor-pointer"
+          canPreview && "cursor-pointer"
         )}
-        onClick={
-          isCompleted && derivation.imageUrl
-            ? () => onPreview(derivation.id)
+        onClick={canPreview ? () => onPreview(derivation.id) : undefined}
+        onKeyDown={
+          canPreview
+            ? (event) => {
+                if (event.key !== "Enter" && event.key !== " ") return;
+                event.preventDefault();
+                onPreview(derivation.id);
+              }
             : undefined
         }
       >
@@ -334,7 +327,7 @@ export default function DerivationCard({
             onRetry={handleRegenerate}
           />
         )}
-      </button>
+      </div>
 
       {/* ---- Info Area ---- */}
       <div className="p-3.5 space-y-2">
@@ -470,10 +463,6 @@ export default function DerivationCard({
           </p>
         ) : null}
 
-        {/* Row 3: Prompt preview */}
-        <p className="text-[13px] text-[var(--text-secondary)] line-clamp-2 leading-relaxed">
-          {derivation.prompt}
-        </p>
         {derivation.scoreIssues?.[0] && (
           <p className="text-[11px] text-[var(--text-muted)] line-clamp-1">
             {derivation.scoreIssues[0]}
@@ -584,26 +573,6 @@ export default function DerivationCard({
                         >
                           <BookmarkPlus size={14} />
                           {t("saveAsReference")}
-                        </DropdownMenuItem>
-                      ) : null}
-                      {onGenerateLandingPage ? (
-                        <DropdownMenuItem
-                          disabled
-                          className="flex items-center gap-2"
-                          title={commonT("comingSoon")}
-                        >
-                          <FileText size={14} />
-                          {t("generateLandingPage")}
-                        </DropdownMenuItem>
-                      ) : null}
-                      {onSimulatePersonas ? (
-                        <DropdownMenuItem
-                          onClick={onSimulatePersonas}
-                          disabled={isSimulatingPersonas}
-                          className="flex items-center gap-2"
-                        >
-                          <Users size={14} />
-                          {t("simulatePersonas")}
                         </DropdownMenuItem>
                       ) : null}
                     </>

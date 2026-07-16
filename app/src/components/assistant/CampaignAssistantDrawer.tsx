@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useCreateAssistantThread } from "@/lib/hooks/use-assistant-threads";
 import AssistantChatCore from "./AssistantChatCore";
@@ -50,14 +50,21 @@ function CampaignAssistantDrawerPanel({
 }: CampaignAssistantDrawerProps) {
   const t = useTranslations("assistant.drawer");
   const createThread = useCreateAssistantThread();
-  const [threadId, setThreadId] = useState<string | null>(null);
+  const requestKey = clientProfileId ? `${campaignId}:${clientProfileId}` : null;
+  const requestKeyRef = useRef<string | null>(null);
+  const [resolvedThread, setResolvedThread] = useState<{
+    requestKey: string;
+    threadId: string;
+  } | null>(null);
+  const threadId =
+    resolvedThread?.requestKey === requestKey ? resolvedThread.threadId : null;
 
   useEffect(() => {
-    if (threadId || !clientProfileId) {
+    if (!requestKey || threadId || requestKeyRef.current === requestKey) {
       return;
     }
 
-    let cancelled = false;
+    requestKeyRef.current = requestKey;
 
     void createThread
       .mutateAsync({
@@ -66,16 +73,12 @@ function CampaignAssistantDrawerPanel({
         isDefault: true,
       })
       .then((thread) => {
-        if (!cancelled) {
-          setThreadId(thread.id);
+        if (requestKeyRef.current === requestKey) {
+          setResolvedThread({ requestKey, threadId: thread.id });
         }
       })
       .catch(() => null);
-
-    return () => {
-      cancelled = true;
-    };
-  }, [threadId, clientProfileId, campaignId, createThread]);
+  }, [requestKey, threadId, clientProfileId, campaignId, createThread]);
 
   const resolveError = createThread.error
     ? createThread.error instanceof Error

@@ -31,6 +31,7 @@ vi.mock("@/server/repositories/derivation", () => ({
   failStaleActiveDerivations: vi.fn(),
   getDerivationsByCampaign: vi.fn(),
   updateDerivationStatus: vi.fn(),
+  campaignHasActiveDerivations: vi.fn(() => Promise.resolve(false)),
 }));
 
 vi.mock("@/server/repositories/asset", () => ({
@@ -42,6 +43,7 @@ vi.mock("@/server/jobs/client", () => ({
 }));
 
 vi.mock("@/server/billing/paywall", () => ({
+  spend: vi.fn(() => Promise.resolve({ ok: true, creditsSpent: 5 })),
   spendOrApiError: vi.fn(() => Promise.resolve(null)),
 }));
 
@@ -54,13 +56,13 @@ vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
 }));
 
-import { db } from "@/server/db";
 import {
   getCampaignById,
   refreshCampaignStatus,
   updateCampaign,
 } from "@/server/repositories/campaign";
 import {
+  campaignHasActiveDerivations,
   createDerivation,
   failStaleActiveDerivations,
   getDerivationsByCampaign,
@@ -68,19 +70,19 @@ import {
 } from "@/server/repositories/derivation";
 import { getAssetsByCampaign } from "@/server/repositories/asset";
 import { inngest } from "@/server/jobs/client";
-import { spendOrApiError } from "@/server/billing/paywall";
+import { spend } from "@/server/billing/paywall";
 import { objectStorage } from "@/server/storage";
 
-const mockDbSelect = vi.mocked(db.select);
 const mockGetCampaignById = vi.mocked(getCampaignById);
 const mockUpdateCampaign = vi.mocked(updateCampaign);
 const mockCreateDerivation = vi.mocked(createDerivation);
 const mockFailStaleActiveDerivations = vi.mocked(failStaleActiveDerivations);
 const mockGetDerivationsByCampaign = vi.mocked(getDerivationsByCampaign);
 const mockUpdateDerivationStatus = vi.mocked(updateDerivationStatus);
+const mockHasActive = vi.mocked(campaignHasActiveDerivations);
 const mockGetAssetsByCampaign = vi.mocked(getAssetsByCampaign);
 const mockInngestSend = vi.mocked(inngest.send);
-const mockSpendCredits = vi.mocked(spendOrApiError);
+const mockSpendCredits = vi.mocked(spend);
 const mockGetPresignedDownloadUrl = vi.mocked(objectStorage.signedDownloadUrl);
 
 function makeParams(id: string) {
@@ -101,30 +103,10 @@ function getRequest(id: string): Request {
   });
 }
 
-function mockDbNoQueued() {
-  mockDbSelect.mockReturnValue({
-    from: () => ({
-      where: () => ({
-        limit: () => Promise.resolve([]),
-      }),
-    }),
-  } as unknown as ReturnType<typeof db.select>);
-}
-
-function mockDbHasQueued() {
-  mockDbSelect.mockReturnValue({
-    from: () => ({
-      where: () => ({
-        limit: () => Promise.resolve([{ id: "existing" }]),
-      }),
-    }),
-  } as unknown as ReturnType<typeof db.select>);
-}
-
 describe("POST /api/campaigns/[id]/restyle", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockDbNoQueued();
+    mockHasActive.mockResolvedValue(false);
     mockGetCampaignById.mockResolvedValue({
       id: "camp-1",
       name: "Test Campaign",
@@ -154,7 +136,7 @@ describe("POST /api/campaigns/[id]/restyle", () => {
       format: "1024x1024",
     } as Awaited<ReturnType<typeof createDerivation>>);
     mockInngestSend.mockResolvedValue(undefined);
-    mockSpendCredits.mockResolvedValue(null);
+    mockSpendCredits.mockResolvedValue({ ok: true, creditsSpent: 5 });
   });
 
   afterEach(() => {
@@ -178,7 +160,7 @@ describe("POST /api/campaigns/[id]/restyle", () => {
   });
 
   it("returns 429 when derivations are already queued or processing", async () => {
-    mockDbHasQueued();
+    mockHasActive.mockResolvedValue(true);
 
     const res = await POST(postRequest({}), { params: makeParams("camp-1") });
 

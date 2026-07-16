@@ -46,7 +46,7 @@ vi.mock("@/server/billing/paywall", () => ({
 
 const resolveBrandKitProfileId = vi.fn();
 const upsertBrandKit = vi.fn();
-vi.mock("@/server/db/repositories/brand-kit", () => ({
+vi.mock("@/server/repositories/brand-kit", () => ({
   BrandKitAmbiguityError: class BrandKitAmbiguityError extends Error {
     name = "BrandKitAmbiguityError";
   },

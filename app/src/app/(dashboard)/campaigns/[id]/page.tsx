@@ -28,7 +28,6 @@ const EMPTY_WORKSPACE_VIEW: CampaignWorkspaceV6ViewModel = {
   stages: [],
   briefingSliders: [],
   briefingRules: [],
-  derivations: [],
 };
 
 const DeliveryPackageModal = dynamic(() => import("@/components/workspace/DeliveryPackageModal"), {
@@ -63,12 +62,14 @@ import CampaignClientSubtitle from "@/components/campaigns/CampaignClientSubtitl
 import ClientProfileLinkControl from "@/components/campaigns/ClientProfileLinkControl";
 import PlatformsDrawer from "@/components/campaigns/PlatformsDrawer";
 import { formatCampaignPlatforms } from "@/lib/campaign-platforms";
-import type { StrategyRecipePrefill } from "@/lib/hooks/use-strategy-recipe";
 import {
-  buildRecommendedRecipePatch,
-  type BrandKitSnapshot,
-  type CampaignRecipeContext,
-} from "@/server/ai/strategy-recipes";
+  useRecommendedRecipePatch,
+  type StrategyRecipePrefill,
+} from "@/lib/hooks/use-strategy-recipe";
+import type {
+  BrandKitSnapshot,
+  CampaignRecipeContext,
+} from "@/lib/domain/strategy-recipe-types";
 import ContextualFeedbackButton from "@/components/feedback/ContextualFeedbackButton";
 import { AdscaleLoaderStage } from "@/components/animations";
 import CampaignErrorState from "@/components/campaigns/CampaignErrorState";
@@ -169,7 +170,6 @@ export default function CampaignWorkspacePage() {
     savePilot,
     handleGenerateDerivations,
     configureAndGenerate,
-    handleGenerateLandingPage,
     handleSaveAsReference,
     hasActivePreview,
     previewDerivation,
@@ -196,8 +196,6 @@ export default function CampaignWorkspacePage() {
     reviewVariables,
     regeneratePending,
     regenerateVariables,
-    landingPagePending,
-    landingPageVariables,
     createDerivationsPending,
     exportPending,
     deliveryPackagePending,
@@ -356,12 +354,27 @@ export default function CampaignWorkspacePage() {
     product?: string;
     offer?: string;
   }) => {
-    if (!pilotAssetIdRef.current) return;
     try {
-      await savePilot(pilotAssetIdRef.current, {
-        ...briefing,
-        tone: briefing.tone ?? analysis.suggestedTone,
+      const tone = briefing.tone ?? analysis.suggestedTone;
+      if (pilotAssetIdRef.current) {
+        await savePilot(pilotAssetIdRef.current, { ...briefing, tone });
+        return;
+      }
+
+      await updateCampaign.mutateAsync({
+        product: briefing.product,
+        offer: briefing.offer,
+        objective: briefing.objective,
+        audience: briefing.audience,
+        tone,
+        constraints: briefing.constraints,
+        platforms: briefing.platforms
+          ?.split(",")
+          .map((platform) => platform.trim())
+          .filter(Boolean),
+        ctaVariants: briefing.ctaText ? [briefing.ctaText] : undefined,
       });
+      goToTrabalho();
     } catch (error) {
       const message =
         error instanceof Error && error.message === "rateLimitExceeded"
@@ -372,6 +385,7 @@ export default function CampaignWorkspacePage() {
   };
 
   const handleStageSelect = (tab: WorkspaceStageNavTab) => {
+    // share is a valid CampaignTabDeepLink (mission-share / deliver)
     const deepTab = tab as CampaignTabDeepLink;
     if (tab === "briefing") {
       goToSetup();
@@ -423,18 +437,17 @@ export default function CampaignWorkspacePage() {
     [brandKit]
   );
 
-  const recommendedRecipe = useMemo(
-    () =>
-      buildRecommendedRecipePatch({
-        readiness: preflightData?.readiness,
-        brandKit: brandKitSnapshot,
-        campaign: campaignRecipeContext,
-      }),
-    [preflightData?.readiness, brandKitSnapshot, campaignRecipeContext]
-  );
+  const { recommendedRecipe } = useRecommendedRecipePatch({
+    readiness: preflightData?.readiness,
+    brandKit: brandKitSnapshot,
+    campaign: campaignRecipeContext,
+    enabled: Boolean(campaignId) && campaignId !== "new",
+  });
 
   const tRecipes = useTranslations("strategyRecipes");
-  const recommendedRecipeLabel = tRecipes(`recipes.${recommendedRecipe.recipeId}.name`);
+  const recommendedRecipeLabel = tRecipes(
+    `recipes.${recommendedRecipe.recipeId}.name`
+  );
 
   const handleGenerateWithDefaults = async () => {
     goToTrabalho();
@@ -555,7 +568,6 @@ export default function CampaignWorkspacePage() {
             onCreateDeliveryPackage={handleCreateDeliveryPackage}
             onRunQa={handleRunQa}
             onSaveAsReference={handleSaveAsReference}
-            onGenerateLandingPage={handleGenerateLandingPage}
             qaAnalyzingId={
               creativeQaPending && creativeQaVariables?.derivationId
                 ? creativeQaVariables.derivationId
@@ -563,11 +575,6 @@ export default function CampaignWorkspacePage() {
             }
             regeneratingId={
               regeneratePending && regenerateVariables?.id ? regenerateVariables.id : null
-            }
-            landingPageGeneratingId={
-              landingPagePending && landingPageVariables?.derivationId
-                ? landingPageVariables.derivationId
-                : null
             }
             savingReferenceId={savingReferenceId}
             reviewPending={reviewPending}
@@ -752,10 +759,8 @@ interface CampaignWorkspaceCardProps {
   onCreateDeliveryPackage: (id: string) => void;
   onRunQa: (id: string) => void;
   onSaveAsReference: (id: string) => void;
-  onGenerateLandingPage: (id: string) => void;
   qaAnalyzingId: string | null;
   regeneratingId: string | null;
-  landingPageGeneratingId: string | null;
   savingReferenceId: string | null;
   reviewPending: boolean;
   reviewVariables: ReviewDerivationVariables | null;
@@ -815,10 +820,8 @@ function CampaignWorkspaceCard({
   onCreateDeliveryPackage,
   onRunQa,
   onSaveAsReference,
-  onGenerateLandingPage,
   qaAnalyzingId,
   regeneratingId,
-  landingPageGeneratingId,
   savingReferenceId,
   reviewPending,
   reviewVariables,
@@ -846,6 +849,14 @@ function CampaignWorkspaceCard({
 
   return (
     <section className="min-h-[400px] rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-5 sm:p-8">
+      {isDerivationsError && derivationsErrorKind ? (
+        <div className="mb-3">
+          <DerivationLoadErrorBanner
+            kind={derivationsErrorKind}
+            onRetry={onRetryDerivations}
+          />
+        </div>
+      ) : null}
       {workspaceState === "setup" && (
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
           <div id="mission-assets">
@@ -923,58 +934,51 @@ function CampaignWorkspaceCard({
               readinessBlocking={readinessBlocking}
               disabled={isGenerating}
             />
-            <PageSection id="mission-share" title={tApproval("title")}>
-              <ClientApprovalPackagePanel campaignId={campaignId} />
-            </PageSection>
+            {/* Phase 6 / item 47: Review and Deliver are distinct tasks (not nested). */}
             <div id="mission-review">
-            <PageSection id="mission-export" title={tCampaign("derivationsSectionTitle")}>
-              {isDerivationsError && derivationsErrorKind ? (
-                <div className="mb-3">
-                  <DerivationLoadErrorBanner
-                    kind={derivationsErrorKind}
-                    onRetry={onRetryDerivations}
-                  />
-                </div>
-              ) : null}
-              {isGenerating && (
-                <p className="text-xs text-[var(--text-secondary)] mb-3 flex items-center gap-2">
-                  <span className="inline-block size-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                  {tCampaign("generatingDerivations")}
-                </p>
-              )}
-              <DerivationGrid
-                derivations={allDerivations}
-                onAddNew={onOpenDerivar}
-                onPreview={onPreview}
-                onDownload={onDownload}
-                onRegenerate={onRegenerate}
-                onApprove={onApprove}
-                onReject={onReject}
-                onCreateDeliveryPackage={onCreateDeliveryPackage}
-                onRunQa={onRunQa}
-                onSaveAsReference={onSaveAsReference}
-                onGenerateLandingPage={onGenerateLandingPage}
-                qaAnalyzingId={qaAnalyzingId}
-                regeneratingId={regeneratingId}
-                landingPageGeneratingId={landingPageGeneratingId}
-                savingReferenceId={savingReferenceId}
-                reviewPending={reviewPending}
-                reviewVariables={reviewVariables}
-                previewGate={
-                  showPreviewGate &&
-                  previewDerivation &&
-                  onApprovePreviewBatch
-                    ? {
-                        campaignId,
-                        previewId: previewDerivation.id,
-                        isApproving: createDerivationsPending,
-                        onApproveBatch: onApprovePreviewBatch,
-                        onAdjustStrategy: () => onOpenDerivar(),
-                      }
-                    : undefined
-                }
-              />
-            </PageSection>
+              <PageSection title={tCampaign("derivationsSectionTitle")}>
+                {isGenerating && (
+                  <p className="text-xs text-[var(--text-secondary)] mb-3 flex items-center gap-2">
+                    <span className="inline-block size-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                    {tCampaign("generatingDerivations")}
+                  </p>
+                )}
+                <DerivationGrid
+                  derivations={allDerivations}
+                  onAddNew={onOpenDerivar}
+                  onPreview={onPreview}
+                  onDownload={onDownload}
+                  onRegenerate={onRegenerate}
+                  onApprove={onApprove}
+                  onReject={onReject}
+                  onCreateDeliveryPackage={onCreateDeliveryPackage}
+                  onRunQa={onRunQa}
+                  onSaveAsReference={onSaveAsReference}
+                  qaAnalyzingId={qaAnalyzingId}
+                  regeneratingId={regeneratingId}
+                  savingReferenceId={savingReferenceId}
+                  reviewPending={reviewPending}
+                  reviewVariables={reviewVariables}
+                  previewGate={
+                    showPreviewGate &&
+                    previewDerivation &&
+                    onApprovePreviewBatch
+                      ? {
+                          campaignId,
+                          previewId: previewDerivation.id,
+                          isApproving: createDerivationsPending,
+                          onApproveBatch: onApprovePreviewBatch,
+                          onAdjustStrategy: () => onOpenDerivar(),
+                        }
+                      : undefined
+                  }
+                />
+              </PageSection>
+            </div>
+            <div id="mission-share">
+              <PageSection title={tApproval("title")}>
+                <ClientApprovalPackagePanel campaignId={campaignId} />
+              </PageSection>
             </div>
           </div>
         </div>

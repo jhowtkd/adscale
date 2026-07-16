@@ -6,7 +6,6 @@ import {
   integer,
   real,
   numeric,
-  date,
   jsonb,
   index,
   uniqueIndex,
@@ -713,488 +712,7 @@ export const derivations = adscaleSchema.table(
   ]
 );
 
-export const creativePerformanceSnapshots = adscaleSchema.table(
-  "creative_performance_snapshots",
-  {
-    id: uuid("id")
-      .primaryKey()
-      .$defaultFn(() => crypto.randomUUID()),
-    workspaceId: uuid("workspace_id")
-      .notNull()
-      .references(() => workspaces.id, { onDelete: "cascade" }),
-    clientProfileId: uuid("client_profile_id")
-      .notNull()
-      .references(() => clientProfiles.id, { onDelete: "cascade" }),
-    campaignId: uuid("campaign_id")
-      .notNull()
-      .references(() => campaigns.id, { onDelete: "cascade" }),
-    derivationId: uuid("derivation_id")
-      .notNull()
-      .references(() => derivations.id, { onDelete: "cascade" }),
-    platform: text("platform").notNull(),
-    placement: text("placement").notNull(),
-    placementRaw: text("placement_raw").notNull(),
-    adAccountId: text("ad_account_id"),
-    startDate: date("start_date", { mode: "string" }).notNull(),
-    endDate: date("end_date", { mode: "string" }).notNull(),
-    sourceTimezone: text("source_timezone").notNull(),
-    currency: varchar("currency", { length: 3 }).notNull(),
-    impressions: numeric("impressions", { precision: 30, scale: 0 }).notNull(),
-    clicks: numeric("clicks", { precision: 30, scale: 0 }).notNull(),
-    spend: numeric("spend", { precision: 20, scale: 6 }).notNull(),
-    conversions: numeric("conversions", { precision: 20, scale: 6 }).notNull(),
-    conversionValue: numeric("conversion_value", { precision: 20, scale: 6 }).notNull(),
-    sourceType: text("source_type").notNull(),
-    externalCampaignId: text("external_campaign_id"),
-    externalAdGroupId: text("external_ad_group_id"),
-    externalAdId: text("external_ad_id"),
-    sourceKey: varchar("source_key", { length: 64 }).notNull(),
-    scopeKind: text("scope_kind").notNull(),
-    scopeDimensions: jsonb("scope_dimensions").$type<Record<string, string>>(),
-    sourceMetadata: jsonb("source_metadata").$type<Record<string, unknown>>(),
-    createdByUserId: text("created_by_user_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "restrict" }),
-    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
-  },
-  (table) => [
-    uniqueIndex("creative_performance_workspace_source_key_uq").on(
-      table.workspaceId,
-      table.sourceKey
-    ),
-    index("creative_performance_workspace_campaign_idx").on(
-      table.workspaceId,
-      table.campaignId
-    ),
-    index("creative_performance_workspace_derivation_idx").on(
-      table.workspaceId,
-      table.derivationId
-    ),
-    index("creative_performance_workspace_client_period_idx").on(
-      table.workspaceId,
-      table.clientProfileId,
-      table.startDate,
-      table.endDate
-    ),
-    index("creative_performance_workspace_placement_idx").on(
-      table.workspaceId,
-      table.platform,
-      table.placement
-    ),
-    check(
-      "creative_performance_period_check",
-      sql`${table.endDate} >= ${table.startDate}`
-    ),
-    check(
-      "creative_performance_impressions_nonnegative_check",
-      sql`${table.impressions} >= 0`
-    ),
-    check(
-      "creative_performance_clicks_nonnegative_check",
-      sql`${table.clicks} >= 0`
-    ),
-    check(
-      "creative_performance_clicks_lte_impressions_check",
-      sql`${table.clicks} <= ${table.impressions}`
-    ),
-    check("creative_performance_spend_nonnegative_check", sql`${table.spend} >= 0`),
-    check(
-      "creative_performance_conversions_nonnegative_check",
-      sql`${table.conversions} >= 0`
-    ),
-    check(
-      "creative_performance_value_nonnegative_check",
-      sql`${table.conversionValue} >= 0`
-    ),
-    check(
-      "creative_performance_scope_kind_check",
-      sql`${table.scopeKind} in ('total', 'segment')`
-    ),
-  ]
-);
 
-export type CreativePerformanceSnapshot =
-  typeof creativePerformanceSnapshots.$inferSelect;
-export type NewCreativePerformanceSnapshot =
-  typeof creativePerformanceSnapshots.$inferInsert;
-
-export const performanceImportBatches = adscaleSchema.table(
-  "performance_import_batches",
-  {
-    id: uuid("id")
-      .primaryKey()
-      .$defaultFn(() => crypto.randomUUID()),
-    workspaceId: uuid("workspace_id")
-      .notNull()
-      .references(() => workspaces.id, { onDelete: "cascade" }),
-    campaignId: uuid("campaign_id")
-      .notNull()
-      .references(() => campaigns.id, { onDelete: "cascade" }),
-    sourceType: text("source_type").notNull(),
-    fileName: text("file_name"),
-    fileHash: text("file_hash"),
-    columnMapping: jsonb("column_mapping").$type<Record<string, string>>(),
-    parseOptions: jsonb("parse_options").$type<import("../performance/import/types").ParseOptions>(),
-    createdCount: integer("created_count").notNull().default(0),
-    updatedCount: integer("updated_count").notNull().default(0),
-    ignoredCount: integer("ignored_count").notNull().default(0),
-    invalidCount: integer("invalid_count").notNull().default(0),
-    createdByUserId: text("created_by_user_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "restrict" }),
-    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
-  },
-  (table) => [
-    index("performance_import_batches_workspace_campaign_idx").on(
-      table.workspaceId,
-      table.campaignId
-    ),
-    check(
-      "performance_import_batches_source_type_check",
-      sql`${table.sourceType} in ('manual', 'csv')`
-    ),
-  ]
-);
-
-export const performanceImportRows = adscaleSchema.table(
-  "performance_import_rows",
-  {
-    id: uuid("id")
-      .primaryKey()
-      .$defaultFn(() => crypto.randomUUID()),
-    batchId: uuid("batch_id")
-      .notNull()
-      .references(() => performanceImportBatches.id, { onDelete: "cascade" }),
-    rowIndex: integer("row_index").notNull(),
-    status: text("status").notNull(),
-    errors: jsonb("errors").$type<
-      Array<{ field: string; message: string; rawValue?: string }>
-    >(),
-    snapshotId: uuid("snapshot_id").references(
-      () => creativePerformanceSnapshots.id,
-      { onDelete: "set null" }
-    ),
-    sourceKey: varchar("source_key", { length: 64 }),
-  },
-  (table) => [
-    index("performance_import_rows_batch_idx").on(table.batchId),
-    check(
-      "performance_import_rows_status_check",
-      sql`${table.status} in ('created', 'updated', 'ignored', 'invalid')`
-    ),
-  ]
-);
-
-export type PerformanceImportBatch =
-  typeof performanceImportBatches.$inferSelect;
-export type NewPerformanceImportBatch =
-  typeof performanceImportBatches.$inferInsert;
-export type PerformanceImportRow = typeof performanceImportRows.$inferSelect;
-export type NewPerformanceImportRow = typeof performanceImportRows.$inferInsert;
-
-export const creativeHypotheses = adscaleSchema.table(
-  "creative_hypotheses",
-  {
-    id: uuid("id")
-      .primaryKey()
-      .$defaultFn(() => crypto.randomUUID()),
-    workspaceId: uuid("workspace_id")
-      .notNull()
-      .references(() => workspaces.id, { onDelete: "cascade" }),
-    campaignId: uuid("campaign_id")
-      .notNull()
-      .references(() => campaigns.id, { onDelete: "cascade" }),
-    title: text("title"),
-    variableKey: text("variable_key").notNull(),
-    primaryMetric: text("primary_metric").notNull(),
-    expectedDirection: text("expected_direction").notNull(),
-    rationale: text("rationale").notNull(),
-    kind: text("kind").notNull().default("controlled_hypothesis"),
-    platform: text("platform"),
-    periodStart: date("period_start", { mode: "string" }),
-    periodEnd: date("period_end", { mode: "string" }),
-    outcome: text("outcome"),
-    status: text("status").notNull().default("active"),
-    lastComparisonAt: timestamp("last_comparison_at", { mode: "date" }),
-    createdByUserId: text("created_by_user_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "restrict" }),
-    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
-  },
-  (table) => [
-    index("creative_hypotheses_workspace_campaign_idx").on(
-      table.workspaceId,
-      table.campaignId
-    ),
-    check(
-      "creative_hypotheses_expected_direction_check",
-      sql`${table.expectedDirection} in ('increase', 'decrease')`
-    ),
-    check(
-      "creative_hypotheses_kind_check",
-      sql`${table.kind} in ('controlled_hypothesis', 'observational')`
-    ),
-    check(
-      "creative_hypotheses_outcome_check",
-      sql`${table.outcome} is null or ${table.outcome} in ('supported', 'contradicted', 'inconclusive')`
-    ),
-    check(
-      "creative_hypotheses_status_check",
-      sql`${table.status} in ('draft', 'active', 'concluded')`
-    ),
-  ]
-);
-
-export const hypothesisVariants = adscaleSchema.table(
-  "hypothesis_variants",
-  {
-    id: uuid("id")
-      .primaryKey()
-      .$defaultFn(() => crypto.randomUUID()),
-    hypothesisId: uuid("hypothesis_id")
-      .notNull()
-      .references(() => creativeHypotheses.id, { onDelete: "cascade" }),
-    derivationId: uuid("derivation_id")
-      .notNull()
-      .references(() => derivations.id, { onDelete: "cascade" }),
-    role: text("role").notNull(),
-    label: text("label"),
-    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
-  },
-  (table) => [
-    uniqueIndex("hypothesis_variants_hypothesis_derivation_uq").on(
-      table.hypothesisId,
-      table.derivationId
-    ),
-    index("hypothesis_variants_derivation_idx").on(table.derivationId),
-    check(
-      "hypothesis_variants_role_check",
-      sql`${table.role} in ('control', 'variant')`
-    ),
-  ]
-);
-
-export const variantComparisons = adscaleSchema.table(
-  "variant_comparisons",
-  {
-    id: uuid("id")
-      .primaryKey()
-      .$defaultFn(() => crypto.randomUUID()),
-    workspaceId: uuid("workspace_id")
-      .notNull()
-      .references(() => workspaces.id, { onDelete: "cascade" }),
-    campaignId: uuid("campaign_id")
-      .notNull()
-      .references(() => campaigns.id, { onDelete: "cascade" }),
-    hypothesisId: uuid("hypothesis_id").references(() => creativeHypotheses.id, {
-      onDelete: "set null",
-    }),
-    kind: text("kind").notNull(),
-    verdict: text("verdict").notNull(),
-    primaryMetric: text("primary_metric").notNull(),
-    expectedDirection: text("expected_direction"),
-    winnerDerivationId: uuid("winner_derivation_id").references(
-      () => derivations.id,
-      { onDelete: "set null" }
-    ),
-    outcome: text("outcome"),
-    platform: text("platform"),
-    periodStart: date("period_start", { mode: "string" }),
-    periodEnd: date("period_end", { mode: "string" }),
-    exclusionReasons: jsonb("exclusion_reasons").$type<
-      import("../performance/hypothesis/types").ComparisonExclusion[]
-    >(),
-    variantResults: jsonb("variant_results").$type<
-      import("../performance/hypothesis/types").VariantComparisonReport
-    >(),
-    createdByUserId: text("created_by_user_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "restrict" }),
-    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
-  },
-  (table) => [
-    index("variant_comparisons_workspace_campaign_idx").on(
-      table.workspaceId,
-      table.campaignId
-    ),
-    index("variant_comparisons_hypothesis_idx").on(table.hypothesisId),
-    check(
-      "variant_comparisons_kind_check",
-      sql`${table.kind} in ('controlled_hypothesis', 'observational')`
-    ),
-    check(
-      "variant_comparisons_verdict_check",
-      sql`${table.verdict} in ('winner', 'no_clear_winner', 'insufficient_evidence', 'not_comparable')`
-    ),
-    check(
-      "variant_comparisons_outcome_check",
-      sql`${table.outcome} is null or ${table.outcome} in ('supported', 'contradicted', 'inconclusive')`
-    ),
-  ]
-);
-
-export type CreativeHypothesis = typeof creativeHypotheses.$inferSelect;
-export type NewCreativeHypothesis = typeof creativeHypotheses.$inferInsert;
-export type HypothesisVariant = typeof hypothesisVariants.$inferSelect;
-export type NewHypothesisVariant = typeof hypothesisVariants.$inferInsert;
-export type VariantComparison = typeof variantComparisons.$inferSelect;
-export type NewVariantComparison = typeof variantComparisons.$inferInsert;
-
-export const clientPerformanceLearnings = adscaleSchema.table(
-  "client_performance_learnings",
-  {
-    id: uuid("id")
-      .primaryKey()
-      .$defaultFn(() => crypto.randomUUID()),
-    workspaceId: uuid("workspace_id")
-      .notNull()
-      .references(() => workspaces.id, { onDelete: "cascade" }),
-    clientProfileId: uuid("client_profile_id")
-      .notNull()
-      .references(() => clientProfiles.id, { onDelete: "cascade" }),
-    variableKey: text("variable_key").notNull(),
-    variableValue: text("variable_value").notNull(),
-    primaryMetric: text("primary_metric").notNull(),
-    expectedDirection: text("expected_direction"),
-    statement: text("statement").notNull(),
-    confidence: text("confidence").notNull().default("low"),
-    confidenceScore: numeric("confidence_score", { precision: 5, scale: 4 })
-      .notNull()
-      .default("0"),
-    sampleImpressions: integer("sample_impressions").notNull().default(0),
-    sampleCampaignCount: integer("sample_campaign_count").notNull().default(0),
-    contextPlatforms: text("context_platforms").array(),
-    contextObjectives: text("context_objectives").array(),
-    supportingEvidence: jsonb("supporting_evidence")
-      .$type<import("../performance/learning/types").LearningEvidenceRef[]>()
-      .notNull()
-      .default(sql`'[]'::jsonb`),
-    contradictingEvidence: jsonb("contradicting_evidence")
-      .$type<import("../performance/learning/types").LearningEvidenceRef[]>()
-      .notNull()
-      .default(sql`'[]'::jsonb`),
-    algorithmVersion: text("algorithm_version").notNull(),
-    status: text("status").notNull().default("approved"),
-    mem0MemoryId: text("mem0_memory_id"),
-    lastEvidenceAt: timestamp("last_evidence_at", { mode: "date" }),
-    approvedAt: timestamp("approved_at", { mode: "date" }),
-    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
-  },
-  (table) => [
-    uniqueIndex("client_performance_learnings_identity_uq").on(
-      table.workspaceId,
-      table.clientProfileId,
-      table.variableKey,
-      table.variableValue,
-      table.primaryMetric
-    ),
-    index("client_performance_learnings_client_idx").on(
-      table.workspaceId,
-      table.clientProfileId
-    ),
-    index("client_performance_learnings_status_idx").on(
-      table.workspaceId,
-      table.clientProfileId,
-      table.status
-    ),
-    check(
-      "client_performance_learnings_confidence_check",
-      sql`${table.confidence} in ('low', 'medium', 'high')`
-    ),
-    check(
-      "client_performance_learnings_direction_check",
-      sql`${table.expectedDirection} is null or ${table.expectedDirection} in ('increase', 'decrease')`
-    ),
-    check(
-      "client_performance_learnings_status_check",
-      sql`${table.status} in ('draft', 'approved', 'superseded', 'removed')`
-    ),
-  ]
-);
-
-export type ClientPerformanceLearning =
-  typeof clientPerformanceLearnings.$inferSelect;
-export type NewClientPerformanceLearning =
-  typeof clientPerformanceLearnings.$inferInsert;
-
-export const clientOutputLearnings = adscaleSchema.table(
-  "client_output_learnings",
-  {
-    id: uuid("id")
-      .primaryKey()
-      .$defaultFn(() => crypto.randomUUID()),
-    workspaceId: uuid("workspace_id")
-      .notNull()
-      .references(() => workspaces.id, { onDelete: "cascade" }),
-    clientProfileId: uuid("client_profile_id")
-      .notNull()
-      .references(() => clientProfiles.id, { onDelete: "cascade" }),
-    variableKey: text("variable_key").notNull(),
-    variableValue: text("variable_value").notNull(),
-    scopeGenerationMode: text("scope_generation_mode").notNull().default(""),
-    scopeFormat: text("scope_format").notNull().default(""),
-    preferenceDirection: text("preference_direction").notNull().default("prefer"),
-    statement: text("statement").notNull(),
-    confidence: text("confidence").notNull().default("low"),
-    confidenceScore: numeric("confidence_score", { precision: 5, scale: 4 })
-      .notNull()
-      .default("0"),
-    sampleEventCount: integer("sample_event_count").notNull().default(0),
-    sampleCampaignCount: integer("sample_campaign_count").notNull().default(0),
-    supportingEvidence: jsonb("supporting_evidence")
-      .$type<import("../output-learning/types").OutputLearningEvidenceRef[]>()
-      .notNull()
-      .default(sql`'[]'::jsonb`),
-    contradictingEvidence: jsonb("contradicting_evidence")
-      .$type<import("../output-learning/types").OutputLearningEvidenceRef[]>()
-      .notNull()
-      .default(sql`'[]'::jsonb`),
-    algorithmVersion: text("algorithm_version").notNull(),
-    status: text("status").notNull().default("draft"),
-    mem0MemoryId: text("mem0_memory_id"),
-    lastEvidenceAt: timestamp("last_evidence_at", { mode: "date" }),
-    approvedAt: timestamp("approved_at", { mode: "date" }),
-    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
-  },
-  (table) => [
-    uniqueIndex("client_output_learnings_identity_uq").on(
-      table.workspaceId,
-      table.clientProfileId,
-      table.variableKey,
-      table.variableValue,
-      table.scopeGenerationMode,
-      table.scopeFormat
-    ),
-    index("client_output_learnings_client_idx").on(
-      table.workspaceId,
-      table.clientProfileId
-    ),
-    index("client_output_learnings_status_idx").on(
-      table.workspaceId,
-      table.clientProfileId,
-      table.status
-    ),
-    check(
-      "client_output_learnings_confidence_check",
-      sql`${table.confidence} in ('low', 'medium', 'high')`
-    ),
-    check(
-      "client_output_learnings_direction_check",
-      sql`${table.preferenceDirection} in ('prefer', 'avoid')`
-    ),
-    check(
-      "client_output_learnings_status_check",
-      sql`${table.status} in ('draft', 'approved', 'superseded', 'removed')`
-    ),
-  ]
-);
-
-export type ClientOutputLearning = typeof clientOutputLearnings.$inferSelect;
-export type NewClientOutputLearning = typeof clientOutputLearnings.$inferInsert;
 
 export const usageEvents = adscaleSchema.table(
   "usage_events",
@@ -1535,6 +1053,10 @@ export const betaAnalyticsEvents = adscaleSchema.table(
 export type BetaAnalyticsEvent = typeof betaAnalyticsEvents.$inferSelect;
 export type NewBetaAnalyticsEvent = typeof betaAnalyticsEvents.$inferInsert;
 
+// ============================================
+// Output learning tables
+// ============================================
+
 export const outputDecisionEvents = adscaleSchema.table(
   "output_decision_events",
   {
@@ -1598,6 +1120,82 @@ export const outputDecisionEvents = adscaleSchema.table(
 
 export type OutputDecisionEvent = typeof outputDecisionEvents.$inferSelect;
 export type NewOutputDecisionEvent = typeof outputDecisionEvents.$inferInsert;
+
+export const clientOutputLearnings = adscaleSchema.table(
+  "client_output_learnings",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    clientProfileId: uuid("client_profile_id")
+      .notNull()
+      .references(() => clientProfiles.id, { onDelete: "cascade" }),
+    variableKey: text("variable_key").notNull(),
+    variableValue: text("variable_value").notNull(),
+    scopeGenerationMode: text("scope_generation_mode").notNull().default(""),
+    scopeFormat: text("scope_format").notNull().default(""),
+    preferenceDirection: text("preference_direction").notNull().default("prefer"),
+    statement: text("statement").notNull(),
+    confidence: text("confidence").notNull().default("low"),
+    confidenceScore: numeric("confidence_score", { precision: 5, scale: 4 })
+      .notNull()
+      .default("0"),
+    sampleEventCount: integer("sample_event_count").notNull().default(0),
+    sampleCampaignCount: integer("sample_campaign_count").notNull().default(0),
+    supportingEvidence: jsonb("supporting_evidence")
+      .$type<import("../output-learning/types").OutputLearningEvidenceRef[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    contradictingEvidence: jsonb("contradicting_evidence")
+      .$type<import("../output-learning/types").OutputLearningEvidenceRef[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    algorithmVersion: text("algorithm_version").notNull(),
+    status: text("status").notNull().default("draft"),
+    mem0MemoryId: text("mem0_memory_id"),
+    lastEvidenceAt: timestamp("last_evidence_at", { mode: "date" }),
+    approvedAt: timestamp("approved_at", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("client_output_learnings_identity_uq").on(
+      table.workspaceId,
+      table.clientProfileId,
+      table.variableKey,
+      table.variableValue,
+      table.scopeGenerationMode,
+      table.scopeFormat
+    ),
+    index("client_output_learnings_client_idx").on(
+      table.workspaceId,
+      table.clientProfileId
+    ),
+    index("client_output_learnings_status_idx").on(
+      table.workspaceId,
+      table.clientProfileId,
+      table.status
+    ),
+    check(
+      "client_output_learnings_confidence_check",
+      sql`${table.confidence} in ('low', 'medium', 'high')`
+    ),
+    check(
+      "client_output_learnings_direction_check",
+      sql`${table.preferenceDirection} in ('prefer', 'avoid')`
+    ),
+    check(
+      "client_output_learnings_status_check",
+      sql`${table.status} in ('draft', 'approved', 'superseded', 'removed')`
+    ),
+  ]
+);
+
+export type ClientOutputLearning = typeof clientOutputLearnings.$inferSelect;
+export type NewClientOutputLearning = typeof clientOutputLearnings.$inferInsert;
 
 export const calibrationSignals = adscaleSchema.table(
   "calibration_signals",

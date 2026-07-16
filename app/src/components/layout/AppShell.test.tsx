@@ -56,7 +56,7 @@ describe("AppShell", () => {
     expect(screen.queryAllByRole("main")).toHaveLength(1);
   });
 
-  it("renders five mobile destinations and the More sheet trigger", () => {
+  it("renders Home · Trabalhos · Biblioteca · Marcas · Mais (Config not primary)", () => {
     render(
       <AppShell>
         <p>Page body</p>
@@ -65,12 +65,13 @@ describe("AppShell", () => {
 
     const nav = screen.getByRole("navigation", { name: /primary mobile navigation/i });
     expect(nav).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /dashboard/i })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /campaigns/i })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /settings/i })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /title/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /^home$/i })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: /^works$/i })).toHaveAttribute("href", "/campaigns");
+    expect(screen.getByRole("link", { name: /^title$/i })).toHaveAttribute("href", "/library");
+    expect(screen.getByRole("link", { name: /^brands$/i })).toHaveAttribute("href", "/brand-kit");
+    expect(screen.queryByRole("link", { name: /^settings$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /config/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /templates/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /creativeIntelligence/i })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /more/i })).toBeInTheDocument();
   });
 

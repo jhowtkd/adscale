@@ -88,7 +88,7 @@ describe("v11.6 cockpit path (pure functions)", () => {
     expect(config.ctaVariants.length).toBeGreaterThan(0);
     expect(estimateCreditCost(config)).toBeGreaterThan(0);
 
-    // 5. Preview gate only blocks when quality failed; acceptable auto-continues
+    // 5. Every completed preview requires explicit approval before the batch
     expect(
       shouldShowPreviewGate([
         {
@@ -98,7 +98,7 @@ describe("v11.6 cockpit path (pure functions)", () => {
           qualityVerdict: "acceptable",
         },
       ])
-    ).toBe(false);
+    ).toBe(true);
     expect(
       shouldShowPreviewGate([
         {

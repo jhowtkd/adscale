@@ -1,0 +1,1017 @@
+{
+  "schemaVersion": 1,
+  "status": "approved_with_accepted_debt",
+  "baseline": {
+    "environment": "production",
+    "capturedAt": "2026-07-14T23:31:09.469Z",
+    "since": "2026-06-01T00:00:00.000Z",
+    "path": ".planning/convergence/baseline.json",
+    "captureJobId": "job-d9bccbgqmsqc738cps8g",
+    "note": "Production snapshot captured read-only. Campaign duration has n=12; assistant and quick_tool have no completed duration sample, so superiority cannot be claimed from those historical cohorts alone."
+  },
+  "journeys": [
+    {
+      "scenarioId": "C01-attempt-1",
+      "phase": "before",
+      "participantId": "P01",
+      "mode": "campaign",
+      "brand": "Phase8 Human Horizonte Educacao",
+      "segment": "educacao",
+      "entrySurface": "home",
+      "device": "desktop",
+      "outcome": "failed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-15T00:23:34.090Z",
+      "firstOutputAt": null,
+      "approvedAt": null,
+      "deliveredAt": null,
+      "endedAt": "2026-07-15T00:32:05.980Z",
+      "breakpoints": [
+        {
+          "id": "campaign-brand-context-not-selected",
+          "category": "context_loss",
+          "severity": "P2",
+          "at": "2026-07-15T00:25:45.677Z",
+          "note": "The participant created an empty client profile named C01 instead of selecting the supplied Horizonte Educacao brand, so the campaign entered the workspace without the intended brand context."
+        },
+        {
+          "id": "campaign-assistant-thread-request-loop",
+          "category": "error",
+          "severity": "P1",
+          "at": "2026-07-15T00:29:42.853Z",
+          "note": "Campaign workspace froze while the mounted assistant panel repeatedly posted the default-thread request; the server observed a sustained request loop."
+        }
+      ],
+      "unexpectedCost": false,
+      "observerNotes": "Human participant reported 'travou aqui'. Campaign creation itself returned 201; the failure occurred after entering the campaign workspace. Local cold compilation was excluded from the breakpoint."
+    },
+    {
+      "scenarioId": "C01-attempt-2",
+      "phase": "before",
+      "participantId": "P01",
+      "mode": "campaign",
+      "brand": "Phase8 Human Horizonte Educacao",
+      "segment": "educacao",
+      "entrySurface": "home",
+      "device": "desktop",
+      "outcome": "failed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-15T07:21:30.656Z",
+      "firstOutputAt": "2026-07-15T07:25:41.163Z",
+      "approvedAt": "2026-07-15T07:29:14.800Z",
+      "deliveredAt": null,
+      "endedAt": "2026-07-15T07:40:25.861Z",
+      "breakpoints": [
+        {
+          "id": "hard-failures-without-recovery-path",
+          "category": "abandonment",
+          "severity": "P1",
+          "at": "2026-07-15T07:23:55.000Z",
+          "note": "The workspace called missing product/offer and later QA findings 'blocking problems', but exposed no place to answer or resolve them; those blockers ultimately prevented export. The participant expected advisory guidance, not a dead end."
+        },
+        {
+          "id": "feedback-prompt-before-first-output",
+          "category": "doubt",
+          "severity": "P2",
+          "at": "2026-07-15T07:24:24.000Z",
+          "note": "The feedback modal asked about the preview before any preview or generated output had been shown."
+        },
+        {
+          "id": "generation-loader-logo-overlap",
+          "category": "error",
+          "severity": "P3",
+          "at": "2026-07-15T07:24:37.000Z",
+          "note": "The loading animation rendered overlapping logo glyphs, visibly colliding in the center of the output card."
+        },
+        {
+          "id": "preview-approval-bypassed",
+          "category": "context_loss",
+          "severity": "P1",
+          "at": "2026-07-15T07:25:41.163Z",
+          "note": "The participant did not perform an explicit pilot approval before the full batch appeared: Peça 1 low quality, Peça 1 high quality, then Peça 2 and Peça 3 high quality. Preview and production versions were not distinguishable as a controlled approval sequence."
+        },
+        {
+          "id": "rejection-direction-has-no-answer-surface",
+          "category": "error",
+          "severity": "P1",
+          "at": "2026-07-15T07:29:31.000Z",
+          "note": "Rejecting required a direction of at least eight characters, while the displayed blocking QA findings had no response or remediation surface."
+        },
+        {
+          "id": "campaign-chat-stream-error",
+          "category": "error",
+          "severity": "P1",
+          "at": "2026-07-15T07:33:40.000Z",
+          "note": "The campaign chat persisted the message 'Teste de chat.' but returned only the raw token assistantStreamError and no assistant response."
+        },
+        {
+          "id": "generation-invents-brand-and-offer",
+          "category": "error",
+          "severity": "P1",
+          "at": "2026-07-15T07:35:11.000Z",
+          "note": "Generated creatives inserted CENBRAP branding, a March promotion and payment claims such as up to 20 installments without supported brand or offer context."
+        },
+        {
+          "id": "format-adaptation-content-bleed",
+          "category": "error",
+          "severity": "P1",
+          "at": "2026-07-15T07:36:08.000Z",
+          "note": "Format adaptations visibly bled or cropped information instead of preserving hierarchy and safe areas across the requested dimensions."
+        },
+        {
+          "id": "delivery-stage-loses-work-history",
+          "category": "context_loss",
+          "severity": "P2",
+          "at": "2026-07-15T07:37:19.000Z",
+          "note": "The delivery stage showed an empty derivation area and blocking brief copy despite the campaign having generated and approved outputs; it did not summarize recent generations or make completed work visible."
+        }
+      ],
+      "unexpectedCost": false,
+      "observerNotes": "The intended Horizonte Educacao context was not actually attached: the campaign persisted an empty profile named C01. Eight screenshots are preserved under docs/plans/phase8-human-evidence/c01-before. Database evidence shows one preview, three 1:1 production outputs and four format adaptations; the campaign reached completed, two outputs were approved, chat stored one user message with no assistant reply, and no delivery was completed."
+    },
+    {
+      "scenarioId": "C02-attempt-1",
+      "phase": "before",
+      "participantId": "P01",
+      "mode": "campaign",
+      "brand": "Phase8 Human Horizonte Educacao",
+      "segment": "educacao",
+      "entrySurface": "templates_url",
+      "device": "desktop",
+      "outcome": "failed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-15T07:54:22.483Z",
+      "firstOutputAt": null,
+      "approvedAt": null,
+      "deliveredAt": null,
+      "endedAt": "2026-07-15T08:01:16.441Z",
+      "breakpoints": [
+        {
+          "id": "templates-not-discoverable-from-interface",
+          "category": "doubt",
+          "severity": "P2",
+          "at": "2026-07-15T07:59:48.000Z",
+          "note": "The participant could reach Templates only by entering the URL directly; no discoverable route to the surface was found in the desktop interface."
+        },
+        {
+          "id": "materialized-template-blocked-without-base-image",
+          "category": "abandonment",
+          "severity": "P1",
+          "at": "2026-07-15T08:01:16.441Z",
+          "note": "The materialized campaign displayed a completed briefing and an enabled 'Continuar para acoes' button, but clicking it did not advance without a base image. The UI did not explain that the image was required, and uploading an arbitrary image would invalidate the template workflow."
+        }
+      ],
+      "unexpectedCost": false,
+      "observerNotes": "The template materialized campaign d2f1c307-1dee-4d84-bc45-9692812bc43d with the expected product, offer, audience, platforms and Horizonte Educacao profile. Database evidence shows zero assets and zero derivations. Clicking continue emitted stage telemetry but made no generation request or useful transition. The screenshot was captured at desktop width although the planned C02 matrix called for mobile; this failed attempt does not count toward the completed sample."
+    },
+    {
+      "scenarioId": "C03-attempt-1",
+      "phase": "before",
+      "participantId": "P01",
+      "mode": "campaign",
+      "brand": "Phase8 Human Cafe Aurora",
+      "segment": "alimentacao_local",
+      "entrySurface": "campaigns",
+      "device": "desktop",
+      "outcome": "failed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-15T09:51:00.135Z",
+      "firstOutputAt": null,
+      "approvedAt": null,
+      "deliveredAt": null,
+      "endedAt": "2026-07-15T10:07:16.237Z",
+      "breakpoints": [
+        {
+          "id": "campaign-create-client-field-obscures-brand-link",
+          "category": "doubt",
+          "severity": "P2",
+          "at": "2026-07-15T09:54:14.845Z",
+          "note": "The participant asked whether typing the seeded brand name into the free-text Client field was the correct way to associate a brand profile; the creation modal did not explain the relationship."
+        },
+        {
+          "id": "campaign-default-brief-invents-client-as-product",
+          "category": "context_loss",
+          "severity": "P1",
+          "at": "2026-07-15T10:04:06.587Z",
+          "note": "The generated briefing copied the client name into product and offer, then fabricated an objective and audience from that name instead of using the seeded Cafe Aurora brand context."
+        },
+        {
+          "id": "campaign-without-base-image-continue-noop",
+          "category": "abandonment",
+          "severity": "P1",
+          "at": "2026-07-15T10:05:41.589Z",
+          "note": "With no arbitrary base image uploaded, repeated clicks on the enabled 'Continuar para acoes' button emitted completion telemetry but produced no generation request, output or useful stage transition. The participant waited four minutes."
+        },
+        {
+          "id": "campaign-assistant-signal-timeout",
+          "category": "error",
+          "severity": "P1",
+          "at": "2026-07-15T10:06:01.570Z",
+          "note": "The mounted campaign assistant showed the raw error 'signal timed out' while the participant was blocked in the briefing stage."
+        }
+      ],
+      "unexpectedCost": false,
+      "observerNotes": "Campaign 7c38fe41-9d2e-4d55-b557-5eaba5279385 correctly linked the existing Cafe Aurora client profile, but persisted the client name as product and offer plus generic generated objective/audience. Database evidence shows zero assets and zero derivations. The participant supplied no arbitrary image, received no output and could not progress beyond briefing."
+    },
+    {
+      "scenarioId": "C04-attempt-1",
+      "phase": "before",
+      "participantId": "P01",
+      "mode": "campaign",
+      "brand": "Phase8 Human Studio Pulso",
+      "segment": "fitness",
+      "entrySurface": "campaign_assistant",
+      "device": "mobile",
+      "outcome": "failed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-15T10:15:00.225Z",
+      "firstOutputAt": null,
+      "approvedAt": null,
+      "deliveredAt": null,
+      "endedAt": "2026-07-15T10:18:35.151Z",
+      "breakpoints": [
+        {
+          "id": "campaign-assistant-startup-hang",
+          "category": "abandonment",
+          "severity": "P1",
+          "at": "2026-07-15T10:18:12.467Z",
+          "note": "On mobile, the campaign Chat tab stayed indefinitely on 'Iniciando conversa...' and never exposed an input. No assistant thread request reached the server and no thread was persisted."
+        }
+      ],
+      "unexpectedCost": false,
+      "observerNotes": "The seeded Studio Pulso campaign had complete product, objective, audience, offer and brand profile context. The participant could not send the first message because initialization never completed. Server logs show the campaign, brand-kit, assets and derivations reads, but no POST to create an assistant thread; the database still contains zero threads for this campaign."
+    },
+    {
+      "scenarioId": "C05-attempt-1",
+      "phase": "before",
+      "participantId": "P01",
+      "mode": "campaign",
+      "brand": "Phase8 Human Cafe Aurora",
+      "segment": "alimentacao_local",
+      "entrySurface": "recent_work",
+      "device": "desktop",
+      "outcome": "failed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-15T10:20:41.906Z",
+      "firstOutputAt": null,
+      "approvedAt": null,
+      "deliveredAt": null,
+      "endedAt": "2026-07-15T10:30:52.671Z",
+      "breakpoints": [
+        {
+          "id": "resume-campaign-has-no-resumable-output",
+          "category": "context_loss",
+          "severity": "P1",
+          "at": "2026-07-15T10:21:19.493Z",
+          "note": "The campaign appeared as a recent task, but opening it returned to an empty briefing state with no asset, derivation or prior output to resume. The seeded scenario did not expose meaningful work-in-progress."
+        },
+        {
+          "id": "preview-enqueue-fails-without-base-asset",
+          "category": "error",
+          "severity": "P1",
+          "at": "2026-07-15T10:27:45.312Z",
+          "note": "Manually entering Produzir exposed generation, but 'Gerar variacoes' ended with the toast 'Falha ao enfileirar previa'. The campaign remained art_variation with zero base assets, and the UI offered no explanation or recovery path."
+        },
+        {
+          "id": "campaign-assistant-startup-hang",
+          "category": "abandonment",
+          "severity": "P1",
+          "at": "2026-07-15T10:27:45.312Z",
+          "note": "The campaign assistant again remained on 'Iniciando conversa...' throughout the attempt. A thread endpoint returned, but no assistant thread or messages were persisted for the campaign."
+        }
+      ],
+      "unexpectedCost": false,
+      "observerNotes": "Campaign 07fff179-686f-4362-9d69-4677612e982e had correct Cafe Aurora briefing fields and brand context, but was seeded as an art_variation draft with zero assets and zero derivations. The participant could navigate directly to Produzir, yet preview enqueue failed and delivery remained unreachable. Database evidence after the attempt still shows zero assets, zero derivations and zero assistant threads."
+    },
+    {
+      "scenarioId": "N01-attempt-1",
+      "phase": "before",
+      "participantId": "P01",
+      "mode": "no_campaign",
+      "brand": "Phase8 Human Horizonte Educacao",
+      "segment": "educacao",
+      "entrySurface": "home_create_post",
+      "device": "desktop",
+      "outcome": "failed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-15T10:35:48.254Z",
+      "firstOutputAt": null,
+      "approvedAt": null,
+      "deliveredAt": null,
+      "endedAt": "2026-07-15T10:58:51.551Z",
+      "breakpoints": [
+        {
+          "id": "create-post-brand-does-not-prefill-brief",
+          "category": "doubt",
+          "severity": "P2",
+          "at": "2026-07-15T10:41:24.456Z",
+          "note": "After selecting the seeded Horizonte Educacao brand, the participant still had to ask what to enter for theme, objective, audience and offer; the brand context supplied no defaults or suggestions."
+        },
+        {
+          "id": "generated-copy-not-hydrated-without-refresh",
+          "category": "context_loss",
+          "severity": "P1",
+          "at": "2026-07-15T10:48:15.267Z",
+          "note": "The copy endpoint generated and persisted headline, body and CTA, but the wizard advanced to Copy with all three fields blank and Avancar enabled. A full page refresh was required to recover the persisted result."
+        },
+        {
+          "id": "creative-work-output-level-mapping-misaligned",
+          "category": "error",
+          "severity": "P1",
+          "at": "2026-07-15T10:52:03.160Z",
+          "note": "At enqueue, each output ID was published with a creativeLevel different from the level stored on that same output row: conservative mapped to a row labeled balanced, balanced to bold, and bold to conservative."
+        },
+        {
+          "id": "creative-work-three-output-jobs-stuck-processing",
+          "category": "abandonment",
+          "severity": "P1",
+          "at": "2026-07-15T10:58:32.759Z",
+          "note": "All three generation jobs started, but after more than six minutes none completed or failed. The work remained generating and every proposal remained processing with no output key, cost or failure code."
+        }
+      ],
+      "unexpectedCost": false,
+      "observerNotes": "Creative work 8728db84-8357-42cd-9902-fd4e7113bc75 persisted the correct brief and generated copy. Refresh recovered the copy and allowed identity confirmation, after which three events were received by Inngest. The server logged each canonical generation start but no completion or failure. Database evidence shows the work still generating and all three outputs indefinitely processing."
+    },
+    {
+      "scenarioId": "N02-attempt-1",
+      "phase": "before",
+      "participantId": "P01",
+      "mode": "no_campaign",
+      "brand": "Phase8 Human Cafe Aurora",
+      "segment": "alimentacao_local",
+      "entrySurface": "create_post",
+      "device": "mobile",
+      "outcome": "failed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-15T11:01:44.211Z",
+      "firstOutputAt": null,
+      "approvedAt": null,
+      "deliveredAt": null,
+      "endedAt": "2026-07-15T11:08:22.222Z",
+      "breakpoints": [
+        {
+          "id": "create-post-copy-request-times-out-after-persist",
+          "category": "error",
+          "severity": "P1",
+          "at": "2026-07-15T11:04:45.038Z",
+          "note": "Creating copy returned the raw client error 'signal timed out' even though headline, body and CTA were persisted. A full refresh was again required to recover the result."
+        },
+        {
+          "id": "creative-work-output-level-mapping-misaligned",
+          "category": "error",
+          "severity": "P1",
+          "at": "2026-07-15T11:06:26.006Z",
+          "note": "The output IDs were again enqueued with creative levels different from their persisted rows, reproducing the conservative-to-balanced, balanced-to-bold and bold-to-conservative rotation."
+        },
+        {
+          "id": "creative-work-generation-success-not-finalized",
+          "category": "abandonment",
+          "severity": "P1",
+          "at": "2026-07-15T11:07:51.652Z",
+          "note": "OpenAI successfully generated all three candidate images, but each Inngest function failed afterward. The work remained generating and all outputs remained processing with no final output key, cost or failure code."
+        }
+      ],
+      "unexpectedCost": true,
+      "observerNotes": "Creative work f73703cb-8707-4383-a20d-6d15b51ff807 persisted the correct 9:16 Cafe Aurora brief and copy. Refresh recovered the copy, then three generation events were published. OpenAI returned a candidate for every output (44.7s, 45.8s and 74.9s), while Seedream was unavailable due missing BYTEPLUS_API_KEY. All three functions subsequently failed and left the work and output rows non-terminal. Provider work was consumed without a user-visible deliverable or recorded cost."
+    },
+    {
+      "scenarioId": "N03-attempt-1",
+      "phase": "before",
+      "participantId": "P01",
+      "mode": "no_campaign",
+      "brand": "Phase8 Human Studio Pulso",
+      "segment": "fitness",
+      "entrySurface": "assistant",
+      "device": "desktop",
+      "outcome": "failed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-15T11:11:31.517Z",
+      "firstOutputAt": null,
+      "approvedAt": null,
+      "deliveredAt": null,
+      "endedAt": "2026-07-15T11:13:40.841Z",
+      "breakpoints": [
+        {
+          "id": "standalone-assistant-thread-startup-timeout",
+          "category": "abandonment",
+          "severity": "P1",
+          "at": "2026-07-15T11:13:19.347Z",
+          "note": "The standalone Assistant opened with the raw error 'signal timed out' before the participant could send a first message. No thread was selected or created, the server did not complete a thread POST, and the database contained zero assistant threads for the Studio Pulso profile."
+        }
+      ],
+      "unexpectedCost": false,
+      "observerNotes": "The primary standalone Assistant surface failed while establishing the conversation, before any user message or model generation. No assistant thread, message, provider call or cost was persisted, so the participant had no recovery path inside the surface."
+    },
+    {
+      "scenarioId": "N04-attempt-1",
+      "phase": "before",
+      "participantId": "P01",
+      "mode": "no_campaign",
+      "brand": "Phase8 Human Studio Pulso",
+      "segment": "fitness",
+      "entrySurface": "home_create_post",
+      "device": "mobile",
+      "outcome": "failed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-15T11:16:42.000Z",
+      "firstOutputAt": null,
+      "approvedAt": null,
+      "deliveredAt": null,
+      "endedAt": "2026-07-15T11:21:59.000Z",
+      "breakpoints": [
+        {
+          "id": "create-post-brand-does-not-prefill-brief",
+          "category": "doubt",
+          "severity": "P2",
+          "at": "2026-07-15T11:18:50.109Z",
+          "note": "Selecting the seeded Studio Pulso brand again left theme, objective, audience and offer entirely blank, requiring external guidance before the participant could proceed."
+        },
+        {
+          "id": "create-post-copy-request-times-out-after-persist",
+          "category": "error",
+          "severity": "P1",
+          "at": "2026-07-15T11:20:17.691Z",
+          "note": "Creating copy returned the raw error 'signal timed out' and left the mobile wizard on Briefing, although the database contained the generated headline, body and CTA. Continuing would require a manual refresh that hides the failed client state."
+        }
+      ],
+      "unexpectedCost": false,
+      "observerNotes": "Creative work b46ef338-c12c-4ebc-891d-327a0e80568d persisted the correct Studio Pulso 4:5 brief and generated copy, but the UI did not receive or hydrate that result. The attempt was stopped before identity confirmation to avoid repeating the provider-cost-without-delivery failure already demonstrated in N02."
+    },
+    {
+      "scenarioId": "N05-attempt-1",
+      "phase": "before",
+      "participantId": "P01",
+      "mode": "no_campaign",
+      "brand": "Phase8 Human Cafe Aurora",
+      "segment": "alimentacao_local",
+      "entrySurface": "home_continue",
+      "device": "desktop",
+      "outcome": "failed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-15T11:23:13.000Z",
+      "firstOutputAt": null,
+      "approvedAt": null,
+      "deliveredAt": null,
+      "endedAt": "2026-07-15T11:33:57.000Z",
+      "breakpoints": [
+        {
+          "id": "create-post-resume-opens-empty-brief",
+          "category": "context_loss",
+          "severity": "P1",
+          "at": "2026-07-15T11:33:19.707Z",
+          "note": "Home correctly linked 'Continuar de onde parei' to the Cafe Aurora work ID, but the destination rendered a new empty Briefing with no selected brand, fields or recovered progress. The database still held the original brief, copy, generating status and three processing outputs."
+        },
+        {
+          "id": "creative-work-generation-success-not-finalized",
+          "category": "abandonment",
+          "severity": "P1",
+          "at": "2026-07-15T11:33:57.000Z",
+          "note": "On resume, the work remained generating and all three outputs remained processing with no output key, cost or failure code, despite the three successful provider generations observed during N02."
+        }
+      ],
+      "unexpectedCost": true,
+      "observerNotes": "Home selected the correct work f73703cb-8707-4383-a20d-6d15b51ff807, but resume did not hydrate any persisted state after more than five minutes. The empty form contradicted the database, which retained the full 9:16 brief and copy plus three non-terminal outputs. No useful action or recovery path was exposed."
+    },
+    {
+      "scenarioId": "C01-after-attempt-1",
+      "phase": "after",
+      "participantId": "P01",
+      "mode": "campaign",
+      "brand": "Phase8 Human Horizonte Educacao",
+      "segment": "educacao",
+      "entrySurface": "home_new_campaign",
+      "device": "desktop",
+      "outcome": "failed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-15T11:50:00.000Z",
+      "firstOutputAt": null,
+      "approvedAt": null,
+      "deliveredAt": null,
+      "endedAt": "2026-07-15T12:03:53.000Z",
+      "breakpoints": [
+        {
+          "id": "campaign-mandatory-shell-friction",
+          "category": "doubt",
+          "severity": "P2",
+          "at": "2026-07-15T11:59:30.079Z",
+          "note": "The participant described the mandatory campaign shell as tedious before reaching the creative work itself. The flow required navigating campaign structure before any useful creative output existed."
+        },
+        {
+          "id": "campaign-base-image-gate-is-inconsistent",
+          "category": "error",
+          "severity": "P1",
+          "at": "2026-07-15T12:01:37.026Z",
+          "note": "Without a base image, 'Continuar para acoes' did not advance, but clicking the Produzir stage bypassed that gate and exposed generation controls. The two navigation paths enforce contradictory prerequisites."
+        },
+        {
+          "id": "preview-enqueue-fails-without-base-asset",
+          "category": "abandonment",
+          "severity": "P1",
+          "at": "2026-07-15T12:03:11.419Z",
+          "note": "After entering Produzir through the stage control, 'Gerar variacoes' returned 'Falha ao enfileirar previa'. The API returned 400, while the campaign remained a draft with zero assets and zero derivations."
+        }
+      ],
+      "unexpectedCost": false,
+      "observerNotes": "Campaign 07ff1668-fa80-478d-9c98-56bc3ffff9d8 was persisted and the campaign Assistant successfully created thread 9befaf85-dbe8-4bcc-95f6-6a61c5c90b5f, confirming the assistant-timeout correction. A local Next.js memory restart caused one transient ChunkLoadError and was recovered; the final product failure was independently reproduced afterward with a stable server."
+    },
+    {
+      "scenarioId": "C02-after-attempt-1",
+      "phase": "after",
+      "participantId": "P01",
+      "mode": "campaign",
+      "brand": "Phase8 Human Horizonte Educacao",
+      "segment": "educacao",
+      "entrySurface": "templates",
+      "device": "mobile",
+      "outcome": "failed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-15T13:02:56.000Z",
+      "firstOutputAt": null,
+      "approvedAt": null,
+      "deliveredAt": null,
+      "endedAt": "2026-07-15T13:20:23.000Z",
+      "breakpoints": [
+        {
+          "id": "template-materialization-loses-client-profile",
+          "category": "context_loss",
+          "severity": "P2",
+          "at": "2026-07-15T13:10:54.017Z",
+          "note": "The template materialized the client name but not its existing client-profile relationship, forcing the participant to manually relink Horizonte Educacao before Brand Kit and quality context became available."
+        },
+        {
+          "id": "campaign-base-image-gate-is-inconsistent",
+          "category": "error",
+          "severity": "P1",
+          "at": "2026-07-15T13:17:15.176Z",
+          "note": "The materialized campaign again did not advance through the normal briefing CTA without an uploaded image, while the Produzir stage remained directly accessible."
+        },
+        {
+          "id": "preview-enqueue-fails-without-base-asset",
+          "category": "abandonment",
+          "severity": "P1",
+          "at": "2026-07-15T13:19:20.207Z",
+          "note": "Both preview attempts returned 'Falha ao enfileirar previa' and HTTP 400. The campaign remained draft with zero assets and zero derivations."
+        }
+      ],
+      "unexpectedCost": false,
+      "observerNotes": "Templates was discoverable through the mobile Mais menu and the canonical materialization endpoint created campaign e07dd8ab-de54-4be5-905a-d1fbfb2e7f76 with the expected snapshot. One participant mislink was explicitly excluded and the flow was repeated with the correct profile. Despite successful discovery, materialization and relinking, the unchanged base-image contradiction prevented any output."
+    },
+    {
+      "scenarioId": "C03-after-attempt-1",
+      "phase": "after",
+      "participantId": "P01",
+      "mode": "campaign",
+      "brand": "Phase8 Human Cafe Aurora",
+      "segment": "alimentacao",
+      "entrySurface": "home_new_campaign",
+      "device": "desktop",
+      "outcome": "failed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-15T13:21:37.000Z",
+      "firstOutputAt": null,
+      "approvedAt": null,
+      "deliveredAt": null,
+      "endedAt": "2026-07-15T13:27:37.955Z",
+      "breakpoints": [
+        {
+          "id": "campaign-base-image-gate-is-inconsistent",
+          "category": "abandonment",
+          "severity": "P1",
+          "at": "2026-07-15T13:27:37.955Z",
+          "note": "The Cafe Aurora campaign showed 'Briefing concluido' and an enabled 'Continuar para acoes' CTA, but clicking it without an image produced no navigation, state transition or recovery guidance. The participant stopped at the normal path instead of using the known Produzir-stage bypass."
+        }
+      ],
+      "unexpectedCost": false,
+      "observerNotes": "Campaign 25b5dea4-9b0d-4384-a8a5-8e2889e92910 had the correct Cafe Aurora client profile and the campaign Assistant remained available. Database evidence after the attempt shows draft status, zero campaign assets and zero derivations. This third after-round campaign reproduces the same image-gate contradiction, so no additional bypass or provider attempt was required."
+    },
+    {
+      "scenarioId": "C04-after-attempt-1",
+      "phase": "after",
+      "participantId": "P01",
+      "mode": "campaign",
+      "brand": "Phase8 Human Studio Pulso",
+      "segment": "fitness",
+      "entrySurface": "campaign_assistant",
+      "device": "mobile",
+      "outcome": "failed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-15T13:42:36.000Z",
+      "firstOutputAt": null,
+      "approvedAt": null,
+      "deliveredAt": null,
+      "endedAt": "2026-07-15T13:45:40.125Z",
+      "breakpoints": [
+        {
+          "id": "campaign-assistant-provider-auth-failure",
+          "category": "error",
+          "severity": "P1",
+          "at": "2026-07-15T13:45:40.125Z",
+          "note": "The campaign Assistant accepted and persisted the participant message, but generated no response and exposed the raw label 'assistantStreamError'. Runtime evidence identifies the upstream cause as MiniMax HTTP 401 invalid api key (2049)."
+        }
+      ],
+      "unexpectedCost": false,
+      "observerNotes": "The earlier thread-startup timeout is fixed: default thread 79aab9f8-63ed-4576-8c17-95767113f2a5 loaded and persisted the single user message. The useful journey still failed because provider authentication prevented the first assistant output, and the UI offered neither an actionable explanation nor retry guidance."
+    },
+    {
+      "scenarioId": "C04-after-attempt-2",
+      "phase": "after",
+      "participantId": "P01",
+      "mode": "campaign",
+      "brand": "Phase8 Human Studio Pulso",
+      "segment": "fitness",
+      "entrySurface": "campaign_assistant",
+      "device": "mobile",
+      "outcome": "failed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-15T16:35:38.255Z",
+      "firstOutputAt": "2026-07-15T16:35:45.050Z",
+      "approvedAt": null,
+      "deliveredAt": null,
+      "endedAt": "2026-07-15T16:35:56.420Z",
+      "breakpoints": [
+        {
+          "id": "campaign-assistant-tool-call-invalid-arguments",
+          "category": "error",
+          "severity": "P1",
+          "at": "2026-07-15T16:35:56.420Z",
+          "note": "After provider authentication was corrected, MiniMax produced the first natural-language response in about seven seconds but its following tool call failed policy validation with 'invalid_arguments'. The UI exposed the internal denial token and no action record or creative output was created."
+        }
+      ],
+      "unexpectedCost": false,
+      "observerNotes": "The same default thread persisted user message sequence 2 and assistant response sequence 3. Runtime returned HTTP 200 and no provider error; database evidence shows no assistant action record, proving the remaining failure is the model-to-tool contract rather than transport or credentials."
+    },
+    {
+      "scenarioId": "C05-after-attempt-1",
+      "phase": "after",
+      "participantId": "P01",
+      "mode": "campaign",
+      "brand": "Phase8 Human Cafe Aurora",
+      "segment": "alimentacao",
+      "entrySurface": "recent_work",
+      "device": "desktop",
+      "outcome": "failed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-15T16:42:57.000Z",
+      "firstOutputAt": null,
+      "approvedAt": null,
+      "deliveredAt": null,
+      "endedAt": "2026-07-15T16:49:00.551Z",
+      "breakpoints": [
+        {
+          "id": "resume-campaign-has-no-resumable-output",
+          "category": "context_loss",
+          "severity": "P1",
+          "at": "2026-07-15T16:49:00.551Z",
+          "note": "Opening the prepared Cafe Aurora resumable campaign returned to onboarding step 4 of 7 with an empty upload area, no previous outputs and no explicit resume action. The screen communicated a new draft rather than completed or recoverable work."
+        }
+      ],
+      "unexpectedCost": false,
+      "observerNotes": "Database evidence confirms the campaign remained draft with creative diagnosis pending, zero assets and zero derivations. One default Assistant thread was created by opening the page, but it contained no visible prior conversation. The participant could not identify anything meaningful to resume and stopped without using the known Produzir bypass."
+    },
+    {
+      "scenarioId": "N01-after-attempt-1",
+      "phase": "after",
+      "participantId": "P01",
+      "mode": "no_campaign",
+      "brand": "Phase8 Human Horizonte Educacao",
+      "segment": "educacao",
+      "entrySurface": "home_create_post",
+      "device": "desktop",
+      "outcome": "failed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-15T16:51:13.000Z",
+      "firstOutputAt": null,
+      "approvedAt": null,
+      "deliveredAt": null,
+      "endedAt": "2026-07-15T16:57:09.573Z",
+      "breakpoints": [
+        {
+          "id": "creative-work-generation-success-not-finalized",
+          "category": "abandonment",
+          "severity": "P1",
+          "at": "2026-07-15T16:57:09.573Z",
+          "note": "Copy and identity completed, and OpenAI successfully generated all three candidate images. Each Inngest function then failed after generation while serializing the final image Buffer from the load-final-buffer step. The work remained generating and every output remained processing without an output key, cost or failure code."
+        }
+      ],
+      "unexpectedCost": true,
+      "observerNotes": "Creative work 33a08630-402f-474f-ac2b-8426d00dd09e persisted the full 1:1 brief, generated copy and identity snapshot. The previous generate-base Buffer correction held, but a second Buffer crossed the Inngest step boundary in load-final-buffer. Provider work and storage completed for all three candidates, yet no user-visible proposal became available and terminal state recovery did not run."
+    },
+    {
+      "scenarioId": "N02-after-attempt-1",
+      "phase": "after",
+      "participantId": "P01",
+      "mode": "no_campaign",
+      "brand": "Phase8 Human Cafe Aurora",
+      "segment": "alimentacao",
+      "entrySurface": "home_create_post",
+      "device": "mobile",
+      "outcome": "failed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-15T17:12:45.000Z",
+      "firstOutputAt": null,
+      "approvedAt": null,
+      "deliveredAt": null,
+      "endedAt": "2026-07-15T17:21:11.048Z",
+      "breakpoints": [
+        {
+          "id": "creative-work-generation-success-not-finalized",
+          "category": "abandonment",
+          "severity": "P1",
+          "at": "2026-07-15T17:21:11.048Z",
+          "note": "The mobile 9:16 flow reached copy, identity and three parallel generation jobs. All three Inngest functions failed after provider execution and the UI left every proposal on PROCESSANDO/Gerando indefinitely."
+        }
+      ],
+      "unexpectedCost": true,
+      "observerNotes": "Creative work 79929f3a-b5a5-4cdd-bf12-7bedd99448d1 retained its copy and identity snapshot, but remained generating with three processing outputs and no output keys, costs or failure codes. The independent mobile and Cafe Aurora reproduction confirms the final-buffer serialization defect is format-, brand- and viewport-independent."
+    },
+    {
+      "scenarioId": "N03-after-attempt-1",
+      "phase": "after",
+      "participantId": "P01",
+      "mode": "no_campaign",
+      "brand": "Phase8 Human Studio Pulso",
+      "segment": "fitness",
+      "entrySurface": "assistant",
+      "device": "desktop",
+      "outcome": "failed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-15T17:27:14.000Z",
+      "firstOutputAt": null,
+      "approvedAt": null,
+      "deliveredAt": null,
+      "endedAt": "2026-07-15T17:33:52.759Z",
+      "breakpoints": [
+        {
+          "id": "standalone-assistant-first-message-aborted-by-lifecycle",
+          "category": "abandonment",
+          "severity": "P1",
+          "at": "2026-07-15T17:33:52.759Z",
+          "note": "The standalone Assistant displayed the participant message optimistically and stayed on 'Assistente respondendo...' for more than six minutes, while the database contained the thread but zero messages, actions or goal runs. The first-send effect is consumed before completion; the Strict Mode cleanup aborts its request, and the aborted path never clears isStreaming unless the signal reason equals timeout."
+        }
+      ],
+      "unexpectedCost": false,
+      "observerNotes": "Thread 275db726-d339-41f8-857c-09ee45ed08cd was created for Studio Pulso, but the chat POST did not persist the optimistic user message and no provider or job work began. The context panel correctly reflected zero actions and zero active jobs, contradicting the permanent responding indicator."
+    },
+    {
+      "scenarioId": "N04-after-attempt-1",
+      "phase": "after",
+      "participantId": "P01",
+      "mode": "no_campaign",
+      "brand": "Phase8 Human Studio Pulso",
+      "segment": "fitness",
+      "entrySurface": "home_create_post",
+      "device": "mobile",
+      "outcome": "failed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-15T17:45:20.033Z",
+      "firstOutputAt": null,
+      "approvedAt": null,
+      "deliveredAt": null,
+      "endedAt": "2026-07-15T17:48:59.784Z",
+      "breakpoints": [
+        {
+          "id": "creative-work-generation-success-not-finalized",
+          "category": "abandonment",
+          "severity": "P1",
+          "at": "2026-07-15T17:48:59.784Z",
+          "note": "The Home-to-Create-Post mobile journey completed brief, copy and identity, and OpenAI generated all three 4:5 candidates. All three Inngest functions then failed after provider execution, leaving every proposal on PROCESSANDO/Gerando indefinitely."
+        }
+      ],
+      "unexpectedCost": true,
+      "observerNotes": "Creative work 0126f21d-1830-4943-a7b2-51428dbb6432 retained the complete Studio Pulso brief, copy and identity snapshot, but remained generating with three processing outputs and no output keys, costs or failure codes. This third after-round reproduction confirms the post-generation finalization defect across all requested brands, formats and entry paths."
+    },
+    {
+      "scenarioId": "N05-after-attempt-1",
+      "phase": "after",
+      "participantId": "P01",
+      "mode": "no_campaign",
+      "brand": "Phase8 Human Cafe Aurora",
+      "segment": "alimentacao",
+      "entrySurface": "home_recent_work",
+      "device": "desktop",
+      "outcome": "failed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-15T17:54:00.000Z",
+      "firstOutputAt": null,
+      "approvedAt": null,
+      "deliveredAt": null,
+      "endedAt": "2026-07-15T17:56:20.128Z",
+      "breakpoints": [
+        {
+          "id": "prepared-work-not-discoverable-from-home",
+          "category": "abandonment",
+          "severity": "P1",
+          "at": "2026-07-15T17:52:23.868Z",
+          "note": "The prepared Cafe Aurora work was absent from both the five-item Home recents and the sidebar recents, so the participant could not enter the planned resume journey without an observer-supplied direct URL."
+        },
+        {
+          "id": "create-post-resume-first-load-empty",
+          "category": "context_loss",
+          "severity": "P1",
+          "at": "2026-07-15T17:55:00.000Z",
+          "note": "On the first direct opening, the participant saw no recovered field values even though the database retained the complete brief, copy and identity snapshot."
+        },
+        {
+          "id": "ready-work-without-outputs-opens-empty-proposals",
+          "category": "abandonment",
+          "severity": "P1",
+          "at": "2026-07-15T17:56:20.128Z",
+          "note": "On the second opening, status ready forced the wizard onto Propostas despite the work having zero outputs. The UI rendered three empty level cards with no generate, back, continue or recovery action."
+        }
+      ],
+      "unexpectedCost": false,
+      "observerNotes": "Creative work 1dbdc992-e350-4f4a-b4a0-0febf5fe67df remains ready with the full Cafe Aurora brief, 1:1 format, copy and identity snapshot, but zero outputs. Resume only partially recovered the aggregate and exposed no executable next step."
+    },
+    {
+      "scenarioId": "C01-after-attempt-2",
+      "phase": "after",
+      "participantId": "P02",
+      "mode": "campaign",
+      "brand": "Phase8 Human Horizonte Educacao",
+      "segment": "educacao",
+      "entrySurface": "home_new_campaign",
+      "device": "desktop",
+      "outcome": "failed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-16T00:07:00.000Z",
+      "firstOutputAt": null,
+      "approvedAt": null,
+      "deliveredAt": null,
+      "endedAt": "2026-07-16T00:20:06.000Z",
+      "breakpoints": [
+        {
+          "id": "preview-approval-bypassed",
+          "category": "context_loss",
+          "severity": "P1",
+          "at": "2026-07-16T00:20:06.000Z",
+          "note": "With the real provider restored, the campaign rendered a completed pilot and immediately generated another variation before the participant approved the pilot. The explicit human approval gate was still bypassed."
+        }
+      ],
+      "unexpectedCost": true,
+      "observerNotes": "The first output under the controlled-provider runtime was invalidated as harness contamination and the app was restarted with the real provider. The real-provider retry still reproduced the product defect: a second output was generated before P02 approved the pilot. Exact first-output timing was not captured, so firstOutputAt remains null and this failed attempt does not count toward the completion sample."
+    },
+    {
+      "scenarioId": "N01-after-attempt-2",
+      "phase": "after",
+      "participantId": "P02",
+      "mode": "no_campaign",
+      "brand": "Phase8 Human Horizonte Educacao",
+      "segment": "educacao",
+      "entrySurface": "home_create_post",
+      "device": "desktop",
+      "outcome": "completed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-16T10:20:58.000Z",
+      "firstOutputAt": "2026-07-16T10:33:30.224Z",
+      "approvedAt": "2026-07-16T10:45:31.902Z",
+      "deliveredAt": "2026-07-16T10:45:31.902Z",
+      "endedAt": "2026-07-16T10:51:42.000Z",
+      "breakpoints": [
+        {
+          "id": "create-post-results-require-interaction-to-refresh",
+          "category": "error",
+          "severity": "P1",
+          "at": "2026-07-16T10:41:18.830Z",
+          "note": "All three provider jobs completed, but the proposal grid did not visibly refresh until the participant repeatedly clicked the interface. The query stopped polling after the first partial terminal aggregate even while sibling outputs were still processing."
+        },
+        {
+          "id": "creative-levels-not-visibly-distinct",
+          "category": "doubt",
+          "severity": "P2",
+          "at": "2026-07-16T10:41:18.830Z",
+          "note": "The participant could not perceive a meaningful conservative, balanced and bold progression across the three generated proposals."
+        },
+        {
+          "id": "create-post-select-action-has-no-visible-purpose",
+          "category": "doubt",
+          "severity": "P2",
+          "at": "2026-07-16T10:45:31.902Z",
+          "note": "The standalone Select action changed the internal winner but produced no useful visible outcome or downstream step; Save to library already performs the same selection as part of delivery."
+        }
+      ],
+      "unexpectedCost": false,
+      "observerNotes": "Creative work 16e39d3c-82ae-4525-a33c-b9c8706f3c9d completed all three 1:1 outputs. P02 downloaded bold, saved conservative and balanced to the library, and exercised Select. Server evidence confirms the bold download, successful select/save requests, library navigation and asset reads. This is the first completed after-round journey."
+    }
+  ],
+  "corrections": [
+    {
+      "commit": "fbfdd292",
+      "description": "Prevent the mounted campaign assistant panel from issuing another default-thread POST while the same campaign/profile request is already in flight.",
+      "targetedBreakpointIds": [
+        "campaign-assistant-thread-request-loop"
+      ]
+    },
+    {
+      "commit": "f8f3054c",
+      "description": "Give assistant thread creation enough time to complete instead of exposing the generic 15-second client abort as a permanent startup failure.",
+      "targetedBreakpointIds": [
+        "campaign-assistant-startup-hang",
+        "campaign-assistant-signal-timeout",
+        "standalone-assistant-thread-startup-timeout"
+      ]
+    },
+    {
+      "commit": "f8f3054c",
+      "description": "Allow synchronous copy generation to outlive the generic request timeout while preserving the returned server snapshot in the query cache.",
+      "targetedBreakpointIds": [
+        "create-post-copy-request-times-out-after-persist",
+        "generated-copy-not-hydrated-without-refresh"
+      ]
+    },
+    {
+      "commit": "f8f3054c",
+      "description": "Keep generated image buffers out of Inngest step output and reload the stored base only when exact-layer composition needs it.",
+      "targetedBreakpointIds": [
+        "creative-work-three-output-jobs-stuck-processing",
+        "creative-work-generation-success-not-finalized"
+      ]
+    },
+    {
+      "commit": "f8f3054c",
+      "description": "Derive the active Create Post work from the current URL so client navigation between resumable works hydrates the requested aggregate.",
+      "targetedBreakpointIds": [
+        "create-post-resume-opens-empty-brief"
+      ]
+    },
+    {
+      "commit": "6e38cf19",
+      "description": "Allow campaigns and materialized templates without a base image to persist their briefing and generate through the canonical from-scratch path.",
+      "targetedBreakpointIds": [
+        "preview-enqueue-fails-without-base-asset",
+        "campaign-without-base-image-continue-noop",
+        "materialized-template-blocked-without-base-image"
+      ]
+    },
+    {
+      "commit": "6e38cf19",
+      "description": "Keep every creative-work image buffer outside Inngest step results and expire disappeared jobs into a retryable terminal failure.",
+      "targetedBreakpointIds": [
+        "creative-work-generation-success-not-finalized",
+        "creative-work-three-output-jobs-stuck-processing"
+      ]
+    },
+    {
+      "commit": "6e38cf19",
+      "description": "Preserve nested tool argument types for MiniMax and protect the first Assistant send from Strict Mode cleanup.",
+      "targetedBreakpointIds": [
+        "campaign-chat-stream-error"
+      ]
+    },
+    {
+      "commit": "6e38cf19",
+      "description": "Hydrate resumable creative work before rendering and keep ready work without outputs on the executable identity step.",
+      "targetedBreakpointIds": [
+        "create-post-resume-opens-empty-brief"
+      ]
+    },
+    {
+      "commit": "1c2a5eb8",
+      "description": "Require explicit human approval of every completed pilot before the canonical campaign flow can enqueue the production batch.",
+      "targetedBreakpointIds": [
+        "preview-approval-bypassed"
+      ]
+    },
+    {
+      "commit": "98448874",
+      "description": "Keep Create Post projections synchronized after generation and remove the standalone Select action that had no visible downstream purpose.",
+      "targetedBreakpointIds": [
+        "generated-copy-not-hydrated-without-refresh"
+      ]
+    },
+    {
+      "commit": "98448874",
+      "description": "Open the structured review surface when a completed creative is rejected, and delay contextual feedback until a real preview has been shown.",
+      "targetedBreakpointIds": [
+        "rejection-direction-has-no-answer-surface",
+        "feedback-prompt-before-first-output"
+      ]
+    },
+    {
+      "commit": "98448874",
+      "description": "Preserve or infer the matching client profile during template materialization and expose Templates in the canonical navigation.",
+      "targetedBreakpointIds": [
+        "campaign-brand-context-not-selected",
+        "templates-not-discoverable-from-interface"
+      ]
+    },
+    {
+      "commit": "98448874",
+      "description": "Replace the overlapping generation mark and soften non-actionable blocking terminology in the campaign surface.",
+      "targetedBreakpointIds": [
+        "generation-loader-logo-overlap",
+        "hard-failures-without-recovery-path"
+      ]
+    }
+  ],
+  "decision": {
+    "verdict": "iterate",
+    "rationale": "The frozen production baseline and failed human attempts expose the baseline breakpoints, while one post-fix human journey completed end to end. The remaining observed deterministic gaps were corrected in 98448874 and a 6/6 agent-controlled technical smoke passed, but automation does not enter the human denominator. Superiority cannot be claimed. On 2026-07-16 the owner explicitly approved Gate 8 with the incomplete 1/10 human sample retained as accepted debt because prompt and image-generation interaction will continue in the next product cycle."
+  },
+  "gateClosure": {
+    "gate": 8,
+    "status": "approved_with_accepted_debt",
+    "approvedBy": "owner",
+    "approvedAt": "2026-07-16",
+    "acceptedDebt": "Only 1 of 10 planned post-fix human journeys completed; no statistical superiority claim is permitted."
+  }
+}

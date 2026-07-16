@@ -332,6 +332,13 @@ describe("HumanQualityCorpusPanel", () => {
       expect.stringMatching(/\/api\/feedback\/human-quality-corpus\?.*limit=50/)
     );
     expect(mockApiFetch).toHaveBeenCalledWith(expect.not.stringContaining("workspaceId="));
+    expect(
+      mockApiFetch.mock.calls.some(([url]) =>
+        /score-calibration|learning-impact|quality-improvement|sample-coverage|quality-trend/.test(
+          String(url)
+        )
+      )
+    ).toBe(false);
   });
 
   it("shows global empty state when queue has no items", async () => {
@@ -1285,20 +1292,20 @@ describe("HumanQualityCorpusPanel trend tab", () => {
     expect(screen.getByRole("button", { name: "Trend" })).toBeInTheDocument();
   });
 
-  it("returns null when all six APIs return 403", async () => {
+  it("keeps inactive analytics APIs idle when the queue is forbidden", async () => {
     mockApiFetch.mockResolvedValue({ ok: false, status: 403 } as Response);
 
-    const { container } = renderPanel();
+    renderPanel();
     applyWorkspaceScope();
 
-    await waitFor(() => {
-      expect(container.querySelector("section")).toBeNull();
-    });
+    expect(
+      await screen.findByText("Corpus evaluation queue is restricted to platform owners.")
+    ).toBeInTheDocument();
 
     const trendCalls = mockApiFetch.mock.calls.filter(
       ([url]) => typeof url === "string" && url.includes("quality-trend")
     );
-    expect(trendCalls.length).toBeGreaterThan(0);
+    expect(trendCalls).toHaveLength(0);
   });
 
   it("renders separate alert chips when flags are set", async () => {

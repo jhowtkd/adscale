@@ -1,0 +1,46 @@
+# Machine-readable surface decisions for Convergence Gate 1.
+#
+# Blocker decisions (inert CTAs from the scanner) MUST set blockerId to the
+# exact inventory item.id — 1:1, never file-only.
+#
+# Curated decisions (product surfaces) use evidence only; they never cover
+# requiresDecision items.
+#
+# decision: manter | fundir | esconder | apagar
+
+decisions:
+  - id: B-demo-restore-stub
+    blockerId: "inert:app/src/components/layout/TopBar.tsx:410"
+    evidence: app/src/components/layout/TopBar.tsx:410
+    decision: esconder
+    rationale: "Demo-mode restore stub is intentionally non-functional; not a primary creative path."
+
+  - id: B-templates-use
+    evidence: app/src/app/(dashboard)/templates/page.tsx
+    decision: manter
+    rationale: "Usar template loads modal then POST /api/templates/[id]/materialize (server-side canonical materialize)."
+
+  - id: B-landing-api
+    evidence: app/src/app/api/derivations/[id]/landing-page
+    decision: esconder
+    rationale: "Landing page API retained under freeze; UI already inert."
+
+  - id: B-create-post
+    evidence: app/src/app/(dashboard)/quick-tools/create-post/page.tsx
+    decision: fundir
+    rationale: "Allowed primary destination today; converge into canonical creative work in Phase 5."
+
+  - id: B-assistant
+    evidence: app/src/app/(dashboard)/assistant/page.tsx
+    decision: manter
+    rationale: "Allowed conversational adapter primary destination."
+
+  - id: B-campaigns
+    evidence: app/src/app/(dashboard)/campaigns/page.tsx
+    decision: manter
+    rationale: "Allowed campaign primary destination."
+
+  - id: B-brand-kit
+    evidence: app/src/app/(dashboard)/brand-kit/page.tsx
+    decision: manter
+    rationale: "Independent Brand Training supporting module."

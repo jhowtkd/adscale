@@ -31,7 +31,17 @@ const steps = [
   ["npx", ["playwright", "test", "--config", "playwright.release.config.ts"], "visual-release"],
 ];
 
+// Phase-0 convergence gates run BEFORE the release-gate evidence check
+// so a freeze violation fails the release, not just CI.
+const convergenceSteps = [
+  ["node", ["scripts/run-convergence-gate.mjs"], "convergence-gate"],
+];
+
 try {
+  for (const [command, args, step] of convergenceSteps) {
+    run(command, args, step);
+  }
+
   for (const [command, args, step] of steps) {
     run(command, args, step);
     if (step !== "visual-release") writeAutomatedStep(step, "pass");

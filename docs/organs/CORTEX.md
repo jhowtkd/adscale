@@ -122,11 +122,11 @@ ActionContract {
 }
 ```
 
-Registered in `contracts/index.ts` (14 action types):
+Registered in `contracts/index.ts` (13 action types):
 
 | Family | Types |
 |--------|-------|
-| Quick | `quick_restyle`, `quick_format_adapt`, `quick_regenerate`, `quick_review`, `quick_save_reference`, `quick_package`, `quick_persona_simulate` |
+| Quick | `quick_restyle`, `quick_format_adapt`, `quick_regenerate`, `quick_review`, `quick_save_reference`, `quick_package` |
 | Campaign / creative | `start_complete_campaign`, `start_brand_training`, `create_creative_plan`, `revise_creative_plan`, `revise_creative`, `generate_creative_triplet`, `revise_creative_annotations`, `generate_goal_package` |
 
 **Propose path:** model calls tool `propose_action` → `validateProposeAction` → `createAssistantAction` (status pending) → UI ActionCard → user confirms → `POST .../actions/[id]/confirm` → `executeConfirmedAssistantAction`.

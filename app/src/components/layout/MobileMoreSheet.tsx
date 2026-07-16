@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { LayoutTemplate, Sparkles, type LucideIcon } from "lucide-react";
+import { LayoutTemplate, Settings, Sparkles, type LucideIcon } from "lucide-react";
 import {
   Sheet,
   SheetBody,
@@ -30,7 +30,14 @@ export default function MobileMoreSheet({ open, onOpenChange }: MobileMoreSheetP
   const pathname = usePathname();
   const tNav = useTranslations("navigation");
 
+  // Config lives in More (item 45); primary tabs are Home · Trabalhos · Biblioteca · Marcas
   const items: MobileMoreItem[] = [
+    {
+      href: "/settings",
+      label: tNav("config"),
+      icon: Settings,
+      active: pathname.startsWith("/settings"),
+    },
     {
       href: "/templates",
       label: tNav("templates"),

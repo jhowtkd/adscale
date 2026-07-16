@@ -117,11 +117,13 @@ import {
   completeCreativeWorkOutput,
   createCreativeWork,
   createCreativeWorkOutputs,
+  failStaleCreativeWorkOutputs,
   failCreativeWorkOutput,
   getCreativeWork,
   markCreativeWorkOutputProcessing,
   refreshCreativeWorkStatus,
   selectCreativeWorkOutput,
+  setCreativeWorkBrief,
   setCreativeWorkCopy,
   setCreativeWorkStatus,
 } from "./creative-work";
@@ -259,6 +261,31 @@ describe("creative-work repository", () => {
     });
   });
 
+  describe("failStaleCreativeWorkOutputs", () => {
+    it("turns only stale queued or processing outputs into retryable failures", async () => {
+      const failed = workOutput({
+        status: "failed",
+        failureCode: "generation_timeout",
+      });
+      mocks.state.updateResults.push([failed]);
+      const staleBefore = new Date("2026-07-15T12:00:00.000Z");
+
+      const result = await failStaleCreativeWorkOutputs(
+        "ws-1",
+        "work-1",
+        staleBefore,
+      );
+
+      expect(mocks.setMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: "failed",
+          failureCode: "generation_timeout",
+        }),
+      );
+      expect(result).toEqual([failed]);
+    });
+  });
+
   describe("setCreativeWorkCopy", () => {
     it("updates the copy scoped by workspace and work id", async () => {
       const updated = workItem({ copy: socialCopy });
@@ -271,6 +298,22 @@ describe("creative-work repository", () => {
         expect.objectContaining({ copy: socialCopy }),
       );
       expect(result?.copy).toEqual(socialCopy);
+    });
+  });
+
+  describe("setCreativeWorkBrief", () => {
+    it("updates the brief scoped by workspace and work id", async () => {
+      const nextBrief = { ...socialBrief, theme: "Atualizado" };
+      const updated = workItem({ brief: nextBrief });
+      mocks.state.updateResults.push([updated]);
+
+      const result = await setCreativeWorkBrief("ws-1", "work-1", nextBrief);
+
+      expect(mocks.updateMock).toHaveBeenCalledTimes(1);
+      expect(mocks.setMock).toHaveBeenCalledWith(
+        expect.objectContaining({ brief: nextBrief }),
+      );
+      expect(result?.brief).toEqual(nextBrief);
     });
   });
 

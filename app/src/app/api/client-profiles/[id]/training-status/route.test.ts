@@ -25,7 +25,7 @@ vi.mock("@/server/repositories/client-reference", () => ({
 }));
 
 const getBrandKit = vi.fn();
-vi.mock("@/server/db/repositories/brand-kit", () => ({
+vi.mock("@/server/repositories/brand-kit", () => ({
   getBrandKit: (...args: unknown[]) => getBrandKit(...args),
 }));
 

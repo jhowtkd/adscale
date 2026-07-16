@@ -133,6 +133,7 @@ async function createAssistantThread(payload: {
 }): Promise<AssistantThread> {
   const res = await apiFetch("/api/assistant/threads", {
     method: "POST",
+    timeoutMs: 60_000,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });

@@ -18,7 +18,7 @@ vi.mock("@/server/repositories/campaign", () => ({
   getCampaignById: vi.fn(),
 }));
 
-vi.mock("@/server/db/repositories/brand-kit", () => ({
+vi.mock("@/server/repositories/brand-kit", () => ({
   getBrandKit: vi.fn(),
 }));
 
@@ -34,7 +34,7 @@ import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
 import { listAssistantMessages } from "@/server/repositories/assistant-message";
 import { getClientProfile } from "@/server/repositories/client-reference";
 import { getCampaignById } from "@/server/repositories/campaign";
-import { getBrandKit } from "@/server/db/repositories/brand-kit";
+import { getBrandKit } from "@/server/repositories/brand-kit";
 import { getBrandMemoryContext } from "@/server/memory/brand-memory-context";
 
 const mockGetThread = vi.mocked(getAssistantThreadById);

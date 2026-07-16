@@ -40,6 +40,7 @@ vi.mock("@/server/jobs/client", () => ({
 }));
 
 vi.mock("@/server/billing/paywall", () => ({
+  spend: vi.fn(() => Promise.resolve({ ok: true, creditsSpent: 5 })),
   spendOrApiError: vi.fn(() => Promise.resolve(null)),
 }));
 

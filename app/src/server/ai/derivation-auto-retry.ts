@@ -101,9 +101,11 @@ export async function runDerivationAutoRetry(
 
   const stepResult = await executeGenerationStep({
     derivationId: input.derivationId,
+    workspaceId: input.workspaceId,
     promptContext: promptContextInput,
     reference,
     isPreview: input.isPreview,
+    surface: "campaign",
     autoRetry: { correctionFeedback: input.correctionFeedback },
   });
 

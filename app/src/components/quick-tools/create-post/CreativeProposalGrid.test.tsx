@@ -41,7 +41,6 @@ describe("CreativeProposalGrid", () => {
       <CreativeProposalGrid
         outputs={outputs}
         onRetry={vi.fn()}
-        onSelect={vi.fn()}
         onSave={vi.fn()}
         onDownload={vi.fn()}
       />,
@@ -56,7 +55,6 @@ describe("CreativeProposalGrid", () => {
       <CreativeProposalGrid
         outputs={outputs}
         onRetry={vi.fn()}
-        onSelect={vi.fn()}
         onSave={vi.fn()}
         onDownload={vi.fn()}
       />,
@@ -65,45 +63,40 @@ describe("CreativeProposalGrid", () => {
     expect(screen.getByRole("button", { name: "Repetir esta proposta" })).toBeVisible();
   });
 
-  it("exposes select/save/download on completed cards", () => {
+  it("exposes only delivery actions on completed cards", () => {
     render(
       <CreativeProposalGrid
         outputs={outputs}
         onRetry={vi.fn()}
-        onSelect={vi.fn()}
         onSave={vi.fn()}
         onDownload={vi.fn()}
       />,
     );
 
-    expect(screen.getAllByRole("button", { name: "Selecionar" })).toHaveLength(2);
+    expect(screen.queryByRole("button", { name: "Selecionar" })).not.toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Salvar na biblioteca" })).toHaveLength(2);
     expect(screen.getAllByRole("button", { name: "Baixar" })).toHaveLength(2);
   });
 
-  it("invokes retry/save/select/download callbacks", () => {
+  it("invokes retry/save/download callbacks", () => {
     const onRetry = vi.fn();
     const onSave = vi.fn();
-    const onSelect = vi.fn();
     const onDownload = vi.fn();
 
     render(
       <CreativeProposalGrid
         outputs={outputs}
         onRetry={onRetry}
-        onSelect={onSelect}
         onSave={onSave}
         onDownload={onDownload}
       />,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Repetir esta proposta" }));
-    fireEvent.click(screen.getAllByRole("button", { name: "Selecionar" })[0]);
     fireEvent.click(screen.getAllByRole("button", { name: "Salvar na biblioteca" })[0]);
     fireEvent.click(screen.getAllByRole("button", { name: "Baixar" })[0]);
 
     expect(onRetry).toHaveBeenCalledWith(boldFailed.id);
-    expect(onSelect).toHaveBeenCalledWith(conservativeCompleted.id);
     expect(onSave).toHaveBeenCalledWith(conservativeCompleted.id);
     expect(onDownload).toHaveBeenCalledWith(conservativeCompleted.id);
   });

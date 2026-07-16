@@ -218,7 +218,7 @@ O projeto possui **51 arquivos de teste** (~67 test suites mencionadas) distribu
 - `src/server/auth/team.ts` — Lógica de equipe
 - `src/server/billing/stripe.ts` — Cliente Stripe
 - `src/server/billing/plans.ts` — Planos e preços
-- `src/server/db/repositories/brand-kit.ts`
+- `src/server/repositories/brand-kit.ts`
 - `src/server/jobs/trial-notifications.ts`
 - `src/server/repositories/billing.ts`
 - `src/server/repositories/competitor-analysis.ts`

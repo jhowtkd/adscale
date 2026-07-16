@@ -4,7 +4,6 @@ import { useMemo, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown } from "lucide-react";
 import { apiFetch } from "@/lib/api-client";
-import { HumanQualityCorpusPanel } from "@/components/feedback/HumanQualityCorpusPanel";
 import { useAnalyticsLabels } from "@/components/feedback/analytics-labels";
 import { cn } from "@/lib/utils";
 
@@ -1057,7 +1056,6 @@ export function OwnerAnalyticsPanel({
           <p className="text-sm text-[var(--text-muted)]">{t("loadError")}</p>
         )}
       </section>
-      <HumanQualityCorpusPanel />
     </div>
   );
 }

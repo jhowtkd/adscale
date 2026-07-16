@@ -64,7 +64,10 @@ function zodToJsonSchema(schema: z.ZodType): Record<string, unknown> {
 
     for (const [key, value] of Object.entries(shape)) {
       properties[key] = zodTypeToJson(value as z.ZodType);
-      if (!(value instanceof z.ZodOptional)) {
+      if (
+        !(value instanceof z.ZodOptional) &&
+        !(value instanceof z.ZodDefault)
+      ) {
         required.push(key);
       }
     }
@@ -81,10 +84,38 @@ function zodToJsonSchema(schema: z.ZodType): Record<string, unknown> {
 }
 
 function zodTypeToJson(schema: z.ZodType): Record<string, unknown> {
-  if (schema instanceof z.ZodString) return { type: "string" };
-  if (schema instanceof z.ZodRecord) return { type: "object", additionalProperties: true };
-  if (schema instanceof z.ZodOptional) {
-    return zodTypeToJson(schema.unwrap() as z.ZodType);
+  if (schema instanceof z.ZodOptional || schema instanceof z.ZodDefault) {
+    return zodTypeToJson(schema._def.innerType as z.ZodType);
   }
-  return { type: "string" };
+  if (schema instanceof z.ZodNullable) {
+    const inner = zodTypeToJson(schema.unwrap() as z.ZodType);
+    if (typeof inner.type === "string") {
+      return { ...inner, type: [inner.type, "null"] };
+    }
+    return { anyOf: [inner, { type: "null" }] };
+  }
+  if (schema instanceof z.ZodObject) return zodToJsonSchema(schema);
+  if (schema instanceof z.ZodString) return { type: "string" };
+  if (schema instanceof z.ZodNumber) return { type: "number" };
+  if (schema instanceof z.ZodBoolean) return { type: "boolean" };
+  if (schema instanceof z.ZodArray) {
+    return {
+      type: "array",
+      items: zodTypeToJson(schema.element as z.ZodType),
+    };
+  }
+  if (schema instanceof z.ZodEnum) {
+    return { type: "string", enum: schema.options };
+  }
+  if (schema instanceof z.ZodLiteral) {
+    const value = schema.value;
+    return { type: typeof value, const: value };
+  }
+  if (schema instanceof z.ZodRecord) return { type: "object", additionalProperties: true };
+  if (schema instanceof z.ZodUnion) {
+    return {
+      anyOf: schema.options.map((option: z.ZodType) => zodTypeToJson(option)),
+    };
+  }
+  return {};
 }

@@ -282,9 +282,7 @@ Phases 109–114 complete; 33/33 requirements; release gate in `playwright.relea
 Phases 103–108 complete; 31/31 requirements; prod migrate 0036–0040 applied on Render (`journal after=41`). Archive: `.planning/milestones/v12.1-*`.
 
 **Delivered:**
-- Manual + CSV performance import with locale/currency normalization and dedup
-- Creative hypotheses, variant comparison, and honest evidence states
-- Client performance learnings (Postgres canonical + Mem0 projection)
+- Output decision learning (Postgres canonical + memory projection)
 - Next-experiment recommendation with editable Strategy Recipe prefill
 - Product-pure UAT (`re-uat-v12.1-product.mjs`) + PATCH `clientProfileId` fix
 
@@ -574,7 +572,6 @@ Key stack decisions:
 - **Image model**: `OPENAI_IMAGE_MODEL=gpt-image-2-2026-04-21`. No silent fallback. If API rejects, show clear config error.
 - **Security**: Do not hardcode API keys. Do not commit `.env`. Validate input, file type, size and workspace access at boundaries.
 - **Learning integrity**: Recommendations must expose evidence, sample size, and confidence; sparse or incomparable data cannot be presented as certainty.
-- **Import-first scope**: Validate the performance-learning model with manual entry and CSV before direct media-platform APIs.
 - **Language model behavior**: Plan and derivation prompts include the target language instruction. No silent fallback to English.
 
 ## Key Decisions
@@ -598,8 +595,8 @@ Key stack decisions:
 | Learn before build | Instrument and run operator beta sessions before adding speculative cockpit or progression features | ✓ Good — v11.8 |
 | First-party beta analytics | Operator-scale learning without third-party SDK; PII allowlist at ingest | ✓ Good — v11.8 |
 | Evidence-capped friction fixes | Max 5 surgical UX fixes per milestone with session citations | ✓ Good — v11.8 |
-| Manual/CSV performance ingestion before platform APIs | Validate data model and recommendation value before OAuth, rate-limit, and provider-maintenance complexity | — Pending — v12.1 |
-| Explainable recommendations over opaque ranking | Users need evidence, sample size, and confidence to trust the next creative experiment | — Pending — v12.1 |
+| Manual/CSV performance ingestion before platform APIs | Validate data model and recommendation value before OAuth, rate-limit, and provider-maintenance complexity | ✗ Retired — convergence 2026-07-14; no real usage evidence |
+| Explainable performance recommendations over opaque ranking | Users need evidence, sample size, and confidence to trust the next creative experiment | ✗ Retired with the unproven performance loop — convergence 2026-07-14 |
 | Olhar before export compliance | A creative can be exportable and still weak, or strong and still blocked by factual/export issues; the product must show both truths separately | ✓ Good — v12.7 |
 | Client voice as prompt overlay | Cenbrap validates the structure before multi-client voice management is productized | ✓ Good — v12.7 |
 | Live operator calibration before claims | Agreement/quality claims require reviewable rows, Jhonatan decisions and sufficient sample — infrastructure complete, operator gate open | ✓ Good — v12.8 shipped with tech_debt |

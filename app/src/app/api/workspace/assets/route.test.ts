@@ -20,7 +20,11 @@ vi.mock("@/server/storage", () => ({
   objectStorage: {
     put: vi.fn(),
     publicUrl: vi.fn((key: string) => `https://cdn.example.com/${key}`),
-  },}));
+    signedDownloadUrl: vi.fn((key: string) =>
+      Promise.resolve(`https://signed.example.com/${key}`)
+    ),
+  },
+}));
 
 vi.mock("@/server/jobs/client", () => ({
   inngest: { send: vi.fn() },
@@ -57,7 +61,12 @@ describe("GET /api/workspace/assets", () => {
 
     expect(res.status).toBe(200);
     expect(body.assets).toEqual([
-      { id: "wa-1", name: "logo.png", key: "assets/logo.png", url: "https://cdn.example.com/assets/logo.png" },
+      {
+        id: "wa-1",
+        name: "logo.png",
+        key: "assets/logo.png",
+        url: "/api/workspace/assets/wa-1/file",
+      },
     ]);
     expect(mockGetWorkspaceAssets).toHaveBeenCalledWith(
       "workspace-1",

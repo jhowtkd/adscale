@@ -124,11 +124,9 @@ function safeTranslate(t: (k: string) => string, key: string): string | null {
 }
 
 export default function TopBar({
-  onMenuClick,
   variant = "floating",
 }: {
-  onMenuClick?: () => void;
-  variant?: "floating" | "inline" | "v6-floating";
+  variant?: "floating" | "inline" | "shell-floating";
 }) {
   const tCommon = useTranslations("common");
   const tNav = useTranslations("navigation");
@@ -199,39 +197,13 @@ export default function TopBar({
 
   const isTopBarHidden = isMobile && scrollDirection === "down";
   const isInline = variant === "inline";
-  const isV6Floating = variant === "v6-floating";
-  const v6ContextLabel = (() => {
-    if (pathname.startsWith("/v6/")) {
-      if (pathname === "/v6" || pathname.startsWith("/v6/topbar-promo") || pathname.startsWith("/v6/dashboard")) {
-        return tNav("dashboard");
-      }
-      if (pathname.startsWith("/v6/campaign-workspace")) {
-        return "Cenbrap em Dobro — Teste";
-      }
-      if (pathname.startsWith("/v6/campaigns")) {
-        return tNav("campaigns");
-      }
-      if (pathname.startsWith("/v6/library")) {
-        return "Biblioteca";
-      }
-      if (pathname.startsWith("/v6/settings")) {
-        return tNav("settings");
-      }
-      if (
-        pathname.startsWith("/v6/chat") ||
-        pathname.startsWith("/v6/assistant-empty") ||
-        pathname.startsWith("/v6/onboarding")
-      ) {
-        return tAssistant("headerTitle");
-      }
-    }
-    return headerTitle || tNav("home");
-  })();
+  const isShellFloating = variant === "shell-floating";
+  const contextLabel = headerTitle || tNav("home");
 
   return (
     <header
       className={cn(
-        isV6Floating
+        isShellFloating
           ? "v6-shell-topbar"
           : isInline
           ? "relative grid h-14 grid-cols-[1fr_auto_1fr] items-center gap-4 border-b border-[var(--border-subtle)] bg-[var(--canvas)] px-6 lg:px-8"
@@ -248,11 +220,11 @@ export default function TopBar({
       <div
         className={cn(
           "flex min-w-0 items-center gap-3 overflow-hidden sm:gap-8",
-          isV6Floating ? "min-w-0 flex-1 pr-4" : isInline ? "shrink-0" : "flex-1"
+          isShellFloating ? "min-w-0 flex-1 pr-4" : isInline ? "shrink-0" : "flex-1"
         )}
       >
-        {isV6Floating ? (
-          <p className="truncate text-[13px] text-[var(--text-muted)]">{v6ContextLabel}</p>
+        {isShellFloating ? (
+          <p className="truncate text-[13px] text-[var(--text-muted)]">{contextLabel}</p>
         ) : (
         <>
         {/* Logo — scales with viewport while preserving SVG aspect ratio (813×142) */}
@@ -307,13 +279,13 @@ export default function TopBar({
       <div
         className={cn(
           "flex shrink-0 items-center",
-          isInline || isV6Floating ? "min-w-0 flex-1 justify-end gap-2 sm:gap-3" : "gap-2 sm:gap-2.5"
+          isInline || isShellFloating ? "min-w-0 flex-1 justify-end gap-2 sm:gap-3" : "gap-2 sm:gap-2.5"
         )}
       >
         <LanguageSwitcher className="[&_button]:size-9 [&_button]:justify-center [&_button]:gap-0 [&_button]:px-0 sm:[&_button]:h-9 sm:[&_button]:w-auto sm:[&_button]:gap-1 sm:[&_button]:px-2 [&_button_svg]:hidden sm:[&_button_svg]:block" />
-        {!isV6Floating && <FeedbackTriggerButton />}
+        {!isShellFloating && <FeedbackTriggerButton />}
 
-        {isV6Floating && (
+        {isShellFloating && (
           <Link
             href="/docs"
             className="hidden items-center gap-2 rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] px-3.5 py-2 text-[13px] font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-inset)] sm:inline-flex"
@@ -322,7 +294,7 @@ export default function TopBar({
           </Link>
         )}
 
-        {isHome && !isV6Floating && (
+        {isHome && !isShellFloating && (
           <Link
             href="/campaigns?new=1"
             aria-label={tCampaign("new")}
@@ -336,7 +308,7 @@ export default function TopBar({
           </Link>
         )}
 
-        {!isHome && !isV6Floating && (
+        {!isHome && !isShellFloating && (
           <div className="relative">
             {/* Notification Bell */}
             <button
@@ -382,7 +354,7 @@ export default function TopBar({
           </div>
         )}
 
-        {!isV6Floating && (
+        {!isShellFloating && (
         <DropdownMenu>
           <DropdownMenuTrigger
             className={cn(

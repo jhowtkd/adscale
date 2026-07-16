@@ -1,0 +1,112 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("@/server/repositories/client-reference", () => ({
+  getClientProfile: vi.fn(),
+}));
+
+vi.mock("@/server/repositories/creative-work", () => ({
+  createCreativeWork: vi.fn(),
+}));
+
+import { getClientProfile } from "@/server/repositories/client-reference";
+import { createCreativeWork } from "@/server/repositories/creative-work";
+import {
+  buildSocialPostCreateInput,
+  SOCIAL_POST_TOOL_KIND,
+  startSocialPostWork,
+} from "./start-social-post-work";
+
+const mockProfile = vi.mocked(getClientProfile);
+const mockCreate = vi.mocked(createCreativeWork);
+
+const profileId = "00000000-0000-4000-8000-000000000001";
+const brief = {
+  theme: "Novo produto",
+  objective: "Gerar interesse",
+  audience: "Empreendedores",
+  offer: "Teste gratuito",
+};
+
+describe("buildSocialPostCreateInput", () => {
+  it("always forces toolKind social_post", () => {
+    const input = buildSocialPostCreateInput({
+      workspaceId: "ws-1",
+      userId: "u-1",
+      clientProfileId: profileId,
+      format: "4:5",
+      brief,
+    });
+    expect(input.toolKind).toBe(SOCIAL_POST_TOOL_KIND);
+    expect(input.toolKind).toBe("social_post");
+  });
+});
+
+describe("startSocialPostWork", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("rejects unknown profile without creating work", async () => {
+    mockProfile.mockResolvedValue(null);
+    const result = await startSocialPostWork({
+      workspaceId: "ws-1",
+      userId: "u-1",
+      clientProfileId: profileId,
+      format: "4:5",
+      brief,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("client_profile_not_found");
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it("creates creative_work origin with social_post intent and no campaign", async () => {
+    mockProfile.mockResolvedValue({ id: profileId } as never);
+    mockCreate.mockResolvedValue({
+      id: "work-1",
+      workspaceId: "ws-1",
+      clientProfileId: profileId,
+      createdByUserId: "u-1",
+      toolKind: "social_post",
+      status: "draft",
+      brief,
+      format: "4:5",
+      copy: null,
+      identitySnapshot: null,
+      createdAt: new Date("2026-07-13T12:00:00.000Z"),
+      updatedAt: new Date("2026-07-13T12:00:00.000Z"),
+    } as never);
+
+    const result = await startSocialPostWork({
+      workspaceId: "ws-1",
+      userId: "u-1",
+      clientProfileId: profileId,
+      format: "4:5",
+      brief,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        toolKind: "social_post",
+        workspaceId: "ws-1",
+        format: "4:5",
+      })
+    );
+    // Persistence path is creative_work only (no campaign id in create payload).
+    expect(mockCreate.mock.calls[0][0]).not.toHaveProperty("campaignId");
+
+    expect(result.value.canonical.id).toBe("creative_work:work-1");
+    expect(result.value.canonical.originKind).toBe("creative_work");
+    expect(result.value.canonical.intent).toEqual({
+      kind: "social_post",
+      objective: "Gerar interesse",
+      formatHint: "4:5",
+      platforms: [],
+    });
+    expect(result.value.canonical.resumeHref).toContain("create-post");
+    expect(result.value.work.id).toBe("work-1");
+  });
+});

@@ -21,6 +21,9 @@ const createCampaignSchema = z.object({
   product: z.string().optional(),
   objective: z.string().optional(),
   audience: z.string().optional(),
+  platforms: z.array(z.string()).optional(),
+  tone: z.string().optional(),
+  offer: z.string().optional(),
   constraints: z.string().optional(),
   notes: z.string().optional(),
   generationMode: z.enum(["art_variation", "format_adaptation", "restyling"]).optional(),
@@ -30,8 +33,7 @@ const createCampaignSchema = z.object({
   styleIntensity: z.enum(["soft", "medium", "strong"]).optional(),
   clientProfileId: z.string().uuid().nullable().optional(),
   selectedReferenceIds: z.array(z.string().uuid()).max(20).optional(),
-})
-;
+});
 
 function parsePositiveInt(value: string | null, fallback: number) {
   const parsed = Number(value);

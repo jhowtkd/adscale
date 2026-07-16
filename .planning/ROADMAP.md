@@ -2,7 +2,7 @@
 
 ## Milestones
 
-- 📋 **v13.9 Copiloto Criativo Iterativo** - Phases 203-207 (defined 2026-06-27)
+- ✅ **v13.9 Copiloto Criativo Iterativo** - Phases 203-207 (completed 2026-06-28; REQUIREMENTS closed; staging/ops debt inherited — see Accepted Debt in STATE)
 - ✅ **v13.8 Conversa Guiada Adaptativa** - Phases 195-202 closed 2026-06-27 ([audit](milestones/v13.8-MILESTONE-AUDIT.md); live evidence debt accepted by owner)
 - ✅ **v13.7 Qualidade Operacional das Jornadas Guiadas** - Phases 190-194 (shipped 2026-06-26; tech debt: human staging walks + insufficient operational sample)
 - ✅ **v13.6 Jornadas Guiadas do Chat Estratégico** - Phases 184-189 (shipped 2026-06-26; tech debt: staging diagnosis/briefing + live lifecycle verify)
@@ -22,6 +22,13 @@
 - ✅ **v12.2 Refinamento Visual e Consistência da Interface** - Phases 109-114 (shipped 2026-06-14)
 - ✅ **v12.1 Memória Criativa e Aprendizado de Performance** - Phases 103-108 (shipped 2026-06-12)
 - ✅ **v12.0 Monetização Real** - Phases 97-102 (shipped 2026-06-11)
+
+## Active Product Convergence
+
+- ✅ **Gate 6 / Phase 6 — Workspace and navigation convergence** — items 43–50 completed and owner-approved on 2026-07-14; desktop/mobile UAT S01–S14 passed.
+- ✅ **Gate 7 / Phase 7 — Remove parallel tree and unproven surfaces** — items 51–58 completed on 2026-07-14.
+- ✅ **Gate 8 / Phase 8 — Operational evidence before new features** — owner-approved with accepted debt on 2026-07-16. Verdict remains `iterate`; 1/10 human journeys completed, remaining observed gaps fixed in `98448874`, post-fix technical smoke 6/6. The incomplete comparative sample remains documented and does not support a superiority claim.
+- Evidence: `docs/plans/uat-50-evidence/RESULTS.md`, `docs/plans/2026-07-14-gate7-evidence.md`, `.planning/convergence/baseline.json`, `docs/plans/2026-07-14-phase8-human-evidence-protocol.md`, `docs/plans/2026-07-16-phase8-post-fix-agent-smoke.md`.
 
 ## Phases
 
@@ -64,7 +71,7 @@
 Plans:
 
 - [x] 204-01-PLAN.md — Core domain: semantic diff, proposal service, revise_creative_plan contract, confirm handler, draft persistence
-- [ ] 204-02-PLAN.md — Orchestrator integration, API routes, summary-only action card, tests
+- [x] 204-02-PLAN.md — Orchestrator integration, API routes, summary-only action card, tests
 
 ### Phase 205: Creative Iteration Loop
 
@@ -82,10 +89,10 @@ Plans:
 
 Plans:
 
-- [ ] 205-01-PLAN.md — Creative iteration core domain: types, intent, digest, draft, proposal service with planVersionId binding
-- [ ] 205-02-PLAN.md — refundCredits billing function, CreditConfirmModal, AssistantActionCard creative revision display
-- [ ] 205-03-PLAN.md — revise_creative contract + handler (charge→enqueue→async), derivation job callbacks (version on success, refund on failure)
-- [ ] 205-04-PLAN.md — Service facade, orchestrator unified intent classifier, creative-revisions draft API route
+- [x] 205-01-PLAN.md — Creative iteration core domain: types, intent, digest, draft, proposal service with planVersionId binding
+- [x] 205-02-PLAN.md — refundCredits billing function, CreditConfirmModal, AssistantActionCard creative revision display
+- [x] 205-03-PLAN.md — revise_creative contract + handler (charge→enqueue→async), derivation job callbacks (version on success, refund on failure)
+- [x] 205-04-PLAN.md — Service facade, orchestrator unified intent classifier, creative-revisions draft API route
 
 ### Phase 206: Version Compare and Approval
 

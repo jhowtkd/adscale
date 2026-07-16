@@ -4,6 +4,7 @@ import {
   type ReviewDecision,
   validateDirectionReason,
 } from "@/lib/derivation-display";
+import { invalidateCanonicalWorks } from "@/lib/hooks/use-canonical-works";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { useAppStore } from "@/lib/store";
@@ -93,6 +94,7 @@ export function useReviewDerivation(derivationId?: string) {
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["derivations"] });
       queryClient.invalidateQueries({ queryKey: ["campaigns"] });
+      void invalidateCanonicalWorks(queryClient);
       const campaignId = data?.derivation?.campaignId;
       if (campaignId) {
         queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId] });

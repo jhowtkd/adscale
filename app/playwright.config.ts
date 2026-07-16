@@ -26,14 +26,14 @@ export default defineConfig({
   projects: [
     {
       name: "isolated-visual",
-      testMatch: /(visual-(shell|foundations|release-gate|a11y-gate)|v6-preview-a11y-gate)\.spec\.ts$/,
+      testMatch: /visual-(shell|foundations|release-gate|a11y-gate)\.spec\.ts$/,
       fullyParallel: true,
       workers: 2,
       use: { ...devices["Desktop Chrome"] },
     },
     {
       name: "serial-flows",
-      testMatch: /(restyle|assistant|guided).*\.spec\.ts$/,
+      testMatch: /(restyle|assistant|guided|template-materialize|create-post|phase6-gate6-uat).*\.spec\.ts$/,
       fullyParallel: false,
       workers: 1,
       use: { ...devices["Desktop Chrome"] },

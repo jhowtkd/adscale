@@ -112,6 +112,36 @@ describe("AssistantMessageList", () => {
     },
   };
 
+  it("does not render historical frozen persona action cards", () => {
+    render(
+      <AssistantMessageList
+        messages={[
+          {
+            ...quickRestyleActionCard,
+            id: "action-persona-1",
+            payload: {
+              ...quickRestyleActionCard.payload,
+              actionRecordId: "action-persona-1",
+              display: {
+                ...quickRestyleActionCard.payload.display,
+                label: "Simular personas",
+                actionType: "quick_persona_simulate",
+              },
+            },
+          },
+        ]}
+        streamingText=""
+        isStreaming={false}
+        threadId="thread-1"
+      />
+    );
+
+    expect(screen.queryByText("Simular personas")).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("assistant-action-card-propose")
+    ).not.toBeInTheDocument();
+  });
+
   describe("quick_action proposals render the new ActionCard", () => {
     // The new ActionCard exposes data-action-type (from the contract) while the
     // legacy AssistantActionCard exposes data-testid="assistant-action-card".

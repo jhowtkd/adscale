@@ -1,0 +1,16 @@
+# Accepted planning debt — Convergence Phase 1
+#
+# Only entries in this file satisfy open requirements while STATE/ROADMAP
+# claim milestone completion. Prose mentioning "tech debt" does not count.
+#
+# Schema per item:
+#   requirement: REQ-ID
+#   reason: why the debt is accepted
+#   owner: accountable person
+#   accepted_at: YYYY-MM-DD
+#   carry_forward: true|false
+#
+# Hierarchy: REQUIREMENTS.md + this file determine completion.
+# STATE.md and ROADMAP.md are projections.
+
+accepted_debt: []

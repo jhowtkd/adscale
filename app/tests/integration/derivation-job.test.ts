@@ -115,6 +115,7 @@ vi.mock("@/server/storage", () => ({
   },}));
 
 vi.mock("@/server/billing/paywall", () => ({
+  spend: vi.fn().mockResolvedValue({ ok: true, balanceAfter: 100 }),
   spendOrApiError: vi.fn().mockResolvedValue(null),
 }));
 
@@ -292,7 +293,7 @@ describe("POST /api/campaigns/[id]/derivations", () => {
     expect(inngest.send).toHaveBeenCalledTimes(1);
   });
 
-  it("art_variation without an uploaded base asset returns error 400", async () => {
+  it("art_variation can start without an uploaded base asset", async () => {
     (getCampaignById as ReturnType<typeof vi.fn>).mockResolvedValue({
       id: campaignId,
       workspaceId,
@@ -309,12 +310,16 @@ describe("POST /api/campaigns/[id]/derivations", () => {
     const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
     (db.select as ReturnType<typeof vi.fn>).mockReturnValue({ from: mockFrom });
 
+    const mockReturning = vi.fn().mockResolvedValue([{ id: "deriv-1", status: "queued", format: "1:1" }]);
+    const mockValues = vi.fn().mockReturnValue({ returning: mockReturning });
+    (db.insert as ReturnType<typeof vi.fn>).mockReturnValue({ values: mockValues });
+
     const request = new Request("http://localhost/api/campaigns/camp-456/derivations", { method: "POST" });
     const response = await POST(request, { params: Promise.resolve({ id: campaignId }) });
     const body = await response.json();
 
-    expect(response.status).toBe(400);
-    expect(body.code).toBe("missingBaseAsset");
-    expect(inngest.send).not.toHaveBeenCalled();
+    expect(response.status).toBe(201);
+    expect(body.derivations).toHaveLength(1);
+    expect(inngest.send).toHaveBeenCalledTimes(1);
   });
 });

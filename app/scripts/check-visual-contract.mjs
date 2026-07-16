@@ -103,7 +103,6 @@ const DEBT_ALLOWLIST = {
     "app/src/components/campaigns/CampaignListCard.tsx": 1,
     "app/src/components/campaigns/CampaignTableRow.tsx": 4,
     "app/src/components/campaigns/CampaignsHeader.tsx": 1,
-    "app/src/components/campaigns/HypothesesPanel.tsx": 3,
     "app/src/components/campaigns/KanbanCard.tsx": 3,
     "app/src/components/campaigns/KanbanColumn.tsx": 1,
     "app/src/components/campaigns/LearningsPanel.tsx": 1,

@@ -5,7 +5,7 @@ import { checkRateLimit } from "@/lib/with-rate-limit";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getDerivationById } from "@/server/repositories/derivation";
 import { getCampaignById } from "@/server/repositories/campaign";
-import { getBrandKit } from "@/server/db/repositories/brand-kit";
+import { getBrandKit } from "@/server/repositories/brand-kit";
 import { resolveCampaignClientProfileId } from "@/server/repositories/client-reference";
 import {
   createCopyVariant,

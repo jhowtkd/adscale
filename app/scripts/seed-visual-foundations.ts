@@ -6,7 +6,7 @@ import { and, eq, like } from "drizzle-orm";
 import { db } from "../src/server/db";
 import { campaigns, derivations, user, workspaceMembers, workspaces } from "../src/server/db/schema";
 import { createCampaign } from "../src/server/repositories/campaign";
-import { upsertBrandKit } from "../src/server/db/repositories/brand-kit";
+import { upsertBrandKit } from "../src/server/repositories/brand-kit";
 
 const EMAIL = "visual-foundations@example.test";
 const NAME = "Visual Foundations Tester";

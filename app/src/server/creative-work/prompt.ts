@@ -5,6 +5,7 @@ import type {
   CreativeWorkIdentitySnapshot,
   SocialPostCopy,
 } from "./contracts";
+import { CREATIVE_LEVEL_DIRECTIONS } from "@/server/ai/creative-level-direction";
 
 export type SocialPostFormat = "1:1" | "4:5" | "9:16";
 
@@ -146,6 +147,7 @@ export function buildSocialPostPrompt(input: BuildSocialPostPromptInput): string
   return [
     "STANDALONE BRANDED SOCIAL POST — VISUAL PROMPT",
     `CREATIVE LEVEL: ${creativeLevel}`,
+    CREATIVE_LEVEL_DIRECTIONS[creativeLevel],
     "",
     fixedContract,
     "",

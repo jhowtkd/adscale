@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
+import { invalidateCanonicalWorks } from "@/lib/hooks/use-canonical-works";
 
 export type CreativeWorkStatus =
   | "draft"
@@ -84,6 +85,20 @@ export interface CreativeWorkDetail {
   outputs: CreativeWorkOutput[];
 }
 
+export function creativeWorkRefetchInterval(
+  data:
+    | {
+        work: Pick<CreativeWorkItem, "status">;
+        outputs: Array<Pick<CreativeWorkOutput, "status">>;
+      }
+    | undefined,
+) {
+  return data?.work.status === "generating" ||
+    data?.outputs.some((output) => output.status === "queued" || output.status === "processing")
+    ? 2000
+    : false;
+}
+
 async function readError(res: Response): Promise<string> {
   const err = await res.json().catch(() => ({}));
   return typeof err.error === "string" ? err.error : "Request failed";
@@ -128,9 +143,10 @@ function fetchIdentityOptions(workItemId: string): Promise<{ options: IdentityOp
   });
 }
 
-function postJson<T>(url: string, body?: unknown): Promise<T> {
+function postJson<T>(url: string, body?: unknown, timeoutMs?: number): Promise<T> {
   return apiFetch(url, {
     method: "POST",
+    timeoutMs,
     headers: { "Content-Type": "application/json" },
     body: body === undefined ? "{}" : JSON.stringify(body),
   }).then(async (res) => {
@@ -159,10 +175,7 @@ export function useCreativeWork(workItemId: string | null | undefined) {
       if (!workItemId) return false;
       const data = query.state.data as CreativeWorkDetail | undefined;
       if (!data) return false;
-      // Only poll while the work is actively generating outputs. Once any
-      // terminal status lands (partial, completed, failed) we stop the timer
-      // because the row won't progress without user action.
-      return data.work.status === "generating" ? 2000 : false;
+      return creativeWorkRefetchInterval(data);
     },
   });
 }
@@ -187,8 +200,11 @@ export function useCreateCreativeWork() {
       format: "1:1" | "4:5" | "9:16";
       brief: SocialPostBrief;
     }) => postJson<{ work: CreativeWorkItem }>("/api/creative-work", input),
-    onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ["creative-work", result.work.id] });
+    onSuccess: async (result) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["creative-work", result.work.id] }),
+        invalidateCanonicalWorks(queryClient),
+      ]);
     },
   });
 }
@@ -196,10 +212,34 @@ export function useCreateCreativeWork() {
 export function useGenerateCopy() {
   const queryClient = useQueryClient();
   return useMutation({
+    onMutate: async (workItemId: string) => {
+      // The detail query starts as soon as a newly-created workId becomes
+      // active. Cancel that pre-copy snapshot so it cannot resolve after the
+      // provider response and overwrite the generated copy in the cache/UI.
+      await queryClient.cancelQueries({
+        queryKey: ["creative-work", workItemId],
+      });
+    },
     mutationFn: (workItemId: string) =>
-      postJson<{ copy: SocialPostCopy }>(`/api/creative-work/${workItemId}/copy`),
-    onSuccess: (_data, workItemId) => {
-      queryClient.invalidateQueries({ queryKey: ["creative-work", workItemId] });
+      postJson<{ copy: SocialPostCopy; work: CreativeWorkItem }>(
+        `/api/creative-work/${workItemId}/copy`,
+        undefined,
+        120_000,
+      ),
+    onSuccess: (result, workItemId) => {
+      const work = {
+        ...result.work,
+        createdAt: new Date(result.work.createdAt),
+        updatedAt: new Date(result.work.updatedAt),
+      };
+      queryClient.setQueryData<CreativeWorkDetail>(
+        ["creative-work", workItemId],
+        (current) => ({ work, outputs: current?.outputs ?? [] })
+      );
+      void queryClient.invalidateQueries({
+        queryKey: ["creative-work", workItemId],
+      });
+      void invalidateCanonicalWorks(queryClient);
     },
   });
 }
@@ -212,8 +252,13 @@ export function useConfirmCreativeWork() {
         copy: input.copy,
         selectedReferenceIds: input.selectedReferenceIds,
       }),
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["creative-work", variables.workItemId] });
+    onSuccess: async (_data, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["creative-work", variables.workItemId],
+        }),
+        invalidateCanonicalWorks(queryClient),
+      ]);
     },
   });
 }
@@ -225,8 +270,26 @@ export function useTriggerTriplet() {
       postJson<{ work: CreativeWorkItem; outputs: CreativeWorkOutput[] }>(
         `/api/creative-work/${workItemId}/generate`,
       ),
-    onSuccess: (_data, workItemId) => {
-      queryClient.invalidateQueries({ queryKey: ["creative-work", workItemId] });
+    onSuccess: async (data, workItemId) => {
+      queryClient.setQueryData<CreativeWorkDetail>(
+        ["creative-work", workItemId],
+        {
+          work: {
+            ...data.work,
+            createdAt: new Date(data.work.createdAt),
+            updatedAt: new Date(data.work.updatedAt),
+          },
+          outputs: data.outputs.map((output) => ({
+            ...output,
+            createdAt: new Date(output.createdAt),
+            updatedAt: new Date(output.updatedAt),
+          })),
+        }
+      );
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["creative-work", workItemId] }),
+        invalidateCanonicalWorks(queryClient),
+      ]);
     },
   });
 }
@@ -238,8 +301,13 @@ export function useRetryOutput() {
       postJson<{ output: CreativeWorkOutput }>(
         `/api/creative-work/${workItemId}/outputs/${outputId}/retry`,
       ),
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["creative-work", variables.workItemId] });
+    onSuccess: async (_data, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["creative-work", variables.workItemId],
+        }),
+        invalidateCanonicalWorks(queryClient),
+      ]);
     },
   });
 }
@@ -260,11 +328,16 @@ export function useSelectOutput() {
         `/api/creative-work/${workItemId}/outputs/${outputId}/select`,
         { saveToLibrary },
       ),
-    onSuccess: (_data, variables) => {
+    onSuccess: async (_data, variables) => {
       // Saving the selected output materialises a new workspace asset. The
       // wizard must therefore invalidate both the work detail and the library.
-      queryClient.invalidateQueries({ queryKey: ["creative-work", variables.workItemId] });
-      queryClient.invalidateQueries({ queryKey: ["workspace-assets"] });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["creative-work", variables.workItemId],
+        }),
+        queryClient.invalidateQueries({ queryKey: ["workspace-assets"] }),
+        invalidateCanonicalWorks(queryClient),
+      ]);
     },
   });
 }

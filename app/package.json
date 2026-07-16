@@ -34,6 +34,8 @@
     "seed:goal-agent-e2e": "tsx scripts/seed-goal-agent-e2e.ts",
     "seed:goal-agent-pilot": "tsx scripts/seed-goal-agent-pilot.ts",
     "seed:create-post-e2e": "tsx scripts/seed-create-post-e2e.ts",
+    "seed:phase6-uat": "NODE_OPTIONS='--conditions=react-server' tsx scripts/seed-phase6-uat.ts",
+    "seed:phase8-human": "NODE_OPTIONS='--conditions=react-server' tsx scripts/seed-phase8-human.ts",
     "snapshot:goal-agent-graduation": "tsx scripts/snapshot-goal-agent-graduation.ts",
     "validate:creative": "node scripts/check-creative-validation-evidence.mjs --stage final",
     "validate:creative:live": "npx tsx scripts/run-creative-validation.ts",
@@ -55,7 +57,16 @@
     "seed:live-real-customer-corpus": "tsx scripts/seed-live-real-customer-corpus.ts",
     "refresh:v13-3-operational-evidence": "tsx scripts/refresh-v13-3-operational-evidence.ts",
     "sample-coverage-evidence": "npx tsx scripts/run-sample-coverage.ts --all-workspaces",
-    "quality-trend-evidence": "npx tsx scripts/run-quality-trend.ts --all-workspaces"
+    "quality-trend-evidence": "npx tsx scripts/run-quality-trend.ts --all-workspaces",
+    "convergence:check-destinations": "node scripts/check-primary-destinations.mjs",
+    "convergence:check-frozen": "node scripts/check-frozen-modules.mjs",
+    "convergence:check-planning": "node scripts/check-planning-consistency.mjs",
+    "convergence:check-inventory": "node scripts/check-surface-inventory.mjs",
+    "convergence:test": "node --test scripts/convergence-gates.test.mjs scripts/check-planning-consistency.test.mjs scripts/check-surface-inventory.test.mjs scripts/check-no-parallel-preview.test.mjs scripts/check-phase8-human-evidence.test.mjs",
+    "convergence:baseline": "node scripts/capture-convergence-baseline.mjs",
+    "convergence:phase8-check": "node scripts/check-phase8-human-evidence.mjs",
+    "convergence:inventory": "node scripts/generate-surface-inventory.mjs",
+    "convergence:gate": "node scripts/run-convergence-gate.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.0.0",

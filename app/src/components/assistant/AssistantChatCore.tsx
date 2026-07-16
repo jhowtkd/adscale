@@ -84,6 +84,12 @@ function mergeMessages(
   return merged;
 }
 
+const INTERNAL_ASSISTANT_ERRORS = new Set([
+  "assistantStreamError",
+  "invalid_arguments",
+  "signal timed out",
+]);
+
 export default function AssistantChatCore({
   threadId,
   variant = "full",
@@ -154,6 +160,8 @@ export default function AssistantChatCore({
   }, [data?.messages, messages]);
 
   const inputDisabled = !threadId;
+  const displayError =
+    error && INTERNAL_ASSISTANT_ERRORS.has(error) ? t("errorGeneric") : error;
 
   const chatSubtitle = data?.guidedFlow
     ? tGuided("resumeLabel")
@@ -289,12 +297,12 @@ export default function AssistantChatCore({
       )}
 
       <div className="row-start-3 min-h-0">
-        {error ? (
+        {displayError ? (
           <p
             className="px-4 pb-2 text-sm text-[var(--danger-text)]"
             role="alert"
           >
-            {error}
+            {displayError}
           </p>
         ) : null}
 

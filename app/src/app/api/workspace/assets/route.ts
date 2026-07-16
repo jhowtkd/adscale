@@ -93,7 +93,13 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json(
-      { asset: { ...asset, url: objectStorage.publicUrl(asset.key) } },
+      {
+        asset: {
+          ...asset,
+          // Authenticated proxy — private creative_work keys are not on R2 public CDN.
+          url: `/api/workspace/assets/${asset.id}/file`,
+        },
+      },
       { status: 201 }
     );
   } catch (error) {
@@ -144,9 +150,12 @@ export async function GET(request: Request) {
       getWorkspaceAssetsCount(workspace.id, filters),
     ]);
 
+    // Use app-auth file proxy so creative_work outputs (and any private key)
+    // render in the library after "Salvar na biblioteca". publicUrl fails for
+    // non-public R2 prefixes.
     const assetsWithUrl = assets.map((asset) => ({
       ...asset,
-      url: objectStorage.publicUrl(asset.key),
+      url: `/api/workspace/assets/${asset.id}/file`,
     }));
 
     return NextResponse.json({ assets: assetsWithUrl, total });

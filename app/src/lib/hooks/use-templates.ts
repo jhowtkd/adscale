@@ -1,5 +1,6 @@
 import { apiFetch } from "@/lib/api-client";
 import { STALE_TIME } from "@/lib/query-config";
+import { invalidateWorkListProjections } from "@/lib/hooks/use-canonical-works";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 export interface CampaignTemplate {
@@ -25,6 +26,16 @@ export interface CampaignTemplate {
   updatedAt: Date;
 }
 
+export class TemplateLoadError extends Error {
+  readonly status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "TemplateLoadError";
+    this.status = status;
+  }
+}
+
 async function fetchTemplates(): Promise<CampaignTemplate[]> {
   const res = await apiFetch("/api/templates");
   if (!res.ok) {
@@ -39,11 +50,14 @@ async function fetchTemplates(): Promise<CampaignTemplate[]> {
   }));
 }
 
-async function fetchTemplate(id: string): Promise<CampaignTemplate> {
+export async function fetchTemplate(id: string): Promise<CampaignTemplate> {
   const res = await apiFetch(`/api/templates/${id}`);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Erro ao carregar template");
+    throw new TemplateLoadError(
+      res.status,
+      err.error || "Erro ao carregar template"
+    );
   }
   const data = await res.json();
   const t = data.template as CampaignTemplate;
@@ -52,6 +66,44 @@ async function fetchTemplate(id: string): Promise<CampaignTemplate> {
     createdAt: new Date(t.createdAt),
     updatedAt: new Date(t.updatedAt),
   };
+}
+
+/** Phase 5 / item 39: server-side materialize (not client field merge). */
+export async function materializeTemplate(
+  templateId: string,
+  payload: { name: string; client: string; clientProfileId: string | null }
+): Promise<{ campaign: { id: string; name: string }; canonical?: unknown }> {
+  const res = await apiFetch(`/api/templates/${templateId}/materialize`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Erro ao materializar template");
+  }
+  return res.json();
+}
+
+/** Mutation with work-list projection invalidation + isPending for double-submit. */
+export function useMaterializeTemplate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      templateId,
+      name,
+      client,
+      clientProfileId,
+    }: {
+      templateId: string;
+      name: string;
+      client: string;
+      clientProfileId: string | null;
+    }) => materializeTemplate(templateId, { name, client, clientProfileId }),
+    onSuccess: async () => {
+      await invalidateWorkListProjections(queryClient);
+    },
+  });
 }
 
 async function createTemplate(payload: {
@@ -104,6 +156,8 @@ function useTemplate(id: string) {
   });
 }
 
+export { useTemplate };
+
 export function useCreateTemplate() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -146,8 +200,9 @@ export function useDeleteTemplate() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: deleteTemplate,
-    onSuccess: () => {
+    onSuccess: (_data, id) => {
       queryClient.invalidateQueries({ queryKey: ["templates"] });
+      queryClient.removeQueries({ queryKey: ["templates", id] });
     },
   });
 }

@@ -10,7 +10,7 @@ import {
   getBrandKit,
   getBrandKitByWorkspace,
   upsertBrandKit,
-} from "@/server/db/repositories/brand-kit";
+} from "@/server/repositories/brand-kit";
 
 const MAX_SIZE = 10 * 1024 * 1024;
 

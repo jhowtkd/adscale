@@ -26,11 +26,11 @@ db/  (Drizzle client + Postgres schema)   storage/  (R2 object storage)
 ```
 
 - **Routes** are thin: they authenticate, parse input, delegate to a service, and shape the HTTP response.
-- **Services and domain modules** (`ai/`, `assistant/`, `billing/`, `human-quality/`, `performance/`, `output-learning/`, …) hold the business rules and call external providers (OpenAI, MiniMax, Stripe, Mem0).
+- **Services and domain modules** (`ai/`, `assistant/`, `billing/`, `human-quality/`, `output-learning/`, …) hold the business rules and call external providers (OpenAI, MiniMax, Stripe, Mem0).
 - **`repositories/`** is the pure data-access layer: 57 Drizzle-backed files exposing ~315 query/mutation functions. Repositories never import from `services/`, `billing/`, `jobs/`, or `ai/` — they only depend on `db/` and `db/schema`.
-- **`db/`** owns the Drizzle client (`db` = `pg`-pool-backed, for Inngest jobs; `dbHttp` = Neon serverless HTTP driver, for serverless route handlers) and the single source-of-truth schema (`adscale_app` Postgres schema, 70+ tables).
+- **`db/`** owns the Drizzle client (`db` = `pg`-pool-backed, for Inngest jobs; `dbHttp` = Neon serverless HTTP driver, for serverless route handlers) and the single source-of-truth schema (`adscale_app` Postgres schema).
 - **`jobs/`** registers Inngest functions for async work (derivation generation, brand-memory ingestion, learning aggregation, trial notifications, workspace-asset analysis).
-- A closed **quality/learning loop** spans `human-quality/` → `brand-taste/` → `olhar-calibration/` → `output-learning/` → `performance/`, projecting approved learnings back into `memory/` (Mem0).
+- A closed **quality/learning loop** spans `human-quality/` → `brand-taste/` → `olhar-calibration/` → `output-learning/`, projecting approved learnings back into `memory/` (Mem0).
 
 ---
 
@@ -49,11 +49,10 @@ db/  (Drizzle client + Postgres schema)   storage/  (R2 object storage)
 | `feedback/` | Domain | Owner feedback reports: sanitization, ownership validation, mission credit signals | `validateAssetRefs`, `sanitizeDiagnosticContext`, `summarizeMissionCreditSignals` |
 | `human-quality/` | Domain | Quality corpus queue, owner evaluations, calibration/impact/trend reports, learning proposals | `HumanQualityServiceError`, `runGlobalCorpusEvidence`, `runScoreCalibration`, `generateAndPersistClientLearningProposals` |
 | `jobs/` | Async | Inngest function definitions + realtime channels + Sentry middleware | `derivationJob`, `brandMemoryIngestJob`, `learningProposalAggregatorJob`, `trialNotificationJob`, `workspaceAssetAnalyzeJob` |
-| `memory/` | Domain | Mem0 brand/campaign memory: events, ingestion, retrieval, learning projections | `getBrandMemoryContext`, `ingestBrandMemoryEvent`, `getMem0Client`, `projectPerformanceLearning` |
+| `memory/` | Domain | Mem0 brand/campaign memory: events, ingestion, retrieval, learning projections | `getBrandMemoryContext`, `ingestBrandMemoryEvent`, `getMem0Client` |
 | `mission-insights/` | Domain | Owner mission-insight recording with input sanitization | `recordMissionInsight`, `sanitizeMissionInsightInput` |
 | `olhar-calibration/` | Domain | Cenbrap-style human calibration + Olhar release-evidence tracking | `runCenbrapCalibration`, `OLHAR_RELEASE_MILESTONE`, Olhar release metrics |
 | `output-learning/` | Domain | Output-decision events → client output learnings → Mem0 projection | `recomputeClientOutputLearnings`, `recordOutputDecisionEvidence`, `getOutputLearningRecommendation` |
-| `performance/` | Domain | Creative performance snapshots, CSV import, hypothesis comparison, learnings | `recordPerformanceSnapshot`, `previewCsvImport`, `runHypothesisComparison`, `recomputeClientLearnings` |
 | `progression/` | Domain | Workspace progression levels + ordered cockpit missions | `getWorkspaceProgression`, `getWorkspaceMissions`, `calculateLevel`, `MISSION_DEFINITIONS` |
 | `repositories/` | Data-access | Drizzle query/mutation functions per entity (no business logic) | ~315 functions across 57 files (e.g. `createCampaign`, `getDerivationById`, `getAvailableCreditGrants`) |
 | `services/` | Domain | Email/notifications, export packaging, landing-page rendering, Resend contacts | `sendEmail`, `exportAllApproved`, `renderLandingPageHtml`, `sendLowCreditsEmail` |
@@ -81,7 +80,7 @@ graph TD
     Asst[assistant/]
     Bill[billing/]
     HQ[human-quality/ + brand-taste/ + olhar-calibration/]
-    OL[output-learning/ + performance/]
+    OL[output-learning/]
     Beta[beta-analytics/ + feedback/ + progression/]
     Mem[memory/]
     Svc[services/]
@@ -153,20 +152,20 @@ The validated object is exported as `env` and imported by `db/`, `auth/`, `billi
 
 ### `db/` schema overview
 
-`db/schema.ts` defines the `adscale_app` Postgres schema (via `pgSchema("adscale_app")`) containing 70+ tables. Groupings:
+`db/schema.ts` defines the `adscale_app` Postgres schema (via `pgSchema("adscale_app")`). Groupings:
 
 - **Identity / Better Auth** — `user`, `session`, `account`, `verification`, `workspaces`, `workspaceMembers`, `workspaceInvites`.
 - **Billing & entitlements** — `billingCustomers`, `subscriptions`, `creditGrants`, `creditTransactions`, `workspaceEntitlements`, `betaAccessRedemptions`, `processedStripeEvents`.
 - **Clients & campaigns** — `clientProfiles`, `competitorAnalyses`, `clientReferences`, `campaigns`, `campaignTemplates`, `campaignAssets`, `pendingUploads`, `workspaceAssets`, `creativePlans`, `landingPages`, `shareLinks`.
 - **Derivations & copy** — `derivations`, `derivationCopyVariants`.
-- **Performance** — `creativePerformanceSnapshots`, `performanceImportBatches`, `performanceImportRows`, `creativeHypotheses`, `hypothesisVariants`, `variantComparisons`, `clientPerformanceLearnings`, `clientOutputLearnings`.
+- **Output learning** — `clientOutputLearnings`, grouped with its source `outputDecisionEvents`.
 - **Usage / activity / exports** — `usageEvents`, `activityEvents`, `exports`, `personaSimulations`, `notifications`.
 - **Beta & feedback** — `feedbackReports`, `betaSessions`, `betaAnalyticsEvents`.
 - **Learning / calibration** — `outputDecisionEvents`, `calibrationSignals`, `calibrationRules`, `humanQualityCorpusItems`, `humanQualityCorpusCandidates`, `humanQualityEvaluations`, `humanQualityFeedbackArtifacts`, `rubricCalibrationAdjustments`, `clientLearningProposals`, `clientProfileOlharConfig`.
 - **Progression & waitlist** — `workspaceProgression`, `waitlistSignups`.
 - **Assistant** — `assistantThreads`, `assistantMessages`, `assistantActionRecords`, `assistantGuidedFlows`, `assistantGuidedFlowTransitions`, `assistantArtifactLineages`, `assistantArtifactVersions`, `assistantArtifactLineageHeads`, `assistantArtifactApprovalEvents`, `assistantArtifactComparisonAcknowledgements`, `assistantPlanFeedbackDrafts`, `assistantCreativeFeedbackDrafts`, `assistantArtifactProposals`, `assistantGuidedFlowEvents`, `assistantArtifactIterationEvents`, `assistantGuidedFlowStagingEvidence`, `assistantGuidedFlowFeedback`.
 
-A second data-access file, `db/repositories/brand-kit.ts`, resolves brand-kit profiles per workspace (with `BrandKitAmbiguityError` / `BrandKitProfileNotFoundError` guards).
+Brand-kit persistence follows the same domain repository convention in `repositories/brand-kit.ts` (with `BrandKitAmbiguityError` / `BrandKitProfileNotFoundError` guards).
 
 ---
 
@@ -421,11 +420,9 @@ Mem0-backed brand & campaign memory: event ingestion, retrieval, and projection 
 | `prepareBrandMemoryEvent(...)` / `sanitizeBrandMemoryPayload(...)` (`brand-memory-events.ts`) | fn | Event prep + deep sanitize |
 | `ingestBrandMemoryEvent(event)` (`brand-memory-ingest.ts`) | async fn | Writes to Mem0 |
 | `getCampaignMemory(...)` / `recordCampaignMemoryEntry(...)` (`campaign-memory*.ts`) | async fn | Campaign-scoped memory |
-| `projectPerformanceLearning(...)` / `projectPerformanceLearnings(...)` (`performance-learning-projection.ts`) | async fn | Projects performance learnings to Mem0 |
 | `projectOutputLearning(...)` / `projectOutputLearnings(...)` (`output-learning-projection.ts`) | async fn | Projects output learnings to Mem0 |
-| `searchPerformanceLearnings(input)` (`performance-learning-retrieval.ts`) | async fn | Retrieves performance learnings |
 
-**Key types:** `BrandMemoryItem`, `BrandMemoryContext`, `BrandMemoryEvent`, `BrandMemoryEventType`, `CampaignMemoryEntry`, `CampaignMemoryRecord`, `PERFORMANCE_LEARNING_MEMORY_TYPE`, `OUTPUT_LEARNING_MEMORY_TYPE`.
+**Key types:** `BrandMemoryItem`, `BrandMemoryContext`, `BrandMemoryEvent`, `BrandMemoryEventType`, `CampaignMemoryEntry`, `CampaignMemoryRecord`, `OUTPUT_LEARNING_MEMORY_TYPE`.
 
 **Dependencies:** Mem0 SDK, `validation/env`, `repositories/output-decision-event`. Ingestion runs via `jobs/brand-memory.ts`.
 
@@ -477,26 +474,6 @@ Converts owner output-decision events into client output learnings, with confide
 
 **Dependencies:** `repositories/client-output-learning`, `repositories/output-decision-event`, `memory/output-learning-projection`, `human-quality/application-schema`. Recompute dispatch emits via `dispatch.ts`.
 
-### `performance/`
-
-Creative performance snapshots, CSV/manual import, hypothesis comparison, and learning extraction.
-
-**Substructure:** `hypothesis/` (`runHypothesisComparison`, `runObservationalComparison`, `listCampaignComparisons`, `COMPARISON_VERDICTS`), `import/` (`previewCsvImport`, `previewManualImport`, `confirmImport`, `REQUIRED_CSV_COLUMNS`, `CSV_MAX_ROWS`), `learning/` (`recomputeClientLearnings`, `recomputeLearningsForCampaign`, `aggregateLearningsFromComparisons`, `SUPPORTED_VARIABLE_KEYS`), `recommendation/` (`getNextExperimentRecommendation`, `mapLearningToPrefill`).
-
-| Export | Kind | Role |
-|--------|------|------|
-| `recordPerformanceSnapshot(input)` (`service.ts`) | async fn | Records a creative performance snapshot |
-| `getCampaignPerformanceSnapshots(input)` | async fn | Lists snapshots for a campaign |
-| `derivePerformanceMetrics(...)` (`metrics.ts`) | fn | Derives CTR/CPC/etc. from raw metrics |
-| `normalizePlacement(...)` (`placement.ts`) | fn | Normalizes ad placement |
-| `buildPerformanceSourceKey(identity)` (`source-key.ts`) | fn | Deterministic source key |
-| `canonicalPerformanceSnapshotInputSchema` (`validation.ts`) | zod schema | Canonical snapshot validation |
-| `PERFORMANCE_PLATFORMS` (`meta`/`google`/`tiktok`/`other`), `PERFORMANCE_PLACEMENTS`, `PERFORMANCE_SOURCE_TYPES` (`types.ts`) | const | Enumerations |
-
-**Key types:** `PerformanceSnapshotView`, `PerformancePlatform`, `PerformancePlacement`, `PerformanceScope`, `RawPerformanceMetrics`, `NormalizedPlacement`, `NextExperimentRecommendation`, `ComparisonVerdict`.
-
-**Dependencies:** `repositories/performance*`, `repositories/hypothesis`, `repositories/performance-import`, `repositories/client-learning`, `memory/performance-learning-projection`.
-
 ### `progression/`
 
 Workspace progression levels + ordered cockpit missions with evidence inference.
@@ -523,9 +500,8 @@ The data-access layer. **57 non-test files** exposing ~315 Drizzle query/mutatio
 | Assistant | `assistant-thread.ts`, `assistant-message.ts`, `assistant-action.ts`, `assistant-job-sync.ts`, `artifact-version.ts`, `artifact-iteration-telemetry.ts`, `guided-flow.ts`, `guided-flow-feedback.ts`, `guided-flow-telemetry.ts`, `guided-flow-staging-evidence.ts`, `guided-flow-transition.ts` |
 | Billing | `billing.ts` (`getActiveSubscriptionByWorkspace`, `getAvailableCreditGrants`, `updateCreditGrantRemaining`), `credit-transactions.ts`, `usage.ts` (`trackUsage`, `getUsageByIdempotencyKey`), `plan.ts` |
 | Entitlements | `entitlements.ts` (`getActiveBetaEntitlementByWorkspace`, `grantTesterEntitlement`, `createBetaEntitlement`, `recordBetaRedemption`) |
-| Campaigns & assets | `campaign.ts`, `asset.ts`, `plan.ts`, `template.ts`, `workspace-asset.ts`, `pendingUploads` via `export.ts` |
+| Campaigns & assets | `campaign.ts`, `asset.ts`, `brand-kit.ts`, `plan.ts`, `template.ts`, `workspace-asset.ts`, `pendingUploads` via `export.ts` |
 | Derivations & copy | `derivation.ts`, `copy-variant.ts`, `persona-simulation.ts` |
-| Performance | `performance.ts`, `performance-import.ts`, `hypothesis.ts`, `client-learning.ts` |
 | Learning & calibration | `client-learning-proposal.ts`, `client-output-learning.ts`, `output-decision-event.ts`, `calibration-rule.ts`, `calibration-signal.ts`, `calibration-adjustment-errors.ts`, `rubric-calibration-adjustments.ts` |
 | Human quality | `human-quality-corpus.ts`, `human-quality-candidate.ts`, `human-quality-feedback-artifact.ts`, `human-quality-ingestion.ts` |
 | Beta & feedback | `beta-analytics.ts`, `beta-sessions.ts` (+ fixture), `feedback.ts`, `guided-flow-feedback.ts` |
@@ -597,7 +573,6 @@ graph LR
   Calib -->|tune prompts/scores| AI[ai/ + ai/olhar]
   OutputDec[output-decision events] --> OL[output-learning/]
   OL -->|project| Mem[memory/ Mem0]
-  Perf[performance/ snapshots] -->|project| Mem
   Mem -->|retrieve| AI
 ```
 
@@ -605,5 +580,4 @@ graph LR
 - **`brand-taste/`** turns calibration signals into per-brand rule constraints and prompt sections.
 - **`olhar-calibration/`** performs Cenbrap-style human calibration and tracks Olhar release-evidence milestones.
 - **`output-learning/`** converts approve/reject/regenerate decisions into learnings with confidence + safety guards.
-- **`performance/`** imports real ad performance, runs hypothesis comparisons, and extracts learnings.
-- Both learning streams project into **`memory/`** (Mem0) for retrieval at generation time.
+- Approved output learnings project into **`memory/`** (Mem0) for retrieval at generation time.

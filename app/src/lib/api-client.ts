@@ -10,10 +10,7 @@ export async function apiFetch(
   });
 
   if (res.status === 401) {
-    const p = window.location.pathname;
-    if (p !== "/v6" && !p.startsWith("/v6/")) {
-      window.location.href = "/login";
-    }
+    window.location.href = "/login";
     throw new Error("Unauthorized");
   }
 
