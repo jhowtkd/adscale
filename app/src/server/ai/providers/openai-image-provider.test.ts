@@ -80,4 +80,20 @@ describe("OpenAIImageProvider", () => {
       })
     ).rejects.toThrow(/No image data/);
   });
+
+  it("classifies the local image timeout without waiting in real time", async () => {
+    vi.useFakeTimers();
+    mockGenerate.mockReturnValue(new Promise(() => undefined));
+    const provider = new OpenAIImageProvider();
+    const result = provider.generate({
+      prompt: "x", dimensions: { width: 1024, height: 1024 }, referenceImages: [],
+      generationMode: "art_variation", outputPrefix: "p",
+    }).catch((error) => error);
+    await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
+    const error = await result;
+    expect(error.message).toBe("OpenAI image generation timed out after 300s");
+    expect(error.name).toBe("TimeoutError");
+    expect(error.code).toBe("ETIMEDOUT");
+    vi.useRealTimers();
+  });
 });

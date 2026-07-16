@@ -104,11 +104,12 @@ export function __setImageProviderForTests(provider: ImageGenerationProvider | n
 
 function isRetryableProviderError(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
-  const value = error as { status?: unknown; statusCode?: unknown; code?: unknown; name?: unknown; cause?: unknown };
+  const value = error as { status?: unknown; statusCode?: unknown; code?: unknown; name?: unknown; cause?: unknown; constructor?: { name?: unknown } };
   const status = typeof value.status === "number" ? value.status : value.statusCode;
   if (typeof status === "number" && (status === 408 || status === 409 || status === 429 || status >= 500)) return true;
   if (["ETIMEDOUT", "ECONNRESET", "EAI_AGAIN", "ECONNREFUSED"].includes(String(value.code))) return true;
-  if (value.name === "AbortError" || value.name === "TimeoutError") return true;
+  const names = [value.name, value.constructor?.name].filter((name): name is string => typeof name === "string");
+  if (names.some((name) => name === "AbortError" || name === "TimeoutError" || /^API[A-Za-z]*(Connection|Timeout|Abort)[A-Za-z]*Error$/.test(name))) return true;
   return value.cause !== error && isRetryableProviderError(value.cause);
 }
 

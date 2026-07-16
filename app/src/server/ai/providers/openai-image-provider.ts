@@ -15,7 +15,10 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   let timeout: NodeJS.Timeout;
   const timeoutPromise = new Promise<never>((_, reject) => {
     timeout = setTimeout(() => {
-      reject(new Error(`${label} timed out after ${Math.round(ms / 1000)}s`));
+      const error = new Error(`${label} timed out after ${Math.round(ms / 1000)}s`) as Error & { code: string };
+      error.name = "TimeoutError";
+      error.code = "ETIMEDOUT";
+      reject(error);
     }, ms);
   });
   return Promise.race([promise, timeoutPromise]).finally(() => {
