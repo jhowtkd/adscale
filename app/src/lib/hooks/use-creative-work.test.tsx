@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useGenerateCopy } from "./use-creative-work";
+import { creativeWorkRefetchInterval, useGenerateCopy } from "./use-creative-work";
 
 vi.mock("@/lib/api-client", () => ({ apiFetch: vi.fn() }));
 vi.mock("@/lib/hooks/use-canonical-works", () => ({
@@ -11,6 +11,17 @@ vi.mock("@/lib/hooks/use-canonical-works", () => ({
 import { apiFetch } from "@/lib/api-client";
 
 const mockApiFetch = vi.mocked(apiFetch);
+
+describe("creativeWorkRefetchInterval", () => {
+  it("keeps polling a partial work while any proposal is still processing", () => {
+    expect(
+      creativeWorkRefetchInterval({
+        work: { status: "partial" },
+        outputs: [{ status: "completed" }, { status: "processing" }],
+      }),
+    ).toBe(2000);
+  });
+});
 
 describe("useGenerateCopy", () => {
   beforeEach(() => {

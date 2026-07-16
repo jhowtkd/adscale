@@ -418,12 +418,12 @@ describe("CreatePostWizard", () => {
     expect(retry).toBeVisible();
   });
 
-  it("exposes select, save and download for completed cards", async () => {
+  it("exposes only save and download for completed cards", async () => {
     mockUseCreativeWork.mockReturnValue({ data: generatingWork, isLoading: false });
 
     render(<CreatePostWizard workId="work-1" />, { wrapper: createWrapper() });
 
-    expect(await screen.findAllByRole("button", { name: "Selecionar" })).toHaveLength(2);
+    expect(screen.queryByRole("button", { name: "Selecionar" })).not.toBeInTheDocument();
     expect(await screen.findAllByRole("button", { name: "Salvar na biblioteca" })).toHaveLength(2);
     expect(await screen.findAllByRole("button", { name: "Baixar" })).toHaveLength(2);
   });

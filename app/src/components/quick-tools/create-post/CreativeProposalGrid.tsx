@@ -5,14 +5,12 @@ import type { CreativeWorkOutput } from "@/lib/hooks/use-creative-work";
 type CreativeProposalGridProps = {
   outputs: CreativeWorkOutput[];
   onRetry: (outputId: string) => void;
-  onSelect: (outputId: string) => void;
   onSave: (outputId: string) => void;
   onDownload: (outputId: string) => void;
   /** Optional download-URL resolver for completed outputs. Falls back to a no-op
    * when not supplied (callers must open the URL via `window.open`). */
   resolveDownloadUrl?: (outputId: string) => string | null;
   isRetrying?: (outputId: string) => boolean;
-  isSelecting?: (outputId: string) => boolean;
   isSaving?: (outputId: string) => boolean;
 };
 
@@ -39,12 +37,10 @@ const STATUS_LABELS: Record<CreativeWorkOutput["status"], string> = {
 export default function CreativeProposalGrid({
   outputs,
   onRetry,
-  onSelect,
   onSave,
   onDownload,
   resolveDownloadUrl,
   isRetrying,
-  isSelecting,
   isSaving,
 }: CreativeProposalGridProps) {
   const byLevel = new Map(outputs.map((o) => [o.creativeLevel, o]));
@@ -135,14 +131,6 @@ export default function CreativeProposalGrid({
 
             {isCompleted ? (
               <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => onSelect(output.id)}
-                  disabled={isSelecting?.(output.id) ?? false}
-                  className="inline-flex min-h-[var(--control-touch)] flex-1 items-center justify-center rounded-[var(--radius-control)] bg-[var(--accent-primary)] px-3 py-2 text-sm font-medium text-[var(--text-on-accent)] transition-colors hover:bg-[var(--accent-primary-hover)] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  Selecionar
-                </button>
                 <button
                   type="button"
                   onClick={() => onSave(output.id)}

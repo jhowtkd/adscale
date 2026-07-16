@@ -85,6 +85,20 @@ export interface CreativeWorkDetail {
   outputs: CreativeWorkOutput[];
 }
 
+export function creativeWorkRefetchInterval(
+  data:
+    | {
+        work: Pick<CreativeWorkItem, "status">;
+        outputs: Array<Pick<CreativeWorkOutput, "status">>;
+      }
+    | undefined,
+) {
+  return data?.work.status === "generating" ||
+    data?.outputs.some((output) => output.status === "queued" || output.status === "processing")
+    ? 2000
+    : false;
+}
+
 async function readError(res: Response): Promise<string> {
   const err = await res.json().catch(() => ({}));
   return typeof err.error === "string" ? err.error : "Request failed";
@@ -161,10 +175,7 @@ export function useCreativeWork(workItemId: string | null | undefined) {
       if (!workItemId) return false;
       const data = query.state.data as CreativeWorkDetail | undefined;
       if (!data) return false;
-      // Only poll while the work is actively generating outputs. Once any
-      // terminal status lands (partial, completed, failed) we stop the timer
-      // because the row won't progress without user action.
-      return data.work.status === "generating" ? 2000 : false;
+      return creativeWorkRefetchInterval(data);
     },
   });
 }

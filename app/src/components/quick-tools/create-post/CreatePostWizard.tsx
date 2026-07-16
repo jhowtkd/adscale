@@ -278,16 +278,6 @@ export default function CreatePostWizard({ workId: initialWorkId }: { workId?: s
     }
   };
 
-  const handleSelect = async (outputId: string) => {
-    if (!activeWorkId) return;
-    try {
-      await selectMutation.mutateAsync({ workItemId: activeWorkId, outputId, saveToLibrary: false });
-      addToast("success", tQuick("selectSuccess"));
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : tCommon("error"));
-    }
-  };
-
   const handleSave = async (outputId: string) => {
     if (!activeWorkId) return;
     try {
@@ -415,11 +405,9 @@ export default function CreatePostWizard({ workId: initialWorkId }: { workId?: s
           outputs={detail.outputs}
           identitySnapshot={detail.work.identitySnapshot}
           onRetry={handleRetry}
-          onSelect={handleSelect}
           onSave={handleSave}
           onDownload={handleDownload}
           isRetrying={(id) => retryMutation.isPending && retryMutation.variables?.outputId === id}
-          isSelecting={(id) => selectMutation.isPending && selectMutation.variables?.outputId === id}
           isSaving={(id) =>
             selectMutation.isPending && selectMutation.variables?.outputId === id && (selectMutation.variables?.saveToLibrary ?? false)
           }
@@ -751,11 +739,9 @@ function ProposalsStep(props: {
   outputs: CreativeWorkOutput[];
   identitySnapshot: CreativeWorkIdentitySnapshot | null;
   onRetry: (outputId: string) => void;
-  onSelect: (outputId: string) => void;
   onSave: (outputId: string) => void;
   onDownload: (outputId: string) => void;
   isRetrying: (outputId: string) => boolean;
-  isSelecting: (outputId: string) => boolean;
   isSaving: (outputId: string) => boolean;
 }) {
   const tQuick = useTranslations("quickTools.createPost");
@@ -800,11 +786,9 @@ function ProposalsStep(props: {
       <CreativeProposalGrid
         outputs={sortedOutputs}
         onRetry={props.onRetry}
-        onSelect={props.onSelect}
         onSave={props.onSave}
         onDownload={props.onDownload}
         isRetrying={props.isRetrying}
-        isSelecting={props.isSelecting}
         isSaving={props.isSaving}
       />
     </div>
