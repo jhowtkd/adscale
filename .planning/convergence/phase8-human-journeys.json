@@ -821,6 +821,34 @@
       ],
       "unexpectedCost": false,
       "observerNotes": "Creative work 1dbdc992-e350-4f4a-b4a0-0febf5fe67df remains ready with the full Cafe Aurora brief, 1:1 format, copy and identity snapshot, but zero outputs. Resume only partially recovered the aggregate and exposed no executable next step."
+    },
+    {
+      "scenarioId": "C01-after-attempt-2",
+      "phase": "after",
+      "participantId": "P02",
+      "mode": "campaign",
+      "brand": "Phase8 Human Horizonte Educacao",
+      "segment": "educacao",
+      "entrySurface": "home_new_campaign",
+      "device": "desktop",
+      "outcome": "failed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-16T00:07:00.000Z",
+      "firstOutputAt": null,
+      "approvedAt": null,
+      "deliveredAt": null,
+      "endedAt": "2026-07-16T00:20:06.000Z",
+      "breakpoints": [
+        {
+          "id": "preview-approval-bypassed",
+          "category": "context_loss",
+          "severity": "P1",
+          "at": "2026-07-16T00:20:06.000Z",
+          "note": "With the real provider restored, the campaign rendered a completed pilot and immediately generated another variation before the participant approved the pilot. The explicit human approval gate was still bypassed."
+        }
+      ],
+      "unexpectedCost": true,
+      "observerNotes": "The first output under the controlled-provider runtime was invalidated as harness contamination and the app was restarted with the real provider. The real-provider retry still reproduced the product defect: a second output was generated before P02 approved the pilot. Exact first-output timing was not captured, so firstOutputAt remains null and this failed attempt does not count toward the completion sample."
     }
   ],
   "corrections": [
@@ -892,6 +920,13 @@
       "description": "Hydrate resumable creative work before rendering and keep ready work without outputs on the executable identity step.",
       "targetedBreakpointIds": [
         "create-post-resume-opens-empty-brief"
+      ]
+    },
+    {
+      "commit": "1c2a5eb8",
+      "description": "Require explicit human approval of every completed pilot before the canonical campaign flow can enqueue the production batch.",
+      "targetedBreakpointIds": [
+        "preview-approval-bypassed"
       ]
     }
   ],
