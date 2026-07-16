@@ -1,6 +1,8 @@
 # Fase 8 — protocolo de evidência humana
 
-**Status:** aguardando sessões humanas
+**Status:** encerrado por aprovação do owner com dívida aceita em 2026-07-16
+
+**Nota de encerramento:** o Gate 8 foi aprovado com 1/10 jornadas humanas concluídas porque o fluxo de prompts e geração de imagens continuará no próximo ciclo. O déficit de amostra permanece registrado e nenhuma alegação de superioridade estatística é permitida.
 
 ## Regra de honestidade
 
@@ -70,4 +72,4 @@ Para campanha, aprovação é aprovar a derivação e entrega é baixar/comparti
 - `revert`: regressão relevante de conclusão/entrega, perda de contexto recorrente ou custo inesperado sem correção segura.
 
 Quando o baseline histórico contém apenas tentativas falhas, a amostra anterior não pode ser reconstruída honestamente. Nesse caso, as falhas permanecem como baseline diagnóstico; uma jornada humana pós-correção é suficiente para uma decisão `iterate`, sem alegar superioridade nem liberar expansão.
-`expand` e `revert` continuam exigindo a amostra completa. Sem isso, o Gate 8 permanece em `iterate`/`collecting` e o roadmap não aceita expansão de escopo.
+`expand` e `revert` continuam exigindo a amostra completa. Sem isso, o resultado técnico permanece `iterate` e não sustenta superioridade. Em 2026-07-16 o owner encerrou excepcionalmente o Gate 8 com essa insuficiência registrada como dívida aceita.

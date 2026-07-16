@@ -34,4 +34,4 @@ O primeiro clique automatizado em `Rejeitar` perdeu o elemento durante a hidrata
 
 ## Decisão
 
-O smoke reduz o risco técnico das correções, mas não entra no denominador das jornadas humanas e não prova superioridade contra o baseline. O Gate 8 permanece em `iterate`, a expansão continua congelada e a amostra comparativa completa fica explicitamente adiada até haver valor em convocar novos participantes.
+O smoke reduz o risco técnico das correções, mas não entra no denominador das jornadas humanas e não prova superioridade contra o baseline. Posteriormente, em 2026-07-16, o owner aprovou o Gate 8 com a amostra incompleta registrada como dívida aceita; o veredito técnico permanece `iterate`.

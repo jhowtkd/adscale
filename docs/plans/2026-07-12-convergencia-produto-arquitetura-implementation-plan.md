@@ -1,7 +1,7 @@
 # Plano de convergência de produto e arquitetura do ADScale
 
 **Data:** 2026-07-12
-**Status:** Fase 7 e Gate 7 concluídos; Fase 8 em `iterate`, com expansão congelada; 40–42 diferidos
+**Status:** Gates 0–8 concluídos; Gate 8 aprovado pelo owner com dívida aceita; 40–42 diferidos
 **Direção assumida:** trabalho criativo-first
 **Estratégia:** migração incremental com gates; nenhum big bang
 
@@ -289,16 +289,18 @@ Cada item abaixo deve resultar em um commit pequeno e manter a aplicação funci
 
 **Estado reconciliado em 2026-07-16:** há uma jornada humana pós-correção concluída, ainda insuficiente para comparação ou declaração de superioridade. `98448874` fechou os gaps restantes observados de hidratação do Criar Post, rejeição sem campo de direção, feedback prematuro, vínculo de marca em template, descoberta de Templates, loader sobreposto e ação `Selecionar` sem consequência visível. O smoke técnico controlado passou 6/6, sem erros HTTP ou de console, conforme `docs/plans/2026-07-16-phase8-post-fix-agent-smoke.md`; ele não conta como jornada humana.
 
-59. Executar pelo menos dez jornadas humanas completas: cinco com campanha e cinco sem campanha. **Em aberto — 1/10 concluída.**
-60. Cobrir ao menos três marcas e dois segmentos, incluindo um fora de educação. **Em aberto — tentativas cobriram marcas e segmentos, mas só uma jornada foi concluída.**
-61. Registrar onde houve dúvida, abandono, retorno, erro, custo inesperado ou perda de contexto. **Em andamento — breakpoints das tentativas e da jornada concluída estão registrados.**
-62. Corrigir os três maiores breakpoints observados. **Correções principais entregues; reavaliação humana comparativa pendente.**
-63. Repetir as jornadas após as correções. **Em aberto — uma repetição humana concluída; amostra completa adiada.**
-64. Comparar conclusão, tempo para primeiro output, aprovação e entrega contra o baseline. **Em aberto — amostra insuficiente.**
+59. Executar pelo menos dez jornadas humanas completas: cinco com campanha e cinco sem campanha. **Encerrado como dívida aceita pelo owner — 1/10 concluída.**
+60. Cobrir ao menos três marcas e dois segmentos, incluindo um fora de educação. **Encerrado como dívida aceita — tentativas cobriram marcas e segmentos, mas só uma jornada foi concluída.**
+61. Registrar onde houve dúvida, abandono, retorno, erro, custo inesperado ou perda de contexto. **Concluído — breakpoints das tentativas e da jornada concluída estão registrados.**
+62. Corrigir os três maiores breakpoints observados. **Concluído — correções principais entregues e smoke técnico verde.**
+63. Repetir as jornadas após as correções. **Encerrado como dívida aceita — uma repetição humana concluída.**
+64. Comparar conclusão, tempo para primeiro output, aprovação e entrega contra o baseline. **Encerrado como dívida aceita — amostra insuficiente para alegar superioridade.**
 65. Exigir amostra suficiente antes de declarar melhoria ou reabrir expansão de escopo. **Ativo — nenhuma melhoria ou expansão declarada.**
-66. Publicar decisão explícita: expandir, iterar ou reverter partes da convergência. **Decisão corrente: `iterate`; não é aprovação do Gate 8.**
+66. Publicar decisão explícita: expandir, iterar ou reverter partes da convergência. **Concluído — decisão `iterate`, com Gate 8 aprovado pelo owner em 2026-07-16.**
 
 **Gate 8:** evidência humana mostra uma jornada compreensível e superior; somente então o roadmap aceita novas funções.
+
+**Gate 8 — aprovado pelo owner com dívida aceita (2026-07-16):** o owner encerrou a exigência da amostra 10/10 porque o fluxo de interação dos prompts e geração de imagens seguirá sendo trabalhado no próximo ciclo. A decisão operacional permanece `iterate`; o fechamento não transforma 1/10 em amostra completa nem sustenta alegação de superioridade estatística. Todos os Gates 0–8 estão concluídos.
 
 ## 7. Estratégia de testes
 

@@ -4,9 +4,9 @@ milestone: v13.9
 milestone_name: milestone
 current_plan: 5
 status: completed
-stopped_at: Phase 8 post-fix technical smoke passed; Gate 8 remains iterate and the full human sample is deferred
-last_updated: "2026-07-16T12:20:00.000Z"
-last_activity: 2026-07-16 -- reconciled one completed human journey and a green 6/6 post-fix technical smoke
+stopped_at: All convergence Gates 0–8 complete; Gate 8 owner-approved with accepted human-sample debt
+last_updated: "2026-07-16T12:35:00.000Z"
+last_activity: 2026-07-16 -- owner approved Gate 8 with 1/10 human sample explicitly retained as accepted debt
 progress:
   total_phases: 5
   completed_phases: 5
@@ -22,7 +22,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-26)
 
 **Core value:** Users can go from a single base creative and a brief to multiple platform-ready ad variations in minutes, with full creative control and review.
-**Current focus:** Convergence Phase 8 — operational evidence before new features
+**Current focus:** Product convergence complete — Gates 0–8 closed
 
 ## Current Position
 
@@ -31,7 +31,7 @@ Plan: 5 of 5
 Current Plan: 5
 Total Plans in Phase: 5
 Status: Phase 207 complete; REQUIREMENTS all checked (PLAN-02 closed via 204-VERIFICATION)
-Last activity: 2026-07-16 -- remaining observed gaps fixed in 98448874; one human journey is complete and the post-fix technical smoke is green
+Last activity: 2026-07-16 -- Gate 8 owner-approved with accepted sample debt; all convergence gates are complete
 
 Progress: [██████████] 100%
 
@@ -94,9 +94,10 @@ _None — milestone plans 203–207 are complete. Active work is tracked under t
 - Operational guided starts remain zero.
 - Live Inngest lifecycle remains unverified.
 - QA-02/QA-03 are strong automated coverage but partial at live-provider depth.
+- Gate 8 closed by owner decision with 1/10 completed human journeys; no statistical superiority claim is allowed from this sample.
 
 ## Session Continuity
 
 Last session: 2026-07-16
-Stopped at: Gate 8 remains `iterate`; expansion is frozen and the full comparative human sample is explicitly deferred
+Stopped at: All Gates 0–8 complete; prompt and image-generation interaction continues in the next product cycle
 Resume file: docs/plans/2026-07-12-convergencia-produto-arquitetura-implementation-plan.md

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "status": "iterate",
+  "status": "approved_with_accepted_debt",
   "baseline": {
     "environment": "production",
     "capturedAt": "2026-07-14T23:31:09.469Z",
@@ -1005,6 +1005,13 @@
   ],
   "decision": {
     "verdict": "iterate",
-    "rationale": "The frozen production baseline and failed human attempts expose the baseline breakpoints, while one post-fix human journey completed end to end. The remaining observed deterministic gaps were corrected in 98448874 and a 6/6 agent-controlled technical smoke passed, but automation does not enter the human denominator. Superiority still cannot be claimed: keep expansion frozen, retain the iterate verdict and defer the full comparative human sample until another participant round is justified."
+    "rationale": "The frozen production baseline and failed human attempts expose the baseline breakpoints, while one post-fix human journey completed end to end. The remaining observed deterministic gaps were corrected in 98448874 and a 6/6 agent-controlled technical smoke passed, but automation does not enter the human denominator. Superiority cannot be claimed. On 2026-07-16 the owner explicitly approved Gate 8 with the incomplete 1/10 human sample retained as accepted debt because prompt and image-generation interaction will continue in the next product cycle."
+  },
+  "gateClosure": {
+    "gate": 8,
+    "status": "approved_with_accepted_debt",
+    "approvedBy": "owner",
+    "approvedAt": "2026-07-16",
+    "acceptedDebt": "Only 1 of 10 planned post-fix human journeys completed; no statistical superiority claim is permitted."
   }
 }
