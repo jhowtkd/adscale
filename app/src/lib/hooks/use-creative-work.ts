@@ -366,6 +366,7 @@ export function useTriggerTriplet() {
     mutationFn: (workItemId: string) =>
       postJson<{ work: CreativeWorkItem; outputs: CreativeWorkOutput[] }>(
         `/api/creative-work/${workItemId}/generate`,
+        { action: "initial" },
       ),
     onSuccess: async (data, workItemId) => {
       queryClient.setQueryData<CreativeWorkDetail>(

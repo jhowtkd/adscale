@@ -71,7 +71,6 @@ describe("retryCreativeWorkOutput", () => {
           workspaceId: "ws-1",
           workItemId: "work-1",
           outputId: "output-1",
-          creativeLevel: "balanced",
         },
       },
     ]);

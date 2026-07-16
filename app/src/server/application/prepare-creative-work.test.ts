@@ -6,6 +6,7 @@ const transactionExecutor = { scope: "preparation-tx" } as never;
 vi.mock("@/server/repositories/creative-work", () => ({
   getCreativeWork: vi.fn(),
   updateCreativeWorkDraftIfUnchanged: vi.fn(),
+  getCreativeWorkSourceAssetDetails: vi.fn(),
   withCreativeWorkPreparationLock: vi.fn(async (_workspaceId, _workItemId, callback) => callback(transactionExecutor)),
 }));
 vi.mock("@/server/repositories/brand-kit", () => ({ getBrandKit: vi.fn() }));
@@ -20,6 +21,7 @@ import { generateSocialPostCopy } from "@/server/creative-work/copy";
 import {
   getCreativeWork,
   updateCreativeWorkDraftIfUnchanged,
+  getCreativeWorkSourceAssetDetails,
   withCreativeWorkPreparationLock,
 } from "@/server/repositories/creative-work";
 import { getBrandKit } from "@/server/repositories/brand-kit";
@@ -28,6 +30,7 @@ import { generateSocialPostCopy as generatePaidCopy } from "./generate-social-po
 
 const getWork = vi.mocked(getCreativeWork);
 const updateDraft = vi.mocked(updateCreativeWorkDraftIfUnchanged);
+const getSourceAssets = vi.mocked(getCreativeWorkSourceAssetDetails);
 const withLock = vi.mocked(withCreativeWorkPreparationLock);
 const getKit = vi.mocked(getBrandKit);
 const generateCopy = vi.mocked(generateSocialPostCopy);
@@ -47,6 +50,7 @@ describe("prepareCreativeWork", () => {
     generateCopy.mockResolvedValue({ headline: "Julho", body: "Matricule-se", cta: "Saiba mais" });
     inferBrief.mockReturnValue({ theme: work.request, objective: "Promover matrícula", audience: "Público", offer: "Matrícula" });
     updateDraft.mockImplementation(async (_ws, _id, _updatedAt, patch) => ({ ...work, ...patch } as never));
+    getSourceAssets.mockResolvedValue(new Map());
   });
 
   it("persists inferred brief and pure copy without a billing adapter", async () => {
@@ -146,5 +150,17 @@ describe("prepareCreativeWork", () => {
     await expect(prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" }))
       .resolves.toEqual({ ok: false, error: { code: "sources_not_ready" } });
     expect(generateCopy).not.toHaveBeenCalled();
+  });
+
+  it("freezes ready source asset keys and analyses in the input snapshot", async () => {
+    getWork.mockResolvedValue({ work, outputs: [], sources: [{
+      id: "source-1", assetId: "asset-1", status: "ready", updatedAt: now,
+      usage: "style", contentAnalysis: null, styleAnalysis: { description: "Editorial" },
+    }] } as never);
+    getSourceAssets.mockResolvedValue(new Map([["source-1", { assetKey: "workspaces/ws/source.png", mimeType: "image/png" }]]));
+    await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
+    expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now, expect.objectContaining({
+      inputSnapshot: expect.objectContaining({ sources: [expect.objectContaining({ assetKey: "workspaces/ws/source.png", mimeType: "image/png", style: { description: "Editorial" } })] }),
+    }), transactionExecutor);
   });
 });

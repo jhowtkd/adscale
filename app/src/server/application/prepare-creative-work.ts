@@ -12,6 +12,7 @@ import {
 import { getBrandKit } from "@/server/repositories/brand-kit";
 import {
   getCreativeWork,
+  getCreativeWorkSourceAssetDetails,
   updateCreativeWorkDraftIfUnchanged,
   withCreativeWorkPreparationLock,
 } from "@/server/repositories/creative-work";
@@ -38,14 +39,15 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
     if (!preparation.success) {
       return { ok: false as const, error: { code: "invalid_preparation" as const } };
     }
+    const sourceAssets = await getCreativeWorkSourceAssetDetails(input.workspaceId, readySources, executor);
     const snapshot = {
       request: aggregate.work.request,
       settings: preparation.data.settings,
       sources: readySources.map((source) => ({
         sourceId: source.id,
         updatedAt: source.updatedAt.toISOString(),
-        assetKey: null,
-        mimeType: null,
+        assetKey: sourceAssets.get(source.id)?.assetKey ?? null,
+        mimeType: sourceAssets.get(source.id)?.mimeType ?? null,
         usage: source.usage,
         content: source.contentAnalysis,
         style: source.styleAnalysis,

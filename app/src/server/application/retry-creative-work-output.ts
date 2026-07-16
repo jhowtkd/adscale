@@ -67,7 +67,6 @@ export async function retryCreativeWorkOutput(
         workspaceId: input.workspaceId,
         workItemId: input.workItemId,
         outputId: input.outputId,
-        creativeLevel: output.creativeLevel,
       },
     },
   ]);

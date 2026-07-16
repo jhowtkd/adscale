@@ -17,6 +17,7 @@ import {
   completeCreativeWorkOutput,
   failCreativeWorkOutput,
   refreshCreativeWorkStatus,
+  requeueCreativeWorkOutputOnce,
 } from "@/server/repositories/creative-work";
 import {
   buildSocialPostPrompt,
@@ -42,7 +43,6 @@ interface CreativeWorkGenerateEvent {
   workspaceId: string;
   workItemId: string;
   outputId: string;
-  creativeLevel: "conservative" | "balanced" | "bold";
 }
 
 const OUTPUT_COST = GENERATION_CREDIT_COSTS.creativeWorkOutput;
@@ -71,9 +71,9 @@ export const creativeWorkOutputJob = inngest.createFunction(
   },
   async ({ event, step }) => {
     const data = event.data as CreativeWorkGenerateEvent;
-    const { workspaceId, workItemId, outputId, creativeLevel } = data;
+    const { workspaceId, workItemId, outputId } = data;
     logger.info(
-      `[creativeWorkOutputJob] START workspaceId=${workspaceId} workItemId=${workItemId} outputId=${outputId} level=${creativeLevel}`,
+      `[creativeWorkOutputJob] START workspaceId=${workspaceId} workItemId=${workItemId} outputId=${outputId}`,
     );
 
     try {
@@ -117,6 +117,7 @@ export const creativeWorkOutputJob = inngest.createFunction(
       const brief = work.brief;
       if (!brief) return { success: false, skipped: true, outputId };
       const output = scopeRaw.output;
+      const creativeLevel = output.creativeLevel;
       const identitySnapshot = work.identitySnapshot as CreativeWorkIdentitySnapshot;
       const copy = work.copy as SocialPostCopy;
 
@@ -137,7 +138,7 @@ export const creativeWorkOutputJob = inngest.createFunction(
         await markCreativeWorkOutputProcessing(workspaceId, workItemId, outputId);
       });
 
-      const targetFormat = work.format as SocialPostFormat;
+      const targetFormat = output.targetFormat as SocialPostFormat;
       const dimensions = getTargetDimensions(targetFormat) ?? {
         width: 1024,
         height: 1280,
@@ -153,8 +154,11 @@ export const creativeWorkOutputJob = inngest.createFunction(
       try {
         prompt = buildSocialPostPrompt({
           format: targetFormat,
+          brief,
           copy,
           identitySnapshot,
+          inputSnapshot: work.inputSnapshot ?? { request: work.request, settings: work.settings, sources: [] },
+          revisionInstruction: output.revisionInstruction,
           creativeLevel,
         });
 
@@ -162,11 +166,15 @@ export const creativeWorkOutputJob = inngest.createFunction(
           .filter((asset) => asset.usageMode === "reference")
           .slice(0, MAX_REFERENCE_IMAGES);
 
+        const sourceReferences = (work.inputSnapshot?.sources ?? [])
+          .filter((source) => (source.usage === "style" || source.usage === "both") && source.assetKey && source.mimeType)
+          .map((source) => ({ assetKey: source.assetKey!, mimeType: source.mimeType!, label: `Source ${source.sourceId}` }));
+
         // Binary payloads cannot cross an Inngest step boundary. The durable
         // asset keys live in the identity snapshot; buffers stay local to this
         // invocation and are consumed immediately by the provider.
         referenceImages = await Promise.all(
-          referenceAssets.map(async (asset) => ({
+          [...referenceAssets, ...sourceReferences].slice(0, MAX_REFERENCE_IMAGES).map(async (asset) => ({
             buffer: await objectStorage.get(asset.assetKey),
             mimeType: asset.mimeType,
             name: asset.label,
@@ -354,6 +362,17 @@ export const creativeWorkOutputJob = inngest.createFunction(
       logger.error(
         `[creativeWorkOutputJob] FAIL outputId=${outputId} code=${code} message=${message}`,
       );
+      if (error && typeof error === "object" && "retryable" in error && error.retryable === true) {
+        try {
+          const retried = await requeueCreativeWorkOutputOnce(workspaceId, workItemId, outputId);
+          if (retried) {
+            await inngest.send({ name: "creative-work.generate", data: { workspaceId, workItemId, outputId } });
+            return { success: false, retrying: true, outputId, failureCode: code };
+          }
+        } catch (retryError) {
+          logger.error(`[creativeWorkOutputJob] auto-retry dispatch failed outputId=${outputId}`, retryError);
+        }
+      }
       try {
         await step.run("mark-failed", async () => {
           await failCreativeWorkOutput(workspaceId, workItemId, outputId, code);

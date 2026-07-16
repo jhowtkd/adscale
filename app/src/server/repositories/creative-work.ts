@@ -212,6 +212,23 @@ export async function getCreativeWork(
   return { work: workRows[0], outputs, sources };
 }
 
+export async function getCreativeWorkSourceAssetDetails(
+  workspaceId: string,
+  sources: Pick<CreativeWorkSource, "id" | "assetId">[],
+  executor: Pick<typeof db, "select"> = db,
+): Promise<Map<string, { assetKey: string; mimeType: string }>> {
+  const assetIds = sources.flatMap((source) => source.assetId ? [source.assetId] : []);
+  if (assetIds.length === 0) return new Map();
+  const assets = await executor.select({ id: workspaceAssets.id, key: workspaceAssets.key, type: workspaceAssets.type })
+    .from(workspaceAssets)
+    .where(and(eq(workspaceAssets.workspaceId, workspaceId), inArray(workspaceAssets.id, assetIds)));
+  const byId = new Map(assets.map((asset) => [asset.id, asset]));
+  return new Map(sources.flatMap((source) => {
+    const asset = source.assetId ? byId.get(source.assetId) : null;
+    return asset ? [[source.id, { assetKey: asset.key, mimeType: asset.type }] as const] : [];
+  }));
+}
+
 export interface CreateCreativeWorkSourceInput {
   workspaceId: string;
   workItemId: string;
@@ -471,15 +488,15 @@ export async function createCreativeWorkOutputs(
 
 export type { CreativeWorkOutputPlan } from "../creative-work/contracts";
 
-export async function createPlannedCreativeWorkOutputs(workspaceId: string, workItemId: string, plans: CreativeWorkOutputPlan[]): Promise<CreativeWorkOutput[]> {
-  if (plans.length === 0) return [];
+export async function createPlannedCreativeWorkOutputs(workspaceId: string, workItemId: string, plans: CreativeWorkOutputPlan[]): Promise<{ outputs: CreativeWorkOutput[]; newlyCreatedIds: string[] }> {
+  if (plans.length === 0) return { outputs: [], newlyCreatedIds: [] };
   const [work] = await db.select({ id: creativeWorkItems.id }).from(creativeWorkItems).where(and(
     eq(creativeWorkItems.workspaceId, workspaceId),
     eq(creativeWorkItems.id, workItemId),
   )).limit(1);
-  if (!work) return [];
+  if (!work) return { outputs: [], newlyCreatedIds: [] };
   const now = new Date();
-  await db.insert(creativeWorkOutputs).values(plans.map((plan) => ({
+  const inserted = await db.insert(creativeWorkOutputs).values(plans.map((plan) => ({
     workspaceId,
     workItemId,
     creativeLevel: plan.creativeLevel,
@@ -490,11 +507,12 @@ export async function createPlannedCreativeWorkOutputs(workspaceId: string, work
     isSelected: false,
     createdAt: now,
     updatedAt: now,
-  }))).onConflictDoNothing();
-  return db.select().from(creativeWorkOutputs).where(and(
+  }))).onConflictDoNothing().returning({ id: creativeWorkOutputs.id });
+  const outputs = await db.select().from(creativeWorkOutputs).where(and(
     eq(creativeWorkOutputs.workspaceId, workspaceId),
     eq(creativeWorkOutputs.workItemId, workItemId),
   )).orderBy(asc(creativeWorkOutputs.targetFormat), asc(creativeWorkOutputs.creativeLevel), asc(creativeWorkOutputs.versionNumber));
+  return { outputs, newlyCreatedIds: inserted.map((row) => row.id) };
 }
 
 export async function createCreativeWorkRevision(
@@ -578,6 +596,21 @@ export async function incrementCreativeWorkOutputRetry(workspaceId: string, work
     eq(creativeWorkOutputs.workspaceId, workspaceId),
     eq(creativeWorkOutputs.workItemId, workItemId),
     eq(creativeWorkOutputs.id, outputId),
+  )).returning();
+  return row ?? null;
+}
+
+export async function requeueCreativeWorkOutputOnce(workspaceId: string, workItemId: string, outputId: string): Promise<CreativeWorkOutput | null> {
+  const [row] = await db.update(creativeWorkOutputs).set({
+    status: "queued",
+    failureCode: null,
+    retryCount: sql`${creativeWorkOutputs.retryCount} + 1`,
+    updatedAt: new Date(),
+  }).where(and(
+    eq(creativeWorkOutputs.workspaceId, workspaceId),
+    eq(creativeWorkOutputs.workItemId, workItemId),
+    eq(creativeWorkOutputs.id, outputId),
+    eq(creativeWorkOutputs.retryCount, 0),
   )).returning();
   return row ?? null;
 }

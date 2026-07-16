@@ -162,6 +162,7 @@ import {
   getCreativeWork,
   markCreativeWorkOutputProcessing,
   incrementCreativeWorkOutputRetry,
+  requeueCreativeWorkOutputOnce,
   linkCreativeWorkCampaign,
   refreshCreativeWorkStatus,
   selectCreativeWorkOutput,
@@ -498,7 +499,7 @@ describe("creative-work repository", () => {
       mocks.state.selectResults.push([{ id: "work-1" }], [planned]);
       const result = await createPlannedCreativeWorkOutputs("ws-1", "work-1", [{ creativeLevel: "bold", targetFormat: "1:1" }]);
       expect(mocks.valuesMock).toHaveBeenCalledWith([expect.objectContaining({ operationKey: "bold:1:1:1", versionNumber: 1 })]);
-      expect(result).toEqual([planned]);
+      expect(result).toEqual({ outputs: [planned], newlyCreatedIds: [] });
     });
 
     it("increments retries only on a scoped output", async () => {
@@ -506,6 +507,16 @@ describe("creative-work repository", () => {
       mocks.state.updateResults.push([retried]);
       await expect(incrementCreativeWorkOutputRetry("ws-1", "work-1", "output-1")).resolves.toEqual(retried);
       expect(mocks.setMock).toHaveBeenCalledWith(expect.objectContaining({ retryCount: expect.anything() }));
+    });
+
+    it("atomically queues only the first automatic retry", async () => {
+      const retried = workOutput({ retryCount: 1, status: "queued" });
+      mocks.state.updateResults.push([retried]);
+      await expect(requeueCreativeWorkOutputOnce("ws-1", "work-1", "output-1")).resolves.toEqual(retried);
+      expect(mocks.setMock).toHaveBeenCalledWith(expect.objectContaining({ status: "queued", retryCount: expect.anything() }));
+      const query = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]);
+      expect(query.sql).toContain('"retry_count"');
+      expect(query.params).toContain(0);
     });
 
     it("links only a same-workspace campaign with a compatible client profile", async () => {

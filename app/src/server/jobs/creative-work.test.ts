@@ -9,6 +9,8 @@ const markProcessingMock = vi.hoisted(() => vi.fn());
 const completeMock = vi.hoisted(() => vi.fn());
 const failMock = vi.hoisted(() => vi.fn());
 const refreshStatusMock = vi.hoisted(() => vi.fn());
+const requeueOnceMock = vi.hoisted(() => vi.fn());
+const sendMock = vi.hoisted(() => vi.fn());
 const ensureLibraryMock = vi.hoisted(() => vi.fn());
 
 const objectGetMock = vi.hoisted(() => vi.fn());
@@ -23,6 +25,7 @@ vi.mock("@/server/repositories/creative-work", () => ({
   completeCreativeWorkOutput: (...args: unknown[]) => completeMock(...args),
   failCreativeWorkOutput: (...args: unknown[]) => failMock(...args),
   refreshCreativeWorkStatus: (...args: unknown[]) => refreshStatusMock(...args),
+  requeueCreativeWorkOutputOnce: (...args: unknown[]) => requeueOnceMock(...args),
 }));
 
 vi.mock("@/server/application/ensure-creative-work-output-library", () => ({
@@ -69,6 +72,7 @@ vi.mock("@/lib/logger", () => ({
 
 vi.mock("./client", () => ({
   inngest: {
+    send: (...args: unknown[]) => sendMock(...args),
     createFunction: vi.fn((opts: unknown, handler: unknown) => ({
       opts,
       fn: handler,
@@ -82,14 +86,12 @@ interface GenerateEvent {
   workspaceId: string;
   workItemId: string;
   outputId: string;
-  creativeLevel: "conservative" | "balanced" | "bold";
 }
 
 const baseEvent: GenerateEvent = {
   workspaceId: "workspace-1",
   workItemId: "work-1",
   outputId: "output-1",
-  creativeLevel: "balanced",
 };
 
 const identitySnapshot = {
@@ -160,12 +162,16 @@ const workItem = {
   updatedAt: new Date(),
 };
 
-function makeQueuedOutput(overrides: Partial<{ id: string; status: string; creativeLevel: "conservative" | "balanced" | "bold" }> = {}) {
+function makeQueuedOutput(overrides: Partial<{ id: string; status: string; creativeLevel: "conservative" | "balanced" | "bold"; retryCount: number }> = {}) {
   return {
     id: "output-1",
     workspaceId: "workspace-1",
     workItemId: "work-1",
     creativeLevel: overrides.creativeLevel ?? "balanced",
+    targetFormat: "1:1",
+    versionNumber: 1,
+    revisionInstruction: "Use mais contraste",
+    retryCount: overrides.retryCount ?? 0,
     status: overrides.status ?? "queued",
     outputKey: null,
     cost: null,
@@ -217,6 +223,8 @@ describe("creativeWorkOutputJob", () => {
     failMock.mockResolvedValue(makeQueuedOutput({ status: "failed" }));
     refreshStatusMock.mockResolvedValue("completed");
     refundCreditsMock.mockResolvedValue({ status: "refunded" });
+    requeueOnceMock.mockResolvedValue(null);
+    sendMock.mockResolvedValue(undefined);
     ensureLibraryMock.mockResolvedValue({
       asset: { id: "asset-1" },
       created: true,
@@ -270,6 +278,36 @@ describe("creativeWorkOutputJob", () => {
     expect(refreshStatusMock).toHaveBeenCalledWith("workspace-1", "work-1");
     // No refund should fire on a happy path.
     expect(refundCreditsMock).not.toHaveBeenCalled();
+  });
+
+  it("loads creative level and target format from the output row", async () => {
+    getCreativeWorkMock.mockResolvedValue({ work: workItem, outputs: [makeQueuedOutput({ creativeLevel: "bold" })] });
+    markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing", creativeLevel: "bold" }));
+    await runJob();
+    const request = generateAndStoreImageMock.mock.calls[0]?.[0] as { prompt: string; size: { width: number; height: number } };
+    expect(request.prompt).toContain("CREATIVE LEVEL: bold");
+    expect(request.prompt).toContain("FORMAT: 1:1");
+    expect(request.prompt).toContain("Use mais contraste");
+  });
+
+  it("automatically redispatches a marked retryable provider failure once", async () => {
+    getCreativeWorkMock.mockResolvedValue({ work: workItem, outputs: [makeQueuedOutput()] });
+    markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+    generateAndStoreImageMock.mockRejectedValue(Object.assign(new Error("provider timeout"), { retryable: true }));
+    requeueOnceMock.mockResolvedValue(makeQueuedOutput({ retryCount: 1 }));
+    const result = await runJob();
+    expect(result).toMatchObject({ success: false, retrying: true });
+    expect(sendMock).toHaveBeenCalledWith({ name: "creative-work.generate", data: baseEvent });
+    expect(failMock).not.toHaveBeenCalled();
+  });
+
+  it("never automatically retries a final low-quality rejection", async () => {
+    getCreativeWorkMock.mockResolvedValue({ work: workItem, outputs: [makeQueuedOutput()] });
+    markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+    analyzeDerivationCreativeMock.mockResolvedValue({ scoreStatus: "analyzed", qualityScore: 1 });
+    await runJob();
+    expect(requeueOnceMock).not.toHaveBeenCalled();
+    expect(sendMock).not.toHaveBeenCalled();
   });
 
   it("skips safely when the draft brief is absent", async () => {
@@ -381,6 +419,20 @@ describe("creativeWorkOutputJob", () => {
       referenceImages?: unknown[];
     };
     expect(call.referenceImages).toHaveLength(4);
+  });
+
+  it("uses style input assets as provider references but keeps content-only sources textual", async () => {
+    getCreativeWorkMock.mockResolvedValue({
+      work: { ...workItem, inputSnapshot: { request: "x", settings: { targetFormats: [] }, sources: [
+        { sourceId: "style", updatedAt: "now", assetKey: "style.png", mimeType: "image/png", usage: "style", content: null, style: { description: "editorial" } },
+        { sourceId: "content", updatedAt: "now", assetKey: "content.png", mimeType: "image/png", usage: "content", content: { subject: "produto" }, style: null },
+      ] } },
+      outputs: [makeQueuedOutput()],
+    });
+    markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+    await runJob();
+    expect(objectGetMock).toHaveBeenCalledWith("style.png");
+    expect(objectGetMock).not.toHaveBeenCalledWith("content.png");
   });
 
   it("skips generation entirely when the output is already completed (duplicate event)", async () => {
@@ -578,7 +630,7 @@ describe("creativeWorkOutputJob", () => {
     expect(call.derivation).toEqual(
       expect.objectContaining({
         ctaText: "C",
-        format: "4:5",
+        format: "1:1",
         generationMode: "art_variation",
         creativeLevel: "balanced",
         feedback: null,
