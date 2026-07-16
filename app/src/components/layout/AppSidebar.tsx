@@ -1,6 +1,5 @@
 "use client";
 
-import { Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -8,6 +7,7 @@ import { useTranslations } from "next-intl";
 import {
   BookOpen,
   FolderOpen,
+  House,
   LogOut,
   Settings,
   Tag,
@@ -18,8 +18,7 @@ import { useBillingStatus } from "@/lib/hooks/use-billing";
 import { useCanonicalWorks } from "@/lib/hooks/use-canonical-works";
 import { authClient } from "@/lib/auth-client";
 import AccountStatusBadge from "@/components/layout/AccountStatusBadge";
-import SidebarBrandKitFeature from "@/components/layout/SidebarBrandKitFeature";
-import AppSidebarCampaignMap from "@/components/layout/AppSidebarCampaignMap";
+import ActiveBrandSwitcher from "@/components/layout/ActiveBrandSwitcher";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { cn } from "@/lib/utils";
 
@@ -47,8 +46,9 @@ export default function AppSidebar() {
   const accessRole = billingStatus?.access?.role;
   const isOwnerOrAdmin = accessRole === "owner" || accessRole === "admin";
 
-  // Phase 6 / item 45: Trabalhos · Biblioteca · Marcas · Config (home via logo)
+  // Frictionless shell: Início · Trabalhos · Biblioteca, with Marca/Configurações below.
   const isWorks = pathname.startsWith("/campaigns");
+  const isHome = pathname === "/";
   const isLibrary = pathname.startsWith("/library");
   const isBrands = pathname.startsWith("/brand-kit");
   const isConfig = pathname.startsWith("/settings");
@@ -87,12 +87,19 @@ export default function AppSidebar() {
             unoptimized
           />
         </Link>
+        <ActiveBrandSwitcher />
       </div>
 
       <nav
-        className="mb-3 grid shrink-0 grid-cols-4 gap-1"
+        className="mb-3 grid shrink-0 grid-cols-3 gap-1"
         aria-label={tNav("sectionPrincipal")}
       >
+        <IconNavItem
+          href="/"
+          active={isHome}
+          label={tNav("home")}
+          icon={House}
+        />
         <IconNavItem
           href="/campaigns"
           active={isWorks}
@@ -106,34 +113,9 @@ export default function AppSidebar() {
           label={tLibrary("title")}
           icon={BookOpen}
         />
-        <IconNavItem
-          href="/brand-kit"
-          active={isBrands}
-          label={tNav("brands")}
-          icon={Tag}
-        />
-        <IconNavItem
-          href="/settings"
-          active={isConfig}
-          label={tNav("config")}
-          icon={Settings}
-        />
       </nav>
 
-      <div className="mb-3 shrink-0 px-1">
-        <Suspense fallback={null}>
-          <SidebarBrandKitFeature />
-        </Suspense>
-        <TextNavItem
-          href="/templates"
-          active={pathname.startsWith("/templates")}
-          label={tNav("templates")}
-        />
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-hidden border-t border-[var(--border-subtle)] pt-2">
-        <AppSidebarCampaignMap />
-      </div>
+      <div className="min-h-0 flex-1" />
 
       {isOwnerOrAdmin && (
         <div className="mt-2 shrink-0 border-t border-[var(--border-subtle)] pt-2">
@@ -146,8 +128,19 @@ export default function AppSidebar() {
       )}
 
       <div className="mt-auto shrink-0 border-t border-[var(--border-subtle)] pt-3">
-        <Link
+        <TextNavItem
+          href="/brand-kit"
+          active={isBrands}
+          label={tNav("brands")}
+          icon={Tag}
+        />
+        <TextNavItem
           href="/settings"
+          active={isConfig}
+          label={tNav("config")}
+          icon={Settings}
+        />
+        <div
           className="flex items-center gap-2 rounded-[var(--radius-control)] px-2 py-2 transition-colors hover:bg-[var(--surface-base)]"
         >
           <span className="grid h-[30px] w-[30px] shrink-0 place-items-center rounded-full bg-[var(--neutral-bg)] text-[11px] font-bold text-[var(--text-primary)]">
@@ -164,7 +157,7 @@ export default function AppSidebar() {
               </p>
             ) : null}
           </div>
-        </Link>
+        </div>
         <button
           type="button"
           onClick={handleLogout}
@@ -218,10 +211,12 @@ function TextNavItem({
   href,
   label,
   active,
+  icon: Icon,
 }: {
   href: string;
   label: string;
   active?: boolean;
+  icon?: LucideIcon;
 }) {
   return (
     <Link
@@ -233,6 +228,7 @@ function TextNavItem({
           : "text-[var(--text-secondary)] hover:bg-[var(--surface-base)] hover:text-[var(--text-primary)]"
       )}
     >
+      {Icon ? <Icon size={16} aria-hidden="true" /> : null}
       <span className="min-w-0 flex-1 truncate">{label}</span>
     </Link>
   );

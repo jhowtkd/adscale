@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import type { ChatAttachment } from "@/lib/assistant/chat-attachments";
+import { useAppStore } from "@/lib/store";
 
 export interface PendingFirstMessage {
   text: string;
@@ -57,7 +58,10 @@ export function AssistantSurfaceProvider({ children }: { children: ReactNode }) 
   const openCreateClientRef = useRef<() => void>(() => {});
   const startNewChatRef = useRef<() => void>(() => {});
 
-  const [activeClientId, setActiveClientId] = useState<string | null>(null);
+  const activeClientId = useAppStore((state) => state.activeClientProfileId);
+  const setActiveClientId = useAppStore(
+    (state) => state.setActiveClientProfileId
+  );
   const [pendingFirstMessage, setPendingFirstMessage] =
     useState<PendingFirstMessage | null>(null);
   const [workspaceMode, setWorkspaceMode] = useState(false);
@@ -135,6 +139,7 @@ export function AssistantSurfaceProvider({ children }: { children: ReactNode }) 
       registerFocusTree,
       registerOpenCreateClient,
       activeClientId,
+      setActiveClientId,
       pendingFirstMessage,
       startNewChat,
       registerStartNewChat,

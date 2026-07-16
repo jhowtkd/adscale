@@ -31,8 +31,10 @@
     "brandKitHint": "Train the client brand",
     "howToUse": "How to use",
     "works": "Works",
-    "brands": "Brands",
+    "brands": "Brand",
     "config": "Settings",
+    "activeBrand": "Active brand",
+    "selectBrand": "Select a brand",
     "recentWorks": "Recent work",
     "recentWorksEmpty": "No work yet",
     "recentWorksCreate": "New work"

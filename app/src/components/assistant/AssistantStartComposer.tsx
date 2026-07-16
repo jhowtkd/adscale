@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useMemo, useState, type FormEvent, type KeyboardEvent } from "react";
+import { useCallback, useState, type FormEvent, type KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { ArrowUp, ImagePlus, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { useClientProfiles } from "@/lib/hooks/use-client-profiles";
+import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
 import { useCreateAssistantThread } from "@/lib/hooks/use-assistant-threads";
 import { useUpsertGuidedFlow, type GuidedFlowPath } from "@/lib/hooks/use-guided-flow";
 import { useChatComposerAttachments } from "@/lib/assistant/use-chat-composer-attachments";
@@ -34,12 +34,16 @@ export default function AssistantStartComposer({
 }: AssistantStartComposerProps) {
   const t = useTranslations("assistant.start");
   const router = useRouter();
-  const { data: clients = [], isLoading: clientsLoading } = useClientProfiles();
+  const {
+    profiles: clients,
+    activeProfile: activeClient,
+    activeClientProfileId: effectiveClientId,
+    isLoading: clientsLoading,
+    selectProfile,
+  } = useActiveClientProfile();
   const createThread = useCreateAssistantThread();
   const upsertGuidedFlow = useUpsertGuidedFlow();
   const {
-    activeClientId,
-    setActiveClientId,
     setPendingFirstMessage,
   } = useAssistantSurface();
 
@@ -47,7 +51,6 @@ export default function AssistantStartComposer({
     goalAgentEligible ? "agent" : "classic"
   );
   const [value, setValue] = useState("");
-  const [clientId, setClientId] = useState<string | null>(activeClientId);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
 
   const onUploadError = useCallback(
@@ -72,18 +75,10 @@ export default function AssistantStartComposer({
 
   const isAgent = experience === "agent";
 
-  const effectiveClientId = clientId ?? activeClientId ?? clients[0]?.id ?? null;
-  const activeClient = useMemo(
-    () => clients.find((c) => c.id === effectiveClientId) ?? null,
-    [clients, effectiveClientId]
-  );
-
   const startJourney = async (path: Exclude<GuidedFlowPath, "unclassified">) => {
     if (!effectiveClientId || createThread.isPending || upsertGuidedFlow.isPending) {
       return;
     }
-
-    setActiveClientId(effectiveClientId);
 
     try {
       const thread = await createThread.mutateAsync({
@@ -105,7 +100,6 @@ export default function AssistantStartComposer({
       return;
     }
 
-    setActiveClientId(effectiveClientId);
     setPendingFirstMessage({ text: trimmed, attachments });
     setValue("");
     clearAttachments();
@@ -209,10 +203,11 @@ export default function AssistantStartComposer({
             id="assistant-client-select"
             data-testid="assistant-client-select"
             value={effectiveClientId ?? ""}
-            onChange={(event) => setClientId(event.target.value || null)}
+            onChange={(event) => selectProfile(event.target.value)}
             disabled={createThread.isPending}
             className="block w-full rounded-xl border border-[var(--border-dim)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-primary)] focus-visible:border-[var(--accent-primary)] focus-visible:outline-none"
           >
+            {!effectiveClientId ? <option value="">{t("chooseProject")}</option> : null}
             {clients.map((client) => (
               <option key={client.id} value={client.id}>
                 {client.name}

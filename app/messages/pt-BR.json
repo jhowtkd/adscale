@@ -31,8 +31,10 @@
     "brandKitHint": "Treine a marca do cliente",
     "howToUse": "Como usar",
     "works": "Trabalhos",
-    "brands": "Marcas",
-    "config": "Config",
+    "brands": "Marca",
+    "config": "Configurações",
+    "activeBrand": "Marca ativa",
+    "selectBrand": "Selecione uma marca",
     "recentWorks": "Trabalhos recentes",
     "recentWorksEmpty": "Nenhum trabalho ainda",
     "recentWorksCreate": "Novo trabalho"

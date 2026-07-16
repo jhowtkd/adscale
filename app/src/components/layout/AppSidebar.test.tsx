@@ -39,6 +39,9 @@ vi.mock("./SidebarBrandKitFeature", () => ({
     </a>
   ),
 }));
+vi.mock("./ActiveBrandSwitcher", () => ({
+  default: () => <div data-testid="active-brand-switcher" />,
+}));
 
 import AppSidebar from "./AppSidebar";
 import { useBillingStatus } from "@/lib/hooks/use-billing";
@@ -57,14 +60,17 @@ describe("AppSidebar role-aware navigation", () => {
     expect(screen.queryByText("⌘K")).not.toBeInTheDocument();
   });
 
-  it("shows Trabalhos · Biblioteca · Marcas · Config nav — without Chat switch", () => {
+  it("shows the active brand and only the simplified user navigation", () => {
     render(<AppSidebar />);
     expect(screen.queryByText("navigation.creativeIntelligenceAdvanced")).not.toBeInTheDocument();
     expect(screen.queryByText("navigation.sectionAvancado")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "assistant.mode.panel" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /assistant\.mode\.chat/i })).not.toBeInTheDocument();
-    expect(screen.getByTestId("sidebar-brand-kit-feature")).toHaveAttribute("href", "/brand-kit");
-    expect(screen.getByTestId("campaign-map")).toBeInTheDocument();
+    expect(screen.getByTestId("active-brand-switcher")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "navigation.home" })).toHaveAttribute(
+      "href",
+      "/"
+    );
     expect(screen.getByRole("link", { name: "navigation.works" })).toHaveAttribute(
       "href",
       "/campaigns"
@@ -81,10 +87,9 @@ describe("AppSidebar role-aware navigation", () => {
       "href",
       "/settings"
     );
-    expect(screen.getByRole("link", { name: "navigation.templates" })).toHaveAttribute(
-      "href",
-      "/templates"
-    );
+    expect(screen.queryByText("navigation.templates")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("sidebar-brand-kit-feature")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("campaign-map")).not.toBeInTheDocument();
   });
 
   it("does NOT show the Laboratório section header", () => {
