@@ -27,8 +27,8 @@
 
 - ✅ **Gate 6 / Phase 6 — Workspace and navigation convergence** — items 43–50 completed and owner-approved on 2026-07-14; desktop/mobile UAT S01–S14 passed.
 - ✅ **Gate 7 / Phase 7 — Remove parallel tree and unproven surfaces** — items 51–58 completed on 2026-07-14.
-- 🔄 **Phase 8 — Operational evidence before new features** — production baseline and deterministic three-brand session fixtures ready; item 59 human journeys next. Expansion remains frozen until Gate 8.
-- Evidence: `docs/plans/uat-50-evidence/RESULTS.md`, `docs/plans/2026-07-14-gate7-evidence.md`, `.planning/convergence/baseline.json`, `docs/plans/2026-07-14-phase8-human-evidence-protocol.md`.
+- 🔄 **Phase 8 — Operational evidence before new features** — verdict current `iterate`: 1/10 human journeys completed; remaining observed gaps fixed in `98448874`; post-fix technical smoke 6/6. The complete comparative sample is deferred and expansion remains frozen until Gate 8.
+- Evidence: `docs/plans/uat-50-evidence/RESULTS.md`, `docs/plans/2026-07-14-gate7-evidence.md`, `.planning/convergence/baseline.json`, `docs/plans/2026-07-14-phase8-human-evidence-protocol.md`, `docs/plans/2026-07-16-phase8-post-fix-agent-smoke.md`.
 
 ## Phases
 

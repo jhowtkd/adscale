@@ -970,10 +970,41 @@
       "targetedBreakpointIds": [
         "preview-approval-bypassed"
       ]
+    },
+    {
+      "commit": "98448874",
+      "description": "Keep Create Post projections synchronized after generation and remove the standalone Select action that had no visible downstream purpose.",
+      "targetedBreakpointIds": [
+        "generated-copy-not-hydrated-without-refresh"
+      ]
+    },
+    {
+      "commit": "98448874",
+      "description": "Open the structured review surface when a completed creative is rejected, and delay contextual feedback until a real preview has been shown.",
+      "targetedBreakpointIds": [
+        "rejection-direction-has-no-answer-surface",
+        "feedback-prompt-before-first-output"
+      ]
+    },
+    {
+      "commit": "98448874",
+      "description": "Preserve or infer the matching client profile during template materialization and expose Templates in the canonical navigation.",
+      "targetedBreakpointIds": [
+        "campaign-brand-context-not-selected",
+        "templates-not-discoverable-from-interface"
+      ]
+    },
+    {
+      "commit": "98448874",
+      "description": "Replace the overlapping generation mark and soften non-actionable blocking terminology in the campaign surface.",
+      "targetedBreakpointIds": [
+        "generation-loader-logo-overlap",
+        "hard-failures-without-recovery-path"
+      ]
     }
   ],
   "decision": {
     "verdict": "iterate",
-    "rationale": "The frozen production baseline and 11 pre-fix human attempts expose the baseline breakpoints, but none completed, so superiority cannot be claimed. One post-fix human journey completed end to end; keep expansion frozen and address the remaining provider/runtime and UX issues before collecting a full comparative sample."
+    "rationale": "The frozen production baseline and failed human attempts expose the baseline breakpoints, while one post-fix human journey completed end to end. The remaining observed deterministic gaps were corrected in 98448874 and a 6/6 agent-controlled technical smoke passed, but automation does not enter the human denominator. Superiority still cannot be claimed: keep expansion frozen, retain the iterate verdict and defer the full comparative human sample until another participant round is justified."
   }
 }
