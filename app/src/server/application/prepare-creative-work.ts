@@ -17,8 +17,8 @@ import {
 } from "@/server/repositories/creative-work";
 
 export async function prepareCreativeWork(input: { workspaceId: string; workItemId: string }) {
-  return withCreativeWorkPreparationLock(input.workspaceId, input.workItemId, async () => {
-    const aggregate = await getCreativeWork(input.workspaceId, input.workItemId);
+  return withCreativeWorkPreparationLock(input.workspaceId, input.workItemId, async (executor) => {
+    const aggregate = await getCreativeWork(input.workspaceId, input.workItemId, executor);
     if (!aggregate) return { ok: false as const, error: { code: "work_not_found" as const } };
     if (aggregate.work.status !== "draft") {
       return { ok: false as const, error: { code: "work_not_draft" as const } };
@@ -70,7 +70,7 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
     if (!parsedBrief.success) {
       return { ok: false as const, error: { code: "invalid_preparation" as const } };
     }
-    const brandKit = await getBrandKit(input.workspaceId, aggregate.work.clientProfileId);
+    const brandKit = await getBrandKit(input.workspaceId, aggregate.work.clientProfileId, executor);
     const copy = await generateSocialPostCopy({
       brief: parsedBrief.data,
       brandName: brandKit?.name ?? "Marca",
@@ -89,6 +89,7 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
         settings: preparation.data.settings,
         inputSnapshot: snapshot,
       },
+      executor,
     );
     if (!work) return { ok: false as const, error: { code: "stale_input" as const } };
     return { ok: true as const, value: { work, quote } };

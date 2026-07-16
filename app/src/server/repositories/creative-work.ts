@@ -146,8 +146,9 @@ export async function updateCreativeWorkDraftIfUnchanged(
   workItemId: string,
   expectedUpdatedAt: Date,
   patch: CreativeWorkDraftPatch,
+  executor: Pick<typeof db, "update"> = db,
 ): Promise<CreativeWorkItem | null> {
-  const [row] = await db.update(creativeWorkItems).set({
+  const [row] = await executor.update(creativeWorkItems).set({
     ...patch,
     updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
   }).where(and(
@@ -162,20 +163,21 @@ export async function updateCreativeWorkDraftIfUnchanged(
 export function withCreativeWorkPreparationLock<T>(
   workspaceId: string,
   workItemId: string,
-  callback: () => Promise<T>,
+  callback: (executor: Pick<typeof db, "select" | "update">) => Promise<T>,
 ): Promise<T> {
   // ponytail: holds one DB connection during the model call; move to a lease/state-machine if preparation throughput matters.
   return db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`${workspaceId}:${workItemId}:prepare`}))`);
-    return callback();
+    return callback(tx);
   });
 }
 
 export async function getCreativeWork(
   workspaceId: string,
-  workItemId: string
+  workItemId: string,
+  executor: Pick<typeof db, "select"> = db,
 ): Promise<{ work: CreativeWorkItem; outputs: CreativeWorkOutput[]; sources: CreativeWorkSource[] } | null> {
-  const workRows = await db
+  const workRows = await executor
     .select()
     .from(creativeWorkItems)
     .where(
@@ -191,7 +193,7 @@ export async function getCreativeWork(
     return null;
   }
 
-  const outputs = await db
+  const outputs = await executor
     .select()
     .from(creativeWorkOutputs)
     .where(
@@ -202,7 +204,7 @@ export async function getCreativeWork(
     )
     .orderBy(asc(creativeWorkOutputs.targetFormat), asc(creativeWorkOutputs.creativeLevel), asc(creativeWorkOutputs.versionNumber));
 
-  const sources = await db.select().from(creativeWorkSources).where(and(
+  const sources = await executor.select().from(creativeWorkSources).where(and(
     eq(creativeWorkSources.workspaceId, workspaceId),
     eq(creativeWorkSources.workItemId, workItemId),
   )).orderBy(asc(creativeWorkSources.createdAt));

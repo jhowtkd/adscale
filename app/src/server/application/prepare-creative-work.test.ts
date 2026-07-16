@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const inferBrief = vi.hoisted(() => vi.fn());
+const transactionExecutor = { scope: "preparation-tx" } as never;
 
 vi.mock("@/server/repositories/creative-work", () => ({
   getCreativeWork: vi.fn(),
   updateCreativeWorkDraftIfUnchanged: vi.fn(),
-  withCreativeWorkPreparationLock: vi.fn(async (_workspaceId, _workItemId, callback) => callback()),
+  withCreativeWorkPreparationLock: vi.fn(async (_workspaceId, _workItemId, callback) => callback(transactionExecutor)),
 }));
 vi.mock("@/server/repositories/brand-kit", () => ({ getBrandKit: vi.fn() }));
 vi.mock("@/server/creative-work/copy", () => ({ generateSocialPostCopy: vi.fn() }));
@@ -41,7 +42,7 @@ const work = {
 describe("prepareCreativeWork", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    withLock.mockImplementation(async (_workspaceId, _workItemId, callback) => callback() as never);
+    withLock.mockImplementation(async (_workspaceId, _workItemId, callback) => callback(transactionExecutor) as never);
     getKit.mockResolvedValue({ name: "Cenbrap", toneOfVoice: "Direto", requiredElements: null, prohibitedElements: null } as never);
     generateCopy.mockResolvedValue({ headline: "Julho", body: "Matricule-se", cta: "Saiba mais" });
     inferBrief.mockReturnValue({ theme: work.request, objective: "Promover matrícula", audience: "Público", offer: "Matrícula" });
@@ -54,10 +55,12 @@ describe("prepareCreativeWork", () => {
     expect(result.ok).toBe(true);
     expect(generateCopy).toHaveBeenCalledOnce();
     expect(generatePaidCopy).not.toHaveBeenCalled();
+    expect(getWork).toHaveBeenCalledWith("ws-1", "work-1", transactionExecutor);
+    expect(getKit).toHaveBeenCalledWith("ws-1", "profile-1", transactionExecutor);
     expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now, expect.objectContaining({
       brief: expect.objectContaining({ theme: "Promoção de matrícula para julho" }),
       copy: { headline: "Julho", body: "Matricule-se", cta: "Saiba mais" },
-    }));
+    }), transactionExecutor);
     if (result.ok) expect(result.value.quote).toMatchObject({ unitCount: 3, credits: 15 });
   });
 
@@ -65,7 +68,7 @@ describe("prepareCreativeWork", () => {
     let current = { ...work } as typeof work & { inputSnapshot?: unknown; brief?: unknown; copy?: unknown };
     let tail = Promise.resolve();
     withLock.mockImplementation((_ws, _id, callback) => {
-      const run = tail.then(callback);
+      const run = tail.then(() => callback(transactionExecutor));
       tail = run.then(() => undefined);
       return run as never;
     });
@@ -88,7 +91,7 @@ describe("prepareCreativeWork", () => {
     updateDraft.mockResolvedValue(null);
     await expect(prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" }))
       .resolves.toEqual({ ok: false, error: { code: "stale_input" } });
-    expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now, expect.any(Object));
+    expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now, expect.any(Object), transactionExecutor);
   });
 
   it("rejects a non-draft before inference or copy", async () => {

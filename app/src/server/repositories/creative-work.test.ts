@@ -427,10 +427,14 @@ describe("creative-work repository", () => {
     });
 
     it("holds the preparation callback under a work-scoped advisory transaction lock", async () => {
-      const callback = vi.fn(async () => "prepared");
+      const callback = vi.fn(async (executor) => {
+        expect(executor).toMatchObject({ execute: mocks.executeMock });
+        return "prepared";
+      });
       await expect(withCreativeWorkPreparationLock("ws-1", "work-1", callback)).resolves.toBe("prepared");
       expect(mocks.executeMock).toHaveBeenCalledOnce();
       expect(callback).toHaveBeenCalledOnce();
+      expect(callback).toHaveBeenCalledWith(expect.objectContaining({ execute: mocks.executeMock }));
       expect(mocks.executeMock.mock.invocationCallOrder[0]).toBeLessThan(callback.mock.invocationCallOrder[0]);
     });
 

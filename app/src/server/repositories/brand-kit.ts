@@ -59,10 +59,11 @@ function toAvailableWorkspaces(
 
 export async function resolveBrandKitProfileId(
   workspaceId: string,
-  clientProfileId?: string | null
+  clientProfileId?: string | null,
+  executor: Pick<typeof db, "select"> = db,
 ): Promise<string> {
   if (clientProfileId) {
-    const profile = await db
+    const profile = await executor
       .select({ id: clientProfiles.id })
       .from(clientProfiles)
       .where(
@@ -91,8 +92,12 @@ export async function resolveBrandKitProfileId(
   );
 }
 
-async function getBrandKitByProfileId(workspaceId: string, profileId: string) {
-  const result = await db
+async function getBrandKitByProfileId(
+  workspaceId: string,
+  profileId: string,
+  executor: Pick<typeof db, "select"> = db,
+) {
+  const result = await executor
     .select()
     .from(clientProfiles)
     .where(
@@ -113,10 +118,11 @@ export async function getBrandKitByWorkspace(workspaceId: string) {
 
 export async function getBrandKit(
   workspaceId: string,
-  clientProfileId?: string | null
+  clientProfileId?: string | null,
+  executor: Pick<typeof db, "select"> = db,
 ) {
-  const profileId = await resolveBrandKitProfileId(workspaceId, clientProfileId);
-  return getBrandKitByProfileId(workspaceId, profileId);
+  const profileId = await resolveBrandKitProfileId(workspaceId, clientProfileId, executor);
+  return getBrandKitByProfileId(workspaceId, profileId, executor);
 }
 
 export async function upsertBrandKit(
