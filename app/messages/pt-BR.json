@@ -1601,8 +1601,8 @@
       }
     },
     "previewGate": {
-      "title": "Qualidade abaixo do esperado",
-      "description": "A prévia falhou no quality gate. Continue mesmo assim ou ajuste a estratégia antes do lote completo.",
+      "title": "Revise o piloto",
+      "description": "Aprove este piloto para gerar as demais variações ou ajuste a estratégia antes de continuar.",
       "qualityVerdict": "Veredito de qualidade: {verdict}",
       "qualityScore": "Score de qualidade: {score}",
       "previewSpent": "Prévia gastou: {credits} créditos",
@@ -1616,8 +1616,8 @@
       "creditEstimateNote": "Estimativas podem diferir do gasto real — confira créditos após a prévia antes de aprovar o lote.",
       "reviseRecipe": "Ajustar estratégia",
       "adjustStrategy": "Ajustar estratégia",
-      "continueAnyway": "Continuar mesmo assim",
-      "approveBatch": "Continuar mesmo assim"
+      "continueAnyway": "Aprovar piloto e gerar variações",
+      "approveBatch": "Aprovar piloto e gerar variações"
     }
   },
   "auth": {

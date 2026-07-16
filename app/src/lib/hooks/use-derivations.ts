@@ -166,7 +166,7 @@ export function hasPendingDerivationWork(data: Derivation[] | undefined) {
         d.status === "processing" ||
         d.scoreStatus === "heuristic" ||
         (d.status === "completed" && d.scoreStatus === "pending") ||
-        // Preview auto-continue depends on the quality gate, which runs after
+        // Preview approval depends on the quality gate, which runs after
         // scoring. Keep polling through that second lifecycle boundary.
         (d.isPreview &&
           d.status === "completed" &&

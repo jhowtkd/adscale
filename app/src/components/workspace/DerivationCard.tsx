@@ -463,10 +463,6 @@ export default function DerivationCard({
           </p>
         ) : null}
 
-        {/* Row 3: Prompt preview */}
-        <p className="text-[13px] text-[var(--text-secondary)] line-clamp-2 leading-relaxed">
-          {derivation.prompt}
-        </p>
         {derivation.scoreIssues?.[0] && (
           <p className="text-[11px] text-[var(--text-muted)] line-clamp-1">
             {derivation.scoreIssues[0]}

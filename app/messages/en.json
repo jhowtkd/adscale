@@ -1601,8 +1601,8 @@
       }
     },
     "previewGate": {
-      "title": "Quality below expectations",
-      "description": "This preview failed the quality gate. Continue anyway or adjust strategy before the full batch.",
+      "title": "Review the pilot",
+      "description": "Approve this pilot to generate the remaining variations, or adjust the strategy before continuing.",
       "qualityVerdict": "Quality verdict: {verdict}",
       "qualityScore": "Quality score: {score}",
       "previewSpent": "Preview spent: {credits} credits",
@@ -1616,8 +1616,8 @@
       "creditEstimateNote": "Estimates may differ from actual spend — check credits after preview before approving batch.",
       "reviseRecipe": "Adjust strategy",
       "adjustStrategy": "Adjust strategy",
-      "continueAnyway": "Continue anyway",
-      "approveBatch": "Continue anyway"
+      "continueAnyway": "Approve pilot and generate variations",
+      "approveBatch": "Approve pilot and generate variations"
     }
   },
   "auth": {

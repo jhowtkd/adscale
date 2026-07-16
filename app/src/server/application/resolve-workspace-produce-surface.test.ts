@@ -19,7 +19,7 @@ describe("resolveWorkspaceProduceSurface", () => {
     expect(surface.shouldAutoContinuePreview).toBe(false);
   });
 
-  it("flags auto-continue for acceptable ready preview", () => {
+  it("requires explicit approval for an acceptable ready preview", () => {
     const surface = resolveWorkspaceProduceSurface({
       campaign: { generationMode: "art_variation" },
       derivations: [
@@ -34,8 +34,8 @@ describe("resolveWorkspaceProduceSurface", () => {
       ],
     });
 
-    expect(surface.shouldAutoContinuePreview).toBe(true);
-    expect(surface.showPreviewGate).toBe(false);
+    expect(surface.shouldAutoContinuePreview).toBe(false);
+    expect(surface.showPreviewGate).toBe(true);
     expect(surface.activePreviewId).toBe("p1");
   });
 });

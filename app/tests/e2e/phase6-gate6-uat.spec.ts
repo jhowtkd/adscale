@@ -999,7 +999,7 @@ test.describe("Phase 6 Gate 6 UAT provider block", () => {
     }
   });
 
-  test("S07 produceSurface auto-continue preview (quality ok)", async ({
+  test("S07 requires pilot approval before batch (quality ok)", async ({
     browser,
   }) => {
     const fixture = loadPhase6Fixture();
@@ -1057,16 +1057,25 @@ test.describe("Phase 6 Gate 6 UAT provider block", () => {
       await page.keyboard.press("Escape");
 
       // Queue the controlled preview through the real authenticated API. The
-      // behavior under test is the client observing the real quality result
-      // and automatically issuing the subsequent batch request.
+      // behavior under test is the client waiting for explicit pilot approval.
       const previewResponse = await context.request.post(
         `/api/campaigns/${campaignId}/derivations`,
         { data: { preview: true } }
       );
       expect([200, 201, 202]).toContain(previewResponse.status());
 
-      // The completed acceptable preview must drive the real automatic batch
-      // request through useWorkspaceProduce — not a direct API shortcut.
+      // The preview was queued outside React Query; reload once so the real
+      // workspace hook observes the pending preview and exposes its approval.
+      await page.reload({ waitUntil: "commit" });
+      await dismissOverlays(page);
+      await waitWorkspaceStages(page);
+
+      const approvePilot = page.getByRole("button", {
+        name: /aprovar piloto e gerar variações|approve pilot and generate variations/i,
+      });
+      await expect(approvePilot).toBeVisible({ timeout: 120_000 });
+      const gateVisible = true;
+
       const batchQueued = page.waitForRequest(
         (request) => {
           if (
@@ -1083,12 +1092,7 @@ test.describe("Phase 6 Gate 6 UAT provider block", () => {
         },
         { timeout: 120_000 }
       );
-      // The preview was queued outside React Query; reload once so the real
-      // workspace hook observes the pending preview, polls through its quality
-      // gate, and owns the automatic batch continuation.
-      await page.reload({ waitUntil: "commit" });
-      await dismissOverlays(page);
-      await waitWorkspaceStages(page);
+      await approvePilot.click();
       const batchRequest = await batchQueued;
 
       let finalBody:
@@ -1133,15 +1137,6 @@ test.describe("Phase 6 Gate 6 UAT provider block", () => {
       const surface = finalBody?.produceSurface;
       const preview = finalBody?.derivations?.find((row) => row.isPreview);
 
-      // Manual continue-anyway must not show for auto-continue path
-      const continueAnyway = page.getByRole("button", {
-        name: /continuar mesmo assim|continue anyway/i,
-      });
-      const gateVisible = await continueAnyway
-        .first()
-        .isVisible({ timeout: 2_000 })
-        .catch(() => false);
-
       const billingAfterResponse = await context.request.get("/api/billing/status");
       expect(billingAfterResponse.ok()).toBe(true);
       const billingAfter = (await billingAfterResponse.json()) as {
@@ -1155,14 +1150,14 @@ test.describe("Phase 6 Gate 6 UAT provider block", () => {
       const status: ScenarioResult["status"] =
         surface?.showPreviewGate === false &&
         preview?.qualityVerdict === "acceptable" &&
-        !gateVisible &&
+        gateVisible &&
         chargedCredits === expectedCredits
           ? "pass"
           : "fail";
 
       const result = record(collectors, {
         id: "S07",
-        title: "Preview auto-approved (quality ok)",
+        title: "Pilot approval before batch (quality ok)",
         status,
         url: page.url(),
         viewport: UAT_VIEWPORT_LABEL,

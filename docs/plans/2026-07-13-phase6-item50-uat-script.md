@@ -101,12 +101,12 @@ Para **cada** cenário abaixo registrar:
 | **Esperado** | Clicar Revisar → scroll `mission-review`; Entregar → `mission-share` (não o mesmo bloco) |
 | **Produzir** | Recipe panel: ranking/créditos vindos da API (network `POST /api/strategy-recipe/resolve`) |
 
-## S07 — Preview **auto-aprovado** (quality ok)
+## S07 — Preview aceitável com **aprovação explícita**
 
 | | |
 |--|--|
 | **Caminho** | Gerar preview com qualidade acceptable |
-| **Esperado** | `produceSurface.shouldAutoContinuePreview` true (via GET derivations); batch enfileira sem gate manual |
+| **Esperado** | Gate manual visível; o batch só enfileira após aprovar explicitamente o piloto |
 | **Créditos** | Saldo antes/depois bate com preview + batch cobrados |
 
 ## S08 — Preview **bloqueado** pelo gate

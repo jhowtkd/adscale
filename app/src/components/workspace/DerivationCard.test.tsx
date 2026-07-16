@@ -34,6 +34,21 @@ const baseDerivation = {
 };
 
 describe("DerivationCard", () => {
+  it("does not expose the internal generation prompt", () => {
+    render(
+      <DerivationCard
+        derivation={{
+          ...baseDerivation,
+          prompt: "HARD RULES / NON-NEGOTIABLE CONTRACT",
+        }}
+        index={0}
+        onPreview={vi.fn()}
+      />
+    );
+
+    expect(screen.queryByText(/NON-NEGOTIABLE CONTRACT/)).not.toBeInTheDocument();
+  });
+
   it("renders the failed retry action without nesting it inside another button", () => {
     render(
       <DerivationCard
