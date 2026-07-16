@@ -8,6 +8,7 @@ const getCreativeWorkMock = vi.hoisted(() => vi.fn());
 const markProcessingMock = vi.hoisted(() => vi.fn());
 const completeMock = vi.hoisted(() => vi.fn());
 const failMock = vi.hoisted(() => vi.fn());
+const failQueuedMock = vi.hoisted(() => vi.fn());
 const refreshStatusMock = vi.hoisted(() => vi.fn());
 const requeueOnceMock = vi.hoisted(() => vi.fn());
 const sendMock = vi.hoisted(() => vi.fn());
@@ -24,6 +25,7 @@ vi.mock("@/server/repositories/creative-work", () => ({
     markProcessingMock(...args),
   completeCreativeWorkOutput: (...args: unknown[]) => completeMock(...args),
   failCreativeWorkOutput: (...args: unknown[]) => failMock(...args),
+  failQueuedCreativeWorkOutput: (...args: unknown[]) => failQueuedMock(...args),
   refreshCreativeWorkStatus: (...args: unknown[]) => refreshStatusMock(...args),
   requeueCreativeWorkOutputOnce: (...args: unknown[]) => requeueOnceMock(...args),
 }));
@@ -221,6 +223,7 @@ describe("creativeWorkOutputJob", () => {
     });
     completeMock.mockResolvedValue(makeQueuedOutput({ status: "completed" }));
     failMock.mockResolvedValue(makeQueuedOutput({ status: "failed" }));
+    failQueuedMock.mockResolvedValue(makeQueuedOutput({ status: "failed", retryCount: 1 }));
     refreshStatusMock.mockResolvedValue("completed");
     refundCreditsMock.mockResolvedValue({ status: "refunded" });
     requeueOnceMock.mockResolvedValue(null);
@@ -320,6 +323,18 @@ describe("creativeWorkOutputJob", () => {
     expect(result).toMatchObject({ success: false, retrying: true });
     expect(sendMock).toHaveBeenCalledWith({ name: "creative-work.generate", data: baseEvent });
     expect(failMock).not.toHaveBeenCalled();
+  });
+
+  it("makes a won auto-retry CAS manually recoverable when redispatch fails", async () => {
+    getCreativeWorkMock.mockResolvedValue({ work: workItem, outputs: [makeQueuedOutput()] });
+    markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+    generateAndStoreImageMock.mockRejectedValue(Object.assign(new Error("provider timeout"), { retryable: true }));
+    requeueOnceMock.mockResolvedValue(makeQueuedOutput({ retryCount: 1 }));
+    sendMock.mockRejectedValue(new Error("inngest unavailable"));
+    const result = await runJob();
+    expect(result).toMatchObject({ success: false, failureCode: "auto_retry_dispatch_failed" });
+    expect(result).not.toHaveProperty("retrying", true);
+    expect(failQueuedMock).toHaveBeenCalledWith("workspace-1", "work-1", "output-1", "auto_retry_dispatch_failed");
   });
 
   it("does not reopen an output when completion wins the automatic-retry CAS", async () => {

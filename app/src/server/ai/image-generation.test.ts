@@ -329,6 +329,31 @@ describe("generateAndStoreImage", () => {
     }
   });
 
+  it("marks the aggregate provider error retryable for a real 429/timeout failure", async () => {
+    const { __setImageProviderForTests } = await import("./image-generation");
+    const providerError = Object.assign(new Error("request timed out"), { status: 429, code: "ETIMEDOUT" });
+    __setImageProviderForTests({ name: "openai", generate: vi.fn(async () => { throw providerError; }) });
+    try {
+      const error = await generateAndStoreImage({ ...BASE_INPUT, outputPrefix: "creative-work/retryable" }).catch((caught) => caught);
+      expect(error).toBeInstanceOf(Error);
+      expect(error.retryable).toBe(true);
+    } finally {
+      __setImageProviderForTests(null);
+    }
+  });
+
+  it("does not mark an input-like 400 provider error retryable", async () => {
+    const { __setImageProviderForTests } = await import("./image-generation");
+    __setImageProviderForTests({ name: "openai", generate: vi.fn(async () => { throw Object.assign(new Error("bad input"), { status: 400 }); }) });
+    try {
+      const error = await generateAndStoreImage({ ...BASE_INPUT, outputPrefix: "creative-work/not-retryable" }).catch((caught) => caught);
+      expect(error).toBeInstanceOf(Error);
+      expect(error.retryable).not.toBe(true);
+    } finally {
+      __setImageProviderForTests(null);
+    }
+  });
+
   it("refines the winner once at high quality and keeps the better version", async () => {
     const { __setImageProviderForTests } = await import("./image-generation");
     const generate = vi.fn(async (input: { prompt: string }) => ({

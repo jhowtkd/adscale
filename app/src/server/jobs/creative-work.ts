@@ -16,6 +16,7 @@ import {
   markCreativeWorkOutputProcessing,
   completeCreativeWorkOutput,
   failCreativeWorkOutput,
+  failQueuedCreativeWorkOutput,
   refreshCreativeWorkStatus,
   requeueCreativeWorkOutputOnce,
 } from "@/server/repositories/creative-work";
@@ -370,8 +371,14 @@ export const creativeWorkOutputJob = inngest.createFunction(
         try {
           const retried = await requeueCreativeWorkOutputOnce(workspaceId, workItemId, outputId);
           if (retried) {
-            await inngest.send({ name: "creative-work.generate", data: { workspaceId, workItemId, outputId } });
-            return { success: false, retrying: true, outputId, failureCode: code };
+            try {
+              await inngest.send({ name: "creative-work.generate", data: { workspaceId, workItemId, outputId } });
+              return { success: false, retrying: true, outputId, failureCode: code };
+            } catch (dispatchError) {
+              await failQueuedCreativeWorkOutput(workspaceId, workItemId, outputId, "auto_retry_dispatch_failed");
+              logger.error(`[creativeWorkOutputJob] auto-retry dispatch failed outputId=${outputId}`, dispatchError);
+              return { success: false, outputId, failureCode: "auto_retry_dispatch_failed" };
+            }
           }
         } catch (retryError) {
           logger.error(`[creativeWorkOutputJob] auto-retry dispatch failed outputId=${outputId}`, retryError);

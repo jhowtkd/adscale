@@ -102,6 +102,16 @@ export function __setImageProviderForTests(provider: ImageGenerationProvider | n
   cachedProvider = provider;
 }
 
+function isRetryableProviderError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const value = error as { status?: unknown; statusCode?: unknown; code?: unknown; name?: unknown; cause?: unknown };
+  const status = typeof value.status === "number" ? value.status : value.statusCode;
+  if (typeof status === "number" && (status === 408 || status === 409 || status === 429 || status >= 500)) return true;
+  if (["ETIMEDOUT", "ECONNRESET", "EAI_AGAIN", "ECONNREFUSED"].includes(String(value.code))) return true;
+  if (value.name === "AbortError" || value.name === "TimeoutError") return true;
+  return value.cause !== error && isRetryableProviderError(value.cause);
+}
+
 /**
  * Resize/normalize a generated image to the target format dimensions.
  *
@@ -164,11 +174,14 @@ export async function generateAndStoreImage(
     .filter((result): result is { routeId: string; candidate: ImageCandidate } => result !== null);
 
   if (generatedCandidates.length === 0) {
-    const reason = generationResults
-      .map((result) => result.status === "rejected" ? String(result.reason) : "")
+    const failures = generationResults.flatMap((result) => result.status === "rejected" ? [result.reason] : []);
+    const reason = failures
+      .map(String)
       .filter(Boolean)
       .join("; ");
-    throw new Error(`All image candidates failed: ${reason}`);
+    const aggregate = new Error(`All image candidates failed: ${reason}`) as Error & { retryable?: boolean };
+    if (failures.some(isRetryableProviderError)) aggregate.retryable = true;
+    throw aggregate;
   }
 
   const uploadResults = await Promise.allSettled(
