@@ -2683,6 +2683,7 @@
     },
     "chat": {
       "inputPlaceholder": "Digite uma mensagem…",
+      "inputAriaLabel": "Mensagem",
       "send": "Enviar",
       "noThreadHint": "Selecione uma thread para começar a conversar",
       "close": "Fechar",

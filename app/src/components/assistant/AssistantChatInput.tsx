@@ -179,6 +179,7 @@ export default function AssistantChatInput({
           onPaste={handlePaste}
           disabled={disabled || isStreaming}
           placeholder={t("inputPlaceholder")}
+          aria-label={t("inputAriaLabel")}
           rows={2}
           className={cn(
             "min-h-[2.5rem] flex-1 resize-none bg-transparent px-2 py-1 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"

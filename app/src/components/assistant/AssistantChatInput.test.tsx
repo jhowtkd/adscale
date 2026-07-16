@@ -34,6 +34,19 @@ describe("AssistantChatInput attachments", () => {
     }));
   });
 
+  it("exposes an accessible name on the message field", () => {
+    render(
+      <AssistantChatInput
+        disabled={false}
+        isStreaming={false}
+        noThread={false}
+        onSend={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole("textbox", { name: "inputAriaLabel" })).toBeInTheDocument();
+  });
+
   it("shows two chips after attaching images sequentially", async () => {
     render(
       <AssistantChatInput

@@ -2654,6 +2654,7 @@
     },
     "chat": {
       "inputPlaceholder": "Type a message…",
+      "inputAriaLabel": "Message",
       "send": "Send",
       "noThreadHint": "Select a thread to start chatting",
       "close": "Close",
