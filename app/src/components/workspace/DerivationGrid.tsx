@@ -111,7 +111,7 @@ export default function DerivationGrid({
               onApprove={
                 onApprove ? () => onApprove(derivation.id) : undefined
               }
-              onReject={onReject ? () => onReject(derivation.id) : undefined}
+              onReject={onReject ? () => onPreview(derivation.id) : undefined}
               onCreateDeliveryPackage={
                 onCreateDeliveryPackage
                   ? () => onCreateDeliveryPackage(derivation.id)

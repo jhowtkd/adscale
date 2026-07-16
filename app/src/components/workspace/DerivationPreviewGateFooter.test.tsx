@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import DerivationPreviewGateFooter from "./DerivationPreviewGateFooter";
 
 const recordEvent = vi.fn();
+const maybePromptMissionInsight = vi.fn();
 
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
@@ -12,9 +13,31 @@ vi.mock("@/lib/hooks/use-record-beta-event", () => ({
   useRecordBetaEvent: () => ({ recordEvent }),
 }));
 
+vi.mock("@/components/mission-insights/MissionInsightProvider", () => ({
+  useMissionInsightOptional: () => ({ maybePromptMissionInsight }),
+}));
+
 describe("DerivationPreviewGateFooter", () => {
   beforeEach(() => {
     recordEvent.mockClear();
+    maybePromptMissionInsight.mockClear();
+  });
+
+  it("asks for preview feedback only after the preview gate is visible", () => {
+    render(
+      <DerivationPreviewGateFooter
+        campaignId="camp-1"
+        onApproveBatch={vi.fn()}
+      />
+    );
+
+    expect(maybePromptMissionInsight).toHaveBeenCalledWith(
+      expect.objectContaining({
+        moment: "preview_first",
+        missionKey: "preview",
+        campaignId: "camp-1",
+      })
+    );
   });
 
   it("shows continue and adjust actions when quality failed", () => {

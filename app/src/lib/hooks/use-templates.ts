@@ -71,7 +71,7 @@ export async function fetchTemplate(id: string): Promise<CampaignTemplate> {
 /** Phase 5 / item 39: server-side materialize (not client field merge). */
 export async function materializeTemplate(
   templateId: string,
-  payload: { name: string; client: string }
+  payload: { name: string; client: string; clientProfileId: string | null }
 ): Promise<{ campaign: { id: string; name: string }; canonical?: unknown }> {
   const res = await apiFetch(`/api/templates/${templateId}/materialize`, {
     method: "POST",
@@ -93,11 +93,13 @@ export function useMaterializeTemplate() {
       templateId,
       name,
       client,
+      clientProfileId,
     }: {
       templateId: string;
       name: string;
       client: string;
-    }) => materializeTemplate(templateId, { name, client }),
+      clientProfileId: string | null;
+    }) => materializeTemplate(templateId, { name, client, clientProfileId }),
     onSuccess: async () => {
       await invalidateWorkListProjections(queryClient);
     },

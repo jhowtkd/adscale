@@ -2,8 +2,8 @@
  * Phase 5 / item 39: materialize a workspace template as a campaign origin
  * of CanonicalCreativeWork (intent + briefing + format filled from template).
  *
- * Generic template: never copies clientProfileId or selectedReferenceIds —
- * user supplies name/client; brand/refs attach after materialization.
+ * Generic templates never copy references. A client profile is attached only
+ * when the user explicitly selects it during materialization.
  */
 import { projectCampaignAsCanonicalWork } from "@/server/creative-work/projection/from-campaign";
 import type { CanonicalCreativeWork } from "@/server/creative-work/canonical/types";
@@ -24,6 +24,7 @@ export type MaterializeTemplateAsCampaignInput = {
   templateId: string;
   name: string;
   client: string;
+  clientProfileId?: string | null;
 };
 
 export type MaterializeTemplateAsCampaignError =
@@ -77,10 +78,10 @@ function asStyleIntensity(value: string | null | undefined): StyleIntensity | un
   return undefined;
 }
 
-/** Map template briefing snapshot → createCampaign payload (no brand/refs). */
+/** Map the template briefing plus the user's explicit brand choice; never copy refs. */
 export function buildCampaignInputFromTemplate(
   template: NonNullable<Awaited<ReturnType<typeof getTemplateById>>>,
-  userFields: { name: string; client: string }
+  userFields: { name: string; client: string; clientProfileId?: string | null }
 ): CreateCampaignInput {
   return {
     name: userFields.name,
@@ -98,8 +99,7 @@ export function buildCampaignInputFromTemplate(
     styleIntensity: asStyleIntensity(template.styleIntensity),
     ctaVariants: template.ctaVariants ?? undefined,
     targetFormats: template.targetFormats ?? undefined,
-    // Generic template: user picks brand/refs after materialization.
-    clientProfileId: null,
+    clientProfileId: userFields.clientProfileId ?? null,
     selectedReferenceIds: null,
     status: "draft",
   };
@@ -116,6 +116,7 @@ export async function materializeTemplateAsCampaign(
   const createInput = buildCampaignInputFromTemplate(template, {
     name: input.name,
     client: input.client,
+    clientProfileId: input.clientProfileId,
   });
 
   // Hard invariants: never carry brand/refs from template path.
@@ -124,12 +125,6 @@ export async function materializeTemplateAsCampaign(
       "materializeTemplateAsCampaign: selectedReferenceIds must not come from template"
     );
   }
-  if (createInput.clientProfileId) {
-    throw new Error(
-      "materializeTemplateAsCampaign: clientProfileId must stay null from template"
-    );
-  }
-
   const campaign = await createCampaign(input.workspaceId, createInput);
 
   const canonical = projectCampaignAsCanonicalWork(

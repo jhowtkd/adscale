@@ -736,6 +736,9 @@
     "new": "New campaign",
     "name": "Campaign name",
     "client": "Client",
+    "clientProfile": "Linked brand",
+    "customClient": "Client without a linked brand",
+    "clientProfileHint": "Linking a brand enables Brand Kit, assistant, and learnings from the start.",
     "product": "Product",
     "objective": "Objective",
     "audience": "Target audience",
@@ -1482,15 +1485,15 @@
     "analyzing": "Analyzing readiness…",
     "failed": "Readiness analysis failed. Try again.",
     "rerun": "Rerun readiness",
-    "blockingIssues": "Blocking issues",
-    "blockingBeforeDerivar": "{count, plural, one {# blocking issue — resolve before deriving} other {# blocking issues — resolve before deriving}}",
+    "blockingIssues": "Important recommendations",
+    "blockingBeforeDerivar": "{count, plural, one {# important recommendation — review before deriving} other {# important recommendations — review before deriving}}",
     "overrideFalsePositive": "Override — continue anyway",
     "suggestions": "Improvements",
     "disclaimer": "Readiness reduces risk before generation but does not guarantee output quality.",
     "status": {
       "ready": "Ready",
       "needs_attention": "Needs attention",
-      "blocked": "Blocked"
+      "blocked": "Review"
     },
     "dimensions": {
       "offerClarity": "Offer clarity",
@@ -2169,9 +2172,9 @@
     "corpusAdding": "Adding to corpus…",
     "corpusAddSuccess": "Added to human quality corpus queue",
     "qualityScore": "Score",
-    "hardFailuresTitle": "Issues blocking use",
+    "hardFailuresTitle": "Corrections required for use",
     "polishSuggestionsTitle": "Improvement suggestions",
-    "blockingFailureHint": "Fix before you approve or export",
+    "blockingFailureHint": "Regenerate with corrections or open review to justify the decision",
     "polishSuggestionHint": "Optional improvement — regenerate if you want",
     "hardFailureCodes": {
       "cta_drift": "CTA changed or missing",

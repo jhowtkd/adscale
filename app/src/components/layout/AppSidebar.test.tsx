@@ -81,6 +81,10 @@ describe("AppSidebar role-aware navigation", () => {
       "href",
       "/settings"
     );
+    expect(screen.getByRole("link", { name: "navigation.templates" })).toHaveAttribute(
+      "href",
+      "/templates"
+    );
   });
 
   it("does NOT show the Laboratório section header", () => {

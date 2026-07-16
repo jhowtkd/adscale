@@ -407,6 +407,7 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
             templateId: fromTemplate.id,
             name: data.name,
             client: data.client,
+            clientProfileId: data.clientProfileId,
           },
           {
             onSuccess: ({ campaign }) => {

@@ -124,6 +124,11 @@ export default function AppSidebar() {
         <Suspense fallback={null}>
           <SidebarBrandKitFeature />
         </Suspense>
+        <TextNavItem
+          href="/templates"
+          active={pathname.startsWith("/templates")}
+          label={tNav("templates")}
+        />
       </div>
 
       <div className="min-h-0 flex-1 overflow-hidden border-t border-[var(--border-subtle)] pt-2">

@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-07-15T18:25:48.217Z",
+  "generatedAt": "2026-07-16T11:41:14.686Z",
   "schemaVersion": 2,
-  "fingerprint": "9050302c487152761a5c7f15eb49ff78e5fe5bc6300552df13db122ada333ff6",
+  "fingerprint": "783652227a1b630d22d3068e6ff92138c5a267bc90c1c492cf55903ca812db9f",
   "counts": {
     "dashboardPages": 14,
     "apiRoutes": 161,
-    "ctas": 65,
+    "ctas": 66,
     "requiringDecision": 1
   },
   "dashboardPages": [
@@ -1401,21 +1401,21 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/campaigns/useCampaignsPage.ts:420",
+      "id": "nav:app/src/components/campaigns/useCampaignsPage.ts:421",
       "kind": "cta_navigation",
       "destination": "/campaigns/${campaign.id}",
       "file": "app/src/components/campaigns/useCampaignsPage.ts",
-      "line": 420,
-      "evidence": "app/src/components/campaigns/useCampaignsPage.ts:420",
+      "line": 421,
+      "evidence": "app/src/components/campaigns/useCampaignsPage.ts:421",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/campaigns/useCampaignsPage.ts:443",
+      "id": "nav:app/src/components/campaigns/useCampaignsPage.ts:444",
       "kind": "cta_navigation",
       "destination": "/campaigns/${campaign.id}",
       "file": "app/src/components/campaigns/useCampaignsPage.ts",
-      "line": 443,
-      "evidence": "app/src/components/campaigns/useCampaignsPage.ts:443",
+      "line": 444,
+      "evidence": "app/src/components/campaigns/useCampaignsPage.ts:444",
       "requiresDecision": false
     },
     {
@@ -1608,21 +1608,30 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:136",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:128",
       "kind": "cta_navigation",
-      "destination": "/feedback",
+      "destination": "/templates",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 136,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:136",
+      "line": 128,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:128",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:145",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:141",
+      "kind": "cta_navigation",
+      "destination": "/feedback",
+      "file": "app/src/components/layout/AppSidebar.tsx",
+      "line": 141,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:141",
+      "requiresDecision": false
+    },
+    {
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:150",
       "kind": "cta_navigation",
       "destination": "/settings",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 145,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:145",
+      "line": 150,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:150",
       "requiresDecision": false
     },
     {
@@ -1755,12 +1764,12 @@
       "note": "always-disabled control"
     },
     {
-      "id": "nav:app/src/components/quick-tools/create-post/CreatePostWizard.tsx:302",
+      "id": "nav:app/src/components/quick-tools/create-post/CreatePostWizard.tsx:292",
       "kind": "cta_navigation",
       "destination": "/library",
       "file": "app/src/components/quick-tools/create-post/CreatePostWizard.tsx",
-      "line": 302,
-      "evidence": "app/src/components/quick-tools/create-post/CreatePostWizard.tsx:302",
+      "line": 292,
+      "evidence": "app/src/components/quick-tools/create-post/CreatePostWizard.tsx:292",
       "requiresDecision": false
     },
     {

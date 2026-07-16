@@ -5,6 +5,7 @@ import { apiError, handleApiError } from "@/lib/api-response";
 import { materializeTemplateAsCampaign } from "@/server/application/materialize-template-as-campaign";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { recordBrandMemoryEvent } from "@/server/memory/brand-memory-dispatch";
+import { getClientProfile } from "@/server/repositories/client-reference";
 
 /**
  * Materialize template → campaign CanonicalCreativeWork (Phase 5 / item 39).
@@ -13,6 +14,7 @@ import { recordBrandMemoryEvent } from "@/server/memory/brand-memory-dispatch";
 const bodySchema = z.object({
   name: z.string().min(1).max(255),
   client: z.string().min(1),
+  clientProfileId: z.string().uuid().nullable().optional(),
 });
 
 const templateIdSchema = z.string().uuid();
@@ -34,12 +36,21 @@ export async function POST(
       return apiError("invalidInput", 400, bodyParsed.error.flatten());
     }
 
+    const clientProfileId = bodyParsed.data.clientProfileId ?? null;
+    if (clientProfileId) {
+      const profile = await getClientProfile(workspace.id, clientProfileId);
+      if (!profile) {
+        return apiError("clientProfileNotFound", 404);
+      }
+    }
+
     const result = await materializeTemplateAsCampaign({
       workspaceId: workspace.id,
       userId: user.id,
       templateId: idParsed.data,
       name: bodyParsed.data.name,
       client: bodyParsed.data.client,
+      clientProfileId,
     });
 
     if (!result.ok) {

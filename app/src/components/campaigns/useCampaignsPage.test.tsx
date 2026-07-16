@@ -308,7 +308,7 @@ describe("useCampaignsPage template materialization states", () => {
     });
 
     expect(materializeMutateMock).toHaveBeenCalledWith(
-      { templateId: id, name: "X", client: "Y" },
+      { templateId: id, name: "X", client: "Y", clientProfileId: null },
       expect.any(Object)
     );
     expect(mutateMock).not.toHaveBeenCalled();
@@ -343,7 +343,12 @@ describe("useCampaignsPage template materialization states", () => {
     });
 
     expect(materializeMutateMock).toHaveBeenCalledWith(
-      { templateId: id, name: "From Template", client: "Acme" },
+      {
+        templateId: id,
+        name: "From Template",
+        client: "Acme",
+        clientProfileId: null,
+      },
       expect.any(Object)
     );
     expect(mutateMock).not.toHaveBeenCalled();
@@ -382,7 +387,7 @@ describe("useCampaignsPage template materialization states", () => {
 
     expect(materializeMutateMock).toHaveBeenCalledTimes(1);
     expect(materializeMutateMock).toHaveBeenCalledWith(
-      { templateId: id, name: "Dup", client: "Acme" },
+      { templateId: id, name: "Dup", client: "Acme", clientProfileId: null },
       expect.any(Object)
     );
   });

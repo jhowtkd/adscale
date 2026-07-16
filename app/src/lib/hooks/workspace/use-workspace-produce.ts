@@ -81,18 +81,6 @@ export function useWorkspaceProduce(deps: {
             if (campaign && !isNew) {
               updateCampaign.mutate({ status: "generating" });
             }
-            if (options?.preview && missionInsight) {
-              missionInsight.maybePromptMissionInsight({
-                moment: "preview_first",
-                missionKey: "preview",
-                campaignId: campaignId !== "new" ? campaignId : undefined,
-                route: currentRoute,
-                diagnosticContext: {
-                  isPreview: true,
-                  operation: "preview_generate",
-                },
-              });
-            }
           },
           onError: (error) => {
             addToast(

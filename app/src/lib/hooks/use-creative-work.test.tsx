@@ -1,7 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { creativeWorkRefetchInterval, useGenerateCopy } from "./use-creative-work";
+import {
+  creativeWorkRefetchInterval,
+  useGenerateCopy,
+  useTriggerTriplet,
+} from "./use-creative-work";
 
 vi.mock("@/lib/api-client", () => ({ apiFetch: vi.fn() }));
 vi.mock("@/lib/hooks/use-canonical-works", () => ({
@@ -53,6 +57,47 @@ describe("useGenerateCopy", () => {
     expect(mockApiFetch).toHaveBeenCalledWith(
       "/api/creative-work/work-1/copy",
       expect.objectContaining({ timeoutMs: 120_000 }),
+    );
+  });
+});
+
+describe("useTriggerTriplet", () => {
+  it("seeds queued outputs in the cache immediately so polling starts without user interaction", async () => {
+    const now = new Date().toISOString();
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        work: {
+          id: "work-1",
+          status: "generating",
+          createdAt: now,
+          updatedAt: now,
+        },
+        outputs: [
+          {
+            id: "output-1",
+            status: "queued",
+            createdAt: now,
+            updatedAt: now,
+          },
+        ],
+      }),
+    } as Response);
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+    const { result } = renderHook(() => useTriggerTriplet(), { wrapper });
+
+    await act(() => result.current.mutateAsync("work-1"));
+
+    expect(queryClient.getQueryData(["creative-work", "work-1"])).toEqual(
+      expect.objectContaining({
+        work: expect.objectContaining({ status: "generating" }),
+        outputs: [expect.objectContaining({ status: "queued" })],
+      })
     );
   });
 });

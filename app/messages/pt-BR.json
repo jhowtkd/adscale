@@ -736,6 +736,9 @@
     "new": "Nova campanha",
     "name": "Nome da campanha",
     "client": "Cliente",
+    "clientProfile": "Marca vinculada",
+    "customClient": "Cliente sem marca vinculada",
+    "clientProfileHint": "Vincular a marca libera Brand Kit, assistente e aprendizados desde o início.",
     "product": "Produto",
     "objective": "Objetivo",
     "audience": "Público-alvo",
@@ -1482,15 +1485,15 @@
     "analyzing": "Analisando prontidão…",
     "failed": "A análise de prontidão falhou. Tente novamente.",
     "rerun": "Recalcular prontidão",
-    "blockingIssues": "Problemas bloqueantes",
-    "blockingBeforeDerivar": "{count, plural, one {# problema bloqueante — resolva antes de derivar} other {# problemas bloqueantes — resolva antes de derivar}}",
+    "blockingIssues": "Recomendações importantes",
+    "blockingBeforeDerivar": "{count, plural, one {# recomendação importante — revise antes de derivar} other {# recomendações importantes — revise antes de derivar}}",
     "overrideFalsePositive": "Ignorar — continuar mesmo assim",
     "suggestions": "Melhorias",
     "disclaimer": "A prontidão reduz riscos antes da geração, mas não garante a qualidade do resultado.",
     "status": {
       "ready": "Pronto",
       "needs_attention": "Precisa de atenção",
-      "blocked": "Bloqueado"
+      "blocked": "Revisar"
     },
     "dimensions": {
       "offerClarity": "Clareza da oferta",
@@ -2170,9 +2173,9 @@
     "corpusAdding": "Adicionando ao corpus…",
     "corpusAddSuccess": "Adicionado à fila do corpus de qualidade humana",
     "qualityScore": "Score",
-    "hardFailuresTitle": "Problemas que impedem uso",
+    "hardFailuresTitle": "Correções necessárias para uso",
     "polishSuggestionsTitle": "Sugestões de melhoria",
-    "blockingFailureHint": "Corrija antes de aprovar ou exportar",
+    "blockingFailureHint": "Regere com correções ou abra a revisão para justificar a decisão",
     "polishSuggestionHint": "Melhoria opcional — regenere se quiser",
     "hardFailureCodes": {
       "cta_drift": "CTA alterado ou ausente",

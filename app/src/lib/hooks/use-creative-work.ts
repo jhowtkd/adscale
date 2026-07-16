@@ -270,7 +270,22 @@ export function useTriggerTriplet() {
       postJson<{ work: CreativeWorkItem; outputs: CreativeWorkOutput[] }>(
         `/api/creative-work/${workItemId}/generate`,
       ),
-    onSuccess: async (_data, workItemId) => {
+    onSuccess: async (data, workItemId) => {
+      queryClient.setQueryData<CreativeWorkDetail>(
+        ["creative-work", workItemId],
+        {
+          work: {
+            ...data.work,
+            createdAt: new Date(data.work.createdAt),
+            updatedAt: new Date(data.work.updatedAt),
+          },
+          outputs: data.outputs.map((output) => ({
+            ...output,
+            createdAt: new Date(output.createdAt),
+            updatedAt: new Date(output.updatedAt),
+          })),
+        }
+      );
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["creative-work", workItemId] }),
         invalidateCanonicalWorks(queryClient),

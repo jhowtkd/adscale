@@ -73,6 +73,17 @@ describe("buildCampaignInputFromTemplate", () => {
       status: "draft",
     });
   });
+
+  it("preserves the client profile explicitly selected during materialization", () => {
+    const input = buildCampaignInputFromTemplate(templateFixture as never, {
+      name: "BF Campaign",
+      client: "Acme",
+      clientProfileId: "55555555-5555-4555-8555-555555555555",
+    });
+
+    expect(input.clientProfileId).toBe("55555555-5555-4555-8555-555555555555");
+    expect(input.selectedReferenceIds).toBeNull();
+  });
 });
 
 describe("materializeTemplateAsCampaign", () => {
