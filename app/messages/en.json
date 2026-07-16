@@ -245,7 +245,7 @@
         "anyPlatform": "Any",
         "submit": "Register hypothesis"
       },
-      "empty": "No hypotheses registered yet.",
+      "empty": "No hypotheses registered yet. Click \"New hypothesis\" to register your first experiment.",
       "controlledTag": "Controlled hypothesis · variable: {variable}",
       "compare": "Compare",
       "delete": "Delete",

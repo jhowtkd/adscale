@@ -245,7 +245,7 @@
         "anyPlatform": "Qualquer",
         "submit": "Registrar hipótese"
       },
-      "empty": "Nenhuma hipótese registrada ainda.",
+      "empty": "Nenhuma hipótese registrada ainda. Clique em \"Nova hipótese\" para registrar seu primeiro experimento.",
       "controlledTag": "Hipótese controlada · variável: {variable}",
       "compare": "Comparar",
       "delete": "Excluir",
