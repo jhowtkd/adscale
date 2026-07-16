@@ -117,6 +117,8 @@ describe("buildSocialPostPrompt", () => {
     expect(bold).toContain('HEADLINE: "Comece agora"');
     expect(conservative).toContain("CREATIVE LEVEL: conservative");
     expect(bold).toContain("CREATIVE LEVEL: bold");
+    expect(conservative).toContain("Minimal structural change");
+    expect(bold).toContain("Dramatic background and hierarchy shift");
   });
 
   it("includes the non-negotiable FIXED CONTRACT block verbatim", () => {

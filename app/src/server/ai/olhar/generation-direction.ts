@@ -5,6 +5,7 @@ import { OLHAR_ADSCALE_PRINCIPLES } from "./constitution";
 import { buildClientVoicePromptSection } from "../voices/client-voice";
 import { resolveVoiceForClientProfile } from "../voices/voice-config-resolver";
 import { isClientVoiceInjectionAllowed } from "../voices/voice-review-gate";
+import { CREATIVE_LEVEL_DIRECTIONS } from "../creative-level-direction";
 
 export const GENERATION_DIRECTION_HEADER = "DIRECAO DE ARTE PARA GERACAO";
 
@@ -112,20 +113,9 @@ function buildVariationRangeLines(
     ];
   }
 
-  const guides: Record<string, string> = {
-    conservative:
-      "Minimal structural change — same visual universe; layout and disposition tweaks only.",
-    balanced:
-      "Sibling creative — noticeably new composition while keeping brand identity recognizable.",
-    bold:
-      "Dramatic background and hierarchy shift while preserving core brand assets and mandatory copy.",
-    extreme:
-      "New compositional mechanism and reading path while preserving campaign, facts, entities, and palette.",
-  };
-
   return [
     `Creative level: ${level}`,
-    guides[level] ?? guides.balanced,
+    CREATIVE_LEVEL_DIRECTIONS[level] ?? CREATIVE_LEVEL_DIRECTIONS.balanced,
     "Respect the Olhar gestalt budget — max three reading-path anchors (hook, proof, invite).",
   ];
 }
