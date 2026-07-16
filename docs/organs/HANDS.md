@@ -18,7 +18,7 @@ They do not chat (Cortex), do not own art constitution (Gaze), and do not own ex
 | Job spine | `app/src/server/jobs/derivation.ts` — `derivationJob` |
 | Gesture helpers | `app/src/server/ai/derivation-pipeline.ts` |
 | Prompt assembly | `app/src/server/ai/prompt-builder.ts` |
-| Dual-engine fingers | `app/src/server/ai/image-generation.ts` + `ai/providers/` |
+| Image-generation fingers | `app/src/server/ai/image-generation.ts` + `ai/providers/` |
 | Sibling muscle | `app/src/server/creative-work/` + `jobs/creative-work.ts` |
 
 **Event:** `derivation.generate` (Inngest)  
@@ -128,12 +128,9 @@ Hands **execute** criteria injected by other organs; they do not invent Gaze/Tas
 ### 5.4 Fingers — `ai/image-generation.ts` + `providers/`
 
 ```text
-CompositeImageProvider
-  → OpenAIImageProvider
-  → SeedreamImageProvider   (gated by SEEDREAM_SAMPLE_RATE)
-  → normalize each candidate (sharp)
-  → upload candidates to R2 (allSettled — one R2 fail ≠ kill job)
-  → pick winner (MVP: provider order / first success; per-candidate score is follow-up)
+OpenAIImageProvider (GPT Image 2)
+  → normalize candidate (sharp)
+  → upload candidate to R2
   → return outputKey + candidates[] metadata
 ```
 
@@ -162,12 +159,11 @@ Sacred facts, CTA semantics, fidelity level, generation mode on the contract. Pr
 
 ---
 
-## 6. Dual engine notes
+## 6. Image generation notes
 
-- Both candidates persist under `candidates/<provider>.png` and on `derivations.candidates` jsonb.
-- Telemetry event `image.generation.candidates` supports future win-rate by score.
-- Rollback to OpenAI-only: `SEEDREAM_SAMPLE_RATE=0` (no code change).
-- Documented in `app/AGENTS.md` (dual-engine section).
+- GPT Image 2 is the only production image provider.
+- Candidate metadata persists on `derivations.candidates` for route-level ranking.
+- The deterministic E2E provider remains available only through its guarded test seam.
 
 ---
 

@@ -343,7 +343,7 @@ describe("derivationJob", () => {
     mockGetBrandMemoryContext.mockResolvedValue({ items: [], block: "" });
   });
 
-  it("normalizes generated images without cropping the foreground", async () => {
+  it("normalizes generated images with an attention-aware crop and no synthetic padding", async () => {
     const output = await normalizeGeneratedImage(
       Buffer.from("wide-generated-image"),
       { width: 1080, height: 1920 },
@@ -356,25 +356,21 @@ describe("derivationJob", () => {
       args: [
         1080,
         1920,
-        expect.objectContaining({ fit: "cover", position: "centre" }),
+        expect.objectContaining({ fit: "cover", position: "attention" }),
       ],
     });
-    expect(sharpOperations).toContainEqual({
-      method: "resize",
-      args: [
-        1080,
-        1920,
-        expect.objectContaining({
-          fit: "contain",
-          position: "centre",
-          background: { r: 0, g: 0, b: 0, alpha: 0 },
-        }),
-      ],
-    });
-    expect(sharpOperations).toContainEqual({
-      method: "composite",
-      args: [[expect.objectContaining({ gravity: "centre" })]],
-    });
+    expect(sharpOperations.some((op) => op.method === "blur")).toBe(false);
+    expect(sharpOperations.some((op) => op.method === "composite")).toBe(false);
+    expect(
+      sharpOperations.some(
+        (op) =>
+          op.method === "resize" &&
+          typeof op.args[2] === "object" &&
+          op.args[2] !== null &&
+          "fit" in op.args[2] &&
+          op.args[2].fit === "contain"
+      )
+    ).toBe(false);
   });
 
   it("normalizes format adaptations without blurred padding or letterboxing", async () => {

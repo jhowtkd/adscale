@@ -20,7 +20,7 @@ export const envSchema = z.object({
   BETTER_AUTH_SECRET: z.string().min(32),
   BETTER_AUTH_URL: z.string().url(),
   OPENAI_API_KEY: z.string().startsWith("sk-"),
-  OPENAI_TEXT_MODEL: z.string().default("gpt-5-mini"),
+  OPENAI_TEXT_MODEL: z.string().default("gpt-5.6"),
   OPENAI_IMAGE_MODEL: z.string().default("gpt-image-2-2026-04-21"),
   MINIMAX_API_KEY: z.string().min(1),
   MINIMAX_MODEL: z.string().default("MiniMax-M3"),
@@ -53,33 +53,9 @@ export const envSchema = z.object({
   GITHUB_CLIENT_SECRET: z.string().optional(),
   BETA_ACCESS_CODES: z.string().optional(),
   NOTIFICATION_WEBHOOK_SECRET: z.string().min(16).optional(),
-  // Dual-engine image generation (BytePlus Seedream)
-  BYTEPLUS_API_KEY: z.string().optional(),
-  SEEDREAM_MODEL_NAME: z.string().optional(),
-  SEEDREAM_SAMPLE_RATE: z
-    .string()
-    .optional()
-    .transform((v) => {
-      if (v === undefined || v.trim() === "") return 1.0;
-      return Number(v);
-    })
-    .refine((n) => Number.isFinite(n) && n >= 0 && n <= 1, {
-      message: "SEEDREAM_SAMPLE_RATE must be a number between 0 and 1",
-    }),
-  SEEDREAM_BASE_URL: z.string().url().default("https://ark.byteplus.com/v1"),
 });
 
 const parsed = envSchema.safeParse(process.env);
-
-// New dual-engine env vars: return safe defaults from the Proxy so downstream
-// code never sees `undefined` typed as `number` / `string` when the overall
-// parse failed for an unrelated required field.
-const dualEngineDefaults: Partial<z.infer<typeof envSchema>> = {
-  BYTEPLUS_API_KEY: undefined,
-  SEEDREAM_MODEL_NAME: undefined,
-  SEEDREAM_SAMPLE_RATE: 1.0,
-  SEEDREAM_BASE_URL: "https://ark.byteplus.com/v1",
-};
 
 export const env: z.infer<typeof envSchema> = parsed.success
   ? parsed.data
@@ -91,9 +67,6 @@ export const env: z.infer<typeof envSchema> = parsed.success
             return undefined;
           }
           throw new Error(`Env validation failed for ${key}: ${issue.message}`);
-        }
-        if (process.env.NODE_ENV === "test" && key in dualEngineDefaults) {
-          return dualEngineDefaults[key as keyof typeof dualEngineDefaults];
         }
         return process.env[key];
       },

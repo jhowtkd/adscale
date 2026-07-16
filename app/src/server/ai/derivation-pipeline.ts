@@ -213,12 +213,7 @@ export interface ExecuteGenerationStepResult {
   outputKey: string;
   revisedPrompt: string;
   imageOperation: ImageOperation;
-  /**
-   * Per-provider candidate summary from the dual-engine orchestrator. Always
-   * present after Task 6; the array has 1 or 2 entries depending on how many
-   * providers succeeded. Persisted on the derivation row so the UI, QA, and
-   * analytics can see which providers ran and which won.
-   */
+  /** Candidate summaries persisted for QA, ranking and analytics. */
   candidates: (GenerationCandidateMeta & { winner: boolean })[];
 }
 

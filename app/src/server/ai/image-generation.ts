@@ -3,13 +3,16 @@ import { objectStorage } from "@/server/storage";
 import { logger } from "@/lib/logger";
 import { recordDualEngineCandidates } from "./generation-log";
 import { OpenAIImageProvider } from "./providers/openai-image-provider";
-import { SeedreamImageProvider } from "./providers/seedream-image-provider";
-import { CompositeImageProvider } from "./providers/composite-image-provider";
 import {
   E2EControlledImageProvider,
   isE2EControlledProviderEnabled,
 } from "./providers/e2e-controlled-provider";
-import type { ImageCandidate, ImageReference, ProviderGenerateInput } from "./providers/image-provider";
+import type {
+  ImageCandidate,
+  ImageGenerationProvider,
+  ImageReference,
+  ProviderGenerateInput,
+} from "./providers/image-provider";
 
 // Re-export ImageReference under the legacy name for backward compatibility —
 // derivation-pipeline.ts and downstream callers still import
@@ -23,7 +26,8 @@ export type GenerationMode = "art_variation" | "format_adaptation" | "restyling"
  * QA, and analytics can see which providers ran and which won.
  */
 export type GenerationCandidateMeta = {
-  provider: "openai" | "seedream";
+  provider: "openai";
+  routeId?: string;
   model: string;
   outputKey: string;
   durationMs: number;
@@ -32,6 +36,7 @@ export type GenerationCandidateMeta = {
   costCredits?: number;
   rawRequestId?: string;
   revisedPrompt?: string;
+  selectionReason?: string;
 };
 
 export interface GenerateAndStoreImageInput {
@@ -45,6 +50,20 @@ export interface GenerateAndStoreImageInput {
    * `"format_adaptation"` or `"restyling"` to preserve existing behavior.
    */
   generationMode?: GenerationMode;
+  /** Rendering quality. Exploratory routes use medium; final assets default to high. */
+  quality?: "medium" | "high";
+  /** Distinct route prompts. When present they are generated in parallel at medium quality. */
+  routes?: Array<{ id: string; prompt: string }>;
+  /** Returns the winning index from the successfully stored raw candidates. */
+  selectCandidate?: (candidates: Array<{
+    routeId: string;
+    buffer: Buffer;
+    mimeType: string;
+  }>) => Promise<number | {
+    winnerIndex: number;
+    refinementPrompt?: string;
+    reason?: string;
+  }>;
   /** Optional suffix appended to the output key (e.g. `-retry`). */
   outputSuffix?: string;
 }
@@ -59,39 +78,28 @@ export interface GenerateAndStoreImageResult {
    */
   imageOperation: "generate" | "edit";
   buffer: Buffer;
-  /**
-   * Per-provider candidate summary. Always present; has 1 or 2 entries
-   * depending on how many providers succeeded. The `winner` flag marks the
-   * candidate whose `outputKey` matches the result's top-level `outputKey`.
-   */
+  /** Raw route candidates plus an optional refined candidate. */
   candidates: (GenerationCandidateMeta & { winner: boolean })[];
 }
 
 /**
- * Lazily build the composite provider so tests that mock the OpenAI SDK
+ * Lazily build the image provider so tests that mock the OpenAI SDK
  * before first import still work.
  */
-let cachedComposite: CompositeImageProvider | null = null;
-function getCompositeProvider(): CompositeImageProvider {
-  if (cachedComposite) return cachedComposite;
-  if (isE2EControlledProviderEnabled()) {
-    cachedComposite = new CompositeImageProvider([
-      new E2EControlledImageProvider(),
-    ]);
-    return cachedComposite;
-  }
-  cachedComposite = new CompositeImageProvider([
-    new OpenAIImageProvider(),
-    new SeedreamImageProvider(),
-  ]);
-  return cachedComposite;
+let cachedProvider: ImageGenerationProvider | null = null;
+function getImageProvider(): ImageGenerationProvider {
+  if (cachedProvider) return cachedProvider;
+  cachedProvider = isE2EControlledProviderEnabled()
+    ? new E2EControlledImageProvider()
+    : new OpenAIImageProvider();
+  return cachedProvider;
 }
 
 /**
- * Test seam: allow callers (especially tests) to inject a custom composite.
+ * Test seam: allow callers to inject a deterministic OpenAI-compatible provider.
  */
-export function __setCompositeProviderForTests(provider: CompositeImageProvider | null) {
-  cachedComposite = provider;
+export function __setImageProviderForTests(provider: ImageGenerationProvider | null) {
+  cachedProvider = provider;
 }
 
 /**
@@ -109,39 +117,12 @@ export async function normalizeGeneratedImage(
   dimensions: { width: number; height: number },
   generationMode: GenerationMode
 ) {
-  if (generationMode === "format_adaptation") {
-    return sharp(buffer)
-      .resize(dimensions.width, dimensions.height, {
-        fit: "cover",
-        position: "attention",
-      })
-      .png()
-      .toBuffer();
-  }
-
-  const backgroundPosition = "centre";
-
-  const background = await sharp(buffer)
+  void generationMode;
+  return sharp(buffer)
     .resize(dimensions.width, dimensions.height, {
       fit: "cover",
-      position: backgroundPosition,
+      position: "attention",
     })
-    .blur(24)
-    .modulate({ brightness: 0.82, saturation: 0.9 })
-    .png()
-    .toBuffer();
-
-  const foreground = await sharp(buffer)
-    .resize(dimensions.width, dimensions.height, {
-      fit: "contain",
-      position: "centre",
-      background: { r: 0, g: 0, b: 0, alpha: 0 },
-    })
-    .png()
-    .toBuffer();
-
-  return sharp(background)
-    .composite([{ input: foreground, gravity: "centre" }])
     .png()
     .toBuffer();
 }
@@ -155,56 +136,60 @@ export async function generateAndStoreImage(
     outputPrefix,
     referenceImages,
     generationMode = "art_variation",
+    quality = "high",
+    routes,
+    selectCandidate,
     outputSuffix = "",
   } = input;
 
-  const composite = getCompositeProvider();
-  const providerInput: ProviderGenerateInput = {
-    prompt,
-    dimensions,
-    referenceImages,
-    generationMode,
-    outputPrefix,
-  };
-
-  const { candidates: rawCandidates } = await composite.generate(providerInput);
-
-  // Normalize every candidate and upload to R2. Use `Promise.allSettled` so a
-  // transient R2 failure on one candidate's per-candidate upload does not
-  // fail the entire derivation — the upstream provider has already paid for
-  // the generation. Candidates whose R2 upload failed are kept in memory
-  // (their normalized buffer is still available) and a successful candidate
-  // becomes the winner.
-  const normalizedCandidates = await Promise.all(
-    rawCandidates.map(async (candidate) => {
-      const normalized = await normalizeGeneratedImage(
-        candidate.buffer,
+  const provider = getImageProvider();
+  const requestedRoutes = routes?.length
+    ? routes
+    : [{ id: "openai", prompt }];
+  const generationResults = await Promise.allSettled(
+    requestedRoutes.map(async (route) => {
+      const providerInput: ProviderGenerateInput = {
+        prompt: route.prompt,
         dimensions,
-        generationMode
-      );
-      return { candidate, normalized };
+        referenceImages,
+        generationMode,
+        outputPrefix,
+        quality: routes?.length ? "medium" : quality,
+      };
+      return { routeId: route.id, candidate: await provider.generate(providerInput) };
     })
   );
+  const generatedCandidates = generationResults
+    .map((result) => (result.status === "fulfilled" ? result.value : null))
+    .filter((result): result is { routeId: string; candidate: ImageCandidate } => result !== null);
+
+  if (generatedCandidates.length === 0) {
+    const reason = generationResults
+      .map((result) => result.status === "rejected" ? String(result.reason) : "")
+      .filter(Boolean)
+      .join("; ");
+    throw new Error(`All image candidates failed: ${reason}`);
+  }
 
   const uploadResults = await Promise.allSettled(
-    normalizedCandidates.map(async ({ candidate, normalized }) => {
-      const outputKey = `${outputPrefix}/candidates/${candidate.providerMeta.provider}${outputSuffix}.png`;
-      await objectStorage.put(outputKey, normalized, "image/png");
-      return { candidate, normalized, outputKey };
+    generatedCandidates.map(async ({ routeId, candidate }) => {
+      const outputKey = `${outputPrefix}/candidates/${routeId}${outputSuffix}.png`;
+      await objectStorage.put(outputKey, candidate.buffer, candidate.mimeType);
+      return { routeId, candidate, outputKey };
     })
   );
 
-  const candidates: { candidate: ImageCandidate; normalized: Buffer; outputKey: string }[] =
+  const candidates: { routeId: string; candidate: ImageCandidate; outputKey: string }[] =
     uploadResults
       .map((r) => (r.status === "fulfilled" ? r.value : null))
-      .filter((v): v is { candidate: ImageCandidate; normalized: Buffer; outputKey: string } => v !== null);
+      .filter((v): v is { routeId: string; candidate: ImageCandidate; outputKey: string } => v !== null);
 
-  type FailedUpload = { provider: "openai" | "seedream"; reason: unknown };
+  type FailedUpload = { provider: "openai"; reason: unknown };
   const failedUploads: FailedUpload[] = [];
   uploadResults.forEach((r, idx) => {
     if (r.status === "rejected") {
       failedUploads.push({
-        provider: normalizedCandidates[idx].candidate.providerMeta.provider,
+        provider: generatedCandidates[idx].candidate.providerMeta.provider,
         reason: r.reason,
       });
     }
@@ -212,7 +197,7 @@ export async function generateAndStoreImage(
 
   if (failedUploads.length > 0) {
     logger.warn(
-      `[generateAndStoreImage] ${failedUploads.length}/${normalizedCandidates.length} per-candidate R2 upload(s) failed; continuing with successful candidates`,
+      `[generateAndStoreImage] ${failedUploads.length}/${generatedCandidates.length} per-candidate R2 upload(s) failed; continuing with successful candidates`,
       failedUploads.map((f) => ({ provider: f.provider, reason: f.reason instanceof Error ? f.reason.message : String(f.reason) }))
     );
   }
@@ -226,33 +211,106 @@ export async function generateAndStoreImage(
     throw new Error(`All per-candidate R2 uploads failed: ${summary}`);
   }
 
-  // Pick the winner. Today this is the first candidate (provider order).
-  // A future task wires in creative-score per candidate and picks the
-  // highest-scoring one. For the rollout, the order is: openai first,
-  // seedream second; OpenAI wins on tie so behavior is identical to
-  // pre-change when only OpenAI is enabled.
-  const winnerIndex = 0;
+  const selection = selectCandidate
+    ? await selectCandidate(candidates.map(({ routeId, candidate }) => ({
+        routeId,
+        buffer: candidate.buffer,
+        mimeType: candidate.mimeType,
+      })))
+    : 0;
+  let winnerIndex = typeof selection === "number" ? selection : selection.winnerIndex;
+  let selectionReason = typeof selection === "number" ? undefined : selection.reason;
+  if (!Number.isInteger(winnerIndex) || winnerIndex < 0 || winnerIndex >= candidates.length) {
+    throw new Error(`Candidate selector returned invalid index ${winnerIndex}`);
+  }
+  const refinementPrompt = typeof selection === "number" ? undefined : selection.refinementPrompt;
+  if (selectCandidate && refinementPrompt) {
+    const selected = candidates[winnerIndex];
+    try {
+      const refinedCandidate = await provider.generate({
+        prompt: `${refinementPrompt}\nPreserve all correct facts, product geometry, brand identity, and composition unless explicitly requested otherwise.`,
+        dimensions,
+        referenceImages: [
+          {
+            buffer: selected.candidate.buffer,
+            mimeType: selected.candidate.mimeType,
+            name: "selected-candidate.png",
+          },
+          ...referenceImages,
+        ],
+        generationMode,
+        outputPrefix,
+        quality: "high",
+      });
+      const refinedOutputKey = `${outputPrefix}/candidates/refined${outputSuffix}.png`;
+      await objectStorage.put(
+        refinedOutputKey,
+        refinedCandidate.buffer,
+        refinedCandidate.mimeType
+      );
+      const refined = {
+        routeId: "refined",
+        candidate: refinedCandidate,
+        outputKey: refinedOutputKey,
+      };
+      const comparison = await selectCandidate([
+        {
+          routeId: selected.routeId,
+          buffer: selected.candidate.buffer,
+          mimeType: selected.candidate.mimeType,
+        },
+        {
+          routeId: refined.routeId,
+          buffer: refined.candidate.buffer,
+          mimeType: refined.candidate.mimeType,
+        },
+      ]);
+      const comparisonIndex = typeof comparison === "number"
+        ? comparison
+        : comparison.winnerIndex;
+      if (comparisonIndex !== 0 && comparisonIndex !== 1) {
+        throw new Error(`Refinement selector returned invalid index ${comparisonIndex}`);
+      }
+      candidates.push(refined);
+      if (comparisonIndex === 1) {
+        winnerIndex = candidates.length - 1;
+        if (typeof comparison !== "number" && comparison.reason) {
+          selectionReason = [selectionReason, comparison.reason].filter(Boolean).join(" | ");
+        }
+      }
+    } catch (error) {
+      logger.warn("[generateAndStoreImage] winner refinement failed; keeping original", error);
+    }
+  }
+
   const winner = candidates[winnerIndex];
+  const normalizedWinner = await normalizeGeneratedImage(
+    winner.candidate.buffer,
+    dimensions,
+    generationMode
+  );
 
   // Upload the winner to its expected location so downstream code
   // (which reads `outputKey`) keeps working unchanged.
   const finalKey = `${outputPrefix}/${Date.now()}${outputSuffix}.png`;
-  await objectStorage.put(finalKey, winner.normalized, "image/png");
+  await objectStorage.put(finalKey, normalizedWinner, "image/png");
 
   const candidateMeta: (GenerationCandidateMeta & { winner: boolean })[] =
     candidates.map((c, idx) => ({
       provider: c.candidate.providerMeta.provider,
+      routeId: c.routeId,
       model: c.candidate.providerMeta.model,
       outputKey: c.outputKey,
       durationMs: c.candidate.providerMeta.durationMs,
       costCredits: c.candidate.providerMeta.costCredits,
       rawRequestId: c.candidate.providerMeta.rawRequestId,
       revisedPrompt: c.candidate.providerMeta.revisedPrompt,
+      selectionReason: idx === winnerIndex ? selectionReason : undefined,
       winner: idx === winnerIndex,
     }));
 
   logger.info(
-    `[generateAndStoreImage] dual-engine produced ${candidates.length} candidate(s); winner=${winner.candidate.providerMeta.provider}`
+    `[generateAndStoreImage] produced ${candidates.length} candidate(s); winner=${winner.candidate.providerMeta.provider}`
   );
 
   // Emit the telemetry event before returning. `campaignId`/`workspaceId`/
@@ -284,12 +342,11 @@ export async function generateAndStoreImage(
   return {
     outputKey: finalKey,
     // Surface the winner's revised prompt so the helper-level contract
-    // (downstream reads `result.revisedPrompt`) is preserved. Empty string
-    // when the winner provider doesn't supply one (e.g. Seedream).
+    // (downstream reads `result.revisedPrompt`) is preserved.
     revisedPrompt: winner.candidate.providerMeta.revisedPrompt ?? "",
     imageOperation:
       referenceImages.length > 0 ? "edit" : "generate",
-    buffer: winner.normalized,
+    buffer: normalizedWinner,
     candidates: candidateMeta,
   };
 }

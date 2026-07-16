@@ -10,6 +10,8 @@ import {
   generateAndStoreImage,
   type GenerationMode as ProviderGenerationMode,
 } from "@/server/ai/image-generation";
+import { planCreativeRoutes } from "@/server/ai/creative-route-planner";
+import { selectCreativeCandidate } from "@/server/ai/creative-candidate-selector";
 import {
   assertGenerationRequest,
   type GenerationRequest,
@@ -41,6 +43,24 @@ export async function executeCanonicalGeneration(
     `[executeCanonicalGeneration] surface=${request.surface} destination=${request.destination.kind}:${request.destination.id} mode=${request.intent.mode}`
   );
 
+  let routes: Array<{ id: string; prompt: string }> | undefined;
+  if (request.intent.mode === "social_post") {
+    try {
+      const plannedRoutes = await planCreativeRoutes({
+        sourcePrompt: request.prompt.text,
+        objective: request.intent.objective,
+        mode: request.intent.mode,
+        referenceNames: request.identity.referenceImages.map((reference) => reference.name),
+      });
+      routes = plannedRoutes.map((route) => ({
+        id: route.id,
+        prompt: `${route.renderPrompt}\n\nPRESERVE:\n${route.preserve.join("\n")}\n\nAVOID:\n${route.avoid.join("\n")}\n\nMANDATORY CONTRACT:\n${request.prompt.text}`,
+      }));
+    } catch (error) {
+      logger.warn("[executeCanonicalGeneration] creative route planning failed; using direct prompt", error);
+    }
+  }
+
   const result = await generateAndStoreImage({
     prompt: request.prompt.text,
     dimensions: request.format.dimensions,
@@ -48,6 +68,27 @@ export async function executeCanonicalGeneration(
     referenceImages: request.identity.referenceImages,
     generationMode: toProviderMode(request.intent.mode),
     outputSuffix: request.source.outputSuffix ?? "",
+    routes,
+    selectCandidate: routes
+      ? async (candidates) => {
+          const selection = await selectCreativeCandidate({
+            candidates,
+            brief: request.prompt.text,
+            objective: request.intent.objective,
+            brandConstraints: request.identity.brandConstraints,
+            targetFormat: request.format.targetFormat,
+            referenceImages: request.identity.referenceImages,
+          });
+          logger.info(
+            `[executeCanonicalGeneration] selected route=${candidates[selection.winnerIndex]?.routeId} reason=${selection.reason}`
+          );
+          return {
+            winnerIndex: selection.winnerIndex,
+            refinementPrompt: selection.refinementPrompt,
+            reason: selection.reason,
+          };
+        }
+      : undefined,
   });
 
   return {

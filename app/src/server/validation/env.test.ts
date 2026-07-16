@@ -6,7 +6,7 @@ const baseEnv = {
   BETTER_AUTH_URL: "http://localhost:3000",
   OPENAI_API_KEY: "sk-test",
   MINIMAX_API_KEY: "minimax-test",
-  OPENAI_TEXT_MODEL: "gpt-5-mini",
+  OPENAI_TEXT_MODEL: "gpt-5.6",
   OPENAI_IMAGE_MODEL: "gpt-image-2-2026-04-21",
   R2_ACCOUNT_ID: "r2-account",
   R2_ACCESS_KEY_ID: "r2-key",
@@ -64,67 +64,5 @@ describe("envSchema", () => {
       MEM0_API_KEY: "m0_test_key",
       MEM0_USER_PREFIX: "adscale_test",
     });
-  });
-});
-
-describe("dual-engine env vars", () => {
-  let schema: typeof import("./env").envSchema;
-
-  beforeAll(async () => {
-    Object.assign(process.env, { ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy" });
-    schema = (await import("./env")).envSchema;
-  });
-
-  it("rejects SEEDREAM_SAMPLE_RATE > 1", () => {
-    const result = schema.safeParse({
-      ...baseEnv,
-      STRIPE_SECRET_KEY: "sk_test_dummy",
-      SEEDREAM_SAMPLE_RATE: "1.5",
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it("rejects SEEDREAM_SAMPLE_RATE < 0", () => {
-    const result = schema.safeParse({
-      ...baseEnv,
-      STRIPE_SECRET_KEY: "sk_test_dummy",
-      SEEDREAM_SAMPLE_RATE: "-0.1",
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it("defaults SEEDREAM_SAMPLE_RATE to 1.0 when missing", () => {
-    const result = schema.safeParse({
-      ...baseEnv,
-      STRIPE_SECRET_KEY: "sk_test_dummy",
-    });
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data.SEEDREAM_SAMPLE_RATE).toBe(1.0);
-    }
-  });
-
-  it("accepts SEEDREAM_SAMPLE_RATE = 0.5", () => {
-    const result = schema.safeParse({
-      ...baseEnv,
-      STRIPE_SECRET_KEY: "sk_test_dummy",
-      SEEDREAM_SAMPLE_RATE: "0.5",
-    });
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data.SEEDREAM_SAMPLE_RATE).toBe(0.5);
-    }
-  });
-
-  it("treats empty-string SEEDREAM_SAMPLE_RATE as default 1.0", () => {
-    const result = schema.safeParse({
-      ...baseEnv,
-      STRIPE_SECRET_KEY: "sk_test_dummy",
-      SEEDREAM_SAMPLE_RATE: "",
-    });
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data.SEEDREAM_SAMPLE_RATE).toBe(1.0);
-    }
   });
 });

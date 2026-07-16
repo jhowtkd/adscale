@@ -63,6 +63,7 @@ export class OpenAIImageProvider implements ImageGenerationProvider {
           prompt: input.prompt,
           n: 1,
           size: openaiSize,
+          quality: input.quality ?? "high",
         }),
         IMAGE_GENERATION_TIMEOUT_MS,
         "OpenAI image edit"
@@ -80,6 +81,7 @@ export class OpenAIImageProvider implements ImageGenerationProvider {
           prompt: input.prompt,
           n: 1,
           size: openaiSize,
+          quality: input.quality ?? "high",
         }),
         IMAGE_GENERATION_TIMEOUT_MS,
         "OpenAI image generation"

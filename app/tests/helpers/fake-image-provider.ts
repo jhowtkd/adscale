@@ -5,11 +5,11 @@ import type {
 } from "@/server/ai/providers/image-provider";
 
 /**
- * Test seam for the composite provider. Returns a provider whose
+ * Test seam for image generation. Returns a provider whose
  * `generate` either resolves with `result` or rejects with `error`.
  */
 export function fakeProvider(
-  name: "openai" | "seedream",
+  name: "openai",
   result?: ImageCandidate,
   error?: Error
 ): ImageGenerationProvider {

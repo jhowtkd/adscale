@@ -37,8 +37,12 @@ describe("OpenAIImageProvider", () => {
       referenceImages: [],
       generationMode: "art_variation",
       outputPrefix: "derivations/test",
+      quality: "medium",
     });
     expect(mockGenerate).toHaveBeenCalledOnce();
+    expect(mockGenerate).toHaveBeenCalledWith(
+      expect.objectContaining({ quality: "medium" })
+    );
     expect(mockEdit).not.toHaveBeenCalled();
     expect(result.buffer).toBeInstanceOf(Buffer);
     expect(result.providerMeta.provider).toBe("openai");

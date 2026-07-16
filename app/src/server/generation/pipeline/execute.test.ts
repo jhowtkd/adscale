@@ -4,11 +4,21 @@ vi.mock("@/server/ai/image-generation", () => ({
   generateAndStoreImage: vi.fn(),
 }));
 
+vi.mock("@/server/ai/creative-route-planner", () => ({
+  planCreativeRoutes: vi.fn(),
+}));
+
+vi.mock("@/server/ai/creative-candidate-selector", () => ({
+  selectCreativeCandidate: vi.fn(),
+}));
+
 vi.mock("@/lib/logger", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
 import { generateAndStoreImage } from "@/server/ai/image-generation";
+import { planCreativeRoutes } from "@/server/ai/creative-route-planner";
+import { selectCreativeCandidate } from "@/server/ai/creative-candidate-selector";
 import {
   executeCanonicalGeneration,
 } from "@/server/generation/pipeline/execute";
@@ -23,6 +33,19 @@ import {
 } from "@/server/generation/canonical/policies";
 
 const mockGenerate = vi.mocked(generateAndStoreImage);
+const mockPlanRoutes = vi.mocked(planCreativeRoutes);
+const mockSelectCandidate = vi.mocked(selectCreativeCandidate);
+
+const ROUTES = ["one", "two", "three"].map((name, index) => ({
+  id: `route-${index + 1}`,
+  thesis: `Thesis ${name}`,
+  visualMechanism: `mechanism-${name}`,
+  scene: `Scene ${name}`,
+  composition: `Composition ${name}`,
+  preserve: ["brand"],
+  avoid: ["AI slop"],
+  renderPrompt: `Render ${name}`,
+}));
 
 function baseRequest(
   overrides: Partial<GenerationRequest> & {
@@ -73,6 +96,15 @@ function baseRequest(
 describe("executeCanonicalGeneration parity", () => {
   beforeEach(() => {
     mockGenerate.mockReset();
+    mockPlanRoutes.mockReset();
+    mockSelectCandidate.mockReset();
+    mockPlanRoutes.mockResolvedValue(ROUTES);
+    mockSelectCandidate.mockResolvedValue({
+      winnerIndex: 1,
+      invalidRouteIds: [],
+      reason: "route-2 wins",
+      refinementPrompt: "Remove the synthetic glow.",
+    });
     mockGenerate.mockResolvedValue({
       outputKey: "out/1.png",
       revisedPrompt: "revised",
@@ -146,6 +178,82 @@ describe("executeCanonicalGeneration parity", () => {
     });
     await expect(executeCanonicalGeneration(bad)).rejects.toThrow(/prompt/);
     expect(mockGenerate).not.toHaveBeenCalled();
+  });
+
+  it("plans and passes three creative routes for social posts", async () => {
+    const request = baseRequest({
+      surface: "quick_tool",
+      intent: { mode: "social_post", objective: "Qualified trials" },
+      identity: {
+        clientProfileId: "client-1",
+        referenceImages: [
+          { buffer: Buffer.from("product"), mimeType: "image/png", name: "exact-product.png" },
+        ],
+        brandConstraints: "Restrained blue palette",
+      },
+      destination: {
+        kind: "creative_work_output",
+        id: "out-2",
+        storagePrefix: "creative-work/out-2",
+        workItemId: "work-2",
+      },
+    });
+
+    await executeCanonicalGeneration(request);
+
+    expect(mockPlanRoutes).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mode: "social_post",
+        objective: "Qualified trials",
+        referenceNames: ["exact-product.png"],
+      })
+    );
+    const generationInput = mockGenerate.mock.calls[0][0];
+    expect(generationInput.routes?.map((route) => route.id)).toEqual([
+      "route-1",
+      "route-2",
+      "route-3",
+    ]);
+    expect(generationInput.routes?.[0].prompt).toContain("Render one");
+    expect(generationInput.routes?.[0].prompt).toContain("MANDATORY CONTRACT");
+    expect(generationInput.selectCandidate).toEqual(expect.any(Function));
+    const selection = await generationInput.selectCandidate?.(
+      ROUTES.map((route) => ({
+        routeId: route.id,
+        buffer: Buffer.from(route.id),
+        mimeType: "image/png",
+      }))
+    );
+    expect(selection).toEqual({
+      winnerIndex: 1,
+      refinementPrompt: "Remove the synthetic glow.",
+      reason: "route-2 wins",
+    });
+  });
+
+  it("falls back to the direct prompt when route planning fails", async () => {
+    mockPlanRoutes.mockRejectedValueOnce(new Error("planner unavailable"));
+    const request = baseRequest({
+      surface: "quick_tool",
+      intent: { mode: "social_post", objective: "Qualified trials" },
+      destination: {
+        kind: "creative_work_output",
+        id: "out-fallback",
+        storagePrefix: "creative-work/out-fallback",
+        workItemId: "work-fallback",
+      },
+    });
+
+    await executeCanonicalGeneration(request);
+
+    expect(mockGenerate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: request.prompt.text,
+        routes: undefined,
+        selectCandidate: undefined,
+      })
+    );
+    expect(mockSelectCandidate).not.toHaveBeenCalled();
   });
 });
 

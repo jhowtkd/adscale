@@ -5,6 +5,15 @@ const mockOpenAIImages = vi.hoisted(() => ({
   generate: vi.fn(),
 }));
 
+const mockSharpPipeline = vi.hoisted(() => ({
+  resize: vi.fn().mockReturnThis(),
+  blur: vi.fn().mockReturnThis(),
+  modulate: vi.fn().mockReturnThis(),
+  composite: vi.fn().mockReturnThis(),
+  png: vi.fn().mockReturnThis(),
+  toBuffer: vi.fn(() => Promise.resolve(Buffer.from("normalized"))),
+}));
+
 vi.mock("openai", () => ({
   default: class MockOpenAI {
     images = mockOpenAIImages;
@@ -27,9 +36,6 @@ vi.mock("@/server/validation/env", () => ({
   env: {
     OPENAI_API_KEY: "test-key",
     OPENAI_IMAGE_MODEL: "gpt-image-2-2026-04-21",
-    BYTEPLUS_API_KEY: undefined,
-    SEEDREAM_MODEL_NAME: undefined,
-    SEEDREAM_SAMPLE_RATE: 0,
   },
 }));
 
@@ -44,18 +50,11 @@ vi.mock("@/lib/logger", () => ({
 // sharp is exercised in derivation-pipeline.test.ts; stub it here so this
 // file stays focused on provider orchestration behavior.
 vi.mock("sharp", () => ({
-  default: vi.fn(() => ({
-    resize: vi.fn().mockReturnThis(),
-    blur: vi.fn().mockReturnThis(),
-    modulate: vi.fn().mockReturnThis(),
-    composite: vi.fn().mockReturnThis(),
-    png: vi.fn().mockReturnThis(),
-    toBuffer: vi.fn(() => Promise.resolve(Buffer.from("normalized"))),
-  })),
+  default: vi.fn(() => mockSharpPipeline),
 }));
 
 import { objectStorage } from "@/server/storage";
-import { generateAndStoreImage } from "./image-generation";
+import { generateAndStoreImage, normalizeGeneratedImage } from "./image-generation";
 
 const BASE_INPUT = {
   prompt: "a creative post",
@@ -81,6 +80,9 @@ describe("generateAndStoreImage", () => {
     });
 
     expect(mockOpenAIImages.generate).toHaveBeenCalledTimes(1);
+    expect(mockOpenAIImages.generate).toHaveBeenCalledWith(
+      expect.objectContaining({ quality: "high" })
+    );
     expect(mockOpenAIImages.edit).not.toHaveBeenCalled();
     expect(result.imageOperation).toBe("generate");
     expect(result.outputKey).toMatch(/^creative-work\/output-1\/\d+\.png$/);
@@ -120,6 +122,35 @@ describe("generateAndStoreImage", () => {
     );
   });
 
+  it("stores the raw candidate before final normalization", async () => {
+    await generateAndStoreImage({
+      ...BASE_INPUT,
+      outputPrefix: "derivations/raw-candidate",
+    });
+
+    expect(objectStorage.put).toHaveBeenCalledWith(
+      "derivations/raw-candidate/candidates/openai.png",
+      Buffer.from("mockimage"),
+      "image/png"
+    );
+  });
+
+  it("normalizes creative output without a blurred background", async () => {
+    await normalizeGeneratedImage(
+      Buffer.from("image"),
+      { width: 1080, height: 1350 },
+      "art_variation"
+    );
+
+    expect(mockSharpPipeline.blur).not.toHaveBeenCalled();
+    expect(mockSharpPipeline.modulate).not.toHaveBeenCalled();
+    expect(mockSharpPipeline.composite).not.toHaveBeenCalled();
+    expect(mockSharpPipeline.resize).toHaveBeenCalledWith(1080, 1350, {
+      fit: "cover",
+      position: "attention",
+    });
+  });
+
   it("uses 1024x1280 for 4:5 dimensions (gpt-image-2 target-aspect size)", async () => {
     await generateAndStoreImage({
       ...BASE_INPUT,
@@ -157,7 +188,7 @@ describe("generateAndStoreImage", () => {
   });
 
   it("returns revisedPrompt from the winning provider", async () => {
-    // The dual-engine orchestrator surfaces the winner's provider-supplied
+    // The image orchestrator surfaces the winner's provider-supplied
     // revised_prompt on the top-level result so downstream code (e.g.
     // derivation-pipeline) keeps working unchanged.
     mockOpenAIImages.generate.mockResolvedValueOnce({
@@ -181,24 +212,14 @@ describe("generateAndStoreImage", () => {
     expect(Buffer.isBuffer(result.buffer)).toBe(true);
   });
 
-  it("returns a candidates array with one OpenAI winner when Seedream fails", async () => {
-    // Use the test seam from __setCompositeProviderForTests
-    const { __setCompositeProviderForTests } = await import("./image-generation");
-    const { CompositeImageProvider } = await import("./providers/composite-image-provider");
+  it("returns the OpenAI candidate as the winner", async () => {
+    const { __setImageProviderForTests } = await import("./image-generation");
     const { fakeProvider } = await import("../../../../tests/helpers/fake-image-provider");
-    __setCompositeProviderForTests(
-      new CompositeImageProvider(
-        [
-          fakeProvider("openai", {
-            buffer: Buffer.from("openai-out"),
-            mimeType: "image/png",
-            providerMeta: { provider: "openai", model: "gpt-image-2", durationMs: 100 },
-          }),
-          fakeProvider("seedream", undefined, new Error("rate limit")),
-        ],
-        { sampleRate: 1 }
-      )
-    );
+    __setImageProviderForTests(fakeProvider("openai", {
+      buffer: Buffer.from("openai-out"),
+      mimeType: "image/png",
+      providerMeta: { provider: "openai", model: "gpt-image-2", durationMs: 100 },
+    }));
 
     try {
       const result = await generateAndStoreImage({
@@ -210,12 +231,157 @@ describe("generateAndStoreImage", () => {
       expect(result.candidates).toHaveLength(1);
       expect(result.candidates[0].provider).toBe("openai");
       expect(result.candidates[0].winner).toBe(true);
-      // Winner is the first candidate, so its outputKey is the canonical one
       expect(result.candidates[0].outputKey).toMatch(/^derivations\/test-candidates\/candidates\/openai\.png$/);
-      // The top-level outputKey is the canonical winner key (not the per-candidate key)
       expect(result.outputKey).toMatch(/^derivations\/test-candidates\/\d+\.png$/);
     } finally {
-      __setCompositeProviderForTests(null);
+      __setImageProviderForTests(null);
+    }
+  });
+
+  it("generates three medium-quality routes and normalizes only the selected candidate", async () => {
+    const { __setImageProviderForTests } = await import("./image-generation");
+    const generate = vi.fn(async (input: { prompt: string }) => ({
+      buffer: Buffer.from(input.prompt),
+      mimeType: "image/png",
+      providerMeta: {
+        provider: "openai" as const,
+        model: "gpt-image-2",
+        durationMs: 100,
+      },
+    }));
+    const selectCandidate = vi.fn(async () => 1);
+    __setImageProviderForTests({ name: "openai", generate });
+
+    try {
+      const result = await generateAndStoreImage({
+        ...BASE_INPUT,
+        prompt: "fallback",
+        outputPrefix: "creative-work/tournament",
+        routes: [
+          { id: "route-1", prompt: "concept one" },
+          { id: "route-2", prompt: "concept two" },
+          { id: "route-3", prompt: "concept three" },
+        ],
+        selectCandidate,
+      });
+
+      expect(generate).toHaveBeenCalledTimes(3);
+      expect(generate.mock.calls.every(([input]) => input.quality === "medium")).toBe(true);
+      expect(selectCandidate).toHaveBeenCalledOnce();
+      expect(result.candidates).toHaveLength(3);
+      expect(result.candidates.map((candidate) => candidate.routeId)).toEqual([
+        "route-1",
+        "route-2",
+        "route-3",
+      ]);
+      expect(result.candidates[1].winner).toBe(true);
+      expect(mockSharpPipeline.toBuffer).toHaveBeenCalledTimes(1);
+    } finally {
+      __setImageProviderForTests(null);
+    }
+  });
+
+  it("continues the tournament when one route generation fails", async () => {
+    const { __setImageProviderForTests } = await import("./image-generation");
+    const generate = vi.fn(async (input: { prompt: string }) => {
+      if (input.prompt === "broken concept") {
+        throw new Error("provider timeout");
+      }
+      return {
+        buffer: Buffer.from(input.prompt),
+        mimeType: "image/png",
+        providerMeta: {
+          provider: "openai" as const,
+          model: "gpt-image-2",
+          durationMs: 100,
+        },
+      };
+    });
+    const selectCandidate = vi.fn(async (candidates) => {
+      expect(candidates.map((candidate) => candidate.routeId)).toEqual([
+        "route-1",
+        "route-3",
+      ]);
+      return 1;
+    });
+    __setImageProviderForTests({ name: "openai", generate });
+
+    try {
+      const result = await generateAndStoreImage({
+        ...BASE_INPUT,
+        outputPrefix: "creative-work/partial-tournament",
+        routes: [
+          { id: "route-1", prompt: "concept one" },
+          { id: "route-2", prompt: "broken concept" },
+          { id: "route-3", prompt: "concept three" },
+        ],
+        selectCandidate,
+      });
+
+      expect(generate).toHaveBeenCalledTimes(3);
+      expect(result.candidates.map((candidate) => candidate.routeId)).toEqual([
+        "route-1",
+        "route-3",
+      ]);
+      expect(result.candidates[1].winner).toBe(true);
+    } finally {
+      __setImageProviderForTests(null);
+    }
+  });
+
+  it("refines the winner once at high quality and keeps the better version", async () => {
+    const { __setImageProviderForTests } = await import("./image-generation");
+    const generate = vi.fn(async (input: { prompt: string }) => ({
+      buffer: Buffer.from(input.prompt),
+      mimeType: "image/png",
+      providerMeta: {
+        provider: "openai" as const,
+        model: "gpt-image-2",
+        durationMs: 100,
+      },
+    }));
+    const selectCandidate = vi
+      .fn()
+      .mockResolvedValueOnce({
+        winnerIndex: 0,
+        refinementPrompt: "Remove the synthetic glow while preserving the product.",
+        reason: "route-1 has the strongest dominant idea",
+      })
+      .mockResolvedValueOnce({ winnerIndex: 1, reason: "the refinement is cleaner" });
+    __setImageProviderForTests({ name: "openai", generate });
+
+    try {
+      const result = await generateAndStoreImage({
+        ...BASE_INPUT,
+        outputPrefix: "creative-work/refinement",
+        routes: [
+          { id: "route-1", prompt: "concept one" },
+          { id: "route-2", prompt: "concept two" },
+          { id: "route-3", prompt: "concept three" },
+        ],
+        selectCandidate,
+      });
+
+      expect(generate).toHaveBeenCalledTimes(4);
+      expect(generate.mock.calls[3][0]).toEqual(
+        expect.objectContaining({
+          quality: "high",
+          prompt: expect.stringContaining("Remove the synthetic glow"),
+          referenceImages: expect.arrayContaining([
+            expect.objectContaining({ name: "selected-candidate.png" }),
+          ]),
+        })
+      );
+      expect(selectCandidate).toHaveBeenCalledTimes(2);
+      expect(result.candidates.at(-1)).toEqual(
+        expect.objectContaining({
+          routeId: "refined",
+          winner: true,
+          selectionReason: expect.stringContaining("refinement is cleaner"),
+        })
+      );
+    } finally {
+      __setImageProviderForTests(null);
     }
   });
 });

@@ -80,6 +80,32 @@ export function evaluateBlindGate(decisions: Array<Pick<BlindDecision, "preferre
   };
 }
 
+type HarnessV2Decision = {
+  preferred: "direct" | "harness" | null;
+  objectiveRegression: boolean | null;
+};
+
+export function evaluateHarnessV2Gate(decisions: HarnessV2Decision[]) {
+  if (decisions.length !== 12) {
+    throw new Error("Harness v2 gate requires exactly 12 decisions");
+  }
+  if (decisions.some((item) => item.preferred == null || item.objectiveRegression == null)) {
+    throw new Error("Harness v2 gate requires complete decisions");
+  }
+
+  const preferenceRate =
+    decisions.filter((item) => item.preferred === "harness").length / decisions.length;
+  const objectiveRegressionCount = decisions.filter(
+    (item) => item.objectiveRegression === true
+  ).length;
+
+  return {
+    passed: preferenceRate >= 0.75 && objectiveRegressionCount === 0,
+    preferenceRate,
+    objectiveRegressionCount,
+  };
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const fidelity = process.argv.includes("--fidelity");
   const file = process.argv.find((arg, index) => index > 1 && arg !== "--fidelity");

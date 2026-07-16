@@ -166,14 +166,14 @@ Prompt stack order (cognitive):
 
 **Role:** Touch. Fabricate the image from a decided request. Judgment runs **after** the pixel.
 
-**Deep dive:** [`organs/HANDS.md`](./organs/HANDS.md) — Inngest gesture, modes, prompt stack, dual engine, auto-retry, Cortex/Marrow handoffs.
+**Deep dive:** [`organs/HANDS.md`](./organs/HANDS.md) — Inngest gesture, modes, prompt stack, image generation, auto-retry, Cortex/Marrow handoffs.
 
 | | |
 |--|--|
 | **Home** | `app/src/server/ai/`, `app/src/server/jobs/derivation.ts` |
 | **Job** | Inngest `generate-derivation` |
 | **Pipeline** | `derivation-pipeline.ts` |
-| **Providers** | OpenAI + Seedream — `image-generation.ts` |
+| **Provider** | OpenAI GPT Image 2 — `image-generation.ts` |
 
 **Modes:** `art_variation` · `format_adaptation` · `restyling` (+ creative revision / creative-work siblings).
 

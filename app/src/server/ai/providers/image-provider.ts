@@ -1,9 +1,8 @@
 /**
  * Provider-agnostic interface for image generation providers.
  *
- * Both OpenAI and BytePlus Seedream implement this interface so the
- * CompositeImageProvider can run them interchangeably and the
- * `image-generation.ts` orchestrator can stay provider-agnostic.
+ * OpenAI and the deterministic E2E provider implement this interface so
+ * `image-generation.ts` remains testable without external calls.
  *
  * Each provider is responsible for:
  *  - Translating `ProviderGenerateInput` to its native API call
@@ -28,6 +27,7 @@ export type ProviderGenerateInput = {
   referenceImages: ImageReference[];
   generationMode: GenerationMode;
   outputPrefix: string;
+  quality?: "medium" | "high";
   seed?: number;
 };
 
@@ -35,21 +35,20 @@ export type ImageCandidate = {
   buffer: Buffer;
   mimeType: string;
   providerMeta: {
-    provider: "openai" | "seedream";
+    provider: "openai";
     model: string;
     durationMs: number;
     costCredits?: number;
     rawRequestId?: string;
     /**
-     * Provider-supplied revised prompt, if the provider returns one (OpenAI
-     * does; Seedream does not). The dual-engine orchestrator surfaces the
-     * winner's revisedPrompt on the top-level result for downstream callers.
+     * Provider-supplied revised prompt, surfaced on the top-level result for
+     * downstream callers.
      */
     revisedPrompt?: string;
   };
 };
 
 export interface ImageGenerationProvider {
-  readonly name: "openai" | "seedream";
+  readonly name: "openai";
   generate(input: ProviderGenerateInput): Promise<ImageCandidate>;
 }
