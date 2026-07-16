@@ -239,16 +239,19 @@ export function useCreateCreativeWork() {
   });
 }
 
-type CreativeDraftInput = {
+export type CreativeDraftInput = {
   clientProfileId: string;
   draftKey: string;
   request: string;
   intent: CreativeWorkItem["toolKind"];
   format: CreativeWorkItem["format"];
   settings: CreativeWorkItem["settings"];
+  assetId?: string;
+  usage?: CreativeSourceUsage;
 };
 
-type CreativeWorkDraftItem = Omit<CreativeWorkItem, "brief"> & { brief: SocialPostBrief | null };
+export type CreativeWorkDraftItem = Omit<CreativeWorkItem, "brief"> & { brief: SocialPostBrief | null };
+export type CreativeWorkQuote = { unitCount: number; credits: number };
 
 async function invalidateCreativeDraft(queryClient: ReturnType<typeof useQueryClient>, workItemId: string) {
   await Promise.all([
@@ -261,8 +264,12 @@ async function invalidateCreativeDraft(queryClient: ReturnType<typeof useQueryCl
 export function useCreateCreativeWorkDraft() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: CreativeDraftInput) => postJson<{ work: CreativeWorkDraftItem }>("/api/creative-work", input),
-    onSuccess: (_data, _input) => invalidateCreativeDraft(queryClient, _data.work.id),
+    mutationFn: (input: CreativeDraftInput) => postJson<{
+      work: CreativeWorkDraftItem;
+      quote: CreativeWorkQuote;
+      source?: CreativeWorkSource;
+    }>("/api/creative-work", input),
+    onSuccess: (data) => invalidateCreativeDraft(queryClient, data.work.id),
   });
 }
 
@@ -285,7 +292,7 @@ export function usePrepareCreativeWork() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: { workItemId: string }) =>
-      patchJson<{ work: CreativeWorkDraftItem }>(`/api/creative-work/${input.workItemId}`, { action: "prepare" }),
+      patchJson<{ work: CreativeWorkDraftItem; quote: CreativeWorkQuote }>(`/api/creative-work/${input.workItemId}`, { action: "prepare" }),
     onSuccess: (_data, input) => invalidateCreativeDraft(queryClient, input.workItemId),
   });
 }
@@ -303,6 +310,7 @@ export function useCreativeWorkSourceActions() {
     mutationFn: ({ workItemId, ...action }: CreativeSourceAction & { workItemId: string }) =>
       patchJson<{ source?: CreativeWorkSource; removed?: boolean }>(`/api/creative-work/${workItemId}`, action),
     onSuccess: (_data, input) => invalidateCreativeDraft(queryClient, input.workItemId),
+    onError: (_error, input) => invalidateCreativeDraft(queryClient, input.workItemId),
   });
 }
 

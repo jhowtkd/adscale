@@ -98,6 +98,22 @@ describe("creative source client contract", () => {
       body: JSON.stringify({ action: "attachSource", templateId: "template-1", usage: "both" }),
     }));
   });
+
+  it("refetches detail when a source action fails so dispatch_failed is visible", async () => {
+    mockApiFetch.mockResolvedValue({ ok: false, json: async () => ({ error: "dispatch failed" }) } as Response);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidate = vi.spyOn(queryClient, "invalidateQueries");
+    const { result } = renderHook(() => useCreativeWorkSourceActions(), { wrapper: wrapperWith(queryClient) });
+
+    await expect(act(() => result.current.mutateAsync({
+      workItemId: "work-1",
+      action: "attachSource",
+      assetId: "asset-1",
+      usage: "both",
+    }))).rejects.toThrow("dispatch failed");
+
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["creative-work", "work-1"] });
+  });
 });
 
 describe("useGenerateCopy", () => {

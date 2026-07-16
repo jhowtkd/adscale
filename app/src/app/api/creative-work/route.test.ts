@@ -16,6 +16,10 @@ vi.mock("@/server/auth/workspace", () => ({
 
 const startMock = vi.hoisted(() => vi.fn());
 const listMock = vi.hoisted(() => vi.fn());
+const getAssetMock = vi.hoisted(() => vi.fn());
+const createSourceMock = vi.hoisted(() => vi.fn());
+const updateSourceCasMock = vi.hoisted(() => vi.fn());
+const inngestSendMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/application/start-social-post-work", () => ({
   startSocialPostWork: (...args: unknown[]) => startMock(...args),
@@ -23,6 +27,19 @@ vi.mock("@/server/application/start-social-post-work", () => ({
 
 vi.mock("@/server/creative-work/canonical/queries", () => ({
   listCanonicalWorks: (...args: unknown[]) => listMock(...args),
+}));
+
+vi.mock("@/server/repositories/workspace-asset", () => ({
+  getWorkspaceAssetById: (...args: unknown[]) => getAssetMock(...args),
+}));
+
+vi.mock("@/server/repositories/creative-work", () => ({
+  createCreativeWorkSource: (...args: unknown[]) => createSourceMock(...args),
+  updateCreativeWorkSourceIfUnchanged: (...args: unknown[]) => updateSourceCasMock(...args),
+}));
+
+vi.mock("@/server/jobs/client", () => ({
+  inngest: { send: (...args: unknown[]) => inngestSendMock(...args) },
 }));
 
 const profileId = "00000000-0000-4000-8000-000000000001";
@@ -42,6 +59,7 @@ const validBody = {
 describe("GET /api/creative-work", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    inngestSendMock.mockResolvedValue(undefined);
   });
   afterEach(() => {
     vi.restoreAllMocks();
@@ -171,6 +189,87 @@ describe("POST /api/creative-work", () => {
     }));
     expect(res.status).toBe(400);
     expect(startMock).not.toHaveBeenCalled();
+  });
+
+  it("accepts an attachment-first draft only with a scoped image asset", async () => {
+    const body = {
+      clientProfileId: profileId,
+      draftKey: "00000000-0000-4000-8000-000000000099",
+      request: "",
+      assetId: "asset-1",
+      usage: "both",
+      intent: "variations",
+      format: "4:5",
+      settings: { targetFormats: [] },
+    };
+    startMock.mockResolvedValue({ ok: true, value: {
+      work: { id: "work-asset", title: "", request: "", brief: null },
+      canonical: { id: "creative_work:work-asset" },
+      quote: { plans: [{}, {}, {}], unitCount: 3, credits: 15 },
+    } });
+    getAssetMock.mockResolvedValue({ id: "asset-1", workspaceId: "workspace-1", name: "arte.png", type: "image/png" });
+    createSourceMock.mockResolvedValue({
+      id: "source-1", workspaceId: "workspace-1", workItemId: "work-asset", assetId: "asset-1",
+      templateId: null, usage: "both", status: "uploaded",
+    });
+
+    const res = await POST(new Request("http://localhost/api/creative-work", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    }));
+    const payload = await res.json();
+
+    expect(res.status).toBe(201);
+    expect(getAssetMock).toHaveBeenCalledWith("asset-1", "workspace-1");
+    expect(createSourceMock).toHaveBeenCalledWith(expect.objectContaining({
+      workspaceId: "workspace-1", workItemId: "work-asset", assetId: "asset-1", usage: "both",
+    }));
+    expect(payload.source).toEqual(expect.objectContaining({ name: "arte.png", origin: "upload" }));
+  });
+
+  it("rejects attachment-first metadata and assets outside the workspace", async () => {
+    getAssetMock.mockResolvedValue(null);
+    const base = {
+      clientProfileId: profileId, draftKey: "00000000-0000-4000-8000-000000000099", request: "",
+      assetId: "other-asset", usage: "both", intent: "variations", format: "4:5", settings: { targetFormats: [] },
+    };
+    const outside = await POST(new Request("http://localhost/api/creative-work", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(base),
+    }));
+    const untrusted = await POST(new Request("http://localhost/api/creative-work", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...base, assetId: "asset-1", key: "browser-key" }),
+    }));
+
+    expect(outside.status).toBe(400);
+    expect(untrusted.status).toBe(400);
+    expect(startMock).not.toHaveBeenCalled();
+  });
+
+  it("returns the attachment-first draft with an immediate retry state when dispatch fails", async () => {
+    const now = new Date("2026-07-16T12:00:00.000Z");
+    const source = {
+      id: "source-1", workspaceId: "workspace-1", workItemId: "work-asset", assetId: "asset-1",
+      templateId: null, usage: "both", status: "uploaded", updatedAt: now,
+    };
+    startMock.mockResolvedValue({ ok: true, value: {
+      work: { id: "work-asset", title: "", request: "", brief: null },
+      canonical: { id: "creative_work:work-asset" }, quote: { unitCount: 3, credits: 15 },
+    } });
+    getAssetMock.mockResolvedValue({ id: "asset-1", name: "arte.png", type: "image/png" });
+    createSourceMock.mockResolvedValue(source);
+    inngestSendMock.mockRejectedValue(new Error("down"));
+    updateSourceCasMock.mockResolvedValue({ ...source, status: "failed", failureCode: "dispatch_failed" });
+
+    const res = await POST(new Request("http://localhost/api/creative-work", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+        clientProfileId: profileId, draftKey: "00000000-0000-4000-8000-000000000099", request: "",
+        assetId: "asset-1", usage: "both", intent: "variations", format: "4:5", settings: { targetFormats: [] },
+      }),
+    }));
+    const payload = await res.json();
+
+    expect(res.status).toBe(201);
+    expect(payload.source).toEqual(expect.objectContaining({ status: "failed", failureCode: "dispatch_failed" }));
   });
 
   it("rejects format adaptation without target formats", async () => {
