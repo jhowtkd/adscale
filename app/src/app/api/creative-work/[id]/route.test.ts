@@ -20,13 +20,26 @@ const refreshStatusMock = vi.hoisted(() => vi.fn());
 const confirmMock = vi.hoisted(() => vi.fn());
 const updateDraftMock = vi.hoisted(() => vi.fn());
 const prepareMock = vi.hoisted(() => vi.fn());
+const createSourceMock = vi.hoisted(() => vi.fn());
+const updateSourceMock = vi.hoisted(() => vi.fn());
+const deleteSourceMock = vi.hoisted(() => vi.fn());
+const getAssetMock = vi.hoisted(() => vi.fn());
+const inngestSendMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/repositories/creative-work", () => ({
   getCreativeWork: (...args: unknown[]) => getWorkMock(...args),
   failStaleCreativeWorkOutputs: (...args: unknown[]) => failStaleOutputsMock(...args),
   refreshCreativeWorkStatus: (...args: unknown[]) => refreshStatusMock(...args),
   updateCreativeWorkDraft: (...args: unknown[]) => updateDraftMock(...args),
+  createCreativeWorkSource: (...args: unknown[]) => createSourceMock(...args),
+  updateCreativeWorkSource: (...args: unknown[]) => updateSourceMock(...args),
+  deleteCreativeWorkSource: (...args: unknown[]) => deleteSourceMock(...args),
 }));
+
+vi.mock("@/server/repositories/workspace-asset", () => ({
+  getWorkspaceAssetById: (...args: unknown[]) => getAssetMock(...args),
+}));
+vi.mock("@/server/jobs/client", () => ({ inngest: { send: (...args: unknown[]) => inngestSendMock(...args) } }));
 
 vi.mock("@/server/application/confirm-social-post-work", () => ({
   confirmSocialPostWork: (...args: unknown[]) => confirmMock(...args),
@@ -179,6 +192,12 @@ describe("PATCH /api/creative-work/[id]", () => {
         },
       },
     });
+    getWorkMock.mockResolvedValue({ work: workItem, outputs: [], sources: [] });
+    getAssetMock.mockResolvedValue({ id: "asset-1", workspaceId: "workspace-1", key: "trusted/key.png", type: "image/png" });
+    createSourceMock.mockResolvedValue({ id: "source-1", workspaceId: "workspace-1", workItemId: "work-1", assetId: "asset-1", usage: "both", status: "uploaded" });
+    updateSourceMock.mockResolvedValue({ id: "source-1", usage: "style", status: "uploaded" });
+    deleteSourceMock.mockResolvedValue({ id: "source-1" });
+    inngestSendMock.mockResolvedValue(undefined);
   });
   afterEach(() => {
     vi.restoreAllMocks();
@@ -293,6 +312,43 @@ describe("PATCH /api/creative-work/[id]", () => {
 
     expect(res.status).toBe(400);
     expect(confirmMock).not.toHaveBeenCalled();
+  });
+
+  it("attaches a workspace asset and dispatches analysis without trusting browser metadata", async () => {
+    const res = await PATCH(new Request("http://localhost/api/creative-work/work-1", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "attachSource", assetId: "asset-1", usage: "both" }),
+    }), { params: makeParams("work-1") });
+
+    expect(res.status).toBe(200);
+    expect(getAssetMock).toHaveBeenCalledWith("asset-1", "workspace-1");
+    expect(createSourceMock).toHaveBeenCalledWith({ workspaceId: "workspace-1", workItemId: "work-1", assetId: "asset-1", usage: "both", status: "uploaded" });
+    expect(inngestSendMock).toHaveBeenCalledWith({ name: "creative-work.source.analyze", data: { workspaceId: "workspace-1", workItemId: "work-1", sourceId: "source-1" } });
+  });
+
+  it.each(["key", "mimeType", "contentAnalysis", "workspaceId"])("rejects browser-supplied source %s", async (field) => {
+    const res = await PATCH(new Request("http://localhost/api/creative-work/work-1", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "attachSource", assetId: "asset-1", usage: "content", [field]: "untrusted" }),
+    }), { params: makeParams("work-1") });
+    expect(res.status).toBe(400);
+    expect(createSourceMock).not.toHaveBeenCalled();
+  });
+
+  it("updates usage, retries, removes, and validates editable analysis through the detail patch", async () => {
+    getWorkMock.mockResolvedValue({
+      work: workItem,
+      outputs: [],
+      sources: [{ id: "source-1", workspaceId: "workspace-1", workItemId: "work-1", assetId: "asset-1", templateId: null, usage: "content", status: "ready" }],
+    });
+    const request = (body: unknown) => PATCH(new Request("http://localhost/api/creative-work/work-1", {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    }), { params: makeParams("work-1") });
+
+    expect((await request({ action: "updateSource", sourceId: "source-1", usage: "style" })).status).toBe(200);
+    expect((await request({ action: "retrySource", sourceId: "source-1" })).status).toBe(200);
+    expect((await request({ action: "removeSource", sourceId: "source-1" })).status).toBe(200);
+    expect((await request({ action: "editSourceAnalysis", sourceId: "source-1", content: { product: "invalid" }, style: null })).status).toBe(400);
   });
 
   it("maps identity_reference_not_approved → 422", async () => {

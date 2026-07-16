@@ -1,15 +1,17 @@
 import { env } from "@/server/validation/env";
 import { getOpenAI } from "@/server/ai/utils";
+import { z } from "zod";
 
-export interface ContentBrief {
-  product: string;
-  offer: string;
-  cta: { text: string; style: string };
-  brandElements: string[];
-  keyVisual: string;
-  textContent: { headline: string; bullets: string[] };
-  format: string;
-}
+export const contentBriefSchema = z.object({
+  product: z.string(),
+  offer: z.string(),
+  cta: z.object({ text: z.string(), style: z.string() }),
+  brandElements: z.array(z.string()),
+  keyVisual: z.string(),
+  textContent: z.object({ headline: z.string(), bullets: z.array(z.string()) }),
+  format: z.string(),
+});
+export type ContentBrief = z.infer<typeof contentBriefSchema>;
 
 const CONTENT_SYSTEM_PROMPT = `You are an advertising image analyst. Extract structured content from the provided ad image.
 Return ONLY a JSON object with this exact structure:
@@ -53,19 +55,19 @@ export async function analyzeImageContent(
   }
 
   const jsonString = raw.replace(/```(?:json)?\s*([\s\S]*?)\s*```/, "$1").trim();
-  return JSON.parse(jsonString) as ContentBrief;
+  return contentBriefSchema.parse(JSON.parse(jsonString));
 }
 
-
-export interface StyleBrief {
-  colorPalette: { dominant: string[]; accents: string[]; gradients: string };
-  typography: { personality: string; effects: string[] };
-  textures: string[];
-  composition: string;
-  mood: string;
-  decorativeElements: string[];
-  photoTreatment: string;
-}
+export const styleBriefSchema = z.object({
+  colorPalette: z.object({ dominant: z.array(z.string()), accents: z.array(z.string()), gradients: z.string() }),
+  typography: z.object({ personality: z.string(), effects: z.array(z.string()) }),
+  textures: z.array(z.string()),
+  composition: z.string(),
+  mood: z.string(),
+  decorativeElements: z.array(z.string()),
+  photoTreatment: z.string(),
+});
+export type StyleBrief = z.infer<typeof styleBriefSchema>;
 
 const STYLE_SYSTEM_PROMPT = `You are a visual style analyst. Analyze the provided image as a STYLE SOURCE ONLY.
 Extract visual language elements: color palette, typography personality, textures, composition style, mood, decorative elements, and photo treatment.
@@ -111,5 +113,5 @@ export async function analyzeImageStyle(
   }
 
   const jsonString = raw.replace(/```(?:json)?\s*([\s\S]*?)\s*```/, "$1").trim();
-  return JSON.parse(jsonString) as StyleBrief;
+  return styleBriefSchema.parse(JSON.parse(jsonString));
 }

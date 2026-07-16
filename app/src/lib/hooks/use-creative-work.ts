@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import { invalidateCanonicalWorks } from "@/lib/hooks/use-canonical-works";
+import type { ContentBrief, StyleBrief } from "@/server/ai/image-analysis";
 
 export type CreativeWorkStatus =
   | "draft"
@@ -84,9 +85,26 @@ export interface CreativeWorkOutput {
   updatedAt: Date | string;
 }
 
+export type CreativeSourceUsage = "content" | "style" | "both";
+export interface CreativeWorkSource {
+  id: string;
+  workspaceId: string;
+  workItemId: string;
+  assetId: string | null;
+  templateId: string | null;
+  usage: CreativeSourceUsage;
+  status: "uploaded" | "analyzing" | "ready" | "failed";
+  contentAnalysis: ContentBrief | null;
+  styleAnalysis: StyleBrief | null;
+  failureCode: string | null;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}
+
 export interface CreativeWorkDetail {
   work: CreativeWorkItem;
   outputs: CreativeWorkOutput[];
+  sources: CreativeWorkSource[];
 }
 
 export function creativeWorkRefetchInterval(
@@ -98,7 +116,8 @@ export function creativeWorkRefetchInterval(
     | undefined,
 ) {
   return data?.work.status === "generating" ||
-    data?.outputs.some((output) => output.status === "queued" || output.status === "processing")
+    data?.outputs.some((output) => output.status === "queued" || output.status === "processing") ||
+    ("sources" in (data ?? {}) && (data as CreativeWorkDetail).sources.some((source) => source.status === "uploaded" || source.status === "analyzing"))
     ? 2000
     : false;
 }
@@ -122,6 +141,11 @@ function fetchCreativeWork(workItemId: string): Promise<CreativeWorkDetail> {
         ...o,
         createdAt: new Date(o.createdAt),
         updatedAt: new Date(o.updatedAt),
+      })),
+      sources: (data.sources as CreativeWorkSource[] ?? []).map((source) => ({
+        ...source,
+        createdAt: new Date(source.createdAt),
+        updatedAt: new Date(source.updatedAt),
       })),
     };
   });
@@ -264,6 +288,21 @@ export function usePrepareCreativeWork() {
   });
 }
 
+type CreativeSourceAction =
+  | { action: "attachSource"; assetId: string; usage: CreativeSourceUsage }
+  | { action: "updateSource"; sourceId: string; usage: CreativeSourceUsage }
+  | { action: "retrySource" | "removeSource"; sourceId: string }
+  | { action: "editSourceAnalysis"; sourceId: string; content: ContentBrief | null; style: StyleBrief | null };
+
+export function useCreativeWorkSourceAction() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ workItemId, ...action }: CreativeSourceAction & { workItemId: string }) =>
+      patchJson<{ source?: CreativeWorkSource; removed?: boolean }>(`/api/creative-work/${workItemId}`, action),
+    onSuccess: (_data, input) => invalidateCreativeDraft(queryClient, input.workItemId),
+  });
+}
+
 export function useGenerateCopy() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -289,7 +328,7 @@ export function useGenerateCopy() {
       };
       queryClient.setQueryData<CreativeWorkDetail>(
         ["creative-work", workItemId],
-        (current) => ({ work, outputs: current?.outputs ?? [] })
+        (current) => ({ work, outputs: current?.outputs ?? [], sources: current?.sources ?? [] })
       );
       void queryClient.invalidateQueries({
         queryKey: ["creative-work", workItemId],
@@ -328,7 +367,7 @@ export function useTriggerTriplet() {
     onSuccess: async (data, workItemId) => {
       queryClient.setQueryData<CreativeWorkDetail>(
         ["creative-work", workItemId],
-        {
+        (current) => ({
           work: {
             ...data.work,
             createdAt: new Date(data.work.createdAt),
@@ -339,7 +378,8 @@ export function useTriggerTriplet() {
             createdAt: new Date(output.createdAt),
             updatedAt: new Date(output.updatedAt),
           })),
-        }
+          sources: current?.sources ?? [],
+        })
       );
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["creative-work", workItemId] }),

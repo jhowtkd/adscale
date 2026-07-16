@@ -3,7 +3,9 @@ import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { confirmSocialPostWork } from "@/server/application/confirm-social-post-work";
 import { prepareCreativeWork } from "@/server/application/prepare-creative-work";
+import { contentBriefSchema, styleBriefSchema } from "@/server/ai/image-analysis";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import { CREATIVE_SOURCE_USAGES } from "@/server/creative-work/contracts";
 import { projectCreativeWorkAsCanonicalWork } from "@/server/creative-work/projection/from-creative-work";
 import {
   creativeWorkFormatSchema,
@@ -14,10 +16,15 @@ import {
 } from "@/server/creative-work/contracts";
 import {
   failStaleCreativeWorkOutputs,
+  createCreativeWorkSource,
+  deleteCreativeWorkSource,
   getCreativeWork,
   refreshCreativeWorkStatus,
+  updateCreativeWorkSource,
   updateCreativeWorkDraft,
 } from "@/server/repositories/creative-work";
+import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
+import { inngest } from "@/server/jobs/client";
 
 const GENERATION_LEASE_MS = 15 * 60 * 1000;
 
@@ -42,7 +49,25 @@ const autosaveSchema = z.object({
   if (!parsed.success) parsed.error.issues.forEach((issue) => context.addIssue(issue));
 });
 const prepareSchema = z.object({ action: z.literal("prepare") }).strict();
-const patchCreativeWorkSchema = z.union([autosaveSchema, prepareSchema, confirmCreativeWorkSchema]);
+const sourceUsageSchema = z.enum(CREATIVE_SOURCE_USAGES);
+const attachSourceSchema = z.object({ action: z.literal("attachSource"), assetId: z.string().min(1), usage: sourceUsageSchema }).strict();
+const updateSourceSchema = z.object({ action: z.literal("updateSource"), sourceId: z.string().min(1), usage: sourceUsageSchema }).strict();
+const retrySourceSchema = z.object({ action: z.literal("retrySource"), sourceId: z.string().min(1) }).strict();
+const removeSourceSchema = z.object({ action: z.literal("removeSource"), sourceId: z.string().min(1) }).strict();
+const editSourceAnalysisSchema = z.object({
+  action: z.literal("editSourceAnalysis"),
+  sourceId: z.string().min(1),
+  content: contentBriefSchema.nullable(),
+  style: styleBriefSchema.nullable(),
+}).strict();
+const patchCreativeWorkSchema = z.union([
+  autosaveSchema, prepareSchema, attachSourceSchema, updateSourceSchema,
+  retrySourceSchema, removeSourceSchema, editSourceAnalysisSchema, confirmCreativeWorkSchema,
+]);
+
+function dispatchSourceAnalysis(workspaceId: string, workItemId: string, sourceId: string) {
+  return inngest.send({ name: "creative-work.source.analyze", data: { workspaceId, workItemId, sourceId } });
+}
 
 /**
  * Standalone create-post detail. Attaches CanonicalCreativeWork projection
@@ -76,6 +101,7 @@ export async function GET(
     return NextResponse.json({
       work: result.work,
       outputs: result.outputs,
+      sources: result.sources,
       canonical,
     });
   } catch (error) {
@@ -132,6 +158,58 @@ export async function PATCH(
       }
       return NextResponse.json(prepared.value);
     }
+
+    if ("action" in parsed.data && parsed.data.action === "attachSource") {
+      const [aggregate, asset] = await Promise.all([
+        getCreativeWork(workspace.id, id),
+        getWorkspaceAssetById(parsed.data.assetId, workspace.id),
+      ]);
+      if (!aggregate) return apiError("creativeWorkNotFound", 404);
+      if (aggregate.work.status !== "draft") return apiError("creativeWorkNotDraft", 409);
+      if (!asset || !asset.type.startsWith("image/")) return apiError("invalidInput", 400);
+      const source = await createCreativeWorkSource({
+        workspaceId: workspace.id,
+        workItemId: id,
+        assetId: asset.id,
+        usage: parsed.data.usage,
+        status: "uploaded",
+      });
+      if (!source) return apiError("invalidInput", 400);
+      await dispatchSourceAnalysis(workspace.id, id, source.id);
+      return NextResponse.json({ source });
+    }
+
+    if ("sourceId" in parsed.data) {
+      const sourceId = parsed.data.sourceId;
+      const aggregate = await getCreativeWork(workspace.id, id);
+      if (!aggregate) return apiError("creativeWorkNotFound", 404);
+      if (aggregate.work.status !== "draft") return apiError("creativeWorkNotDraft", 409);
+      const source = aggregate.sources.find((candidate) => candidate.id === sourceId);
+      if (!source) return apiError("invalidInput", 404);
+
+      if (parsed.data.action === "removeSource") {
+        await deleteCreativeWorkSource(workspace.id, id, source.id);
+        return NextResponse.json({ removed: true });
+      }
+      if (parsed.data.action === "editSourceAnalysis") {
+        const updated = await updateCreativeWorkSource(workspace.id, id, source.id, {
+          contentAnalysis: source.usage === "style" ? null : parsed.data.content,
+          styleAnalysis: source.usage === "content" ? null : parsed.data.style,
+          status: "ready",
+          failureCode: null,
+        });
+        await updateCreativeWorkDraft(workspace.id, id, { brief: null, copy: null, inputSnapshot: null });
+        return NextResponse.json({ source: updated });
+      }
+      const updated = await updateCreativeWorkSource(workspace.id, id, source.id, parsed.data.action === "updateSource"
+        ? { usage: parsed.data.usage, status: "uploaded", failureCode: null }
+        : { status: "uploaded", failureCode: null });
+      if (!updated) return apiError("invalidInput", 404);
+      await dispatchSourceAnalysis(workspace.id, id, source.id);
+      return NextResponse.json({ source: updated });
+    }
+
+    if ("action" in parsed.data) return apiError("invalidInput", 400);
 
     const result = await confirmSocialPostWork({
       workspaceId: workspace.id,
