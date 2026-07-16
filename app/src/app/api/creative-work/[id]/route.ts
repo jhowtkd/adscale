@@ -76,6 +76,21 @@ function dispatchSourceAnalysis(workspaceId: string, workItemId: string, sourceI
   return inngest.send({ name: "creative-work.source.analyze", data: { workspaceId, workItemId, sourceId } });
 }
 
+async function dispatchSourceAnalysisOrFail(workspaceId: string, workItemId: string, source: CreativeWorkSource) {
+  try {
+    await dispatchSourceAnalysis(workspaceId, workItemId, source.id);
+  } catch (error) {
+    await updateCreativeWorkSourceIfUnchanged(
+      workspaceId,
+      workItemId,
+      source.id,
+      { status: "uploaded", usage: source.usage, updatedAt: source.updatedAt },
+      { status: "failed", failureCode: "dispatch_failed" },
+    );
+    throw error;
+  }
+}
+
 async function projectSourceDto(workspaceId: string, source: CreativeWorkSource) {
   if (source.templateId) {
     const template = await getTemplateById(source.templateId, workspaceId);
@@ -200,7 +215,7 @@ export async function PATCH(
         const analyzed = await analyzeCreativeWorkSource({ workspaceId: workspace.id, workItemId: id, sourceId: source.id });
         return NextResponse.json({ source: analyzed });
       }
-      await dispatchSourceAnalysis(workspace.id, id, source.id);
+      await dispatchSourceAnalysisOrFail(workspace.id, id, source);
       return NextResponse.json({ source });
     }
 
@@ -224,6 +239,7 @@ export async function PATCH(
           status: "ready",
           failureCode: null,
         });
+        if (!updated) return apiError("invalidInput", 409);
         await updateCreativeWorkDraft(workspace.id, id, { brief: null, copy: null, inputSnapshot: null });
         return NextResponse.json({ source: updated });
       }
@@ -240,7 +256,11 @@ export async function PATCH(
           { status: "uploaded", failureCode: null },
         );
       if (!updated) return apiError("invalidInput", 409);
-      await dispatchSourceAnalysis(workspace.id, id, source.id);
+      if (updated.templateId) {
+        const analyzed = await analyzeCreativeWorkSource({ workspaceId: workspace.id, workItemId: id, sourceId: source.id });
+        return NextResponse.json({ source: analyzed });
+      }
+      await dispatchSourceAnalysisOrFail(workspace.id, id, updated);
       return NextResponse.json({ source: updated });
     }
 

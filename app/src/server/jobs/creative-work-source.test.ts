@@ -17,7 +17,7 @@ describe("creative work source job", () => {
       opts: { id?: string; retries?: number; triggers?: Array<{ event?: string }> };
     }).opts;
     expect(opts.id).toBe("analyze-creative-work-source");
-    expect(opts.retries).toBe(2);
+    expect(opts.retries).toBe(0);
     expect(opts.triggers).toEqual([{ event: "creative-work.source.analyze" }]);
   });
 });

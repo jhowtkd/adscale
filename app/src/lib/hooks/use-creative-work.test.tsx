@@ -87,6 +87,17 @@ describe("creative source client contract", () => {
       body: JSON.stringify({ action: "retrySource", sourceId: "source-1" }),
     }));
   });
+
+  it("sends the strict template attach payload", async () => {
+    mockApiFetch.mockResolvedValue({ ok: true, json: async () => ({ source: { id: "source-1" } }) } as Response);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { result } = renderHook(() => useCreativeWorkSourceActions(), { wrapper: wrapperWith(queryClient) });
+    await act(() => result.current.mutateAsync({ workItemId: "work-1", action: "attachSource", templateId: "template-1", usage: "both" }));
+    expect(mockApiFetch).toHaveBeenCalledWith("/api/creative-work/work-1", expect.objectContaining({
+      method: "PATCH",
+      body: JSON.stringify({ action: "attachSource", templateId: "template-1", usage: "both" }),
+    }));
+  });
 });
 
 describe("useGenerateCopy", () => {

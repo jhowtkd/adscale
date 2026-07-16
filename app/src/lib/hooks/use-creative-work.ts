@@ -291,7 +291,8 @@ export function usePrepareCreativeWork() {
 }
 
 type CreativeSourceAction =
-  | { action: "attachSource"; assetId: string; usage: CreativeSourceUsage }
+  | { action: "attachSource"; assetId: string; templateId?: never; usage: CreativeSourceUsage }
+  | { action: "attachSource"; templateId: string; assetId?: never; usage: CreativeSourceUsage }
   | { action: "updateSource"; sourceId: string; usage: CreativeSourceUsage }
   | { action: "retrySource" | "removeSource"; sourceId: string }
   | { action: "editSourceAnalysis"; sourceId: string; content: ContentBrief | null; style: StyleBrief | null };

@@ -413,6 +413,19 @@ describe("PATCH /api/creative-work/[id]", () => {
     expect(inngestSendMock).toHaveBeenCalledOnce();
   });
 
+  it("updates template usage synchronously without event dispatch", async () => {
+    const templateSource = { id: "source-1", templateId: "template-1", assetId: null, usage: "content", status: "ready", updatedAt: new Date("2026-07-16T12:00:00.000Z") };
+    getWorkMock.mockResolvedValue({ work: workItem, outputs: [], sources: [templateSource] });
+    updateSourceMock.mockResolvedValue({ ...templateSource, usage: "style", status: "uploaded", updatedAt: new Date("2026-07-16T12:00:00.001Z") });
+    analyzeSourceMock.mockResolvedValue({ ...templateSource, usage: "style", status: "ready" });
+
+    const res = await requestPatch({ action: "updateSource", sourceId: "source-1", usage: "style" });
+
+    expect(res.status).toBe(200);
+    expect(analyzeSourceMock).toHaveBeenCalledWith({ workspaceId: "workspace-1", workItemId: "work-1", sourceId: "source-1" });
+    expect(inngestSendMock).not.toHaveBeenCalled();
+  });
+
   it("retries only a failed source through CAS and dispatches once", async () => {
     const failed = { id: "source-1", usage: "content", status: "failed", updatedAt: new Date("2026-07-16T12:00:00.000Z") };
     getWorkMock.mockResolvedValue({ work: workItem, outputs: [], sources: [failed] });
@@ -423,6 +436,66 @@ describe("PATCH /api/creative-work/[id]", () => {
       { status: "uploaded", failureCode: null },
     );
     expect(inngestSendMock).toHaveBeenCalledOnce();
+  });
+
+  it("retries a template synchronously without event dispatch", async () => {
+    const failed = { id: "source-1", templateId: "template-1", assetId: null, usage: "content", status: "failed", updatedAt: new Date("2026-07-16T12:00:00.000Z") };
+    getWorkMock.mockResolvedValue({ work: workItem, outputs: [], sources: [failed] });
+    updateSourceCasMock.mockResolvedValue({ ...failed, status: "uploaded", updatedAt: new Date("2026-07-16T12:00:00.001Z") });
+    analyzeSourceMock.mockResolvedValue({ ...failed, status: "ready" });
+
+    const res = await requestPatch({ action: "retrySource", sourceId: "source-1" });
+
+    expect(res.status).toBe(200);
+    expect(analyzeSourceMock).toHaveBeenCalledOnce();
+    expect(inngestSendMock).not.toHaveBeenCalled();
+  });
+
+  it("does not dispatch when retry loses its CAS", async () => {
+    const failed = { id: "source-1", assetId: "asset-1", templateId: null, usage: "content", status: "failed", updatedAt: new Date("2026-07-16T12:00:00.000Z") };
+    getWorkMock.mockResolvedValue({ work: workItem, outputs: [], sources: [failed] });
+    updateSourceCasMock.mockResolvedValue(null);
+    const res = await requestPatch({ action: "retrySource", sourceId: "source-1" });
+    expect(res.status).toBe(409);
+    expect(inngestSendMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["attach", { action: "attachSource", assetId: "asset-1", usage: "content" }],
+    ["update", { action: "updateSource", sourceId: "source-1", usage: "style" }],
+  ] as const)("marks an uploaded asset failed when %s dispatch fails", async (kind, body) => {
+    const source = { id: "source-1", assetId: "asset-1", templateId: null, usage: kind === "update" ? "content" : "content", status: "ready", updatedAt: new Date("2026-07-16T12:00:00.000Z") };
+    if (kind === "update") getWorkMock.mockResolvedValue({ work: workItem, outputs: [], sources: [source] });
+    const uploaded = { ...source, usage: kind === "update" ? "style" : "content", status: "uploaded", updatedAt: new Date("2026-07-16T12:00:00.001Z") };
+    if (kind === "attach") createSourceMock.mockResolvedValue(uploaded);
+    else updateSourceMock.mockResolvedValue(uploaded);
+    inngestSendMock.mockRejectedValue(new Error("inngest unavailable"));
+    updateSourceCasMock.mockResolvedValue({ ...uploaded, status: "failed", failureCode: "dispatch_failed" });
+
+    const res = await requestPatch(body);
+
+    expect(res.status).toBe(500);
+    expect(updateSourceCasMock).toHaveBeenCalledWith(
+      "workspace-1", "work-1", "source-1",
+      { status: "uploaded", usage: uploaded.usage, updatedAt: uploaded.updatedAt },
+      { status: "failed", failureCode: "dispatch_failed" },
+    );
+  });
+
+  it("marks failed dispatch on retry and allows a later manual retry", async () => {
+    const failed = { id: "source-1", assetId: "asset-1", templateId: null, usage: "content", status: "failed", updatedAt: new Date("2026-07-16T12:00:00.000Z") };
+    const uploaded = { ...failed, status: "uploaded", updatedAt: new Date("2026-07-16T12:00:00.001Z") };
+    const dispatchFailed = { ...failed, failureCode: "dispatch_failed", updatedAt: new Date("2026-07-16T12:00:00.002Z") };
+    getWorkMock.mockResolvedValueOnce({ work: workItem, outputs: [], sources: [failed] }).mockResolvedValueOnce({ work: workItem, outputs: [], sources: [dispatchFailed] });
+    updateSourceCasMock
+      .mockResolvedValueOnce(uploaded)
+      .mockResolvedValueOnce(dispatchFailed)
+      .mockResolvedValueOnce({ ...uploaded, updatedAt: new Date("2026-07-16T12:00:00.003Z") });
+    inngestSendMock.mockRejectedValueOnce(new Error("down")).mockResolvedValueOnce(undefined);
+
+    expect((await requestPatch({ action: "retrySource", sourceId: "source-1" })).status).toBe(500);
+    expect((await requestPatch({ action: "retrySource", sourceId: "source-1" })).status).toBe(200);
+    expect(inngestSendMock).toHaveBeenCalledTimes(2);
   });
 
   it.each(["uploaded", "analyzing", "ready"])("rejects duplicate retry from %s without dispatch", async (status) => {
@@ -447,6 +520,15 @@ describe("PATCH /api/creative-work/[id]", () => {
     expect(updateSourceMock).toHaveBeenCalledWith("workspace-1", "work-1", "source-1", { contentAnalysis: validContent, styleAnalysis: null, status: "ready", failureCode: null });
     expect(updateDraftMock).toHaveBeenCalledWith("workspace-1", "work-1", { brief: null, copy: null, inputSnapshot: null });
     expect(inngestSendMock).not.toHaveBeenCalled();
+  });
+
+  it("does not invalidate prepared data when a concurrent edit loses the source", async () => {
+    getWorkMock.mockResolvedValue({ work: workItem, outputs: [], sources: [{ id: "source-1", usage: "content", status: "ready" }] });
+    updateSourceMock.mockResolvedValue(null);
+    const validContent = { product: "Tênis", offer: "20%", cta: { text: "Comprar", style: "botão" }, brandElements: [], keyVisual: "produto", textContent: { headline: "Novo", bullets: [] }, format: "4:5" };
+    const res = await requestPatch({ action: "editSourceAnalysis", sourceId: "source-1", content: validContent, style: null });
+    expect(res.status).toBe(409);
+    expect(updateDraftMock).not.toHaveBeenCalled();
   });
 
   it("maps identity_reference_not_approved → 422", async () => {

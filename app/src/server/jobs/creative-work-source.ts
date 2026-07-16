@@ -8,6 +8,6 @@ export function runCreativeWorkSourceAnalysis(data: CreativeWorkSourceAnalyzeEve
 }
 
 export const creativeWorkSourceAnalyzeJob = inngest.createFunction(
-  { id: "analyze-creative-work-source", retries: 2, triggers: [{ event: "creative-work.source.analyze" }] },
+  { id: "analyze-creative-work-source", retries: 0, triggers: [{ event: "creative-work.source.analyze" }] },
   async ({ event, step }) => step.run("analyze-source", () => runCreativeWorkSourceAnalysis(event.data as CreativeWorkSourceAnalyzeEvent)),
 );
