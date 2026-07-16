@@ -7,7 +7,7 @@ type Props = {
   source: {
     id: string;
     name: string;
-    origin: "upload" | "template";
+    origin: "upload" | "template" | "approved_work";
     usage: Usage;
     status: Status;
     contentAnalysis: Record<string, unknown> | null;
@@ -36,10 +36,10 @@ export function CreativeSourceChip({ source, onUsageChange, onReview, onRetry, o
   return (
     <article className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] p-3">
       <div className="flex items-center justify-between gap-3">
-        <div><strong>{source.name}</strong><div className="text-xs text-[var(--text-muted)]">{source.origin === "template" ? "Template" : "Upload"}</div></div>
+        <div><strong>{source.name}</strong><div className="text-xs text-[var(--text-muted)]">{source.origin === "template" ? "Template" : source.origin === "approved_work" ? "Trabalho aprovado" : "Upload"}</div></div>
         <button type="button" onClick={onRemove} aria-label="Remover fonte">Remover</button>
       </div>
-      <div className="mt-2 flex gap-2" aria-label="Usar arte como">
+      <div className="mt-2 flex gap-2" role="group" aria-label="Usar arte como">
         {(["content", "style", "both"] as const).map((usage) => (
           <button key={usage} type="button" aria-pressed={source.usage === usage} onClick={() => onUsageChange(usage)}>
             {usage === "content" ? "Conteúdo" : usage === "style" ? "Estilo" : "Ambos"}

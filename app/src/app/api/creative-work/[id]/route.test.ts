@@ -22,8 +22,11 @@ const updateDraftMock = vi.hoisted(() => vi.fn());
 const prepareMock = vi.hoisted(() => vi.fn());
 const createSourceMock = vi.hoisted(() => vi.fn());
 const updateSourceMock = vi.hoisted(() => vi.fn());
+const updateSourceCasMock = vi.hoisted(() => vi.fn());
 const deleteSourceMock = vi.hoisted(() => vi.fn());
 const getAssetMock = vi.hoisted(() => vi.fn());
+const getTemplateMock = vi.hoisted(() => vi.fn());
+const analyzeSourceMock = vi.hoisted(() => vi.fn());
 const inngestSendMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/repositories/creative-work", () => ({
@@ -33,12 +36,15 @@ vi.mock("@/server/repositories/creative-work", () => ({
   updateCreativeWorkDraft: (...args: unknown[]) => updateDraftMock(...args),
   createCreativeWorkSource: (...args: unknown[]) => createSourceMock(...args),
   updateCreativeWorkSource: (...args: unknown[]) => updateSourceMock(...args),
+  updateCreativeWorkSourceIfUnchanged: (...args: unknown[]) => updateSourceCasMock(...args),
   deleteCreativeWorkSource: (...args: unknown[]) => deleteSourceMock(...args),
 }));
 
 vi.mock("@/server/repositories/workspace-asset", () => ({
   getWorkspaceAssetById: (...args: unknown[]) => getAssetMock(...args),
 }));
+vi.mock("@/server/repositories/template", () => ({ getTemplateById: (...args: unknown[]) => getTemplateMock(...args) }));
+vi.mock("@/server/application/analyze-creative-work-source", () => ({ analyzeCreativeWorkSource: (...args: unknown[]) => analyzeSourceMock(...args) }));
 vi.mock("@/server/jobs/client", () => ({ inngest: { send: (...args: unknown[]) => inngestSendMock(...args) } }));
 
 vi.mock("@/server/application/confirm-social-post-work", () => ({
@@ -50,6 +56,14 @@ vi.mock("@/server/application/prepare-creative-work", () => ({
 
 function makeParams(id: string) {
   return Promise.resolve({ id });
+}
+
+function requestPatch(body: unknown) {
+  return PATCH(new Request("http://localhost/api/creative-work/work-1", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  }), { params: makeParams("work-1") });
 }
 
 const profileId = "00000000-0000-4000-8000-000000000001";
@@ -160,6 +174,29 @@ describe("GET /api/creative-work/[id]", () => {
       expect.objectContaining({ status: "failed", failureCode: "generation_timeout" }),
     );
   });
+
+  it("returns reloadable source DTOs with server-derived name and origin", async () => {
+    getWorkMock.mockResolvedValue({
+      work: workItem,
+      outputs: [],
+      sources: [
+        { id: "source-1", assetId: "asset-1", templateId: null, usage: "content", status: "ready" },
+        { id: "source-2", assetId: null, templateId: "template-1", usage: "style", status: "ready" },
+      ],
+    });
+    getAssetMock.mockResolvedValue({ id: "asset-1", workspaceId: "workspace-1", name: "aprovada.png", source: "creative_work" });
+    getTemplateMock.mockResolvedValue({ id: "template-1", workspaceId: "workspace-1", name: "Black Friday" });
+
+    const res = await GET(new Request("http://localhost/api/creative-work/work-1"), { params: makeParams("work-1") });
+    const body = await res.json();
+
+    expect(body.sources).toEqual([
+      expect.objectContaining({ id: "source-1", name: "aprovada.png", origin: "approved_work" }),
+      expect.objectContaining({ id: "source-2", name: "Black Friday", origin: "template" }),
+    ]);
+    expect(getAssetMock).toHaveBeenCalledWith("asset-1", "workspace-1");
+    expect(getTemplateMock).toHaveBeenCalledWith("template-1", "workspace-1");
+  });
 });
 
 describe("PATCH /api/creative-work/[id]", () => {
@@ -196,8 +233,11 @@ describe("PATCH /api/creative-work/[id]", () => {
     getAssetMock.mockResolvedValue({ id: "asset-1", workspaceId: "workspace-1", key: "trusted/key.png", type: "image/png" });
     createSourceMock.mockResolvedValue({ id: "source-1", workspaceId: "workspace-1", workItemId: "work-1", assetId: "asset-1", usage: "both", status: "uploaded" });
     updateSourceMock.mockResolvedValue({ id: "source-1", usage: "style", status: "uploaded" });
+    updateSourceCasMock.mockResolvedValue({ id: "source-1", usage: "content", status: "uploaded", updatedAt: new Date("2026-07-16T12:00:00.001Z") });
     deleteSourceMock.mockResolvedValue({ id: "source-1" });
     inngestSendMock.mockResolvedValue(undefined);
+    getTemplateMock.mockResolvedValue({ id: "template-1", workspaceId: "workspace-1", name: "Template", styleIntensity: "medium" });
+    analyzeSourceMock.mockResolvedValue({ id: "source-1", status: "ready" });
   });
   afterEach(() => {
     vi.restoreAllMocks();
@@ -326,6 +366,33 @@ describe("PATCH /api/creative-work/[id]", () => {
     expect(inngestSendMock).toHaveBeenCalledWith({ name: "creative-work.source.analyze", data: { workspaceId: "workspace-1", workItemId: "work-1", sourceId: "source-1" } });
   });
 
+  it("attaches a scoped template, maps it synchronously, and does not dispatch vision", async () => {
+    createSourceMock.mockResolvedValue({ id: "source-template", workspaceId: "workspace-1", workItemId: "work-1", assetId: null, templateId: "template-1", usage: "both", status: "uploaded" });
+    analyzeSourceMock.mockResolvedValue({ id: "source-template", status: "ready" });
+
+    const res = await PATCH(new Request("http://localhost/api/creative-work/work-1", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "attachSource", templateId: "template-1", usage: "both" }),
+    }), { params: makeParams("work-1") });
+
+    expect(res.status).toBe(200);
+    expect(getTemplateMock).toHaveBeenCalledWith("template-1", "workspace-1");
+    expect(createSourceMock).toHaveBeenCalledWith({ workspaceId: "workspace-1", workItemId: "work-1", templateId: "template-1", usage: "both", status: "uploaded" });
+    expect(analyzeSourceMock).toHaveBeenCalledWith({ workspaceId: "workspace-1", workItemId: "work-1", sourceId: "source-template" });
+    expect(inngestSendMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a template outside the workspace without creating a source", async () => {
+    getTemplateMock.mockResolvedValue(null);
+    const res = await PATCH(new Request("http://localhost/api/creative-work/work-1", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "attachSource", templateId: "other-template", usage: "content" }),
+    }), { params: makeParams("work-1") });
+    expect(res.status).toBe(400);
+    expect(createSourceMock).not.toHaveBeenCalled();
+    expect(inngestSendMock).not.toHaveBeenCalled();
+  });
+
   it.each(["key", "mimeType", "contentAnalysis", "workspaceId"])("rejects browser-supplied source %s", async (field) => {
     const res = await PATCH(new Request("http://localhost/api/creative-work/work-1", {
       method: "PATCH", headers: { "Content-Type": "application/json" },
@@ -335,20 +402,51 @@ describe("PATCH /api/creative-work/[id]", () => {
     expect(createSourceMock).not.toHaveBeenCalled();
   });
 
-  it("updates usage, retries, removes, and validates editable analysis through the detail patch", async () => {
+  it("updates usage in scope and dispatches a new analysis attempt", async () => {
     getWorkMock.mockResolvedValue({
       work: workItem,
       outputs: [],
-      sources: [{ id: "source-1", workspaceId: "workspace-1", workItemId: "work-1", assetId: "asset-1", templateId: null, usage: "content", status: "ready" }],
+      sources: [{ id: "source-1", workspaceId: "workspace-1", workItemId: "work-1", assetId: "asset-1", templateId: null, usage: "content", status: "ready", updatedAt: new Date("2026-07-16T12:00:00.000Z") }],
     });
-    const request = (body: unknown) => PATCH(new Request("http://localhost/api/creative-work/work-1", {
-      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
-    }), { params: makeParams("work-1") });
+    await requestPatch({ action: "updateSource", sourceId: "source-1", usage: "style" });
+    expect(updateSourceMock).toHaveBeenCalledWith("workspace-1", "work-1", "source-1", { usage: "style", status: "uploaded", failureCode: null });
+    expect(inngestSendMock).toHaveBeenCalledOnce();
+  });
 
-    expect((await request({ action: "updateSource", sourceId: "source-1", usage: "style" })).status).toBe(200);
-    expect((await request({ action: "retrySource", sourceId: "source-1" })).status).toBe(200);
-    expect((await request({ action: "removeSource", sourceId: "source-1" })).status).toBe(200);
-    expect((await request({ action: "editSourceAnalysis", sourceId: "source-1", content: { product: "invalid" }, style: null })).status).toBe(400);
+  it("retries only a failed source through CAS and dispatches once", async () => {
+    const failed = { id: "source-1", usage: "content", status: "failed", updatedAt: new Date("2026-07-16T12:00:00.000Z") };
+    getWorkMock.mockResolvedValue({ work: workItem, outputs: [], sources: [failed] });
+    await requestPatch({ action: "retrySource", sourceId: "source-1" });
+    expect(updateSourceCasMock).toHaveBeenCalledWith(
+      "workspace-1", "work-1", "source-1",
+      { status: "failed", usage: "content", updatedAt: failed.updatedAt },
+      { status: "uploaded", failureCode: null },
+    );
+    expect(inngestSendMock).toHaveBeenCalledOnce();
+  });
+
+  it.each(["uploaded", "analyzing", "ready"])("rejects duplicate retry from %s without dispatch", async (status) => {
+    getWorkMock.mockResolvedValue({ work: workItem, outputs: [], sources: [{ id: "source-1", usage: "content", status, updatedAt: new Date() }] });
+    const res = await requestPatch({ action: "retrySource", sourceId: "source-1" });
+    expect(res.status).toBe(409);
+    expect(updateSourceCasMock).not.toHaveBeenCalled();
+    expect(inngestSendMock).not.toHaveBeenCalled();
+  });
+
+  it("removes only the scoped source without dispatch", async () => {
+    getWorkMock.mockResolvedValue({ work: workItem, outputs: [], sources: [{ id: "source-1", usage: "content", status: "ready" }] });
+    await requestPatch({ action: "removeSource", sourceId: "source-1" });
+    expect(deleteSourceMock).toHaveBeenCalledWith("workspace-1", "work-1", "source-1");
+    expect(inngestSendMock).not.toHaveBeenCalled();
+  });
+
+  it("edits only usage-allowed analysis and invalidates prepared data", async () => {
+    const validContent = { product: "Tênis", offer: "20%", cta: { text: "Comprar", style: "botão" }, brandElements: [], keyVisual: "produto", textContent: { headline: "Novo", bullets: [] }, format: "4:5" };
+    getWorkMock.mockResolvedValue({ work: workItem, outputs: [], sources: [{ id: "source-1", usage: "content", status: "ready" }] });
+    await requestPatch({ action: "editSourceAnalysis", sourceId: "source-1", content: validContent, style: null });
+    expect(updateSourceMock).toHaveBeenCalledWith("workspace-1", "work-1", "source-1", { contentAnalysis: validContent, styleAnalysis: null, status: "ready", failureCode: null });
+    expect(updateDraftMock).toHaveBeenCalledWith("workspace-1", "work-1", { brief: null, copy: null, inputSnapshot: null });
+    expect(inngestSendMock).not.toHaveBeenCalled();
   });
 
   it("maps identity_reference_not_approved → 422", async () => {

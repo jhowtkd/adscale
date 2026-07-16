@@ -92,6 +92,8 @@ export interface CreativeWorkSource {
   workItemId: string;
   assetId: string | null;
   templateId: string | null;
+  name: string;
+  origin: "upload" | "template" | "approved_work";
   usage: CreativeSourceUsage;
   status: "uploaded" | "analyzing" | "ready" | "failed";
   contentAnalysis: ContentBrief | null;
@@ -294,7 +296,7 @@ type CreativeSourceAction =
   | { action: "retrySource" | "removeSource"; sourceId: string }
   | { action: "editSourceAnalysis"; sourceId: string; content: ContentBrief | null; style: StyleBrief | null };
 
-export function useCreativeWorkSourceAction() {
+export function useCreativeWorkSourceActions() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ workItemId, ...action }: CreativeSourceAction & { workItemId: string }) =>

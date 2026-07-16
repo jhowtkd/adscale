@@ -1,11 +1,13 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   creativeWorkRefetchInterval,
   useAutosaveCreativeWork,
   useCreateCreativeWorkDraft,
   useGenerateCopy,
+  useCreativeWork,
+  useCreativeWorkSourceActions,
   usePrepareCreativeWork,
   useTriggerTriplet,
 } from "./use-creative-work";
@@ -57,6 +59,33 @@ describe("creativeWorkRefetchInterval", () => {
         outputs: [{ status: "completed" }, { status: "processing" }],
       }),
     ).toBe(2000);
+  });
+});
+
+describe("creative source client contract", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("hydrates server-derived source name and origin for reload", async () => {
+    const now = new Date().toISOString();
+    mockApiFetch.mockResolvedValue({ ok: true, json: async () => ({
+      work: { id: "work-1", status: "draft", createdAt: now, updatedAt: now },
+      outputs: [],
+      sources: [{ id: "source-1", name: "aprovada.png", origin: "approved_work", status: "ready", usage: "style", createdAt: now, updatedAt: now }],
+    }) } as Response);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { result } = renderHook(() => useCreativeWork("work-1"), { wrapper: wrapperWith(queryClient) });
+    await waitFor(() => expect(result.current.data?.sources[0]).toEqual(expect.objectContaining({ name: "aprovada.png", origin: "approved_work" })));
+  });
+
+  it("sends source actions only through the creative-work detail PATCH", async () => {
+    mockApiFetch.mockResolvedValue({ ok: true, json: async () => ({ source: { id: "source-1" } }) } as Response);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { result } = renderHook(() => useCreativeWorkSourceActions(), { wrapper: wrapperWith(queryClient) });
+    await act(() => result.current.mutateAsync({ workItemId: "work-1", action: "retrySource", sourceId: "source-1" }));
+    expect(mockApiFetch).toHaveBeenCalledWith("/api/creative-work/work-1", expect.objectContaining({
+      method: "PATCH",
+      body: JSON.stringify({ action: "retrySource", sourceId: "source-1" }),
+    }));
   });
 });
 

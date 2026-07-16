@@ -3,16 +3,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const getCreativeWork = vi.hoisted(() => vi.fn());
 const getWorkspaceAssetById = vi.hoisted(() => vi.fn());
 const getTemplateById = vi.hoisted(() => vi.fn());
-const updateCreativeWorkSource = vi.hoisted(() => vi.fn());
+const updateCreativeWorkSourceIfUnchanged = vi.hoisted(() => vi.fn());
 const getObject = vi.hoisted(() => vi.fn());
 const analyzeImageContent = vi.hoisted(() => vi.fn());
 const analyzeImageStyle = vi.hoisted(() => vi.fn());
 
-vi.mock("@/server/repositories/creative-work", () => ({ getCreativeWork, updateCreativeWorkSource }));
+vi.mock("@/server/repositories/creative-work", () => ({ getCreativeWork, updateCreativeWorkSourceIfUnchanged }));
 vi.mock("@/server/repositories/workspace-asset", () => ({ getWorkspaceAssetById }));
 vi.mock("@/server/repositories/template", () => ({ getTemplateById }));
 vi.mock("@/server/storage", () => ({ objectStorage: { get: getObject } }));
-vi.mock("@/server/ai/image-analysis", () => ({ analyzeImageContent, analyzeImageStyle }));
+vi.mock("@/server/ai/image-analysis", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/server/ai/image-analysis")>(),
+  analyzeImageContent,
+  analyzeImageStyle,
+}));
 
 import { analyzeCreativeWorkSource } from "./analyze-creative-work-source";
 
@@ -27,7 +31,7 @@ const style = {
 };
 
 function source(id: string, usage: "content" | "style" | "both") {
-  return { id, workspaceId: "ws-1", workItemId: "work-1", assetId: `asset-${id}`, templateId: null, usage, status: "uploaded" };
+  return { id, workspaceId: "ws-1", workItemId: "work-1", assetId: `asset-${id}`, templateId: null, usage, status: "uploaded", updatedAt: new Date("2026-07-16T12:00:00.000Z") };
 }
 
 describe("analyzeCreativeWorkSource", () => {
@@ -37,7 +41,9 @@ describe("analyzeCreativeWorkSource", () => {
     getObject.mockResolvedValue(Buffer.from("image"));
     analyzeImageContent.mockResolvedValue(content);
     analyzeImageStyle.mockResolvedValue(style);
-    updateCreativeWorkSource.mockImplementation(async (_ws, _work, id, patch) => ({ ...source(id, "both"), ...patch }));
+    updateCreativeWorkSourceIfUnchanged.mockImplementation(async (_ws, _work, id, expected, patch) => ({
+      ...source(id, expected.usage), ...patch, updatedAt: new Date("2026-07-16T12:00:00.001Z"),
+    }));
   });
 
   it.each([
@@ -52,7 +58,11 @@ describe("analyzeCreativeWorkSource", () => {
     expect(analyzeImageContent).toHaveBeenCalledTimes(contentCalls);
     expect(analyzeImageStyle).toHaveBeenCalledTimes(styleCalls);
     expect(getObject).toHaveBeenCalledWith("trusted/key.png");
-    expect(updateCreativeWorkSource).toHaveBeenLastCalledWith("ws-1", "work-1", "source-1", expect.objectContaining({ status: "ready" }));
+    expect(updateCreativeWorkSourceIfUnchanged).toHaveBeenLastCalledWith(
+      "ws-1", "work-1", "source-1",
+      expect.objectContaining({ status: "analyzing", usage }),
+      expect.objectContaining({ status: "ready" }),
+    );
   });
 
   it("keeps two source transitions independent when one fails", async () => {
@@ -64,7 +74,62 @@ describe("analyzeCreativeWorkSource", () => {
     await expect(analyzeCreativeWorkSource({ workspaceId: "ws-1", workItemId: "work-1", sourceId: "source-1" })).rejects.toThrow();
     await analyzeCreativeWorkSource({ workspaceId: "ws-1", workItemId: "work-1", sourceId: "source-2" });
 
-    expect(updateCreativeWorkSource).toHaveBeenCalledWith("ws-1", "work-1", "source-1", { status: "failed", failureCode: "analysis_failed" });
-    expect(updateCreativeWorkSource).toHaveBeenCalledWith("ws-1", "work-1", "source-2", expect.objectContaining({ status: "ready", contentAnalysis: content }));
+    expect(updateCreativeWorkSourceIfUnchanged).toHaveBeenCalledWith("ws-1", "work-1", "source-1", expect.objectContaining({ status: "analyzing" }), { status: "failed", failureCode: "analysis_failed" });
+    expect(updateCreativeWorkSourceIfUnchanged).toHaveBeenCalledWith("ws-1", "work-1", "source-2", expect.objectContaining({ status: "analyzing" }), expect.objectContaining({ status: "ready", contentAnalysis: content }));
+  });
+
+  it("does not let an old job overwrite a newer usage or manual edit", async () => {
+    getCreativeWork.mockResolvedValue({ work: {}, outputs: [], sources: [source("source-1", "content")] });
+    updateCreativeWorkSourceIfUnchanged
+      .mockResolvedValueOnce({ ...source("source-1", "content"), status: "analyzing", updatedAt: new Date("2026-07-16T12:00:00.001Z") })
+      .mockResolvedValueOnce(null);
+
+    await expect(analyzeCreativeWorkSource({ workspaceId: "ws-1", workItemId: "work-1", sourceId: "source-1" })).resolves.toBeNull();
+
+    expect(updateCreativeWorkSourceIfUnchanged).toHaveBeenLastCalledWith(
+      "ws-1", "work-1", "source-1",
+      { status: "analyzing", usage: "content", updatedAt: new Date("2026-07-16T12:00:00.001Z") },
+      expect.objectContaining({ status: "ready" }),
+    );
+  });
+
+  it("maps a template synchronously without vision and validates the mapped analysis", async () => {
+    getCreativeWork.mockResolvedValue({ work: {}, outputs: [], sources: [{ ...source("source-1", "both"), assetId: null, templateId: "template-1" }] });
+    getTemplateById.mockResolvedValue({
+      id: "template-1", workspaceId: "ws-1", product: "Tênis", offer: "20%", objective: "Venda",
+      audience: "Corredores", ctaVariants: ["Comprar"], targetFormats: ["4:5"], tone: "direto", styleIntensity: "medium",
+    });
+
+    await analyzeCreativeWorkSource({ workspaceId: "ws-1", workItemId: "work-1", sourceId: "source-1" });
+
+    expect(getObject).not.toHaveBeenCalled();
+    expect(analyzeImageContent).not.toHaveBeenCalled();
+    expect(analyzeImageStyle).not.toHaveBeenCalled();
+    expect(updateCreativeWorkSourceIfUnchanged).toHaveBeenLastCalledWith(
+      "ws-1", "work-1", "source-1", expect.objectContaining({ status: "analyzing" }),
+      expect.objectContaining({ status: "ready", contentAnalysis: expect.objectContaining({ product: "Tênis" }), styleAnalysis: expect.objectContaining({ mood: "direto" }) }),
+    );
+  });
+
+  it("rejects an invalid template mapping before ready persistence", async () => {
+    getCreativeWork.mockResolvedValue({ work: {}, outputs: [], sources: [{ ...source("source-1", "style"), assetId: null, templateId: "template-1" }] });
+    getTemplateById.mockResolvedValue({ id: "template-1", workspaceId: "ws-1", styleIntensity: null, tone: "direto" });
+
+    await expect(analyzeCreativeWorkSource({ workspaceId: "ws-1", workItemId: "work-1", sourceId: "source-1" })).rejects.toThrow();
+    expect(updateCreativeWorkSourceIfUnchanged).toHaveBeenLastCalledWith(
+      "ws-1", "work-1", "source-1", expect.objectContaining({ status: "analyzing" }),
+      { status: "failed", failureCode: "analysis_failed" },
+    );
+  });
+
+  it("rejects an invalid provider result before ready persistence", async () => {
+    getCreativeWork.mockResolvedValue({ work: {}, outputs: [], sources: [source("source-1", "content")] });
+    analyzeImageContent.mockResolvedValue({ product: "incomplete" });
+
+    await expect(analyzeCreativeWorkSource({ workspaceId: "ws-1", workItemId: "work-1", sourceId: "source-1" })).rejects.toThrow();
+    expect(updateCreativeWorkSourceIfUnchanged).toHaveBeenLastCalledWith(
+      "ws-1", "work-1", "source-1", expect.objectContaining({ status: "analyzing" }),
+      { status: "failed", failureCode: "analysis_failed" },
+    );
   });
 });

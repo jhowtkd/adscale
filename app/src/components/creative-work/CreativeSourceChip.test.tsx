@@ -16,10 +16,23 @@ describe("CreativeSourceChip", () => {
     expect(screen.getByText("arte.png")).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveAttribute("aria-live", "polite");
     expect(screen.getByText("Tênis")).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Usar arte como" })).toBeInTheDocument();
   });
 
   it("shows retry only for an analysis failure", () => {
-    render(<CreativeSourceChip source={{ ...baseSource, status: "failed" }} onUsageChange={vi.fn()} onRetry={vi.fn()} onRemove={vi.fn()} onReview={vi.fn()} />);
-    expect(screen.getByRole("button", { name: "Tentar novamente" })).toBeInTheDocument();
+    const onRetry = vi.fn();
+    const onRemove = vi.fn();
+    render(<CreativeSourceChip source={{ ...baseSource, status: "failed" }} onUsageChange={vi.fn()} onRetry={onRetry} onRemove={onRemove} onReview={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remover fonte" }));
+    expect(onRetry).toHaveBeenCalledOnce();
+    expect(onRemove).toHaveBeenCalledOnce();
+  });
+
+  it("opens review for ready analysis", () => {
+    const onReview = vi.fn();
+    render(<CreativeSourceChip source={baseSource} onUsageChange={vi.fn()} onRetry={vi.fn()} onRemove={vi.fn()} onReview={onReview} />);
+    fireEvent.click(screen.getByRole("button", { name: "Revisar dados" }));
+    expect(onReview).toHaveBeenCalledOnce();
   });
 });

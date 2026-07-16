@@ -169,6 +169,7 @@ import {
   setCreativeWorkCopy,
   setCreativeWorkStatus,
   updateCreativeWorkSource,
+  updateCreativeWorkSourceIfUnchanged,
   updateCreativeWorkDraft,
   updateCreativeWorkDraftIfUnchanged,
   withCreativeWorkPreparationLock,
@@ -458,6 +459,38 @@ describe("creative-work repository", () => {
       mocks.state.txUpdateResults.push([workItem()]);
       await deleteCreativeWorkSource("ws-1", "work-1", "source-1");
       expect(mocks.txUpdateMock).toHaveBeenCalledTimes(3);
+    });
+
+    it("updates a source only for the expected attempt and advances its timestamp", async () => {
+      const expectedAt = new Date("2026-07-16T12:00:00.000Z");
+      const source = { id: "source-1", workspaceId: "ws-1", workItemId: "work-1", status: "analyzing", usage: "style" };
+      mocks.state.txUpdateResults.push([source], [workItem()]);
+
+      await expect(updateCreativeWorkSourceIfUnchanged(
+        "ws-1", "work-1", "source-1",
+        { status: "uploaded", usage: "style", updatedAt: expectedAt },
+        { status: "analyzing" },
+      )).resolves.toEqual(source);
+
+      expect(mocks.txSetMock).toHaveBeenCalledWith(expect.objectContaining({
+        status: "analyzing",
+        updatedAt: expect.anything(),
+      }));
+      const query = serializedCondition(mocks.whereMock.mock.calls[0][0]);
+      expect(query.sql).toContain('"creative_work_sources"."status"');
+      expect(query.sql).toContain('"creative_work_sources"."usage"');
+      expect(query.sql).toContain('"creative_work_sources"."updated_at"');
+      expect(query.params).toEqual(["ws-1", "work-1", "source-1", "uploaded", "style", expectedAt.toISOString()]);
+    });
+
+    it("does not touch the parent when the source attempt CAS is stale", async () => {
+      mocks.state.txUpdateResults.push([]);
+      await expect(updateCreativeWorkSourceIfUnchanged(
+        "ws-1", "work-1", "source-1",
+        { status: "failed", usage: "content", updatedAt: new Date("2026-07-16T12:00:00.000Z") },
+        { status: "uploaded" },
+      )).resolves.toBeNull();
+      expect(mocks.txUpdateMock).toHaveBeenCalledOnce();
     });
 
     it("creates deterministic initial output plans", async () => {

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { confirmSocialPostWork } from "@/server/application/confirm-social-post-work";
 import { prepareCreativeWork } from "@/server/application/prepare-creative-work";
+import { analyzeCreativeWorkSource } from "@/server/application/analyze-creative-work-source";
 import { contentBriefSchema, styleBriefSchema } from "@/server/ai/image-analysis";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { CREATIVE_SOURCE_USAGES } from "@/server/creative-work/contracts";
@@ -21,10 +22,13 @@ import {
   getCreativeWork,
   refreshCreativeWorkStatus,
   updateCreativeWorkSource,
+  updateCreativeWorkSourceIfUnchanged,
   updateCreativeWorkDraft,
 } from "@/server/repositories/creative-work";
 import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
+import { getTemplateById } from "@/server/repositories/template";
 import { inngest } from "@/server/jobs/client";
+import type { CreativeWorkSource } from "@/server/db/schema";
 
 const GENERATION_LEASE_MS = 15 * 60 * 1000;
 
@@ -50,7 +54,10 @@ const autosaveSchema = z.object({
 });
 const prepareSchema = z.object({ action: z.literal("prepare") }).strict();
 const sourceUsageSchema = z.enum(CREATIVE_SOURCE_USAGES);
-const attachSourceSchema = z.object({ action: z.literal("attachSource"), assetId: z.string().min(1), usage: sourceUsageSchema }).strict();
+const attachSourceSchema = z.union([
+  z.object({ action: z.literal("attachSource"), assetId: z.string().min(1), usage: sourceUsageSchema }).strict(),
+  z.object({ action: z.literal("attachSource"), templateId: z.string().min(1), usage: sourceUsageSchema }).strict(),
+]);
 const updateSourceSchema = z.object({ action: z.literal("updateSource"), sourceId: z.string().min(1), usage: sourceUsageSchema }).strict();
 const retrySourceSchema = z.object({ action: z.literal("retrySource"), sourceId: z.string().min(1) }).strict();
 const removeSourceSchema = z.object({ action: z.literal("removeSource"), sourceId: z.string().min(1) }).strict();
@@ -67,6 +74,19 @@ const patchCreativeWorkSchema = z.union([
 
 function dispatchSourceAnalysis(workspaceId: string, workItemId: string, sourceId: string) {
   return inngest.send({ name: "creative-work.source.analyze", data: { workspaceId, workItemId, sourceId } });
+}
+
+async function projectSourceDto(workspaceId: string, source: CreativeWorkSource) {
+  if (source.templateId) {
+    const template = await getTemplateById(source.templateId, workspaceId);
+    return { ...source, name: template?.name ?? "Template", origin: "template" as const };
+  }
+  const asset = source.assetId ? await getWorkspaceAssetById(source.assetId, workspaceId) : null;
+  return {
+    ...source,
+    name: asset?.name ?? "Arte",
+    origin: asset?.source === "creative_work" ? "approved_work" as const : "upload" as const,
+  };
 }
 
 /**
@@ -98,10 +118,11 @@ export async function GET(
       result.work,
       result.outputs
     );
+    const sources = await Promise.all((result.sources ?? []).map((source) => projectSourceDto(workspace.id, source)));
     return NextResponse.json({
       work: result.work,
       outputs: result.outputs,
-      sources: result.sources,
+      sources,
       canonical,
     });
   } catch (error) {
@@ -160,21 +181,25 @@ export async function PATCH(
     }
 
     if ("action" in parsed.data && parsed.data.action === "attachSource") {
-      const [aggregate, asset] = await Promise.all([
-        getCreativeWork(workspace.id, id),
-        getWorkspaceAssetById(parsed.data.assetId, workspace.id),
-      ]);
+      const aggregate = await getCreativeWork(workspace.id, id);
       if (!aggregate) return apiError("creativeWorkNotFound", 404);
       if (aggregate.work.status !== "draft") return apiError("creativeWorkNotDraft", 409);
-      if (!asset || !asset.type.startsWith("image/")) return apiError("invalidInput", 400);
+      const asset = "assetId" in parsed.data ? await getWorkspaceAssetById(parsed.data.assetId, workspace.id) : null;
+      const template = "templateId" in parsed.data ? await getTemplateById(parsed.data.templateId, workspace.id) : null;
+      if ("assetId" in parsed.data && (!asset || !asset.type.startsWith("image/"))) return apiError("invalidInput", 400);
+      if ("templateId" in parsed.data && !template) return apiError("invalidInput", 400);
       const source = await createCreativeWorkSource({
         workspaceId: workspace.id,
         workItemId: id,
-        assetId: asset.id,
+        ...(asset ? { assetId: asset.id } : { templateId: template!.id }),
         usage: parsed.data.usage,
         status: "uploaded",
       });
       if (!source) return apiError("invalidInput", 400);
+      if (source.templateId) {
+        const analyzed = await analyzeCreativeWorkSource({ workspaceId: workspace.id, workItemId: id, sourceId: source.id });
+        return NextResponse.json({ source: analyzed });
+      }
       await dispatchSourceAnalysis(workspace.id, id, source.id);
       return NextResponse.json({ source });
     }
@@ -188,7 +213,8 @@ export async function PATCH(
       if (!source) return apiError("invalidInput", 404);
 
       if (parsed.data.action === "removeSource") {
-        await deleteCreativeWorkSource(workspace.id, id, source.id);
+        const removed = await deleteCreativeWorkSource(workspace.id, id, source.id);
+        if (!removed) return apiError("invalidInput", 409);
         return NextResponse.json({ removed: true });
       }
       if (parsed.data.action === "editSourceAnalysis") {
@@ -201,10 +227,19 @@ export async function PATCH(
         await updateCreativeWorkDraft(workspace.id, id, { brief: null, copy: null, inputSnapshot: null });
         return NextResponse.json({ source: updated });
       }
-      const updated = await updateCreativeWorkSource(workspace.id, id, source.id, parsed.data.action === "updateSource"
-        ? { usage: parsed.data.usage, status: "uploaded", failureCode: null }
-        : { status: "uploaded", failureCode: null });
-      if (!updated) return apiError("invalidInput", 404);
+      if (parsed.data.action === "retrySource" && source.status !== "failed") {
+        return apiError("invalidInput", 409);
+      }
+      const updated = parsed.data.action === "updateSource"
+        ? await updateCreativeWorkSource(workspace.id, id, source.id, { usage: parsed.data.usage, status: "uploaded", failureCode: null })
+        : await updateCreativeWorkSourceIfUnchanged(
+          workspace.id,
+          id,
+          source.id,
+          { status: source.status, usage: source.usage, updatedAt: source.updatedAt },
+          { status: "uploaded", failureCode: null },
+        );
+      if (!updated) return apiError("invalidInput", 409);
       await dispatchSourceAnalysis(workspace.id, id, source.id);
       return NextResponse.json({ source: updated });
     }

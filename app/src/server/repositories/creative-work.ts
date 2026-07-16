@@ -255,10 +255,43 @@ export type CreativeWorkSourcePatch = Partial<Pick<CreativeWorkSource, "usage" |
 
 export async function updateCreativeWorkSource(workspaceId: string, workItemId: string, sourceId: string, patch: CreativeWorkSourcePatch): Promise<CreativeWorkSource | null> {
   return db.transaction(async (tx) => {
-    const [row] = await tx.update(creativeWorkSources).set({ ...patch, updatedAt: new Date() }).where(and(
+    const [row] = await tx.update(creativeWorkSources).set({
+      ...patch,
+      updatedAt: sql`greatest(${creativeWorkSources.updatedAt} + interval '1 millisecond', now())`,
+    }).where(and(
       eq(creativeWorkSources.workspaceId, workspaceId),
       eq(creativeWorkSources.workItemId, workItemId),
       eq(creativeWorkSources.id, sourceId),
+    )).returning();
+    if (!row) return null;
+    await tx.update(creativeWorkItems).set({
+      updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
+    }).where(and(
+      eq(creativeWorkItems.workspaceId, workspaceId),
+      eq(creativeWorkItems.id, workItemId),
+    )).returning();
+    return row;
+  });
+}
+
+export async function updateCreativeWorkSourceIfUnchanged(
+  workspaceId: string,
+  workItemId: string,
+  sourceId: string,
+  expected: Pick<CreativeWorkSource, "status" | "usage" | "updatedAt">,
+  patch: CreativeWorkSourcePatch,
+): Promise<CreativeWorkSource | null> {
+  return db.transaction(async (tx) => {
+    const [row] = await tx.update(creativeWorkSources).set({
+      ...patch,
+      updatedAt: sql`greatest(${creativeWorkSources.updatedAt} + interval '1 millisecond', now())`,
+    }).where(and(
+      eq(creativeWorkSources.workspaceId, workspaceId),
+      eq(creativeWorkSources.workItemId, workItemId),
+      eq(creativeWorkSources.id, sourceId),
+      eq(creativeWorkSources.status, expected.status),
+      eq(creativeWorkSources.usage, expected.usage),
+      eq(creativeWorkSources.updatedAt, expected.updatedAt),
     )).returning();
     if (!row) return null;
     await tx.update(creativeWorkItems).set({
