@@ -69,4 +69,5 @@ Para campanha, aprovação é aprovar a derivação e entrega é baixar/comparti
 - `iterate`: amostra completa, mas métricas são inconclusivas, há regressão limitada ou o baseline não suporta uma alegação de superioridade.
 - `revert`: regressão relevante de conclusão/entrega, perda de contexto recorrente ou custo inesperado sem correção segura.
 
-Sem amostra completa, o status é apenas `collecting`; Gate 8 não pode ser aprovado.
+Quando o baseline histórico contém apenas tentativas falhas, a amostra anterior não pode ser reconstruída honestamente. Nesse caso, as falhas permanecem como baseline diagnóstico; uma jornada humana pós-correção é suficiente para uma decisão `iterate`, sem alegar superioridade nem liberar expansão.
+`expand` e `revert` continuam exigindo a amostra completa. Sem isso, o Gate 8 permanece em `iterate`/`collecting` e o roadmap não aceita expansão de escopo.

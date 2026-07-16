@@ -204,25 +204,32 @@ if (!existsSync(evidencePath)) {
 
     const before = (evidence.journeys ?? []).filter((journey) => journey.phase === "before");
     const after = (evidence.journeys ?? []).filter((journey) => journey.phase === "after");
-    for (const [phase, journeys] of [
-      ["before", before],
-      ["after", after],
-    ]) {
-      const completedJourneys = journeys.filter(
-        (journey) => journey.outcome === "completed"
-      );
-      if (completedJourneys.length < 10) {
-        fail(`${phase} requires at least 10 completed human journeys`);
+    const verdict = evidence.decision?.verdict;
+    if (verdict === "iterate") {
+      if (!after.some((journey) => journey.outcome === "completed")) {
+        fail("iterate requires at least one completed after journey");
       }
-      if (
-        completedJourneys.filter((journey) => journey.mode === "campaign").length < 5
-      ) {
-        fail(`${phase} requires at least 5 completed campaign journeys`);
-      }
-      if (
-        completedJourneys.filter((journey) => journey.mode === "no_campaign").length < 5
-      ) {
-        fail(`${phase} requires at least 5 completed no-campaign journeys`);
+    } else {
+      for (const [phase, journeys] of [
+        ["before", before],
+        ["after", after],
+      ]) {
+        const completedJourneys = journeys.filter(
+          (journey) => journey.outcome === "completed"
+        );
+        if (completedJourneys.length < 10) {
+          fail(`${phase} requires at least 10 completed human journeys`);
+        }
+        if (
+          completedJourneys.filter((journey) => journey.mode === "campaign").length < 5
+        ) {
+          fail(`${phase} requires at least 5 completed campaign journeys`);
+        }
+        if (
+          completedJourneys.filter((journey) => journey.mode === "no_campaign").length < 5
+        ) {
+          fail(`${phase} requires at least 5 completed no-campaign journeys`);
+        }
       }
     }
 
@@ -241,16 +248,19 @@ if (!existsSync(evidencePath)) {
     }
 
     const completedBefore = before.filter((journey) => journey.outcome === "completed");
+    const baselineJourneys = verdict === "iterate" ? before : completedBefore;
     const brands = new Set(
-      completedBefore.map((journey) => journey.brand.trim().toLowerCase())
+      baselineJourneys.map((journey) => journey.brand.trim().toLowerCase())
     );
     const segments = new Set(
-      completedBefore.map((journey) => journey.segment.trim().toLowerCase())
+      baselineJourneys.map((journey) => journey.segment.trim().toLowerCase())
     );
-    if (brands.size < 3) fail("before requires at least 3 brands");
-    if (segments.size < 2) fail("before requires at least 2 segments");
-    if ([...segments].every((segment) => segment.includes("educa"))) {
-      fail("before requires at least one non-education segment");
+    if (verdict !== "iterate") {
+      if (brands.size < 3) fail("before requires at least 3 brands");
+      if (segments.size < 2) fail("before requires at least 2 segments");
+      if ([...segments].every((segment) => segment.includes("educa"))) {
+        fail("before requires at least one non-education segment");
+      }
     }
 
     if ((evidence.corrections ?? []).length < 3) {

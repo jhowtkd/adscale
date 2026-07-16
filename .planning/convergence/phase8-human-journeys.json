@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "status": "collecting",
+  "status": "iterate",
   "baseline": {
     "environment": "production",
     "capturedAt": "2026-07-14T23:31:09.469Z",
@@ -972,5 +972,8 @@
       ]
     }
   ],
-  "decision": null
+  "decision": {
+    "verdict": "iterate",
+    "rationale": "The frozen production baseline and 11 pre-fix human attempts expose the baseline breakpoints, but none completed, so superiority cannot be claimed. One post-fix human journey completed end to end; keep expansion frozen and address the remaining provider/runtime and UX issues before collecting a full comparative sample."
+  }
 }

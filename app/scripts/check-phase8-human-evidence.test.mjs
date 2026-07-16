@@ -97,6 +97,7 @@ test("automation cannot masquerade as a human journey", () => {
 
 test("abandoned attempts do not satisfy the completed sample", () => {
   const evidence = validEvidence();
+  evidence.decision = { verdict: "expand", rationale: "Claimed improvement" };
   evidence.journeys[0] = journey("before", 0, {
     outcome: "abandoned",
     firstOutputAt: null,
@@ -106,6 +107,20 @@ test("abandoned attempts do not satisfy the completed sample", () => {
   const result = run(evidence);
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /10 completed human journeys/);
+});
+
+test("iterate accepts a failed historical baseline with one completed after journey", () => {
+  const evidence = validEvidence();
+  evidence.journeys = [
+    ...evidence.journeys
+      .filter(({ phase }) => phase === "before")
+      .map((item) => ({ ...item, outcome: "failed", firstOutputAt: null, approvedAt: null, deliveredAt: null })),
+    journey("after", 0),
+  ];
+  evidence.decision = { verdict: "iterate", rationale: "Historical baseline has no completed sample; one post-fix journey confirms the decision remains iterative." };
+  const result = run(evidence);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /complete and valid/);
 });
 
 test("corrections cannot target unobserved breakpoint ids", () => {
