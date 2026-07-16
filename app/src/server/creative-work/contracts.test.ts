@@ -75,10 +75,37 @@ describe("creative work contracts", () => {
 
   it("keeps migration 0075 backward compatible while backfilling new columns", () => {
     const migration = readFileSync("drizzle/0075_frictionless_creative_work.sql", "utf8");
+    const updates = migration.match(/UPDATE\s+"adscale_app"\."creative_work_(?:items|outputs)"[\s\S]*?;/g) ?? [];
+    expect(updates).toHaveLength(2);
+
+    const assignedColumns = updates.flatMap((update) => {
+      const assignments = update.match(/SET\s+([\s\S]*?)(?:\nFROM|\nWHERE|;)/)?.[1] ?? "";
+      return [...assignments.matchAll(/"([a-z_]+)"\s*=/g)].map((match) => match[1]);
+    });
+    expect(assignedColumns).toEqual([
+      "title", "request", "settings",
+      "target_format", "version_number", "retry_count", "operation_key",
+    ]);
+    const protectedColumns = [
+      "id", "status", "output_key", "cost", "failure_code", "quality", "is_selected",
+    ];
+    expect(assignedColumns.filter((column) => protectedColumns.includes(column))).toEqual([]);
+
     expect(migration).toContain('"title" = "brief"->>\'theme\'');
+    expect(migration).toContain('"request" = "brief"::text');
+    expect(migration).toContain('"settings" = \'{"targetFormats":[]}\'::jsonb');
     expect(migration).toContain('"target_format" = work."format"');
+    expect(migration).toContain('"operation_key" = output."creative_level" || \':\' || work."format" || \':1\'');
     expect(migration).toContain('ALTER COLUMN "brief" DROP NOT NULL');
-    const updates = migration.match(/UPDATE[\s\S]*?;/g) ?? [];
-    expect(updates.join("\n")).not.toMatch(/SET\s+"(?:id|status|output_key|billing_key|is_selected)"/);
+    expect(migration).toContain('CREATE UNIQUE INDEX "creative_work_items_draft_key_uq"');
+    expect(migration).toContain('WHERE "draft_key" is not null');
+    expect(migration).toContain('CREATE UNIQUE INDEX "creative_work_outputs_plan_uq"');
+    expect(migration).toContain('CREATE UNIQUE INDEX "creative_work_outputs_operation_uq"');
+    expect(migration).toContain('CONSTRAINT "creative_work_outputs_parent_fk" FOREIGN KEY ("parent_output_id")');
+    expect(migration).toContain('CONSTRAINT "creative_work_items_campaign_id_campaigns_id_fk" FOREIGN KEY ("campaign_id")');
+    expect(migration).not.toContain('DROP INDEX "adscale_app"."creative_work_outputs_selected_uq"');
+    expect(migration).toContain('CONSTRAINT "creative_work_sources_origin_check" CHECK (num_nonnulls("asset_id", "template_id") = 1)');
+    expect(migration).toContain('REFERENCES "adscale_app"."workspace_assets"("id") ON DELETE CASCADE');
+    expect(migration).toContain('REFERENCES "adscale_app"."campaign_templates"("id") ON DELETE CASCADE');
   });
 });

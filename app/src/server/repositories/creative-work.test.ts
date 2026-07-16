@@ -78,11 +78,15 @@ const mocks = vi.hoisted(() => {
     where: vi.fn(() => ({ returning: txSetReturningMock })),
   }));
   const txUpdateMock = vi.fn(() => ({ set: txSetMock }));
+  const executeMock = vi.fn();
 
   const transactionMock = vi.fn(
     async (callback: (inner: unknown) => Promise<unknown>) =>
       callback({
         update: txUpdateMock,
+        select: selectMock,
+        insert: insertMock,
+        execute: executeMock,
       })
   );
 
@@ -108,8 +112,15 @@ const mocks = vi.hoisted(() => {
     txUpdateMock,
     txSetMock,
     txSetReturningMock,
+    executeMock,
   };
 });
+
+const scopeMocks = vi.hoisted(() => ({
+  getClientProfile: vi.fn(),
+  getCampaignById: vi.fn(),
+  resolveCampaignClientProfileId: vi.fn(),
+}));
 
 vi.mock("../db", () => ({
   db: {
@@ -120,6 +131,12 @@ vi.mock("../db", () => ({
     transaction: mocks.transactionMock,
   },
 }));
+
+vi.mock("./client-reference", () => ({
+  getClientProfile: scopeMocks.getClientProfile,
+  resolveCampaignClientProfileId: scopeMocks.resolveCampaignClientProfileId,
+}));
+vi.mock("./campaign", () => ({ getCampaignById: scopeMocks.getCampaignById }));
 
 import {
   confirmCreativeWorkIdentity,
@@ -212,6 +229,9 @@ describe("creative-work repository", () => {
     mocks.txSetReturningMock.mockImplementation(() =>
       Promise.resolve(mocks.state.txUpdateResults.shift() ?? [])
     );
+    scopeMocks.getClientProfile.mockResolvedValue({ id: "profile-1", workspaceId: "ws-1" });
+    scopeMocks.getCampaignById.mockResolvedValue({ id: "campaign-1", workspaceId: "ws-1", clientProfileId: "profile-1" });
+    scopeMocks.resolveCampaignClientProfileId.mockImplementation(async (_workspaceId, campaign) => campaign.clientProfileId ?? null);
   });
 
   describe("createCreativeWork", () => {
@@ -272,6 +292,40 @@ describe("creative-work repository", () => {
       expect(result.id).toBe("draft-1");
     });
 
+    it("rejects a draft when the client profile is outside the workspace", async () => {
+      scopeMocks.getClientProfile.mockResolvedValue(null);
+      const result = await createCreativeWorkDraft({
+        workspaceId: "ws-1", clientProfileId: "profile-other", createdByUserId: "user-1",
+        draftKey: "00000000-0000-4000-8000-000000000099", intent: "single", title: "Draft", request: "One ad",
+      });
+      expect(result).toBeNull();
+      expect(mocks.insertMock).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ["outside the workspace", null],
+      ["linked to another profile", { id: "campaign-1", workspaceId: "ws-1", clientProfileId: "profile-2" }],
+    ])("rejects a draft campaign %s before insert", async (_case, campaign) => {
+      scopeMocks.getCampaignById.mockResolvedValue(campaign);
+      const result = await createCreativeWorkDraft({
+        workspaceId: "ws-1", clientProfileId: "profile-1", campaignId: "campaign-1", createdByUserId: "user-1",
+        draftKey: "00000000-0000-4000-8000-000000000099", intent: "single", title: "Draft", request: "One ad",
+      });
+      expect(result).toBeNull();
+      expect(mocks.insertMock).not.toHaveBeenCalled();
+    });
+
+    it("accepts a same-workspace campaign with the draft profile", async () => {
+      const inserted = workItem({ id: "draft-campaign", campaignId: "campaign-1", brief: null });
+      mocks.state.onConflictResults.push([inserted]);
+      const result = await createCreativeWorkDraft({
+        workspaceId: "ws-1", clientProfileId: "profile-1", campaignId: "campaign-1", createdByUserId: "user-1",
+        draftKey: "00000000-0000-4000-8000-000000000099", intent: "single", title: "Draft", request: "One ad",
+      });
+      expect(result?.id).toBe("draft-campaign");
+      expect(mocks.valuesMock).toHaveBeenCalledWith(expect.objectContaining({ campaignId: "campaign-1", clientProfileId: "profile-1" }));
+    });
+
     it("rejects a source update outside the scoped work", async () => {
       mocks.state.updateResults.push([]);
       const result = await updateCreativeWorkSource("ws-2", "work-1", "source-1", { status: "ready" });
@@ -293,12 +347,23 @@ describe("creative-work repository", () => {
       expect(mocks.insertMock).not.toHaveBeenCalled();
     });
 
-    it("returns the existing revision on a repeated operation key", async () => {
+    it("creates consecutive revisions and returns the same row for a repeated operation key", async () => {
       const parent = workOutput({ id: "output-1", targetFormat: "4:5", versionNumber: 1 });
-      const revision = workOutput({ id: "output-2", parentOutputId: "output-1", targetFormat: "4:5", versionNumber: 2, operationKey: "revision-key" });
-      mocks.state.selectResults.push([parent], [revision]);
-      mocks.state.onConflictResults.push([]);
-      await expect(createCreativeWorkRevision("ws-1", "work-1", "revision-key", "output-1", "Shorter", null)).resolves.toEqual(revision);
+      const revision2 = workOutput({ id: "output-2", parentOutputId: "output-1", targetFormat: "4:5", versionNumber: 2, operationKey: "revision-key-2" });
+      const revision3 = workOutput({ id: "output-3", parentOutputId: "output-1", targetFormat: "4:5", versionNumber: 3, operationKey: "revision-key-3" });
+
+      mocks.state.selectResults.push([], [parent], [], [{ maxVersion: 1 }]);
+      mocks.state.onConflictResults.push([revision2]);
+      await expect(createCreativeWorkRevision("ws-1", "work-1", "revision-key-2", "output-1", "Shorter", null)).resolves.toEqual(revision2);
+
+      mocks.state.selectResults.push([], [parent], [], [{ maxVersion: 2 }]);
+      mocks.state.onConflictResults.push([revision3]);
+      await expect(createCreativeWorkRevision("ws-1", "work-1", "revision-key-3", "output-1", "Different", null)).resolves.toEqual(revision3);
+
+      mocks.state.selectResults.push([revision2]);
+      await expect(createCreativeWorkRevision("ws-1", "work-1", "revision-key-2", "output-1", "Ignored retry", null)).resolves.toEqual(revision2);
+      expect(mocks.valuesMock).toHaveBeenNthCalledWith(1, expect.objectContaining({ versionNumber: 2, operationKey: "revision-key-2" }));
+      expect(mocks.valuesMock).toHaveBeenNthCalledWith(2, expect.objectContaining({ versionNumber: 3, operationKey: "revision-key-3" }));
     });
 
     it("updates draft preparation fields under workspace scope", async () => {
@@ -336,7 +401,7 @@ describe("creative-work repository", () => {
     it("links only a same-workspace campaign with a compatible client profile", async () => {
       const work = workItem();
       const linked = workItem({ campaignId: "campaign-1" });
-      mocks.state.selectResults.push([work], [{ id: "campaign-1", workspaceId: "ws-1", clientProfileId: "profile-1" }]);
+      mocks.state.selectResults.push([work]);
       mocks.state.updateResults.push([linked]);
       await expect(linkCreativeWorkCampaign("ws-1", "work-1", "campaign-1")).resolves.toEqual(linked);
       expect(mocks.setMock).toHaveBeenCalledWith(expect.objectContaining({ campaignId: "campaign-1" }));
@@ -349,9 +414,8 @@ describe("creative-work repository", () => {
 
   describe("getCreativeWork", () => {
     // Deviation from brief: the brief's spec test scaffold asserted
-    // `whereMock` was called 1 time. In practice `getCreativeWork` runs two
-    // scoped queries (one for the work item, one for its outputs), so the
-    // assertion is `2`. The 2-query shape is the intended semantics.
+    // `whereMock` was called 1 time. In practice `getCreativeWork` runs three
+    // scoped queries (work item, outputs, and sources), so the assertion is `3`.
     it("loads work by workspace and id", async () => {
       const work = workItem();
       const outputs = [

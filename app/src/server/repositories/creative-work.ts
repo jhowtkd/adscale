@@ -1,10 +1,9 @@
-import { eq, and, asc, desc, inArray, lt, sql } from "drizzle-orm";
+import { eq, and, asc, desc, inArray, lt, max, sql } from "drizzle-orm";
 import { db } from "../db";
 import {
   creativeWorkItems,
   creativeWorkOutputs,
   creativeWorkSources,
-  campaigns,
   workspaceAssets,
   campaignTemplates,
   type CreativeWorkItem,
@@ -25,6 +24,8 @@ import {
   type CreativeSourceStatus,
   type CreativeSourceUsage,
 } from "../creative-work/contracts";
+import { getClientProfile, resolveCampaignClientProfileId } from "./client-reference";
+import { getCampaignById } from "./campaign";
 
 export type { CreativeWorkFormat } from "../creative-work/contracts";
 
@@ -81,7 +82,15 @@ export interface CreateCreativeWorkDraftInput {
   inputSnapshot?: CreativeWorkInputSnapshot | null;
 }
 
-export async function createCreativeWorkDraft(input: CreateCreativeWorkDraftInput): Promise<CreativeWorkItem> {
+export async function createCreativeWorkDraft(input: CreateCreativeWorkDraftInput): Promise<CreativeWorkItem | null> {
+  const profile = await getClientProfile(input.workspaceId, input.clientProfileId);
+  if (!profile) return null;
+  if (input.campaignId) {
+    const campaign = await getCampaignById(input.campaignId, input.workspaceId);
+    if (!campaign) return null;
+    const campaignProfileId = await resolveCampaignClientProfileId(input.workspaceId, campaign);
+    if (campaignProfileId && campaignProfileId !== input.clientProfileId) return null;
+  }
   const [created] = await db.insert(creativeWorkItems).values({
     workspaceId: input.workspaceId,
     clientProfileId: input.clientProfileId,
@@ -400,6 +409,13 @@ export async function createCreativeWorkRevision(
   instruction: string,
   revisionAssetId: string | null,
 ): Promise<CreativeWorkOutput | null> {
+  const [existing] = await db.select().from(creativeWorkOutputs).where(and(
+    eq(creativeWorkOutputs.workspaceId, workspaceId),
+    eq(creativeWorkOutputs.workItemId, workItemId),
+    eq(creativeWorkOutputs.operationKey, revisionKey),
+  )).limit(1);
+  if (existing) return existing;
+
   const [parent] = await db.select().from(creativeWorkOutputs).where(and(
     eq(creativeWorkOutputs.workspaceId, workspaceId),
     eq(creativeWorkOutputs.workItemId, workItemId),
@@ -413,26 +429,49 @@ export async function createCreativeWorkRevision(
     )).limit(1);
     if (!asset) return null;
   }
-  const [row] = await db.insert(creativeWorkOutputs).values({
-    workspaceId,
-    workItemId,
-    creativeLevel: parent.creativeLevel,
-    targetFormat: parent.targetFormat,
-    versionNumber: parent.versionNumber + 1,
-    parentOutputId,
-    revisionInstruction: instruction,
-    revisionAssetId,
-    operationKey: revisionKey,
-    status: "queued",
-    isSelected: false,
-  }).onConflictDoNothing().returning();
-  if (row) return row;
-  const [existing] = await db.select().from(creativeWorkOutputs).where(and(
-    eq(creativeWorkOutputs.workspaceId, workspaceId),
-    eq(creativeWorkOutputs.workItemId, workItemId),
-    eq(creativeWorkOutputs.operationKey, revisionKey),
-  )).limit(1);
-  return existing ?? null;
+  return db.transaction(async (tx) => {
+    const versionScope = `${workspaceId}:${workItemId}:${parent.creativeLevel}:${parent.targetFormat}`;
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${versionScope}))`);
+
+    const [retry] = await tx.select().from(creativeWorkOutputs).where(and(
+      eq(creativeWorkOutputs.workspaceId, workspaceId),
+      eq(creativeWorkOutputs.workItemId, workItemId),
+      eq(creativeWorkOutputs.operationKey, revisionKey),
+    )).limit(1);
+    if (retry) return retry;
+
+    const [latest] = await tx.select({ maxVersion: max(creativeWorkOutputs.versionNumber) })
+      .from(creativeWorkOutputs)
+      .where(and(
+        eq(creativeWorkOutputs.workspaceId, workspaceId),
+        eq(creativeWorkOutputs.workItemId, workItemId),
+        eq(creativeWorkOutputs.creativeLevel, parent.creativeLevel),
+        eq(creativeWorkOutputs.targetFormat, parent.targetFormat),
+      ));
+    const versionNumber = (latest?.maxVersion ?? 0) + 1;
+    const [row] = await tx.insert(creativeWorkOutputs).values({
+      workspaceId,
+      workItemId,
+      creativeLevel: parent.creativeLevel,
+      targetFormat: parent.targetFormat,
+      versionNumber,
+      parentOutputId,
+      revisionInstruction: instruction,
+      revisionAssetId,
+      operationKey: revisionKey,
+      status: "queued",
+      isSelected: false,
+    }).onConflictDoNothing().returning();
+    if (row) return row;
+
+    const [conflict] = await tx.select().from(creativeWorkOutputs).where(and(
+      eq(creativeWorkOutputs.workspaceId, workspaceId),
+      eq(creativeWorkOutputs.workItemId, workItemId),
+      eq(creativeWorkOutputs.operationKey, revisionKey),
+    )).limit(1);
+    if (!conflict) throw new Error("creative_work_revision_conflict_without_row");
+    return conflict;
+  });
 }
 
 export async function incrementCreativeWorkOutputRetry(workspaceId: string, workItemId: string, outputId: string): Promise<CreativeWorkOutput | null> {
@@ -453,11 +492,10 @@ export async function linkCreativeWorkCampaign(workspaceId: string, workItemId: 
     eq(creativeWorkItems.id, workItemId),
   )).limit(1);
   if (!work) return null;
-  const [campaign] = await db.select().from(campaigns).where(and(
-    eq(campaigns.workspaceId, workspaceId),
-    eq(campaigns.id, campaignId),
-  )).limit(1);
-  if (!campaign || (campaign.clientProfileId && campaign.clientProfileId !== work.clientProfileId)) return null;
+  const campaign = await getCampaignById(campaignId, workspaceId);
+  if (!campaign) return null;
+  const campaignProfileId = await resolveCampaignClientProfileId(workspaceId, campaign);
+  if (campaignProfileId && campaignProfileId !== work.clientProfileId) return null;
   const [row] = await db.update(creativeWorkItems).set({ campaignId, updatedAt: new Date() }).where(and(
     eq(creativeWorkItems.workspaceId, workspaceId),
     eq(creativeWorkItems.id, workItemId),
