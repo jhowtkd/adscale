@@ -29,6 +29,7 @@ function mockProfiles(profiles: ClientProfile[]) {
   mockUseClientProfiles.mockReturnValue({
     data: profiles,
     isLoading: false,
+    isSuccess: true,
   } as ReturnType<typeof useClientProfiles>);
 }
 
@@ -95,5 +96,20 @@ describe("useActiveClientProfile", () => {
     expect(result.current.activeClientProfileId).toBeNull();
     expect(result.current.activeProfile).toBeNull();
     expect(result.current.requiresSelection).toBe(true);
+  });
+
+  it("preserves the persisted profile when loading profiles fails", () => {
+    act(() => useAppStore.setState({ activeClientProfileId: "one" }));
+    mockUseClientProfiles.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isSuccess: false,
+      isError: true,
+      error: new Error("temporary failure"),
+    } as ReturnType<typeof useClientProfiles>);
+
+    renderHook(() => useActiveClientProfile());
+
+    expect(useAppStore.getState().activeClientProfileId).toBe("one");
   });
 });

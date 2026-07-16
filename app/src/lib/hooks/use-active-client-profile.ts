@@ -17,7 +17,7 @@ export type ActiveClientProfileState = {
 };
 
 export function useActiveClientProfile(): ActiveClientProfileState {
-  const { data: profiles = [], isLoading } = useClientProfiles();
+  const { data: profiles = [], isLoading, isSuccess } = useClientProfiles();
   const persistedId = useAppStore((state) => state.activeClientProfileId);
   const selectProfile = useAppStore((state) => state.setActiveClientProfileId);
   const validPersistedId = profiles.some((profile) => profile.id === persistedId)
@@ -27,9 +27,9 @@ export function useActiveClientProfile(): ActiveClientProfileState {
     profiles.length === 1 ? profiles[0].id : validPersistedId;
 
   useEffect(() => {
-    if (isLoading || persistedId === activeClientProfileId) return;
+    if (!isSuccess || persistedId === activeClientProfileId) return;
     selectProfile(activeClientProfileId);
-  }, [activeClientProfileId, isLoading, persistedId, selectProfile]);
+  }, [activeClientProfileId, isSuccess, persistedId, selectProfile]);
 
   return {
     profiles,
