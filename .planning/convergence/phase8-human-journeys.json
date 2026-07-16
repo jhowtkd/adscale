@@ -849,6 +849,48 @@
       ],
       "unexpectedCost": true,
       "observerNotes": "The first output under the controlled-provider runtime was invalidated as harness contamination and the app was restarted with the real provider. The real-provider retry still reproduced the product defect: a second output was generated before P02 approved the pilot. Exact first-output timing was not captured, so firstOutputAt remains null and this failed attempt does not count toward the completion sample."
+    },
+    {
+      "scenarioId": "N01-after-attempt-2",
+      "phase": "after",
+      "participantId": "P02",
+      "mode": "no_campaign",
+      "brand": "Phase8 Human Horizonte Educacao",
+      "segment": "educacao",
+      "entrySurface": "home_create_post",
+      "device": "desktop",
+      "outcome": "completed",
+      "observerConfirmedHuman": true,
+      "startedAt": "2026-07-16T10:20:58.000Z",
+      "firstOutputAt": "2026-07-16T10:33:30.224Z",
+      "approvedAt": "2026-07-16T10:45:31.902Z",
+      "deliveredAt": "2026-07-16T10:45:31.902Z",
+      "endedAt": "2026-07-16T10:51:42.000Z",
+      "breakpoints": [
+        {
+          "id": "create-post-results-require-interaction-to-refresh",
+          "category": "error",
+          "severity": "P1",
+          "at": "2026-07-16T10:41:18.830Z",
+          "note": "All three provider jobs completed, but the proposal grid did not visibly refresh until the participant repeatedly clicked the interface. The query stopped polling after the first partial terminal aggregate even while sibling outputs were still processing."
+        },
+        {
+          "id": "creative-levels-not-visibly-distinct",
+          "category": "doubt",
+          "severity": "P2",
+          "at": "2026-07-16T10:41:18.830Z",
+          "note": "The participant could not perceive a meaningful conservative, balanced and bold progression across the three generated proposals."
+        },
+        {
+          "id": "create-post-select-action-has-no-visible-purpose",
+          "category": "doubt",
+          "severity": "P2",
+          "at": "2026-07-16T10:45:31.902Z",
+          "note": "The standalone Select action changed the internal winner but produced no useful visible outcome or downstream step; Save to library already performs the same selection as part of delivery."
+        }
+      ],
+      "unexpectedCost": false,
+      "observerNotes": "Creative work 16e39d3c-82ae-4525-a33c-b9c8706f3c9d completed all three 1:1 outputs. P02 downloaded bold, saved conservative and balanced to the library, and exercised Select. Server evidence confirms the bold download, successful select/save requests, library navigation and asset reads. This is the first completed after-round journey."
     }
   ],
   "corrections": [
