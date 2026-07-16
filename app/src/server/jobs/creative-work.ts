@@ -134,9 +134,12 @@ export const creativeWorkOutputJob = inngest.createFunction(
         return { success: true, skipped: true, outputId, outputKey: output.outputKey };
       }
 
-      await step.run("mark-processing", async () => {
-        await markCreativeWorkOutputProcessing(workspaceId, workItemId, outputId);
-      });
+      const claimed = await step.run("mark-processing", async () =>
+        Boolean(await markCreativeWorkOutputProcessing(workspaceId, workItemId, outputId))
+      );
+      if (!claimed) {
+        return { success: true, skipped: true, outputId };
+      }
 
       const targetFormat = output.targetFormat as SocialPostFormat;
       const dimensions = getTargetDimensions(targetFormat) ?? {
@@ -324,13 +327,14 @@ export const creativeWorkOutputJob = inngest.createFunction(
         };
       }
 
-      await step.run("mark-completed", async () => {
-        await completeCreativeWorkOutput(workspaceId, workItemId, outputId, {
+      const completed = await step.run("mark-completed", async () =>
+        Boolean(await completeCreativeWorkOutput(workspaceId, workItemId, outputId, {
           outputKey: generatedOutputKey,
           cost: OUTPUT_COST,
           quality: (postGen.quality as unknown as Record<string, unknown> | null) ?? null,
-        });
-      });
+        }))
+      );
+      if (!completed) return { success: true, skipped: true, outputId };
 
       // Phase 5 / item 37: library on complete (not only on select).
       // Isolated from generation success: a library/storage failure must never

@@ -280,6 +280,27 @@ describe("creativeWorkOutputJob", () => {
     expect(refundCreditsMock).not.toHaveBeenCalled();
   });
 
+  it("lets only one duplicate delivery claim the queued output", async () => {
+    getCreativeWorkMock.mockResolvedValue({ work: workItem, outputs: [makeQueuedOutput()] });
+    markProcessingMock
+      .mockResolvedValueOnce(makeQueuedOutput({ status: "processing" }))
+      .mockResolvedValueOnce(null);
+    const first = await runJob();
+    const second = await runJob();
+    expect(first).toMatchObject({ success: true });
+    expect(second).toMatchObject({ skipped: true });
+    expect(generateAndStoreImageMock).toHaveBeenCalledOnce();
+  });
+
+  it("does not generate when a partially accepted event arrives after dispatch compensation", async () => {
+    getCreativeWorkMock.mockResolvedValue({ work: workItem, outputs: [makeQueuedOutput({ status: "failed" })] });
+    markProcessingMock.mockResolvedValue(null);
+    const result = await runJob();
+    expect(result).toMatchObject({ skipped: true });
+    expect(generateAndStoreImageMock).not.toHaveBeenCalled();
+    expect(failMock).not.toHaveBeenCalled();
+  });
+
   it("loads creative level and target format from the output row", async () => {
     getCreativeWorkMock.mockResolvedValue({ work: workItem, outputs: [makeQueuedOutput({ creativeLevel: "bold" })] });
     markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing", creativeLevel: "bold" }));
@@ -299,6 +320,17 @@ describe("creativeWorkOutputJob", () => {
     expect(result).toMatchObject({ success: false, retrying: true });
     expect(sendMock).toHaveBeenCalledWith({ name: "creative-work.generate", data: baseEvent });
     expect(failMock).not.toHaveBeenCalled();
+  });
+
+  it("does not reopen an output when completion wins the automatic-retry CAS", async () => {
+    getCreativeWorkMock.mockResolvedValue({ work: workItem, outputs: [makeQueuedOutput()] });
+    markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+    generateAndStoreImageMock.mockRejectedValue(Object.assign(new Error("provider timeout"), { retryable: true }));
+    requeueOnceMock.mockResolvedValue(null);
+    failMock.mockResolvedValue(null);
+    const result = await runJob();
+    expect(result).toMatchObject({ success: false });
+    expect(sendMock).not.toHaveBeenCalled();
   });
 
   it("never automatically retries a final low-quality rejection", async () => {

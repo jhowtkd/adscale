@@ -1,22 +1,68 @@
 import { refundCredits } from "@/server/billing/credits";
-import { quoteCreativeWork } from "@/server/creative-work/contracts";
+import { quoteCreativeWork, type CreativeWorkInputSnapshot } from "@/server/creative-work/contracts";
 import { buildIdentityOptions, createIdentitySnapshot } from "@/server/creative-work/identity";
 import { chargeForGenerationBatch } from "@/server/generation/canonical/charge";
 import { GENERATION_CREDIT_COSTS, type GenerationBatchCharge } from "@/server/generation/canonical/types";
 import { inngest } from "@/server/jobs/client";
 import {
-  confirmCreativeWorkIdentity,
+  confirmCreativeWorkSnapshotsIfUnchanged,
   createPlannedCreativeWorkOutputs,
-  failCreativeWorkOutput,
+  failQueuedCreativeWorkOutput,
+  getCreativeWorkSourceAssetDetails,
   getCreativeWork,
   refreshCreativeWorkStatus,
+  setCreativeWorkInputSnapshotIfMissing,
   setCreativeWorkStatus,
 } from "@/server/repositories/creative-work";
 import { prepareCreativeWork } from "./prepare-creative-work";
 
 export type GenerateCreativeWorkResult =
   | { ok: true; value: { work: NonNullable<Awaited<ReturnType<typeof getCreativeWork>>>["work"]; outputs: NonNullable<Awaited<ReturnType<typeof getCreativeWork>>>["outputs"]; billingKey: string; brandTrainingSuggestion: string | null } }
-  | { ok: false; error: { code: "work_not_found" | "work_not_draft" | "work_not_prepared" | "credit_blocked" | "dispatch_failed"; details?: unknown } };
+  | { ok: false; error: { code: "work_not_found" | "work_not_draft" | "work_not_prepared" | "stale_input" | "credit_blocked" | "dispatch_failed"; details?: unknown } };
+
+async function buildInputSnapshot(
+  workspaceId: string,
+  aggregate: NonNullable<Awaited<ReturnType<typeof getCreativeWork>>>,
+): Promise<CreativeWorkInputSnapshot> {
+  const readySources = aggregate.sources.filter((source) => source.status === "ready");
+  const assets = await getCreativeWorkSourceAssetDetails(workspaceId, readySources);
+  return {
+    request: aggregate.work.request,
+    settings: aggregate.work.settings,
+    sources: readySources.map((source) => ({
+      sourceId: source.id,
+      updatedAt: source.updatedAt.toISOString(),
+      assetKey: assets.get(source.id)?.assetKey ?? null,
+      mimeType: assets.get(source.id)?.mimeType ?? null,
+      usage: source.usage,
+      content: source.contentAnalysis,
+      style: source.styleAnalysis,
+    })),
+  };
+}
+
+async function refundDispatchFailedOutputs(input: {
+  workspaceId: string;
+  workItemId: string;
+  userId: string;
+}, outputs: Array<{ id: string; failureCode: string | null }>): Promise<boolean> {
+  let ok = true;
+  for (const output of outputs.filter((row) => row.failureCode === "dispatch_failed")) {
+    try {
+      await refundCredits({
+        workspaceId: input.workspaceId,
+        action: "image_derivation",
+        idempotencyKey: `creative-work:${input.workItemId}:output:${output.id}:dispatch-refund`,
+        amount: GENERATION_CREDIT_COSTS.creativeWorkOutput,
+        metadata: { creativeWorkId: input.workItemId, outputId: output.id, description: "creative_work_dispatch_refund" },
+        userId: input.userId,
+      });
+    } catch {
+      ok = false;
+    }
+  }
+  return ok;
+}
 
 export async function generateCreativeWork(input: {
   workspaceId: string;
@@ -28,6 +74,9 @@ export async function generateCreativeWork(input: {
   if (!existing) return { ok: false, error: { code: "work_not_found" } };
 
   if (existing.outputs.length > 0) {
+    if (!await refundDispatchFailedOutputs(input, existing.outputs)) {
+      return { ok: false, error: { code: "dispatch_failed" } };
+    }
     return { ok: true, value: { work: existing.work, outputs: existing.outputs, billingKey, brandTrainingSuggestion: null } };
   }
   let work = existing.work;
@@ -48,14 +97,29 @@ export async function generateCreativeWork(input: {
       clientProfileId: work.clientProfileId,
       selectedReferenceIds,
     });
-    const confirmed = await confirmCreativeWorkIdentity(input.workspaceId, input.workItemId, identitySnapshot);
-    if (!confirmed) return { ok: false, error: { code: "work_not_found" } };
+    if (!work.inputSnapshot) return { ok: false, error: { code: "work_not_prepared" } };
+    const confirmed = await confirmCreativeWorkSnapshotsIfUnchanged(
+      input.workspaceId,
+      input.workItemId,
+      work.updatedAt,
+      work.inputSnapshot,
+      identitySnapshot,
+    );
+    if (!confirmed) return { ok: false, error: { code: "stale_input" } };
     readyWork = confirmed;
     brandTrainingSuggestion = selectedReferenceIds.length === 0 ? "Treine referências visuais para aproximar futuros resultados da marca." : null;
-  } else if (work.status !== "ready" || !work.brief || !work.copy || !work.inputSnapshot || !work.identitySnapshot) {
+  } else if (work.status !== "ready" || !work.brief || !work.copy || !work.identitySnapshot) {
     return { ok: false, error: { code: "work_not_draft" } };
   } else {
-    brandTrainingSuggestion = work.identitySnapshot.assets.length === 0 ? "Treine referências visuais para aproximar futuros resultados da marca." : null;
+    const hasTrainingReferences = work.identitySnapshot.assets.length > 0;
+    if (!work.inputSnapshot) {
+      const inputSnapshot = await buildInputSnapshot(input.workspaceId, existing);
+      const persisted = await setCreativeWorkInputSnapshotIfMissing(input.workspaceId, input.workItemId, inputSnapshot);
+      if (!persisted) return { ok: false, error: { code: "stale_input" } };
+      work = persisted;
+      readyWork = persisted;
+    }
+    brandTrainingSuggestion = hasTrainingReferences ? null : "Treine referências visuais para aproximar futuros resultados da marca.";
   }
   if (!work.brief) return { ok: false, error: { code: "work_not_prepared" } };
 
@@ -88,17 +152,10 @@ export async function generateCreativeWork(input: {
   try {
     if (events.length > 0) await inngest.send(events);
   } catch {
-    await Promise.all(created.newlyCreatedIds.map((outputId) =>
-      failCreativeWorkOutput(input.workspaceId, input.workItemId, outputId, "dispatch_failed")
-    ));
-    await refundCredits({
-      workspaceId: input.workspaceId,
-      action: "image_derivation",
-      idempotencyKey: `${billingKey}:dispatch-refund`,
-      amount: quote.credits,
-      metadata: { creativeWorkId: input.workItemId, description: "creative_work_dispatch_refund" },
-      userId: input.userId,
-    });
+    const compensated = (await Promise.all(created.newlyCreatedIds.map((outputId) =>
+      failQueuedCreativeWorkOutput(input.workspaceId, input.workItemId, outputId, "dispatch_failed")
+    ))).filter((output) => output != null);
+    await refundDispatchFailedOutputs(input, compensated);
     await refreshCreativeWorkStatus(input.workspaceId, input.workItemId).catch(() => undefined);
     return { ok: false, error: { code: "dispatch_failed" } };
   }

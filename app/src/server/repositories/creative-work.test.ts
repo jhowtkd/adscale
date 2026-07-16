@@ -149,6 +149,7 @@ vi.mock("./campaign", () => ({ getCampaignById: scopeMocks.getCampaignById }));
 
 import {
   confirmCreativeWorkIdentity,
+  confirmCreativeWorkSnapshotsIfUnchanged,
   completeCreativeWorkOutput,
   createCreativeWork,
   createCreativeWorkDraft,
@@ -159,6 +160,7 @@ import {
   createCreativeWorkOutputs,
   failStaleCreativeWorkOutputs,
   failCreativeWorkOutput,
+  failQueuedCreativeWorkOutput,
   getCreativeWork,
   markCreativeWorkOutputProcessing,
   incrementCreativeWorkOutputRetry,
@@ -517,6 +519,7 @@ describe("creative-work repository", () => {
       const query = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]);
       expect(query.sql).toContain('"retry_count"');
       expect(query.params).toContain(0);
+      expect(query.params).toContain("processing");
     });
 
     it("links only a same-workspace campaign with a compatible client profile", async () => {
@@ -681,6 +684,19 @@ describe("creative-work repository", () => {
     });
   });
 
+  describe("confirmCreativeWorkSnapshotsIfUnchanged", () => {
+    it("freezes input and identity only for the prepared draft revision", async () => {
+      const expectedAt = new Date("2026-07-16T12:00:00.000Z");
+      const snapshot = { clientProfileId: "profile-1", confirmedAt: "now", assets: [], brandKit: { colors: [], fonts: [], toneOfVoice: null, prohibitedElements: null, requiredElements: null } };
+      const inputSnapshot = { request: "latest", settings: { targetFormats: [] }, sources: [] };
+      mocks.state.updateResults.push([workItem({ status: "ready", identitySnapshot: snapshot, inputSnapshot })]);
+      await confirmCreativeWorkSnapshotsIfUnchanged("ws-1", "work-1", expectedAt, inputSnapshot, snapshot);
+      expect(mocks.setMock).toHaveBeenCalledWith(expect.objectContaining({ status: "ready", inputSnapshot, identitySnapshot: snapshot }));
+      const query = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]);
+      expect(query.params).toEqual(expect.arrayContaining(["ws-1", "work-1", "draft", expectedAt.toISOString()]));
+    });
+  });
+
   describe("createCreativeWorkOutputs", () => {
     it("creates exactly one output per creative level", async () => {
       const outputs = [
@@ -729,6 +745,7 @@ describe("creative-work repository", () => {
         expect.objectContaining({ status: "processing" }),
       );
       expect(result?.status).toBe("processing");
+      expect(serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]).params).toContain("queued");
     });
   });
 
@@ -759,6 +776,7 @@ describe("creative-work repository", () => {
         }),
       );
       expect(result?.outputKey).toBe("assets/final.png");
+      expect(serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]).params).toContain("processing");
     });
   });
 
@@ -778,6 +796,15 @@ describe("creative-work repository", () => {
         expect.objectContaining({ status: "failed", failureCode: "image_timeout" }),
       );
       expect(result?.failureCode).toBe("image_timeout");
+      expect(serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]).params).toContain("processing");
+    });
+  });
+
+  describe("failQueuedCreativeWorkOutput", () => {
+    it("compensates dispatch only while the row is still queued", async () => {
+      mocks.state.updateResults.push([workOutput({ status: "failed", failureCode: "dispatch_failed" })]);
+      await failQueuedCreativeWorkOutput("ws-1", "work-1", "output-1", "dispatch_failed");
+      expect(serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]).params).toContain("queued");
     });
   });
 

@@ -1,4 +1,4 @@
-import { eq, and, asc, desc, inArray, lt, max, sql } from "drizzle-orm";
+import { eq, and, asc, desc, inArray, isNull, lt, max, sql } from "drizzle-orm";
 import { db } from "../db";
 import {
   creativeWorkItems,
@@ -443,6 +443,41 @@ export async function confirmCreativeWorkIdentity(
   return row ?? null;
 }
 
+export async function confirmCreativeWorkSnapshotsIfUnchanged(
+  workspaceId: string,
+  workItemId: string,
+  expectedUpdatedAt: Date,
+  inputSnapshot: CreativeWorkInputSnapshot,
+  identitySnapshot: CreativeWorkIdentitySnapshot,
+): Promise<CreativeWorkItem | null> {
+  const [row] = await db.update(creativeWorkItems).set({
+    inputSnapshot,
+    identitySnapshot,
+    status: "ready",
+    updatedAt: new Date(),
+  }).where(and(
+    eq(creativeWorkItems.workspaceId, workspaceId),
+    eq(creativeWorkItems.id, workItemId),
+    eq(creativeWorkItems.status, "draft"),
+    eq(creativeWorkItems.updatedAt, expectedUpdatedAt),
+  )).returning();
+  return row ?? null;
+}
+
+export async function setCreativeWorkInputSnapshotIfMissing(
+  workspaceId: string,
+  workItemId: string,
+  inputSnapshot: CreativeWorkInputSnapshot,
+): Promise<CreativeWorkItem | null> {
+  const [row] = await db.update(creativeWorkItems).set({ inputSnapshot, updatedAt: new Date() }).where(and(
+    eq(creativeWorkItems.workspaceId, workspaceId),
+    eq(creativeWorkItems.id, workItemId),
+    eq(creativeWorkItems.status, "ready"),
+    isNull(creativeWorkItems.inputSnapshot),
+  )).returning();
+  return row ?? null;
+}
+
 /**
  * Idempotent triplet creation: inserts one output per creative level using
  * `onConflictDoNothing`, then queries the resulting rows so repeated calls
@@ -610,6 +645,7 @@ export async function requeueCreativeWorkOutputOnce(workspaceId: string, workIte
     eq(creativeWorkOutputs.workspaceId, workspaceId),
     eq(creativeWorkOutputs.workItemId, workItemId),
     eq(creativeWorkOutputs.id, outputId),
+    eq(creativeWorkOutputs.status, "processing"),
     eq(creativeWorkOutputs.retryCount, 0),
   )).returning();
   return row ?? null;
@@ -644,7 +680,8 @@ export async function markCreativeWorkOutputProcessing(
       and(
         eq(creativeWorkOutputs.workspaceId, workspaceId),
         eq(creativeWorkOutputs.workItemId, workItemId),
-        eq(creativeWorkOutputs.id, outputId)
+        eq(creativeWorkOutputs.id, outputId),
+        eq(creativeWorkOutputs.status, "queued")
       )
     )
     .returning();
@@ -671,7 +708,8 @@ export async function completeCreativeWorkOutput(
       and(
         eq(creativeWorkOutputs.workspaceId, workspaceId),
         eq(creativeWorkOutputs.workItemId, workItemId),
-        eq(creativeWorkOutputs.id, outputId)
+        eq(creativeWorkOutputs.id, outputId),
+        eq(creativeWorkOutputs.status, "processing")
       )
     )
     .returning();
@@ -695,10 +733,30 @@ export async function failCreativeWorkOutput(
       and(
         eq(creativeWorkOutputs.workspaceId, workspaceId),
         eq(creativeWorkOutputs.workItemId, workItemId),
-        eq(creativeWorkOutputs.id, outputId)
+        eq(creativeWorkOutputs.id, outputId),
+        eq(creativeWorkOutputs.status, "processing")
       )
     )
     .returning();
+  return row ?? null;
+}
+
+export async function failQueuedCreativeWorkOutput(
+  workspaceId: string,
+  workItemId: string,
+  outputId: string,
+  failureCode: string,
+): Promise<CreativeWorkOutput | null> {
+  const [row] = await db.update(creativeWorkOutputs).set({
+    status: "failed",
+    failureCode,
+    updatedAt: new Date(),
+  }).where(and(
+    eq(creativeWorkOutputs.workspaceId, workspaceId),
+    eq(creativeWorkOutputs.workItemId, workItemId),
+    eq(creativeWorkOutputs.id, outputId),
+    eq(creativeWorkOutputs.status, "queued"),
+  )).returning();
   return row ?? null;
 }
 
