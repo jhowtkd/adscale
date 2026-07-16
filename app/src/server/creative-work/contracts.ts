@@ -4,9 +4,35 @@ import type {
   BrandTrainingCategory,
   BrandTrainingUsageMode,
 } from "@/server/brand-training/contracts";
+import type { ContentBrief, StyleBrief } from "@/server/ai/image-analysis";
 
 export const CREATIVE_LEVELS = ["conservative", "balanced", "bold"] as const;
+export const CREATIVE_WORK_INTENTS = [
+  "social_post",
+  "variations",
+  "single",
+  "format_adaptation",
+  "restyle",
+] as const;
+export const CREATIVE_SOURCE_USAGES = ["content", "style", "both"] as const;
+export const CREATIVE_SOURCE_STATUSES = ["uploaded", "analyzing", "ready", "failed"] as const;
 export type CreativeLevel = (typeof CREATIVE_LEVELS)[number];
+export type CreativeWorkIntent = (typeof CREATIVE_WORK_INTENTS)[number];
+export type CreativeSourceUsage = (typeof CREATIVE_SOURCE_USAGES)[number];
+export type CreativeSourceStatus = (typeof CREATIVE_SOURCE_STATUSES)[number];
+export type CreativeWorkFormat = "1:1" | "4:5" | "9:16";
+export type CreativeWorkSettings = { targetFormats: CreativeWorkFormat[] };
+export type CreativeWorkInputSnapshot = {
+  request: string;
+  sources: Array<{
+    sourceId: string;
+    assetKey: string | null;
+    mimeType: string | null;
+    usage: CreativeSourceUsage;
+    content: ContentBrief | null;
+    style: StyleBrief | null;
+  }>;
+};
 export type CreativeWorkStatus = "draft" | "ready" | "generating" | "partial" | "completed" | "failed";
 export type CreativeWorkOutputStatus = "queued" | "processing" | "completed" | "failed";
 
@@ -25,6 +51,19 @@ export const socialPostCopySchema = z.object({
 
 export type SocialPostBrief = z.infer<typeof socialPostBriefSchema>;
 export type SocialPostCopy = z.infer<typeof socialPostCopySchema>;
+
+export function quoteCreativeWork(input: {
+  intent: CreativeWorkIntent;
+  format: CreativeWorkFormat;
+  targetFormats: readonly CreativeWorkFormat[];
+}): { unitCount: number; credits: number } {
+  const unitCount = input.intent === "format_adaptation"
+    ? input.targetFormats.length
+    : input.intent === "variations" || input.intent === "social_post"
+      ? CREATIVE_LEVELS.length
+      : 1;
+  return { unitCount, credits: unitCount * 5 };
+}
 
 export interface CreativeWorkIdentityAssetSnapshot {
   referenceId: string;

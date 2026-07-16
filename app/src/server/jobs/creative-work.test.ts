@@ -272,6 +272,18 @@ describe("creativeWorkOutputJob", () => {
     expect(refundCreditsMock).not.toHaveBeenCalled();
   });
 
+  it("skips safely when the draft brief is absent", async () => {
+    getCreativeWorkMock.mockResolvedValue({
+      work: { ...workItem, brief: null },
+      outputs: [makeQueuedOutput()],
+      sources: [],
+    });
+
+    await expect(runJob()).resolves.toMatchObject({ success: false, skipped: true });
+    expect(markProcessingMock).not.toHaveBeenCalled();
+    expect(generateAndStoreImageMock).not.toHaveBeenCalled();
+  });
+
   it("does not return the generated image buffer from an Inngest step", async () => {
     getCreativeWorkMock.mockResolvedValue({
       work: workItem,

@@ -1,10 +1,15 @@
-import { eq, and, asc, desc, inArray, lt } from "drizzle-orm";
+import { eq, and, asc, desc, inArray, lt, sql } from "drizzle-orm";
 import { db } from "../db";
 import {
   creativeWorkItems,
   creativeWorkOutputs,
+  creativeWorkSources,
+  campaigns,
+  workspaceAssets,
+  campaignTemplates,
   type CreativeWorkItem,
   type CreativeWorkOutput,
+  type CreativeWorkSource,
 } from "../db/schema";
 import {
   CREATIVE_LEVELS,
@@ -13,10 +18,17 @@ import {
   type CreativeWorkIdentitySnapshot,
   type SocialPostBrief,
   type SocialPostCopy,
+  type CreativeWorkFormat,
+  type CreativeWorkIntent,
+  type CreativeWorkSettings,
+  type CreativeWorkInputSnapshot,
+  type CreativeSourceStatus,
+  type CreativeSourceUsage,
 } from "../creative-work/contracts";
 
-export type CreativeWorkFormat = "1:1" | "4:5" | "9:16";
-export type CreativeWorkToolKind = "social_post";
+export type { CreativeWorkFormat } from "../creative-work/contracts";
+
+export type CreativeWorkToolKind = CreativeWorkIntent;
 
 export interface CreateCreativeWorkInput {
   workspaceId: string;
@@ -46,15 +58,77 @@ export async function createCreativeWork(
       brief: input.brief,
       format: input.format,
       status: "draft",
+      title: input.brief.theme,
+      request: JSON.stringify(input.brief),
+      settings: { targetFormats: [] },
     })
     .returning();
   return row;
 }
 
+export interface CreateCreativeWorkDraftInput {
+  workspaceId: string;
+  clientProfileId: string;
+  createdByUserId: string;
+  draftKey: string;
+  intent: CreativeWorkIntent;
+  title: string;
+  request: string;
+  format?: CreativeWorkFormat;
+  settings?: CreativeWorkSettings;
+  brief?: SocialPostBrief | null;
+  campaignId?: string | null;
+  inputSnapshot?: CreativeWorkInputSnapshot | null;
+}
+
+export async function createCreativeWorkDraft(input: CreateCreativeWorkDraftInput): Promise<CreativeWorkItem> {
+  const [created] = await db.insert(creativeWorkItems).values({
+    workspaceId: input.workspaceId,
+    clientProfileId: input.clientProfileId,
+    createdByUserId: input.createdByUserId,
+    draftKey: input.draftKey,
+    toolKind: input.intent,
+    title: input.title,
+    request: input.request,
+    format: input.format ?? "4:5",
+    settings: input.settings ?? { targetFormats: [] },
+    brief: input.brief ?? null,
+    campaignId: input.campaignId ?? null,
+    inputSnapshot: input.inputSnapshot ?? null,
+    status: "draft",
+  }).onConflictDoNothing().returning();
+  if (created) return created;
+
+  const [existing] = await db.select().from(creativeWorkItems).where(and(
+    eq(creativeWorkItems.workspaceId, input.workspaceId),
+    eq(creativeWorkItems.createdByUserId, input.createdByUserId),
+    eq(creativeWorkItems.draftKey, input.draftKey),
+  )).limit(1);
+  if (!existing) throw new Error("creative_work_draft_conflict_without_row");
+  return existing;
+}
+
+export type CreativeWorkDraftPatch = Partial<{
+  title: string;
+  request: string;
+  format: CreativeWorkFormat;
+  settings: CreativeWorkSettings;
+  inputSnapshot: CreativeWorkInputSnapshot | null;
+  brief: SocialPostBrief | null;
+}>;
+
+export async function updateCreativeWorkDraft(workspaceId: string, workItemId: string, patch: CreativeWorkDraftPatch): Promise<CreativeWorkItem | null> {
+  const [row] = await db.update(creativeWorkItems).set({ ...patch, updatedAt: new Date() }).where(and(
+    eq(creativeWorkItems.workspaceId, workspaceId),
+    eq(creativeWorkItems.id, workItemId),
+  )).returning();
+  return row ?? null;
+}
+
 export async function getCreativeWork(
   workspaceId: string,
   workItemId: string
-): Promise<{ work: CreativeWorkItem; outputs: CreativeWorkOutput[] } | null> {
+): Promise<{ work: CreativeWorkItem; outputs: CreativeWorkOutput[]; sources: CreativeWorkSource[] } | null> {
   const workRows = await db
     .select()
     .from(creativeWorkItems)
@@ -80,9 +154,64 @@ export async function getCreativeWork(
         eq(creativeWorkOutputs.workItemId, workItemId)
       )
     )
-    .orderBy(asc(creativeWorkOutputs.creativeLevel));
+    .orderBy(asc(creativeWorkOutputs.targetFormat), asc(creativeWorkOutputs.creativeLevel), asc(creativeWorkOutputs.versionNumber));
 
-  return { work: workRows[0], outputs };
+  const sources = await db.select().from(creativeWorkSources).where(and(
+    eq(creativeWorkSources.workspaceId, workspaceId),
+    eq(creativeWorkSources.workItemId, workItemId),
+  )).orderBy(asc(creativeWorkSources.createdAt));
+
+  return { work: workRows[0], outputs, sources };
+}
+
+export interface CreateCreativeWorkSourceInput {
+  workspaceId: string;
+  workItemId: string;
+  assetId?: string | null;
+  templateId?: string | null;
+  usage: CreativeSourceUsage;
+  status: CreativeSourceStatus;
+  contentAnalysis?: CreativeWorkSource["contentAnalysis"];
+  styleAnalysis?: CreativeWorkSource["styleAnalysis"];
+  failureCode?: string | null;
+}
+
+export async function createCreativeWorkSource(input: CreateCreativeWorkSourceInput): Promise<CreativeWorkSource | null> {
+  if (Boolean(input.assetId) === Boolean(input.templateId)) return null;
+  const [work] = await db.select({ id: creativeWorkItems.id }).from(creativeWorkItems).where(and(
+    eq(creativeWorkItems.workspaceId, input.workspaceId),
+    eq(creativeWorkItems.id, input.workItemId),
+  )).limit(1);
+  if (!work) return null;
+  const originTable = input.assetId ? workspaceAssets : campaignTemplates;
+  const originId = input.assetId ?? input.templateId!;
+  const [origin] = await db.select({ id: originTable.id }).from(originTable).where(and(
+    eq(originTable.workspaceId, input.workspaceId),
+    eq(originTable.id, originId),
+  )).limit(1);
+  if (!origin) return null;
+  const [row] = await db.insert(creativeWorkSources).values(input).returning();
+  return row ?? null;
+}
+
+export type CreativeWorkSourcePatch = Partial<Pick<CreativeWorkSource, "usage" | "status" | "contentAnalysis" | "styleAnalysis" | "failureCode">>;
+
+export async function updateCreativeWorkSource(workspaceId: string, workItemId: string, sourceId: string, patch: CreativeWorkSourcePatch): Promise<CreativeWorkSource | null> {
+  const [row] = await db.update(creativeWorkSources).set({ ...patch, updatedAt: new Date() }).where(and(
+    eq(creativeWorkSources.workspaceId, workspaceId),
+    eq(creativeWorkSources.workItemId, workItemId),
+    eq(creativeWorkSources.id, sourceId),
+  )).returning();
+  return row ?? null;
+}
+
+export async function deleteCreativeWorkSource(workspaceId: string, workItemId: string, sourceId: string): Promise<CreativeWorkSource | null> {
+  const [row] = await db.delete(creativeWorkSources).where(and(
+    eq(creativeWorkSources.workspaceId, workspaceId),
+    eq(creativeWorkSources.workItemId, workItemId),
+    eq(creativeWorkSources.id, sourceId),
+  )).returning();
+  return row ?? null;
 }
 
 /** Workspace-scoped list for canonical queries (Phase 2). No cross-tenant leak. */
@@ -196,13 +325,17 @@ export async function confirmCreativeWorkIdentity(
  */
 export async function createCreativeWorkOutputs(
   workspaceId: string,
-  workItemId: string
+  workItemId: string,
+  targetFormat: CreativeWorkFormat = "4:5",
 ): Promise<CreativeWorkOutput[]> {
   const now = new Date();
   const seedRows = CREATIVE_LEVELS.map((creativeLevel) => ({
     workspaceId,
     workItemId,
     creativeLevel,
+    targetFormat,
+    versionNumber: 1,
+    operationKey: `${creativeLevel}:${targetFormat}:1`,
     status: "queued" as const,
     isSelected: false,
     createdAt: now,
@@ -226,6 +359,110 @@ export async function createCreativeWorkOutputs(
     .orderBy(asc(creativeWorkOutputs.creativeLevel));
 
   return rows;
+}
+
+export type CreativeWorkOutputPlan = {
+  creativeLevel: (typeof CREATIVE_LEVELS)[number];
+  targetFormat: CreativeWorkFormat;
+};
+
+export async function createPlannedCreativeWorkOutputs(workspaceId: string, workItemId: string, plans: CreativeWorkOutputPlan[]): Promise<CreativeWorkOutput[]> {
+  if (plans.length === 0) return [];
+  const [work] = await db.select({ id: creativeWorkItems.id }).from(creativeWorkItems).where(and(
+    eq(creativeWorkItems.workspaceId, workspaceId),
+    eq(creativeWorkItems.id, workItemId),
+  )).limit(1);
+  if (!work) return [];
+  const now = new Date();
+  await db.insert(creativeWorkOutputs).values(plans.map((plan) => ({
+    workspaceId,
+    workItemId,
+    creativeLevel: plan.creativeLevel,
+    targetFormat: plan.targetFormat,
+    versionNumber: 1,
+    operationKey: `${plan.creativeLevel}:${plan.targetFormat}:1`,
+    status: "queued" as const,
+    isSelected: false,
+    createdAt: now,
+    updatedAt: now,
+  }))).onConflictDoNothing();
+  return db.select().from(creativeWorkOutputs).where(and(
+    eq(creativeWorkOutputs.workspaceId, workspaceId),
+    eq(creativeWorkOutputs.workItemId, workItemId),
+  )).orderBy(asc(creativeWorkOutputs.targetFormat), asc(creativeWorkOutputs.creativeLevel), asc(creativeWorkOutputs.versionNumber));
+}
+
+export async function createCreativeWorkRevision(
+  workspaceId: string,
+  workItemId: string,
+  revisionKey: string,
+  parentOutputId: string,
+  instruction: string,
+  revisionAssetId: string | null,
+): Promise<CreativeWorkOutput | null> {
+  const [parent] = await db.select().from(creativeWorkOutputs).where(and(
+    eq(creativeWorkOutputs.workspaceId, workspaceId),
+    eq(creativeWorkOutputs.workItemId, workItemId),
+    eq(creativeWorkOutputs.id, parentOutputId),
+  )).limit(1);
+  if (!parent) return null;
+  if (revisionAssetId) {
+    const [asset] = await db.select({ id: workspaceAssets.id }).from(workspaceAssets).where(and(
+      eq(workspaceAssets.workspaceId, workspaceId),
+      eq(workspaceAssets.id, revisionAssetId),
+    )).limit(1);
+    if (!asset) return null;
+  }
+  const [row] = await db.insert(creativeWorkOutputs).values({
+    workspaceId,
+    workItemId,
+    creativeLevel: parent.creativeLevel,
+    targetFormat: parent.targetFormat,
+    versionNumber: parent.versionNumber + 1,
+    parentOutputId,
+    revisionInstruction: instruction,
+    revisionAssetId,
+    operationKey: revisionKey,
+    status: "queued",
+    isSelected: false,
+  }).onConflictDoNothing().returning();
+  if (row) return row;
+  const [existing] = await db.select().from(creativeWorkOutputs).where(and(
+    eq(creativeWorkOutputs.workspaceId, workspaceId),
+    eq(creativeWorkOutputs.workItemId, workItemId),
+    eq(creativeWorkOutputs.operationKey, revisionKey),
+  )).limit(1);
+  return existing ?? null;
+}
+
+export async function incrementCreativeWorkOutputRetry(workspaceId: string, workItemId: string, outputId: string): Promise<CreativeWorkOutput | null> {
+  const [row] = await db.update(creativeWorkOutputs).set({
+    retryCount: sql`${creativeWorkOutputs.retryCount} + 1`,
+    updatedAt: new Date(),
+  }).where(and(
+    eq(creativeWorkOutputs.workspaceId, workspaceId),
+    eq(creativeWorkOutputs.workItemId, workItemId),
+    eq(creativeWorkOutputs.id, outputId),
+  )).returning();
+  return row ?? null;
+}
+
+export async function linkCreativeWorkCampaign(workspaceId: string, workItemId: string, campaignId: string): Promise<CreativeWorkItem | null> {
+  const [work] = await db.select().from(creativeWorkItems).where(and(
+    eq(creativeWorkItems.workspaceId, workspaceId),
+    eq(creativeWorkItems.id, workItemId),
+  )).limit(1);
+  if (!work) return null;
+  const [campaign] = await db.select().from(campaigns).where(and(
+    eq(campaigns.workspaceId, workspaceId),
+    eq(campaigns.id, campaignId),
+  )).limit(1);
+  if (!campaign || (campaign.clientProfileId && campaign.clientProfileId !== work.clientProfileId)) return null;
+  const [row] = await db.update(creativeWorkItems).set({ campaignId, updatedAt: new Date() }).where(and(
+    eq(creativeWorkItems.workspaceId, workspaceId),
+    eq(creativeWorkItems.id, workItemId),
+  )).returning();
+  return row ?? null;
 }
 
 export async function markCreativeWorkOutputProcessing(

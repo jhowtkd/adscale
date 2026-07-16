@@ -103,6 +103,7 @@ export const creativeWorkOutputJob = inngest.createFunction(
       if (
         !scopeRaw ||
         !scopeRaw.output ||
+        !scopeRaw.work.brief ||
         !scopeRaw.work.identitySnapshot ||
         !scopeRaw.work.copy
       ) {
@@ -113,6 +114,8 @@ export const creativeWorkOutputJob = inngest.createFunction(
       }
 
       const work = scopeRaw.work;
+      const brief = work.brief;
+      if (!brief) return { success: false, skipped: true, outputId };
       const output = scopeRaw.output;
       const identitySnapshot = work.identitySnapshot as CreativeWorkIdentitySnapshot;
       const copy = work.copy as SocialPostCopy;
@@ -189,7 +192,7 @@ export const creativeWorkOutputJob = inngest.createFunction(
         surface: "quick_tool",
         intent: {
           mode: "social_post",
-          objective: work.brief.objective ?? null,
+          objective: brief.objective ?? null,
         },
         identity: {
           clientProfileId: work.clientProfileId,
@@ -271,12 +274,12 @@ export const creativeWorkOutputJob = inngest.createFunction(
             mimeType: "image/png",
             // R5 mapping: brief fields → AnalyzeInput.campaign
             campaign: {
-              name: work.brief.theme,
+              name: brief.theme,
               client: clientProfile?.name ?? "",
-              product: work.brief.theme,
-              offer: work.brief.offer,
-              objective: work.brief.objective,
-              audience: work.brief.audience,
+              product: brief.theme,
+              offer: brief.offer,
+              objective: brief.objective,
+              audience: brief.audience,
             },
             // R5 mapping: copy + format → AnalyzeInput.derivation
             derivation: {
@@ -329,7 +332,7 @@ export const creativeWorkOutputJob = inngest.createFunction(
           await ensureCreativeWorkOutputInLibrary({
             workspaceId,
             outputKey: generatedOutputKey,
-            theme: work.brief.theme,
+            theme: brief.theme,
             creativeLevel,
           });
         });

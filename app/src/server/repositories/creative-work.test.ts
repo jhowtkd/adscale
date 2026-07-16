@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => {
     selectResults: [] as unknown[][],
     insertResults: [] as unknown[][],
     updateResults: [] as unknown[][],
+    deleteResults: [] as unknown[][],
     onConflictResults: [] as unknown[][],
     txUpdateResults: [] as unknown[][],
   };
@@ -14,6 +15,7 @@ const mocks = vi.hoisted(() => {
     state.selectResults.length = 0;
     state.insertResults.length = 0;
     state.updateResults.length = 0;
+    state.deleteResults.length = 0;
     state.onConflictResults.length = 0;
     state.txUpdateResults.length = 0;
   };
@@ -66,6 +68,10 @@ const mocks = vi.hoisted(() => {
     where: vi.fn(() => ({ returning: setReturningMock })),
   }));
   const updateMock = vi.fn(() => ({ set: setMock }));
+  const deleteReturningMock = vi.fn();
+  const deleteMock = vi.fn(() => ({
+    where: vi.fn(() => ({ returning: deleteReturningMock })),
+  }));
 
   const txSetReturningMock = vi.fn();
   const txSetMock = vi.fn(() => ({
@@ -95,6 +101,8 @@ const mocks = vi.hoisted(() => {
     onConflictReturningMock,
     setMock,
     updateMock,
+    deleteMock,
+    deleteReturningMock,
     setReturningMock,
     transactionMock,
     txUpdateMock,
@@ -108,6 +116,7 @@ vi.mock("../db", () => ({
     select: mocks.selectMock,
     insert: mocks.insertMock,
     update: mocks.updateMock,
+    delete: mocks.deleteMock,
     transaction: mocks.transactionMock,
   },
 }));
@@ -116,16 +125,25 @@ import {
   confirmCreativeWorkIdentity,
   completeCreativeWorkOutput,
   createCreativeWork,
+  createCreativeWorkDraft,
+  createCreativeWorkSource,
+  createPlannedCreativeWorkOutputs,
+  createCreativeWorkRevision,
+  deleteCreativeWorkSource,
   createCreativeWorkOutputs,
   failStaleCreativeWorkOutputs,
   failCreativeWorkOutput,
   getCreativeWork,
   markCreativeWorkOutputProcessing,
+  incrementCreativeWorkOutputRetry,
+  linkCreativeWorkCampaign,
   refreshCreativeWorkStatus,
   selectCreativeWorkOutput,
   setCreativeWorkBrief,
   setCreativeWorkCopy,
   setCreativeWorkStatus,
+  updateCreativeWorkSource,
+  updateCreativeWorkDraft,
 } from "./creative-work";
 import type {
   SocialPostBrief,
@@ -187,6 +205,7 @@ describe("creative-work repository", () => {
     mocks.resetState();
     mocks.returningMock.mockImplementation(() => Promise.resolve(mocks.state.insertResults.shift() ?? []));
     mocks.setReturningMock.mockImplementation(() => Promise.resolve(mocks.state.updateResults.shift() ?? []));
+    mocks.deleteReturningMock.mockImplementation(() => Promise.resolve(mocks.state.deleteResults.shift() ?? []));
     mocks.onConflictReturningMock.mockImplementation(() =>
       Promise.resolve(mocks.state.onConflictResults.shift() ?? [])
     );
@@ -226,6 +245,108 @@ describe("creative-work repository", () => {
     });
   });
 
+  describe("drafts, sources, and versions", () => {
+    it("creates an idempotent draft with the preparation fields", async () => {
+      const inserted = workItem({ id: "draft-1", brief: null });
+      mocks.state.onConflictResults.push([inserted]);
+
+      const result = await createCreativeWorkDraft({
+        workspaceId: "ws-1",
+        clientProfileId: "profile-1",
+        createdByUserId: "user-1",
+        draftKey: "00000000-0000-4000-8000-000000000099",
+        intent: "single",
+        title: "Draft title",
+        request: "Make one ad",
+      });
+
+      expect(mocks.valuesMock).toHaveBeenCalledWith(expect.objectContaining({
+        draftKey: "00000000-0000-4000-8000-000000000099",
+        toolKind: "single",
+        title: "Draft title",
+        request: "Make one ad",
+        format: "4:5",
+        settings: { targetFormats: [] },
+        brief: null,
+      }));
+      expect(result.id).toBe("draft-1");
+    });
+
+    it("rejects a source update outside the scoped work", async () => {
+      mocks.state.updateResults.push([]);
+      const result = await updateCreativeWorkSource("ws-2", "work-1", "source-1", { status: "ready" });
+      expect(result).toBeNull();
+      expect(mocks.setMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("rejects a revision when its parent is outside the scoped work", async () => {
+      mocks.state.selectResults.push([]);
+      const result = await createCreativeWorkRevision(
+        "ws-2",
+        "work-1",
+        "00000000-0000-4000-8000-000000000100",
+        "output-1",
+        "Use a shorter headline",
+        null,
+      );
+      expect(result).toBeNull();
+      expect(mocks.insertMock).not.toHaveBeenCalled();
+    });
+
+    it("returns the existing revision on a repeated operation key", async () => {
+      const parent = workOutput({ id: "output-1", targetFormat: "4:5", versionNumber: 1 });
+      const revision = workOutput({ id: "output-2", parentOutputId: "output-1", targetFormat: "4:5", versionNumber: 2, operationKey: "revision-key" });
+      mocks.state.selectResults.push([parent], [revision]);
+      mocks.state.onConflictResults.push([]);
+      await expect(createCreativeWorkRevision("ws-1", "work-1", "revision-key", "output-1", "Shorter", null)).resolves.toEqual(revision);
+    });
+
+    it("updates draft preparation fields under workspace scope", async () => {
+      const updated = workItem({ id: "work-1" });
+      mocks.state.updateResults.push([updated]);
+      await expect(updateCreativeWorkDraft("ws-1", "work-1", { title: "New title" })).resolves.toEqual(updated);
+      expect(mocks.setMock).toHaveBeenCalledWith(expect.objectContaining({ title: "New title" }));
+    });
+
+    it("creates a source with exactly one origin delegated to the DB constraint", async () => {
+      const source = { id: "source-1", workspaceId: "ws-1", workItemId: "work-1", assetId: "asset-1", templateId: null };
+      mocks.state.selectResults.push([{ id: "work-1" }], [{ id: "asset-1" }]);
+      mocks.state.insertResults.push([source]);
+      await expect(createCreativeWorkSource({
+        workspaceId: "ws-1", workItemId: "work-1", assetId: "asset-1", usage: "both", status: "uploaded",
+      })).resolves.toEqual(source);
+      expect(mocks.valuesMock).toHaveBeenCalledWith(expect.objectContaining({ assetId: "asset-1", usage: "both" }));
+    });
+
+    it("creates deterministic initial output plans", async () => {
+      const planned = workOutput({ targetFormat: "1:1", versionNumber: 1, operationKey: "bold:1:1:1" });
+      mocks.state.selectResults.push([{ id: "work-1" }], [planned]);
+      const result = await createPlannedCreativeWorkOutputs("ws-1", "work-1", [{ creativeLevel: "bold", targetFormat: "1:1" }]);
+      expect(mocks.valuesMock).toHaveBeenCalledWith([expect.objectContaining({ operationKey: "bold:1:1:1", versionNumber: 1 })]);
+      expect(result).toEqual([planned]);
+    });
+
+    it("increments retries only on a scoped output", async () => {
+      const retried = workOutput({ retryCount: 1 });
+      mocks.state.updateResults.push([retried]);
+      await expect(incrementCreativeWorkOutputRetry("ws-1", "work-1", "output-1")).resolves.toEqual(retried);
+      expect(mocks.setMock).toHaveBeenCalledWith(expect.objectContaining({ retryCount: expect.anything() }));
+    });
+
+    it("links only a same-workspace campaign with a compatible client profile", async () => {
+      const work = workItem();
+      const linked = workItem({ campaignId: "campaign-1" });
+      mocks.state.selectResults.push([work], [{ id: "campaign-1", workspaceId: "ws-1", clientProfileId: "profile-1" }]);
+      mocks.state.updateResults.push([linked]);
+      await expect(linkCreativeWorkCampaign("ws-1", "work-1", "campaign-1")).resolves.toEqual(linked);
+      expect(mocks.setMock).toHaveBeenCalledWith(expect.objectContaining({ campaignId: "campaign-1" }));
+    });
+
+    it("returns null when deleting a source outside the scoped work", async () => {
+      await expect(deleteCreativeWorkSource("ws-2", "work-1", "source-1")).resolves.toBeNull();
+    });
+  });
+
   describe("getCreativeWork", () => {
     // Deviation from brief: the brief's spec test scaffold asserted
     // `whereMock` was called 1 time. In practice `getCreativeWork` runs two
@@ -241,14 +362,15 @@ describe("creative-work repository", () => {
 
       mocks.state.selectResults.push([work]);
       mocks.state.selectResults.push(outputs);
+      mocks.state.selectResults.push([]);
 
       const result = await getCreativeWork("ws-1", "work-1");
 
       expect(result).not.toBeNull();
       expect(result?.work.id).toBe("work-1");
       expect(result?.outputs).toHaveLength(3);
-      expect(mocks.selectMock).toHaveBeenCalledTimes(2);
-      expect(mocks.whereMock).toHaveBeenCalledTimes(2);
+      expect(mocks.selectMock).toHaveBeenCalledTimes(3);
+      expect(mocks.whereMock).toHaveBeenCalledTimes(3);
     });
 
     it("returns null when the work item is not in scope", async () => {

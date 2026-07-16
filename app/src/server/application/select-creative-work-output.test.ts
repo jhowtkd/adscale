@@ -102,6 +102,13 @@ describe("selectCreativeWorkOutputCommand", () => {
     expect(mockSelect).not.toHaveBeenCalled();
   });
 
+  it("rejects an unprepared work before selecting", async () => {
+    mockGet.mockResolvedValue({ work: { ...workItem, brief: null }, outputs: [completedOutput], sources: [] } as never);
+    const result = await selectCreativeWorkOutputCommand({ workspaceId: "ws-1", workItemId: "work-1", outputId: "output-1" });
+    expect(result).toEqual({ ok: false, error: { code: "work_not_prepared" } });
+    expect(mockSelect).not.toHaveBeenCalled();
+  });
+
   it("rejects missing output", async () => {
     mockGet.mockResolvedValue({ work: workItem, outputs: [] } as never);
     const result = await selectCreativeWorkOutputCommand({

@@ -35,6 +35,10 @@ export async function POST(
       return apiError("creativeWorkNotFound", 404);
     }
 
+    if (!existing.work.brief) {
+      return apiError("work_not_prepared", 409);
+    }
+
     if (existing.work.status !== "ready" || !existing.work.identitySnapshot) {
       return apiError("creativeWorkNotReady", 409, {
         status: existing.work.status,
@@ -67,7 +71,7 @@ export async function POST(
     }
 
     // Idempotent triplet creation: repeated calls return the same output IDs.
-    const outputs = await createCreativeWorkOutputs(workspace.id, id);
+    const outputs = await createCreativeWorkOutputs(workspace.id, id, existing.work.format);
 
     const events = outputs.map((output) => {
       return {

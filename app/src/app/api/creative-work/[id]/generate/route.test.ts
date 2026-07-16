@@ -148,6 +148,7 @@ describe("POST /api/creative-work/[id]/generate", () => {
     expect(mockCreateCreativeWorkOutputs).toHaveBeenCalledWith(
       "workspace-1",
       "work-1",
+      "4:5",
     );
   });
 
@@ -251,6 +252,14 @@ describe("POST /api/creative-work/[id]/generate", () => {
     );
 
     expect(res.status).toBe(404);
+    expect(spendMock).not.toHaveBeenCalled();
+    expect(sendMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 409 without charging when the brief is absent", async () => {
+    mockGetCreativeWork.mockResolvedValue({ work: { ...readyWork, brief: null }, outputs: [], sources: [] } as never);
+    const res = await POST(new Request("http://localhost/api/creative-work/work-1/generate", { method: "POST" }), { params: makeParams("work-1") });
+    expect(res.status).toBe(409);
     expect(spendMock).not.toHaveBeenCalled();
     expect(sendMock).not.toHaveBeenCalled();
   });

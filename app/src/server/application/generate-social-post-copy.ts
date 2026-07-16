@@ -24,6 +24,7 @@ export type GenerateSocialPostCopyInput = {
 
 export type GenerateSocialPostCopyError =
   | { code: "work_not_found" }
+  | { code: "work_not_prepared" }
   | { code: "client_profile_not_found" }
   | { code: "credit_blocked"; spend: Extract<SpendResult, { ok: false }> }
   | { code: "provider_unavailable" };
@@ -66,6 +67,9 @@ export async function generateSocialPostCopy(
   const existing = await getCreativeWork(input.workspaceId, input.workItemId);
   if (!existing) {
     return { ok: false, error: { code: "work_not_found" } };
+  }
+  if (!existing.work.brief) {
+    return { ok: false, error: { code: "work_not_prepared" } };
   }
 
   // Repeat request: short-circuit without spend or OpenAI.

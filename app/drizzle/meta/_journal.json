@@ -526,6 +526,13 @@
       "when": 1784289600000,
       "tag": "0074_retire_performance_persistence",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1784376000000,
+      "tag": "0075_frictionless_creative_work",
+      "breakpoints": true
     }
   ]
 }

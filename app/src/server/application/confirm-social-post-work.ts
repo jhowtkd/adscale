@@ -36,6 +36,7 @@ export type ConfirmSocialPostWorkInput = {
 
 export type ConfirmSocialPostWorkError =
   | { code: "work_not_found" }
+  | { code: "work_not_prepared" }
   | { code: "invalid_copy" }
   | {
       code: "identity_reference_not_approved";
@@ -107,6 +108,9 @@ export async function confirmSocialPostWork(
   const existing = await getCreativeWork(input.workspaceId, input.workItemId);
   if (!existing) {
     return { ok: false, error: { code: "work_not_found" } };
+  }
+  if (!existing.work.brief) {
+    return { ok: false, error: { code: "work_not_prepared" } };
   }
 
   const copy = resolveCopyWrite(input, existing.work.copy);
