@@ -6,7 +6,6 @@ import {
   createCreativeWorkRevision,
   failQueuedCreativeWorkOutput,
   getCreativeWork,
-  requeueFailedCreativeWorkOutput,
 } from "@/server/repositories/creative-work";
 
 type RevisionErrorCode =
@@ -17,7 +16,7 @@ type RevisionErrorCode =
   | "dispatch_failed";
 
 export type ReviseCreativeWorkOutputResult =
-  | { ok: true; value: { output: NonNullable<Awaited<ReturnType<typeof createCreativeWorkRevision>>> } }
+  | { ok: true; value: { output: NonNullable<Awaited<ReturnType<typeof createCreativeWorkRevision>>>["output"] } }
   | { ok: false; error: { code: RevisionErrorCode; details?: unknown } };
 
 export async function reviseCreativeWorkOutput(input: {
@@ -32,17 +31,12 @@ export async function reviseCreativeWorkOutput(input: {
   const aggregate = await getCreativeWork(input.workspaceId, input.workItemId);
   if (!aggregate) return { ok: false, error: { code: "work_not_found" } };
 
-  const existing = aggregate.outputs.find((output) => output.operationKey === input.revisionKey);
-  if (existing && !(existing.status === "failed" && ["credit_blocked", "dispatch_failed"].includes(existing.failureCode ?? ""))) {
-    return { ok: true, value: { output: existing } };
-  }
-
   const parent = aggregate.outputs.find((output) => output.id === input.outputId);
   if (!parent || parent.status !== "completed" || !parent.outputKey) {
     return { ok: false, error: { code: "output_not_ready" } };
   }
 
-  const output = existing ?? await createCreativeWorkRevision(
+  const reservation = await createCreativeWorkRevision(
     input.workspaceId,
     input.workItemId,
     input.revisionKey,
@@ -50,7 +44,9 @@ export async function reviseCreativeWorkOutput(input: {
     input.instruction,
     input.revisionAssetId,
   );
-  if (!output) return { ok: false, error: { code: "invalid_revision" } };
+  if (!reservation) return { ok: false, error: { code: "invalid_revision" } };
+  const { output, claimedForDispatch } = reservation;
+  if (!claimedForDispatch) return { ok: true, value: { output } };
 
   const billingKey = `creative-work:${input.workItemId}:revision:${output.id}`;
   const chargeRequest: GenerationBatchCharge = {
@@ -74,11 +70,6 @@ export async function reviseCreativeWorkOutput(input: {
       await failQueuedCreativeWorkOutput(input.workspaceId, input.workItemId, output.id, "credit_blocked");
     }
     return { ok: false, error: { code: "credit_blocked", details: charged.conversionPayload } };
-  }
-
-  if (output.status === "failed") {
-    const requeued = await requeueFailedCreativeWorkOutput(input.workspaceId, input.workItemId, output.id);
-    if (!requeued) return { ok: false, error: { code: "invalid_revision" } };
   }
 
   try {

@@ -226,6 +226,13 @@ function workOutput(overrides: Partial<CreativeWorkOutput> = {}): CreativeWorkOu
     workspaceId: "ws-1",
     workItemId: "work-1",
     creativeLevel: "balanced",
+    targetFormat: "4:5",
+    versionNumber: 1,
+    parentOutputId: null,
+    revisionInstruction: null,
+    revisionAssetId: null,
+    retryCount: 0,
+    operationKey: "balanced:4:5:1",
     status: "queued",
     outputKey: null,
     cost: null,
@@ -449,27 +456,67 @@ describe("creative-work repository", () => {
       expect(parentScope?.params).toEqual(["ws-2", "work-1", "output-1"]);
     });
 
-    it("creates consecutive revisions and returns the same row for a repeated operation key", async () => {
+    it("namespaces revision operations and atomically claims only the inserted row for dispatch", async () => {
       const parent = workOutput({ id: "output-1", targetFormat: "4:5", versionNumber: 1 });
-      const revision2 = workOutput({ id: "output-2", parentOutputId: "output-1", targetFormat: "4:5", versionNumber: 2, operationKey: "revision-key-2" });
-      const revision3 = workOutput({ id: "output-3", parentOutputId: "output-1", targetFormat: "4:5", versionNumber: 3, operationKey: "revision-key-3" });
+      const key2 = "00000000-0000-4000-8000-000000000102";
+      const key3 = "00000000-0000-4000-8000-000000000103";
+      const revision2 = workOutput({ id: "output-2", parentOutputId: "output-1", targetFormat: "4:5", versionNumber: 2, operationKey: `revision:${key2}`, revisionInstruction: "Shorter" });
+      const revision3 = workOutput({ id: "output-3", parentOutputId: "output-1", targetFormat: "4:5", versionNumber: 3, operationKey: `revision:${key3}`, revisionInstruction: "Different" });
 
       mocks.state.selectResults.push([], [parent], [], [{ maxVersion: 1 }]);
       mocks.state.onConflictResults.push([revision2]);
-      await expect(createCreativeWorkRevision("ws-1", "work-1", "revision-key-2", "output-1", "Shorter", null)).resolves.toEqual(revision2);
+      await expect(createCreativeWorkRevision("ws-1", "work-1", key2, "output-1", "Shorter", null)).resolves.toEqual({
+        output: revision2,
+        claimedForDispatch: true,
+      });
 
       mocks.state.selectResults.push([], [parent], [], [{ maxVersion: 2 }]);
       mocks.state.onConflictResults.push([revision3]);
-      await expect(createCreativeWorkRevision("ws-1", "work-1", "revision-key-3", "output-1", "Different", null)).resolves.toEqual(revision3);
+      await expect(createCreativeWorkRevision("ws-1", "work-1", key3, "output-1", "Different", null)).resolves.toEqual({
+        output: revision3,
+        claimedForDispatch: true,
+      });
 
       mocks.state.selectResults.push([revision2]);
-      await expect(createCreativeWorkRevision("ws-1", "work-1", "revision-key-2", "output-1", "Ignored retry", null)).resolves.toEqual(revision2);
-      expect(mocks.valuesMock).toHaveBeenNthCalledWith(1, expect.objectContaining({ versionNumber: 2, operationKey: "revision-key-2" }));
-      expect(mocks.valuesMock).toHaveBeenNthCalledWith(2, expect.objectContaining({ versionNumber: 3, operationKey: "revision-key-3" }));
+      await expect(createCreativeWorkRevision("ws-1", "work-1", key2, "output-1", "Shorter", null)).resolves.toEqual({
+        output: revision2,
+        claimedForDispatch: false,
+      });
+      expect(mocks.valuesMock).toHaveBeenNthCalledWith(1, expect.objectContaining({ versionNumber: 2, operationKey: `revision:${key2}` }));
+      expect(mocks.valuesMock).toHaveBeenNthCalledWith(2, expect.objectContaining({ versionNumber: 3, operationKey: `revision:${key3}` }));
       expect(mocks.executeMock).toHaveBeenCalledTimes(2);
       expect(mocks.selectMock.mock.calls[3][0]).toEqual({ maxVersion: expect.anything() });
       expect(mocks.executeMock.mock.invocationCallOrder[0]).toBeLessThan(mocks.selectMock.mock.invocationCallOrder[3]);
       expect(mocks.executeMock.mock.invocationCallOrder[0]).toBeLessThan(mocks.insertMock.mock.invocationCallOrder[0]);
+    });
+
+    it("rejects a replay key when parent, instruction, or asset differs", async () => {
+      const key = "00000000-0000-4000-8000-000000000104";
+      const revision = workOutput({
+        id: "output-2",
+        parentOutputId: "output-1",
+        operationKey: `revision:${key}`,
+        revisionInstruction: "Shorter",
+        revisionAssetId: "asset-1",
+      });
+
+      for (const command of [
+        { parentId: "other-parent", instruction: "Shorter", assetId: "asset-1" },
+        { parentId: "output-1", instruction: "Different", assetId: "asset-1" },
+        { parentId: "output-1", instruction: "Shorter", assetId: "asset-2" },
+      ]) {
+        mocks.state.selectResults.push([revision]);
+        await expect(createCreativeWorkRevision(
+          "ws-1",
+          "work-1",
+          key,
+          command.parentId,
+          command.instruction,
+          command.assetId,
+        )).resolves.toBeNull();
+      }
+
+      expect(mocks.insertMock).not.toHaveBeenCalled();
     });
 
     it("updates draft preparation fields under workspace scope", async () => {

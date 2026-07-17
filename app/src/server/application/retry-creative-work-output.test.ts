@@ -34,6 +34,8 @@ const failedOutput = {
   status: "failed",
   outputKey: null,
   failureCode: "provider_failed",
+  parentOutputId: null,
+  revisionInstruction: null,
   isSelected: false,
 };
 
@@ -119,6 +121,31 @@ describe("retryCreativeWorkOutput", () => {
       }
     }
     expect(mockRequeue).not.toHaveBeenCalled();
+  });
+
+  it("rejects revisions so a refunded or credit-blocked version cannot use the free retry path", async () => {
+    mockGet.mockResolvedValue({
+      work: workItem,
+      outputs: [{
+        ...failedOutput,
+        parentOutputId: "output-v1",
+        revisionInstruction: "Use mais contraste",
+        failureCode: "credit_blocked",
+      }],
+    } as never);
+
+    const result = await retryCreativeWorkOutput({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      outputId: "output-1",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "output_not_retriable", status: "revision_requires_paid_command" },
+    });
+    expect(mockRequeue).not.toHaveBeenCalled();
+    expect(mockSend).not.toHaveBeenCalled();
   });
 
   it("maps concurrent requeue loss to not_retriable", async () => {

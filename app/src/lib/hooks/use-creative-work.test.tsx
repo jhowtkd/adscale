@@ -204,7 +204,7 @@ describe("result actions", () => {
     await act(() => result.current.mutateAsync({
       workItemId: "work-1",
       outputId: "output-v1",
-      revisionKey: "revision-1",
+      revisionKey: "00000000-0000-4000-8000-000000000101",
       instruction: "Use mais contraste",
       revisionAssetId: null,
     }));
@@ -214,7 +214,7 @@ describe("result actions", () => {
       body: JSON.stringify({
         action: "revision",
         outputId: "output-v1",
-        revisionKey: "revision-1",
+        revisionKey: "00000000-0000-4000-8000-000000000101",
         instruction: "Use mais contraste",
         revisionAssetId: null,
       }),

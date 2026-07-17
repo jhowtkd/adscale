@@ -285,7 +285,7 @@ export default function CreatePostWizard({ workId: initialWorkId }: { workId?: s
         outputId,
         saveToLibrary: false,
       });
-      addToast("success", tQuick("saveSuccess"));
+      addToast("success", tQuick("approveSuccess"));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : tCommon("error"));
     }
@@ -405,7 +405,7 @@ export default function CreatePostWizard({ workId: initialWorkId }: { workId?: s
           onDownload={handleDownload}
           isRetrying={(id) => retryMutation.isPending && retryMutation.variables?.outputId === id}
           isSaving={(id) =>
-            selectMutation.isPending && selectMutation.variables?.outputId === id && (selectMutation.variables?.saveToLibrary ?? false)
+            selectMutation.isPending && selectMutation.variables?.outputId === id
           }
         />
       ) : null}

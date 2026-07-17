@@ -616,13 +616,18 @@ export async function createCreativeWorkRevision(
   parentOutputId: string,
   instruction: string,
   revisionAssetId: string | null,
-): Promise<CreativeWorkOutput | null> {
+): Promise<{ output: CreativeWorkOutput; claimedForDispatch: boolean } | null> {
+  const operationKey = `revision:${revisionKey}`;
+  const matchesCommand = (output: CreativeWorkOutput) =>
+    output.parentOutputId === parentOutputId
+    && output.revisionInstruction === instruction
+    && output.revisionAssetId === revisionAssetId;
   const [existing] = await db.select().from(creativeWorkOutputs).where(and(
     eq(creativeWorkOutputs.workspaceId, workspaceId),
     eq(creativeWorkOutputs.workItemId, workItemId),
-    eq(creativeWorkOutputs.operationKey, revisionKey),
+    eq(creativeWorkOutputs.operationKey, operationKey),
   )).limit(1);
-  if (existing) return existing;
+  if (existing) return matchesCommand(existing) ? { output: existing, claimedForDispatch: false } : null;
 
   const [parent] = await db.select().from(creativeWorkOutputs).where(and(
     eq(creativeWorkOutputs.workspaceId, workspaceId),
@@ -644,9 +649,9 @@ export async function createCreativeWorkRevision(
     const [retry] = await tx.select().from(creativeWorkOutputs).where(and(
       eq(creativeWorkOutputs.workspaceId, workspaceId),
       eq(creativeWorkOutputs.workItemId, workItemId),
-      eq(creativeWorkOutputs.operationKey, revisionKey),
+      eq(creativeWorkOutputs.operationKey, operationKey),
     )).limit(1);
-    if (retry) return retry;
+    if (retry) return matchesCommand(retry) ? { output: retry, claimedForDispatch: false } : null;
 
     const [latest] = await tx.select({ maxVersion: max(creativeWorkOutputs.versionNumber) })
       .from(creativeWorkOutputs)
@@ -666,19 +671,19 @@ export async function createCreativeWorkRevision(
       parentOutputId,
       revisionInstruction: instruction,
       revisionAssetId,
-      operationKey: revisionKey,
+      operationKey,
       status: "queued",
       isSelected: false,
     }).onConflictDoNothing().returning();
-    if (row) return row;
+    if (row) return { output: row, claimedForDispatch: true };
 
     const [conflict] = await tx.select().from(creativeWorkOutputs).where(and(
       eq(creativeWorkOutputs.workspaceId, workspaceId),
       eq(creativeWorkOutputs.workItemId, workItemId),
-      eq(creativeWorkOutputs.operationKey, revisionKey),
+      eq(creativeWorkOutputs.operationKey, operationKey),
     )).limit(1);
     if (!conflict) throw new Error("creative_work_revision_conflict_without_row");
-    return conflict;
+    return matchesCommand(conflict) ? { output: conflict, claimedForDispatch: false } : null;
   });
 }
 

@@ -1,7 +1,9 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import CreatePostWizard from "./CreatePostWizard";
+
+const addToastMock = vi.hoisted(() => vi.fn());
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
@@ -23,13 +25,14 @@ vi.mock("next-intl", () => ({
       return "Sem referências aprovadas — as propostas usarão só o Brand Kit.";
     }
     if (key === "noApprovedAssetsCta") return "Abrir curadoria da marca";
+    if (key === "approveSuccess") return "Proposta aprovada";
     return key;
   },
 }));
 
 vi.mock("@/lib/store", () => ({
   useAppStore: (selector: (s: { addToast: () => void }) => unknown) =>
-    selector({ addToast: vi.fn() }),
+    selector({ addToast: addToastMock }),
 }));
 
 vi.mock("sonner", () => ({
@@ -427,6 +430,38 @@ describe("CreatePostWizard", () => {
     expect(await screen.findAllByRole("button", { name: "Aprovar" })).toHaveLength(2);
     expect(screen.queryByRole("button", { name: "Salvar na biblioteca" })).not.toBeInTheDocument();
     expect(await screen.findAllByRole("button", { name: "Baixar" })).toHaveLength(2);
+  });
+
+  it("reports approval without claiming the proposal was newly saved to the library", async () => {
+    const select = vi.fn().mockResolvedValue({ output: { id: "out-conservative", isSelected: true } });
+    mockUseCreativeWork.mockReturnValue({ data: generatingWork, isLoading: false });
+    mockUseSelectOutput.mockReturnValue({ mutateAsync: select, isPending: false, variables: undefined });
+
+    render(<CreatePostWizard workId="work-1" />, { wrapper: createWrapper() });
+    fireEvent.click((await screen.findAllByRole("button", { name: "Aprovar" }))[0]);
+
+    await waitFor(() => expect(select).toHaveBeenCalledWith({
+      workItemId: "work-1",
+      outputId: "out-conservative",
+      saveToLibrary: false,
+    }));
+    expect(addToastMock).toHaveBeenCalledWith("success", "Proposta aprovada");
+    expect(addToastMock).not.toHaveBeenCalledWith("success", expect.stringMatching(/biblioteca/i));
+  });
+
+  it("keeps the matching approval pending even when saveToLibrary is false", async () => {
+    mockUseCreativeWork.mockReturnValue({ data: generatingWork, isLoading: false });
+    mockUseSelectOutput.mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: true,
+      variables: { workItemId: "work-1", outputId: "out-conservative", saveToLibrary: false },
+    });
+
+    render(<CreatePostWizard workId="work-1" />, { wrapper: createWrapper() });
+
+    const approveButtons = await screen.findAllByRole("button", { name: "Aprovar" });
+    expect(approveButtons[0]).toBeDisabled();
+    expect(approveButtons[1]).toBeEnabled();
   });
 
   it("does not label any proposal as recommended or best", async () => {

@@ -18,7 +18,7 @@ function composer(overrides = {}) {
     composerRef: { current: null }, request: "", setRequest: vi.fn(), intent: "variations", selectIntent: vi.fn(),
     format: "4:5", setFormat: vi.fn(), targetFormats: [], toggleTargetFormat: vi.fn(), state: "empty",
     workId: null, brandName: "Marca A", sources: [], outputs: [], quote: { unitCount: 3, credits: 15 },
-    campaignId: null, campaigns: [], linkCampaign: vi.fn(), retryOutput: vi.fn(), approveOutput: vi.fn(),
+    campaignId: null, campaigns: [], linkCampaign: vi.fn(), retryOutput: vi.fn(), retryRevisionOutput: vi.fn(), approveOutput: vi.fn(),
     downloadOutput: vi.fn(), reviseOutput: vi.fn(), isRetryingOutput: vi.fn(), isApprovingOutput: vi.fn(), isRevisingOutput: vi.fn(),
     canGenerate: true, isUploading: false, error: null, announcement: "", requiresBrandSelection: false,
     workError: false,

@@ -6,6 +6,7 @@ import type { CreativeWorkOutput } from "@/lib/hooks/use-creative-work";
 type CreativeProposalGridProps = {
   outputs: CreativeWorkOutput[];
   onRetry: (outputId: string) => void;
+  onRetryRevision?: (output: CreativeWorkOutput) => void | Promise<void>;
   onApprove?: (outputId: string) => void;
   /** Legacy wizard alias; remove with the wizard redirect. */
   onSave?: (outputId: string) => void;
@@ -27,6 +28,7 @@ const LEVEL_LABELS: Record<CreativeWorkOutput["creativeLevel"], string> = {
 export default function CreativeProposalGrid({
   outputs,
   onRetry,
+  onRetryRevision,
   onApprove,
   onSave,
   onDownload,
@@ -56,6 +58,7 @@ export default function CreativeProposalGrid({
           output={output}
           label={LEVEL_LABELS[output.creativeLevel]}
           onRetry={onRetry}
+          onRetryRevision={onRetryRevision}
           onApprove={approve}
           onDownload={onDownload}
           onRevise={onRevise}

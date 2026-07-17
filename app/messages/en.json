@@ -3351,7 +3351,7 @@
       "confirmKitOnlyHelp": "No approved references — proposals will use the Brand Kit only.",
       "confirmHelp": "We will generate 3 visual proposals (conservative, balanced, bold) for {credits} credits.",
       "confirmCredits": "{credits} credits",
-      "proposalsHelp": "Choose a proposal to download or save to the library.",
+      "proposalsHelp": "Choose a proposal to approve or download.",
       "appliedIdentityTitle": "Applied identity",
       "appliedIdentitySummary": "{colors} colors, {fonts} fonts, and {references} visual references were used for this generation.",
       "back": "Back",
@@ -3360,7 +3360,8 @@
       "stepCopyCta": "Create copy",
       "stepConfirmCta": "Confirm and generate 3 proposals",
       "stepConfirmCtaKitOnly": "Generate 3 proposals with Brand Kit",
-      "saveSuccess": "Proposal saved to library"
+      "saveSuccess": "Proposal saved to library",
+      "approveSuccess": "Proposal approved"
     }
   }
 }

@@ -1,6 +1,7 @@
 /**
- * Phase 5 / item 38: free retry of a failed creative-work output.
+ * Phase 5 / item 38: free retry of a failed initial creative-work output.
  * Requeues the row and dispatches the same Inngest event. No billing.
+ * Revisions must return through the paid revision command.
  */
 import { inngest } from "@/server/jobs/client";
 import {
@@ -45,6 +46,13 @@ export async function retryCreativeWorkOutput(
     return {
       ok: false,
       error: { code: "output_not_retriable", status: output.status },
+    };
+  }
+
+  if (output.parentOutputId) {
+    return {
+      ok: false,
+      error: { code: "output_not_retriable", status: "revision_requires_paid_command" },
     };
   }
 

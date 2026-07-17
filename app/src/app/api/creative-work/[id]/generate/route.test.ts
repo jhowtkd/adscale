@@ -25,7 +25,7 @@ describe("POST /api/creative-work/[id]/generate", () => {
   it("delegates a strict revision command and returns only the new output", async () => {
     const body = {
       action: "revision",
-      revisionKey: "revision-1",
+      revisionKey: "00000000-0000-4000-8000-000000000101",
       outputId: "output-v1",
       instruction: "Use mais contraste",
       revisionAssetId: null,
@@ -37,12 +37,25 @@ describe("POST /api/creative-work/[id]/generate", () => {
       workspaceId: "ws-1",
       workItemId: "work-1",
       userId: "user-1",
-      revisionKey: "revision-1",
+      revisionKey: "00000000-0000-4000-8000-000000000101",
       outputId: "output-v1",
       instruction: "Use mais contraste",
       revisionAssetId: null,
     });
     await expect(response.json()).resolves.toEqual({ output: { id: "output-v2", versionNumber: 2 } });
+  });
+
+  it("rejects a non-UUID revision key before it reaches the application command", async () => {
+    const response = await POST(request({
+      action: "revision",
+      revisionKey: "balanced:4:5:1",
+      outputId: "output-v1",
+      instruction: "Use mais contraste",
+      revisionAssetId: null,
+    }), { params: Promise.resolve({ id: "work-1" }) });
+
+    expect(response.status).toBe(400);
+    expect(revise).not.toHaveBeenCalled();
   });
 
   it("is a thin adapter for the initial generation command", async () => {

@@ -84,4 +84,35 @@ describe("CreativeResultCard", () => {
     fireEvent.click(screen.getByRole("button", { name: "Repetir esta proposta" }));
     expect(onRetry).toHaveBeenCalledWith("output-1");
   });
+
+  it("routes a failed revision back through an explicit paid revision instead of generic retry", () => {
+    const onRetry = vi.fn();
+    const onRetryRevision = vi.fn();
+    render(
+      <CreativeResultCard
+        output={output({
+          status: "failed",
+          outputKey: null,
+          parentOutputId: "output-v1",
+          revisionInstruction: "Use mais contraste",
+          operationKey: "revision:00000000-0000-4000-8000-000000000101",
+        })}
+        label="Equilibrada"
+        onRetry={onRetry}
+        onRetryRevision={onRetryRevision}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+        onRevise={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Repetir esta proposta" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Tentar novamente · 5 créditos" }));
+    expect(onRetryRevision).toHaveBeenCalledWith(expect.objectContaining({
+      id: "output-1",
+      parentOutputId: "output-v1",
+      revisionInstruction: "Use mais contraste",
+    }));
+    expect(onRetry).not.toHaveBeenCalled();
+  });
 });

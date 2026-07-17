@@ -185,6 +185,7 @@ export function CreativeComposer({ composer, composerRef }: {
           <CreativeProposalGrid
             outputs={composer.outputs}
             onRetry={composer.retryOutput}
+            onRetryRevision={composer.retryRevisionOutput}
             onApprove={composer.approveOutput}
             onDownload={composer.downloadOutput}
             onRevise={composer.reviseOutput}

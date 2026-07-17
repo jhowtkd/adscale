@@ -163,6 +163,45 @@ describe("useCreativeComposer", () => {
     expect(result.current.state).toBe("ready");
   });
 
+  it("retries a failed revision only as a fresh paid revision command", async () => {
+    const revision = {
+      id: "output-v2",
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      creativeLevel: "balanced" as const,
+      targetFormat: "4:5" as const,
+      versionNumber: 2,
+      parentOutputId: "output-v1",
+      revisionInstruction: "Use mais contraste",
+      revisionAssetId: "asset-1",
+      retryCount: 0,
+      operationKey: "revision:00000000-0000-4000-8000-000000000101",
+      status: "failed" as const,
+      outputKey: null,
+      cost: null,
+      failureCode: "credit_blocked",
+      quality: null,
+      isSelected: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    mocks.work.mockReturnValue({ data: { ...workDetail(), outputs: [revision] }, isLoading: false, isError: false });
+    mocks.reviseOutput.mockResolvedValue({ output: { ...revision, id: "output-v3", status: "queued" } });
+    vi.spyOn(globalThis.crypto, "randomUUID").mockReturnValue("00000000-0000-4000-8000-000000000105");
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+
+    await act(() => result.current.retryRevisionOutput(revision));
+
+    expect(mocks.retryOutput).not.toHaveBeenCalled();
+    expect(mocks.reviseOutput).toHaveBeenCalledWith({
+      workItemId: "work-1",
+      outputId: "output-v1",
+      revisionKey: "00000000-0000-4000-8000-000000000105",
+      instruction: "Use mais contraste",
+      revisionAssetId: "asset-1",
+    });
+  });
+
   it.each([
     ["single", { targetFormats: [] }, { unitCount: 1, credits: 5 }],
     ["restyle", { targetFormats: [] }, { unitCount: 1, credits: 5 }],

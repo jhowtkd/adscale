@@ -5,14 +5,12 @@ const createRevision = vi.hoisted(() => vi.fn());
 const charge = vi.hoisted(() => vi.fn());
 const send = vi.hoisted(() => vi.fn());
 const failQueued = vi.hoisted(() => vi.fn());
-const requeue = vi.hoisted(() => vi.fn());
 const refund = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/repositories/creative-work", () => ({
   getCreativeWork: getWork,
   createCreativeWorkRevision: createRevision,
   failQueuedCreativeWorkOutput: failQueued,
-  requeueFailedCreativeWorkOutput: requeue,
 }));
 vi.mock("@/server/generation/canonical/charge", () => ({
   chargeForGenerationBatch: charge,
@@ -21,6 +19,8 @@ vi.mock("@/server/jobs/client", () => ({ inngest: { send } }));
 vi.mock("@/server/billing/credits", () => ({ refundCredits: refund }));
 
 import { reviseCreativeWorkOutput } from "./revise-creative-work-output";
+
+const REVISION_KEY = "00000000-0000-4000-8000-000000000101";
 
 const parent = {
   id: "output-v1",
@@ -47,7 +47,7 @@ const revision = {
   ...parent,
   id: "output-v2",
   versionNumber: 2,
-  operationKey: "revision-1",
+  operationKey: `revision:${REVISION_KEY}`,
   parentOutputId: parent.id,
   revisionInstruction: "Use mais contraste",
   status: "queued",
@@ -68,11 +68,10 @@ describe("reviseCreativeWorkOutput", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getWork.mockResolvedValue({ work, outputs: [parent], sources: [] });
-    createRevision.mockResolvedValue(revision);
+    createRevision.mockResolvedValue({ output: revision, claimedForDispatch: true });
     charge.mockResolvedValue({ ok: true, creditsSpent: 5 });
     send.mockResolvedValue(undefined);
     failQueued.mockResolvedValue({ ...revision, status: "failed" });
-    requeue.mockResolvedValue(revision);
     refund.mockResolvedValue({ status: "refunded" });
   });
 
@@ -82,7 +81,7 @@ describe("reviseCreativeWorkOutput", () => {
       workItemId: "work-1",
       userId: "user-1",
       outputId: parent.id,
-      revisionKey: "revision-1",
+      revisionKey: REVISION_KEY,
       instruction: "Use mais contraste",
       revisionAssetId: null,
     });
@@ -91,7 +90,7 @@ describe("reviseCreativeWorkOutput", () => {
     expect(createRevision).toHaveBeenCalledWith(
       "ws-1",
       "work-1",
-      "revision-1",
+      REVISION_KEY,
       parent.id,
       "Use mais contraste",
       null,
@@ -115,19 +114,20 @@ describe("reviseCreativeWorkOutput", () => {
 
   it("returns the persisted revision without a second charge or job", async () => {
     getWork.mockResolvedValue({ work, outputs: [parent, revision], sources: [] });
+    createRevision.mockResolvedValue({ output: revision, claimedForDispatch: false });
 
     const result = await reviseCreativeWorkOutput({
       workspaceId: "ws-1",
       workItemId: "work-1",
       userId: "user-1",
       outputId: parent.id,
-      revisionKey: "revision-1",
+      revisionKey: REVISION_KEY,
       instruction: "Use mais contraste",
       revisionAssetId: null,
     });
 
     expect(result).toEqual({ ok: true, value: { output: revision } });
-    expect(createRevision).not.toHaveBeenCalled();
+    expect(createRevision).toHaveBeenCalledOnce();
     expect(charge).not.toHaveBeenCalled();
     expect(send).not.toHaveBeenCalled();
   });
@@ -144,7 +144,7 @@ describe("reviseCreativeWorkOutput", () => {
       workItemId: "work-1",
       userId: "user-1",
       outputId: parent.id,
-      revisionKey: "revision-1",
+      revisionKey: REVISION_KEY,
       instruction: "Use mais contraste",
       revisionAssetId: null,
     })).resolves.toMatchObject({ ok: false, error: { code: "output_not_ready" } });
@@ -155,7 +155,7 @@ describe("reviseCreativeWorkOutput", () => {
     charge.mockResolvedValue({ ok: false, status: 402, conversionPayload: { reason: "insufficient_credits" } });
     const result = await reviseCreativeWorkOutput({
       workspaceId: "ws-1", workItemId: "work-1", userId: "user-1", outputId: parent.id,
-      revisionKey: "revision-1", instruction: "Use mais contraste", revisionAssetId: null,
+      revisionKey: REVISION_KEY, instruction: "Use mais contraste", revisionAssetId: null,
     });
     expect(result).toMatchObject({ ok: false, error: { code: "credit_blocked" } });
     expect(failQueued).toHaveBeenCalledWith("ws-1", "work-1", "output-v2", "credit_blocked");
@@ -166,7 +166,7 @@ describe("reviseCreativeWorkOutput", () => {
     send.mockRejectedValue(new Error("transport down"));
     const result = await reviseCreativeWorkOutput({
       workspaceId: "ws-1", workItemId: "work-1", userId: "user-1", outputId: parent.id,
-      revisionKey: "revision-1", instruction: "Use mais contraste", revisionAssetId: null,
+      revisionKey: REVISION_KEY, instruction: "Use mais contraste", revisionAssetId: null,
     });
     expect(result).toMatchObject({ ok: false, error: { code: "dispatch_failed" } });
     expect(failQueued).toHaveBeenCalledWith("ws-1", "work-1", "output-v2", "dispatch_failed");
@@ -174,5 +174,100 @@ describe("reviseCreativeWorkOutput", () => {
       amount: 5,
       idempotencyKey: "creative-work:work-1:revision:output-v2:dispatch-refund",
     }));
+  });
+
+  it("rejects a replay when the same key changes parent, instruction, or asset", async () => {
+    getWork.mockResolvedValue({ work, outputs: [parent, revision], sources: [] });
+    createRevision.mockResolvedValue(null);
+
+    const result = await reviseCreativeWorkOutput({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      userId: "user-1",
+      outputId: parent.id,
+      revisionKey: REVISION_KEY,
+      instruction: "Troque completamente a oferta",
+      revisionAssetId: null,
+    });
+
+    expect(result).toEqual({ ok: false, error: { code: "invalid_revision" } });
+    expect(charge).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("allows exactly one concurrent claimant to charge and dispatch", async () => {
+    let calls = 0;
+    let claimed = false;
+    let release!: () => void;
+    const bothEntered = new Promise<void>((resolve) => { release = resolve; });
+    createRevision.mockImplementation(async () => {
+      calls += 1;
+      if (calls === 2) release();
+      await bothEntered;
+      if (!claimed) {
+        claimed = true;
+        return { output: revision, claimedForDispatch: true };
+      }
+      return { output: revision, claimedForDispatch: false };
+    });
+    const command = {
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      userId: "user-1",
+      outputId: parent.id,
+      revisionKey: REVISION_KEY,
+      instruction: "Use mais contraste",
+      revisionAssetId: null,
+    };
+
+    const results = await Promise.all([
+      reviseCreativeWorkOutput(command),
+      reviseCreativeWorkOutput(command),
+    ]);
+
+    expect(results).toEqual([
+      { ok: true, value: { output: revision } },
+      { ok: true, value: { output: revision } },
+    ]);
+    expect(charge).toHaveBeenCalledOnce();
+    expect(send).toHaveBeenCalledOnce();
+  });
+
+  it("never lets a losing concurrent replay mark or refund the claimed row", async () => {
+    let calls = 0;
+    let claimed = false;
+    let release!: () => void;
+    const bothEntered = new Promise<void>((resolve) => { release = resolve; });
+    createRevision.mockImplementation(async () => {
+      calls += 1;
+      if (calls === 2) release();
+      await bothEntered;
+      if (!claimed) {
+        claimed = true;
+        return { output: revision, claimedForDispatch: true };
+      }
+      return { output: revision, claimedForDispatch: false };
+    });
+    send.mockRejectedValue(new Error("transport down"));
+    const command = {
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      userId: "user-1",
+      outputId: parent.id,
+      revisionKey: REVISION_KEY,
+      instruction: "Use mais contraste",
+      revisionAssetId: null,
+    };
+
+    const results = await Promise.all([
+      reviseCreativeWorkOutput(command),
+      reviseCreativeWorkOutput(command),
+    ]);
+
+    expect(results.filter((result) => !result.ok && result.error.code === "dispatch_failed")).toHaveLength(1);
+    expect(failQueued).toHaveBeenCalledOnce();
+    expect(refund).toHaveBeenCalledOnce();
+    expect(charge).toHaveBeenCalledOnce();
+    expect(send).toHaveBeenCalledOnce();
   });
 });

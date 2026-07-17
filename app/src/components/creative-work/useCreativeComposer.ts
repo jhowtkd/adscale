@@ -18,6 +18,7 @@ import {
   useTriggerTriplet,
   type CreativeSourceUsage,
   type CreativeWorkItem,
+  type CreativeWorkOutput,
   type CreativeWorkQuote,
 } from "@/lib/hooks/use-creative-work";
 import { quoteCreativeWork } from "@/server/creative-work/contracts";
@@ -380,6 +381,22 @@ export function useCreativeComposer({ initialWorkId }: { initialWorkId?: string 
     }
   }, [reviseOutputMutation]);
 
+  const retryRevisionOutput = useCallback(async (output: CreativeWorkOutput) => {
+    if (!workIdRef.current || !output.parentOutputId || !output.revisionInstruction) return;
+    try {
+      await reviseOutputMutation.mutateAsync({
+        workItemId: workIdRef.current,
+        outputId: output.parentOutputId,
+        revisionKey: crypto.randomUUID(),
+        instruction: output.revisionInstruction,
+        revisionAssetId: output.revisionAssetId,
+      });
+      setAnnouncement("Nova tentativa em geração · 5 créditos");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Falha ao tentar nova versão");
+    }
+  }, [reviseOutputMutation]);
+
   const linkCampaign = useCallback(async (campaignId: string | null) => {
     if (!workIdRef.current) return;
     try {
@@ -425,14 +442,21 @@ export function useCreativeComposer({ initialWorkId }: { initialWorkId?: string 
     error, announcement, requiresBrandSelection: active.requiresSelection,
     workError: Boolean(workId && detailQuery.isError),
     addFiles, updateSource, retrySource, removeSource, generate,
-    retryOutput, approveOutput, reviseOutput, linkCampaign,
+    retryOutput, retryRevisionOutput, approveOutput, reviseOutput, linkCampaign,
     downloadOutput: (outputId: string) => {
       if (!workIdRef.current) return;
       window.open(downloadOutputUrl(workIdRef.current, outputId), "_blank", "noopener,noreferrer");
     },
     isRetryingOutput: (outputId: string) => retryOutputMutation.isPending && retryOutputMutation.variables?.outputId === outputId,
     isApprovingOutput: (outputId: string) => selectOutputMutation.isPending && selectOutputMutation.variables?.outputId === outputId,
-    isRevisingOutput: (outputId: string) => reviseOutputMutation.isPending && reviseOutputMutation.variables?.outputId === outputId,
+    isRevisingOutput: (outputId: string) => {
+      if (!reviseOutputMutation.isPending) return false;
+      if (reviseOutputMutation.variables?.outputId === outputId) return true;
+      const current = detail?.outputs.find((output) => output.id === outputId);
+      return current?.parentOutputId === reviseOutputMutation.variables?.outputId
+        && current.revisionInstruction === reviseOutputMutation.variables?.instruction
+        && current.revisionAssetId === reviseOutputMutation.variables?.revisionAssetId;
+    },
   };
 }
 

@@ -9,7 +9,7 @@ const bodySchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("initial") }).strict(),
   z.object({
     action: z.literal("revision"),
-    revisionKey: z.string().min(1).max(200),
+    revisionKey: z.string().uuid(),
     outputId: z.string().min(1),
     instruction: z.string().trim().min(1).max(2_000),
     revisionAssetId: z.string().min(1).nullable(),

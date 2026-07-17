@@ -3380,7 +3380,7 @@
       "confirmKitOnlyHelp": "Sem referências aprovadas — as propostas usarão só o Brand Kit.",
       "confirmHelp": "Vamos gerar 3 propostas visuais (conservador, equilibrado, ousado) por {credits} créditos.",
       "confirmCredits": "{credits} créditos",
-      "proposalsHelp": "Escolha uma proposta para baixar ou salvar na biblioteca.",
+      "proposalsHelp": "Escolha uma proposta para aprovar ou baixar.",
       "appliedIdentityTitle": "Identidade aplicada",
       "appliedIdentitySummary": "{colors} cores, {fonts} fontes e {references} referências visuais foram usadas nesta geração.",
       "back": "Voltar",
@@ -3389,7 +3389,8 @@
       "stepCopyCta": "Criar copy",
       "stepConfirmCta": "Confirmar e gerar 3 propostas",
       "stepConfirmCtaKitOnly": "Gerar 3 propostas com Brand Kit",
-      "saveSuccess": "Proposta salva na biblioteca"
+      "saveSuccess": "Proposta salva na biblioteca",
+      "approveSuccess": "Proposta aprovada"
     }
   }
 }

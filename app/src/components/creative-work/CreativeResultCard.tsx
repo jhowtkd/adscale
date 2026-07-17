@@ -7,6 +7,7 @@ type CreativeResultCardProps = {
   output: CreativeWorkOutput;
   label: string;
   onRetry: (outputId: string) => void;
+  onRetryRevision?: (output: CreativeWorkOutput) => void | Promise<void>;
   onApprove: (outputId: string) => void;
   onDownload: (outputId: string) => void;
   onRevise?: (outputId: string, instruction: string, attachment: File | null) => void | Promise<void>;
@@ -28,6 +29,7 @@ export function CreativeResultCard({
   output,
   label,
   onRetry,
+  onRetryRevision,
   onApprove,
   onDownload,
   onRevise,
@@ -40,6 +42,7 @@ export function CreativeResultCard({
   const [attachment, setAttachment] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const isCompleted = output.status === "completed" && Boolean(output.outputKey);
+  const isRevision = Boolean(output.parentOutputId);
 
   return (
     <article
@@ -75,9 +78,17 @@ export function CreativeResultCard({
       </div>
 
       {output.status === "failed" ? (
-        <button type="button" className={actionClass} disabled={isRetrying} onClick={() => onRetry(output.id)}>
-          Repetir esta proposta
-        </button>
+        isRevision ? (
+          onRetryRevision ? (
+            <button type="button" className={actionClass} disabled={isRevising} onClick={() => onRetryRevision(output)}>
+              Tentar novamente · 5 créditos
+            </button>
+          ) : null
+        ) : (
+          <button type="button" className={actionClass} disabled={isRetrying} onClick={() => onRetry(output.id)}>
+            Repetir esta proposta
+          </button>
+        )
       ) : null}
 
       {isCompleted ? (

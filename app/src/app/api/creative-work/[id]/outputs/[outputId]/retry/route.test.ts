@@ -111,4 +111,19 @@ describe("POST /api/creative-work/[id]/outputs/[outputId]/retry", () => {
 
     expect(res.status).toBe(409);
   });
+
+  it("keeps a failed revision out of the generic free retry API", async () => {
+    retryMock.mockResolvedValue({
+      ok: false,
+      error: { code: "output_not_retriable", status: "revision_requires_paid_command" },
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/creative-work/work-1/outputs/output-v2/retry", { method: "POST" }),
+      { params: makeParams("work-1", "output-v2") },
+    );
+
+    expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toMatchObject({ details: { status: "revision_requires_paid_command" } });
+  });
 });
