@@ -11,6 +11,10 @@ const mocks = vi.hoisted(() => ({
   source: vi.fn(),
   generate: vi.fn(),
   upload: vi.fn(),
+  retryOutput: vi.fn(),
+  reviseOutput: vi.fn(),
+  selectOutput: vi.fn(),
+  linkCampaign: vi.fn(),
 }));
 
 vi.mock("@/lib/hooks/use-active-client-profile", () => ({
@@ -23,6 +27,12 @@ vi.mock("@/lib/hooks/use-creative-work", () => ({
   usePrepareCreativeWork: () => ({ mutateAsync: mocks.prepare, isPending: false }),
   useCreativeWorkSourceActions: () => ({ mutateAsync: mocks.source, isPending: false }),
   useTriggerTriplet: () => ({ mutateAsync: mocks.generate, isPending: false }),
+  useRetryOutput: () => ({ mutateAsync: mocks.retryOutput, isPending: false, variables: undefined }),
+  useReviseOutput: () => ({ mutateAsync: mocks.reviseOutput, isPending: false, variables: undefined }),
+  useSelectOutput: () => ({ mutateAsync: mocks.selectOutput, isPending: false, variables: undefined }),
+  useLinkCreativeWorkCampaign: () => ({ mutateAsync: mocks.linkCampaign, isPending: false }),
+  useDownloadOutputUrl: () => (workItemId: string, outputId: string) => `/api/creative-work/${workItemId}/outputs/${outputId}/download`,
+  useCreativeWorkCampaigns: () => ({ data: [] }),
 }));
 vi.mock("@/lib/assistant/chat-attachments", () => ({
   collectImageFiles: (files: File[] | FileList | null) => Array.from(files ?? []),

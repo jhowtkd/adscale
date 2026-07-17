@@ -164,18 +164,29 @@ const workItem = {
   updatedAt: new Date(),
 };
 
-function makeQueuedOutput(overrides: Partial<{ id: string; status: string; creativeLevel: "conservative" | "balanced" | "bold"; retryCount: number }> = {}) {
+function makeQueuedOutput(overrides: Partial<{
+  id: string;
+  status: string;
+  creativeLevel: "conservative" | "balanced" | "bold";
+  retryCount: number;
+  versionNumber: number;
+  parentOutputId: string | null;
+  revisionInstruction: string | null;
+  outputKey: string | null;
+}> = {}) {
   return {
-    id: "output-1",
+    id: overrides.id ?? "output-1",
     workspaceId: "workspace-1",
     workItemId: "work-1",
     creativeLevel: overrides.creativeLevel ?? "balanced",
     targetFormat: "1:1",
-    versionNumber: 1,
-    revisionInstruction: "Use mais contraste",
+    versionNumber: overrides.versionNumber ?? 1,
+    parentOutputId: overrides.parentOutputId ?? null,
+    revisionInstruction: overrides.revisionInstruction ?? "Use mais contraste",
+    revisionAssetId: null,
     retryCount: overrides.retryCount ?? 0,
     status: overrides.status ?? "queued",
-    outputKey: null,
+    outputKey: overrides.outputKey ?? null,
     cost: null,
     failureCode: null,
     quality: null,
@@ -312,6 +323,38 @@ describe("creativeWorkOutputJob", () => {
     expect(request.prompt).toContain("CREATIVE LEVEL: bold");
     expect(request.prompt).toContain("FORMAT: 1:1");
     expect(request.prompt).toContain("Use mais contraste");
+  });
+
+  it("uses the completed parent image as the primary revision reference without overwriting it", async () => {
+    const parent = makeQueuedOutput({
+      id: "output-v1",
+      status: "completed",
+      outputKey: "creative-work/output-v1/original.png",
+      revisionInstruction: null,
+    });
+    const revision = makeQueuedOutput({
+      id: "output-1",
+      versionNumber: 2,
+      parentOutputId: parent.id,
+      revisionInstruction: "Troque o fundo por azul",
+    });
+    getCreativeWorkMock.mockResolvedValue({ work: workItem, outputs: [parent, revision] });
+    markProcessingMock.mockResolvedValue({ ...revision, status: "processing" });
+
+    await runJob();
+
+    const request = generateAndStoreImageMock.mock.calls[0]?.[0] as {
+      prompt: string;
+      referenceImages: Array<{ name: string; buffer: Buffer }>;
+      outputPrefix: string;
+      generationMode: string;
+    };
+    expect(objectGetMock).toHaveBeenCalledWith("creative-work/output-v1/original.png");
+    expect(request.referenceImages[0]).toEqual(expect.objectContaining({ name: "Versão 1" }));
+    expect(request.prompt).toContain("Troque o fundo por azul");
+    expect(request.generationMode).toBe("art_variation");
+    expect(request.outputPrefix).toBe("creative-work/output-1");
+    expect(parent.outputKey).toBe("creative-work/output-v1/original.png");
   });
 
   it("automatically redispatches a marked retryable provider failure once", async () => {

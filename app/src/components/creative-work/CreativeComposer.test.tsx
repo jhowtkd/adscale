@@ -18,6 +18,8 @@ function composer(overrides = {}) {
     composerRef: { current: null }, request: "", setRequest: vi.fn(), intent: "variations", selectIntent: vi.fn(),
     format: "4:5", setFormat: vi.fn(), targetFormats: [], toggleTargetFormat: vi.fn(), state: "empty",
     workId: null, brandName: "Marca A", sources: [], outputs: [], quote: { unitCount: 3, credits: 15 },
+    campaignId: null, campaigns: [], linkCampaign: vi.fn(), retryOutput: vi.fn(), approveOutput: vi.fn(),
+    downloadOutput: vi.fn(), reviseOutput: vi.fn(), isRetryingOutput: vi.fn(), isApprovingOutput: vi.fn(), isRevisingOutput: vi.fn(),
     canGenerate: true, isUploading: false, error: null, announcement: "", requiresBrandSelection: false,
     workError: false,
     addFiles: vi.fn(), updateSource: vi.fn(), retrySource: vi.fn(), removeSource: vi.fn(), generate: vi.fn(),
@@ -95,5 +97,46 @@ describe("CreativeComposer", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Trabalho não encontrado");
     expect(screen.getByRole("link", { name: "Começar nova criação" })).toHaveAttribute("href", "/");
     expect(screen.queryByRole("textbox", { name: /pedido criativo/i })).not.toBeInTheDocument();
+  });
+
+  it("shows completed results immediately while another output keeps its own processing status", () => {
+    const baseOutput = {
+      id: "output-1", workspaceId: "ws-1", workItemId: "work-1", creativeLevel: "conservative",
+      targetFormat: "4:5", versionNumber: 1, parentOutputId: null, revisionInstruction: null,
+      revisionAssetId: null, retryCount: 0, operationKey: "conservative:4:5:1", status: "completed",
+      outputKey: "out/1.png", cost: 5, failureCode: null, quality: null, isSelected: false,
+      createdAt: new Date(), updatedAt: new Date(),
+    };
+    const value = composer({
+      workId: "work-1",
+      outputs: [
+        baseOutput,
+        { ...baseOutput, id: "output-2", creativeLevel: "balanced", operationKey: "balanced:4:5:1" },
+        { ...baseOutput, id: "output-3", creativeLevel: "bold", operationKey: "bold:4:5:1", status: "processing", outputKey: null },
+      ],
+    });
+    renderComposer(value);
+
+    expect(screen.getAllByRole("img")).toHaveLength(2);
+    expect(screen.getByText("Gerando...")).toBeVisible();
+    fireEvent.click(screen.getAllByRole("button", { name: "Aprovar" })[0]);
+    expect(value.approveOutput).toHaveBeenCalledWith("output-1");
+  });
+
+  it("groups an existing campaign without creating one", () => {
+    const value = composer({
+      workId: "work-1",
+      outputs: [{
+        id: "output-1", workspaceId: "ws-1", workItemId: "work-1", creativeLevel: "balanced",
+        targetFormat: "4:5", versionNumber: 1, parentOutputId: null, revisionInstruction: null,
+        revisionAssetId: null, retryCount: 0, operationKey: "balanced:4:5:1", status: "completed",
+        outputKey: "out/1.png", cost: 5, failureCode: null, quality: null, isSelected: false,
+        createdAt: new Date(), updatedAt: new Date(),
+      }],
+      campaigns: [{ id: "campaign-1", name: "Matrículas" }],
+    });
+    renderComposer(value);
+    fireEvent.change(screen.getByRole("combobox", { name: "Agrupar em campanha" }), { target: { value: "campaign-1" } });
+    expect(value.linkCampaign).toHaveBeenCalledWith("campaign-1");
   });
 });

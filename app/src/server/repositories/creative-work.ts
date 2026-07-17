@@ -631,11 +631,11 @@ export async function createCreativeWorkRevision(
   )).limit(1);
   if (!parent) return null;
   if (revisionAssetId) {
-    const [asset] = await db.select({ id: workspaceAssets.id }).from(workspaceAssets).where(and(
+    const [asset] = await db.select({ id: workspaceAssets.id, type: workspaceAssets.type }).from(workspaceAssets).where(and(
       eq(workspaceAssets.workspaceId, workspaceId),
       eq(workspaceAssets.id, revisionAssetId),
     )).limit(1);
-    if (!asset) return null;
+    if (!asset?.type.startsWith("image/")) return null;
   }
   return db.transaction(async (tx) => {
     const versionScope = `${workspaceId}:${workItemId}:${parent.creativeLevel}:${parent.targetFormat}`;
@@ -710,16 +710,17 @@ export async function requeueCreativeWorkOutputOnce(workspaceId: string, workIte
   return row ?? null;
 }
 
-export async function linkCreativeWorkCampaign(workspaceId: string, workItemId: string, campaignId: string): Promise<CreativeWorkItem | null> {
+export async function linkCreativeWorkCampaign(workspaceId: string, workItemId: string, campaignId: string | null): Promise<CreativeWorkItem | null> {
   const [work] = await db.select().from(creativeWorkItems).where(and(
     eq(creativeWorkItems.workspaceId, workspaceId),
     eq(creativeWorkItems.id, workItemId),
   )).limit(1);
   if (!work) return null;
-  const campaign = await getCampaignById(campaignId, workspaceId);
-  if (!campaign) return null;
-  const campaignProfileId = await resolveCampaignClientProfileId(workspaceId, campaign);
-  if (campaignProfileId && campaignProfileId !== work.clientProfileId) return null;
+  if (campaignId) {
+    const campaign = await getCampaignById(campaignId, workspaceId);
+    if (!campaign) return null;
+    if (campaign.clientProfileId && campaign.clientProfileId !== work.clientProfileId) return null;
+  }
   const [row] = await db.update(creativeWorkItems).set({ campaignId, updatedAt: new Date() }).where(and(
     eq(creativeWorkItems.workspaceId, workspaceId),
     eq(creativeWorkItems.id, workItemId),

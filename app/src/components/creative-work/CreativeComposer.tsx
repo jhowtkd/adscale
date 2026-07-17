@@ -7,6 +7,7 @@ import { Paperclip, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ActiveBrandSwitcher from "@/components/layout/ActiveBrandSwitcher";
 import { CreativeSourceChip } from "./CreativeSourceChip";
+import CreativeProposalGrid from "@/components/quick-tools/create-post/CreativeProposalGrid";
 import type { CreativeComposerModel, CreativeComposerViewModel } from "./useCreativeComposer";
 
 const FORMATS = ["1:1", "4:5", "9:16"] as const;
@@ -160,6 +161,39 @@ export function CreativeComposer({ composer, composerRef }: {
           </fieldset>
         </div>
       </details>
+
+      {composer.outputs.length > 0 ? (
+        <section aria-labelledby="creative-results-title" className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 id="creative-results-title" className="text-lg font-semibold text-[var(--text-primary)]">Resultados</h2>
+              <p className="text-sm text-[var(--text-muted)]">Cada resultado fica salvo assim que termina.</p>
+            </div>
+            <label className="text-sm text-[var(--text-secondary)]">
+              <span className="sr-only">Agrupar em campanha</span>
+              <select
+                aria-label="Agrupar em campanha"
+                value={composer.campaignId ?? ""}
+                onChange={(event) => void composer.linkCampaign(event.target.value || null)}
+                className="rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2"
+              >
+                <option value="">Sem campanha</option>
+                {composer.campaigns.map((campaign) => <option key={campaign.id} value={campaign.id}>{campaign.name}</option>)}
+              </select>
+            </label>
+          </div>
+          <CreativeProposalGrid
+            outputs={composer.outputs}
+            onRetry={composer.retryOutput}
+            onApprove={composer.approveOutput}
+            onDownload={composer.downloadOutput}
+            onRevise={composer.reviseOutput}
+            isRetrying={composer.isRetryingOutput}
+            isApproving={composer.isApprovingOutput}
+            isRevising={composer.isRevisingOutput}
+          />
+        </section>
+      ) : null}
 
       {composer.error ? <p role="alert" className="text-sm text-[var(--danger-text)]">{composer.error}</p> : null}
       <p role="status" aria-live="polite" className="sr-only">{composer.announcement || composer.state}</p>

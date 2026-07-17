@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const generate = vi.hoisted(() => vi.fn());
+const revise = vi.hoisted(() => vi.fn());
 vi.mock("@/server/application/generate-creative-work", () => ({ generateCreativeWork: generate }));
+vi.mock("@/server/application/revise-creative-work-output", () => ({ reviseCreativeWorkOutput: revise }));
 vi.mock("@/server/auth/workspace", () => ({
   requireWorkspaceAccess: vi.fn(async () => ({ user: { id: "user-1" }, workspace: { id: "ws-1" } })),
 }));
@@ -17,6 +19,30 @@ describe("POST /api/creative-work/[id]/generate", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     generate.mockResolvedValue({ ok: true, value: { work: { id: "work-1" }, outputs: [{ id: "output-1" }], billingKey: "creative-work:work-1:initial", brandTrainingSuggestion: null } });
+    revise.mockResolvedValue({ ok: true, value: { output: { id: "output-v2", versionNumber: 2 } } });
+  });
+
+  it("delegates a strict revision command and returns only the new output", async () => {
+    const body = {
+      action: "revision",
+      revisionKey: "revision-1",
+      outputId: "output-v1",
+      instruction: "Use mais contraste",
+      revisionAssetId: null,
+    };
+    const response = await POST(request(body), { params: Promise.resolve({ id: "work-1" }) });
+
+    expect(response.status).toBe(202);
+    expect(revise).toHaveBeenCalledWith({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      userId: "user-1",
+      revisionKey: "revision-1",
+      outputId: "output-v1",
+      instruction: "Use mais contraste",
+      revisionAssetId: null,
+    });
+    await expect(response.json()).resolves.toEqual({ output: { id: "output-v2", versionNumber: 2 } });
   });
 
   it("is a thin adapter for the initial generation command", async () => {

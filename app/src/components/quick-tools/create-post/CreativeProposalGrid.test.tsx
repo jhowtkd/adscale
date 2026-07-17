@@ -8,6 +8,13 @@ describe("CreativeProposalGrid", () => {
     workspaceId: "ws-1",
     workItemId: "work-1",
     creativeLevel: "conservative" as const,
+    targetFormat: "4:5" as const,
+    versionNumber: 1,
+    parentOutputId: null,
+    revisionInstruction: null,
+    revisionAssetId: null,
+    retryCount: 0,
+    operationKey: "conservative:4:5:1",
     status: "completed" as const,
     outputKey: "key-conservative",
     cost: null,
@@ -41,13 +48,14 @@ describe("CreativeProposalGrid", () => {
       <CreativeProposalGrid
         outputs={outputs}
         onRetry={vi.fn()}
-        onSave={vi.fn()}
+        onApprove={vi.fn()}
         onDownload={vi.fn()}
+        onRevise={vi.fn()}
       />,
     );
 
     const levels = screen.getAllByTestId("proposal-level-name");
-    expect(levels.map((el) => el.textContent)).toEqual(["conservative", "balanced", "bold"]);
+    expect(levels.map((el) => el.textContent)).toEqual(["Conservadora", "Equilibrada", "Ousada"]);
   });
 
   it("exposes a retry affordance on failed cards", () => {
@@ -55,49 +63,66 @@ describe("CreativeProposalGrid", () => {
       <CreativeProposalGrid
         outputs={outputs}
         onRetry={vi.fn()}
-        onSave={vi.fn()}
+        onApprove={vi.fn()}
         onDownload={vi.fn()}
+        onRevise={vi.fn()}
       />,
     );
 
     expect(screen.getByRole("button", { name: "Repetir esta proposta" })).toBeVisible();
   });
 
-  it("exposes only delivery actions on completed cards", () => {
+  it("exposes approve, download, and edit actions on completed cards", () => {
     render(
       <CreativeProposalGrid
         outputs={outputs}
         onRetry={vi.fn()}
-        onSave={vi.fn()}
+        onApprove={vi.fn()}
         onDownload={vi.fn()}
+        onRevise={vi.fn()}
       />,
     );
 
-    expect(screen.queryByRole("button", { name: "Selecionar" })).not.toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "Salvar na biblioteca" })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: "Aprovar" })).toHaveLength(2);
     expect(screen.getAllByRole("button", { name: "Baixar" })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: "Editar" })).toHaveLength(2);
   });
 
   it("invokes retry/save/download callbacks", () => {
     const onRetry = vi.fn();
-    const onSave = vi.fn();
+    const onApprove = vi.fn();
     const onDownload = vi.fn();
 
     render(
       <CreativeProposalGrid
         outputs={outputs}
         onRetry={onRetry}
-        onSave={onSave}
+        onApprove={onApprove}
         onDownload={onDownload}
+        onRevise={vi.fn()}
       />,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Repetir esta proposta" }));
-    fireEvent.click(screen.getAllByRole("button", { name: "Salvar na biblioteca" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Aprovar" })[0]);
     fireEvent.click(screen.getAllByRole("button", { name: "Baixar" })[0]);
 
     expect(onRetry).toHaveBeenCalledWith(boldFailed.id);
-    expect(onSave).toHaveBeenCalledWith(conservativeCompleted.id);
+    expect(onApprove).toHaveBeenCalledWith(conservativeCompleted.id);
     expect(onDownload).toHaveBeenCalledWith(conservativeCompleted.id);
+  });
+
+  it("renders one planned output without synthetic empty cards", () => {
+    render(
+      <CreativeProposalGrid
+        outputs={[balancedCompleted]}
+        onRetry={vi.fn()}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+        onRevise={vi.fn()}
+      />,
+    );
+    expect(screen.getAllByTestId("proposal-level")).toHaveLength(1);
+    expect(screen.getByTestId("proposal-level-name")).toHaveTextContent("Equilibrada");
   });
 });

@@ -20,6 +20,7 @@ import {
   createCreativeWorkSource,
   deleteCreativeWorkSource,
   getCreativeWork,
+  linkCreativeWorkCampaign,
   refreshCreativeWorkStatus,
   updateCreativeWorkSource,
   updateCreativeWorkSourceIfUnchanged,
@@ -53,6 +54,7 @@ const autosaveSchema = z.object({
   if (!parsed.success) parsed.error.issues.forEach((issue) => context.addIssue(issue));
 });
 const prepareSchema = z.object({ action: z.literal("prepare") }).strict();
+const linkCampaignSchema = z.object({ action: z.literal("linkCampaign"), campaignId: z.string().min(1).nullable() }).strict();
 const sourceUsageSchema = z.enum(CREATIVE_SOURCE_USAGES);
 const attachSourceSchema = z.union([
   z.object({ action: z.literal("attachSource"), assetId: z.string().min(1), usage: sourceUsageSchema }).strict(),
@@ -70,6 +72,7 @@ const editSourceAnalysisSchema = z.object({
 const patchCreativeWorkSchema = z.union([
   autosaveSchema, prepareSchema, attachSourceSchema, updateSourceSchema,
   retrySourceSchema, removeSourceSchema, editSourceAnalysisSchema, confirmCreativeWorkSchema,
+  linkCampaignSchema,
 ]);
 
 function dispatchSourceAnalysis(workspaceId: string, workItemId: string, sourceId: string) {
@@ -193,6 +196,12 @@ export async function PATCH(
         return apiError("creativeWorkNotReady", 409);
       }
       return NextResponse.json(prepared.value);
+    }
+
+    if ("action" in parsed.data && parsed.data.action === "linkCampaign") {
+      const work = await linkCreativeWorkCampaign(workspace.id, id, parsed.data.campaignId);
+      if (!work) return apiError("creativeWorkCampaignMismatch", 409);
+      return NextResponse.json({ work });
     }
 
     if ("action" in parsed.data && parsed.data.action === "attachSource") {

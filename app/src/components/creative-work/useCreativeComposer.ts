@@ -9,6 +9,12 @@ import {
   useCreativeWork,
   useCreativeWorkSourceActions,
   usePrepareCreativeWork,
+  useRetryOutput,
+  useReviseOutput,
+  useSelectOutput,
+  useDownloadOutputUrl,
+  useLinkCreativeWorkCampaign,
+  useCreativeWorkCampaigns,
   useTriggerTriplet,
   type CreativeSourceUsage,
   type CreativeWorkItem,
@@ -77,6 +83,7 @@ export function useCreativeComposer({ initialWorkId }: { initialWorkId?: string 
   const mountedRef = useRef(false);
   const lifecycleRef = useRef(0);
   const persistOnUnmountRef = useRef<() => Promise<void>>(async () => undefined);
+  const revisionAttemptsRef = useRef(new Map<string, { revisionKey: string; revisionAssetId: string | null }>());
 
   const detailQuery = useCreativeWork(workId);
   const createMutation = useCreateCreativeWorkDraft();
@@ -84,6 +91,12 @@ export function useCreativeComposer({ initialWorkId }: { initialWorkId?: string 
   const prepareMutation = usePrepareCreativeWork();
   const sourceMutation = useCreativeWorkSourceActions();
   const generateMutation = useTriggerTriplet();
+  const retryOutputMutation = useRetryOutput();
+  const reviseOutputMutation = useReviseOutput();
+  const selectOutputMutation = useSelectOutput();
+  const linkCampaignMutation = useLinkCreativeWorkCampaign();
+  const downloadOutputUrl = useDownloadOutputUrl();
+  const campaignQuery = useCreativeWorkCampaigns(Boolean(detailQuery.data?.outputs.length));
 
   useEffect(() => { workIdRef.current = workId; }, [workId]);
   useEffect(() => { requestRef.current = request; }, [request]);
@@ -325,6 +338,58 @@ export function useCreativeComposer({ initialWorkId }: { initialWorkId?: string 
     }
   }, [flushAutosave, generateMutation, prepareMutation]);
 
+  const retryOutput = useCallback(async (outputId: string) => {
+    if (!workIdRef.current) return;
+    try {
+      await retryOutputMutation.mutateAsync({ workItemId: workIdRef.current, outputId });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Falha ao repetir proposta");
+    }
+  }, [retryOutputMutation]);
+
+  const approveOutput = useCallback(async (outputId: string) => {
+    if (!workIdRef.current) return;
+    try {
+      await selectOutputMutation.mutateAsync({ workItemId: workIdRef.current, outputId, saveToLibrary: false });
+      setAnnouncement("Proposta aprovada");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Falha ao aprovar proposta");
+    }
+  }, [selectOutputMutation]);
+
+  const reviseOutput = useCallback(async (outputId: string, instruction: string, attachment: File | null) => {
+    if (!workIdRef.current || !instruction.trim()) return;
+    const attemptKey = `${outputId}:${instruction.trim()}:${attachment?.name ?? ""}:${attachment?.size ?? 0}`;
+    try {
+      let attempt = revisionAttemptsRef.current.get(attemptKey);
+      if (!attempt) {
+        const uploaded = attachment ? await uploadChatAttachment(attachment) : null;
+        attempt = { revisionKey: crypto.randomUUID(), revisionAssetId: uploaded?.assetId ?? null };
+        revisionAttemptsRef.current.set(attemptKey, attempt);
+      }
+      await reviseOutputMutation.mutateAsync({
+        workItemId: workIdRef.current,
+        outputId,
+        instruction: instruction.trim(),
+        ...attempt,
+      });
+      revisionAttemptsRef.current.delete(attemptKey);
+      setAnnouncement("Nova versão em geração");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Falha ao gerar nova versão");
+    }
+  }, [reviseOutputMutation]);
+
+  const linkCampaign = useCallback(async (campaignId: string | null) => {
+    if (!workIdRef.current) return;
+    try {
+      await linkCampaignMutation.mutateAsync({ workItemId: workIdRef.current, campaignId });
+      setAnnouncement(campaignId ? "Campanha vinculada" : "Campanha removida");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Falha ao agrupar em campanha");
+    }
+  }, [linkCampaignMutation]);
+
   const detail = detailQuery.data;
   const state = useMemo<ComposerState>(() => {
     if (generateMutation.isPending || detail?.work.status === "generating") return "generating";
@@ -343,6 +408,10 @@ export function useCreativeComposer({ initialWorkId }: { initialWorkId?: string 
   const canGenerate = Boolean(active.activeClientProfileId || storedProfileId) && hasMeaningfulInput
     && !isUploading && !generateMutation.isPending;
 
+  const campaigns = (campaignQuery.data ?? []).filter((campaign) =>
+    !campaign.clientProfileId || campaign.clientProfileId === storedProfileId,
+  );
+
   return {
     composerRef: composerRef as RefObject<HTMLTextAreaElement | null>, request, setRequest,
     intent, selectIntent, format, setFormat: (value: Format) => {
@@ -352,9 +421,18 @@ export function useCreativeComposer({ initialWorkId }: { initialWorkId?: string 
     },
     targetFormats, toggleTargetFormat, state, workId, brandName,
     sources: detail?.sources ?? [], outputs: detail?.outputs ?? [], quote, canGenerate, isUploading,
+    campaignId: detail?.work.campaignId ?? null, campaigns,
     error, announcement, requiresBrandSelection: active.requiresSelection,
     workError: Boolean(workId && detailQuery.isError),
     addFiles, updateSource, retrySource, removeSource, generate,
+    retryOutput, approveOutput, reviseOutput, linkCampaign,
+    downloadOutput: (outputId: string) => {
+      if (!workIdRef.current) return;
+      window.open(downloadOutputUrl(workIdRef.current, outputId), "_blank", "noopener,noreferrer");
+    },
+    isRetryingOutput: (outputId: string) => retryOutputMutation.isPending && retryOutputMutation.variables?.outputId === outputId,
+    isApprovingOutput: (outputId: string) => selectOutputMutation.isPending && selectOutputMutation.variables?.outputId === outputId,
+    isRevisingOutput: (outputId: string) => reviseOutputMutation.isPending && reviseOutputMutation.variables?.outputId === outputId,
   };
 }
 

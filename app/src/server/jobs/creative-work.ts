@@ -10,6 +10,7 @@ import {
   type RefundDecision,
 } from "@/server/generation/canonical/types";
 import { getClientProfile } from "@/server/repositories/client-reference";
+import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
 import { refundCredits } from "@/server/billing/credits";
 import {
   getCreativeWork,
@@ -85,6 +86,9 @@ export const creativeWorkOutputJob = inngest.createFunction(
         return {
           work: result.work,
           output,
+          parentOutput: output?.parentOutputId
+            ? result.outputs.find((candidate) => candidate.id === output.parentOutputId) ?? null
+            : null,
         };
       })) as unknown as {
         work: Awaited<ReturnType<typeof getCreativeWork>> extends infer R
@@ -93,6 +97,13 @@ export const creativeWorkOutputJob = inngest.createFunction(
             : never
           : never;
         output: Awaited<ReturnType<typeof getCreativeWork>> extends infer R
+          ? R extends { outputs: infer O }
+            ? O extends Array<infer Item>
+              ? Item | null
+              : never
+            : never
+            : never;
+        parentOutput: Awaited<ReturnType<typeof getCreativeWork>> extends infer R
           ? R extends { outputs: infer O }
             ? O extends Array<infer Item>
               ? Item | null
@@ -119,6 +130,7 @@ export const creativeWorkOutputJob = inngest.createFunction(
       if (!brief) return { success: false, skipped: true, outputId };
       const output = scopeRaw.output;
       const creativeLevel = output.creativeLevel;
+      const parentOutput = scopeRaw.parentOutput;
       const identitySnapshot = work.identitySnapshot as CreativeWorkIdentitySnapshot;
       const copy = work.copy as SocialPostCopy;
 
@@ -174,11 +186,33 @@ export const creativeWorkOutputJob = inngest.createFunction(
           .filter((source) => (source.usage === "style" || source.usage === "both") && source.assetKey && source.mimeType)
           .map((source) => ({ assetKey: source.assetKey!, mimeType: source.mimeType!, label: `Source ${source.sourceId}` }));
 
+        if (output.parentOutputId && (!parentOutput?.outputKey || parentOutput.status !== "completed")) {
+          throw new Error("creative_work_revision_parent_missing");
+        }
+        const revisionAsset = output.revisionAssetId
+          ? await getWorkspaceAssetById(output.revisionAssetId, workspaceId)
+          : null;
+        if (output.revisionAssetId && (!revisionAsset || !revisionAsset.type.startsWith("image/"))) {
+          throw new Error("creative_work_revision_asset_missing");
+        }
+        const revisionReferences = [
+          ...(parentOutput?.outputKey ? [{
+            assetKey: parentOutput.outputKey,
+            mimeType: "image/png",
+            label: `Versão ${parentOutput.versionNumber}`,
+          }] : []),
+          ...(revisionAsset ? [{
+            assetKey: revisionAsset.key,
+            mimeType: revisionAsset.type,
+            label: revisionAsset.name,
+          }] : []),
+        ];
+
         // Binary payloads cannot cross an Inngest step boundary. The durable
         // asset keys live in the identity snapshot; buffers stay local to this
         // invocation and are consumed immediately by the provider.
         referenceImages = await Promise.all(
-          [...referenceAssets, ...sourceReferences].slice(0, MAX_REFERENCE_IMAGES).map(async (asset) => ({
+          [...revisionReferences, ...referenceAssets, ...sourceReferences].slice(0, MAX_REFERENCE_IMAGES).map(async (asset) => ({
             buffer: await objectStorage.get(asset.assetKey),
             mimeType: asset.mimeType,
             name: asset.label,
@@ -203,7 +237,7 @@ export const creativeWorkOutputJob = inngest.createFunction(
         origin: "quick_tool",
         surface: "quick_tool",
         intent: {
-          mode: "social_post",
+          mode: parentOutput ? "creative_revision" : "social_post",
           objective: brief.objective ?? null,
         },
         identity: {
@@ -217,10 +251,10 @@ export const creativeWorkOutputJob = inngest.createFunction(
           constraints: null,
         },
         source: {
-          parentId: null,
-          sourceVersionId: null,
-          lineageId: null,
-          packageSource: "creative_work_brief",
+          parentId: parentOutput?.id ?? null,
+          sourceVersionId: parentOutput?.id ?? null,
+          lineageId: parentOutput ? `${workItemId}:${output.creativeLevel}:${output.targetFormat}` : null,
+          packageSource: parentOutput ? "creative_work_output" : "creative_work_brief",
         },
         prompt: { text: prompt },
         cost: {
@@ -228,7 +262,9 @@ export const creativeWorkOutputJob = inngest.createFunction(
           refundPolicy: "default",
         },
         idempotency: {
-          billingKey: creativeWorkUnitBillingKey(workItemId, outputId),
+          billingKey: parentOutput
+            ? `creative-work:${workItemId}:revision:${outputId}`
+            : creativeWorkUnitBillingKey(workItemId, outputId),
           skipWhenOutputExists: true,
         },
         destination: {

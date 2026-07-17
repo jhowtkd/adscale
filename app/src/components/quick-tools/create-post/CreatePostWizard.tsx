@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { useAppStore } from "@/lib/store";
@@ -65,7 +65,6 @@ const VISUAL_TRIPLET_CREDITS = 15;
 export default function CreatePostWizard({ workId: initialWorkId }: { workId?: string } = {}) {
   const tQuick = useTranslations("quickTools.createPost");
   const tCommon = useTranslations("common");
-  const router = useRouter();
   const searchParams = useSearchParams();
   const addToast = useAppStore((s) => s.addToast);
 
@@ -284,12 +283,9 @@ export default function CreatePostWizard({ workId: initialWorkId }: { workId?: s
       await selectMutation.mutateAsync({
         workItemId: activeWorkId,
         outputId,
-        saveToLibrary: true,
+        saveToLibrary: false,
       });
       addToast("success", tQuick("saveSuccess"));
-      // Land on library so the user can confirm the asset (creative_work keys
-      // render via authenticated /file proxy, not the home feed).
-      router.push("/library");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : tCommon("error"));
     }

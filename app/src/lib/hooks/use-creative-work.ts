@@ -57,6 +57,7 @@ export interface CreativeWorkItem {
   clientProfileId: string;
   createdByUserId: string;
   draftKey: string | null;
+  campaignId: string | null;
   title: string;
   request: string;
   toolKind: "social_post" | "variations" | "single" | "format_adaptation" | "restyle";
@@ -75,6 +76,13 @@ export interface CreativeWorkOutput {
   workspaceId: string;
   workItemId: string;
   creativeLevel: CreativeLevel;
+  targetFormat: "1:1" | "4:5" | "9:16";
+  versionNumber: number;
+  parentOutputId: string | null;
+  revisionInstruction: string | null;
+  revisionAssetId: string | null;
+  retryCount: number;
+  operationKey: string;
   status: CreativeWorkOutputStatus;
   outputKey: string | null;
   cost: number | null;
@@ -107,6 +115,12 @@ export interface CreativeWorkDetail {
   work: CreativeWorkItem;
   outputs: CreativeWorkOutput[];
   sources: CreativeWorkSource[];
+}
+
+export interface CreativeWorkCampaignOption {
+  id: string;
+  name: string;
+  clientProfileId: string | null;
 }
 
 export function creativeWorkRefetchInterval(
@@ -207,6 +221,19 @@ export function useCreativeWork(workItemId: string | null | undefined) {
       if (!data) return false;
       return creativeWorkRefetchInterval(data);
     },
+  });
+}
+
+export function useCreativeWorkCampaigns(enabled: boolean) {
+  return useQuery({
+    queryKey: ["creative-work", "campaign-options"],
+    enabled,
+    staleTime: 30_000,
+    queryFn: () => apiFetch("/api/campaigns?limit=50").then(async (res) => {
+      if (!res.ok) throw new Error(await readError(res));
+      const data = await res.json() as { campaigns?: CreativeWorkCampaignOption[] };
+      return data.campaigns ?? [];
+    }),
   });
 }
 
@@ -413,6 +440,43 @@ export function useRetryOutput() {
         queryClient.invalidateQueries({
           queryKey: ["creative-work", variables.workItemId],
         }),
+        invalidateCanonicalWorks(queryClient),
+      ]);
+    },
+  });
+}
+
+export function useReviseOutput() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ workItemId, ...command }: {
+      workItemId: string;
+      outputId: string;
+      revisionKey: string;
+      instruction: string;
+      revisionAssetId: string | null;
+    }) => postJson<{ output: CreativeWorkOutput }>(
+      `/api/creative-work/${workItemId}/generate`,
+      { action: "revision", ...command },
+    ),
+    onSuccess: async (_data, input) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["creative-work", input.workItemId] }),
+        invalidateCanonicalWorks(queryClient),
+      ]);
+    },
+    onError: (_error, input) => queryClient.invalidateQueries({ queryKey: ["creative-work", input.workItemId] }),
+  });
+}
+
+export function useLinkCreativeWorkCampaign() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ workItemId, campaignId }: { workItemId: string; campaignId: string | null }) =>
+      patchJson<{ work: CreativeWorkItem }>(`/api/creative-work/${workItemId}`, { action: "linkCampaign", campaignId }),
+    onSuccess: async (_data, input) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["creative-work", input.workItemId] }),
         invalidateCanonicalWorks(queryClient),
       ]);
     },

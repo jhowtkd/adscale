@@ -24,6 +24,7 @@ const createSourceMock = vi.hoisted(() => vi.fn());
 const updateSourceMock = vi.hoisted(() => vi.fn());
 const updateSourceCasMock = vi.hoisted(() => vi.fn());
 const deleteSourceMock = vi.hoisted(() => vi.fn());
+const linkCampaignMock = vi.hoisted(() => vi.fn());
 const getAssetMock = vi.hoisted(() => vi.fn());
 const getTemplateMock = vi.hoisted(() => vi.fn());
 const analyzeSourceMock = vi.hoisted(() => vi.fn());
@@ -38,6 +39,7 @@ vi.mock("@/server/repositories/creative-work", () => ({
   updateCreativeWorkSource: (...args: unknown[]) => updateSourceMock(...args),
   updateCreativeWorkSourceIfUnchanged: (...args: unknown[]) => updateSourceCasMock(...args),
   deleteCreativeWorkSource: (...args: unknown[]) => deleteSourceMock(...args),
+  linkCreativeWorkCampaign: (...args: unknown[]) => linkCampaignMock(...args),
 }));
 
 vi.mock("@/server/repositories/workspace-asset", () => ({
@@ -235,6 +237,7 @@ describe("PATCH /api/creative-work/[id]", () => {
     updateSourceMock.mockResolvedValue({ id: "source-1", usage: "style", status: "uploaded" });
     updateSourceCasMock.mockResolvedValue({ id: "source-1", usage: "content", status: "uploaded", updatedAt: new Date("2026-07-16T12:00:00.001Z") });
     deleteSourceMock.mockResolvedValue({ id: "source-1" });
+    linkCampaignMock.mockResolvedValue({ ...workItem, campaignId: "campaign-1" });
     inngestSendMock.mockResolvedValue(undefined);
     getTemplateMock.mockResolvedValue({ id: "template-1", workspaceId: "workspace-1", name: "Template", styleIntensity: "medium" });
     analyzeSourceMock.mockResolvedValue({ id: "source-1", status: "ready" });
@@ -286,6 +289,23 @@ describe("PATCH /api/creative-work/[id]", () => {
     }), { params: makeParams("work-1") });
     expect(res.status).toBe(200);
     expect(prepareMock).toHaveBeenCalledWith({ workspaceId: "workspace-1", workItemId: "work-1" });
+  });
+
+  it("links and unlinks only an existing compatible campaign", async () => {
+    const linked = await requestPatch({ action: "linkCampaign", campaignId: "campaign-1" });
+    expect(linked.status).toBe(200);
+    expect(linkCampaignMock).toHaveBeenCalledWith("workspace-1", "work-1", "campaign-1");
+
+    linkCampaignMock.mockResolvedValue({ ...workItem, campaignId: null });
+    const unlinked = await requestPatch({ action: "linkCampaign", campaignId: null });
+    expect(unlinked.status).toBe(200);
+    expect(linkCampaignMock).toHaveBeenCalledWith("workspace-1", "work-1", null);
+  });
+
+  it("rejects a missing or brand-incompatible campaign", async () => {
+    linkCampaignMock.mockResolvedValue(null);
+    const res = await requestPatch({ action: "linkCampaign", campaignId: "other-campaign" });
+    expect(res.status).toBe(409);
   });
 
   it.each([

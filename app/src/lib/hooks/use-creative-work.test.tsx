@@ -8,7 +8,9 @@ import {
   useGenerateCopy,
   useCreativeWork,
   useCreativeWorkSourceActions,
+  useLinkCreativeWorkCampaign,
   usePrepareCreativeWork,
+  useReviseOutput,
   useTriggerTriplet,
 } from "./use-creative-work";
 
@@ -23,9 +25,9 @@ import { invalidateCanonicalWorks } from "@/lib/hooks/use-canonical-works";
 const mockApiFetch = vi.mocked(apiFetch);
 
 function wrapperWith(queryClient: QueryClient) {
-  return ({ children }: { children: React.ReactNode }) => (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-  );
+  return function Wrapper({ children }: { children: React.ReactNode }) {
+    return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+  };
 }
 
 describe("draft mutations", () => {
@@ -188,5 +190,47 @@ describe("useTriggerTriplet", () => {
         outputs: [expect.objectContaining({ status: "queued" })],
       })
     );
+  });
+});
+
+describe("result actions", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("sends the strict revision payload without leaking the path work id into the body", async () => {
+    mockApiFetch.mockResolvedValue({ ok: true, json: async () => ({ output: { id: "output-v2" } }) } as Response);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { result } = renderHook(() => useReviseOutput(), { wrapper: wrapperWith(queryClient) });
+
+    await act(() => result.current.mutateAsync({
+      workItemId: "work-1",
+      outputId: "output-v1",
+      revisionKey: "revision-1",
+      instruction: "Use mais contraste",
+      revisionAssetId: null,
+    }));
+
+    expect(mockApiFetch).toHaveBeenCalledWith("/api/creative-work/work-1/generate", expect.objectContaining({
+      method: "POST",
+      body: JSON.stringify({
+        action: "revision",
+        outputId: "output-v1",
+        revisionKey: "revision-1",
+        instruction: "Use mais contraste",
+        revisionAssetId: null,
+      }),
+    }));
+  });
+
+  it("links and unlinks only through the existing campaign relationship", async () => {
+    mockApiFetch.mockResolvedValue({ ok: true, json: async () => ({ work: { id: "work-1" } }) } as Response);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { result } = renderHook(() => useLinkCreativeWorkCampaign(), { wrapper: wrapperWith(queryClient) });
+
+    await act(() => result.current.mutateAsync({ workItemId: "work-1", campaignId: null }));
+
+    expect(mockApiFetch).toHaveBeenCalledWith("/api/creative-work/work-1", expect.objectContaining({
+      method: "PATCH",
+      body: JSON.stringify({ action: "linkCampaign", campaignId: null }),
+    }));
   });
 });

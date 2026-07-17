@@ -404,9 +404,9 @@ describe("CreatePostWizard", () => {
 
     render(<CreatePostWizard workId="work-1" />, { wrapper: createWrapper() });
 
-    await screen.findByText("conservative");
-    await screen.findByText("balanced");
-    await screen.findByText("bold");
+    await screen.findByText("Conservadora");
+    await screen.findByText("Equilibrada");
+    await screen.findByText("Ousada");
   });
 
   it("exposes Repetir esta proposta for failed cards", async () => {
@@ -418,13 +418,14 @@ describe("CreatePostWizard", () => {
     expect(retry).toBeVisible();
   });
 
-  it("exposes only save and download for completed cards", async () => {
+  it("exposes only approve and download for completed cards", async () => {
     mockUseCreativeWork.mockReturnValue({ data: generatingWork, isLoading: false });
 
     render(<CreatePostWizard workId="work-1" />, { wrapper: createWrapper() });
 
     expect(screen.queryByRole("button", { name: "Selecionar" })).not.toBeInTheDocument();
-    expect(await screen.findAllByRole("button", { name: "Salvar na biblioteca" })).toHaveLength(2);
+    expect(await screen.findAllByRole("button", { name: "Aprovar" })).toHaveLength(2);
+    expect(screen.queryByRole("button", { name: "Salvar na biblioteca" })).not.toBeInTheDocument();
     expect(await screen.findAllByRole("button", { name: "Baixar" })).toHaveLength(2);
   });
 
@@ -433,7 +434,7 @@ describe("CreatePostWizard", () => {
 
     render(<CreatePostWizard workId="work-1" />, { wrapper: createWrapper() });
 
-    await screen.findByText("conservative");
+    await screen.findByText("Conservadora");
     expect(screen.queryByText(/recomendad|best|principal/i)).toBeNull();
   });
 
