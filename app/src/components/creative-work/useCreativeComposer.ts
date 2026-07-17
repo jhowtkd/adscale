@@ -175,6 +175,7 @@ export function useCreativeComposer({ initialWorkId }: { initialWorkId?: string 
   }), [autosaveMutation, enqueueSave]);
 
   const flushAutosave = useCallback(async (): Promise<string | null> => {
+    if (initialWorkId && !hydratedWorkRef.current) return null;
     await saveChainRef.current;
     const id = workIdRef.current ?? await ensureDraft();
     if (!id) return null;
@@ -184,9 +185,10 @@ export function useCreativeComposer({ initialWorkId }: { initialWorkId?: string 
       if (signature(snapshot) === lastPersistedRef.current) return id;
       await persistSnapshot(id, snapshot);
     }
-  }, [captureSnapshot, ensureDraft, persistSnapshot]);
+  }, [captureSnapshot, ensureDraft, initialWorkId, persistSnapshot]);
 
   persistOnUnmountRef.current = async () => {
+    if (initialWorkId && !hydratedWorkRef.current) return;
     await saveChainRef.current;
     const id = workIdRef.current ?? await ensureDraft(undefined, true);
     if (!id) return;

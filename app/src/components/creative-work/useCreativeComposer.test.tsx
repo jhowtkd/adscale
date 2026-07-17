@@ -1,4 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
+import { StrictMode, type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -205,7 +206,7 @@ describe("useCreativeComposer", () => {
   });
 
   it("waits for create A, persists latest B, then prepares and generates", async () => {
-    const createA = deferred<{ work: { id: string }; quote: { unitCount: number; credits: number } }>();
+    const createA = deferred<{ work: ReturnType<typeof workDetail>["work"]; quote: { unitCount: number; credits: number } }>();
     mocks.create.mockReturnValueOnce(createA.promise);
     const { result } = renderHook(() => useCreativeComposer());
     act(() => result.current.setRequest("Pedido A"));
@@ -217,10 +218,15 @@ describe("useCreativeComposer", () => {
     act(() => { generation = result.current.generate(); });
     expect(mocks.prepare).not.toHaveBeenCalled();
 
-    createA.resolve({ work: { id: "work-1" }, quote: { unitCount: 3, credits: 15 } });
+    createA.resolve({
+      work: { ...workDetail().work, request: "Pedido A", toolKind: "variations" },
+      quote: { unitCount: 3, credits: 15 },
+    });
     await act(async () => { await generation; });
 
     expect(mocks.autosave).toHaveBeenCalledWith(expect.objectContaining({ request: "Pedido B" }));
+    expect(mocks.prepare).toHaveBeenCalledOnce();
+    expect(mocks.generate).toHaveBeenCalledOnce();
     expect(mocks.autosave.mock.invocationCallOrder[0]).toBeLessThan(mocks.prepare.mock.invocationCallOrder[0]);
     expect(mocks.prepare.mock.invocationCallOrder[0]).toBeLessThan(mocks.generate.mock.invocationCallOrder[0]);
   });
@@ -298,6 +304,33 @@ describe("useCreativeComposer", () => {
     }));
   });
 
+  it("does not flush an existing work that unmounts before its GET hydrates", async () => {
+    mocks.work.mockReturnValue({ data: undefined, isLoading: true, isError: false });
+    const { unmount } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+
+    unmount();
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+
+    expect(mocks.autosave).not.toHaveBeenCalled();
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+
+  it("hydrates a deferred existing work, then persists its latest edit on unmount", async () => {
+    let query = { data: undefined as ReturnType<typeof workDetail> | undefined, isLoading: true, isError: false };
+    mocks.work.mockImplementation(() => query);
+    const { result, rerender, unmount } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+
+    query = { data: workDetail(), isLoading: false, isError: false };
+    rerender();
+    act(() => result.current.setRequest("Edição após hidratar"));
+    unmount();
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+
+    expect(mocks.autosave).toHaveBeenCalledWith(expect.objectContaining({
+      workItemId: "work-1", request: "Edição após hidratar",
+    }));
+  });
+
   it("creates the latest non-empty draft when it unmounts before debounce", async () => {
     const { result, unmount } = renderHook(() => useCreativeComposer());
 
@@ -314,5 +347,15 @@ describe("useCreativeComposer", () => {
     unmount();
     await act(async () => { await Promise.resolve(); await Promise.resolve(); });
     expect(mocks.create).not.toHaveBeenCalled();
+  });
+
+  it("does not persist during StrictMode's synthetic cleanup", async () => {
+    const wrapper = ({ children }: { children: ReactNode }) => <StrictMode>{children}</StrictMode>;
+    const { unmount } = renderHook(() => useCreativeComposer(), { wrapper });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(mocks.create).not.toHaveBeenCalled();
+    expect(mocks.autosave).not.toHaveBeenCalled();
+    unmount();
   });
 });
