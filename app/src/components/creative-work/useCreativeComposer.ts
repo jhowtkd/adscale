@@ -22,6 +22,7 @@ import {
   type CreativeWorkQuote,
 } from "@/lib/hooks/use-creative-work";
 import { quoteCreativeWork } from "@/server/creative-work/contracts";
+import type { CreativeInspiration } from "@/server/application/list-creative-inspirations";
 
 export type ComposerState = "empty" | "saving" | "analyzing" | "ready" | "generating" | "results";
 export type ComposerIntent = Exclude<CreativeWorkItem["toolKind"], "social_post">;
@@ -32,6 +33,7 @@ type DraftSnapshot = {
   format: Format;
   settings: { targetFormats: Format[] };
 };
+type DraftSource = { assetId: string } | { templateId: string };
 
 const DEFAULT_QUOTE: CreativeWorkQuote = { unitCount: 3, credits: 15 };
 
@@ -144,7 +146,7 @@ export function useCreativeComposer({ initialWorkId }: { initialWorkId?: string 
     window.history.replaceState(window.history.state, "", `${window.location.pathname}?${params}`);
   }, []);
 
-  const ensureDraft = useCallback((assetId?: string, silent = false) => {
+  const ensureDraft = useCallback((source?: DraftSource, silent = false) => {
     if (workIdRef.current) return Promise.resolve(workIdRef.current);
     if (createInFlightRef.current) return createInFlightRef.current;
     if (!active.activeClientProfileId) {
@@ -152,14 +154,14 @@ export function useCreativeComposer({ initialWorkId }: { initialWorkId?: string 
       return Promise.resolve(null);
     }
     const snapshot = captureSnapshot();
-    if (!snapshot.request && !assetId) return Promise.resolve(null);
+    if (!snapshot.request && !source) return Promise.resolve(null);
 
     const promise = enqueueSave(async () => {
       const result = await createMutation.mutateAsync({
         clientProfileId: active.activeClientProfileId!,
         draftKey: draftKeyRef.current,
         ...snapshot,
-        ...(assetId ? { assetId, usage: "both" as const } : {}),
+        ...(source ? { ...source, usage: "both" as const } : {}),
       });
       workIdRef.current = result.work.id;
       lastPersistedRef.current = signature(snapshotFromWork(result.work));
@@ -282,7 +284,7 @@ export function useCreativeComposer({ initialWorkId }: { initialWorkId?: string 
         const uploaded = await uploadChatAttachment(file);
         const existingId = workIdRef.current;
         if (!existingId) {
-          await ensureDraft(uploaded.assetId);
+          await ensureDraft({ assetId: uploaded.assetId });
         } else {
           await sourceMutation.mutateAsync({
             workItemId: existingId,
@@ -297,6 +299,37 @@ export function useCreativeComposer({ initialWorkId }: { initialWorkId?: string 
       setError(cause instanceof Error ? cause.message : "Falha ao adicionar arte");
     } finally {
       setIsUploading(false);
+    }
+  }, [active.activeClientProfileId, ensureDraft, sourceMutation]);
+
+  const addInspiration = useCallback(async (inspiration: CreativeInspiration) => {
+    if (!workIdRef.current && !active.activeClientProfileId) {
+      focusBrandSwitcher();
+      return;
+    }
+    setError(null);
+    if (!inspiration.templateId && !inspiration.assetId) {
+      setError("Inspiração indisponível");
+      return;
+    }
+    const source: DraftSource = inspiration.templateId
+      ? { templateId: inspiration.templateId }
+      : { assetId: inspiration.assetId! };
+    try {
+      const existingId = workIdRef.current;
+      if (existingId) {
+        await sourceMutation.mutateAsync({
+          workItemId: existingId,
+          action: "attachSource",
+          ...source,
+          usage: "both",
+        });
+      } else {
+        if (!await ensureDraft(source)) return;
+      }
+      setAnnouncement("Inspiração adicionada");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Falha ao adicionar inspiração");
     }
   }, [active.activeClientProfileId, ensureDraft, sourceMutation]);
 
@@ -441,7 +474,7 @@ export function useCreativeComposer({ initialWorkId }: { initialWorkId?: string 
     campaignId: detail?.work.campaignId ?? null, campaigns,
     error, announcement, requiresBrandSelection: active.requiresSelection,
     workError: Boolean(workId && detailQuery.isError),
-    addFiles, updateSource, retrySource, removeSource, generate,
+    addFiles, addInspiration, updateSource, retrySource, removeSource, generate,
     retryOutput, retryRevisionOutput, approveOutput, reviseOutput, linkCampaign,
     downloadOutput: (outputId: string) => {
       if (!workIdRef.current) return;

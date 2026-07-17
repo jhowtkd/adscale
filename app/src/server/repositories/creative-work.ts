@@ -33,6 +33,51 @@ export type { CreativeWorkFormat } from "../creative-work/contracts";
 
 export type CreativeWorkToolKind = CreativeWorkIntent;
 
+export type CreativeWorkInspirationCandidate = {
+  id: string;
+  workspaceId: string;
+  clientProfileId: string;
+  title: string;
+  assetId: string;
+  status: CreativeWorkOutput["status"];
+  isSelected: boolean;
+  updatedAt: Date;
+};
+
+export async function listCreativeWorkInspirationCandidates(
+  workspaceId: string,
+  clientProfileId: string,
+): Promise<CreativeWorkInspirationCandidate[]> {
+  return db
+    .select({
+      id: creativeWorkOutputs.id,
+      workspaceId: creativeWorkOutputs.workspaceId,
+      clientProfileId: creativeWorkItems.clientProfileId,
+      title: creativeWorkItems.title,
+      assetId: workspaceAssets.id,
+      status: creativeWorkOutputs.status,
+      isSelected: creativeWorkOutputs.isSelected,
+      updatedAt: creativeWorkOutputs.updatedAt,
+    })
+    .from(creativeWorkOutputs)
+    .innerJoin(creativeWorkItems, and(
+      eq(creativeWorkItems.workspaceId, workspaceId),
+      eq(creativeWorkItems.id, creativeWorkOutputs.workItemId),
+    ))
+    .innerJoin(workspaceAssets, and(
+      eq(workspaceAssets.workspaceId, workspaceId),
+      eq(workspaceAssets.key, creativeWorkOutputs.outputKey),
+      eq(workspaceAssets.source, "creative_work"),
+    ))
+    .where(and(
+      eq(creativeWorkOutputs.workspaceId, workspaceId),
+      eq(creativeWorkItems.clientProfileId, clientProfileId),
+      eq(creativeWorkOutputs.status, "completed"),
+      eq(creativeWorkOutputs.isSelected, true),
+    ))
+    .orderBy(desc(creativeWorkOutputs.updatedAt));
+}
+
 export interface CreateCreativeWorkInput {
   workspaceId: string;
   clientProfileId: string;
@@ -120,7 +165,10 @@ export async function createCreativeWorkDraft(input: CreateCreativeWorkDraftInpu
 }
 
 export async function createCreativeWorkDraftWithSource(
-  input: CreateCreativeWorkDraftInput & { assetId: string; usage: CreativeSourceUsage },
+  input: CreateCreativeWorkDraftInput & (
+    | { assetId: string; templateId?: never; usage: CreativeSourceUsage }
+    | { templateId: string; assetId?: never; usage: CreativeSourceUsage }
+  ),
 ) {
   return db.transaction(async (tx) => {
     const [profile] = await tx.select({ id: clientProfiles.id }).from(clientProfiles).where(and(
@@ -129,11 +177,22 @@ export async function createCreativeWorkDraftWithSource(
     )).limit(1);
     if (!profile) return null;
 
-    const [asset] = await tx.select().from(workspaceAssets).where(and(
-      eq(workspaceAssets.workspaceId, input.workspaceId),
-      eq(workspaceAssets.id, input.assetId),
-    )).limit(1);
-    if (!asset || !asset.type.startsWith("image/")) return null;
+    const assetId = input.assetId;
+    const templateId = input.templateId;
+    const [asset] = assetId
+      ? await tx.select().from(workspaceAssets).where(and(
+          eq(workspaceAssets.workspaceId, input.workspaceId),
+          eq(workspaceAssets.id, assetId),
+        )).limit(1)
+      : [];
+    const [template] = templateId
+      ? await tx.select().from(campaignTemplates).where(and(
+          eq(campaignTemplates.workspaceId, input.workspaceId),
+          eq(campaignTemplates.id, templateId),
+        )).limit(1)
+      : [];
+    if (assetId && (!asset || !asset.type.startsWith("image/"))) return null;
+    if (templateId && !template) return null;
 
     const [createdWork] = await tx.insert(creativeWorkItems).values({
       workspaceId: input.workspaceId,
@@ -162,18 +221,20 @@ export async function createCreativeWorkDraftWithSource(
     const [createdSource] = await tx.insert(creativeWorkSources).values({
       workspaceId: input.workspaceId,
       workItemId: work.id,
-      assetId: asset.id,
+      ...(asset ? { assetId: asset.id } : { templateId: template!.id }),
       usage: input.usage,
       status: "uploaded",
     }).onConflictDoNothing().returning();
     const [existingSource] = createdSource ? [] : await tx.select().from(creativeWorkSources).where(and(
       eq(creativeWorkSources.workspaceId, input.workspaceId),
       eq(creativeWorkSources.workItemId, work.id),
-      eq(creativeWorkSources.assetId, asset.id),
+      asset
+        ? eq(creativeWorkSources.assetId, asset.id)
+        : eq(creativeWorkSources.templateId, template!.id),
     )).limit(1);
     const source = createdSource ?? existingSource;
     if (!source) throw new Error("creative_work_source_conflict_without_row");
-    return { work, source, asset };
+    return { work, source, ...(asset ? { asset } : { template: template! }) };
   });
 }
 

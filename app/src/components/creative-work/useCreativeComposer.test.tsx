@@ -120,6 +120,62 @@ describe("useCreativeComposer", () => {
     }));
   });
 
+  it("attaches a template inspiration to the same existing composer", async () => {
+    mocks.work.mockReturnValue({ data: workDetail(), isLoading: false, isError: false });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+
+    await act(() => result.current.addInspiration({
+      id: "template-1", source: "template", title: "Lançamento", previewUrl: null,
+      templateId: "template-1", assetId: null, suggestedIntent: "variations",
+    }));
+
+    expect(mocks.source).toHaveBeenCalledWith({
+      workItemId: "work-1", action: "attachSource", templateId: "template-1", usage: "both",
+    });
+  });
+
+  it("creates an asset-backed draft when an approved inspiration starts an empty composer", async () => {
+    const { result } = renderHook(() => useCreativeComposer());
+
+    await act(() => result.current.addInspiration({
+      id: "output-1", source: "approved_work", title: "Matrículas",
+      previewUrl: "/api/workspace/assets/asset-1/file", templateId: null,
+      assetId: "asset-1", suggestedIntent: "restyle",
+    }));
+
+    expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({
+      clientProfileId: profileA.id, request: "", assetId: "asset-1", usage: "both",
+    }));
+    expect(mocks.source).not.toHaveBeenCalled();
+  });
+
+  it("creates a template-backed draft when a template starts an empty composer", async () => {
+    const { result } = renderHook(() => useCreativeComposer());
+
+    await act(() => result.current.addInspiration({
+      id: "template-1", source: "template", title: "Lançamento", previewUrl: null,
+      templateId: "template-1", assetId: null, suggestedIntent: "variations",
+    }));
+
+    expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({
+      clientProfileId: profileA.id, request: "", templateId: "template-1", usage: "both",
+    }));
+    expect(mocks.source).not.toHaveBeenCalled();
+  });
+
+  it("does not announce an attached inspiration when draft creation fails", async () => {
+    mocks.create.mockRejectedValue(new Error("draft failed"));
+    const { result } = renderHook(() => useCreativeComposer());
+
+    await act(() => result.current.addInspiration({
+      id: "template-1", source: "template", title: "Lançamento", previewUrl: null,
+      templateId: "template-1", assetId: null, suggestedIntent: "variations",
+    }));
+
+    expect(result.current.error).toBe("draft failed");
+    expect(result.current.announcement).toBe("");
+  });
+
   it("applies a tool preset to the same focused composer and updates its canonical quote", () => {
     vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => { callback(0); return 1; });
     const { result } = renderHook(() => useCreativeComposer());

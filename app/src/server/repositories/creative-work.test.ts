@@ -26,6 +26,7 @@ const mocks = vi.hoisted(() => {
   const orderByMock = vi.fn();
   const limitMock = vi.fn();
   const fromMock = vi.fn();
+  const innerJoinMock = vi.fn();
 
   const queryChain = (() => {
     const chain: Record<string, unknown> = {};
@@ -35,6 +36,10 @@ const mocks = vi.hoisted(() => {
     });
     chain.where = vi.fn((condition: unknown) => {
       whereMock(condition);
+      return chain;
+    });
+    chain.innerJoin = vi.fn((_table: unknown, condition: unknown) => {
+      innerJoinMock(condition);
       return chain;
     });
     chain.orderBy = vi.fn(() => {
@@ -106,6 +111,7 @@ const mocks = vi.hoisted(() => {
     orderByMock,
     limitMock,
     fromMock,
+    innerJoinMock,
     selectMock,
     insertMock,
     valuesMock,
@@ -167,6 +173,7 @@ import {
   incrementCreativeWorkOutputRetry,
   requeueCreativeWorkOutputOnce,
   linkCreativeWorkCampaign,
+  listCreativeWorkInspirationCandidates,
   refreshCreativeWorkStatus,
   selectCreativeWorkOutput,
   setCreativeWorkBrief,
@@ -295,6 +302,26 @@ describe("creative-work repository", () => {
   });
 
   describe("drafts, sources, and versions", () => {
+    it("lists only completed selected assets scoped to the active workspace and brand", async () => {
+      const candidate = {
+        id: "output-1", workspaceId: "ws-1", clientProfileId: "profile-1", title: "Matrículas",
+        assetId: "asset-1", status: "completed", isSelected: true, updatedAt: new Date(),
+      };
+      mocks.state.selectResults.push([candidate]);
+
+      await expect(listCreativeWorkInspirationCandidates("ws-1", "profile-1")).resolves.toEqual([candidate]);
+
+      const where = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]);
+      expect(where.sql).toContain('"creative_work_outputs"."workspace_id"');
+      expect(where.sql).toContain('"creative_work_items"."client_profile_id"');
+      expect(where.sql).toContain('"creative_work_outputs"."status"');
+      expect(where.sql).toContain('"creative_work_outputs"."is_selected"');
+      expect(where.params).toEqual(["ws-1", "profile-1", "completed", true]);
+      const joins = mocks.innerJoinMock.mock.calls.map(([condition]) => serializedCondition(condition));
+      expect(joins.some((query) => query.params.includes("creative_work"))).toBe(true);
+      expect(joins.every((query) => query.params.includes("ws-1"))).toBe(true);
+    });
+
     it("atomically creates one attachment-first draft and source", async () => {
       const work = workItem({ id: "draft-asset", draftKey: "draft-key", request: "", brief: null });
       const source = { id: "source-1", workspaceId: "ws-1", workItemId: work.id, assetId: "asset-1", templateId: null, usage: "both", status: "uploaded" };
@@ -307,6 +334,23 @@ describe("creative-work repository", () => {
         draftKey: "draft-key", intent: "variations", title: "", request: "", format: "4:5",
         settings: { targetFormats: [] }, assetId: "asset-1", usage: "both",
       })).resolves.toEqual({ work, source, asset });
+
+      expect(mocks.transactionMock).toHaveBeenCalledOnce();
+      expect(mocks.onConflictDoNothingMock).toHaveBeenCalledTimes(2);
+    });
+
+    it("atomically creates one template-first draft and source", async () => {
+      const work = workItem({ id: "draft-template", draftKey: "draft-key", request: "", brief: null });
+      const source = { id: "source-template", workspaceId: "ws-1", workItemId: work.id, assetId: null, templateId: "template-1", usage: "both", status: "uploaded" };
+      const template = { id: "template-1", workspaceId: "ws-1", name: "Lançamento" };
+      mocks.state.selectResults.push([{ id: "profile-1" }], [template]);
+      mocks.state.onConflictResults.push([work], [source]);
+
+      await expect(createCreativeWorkDraftWithSource({
+        workspaceId: "ws-1", clientProfileId: "profile-1", createdByUserId: "user-1",
+        draftKey: "draft-key", intent: "variations", title: "", request: "", format: "4:5",
+        settings: { targetFormats: [] }, templateId: "template-1", usage: "both",
+      })).resolves.toEqual({ work, source, template });
 
       expect(mocks.transactionMock).toHaveBeenCalledOnce();
       expect(mocks.onConflictDoNothingMock).toHaveBeenCalledTimes(2);

@@ -16,9 +16,12 @@ vi.mock("@/server/auth/workspace", () => ({
 
 const startMock = vi.hoisted(() => vi.fn());
 const listMock = vi.hoisted(() => vi.fn());
+const listInspirationsMock = vi.hoisted(() => vi.fn());
 const updateSourceCasMock = vi.hoisted(() => vi.fn());
 const createDraftWithSourceMock = vi.hoisted(() => vi.fn());
+const getCreativeWorkMock = vi.hoisted(() => vi.fn());
 const inngestSendMock = vi.hoisted(() => vi.fn());
+const analyzeSourceMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/application/start-social-post-work", () => ({
   startSocialPostWork: (...args: unknown[]) => startMock(...args),
@@ -28,13 +31,22 @@ vi.mock("@/server/creative-work/canonical/queries", () => ({
   listCanonicalWorks: (...args: unknown[]) => listMock(...args),
 }));
 
+vi.mock("@/server/application/list-creative-inspirations", () => ({
+  listCreativeInspirations: (...args: unknown[]) => listInspirationsMock(...args),
+}));
+
 vi.mock("@/server/repositories/creative-work", () => ({
   createCreativeWorkDraftWithSource: (...args: unknown[]) => createDraftWithSourceMock(...args),
+  getCreativeWork: (...args: unknown[]) => getCreativeWorkMock(...args),
   updateCreativeWorkSourceIfUnchanged: (...args: unknown[]) => updateSourceCasMock(...args),
 }));
 
 vi.mock("@/server/jobs/client", () => ({
   inngest: { send: (...args: unknown[]) => inngestSendMock(...args) },
+}));
+
+vi.mock("@/server/application/analyze-creative-work-source", () => ({
+  analyzeCreativeWorkSource: (...args: unknown[]) => analyzeSourceMock(...args),
 }));
 
 const profileId = "00000000-0000-4000-8000-000000000001";
@@ -55,6 +67,7 @@ describe("GET /api/creative-work", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     inngestSendMock.mockResolvedValue(undefined);
+    analyzeSourceMock.mockResolvedValue(null);
   });
   afterEach(() => {
     vi.restoreAllMocks();
@@ -85,12 +98,33 @@ describe("GET /api/creative-work", () => {
     expect(body.works[0].originKind).toBe("creative_work");
     expect(body.works[0].name).toBe("Novo produto");
   });
+
+  it("returns active-brand inspirations instead of the work list", async () => {
+    listInspirationsMock.mockResolvedValue([{ id: "template-1", source: "template" }]);
+
+    const res = await GET(new Request(`http://localhost/api/creative-work?view=inspirations&clientProfileId=${profileId}`));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(listInspirationsMock).toHaveBeenCalledWith({ workspaceId: "workspace-1", clientProfileId: profileId });
+    expect(listMock).not.toHaveBeenCalled();
+    expect(body.inspirations).toEqual([{ id: "template-1", source: "template" }]);
+  });
+
+  it("rejects an invalid inspiration brand id", async () => {
+    const res = await GET(new Request("http://localhost/api/creative-work?view=inspirations&clientProfileId=not-a-uuid"));
+
+    expect(res.status).toBe(400);
+    expect(listInspirationsMock).not.toHaveBeenCalled();
+    expect(listMock).not.toHaveBeenCalled();
+  });
 });
 
 describe("POST /api/creative-work", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     inngestSendMock.mockResolvedValue(undefined);
+    analyzeSourceMock.mockResolvedValue(null);
   });
   afterEach(() => {
     vi.restoreAllMocks();
@@ -223,6 +257,76 @@ describe("POST /api/creative-work", () => {
     expect(payload.source).toEqual(expect.objectContaining({ name: "arte.png", origin: "upload" }));
   });
 
+  it("accepts a template-first draft through the same atomic source command", async () => {
+    const body = {
+      clientProfileId: profileId,
+      draftKey: "00000000-0000-4000-8000-000000000099",
+      request: "",
+      templateId: "template-1",
+      usage: "both",
+      intent: "variations",
+      format: "4:5",
+      settings: { targetFormats: [] },
+    };
+    createDraftWithSourceMock.mockResolvedValue({
+      work: {
+        id: "work-template", workspaceId: "workspace-1", clientProfileId: profileId,
+        toolKind: "variations", status: "draft", format: "4:5", settings: { targetFormats: [] },
+        brief: null, copy: null, identitySnapshot: null, createdAt: new Date(), updatedAt: new Date(),
+      },
+      source: {
+        id: "source-template", workspaceId: "workspace-1", workItemId: "work-template",
+        assetId: null, templateId: "template-1", usage: "both", status: "ready", updatedAt: new Date(),
+      },
+      template: { id: "template-1", name: "Lançamento" },
+    });
+
+    const res = await POST(new Request("http://localhost/api/creative-work", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    }));
+    const payload = await res.json();
+
+    expect(res.status).toBe(201);
+    expect(createDraftWithSourceMock).toHaveBeenCalledWith(expect.objectContaining({
+      workspaceId: "workspace-1", templateId: "template-1", usage: "both",
+    }));
+    expect(payload.source).toEqual(expect.objectContaining({ name: "Lançamento", origin: "template" }));
+    expect(inngestSendMock).not.toHaveBeenCalled();
+    expect(analyzeSourceMock).toHaveBeenCalledWith({
+      workspaceId: "workspace-1", workItemId: "work-template", sourceId: "source-template",
+    });
+  });
+
+  it("returns the saved failed template source when inline analysis fails", async () => {
+    const source = {
+      id: "source-template", workspaceId: "workspace-1", workItemId: "work-template",
+      assetId: null, templateId: "template-1", usage: "both", status: "uploaded", updatedAt: new Date(),
+    };
+    const failedSource = { ...source, status: "failed", failureCode: "analysis_failed" };
+    createDraftWithSourceMock.mockResolvedValue({
+      work: {
+        id: "work-template", workspaceId: "workspace-1", clientProfileId: profileId,
+        toolKind: "variations", status: "draft", format: "4:5", settings: { targetFormats: [] },
+        brief: null, copy: null, identitySnapshot: null, createdAt: new Date(), updatedAt: new Date(),
+      },
+      source,
+      template: { id: "template-1", name: "Lançamento" },
+    });
+    analyzeSourceMock.mockRejectedValue(new Error("analysis failed"));
+    getCreativeWorkMock.mockResolvedValue({ work: {}, outputs: [], sources: [failedSource] });
+
+    const res = await POST(new Request("http://localhost/api/creative-work", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+        clientProfileId: profileId, draftKey: "00000000-0000-4000-8000-000000000099",
+        request: "", templateId: "template-1", usage: "both", intent: "variations",
+        format: "4:5", settings: { targetFormats: [] },
+      }),
+    }));
+
+    expect(res.status).toBe(201);
+    expect((await res.json()).source).toEqual(expect.objectContaining({ status: "failed", failureCode: "analysis_failed" }));
+  });
+
   it("delegates attachment-first creation to one atomic idempotent repository command", async () => {
     const source = { id: "source-1", workItemId: "work-asset", assetId: "asset-1", usage: "both", status: "uploaded", updatedAt: new Date() };
     createDraftWithSourceMock.mockResolvedValue({
@@ -323,7 +427,11 @@ describe("POST /api/creative-work", () => {
       },
     });
 
-    const { toolKind: _omit, ...withoutToolKind } = validBody;
+    const withoutToolKind = {
+      clientProfileId: validBody.clientProfileId,
+      format: validBody.format,
+      brief: validBody.brief,
+    };
     const res = await POST(
       new Request("http://localhost/api/creative-work", {
         method: "POST",

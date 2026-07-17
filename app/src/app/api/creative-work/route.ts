@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { startSocialPostWork } from "@/server/application/start-social-post-work";
+import { analyzeCreativeWorkSource } from "@/server/application/analyze-creative-work-source";
+import { listCreativeInspirations } from "@/server/application/list-creative-inspirations";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { listCanonicalWorks } from "@/server/creative-work/canonical/queries";
 import { projectCreativeWorkAsCanonicalWork } from "@/server/creative-work/projection/from-creative-work";
 import {
   createCreativeWorkDraftWithSource,
+  getCreativeWork,
   updateCreativeWorkSourceIfUnchanged,
 } from "@/server/repositories/creative-work";
 import { inngest } from "@/server/jobs/client";
@@ -28,13 +31,15 @@ const createDraftSchema = z.object({
   format: creativeWorkFormatSchema,
   settings: creativeWorkSettingsSchema,
   assetId: z.string().min(1).optional(),
+  templateId: z.string().min(1).optional(),
   usage: z.enum(["content", "style", "both"]).optional(),
 }).strict().superRefine((value, context) => {
-  if (!value.request && !value.assetId) {
+  const sourceCount = Number(Boolean(value.assetId)) + Number(Boolean(value.templateId));
+  if (!value.request && sourceCount === 0) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ["request"], message: "requestOrAssetRequired" });
   }
-  if (Boolean(value.assetId) !== Boolean(value.usage)) {
-    context.addIssue({ code: z.ZodIssueCode.custom, path: ["assetId"], message: "assetAndUsageRequired" });
+  if (sourceCount > 1 || Boolean(sourceCount) !== Boolean(value.usage)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["usage"], message: "sourceAndUsageRequired" });
   }
   const parsed = creativeWorkPreparationSchema.safeParse(value);
   if (!parsed.success) parsed.error.issues.forEach((issue) => context.addIssue(issue));
@@ -48,6 +53,16 @@ const createBodySchema = z.union([createDraftSchema, createCreativeWorkSchema]);
 export async function GET(request: Request) {
   try {
     const { workspace } = await requireWorkspaceAccess(request);
+    const { searchParams } = new URL(request.url);
+    if (searchParams.get("view") === "inspirations") {
+      const parsed = z.string().uuid().safeParse(searchParams.get("clientProfileId"));
+      if (!parsed.success) return apiError("invalidInput", 400, parsed.error.flatten());
+      const inspirations = await listCreativeInspirations({
+        workspaceId: workspace.id,
+        clientProfileId: parsed.data,
+      });
+      return NextResponse.json({ inspirations });
+    }
     const works = await listCanonicalWorks(workspace.id);
     return NextResponse.json({ works });
   } catch (error) {
@@ -68,7 +83,7 @@ export async function POST(request: Request) {
       return apiError("invalidInput", 400, parsed.error.flatten());
     }
 
-    if ("draftKey" in parsed.data && parsed.data.assetId) {
+    if ("draftKey" in parsed.data && (parsed.data.assetId || parsed.data.templateId)) {
       const created = await createCreativeWorkDraftWithSource({
         workspaceId: workspace.id,
         clientProfileId: parsed.data.clientProfileId,
@@ -79,26 +94,43 @@ export async function POST(request: Request) {
         request: parsed.data.request,
         format: parsed.data.format,
         settings: parsed.data.settings,
-        assetId: parsed.data.assetId,
         usage: parsed.data.usage!,
+        ...(parsed.data.assetId
+          ? { assetId: parsed.data.assetId }
+          : { templateId: parsed.data.templateId! }),
       });
       if (!created) return apiError("invalidInput", 400);
 
       let source = created.source;
-      try {
-        await inngest.send({
-          name: "creative-work.source.analyze",
-          data: { workspaceId: workspace.id, workItemId: created.work.id, sourceId: source.id },
-        });
-      } catch {
-        source = await updateCreativeWorkSourceIfUnchanged(
-          workspace.id,
-          created.work.id,
-          source.id,
-          { status: source.status, usage: source.usage, updatedAt: source.updatedAt },
-          { status: "failed", failureCode: "dispatch_failed" },
-        ) ?? source;
+      if (source.templateId) {
+        try {
+          source = await analyzeCreativeWorkSource({
+            workspaceId: workspace.id,
+            workItemId: created.work.id,
+            sourceId: source.id,
+          }) ?? source;
+        } catch {
+          source = (await getCreativeWork(workspace.id, created.work.id))?.sources
+            .find((candidate) => candidate.id === source.id) ?? source;
+        }
+      } else {
+        try {
+          await inngest.send({
+            name: "creative-work.source.analyze",
+            data: { workspaceId: workspace.id, workItemId: created.work.id, sourceId: source.id },
+          });
+        } catch {
+          source = await updateCreativeWorkSourceIfUnchanged(
+            workspace.id,
+            created.work.id,
+            source.id,
+            { status: source.status, usage: source.usage, updatedAt: source.updatedAt },
+            { status: "failed", failureCode: "dispatch_failed" },
+          ) ?? source;
+        }
       }
+
+      const origin = "asset" in created ? created.asset : created.template;
 
       return NextResponse.json(
         {
@@ -111,8 +143,10 @@ export async function POST(request: Request) {
           }),
           source: {
             ...source,
-            name: created.asset.name,
-            origin: created.asset.source === "creative_work" ? "approved_work" : "upload",
+            name: origin.name,
+            origin: "asset" in created
+              ? (created.asset.source === "creative_work" ? "approved_work" : "upload")
+              : "template",
           },
         },
         { status: 201 },

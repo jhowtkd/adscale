@@ -274,6 +274,7 @@ export type CreativeDraftInput = {
   format: CreativeWorkItem["format"];
   settings: CreativeWorkItem["settings"];
   assetId?: string;
+  templateId?: string;
   usage?: CreativeSourceUsage;
 };
 

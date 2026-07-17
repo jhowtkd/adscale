@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { ArrowRight } from "lucide-react";
 import { CreativeComposer } from "@/components/creative-work/CreativeComposer";
 import { CreativeToolCards } from "@/components/creative-work/CreativeToolCards";
+import { BrandInspirations } from "@/components/creative-work/BrandInspirations";
 import { useCreativeComposer } from "@/components/creative-work/useCreativeComposer";
 import { resolveContinueWork } from "@/lib/dashboard/resolve-continue-work";
 import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
@@ -60,9 +61,9 @@ export default function DashboardHomeActions({ workId }: { workId?: string }) {
 
       <CreativeToolCards selected={composer.intent} onSelect={composer.selectIntent} />
 
-      <section data-testid="brand-inspirations-slot" aria-labelledby="brand-inspirations-title" className="min-h-16">
-        <h2 id="brand-inspirations-title" className="sr-only">{t("brandInspirations")}</h2>
-      </section>
+      <div data-testid="brand-inspirations-slot" className="min-h-16">
+        <BrandInspirations clientProfileId={activeProfile?.id ?? null} onAttach={composer.addInspiration} />
+      </div>
     </div>
   );
 }

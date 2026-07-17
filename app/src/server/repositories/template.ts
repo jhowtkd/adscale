@@ -61,7 +61,7 @@ export async function getTemplates(workspaceId: string) {
     .select()
     .from(campaignTemplates)
     .where(eq(campaignTemplates.workspaceId, workspaceId))
-    .orderBy(desc(campaignTemplates.createdAt));
+    .orderBy(desc(campaignTemplates.updatedAt));
 }
 
 export async function getTemplateById(id: string, workspaceId: string) {
