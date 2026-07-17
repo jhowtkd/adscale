@@ -7,16 +7,31 @@ import { ArrowRight } from "lucide-react";
 import { CreativeComposer } from "@/components/creative-work/CreativeComposer";
 import { CreativeToolCards } from "@/components/creative-work/CreativeToolCards";
 import { BrandInspirations } from "@/components/creative-work/BrandInspirations";
-import { useCreativeComposer } from "@/components/creative-work/useCreativeComposer";
+import { useCreativeComposer, type ComposerIntent } from "@/components/creative-work/useCreativeComposer";
 import { resolveContinueWork } from "@/lib/dashboard/resolve-continue-work";
 import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
 import { useCanonicalWorks } from "@/lib/hooks/use-canonical-works";
 
-export default function DashboardHomeActions({ workId }: { workId?: string }) {
+export default function DashboardHomeActions({
+  workId,
+  initialIntent,
+  focusComposer = false,
+  templateId,
+}: {
+  workId?: string;
+  initialIntent?: ComposerIntent;
+  focusComposer?: boolean;
+  templateId?: string;
+}) {
   const t = useTranslations("dashboard.home");
   const { data: works = [], isLoading, isError, refetch } = useCanonicalWorks();
   const { activeProfile } = useActiveClientProfile();
-  const { composerRef, ...composer } = useCreativeComposer({ initialWorkId: workId });
+  const { composerRef, ...composer } = useCreativeComposer({
+    initialWorkId: workId,
+    initialIntent,
+    focusComposer,
+    initialTemplateId: templateId,
+  });
   const continueTarget = useMemo(() => resolveContinueWork(works), [works]);
 
   if (isError && works.length === 0) {

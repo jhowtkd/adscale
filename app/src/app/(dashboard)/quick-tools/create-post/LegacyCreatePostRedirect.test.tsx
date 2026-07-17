@@ -4,6 +4,8 @@ import LegacyCreatePostRedirect, {
   legacyCreatePostDestination,
 } from "./LegacyCreatePostRedirect";
 
+const TEMPLATE_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+
 vi.mock("next/navigation", () => ({
   redirect: vi.fn(() => {
     throw new Error("NEXT_REDIRECT");
@@ -33,6 +35,25 @@ describe("LegacyCreatePostRedirect", () => {
     expect(legacyCreatePostDestination({ intent: "unknown" })).toBe(
       "/?intent=variations"
     );
+  });
+
+  it("preserves only a UUID template for an empty composer", () => {
+    expect(
+      legacyCreatePostDestination({ templateId: TEMPLATE_ID, q: "drop-me" })
+    ).toBe(`/?intent=variations&compose=1&templateId=${TEMPLATE_ID}`);
+    expect(
+      legacyCreatePostDestination({ templateId: "../../other-workspace" })
+    ).toBe("/?intent=variations");
+  });
+
+  it("lets workId take precedence over template and intent", () => {
+    expect(
+      legacyCreatePostDestination({
+        workId: "work-1",
+        templateId: TEMPLATE_ID,
+        intent: "single",
+      })
+    ).toBe("/?workId=work-1");
   });
 
   it("uses the Next redirect primitive", () => {

@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { z } from "zod";
 
 export type LegacyCreatePostSearchParams = Record<
   string,
@@ -23,13 +24,23 @@ export function legacyCreatePostDestination(
 
   if (workId) {
     params.set("workId", workId);
-  } else {
-    const intent =
-      typeof searchParams.intent === "string" &&
-      COMPOSER_INTENTS.has(searchParams.intent)
-        ? searchParams.intent
-        : "variations";
-    params.set("intent", intent);
+    return `/?${params.toString()}`;
+  }
+
+  const intent =
+    typeof searchParams.intent === "string" &&
+    COMPOSER_INTENTS.has(searchParams.intent)
+      ? searchParams.intent
+      : "variations";
+  params.set("intent", intent);
+
+  const templateId = typeof searchParams.templateId === "string"
+    && z.string().uuid().safeParse(searchParams.templateId).success
+    ? searchParams.templateId
+    : null;
+  if (templateId) {
+    params.set("compose", "1");
+    params.set("templateId", templateId);
   }
 
   return `/?${params.toString()}`;

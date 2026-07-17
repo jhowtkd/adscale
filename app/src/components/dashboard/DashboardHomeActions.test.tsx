@@ -78,7 +78,12 @@ describe("DashboardHomeActions", () => {
 
     render(<DashboardHomeActions workId="opened-work" />);
 
-    expect(useComposerMock).toHaveBeenCalledWith({ initialWorkId: "opened-work" });
+    expect(useComposerMock).toHaveBeenCalledWith({
+      initialWorkId: "opened-work",
+      initialIntent: undefined,
+      focusComposer: false,
+      initialTemplateId: undefined,
+    });
     expect(screen.getByRole("button", { name: /dashboard\.home\.single/i })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByTestId("creative-composer")).toHaveTextContent("single:5");
 
@@ -87,6 +92,25 @@ describe("DashboardHomeActions", () => {
     expect(selectIntentMock).toHaveBeenCalledWith("restyle");
     expect(screen.getByRole("button", { name: /dashboard\.home\.restyle/i })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByTestId("creative-composer")).toHaveTextContent("restyle:5");
+  });
+
+  it("passes safe route presets to the same composer instance", () => {
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+
+    render(
+      <DashboardHomeActions
+        initialIntent="restyle"
+        focusComposer
+        templateId="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+      />
+    );
+
+    expect(useComposerMock).toHaveBeenCalledWith({
+      initialWorkId: undefined,
+      initialIntent: "restyle",
+      focusComposer: true,
+      initialTemplateId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    });
   });
 
   it("shows a brand-aware first-creation prompt when nothing is actionable", () => {

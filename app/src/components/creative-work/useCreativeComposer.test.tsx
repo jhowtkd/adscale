@@ -1,4 +1,4 @@
-import { act, renderHook } from "@testing-library/react";
+import { act, render, renderHook } from "@testing-library/react";
 import { StrictMode, type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -88,6 +88,147 @@ describe("useCreativeComposer", () => {
     mocks.prepare.mockResolvedValue({ work: { id: "work-1" }, quote: { unitCount: 3, credits: 15 } });
     mocks.generate.mockResolvedValue({ work: { status: "generating" }, outputs: [] });
     mocks.upload.mockResolvedValue({ assetId: "asset-1", name: "arte.png" });
+    mocks.source.mockResolvedValue({ source: { id: "source-1" } });
+  });
+
+  it("starts a new composer from the whitelisted intent and canonical quote", () => {
+    const { result } = renderHook(() =>
+      useCreativeComposer({ initialIntent: "format_adaptation" })
+    );
+
+    expect(result.current.intent).toBe("format_adaptation");
+    expect(result.current.targetFormats).toEqual(["1:1", "9:16"]);
+    expect(result.current.quote).toEqual({ unitCount: 2, credits: 10 });
+  });
+
+  it("focuses the real textarea once only when compose was explicitly requested", () => {
+    const raf = vi
+      .spyOn(window, "requestAnimationFrame")
+      .mockImplementation((callback) => {
+        callback(0);
+        return 1;
+      });
+    const focus = vi.spyOn(HTMLTextAreaElement.prototype, "focus");
+
+    function Probe({ requested }: { requested: boolean }) {
+      const composer = useCreativeComposer({ focusComposer: requested });
+      return <textarea ref={composer.composerRef} />;
+    }
+
+    const view = render(<Probe requested />);
+    expect(focus).toHaveBeenCalledOnce();
+    view.rerender(<Probe requested />);
+    expect(focus).toHaveBeenCalledOnce();
+
+    view.unmount();
+    render(<Probe requested={false} />);
+    expect(focus).toHaveBeenCalledOnce();
+    raf.mockRestore();
+    focus.mockRestore();
+  });
+
+  it("attaches an initial template once under StrictMode", async () => {
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <StrictMode>{children}</StrictMode>
+    );
+    renderHook(
+      () =>
+        useCreativeComposer({
+          initialTemplateId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        }),
+      { wrapper }
+    );
+
+    await act(async () => Promise.resolve());
+
+    expect(mocks.create).toHaveBeenCalledOnce();
+    expect(mocks.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        clientProfileId: profileA.id,
+        templateId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        usage: "both",
+      })
+    );
+  });
+
+  it("does not double-attach a template already visible after reload", async () => {
+    const templateId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    mocks.work.mockReturnValue({
+      data: {
+        ...workDetail(),
+        sources: [
+          {
+            id: "source-template",
+            templateId,
+            assetId: null,
+            usage: "both",
+            status: "ready",
+          },
+        ],
+      },
+      isLoading: false,
+      isError: false,
+    });
+
+    const { result } = renderHook(() =>
+      useCreativeComposer({ initialWorkId: "work-1", initialTemplateId: templateId })
+    );
+    await act(async () => Promise.resolve());
+
+    expect(result.current.sources).toEqual([
+      expect.objectContaining({ templateId, id: "source-template" }),
+    ]);
+    expect(mocks.source).not.toHaveBeenCalled();
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+
+  it("attaches an initial template to the hydrated draft instead of creating another work", async () => {
+    const templateId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    mocks.work.mockReturnValue({
+      data: workDetail(),
+      isLoading: false,
+      isError: false,
+    });
+
+    renderHook(() =>
+      useCreativeComposer({ initialWorkId: "work-1", initialTemplateId: templateId })
+    );
+    await act(async () => Promise.resolve());
+
+    expect(mocks.source).toHaveBeenCalledOnce();
+    expect(mocks.source).toHaveBeenCalledWith({
+      workItemId: "work-1",
+      action: "attachSource",
+      templateId,
+      usage: "both",
+    });
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+
+  it("waits for an explicit brand selection before attaching an initial template", async () => {
+    const templateId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    mocks.active.mockReturnValue(
+      active({
+        profiles: [profileA, profileB],
+        activeProfile: null,
+        activeClientProfileId: null,
+        requiresSelection: true,
+      })
+    );
+    const { rerender } = renderHook(() =>
+      useCreativeComposer({ initialTemplateId: templateId })
+    );
+    await act(async () => Promise.resolve());
+    expect(mocks.create).not.toHaveBeenCalled();
+
+    mocks.active.mockReturnValue(active());
+    rerender();
+    await act(async () => Promise.resolve());
+
+    expect(mocks.create).toHaveBeenCalledOnce();
+    expect(mocks.create).toHaveBeenCalledWith(
+      expect.objectContaining({ clientProfileId: profileA.id, templateId })
+    );
   });
 
   it("creates one draft after the first non-empty debounced save", async () => {
@@ -264,7 +405,9 @@ describe("useCreativeComposer", () => {
     ["format_adaptation", { targetFormats: ["1:1", "9:16"] }, { unitCount: 2, credits: 10 }],
   ] as const)("hydrates %s as authoritative without autosaving variations over it", async (toolKind, settings, expectedQuote) => {
     mocks.work.mockReturnValue({ data: workDetail({ toolKind, settings }), isLoading: false, isError: false });
-    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+    const { result } = renderHook(() =>
+      useCreativeComposer({ initialWorkId: "work-1", initialIntent: "single" })
+    );
 
     expect(result.current.intent).toBe(toolKind);
     expect(result.current.quote).toEqual(expectedQuote);

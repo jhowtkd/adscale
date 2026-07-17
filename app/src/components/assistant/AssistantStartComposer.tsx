@@ -228,12 +228,12 @@ export default function AssistantStartComposer({
       ) : (
         <>
           <div className="w-full max-w-2xl rounded-[var(--radius-object)] border border-[var(--accent-green)]/25 bg-[var(--accent-green-dim)]/40 px-4 py-3 text-center">
-            <p className="text-sm text-[var(--text-secondary)]">{t("campaignPathHint")}</p>
+            <p className="text-sm text-[var(--text-secondary)]">{t("composerPathHint")}</p>
             <Link
-              href="/campaigns?new=1"
+              href="/?compose=1"
               className="mt-2 inline-flex min-h-9 items-center justify-center rounded-[var(--radius-control)] px-2 text-sm font-semibold text-[var(--accent-green-text)] underline-offset-2 transition-colors hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-green)] focus-visible:ring-offset-2"
             >
-              {t("openCampaignWorkspace")}
+              {t("openHomeComposer")}
             </Link>
           </div>
           <AssistantJourneyCards

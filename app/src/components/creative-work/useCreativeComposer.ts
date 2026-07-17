@@ -35,8 +35,6 @@ type DraftSnapshot = {
 };
 type DraftSource = { assetId: string } | { templateId: string };
 
-const DEFAULT_QUOTE: CreativeWorkQuote = { unitCount: 3, credits: 15 };
-
 function canonicalQuote(intent: ComposerIntent, format: Format, targetFormats: Format[]): CreativeWorkQuote {
   const { unitCount, credits } = quoteCreativeWork({ intent, format, targetFormats });
   return { unitCount, credits };
@@ -60,14 +58,27 @@ function focusBrandSwitcher() {
     ?? document.getElementById("active-brand-switcher"))?.focus();
 }
 
-export function useCreativeComposer({ initialWorkId }: { initialWorkId?: string } = {}) {
+export function useCreativeComposer({
+  initialWorkId,
+  initialIntent = "variations",
+  focusComposer = false,
+  initialTemplateId,
+}: {
+  initialWorkId?: string;
+  initialIntent?: ComposerIntent;
+  focusComposer?: boolean;
+  initialTemplateId?: string;
+} = {}) {
   const active = useActiveClientProfile();
+  const initialTargetFormats: Format[] = initialIntent === "format_adaptation"
+    ? ["1:1", "9:16"]
+    : [];
   const [workId, setWorkId] = useState<string | null>(initialWorkId ?? null);
   const [request, setRequestState] = useState("");
-  const [intent, setIntent] = useState<ComposerIntent>("variations");
+  const [intent, setIntent] = useState<ComposerIntent>(initialIntent);
   const [format, setFormat] = useState<Format>("4:5");
-  const [targetFormats, setTargetFormats] = useState<Format[]>([]);
-  const [quote, setQuote] = useState(DEFAULT_QUOTE);
+  const [targetFormats, setTargetFormats] = useState<Format[]>(initialTargetFormats);
+  const [quote, setQuote] = useState(() => canonicalQuote(initialIntent, "4:5", initialTargetFormats));
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
@@ -83,6 +94,8 @@ export function useCreativeComposer({ initialWorkId }: { initialWorkId?: string 
   const createInFlightRef = useRef<Promise<string | null> | null>(null);
   const saveChainRef = useRef<Promise<void>>(Promise.resolve());
   const submitGuardRef = useRef(false);
+  const didFocusComposerRef = useRef(false);
+  const autoTemplateRef = useRef<string | null>(null);
   const mountedRef = useRef(false);
   const lifecycleRef = useRef(0);
   const persistOnUnmountRef = useRef<() => Promise<void>>(async () => undefined);
@@ -228,6 +241,13 @@ export function useCreativeComposer({ initialWorkId }: { initialWorkId?: string 
   }, []);
 
   useEffect(() => {
+    if (!focusComposer || didFocusComposerRef.current) return;
+    didFocusComposerRef.current = true;
+    const frame = window.requestAnimationFrame(() => composerRef.current?.focus());
+    return () => window.cancelAnimationFrame(frame);
+  }, [focusComposer]);
+
+  useEffect(() => {
     if (initialWorkId && !hydratedWorkRef.current) return;
     const timer = window.setTimeout(() => {
       if (!workIdRef.current && !active.activeClientProfileId) {
@@ -302,6 +322,24 @@ export function useCreativeComposer({ initialWorkId }: { initialWorkId?: string 
     }
   }, [active.activeClientProfileId, ensureDraft, sourceMutation]);
 
+  const attachDraftSource = useCallback(async (source: DraftSource): Promise<boolean> => {
+    if (!workIdRef.current && !active.activeClientProfileId) {
+      focusBrandSwitcher();
+      return false;
+    }
+    const existingId = workIdRef.current;
+    if (existingId) {
+      await sourceMutation.mutateAsync({
+        workItemId: existingId,
+        action: "attachSource",
+        ...source,
+        usage: "both",
+      });
+      return true;
+    }
+    return Boolean(await ensureDraft(source));
+  }, [active.activeClientProfileId, ensureDraft, sourceMutation]);
+
   const addInspiration = useCallback(async (inspiration: CreativeInspiration) => {
     if (!workIdRef.current && !active.activeClientProfileId) {
       focusBrandSwitcher();
@@ -316,22 +354,44 @@ export function useCreativeComposer({ initialWorkId }: { initialWorkId?: string 
       ? { templateId: inspiration.templateId }
       : { assetId: inspiration.assetId! };
     try {
-      const existingId = workIdRef.current;
-      if (existingId) {
-        await sourceMutation.mutateAsync({
-          workItemId: existingId,
-          action: "attachSource",
-          ...source,
-          usage: "both",
-        });
-      } else {
-        if (!await ensureDraft(source)) return;
-      }
+      if (!await attachDraftSource(source)) return;
       setAnnouncement("Inspiração adicionada");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Falha ao adicionar inspiração");
     }
-  }, [active.activeClientProfileId, ensureDraft, sourceMutation]);
+  }, [active.activeClientProfileId, attachDraftSource]);
+
+  useEffect(() => {
+    if (!initialTemplateId || autoTemplateRef.current === initialTemplateId) return;
+    if (active.isLoading) return;
+    if (initialWorkId && !hydratedWorkRef.current) return;
+    if (detailQuery.data?.sources.some((source) => source.templateId === initialTemplateId)) {
+      autoTemplateRef.current = initialTemplateId;
+      return;
+    }
+    if (!workIdRef.current && !active.activeClientProfileId) {
+      focusBrandSwitcher();
+      return;
+    }
+
+    autoTemplateRef.current = initialTemplateId;
+    void attachDraftSource({ templateId: initialTemplateId })
+      .then((attached) => {
+        if (attached && mountedRef.current) setAnnouncement("Inspiração adicionada");
+      })
+      .catch((cause) => {
+        if (mountedRef.current) {
+          setError(cause instanceof Error ? cause.message : "Falha ao adicionar inspiração");
+        }
+      });
+  }, [
+    active.activeClientProfileId,
+    active.isLoading,
+    attachDraftSource,
+    detailQuery.data?.sources,
+    initialTemplateId,
+    initialWorkId,
+  ]);
 
   const runSourceAction = useCallback(async (action: Parameters<typeof sourceMutation.mutateAsync>[0]) => {
     try {

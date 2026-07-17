@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-07-17T02:01:13.947Z",
+  "generatedAt": "2026-07-17T02:20:33.859Z",
   "schemaVersion": 2,
-  "fingerprint": "b84ae4fd255ba943de6182a27a144a9951256c9520f2f3429d2ec353442cffdf",
+  "fingerprint": "ffa1911d875994701eb9257f92b97ac6af4b897b121a9c2b4c018cd7396db0a6",
   "counts": {
     "dashboardPages": 14,
     "apiRoutes": 161,
-    "ctas": 64,
+    "ctas": 63,
     "requiringDecision": 1
   },
   "dashboardPages": [
@@ -1241,7 +1241,7 @@
     {
       "id": "nav:app/src/components/assistant/AssistantStartComposer.tsx:233",
       "kind": "cta_navigation",
-      "destination": "/campaigns?new=1",
+      "destination": "/?compose=1",
       "file": "app/src/components/assistant/AssistantStartComposer.tsx",
       "line": 233,
       "evidence": "app/src/components/assistant/AssistantStartComposer.tsx:233",
@@ -1800,21 +1800,12 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/app/(dashboard)/templates/page.tsx:28",
-      "kind": "cta_navigation",
-      "destination": "/campaigns?new=1&templateId=${template.id}",
-      "file": "app/src/app/(dashboard)/templates/page.tsx",
-      "line": 28,
-      "evidence": "app/src/app/(dashboard)/templates/page.tsx:28",
-      "requiresDecision": false
-    },
-    {
-      "id": "nav:app/src/app/(dashboard)/templates/page.tsx:54",
+      "id": "nav:app/src/app/(dashboard)/templates/page.tsx:61",
       "kind": "cta_navigation",
       "destination": "/campaigns",
       "file": "app/src/app/(dashboard)/templates/page.tsx",
-      "line": 54,
-      "evidence": "app/src/app/(dashboard)/templates/page.tsx:54",
+      "line": 61,
+      "evidence": "app/src/app/(dashboard)/templates/page.tsx:61",
       "requiresDecision": false
     }
   ]

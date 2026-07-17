@@ -2594,8 +2594,8 @@
         }
       },
       "useClassicFlow": "Use classic flow",
-      "campaignPathHint": "To generate variation batches, the recommended path is a campaign workspace.",
-      "openCampaignWorkspace": "Open campaigns",
+      "composerPathHint": "Create one piece or variations in a single step from the Home composer.",
+      "openHomeComposer": "Create from Home",
       "useGoalAgent": "Use goal agent",
       "addImage": "Add image",
       "removeAttachment": "Remove attachment",

@@ -111,6 +111,11 @@ describe("AssistantStartComposer", () => {
     expect(screen.getByTestId("assistant-start-composer")).toBeInTheDocument();
     expect(screen.getByTestId("assistant-start-form")).toBeInTheDocument();
     expect(screen.getByTestId("assistant-journey-cards")).toBeInTheDocument();
+    expect(screen.getByText("composerPathHint")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "openHomeComposer" })).toHaveAttribute(
+      "href",
+      "/?compose=1"
+    );
   });
 
   it("creates a thread and navigates when submitting a first message", async () => {

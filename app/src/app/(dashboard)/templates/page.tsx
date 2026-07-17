@@ -16,6 +16,13 @@ import {
 } from "@/lib/hooks/use-templates";
 import TemplateCard from "@/components/templates/TemplateCard";
 
+export function templateComposerHref(templateId: string) {
+  const params = new URLSearchParams();
+  params.set("templateId", templateId);
+  params.set("compose", "1");
+  return `/?${params.toString()}`;
+}
+
 export default function TemplatesPage() {
   const router = useRouter();
   const tTemplate = useTranslations("template");
@@ -25,7 +32,7 @@ export default function TemplatesPage() {
   const updateTemplate = useUpdateTemplate();
 
   const handleUseTemplate = (template: CampaignTemplate) => {
-    router.push(`/campaigns?new=1&templateId=${template.id}`);
+    router.push(templateComposerHref(template.id));
   };
 
   const handleDelete = async (id: string) => {

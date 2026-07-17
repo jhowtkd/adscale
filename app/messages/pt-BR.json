@@ -2595,8 +2595,8 @@
         }
       },
       "useClassicFlow": "Usar fluxo clássico",
-      "campaignPathHint": "Para gerar variações em batch, o caminho recomendado é uma campanha.",
-      "openCampaignWorkspace": "Abrir campanhas",
+      "composerPathHint": "Crie uma peça ou variações em uma etapa no composer da home.",
+      "openHomeComposer": "Criar na home",
       "useGoalAgent": "Usar agente de objetivo",
       "addImage": "Adicionar imagem",
       "removeAttachment": "Remover anexo",
