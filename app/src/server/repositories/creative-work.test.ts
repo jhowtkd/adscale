@@ -356,6 +356,48 @@ describe("creative-work repository", () => {
       expect(mocks.onConflictDoNothingMock).toHaveBeenCalledTimes(2);
     });
 
+    it.each([
+      ["approved asset", { assetId: "asset-1" }, { id: "asset-1", type: "image/png" }],
+      ["template", { templateId: "template-1" }, { id: "template-1" }],
+    ] as const)("replays the same scoped %s source after its unique-index conflict", async (_label, sourceOrigin, origin) => {
+      const existing = {
+        id: "source-existing", workspaceId: "ws-1", workItemId: "work-1",
+        assetId: "assetId" in sourceOrigin ? sourceOrigin.assetId : null,
+        templateId: "templateId" in sourceOrigin ? sourceOrigin.templateId : null,
+        usage: "both", status: "ready", createdAt: new Date(), updatedAt: new Date(),
+      };
+      mocks.state.selectResults.push([{ id: "work-1" }], [origin], [existing]);
+      mocks.state.onConflictResults.push([]);
+
+      await expect(createCreativeWorkSource({
+        workspaceId: "ws-1", workItemId: "work-1", ...sourceOrigin,
+        usage: "both", status: "uploaded",
+      })).resolves.toEqual(existing);
+
+      expect(mocks.onConflictDoNothingMock).toHaveBeenCalledOnce();
+      expect(mocks.txUpdateMock).not.toHaveBeenCalled();
+      const replayScope = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]);
+      expect(replayScope.sql).toContain('"creative_work_sources"."workspace_id"');
+      expect(replayScope.sql).toContain('"creative_work_sources"."work_item_id"');
+      expect(replayScope.params).toContain("ws-1");
+      expect(replayScope.params).toContain("work-1");
+      expect(replayScope.params).toContain(origin.id);
+    });
+
+    it("does not mask a replay whose usage payload differs", async () => {
+      const existing = {
+        id: "source-existing", workspaceId: "ws-1", workItemId: "work-1",
+        assetId: "asset-1", templateId: null, usage: "content", status: "ready",
+      };
+      mocks.state.selectResults.push([{ id: "work-1" }], [{ id: "asset-1", type: "image/png" }], [existing]);
+      mocks.state.onConflictResults.push([]);
+
+      await expect(createCreativeWorkSource({
+        workspaceId: "ws-1", workItemId: "work-1", assetId: "asset-1",
+        usage: "style", status: "uploaded",
+      })).resolves.toBeNull();
+    });
+
     it("reuses the same work and source when draftKey plus asset is replayed", async () => {
       const work = workItem({ id: "same-draft", draftKey: "draft-key", clientProfileId: "profile-1", request: "", brief: null });
       const source = { id: "same-source", workspaceId: "ws-1", workItemId: work.id, assetId: "asset-1", templateId: null, usage: "both", status: "uploaded" };
@@ -595,7 +637,7 @@ describe("creative-work repository", () => {
     it("creates a source with exactly one origin delegated to the DB constraint", async () => {
       const source = { id: "source-1", workspaceId: "ws-1", workItemId: "work-1", assetId: "asset-1", templateId: null };
       mocks.state.selectResults.push([{ id: "work-1" }], [{ id: "asset-1" }]);
-      mocks.state.insertResults.push([source]);
+      mocks.state.onConflictResults.push([source]);
       mocks.state.txUpdateResults.push([workItem()]);
       await expect(createCreativeWorkSource({
         workspaceId: "ws-1", workItemId: "work-1", assetId: "asset-1", usage: "both", status: "uploaded",

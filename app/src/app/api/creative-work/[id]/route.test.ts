@@ -402,6 +402,37 @@ describe("PATCH /api/creative-work/[id]", () => {
     expect(inngestSendMock).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ["approved asset", { assetId: "asset-1" }, false],
+    ["template", { templateId: "template-1" }, true],
+  ] as const)("returns an existing ready %s source without re-dispatching analysis", async (_label, origin, template) => {
+    const existing = {
+      id: "source-existing", workspaceId: "workspace-1", workItemId: "work-1",
+      assetId: template ? null : "asset-1", templateId: template ? "template-1" : null,
+      usage: "both", status: "ready", updatedAt: new Date(),
+    };
+    createSourceMock.mockResolvedValue(existing);
+
+    const first = await requestPatch({ action: "attachSource", ...origin, usage: "both" });
+    const replay = await requestPatch({ action: "attachSource", ...origin, usage: "both" });
+
+    expect(first.status).toBe(200);
+    expect(replay.status).toBe(200);
+    expect(createSourceMock).toHaveBeenCalledTimes(2);
+    expect(inngestSendMock).not.toHaveBeenCalled();
+    expect(analyzeSourceMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a replay when the persisted source usage differs from the attach payload", async () => {
+    createSourceMock.mockResolvedValue(null);
+
+    const res = await requestPatch({ action: "attachSource", assetId: "asset-1", usage: "style" });
+
+    expect(res.status).toBe(400);
+    expect(inngestSendMock).not.toHaveBeenCalled();
+    expect(analyzeSourceMock).not.toHaveBeenCalled();
+  });
+
   it("rejects a template outside the workspace without creating a source", async () => {
     getTemplateMock.mockResolvedValue(null);
     const res = await PATCH(new Request("http://localhost/api/creative-work/work-1", {

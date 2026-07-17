@@ -56,4 +56,26 @@ describe("BrandInspirations", () => {
     expect(useInspirationsMock).toHaveBeenCalledWith(null);
     expect(container).toBeEmptyDOMElement();
   });
+
+  it("announces loading as a live status", () => {
+    useInspirationsMock.mockReturnValue({ data: undefined, isLoading: true, isError: false, refetch: vi.fn() });
+    render(<BrandInspirations clientProfileId="brand-1" onAttach={vi.fn()} />);
+    expect(screen.getByRole("status")).toHaveTextContent("Carregando inspirações");
+  });
+
+  it("shows an actionable error and retries the same query", () => {
+    const refetch = vi.fn();
+    useInspirationsMock.mockReturnValue({ data: undefined, isLoading: false, isError: true, refetch });
+    render(<BrandInspirations clientProfileId="brand-1" onAttach={vi.fn()} />);
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Não foi possível carregar as inspirações");
+    fireEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
+    expect(refetch).toHaveBeenCalledOnce();
+  });
+
+  it("explains the empty state for the active brand", () => {
+    useInspirationsMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    render(<BrandInspirations clientProfileId="brand-1" onAttach={vi.fn()} />);
+    expect(screen.getByRole("status")).toHaveTextContent("Nenhuma inspiração disponível para esta marca ainda");
+  });
 });

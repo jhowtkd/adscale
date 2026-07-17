@@ -376,8 +376,18 @@ export async function createCreativeWorkSource(input: CreateCreativeWorkSourceIn
   )).limit(1);
   if (!origin) return null;
   return db.transaction(async (tx) => {
-    const [row] = await tx.insert(creativeWorkSources).values(input).returning();
-    if (!row) return null;
+    const [row] = await tx.insert(creativeWorkSources).values(input).onConflictDoNothing().returning();
+    if (!row) {
+      const originCondition = input.assetId
+        ? eq(creativeWorkSources.assetId, input.assetId)
+        : eq(creativeWorkSources.templateId, input.templateId!);
+      const [existing] = await tx.select().from(creativeWorkSources).where(and(
+        eq(creativeWorkSources.workspaceId, input.workspaceId),
+        eq(creativeWorkSources.workItemId, input.workItemId),
+        originCondition,
+      )).limit(1);
+      return existing?.usage === input.usage ? existing : null;
+    }
     await tx.update(creativeWorkItems).set({
       updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
     }).where(and(

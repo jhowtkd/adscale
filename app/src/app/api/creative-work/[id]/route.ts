@@ -220,6 +220,7 @@ export async function PATCH(
         status: "uploaded",
       });
       if (!source) return apiError("invalidInput", 400);
+      if (source.status !== "uploaded") return NextResponse.json({ source });
       if (source.templateId) {
         const analyzed = await analyzeCreativeWorkSource({ workspaceId: workspace.id, workItemId: id, sourceId: source.id });
         return NextResponse.json({ source: analyzed });

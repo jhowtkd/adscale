@@ -8,10 +8,10 @@ export function BrandInspirations({ clientProfileId, onAttach }: {
   clientProfileId: string | null;
   onAttach: (inspiration: CreativeInspiration) => void | Promise<void>;
 }) {
-  const { data = [], isLoading, isError } = useCreativeInspirations(clientProfileId);
+  const { data = [], isLoading, isError, refetch } = useCreativeInspirations(clientProfileId);
   const [pendingId, setPendingId] = useState<string | null>(null);
 
-  if (!clientProfileId || isError || (!isLoading && data.length === 0)) return null;
+  if (!clientProfileId) return null;
 
   return (
     <section aria-labelledby="brand-inspirations-title">
@@ -19,7 +19,20 @@ export function BrandInspirations({ clientProfileId, onAttach }: {
         Inspirações da marca
       </h2>
       {isLoading ? (
-        <div className="h-32 animate-pulse rounded-[var(--radius-object)] bg-[var(--surface-raised)]" aria-label="Carregando inspirações" />
+        <p role="status" className="h-32 animate-pulse rounded-[var(--radius-object)] bg-[var(--surface-raised)] p-4 text-sm text-[var(--text-muted)]">
+          Carregando inspirações
+        </p>
+      ) : isError ? (
+        <div className="rounded-[var(--radius-object)] border border-[var(--danger-border)] bg-[var(--surface-raised)] p-4">
+          <p role="alert" className="text-sm text-[var(--danger-text)]">Não foi possível carregar as inspirações.</p>
+          <button type="button" onClick={() => void refetch()} className="mt-3 rounded-[var(--radius-control)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]">
+            Tentar novamente
+          </button>
+        </div>
+      ) : data.length === 0 ? (
+        <p role="status" className="rounded-[var(--radius-object)] border border-dashed border-[var(--border-subtle)] p-4 text-sm text-[var(--text-muted)]">
+          Nenhuma inspiração disponível para esta marca ainda.
+        </p>
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {data.map((inspiration) => (
