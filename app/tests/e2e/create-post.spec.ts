@@ -23,9 +23,6 @@ import { expect, test, type Page, type APIRequestContext } from "@playwright/tes
  * Seed: `npm run seed:create-post-e2e`
  */
 
-const EMAIL = "dev-admin@adscale.local";
-const PASSWORD = "DevAdmin123!";
-
 const FIXTURE_PATH = path.resolve(
   __dirname,
   "../fixtures/create-post-e2e.json",
@@ -34,9 +31,10 @@ const FIXTURE_PATH = path.resolve(
 interface CreatePostFixture {
   workspaceId: string;
   workspaceName: string | null;
+  email: string;
+  password: string;
   userId: string;
   primaryClientProfileId: string;
-  secondaryClientProfileId: string;
   approvedLogoReferenceId: string;
   approvedLogoAssetKey: string;
   approvedLogoBufferBase64: string;
@@ -59,6 +57,7 @@ function loadFixture(): CreatePostFixture {
 }
 
 async function login(page: Page): Promise<void> {
+  const fixture = loadFixture();
   await page.addInitScript(() => {
     try {
       localStorage.setItem(
@@ -70,8 +69,8 @@ async function login(page: Page): Promise<void> {
     }
   });
   await page.goto("/login");
-  await page.locator("#email").fill(EMAIL);
-  await page.locator("#login-password").fill(PASSWORD);
+  await page.locator("#email").fill(fixture.email);
+  await page.locator("#login-password").fill(fixture.password);
   await page.locator("form:has(#email) button[type=submit]").click();
   await page.waitForURL((url) => !url.pathname.startsWith("/login"), {
     timeout: 30_000,

@@ -90,7 +90,7 @@ let cachedProvider: ImageGenerationProvider | null = null;
 function getImageProvider(): ImageGenerationProvider {
   if (cachedProvider) return cachedProvider;
   cachedProvider = isE2EControlledProviderEnabled()
-    ? new E2EControlledImageProvider()
+    ? E2EControlledImageProvider.forLocalRuntime()
     : new OpenAIImageProvider();
   return cachedProvider;
 }

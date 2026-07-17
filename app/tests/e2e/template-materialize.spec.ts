@@ -1,9 +1,19 @@
+import fs from "node:fs";
+import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 
 /** A saved template now materializes as a source on the canonical Home draft. */
 
-const EMAIL = "dev-admin@adscale.local";
-const PASSWORD = "DevAdmin123!";
+const FIXTURE_PATH = path.resolve(__dirname, "../fixtures/create-post-e2e.json");
+
+type Fixture = { email: string; password: string; primaryClientProfileId: string };
+
+function fixture(): Fixture {
+  if (!fs.existsSync(FIXTURE_PATH)) {
+    throw new Error("Missing fixture. Run npm run seed:create-post-e2e first.");
+  }
+  return JSON.parse(fs.readFileSync(FIXTURE_PATH, "utf8")) as Fixture;
+}
 
 const BRIEF = {
   name: `Template Materialize ${Date.now()}`,
@@ -31,8 +41,8 @@ async function login(page: Page): Promise<void> {
     );
   });
   await page.goto("/login");
-  await page.locator("#email").fill(EMAIL);
-  await page.locator("#login-password").fill(PASSWORD);
+  await page.locator("#email").fill(fixture().email);
+  await page.locator("#login-password").fill(fixture().password);
   await page.locator("form:has(#email) button[type=submit]").click();
   await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 30_000 });
 }
@@ -44,15 +54,10 @@ test.describe("Template materialization", () => {
 
     const profilesResponse = await api.get("/api/client-profiles");
     expect(profilesResponse.ok()).toBe(true);
-    const profiles = (await profilesResponse.json()) as { profiles: Array<{ id: string }> };
-    const profileId = profiles.profiles[0]?.id;
-    expect(profileId).toBeTruthy();
-    await page.evaluate((activeClientProfileId) => {
-      localStorage.setItem("adscale-storage", JSON.stringify({
-        state: { sidebarCollapsed: false, activeClientProfileId },
-        version: 0,
-      }));
-    }, profileId);
+    const profiles = (await profilesResponse.json()) as { profiles: Array<{ id: string; name: string }> };
+    expect(profiles.profiles).toEqual([
+      expect.objectContaining({ id: fixture().primaryClientProfileId, name: "Create Post E2E Brand" }),
+    ]);
 
     const createRes = await api.post("/api/campaigns", { data: { ...BRIEF, clientProfileId: null } });
     expect(createRes.status(), await createRes.text()).toBe(201);
@@ -63,6 +68,24 @@ test.describe("Template materialization", () => {
     });
     expect(tplRes.status(), await tplRes.text()).toBe(201);
     const templateId = ((await tplRes.json()) as { template: { id: string } }).template.id;
+    const storedTemplateResponse = await api.get(`/api/templates/${templateId}`);
+    expect(storedTemplateResponse.ok(), await storedTemplateResponse.text()).toBe(true);
+    const storedTemplate = ((await storedTemplateResponse.json()) as { template: Record<string, unknown> }).template;
+    expect(storedTemplate).toMatchObject({
+      product: BRIEF.product,
+      objective: BRIEF.objective,
+      audience: BRIEF.audience,
+      platforms: BRIEF.platforms,
+      tone: BRIEF.tone,
+      offer: BRIEF.offer,
+      constraints: BRIEF.constraints,
+      notes: BRIEF.notes,
+      generationMode: BRIEF.generationMode,
+      creativeLevel: BRIEF.creativeLevel,
+      styleIntensity: BRIEF.styleIntensity,
+      ctaVariants: BRIEF.ctaVariants,
+      targetFormats: BRIEF.targetFormats,
+    });
     const countBefore = ((await (await api.get("/api/campaigns?limit=200")).json()) as { campaigns: unknown[] }).campaigns.length;
 
     let materializeCalls = 0;
@@ -74,6 +97,7 @@ test.describe("Template materialization", () => {
     });
 
     await page.goto("/templates");
+    await expect(page.getByLabel(/marca ativa|active brand/i).first()).toHaveText("Create Post E2E Brand");
     const card = page.getByTestId(`template-card-${templateId}`);
     await expect(card.getByText(templateName)).toBeVisible();
     await card.getByRole("button", { name: /Use template|Usar template/i })
@@ -91,14 +115,36 @@ test.describe("Template materialization", () => {
       sources: Array<{
         id: string;
         templateId: string | null;
-        contentAnalysis: { product: string; offer: string } | null;
-        styleAnalysis: { mood: string } | null;
+        contentAnalysis: {
+          product: string;
+          offer: string;
+          cta: { text: string; style: string };
+          keyVisual: string;
+          textContent: { headline: string; bullets: string[] };
+          format: string;
+        } | null;
+        styleAnalysis: {
+          mood: string;
+          composition: string;
+          typography: { personality: string };
+        } | null;
       }>;
     };
     const attached = detail.sources.filter((item) => item.templateId === templateId);
     expect(attached).toHaveLength(1);
-    expect(attached[0]?.contentAnalysis).toMatchObject({ product: BRIEF.product, offer: BRIEF.offer });
-    expect(attached[0]?.styleAnalysis).toMatchObject({ mood: BRIEF.tone });
+    expect(attached[0]?.contentAnalysis).toMatchObject({
+      product: BRIEF.product,
+      offer: BRIEF.offer,
+      cta: { text: BRIEF.ctaVariants.join(", "), style: "template" },
+      keyVisual: BRIEF.objective,
+      textContent: { headline: BRIEF.objective, bullets: [BRIEF.audience] },
+      format: BRIEF.targetFormats.join(", "),
+    });
+    expect(attached[0]?.styleAnalysis).toMatchObject({
+      mood: BRIEF.tone,
+      composition: BRIEF.styleIntensity,
+      typography: { personality: BRIEF.tone },
+    });
     expect(materializeCalls).toBe(0);
     expect(campaignMutations).toBe(0);
     const countAfter = ((await (await api.get("/api/campaigns?limit=200")).json()) as { campaigns: unknown[] }).campaigns.length;
