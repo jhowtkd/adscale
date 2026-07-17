@@ -50,6 +50,13 @@ function workDetail(overrides = {}) {
   };
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej; });
+  return { promise, resolve, reject };
+}
+
 describe("useCreativeComposer", () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -134,6 +141,78 @@ describe("useCreativeComposer", () => {
     expect(result.current.request).toBe("Pedido salvo");
     expect(result.current.brandName).toBe("Marca B");
     expect(result.current.state).toBe("ready");
+  });
+
+  it.each([
+    ["single", { targetFormats: [] }, { unitCount: 1, credits: 5 }],
+    ["restyle", { targetFormats: [] }, { unitCount: 1, credits: 5 }],
+    ["format_adaptation", { targetFormats: ["1:1", "9:16"] }, { unitCount: 2, credits: 10 }],
+  ] as const)("hydrates %s as authoritative without autosaving variations over it", async (toolKind, settings, expectedQuote) => {
+    mocks.work.mockReturnValue({ data: workDetail({ toolKind, settings }), isLoading: false, isError: false });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+
+    expect(result.current.intent).toBe(toolKind);
+    expect(result.current.quote).toEqual(expectedQuote);
+    await act(() => vi.advanceTimersByTimeAsync(500));
+    expect(mocks.autosave).not.toHaveBeenCalled();
+  });
+
+  it("autosaves an existing work under its stored brand when no global brand is active", async () => {
+    mocks.active.mockReturnValue(active({
+      profiles: [profileA, profileB], activeProfile: null, activeClientProfileId: null, requiresSelection: true,
+    }));
+    mocks.work.mockReturnValue({ data: workDetail({ clientProfileId: profileB.id }), isLoading: false, isError: false });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+
+    act(() => result.current.setRequest("Edição da marca persistida"));
+    await act(() => vi.advanceTimersByTimeAsync(500));
+
+    expect(mocks.autosave).toHaveBeenCalledWith(expect.objectContaining({
+      workItemId: "work-1", request: "Edição da marca persistida",
+    }));
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+
+  it("waits for create A, persists latest B, then prepares and generates", async () => {
+    const createA = deferred<{ work: { id: string }; quote: { unitCount: number; credits: number } }>();
+    mocks.create.mockReturnValueOnce(createA.promise);
+    const { result } = renderHook(() => useCreativeComposer());
+    act(() => result.current.setRequest("Pedido A"));
+    await act(() => vi.advanceTimersByTimeAsync(500));
+    expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({ request: "Pedido A" }));
+
+    act(() => result.current.setRequest("Pedido B"));
+    let generation!: Promise<void>;
+    act(() => { generation = result.current.generate(); });
+    expect(mocks.prepare).not.toHaveBeenCalled();
+
+    createA.resolve({ work: { id: "work-1" }, quote: { unitCount: 3, credits: 15 } });
+    await act(async () => { await generation; });
+
+    expect(mocks.autosave).toHaveBeenCalledWith(expect.objectContaining({ request: "Pedido B" }));
+    expect(mocks.autosave.mock.invocationCallOrder[0]).toBeLessThan(mocks.prepare.mock.invocationCallOrder[0]);
+    expect(mocks.prepare.mock.invocationCallOrder[0]).toBeLessThan(mocks.generate.mock.invocationCallOrder[0]);
+  });
+
+  it("serializes autosaves and never starts B before A settles", async () => {
+    const saveA = deferred<{ work: { id: string } }>();
+    const saveB = deferred<{ work: { id: string } }>();
+    mocks.autosave.mockReturnValueOnce(saveA.promise).mockReturnValueOnce(saveB.promise);
+    mocks.work.mockReturnValue({ data: workDetail(), isLoading: false, isError: false });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+
+    act(() => result.current.setRequest("Pedido A"));
+    await act(() => vi.advanceTimersByTimeAsync(500));
+    act(() => result.current.setRequest("Pedido B"));
+    await act(() => vi.advanceTimersByTimeAsync(500));
+    expect(mocks.autosave).toHaveBeenCalledTimes(1);
+
+    saveA.resolve({ work: { id: "work-1" } });
+    await act(async () => { await Promise.resolve(); });
+    expect(mocks.autosave).toHaveBeenCalledTimes(2);
+    expect(mocks.autosave).toHaveBeenLastCalledWith(expect.objectContaining({ request: "Pedido B" }));
+    saveB.resolve({ work: { id: "work-1" } });
+    await act(async () => { await Promise.resolve(); });
   });
 
   it("flushes autosave and submits paid generation only once", async () => {

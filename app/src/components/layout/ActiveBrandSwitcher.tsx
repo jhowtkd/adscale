@@ -3,7 +3,7 @@
 import { useTranslations } from "next-intl";
 import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
 
-export default function ActiveBrandSwitcher() {
+export default function ActiveBrandSwitcher({ id = "active-brand-switcher" }: { id?: string } = {}) {
   const t = useTranslations("navigation");
   const {
     profiles,
@@ -28,11 +28,11 @@ export default function ActiveBrandSwitcher() {
 
   return (
     <div className="mt-3">
-      <label className="sr-only" htmlFor="active-brand-switcher">
+      <label className="sr-only" htmlFor={id}>
         {t("activeBrand")}
       </label>
       <select
-        id="active-brand-switcher"
+        id={id}
         value={activeClientProfileId ?? ""}
         onChange={(event) => selectProfile(event.target.value)}
         className="block w-full rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] px-2 py-2 text-xs font-medium text-[var(--text-primary)] focus-visible:border-[var(--accent-primary)] focus-visible:outline-none"

@@ -19,6 +19,12 @@ import { quoteCreativeWork } from "@/server/creative-work/contracts";
 export type ComposerState = "empty" | "saving" | "analyzing" | "ready" | "generating" | "results";
 export type ComposerIntent = Exclude<CreativeWorkItem["toolKind"], "social_post">;
 type Format = CreativeWorkItem["format"];
+type DraftSnapshot = {
+  request: string;
+  intent: ComposerIntent;
+  format: Format;
+  settings: { targetFormats: Format[] };
+};
 
 const DEFAULT_QUOTE: CreativeWorkQuote = { unitCount: 3, credits: 15 };
 
@@ -27,12 +33,13 @@ function canonicalQuote(intent: ComposerIntent, format: Format, targetFormats: F
   return { unitCount, credits };
 }
 
-function signature(request: string, intent: ComposerIntent, format: Format, targetFormats: Format[]) {
-  return JSON.stringify({ request: request.trim(), intent, format, targetFormats });
+function signature(snapshot: DraftSnapshot) {
+  return JSON.stringify(snapshot);
 }
 
 function focusBrandSwitcher() {
-  document.getElementById("active-brand-switcher")?.focus();
+  (document.getElementById("active-brand-switcher-inline")
+    ?? document.getElementById("active-brand-switcher"))?.focus();
 }
 
 export function useCreativeComposer({ initialWorkId }: { initialWorkId?: string } = {}) {
@@ -56,6 +63,7 @@ export function useCreativeComposer({ initialWorkId }: { initialWorkId?: string 
   const hydratedWorkRef = useRef<string | null>(null);
   const lastPersistedRef = useRef<string | null>(null);
   const createInFlightRef = useRef<Promise<string | null> | null>(null);
+  const saveChainRef = useRef<Promise<void>>(Promise.resolve());
   const submitGuardRef = useRef(false);
 
   const detailQuery = useCreativeWork(workId);
@@ -80,25 +88,33 @@ export function useCreativeComposer({ initialWorkId }: { initialWorkId?: string 
     intentRef.current = work.toolKind === "social_post" ? "variations" : work.toolKind;
     formatRef.current = work.format;
     targetFormatsRef.current = work.settings.targetFormats;
-    lastPersistedRef.current = signature(
-      work.request,
-      intentRef.current,
-      work.format,
-      work.settings.targetFormats,
-    );
+    const hydrated = {
+      request: work.request.trim(),
+      intent: intentRef.current,
+      format: work.format,
+      settings: { targetFormats: [...work.settings.targetFormats] },
+    };
+    lastPersistedRef.current = signature(hydrated);
     /* TanStack Query is the external persisted source for hydration. */
     setRequestState(work.request);
     setIntent(intentRef.current);
     setFormat(work.format);
     setTargetFormats(work.settings.targetFormats);
+    setQuote(canonicalQuote(hydrated.intent, hydrated.format, hydrated.settings.targetFormats));
   }, [detailQuery.data]);
 
-  const currentSignature = useCallback(() => signature(
-    requestRef.current,
-    intentRef.current,
-    formatRef.current,
-    targetFormatsRef.current,
-  ), []);
+  const captureSnapshot = useCallback((): DraftSnapshot => ({
+    request: requestRef.current.trim(),
+    intent: intentRef.current,
+    format: formatRef.current,
+    settings: { targetFormats: [...targetFormatsRef.current] },
+  }), []);
+
+  const enqueueSave = useCallback(<T,>(operation: () => Promise<T>): Promise<T> => {
+    const run = saveChainRef.current.then(operation, operation);
+    saveChainRef.current = run.then(() => undefined, () => undefined);
+    return run;
+  }, []);
 
   const exposeWorkId = useCallback((id: string) => {
     if (typeof window === "undefined") return;
@@ -114,20 +130,18 @@ export function useCreativeComposer({ initialWorkId }: { initialWorkId?: string 
       focusBrandSwitcher();
       return Promise.resolve(null);
     }
-    const trimmed = requestRef.current.trim();
-    if (!trimmed && !assetId) return Promise.resolve(null);
+    const snapshot = captureSnapshot();
+    if (!snapshot.request && !assetId) return Promise.resolve(null);
 
-    const promise = createMutation.mutateAsync({
-      clientProfileId: active.activeClientProfileId,
-      draftKey: draftKeyRef.current,
-      request: trimmed,
-      intent: intentRef.current,
-      format: formatRef.current,
-      settings: { targetFormats: targetFormatsRef.current },
-      ...(assetId ? { assetId, usage: "both" as const } : {}),
-    }).then((result) => {
+    const promise = enqueueSave(async () => {
+      const result = await createMutation.mutateAsync({
+        clientProfileId: active.activeClientProfileId!,
+        draftKey: draftKeyRef.current,
+        ...snapshot,
+        ...(assetId ? { assetId, usage: "both" as const } : {}),
+      });
       workIdRef.current = result.work.id;
-      lastPersistedRef.current = currentSignature();
+      lastPersistedRef.current = signature(snapshot);
       setWorkId(result.work.id);
       setQuote(result.quote);
       setAnnouncement("Rascunho salvo");
@@ -139,37 +153,43 @@ export function useCreativeComposer({ initialWorkId }: { initialWorkId?: string 
     }).finally(() => { createInFlightRef.current = null; });
     createInFlightRef.current = promise;
     return promise;
-  }, [active.activeClientProfileId, createMutation, currentSignature, exposeWorkId]);
+  }, [active.activeClientProfileId, captureSnapshot, createMutation, enqueueSave, exposeWorkId]);
 
-  const flushAutosave = useCallback(async (id: string) => {
-    const nextSignature = currentSignature();
-    if (nextSignature === lastPersistedRef.current) return;
-    await autosaveMutation.mutateAsync({
-      workItemId: id,
-      request: requestRef.current.trim(),
-      intent: intentRef.current,
-      format: formatRef.current,
-      settings: { targetFormats: targetFormatsRef.current },
-    });
-    lastPersistedRef.current = nextSignature;
+  const persistSnapshot = useCallback((id: string, snapshot: DraftSnapshot) => enqueueSave(async () => {
+    const sentSignature = signature(snapshot);
+    if (sentSignature === lastPersistedRef.current) return;
+    await autosaveMutation.mutateAsync({ workItemId: id, ...snapshot });
+    lastPersistedRef.current = sentSignature;
     setAnnouncement("Alterações salvas");
-  }, [autosaveMutation, currentSignature]);
+  }), [autosaveMutation, enqueueSave]);
+
+  const flushAutosave = useCallback(async (): Promise<string | null> => {
+    await saveChainRef.current;
+    const id = workIdRef.current ?? await ensureDraft();
+    if (!id) return null;
+    for (;;) {
+      await saveChainRef.current;
+      const snapshot = captureSnapshot();
+      if (signature(snapshot) === lastPersistedRef.current) return id;
+      await persistSnapshot(id, snapshot);
+    }
+  }, [captureSnapshot, ensureDraft, persistSnapshot]);
 
   useEffect(() => {
     if (initialWorkId && !hydratedWorkRef.current) return;
     const timer = window.setTimeout(() => {
-      if (!active.activeClientProfileId) {
+      if (!workIdRef.current && !active.activeClientProfileId) {
         if (requestRef.current.trim()) focusBrandSwitcher();
         return;
       }
       const save = async () => {
         const id = workIdRef.current ?? await ensureDraft();
-        if (id) await flushAutosave(id);
+        if (id) await persistSnapshot(id, captureSnapshot());
       };
       void save().catch((cause) => setError(cause instanceof Error ? cause.message : "Falha ao salvar"));
     }, 500);
     return () => window.clearTimeout(timer);
-  }, [active.activeClientProfileId, ensureDraft, flushAutosave, format, initialWorkId, intent, request, targetFormats]);
+  }, [active.activeClientProfileId, captureSnapshot, ensureDraft, format, initialWorkId, intent, persistSnapshot, request, targetFormats]);
 
   const setRequest = useCallback((value: string) => {
     requestRef.current = value;
@@ -201,7 +221,7 @@ export function useCreativeComposer({ initialWorkId }: { initialWorkId?: string 
   const addFiles = useCallback(async (files: FileList | File[] | null) => {
     const images = collectImageFiles(files);
     if (images.length === 0) return;
-    if (!active.activeClientProfileId) {
+    if (!workIdRef.current && !active.activeClientProfileId) {
       focusBrandSwitcher();
       return;
     }
@@ -256,9 +276,8 @@ export function useCreativeComposer({ initialWorkId }: { initialWorkId?: string 
     submitGuardRef.current = true;
     setError(null);
     try {
-      const id = workIdRef.current ?? await ensureDraft();
+      const id = await flushAutosave();
       if (!id) return;
-      await flushAutosave(id);
       const prepared = await prepareMutation.mutateAsync({ workItemId: id });
       setQuote(prepared.quote);
       await generateMutation.mutateAsync(id);
@@ -268,7 +287,7 @@ export function useCreativeComposer({ initialWorkId }: { initialWorkId?: string 
     } finally {
       submitGuardRef.current = false;
     }
-  }, [ensureDraft, flushAutosave, generateMutation, prepareMutation]);
+  }, [flushAutosave, generateMutation, prepareMutation]);
 
   const detail = detailQuery.data;
   const state = useMemo<ComposerState>(() => {
@@ -298,6 +317,7 @@ export function useCreativeComposer({ initialWorkId }: { initialWorkId?: string 
     targetFormats, toggleTargetFormat, state, workId, brandName,
     sources: detail?.sources ?? [], outputs: detail?.outputs ?? [], quote, canGenerate, isUploading,
     error, announcement, requiresBrandSelection: active.requiresSelection,
+    workError: Boolean(workId && detailQuery.isError),
     addFiles, updateSource, retrySource, removeSource, generate,
   };
 }

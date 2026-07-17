@@ -3,10 +3,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const useComposer = vi.hoisted(() => vi.fn());
 vi.mock("./useCreativeComposer", () => ({ useCreativeComposer: (...args: unknown[]) => useComposer(...args) }));
+vi.mock("@/components/layout/ActiveBrandSwitcher", () => ({
+  default: ({ id }: { id?: string }) => <select id={id ?? "active-brand-switcher"} aria-label="Marca ativa"><option>Escolha</option></select>,
+}));
 vi.mock("next-intl", () => ({ useTranslations: () => (key: string, values?: Record<string, number>) => ({
   requestLabel: "Pedido criativo", placeholder: "Descreva", addArt: "Adicionar arte", dropHint: "Solte aqui",
   optionalSettings: "Ajustes opcionais", format: "Formato", targetFormats: "Formatos de destino",
   brand: "Marca", noBrand: "Selecione uma marca", inspirationsSlot: "Inspirações",
+  selectBrandMessage: "Selecione uma marca para começar", invalidWork: "Trabalho não encontrado", startNew: "Começar nova criação",
 }[key] ?? (key === "generate" ? `Gerar ${values?.count} variações · ${values?.credits} créditos` : key)) }));
 
 import { CreativeComposer } from "./CreativeComposer";
@@ -17,6 +21,7 @@ function composer(overrides = {}) {
     format: "4:5", setFormat: vi.fn(), targetFormats: [], toggleTargetFormat: vi.fn(), state: "empty",
     workId: null, brandName: "Marca A", sources: [], outputs: [], quote: { unitCount: 3, credits: 15 },
     canGenerate: true, isUploading: false, error: null, announcement: "", requiresBrandSelection: false,
+    workError: false,
     addFiles: vi.fn(), updateSource: vi.fn(), retrySource: vi.fn(), removeSource: vi.fn(), generate: vi.fn(),
     ...overrides,
   };
@@ -62,5 +67,30 @@ describe("CreativeComposer", () => {
     fireEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
     expect(value.updateSource).toHaveBeenCalledWith("source-1", "style");
     expect(value.retrySource).toHaveBeenCalledWith("source-1");
+  });
+
+  it("never reapplies a new-draft preset over a hydrated work", () => {
+    const value = composer({ workId: "work-1", intent: "single", quote: { unitCount: 1, credits: 5 } });
+    useComposer.mockReturnValue(value);
+    render(<CreativeComposer initialWorkId="work-1" preset="variations" />);
+    expect(value.selectIntent).not.toHaveBeenCalled();
+  });
+
+  it("renders a focusable inline brand choice and disables paid work for a new draft", () => {
+    useComposer.mockReturnValue(composer({
+      brandName: null, canGenerate: false, requiresBrandSelection: true, workId: null,
+    }));
+    render(<CreativeComposer />);
+    expect(screen.getByText("Selecione uma marca para começar")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Marca ativa" })).toHaveAttribute("id", "active-brand-switcher-inline");
+    expect(screen.getByRole("button", { name: /Gerar/ })).toBeDisabled();
+  });
+
+  it("renders an explicit invalid-work recovery instead of a locked composer", () => {
+    useComposer.mockReturnValue(composer({ workError: true, workId: "missing" }));
+    render(<CreativeComposer initialWorkId="missing" />);
+    expect(screen.getByRole("alert")).toHaveTextContent("Trabalho não encontrado");
+    expect(screen.getByRole("link", { name: "Começar nova criação" })).toHaveAttribute("href", "/");
+    expect(screen.queryByRole("textbox", { name: /pedido criativo/i })).not.toBeInTheDocument();
   });
 });

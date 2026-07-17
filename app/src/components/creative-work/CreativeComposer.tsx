@@ -2,8 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import Link from "next/link";
 import { Paperclip, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import ActiveBrandSwitcher from "@/components/layout/ActiveBrandSwitcher";
 import { CreativeSourceChip } from "./CreativeSourceChip";
 import { useCreativeComposer, type ComposerIntent } from "./useCreativeComposer";
 
@@ -16,13 +18,24 @@ export function CreativeComposer({ initialWorkId, preset }: { initialWorkId?: st
   const [reviewSourceId, setReviewSourceId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (preset && preset !== composer.intent) composer.selectIntent(preset);
+    if (!composer.workId && preset && preset !== composer.intent) composer.selectIntent(preset);
   }, [composer, preset]);
 
   const handleDrop = (event: React.DragEvent) => {
     event.preventDefault();
     void composer.addFiles(Array.from(event.dataTransfer.files));
   };
+
+  if (composer.workError) {
+    return (
+      <section className="rounded-[var(--radius-object)] border border-[var(--danger-border)] bg-[var(--surface-raised)] p-6 text-center">
+        <p role="alert" className="text-sm font-medium text-[var(--danger-text)]">{t("invalidWork")}</p>
+        <Link href="/" className="mt-4 inline-flex rounded-[var(--radius-control)] bg-[var(--accent-primary)] px-4 py-2 text-sm font-semibold text-[var(--text-on-accent)]">
+          {t("startNew")}
+        </Link>
+      </section>
+    );
+  }
 
   return (
     <section aria-labelledby="creative-composer-title" className="space-y-4">
@@ -35,6 +48,13 @@ export function CreativeComposer({ initialWorkId, preset }: { initialWorkId?: st
           {t("brand")}: {composer.brandName ?? t("noBrand")}
         </span>
       </div>
+
+      {composer.requiresBrandSelection && !composer.workId ? (
+        <div className="rounded-[var(--radius-object)] border border-[var(--border-default)] bg-[var(--surface-base)] p-4">
+          <p className="text-sm text-[var(--text-secondary)]">{t("selectBrandMessage")}</p>
+          <ActiveBrandSwitcher id="active-brand-switcher-inline" />
+        </div>
+      ) : null}
 
       <div
         data-testid="creative-composer-dropzone"
