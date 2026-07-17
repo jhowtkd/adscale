@@ -48,7 +48,7 @@ export default function AppSidebar() {
 
   // Frictionless shell: Início · Trabalhos · Biblioteca, with Marca/Configurações below.
   const isWorks = pathname.startsWith("/campaigns");
-  const isHome = pathname === "/";
+  const isHome = pathname === "/" || pathname === "/quick-tools/create-post";
   const isLibrary = pathname.startsWith("/library");
   const isBrands = pathname.startsWith("/brand-kit");
   const isConfig = pathname.startsWith("/settings");
@@ -188,6 +188,7 @@ function IconNavItem({
   return (
     <Link
       href={href}
+      aria-current={active ? "page" : undefined}
       title={count ? `${label} (${count})` : label}
       className={cn(
         "relative flex flex-col items-center gap-1 rounded-[var(--radius-control)] px-1 py-2 text-[10px] font-medium transition-colors",

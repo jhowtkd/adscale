@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 
+let pathnameMock = "/campaigns";
+
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/campaigns",
+  usePathname: () => pathnameMock,
   useRouter: () => ({ push: vi.fn() }),
   useSearchParams: () => new URLSearchParams(),
 }));
@@ -49,9 +51,20 @@ import { authClient } from "@/lib/auth-client";
 
 describe("AppSidebar role-aware navigation", () => {
   beforeEach(() => {
+    pathnameMock = "/campaigns";
     vi.mocked(useBillingStatus).mockReturnValue({
       data: { access: { kind: "paid", role: "owner", label: "Owner" }, creditBalance: 10 },
     } as ReturnType<typeof useBillingStatus>);
+  });
+
+  it("marks the operational home active while a legacy create-post URL redirects", () => {
+    pathnameMock = "/quick-tools/create-post";
+    render(<AppSidebar />);
+
+    expect(screen.getByRole("link", { name: "navigation.home" })).toHaveAttribute(
+      "aria-current",
+      "page"
+    );
   });
 
   it("does not show a decorative search / ⌘K affordance", () => {

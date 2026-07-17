@@ -48,8 +48,7 @@ export interface CreativeWorkOutputProjectionSource {
 }
 
 function resumeHrefForCreativeWork(workItemId: string): string {
-  // Wizard reads `workId` only (CreatePostWizard searchParams).
-  return `/quick-tools/create-post?workId=${workItemId}`;
+  return `/?workId=${workItemId}`;
 }
 
 export function projectCreativeWorkAsCanonicalWork(

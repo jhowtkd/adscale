@@ -59,7 +59,7 @@ describe("DashboardHomeActions", () => {
       data: [{
         id: "creative_work:w1", originKind: "creative_work", originId: "w1", origin: "quick_tool",
         workspaceId: "ws", name: "Post social", state: "generating", updatedAt: "2026-07-13T12:00:00.000Z",
-        resumable: true, resumeHref: "/quick-tools/create-post?workId=w1",
+        resumable: true, resumeHref: "/?workId=w1",
       }],
       isLoading: false, isError: false, refetch: vi.fn(),
     });
@@ -67,7 +67,7 @@ describe("DashboardHomeActions", () => {
     render(<DashboardHomeActions workId="opened-work" />);
 
     expect(screen.getByTestId("creative-composer")).toHaveTextContent("single:5");
-    expect(screen.getByRole("link", { name: /Continue: Post social/i })).toHaveAttribute("href", "/quick-tools/create-post?workId=w1");
+    expect(screen.getByRole("link", { name: /Continue: Post social/i })).toHaveAttribute("href", "/?workId=w1");
     expect(screen.getAllByRole("button").filter((button) => button.hasAttribute("aria-pressed"))).toHaveLength(4);
     expect(screen.getByTestId("brand-inspirations-slot")).toBeInTheDocument();
     expect(screen.queryByText("dashboard.home.chooseIntent")).not.toBeInTheDocument();

@@ -12,7 +12,7 @@ const base: CanonicalWorkSummary = {
   state: "generating",
   updatedAt: "2026-07-13T12:00:00.000Z",
   resumable: true,
-  resumeHref: "/quick-tools/create-post?workId=w1",
+  resumeHref: "/?workId=w1",
 };
 
 describe("mapCanonicalWorkToV6Row", () => {
@@ -23,7 +23,7 @@ describe("mapCanonicalWorkToV6Row", () => {
       formatUpdated: () => "1h",
       tState: (s) => s,
     });
-    expect(row.href).toBe("/quick-tools/create-post?workId=w1");
+    expect(row.href).toBe("/?workId=w1");
     expect(row.originKind).toBe("creative_work");
     expect(row.campaign).toBeUndefined();
     expect(row.originLabel).toBe("Post");

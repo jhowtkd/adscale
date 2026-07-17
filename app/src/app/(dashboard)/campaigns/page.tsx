@@ -35,11 +35,6 @@ const KanbanBoard = dynamic(() => import("@/components/campaigns/KanbanBoard"), 
   loading: () => <div className="flex h-64 items-center justify-center"><div className="size-8 animate-spin rounded-full border-b-2 border-primary" /></div>,
 });
 
-const NewCampaignModal = dynamic(() => import("@/components/campaigns/NewCampaignModal"), {
-  ssr: false,
-  loading: () => null,
-});
-
 const SaveTemplateModal = dynamic(() => import("@/components/templates/SaveTemplateModal"), {
   ssr: false,
   loading: () => null,
@@ -91,8 +86,6 @@ function CampaignsListContent() {
     error,
     viewMode,
     setViewMode,
-    modalOpen,
-    setModalOpen,
     statusFilter,
     platformFilter,
     sortOption,
@@ -115,7 +108,7 @@ function CampaignsListContent() {
     visibleCurrentPage,
     hasActiveFilters,
     toggleSelect,
-    handleCreateCampaign,
+    startNewWork,
     handleDuplicate,
     handleArchive,
     handleDelete,
@@ -124,16 +117,9 @@ function CampaignsListContent() {
     startIndex,
     endIndex,
     pageNumbers,
-    templateLoadState,
-    loadedTemplate,
-    modalInitialValues,
-    retryTemplateLoad,
-    dismissTemplateFlow,
-    createPending,
     t,
     tc,
     te,
-    tTemplate,
   } = useCampaignsPage(searchParams);
 
   const labels = useMemo(() => buildCampaignsV6Labels(t, tc), [t, tc]);
@@ -249,7 +235,7 @@ function CampaignsListContent() {
                   setOriginFilter("all");
                 },
               }
-            : { label: t("new"), onClick: () => setModalOpen(true) }
+            : { label: t("new"), onClick: startNewWork }
         }
       />
     ) : undefined;
@@ -333,7 +319,7 @@ function CampaignsListContent() {
         }}
         selectedIds={selectedIds}
         onToggleSelect={toggleSelect}
-        onNewCampaign={() => setModalOpen(true)}
+        onNewCampaign={startNewWork}
         onDuplicate={handleDuplicate}
         onArchive={handleArchive}
         onDelete={setDeleteTarget}
@@ -357,59 +343,6 @@ function CampaignsListContent() {
           onItemsPerPageChange={updateItemsPerPage}
         />
       ) : null}
-
-      {(templateLoadState === "loading" ||
-        templateLoadState === "error" ||
-        templateLoadState === "not_found") && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-        >
-          <div className="w-full max-w-sm rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)] p-5 shadow-lg">
-            {templateLoadState === "loading" ? (
-              <p className="text-sm text-[var(--text-secondary)]">
-                {tTemplate("loadingTemplate")}
-              </p>
-            ) : (
-              <div className="space-y-4">
-                <p className="text-sm text-[var(--text-primary)]">
-                  {templateLoadState === "not_found"
-                    ? tTemplate("loadTemplateNotFound")
-                    : tTemplate("loadTemplateError")}
-                </p>
-                <div className="flex justify-end gap-2">
-                  <button
-                    type="button"
-                    className="rounded-md border border-[var(--border-dim)] px-3 py-1.5 text-sm text-[var(--text-secondary)]"
-                    onClick={dismissTemplateFlow}
-                  >
-                    {tc("cancel")}
-                  </button>
-                  {templateLoadState === "error" && (
-                    <button
-                      type="button"
-                      className="rounded-md bg-[var(--accent-green)] px-3 py-1.5 text-sm text-[var(--accent-green-on-fill)]"
-                      onClick={retryTemplateLoad}
-                    >
-                      {tc("retry")}
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      <NewCampaignModal
-        open={modalOpen}
-        onOpenChange={setModalOpen}
-        onSubmit={handleCreateCampaign}
-        initialValues={modalInitialValues}
-        templateName={loadedTemplate?.name ?? null}
-        submitDisabled={createPending || templateLoadState === "loading"}
-      />
 
       <SaveTemplateModal
         open={!!saveTemplateCampaign}
@@ -442,7 +375,7 @@ function CampaignsV6ViewSkeleton() {
     formatTitle: () => "",
     subtitle: "",
     sortPrefix: "Ordenar",
-    newCampaign: "Nova campanha",
+    newCampaign: "Novo trabalho",
     searchPlaceholder: "",
     searchAriaLabel: "",
     filtersAria: "",

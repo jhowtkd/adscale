@@ -117,10 +117,7 @@ function expectCanonicalShape(
   expect(typeof work.resumable).toBe("boolean");
   expect(work.resumeHref.startsWith("/")).toBe(true);
   if (work.originKind === "creative_work") {
-    // Wizard only restores via ?workId= (not workItemId).
-    expect(work.resumeHref).toBe(
-      `/quick-tools/create-post?workId=${work.originId}`
-    );
+    expect(work.resumeHref).toBe(`/?workId=${work.originId}`);
   }
   expect(work.createdAt).toMatch(/Z$/);
   expect(work.updatedAt).toMatch(/Z$/);

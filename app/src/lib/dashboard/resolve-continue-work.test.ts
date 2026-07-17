@@ -43,14 +43,14 @@ describe("resolveContinueWork", () => {
         state: "generating",
         resumable: true,
         updatedAt: "2026-07-13T10:00:00.000Z",
-        resumeHref: "/quick-tools/create-post?workId=b",
+        resumeHref: "/?workId=b",
       }),
     ]);
     expect(result).toEqual(
       expect.objectContaining({
         kind: "work",
         name: "Hot",
-        href: "/quick-tools/create-post?workId=b",
+        href: "/?workId=b",
       })
     );
   });

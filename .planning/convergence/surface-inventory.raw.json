@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-07-16T11:41:14.686Z",
+  "generatedAt": "2026-07-17T02:01:13.947Z",
   "schemaVersion": 2,
-  "fingerprint": "783652227a1b630d22d3068e6ff92138c5a267bc90c1c492cf55903ca812db9f",
+  "fingerprint": "b84ae4fd255ba943de6182a27a144a9951256c9520f2f3429d2ec353442cffdf",
   "counts": {
     "dashboardPages": 14,
     "apiRoutes": 161,
-    "ctas": 66,
+    "ctas": 64,
     "requiringDecision": 1
   },
   "dashboardPages": [
@@ -1239,12 +1239,12 @@
   ],
   "ctas": [
     {
-      "id": "nav:app/src/components/assistant/AssistantStartComposer.tsx:238",
+      "id": "nav:app/src/components/assistant/AssistantStartComposer.tsx:233",
       "kind": "cta_navigation",
       "destination": "/campaigns?new=1",
       "file": "app/src/components/assistant/AssistantStartComposer.tsx",
-      "line": 238,
-      "evidence": "app/src/components/assistant/AssistantStartComposer.tsx:238",
+      "line": 233,
+      "evidence": "app/src/components/assistant/AssistantStartComposer.tsx:233",
       "requiresDecision": false
     },
     {
@@ -1401,21 +1401,12 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/campaigns/useCampaignsPage.ts:421",
+      "id": "nav:app/src/components/campaigns/useCampaignsPage.ts:98",
       "kind": "cta_navigation",
-      "destination": "/campaigns/${campaign.id}",
+      "destination": "/?compose=1",
       "file": "app/src/components/campaigns/useCampaignsPage.ts",
-      "line": 421,
-      "evidence": "app/src/components/campaigns/useCampaignsPage.ts:421",
-      "requiresDecision": false
-    },
-    {
-      "id": "nav:app/src/components/campaigns/useCampaignsPage.ts:444",
-      "kind": "cta_navigation",
-      "destination": "/campaigns/${campaign.id}",
-      "file": "app/src/components/campaigns/useCampaignsPage.ts",
-      "line": 444,
-      "evidence": "app/src/components/campaigns/useCampaignsPage.ts:444",
+      "line": 98,
+      "evidence": "app/src/components/campaigns/useCampaignsPage.ts:98",
       "requiresDecision": false
     },
     {
@@ -1434,6 +1425,15 @@
       "file": "app/src/components/cookie-consent/CookieBanner.tsx",
       "line": 76,
       "evidence": "app/src/components/cookie-consent/CookieBanner.tsx:76",
+      "requiresDecision": false
+    },
+    {
+      "id": "nav:app/src/components/creative-work/CreativeComposer.tsx:32",
+      "kind": "cta_navigation",
+      "destination": "/",
+      "file": "app/src/components/creative-work/CreativeComposer.tsx",
+      "line": 32,
+      "evidence": "app/src/components/creative-work/CreativeComposer.tsx:32",
       "requiresDecision": false
     },
     {
@@ -1572,66 +1572,57 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:97",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:98",
       "kind": "cta_navigation",
-      "destination": "/campaigns",
+      "destination": "/",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 97,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:97",
+      "line": 98,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:98",
       "requiresDecision": false
     },
     {
       "id": "nav:app/src/components/layout/AppSidebar.tsx:104",
       "kind": "cta_navigation",
-      "destination": "/library",
+      "destination": "/campaigns",
       "file": "app/src/components/layout/AppSidebar.tsx",
       "line": 104,
       "evidence": "app/src/components/layout/AppSidebar.tsx:104",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:110",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:111",
       "kind": "cta_navigation",
-      "destination": "/brand-kit",
+      "destination": "/library",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 110,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:110",
+      "line": 111,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:111",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:116",
-      "kind": "cta_navigation",
-      "destination": "/settings",
-      "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 116,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:116",
-      "requiresDecision": false
-    },
-    {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:128",
-      "kind": "cta_navigation",
-      "destination": "/templates",
-      "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 128,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:128",
-      "requiresDecision": false
-    },
-    {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:141",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:123",
       "kind": "cta_navigation",
       "destination": "/feedback",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 141,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:141",
+      "line": 123,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:123",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:150",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:132",
+      "kind": "cta_navigation",
+      "destination": "/brand-kit",
+      "file": "app/src/components/layout/AppSidebar.tsx",
+      "line": 132,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:132",
+      "requiresDecision": false
+    },
+    {
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:138",
       "kind": "cta_navigation",
       "destination": "/settings",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 150,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:150",
+      "line": 138,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:138",
       "requiresDecision": false
     },
     {
@@ -1762,15 +1753,6 @@
       "hasComingSoon": false,
       "requiresDecision": true,
       "note": "always-disabled control"
-    },
-    {
-      "id": "nav:app/src/components/quick-tools/create-post/CreatePostWizard.tsx:292",
-      "kind": "cta_navigation",
-      "destination": "/library",
-      "file": "app/src/components/quick-tools/create-post/CreatePostWizard.tsx",
-      "line": 292,
-      "evidence": "app/src/components/quick-tools/create-post/CreatePostWizard.tsx:292",
-      "requiresDecision": false
     },
     {
       "id": "nav:app/src/components/settings/PrivacyTab.tsx:86",

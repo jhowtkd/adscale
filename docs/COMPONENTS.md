@@ -165,7 +165,6 @@ Campaign list/grid/board views, cards, filters, skeletons, and the active output
 | `CampaignsPagination` | `CampaignsPaginationProps` |
 | `CampaignCard` / `CampaignListCard` / `CampaignTableRow` | memoized (`React.memo`); `CampaignCardProps`, `CampaignListCardProps`, `CampaignTableRowProps` |
 | `KanbanBoard` / `KanbanColumn` / `KanbanCard` | board view; `KanbanBoardProps`, `KanbanColumnProps`, `KanbanCardProps` (memoized) |
-| `NewCampaignModal` | `NewCampaignModalProps`; `NewCampaignForm`/`FormErrors` |
 | `PlatformsDrawer` | `PlatformsDrawerProps` |
 | `CampaignClientSubtitle` | `CampaignClientSubtitleProps`; `ClientProfileLinkControl` links to client profiles |
 | `CampaignErrorState` / `CampaignNotFoundState` / `CampaignSkeleton` / `GridSkeleton` / `TableSkeleton` | loading & error states; `CampaignErrorStateProps { kind?, onRetry? }` |
@@ -173,7 +172,7 @@ Campaign list/grid/board views, cards, filters, skeletons, and the active output
 **State & types:**
 
 - **`types.ts`** — `ViewMode = "list" | "grid" | "board"`, `SortOption`, `StatusFilter = "all" | "draft" | "active" | "generating" | "completed" | "failed"`, `PlatformFilter = "all" | "Meta" | "TikTok" | "Google"`.
-- **`useCampaignsPage(searchParams)`** — the page-level controller hook: holds local UI state (view mode, filters, sort, selection, pagination, debounced search) and wires TanStack Query mutations (`useCreateCampaign`, `useUpdateCampaigns`, `useDeleteCampaigns`, `useDuplicateCampaign`) from `@/lib/hooks/use-campaigns`; syncs `?q=` to the URL via `next/navigation`.
+- **`useCampaignsPage(searchParams)`** — the page-level controller hook: holds local UI state (view mode, filters, sort, selection, pagination, debounced search), wires update/delete/duplicate mutations, syncs `?q=` to the URL, and routes legacy `?new=1` plus the list CTA to the operational composer at `/`.
 - **`useCreativeAnalysis(campaignId)`** — `useMutation` wrapper for creative analysis.
 - **`filter-labels.ts`** — `getStatusFilterLabel()`, `getPlatformFilterLabel()`, `getSortFilterLabel()` with a `TranslateFn` abstraction (testable without next-intl).
 

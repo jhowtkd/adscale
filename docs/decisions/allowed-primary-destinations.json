@@ -25,10 +25,11 @@
       ]
     },
     {
-      "id": "quick_tool_create_post",
+      "id": "creative_work_home",
       "kind": "primary_destination",
-      "description": "Quick Tools / Criar Post: atalho que inicia um trabalho criativo preconfigurado.",
+      "description": "Início: adaptador operacional do trabalho criativo. /quick-tools/create-post existe somente como rota de compatibilidade para redirecionar links antigos.",
       "entrypoints": [
+        "/",
         "/quick-tools/create-post",
         "src/app/api/creative-work"
       ]
