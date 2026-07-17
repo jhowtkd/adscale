@@ -233,7 +233,10 @@ describe("PATCH /api/creative-work/[id]", () => {
     });
     getWorkMock.mockResolvedValue({ work: workItem, outputs: [], sources: [] });
     getAssetMock.mockResolvedValue({ id: "asset-1", workspaceId: "workspace-1", key: "trusted/key.png", type: "image/png" });
-    createSourceMock.mockResolvedValue({ id: "source-1", workspaceId: "workspace-1", workItemId: "work-1", assetId: "asset-1", usage: "both", status: "uploaded" });
+    createSourceMock.mockResolvedValue({
+      source: { id: "source-1", workspaceId: "workspace-1", workItemId: "work-1", assetId: "asset-1", usage: "both", status: "uploaded" },
+      claimedForAnalysis: true,
+    });
     updateSourceMock.mockResolvedValue({ id: "source-1", usage: "style", status: "uploaded" });
     updateSourceCasMock.mockResolvedValue({ id: "source-1", usage: "content", status: "uploaded", updatedAt: new Date("2026-07-16T12:00:00.001Z") });
     deleteSourceMock.mockResolvedValue({ id: "source-1" });
@@ -387,7 +390,10 @@ describe("PATCH /api/creative-work/[id]", () => {
   });
 
   it("attaches a scoped template, maps it synchronously, and does not dispatch vision", async () => {
-    createSourceMock.mockResolvedValue({ id: "source-template", workspaceId: "workspace-1", workItemId: "work-1", assetId: null, templateId: "template-1", usage: "both", status: "uploaded" });
+    createSourceMock.mockResolvedValue({
+      source: { id: "source-template", workspaceId: "workspace-1", workItemId: "work-1", assetId: null, templateId: "template-1", usage: "both", status: "uploaded" },
+      claimedForAnalysis: true,
+    });
     analyzeSourceMock.mockResolvedValue({ id: "source-template", status: "ready" });
 
     const res = await PATCH(new Request("http://localhost/api/creative-work/work-1", {
@@ -405,13 +411,16 @@ describe("PATCH /api/creative-work/[id]", () => {
   it.each([
     ["approved asset", { assetId: "asset-1" }, false],
     ["template", { templateId: "template-1" }, true],
-  ] as const)("returns an existing ready %s source without re-dispatching analysis", async (_label, origin, template) => {
+  ] as const)("dispatches analysis once for concurrent-equivalent %s source attaches", async (_label, origin, template) => {
     const existing = {
       id: "source-existing", workspaceId: "workspace-1", workItemId: "work-1",
       assetId: template ? null : "asset-1", templateId: template ? "template-1" : null,
-      usage: "both", status: "ready", updatedAt: new Date(),
+      usage: "both", status: "uploaded", updatedAt: new Date(),
     };
-    createSourceMock.mockResolvedValue(existing);
+    createSourceMock
+      .mockResolvedValueOnce({ source: existing, claimedForAnalysis: true })
+      .mockResolvedValueOnce({ source: existing, claimedForAnalysis: false });
+    analyzeSourceMock.mockResolvedValue({ ...existing, status: "ready" });
 
     const first = await requestPatch({ action: "attachSource", ...origin, usage: "both" });
     const replay = await requestPatch({ action: "attachSource", ...origin, usage: "both" });
@@ -419,8 +428,27 @@ describe("PATCH /api/creative-work/[id]", () => {
     expect(first.status).toBe(200);
     expect(replay.status).toBe(200);
     expect(createSourceMock).toHaveBeenCalledTimes(2);
-    expect(inngestSendMock).not.toHaveBeenCalled();
-    expect(analyzeSourceMock).not.toHaveBeenCalled();
+    expect(inngestSendMock).toHaveBeenCalledTimes(template ? 0 : 1);
+    expect(analyzeSourceMock).toHaveBeenCalledTimes(template ? 1 : 0);
+  });
+
+  it("reloads the canonical template source when the claimant loses the analysis CAS", async () => {
+    const uploaded = {
+      id: "source-template", workspaceId: "workspace-1", workItemId: "work-1",
+      assetId: null, templateId: "template-1", usage: "both", status: "uploaded", updatedAt: new Date(),
+    };
+    const canonical = { ...uploaded, status: "analyzing", updatedAt: new Date(Date.now() + 1) };
+    createSourceMock.mockResolvedValue({ source: uploaded, claimedForAnalysis: true });
+    analyzeSourceMock.mockResolvedValue(null);
+    getWorkMock
+      .mockResolvedValueOnce({ work: workItem, outputs: [], sources: [] })
+      .mockResolvedValueOnce({ work: workItem, outputs: [], sources: [canonical] });
+
+    const res = await requestPatch({ action: "attachSource", templateId: "template-1", usage: "both" });
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.source).toEqual(expect.objectContaining({ id: "source-template", status: "analyzing" }));
   });
 
   it("rejects a replay when the persisted source usage differs from the attach payload", async () => {
@@ -518,7 +546,7 @@ describe("PATCH /api/creative-work/[id]", () => {
     const source = { id: "source-1", assetId: "asset-1", templateId: null, usage: kind === "update" ? "content" : "content", status: "ready", updatedAt: new Date("2026-07-16T12:00:00.000Z") };
     if (kind === "update") getWorkMock.mockResolvedValue({ work: workItem, outputs: [], sources: [source] });
     const uploaded = { ...source, usage: kind === "update" ? "style" : "content", status: "uploaded", updatedAt: new Date("2026-07-16T12:00:00.001Z") };
-    if (kind === "attach") createSourceMock.mockResolvedValue(uploaded);
+    if (kind === "attach") createSourceMock.mockResolvedValue({ source: uploaded, claimedForAnalysis: true });
     else updateSourceMock.mockResolvedValue(uploaded);
     inngestSendMock.mockRejectedValue(new Error("inngest unavailable"));
     updateSourceCasMock.mockResolvedValue({ ...uploaded, status: "failed", failureCode: "dispatch_failed" });

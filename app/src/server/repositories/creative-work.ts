@@ -234,7 +234,13 @@ export async function createCreativeWorkDraftWithSource(
     )).limit(1);
     const source = createdSource ?? existingSource;
     if (!source) throw new Error("creative_work_source_conflict_without_row");
-    return { work, source, ...(asset ? { asset } : { template: template! }) };
+    if (!createdSource && source.usage !== input.usage) return null;
+    return {
+      work,
+      source,
+      claimedForAnalysis: Boolean(createdSource),
+      ...(asset ? { asset } : { template: template! }),
+    };
   });
 }
 
@@ -361,7 +367,12 @@ export interface CreateCreativeWorkSourceInput {
   failureCode?: string | null;
 }
 
-export async function createCreativeWorkSource(input: CreateCreativeWorkSourceInput): Promise<CreativeWorkSource | null> {
+export interface CreativeWorkSourceClaim {
+  source: CreativeWorkSource;
+  claimedForAnalysis: boolean;
+}
+
+export async function createCreativeWorkSource(input: CreateCreativeWorkSourceInput): Promise<CreativeWorkSourceClaim | null> {
   if (Boolean(input.assetId) === Boolean(input.templateId)) return null;
   const [work] = await db.select({ id: creativeWorkItems.id }).from(creativeWorkItems).where(and(
     eq(creativeWorkItems.workspaceId, input.workspaceId),
@@ -386,7 +397,9 @@ export async function createCreativeWorkSource(input: CreateCreativeWorkSourceIn
         eq(creativeWorkSources.workItemId, input.workItemId),
         originCondition,
       )).limit(1);
-      return existing?.usage === input.usage ? existing : null;
+      return existing?.usage === input.usage
+        ? { source: existing, claimedForAnalysis: false }
+        : null;
     }
     await tx.update(creativeWorkItems).set({
       updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
@@ -394,7 +407,7 @@ export async function createCreativeWorkSource(input: CreateCreativeWorkSourceIn
       eq(creativeWorkItems.workspaceId, input.workspaceId),
       eq(creativeWorkItems.id, input.workItemId),
     )).returning();
-    return row;
+    return { source: row, claimedForAnalysis: true };
   });
 }
 

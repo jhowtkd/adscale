@@ -79,18 +79,36 @@ describe("analyzeCreativeWorkSource", () => {
   });
 
   it("does not let an old job overwrite a newer usage or manual edit", async () => {
-    getCreativeWork.mockResolvedValue({ work: {}, outputs: [], sources: [source("source-1", "content")] });
+    const current = { ...source("source-1", "style"), status: "analyzing", updatedAt: new Date("2026-07-16T12:00:00.002Z") };
+    getCreativeWork
+      .mockResolvedValueOnce({ work: {}, outputs: [], sources: [source("source-1", "content")] })
+      .mockResolvedValueOnce({ work: {}, outputs: [], sources: [current] });
     updateCreativeWorkSourceIfUnchanged
       .mockResolvedValueOnce({ ...source("source-1", "content"), status: "analyzing", updatedAt: new Date("2026-07-16T12:00:00.001Z") })
       .mockResolvedValueOnce(null);
 
-    await expect(analyzeCreativeWorkSource({ workspaceId: "ws-1", workItemId: "work-1", sourceId: "source-1" })).resolves.toBeNull();
+    await expect(analyzeCreativeWorkSource({ workspaceId: "ws-1", workItemId: "work-1", sourceId: "source-1" })).resolves.toEqual(current);
 
     expect(updateCreativeWorkSourceIfUnchanged).toHaveBeenLastCalledWith(
       "ws-1", "work-1", "source-1",
       { status: "analyzing", usage: "content", updatedAt: new Date("2026-07-16T12:00:00.001Z") },
       expect.objectContaining({ status: "ready" }),
     );
+  });
+
+  it("reloads the canonical template source when another claimant wins the initial CAS", async () => {
+    const uploaded = { ...source("source-1", "both"), assetId: null, templateId: "template-1" };
+    const current = { ...uploaded, status: "analyzing", updatedAt: new Date("2026-07-16T12:00:00.002Z") };
+    getCreativeWork
+      .mockResolvedValueOnce({ work: {}, outputs: [], sources: [uploaded] })
+      .mockResolvedValueOnce({ work: {}, outputs: [], sources: [current] });
+    updateCreativeWorkSourceIfUnchanged.mockResolvedValueOnce(null);
+
+    await expect(analyzeCreativeWorkSource({ workspaceId: "ws-1", workItemId: "work-1", sourceId: "source-1" })).resolves.toEqual(current);
+
+    expect(getTemplateById).not.toHaveBeenCalled();
+    expect(analyzeImageContent).not.toHaveBeenCalled();
+    expect(analyzeImageStyle).not.toHaveBeenCalled();
   });
 
   it("maps a template synchronously without vision and validates the mapped analysis", async () => {

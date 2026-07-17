@@ -233,6 +233,7 @@ describe("POST /api/creative-work", () => {
       settings: { targetFormats: [] },
     };
     createDraftWithSourceMock.mockResolvedValue({
+      claimedForAnalysis: true,
       work: {
         id: "work-asset", workspaceId: "workspace-1", clientProfileId: profileId,
         toolKind: "variations", status: "draft", format: "4:5", settings: { targetFormats: [] },
@@ -269,6 +270,7 @@ describe("POST /api/creative-work", () => {
       settings: { targetFormats: [] },
     };
     createDraftWithSourceMock.mockResolvedValue({
+      claimedForAnalysis: true,
       work: {
         id: "work-template", workspaceId: "workspace-1", clientProfileId: profileId,
         toolKind: "variations", status: "draft", format: "4:5", settings: { targetFormats: [] },
@@ -304,6 +306,7 @@ describe("POST /api/creative-work", () => {
     };
     const failedSource = { ...source, status: "failed", failureCode: "analysis_failed" };
     createDraftWithSourceMock.mockResolvedValue({
+      claimedForAnalysis: true,
       work: {
         id: "work-template", workspaceId: "workspace-1", clientProfileId: profileId,
         toolKind: "variations", status: "draft", format: "4:5", settings: { targetFormats: [] },
@@ -329,11 +332,14 @@ describe("POST /api/creative-work", () => {
 
   it("delegates attachment-first creation to one atomic idempotent repository command", async () => {
     const source = { id: "source-1", workItemId: "work-asset", assetId: "asset-1", usage: "both", status: "uploaded", updatedAt: new Date() };
-    createDraftWithSourceMock.mockResolvedValue({
+    const result = {
       work: { id: "work-asset", workspaceId: "workspace-1", clientProfileId: profileId, toolKind: "variations", format: "4:5", settings: { targetFormats: [] }, status: "draft", brief: null, copy: null, identitySnapshot: null, createdAt: new Date(), updatedAt: new Date() },
       source,
       asset: { id: "asset-1", name: "arte.png", type: "image/png", source: "upload" },
-    });
+    };
+    createDraftWithSourceMock
+      .mockResolvedValueOnce({ ...result, claimedForAnalysis: true })
+      .mockResolvedValueOnce({ ...result, claimedForAnalysis: false });
     const body = {
       clientProfileId: profileId, draftKey: "00000000-0000-4000-8000-000000000099", request: "",
       assetId: "asset-1", usage: "both", intent: "variations", format: "4:5", settings: { targetFormats: [] },
@@ -349,8 +355,78 @@ describe("POST /api/creative-work", () => {
       workspaceId: "workspace-1", createdByUserId: "user-1", draftKey: body.draftKey, assetId: "asset-1",
     }));
     expect(startMock).not.toHaveBeenCalled();
+    expect(inngestSendMock).toHaveBeenCalledOnce();
     expect((await first.json()).source.id).toBe("source-1");
     expect((await second.json()).source.id).toBe("source-1");
+  });
+
+  it("analyzes a concurrent-equivalent template-first replay only once and always returns a source", async () => {
+    const source = { id: "source-template", workItemId: "work-template", assetId: null, templateId: "template-1", usage: "both", status: "uploaded", updatedAt: new Date() };
+    const result = {
+      work: { id: "work-template", workspaceId: "workspace-1", clientProfileId: profileId, toolKind: "variations", format: "4:5", settings: { targetFormats: [] }, status: "draft", brief: null, copy: null, identitySnapshot: null, createdAt: new Date(), updatedAt: new Date() },
+      source,
+      template: { id: "template-1", name: "Lançamento" },
+    };
+    createDraftWithSourceMock
+      .mockResolvedValueOnce({ ...result, claimedForAnalysis: true })
+      .mockResolvedValueOnce({ ...result, claimedForAnalysis: false });
+    analyzeSourceMock.mockResolvedValue({ ...source, status: "ready" });
+    const body = {
+      clientProfileId: profileId, draftKey: "00000000-0000-4000-8000-000000000099", request: "",
+      templateId: "template-1", usage: "both", intent: "variations", format: "4:5", settings: { targetFormats: [] },
+    };
+
+    const first = await POST(new Request("http://localhost/api/creative-work", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }));
+    const replay = await POST(new Request("http://localhost/api/creative-work", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }));
+
+    expect(first.status).toBe(201);
+    expect(replay.status).toBe(201);
+    expect(analyzeSourceMock).toHaveBeenCalledOnce();
+    expect((await first.json()).source).not.toBeNull();
+    expect((await replay.json()).source).not.toBeNull();
+  });
+
+  it("reloads the canonical template source when attachment-first analysis loses its CAS", async () => {
+    const uploaded = {
+      id: "source-template", workspaceId: "workspace-1", workItemId: "work-template",
+      assetId: null, templateId: "template-1", usage: "both", status: "uploaded", updatedAt: new Date(),
+    };
+    const canonical = { ...uploaded, status: "analyzing", updatedAt: new Date(Date.now() + 1) };
+    createDraftWithSourceMock.mockResolvedValue({
+      claimedForAnalysis: true,
+      work: { id: "work-template", workspaceId: "workspace-1", clientProfileId: profileId, toolKind: "variations", format: "4:5", settings: { targetFormats: [] }, status: "draft", brief: null, copy: null, identitySnapshot: null, createdAt: new Date(), updatedAt: new Date() },
+      source: uploaded,
+      template: { id: "template-1", name: "Lançamento" },
+    });
+    analyzeSourceMock.mockResolvedValue(null);
+    getCreativeWorkMock.mockResolvedValue({ work: {}, outputs: [], sources: [canonical] });
+
+    const res = await POST(new Request("http://localhost/api/creative-work", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+        clientProfileId: profileId, draftKey: "00000000-0000-4000-8000-000000000099", request: "",
+        templateId: "template-1", usage: "both", intent: "variations", format: "4:5", settings: { targetFormats: [] },
+      }),
+    }));
+    const body = await res.json();
+
+    expect(res.status).toBe(201);
+    expect(body.source).toEqual(expect.objectContaining({ id: "source-template", status: "analyzing" }));
+  });
+
+  it.each([
+    ["approved asset", { assetId: "asset-1" }],
+    ["template", { templateId: "template-1" }],
+  ] as const)("rejects attachment-first %s replay when usage differs", async (_label, origin) => {
+    createDraftWithSourceMock.mockResolvedValue(null);
+    const res = await POST(new Request("http://localhost/api/creative-work", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+        clientProfileId: profileId, draftKey: "00000000-0000-4000-8000-000000000099", request: "",
+        ...origin, usage: "style", intent: "variations", format: "4:5", settings: { targetFormats: [] },
+      }),
+    }));
+    expect(res.status).toBe(400);
+    expect(inngestSendMock).not.toHaveBeenCalled();
+    expect(analyzeSourceMock).not.toHaveBeenCalled();
   });
 
   it("rejects attachment-first metadata and assets outside the workspace", async () => {
@@ -379,6 +455,7 @@ describe("POST /api/creative-work", () => {
       templateId: null, usage: "both", status: "uploaded", updatedAt: now,
     };
     createDraftWithSourceMock.mockResolvedValue({
+      claimedForAnalysis: true,
       work: {
         id: "work-asset", workspaceId: "workspace-1", clientProfileId: profileId,
         toolKind: "variations", status: "draft", format: "4:5", settings: { targetFormats: [] },

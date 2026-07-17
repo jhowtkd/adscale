@@ -102,18 +102,20 @@ export async function POST(request: Request) {
       if (!created) return apiError("invalidInput", 400);
 
       let source = created.source;
-      if (source.templateId) {
+      if (created.claimedForAnalysis && source.templateId) {
         try {
-          source = await analyzeCreativeWorkSource({
+          const analyzed = await analyzeCreativeWorkSource({
             workspaceId: workspace.id,
             workItemId: created.work.id,
             sourceId: source.id,
-          }) ?? source;
+          });
+          source = analyzed ?? (await getCreativeWork(workspace.id, created.work.id))?.sources
+            .find((candidate) => candidate.id === source.id) ?? source;
         } catch {
           source = (await getCreativeWork(workspace.id, created.work.id))?.sources
             .find((candidate) => candidate.id === source.id) ?? source;
         }
-      } else {
+      } else if (created.claimedForAnalysis) {
         try {
           await inngest.send({
             name: "creative-work.source.analyze",

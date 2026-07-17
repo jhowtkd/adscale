@@ -212,18 +212,21 @@ export async function PATCH(
       const template = "templateId" in parsed.data ? await getTemplateById(parsed.data.templateId, workspace.id) : null;
       if ("assetId" in parsed.data && (!asset || !asset.type.startsWith("image/"))) return apiError("invalidInput", 400);
       if ("templateId" in parsed.data && !template) return apiError("invalidInput", 400);
-      const source = await createCreativeWorkSource({
+      const sourceClaim = await createCreativeWorkSource({
         workspaceId: workspace.id,
         workItemId: id,
         ...(asset ? { assetId: asset.id } : { templateId: template!.id }),
         usage: parsed.data.usage,
         status: "uploaded",
       });
-      if (!source) return apiError("invalidInput", 400);
-      if (source.status !== "uploaded") return NextResponse.json({ source });
+      if (!sourceClaim) return apiError("invalidInput", 400);
+      const source = sourceClaim.source;
+      if (!sourceClaim.claimedForAnalysis) return NextResponse.json({ source });
       if (source.templateId) {
         const analyzed = await analyzeCreativeWorkSource({ workspaceId: workspace.id, workItemId: id, sourceId: source.id });
-        return NextResponse.json({ source: analyzed });
+        const canonical = analyzed ?? (await getCreativeWork(workspace.id, id))?.sources
+          .find((candidate) => candidate.id === source.id) ?? source;
+        return NextResponse.json({ source: canonical });
       }
       await dispatchSourceAnalysisOrFail(workspace.id, id, source);
       return NextResponse.json({ source });

@@ -13,12 +13,17 @@ import { objectStorage } from "@/server/storage";
 
 type Input = { workspaceId: string; workItemId: string; sourceId: string };
 
+async function reloadCreativeWorkSource(input: Input, fallback: NonNullable<Awaited<ReturnType<typeof getCreativeWork>>>["sources"][number]) {
+  const current = await getCreativeWork(input.workspaceId, input.workItemId);
+  return current?.sources.find((candidate) => candidate.id === input.sourceId) ?? fallback;
+}
+
 export async function analyzeCreativeWorkSource(input: Input) {
   const aggregate = await getCreativeWork(input.workspaceId, input.workItemId);
   const source = aggregate?.sources.find((candidate) => candidate.id === input.sourceId);
   if (!source) throw new Error("creative_work_source_not_found");
 
-  if (source.status !== "uploaded") return null;
+  if (source.status !== "uploaded") return source;
   const analyzing = await updateCreativeWorkSourceIfUnchanged(
     input.workspaceId,
     input.workItemId,
@@ -26,7 +31,7 @@ export async function analyzeCreativeWorkSource(input: Input) {
     { status: source.status, usage: source.usage, updatedAt: source.updatedAt },
     { status: "analyzing", failureCode: null },
   );
-  if (!analyzing) return null;
+  if (!analyzing) return reloadCreativeWorkSource(input, source);
   const attempt = { status: analyzing.status, usage: analyzing.usage, updatedAt: analyzing.updatedAt };
 
   try {
@@ -69,13 +74,14 @@ export async function analyzeCreativeWorkSource(input: Input) {
         });
       }
     }
-    return await updateCreativeWorkSourceIfUnchanged(
+    const ready = await updateCreativeWorkSourceIfUnchanged(
       input.workspaceId,
       input.workItemId,
       input.sourceId,
       attempt,
       { status: "ready", contentAnalysis, styleAnalysis, failureCode: null },
     );
+    return ready ?? reloadCreativeWorkSource(input, analyzing);
   } catch (error) {
     await updateCreativeWorkSourceIfUnchanged(
       input.workspaceId,

@@ -333,7 +333,7 @@ describe("creative-work repository", () => {
         workspaceId: "ws-1", clientProfileId: "profile-1", createdByUserId: "user-1",
         draftKey: "draft-key", intent: "variations", title: "", request: "", format: "4:5",
         settings: { targetFormats: [] }, assetId: "asset-1", usage: "both",
-      })).resolves.toEqual({ work, source, asset });
+      })).resolves.toEqual({ work, source, asset, claimedForAnalysis: true });
 
       expect(mocks.transactionMock).toHaveBeenCalledOnce();
       expect(mocks.onConflictDoNothingMock).toHaveBeenCalledTimes(2);
@@ -350,7 +350,7 @@ describe("creative-work repository", () => {
         workspaceId: "ws-1", clientProfileId: "profile-1", createdByUserId: "user-1",
         draftKey: "draft-key", intent: "variations", title: "", request: "", format: "4:5",
         settings: { targetFormats: [] }, templateId: "template-1", usage: "both",
-      })).resolves.toEqual({ work, source, template });
+      })).resolves.toEqual({ work, source, template, claimedForAnalysis: true });
 
       expect(mocks.transactionMock).toHaveBeenCalledOnce();
       expect(mocks.onConflictDoNothingMock).toHaveBeenCalledTimes(2);
@@ -372,7 +372,7 @@ describe("creative-work repository", () => {
       await expect(createCreativeWorkSource({
         workspaceId: "ws-1", workItemId: "work-1", ...sourceOrigin,
         usage: "both", status: "uploaded",
-      })).resolves.toEqual(existing);
+      })).resolves.toEqual({ source: existing, claimedForAnalysis: false });
 
       expect(mocks.onConflictDoNothingMock).toHaveBeenCalledOnce();
       expect(mocks.txUpdateMock).not.toHaveBeenCalled();
@@ -409,9 +409,30 @@ describe("creative-work repository", () => {
         workspaceId: "ws-1", clientProfileId: "profile-1", createdByUserId: "user-1",
         draftKey: "draft-key", intent: "variations", title: "", request: "", format: "4:5",
         settings: { targetFormats: [] }, assetId: "asset-1", usage: "both",
-      })).resolves.toEqual({ work, source, asset });
+      })).resolves.toEqual({ work, source, asset, claimedForAnalysis: false });
 
       expect(mocks.onConflictDoNothingMock).toHaveBeenCalledTimes(2);
+    });
+
+    it.each([
+      ["approved asset", { assetId: "asset-1" }, { id: "asset-1", type: "image/png", name: "Arte" }],
+      ["template", { templateId: "template-1" }, { id: "template-1", name: "Template" }],
+    ] as const)("rejects attachment-first %s replay with divergent usage", async (_label, sourceOrigin, origin) => {
+      const work = workItem({ id: "same-draft", draftKey: "draft-key", clientProfileId: "profile-1", request: "", brief: null });
+      const existing = {
+        id: "same-source", workspaceId: "ws-1", workItemId: work.id,
+        assetId: "assetId" in sourceOrigin ? sourceOrigin.assetId : null,
+        templateId: "templateId" in sourceOrigin ? sourceOrigin.templateId : null,
+        usage: "content", status: "uploaded",
+      };
+      mocks.state.selectResults.push([{ id: "profile-1" }], [origin], [work], [existing]);
+      mocks.state.onConflictResults.push([], []);
+
+      await expect(createCreativeWorkDraftWithSource({
+        workspaceId: "ws-1", clientProfileId: "profile-1", createdByUserId: "user-1",
+        draftKey: "draft-key", intent: "variations", title: "", request: "", format: "4:5",
+        settings: { targetFormats: [] }, ...sourceOrigin, usage: "style",
+      })).resolves.toBeNull();
     });
 
     it("rejects a replay when the draftKey belongs to another client profile", async () => {
@@ -641,7 +662,7 @@ describe("creative-work repository", () => {
       mocks.state.txUpdateResults.push([workItem()]);
       await expect(createCreativeWorkSource({
         workspaceId: "ws-1", workItemId: "work-1", assetId: "asset-1", usage: "both", status: "uploaded",
-      })).resolves.toEqual(source);
+      })).resolves.toEqual({ source, claimedForAnalysis: true });
       expect(mocks.valuesMock).toHaveBeenCalledWith(expect.objectContaining({ assetId: "asset-1", usage: "both" }));
       expect(mocks.txUpdateMock).toHaveBeenCalledWith(expect.anything());
     });
