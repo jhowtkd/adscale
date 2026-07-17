@@ -1,25 +1,23 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { Paperclip, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ActiveBrandSwitcher from "@/components/layout/ActiveBrandSwitcher";
 import { CreativeSourceChip } from "./CreativeSourceChip";
-import { useCreativeComposer, type ComposerIntent } from "./useCreativeComposer";
+import type { CreativeComposerModel, CreativeComposerViewModel } from "./useCreativeComposer";
 
 const FORMATS = ["1:1", "4:5", "9:16"] as const;
 
-export function CreativeComposer({ initialWorkId, preset }: { initialWorkId?: string; preset?: ComposerIntent }) {
+export function CreativeComposer({ composer, composerRef }: {
+  composer: CreativeComposerViewModel;
+  composerRef: CreativeComposerModel["composerRef"];
+}) {
   const t = useTranslations("dashboard.home.composer");
-  const { composerRef, ...composer } = useCreativeComposer({ initialWorkId });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [reviewSourceId, setReviewSourceId] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!composer.workId && preset && preset !== composer.intent) composer.selectIntent(preset);
-  }, [composer, preset]);
 
   const handleDrop = (event: React.DragEvent) => {
     event.preventDefault();

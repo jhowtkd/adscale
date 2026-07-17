@@ -1,10 +1,13 @@
 "use client";
 
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const useCanonicalWorksMock = vi.fn();
 const useActiveProfileMock = vi.fn();
+const useComposerMock = vi.fn();
+const selectIntentMock = vi.fn();
 
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string, values?: Record<string, string>) =>
@@ -16,11 +19,13 @@ vi.mock("@/lib/hooks/use-canonical-works", () => ({
 vi.mock("@/lib/hooks/use-active-client-profile", () => ({
   useActiveClientProfile: () => useActiveProfileMock(),
 }));
-vi.mock("@/components/creative-work/CreativeComposer", () => ({
-  CreativeComposer: ({ initialWorkId }: { initialWorkId?: string }) => <div data-testid="creative-composer">{initialWorkId}</div>,
+vi.mock("@/components/creative-work/useCreativeComposer", () => ({
+  useCreativeComposer: (...args: unknown[]) => useComposerMock(...args),
 }));
-vi.mock("@/components/creative-work/CreativeToolCards", () => ({
-  CreativeToolCards: () => <div data-testid="creative-tool-cards" />,
+vi.mock("@/components/creative-work/CreativeComposer", () => ({
+  CreativeComposer: ({ composer, initialWorkId }: { composer?: { intent: string; quote: { credits: number } }; initialWorkId?: string }) => (
+    <div data-testid="creative-composer">{composer ? `${composer.intent}:${composer.quote.credits}` : initialWorkId}</div>
+  ),
 }));
 vi.mock("next/link", () => ({
   default: ({ href, children, ...props }: { href: string; children: React.ReactNode }) => <a href={href} {...props}>{children}</a>,
@@ -32,6 +37,14 @@ describe("DashboardHomeActions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     useActiveProfileMock.mockReturnValue({ activeProfile: { id: "p1", name: "Marca A" } });
+    useComposerMock.mockImplementation(() => {
+      const [intent, setIntent] = useState<"variations" | "single" | "format_adaptation" | "restyle">("single");
+      return {
+        intent,
+        quote: intent === "format_adaptation" ? { unitCount: 2, credits: 10 } : { unitCount: 1, credits: 5 },
+        selectIntent: (next: typeof intent) => { selectIntentMock(next); setIntent(next); },
+      };
+    });
   });
 
   it("renders the approved hierarchy and resumes the exact canonical href", () => {
@@ -46,11 +59,27 @@ describe("DashboardHomeActions", () => {
 
     render(<DashboardHomeActions workId="opened-work" />);
 
-    expect(screen.getByTestId("creative-composer")).toHaveTextContent("opened-work");
+    expect(screen.getByTestId("creative-composer")).toHaveTextContent("single:5");
     expect(screen.getByRole("link", { name: /Continue: Post social/i })).toHaveAttribute("href", "/quick-tools/create-post?workId=w1");
-    expect(screen.getByTestId("creative-tool-cards")).toBeInTheDocument();
+    expect(screen.getAllByRole("button")).toHaveLength(4);
     expect(screen.getByTestId("brand-inspirations-slot")).toBeInTheDocument();
     expect(screen.queryByText("dashboard.home.chooseIntent")).not.toBeInTheDocument();
+  });
+
+  it("uses the restored composer intent as the cards' single source of truth", () => {
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+
+    render(<DashboardHomeActions workId="opened-work" />);
+
+    expect(useComposerMock).toHaveBeenCalledWith({ initialWorkId: "opened-work" });
+    expect(screen.getByRole("button", { name: /dashboard\.home\.single/i })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("creative-composer")).toHaveTextContent("single:5");
+
+    fireEvent.click(screen.getByRole("button", { name: /dashboard\.home\.restyle/i }));
+
+    expect(selectIntentMock).toHaveBeenCalledWith("restyle");
+    expect(screen.getByRole("button", { name: /dashboard\.home\.restyle/i })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("creative-composer")).toHaveTextContent("restyle:5");
   });
 
   it("shows a brand-aware first-creation prompt when nothing is actionable", () => {

@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { ArrowRight } from "lucide-react";
 import { CreativeComposer } from "@/components/creative-work/CreativeComposer";
 import { CreativeToolCards } from "@/components/creative-work/CreativeToolCards";
-import type { ComposerIntent } from "@/components/creative-work/useCreativeComposer";
+import { useCreativeComposer } from "@/components/creative-work/useCreativeComposer";
 import { resolveContinueWork } from "@/lib/dashboard/resolve-continue-work";
 import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
 import { useCanonicalWorks } from "@/lib/hooks/use-canonical-works";
@@ -15,7 +15,7 @@ export default function DashboardHomeActions({ workId }: { workId?: string }) {
   const t = useTranslations("dashboard.home");
   const { data: works = [], isLoading, isError, refetch } = useCanonicalWorks();
   const { activeProfile } = useActiveClientProfile();
-  const [preset, setPreset] = useState<ComposerIntent>("variations");
+  const { composerRef, ...composer } = useCreativeComposer({ initialWorkId: workId });
   const continueTarget = useMemo(() => resolveContinueWork(works), [works]);
 
   if (isError && works.length === 0) {
@@ -32,7 +32,7 @@ export default function DashboardHomeActions({ workId }: { workId?: string }) {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-8 px-4 py-8 sm:px-6 lg:py-12">
-      <CreativeComposer initialWorkId={workId} preset={preset} />
+      <CreativeComposer composer={composer} composerRef={composerRef} />
 
       <section aria-labelledby="continue-work-title">
         {isLoading && works.length === 0 ? (
@@ -58,7 +58,7 @@ export default function DashboardHomeActions({ workId }: { workId?: string }) {
         )}
       </section>
 
-      <CreativeToolCards selected={preset} onSelect={setPreset} />
+      <CreativeToolCards selected={composer.intent} onSelect={composer.selectIntent} />
 
       <section data-testid="brand-inspirations-slot" aria-labelledby="brand-inspirations-title" className="min-h-16">
         <h2 id="brand-inspirations-title" className="sr-only">{t("brandInspirations")}</h2>

@@ -37,6 +37,15 @@ function signature(snapshot: DraftSnapshot) {
   return JSON.stringify(snapshot);
 }
 
+function snapshotFromWork(work: Pick<CreativeWorkItem, "request" | "toolKind" | "format" | "settings">): DraftSnapshot {
+  return {
+    request: work.request.trim(),
+    intent: work.toolKind === "social_post" ? "variations" : work.toolKind,
+    format: work.format,
+    settings: { targetFormats: [...work.settings.targetFormats] },
+  };
+}
+
 function focusBrandSwitcher() {
   (document.getElementById("active-brand-switcher-inline")
     ?? document.getElementById("active-brand-switcher"))?.focus();
@@ -65,6 +74,9 @@ export function useCreativeComposer({ initialWorkId }: { initialWorkId?: string 
   const createInFlightRef = useRef<Promise<string | null> | null>(null);
   const saveChainRef = useRef<Promise<void>>(Promise.resolve());
   const submitGuardRef = useRef(false);
+  const mountedRef = useRef(false);
+  const lifecycleRef = useRef(0);
+  const persistOnUnmountRef = useRef<() => Promise<void>>(async () => undefined);
 
   const detailQuery = useCreativeWork(workId);
   const createMutation = useCreateCreativeWorkDraft();
@@ -85,15 +97,10 @@ export function useCreativeComposer({ initialWorkId }: { initialWorkId?: string 
     hydratedWorkRef.current = work.id;
     workIdRef.current = work.id;
     requestRef.current = work.request;
-    intentRef.current = work.toolKind === "social_post" ? "variations" : work.toolKind;
-    formatRef.current = work.format;
-    targetFormatsRef.current = work.settings.targetFormats;
-    const hydrated = {
-      request: work.request.trim(),
-      intent: intentRef.current,
-      format: work.format,
-      settings: { targetFormats: [...work.settings.targetFormats] },
-    };
+    const hydrated = snapshotFromWork(work);
+    intentRef.current = hydrated.intent;
+    formatRef.current = hydrated.format;
+    targetFormatsRef.current = hydrated.settings.targetFormats;
     lastPersistedRef.current = signature(hydrated);
     /* TanStack Query is the external persisted source for hydration. */
     setRequestState(work.request);
@@ -123,7 +130,7 @@ export function useCreativeComposer({ initialWorkId }: { initialWorkId?: string 
     window.history.replaceState(window.history.state, "", `${window.location.pathname}?${params}`);
   }, []);
 
-  const ensureDraft = useCallback((assetId?: string) => {
+  const ensureDraft = useCallback((assetId?: string, silent = false) => {
     if (workIdRef.current) return Promise.resolve(workIdRef.current);
     if (createInFlightRef.current) return createInFlightRef.current;
     if (!active.activeClientProfileId) {
@@ -141,26 +148,30 @@ export function useCreativeComposer({ initialWorkId }: { initialWorkId?: string 
         ...(assetId ? { assetId, usage: "both" as const } : {}),
       });
       workIdRef.current = result.work.id;
-      lastPersistedRef.current = signature(snapshot);
-      setWorkId(result.work.id);
-      setQuote(result.quote);
-      setAnnouncement("Rascunho salvo");
-      exposeWorkId(result.work.id);
+      lastPersistedRef.current = signature(snapshotFromWork(result.work));
+      if (!silent && mountedRef.current) {
+        setWorkId(result.work.id);
+        setQuote(result.quote);
+        setAnnouncement("Rascunho salvo");
+        exposeWorkId(result.work.id);
+      }
       return result.work.id;
     }).catch((cause) => {
-      setError(cause instanceof Error ? cause.message : "Falha ao salvar rascunho");
+      if (!silent && mountedRef.current) {
+        setError(cause instanceof Error ? cause.message : "Falha ao salvar rascunho");
+      }
       return null;
     }).finally(() => { createInFlightRef.current = null; });
     createInFlightRef.current = promise;
     return promise;
   }, [active.activeClientProfileId, captureSnapshot, createMutation, enqueueSave, exposeWorkId]);
 
-  const persistSnapshot = useCallback((id: string, snapshot: DraftSnapshot) => enqueueSave(async () => {
+  const persistSnapshot = useCallback((id: string, snapshot: DraftSnapshot, announce = true) => enqueueSave(async () => {
     const sentSignature = signature(snapshot);
     if (sentSignature === lastPersistedRef.current) return;
     await autosaveMutation.mutateAsync({ workItemId: id, ...snapshot });
     lastPersistedRef.current = sentSignature;
-    setAnnouncement("Alterações salvas");
+    if (announce && mountedRef.current) setAnnouncement("Alterações salvas");
   }), [autosaveMutation, enqueueSave]);
 
   const flushAutosave = useCallback(async (): Promise<string | null> => {
@@ -174,6 +185,29 @@ export function useCreativeComposer({ initialWorkId }: { initialWorkId?: string 
       await persistSnapshot(id, snapshot);
     }
   }, [captureSnapshot, ensureDraft, persistSnapshot]);
+
+  persistOnUnmountRef.current = async () => {
+    await saveChainRef.current;
+    const id = workIdRef.current ?? await ensureDraft(undefined, true);
+    if (!id) return;
+    const snapshot = captureSnapshot();
+    if (signature(snapshot) !== lastPersistedRef.current) {
+      await persistSnapshot(id, snapshot, false);
+    }
+  };
+
+  useEffect(() => {
+    mountedRef.current = true;
+    const lifecycle = ++lifecycleRef.current;
+    return () => {
+      mountedRef.current = false;
+      queueMicrotask(() => {
+        // StrictMode immediately installs a newer lifecycle before this microtask runs.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        if (lifecycleRef.current === lifecycle) void persistOnUnmountRef.current();
+      });
+    };
+  }, []);
 
   useEffect(() => {
     if (initialWorkId && !hydratedWorkRef.current) return;
@@ -321,3 +355,6 @@ export function useCreativeComposer({ initialWorkId }: { initialWorkId?: string 
     addFiles, updateSource, retrySource, removeSource, generate,
   };
 }
+
+export type CreativeComposerModel = ReturnType<typeof useCreativeComposer>;
+export type CreativeComposerViewModel = Omit<CreativeComposerModel, "composerRef">;

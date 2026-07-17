@@ -1,8 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
-const useComposer = vi.hoisted(() => vi.fn());
-vi.mock("./useCreativeComposer", () => ({ useCreativeComposer: (...args: unknown[]) => useComposer(...args) }));
+import { describe, expect, it, vi } from "vitest";
 vi.mock("@/components/layout/ActiveBrandSwitcher", () => ({
   default: ({ id }: { id?: string }) => <select id={id ?? "active-brand-switcher"} aria-label="Marca ativa"><option>Escolha</option></select>,
 }));
@@ -14,6 +11,7 @@ vi.mock("next-intl", () => ({ useTranslations: () => (key: string, values?: Reco
 }[key] ?? (key === "generate" ? `Gerar ${values?.count} variações · ${values?.credits} créditos` : key)) }));
 
 import { CreativeComposer } from "./CreativeComposer";
+import type { CreativeComposerModel, CreativeComposerViewModel } from "./useCreativeComposer";
 
 function composer(overrides = {}) {
   return {
@@ -27,13 +25,20 @@ function composer(overrides = {}) {
   };
 }
 
-describe("CreativeComposer", () => {
-  beforeEach(() => useComposer.mockReturnValue(composer()));
+function renderComposer(value = composer()) {
+  const { composerRef, ...viewModel } = value;
+  return render(
+    <CreativeComposer
+      composer={viewModel as CreativeComposerViewModel}
+      composerRef={composerRef as CreativeComposerModel["composerRef"]}
+    />,
+  );
+}
 
+describe("CreativeComposer", () => {
   it("keeps Enter as a newline and never generates from the textarea", () => {
     const value = composer();
-    useComposer.mockReturnValue(value);
-    render(<CreativeComposer />);
+    renderComposer(value);
     const textarea = screen.getByRole("textbox", { name: /pedido criativo/i });
 
     fireEvent.change(textarea, { target: { value: "Linha 1\nLinha 2" } });
@@ -45,8 +50,7 @@ describe("CreativeComposer", () => {
 
   it("shows the canonical paid CTA and sends dropped files to the same composer", () => {
     const value = composer();
-    useComposer.mockReturnValue(value);
-    render(<CreativeComposer />);
+    renderComposer(value);
     const file = new File(["image"], "arte.png", { type: "image/png" });
 
     expect(screen.getByRole("button", { name: "Gerar 3 variações · 15 créditos" })).toBeInTheDocument();
@@ -60,8 +64,7 @@ describe("CreativeComposer", () => {
       contentAnalysis: null, styleAnalysis: null,
     };
     const value = composer({ sources: [source] });
-    useComposer.mockReturnValue(value);
-    render(<CreativeComposer />);
+    renderComposer(value);
 
     fireEvent.click(screen.getByRole("button", { name: "Estilo" }));
     fireEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
@@ -69,26 +72,26 @@ describe("CreativeComposer", () => {
     expect(value.retrySource).toHaveBeenCalledWith("source-1");
   });
 
-  it("never reapplies a new-draft preset over a hydrated work", () => {
+  it("renders the hydrated model without applying a second preset state", () => {
     const value = composer({ workId: "work-1", intent: "single", quote: { unitCount: 1, credits: 5 } });
-    useComposer.mockReturnValue(value);
-    render(<CreativeComposer initialWorkId="work-1" preset="variations" />);
+    renderComposer(value);
     expect(value.selectIntent).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Gerar 1 variações · 5 créditos" })).toBeInTheDocument();
   });
 
   it("renders a focusable inline brand choice and disables paid work for a new draft", () => {
-    useComposer.mockReturnValue(composer({
+    const value = composer({
       brandName: null, canGenerate: false, requiresBrandSelection: true, workId: null,
-    }));
-    render(<CreativeComposer />);
+    });
+    renderComposer(value);
     expect(screen.getByText("Selecione uma marca para começar")).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Marca ativa" })).toHaveAttribute("id", "active-brand-switcher-inline");
     expect(screen.getByRole("button", { name: /Gerar/ })).toBeDisabled();
   });
 
   it("renders an explicit invalid-work recovery instead of a locked composer", () => {
-    useComposer.mockReturnValue(composer({ workError: true, workId: "missing" }));
-    render(<CreativeComposer initialWorkId="missing" />);
+    const value = composer({ workError: true, workId: "missing" });
+    renderComposer(value);
     expect(screen.getByRole("alert")).toHaveTextContent("Trabalho não encontrado");
     expect(screen.getByRole("link", { name: "Começar nova criação" })).toHaveAttribute("href", "/");
     expect(screen.queryByRole("textbox", { name: /pedido criativo/i })).not.toBeInTheDocument();
