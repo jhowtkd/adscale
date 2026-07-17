@@ -67,7 +67,7 @@ describe("E2E controlled provider", () => {
 
     expect(candidate.buffer.subarray(1, 4).toString()).toBe("PNG");
     expect(candidate.providerMeta.model).toBe("e2e-controlled-image");
-    expect(candidate.providerMeta.rawRequestId).toBe("e2e:uat/work/output");
+    expect(candidate.providerMeta.rawRequestId).toBe("e2e:uat/work/output:attempt-0");
   });
 
   it("rejects the dedicated unit fixture outside NODE_ENV=test", () => {
@@ -80,7 +80,7 @@ describe("E2E controlled provider", () => {
     }
   });
 
-  it("fails only the bold controlled candidate once so the real job retry can recover", async () => {
+  it("fails bold attempt zero and recovers from persisted attempt one", async () => {
     const provider = E2EControlledImageProvider.forUnitTests();
     const input = {
       prompt: "REQUEST: [e2e:retry-once-bold]\nCREATIVE LEVEL: bold",
@@ -90,12 +90,34 @@ describe("E2E controlled provider", () => {
       outputPrefix: `uat/retry-once/${crypto.randomUUID()}`,
     };
 
-    await expect(provider.generate(input)).rejects.toMatchObject({
+    await expect(provider.generate({ ...input, attempt: 0 })).rejects.toMatchObject({
       retryable: true,
     });
-    await expect(provider.generate(input)).resolves.toMatchObject({
+    await expect(provider.generate({ ...input, attempt: 1 })).resolves.toMatchObject({
       providerMeta: { model: "e2e-controlled-image" },
     });
+  });
+
+  it("fails every candidate in the first canonical runtime attempt", async () => {
+    const provider = E2EControlledImageProvider.forUnitTests();
+    const input = {
+      prompt: "REQUEST: [e2e:retry-once-bold]\nCREATIVE LEVEL: bold",
+      dimensions: { width: 1024, height: 1024 },
+      referenceImages: [],
+      generationMode: "art_variation" as const,
+      outputPrefix: `uat/retry-candidates/${crypto.randomUUID()}`,
+    };
+
+    await expect(Promise.allSettled([
+      provider.generate({ ...input, attempt: 0 }),
+      provider.generate({ ...input, attempt: 0 }),
+      provider.generate({ ...input, attempt: 0 }),
+    ])).resolves.toEqual([
+      expect.objectContaining({ status: "rejected" }),
+      expect.objectContaining({ status: "rejected" }),
+      expect.objectContaining({ status: "rejected" }),
+    ]);
+    await expect(provider.generate({ ...input, attempt: 1 })).resolves.toMatchObject({ mimeType: "image/png" });
   });
 
   it("can fail bold twice so the second retryable failure reaches manual recovery", async () => {
@@ -108,9 +130,9 @@ describe("E2E controlled provider", () => {
       outputPrefix: `uat/retry-twice/${crypto.randomUUID()}`,
     };
 
-    await expect(provider.generate(input)).rejects.toMatchObject({ retryable: true });
-    await expect(provider.generate(input)).rejects.toMatchObject({ retryable: true });
-    await expect(provider.generate(input)).resolves.toMatchObject({ mimeType: "image/png" });
+    await expect(provider.generate({ ...input, attempt: 0 })).rejects.toMatchObject({ retryable: true });
+    await expect(provider.generate({ ...input, attempt: 1 })).rejects.toMatchObject({ retryable: true });
+    await expect(provider.generate({ ...input, attempt: 2 })).resolves.toMatchObject({ mimeType: "image/png" });
   });
 
   it("holds the second attempt open for the polling UI's partial state", async () => {
@@ -125,8 +147,8 @@ describe("E2E controlled provider", () => {
         outputPrefix: `uat/retry-delay/${crypto.randomUUID()}`,
       };
 
-      await expect(provider.generate(input)).rejects.toMatchObject({ retryable: true });
-      const retry = provider.generate(input);
+      await expect(provider.generate({ ...input, attempt: 0 })).rejects.toMatchObject({ retryable: true });
+      const retry = provider.generate({ ...input, attempt: 1 });
       let settled = false;
       void retry.finally(() => { settled = true; });
       await Promise.resolve();

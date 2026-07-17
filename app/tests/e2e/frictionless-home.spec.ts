@@ -41,11 +41,10 @@ async function login(page: Page) {
       JSON.stringify({ necessary: true, analytics: false, marketing: false }),
     );
   });
-  await page.goto("/login");
-  await page.locator("#email").fill(fixture().email);
-  await page.locator("#login-password").fill(fixture().password);
-  await page.locator("form:has(#email) button[type=submit]").click();
-  await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 30_000 });
+  const response = await page.request.post("/api/auth/sign-in/email", {
+    data: { email: fixture().email, password: fixture().password },
+  });
+  expect(response.ok(), await response.text()).toBe(true);
 }
 
 async function campaignsCount(page: Page) {
@@ -183,18 +182,32 @@ test.describe("Frictionless operational Home", () => {
 
     await page.reload();
     await expect(page).toHaveURL(new RegExp(`workId=${workId}`));
-    await expect(page.getByTestId("proposal-level")).toHaveCount(3);
+    await assertSingleActiveBrand(page);
+    await expect(page.getByTestId("proposal-level")).toHaveCount(3, { timeout: 60_000 });
     expect((await workDetail(page, workId)).outputs.map((output) => output.id).sort()).toEqual(initialIds);
 
     const original = settled.outputs.find((output) => output.creativeLevel === "conservative")!;
     const originalCard = page.getByTestId("proposal-level").filter({ has: page.getByTestId("proposal-level-name").filter({ hasText: /conservadora|conservative/i }) });
+    const selectedResponsePromise = page.waitForResponse((response) =>
+      response.url().endsWith(`/api/creative-work/${workId}/outputs/${original.id}/select`)
+        && response.request().method() === "POST",
+    );
     await originalCard.getByRole("button", { name: /aprovar|approve/i }).click();
+    const selectedResponse = await selectedResponsePromise;
+    const selectedBody = await selectedResponse.text();
+    expect(selectedResponse.ok(), selectedBody).toBe(true);
+    expect((JSON.parse(selectedBody) as { output: { isSelected: boolean } }).output.isSelected).toBe(true);
     await expect.poll(async () => (await workDetail(page, workId)).outputs.find((output) => output.id === original.id)?.isSelected).toBe(true);
 
+    const expectedDownloadPath = `/api/creative-work/${workId}/outputs/${original.id}/download`;
     const popupPromise = page.waitForEvent("popup");
+    const downloadRequest = page.context().waitForEvent("request", {
+      predicate: (request) => new URL(request.url()).pathname === expectedDownloadPath,
+      timeout: 15_000,
+    });
     await originalCard.getByRole("button", { name: /baixar|download/i }).click();
+    expect(new URL((await downloadRequest).url()).pathname).toBe(expectedDownloadPath);
     const popup = await popupPromise;
-    expect(popup.url()).toContain(`/api/creative-work/${workId}/outputs/${original.id}/download`);
     await popup.close();
 
     await originalCard.getByRole("button", { name: /editar|edit/i }).click();
@@ -293,7 +306,20 @@ test.describe("Frictionless operational Home", () => {
       await request.focus();
       await expect(request).toBeFocused();
 
-      const attach = page.getByRole("button", { name: /adicionar arte|add image/i });
+      await page.evaluate(() => {
+        const region = document.querySelector('p.sr-only[role="status"][aria-live="polite"]');
+        const messages: string[] = [];
+        if (region?.textContent) messages.push(region.textContent);
+        if (region) {
+          new MutationObserver(() => {
+            if (region.textContent) messages.push(region.textContent);
+          }).observe(region, { childList: true, characterData: true, subtree: true });
+        }
+        (window as unknown as { __frictionlessAnnouncements: string[] })
+          .__frictionlessAnnouncements = messages;
+      });
+
+      const attach = page.locator("button").filter({ hasText: /adicionar arte|add image/i });
       await tabTo(page, attach);
       const chooserPromise = page.waitForEvent("filechooser");
       await page.keyboard.press("Enter");
@@ -303,8 +329,11 @@ test.describe("Frictionless operational Home", () => {
         mimeType: "image/png",
         buffer: Buffer.from(fixture().attachmentBufferBase64, "base64"),
       });
-      const liveRegion = page.locator('[role="status"][aria-live="polite"]');
-      await expect(liveRegion).toHaveText(/arte adicionada/i);
+      const liveRegion = page.locator('p.sr-only[role="status"][aria-live="polite"]');
+      await expect.poll(() => page.evaluate(() =>
+        (window as unknown as { __frictionlessAnnouncements?: string[] })
+          .__frictionlessAnnouncements ?? []
+      )).toContain("Arte adicionada");
       const source = page.locator("article").filter({ hasText: `teclado-${viewport.name}.png` });
       await expect(source.getByRole("status")).toHaveText(/análise concluída|analysis complete/i, { timeout: 60_000 });
 
@@ -333,9 +362,12 @@ test.describe("Frictionless operational Home", () => {
       const download = card.getByRole("button", { name: /baixar|download/i });
       await tabTo(page, download);
       const popupPromise = page.waitForEvent("popup");
+      const downloadRequest = page.context().waitForEvent("request", {
+        predicate: (candidate) => new URL(candidate.url()).pathname.endsWith("/download"),
+      });
       await page.keyboard.press("Space");
       const popup = await popupPromise;
-      expect(popup.url()).toContain("/download");
+      expect(new URL((await downloadRequest).url()).pathname).toContain("/download");
       await popup.close();
 
       const edit = card.getByRole("button", { name: /editar|edit/i });

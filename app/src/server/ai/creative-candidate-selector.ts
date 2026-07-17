@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { env } from "@/server/validation/env";
+import { isE2EControlledProviderEnabled } from "./providers/e2e-controlled-provider";
 import type { ImageReference } from "./providers/image-provider";
 import { extractOutputText, getOpenAI } from "./utils";
 
@@ -160,6 +161,13 @@ export async function selectCreativeCandidate(input: SelectCreativeCandidateInpu
 }> {
   if (input.candidates.length < 2) {
     return { winnerIndex: 0, invalidRouteIds: [], reason: "Only one candidate succeeded" };
+  }
+  if (isE2EControlledProviderEnabled()) {
+    return {
+      winnerIndex: 0,
+      invalidRouteIds: [],
+      reason: "Deterministic local E2E candidate selection",
+    };
   }
 
   const forward = await judgeCandidates(input, input.candidates);

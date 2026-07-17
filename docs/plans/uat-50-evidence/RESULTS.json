@@ -5,75 +5,70 @@
     "status": "pass",
     "url": "http://localhost:3000/campaigns",
     "viewport": "1440x900",
-    "notes": "h1=\"52 trabalhos\"",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S05-desktop-1440x900.png",
+    "notes": "h1=\"7 trabalhos\"",
+    "screenshot": "/Users/jhonatan/Repos/ADScale_2/.worktrees/frictionless-creative-flow/docs/plans/uat-50-evidence/uat-50-S05-desktop-1440x900.png",
     "consoleErrors": [],
     "networkErrors": []
   },
   {
     "id": "S02",
-    "title": "New campaign create + redirect + list",
+    "title": "Works CTA to focused Home composer",
     "status": "pass",
-    "url": "http://localhost:3000/campaigns",
+    "url": "http://localhost:3000/?compose=1",
     "viewport": "1440x900",
-    "notes": "campaignId=639fecd0-fba3-4141-8a5d-f5329223a81b name=UAT S02 1784049128471",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S02-desktop-1440x900.png",
+    "notes": "Novo trabalho opens the one-step composer with focus",
+    "screenshot": "/Users/jhonatan/Repos/ADScale_2/.worktrees/frictionless-creative-flow/docs/plans/uat-50-evidence/uat-50-S02-desktop-1440x900.png",
     "consoleErrors": [],
-    "networkErrors": [],
-    "createdIds": {
-      "campaignId": "639fecd0-fba3-4141-8a5d-f5329223a81b",
-      "name": "UAT S02 1784049128471"
-    }
+    "networkErrors": []
   },
   {
     "id": "S04",
     "title": "Continue campaign + post workId",
     "status": "pass",
-    "url": "http://localhost:3000/campaigns/4c239bf6-b74a-4d8b-b113-beb895aea8e0",
+    "url": "http://localhost:3000/campaigns/e6936043-013c-411f-9db5-1080e4e8e2d4",
     "viewport": "1440x900",
-    "notes": "post workId wizard ok; continueHref=/campaigns/4c239bf6-b74a-4d8b-b113-beb895aea8e0 landed=http://localhost:3000/campaigns/4c239bf6-b74a-4d8b-b113-beb895aea8e0",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S04-desktop-1440x900.png",
+    "notes": "post workId composer ok; continueHref=/campaigns/e6936043-013c-411f-9db5-1080e4e8e2d4 landed=http://localhost:3000/campaigns/e6936043-013c-411f-9db5-1080e4e8e2d4",
+    "screenshot": "/Users/jhonatan/Repos/ADScale_2/.worktrees/frictionless-creative-flow/docs/plans/uat-50-evidence/uat-50-S04-desktop-1440x900.png",
     "consoleErrors": [],
     "networkErrors": [],
     "createdIds": {
-      "workId": "24838461-d96f-4bc4-9e13-746a3aa4fbc7",
-      "campaignId": "4c239bf6-b74a-4d8b-b113-beb895aea8e0"
+      "workId": "02c8b9e3-3d1a-42db-843d-179a9b7a12bf",
+      "campaignId": "e6936043-013c-411f-9db5-1080e4e8e2d4"
     }
   },
   {
     "id": "S06",
     "title": "Workspace stages + deep links",
     "status": "pass",
-    "url": "http://localhost:3000/campaigns/4c239bf6-b74a-4d8b-b113-beb895aea8e0",
+    "url": "http://localhost:3000/campaigns/e6936043-013c-411f-9db5-1080e4e8e2d4",
     "viewport": "1440x900",
-    "notes": "nestedExport=0 distinctY=true campaign=4c239bf6-b74a-4d8b-b113-beb895aea8e0",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S06-desktop-1440x900.png",
+    "notes": "nestedExport=0 distinctY=true campaign=e6936043-013c-411f-9db5-1080e4e8e2d4",
+    "screenshot": "/Users/jhonatan/Repos/ADScale_2/.worktrees/frictionless-creative-flow/docs/plans/uat-50-evidence/uat-50-S06-desktop-1440x900.png",
     "consoleErrors": [],
     "networkErrors": []
   },
   {
     "id": "S10",
-    "title": "Template materialize UI",
+    "title": "Template to canonical Home draft",
     "status": "pass",
-    "url": "http://localhost:3000/campaigns",
+    "url": "http://localhost:3000/?workId=516bb7ad-5288-470e-b303-f6a170a8e220",
     "viewport": "1440x900",
-    "notes": "templateId=657d2a7d-6369-458a-af18-50d4c56d3de7 campaignId=c1f74538-2b10-426e-b835-b63f938fc7f3 name=UAT S10 1784049131230 materializePosts=1",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S10-desktop-1440x900.png",
+    "notes": "templateId=8baf7e68-e793-44a2-996b-79d501fa5769 workId=516bb7ad-5288-470e-b303-f6a170a8e220 materializePosts=0",
+    "screenshot": "/Users/jhonatan/Repos/ADScale_2/.worktrees/frictionless-creative-flow/docs/plans/uat-50-evidence/uat-50-S10-desktop-1440x900.png",
     "consoleErrors": [],
     "networkErrors": [],
     "createdIds": {
-      "campaignId": "c1f74538-2b10-426e-b835-b63f938fc7f3",
-      "name": "UAT S10 1784049131230"
+      "workId": "516bb7ad-5288-470e-b303-f6a170a8e220"
     }
   },
   {
     "id": "S12",
     "title": "Empty / loading / error / retry matrix",
     "status": "pass",
-    "url": "http://localhost:3000/campaigns/97df2c87-5292-4c19-9943-a3f172722fce",
+    "url": "http://localhost:3000/campaigns/cb791154-e153-4eba-8f11-f070185807ef",
     "viewport": "1440x900",
     "notes": "{\"homeEmpty\":true,\"homeLoading\":true,\"homeError\":true,\"homeRetry\":true,\"worksEmpty\":true,\"worksLoading\":true,\"worksError\":true,\"worksRetry\":true,\"workspaceLoading\":true,\"workspaceError\":true,\"workspaceRetry\":true,\"recipeLoading\":true,\"recipeError\":true,\"recipeRetry\":true}",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S12-matrix-1440x900.png",
+    "screenshot": "/Users/jhonatan/Repos/ADScale_2/.worktrees/frictionless-creative-flow/docs/plans/uat-50-evidence/uat-50-S12-matrix-1440x900.png",
     "consoleErrors": [],
     "networkErrors": []
   },
@@ -83,77 +78,77 @@
     "status": "pass",
     "url": "http://localhost:3000/campaigns",
     "viewport": "1440x900",
-    "notes": "workId=f2571a3d-e1ea-4591-8a5f-99eb89a68aea name=UAT S03 1784049360703 gen=202 listed=true before=19706 after=19689 kind=paid",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S03-desktop-1440x900.png",
+    "notes": "workId=7d5c4fa1-da12-411b-bd53-db2f3522f146 name=UAT S03 1784271673202 gen=202 listed=true before=9950 after=9935 kind=paid",
+    "screenshot": "/Users/jhonatan/Repos/ADScale_2/.worktrees/frictionless-creative-flow/docs/plans/uat-50-evidence/uat-50-S03-desktop-1440x900.png",
     "consoleErrors": [],
     "networkErrors": [],
     "createdIds": {
-      "workId": "f2571a3d-e1ea-4591-8a5f-99eb89a68aea"
+      "workId": "7d5c4fa1-da12-411b-bd53-db2f3522f146"
     }
   },
   {
     "id": "S07",
-    "title": "Preview auto-approved (quality ok)",
+    "title": "Pilot approval before batch (quality ok)",
     "status": "pass",
-    "url": "http://localhost:3000/campaigns/542a5d24-6359-42b2-bef0-9c27b6eeb2d2",
+    "url": "http://localhost:3000/campaigns/2818163e-ca02-452f-b32c-befd667e283b",
     "viewport": "1440x900",
-    "notes": "previewDispatch=api:201 batchRequest=POST gateUi=false verdict=acceptable expectedCredits=10 chargedCredits=10",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S07-desktop-1440x900.png",
+    "notes": "previewDispatch=api:201 batchRequest=POST gateUi=true verdict=acceptable expectedCredits=10 chargedCredits=10",
+    "screenshot": "/Users/jhonatan/Repos/ADScale_2/.worktrees/frictionless-creative-flow/docs/plans/uat-50-evidence/uat-50-S07-desktop-1440x900.png",
     "consoleErrors": [],
     "networkErrors": [],
     "createdIds": {
-      "campaignId": "542a5d24-6359-42b2-bef0-9c27b6eeb2d2"
+      "campaignId": "2818163e-ca02-452f-b32c-befd667e283b"
     }
   },
   {
     "id": "S08",
     "title": "Preview blocked by quality gate",
     "status": "pass",
-    "url": "http://localhost:3000/campaigns/324b810c-5356-4768-b681-d51734d9c0ff",
+    "url": "http://localhost:3000/campaigns/fe20767d-41b6-4c3a-8523-25c297a063ea",
     "viewport": "1440x900",
-    "notes": "showGate=true noAuto=true invalid=true explicitContinueHttp=201 activePreviewId=8d033cfb-b3e3-455d-ac90-ff9c46640e7c",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S08-desktop-1440x900.png",
+    "notes": "showGate=true noAuto=true invalid=true explicitContinueHttp=201 activePreviewId=2492e10e-1b8b-4869-8446-142c853a1c20",
+    "screenshot": "/Users/jhonatan/Repos/ADScale_2/.worktrees/frictionless-creative-flow/docs/plans/uat-50-evidence/uat-50-S08-desktop-1440x900.png",
     "consoleErrors": [],
     "networkErrors": [],
     "createdIds": {
-      "campaignId": "324b810c-5356-4768-b681-d51734d9c0ff",
-      "derivationId": "8d033cfb-b3e3-455d-ac90-ff9c46640e7c"
+      "campaignId": "fe20767d-41b6-4c3a-8523-25c297a063ea",
+      "derivationId": "2492e10e-1b8b-4869-8446-142c853a1c20"
     }
   },
   {
     "id": "S09",
     "title": "Credits UI vs resolve + billing",
     "status": "pass",
-    "url": "http://localhost:3000/campaigns/4c239bf6-b74a-4d8b-b113-beb895aea8e0",
+    "url": "http://localhost:3000/campaigns/e6936043-013c-411f-9db5-1080e4e8e2d4",
     "viewport": "1440x900",
-    "notes": "apiPreview=5 apiBatch=5 uiPreview=5 uiBatch=5 uiMatch=true runExpected=10 runCharged=10 ledgerCredits=10 billingMatch=true beforeOpen=19674 afterOpen=19674",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S09-desktop-1440x900.png",
+    "notes": "apiPreview=5 apiBatch=5 uiPreview=5 uiBatch=5 uiMatch=true runExpected=10 ledgerCredits=10 billingMatch=true beforeOpen=9920 afterOpen=9920",
+    "screenshot": "/Users/jhonatan/Repos/ADScale_2/.worktrees/frictionless-creative-flow/docs/plans/uat-50-evidence/uat-50-S09-desktop-1440x900.png",
     "consoleErrors": [],
     "networkErrors": []
   },
   {
     "id": "S11",
-    "title": "Save post to library",
+    "title": "Completed post auto-saved in library",
     "status": "pass",
     "url": "http://localhost:3000/library",
     "viewport": "1440x900",
-    "notes": "libraryWorkId=04ef6389-1a88-4512-b112-51cede4085a9 outputId=ec578290-52d2-4d2f-8a39-0bd8c9d2d2d2 uiSave=true assetId=5986b8a0-4d2a-4950-9297-654fd15a5b04 proxy=200 reloadImage=true",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S11-desktop-1440x900.png",
+    "notes": "libraryWorkId=2ad8b270-e73e-45e4-888a-ce35139cb5ae outputId=28357c0f-b41e-4518-a0fb-910481762231 autoSaved=true assetId=b1f182da-9373-467c-be1d-9feb7b6151a2 proxy=200 reloadImage=true",
+    "screenshot": "/Users/jhonatan/Repos/ADScale_2/.worktrees/frictionless-creative-flow/docs/plans/uat-50-evidence/uat-50-S11-desktop-1440x900.png",
     "consoleErrors": [],
     "networkErrors": [],
     "createdIds": {
-      "workId": "04ef6389-1a88-4512-b112-51cede4085a9",
-      "outputId": "ec578290-52d2-4d2f-8a39-0bd8c9d2d2d2"
+      "workId": "2ad8b270-e73e-45e4-888a-ce35139cb5ae",
+      "outputId": "28357c0f-b41e-4518-a0fb-910481762231"
     }
   },
   {
     "id": "S01",
-    "title": "Home intent picker",
+    "title": "Operational Home composer",
     "status": "pass",
     "url": "http://localhost:3000/",
     "viewport": "1440x900",
-    "notes": "intent: campaign + create-post + assistant",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S01-desktop-1440x900.png",
+    "notes": "one composer + four optional tool presets; no creation modal",
+    "screenshot": "/Users/jhonatan/Repos/ADScale_2/.worktrees/frictionless-creative-flow/docs/plans/uat-50-evidence/uat-50-S01-desktop-1440x900.png",
     "consoleErrors": [],
     "networkErrors": []
   },
@@ -163,537 +158,8 @@
     "status": "pass",
     "url": "http://localhost:3000/assistant",
     "viewport": "1440x900",
-    "notes": "opened /assistant without workId",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S14-desktop-1440x900.png",
-    "consoleErrors": [],
-    "networkErrors": []
-  },
-  {
-    "id": "S05",
-    "title": "Trabalhos i18n + canonical states",
-    "status": "pass",
-    "url": "http://localhost:3000/campaigns",
-    "viewport": "1280x800",
-    "notes": "h1=\"52 trabalhos\"",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S05-desktop-1280x800.png",
-    "consoleErrors": [],
-    "networkErrors": []
-  },
-  {
-    "id": "S02",
-    "title": "New campaign create + redirect + list",
-    "status": "pass",
-    "url": "http://localhost:3000/campaigns",
-    "viewport": "1280x800",
-    "notes": "campaignId=1c307d4f-5aea-4679-a655-10e9318edd59 name=UAT S02 1784049421288",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S02-desktop-1280x800.png",
-    "consoleErrors": [],
-    "networkErrors": [],
-    "createdIds": {
-      "campaignId": "1c307d4f-5aea-4679-a655-10e9318edd59",
-      "name": "UAT S02 1784049421288"
-    }
-  },
-  {
-    "id": "S04",
-    "title": "Continue campaign + post workId",
-    "status": "pass",
-    "url": "http://localhost:3000/campaigns/1030e86d-4e7d-44f6-b400-d0994a3dc70e",
-    "viewport": "1280x800",
-    "notes": "post workId wizard ok; continueHref=/campaigns/1030e86d-4e7d-44f6-b400-d0994a3dc70e landed=http://localhost:3000/campaigns/1030e86d-4e7d-44f6-b400-d0994a3dc70e",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S04-desktop-1280x800.png",
-    "consoleErrors": [],
-    "networkErrors": [],
-    "createdIds": {
-      "workId": "8c7d01fe-89f9-46e6-ba7c-e2f9033a19b1",
-      "campaignId": "1030e86d-4e7d-44f6-b400-d0994a3dc70e"
-    }
-  },
-  {
-    "id": "S06",
-    "title": "Workspace stages + deep links",
-    "status": "pass",
-    "url": "http://localhost:3000/campaigns/1030e86d-4e7d-44f6-b400-d0994a3dc70e",
-    "viewport": "1280x800",
-    "notes": "nestedExport=0 distinctY=true campaign=1030e86d-4e7d-44f6-b400-d0994a3dc70e",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S06-desktop-1280x800.png",
-    "consoleErrors": [],
-    "networkErrors": []
-  },
-  {
-    "id": "S10",
-    "title": "Template materialize UI",
-    "status": "pass",
-    "url": "http://localhost:3000/campaigns",
-    "viewport": "1280x800",
-    "notes": "templateId=e12995d0-6ebc-4fa2-8006-36770af0a155 campaignId=be06a2ef-c56c-4655-9638-a111948a934a name=UAT S10 1784049424068 materializePosts=1",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S10-desktop-1280x800.png",
-    "consoleErrors": [],
-    "networkErrors": [],
-    "createdIds": {
-      "campaignId": "be06a2ef-c56c-4655-9638-a111948a934a",
-      "name": "UAT S10 1784049424068"
-    }
-  },
-  {
-    "id": "S12",
-    "title": "Empty / loading / error / retry matrix",
-    "status": "pass",
-    "url": "http://localhost:3000/campaigns/ab8e8d46-c4f8-4588-8f32-34c549a5f80d",
-    "viewport": "1280x800",
-    "notes": "{\"homeEmpty\":true,\"homeLoading\":true,\"homeError\":true,\"homeRetry\":true,\"worksEmpty\":true,\"worksLoading\":true,\"worksError\":true,\"worksRetry\":true,\"workspaceLoading\":true,\"workspaceError\":true,\"workspaceRetry\":true,\"recipeLoading\":true,\"recipeError\":true,\"recipeRetry\":true}",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S12-matrix-1280x800.png",
-    "consoleErrors": [],
-    "networkErrors": []
-  },
-  {
-    "id": "S03",
-    "title": "Create post generate + list",
-    "status": "pass",
-    "url": "http://localhost:3000/campaigns",
-    "viewport": "1280x800",
-    "notes": "workId=a936a192-d395-47e3-9591-3b4c6727a5a1 name=UAT S03 1784049515751 gen=202 listed=true before=19674 after=19657 kind=paid",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S03-desktop-1280x800.png",
-    "consoleErrors": [],
-    "networkErrors": [],
-    "createdIds": {
-      "workId": "a936a192-d395-47e3-9591-3b4c6727a5a1"
-    }
-  },
-  {
-    "id": "S07",
-    "title": "Preview auto-approved (quality ok)",
-    "status": "pass",
-    "url": "http://localhost:3000/campaigns/b6d7c144-3c7a-454b-a670-198d879f6fcc",
-    "viewport": "1280x800",
-    "notes": "previewDispatch=api:201 batchRequest=POST gateUi=false verdict=acceptable expectedCredits=10 chargedCredits=10",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S07-desktop-1280x800.png",
-    "consoleErrors": [],
-    "networkErrors": [],
-    "createdIds": {
-      "campaignId": "b6d7c144-3c7a-454b-a670-198d879f6fcc"
-    }
-  },
-  {
-    "id": "S08",
-    "title": "Preview blocked by quality gate",
-    "status": "pass",
-    "url": "http://localhost:3000/campaigns/0cdd2eee-e8e2-4dbe-9525-54102ba760ca",
-    "viewport": "1280x800",
-    "notes": "showGate=true noAuto=true invalid=true explicitContinueHttp=201 activePreviewId=9f83acdd-1070-4357-ae64-71c475e8dd40",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S08-desktop-1280x800.png",
-    "consoleErrors": [],
-    "networkErrors": [],
-    "createdIds": {
-      "campaignId": "0cdd2eee-e8e2-4dbe-9525-54102ba760ca",
-      "derivationId": "9f83acdd-1070-4357-ae64-71c475e8dd40"
-    }
-  },
-  {
-    "id": "S09",
-    "title": "Credits UI vs resolve + billing",
-    "status": "pass",
-    "url": "http://localhost:3000/campaigns/1030e86d-4e7d-44f6-b400-d0994a3dc70e",
-    "viewport": "1280x800",
-    "notes": "apiPreview=5 apiBatch=5 uiPreview=5 uiBatch=5 uiMatch=true runExpected=10 runCharged=10 ledgerCredits=10 billingMatch=true beforeOpen=19642 afterOpen=19642",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S09-desktop-1280x800.png",
-    "consoleErrors": [],
-    "networkErrors": []
-  },
-  {
-    "id": "S11",
-    "title": "Save post to library",
-    "status": "pass",
-    "url": "http://localhost:3000/library",
-    "viewport": "1280x800",
-    "notes": "libraryWorkId=f4c77961-53ad-4ce5-bdf7-cee1a6cb70c6 outputId=842b2ade-f39e-4d81-be9c-7c04028ca23a uiSave=true assetId=aef03c25-3ef7-4449-b0b8-7d95afe633c1 proxy=200 reloadImage=true",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S11-desktop-1280x800.png",
-    "consoleErrors": [],
-    "networkErrors": [],
-    "createdIds": {
-      "workId": "f4c77961-53ad-4ce5-bdf7-cee1a6cb70c6",
-      "outputId": "842b2ade-f39e-4d81-be9c-7c04028ca23a"
-    }
-  },
-  {
-    "id": "S01",
-    "title": "Home intent picker",
-    "status": "pass",
-    "url": "http://localhost:3000/",
-    "viewport": "1280x800",
-    "notes": "intent: campaign + create-post + assistant",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S01-desktop-1280x800.png",
-    "consoleErrors": [],
-    "networkErrors": []
-  },
-  {
-    "id": "S14",
-    "title": "Assistant intent mode",
-    "status": "pass",
-    "url": "http://localhost:3000/assistant",
-    "viewport": "1280x800",
-    "notes": "opened /assistant without workId",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S14-desktop-1280x800.png",
-    "consoleErrors": [],
-    "networkErrors": []
-  },
-  {
-    "id": "S05",
-    "title": "Trabalhos i18n + canonical states",
-    "status": "pass",
-    "url": "http://localhost:3000/campaigns",
-    "viewport": "390x844",
-    "notes": "h1=\"52 trabalhos\"",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S05-desktop-390x844.png",
-    "consoleErrors": [],
-    "networkErrors": []
-  },
-  {
-    "id": "S02",
-    "title": "New campaign create + redirect + list",
-    "status": "pass",
-    "url": "http://localhost:3000/campaigns",
-    "viewport": "390x844",
-    "notes": "campaignId=c8074742-3a18-43a3-a9a3-a9d48fcc1ddd name=UAT S02 1784050894340",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S02-desktop-390x844.png",
-    "consoleErrors": [],
-    "networkErrors": [],
-    "createdIds": {
-      "campaignId": "c8074742-3a18-43a3-a9a3-a9d48fcc1ddd",
-      "name": "UAT S02 1784050894340"
-    }
-  },
-  {
-    "id": "S04",
-    "title": "Continue campaign + post workId",
-    "status": "pass",
-    "url": "http://localhost:3000/campaigns/576b5a84-2643-44ed-8027-a0ae54f0edfa",
-    "viewport": "390x844",
-    "notes": "post workId wizard ok; continueHref=/campaigns/576b5a84-2643-44ed-8027-a0ae54f0edfa landed=http://localhost:3000/campaigns/576b5a84-2643-44ed-8027-a0ae54f0edfa",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S04-desktop-390x844.png",
-    "consoleErrors": [],
-    "networkErrors": [],
-    "createdIds": {
-      "workId": "a16eaebb-fd35-4699-b74e-a1d4939b264b",
-      "campaignId": "576b5a84-2643-44ed-8027-a0ae54f0edfa"
-    }
-  },
-  {
-    "id": "S06",
-    "title": "Workspace stages + deep links",
-    "status": "pass",
-    "url": "http://localhost:3000/campaigns/576b5a84-2643-44ed-8027-a0ae54f0edfa",
-    "viewport": "390x844",
-    "notes": "nestedExport=0 distinctY=true campaign=576b5a84-2643-44ed-8027-a0ae54f0edfa",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S06-desktop-390x844.png",
-    "consoleErrors": [],
-    "networkErrors": []
-  },
-  {
-    "id": "S10",
-    "title": "Template materialize UI",
-    "status": "pass",
-    "url": "http://localhost:3000/campaigns",
-    "viewport": "390x844",
-    "notes": "templateId=64aa9644-f1c1-4bcc-937a-c2d8fbd3dd9e campaignId=e4c829f5-88c2-40df-895e-0cda45e5c148 name=UAT S10 1784050897725 materializePosts=1",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S10-desktop-390x844.png",
-    "consoleErrors": [],
-    "networkErrors": [],
-    "createdIds": {
-      "campaignId": "e4c829f5-88c2-40df-895e-0cda45e5c148",
-      "name": "UAT S10 1784050897725"
-    }
-  },
-  {
-    "id": "S12",
-    "title": "Empty / loading / error / retry matrix",
-    "status": "pass",
-    "url": "http://localhost:3000/campaigns/7fc0b807-4307-42f1-b613-d5d0d76b187a",
-    "viewport": "390x844",
-    "notes": "{\"homeEmpty\":true,\"homeLoading\":true,\"homeError\":true,\"homeRetry\":true,\"worksEmpty\":true,\"worksLoading\":true,\"worksError\":true,\"worksRetry\":true,\"workspaceLoading\":true,\"workspaceError\":true,\"workspaceRetry\":true,\"recipeLoading\":true,\"recipeError\":true,\"recipeRetry\":true}",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S12-matrix-390x844.png",
-    "consoleErrors": [],
-    "networkErrors": []
-  },
-  {
-    "id": "S03",
-    "title": "Create post generate + list",
-    "status": "pass",
-    "url": "http://localhost:3000/campaigns",
-    "viewport": "390x844",
-    "notes": "workId=0f76ce42-db0b-4735-ba86-2fb2a963e50a name=UAT S03 1784051128408 gen=202 listed=true before=19615 after=19598 kind=paid",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S03-desktop-390x844.png",
-    "consoleErrors": [],
-    "networkErrors": [],
-    "createdIds": {
-      "workId": "0f76ce42-db0b-4735-ba86-2fb2a963e50a"
-    }
-  },
-  {
-    "id": "S07",
-    "title": "Preview auto-approved (quality ok)",
-    "status": "pass",
-    "url": "http://localhost:3000/campaigns/25e8ecc2-4a98-4d11-abb0-9aafdefebfdc",
-    "viewport": "390x844",
-    "notes": "previewDispatch=api:201 batchRequest=POST gateUi=false verdict=acceptable expectedCredits=10 chargedCredits=10",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S07-desktop-390x844.png",
-    "consoleErrors": [],
-    "networkErrors": [],
-    "createdIds": {
-      "campaignId": "25e8ecc2-4a98-4d11-abb0-9aafdefebfdc"
-    }
-  },
-  {
-    "id": "S08",
-    "title": "Preview blocked by quality gate",
-    "status": "pass",
-    "url": "http://localhost:3000/campaigns/5cc91fee-e25a-4656-835f-7e29d5f09e3d",
-    "viewport": "390x844",
-    "notes": "showGate=true noAuto=true invalid=true explicitContinueHttp=201 activePreviewId=870936a3-80e4-4d02-ac9a-f68e1a582b6d",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S08-desktop-390x844.png",
-    "consoleErrors": [],
-    "networkErrors": [],
-    "createdIds": {
-      "campaignId": "5cc91fee-e25a-4656-835f-7e29d5f09e3d",
-      "derivationId": "870936a3-80e4-4d02-ac9a-f68e1a582b6d"
-    }
-  },
-  {
-    "id": "S09",
-    "title": "Credits UI vs resolve + billing",
-    "status": "pass",
-    "url": "http://localhost:3000/campaigns/576b5a84-2643-44ed-8027-a0ae54f0edfa",
-    "viewport": "390x844",
-    "notes": "apiPreview=5 apiBatch=5 uiPreview=5 uiBatch=5 uiMatch=true runExpected=10 runCharged=10 ledgerCredits=10 billingMatch=true beforeOpen=19583 afterOpen=19583",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S09-desktop-390x844.png",
-    "consoleErrors": [],
-    "networkErrors": []
-  },
-  {
-    "id": "S11",
-    "title": "Save post to library",
-    "status": "pass",
-    "url": "http://localhost:3000/library",
-    "viewport": "390x844",
-    "notes": "libraryWorkId=918d7b83-db69-4e60-9d06-903a092f6b5c outputId=d110d6c1-446f-45e7-9df6-a29b9192bd6b uiSave=true assetId=419e1c3f-054b-4195-a2ec-8045673e7f93 proxy=200 reloadImage=true",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S11-desktop-390x844.png",
-    "consoleErrors": [],
-    "networkErrors": [],
-    "createdIds": {
-      "workId": "918d7b83-db69-4e60-9d06-903a092f6b5c",
-      "outputId": "d110d6c1-446f-45e7-9df6-a29b9192bd6b"
-    }
-  },
-  {
-    "id": "S01",
-    "title": "Home intent picker",
-    "status": "pass",
-    "url": "http://localhost:3000/",
-    "viewport": "390x844",
-    "notes": "intent: campaign + create-post + assistant",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S01-desktop-390x844.png",
-    "consoleErrors": [],
-    "networkErrors": []
-  },
-  {
-    "id": "S13",
-    "title": "Mobile navigation + campaign/post key paths",
-    "status": "pass",
-    "url": "http://localhost:3000/",
-    "viewport": "390x844",
-    "notes": "legacyLabels=false configPrimaryish=false visited=/,/campaigns,/library,/brand-kit,/settings,/templates,/assistant,/quick-tools/create-post?workId=…,/campaigns/:id,/templates",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S13-mobile-390x844.png",
-    "consoleErrors": [],
-    "networkErrors": []
-  },
-  {
-    "id": "S14",
-    "title": "Assistant intent mode",
-    "status": "pass",
-    "url": "http://localhost:3000/assistant",
-    "viewport": "390x844",
-    "notes": "opened /assistant without workId",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S14-desktop-390x844.png",
-    "consoleErrors": [],
-    "networkErrors": []
-  },
-  {
-    "id": "S05",
-    "title": "Trabalhos i18n + canonical states",
-    "status": "pass",
-    "url": "http://localhost:3000/campaigns",
-    "viewport": "360x800",
-    "notes": "h1=\"52 trabalhos\"",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S05-desktop-360x800.png",
-    "consoleErrors": [],
-    "networkErrors": []
-  },
-  {
-    "id": "S02",
-    "title": "New campaign create + redirect + list",
-    "status": "pass",
-    "url": "http://localhost:3000/campaigns",
-    "viewport": "360x800",
-    "notes": "campaignId=45b7b8c4-b155-4a79-aa79-c09b7e4540cb name=UAT S02 1784051224057",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S02-desktop-360x800.png",
-    "consoleErrors": [],
-    "networkErrors": [],
-    "createdIds": {
-      "campaignId": "45b7b8c4-b155-4a79-aa79-c09b7e4540cb",
-      "name": "UAT S02 1784051224057"
-    }
-  },
-  {
-    "id": "S04",
-    "title": "Continue campaign + post workId",
-    "status": "pass",
-    "url": "http://localhost:3000/campaigns/f17ef10a-1f32-4dd4-9926-280f74a99209",
-    "viewport": "360x800",
-    "notes": "post workId wizard ok; continueHref=/campaigns/f17ef10a-1f32-4dd4-9926-280f74a99209 landed=http://localhost:3000/campaigns/f17ef10a-1f32-4dd4-9926-280f74a99209",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S04-desktop-360x800.png",
-    "consoleErrors": [],
-    "networkErrors": [],
-    "createdIds": {
-      "workId": "276a6ab8-89b0-4abb-893e-325852477629",
-      "campaignId": "f17ef10a-1f32-4dd4-9926-280f74a99209"
-    }
-  },
-  {
-    "id": "S06",
-    "title": "Workspace stages + deep links",
-    "status": "pass",
-    "url": "http://localhost:3000/campaigns/f17ef10a-1f32-4dd4-9926-280f74a99209",
-    "viewport": "360x800",
-    "notes": "nestedExport=0 distinctY=true campaign=f17ef10a-1f32-4dd4-9926-280f74a99209",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S06-desktop-360x800.png",
-    "consoleErrors": [],
-    "networkErrors": []
-  },
-  {
-    "id": "S10",
-    "title": "Template materialize UI",
-    "status": "pass",
-    "url": "http://localhost:3000/campaigns",
-    "viewport": "360x800",
-    "notes": "templateId=b58af82e-7acd-419d-9322-61225c9ad0c0 campaignId=e6709f9d-a6ff-4db9-b86d-1d91e52ad655 name=UAT S10 1784051226963 materializePosts=1",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S10-desktop-360x800.png",
-    "consoleErrors": [],
-    "networkErrors": [],
-    "createdIds": {
-      "campaignId": "e6709f9d-a6ff-4db9-b86d-1d91e52ad655",
-      "name": "UAT S10 1784051226963"
-    }
-  },
-  {
-    "id": "S12",
-    "title": "Empty / loading / error / retry matrix",
-    "status": "pass",
-    "url": "http://localhost:3000/campaigns/d7e3f65f-05be-4b3d-8fd3-072faa0859aa",
-    "viewport": "360x800",
-    "notes": "{\"homeEmpty\":true,\"homeLoading\":true,\"homeError\":true,\"homeRetry\":true,\"worksEmpty\":true,\"worksLoading\":true,\"worksError\":true,\"worksRetry\":true,\"workspaceLoading\":true,\"workspaceError\":true,\"workspaceRetry\":true,\"recipeLoading\":true,\"recipeError\":true,\"recipeRetry\":true}",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S12-matrix-360x800.png",
-    "consoleErrors": [],
-    "networkErrors": []
-  },
-  {
-    "id": "S03",
-    "title": "Create post generate + list",
-    "status": "pass",
-    "url": "http://localhost:3000/campaigns",
-    "viewport": "360x800",
-    "notes": "workId=42ea003e-ef97-4499-95b1-90d8c1fc82ca name=UAT S03 1784051435038 gen=202 listed=true before=19583 after=19566 kind=paid",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S03-desktop-360x800.png",
-    "consoleErrors": [],
-    "networkErrors": [],
-    "createdIds": {
-      "workId": "42ea003e-ef97-4499-95b1-90d8c1fc82ca"
-    }
-  },
-  {
-    "id": "S07",
-    "title": "Preview auto-approved (quality ok)",
-    "status": "pass",
-    "url": "http://localhost:3000/campaigns/a324b1ce-c034-4b26-8a4b-557a1e3e8575",
-    "viewport": "360x800",
-    "notes": "previewDispatch=api:201 batchRequest=POST gateUi=false verdict=acceptable expectedCredits=10 chargedCredits=10",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S07-desktop-360x800.png",
-    "consoleErrors": [],
-    "networkErrors": [],
-    "createdIds": {
-      "campaignId": "a324b1ce-c034-4b26-8a4b-557a1e3e8575"
-    }
-  },
-  {
-    "id": "S08",
-    "title": "Preview blocked by quality gate",
-    "status": "pass",
-    "url": "http://localhost:3000/campaigns/fdc8ce94-1be2-48ef-8170-0e2509424e78",
-    "viewport": "360x800",
-    "notes": "showGate=true noAuto=true invalid=true explicitContinueHttp=201 activePreviewId=4c875198-1125-474f-8a36-f24a0f4743eb",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S08-desktop-360x800.png",
-    "consoleErrors": [],
-    "networkErrors": [],
-    "createdIds": {
-      "campaignId": "fdc8ce94-1be2-48ef-8170-0e2509424e78",
-      "derivationId": "4c875198-1125-474f-8a36-f24a0f4743eb"
-    }
-  },
-  {
-    "id": "S09",
-    "title": "Credits UI vs resolve + billing",
-    "status": "pass",
-    "url": "http://localhost:3000/campaigns/f17ef10a-1f32-4dd4-9926-280f74a99209",
-    "viewport": "360x800",
-    "notes": "apiPreview=5 apiBatch=5 uiPreview=5 uiBatch=5 uiMatch=true runExpected=10 runCharged=10 ledgerCredits=10 billingMatch=true beforeOpen=19551 afterOpen=19551",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S09-desktop-360x800.png",
-    "consoleErrors": [],
-    "networkErrors": []
-  },
-  {
-    "id": "S11",
-    "title": "Save post to library",
-    "status": "pass",
-    "url": "http://localhost:3000/library",
-    "viewport": "360x800",
-    "notes": "libraryWorkId=756981e8-61a2-4748-bb63-0002ee6ac52c outputId=c21c8645-a29c-4b02-9e5f-eb7fe823d159 uiSave=true assetId=d1fbc5e6-9a9a-48d7-a8e3-aa8f36898d0f proxy=200 reloadImage=true",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S11-desktop-360x800.png",
-    "consoleErrors": [],
-    "networkErrors": [],
-    "createdIds": {
-      "workId": "756981e8-61a2-4748-bb63-0002ee6ac52c",
-      "outputId": "c21c8645-a29c-4b02-9e5f-eb7fe823d159"
-    }
-  },
-  {
-    "id": "S01",
-    "title": "Home intent picker",
-    "status": "pass",
-    "url": "http://localhost:3000/",
-    "viewport": "360x800",
-    "notes": "intent: campaign + create-post + assistant",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S01-desktop-360x800.png",
-    "consoleErrors": [],
-    "networkErrors": []
-  },
-  {
-    "id": "S13",
-    "title": "Mobile navigation + campaign/post key paths",
-    "status": "pass",
-    "url": "http://localhost:3000/",
-    "viewport": "360x800",
-    "notes": "legacyLabels=false configPrimaryish=false visited=/,/campaigns,/library,/brand-kit,/settings,/templates,/assistant,/quick-tools/create-post?workId=…,/campaigns/:id,/templates",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S13-mobile-360x800.png",
-    "consoleErrors": [],
-    "networkErrors": []
-  },
-  {
-    "id": "S14",
-    "title": "Assistant intent mode",
-    "status": "pass",
-    "url": "http://localhost:3000/assistant",
-    "viewport": "360x800",
-    "notes": "opened /assistant without workId",
-    "screenshot": "/Users/jhonatan/Repos/ADScale_2/docs/plans/uat-50-evidence/uat-50-S14-desktop-360x800.png",
+    "notes": "opened /assistant without workId; creativeWorks=9",
+    "screenshot": "/Users/jhonatan/Repos/ADScale_2/.worktrees/frictionless-creative-flow/docs/plans/uat-50-evidence/uat-50-S14-desktop-1440x900.png",
     "consoleErrors": [],
     "networkErrors": []
   }

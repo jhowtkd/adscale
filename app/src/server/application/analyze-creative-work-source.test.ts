@@ -82,6 +82,7 @@ describe("analyzeCreativeWorkSource", () => {
 
   it("offers one deterministic failed analysis before succeeding on manual retry", async () => {
     vi.stubEnv("E2E_CONTROLLED_PROVIDER", "true");
+    vi.stubEnv("APP_URL", "http://localhost:3000");
     getCreativeWork.mockResolvedValue({ work: {}, outputs: [], sources: [source("controlled-failure", "both")] });
     getWorkspaceAssetById.mockResolvedValue({
       id: "asset-controlled-failure",

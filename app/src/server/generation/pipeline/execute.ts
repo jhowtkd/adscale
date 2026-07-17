@@ -65,6 +65,7 @@ export async function executeCanonicalGeneration(
     prompt: request.prompt.text,
     dimensions: request.format.dimensions,
     outputPrefix: request.destination.storagePrefix,
+    attempt: request.attempt ?? 0,
     referenceImages: request.identity.referenceImages,
     generationMode: toProviderMode(request.intent.mode),
     outputSuffix: request.source.outputSuffix ?? "",

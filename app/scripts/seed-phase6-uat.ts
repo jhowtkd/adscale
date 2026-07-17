@@ -42,6 +42,7 @@ import {
   setCreativeWorkCopy,
   confirmCreativeWorkIdentity,
   createCreativeWorkOutputs,
+  markCreativeWorkOutputProcessing,
   completeCreativeWorkOutput,
   setCreativeWorkStatus,
 } from "../src/server/repositories/creative-work";
@@ -434,11 +435,22 @@ async function main() {
   for (const [i, out] of libraryOutputs.entries()) {
     const key = `uat/phase6/${libraryWork.id}-out-${i}.png`;
     await putUatPng(key);
-    await completeCreativeWorkOutput(workspaceId, libraryWork.id, out.id, {
+    const processing = await markCreativeWorkOutputProcessing(
+      workspaceId,
+      libraryWork.id,
+      out.id
+    );
+    if (!processing) {
+      throw new Error(`Could not claim Phase6 library output ${out.id}`);
+    }
+    const completed = await completeCreativeWorkOutput(workspaceId, libraryWork.id, out.id, {
       outputKey: key,
       cost: 0,
       quality: { verdict: "acceptable" },
     });
+    if (!completed?.outputKey) {
+      throw new Error(`Could not complete Phase6 library output ${out.id}`);
+    }
     await ensureCreativeWorkOutputInLibrary({
       workspaceId,
       outputKey: key,

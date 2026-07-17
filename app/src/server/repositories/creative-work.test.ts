@@ -172,6 +172,7 @@ import {
   markCreativeWorkOutputProcessing,
   incrementCreativeWorkOutputRetry,
   requeueCreativeWorkOutputOnce,
+  requeueFailedCreativeWorkOutput,
   linkCreativeWorkCampaign,
   listCreativeWorkInspirationCandidates,
   refreshCreativeWorkStatus,
@@ -640,7 +641,10 @@ describe("creative-work repository", () => {
         .resolves.toBeNull();
       const query = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]);
       expect(query.sql).toContain('"creative_work_items"."updated_at"');
+      expect(query.sql).toContain("date_trunc('milliseconds'");
+      expect(query.sql).toContain("timestamp without time zone");
       expect(query.params).toHaveLength(4);
+      expect(query.params.at(-1)).toBe(capturedAt.toISOString());
     });
 
     it("holds the preparation callback under a work-scoped advisory transaction lock", async () => {
@@ -696,6 +700,8 @@ describe("creative-work repository", () => {
       expect(query.sql).toContain('"creative_work_sources"."status"');
       expect(query.sql).toContain('"creative_work_sources"."usage"');
       expect(query.sql).toContain('"creative_work_sources"."updated_at"');
+      expect(query.sql).toContain("date_trunc('milliseconds'");
+      expect(query.sql).toContain("timestamp without time zone");
       expect(query.params).toEqual(["ws-1", "work-1", "source-1", "uploaded", "style", expectedAt.toISOString()]);
     });
 
@@ -733,6 +739,24 @@ describe("creative-work repository", () => {
       expect(query.sql).toContain('"retry_count"');
       expect(query.params).toContain(0);
       expect(query.params).toContain("processing");
+    });
+
+    it("increments the durable attempt when manually requeuing a failed output", async () => {
+      const retried = workOutput({ retryCount: 2, status: "queued" });
+      mocks.state.updateResults.push([retried]);
+
+      await expect(requeueFailedCreativeWorkOutput(
+        "ws-1",
+        "work-1",
+        "output-1",
+      )).resolves.toEqual(retried);
+
+      expect(mocks.setMock).toHaveBeenCalledWith(expect.objectContaining({
+        status: "queued",
+        retryCount: expect.anything(),
+      }));
+      const query = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]);
+      expect(query.params).toContain("failed");
     });
 
     it("links only a same-workspace campaign with a compatible client profile", async () => {
@@ -805,6 +829,9 @@ describe("creative-work repository", () => {
           failureCode: "generation_timeout",
         }),
       );
+      const query = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]);
+      expect(query.sql).toContain("timestamp without time zone");
+      expect(query.params.at(-1)).toBe(staleBefore);
       expect(result).toEqual([failed]);
     });
   });
@@ -906,6 +933,8 @@ describe("creative-work repository", () => {
       await confirmCreativeWorkSnapshotsIfUnchanged("ws-1", "work-1", expectedAt, inputSnapshot, snapshot);
       expect(mocks.setMock).toHaveBeenCalledWith(expect.objectContaining({ status: "ready", inputSnapshot, identitySnapshot: snapshot }));
       const query = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]);
+      expect(query.sql).toContain("date_trunc('milliseconds'");
+      expect(query.sql).toContain("timestamp without time zone");
       expect(query.params).toEqual(expect.arrayContaining(["ws-1", "work-1", "draft", expectedAt.toISOString()]));
     });
   });

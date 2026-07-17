@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockResponsesCreate = vi.hoisted(() => vi.fn());
+const controlledProviderEnabled = vi.hoisted(() => vi.fn(() => false));
 
 vi.mock("./utils", () => ({
   getOpenAI: () => ({ responses: { create: mockResponsesCreate } }),
@@ -11,6 +12,10 @@ vi.mock("@/server/validation/env", () => ({
   env: { OPENAI_TEXT_MODEL: "gpt-5.6" },
 }));
 
+vi.mock("./providers/e2e-controlled-provider", () => ({
+  isE2EControlledProviderEnabled: controlledProviderEnabled,
+}));
+
 import {
   aggregateCandidateJudgments,
   selectCreativeCandidate,
@@ -18,6 +23,7 @@ import {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  controlledProviderEnabled.mockReturnValue(false);
 });
 
 describe("aggregateCandidateJudgments", () => {
@@ -48,6 +54,25 @@ describe("aggregateCandidateJudgments", () => {
 });
 
 describe("selectCreativeCandidate", () => {
+  it("selects deterministically without external judging in controlled local E2E", async () => {
+    controlledProviderEnabled.mockReturnValue(true);
+    const result = await selectCreativeCandidate({
+      candidates: ["route-1", "route-2"].map((routeId) => ({
+        routeId,
+        buffer: Buffer.from(routeId),
+        mimeType: "image/png",
+      })),
+      brief: "A local E2E creative.",
+      objective: "Exercise the real pipeline deterministically",
+      brandConstraints: null,
+      targetFormat: "4:5",
+      referenceImages: [],
+    });
+
+    expect(result).toMatchObject({ winnerIndex: 0, invalidRouteIds: [] });
+    expect(mockResponsesCreate).not.toHaveBeenCalled();
+  });
+
   it("judges anonymized candidates twice in reversed order", async () => {
     const judgment = {
       ranking: ["route-2", "route-1", "route-3"],

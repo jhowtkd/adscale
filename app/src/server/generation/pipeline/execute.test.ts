@@ -183,6 +183,7 @@ describe("executeCanonicalGeneration parity", () => {
   it("plans and passes three creative routes for social posts", async () => {
     const request = baseRequest({
       surface: "quick_tool",
+      attempt: 2,
       intent: { mode: "social_post", objective: "Qualified trials" },
       identity: {
         clientProfileId: "client-1",
@@ -209,6 +210,7 @@ describe("executeCanonicalGeneration parity", () => {
       })
     );
     const generationInput = mockGenerate.mock.calls[0][0];
+    expect(generationInput.attempt).toBe(2);
     expect(generationInput.routes?.map((route) => route.id)).toEqual([
       "route-1",
       "route-2",

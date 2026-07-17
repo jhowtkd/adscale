@@ -45,6 +45,12 @@ vi.mock("@/server/repositories/client-reference", () => ({
 
 vi.mock("@/server/ai/image-generation", () => ({
   generateAndStoreImage: (...args: unknown[]) => generateAndStoreImageMock(...args),
+  isRetryableProviderError: (error: unknown) => {
+    if (!error || typeof error !== "object") return false;
+    const value = error as { retryable?: unknown; name?: unknown; code?: unknown; stack?: unknown };
+    const stackName = typeof value.stack === "string" ? value.stack.split("\n", 1)[0]?.split(":", 1)[0] : null;
+    return value.retryable === true || value.name === "TimeoutError" || value.code === "ETIMEDOUT" || stackName === "TimeoutError";
+  },
 }));
 
 vi.mock("@/server/creative-work/composite", () => ({
@@ -325,6 +331,22 @@ describe("creativeWorkOutputJob", () => {
     expect(request.prompt).toContain("Use mais contraste");
   });
 
+  it("passes the persisted output retry count as the canonical attempt", async () => {
+    getCreativeWorkMock.mockResolvedValue({
+      work: workItem,
+      outputs: [makeQueuedOutput({ retryCount: 2 })],
+    });
+    markProcessingMock.mockResolvedValue(
+      makeQueuedOutput({ status: "processing", retryCount: 2 }),
+    );
+
+    await runJob();
+
+    expect(generateAndStoreImageMock).toHaveBeenCalledWith(
+      expect.objectContaining({ attempt: 2 }),
+    );
+  });
+
   it("uses the completed parent image as the primary revision reference without overwriting it", async () => {
     const parent = makeQueuedOutput({
       id: "output-v1",
@@ -366,6 +388,19 @@ describe("creativeWorkOutputJob", () => {
     expect(result).toMatchObject({ success: false, retrying: true });
     expect(sendMock).toHaveBeenCalledWith({ name: "creative-work.generate", data: baseEvent });
     expect(failMock).not.toHaveBeenCalled();
+  });
+
+  it("redispatches a retryable error shape preserved across an Inngest step boundary", async () => {
+    getCreativeWorkMock.mockResolvedValue({ work: workItem, outputs: [makeQueuedOutput()] });
+    markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+    const transported = new Error("All image candidates failed: Error: upstream request failed");
+    transported.name = "Error";
+    transported.stack = `TimeoutError: ${transported.message}\n    at generateAndStoreImage (image-generation.ts:1:1)`;
+    generateAndStoreImageMock.mockRejectedValue(transported);
+    requeueOnceMock.mockResolvedValue(makeQueuedOutput({ retryCount: 1 }));
+    const result = await runJob();
+    expect(result).toMatchObject({ success: false, retrying: true });
+    expect(sendMock).toHaveBeenCalledWith({ name: "creative-work.generate", data: baseEvent });
   });
 
   it("makes a won auto-retry CAS manually recoverable when redispatch fails", async () => {

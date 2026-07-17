@@ -67,11 +67,29 @@ const FIXTURE_PATH = path.resolve(
   "../tests/fixtures/create-post-e2e.json",
 );
 
-/** 8x8 fully transparent PNG so composite-acceptance can rely on alpha=1. */
-const TRANSPARENT_PNG = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAIAQAAAAAAAAAAAAAATklEQVR42mP8z8AARFAwiokQGAUjkIogsJgFgYGBgYEBAEyFAQB6fAhT8pxGgwAAAABJRU5ErkJggg==",
-  "base64",
-);
+/** Valid fully transparent PNG so composite-acceptance can rely on alpha=1. */
+async function buildTransparentPng(): Promise<Buffer> {
+  const transparentCanvas = sharp({
+    create: {
+      width: 96,
+      height: 96,
+      channels: 4,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    },
+  });
+  const visibleMark = await sharp({
+    create: {
+      width: 64,
+      height: 64,
+      channels: 4,
+      background: { r: 24, g: 72, b: 216, alpha: 1 },
+    },
+  }).png().toBuffer();
+  return transparentCanvas
+    .composite([{ input: visibleMark, left: 16, top: 16 }])
+    .png()
+    .toBuffer();
+}
 
 /** 64x64 deterministic solid magenta PNG (no alpha). */
 async function buildOpaquePng(): Promise<Buffer> {
@@ -259,9 +277,9 @@ async function uploadFixtureAsset(input: {
   return { key, assetId: asset.id };
 }
 
-async function seedBrandKit(profileId: string): Promise<void> {
+async function seedBrandKit(workspaceId: string, profileId: string): Promise<void> {
   await upsertBrandKit(
-    profileId,
+    workspaceId,
     {
       name: PRIMARY_CLIENT_NAME,
       description: "Seed profile used by Create Post acceptance gate",
@@ -398,12 +416,9 @@ async function main(): Promise<void> {
 
   const primary = await ensureClientProfile(workspaceId, PRIMARY_CLIENT_NAME);
 
-  await seedBrandKit(primary.id);
+  await seedBrandKit(workspaceId, primary.id);
 
-  const logoBuffer = await sharp(Buffer.from(TRANSPARENT_PNG))
-    .resize(96, 96)
-    .png()
-    .toBuffer();
+  const logoBuffer = await buildTransparentPng();
   const referenceBuffer = await buildVisualReferencePng();
   const opaqueBuffer = await buildOpaquePng();
 

@@ -14,7 +14,6 @@ const CONTROLLED_PNG = Buffer.from(
   "base64"
 );
 
-const controlledFailures = new Map<string, number>();
 const RETRY_SETTLE_DELAY_MS = 3_500;
 
 function isLocalAppUrl(value: string | undefined): boolean {
@@ -63,23 +62,23 @@ export class E2EControlledImageProvider implements ImageGenerationProvider {
   }
 
   async generate(input: ProviderGenerateInput): Promise<ImageCandidate> {
-    const failureLimit = this.failureFixturesEnabled && input.prompt.includes("[e2e:retry-twice-bold]")
+    const failureAttempts = this.failureFixturesEnabled && input.prompt.includes("[e2e:retry-twice-bold]")
       ? 2
       : this.failureFixturesEnabled && input.prompt.includes("[e2e:retry-once-bold]")
         ? 1
         : 0;
-    const failures = controlledFailures.get(input.outputPrefix) ?? 0;
-    // Hold the second attempt open long enough for the real polling UI to
-    // render both completed siblings while the bold proposal is still pending.
-    if (failureLimit > 0 && failures === 1 && this.retrySettleDelayMs > 0) {
-      await new Promise((resolve) => setTimeout(resolve, this.retrySettleDelayMs));
-    }
-    if (failureLimit > failures && input.prompt.includes("CREATIVE LEVEL: bold")) {
-      controlledFailures.set(input.outputPrefix, failures + 1);
+    const attempt = input.attempt ?? 0;
+    if (failureAttempts > attempt && input.prompt.includes("CREATIVE LEVEL: bold")) {
       throw Object.assign(new Error("controlled_retryable_failure"), {
         retryable: true,
         status: 503,
       });
+    }
+    // The canonical runtime generates three candidates concurrently. Fail all
+    // candidates in the controlled attempt, then hold the successful retry
+    // open long enough for the polling UI to render its partial state.
+    if (failureAttempts > 0 && attempt >= failureAttempts && this.retrySettleDelayMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, this.retrySettleDelayMs));
     }
     return {
       buffer: CONTROLLED_PNG,
@@ -88,7 +87,7 @@ export class E2EControlledImageProvider implements ImageGenerationProvider {
         provider: "openai",
         model: "e2e-controlled-image",
         durationMs: 0,
-        rawRequestId: `e2e:${input.outputPrefix}`,
+        rawRequestId: `e2e:${input.outputPrefix}:attempt-${attempt}`,
         revisedPrompt: input.prompt,
       },
     };

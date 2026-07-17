@@ -86,7 +86,17 @@ test.describe("Template materialization", () => {
       ctaVariants: BRIEF.ctaVariants,
       targetFormats: BRIEF.targetFormats,
     });
-    const countBefore = ((await (await api.get("/api/campaigns?limit=200")).json()) as { campaigns: unknown[] }).campaigns.length;
+    const campaignIds = async () => {
+      const response = await api.get(`/api/campaigns?limit=200&_=${Date.now()}`, {
+        headers: { "Cache-Control": "no-cache" },
+      });
+      expect(response.ok()).toBe(true);
+      return ((await response.json()) as { campaigns: Array<{ id: string }> })
+        .campaigns.map((campaign) => campaign.id)
+        .sort();
+    };
+    await expect.poll(campaignIds).toContain(sourceId);
+    const campaignIdsBefore = await campaignIds();
 
     let materializeCalls = 0;
     let campaignMutations = 0;
@@ -102,14 +112,15 @@ test.describe("Template materialization", () => {
     await expect(card.getByText(templateName)).toBeVisible();
     await card.getByRole("button", { name: /Use template|Usar template/i })
       .evaluate((button: HTMLButtonElement) => { button.click(); button.click(); });
-    await expect(page).toHaveURL(new RegExp(`templateId=${templateId}`));
+    // templateId is intentionally transient: the composer consumes it after
+    // attaching the source and canonicalizes the URL to workId only.
+    await expect.poll(() => new URL(page.url()).searchParams.get("workId")).toBeTruthy();
     await expect(page.getByRole("textbox", { name: /pedido criativo|creative request/i })).toBeVisible();
     const source = page.locator("article").filter({ hasText: templateName });
     await expect(source).toBeVisible({ timeout: 30_000 });
     await expect(source.getByRole("button", { name: /ambos|both/i })).toHaveAttribute("aria-pressed", "true");
     await expect(source.getByRole("status")).toHaveText(/análise concluída|analysis complete/i);
 
-    await expect.poll(() => new URL(page.url()).searchParams.get("workId")).toBeTruthy();
     const workId = new URL(page.url()).searchParams.get("workId")!;
     const detail = (await (await api.get(`/api/creative-work/${workId}`)).json()) as {
       sources: Array<{
@@ -147,7 +158,6 @@ test.describe("Template materialization", () => {
     });
     expect(materializeCalls).toBe(0);
     expect(campaignMutations).toBe(0);
-    const countAfter = ((await (await api.get("/api/campaigns?limit=200")).json()) as { campaigns: unknown[] }).campaigns.length;
-    expect(countAfter).toBe(countBefore);
+    expect(await campaignIds()).toEqual(campaignIdsBefore);
   });
 });

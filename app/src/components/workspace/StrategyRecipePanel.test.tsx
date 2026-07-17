@@ -7,6 +7,7 @@ const strategyRecipeState = vi.hoisted(() => ({
   isLoading: false,
   isError: false,
   refetch: vi.fn(),
+  lastInput: null as { enabled?: boolean } | null,
 }));
 
 vi.mock("next-intl", () => ({
@@ -39,7 +40,9 @@ vi.mock("@/lib/hooks/use-art-variation-suggestions", () => ({
 }));
 
 vi.mock("@/lib/hooks/use-strategy-recipe", () => ({
-  useStrategyRecipe: () => ({
+  useStrategyRecipe: (input: { enabled?: boolean }) => {
+    strategyRecipeState.lastInput = input;
+    return ({
     rankedRecipes: [
       { id: "safe_iteration", score: 100, recommended: true },
       { id: "performance_push", score: 50, recommended: false },
@@ -75,7 +78,8 @@ vi.mock("@/lib/hooks/use-strategy-recipe", () => ({
     isLoading: strategyRecipeState.isLoading,
     isError: strategyRecipeState.isError,
     refetch: strategyRecipeState.refetch,
-  }),
+    });
+  },
 }));
 
 const STAGE_PROPS = { stage: "strategy_recipe", missionKey: "strategy_recipe" };
@@ -86,6 +90,21 @@ describe("StrategyRecipePanel", () => {
     strategyRecipeState.isLoading = false;
     strategyRecipeState.isError = false;
     strategyRecipeState.refetch.mockReset();
+    strategyRecipeState.lastInput = null;
+  });
+
+  it("does not resolve a strategy recipe while the panel is closed", () => {
+    render(
+      <StrategyRecipePanel
+        campaignId="camp-1"
+        open={false}
+        campaign={{ ctaVariants: ["Buy"] }}
+        onClose={vi.fn()}
+        onGeneratePreview={vi.fn()}
+      />
+    );
+
+    expect(strategyRecipeState.lastInput).toMatchObject({ enabled: false });
   });
 
   it("renders three recipe options", () => {

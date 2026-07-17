@@ -44,6 +44,8 @@ export interface GenerateAndStoreImageInput {
   dimensions: { width: number; height: number };
   outputPrefix: string;
   referenceImages: ImageReference[];
+  /** Zero-based durable attempt propagated to the provider. */
+  attempt?: number;
   /**
    * Optional normalization mode applied after decoding the provider response.
    * Defaults to `"art_variation"`. Derivation callers may pass
@@ -102,14 +104,21 @@ export function __setImageProviderForTests(provider: ImageGenerationProvider | n
   cachedProvider = provider;
 }
 
-function isRetryableProviderError(error: unknown): boolean {
+export function isRetryableProviderError(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
-  const value = error as { status?: unknown; statusCode?: unknown; code?: unknown; name?: unknown; cause?: unknown; constructor?: { name?: unknown } };
+  const value = error as { retryable?: unknown; status?: unknown; statusCode?: unknown; code?: unknown; name?: unknown; stack?: unknown; cause?: unknown; constructor?: { name?: unknown } };
+  if (value.retryable === true) return true;
   const status = typeof value.status === "number" ? value.status : value.statusCode;
   if (typeof status === "number" && (status === 408 || status === 409 || status === 429 || status >= 500)) return true;
   if (["ETIMEDOUT", "ECONNRESET", "EAI_AGAIN", "ECONNREFUSED"].includes(String(value.code))) return true;
   const names = [value.name, value.constructor?.name].filter((name): name is string => typeof name === "string");
   if (names.some((name) => name === "AbortError" || name === "TimeoutError" || /^API[A-Za-z]*(Connection|Timeout|Abort)[A-Za-z]*Error$/.test(name))) return true;
+  // Durable step transports can normalize `name` to Error while preserving
+  // the original error name in the first line of the stack.
+  const stackName = typeof value.stack === "string"
+    ? value.stack.split("\n", 1)[0]?.split(":", 1)[0]
+    : null;
+  if (stackName === "AbortError" || stackName === "TimeoutError" || (stackName && /^API[A-Za-z]*(Connection|Timeout|Abort)[A-Za-z]*Error$/.test(stackName))) return true;
   return value.cause !== error && isRetryableProviderError(value.cause);
 }
 
@@ -146,6 +155,7 @@ export async function generateAndStoreImage(
     dimensions,
     outputPrefix,
     referenceImages,
+    attempt = 0,
     generationMode = "art_variation",
     quality = "high",
     routes,
@@ -165,6 +175,7 @@ export async function generateAndStoreImage(
         referenceImages,
         generationMode,
         outputPrefix,
+        attempt,
         quality: routes?.length ? "medium" : quality,
       };
       return { routeId: route.id, candidate: await provider.generate(providerInput) };
@@ -180,8 +191,14 @@ export async function generateAndStoreImage(
       .map(String)
       .filter(Boolean)
       .join("; ");
-    const aggregate = new Error(`All image candidates failed: ${reason}`) as Error & { retryable?: boolean };
-    if (failures.some(isRetryableProviderError)) aggregate.retryable = true;
+    const aggregate = new Error(`All image candidates failed: ${reason}`) as Error & { retryable?: boolean; code?: string };
+    if (failures.some(isRetryableProviderError)) {
+      aggregate.retryable = true;
+      // Inngest serializes errors across step boundaries and may drop custom
+      // fields. Preserve a standard transient shape that survives that hop.
+      aggregate.name = "TimeoutError";
+      aggregate.code = "ETIMEDOUT";
+    }
     throw aggregate;
   }
 
@@ -254,6 +271,7 @@ export async function generateAndStoreImage(
         ],
         generationMode,
         outputPrefix,
+        attempt,
         quality: "high",
       });
       const refinedOutputKey = `${outputPrefix}/candidates/refined${outputSuffix}.png`;

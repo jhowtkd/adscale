@@ -67,6 +67,9 @@ function focusBrandSwitcher() {
     ?? document.getElementById("active-brand-switcher"))?.focus();
 }
 
+const CREATIVE_ANNOUNCEMENT_EVENT = "adscale:creative-announcement";
+const CREATIVE_ANNOUNCEMENT_STORAGE_KEY = "adscale_creative_announcement";
+
 export function useCreativeComposer({
   initialWorkId,
   initialIntent = "variations",
@@ -198,7 +201,23 @@ export function useCreativeComposer({
 
   const ensureDraft = useCallback((source?: DraftSource, silent = false) => {
     if (workIdRef.current) return Promise.resolve(workIdRef.current);
-    if (createInFlightRef.current) return createInFlightRef.current;
+    if (createInFlightRef.current) {
+      const creating = createInFlightRef.current;
+      if (!source) return creating;
+      // A debounced text autosave may already be creating the draft while an
+      // upload finishes. Preserve that newly-arrived source instead of
+      // returning the source-less in-flight promise and silently dropping it.
+      return creating.then(async (id) => {
+        if (!id) return null;
+        await sourceMutation.mutateAsync({
+          workItemId: id,
+          action: "attachSource",
+          ...source,
+          usage: "both",
+        });
+        return id;
+      });
+    }
     if (!active.activeClientProfileId) {
       focusBrandSwitcher();
       return Promise.resolve(null);
@@ -233,7 +252,7 @@ export function useCreativeComposer({
     }).finally(() => { createInFlightRef.current = null; });
     createInFlightRef.current = promise;
     return promise;
-  }, [active.activeClientProfileId, captureSnapshot, createMutation, enqueueSave, exposeWorkId]);
+  }, [active.activeClientProfileId, captureSnapshot, createMutation, enqueueSave, exposeWorkId, sourceMutation]);
 
   const persistSnapshot = useCallback((id: string, snapshot: DraftSnapshot, announce = true) => enqueueSave(async () => {
     const sentSignature = signature(snapshot);
@@ -278,6 +297,43 @@ export function useCreativeComposer({
         if (lifecycleRef.current === lifecycle) void persistOnUnmountRef.current();
       });
     };
+  }, []);
+
+  useEffect(() => {
+    const receiveAnnouncement = (event: Event) => {
+      const message = event instanceof CustomEvent && typeof event.detail === "string"
+        ? event.detail
+        : null;
+      if (!message) return;
+      setAnnouncement(message);
+      try {
+        window.sessionStorage.removeItem(CREATIVE_ANNOUNCEMENT_STORAGE_KEY);
+      } catch {
+        /* Storage is optional; the event still reaches the mounted composer. */
+      }
+    };
+    window.addEventListener(CREATIVE_ANNOUNCEMENT_EVENT, receiveAnnouncement);
+    try {
+      const pending = window.sessionStorage.getItem(CREATIVE_ANNOUNCEMENT_STORAGE_KEY);
+      if (pending) receiveAnnouncement(new CustomEvent(CREATIVE_ANNOUNCEMENT_EVENT, { detail: pending }));
+    } catch {
+      /* Storage is optional; future announcements still arrive through the event. */
+    }
+    return () => window.removeEventListener(CREATIVE_ANNOUNCEMENT_EVENT, receiveAnnouncement);
+  }, []);
+
+  const announce = useCallback((message: string) => {
+    if (mountedRef.current) setAnnouncement(message);
+    if (typeof window === "undefined") return;
+    try {
+      // Creating the first draft canonicalizes the URL and can remount the
+      // composer before an upload finishes. Keep the message until the new
+      // live region consumes it, and broadcast for the already-mounted case.
+      window.sessionStorage.setItem(CREATIVE_ANNOUNCEMENT_STORAGE_KEY, message);
+    } catch {
+      /* Storage is optional; the event remains the primary delivery path. */
+    }
+    window.dispatchEvent(new CustomEvent(CREATIVE_ANNOUNCEMENT_EVENT, { detail: message }));
   }, []);
 
   useEffect(() => {
@@ -359,13 +415,13 @@ export function useCreativeComposer({
           });
         }
       }
-      setAnnouncement(images.length === 1 ? "Arte adicionada" : `${images.length} artes adicionadas`);
+      announce(images.length === 1 ? "Arte adicionada" : `${images.length} artes adicionadas`);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Falha ao adicionar arte");
     } finally {
       setIsUploading(false);
     }
-  }, [active.activeClientProfileId, ensureDraft, sourceMutation]);
+  }, [active.activeClientProfileId, announce, ensureDraft, sourceMutation]);
 
   const attachDraftSource = useCallback(async (source: DraftSource): Promise<boolean> => {
     if (!workIdRef.current && !active.activeClientProfileId) {

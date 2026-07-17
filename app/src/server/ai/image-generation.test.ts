@@ -54,7 +54,7 @@ vi.mock("sharp", () => ({
 }));
 
 import { objectStorage } from "@/server/storage";
-import { generateAndStoreImage, normalizeGeneratedImage } from "./image-generation";
+import { generateAndStoreImage, isRetryableProviderError, normalizeGeneratedImage } from "./image-generation";
 
 const BASE_INPUT = {
   prompt: "a creative post",
@@ -337,9 +337,28 @@ describe("generateAndStoreImage", () => {
       const error = await generateAndStoreImage({ ...BASE_INPUT, outputPrefix: "creative-work/retryable" }).catch((caught) => caught);
       expect(error).toBeInstanceOf(Error);
       expect(error.retryable).toBe(true);
+      expect(error).toMatchObject({ name: "TimeoutError", code: "ETIMEDOUT" });
     } finally {
       __setImageProviderForTests(null);
     }
+  });
+
+  it("recognizes the TimeoutError name preserved only in an Inngest step stack", () => {
+    const transported = new Error(
+      "All image candidates failed: Error: upstream request failed",
+    );
+    transported.name = "Error";
+    transported.stack = `TimeoutError: ${transported.message}\n    at generateAndStoreImage (image-generation.ts:1:1)`;
+
+    expect(isRetryableProviderError(transported)).toBe(true);
+  });
+
+  it("does not treat an ordinary transported Error stack as retryable", () => {
+    const transported = new Error("invalid prompt");
+    transported.name = "Error";
+    transported.stack = `Error: ${transported.message}\n    at generateAndStoreImage (image-generation.ts:1:1)`;
+
+    expect(isRetryableProviderError(transported)).toBe(false);
   });
 
   it("marks an HTTP 429 provider error retryable", async () => {

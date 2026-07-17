@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/server/validation/env", () => ({
   env: {
@@ -15,9 +15,12 @@ import {
 } from "./creative-qa";
 
 describe("analyzeCreativeQa controlled E2E seam", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
   it("returns deterministic passed observations while leaving policy evaluation downstream", async () => {
     vi.stubEnv("NODE_ENV", "test");
     vi.stubEnv("E2E_CONTROLLED_PROVIDER", "true");
+    vi.stubEnv("APP_URL", "http://localhost:3000");
 
     const result = await analyzeCreativeQa({
       imageBuffer: Buffer.from("controlled"),
@@ -43,7 +46,6 @@ describe("analyzeCreativeQa controlled E2E seam", () => {
     expect(Object.values(result.checklist).every((item) => item.status === "passed")).toBe(true);
     expect(result.issues).toEqual([]);
 
-    vi.unstubAllEnvs();
   });
 });
 

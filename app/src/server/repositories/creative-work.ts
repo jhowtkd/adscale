@@ -1,4 +1,4 @@
-import { eq, and, asc, desc, inArray, isNull, lt, max, sql } from "drizzle-orm";
+import { eq, and, asc, desc, inArray, isNull, max, sql } from "drizzle-orm";
 import { db } from "../db";
 import {
   creativeWorkItems,
@@ -281,7 +281,7 @@ export async function updateCreativeWorkDraftIfUnchanged(
     eq(creativeWorkItems.workspaceId, workspaceId),
     eq(creativeWorkItems.id, workItemId),
     eq(creativeWorkItems.status, "draft"),
-    eq(creativeWorkItems.updatedAt, expectedUpdatedAt),
+    sql`date_trunc('milliseconds', ${creativeWorkItems.updatedAt}) = cast(${expectedUpdatedAt.toISOString()} as timestamp without time zone)`,
   )).returning();
   return row ?? null;
 }
@@ -451,7 +451,12 @@ export async function updateCreativeWorkSourceIfUnchanged(
       eq(creativeWorkSources.id, sourceId),
       eq(creativeWorkSources.status, expected.status),
       eq(creativeWorkSources.usage, expected.usage),
-      eq(creativeWorkSources.updatedAt, expected.updatedAt),
+      // PostgreSQL keeps microseconds while Drizzle maps timestamps to a
+      // millisecond-precision Date. The column is `timestamp without time
+      // zone`, so bind the ISO value as text and cast it explicitly too;
+      // binding a Date makes postgres.js treat it as `timestamptz` and apply
+      // the session offset a second time, making every fresh CAS miss.
+      sql`date_trunc('milliseconds', ${creativeWorkSources.updatedAt}) = cast(${expected.updatedAt.toISOString()} as timestamp without time zone)`,
     )).returning();
     if (!row) return null;
     await tx.update(creativeWorkItems).set({
@@ -602,7 +607,7 @@ export async function confirmCreativeWorkSnapshotsIfUnchanged(
     eq(creativeWorkItems.workspaceId, workspaceId),
     eq(creativeWorkItems.id, workItemId),
     eq(creativeWorkItems.status, "draft"),
-    eq(creativeWorkItems.updatedAt, expectedUpdatedAt),
+    sql`date_trunc('milliseconds', ${creativeWorkItems.updatedAt}) = cast(${expectedUpdatedAt.toISOString()} as timestamp without time zone)`,
   )).returning();
   return row ?? null;
 }
@@ -931,7 +936,11 @@ export async function failStaleCreativeWorkOutputs(
         eq(creativeWorkOutputs.workspaceId, workspaceId),
         eq(creativeWorkOutputs.workItemId, workItemId),
         inArray(creativeWorkOutputs.status, ["queued", "processing"]),
-        lt(creativeWorkOutputs.updatedAt, staleBefore),
+        // `staleBefore` comes from the wall clock (unlike the CAS Dates above,
+        // which were read from a timestamp-without-time-zone column). Preserve
+        // its instant and let PostgreSQL project it into the session timezone
+        // before comparing with the timezone-less stored value.
+        sql`${creativeWorkOutputs.updatedAt} < cast(${staleBefore} as timestamp without time zone)`,
       ),
     )
     .returning();
@@ -1051,6 +1060,7 @@ export async function requeueFailedCreativeWorkOutput(
     .set({
       status: "queued",
       failureCode: null,
+      retryCount: sql`${creativeWorkOutputs.retryCount} + 1`,
       updatedAt: new Date(),
     })
     .where(

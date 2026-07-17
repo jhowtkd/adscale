@@ -222,9 +222,51 @@ export async function waitTrabalhosHydrated(page: Page) {
 }
 
 /** Wait until campaign workspace stage strip is interactive. */
-export async function waitWorkspaceStages(page: Page, timeout = 30_000) {
-  await page
-    .getByRole("button", { name: /briefing/i })
-    .first()
-    .waitFor({ state: "visible", timeout });
+export async function waitWorkspaceStages(page: Page, timeout = 90_000) {
+  const briefing = page
+    .locator("button:visible")
+    .filter({ hasText: /briefing/i })
+    .first();
+  const missionInsightDialog = page.getByRole("dialog").filter({
+    hasText: /nota rápida do lab|quick lab note/i,
+  });
+  const missionInsightDismiss = missionInsightDialog
+    .getByRole("button", { name: /agora não|not now|pular|skip/i })
+    .first();
+
+  await expect
+    .poll(
+      async () => {
+        // The mission-insight prompt can arrive after navigation settles. Its
+        // modal marks the workspace inert, so role locators correctly exclude
+        // the otherwise-rendered stage strip until the prompt is dismissed.
+        if (
+          await missionInsightDismiss
+            .isVisible({ timeout: 100 })
+            .catch(() => false)
+        ) {
+          await missionInsightDismiss
+            .evaluate((button: HTMLButtonElement) => button.click())
+            .catch(() => undefined);
+          return false;
+        }
+        if (await missionInsightDialog.isVisible().catch(() => false)) return false;
+        return briefing.isVisible().catch(() => false);
+      },
+      { timeout, intervals: [100, 250, 500, 1_000] }
+    )
+    .toBe(true);
+}
+
+export async function dismissMissionInsight(page: Page): Promise<boolean> {
+  const dialog = page.getByRole("dialog").filter({
+    hasText: /nota rápida do lab|quick lab note/i,
+  });
+  const dismiss = dialog
+    .getByRole("button", { name: /agora não|not now|pular|skip/i })
+    .first();
+  if (!(await dismiss.isVisible({ timeout: 100 }).catch(() => false))) return false;
+  await dismiss.evaluate((button: HTMLButtonElement) => button.click());
+  await expect(dialog).toBeHidden({ timeout: 5_000 });
+  return true;
 }

@@ -1,6 +1,7 @@
 import "server-only";
 import { logger } from "@/lib/logger";
 import { objectStorage } from "@/server/storage";
+import { isRetryableProviderError } from "@/server/ai/image-generation";
 import { executeCanonicalGeneration } from "@/server/generation/pipeline/execute";
 import { runCreativeWorkPostGeneration } from "@/server/generation/pipeline/post-generation";
 import {
@@ -273,6 +274,7 @@ export const creativeWorkOutputJob = inngest.createFunction(
           storagePrefix: `creative-work/${outputId}`,
           workItemId,
         },
+        attempt: output.retryCount,
       };
 
       const generated = await step.run("generate-base", async () => {
@@ -403,7 +405,7 @@ export const creativeWorkOutputJob = inngest.createFunction(
       logger.error(
         `[creativeWorkOutputJob] FAIL outputId=${outputId} code=${code} message=${message}`,
       );
-      if (error && typeof error === "object" && "retryable" in error && error.retryable === true) {
+      if (isRetryableProviderError(error)) {
         try {
           const retried = await requeueCreativeWorkOutputOnce(workspaceId, workItemId, outputId);
           if (retried) {

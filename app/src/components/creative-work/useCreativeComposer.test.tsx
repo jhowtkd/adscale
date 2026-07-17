@@ -75,6 +75,7 @@ describe("useCreativeComposer", () => {
     vi.useFakeTimers();
     vi.clearAllMocks();
     window.history.replaceState({}, "", "/");
+    window.sessionStorage.clear();
     mocks.active.mockReturnValue(active());
     mocks.work.mockReturnValue({ data: undefined, isLoading: false });
     mocks.create.mockImplementation((input: { request: string; intent: string; format: string; settings: { targetFormats: string[] } }) => Promise.resolve({
@@ -394,6 +395,109 @@ describe("useCreativeComposer", () => {
       assetId: "asset-1",
       usage: "both",
     }));
+  });
+
+  it("attaches an upload that finishes while the text-only draft is being created", async () => {
+    const creating = deferred<{
+      work: ReturnType<typeof workDetail>["work"];
+      quote: { unitCount: number; credits: number };
+    }>();
+    mocks.create.mockReturnValue(creating.promise);
+    const { result } = renderHook(() => useCreativeComposer());
+    const file = new File(["image"], "arte-race.png", { type: "image/png" });
+
+    act(() => result.current.setRequest("Campanha mobile"));
+    await act(() => vi.advanceTimersByTimeAsync(500));
+    expect(mocks.create).toHaveBeenCalledWith(
+      expect.not.objectContaining({ assetId: expect.anything() })
+    );
+
+    await act(async () => {
+      const adding = result.current.addFiles([file]);
+      await Promise.resolve();
+      creating.resolve({
+        work: {
+          ...workDetail().work,
+          id: WORK_ID,
+          request: "Campanha mobile",
+        },
+        quote: { unitCount: 3, credits: 15 },
+      });
+      await adding;
+    });
+
+    expect(mocks.source).toHaveBeenCalledWith({
+      workItemId: WORK_ID,
+      action: "attachSource",
+      assetId: "asset-1",
+      usage: "both",
+    });
+  });
+
+  it("surfaces a raced source attach failure and succeeds when the user retries", async () => {
+    const creating = deferred<{
+      work: ReturnType<typeof workDetail>["work"];
+      quote: { unitCount: number; credits: number };
+    }>();
+    mocks.create.mockReturnValue(creating.promise);
+    mocks.source
+      .mockRejectedValueOnce(new Error("attach failed"))
+      .mockResolvedValueOnce({ source: { id: "source-1" } });
+    const { result } = renderHook(() => useCreativeComposer());
+    const file = new File(["image"], "arte-race.png", { type: "image/png" });
+
+    act(() => result.current.setRequest("Campanha mobile"));
+    await act(() => vi.advanceTimersByTimeAsync(500));
+    await act(async () => {
+      const adding = result.current.addFiles([file]);
+      await Promise.resolve();
+      creating.resolve({
+        work: {
+          ...workDetail().work,
+          id: WORK_ID,
+          request: "Campanha mobile",
+        },
+        quote: { unitCount: 3, credits: 15 },
+      });
+      await adding;
+    });
+
+    expect(result.current.error).toBe("attach failed");
+    expect(result.current.announcement).not.toBe("Arte adicionada");
+
+    await act(() => result.current.addFiles([file]));
+
+    expect(mocks.source).toHaveBeenCalledTimes(2);
+    expect(result.current.error).toBeNull();
+    expect(result.current.announcement).toBe("Arte adicionada");
+  });
+
+  it("delivers an upload announcement to the composer mounted after draft canonicalization", async () => {
+    const creating = deferred<{
+      work: ReturnType<typeof workDetail>["work"];
+      quote: { unitCount: number; credits: number };
+    }>();
+    mocks.create.mockReturnValue(creating.promise);
+    const first = renderHook(() => useCreativeComposer());
+    const file = new File(["image"], "arte-remount.png", { type: "image/png" });
+
+    let adding!: Promise<void>;
+    await act(async () => {
+      adding = first.result.current.addFiles([file]);
+      await Promise.resolve();
+    });
+    first.unmount();
+    const replacement = renderHook(() => useCreativeComposer({ initialWorkId: WORK_ID }));
+
+    await act(async () => {
+      creating.resolve({
+        work: { ...workDetail().work, id: WORK_ID },
+        quote: { unitCount: 3, credits: 15 },
+      });
+      await adding;
+    });
+
+    expect(replacement.result.current.announcement).toBe("Arte adicionada");
   });
 
   it("rejects an unsafe work identifier returned while creating a draft", async () => {

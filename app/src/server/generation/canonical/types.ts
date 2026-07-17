@@ -96,6 +96,8 @@ export interface GenerationRequest {
   cost: GenerationCostPolicy;
   idempotency: GenerationIdempotency;
   destination: GenerationDestination;
+  /** Zero-based durable attempt number supplied by the owning domain row. */
+  attempt?: number;
   /** Assistant creative_revision only — enables job-level refund. */
   assistantActionId?: string | null;
 }

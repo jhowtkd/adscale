@@ -28,6 +28,7 @@ import {
   UAT_EMAIL,
   UAT_IS_MOBILE,
   UAT_VIEWPORT_LABEL,
+  dismissMissionInsight,
   dismissOverlays,
   gotoApp,
   loadPhase6Fixture,
@@ -46,7 +47,9 @@ function record(collectors: ScenarioCollectors, r: ScenarioResult) {
 }
 
 async function openStrategyDialog(page: Page) {
-  const dialog = page.getByRole("dialog");
+  const dialog = page.getByRole("dialog").filter({
+    has: page.getByTestId("strategy-recipe-credits"),
+  });
   const trigger = page
     .getByRole("button", { name: /ajustar estratégia|adjust strategy/i })
     .first();
@@ -172,77 +175,39 @@ test.describe("Phase 6 Gate 6 UAT no-provider block", () => {
     }
   });
 
-  test("S02 create campaign → workspace → list", async ({ browser }) => {
+  test("S02 new work → focused Home composer", async ({ browser }) => {
     const collectors = new ScenarioCollectors();
     const { context, page } = await openAuthedPage(browser);
     collectors.attach(page);
     collectors.mark();
     try {
-      // Intent path: home → Novo trabalho → Campanha
-      await gotoApp(page, "/");
-      // Wait for client data (continue target) so React handlers are attached
-      await page
-        .getByText(/continuar de onde parei|continue where/i)
-        .first()
-        .waitFor({ state: "visible", timeout: 20_000 });
+      await gotoApp(page, "/campaigns");
+      await waitTrabalhosHydrated(page);
       const newWork = page.getByRole("button", {
         name: /novo trabalho|new work/i,
       });
       await expect(newWork).toBeVisible({ timeout: 15_000 });
       await newWork.click();
-      // Intent panel heading proves setIntentOpen(true) took effect
-      await expect(
-        page.getByRole("heading", {
-          name: /o que você quer fazer|what do you want/i,
-        })
-      ).toBeVisible({ timeout: 10_000 });
-      const campaignIntent = page.locator('a[href="/campaigns?new=1"]');
-      await expect(campaignIntent).toBeVisible({ timeout: 10_000 });
-      await campaignIntent.click();
-      await page.waitForURL(/new=1/, { timeout: 20_000 });
-
-      const dialog = page.getByRole("dialog");
-      await expect(dialog).toBeVisible({ timeout: 15_000 });
-      const name = `UAT S02 ${Date.now()}`;
-      await dialog.locator("#campaign-name").fill(name);
-      await dialog.locator("#campaign-client").fill("UAT Client S02");
-
-      const [res] = await Promise.all([
-        page.waitForResponse(
-          (r) =>
-            (r.url().includes("/api/campaigns") ||
-              r.url().includes("/api/templates/")) &&
-            r.request().method() === "POST",
-          { timeout: 30_000 }
-        ),
-        dialog.getByRole("button", { name: /criar|create/i }).click(),
-      ]);
-      expect(res.ok(), `create/materialize HTTP ${res.status()}`).toBeTruthy();
-
-      await page.waitForURL(/\/campaigns\/[0-9a-f-]{8,}/i, { timeout: 30_000 });
-      const m = page.url().match(/\/campaigns\/([0-9a-f-]{8,})/i);
-      expect(m, `expected workspace redirect, got ${page.url()}`).toBeTruthy();
-      const campaignId = m![1];
-
-      await waitWorkspaceStages(page);
-
-      await gotoApp(page, "/campaigns");
-      await waitTrabalhosHydrated(page);
-      await expect(page.getByText(name).last()).toBeVisible({
-        timeout: 15_000,
+      await page.waitForURL(
+        (url) => url.pathname === "/" && url.searchParams.get("compose") === "1",
+        { timeout: 20_000 }
+      );
+      const composer = page.getByRole("textbox", {
+        name: /pedido criativo|creative request/i,
       });
+      await expect(composer).toBeVisible({ timeout: 15_000 });
+      await expect(composer).toBeFocused();
 
       const result = record(collectors, {
         id: "S02",
-        title: "New campaign create + redirect + list",
+        title: "Works CTA to focused Home composer",
         status: "pass",
         url: page.url(),
         viewport: UAT_VIEWPORT_LABEL,
-        notes: `campaignId=${campaignId} name=${name}`,
+        notes: "Novo trabalho opens the one-step composer with focus",
         screenshot: await shot(page, "uat-50-S02-desktop"),
         consoleErrors: [],
         networkErrors: [],
-        createdIds: { campaignId, name },
       });
       expect(result.status).toBe("pass");
     } finally {
@@ -280,7 +245,10 @@ test.describe("Phase 6 Gate 6 UAT no-provider block", () => {
         `Continuar must target campaign, got ${href}`
       ).toMatch(/\/campaigns\/[0-9a-f-]{8,}/i);
       await continueLink.first().click({ force: true });
-      await page.waitForURL(/\/campaigns\/[0-9a-f-]{8,}/i, { timeout: 20_000 });
+      await page.waitForURL(/\/campaigns\/[0-9a-f-]{8,}/i, {
+        timeout: 20_000,
+        waitUntil: "commit",
+      });
       await waitWorkspaceStages(page);
       const landed = page.url();
 
@@ -456,7 +424,9 @@ test.describe("Phase 6 Gate 6 UAT no-provider block", () => {
       await page.route("**/api/creative-work**", homeEmptyRoute);
       await gotoApp(page, "/");
       await expect(
-        page.getByText(/nada em andamento|nothing in progress/i)
+        page.getByRole("heading", {
+          name: /primeira criação|first creation/i,
+        })
       ).toBeVisible({ timeout: 15_000 });
       parts.homeEmpty = true;
       console.log("[UAT] S12 home empty ok");
@@ -575,7 +545,7 @@ test.describe("Phase 6 Gate 6 UAT no-provider block", () => {
       // --- Workspace: active generation spinner ---
       const derivationsPattern = `**/api/campaigns/${fixture.campaignId}/derivations`;
       const workspaceLoadingRoute = async (route: Route) => {
-        const response = await route.fetch();
+        const response = await context.request.fetch(route.request());
         const payload = (await response.json()) as {
           derivations?: Array<Record<string, unknown>>;
         };
@@ -640,7 +610,9 @@ test.describe("Phase 6 Gate 6 UAT no-provider block", () => {
         await recipeLoadingGate;
         await route.continue();
       };
-      await page.route("**/api/strategy-recipe/resolve", recipeLoadingRoute);
+      const panelResolvePattern =
+        "**/api/strategy-recipe/resolve?source=panel";
+      await page.route(panelResolvePattern, recipeLoadingRoute);
       await gotoApp(page, `/campaigns/${fixture.previewOkCampaignId}`);
       await waitWorkspaceStages(page);
       let recipeDialog = await openStrategyDialog(page);
@@ -654,7 +626,7 @@ test.describe("Phase 6 Gate 6 UAT no-provider block", () => {
         recipeDialog.getByTestId("strategy-recipe-preview-credits")
       ).not.toContainText("…", { timeout: 30_000 });
       console.log("[UAT] S12 recipe loading response ok");
-      await page.unroute("**/api/strategy-recipe/resolve", recipeLoadingRoute);
+      await page.unroute(panelResolvePattern, recipeLoadingRoute);
       await page.keyboard.press("Escape");
       console.log("[UAT] S12 recipe loading dialog closed");
 
@@ -666,7 +638,7 @@ test.describe("Phase 6 Gate 6 UAT no-provider block", () => {
           body: JSON.stringify({ error: "uat_recipe_error" }),
         });
       };
-      await page.route("**/api/strategy-recipe/resolve", recipeErrorRoute);
+      await page.route(panelResolvePattern, recipeErrorRoute);
       await page.reload({ waitUntil: "commit" });
       await dismissOverlays(page);
       console.log("[UAT] S12 recipe error workspace navigated");
@@ -758,9 +730,16 @@ test.describe("Phase 6 Gate 6 UAT provider block", () => {
         : null;
 
       await gotoApp(page, "/");
+      await page.waitForLoadState("domcontentloaded");
+      await expect(page.getByLabel(/marca ativa|active brand/i).first())
+        .toHaveText("Phase6 UAT Brand", { timeout: 30_000 });
       const workName = `UAT S03 ${Date.now()}`;
-      await page.getByRole("textbox", { name: /pedido criativo|creative request/i })
-        .fill(`${workName}: engajamento para SMB com trial`);
+      const requestText = `${workName}: engajamento para SMB com trial`;
+      const composer = page.getByRole("textbox", {
+        name: /pedido criativo|creative request/i,
+      });
+      await composer.fill(requestText);
+      await expect(composer).toHaveValue(requestText);
       await expect
         .poll(
           () => new URL(page.url()).searchParams.get("workId"),
@@ -911,7 +890,10 @@ test.describe("Phase 6 Gate 6 UAT provider block", () => {
       const approvePilot = page.getByRole("button", {
         name: /aprovar piloto e gerar variações|approve pilot and generate variations/i,
       });
-      await expect(approvePilot).toBeVisible({ timeout: 120_000 });
+      await expect.poll(async () => {
+        await dismissMissionInsight(page);
+        return approvePilot.isVisible().catch(() => false);
+      }, { timeout: 120_000, intervals: [250, 500, 1_000] }).toBe(true);
       const gateVisible = true;
 
       const batchQueued = page.waitForRequest(
@@ -952,9 +934,17 @@ test.describe("Phase 6 Gate 6 UAT provider block", () => {
       await expect
         .poll(
           async () => {
-            const response = await context.request.get(
-              `/api/campaigns/${campaignId}/derivations`
-            );
+            let response;
+            try {
+              response = await context.request.get(
+                `/api/campaigns/${campaignId}/derivations`
+              );
+            } catch (error) {
+              if (/ECONNRESET|socket hang up|ERR_CONNECTION_RESET/i.test(String(error))) {
+                return "request_failed";
+              }
+              throw error;
+            }
             if (!response.ok()) return "request_failed";
             finalBody = (await response.json()) as typeof finalBody;
             const rows = finalBody?.derivations ?? [];
@@ -1052,13 +1042,15 @@ test.describe("Phase 6 Gate 6 UAT provider block", () => {
         .first()
         .click();
 
-      // Gate UI: product copy from strategyRecipes.previewGate
+      // Gate UI: product copy from strategyRecipes.previewGate. Quality
+      // details live on the invalid preview card; the footer owns the explicit
+      // decision to continue the batch.
       const gateTitle = page.getByText(
-        /qualidade abaixo do esperado|quality below|quality gate/i
+        /revise o piloto|review the pilot/i
       );
       await expect(gateTitle.first()).toBeVisible({ timeout: 20_000 });
       const continueAnyway = page.getByRole("button", {
-        name: /continuar mesmo assim|continue anyway/i,
+        name: /aprovar piloto e gerar variações|approve pilot and generate variations/i,
       });
       await expect(continueAnyway.first()).toBeVisible({ timeout: 10_000 });
 
@@ -1497,31 +1489,38 @@ test.describe("Phase 6 Gate 6 UAT shell", () => {
     collectors.attach(page);
     collectors.mark();
     try {
-      await gotoApp(page, "/");
-      await page
-        .getByText(/continuar de onde parei|continue where/i)
-        .first()
-        .waitFor({ state: "visible", timeout: 20_000 });
-      await page
-        .getByRole("button", { name: /novo trabalho|new work/i })
-        .click();
-      await expect(
-        page.getByRole("heading", {
-          name: /o que você quer fazer|what do you want/i,
-        })
-      ).toBeVisible({ timeout: 10_000 });
-      const assistant = page.locator('a[href="/assistant"]');
-      await expect(assistant).toBeVisible({ timeout: 10_000 });
-      await assistant.click({ force: true });
-      try {
-        await page.waitForURL(/\/assistant/, { timeout: 15_000 });
-      } catch {
-        // Intent link is present; client navigation can stall under suite load
-        await page.goto("/assistant", { waitUntil: "commit", timeout: 30_000 });
-      }
-      // No work creation until user acts — URL is assistant only
+      const beforeResponse = await context.request.get(
+        `/api/creative-work?limit=200&e2e=${Date.now()}`,
+        { headers: { "Cache-Control": "no-cache" } }
+      );
+      expect(beforeResponse.ok()).toBe(true);
+      const beforeIds = ((await beforeResponse.json()) as {
+        workItems?: Array<{ id: string }>;
+        works?: Array<{ id: string }>;
+      });
+      const idsBefore = (beforeIds.workItems ?? beforeIds.works ?? [])
+        .map((work) => work.id)
+        .sort();
+
+      // The frictionless Home intentionally has no creation modal. Assistant
+      // is an independent intent surface and must not create a work on entry.
+      await gotoApp(page, "/assistant");
+      await expect(page.locator("main")).toBeVisible({ timeout: 20_000 });
       expect(page.url()).toMatch(/\/assistant/);
       expect(page.url()).not.toMatch(/workId=/);
+      const afterResponse = await context.request.get(
+        `/api/creative-work?limit=200&e2e=${Date.now()}`,
+        { headers: { "Cache-Control": "no-cache" } }
+      );
+      expect(afterResponse.ok()).toBe(true);
+      const afterIds = ((await afterResponse.json()) as {
+        workItems?: Array<{ id: string }>;
+        works?: Array<{ id: string }>;
+      });
+      const idsAfter = (afterIds.workItems ?? afterIds.works ?? [])
+        .map((work) => work.id)
+        .sort();
+      expect(idsAfter, "opening Assistant must not create a creative work").toEqual(idsBefore);
 
       const result = record(collectors, {
         id: "S14",
@@ -1529,7 +1528,7 @@ test.describe("Phase 6 Gate 6 UAT shell", () => {
         status: "pass",
         url: page.url(),
         viewport: UAT_VIEWPORT_LABEL,
-        notes: "opened /assistant without workId",
+        notes: `opened /assistant without workId; creativeWorks=${idsAfter.length}`,
         screenshot: await shot(page, "uat-50-S14-desktop"),
         consoleErrors: [],
         networkErrors: [],
