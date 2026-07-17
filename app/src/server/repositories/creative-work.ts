@@ -4,6 +4,7 @@ import {
   creativeWorkItems,
   creativeWorkOutputs,
   creativeWorkSources,
+  clientProfiles,
   workspaceAssets,
   campaignTemplates,
   type CreativeWorkItem,
@@ -116,6 +117,64 @@ export async function createCreativeWorkDraft(input: CreateCreativeWorkDraftInpu
   )).limit(1);
   if (!existing) throw new Error("creative_work_draft_conflict_without_row");
   return existing;
+}
+
+export async function createCreativeWorkDraftWithSource(
+  input: CreateCreativeWorkDraftInput & { assetId: string; usage: CreativeSourceUsage },
+) {
+  return db.transaction(async (tx) => {
+    const [profile] = await tx.select({ id: clientProfiles.id }).from(clientProfiles).where(and(
+      eq(clientProfiles.workspaceId, input.workspaceId),
+      eq(clientProfiles.id, input.clientProfileId),
+    )).limit(1);
+    if (!profile) return null;
+
+    const [asset] = await tx.select().from(workspaceAssets).where(and(
+      eq(workspaceAssets.workspaceId, input.workspaceId),
+      eq(workspaceAssets.id, input.assetId),
+    )).limit(1);
+    if (!asset || !asset.type.startsWith("image/")) return null;
+
+    const [createdWork] = await tx.insert(creativeWorkItems).values({
+      workspaceId: input.workspaceId,
+      clientProfileId: input.clientProfileId,
+      createdByUserId: input.createdByUserId,
+      draftKey: input.draftKey,
+      toolKind: input.intent,
+      title: input.title,
+      request: input.request,
+      format: input.format ?? "4:5",
+      settings: input.settings ?? { targetFormats: [] },
+      brief: input.brief ?? null,
+      campaignId: null,
+      inputSnapshot: input.inputSnapshot ?? null,
+      status: "draft",
+    }).onConflictDoNothing().returning();
+    const [existingWork] = createdWork ? [] : await tx.select().from(creativeWorkItems).where(and(
+      eq(creativeWorkItems.workspaceId, input.workspaceId),
+      eq(creativeWorkItems.createdByUserId, input.createdByUserId),
+      eq(creativeWorkItems.draftKey, input.draftKey),
+    )).limit(1);
+    const work = createdWork ?? existingWork;
+    if (!work) throw new Error("creative_work_draft_conflict_without_row");
+    if (work.clientProfileId !== input.clientProfileId) return null;
+
+    const [createdSource] = await tx.insert(creativeWorkSources).values({
+      workspaceId: input.workspaceId,
+      workItemId: work.id,
+      assetId: asset.id,
+      usage: input.usage,
+      status: "uploaded",
+    }).onConflictDoNothing().returning();
+    const [existingSource] = createdSource ? [] : await tx.select().from(creativeWorkSources).where(and(
+      eq(creativeWorkSources.workspaceId, input.workspaceId),
+      eq(creativeWorkSources.workItemId, work.id),
+      eq(creativeWorkSources.assetId, asset.id),
+    )).limit(1);
+    const source = createdSource ?? existingSource;
+    if (!source) throw new Error("creative_work_source_conflict_without_row");
+    return { work, source, asset };
+  });
 }
 
 export type CreativeWorkDraftPatch = Partial<{

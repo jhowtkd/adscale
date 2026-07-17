@@ -153,6 +153,7 @@ import {
   completeCreativeWorkOutput,
   createCreativeWork,
   createCreativeWorkDraft,
+  createCreativeWorkDraftWithSource,
   createCreativeWorkSource,
   createPlannedCreativeWorkOutputs,
   createCreativeWorkRevision,
@@ -287,6 +288,64 @@ describe("creative-work repository", () => {
   });
 
   describe("drafts, sources, and versions", () => {
+    it("atomically creates one attachment-first draft and source", async () => {
+      const work = workItem({ id: "draft-asset", draftKey: "draft-key", request: "", brief: null });
+      const source = { id: "source-1", workspaceId: "ws-1", workItemId: work.id, assetId: "asset-1", templateId: null, usage: "both", status: "uploaded" };
+      const asset = { id: "asset-1", workspaceId: "ws-1", name: "arte.png", type: "image/png", source: "upload" };
+      mocks.state.selectResults.push([{ id: "profile-1" }], [asset]);
+      mocks.state.onConflictResults.push([work], [source]);
+
+      await expect(createCreativeWorkDraftWithSource({
+        workspaceId: "ws-1", clientProfileId: "profile-1", createdByUserId: "user-1",
+        draftKey: "draft-key", intent: "variations", title: "", request: "", format: "4:5",
+        settings: { targetFormats: [] }, assetId: "asset-1", usage: "both",
+      })).resolves.toEqual({ work, source, asset });
+
+      expect(mocks.transactionMock).toHaveBeenCalledOnce();
+      expect(mocks.onConflictDoNothingMock).toHaveBeenCalledTimes(2);
+    });
+
+    it("reuses the same work and source when draftKey plus asset is replayed", async () => {
+      const work = workItem({ id: "same-draft", draftKey: "draft-key", clientProfileId: "profile-1", request: "", brief: null });
+      const source = { id: "same-source", workspaceId: "ws-1", workItemId: work.id, assetId: "asset-1", templateId: null, usage: "both", status: "uploaded" };
+      const asset = { id: "asset-1", workspaceId: "ws-1", name: "arte.png", type: "image/png", source: "upload" };
+      mocks.state.selectResults.push([{ id: "profile-1" }], [asset], [work], [source]);
+      mocks.state.onConflictResults.push([], []);
+
+      await expect(createCreativeWorkDraftWithSource({
+        workspaceId: "ws-1", clientProfileId: "profile-1", createdByUserId: "user-1",
+        draftKey: "draft-key", intent: "variations", title: "", request: "", format: "4:5",
+        settings: { targetFormats: [] }, assetId: "asset-1", usage: "both",
+      })).resolves.toEqual({ work, source, asset });
+
+      expect(mocks.onConflictDoNothingMock).toHaveBeenCalledTimes(2);
+    });
+
+    it("rejects a replay when the draftKey belongs to another client profile", async () => {
+      const work = workItem({ id: "other-draft", draftKey: "draft-key", clientProfileId: "other-profile", request: "", brief: null });
+      const asset = { id: "asset-1", workspaceId: "ws-1", name: "arte.png", type: "image/png", source: "upload" };
+      mocks.state.selectResults.push([{ id: "profile-1" }], [asset], [work]);
+      mocks.state.onConflictResults.push([]);
+
+      await expect(createCreativeWorkDraftWithSource({
+        workspaceId: "ws-1", clientProfileId: "profile-1", createdByUserId: "user-1",
+        draftKey: "draft-key", intent: "variations", title: "", request: "", format: "4:5",
+        settings: { targetFormats: [] }, assetId: "asset-1", usage: "both",
+      })).resolves.toBeNull();
+    });
+
+    it("rejects the transaction when source persistence cannot be resolved", async () => {
+      const work = workItem({ id: "draft-asset", draftKey: "draft-key", request: "", brief: null });
+      const asset = { id: "asset-1", workspaceId: "ws-1", name: "arte.png", type: "image/png", source: "upload" };
+      mocks.state.selectResults.push([{ id: "profile-1" }], [asset], []);
+      mocks.state.onConflictResults.push([work], []);
+
+      await expect(createCreativeWorkDraftWithSource({
+        workspaceId: "ws-1", clientProfileId: "profile-1", createdByUserId: "user-1",
+        draftKey: "draft-key", intent: "variations", title: "", request: "", format: "4:5",
+        settings: { targetFormats: [] }, assetId: "asset-1", usage: "both",
+      })).rejects.toThrow("creative_work_source_conflict_without_row");
+    });
     it("creates an idempotent draft with the preparation fields", async () => {
       const inserted = workItem({ id: "draft-1", brief: null });
       mocks.state.onConflictResults.push([inserted]);

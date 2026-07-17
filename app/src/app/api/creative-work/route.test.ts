@@ -16,9 +16,8 @@ vi.mock("@/server/auth/workspace", () => ({
 
 const startMock = vi.hoisted(() => vi.fn());
 const listMock = vi.hoisted(() => vi.fn());
-const getAssetMock = vi.hoisted(() => vi.fn());
-const createSourceMock = vi.hoisted(() => vi.fn());
 const updateSourceCasMock = vi.hoisted(() => vi.fn());
+const createDraftWithSourceMock = vi.hoisted(() => vi.fn());
 const inngestSendMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/application/start-social-post-work", () => ({
@@ -29,12 +28,8 @@ vi.mock("@/server/creative-work/canonical/queries", () => ({
   listCanonicalWorks: (...args: unknown[]) => listMock(...args),
 }));
 
-vi.mock("@/server/repositories/workspace-asset", () => ({
-  getWorkspaceAssetById: (...args: unknown[]) => getAssetMock(...args),
-}));
-
 vi.mock("@/server/repositories/creative-work", () => ({
-  createCreativeWorkSource: (...args: unknown[]) => createSourceMock(...args),
+  createCreativeWorkDraftWithSource: (...args: unknown[]) => createDraftWithSourceMock(...args),
   updateCreativeWorkSourceIfUnchanged: (...args: unknown[]) => updateSourceCasMock(...args),
 }));
 
@@ -95,6 +90,7 @@ describe("GET /api/creative-work", () => {
 describe("POST /api/creative-work", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    inngestSendMock.mockResolvedValue(undefined);
   });
   afterEach(() => {
     vi.restoreAllMocks();
@@ -202,15 +198,17 @@ describe("POST /api/creative-work", () => {
       format: "4:5",
       settings: { targetFormats: [] },
     };
-    startMock.mockResolvedValue({ ok: true, value: {
-      work: { id: "work-asset", title: "", request: "", brief: null },
-      canonical: { id: "creative_work:work-asset" },
-      quote: { plans: [{}, {}, {}], unitCount: 3, credits: 15 },
-    } });
-    getAssetMock.mockResolvedValue({ id: "asset-1", workspaceId: "workspace-1", name: "arte.png", type: "image/png" });
-    createSourceMock.mockResolvedValue({
-      id: "source-1", workspaceId: "workspace-1", workItemId: "work-asset", assetId: "asset-1",
-      templateId: null, usage: "both", status: "uploaded",
+    createDraftWithSourceMock.mockResolvedValue({
+      work: {
+        id: "work-asset", workspaceId: "workspace-1", clientProfileId: profileId,
+        toolKind: "variations", status: "draft", format: "4:5", settings: { targetFormats: [] },
+        brief: null, copy: null, identitySnapshot: null, createdAt: new Date(), updatedAt: new Date(),
+      },
+      source: {
+        id: "source-1", workspaceId: "workspace-1", workItemId: "work-asset", assetId: "asset-1",
+        templateId: null, usage: "both", status: "uploaded", updatedAt: new Date(),
+      },
+      asset: { id: "asset-1", name: "arte.png", type: "image/png", source: "upload" },
     });
 
     const res = await POST(new Request("http://localhost/api/creative-work", {
@@ -219,15 +217,40 @@ describe("POST /api/creative-work", () => {
     const payload = await res.json();
 
     expect(res.status).toBe(201);
-    expect(getAssetMock).toHaveBeenCalledWith("asset-1", "workspace-1");
-    expect(createSourceMock).toHaveBeenCalledWith(expect.objectContaining({
-      workspaceId: "workspace-1", workItemId: "work-asset", assetId: "asset-1", usage: "both",
+    expect(createDraftWithSourceMock).toHaveBeenCalledWith(expect.objectContaining({
+      workspaceId: "workspace-1", assetId: "asset-1", usage: "both",
     }));
     expect(payload.source).toEqual(expect.objectContaining({ name: "arte.png", origin: "upload" }));
   });
 
+  it("delegates attachment-first creation to one atomic idempotent repository command", async () => {
+    const source = { id: "source-1", workItemId: "work-asset", assetId: "asset-1", usage: "both", status: "uploaded", updatedAt: new Date() };
+    createDraftWithSourceMock.mockResolvedValue({
+      work: { id: "work-asset", workspaceId: "workspace-1", clientProfileId: profileId, toolKind: "variations", format: "4:5", settings: { targetFormats: [] }, status: "draft", brief: null, copy: null, identitySnapshot: null, createdAt: new Date(), updatedAt: new Date() },
+      source,
+      asset: { id: "asset-1", name: "arte.png", type: "image/png", source: "upload" },
+    });
+    const body = {
+      clientProfileId: profileId, draftKey: "00000000-0000-4000-8000-000000000099", request: "",
+      assetId: "asset-1", usage: "both", intent: "variations", format: "4:5", settings: { targetFormats: [] },
+    };
+
+    const first = await POST(new Request("http://localhost/api/creative-work", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }));
+    const second = await POST(new Request("http://localhost/api/creative-work", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }));
+
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(201);
+    expect(createDraftWithSourceMock).toHaveBeenCalledTimes(2);
+    expect(createDraftWithSourceMock).toHaveBeenLastCalledWith(expect.objectContaining({
+      workspaceId: "workspace-1", createdByUserId: "user-1", draftKey: body.draftKey, assetId: "asset-1",
+    }));
+    expect(startMock).not.toHaveBeenCalled();
+    expect((await first.json()).source.id).toBe("source-1");
+    expect((await second.json()).source.id).toBe("source-1");
+  });
+
   it("rejects attachment-first metadata and assets outside the workspace", async () => {
-    getAssetMock.mockResolvedValue(null);
+    createDraftWithSourceMock.mockResolvedValue(null);
     const base = {
       clientProfileId: profileId, draftKey: "00000000-0000-4000-8000-000000000099", request: "",
       assetId: "other-asset", usage: "both", intent: "variations", format: "4:5", settings: { targetFormats: [] },
@@ -251,12 +274,15 @@ describe("POST /api/creative-work", () => {
       id: "source-1", workspaceId: "workspace-1", workItemId: "work-asset", assetId: "asset-1",
       templateId: null, usage: "both", status: "uploaded", updatedAt: now,
     };
-    startMock.mockResolvedValue({ ok: true, value: {
-      work: { id: "work-asset", title: "", request: "", brief: null },
-      canonical: { id: "creative_work:work-asset" }, quote: { unitCount: 3, credits: 15 },
-    } });
-    getAssetMock.mockResolvedValue({ id: "asset-1", name: "arte.png", type: "image/png" });
-    createSourceMock.mockResolvedValue(source);
+    createDraftWithSourceMock.mockResolvedValue({
+      work: {
+        id: "work-asset", workspaceId: "workspace-1", clientProfileId: profileId,
+        toolKind: "variations", status: "draft", format: "4:5", settings: { targetFormats: [] },
+        brief: null, copy: null, identitySnapshot: null, createdAt: now, updatedAt: now,
+      },
+      source,
+      asset: { id: "asset-1", name: "arte.png", type: "image/png", source: "upload" },
+    });
     inngestSendMock.mockRejectedValue(new Error("down"));
     updateSourceCasMock.mockResolvedValue({ ...source, status: "failed", failureCode: "dispatch_failed" });
 

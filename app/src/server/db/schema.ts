@@ -2591,6 +2591,12 @@ export const creativeWorkSources = adscaleSchema.table(
   },
   (table) => [
     index("creative_work_sources_scope_idx").on(table.workspaceId, table.workItemId),
+    uniqueIndex("creative_work_sources_asset_uq")
+      .on(table.workItemId, table.assetId)
+      .where(sql`${table.assetId} is not null`),
+    uniqueIndex("creative_work_sources_template_uq")
+      .on(table.workItemId, table.templateId)
+      .where(sql`${table.templateId} is not null`),
     check("creative_work_sources_origin_check", sql`num_nonnulls(${table.assetId}, ${table.templateId}) = 1`),
     check("creative_work_sources_usage_check", sql`${table.usage} in ('content','style','both')`),
     check("creative_work_sources_status_check", sql`${table.status} in ('uploaded','analyzing','ready','failed')`),

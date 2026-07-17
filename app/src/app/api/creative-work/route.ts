@@ -3,11 +3,11 @@ import { apiError, handleApiError } from "@/lib/api-response";
 import { startSocialPostWork } from "@/server/application/start-social-post-work";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { listCanonicalWorks } from "@/server/creative-work/canonical/queries";
+import { projectCreativeWorkAsCanonicalWork } from "@/server/creative-work/projection/from-creative-work";
 import {
-  createCreativeWorkSource,
+  createCreativeWorkDraftWithSource,
   updateCreativeWorkSourceIfUnchanged,
 } from "@/server/repositories/creative-work";
-import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
 import { inngest } from "@/server/jobs/client";
 import {
   createCreativeWorkSchema,
@@ -15,7 +15,9 @@ import {
   creativeWorkIntentSchema,
   creativeWorkPreparationSchema,
   creativeWorkSettingsSchema,
+  quoteCreativeWork,
 } from "@/server/creative-work/contracts";
+import { deriveCreativeWorkTitle } from "@/server/creative-work/prepare";
 import { z } from "zod";
 
 const createDraftSchema = z.object({
@@ -66,11 +68,55 @@ export async function POST(request: Request) {
       return apiError("invalidInput", 400, parsed.error.flatten());
     }
 
-    const initialAsset = "draftKey" in parsed.data && parsed.data.assetId
-      ? await getWorkspaceAssetById(parsed.data.assetId, workspace.id)
-      : null;
-    if ("draftKey" in parsed.data && parsed.data.assetId && (!initialAsset || !initialAsset.type.startsWith("image/"))) {
-      return apiError("invalidInput", 400);
+    if ("draftKey" in parsed.data && parsed.data.assetId) {
+      const created = await createCreativeWorkDraftWithSource({
+        workspaceId: workspace.id,
+        clientProfileId: parsed.data.clientProfileId,
+        createdByUserId: user.id,
+        draftKey: parsed.data.draftKey,
+        intent: parsed.data.intent,
+        title: deriveCreativeWorkTitle(parsed.data.request),
+        request: parsed.data.request,
+        format: parsed.data.format,
+        settings: parsed.data.settings,
+        assetId: parsed.data.assetId,
+        usage: parsed.data.usage!,
+      });
+      if (!created) return apiError("invalidInput", 400);
+
+      let source = created.source;
+      try {
+        await inngest.send({
+          name: "creative-work.source.analyze",
+          data: { workspaceId: workspace.id, workItemId: created.work.id, sourceId: source.id },
+        });
+      } catch {
+        source = await updateCreativeWorkSourceIfUnchanged(
+          workspace.id,
+          created.work.id,
+          source.id,
+          { status: source.status, usage: source.usage, updatedAt: source.updatedAt },
+          { status: "failed", failureCode: "dispatch_failed" },
+        ) ?? source;
+      }
+
+      return NextResponse.json(
+        {
+          work: created.work,
+          canonical: projectCreativeWorkAsCanonicalWork(created.work, []),
+          quote: quoteCreativeWork({
+            intent: created.work.toolKind,
+            format: created.work.format,
+            targetFormats: created.work.settings.targetFormats,
+          }),
+          source: {
+            ...source,
+            name: created.asset.name,
+            origin: created.asset.source === "creative_work" ? "approved_work" : "upload",
+          },
+        },
+        { status: 201 },
+      );
     }
 
     const result = await startSocialPostWork("draftKey" in parsed.data
@@ -99,45 +145,12 @@ export async function POST(request: Request) {
       return apiError("invalidRequest", 400);
     }
 
-    let source;
-    if (initialAsset && "draftKey" in parsed.data) {
-      source = await createCreativeWorkSource({
-        workspaceId: workspace.id,
-        workItemId: result.value.work.id,
-        assetId: initialAsset.id,
-        usage: parsed.data.usage!,
-        status: "uploaded",
-      });
-      if (!source) return apiError("invalidInput", 400);
-      try {
-        await inngest.send({
-          name: "creative-work.source.analyze",
-          data: { workspaceId: workspace.id, workItemId: result.value.work.id, sourceId: source.id },
-        });
-      } catch {
-        source = await updateCreativeWorkSourceIfUnchanged(
-          workspace.id,
-          result.value.work.id,
-          source.id,
-          { status: source.status, usage: source.usage, updatedAt: source.updatedAt },
-          { status: "failed", failureCode: "dispatch_failed" },
-        ) ?? source;
-      }
-    }
-
     // `work` kept for existing UI; `canonical` is the Phase 5 contract.
     return NextResponse.json(
       {
         work: result.value.work,
         canonical: result.value.canonical,
         quote: result.value.quote,
-        ...(source && initialAsset ? {
-          source: {
-            ...source,
-            name: initialAsset.name,
-            origin: initialAsset.source === "creative_work" ? "approved_work" : "upload",
-          },
-        } : {}),
       },
       { status: 201 }
     );

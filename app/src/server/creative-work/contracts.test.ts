@@ -105,6 +105,8 @@ describe("creative work contracts", () => {
     expect(migration).toContain('CONSTRAINT "creative_work_items_campaign_id_campaigns_id_fk" FOREIGN KEY ("campaign_id")');
     expect(migration).not.toContain('DROP INDEX "adscale_app"."creative_work_outputs_selected_uq"');
     expect(migration).toContain('CONSTRAINT "creative_work_sources_origin_check" CHECK (num_nonnulls("asset_id", "template_id") = 1)');
+    expect(migration).toContain('CREATE UNIQUE INDEX "creative_work_sources_asset_uq" ON "adscale_app"."creative_work_sources" ("work_item_id", "asset_id") WHERE "asset_id" is not null');
+    expect(migration).toContain('CREATE UNIQUE INDEX "creative_work_sources_template_uq" ON "adscale_app"."creative_work_sources" ("work_item_id", "template_id") WHERE "template_id" is not null');
     expect(migration).toContain('REFERENCES "adscale_app"."workspace_assets"("id") ON DELETE CASCADE');
     expect(migration).toContain('REFERENCES "adscale_app"."campaign_templates"("id") ON DELETE CASCADE');
   });

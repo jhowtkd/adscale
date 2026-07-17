@@ -64,3 +64,5 @@ CREATE TABLE "adscale_app"."creative_work_sources" (
   CONSTRAINT "creative_work_sources_status_check" CHECK ("status" in ('uploaded','analyzing','ready','failed'))
 );
 CREATE INDEX "creative_work_sources_scope_idx" ON "adscale_app"."creative_work_sources" ("workspace_id", "work_item_id");
+CREATE UNIQUE INDEX "creative_work_sources_asset_uq" ON "adscale_app"."creative_work_sources" ("work_item_id", "asset_id") WHERE "asset_id" is not null;
+CREATE UNIQUE INDEX "creative_work_sources_template_uq" ON "adscale_app"."creative_work_sources" ("work_item_id", "template_id") WHERE "template_id" is not null;
