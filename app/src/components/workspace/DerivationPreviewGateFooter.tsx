@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { AlertTriangle, CheckCircle2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -28,12 +28,14 @@ export default function DerivationPreviewGateFooter({
   const t = useTranslations("strategyRecipes.previewGate");
   const { recordEvent } = useRecordBetaEvent(campaignId);
   const missionInsight = useMissionInsightOptional();
+  const completedRef = useRef(false);
 
   const STAGE_PROPS = { stage: "preview", missionKey: "preview" } as const;
 
   const approveDisabled = isApproving || isGenerating;
 
   useEffect(() => {
+    completedRef.current = false;
     recordEvent("cockpit_stage_entered", STAGE_PROPS);
     missionInsight?.maybePromptMissionInsight({
       moment: "preview_first",
@@ -45,9 +47,15 @@ export default function DerivationPreviewGateFooter({
         operation: "preview_visible",
       },
     });
+    return () => {
+      if (!completedRef.current) {
+        recordEvent("cockpit_stage_abandoned", STAGE_PROPS);
+      }
+    };
   }, [campaignId, missionInsight, recordEvent]);
 
   const handleApproveBatch = () => {
+    completedRef.current = true;
     recordEvent("cockpit_stage_completed", STAGE_PROPS);
     onApproveBatch();
   };

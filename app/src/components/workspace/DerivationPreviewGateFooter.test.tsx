@@ -86,4 +86,19 @@ describe("DerivationPreviewGateFooter", () => {
     });
     expect(onApproveBatch).toHaveBeenCalledTimes(1);
   });
+
+  it("emits cockpit_stage_abandoned on unmount without complete", () => {
+    const STAGE_PROPS = { stage: "preview", missionKey: "preview" };
+    const { unmount } = render(
+      <DerivationPreviewGateFooter
+        campaignId="camp-1"
+        onApproveBatch={vi.fn()}
+      />
+    );
+
+    recordEvent.mockClear();
+    unmount();
+
+    expect(recordEvent).toHaveBeenCalledWith("cockpit_stage_abandoned", STAGE_PROPS);
+  });
 });
