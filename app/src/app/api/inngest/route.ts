@@ -7,6 +7,7 @@ import { brandMemoryIngestJob } from "@/server/jobs/brand-memory";
 import { learningProposalAggregatorJob } from "@/server/jobs/learning-proposal-aggregator";
 import { brandTrainingAnalyzeJob } from "@/server/jobs/brand-training";
 import { creativeWorkOutputJob } from "@/server/jobs/creative-work";
+import { creativeWorkSourceAnalyzeJob } from "@/server/jobs/creative-work-source";
 
 /**
  * Security: refuse to run in "dev" mode (which disables signature
@@ -31,5 +32,6 @@ export const { GET, POST, PUT } = serve({
     learningProposalAggregatorJob,
     brandTrainingAnalyzeJob,
     creativeWorkOutputJob,
+    creativeWorkSourceAnalyzeJob,
   ],
 });

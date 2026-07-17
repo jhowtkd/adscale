@@ -3,6 +3,8 @@ import type {
   CreativeLevel,
   CreativeWorkIdentityAssetSnapshot,
   CreativeWorkIdentitySnapshot,
+  CreativeWorkInputSnapshot,
+  SocialPostBrief,
   SocialPostCopy,
 } from "./contracts";
 import { CREATIVE_LEVEL_DIRECTIONS } from "@/server/ai/creative-level-direction";
@@ -12,6 +14,9 @@ export type SocialPostFormat = "1:1" | "4:5" | "9:16";
 export interface BuildSocialPostPromptInput {
   format: SocialPostFormat;
   copy: SocialPostCopy;
+  brief: SocialPostBrief;
+  inputSnapshot: CreativeWorkInputSnapshot;
+  revisionInstruction?: string | null;
   identitySnapshot: CreativeWorkIdentitySnapshot;
   creativeLevel: CreativeLevel;
 }
@@ -143,6 +148,15 @@ export function buildSocialPostPrompt(input: BuildSocialPostPromptInput): string
   const reservedPlacementsBlock = buildReservedPlacementsBlock(
     identitySnapshot.assets,
   );
+  const sourceAnalysisBlock = [
+    "PERSISTED BRIEF AND INPUT:",
+    `REQUEST: ${input.inputSnapshot.request}`,
+    `BRIEF: ${JSON.stringify(input.brief)}`,
+    ...(input.revisionInstruction ? [`REVISION INSTRUCTION: ${input.revisionInstruction}`] : []),
+    ...input.inputSnapshot.sources.map((source) =>
+      `- source=${source.sourceId} usage=${source.usage} content=${JSON.stringify(source.content)} style=${JSON.stringify(source.style)}`
+    ),
+  ].join("\n");
 
   return [
     "STANDALONE BRANDED SOCIAL POST — VISUAL PROMPT",
@@ -150,6 +164,8 @@ export function buildSocialPostPrompt(input: BuildSocialPostPromptInput): string
     CREATIVE_LEVEL_DIRECTIONS[creativeLevel],
     "",
     fixedContract,
+    "",
+    sourceAnalysisBlock,
     "",
     brandKitBlock,
     "",

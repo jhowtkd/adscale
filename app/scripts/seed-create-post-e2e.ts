@@ -2,20 +2,20 @@
  * Deterministic fixtures for the standalone Create Post acceptance gate
  * (Playwright + API specs).
  *
- * Creates one workspace-owned dev environment with:
- *   - two client profiles (Create Post flow + isolation control)
+ * Creates one dedicated workspace-owned dev environment with:
+ *   - exactly one client profile, proving automatic global-brand selection
  *   - one approved transparent logo asset (workspace + reference row)
  *   - one approved reference asset (visual_reference)
  *   - one pending reference asset (must be excluded from the assets step)
- *   - one ready `creative_work_items` fixture in `ready` status with a frozen
+ *   - one ready canonical creative-work fixture with a frozen
  *     identity snapshot — drives the e2e tests that don't need a live
  *     generation pipeline.
  *
  * Writes the resolved IDs to
  *   `app/tests/fixtures/create-post-e2e.json`
  *
- * Uses the dev-admin workspace seeded by `seed-dev-admin.ts`. Never touches
- * production credentials or external customer data.
+ * Uses a dedicated synthetic login and workspace. Never touches the shared
+ * dev-admin workspace, production credentials or external customer data.
  *
  * Usage:
  *   npm run seed:create-post-e2e
@@ -29,6 +29,8 @@ import sharp from "sharp";
 import { and, desc, eq, like } from "drizzle-orm";
 
 import { db } from "../src/server/db";
+import { auth } from "../src/server/auth";
+import { env } from "../src/server/validation/env";
 import {
   clientProfiles,
   clientReferences,
@@ -51,20 +53,43 @@ import {
   setCreativeWorkCopy,
 } from "../src/server/repositories/creative-work";
 import type { BrandTrainingAnalysis } from "../src/server/brand-training/contracts";
+import {
+  createCreditGrant,
+  saveBillingCustomer,
+  upsertSubscription,
+} from "../src/server/repositories/billing";
 
-const DEV_EMAIL = "dev-admin@adscale.local";
+const E2E_EMAIL = "frictionless-e2e@adscale.local";
+const E2E_PASSWORD = "FrictionlessE2E123!";
 const PRIMARY_CLIENT_NAME = "Create Post E2E Brand";
-const SECONDARY_CLIENT_NAME = "Create Post E2E Other Brand";
 const FIXTURE_PATH = path.resolve(
   __dirname,
   "../tests/fixtures/create-post-e2e.json",
 );
 
-/** 8x8 fully transparent PNG so composite-acceptance can rely on alpha=1. */
-const TRANSPARENT_PNG = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAIAQAAAAAAAAAAAAAATklEQVR42mP8z8AARFAwiokQGAUjkIogsJgFgYGBgYEBAEyFAQB6fAhT8pxGgwAAAABJRU5ErkJggg==",
-  "base64",
-);
+/** Valid fully transparent PNG so composite-acceptance can rely on alpha=1. */
+async function buildTransparentPng(): Promise<Buffer> {
+  const transparentCanvas = sharp({
+    create: {
+      width: 96,
+      height: 96,
+      channels: 4,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    },
+  });
+  const visibleMark = await sharp({
+    create: {
+      width: 64,
+      height: 64,
+      channels: 4,
+      background: { r: 24, g: 72, b: 216, alpha: 1 },
+    },
+  }).png().toBuffer();
+  return transparentCanvas
+    .composite([{ input: visibleMark, left: 16, top: 16 }])
+    .png()
+    .toBuffer();
+}
 
 /** 64x64 deterministic solid magenta PNG (no alpha). */
 async function buildOpaquePng(): Promise<Buffer> {
@@ -102,29 +127,73 @@ const SAMPLE_ANALYSIS: BrandTrainingAnalysis = {
   confidence: 1,
 };
 
-async function resolveDevWorkspace(): Promise<{
+async function resolveDedicatedWorkspace(): Promise<{
   userId: string;
   workspaceId: string;
 }> {
-  const account = await db
+  let account = await db
     .select()
     .from(user)
-    .where(eq(user.email, DEV_EMAIL))
+    .where(eq(user.email, E2E_EMAIL))
     .limit(1);
   if (!account[0]) {
-    throw new Error(
-      `No user ${DEV_EMAIL}. Run \`npm run seed:dev-admin -- --create --email=${DEV_EMAIL}\` first.`,
-    );
+    await auth.api.signUpEmail({
+      body: {
+        email: E2E_EMAIL,
+        password: E2E_PASSWORD,
+        name: "Frictionless E2E",
+      },
+    });
+    account = await db
+      .select()
+      .from(user)
+      .where(eq(user.email, E2E_EMAIL))
+      .limit(1);
   }
+  if (!account[0]) {
+    throw new Error(`Could not create dedicated E2E user ${E2E_EMAIL}.`);
+  }
+  await db
+    .update(user)
+    .set({
+      emailVerified: true,
+      onboardingCompletedAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(eq(user.id, account[0].id));
   const membership = await db
     .select()
     .from(workspaceMembers)
     .where(eq(workspaceMembers.userId, account[0].id))
     .limit(1);
   if (!membership[0]) {
-    throw new Error(`User ${DEV_EMAIL} has no workspace.`);
+    throw new Error(`User ${E2E_EMAIL} has no workspace.`);
   }
-  return { userId: account[0].id, workspaceId: membership[0].workspaceId };
+  const workspaceId = membership[0].workspaceId;
+  const compactId = workspaceId.replace(/-/g, "").slice(0, 24);
+  const stripeCustomerId = `cus_e2e_${compactId}`;
+  await saveBillingCustomer({ workspaceId, stripeCustomerId });
+  const currentPeriodEnd = new Date();
+  currentPeriodEnd.setFullYear(currentPeriodEnd.getFullYear() + 1);
+  await upsertSubscription({
+    workspaceId,
+    stripeSubscriptionId: `sub_e2e_${compactId}`,
+    stripeCustomerId,
+    status: "active",
+    planKey: "scale",
+    priceId: env.STRIPE_SCALE_PRICE_ID,
+    currentPeriodStart: new Date(),
+    currentPeriodEnd,
+    cancelAtPeriodEnd: false,
+  });
+  await createCreditGrant({
+    workspaceId,
+    source: "dev_admin_seed",
+    sourceId: `frictionless-e2e-${Date.now()}`,
+    amount: 10_000,
+    expiresAt: null,
+  });
+  return { userId: account[0].id, workspaceId };
 }
 
 async function clearPreviousSeed(workspaceId: string): Promise<void> {
@@ -135,12 +204,7 @@ async function clearPreviousSeed(workspaceId: string): Promise<void> {
   const previousProfiles = await db
     .select({ id: clientProfiles.id })
     .from(clientProfiles)
-    .where(
-      and(
-        eq(clientProfiles.workspaceId, workspaceId),
-        like(clientProfiles.name, "Create Post E2E%"),
-      ),
-    );
+    .where(eq(clientProfiles.workspaceId, workspaceId));
 
   for (const profile of previousProfiles) {
     await db
@@ -153,12 +217,7 @@ async function clearPreviousSeed(workspaceId: string): Promise<void> {
 
   await db
     .delete(clientProfiles)
-    .where(
-      and(
-        eq(clientProfiles.workspaceId, workspaceId),
-        like(clientProfiles.name, "Create Post E2E%"),
-      ),
-    );
+    .where(eq(clientProfiles.workspaceId, workspaceId));
 
   await db
     .delete(workspaceAssets)
@@ -218,9 +277,9 @@ async function uploadFixtureAsset(input: {
   return { key, assetId: asset.id };
 }
 
-async function seedBrandKit(profileId: string): Promise<void> {
+async function seedBrandKit(workspaceId: string, profileId: string): Promise<void> {
   await upsertBrandKit(
-    profileId,
+    workspaceId,
     {
       name: PRIMARY_CLIENT_NAME,
       description: "Seed profile used by Create Post acceptance gate",
@@ -352,21 +411,14 @@ async function seedReadyWorkFixture(input: {
 }
 
 async function main(): Promise<void> {
-  const { userId, workspaceId } = await resolveDevWorkspace();
+  const { userId, workspaceId } = await resolveDedicatedWorkspace();
   await clearPreviousSeed(workspaceId);
 
   const primary = await ensureClientProfile(workspaceId, PRIMARY_CLIENT_NAME);
-  const secondary = await ensureClientProfile(
-    workspaceId,
-    SECONDARY_CLIENT_NAME,
-  );
 
-  await seedBrandKit(primary.id);
+  await seedBrandKit(workspaceId, primary.id);
 
-  const logoBuffer = await sharp(Buffer.from(TRANSPARENT_PNG))
-    .resize(96, 96)
-    .png()
-    .toBuffer();
+  const logoBuffer = await buildTransparentPng();
   const referenceBuffer = await buildVisualReferencePng();
   const opaqueBuffer = await buildOpaquePng();
 
@@ -415,21 +467,24 @@ async function main(): Promise<void> {
   const fixture = {
     workspaceId,
     workspaceName: workspaceName ?? null,
+    email: E2E_EMAIL,
+    password: E2E_PASSWORD,
     userId,
     primaryClientProfileId: primary.id,
-    secondaryClientProfileId: secondary.id,
     approvedLogoReferenceId: logo.id,
     approvedLogoAssetKey: logo.assetKey,
     // Embed the seeded logo buffer as base64 so the e2e composition test
     // can exercise the real server pipeline (`composeExactBrandAssets`)
     // without needing live object-storage access in CI.
     approvedLogoBufferBase64: logoBuffer.toString("base64"),
+    attachmentBufferBase64: logoBuffer.toString("base64"),
     approvedLogoWidth: 96,
     approvedLogoHeight: 96,
     approvedVisualReferenceId: visualRef.id,
     approvedVisualReferenceAssetKey: visualRef.assetKey,
     pendingReferenceLabel: "Logo Pendente",
     readyWorkId,
+    expectedInitialCredits: 15,
     seededAt: new Date().toISOString(),
   };
 

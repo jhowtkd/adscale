@@ -96,6 +96,7 @@ export default function StrategyRecipePanel({
     readiness,
     brandKit,
     campaign,
+    enabled: open,
     resetKey: open ? recipeSessionKey : undefined,
     initialPrefill: open ? initialPrefill : null,
   });

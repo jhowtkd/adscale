@@ -39,14 +39,16 @@ export interface CreativeWorkOutputProjectionSource {
   id: string;
   status: string;
   creativeLevel: string | null;
+  targetFormat?: string | null;
+  versionNumber?: number | null;
+  parentOutputId?: string | null;
   outputKey: string | null;
   isSelected: boolean | null;
   createdAt?: Date | string | null;
 }
 
 function resumeHrefForCreativeWork(workItemId: string): string {
-  // Wizard reads `workId` only (CreatePostWizard searchParams).
-  return `/quick-tools/create-post?workId=${workItemId}`;
+  return `/?workId=${workItemId}`;
 }
 
 export function projectCreativeWorkAsCanonicalWork(
@@ -66,30 +68,42 @@ export function projectCreativeWorkAsCanonicalWork(
     hasSelectedOutput,
   });
 
-  const canonicalOutputs: CanonicalOutput[] = outputs.map((o) => {
+  const orderedOutputs = [...outputs].sort((left, right) => {
+    const leftFormat = left.targetFormat ?? work.format;
+    const rightFormat = right.targetFormat ?? work.format;
+    return leftFormat.localeCompare(rightFormat)
+      || (left.creativeLevel ?? "").localeCompare(right.creativeLevel ?? "")
+      || (left.versionNumber ?? 1) - (right.versionNumber ?? 1);
+  });
+  const latestByPlan = new Map<string, CreativeWorkOutputProjectionSource>();
+  for (const output of orderedOutputs) {
+    latestByPlan.set(`${output.creativeLevel ?? ""}:${output.targetFormat ?? work.format}`, output);
+  }
+
+  const projectOutput = (o: CreativeWorkOutputProjectionSource): CanonicalOutput => {
     const status = mapCreativeWorkOutputStatusToCanonical(o.status);
     return {
       id: o.id,
       sourceKind: "creative_work_output" as const,
       status: o.isSelected ? "approved" : status,
-      format: work.format,
+      format: o.targetFormat ?? work.format,
       creativeLevel: o.creativeLevel,
       outputKey: o.outputKey,
       isSelected: o.isSelected === true,
-      versionLabel: o.creativeLevel ?? o.id.slice(0, 8),
+      versionLabel: `${o.creativeLevel ?? o.id.slice(0, 8)} ${o.targetFormat ?? work.format} · v${o.versionNumber ?? 1}`,
       createdAt: toIso(o.createdAt),
     };
-  });
+  };
+  const canonicalOutputs: CanonicalOutput[] = [...latestByPlan.values()].map(projectOutput);
 
-  const versions: CanonicalVersion[] = canonicalOutputs.map((o) => ({
-    id: `version:${o.id}`,
-    label: o.versionLabel,
-    outputId: o.id,
-    createdAt: o.createdAt,
+  const versions: CanonicalVersion[] = orderedOutputs.map((output) => ({
+    id: `version:${output.id}`,
+    label: `${output.creativeLevel ?? output.id.slice(0, 8)} ${output.targetFormat ?? work.format} · v${output.versionNumber ?? 1}`,
+    outputId: output.id,
+    createdAt: toIso(output.createdAt),
   }));
 
-  const selected =
-    canonicalOutputs.find((o) => o.isSelected) ?? null;
+  const selected = orderedOutputs.find((output) => output.isSelected) ?? null;
 
   const theme = work.brief?.theme ?? null;
   const name = theme?.trim() || `Criar Post ${work.id.slice(0, 8)}`;

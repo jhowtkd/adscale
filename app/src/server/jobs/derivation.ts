@@ -106,6 +106,22 @@ import {
 } from "@/server/generation/pipeline/post-generation";
 import { scoreCompletedDerivation } from "@/server/generation/pipeline/score-derivation";
 
+async function sendDerivationCompleteEmailBestEffort(
+  input: Parameters<typeof sendDerivationCompleteEmail>[0]
+): Promise<boolean> {
+  try {
+    await sendDerivationCompleteEmail(input);
+    return true;
+  } catch (error) {
+    // Generation and persistence are already complete. Email is a secondary
+    // channel and must not roll a usable derivation back to failed.
+    logger.warn("[notify-completion] email delivery failed", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return false;
+  }
+}
+
 type CampaignAsset = Awaited<ReturnType<typeof getAssetsByCampaign>>[number];
 
 function resolveRestylingBaseAsset(assets: CampaignAsset[]) {
@@ -1014,13 +1030,15 @@ export const derivationJob = inngest.createFunction(
                 ),
               getUserLocale(triggeredByUserId),
             ]);
-            await sendDerivationCompleteEmail({
+            const emailSent = await sendDerivationCompleteEmailBestEffort({
               to: email,
               campaignName: campaign.name,
               derivationCount: completedCount[0]?.count ?? 0,
               locale: userLocale,
             });
-            logger.info(`[notify-completion] sent email to ${email} for campaign=${campaignId}`);
+            if (emailSent) {
+              logger.info(`[notify-completion] sent email to ${email} for campaign=${campaignId}`);
+            }
           }
         }
       });

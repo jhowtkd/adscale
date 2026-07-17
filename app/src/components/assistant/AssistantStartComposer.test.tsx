@@ -21,8 +21,8 @@ vi.mock("next-intl", () => ({
   },
 }));
 
-vi.mock("@/lib/hooks/use-client-profiles", () => ({
-  useClientProfiles: vi.fn(),
+vi.mock("@/lib/hooks/use-active-client-profile", () => ({
+  useActiveClientProfile: vi.fn(),
 }));
 
 vi.mock("@/lib/hooks/use-assistant-threads", () => ({
@@ -48,9 +48,9 @@ vi.mock("@/lib/assistant/chat-attachments", async (importOriginal) => {
   };
 });
 
-import { useClientProfiles } from "@/lib/hooks/use-client-profiles";
+import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
 
-const mockUseClientProfiles = vi.mocked(useClientProfiles);
+const mockUseActiveClientProfile = vi.mocked(useActiveClientProfile);
 
 const clientFixture = {
   id: "client-1",
@@ -88,10 +88,14 @@ describe("AssistantStartComposer", () => {
       name: file.name,
       size: file.size,
     }));
-    mockUseClientProfiles.mockReturnValue({
-      data: [clientFixture],
+    mockUseActiveClientProfile.mockReturnValue({
+      profiles: [clientFixture],
+      activeProfile: clientFixture,
+      activeClientProfileId: clientFixture.id,
+      requiresSelection: false,
       isLoading: false,
-    } as ReturnType<typeof useClientProfiles>);
+      selectProfile: vi.fn(),
+    });
     mockMutateAsync.mockResolvedValue({ ...clientFixture, id: "thread-new" });
   });
 
@@ -107,6 +111,11 @@ describe("AssistantStartComposer", () => {
     expect(screen.getByTestId("assistant-start-composer")).toBeInTheDocument();
     expect(screen.getByTestId("assistant-start-form")).toBeInTheDocument();
     expect(screen.getByTestId("assistant-journey-cards")).toBeInTheDocument();
+    expect(screen.getByText("composerPathHint")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "openHomeComposer" })).toHaveAttribute(
+      "href",
+      "/?compose=1"
+    );
   });
 
   it("creates a thread and navigates when submitting a first message", async () => {
@@ -143,6 +152,27 @@ describe("AssistantStartComposer", () => {
 
     const sendButton = screen.getByRole("button", { name: "send" });
     expect(sendButton).toBeDisabled();
+  });
+
+  it("does not silently select the first profile when multiple profiles require a choice", () => {
+    mockUseActiveClientProfile.mockReturnValue({
+      profiles: [clientFixture, { ...clientFixture, id: "client-2", name: "Other" }],
+      activeProfile: null,
+      activeClientProfileId: null,
+      requiresSelection: true,
+      isLoading: false,
+      selectProfile: vi.fn(),
+    });
+
+    render(<AssistantStartComposer onSelectThread={vi.fn()} />, {
+      wrapper: createWrapper(),
+    });
+
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "Create something" },
+    });
+    expect(screen.getByRole("button", { name: "send" })).toBeDisabled();
+    expect(mockMutateAsync).not.toHaveBeenCalled();
   });
 
   it("appends a second image attachment chip", async () => {
@@ -193,11 +223,14 @@ describe("AssistantStartComposer", () => {
   });
 
   it("shows the no-projects empty state when there are no clients", () => {
-    mockUseClientProfiles.mockReturnValue({
-      data: [],
+    mockUseActiveClientProfile.mockReturnValue({
+      profiles: [],
+      activeProfile: null,
+      activeClientProfileId: null,
+      requiresSelection: false,
       isLoading: false,
-    } as ReturnType<typeof useClientProfiles>);
-
+      selectProfile: vi.fn(),
+    });
     render(
       <AssistantStartComposer onSelectThread={vi.fn()} onCreateClient={vi.fn()} />,
       { wrapper: createWrapper() }
@@ -219,10 +252,14 @@ describe("AssistantStartComposer goal-agent experience", () => {
       name: file.name,
       size: file.size,
     }));
-    mockUseClientProfiles.mockReturnValue({
-      data: [clientFixture],
+    mockUseActiveClientProfile.mockReturnValue({
+      profiles: [clientFixture],
+      activeProfile: clientFixture,
+      activeClientProfileId: clientFixture.id,
+      requiresSelection: false,
       isLoading: false,
-    } as ReturnType<typeof useClientProfiles>);
+      selectProfile: vi.fn(),
+    });
     mockMutateAsync.mockResolvedValue({ ...clientFixture, id: "thread-new" });
   });
 

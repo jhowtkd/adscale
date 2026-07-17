@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
 
 /**
- * Canonical "new campaign" entry: open the name/client modal on the list.
- * Keeps legacy /campaigns/new links working without silent auto-create.
+ * Legacy "new campaign" entry: creation now starts in the operational Home.
+ * Campaign grouping remains optional after the creative work exists.
  */
 export default function NewCampaignPage() {
-  redirect("/campaigns?new=1");
+  redirect("/?compose=1");
 }

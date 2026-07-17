@@ -19,6 +19,7 @@ export type SelectCreativeWorkOutputInput = {
 
 export type SelectCreativeWorkOutputError =
   | { code: "work_not_found" }
+  | { code: "work_not_prepared" }
   | { code: "output_not_found" }
   | { code: "output_not_selectable"; status: string }
   | { code: "output_missing_key" };
@@ -39,6 +40,9 @@ export async function selectCreativeWorkOutputCommand(
   const existing = await getCreativeWork(input.workspaceId, input.workItemId);
   if (!existing) {
     return { ok: false, error: { code: "work_not_found" } };
+  }
+  if (!existing.work.brief) {
+    return { ok: false, error: { code: "work_not_prepared" } };
   }
 
   const output = existing.outputs.find((o) => o.id === input.outputId);

@@ -6,10 +6,11 @@ vi.mock("@/server/repositories/client-reference", () => ({
 
 vi.mock("@/server/repositories/creative-work", () => ({
   createCreativeWork: vi.fn(),
+  createCreativeWorkDraft: vi.fn(),
 }));
 
 import { getClientProfile } from "@/server/repositories/client-reference";
-import { createCreativeWork } from "@/server/repositories/creative-work";
+import { createCreativeWork, createCreativeWorkDraft } from "@/server/repositories/creative-work";
 import {
   buildSocialPostCreateInput,
   SOCIAL_POST_TOOL_KIND,
@@ -18,6 +19,7 @@ import {
 
 const mockProfile = vi.mocked(getClientProfile);
 const mockCreate = vi.mocked(createCreativeWork);
+const mockCreateDraft = vi.mocked(createCreativeWorkDraft);
 
 const profileId = "00000000-0000-4000-8000-000000000001";
 const brief = {
@@ -106,7 +108,47 @@ describe("startSocialPostWork", () => {
       formatHint: "4:5",
       platforms: [],
     });
-    expect(result.value.canonical.resumeHref).toContain("create-post");
+    expect(result.value.canonical.resumeHref).toBe("/?workId=work-1");
     expect(result.value.work.id).toBe("work-1");
+  });
+
+  it("creates an idempotent nullable-brief draft from the one-field contract", async () => {
+    mockProfile.mockResolvedValue({ id: profileId } as never);
+    mockCreateDraft.mockResolvedValue({
+      id: "work-draft", workspaceId: "ws-1", clientProfileId: profileId,
+      createdByUserId: "u-1", draftKey: "draft-key", toolKind: "variations",
+      title: "Promoção de matrícula para julho", request: "Promoção de matrícula para julho",
+      status: "draft", brief: null, format: "4:5", settings: { targetFormats: [] },
+      copy: null, identitySnapshot: null, createdAt: new Date(), updatedAt: new Date(),
+    } as never);
+    const result = await startSocialPostWork({
+      workspaceId: "ws-1", userId: "u-1", clientProfileId: profileId,
+      draftKey: "draft-key", request: "Promoção de matrícula para julho",
+      intent: "variations", format: "4:5", settings: { targetFormats: [] },
+    });
+    expect(result.ok).toBe(true);
+    expect(mockCreateDraft).toHaveBeenCalledWith(expect.objectContaining({
+      draftKey: "draft-key", brief: null, title: "Promoção de matrícula para julho",
+    }));
+    expect(mockCreateDraft.mock.calls[0][0]).not.toHaveProperty("campaignId");
+    if (result.ok) expect(result.value.quote).toMatchObject({ unitCount: 3, credits: 15 });
+  });
+
+  it("returns the same repository draft for a repeated draft key", async () => {
+    const persisted = {
+      id: "same-work", workspaceId: "ws-1", clientProfileId: profileId, createdByUserId: "u-1",
+      draftKey: "draft-key", toolKind: "single", title: "Uma peça", request: "Uma peça",
+      status: "draft", brief: null, format: "4:5", settings: { targetFormats: [] },
+      copy: null, identitySnapshot: null, createdAt: new Date(), updatedAt: new Date(),
+    } as never;
+    mockProfile.mockResolvedValue({ id: profileId } as never);
+    mockCreateDraft.mockResolvedValue(persisted);
+    const input = { workspaceId: "ws-1", userId: "u-1", clientProfileId: profileId,
+      draftKey: "draft-key", request: "Uma peça", intent: "single" as const,
+      format: "4:5" as const, settings: { targetFormats: [] } };
+    const [first, second] = await Promise.all([startSocialPostWork(input), startSocialPostWork(input)]);
+    expect(first.ok && first.value.work.id).toBe("same-work");
+    expect(second.ok && second.value.work.id).toBe("same-work");
+    expect(mockCreateDraft).toHaveBeenCalledTimes(2);
   });
 });

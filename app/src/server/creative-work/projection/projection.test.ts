@@ -117,10 +117,7 @@ function expectCanonicalShape(
   expect(typeof work.resumable).toBe("boolean");
   expect(work.resumeHref.startsWith("/")).toBe(true);
   if (work.originKind === "creative_work") {
-    // Wizard only restores via ?workId= (not workItemId).
-    expect(work.resumeHref).toBe(
-      `/quick-tools/create-post?workId=${work.originId}`
-    );
+    expect(work.resumeHref).toBe(`/?workId=${work.originId}`);
   }
   expect(work.createdAt).toMatch(/Z$/);
   expect(work.updatedAt).toMatch(/Z$/);
@@ -323,6 +320,64 @@ describe("projectCreativeWorkAsCanonicalWork (Criar Post fixture)", () => {
     expect(work.state).toBe("approved");
     expect(work.selectedOutputId).toBe(OUT_ID);
     expect(work.versions[0].outputId).toBe(OUT_ID);
+  });
+
+  it("projects only the current output per level/format and keeps every ordered version", () => {
+    const work = projectCreativeWorkAsCanonicalWork(
+      creativeWorkFixture({
+        status: "completed",
+        copy: { headline: "H", body: "B", cta: "C" },
+        identitySnapshot: {},
+      }),
+      [
+        {
+          id: "balanced-v2",
+          status: "completed",
+          creativeLevel: "balanced",
+          targetFormat: "4:5",
+          versionNumber: 2,
+          parentOutputId: "balanced-v1",
+          outputKey: "out/v2.png",
+          isSelected: false,
+          createdAt: "2026-01-05T00:00:00.000Z",
+        },
+        {
+          id: "balanced-v1",
+          status: "completed",
+          creativeLevel: "balanced",
+          targetFormat: "4:5",
+          versionNumber: 1,
+          parentOutputId: null,
+          outputKey: "out/v1.png",
+          isSelected: false,
+          createdAt: "2026-01-04T00:00:00.000Z",
+        },
+        {
+          id: "bold-v1",
+          status: "completed",
+          creativeLevel: "bold",
+          targetFormat: "1:1",
+          versionNumber: 1,
+          parentOutputId: null,
+          outputKey: "out/bold.png",
+          isSelected: false,
+          createdAt: "2026-01-03T00:00:00.000Z",
+        },
+      ],
+    );
+
+    expect(work.state).toBe("reviewing");
+    expect(work.outputs.map((output) => output.id)).toEqual(["bold-v1", "balanced-v2"]);
+    expect(work.versions.map((version) => version.outputId)).toEqual([
+      "bold-v1",
+      "balanced-v1",
+      "balanced-v2",
+    ]);
+    expect(work.versions.map((version) => version.label)).toEqual([
+      "bold 1:1 · v1",
+      "balanced 4:5 · v1",
+      "balanced 4:5 · v2",
+    ]);
   });
 });
 

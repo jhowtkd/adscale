@@ -1,7 +1,10 @@
-"use client";
-
 import DashboardHomeActions from "@/components/dashboard/DashboardHomeActions";
+import { parseDashboardSearchParams } from "./dashboard-search-params";
 
-export default function DashboardPage() {
-  return <DashboardHomeActions />;
+type DashboardSearchParams = Record<string, string | string[] | undefined>;
+
+export default async function DashboardPage({ searchParams }: {
+  searchParams: Promise<DashboardSearchParams>;
+}) {
+  return <DashboardHomeActions {...parseDashboardSearchParams(await searchParams)} />;
 }

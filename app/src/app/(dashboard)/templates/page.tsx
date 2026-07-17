@@ -25,7 +25,8 @@ export default function TemplatesPage() {
   const updateTemplate = useUpdateTemplate();
 
   const handleUseTemplate = (template: CampaignTemplate) => {
-    router.push(`/campaigns?new=1&templateId=${template.id}`);
+    // Keep this destination literal: the convergence inventory tracks CTA routes statically.
+    router.push(`/?templateId=${encodeURIComponent(template.id)}&compose=1`);
   };
 
   const handleDelete = async (id: string) => {

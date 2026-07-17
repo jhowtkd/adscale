@@ -2516,19 +2516,29 @@ export const creativeWorkItems = adscaleSchema.table(
     createdByUserId: text("created_by_user_id")
       .notNull()
       .references(() => user.id, { onDelete: "restrict" }),
+    draftKey: text("draft_key"),
+    title: text("title").notNull(),
+    request: text("request").notNull(),
+    campaignId: uuid("campaign_id").references(() => campaigns.id, { onDelete: "set null" }),
     toolKind: text("tool_kind")
       .notNull()
-      .$type<"social_post">(),
+      .$type<import("../creative-work/contracts").CreativeWorkIntent>(),
     status: text("status")
       .notNull()
       .default("draft")
       .$type<import("../creative-work/contracts").CreativeWorkStatus>(),
     brief: jsonb("brief")
-      .$type<import("../creative-work/contracts").SocialPostBrief>()
-      .notNull(),
+      .$type<import("../creative-work/contracts").SocialPostBrief>(),
     format: text("format")
       .notNull()
+      .default("4:5")
       .$type<"1:1" | "4:5" | "9:16">(),
+    settings: jsonb("settings")
+      .$type<import("../creative-work/contracts").CreativeWorkSettings>()
+      .notNull(),
+    inputSnapshot: jsonb("input_snapshot").$type<
+      import("../creative-work/contracts").CreativeWorkInputSnapshot
+    >(),
     copy: jsonb("copy").$type<import("../creative-work/contracts").SocialPostCopy>(),
     identitySnapshot: jsonb("identity_snapshot").$type<
       import("../creative-work/contracts").CreativeWorkIdentitySnapshot
@@ -2542,9 +2552,12 @@ export const creativeWorkItems = adscaleSchema.table(
       table.clientProfileId,
       table.updatedAt
     ),
+    uniqueIndex("creative_work_items_draft_key_uq")
+      .on(table.workspaceId, table.createdByUserId, table.draftKey)
+      .where(sql`${table.draftKey} is not null`),
     check(
       "creative_work_items_tool_kind_check",
-      sql`${table.toolKind} = 'social_post'`
+      sql`${table.toolKind} in ('social_post','variations','single','format_adaptation','restyle')`
     ),
     check(
       "creative_work_items_status_check",
@@ -2560,6 +2573,39 @@ export const creativeWorkItems = adscaleSchema.table(
 export type CreativeWorkItem = typeof creativeWorkItems.$inferSelect;
 export type NewCreativeWorkItem = typeof creativeWorkItems.$inferInsert;
 
+export const creativeWorkSources = adscaleSchema.table(
+  "creative_work_sources",
+  {
+    id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    workItemId: uuid("work_item_id").notNull().references(() => creativeWorkItems.id, { onDelete: "cascade" }),
+    assetId: uuid("asset_id").references(() => workspaceAssets.id, { onDelete: "cascade" }),
+    templateId: uuid("template_id").references(() => campaignTemplates.id, { onDelete: "cascade" }),
+    usage: text("usage").notNull().$type<import("../creative-work/contracts").CreativeSourceUsage>(),
+    status: text("status").notNull().$type<import("../creative-work/contracts").CreativeSourceStatus>(),
+    contentAnalysis: jsonb("content_analysis").$type<import("../ai/image-analysis").ContentBrief>(),
+    styleAnalysis: jsonb("style_analysis").$type<import("../ai/image-analysis").StyleBrief>(),
+    failureCode: text("failure_code"),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("creative_work_sources_scope_idx").on(table.workspaceId, table.workItemId),
+    uniqueIndex("creative_work_sources_asset_uq")
+      .on(table.workItemId, table.assetId)
+      .where(sql`${table.assetId} is not null`),
+    uniqueIndex("creative_work_sources_template_uq")
+      .on(table.workItemId, table.templateId)
+      .where(sql`${table.templateId} is not null`),
+    check("creative_work_sources_origin_check", sql`num_nonnulls(${table.assetId}, ${table.templateId}) = 1`),
+    check("creative_work_sources_usage_check", sql`${table.usage} in ('content','style','both')`),
+    check("creative_work_sources_status_check", sql`${table.status} in ('uploaded','analyzing','ready','failed')`),
+  ],
+);
+
+export type CreativeWorkSource = typeof creativeWorkSources.$inferSelect;
+export type NewCreativeWorkSource = typeof creativeWorkSources.$inferInsert;
+
 export const creativeWorkOutputs = adscaleSchema.table(
   "creative_work_outputs",
   {
@@ -2573,6 +2619,13 @@ export const creativeWorkOutputs = adscaleSchema.table(
     creativeLevel: text("creative_level")
       .notNull()
       .$type<import("../creative-work/contracts").CreativeLevel>(),
+    targetFormat: text("target_format").notNull().$type<"1:1" | "4:5" | "9:16">(),
+    versionNumber: integer("version_number").notNull().default(1),
+    parentOutputId: uuid("parent_output_id"),
+    revisionInstruction: text("revision_instruction"),
+    revisionAssetId: uuid("revision_asset_id").references(() => workspaceAssets.id, { onDelete: "set null" }),
+    retryCount: integer("retry_count").notNull().default(0),
+    operationKey: text("operation_key").notNull(),
     status: text("status")
       .notNull()
       .default("queued")
@@ -2586,10 +2639,13 @@ export const creativeWorkOutputs = adscaleSchema.table(
     updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
   },
   (table) => [
-    uniqueIndex("creative_work_outputs_level_uq").on(
+    uniqueIndex("creative_work_outputs_plan_uq").on(
       table.workItemId,
-      table.creativeLevel
+      table.creativeLevel,
+      table.targetFormat,
+      table.versionNumber,
     ),
+    uniqueIndex("creative_work_outputs_operation_uq").on(table.workItemId, table.operationKey),
     uniqueIndex("creative_work_outputs_selected_uq")
       .on(table.workItemId)
       .where(sql`${table.isSelected} = true`),
@@ -2606,6 +2662,11 @@ export const creativeWorkOutputs = adscaleSchema.table(
       "creative_work_outputs_status_check",
       sql`${table.status} in ('queued','processing','completed','failed')`
     ),
+    foreignKey({
+      columns: [table.parentOutputId],
+      foreignColumns: [table.id],
+      name: "creative_work_outputs_parent_fk",
+    }).onDelete("set null"),
   ]
 );
 

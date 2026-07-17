@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import { invalidateCanonicalWorks } from "@/lib/hooks/use-canonical-works";
+import type { ContentBrief, StyleBrief } from "@/server/ai/image-analysis";
 
 export type CreativeWorkStatus =
   | "draft"
@@ -55,10 +56,15 @@ export interface CreativeWorkItem {
   workspaceId: string;
   clientProfileId: string;
   createdByUserId: string;
-  toolKind: "social_post";
+  draftKey: string | null;
+  campaignId: string | null;
+  title: string;
+  request: string;
+  toolKind: "social_post" | "variations" | "single" | "format_adaptation" | "restyle";
   status: CreativeWorkStatus;
   brief: SocialPostBrief;
   format: "1:1" | "4:5" | "9:16";
+  settings: { targetFormats: Array<"1:1" | "4:5" | "9:16"> };
   copy: SocialPostCopy | null;
   identitySnapshot: CreativeWorkIdentitySnapshot | null;
   createdAt: Date | string;
@@ -70,6 +76,13 @@ export interface CreativeWorkOutput {
   workspaceId: string;
   workItemId: string;
   creativeLevel: CreativeLevel;
+  targetFormat: "1:1" | "4:5" | "9:16";
+  versionNumber: number;
+  parentOutputId: string | null;
+  revisionInstruction: string | null;
+  revisionAssetId: string | null;
+  retryCount: number;
+  operationKey: string;
   status: CreativeWorkOutputStatus;
   outputKey: string | null;
   cost: number | null;
@@ -80,9 +93,34 @@ export interface CreativeWorkOutput {
   updatedAt: Date | string;
 }
 
+export type CreativeSourceUsage = "content" | "style" | "both";
+export interface CreativeWorkSource {
+  id: string;
+  workspaceId: string;
+  workItemId: string;
+  assetId: string | null;
+  templateId: string | null;
+  name: string;
+  origin: "upload" | "template" | "approved_work";
+  usage: CreativeSourceUsage;
+  status: "uploaded" | "analyzing" | "ready" | "failed";
+  contentAnalysis: ContentBrief | null;
+  styleAnalysis: StyleBrief | null;
+  failureCode: string | null;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}
+
 export interface CreativeWorkDetail {
   work: CreativeWorkItem;
   outputs: CreativeWorkOutput[];
+  sources: CreativeWorkSource[];
+}
+
+export interface CreativeWorkCampaignOption {
+  id: string;
+  name: string;
+  clientProfileId: string | null;
 }
 
 export function creativeWorkRefetchInterval(
@@ -94,7 +132,8 @@ export function creativeWorkRefetchInterval(
     | undefined,
 ) {
   return data?.work.status === "generating" ||
-    data?.outputs.some((output) => output.status === "queued" || output.status === "processing")
+    data?.outputs.some((output) => output.status === "queued" || output.status === "processing") ||
+    ("sources" in (data ?? {}) && (data as CreativeWorkDetail).sources.some((source) => source.status === "uploaded" || source.status === "analyzing"))
     ? 2000
     : false;
 }
@@ -118,6 +157,11 @@ function fetchCreativeWork(workItemId: string): Promise<CreativeWorkDetail> {
         ...o,
         createdAt: new Date(o.createdAt),
         updatedAt: new Date(o.updatedAt),
+      })),
+      sources: (data.sources as CreativeWorkSource[] ?? []).map((source) => ({
+        ...source,
+        createdAt: new Date(source.createdAt),
+        updatedAt: new Date(source.updatedAt),
       })),
     };
   });
@@ -180,6 +224,19 @@ export function useCreativeWork(workItemId: string | null | undefined) {
   });
 }
 
+export function useCreativeWorkCampaigns(enabled: boolean) {
+  return useQuery({
+    queryKey: ["creative-work", "campaign-options"],
+    enabled,
+    staleTime: 30_000,
+    queryFn: () => apiFetch("/api/campaigns?limit=50").then(async (res) => {
+      if (!res.ok) throw new Error(await readError(res));
+      const data = await res.json() as { campaigns?: CreativeWorkCampaignOption[] };
+      return data.campaigns ?? [];
+    }),
+  });
+}
+
 export function useIdentityOptions(workItemId: string | null | undefined) {
   return useQuery({
     queryKey: ["identity-options", workItemId],
@@ -209,6 +266,82 @@ export function useCreateCreativeWork() {
   });
 }
 
+export type CreativeDraftInput = {
+  clientProfileId: string;
+  draftKey: string;
+  request: string;
+  intent: CreativeWorkItem["toolKind"];
+  format: CreativeWorkItem["format"];
+  settings: CreativeWorkItem["settings"];
+  assetId?: string;
+  templateId?: string;
+  usage?: CreativeSourceUsage;
+};
+
+export type CreativeWorkDraftItem = Omit<CreativeWorkItem, "brief"> & { brief: SocialPostBrief | null };
+export type CreativeWorkQuote = { unitCount: number; credits: number };
+
+async function invalidateCreativeDraft(queryClient: ReturnType<typeof useQueryClient>, workItemId: string) {
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: ["creative-work"] }),
+    queryClient.invalidateQueries({ queryKey: ["creative-work", workItemId] }),
+    invalidateCanonicalWorks(queryClient),
+  ]);
+}
+
+export function useCreateCreativeWorkDraft() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreativeDraftInput) => postJson<{
+      work: CreativeWorkDraftItem;
+      quote: CreativeWorkQuote;
+      source?: CreativeWorkSource;
+    }>("/api/creative-work", input),
+    onSuccess: (data) => invalidateCreativeDraft(queryClient, data.work.id),
+  });
+}
+
+export function useAutosaveCreativeWork() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: Omit<CreativeDraftInput, "clientProfileId" | "draftKey"> & { workItemId: string }) =>
+      patchJson<{ work: CreativeWorkDraftItem }>(`/api/creative-work/${input.workItemId}`, {
+        action: "autosave",
+        request: input.request,
+        intent: input.intent,
+        format: input.format,
+        settings: input.settings,
+      }),
+    onSuccess: (_data, input) => invalidateCreativeDraft(queryClient, input.workItemId),
+  });
+}
+
+export function usePrepareCreativeWork() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { workItemId: string }) =>
+      patchJson<{ work: CreativeWorkDraftItem; quote: CreativeWorkQuote }>(`/api/creative-work/${input.workItemId}`, { action: "prepare" }),
+    onSuccess: (_data, input) => invalidateCreativeDraft(queryClient, input.workItemId),
+  });
+}
+
+type CreativeSourceAction =
+  | { action: "attachSource"; assetId: string; templateId?: never; usage: CreativeSourceUsage }
+  | { action: "attachSource"; templateId: string; assetId?: never; usage: CreativeSourceUsage }
+  | { action: "updateSource"; sourceId: string; usage: CreativeSourceUsage }
+  | { action: "retrySource" | "removeSource"; sourceId: string }
+  | { action: "editSourceAnalysis"; sourceId: string; content: ContentBrief | null; style: StyleBrief | null };
+
+export function useCreativeWorkSourceActions() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ workItemId, ...action }: CreativeSourceAction & { workItemId: string }) =>
+      patchJson<{ source?: CreativeWorkSource; removed?: boolean }>(`/api/creative-work/${workItemId}`, action),
+    onSuccess: (_data, input) => invalidateCreativeDraft(queryClient, input.workItemId),
+    onError: (_error, input) => invalidateCreativeDraft(queryClient, input.workItemId),
+  });
+}
+
 export function useGenerateCopy() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -234,7 +367,7 @@ export function useGenerateCopy() {
       };
       queryClient.setQueryData<CreativeWorkDetail>(
         ["creative-work", workItemId],
-        (current) => ({ work, outputs: current?.outputs ?? [] })
+        (current) => ({ work, outputs: current?.outputs ?? [], sources: current?.sources ?? [] })
       );
       void queryClient.invalidateQueries({
         queryKey: ["creative-work", workItemId],
@@ -269,11 +402,12 @@ export function useTriggerTriplet() {
     mutationFn: (workItemId: string) =>
       postJson<{ work: CreativeWorkItem; outputs: CreativeWorkOutput[] }>(
         `/api/creative-work/${workItemId}/generate`,
+        { action: "initial" },
       ),
     onSuccess: async (data, workItemId) => {
       queryClient.setQueryData<CreativeWorkDetail>(
         ["creative-work", workItemId],
-        {
+        (current) => ({
           work: {
             ...data.work,
             createdAt: new Date(data.work.createdAt),
@@ -284,7 +418,8 @@ export function useTriggerTriplet() {
             createdAt: new Date(output.createdAt),
             updatedAt: new Date(output.updatedAt),
           })),
-        }
+          sources: current?.sources ?? [],
+        })
       );
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["creative-work", workItemId] }),
@@ -306,6 +441,43 @@ export function useRetryOutput() {
         queryClient.invalidateQueries({
           queryKey: ["creative-work", variables.workItemId],
         }),
+        invalidateCanonicalWorks(queryClient),
+      ]);
+    },
+  });
+}
+
+export function useReviseOutput() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ workItemId, ...command }: {
+      workItemId: string;
+      outputId: string;
+      revisionKey: string;
+      instruction: string;
+      revisionAssetId: string | null;
+    }) => postJson<{ output: CreativeWorkOutput }>(
+      `/api/creative-work/${workItemId}/generate`,
+      { action: "revision", ...command },
+    ),
+    onSuccess: async (_data, input) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["creative-work", input.workItemId] }),
+        invalidateCanonicalWorks(queryClient),
+      ]);
+    },
+    onError: (_error, input) => queryClient.invalidateQueries({ queryKey: ["creative-work", input.workItemId] }),
+  });
+}
+
+export function useLinkCreativeWorkCampaign() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ workItemId, campaignId }: { workItemId: string; campaignId: string | null }) =>
+      patchJson<{ work: CreativeWorkItem }>(`/api/creative-work/${workItemId}`, { action: "linkCampaign", campaignId }),
+    onSuccess: async (_data, input) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["creative-work", input.workItemId] }),
         invalidateCanonicalWorks(queryClient),
       ]);
     },

@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { SQL } from "drizzle-orm";
+import { PgDialect } from "drizzle-orm/pg-core";
 import type { CreativeWorkItem, CreativeWorkOutput } from "../db/schema";
 
 const mocks = vi.hoisted(() => {
@@ -6,6 +8,7 @@ const mocks = vi.hoisted(() => {
     selectResults: [] as unknown[][],
     insertResults: [] as unknown[][],
     updateResults: [] as unknown[][],
+    deleteResults: [] as unknown[][],
     onConflictResults: [] as unknown[][],
     txUpdateResults: [] as unknown[][],
   };
@@ -14,6 +17,7 @@ const mocks = vi.hoisted(() => {
     state.selectResults.length = 0;
     state.insertResults.length = 0;
     state.updateResults.length = 0;
+    state.deleteResults.length = 0;
     state.onConflictResults.length = 0;
     state.txUpdateResults.length = 0;
   };
@@ -22,6 +26,7 @@ const mocks = vi.hoisted(() => {
   const orderByMock = vi.fn();
   const limitMock = vi.fn();
   const fromMock = vi.fn();
+  const innerJoinMock = vi.fn();
 
   const queryChain = (() => {
     const chain: Record<string, unknown> = {};
@@ -29,8 +34,12 @@ const mocks = vi.hoisted(() => {
       fromMock();
       return chain;
     });
-    chain.where = vi.fn(() => {
-      whereMock();
+    chain.where = vi.fn((condition: unknown) => {
+      whereMock(condition);
+      return chain;
+    });
+    chain.innerJoin = vi.fn((_table: unknown, condition: unknown) => {
+      innerJoinMock(condition);
       return chain;
     });
     chain.orderBy = vi.fn(() => {
@@ -63,20 +72,35 @@ const mocks = vi.hoisted(() => {
 
   const setReturningMock = vi.fn();
   const setMock = vi.fn(() => ({
-    where: vi.fn(() => ({ returning: setReturningMock })),
+    where: vi.fn((condition: unknown) => {
+      whereMock(condition);
+      return { returning: setReturningMock };
+    }),
   }));
   const updateMock = vi.fn(() => ({ set: setMock }));
+  const deleteReturningMock = vi.fn();
+  const deleteMock = vi.fn(() => ({
+    where: vi.fn(() => ({ returning: deleteReturningMock })),
+  }));
 
   const txSetReturningMock = vi.fn();
   const txSetMock = vi.fn(() => ({
-    where: vi.fn(() => ({ returning: txSetReturningMock })),
+    where: vi.fn((condition: unknown) => {
+      whereMock(condition);
+      return { returning: txSetReturningMock };
+    }),
   }));
   const txUpdateMock = vi.fn(() => ({ set: txSetMock }));
+  const executeMock = vi.fn();
 
   const transactionMock = vi.fn(
     async (callback: (inner: unknown) => Promise<unknown>) =>
       callback({
         update: txUpdateMock,
+        select: selectMock,
+        insert: insertMock,
+        delete: deleteMock,
+        execute: executeMock,
       })
   );
 
@@ -87,6 +111,7 @@ const mocks = vi.hoisted(() => {
     orderByMock,
     limitMock,
     fromMock,
+    innerJoinMock,
     selectMock,
     insertMock,
     valuesMock,
@@ -95,42 +120,82 @@ const mocks = vi.hoisted(() => {
     onConflictReturningMock,
     setMock,
     updateMock,
+    deleteMock,
+    deleteReturningMock,
     setReturningMock,
     transactionMock,
     txUpdateMock,
     txSetMock,
     txSetReturningMock,
+    executeMock,
   };
 });
+
+const scopeMocks = vi.hoisted(() => ({
+  getClientProfile: vi.fn(),
+  getCampaignById: vi.fn(),
+  resolveCampaignClientProfileId: vi.fn(),
+}));
 
 vi.mock("../db", () => ({
   db: {
     select: mocks.selectMock,
     insert: mocks.insertMock,
     update: mocks.updateMock,
+    delete: mocks.deleteMock,
     transaction: mocks.transactionMock,
   },
 }));
 
+vi.mock("./client-reference", () => ({
+  getClientProfile: scopeMocks.getClientProfile,
+  resolveCampaignClientProfileId: scopeMocks.resolveCampaignClientProfileId,
+}));
+vi.mock("./campaign", () => ({ getCampaignById: scopeMocks.getCampaignById }));
+
 import {
   confirmCreativeWorkIdentity,
+  confirmCreativeWorkSnapshotsIfUnchanged,
   completeCreativeWorkOutput,
   createCreativeWork,
+  createCreativeWorkDraft,
+  createCreativeWorkDraftWithSource,
+  createCreativeWorkSource,
+  createPlannedCreativeWorkOutputs,
+  createCreativeWorkRevision,
+  deleteCreativeWorkSource,
   createCreativeWorkOutputs,
   failStaleCreativeWorkOutputs,
   failCreativeWorkOutput,
+  failQueuedCreativeWorkOutput,
   getCreativeWork,
   markCreativeWorkOutputProcessing,
+  incrementCreativeWorkOutputRetry,
+  requeueCreativeWorkOutputOnce,
+  requeueFailedCreativeWorkOutput,
+  linkCreativeWorkCampaign,
+  listCreativeWorkInspirationCandidates,
   refreshCreativeWorkStatus,
   selectCreativeWorkOutput,
   setCreativeWorkBrief,
   setCreativeWorkCopy,
   setCreativeWorkStatus,
+  updateCreativeWorkSource,
+  updateCreativeWorkSourceIfUnchanged,
+  updateCreativeWorkDraft,
+  updateCreativeWorkDraftIfUnchanged,
+  withCreativeWorkPreparationLock,
 } from "./creative-work";
 import type {
   SocialPostBrief,
   SocialPostCopy,
 } from "../creative-work/contracts";
+
+const dialect = new PgDialect();
+
+function serializedCondition(condition: unknown) {
+  return dialect.sqlToQuery(condition as SQL);
+}
 
 const socialBrief: SocialPostBrief = {
   theme: "Novo produto",
@@ -169,6 +234,13 @@ function workOutput(overrides: Partial<CreativeWorkOutput> = {}): CreativeWorkOu
     workspaceId: "ws-1",
     workItemId: "work-1",
     creativeLevel: "balanced",
+    targetFormat: "4:5",
+    versionNumber: 1,
+    parentOutputId: null,
+    revisionInstruction: null,
+    revisionAssetId: null,
+    retryCount: 0,
+    operationKey: "balanced:4:5:1",
     status: "queued",
     outputKey: null,
     cost: null,
@@ -187,12 +259,16 @@ describe("creative-work repository", () => {
     mocks.resetState();
     mocks.returningMock.mockImplementation(() => Promise.resolve(mocks.state.insertResults.shift() ?? []));
     mocks.setReturningMock.mockImplementation(() => Promise.resolve(mocks.state.updateResults.shift() ?? []));
+    mocks.deleteReturningMock.mockImplementation(() => Promise.resolve(mocks.state.deleteResults.shift() ?? []));
     mocks.onConflictReturningMock.mockImplementation(() =>
       Promise.resolve(mocks.state.onConflictResults.shift() ?? [])
     );
     mocks.txSetReturningMock.mockImplementation(() =>
       Promise.resolve(mocks.state.txUpdateResults.shift() ?? [])
     );
+    scopeMocks.getClientProfile.mockResolvedValue({ id: "profile-1", workspaceId: "ws-1" });
+    scopeMocks.getCampaignById.mockResolvedValue({ id: "campaign-1", workspaceId: "ws-1", clientProfileId: "profile-1" });
+    scopeMocks.resolveCampaignClientProfileId.mockImplementation(async (_workspaceId, campaign) => campaign.clientProfileId ?? null);
   });
 
   describe("createCreativeWork", () => {
@@ -220,17 +296,489 @@ describe("creative-work repository", () => {
           format: "4:5",
           status: "draft",
           brief: socialBrief,
+          title: socialBrief.theme,
+          request: `${socialBrief.theme} — ${socialBrief.offer}`,
         }),
       );
       expect(result.id).toBe("new-work");
     });
   });
 
+  describe("drafts, sources, and versions", () => {
+    it("lists only completed selected assets scoped to the active workspace and brand", async () => {
+      const candidate = {
+        id: "output-1", workspaceId: "ws-1", clientProfileId: "profile-1", title: "Matrículas",
+        assetId: "asset-1", status: "completed", isSelected: true, updatedAt: new Date(),
+      };
+      mocks.state.selectResults.push([candidate]);
+
+      await expect(listCreativeWorkInspirationCandidates("ws-1", "profile-1")).resolves.toEqual([candidate]);
+
+      const where = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]);
+      expect(where.sql).toContain('"creative_work_outputs"."workspace_id"');
+      expect(where.sql).toContain('"creative_work_items"."client_profile_id"');
+      expect(where.sql).toContain('"creative_work_outputs"."status"');
+      expect(where.sql).toContain('"creative_work_outputs"."is_selected"');
+      expect(where.params).toEqual(["ws-1", "profile-1", "completed", true]);
+      const joins = mocks.innerJoinMock.mock.calls.map(([condition]) => serializedCondition(condition));
+      expect(joins.some((query) => query.params.includes("creative_work"))).toBe(true);
+      expect(joins.every((query) => query.params.includes("ws-1"))).toBe(true);
+    });
+
+    it("atomically creates one attachment-first draft and source", async () => {
+      const work = workItem({ id: "draft-asset", draftKey: "draft-key", request: "", brief: null });
+      const source = { id: "source-1", workspaceId: "ws-1", workItemId: work.id, assetId: "asset-1", templateId: null, usage: "both", status: "uploaded" };
+      const asset = { id: "asset-1", workspaceId: "ws-1", name: "arte.png", type: "image/png", source: "upload" };
+      mocks.state.selectResults.push([{ id: "profile-1" }], [asset]);
+      mocks.state.onConflictResults.push([work], [source]);
+
+      await expect(createCreativeWorkDraftWithSource({
+        workspaceId: "ws-1", clientProfileId: "profile-1", createdByUserId: "user-1",
+        draftKey: "draft-key", intent: "variations", title: "", request: "", format: "4:5",
+        settings: { targetFormats: [] }, assetId: "asset-1", usage: "both",
+      })).resolves.toEqual({ work, source, asset, claimedForAnalysis: true });
+
+      expect(mocks.transactionMock).toHaveBeenCalledOnce();
+      expect(mocks.onConflictDoNothingMock).toHaveBeenCalledTimes(2);
+    });
+
+    it("atomically creates one template-first draft and source", async () => {
+      const work = workItem({ id: "draft-template", draftKey: "draft-key", request: "", brief: null });
+      const source = { id: "source-template", workspaceId: "ws-1", workItemId: work.id, assetId: null, templateId: "template-1", usage: "both", status: "uploaded" };
+      const template = { id: "template-1", workspaceId: "ws-1", name: "Lançamento" };
+      mocks.state.selectResults.push([{ id: "profile-1" }], [template]);
+      mocks.state.onConflictResults.push([work], [source]);
+
+      await expect(createCreativeWorkDraftWithSource({
+        workspaceId: "ws-1", clientProfileId: "profile-1", createdByUserId: "user-1",
+        draftKey: "draft-key", intent: "variations", title: "", request: "", format: "4:5",
+        settings: { targetFormats: [] }, templateId: "template-1", usage: "both",
+      })).resolves.toEqual({ work, source, template, claimedForAnalysis: true });
+
+      expect(mocks.transactionMock).toHaveBeenCalledOnce();
+      expect(mocks.onConflictDoNothingMock).toHaveBeenCalledTimes(2);
+    });
+
+    it.each([
+      ["approved asset", { assetId: "asset-1" }, { id: "asset-1", type: "image/png" }],
+      ["template", { templateId: "template-1" }, { id: "template-1" }],
+    ] as const)("replays the same scoped %s source after its unique-index conflict", async (_label, sourceOrigin, origin) => {
+      const existing = {
+        id: "source-existing", workspaceId: "ws-1", workItemId: "work-1",
+        assetId: "assetId" in sourceOrigin ? sourceOrigin.assetId : null,
+        templateId: "templateId" in sourceOrigin ? sourceOrigin.templateId : null,
+        usage: "both", status: "ready", createdAt: new Date(), updatedAt: new Date(),
+      };
+      mocks.state.selectResults.push([{ id: "work-1" }], [origin], [existing]);
+      mocks.state.onConflictResults.push([]);
+
+      await expect(createCreativeWorkSource({
+        workspaceId: "ws-1", workItemId: "work-1", ...sourceOrigin,
+        usage: "both", status: "uploaded",
+      })).resolves.toEqual({ source: existing, claimedForAnalysis: false });
+
+      expect(mocks.onConflictDoNothingMock).toHaveBeenCalledOnce();
+      expect(mocks.txUpdateMock).not.toHaveBeenCalled();
+      const replayScope = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]);
+      expect(replayScope.sql).toContain('"creative_work_sources"."workspace_id"');
+      expect(replayScope.sql).toContain('"creative_work_sources"."work_item_id"');
+      expect(replayScope.params).toContain("ws-1");
+      expect(replayScope.params).toContain("work-1");
+      expect(replayScope.params).toContain(origin.id);
+    });
+
+    it("does not mask a replay whose usage payload differs", async () => {
+      const existing = {
+        id: "source-existing", workspaceId: "ws-1", workItemId: "work-1",
+        assetId: "asset-1", templateId: null, usage: "content", status: "ready",
+      };
+      mocks.state.selectResults.push([{ id: "work-1" }], [{ id: "asset-1", type: "image/png" }], [existing]);
+      mocks.state.onConflictResults.push([]);
+
+      await expect(createCreativeWorkSource({
+        workspaceId: "ws-1", workItemId: "work-1", assetId: "asset-1",
+        usage: "style", status: "uploaded",
+      })).resolves.toBeNull();
+    });
+
+    it("reuses the same work and source when draftKey plus asset is replayed", async () => {
+      const work = workItem({ id: "same-draft", draftKey: "draft-key", clientProfileId: "profile-1", request: "", brief: null });
+      const source = { id: "same-source", workspaceId: "ws-1", workItemId: work.id, assetId: "asset-1", templateId: null, usage: "both", status: "uploaded" };
+      const asset = { id: "asset-1", workspaceId: "ws-1", name: "arte.png", type: "image/png", source: "upload" };
+      mocks.state.selectResults.push([{ id: "profile-1" }], [asset], [work], [source]);
+      mocks.state.onConflictResults.push([], []);
+
+      await expect(createCreativeWorkDraftWithSource({
+        workspaceId: "ws-1", clientProfileId: "profile-1", createdByUserId: "user-1",
+        draftKey: "draft-key", intent: "variations", title: "", request: "", format: "4:5",
+        settings: { targetFormats: [] }, assetId: "asset-1", usage: "both",
+      })).resolves.toEqual({ work, source, asset, claimedForAnalysis: false });
+
+      expect(mocks.onConflictDoNothingMock).toHaveBeenCalledTimes(2);
+    });
+
+    it.each([
+      ["approved asset", { assetId: "asset-1" }, { id: "asset-1", type: "image/png", name: "Arte" }],
+      ["template", { templateId: "template-1" }, { id: "template-1", name: "Template" }],
+    ] as const)("rejects attachment-first %s replay with divergent usage", async (_label, sourceOrigin, origin) => {
+      const work = workItem({ id: "same-draft", draftKey: "draft-key", clientProfileId: "profile-1", request: "", brief: null });
+      const existing = {
+        id: "same-source", workspaceId: "ws-1", workItemId: work.id,
+        assetId: "assetId" in sourceOrigin ? sourceOrigin.assetId : null,
+        templateId: "templateId" in sourceOrigin ? sourceOrigin.templateId : null,
+        usage: "content", status: "uploaded",
+      };
+      mocks.state.selectResults.push([{ id: "profile-1" }], [origin], [work], [existing]);
+      mocks.state.onConflictResults.push([], []);
+
+      await expect(createCreativeWorkDraftWithSource({
+        workspaceId: "ws-1", clientProfileId: "profile-1", createdByUserId: "user-1",
+        draftKey: "draft-key", intent: "variations", title: "", request: "", format: "4:5",
+        settings: { targetFormats: [] }, ...sourceOrigin, usage: "style",
+      })).resolves.toBeNull();
+    });
+
+    it("rejects a replay when the draftKey belongs to another client profile", async () => {
+      const work = workItem({ id: "other-draft", draftKey: "draft-key", clientProfileId: "other-profile", request: "", brief: null });
+      const asset = { id: "asset-1", workspaceId: "ws-1", name: "arte.png", type: "image/png", source: "upload" };
+      mocks.state.selectResults.push([{ id: "profile-1" }], [asset], [work]);
+      mocks.state.onConflictResults.push([]);
+
+      await expect(createCreativeWorkDraftWithSource({
+        workspaceId: "ws-1", clientProfileId: "profile-1", createdByUserId: "user-1",
+        draftKey: "draft-key", intent: "variations", title: "", request: "", format: "4:5",
+        settings: { targetFormats: [] }, assetId: "asset-1", usage: "both",
+      })).resolves.toBeNull();
+    });
+
+    it("rejects the transaction when source persistence cannot be resolved", async () => {
+      const work = workItem({ id: "draft-asset", draftKey: "draft-key", request: "", brief: null });
+      const asset = { id: "asset-1", workspaceId: "ws-1", name: "arte.png", type: "image/png", source: "upload" };
+      mocks.state.selectResults.push([{ id: "profile-1" }], [asset], []);
+      mocks.state.onConflictResults.push([work], []);
+
+      await expect(createCreativeWorkDraftWithSource({
+        workspaceId: "ws-1", clientProfileId: "profile-1", createdByUserId: "user-1",
+        draftKey: "draft-key", intent: "variations", title: "", request: "", format: "4:5",
+        settings: { targetFormats: [] }, assetId: "asset-1", usage: "both",
+      })).rejects.toThrow("creative_work_source_conflict_without_row");
+    });
+    it("creates an idempotent draft with the preparation fields", async () => {
+      const inserted = workItem({ id: "draft-1", brief: null });
+      mocks.state.onConflictResults.push([inserted]);
+
+      const result = await createCreativeWorkDraft({
+        workspaceId: "ws-1",
+        clientProfileId: "profile-1",
+        createdByUserId: "user-1",
+        draftKey: "00000000-0000-4000-8000-000000000099",
+        intent: "single",
+        title: "Draft title",
+        request: "Make one ad",
+      });
+
+      expect(mocks.valuesMock).toHaveBeenCalledWith(expect.objectContaining({
+        draftKey: "00000000-0000-4000-8000-000000000099",
+        toolKind: "single",
+        title: "Draft title",
+        request: "Make one ad",
+        format: "4:5",
+        settings: { targetFormats: [] },
+        brief: null,
+      }));
+      expect(result.id).toBe("draft-1");
+    });
+
+    it("returns the existing scoped draft after a draftKey conflict", async () => {
+      const existing = workItem({ id: "same-draft", draftKey: "draft-key", brief: null });
+      mocks.state.onConflictResults.push([]);
+      mocks.state.selectResults.push([existing]);
+      const result = await createCreativeWorkDraft({
+        workspaceId: "ws-1", clientProfileId: "profile-1", createdByUserId: "user-1",
+        draftKey: "draft-key", intent: "single", title: "Draft", request: "One ad",
+      });
+      expect(result?.id).toBe("same-draft");
+    });
+
+    it("rejects a draft when the client profile is outside the workspace", async () => {
+      scopeMocks.getClientProfile.mockResolvedValue(null);
+      const result = await createCreativeWorkDraft({
+        workspaceId: "ws-1", clientProfileId: "profile-other", createdByUserId: "user-1",
+        draftKey: "00000000-0000-4000-8000-000000000099", intent: "single", title: "Draft", request: "One ad",
+      });
+      expect(result).toBeNull();
+      expect(mocks.insertMock).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ["outside the workspace", null],
+      ["linked to another profile", { id: "campaign-1", workspaceId: "ws-1", clientProfileId: "profile-2" }],
+    ])("rejects a draft campaign %s before insert", async (_case, campaign) => {
+      scopeMocks.getCampaignById.mockResolvedValue(campaign);
+      const result = await createCreativeWorkDraft({
+        workspaceId: "ws-1", clientProfileId: "profile-1", campaignId: "campaign-1", createdByUserId: "user-1",
+        draftKey: "00000000-0000-4000-8000-000000000099", intent: "single", title: "Draft", request: "One ad",
+      });
+      expect(result).toBeNull();
+      expect(mocks.insertMock).not.toHaveBeenCalled();
+    });
+
+    it("accepts a same-workspace campaign with the draft profile", async () => {
+      const inserted = workItem({ id: "draft-campaign", campaignId: "campaign-1", brief: null });
+      mocks.state.onConflictResults.push([inserted]);
+      const result = await createCreativeWorkDraft({
+        workspaceId: "ws-1", clientProfileId: "profile-1", campaignId: "campaign-1", createdByUserId: "user-1",
+        draftKey: "00000000-0000-4000-8000-000000000099", intent: "single", title: "Draft", request: "One ad",
+      });
+      expect(result?.id).toBe("draft-campaign");
+      expect(mocks.valuesMock).toHaveBeenCalledWith(expect.objectContaining({ campaignId: "campaign-1", clientProfileId: "profile-1" }));
+    });
+
+    it("rejects a source update outside the scoped work", async () => {
+      mocks.state.txUpdateResults.push([]);
+      const result = await updateCreativeWorkSource("ws-2", "work-1", "source-1", { status: "ready" });
+      expect(result).toBeNull();
+      const query = serializedCondition(mocks.whereMock.mock.calls[0][0]);
+      expect(query.sql).toContain('"creative_work_sources"."workspace_id"');
+      expect(query.sql).toContain('"creative_work_sources"."work_item_id"');
+      expect(query.sql).toContain('"creative_work_sources"."id"');
+      expect(query.params).toEqual(["ws-2", "work-1", "source-1"]);
+    });
+
+    it("rejects a revision when its parent is outside the scoped work", async () => {
+      mocks.state.selectResults.push([]);
+      const result = await createCreativeWorkRevision(
+        "ws-2",
+        "work-1",
+        "00000000-0000-4000-8000-000000000100",
+        "output-1",
+        "Use a shorter headline",
+        null,
+      );
+      expect(result).toBeNull();
+      expect(mocks.insertMock).not.toHaveBeenCalled();
+      const parentScope = mocks.whereMock.mock.calls
+        .map(([condition]) => serializedCondition(condition))
+        .find((query) => query.params.includes("output-1"));
+      expect(parentScope?.sql).toContain('"creative_work_outputs"."workspace_id"');
+      expect(parentScope?.sql).toContain('"creative_work_outputs"."work_item_id"');
+      expect(parentScope?.sql).toContain('"creative_work_outputs"."id"');
+      expect(parentScope?.params).toEqual(["ws-2", "work-1", "output-1"]);
+    });
+
+    it("namespaces revision operations and atomically claims only the inserted row for dispatch", async () => {
+      const parent = workOutput({ id: "output-1", targetFormat: "4:5", versionNumber: 1 });
+      const key2 = "00000000-0000-4000-8000-000000000102";
+      const key3 = "00000000-0000-4000-8000-000000000103";
+      const revision2 = workOutput({ id: "output-2", parentOutputId: "output-1", targetFormat: "4:5", versionNumber: 2, operationKey: `revision:${key2}`, revisionInstruction: "Shorter" });
+      const revision3 = workOutput({ id: "output-3", parentOutputId: "output-1", targetFormat: "4:5", versionNumber: 3, operationKey: `revision:${key3}`, revisionInstruction: "Different" });
+
+      mocks.state.selectResults.push([], [parent], [], [{ maxVersion: 1 }]);
+      mocks.state.onConflictResults.push([revision2]);
+      await expect(createCreativeWorkRevision("ws-1", "work-1", key2, "output-1", "Shorter", null)).resolves.toEqual({
+        output: revision2,
+        claimedForDispatch: true,
+      });
+
+      mocks.state.selectResults.push([], [parent], [], [{ maxVersion: 2 }]);
+      mocks.state.onConflictResults.push([revision3]);
+      await expect(createCreativeWorkRevision("ws-1", "work-1", key3, "output-1", "Different", null)).resolves.toEqual({
+        output: revision3,
+        claimedForDispatch: true,
+      });
+
+      mocks.state.selectResults.push([revision2]);
+      await expect(createCreativeWorkRevision("ws-1", "work-1", key2, "output-1", "Shorter", null)).resolves.toEqual({
+        output: revision2,
+        claimedForDispatch: false,
+      });
+      expect(mocks.valuesMock).toHaveBeenNthCalledWith(1, expect.objectContaining({ versionNumber: 2, operationKey: `revision:${key2}` }));
+      expect(mocks.valuesMock).toHaveBeenNthCalledWith(2, expect.objectContaining({ versionNumber: 3, operationKey: `revision:${key3}` }));
+      expect(mocks.executeMock).toHaveBeenCalledTimes(2);
+      expect(mocks.selectMock.mock.calls[3][0]).toEqual({ maxVersion: expect.anything() });
+      expect(mocks.executeMock.mock.invocationCallOrder[0]).toBeLessThan(mocks.selectMock.mock.invocationCallOrder[3]);
+      expect(mocks.executeMock.mock.invocationCallOrder[0]).toBeLessThan(mocks.insertMock.mock.invocationCallOrder[0]);
+    });
+
+    it("rejects a replay key when parent, instruction, or asset differs", async () => {
+      const key = "00000000-0000-4000-8000-000000000104";
+      const revision = workOutput({
+        id: "output-2",
+        parentOutputId: "output-1",
+        operationKey: `revision:${key}`,
+        revisionInstruction: "Shorter",
+        revisionAssetId: "asset-1",
+      });
+
+      for (const command of [
+        { parentId: "other-parent", instruction: "Shorter", assetId: "asset-1" },
+        { parentId: "output-1", instruction: "Different", assetId: "asset-1" },
+        { parentId: "output-1", instruction: "Shorter", assetId: "asset-2" },
+      ]) {
+        mocks.state.selectResults.push([revision]);
+        await expect(createCreativeWorkRevision(
+          "ws-1",
+          "work-1",
+          key,
+          command.parentId,
+          command.instruction,
+          command.assetId,
+        )).resolves.toBeNull();
+      }
+
+      expect(mocks.insertMock).not.toHaveBeenCalled();
+    });
+
+    it("updates draft preparation fields under workspace scope", async () => {
+      const updated = workItem({ id: "work-1" });
+      mocks.state.updateResults.push([updated]);
+      await expect(updateCreativeWorkDraft("ws-1", "work-1", { title: "New title" })).resolves.toEqual(updated);
+      expect(mocks.setMock).toHaveBeenCalledWith(expect.objectContaining({ title: "New title" }));
+    });
+
+    it("updates preparation only when updatedAt still matches", async () => {
+      const capturedAt = new Date("2026-07-16T12:00:00.000Z");
+      mocks.state.updateResults.push([]);
+      await expect(updateCreativeWorkDraftIfUnchanged("ws-1", "work-1", capturedAt, { title: "Stale" }))
+        .resolves.toBeNull();
+      const query = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]);
+      expect(query.sql).toContain('"creative_work_items"."updated_at"');
+      expect(query.sql).toContain("date_trunc('milliseconds'");
+      expect(query.sql).toContain("timestamp without time zone");
+      expect(query.params).toHaveLength(4);
+      expect(query.params.at(-1)).toBe(capturedAt.toISOString());
+    });
+
+    it("holds the preparation callback under a work-scoped advisory transaction lock", async () => {
+      const callback = vi.fn(async (executor) => {
+        expect(executor).toMatchObject({ execute: mocks.executeMock });
+        return "prepared";
+      });
+      await expect(withCreativeWorkPreparationLock("ws-1", "work-1", callback)).resolves.toBe("prepared");
+      expect(mocks.executeMock).toHaveBeenCalledOnce();
+      expect(callback).toHaveBeenCalledOnce();
+      expect(callback).toHaveBeenCalledWith(expect.objectContaining({ execute: mocks.executeMock }));
+      expect(mocks.executeMock.mock.invocationCallOrder[0]).toBeLessThan(callback.mock.invocationCallOrder[0]);
+    });
+
+    it("creates a source with exactly one origin delegated to the DB constraint", async () => {
+      const source = { id: "source-1", workspaceId: "ws-1", workItemId: "work-1", assetId: "asset-1", templateId: null };
+      mocks.state.selectResults.push([{ id: "work-1" }], [{ id: "asset-1" }]);
+      mocks.state.onConflictResults.push([source]);
+      mocks.state.txUpdateResults.push([workItem()]);
+      await expect(createCreativeWorkSource({
+        workspaceId: "ws-1", workItemId: "work-1", assetId: "asset-1", usage: "both", status: "uploaded",
+      })).resolves.toEqual({ source, claimedForAnalysis: true });
+      expect(mocks.valuesMock).toHaveBeenCalledWith(expect.objectContaining({ assetId: "asset-1", usage: "both" }));
+      expect(mocks.txUpdateMock).toHaveBeenCalledWith(expect.anything());
+    });
+
+    it("touches the parent work after updating or deleting a source", async () => {
+      const source = { id: "source-1", workspaceId: "ws-1", workItemId: "work-1", status: "ready" };
+      mocks.state.txUpdateResults.push([source], [workItem()]);
+      await updateCreativeWorkSource("ws-1", "work-1", "source-1", { status: "ready" });
+      mocks.state.deleteResults.push([source]);
+      mocks.state.txUpdateResults.push([workItem()]);
+      await deleteCreativeWorkSource("ws-1", "work-1", "source-1");
+      expect(mocks.txUpdateMock).toHaveBeenCalledTimes(3);
+    });
+
+    it("updates a source only for the expected attempt and advances its timestamp", async () => {
+      const expectedAt = new Date("2026-07-16T12:00:00.000Z");
+      const source = { id: "source-1", workspaceId: "ws-1", workItemId: "work-1", status: "analyzing", usage: "style" };
+      mocks.state.txUpdateResults.push([source], [workItem()]);
+
+      await expect(updateCreativeWorkSourceIfUnchanged(
+        "ws-1", "work-1", "source-1",
+        { status: "uploaded", usage: "style", updatedAt: expectedAt },
+        { status: "analyzing" },
+      )).resolves.toEqual(source);
+
+      expect(mocks.txSetMock).toHaveBeenCalledWith(expect.objectContaining({
+        status: "analyzing",
+        updatedAt: expect.anything(),
+      }));
+      const query = serializedCondition(mocks.whereMock.mock.calls[0][0]);
+      expect(query.sql).toContain('"creative_work_sources"."status"');
+      expect(query.sql).toContain('"creative_work_sources"."usage"');
+      expect(query.sql).toContain('"creative_work_sources"."updated_at"');
+      expect(query.sql).toContain("date_trunc('milliseconds'");
+      expect(query.sql).toContain("timestamp without time zone");
+      expect(query.params).toEqual(["ws-1", "work-1", "source-1", "uploaded", "style", expectedAt.toISOString()]);
+    });
+
+    it("does not touch the parent when the source attempt CAS is stale", async () => {
+      mocks.state.txUpdateResults.push([]);
+      await expect(updateCreativeWorkSourceIfUnchanged(
+        "ws-1", "work-1", "source-1",
+        { status: "failed", usage: "content", updatedAt: new Date("2026-07-16T12:00:00.000Z") },
+        { status: "uploaded" },
+      )).resolves.toBeNull();
+      expect(mocks.txUpdateMock).toHaveBeenCalledOnce();
+    });
+
+    it("creates deterministic initial output plans", async () => {
+      const planned = workOutput({ targetFormat: "1:1", versionNumber: 1, operationKey: "bold:1:1:1" });
+      mocks.state.selectResults.push([{ id: "work-1" }], [planned]);
+      const result = await createPlannedCreativeWorkOutputs("ws-1", "work-1", [{ creativeLevel: "bold", targetFormat: "1:1" }]);
+      expect(mocks.valuesMock).toHaveBeenCalledWith([expect.objectContaining({ operationKey: "bold:1:1:1", versionNumber: 1 })]);
+      expect(result).toEqual({ outputs: [planned], newlyCreatedIds: [] });
+    });
+
+    it("increments retries only on a scoped output", async () => {
+      const retried = workOutput({ retryCount: 1 });
+      mocks.state.updateResults.push([retried]);
+      await expect(incrementCreativeWorkOutputRetry("ws-1", "work-1", "output-1")).resolves.toEqual(retried);
+      expect(mocks.setMock).toHaveBeenCalledWith(expect.objectContaining({ retryCount: expect.anything() }));
+    });
+
+    it("atomically queues only the first automatic retry", async () => {
+      const retried = workOutput({ retryCount: 1, status: "queued" });
+      mocks.state.updateResults.push([retried]);
+      await expect(requeueCreativeWorkOutputOnce("ws-1", "work-1", "output-1")).resolves.toEqual(retried);
+      expect(mocks.setMock).toHaveBeenCalledWith(expect.objectContaining({ status: "queued", retryCount: expect.anything() }));
+      const query = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]);
+      expect(query.sql).toContain('"retry_count"');
+      expect(query.params).toContain(0);
+      expect(query.params).toContain("processing");
+    });
+
+    it("increments the durable attempt when manually requeuing a failed output", async () => {
+      const retried = workOutput({ retryCount: 2, status: "queued" });
+      mocks.state.updateResults.push([retried]);
+
+      await expect(requeueFailedCreativeWorkOutput(
+        "ws-1",
+        "work-1",
+        "output-1",
+      )).resolves.toEqual(retried);
+
+      expect(mocks.setMock).toHaveBeenCalledWith(expect.objectContaining({
+        status: "queued",
+        retryCount: expect.anything(),
+      }));
+      const query = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]);
+      expect(query.params).toContain("failed");
+    });
+
+    it("links only a same-workspace campaign with a compatible client profile", async () => {
+      const work = workItem();
+      const linked = workItem({ campaignId: "campaign-1" });
+      mocks.state.selectResults.push([work]);
+      mocks.state.updateResults.push([linked]);
+      await expect(linkCreativeWorkCampaign("ws-1", "work-1", "campaign-1")).resolves.toEqual(linked);
+      expect(mocks.setMock).toHaveBeenCalledWith(expect.objectContaining({ campaignId: "campaign-1" }));
+    });
+
+    it("returns null when deleting a source outside the scoped work", async () => {
+      await expect(deleteCreativeWorkSource("ws-2", "work-1", "source-1")).resolves.toBeNull();
+    });
+  });
+
   describe("getCreativeWork", () => {
     // Deviation from brief: the brief's spec test scaffold asserted
-    // `whereMock` was called 1 time. In practice `getCreativeWork` runs two
-    // scoped queries (one for the work item, one for its outputs), so the
-    // assertion is `2`. The 2-query shape is the intended semantics.
+    // `whereMock` was called 1 time. In practice `getCreativeWork` runs three
+    // scoped queries (work item, outputs, and sources), so the assertion is `3`.
     it("loads work by workspace and id", async () => {
       const work = workItem();
       const outputs = [
@@ -241,14 +789,15 @@ describe("creative-work repository", () => {
 
       mocks.state.selectResults.push([work]);
       mocks.state.selectResults.push(outputs);
+      mocks.state.selectResults.push([]);
 
       const result = await getCreativeWork("ws-1", "work-1");
 
       expect(result).not.toBeNull();
       expect(result?.work.id).toBe("work-1");
       expect(result?.outputs).toHaveLength(3);
-      expect(mocks.selectMock).toHaveBeenCalledTimes(2);
-      expect(mocks.whereMock).toHaveBeenCalledTimes(2);
+      expect(mocks.selectMock).toHaveBeenCalledTimes(3);
+      expect(mocks.whereMock).toHaveBeenCalledTimes(3);
     });
 
     it("returns null when the work item is not in scope", async () => {
@@ -282,6 +831,9 @@ describe("creative-work repository", () => {
           failureCode: "generation_timeout",
         }),
       );
+      const query = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]);
+      expect(query.sql).toContain("timestamp without time zone");
+      expect(query.params.at(-1)).toBe(staleBefore);
       expect(result).toEqual([failed]);
     });
   });
@@ -374,6 +926,21 @@ describe("creative-work repository", () => {
     });
   });
 
+  describe("confirmCreativeWorkSnapshotsIfUnchanged", () => {
+    it("freezes input and identity only for the prepared draft revision", async () => {
+      const expectedAt = new Date("2026-07-16T12:00:00.000Z");
+      const snapshot = { clientProfileId: "profile-1", confirmedAt: "now", assets: [], brandKit: { colors: [], fonts: [], toneOfVoice: null, prohibitedElements: null, requiredElements: null } };
+      const inputSnapshot = { request: "latest", settings: { targetFormats: [] }, sources: [] };
+      mocks.state.updateResults.push([workItem({ status: "ready", identitySnapshot: snapshot, inputSnapshot })]);
+      await confirmCreativeWorkSnapshotsIfUnchanged("ws-1", "work-1", expectedAt, inputSnapshot, snapshot);
+      expect(mocks.setMock).toHaveBeenCalledWith(expect.objectContaining({ status: "ready", inputSnapshot, identitySnapshot: snapshot }));
+      const query = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]);
+      expect(query.sql).toContain("date_trunc('milliseconds'");
+      expect(query.sql).toContain("timestamp without time zone");
+      expect(query.params).toEqual(expect.arrayContaining(["ws-1", "work-1", "draft", expectedAt.toISOString()]));
+    });
+  });
+
   describe("createCreativeWorkOutputs", () => {
     it("creates exactly one output per creative level", async () => {
       const outputs = [
@@ -422,6 +989,7 @@ describe("creative-work repository", () => {
         expect.objectContaining({ status: "processing" }),
       );
       expect(result?.status).toBe("processing");
+      expect(serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]).params).toContain("queued");
     });
   });
 
@@ -452,6 +1020,7 @@ describe("creative-work repository", () => {
         }),
       );
       expect(result?.outputKey).toBe("assets/final.png");
+      expect(serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]).params).toContain("processing");
     });
   });
 
@@ -471,6 +1040,15 @@ describe("creative-work repository", () => {
         expect.objectContaining({ status: "failed", failureCode: "image_timeout" }),
       );
       expect(result?.failureCode).toBe("image_timeout");
+      expect(serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]).params).toContain("processing");
+    });
+  });
+
+  describe("failQueuedCreativeWorkOutput", () => {
+    it("compensates dispatch only while the row is still queued", async () => {
+      mocks.state.updateResults.push([workOutput({ status: "failed", failureCode: "dispatch_failed" })]);
+      await failQueuedCreativeWorkOutput("ws-1", "work-1", "output-1", "dispatch_failed");
+      expect(serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]).params).toContain("queued");
     });
   });
 

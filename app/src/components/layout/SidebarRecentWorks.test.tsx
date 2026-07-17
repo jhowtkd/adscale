@@ -55,7 +55,7 @@ describe("SidebarRecentWorks", () => {
           state: "generating",
           updatedAt: "2026-07-01T12:00:00.000Z",
           resumable: true,
-          resumeHref: "/quick-tools/create-post?workId=w1",
+          resumeHref: "/?workId=w1",
         },
         {
           id: "campaign:c1",
@@ -79,7 +79,7 @@ describe("SidebarRecentWorks", () => {
     expect(screen.getByText("navigation.recentWorks")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Post social/i })).toHaveAttribute(
       "href",
-      "/quick-tools/create-post?workId=w1"
+      "/?workId=w1"
     );
     expect(screen.getByRole("link", { name: /Black Friday/i })).toHaveAttribute(
       "href",

@@ -77,7 +77,13 @@ const copy: SocialPostCopy = {
 
 const promptInput = {
   format: "4:5" as const,
+  brief: { theme: "Matrículas", objective: "Conversão", audience: "Pais", offer: "20%" },
   copy,
+  inputSnapshot: {
+    request: "Campanha de julho",
+    settings: { targetFormats: [] },
+    sources: [{ sourceId: "source-1", updatedAt: "now", assetKey: "source.png", mimeType: "image/png", usage: "content" as const, content: { subject: "Sala de aula" }, style: { description: "Editorial" } }],
+  },
   identitySnapshot: snapshot({
     assets: [
       asset({
@@ -168,5 +174,13 @@ describe("buildSocialPostPrompt", () => {
     expect(prompt).toContain("RESERVED PLACEMENTS");
     expect(prompt).toContain("logo-exact");
     expect(prompt).toContain("southeast");
+  });
+
+  it("includes the persisted brief and textual input analysis", () => {
+    const prompt = buildSocialPostPrompt(promptInput);
+    expect(prompt).toContain("Matrículas");
+    expect(prompt).toContain("Campanha de julho");
+    expect(prompt).toContain("Sala de aula");
+    expect(prompt).toContain("Editorial");
   });
 });

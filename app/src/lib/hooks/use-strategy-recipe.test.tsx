@@ -2,7 +2,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createElement, type ReactNode } from "react";
-import { useStrategyRecipe } from "./use-strategy-recipe";
+import {
+  useRecommendedRecipePatch,
+  useStrategyRecipe,
+} from "./use-strategy-recipe";
 import type { RecipeReadinessSnapshot } from "@/lib/domain/strategy-recipe-types";
 
 vi.mock("@/lib/api-client", () => ({
@@ -48,6 +51,27 @@ beforeEach(() => {
 });
 
 describe("useStrategyRecipe", () => {
+  it("labels panel and recommended requests independently", async () => {
+    const panel = renderHook(() => useStrategyRecipe({}), { wrapper });
+    const recommended = renderHook(() => useRecommendedRecipePatch({}), {
+      wrapper,
+    });
+
+    await waitFor(() => {
+      expect(panel.result.current.isLoading).toBe(false);
+      expect(recommended.result.current.isLoading).toBe(false);
+    });
+
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      "/api/strategy-recipe/resolve?source=panel",
+      expect.any(Object)
+    );
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      "/api/strategy-recipe/resolve?source=recommended",
+      expect.any(Object)
+    );
+  });
+
   it("recommends safe_iteration when readiness is blocked", async () => {
     const { result } = renderHook(
       () =>

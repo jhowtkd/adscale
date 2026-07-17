@@ -1,20 +1,19 @@
+import fs from "node:fs";
+import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 
-/**
- * Convergence Phase 1 — Usar template materializes the full briefing contract.
- *
- * Proves: save template → Usar template → created campaign retains
- * platforms, tone, offer, product and other briefing fields, with
- * clientProfileId left null (generic template).
- *
- * Auth: login on `page`, then use `page.request` so API setup shares cookies.
- */
+/** A saved template now materializes as a source on the canonical Home draft. */
 
-const EMAIL = "dev-admin@adscale.local";
-const PASSWORD = "DevAdmin123!";
+const FIXTURE_PATH = path.resolve(__dirname, "../fixtures/create-post-e2e.json");
 
-const CAMPAIGN_URL_RE =
-  /\/campaigns\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/;
+type Fixture = { email: string; password: string; primaryClientProfileId: string };
+
+function fixture(): Fixture {
+  if (!fs.existsSync(FIXTURE_PATH)) {
+    throw new Error("Missing fixture. Run npm run seed:create-post-e2e first.");
+  }
+  return JSON.parse(fs.readFileSync(FIXTURE_PATH, "utf8")) as Fixture;
+}
 
 const BRIEF = {
   name: `Template Materialize ${Date.now()}`,
@@ -36,135 +35,129 @@ const BRIEF = {
 
 async function login(page: Page): Promise<void> {
   await page.addInitScript(() => {
-    try {
-      localStorage.setItem(
-        "adscale_cookie_consent",
-        JSON.stringify({ necessary: true, analytics: false, marketing: false }),
-      );
-    } catch {
-      /* ignore */
-    }
+    localStorage.setItem(
+      "adscale_cookie_consent",
+      JSON.stringify({ necessary: true, analytics: false, marketing: false }),
+    );
   });
   await page.goto("/login");
-  await page.locator("#email").fill(EMAIL);
-  await page.locator("#login-password").fill(PASSWORD);
+  await page.locator("#email").fill(fixture().email);
+  await page.locator("#login-password").fill(fixture().password);
   await page.locator("form:has(#email) button[type=submit]").click();
-  await page.waitForURL((url) => !url.pathname.startsWith("/login"), {
-    timeout: 30_000,
-  });
+  await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 30_000 });
 }
 
 test.describe("Template materialization", () => {
-  test("Usar template creates campaign with full briefing snapshot", async ({
-    page,
-  }) => {
+  test("Usar template attaches its full briefing to the same Home draft", async ({ page }) => {
     await login(page);
     const api = page.request;
 
-    const createRes = await api.post("/api/campaigns", {
-      data: {
-        ...BRIEF,
-        clientProfileId: null,
-      },
-    });
-    expect(createRes.status(), await createRes.text()).toBe(201);
-    const created = (await createRes.json()) as {
-      campaign: { id: string };
-    };
-    const sourceId = created.campaign.id;
+    const profilesResponse = await api.get("/api/client-profiles");
+    expect(profilesResponse.ok()).toBe(true);
+    const profiles = (await profilesResponse.json()) as { profiles: Array<{ id: string; name: string }> };
+    expect(profiles.profiles).toEqual([
+      expect.objectContaining({ id: fixture().primaryClientProfileId, name: "Create Post E2E Brand" }),
+    ]);
 
+    const createRes = await api.post("/api/campaigns", { data: { ...BRIEF, clientProfileId: null } });
+    expect(createRes.status(), await createRes.text()).toBe(201);
+    const sourceId = ((await createRes.json()) as { campaign: { id: string } }).campaign.id;
     const templateName = `Tpl ${Date.now()}`;
     const tplRes = await api.post("/api/templates", {
-      data: {
-        campaignId: sourceId,
-        name: templateName,
-        description: "E2E materialization fixture",
-      },
+      data: { campaignId: sourceId, name: templateName, description: "E2E composer fixture" },
     });
     expect(tplRes.status(), await tplRes.text()).toBe(201);
-    const tplBody = (await tplRes.json()) as {
-      template: {
-        id: string;
-        platforms: string[] | null;
-        tone: string | null;
-        offer: string | null;
-        product: string | null;
-      };
+    const templateId = ((await tplRes.json()) as { template: { id: string } }).template.id;
+    const storedTemplateResponse = await api.get(`/api/templates/${templateId}`);
+    expect(storedTemplateResponse.ok(), await storedTemplateResponse.text()).toBe(true);
+    const storedTemplate = ((await storedTemplateResponse.json()) as { template: Record<string, unknown> }).template;
+    expect(storedTemplate).toMatchObject({
+      product: BRIEF.product,
+      objective: BRIEF.objective,
+      audience: BRIEF.audience,
+      platforms: BRIEF.platforms,
+      tone: BRIEF.tone,
+      offer: BRIEF.offer,
+      constraints: BRIEF.constraints,
+      notes: BRIEF.notes,
+      generationMode: BRIEF.generationMode,
+      creativeLevel: BRIEF.creativeLevel,
+      styleIntensity: BRIEF.styleIntensity,
+      ctaVariants: BRIEF.ctaVariants,
+      targetFormats: BRIEF.targetFormats,
+    });
+    const campaignIds = async () => {
+      const response = await api.get(`/api/campaigns?limit=200&_=${Date.now()}`, {
+        headers: { "Cache-Control": "no-cache" },
+      });
+      expect(response.ok()).toBe(true);
+      return ((await response.json()) as { campaigns: Array<{ id: string }> })
+        .campaigns.map((campaign) => campaign.id)
+        .sort();
     };
-    expect(tplBody.template.platforms).toEqual(BRIEF.platforms);
-    expect(tplBody.template.tone).toBe(BRIEF.tone);
-    expect(tplBody.template.offer).toBe(BRIEF.offer);
-    expect(tplBody.template.product).toBe(BRIEF.product);
+    await expect.poll(campaignIds).toContain(sourceId);
+    const campaignIdsBefore = await campaignIds();
 
-    const templateId = tplBody.template.id;
+    let materializeCalls = 0;
+    let campaignMutations = 0;
+    page.on("request", (request) => {
+      const url = new URL(request.url());
+      if (url.pathname.includes("/materialize") && request.method() === "POST") materializeCalls += 1;
+      if (/^\/api\/campaigns(?:\/|$)/.test(url.pathname) && request.method() !== "GET") campaignMutations += 1;
+    });
 
     await page.goto("/templates");
+    await expect(page.getByLabel(/marca ativa|active brand/i).first()).toHaveText("Create Post E2E Brand");
     const card = page.getByTestId(`template-card-${templateId}`);
-    await expect(card).toBeVisible({ timeout: 15_000 });
     await expect(card.getByText(templateName)).toBeVisible();
+    await card.getByRole("button", { name: /Use template|Usar template/i })
+      .evaluate((button: HTMLButtonElement) => { button.click(); button.click(); });
+    // templateId is intentionally transient: the composer consumes it after
+    // attaching the source and canonicalizes the URL to workId only.
+    await expect.poll(() => new URL(page.url()).searchParams.get("workId")).toBeTruthy();
+    await expect(page.getByRole("textbox", { name: /pedido criativo|creative request/i })).toBeVisible();
+    const source = page.locator("article").filter({ hasText: templateName });
+    await expect(source).toBeVisible({ timeout: 30_000 });
+    await expect(source.getByRole("button", { name: /ambos|both/i })).toHaveAttribute("aria-pressed", "true");
+    await expect(source.getByRole("status")).toHaveText(/análise concluída|analysis complete/i);
 
-    await card
-      .getByRole("button", { name: /Use template|Usar template/i })
-      .click();
-
-    await expect(page).toHaveURL(new RegExp(`templateId=${templateId}`));
-    await expect(page.locator("#campaign-name")).toBeVisible({ timeout: 15_000 });
-
-    const materializedName = `Materialized ${Date.now()}`;
-    await page.locator("#campaign-name").fill(materializedName);
-    const clientValue = await page.locator("#campaign-client").inputValue();
-    if (!clientValue) {
-      await page.locator("#campaign-client").fill(BRIEF.client);
-    }
-
-    const createCampaignPromise = page.waitForResponse(
-      (res) =>
-        res.url().includes("/api/campaigns") &&
-        res.request().method() === "POST" &&
-        res.status() === 201
-    );
-    await page
-      .getByRole("dialog")
-      .getByRole("button", { name: /^(Create|Criar)$/i })
-      .click();
-    const postRes = await createCampaignPromise;
-    const postBody = (await postRes.json()) as {
-      campaign: {
+    const workId = new URL(page.url()).searchParams.get("workId")!;
+    const detail = (await (await api.get(`/api/creative-work/${workId}`)).json()) as {
+      sources: Array<{
         id: string;
-        product: string | null;
-        objective: string | null;
-        audience: string | null;
-        platforms: string[] | null;
-        tone: string | null;
-        offer: string | null;
-        constraints: string | null;
-        notes: string | null;
-        clientProfileId: string | null;
-        ctaVariants: string[] | null;
-        targetFormats: string[] | null;
-      };
+        templateId: string | null;
+        contentAnalysis: {
+          product: string;
+          offer: string;
+          cta: { text: string; style: string };
+          keyVisual: string;
+          textContent: { headline: string; bullets: string[] };
+          format: string;
+        } | null;
+        styleAnalysis: {
+          mood: string;
+          composition: string;
+          typography: { personality: string };
+        } | null;
+      }>;
     };
-
-    await page.waitForURL(CAMPAIGN_URL_RE, { timeout: 30_000 });
-    await expect(page).not.toHaveURL(/templateId=/);
-
-    const detailRes = await api.get(`/api/campaigns/${postBody.campaign.id}`);
-    expect(detailRes.ok()).toBeTruthy();
-    const detail = (await detailRes.json()) as {
-      campaign: typeof postBody.campaign;
-    };
-    const campaign = detail.campaign;
-
-    expect(campaign.product).toBe(BRIEF.product);
-    expect(campaign.objective).toBe(BRIEF.objective);
-    expect(campaign.audience).toBe(BRIEF.audience);
-    expect(campaign.platforms).toEqual(BRIEF.platforms);
-    expect(campaign.tone).toBe(BRIEF.tone);
-    expect(campaign.offer).toBe(BRIEF.offer);
-    expect(campaign.constraints).toBe(BRIEF.constraints);
-    expect(campaign.notes).toBe(BRIEF.notes);
-    expect(campaign.ctaVariants).toEqual(BRIEF.ctaVariants);
-    expect(campaign.targetFormats).toEqual(BRIEF.targetFormats);
-    expect(campaign.clientProfileId).toBeNull();
+    const attached = detail.sources.filter((item) => item.templateId === templateId);
+    expect(attached).toHaveLength(1);
+    expect(attached[0]?.contentAnalysis).toMatchObject({
+      product: BRIEF.product,
+      offer: BRIEF.offer,
+      cta: { text: BRIEF.ctaVariants.join(", "), style: "template" },
+      keyVisual: BRIEF.objective,
+      textContent: { headline: BRIEF.objective, bullets: [BRIEF.audience] },
+      format: BRIEF.targetFormats.join(", "),
+    });
+    expect(attached[0]?.styleAnalysis).toMatchObject({
+      mood: BRIEF.tone,
+      composition: BRIEF.styleIntensity,
+      typography: { personality: BRIEF.tone },
+    });
+    expect(materializeCalls).toBe(0);
+    expect(campaignMutations).toBe(0);
+    expect(await campaignIds()).toEqual(campaignIdsBefore);
   });
 });

@@ -1,0 +1,20 @@
+{
+  "workspaceId": "5296e5aa-e6ef-4cbe-8102-2d1f21902dc8",
+  "workspaceName": "Frictionless E2E's Workspace",
+  "email": "frictionless-e2e@adscale.local",
+  "password": "FrictionlessE2E123!",
+  "userId": "hwxIh4H0t0BNQfv9erEwGyXSmxEsCMTE",
+  "primaryClientProfileId": "0171f09d-0fe8-4a8b-bb16-cc4dc7673324",
+  "approvedLogoReferenceId": "1738a845-e9b0-4920-8f53-86e463b04de0",
+  "approvedLogoAssetKey": "e2e/create-post/5296e5aa/1784271831104-logo-principal.png",
+  "approvedLogoBufferBase64": "iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAYAAADimHc4AAAACXBIWXMAAAPoAAAD6AG1e1JrAAABDElEQVR4nO3RMREDARDDQMMQpPCvwuafQVKqOO2MCVhbkiRJkiRJkiTJH3y+z+XNZh9AAfwTKMDdzWYfQAH8EyjA3c1mH0AB/BMowN3NZh9AAfwTKMDdzWYfQAH8EyjA3c1mH0AB/BMowN3NZh9AAfwTKMDdzWYfQAH8EyjA3c1mH0AB/BMowN3NZh9AAfwTKMDdzWYfQAH8EyjA3c1mH0AB/BMowN3NZh9AAfwTKMDdzWYfQAH8EyjA3c1mH0AB/BMowN3NZh9AAfwTKMDdzWYfQAH8EyjA3c1mH0AB/BMowN3NZh9AAfwTKMDdzWYfQAH8EyjA3c1mH0AB/BMowN0tSZIkSZIkSZJkv71Tz3IOyNgAgQAAAABJRU5ErkJggg==",
+  "attachmentBufferBase64": "iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAYAAADimHc4AAAACXBIWXMAAAPoAAAD6AG1e1JrAAABDElEQVR4nO3RMREDARDDQMMQpPCvwuafQVKqOO2MCVhbkiRJkiRJkiTJH3y+z+XNZh9AAfwTKMDdzWYfQAH8EyjA3c1mH0AB/BMowN3NZh9AAfwTKMDdzWYfQAH8EyjA3c1mH0AB/BMowN3NZh9AAfwTKMDdzWYfQAH8EyjA3c1mH0AB/BMowN3NZh9AAfwTKMDdzWYfQAH8EyjA3c1mH0AB/BMowN3NZh9AAfwTKMDdzWYfQAH8EyjA3c1mH0AB/BMowN3NZh9AAfwTKMDdzWYfQAH8EyjA3c1mH0AB/BMowN3NZh9AAfwTKMDdzWYfQAH8EyjA3c1mH0AB/BMowN0tSZIkSZIkSZJkv71Tz3IOyNgAgQAAAABJRU5ErkJggg==",
+  "approvedLogoWidth": 96,
+  "approvedLogoHeight": 96,
+  "approvedVisualReferenceId": "8ccc25e5-af37-411c-802c-71125c1285fc",
+  "approvedVisualReferenceAssetKey": "e2e/create-post/5296e5aa/1784271831800-referencia-visual.png",
+  "pendingReferenceLabel": "Logo Pendente",
+  "readyWorkId": "77729069-7c60-4ebb-9010-08cc6fad0d69",
+  "expectedInitialCredits": 15,
+  "seededAt": "2026-07-17T07:03:54.436Z"
+}

@@ -4,7 +4,7 @@ import { retryCreativeWorkOutput } from "@/server/application/retry-creative-wor
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 
 /**
- * Free retry of a failed output — HTTP adapter only (Phase 5 / item 38).
+ * Free retry of a failed initial output — HTTP adapter only (Phase 5 / item 38).
  * Domain: retryCreativeWorkOutput (no billing).
  */
 export async function POST(

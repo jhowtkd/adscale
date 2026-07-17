@@ -27,6 +27,8 @@ export type ProviderGenerateInput = {
   referenceImages: ImageReference[];
   generationMode: GenerationMode;
   outputPrefix: string;
+  /** Zero-based durable generation attempt. */
+  attempt?: number;
   quality?: "medium" | "high";
   seed?: number;
 };

@@ -114,6 +114,19 @@ describe("confirmSocialPostWork", () => {
     expect(mockSnapshot).not.toHaveBeenCalled();
   });
 
+  it("returns work_not_prepared without side effects when brief is absent", async () => {
+    mockGet.mockResolvedValue({ work: { ...workItem, brief: null }, outputs: [], sources: [] } as never);
+    const result = await confirmSocialPostWork({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      copy,
+      selectedReferenceIds: [refId],
+    });
+    expect(result).toEqual({ ok: false, error: { code: "work_not_prepared" } });
+    expect(mockSetCopy).not.toHaveBeenCalled();
+    expect(mockSnapshot).not.toHaveBeenCalled();
+  });
+
   it("maps legacy copy → briefing → persist, locks identity, returns canonical", async () => {
     const result = await confirmSocialPostWork({
       workspaceId: "ws-1",

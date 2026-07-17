@@ -92,6 +92,13 @@ describe("generateSocialPostCopy", () => {
     expect(mockSpend).not.toHaveBeenCalled();
   });
 
+  it("returns work_not_prepared without spend when brief is absent", async () => {
+    mockGet.mockResolvedValue({ work: { ...workItem, brief: null }, outputs: [], sources: [] } as never);
+    const result = await generateSocialPostCopy({ workspaceId: "ws-1", workItemId: "work-1", userId: "u-1" });
+    expect(result).toEqual({ ok: false, error: { code: "work_not_prepared" } });
+    expect(mockSpend).not.toHaveBeenCalled();
+  });
+
   it("short-circuits when copy already exists", async () => {
     mockGet.mockResolvedValue({
       work: { ...workItem, copy: generatedCopy },

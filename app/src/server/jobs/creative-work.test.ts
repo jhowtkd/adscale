@@ -8,7 +8,10 @@ const getCreativeWorkMock = vi.hoisted(() => vi.fn());
 const markProcessingMock = vi.hoisted(() => vi.fn());
 const completeMock = vi.hoisted(() => vi.fn());
 const failMock = vi.hoisted(() => vi.fn());
+const failQueuedMock = vi.hoisted(() => vi.fn());
 const refreshStatusMock = vi.hoisted(() => vi.fn());
+const requeueOnceMock = vi.hoisted(() => vi.fn());
+const sendMock = vi.hoisted(() => vi.fn());
 const ensureLibraryMock = vi.hoisted(() => vi.fn());
 
 const objectGetMock = vi.hoisted(() => vi.fn());
@@ -22,7 +25,9 @@ vi.mock("@/server/repositories/creative-work", () => ({
     markProcessingMock(...args),
   completeCreativeWorkOutput: (...args: unknown[]) => completeMock(...args),
   failCreativeWorkOutput: (...args: unknown[]) => failMock(...args),
+  failQueuedCreativeWorkOutput: (...args: unknown[]) => failQueuedMock(...args),
   refreshCreativeWorkStatus: (...args: unknown[]) => refreshStatusMock(...args),
+  requeueCreativeWorkOutputOnce: (...args: unknown[]) => requeueOnceMock(...args),
 }));
 
 vi.mock("@/server/application/ensure-creative-work-output-library", () => ({
@@ -40,6 +45,12 @@ vi.mock("@/server/repositories/client-reference", () => ({
 
 vi.mock("@/server/ai/image-generation", () => ({
   generateAndStoreImage: (...args: unknown[]) => generateAndStoreImageMock(...args),
+  isRetryableProviderError: (error: unknown) => {
+    if (!error || typeof error !== "object") return false;
+    const value = error as { retryable?: unknown; name?: unknown; code?: unknown; stack?: unknown };
+    const stackName = typeof value.stack === "string" ? value.stack.split("\n", 1)[0]?.split(":", 1)[0] : null;
+    return value.retryable === true || value.name === "TimeoutError" || value.code === "ETIMEDOUT" || stackName === "TimeoutError";
+  },
 }));
 
 vi.mock("@/server/creative-work/composite", () => ({
@@ -69,6 +80,7 @@ vi.mock("@/lib/logger", () => ({
 
 vi.mock("./client", () => ({
   inngest: {
+    send: (...args: unknown[]) => sendMock(...args),
     createFunction: vi.fn((opts: unknown, handler: unknown) => ({
       opts,
       fn: handler,
@@ -82,14 +94,12 @@ interface GenerateEvent {
   workspaceId: string;
   workItemId: string;
   outputId: string;
-  creativeLevel: "conservative" | "balanced" | "bold";
 }
 
 const baseEvent: GenerateEvent = {
   workspaceId: "workspace-1",
   workItemId: "work-1",
   outputId: "output-1",
-  creativeLevel: "balanced",
 };
 
 const identitySnapshot = {
@@ -160,14 +170,29 @@ const workItem = {
   updatedAt: new Date(),
 };
 
-function makeQueuedOutput(overrides: Partial<{ id: string; status: string; creativeLevel: "conservative" | "balanced" | "bold" }> = {}) {
+function makeQueuedOutput(overrides: Partial<{
+  id: string;
+  status: string;
+  creativeLevel: "conservative" | "balanced" | "bold";
+  retryCount: number;
+  versionNumber: number;
+  parentOutputId: string | null;
+  revisionInstruction: string | null;
+  outputKey: string | null;
+}> = {}) {
   return {
-    id: "output-1",
+    id: overrides.id ?? "output-1",
     workspaceId: "workspace-1",
     workItemId: "work-1",
     creativeLevel: overrides.creativeLevel ?? "balanced",
+    targetFormat: "1:1",
+    versionNumber: overrides.versionNumber ?? 1,
+    parentOutputId: overrides.parentOutputId ?? null,
+    revisionInstruction: overrides.revisionInstruction ?? "Use mais contraste",
+    revisionAssetId: null,
+    retryCount: overrides.retryCount ?? 0,
     status: overrides.status ?? "queued",
-    outputKey: null,
+    outputKey: overrides.outputKey ?? null,
     cost: null,
     failureCode: null,
     quality: null,
@@ -215,8 +240,11 @@ describe("creativeWorkOutputJob", () => {
     });
     completeMock.mockResolvedValue(makeQueuedOutput({ status: "completed" }));
     failMock.mockResolvedValue(makeQueuedOutput({ status: "failed" }));
+    failQueuedMock.mockResolvedValue(makeQueuedOutput({ status: "failed", retryCount: 1 }));
     refreshStatusMock.mockResolvedValue("completed");
     refundCreditsMock.mockResolvedValue({ status: "refunded" });
+    requeueOnceMock.mockResolvedValue(null);
+    sendMock.mockResolvedValue(undefined);
     ensureLibraryMock.mockResolvedValue({
       asset: { id: "asset-1" },
       created: true,
@@ -270,6 +298,153 @@ describe("creativeWorkOutputJob", () => {
     expect(refreshStatusMock).toHaveBeenCalledWith("workspace-1", "work-1");
     // No refund should fire on a happy path.
     expect(refundCreditsMock).not.toHaveBeenCalled();
+  });
+
+  it("lets only one duplicate delivery claim the queued output", async () => {
+    getCreativeWorkMock.mockResolvedValue({ work: workItem, outputs: [makeQueuedOutput()] });
+    markProcessingMock
+      .mockResolvedValueOnce(makeQueuedOutput({ status: "processing" }))
+      .mockResolvedValueOnce(null);
+    const first = await runJob();
+    const second = await runJob();
+    expect(first).toMatchObject({ success: true });
+    expect(second).toMatchObject({ skipped: true });
+    expect(generateAndStoreImageMock).toHaveBeenCalledOnce();
+  });
+
+  it("does not generate when a partially accepted event arrives after dispatch compensation", async () => {
+    getCreativeWorkMock.mockResolvedValue({ work: workItem, outputs: [makeQueuedOutput({ status: "failed" })] });
+    markProcessingMock.mockResolvedValue(null);
+    const result = await runJob();
+    expect(result).toMatchObject({ skipped: true });
+    expect(generateAndStoreImageMock).not.toHaveBeenCalled();
+    expect(failMock).not.toHaveBeenCalled();
+  });
+
+  it("loads creative level and target format from the output row", async () => {
+    getCreativeWorkMock.mockResolvedValue({ work: workItem, outputs: [makeQueuedOutput({ creativeLevel: "bold" })] });
+    markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing", creativeLevel: "bold" }));
+    await runJob();
+    const request = generateAndStoreImageMock.mock.calls[0]?.[0] as { prompt: string; size: { width: number; height: number } };
+    expect(request.prompt).toContain("CREATIVE LEVEL: bold");
+    expect(request.prompt).toContain("FORMAT: 1:1");
+    expect(request.prompt).toContain("Use mais contraste");
+  });
+
+  it("passes the persisted output retry count as the canonical attempt", async () => {
+    getCreativeWorkMock.mockResolvedValue({
+      work: workItem,
+      outputs: [makeQueuedOutput({ retryCount: 2 })],
+    });
+    markProcessingMock.mockResolvedValue(
+      makeQueuedOutput({ status: "processing", retryCount: 2 }),
+    );
+
+    await runJob();
+
+    expect(generateAndStoreImageMock).toHaveBeenCalledWith(
+      expect.objectContaining({ attempt: 2 }),
+    );
+  });
+
+  it("uses the completed parent image as the primary revision reference without overwriting it", async () => {
+    const parent = makeQueuedOutput({
+      id: "output-v1",
+      status: "completed",
+      outputKey: "creative-work/output-v1/original.png",
+      revisionInstruction: null,
+    });
+    const revision = makeQueuedOutput({
+      id: "output-1",
+      versionNumber: 2,
+      parentOutputId: parent.id,
+      revisionInstruction: "Troque o fundo por azul",
+    });
+    getCreativeWorkMock.mockResolvedValue({ work: workItem, outputs: [parent, revision] });
+    markProcessingMock.mockResolvedValue({ ...revision, status: "processing" });
+
+    await runJob();
+
+    const request = generateAndStoreImageMock.mock.calls[0]?.[0] as {
+      prompt: string;
+      referenceImages: Array<{ name: string; buffer: Buffer }>;
+      outputPrefix: string;
+      generationMode: string;
+    };
+    expect(objectGetMock).toHaveBeenCalledWith("creative-work/output-v1/original.png");
+    expect(request.referenceImages[0]).toEqual(expect.objectContaining({ name: "Versão 1" }));
+    expect(request.prompt).toContain("Troque o fundo por azul");
+    expect(request.generationMode).toBe("art_variation");
+    expect(request.outputPrefix).toBe("creative-work/output-1");
+    expect(parent.outputKey).toBe("creative-work/output-v1/original.png");
+  });
+
+  it("automatically redispatches a marked retryable provider failure once", async () => {
+    getCreativeWorkMock.mockResolvedValue({ work: workItem, outputs: [makeQueuedOutput()] });
+    markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+    generateAndStoreImageMock.mockRejectedValue(Object.assign(new Error("provider timeout"), { retryable: true }));
+    requeueOnceMock.mockResolvedValue(makeQueuedOutput({ retryCount: 1 }));
+    const result = await runJob();
+    expect(result).toMatchObject({ success: false, retrying: true });
+    expect(sendMock).toHaveBeenCalledWith({ name: "creative-work.generate", data: baseEvent });
+    expect(failMock).not.toHaveBeenCalled();
+  });
+
+  it("redispatches a retryable error shape preserved across an Inngest step boundary", async () => {
+    getCreativeWorkMock.mockResolvedValue({ work: workItem, outputs: [makeQueuedOutput()] });
+    markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+    const transported = new Error("All image candidates failed: Error: upstream request failed");
+    transported.name = "Error";
+    transported.stack = `TimeoutError: ${transported.message}\n    at generateAndStoreImage (image-generation.ts:1:1)`;
+    generateAndStoreImageMock.mockRejectedValue(transported);
+    requeueOnceMock.mockResolvedValue(makeQueuedOutput({ retryCount: 1 }));
+    const result = await runJob();
+    expect(result).toMatchObject({ success: false, retrying: true });
+    expect(sendMock).toHaveBeenCalledWith({ name: "creative-work.generate", data: baseEvent });
+  });
+
+  it("makes a won auto-retry CAS manually recoverable when redispatch fails", async () => {
+    getCreativeWorkMock.mockResolvedValue({ work: workItem, outputs: [makeQueuedOutput()] });
+    markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+    generateAndStoreImageMock.mockRejectedValue(Object.assign(new Error("provider timeout"), { retryable: true }));
+    requeueOnceMock.mockResolvedValue(makeQueuedOutput({ retryCount: 1 }));
+    sendMock.mockRejectedValue(new Error("inngest unavailable"));
+    const result = await runJob();
+    expect(result).toMatchObject({ success: false, failureCode: "auto_retry_dispatch_failed" });
+    expect(result).not.toHaveProperty("retrying", true);
+    expect(failQueuedMock).toHaveBeenCalledWith("workspace-1", "work-1", "output-1", "auto_retry_dispatch_failed");
+  });
+
+  it("does not reopen an output when completion wins the automatic-retry CAS", async () => {
+    getCreativeWorkMock.mockResolvedValue({ work: workItem, outputs: [makeQueuedOutput()] });
+    markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+    generateAndStoreImageMock.mockRejectedValue(Object.assign(new Error("provider timeout"), { retryable: true }));
+    requeueOnceMock.mockResolvedValue(null);
+    failMock.mockResolvedValue(null);
+    const result = await runJob();
+    expect(result).toMatchObject({ success: false });
+    expect(sendMock).not.toHaveBeenCalled();
+  });
+
+  it("never automatically retries a final low-quality rejection", async () => {
+    getCreativeWorkMock.mockResolvedValue({ work: workItem, outputs: [makeQueuedOutput()] });
+    markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+    analyzeDerivationCreativeMock.mockResolvedValue({ scoreStatus: "analyzed", qualityScore: 1 });
+    await runJob();
+    expect(requeueOnceMock).not.toHaveBeenCalled();
+    expect(sendMock).not.toHaveBeenCalled();
+  });
+
+  it("skips safely when the draft brief is absent", async () => {
+    getCreativeWorkMock.mockResolvedValue({
+      work: { ...workItem, brief: null },
+      outputs: [makeQueuedOutput()],
+      sources: [],
+    });
+
+    await expect(runJob()).resolves.toMatchObject({ success: false, skipped: true });
+    expect(markProcessingMock).not.toHaveBeenCalled();
+    expect(generateAndStoreImageMock).not.toHaveBeenCalled();
   });
 
   it("does not return the generated image buffer from an Inngest step", async () => {
@@ -369,6 +544,20 @@ describe("creativeWorkOutputJob", () => {
       referenceImages?: unknown[];
     };
     expect(call.referenceImages).toHaveLength(4);
+  });
+
+  it("uses style input assets as provider references but keeps content-only sources textual", async () => {
+    getCreativeWorkMock.mockResolvedValue({
+      work: { ...workItem, inputSnapshot: { request: "x", settings: { targetFormats: [] }, sources: [
+        { sourceId: "style", updatedAt: "now", assetKey: "style.png", mimeType: "image/png", usage: "style", content: null, style: { description: "editorial" } },
+        { sourceId: "content", updatedAt: "now", assetKey: "content.png", mimeType: "image/png", usage: "content", content: { subject: "produto" }, style: null },
+      ] } },
+      outputs: [makeQueuedOutput()],
+    });
+    markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+    await runJob();
+    expect(objectGetMock).toHaveBeenCalledWith("style.png");
+    expect(objectGetMock).not.toHaveBeenCalledWith("content.png");
   });
 
   it("skips generation entirely when the output is already completed (duplicate event)", async () => {
@@ -566,7 +755,7 @@ describe("creativeWorkOutputJob", () => {
     expect(call.derivation).toEqual(
       expect.objectContaining({
         ctaText: "C",
-        format: "4:5",
+        format: "1:1",
         generationMode: "art_variation",
         creativeLevel: "balanced",
         feedback: null,

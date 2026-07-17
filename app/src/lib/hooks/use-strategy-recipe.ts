@@ -41,13 +41,13 @@ async function fetchStrategyRecipeSurface(body: {
   context: RecipeSuggestionContext;
   selectedRecipeId?: StrategyRecipeId | null;
   overrides?: Partial<RecipeGenerationConfig> | null;
-}): Promise<StrategyRecipeSurface> {
+}, source: "panel" | "recommended"): Promise<StrategyRecipeSurface> {
   // Strip nulls: bodySchema uses .optional() (undefined only), not .nullable()
   const payload: Record<string, unknown> = { context: body.context ?? {} };
   if (body.selectedRecipeId != null) payload.selectedRecipeId = body.selectedRecipeId;
   if (body.overrides != null) payload.overrides = body.overrides;
 
-  const res = await apiFetch("/api/strategy-recipe/resolve", {
+  const res = await apiFetch(`/api/strategy-recipe/resolve?source=${source}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -131,7 +131,7 @@ export function useStrategyRecipe(input: UseStrategyRecipeInput) {
         context,
         selectedRecipeId: manualRecipeId,
         overrides,
-      }),
+      }, "panel"),
     enabled,
     staleTime: STALE_TIME.DYNAMIC,
     placeholderData: (prev) => prev,
@@ -213,7 +213,7 @@ export function useRecommendedRecipePatch(input: {
         // omit nulls — zod bodySchema rejects overrides: null (only undefined)
         selectedRecipeId: undefined,
         overrides: undefined,
-      }),
+      }, "recommended"),
     enabled: input.enabled ?? true,
     staleTime: STALE_TIME.DYNAMIC,
   });

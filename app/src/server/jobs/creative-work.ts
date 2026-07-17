@@ -1,6 +1,7 @@
 import "server-only";
 import { logger } from "@/lib/logger";
 import { objectStorage } from "@/server/storage";
+import { isRetryableProviderError } from "@/server/ai/image-generation";
 import { executeCanonicalGeneration } from "@/server/generation/pipeline/execute";
 import { runCreativeWorkPostGeneration } from "@/server/generation/pipeline/post-generation";
 import {
@@ -10,13 +11,16 @@ import {
   type RefundDecision,
 } from "@/server/generation/canonical/types";
 import { getClientProfile } from "@/server/repositories/client-reference";
+import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
 import { refundCredits } from "@/server/billing/credits";
 import {
   getCreativeWork,
   markCreativeWorkOutputProcessing,
   completeCreativeWorkOutput,
   failCreativeWorkOutput,
+  failQueuedCreativeWorkOutput,
   refreshCreativeWorkStatus,
+  requeueCreativeWorkOutputOnce,
 } from "@/server/repositories/creative-work";
 import {
   buildSocialPostPrompt,
@@ -42,7 +46,6 @@ interface CreativeWorkGenerateEvent {
   workspaceId: string;
   workItemId: string;
   outputId: string;
-  creativeLevel: "conservative" | "balanced" | "bold";
 }
 
 const OUTPUT_COST = GENERATION_CREDIT_COSTS.creativeWorkOutput;
@@ -71,9 +74,9 @@ export const creativeWorkOutputJob = inngest.createFunction(
   },
   async ({ event, step }) => {
     const data = event.data as CreativeWorkGenerateEvent;
-    const { workspaceId, workItemId, outputId, creativeLevel } = data;
+    const { workspaceId, workItemId, outputId } = data;
     logger.info(
-      `[creativeWorkOutputJob] START workspaceId=${workspaceId} workItemId=${workItemId} outputId=${outputId} level=${creativeLevel}`,
+      `[creativeWorkOutputJob] START workspaceId=${workspaceId} workItemId=${workItemId} outputId=${outputId}`,
     );
 
     try {
@@ -84,6 +87,9 @@ export const creativeWorkOutputJob = inngest.createFunction(
         return {
           work: result.work,
           output,
+          parentOutput: output?.parentOutputId
+            ? result.outputs.find((candidate) => candidate.id === output.parentOutputId) ?? null
+            : null,
         };
       })) as unknown as {
         work: Awaited<ReturnType<typeof getCreativeWork>> extends infer R
@@ -97,12 +103,20 @@ export const creativeWorkOutputJob = inngest.createFunction(
               ? Item | null
               : never
             : never
+            : never;
+        parentOutput: Awaited<ReturnType<typeof getCreativeWork>> extends infer R
+          ? R extends { outputs: infer O }
+            ? O extends Array<infer Item>
+              ? Item | null
+              : never
+            : never
           : never;
       } | null;
 
       if (
         !scopeRaw ||
         !scopeRaw.output ||
+        !scopeRaw.work.brief ||
         !scopeRaw.work.identitySnapshot ||
         !scopeRaw.work.copy
       ) {
@@ -113,7 +127,11 @@ export const creativeWorkOutputJob = inngest.createFunction(
       }
 
       const work = scopeRaw.work;
+      const brief = work.brief;
+      if (!brief) return { success: false, skipped: true, outputId };
       const output = scopeRaw.output;
+      const creativeLevel = output.creativeLevel;
+      const parentOutput = scopeRaw.parentOutput;
       const identitySnapshot = work.identitySnapshot as CreativeWorkIdentitySnapshot;
       const copy = work.copy as SocialPostCopy;
 
@@ -130,11 +148,14 @@ export const creativeWorkOutputJob = inngest.createFunction(
         return { success: true, skipped: true, outputId, outputKey: output.outputKey };
       }
 
-      await step.run("mark-processing", async () => {
-        await markCreativeWorkOutputProcessing(workspaceId, workItemId, outputId);
-      });
+      const claimed = await step.run("mark-processing", async () =>
+        Boolean(await markCreativeWorkOutputProcessing(workspaceId, workItemId, outputId))
+      );
+      if (!claimed) {
+        return { success: true, skipped: true, outputId };
+      }
 
-      const targetFormat = work.format as SocialPostFormat;
+      const targetFormat = output.targetFormat as SocialPostFormat;
       const dimensions = getTargetDimensions(targetFormat) ?? {
         width: 1024,
         height: 1280,
@@ -150,8 +171,11 @@ export const creativeWorkOutputJob = inngest.createFunction(
       try {
         prompt = buildSocialPostPrompt({
           format: targetFormat,
+          brief,
           copy,
           identitySnapshot,
+          inputSnapshot: work.inputSnapshot ?? { request: work.request, settings: work.settings, sources: [] },
+          revisionInstruction: output.revisionInstruction,
           creativeLevel,
         });
 
@@ -159,11 +183,37 @@ export const creativeWorkOutputJob = inngest.createFunction(
           .filter((asset) => asset.usageMode === "reference")
           .slice(0, MAX_REFERENCE_IMAGES);
 
+        const sourceReferences = (work.inputSnapshot?.sources ?? [])
+          .filter((source) => (source.usage === "style" || source.usage === "both") && source.assetKey && source.mimeType)
+          .map((source) => ({ assetKey: source.assetKey!, mimeType: source.mimeType!, label: `Source ${source.sourceId}` }));
+
+        if (output.parentOutputId && (!parentOutput?.outputKey || parentOutput.status !== "completed")) {
+          throw new Error("creative_work_revision_parent_missing");
+        }
+        const revisionAsset = output.revisionAssetId
+          ? await getWorkspaceAssetById(output.revisionAssetId, workspaceId)
+          : null;
+        if (output.revisionAssetId && (!revisionAsset || !revisionAsset.type.startsWith("image/"))) {
+          throw new Error("creative_work_revision_asset_missing");
+        }
+        const revisionReferences = [
+          ...(parentOutput?.outputKey ? [{
+            assetKey: parentOutput.outputKey,
+            mimeType: "image/png",
+            label: `Versão ${parentOutput.versionNumber}`,
+          }] : []),
+          ...(revisionAsset ? [{
+            assetKey: revisionAsset.key,
+            mimeType: revisionAsset.type,
+            label: revisionAsset.name,
+          }] : []),
+        ];
+
         // Binary payloads cannot cross an Inngest step boundary. The durable
         // asset keys live in the identity snapshot; buffers stay local to this
         // invocation and are consumed immediately by the provider.
         referenceImages = await Promise.all(
-          referenceAssets.map(async (asset) => ({
+          [...revisionReferences, ...referenceAssets, ...sourceReferences].slice(0, MAX_REFERENCE_IMAGES).map(async (asset) => ({
             buffer: await objectStorage.get(asset.assetKey),
             mimeType: asset.mimeType,
             name: asset.label,
@@ -188,8 +238,8 @@ export const creativeWorkOutputJob = inngest.createFunction(
         origin: "quick_tool",
         surface: "quick_tool",
         intent: {
-          mode: "social_post",
-          objective: work.brief.objective ?? null,
+          mode: parentOutput ? "creative_revision" : "social_post",
+          objective: brief.objective ?? null,
         },
         identity: {
           clientProfileId: work.clientProfileId,
@@ -202,10 +252,10 @@ export const creativeWorkOutputJob = inngest.createFunction(
           constraints: null,
         },
         source: {
-          parentId: null,
-          sourceVersionId: null,
-          lineageId: null,
-          packageSource: "creative_work_brief",
+          parentId: parentOutput?.id ?? null,
+          sourceVersionId: parentOutput?.id ?? null,
+          lineageId: parentOutput ? `${workItemId}:${output.creativeLevel}:${output.targetFormat}` : null,
+          packageSource: parentOutput ? "creative_work_output" : "creative_work_brief",
         },
         prompt: { text: prompt },
         cost: {
@@ -213,7 +263,9 @@ export const creativeWorkOutputJob = inngest.createFunction(
           refundPolicy: "default",
         },
         idempotency: {
-          billingKey: creativeWorkUnitBillingKey(workItemId, outputId),
+          billingKey: parentOutput
+            ? `creative-work:${workItemId}:revision:${outputId}`
+            : creativeWorkUnitBillingKey(workItemId, outputId),
           skipWhenOutputExists: true,
         },
         destination: {
@@ -222,6 +274,7 @@ export const creativeWorkOutputJob = inngest.createFunction(
           storagePrefix: `creative-work/${outputId}`,
           workItemId,
         },
+        attempt: output.retryCount,
       };
 
       const generated = await step.run("generate-base", async () => {
@@ -271,12 +324,12 @@ export const creativeWorkOutputJob = inngest.createFunction(
             mimeType: "image/png",
             // R5 mapping: brief fields → AnalyzeInput.campaign
             campaign: {
-              name: work.brief.theme,
+              name: brief.theme,
               client: clientProfile?.name ?? "",
-              product: work.brief.theme,
-              offer: work.brief.offer,
-              objective: work.brief.objective,
-              audience: work.brief.audience,
+              product: brief.theme,
+              offer: brief.offer,
+              objective: brief.objective,
+              audience: brief.audience,
             },
             // R5 mapping: copy + format → AnalyzeInput.derivation
             derivation: {
@@ -313,13 +366,14 @@ export const creativeWorkOutputJob = inngest.createFunction(
         };
       }
 
-      await step.run("mark-completed", async () => {
-        await completeCreativeWorkOutput(workspaceId, workItemId, outputId, {
+      const completed = await step.run("mark-completed", async () =>
+        Boolean(await completeCreativeWorkOutput(workspaceId, workItemId, outputId, {
           outputKey: generatedOutputKey,
           cost: OUTPUT_COST,
           quality: (postGen.quality as unknown as Record<string, unknown> | null) ?? null,
-        });
-      });
+        }))
+      );
+      if (!completed) return { success: true, skipped: true, outputId };
 
       // Phase 5 / item 37: library on complete (not only on select).
       // Isolated from generation success: a library/storage failure must never
@@ -329,7 +383,7 @@ export const creativeWorkOutputJob = inngest.createFunction(
           await ensureCreativeWorkOutputInLibrary({
             workspaceId,
             outputKey: generatedOutputKey,
-            theme: work.brief.theme,
+            theme: brief.theme,
             creativeLevel,
           });
         });
@@ -351,6 +405,23 @@ export const creativeWorkOutputJob = inngest.createFunction(
       logger.error(
         `[creativeWorkOutputJob] FAIL outputId=${outputId} code=${code} message=${message}`,
       );
+      if (isRetryableProviderError(error)) {
+        try {
+          const retried = await requeueCreativeWorkOutputOnce(workspaceId, workItemId, outputId);
+          if (retried) {
+            try {
+              await inngest.send({ name: "creative-work.generate", data: { workspaceId, workItemId, outputId } });
+              return { success: false, retrying: true, outputId, failureCode: code };
+            } catch (dispatchError) {
+              await failQueuedCreativeWorkOutput(workspaceId, workItemId, outputId, "auto_retry_dispatch_failed");
+              logger.error(`[creativeWorkOutputJob] auto-retry dispatch failed outputId=${outputId}`, dispatchError);
+              return { success: false, outputId, failureCode: "auto_retry_dispatch_failed" };
+            }
+          }
+        } catch (retryError) {
+          logger.error(`[creativeWorkOutputJob] auto-retry dispatch failed outputId=${outputId}`, retryError);
+        }
+      }
       try {
         await step.run("mark-failed", async () => {
           await failCreativeWorkOutput(workspaceId, workItemId, outputId, code);

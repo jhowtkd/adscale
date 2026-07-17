@@ -3,7 +3,6 @@ import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getCreativeWork } from "@/server/repositories/creative-work";
 import { buildIdentityOptions } from "@/server/creative-work/identity";
-import type { SocialPostBrief } from "@/server/creative-work/contracts";
 
 /**
  * Returns a category-priority ordered recommendation list of approved brand
@@ -30,7 +29,7 @@ export async function GET(
       return apiError("creativeWorkNotFound", 404);
     }
 
-    const brief = existing.work.brief as SocialPostBrief;
+    const brief = existing.work.brief;
     if (
       !brief ||
       !brief.theme?.trim() ||
@@ -38,10 +37,7 @@ export async function GET(
       !brief.audience?.trim() ||
       !brief.offer?.trim()
     ) {
-      // The wizard's brief step requires all four fields; a non-empty
-      // brief is the contract. Returning an empty list here keeps the
-      // client code simple and avoids leaking whether the work exists.
-      return NextResponse.json({ options: [] });
+      return apiError("work_not_prepared", 409);
     }
 
     const options = await buildIdentityOptions(

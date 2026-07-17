@@ -2,13 +2,14 @@ import fs from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
 import { expect, test, type Page, type APIRequestContext } from "@playwright/test";
+import { composeExactBrandAssets } from "../../src/server/creative-work/composite";
 
 /**
  * Standalone Create Post — end-to-end acceptance gate.
  *
  * Covers:
- *   1. UI: trains assets, drives the four-stage wizard, and asserts that
- *      `/api/campaigns` row count is unchanged (the Create Post flow must
+ *   1. UI: resumes the canonical work on Home and asserts that
+ *      `/api/campaigns` ID set is unchanged (the creative flow must
  *      never write to the campaigns table).
  *   2. API: pending reference rows are excluded from the assets step.
  *   3. API: the triplet always returns exactly three fixed creative levels
@@ -23,9 +24,6 @@ import { expect, test, type Page, type APIRequestContext } from "@playwright/tes
  * Seed: `npm run seed:create-post-e2e`
  */
 
-const EMAIL = "dev-admin@adscale.local";
-const PASSWORD = "DevAdmin123!";
-
 const FIXTURE_PATH = path.resolve(
   __dirname,
   "../fixtures/create-post-e2e.json",
@@ -34,9 +32,10 @@ const FIXTURE_PATH = path.resolve(
 interface CreatePostFixture {
   workspaceId: string;
   workspaceName: string | null;
+  email: string;
+  password: string;
   userId: string;
   primaryClientProfileId: string;
-  secondaryClientProfileId: string;
   approvedLogoReferenceId: string;
   approvedLogoAssetKey: string;
   approvedLogoBufferBase64: string;
@@ -59,6 +58,7 @@ function loadFixture(): CreatePostFixture {
 }
 
 async function login(page: Page): Promise<void> {
+  const fixture = loadFixture();
   await page.addInitScript(() => {
     try {
       localStorage.setItem(
@@ -70,21 +70,25 @@ async function login(page: Page): Promise<void> {
     }
   });
   await page.goto("/login");
-  await page.locator("#email").fill(EMAIL);
-  await page.locator("#login-password").fill(PASSWORD);
+  await page.locator("#email").fill(fixture.email);
+  await page.locator("#login-password").fill(fixture.password);
   await page.locator("form:has(#email) button[type=submit]").click();
   await page.waitForURL((url) => !url.pathname.startsWith("/login"), {
     timeout: 30_000,
   });
 }
 
-async function fetchCampaignsCount(
+async function fetchCampaignIds(
   request: APIRequestContext,
-): Promise<number> {
-  const res = await request.get("/api/campaigns");
+): Promise<string[]> {
+  const res = await request.get(`/api/campaigns?limit=200&e2e=${Date.now()}`, {
+    headers: { "Cache-Control": "no-cache" },
+  });
   expect(res.ok(), `GET /api/campaigns must succeed (got ${res.status()})`).toBeTruthy();
-  const body = (await res.json()) as { campaigns: unknown[] };
-  return Array.isArray(body.campaigns) ? body.campaigns.length : 0;
+  const body = (await res.json()) as { campaigns?: Array<{ id?: string }> };
+  return (body.campaigns ?? [])
+    .flatMap((campaign) => typeof campaign.id === "string" ? [campaign.id] : [])
+    .sort();
 }
 
 test.describe("Standalone Create Post acceptance gate", () => {
@@ -92,44 +96,29 @@ test.describe("Standalone Create Post acceptance gate", () => {
     await login(page);
   });
 
-  test("trains assets and creates a post without touching the campaigns table", async ({
-    page,
-    request,
-  }) => {
+  test("resumes the same canonical work on Home without touching campaigns", async ({ page }) => {
     const fixture = loadFixture();
+    const before = await fetchCampaignIds(page.request);
 
-    // Capture campaign count BEFORE the Create Post flow runs.
-    const before = await fetchCampaignsCount(request);
+    await page.goto(`/?workId=${fixture.readyWorkId}`);
+    await expect(page.getByRole("textbox", { name: /pedido criativo|creative request/i }))
+      .toHaveValue(/Novo produto/);
+    await expect(page.getByTestId("proposal-level")).toHaveCount(3);
+    const firstIds = (await page.request.get(`/api/creative-work/${fixture.readyWorkId}`).then((res) => res.json()) as {
+      outputs: Array<{ id: string }>;
+    }).outputs.map((output) => output.id).sort();
 
-    // Navigate straight to the wizard with the seeded profile preselected
-    // via the URL — but the wizard is keyed off `clientProfileId` state,
-    // so we drive it manually to keep the flow realistic.
-    await page.goto("/quick-tools/create-post");
-    await page.getByRole("combobox", { name: "Marca" }).selectOption(fixture.primaryClientProfileId);
-
-    await page.getByLabel("Tema").fill("Novo produto");
-    await page.getByLabel("Objetivo").fill("Gerar interesse");
-    await page.getByLabel("Público").fill("Empreendedores");
-    await page.getByLabel("Oferta").fill("Teste gratuito");
-    await page.getByLabel("4:5").check();
-
-    await page.getByRole("button", { name: "Criar copy" }).click();
-
-    // After copy generation, the wizard advances to the copy step with a
-    // populated Headline field.
-    const headline = page.getByLabel("Headline");
-    await expect(headline).toBeVisible({ timeout: 30_000 });
-    await expect(headline).not.toHaveValue("");
-
-    // The Create Post flow is silent on `/api/campaigns` — capture the
-    // count AFTER and assert it never moved.
-    const after = await fetchCampaignsCount(request);
-    expect(after, "Create Post must not create or modify campaigns").toBe(before);
+    await page.reload();
+    await expect(page).toHaveURL(new RegExp(`workId=${fixture.readyWorkId}`));
+    const reloadedIds = (await page.request.get(`/api/creative-work/${fixture.readyWorkId}`).then((res) => res.json()) as {
+      outputs: Array<{ id: string }>;
+    }).outputs.map((output) => output.id).sort();
+    expect(reloadedIds).toEqual(firstIds);
+    expect(await fetchCampaignIds(page.request), "Home creative work must not mutate campaigns").toEqual(before);
   });
 
-  test("pending reference rows are excluded from the assets step", async ({
-    request,
-  }) => {
+  test("pending reference rows are excluded from the assets step", async ({ page }) => {
+    const request = page.request;
     const fixture = loadFixture();
 
     const res = await request.get(
@@ -145,7 +134,7 @@ test.describe("Standalone Create Post acceptance gate", () => {
     };
 
     // The seed inserts a `pending_analysis` row that must be filtered out
-    // before reaching the wizard's `approvedReferences` projection. First
+    // before reaching the automatic approved-reference projection. First
     // assert the seed row is actually present in the raw API response —
     // otherwise this test would silently pass on a missing fixture.
     const labels = body.references.map((r) => r.label);
@@ -156,8 +145,8 @@ test.describe("Standalone Create Post acceptance gate", () => {
     expect(pending).toBeDefined();
     expect(pending?.reviewStatus).toBe("pending_analysis");
 
-    // The Create Post assets step only ever renders rows whose
-    // `reviewStatus` is `approved`. The brief requires us to prove that
+    // Automatic identity selection only considers rows whose
+    // `reviewStatus` is `approved`. Prove that
     // the pending row never makes it into that projection.
     const approvedReferences = body.references.filter(
       (r) => r.reviewStatus === "approved",
@@ -166,12 +155,11 @@ test.describe("Standalone Create Post acceptance gate", () => {
       approvedReferences.find((r) => r.label === fixture.pendingReferenceLabel),
       "pending reference must be excluded from the assets step",
     ).toBeUndefined();
-    expect(approvedReferences.length, "at least one approved reference must exist for the wizard").toBeGreaterThan(0);
+    expect(approvedReferences.length, "at least one approved reference must exist").toBeGreaterThan(0);
   });
 
-  test("triplet always returns exactly three fixed creative levels", async ({
-    request,
-  }) => {
+  test("triplet always returns exactly three fixed creative levels", async ({ page }) => {
+    const request = page.request;
     const fixture = loadFixture();
 
     const res = await request.get(
@@ -189,9 +177,8 @@ test.describe("Standalone Create Post acceptance gate", () => {
     expect(uniqueIds.size).toBe(3);
   });
 
-  test("retry uses the same output ID, not a new row", async ({
-    request,
-  }) => {
+  test("retry uses the same output ID, not a new row", async ({ page }) => {
+    const request = page.request;
     const fixture = loadFixture();
 
     // The retry route only accepts `failed` outputs (it 409s on
@@ -227,9 +214,8 @@ test.describe("Standalone Create Post acceptance gate", () => {
     expect(after.outputs.find((o) => o.id === target!.id)).toBeDefined();
   });
 
-  test("selection state persists across a detail reload", async ({
-    request,
-  }) => {
+  test("selection state persists across a detail reload", async ({ page }) => {
+    const request = page.request;
     const fixture = loadFixture();
 
     const detailRes = await request.get(
@@ -269,9 +255,8 @@ test.describe("Standalone Create Post acceptance gate", () => {
     }
   });
 
-  test("signed download returns a short-lived URL for completed outputs", async ({
-    request,
-  }) => {
+  test("signed download returns a short-lived URL for completed outputs", async ({ page }) => {
+    const request = page.request;
     const fixture = loadFixture();
 
     const detailRes = await request.get(
@@ -285,12 +270,12 @@ test.describe("Standalone Create Post acceptance gate", () => {
 
     const res = await request.get(
       `/api/creative-work/${fixture.readyWorkId}/outputs/${completed!.id}/download`,
+      { maxRedirects: 0 },
     );
-    expect(res.ok()).toBeTruthy();
-    const body = (await res.json()) as { url?: string };
-    expect(typeof body.url).toBe("string");
-    expect(body.url).toMatch(/^https?:\/\//);
-    expect(body.url!.length).toBeGreaterThan(20);
+    expect(res.status()).toBe(302);
+    const location = res.headers().location;
+    expect(location).toMatch(/^https?:\/\//);
+    expect(location.length).toBeGreaterThan(20);
   });
 
   test("exact-mode composition places the seeded logo with zero channel difference", async () => {
@@ -340,13 +325,6 @@ test.describe("Standalone Create Post acceptance gate", () => {
         (layerWidth / (seededLogoMeta.width ?? fixture.approvedLogoWidth))),
     );
 
-    // Dynamically import the server's composition module — it has no
-    // transitive `server-only` imports, just `sharp`, so this resolves
-    // cleanly outside the Next.js runtime.
-    const { composeExactBrandAssets } = await import(
-      "../../src/server/creative-work/composite"
-    );
-
     const composite = await composeExactBrandAssets(
       base,
       [
@@ -359,15 +337,26 @@ test.describe("Standalone Create Post acceptance gate", () => {
       { width: baseWidth, height: baseHeight },
     );
 
-    // Build the expected logo region: the same resize transform applied
+    // Build the expected logo layer with the same resize transform applied
     // by the server pipeline (`fit: "inside"`), preserving aspect ratio.
     const expectedLogo = await sharp(logoBuffer)
       .resize(layerWidth, layerHeight, { fit: "inside" })
       .png()
       .toBuffer();
 
-    // Compose: pin the transparent placeholder to the southeast corner
-    // using the real `composeExactBrandAssets` pipeline.
+    // Alpha-composite the resized mark over the corresponding base region.
+    // Comparing against the logo buffer alone would be incorrect wherever
+    // transparent pixels intentionally reveal the generated base.
+    const expectedRegion = await sharp(base)
+      .extract({
+        left: baseWidth - expectedLogoWidth,
+        top: baseHeight - layerHeight,
+        width: expectedLogoWidth,
+        height: layerHeight,
+      })
+      .composite([{ input: expectedLogo, left: 0, top: 0 }])
+      .png()
+      .toBuffer();
 
     // Extract the bottom-right logo region from the composed image and
     // compare its per-channel statistics against the resized logo
@@ -386,7 +375,7 @@ test.describe("Standalone Create Post acceptance gate", () => {
       .raw()
       .toBuffer();
 
-    const expectedRaw = await sharp(expectedLogo)
+    const expectedRaw = await sharp(expectedRegion)
       .ensureAlpha()
       .raw()
       .toBuffer();
@@ -407,15 +396,19 @@ test.describe("Standalone Create Post acceptance gate", () => {
 
     // Sharp `stats()` (per the brief) on the composed logo region must
     // also report channel stats that match the resized logo's stats.
-    const composedStats = await sharp(composite)
+    // `sharp().stats()` reports input statistics rather than the pending
+    // extract pipeline, so materialize the crop before measuring it.
+    const composedRegion = await sharp(composite)
       .extract({
         left: baseWidth - expectedLogoWidth,
         top: baseHeight - layerHeight,
         width: expectedLogoWidth,
         height: layerHeight,
       })
-      .stats();
-    const expectedStats = await sharp(expectedLogo).stats();
+      .png()
+      .toBuffer();
+    const composedStats = await sharp(composedRegion).stats();
+    const expectedStats = await sharp(expectedRegion).stats();
     expect(composedStats.channels).toHaveLength(expectedStats.channels.length);
     for (let c = 0; c < expectedStats.channels.length; c += 1) {
       const composedChannel = composedStats.channels[c];

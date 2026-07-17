@@ -81,7 +81,21 @@ vi.mock("../repositories/competitor-analysis", () => ({
   getCompetitorAnalysesByCampaign: vi.fn(),
 }));
 
+const mockShouldSendToUser = vi.hoisted(() => vi.fn(() =>
+  Promise.resolve({ send: false, email: null })
+));
+const mockSendDerivationCompleteEmail = vi.hoisted(() => vi.fn(() => Promise.resolve()));
+
+vi.mock("@/server/services/notifications", () => ({
+  shouldSendToUser: mockShouldSendToUser,
+  getUserLocale: vi.fn(() => Promise.resolve("pt-BR")),
+  sendDerivationCompleteEmail: mockSendDerivationCompleteEmail,
+  sendDerivationFailedEmail: vi.fn(() => Promise.resolve()),
+}));
+
 const mockUpdateDerivationPromptProvenance = vi.hoisted(() => vi.fn(() => Promise.resolve({})));
+const mockCompleteDerivation = vi.hoisted(() => vi.fn(() => Promise.resolve({})));
+const mockFailDerivation = vi.hoisted(() => vi.fn(() => Promise.resolve({})));
 
 vi.mock("../repositories/derivation", () => ({
   getDerivationById: vi.fn(),
@@ -89,8 +103,8 @@ vi.mock("../repositories/derivation", () => ({
   updateDerivationPromptProvenance: mockUpdateDerivationPromptProvenance,
   updateDerivationGenerationLog: vi.fn(() => Promise.resolve({})),
   setDerivationProcessing: vi.fn(() => Promise.resolve({})),
-  completeDerivation: vi.fn(() => Promise.resolve({})),
-  failDerivation: vi.fn(() => Promise.resolve({})),
+  completeDerivation: mockCompleteDerivation,
+  failDerivation: mockFailDerivation,
 }));
 
 vi.mock("../ai/creative-quality-gate", async (importOriginal) => {
@@ -341,6 +355,8 @@ describe("derivationJob", () => {
     mockResolveCampaignClientProfileId.mockResolvedValue(null);
     mockGetCompetitorAnalysesByCampaign.mockResolvedValue([]);
     mockGetBrandMemoryContext.mockResolvedValue({ items: [], block: "" });
+    mockShouldSendToUser.mockResolvedValue({ send: false, email: null });
+    mockSendDerivationCompleteEmail.mockResolvedValue(undefined);
   });
 
   it("normalizes generated images with an attention-aware crop and no synthetic padding", async () => {
@@ -513,6 +529,33 @@ describe("derivationJob", () => {
       });
 
       expect(mockSyncAssistantActionFromJob).not.toHaveBeenCalled();
+    });
+
+    it("keeps a completed derivation successful when completion email fails", async () => {
+      await setupMinimalDerivationJob();
+      mockShouldSendToUser.mockResolvedValue({
+        send: true,
+        email: "owner@example.com",
+      });
+      mockSendDerivationCompleteEmail.mockRejectedValue(
+        new Error("RESEND unavailable")
+      );
+
+      await expect(runDerivationJob({
+        derivationId: "derivation-id",
+        campaignId: "campaign-id",
+        workspaceId: "workspace-1",
+        triggeredByUserId: "user-1",
+        locale: "pt-BR",
+        generationMode: "art_variation",
+        variantIndex: 0,
+        ctaText: "Saiba mais",
+        format: "1:1",
+      })).resolves.toBeDefined();
+
+      expect(mockCompleteDerivation).toHaveBeenCalledOnce();
+      expect(mockFailDerivation).not.toHaveBeenCalled();
+      expect(mockSendDerivationCompleteEmail).toHaveBeenCalledOnce();
     });
 
     it("generates campaign art from scratch when there is no base asset", async () => {

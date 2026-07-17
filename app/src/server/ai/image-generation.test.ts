@@ -54,7 +54,7 @@ vi.mock("sharp", () => ({
 }));
 
 import { objectStorage } from "@/server/storage";
-import { generateAndStoreImage, normalizeGeneratedImage } from "./image-generation";
+import { generateAndStoreImage, isRetryableProviderError, normalizeGeneratedImage } from "./image-generation";
 
 const BASE_INPUT = {
   prompt: "a creative post",
@@ -324,6 +324,85 @@ describe("generateAndStoreImage", () => {
         "route-3",
       ]);
       expect(result.candidates[1].winner).toBe(true);
+    } finally {
+      __setImageProviderForTests(null);
+    }
+  });
+
+  it("marks a local TimeoutError shape retryable", async () => {
+    const { __setImageProviderForTests } = await import("./image-generation");
+    const providerError = Object.assign(new Error("request timed out"), { name: "TimeoutError", code: "ETIMEDOUT" });
+    __setImageProviderForTests({ name: "openai", generate: vi.fn(async () => { throw providerError; }) });
+    try {
+      const error = await generateAndStoreImage({ ...BASE_INPUT, outputPrefix: "creative-work/retryable" }).catch((caught) => caught);
+      expect(error).toBeInstanceOf(Error);
+      expect(error.retryable).toBe(true);
+      expect(error).toMatchObject({ name: "TimeoutError", code: "ETIMEDOUT" });
+    } finally {
+      __setImageProviderForTests(null);
+    }
+  });
+
+  it("recognizes the TimeoutError name preserved only in an Inngest step stack", () => {
+    const transported = new Error(
+      "All image candidates failed: Error: upstream request failed",
+    );
+    transported.name = "Error";
+    transported.stack = `TimeoutError: ${transported.message}\n    at generateAndStoreImage (image-generation.ts:1:1)`;
+
+    expect(isRetryableProviderError(transported)).toBe(true);
+  });
+
+  it("does not treat an ordinary transported Error stack as retryable", () => {
+    const transported = new Error("invalid prompt");
+    transported.name = "Error";
+    transported.stack = `Error: ${transported.message}\n    at generateAndStoreImage (image-generation.ts:1:1)`;
+
+    expect(isRetryableProviderError(transported)).toBe(false);
+  });
+
+  it("marks an HTTP 429 provider error retryable", async () => {
+    const { __setImageProviderForTests } = await import("./image-generation");
+    __setImageProviderForTests({ name: "openai", generate: vi.fn(async () => { throw Object.assign(new Error("rate limited"), { status: 429 }); }) });
+    try {
+      const error = await generateAndStoreImage({ ...BASE_INPUT, outputPrefix: "creative-work/rate-limit" }).catch((caught) => caught);
+      expect(error.retryable).toBe(true);
+    } finally {
+      __setImageProviderForTests(null);
+    }
+  });
+
+  it("recognizes APIConnectionTimeoutError by constructor name", async () => {
+    const { __setImageProviderForTests } = await import("./image-generation");
+    class APIConnectionTimeoutError extends Error { name = "Error"; }
+    __setImageProviderForTests({ name: "openai", generate: vi.fn(async () => { throw new APIConnectionTimeoutError("timeout"); }) });
+    try {
+      const error = await generateAndStoreImage({ ...BASE_INPUT, outputPrefix: "creative-work/sdk-timeout" }).catch((caught) => caught);
+      expect(error.retryable).toBe(true);
+    } finally {
+      __setImageProviderForTests(null);
+    }
+  });
+
+  it("recognizes APIUserAbortError by constructor name", async () => {
+    const { __setImageProviderForTests } = await import("./image-generation");
+    class APIUserAbortError extends Error { name = "Error"; }
+    __setImageProviderForTests({ name: "openai", generate: vi.fn(async () => { throw new APIUserAbortError("aborted"); }) });
+    try {
+      const error = await generateAndStoreImage({ ...BASE_INPUT, outputPrefix: "creative-work/sdk-abort" }).catch((caught) => caught);
+      expect(error.retryable).toBe(true);
+    } finally {
+      __setImageProviderForTests(null);
+    }
+  });
+
+  it("does not mark an input-like 400 provider error retryable", async () => {
+    const { __setImageProviderForTests } = await import("./image-generation");
+    __setImageProviderForTests({ name: "openai", generate: vi.fn(async () => { throw Object.assign(new Error("bad input"), { status: 400 }); }) });
+    try {
+      const error = await generateAndStoreImage({ ...BASE_INPUT, outputPrefix: "creative-work/not-retryable" }).catch((caught) => caught);
+      expect(error).toBeInstanceOf(Error);
+      expect(error.retryable).not.toBe(true);
     } finally {
       __setImageProviderForTests(null);
     }

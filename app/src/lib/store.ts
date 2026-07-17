@@ -60,6 +60,7 @@ interface AppState {
   // UI state
   sidebarCollapsed: boolean;
   currentPageTitle: string;
+  activeClientProfileId: string | null;
   toasts: Toast[];
   user: UserState;
   billing: BillingState;
@@ -70,6 +71,7 @@ interface AppState {
   toggleSidebar: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
   setCurrentPageTitle: (title: string) => void;
+  setActiveClientProfileId: (profileId: string | null) => void;
   addToast: (type: ToastType, message: string) => void;
   removeToast: (id: string) => void;
 }
@@ -84,6 +86,7 @@ export const useAppStore = create<AppState>()(
       // ---- Initial state ----
       sidebarCollapsed: false,
       currentPageTitle: "",
+      activeClientProfileId: null,
       toasts: [],
       user: {
         firstName: "User",
@@ -121,6 +124,9 @@ export const useAppStore = create<AppState>()(
       setCurrentPageTitle: (title) =>
         set({ currentPageTitle: title }),
 
+      setActiveClientProfileId: (activeClientProfileId) =>
+        set({ activeClientProfileId }),
+
       addToast: (type, message) => {
         const id = `toast_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
         set((state) => ({ toasts: [...state.toasts, { id, type, message }] }));
@@ -141,6 +147,7 @@ export const useAppStore = create<AppState>()(
       name: "adscale-storage",
       partialize: (state) => ({
         sidebarCollapsed: state.sidebarCollapsed,
+        activeClientProfileId: state.activeClientProfileId,
       }),
     }
   )
