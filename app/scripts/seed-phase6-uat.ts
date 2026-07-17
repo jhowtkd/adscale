@@ -5,9 +5,9 @@
  *   - UAT campaign in reviewing (completed derivation) for continue + stages
  *   - Preview OK / preview blocked campaigns for S07/S08 produceSurface
  *   - UAT creative_work in ready+identity for post resume / generate (S03/S04)
- *   - Completed creative_work with 3 outputs for S11 library save
- *   - UAT template for materialize (S10)
- *   - Client profile + brand kit for create-post paths
+ *   - Completed creative_work with 3 auto-saved outputs for S11 library proof
+ *   - UAT template for Home composer attachment (S10)
+ *   - Client profile + brand kit for canonical creative-work paths
  *
  * Writes: app/tests/fixtures/phase6-uat.json
  *
@@ -49,6 +49,7 @@ import { createIdentitySnapshot } from "../src/server/creative-work/identity";
 import { upsertBrandKit } from "../src/server/repositories/brand-kit";
 import { createPlan } from "../src/server/repositories/plan";
 import { objectStorage } from "../src/server/storage";
+import { ensureCreativeWorkOutputInLibrary } from "../src/server/application/ensure-creative-work-output-library";
 
 /** 1×1 PNG so signed URLs resolve and the browser does not thrash on 404 loops. */
 const TINY_PNG = Buffer.from(
@@ -399,7 +400,7 @@ async function main() {
     })
     .where(eq(derivations.id, previewBad.id));
 
-  // S11 — creative work with three completed outputs (library-save target).
+  // S11 — creative work with three completed, already-saved outputs.
   // Real OpenAI gen is exercised in S03 when Inngest is up; this fixture
   // keeps library path deterministic when provider is slow.
   const libraryWork = await createCreativeWork({
@@ -438,9 +439,15 @@ async function main() {
       cost: 0,
       quality: { verdict: "acceptable" },
     });
+    await ensureCreativeWorkOutputInLibrary({
+      workspaceId,
+      outputKey: key,
+      theme: "UAT library save",
+      creativeLevel: out.creativeLevel,
+    });
   }
   await setCreativeWorkStatus(workspaceId, libraryWork.id, "completed");
-  // ensure selected not set yet — UI selects + saveToLibrary
+  // Approval remains optional and independent from automatic library persistence.
   await db
     .update(creativeWorkOutputs)
     .set({ isSelected: false })
@@ -464,7 +471,7 @@ async function main() {
     templateId: template.id,
     templateName: template.name,
     workId: work.id,
-    workResumeHref: `/quick-tools/create-post?workId=${work.id}`,
+    workResumeHref: `/?workId=${work.id}`,
     previewOkCampaignId: previewOkCampaign.id,
     previewOkDerivationId: previewOk.id,
     previewFlowCampaignId: previewFlowCampaign.id,
@@ -472,7 +479,7 @@ async function main() {
     previewBadDerivationId: previewBad.id,
     libraryWorkId: libraryWork.id,
     libraryOutputId: libraryOutputs[0]?.id ?? "",
-    libraryWorkHref: `/quick-tools/create-post?workId=${libraryWork.id}`,
+    libraryWorkHref: `/?workId=${libraryWork.id}`,
     emptySearch: "zzz-phase6-uat-empty-no-match",
     seededAt: new Date().toISOString(),
   };
