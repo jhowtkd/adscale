@@ -478,6 +478,7 @@
         "addArt": "Adicionar arte",
         "uploading": "Enviando...",
         "dropHint": "ou arraste e solte aqui",
+        "retryTemplate": "Tentar anexar template novamente",
         "generate": "Gerar {count, plural, one {# variação} other {# variações}} · {credits} créditos",
         "optionalSettings": "Ajustes opcionais",
         "format": "Formato inferido",

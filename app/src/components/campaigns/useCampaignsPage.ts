@@ -13,6 +13,7 @@ import {
 } from "@/lib/hooks/use-campaigns";
 
 import { useTranslations } from "next-intl";
+import { z } from "zod";
 
 import type { ViewMode, SortOption, StatusFilter, PlatformFilter } from "./types";
 
@@ -91,6 +92,10 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
     const params = new URLSearchParams({ compose: "1" });
     const intent = searchParams.get("intent");
     if (intent && COMPOSER_INTENTS.has(intent)) params.set("intent", intent);
+    const templateId = searchParams.get("templateId");
+    if (templateId && z.string().uuid().safeParse(templateId).success) {
+      params.set("templateId", templateId);
+    }
     router.replace(`/?${params.toString()}`);
   }, [router, searchParams, shouldRedirectNew]);
 

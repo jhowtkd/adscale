@@ -17,8 +17,11 @@ export function parseDashboardSearchParams(searchParams: DashboardSearchParams):
   focusComposer?: true;
   templateId?: string;
 } {
-  const workId = typeof searchParams.workId === "string"
+  const workIdCandidate = typeof searchParams.workId === "string"
     ? searchParams.workId.trim()
+    : "";
+  const workId = z.string().uuid().safeParse(workIdCandidate).success
+    ? workIdCandidate
     : "";
   const intent = typeof searchParams.intent === "string"
     && COMPOSER_INTENTS.has(searchParams.intent as ComposerIntent)

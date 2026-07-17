@@ -16,10 +16,13 @@ const COMPOSER_INTENTS = new Set([
 export function legacyCreatePostDestination(
   searchParams: LegacyCreatePostSearchParams
 ): string {
-  const workId =
+  const workIdCandidate =
     typeof searchParams.workId === "string"
       ? searchParams.workId.trim()
       : "";
+  const workId = z.string().uuid().safeParse(workIdCandidate).success
+    ? workIdCandidate
+    : "";
   const params = new URLSearchParams();
 
   if (workId) {

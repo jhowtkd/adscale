@@ -21,6 +21,7 @@ function composer(overrides = {}) {
     campaignId: null, campaigns: [], linkCampaign: vi.fn(), retryOutput: vi.fn(), retryRevisionOutput: vi.fn(), approveOutput: vi.fn(),
     downloadOutput: vi.fn(), reviseOutput: vi.fn(), isRetryingOutput: vi.fn(), isApprovingOutput: vi.fn(), isRevisingOutput: vi.fn(),
     canGenerate: true, isUploading: false, error: null, announcement: "", requiresBrandSelection: false,
+    retryInitialTemplate: null,
     workError: false,
     addFiles: vi.fn(), updateSource: vi.fn(), retrySource: vi.fn(), removeSource: vi.fn(), generate: vi.fn(),
     ...overrides,
@@ -97,6 +98,15 @@ describe("CreativeComposer", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Trabalho não encontrado");
     expect(screen.getByRole("link", { name: "Começar nova criação" })).toHaveAttribute("href", "/");
     expect(screen.queryByRole("textbox", { name: /pedido criativo/i })).not.toBeInTheDocument();
+  });
+
+  it("offers an explicit retry when the initial template attach fails", () => {
+    const retryInitialTemplate = vi.fn();
+    const value = composer({ error: "Falha ao adicionar inspiração", retryInitialTemplate });
+    renderComposer(value);
+
+    fireEvent.click(screen.getByRole("button", { name: "retryTemplate" }));
+    expect(retryInitialTemplate).toHaveBeenCalledOnce();
   });
 
   it("shows completed results immediately while another output keeps its own processing status", () => {

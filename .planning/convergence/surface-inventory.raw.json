@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-07-17T02:20:33.859Z",
+  "generatedAt": "2026-07-17T02:40:18.523Z",
   "schemaVersion": 2,
-  "fingerprint": "ffa1911d875994701eb9257f92b97ac6af4b897b121a9c2b4c018cd7396db0a6",
+  "fingerprint": "531b3511cf121aefe285979ffee6e0ec7df643659ec9e826542196fab7eb9101",
   "counts": {
     "dashboardPages": 14,
     "apiRoutes": 161,
-    "ctas": 63,
+    "ctas": 64,
     "requiringDecision": 1
   },
   "dashboardPages": [
@@ -1401,12 +1401,12 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/campaigns/useCampaignsPage.ts:98",
+      "id": "nav:app/src/components/campaigns/useCampaignsPage.ts:103",
       "kind": "cta_navigation",
       "destination": "/?compose=1",
       "file": "app/src/components/campaigns/useCampaignsPage.ts",
-      "line": 98,
-      "evidence": "app/src/components/campaigns/useCampaignsPage.ts:98",
+      "line": 103,
+      "evidence": "app/src/components/campaigns/useCampaignsPage.ts:103",
       "requiresDecision": false
     },
     {
@@ -1800,12 +1800,21 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/app/(dashboard)/templates/page.tsx:61",
+      "id": "nav:app/src/app/(dashboard)/templates/page.tsx:36",
+      "kind": "cta_navigation",
+      "destination": "/?templateId=${encodeURIComponent(template.id)}&compose=1",
+      "file": "app/src/app/(dashboard)/templates/page.tsx",
+      "line": 36,
+      "evidence": "app/src/app/(dashboard)/templates/page.tsx:36",
+      "requiresDecision": false
+    },
+    {
+      "id": "nav:app/src/app/(dashboard)/templates/page.tsx:62",
       "kind": "cta_navigation",
       "destination": "/campaigns",
       "file": "app/src/app/(dashboard)/templates/page.tsx",
-      "line": 61,
-      "evidence": "app/src/app/(dashboard)/templates/page.tsx:61",
+      "line": 62,
+      "evidence": "app/src/app/(dashboard)/templates/page.tsx:62",
       "requiresDecision": false
     }
   ]

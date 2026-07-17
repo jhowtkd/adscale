@@ -43,6 +43,8 @@ import { useCreativeComposer } from "./useCreativeComposer";
 
 const profileA = { id: "profile-a", name: "Marca A" };
 const profileB = { id: "profile-b", name: "Marca B" };
+const WORK_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+const TEMPLATE_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 
 function active(overrides = {}) {
   return {
@@ -72,11 +74,13 @@ describe("useCreativeComposer", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
+    window.history.replaceState({}, "", "/");
     mocks.active.mockReturnValue(active());
     mocks.work.mockReturnValue({ data: undefined, isLoading: false });
     mocks.create.mockImplementation((input: { request: string; intent: string; format: string; settings: { targetFormats: string[] } }) => Promise.resolve({
       work: {
         ...workDetail().work,
+        id: WORK_ID,
         request: input.request,
         toolKind: input.intent,
         format: input.format,
@@ -101,13 +105,17 @@ describe("useCreativeComposer", () => {
     expect(result.current.quote).toEqual({ unitCount: 2, credits: 10 });
   });
 
-  it("focuses the real textarea once only when compose was explicitly requested", () => {
-    const raf = vi
-      .spyOn(window, "requestAnimationFrame")
-      .mockImplementation((callback) => {
-        callback(0);
-        return 1;
-      });
+  it("focuses the real textarea once after StrictMode's synthetic cleanup", () => {
+    const frames = new Map<number, FrameRequestCallback>();
+    let frameId = 0;
+    const raf = vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      const id = ++frameId;
+      frames.set(id, callback);
+      return id;
+    });
+    const cancel = vi.spyOn(window, "cancelAnimationFrame").mockImplementation((id) => {
+      frames.delete(id);
+    });
     const focus = vi.spyOn(HTMLTextAreaElement.prototype, "focus");
 
     function Probe({ requested }: { requested: boolean }) {
@@ -115,15 +123,22 @@ describe("useCreativeComposer", () => {
       return <textarea ref={composer.composerRef} />;
     }
 
-    const view = render(<Probe requested />);
+    const view = render(<StrictMode><Probe requested /></StrictMode>);
+    act(() => {
+      for (const [id, callback] of frames) {
+        frames.delete(id);
+        callback(0);
+      }
+    });
     expect(focus).toHaveBeenCalledOnce();
-    view.rerender(<Probe requested />);
-    expect(focus).toHaveBeenCalledOnce();
+    view.rerender(<StrictMode><Probe requested /></StrictMode>);
+    expect(frames.size).toBe(0);
 
     view.unmount();
     render(<Probe requested={false} />);
     expect(focus).toHaveBeenCalledOnce();
     raf.mockRestore();
+    cancel.mockRestore();
     focus.mockRestore();
   });
 
@@ -149,6 +164,27 @@ describe("useCreativeComposer", () => {
         usage: "both",
       })
     );
+  });
+
+  it("consumes template and compose params once after a new StrictMode draft attaches", async () => {
+    window.history.replaceState({}, "", `/?templateId=${TEMPLATE_ID}&compose=1`);
+    const replace = vi.spyOn(window.history, "replaceState");
+    mocks.create.mockImplementation((input: { templateId?: string }) => Promise.resolve({
+      work: { ...workDetail({ id: WORK_ID }).work, request: "", toolKind: "variations" },
+      quote: { unitCount: 3, credits: 15 },
+      input,
+    }));
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <StrictMode>{children}</StrictMode>
+    );
+
+    renderHook(() => useCreativeComposer({ initialTemplateId: TEMPLATE_ID }), { wrapper });
+    await act(async () => Promise.resolve());
+
+    expect(mocks.create).toHaveBeenCalledOnce();
+    expect(replace).toHaveBeenCalledTimes(2);
+    expect(window.location.search).toBe(`?workId=${WORK_ID}`);
+    replace.mockRestore();
   });
 
   it("does not double-attach a template already visible after reload", async () => {
@@ -182,6 +218,72 @@ describe("useCreativeComposer", () => {
     expect(mocks.create).not.toHaveBeenCalled();
   });
 
+  it("consumes a hydrated template URL so source removal plus reload cannot reattach or refocus", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      `/?workId=${WORK_ID}&intent=restyle&templateId=${TEMPLATE_ID}&compose=1`
+    );
+    mocks.work.mockReturnValue({
+      data: {
+        ...workDetail({ id: WORK_ID }),
+        sources: [{ id: "source-template", templateId: TEMPLATE_ID, assetId: null, usage: "both", status: "ready" }],
+      },
+      isLoading: false,
+      isError: false,
+    });
+    const replace = vi.spyOn(window.history, "replaceState");
+    const frames = new Map<number, FrameRequestCallback>();
+    let frameId = 0;
+    const raf = vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      const id = ++frameId;
+      frames.set(id, callback);
+      return id;
+    });
+    const focus = vi.spyOn(HTMLTextAreaElement.prototype, "focus");
+    function Probe({ reload = false }: { reload?: boolean }) {
+      const composer = useCreativeComposer(reload ? {
+        initialWorkId: WORK_ID,
+        initialIntent: "restyle",
+      } : {
+        initialWorkId: WORK_ID,
+        initialIntent: "restyle",
+        initialTemplateId: TEMPLATE_ID,
+        focusComposer: true,
+      });
+      return <textarea ref={composer.composerRef} />;
+    }
+    const first = render(<StrictMode><Probe /></StrictMode>);
+    await act(async () => Promise.resolve());
+    act(() => {
+      for (const [id, callback] of frames) {
+        frames.delete(id);
+        callback(0);
+      }
+    });
+
+    expect(window.location.search).toBe(`?workId=${WORK_ID}&intent=restyle`);
+    expect(replace).toHaveBeenCalledOnce();
+    expect(focus).toHaveBeenCalledOnce();
+    first.unmount();
+
+    mocks.work.mockReturnValue({
+      data: workDetail({ id: WORK_ID }),
+      isLoading: false,
+      isError: false,
+    });
+    render(<StrictMode><Probe reload /></StrictMode>);
+    await act(async () => Promise.resolve());
+
+    expect(mocks.source).not.toHaveBeenCalled();
+    expect(replace).toHaveBeenCalledOnce();
+    expect(frames.size).toBe(0);
+    expect(focus).toHaveBeenCalledOnce();
+    replace.mockRestore();
+    raf.mockRestore();
+    focus.mockRestore();
+  });
+
   it("attaches an initial template to the hydrated draft instead of creating another work", async () => {
     const templateId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
     mocks.work.mockReturnValue({
@@ -203,6 +305,39 @@ describe("useCreativeComposer", () => {
       usage: "both",
     });
     expect(mocks.create).not.toHaveBeenCalled();
+  });
+
+  it("keeps URL params after a transient template failure and retries explicitly", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      `/?workId=${WORK_ID}&templateId=${TEMPLATE_ID}&compose=1`
+    );
+    mocks.work.mockReturnValue({
+      data: workDetail({ id: WORK_ID }),
+      isLoading: false,
+      isError: false,
+    });
+    mocks.source
+      .mockRejectedValueOnce(new Error("Falha transitória"))
+      .mockResolvedValueOnce({ source: { id: "source-template" } });
+    const { result } = renderHook(() => useCreativeComposer({
+      initialWorkId: WORK_ID,
+      initialTemplateId: TEMPLATE_ID,
+      focusComposer: true,
+    }));
+    await act(async () => Promise.resolve());
+
+    expect(mocks.source).toHaveBeenCalledOnce();
+    expect(window.location.search).toContain(`templateId=${TEMPLATE_ID}`);
+    expect(result.current.retryInitialTemplate).not.toBeNull();
+
+    await act(async () => result.current.retryInitialTemplate?.());
+    await act(async () => Promise.resolve());
+
+    expect(mocks.source).toHaveBeenCalledTimes(2);
+    expect(window.location.search).toBe(`?workId=${WORK_ID}`);
+    expect(result.current.retryInitialTemplate).toBeNull();
   });
 
   it("waits for an explicit brand selection before attaching an initial template", async () => {
@@ -259,6 +394,24 @@ describe("useCreativeComposer", () => {
       assetId: "asset-1",
       usage: "both",
     }));
+  });
+
+  it("rejects an unsafe work identifier returned while creating a draft", async () => {
+    mocks.create.mockResolvedValue({
+      work: { ...workDetail().work, id: "../../other-workspace" },
+      quote: { unitCount: 3, credits: 15 },
+    });
+    const { result } = renderHook(() => useCreativeComposer());
+
+    await act(() => result.current.addInspiration({
+      id: "inspiration-1", source: "template", title: "Template", previewUrl: null,
+      templateId: TEMPLATE_ID,
+      assetId: null, suggestedIntent: "variations",
+    }));
+
+    expect(result.current.workId).toBeNull();
+    expect(result.current.error).toMatch(/identificador/i);
+    expect(window.location.search).toBe("");
   });
 
   it("attaches a template inspiration to the same existing composer", async () => {
@@ -467,7 +620,7 @@ describe("useCreativeComposer", () => {
     expect(mocks.prepare).not.toHaveBeenCalled();
 
     createA.resolve({
-      work: { ...workDetail().work, request: "Pedido A", toolKind: "variations" },
+      work: { ...workDetail().work, id: WORK_ID, request: "Pedido A", toolKind: "variations" },
       quote: { unitCount: 3, credits: 15 },
     });
     await act(async () => { await generation; });
@@ -484,7 +637,7 @@ describe("useCreativeComposer", () => {
     mocks.create
       .mockReturnValueOnce(lostResponse.promise)
       .mockResolvedValueOnce({
-        work: { ...workDetail().work, request: "Pedido A", toolKind: "variations" },
+        work: { ...workDetail().work, id: WORK_ID, request: "Pedido A", toolKind: "variations" },
         quote: { unitCount: 3, credits: 15 },
       });
     const { result } = renderHook(() => useCreativeComposer());

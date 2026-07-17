@@ -196,7 +196,20 @@ export function CreativeComposer({ composer, composerRef }: {
         </section>
       ) : null}
 
-      {composer.error ? <p role="alert" className="text-sm text-[var(--danger-text)]">{composer.error}</p> : null}
+      {composer.error ? (
+        <div className="flex flex-wrap items-center gap-3" role="alert">
+          <p className="text-sm text-[var(--danger-text)]">{composer.error}</p>
+          {composer.retryInitialTemplate ? (
+            <button
+              type="button"
+              onClick={composer.retryInitialTemplate}
+              className="rounded-[var(--radius-control)] px-2 py-1 text-sm font-semibold text-[var(--danger-text)] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]"
+            >
+              {t("retryTemplate")}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
       <p role="status" aria-live="polite" className="sr-only">{composer.announcement || composer.state}</p>
     </section>
   );

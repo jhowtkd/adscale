@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { z } from "zod";
 import { collectImageFiles, uploadChatAttachment } from "@/lib/assistant/chat-attachments";
 import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
 import {
@@ -34,6 +35,14 @@ type DraftSnapshot = {
   settings: { targetFormats: Format[] };
 };
 type DraftSource = { assetId: string } | { templateId: string };
+
+const COMPOSER_INTENTS = new Set<ComposerIntent>([
+  "variations",
+  "single",
+  "format_adaptation",
+  "restyle",
+]);
+const UUID_SCHEMA = z.string().uuid();
 
 function canonicalQuote(intent: ComposerIntent, format: Format, targetFormats: Format[]): CreativeWorkQuote {
   const { unitCount, credits } = quoteCreativeWork({ intent, format, targetFormats });
@@ -82,6 +91,8 @@ export function useCreativeComposer({
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
+  const [failedInitialTemplateId, setFailedInitialTemplateId] = useState<string | null>(null);
+  const [templateRetryToken, setTemplateRetryToken] = useState(0);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const draftKeyRef = useRef(crypto.randomUUID());
   const workIdRef = useRef(workId);
@@ -95,7 +106,9 @@ export function useCreativeComposer({
   const saveChainRef = useRef<Promise<void>>(Promise.resolve());
   const submitGuardRef = useRef(false);
   const didFocusComposerRef = useRef(false);
+  const focusFrameRef = useRef<number | null>(null);
   const autoTemplateRef = useRef<string | null>(null);
+  const consumedTemplateUrlRef = useRef(false);
   const mountedRef = useRef(false);
   const lifecycleRef = useRef(0);
   const persistOnUnmountRef = useRef<() => Promise<void>>(async () => undefined);
@@ -153,11 +166,35 @@ export function useCreativeComposer({
   }, []);
 
   const exposeWorkId = useCallback((id: string) => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || !UUID_SCHEMA.safeParse(id).success) return;
     const params = new URLSearchParams(window.location.search);
     params.set("workId", id);
     window.history.replaceState(window.history.state, "", `${window.location.pathname}?${params}`);
   }, []);
+
+  const consumeInitialTemplateParams = useCallback(() => {
+    if (
+      typeof window === "undefined"
+      || !initialTemplateId
+      || consumedTemplateUrlRef.current
+    ) return;
+    const current = new URLSearchParams(window.location.search);
+    if (current.get("templateId") !== initialTemplateId) return;
+
+    const canonical = new URLSearchParams();
+    const workIdCandidate = current.get("workId") ?? workIdRef.current;
+    if (workIdCandidate && UUID_SCHEMA.safeParse(workIdCandidate).success) {
+      canonical.set("workId", workIdCandidate);
+    }
+    const intentCandidate = current.get("intent");
+    if (intentCandidate && COMPOSER_INTENTS.has(intentCandidate as ComposerIntent)) {
+      canonical.set("intent", intentCandidate);
+    }
+    const query = canonical.toString();
+    const destination = `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`;
+    window.history.replaceState(window.history.state, "", destination);
+    consumedTemplateUrlRef.current = true;
+  }, [initialTemplateId]);
 
   const ensureDraft = useCallback((source?: DraftSource, silent = false) => {
     if (workIdRef.current) return Promise.resolve(workIdRef.current);
@@ -176,6 +213,9 @@ export function useCreativeComposer({
         ...snapshot,
         ...(source ? { ...source, usage: "both" as const } : {}),
       });
+      if (!UUID_SCHEMA.safeParse(result.work.id).success) {
+        throw new Error("Identificador do trabalho inválido");
+      }
       workIdRef.current = result.work.id;
       lastPersistedRef.current = signature(snapshotFromWork(result.work));
       if (!silent && mountedRef.current) {
@@ -241,10 +281,15 @@ export function useCreativeComposer({
   }, []);
 
   useEffect(() => {
-    if (!focusComposer || didFocusComposerRef.current) return;
-    didFocusComposerRef.current = true;
-    const frame = window.requestAnimationFrame(() => composerRef.current?.focus());
-    return () => window.cancelAnimationFrame(frame);
+    if (!focusComposer || didFocusComposerRef.current || focusFrameRef.current !== null) return;
+    const frame = window.requestAnimationFrame(() => {
+      focusFrameRef.current = null;
+      const composer = composerRef.current;
+      if (!composer) return;
+      composer.focus();
+      didFocusComposerRef.current = true;
+    });
+    focusFrameRef.current = frame;
   }, [focusComposer]);
 
   useEffect(() => {
@@ -361,14 +406,24 @@ export function useCreativeComposer({
     }
   }, [active.activeClientProfileId, attachDraftSource]);
 
+  const retryInitialTemplate = useCallback(() => {
+    if (!initialTemplateId) return;
+    autoTemplateRef.current = null;
+    setFailedInitialTemplateId(null);
+    setError(null);
+    setTemplateRetryToken((value) => value + 1);
+  }, [initialTemplateId]);
+
   useEffect(() => {
     if (!initialTemplateId || autoTemplateRef.current === initialTemplateId) return;
     if (active.isLoading) return;
     if (initialWorkId && !hydratedWorkRef.current) return;
     if (detailQuery.data?.sources.some((source) => source.templateId === initialTemplateId)) {
       autoTemplateRef.current = initialTemplateId;
+      consumeInitialTemplateParams();
       return;
     }
+    if (failedInitialTemplateId === initialTemplateId) return;
     if (!workIdRef.current && !active.activeClientProfileId) {
       focusBrandSwitcher();
       return;
@@ -377,10 +432,21 @@ export function useCreativeComposer({
     autoTemplateRef.current = initialTemplateId;
     void attachDraftSource({ templateId: initialTemplateId })
       .then((attached) => {
-        if (attached && mountedRef.current) setAnnouncement("Inspiração adicionada");
+        if (!attached) {
+          autoTemplateRef.current = null;
+          if (mountedRef.current) setFailedInitialTemplateId(initialTemplateId);
+          return;
+        }
+        consumeInitialTemplateParams();
+        if (mountedRef.current) {
+          setFailedInitialTemplateId(null);
+          setAnnouncement("Inspiração adicionada");
+        }
       })
       .catch((cause) => {
+        autoTemplateRef.current = null;
         if (mountedRef.current) {
+          setFailedInitialTemplateId(initialTemplateId);
           setError(cause instanceof Error ? cause.message : "Falha ao adicionar inspiração");
         }
       });
@@ -388,9 +454,12 @@ export function useCreativeComposer({
     active.activeClientProfileId,
     active.isLoading,
     attachDraftSource,
+    consumeInitialTemplateParams,
     detailQuery.data?.sources,
+    failedInitialTemplateId,
     initialTemplateId,
     initialWorkId,
+    templateRetryToken,
   ]);
 
   const runSourceAction = useCallback(async (action: Parameters<typeof sourceMutation.mutateAsync>[0]) => {
@@ -533,6 +602,10 @@ export function useCreativeComposer({
     sources: detail?.sources ?? [], outputs: detail?.outputs ?? [], quote, canGenerate, isUploading,
     campaignId: detail?.work.campaignId ?? null, campaigns,
     error, announcement, requiresBrandSelection: active.requiresSelection,
+    retryInitialTemplate: failedInitialTemplateId
+      && !detail?.sources.some((source) => source.templateId === failedInitialTemplateId)
+      ? retryInitialTemplate
+      : null,
     workError: Boolean(workId && detailQuery.isError),
     addFiles, addInspiration, updateSource, retrySource, removeSource, generate,
     retryOutput, retryRevisionOutput, approveOutput, reviseOutput, linkCampaign,

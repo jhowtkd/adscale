@@ -4,6 +4,7 @@ import { useCampaignsPage } from "./useCampaignsPage";
 
 const replaceMock = vi.fn();
 const pushMock = vi.fn();
+const TEMPLATE_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: replaceMock, push: pushMock }),
@@ -127,6 +128,24 @@ describe("useCampaignsPage legacy creation redirect", () => {
 
     await waitFor(() => {
       expect(replaceMock).toHaveBeenCalledWith("/?compose=1&intent=single");
+    });
+  });
+
+  it("preserves only a UUID template from the historical campaign entry", async () => {
+    const valid = renderHook(() =>
+      useCampaignsPage(createSearchParams({ new: "1", templateId: TEMPLATE_ID }))
+    );
+    await waitFor(() => {
+      expect(replaceMock).toHaveBeenCalledWith(`/?compose=1&templateId=${TEMPLATE_ID}`);
+    });
+    valid.unmount();
+    replaceMock.mockReset();
+
+    renderHook(() =>
+      useCampaignsPage(createSearchParams({ new: "1", templateId: "../../other-workspace" }))
+    );
+    await waitFor(() => {
+      expect(replaceMock).toHaveBeenCalledWith("/?compose=1");
     });
   });
 

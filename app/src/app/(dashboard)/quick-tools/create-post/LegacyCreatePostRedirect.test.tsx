@@ -5,6 +5,7 @@ import LegacyCreatePostRedirect, {
 } from "./LegacyCreatePostRedirect";
 
 const TEMPLATE_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const WORK_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 
 vi.mock("next/navigation", () => ({
   redirect: vi.fn(() => {
@@ -18,8 +19,14 @@ describe("LegacyCreatePostRedirect", () => {
   });
 
   it("routes an existing work directly to the operational home", () => {
-    expect(legacyCreatePostDestination({ workId: "work-1" })).toBe(
-      "/?workId=work-1"
+    expect(legacyCreatePostDestination({ workId: WORK_ID })).toBe(
+      `/?workId=${WORK_ID}`
+    );
+  });
+
+  it("drops non-UUID work identifiers", () => {
+    expect(legacyCreatePostDestination({ workId: "../../other-workspace" })).toBe(
+      "/?intent=variations"
     );
   });
 
@@ -49,17 +56,17 @@ describe("LegacyCreatePostRedirect", () => {
   it("lets workId take precedence over template and intent", () => {
     expect(
       legacyCreatePostDestination({
-        workId: "work-1",
+        workId: WORK_ID,
         templateId: TEMPLATE_ID,
         intent: "single",
       })
-    ).toBe("/?workId=work-1");
+    ).toBe(`/?workId=${WORK_ID}`);
   });
 
   it("uses the Next redirect primitive", () => {
     expect(() =>
-      LegacyCreatePostRedirect({ searchParams: { workId: "work-2" } })
+      LegacyCreatePostRedirect({ searchParams: { workId: WORK_ID } })
     ).toThrow("NEXT_REDIRECT");
-    expect(redirect).toHaveBeenCalledWith("/?workId=work-2");
+    expect(redirect).toHaveBeenCalledWith(`/?workId=${WORK_ID}`);
   });
 });
