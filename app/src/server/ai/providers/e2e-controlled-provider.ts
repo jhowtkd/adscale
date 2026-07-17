@@ -14,6 +14,8 @@ const CONTROLLED_PNG = Buffer.from(
   "base64"
 );
 
+const controlledFailures = new Map<string, number>();
+
 export function isE2EControlledProviderEnabled(
   environment: NodeJS.ProcessEnv = process.env
 ): boolean {
@@ -36,6 +38,19 @@ export class E2EControlledImageProvider implements ImageGenerationProvider {
   readonly name = "openai" as const;
 
   async generate(input: ProviderGenerateInput): Promise<ImageCandidate> {
+    const failureLimit = input.prompt.includes("[e2e:retry-twice-bold]")
+      ? 2
+      : input.prompt.includes("[e2e:retry-once-bold]")
+        ? 1
+        : 0;
+    const failures = controlledFailures.get(input.outputPrefix) ?? 0;
+    if (failureLimit > failures && input.prompt.includes("CREATIVE LEVEL: bold")) {
+      controlledFailures.set(input.outputPrefix, failures + 1);
+      throw Object.assign(new Error("controlled_retryable_failure"), {
+        retryable: true,
+        status: 503,
+      });
+    }
     return {
       buffer: CONTROLLED_PNG,
       mimeType: "image/png",

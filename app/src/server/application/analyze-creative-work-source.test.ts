@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const getCreativeWork = vi.hoisted(() => vi.fn());
 const getWorkspaceAssetById = vi.hoisted(() => vi.fn());
@@ -35,6 +35,8 @@ function source(id: string, usage: "content" | "style" | "both") {
 }
 
 describe("analyzeCreativeWorkSource", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
   beforeEach(() => {
     vi.clearAllMocks();
     getWorkspaceAssetById.mockResolvedValue({ id: "asset-source-1", workspaceId: "ws-1", key: "trusted/key.png", type: "image/png" });
@@ -76,6 +78,21 @@ describe("analyzeCreativeWorkSource", () => {
 
     expect(updateCreativeWorkSourceIfUnchanged).toHaveBeenCalledWith("ws-1", "work-1", "source-1", expect.objectContaining({ status: "analyzing" }), { status: "failed", failureCode: "analysis_failed" });
     expect(updateCreativeWorkSourceIfUnchanged).toHaveBeenCalledWith("ws-1", "work-1", "source-2", expect.objectContaining({ status: "analyzing" }), expect.objectContaining({ status: "ready", contentAnalysis: content }));
+  });
+
+  it("offers one deterministic failed analysis before succeeding on manual retry", async () => {
+    vi.stubEnv("E2E_CONTROLLED_PROVIDER", "true");
+    getCreativeWork.mockResolvedValue({ work: {}, outputs: [], sources: [source("controlled-failure", "both")] });
+    getWorkspaceAssetById.mockResolvedValue({
+      id: "asset-controlled-failure",
+      workspaceId: "ws-1",
+      key: "trusted/failure.png",
+      name: "e2e-source-fail-once.png",
+      type: "image/png",
+    });
+
+    await expect(analyzeCreativeWorkSource({ workspaceId: "ws-1", workItemId: "work-1", sourceId: "controlled-failure" })).rejects.toThrow("controlled_source_analysis_failure");
+    await expect(analyzeCreativeWorkSource({ workspaceId: "ws-1", workItemId: "work-1", sourceId: "controlled-failure" })).resolves.toMatchObject({ status: "ready" });
   });
 
   it("does not let an old job overwrite a newer usage or manual edit", async () => {

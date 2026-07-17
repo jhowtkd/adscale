@@ -67,10 +67,12 @@ describe("DashboardHomeActions", () => {
     render(<DashboardHomeActions workId="opened-work" />);
 
     expect(screen.getByTestId("creative-composer")).toHaveTextContent("single:5");
+    expect(screen.getAllByTestId("creative-composer")).toHaveLength(1);
     expect(screen.getByRole("link", { name: /Continue: Post social/i })).toHaveAttribute("href", "/?workId=w1");
     expect(screen.getAllByRole("button").filter((button) => button.hasAttribute("aria-pressed"))).toHaveLength(4);
     expect(screen.getByTestId("brand-inspirations-slot")).toBeInTheDocument();
     expect(screen.queryByText("dashboard.home.chooseIntent")).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("uses the restored composer intent as the cards' single source of truth", () => {

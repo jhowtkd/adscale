@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { templateComposerHref } from "./page";
+import { templateComposerHref } from "./template-composer-href";
 
 describe("templateComposerHref", () => {
   it("opens the template directly in the focused home composer", () => {

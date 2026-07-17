@@ -3,11 +3,11 @@
  * (Playwright + API specs).
  *
  * Creates one workspace-owned dev environment with:
- *   - two client profiles (Create Post flow + isolation control)
+ *   - one active client profile plus one isolation control
  *   - one approved transparent logo asset (workspace + reference row)
  *   - one approved reference asset (visual_reference)
  *   - one pending reference asset (must be excluded from the assets step)
- *   - one ready `creative_work_items` fixture in `ready` status with a frozen
+ *   - one ready canonical creative-work fixture with a frozen
  *     identity snapshot — drives the e2e tests that don't need a live
  *     generation pipeline.
  *
@@ -424,12 +424,14 @@ async function main(): Promise<void> {
     // can exercise the real server pipeline (`composeExactBrandAssets`)
     // without needing live object-storage access in CI.
     approvedLogoBufferBase64: logoBuffer.toString("base64"),
+    attachmentBufferBase64: logoBuffer.toString("base64"),
     approvedLogoWidth: 96,
     approvedLogoHeight: 96,
     approvedVisualReferenceId: visualRef.id,
     approvedVisualReferenceAssetKey: visualRef.assetKey,
     pendingReferenceLabel: "Logo Pendente",
     readyWorkId,
+    expectedInitialCredits: 15,
     seededAt: new Date().toISOString(),
   };
 

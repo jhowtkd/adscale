@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseDashboardSearchParams } from "./page";
+import { parseDashboardSearchParams } from "./dashboard-search-params";
 
 const TEMPLATE_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const WORK_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";

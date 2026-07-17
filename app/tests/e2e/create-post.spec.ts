@@ -7,8 +7,8 @@ import { expect, test, type Page, type APIRequestContext } from "@playwright/tes
  * Standalone Create Post — end-to-end acceptance gate.
  *
  * Covers:
- *   1. UI: trains assets, drives the four-stage wizard, and asserts that
- *      `/api/campaigns` row count is unchanged (the Create Post flow must
+ *   1. UI: resumes the canonical work on Home and asserts that
+ *      `/api/campaigns` row count is unchanged (the creative flow must
  *      never write to the campaigns table).
  *   2. API: pending reference rows are excluded from the assets step.
  *   3. API: the triplet always returns exactly three fixed creative levels
@@ -92,39 +92,25 @@ test.describe("Standalone Create Post acceptance gate", () => {
     await login(page);
   });
 
-  test("trains assets and creates a post without touching the campaigns table", async ({
-    page,
-    request,
-  }) => {
+  test("resumes the same canonical work on Home without touching campaigns", async ({ page }) => {
     const fixture = loadFixture();
+    const before = await fetchCampaignsCount(page.request);
 
-    // Capture campaign count BEFORE the Create Post flow runs.
-    const before = await fetchCampaignsCount(request);
+    await page.goto(`/?workId=${fixture.readyWorkId}`);
+    await expect(page.getByRole("textbox", { name: /pedido criativo|creative request/i }))
+      .toHaveValue(/Novo produto/);
+    await expect(page.getByTestId("proposal-level")).toHaveCount(3);
+    const firstIds = (await page.request.get(`/api/creative-work/${fixture.readyWorkId}`).then((res) => res.json()) as {
+      outputs: Array<{ id: string }>;
+    }).outputs.map((output) => output.id).sort();
 
-    // Navigate straight to the wizard with the seeded profile preselected
-    // via the URL — but the wizard is keyed off `clientProfileId` state,
-    // so we drive it manually to keep the flow realistic.
-    await page.goto("/quick-tools/create-post");
-    await page.getByRole("combobox", { name: "Marca" }).selectOption(fixture.primaryClientProfileId);
-
-    await page.getByLabel("Tema").fill("Novo produto");
-    await page.getByLabel("Objetivo").fill("Gerar interesse");
-    await page.getByLabel("Público").fill("Empreendedores");
-    await page.getByLabel("Oferta").fill("Teste gratuito");
-    await page.getByLabel("4:5").check();
-
-    await page.getByRole("button", { name: "Criar copy" }).click();
-
-    // After copy generation, the wizard advances to the copy step with a
-    // populated Headline field.
-    const headline = page.getByLabel("Headline");
-    await expect(headline).toBeVisible({ timeout: 30_000 });
-    await expect(headline).not.toHaveValue("");
-
-    // The Create Post flow is silent on `/api/campaigns` — capture the
-    // count AFTER and assert it never moved.
-    const after = await fetchCampaignsCount(request);
-    expect(after, "Create Post must not create or modify campaigns").toBe(before);
+    await page.reload();
+    await expect(page).toHaveURL(new RegExp(`workId=${fixture.readyWorkId}`));
+    const reloadedIds = (await page.request.get(`/api/creative-work/${fixture.readyWorkId}`).then((res) => res.json()) as {
+      outputs: Array<{ id: string }>;
+    }).outputs.map((output) => output.id).sort();
+    expect(reloadedIds).toEqual(firstIds);
+    expect(await fetchCampaignsCount(page.request), "Home creative work must not mutate campaigns").toBe(before);
   });
 
   test("pending reference rows are excluded from the assets step", async ({
@@ -145,7 +131,7 @@ test.describe("Standalone Create Post acceptance gate", () => {
     };
 
     // The seed inserts a `pending_analysis` row that must be filtered out
-    // before reaching the wizard's `approvedReferences` projection. First
+    // before reaching the automatic approved-reference projection. First
     // assert the seed row is actually present in the raw API response —
     // otherwise this test would silently pass on a missing fixture.
     const labels = body.references.map((r) => r.label);
@@ -156,8 +142,8 @@ test.describe("Standalone Create Post acceptance gate", () => {
     expect(pending).toBeDefined();
     expect(pending?.reviewStatus).toBe("pending_analysis");
 
-    // The Create Post assets step only ever renders rows whose
-    // `reviewStatus` is `approved`. The brief requires us to prove that
+    // Automatic identity selection only considers rows whose
+    // `reviewStatus` is `approved`. Prove that
     // the pending row never makes it into that projection.
     const approvedReferences = body.references.filter(
       (r) => r.reviewStatus === "approved",
@@ -166,7 +152,7 @@ test.describe("Standalone Create Post acceptance gate", () => {
       approvedReferences.find((r) => r.label === fixture.pendingReferenceLabel),
       "pending reference must be excluded from the assets step",
     ).toBeUndefined();
-    expect(approvedReferences.length, "at least one approved reference must exist for the wizard").toBeGreaterThan(0);
+    expect(approvedReferences.length, "at least one approved reference must exist").toBeGreaterThan(0);
   });
 
   test("triplet always returns exactly three fixed creative levels", async ({

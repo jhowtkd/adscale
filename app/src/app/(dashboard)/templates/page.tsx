@@ -16,13 +16,6 @@ import {
 } from "@/lib/hooks/use-templates";
 import TemplateCard from "@/components/templates/TemplateCard";
 
-export function templateComposerHref(templateId: string) {
-  const params = new URLSearchParams();
-  params.set("templateId", templateId);
-  params.set("compose", "1");
-  return `/?${params.toString()}`;
-}
-
 export default function TemplatesPage() {
   const router = useRouter();
   const tTemplate = useTranslations("template");

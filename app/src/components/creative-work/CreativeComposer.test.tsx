@@ -59,6 +59,8 @@ describe("CreativeComposer", () => {
     expect(screen.getByRole("button", { name: "Gerar 3 variações · 15 créditos" })).toBeInTheDocument();
     fireEvent.drop(screen.getByTestId("creative-composer-dropzone"), { dataTransfer: { files: [file] } });
     expect(value.addFiles).toHaveBeenCalledWith([file]);
+    expect(screen.getByLabelText("Adicionar arte", { selector: "input" })).toHaveAttribute("tabindex", "-1");
+    expect(screen.getByRole("status")).toHaveAttribute("aria-live", "polite");
   });
 
   it("renders CreativeSourceChip and dispatches its actions", () => {
@@ -131,6 +133,8 @@ describe("CreativeComposer", () => {
     expect(screen.getByText("Gerando...")).toBeVisible();
     fireEvent.click(screen.getAllByRole("button", { name: "Aprovar" })[0]);
     expect(value.approveOutput).toHaveBeenCalledWith("output-1");
+    expect(screen.getAllByRole("button", { name: "Baixar" })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: "Editar" })).toHaveLength(2);
   });
 
   it("groups an existing campaign without creating one", () => {

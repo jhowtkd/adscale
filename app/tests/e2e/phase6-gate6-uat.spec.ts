@@ -258,17 +258,15 @@ test.describe("Phase 6 Gate 6 UAT no-provider block", () => {
     collectors.mark();
     try {
       // --- post workId path (deterministic fixture) ---
-      await gotoApp(page, fixture.workResumeHref);
+      await gotoApp(page, `/?workId=${fixture.workId}`);
       await page.waitForURL(
         (u) =>
           u.searchParams.get("workId") === fixture.workId ||
           u.href.includes(fixture.workId),
         { timeout: 20_000 }
       );
-      const wizard = page
-        .getByTestId("create-post-wizard")
-        .or(page.getByRole("heading", { name: /criar post|create post/i }));
-      await expect(wizard.first()).toBeVisible({ timeout: 20_000 });
+      await expect(page.getByRole("textbox", { name: /pedido criativo|creative request/i }))
+        .toBeVisible({ timeout: 20_000 });
 
       // --- campaign continue from home (seed: campaign is freshest in-progress) ---
       await gotoApp(page, "/");
@@ -292,7 +290,7 @@ test.describe("Phase 6 Gate 6 UAT no-provider block", () => {
         status: "pass",
         url: landed,
         viewport: UAT_VIEWPORT_LABEL,
-        notes: `post workId wizard ok; continueHref=${href} landed=${landed}`,
+        notes: `post workId composer ok; continueHref=${href} landed=${landed}`,
         screenshot: await shot(page, "uat-50-S04-desktop"),
         consoleErrors: [],
         networkErrors: [],
@@ -368,7 +366,7 @@ test.describe("Phase 6 Gate 6 UAT no-provider block", () => {
     }
   });
 
-  test("S10 materialize via UI + list + double-submit guard", async ({
+  test("S10 template attaches to one Home draft under double click", async ({
     browser,
   }) => {
     const fixture = loadPhase6Fixture();
@@ -377,6 +375,13 @@ test.describe("Phase 6 Gate 6 UAT no-provider block", () => {
     collectors.attach(page);
     collectors.mark();
     try {
+      await page.addInitScript((activeClientProfileId) => {
+        localStorage.setItem("adscale-storage", JSON.stringify({
+          state: { sidebarCollapsed: false, activeClientProfileId }, version: 0,
+        }));
+      }, fixture.clientProfileId);
+      const campaignsBefore = await context.request.get("/api/campaigns?limit=200");
+      const campaignCount = ((await campaignsBefore.json()) as { campaigns?: unknown[] }).campaigns?.length ?? 0;
       await gotoApp(page, "/templates");
       const card = page.getByTestId(`template-card-${fixture.templateId}`);
       await expect(card).toBeAttached({ timeout: 15_000 });
@@ -384,82 +389,45 @@ test.describe("Phase 6 Gate 6 UAT no-provider block", () => {
         timeout: 10_000,
       });
 
-      // Product path: Usar template → /campaigns?new=1&templateId= → materialize on submit
       const useBtn = card.getByRole("button", {
         name: /usar template|use template/i,
       });
       await expect(useBtn).toBeVisible({ timeout: 10_000 });
-      await useBtn.click();
-      // Product navigates to /campaigns?new=1&templateId=… then opens modal after fetch
+      let materializePosts = 0;
+      page.on("request", (request) => {
+        if (request.method() === "POST" && request.url().includes("/materialize")) materializePosts += 1;
+      });
+      await useBtn.evaluate((button: HTMLButtonElement) => { button.click(); button.click(); });
       await page.waitForURL(
         (u) =>
-          u.pathname.startsWith("/campaigns") &&
+          u.pathname === "/" &&
           (u.searchParams.get("templateId") === fixture.templateId ||
             u.search.includes(fixture.templateId)),
         { timeout: 20_000 }
       );
-      // Prefer dialog role; #campaign-name alone can strict-mode dual-match with dialog
-      const dialog = page.getByRole("dialog");
-      await expect(dialog).toBeVisible({ timeout: 30_000 });
-      await expect(dialog.locator("#campaign-name")).toBeVisible({
-        timeout: 15_000,
-      });
-      const submit = dialog.getByRole("button", { name: /criar|create/i });
-      await expect(submit).toBeEnabled({ timeout: 30_000 });
-
-      const name = `UAT S10 ${Date.now()}`;
-      await dialog.locator("#campaign-name").fill(name);
-      await dialog.locator("#campaign-client").fill("UAT Materialize Client");
-
-      let postCount = 0;
-      page.on("request", (req) => {
-        if (
-          req.method() === "POST" &&
-          req.url().includes("/materialize")
-        ) {
-          postCount += 1;
-        }
-      });
-
-      // Double-submit: second click must be ignored by createInFlightRef
-      await Promise.all([
-        page.waitForResponse(
-          (r) =>
-            r.url().includes("/materialize") && r.request().method() === "POST",
-          { timeout: 30_000 }
-        ),
-        (async () => {
-          await submit.click();
-          await submit.click({ force: true }).catch(() => undefined);
-        })(),
-      ]);
-
-      await page.waitForURL(/\/campaigns\/[0-9a-f-]{8,}/i, { timeout: 30_000 });
-      const m = page.url().match(/\/campaigns\/([0-9a-f-]{8,})/i);
-      expect(m, `materialize redirect failed: ${page.url()}`).toBeTruthy();
-      const campaignId = m![1];
-      expect(
-        postCount,
-        `double-submit should issue one materialize POST, got ${postCount}`
-      ).toBe(1);
-
-      await gotoApp(page, "/campaigns");
-      await waitTrabalhosHydrated(page);
-      await expect(page.getByText(name).last()).toBeVisible({
-        timeout: 15_000,
-      });
+      await expect(page.locator("article").filter({ hasText: fixture.templateName }))
+        .toBeVisible({ timeout: 30_000 });
+      await expect.poll(() => new URL(page.url()).searchParams.get("workId")).toBeTruthy();
+      const workId = new URL(page.url()).searchParams.get("workId")!;
+      const detail = await context.request.get(`/api/creative-work/${workId}`);
+      expect(detail.ok()).toBe(true);
+      const detailBody = (await detail.json()) as { sources?: Array<{ templateId?: string | null }> };
+      expect(detailBody.sources?.filter((source) => source.templateId === fixture.templateId)).toHaveLength(1);
+      const campaignsAfter = await context.request.get("/api/campaigns?limit=200");
+      expect(((await campaignsAfter.json()) as { campaigns?: unknown[] }).campaigns?.length ?? 0).toBe(campaignCount);
+      expect(materializePosts).toBe(0);
 
       const result = record(collectors, {
         id: "S10",
-        title: "Template materialize UI",
+        title: "Template to canonical Home draft",
         status: "pass",
         url: page.url(),
         viewport: UAT_VIEWPORT_LABEL,
-        notes: `templateId=${fixture.templateId} campaignId=${campaignId} name=${name} materializePosts=${postCount}`,
+        notes: `templateId=${fixture.templateId} workId=${workId} materializePosts=${materializePosts}`,
         screenshot: await shot(page, "uat-50-S10-desktop"),
         consoleErrors: [],
         networkErrors: [],
-        createdIds: { campaignId, name },
+        createdIds: { workId },
       });
       expect(result.status).toBe("pass");
     } finally {
@@ -767,9 +735,6 @@ test.describe("Phase 6 Gate 6 UAT provider block", () => {
     collectors.attach(page);
     collectors.mark();
     try {
-      // Turbopack may compile this route lazily for tens of seconds on the
-      // first provider scenario. Warm it through the same authenticated
-      // context, and verify the deterministic seed before testing hydration.
       const profilesResponse = await context.request.get("/api/client-profiles");
       expect(profilesResponse.ok()).toBe(true);
       const profilesPayload = (await profilesResponse.json()) as {
@@ -780,7 +745,11 @@ test.describe("Phase 6 Gate 6 UAT provider block", () => {
           (profile) => profile.id === fixture.clientProfileId
         )
       ).toBe(true);
-
+      await page.addInitScript((activeClientProfileId) => {
+        localStorage.setItem("adscale-storage", JSON.stringify({
+          state: { sidebarCollapsed: false, activeClientProfileId }, version: 0,
+        }));
+      }, fixture.clientProfileId);
       const billBefore = await context.request.get("/api/billing/status");
       const creditsBefore = billBefore.ok()
         ? ((await billBefore.json()) as {
@@ -788,44 +757,10 @@ test.describe("Phase 6 Gate 6 UAT provider block", () => {
           })
         : null;
 
-      // Intent: home → Criar post
       await gotoApp(page, "/");
-      await page
-        .getByText(/continuar de onde parei|continue where/i)
-        .first()
-        .waitFor({ state: "visible", timeout: 20_000 });
-      await page
-        .getByRole("button", { name: /novo trabalho|new work/i })
-        .click();
-      await expect(
-        page.getByRole("heading", {
-          name: /o que você quer fazer|what do you want/i,
-        })
-      ).toBeVisible({ timeout: 10_000 });
-      await page.locator('a[href="/quick-tools/create-post"]').click();
-      await page.waitForURL(/create-post/, { timeout: 20_000 });
-      await expect(page.getByTestId("create-post-wizard")).toBeVisible({
-        timeout: 15_000,
-      });
-
-      const brand = page.getByRole("combobox", { name: /marca|brand/i });
-      await expect(brand).toBeVisible({ timeout: 15_000 });
-      // Wait until seeded profile option is present (profiles query hydrate)
-      await expect
-        .poll(
-          async () =>
-            brand.locator(`option[value="${fixture.clientProfileId}"]`).count(),
-          { timeout: 30_000 }
-        )
-        .toBe(1);
-      await brand.selectOption(fixture.clientProfileId);
       const workName = `UAT S03 ${Date.now()}`;
-      await page.getByLabel(/tema|theme/i).fill(workName);
-      await page.getByLabel(/objetivo|objective/i).fill("Engajamento");
-      await page.getByLabel(/público|audience/i).fill("SMB");
-      await page.getByLabel(/oferta|offer/i).fill("Trial");
-
-      await page.getByRole("button", { name: /criar copy|create copy/i }).click();
+      await page.getByRole("textbox", { name: /pedido criativo|creative request/i })
+        .fill(`${workName}: engajamento para SMB com trial`);
       await expect
         .poll(
           () => new URL(page.url()).searchParams.get("workId"),
@@ -834,117 +769,20 @@ test.describe("Phase 6 Gate 6 UAT provider block", () => {
         .toBeTruthy();
       const workId = new URL(page.url()).searchParams.get("workId");
       expect(workId, `expected workId in URL ${page.url()}`).toBeTruthy();
-
-      // Depending on query timing, the persisted draft either shows Copy for
-      // review or promotes directly to Identity. If Copy is shown, require
-      // all provider fields before advancing; never click through an empty
-      // or still-loading snapshot.
       const generateBtn = page.getByRole("button", {
-        name: /gerar 3 propostas|confirmar e gerar|generate 3/i,
+        name: /gerar 3 variações · 15 créditos|generate 3 variations · 15 credits/i,
       });
-      let advancedCopy = false;
-      await expect
-        .poll(
-          async () => {
-            if (await generateBtn.isVisible().catch(() => false)) return true;
-            const advance = page.getByRole("button", {
-              name: /^avançar$|^next$/i,
-            });
-            const copyReady =
-              (await page.getByLabel(/headline/i).inputValue().catch(() => ""))
-                .trim().length > 0 &&
-              (await page.getByLabel(/corpo|body/i).inputValue().catch(() => ""))
-                .trim().length > 0 &&
-              (await page.getByLabel(/^cta$/i).inputValue().catch(() => ""))
-                .trim().length > 0;
-            if (
-              !advancedCopy &&
-              copyReady &&
-              (await advance.isEnabled().catch(() => false))
-            ) {
-              await advance.click();
-              advancedCopy = true;
-            }
-            return false;
-          },
-          { timeout: 90_000, intervals: [500, 1_000, 2_000] }
-        )
-        .toBe(true);
-      const firstAsset = page
-        .locator('input[type="checkbox"][id^="cp-asset-"]')
-        .first();
-      if (await firstAsset.isVisible({ timeout: 2_000 }).catch(() => false)) {
-        await firstAsset.check();
-      }
       await expect(generateBtn).toBeEnabled({ timeout: 10_000 });
-      const detailBeforeConfirm = await context.request.get(
-        `/api/creative-work/${workId}`
-      );
-      expect(detailBeforeConfirm.ok()).toBe(true);
-      const persistedBeforeConfirm = (await detailBeforeConfirm.json()) as {
-        work?: { copy?: { headline?: string; body?: string; cta?: string } };
-      };
-      const confirmedCopy = persistedBeforeConfirm.work?.copy;
-      expect(confirmedCopy?.headline).toBeTruthy();
-      expect(confirmedCopy?.body).toBeTruthy();
-      expect(confirmedCopy?.cta).toBeTruthy();
-      const selectedReferenceIds = await page
-        .locator('input[type="checkbox"][id^="cp-asset-"]:checked')
-        .evaluateAll((inputs) =>
-          inputs.map((input) => input.id.replace(/^cp-asset-/, ""))
-        );
-
-      // confirm identity (PATCH) then generate (POST) — listen for either finish
       const genWait = page.waitForResponse(
         (r) =>
           r.url().includes(`/api/creative-work/${workId}/generate`) &&
           r.request().method() === "POST",
         { timeout: 30_000 }
       );
-      await generateBtn.click({ force: true });
-      // If UI stuck, fall back to product API path (still real charge + Inngest)
-      let genRes: Awaited<ReturnType<typeof page.waitForResponse>> | null =
-        null;
-      try {
-        genRes = await genWait;
-      } catch {
-        genRes = null;
-      }
-      if (!genRes) {
-        // Next dev may abort the hydrated mutation while compiling routes.
-        // Continue through the exact canonical HTTP commands with the same
-        // user-entered payload; non-success responses still fail the UAT.
-        const apiConfirm = await context.request.patch(
-          `/api/creative-work/${workId}`,
-          {
-            data: {
-              copy: confirmedCopy!,
-              selectedReferenceIds,
-            },
-            timeout: 60_000,
-          }
-        );
-        expect(
-          apiConfirm.ok(),
-          `API confirm ${apiConfirm.status()} ${(await apiConfirm.text()).slice(0, 200)}`
-        ).toBeTruthy();
-        const apiGen = await context.request.post(
-          `/api/creative-work/${workId}/generate`,
-          { timeout: 60_000 }
-        );
-        expect(
-          [200, 201, 202].includes(apiGen.status()),
-          `API generate ${apiGen.status()} ${(await apiGen.text()).slice(0, 200)}`
-        ).toBeTruthy();
-        // re-open wizard on proposals after API dispatch
-        await gotoApp(page, `/quick-tools/create-post?workId=${workId}`);
-      } else {
-        const genBody = await genRes.text().catch(() => "");
-        expect(
-          [200, 201, 202].includes(genRes.status()),
-          `generate HTTP ${genRes.status()} ${genBody.slice(0, 200)}`
-        ).toBeTruthy();
-      }
+      await generateBtn.click();
+      const genRes = await genWait;
+      const genBody = await genRes.text().catch(() => "");
+      expect([200, 201, 202].includes(genRes.status()), `generate HTTP ${genRes.status()} ${genBody.slice(0, 200)}`).toBeTruthy();
       await expect
         .poll(
           async () => {
@@ -980,7 +818,7 @@ test.describe("Phase 6 Gate 6 UAT provider block", () => {
         .isVisible({ timeout: 15_000 })
         .catch(() => false);
 
-      const genStatus = genRes ? genRes.status() : "api-fallback";
+      const genStatus = genRes.status();
       const result = record(collectors, {
         id: "S03",
         title: "Create post generate + list",
@@ -1403,17 +1241,16 @@ test.describe("Phase 6 Gate 6 UAT provider block", () => {
     }
   });
 
-  test("S11 save post to library", async ({ browser }) => {
+  test("S11 completed post is already saved in library", async ({ browser }) => {
     const fixture = loadPhase6Fixture();
     const collectors = new ScenarioCollectors();
     const { context, page } = await openAuthedPage(browser);
     collectors.attach(page);
     collectors.mark();
     try {
-      await gotoApp(page, fixture.libraryWorkHref);
-      await expect(page.getByTestId("create-post-wizard")).toBeVisible({
-        timeout: 20_000,
-      });
+      await gotoApp(page, `/?workId=${fixture.libraryWorkId}`);
+      await expect(page.getByRole("textbox", { name: /pedido criativo|creative request/i }))
+        .toBeVisible({ timeout: 20_000 });
 
       const workResponse = await context.request.get(
         `/api/creative-work/${fixture.libraryWorkId}`
@@ -1431,19 +1268,11 @@ test.describe("Phase 6 Gate 6 UAT provider block", () => {
       );
       expect(targetOutput?.outputKey).toBeTruthy();
 
-      const saveBtn = page
+      const resultCard = page
         .getByTestId("proposal-level")
-        .filter({ has: page.locator('[data-testid="proposal-level-name"]', { hasText: "conservative" }) })
-        .getByRole("button", {
-          name: /salvar na biblioteca|save to library/i,
-        });
-      await expect(saveBtn).toBeVisible({ timeout: 30_000 });
-      await Promise.all([
-        page.waitForURL(/\/library/, { timeout: 30_000 }),
-        saveBtn.click(),
-      ]);
-
-      await expect(page).toHaveURL(/\/library/, { timeout: 20_000 });
+        .filter({ has: page.locator('[data-testid="proposal-level-name"]', { hasText: /conservative|conservadora/i }) });
+      await expect(resultCard.getByRole("button", { name: /aprovar|approve/i })).toBeVisible({ timeout: 30_000 });
+      await gotoApp(page, "/library");
       // Product title is h1 "Biblioteca" (role name may differ by a11y tree)
       await expect(
         page.locator("h1").filter({ hasText: /biblioteca|library/i })
@@ -1484,11 +1313,11 @@ test.describe("Phase 6 Gate 6 UAT provider block", () => {
 
       const result = record(collectors, {
         id: "S11",
-        title: "Save post to library",
+        title: "Completed post auto-saved in library",
         status: stillLib ? "pass" : "fail",
         url: page.url(),
         viewport: UAT_VIEWPORT_LABEL,
-        notes: `libraryWorkId=${fixture.libraryWorkId} outputId=${fixture.libraryOutputId} uiSave=true assetId=${savedAsset?.id} proxy=${proxyResponse.status()} reloadImage=true`,
+        notes: `libraryWorkId=${fixture.libraryWorkId} outputId=${fixture.libraryOutputId} autoSaved=true assetId=${savedAsset?.id} proxy=${proxyResponse.status()} reloadImage=true`,
         screenshot: await shot(page, "uat-50-S11-desktop"),
         consoleErrors: [],
         networkErrors: [],
@@ -1514,42 +1343,27 @@ test.describe("Phase 6 Gate 6 UAT shell", () => {
   // enough aggregate time under Next dev compilation.
   test.setTimeout(180_000);
 
-  test("S01 home intent picker", async ({ browser }) => {
+  test("S01 operational Home composer", async ({ browser }) => {
     const collectors = new ScenarioCollectors();
     const { context, page } = await openAuthedPage(browser);
     collectors.attach(page);
     collectors.mark();
     try {
       await gotoApp(page, "/");
-      await page
-        .getByText(/continuar de onde parei|continue where/i)
-        .first()
-        .waitFor({ state: "visible", timeout: 20_000 });
-      await page
-        .getByRole("button", { name: /novo trabalho|new work/i })
-        .click();
-      await expect(
-        page.getByRole("heading", {
-          name: /o que você quer fazer|what do you want/i,
-        })
-      ).toBeVisible({ timeout: 10_000 });
-      await expect(page.locator('a[href="/campaigns?new=1"]')).toBeVisible({
-        timeout: 10_000,
-      });
-      await expect(
-        page.locator('a[href="/quick-tools/create-post"]')
-      ).toBeVisible();
-      await expect(page.locator('a[href="/assistant"]')).toBeVisible();
-      // Must not skip intent
-      expect(page.url()).not.toMatch(/new=1|create-post|assistant/);
+      await expect(page.getByRole("heading", { name: /o que vamos criar|what shall we create/i }))
+        .toBeVisible({ timeout: 20_000 });
+      await expect(page.getByRole("textbox", { name: /pedido criativo|creative request/i })).toBeVisible();
+      await expect(page.getByRole("button", { name: /gerar .*créditos|generate .*credits/i })).toBeVisible();
+      await expect(page.locator('button[aria-pressed]')).not.toHaveCount(0);
+      await expect(page.getByRole("dialog")).toHaveCount(0);
 
       const result = record(collectors, {
         id: "S01",
-        title: "Home intent picker",
+        title: "Operational Home composer",
         status: "pass",
         url: page.url(),
         viewport: UAT_VIEWPORT_LABEL,
-        notes: "intent: campaign + create-post + assistant",
+        notes: "one composer + four optional tool presets; no creation modal",
         screenshot: await shot(page, "uat-50-S01-desktop"),
         consoleErrors: [],
         networkErrors: [],
@@ -1577,7 +1391,7 @@ test.describe("Phase 6 Gate 6 UAT shell", () => {
         "/library",
         "/brand-kit",
         "/templates",
-        `/quick-tools/create-post?workId=${fixture.workId}`,
+        `/?workId=${fixture.workId}`,
         `/campaigns/${fixture.campaignId}`,
       ]) {
         const warm = await context.request.get(route, { timeout: 90_000 });
@@ -1626,13 +1440,9 @@ test.describe("Phase 6 Gate 6 UAT shell", () => {
       }
 
       // Main path without campaign: resume an existing canonical post.
-      await gotoApp(
-        page,
-        `/quick-tools/create-post?workId=${fixture.workId}`
-      );
-      await expect(page.getByTestId("create-post-wizard")).toBeVisible({
-        timeout: 20_000,
-      });
+      await gotoApp(page, `/?workId=${fixture.workId}`);
+      await expect(page.getByRole("textbox", { name: /pedido criativo|creative request/i }))
+        .toBeVisible({ timeout: 20_000 });
 
       // Main path with campaign: the four task stages remain reachable.
       await gotoApp(page, `/campaigns/${fixture.campaignId}`);
@@ -1667,7 +1477,7 @@ test.describe("Phase 6 Gate 6 UAT shell", () => {
         notes: `legacyLabels=${legacy} configPrimaryish=${configInPrimary} visited=${[
           ...paths.map((p) => p.href),
           ...moreDestinations.map((p) => p.href),
-          "/quick-tools/create-post?workId=…",
+          "/?workId=…",
           "/campaigns/:id",
           "/templates",
         ].join(",")}`,

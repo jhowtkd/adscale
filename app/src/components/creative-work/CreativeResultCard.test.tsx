@@ -73,7 +73,7 @@ describe("CreativeResultCard", () => {
 
     rerender(
       <CreativeResultCard
-        output={output({ status: "failed", outputKey: null })}
+        output={output({ status: "failed", outputKey: null, retryCount: 1 })}
         label="Equilibrada"
         onRetry={onRetry}
         onApprove={vi.fn()}

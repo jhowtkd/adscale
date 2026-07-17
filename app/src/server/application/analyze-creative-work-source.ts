@@ -10,8 +10,11 @@ import { getCreativeWork, updateCreativeWorkSourceIfUnchanged } from "@/server/r
 import { getTemplateById } from "@/server/repositories/template";
 import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
 import { objectStorage } from "@/server/storage";
+import { isE2EControlledProviderEnabled } from "@/server/ai/providers/e2e-controlled-provider";
 
 type Input = { workspaceId: string; workItemId: string; sourceId: string };
+
+const controlledSourceFailures = new Set<string>();
 
 async function reloadCreativeWorkSource(input: Input, fallback: NonNullable<Awaited<ReturnType<typeof getCreativeWork>>>["sources"][number]) {
   const current = await getCreativeWork(input.workspaceId, input.workItemId);
@@ -40,6 +43,14 @@ export async function analyzeCreativeWorkSource(input: Input) {
     if (source.assetId) {
       const asset = await getWorkspaceAssetById(source.assetId, input.workspaceId);
       if (!asset || !asset.type.startsWith("image/")) throw new Error("creative_work_source_origin_invalid");
+      if (
+        isE2EControlledProviderEnabled() &&
+        asset.name.includes("e2e-source-fail-once") &&
+        !controlledSourceFailures.has(source.id)
+      ) {
+        controlledSourceFailures.add(source.id);
+        throw new Error("controlled_source_analysis_failure");
+      }
       const bytes = await objectStorage.get(asset.key);
       const buffer = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
       const [contentResult, styleResult] = await Promise.all([

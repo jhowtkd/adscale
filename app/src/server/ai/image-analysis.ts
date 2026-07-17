@@ -1,5 +1,6 @@
 import { env } from "@/server/validation/env";
 import { getOpenAI } from "@/server/ai/utils";
+import { isE2EControlledProviderEnabled } from "@/server/ai/providers/e2e-controlled-provider";
 import { z } from "zod";
 
 export const contentBriefSchema = z.object({
@@ -29,6 +30,17 @@ export async function analyzeImageContent(
   imageBuffer: Buffer,
   mimeType: string
 ): Promise<ContentBrief> {
+  if (isE2EControlledProviderEnabled()) {
+    return contentBriefSchema.parse({
+      product: "Produto da arte",
+      offer: "Oferta da arte",
+      cta: { text: "Saiba mais", style: "botão" },
+      brandElements: ["marca controlada"],
+      keyVisual: "produto em destaque",
+      textContent: { headline: "Headline da arte", bullets: [] },
+      format: "4:5",
+    });
+  }
   const base64 = imageBuffer.toString("base64");
   const dataUrl = `data:${mimeType};base64,${base64}`;
 
@@ -87,6 +99,17 @@ export async function analyzeImageStyle(
   imageBuffer: Buffer,
   mimeType: string
 ): Promise<StyleBrief> {
+  if (isE2EControlledProviderEnabled()) {
+    return styleBriefSchema.parse({
+      colorPalette: { dominant: ["#ff0080"], accents: ["#20c060"], gradients: "nenhum" },
+      typography: { personality: "direta", effects: [] },
+      textures: [],
+      composition: "centralizada",
+      mood: "direto e vibrante",
+      decorativeElements: [],
+      photoTreatment: "alto contraste",
+    });
+  }
   const base64 = imageBuffer.toString("base64");
   const dataUrl = `data:${mimeType};base64,${base64}`;
 

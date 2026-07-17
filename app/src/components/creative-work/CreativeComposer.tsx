@@ -80,6 +80,8 @@ export function CreativeComposer({ composer, composerRef }: {
               type="file"
               accept="image/png,image/jpeg,image/webp"
               multiple
+              tabIndex={-1}
+              aria-label={t("addArt")}
               className="sr-only"
               onChange={(event) => void composer.addFiles(event.target.files)}
             />
