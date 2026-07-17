@@ -5,11 +5,34 @@ import {
   CREATIVE_SOURCE_USAGES,
   CREATIVE_WORK_INTENTS,
   createCreativeWorkSchema,
+  displayRequestForCreativeWork,
   quoteCreativeWork,
+  requestTextFromBrief,
   resolveCreativeWorkStatus,
 } from "./contracts";
 
 describe("creative work contracts", () => {
+  it("builds a human-readable request from brief fields instead of JSON", () => {
+    expect(
+      requestTextFromBrief({
+        theme: "Promoção de matrícula",
+        objective: "Gerar leads",
+        offer: "julho",
+      }),
+    ).toBe("Promoção de matrícula — julho");
+    expect(
+      displayRequestForCreativeWork({
+        request: JSON.stringify({
+          theme: "Promoção de matrícula",
+          objective: "Gerar leads",
+          audience: "Pais",
+          offer: "julho",
+        }),
+        brief: null,
+      }),
+    ).toBe("Promoção de matrícula — julho");
+  });
+
   it("accepts a social post brief with one supported format", () => {
     expect(
       createCreativeWorkSchema.parse({
@@ -91,8 +114,11 @@ describe("creative work contracts", () => {
     ];
     expect(assignedColumns.filter((column) => protectedColumns.includes(column))).toEqual([]);
 
-    expect(migration).toContain('"title" = "brief"->>\'theme\'');
-    expect(migration).toContain('"request" = "brief"::text');
+    expect(migration).toContain('COALESCE(NULLIF("brief"->>\'theme\', \'\'), \'Trabalho criativo\')');
+    expect(migration).toContain("NULLIF(\"brief\"->>'theme', '')");
+    expect(migration).toContain("NULLIF(\"brief\"->>'offer', '')");
+    expect(migration).toContain("NULLIF(\"brief\"->>'objective', '')");
+    expect(migration).not.toContain('"request" = "brief"::text');
     expect(migration).toContain('"settings" = \'{"targetFormats":[]}\'::jsonb');
     expect(migration).toContain('"target_format" = work."format"');
     expect(migration).toContain('"operation_key" = output."creative_level" || \':\' || work."format" || \':1\'');

@@ -6,13 +6,14 @@ import { prepareCreativeWork } from "@/server/application/prepare-creative-work"
 import { analyzeCreativeWorkSource } from "@/server/application/analyze-creative-work-source";
 import { contentBriefSchema, styleBriefSchema } from "@/server/ai/image-analysis";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
-import { CREATIVE_SOURCE_USAGES } from "@/server/creative-work/contracts";
 import { projectCreativeWorkAsCanonicalWork } from "@/server/creative-work/projection/from-creative-work";
 import {
+  CREATIVE_SOURCE_USAGES,
   creativeWorkFormatSchema,
   creativeWorkIntentSchema,
   creativeWorkPreparationSchema,
   creativeWorkSettingsSchema,
+  displayRequestForCreativeWork,
   socialPostCopySchema,
 } from "@/server/creative-work/contracts";
 import {
@@ -138,7 +139,10 @@ export async function GET(
     );
     const sources = await Promise.all((result.sources ?? []).map((source) => projectSourceDto(workspace.id, source)));
     return NextResponse.json({
-      work: result.work,
+      work: {
+        ...result.work,
+        request: displayRequestForCreativeWork(result.work),
+      },
       outputs: result.outputs,
       sources,
       canonical,

@@ -74,6 +74,37 @@ export const socialPostCopySchema = z.object({
 export type SocialPostBrief = z.infer<typeof socialPostBriefSchema>;
 export type SocialPostCopy = z.infer<typeof socialPostCopySchema>;
 
+/** Human-readable request for the composer; never raw JSON. */
+export function requestTextFromBrief(
+  brief: Pick<SocialPostBrief, "theme" | "objective" | "offer"> | Record<string, unknown>,
+): string {
+  const theme = typeof brief.theme === "string" ? brief.theme.trim() : "";
+  const offer = typeof brief.offer === "string" ? brief.offer.trim() : "";
+  const objective = typeof brief.objective === "string" ? brief.objective.trim() : "";
+  const composed = [theme, offer].filter(Boolean).join(" — ");
+  return composed || objective || theme || "Trabalho criativo";
+}
+
+/** Recover a readable request when legacy rows stored `JSON.stringify(brief)`. */
+export function displayRequestForCreativeWork(work: {
+  request: string;
+  brief?: Pick<SocialPostBrief, "theme" | "objective" | "offer"> | Record<string, unknown> | null;
+}): string {
+  if (typeof work.request !== "string") return "";
+  const trimmed = work.request.trim();
+  if (!trimmed.startsWith("{")) return work.request;
+  if (work.brief && typeof work.brief === "object") {
+    return requestTextFromBrief(work.brief);
+  }
+  try {
+    const parsed = JSON.parse(trimmed) as Record<string, unknown>;
+    if (parsed && typeof parsed === "object") return requestTextFromBrief(parsed);
+  } catch {
+    /* keep original */
+  }
+  return work.request;
+}
+
 export function quoteCreativeWork(input: {
   intent: CreativeWorkIntent;
   format: CreativeWorkFormat;

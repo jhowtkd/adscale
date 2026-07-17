@@ -140,6 +140,27 @@ describe("GET /api/creative-work/[id]", () => {
     expect(getWorkMock).toHaveBeenCalledWith("workspace-1", "work-1");
   });
 
+  it("humanizes a legacy JSON request when resuming a work", async () => {
+    getWorkMock.mockResolvedValue({
+      work: {
+        ...workItem,
+        request: JSON.stringify(workItem.brief),
+      },
+      outputs: [],
+      sources: [],
+    });
+
+    const res = await GET(
+      new Request("http://localhost/api/creative-work/work-1"),
+      { params: makeParams("work-1") },
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.work.request).toBe("Tema — Oferta");
+    expect(body.work.request.startsWith("{")).toBe(false);
+  });
+
   it("returns 404 when the work does not belong to the workspace", async () => {
     getWorkMock.mockResolvedValue(null);
 

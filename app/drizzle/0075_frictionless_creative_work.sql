@@ -6,8 +6,16 @@ ALTER TABLE "adscale_app"."creative_work_items" ADD COLUMN "settings" jsonb;
 ALTER TABLE "adscale_app"."creative_work_items" ADD COLUMN "input_snapshot" jsonb;
 --> statement-breakpoint
 UPDATE "adscale_app"."creative_work_items"
-SET "title" = "brief"->>'theme',
-    "request" = "brief"::text,
+SET "title" = COALESCE(NULLIF("brief"->>'theme', ''), 'Trabalho criativo'),
+    "request" = COALESCE(
+      NULLIF(trim(both from concat_ws(
+        ' — ',
+        NULLIF("brief"->>'theme', ''),
+        NULLIF("brief"->>'offer', '')
+      )), ''),
+      NULLIF("brief"->>'objective', ''),
+      'Trabalho criativo'
+    ),
     "settings" = '{"targetFormats":[]}'::jsonb;
 --> statement-breakpoint
 ALTER TABLE "adscale_app"."creative_work_items" ALTER COLUMN "title" SET NOT NULL;

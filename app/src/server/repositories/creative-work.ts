@@ -13,6 +13,7 @@ import {
 } from "../db/schema";
 import {
   CREATIVE_LEVELS,
+  requestTextFromBrief,
   resolveCreativeWorkStatus,
   type CreativeWorkStatus,
   type CreativeWorkIdentitySnapshot,
@@ -107,7 +108,7 @@ export async function createCreativeWork(
       format: input.format,
       status: "draft",
       title: input.brief.theme,
-      request: JSON.stringify(input.brief),
+      request: requestTextFromBrief(input.brief),
       settings: { targetFormats: [] },
     })
     .returning();

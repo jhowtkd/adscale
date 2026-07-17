@@ -296,6 +296,8 @@ describe("creative-work repository", () => {
           format: "4:5",
           status: "draft",
           brief: socialBrief,
+          title: socialBrief.theme,
+          request: `${socialBrief.theme} — ${socialBrief.offer}`,
         }),
       );
       expect(result.id).toBe("new-work");
