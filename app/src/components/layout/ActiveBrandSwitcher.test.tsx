@@ -20,7 +20,7 @@ const profiles = [
 describe("ActiveBrandSwitcher", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("renders a named non-interactive label for one profile", () => {
+  it("keeps the client switcher interactive with one profile", () => {
     mockUseActiveClientProfile.mockReturnValue({
       profiles: [profiles[0]],
       activeProfile: profiles[0],
@@ -32,8 +32,8 @@ describe("ActiveBrandSwitcher", () => {
 
     render(<ActiveBrandSwitcher />);
 
-    expect(screen.getByLabelText("activeBrand")).toHaveTextContent("Brand One");
-    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "activeBrand" })).toHaveValue("one");
+    expect(screen.getByRole("option", { name: "Brand One" })).toBeInTheDocument();
   });
 
   it("renders an accessible combobox and selects a profile", () => {

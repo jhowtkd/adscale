@@ -12,8 +12,6 @@ import { Label } from "@/components/ui/label";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import SocialAuthButtons from "@/components/auth/SocialAuthButtons";
-import { cn } from "@/lib/utils";
 
 interface SignupState {
   name: string;
@@ -161,8 +159,6 @@ export default function SignupContent() {
               {loading ? t("creatingAccount") : t("signUp")}
             </Button>
           </form>
-
-          <SocialAuthButtons mode="signup" />
 
           <p className="text-center text-sm text-[var(--text-secondary)]">
             {t("hasAccount")}{" "}

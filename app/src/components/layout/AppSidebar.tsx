@@ -10,7 +10,6 @@ import {
   House,
   LogOut,
   Settings,
-  Tag,
   type LucideIcon,
 } from "lucide-react";
 import { useAppStore } from "@/lib/store";
@@ -18,7 +17,7 @@ import { useBillingStatus } from "@/lib/hooks/use-billing";
 import { useCanonicalWorks } from "@/lib/hooks/use-canonical-works";
 import { authClient } from "@/lib/auth-client";
 import AccountStatusBadge from "@/components/layout/AccountStatusBadge";
-import ActiveBrandSwitcher from "@/components/layout/ActiveBrandSwitcher";
+import SidebarBrandKitFeature from "@/components/layout/SidebarBrandKitFeature";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { cn } from "@/lib/utils";
 
@@ -50,7 +49,6 @@ export default function AppSidebar() {
   const isWorks = pathname.startsWith("/campaigns");
   const isHome = pathname === "/" || pathname === "/quick-tools/create-post";
   const isLibrary = pathname.startsWith("/library");
-  const isBrands = pathname.startsWith("/brand-kit");
   const isConfig = pathname.startsWith("/settings");
 
   const worksCount = works.length > 0 ? String(works.length) : undefined;
@@ -87,7 +85,6 @@ export default function AppSidebar() {
             unoptimized
           />
         </Link>
-        <ActiveBrandSwitcher />
       </div>
 
       <nav
@@ -128,12 +125,7 @@ export default function AppSidebar() {
       )}
 
       <div className="mt-auto shrink-0 border-t border-[var(--border-subtle)] pt-3">
-        <TextNavItem
-          href="/brand-kit"
-          active={isBrands}
-          label={tNav("brands")}
-          icon={Tag}
-        />
+        <SidebarBrandKitFeature />
         <TextNavItem
           href="/settings"
           active={isConfig}

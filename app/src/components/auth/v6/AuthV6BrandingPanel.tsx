@@ -8,7 +8,7 @@ export default function AuthV6BrandingPanel({ labels }: { labels: AuthV6Branding
         <Image
           src="/images/logo.svg"
           alt="ADScale"
-          className="h-7 w-auto object-contain opacity-80"
+          className="h-7 w-auto object-contain opacity-80 brightness-0 invert"
           width={813}
           height={142}
           priority

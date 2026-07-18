@@ -8,9 +8,12 @@ import { CreativeComposer } from "@/components/creative-work/CreativeComposer";
 import { CreativeToolCards } from "@/components/creative-work/CreativeToolCards";
 import { BrandInspirations } from "@/components/creative-work/BrandInspirations";
 import { useCreativeComposer, type ComposerIntent } from "@/components/creative-work/useCreativeComposer";
+import ActiveBrandSwitcher from "@/components/layout/ActiveBrandSwitcher";
 import { resolveContinueWork } from "@/lib/dashboard/resolve-continue-work";
 import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
 import { useCanonicalWorks } from "@/lib/hooks/use-canonical-works";
+
+const CREATIVE_CHAT_ENABLED = process.env.NEXT_PUBLIC_CREATIVE_CHAT_ENABLED === "true";
 
 export default function DashboardHomeActions({
   workId,
@@ -48,7 +51,20 @@ export default function DashboardHomeActions({
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-8 px-4 py-8 sm:px-6 lg:py-12">
-      <CreativeComposer composer={composer} composerRef={composerRef} />
+      <CreativeToolCards
+        selected={composer.intent}
+        onSelect={composer.selectIntent}
+        headerAction={(
+          <ActiveBrandSwitcher
+            id="active-client-switcher-home"
+            className="mt-0 w-full sm:w-64"
+          />
+        )}
+      />
+
+      {CREATIVE_CHAT_ENABLED ? (
+        <CreativeComposer composer={composer} composerRef={composerRef} />
+      ) : null}
 
       <section aria-labelledby="continue-work-title">
         {isLoading && works.length === 0 ? (
@@ -73,8 +89,6 @@ export default function DashboardHomeActions({
           </div>
         )}
       </section>
-
-      <CreativeToolCards selected={composer.intent} onSelect={composer.selectIntent} />
 
       <div data-testid="brand-inspirations-slot" className="min-h-16">
         <BrandInspirations clientProfileId={composer.clientProfileId} onAttach={composer.addInspiration} />

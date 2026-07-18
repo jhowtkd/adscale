@@ -2,12 +2,18 @@
 
 import { useTranslations } from "next-intl";
 import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
+import { cn } from "@/lib/utils";
 
-export default function ActiveBrandSwitcher({ id = "active-brand-switcher" }: { id?: string } = {}) {
+export default function ActiveBrandSwitcher({
+  id = "active-brand-switcher",
+  className,
+}: {
+  id?: string;
+  className?: string;
+} = {}) {
   const t = useTranslations("navigation");
   const {
     profiles,
-    activeProfile,
     activeClientProfileId,
     isLoading,
     selectProfile,
@@ -15,19 +21,8 @@ export default function ActiveBrandSwitcher({ id = "active-brand-switcher" }: { 
 
   if (isLoading || profiles.length === 0) return null;
 
-  if (profiles.length === 1) {
-    return (
-      <div
-        aria-label={t("activeBrand")}
-        className="mt-3 truncate rounded-[var(--radius-control)] bg-[var(--surface-base)] px-3 py-2 text-center text-xs font-medium text-[var(--text-primary)]"
-      >
-        {activeProfile?.name ?? profiles[0].name}
-      </div>
-    );
-  }
-
   return (
-    <div className="mt-3">
+    <div className={cn("mt-3", className)}>
       <label className="sr-only" htmlFor={id}>
         {t("activeBrand")}
       </label>

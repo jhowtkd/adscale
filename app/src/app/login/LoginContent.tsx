@@ -12,7 +12,6 @@ import { Label } from "@/components/ui/label";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import SocialAuthButtons from "@/components/auth/SocialAuthButtons";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 
@@ -205,8 +204,6 @@ export default function LoginContent() {
                   {loading ? t("signingIn") : t("signIn")}
                 </Button>
               </form>
-
-              <SocialAuthButtons mode="login" callbackURL={callbackUrl} />
 
               <div className="text-center">
                 <button

@@ -73,13 +73,13 @@ describe("AppSidebar role-aware navigation", () => {
     expect(screen.queryByText("⌘K")).not.toBeInTheDocument();
   });
 
-  it("shows the active brand and only the simplified user navigation", () => {
+  it("shows the brand training highlight without the active-brand switcher", () => {
     render(<AppSidebar />);
     expect(screen.queryByText("navigation.creativeIntelligenceAdvanced")).not.toBeInTheDocument();
     expect(screen.queryByText("navigation.sectionAvancado")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "assistant.mode.panel" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /assistant\.mode\.chat/i })).not.toBeInTheDocument();
-    expect(screen.getByTestId("active-brand-switcher")).toBeInTheDocument();
+    expect(screen.queryByTestId("active-brand-switcher")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "navigation.home" })).toHaveAttribute(
       "href",
       "/"
@@ -92,7 +92,7 @@ describe("AppSidebar role-aware navigation", () => {
       "href",
       "/library"
     );
-    expect(screen.getByRole("link", { name: "navigation.brands" })).toHaveAttribute(
+    expect(screen.getByTestId("sidebar-brand-kit-feature")).toHaveAttribute(
       "href",
       "/brand-kit"
     );
@@ -101,7 +101,6 @@ describe("AppSidebar role-aware navigation", () => {
       "/settings"
     );
     expect(screen.queryByText("navigation.templates")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("sidebar-brand-kit-feature")).not.toBeInTheDocument();
     expect(screen.queryByTestId("campaign-map")).not.toBeInTheDocument();
   });
 

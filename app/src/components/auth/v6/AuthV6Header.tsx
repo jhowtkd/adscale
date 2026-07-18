@@ -15,7 +15,7 @@ export default function AuthV6Header({ sectionLabel, title, subtitle, showLogo =
           <Image
             src="/images/logo.svg"
             alt="ADScale"
-            className="h-7 w-auto object-contain lg:hidden"
+            className="h-7 w-auto object-contain brightness-0 invert lg:hidden"
             width={813}
             height={142}
             priority

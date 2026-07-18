@@ -28,6 +28,13 @@ vi.mock("@/components/creative-work/CreativeComposer", () => ({
     <div data-testid="creative-composer">{composer ? `${composer.intent}:${composer.quote.credits}` : initialWorkId}</div>
   ),
 }));
+vi.mock("@/components/layout/ActiveBrandSwitcher", () => ({
+  default: () => (
+    <select aria-label="activeBrand" data-testid="active-client-switcher">
+      <option>Marca A</option>
+    </select>
+  ),
+}));
 vi.mock("@/components/creative-work/BrandInspirations", () => ({
   BrandInspirations: ({ clientProfileId, onAttach }: { clientProfileId: string | null; onAttach: (value: { id: string }) => void }) => (
     <button type="button" onClick={() => onAttach({ id: "inspiration-1" })}>Inspirações {clientProfileId}</button>
@@ -55,7 +62,7 @@ describe("DashboardHomeActions", () => {
     });
   });
 
-  it("renders the approved hierarchy and resumes the exact canonical href", () => {
+  it("starts with the creation protocols and resumes the exact canonical href", () => {
     useCanonicalWorksMock.mockReturnValue({
       data: [{
         id: "creative_work:w1", originKind: "creative_work", originId: "w1", origin: "quick_tool",
@@ -67,9 +74,13 @@ describe("DashboardHomeActions", () => {
 
     render(<DashboardHomeActions workId="opened-work" />);
 
-    expect(screen.getByTestId("creative-composer")).toHaveTextContent("single:5");
-    expect(screen.getAllByTestId("creative-composer")).toHaveLength(1);
-    expect(screen.getByRole("link", { name: /Continue: Post social/i })).toHaveAttribute("href", "/?workId=w1");
+    const protocols = screen.getByRole("heading", { name: "dashboard.home.title" }).closest("section");
+    const continueLink = screen.getByRole("link", { name: /Continue: Post social/i });
+
+    expect(screen.queryByTestId("creative-composer")).not.toBeInTheDocument();
+    expect(screen.getByTestId("active-client-switcher")).toBeInTheDocument();
+    expect(protocols?.compareDocumentPosition(continueLink)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(continueLink).toHaveAttribute("href", "/?workId=w1");
     expect(screen.getAllByRole("button").filter((button) => button.hasAttribute("aria-pressed"))).toHaveLength(4);
     expect(screen.getByTestId("brand-inspirations-slot")).toBeInTheDocument();
     expect(screen.queryByText("dashboard.home.chooseIntent")).not.toBeInTheDocument();
@@ -88,13 +99,12 @@ describe("DashboardHomeActions", () => {
       initialTemplateId: undefined,
     });
     expect(screen.getByRole("button", { name: /dashboard\.home\.single/i })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByTestId("creative-composer")).toHaveTextContent("single:5");
+    expect(screen.queryByTestId("creative-composer")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /dashboard\.home\.restyle/i }));
 
     expect(selectIntentMock).toHaveBeenCalledWith("restyle");
     expect(screen.getByRole("button", { name: /dashboard\.home\.restyle/i })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByTestId("creative-composer")).toHaveTextContent("restyle:5");
   });
 
   it("passes safe route presets to the same composer instance", () => {
@@ -121,8 +131,8 @@ describe("DashboardHomeActions", () => {
 
     render(<DashboardHomeActions />);
 
-    expect(screen.getByText(/Marca A/)).toBeInTheDocument();
-    expect(screen.getByText(/dashboard\.home\.firstCreationPrompt/)).toBeInTheDocument();
+    const firstCreationTitle = screen.getByText("dashboard.home.firstCreationTitle");
+    expect(firstCreationTitle.nextElementSibling).toHaveTextContent("dashboard.home.firstCreationPrompt Marca A");
   });
 
   it("attaches brand inspirations through the same composer model", () => {

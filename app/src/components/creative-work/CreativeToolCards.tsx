@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { CopyPlus, Image, Maximize, WandSparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -12,16 +13,20 @@ const TOOLS = [
   { id: "restyle", icon: WandSparkles },
 ] as const;
 
-export function CreativeToolCards({ selected, onSelect }: {
+export function CreativeToolCards({ selected, onSelect, headerAction }: {
   selected: ComposerIntent;
   onSelect: (intent: ComposerIntent) => void;
+  headerAction?: ReactNode;
 }) {
   const t = useTranslations("dashboard.home.tools");
   return (
     <section aria-labelledby="creative-tools-title">
-      <h2 id="creative-tools-title" className="mb-3 text-sm font-semibold text-[var(--text-primary)]">
-        {t("title")}
-      </h2>
+      <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <h2 id="creative-tools-title" className="text-sm font-semibold text-[var(--text-primary)]">
+          {t("title")}
+        </h2>
+        {headerAction}
+      </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {TOOLS.map(({ id, icon: Icon }) => (
           <button
