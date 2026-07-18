@@ -3,6 +3,7 @@
 import { useAppStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { CheckCircle, XCircle, AlertTriangle, Info, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useEffect, useEffectEvent, useState } from "react";
 
 const icons = {
@@ -50,6 +51,7 @@ function ToastItem({
   message: string;
   onRemove: (id: string) => void;
 }) {
+  const tCommon = useTranslations("common");
   const [exiting, setExiting] = useState(false);
   const Icon = icons[type] ?? icons.info;
   const style = styles[type] ?? styles.info;
@@ -91,7 +93,7 @@ function ToastItem({
         type="button"
         onClick={handleDismiss}
         className="shrink-0 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
-        aria-label="Dismiss"
+        aria-label={tCommon("dismiss")}
       >
         <X size={14} />
       </button>
