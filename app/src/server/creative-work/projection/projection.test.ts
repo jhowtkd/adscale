@@ -64,6 +64,7 @@ function creativeWorkFixture(
     id: WORK_ID,
     workspaceId: WS,
     clientProfileId: "66666666-6666-4666-8666-666666666666",
+    title: "Criação de lançamento",
     toolKind: "social_post",
     status: "draft",
     format: "1:1",
@@ -281,6 +282,15 @@ describe("projectCampaignAsCanonicalWork", () => {
 });
 
 describe("projectCreativeWorkAsCanonicalWork (Criar Post fixture)", () => {
+  it("uses the persisted work title as the canonical display name", () => {
+    const work = projectCreativeWorkAsCanonicalWork(creativeWorkFixture({
+      title: "Campanha de matrículas",
+      brief: null,
+    }));
+
+    expect(work.name).toBe("Campanha de matrículas");
+  });
+
   it("projects create-post fixture into the same contract", () => {
     const work = projectCreativeWorkAsCanonicalWork(
       creativeWorkFixture({

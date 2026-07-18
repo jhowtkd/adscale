@@ -6,9 +6,10 @@ import type { ReactNode } from "react";
 // --- Mocks -----------------------------------------------------------------
 
 const mockReplace = vi.fn();
+let mockSearchParams = new URLSearchParams();
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: mockReplace }),
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => mockSearchParams,
 }));
 
 vi.mock("next-intl", () => ({
@@ -52,9 +53,14 @@ vi.mock("@/components/ui/skeleton", () => ({
 // react-query hooks: top-level handles so each test can re-mock.
 const useClientProfilesMock = vi.fn();
 const useCreateClientProfileMock = vi.fn();
+const useActiveClientProfileMock = vi.fn();
+const selectProfileMock = vi.fn();
 vi.mock("@/lib/hooks/use-client-profiles", () => ({
   useClientProfiles: () => useClientProfilesMock(),
   useCreateClientProfile: () => useCreateClientProfileMock(),
+}));
+vi.mock("@/lib/hooks/use-active-client-profile", () => ({
+  useActiveClientProfile: () => useActiveClientProfileMock(),
 }));
 
 const useBrandTrainingStatusMock = vi.fn();
@@ -65,7 +71,7 @@ const useBrandTrainingAssetsMock = vi.fn();
 const useUploadBrandTrainingAssetMock = vi.fn();
 const useReviewBrandTrainingAssetMock = vi.fn();
 vi.mock("@/lib/hooks/use-brand-training", () => ({
-  useBrandTrainingStatus: () => useBrandTrainingStatusMock(),
+  useBrandTrainingStatus: (...args: unknown[]) => useBrandTrainingStatusMock(...args),
   useExtractMulti: () => useExtractMultiMock(),
   useExtractVoice: () => useExtractVoiceMock(),
   useApproveVoice: () => useApproveVoiceMock(),
@@ -101,6 +107,14 @@ function defaultHooks() {
     isLoading: false,
   });
   useCreateClientProfileMock.mockReturnValue({ mutate: vi.fn(), isPending: false });
+  useActiveClientProfileMock.mockReturnValue({
+    activeClientProfileId: "profile-2",
+    profiles: [
+      { id: "profile-1", name: "Acme" },
+      { id: "profile-2", name: "Beta" },
+    ],
+    selectProfile: selectProfileMock,
+  });
   useBrandTrainingStatusMock.mockReturnValue({ data: { trained: false, missing: ["logo"] } });
   useExtractMultiMock.mockReturnValue({ mutate: vi.fn(), isPending: false });
   useExtractVoiceMock.mockReturnValue({ mutate: vi.fn(), isPending: false });
@@ -121,6 +135,7 @@ function defaultHooks() {
 describe("BrandTrainingWizard", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockSearchParams = new URLSearchParams();
     defaultHooks();
   });
 
@@ -131,6 +146,7 @@ describe("BrandTrainingWizard", () => {
     expect(screen.getByText("brandTraining.subtitle")).toBeInTheDocument();
     // Stepper labels are rendered for each step.
     expect(screen.getByText("brandTraining.stepProfile")).toBeInTheDocument();
+    expect(useBrandTrainingStatusMock).toHaveBeenCalledWith("profile-2");
   });
 
   it("lists existing client profiles and selects one on click", async () => {
@@ -142,6 +158,7 @@ describe("BrandTrainingWizard", () => {
     fireEvent.click(screen.getByText("Acme"));
 
     await waitFor(() => {
+      expect(selectProfileMock).toHaveBeenCalledWith("profile-1");
       expect(mockReplace).toHaveBeenCalledWith(
         expect.stringContaining("clientProfileId=profile-1"),
         { scroll: false },
@@ -177,6 +194,15 @@ describe("BrandTrainingWizard", () => {
     render(<BrandTrainingWizard />, { wrapper: createWrapper() });
 
     expect(screen.getByText("brandTraining.trainedBadge")).toBeInTheDocument();
+  });
+
+  it("ignores a removed profile id from the query and keeps the active brand", () => {
+    mockSearchParams = new URLSearchParams("clientProfileId=profile-removed");
+
+    render(<BrandTrainingWizard />, { wrapper: createWrapper() });
+
+    expect(useBrandTrainingStatusMock).toHaveBeenCalledWith("profile-2");
+    expect(selectProfileMock).not.toHaveBeenCalled();
   });
 
   it("mounts the approved-assets panel at the curate step", async () => {

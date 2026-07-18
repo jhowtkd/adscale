@@ -47,6 +47,7 @@ describe("DashboardHomeActions", () => {
       const [intent, setIntent] = useState<"variations" | "single" | "format_adaptation" | "restyle">("single");
       return {
         intent,
+        clientProfileId: "p1",
         quote: intent === "format_adaptation" ? { unitCount: 2, credits: 10 } : { unitCount: 1, credits: 5 },
         selectIntent: (next: typeof intent) => { selectIntentMock(next); setIntent(next); },
         addInspiration: addInspirationMock,
@@ -131,5 +132,20 @@ describe("DashboardHomeActions", () => {
     fireEvent.click(screen.getByRole("button", { name: "Inspirações p1" }));
 
     expect(addInspirationMock).toHaveBeenCalledWith({ id: "inspiration-1" });
+  });
+
+  it("scopes inspirations to the restored work brand instead of the global active brand", () => {
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    useComposerMock.mockReturnValue({
+      intent: "single",
+      clientProfileId: "p2",
+      quote: { unitCount: 1, credits: 5 },
+      selectIntent: selectIntentMock,
+      addInspiration: addInspirationMock,
+    });
+
+    render(<DashboardHomeActions workId="work-from-p2" />);
+
+    expect(screen.getByRole("button", { name: "Inspirações p2" })).toBeInTheDocument();
   });
 });

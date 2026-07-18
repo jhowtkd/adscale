@@ -930,15 +930,15 @@ git commit -m "test: prove frictionless creative flow"
 
 ## Completion Checklist
 
-- [ ] Home to generation is one request and one explicit paid confirmation.
-- [ ] Active brand is global, remembered, and copied into new works only.
-- [ ] Text, tool cards, attached art, templates, and approved pieces produce the same canonical draft type.
-- [ ] Attached art supports content, style, and both with independent recovery.
-- [ ] Drafts autosave server-side and resume from Home/Trabalhos.
-- [ ] Cost displayed equals cost charged; three variations cost 15 credits.
-- [ ] Partial outputs appear immediately and one retry is automatic/idempotent.
-- [ ] Every completed output is already saved; approval is optional preference.
-- [ ] Inline edit creates a linked version and preserves the original.
-- [ ] Campaign creation, copy review, and reference selection are absent from the new happy path.
-- [ ] Legacy links redirect correctly and convergence gates pass.
+- [x] Home to generation is one request and one explicit paid confirmation.
+- [x] Active brand is global, remembered, and copied into new works only.
+- [x] Text, tool cards, attached art, templates, and approved pieces produce the same canonical draft type.
+- [x] Attached art supports content, style, and both with explicit choice and independent recovery.
+- [x] Drafts autosave server-side and resume from Home/Trabalhos.
+- [x] Cost displayed equals cost charged; three variations cost 15 credits.
+- [x] Partial outputs appear immediately and one retry is automatic/idempotent.
+- [x] Every completed output is already saved; approval is optional preference.
+- [x] Inline edit creates a linked version and preserves the original.
+- [x] Campaign creation, copy review, and reference selection are absent from the new happy path.
+- [x] Legacy links redirect correctly and convergence gates pass.
 - [ ] Full unit, integration, E2E, accessibility, typecheck, lint, and build verification passes.

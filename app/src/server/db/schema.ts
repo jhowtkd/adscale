@@ -2582,6 +2582,7 @@ export const creativeWorkSources = adscaleSchema.table(
     assetId: uuid("asset_id").references(() => workspaceAssets.id, { onDelete: "cascade" }),
     templateId: uuid("template_id").references(() => campaignTemplates.id, { onDelete: "cascade" }),
     usage: text("usage").notNull().$type<import("../creative-work/contracts").CreativeSourceUsage>(),
+    usageConfirmed: boolean("usage_confirmed").notNull().default(false),
     status: text("status").notNull().$type<import("../creative-work/contracts").CreativeSourceStatus>(),
     contentAnalysis: jsonb("content_analysis").$type<import("../ai/image-analysis").ContentBrief>(),
     styleAnalysis: jsonb("style_analysis").$type<import("../ai/image-analysis").StyleBrief>(),

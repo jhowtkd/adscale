@@ -2,13 +2,13 @@
 
 > **Fonte canônica do "o que é o ADScale, em que acredita, e como opera."**
 > Tudo passa pelo crivo da tese central **inteligência criativa em escala** (antes chamada "Curator > operator", reformulada em 2026-06-27).
-> Última atualização: 2026-06-27.
+> Última atualização: 2026-07-18.
 
 ---
 
 ## 1. Visão geral (uma frase)
 
-ADScale é a infraestrutura da **inteligência criativa em escala** pra produção de criativos de performance. O humano deixa de ser **operator** (quem executa cada variação manualmente) e vira **quem decide** (quem define briefing, supervisiona geração, aprova/descarta e itera).
+ADScale é a infraestrutura da **inteligência criativa em escala** pra produção de criativos de performance. O humano deixa de ser **operator** (quem executa cada variação manualmente) e vira **quem decide**: define a intenção e o resultado desejado em um pedido, supervisiona a geração, aprova/descarta e itera. A IA infere o briefing operacional e os detalhes de produção a partir desse pedido, da marca e das referências; revisar esses dados é uma opção, não uma etapa obrigatória.
 
 A IA **reposiciona** o humano. Não substitui. [isso ficou vago e pouco rescritivo. tá muito lúdico]
 
@@ -214,4 +214,4 @@ Detalhes: `[marketing/2026-Q3/fontes-pauta.md](marketing/2026-Q3/fontes-pauta.md
 
 ---
 
-*Mantenido em raiz · PT-BR (EN quando indicado) · Última atualização: 2026-06-26 · Owner: Jhonatan Soares*
+*Mantenido em raiz · PT-BR (EN quando indicado) · Última atualização: 2026-07-18 · Owner: Jhonatan Soares*

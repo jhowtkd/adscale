@@ -1,6 +1,7 @@
 import { generateSocialPostCopy } from "@/server/creative-work/copy";
 import {
   deriveCreativeWorkTitle,
+  inferCreativeWorkFormat,
   inferSocialPostBrief,
 } from "@/server/creative-work/prepare";
 import {
@@ -27,6 +28,9 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
     if (aggregate.sources.some((source) => source.status === "uploaded" || source.status === "analyzing")) {
       return { ok: false as const, error: { code: "sources_not_ready" as const } };
     }
+    if (aggregate.sources.some((source) => !source.usageConfirmed)) {
+      return { ok: false as const, error: { code: "source_usage_required" as const } };
+    }
     const readySources = aggregate.sources.filter((source) => source.status === "ready");
     if (!aggregate.work.request.trim() && readySources.length === 0) {
       return { ok: false as const, error: { code: "missing_input" as const } };
@@ -39,6 +43,10 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
     if (!preparation.success) {
       return { ok: false as const, error: { code: "invalid_preparation" as const } };
     }
+    const contentAnalyses = readySources.flatMap((source) => source.contentAnalysis ? [source.contentAnalysis] : []);
+    const effectiveFormat = preparation.data.settings.formatMode === "auto"
+      ? inferCreativeWorkFormat(contentAnalyses, aggregate.work.request) ?? preparation.data.format
+      : preparation.data.format;
     const sourceAssets = await getCreativeWorkSourceAssetDetails(input.workspaceId, readySources, executor);
     const snapshot = {
       request: aggregate.work.request,
@@ -55,11 +63,12 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
     };
     const quote = quoteCreativeWork({
       intent: preparation.data.intent,
-      format: preparation.data.format,
+      format: effectiveFormat,
       targetFormats: preparation.data.settings.targetFormats,
     });
     if (
       JSON.stringify(aggregate.work.inputSnapshot) === JSON.stringify(snapshot) &&
+      aggregate.work.format === effectiveFormat &&
       socialPostBriefSchema.safeParse(aggregate.work.brief).success &&
       socialPostCopySchema.safeParse(aggregate.work.copy).success
     ) {
@@ -67,7 +76,7 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
     }
     const parsedBrief = socialPostBriefSchema.safeParse(inferSocialPostBrief(
       aggregate.work.request,
-      readySources.flatMap((source) => source.contentAnalysis ? [source.contentAnalysis] : []),
+      contentAnalyses,
     ));
     if (!parsedBrief.success) {
       return { ok: false as const, error: { code: "invalid_preparation" as const } };
@@ -88,6 +97,7 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
         brief: parsedBrief.data,
         copy,
         title: deriveCreativeWorkTitle(parsedBrief.data.theme),
+        format: effectiveFormat,
         settings: preparation.data.settings,
         inputSnapshot: snapshot,
       },

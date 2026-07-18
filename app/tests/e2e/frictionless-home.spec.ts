@@ -24,7 +24,7 @@ type WorkDetail = {
     versionNumber: number;
     isSelected: boolean;
   }>;
-  sources: Array<{ id: string; name: string; status: string; usage: string }>;
+  sources: Array<{ id: string; name: string; status: string; usage: string; usageConfirmed: boolean }>;
 };
 
 function fixture(): Fixture {
@@ -135,11 +135,14 @@ test.describe("Frictionless operational Home", () => {
     const usageBefore = await usageIds(page);
     await page.goto("/");
     await assertSingleActiveBrand(page);
-    await expect(page.getByRole("heading", { name: /o que vamos criar|what shall we create/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /qual hipótese criativa vamos testar|which creative hypothesis should we test/i })).toBeVisible();
 
     const request = "Promoção de matrículas para julho [e2e:retry-once-bold]";
     await fillRequestAndAttach(page, request);
     const source = page.locator("article").filter({ hasText: "arte-e2e.png" });
+    await expect(source.getByRole("status")).toHaveText(/análise concluída|analysis complete/i, { timeout: 60_000 });
+    await expect(source.getByRole("button", { name: "Ambos" })).toHaveAttribute("aria-pressed", "false");
+    await source.getByRole("button", { name: "Ambos" }).click();
     await expect(source.getByRole("button", { name: "Ambos" })).toHaveAttribute("aria-pressed", "true");
     await expect(source.getByRole("status")).toHaveText(/análise concluída|analysis complete/i, { timeout: 60_000 });
     await expect.poll(() => new URL(page.url()).searchParams.get("workId"), { timeout: 30_000 }).toBeTruthy();
@@ -225,6 +228,9 @@ test.describe("Frictionless operational Home", () => {
     await assertSingleActiveBrand(page);
     const request = "Variações de campanha [e2e:retry-twice-bold]";
     await fillRequestAndAttach(page, request, "fonte-pronta.png");
+    await expect(page.locator("article").filter({ hasText: "fonte-pronta.png" }).getByRole("status"))
+      .toHaveText(/análise concluída|analysis complete/i, { timeout: 60_000 });
+    await page.locator("article").filter({ hasText: "fonte-pronta.png" }).getByRole("button", { name: "Ambos" }).click();
     await expect(page.locator("article").filter({ hasText: "fonte-pronta.png" }).getByRole("status"))
       .toHaveText(/análise concluída|analysis complete/i, { timeout: 60_000 });
 

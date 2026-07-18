@@ -29,7 +29,14 @@ Account: `dev-admin@adscale.local`
 | S01 | 1440x900 | **pass** | Operational Home composer | one composer + four optional tool presets; no creation modal |
 | S14 | 1440x900 | **pass** | Assistant intent mode | opened /assistant without workId; creativeWorks=9 |
 
-Pass: 13 · Fail: 0 · Blocked: 0 · Not executed: 0
+Pass: 13 · Fail: 0 · Blocked: 0 · Not executed: 41
+
+## Follow-up — 2026-07-18
+
+- Unit/integration regression suite: **597 files passed; 3,997 tests passed; 7 skipped**.
+- Typecheck, lint (zero errors), production build and convergence gate: **pass**.
+- The focused browser suite was updated for the explicit Content/Style/Both choice and lists 4 runnable scenarios.
+- A fresh browser execution was attempted against the isolated test database, but Docker did not finish creating `adscale-test-postgres`; no new browser scenario is claimed as pass from this attempt.
 
 ## Gate 6
-**NOT REQUESTED** — required matrix incomplete (13/54 required passes recorded).
+**NOT REQUESTED** — required matrix remains incomplete (13/54 required passes recorded; 41 not executed).

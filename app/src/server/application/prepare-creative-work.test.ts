@@ -126,7 +126,7 @@ describe("prepareCreativeWork", () => {
       copy: { headline: "H", body: "B", cta: "C" },
     }, outputs: [], sources: _case === "source timestamp" ? [{
       id: "source-1", status: "ready", updatedAt: new Date("2026-07-16T00:00:00.000Z"),
-      usage: "content", contentAnalysis: null, styleAnalysis: null,
+      usage: "content", usageConfirmed: true, contentAnalysis: null, styleAnalysis: null,
     }] : [] } as never);
     await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
     expect(generateCopy).toHaveBeenCalledOnce();
@@ -152,10 +152,38 @@ describe("prepareCreativeWork", () => {
     expect(generateCopy).not.toHaveBeenCalled();
   });
 
+  it("requires an explicit usage choice for every source", async () => {
+    getWork.mockResolvedValue({ work, outputs: [], sources: [{
+      id: "source-1", status: "ready", usage: "both", usageConfirmed: false,
+      updatedAt: now, contentAnalysis: null, styleAnalysis: null,
+    }] } as never);
+
+    await expect(prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" }))
+      .resolves.toEqual({ ok: false, error: { code: "source_usage_required" } });
+    expect(generateCopy).not.toHaveBeenCalled();
+  });
+
+  it("infers the format from ready content analysis while the draft is in auto mode", async () => {
+    const contentAnalysis = {
+      product: "Curso", offer: "20%", cta: { text: "Inscreva-se", style: "botão" },
+      brandElements: [], keyVisual: "Aluna", textContent: { headline: "Aprenda", bullets: [] }, format: "story 9:16",
+    };
+    getWork.mockResolvedValue({
+      work: { ...work, settings: { targetFormats: [], formatMode: "auto" } },
+      outputs: [],
+      sources: [{ id: "source-1", status: "ready", usage: "content", usageConfirmed: true, updatedAt: now, contentAnalysis, styleAnalysis: null }],
+    } as never);
+
+    const result = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
+
+    expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now, expect.objectContaining({ format: "9:16" }), transactionExecutor);
+    if (result.ok) expect(result.value.quote.plans).toEqual(expect.arrayContaining([expect.objectContaining({ targetFormat: "9:16" })]));
+  });
+
   it("freezes ready source asset keys and analyses in the input snapshot", async () => {
     getWork.mockResolvedValue({ work, outputs: [], sources: [{
       id: "source-1", assetId: "asset-1", status: "ready", updatedAt: now,
-      usage: "style", contentAnalysis: null, styleAnalysis: { description: "Editorial" },
+      usage: "style", usageConfirmed: true, contentAnalysis: null, styleAnalysis: { description: "Editorial" },
     }] } as never);
     getSourceAssets.mockResolvedValue(new Map([["source-1", { assetKey: "workspaces/ws/source.png", mimeType: "image/png" }]]));
     await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });

@@ -66,6 +66,7 @@ function toCanonical(
       id: work.id,
       workspaceId: work.workspaceId,
       clientProfileId: work.clientProfileId,
+      title: work.title,
       toolKind: work.toolKind,
       status: work.status,
       format: work.format,

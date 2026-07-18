@@ -10,6 +10,10 @@ const sourceScript = resolve(
   dirname(fileURLToPath(import.meta.url)),
   "check-frozen-modules.mjs"
 );
+const primaryDestinationsScript = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "check-primary-destinations.mjs"
+);
 
 function git(cwd, args) {
   return execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
@@ -60,6 +64,50 @@ function runGate(root) {
     { cwd: root, encoding: "utf8" }
   );
 }
+
+function setupPrimaryRepository() {
+  const root = mkdtempSync(join(tmpdir(), "adscale-primary-gate-"));
+  git(root, ["init", "-b", "main"]);
+  git(root, ["config", "user.email", "test@example.com"]);
+  git(root, ["config", "user.name", "Primary Gate Test"]);
+  const scriptPath = join(root, "app/scripts/check-primary-destinations.mjs");
+  mkdirSync(dirname(scriptPath), { recursive: true });
+  copyFileSync(primaryDestinationsScript, scriptPath);
+  write(join(root, "app/src/server/ai/already-on-base.ts"), "export const existing = true;\n");
+  write(join(root, "docs/decisions/allowed-primary-destinations.json"), JSON.stringify({
+    schemaVersion: 1,
+    allowedPrimaryDestinations: [{ id: "home", kind: "primary", description: "Home" }],
+    snapshots: {
+      dashboardRouteGroups: [], dashboardPageFiles: [], apiRouteTrees: [], apiRouteFiles: [], serverAiModules: [],
+    },
+  }));
+  git(root, ["add", "."]);
+  git(root, ["commit", "-m", "base with stale snapshot"]);
+  git(root, ["update-ref", "refs/remotes/origin/main", git(root, ["rev-parse", "HEAD"])]);
+  git(root, ["switch", "-c", "feature"]);
+  return root;
+}
+
+function runPrimaryGate(root) {
+  return spawnSync(process.execPath, ["app/scripts/check-primary-destinations.mjs", "--base", "origin/main"], {
+    cwd: root, encoding: "utf8",
+  });
+}
+
+test("primary gate tolerates stale snapshot entries that already exist on base", () => {
+  const root = setupPrimaryRepository();
+  const result = runPrimaryGate(root);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stderr, /snapshot drift/i);
+});
+
+test("primary gate still rejects an AI module introduced by the feature", () => {
+  const root = setupPrimaryRepository();
+  write(join(root, "app/src/server/ai/feature-expansion.ts"), "export const expansion = true;\n");
+  const result = runPrimaryGate(root);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /feature-expansion\.ts/);
+});
 
 test("frozen policy comes from base and cannot be emptied by the feature branch", () => {
   const root = setupRepository();

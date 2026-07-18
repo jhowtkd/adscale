@@ -21,6 +21,7 @@ import {
   type CreativeWorkItem,
   type CreativeWorkOutput,
   type CreativeWorkQuote,
+  type CreativeWorkSource,
 } from "@/lib/hooks/use-creative-work";
 import { quoteCreativeWork } from "@/server/creative-work/contracts";
 import type { CreativeInspiration } from "@/server/application/list-creative-inspirations";
@@ -32,7 +33,7 @@ type DraftSnapshot = {
   request: string;
   intent: ComposerIntent;
   format: Format;
-  settings: { targetFormats: Format[] };
+  settings: { targetFormats: Format[]; formatMode: "auto" | "manual" };
 };
 type DraftSource = { assetId: string } | { templateId: string };
 
@@ -58,7 +59,10 @@ function snapshotFromWork(work: Pick<CreativeWorkItem, "request" | "toolKind" | 
     request: work.request.trim(),
     intent: work.toolKind === "social_post" ? "variations" : work.toolKind,
     format: work.format,
-    settings: { targetFormats: [...work.settings.targetFormats] },
+    settings: {
+      targetFormats: [...work.settings.targetFormats],
+      formatMode: work.settings.formatMode ?? "manual",
+    },
   };
 }
 
@@ -89,11 +93,13 @@ export function useCreativeComposer({
   const [request, setRequestState] = useState("");
   const [intent, setIntent] = useState<ComposerIntent>(initialIntent);
   const [format, setFormat] = useState<Format>("4:5");
+  const [formatMode, setFormatMode] = useState<"auto" | "manual">("auto");
   const [targetFormats, setTargetFormats] = useState<Format[]>(initialTargetFormats);
   const [quote, setQuote] = useState(() => canonicalQuote(initialIntent, "4:5", initialTargetFormats));
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
+  const [brandTrainingSuggestion, setBrandTrainingSuggestion] = useState<string | null>(null);
   const [failedInitialTemplateId, setFailedInitialTemplateId] = useState<string | null>(null);
   const [templateRetryToken, setTemplateRetryToken] = useState(0);
   const composerRef = useRef<HTMLTextAreaElement>(null);
@@ -103,6 +109,7 @@ export function useCreativeComposer({
   const intentRef = useRef(intent);
   const formatRef = useRef(format);
   const targetFormatsRef = useRef(targetFormats);
+  const formatModeRef = useRef<"auto" | "manual">("auto");
   const hydratedWorkRef = useRef<string | null>(null);
   const lastPersistedRef = useRef<string | null>(null);
   const createInFlightRef = useRef<Promise<string | null> | null>(null);
@@ -146,11 +153,13 @@ export function useCreativeComposer({
     intentRef.current = hydrated.intent;
     formatRef.current = hydrated.format;
     targetFormatsRef.current = hydrated.settings.targetFormats;
+    formatModeRef.current = hydrated.settings.formatMode;
     lastPersistedRef.current = signature(hydrated);
     /* TanStack Query is the external persisted source for hydration. */
     setRequestState(work.request);
     setIntent(intentRef.current);
     setFormat(work.format);
+    setFormatMode(hydrated.settings.formatMode);
     setTargetFormats(work.settings.targetFormats);
     setQuote(canonicalQuote(hydrated.intent, hydrated.format, hydrated.settings.targetFormats));
   }, [detailQuery.data]);
@@ -159,7 +168,7 @@ export function useCreativeComposer({
     request: requestRef.current.trim(),
     intent: intentRef.current,
     format: formatRef.current,
-    settings: { targetFormats: [...targetFormatsRef.current] },
+    settings: { targetFormats: [...targetFormatsRef.current], formatMode: formatModeRef.current },
   }), []);
 
   const enqueueSave = useCallback(<T,>(operation: () => Promise<T>): Promise<T> => {
@@ -362,7 +371,7 @@ export function useCreativeComposer({
       void save().catch((cause) => setError(cause instanceof Error ? cause.message : "Falha ao salvar"));
     }, 500);
     return () => window.clearTimeout(timer);
-  }, [active.activeClientProfileId, captureSnapshot, ensureDraft, format, initialWorkId, intent, persistSnapshot, request, targetFormats]);
+  }, [active.activeClientProfileId, captureSnapshot, ensureDraft, format, formatMode, initialWorkId, intent, persistSnapshot, request, targetFormats]);
 
   const setRequest = useCallback((value: string) => {
     requestRef.current = value;
@@ -518,17 +527,27 @@ export function useCreativeComposer({
     templateRetryToken,
   ]);
 
-  const runSourceAction = useCallback(async (action: Parameters<typeof sourceMutation.mutateAsync>[0]) => {
+  const runSourceAction = useCallback(async (action: Parameters<typeof sourceMutation.mutateAsync>[0]): Promise<boolean> => {
     try {
       await sourceMutation.mutateAsync(action);
+      return true;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Falha ao atualizar arte");
+      return false;
     }
   }, [sourceMutation]);
 
   const updateSource = useCallback((sourceId: string, usage: CreativeSourceUsage) => {
     if (!workIdRef.current) return Promise.resolve();
     return runSourceAction({ workItemId: workIdRef.current, action: "updateSource", sourceId, usage });
+  }, [runSourceAction]);
+  const editSource = useCallback((
+    sourceId: string,
+    content: CreativeWorkSource["contentAnalysis"],
+    style: CreativeWorkSource["styleAnalysis"],
+  ) => {
+    if (!workIdRef.current) return Promise.resolve(false);
+    return runSourceAction({ workItemId: workIdRef.current, action: "editSourceAnalysis", sourceId, content, style });
   }, [runSourceAction]);
   const retrySource = useCallback((sourceId: string) => {
     if (!workIdRef.current) return Promise.resolve();
@@ -548,7 +567,10 @@ export function useCreativeComposer({
       if (!id) return;
       const prepared = await prepareMutation.mutateAsync({ workItemId: id });
       setQuote(prepared.quote);
-      await generateMutation.mutateAsync(id);
+      formatRef.current = prepared.work.format;
+      setFormat(prepared.work.format);
+      const generated = await generateMutation.mutateAsync(id);
+      setBrandTrainingSuggestion(generated.brandTrainingSuggestion);
       setAnnouncement("Geração iniciada");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Falha ao gerar");
@@ -636,34 +658,50 @@ export function useCreativeComposer({
   }, [autosaveMutation.isPending, createMutation.isPending, detail, generateMutation.isPending, isUploading, prepareMutation.isPending, request, sourceMutation.isPending, workId]);
 
   const storedProfileId = detail?.work.clientProfileId;
+  const isRestoringWork = Boolean(initialWorkId && !detail);
+  const clientProfileId = isRestoringWork ? null : storedProfileId ?? active.activeClientProfileId;
   const brandName = active.profiles.find((profile) => profile.id === storedProfileId)?.name
-    ?? active.activeProfile?.name
+    ?? (isRestoringWork ? null : active.activeProfile?.name)
     ?? null;
   const hasMeaningfulInput = Boolean(request.trim() || detail?.sources.length);
-  const canGenerate = Boolean(active.activeClientProfileId || storedProfileId) && hasMeaningfulInput
+  const canGenerate = Boolean(clientProfileId) && hasMeaningfulInput
+    && !detail?.sources.some((source) => source.usageConfirmed === false)
     && !isUploading && !generateMutation.isPending;
 
   const campaigns = (campaignQuery.data ?? []).filter((campaign) =>
     !campaign.clientProfileId || campaign.clientProfileId === storedProfileId,
   );
+  const persistedBrandTrainingSuggestion = detail?.work.identitySnapshot
+    && Array.isArray(detail.work.identitySnapshot.assets)
+    && detail.work.identitySnapshot.assets.length === 0
+    && detail.work.status !== "draft"
+    ? "missing_visual_references"
+    : null;
 
   return {
     composerRef: composerRef as RefObject<HTMLTextAreaElement | null>, request, setRequest,
-    intent, selectIntent, format, setFormat: (value: Format) => {
+    intent, selectIntent, format, formatMode, setFormat: (value: Format) => {
       formatRef.current = value;
+      formatModeRef.current = "manual";
+      setFormatMode("manual");
       setFormat(value);
       setQuote(canonicalQuote(intentRef.current, value, targetFormatsRef.current));
     },
-    targetFormats, toggleTargetFormat, state, workId, brandName,
+    setFormatAuto: () => {
+      formatModeRef.current = "auto";
+      setFormatMode("auto");
+    },
+    targetFormats, toggleTargetFormat, state, workId, clientProfileId, brandName,
     sources: detail?.sources ?? [], outputs: detail?.outputs ?? [], quote, canGenerate, isUploading,
     campaignId: detail?.work.campaignId ?? null, campaigns,
-    error, announcement, requiresBrandSelection: active.requiresSelection,
+    error, announcement, brandTrainingSuggestion: brandTrainingSuggestion ?? persistedBrandTrainingSuggestion,
+    requiresBrandSelection: active.requiresSelection,
     retryInitialTemplate: failedInitialTemplateId
       && !detail?.sources.some((source) => source.templateId === failedInitialTemplateId)
       ? retryInitialTemplate
       : null,
     workError: Boolean(workId && detailQuery.isError),
-    addFiles, addInspiration, updateSource, retrySource, removeSource, generate,
+    addFiles, addInspiration, updateSource, editSource, retrySource, removeSource, generate,
     retryOutput, retryRevisionOutput, approveOutput, reviseOutput, linkCampaign,
     downloadOutput: (outputId: string) => {
       if (!workIdRef.current) return;

@@ -123,6 +123,8 @@ const {
 
 const useBrandKitMock = vi.fn();
 const useClientProfilesMock = vi.fn();
+const useActiveClientProfileMock = vi.fn();
+const selectProfileMock = vi.fn();
 const useCreateClientProfileMock = vi.fn(() => ({ mutate: vi.fn(), isPending: false }));
 const useUpdateBrandKitMock = vi.fn(() => ({ mutate: vi.fn(), isPending: false }));
 const useExtractBrandKitMock = vi.fn(() => ({ mutate: vi.fn(), isPending: false }));
@@ -132,6 +134,9 @@ const useClearBrandKitMock = vi.fn(() => ({ mutate: vi.fn(), isPending: false })
 vi.mock("@/lib/hooks/use-client-profiles", () => ({
   useClientProfiles: () => useClientProfilesMock(),
   useCreateClientProfile: () => useCreateClientProfileMock(),
+}));
+vi.mock("@/lib/hooks/use-active-client-profile", () => ({
+  useActiveClientProfile: () => useActiveClientProfileMock(),
 }));
 
 vi.mock("@/lib/hooks/use-brand-kit", async (importOriginal) => {
@@ -181,6 +186,12 @@ beforeEach(() => {
     isSuccess: true,
     isLoading: false,
   });
+  useActiveClientProfileMock.mockReturnValue({
+    profiles: PROFILES,
+    activeClientProfileId: null,
+    isLoading: false,
+    selectProfile: selectProfileMock,
+  });
 });
 
 describe("BrandKitTab — workspace selector", () => {
@@ -199,7 +210,7 @@ describe("BrandKitTab — workspace selector", () => {
     expect(useBrandKitMock).toHaveBeenCalledWith(undefined, { enabled: false });
   });
 
-  it("re-requests the brand kit with the selected clientProfileId on confirm", async () => {
+  it("promotes the selected Brand Kit profile to the global active brand", async () => {
     render(<BrandKitTab />, { wrapper: createWrapper() });
 
     const select = screen.getByRole("combobox", {
@@ -210,9 +221,21 @@ describe("BrandKitTab — workspace selector", () => {
     const confirm = screen.getByRole("button", { name: "Use this profile" });
     fireEvent.click(confirm);
 
-    await waitFor(() => {
-      expect(useBrandKitMock).toHaveBeenCalledWith("profile-a", { enabled: true });
+    await waitFor(() => expect(selectProfileMock).toHaveBeenCalledWith("profile-a"));
+  });
+
+  it("opens the Brand Kit for the global active brand", () => {
+    useActiveClientProfileMock.mockReturnValue({
+      profiles: PROFILES,
+      activeClientProfileId: "profile-b",
+      isLoading: false,
+      selectProfile: selectProfileMock,
     });
+
+    render(<BrandKitTab />, { wrapper: createWrapper() });
+
+    expect(useBrandKitMock).toHaveBeenCalledWith("profile-b", { enabled: true });
+    expect(screen.queryByText("Select a client profile")).not.toBeInTheDocument();
   });
 
   it("does not render the selector for generic errors on single-profile workspaces", () => {
@@ -220,6 +243,12 @@ describe("BrandKitTab — workspace selector", () => {
       data: [{ id: "profile-only", name: "Solo" }],
       isSuccess: true,
       isLoading: false,
+    });
+    useActiveClientProfileMock.mockReturnValue({
+      profiles: [{ id: "profile-only", name: "Solo" }],
+      activeClientProfileId: "profile-only",
+      isLoading: false,
+      selectProfile: selectProfileMock,
     });
     useBrandKitMock.mockReturnValue({
       data: undefined,

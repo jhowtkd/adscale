@@ -533,6 +533,13 @@
       "when": 1784376000000,
       "tag": "0075_frictionless_creative_work",
       "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1784462400000,
+      "tag": "0076_confirm_creative_source_usage",
+      "breakpoints": true
     }
   ]
 }

@@ -16,6 +16,7 @@ export interface CreativeWorkProjectionSource {
   id: string;
   workspaceId: string;
   clientProfileId: string;
+  title?: string;
   toolKind: string;
   status: string;
   format: string;
@@ -106,7 +107,7 @@ export function projectCreativeWorkAsCanonicalWork(
   const selected = orderedOutputs.find((output) => output.isSelected) ?? null;
 
   const theme = work.brief?.theme ?? null;
-  const name = theme?.trim() || `Criar Post ${work.id.slice(0, 8)}`;
+  const name = work.title?.trim() || theme?.trim() || `Criar Post ${work.id.slice(0, 8)}`;
 
   return {
     id: makeCanonicalWorkId("creative_work", work.id),

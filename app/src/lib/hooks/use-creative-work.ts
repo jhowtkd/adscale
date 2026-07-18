@@ -64,7 +64,7 @@ export interface CreativeWorkItem {
   status: CreativeWorkStatus;
   brief: SocialPostBrief;
   format: "1:1" | "4:5" | "9:16";
-  settings: { targetFormats: Array<"1:1" | "4:5" | "9:16"> };
+  settings: { targetFormats: Array<"1:1" | "4:5" | "9:16">; formatMode?: "auto" | "manual" };
   copy: SocialPostCopy | null;
   identitySnapshot: CreativeWorkIdentitySnapshot | null;
   createdAt: Date | string;
@@ -103,6 +103,7 @@ export interface CreativeWorkSource {
   name: string;
   origin: "upload" | "template" | "approved_work";
   usage: CreativeSourceUsage;
+  usageConfirmed: boolean;
   status: "uploaded" | "analyzing" | "ready" | "failed";
   contentAnalysis: ContentBrief | null;
   styleAnalysis: StyleBrief | null;
@@ -400,7 +401,7 @@ export function useTriggerTriplet() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (workItemId: string) =>
-      postJson<{ work: CreativeWorkItem; outputs: CreativeWorkOutput[] }>(
+      postJson<{ work: CreativeWorkItem; outputs: CreativeWorkOutput[]; brandTrainingSuggestion: string | null }>(
         `/api/creative-work/${workItemId}/generate`,
         { action: "initial" },
       ),

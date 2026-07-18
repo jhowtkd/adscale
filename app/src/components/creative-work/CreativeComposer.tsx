@@ -7,6 +7,7 @@ import { Paperclip, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ActiveBrandSwitcher from "@/components/layout/ActiveBrandSwitcher";
 import { CreativeSourceChip } from "./CreativeSourceChip";
+import { CreativeSourceAnalysisEditor } from "./CreativeSourceAnalysisEditor";
 import CreativeProposalGrid from "@/components/quick-tools/create-post/CreativeProposalGrid";
 import type { CreativeComposerModel, CreativeComposerViewModel } from "./useCreativeComposer";
 
@@ -122,13 +123,33 @@ export function CreativeComposer({ composer, composerRef }: {
                 onRemove={() => void composer.removeSource(source.id)}
               />
               {reviewSourceId === source.id ? (
-                <pre className="mt-2 overflow-auto rounded-[var(--radius-control)] bg-[var(--surface-inset)] p-3 text-xs text-[var(--text-secondary)]">
-                  {JSON.stringify({ content: source.contentAnalysis, style: source.styleAnalysis }, null, 2)}
-                </pre>
+                <CreativeSourceAnalysisEditor
+                  source={source}
+                  onSave={(content, style) => composer.editSource(source.id, content, style)}
+                  onSaved={() => setReviewSourceId(null)}
+                />
               ) : null}
             </div>
           ))}
         </div>
+      ) : null}
+
+      {composer.brandTrainingSuggestion ? (
+        <aside className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-4">
+          <p className="text-sm text-[var(--text-secondary)]">{t("brandTrainingSuggestion")}</p>
+          <Link
+            href={{
+              pathname: "/brand-kit",
+              query: {
+                mode: "training",
+                ...(composer.clientProfileId ? { clientProfileId: composer.clientProfileId } : {}),
+              },
+            }}
+            className="text-sm font-semibold text-[var(--accent-primary-text)] hover:underline"
+          >
+            {t("brandTrainingCta")}
+          </Link>
+        </aside>
       ) : null}
 
       <details className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-4">
@@ -139,10 +160,13 @@ export function CreativeComposer({ composer, composerRef }: {
           <label className="text-sm text-[var(--text-secondary)]">
             <span className="mb-1 block">{t("format")}</span>
             <select
-              value={composer.format}
-              onChange={(event) => composer.setFormat(event.target.value as typeof composer.format)}
+              value={composer.formatMode === "auto" ? "auto" : composer.format}
+              onChange={(event) => event.target.value === "auto"
+                ? composer.setFormatAuto()
+                : composer.setFormat(event.target.value as typeof composer.format)}
               className="w-full rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]"
             >
+              <option value="auto">{t("formatAuto", { format: composer.format })}</option>
               {FORMATS.map((value) => <option key={value} value={value}>{value}</option>)}
             </select>
           </label>

@@ -204,6 +204,16 @@ function diff(current, snapshot) {
   return current.filter((name) => !snapshotSet.has(name));
 }
 
+function listBaseAiModules(baseRef) {
+  const prefix = "app/src/server/ai/";
+  const output = git(["ls-tree", "-r", "--name-only", baseRef, "--", prefix]);
+  return output
+    .split("\n")
+    .filter((path) => path.startsWith(prefix) && (path.endsWith(".ts") || path.endsWith(".tsx")))
+    .map((path) => path.slice(prefix.length))
+    .sort();
+}
+
 function readManifestFromWorkingTree() {
   if (!existsSync(manifestPath)) {
     console.error(
@@ -381,7 +391,19 @@ function main() {
     );
   }
 
-  const newAiModules = diff(current.serverAiModules, base.serverAiModules);
+  // A stale snapshot must not brick every subsequent PR after a module has
+  // already landed on the protected base. Union with the immutable base tree:
+  // this repairs policy drift without allowing a feature-branch addition.
+  const baseTreeAiModules = listBaseAiModules(args.base);
+  const snapshotAiModules = Array.isArray(base.serverAiModules) ? base.serverAiModules : [];
+  const missingFromSnapshot = diff(baseTreeAiModules, snapshotAiModules);
+  if (missingFromSnapshot.length > 0) {
+    console.warn(
+      `PRIMARY-DESTINATIONS: snapshot drift on base; accepting existing base module(s): ${missingFromSnapshot.join(", ")}. Update the snapshot through review.`
+    );
+  }
+  const allowedAiModules = [...new Set([...snapshotAiModules, ...baseTreeAiModules])];
+  const newAiModules = diff(current.serverAiModules, allowedAiModules);
   if (newAiModules.length > 0) {
     failures.push(
       `new file(s) under src/server/ai/: ${newAiModules.join(

@@ -77,7 +77,7 @@ export default function DashboardHomeActions({
       <CreativeToolCards selected={composer.intent} onSelect={composer.selectIntent} />
 
       <div data-testid="brand-inspirations-slot" className="min-h-16">
-        <BrandInspirations clientProfileId={activeProfile?.id ?? null} onAttach={composer.addInspiration} />
+        <BrandInspirations clientProfileId={composer.clientProfileId} onAttach={composer.addInspiration} />
       </div>
     </div>
   );

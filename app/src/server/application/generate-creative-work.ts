@@ -107,7 +107,7 @@ export async function generateCreativeWork(input: {
     );
     if (!confirmed) return { ok: false, error: { code: "stale_input" } };
     readyWork = confirmed;
-    brandTrainingSuggestion = selectedReferenceIds.length === 0 ? "Treine referências visuais para aproximar futuros resultados da marca." : null;
+    brandTrainingSuggestion = selectedReferenceIds.length === 0 ? "missing_visual_references" : null;
   } else if (work.status !== "ready" || !work.brief || !work.copy || !work.identitySnapshot) {
     return { ok: false, error: { code: "work_not_draft" } };
   } else {
@@ -119,7 +119,7 @@ export async function generateCreativeWork(input: {
       work = persisted;
       readyWork = persisted;
     }
-    brandTrainingSuggestion = hasTrainingReferences ? null : "Treine referências visuais para aproximar futuros resultados da marca.";
+    brandTrainingSuggestion = hasTrainingReferences ? null : "missing_visual_references";
   }
   if (!work.brief) return { ok: false, error: { code: "work_not_prepared" } };
 

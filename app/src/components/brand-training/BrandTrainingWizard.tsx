@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { m } from "framer-motion";
 import {
@@ -22,6 +22,7 @@ import {
   useClientProfiles,
   useCreateClientProfile,
 } from "@/lib/hooks/use-client-profiles";
+import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
 import {
   useBrandKit,
   useUpdateBrandKit,
@@ -56,10 +57,12 @@ export default function BrandTrainingWizard() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const addToast = useAppStore((s) => s.addToast);
-
-  const [clientProfileId, setClientProfileId] = useState<string | null>(
-    searchParams.get("clientProfileId"),
-  );
+  const activeProfile = useActiveClientProfile();
+  const { activeClientProfileId, profiles, selectProfile } = activeProfile;
+  const requestedProfileId = searchParams.get("clientProfileId");
+  const requestedProfileExists = requestedProfileId !== null
+    && profiles.some((profile) => profile.id === requestedProfileId);
+  const clientProfileId = activeClientProfileId;
   const [stepIndex, setStepIndex] = useState<number>(0);
   const [extractResult, setExtractResult] = useState<MultiExtractResult | null>(null);
 
@@ -67,6 +70,20 @@ export default function BrandTrainingWizard() {
 
   // Auto-advance gate hint: once trained, surface the badge but stay on the step.
   const trained = status.data?.trained ?? false;
+
+  useEffect(() => {
+    if (requestedProfileExists && requestedProfileId && requestedProfileId !== activeClientProfileId) {
+      selectProfile(requestedProfileId);
+    }
+  }, [activeClientProfileId, requestedProfileExists, requestedProfileId, selectProfile]);
+
+  const selectClientProfile = (id: string) => {
+    selectProfile(id);
+    router.replace(
+      `/brand-kit?mode=training&clientProfileId=${encodeURIComponent(id)}`,
+      { scroll: false },
+    );
+  };
 
   const steps = useMemo(
     () =>
@@ -103,25 +120,13 @@ export default function BrandTrainingWizard() {
         {clientProfileId === null ? (
           <ProfileStep
             selectedId={clientProfileId}
-            onSelect={(id) => {
-              setClientProfileId(id);
-              router.replace(
-                `/brand-kit?mode=training&clientProfileId=${encodeURIComponent(id)}`,
-                { scroll: false },
-              );
-            }}
+            onSelect={selectClientProfile}
             onCreated={() => addToast("success", tc("saved"))}
           />
         ) : stepIndex === 0 ?(
           <ProfileStep
             selectedId={clientProfileId}
-            onSelect={(id) => {
-              setClientProfileId(id);
-              router.replace(
-                `/brand-kit?mode=training&clientProfileId=${encodeURIComponent(id)}`,
-                { scroll: false },
-              );
-            }}
+            onSelect={selectClientProfile}
             onCreated={() => addToast("success", tc("saved"))}
           />
         ) : stepIndex === 1 ? (

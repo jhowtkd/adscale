@@ -617,6 +617,43 @@ describe("useCreativeComposer", () => {
     expect(result.current.state).toBe("ready");
   });
 
+  it("does not expose the global brand while an existing work is still hydrating", () => {
+    mocks.work.mockReturnValue({ data: undefined, isLoading: true, isError: false });
+
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+
+    expect(result.current.clientProfileId).toBeNull();
+  });
+
+  it("lets the user pin the displayed 4:5 format while the draft is automatic", () => {
+    const { result } = renderHook(() => useCreativeComposer());
+
+    expect(result.current.format).toBe("4:5");
+    expect(result.current.formatMode).toBe("auto");
+
+    act(() => result.current.setFormat("4:5"));
+
+    expect(result.current.formatMode).toBe("manual");
+  });
+
+  it("autosaves a format-mode change when the displayed ratio stays the same", async () => {
+    mocks.work.mockReturnValue({
+      data: workDetail({ settings: { targetFormats: [], formatMode: "auto" } }),
+      isLoading: false,
+      isError: false,
+    });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+
+    act(() => result.current.setFormat("4:5"));
+    await act(() => vi.advanceTimersByTimeAsync(500));
+
+    expect(mocks.autosave).toHaveBeenCalledWith(expect.objectContaining({
+      workItemId: "work-1",
+      format: "4:5",
+      settings: { targetFormats: [], formatMode: "manual" },
+    }));
+  });
+
   it("retries a failed revision only as a fresh paid revision command", async () => {
     const revision = {
       id: "output-v2",
@@ -690,7 +727,9 @@ describe("useCreativeComposer", () => {
     expect(mocks.autosave).toHaveBeenCalledWith(expect.objectContaining({
       workItemId: "work-1",
       intent: nextIntent,
-      settings: nextIntent === "format_adaptation" ? { targetFormats: ["1:1", "9:16"] } : { targetFormats: [] },
+      settings: nextIntent === "format_adaptation"
+        ? { targetFormats: ["1:1", "9:16"], formatMode: "manual" }
+        : { targetFormats: [], formatMode: "manual" },
     }));
   });
 
@@ -794,6 +833,31 @@ describe("useCreativeComposer", () => {
     expect(mocks.prepare).toHaveBeenCalledOnce();
     expect(mocks.generate).toHaveBeenCalledOnce();
     expect(mocks.autosave.mock.invocationCallOrder[0]).toBeLessThan(mocks.generate.mock.invocationCallOrder[0]);
+  });
+
+  it("keeps the non-blocking brand training suggestion returned by generation", async () => {
+    mocks.work.mockReturnValue({ data: workDetail(), isLoading: false });
+    mocks.generate.mockResolvedValue({
+      work: { status: "generating" }, outputs: [],
+      brandTrainingSuggestion: "missing_visual_references",
+    });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+
+    await act(async () => { await result.current.generate(); });
+
+    expect(result.current.brandTrainingSuggestion).toBe("missing_visual_references");
+  });
+
+  it("restores the brand training suggestion from the persisted identity snapshot", () => {
+    mocks.work.mockReturnValue({
+      data: workDetail({ status: "generating", identitySnapshot: { assets: [] } }),
+      isLoading: false,
+      isError: false,
+    });
+
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+
+    expect(result.current.brandTrainingSuggestion).toBe("missing_visual_references");
   });
 
   it("persists the latest edit when an existing draft unmounts before debounce", async () => {

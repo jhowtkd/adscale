@@ -509,7 +509,7 @@ describe("PATCH /api/creative-work/[id]", () => {
       sources: [{ id: "source-1", workspaceId: "workspace-1", workItemId: "work-1", assetId: "asset-1", templateId: null, usage: "content", status: "ready", updatedAt: new Date("2026-07-16T12:00:00.000Z") }],
     });
     await requestPatch({ action: "updateSource", sourceId: "source-1", usage: "style" });
-    expect(updateSourceMock).toHaveBeenCalledWith("workspace-1", "work-1", "source-1", { usage: "style", status: "uploaded", failureCode: null });
+    expect(updateSourceMock).toHaveBeenCalledWith("workspace-1", "work-1", "source-1", { usage: "style", usageConfirmed: true, status: "uploaded", failureCode: null });
     expect(inngestSendMock).toHaveBeenCalledOnce();
   });
 

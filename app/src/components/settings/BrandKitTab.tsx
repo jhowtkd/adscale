@@ -19,7 +19,8 @@ import {
   resolveBrandKitClientProfileId,
   shouldFetchBrandKit,
 } from "@/lib/hooks/use-brand-kit";
-import { useClientProfiles, useCreateClientProfile } from "@/lib/hooks/use-client-profiles";
+import { useCreateClientProfile } from "@/lib/hooks/use-client-profiles";
+import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 const FOCUS_RING =
@@ -158,13 +159,18 @@ export default function BrandKitTab() {
   const tClient = useTranslations("campaign.pilotSidebar");
   const reducedMotion = useReducedMotion();
 
-  const [selectedProfileId, setSelectedProfileId] = useState<string | undefined>(undefined);
   const [pendingProfileChoice, setPendingProfileChoice] = useState<string>("");
   const [newClientName, setNewClientName] = useState("");
-  const { data: clientProfiles = [], isSuccess: clientProfilesLoaded } = useClientProfiles();
+  const {
+    profiles: clientProfiles,
+    activeClientProfileId,
+    isLoading: clientProfilesLoading,
+    selectProfile,
+  } = useActiveClientProfile();
+  const clientProfilesLoaded = !clientProfilesLoading;
   const createClientProfile = useCreateClientProfile();
   const brandKitClientProfileId = resolveBrandKitClientProfileId({
-    clientProfileId: selectedProfileId,
+    clientProfileId: activeClientProfileId ?? undefined,
     clientProfiles,
   });
   const brandKitQueryEnabled = shouldFetchBrandKit({
@@ -202,7 +208,7 @@ export default function BrandKitTab() {
       {
         onSuccess: (profile) => {
           setNewClientName("");
-          setSelectedProfileId(profile.id);
+          selectProfile(profile.id);
           addToast("success", tClient("toastProfileCreatedAndLinked"));
         },
         onError: (error) =>
@@ -511,7 +517,6 @@ export default function BrandKitTab() {
                   variant="ghost"
                   onClick={() => {
                     setPendingProfileChoice("");
-                    setSelectedProfileId(undefined);
                   }}
                 >
                   {t("brandKit.workspaceSelector.cancel")}
@@ -521,7 +526,7 @@ export default function BrandKitTab() {
                   size="sm"
                   disabled={!pendingProfileChoice}
                   onClick={() => {
-                    setSelectedProfileId(pendingProfileChoice);
+                    selectProfile(pendingProfileChoice);
                   }}
                 >
                   {t("brandKit.workspaceSelector.confirm")}

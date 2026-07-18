@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-07-17T02:40:18.523Z",
+  "generatedAt": "2026-07-18T15:18:57.666Z",
   "schemaVersion": 2,
-  "fingerprint": "4bb5c4164aa770f42e6296deda44a012c1e90c99c690ff2b977b4b59bc81fec5",
+  "fingerprint": "5bca66332074c677f0f4d36fe1a346080ef7d7d6dca17ca763c65362b38bb7a1",
   "counts": {
     "dashboardPages": 14,
     "apiRoutes": 161,
@@ -1266,12 +1266,12 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/brand-training/BrandTrainingWizard.tsx:164",
+      "id": "nav:app/src/components/brand-training/BrandTrainingWizard.tsx:169",
       "kind": "cta_navigation",
       "destination": "/brand-kit",
       "file": "app/src/components/brand-training/BrandTrainingWizard.tsx",
-      "line": 164,
-      "evidence": "app/src/components/brand-training/BrandTrainingWizard.tsx:164",
+      "line": 169,
+      "evidence": "app/src/components/brand-training/BrandTrainingWizard.tsx:169",
       "requiresDecision": false
     },
     {
@@ -1428,12 +1428,12 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/creative-work/CreativeComposer.tsx:32",
+      "id": "nav:app/src/components/creative-work/CreativeComposer.tsx:33",
       "kind": "cta_navigation",
       "destination": "/",
       "file": "app/src/components/creative-work/CreativeComposer.tsx",
-      "line": 32,
-      "evidence": "app/src/components/creative-work/CreativeComposer.tsx:32",
+      "line": 33,
+      "evidence": "app/src/components/creative-work/CreativeComposer.tsx:33",
       "requiresDecision": false
     },
     {

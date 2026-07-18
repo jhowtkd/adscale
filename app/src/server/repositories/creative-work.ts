@@ -412,7 +412,7 @@ export async function createCreativeWorkSource(input: CreateCreativeWorkSourceIn
   });
 }
 
-export type CreativeWorkSourcePatch = Partial<Pick<CreativeWorkSource, "usage" | "status" | "contentAnalysis" | "styleAnalysis" | "failureCode">>;
+export type CreativeWorkSourcePatch = Partial<Pick<CreativeWorkSource, "usage" | "usageConfirmed" | "status" | "contentAnalysis" | "styleAnalysis" | "failureCode">>;
 
 export async function updateCreativeWorkSource(workspaceId: string, workItemId: string, sourceId: string, patch: CreativeWorkSourcePatch): Promise<CreativeWorkSource | null> {
   return db.transaction(async (tx) => {

@@ -1,9 +1,20 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+
+vi.mock("next-intl", () => ({ useTranslations: () => (key: string) => ({
+  sourceOrigin_upload: "Upload", sourceOrigin_template: "Template", sourceOrigin_approved_work: "Trabalho aprovado",
+  removeSource: "Remover", removeSourceAria: "Remover fonte", sourceUsageAria: "Usar arte como",
+  sourceUsage_content: "Conteúdo", sourceUsage_style: "Estilo", sourceUsage_both: "Ambos",
+  sourceUsageRequired: "Escolha como esta arte será usada.", sourceStatus_uploaded: "Aguardando análise",
+  sourceStatus_analyzing: "Analisando arte", sourceStatus_ready: "Análise concluída", sourceStatus_failed: "Falha na análise",
+  extractedData: "Dados extraídos", reviewData: "Revisar dados", retrySource: "Tentar novamente",
+}[key] ?? key) }));
+
 import { CreativeSourceChip } from "./CreativeSourceChip";
 
 const baseSource = {
   id: "source-1", name: "arte.png", origin: "upload" as const, usage: "content" as const,
+  usageConfirmed: true,
   status: "ready" as const, contentAnalysis: { product: "Tênis", offer: "20%" }, styleAnalysis: null,
 };
 
@@ -34,5 +45,14 @@ describe("CreativeSourceChip", () => {
     render(<CreativeSourceChip source={baseSource} onUsageChange={vi.fn()} onRetry={vi.fn()} onRemove={vi.fn()} onReview={onReview} />);
     fireEvent.click(screen.getByRole("button", { name: "Revisar dados" }));
     expect(onReview).toHaveBeenCalledOnce();
+  });
+
+  it("does not preselect a usage before the user makes the required choice", () => {
+    render(<CreativeSourceChip source={{ ...baseSource, usage: "both", usageConfirmed: false }} onUsageChange={vi.fn()} onRetry={vi.fn()} onRemove={vi.fn()} onReview={vi.fn()} />);
+
+    expect(screen.getByRole("button", { name: "Conteúdo" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: "Estilo" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: "Ambos" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByText("Escolha como esta arte será usada.")).toBeInTheDocument();
   });
 });

@@ -264,7 +264,7 @@ export async function PATCH(
         return apiError("invalidInput", 409);
       }
       const updated = parsed.data.action === "updateSource"
-        ? await updateCreativeWorkSource(workspace.id, id, source.id, { usage: parsed.data.usage, status: "uploaded", failureCode: null })
+        ? await updateCreativeWorkSource(workspace.id, id, source.id, { usage: parsed.data.usage, usageConfirmed: true, status: "uploaded", failureCode: null })
         : await updateCreativeWorkSourceIfUnchanged(
           workspace.id,
           id,

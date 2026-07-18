@@ -5,7 +5,20 @@ vi.mock("@/components/layout/ActiveBrandSwitcher", () => ({
 }));
 vi.mock("next-intl", () => ({ useTranslations: () => (key: string, values?: Record<string, number>) => ({
   requestLabel: "Pedido criativo", placeholder: "Descreva", addArt: "Adicionar arte", dropHint: "Solte aqui",
-  optionalSettings: "Ajustes opcionais", format: "Formato", targetFormats: "Formatos de destino",
+  optionalSettings: "Ajustes opcionais", format: "Formato", formatAuto: "Automático (agora: 4:5)", targetFormats: "Formatos de destino",
+  brandTrainingSuggestion: "Treine referências visuais para aproximar futuros resultados da marca.", brandTrainingCta: "Treinar marca",
+  analysisContent: "Conteúdo extraído", analysisStyle: "Estilo extraído", product: "Produto", offer: "Oferta",
+  headline: "Headline", ctaText: "Chamada para ação", ctaStyle: "Estilo da chamada", brandElements: "Elementos da marca",
+  keyVisual: "Visual principal", bullets: "Tópicos", extractedFormat: "Formato extraído", mood: "Clima visual",
+  composition: "Composição", dominantColors: "Cores dominantes", accentColors: "Cores de destaque", gradients: "Gradientes",
+  typography: "Tipografia", typographyEffects: "Efeitos tipográficos", textures: "Texturas", decorativeElements: "Elementos decorativos",
+  photoTreatment: "Tratamento fotográfico", saveData: "Salvar dados", savingData: "Salvando...", saveDataError: "Não foi possível salvar.",
+  sourceOrigin_upload: "Upload", sourceOrigin_template: "Template", sourceOrigin_approved_work: "Trabalho aprovado",
+  removeSource: "Remover", removeSourceAria: "Remover fonte", sourceUsageAria: "Usar arte como",
+  sourceUsage_content: "Conteúdo", sourceUsage_style: "Estilo", sourceUsage_both: "Ambos",
+  sourceUsageRequired: "Escolha como esta arte será usada.", sourceStatus_uploaded: "Aguardando análise",
+  sourceStatus_analyzing: "Analisando arte", sourceStatus_ready: "Análise concluída", sourceStatus_failed: "Falha na análise",
+  extractedData: "Dados extraídos", reviewData: "Revisar dados", retrySource: "Tentar novamente",
   brand: "Marca", noBrand: "Selecione uma marca", inspirationsSlot: "Inspirações",
   selectBrandMessage: "Selecione uma marca para começar", invalidWork: "Trabalho não encontrado", startNew: "Começar nova criação",
 }[key] ?? (key === "generate" ? `Gerar ${values?.count} variações · ${values?.credits} créditos` : key)) }));
@@ -16,14 +29,14 @@ import type { CreativeComposerModel, CreativeComposerViewModel } from "./useCrea
 function composer(overrides = {}) {
   return {
     composerRef: { current: null }, request: "", setRequest: vi.fn(), intent: "variations", selectIntent: vi.fn(),
-    format: "4:5", setFormat: vi.fn(), targetFormats: [], toggleTargetFormat: vi.fn(), state: "empty",
+    format: "4:5", formatMode: "manual", setFormat: vi.fn(), setFormatAuto: vi.fn(), targetFormats: [], toggleTargetFormat: vi.fn(), state: "empty",
     workId: null, brandName: "Marca A", sources: [], outputs: [], quote: { unitCount: 3, credits: 15 },
     campaignId: null, campaigns: [], linkCampaign: vi.fn(), retryOutput: vi.fn(), retryRevisionOutput: vi.fn(), approveOutput: vi.fn(),
     downloadOutput: vi.fn(), reviseOutput: vi.fn(), isRetryingOutput: vi.fn(), isApprovingOutput: vi.fn(), isRevisingOutput: vi.fn(),
-    canGenerate: true, isUploading: false, error: null, announcement: "", requiresBrandSelection: false,
+    canGenerate: true, isUploading: false, error: null, announcement: "", brandTrainingSuggestion: null, requiresBrandSelection: false,
     retryInitialTemplate: null,
     workError: false,
-    addFiles: vi.fn(), updateSource: vi.fn(), retrySource: vi.fn(), removeSource: vi.fn(), generate: vi.fn(),
+    addFiles: vi.fn(), updateSource: vi.fn(), editSource: vi.fn(), retrySource: vi.fn(), removeSource: vi.fn(), generate: vi.fn(),
     ...overrides,
   };
 }
@@ -66,7 +79,7 @@ describe("CreativeComposer", () => {
   it("renders CreativeSourceChip and dispatches its actions", () => {
     const source = {
       id: "source-1", name: "arte.png", origin: "upload", usage: "content", status: "failed",
-      contentAnalysis: null, styleAnalysis: null,
+      usageConfirmed: true, contentAnalysis: null, styleAnalysis: null,
     };
     const value = composer({ sources: [source] });
     renderComposer(value);
@@ -75,6 +88,62 @@ describe("CreativeComposer", () => {
     fireEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
     expect(value.updateSource).toHaveBeenCalledWith("source-1", "style");
     expect(value.retrySource).toHaveBeenCalledWith("source-1");
+  });
+
+  it("lets the user correct extracted data before generation", () => {
+    const contentAnalysis = {
+      product: "Tênis", offer: "20%", cta: { text: "Comprar", style: "botão" },
+      brandElements: [], keyVisual: "Produto", textContent: { headline: "Oferta", bullets: [] }, format: "4:5",
+    };
+    const source = {
+      id: "source-1", name: "arte.png", origin: "upload", usage: "content", usageConfirmed: true, status: "ready",
+      contentAnalysis, styleAnalysis: null,
+    };
+    const value = composer({ sources: [source], editSource: vi.fn().mockResolvedValue(true) });
+    renderComposer(value);
+
+    fireEvent.click(screen.getByRole("button", { name: "Revisar dados" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Produto" }), { target: { value: "Tênis Pro" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Formato extraído" }), { target: { value: "9:16" } });
+    fireEvent.click(screen.getByRole("button", { name: "Salvar dados" }));
+
+    expect(value.editSource).toHaveBeenCalledWith(
+      "source-1",
+      expect.objectContaining({ product: "Tênis Pro", offer: "20%", format: "9:16" }),
+      null,
+    );
+  });
+
+  it("keeps edited analysis open when persistence fails", async () => {
+    const contentAnalysis = {
+      product: "Tênis", offer: "20%", cta: { text: "Comprar", style: "botão" },
+      brandElements: [], keyVisual: "Produto", textContent: { headline: "Oferta", bullets: [] }, format: "4:5",
+    };
+    const value = composer({
+      sources: [{
+        id: "source-1", name: "arte.png", origin: "upload", usage: "content", usageConfirmed: true,
+        status: "ready", contentAnalysis, styleAnalysis: null,
+      }],
+      editSource: vi.fn().mockResolvedValue(false),
+    });
+    renderComposer(value);
+
+    fireEvent.click(screen.getByRole("button", { name: "Revisar dados" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Produto" }), { target: { value: "Tênis editado" } });
+    fireEvent.click(screen.getByRole("button", { name: "Salvar dados" }));
+
+    expect(await screen.findByText("Não foi possível salvar.")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Produto" })).toHaveValue("Tênis editado");
+  });
+
+  it("shows automatic format as a distinct choice so 4:5 can be pinned", () => {
+    const value = composer({ format: "4:5", formatMode: "auto" });
+    renderComposer(value);
+
+    const select = screen.getByRole("combobox", { name: "Formato" });
+    expect(select).toHaveValue("auto");
+    fireEvent.change(select, { target: { value: "4:5" } });
+    expect(value.setFormat).toHaveBeenCalledWith("4:5");
   });
 
   it("renders the hydrated model without applying a second preset state", () => {
@@ -109,6 +178,19 @@ describe("CreativeComposer", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "retryTemplate" }));
     expect(retryInitialTemplate).toHaveBeenCalledOnce();
+  });
+
+  it("shows the optional brand training suggestion without blocking results", () => {
+    renderComposer(composer({
+      clientProfileId: "profile-a",
+      brandTrainingSuggestion: "Treine referências visuais para aproximar futuros resultados da marca.",
+    }));
+
+    expect(screen.getByText(/Treine referências visuais/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Treinar marca" })).toHaveAttribute(
+      "href",
+      "/brand-kit?mode=training&clientProfileId=profile-a",
+    );
   });
 
   it("shows completed results immediately while another output keeps its own processing status", () => {

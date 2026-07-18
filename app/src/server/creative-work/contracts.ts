@@ -21,7 +21,7 @@ export type CreativeWorkIntent = (typeof CREATIVE_WORK_INTENTS)[number];
 export type CreativeSourceUsage = (typeof CREATIVE_SOURCE_USAGES)[number];
 export type CreativeSourceStatus = (typeof CREATIVE_SOURCE_STATUSES)[number];
 export type CreativeWorkFormat = "1:1" | "4:5" | "9:16";
-export type CreativeWorkSettings = { targetFormats: CreativeWorkFormat[] };
+export type CreativeWorkSettings = { targetFormats: CreativeWorkFormat[]; formatMode?: "auto" | "manual" };
 export type CreativeWorkInputSnapshot = {
   request: string;
   settings: CreativeWorkSettings;
@@ -47,6 +47,7 @@ export const creativeWorkIntentSchema = z.enum(CREATIVE_WORK_INTENTS);
 export const creativeWorkFormatSchema = z.enum(["1:1", "4:5", "9:16"]);
 export const creativeWorkSettingsSchema = z.object({
   targetFormats: z.array(creativeWorkFormatSchema),
+  formatMode: z.enum(["auto", "manual"]).optional(),
 });
 export const creativeWorkPreparationSchema = z.object({
   intent: creativeWorkIntentSchema,

@@ -11,8 +11,13 @@ vi.mock("@/components/layout/ActiveBrandSwitcher", () => ({
   default: () => <select aria-label="Marca ativa"><option>Marca</option></select>,
 }));
 vi.mock("next-intl", () => ({
-  useTranslations: () => (key: string, values?: Record<string, number>) =>
-    key === "generate" ? `Gerar ${values?.count} variações · ${values?.credits} créditos` : key,
+  useTranslations: () => (key: string, values?: Record<string, number>) => ({
+    sourceOrigin_template: "Template", sourceOrigin_approved_work: "Trabalho aprovado",
+    sourceUsage_content: "Conteúdo", sourceUsage_style: "Estilo", sourceUsage_both: "Ambos",
+    sourceUsageRequired: "Escolha como esta arte será usada.", sourceUsageAria: "Usar arte como",
+    sourceStatus_ready: "Análise concluída", removeSource: "Remover", removeSourceAria: "Remover fonte",
+    reviewData: "Revisar dados",
+  }[key] ?? (key === "generate" ? `Gerar ${values?.count} variações · ${values?.credits} créditos` : key)),
 }));
 
 import { BrandInspirations } from "./BrandInspirations";
@@ -22,13 +27,13 @@ import type { CreativeInspiration } from "@/server/application/list-creative-ins
 
 const baseComposer = {
   request: "", setRequest: vi.fn(), intent: "variations" as const, selectIntent: vi.fn(),
-  format: "4:5" as const, setFormat: vi.fn(), targetFormats: [], toggleTargetFormat: vi.fn(), state: "empty" as const,
+  format: "4:5" as const, formatMode: "manual" as const, setFormat: vi.fn(), setFormatAuto: vi.fn(), targetFormats: [], toggleTargetFormat: vi.fn(), state: "empty" as const,
   workId: "work-1", brandName: "Marca A", outputs: [], quote: { unitCount: 3, credits: 15 },
   campaignId: null, campaigns: [], linkCampaign: vi.fn(), retryOutput: vi.fn(), retryRevisionOutput: vi.fn(),
   approveOutput: vi.fn(), downloadOutput: vi.fn(), reviseOutput: vi.fn(), isRetryingOutput: vi.fn(),
   isApprovingOutput: vi.fn(), isRevisingOutput: vi.fn(), canGenerate: true, isUploading: false,
-  error: null, announcement: "", requiresBrandSelection: false, workError: false,
-  addFiles: vi.fn(), addInspiration: vi.fn(), updateSource: vi.fn(), retrySource: vi.fn(), removeSource: vi.fn(), generate: vi.fn(),
+  error: null, announcement: "", brandTrainingSuggestion: null, requiresBrandSelection: false, workError: false,
+  addFiles: vi.fn(), addInspiration: vi.fn(), updateSource: vi.fn(), editSource: vi.fn(), retrySource: vi.fn(), removeSource: vi.fn(), generate: vi.fn(),
 };
 
 function Harness() {
@@ -36,7 +41,7 @@ function Harness() {
   const attach = (inspiration: CreativeInspiration) => setSources([{
     id: `source-${inspiration.id}`, workspaceId: "workspace-1", workItemId: "work-1",
     assetId: inspiration.assetId, templateId: inspiration.templateId, name: inspiration.title,
-    origin: inspiration.source, usage: "both", status: "ready", contentAnalysis: null,
+    origin: inspiration.source, usage: "both", usageConfirmed: false, status: "ready", contentAnalysis: null,
     styleAnalysis: null, failureCode: null, createdAt: new Date(), updatedAt: new Date(),
   }]);
   const composer = { ...baseComposer, sources, addInspiration: attach } as CreativeComposerViewModel;
@@ -68,7 +73,10 @@ describe("brand inspiration composer integration", () => {
     expect(within(chip).getByText(originLabel)).toBeInTheDocument();
     expect(within(chip).getByRole("button", { name: "Conteúdo" })).toBeInTheDocument();
     expect(within(chip).getByRole("button", { name: "Estilo" })).toBeInTheDocument();
-    expect(within(chip).getByRole("button", { name: "Ambos" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(chip).getByRole("button", { name: "Conteúdo" })).toHaveAttribute("aria-pressed", "false");
+    expect(within(chip).getByRole("button", { name: "Estilo" })).toHaveAttribute("aria-pressed", "false");
+    expect(within(chip).getByRole("button", { name: "Ambos" })).toHaveAttribute("aria-pressed", "false");
+    expect(within(chip).getByText("Escolha como esta arte será usada.")).toBeInTheDocument();
     expect(window.location.href).toBe(before);
   });
 });

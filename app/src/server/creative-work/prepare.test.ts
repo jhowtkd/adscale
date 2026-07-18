@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   deriveCreativeWorkTitle,
+  inferCreativeWorkFormat,
   inferSocialPostBrief,
 } from "./prepare";
 import { quoteCreativeWork } from "./contracts";
@@ -17,6 +18,28 @@ describe("deriveCreativeWorkTitle", () => {
 
   it("recognizes sentence punctuation even without following whitespace", () => {
     expect(deriveCreativeWorkTitle("Primeira!Segunda")).toBe("Primeira");
+  });
+});
+
+describe("inferCreativeWorkFormat", () => {
+  it.each([
+    ["quadrado 1:1", "1:1"],
+    ["story vertical 9:16", "9:16"],
+    ["retrato 4:5", "4:5"],
+  ])("maps %s to %s", (format, expected) => {
+    expect(inferCreativeWorkFormat([{ format }])).toBe(expected);
+  });
+
+  it("keeps the fallback when analysis has no recognized aspect ratio", () => {
+    expect(inferCreativeWorkFormat([{ format: "paisagem" }])).toBeNull();
+  });
+
+  it("prefers an explicit ratio over a generic orientation word", () => {
+    expect(inferCreativeWorkFormat([{ format: "retrato vertical 4:5" }])).toBe("4:5");
+  });
+
+  it("infers the format from the textual request before image analysis", () => {
+    expect(inferCreativeWorkFormat([], "Crie um Story vertical 9:16")).toBe("9:16");
   });
 });
 
