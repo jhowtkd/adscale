@@ -665,7 +665,9 @@ export function useCreativeComposer({
     ?? null;
   const hasMeaningfulInput = Boolean(request.trim() || detail?.sources.length);
   const canGenerate = Boolean(clientProfileId) && hasMeaningfulInput
-    && !detail?.sources.some((source) => source.usageConfirmed === false)
+    && !detail?.sources.some((source) =>
+      source.usageConfirmed === false || source.status === "uploaded" || source.status === "analyzing"
+    )
     && !isUploading && !generateMutation.isPending;
 
   const campaigns = (campaignQuery.data ?? []).filter((campaign) =>

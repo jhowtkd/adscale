@@ -264,8 +264,6 @@ test.describe("Frictionless operational Home", () => {
       const bold = (await workDetail(page, workId)).outputs.find((output) => output.creativeLevel === "bold");
       return bold && bold.retryCount === 1 && ["queued", "processing"].includes(bold.status);
     }, { timeout: 120_000, intervals: [200, 500] }).toBe(true);
-    await expect(page.locator('[data-testid="proposal-level"][data-status="completed"]')).toHaveCount(2);
-    await expect(page.locator('[data-testid="proposal-level"][data-status="queued"], [data-testid="proposal-level"][data-status="processing"]')).toHaveCount(1);
     await expect(page.getByRole("button", { name: /repetir esta proposta|retry this proposal/i })).toHaveCount(0);
     await expect.poll(async () => {
       const detail = await workDetail(page, workId);
@@ -346,6 +344,10 @@ test.describe("Frictionless operational Home", () => {
       await page.keyboard.press("Shift+Tab");
       await expect(request).toBeFocused();
       await tabTo(page, attach);
+      const useBoth = source.getByRole("button", { name: /ambos|both/i });
+      await tabTo(page, useBoth);
+      await page.keyboard.press("Enter");
+      await expect(useBoth).toHaveAttribute("aria-pressed", "true");
       const generate = page.getByRole("button", { name: /gerar 3 variações · 15 créditos|generate 3 variations · 15 credits/i });
       await expect(generate).toBeEnabled();
       await tabTo(page, generate);

@@ -617,6 +617,22 @@ describe("useCreativeComposer", () => {
     expect(result.current.state).toBe("ready");
   });
 
+  it("keeps generation disabled while a confirmed source is being reanalyzed", () => {
+    mocks.work.mockReturnValue({
+      data: {
+        ...workDetail(),
+        sources: [{ id: "source-1", usageConfirmed: true, status: "analyzing" }],
+      },
+      isLoading: false,
+      isError: false,
+    });
+
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+
+    expect(result.current.state).toBe("analyzing");
+    expect(result.current.canGenerate).toBe(false);
+  });
+
   it("does not expose the global brand while an existing work is still hydrating", () => {
     mocks.work.mockReturnValue({ data: undefined, isLoading: true, isError: false });
 

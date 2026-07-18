@@ -35,8 +35,8 @@ Pass: 13 · Fail: 0 · Blocked: 0 · Not executed: 41
 
 - Unit/integration regression suite: **597 files passed; 3,997 tests passed; 7 skipped**.
 - Typecheck, lint (zero errors), production build and convergence gate: **pass**.
-- The focused browser suite was updated for the explicit Content/Style/Both choice and lists 4 runnable scenarios.
-- A fresh browser execution was attempted against the isolated test database, but Docker did not finish creating `adscale-test-postgres`; no new browser scenario is claimed as pass from this attempt.
+- Focused frictionless browser suite: **4/4 passed** against a fresh isolated Postgres database and the controlled provider; final desktop/mobile keyboard rerun: **2/2 passed in 1m50s**.
+- Covered direct paid generation, persistence/reload, approval/download/revision, automatic and manual retry, source-failure isolation, keyboard/live-region behavior, mobile overflow and serious/critical axe violations.
 
 ## Gate 6
 **NOT REQUESTED** — required matrix remains incomplete (13/54 required passes recorded; 41 not executed).
