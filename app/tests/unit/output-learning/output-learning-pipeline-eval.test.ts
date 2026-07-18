@@ -20,6 +20,7 @@ vi.mock("@/server/repositories/client-output-learning", () => ({
 
 import { getCampaignById } from "@/server/repositories/campaign";
 import { listOutputLearningsByClientProfile } from "@/server/repositories/client-output-learning";
+import { buildApprovedCtaClientOutputLearning } from "@/server/repositories/client-output-learning.fixture";
 
 function baseEvent(overrides: Partial<OutputDecisionEvent> = {}): OutputDecisionEvent {
   return {
@@ -45,33 +46,7 @@ function baseEvent(overrides: Partial<OutputDecisionEvent> = {}): OutputDecision
   };
 }
 
-const approvedCtaLearning: ClientOutputLearning = {
-  id: "learning-cta",
-  workspaceId: "ws-1",
-  clientProfileId: "profile-1",
-  variableKey: "cta",
-  variableValue: "Comprar agora",
-  scopeGenerationMode: "art_variation",
-  scopeFormat: "1:1",
-  preferenceDirection: "prefer",
-  statement: "preferir CTA Comprar agora",
-  confidence: "high",
-  confidenceScore: "0.8500",
-  sampleEventCount: 4,
-  sampleCampaignCount: 2,
-  supportingEvidence: [
-    { eventId: "evt-1", polarity: "supporting", strength: "strong" },
-    { eventId: "evt-2", polarity: "supporting", strength: "medium" },
-  ],
-  contradictingEvidence: [],
-  algorithmVersion: "1.0.0",
-  status: "approved",
-  mem0MemoryId: null,
-  approvedAt: new Date(),
-  createdAt: new Date(),
-  updatedAt: new Date(),
-  lastEvidenceAt: new Date(),
-};
+const approvedCtaLearning = buildApprovedCtaClientOutputLearning();
 
 describe("output learning pipeline eval (EVAL-01)", () => {
   beforeEach(() => {

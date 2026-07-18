@@ -1,35 +1,12 @@
 import { describe, expect, it } from "vitest";
-import type { ClientOutputLearning } from "../../db/schema";
+import { buildClientOutputLearning } from "../../repositories/client-output-learning.fixture";
 import {
   buildAppliedLearningTrace,
   filterApprovedPostgresLearnings,
   guardOutputLearningPrefill,
 } from "./guards";
 
-const baseLearning: ClientOutputLearning = {
-  id: "learning-1",
-  workspaceId: "ws-1",
-  clientProfileId: "client-1",
-  variableKey: "style_policy",
-  variableValue: "extreme",
-  scopeGenerationMode: "",
-  scopeFormat: "",
-  preferenceDirection: "prefer",
-  statement: "prefer extreme style",
-  confidence: "high",
-  confidenceScore: "0.9",
-  sampleEventCount: 3,
-  sampleCampaignCount: 1,
-  supportingEvidence: [{ eventId: "evt-1", polarity: "supporting", strength: "strong" }],
-  contradictingEvidence: [],
-  algorithmVersion: "1.0.0",
-  status: "approved",
-  mem0MemoryId: null,
-  approvedAt: new Date(),
-  createdAt: new Date(),
-  updatedAt: new Date(),
-  lastEvidenceAt: new Date(),
-};
+const baseLearning = buildClientOutputLearning();
 
 describe("filterApprovedPostgresLearnings", () => {
   it("keeps only approved learnings (SAFE-02)", () => {
@@ -40,7 +17,7 @@ describe("filterApprovedPostgresLearnings", () => {
     ]);
 
     expect(filtered).toHaveLength(1);
-    expect(filtered[0]?.id).toBe("learning-1");
+    expect(filtered[0]?.id).toBe(baseLearning.id);
   });
 });
 

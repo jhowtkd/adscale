@@ -11,31 +11,18 @@ vi.mock("../../repositories/client-output-learning", () => ({
 
 import { getCampaignById } from "../../repositories/campaign";
 import { listOutputLearningsByClientProfile } from "../../repositories/client-output-learning";
+import { buildApprovedCtaClientOutputLearning } from "../../repositories/client-output-learning.fixture";
 
-const baseLearning = {
-  id: "learning-1",
-  workspaceId: "ws-1",
+const baseLearning = buildApprovedCtaClientOutputLearning({
   clientProfileId: "client-1",
-  variableKey: "cta",
-  variableValue: "Comprar agora",
   scopeGenerationMode: "",
   scopeFormat: "",
-  preferenceDirection: "prefer",
-  statement: "preferir CTA Comprar agora",
-  confidence: "high",
   confidenceScore: "0.8000",
   sampleEventCount: 5,
-  sampleCampaignCount: 2,
-  supportingEvidence: [{ eventId: "e1", polarity: "supporting", strength: "strong" }],
-  contradictingEvidence: [],
-  algorithmVersion: "1.0.0",
-  status: "approved",
-  mem0MemoryId: null,
-  approvedAt: new Date(),
-  createdAt: new Date(),
-  updatedAt: new Date(),
-  lastEvidenceAt: new Date(),
-};
+  supportingEvidence: [
+    { eventId: "e1", polarity: "supporting", strength: "strong" } as never,
+  ],
+});
 
 describe("getOutputLearningRecommendation", () => {
   beforeEach(() => {
