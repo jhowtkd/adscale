@@ -10,6 +10,9 @@
 
 | Data | Título | Status | PR |
 |------|--------|--------|-----|
+| 2026-07-19 | [Reconciliação de snapshot do corpus pós-retry](./2026-07-19-post-retry-corpus-snapshot-reconciliation.md) | Proposta | — |
+| 2026-07-05 | [Creative score → Olhar narrative bridge](./2026-07-05-creative-score-olhar-narrative-bridge.md) | Proposta | — |
+| 2026-06-30 | [Dual verdict pipeline persistence](./2026-06-30-dual-verdict-pipeline-persistence.md) | Implementado | — |
 | 2026-06-29 | [Observabilidade do auto-retry de derivações](./2026-06-29-derivation-auto-retry-observability.md) | Proposta | [#17](https://github.com/jhowtkd/adscale/pull/17) |
 
 ---
