@@ -13,6 +13,7 @@ import { TesterProfilesPanel } from "@/components/feedback/TesterProfilesPanel";
 import { OwnerAnalyticsPanel } from "@/components/feedback/OwnerAnalyticsPanel";
 import { HumanQualityCorpusPanel } from "@/components/feedback/HumanQualityCorpusPanel";
 import { GuidedFlowFeedbackPanel } from "@/components/feedback/GuidedFlowFeedbackPanel";
+import { AdminInspirationsPanel } from "@/components/admin/AdminInspirationsPanel";
 import { cn } from "@/lib/utils";
 import PageFrame from "@/components/layout/PageFrame";
 import PageHeader from "@/components/layout/PageHeader";
@@ -215,6 +216,7 @@ export default function FeedbackTriagePage() {
 
       <OwnerAnalyticsPanel sessionOptions={sessionOptions} />
       <HumanQualityCorpusPanel />
+      <AdminInspirationsPanel />
       <TesterProfilesPanel />
       <GuidedFlowFeedbackPanel />
       <BetaSessionsPanel />

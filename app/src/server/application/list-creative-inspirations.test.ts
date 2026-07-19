@@ -20,10 +20,18 @@ describe("listCreativeInspirations", () => {
           { id: "output-processing", workspaceId: "workspace-1", clientProfileId: "brand-1", title: "Processando", assetId: "asset-processing", status: "processing", isSelected: true, updatedAt: new Date(now.getTime() + 6_000) },
           { id: "output-outside", workspaceId: "workspace-2", clientProfileId: "brand-1", title: "Outro workspace", assetId: "asset-outside", status: "completed", isSelected: true, updatedAt: new Date(now.getTime() + 5_000) },
         ],
+        listCurated: async () => [
+          { id: "curated-1", name: "Editorial.jpg", updatedAt: new Date(now.getTime() + 3_000) },
+        ],
       },
     );
 
     expect(inspirations).toEqual([
+      {
+        id: "curated-1", source: "curated", title: "Editorial",
+        previewUrl: "/api/creative-work/inspirations/curated-1/file", templateId: null,
+        assetId: null, curatedInspirationId: "curated-1", suggestedIntent: "restyle",
+      },
       {
         id: "template-new", source: "template", title: "Lançamento", previewUrl: null,
         templateId: "template-new", assetId: null, suggestedIntent: "format_adaptation",
@@ -48,6 +56,7 @@ describe("listCreativeInspirations", () => {
           { id: "template-1", workspaceId: "workspace-1", name: "Trocar estilo", generationMode: "restyling", updatedAt: now },
         ],
         listApprovedWork: async () => [],
+        listCurated: async () => [],
       },
     );
 

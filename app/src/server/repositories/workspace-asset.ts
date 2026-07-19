@@ -131,6 +131,46 @@ export async function getWorkspaceAssetByKey(
   return row ?? null;
 }
 
+export async function getCuratedInspirations() {
+  return db
+    .select()
+    .from(workspaceAssets)
+    .where(eq(workspaceAssets.source, "curated_inspiration"))
+    .orderBy(desc(workspaceAssets.createdAt));
+}
+
+export async function getCuratedInspirationById(id: string) {
+  const [row] = await db
+    .select()
+    .from(workspaceAssets)
+    .where(
+      and(
+        eq(workspaceAssets.id, id),
+        eq(workspaceAssets.source, "curated_inspiration")
+      )
+    )
+    .limit(1);
+  return row ?? null;
+}
+
+export async function getMaterializedCuratedInspiration(
+  workspaceId: string,
+  inspirationId: string
+) {
+  const [row] = await db
+    .select()
+    .from(workspaceAssets)
+    .where(
+      and(
+        eq(workspaceAssets.workspaceId, workspaceId),
+        eq(workspaceAssets.source, "curated_inspiration_copy"),
+        sql`${workspaceAssets.metadata}->>'curatedInspirationId' = ${inspirationId}`
+      )
+    )
+    .limit(1);
+  return row ?? null;
+}
+
 export async function updateWorkspaceAsset(
   id: string,
   workspaceId: string,

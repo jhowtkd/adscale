@@ -4,14 +4,16 @@ import {
   type CreativeWorkInspirationCandidate,
 } from "@/server/repositories/creative-work";
 import { getTemplates } from "@/server/repositories/template";
+import { getCuratedInspirations } from "@/server/repositories/workspace-asset";
 
 export type CreativeInspiration = {
   id: string;
-  source: "template" | "approved_work";
+  source: "template" | "approved_work" | "curated";
   title: string;
   previewUrl: string | null;
   templateId: string | null;
   assetId: string | null;
+  curatedInspirationId?: string | null;
   suggestedIntent: CreativeWorkIntent;
 };
 
@@ -28,14 +30,22 @@ type ApprovedWorkCandidate = CreativeWorkInspirationCandidate & {
   isSelected: boolean;
 };
 
+type CuratedCandidate = {
+  id: string;
+  name: string;
+  updatedAt: Date;
+};
+
 type Dependencies = {
   listTemplates: (workspaceId: string) => Promise<TemplateCandidate[]>;
   listApprovedWork: (workspaceId: string, clientProfileId: string) => Promise<ApprovedWorkCandidate[]>;
+  listCurated: () => Promise<CuratedCandidate[]>;
 };
 
 const dependencies: Dependencies = {
   listTemplates: getTemplates,
   listApprovedWork: listCreativeWorkInspirationCandidates,
+  listCurated: getCuratedInspirations,
 };
 
 function templateIntent(generationMode: string): CreativeWorkIntent {
@@ -48,9 +58,10 @@ export async function listCreativeInspirations(
   input: { workspaceId: string; clientProfileId: string },
   deps: Dependencies = dependencies,
 ): Promise<CreativeInspiration[]> {
-  const [templates, approvedWork] = await Promise.all([
+  const [templates, approvedWork, curated] = await Promise.all([
     deps.listTemplates(input.workspaceId),
     deps.listApprovedWork(input.workspaceId, input.clientProfileId),
+    deps.listCurated(),
   ]);
 
   return [
@@ -87,6 +98,19 @@ export async function listCreativeInspirations(
           suggestedIntent: "restyle" as const,
         },
       })),
+    ...curated.map((asset) => ({
+      updatedAt: asset.updatedAt,
+      inspiration: {
+        id: asset.id,
+        source: "curated" as const,
+        title: asset.name.replace(/\.[^.]+$/, ""),
+        previewUrl: `/api/creative-work/inspirations/${asset.id}/file`,
+        templateId: null,
+        assetId: null,
+        curatedInspirationId: asset.id,
+        suggestedIntent: "restyle" as const,
+      },
+    })),
   ]
     .sort((left, right) => right.updatedAt.getTime() - left.updatedAt.getTime() || left.inspiration.id.localeCompare(right.inspiration.id))
     .map(({ inspiration }) => inspiration);

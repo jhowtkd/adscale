@@ -16,7 +16,7 @@ export function BrandInspirations({ clientProfileId, onAttach }: {
   return (
     <section aria-labelledby="brand-inspirations-title">
       <h2 id="brand-inspirations-title" className="mb-3 text-sm font-semibold text-[var(--text-primary)]">
-        Inspirações da marca
+        Inspirações
       </h2>
       {isLoading ? (
         <p role="status" className="h-32 animate-pulse rounded-[var(--radius-object)] bg-[var(--surface-raised)] p-4 text-sm text-[var(--text-muted)]">
@@ -31,7 +31,7 @@ export function BrandInspirations({ clientProfileId, onAttach }: {
         </div>
       ) : data.length === 0 ? (
         <p role="status" className="rounded-[var(--radius-object)] border border-dashed border-[var(--border-subtle)] p-4 text-sm text-[var(--text-muted)]">
-          Nenhuma inspiração disponível para esta marca ainda.
+          Nenhuma inspiração disponível ainda.
         </p>
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
@@ -55,7 +55,11 @@ export function BrandInspirations({ clientProfileId, onAttach }: {
               <span className="block p-3">
                 <span className="block truncate text-sm font-semibold text-[var(--text-primary)]">{inspiration.title}</span>
                 <span className="mt-1 block text-xs text-[var(--text-muted)]">
-                  {inspiration.source === "template" ? "Template" : "Trabalho aprovado"}
+                  {inspiration.source === "template"
+                    ? "Template"
+                    : inspiration.source === "curated"
+                      ? "Seleção ADScale"
+                      : "Trabalho aprovado"}
                 </span>
               </span>
             </button>

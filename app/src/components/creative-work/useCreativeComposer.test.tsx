@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   reviseOutput: vi.fn(),
   selectOutput: vi.fn(),
   linkCampaign: vi.fn(),
+  apiFetch: vi.fn(),
 }));
 
 vi.mock("@/lib/hooks/use-active-client-profile", () => ({
@@ -37,6 +38,9 @@ vi.mock("@/lib/hooks/use-creative-work", () => ({
 vi.mock("@/lib/assistant/chat-attachments", () => ({
   collectImageFiles: (files: File[] | FileList | null) => Array.from(files ?? []),
   uploadChatAttachment: (...args: unknown[]) => mocks.upload(...args),
+}));
+vi.mock("@/lib/api-client", () => ({
+  apiFetch: (...args: unknown[]) => mocks.apiFetch(...args),
 }));
 
 import { useCreativeComposer } from "./useCreativeComposer";
@@ -545,6 +549,29 @@ describe("useCreativeComposer", () => {
       clientProfileId: profileA.id, request: "", assetId: "asset-1", usage: "both",
     }));
     expect(mocks.source).not.toHaveBeenCalled();
+  });
+
+  it("materializes a curated Home inspiration before attaching it", async () => {
+    mocks.apiFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ assetId: "asset-curated" }),
+    });
+    const { result } = renderHook(() => useCreativeComposer());
+
+    await act(() => result.current.addInspiration({
+      id: "curated-1", source: "curated", title: "Editorial",
+      previewUrl: "/api/creative-work/inspirations/curated-1/file", templateId: null,
+      assetId: null, curatedInspirationId: "curated-1", suggestedIntent: "restyle",
+    }));
+
+    expect(mocks.apiFetch).toHaveBeenCalledWith(
+      "/api/creative-work/inspirations/curated-1",
+      { method: "POST", timeoutMs: 60_000 },
+    );
+    expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({
+      assetId: "asset-curated",
+      usage: "both",
+    }));
   });
 
   it("creates a template-backed draft when a template starts an empty composer", async () => {

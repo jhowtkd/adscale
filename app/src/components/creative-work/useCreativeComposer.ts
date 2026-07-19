@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { z } from "zod";
 import { collectImageFiles, uploadChatAttachment } from "@/lib/assistant/chat-attachments";
+import { apiFetch } from "@/lib/api-client";
 import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
 import {
   useAutosaveCreativeWork,
@@ -456,14 +457,26 @@ export function useCreativeComposer({
       return;
     }
     setError(null);
-    if (!inspiration.templateId && !inspiration.assetId) {
+    if (!inspiration.templateId && !inspiration.assetId && !inspiration.curatedInspirationId) {
       setError("Inspiração indisponível");
       return;
     }
-    const source: DraftSource = inspiration.templateId
-      ? { templateId: inspiration.templateId }
-      : { assetId: inspiration.assetId! };
     try {
+      let assetId = inspiration.assetId;
+      if (inspiration.curatedInspirationId) {
+        const response = await apiFetch(
+          `/api/creative-work/inspirations/${inspiration.curatedInspirationId}`,
+          { method: "POST", timeoutMs: 60_000 },
+        );
+        const payload = await response.json().catch(() => ({})) as { assetId?: string; error?: string };
+        if (!response.ok || !payload.assetId) {
+          throw new Error(payload.error ?? "Falha ao preparar inspiração");
+        }
+        assetId = payload.assetId;
+      }
+      const source: DraftSource = inspiration.templateId
+        ? { templateId: inspiration.templateId }
+        : { assetId: assetId! };
       if (!await attachDraftSource(source)) return;
       setAnnouncement("Inspiração adicionada");
     } catch (cause) {

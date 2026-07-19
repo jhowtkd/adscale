@@ -18,11 +18,16 @@ const approved = {
   previewUrl: "/api/workspace/assets/asset-1/file", templateId: null,
   assetId: "asset-1", suggestedIntent: "restyle" as const,
 };
+const curated = {
+  id: "curated-1", source: "curated" as const, title: "Editorial",
+  previewUrl: "/api/creative-work/inspirations/curated-1/file", templateId: null,
+  assetId: null, curatedInspirationId: "curated-1", suggestedIntent: "restyle" as const,
+};
 
 describe("BrandInspirations", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    useInspirationsMock.mockReturnValue({ data: [template, approved], isLoading: false, isError: false });
+    useInspirationsMock.mockReturnValue({ data: [template, approved, curated], isLoading: false, isError: false });
   });
 
   it("lists the active brand inspirations and attaches a template without navigating", () => {
@@ -33,6 +38,7 @@ describe("BrandInspirations", () => {
     expect(useInspirationsMock).toHaveBeenCalledWith("brand-1");
     expect(screen.getByText("Template")).toBeInTheDocument();
     expect(screen.getByText("Trabalho aprovado")).toBeInTheDocument();
+    expect(screen.getByText("Seleção ADScale")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Usar inspiração Lançamento" }));
 
     expect(onAttach).toHaveBeenCalledWith(template);
@@ -76,6 +82,6 @@ describe("BrandInspirations", () => {
   it("explains the empty state for the active brand", () => {
     useInspirationsMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
     render(<BrandInspirations clientProfileId="brand-1" onAttach={vi.fn()} />);
-    expect(screen.getByRole("status")).toHaveTextContent("Nenhuma inspiração disponível para esta marca ainda");
+    expect(screen.getByRole("status")).toHaveTextContent("Nenhuma inspiração disponível ainda");
   });
 });
