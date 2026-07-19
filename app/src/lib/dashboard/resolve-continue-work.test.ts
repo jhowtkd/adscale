@@ -51,6 +51,7 @@ describe("resolveContinueWork", () => {
         kind: "work",
         name: "Hot",
         href: "/?workId=b",
+        originId: "b",
       })
     );
   });

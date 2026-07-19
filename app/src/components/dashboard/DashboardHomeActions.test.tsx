@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const useCanonicalWorksMock = vi.fn();
 const useActiveProfileMock = vi.fn();
 const useComposerMock = vi.fn();
+const useCreativeWorkMock = vi.fn();
 const selectIntentMock = vi.fn();
 const addInspirationMock = vi.fn();
 
@@ -19,6 +20,9 @@ vi.mock("@/lib/hooks/use-canonical-works", () => ({
 }));
 vi.mock("@/lib/hooks/use-active-client-profile", () => ({
   useActiveClientProfile: () => useActiveProfileMock(),
+}));
+vi.mock("@/lib/hooks/use-creative-work", () => ({
+  useCreativeWork: (...args: unknown[]) => useCreativeWorkMock(...args),
 }));
 vi.mock("@/components/creative-work/useCreativeComposer", () => ({
   useCreativeComposer: (...args: unknown[]) => useComposerMock(...args),
@@ -50,14 +54,20 @@ describe("DashboardHomeActions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     useActiveProfileMock.mockReturnValue({ activeProfile: { id: "p1", name: "Marca A" } });
-    useComposerMock.mockImplementation(() => {
+    useCreativeWorkMock.mockReturnValue({ data: undefined, isLoading: false });
+    useComposerMock.mockImplementation(({ initialWorkId }: { initialWorkId?: string }) => {
       const [intent, setIntent] = useState<"variations" | "single" | "format_adaptation" | "restyle">("single");
+      const [workId, setWorkId] = useState<string | null>(initialWorkId ?? null);
       return {
         intent,
+        workId,
         clientProfileId: "p1",
         quote: intent === "format_adaptation" ? { unitCount: 2, credits: 10 } : { unitCount: 1, credits: 5 },
         selectIntent: (next: typeof intent) => { selectIntentMock(next); setIntent(next); },
-        addInspiration: addInspirationMock,
+        addInspiration: (inspiration: { id: string }) => {
+          addInspirationMock(inspiration);
+          setWorkId("created-work");
+        },
       };
     });
   });
@@ -77,7 +87,7 @@ describe("DashboardHomeActions", () => {
     const protocols = screen.getByRole("heading", { name: "dashboard.home.title" }).closest("section");
     const continueLink = screen.getByRole("link", { name: /Continue: Post social/i });
 
-    expect(screen.queryByTestId("creative-composer")).not.toBeInTheDocument();
+    expect(screen.getByTestId("creative-composer")).toBeInTheDocument();
     expect(screen.getByTestId("active-client-switcher")).toBeInTheDocument();
     expect(protocols?.compareDocumentPosition(continueLink)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(continueLink).toHaveAttribute("href", "/?workId=w1");
@@ -99,7 +109,7 @@ describe("DashboardHomeActions", () => {
       initialTemplateId: undefined,
     });
     expect(screen.getByRole("button", { name: /dashboard\.home\.single/i })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.queryByTestId("creative-composer")).not.toBeInTheDocument();
+    expect(screen.getByTestId("creative-composer")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /dashboard\.home\.restyle/i }));
 
@@ -142,6 +152,36 @@ describe("DashboardHomeActions", () => {
     fireEvent.click(screen.getByRole("button", { name: "Inspirações p1" }));
 
     expect(addInspirationMock).toHaveBeenCalledWith({ id: "inspiration-1" });
+    expect(screen.getByTestId("creative-composer")).toBeInTheDocument();
+  });
+
+  it("shows the latest completed productions from the resumable project", () => {
+    useCanonicalWorksMock.mockReturnValue({
+      data: [{
+        id: "creative_work:w1", originKind: "creative_work", originId: "w1", origin: "quick_tool",
+        workspaceId: "ws", name: "Post social", state: "reviewing", updatedAt: "2026-07-13T12:00:00.000Z",
+        resumable: true, resumeHref: "/?workId=w1",
+      }],
+      isLoading: false, isError: false, refetch: vi.fn(),
+    });
+    useCreativeWorkMock.mockReturnValue({
+      data: {
+        outputs: [
+          { id: "output-old", workItemId: "w1", status: "completed", outputKey: "old.png", createdAt: new Date("2026-07-13T10:00:00.000Z") },
+          { id: "output-new", workItemId: "w1", status: "completed", outputKey: "new.png", createdAt: new Date("2026-07-13T11:00:00.000Z") },
+          { id: "output-failed", workItemId: "w1", status: "failed", outputKey: null, createdAt: new Date("2026-07-13T12:00:00.000Z") },
+        ],
+      },
+      isLoading: false,
+    });
+
+    render(<DashboardHomeActions />);
+
+    expect(useCreativeWorkMock).toHaveBeenCalledWith("w1");
+    const fan = screen.getByTestId("recent-production-fan");
+    const previews = fan.querySelectorAll("img");
+    expect(previews).toHaveLength(2);
+    expect(previews[0]).toHaveAttribute("src", "/api/creative-work/w1/outputs/output-new/download");
   });
 
   it("scopes inspirations to the restored work brand instead of the global active brand", () => {

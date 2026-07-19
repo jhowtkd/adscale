@@ -474,15 +474,17 @@ export function useCreativeComposer({
         }
         assetId = payload.assetId;
       }
+      selectIntent(inspiration.suggestedIntent === "social_post" ? "variations" : inspiration.suggestedIntent);
       const source: DraftSource = inspiration.templateId
         ? { templateId: inspiration.templateId }
         : { assetId: assetId! };
       if (!await attachDraftSource(source)) return;
       setAnnouncement("Inspiração adicionada");
+      requestAnimationFrame(() => composerRef.current?.focus());
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Falha ao adicionar inspiração");
     }
-  }, [active.activeClientProfileId, attachDraftSource]);
+  }, [active.activeClientProfileId, attachDraftSource, selectIntent]);
 
   const retryInitialTemplate = useCallback(() => {
     if (!initialTemplateId) return;

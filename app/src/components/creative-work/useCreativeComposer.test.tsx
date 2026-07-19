@@ -546,8 +546,9 @@ describe("useCreativeComposer", () => {
     }));
 
     expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({
-      clientProfileId: profileA.id, request: "", assetId: "asset-1", usage: "both",
+      clientProfileId: profileA.id, request: "", intent: "restyle", assetId: "asset-1", usage: "both",
     }));
+    expect(result.current.intent).toBe("restyle");
     expect(mocks.source).not.toHaveBeenCalled();
   });
 

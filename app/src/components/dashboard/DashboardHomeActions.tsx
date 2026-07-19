@@ -1,19 +1,109 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useMemo } from "react";
 import { useTranslations } from "next-intl";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, ImageIcon } from "lucide-react";
 import { CreativeComposer } from "@/components/creative-work/CreativeComposer";
 import { CreativeToolCards } from "@/components/creative-work/CreativeToolCards";
 import { BrandInspirations } from "@/components/creative-work/BrandInspirations";
 import { useCreativeComposer, type ComposerIntent } from "@/components/creative-work/useCreativeComposer";
 import ActiveBrandSwitcher from "@/components/layout/ActiveBrandSwitcher";
-import { resolveContinueWork } from "@/lib/dashboard/resolve-continue-work";
+import { resolveContinueWork, type ContinueWorkTarget } from "@/lib/dashboard/resolve-continue-work";
 import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
 import { useCanonicalWorks } from "@/lib/hooks/use-canonical-works";
+import { useCreativeWork, type CreativeWorkOutput } from "@/lib/hooks/use-creative-work";
+import { cn } from "@/lib/utils";
 
 const CREATIVE_CHAT_ENABLED = process.env.NEXT_PUBLIC_CREATIVE_CHAT_ENABLED === "true";
+
+const FAN_CARD_TRANSFORMS = [
+  "group-hover:-translate-x-10 group-hover:-rotate-[18deg] group-focus-visible:-translate-x-10 group-focus-visible:-rotate-[18deg]",
+  "group-hover:-translate-x-6 group-hover:-rotate-[10deg] group-focus-visible:-translate-x-6 group-focus-visible:-rotate-[10deg]",
+  "group-hover:-translate-x-2 group-hover:-rotate-2 group-focus-visible:-translate-x-2 group-focus-visible:-rotate-2",
+  "group-hover:translate-x-1 group-hover:rotate-[8deg] group-focus-visible:translate-x-1 group-focus-visible:rotate-[8deg]",
+  "group-hover:translate-x-3 group-hover:rotate-[16deg] group-focus-visible:translate-x-3 group-focus-visible:rotate-[16deg]",
+] as const;
+
+function toTimestamp(value: Date | string) {
+  return value instanceof Date ? value.getTime() : new Date(value).getTime();
+}
+
+function RecentProductionFan({ outputs }: { outputs: CreativeWorkOutput[] }) {
+  const previews = useMemo(
+    () => [...outputs]
+      .filter((output) => output.status === "completed" && output.outputKey)
+      .sort((a, b) => toTimestamp(b.createdAt) - toTimestamp(a.createdAt))
+      .slice(0, 5),
+    [outputs],
+  );
+  const cards: Array<CreativeWorkOutput | null> = previews.length > 0
+    ? previews
+    : [null, null, null];
+
+  return (
+    <span
+      data-testid="recent-production-fan"
+      aria-hidden="true"
+      className="relative h-28 w-24 shrink-0 justify-self-end sm:h-32 sm:w-28 lg:h-36 lg:w-36"
+    >
+      {cards.map((output, index) => (
+        <span
+          key={output?.id ?? `placeholder-${index}`}
+          style={{ zIndex: cards.length - index }}
+          className={cn(
+            "absolute right-1 top-1 flex h-24 w-[4.5rem] origin-bottom-left items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-[var(--surface-inset)] shadow-[0_8px_24px_-10px_rgba(0,0,0,0.65)] transition-transform duration-500 ease-out motion-reduce:transition-none sm:h-28 sm:w-20 lg:h-32 lg:w-24",
+            FAN_CARD_TRANSFORMS[index],
+          )}
+        >
+          {output ? (
+            <Image
+              src={`/api/creative-work/${output.workItemId}/outputs/${output.id}/download`}
+              alt=""
+              width={96}
+              height={128}
+              unoptimized
+              loading="lazy"
+              className="size-full object-cover"
+            />
+          ) : (
+            <ImageIcon size={20} className="text-[var(--text-muted)]" />
+          )}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+function ContinueWorkCard({
+  target,
+  title,
+  hint,
+}: {
+  target: Extract<ContinueWorkTarget, { kind: "work" }>;
+  title: string;
+  hint: string;
+}) {
+  const creativeWorkId = target.originKind === "creative_work" ? target.originId : null;
+  const { data } = useCreativeWork(creativeWorkId);
+
+  return (
+    <Link
+      href={target.href}
+      className="group grid min-h-40 grid-cols-[minmax(0,1fr)_6rem] items-center gap-5 overflow-hidden rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-6 transition-colors hover:bg-[var(--surface-inset)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)] sm:min-h-44 sm:grid-cols-[minmax(0,1fr)_8rem] sm:p-7 lg:min-h-48 lg:grid-cols-[minmax(0,1fr)_10rem]"
+    >
+      <span className="min-w-0">
+        <span id="continue-work-title" className="block text-base font-semibold text-[var(--text-primary)] sm:text-lg">{title}</span>
+        <span className="mt-2 block truncate text-sm text-[var(--text-secondary)]">{hint}</span>
+        <span className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-[var(--text-primary)]">
+          <ArrowRight size={17} aria-hidden="true" />
+        </span>
+      </span>
+      <RecentProductionFan outputs={data?.outputs ?? []} />
+    </Link>
+  );
+}
 
 export default function DashboardHomeActions({
   workId,
@@ -62,24 +152,19 @@ export default function DashboardHomeActions({
         )}
       />
 
-      {CREATIVE_CHAT_ENABLED ? (
+      {CREATIVE_CHAT_ENABLED || composer.workId ? (
         <CreativeComposer composer={composer} composerRef={composerRef} />
       ) : null}
 
       <section aria-labelledby="continue-work-title">
         {isLoading && works.length === 0 ? (
-          <div className="h-24 animate-pulse rounded-[var(--radius-object)] bg-[var(--surface-raised)]" aria-hidden="true" />
+          <div className="h-40 animate-pulse rounded-[var(--radius-object)] bg-[var(--surface-raised)] sm:h-44 lg:h-48" aria-hidden="true" />
         ) : continueTarget.kind === "work" ? (
-          <Link
-            href={continueTarget.href}
-            className="flex items-center justify-between gap-4 rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-5 hover:bg-[var(--surface-inset)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]"
-          >
-            <span>
-              <span id="continue-work-title" className="block text-sm font-semibold text-[var(--text-primary)]">{t("continueWhereLeftOff")}</span>
-              <span className="mt-1 block text-sm text-[var(--text-secondary)]">{t("continueCampaignHint", { name: continueTarget.name })}</span>
-            </span>
-            <ArrowRight size={18} aria-hidden="true" className="text-[var(--text-muted)]" />
-          </Link>
+          <ContinueWorkCard
+            target={continueTarget}
+            title={t("continueWhereLeftOff")}
+            hint={t("continueCampaignHint", { name: continueTarget.name })}
+          />
         ) : (
           <div className="rounded-[var(--radius-object)] border border-dashed border-[var(--border-subtle)] bg-[var(--surface-base)] p-5">
             <h2 id="continue-work-title" className="text-sm font-semibold text-[var(--text-primary)]">{t("firstCreationTitle")}</h2>
