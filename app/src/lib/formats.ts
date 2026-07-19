@@ -61,8 +61,6 @@ const AD_FORMATS: AdFormat[] = [
   },
 ];
 
-const FORMAT_IDS = AD_FORMATS.map((f) => f.id);
-
 function getFormatById(id: string): AdFormat | undefined {
   return AD_FORMATS.find((f) => f.id === id);
 }
@@ -135,8 +133,4 @@ export function formatToOpenAIImageSize(
   }
   const format = getFormatById(formatId);
   return (format?.openaiSize ?? "1024x1024") as OpenAIImageSize;
-}
-
-function getFormatLabel(formatId: string): string {
-  return getFormatById(formatId)?.label ?? formatId;
 }
