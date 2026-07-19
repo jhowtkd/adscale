@@ -184,7 +184,9 @@ export const creativeWorkOutputJob = inngest.createFunction(
           .slice(0, MAX_REFERENCE_IMAGES);
 
         const sourceReferences = (work.inputSnapshot?.sources ?? [])
-          .filter((source) => (source.usage === "style" || source.usage === "both") && source.assetKey && source.mimeType)
+          .filter((source) => (
+            work.toolKind === "restyle" || source.usage === "style" || source.usage === "both"
+          ) && source.assetKey && source.mimeType)
           .map((source) => ({ assetKey: source.assetKey!, mimeType: source.mimeType!, label: `Source ${source.sourceId}` }));
 
         if (output.parentOutputId && (!parentOutput?.outputKey || parentOutput.status !== "completed")) {
@@ -212,8 +214,11 @@ export const creativeWorkOutputJob = inngest.createFunction(
         // Binary payloads cannot cross an Inngest step boundary. The durable
         // asset keys live in the identity snapshot; buffers stay local to this
         // invocation and are consumed immediately by the provider.
+        const orderedReferences = work.toolKind === "restyle"
+          ? [...revisionReferences, ...sourceReferences, ...referenceAssets]
+          : [...revisionReferences, ...referenceAssets, ...sourceReferences];
         referenceImages = await Promise.all(
-          [...revisionReferences, ...referenceAssets, ...sourceReferences].slice(0, MAX_REFERENCE_IMAGES).map(async (asset) => ({
+          orderedReferences.slice(0, MAX_REFERENCE_IMAGES).map(async (asset) => ({
             buffer: await objectStorage.get(asset.assetKey),
             mimeType: asset.mimeType,
             name: asset.label,

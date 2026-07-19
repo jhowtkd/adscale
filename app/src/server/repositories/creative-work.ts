@@ -343,16 +343,16 @@ export async function getCreativeWorkSourceAssetDetails(
   workspaceId: string,
   sources: Pick<CreativeWorkSource, "id" | "assetId">[],
   executor: Pick<typeof db, "select"> = db,
-): Promise<Map<string, { assetKey: string; mimeType: string }>> {
+): Promise<Map<string, { assetKey: string; mimeType: string; source: string }>> {
   const assetIds = sources.flatMap((source) => source.assetId ? [source.assetId] : []);
   if (assetIds.length === 0) return new Map();
-  const assets = await executor.select({ id: workspaceAssets.id, key: workspaceAssets.key, type: workspaceAssets.type })
+  const assets = await executor.select({ id: workspaceAssets.id, key: workspaceAssets.key, type: workspaceAssets.type, source: workspaceAssets.source })
     .from(workspaceAssets)
     .where(and(eq(workspaceAssets.workspaceId, workspaceId), inArray(workspaceAssets.id, assetIds)));
   const byId = new Map(assets.map((asset) => [asset.id, asset]));
   return new Map(sources.flatMap((source) => {
     const asset = source.assetId ? byId.get(source.assetId) : null;
-    return asset ? [[source.id, { assetKey: asset.key, mimeType: asset.type }] as const] : [];
+    return asset ? [[source.id, { assetKey: asset.key, mimeType: asset.type, source: asset.source }] as const] : [];
   }));
 }
 

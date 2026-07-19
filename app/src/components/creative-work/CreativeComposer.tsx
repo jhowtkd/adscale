@@ -20,6 +20,8 @@ export function CreativeComposer({ composer, composerRef }: {
   const t = useTranslations("dashboard.home.composer");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [reviewSourceId, setReviewSourceId] = useState<string | null>(null);
+  const isRestyle = composer.intent === "restyle";
+  const addArtLabel = isRestyle ? t("restyleAddArt") : t("addArt");
 
   const handleDrop = (event: React.DragEvent) => {
     event.preventDefault();
@@ -41,8 +43,8 @@ export function CreativeComposer({ composer, composerRef }: {
     <section aria-labelledby="creative-composer-title" className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 id="creative-composer-title" className="text-2xl font-semibold text-[var(--text-primary)]">{t("title")}</h1>
-          <p className="mt-1 text-sm text-[var(--text-muted)]">{t("subtitle")}</p>
+          <h1 id="creative-composer-title" className="text-2xl font-semibold text-[var(--text-primary)]">{t(isRestyle ? "restyleTitle" : "title")}</h1>
+          <p className="mt-1 text-sm text-[var(--text-muted)]">{t(isRestyle ? "restyleSubtitle" : "subtitle")}</p>
         </div>
         <span className="rounded-full bg-[var(--surface-inset)] px-3 py-1 text-xs font-medium text-[var(--text-secondary)]">
           {t("brand")}: {composer.brandName ?? t("noBrand")}
@@ -62,18 +64,20 @@ export function CreativeComposer({ composer, composerRef }: {
         onDrop={handleDrop}
         className="rounded-[var(--radius-object)] border border-[var(--border-default)] bg-[var(--surface-raised)] p-4 focus-within:ring-2 focus-within:ring-[var(--accent-primary)]"
       >
-        <label htmlFor="creative-composer-request" className="sr-only">{t("requestLabel")}</label>
-        <textarea
-          ref={composerRef}
-          id="creative-composer-request"
-          aria-label={t("requestLabel")}
-          value={composer.request}
-          onChange={(event) => composer.setRequest(event.target.value)}
-          placeholder={t("placeholder")}
-          rows={5}
-          className="w-full resize-y bg-transparent text-base text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
-        />
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border-subtle)] pt-3">
+        {!isRestyle ? <>
+          <label htmlFor="creative-composer-request" className="sr-only">{t("requestLabel")}</label>
+          <textarea
+            ref={composerRef}
+            id="creative-composer-request"
+            aria-label={t("requestLabel")}
+            value={composer.request}
+            onChange={(event) => composer.setRequest(event.target.value)}
+            placeholder={t("placeholder")}
+            rows={5}
+            className="w-full resize-y bg-transparent text-base text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
+          />
+        </> : null}
+        <div className={cn("flex flex-wrap items-center justify-between gap-3", !isRestyle && "mt-3 border-t border-[var(--border-subtle)] pt-3")}>
           <div className="flex items-center gap-2">
             <input
               ref={fileInputRef}
@@ -82,7 +86,7 @@ export function CreativeComposer({ composer, composerRef }: {
               accept="image/png,image/jpeg,image/webp"
               multiple
               tabIndex={-1}
-              aria-label={t("addArt")}
+              aria-label={addArtLabel}
               className="sr-only"
               onChange={(event) => void composer.addFiles(event.target.files)}
             />
@@ -92,7 +96,7 @@ export function CreativeComposer({ composer, composerRef }: {
               className="inline-flex items-center gap-2 rounded-[var(--radius-control)] px-3 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-inset)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]"
             >
               <Paperclip size={16} aria-hidden="true" />
-              {composer.isUploading ? t("uploading") : t("addArt")}
+              {composer.isUploading ? t("uploading") : addArtLabel}
             </button>
             <span className="hidden text-xs text-[var(--text-muted)] sm:inline">{t("dropHint")}</span>
           </div>
@@ -106,7 +110,9 @@ export function CreativeComposer({ composer, composerRef }: {
             )}
           >
             <Sparkles size={16} aria-hidden="true" />
-            {t("generate", { count: composer.quote.unitCount, credits: composer.quote.credits })}
+            {isRestyle
+              ? t("generateRestyle", { credits: composer.quote.credits })
+              : t("generate", { count: composer.quote.unitCount, credits: composer.quote.credits })}
           </button>
         </div>
       </div>
@@ -121,6 +127,7 @@ export function CreativeComposer({ composer, composerRef }: {
                 onReview={() => setReviewSourceId((current) => current === source.id ? null : source.id)}
                 onRetry={() => void composer.retrySource(source.id)}
                 onRemove={() => void composer.removeSource(source.id)}
+                simple={isRestyle}
               />
               {reviewSourceId === source.id ? (
                 <CreativeSourceAnalysisEditor
@@ -152,7 +159,7 @@ export function CreativeComposer({ composer, composerRef }: {
         </aside>
       ) : null}
 
-      <details className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-4">
+      {!isRestyle ? <details className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-4">
         <summary className="cursor-pointer text-sm font-medium text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]">
           {t("optionalSettings")}
         </summary>
@@ -186,7 +193,7 @@ export function CreativeComposer({ composer, composerRef }: {
             </div>
           </fieldset>
         </div>
-      </details>
+      </details> : null}
 
       {composer.outputs.length > 0 ? (
         <section aria-labelledby="creative-results-title" className="space-y-4">

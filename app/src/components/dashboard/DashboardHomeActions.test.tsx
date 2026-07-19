@@ -115,6 +115,23 @@ describe("DashboardHomeActions", () => {
 
     expect(selectIntentMock).toHaveBeenCalledWith("restyle");
     expect(screen.getByRole("button", { name: /dashboard\.home\.restyle/i })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("creative-composer")).toBeInTheDocument();
+  });
+
+  it("keeps the composer linked to every creation protocol before a draft exists", () => {
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+
+    render(<DashboardHomeActions />);
+    expect(screen.getByTestId("creative-composer")).toHaveTextContent("single:5");
+
+    fireEvent.click(screen.getByRole("button", { name: /dashboard\.home\.variations/i }));
+    expect(screen.getByTestId("creative-composer")).toHaveTextContent("variations:5");
+
+    fireEvent.click(screen.getByRole("button", { name: /dashboard\.home\.format_adaptation/i }));
+    expect(screen.getByTestId("creative-composer")).toHaveTextContent("format_adaptation:10");
+
+    fireEvent.click(screen.getByRole("button", { name: /dashboard\.home\.restyle/i }));
+    expect(screen.getByTestId("creative-composer")).toHaveTextContent("restyle:5");
   });
 
   it("passes safe route presets to the same composer instance", () => {

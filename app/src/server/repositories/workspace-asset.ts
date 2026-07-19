@@ -1,4 +1,4 @@
-import { eq, and, desc, sql, count } from "drizzle-orm";
+import { eq, and, desc, sql, count, notInArray } from "drizzle-orm";
 import { db } from "../db";
 import { workspaceAssets } from "../db/schema";
 
@@ -37,6 +37,7 @@ interface WorkspaceAssetFilters {
   tags?: string[];
   type?: string;
   source?: string;
+  excludeSources?: string[];
 }
 
 function buildAssetConditions(workspaceId: string, options: WorkspaceAssetFilters) {
@@ -60,6 +61,10 @@ function buildAssetConditions(workspaceId: string, options: WorkspaceAssetFilter
 
   if (options.source) {
     conditions.push(eq(workspaceAssets.source, options.source));
+  }
+
+  if (options.excludeSources?.length) {
+    conditions.push(notInArray(workspaceAssets.source, options.excludeSources));
   }
 
   if (options.tags && options.tags.length > 0) {

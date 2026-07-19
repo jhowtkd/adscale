@@ -163,6 +163,28 @@ describe("prepareCreativeWork", () => {
     expect(generateCopy).not.toHaveBeenCalled();
   });
 
+  it("infers content and style roles for a restyle without asking the user", async () => {
+    getWork.mockResolvedValue({ work: { ...work, toolKind: "restyle", request: "" }, outputs: [], sources: [
+      { id: "source-style", assetId: "asset-style", status: "ready", usage: "both", usageConfirmed: false, updatedAt: now, contentAnalysis: null, styleAnalysis: { description: "Editorial" } },
+      { id: "source-content", assetId: "asset-content", status: "ready", usage: "both", usageConfirmed: false, updatedAt: now, contentAnalysis: { product: "Curso" }, styleAnalysis: null },
+    ] } as never);
+    getSourceAssets.mockResolvedValue(new Map([
+      ["source-style", { assetKey: "style.png", mimeType: "image/png", source: "curated_inspiration_copy" }],
+      ["source-content", { assetKey: "content.png", mimeType: "image/png", source: "upload" }],
+    ]) as never);
+    inferBrief.mockReturnValue({ theme: "Curso", objective: "Reestilizar", audience: "Público", offer: "Curso" });
+
+    const result = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
+
+    expect(result.ok).toBe(true);
+    expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now, expect.objectContaining({
+      inputSnapshot: expect.objectContaining({ sources: expect.arrayContaining([
+        expect.objectContaining({ sourceId: "source-style", usage: "style" }),
+        expect.objectContaining({ sourceId: "source-content", usage: "content" }),
+      ]) }),
+    }), transactionExecutor);
+  });
+
   it("infers the format from ready content analysis while the draft is in auto mode", async () => {
     const contentAnalysis = {
       product: "Curso", offer: "20%", cta: { text: "Inscreva-se", style: "botão" },
@@ -185,7 +207,7 @@ describe("prepareCreativeWork", () => {
       id: "source-1", assetId: "asset-1", status: "ready", updatedAt: now,
       usage: "style", usageConfirmed: true, contentAnalysis: null, styleAnalysis: { description: "Editorial" },
     }] } as never);
-    getSourceAssets.mockResolvedValue(new Map([["source-1", { assetKey: "workspaces/ws/source.png", mimeType: "image/png" }]]));
+    getSourceAssets.mockResolvedValue(new Map([["source-1", { assetKey: "workspaces/ws/source.png", mimeType: "image/png", source: "upload" }]]));
     await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
     expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now, expect.objectContaining({
       inputSnapshot: expect.objectContaining({ sources: [expect.objectContaining({ assetKey: "workspaces/ws/source.png", mimeType: "image/png", style: { description: "Editorial" } })] }),

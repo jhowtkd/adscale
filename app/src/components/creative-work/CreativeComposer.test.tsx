@@ -5,6 +5,8 @@ vi.mock("@/components/layout/ActiveBrandSwitcher", () => ({
 }));
 vi.mock("next-intl", () => ({ useTranslations: () => (key: string, values?: Record<string, number>) => ({
   requestLabel: "Pedido criativo", placeholder: "Descreva", addArt: "Adicionar arte", dropHint: "Solte aqui",
+  restyleTitle: "Copiar o estilo da referência", restyleSubtitle: "Adicione a arte original e a referência de estilo.",
+  restyleAddArt: "Adicionar arte original", generateRestyle: "Gerar reestilização · 5 créditos",
   optionalSettings: "Ajustes opcionais", format: "Formato", formatAuto: "Automático (agora: 4:5)", targetFormats: "Formatos de destino",
   brandTrainingSuggestion: "Treine referências visuais para aproximar futuros resultados da marca.", brandTrainingCta: "Treinar marca",
   analysisContent: "Conteúdo extraído", analysisStyle: "Estilo extraído", product: "Produto", offer: "Oferta",
@@ -74,6 +76,22 @@ describe("CreativeComposer", () => {
     expect(value.addFiles).toHaveBeenCalledWith([file]);
     expect(screen.getByLabelText("Adicionar arte", { selector: "input" })).toHaveAttribute("tabindex", "-1");
     expect(screen.getByRole("status")).toHaveAttribute("aria-live", "polite");
+  });
+
+  it("turns restyle into a direct two-image action without extra choices", () => {
+    const source = {
+      id: "source-1", name: "referencia.png", origin: "upload", usage: "both", status: "ready",
+      usageConfirmed: false, contentAnalysis: null, styleAnalysis: null,
+    };
+    renderComposer(composer({ intent: "restyle", sources: [source], quote: { unitCount: 1, credits: 5 } }));
+
+    expect(screen.getByRole("heading", { name: "Copiar o estilo da referência" })).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: /pedido criativo/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Gerar reestilização · 5 créditos" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Adicionar arte original", { selector: "input" })).toBeInTheDocument();
+    expect(screen.queryByText("Ajustes opcionais")).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Usar arte como" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Escolha como esta arte será usada.")).not.toBeInTheDocument();
   });
 
   it("renders CreativeSourceChip and dispatches its actions", () => {

@@ -26,6 +26,7 @@ export function useWorkspaceAssets(options: {
   tags?: string[];
   type?: string;
   source?: string;
+  excludeSources?: string[];
   page?: number;
   limit?: number;
 } = {}) {
@@ -34,6 +35,7 @@ export function useWorkspaceAssets(options: {
   if (options.tags?.length) params.set("tags", options.tags.join(","));
   if (options.type) params.set("type", options.type);
   if (options.source) params.set("source", options.source);
+  if (options.excludeSources?.length) params.set("excludeSources", options.excludeSources.join(","));
   if (options.page) params.set("page", String(options.page));
   if (options.limit) params.set("limit", String(options.limit));
 

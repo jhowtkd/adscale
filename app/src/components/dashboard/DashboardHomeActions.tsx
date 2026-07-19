@@ -16,8 +16,6 @@ import { useCanonicalWorks } from "@/lib/hooks/use-canonical-works";
 import { useCreativeWork, type CreativeWorkOutput } from "@/lib/hooks/use-creative-work";
 import { cn } from "@/lib/utils";
 
-const CREATIVE_CHAT_ENABLED = process.env.NEXT_PUBLIC_CREATIVE_CHAT_ENABLED === "true";
-
 const FAN_CARD_TRANSFORMS = [
   "group-hover:-translate-x-10 group-hover:-rotate-[18deg] group-focus-visible:-translate-x-10 group-focus-visible:-rotate-[18deg]",
   "group-hover:-translate-x-6 group-hover:-rotate-[10deg] group-focus-visible:-translate-x-6 group-focus-visible:-rotate-[10deg]",
@@ -152,9 +150,7 @@ export default function DashboardHomeActions({
         )}
       />
 
-      {CREATIVE_CHAT_ENABLED || composer.workId ? (
-        <CreativeComposer composer={composer} composerRef={composerRef} />
-      ) : null}
+      <CreativeComposer composer={composer} composerRef={composerRef} />
 
       <section aria-labelledby="continue-work-title">
         {isLoading && works.length === 0 ? (

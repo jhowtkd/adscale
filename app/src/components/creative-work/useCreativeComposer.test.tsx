@@ -546,7 +546,7 @@ describe("useCreativeComposer", () => {
     }));
 
     expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({
-      clientProfileId: profileA.id, request: "", intent: "restyle", assetId: "asset-1", usage: "both",
+      clientProfileId: profileA.id, request: "", intent: "restyle", assetId: "asset-1", usage: "style",
     }));
     expect(result.current.intent).toBe("restyle");
     expect(mocks.source).not.toHaveBeenCalled();
@@ -571,7 +571,18 @@ describe("useCreativeComposer", () => {
     );
     expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({
       assetId: "asset-curated",
-      usage: "both",
+      usage: "style",
+    }));
+  });
+
+  it("attaches the first uploaded image as restyle content", async () => {
+    const { result } = renderHook(() => useCreativeComposer({ initialIntent: "restyle" }));
+    const file = new File(["image"], "original.png", { type: "image/png" });
+
+    await act(() => result.current.addFiles([file]));
+
+    expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({
+      intent: "restyle", assetId: expect.any(String), usage: "content",
     }));
   });
 
@@ -659,6 +670,24 @@ describe("useCreativeComposer", () => {
 
     expect(result.current.state).toBe("analyzing");
     expect(result.current.canGenerate).toBe(false);
+  });
+
+  it("enables restyle with two ready sources without asking for usage confirmation", () => {
+    mocks.work.mockReturnValue({
+      data: {
+        ...workDetail({ toolKind: "restyle", request: "" }),
+        sources: [
+          { id: "source-1", usage: "both", usageConfirmed: false, status: "ready" },
+          { id: "source-2", usage: "both", usageConfirmed: false, status: "ready" },
+        ],
+      },
+      isLoading: false,
+      isError: false,
+    });
+
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+
+    expect(result.current.canGenerate).toBe(true);
   });
 
   it("does not expose the global brand while an existing work is still hydrating", () => {

@@ -18,6 +18,8 @@ import {
   withCreativeWorkPreparationLock,
 } from "@/server/repositories/creative-work";
 
+const RESTYLE_STYLE_ASSET_SOURCES = new Set(["creative_work", "curated_inspiration_copy"]);
+
 export async function prepareCreativeWork(input: { workspaceId: string; workItemId: string }) {
   return withCreativeWorkPreparationLock(input.workspaceId, input.workItemId, async (executor) => {
     const aggregate = await getCreativeWork(input.workspaceId, input.workItemId, executor);
@@ -28,7 +30,7 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
     if (aggregate.sources.some((source) => source.status === "uploaded" || source.status === "analyzing")) {
       return { ok: false as const, error: { code: "sources_not_ready" as const } };
     }
-    if (aggregate.sources.some((source) => !source.usageConfirmed)) {
+    if (aggregate.work.toolKind !== "restyle" && aggregate.sources.some((source) => !source.usageConfirmed)) {
       return { ok: false as const, error: { code: "source_usage_required" as const } };
     }
     const readySources = aggregate.sources.filter((source) => source.status === "ready");
@@ -43,20 +45,38 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
     if (!preparation.success) {
       return { ok: false as const, error: { code: "invalid_preparation" as const } };
     }
-    const contentAnalyses = readySources.flatMap((source) => source.contentAnalysis ? [source.contentAnalysis] : []);
+    const sourceAssets = await getCreativeWorkSourceAssetDetails(input.workspaceId, readySources, executor);
+    let hasRestyleContent = false;
+    const effectiveSources = readySources.map((source) => {
+      if (aggregate.work.toolKind !== "restyle") return { source, usage: source.usage };
+      const isKnownStyle = Boolean(source.templateId)
+        || RESTYLE_STYLE_ASSET_SOURCES.has(sourceAssets.get(source.id)?.source ?? "");
+      const usage = isKnownStyle || hasRestyleContent ? "style" as const : "content" as const;
+      if (usage === "content") hasRestyleContent = true;
+      return { source, usage };
+    });
+    if (aggregate.work.toolKind === "restyle" && (
+      effectiveSources.length < 2
+      || !effectiveSources.some(({ usage }) => usage === "content")
+      || !effectiveSources.some(({ usage }) => usage === "style")
+    )) {
+      return { ok: false as const, error: { code: "missing_input" as const } };
+    }
+    const contentAnalyses = effectiveSources.flatMap(({ source, usage }) =>
+      usage !== "style" && source.contentAnalysis ? [source.contentAnalysis] : []
+    );
     const effectiveFormat = preparation.data.settings.formatMode === "auto"
       ? inferCreativeWorkFormat(contentAnalyses, aggregate.work.request) ?? preparation.data.format
       : preparation.data.format;
-    const sourceAssets = await getCreativeWorkSourceAssetDetails(input.workspaceId, readySources, executor);
     const snapshot = {
       request: aggregate.work.request,
       settings: preparation.data.settings,
-      sources: readySources.map((source) => ({
+      sources: effectiveSources.map(({ source, usage }) => ({
         sourceId: source.id,
         updatedAt: source.updatedAt.toISOString(),
         assetKey: sourceAssets.get(source.id)?.assetKey ?? null,
         mimeType: sourceAssets.get(source.id)?.mimeType ?? null,
-        usage: source.usage,
+        usage,
         content: source.contentAnalysis,
         style: source.styleAnalysis,
       })),

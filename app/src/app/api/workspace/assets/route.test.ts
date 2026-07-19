@@ -91,6 +91,17 @@ describe("GET /api/workspace/assets", () => {
       })
     );
   });
+
+  it("lets the library exclude inspiration assets", async () => {
+    mockGetWorkspaceAssets.mockResolvedValue([]);
+
+    await GET(new Request("http://localhost/api/workspace/assets?excludeSources=curated_inspiration,curated_inspiration_copy"));
+
+    expect(mockGetWorkspaceAssets).toHaveBeenCalledWith(
+      "workspace-1",
+      expect.objectContaining({ excludeSources: ["curated_inspiration", "curated_inspiration_copy"] }),
+    );
+  });
 });
 
 describe("POST /api/workspace/assets", () => {

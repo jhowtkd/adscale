@@ -560,6 +560,22 @@ describe("creativeWorkOutputJob", () => {
     expect(objectGetMock).not.toHaveBeenCalledWith("content.png");
   });
 
+  it("sends both the original and style image to the provider for restyle", async () => {
+    getCreativeWorkMock.mockResolvedValue({
+      work: { ...workItem, toolKind: "restyle", inputSnapshot: { request: "", settings: { targetFormats: [] }, sources: [
+        { sourceId: "style", updatedAt: "now", assetKey: "style.png", mimeType: "image/png", usage: "style", content: null, style: { description: "editorial" } },
+        { sourceId: "content", updatedAt: "now", assetKey: "content.png", mimeType: "image/png", usage: "content", content: { subject: "produto" }, style: null },
+      ] } },
+      outputs: [makeQueuedOutput()],
+    });
+    markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+    await runJob();
+
+    expect(objectGetMock).toHaveBeenCalledWith("style.png");
+    expect(objectGetMock).toHaveBeenCalledWith("content.png");
+  });
+
   it("skips generation entirely when the output is already completed (duplicate event)", async () => {
     getCreativeWorkMock.mockResolvedValue({
       work: workItem,

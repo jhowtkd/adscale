@@ -36,7 +36,7 @@ type DraftSnapshot = {
   format: Format;
   settings: { targetFormats: Format[]; formatMode: "auto" | "manual" };
 };
-type DraftSource = { assetId: string } | { templateId: string };
+type DraftSource = ({ assetId: string } | { templateId: string }) & { usage?: CreativeSourceUsage };
 
 const COMPOSER_INTENTS = new Set<ComposerIntent>([
   "variations",
@@ -223,7 +223,7 @@ export function useCreativeComposer({
           workItemId: id,
           action: "attachSource",
           ...source,
-          usage: "both",
+          usage: source.usage ?? "both",
         });
         return id;
       });
@@ -240,7 +240,7 @@ export function useCreativeComposer({
         clientProfileId: active.activeClientProfileId!,
         draftKey: draftKeyRef.current,
         ...snapshot,
-        ...(source ? { ...source, usage: "both" as const } : {}),
+        ...(source ? { ...source, usage: source.usage ?? "both" } : {}),
       });
       if (!UUID_SCHEMA.safeParse(result.work.id).success) {
         throw new Error("Identificador do trabalho inválido");
@@ -389,7 +389,7 @@ export function useCreativeComposer({
       setTargetFormats(nextTargets);
     }
     setQuote(canonicalQuote(next, formatRef.current, nextTargets));
-    requestAnimationFrame(() => composerRef.current?.focus());
+    if (next !== "restyle") requestAnimationFrame(() => composerRef.current?.focus());
   }, []);
 
   const toggleTargetFormat = useCallback((value: Format) => {
@@ -411,17 +411,24 @@ export function useCreativeComposer({
     setIsUploading(true);
     setError(null);
     try {
+      let hasRestyleContent = Boolean(detailQuery.data?.sources.some((source) =>
+        source.usageConfirmed && (source.usage === "content" || source.usage === "both")
+      ));
       for (const file of images) {
         const uploaded = await uploadChatAttachment(file);
+        const usage: CreativeSourceUsage = intentRef.current === "restyle"
+          ? (hasRestyleContent ? "style" : "content")
+          : "both";
+        if (usage === "content") hasRestyleContent = true;
         const existingId = workIdRef.current;
         if (!existingId) {
-          await ensureDraft({ assetId: uploaded.assetId });
+          await ensureDraft({ assetId: uploaded.assetId, usage });
         } else {
           await sourceMutation.mutateAsync({
             workItemId: existingId,
             action: "attachSource",
             assetId: uploaded.assetId,
-            usage: "both",
+            usage,
           });
         }
       }
@@ -431,7 +438,7 @@ export function useCreativeComposer({
     } finally {
       setIsUploading(false);
     }
-  }, [active.activeClientProfileId, announce, ensureDraft, sourceMutation]);
+  }, [active.activeClientProfileId, announce, detailQuery.data?.sources, ensureDraft, sourceMutation]);
 
   const attachDraftSource = useCallback(async (source: DraftSource): Promise<boolean> => {
     if (!workIdRef.current && !active.activeClientProfileId) {
@@ -444,7 +451,7 @@ export function useCreativeComposer({
         workItemId: existingId,
         action: "attachSource",
         ...source,
-        usage: "both",
+        usage: source.usage ?? (intentRef.current === "restyle" ? "style" : "both"),
       });
       return true;
     }
@@ -476,8 +483,8 @@ export function useCreativeComposer({
       }
       selectIntent(inspiration.suggestedIntent === "social_post" ? "variations" : inspiration.suggestedIntent);
       const source: DraftSource = inspiration.templateId
-        ? { templateId: inspiration.templateId }
-        : { assetId: assetId! };
+        ? { templateId: inspiration.templateId, usage: inspiration.suggestedIntent === "restyle" ? "style" : "both" }
+        : { assetId: assetId!, usage: inspiration.suggestedIntent === "restyle" ? "style" : "both" };
       if (!await attachDraftSource(source)) return;
       setAnnouncement("Inspiração adicionada");
       requestAnimationFrame(() => composerRef.current?.focus());
@@ -678,11 +685,13 @@ export function useCreativeComposer({
   const brandName = active.profiles.find((profile) => profile.id === storedProfileId)?.name
     ?? (isRestoringWork ? null : active.activeProfile?.name)
     ?? null;
-  const hasMeaningfulInput = Boolean(request.trim() || detail?.sources.length);
+  const sources = detail?.sources ?? [];
+  const hasMeaningfulInput = intent === "restyle"
+    ? sources.filter((source) => source.status === "ready").length >= 2
+    : Boolean(request.trim() || sources.length);
   const canGenerate = Boolean(clientProfileId) && hasMeaningfulInput
-    && !detail?.sources.some((source) =>
-      source.usageConfirmed === false || source.status === "uploaded" || source.status === "analyzing"
-    )
+    && !sources.some((source) => source.status === "uploaded" || source.status === "analyzing")
+    && (intent === "restyle" || !sources.some((source) => source.usageConfirmed === false))
     && !isUploading && !generateMutation.isPending;
 
   const campaigns = (campaignQuery.data ?? []).filter((campaign) =>

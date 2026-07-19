@@ -20,9 +20,10 @@ type Props = {
   onReview: () => void;
   onRetry: () => void;
   onRemove: () => void;
+  simple?: boolean;
 };
 
-export function CreativeSourceChip({ source, onUsageChange, onReview, onRetry, onRemove }: Props) {
+export function CreativeSourceChip({ source, onUsageChange, onReview, onRetry, onRemove, simple = false }: Props) {
   const t = useTranslations("dashboard.home.composer");
   const chips = [
     source.contentAnalysis?.product,
@@ -36,23 +37,23 @@ export function CreativeSourceChip({ source, onUsageChange, onReview, onRetry, o
         <div><strong>{source.name}</strong><div className="text-xs text-[var(--text-muted)]">{t(`sourceOrigin_${source.origin}`)}</div></div>
         <button type="button" onClick={onRemove} aria-label={t("removeSourceAria")}>{t("removeSource")}</button>
       </div>
-      <div className="mt-2 flex gap-2" role="group" aria-label={t("sourceUsageAria")}>
+      {!simple ? <div className="mt-2 flex gap-2" role="group" aria-label={t("sourceUsageAria")}>
         {(["content", "style", "both"] as const).map((usage) => (
           <button key={usage} type="button" aria-pressed={source.usageConfirmed && source.usage === usage} onClick={() => onUsageChange(usage)}>
             {t(`sourceUsage_${usage}`)}
           </button>
         ))}
-      </div>
-      {!source.usageConfirmed && <p className="mt-2 text-xs font-medium text-[var(--accent-amber-text)]">{t("sourceUsageRequired")}</p>}
+      </div> : null}
+      {!simple && !source.usageConfirmed && <p className="mt-2 text-xs font-medium text-[var(--accent-amber-text)]">{t("sourceUsageRequired")}</p>}
       <p role="status" aria-live="polite" className="mt-2 text-sm">{t(`sourceStatus_${source.status}`)}</p>
-      {chips.length > 0 && (
+      {!simple && chips.length > 0 && (
         <details className="mt-2">
           <summary>{t("extractedData")}</summary>
           <div className="flex flex-wrap gap-1">{chips.map((chip) => <span key={chip}>{chip}</span>)}</div>
         </details>
       )}
       <div className="mt-2 flex gap-2">
-        {source.status === "ready" && <button type="button" onClick={onReview}>{t("reviewData")}</button>}
+        {!simple && source.status === "ready" && <button type="button" onClick={onReview}>{t("reviewData")}</button>}
         {source.status === "failed" && <button type="button" onClick={onRetry}>{t("retrySource")}</button>}
       </div>
     </article>

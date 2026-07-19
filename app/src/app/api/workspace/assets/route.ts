@@ -112,6 +112,7 @@ const listSchema = z.object({
   tags: z.string().optional(),
   type: z.string().optional(),
   source: z.string().optional(),
+  excludeSources: z.string().optional(),
   page: z.preprocess((v) => (v === null || v === "" ? undefined : v), z.coerce.number().int().positive().optional()),
   limit: z.preprocess((v) => (v === null || v === "" ? undefined : v), z.coerce.number().int().positive().max(200).optional()),
 });
@@ -126,6 +127,7 @@ export async function GET(request: Request) {
       tags: searchParams.get("tags") ?? undefined,
       type: searchParams.get("type") ?? undefined,
       source: searchParams.get("source") ?? undefined,
+      excludeSources: searchParams.get("excludeSources") ?? undefined,
       page: searchParams.get("page") ?? undefined,
       limit: searchParams.get("limit") ?? undefined,
     });
@@ -143,6 +145,7 @@ export async function GET(request: Request) {
       tags: parsed.data.tags ? parsed.data.tags.split(",") : undefined,
       type: parsed.data.type,
       source: parsed.data.source,
+      excludeSources: parsed.data.excludeSources?.split(",").filter(Boolean),
     };
 
     const [assets, total] = await Promise.all([

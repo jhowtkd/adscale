@@ -60,6 +60,7 @@ export default function LibraryPage() {
   const { data, isLoading, isFetching, isError } = useWorkspaceAssets({
     q: debouncedSearch || undefined,
     limit,
+    excludeSources: ["curated_inspiration", "curated_inspiration_copy"],
   });
   const deleteAsset = useDeleteWorkspaceAsset();
   const labels = useMemo(() => buildLibraryV6Labels(t), [t]);
