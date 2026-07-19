@@ -1,6 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { ImageIcon } from "lucide-react";
+import CampaignMasonryGrid, {
+  CampaignMasonryGridItem,
+} from "@/components/dashboard/CampaignMasonryGrid";
 import { useCreativeInspirations } from "@/lib/hooks/use-creative-inspirations";
 import type { CreativeInspiration } from "@/server/application/list-creative-inspirations";
 
@@ -34,37 +38,46 @@ export function BrandInspirations({ clientProfileId, onAttach }: {
           Nenhuma inspiração disponível ainda.
         </p>
       ) : (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        <CampaignMasonryGrid
+          data-testid="brand-inspirations-grid"
+          className="sm:columns-2 lg:columns-3 2xl:columns-3 [column-gap:0.75rem]"
+        >
           {data.map((inspiration) => (
-            <button
+            <CampaignMasonryGridItem
               key={`${inspiration.source}:${inspiration.id}`}
-              type="button"
-              aria-label={`Usar inspiração ${inspiration.title}`}
-              disabled={pendingId === inspiration.id}
-              onClick={() => {
-                setPendingId(inspiration.id);
-                void Promise.resolve(onAttach(inspiration)).finally(() => setPendingId(null));
-              }}
-              className="overflow-hidden rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] text-left hover:bg-[var(--surface-inset)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)] disabled:opacity-60"
+              className="mb-3"
             >
-              <span
-                aria-hidden="true"
-                className="block aspect-[4/3] bg-[var(--surface-inset)] bg-cover bg-center"
-                style={inspiration.previewUrl ? { backgroundImage: `url(${inspiration.previewUrl})` } : undefined}
-              />
-              <span className="block p-3">
-                <span className="block truncate text-sm font-semibold text-[var(--text-primary)]">{inspiration.title}</span>
-                <span className="mt-1 block text-xs text-[var(--text-muted)]">
-                  {inspiration.source === "template"
-                    ? "Template"
-                    : inspiration.source === "curated"
-                      ? "Seleção ADScale"
-                      : "Trabalho aprovado"}
-                </span>
-              </span>
-            </button>
+              <button
+                type="button"
+                aria-label={`Usar inspiração ${inspiration.title}`}
+                disabled={pendingId === inspiration.id}
+                onClick={() => {
+                  setPendingId(inspiration.id);
+                  void Promise.resolve(onAttach(inspiration)).finally(() => setPendingId(null));
+                }}
+                className="block w-full overflow-hidden rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] transition-colors hover:border-[var(--border-default)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)] disabled:opacity-60"
+              >
+                {inspiration.previewUrl ? (
+                  // The browser's intrinsic image ratio is the masonry height.
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    alt=""
+                    src={inspiration.previewUrl}
+                    loading="lazy"
+                    className="block h-auto w-full"
+                  />
+                ) : (
+                  <span
+                    aria-hidden="true"
+                    className="flex aspect-[4/3] items-center justify-center bg-[var(--surface-inset)] text-[var(--text-muted)]"
+                  >
+                    <ImageIcon size={22} />
+                  </span>
+                )}
+              </button>
+            </CampaignMasonryGridItem>
           ))}
-        </div>
+        </CampaignMasonryGrid>
       )}
     </section>
   );

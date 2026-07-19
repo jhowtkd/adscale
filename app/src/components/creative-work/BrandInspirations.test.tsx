@@ -33,12 +33,16 @@ describe("BrandInspirations", () => {
   it("lists the active brand inspirations and attaches a template without navigating", () => {
     const onAttach = vi.fn();
     const before = window.location.href;
-    render(<BrandInspirations clientProfileId="brand-1" onAttach={onAttach} />);
+    const { container } = render(<BrandInspirations clientProfileId="brand-1" onAttach={onAttach} />);
 
     expect(useInspirationsMock).toHaveBeenCalledWith("brand-1");
-    expect(screen.getByText("Template")).toBeInTheDocument();
-    expect(screen.getByText("Trabalho aprovado")).toBeInTheDocument();
-    expect(screen.getByText("Seleção ADScale")).toBeInTheDocument();
+    expect(screen.getByTestId("brand-inspirations-grid")).toHaveClass("lg:columns-3");
+    expect(screen.getByTestId("brand-inspirations-grid")).toHaveClass("2xl:columns-3");
+    expect(screen.queryByText("Lançamento")).not.toBeInTheDocument();
+    expect(screen.queryByText("Template")).not.toBeInTheDocument();
+    expect(screen.queryByText("Trabalho aprovado")).not.toBeInTheDocument();
+    expect(screen.queryByText("Seleção ADScale")).not.toBeInTheDocument();
+    expect(container.querySelector('img[src="/api/workspace/assets/asset-1/file"]')).toHaveClass("h-auto", "w-full");
     fireEvent.click(screen.getByRole("button", { name: "Usar inspiração Lançamento" }));
 
     expect(onAttach).toHaveBeenCalledWith(template);

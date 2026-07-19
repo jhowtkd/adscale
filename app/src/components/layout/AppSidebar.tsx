@@ -112,6 +112,8 @@ export default function AppSidebar() {
         />
       </nav>
 
+      <SidebarBrandKitFeature />
+
       <div className="min-h-0 flex-1" />
 
       {isOwnerOrAdmin && (
@@ -125,7 +127,6 @@ export default function AppSidebar() {
       )}
 
       <div className="mt-auto shrink-0 border-t border-[var(--border-subtle)] pt-3">
-        <SidebarBrandKitFeature />
         <TextNavItem
           href="/settings"
           active={isConfig}

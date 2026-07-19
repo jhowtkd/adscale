@@ -421,9 +421,9 @@ export default function BrandKitTab() {
         className="flex items-center justify-between"
       >
         <div>
-          <h3 className="text-[15px] font-semibold text-[var(--text-primary)]">
+          <h2 className="text-[15px] font-semibold text-[var(--text-primary)]">
             {t("brandKit.title")}
-          </h3>
+          </h2>
           <p className="text-xs text-[var(--text-muted)] mt-0.5">
             {t("brandKit.subtitle")}
           </p>

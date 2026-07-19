@@ -96,10 +96,20 @@ describe("AppSidebar role-aware navigation", () => {
       "href",
       "/brand-kit"
     );
-    expect(screen.getByRole("link", { name: "navigation.config" })).toHaveAttribute(
+    const configLink = screen.getByRole("link", { name: "navigation.config" });
+    expect(configLink).toHaveAttribute(
       "href",
       "/settings"
     );
+    expect(
+      screen.getByRole("link", { name: "library.title" }).compareDocumentPosition(
+        screen.getByTestId("sidebar-brand-kit-feature")
+      ) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    expect(
+      screen.getByTestId("sidebar-brand-kit-feature").compareDocumentPosition(configLink) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
     expect(screen.queryByText("navigation.templates")).not.toBeInTheDocument();
     expect(screen.queryByTestId("campaign-map")).not.toBeInTheDocument();
   });

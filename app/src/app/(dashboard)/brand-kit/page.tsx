@@ -1,83 +1,77 @@
 "use client";
 
-import { Suspense } from "react";
-import Link from "next/link";
+import { Check } from "lucide-react";
+import ActiveBrandSwitcher from "@/components/layout/ActiveBrandSwitcher";
 import BrandKitTab from "@/components/settings/BrandKitTab";
-import BrandTrainingWizard from "@/components/brand-training/BrandTrainingWizard";
-import { useSearchParams } from "next/navigation";
+import { BrandTrainingAssets } from "@/components/brand-training/BrandTrainingAssets";
+import { BrandVoiceSection } from "@/components/brand-training/BrandTrainingWizard";
+import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
+import { useBrandTrainingStatus } from "@/lib/hooks/use-brand-training";
 import { useTranslations } from "next-intl";
-import { cn } from "@/lib/utils";
 
 export default function BrandKitPage() {
-  return (
-    <Suspense fallback={null}>
-      <BrandKitPageContent />
-    </Suspense>
-  );
-}
-
-function BrandKitPageContent() {
-  const searchParams = useSearchParams();
   const t = useTranslations("navigation");
-  const tSettings = useTranslations("settings");
-  const mode = searchParams.get("mode") === "training" ? "training" : "kit";
+  const tTraining = useTranslations("brandTraining");
+  const { activeClientProfileId, profiles } = useActiveClientProfile();
+  const status = useBrandTrainingStatus(activeClientProfileId);
+  const showBrandKit = profiles.length === 0 || activeClientProfileId !== null;
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6 px-4 py-8 sm:px-6">
-      <header className="space-y-1">
-        <div className="flex items-center gap-2">
-          <h1 className="product-page-title text-[var(--text-primary)]">{t("brandKit")}</h1>
-          <span className="rounded-full border border-[color-mix(in_oklch,var(--warning-text)_40%,transparent)] px-1.5 py-0.5 font-mono text-[10px] font-semibold text-[var(--warning-text)]">
-            {t("brandKitBeta")}
-          </span>
+    <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
+      <header className="max-w-[760px] space-y-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <h1 className="product-page-title text-[var(--text-primary)]">{t("brandKit")}</h1>
+            <span className="rounded-full border border-[color-mix(in_oklch,var(--warning-text)_40%,transparent)] px-1.5 py-0.5 font-mono text-[10px] font-semibold text-[var(--warning-text)]">
+              {t("brandKitBeta")}
+            </span>
+          </div>
+          <p className="text-sm text-[var(--text-secondary)]">{t("brandKitHint")}</p>
         </div>
-        <p className="text-sm text-[var(--text-secondary)]">{t("brandKitHint")}</p>
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <ActiveBrandSwitcher
+            id="brand-kit-active-brand"
+            className="mt-0 w-full sm:max-w-xs"
+          />
+          {status.data ? (
+            <span
+              role="status"
+              className={
+                status.data.trained
+                  ? "inline-flex w-fit items-center gap-1 rounded-full bg-[var(--accent-green-dim)] px-2.5 py-1 text-xs font-medium text-[var(--accent-green-text)]"
+                  : "inline-flex w-fit rounded-full border border-[var(--border-dim)] bg-[var(--surface-raised)] px-2.5 py-1 text-xs font-medium text-[var(--text-muted)]"
+              }
+            >
+              {status.data.trained ? <Check size={12} aria-hidden="true" /> : null}
+              {status.data.trained
+                ? tTraining("trainedBadge")
+                : tTraining("incompleteBadge")}
+            </span>
+          ) : null}
+        </div>
       </header>
 
-      <div
-        role="tablist"
-        aria-label={t("brandKit")}
-        className="flex gap-1 rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-1"
-      >
-        <ModeLink
-          href="/brand-kit"
-          active={mode === "kit"}
-          label={tSettings("brandKitTab")}
-        />
-        <ModeLink
-          href="/brand-kit?mode=training"
-          active={mode === "training"}
-          label={tSettings("brandTrainingTab")}
-        />
-      </div>
+      <section className="mt-6 max-w-[760px] rounded-xl border border-[var(--border-dim)] bg-[var(--surface-base)] p-5 sm:p-6">
+        {showBrandKit ? (
+          <BrandKitTab />
+        ) : (
+          <p className="text-sm text-[var(--text-secondary)]">
+            {tTraining("selectBrandPrompt")}
+          </p>
+        )}
 
-      {mode === "training" ? <BrandTrainingWizard /> : <BrandKitTab />}
+        {activeClientProfileId ? (
+          <>
+            <div className="mt-8 border-t border-[var(--border-dim)] pt-8">
+              <BrandTrainingAssets clientProfileId={activeClientProfileId} />
+            </div>
+            <div className="mt-8 border-t border-[var(--border-dim)] pt-8">
+              <BrandVoiceSection clientProfileId={activeClientProfileId} />
+            </div>
+          </>
+        ) : null}
+      </section>
     </div>
-  );
-}
-
-function ModeLink({
-  href,
-  active,
-  label,
-}: {
-  href: string;
-  active: boolean;
-  label: string;
-}) {
-  return (
-    <Link
-      href={href}
-      role="tab"
-      aria-selected={active}
-      className={cn(
-        "flex-1 rounded-[calc(var(--radius-control)-2px)] px-3 py-2 text-center text-sm font-medium transition-colors",
-        active
-          ? "bg-[var(--accent-primary-subtle)] text-[var(--accent-primary-text)]"
-          : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-      )}
-    >
-      {label}
-    </Link>
   );
 }

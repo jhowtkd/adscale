@@ -103,7 +103,7 @@ export function useExtractMulti(clientProfileId: string | null) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["brand-training-status", clientProfileId] });
-      queryClient.invalidateQueries({ queryKey: ["brandKit", clientProfileId] });
+      queryClient.invalidateQueries({ queryKey: ["brand-kit", clientProfileId] });
     },
   });
 }

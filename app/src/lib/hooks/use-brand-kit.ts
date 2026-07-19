@@ -271,6 +271,9 @@ export function useUpdateBrandKit(clientProfileId?: string) {
       updateBrandKit(payload, clientProfileId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["brand-kit"] });
+      queryClient.invalidateQueries({
+        queryKey: ["brand-training-status", clientProfileId ?? null],
+      });
     },
   });
 }
@@ -297,6 +300,9 @@ export function useUploadLogo(clientProfileId?: string) {
     }) => uploadLogo(file, clientProfileId, onProgress),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["brand-kit"] });
+      queryClient.invalidateQueries({
+        queryKey: ["brand-training-status", clientProfileId ?? null],
+      });
     },
   });
 }
@@ -307,6 +313,9 @@ export function useClearBrandKit(clientProfileId?: string) {
     mutationFn: () => clearBrandKit(clientProfileId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["brand-kit"] });
+      queryClient.invalidateQueries({
+        queryKey: ["brand-training-status", clientProfileId ?? null],
+      });
     },
   });
 }

@@ -147,7 +147,7 @@ export default function BrandTrainingWizard() {
         ) : stepIndex === 3 ? (
           <BrandTrainingAssets clientProfileId={clientProfileId} />
         ) : (
-          <VoiceStep clientProfileId={clientProfileId} />
+          <BrandVoiceSection clientProfileId={clientProfileId} />
         )}
       </section>
 
@@ -531,7 +531,7 @@ function ValidateStep({
 
 /* ------------------------------ Step 5: Voice ------------------------------ */
 
-function VoiceStep({ clientProfileId }: { clientProfileId: string }) {
+export function BrandVoiceSection({ clientProfileId }: { clientProfileId: string }) {
   const t = useTranslations("brandTraining");
   const tc = useTranslations("common");
   const addToast = useAppStore((s) => s.addToast);
