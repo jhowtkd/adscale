@@ -27,6 +27,7 @@
     "db:migrate": "node scripts/migrate-with-retry.mjs",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
+    "catalog:import-inspirations": "tsx scripts/import-curated-inspirations.ts",
     "seed:testsprite": "tsx scripts/seed-testsprite.ts",
     "seed:stripe": "tsx scripts/seed-stripe-real.ts",
     "preflight:stripe": "tsx scripts/preflight-stripe-billing.ts",
