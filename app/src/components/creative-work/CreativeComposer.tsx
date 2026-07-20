@@ -1,13 +1,13 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { Paperclip, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ActiveBrandSwitcher from "@/components/layout/ActiveBrandSwitcher";
 import { CreativeSourceChip } from "./CreativeSourceChip";
-import { CreativeSourceAnalysisEditor } from "./CreativeSourceAnalysisEditor";
+import { CreativeVariationBrief } from "./CreativeVariationBrief";
 import CreativeProposalGrid from "@/components/quick-tools/create-post/CreativeProposalGrid";
 import type { CreativeComposerModel, CreativeComposerViewModel } from "./useCreativeComposer";
 
@@ -20,11 +20,13 @@ export function CreativeComposer({ composer, composerRef }: {
   const t = useTranslations("dashboard.home.composer");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const styleInputRef = useRef<HTMLInputElement>(null);
-  const [reviewSourceId, setReviewSourceId] = useState<string | null>(null);
   const isRestyle = composer.intent === "restyle";
   const isVariations = composer.intent === "variations";
   const isSingle = composer.intent === "single";
   const isFormatAdaptation = composer.intent === "format_adaptation";
+  const readyVariationSource = isVariations
+    ? composer.sources.find((source) => source.status === "ready") ?? null
+    : null;
   const title = isRestyle
     ? t("restyleTitle")
     : isVariations
@@ -166,28 +168,25 @@ export function CreativeComposer({ composer, composerRef }: {
       {composer.sources.length > 0 ? (
         <div className="grid gap-3 sm:grid-cols-2">
           {composer.sources.map((source) => (
-            <div key={source.id}>
-              <CreativeSourceChip
-                source={source}
-                onUsageChange={(usage) => void composer.updateSource(source.id, usage)}
-                onReview={() => setReviewSourceId((current) => current === source.id ? null : source.id)}
-                onRetry={() => void composer.retrySource(source.id)}
-                onRemove={() => void composer.removeSource(source.id)}
-                simple={!isSingle}
-              />
-              {source.status === "ready" && (isVariations || reviewSourceId === source.id) ? (
-                <div>
-                  {isVariations ? <h3 className="mt-3 text-sm font-semibold text-[var(--text-primary)]">{t("fullBriefing")}</h3> : null}
-                <CreativeSourceAnalysisEditor
-                  source={source}
-                  onSave={(content, style) => composer.editSource(source.id, content, style)}
-                  onSaved={() => setReviewSourceId(null)}
-                />
-                </div>
-              ) : null}
-            </div>
+            <CreativeSourceChip
+              key={source.id}
+              source={source}
+              onUsageChange={(usage) => void composer.updateSource(source.id, usage)}
+              onRetry={() => void composer.retrySource(source.id)}
+              onRemove={() => void composer.removeSource(source.id)}
+              simple={!isSingle}
+            />
           ))}
         </div>
+      ) : null}
+
+      {readyVariationSource ? (
+        <CreativeVariationBrief
+          source={readyVariationSource}
+          value={composer.request}
+          onChange={composer.setRequest}
+          textareaRef={composerRef}
+        />
       ) : null}
 
       {composer.brandTrainingSuggestion ? (

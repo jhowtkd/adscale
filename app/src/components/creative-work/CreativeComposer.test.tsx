@@ -7,24 +7,22 @@ vi.mock("next-intl", () => ({ useTranslations: () => (key: string, values?: Reco
   requestLabel: "Pedido criativo", placeholder: "Descreva", addArt: "Adicionar arte", dropHint: "Solte aqui",
   restyleTitle: "Copiar o estilo da referência", restyleSubtitle: "Adicione a arte original e a referência de estilo.",
   variationsTitle: "Gere variações a partir de uma arte", variationsSubtitle: "Envie uma arte para a IA analisar.",
+  variationAnalysisTitle: "Leitura da IA", variationContentTitle: "Conteúdo identificado", variationStyleTitle: "Estilo identificado",
+  variationAnalysisUnavailable: "Nenhuma informação identificada.", variationInstructionsLabel: "O que você quer variar?",
+  variationInstructionsHint: "Opcional. Escreva livremente ou use uma linha para cada mudança.",
+  variationInstructionsPlaceholder: "Ex.:\n- Criar uma copy mais direta\n- Sugerir novos CTAs\n- Destacar a oferta",
   formatAdaptationTitle: "Adapte uma arte para outros formatos", formatAdaptationSubtitle: "Envie a arte original e escolha os formatos.",
   originalArt: "Arte original", styleReference: "Referência de estilo", fullBriefing: "Briefing visual sugerido pela IA",
   restyleAddArt: "Adicionar arte original", addStyleReference: "Adicionar referência de estilo", generateRestyle: "Gerar reestilização · 5 créditos",
   actionSaving: "Salvando", actionPreparing: "Preparando", actionSubmitting: "Enviando para geração", actionGenerating: "Gerando",
   optionalSettings: "Ajustes opcionais", format: "Formato", formatAuto: "Automático (agora: 4:5)", targetFormats: "Formatos de destino",
   brandTrainingSuggestion: "Treine referências visuais para aproximar futuros resultados da marca.", brandTrainingCta: "Treinar marca",
-  analysisContent: "Conteúdo extraído", analysisStyle: "Estilo extraído", product: "Produto", offer: "Oferta",
-  headline: "Headline", ctaText: "Chamada para ação", ctaStyle: "Estilo da chamada", brandElements: "Elementos da marca",
-  keyVisual: "Visual principal", bullets: "Tópicos", extractedFormat: "Formato extraído", mood: "Clima visual",
-  composition: "Composição", dominantColors: "Cores dominantes", accentColors: "Cores de destaque", gradients: "Gradientes",
-  typography: "Tipografia", typographyEffects: "Efeitos tipográficos", textures: "Texturas", decorativeElements: "Elementos decorativos",
-  photoTreatment: "Tratamento fotográfico", saveData: "Salvar dados", savingData: "Salvando...", saveDataError: "Não foi possível salvar.",
   sourceOrigin_upload: "Upload", sourceOrigin_template: "Template", sourceOrigin_approved_work: "Trabalho aprovado",
   removeSource: "Remover", removeSourceAria: "Remover fonte", sourceUsageAria: "Usar arte como",
   sourceUsage_content: "Conteúdo", sourceUsage_style: "Estilo", sourceUsage_both: "Ambos",
   sourceUsageRequired: "Escolha como esta arte será usada.", sourceStatus_uploaded: "Aguardando análise",
   sourceStatus_analyzing: "Analisando arte", sourceStatus_ready: "Análise concluída", sourceStatus_failed: "Falha na análise",
-  extractedData: "Dados extraídos", reviewData: "Revisar dados", retrySource: "Tentar novamente",
+  extractedData: "Dados extraídos", retrySource: "Tentar novamente",
   brand: "Marca", noBrand: "Selecione uma marca", inspirationsSlot: "Inspirações",
   selectBrandMessage: "Selecione uma marca para começar", invalidWork: "Trabalho não encontrado", startNew: "Começar nova criação",
 }[key] ?? (key === "generate" ? `Gerar ${values?.count} variações · ${values?.credits} créditos` : key)) }));
@@ -42,10 +40,37 @@ function composer(overrides = {}) {
     canGenerate: true, isUploading: false, error: null, announcement: "", brandTrainingSuggestion: null, requiresBrandSelection: false,
     retryInitialTemplate: null,
     workError: false,
-    addFiles: vi.fn(), updateSource: vi.fn(), editSource: vi.fn(), retrySource: vi.fn(), removeSource: vi.fn(), generate: vi.fn(),
+    addFiles: vi.fn(), updateSource: vi.fn(), retrySource: vi.fn(), removeSource: vi.fn(), generate: vi.fn(),
     ...overrides,
   };
 }
+
+const readySource = {
+  id: "source-1",
+  name: "arte.png",
+  origin: "upload" as const,
+  usage: "both" as const,
+  usageConfirmed: true,
+  status: "ready" as const,
+  contentAnalysis: {
+    product: "Tênis",
+    offer: "20%",
+    cta: { text: "Comprar", style: "botão" },
+    brandElements: [],
+    keyVisual: "Produto",
+    textContent: { headline: "Oferta", bullets: [] },
+    format: "4:5",
+  },
+  styleAnalysis: {
+    colorPalette: { dominant: ["preto"], accents: ["verde"], gradients: "" },
+    typography: { personality: "forte", effects: [] },
+    textures: [],
+    composition: "central",
+    mood: "urbano",
+    decorativeElements: [],
+    photoTreatment: "contraste alto",
+  },
+};
 
 function renderComposer(value = composer()) {
   const { composerRef, ...viewModel } = value;
@@ -70,27 +95,50 @@ describe("CreativeComposer", () => {
     expect(value.generate).not.toHaveBeenCalled();
   });
 
-  it("turns variations into upload plus an always-visible full analysis", () => {
-    const source = {
-      id: "source-1", name: "arte.png", origin: "upload", usage: "both", usageConfirmed: true, status: "ready",
-      contentAnalysis: {
-        product: "Tênis", offer: "20%", cta: { text: "Comprar", style: "botão" }, brandElements: [],
-        keyVisual: "Produto", textContent: { headline: "Oferta", bullets: [] }, format: "4:5",
-      },
-      styleAnalysis: {
-        colorPalette: { dominant: ["preto"], accents: ["verde"], gradients: "" },
-        typography: { personality: "forte", effects: [] }, textures: [], composition: "central",
-        mood: "urbano", decorativeElements: [], photoTreatment: "contraste alto",
-      },
-    };
-    const value = composer({ intent: "variations", sources: [source] });
+  it("shows concise analysis and optional free-form instructions only for variations", () => {
+    const value = composer({
+      intent: "variations",
+      request: "- Criar uma copy mais direta",
+      sources: [readySource],
+    });
+
     renderComposer(value);
 
-    expect(screen.queryByRole("textbox", { name: /pedido criativo/i })).not.toBeInTheDocument();
-    expect(screen.getByText("Briefing visual sugerido pela IA")).toBeInTheDocument();
-    expect(screen.getByRole("textbox", { name: "Produto" })).toHaveValue("Tênis");
-    expect(screen.getByRole("textbox", { name: "Clima visual" })).toHaveValue("urbano");
+    expect(screen.getByText("Leitura da IA")).toBeInTheDocument();
+    expect(screen.getByText(/Produto: Tênis/)).toBeInTheDocument();
+    expect(screen.getByText(/Clima: urbano/)).toBeInTheDocument();
+
+    const instructions = screen.getByRole("textbox", {
+      name: "O que você quer variar?",
+    });
+
+    expect(instructions).toHaveValue("- Criar uma copy mais direta");
+
+    fireEvent.change(instructions, {
+      target: { value: "- Trocar copy\n- Adicionar CTA" },
+    });
+
+    expect(value.setRequest).toHaveBeenCalledWith(
+      "- Trocar copy\n- Adicionar CTA",
+    );
+
+    expect(
+      screen.queryByRole("textbox", { name: "Produto" }),
+    ).not.toBeInTheDocument();
   });
+
+  it.each(["single", "format_adaptation", "restyle"] as const)(
+    "does not show variation instructions for %s",
+    (intent) => {
+      renderComposer(composer({ intent, sources: [readySource] }));
+
+      expect(
+        screen.queryByRole("textbox", {
+          name: "O que você quer variar?",
+        }),
+      ).not.toBeInTheDocument();
+    },
+  );
 
   it("shows the canonical paid CTA and sends dropped files to the same composer", () => {
     const value = composer();
@@ -153,53 +201,6 @@ describe("CreativeComposer", () => {
     fireEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
     expect(value.updateSource).toHaveBeenCalledWith("source-1", "style");
     expect(value.retrySource).toHaveBeenCalledWith("source-1");
-  });
-
-  it("lets the user correct extracted data before generation", () => {
-    const contentAnalysis = {
-      product: "Tênis", offer: "20%", cta: { text: "Comprar", style: "botão" },
-      brandElements: [], keyVisual: "Produto", textContent: { headline: "Oferta", bullets: [] }, format: "4:5",
-    };
-    const source = {
-      id: "source-1", name: "arte.png", origin: "upload", usage: "content", usageConfirmed: true, status: "ready",
-      contentAnalysis, styleAnalysis: null,
-    };
-    const value = composer({ intent: "single", sources: [source], editSource: vi.fn().mockResolvedValue(true) });
-    renderComposer(value);
-
-    fireEvent.click(screen.getByRole("button", { name: "Revisar dados" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "Produto" }), { target: { value: "Tênis Pro" } });
-    fireEvent.change(screen.getByRole("textbox", { name: "Formato extraído" }), { target: { value: "9:16" } });
-    fireEvent.click(screen.getByRole("button", { name: "Salvar dados" }));
-
-    expect(value.editSource).toHaveBeenCalledWith(
-      "source-1",
-      expect.objectContaining({ product: "Tênis Pro", offer: "20%", format: "9:16" }),
-      null,
-    );
-  });
-
-  it("keeps edited analysis open when persistence fails", async () => {
-    const contentAnalysis = {
-      product: "Tênis", offer: "20%", cta: { text: "Comprar", style: "botão" },
-      brandElements: [], keyVisual: "Produto", textContent: { headline: "Oferta", bullets: [] }, format: "4:5",
-    };
-    const value = composer({
-      intent: "single",
-      sources: [{
-        id: "source-1", name: "arte.png", origin: "upload", usage: "content", usageConfirmed: true,
-        status: "ready", contentAnalysis, styleAnalysis: null,
-      }],
-      editSource: vi.fn().mockResolvedValue(false),
-    });
-    renderComposer(value);
-
-    fireEvent.click(screen.getByRole("button", { name: "Revisar dados" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "Produto" }), { target: { value: "Tênis editado" } });
-    fireEvent.click(screen.getByRole("button", { name: "Salvar dados" }));
-
-    expect(await screen.findByText("Não foi possível salvar.")).toBeInTheDocument();
-    expect(screen.getByRole("textbox", { name: "Produto" })).toHaveValue("Tênis editado");
   });
 
   it("shows automatic format as a distinct choice so 4:5 can be pinned", () => {

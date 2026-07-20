@@ -17,13 +17,12 @@ type Props = {
     styleAnalysis: Record<string, unknown> | null;
   };
   onUsageChange: (usage: Usage) => void;
-  onReview: () => void;
   onRetry: () => void;
   onRemove: () => void;
   simple?: boolean;
 };
 
-export function CreativeSourceChip({ source, onUsageChange, onReview, onRetry, onRemove, simple = false }: Props) {
+export function CreativeSourceChip({ source, onUsageChange, onRetry, onRemove, simple = false }: Props) {
   const t = useTranslations("dashboard.home.composer");
   const chips = [
     source.contentAnalysis?.product,
@@ -53,7 +52,6 @@ export function CreativeSourceChip({ source, onUsageChange, onReview, onRetry, o
         </details>
       )}
       <div className="mt-2 flex gap-2">
-        {!simple && source.status === "ready" && <button type="button" onClick={onReview}>{t("reviewData")}</button>}
         {source.status === "failed" && <button type="button" onClick={onRetry}>{t("retrySource")}</button>}
       </div>
     </article>

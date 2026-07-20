@@ -7,7 +7,7 @@ vi.mock("next-intl", () => ({ useTranslations: () => (key: string) => ({
   sourceUsage_content: "Conteúdo", sourceUsage_style: "Estilo", sourceUsage_both: "Ambos",
   sourceUsageRequired: "Escolha como esta arte será usada.", sourceStatus_uploaded: "Aguardando análise",
   sourceStatus_analyzing: "Analisando arte", sourceStatus_ready: "Análise concluída", sourceStatus_failed: "Falha na análise",
-  extractedData: "Dados extraídos", reviewData: "Revisar dados", retrySource: "Tentar novamente",
+  extractedData: "Dados extraídos", retrySource: "Tentar novamente",
 }[key] ?? key) }));
 
 import { CreativeSourceChip } from "./CreativeSourceChip";
@@ -21,7 +21,7 @@ const baseSource = {
 describe("CreativeSourceChip", () => {
   it("keeps the file while changing usage and exposes polite status", () => {
     const onUsageChange = vi.fn();
-    render(<CreativeSourceChip source={baseSource} onUsageChange={onUsageChange} onRetry={vi.fn()} onRemove={vi.fn()} onReview={vi.fn()} />);
+    render(<CreativeSourceChip source={baseSource} onUsageChange={onUsageChange} onRetry={vi.fn()} onRemove={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "Estilo" }));
     expect(onUsageChange).toHaveBeenCalledWith("style");
     expect(screen.getByText("arte.png")).toBeInTheDocument();
@@ -33,22 +33,20 @@ describe("CreativeSourceChip", () => {
   it("shows retry only for an analysis failure", () => {
     const onRetry = vi.fn();
     const onRemove = vi.fn();
-    render(<CreativeSourceChip source={{ ...baseSource, status: "failed" }} onUsageChange={vi.fn()} onRetry={onRetry} onRemove={onRemove} onReview={vi.fn()} />);
+    render(<CreativeSourceChip source={{ ...baseSource, status: "failed" }} onUsageChange={vi.fn()} onRetry={onRetry} onRemove={onRemove} />);
     fireEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
     fireEvent.click(screen.getByRole("button", { name: "Remover fonte" }));
     expect(onRetry).toHaveBeenCalledOnce();
     expect(onRemove).toHaveBeenCalledOnce();
   });
 
-  it("opens review for ready analysis", () => {
-    const onReview = vi.fn();
-    render(<CreativeSourceChip source={baseSource} onUsageChange={vi.fn()} onRetry={vi.fn()} onRemove={vi.fn()} onReview={onReview} />);
-    fireEvent.click(screen.getByRole("button", { name: "Revisar dados" }));
-    expect(onReview).toHaveBeenCalledOnce();
+  it("does not offer review for ready analysis", () => {
+    render(<CreativeSourceChip source={baseSource} onUsageChange={vi.fn()} onRetry={vi.fn()} onRemove={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: "Revisar dados" })).not.toBeInTheDocument();
   });
 
   it("does not preselect a usage before the user makes the required choice", () => {
-    render(<CreativeSourceChip source={{ ...baseSource, usage: "both", usageConfirmed: false }} onUsageChange={vi.fn()} onRetry={vi.fn()} onRemove={vi.fn()} onReview={vi.fn()} />);
+    render(<CreativeSourceChip source={{ ...baseSource, usage: "both", usageConfirmed: false }} onUsageChange={vi.fn()} onRetry={vi.fn()} onRemove={vi.fn()} />);
 
     expect(screen.getByRole("button", { name: "Conteúdo" })).toHaveAttribute("aria-pressed", "false");
     expect(screen.getByRole("button", { name: "Estilo" })).toHaveAttribute("aria-pressed", "false");

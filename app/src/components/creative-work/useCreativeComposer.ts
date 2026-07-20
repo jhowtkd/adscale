@@ -612,14 +612,6 @@ export function useCreativeComposer({
     if (!workIdRef.current) return Promise.resolve();
     return runSourceAction({ workItemId: workIdRef.current, action: "updateSource", sourceId, usage });
   }, [runSourceAction]);
-  const editSource = useCallback((
-    sourceId: string,
-    content: CreativeWorkSource["contentAnalysis"],
-    style: CreativeWorkSource["styleAnalysis"],
-  ) => {
-    if (!workIdRef.current) return Promise.resolve(false);
-    return runSourceAction({ workItemId: workIdRef.current, action: "editSourceAnalysis", sourceId, content, style });
-  }, [runSourceAction]);
   const retrySource = useCallback((sourceId: string) => {
     if (!workIdRef.current) return Promise.resolve();
     return runSourceAction({ workItemId: workIdRef.current, action: "retrySource", sourceId });
@@ -788,7 +780,7 @@ export function useCreativeComposer({
       ? retryInitialTemplate
       : null,
     workError: Boolean(workId && detailQuery.isError),
-    addFiles, addInspiration, updateSource, editSource, retrySource, removeSource, generate,
+    addFiles, addInspiration, updateSource, retrySource, removeSource, generate,
     retryOutput, retryRevisionOutput, approveOutput, reviseOutput, linkCampaign,
     downloadOutput: (outputId: string) => {
       if (!workIdRef.current) return;
