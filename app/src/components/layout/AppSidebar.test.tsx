@@ -134,6 +134,38 @@ describe("AppSidebar role-aware navigation", () => {
     expect(screen.queryByText("navigation.feedback")).not.toBeInTheDocument();
   });
 
+  it("contains recent campaigns in the only scrollable middle region", () => {
+    render(<AppSidebar />);
+
+    const region = screen.getByTestId("sidebar-campaign-region");
+
+    expect(region).toHaveClass(
+      "flex",
+      "min-h-0",
+      "flex-1",
+      "flex-col",
+      "overflow-hidden",
+    );
+
+    const feedback = screen.getByRole("link", {
+      name: "navigation.feedback",
+    });
+
+    const config = screen.getByRole("link", {
+      name: "navigation.config",
+    });
+
+    expect(
+      region.compareDocumentPosition(feedback)
+      & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    expect(
+      feedback.compareDocumentPosition(config)
+      & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it("shows logout in the sidebar footer and signs out on click", () => {
     render(<AppSidebar />);
 

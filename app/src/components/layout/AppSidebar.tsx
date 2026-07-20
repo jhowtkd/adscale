@@ -115,7 +115,10 @@ export default function AppSidebar() {
 
       <SidebarBrandKitFeature />
 
-      <div className="mt-3 min-h-0 flex-1 border-t border-[var(--border-subtle)] pt-3">
+      <div
+        data-testid="sidebar-campaign-region"
+        className="mt-3 flex min-h-0 flex-1 flex-col overflow-hidden border-t border-[var(--border-subtle)] pt-3"
+      >
         <AppSidebarCampaignMap />
       </div>
 
