@@ -124,7 +124,8 @@ export interface CreativeWorkIdentityAssetSnapshot {
   label: string;
   category: BrandTrainingCategory;
   usageMode: BrandTrainingUsageMode;
-  analysis: BrandTrainingAnalysis;
+  /** May be null for legacy / incomplete training rows persisted before approval gates. */
+  analysis: BrandTrainingAnalysis | null;
   mimeType: string;
   hasAlpha: boolean;
   placement: { gravity: "northwest" | "northeast" | "southwest" | "southeast" | "center"; widthRatio: number } | null;
