@@ -1,6 +1,12 @@
 import sharp from "sharp";
 import { objectStorage } from "@/server/storage";
 import { logger } from "@/lib/logger";
+
+// The generation path shares a 512 MB instance with the web server. sharp's
+// default in-process cache retains decoded pixel data between operations;
+// that residency is worth more as headroom than as cache hits here. (Guarded
+// because unit tests replace the sharp module with a minimal mock.)
+if (typeof sharp.cache === "function") sharp.cache(false);
 import { recordDualEngineCandidates } from "./generation-log";
 import { OpenAIImageProvider } from "./providers/openai-image-provider";
 import {
@@ -353,7 +359,7 @@ export async function generateAndStoreImage(
     }));
 
   logger.info(
-    `[generateAndStoreImage] produced ${candidates.length} candidate(s); winner=${winner.candidate.providerMeta.provider}`
+    `[generateAndStoreImage] produced ${candidates.length} candidate(s); winner=${winner.candidate.providerMeta.provider} rssMb=${Math.round(process.memoryUsage().rss / 1048576)}`
   );
 
   // Emit the telemetry event before returning. `campaignId`/`workspaceId`/

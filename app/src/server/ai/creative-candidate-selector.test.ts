@@ -101,4 +101,51 @@ describe("selectCreativeCandidate", () => {
     expect(result.refinementPrompt).toContain("generic cyan glow");
     expect(mockResponsesCreate).toHaveBeenCalledTimes(2);
   });
+
+  it("downscales candidates to JPEG once and reuses the encoding across judgment passes", async () => {
+    const sharp = (await import("sharp")).default;
+    const largePng = await sharp({
+      create: { width: 1024, height: 1280, channels: 3, background: { r: 10, g: 20, b: 30 } },
+    })
+      .png()
+      .toBuffer();
+    const judgment = {
+      ranking: ["route-1", "route-2"],
+      invalid: [],
+      reason: "route-1 leads",
+      repairInstruction: "Tighten the headline area.",
+    };
+    mockResponsesCreate
+      .mockResolvedValueOnce({ output_text: JSON.stringify(judgment) })
+      .mockResolvedValueOnce({ output_text: JSON.stringify(judgment) });
+
+    await selectCreativeCandidate({
+      candidates: ["route-1", "route-2"].map((routeId) => ({
+        routeId,
+        buffer: largePng,
+        mimeType: "image/png",
+      })),
+      brief: "A branded paid-social post.",
+      objective: null,
+      brandConstraints: null,
+      targetFormat: "4:5",
+      referenceImages: [],
+    });
+
+    const imageUrlsPerCall = mockResponsesCreate.mock.calls.map((call) =>
+      (call[0].input[1].content as Array<{ type: string; image_url?: string }>)
+        .filter((part) => part.type === "input_image")
+        .map((part) => part.image_url as string)
+    );
+    expect(imageUrlsPerCall).toHaveLength(2);
+    for (const urls of imageUrlsPerCall) {
+      for (const url of urls) {
+        expect(url.startsWith("data:image/jpeg;base64,")).toBe(true);
+        // Downscaled JPEG must be dramatically smaller than the raw PNG base64.
+        expect(url.length).toBeLessThan(largePng.length);
+      }
+    }
+    // The reversed pass reuses the exact encodings from the first pass.
+    expect(new Set(imageUrlsPerCall[1])).toEqual(new Set(imageUrlsPerCall[0]));
+  });
 });

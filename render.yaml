@@ -10,7 +10,11 @@ services:
     previews:
       generation: automatic
     buildCommand: npm ci && npm run build
-    startCommand: npm run db:migrate && npm run start:prod
+    # NODE_OPTIONS in envVars (4 GiB) applies to the build, which runs on a
+    # larger build machine. At runtime the instance has 512 MB, so cap the V8
+    # heap below the container limit — otherwise V8 never collects under
+    # pressure and the container OOM-kills the process mid-request (502s).
+    startCommand: npm run db:migrate && NODE_OPTIONS=--max-old-space-size=384 npm run start:prod
     healthCheckPath: /api/health
     envVars:
       - key: NODE_OPTIONS
