@@ -77,7 +77,7 @@ if (useStandalone) {
 }
 
 const child = spawn(useStandalone ? process.execPath : nextBin, useStandalone ? [standaloneServer] : ["start"], {
-  env: process.env,
+  env: useStandalone ? { ...process.env, HOSTNAME: "0.0.0.0" } : process.env,
   shell: false,
   stdio: "inherit",
   cwd: useStandalone ? join(__dirname, "..", ".next", "standalone") : join(__dirname, ".."),
