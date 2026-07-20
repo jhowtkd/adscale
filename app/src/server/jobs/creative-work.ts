@@ -70,6 +70,49 @@ export const creativeWorkOutputJob = inngest.createFunction(
   {
     id: "generate-creative-work-output",
     retries: 0,
+    concurrency: [
+      // ponytail: the production web instance has 512 MB; keep every OpenAI
+      // image job account-wide serial until generation has a dedicated worker.
+      { limit: 1, scope: "account", key: `"openai"` },
+    ],
+    onFailure: async ({ event, error, step }) => {
+      const originalEvent = event.data.event;
+      const { workspaceId, workItemId, outputId } = originalEvent.data as CreativeWorkGenerateEvent;
+      const recovered = await step.run("recover-interrupted-output", async () => {
+        const failed = await failCreativeWorkOutput(
+          workspaceId,
+          workItemId,
+          outputId,
+          "generation_interrupted",
+        ) ?? await failQueuedCreativeWorkOutput(
+          workspaceId,
+          workItemId,
+          outputId,
+          "generation_interrupted",
+        );
+        if (failed) await refreshCreativeWorkStatus(workspaceId, workItemId);
+        return Boolean(failed);
+      });
+      if (!recovered) return;
+
+      await step.run("refund-interrupted-output", async () => {
+        await applyRefundDecision({
+          workspaceId,
+          workItemId,
+          outputId,
+          reason: error instanceof Error ? error.message : String(error),
+          decision: decideCreativeWorkRefund({
+            surface: "quick_tool",
+            failurePhase: "job_failure",
+            workItemId,
+            outputId,
+          }),
+        });
+      });
+      logger.error(
+        `[creativeWorkOutputJob] INTERRUPTED outputId=${outputId} recovered=true`,
+      );
+    },
     triggers: [{ event: "creative-work.generate" }],
   },
   async ({ event, step }) => {
@@ -491,17 +534,17 @@ async function applyRefundDecision({
         outputId,
         reason,
         policyReason: decision.reason,
-        description: "creative_work_output_pregen_refund",
+        description: "creative_work_output_refund",
       },
     });
     logger.info(
-      `[creativeWorkOutputJob] refundCredits pregen outputId=${outputId} status=${result.status} reason=${reason}`,
+      `[creativeWorkOutputJob] refundCredits outputId=${outputId} status=${result.status} reason=${reason}`,
     );
   } catch (refundError) {
     const detail =
       refundError instanceof Error ? refundError.message : "Unknown error";
     logger.error(
-      `[creativeWorkOutputJob] refundCredits pregen FAILED outputId=${outputId}: ${detail}`,
+      `[creativeWorkOutputJob] refundCredits FAILED outputId=${outputId}: ${detail}`,
     );
   }
 }

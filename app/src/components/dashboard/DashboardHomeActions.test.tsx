@@ -97,6 +97,24 @@ describe("DashboardHomeActions", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
+  it("uses the composer anchor when continue already targets the open work", () => {
+    useCanonicalWorksMock.mockReturnValue({
+      data: [{
+        id: "creative_work:w1", originKind: "creative_work", originId: "w1", origin: "quick_tool",
+        workspaceId: "ws", name: "Post social", state: "reviewing", updatedAt: "2026-07-13T12:00:00.000Z",
+        resumable: true, resumeHref: "/?workId=w1",
+      }],
+      isLoading: false, isError: false, refetch: vi.fn(),
+    });
+
+    render(<DashboardHomeActions workId="w1" />);
+
+    expect(screen.getByRole("link", { name: /Continue: Post social/i })).toHaveAttribute(
+      "href",
+      "#creative-composer",
+    );
+  });
+
   it("uses the restored composer intent as the cards' single source of truth", () => {
     useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
 

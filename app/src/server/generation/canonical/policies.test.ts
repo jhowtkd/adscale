@@ -89,6 +89,22 @@ describe("decideCreativeWorkRefund", () => {
       }).refund
     ).toBe(false);
   });
+
+  it("refunds a worker-level failure when no output can be delivered", () => {
+    expect(
+      decideCreativeWorkRefund({
+        surface: "quick_tool",
+        failurePhase: "job_failure",
+        workItemId: "w1",
+        outputId: "o1",
+      })
+    ).toEqual({
+      refund: true,
+      amount: 5,
+      idempotencyKey: "creative-work:w1:output:o1:job-refund",
+      reason: "creative_work_job_failure",
+    });
+  });
 });
 
 describe("parity: same contract surface decisions", () => {
@@ -165,4 +181,3 @@ describe("decidePostGenerationQuality", () => {
     ).toBe(true);
   });
 });
-

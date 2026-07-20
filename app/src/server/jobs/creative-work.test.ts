@@ -251,14 +251,51 @@ describe("creativeWorkOutputJob", () => {
     });
   });
 
-  it("has Inngest function id, retries=0, and trigger configured correctly", () => {
+  it("has a global single-image-job limit on the 512 MB production instance", () => {
     expect(creativeWorkOutputJob).toBeDefined();
     const opts = (creativeWorkOutputJob as unknown as {
-      opts: { id?: string; retries?: number; triggers?: Array<{ event?: string }> };
+      opts: {
+        id?: string;
+        retries?: number;
+        concurrency?: Array<{ limit: number; scope?: string; key?: string }>;
+        onFailure?: (...args: unknown[]) => Promise<unknown>;
+        triggers?: Array<{ event?: string }>;
+      };
     }).opts;
     expect(opts.id).toBe("generate-creative-work-output");
     expect(opts.retries).toBe(0);
+    expect(opts.concurrency).toContainEqual({ limit: 1, scope: "account", key: `"openai"` });
+    expect(opts.onFailure).toBeDefined();
     expect(opts.triggers).toEqual([{ event: "creative-work.generate" }]);
+  });
+
+  it("closes and refunds an output when the worker dies outside the handler", async () => {
+    const onFailure = (creativeWorkOutputJob as unknown as {
+      opts: { onFailure: (args: unknown) => Promise<unknown> };
+    }).opts.onFailure;
+    failMock.mockResolvedValue(makeQueuedOutput({ status: "failed" }));
+    const step = {
+      run: vi.fn(async (_name: string, fn: () => Promise<unknown>) => fn()),
+    };
+
+    await onFailure({
+      event: { data: { event: { data: baseEvent } } },
+      error: new Error("worker lost"),
+      step,
+    });
+
+    expect(failMock).toHaveBeenCalledWith(
+      "workspace-1",
+      "work-1",
+      "output-1",
+      "generation_interrupted",
+    );
+    expect(refreshStatusMock).toHaveBeenCalledWith("workspace-1", "work-1");
+    expect(refundCreditsMock).toHaveBeenCalledWith(expect.objectContaining({
+      workspaceId: "workspace-1",
+      amount: 5,
+      idempotencyKey: "creative-work:work-1:output:output-1:job-refund",
+    }));
   });
 
   it("runs the full generation sequence on a fresh queued output", async () => {

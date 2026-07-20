@@ -67,7 +67,7 @@ export function CreativeComposer({ composer, composerRef }: {
 
   if (composer.workError) {
     return (
-      <section className="rounded-[var(--radius-object)] border border-[var(--danger-border)] bg-[var(--surface-raised)] p-6 text-center">
+      <section id="creative-composer" className="rounded-[var(--radius-object)] border border-[var(--danger-border)] bg-[var(--surface-raised)] p-6 text-center">
         <p role="alert" className="text-sm font-medium text-[var(--danger-text)]">{t("invalidWork")}</p>
         <Link href="/" className="mt-4 inline-flex rounded-[var(--radius-control)] bg-[var(--accent-primary)] px-4 py-2 text-sm font-semibold text-[var(--text-on-accent)]">
           {t("startNew")}
@@ -77,7 +77,7 @@ export function CreativeComposer({ composer, composerRef }: {
   }
 
   return (
-    <section aria-labelledby="creative-composer-title" className="space-y-4">
+    <section id="creative-composer" aria-labelledby="creative-composer-title" className="space-y-4 scroll-mt-24">
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 id="creative-composer-title" className="text-2xl font-semibold text-[var(--text-primary)]">{title}</h1>

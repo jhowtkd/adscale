@@ -167,8 +167,14 @@ export async function generateAndStoreImage(
   const requestedRoutes = routes?.length
     ? routes
     : [{ id: "openai", prompt }];
-  const generationResults = await Promise.allSettled(
-    requestedRoutes.map(async (route) => {
+  const generationResults: PromiseSettledResult<{
+    routeId: string;
+    candidate: ImageCandidate;
+  }>[] = [];
+  // ponytail: one route at a time fits the 512 MB web instance; parallelize
+  // again only after image jobs move to a measured, memory-isolated worker.
+  for (const route of requestedRoutes) {
+    try {
       const providerInput: ProviderGenerateInput = {
         prompt: route.prompt,
         dimensions,
@@ -178,9 +184,14 @@ export async function generateAndStoreImage(
         attempt,
         quality: routes?.length ? "medium" : quality,
       };
-      return { routeId: route.id, candidate: await provider.generate(providerInput) };
-    })
-  );
+      generationResults.push({
+        status: "fulfilled",
+        value: { routeId: route.id, candidate: await provider.generate(providerInput) },
+      });
+    } catch (reason) {
+      generationResults.push({ status: "rejected", reason });
+    }
+  }
   const generatedCandidates = generationResults
     .map((result) => (result.status === "fulfilled" ? result.value : null))
     .filter((result): result is { routeId: string; candidate: ImageCandidate } => result !== null);
