@@ -118,6 +118,22 @@ describe("GET /api/creative-work", () => {
     expect(listInspirationsMock).not.toHaveBeenCalled();
     expect(listMock).not.toHaveBeenCalled();
   });
+
+  it("returns global inspirations when clientProfileId is omitted", async () => {
+    listInspirationsMock.mockResolvedValue([
+      { id: "curated-1", source: "curated" },
+    ]);
+
+    const response = await GET(
+      new Request("http://localhost/api/creative-work?view=inspirations"),
+    );
+
+    expect(response.status).toBe(200);
+    expect(listInspirationsMock).toHaveBeenCalledWith({
+      workspaceId: "workspace-1",
+      clientProfileId: null,
+    });
+  });
 });
 
 describe("POST /api/creative-work", () => {

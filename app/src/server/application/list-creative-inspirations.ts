@@ -55,12 +55,19 @@ function templateIntent(generationMode: string): CreativeWorkIntent {
 }
 
 export async function listCreativeInspirations(
-  input: { workspaceId: string; clientProfileId: string },
+  input: {
+    workspaceId: string;
+    clientProfileId: string | null;
+  },
   deps: Dependencies = dependencies,
 ): Promise<CreativeInspiration[]> {
   const [templates, approvedWork, curated] = await Promise.all([
-    deps.listTemplates(input.workspaceId),
-    deps.listApprovedWork(input.workspaceId, input.clientProfileId),
+    input.clientProfileId
+      ? deps.listTemplates(input.workspaceId)
+      : Promise.resolve([]),
+    input.clientProfileId
+      ? deps.listApprovedWork(input.workspaceId, input.clientProfileId)
+      : Promise.resolve([]),
     deps.listCurated(),
   ]);
 
@@ -81,7 +88,8 @@ export async function listCreativeInspirations(
       })),
     ...approvedWork
       .filter((output) =>
-        output.workspaceId === input.workspaceId
+        input.clientProfileId !== null
+        && output.workspaceId === input.workspaceId
         && output.clientProfileId === input.clientProfileId
         && output.status === "completed"
         && output.isSelected,

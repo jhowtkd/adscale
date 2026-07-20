@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { listCreativeInspirations } from "./list-creative-inspirations";
 
 const now = new Date("2026-07-16T12:00:00.000Z");
@@ -62,5 +62,36 @@ describe("listCreativeInspirations", () => {
 
     expect(inspiration.suggestedIntent).toBe("restyle");
     expect(inspiration).not.toHaveProperty("score");
+  });
+
+  it("returns curated global inspirations without a client profile", async () => {
+    const listApprovedWork = vi.fn();
+    const listTemplates = vi.fn();
+
+    const result = await listCreativeInspirations(
+      {
+        workspaceId: "workspace-1",
+        clientProfileId: null,
+      },
+      {
+        listTemplates,
+        listApprovedWork,
+        listCurated: async () => [{
+          id: "curated-1",
+          name: "Editorial.jpg",
+          updatedAt: new Date("2026-07-20T12:00:00.000Z"),
+        }],
+      },
+    );
+
+    expect(listTemplates).not.toHaveBeenCalled();
+    expect(listApprovedWork).not.toHaveBeenCalled();
+    expect(result).toEqual([
+      expect.objectContaining({
+        id: "curated-1",
+        source: "curated",
+        previewUrl: "/api/creative-work/inspirations/curated-1/file",
+      }),
+    ]);
   });
 });

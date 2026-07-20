@@ -28,8 +28,6 @@ export function BrandInspirations({ clientProfileId, onAttach }: {
   const [pendingId, setPendingId] = useState<string | null>(null);
   const randomizedInspirations = useMemo(() => shuffleInspirations(data), [data]);
 
-  if (!clientProfileId) return null;
-
   return (
     <section aria-labelledby="brand-inspirations-title">
       <h2 id="brand-inspirations-title" className="mb-3 text-sm font-semibold text-[var(--text-primary)]">

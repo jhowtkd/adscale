@@ -55,11 +55,22 @@ export async function GET(request: Request) {
     const { workspace } = await requireWorkspaceAccess(request);
     const { searchParams } = new URL(request.url);
     if (searchParams.get("view") === "inspirations") {
-      const parsed = z.string().uuid().safeParse(searchParams.get("clientProfileId"));
-      if (!parsed.success) return apiError("invalidInput", 400, parsed.error.flatten());
+      const rawClientProfileId = searchParams.get("clientProfileId");
+      const parsedClientProfileId = rawClientProfileId
+        ? z.string().uuid().safeParse(rawClientProfileId)
+        : null;
+
+      if (parsedClientProfileId && !parsedClientProfileId.success) {
+        return apiError(
+          "invalidInput",
+          400,
+          parsedClientProfileId.error.flatten(),
+        );
+      }
+
       const inspirations = await listCreativeInspirations({
         workspaceId: workspace.id,
-        clientProfileId: parsed.data,
+        clientProfileId: parsedClientProfileId?.data ?? null,
       });
       return NextResponse.json({ inspirations });
     }

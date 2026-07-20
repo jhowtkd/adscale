@@ -71,12 +71,50 @@ describe("BrandInspirations", () => {
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
 
-  it("does not query or render brand data without an active brand", () => {
-    useInspirationsMock.mockReturnValue({ data: [], isLoading: false, isError: false });
-    const { container } = render(<BrandInspirations clientProfileId={null} onAttach={vi.fn()} />);
+  it("loads and renders global inspirations without an active brand", () => {
+    useInspirationsMock.mockReturnValue({
+      data: [curated],
+      isLoading: false,
+      isError: false,
+    });
+
+    render(
+      <BrandInspirations
+        clientProfileId={null}
+        onAttach={vi.fn()}
+      />,
+    );
 
     expect(useInspirationsMock).toHaveBeenCalledWith(null);
-    expect(container).toBeEmptyDOMElement();
+    expect(screen.getByRole("button", {
+      name: "Usar inspiração Editorial",
+    })).toBeInTheDocument();
+  });
+
+  it("keeps the randomized order stable across local rerenders", () => {
+    const { rerender } = render(
+      <BrandInspirations
+        clientProfileId="brand-1"
+        onAttach={vi.fn()}
+      />,
+    );
+
+    const firstOrder = screen
+      .getAllByRole("button", { name: /Usar inspiração/ })
+      .map((button) => button.getAttribute("aria-label"));
+
+    rerender(
+      <BrandInspirations
+        clientProfileId="brand-1"
+        onAttach={vi.fn()}
+      />,
+    );
+
+    const secondOrder = screen
+      .getAllByRole("button", { name: /Usar inspiração/ })
+      .map((button) => button.getAttribute("aria-label"));
+
+    expect(secondOrder).toEqual(firstOrder);
   });
 
   it("announces loading as a live status", () => {
