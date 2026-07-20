@@ -32,7 +32,7 @@ function asset(
     category?: BrandTrainingCategory;
     usageMode?: BrandTrainingUsageMode;
     placement?: CreativeWorkIdentityAssetSnapshot["placement"];
-    analysis?: BrandTrainingAnalysis;
+    analysis?: BrandTrainingAnalysis | null;
   } = {},
 ): CreativeWorkIdentityAssetSnapshot {
   return {
@@ -41,7 +41,7 @@ function asset(
     label: overrides.label ?? "Asset 1",
     category: overrides.category ?? "logo",
     usageMode: overrides.usageMode ?? "exact",
-    analysis: overrides.analysis ?? analysis(),
+    analysis: overrides.analysis === undefined ? analysis() : overrides.analysis,
     mimeType: "image/png",
     hasAlpha: true,
     placement:
@@ -166,6 +166,38 @@ describe("buildSocialPostPrompt", () => {
 
     expect(prompt).toContain("REFERENCE-MODE DESCRIPTIONS");
     expect(prompt).toContain("Calm dusk");
+  });
+
+  it("tolerates null analysis on rule and reference assets without throwing", () => {
+    const prompt = buildSocialPostPrompt({
+      ...promptInput,
+      identitySnapshot: snapshot({
+        assets: [
+          asset({
+            referenceId: "rule-null",
+            label: "rule-null",
+            category: "graphic",
+            usageMode: "rule",
+            placement: null,
+            analysis: null,
+          }),
+          asset({
+            referenceId: "ref-null",
+            label: "ref-null",
+            category: "visual_reference",
+            usageMode: "reference",
+            placement: null,
+            analysis: null,
+          }),
+        ],
+      }),
+    });
+
+    expect(prompt).toContain("RULE-MODE FINDINGS");
+    expect(prompt).toContain("rule-null");
+    expect(prompt).toContain("(no description)");
+    expect(prompt).toContain("REFERENCE-MODE DESCRIPTIONS");
+    expect(prompt).toContain("ref-null");
   });
 
   it("reserves clean placement instructions for exact-mode assets", () => {
