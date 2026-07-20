@@ -117,6 +117,44 @@ describe("BrandInspirations", () => {
     expect(secondOrder).toEqual(firstOrder);
   });
 
+  it("keeps order stable when the query returns a new array with the same membership", () => {
+    useInspirationsMock.mockReturnValue({
+      data: [template, approved, curated],
+      isLoading: false,
+      isError: false,
+    });
+
+    const { rerender } = render(
+      <BrandInspirations
+        clientProfileId="brand-1"
+        onAttach={vi.fn()}
+      />,
+    );
+
+    const firstOrder = screen
+      .getAllByRole("button", { name: /Usar inspiração/ })
+      .map((button) => button.getAttribute("aria-label"));
+
+    useInspirationsMock.mockReturnValue({
+      data: [curated, approved, template],
+      isLoading: false,
+      isError: false,
+    });
+
+    rerender(
+      <BrandInspirations
+        clientProfileId="brand-1"
+        onAttach={vi.fn()}
+      />,
+    );
+
+    const secondOrder = screen
+      .getAllByRole("button", { name: /Usar inspiração/ })
+      .map((button) => button.getAttribute("aria-label"));
+
+    expect(secondOrder).toEqual(firstOrder);
+  });
+
   it("announces loading as a live status", () => {
     useInspirationsMock.mockReturnValue({ data: undefined, isLoading: true, isError: false, refetch: vi.fn() });
     render(<BrandInspirations clientProfileId="brand-1" onAttach={vi.fn()} />);

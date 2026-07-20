@@ -1,3 +1,5 @@
+import "./load-env";
+
 import {
   DeleteObjectCommand,
   GetObjectCommand,

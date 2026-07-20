@@ -3,7 +3,7 @@ import {
   importedKeyFor,
   parseImportArgs,
   requiredEnvironment,
-} from "./import-curated-inspirations";
+} from "../../scripts/import-curated-inspirations";
 
 describe("import-curated-inspirations", () => {
   it("uses a deterministic target key", () => {

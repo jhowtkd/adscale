@@ -26,7 +26,29 @@ export function BrandInspirations({ clientProfileId, onAttach }: {
 }) {
   const { data = [], isLoading, isError, refetch } = useCreativeInspirations(clientProfileId);
   const [pendingId, setPendingId] = useState<string | null>(null);
-  const randomizedInspirations = useMemo(() => shuffleInspirations(data), [data]);
+  const membershipKey = useMemo(
+    () => `${clientProfileId ?? "global"}:${data
+      .map((item) => `${item.source}:${item.id}`)
+      .sort()
+      .join("|")}`,
+    [clientProfileId, data],
+  );
+  const [ordered, setOrdered] = useState<{
+    key: string;
+    items: CreativeInspiration[];
+  } | null>(null);
+
+  if (ordered === null || ordered.key !== membershipKey) {
+    setOrdered({ key: membershipKey, items: shuffleInspirations(data) });
+  }
+
+  const byKey = useMemo(
+    () => new Map(data.map((item) => [`${item.source}:${item.id}`, item] as const)),
+    [data],
+  );
+  const randomizedInspirations = (ordered?.key === membershipKey ? ordered.items : data)
+    .map((item) => byKey.get(`${item.source}:${item.id}`))
+    .filter((item): item is CreativeInspiration => Boolean(item));
 
   return (
     <section aria-labelledby="brand-inspirations-title">

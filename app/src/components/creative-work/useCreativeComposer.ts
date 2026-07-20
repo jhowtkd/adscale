@@ -57,7 +57,7 @@ function signature(snapshot: DraftSnapshot) {
 
 function snapshotFromWork(work: Pick<CreativeWorkItem, "request" | "toolKind" | "format" | "settings">): DraftSnapshot {
   return {
-    request: work.request.trim(),
+    request: work.request,
     intent: work.toolKind === "social_post" ? "variations" : work.toolKind,
     format: work.format,
     settings: {
@@ -169,7 +169,7 @@ export function useCreativeComposer({
   }, [detailQuery.data]);
 
   const captureSnapshot = useCallback((): DraftSnapshot => ({
-    request: requestRef.current.trim(),
+    request: requestRef.current,
     intent: intentRef.current,
     format: formatRef.current,
     settings: { targetFormats: [...targetFormatsRef.current], formatMode: formatModeRef.current },
@@ -733,9 +733,16 @@ export function useCreativeComposer({
     ?? null;
   const sources = detail?.sources ?? [];
   const readySources = sources.filter((source) => source.status === "ready");
+  const restyleOriginal = readySources.find((source) => source.usage === "content")
+    ?? readySources.find((source) => source.usage === "both")
+    ?? null;
+  const restyleStyle = readySources.find((source) => source.usage === "style") ?? null;
   const hasMeaningfulInput = intent === "restyle"
-    ? readySources.some((source) => source.usage === "content" || source.usage === "both")
-      && readySources.some((source) => source.usage === "style" || source.usage === "both")
+    ? Boolean(
+      restyleOriginal
+      && restyleStyle
+      && restyleOriginal.id !== restyleStyle.id,
+    )
     : intent === "variations" || intent === "format_adaptation"
       ? readySources.length > 0
       : Boolean(request.trim() || sources.length);

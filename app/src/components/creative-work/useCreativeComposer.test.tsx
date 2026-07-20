@@ -461,7 +461,7 @@ describe("useCreativeComposer", () => {
     expect(mocks.create).toHaveBeenCalledOnce();
     expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({
       clientProfileId: profileA.id,
-      request: "Campanha de julho",
+      request: "  Campanha de julho  ",
       intent: "variations",
     }));
 
@@ -759,8 +759,8 @@ describe("useCreativeComposer", () => {
       data: {
         ...workDetail({ toolKind: "restyle", request: "" }),
         sources: [
-          { id: "source-1", usage: "both", usageConfirmed: false, status: "ready" },
-          { id: "source-2", usage: "both", usageConfirmed: false, status: "ready" },
+          { id: "source-1", usage: "content", usageConfirmed: false, status: "ready" },
+          { id: "source-2", usage: "style", usageConfirmed: false, status: "ready" },
         ],
       },
       isLoading: false,
@@ -770,6 +770,39 @@ describe("useCreativeComposer", () => {
     const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
 
     expect(result.current.canGenerate).toBe(true);
+  });
+
+  it("does not enable restyle from a single ready both source", () => {
+    mocks.work.mockReturnValue({
+      data: {
+        ...workDetail({ toolKind: "restyle", request: "" }),
+        sources: [
+          { id: "source-1", usage: "both", usageConfirmed: true, status: "ready" },
+        ],
+      },
+      isLoading: false,
+      isError: false,
+    });
+
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+
+    expect(result.current.canGenerate).toBe(false);
+  });
+
+  it("persists variation instructions without trimming outer whitespace", async () => {
+    mocks.work.mockReturnValue({ data: workDetail({ toolKind: "variations" }), isLoading: false, isError: false });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+
+    act(() => {
+      result.current.setRequest("  - Copy mais direta\n- Novo CTA  ");
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+
+    expect(mocks.autosave).toHaveBeenCalledWith(expect.objectContaining({
+      request: "  - Copy mais direta\n- Novo CTA  ",
+    }));
   });
 
   it("does not expose the global brand while an existing work is still hydrating", () => {

@@ -28,6 +28,12 @@ Runtime secrets and service URLs are read from `process.env`. The canonical list
 | `R2_SECRET_ACCESS_KEY` | Yes | — | R2 secret access key. |
 | `R2_BUCKET` | Yes | — | R2 bucket name. |
 | `R2_PUBLIC_BASE_URL` | Yes | — | Public HTTPS base URL for R2 assets (also used for Next.js `images.remotePatterns`). |
+| `SOURCE_DATABASE_URL` | No (import script) | — | Source Postgres URL for one-off curated inspiration import (`npm run catalog:import-inspirations`). Not in `envSchema`. |
+| `SOURCE_R2_ACCOUNT_ID` | No (import script) | — | Source Cloudflare R2 account ID for curated inspiration import. Not in `envSchema`. |
+| `SOURCE_R2_ACCESS_KEY_ID` | No (import script) | — | Source R2 access key ID for curated inspiration import. Not in `envSchema`. |
+| `SOURCE_R2_SECRET_ACCESS_KEY` | No (import script) | — | Source R2 secret access key for curated inspiration import. Not in `envSchema`. |
+| `SOURCE_R2_BUCKET` | No (import script) | — | Source R2 bucket for curated inspiration import. Not in `envSchema`. |
+| `CURATED_TARGET_WORKSPACE_ID` | No (import script) | — | Destination workspace UUID that receives imported curated inspirations. Not in `envSchema`. |
 | `INNGEST_EVENT_KEY` | Yes | — | Inngest event key (`local` is fine for local dev). |
 | `INNGEST_SIGNING_KEY` | Yes | — | Inngest signing key. `local` disables signature verification and is dev-only — the `inngestSigningKeySchema` rejects `local` when `NODE_ENV=production`. |
 | `INNGEST_DEV` | No | — | Set to disable Inngest signature verification in non-production (`app/src/server/jobs/client.ts`, `app/src/app/api/inngest/route.ts`). The app hard-throws if set while `NODE_ENV=production`. Not in `.env.example` or `envSchema`. |
