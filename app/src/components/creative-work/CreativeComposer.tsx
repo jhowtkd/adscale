@@ -19,9 +19,35 @@ export function CreativeComposer({ composer, composerRef }: {
 }) {
   const t = useTranslations("dashboard.home.composer");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const styleInputRef = useRef<HTMLInputElement>(null);
   const [reviewSourceId, setReviewSourceId] = useState<string | null>(null);
   const isRestyle = composer.intent === "restyle";
-  const addArtLabel = isRestyle ? t("restyleAddArt") : t("addArt");
+  const isVariations = composer.intent === "variations";
+  const isSingle = composer.intent === "single";
+  const isFormatAdaptation = composer.intent === "format_adaptation";
+  const title = isRestyle
+    ? t("restyleTitle")
+    : isVariations
+      ? t("variationsTitle")
+      : isFormatAdaptation
+        ? t("formatAdaptationTitle")
+        : t("title");
+  const subtitle = isRestyle
+    ? t("restyleSubtitle")
+    : isVariations
+      ? t("variationsSubtitle")
+      : isFormatAdaptation
+        ? t("formatAdaptationSubtitle")
+        : t("subtitle");
+  const pendingLabel = composer.actionPhase === "saving"
+    ? t("actionSaving")
+    : composer.actionPhase === "preparing"
+      ? t("actionPreparing")
+      : composer.actionPhase === "submitting"
+        ? t("actionSubmitting")
+        : composer.state === "generating"
+          ? t("actionGenerating")
+          : null;
 
   const handleDrop = (event: React.DragEvent) => {
     event.preventDefault();
@@ -43,8 +69,8 @@ export function CreativeComposer({ composer, composerRef }: {
     <section aria-labelledby="creative-composer-title" className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 id="creative-composer-title" className="text-2xl font-semibold text-[var(--text-primary)]">{t(isRestyle ? "restyleTitle" : "title")}</h1>
-          <p className="mt-1 text-sm text-[var(--text-muted)]">{t(isRestyle ? "restyleSubtitle" : "subtitle")}</p>
+          <h1 id="creative-composer-title" className="text-2xl font-semibold text-[var(--text-primary)]">{title}</h1>
+          <p className="mt-1 text-sm text-[var(--text-muted)]">{subtitle}</p>
         </div>
         <span className="rounded-full bg-[var(--surface-inset)] px-3 py-1 text-xs font-medium text-[var(--text-secondary)]">
           {t("brand")}: {composer.brandName ?? t("noBrand")}
@@ -64,7 +90,7 @@ export function CreativeComposer({ composer, composerRef }: {
         onDrop={handleDrop}
         className="rounded-[var(--radius-object)] border border-[var(--border-default)] bg-[var(--surface-raised)] p-4 focus-within:ring-2 focus-within:ring-[var(--accent-primary)]"
       >
-        {!isRestyle ? <>
+        {isSingle ? <>
           <label htmlFor="creative-composer-request" className="sr-only">{t("requestLabel")}</label>
           <textarea
             ref={composerRef}
@@ -77,18 +103,18 @@ export function CreativeComposer({ composer, composerRef }: {
             className="w-full resize-y bg-transparent text-base text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
           />
         </> : null}
-        <div className={cn("flex flex-wrap items-center justify-between gap-3", !isRestyle && "mt-3 border-t border-[var(--border-subtle)] pt-3")}>
-          <div className="flex items-center gap-2">
+        <div className={cn("flex flex-wrap items-center justify-between gap-3", isSingle && "mt-3 border-t border-[var(--border-subtle)] pt-3")}>
+          <div className="flex flex-wrap items-center gap-2">
             <input
               ref={fileInputRef}
               id="creative-composer-file"
               type="file"
               accept="image/png,image/jpeg,image/webp"
-              multiple
+              multiple={isSingle}
               tabIndex={-1}
-              aria-label={addArtLabel}
+              aria-label={isRestyle ? t("restyleAddArt") : t("addArt")}
               className="sr-only"
-              onChange={(event) => void composer.addFiles(event.target.files)}
+              onChange={(event) => void composer.addFiles(event.target.files, isRestyle ? "content" : undefined)}
             />
             <button
               type="button"
@@ -96,13 +122,33 @@ export function CreativeComposer({ composer, composerRef }: {
               className="inline-flex items-center gap-2 rounded-[var(--radius-control)] px-3 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-inset)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]"
             >
               <Paperclip size={16} aria-hidden="true" />
-              {composer.isUploading ? t("uploading") : addArtLabel}
+              {composer.isUploading ? t("uploading") : isRestyle ? t("restyleAddArt") : t("addArt")}
             </button>
+            {isRestyle ? <>
+              <input
+                ref={styleInputRef}
+                id="creative-composer-style-file"
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                tabIndex={-1}
+                aria-label={t("addStyleReference")}
+                className="sr-only"
+                onChange={(event) => void composer.addFiles(event.target.files, "style")}
+              />
+              <button
+                type="button"
+                onClick={() => styleInputRef.current?.click()}
+                className="inline-flex items-center gap-2 rounded-[var(--radius-control)] px-3 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-inset)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]"
+              >
+                <Paperclip size={16} aria-hidden="true" />
+                {t("addStyleReference")}
+              </button>
+            </> : null}
             <span className="hidden text-xs text-[var(--text-muted)] sm:inline">{t("dropHint")}</span>
           </div>
           <button
             type="button"
-            disabled={!composer.canGenerate}
+            disabled={!composer.canGenerate || Boolean(pendingLabel)}
             onClick={() => void composer.generate()}
             className={cn(
               "inline-flex min-h-[var(--control-touch)] items-center gap-2 rounded-[var(--radius-control)] bg-[var(--accent-primary)] px-4 py-2 text-sm font-semibold text-[var(--text-on-accent)]",
@@ -110,9 +156,9 @@ export function CreativeComposer({ composer, composerRef }: {
             )}
           >
             <Sparkles size={16} aria-hidden="true" />
-            {isRestyle
+            {pendingLabel ?? (isRestyle
               ? t("generateRestyle", { credits: composer.quote.credits })
-              : t("generate", { count: composer.quote.unitCount, credits: composer.quote.credits })}
+              : t("generate", { count: composer.quote.unitCount, credits: composer.quote.credits }))}
           </button>
         </div>
       </div>
@@ -127,14 +173,17 @@ export function CreativeComposer({ composer, composerRef }: {
                 onReview={() => setReviewSourceId((current) => current === source.id ? null : source.id)}
                 onRetry={() => void composer.retrySource(source.id)}
                 onRemove={() => void composer.removeSource(source.id)}
-                simple={isRestyle}
+                simple={!isSingle}
               />
-              {reviewSourceId === source.id ? (
+              {source.status === "ready" && (isVariations || reviewSourceId === source.id) ? (
+                <div>
+                  {isVariations ? <h3 className="mt-3 text-sm font-semibold text-[var(--text-primary)]">{t("fullBriefing")}</h3> : null}
                 <CreativeSourceAnalysisEditor
                   source={source}
                   onSave={(content, style) => composer.editSource(source.id, content, style)}
                   onSaved={() => setReviewSourceId(null)}
                 />
+                </div>
               ) : null}
             </div>
           ))}
@@ -159,7 +208,19 @@ export function CreativeComposer({ composer, composerRef }: {
         </aside>
       ) : null}
 
-      {!isRestyle ? <details className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-4">
+      {isFormatAdaptation ? (
+        <fieldset className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-4">
+          <legend className="px-1 text-sm font-medium text-[var(--text-primary)]">{t("targetFormats")}</legend>
+          <div className="mt-2 flex flex-wrap gap-3">
+            {FORMATS.map((value) => (
+              <label key={value} className="inline-flex items-center gap-2 text-sm text-[var(--text-primary)]">
+                <input type="checkbox" checked={composer.targetFormats.includes(value)} onChange={() => composer.toggleTargetFormat(value)} />
+                {value}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      ) : !isRestyle ? <details className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-4">
         <summary className="cursor-pointer text-sm font-medium text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]">
           {t("optionalSettings")}
         </summary>
@@ -243,7 +304,13 @@ export function CreativeComposer({ composer, composerRef }: {
           ) : null}
         </div>
       ) : null}
-      <p role="status" aria-live="polite" className="sr-only">{composer.announcement || composer.state}</p>
+      <p
+        role="status"
+        aria-live="polite"
+        className={pendingLabel ? "text-sm font-medium text-[var(--accent-primary-text)]" : "sr-only"}
+      >
+        {pendingLabel ?? composer.announcement ?? composer.state}
+      </p>
     </section>
   );
 }

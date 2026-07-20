@@ -10,6 +10,7 @@ function work(
     originId: "x",
     origin: "campaign",
     workspaceId: "ws",
+    clientProfileId: "client-1",
     state: "briefing",
     updatedAt: "2026-07-13T12:00:00.000Z",
     resumable: true,

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -62,21 +62,18 @@ describe("brand inspiration composer integration", () => {
   it.each([
     [{ id: "template-1", source: "template", title: "Lançamento", previewUrl: null, templateId: "template-1", assetId: null, suggestedIntent: "variations" }, "Template"],
     [{ id: "output-1", source: "approved_work", title: "Matrículas", previewUrl: "/api/workspace/assets/asset-1/file", templateId: null, assetId: "asset-1", suggestedIntent: "restyle" }, "Trabalho aprovado"],
-  ] as const)("renders the attached %s origin in the same composer without navigation", (inspiration, originLabel) => {
+  ] as const)("renders the attached %s origin in the same composer without navigation", async (inspiration, originLabel) => {
     useInspirationsMock.mockReturnValue({ data: [inspiration], isLoading: false, isError: false, refetch: vi.fn() });
     const before = window.location.href;
     render(<Harness />);
 
     fireEvent.click(screen.getByRole("button", { name: `Usar inspiração ${inspiration.title}` }));
 
-    const chip = screen.getByRole("article");
+    const chip = await screen.findByRole("article");
     expect(within(chip).getByText(originLabel)).toBeInTheDocument();
-    expect(within(chip).getByRole("button", { name: "Conteúdo" })).toBeInTheDocument();
-    expect(within(chip).getByRole("button", { name: "Estilo" })).toBeInTheDocument();
-    expect(within(chip).getByRole("button", { name: "Conteúdo" })).toHaveAttribute("aria-pressed", "false");
-    expect(within(chip).getByRole("button", { name: "Estilo" })).toHaveAttribute("aria-pressed", "false");
-    expect(within(chip).getByRole("button", { name: "Ambos" })).toHaveAttribute("aria-pressed", "false");
-    expect(within(chip).getByText("Escolha como esta arte será usada.")).toBeInTheDocument();
+    expect(within(chip).queryByRole("button", { name: "Conteúdo" })).not.toBeInTheDocument();
+    expect(within(chip).queryByText("Escolha como esta arte será usada.")).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: `Usar inspiração ${inspiration.title}` })).not.toBeDisabled());
     expect(window.location.href).toBe(before);
   });
 });

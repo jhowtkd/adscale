@@ -7,7 +7,7 @@ vi.mock("@/lib/hooks/use-creative-inspirations", () => ({
   useCreativeInspirations: (...args: unknown[]) => useInspirationsMock(...args),
 }));
 
-import { BrandInspirations } from "./BrandInspirations";
+import { BrandInspirations, shuffleInspirations } from "./BrandInspirations";
 
 const template = {
   id: "template-1", source: "template" as const, title: "Lançamento",
@@ -28,6 +28,18 @@ describe("BrandInspirations", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     useInspirationsMock.mockReturnValue({ data: [template, approved, curated], isLoading: false, isError: false });
+  });
+
+  it("shuffles inspirations once instead of preserving the API order", () => {
+    const randomValues = [0, 0];
+    const random = vi.fn(() => randomValues.shift() ?? 0);
+
+    expect(shuffleInspirations([template, approved, curated], random)).toEqual([
+      approved,
+      curated,
+      template,
+    ]);
+    expect(random).toHaveBeenCalledTimes(2);
   });
 
   it("lists the active brand inspirations and attaches a template without navigating", () => {

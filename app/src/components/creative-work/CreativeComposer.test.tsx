@@ -6,7 +6,11 @@ vi.mock("@/components/layout/ActiveBrandSwitcher", () => ({
 vi.mock("next-intl", () => ({ useTranslations: () => (key: string, values?: Record<string, number>) => ({
   requestLabel: "Pedido criativo", placeholder: "Descreva", addArt: "Adicionar arte", dropHint: "Solte aqui",
   restyleTitle: "Copiar o estilo da referência", restyleSubtitle: "Adicione a arte original e a referência de estilo.",
-  restyleAddArt: "Adicionar arte original", generateRestyle: "Gerar reestilização · 5 créditos",
+  variationsTitle: "Gere variações a partir de uma arte", variationsSubtitle: "Envie uma arte para a IA analisar.",
+  formatAdaptationTitle: "Adapte uma arte para outros formatos", formatAdaptationSubtitle: "Envie a arte original e escolha os formatos.",
+  originalArt: "Arte original", styleReference: "Referência de estilo", fullBriefing: "Briefing visual sugerido pela IA",
+  restyleAddArt: "Adicionar arte original", addStyleReference: "Adicionar referência de estilo", generateRestyle: "Gerar reestilização · 5 créditos",
+  actionSaving: "Salvando", actionPreparing: "Preparando", actionSubmitting: "Enviando para geração", actionGenerating: "Gerando",
   optionalSettings: "Ajustes opcionais", format: "Formato", formatAuto: "Automático (agora: 4:5)", targetFormats: "Formatos de destino",
   brandTrainingSuggestion: "Treine referências visuais para aproximar futuros resultados da marca.", brandTrainingCta: "Treinar marca",
   analysisContent: "Conteúdo extraído", analysisStyle: "Estilo extraído", product: "Produto", offer: "Oferta",
@@ -31,7 +35,7 @@ import type { CreativeComposerModel, CreativeComposerViewModel } from "./useCrea
 function composer(overrides = {}) {
   return {
     composerRef: { current: null }, request: "", setRequest: vi.fn(), intent: "variations", selectIntent: vi.fn(),
-    format: "4:5", formatMode: "manual", setFormat: vi.fn(), setFormatAuto: vi.fn(), targetFormats: [], toggleTargetFormat: vi.fn(), state: "empty",
+    format: "4:5", formatMode: "manual", setFormat: vi.fn(), setFormatAuto: vi.fn(), targetFormats: [], toggleTargetFormat: vi.fn(), state: "empty", actionPhase: "idle",
     workId: null, brandName: "Marca A", sources: [], outputs: [], quote: { unitCount: 3, credits: 15 },
     campaignId: null, campaigns: [], linkCampaign: vi.fn(), retryOutput: vi.fn(), retryRevisionOutput: vi.fn(), approveOutput: vi.fn(),
     downloadOutput: vi.fn(), reviseOutput: vi.fn(), isRetryingOutput: vi.fn(), isApprovingOutput: vi.fn(), isRevisingOutput: vi.fn(),
@@ -54,8 +58,8 @@ function renderComposer(value = composer()) {
 }
 
 describe("CreativeComposer", () => {
-  it("keeps Enter as a newline and never generates from the textarea", () => {
-    const value = composer();
+  it("keeps Enter as a newline in Peça única and never generates from the textarea", () => {
+    const value = composer({ intent: "single", quote: { unitCount: 1, credits: 5 } });
     renderComposer(value);
     const textarea = screen.getByRole("textbox", { name: /pedido criativo/i });
 
@@ -64,6 +68,28 @@ describe("CreativeComposer", () => {
 
     expect(value.setRequest).toHaveBeenCalledWith("Linha 1\nLinha 2");
     expect(value.generate).not.toHaveBeenCalled();
+  });
+
+  it("turns variations into upload plus an always-visible full analysis", () => {
+    const source = {
+      id: "source-1", name: "arte.png", origin: "upload", usage: "both", usageConfirmed: true, status: "ready",
+      contentAnalysis: {
+        product: "Tênis", offer: "20%", cta: { text: "Comprar", style: "botão" }, brandElements: [],
+        keyVisual: "Produto", textContent: { headline: "Oferta", bullets: [] }, format: "4:5",
+      },
+      styleAnalysis: {
+        colorPalette: { dominant: ["preto"], accents: ["verde"], gradients: "" },
+        typography: { personality: "forte", effects: [] }, textures: [], composition: "central",
+        mood: "urbano", decorativeElements: [], photoTreatment: "contraste alto",
+      },
+    };
+    const value = composer({ intent: "variations", sources: [source] });
+    renderComposer(value);
+
+    expect(screen.queryByRole("textbox", { name: /pedido criativo/i })).not.toBeInTheDocument();
+    expect(screen.getByText("Briefing visual sugerido pela IA")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Produto" })).toHaveValue("Tênis");
+    expect(screen.getByRole("textbox", { name: "Clima visual" })).toHaveValue("urbano");
   });
 
   it("shows the canonical paid CTA and sends dropped files to the same composer", () => {
@@ -89,9 +115,30 @@ describe("CreativeComposer", () => {
     expect(screen.queryByRole("textbox", { name: /pedido criativo/i })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Gerar reestilização · 5 créditos" })).toBeInTheDocument();
     expect(screen.getByLabelText("Adicionar arte original", { selector: "input" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Adicionar referência de estilo", { selector: "input" })).toBeInTheDocument();
     expect(screen.queryByText("Ajustes opcionais")).not.toBeInTheDocument();
     expect(screen.queryByRole("group", { name: "Usar arte como" })).not.toBeInTheDocument();
     expect(screen.queryByText("Escolha como esta arte será usada.")).not.toBeInTheDocument();
+  });
+
+  it("uses a source-only composer for format adaptation", () => {
+    renderComposer(composer({
+      intent: "format_adaptation",
+      targetFormats: ["1:1", "9:16"],
+      quote: { unitCount: 2, credits: 10 },
+    }));
+
+    expect(screen.getByRole("heading", { name: "Adapte uma arte para outros formatos" })).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: /pedido criativo/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Formatos de destino" })).toBeInTheDocument();
+  });
+
+  it("shows generation feedback in the button and visible status", () => {
+    renderComposer(composer({ actionPhase: "preparing", state: "analyzing", canGenerate: false }));
+
+    expect(screen.getByRole("button", { name: "Preparando" })).toBeDisabled();
+    expect(screen.getByRole("status")).toHaveTextContent("Preparando");
+    expect(screen.getByRole("status")).not.toHaveClass("sr-only");
   });
 
   it("renders CreativeSourceChip and dispatches its actions", () => {
@@ -99,7 +146,7 @@ describe("CreativeComposer", () => {
       id: "source-1", name: "arte.png", origin: "upload", usage: "content", status: "failed",
       usageConfirmed: true, contentAnalysis: null, styleAnalysis: null,
     };
-    const value = composer({ sources: [source] });
+    const value = composer({ intent: "single", sources: [source] });
     renderComposer(value);
 
     fireEvent.click(screen.getByRole("button", { name: "Estilo" }));
@@ -117,7 +164,7 @@ describe("CreativeComposer", () => {
       id: "source-1", name: "arte.png", origin: "upload", usage: "content", usageConfirmed: true, status: "ready",
       contentAnalysis, styleAnalysis: null,
     };
-    const value = composer({ sources: [source], editSource: vi.fn().mockResolvedValue(true) });
+    const value = composer({ intent: "single", sources: [source], editSource: vi.fn().mockResolvedValue(true) });
     renderComposer(value);
 
     fireEvent.click(screen.getByRole("button", { name: "Revisar dados" }));
@@ -138,6 +185,7 @@ describe("CreativeComposer", () => {
       brandElements: [], keyVisual: "Produto", textContent: { headline: "Oferta", bullets: [] }, format: "4:5",
     };
     const value = composer({
+      intent: "single",
       sources: [{
         id: "source-1", name: "arte.png", origin: "upload", usage: "content", usageConfirmed: true,
         status: "ready", contentAnalysis, styleAnalysis: null,

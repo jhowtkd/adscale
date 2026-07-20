@@ -8,6 +8,7 @@ const base: CanonicalWorkSummary = {
   originId: "w1",
   origin: "quick_tool",
   workspaceId: "ws",
+  clientProfileId: "client-1",
   name: "Post social",
   state: "generating",
   updatedAt: "2026-07-13T12:00:00.000Z",

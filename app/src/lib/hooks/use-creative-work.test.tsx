@@ -116,6 +116,26 @@ describe("creative source client contract", () => {
 
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["creative-work", "work-1"] });
   });
+
+  it("shows the friendly legacy rate-limit message while retaining its error code", async () => {
+    mockApiFetch.mockResolvedValue({
+      ok: false,
+      status: 429,
+      json: async () => ({ error: "rateLimitExceeded", message: "Aguarde um momento e tente novamente." }),
+    } as Response);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { result } = renderHook(() => useCreativeWorkSourceActions(), { wrapper: wrapperWith(queryClient) });
+
+    await expect(act(() => result.current.mutateAsync({
+      workItemId: "work-1",
+      action: "retrySource",
+      sourceId: "source-1",
+    }))).rejects.toMatchObject({
+      message: "Aguarde um momento e tente novamente.",
+      code: "rateLimitExceeded",
+      status: 429,
+    });
+  });
 });
 
 describe("useGenerateCopy", () => {

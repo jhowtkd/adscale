@@ -156,4 +156,10 @@ describe("useCampaignsPage legacy creation redirect", () => {
 
     expect(pushMock).toHaveBeenCalledWith("/?compose=1");
   });
+
+  it("opens Trabalhos in grid mode by default", () => {
+    const { result } = renderHook(() => useCampaignsPage(createSearchParams()));
+
+    expect(result.current.viewMode).toBe("grid");
+  });
 });

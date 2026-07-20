@@ -166,6 +166,7 @@ import {
   deleteCreativeWorkSource,
   createCreativeWorkOutputs,
   failStaleCreativeWorkOutputs,
+  failStaleCreativeWorkSources,
   failCreativeWorkOutput,
   failQueuedCreativeWorkOutput,
   getCreativeWork,
@@ -829,6 +830,35 @@ describe("creative-work repository", () => {
         expect.objectContaining({
           status: "failed",
           failureCode: "generation_timeout",
+        }),
+      );
+      const query = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]);
+      expect(query.sql).toContain("timestamp without time zone");
+      expect(query.params.at(-1)).toBe(staleBefore);
+      expect(result).toEqual([failed]);
+    });
+  });
+
+  describe("failStaleCreativeWorkSources", () => {
+    it("turns stale uploaded or analyzing sources into retryable failures", async () => {
+      const failed = {
+        id: "source-1",
+        status: "failed",
+        failureCode: "analysis_timeout",
+      };
+      mocks.state.updateResults.push([failed]);
+      const staleBefore = new Date("2026-07-15T12:00:00.000Z");
+
+      const result = await failStaleCreativeWorkSources(
+        "ws-1",
+        "work-1",
+        staleBefore,
+      );
+
+      expect(mocks.setMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: "failed",
+          failureCode: "analysis_timeout",
         }),
       );
       const query = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]);

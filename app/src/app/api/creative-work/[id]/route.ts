@@ -18,6 +18,7 @@ import {
 } from "@/server/creative-work/contracts";
 import {
   failStaleCreativeWorkOutputs,
+  failStaleCreativeWorkSources,
   createCreativeWorkSource,
   deleteCreativeWorkSource,
   getCreativeWork,
@@ -33,6 +34,7 @@ import { inngest } from "@/server/jobs/client";
 import type { CreativeWorkSource } from "@/server/db/schema";
 
 const GENERATION_LEASE_MS = 15 * 60 * 1000;
+const SOURCE_ANALYSIS_LEASE_MS = 5 * 60 * 1000;
 
 const confirmCreativeWorkSchema = z
   .object({
@@ -121,11 +123,18 @@ export async function GET(
       requireWorkspaceAccess(request),
       params,
     ]);
-    const staleOutputs = await failStaleCreativeWorkOutputs(
-      workspace.id,
-      id,
-      new Date(Date.now() - GENERATION_LEASE_MS),
-    );
+    const [staleOutputs] = await Promise.all([
+      failStaleCreativeWorkOutputs(
+        workspace.id,
+        id,
+        new Date(Date.now() - GENERATION_LEASE_MS),
+      ),
+      failStaleCreativeWorkSources(
+        workspace.id,
+        id,
+        new Date(Date.now() - SOURCE_ANALYSIS_LEASE_MS),
+      ),
+    ]);
     if (staleOutputs.length > 0) {
       await refreshCreativeWorkStatus(workspace.id, id);
     }
@@ -221,6 +230,7 @@ export async function PATCH(
         workItemId: id,
         ...(asset ? { assetId: asset.id } : { templateId: template!.id }),
         usage: parsed.data.usage,
+        usageConfirmed: aggregate.work.toolKind !== "single",
         status: "uploaded",
       });
       if (!sourceClaim) return apiError("invalidInput", 400);

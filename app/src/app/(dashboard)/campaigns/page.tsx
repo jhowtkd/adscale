@@ -27,10 +27,6 @@ import type { PlatformFilter, SortOption, StatusFilter } from "@/components/camp
 /** Matches listCanonicalWorks default so list metadata covers the same universe. */
 const CANONICAL_LIST_LIMIT = 50;
 
-const CampaignsGridView = dynamic(() => import("@/components/campaigns/CampaignsGridView"), {
-  loading: () => <div className="h-48 animate-pulse rounded bg-[var(--surface-raised)]" />,
-});
-
 const KanbanBoard = dynamic(() => import("@/components/campaigns/KanbanBoard"), {
   loading: () => <div className="flex h-64 items-center justify-center"><div className="size-8 animate-spin rounded-full border-b-2 border-primary" /></div>,
 });
@@ -123,13 +119,13 @@ function CampaignsListContent() {
   } = useCampaignsPage(searchParams);
 
   const labels = useMemo(() => buildCampaignsV6Labels(t, tc), [t, tc]);
-  const isListMode = viewMode === "list";
+  const isCanonicalMode = viewMode !== "board";
   // Title/count only need canonical works; meta enrich is optional and must not
   // leave the h1 in a permanent skeleton (UAT S05).
-  const isLoading = isListMode ? worksLoading : campaignsLoading;
+  const isLoading = isCanonicalMode ? worksLoading : campaignsLoading;
   void metaLoading; // metrics enrich only; do not block title/list chrome
   // List can render with stubs if the campaigns page query fails; only canonical fails hard.
-  const isError = isListMode ? worksError : campaignsError;
+  const isError = isCanonicalMode ? worksError : campaignsError;
 
   const campaignById = useMemo(() => {
     const map = new Map(campaignsMeta.map((c) => [c.id, c]));
@@ -173,8 +169,7 @@ function CampaignsListContent() {
     [filteredWorks, campaignById, labels.originCampaigns, labels.originPosts, t]
   );
 
-  // List = canonical works count; grid/board = campaign grouping count
-  const displayCount = isListMode ? filteredWorks.length : campaignsTotalCount;
+  const displayCount = isCanonicalMode ? filteredWorks.length : campaignsTotalCount;
 
   const statusFilterLabel = getStatusFilterLabel(statusFilter, t, tc);
   const platformFilterLabel = getPlatformFilterLabel(platformFilter, t, tc);
@@ -193,41 +188,41 @@ function CampaignsListContent() {
     label: getSortFilterLabel(value, tc),
   }));
 
-  const listEmpty =
-    isListMode &&
+  const canonicalEmpty =
+    isCanonicalMode &&
     !isLoading &&
     !isError &&
     rows.length === 0;
-  const gridEmpty =
-    !isListMode &&
+  const boardEmpty =
+    !isCanonicalMode &&
     !isLoading &&
     !isError &&
     campaigns.length === 0;
 
   const emptyState =
-    listEmpty || gridEmpty ? (
+    canonicalEmpty || boardEmpty ? (
       <EmptyState
         icon={
           hasActiveFilters ||
-          (isListMode && (originFilter !== "all" || searchInput))
+          (isCanonicalMode && (originFilter !== "all" || searchInput))
             ? Search
             : ImageOff
         }
         title={
           hasActiveFilters ||
-          (isListMode && (originFilter !== "all" || searchInput))
+          (isCanonicalMode && (originFilter !== "all" || searchInput))
             ? tc("noCampaignsMatch")
             : tc("noCampaignsYet")
         }
         description={
           hasActiveFilters ||
-          (isListMode && (originFilter !== "all" || searchInput))
+          (isCanonicalMode && (originFilter !== "all" || searchInput))
             ? tc("adjustFilters")
             : tc("createFirstCampaign")
         }
         action={
           hasActiveFilters ||
-          (isListMode && (originFilter !== "all" || searchInput))
+          (isCanonicalMode && (originFilter !== "all" || searchInput))
             ? {
                 label: tc("clearAllFilters"),
                 onClick: () => {
@@ -240,11 +235,8 @@ function CampaignsListContent() {
       />
     ) : undefined;
 
-  // Grid/board remain campaign-only grouping views (status/platform/sort apply here)
   const alternateView =
-    viewMode === "grid" ? (
-      <CampaignsGridView campaigns={campaigns} />
-    ) : viewMode === "board" ? (
+    viewMode === "board" ? (
       <KanbanBoard campaigns={campaigns} />
     ) : null;
 
@@ -289,15 +281,15 @@ function CampaignsListContent() {
         isLoading={isLoading}
         searchQuery={searchInput}
         onSearchChange={handleSearchChange}
-        originFilter={isListMode ? originFilter : "campaign"}
+        originFilter={isCanonicalMode ? originFilter : "campaign"}
         onOriginChange={
-          isListMode
+          isCanonicalMode
             ? (value) => {
                 setOriginFilter(value);
               }
             : undefined
         }
-        showCampaignFilters={!isListMode}
+        showCampaignFilters={!isCanonicalMode}
         statusFilter={statusFilter}
         statusFilterLabel={statusFilterLabel}
         onStatusChange={updateStatusFilter}
@@ -313,7 +305,7 @@ function CampaignsListContent() {
         viewMode={viewMode}
         onViewModeChange={(mode) => {
           setViewMode(mode);
-          if (mode !== "list" && originFilter === "creative_work") {
+          if (mode === "board" && originFilter === "creative_work") {
             setOriginFilter("all");
           }
         }}
@@ -330,7 +322,7 @@ function CampaignsListContent() {
         emptyState={emptyState}
       />
 
-      {!isListMode && !isLoading && campaignsTotalCount > 0 ? (
+      {viewMode === "board" && !isLoading && campaignsTotalCount > 0 ? (
         <CampaignsPagination
           startIndex={startIndex}
           endIndex={endIndex}
@@ -414,7 +406,7 @@ function CampaignsV6ViewSkeleton() {
       sortOption="newest"
       sortLabel="Atualização"
       sortOptions={[]}
-      viewMode="list"
+      viewMode="grid"
     />
   );
 }

@@ -6,6 +6,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { formatDistanceToNow } from "date-fns";
 import { enUS, ptBR } from "date-fns/locale";
 import { useCanonicalWorks } from "@/lib/hooks/use-canonical-works";
+import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
 import { cn } from "@/lib/utils";
 
 /**
@@ -16,10 +17,25 @@ export default function SidebarRecentWorks() {
   const locale = useLocale();
   const dateLocale = locale.startsWith("pt") ? ptBR : enUS;
   const { data: works = [], isLoading } = useCanonicalWorks();
-  const recent = useMemo(
-    () => works.filter((w) => w.resumable).slice(0, 7),
-    [works]
-  );
+  const active = useActiveClientProfile();
+  const groups = useMemo(() => {
+    const names = new Map(active.profiles.map((profile) => [profile.id, profile.name]));
+    const grouped = new Map<string, typeof works>();
+    for (const work of works) {
+      if (work.originKind !== "campaign" || !work.resumable) continue;
+      const key = work.clientProfileId ?? "unassigned";
+      const items = grouped.get(key) ?? [];
+      if (items.length < 5) items.push(work);
+      grouped.set(key, items);
+    }
+    return [...grouped].map(([clientProfileId, items]) => ({
+      clientProfileId,
+      name: clientProfileId === "unassigned"
+        ? tNav("unassignedClient")
+        : names.get(clientProfileId) ?? tNav("unassignedClient"),
+      items,
+    }));
+  }, [active.profiles, tNav, works]);
 
   return (
     <div
@@ -27,10 +43,10 @@ export default function SidebarRecentWorks() {
       data-testid="sidebar-recent-works"
     >
       <p className="px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-        {tNav("recentWorks")}
+        {tNav("recentCampaigns")}
       </p>
 
-      {isLoading && recent.length === 0 ? (
+      {isLoading && groups.length === 0 ? (
         <div className="space-y-2 px-1" aria-hidden="true">
           {Array.from({ length: 3 }).map((_, i) => (
             <div
@@ -39,7 +55,7 @@ export default function SidebarRecentWorks() {
             />
           ))}
         </div>
-      ) : recent.length === 0 ? (
+      ) : groups.length === 0 ? (
         <div className="rounded-[var(--radius-control)] border border-dashed border-[var(--border-subtle)] px-3 py-4 text-center">
           <p className="text-[12px] text-[var(--text-muted)]">
             {tNav("recentWorksEmpty")}
@@ -52,38 +68,44 @@ export default function SidebarRecentWorks() {
           </Link>
         </div>
       ) : (
-        <ul className="min-h-0 flex-1 space-y-1 overflow-y-auto" role="list">
-          {recent.map((work) => {
-            const formattedDate = formatDistanceToNow(new Date(work.updatedAt), {
-              addSuffix: true,
-              locale: dateLocale,
-            });
-
-            return (
-              <li key={work.id}>
-                <Link
-                  href={work.resumeHref}
-                  className={cn(
-                    "flex items-center gap-2.5 rounded-[var(--radius-control)] px-2 py-2",
-                    "transition-colors hover:bg-[var(--surface-inset)]"
-                  )}
-                >
-                  <span className="grid size-8 shrink-0 place-items-center overflow-hidden rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] font-mono text-[10px] font-bold text-[var(--accent-primary-text)]">
-                    {work.originKind === "creative_work" ? "CP" : "C"}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[13px] font-medium text-[var(--text-primary)]">
-                      {work.name}
-                    </span>
-                    <span className="mt-0.5 flex items-center gap-1.5 text-[10px] text-[var(--text-muted)]">
-                      <time dateTime={work.updatedAt}>{formattedDate}</time>
-                    </span>
-                  </span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+        <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
+          {groups.map((group, index) => (
+            <details
+              key={group.clientProfileId}
+              open={group.clientProfileId === active.activeClientProfileId || (!active.activeClientProfileId && index === 0)}
+              className="rounded-[var(--radius-control)]"
+            >
+              <summary className="cursor-pointer truncate rounded-[var(--radius-control)] px-2 py-2 text-[12px] font-semibold text-[var(--text-secondary)] hover:bg-[var(--surface-inset)]">
+                {group.name}
+              </summary>
+              <ul className="space-y-1 pb-1 pl-2" role="list">
+                {group.items.map((work) => {
+                  const formattedDate = formatDistanceToNow(new Date(work.updatedAt), {
+                    addSuffix: true,
+                    locale: dateLocale,
+                  });
+                  return (
+                    <li key={work.id}>
+                      <Link
+                        href={work.resumeHref}
+                        className={cn(
+                          "flex items-center gap-2 rounded-[var(--radius-control)] px-2 py-1.5",
+                          "transition-colors hover:bg-[var(--surface-inset)]"
+                        )}
+                      >
+                        <span className="grid size-7 shrink-0 place-items-center rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] font-mono text-[10px] font-bold text-[var(--accent-primary-text)]">C</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[12px] font-medium text-[var(--text-primary)]">{work.name}</span>
+                          <time className="block text-[10px] text-[var(--text-muted)]" dateTime={work.updatedAt}>{formattedDate}</time>
+                        </span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </details>
+          ))}
+        </div>
       )}
     </div>
   );

@@ -28,6 +28,7 @@ import { quoteCreativeWork } from "@/server/creative-work/contracts";
 import type { CreativeInspiration } from "@/server/application/list-creative-inspirations";
 
 export type ComposerState = "empty" | "saving" | "analyzing" | "ready" | "generating" | "results";
+export type ComposerActionPhase = "idle" | "saving" | "preparing" | "submitting";
 export type ComposerIntent = Exclude<CreativeWorkItem["toolKind"], "social_post">;
 type Format = CreativeWorkItem["format"];
 type DraftSnapshot = {
@@ -98,6 +99,7 @@ export function useCreativeComposer({
   const [targetFormats, setTargetFormats] = useState<Format[]>(initialTargetFormats);
   const [quote, setQuote] = useState(() => canonicalQuote(initialIntent, "4:5", initialTargetFormats));
   const [isUploading, setIsUploading] = useState(false);
+  const [actionPhase, setActionPhase] = useState<ComposerActionPhase>("idle");
   const [error, setError] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
   const [brandTrainingSuggestion, setBrandTrainingSuggestion] = useState<string | null>(null);
@@ -114,8 +116,10 @@ export function useCreativeComposer({
   const hydratedWorkRef = useRef<string | null>(null);
   const lastPersistedRef = useRef<string | null>(null);
   const createInFlightRef = useRef<Promise<string | null> | null>(null);
+  const draftEpochRef = useRef(0);
   const saveChainRef = useRef<Promise<void>>(Promise.resolve());
   const submitGuardRef = useRef(false);
+  const autosaveBlockedWorkRef = useRef<string | null>(null);
   const didFocusComposerRef = useRef(false);
   const focusFrameRef = useRef<number | null>(null);
   const autoTemplateRef = useRef<string | null>(null);
@@ -185,6 +189,14 @@ export function useCreativeComposer({
     window.history.replaceState(window.history.state, "", `${window.location.pathname}?${params}`);
   }, []);
 
+  const exposeIntent = useCallback((next: ComposerIntent) => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    params.delete("workId");
+    params.set("intent", next);
+    window.history.replaceState(window.history.state, "", `${window.location.pathname}?${params}`);
+  }, []);
+
   const consumeInitialTemplateParams = useCallback(() => {
     if (
       typeof window === "undefined"
@@ -234,6 +246,7 @@ export function useCreativeComposer({
     }
     const snapshot = captureSnapshot();
     if (!snapshot.request && !source) return Promise.resolve(null);
+    const draftEpoch = draftEpochRef.current;
 
     const promise = enqueueSave(async () => {
       const result = await createMutation.mutateAsync({
@@ -245,6 +258,7 @@ export function useCreativeComposer({
       if (!UUID_SCHEMA.safeParse(result.work.id).success) {
         throw new Error("Identificador do trabalho inválido");
       }
+      if (draftEpoch !== draftEpochRef.current) return null;
       workIdRef.current = result.work.id;
       lastPersistedRef.current = signature(snapshotFromWork(result.work));
       if (!silent && mountedRef.current) {
@@ -255,19 +269,32 @@ export function useCreativeComposer({
       }
       return result.work.id;
     }).catch((cause) => {
-      if (!silent && mountedRef.current) {
+      if (draftEpoch === draftEpochRef.current && !silent && mountedRef.current) {
         setError(cause instanceof Error ? cause.message : "Falha ao salvar rascunho");
       }
       return null;
-    }).finally(() => { createInFlightRef.current = null; });
+    }).finally(() => {
+      if (createInFlightRef.current === promise) createInFlightRef.current = null;
+    });
     createInFlightRef.current = promise;
     return promise;
   }, [active.activeClientProfileId, captureSnapshot, createMutation, enqueueSave, exposeWorkId, sourceMutation]);
 
   const persistSnapshot = useCallback((id: string, snapshot: DraftSnapshot, announce = true) => enqueueSave(async () => {
+    if (autosaveBlockedWorkRef.current === id) return;
     const sentSignature = signature(snapshot);
     if (sentSignature === lastPersistedRef.current) return;
-    await autosaveMutation.mutateAsync({ workItemId: id, ...snapshot });
+    try {
+      await autosaveMutation.mutateAsync({ workItemId: id, ...snapshot });
+    } catch (cause) {
+      const code = cause instanceof Error && "code" in cause
+        ? (cause as Error & { code?: unknown }).code
+        : cause instanceof Error
+          ? cause.message
+          : null;
+      if (code === "creativeWorkNotDraft") autosaveBlockedWorkRef.current = id;
+      throw cause;
+    }
     lastPersistedRef.current = sentSignature;
     if (announce && mountedRef.current) setAnnouncement("Alterações salvas");
   }), [autosaveMutation, enqueueSave]);
@@ -277,19 +304,25 @@ export function useCreativeComposer({
     await saveChainRef.current;
     const id = workIdRef.current ?? await ensureDraft();
     if (!id) return null;
+    if (autosaveBlockedWorkRef.current === id) return null;
+    const current = detailQuery.data?.work;
+    if (current?.id === id && current.status !== "draft") return null;
     for (;;) {
       await saveChainRef.current;
       const snapshot = captureSnapshot();
       if (signature(snapshot) === lastPersistedRef.current) return id;
       await persistSnapshot(id, snapshot);
     }
-  }, [captureSnapshot, ensureDraft, initialWorkId, persistSnapshot]);
+  }, [captureSnapshot, detailQuery.data?.work, ensureDraft, initialWorkId, persistSnapshot]);
 
   persistOnUnmountRef.current = async () => {
     if (initialWorkId && !hydratedWorkRef.current) return;
     await saveChainRef.current;
     const id = workIdRef.current ?? await ensureDraft(undefined, true);
     if (!id) return;
+    if (autosaveBlockedWorkRef.current === id) return;
+    const current = detailQuery.data?.work;
+    if (current?.id === id && current.status !== "draft") return;
     const snapshot = captureSnapshot();
     if (signature(snapshot) !== lastPersistedRef.current) {
       await persistSnapshot(id, snapshot, false);
@@ -360,6 +393,9 @@ export function useCreativeComposer({
 
   useEffect(() => {
     if (initialWorkId && !hydratedWorkRef.current) return;
+    const current = detailQuery.data?.work;
+    if (workIdRef.current && current?.id === workIdRef.current && current.status !== "draft") return;
+    if (workIdRef.current && autosaveBlockedWorkRef.current === workIdRef.current) return;
     const timer = window.setTimeout(() => {
       if (!workIdRef.current && !active.activeClientProfileId) {
         if (requestRef.current.trim()) focusBrandSwitcher();
@@ -372,7 +408,7 @@ export function useCreativeComposer({
       void save().catch((cause) => setError(cause instanceof Error ? cause.message : "Falha ao salvar"));
     }, 500);
     return () => window.clearTimeout(timer);
-  }, [active.activeClientProfileId, captureSnapshot, ensureDraft, format, formatMode, initialWorkId, intent, persistSnapshot, request, targetFormats]);
+  }, [active.activeClientProfileId, captureSnapshot, detailQuery.data?.work, ensureDraft, format, formatMode, initialWorkId, intent, persistSnapshot, request, targetFormats]);
 
   const setRequest = useCallback((value: string) => {
     requestRef.current = value;
@@ -380,17 +416,27 @@ export function useCreativeComposer({
   }, []);
 
   const selectIntent = useCallback((next: ComposerIntent) => {
+    if (next === intentRef.current) return;
+    draftEpochRef.current += 1;
+    createInFlightRef.current = null;
+    workIdRef.current = null;
+    autosaveBlockedWorkRef.current = null;
+    draftKeyRef.current = crypto.randomUUID();
+    lastPersistedRef.current = null;
+    requestRef.current = "";
+    setWorkId(null);
+    setRequestState("");
+    setError(null);
+    setActionPhase("idle");
     intentRef.current = next;
     setIntent(next);
-    let nextTargets = targetFormatsRef.current;
-    if (next === "format_adaptation" && targetFormatsRef.current.length === 0) {
-      nextTargets = ["1:1", "9:16"];
-      targetFormatsRef.current = nextTargets;
-      setTargetFormats(nextTargets);
-    }
+    const nextTargets: Format[] = next === "format_adaptation" ? ["1:1", "9:16"] : [];
+    targetFormatsRef.current = nextTargets;
+    setTargetFormats(nextTargets);
     setQuote(canonicalQuote(next, formatRef.current, nextTargets));
+    exposeIntent(next);
     if (next !== "restyle") requestAnimationFrame(() => composerRef.current?.focus());
-  }, []);
+  }, [exposeIntent]);
 
   const toggleTargetFormat = useCallback((value: Format) => {
     setTargetFormats((current) => {
@@ -401,7 +447,10 @@ export function useCreativeComposer({
     });
   }, []);
 
-  const addFiles = useCallback(async (files: FileList | File[] | null) => {
+  const addFiles = useCallback(async (
+    files: FileList | File[] | null,
+    preferredUsage?: CreativeSourceUsage,
+  ) => {
     const images = collectImageFiles(files);
     if (images.length === 0) return;
     if (!workIdRef.current && !active.activeClientProfileId) {
@@ -416,9 +465,9 @@ export function useCreativeComposer({
       ));
       for (const file of images) {
         const uploaded = await uploadChatAttachment(file);
-        const usage: CreativeSourceUsage = intentRef.current === "restyle"
+        const usage: CreativeSourceUsage = preferredUsage ?? (intentRef.current === "restyle"
           ? (hasRestyleContent ? "style" : "content")
-          : "both";
+          : "both");
         if (usage === "content") hasRestyleContent = true;
         const existingId = workIdRef.current;
         if (!existingId) {
@@ -582,15 +631,20 @@ export function useCreativeComposer({
 
   const generate = useCallback(async () => {
     if (submitGuardRef.current || generateMutation.isPending) return;
+    const current = detailQuery.data?.work;
+    if (current && current.status !== "draft") return;
     submitGuardRef.current = true;
+    setActionPhase("saving");
     setError(null);
     try {
       const id = await flushAutosave();
       if (!id) return;
+      setActionPhase("preparing");
       const prepared = await prepareMutation.mutateAsync({ workItemId: id });
       setQuote(prepared.quote);
       formatRef.current = prepared.work.format;
       setFormat(prepared.work.format);
+      setActionPhase("submitting");
       const generated = await generateMutation.mutateAsync(id);
       setBrandTrainingSuggestion(generated.brandTrainingSuggestion);
       setAnnouncement("Geração iniciada");
@@ -598,8 +652,9 @@ export function useCreativeComposer({
       setError(cause instanceof Error ? cause.message : "Falha ao gerar");
     } finally {
       submitGuardRef.current = false;
+      setActionPhase("idle");
     }
-  }, [flushAutosave, generateMutation, prepareMutation]);
+  }, [detailQuery.data?.work, flushAutosave, generateMutation, prepareMutation]);
 
   const retryOutput = useCallback(async (outputId: string) => {
     if (!workIdRef.current) return;
@@ -686,13 +741,19 @@ export function useCreativeComposer({
     ?? (isRestoringWork ? null : active.activeProfile?.name)
     ?? null;
   const sources = detail?.sources ?? [];
+  const readySources = sources.filter((source) => source.status === "ready");
   const hasMeaningfulInput = intent === "restyle"
-    ? sources.filter((source) => source.status === "ready").length >= 2
-    : Boolean(request.trim() || sources.length);
+    ? readySources.some((source) => source.usage === "content" || source.usage === "both")
+      && readySources.some((source) => source.usage === "style" || source.usage === "both")
+    : intent === "variations" || intent === "format_adaptation"
+      ? readySources.length > 0
+      : Boolean(request.trim() || sources.length);
   const canGenerate = Boolean(clientProfileId) && hasMeaningfulInput
+    && (!detail?.work || detail.work.status === "draft")
     && !sources.some((source) => source.status === "uploaded" || source.status === "analyzing")
-    && (intent === "restyle" || !sources.some((source) => source.usageConfirmed === false))
-    && !isUploading && !generateMutation.isPending;
+    && (intent !== "single" || !sources.some((source) => source.usageConfirmed === false))
+    && (intent !== "format_adaptation" || targetFormats.length > 0)
+    && !isUploading && actionPhase === "idle" && !generateMutation.isPending;
 
   const campaigns = (campaignQuery.data ?? []).filter((campaign) =>
     !campaign.clientProfileId || campaign.clientProfileId === storedProfileId,
@@ -717,7 +778,7 @@ export function useCreativeComposer({
       formatModeRef.current = "auto";
       setFormatMode("auto");
     },
-    targetFormats, toggleTargetFormat, state, workId, clientProfileId, brandName,
+    targetFormats, toggleTargetFormat, state, actionPhase, workId, clientProfileId, brandName,
     sources: detail?.sources ?? [], outputs: detail?.outputs ?? [], quote, canGenerate, isUploading,
     campaignId: detail?.work.campaignId ?? null, campaigns,
     error, announcement, brandTrainingSuggestion: brandTrainingSuggestion ?? persistedBrandTrainingSuggestion,

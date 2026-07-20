@@ -158,6 +158,7 @@ export function summarizeCreativeWorkAsCanonicalWork(
     originId: full.originId,
     origin: full.origin,
     workspaceId: full.workspaceId,
+    clientProfileId: full.clientProfileId,
     name: full.name,
     state: full.state,
     updatedAt: full.updatedAt,

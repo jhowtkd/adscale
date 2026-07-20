@@ -258,11 +258,55 @@ export default function CampaignsV6View({
               />
             ))}
           </ul>
+        ) : viewMode === "grid" ? (
+          <CampaignGrid rows={rows} labels={labels} interactive={interactive} />
         ) : (
           <div className="p-5">{alternateView}</div>
         )}
       </section>
     </div>
+  );
+}
+
+function CampaignGrid({
+  rows,
+  labels,
+  interactive,
+}: {
+  rows: CampaignV6Row[];
+  labels: CampaignsV6Labels;
+  interactive: boolean;
+}) {
+  return (
+    <ul className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
+      {rows.map((row) => (
+        <li key={row.id}>
+          <Link
+            href={interactive ? row.href : "#"}
+            aria-label={`${labels.openCampaign}: ${row.name}`}
+            className="flex min-h-36 flex-col justify-between rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4 transition-colors hover:border-[var(--border-default)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]"
+            onClick={interactive ? undefined : (event) => event.preventDefault()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <span
+                className="grid h-10 w-10 place-items-center rounded-[var(--radius-control)] bg-[var(--accent-primary-subtle)] text-[10px] font-bold text-[var(--accent-primary-text)]"
+                aria-hidden="true"
+              >
+                {row.initials}
+              </span>
+              <CampaignBadge variant={row.statusVariant} label={row.status} />
+            </div>
+            <div className="mt-6 min-w-0">
+              <p className="truncate font-medium text-[var(--text-primary)]">{row.name}</p>
+              <p className="mt-1 flex items-center justify-between gap-2 text-xs text-[var(--text-muted)]">
+                <span className="font-mono uppercase tracking-wide">{row.originLabel}</span>
+                <span>{row.updated}</span>
+              </p>
+            </div>
+          </Link>
+        </li>
+      ))}
+    </ul>
   );
 }
 

@@ -38,7 +38,7 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
   const deleteCampaigns = useDeleteCampaigns();
   const duplicateCampaign = useDuplicateCampaign();
 
-  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [platformFilter, setPlatformFilter] = useState<PlatformFilter>("all");
   const [sortOption, setSortOption] = useState<SortOption>("newest");

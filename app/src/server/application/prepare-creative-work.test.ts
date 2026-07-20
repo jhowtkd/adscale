@@ -152,8 +152,8 @@ describe("prepareCreativeWork", () => {
     expect(generateCopy).not.toHaveBeenCalled();
   });
 
-  it("requires an explicit usage choice for every source", async () => {
-    getWork.mockResolvedValue({ work, outputs: [], sources: [{
+  it("requires an explicit usage choice for sources in the flexible single-piece flow", async () => {
+    getWork.mockResolvedValue({ work: { ...work, toolKind: "single" }, outputs: [], sources: [{
       id: "source-1", status: "ready", usage: "both", usageConfirmed: false,
       updatedAt: now, contentAnalysis: null, styleAnalysis: null,
     }] } as never);

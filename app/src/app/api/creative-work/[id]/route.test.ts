@@ -16,6 +16,7 @@ vi.mock("@/server/auth/workspace", () => ({
 
 const getWorkMock = vi.hoisted(() => vi.fn());
 const failStaleOutputsMock = vi.hoisted(() => vi.fn());
+const failStaleSourcesMock = vi.hoisted(() => vi.fn());
 const refreshStatusMock = vi.hoisted(() => vi.fn());
 const confirmMock = vi.hoisted(() => vi.fn());
 const updateDraftMock = vi.hoisted(() => vi.fn());
@@ -33,6 +34,7 @@ const inngestSendMock = vi.hoisted(() => vi.fn());
 vi.mock("@/server/repositories/creative-work", () => ({
   getCreativeWork: (...args: unknown[]) => getWorkMock(...args),
   failStaleCreativeWorkOutputs: (...args: unknown[]) => failStaleOutputsMock(...args),
+  failStaleCreativeWorkSources: (...args: unknown[]) => failStaleSourcesMock(...args),
   refreshCreativeWorkStatus: (...args: unknown[]) => refreshStatusMock(...args),
   updateCreativeWorkDraft: (...args: unknown[]) => updateDraftMock(...args),
   createCreativeWorkSource: (...args: unknown[]) => createSourceMock(...args),
@@ -117,6 +119,7 @@ describe("GET /api/creative-work/[id]", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     failStaleOutputsMock.mockResolvedValue([]);
+    failStaleSourcesMock.mockResolvedValue([]);
   });
   afterEach(() => {
     vi.restoreAllMocks();
@@ -196,6 +199,35 @@ describe("GET /api/creative-work/[id]", () => {
     expect(body.outputs[0]).toEqual(
       expect.objectContaining({ status: "failed", failureCode: "generation_timeout" }),
     );
+  });
+
+  it("turns stale source analysis into an explicit retryable failure", async () => {
+    failStaleSourcesMock.mockResolvedValue([{ id: "source-1", status: "failed" }]);
+    getWorkMock.mockResolvedValue({
+      work: workItem,
+      outputs: [],
+      sources: [{
+        id: "source-1", assetId: null, templateId: null, status: "failed",
+        usage: "both", usageConfirmed: true, failureCode: "analysis_timeout",
+      }],
+    });
+
+    const res = await GET(
+      new Request("http://localhost/api/creative-work/work-1"),
+      { params: makeParams("work-1") },
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(failStaleSourcesMock).toHaveBeenCalledWith(
+      "workspace-1",
+      "work-1",
+      expect.any(Date),
+    );
+    expect(body.sources[0]).toEqual(expect.objectContaining({
+      status: "failed",
+      failureCode: "analysis_timeout",
+    }));
   });
 
   it("returns reloadable source DTOs with server-derived name and origin", async () => {
@@ -406,7 +438,7 @@ describe("PATCH /api/creative-work/[id]", () => {
 
     expect(res.status).toBe(200);
     expect(getAssetMock).toHaveBeenCalledWith("asset-1", "workspace-1");
-    expect(createSourceMock).toHaveBeenCalledWith({ workspaceId: "workspace-1", workItemId: "work-1", assetId: "asset-1", usage: "both", status: "uploaded" });
+    expect(createSourceMock).toHaveBeenCalledWith({ workspaceId: "workspace-1", workItemId: "work-1", assetId: "asset-1", usage: "both", usageConfirmed: true, status: "uploaded" });
     expect(inngestSendMock).toHaveBeenCalledWith({ name: "creative-work.source.analyze", data: { workspaceId: "workspace-1", workItemId: "work-1", sourceId: "source-1" } });
   });
 
@@ -424,7 +456,7 @@ describe("PATCH /api/creative-work/[id]", () => {
 
     expect(res.status).toBe(200);
     expect(getTemplateMock).toHaveBeenCalledWith("template-1", "workspace-1");
-    expect(createSourceMock).toHaveBeenCalledWith({ workspaceId: "workspace-1", workItemId: "work-1", templateId: "template-1", usage: "both", status: "uploaded" });
+    expect(createSourceMock).toHaveBeenCalledWith({ workspaceId: "workspace-1", workItemId: "work-1", templateId: "template-1", usage: "both", usageConfirmed: true, status: "uploaded" });
     expect(analyzeSourceMock).toHaveBeenCalledWith({ workspaceId: "workspace-1", workItemId: "work-1", sourceId: "source-template" });
     expect(inngestSendMock).not.toHaveBeenCalled();
   });

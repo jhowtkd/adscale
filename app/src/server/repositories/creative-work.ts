@@ -224,6 +224,7 @@ export async function createCreativeWorkDraftWithSource(
       workItemId: work.id,
       ...(asset ? { assetId: asset.id } : { templateId: template!.id }),
       usage: input.usage,
+      usageConfirmed: input.intent !== "single",
       status: "uploaded",
     }).onConflictDoNothing().returning();
     const [existingSource] = createdSource ? [] : await tx.select().from(creativeWorkSources).where(and(
@@ -362,6 +363,7 @@ export interface CreateCreativeWorkSourceInput {
   assetId?: string | null;
   templateId?: string | null;
   usage: CreativeSourceUsage;
+  usageConfirmed?: boolean;
   status: CreativeSourceStatus;
   contentAnalysis?: CreativeWorkSource["contentAnalysis"];
   styleAnalysis?: CreativeWorkSource["styleAnalysis"];
@@ -942,6 +944,30 @@ export async function failStaleCreativeWorkOutputs(
         // its instant and let PostgreSQL project it into the session timezone
         // before comparing with the timezone-less stored value.
         sql`${creativeWorkOutputs.updatedAt} < cast(${staleBefore} as timestamp without time zone)`,
+      ),
+    )
+    .returning();
+}
+
+/** Releases source analyses whose worker event disappeared after dispatch. */
+export async function failStaleCreativeWorkSources(
+  workspaceId: string,
+  workItemId: string,
+  staleBefore: Date,
+): Promise<CreativeWorkSource[]> {
+  return db
+    .update(creativeWorkSources)
+    .set({
+      status: "failed",
+      failureCode: "analysis_timeout",
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(creativeWorkSources.workspaceId, workspaceId),
+        eq(creativeWorkSources.workItemId, workItemId),
+        inArray(creativeWorkSources.status, ["uploaded", "analyzing"]),
+        sql`${creativeWorkSources.updatedAt} < cast(${staleBefore} as timestamp without time zone)`,
       ),
     )
     .returning();

@@ -139,14 +139,30 @@ export function creativeWorkRefetchInterval(
     : false;
 }
 
-async function readError(res: Response): Promise<string> {
+class CreativeWorkRequestError extends Error {
+  constructor(message: string, readonly code: string | null, readonly status: number) {
+    super(message);
+    this.name = "CreativeWorkRequestError";
+  }
+}
+
+async function readError(res: Response): Promise<CreativeWorkRequestError> {
   const err = await res.json().catch(() => ({}));
-  return typeof err.error === "string" ? err.error : "Request failed";
+  const legacyCode = res.status === 429 && typeof err.error === "string" ? err.error : null;
+  return new CreativeWorkRequestError(
+    typeof err.message === "string"
+      ? err.message
+      : typeof err.error === "string"
+        ? err.error
+        : "Request failed",
+    typeof err.code === "string" ? err.code : legacyCode,
+    res.status,
+  );
 }
 
 function fetchCreativeWork(workItemId: string): Promise<CreativeWorkDetail> {
   return apiFetch(`/api/creative-work/${workItemId}`).then(async (res) => {
-    if (!res.ok) throw new Error(await readError(res));
+    if (!res.ok) throw await readError(res);
     const data = await res.json();
     return {
       work: {
@@ -183,7 +199,7 @@ export interface IdentityOption {
 
 function fetchIdentityOptions(workItemId: string): Promise<{ options: IdentityOption[] }> {
   return apiFetch(`/api/creative-work/${workItemId}/identity-options`).then(async (res) => {
-    if (!res.ok) throw new Error(await readError(res));
+    if (!res.ok) throw await readError(res);
     return res.json() as Promise<{ options: IdentityOption[] }>;
   });
 }
@@ -195,7 +211,7 @@ function postJson<T>(url: string, body?: unknown, timeoutMs?: number): Promise<T
     headers: { "Content-Type": "application/json" },
     body: body === undefined ? "{}" : JSON.stringify(body),
   }).then(async (res) => {
-    if (!res.ok) throw new Error(await readError(res));
+    if (!res.ok) throw await readError(res);
     return res.json() as Promise<T>;
   });
 }
@@ -206,7 +222,7 @@ function patchJson<T>(url: string, body: unknown): Promise<T> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   }).then(async (res) => {
-    if (!res.ok) throw new Error(await readError(res));
+    if (!res.ok) throw await readError(res);
     return res.json() as Promise<T>;
   });
 }
@@ -231,7 +247,7 @@ export function useCreativeWorkCampaigns(enabled: boolean) {
     enabled,
     staleTime: 30_000,
     queryFn: () => apiFetch("/api/campaigns?limit=50").then(async (res) => {
-      if (!res.ok) throw new Error(await readError(res));
+      if (!res.ok) throw await readError(res);
       const data = await res.json() as { campaigns?: CreativeWorkCampaignOption[] };
       return data.campaigns ?? [];
     }),

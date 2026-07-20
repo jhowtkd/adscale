@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ImageIcon } from "lucide-react";
 import CampaignMasonryGrid, {
   CampaignMasonryGridItem,
@@ -8,12 +8,25 @@ import CampaignMasonryGrid, {
 import { useCreativeInspirations } from "@/lib/hooks/use-creative-inspirations";
 import type { CreativeInspiration } from "@/server/application/list-creative-inspirations";
 
+export function shuffleInspirations<T>(
+  inspirations: readonly T[],
+  random: () => number = Math.random,
+): T[] {
+  const shuffled = [...inspirations];
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(random() * (index + 1));
+    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+  }
+  return shuffled;
+}
+
 export function BrandInspirations({ clientProfileId, onAttach }: {
   clientProfileId: string | null;
   onAttach: (inspiration: CreativeInspiration) => void | Promise<void>;
 }) {
   const { data = [], isLoading, isError, refetch } = useCreativeInspirations(clientProfileId);
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const randomizedInspirations = useMemo(() => shuffleInspirations(data), [data]);
 
   if (!clientProfileId) return null;
 
@@ -42,7 +55,7 @@ export function BrandInspirations({ clientProfileId, onAttach }: {
           data-testid="brand-inspirations-grid"
           className="sm:columns-2 lg:columns-3 2xl:columns-3 [column-gap:0.75rem]"
         >
-          {data.map((inspiration) => (
+          {randomizedInspirations.map((inspiration) => (
             <CampaignMasonryGridItem
               key={`${inspiration.source}:${inspiration.id}`}
               className="mb-3"

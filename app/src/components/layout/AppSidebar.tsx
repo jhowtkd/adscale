@@ -18,6 +18,7 @@ import { useCanonicalWorks } from "@/lib/hooks/use-canonical-works";
 import { authClient } from "@/lib/auth-client";
 import AccountStatusBadge from "@/components/layout/AccountStatusBadge";
 import SidebarBrandKitFeature from "@/components/layout/SidebarBrandKitFeature";
+import AppSidebarCampaignMap from "@/components/layout/AppSidebarCampaignMap";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { cn } from "@/lib/utils";
 
@@ -114,7 +115,9 @@ export default function AppSidebar() {
 
       <SidebarBrandKitFeature />
 
-      <div className="min-h-0 flex-1" />
+      <div className="mt-3 min-h-0 flex-1 border-t border-[var(--border-subtle)] pt-3">
+        <AppSidebarCampaignMap />
+      </div>
 
       {isOwnerOrAdmin && (
         <div className="mt-2 shrink-0 border-t border-[var(--border-subtle)] pt-2">

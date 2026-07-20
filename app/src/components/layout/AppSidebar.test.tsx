@@ -111,7 +111,7 @@ describe("AppSidebar role-aware navigation", () => {
         Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy();
     expect(screen.queryByText("navigation.templates")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("campaign-map")).not.toBeInTheDocument();
+    expect(screen.getByTestId("campaign-map")).toBeInTheDocument();
   });
 
   it("does NOT show the Laboratório section header", () => {

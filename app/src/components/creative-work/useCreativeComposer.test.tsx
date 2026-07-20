@@ -110,6 +110,88 @@ describe("useCreativeComposer", () => {
     expect(result.current.quote).toEqual({ unitCount: 2, credits: 10 });
   });
 
+  it("never autosaves or regenerates a hydrated non-draft work", async () => {
+    mocks.work.mockReturnValue({
+      data: workDetail({ id: WORK_ID, status: "generating" }),
+      isLoading: false,
+      isError: false,
+    });
+    const { result } = renderHook(() =>
+      useCreativeComposer({ initialWorkId: WORK_ID })
+    );
+    await act(async () => Promise.resolve());
+
+    act(() => result.current.setRequest("Não deve salvar"));
+    await act(() => vi.advanceTimersByTimeAsync(1_000));
+    await act(() => result.current.generate());
+
+    expect(mocks.autosave).not.toHaveBeenCalled();
+    expect(mocks.prepare).not.toHaveBeenCalled();
+    expect(mocks.generate).not.toHaveBeenCalled();
+    expect(result.current.canGenerate).toBe(false);
+  });
+
+  it("stops retrying autosave after the server reports a non-draft conflict", async () => {
+    mocks.work.mockReturnValue({
+      data: workDetail({ id: WORK_ID, status: "draft" }),
+      isLoading: false,
+      isError: false,
+    });
+    mocks.autosave.mockRejectedValue(new Error("creativeWorkNotDraft"));
+    const { result, rerender } = renderHook(() =>
+      useCreativeComposer({ initialWorkId: WORK_ID })
+    );
+    await act(async () => Promise.resolve());
+
+    act(() => result.current.setRequest("Mudança concorrente"));
+    await act(() => vi.advanceTimersByTimeAsync(600));
+    rerender();
+    await act(() => vi.advanceTimersByTimeAsync(2_000));
+
+    expect(mocks.autosave).toHaveBeenCalledOnce();
+  });
+
+  it("detaches a non-draft work before switching protocols", async () => {
+    mocks.work.mockImplementation((id: string | null) => ({
+      data: id === WORK_ID
+        ? workDetail({ id: WORK_ID, status: "generating" })
+        : undefined,
+      isLoading: false,
+      isError: false,
+    }));
+    const { result } = renderHook(() =>
+      useCreativeComposer({ initialWorkId: WORK_ID })
+    );
+    await act(async () => Promise.resolve());
+
+    act(() => result.current.selectIntent("restyle"));
+    await act(() => vi.advanceTimersByTimeAsync(1_000));
+
+    expect(result.current.intent).toBe("restyle");
+    expect(result.current.workId).toBeNull();
+    expect(result.current.request).toBe("");
+    expect(window.location.search).toBe("?intent=restyle");
+    expect(mocks.autosave).not.toHaveBeenCalled();
+  });
+
+  it("ignores a stale draft creation that finishes after switching protocols", async () => {
+    const creating = deferred<{ work: ReturnType<typeof workDetail>["work"]; quote: { unitCount: number; credits: number } }>();
+    mocks.create.mockReturnValueOnce(creating.promise);
+    const { result } = renderHook(() => useCreativeComposer());
+
+    act(() => result.current.setRequest("Pedido antigo"));
+    await act(() => vi.advanceTimersByTimeAsync(500));
+    act(() => result.current.selectIntent("restyle"));
+    await act(async () => creating.resolve({
+      work: workDetail({ id: WORK_ID, request: "Pedido antigo", toolKind: "variations" }).work,
+      quote: { unitCount: 3, credits: 15 },
+    }));
+
+    expect(result.current.intent).toBe("restyle");
+    expect(result.current.workId).toBeNull();
+    expect(window.location.search).toBe("?intent=restyle");
+  });
+
   it("focuses the real textarea once after StrictMode's synthetic cleanup", () => {
     const frames = new Map<number, FrameRequestCallback>();
     let frameId = 0;
@@ -786,7 +868,7 @@ describe("useCreativeComposer", () => {
     ["restyle", { unitCount: 1, credits: 5 }],
     ["single", { unitCount: 1, credits: 5 }],
     ["format_adaptation", { unitCount: 2, credits: 10 }],
-  ] as const)("changes a restored work to %s and autosaves the canonical draft", async (nextIntent, expectedQuote) => {
+  ] as const)("starts a separate %s draft instead of mutating the restored work", async (nextIntent, expectedQuote) => {
     mocks.work.mockReturnValue({ data: workDetail({ toolKind: "variations" }), isLoading: false, isError: false });
     const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
 
@@ -795,10 +877,15 @@ describe("useCreativeComposer", () => {
     act(() => result.current.selectIntent(nextIntent));
     expect(result.current.intent).toBe(nextIntent);
     expect(result.current.quote).toEqual(expectedQuote);
+    expect(result.current.workId).toBeNull();
 
     await act(() => vi.advanceTimersByTimeAsync(500));
-    expect(mocks.autosave).toHaveBeenCalledWith(expect.objectContaining({
-      workItemId: "work-1",
+    expect(mocks.autosave).not.toHaveBeenCalled();
+
+    await act(() => result.current.addFiles([
+      new File(["image"], "nova-arte.png", { type: "image/png" }),
+    ]));
+    expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({
       intent: nextIntent,
       settings: nextIntent === "format_adaptation"
         ? { targetFormats: ["1:1", "9:16"], formatMode: "manual" }

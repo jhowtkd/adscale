@@ -30,7 +30,7 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
     if (aggregate.sources.some((source) => source.status === "uploaded" || source.status === "analyzing")) {
       return { ok: false as const, error: { code: "sources_not_ready" as const } };
     }
-    if (aggregate.work.toolKind !== "restyle" && aggregate.sources.some((source) => !source.usageConfirmed)) {
+    if (aggregate.work.toolKind === "single" && aggregate.sources.some((source) => !source.usageConfirmed)) {
       return { ok: false as const, error: { code: "source_usage_required" as const } };
     }
     const readySources = aggregate.sources.filter((source) => source.status === "ready");

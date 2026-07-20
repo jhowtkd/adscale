@@ -96,6 +96,7 @@ export interface CanonicalWorkSummary {
   originId: string;
   origin: CanonicalWorkOrigin;
   workspaceId: string;
+  clientProfileId: string | null;
   name: string;
   state: CanonicalWorkState;
   updatedAt: string;
