@@ -76,10 +76,12 @@ function RecentProductionFan({ outputs }: { outputs: CreativeWorkOutput[] }) {
 
 function ContinueWorkCard({
   target,
+  href,
   title,
   hint,
 }: {
   target: Extract<ContinueWorkTarget, { kind: "work" }>;
+  href: string;
   title: string;
   hint: string;
 }) {
@@ -88,7 +90,7 @@ function ContinueWorkCard({
 
   return (
     <Link
-      href={target.href}
+      href={href}
       className="group grid min-h-40 grid-cols-[minmax(0,1fr)_6rem] items-center gap-5 overflow-hidden rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-6 transition-colors hover:bg-[var(--surface-inset)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)] sm:min-h-44 sm:grid-cols-[minmax(0,1fr)_8rem] sm:p-7 lg:min-h-48 lg:grid-cols-[minmax(0,1fr)_10rem]"
     >
       <span className="min-w-0">
@@ -158,6 +160,12 @@ export default function DashboardHomeActions({
         ) : continueTarget.kind === "work" ? (
           <ContinueWorkCard
             target={continueTarget}
+            href={
+              continueTarget.originKind === "creative_work"
+              && continueTarget.originId === composer.workId
+                ? "#creative-composer"
+                : continueTarget.href
+            }
             title={t("continueWhereLeftOff")}
             hint={t("continueCampaignHint", { name: continueTarget.name })}
           />

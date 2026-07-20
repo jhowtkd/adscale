@@ -281,6 +281,44 @@ describe("generateAndStoreImage", () => {
     }
   });
 
+  it("keeps route generation serial to stay within the production memory budget", async () => {
+    const { __setImageProviderForTests } = await import("./image-generation");
+    let active = 0;
+    let peak = 0;
+    const generate = vi.fn(async (input: { prompt: string }) => {
+      active += 1;
+      peak = Math.max(peak, active);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      active -= 1;
+      return {
+        buffer: Buffer.from(input.prompt),
+        mimeType: "image/png",
+        providerMeta: {
+          provider: "openai" as const,
+          model: "gpt-image-2",
+          durationMs: 100,
+        },
+      };
+    });
+    __setImageProviderForTests({ name: "openai", generate });
+
+    try {
+      await generateAndStoreImage({
+        ...BASE_INPUT,
+        outputPrefix: "creative-work/memory-safe-tournament",
+        routes: [
+          { id: "route-1", prompt: "concept one" },
+          { id: "route-2", prompt: "concept two" },
+          { id: "route-3", prompt: "concept three" },
+        ],
+      });
+
+      expect(peak).toBe(1);
+    } finally {
+      __setImageProviderForTests(null);
+    }
+  });
+
   it("continues the tournament when one route generation fails", async () => {
     const { __setImageProviderForTests } = await import("./image-generation");
     const generate = vi.fn(async (input: { prompt: string }) => {

@@ -70,6 +70,7 @@ export function decideDerivationRefund(
  * Criar Post refund rules (current production behaviour):
  * - Triplet charged upstream (15).
  * - Per-output refund (5) on pre_provider and low_quality.
+ * - Worker-level failure refunds the undelivered output.
  * - Post-provider failure: no refund.
  */
 export function decideCreativeWorkRefund(
@@ -94,7 +95,16 @@ export function decideCreativeWorkRefund(
     return { refund: false, reason: "creative_work_post_provider_no_refund" };
   }
 
-  return { refund: false, reason: "creative_work_job_failure_no_refund" };
+  if (input.failurePhase === "job_failure") {
+    return {
+      refund: true,
+      amount: GENERATION_CREDIT_COSTS.creativeWorkOutput,
+      idempotencyKey: `creative-work:${input.workItemId}:output:${input.outputId}:job-refund`,
+      reason: "creative_work_job_failure",
+    };
+  }
+
+  return { refund: false, reason: "creative_work_failure_no_refund" };
 }
 
 export function decideGenerationRefund(
