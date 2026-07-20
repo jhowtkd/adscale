@@ -252,6 +252,65 @@ describe("GET /api/creative-work/[id]", () => {
     expect(getAssetMock).toHaveBeenCalledWith("asset-1", "workspace-1");
     expect(getTemplateMock).toHaveBeenCalledWith("template-1", "workspace-1");
   });
+
+  it("projects an authenticated preview URL for asset-backed sources", async () => {
+    getWorkMock.mockResolvedValue({
+      work: workItem,
+      outputs: [],
+      sources: [{
+        id: "source-1",
+        assetId: "asset-1",
+        templateId: null,
+        usage: "content",
+        status: "ready",
+      }],
+    });
+
+    getAssetMock.mockResolvedValue({
+      id: "asset-1",
+      workspaceId: "workspace-1",
+      name: "original.png",
+      source: "upload",
+    });
+
+    const response = await GET(
+      new Request("http://localhost/api/creative-work/work-1"),
+      { params: makeParams("work-1") },
+    );
+
+    const payload = await response.json();
+
+    expect(payload.sources[0]).toEqual(expect.objectContaining({
+      previewUrl: "/api/workspace/assets/asset-1/file",
+    }));
+  });
+
+  it("projects a null preview URL for template-backed sources", async () => {
+    getWorkMock.mockResolvedValue({
+      work: workItem,
+      outputs: [],
+      sources: [{
+        id: "source-1",
+        assetId: null,
+        templateId: "template-1",
+        usage: "style",
+        status: "ready",
+      }],
+    });
+    getTemplateMock.mockResolvedValue({
+      id: "template-1",
+      workspaceId: "workspace-1",
+      name: "Black Friday",
+    });
+
+    const response = await GET(
+      new Request("http://localhost/api/creative-work/work-1"),
+      { params: makeParams("work-1") },
+    );
+    const payload = await response.json();
+
+    expect(payload.sources[0].previewUrl).toBeNull();
+  });
 });
 
 describe("PATCH /api/creative-work/[id]", () => {

@@ -100,13 +100,28 @@ async function dispatchSourceAnalysisOrFail(workspaceId: string, workItemId: str
 async function projectSourceDto(workspaceId: string, source: CreativeWorkSource) {
   if (source.templateId) {
     const template = await getTemplateById(source.templateId, workspaceId);
-    return { ...source, name: template?.name ?? "Template", origin: "template" as const };
+
+    return {
+      ...source,
+      name: template?.name ?? "Template",
+      previewUrl: null,
+      origin: "template" as const,
+    };
   }
-  const asset = source.assetId ? await getWorkspaceAssetById(source.assetId, workspaceId) : null;
+
+  const asset = source.assetId
+    ? await getWorkspaceAssetById(source.assetId, workspaceId)
+    : null;
+
   return {
     ...source,
     name: asset?.name ?? "Arte",
-    origin: asset?.source === "creative_work" ? "approved_work" as const : "upload" as const,
+    previewUrl: asset
+      ? `/api/workspace/assets/${asset.id}/file`
+      : null,
+    origin: asset?.source === "creative_work"
+      ? "approved_work" as const
+      : "upload" as const,
   };
 }
 

@@ -101,6 +101,7 @@ export interface CreativeWorkSource {
   assetId: string | null;
   templateId: string | null;
   name: string;
+  previewUrl: string | null;
   origin: "upload" | "template" | "approved_work";
   usage: CreativeSourceUsage;
   usageConfirmed: boolean;
