@@ -214,6 +214,16 @@ function listBaseAiModules(baseRef) {
     .sort();
 }
 
+function listBaseApiRouteFiles(baseRef) {
+  const prefix = "app/src/app/api/";
+  const output = git(["ls-tree", "-r", "--name-only", baseRef, "--", prefix]);
+  return output
+    .split("\n")
+    .filter((path) => path.startsWith(prefix) && /\/route\.tsx?$/.test(path))
+    .map((path) => path.slice(prefix.length))
+    .sort();
+}
+
 function readManifestFromWorkingTree() {
   if (!existsSync(manifestPath)) {
     console.error(
@@ -384,16 +394,25 @@ function main() {
     );
   }
 
-  const newApiRoutes = diff(current.apiRouteFiles, base.apiRouteFiles);
+  // A stale snapshot must not brick every subsequent PR after routes/modules
+  // already landed on the protected base. Union with the immutable base tree:
+  // this repairs policy drift without allowing a feature-branch addition.
+  const baseTreeApiRoutes = listBaseApiRouteFiles(args.base);
+  const snapshotApiRoutes = Array.isArray(base.apiRouteFiles) ? base.apiRouteFiles : [];
+  const missingApiFromSnapshot = diff(baseTreeApiRoutes, snapshotApiRoutes);
+  if (missingApiFromSnapshot.length > 0) {
+    console.warn(
+      `PRIMARY-DESTINATIONS: snapshot drift on base; accepting existing base API route(s): ${missingApiFromSnapshot.join(", ")}. Update the snapshot through review.`
+    );
+  }
+  const allowedApiRoutes = [...new Set([...snapshotApiRoutes, ...baseTreeApiRoutes])];
+  const newApiRoutes = diff(current.apiRouteFiles, allowedApiRoutes);
   if (newApiRoutes.length > 0) {
     failures.push(
       `new API route file(s) (incl. nested): ${newApiRoutes.join(", ")}. Nested routes under an existing tree are still expansion and require an exception.`
     );
   }
 
-  // A stale snapshot must not brick every subsequent PR after a module has
-  // already landed on the protected base. Union with the immutable base tree:
-  // this repairs policy drift without allowing a feature-branch addition.
   const baseTreeAiModules = listBaseAiModules(args.base);
   const snapshotAiModules = Array.isArray(base.serverAiModules) ? base.serverAiModules : [];
   const missingFromSnapshot = diff(baseTreeAiModules, snapshotAiModules);
