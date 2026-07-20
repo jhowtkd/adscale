@@ -2067,6 +2067,7 @@
   },
   "errors": {
     "generic": "Something went wrong. Please try again.",
+    "insufficientCredits": "Insufficient credits for this generation.",
     "internalError": "Internal error. Please try again.",
     "unauthorized": "Unauthorized access",
     "noWorkspace": "Workspace not found",

@@ -13,10 +13,8 @@ import {
   BETA_AD_ALLOWANCE,
   creditsToRemainingAds,
 } from "./entitlements";
-import {
-  DEV_ADMIN_CREDIT_BALANCE,
-  workspaceHasDevAdminOwner,
-} from "@/server/auth/dev-admin";
+import { DEV_ADMIN_CREDIT_BALANCE } from "@/server/auth/dev-admin";
+import { workspaceHasPlatformOwnerMember } from "@/server/auth/platform-owner";
 import { UNLIMITED_CREDIT_BALANCE } from "@/server/billing/unlimited-access";
 
 /**
@@ -92,7 +90,7 @@ export async function getWorkspaceBillingAccess(
   const creditBalance = totalRemaining(grants);
   const subscriptionStatus = normalizeSubscriptionStatus(latestSubscription?.status);
 
-  if (await workspaceHasDevAdminOwner(workspaceId)) {
+  if (await workspaceHasPlatformOwnerMember(workspaceId)) {
     return {
       kind: "paid",
       label: "Dev admin",

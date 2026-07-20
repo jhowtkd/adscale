@@ -1,6 +1,7 @@
 import { getSessionFromHeaders } from "./session";
 import { WorkspaceAuthError, AUTH_ERROR_CODES } from "./errors";
 import { isDevAdminEmail, parseDevAdminEmails } from "./dev-admin";
+import { getWorkspaceMembers } from "./team";
 
 function parseOwnerEmails(): Set<string> {
   const raw = process.env.PLATFORM_OWNER_EMAILS ?? "";
@@ -16,6 +17,12 @@ export function isPlatformOwnerEmail(email: string): boolean {
   const owners = parseOwnerEmails();
   if (owners.size === 0) return false;
   return owners.has(email.trim().toLowerCase());
+}
+
+export async function workspaceHasPlatformOwnerMember(workspaceId: string): Promise<boolean> {
+  if (parseOwnerEmails().size === 0) return false;
+  const members = await getWorkspaceMembers(workspaceId);
+  return members.some((member) => isPlatformOwnerEmail(member.email));
 }
 
 export async function requirePlatformOwner(request?: Request) {

@@ -11,6 +11,10 @@ vi.mock("@/server/repositories/entitlements", () => ({
   getActiveTesterEntitlementByWorkspace: vi.fn(),
 }));
 
+vi.mock("@/server/auth/platform-owner", () => ({
+  workspaceHasPlatformOwnerMember: vi.fn(),
+}));
+
 import {
   getActiveSubscriptionByWorkspace,
   getAvailableCreditGrants,
@@ -20,6 +24,7 @@ import {
   getActiveBetaEntitlementByWorkspace,
   getActiveTesterEntitlementByWorkspace,
 } from "@/server/repositories/entitlements";
+import { workspaceHasPlatformOwnerMember } from "@/server/auth/platform-owner";
 import {
   getWorkspaceBillingAccess,
   normalizeSubscriptionStatus,
@@ -30,6 +35,7 @@ const mockGetLatestSubscription = vi.mocked(getLatestSubscriptionByWorkspace);
 const mockGetAvailableCreditGrants = vi.mocked(getAvailableCreditGrants);
 const mockGetActiveBetaEntitlement = vi.mocked(getActiveBetaEntitlementByWorkspace);
 const mockGetActiveTesterEntitlement = vi.mocked(getActiveTesterEntitlementByWorkspace);
+const mockWorkspaceHasPlatformOwner = vi.mocked(workspaceHasPlatformOwnerMember);
 
 const activeSubscription = {
   id: "subscription-id",
@@ -82,6 +88,7 @@ describe("getWorkspaceBillingAccess", () => {
     mockGetActiveBetaEntitlement.mockResolvedValue(null);
     mockGetActiveTesterEntitlement.mockResolvedValue(null);
     mockGetLatestSubscription.mockResolvedValue(null);
+    mockWorkspaceHasPlatformOwner.mockResolvedValue(false);
   });
 
   it("returns paid access when subscription is active", async () => {
@@ -94,6 +101,16 @@ describe("getWorkspaceBillingAccess", () => {
     expect(access.subscriptionStatus).toBe("active");
     expect(access.hasSpendAccess).toBe(true);
     expect(access.remainingAds).toBe(4);
+  });
+
+  it("returns unlimited access for a platform administrator", async () => {
+    mockWorkspaceHasPlatformOwner.mockResolvedValue(true);
+
+    const access = await getWorkspaceBillingAccess("workspace-1");
+
+    expect(access.label).toBe("Dev admin");
+    expect(access.creditBalance).toBe(999_999);
+    expect(access.hasSpendAccess).toBe(true);
   });
 
   it("returns paid access with trialing status during trial period", async () => {
