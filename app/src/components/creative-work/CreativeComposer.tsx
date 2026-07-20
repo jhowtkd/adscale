@@ -7,6 +7,7 @@ import { Paperclip, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ActiveBrandSwitcher from "@/components/layout/ActiveBrandSwitcher";
 import { CreativeSourceChip } from "./CreativeSourceChip";
+import { CreativeSourcePreviewCard } from "./CreativeSourcePreviewCard";
 import { CreativeVariationBrief } from "./CreativeVariationBrief";
 import CreativeProposalGrid from "@/components/quick-tools/create-post/CreativeProposalGrid";
 import type { CreativeComposerModel, CreativeComposerViewModel } from "./useCreativeComposer";
@@ -26,6 +27,14 @@ export function CreativeComposer({ composer, composerRef }: {
   const isFormatAdaptation = composer.intent === "format_adaptation";
   const readyVariationSource = isVariations
     ? composer.sources.find((source) => source.status === "ready") ?? null
+    : null;
+  const originalSource = isRestyle
+    ? composer.sources.find((source) => source.usage === "content")
+      ?? composer.sources.find((source) => source.usage === "both")
+      ?? null
+    : null;
+  const styleSource = isRestyle
+    ? composer.sources.find((source) => source.usage === "style") ?? null
     : null;
   const title = isRestyle
     ? t("restyleTitle")
@@ -86,27 +95,83 @@ export function CreativeComposer({ composer, composerRef }: {
         </div>
       ) : null}
 
-      <div
-        data-testid="creative-composer-dropzone"
-        onDragOver={(event) => event.preventDefault()}
-        onDrop={handleDrop}
-        className="rounded-[var(--radius-object)] border border-[var(--border-default)] bg-[var(--surface-raised)] p-4 focus-within:ring-2 focus-within:ring-[var(--accent-primary)]"
-      >
-        {isSingle ? <>
-          <label htmlFor="creative-composer-request" className="sr-only">{t("requestLabel")}</label>
-          <textarea
-            ref={composerRef}
-            id="creative-composer-request"
-            aria-label={t("requestLabel")}
-            value={composer.request}
-            onChange={(event) => composer.setRequest(event.target.value)}
-            placeholder={t("placeholder")}
-            rows={5}
-            className="w-full resize-y bg-transparent text-base text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
+      {isRestyle ? (
+        <>
+          <input
+            ref={fileInputRef}
+            id="creative-composer-file"
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            tabIndex={-1}
+            aria-label={t("restyleAddArt")}
+            className="sr-only"
+            onChange={(event) => void composer.addFiles(event.target.files, "content")}
           />
-        </> : null}
-        <div className={cn("flex flex-wrap items-center justify-between gap-3", isSingle && "mt-3 border-t border-[var(--border-subtle)] pt-3")}>
-          <div className="flex flex-wrap items-center gap-2">
+          <input
+            ref={styleInputRef}
+            id="creative-composer-style-file"
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            tabIndex={-1}
+            aria-label={t("addStyleReference")}
+            className="sr-only"
+            onChange={(event) => void composer.addFiles(event.target.files, "style")}
+          />
+
+          <div
+            className="grid gap-4 sm:grid-cols-2"
+            data-testid="restyle-source-grid"
+          >
+            <CreativeSourcePreviewCard
+              label={t("originalArt")}
+              source={originalSource}
+              isUploading={composer.isUploading && !originalSource}
+              onChoose={() => fileInputRef.current?.click()}
+              onDrop={(files) => void composer.addFiles(files, "content")}
+              onRetry={() => {
+                if (originalSource) void composer.retrySource(originalSource.id);
+              }}
+              onRemove={() => {
+                if (originalSource) void composer.removeSource(originalSource.id);
+              }}
+            />
+
+            <CreativeSourcePreviewCard
+              label={t("styleReference")}
+              source={styleSource}
+              isUploading={composer.isUploading && !styleSource}
+              onChoose={() => styleInputRef.current?.click()}
+              onDrop={(files) => void composer.addFiles(files, "style")}
+              onRetry={() => {
+                if (styleSource) void composer.retrySource(styleSource.id);
+              }}
+              onRemove={() => {
+                if (styleSource) void composer.removeSource(styleSource.id);
+              }}
+            />
+          </div>
+        </>
+      ) : (
+        <div
+          data-testid="creative-composer-dropzone"
+          onDragOver={(event) => event.preventDefault()}
+          onDrop={handleDrop}
+          className="rounded-[var(--radius-object)] border border-[var(--border-default)] bg-[var(--surface-raised)] p-4 focus-within:ring-2 focus-within:ring-[var(--accent-primary)]"
+        >
+          {isSingle ? <>
+            <label htmlFor="creative-composer-request" className="sr-only">{t("requestLabel")}</label>
+            <textarea
+              ref={composerRef}
+              id="creative-composer-request"
+              aria-label={t("requestLabel")}
+              value={composer.request}
+              onChange={(event) => composer.setRequest(event.target.value)}
+              placeholder={t("placeholder")}
+              rows={5}
+              className="w-full resize-y bg-transparent text-base text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
+            />
+          </> : null}
+          <div className={cn("flex flex-wrap items-center gap-3", isSingle && "mt-3 border-t border-[var(--border-subtle)] pt-3")}>
             <input
               ref={fileInputRef}
               id="creative-composer-file"
@@ -114,9 +179,9 @@ export function CreativeComposer({ composer, composerRef }: {
               accept="image/png,image/jpeg,image/webp"
               multiple={isSingle}
               tabIndex={-1}
-              aria-label={isRestyle ? t("restyleAddArt") : t("addArt")}
+              aria-label={t("addArt")}
               className="sr-only"
-              onChange={(event) => void composer.addFiles(event.target.files, isRestyle ? "content" : undefined)}
+              onChange={(event) => void composer.addFiles(event.target.files)}
             />
             <button
               type="button"
@@ -124,48 +189,14 @@ export function CreativeComposer({ composer, composerRef }: {
               className="inline-flex items-center gap-2 rounded-[var(--radius-control)] px-3 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-inset)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]"
             >
               <Paperclip size={16} aria-hidden="true" />
-              {composer.isUploading ? t("uploading") : isRestyle ? t("restyleAddArt") : t("addArt")}
+              {composer.isUploading ? t("uploading") : t("addArt")}
             </button>
-            {isRestyle ? <>
-              <input
-                ref={styleInputRef}
-                id="creative-composer-style-file"
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                tabIndex={-1}
-                aria-label={t("addStyleReference")}
-                className="sr-only"
-                onChange={(event) => void composer.addFiles(event.target.files, "style")}
-              />
-              <button
-                type="button"
-                onClick={() => styleInputRef.current?.click()}
-                className="inline-flex items-center gap-2 rounded-[var(--radius-control)] px-3 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-inset)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]"
-              >
-                <Paperclip size={16} aria-hidden="true" />
-                {t("addStyleReference")}
-              </button>
-            </> : null}
             <span className="hidden text-xs text-[var(--text-muted)] sm:inline">{t("dropHint")}</span>
           </div>
-          <button
-            type="button"
-            disabled={!composer.canGenerate || Boolean(pendingLabel)}
-            onClick={() => void composer.generate()}
-            className={cn(
-              "inline-flex min-h-[var(--control-touch)] items-center gap-2 rounded-[var(--radius-control)] bg-[var(--accent-primary)] px-4 py-2 text-sm font-semibold text-[var(--text-on-accent)]",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
-            )}
-          >
-            <Sparkles size={16} aria-hidden="true" />
-            {pendingLabel ?? (isRestyle
-              ? t("generateRestyle", { credits: composer.quote.credits })
-              : t("generate", { count: composer.quote.unitCount, credits: composer.quote.credits }))}
-          </button>
         </div>
-      </div>
+      )}
 
-      {composer.sources.length > 0 ? (
+      {!isRestyle && composer.sources.length > 0 ? (
         <div className="grid gap-3 sm:grid-cols-2">
           {composer.sources.map((source) => (
             <CreativeSourceChip
@@ -254,6 +285,32 @@ export function CreativeComposer({ composer, composerRef }: {
           </fieldset>
         </div>
       </details> : null}
+
+      <div
+        className="flex justify-end"
+        data-testid="creative-generate-action"
+      >
+        <button
+          type="button"
+          aria-busy={Boolean(pendingLabel)}
+          disabled={!composer.canGenerate || Boolean(pendingLabel)}
+          onClick={() => void composer.generate()}
+          className={cn(
+            "inline-flex min-h-[var(--control-touch)] w-full items-center justify-center gap-2 rounded-[var(--radius-control)] bg-[var(--accent-primary)] px-4 py-2 text-sm font-semibold text-[var(--text-on-accent)] sm:w-auto",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+          )}
+        >
+          <Sparkles size={16} aria-hidden="true" />
+          {pendingLabel ?? (
+            isRestyle
+              ? t("generateRestyle", { credits: composer.quote.credits })
+              : t("generate", {
+                  count: composer.quote.unitCount,
+                  credits: composer.quote.credits,
+                })
+          )}
+        </button>
+      </div>
 
       {composer.outputs.length > 0 ? (
         <section aria-labelledby="creative-results-title" className="space-y-4">

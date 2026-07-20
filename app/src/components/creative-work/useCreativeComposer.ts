@@ -22,7 +22,6 @@ import {
   type CreativeWorkItem,
   type CreativeWorkOutput,
   type CreativeWorkQuote,
-  type CreativeWorkSource,
 } from "@/lib/hooks/use-creative-work";
 import { quoteCreativeWork } from "@/server/creative-work/contracts";
 import type { CreativeInspiration } from "@/server/application/list-creative-inspirations";

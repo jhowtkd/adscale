@@ -13,6 +13,9 @@ vi.mock("next-intl", () => ({ useTranslations: () => (key: string, values?: Reco
   variationInstructionsPlaceholder: "Ex.:\n- Criar uma copy mais direta\n- Sugerir novos CTAs\n- Destacar a oferta",
   formatAdaptationTitle: "Adapte uma arte para outros formatos", formatAdaptationSubtitle: "Envie a arte original e escolha os formatos.",
   originalArt: "Arte original", styleReference: "Referência de estilo", fullBriefing: "Briefing visual sugerido pela IA",
+  addOriginalArt: "Adicionar arte original", addStyleArt: "Adicionar referência de estilo",
+  removeOriginalArt: "Remover arte original", removeStyleArt: "Remover referência de estilo",
+  previewUnavailable: "Imagem indisponível", sourceUploading: "Enviando imagem", sourceReady: "Imagem pronta",
   restyleAddArt: "Adicionar arte original", addStyleReference: "Adicionar referência de estilo", generateRestyle: "Gerar reestilização · 5 créditos",
   actionSaving: "Salvando", actionPreparing: "Preparando", actionSubmitting: "Enviando para geração", actionGenerating: "Gerando",
   optionalSettings: "Ajustes opcionais", format: "Formato", formatAuto: "Automático (agora: 4:5)", targetFormats: "Formatos de destino",
@@ -155,7 +158,7 @@ describe("CreativeComposer", () => {
   it("turns restyle into a direct two-image action without extra choices", () => {
     const source = {
       id: "source-1", name: "referencia.png", origin: "upload", usage: "both", status: "ready",
-      usageConfirmed: false, contentAnalysis: null, styleAnalysis: null,
+      usageConfirmed: false, contentAnalysis: null, styleAnalysis: null, previewUrl: null,
     };
     renderComposer(composer({ intent: "restyle", sources: [source], quote: { unitCount: 1, credits: 5 } }));
 
@@ -167,6 +170,130 @@ describe("CreativeComposer", () => {
     expect(screen.queryByText("Ajustes opcionais")).not.toBeInTheDocument();
     expect(screen.queryByRole("group", { name: "Usar arte como" })).not.toBeInTheDocument();
     expect(screen.queryByText("Escolha como esta arte será usada.")).not.toBeInTheDocument();
+  });
+
+  it("places restyle generation after both visual source cards", () => {
+    const originalSource = {
+      id: "source-original",
+      name: "original-interna.png",
+      origin: "upload" as const,
+      usage: "content" as const,
+      usageConfirmed: true,
+      status: "ready" as const,
+      previewUrl: "/api/workspace/assets/asset-original/file",
+      contentAnalysis: null,
+      styleAnalysis: null,
+    };
+    const styleSource = {
+      id: "source-style",
+      name: "referencia-interna.png",
+      origin: "upload" as const,
+      usage: "style" as const,
+      usageConfirmed: true,
+      status: "ready" as const,
+      previewUrl: "/api/workspace/assets/asset-style/file",
+      contentAnalysis: null,
+      styleAnalysis: null,
+    };
+
+    renderComposer(composer({
+      intent: "restyle",
+      sources: [originalSource, styleSource],
+      quote: { unitCount: 1, credits: 5 },
+    }));
+
+    const grid = screen.getByTestId("restyle-source-grid");
+    const action = screen.getByTestId("creative-generate-action");
+
+    expect(
+      grid.compareDocumentPosition(action)
+        & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    expect(screen.getByRole("img", {
+      name: "Arte original",
+    })).toBeInTheDocument();
+
+    expect(screen.getByRole("img", {
+      name: "Referência de estilo",
+    })).toBeInTheDocument();
+
+    expect(screen.queryByText("original-interna.png")).not.toBeInTheDocument();
+    expect(screen.queryByText("referencia-interna.png")).not.toBeInTheDocument();
+  });
+
+  it("disables restyle generation until both sources are ready", () => {
+    renderComposer(composer({
+      intent: "restyle",
+      canGenerate: false,
+      sources: [{
+        id: "source-1",
+        name: "original.png",
+        origin: "upload",
+        usage: "content",
+        usageConfirmed: true,
+        status: "ready",
+        previewUrl: "/api/workspace/assets/a1/file",
+        contentAnalysis: null,
+        styleAnalysis: null,
+      }],
+      quote: { unitCount: 1, credits: 5 },
+    }));
+
+    expect(screen.getByRole("button", { name: "Gerar reestilização · 5 créditos" })).toBeDisabled();
+  });
+
+  it("routes restyle retry and remove to the matching visual card", () => {
+    const value = composer({
+      intent: "restyle",
+      sources: [
+        {
+          id: "source-original",
+          name: "original.png",
+          origin: "upload",
+          usage: "content",
+          usageConfirmed: true,
+          status: "failed",
+          previewUrl: "/api/workspace/assets/a1/file",
+          contentAnalysis: null,
+          styleAnalysis: null,
+        },
+        {
+          id: "source-style",
+          name: "style.png",
+          origin: "upload",
+          usage: "style",
+          usageConfirmed: true,
+          status: "ready",
+          previewUrl: "/api/workspace/assets/a2/file",
+          contentAnalysis: null,
+          styleAnalysis: null,
+        },
+      ],
+      quote: { unitCount: 1, credits: 5 },
+    });
+    renderComposer(value);
+
+    fireEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
+    expect(value.retrySource).toHaveBeenCalledWith("source-original");
+
+    fireEvent.click(screen.getByRole("button", { name: "Remover referência de estilo" }));
+    expect(value.removeSource).toHaveBeenCalledWith("source-style");
+  });
+
+  it("keeps preparing feedback on the generate button with aria-busy", () => {
+    renderComposer(composer({
+      intent: "restyle",
+      actionPhase: "preparing",
+      state: "analyzing",
+      canGenerate: false,
+      quote: { unitCount: 1, credits: 5 },
+    }));
+
+    const button = screen.getByRole("button", { name: "Preparando" });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("status")).toHaveTextContent("Preparando");
   });
 
   it("uses a source-only composer for format adaptation", () => {
