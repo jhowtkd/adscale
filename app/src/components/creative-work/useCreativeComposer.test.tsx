@@ -94,7 +94,7 @@ describe("useCreativeComposer", () => {
       quote: { unitCount: 3, credits: 15 },
     }));
     mocks.autosave.mockResolvedValue({ work: { id: "work-1" } });
-    mocks.prepare.mockResolvedValue({ work: { id: "work-1" }, quote: { unitCount: 3, credits: 15 } });
+    mocks.prepare.mockResolvedValue({ work: workDetail().work, quote: { unitCount: 3, credits: 15 } });
     mocks.generate.mockResolvedValue({ work: { status: "generating" }, outputs: [] });
     mocks.upload.mockResolvedValue({ assetId: "asset-1", name: "arte.png" });
     mocks.source.mockResolvedValue({ source: { id: "source-1" } });
@@ -1026,6 +1026,36 @@ describe("useCreativeComposer", () => {
     expect(mocks.prepare).toHaveBeenCalledOnce();
     expect(mocks.generate).toHaveBeenCalledOnce();
     expect(mocks.autosave.mock.invocationCallOrder[0]).toBeLessThan(mocks.generate.mock.invocationCallOrder[0]);
+  });
+
+  it("does not autosave a format inferred by prepare while generation starts", async () => {
+    mocks.work.mockReturnValue({
+      data: {
+        ...workDetail({ toolKind: "restyle", format: "4:5", settings: { targetFormats: [], formatMode: "auto" } }),
+        sources: [
+          { id: "content", usage: "content", status: "ready" },
+          { id: "style", usage: "style", status: "ready" },
+        ],
+      },
+      isLoading: false,
+      isError: false,
+    });
+    mocks.prepare.mockResolvedValue({
+      work: workDetail({
+        toolKind: "restyle",
+        format: "9:16",
+        settings: { targetFormats: [], formatMode: "auto" },
+      }).work,
+      quote: { unitCount: 1, credits: 5 },
+    });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+
+    await act(async () => { await result.current.generate(); });
+    await act(() => vi.advanceTimersByTimeAsync(500));
+
+    expect(result.current.format).toBe("9:16");
+    expect(mocks.autosave).not.toHaveBeenCalled();
+    expect(mocks.generate).toHaveBeenCalledOnce();
   });
 
   it("keeps the non-blocking brand training suggestion returned by generation", async () => {

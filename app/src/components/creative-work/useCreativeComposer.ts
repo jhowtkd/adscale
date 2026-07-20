@@ -632,6 +632,7 @@ export function useCreativeComposer({
       if (!id) return;
       setActionPhase("preparing");
       const prepared = await prepareMutation.mutateAsync({ workItemId: id });
+      lastPersistedRef.current = signature(snapshotFromWork(prepared.work));
       setQuote(prepared.quote);
       formatRef.current = prepared.work.format;
       setFormat(prepared.work.format);
