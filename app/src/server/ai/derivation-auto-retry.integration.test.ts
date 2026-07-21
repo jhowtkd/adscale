@@ -32,13 +32,29 @@ vi.mock("../repositories/derivation", () => ({
 
 vi.mock("sharp", () => ({
   default: vi.fn(() => ({
+    rotate: vi.fn().mockReturnThis(),
     resize: vi.fn().mockReturnThis(),
     blur: vi.fn().mockReturnThis(),
     modulate: vi.fn().mockReturnThis(),
     composite: vi.fn().mockReturnThis(),
     png: vi.fn().mockReturnThis(),
+    webp: vi.fn().mockReturnThis(),
+    metadata: vi.fn(() => Promise.resolve({ width: 1024, height: 1024, hasAlpha: false })),
     toBuffer: vi.fn(() => Promise.resolve(Buffer.from("normalized"))),
   })),
+}));
+
+vi.mock("@/server/ai/normalize-image-for-ai", () => ({
+  normalizeImageForAi: async (input: { buffer: Buffer; mimeType?: string }) => ({
+    buffer: input.buffer,
+    mimeType: (input.mimeType?.includes("png") ? "image/png" : "image/webp") as "image/png" | "image/webp",
+    width: 1024,
+    height: 1024,
+    originalBytes: input.buffer.byteLength,
+    finalBytes: input.buffer.byteLength,
+    hasTransparency: false,
+  }),
+  normalizeReferenceBuffers: async (refs: unknown[]) => refs,
 }));
 
 vi.mock("../validation/env", () => ({
@@ -130,7 +146,8 @@ describe("runDerivationAutoRetry restyling", () => {
           expect.objectContaining({ name: "base-image" }),
           expect.objectContaining({ name: "style-reference" }),
         ]),
-      })
+      }),
+      expect.anything(),
     );
   });
 
@@ -143,7 +160,8 @@ describe("runDerivationAutoRetry restyling", () => {
         image: expect.arrayContaining([
           expect.objectContaining({ name: "base-image" }),
         ]),
-      })
+      }),
+      expect.anything(),
     );
   });
 
@@ -169,7 +187,8 @@ describe("runDerivationAutoRetry restyling", () => {
         image: expect.arrayContaining([
           expect.objectContaining({ name: "reference-image" }),
         ]),
-      })
+      }),
+      expect.anything(),
     );
   });
 });

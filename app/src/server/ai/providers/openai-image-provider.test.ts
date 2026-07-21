@@ -41,7 +41,8 @@ describe("OpenAIImageProvider", () => {
     });
     expect(mockGenerate).toHaveBeenCalledOnce();
     expect(mockGenerate).toHaveBeenCalledWith(
-      expect.objectContaining({ quality: "medium" })
+      expect.objectContaining({ quality: "medium" }),
+      { timeout: 120_000, maxRetries: 0 }
     );
     expect(mockEdit).not.toHaveBeenCalled();
     expect(result.buffer).toBeInstanceOf(Buffer);
@@ -63,6 +64,10 @@ describe("OpenAIImageProvider", () => {
       outputPrefix: "derivations/test",
     });
     expect(mockEdit).toHaveBeenCalledOnce();
+    expect(mockEdit).toHaveBeenCalledWith(
+      expect.objectContaining({ model: "gpt-image-2-2026-04-21" }),
+      { timeout: 120_000, maxRetries: 0 }
+    );
     expect(mockGenerate).not.toHaveBeenCalled();
     expect(result.providerMeta.model).toBe("gpt-image-2-2026-04-21");
   });
@@ -81,19 +86,18 @@ describe("OpenAIImageProvider", () => {
     ).rejects.toThrow(/No image data/);
   });
 
-  it("classifies the local image timeout without waiting in real time", async () => {
-    vi.useFakeTimers();
-    mockGenerate.mockReturnValue(new Promise(() => undefined));
+  it("disables SDK retries and uses a 120s request timeout", async () => {
+    mockGenerate.mockResolvedValue({
+      data: [{ b64_json: Buffer.from("png").toString("base64") }],
+    });
     const provider = new OpenAIImageProvider();
-    const result = provider.generate({
-      prompt: "x", dimensions: { width: 1024, height: 1024 }, referenceImages: [],
-      generationMode: "art_variation", outputPrefix: "p",
-    }).catch((error) => error);
-    await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
-    const error = await result;
-    expect(error.message).toBe("OpenAI image generation timed out after 300s");
-    expect(error.name).toBe("TimeoutError");
-    expect(error.code).toBe("ETIMEDOUT");
-    vi.useRealTimers();
+    await provider.generate({
+      prompt: "x",
+      dimensions: { width: 1024, height: 1024 },
+      referenceImages: [],
+      generationMode: "art_variation",
+      outputPrefix: "p",
+    });
+    expect(mockGenerate.mock.calls[0][1]).toEqual({ timeout: 120_000, maxRetries: 0 });
   });
 });

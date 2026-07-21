@@ -18,6 +18,7 @@ import {
 } from "@/server/brand-training/upload";
 import { objectStorage } from "@/server/storage";
 import { inngest } from "@/server/jobs/client";
+import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 
 export async function GET(
   request: Request,
@@ -138,7 +139,7 @@ export async function POST(
     }
 
     await inngest.send({
-      name: "brand.training.analyze",
+      name: heavyImageEventName("brand.training.analyze"),
       data: {
         workspaceId: workspace.id,
         clientProfileId: id,

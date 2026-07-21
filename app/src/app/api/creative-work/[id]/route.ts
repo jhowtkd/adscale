@@ -17,12 +17,15 @@ import {
   socialPostCopySchema,
 } from "@/server/creative-work/contracts";
 import {
-  failStaleCreativeWorkOutputs,
+  failStaleQueuedCreativeWorkOutputs,
+  failStaleProcessingCreativeWorkOutputs,
   failStaleCreativeWorkSources,
   createCreativeWorkSource,
   deleteCreativeWorkSource,
   getCreativeWork,
   linkCreativeWorkCampaign,
+  listCreativeWorkOutputsNeedingRefund,
+  markCreativeWorkOutputFailureCode,
   refreshCreativeWorkStatus,
   updateCreativeWorkSource,
   updateCreativeWorkSourceIfUnchanged,
@@ -31,10 +34,54 @@ import {
 import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
 import { getTemplateById } from "@/server/repositories/template";
 import { inngest } from "@/server/jobs/client";
-import type { CreativeWorkSource } from "@/server/db/schema";
+import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
+import { refundCredits } from "@/server/billing/credits";
+import { decideCreativeWorkRefund } from "@/server/generation/canonical/policies";
+import type { CreativeWorkOutput, CreativeWorkSource } from "@/server/db/schema";
+import { logger } from "@/lib/logger";
 
-const GENERATION_LEASE_MS = 15 * 60 * 1000;
+const QUEUED_GENERATION_LEASE_MS = 60 * 60 * 1000;
+const PROCESSING_GENERATION_LEASE_MS = 10 * 60 * 1000;
 const SOURCE_ANALYSIS_LEASE_MS = 5 * 60 * 1000;
+
+async function refundCreativeWorkOutputCompensatory(input: {
+  workspaceId: string;
+  workItemId: string;
+  output: CreativeWorkOutput;
+  reason: string;
+}): Promise<boolean> {
+  const decision = decideCreativeWorkRefund({
+    surface: "quick_tool",
+    failurePhase: "job_failure",
+    workItemId: input.workItemId,
+    outputId: input.output.id,
+  });
+  if (!decision.refund) return true;
+  try {
+    await refundCredits({
+      workspaceId: input.workspaceId,
+      action: "image_derivation",
+      amount: decision.amount,
+      idempotencyKey: decision.idempotencyKey,
+      metadata: {
+        creativeWorkId: input.workItemId,
+        outputId: input.output.id,
+        reason: input.reason,
+        description: "creative_work_compensatory_refund",
+      },
+    });
+    return true;
+  } catch (error) {
+    logger.warn({
+      event: "image_pipeline_stage",
+      stage: "compensatory_refund",
+      status: "failed",
+      outputId: input.output.id,
+      errorMessage: error instanceof Error ? error.message.slice(0, 500) : String(error).slice(0, 500),
+    });
+    return false;
+  }
+}
 
 const confirmCreativeWorkSchema = z
   .object({
@@ -79,7 +126,7 @@ const patchCreativeWorkSchema = z.union([
 ]);
 
 function dispatchSourceAnalysis(workspaceId: string, workItemId: string, sourceId: string) {
-  return inngest.send({ name: "creative-work.source.analyze", data: { workspaceId, workItemId, sourceId } });
+  return inngest.send({ name: heavyImageEventName("creative-work.source.analyze"), data: { workspaceId, workItemId, sourceId } });
 }
 
 async function dispatchSourceAnalysisOrFail(workspaceId: string, workItemId: string, source: CreativeWorkSource) {
@@ -138,20 +185,70 @@ export async function GET(
       requireWorkspaceAccess(request),
       params,
     ]);
-    const [staleOutputs] = await Promise.all([
-      failStaleCreativeWorkOutputs(
+    const [staleQueued, staleProcessing] = await Promise.all([
+      failStaleQueuedCreativeWorkOutputs(
         workspace.id,
         id,
-        new Date(Date.now() - GENERATION_LEASE_MS),
+        new Date(Date.now() - QUEUED_GENERATION_LEASE_MS),
       ),
-      failStaleCreativeWorkSources(
+      failStaleProcessingCreativeWorkOutputs(
         workspace.id,
         id,
-        new Date(Date.now() - SOURCE_ANALYSIS_LEASE_MS),
+        new Date(Date.now() - PROCESSING_GENERATION_LEASE_MS),
       ),
     ]);
+    await failStaleCreativeWorkSources(
+      workspace.id,
+      id,
+      new Date(Date.now() - SOURCE_ANALYSIS_LEASE_MS),
+    );
+    const staleOutputs = [...staleQueued, ...staleProcessing];
     if (staleOutputs.length > 0) {
+      await Promise.all(
+        staleOutputs.map(async (output) => {
+          const refunded = await refundCreativeWorkOutputCompensatory({
+            workspaceId: workspace.id,
+            workItemId: id,
+            output,
+            reason: "stale_generation_timeout",
+          });
+          if (!refunded) {
+            await markCreativeWorkOutputFailureCode(
+              workspace.id,
+              id,
+              output.id,
+              "generation_timeout_refund_pending",
+            );
+          }
+        }),
+      );
       await refreshCreativeWorkStatus(workspace.id, id);
+    }
+
+    const pendingRefunds = await listCreativeWorkOutputsNeedingRefund(workspace.id, id);
+    if (pendingRefunds.length > 0) {
+      await Promise.all(
+        pendingRefunds.map(async (output) => {
+          const refunded = await refundCreativeWorkOutputCompensatory({
+            workspaceId: workspace.id,
+            workItemId: id,
+            output,
+            reason: "retry_pending_compensatory_refund",
+          });
+          if (refunded) {
+            const settledCode = (output.failureCode ?? "generation_timeout").replace(
+              /_refund_pending$/,
+              "",
+            );
+            await markCreativeWorkOutputFailureCode(
+              workspace.id,
+              id,
+              output.id,
+              settledCode || "generation_timeout",
+            );
+          }
+        }),
+      );
     }
     const result = await getCreativeWork(workspace.id, id);
     if (!result) {

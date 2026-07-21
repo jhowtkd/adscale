@@ -6,6 +6,11 @@ vi.mock("@/server/billing/access", () => ({
 
 vi.mock("@/server/repositories/billing", () => ({
   getAvailableCreditGrants: vi.fn(),
+  getRefundableCreditGrants: vi.fn(),
+  pickRefundTargetGrant: vi.fn((grants: Array<{ remaining: number }>) => {
+    if (!grants.length) return null;
+    return grants.find((g) => g.remaining > 0) ?? grants[grants.length - 1] ?? null;
+  }),
   updateCreditGrantRemaining: vi.fn(),
 }));
 
@@ -34,6 +39,7 @@ import { db } from "@/server/db";
 import { getWorkspaceBillingAccess } from "@/server/billing/access";
 import {
   getAvailableCreditGrants,
+  getRefundableCreditGrants,
   updateCreditGrantRemaining,
 } from "@/server/repositories/billing";
 import {
@@ -47,6 +53,7 @@ import { canSpend, recordUsage, refundCredits } from "./credits";
 
 const mockGetWorkspaceBillingAccess = vi.mocked(getWorkspaceBillingAccess);
 const mockGetAvailableCreditGrants = vi.mocked(getAvailableCreditGrants);
+const mockGetRefundableCreditGrants = vi.mocked(getRefundableCreditGrants);
 const mockUpdateCreditGrantRemaining = vi.mocked(updateCreditGrantRemaining);
 const mockGetUsageByIdempotencyKey = vi.mocked(getUsageByIdempotencyKey);
 const mockTrackUsage = vi.mocked(trackUsage);
@@ -398,6 +405,7 @@ describe("refundCredits", () => {
     );
     mockWorkspaceHasUnlimitedBillingAccess.mockResolvedValue(false);
     mockGetAvailableCreditGrants.mockResolvedValue([grant("grant-1", 10)]);
+    mockGetRefundableCreditGrants.mockResolvedValue([grant("grant-1", 10)]);
     mockCreateCreditTransaction.mockResolvedValue({
       id: "tx-1",
       userId: "user-1",
@@ -421,7 +429,7 @@ describe("refundCredits", () => {
   });
 
   it("credits grants back and creates refund transaction", async () => {
-    mockGetAvailableCreditGrants.mockResolvedValue([grant("grant-1", 8)]);
+    mockGetRefundableCreditGrants.mockResolvedValue([grant("grant-1", 8)]);
 
     const result = await refundCredits({
       workspaceId: "workspace-1",
@@ -447,7 +455,8 @@ describe("refundCredits", () => {
         actionId: "action-1",
         derivationId: "derivation-1",
       }),
-      "assistant-action:action-1:refund"
+      "assistant-action:action-1:refund",
+      expect.anything()
     );
     expect(mockCreateCreditTransaction).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -485,6 +494,37 @@ describe("refundCredits", () => {
     expect(mockCreateCreditTransaction).not.toHaveBeenCalled();
   });
 
+  it("treats in-transaction unique conflicts as duplicate without querying the aborted tx", async () => {
+    mockTrackUsage.mockRejectedValueOnce(Object.assign(new Error("duplicate key"), { code: "23505" }));
+
+    const result = await refundCredits({
+      workspaceId: "workspace-1",
+      action: "image_derivation",
+      idempotencyKey: "assistant-action:action-race:refund",
+    });
+
+    expect(result.status).toBe("duplicate");
+    expect(mockCreateCreditTransaction).not.toHaveBeenCalled();
+  });
+
+  it("restores a fully depleted grant instead of claiming success with no credit", async () => {
+    mockGetRefundableCreditGrants.mockResolvedValue([grant("grant-drained", 0)]);
+
+    const result = await refundCredits({
+      workspaceId: "workspace-1",
+      action: "image_derivation",
+      idempotencyKey: "assistant-action:action-drained:refund",
+      userId: "user-1",
+    });
+
+    expect(result.status).toBe("refunded");
+    expect(mockUpdateCreditGrantRemaining).toHaveBeenCalledWith(
+      "grant-drained",
+      5,
+      expect.anything()
+    );
+  });
+
   it("does not modify grants for unlimited billing workspaces but still records transaction", async () => {
     mockWorkspaceHasUnlimitedBillingAccess.mockResolvedValue(true);
 
@@ -507,7 +547,8 @@ describe("refundCredits", () => {
         creditAmount: 5,
         unlimitedBillingBypass: true,
       }),
-      "assistant-action:action-dev:refund"
+      "assistant-action:action-dev:refund",
+      expect.anything()
     );
     expect(mockCreateCreditTransaction).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -518,19 +559,18 @@ describe("refundCredits", () => {
     );
   });
 
-  it("does not call canSpend — refund is unconditional", async () => {
-    mockGetAvailableCreditGrants.mockResolvedValue([]);
+  it("fails closed when no refundable grant exists", async () => {
+    mockGetRefundableCreditGrants.mockResolvedValue([]);
 
-    const result = await refundCredits({
-      workspaceId: "workspace-1",
-      action: "image_derivation",
-      idempotencyKey: "assistant-action:action-empty:refund",
-      userId: "user-1",
-    });
-
-    expect(result.status).toBe("refunded");
-    expect(mockGetWorkspaceBillingAccess).not.toHaveBeenCalled();
-    expect(mockTrackUsage).toHaveBeenCalled();
+    await expect(
+      refundCredits({
+        workspaceId: "workspace-1",
+        action: "image_derivation",
+        idempotencyKey: "assistant-action:action-empty:refund",
+        userId: "user-1",
+      })
+    ).rejects.toThrow(/no_refundable_grant/);
+    expect(mockTrackUsage).not.toHaveBeenCalled();
   });
 
   it("uses default credit cost when amount is not provided", async () => {
@@ -547,7 +587,8 @@ describe("refundCredits", () => {
       "landing_page",
       -10,
       expect.objectContaining({ creditAmount: 10 }),
-      "assistant-action:action-lp:refund"
+      "assistant-action:action-lp:refund",
+      expect.anything()
     );
     expect(mockCreateCreditTransaction).toHaveBeenCalledWith(
       expect.objectContaining({ amount: 10, type: "refund" })

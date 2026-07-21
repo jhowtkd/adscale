@@ -10,6 +10,7 @@ import {
   updateDerivationStatus,
 } from "@/server/repositories/derivation";
 import { inngest } from "@/server/jobs/client";
+import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 import type { ActionExecutionContext, ActionExecutionResult } from "../types";
 import { AssistantActionExecutionError } from "../types";
 
@@ -124,7 +125,7 @@ export async function executeReviseCreative(
 
   try {
     await inngest.send({
-      name: "derivation.generate",
+      name: heavyImageEventName("derivation.generate"),
       data: {
         derivationId: derivation.id,
         campaignId: thread.campaignId,

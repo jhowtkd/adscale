@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GET, PATCH } from "./route";
 
-vi.mock("@/server/auth/platform-owner", () => ({
+vi.mock("@/server/auth/require-platform-owner", () => ({
   requirePlatformOwner: vi.fn(() =>
     Promise.resolve({ user: { id: "owner-1", email: "owner@example.com" } })
   ),

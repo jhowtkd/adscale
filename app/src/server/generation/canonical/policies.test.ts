@@ -66,7 +66,7 @@ describe("decideCreativeWorkRefund", () => {
     expect(pre).toMatchObject({
       refund: true,
       amount: 5,
-      idempotencyKey: "creative-work:w1:output:o1:pregen-refund",
+      idempotencyKey: "creative-output:o1:compensatory-refund",
     });
 
     const low = decideCreativeWorkRefund({
@@ -79,15 +79,20 @@ describe("decideCreativeWorkRefund", () => {
     if (low.refund) expect(low.reason).toBe("creative_work_low_quality");
   });
 
-  it("does not refund post_provider failures", () => {
+  it("refunds post_provider total delivery failures with the shared compensatory key", () => {
     expect(
       decideCreativeWorkRefund({
         surface: "quick_tool",
         failurePhase: "post_provider",
         workItemId: "w1",
         outputId: "o1",
-      }).refund
-    ).toBe(false);
+      })
+    ).toEqual({
+      refund: true,
+      amount: 5,
+      idempotencyKey: "creative-output:o1:compensatory-refund",
+      reason: "creative_work_post_provider_total_failure",
+    });
   });
 
   it("refunds a worker-level failure when no output can be delivered", () => {
@@ -101,7 +106,7 @@ describe("decideCreativeWorkRefund", () => {
     ).toEqual({
       refund: true,
       amount: 5,
-      idempotencyKey: "creative-work:w1:output:o1:job-refund",
+      idempotencyKey: "creative-output:o1:compensatory-refund",
       reason: "creative_work_job_failure",
     });
   });
@@ -125,7 +130,7 @@ describe("parity: same contract surface decisions", () => {
         workItemId: "w",
         outputId: "o",
       }).refund
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("idempotency skip is equivalent for completed destinations", () => {

@@ -76,31 +76,26 @@ export function decideDerivationRefund(
 export function decideCreativeWorkRefund(
   input: CreativeWorkRefundInput
 ): RefundDecision {
+  const compensatoryKey = `creative-output:${input.outputId}:compensatory-refund`;
+
   if (
     input.failurePhase === "pre_provider" ||
-    input.failurePhase === "low_quality"
+    input.failurePhase === "low_quality" ||
+    input.failurePhase === "post_provider" ||
+    input.failurePhase === "job_failure"
   ) {
     return {
       refund: true,
       amount: GENERATION_CREDIT_COSTS.creativeWorkOutput,
-      idempotencyKey: `creative-work:${input.workItemId}:output:${input.outputId}:pregen-refund`,
+      idempotencyKey: compensatoryKey,
       reason:
         input.failurePhase === "low_quality"
           ? "creative_work_low_quality"
-          : "creative_work_pre_provider",
-    };
-  }
-
-  if (input.failurePhase === "post_provider") {
-    return { refund: false, reason: "creative_work_post_provider_no_refund" };
-  }
-
-  if (input.failurePhase === "job_failure") {
-    return {
-      refund: true,
-      amount: GENERATION_CREDIT_COSTS.creativeWorkOutput,
-      idempotencyKey: `creative-work:${input.workItemId}:output:${input.outputId}:job-refund`,
-      reason: "creative_work_job_failure",
+          : input.failurePhase === "pre_provider"
+            ? "creative_work_pre_provider"
+            : input.failurePhase === "post_provider"
+              ? "creative_work_post_provider_total_failure"
+              : "creative_work_job_failure",
     };
   }
 

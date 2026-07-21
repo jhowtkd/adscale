@@ -1,4 +1,5 @@
 import sharp from "sharp";
+import pLimit from "p-limit";
 import { objectStorage } from "@/server/storage";
 import { logger } from "@/lib/logger";
 import { recordDualEngineCandidates } from "./generation-log";
@@ -13,18 +14,13 @@ import type {
   ImageReference,
   ProviderGenerateInput,
 } from "./providers/image-provider";
+import { getImageRouteConcurrency } from "./image-runtime-config";
+import { createPipelineTimer, logImagePipelineStage } from "./image-pipeline-telemetry";
 
-// Re-export ImageReference under the legacy name for backward compatibility —
-// derivation-pipeline.ts and downstream callers still import
-// `GenerateAndStoreImageReference` from this module.
 export type GenerateAndStoreImageReference = ImageReference;
 
 export type GenerationMode = "art_variation" | "format_adaptation" | "restyling";
 
-/**
- * Provider-agnostic candidate summary persisted on derivation rows so the UI,
- * QA, and analytics can see which providers ran and which won.
- */
 export type GenerationCandidateMeta = {
   provider: "openai";
   routeId?: string;
@@ -39,55 +35,72 @@ export type GenerationCandidateMeta = {
   selectionReason?: string;
 };
 
+export type ImagePipelineTelemetryContext = {
+  workId?: string;
+  outputId?: string;
+  workspaceId?: string;
+  campaignId?: string;
+  derivationId?: string;
+  inngestRunId?: string;
+  inngestAttempt?: number;
+  jobType?: "derivation" | "creative_work" | "brand_training" | "assistant";
+};
+
 export interface GenerateAndStoreImageInput {
   prompt: string;
   dimensions: { width: number; height: number };
   outputPrefix: string;
   referenceImages: ImageReference[];
-  /** Zero-based durable attempt propagated to the provider. */
   attempt?: number;
-  /**
-   * Optional normalization mode applied after decoding the provider response.
-   * Defaults to `"art_variation"`. Derivation callers may pass
-   * `"format_adaptation"` or `"restyling"` to preserve existing behavior.
-   */
   generationMode?: GenerationMode;
-  /** Rendering quality. Exploratory routes use medium; final assets default to high. */
   quality?: "medium" | "high";
-  /** Distinct route prompts. When present they are generated in parallel at medium quality. */
   routes?: Array<{ id: string; prompt: string }>;
-  /** Returns the winning index from the successfully stored raw candidates. */
   selectCandidate?: (candidates: Array<{
     routeId: string;
-    buffer: Buffer;
+    outputKey?: string;
+    buffer?: Buffer;
     mimeType: string;
+    imageUrl?: string;
+    score?: number;
   }>) => Promise<number | {
     winnerIndex: number;
     refinementPrompt?: string;
     reason?: string;
   }>;
-  /** Optional suffix appended to the output key (e.g. `-retry`). */
   outputSuffix?: string;
+  telemetry?: ImagePipelineTelemetryContext;
+  /** Called after heavy sub-stages so the job can renew its processing lease. */
+  onStageHeartbeat?: (stage: string) => Promise<void>;
+  /**
+   * Shared provider-call budget (default 6). Edit+generate fallback must
+   * pass the same mutable counter so both paths cannot exceed six calls.
+   */
+  callBudget?: { remaining: number };
 }
+
+export const DEFAULT_IMAGE_PROVIDER_CALL_BUDGET = 6;
 
 export interface GenerateAndStoreImageResult {
   outputKey: string;
   revisedPrompt: string;
-  /**
-   * The narrow helper-level operation kind (`generate` vs `edit`). The wider
-   * campaign `ImageOperation` union (which adds `generation_fallback`) is
-   * applied by the derivation wrapper after the fallback retry.
-   */
   imageOperation: "generate" | "edit";
   buffer: Buffer;
-  /** Raw route candidates plus an optional refined candidate. */
   candidates: (GenerationCandidateMeta & { winner: boolean })[];
+  providerCalls: number;
+  providerRetries: number;
 }
 
-/**
- * Lazily build the image provider so tests that mock the OpenAI SDK
- * before first import still work.
- */
+/** Metadata-only candidate after upload; buffer kept only when signed URL is unavailable. */
+type StoredCandidate = {
+  routeId: string;
+  outputKey: string;
+  mimeType: string;
+  providerMeta: ImageCandidate["providerMeta"];
+  imageUrl?: string;
+  buffer?: Buffer;
+  bytes: number;
+};
+
 let cachedProvider: ImageGenerationProvider | null = null;
 function getImageProvider(): ImageGenerationProvider {
   if (cachedProvider) return cachedProvider;
@@ -97,9 +110,6 @@ function getImageProvider(): ImageGenerationProvider {
   return cachedProvider;
 }
 
-/**
- * Test seam: allow callers to inject a deterministic OpenAI-compatible provider.
- */
 export function __setImageProviderForTests(provider: ImageGenerationProvider | null) {
   cachedProvider = provider;
 }
@@ -113,8 +123,6 @@ export function isRetryableProviderError(error: unknown): boolean {
   if (["ETIMEDOUT", "ECONNRESET", "EAI_AGAIN", "ECONNREFUSED"].includes(String(value.code))) return true;
   const names = [value.name, value.constructor?.name].filter((name): name is string => typeof name === "string");
   if (names.some((name) => name === "AbortError" || name === "TimeoutError" || /^API[A-Za-z]*(Connection|Timeout|Abort)[A-Za-z]*Error$/.test(name))) return true;
-  // Durable step transports can normalize `name` to Error while preserving
-  // the original error name in the first line of the stack.
   const stackName = typeof value.stack === "string"
     ? value.stack.split("\n", 1)[0]?.split(":", 1)[0]
     : null;
@@ -122,16 +130,6 @@ export function isRetryableProviderError(error: unknown): boolean {
   return value.cause !== error && isRetryableProviderError(value.cause);
 }
 
-/**
- * Resize/normalize a generated image to the target format dimensions.
- *
- * Originally lived in derivation-pipeline.ts (and jobs/derivation.ts) as the
- * post-processing step for the derivation pipeline. Relocated here as part of
- * Task 4 (Create Post plan) so the campaign-neutral image helper can apply
- * the same normalization to creative-work outputs. Re-exported from
- * `derivation-pipeline.ts` and `jobs/derivation.ts` so existing callers keep
- * working unchanged.
- */
 export async function normalizeGeneratedImage(
   buffer: Buffer,
   dimensions: { width: number; height: number },
@@ -145,6 +143,181 @@ export async function normalizeGeneratedImage(
     })
     .png()
     .toBuffer();
+}
+
+async function uploadAndReleaseCandidate(
+  routeId: string,
+  candidate: ImageCandidate,
+  outputPrefix: string,
+  outputSuffix: string
+): Promise<StoredCandidate> {
+  const outputKey = `${outputPrefix}/candidates/${routeId}${outputSuffix}.png`;
+  const bytes = candidate.buffer.byteLength;
+  await objectStorage.put(outputKey, candidate.buffer, candidate.mimeType);
+  let imageUrl: string | undefined;
+  try {
+    imageUrl = await objectStorage.signedDownloadUrl(outputKey);
+  } catch (error) {
+    logger.warn("[generateAndStoreImage] signed URL unavailable; keeping buffer for selector", {
+      routeId,
+      message: error instanceof Error ? error.message.slice(0, 500) : String(error).slice(0, 500),
+    });
+  }
+
+  return {
+    routeId,
+    outputKey,
+    mimeType: candidate.mimeType,
+    providerMeta: candidate.providerMeta,
+    imageUrl,
+    buffer: imageUrl ? undefined : candidate.buffer,
+    bytes,
+  };
+}
+
+/**
+ * Generate each route under the concurrency limiter, uploading immediately and
+ * releasing the provider buffer before the next route starts when possible.
+ */
+async function generateUploadRoutesRound(
+  provider: ImageGenerationProvider,
+  requestedRoutes: Array<{ id: string; prompt: string }>,
+  base: {
+    dimensions: { width: number; height: number };
+    referenceImages: ImageReference[];
+    generationMode: GenerationMode;
+    outputPrefix: string;
+    attempt: number;
+    quality: "medium" | "high";
+    useMediumForRoutes: boolean;
+    outputSuffix: string;
+    onStageHeartbeat?: (stage: string) => Promise<void>;
+    maxCalls: number;
+  }
+): Promise<{ results: PromiseSettledResult<StoredCandidate>[]; callsMade: number }> {
+  const limit = pLimit({
+    concurrency: getImageRouteConcurrency(),
+    rejectOnClear: true,
+  });
+  const routesToRun = requestedRoutes.slice(0, Math.max(0, base.maxCalls));
+  const skipped = requestedRoutes.slice(routesToRun.length);
+  const abort = { reason: null as Error | null };
+
+  const isAbortSignal = (error: unknown) => {
+    if (!error || typeof error !== "object") return false;
+    const value = error as { code?: unknown; name?: unknown; message?: unknown };
+    return (
+      value.code === "lease_lost" ||
+      value.name === "AbortError" ||
+      (typeof value.message === "string" && value.message.startsWith("creative_work_lease_lost:"))
+    );
+  };
+
+  const markAborted = (error: unknown) => {
+    const err =
+      error instanceof Error
+        ? error
+        : new Error(typeof error === "string" ? error : "route_generation_aborted");
+    if (!abort.reason) {
+      abort.reason = err;
+      limit.clearQueue();
+    }
+  };
+
+  const assertNotAborted = () => {
+    if (abort.reason) throw abort.reason;
+  };
+
+  let indexed: Array<{ index: number; result: PromiseSettledResult<StoredCandidate> }>;
+  try {
+    indexed = await Promise.all(
+      routesToRun.map((route, index) =>
+        limit(async () => {
+          assertNotAborted();
+          const providerInput: ProviderGenerateInput = {
+            prompt: route.prompt,
+            dimensions: base.dimensions,
+            referenceImages: base.referenceImages,
+            generationMode: base.generationMode,
+            outputPrefix: base.outputPrefix,
+            attempt: base.attempt,
+            quality: base.useMediumForRoutes ? "medium" : base.quality,
+          };
+          try {
+            assertNotAborted();
+            const candidate = await provider.generate(providerInput);
+            assertNotAborted();
+            const stored = await uploadAndReleaseCandidate(
+              route.id,
+              candidate,
+              base.outputPrefix,
+              base.outputSuffix
+            );
+            return { index, result: { status: "fulfilled" as const, value: stored } };
+          } catch (reason) {
+            if (isAbortSignal(reason)) {
+              markAborted(reason);
+              throw reason;
+            }
+            return { index, result: { status: "rejected" as const, reason } };
+          } finally {
+            // Renew the processing lease after every attempt — including failures —
+            // so serial timeouts cannot outrun the 10-minute stale window.
+            try {
+              await base.onStageHeartbeat?.(`candidate_attempt:${route.id}`);
+            } catch (heartbeatError) {
+              if (isAbortSignal(heartbeatError)) {
+                markAborted(heartbeatError);
+                throw heartbeatError;
+              }
+              logger.warn("[generateAndStoreImage] heartbeat failed after candidate attempt", {
+                routeId: route.id,
+                message:
+                  heartbeatError instanceof Error
+                    ? heartbeatError.message.slice(0, 500)
+                    : String(heartbeatError).slice(0, 500),
+              });
+            }
+          }
+        })
+      )
+    );
+  } catch (error) {
+    if (isAbortSignal(error) || abort.reason) {
+      throw abort.reason ?? error;
+    }
+    throw error;
+  }
+
+  const results = indexed
+    .sort((a, b) => a.index - b.index)
+    .map((entry) => entry.result);
+
+  for (const route of skipped) {
+    results.push({
+      status: "rejected",
+      reason: new Error(`Provider call budget exhausted before route ${route.id}`),
+    });
+  }
+
+  // Only count routes that actually started provider work (not cleared from queue).
+  const callsMade = results.filter((result) => {
+    if (result.status === "fulfilled") return true;
+    const reason = result.reason;
+    if (isAbortSignal(reason)) return false;
+    if (reason instanceof Error && reason.message.startsWith("Provider call budget exhausted")) {
+      return false;
+    }
+    return true;
+  }).length;
+
+  return { results, callsMade };
+}
+
+async function loadCandidateBuffer(candidate: StoredCandidate): Promise<Buffer> {
+  if (candidate.buffer) return candidate.buffer;
+  const loaded = await objectStorage.get(candidate.outputKey);
+  return Buffer.isBuffer(loaded) ? loaded : Buffer.from(loaded as ArrayBuffer);
 }
 
 export async function generateAndStoreImage(
@@ -161,103 +334,121 @@ export async function generateAndStoreImage(
     routes,
     selectCandidate,
     outputSuffix = "",
+    telemetry,
+    onStageHeartbeat,
+    callBudget,
   } = input;
 
+  const budget = callBudget ?? { remaining: DEFAULT_IMAGE_PROVIDER_CALL_BUDGET };
   const provider = getImageProvider();
   const requestedRoutes = routes?.length
     ? routes
     : [{ id: "openai", prompt }];
-  const generationResults: PromiseSettledResult<{
-    routeId: string;
-    candidate: ImageCandidate;
-  }>[] = [];
-  // ponytail: one route at a time fits the 512 MB web instance; parallelize
-  // again only after image jobs move to a measured, memory-isolated worker.
-  for (const route of requestedRoutes) {
-    try {
-      const providerInput: ProviderGenerateInput = {
-        prompt: route.prompt,
-        dimensions,
-        referenceImages,
-        generationMode,
-        outputPrefix,
-        attempt,
-        quality: routes?.length ? "medium" : quality,
-      };
-      generationResults.push({
-        status: "fulfilled",
-        value: { routeId: route.id, candidate: await provider.generate(providerInput) },
-      });
-    } catch (reason) {
-      generationResults.push({ status: "rejected", reason });
-    }
-  }
-  const generatedCandidates = generationResults
-    .map((result) => (result.status === "fulfilled" ? result.value : null))
-    .filter((result): result is { routeId: string; candidate: ImageCandidate } => result !== null);
+  const pipelineTimer = createPipelineTimer();
+  const generationTimer = createPipelineTimer();
+  let providerCalls = 0;
+  let providerRetries = 0;
+  const correlation = {
+    workId: telemetry?.workId,
+    outputId: telemetry?.outputId,
+    workspaceId: telemetry?.workspaceId,
+    inngestRunId: telemetry?.inngestRunId,
+    inngestAttempt: telemetry?.inngestAttempt,
+    jobType: telemetry?.jobType ?? "derivation",
+  };
 
-  if (generatedCandidates.length === 0) {
-    const failures = generationResults.flatMap((result) => result.status === "rejected" ? [result.reason] : []);
-    const reason = failures
-      .map(String)
-      .filter(Boolean)
-      .join("; ");
-    const aggregate = new Error(`All image candidates failed: ${reason}`) as Error & { retryable?: boolean; code?: string };
-    if (failures.some(isRetryableProviderError)) {
-      aggregate.retryable = true;
-      // Inngest serializes errors across step boundaries and may drop custom
-      // fields. Preserve a standard transient shape that survives that hop.
-      aggregate.name = "TimeoutError";
-      aggregate.code = "ETIMEDOUT";
-    }
-    throw aggregate;
-  }
-
-  const uploadResults = await Promise.allSettled(
-    generatedCandidates.map(async ({ routeId, candidate }) => {
-      const outputKey = `${outputPrefix}/candidates/${routeId}${outputSuffix}.png`;
-      await objectStorage.put(outputKey, candidate.buffer, candidate.mimeType);
-      return { routeId, candidate, outputKey };
-    })
-  );
-
-  const candidates: { routeId: string; candidate: ImageCandidate; outputKey: string }[] =
-    uploadResults
-      .map((r) => (r.status === "fulfilled" ? r.value : null))
-      .filter((v): v is { routeId: string; candidate: ImageCandidate; outputKey: string } => v !== null);
-
-  type FailedUpload = { provider: "openai"; reason: unknown };
-  const failedUploads: FailedUpload[] = [];
-  uploadResults.forEach((r, idx) => {
-    if (r.status === "rejected") {
-      failedUploads.push({
-        provider: generatedCandidates[idx].candidate.providerMeta.provider,
-        reason: r.reason,
-      });
-    }
+  logImagePipelineStage({
+    event: "image_pipeline_stage",
+    stage: "candidate_generation",
+    status: "started",
+    ...correlation,
+    inputCount: referenceImages.length,
+    inputBytes: referenceImages.reduce((sum, ref) => sum + ref.buffer.byteLength, 0),
   });
 
-  if (failedUploads.length > 0) {
-    logger.warn(
-      `[generateAndStoreImage] ${failedUploads.length}/${generatedCandidates.length} per-candidate R2 upload(s) failed; continuing with successful candidates`,
-      failedUploads.map((f) => ({ provider: f.provider, reason: f.reason instanceof Error ? f.reason.message : String(f.reason) }))
-    );
+  const roundInput = {
+    dimensions,
+    referenceImages,
+    generationMode,
+    outputPrefix,
+    attempt,
+    quality,
+    useMediumForRoutes: Boolean(routes?.length),
+    outputSuffix,
+    onStageHeartbeat,
+  };
+
+  const firstRound = await generateUploadRoutesRound(provider, requestedRoutes, {
+    ...roundInput,
+    maxCalls: budget.remaining,
+  });
+  let generationResults = firstRound.results;
+  providerCalls += firstRound.callsMade;
+  budget.remaining = Math.max(0, budget.remaining - firstRound.callsMade);
+
+  let candidates = generationResults
+    .map((result) => (result.status === "fulfilled" ? result.value : null))
+    .filter((result): result is StoredCandidate => result !== null);
+
+  if (candidates.length === 0 && budget.remaining > 0) {
+    providerRetries = 1;
+    logImagePipelineStage({
+      stage: "candidate_generation_retry",
+      status: "started",
+      ...correlation,
+      providerCalls,
+      providerRetries,
+    });
+    const secondRound = await generateUploadRoutesRound(provider, requestedRoutes, {
+      ...roundInput,
+      attempt: attempt + 1,
+      maxCalls: budget.remaining,
+    });
+    generationResults = secondRound.results;
+    providerCalls += secondRound.callsMade;
+    budget.remaining = Math.max(0, budget.remaining - secondRound.callsMade);
+    candidates = generationResults
+      .map((result) => (result.status === "fulfilled" ? result.value : null))
+      .filter((result): result is StoredCandidate => result !== null);
   }
 
   if (candidates.length === 0) {
-    // All R2 uploads failed. Throw so the derivation is marked failed and
-    // the upstream retry/refund flow takes over.
-    const summary = failedUploads
-      .map((f) => `${f.provider}: ${f.reason instanceof Error ? f.reason.message : String(f.reason)}`)
-      .join("; ");
-    throw new Error(`All per-candidate R2 uploads failed: ${summary}`);
+    const failures = generationResults.flatMap((result) => result.status === "rejected" ? [result.reason] : []);
+    const reason = failures.map(String).filter(Boolean).join("; ");
+    const aggregate = new Error(`All image candidates failed: ${reason}`) as Error & { retryable?: boolean; code?: string };
+    aggregate.retryable = false;
+    logImagePipelineStage({
+      stage: "candidate_generation",
+      status: "failed",
+      ...correlation,
+      stageElapsedMs: generationTimer.elapsedMs(),
+      providerCalls,
+      providerRetries,
+      errorMessage: aggregate.message,
+    });
+    throw aggregate;
   }
 
+  const generationElapsedMs = generationTimer.elapsedMs();
+  logImagePipelineStage({
+    stage: "candidate_generation",
+    status: "completed",
+    ...correlation,
+    stageElapsedMs: generationElapsedMs,
+    providerCalls,
+    providerRetries,
+    outputBytes: candidates.reduce((sum, c) => sum + c.bytes, 0),
+  });
+
+  const selectionTimer = createPipelineTimer();
+  await onStageHeartbeat?.("selection_started");
   const selection = selectCandidate
-    ? await selectCandidate(candidates.map(({ routeId, candidate }) => ({
+    ? await selectCandidate(candidates.map(({ routeId, outputKey, buffer, mimeType, imageUrl }) => ({
         routeId,
-        buffer: candidate.buffer,
-        mimeType: candidate.mimeType,
+        outputKey,
+        buffer,
+        mimeType,
+        imageUrl,
       })))
     : 0;
   let winnerIndex = typeof selection === "number" ? selection : selection.winnerIndex;
@@ -265,106 +456,60 @@ export async function generateAndStoreImage(
   if (!Number.isInteger(winnerIndex) || winnerIndex < 0 || winnerIndex >= candidates.length) {
     throw new Error(`Candidate selector returned invalid index ${winnerIndex}`);
   }
-  const refinementPrompt = typeof selection === "number" ? undefined : selection.refinementPrompt;
-  if (selectCandidate && refinementPrompt) {
-    const selected = candidates[winnerIndex];
-    try {
-      const refinedCandidate = await provider.generate({
-        prompt: `${refinementPrompt}\nPreserve all correct facts, product geometry, brand identity, and composition unless explicitly requested otherwise.`,
-        dimensions,
-        referenceImages: [
-          {
-            buffer: selected.candidate.buffer,
-            mimeType: selected.candidate.mimeType,
-            name: "selected-candidate.png",
-          },
-          ...referenceImages,
-        ],
-        generationMode,
-        outputPrefix,
-        attempt,
-        quality: "high",
-      });
-      const refinedOutputKey = `${outputPrefix}/candidates/refined${outputSuffix}.png`;
-      await objectStorage.put(
-        refinedOutputKey,
-        refinedCandidate.buffer,
-        refinedCandidate.mimeType
-      );
-      const refined = {
-        routeId: "refined",
-        candidate: refinedCandidate,
-        outputKey: refinedOutputKey,
-      };
-      const comparison = await selectCandidate([
-        {
-          routeId: selected.routeId,
-          buffer: selected.candidate.buffer,
-          mimeType: selected.candidate.mimeType,
-        },
-        {
-          routeId: refined.routeId,
-          buffer: refined.candidate.buffer,
-          mimeType: refined.candidate.mimeType,
-        },
-      ]);
-      const comparisonIndex = typeof comparison === "number"
-        ? comparison
-        : comparison.winnerIndex;
-      if (comparisonIndex !== 0 && comparisonIndex !== 1) {
-        throw new Error(`Refinement selector returned invalid index ${comparisonIndex}`);
-      }
-      candidates.push(refined);
-      if (comparisonIndex === 1) {
-        winnerIndex = candidates.length - 1;
-        if (typeof comparison !== "number" && comparison.reason) {
-          selectionReason = [selectionReason, comparison.reason].filter(Boolean).join(" | ");
-        }
-      }
-    } catch (error) {
-      logger.warn("[generateAndStoreImage] winner refinement failed; keeping original", error);
-    }
-  }
+  await onStageHeartbeat?.("selection_completed");
+
+  logImagePipelineStage({
+    stage: "selection",
+    status: "completed",
+    ...correlation,
+    stageElapsedMs: selectionTimer.elapsedMs(),
+    providerCalls,
+    providerRetries,
+  });
 
   const winner = candidates[winnerIndex];
+  const winnerBuffer = await loadCandidateBuffer(winner);
+  for (const candidate of candidates) {
+    if (candidate !== winner) candidate.buffer = undefined;
+  }
+
   const normalizedWinner = await normalizeGeneratedImage(
-    winner.candidate.buffer,
+    winnerBuffer,
     dimensions,
     generationMode
   );
+  await onStageHeartbeat?.("composition_completed");
 
-  // Upload the winner to its expected location so downstream code
-  // (which reads `outputKey`) keeps working unchanged.
   const finalKey = `${outputPrefix}/${Date.now()}${outputSuffix}.png`;
   await objectStorage.put(finalKey, normalizedWinner, "image/png");
+  await onStageHeartbeat?.("final_upload_completed");
 
   const candidateMeta: (GenerationCandidateMeta & { winner: boolean })[] =
     candidates.map((c, idx) => ({
-      provider: c.candidate.providerMeta.provider,
+      provider: c.providerMeta.provider,
       routeId: c.routeId,
-      model: c.candidate.providerMeta.model,
+      model: c.providerMeta.model,
       outputKey: c.outputKey,
-      durationMs: c.candidate.providerMeta.durationMs,
-      costCredits: c.candidate.providerMeta.costCredits,
-      rawRequestId: c.candidate.providerMeta.rawRequestId,
-      revisedPrompt: c.candidate.providerMeta.revisedPrompt,
+      durationMs: c.providerMeta.durationMs,
+      costCredits: c.providerMeta.costCredits,
+      rawRequestId: c.providerMeta.rawRequestId,
+      revisedPrompt: c.providerMeta.revisedPrompt,
       selectionReason: idx === winnerIndex ? selectionReason : undefined,
       winner: idx === winnerIndex,
     }));
 
   logger.info(
-    `[generateAndStoreImage] produced ${candidates.length} candidate(s); winner=${winner.candidate.providerMeta.provider}`
+    `[generateAndStoreImage] produced ${candidates.length} candidate(s); winner=${winner.providerMeta.provider}`
   );
 
-  // Emit the telemetry event before returning. `campaignId`/`workspaceId`/
-  // `jobType` are not threaded through this helper yet; we emit with the
-  // metadata we have so analytics can index runs by derivationId even before
-  // the signature extension lands. Follow-up: accept a `telemetry` block.
   await recordDualEngineCandidates({
-    campaignId: "",
-    derivationId: outputPrefix,
-    workspaceId: "",
-    jobType: "derivation",
+    campaignId: telemetry?.campaignId ?? "",
+    derivationId: telemetry?.derivationId ?? outputPrefix,
+    workspaceId: telemetry?.workspaceId ?? "",
+    jobType:
+      telemetry?.jobType === "creative_work" || telemetry?.jobType === "brand_training"
+        ? telemetry.jobType
+        : "derivation",
     candidates: candidateMeta.map((c) => ({
       provider: c.provider,
       model: c.model,
@@ -373,23 +518,28 @@ export async function generateAndStoreImage(
       costCredits: c.costCredits,
       rawRequestId: c.rawRequestId,
     })),
-    winnerProvider: winner.candidate.providerMeta.provider,
-    aggregateLatencyMs:
-      candidates.length > 0
-        ? Math.max(
-            ...candidates.map((c) => c.candidate.providerMeta.durationMs)
-          )
-        : 0,
+    winnerProvider: winner.providerMeta.provider,
+    aggregateLatencyMs: generationElapsedMs,
+  });
+
+  logImagePipelineStage({
+    stage: "finalize",
+    status: "completed",
+    ...correlation,
+    stageElapsedMs: pipelineTimer.elapsedMs(),
+    pipelineElapsedMs: pipelineTimer.elapsedMs(),
+    providerCalls,
+    providerRetries,
+    outputBytes: normalizedWinner.byteLength,
   });
 
   return {
     outputKey: finalKey,
-    // Surface the winner's revised prompt so the helper-level contract
-    // (downstream reads `result.revisedPrompt`) is preserved.
-    revisedPrompt: winner.candidate.providerMeta.revisedPrompt ?? "",
-    imageOperation:
-      referenceImages.length > 0 ? "edit" : "generate",
+    revisedPrompt: winner.providerMeta.revisedPrompt ?? "",
+    imageOperation: referenceImages.length > 0 ? "edit" : "generate",
     buffer: normalizedWinner,
     candidates: candidateMeta,
+    providerCalls,
+    providerRetries,
   };
 }

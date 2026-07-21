@@ -4,6 +4,7 @@
  * Revisions must return through the paid revision command.
  */
 import { inngest } from "@/server/jobs/client";
+import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 import {
   getCreativeWork,
   requeueFailedCreativeWorkOutput,
@@ -70,7 +71,7 @@ export async function retryCreativeWorkOutput(
 
   await inngest.send([
     {
-      name: "creative-work.generate",
+      name: heavyImageEventName("creative-work.generate"),
       data: {
         workspaceId: input.workspaceId,
         workItemId: input.workItemId,

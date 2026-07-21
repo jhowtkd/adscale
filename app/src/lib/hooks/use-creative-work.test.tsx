@@ -60,7 +60,7 @@ describe("creativeWorkRefetchInterval", () => {
         work: { status: "partial" },
         outputs: [{ status: "completed" }, { status: "processing" }],
       }),
-    ).toBe(2000);
+    ).toBe(5000);
   });
 });
 

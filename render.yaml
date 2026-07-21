@@ -9,15 +9,19 @@ services:
     autoDeployTrigger: commit
     previews:
       generation: automatic
-    buildCommand: npm ci && npm run build
+    buildCommand: NODE_OPTIONS=--max-old-space-size=4096 npm ci && NODE_OPTIONS=--max-old-space-size=4096 npm run build
     startCommand: npm run db:migrate && npm run start:prod
     healthCheckPath: /api/health
     envVars:
       - key: NODE_OPTIONS
-        value: --max-old-space-size=4096
+        value: --max-old-space-size=384
       - key: NODE_ENV
         value: production
       - key: NEXT_TELEMETRY_DISABLED
+        value: "1"
+      - key: IMAGE_JOB_TARGET
+        value: web
+      - key: IMAGE_ROUTE_CONCURRENCY
         value: "1"
       - key: DATABASE_URL
         fromDatabase:
@@ -81,6 +85,77 @@ services:
         value: https://adscale.jhonatansoares.com/settings?tab=plans&checkout=cancel
       - key: PLATFORM_OWNER_EMAILS
         value: jhonatan.marcela@gmail.com
+
+  - type: worker
+    name: adscale-image-worker
+    runtime: node
+    plan: standard
+    region: oregon
+    rootDir: app
+    branch: main
+    autoDeployTrigger: commit
+    maxShutdownDelaySeconds: 300
+    buildCommand: npm ci
+    startCommand: node --conditions=react-server --import=tsx src/server/jobs/image-worker.ts
+    envVars:
+      - key: NODE_OPTIONS
+        value: --conditions=react-server --max-old-space-size=1536
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"
+      - key: IMAGE_JOB_TARGET
+        value: worker
+      - key: IMAGE_ROUTE_CONCURRENCY
+        value: "2"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: adscale-postgres
+          property: connectionString
+      - key: APP_URL
+        value: https://adscale.jhonatansoares.com
+      - key: BETTER_AUTH_SECRET
+        sync: false
+      - key: BETTER_AUTH_URL
+        value: https://adscale.jhonatansoares.com
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_TEXT_MODEL
+        value: gpt-5.6
+      - key: OPENAI_IMAGE_MODEL
+        value: gpt-image-2-2026-04-21
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET
+        sync: false
+      - key: R2_PUBLIC_BASE_URL
+        sync: false
+      - key: INNGEST_EVENT_KEY
+        sync: false
+      - key: INNGEST_SIGNING_KEY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: SENTRY_DSN
+        sync: false
+      - key: PLATFORM_OWNER_EMAILS
+        value: jhonatan.marcela@gmail.com
+      - key: MEM0_ENABLED
+        sync: false
+      - key: MEM0_API_KEY
+        sync: false
+      - key: MEM0_USER_PREFIX
+        sync: false
+      - key: MEM0_ORGANIZATION_ID
+        sync: false
+      - key: MEM0_PROJECT_ID
+        sync: false
 
 databases:
   - name: adscale-postgres

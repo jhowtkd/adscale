@@ -2,7 +2,7 @@ import { eq, inArray, and } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { handleApiError } from "@/lib/api-response";
-import { requirePlatformOwner } from "@/server/auth/platform-owner";
+import { requirePlatformOwner } from "@/server/auth/require-platform-owner";
 import { db } from "@/server/db";
 import { user, workspaceMembers, workspaces } from "@/server/db/schema";
 import {

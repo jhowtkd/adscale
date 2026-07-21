@@ -6,8 +6,9 @@ import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { createWorkspaceAsset, deleteWorkspaceAsset, getWorkspaceAssets, getWorkspaceAssetsCount } from "@/server/repositories/workspace-asset";
 import { objectStorage } from "@/server/storage";
 import { inngest } from "@/server/jobs/client";
+import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 
-const MAX_SIZE = 50 * 1024 * 1024;
+const MAX_SIZE = 10 * 1024 * 1024;
 
 const uploadSchema = z.object({
   width: z.preprocess(
@@ -88,7 +89,7 @@ export async function POST(request: Request) {
 
     // Trigger async AI analysis
     await inngest.send({
-      name: "workspace.asset.analyze",
+      name: heavyImageEventName("workspace.asset.analyze"),
       data: { assetId: asset.id, workspaceId: workspace.id, key },
     });
 

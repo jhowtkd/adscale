@@ -1,6 +1,8 @@
 import { getWorkspaceBillingAccess } from "@/server/billing/access";
 import {
   getAvailableCreditGrants,
+  getRefundableCreditGrants,
+  pickRefundTargetGrant,
   updateCreditGrantRemaining,
 } from "@/server/repositories/billing";
 import {
@@ -372,46 +374,69 @@ export async function refundCredits(input: {
 
   const unlimitedBillingBypass = await workspaceHasUnlimitedBillingAccess(input.workspaceId);
 
-  if (!unlimitedBillingBypass) {
-    try {
-      await db.transaction(async (tx) => {
-        const grants = await getAvailableCreditGrants(
+  try {
+    await db.transaction(async (tx) => {
+      const duplicate = await getUsageByIdempotencyKey(
+        input.workspaceId,
+        input.idempotencyKey,
+        tx
+      );
+      if (duplicate) {
+        throw new Error("duplicate_refund");
+      }
+
+      if (!unlimitedBillingBypass) {
+        const grants = await getRefundableCreditGrants(
           input.workspaceId,
           tx,
           true
         );
-        if (grants.length === 0) {
-          return;
+        const target = pickRefundTargetGrant(grants);
+        if (!target) {
+          throw new Error("no_refundable_grant");
         }
-        const target = grants[0];
         await updateCreditGrantRemaining(
           target.id,
           target.remaining + refundAmount,
           tx
         );
-      });
-    } catch (err) {
-      logger.error("[refundCredits] failed to credit grant", {
-        error: err,
-        workspaceId: input.workspaceId,
-        amount: refundAmount,
-      });
-      throw err;
-    }
-  }
+      }
 
-  await trackUsage(
-    input.workspaceId,
-    input.action,
-    unlimitedBillingBypass ? 0 : -refundAmount,
-    {
-      ...meta,
-      refund: true,
-      creditAmount: refundAmount,
-      unlimitedBillingBypass: unlimitedBillingBypass || undefined,
-    },
-    input.idempotencyKey
-  );
+      // Reserve the idempotency key in the same transaction as the grant credit
+      // so concurrent refunds cannot double-increment the balance.
+      await trackUsage(
+        input.workspaceId,
+        input.action,
+        unlimitedBillingBypass ? 0 : -refundAmount,
+        {
+          ...meta,
+          refund: true,
+          creditAmount: refundAmount,
+          unlimitedBillingBypass: unlimitedBillingBypass || undefined,
+        },
+        input.idempotencyKey,
+        tx
+      );
+    });
+  } catch (err) {
+    if (err instanceof Error && err.message === "duplicate_refund") {
+      return { status: "duplicate" as const };
+    }
+    if (
+      typeof err === "object" &&
+      err !== null &&
+      "code" in err &&
+      (err as { code?: string }).code === "23505"
+    ) {
+      return { status: "duplicate" as const };
+    }
+    logger.error("[refundCredits] failed to credit grant atomically", {
+      error: err,
+      workspaceId: input.workspaceId,
+      amount: refundAmount,
+    });
+    throw err;
+  }
 
   if (input.userId) {
     try {

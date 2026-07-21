@@ -17,6 +17,7 @@ import {
   updateDerivationStatus,
 } from "@/server/repositories/derivation";
 import { inngest } from "@/server/jobs/client";
+import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 import { db } from "@/server/db";
 import { derivations } from "@/server/db/schema";
 import { getUserLocale } from "@/server/repositories/user";
@@ -241,7 +242,7 @@ export async function POST(
 
         try {
           await inngest.send({
-            name: "derivation.generate",
+            name: heavyImageEventName("derivation.generate"),
             data: {
               derivationId: derivation.id,
               campaignId,

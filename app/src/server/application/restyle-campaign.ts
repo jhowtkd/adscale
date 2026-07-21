@@ -8,6 +8,7 @@ import { logger } from "@/lib/logger";
 import type { CreditAction } from "@/server/billing/credits";
 import { spend, type SpendResult } from "@/server/billing/paywall";
 import { inngest } from "@/server/jobs/client";
+import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 import {
   getAssetWithMetadata,
   getAssetsByCampaign,
@@ -226,7 +227,7 @@ export async function restyleCampaign(
 
   try {
     await inngest.send({
-      name: "derivation.generate",
+      name: heavyImageEventName("derivation.generate"),
       data: {
         derivationId: derivation.id,
         campaignId,

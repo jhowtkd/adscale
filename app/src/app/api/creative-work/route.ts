@@ -12,6 +12,7 @@ import {
   updateCreativeWorkSourceIfUnchanged,
 } from "@/server/repositories/creative-work";
 import { inngest } from "@/server/jobs/client";
+import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 import {
   createCreativeWorkSchema,
   creativeWorkFormatSchema,
@@ -129,7 +130,7 @@ export async function POST(request: Request) {
       } else if (created.claimedForAnalysis) {
         try {
           await inngest.send({
-            name: "creative-work.source.analyze",
+            name: heavyImageEventName("creative-work.source.analyze"),
             data: { workspaceId: workspace.id, workItemId: created.work.id, sourceId: source.id },
           });
         } catch {

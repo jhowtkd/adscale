@@ -36,10 +36,14 @@ export async function trackUsage(
     return result[0];
   } catch (error) {
     if (idempotencyKey && isUniqueIdempotencyViolation(error)) {
+      // Inside an open transaction Postgres marks the tx aborted after 23505.
+      // Do not query on the same client — rethrow so the caller maps it to duplicate.
+      if (tx) {
+        throw error;
+      }
       const existing = await getUsageByIdempotencyKey(
         workspaceId,
-        idempotencyKey,
-        tx
+        idempotencyKey
       );
       if (existing) {
         return existing;

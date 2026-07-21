@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { POST } from "./route";
 
-vi.mock("@/server/auth/platform-owner", () => ({
+vi.mock("@/server/auth/require-platform-owner", () => ({
   requirePlatformOwner: vi.fn(),
 }));
 
@@ -17,7 +17,7 @@ vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
 }));
 
-import { requirePlatformOwner } from "@/server/auth/platform-owner";
+import { requirePlatformOwner } from "@/server/auth/require-platform-owner";
 import { detectAndPersistCrossClientGlobalProposals } from "@/server/human-quality/learning/cross-client";
 import { generateAndPersistClientLearningProposals } from "@/server/human-quality/learning/generate";
 import { WorkspaceAuthError, AUTH_ERROR_CODES } from "@/server/auth/errors";

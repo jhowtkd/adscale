@@ -34,7 +34,11 @@ const inngestSendMock = vi.hoisted(() => vi.fn());
 vi.mock("@/server/repositories/creative-work", () => ({
   getCreativeWork: (...args: unknown[]) => getWorkMock(...args),
   failStaleCreativeWorkOutputs: (...args: unknown[]) => failStaleOutputsMock(...args),
+  failStaleQueuedCreativeWorkOutputs: (...args: unknown[]) => failStaleOutputsMock(...args),
+  failStaleProcessingCreativeWorkOutputs: (...args: unknown[]) => failStaleOutputsMock(...args),
   failStaleCreativeWorkSources: (...args: unknown[]) => failStaleSourcesMock(...args),
+  listCreativeWorkOutputsNeedingRefund: vi.fn(async () => []),
+  markCreativeWorkOutputFailureCode: vi.fn(async () => null),
   refreshCreativeWorkStatus: (...args: unknown[]) => refreshStatusMock(...args),
   updateCreativeWorkDraft: (...args: unknown[]) => updateDraftMock(...args),
   createCreativeWorkSource: (...args: unknown[]) => createSourceMock(...args),
@@ -42,6 +46,10 @@ vi.mock("@/server/repositories/creative-work", () => ({
   updateCreativeWorkSourceIfUnchanged: (...args: unknown[]) => updateSourceCasMock(...args),
   deleteCreativeWorkSource: (...args: unknown[]) => deleteSourceMock(...args),
   linkCreativeWorkCampaign: (...args: unknown[]) => linkCampaignMock(...args),
+}));
+
+vi.mock("@/server/billing/credits", () => ({
+  refundCredits: vi.fn(async () => ({ status: "refunded" })),
 }));
 
 vi.mock("@/server/repositories/workspace-asset", () => ({

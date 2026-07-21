@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { logger } from "@/lib/logger";
-import { requirePlatformOwner } from "@/server/auth/platform-owner";
+import { requirePlatformOwner } from "@/server/auth/require-platform-owner";
 import type { HumanQualityCorpusItem } from "@/server/db/schema";
 import { FeedbackValidationError } from "@/server/feedback/validate-refs";
 import { HUMAN_QUALITY_CORPUS_COHORTS } from "@/server/human-quality/corpus";

@@ -4,6 +4,7 @@ import { buildPlanPrompt } from "@/server/ai/prompt-builder";
 import { getOpenAI } from "@/server/ai/utils";
 import { spendOrApiError } from "@/server/billing/paywall";
 import { inngest } from "@/server/jobs/client";
+import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 import { env } from "@/server/validation/env";
 import { z } from "zod";
 import { getAssetsByCampaign, getAssetWithMetadata } from "@/server/repositories/asset";
@@ -158,7 +159,7 @@ export async function executeStartCompleteCampaign(ctx: ActionExecutionContext) 
 
   try {
     await inngest.send({
-      name: "derivation.generate",
+      name: heavyImageEventName("derivation.generate"),
       data: {
         derivationId: derivation.id,
         campaignId,

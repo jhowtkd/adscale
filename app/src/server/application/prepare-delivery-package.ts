@@ -9,6 +9,7 @@ import { logger } from "@/lib/logger";
 import { assertDerivationApprovable } from "@/server/ai/creative-quality-gate";
 import { spend, type SpendResult } from "@/server/billing/paywall";
 import { inngest } from "@/server/jobs/client";
+import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 import { recordBrandMemoryEvent } from "@/server/memory/brand-memory-dispatch";
 import { updateCampaign } from "@/server/repositories/campaign";
 import {
@@ -163,7 +164,7 @@ export async function prepareDeliveryPackage(
 
       try {
         await inngest.send({
-          name: "derivation.generate",
+          name: heavyImageEventName("derivation.generate"),
           data: {
             derivationId: child.id,
             campaignId: source.campaignId,

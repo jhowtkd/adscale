@@ -6,6 +6,7 @@ import {
   type ContentBrief,
   type StyleBrief,
 } from "@/server/ai/image-analysis";
+import { normalizeImageForAi } from "@/server/ai/normalize-image-for-ai";
 import { getCreativeWork, updateCreativeWorkSourceIfUnchanged } from "@/server/repositories/creative-work";
 import { getTemplateById } from "@/server/repositories/template";
 import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
@@ -52,10 +53,14 @@ export async function analyzeCreativeWorkSource(input: Input) {
         throw new Error("controlled_source_analysis_failure");
       }
       const bytes = await objectStorage.get(asset.key);
-      const buffer = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
+      const rawBuffer = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
+      const normalized = await normalizeImageForAi({
+        buffer: rawBuffer,
+        mimeType: asset.type,
+      });
       const [contentResult, styleResult] = await Promise.all([
-        source.usage !== "style" ? analyzeImageContent(buffer, asset.type) : null,
-        source.usage !== "content" ? analyzeImageStyle(buffer, asset.type) : null,
+        source.usage !== "style" ? analyzeImageContent(normalized.buffer, normalized.mimeType) : null,
+        source.usage !== "content" ? analyzeImageStyle(normalized.buffer, normalized.mimeType) : null,
       ]);
       contentAnalysis = contentResult ? contentBriefSchema.parse(contentResult) : null;
       styleAnalysis = styleResult ? styleBriefSchema.parse(styleResult) : null;

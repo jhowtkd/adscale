@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { apiError, handleApiError } from "@/lib/api-response";
-import { requirePlatformOwner } from "@/server/auth/platform-owner";
+import { requirePlatformOwner } from "@/server/auth/require-platform-owner";
 import { mergeStageNotesSchema } from "@/server/beta-sessions/types";
 import { mergeBetaSessionNotes } from "@/server/repositories/beta-sessions";
 

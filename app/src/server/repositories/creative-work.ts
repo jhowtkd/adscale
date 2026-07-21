@@ -917,12 +917,7 @@ export async function failQueuedCreativeWorkOutput(
   return row ?? null;
 }
 
-/**
- * Reconciles jobs that disappeared after dispatch (for example, a worker
- * serialization crash). Once the lease expires the output becomes terminal,
- * which lets the UI offer its existing retry action instead of polling forever.
- */
-export async function failStaleCreativeWorkOutputs(
+export async function failStaleQueuedCreativeWorkOutputs(
   workspaceId: string,
   workItemId: string,
   staleBefore: Date,
@@ -938,15 +933,115 @@ export async function failStaleCreativeWorkOutputs(
       and(
         eq(creativeWorkOutputs.workspaceId, workspaceId),
         eq(creativeWorkOutputs.workItemId, workItemId),
-        inArray(creativeWorkOutputs.status, ["queued", "processing"]),
-        // `staleBefore` comes from the wall clock (unlike the CAS Dates above,
-        // which were read from a timestamp-without-time-zone column). Preserve
-        // its instant and let PostgreSQL project it into the session timezone
-        // before comparing with the timezone-less stored value.
+        eq(creativeWorkOutputs.status, "queued"),
         sql`${creativeWorkOutputs.updatedAt} < cast(${staleBefore} as timestamp without time zone)`,
       ),
     )
     .returning();
+}
+
+export async function failStaleProcessingCreativeWorkOutputs(
+  workspaceId: string,
+  workItemId: string,
+  staleBefore: Date,
+): Promise<CreativeWorkOutput[]> {
+  return db
+    .update(creativeWorkOutputs)
+    .set({
+      status: "failed",
+      failureCode: "generation_timeout",
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(creativeWorkOutputs.workspaceId, workspaceId),
+        eq(creativeWorkOutputs.workItemId, workItemId),
+        eq(creativeWorkOutputs.status, "processing"),
+        sql`${creativeWorkOutputs.updatedAt} < cast(${staleBefore} as timestamp without time zone)`,
+      ),
+    )
+    .returning();
+}
+
+/**
+ * Reconciles jobs that disappeared after dispatch (for example, a worker
+ * serialization crash). Once the lease expires the output becomes terminal,
+ * which lets the UI offer its existing retry action instead of polling forever.
+ * Prefer the status-specific helpers above for distinct queued/processing leases.
+ */
+export async function failStaleCreativeWorkOutputs(
+  workspaceId: string,
+  workItemId: string,
+  staleBefore: Date,
+): Promise<CreativeWorkOutput[]> {
+  const [queued, processing] = await Promise.all([
+    failStaleQueuedCreativeWorkOutputs(workspaceId, workItemId, staleBefore),
+    failStaleProcessingCreativeWorkOutputs(workspaceId, workItemId, staleBefore),
+  ]);
+  return [...queued, ...processing];
+}
+
+export async function touchCreativeWorkOutputHeartbeat(
+  workspaceId: string,
+  workItemId: string,
+  outputId: string,
+): Promise<CreativeWorkOutput | null> {
+  const [row] = await db
+    .update(creativeWorkOutputs)
+    .set({ updatedAt: new Date() })
+    .where(
+      and(
+        eq(creativeWorkOutputs.workspaceId, workspaceId),
+        eq(creativeWorkOutputs.workItemId, workItemId),
+        eq(creativeWorkOutputs.id, outputId),
+        eq(creativeWorkOutputs.status, "processing"),
+      ),
+    )
+    .returning();
+  return row ?? null;
+}
+
+/** Updates failureCode on an already-failed output (e.g. refund-pending → settled). */
+export async function markCreativeWorkOutputFailureCode(
+  workspaceId: string,
+  workItemId: string,
+  outputId: string,
+  failureCode: string,
+): Promise<CreativeWorkOutput | null> {
+  const [row] = await db
+    .update(creativeWorkOutputs)
+    .set({
+      failureCode,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(creativeWorkOutputs.workspaceId, workspaceId),
+        eq(creativeWorkOutputs.workItemId, workItemId),
+        eq(creativeWorkOutputs.id, outputId),
+        eq(creativeWorkOutputs.status, "failed"),
+      ),
+    )
+    .returning();
+  return row ?? null;
+}
+
+/** Failed outputs whose compensatory refund still needs a retry. */
+export async function listCreativeWorkOutputsNeedingRefund(
+  workspaceId: string,
+  workItemId: string,
+): Promise<CreativeWorkOutput[]> {
+  return db
+    .select()
+    .from(creativeWorkOutputs)
+    .where(
+      and(
+        eq(creativeWorkOutputs.workspaceId, workspaceId),
+        eq(creativeWorkOutputs.workItemId, workItemId),
+        eq(creativeWorkOutputs.status, "failed"),
+        sql`${creativeWorkOutputs.failureCode} like '%_refund_pending'`,
+      ),
+    );
 }
 
 /** Releases source analyses whose worker event disappeared after dispatch. */

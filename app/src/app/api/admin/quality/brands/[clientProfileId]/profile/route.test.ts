@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GET } from "./route";
 
-vi.mock("@/server/auth/platform-owner", () => ({
+vi.mock("@/server/auth/require-platform-owner", () => ({
   requirePlatformOwner: vi.fn(),
 }));
 
@@ -23,7 +23,7 @@ vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
 }));
 
-import { requirePlatformOwner } from "@/server/auth/platform-owner";
+import { requirePlatformOwner } from "@/server/auth/require-platform-owner";
 import { listCalibrationSignalsForClientProfile } from "@/server/repositories/calibration-signal";
 import { buildBrandTasteProfile } from "@/server/brand-taste/taste-profile";
 import { db } from "@/server/db";

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
-import { requirePlatformOwner } from "@/server/auth/platform-owner";
+import { requirePlatformOwner } from "@/server/auth/require-platform-owner";
 import { HUMAN_QUALITY_CORPUS_COHORTS } from "@/server/human-quality/corpus";
 import { detectAndPersistCrossClientGlobalProposals } from "@/server/human-quality/learning/cross-client";
 import { generateAndPersistClientLearningProposals } from "@/server/human-quality/learning/generate";

@@ -11,6 +11,8 @@ const failMock = vi.hoisted(() => vi.fn());
 const failQueuedMock = vi.hoisted(() => vi.fn());
 const refreshStatusMock = vi.hoisted(() => vi.fn());
 const requeueOnceMock = vi.hoisted(() => vi.fn());
+const heartbeatMock = vi.hoisted(() => vi.fn());
+const markFailureCodeMock = vi.hoisted(() => vi.fn());
 const sendMock = vi.hoisted(() => vi.fn());
 const ensureLibraryMock = vi.hoisted(() => vi.fn());
 
@@ -28,6 +30,21 @@ vi.mock("@/server/repositories/creative-work", () => ({
   failQueuedCreativeWorkOutput: (...args: unknown[]) => failQueuedMock(...args),
   refreshCreativeWorkStatus: (...args: unknown[]) => refreshStatusMock(...args),
   requeueCreativeWorkOutputOnce: (...args: unknown[]) => requeueOnceMock(...args),
+  touchCreativeWorkOutputHeartbeat: (...args: unknown[]) => heartbeatMock(...args),
+  markCreativeWorkOutputFailureCode: (...args: unknown[]) => markFailureCodeMock(...args),
+}));
+
+vi.mock("@/server/ai/normalize-image-for-ai", () => ({
+  normalizeReferenceBuffers: async (refs: unknown[]) => refs,
+  normalizeImageForAi: async (input: { buffer: Buffer; mimeType?: string }) => ({
+    buffer: input.buffer,
+    mimeType: input.mimeType?.includes("png") ? "image/png" : "image/webp",
+    width: 1,
+    height: 1,
+    originalBytes: input.buffer.byteLength,
+    finalBytes: input.buffer.byteLength,
+    hasTransparency: false,
+  }),
 }));
 
 vi.mock("@/server/application/ensure-creative-work-output-library", () => ({
@@ -45,6 +62,7 @@ vi.mock("@/server/repositories/client-reference", () => ({
 
 vi.mock("@/server/ai/image-generation", () => ({
   generateAndStoreImage: (...args: unknown[]) => generateAndStoreImageMock(...args),
+  DEFAULT_IMAGE_PROVIDER_CALL_BUDGET: 6,
   isRetryableProviderError: (error: unknown) => {
     if (!error || typeof error !== "object") return false;
     const value = error as { retryable?: unknown; name?: unknown; code?: unknown; stack?: unknown };
@@ -244,6 +262,8 @@ describe("creativeWorkOutputJob", () => {
     refreshStatusMock.mockResolvedValue("completed");
     refundCreditsMock.mockResolvedValue({ status: "refunded" });
     requeueOnceMock.mockResolvedValue(null);
+    heartbeatMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+    markFailureCodeMock.mockResolvedValue(makeQueuedOutput({ status: "failed" }));
     sendMock.mockResolvedValue(undefined);
     ensureLibraryMock.mockResolvedValue({
       asset: { id: "asset-1" },
@@ -294,7 +314,7 @@ describe("creativeWorkOutputJob", () => {
     expect(refundCreditsMock).toHaveBeenCalledWith(expect.objectContaining({
       workspaceId: "workspace-1",
       amount: 5,
-      idempotencyKey: "creative-work:work-1:output:output-1:job-refund",
+      idempotencyKey: "creative-output:output-1:compensatory-refund",
     }));
   });
 
@@ -416,47 +436,60 @@ describe("creativeWorkOutputJob", () => {
     expect(parent.outputKey).toBe("creative-work/output-v1/original.png");
   });
 
-  it("automatically redispatches a marked retryable provider failure once", async () => {
+  it("marks failed and refunds after a provider failure without job-level requeue", async () => {
     getCreativeWorkMock.mockResolvedValue({ work: workItem, outputs: [makeQueuedOutput()] });
     markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
     generateAndStoreImageMock.mockRejectedValue(Object.assign(new Error("provider timeout"), { retryable: true }));
-    requeueOnceMock.mockResolvedValue(makeQueuedOutput({ retryCount: 1 }));
     const result = await runJob();
-    expect(result).toMatchObject({ success: false, retrying: true });
-    expect(sendMock).toHaveBeenCalledWith({ name: "creative-work.generate", data: baseEvent });
-    expect(failMock).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ success: false, failureCode: "provider_timeout" });
+    expect(sendMock).not.toHaveBeenCalled();
+    expect(requeueOnceMock).not.toHaveBeenCalled();
+    expect(failMock).toHaveBeenCalledWith(
+      "workspace-1",
+      "work-1",
+      "output-1",
+      "provider_timeout",
+    );
+    expect(refundCreditsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        idempotencyKey: "creative-output:output-1:compensatory-refund",
+      }),
+    );
   });
 
-  it("redispatches a retryable error shape preserved across an Inngest step boundary", async () => {
+  it("still refunds when a retryable error shape was preserved across a step boundary", async () => {
     getCreativeWorkMock.mockResolvedValue({ work: workItem, outputs: [makeQueuedOutput()] });
     markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
     const transported = new Error("All image candidates failed: Error: upstream request failed");
     transported.name = "Error";
     transported.stack = `TimeoutError: ${transported.message}\n    at generateAndStoreImage (image-generation.ts:1:1)`;
     generateAndStoreImageMock.mockRejectedValue(transported);
-    requeueOnceMock.mockResolvedValue(makeQueuedOutput({ retryCount: 1 }));
     const result = await runJob();
-    expect(result).toMatchObject({ success: false, retrying: true });
-    expect(sendMock).toHaveBeenCalledWith({ name: "creative-work.generate", data: baseEvent });
+    expect(result).toMatchObject({ success: false });
+    expect(sendMock).not.toHaveBeenCalled();
+    expect(requeueOnceMock).not.toHaveBeenCalled();
+    expect(refundCreditsMock).toHaveBeenCalled();
   });
 
-  it("makes a won auto-retry CAS manually recoverable when redispatch fails", async () => {
+  it("marks refund_pending when compensatory refund fails after total delivery failure", async () => {
     getCreativeWorkMock.mockResolvedValue({ work: workItem, outputs: [makeQueuedOutput()] });
     markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
     generateAndStoreImageMock.mockRejectedValue(Object.assign(new Error("provider timeout"), { retryable: true }));
-    requeueOnceMock.mockResolvedValue(makeQueuedOutput({ retryCount: 1 }));
-    sendMock.mockRejectedValue(new Error("inngest unavailable"));
+    refundCreditsMock.mockRejectedValue(new Error("ledger unavailable"));
     const result = await runJob();
-    expect(result).toMatchObject({ success: false, failureCode: "auto_retry_dispatch_failed" });
-    expect(result).not.toHaveProperty("retrying", true);
-    expect(failQueuedMock).toHaveBeenCalledWith("workspace-1", "work-1", "output-1", "auto_retry_dispatch_failed");
+    expect(result).toMatchObject({ success: false, failureCode: "provider_timeout_refund_pending" });
+    expect(failMock).toHaveBeenCalledWith(
+      "workspace-1",
+      "work-1",
+      "output-1",
+      "provider_timeout_refund_pending",
+    );
   });
 
-  it("does not reopen an output when completion wins the automatic-retry CAS", async () => {
+  it("does not reopen an output when completion already won before failure handling", async () => {
     getCreativeWorkMock.mockResolvedValue({ work: workItem, outputs: [makeQueuedOutput()] });
     markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
     generateAndStoreImageMock.mockRejectedValue(Object.assign(new Error("provider timeout"), { retryable: true }));
-    requeueOnceMock.mockResolvedValue(null);
     failMock.mockResolvedValue(null);
     const result = await runJob();
     expect(result).toMatchObject({ success: false });
@@ -648,9 +681,12 @@ describe("creativeWorkOutputJob", () => {
     );
     expect(refreshStatusMock).toHaveBeenCalledWith("workspace-1", "work-1");
     expect(completeMock).not.toHaveBeenCalled();
-    // Provider failures happen AFTER the generator was invoked — the
-    // charge covers the dispatch slot and is intentionally non-refundable.
-    expect(refundCreditsMock).not.toHaveBeenCalled();
+    // Controlled app-level retry already ran; total delivery failure refunds via compensatory key.
+    expect(refundCreditsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        idempotencyKey: "creative-output:output-1:compensatory-refund",
+      }),
+    );
   });
 
   it("refunds the per-output credit and marks failed when a reference image load fails (pre-generator)", async () => {
@@ -669,7 +705,7 @@ describe("creativeWorkOutputJob", () => {
         action: "image_derivation",
         amount: 5,
         idempotencyKey:
-          "creative-work:work-1:output:output-1:pregen-refund",
+          "creative-output:output-1:compensatory-refund",
       }),
     );
     expect(failMock).toHaveBeenCalled();
@@ -705,7 +741,7 @@ describe("creativeWorkOutputJob", () => {
         action: "image_derivation",
         amount: 5,
         idempotencyKey:
-          "creative-work:work-1:output:output-1:pregen-refund",
+          "creative-output:output-1:compensatory-refund",
       }),
     );
     expect(completeMock).not.toHaveBeenCalled();
@@ -816,5 +852,76 @@ describe("creativeWorkOutputJob", () => {
       }),
     );
     expect(call.locale).toBe("pt-BR");
+  });
+
+  it("persists low_quality_refund_pending when compensatory refund fails", async () => {
+    getCreativeWorkMock.mockResolvedValue({ work: workItem, outputs: [makeQueuedOutput()] });
+    markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+    analyzeDerivationCreativeMock.mockResolvedValue({
+      scoreStatus: "analyzed",
+      qualityScore: 30,
+    });
+    refundCreditsMock.mockRejectedValue(new Error("ledger unavailable"));
+
+    const result = await runJob();
+
+    expect(result).toMatchObject({ success: false, failureCode: "low_quality_refund_pending" });
+    expect(failMock).toHaveBeenCalledWith(
+      "workspace-1",
+      "work-1",
+      "output-1",
+      "low_quality_refund_pending",
+    );
+  });
+
+  it("marks generation_interrupted_refund_pending when onFailure refund fails", async () => {
+    const onFailure = (creativeWorkOutputJob as unknown as {
+      opts: { onFailure: (args: unknown) => Promise<unknown> };
+    }).opts.onFailure;
+    failMock.mockResolvedValue(makeQueuedOutput({ status: "failed" }));
+    refundCreditsMock.mockRejectedValue(new Error("ledger unavailable"));
+    const step = {
+      run: vi.fn(async (_name: string, fn: () => Promise<unknown>) => fn()),
+    };
+
+    await onFailure({
+      event: { data: { event: { data: baseEvent } } },
+      error: new Error("worker lost"),
+      step,
+    });
+
+    expect(markFailureCodeMock).toHaveBeenCalledWith(
+      "workspace-1",
+      "work-1",
+      "output-1",
+      "generation_interrupted_refund_pending",
+    );
+  });
+
+  it("aborts without a second refund when the processing lease is lost mid-pipeline", async () => {
+    getCreativeWorkMock.mockResolvedValue({ work: workItem, outputs: [makeQueuedOutput()] });
+    markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+    heartbeatMock
+      .mockResolvedValueOnce(makeQueuedOutput({ status: "processing" }))
+      .mockResolvedValueOnce(null);
+    generateAndStoreImageMock.mockImplementation(async (input: {
+      onStageHeartbeat?: (stage: string) => Promise<void>;
+    }) => {
+      await input.onStageHeartbeat?.("candidate_attempt:route-1");
+      return {
+        outputKey: "creative-work/output-1/final.png",
+        revisedPrompt: "",
+        imageOperation: "generate",
+        buffer: Buffer.from("generated-png"),
+        candidates: [],
+        providerCalls: 1,
+        providerRetries: 0,
+      };
+    });
+
+    const result = await runJob();
+
+    expect(result).toMatchObject({ success: false, skipped: true, failureCode: "lease_lost" });
+    expect(refundCreditsMock).not.toHaveBeenCalled();
   });
 });
