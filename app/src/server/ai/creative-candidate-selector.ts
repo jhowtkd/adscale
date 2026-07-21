@@ -1,3 +1,4 @@
+import sharp from "sharp";
 import { z } from "zod";
 import { env } from "@/server/validation/env";
 import { logger } from "@/lib/logger";
@@ -5,6 +6,32 @@ import { objectStorage } from "@/server/storage";
 import { isE2EControlledProviderEnabled } from "./providers/e2e-controlled-provider";
 import type { ImageReference } from "./providers/image-provider";
 import { extractOutputText, getOpenAI } from "./utils";
+
+/**
+ * Judging runs on a 512 MB instance where full-resolution PNG candidates were
+ * base64-encoded (+33%) from scratch on every judgment pass (2-3 passes per
+ * selection). Downscaled JPEG copies, encoded once and reused across passes,
+ * keep judgment fidelity at a fraction of the transient memory and
+ * vision-input cost.
+ */
+const JUDGE_IMAGE_MAX_DIM = 768;
+
+async function toJudgeImageUrl(buffer: Buffer, mimeType: string): Promise<string> {
+  try {
+    const resized = await sharp(buffer)
+      .resize(JUDGE_IMAGE_MAX_DIM, JUDGE_IMAGE_MAX_DIM, {
+        fit: "inside",
+        withoutEnlargement: true,
+      })
+      .jpeg({ quality: 82 })
+      .toBuffer();
+    return `data:image/jpeg;base64,${resized.toString("base64")}`;
+  } catch {
+    // Non-decodable buffers (deterministic test fixtures) pass through
+    // unchanged.
+    return `data:${mimeType};base64,${buffer.toString("base64")}`;
+  }
+}
 
 export type CandidateJudgment = {
   ranking: string[];
@@ -81,43 +108,44 @@ type SelectCreativeCandidateInput = {
   referenceImages: ImageReference[];
 };
 
-function candidateImageUrl(candidate: SelectableCandidate): string {
-  if (candidate.imageUrl) return candidate.imageUrl;
-  if (!candidate.buffer) {
-    throw new Error(`Candidate ${candidate.routeId} has neither imageUrl nor buffer`);
+type JudgeImageUrls = {
+  byRouteId: ReadonlyMap<string, string>;
+  references: readonly string[];
+};
+
+async function resolveCandidateBuffer(candidate: SelectableCandidate): Promise<Buffer> {
+  if (candidate.buffer) return candidate.buffer;
+  if (!candidate.outputKey) {
+    throw new Error(`Candidate ${candidate.routeId} has neither buffer nor outputKey`);
   }
-  return `data:${candidate.mimeType};base64,${candidate.buffer.toString("base64")}`;
+  const loaded = await objectStorage.get(candidate.outputKey);
+  return Buffer.isBuffer(loaded) ? loaded : Buffer.from(loaded as ArrayBuffer);
 }
 
-async function withFreshCandidateUrls(
-  candidates: SelectableCandidate[]
-): Promise<SelectableCandidate[]> {
-  return Promise.all(
-    candidates.map(async (candidate) => {
-      if (!candidate.outputKey) return candidate;
-      try {
-        const imageUrl = await objectStorage.signedDownloadUrl(candidate.outputKey);
-        return { ...candidate, imageUrl, buffer: undefined };
-      } catch (error) {
-        logger.warn({
-          event: "image_pipeline_stage",
-          stage: "selection_url_refresh",
-          status: "failed",
-          routeId: candidate.routeId,
-          errorMessage: error instanceof Error ? error.message.slice(0, 500) : String(error).slice(0, 500),
-        });
-        return candidate;
-      }
-    })
-  );
+async function buildJudgeImageUrls(input: SelectCreativeCandidateInput): Promise<JudgeImageUrls> {
+  return {
+    byRouteId: new Map(
+      await Promise.all(
+        input.candidates.map(async (candidate): Promise<[string, string]> => {
+          const buffer = await resolveCandidateBuffer(candidate);
+          return [candidate.routeId, await toJudgeImageUrl(buffer, candidate.mimeType)];
+        })
+      )
+    ),
+    references: await Promise.all(
+      input.referenceImages.map((reference) =>
+        toJudgeImageUrl(reference.buffer, reference.mimeType)
+      )
+    ),
+  };
 }
 
 async function judgeCandidates(
   input: SelectCreativeCandidateInput,
-  candidates: SelectableCandidate[]
+  candidates: SelectableCandidate[],
+  judgeImageUrls: JudgeImageUrls
 ): Promise<CandidateJudgment> {
-  const freshCandidates = await withFreshCandidateUrls(candidates);
-  const candidateIds = freshCandidates.map((candidate) => candidate.routeId);
+  const candidateIds = candidates.map((candidate) => candidate.routeId);
   const content: Array<
     | { type: "input_text"; text: string }
     | { type: "input_image"; image_url: string; detail: "high" }
@@ -140,24 +168,20 @@ CANDIDATE IDS: ${candidateIds.join(", ")}`,
     },
   ];
 
-  for (const candidate of freshCandidates) {
+  for (const candidate of candidates) {
+    const imageUrl = judgeImageUrls.byRouteId.get(candidate.routeId);
+    if (!imageUrl) throw new Error(`Missing judge image for candidate ${candidate.routeId}`);
     content.push(
       { type: "input_text", text: `CANDIDATE ${candidate.routeId}` },
-      {
-        type: "input_image",
-        image_url: candidateImageUrl(candidate),
-        detail: "high",
-      }
+      { type: "input_image", image_url: imageUrl, detail: "high" }
     );
   }
   input.referenceImages.forEach((reference, index) => {
+    const imageUrl = judgeImageUrls.references[index];
+    if (!imageUrl) throw new Error(`Missing judge image for reference ${index + 1}`);
     content.push(
       { type: "input_text", text: `REFERENCE ${index + 1}: ${reference.name}` },
-      {
-        type: "input_image",
-        image_url: `data:${reference.mimeType};base64,${reference.buffer.toString("base64")}`,
-        detail: "high",
-      }
+      { type: "input_image", image_url: imageUrl, detail: "high" }
     );
   });
 
@@ -244,8 +268,10 @@ export async function selectCreativeCandidate(input: SelectCreativeCandidateInpu
     };
   }
 
-  const forwardPromise = judgeCandidates(input, input.candidates);
-  const reversePromise = judgeCandidates(input, [...input.candidates].reverse());
+  const judgeImageUrls = await buildJudgeImageUrls(input);
+
+  const forwardPromise = judgeCandidates(input, input.candidates, judgeImageUrls);
+  const reversePromise = judgeCandidates(input, [...input.candidates].reverse(), judgeImageUrls);
   const settled = await Promise.allSettled([forwardPromise, reversePromise]);
 
   const judgments: CandidateJudgment[] = [];
@@ -273,7 +299,7 @@ export async function selectCreativeCandidate(input: SelectCreativeCandidateInpu
   ) {
     try {
       const rotated = [...input.candidates.slice(1), input.candidates[0]];
-      judgments.push(await judgeCandidates(input, rotated));
+      judgments.push(await judgeCandidates(input, rotated, judgeImageUrls));
     } catch (error) {
       logger.warn({
         event: "image_pipeline_stage",
