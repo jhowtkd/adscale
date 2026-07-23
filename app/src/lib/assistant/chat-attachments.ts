@@ -69,12 +69,3 @@ export async function uploadChatAttachment(file: File): Promise<ChatAttachment> 
   };
 }
 
-export async function uploadChatAttachments(
-  files: File[]
-): Promise<ChatAttachment[]> {
-  const uploaded: ChatAttachment[] = [];
-  for (const file of files) {
-    uploaded.push(await uploadChatAttachment(file));
-  }
-  return uploaded;
-}
