@@ -260,7 +260,9 @@ export async function PATCH(
         await updateCreativeWorkDraft(workspace.id, id, { brief: null, copy: null, inputSnapshot: null });
         return NextResponse.json({ source: updated });
       }
-      if (parsed.data.action === "retrySource" && source.status !== "failed") {
+      // Allow retry for failed (normal) and uploaded (stuck: Inngest never claimed).
+      // Analyzing/ready must not re-dispatch — that races an in-flight job.
+      if (parsed.data.action === "retrySource" && source.status !== "failed" && source.status !== "uploaded") {
         return apiError("invalidInput", 409);
       }
       const updated = parsed.data.action === "updateSource"

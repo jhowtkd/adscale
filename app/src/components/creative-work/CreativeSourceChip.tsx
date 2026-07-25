@@ -55,7 +55,11 @@ export function CreativeSourceChip({ source, onUsageChange, onReview, onRetry, o
       )}
       <div className="mt-2 flex gap-2">
         {source.status === "ready" && <button type="button" onClick={onReview}>Revisar dados</button>}
-        {source.status === "failed" && <button type="button" onClick={onRetry}>Tentar novamente</button>}
+        {(source.status === "failed" || source.status === "uploaded") && (
+          <button type="button" onClick={onRetry}>
+            {source.status === "uploaded" ? "Continuar análise" : "Tentar novamente"}
+          </button>
+        )}
       </div>
     </article>
   );

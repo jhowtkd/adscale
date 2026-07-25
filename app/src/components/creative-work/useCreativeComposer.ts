@@ -546,6 +546,13 @@ export function useCreativeComposer({
     try {
       const id = await flushAutosave();
       if (!id) return;
+      const pendingSources = (detailQuery.data?.sources ?? []).filter(
+        (source) => source.status === "uploaded" || source.status === "analyzing",
+      );
+      if (pendingSources.length > 0) {
+        setError("Aguarde a análise da arte terminar antes de gerar.");
+        return;
+      }
       const prepared = await prepareMutation.mutateAsync({ workItemId: id });
       setQuote(prepared.quote);
       await generateMutation.mutateAsync(id);
@@ -555,7 +562,7 @@ export function useCreativeComposer({
     } finally {
       submitGuardRef.current = false;
     }
-  }, [flushAutosave, generateMutation, prepareMutation]);
+  }, [detailQuery.data?.sources, flushAutosave, generateMutation, prepareMutation]);
 
   const retryOutput = useCallback(async (outputId: string) => {
     if (!workIdRef.current) return;
@@ -640,8 +647,12 @@ export function useCreativeComposer({
     ?? active.activeProfile?.name
     ?? null;
   const hasMeaningfulInput = Boolean(request.trim() || detail?.sources.length);
+  const sourcesPendingAnalysis = Boolean(
+    detail?.sources.some((source) => source.status === "uploaded" || source.status === "analyzing"),
+  );
   const canGenerate = Boolean(active.activeClientProfileId || storedProfileId) && hasMeaningfulInput
-    && !isUploading && !generateMutation.isPending;
+    && !isUploading && !generateMutation.isPending && !sourcesPendingAnalysis
+    && !prepareMutation.isPending;
 
   const campaigns = (campaignQuery.data ?? []).filter((campaign) =>
     !campaign.clientProfileId || campaign.clientProfileId === storedProfileId,

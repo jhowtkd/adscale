@@ -598,12 +598,35 @@ describe("PATCH /api/creative-work/[id]", () => {
     expect(inngestSendMock).toHaveBeenCalledTimes(2);
   });
 
-  it.each(["uploaded", "analyzing", "ready"])("rejects duplicate retry from %s without dispatch", async (status) => {
+  it.each(["analyzing", "ready"])("rejects duplicate retry from %s without dispatch", async (status) => {
     getWorkMock.mockResolvedValue({ work: workItem, outputs: [], sources: [{ id: "source-1", usage: "content", status, updatedAt: new Date() }] });
     const res = await requestPatch({ action: "retrySource", sourceId: "source-1" });
     expect(res.status).toBe(409);
     expect(updateSourceCasMock).not.toHaveBeenCalled();
     expect(inngestSendMock).not.toHaveBeenCalled();
+  });
+
+  it("retries a stuck uploaded source by re-dispatching analysis", async () => {
+    const uploaded = {
+      id: "source-1",
+      assetId: "asset-1",
+      templateId: null,
+      usage: "content",
+      status: "uploaded",
+      updatedAt: new Date("2026-07-16T12:00:00.000Z"),
+    };
+    getWorkMock.mockResolvedValue({ work: workItem, outputs: [], sources: [uploaded] });
+    updateSourceCasMock.mockResolvedValue({ ...uploaded, updatedAt: new Date("2026-07-16T12:00:00.001Z") });
+    const res = await requestPatch({ action: "retrySource", sourceId: "source-1" });
+    expect(res.status).toBe(200);
+    expect(updateSourceCasMock).toHaveBeenCalledWith(
+      "workspace-1",
+      "work-1",
+      "source-1",
+      { status: "uploaded", usage: "content", updatedAt: uploaded.updatedAt },
+      { status: "uploaded", failureCode: null },
+    );
+    expect(inngestSendMock).toHaveBeenCalledOnce();
   });
 
   it("removes only the scoped source without dispatch", async () => {

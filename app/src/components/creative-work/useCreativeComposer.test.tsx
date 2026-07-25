@@ -863,4 +863,44 @@ describe("useCreativeComposer", () => {
     expect(mocks.autosave).not.toHaveBeenCalled();
     unmount();
   });
+
+  it("disables generate while a source is still uploaded or analyzing", () => {
+    mocks.work.mockReturnValue({
+      data: {
+        work: workDetail().work,
+        outputs: [],
+        sources: [{ id: "source-1", status: "uploaded", usage: "both" }],
+      },
+      isLoading: false,
+      isError: false,
+    });
+
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+
+    expect(result.current.state).toBe("analyzing");
+    expect(result.current.canGenerate).toBe(false);
+  });
+
+  it("blocks generate() before prepare when sources are pending analysis", async () => {
+    mocks.work.mockReturnValue({
+      data: {
+        work: workDetail().work,
+        outputs: [],
+        sources: [{ id: "source-1", status: "uploaded", usage: "both" }],
+      },
+      isLoading: false,
+      isError: false,
+    });
+    mocks.autosave.mockResolvedValue({ work: { id: "work-1" } });
+
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+
+    await act(async () => {
+      await result.current.generate();
+    });
+
+    expect(mocks.prepare).not.toHaveBeenCalled();
+    expect(mocks.generate).not.toHaveBeenCalled();
+    expect(result.current.error).toMatch(/análise/i);
+  });
 });
