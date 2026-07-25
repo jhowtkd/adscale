@@ -28,6 +28,12 @@ vi.mock("next-intl", () => ({ useTranslations: () => (key: string, values?: Reco
   extractedData: "Dados extraídos", retrySource: "Tentar novamente",
   brand: "Marca", noBrand: "Selecione uma marca", inspirationsSlot: "Inspirações",
   selectBrandMessage: "Selecione uma marca para começar", invalidWork: "Trabalho não encontrado", startNew: "Começar nova criação",
+  brandConflictTitle: "Qual marca vale nesta peça?",
+  brandConflictDescription: `A arte de conteúdo é da marca ${values?.brand}, diferente da marca ativa.`,
+  brandConflictChoiceSource: `Usar a marca da arte (${values?.brand})`,
+  brandConflictChoiceSourceAria: `Usar a marca da arte, ${values?.brand}, como autoridade de marca`,
+  brandConflictChoiceActive: `Manter a marca ativa (${values?.brand})`,
+  brandConflictChoiceActiveAria: `Manter a marca ativa, ${values?.brand}, como autoridade de marca`,
 }[key] ?? (key === "generate" ? `Gerar ${values?.count} variações · ${values?.credits} créditos` : key)) }));
 
 import { CreativeComposer } from "./CreativeComposer";
@@ -41,6 +47,7 @@ function composer(overrides = {}) {
     campaignId: null, campaigns: [], linkCampaign: vi.fn(), retryOutput: vi.fn(), retryRevisionOutput: vi.fn(), approveOutput: vi.fn(),
     downloadOutput: vi.fn(), reviseOutput: vi.fn(), isRetryingOutput: vi.fn(), isApprovingOutput: vi.fn(), isRevisingOutput: vi.fn(),
     canGenerate: true, isUploading: false, error: null, announcement: "", brandTrainingSuggestion: null, requiresBrandSelection: false,
+    brandConflict: null, resolveBrandConflict: vi.fn(), isResolvingBrandConflict: false,
     retryInitialTemplate: null,
     workError: false,
     addFiles: vi.fn(), updateSource: vi.fn(), retrySource: vi.fn(), removeSource: vi.fn(), generate: vi.fn(),
@@ -428,5 +435,83 @@ describe("CreativeComposer", () => {
     renderComposer(value);
     fireEvent.change(screen.getByRole("combobox", { name: "Agrupar em campanha" }), { target: { value: "campaign-1" } });
     expect(value.linkCampaign).toHaveBeenCalledWith("campaign-1");
+  });
+
+  it("moves focus to the brand-conflict choice with accessible labels and no new draft (R-008)", () => {
+    const value = composer({
+      workId: "work-1",
+      brandConflict: {
+        detectedBrand: "XTB",
+        activeBrand: "NR1",
+        sourceId: "source-1",
+        choices: ["source", "active"],
+      },
+    });
+    renderComposer(value);
+
+    const panel = screen.getByTestId("brand-conflict-choice");
+    expect(panel).toHaveTextContent("Qual marca vale nesta peça?");
+    expect(panel).toHaveTextContent("A arte de conteúdo é da marca XTB");
+    const sourceChoice = screen.getByRole("button", { name: "Usar a marca da arte (XTB)" });
+    const activeChoice = screen.getByRole("button", { name: "Manter a marca ativa (NR1)" });
+    // R-008.3: focus lands on the choice — the only pending decision.
+    expect(sourceChoice).toHaveFocus();
+    fireEvent.click(sourceChoice);
+    expect(value.resolveBrandConflict).toHaveBeenCalledWith("source");
+    fireEvent.click(activeChoice);
+    expect(value.resolveBrandConflict).toHaveBeenCalledWith("active");
+    // Exactly two short choices — never a wizard, never a new draft action.
+    expect(panel.querySelectorAll("button")).toHaveLength(2);
+  });
+
+  it("keeps both brand choices disabled while a choice is being applied", () => {
+    const value = composer({
+      workId: "work-1",
+      isResolvingBrandConflict: true,
+      brandConflict: {
+        detectedBrand: "XTB",
+        activeBrand: "NR1",
+        sourceId: "source-1",
+        choices: ["source", "active"],
+      },
+    });
+    renderComposer(value);
+
+    expect(screen.getByRole("button", { name: "Usar a marca da arte (XTB)" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Manter a marca ativa (NR1)" })).toBeDisabled();
+  });
+
+  it("returns focus to the generate button only after the resumed submit settles to idle", () => {
+    const conflict = {
+      detectedBrand: "XTB",
+      activeBrand: "NR1",
+      sourceId: "source-1",
+      choices: ["source", "active"] as const,
+    };
+    const value = composer({ workId: "work-1", brandConflict: conflict });
+    const { rerender } = renderComposer(value);
+    expect(screen.getByRole("button", { name: "Usar a marca da arte (XTB)" })).toHaveFocus();
+
+    // Conflict resolved but the resumed submit is still running: the
+    // generate button is disabled and focus must NOT drop yet.
+    rerender(
+      <CreativeComposer
+        composer={composer({ workId: "work-1", brandConflict: null, actionPhase: "submitting" })}
+        composerRef={{ current: null }}
+      />,
+    );
+    const generateButton = screen.getByTestId("creative-generate-action").querySelector("button")!;
+    expect(generateButton).toBeDisabled();
+    expect(generateButton).not.toHaveFocus();
+
+    // Submit settled: focus lands back on the re-enabled generate button.
+    rerender(
+      <CreativeComposer
+        composer={composer({ workId: "work-1", brandConflict: null, actionPhase: "idle" })}
+        composerRef={{ current: null }}
+      />,
+    );
+    expect(generateButton).not.toBeDisabled();
+    expect(generateButton).toHaveFocus();
   });
 });

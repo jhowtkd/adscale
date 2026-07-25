@@ -7,15 +7,11 @@ import type { CreativeInspiration } from "@/server/application/list-creative-ins
 export function useCreativeInspirations(clientProfileId: string | null) {
   return useQuery({
     queryKey: ["creative-work", "inspirations", clientProfileId],
+    // Never fire the request without an active brand.
+    enabled: Boolean(clientProfileId),
     staleTime: 30_000,
     queryFn: () => {
-      const params = new URLSearchParams({ view: "inspirations" });
-
-      if (clientProfileId) {
-        params.set("clientProfileId", clientProfileId);
-      }
-
-      return apiFetch(`/api/creative-work?${params}`)
+      return apiFetch(`/api/creative-work?view=inspirations&clientProfileId=${encodeURIComponent(clientProfileId ?? "")}`)
         .then(async (response) => {
           if (!response.ok) throw new Error("Falha ao carregar inspirações");
           const payload = await response.json() as { inspirations?: CreativeInspiration[] };

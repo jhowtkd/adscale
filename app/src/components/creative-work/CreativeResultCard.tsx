@@ -1,7 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import type { CreativeWorkOutput } from "@/lib/hooks/use-creative-work";
+import { useTranslations } from "next-intl";
+import {
+  categorizeCreativeWorkFailure,
+  getCreativeWorkEvaluatorSummary,
+  getCreativeWorkObjectiveVerdict,
+  isCreativeWorkRetryEligible,
+  type CreativeWorkOutput,
+} from "@/lib/hooks/use-creative-work";
 
 type CreativeResultCardProps = {
   output: CreativeWorkOutput;
@@ -41,8 +48,21 @@ export function CreativeResultCard({
   const [instruction, setInstruction] = useState("");
   const [attachment, setAttachment] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const t = useTranslations("dashboard.home.composer.results");
   const isCompleted = output.status === "completed" && Boolean(output.outputKey);
   const isRevision = Boolean(output.parentOutputId);
+  // R-008: failure categories are stable and typed; the free retry exists
+  // only while the durable image-call budget has a call (R-006).
+  const failureCategory = output.status === "failed"
+    ? categorizeCreativeWorkFailure(output.failureCode)
+    : null;
+  const retryEligible = isCreativeWorkRetryEligible(output);
+  // R-008: `inconclusive` is an available output with a review signal — never
+  // a failure, never an objective approval.
+  const objectiveVerdict = isCompleted ? getCreativeWorkObjectiveVerdict(output.quality) : null;
+  const evaluatorSummary = objectiveVerdict === "inconclusive"
+    ? getCreativeWorkEvaluatorSummary(output.quality)
+    : null;
 
   return (
     <article
@@ -71,11 +91,33 @@ export function CreativeResultCard({
             className="h-full w-full object-cover"
           />
         ) : (
-          <div role="status" className="flex h-full items-center justify-center text-xs text-[var(--text-muted)]">
-            {output.status === "failed" ? "Falha na geração" : "Gerando..."}
+          <div role="status" className="flex h-full flex-col items-center justify-center gap-1 text-xs text-[var(--text-muted)]">
+            {output.status === "failed" ? (
+              <>
+                <span>{t("failedGeneration")}</span>
+                {/* One live region per failure: the typed category rides the
+                    same status announcement instead of a second role=alert. */}
+                <span data-testid="failure-category" className="text-[var(--danger-text)]">
+                  {t(`failure.${failureCategory}`)}
+                </span>
+              </>
+            ) : "Gerando..."}
           </div>
         )}
       </div>
+
+      {objectiveVerdict === "inconclusive" ? (
+        <div
+          role="note"
+          data-testid="review-recommended"
+          className="rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-3 py-2"
+        >
+          <p className="text-xs font-medium text-[var(--text-secondary)]">{t("reviewRecommended")}</p>
+          {evaluatorSummary ? (
+            <p className="mt-0.5 text-xs text-[var(--text-muted)]">{evaluatorSummary}</p>
+          ) : null}
+        </div>
+      ) : null}
 
       {output.status === "failed" ? (
         isRevision ? (
@@ -84,10 +126,12 @@ export function CreativeResultCard({
               Tentar novamente · 5 créditos
             </button>
           ) : null
-        ) : (
+        ) : retryEligible ? (
           <button type="button" className={actionClass} disabled={isRetrying} onClick={() => onRetry(output.id)}>
             Repetir esta proposta
           </button>
+        ) : (
+          <p className="text-xs text-[var(--text-muted)]">{t("retryUnavailable")}</p>
         )
       ) : null}
 

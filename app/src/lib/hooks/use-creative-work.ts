@@ -82,6 +82,8 @@ export interface CreativeWorkOutput {
   revisionInstruction: string | null;
   revisionAssetId: string | null;
   retryCount: number;
+  /** Durable provider-call authority (R-006) — retry eligibility derives from it. */
+  imageCallCount?: number;
   operationKey: string;
   status: CreativeWorkOutputStatus;
   outputKey: string | null;
@@ -140,15 +142,22 @@ export function creativeWorkRefetchInterval(
     : false;
 }
 
-class CreativeWorkRequestError extends Error {
-  constructor(message: string, readonly code: string | null, readonly status: number) {
+export class CreativeWorkRequestError extends Error {
+  constructor(
+    message: string,
+    readonly code: string | null,
+    readonly status: number,
+    /** Typed 422 payload (e.g. brand_conflict choices / invalid_context violations). */
+    readonly details: unknown = null,
+  ) {
     super(message);
     this.name = "CreativeWorkRequestError";
   }
 }
 
 async function readError(res: Response): Promise<CreativeWorkRequestError> {
-  const err = await res.json().catch(() => ({}));
+  const body: unknown = await res.json().catch(() => ({}));
+  const err = body && typeof body === "object" ? body as Record<string, unknown> : {};
   const legacyCode = res.status === 429 && typeof err.error === "string" ? err.error : null;
   return new CreativeWorkRequestError(
     typeof err.message === "string"
@@ -158,7 +167,111 @@ async function readError(res: Response): Promise<CreativeWorkRequestError> {
         : "Request failed",
     typeof err.code === "string" ? err.code : legacyCode,
     res.status,
+    "details" in err ? err.details : null,
   );
+}
+
+// ---------------------------------------------------------------------------
+// R-008: typed failure categories + tri-state quality projection.
+// ---------------------------------------------------------------------------
+
+/** Stable failure categories projected to the user (R-008 / spec 10). */
+export type CreativeWorkFailureCategory =
+  | "timeout"
+  | "invalid_context"
+  | "factual_violation"
+  | "brand_conflict"
+  | "reference_failure"
+  | "unknown";
+
+/**
+ * Maps a persisted (sanitized) failure code to its stable UI category.
+ * Internal codes may be more specific; the UI only ever sees these six.
+ */
+export function categorizeCreativeWorkFailure(
+  failureCode: string | null | undefined,
+): CreativeWorkFailureCategory {
+  if (!failureCode) return "unknown";
+  if (failureCode === "invalid_context") return "invalid_context";
+  if (failureCode === "factual_violation") return "factual_violation";
+  if (failureCode === "brand_conflict") return "brand_conflict";
+  if (failureCode === "reference_failure") return "reference_failure";
+  if (failureCode.includes("timeout") || failureCode.includes("timed_out")) return "timeout";
+  return "unknown";
+}
+
+export type CreativeWorkObjectiveVerdict = "pass" | "fail" | "inconclusive";
+
+/**
+ * Reads the tri-state objective verdict from a v1 quality payload
+ * (R-005/R-008). Legacy shapes (ScoreResult or null) have no verdict —
+ * callers must discriminate on `schemaVersion === 1` via this guard instead
+ * of trusting untyped fields.
+ */
+export function getCreativeWorkObjectiveVerdict(
+  quality: Record<string, unknown> | null | undefined,
+): CreativeWorkObjectiveVerdict | null {
+  if (!quality || quality.schemaVersion !== 1) return null;
+  const verdict = quality.objectiveVerdict;
+  return verdict === "pass" || verdict === "fail" || verdict === "inconclusive"
+    ? verdict
+    : null;
+}
+
+/** One-sentence evaluator summary persisted on v1 payloads (T8) — null otherwise. */
+export function getCreativeWorkEvaluatorSummary(
+  quality: Record<string, unknown> | null | undefined,
+): string | null {
+  if (!quality || quality.schemaVersion !== 1) return null;
+  return typeof quality.evaluatorSummary === "string" && quality.evaluatorSummary.trim().length > 0
+    ? quality.evaluatorSummary
+    : null;
+}
+
+/** Absolute provider-call ceiling per output (mirrors server R-006). */
+export const CREATIVE_WORK_RETRY_IMAGE_CALL_LIMIT = 2;
+
+/**
+ * R-006/R-008: the free retry only exists for a failed INITIAL output whose
+ * durable image-call budget still has a call. Budget exhaustion
+ * (`image_call_budget_exhausted`), revisions and non-failed outputs never
+ * show the action — the server enforces the same rule (`concurrent_change`
+ * stays a transient 409 the UI simply re-reads via polling).
+ */
+export function isCreativeWorkRetryEligible(
+  output: Pick<CreativeWorkOutput, "status" | "parentOutputId" | "imageCallCount">,
+): boolean {
+  return (
+    output.status === "failed" &&
+    !output.parentOutputId &&
+    (output.imageCallCount ?? 0) < CREATIVE_WORK_RETRY_IMAGE_CALL_LIMIT
+  );
+}
+
+export type CreativeWorkBrandChoice = "source" | "active";
+
+/** Typed payload of the 422 brand_conflict response (R-003/R-008). */
+export interface CreativeWorkBrandConflict {
+  detectedBrand: string;
+  activeBrand: string;
+  sourceId: string;
+  choices: readonly CreativeWorkBrandChoice[];
+}
+
+/** Structural brand-conflict extraction — safe across mocked module boundaries. */
+export function extractCreativeWorkBrandConflict(cause: unknown): CreativeWorkBrandConflict | null {
+  if (!(cause instanceof Error) || !("code" in cause)) return null;
+  if ((cause as { code?: unknown }).code !== "brand_conflict") return null;
+  const details = (cause as { details?: unknown }).details;
+  if (!details || typeof details !== "object") return null;
+  const candidate = details as Partial<CreativeWorkBrandConflict>;
+  if (typeof candidate.detectedBrand !== "string" || !Array.isArray(candidate.choices)) return null;
+  return {
+    detectedBrand: candidate.detectedBrand,
+    activeBrand: typeof candidate.activeBrand === "string" ? candidate.activeBrand : "",
+    sourceId: typeof candidate.sourceId === "string" ? candidate.sourceId : "",
+    choices: candidate.choices as readonly CreativeWorkBrandChoice[],
+  };
 }
 
 function fetchCreativeWork(workItemId: string): Promise<CreativeWorkDetail> {
@@ -339,6 +452,23 @@ export function usePrepareCreativeWork() {
   return useMutation({
     mutationFn: (input: { workItemId: string }) =>
       patchJson<{ work: CreativeWorkDraftItem; quote: CreativeWorkQuote }>(`/api/creative-work/${input.workItemId}`, { action: "prepare" }),
+    onSuccess: (_data, input) => invalidateCreativeDraft(queryClient, input.workItemId),
+  });
+}
+
+/**
+ * R-003/R-008: persists the restyle brand-conflict choice on the SAME draft
+ * (autosaved server-side) so the interrupted generate submit can resume
+ * without creating a new draft or asking again.
+ */
+export function useResolveBrandConflict() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ workItemId, choice }: { workItemId: string; choice: CreativeWorkBrandChoice }) =>
+      patchJson<{ work: CreativeWorkDraftItem }>(`/api/creative-work/${workItemId}`, {
+        action: "resolveBrandConflict",
+        choice,
+      }),
     onSuccess: (_data, input) => invalidateCreativeDraft(queryClient, input.workItemId),
   });
 }

@@ -15,13 +15,18 @@ const mocks = vi.hoisted(() => ({
   reviseOutput: vi.fn(),
   selectOutput: vi.fn(),
   linkCampaign: vi.fn(),
+  resolveBrandConflict: vi.fn(),
+  resolveBrandConflictPending: vi.fn(() => false),
   apiFetch: vi.fn(),
 }));
 
 vi.mock("@/lib/hooks/use-active-client-profile", () => ({
   useActiveClientProfile: () => mocks.active(),
 }));
-vi.mock("@/lib/hooks/use-creative-work", () => ({
+vi.mock("@/lib/hooks/use-creative-work", async (importOriginal) => ({
+  // Real pure helpers (categorize/verdict/extractBrandConflict…) — only the
+  // data hooks are mocked, so the extractor can never drift from production.
+  ...(await importOriginal<typeof import("@/lib/hooks/use-creative-work")>()),
   useCreativeWork: (...args: unknown[]) => mocks.work(...args),
   useCreateCreativeWorkDraft: () => ({ mutateAsync: mocks.create, isPending: false }),
   useAutosaveCreativeWork: () => ({ mutateAsync: mocks.autosave, isPending: false }),
@@ -32,6 +37,7 @@ vi.mock("@/lib/hooks/use-creative-work", () => ({
   useReviseOutput: () => ({ mutateAsync: mocks.reviseOutput, isPending: false, variables: undefined }),
   useSelectOutput: () => ({ mutateAsync: mocks.selectOutput, isPending: false, variables: undefined }),
   useLinkCreativeWorkCampaign: () => ({ mutateAsync: mocks.linkCampaign, isPending: false }),
+  useResolveBrandConflict: () => ({ mutateAsync: mocks.resolveBrandConflict, isPending: mocks.resolveBrandConflictPending() }),
   useDownloadOutputUrl: () => (workItemId: string, outputId: string) => `/api/creative-work/${workItemId}/outputs/${outputId}/download`,
   useCreativeWorkCampaigns: () => ({ data: [] }),
 }));
@@ -98,6 +104,8 @@ describe("useCreativeComposer", () => {
     mocks.generate.mockResolvedValue({ work: { status: "generating" }, outputs: [] });
     mocks.upload.mockResolvedValue({ assetId: "asset-1", name: "arte.png" });
     mocks.source.mockResolvedValue({ source: { id: "source-1" } });
+    // clearAllMocks keeps mockReturnValue implementations — reset explicitly.
+    mocks.resolveBrandConflictPending.mockReturnValue(false);
   });
 
   it("starts a new composer from the whitelisted intent and canonical quote", () => {
@@ -1119,5 +1127,92 @@ describe("useCreativeComposer", () => {
     expect(mocks.create).not.toHaveBeenCalled();
     expect(mocks.autosave).not.toHaveBeenCalled();
     unmount();
+  });
+
+  it("surfaces a prepare 422 brand_conflict as a choice, never as a generic error (R-008)", async () => {
+    mocks.work.mockReturnValue({ data: workDetail({ toolKind: "restyle" }), isLoading: false });
+    mocks.prepare.mockRejectedValue(Object.assign(new Error("Conflito de marca"), {
+      code: "brand_conflict",
+      details: { detectedBrand: "XTB", activeBrand: "Marca A", sourceId: "src-1", choices: ["source", "active"] },
+    }));
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+
+    await act(async () => { await result.current.generate(); });
+
+    expect(result.current.brandConflict).toEqual({
+      detectedBrand: "XTB", activeBrand: "Marca A", sourceId: "src-1", choices: ["source", "active"],
+    });
+    expect(result.current.error).toBeNull();
+    expect(mocks.generate).not.toHaveBeenCalled();
+  });
+
+  it("keeps a prepare failure without conflict payload as a generic error", async () => {
+    mocks.work.mockReturnValue({ data: workDetail(), isLoading: false });
+    mocks.prepare.mockRejectedValue(Object.assign(new Error("Contexto inválido"), {
+      code: "invalid_context",
+      details: { violations: ["preço sem origem"] },
+    }));
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+
+    await act(async () => { await result.current.generate(); });
+
+    expect(result.current.brandConflict).toBeNull();
+    expect(result.current.error).toBe("Contexto inválido");
+  });
+
+  it("saves the brand choice on the same draft and resumes the interrupted submit (R-008)", async () => {
+    mocks.work.mockReturnValue({ data: workDetail({ toolKind: "restyle" }), isLoading: false });
+    mocks.prepare
+      .mockRejectedValueOnce(Object.assign(new Error("Conflito de marca"), {
+        code: "brand_conflict",
+        details: { detectedBrand: "XTB", activeBrand: "Marca A", sourceId: "src-1", choices: ["source", "active"] },
+      }))
+      .mockResolvedValueOnce({
+        work: { ...workDetail().work, format: "4:5" },
+        quote: { unitCount: 1, credits: 5 },
+      });
+    mocks.generate.mockResolvedValue({ work: { status: "generating" }, outputs: [], brandTrainingSuggestion: null });
+    mocks.resolveBrandConflict.mockResolvedValue({ work: workDetail().work });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+
+    await act(async () => { await result.current.generate(); });
+    expect(result.current.brandConflict).not.toBeNull();
+    expect(mocks.generate).not.toHaveBeenCalled();
+
+    await act(async () => { await result.current.resolveBrandConflict("source"); });
+
+    // The choice persisted on the SAME draft (no create) and the interrupted
+    // submit resumed: prepare ran again and generation was dispatched.
+    expect(mocks.resolveBrandConflict).toHaveBeenCalledWith({ workItemId: "work-1", choice: "source" });
+    expect(mocks.create).not.toHaveBeenCalled();
+    expect(mocks.prepare).toHaveBeenCalledTimes(2);
+    expect(mocks.generate).toHaveBeenCalledOnce();
+    expect(result.current.brandConflict).toBeNull();
+    expect(result.current.error).toBeNull();
+  });
+
+  it("ignores a second brand choice while the first is still applying (double-click guard)", async () => {
+    mocks.work.mockReturnValue({ data: workDetail({ toolKind: "restyle" }), isLoading: false });
+    mocks.prepare.mockRejectedValue(Object.assign(new Error("Conflito de marca"), {
+      code: "brand_conflict",
+      details: { detectedBrand: "XTB", activeBrand: "Marca A", sourceId: "src-1", choices: ["source", "active"] },
+    }));
+    mocks.resolveBrandConflictPending.mockReturnValue(true);
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+
+    await act(async () => { await result.current.generate(); });
+    await act(async () => { await result.current.resolveBrandConflict("active"); });
+
+    // A choice already in flight (isPending) drops the repeated command.
+    expect(mocks.resolveBrandConflict).not.toHaveBeenCalled();
+  });
+
+  it("ignores resolveBrandConflict when there is no pending conflict", async () => {
+    mocks.work.mockReturnValue({ data: workDetail({ toolKind: "restyle" }), isLoading: false });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+
+    await act(async () => { await result.current.resolveBrandConflict("active"); });
+
+    expect(mocks.resolveBrandConflict).not.toHaveBeenCalled();
   });
 });
