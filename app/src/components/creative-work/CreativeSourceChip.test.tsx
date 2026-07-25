@@ -5,7 +5,7 @@ vi.mock("next-intl", () => ({ useTranslations: () => (key: string) => ({
   sourceOrigin_upload: "Upload", sourceOrigin_template: "Template", sourceOrigin_approved_work: "Trabalho aprovado",
   removeSource: "Remover", removeSourceAria: "Remover fonte", sourceUsageAria: "Usar arte como",
   sourceUsage_content: "Conteúdo", sourceUsage_style: "Estilo", sourceUsage_both: "Ambos",
-  sourceUsageRequired: "Escolha como esta arte será usada.", sourceStatus_uploaded: "Aguardando análise",
+  sourceUsageRequired: "Escolha como esta arte será usada.", sourceStatus_uploaded: "Aguardando análise", continueSourceAnalysis: "Continuar análise",
   sourceStatus_analyzing: "Analisando arte", sourceStatus_ready: "Análise concluída", sourceStatus_failed: "Falha na análise",
   extractedData: "Dados extraídos", retrySource: "Tentar novamente",
 }[key] ?? key) }));
@@ -38,6 +38,13 @@ describe("CreativeSourceChip", () => {
     fireEvent.click(screen.getByRole("button", { name: "Remover fonte" }));
     expect(onRetry).toHaveBeenCalledOnce();
     expect(onRemove).toHaveBeenCalledOnce();
+  });
+
+  it("offers to continue analysis for an uploaded source", () => {
+    const onRetry = vi.fn();
+    render(<CreativeSourceChip source={{ ...baseSource, status: "uploaded" }} onUsageChange={vi.fn()} onRetry={onRetry} onRemove={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Continuar análise" }));
+    expect(onRetry).toHaveBeenCalledOnce();
   });
 
   it("does not offer review for ready analysis", () => {

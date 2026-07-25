@@ -630,6 +630,13 @@ export function useCreativeComposer({
     try {
       const id = await flushAutosave();
       if (!id) return;
+      const pendingSources = (detailQuery.data?.sources ?? []).filter(
+        (source) => source.status === "uploaded" || source.status === "analyzing",
+      );
+      if (pendingSources.length > 0) {
+        setError("Aguarde a análise da arte terminar antes de gerar.");
+        return;
+      }
       setActionPhase("preparing");
       const prepared = await prepareMutation.mutateAsync({ workItemId: id });
       lastPersistedRef.current = signature(snapshotFromWork(prepared.work));
@@ -646,7 +653,7 @@ export function useCreativeComposer({
       submitGuardRef.current = false;
       setActionPhase("idle");
     }
-  }, [detailQuery.data?.work, flushAutosave, generateMutation, prepareMutation]);
+  }, [detailQuery.data?.sources, detailQuery.data?.work, flushAutosave, generateMutation, prepareMutation]);
 
   const retryOutput = useCallback(async (outputId: string) => {
     if (!workIdRef.current) return;
