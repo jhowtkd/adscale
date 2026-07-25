@@ -153,7 +153,9 @@ vi.mock("./client-reference", () => ({
 }));
 vi.mock("./campaign", () => ({ getCampaignById: scopeMocks.getCampaignById }));
 
+import { creativeWorkOutputs } from "../db/schema";
 import {
+  claimCreativeWorkOutputImageCall,
   confirmCreativeWorkIdentity,
   confirmCreativeWorkSnapshotsIfUnchanged,
   completeCreativeWorkOutput,
@@ -241,6 +243,7 @@ function workOutput(overrides: Partial<CreativeWorkOutput> = {}): CreativeWorkOu
     revisionInstruction: null,
     revisionAssetId: null,
     retryCount: 0,
+    imageCallCount: 0,
     operationKey: "balanced:4:5:1",
     status: "queued",
     outputKey: null,
@@ -773,6 +776,72 @@ describe("creative-work repository", () => {
 
     it("returns null when deleting a source outside the scoped work", async () => {
       await expect(deleteCreativeWorkSource("ws-2", "work-1", "source-1")).resolves.toBeNull();
+    });
+  });
+
+  describe("claimCreativeWorkOutputImageCall", () => {
+    it("defines the durable counter as NOT NULL with a zero default so existing rows read as 0", () => {
+      const column = creativeWorkOutputs.imageCallCount;
+      expect(column.notNull).toBe(true);
+      expect(column.hasDefault).toBe(true);
+      expect(column.default).toBe(0);
+    });
+
+    it("relies on the column default instead of listing imageCallCount when planning outputs", async () => {
+      const planned = workOutput({ targetFormat: "1:1", versionNumber: 1, operationKey: "bold:1:1:1", imageCallCount: 0 });
+      mocks.state.selectResults.push([{ id: "work-1" }], [planned]);
+
+      await createPlannedCreativeWorkOutputs("ws-1", "work-1", [{ creativeLevel: "bold", targetFormat: "1:1" }]);
+
+      const seedRows = mocks.valuesMock.mock.calls.at(-1)?.[0] as Array<Record<string, unknown>>;
+      expect(seedRows.length).toBeGreaterThan(0);
+      expect(seedRows.every((row) => !("imageCallCount" in row))).toBe(true);
+    });
+
+    it("claims the first image call atomically on the scoped output (0→1)", async () => {
+      const claimed = workOutput({ imageCallCount: 1, status: "processing" });
+      mocks.state.updateResults.push([claimed]);
+
+      await expect(claimCreativeWorkOutputImageCall("ws-1", "work-1", "output-1")).resolves.toEqual(claimed);
+
+      const setPatch = mocks.setMock.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+      expect(setPatch).toHaveProperty("imageCallCount");
+      // The claim is the sole authority on provider calls: it never reuses
+      // the operational retry counter nor flips status.
+      expect(setPatch).not.toHaveProperty("retryCount");
+      expect(setPatch).not.toHaveProperty("status");
+      const query = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]);
+      expect(query.sql).toContain('"creative_work_outputs"."image_call_count"');
+      expect(query.params).toEqual(["ws-1", "work-1", "output-1", 2]);
+    });
+
+    it("claims the second and final image call (1→2)", async () => {
+      const claimed = workOutput({ imageCallCount: 2, status: "processing" });
+      mocks.state.updateResults.push([claimed]);
+
+      await expect(claimCreativeWorkOutputImageCall("ws-1", "work-1", "output-1")).resolves.toEqual(claimed);
+
+      const query = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]);
+      expect(query.sql).toContain('"creative_work_outputs"."image_call_count"');
+      expect(query.params).toEqual(["ws-1", "work-1", "output-1", 2]);
+    });
+
+    it("refuses a third image call before the provider is reached (2→3 rejected by the CAS guard)", async () => {
+      // The guarded UPDATE matches no row once image_call_count = 2, so the
+      // claim fails without side effects instead of reaching the provider.
+      mocks.state.updateResults.push([]);
+
+      await expect(claimCreativeWorkOutputImageCall("ws-1", "work-1", "output-1")).resolves.toBeNull();
+
+      expect(mocks.setMock).toHaveBeenCalledOnce();
+      const setPatch = mocks.setMock.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+      expect(setPatch).not.toHaveProperty("retryCount");
+    });
+
+    it("refuses to claim an output outside the workspace/work-item scope", async () => {
+      mocks.state.updateResults.push([]);
+
+      await expect(claimCreativeWorkOutputImageCall("ws-2", "work-1", "output-1")).resolves.toBeNull();
     });
   });
 

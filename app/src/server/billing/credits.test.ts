@@ -447,7 +447,8 @@ describe("refundCredits", () => {
         actionId: "action-1",
         derivationId: "derivation-1",
       }),
-      "assistant-action:action-1:refund"
+      "assistant-action:action-1:refund",
+      expect.anything()
     );
     expect(mockCreateCreditTransaction).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -507,7 +508,8 @@ describe("refundCredits", () => {
         creditAmount: 5,
         unlimitedBillingBypass: true,
       }),
-      "assistant-action:action-dev:refund"
+      "assistant-action:action-dev:refund",
+      expect.anything()
     );
     expect(mockCreateCreditTransaction).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -547,7 +549,8 @@ describe("refundCredits", () => {
       "landing_page",
       -10,
       expect.objectContaining({ creditAmount: 10 }),
-      "assistant-action:action-lp:refund"
+      "assistant-action:action-lp:refund",
+      expect.anything()
     );
     expect(mockCreateCreditTransaction).toHaveBeenCalledWith(
       expect.objectContaining({ amount: 10, type: "refund" })

@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const generateAndStoreImageMock = vi.hoisted(() => vi.fn());
 const composeExactBrandAssetsMock = vi.hoisted(() => vi.fn());
 const analyzeDerivationCreativeMock = vi.hoisted(() => vi.fn());
+const planCreativeRoutesMock = vi.hoisted(() => vi.fn());
+const selectCreativeCandidateMock = vi.hoisted(() => vi.fn());
 
 const getCreativeWorkMock = vi.hoisted(() => vi.fn());
 const markProcessingMock = vi.hoisted(() => vi.fn());
@@ -11,6 +13,9 @@ const failMock = vi.hoisted(() => vi.fn());
 const failQueuedMock = vi.hoisted(() => vi.fn());
 const refreshStatusMock = vi.hoisted(() => vi.fn());
 const requeueOnceMock = vi.hoisted(() => vi.fn());
+const claimImageCallMock = vi.hoisted(() => vi.fn());
+const touchHeartbeatMock = vi.hoisted(() => vi.fn());
+const normalizeReferenceMock = vi.hoisted(() => vi.fn());
 const sendMock = vi.hoisted(() => vi.fn());
 const ensureLibraryMock = vi.hoisted(() => vi.fn());
 
@@ -20,6 +25,7 @@ const objectPutMock = vi.hoisted(() => vi.fn());
 const refundCreditsMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/repositories/creative-work", () => ({
+  CREATIVE_WORK_MAX_IMAGE_CALLS: 2,
   getCreativeWork: (...args: unknown[]) => getCreativeWorkMock(...args),
   markCreativeWorkOutputProcessing: (...args: unknown[]) =>
     markProcessingMock(...args),
@@ -28,6 +34,13 @@ vi.mock("@/server/repositories/creative-work", () => ({
   failQueuedCreativeWorkOutput: (...args: unknown[]) => failQueuedMock(...args),
   refreshCreativeWorkStatus: (...args: unknown[]) => refreshStatusMock(...args),
   requeueCreativeWorkOutputOnce: (...args: unknown[]) => requeueOnceMock(...args),
+  claimCreativeWorkOutputImageCall: (...args: unknown[]) => claimImageCallMock(...args),
+  touchCreativeWorkOutputHeartbeat: (...args: unknown[]) => touchHeartbeatMock(...args),
+}));
+
+vi.mock("@/server/creative-work/reference-normalize", () => ({
+  normalizeCreativeWorkReferenceImage: (...args: unknown[]) => normalizeReferenceMock(...args),
+  normalizedCreativeWorkReferenceName: (name: string) => name,
 }));
 
 vi.mock("@/server/application/ensure-creative-work-output-library", () => ({
@@ -58,9 +71,29 @@ vi.mock("@/server/creative-work/composite", () => ({
     composeExactBrandAssetsMock(...args),
 }));
 
+vi.mock("@/server/ai/creative-route-planner", () => ({
+  planCreativeRoutes: (...args: unknown[]) => planCreativeRoutesMock(...args),
+}));
+
+vi.mock("@/server/ai/creative-candidate-selector", () => ({
+  selectCreativeCandidate: (...args: unknown[]) =>
+    selectCreativeCandidateMock(...args),
+}));
+
 vi.mock("@/server/ai/creative-score", () => ({
   analyzeDerivationCreative: (...args: unknown[]) =>
     analyzeDerivationCreativeMock(...args),
+}));
+
+const analyzeCreativeWorkQaMock = vi.hoisted(() => vi.fn());
+const inspectCreativeWorkImageFileMock = vi.hoisted(() => vi.fn());
+
+vi.mock("@/server/ai/creative-qa", async (importOriginal) => ({
+  // Keep the real QA contracts (R-005 codes/types) and mock only the I/O
+  // seams: the vision evaluator and the deterministic file inspector.
+  ...(await importOriginal<typeof import("@/server/ai/creative-qa")>()),
+  analyzeCreativeWorkQa: (...args: unknown[]) => analyzeCreativeWorkQaMock(...args),
+  inspectCreativeWorkImageFile: (...args: unknown[]) => inspectCreativeWorkImageFileMock(...args),
 }));
 
 vi.mock("@/server/storage", () => ({
@@ -88,6 +121,7 @@ vi.mock("./client", () => ({
   },
 }));
 
+import { logger } from "@/lib/logger";
 import { creativeWorkOutputJob } from "./creative-work";
 
 interface GenerateEvent {
@@ -175,6 +209,7 @@ function makeQueuedOutput(overrides: Partial<{
   status: string;
   creativeLevel: "conservative" | "balanced" | "bold";
   retryCount: number;
+  imageCallCount: number;
   versionNumber: number;
   parentOutputId: string | null;
   revisionInstruction: string | null;
@@ -191,6 +226,7 @@ function makeQueuedOutput(overrides: Partial<{
     revisionInstruction: overrides.revisionInstruction ?? "Use mais contraste",
     revisionAssetId: null,
     retryCount: overrides.retryCount ?? 0,
+    imageCallCount: overrides.imageCallCount ?? 0,
     status: overrides.status ?? "queued",
     outputKey: overrides.outputKey ?? null,
     cost: null,
@@ -222,6 +258,7 @@ async function runJob(
 describe("creativeWorkOutputJob", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.unstubAllEnvs();
     objectGetMock.mockImplementation(async (key: string) =>
       key.startsWith("creative-work/output-1/")
         ? Buffer.from("generated-png")
@@ -238,12 +275,51 @@ describe("creativeWorkOutputJob", () => {
       scoreStatus: "analyzed",
       qualityScore: 80,
     });
+    // R-005 defaults: a well-formed 1:1 file and a clean objective evaluation,
+    // so v1 direct outputs complete with objectiveVerdict "pass".
+    inspectCreativeWorkImageFileMock.mockResolvedValue({
+      ok: true,
+      width: 1080,
+      height: 1080,
+      format: "png",
+      bytes: 4096,
+      error: null,
+    });
+    analyzeCreativeWorkQaMock.mockResolvedValue({
+      findings: [],
+      summary: "Objetivamente íntegro.",
+    });
+    // Default: planner unavailable, so legacy social_post outputs fall back to
+    // the direct prompt — the same effective behavior these tests had before
+    // the planner module was mocked.
+    planCreativeRoutesMock.mockRejectedValue(new Error("planner unavailable in tests"));
+    selectCreativeCandidateMock.mockResolvedValue({ winnerIndex: 0, invalidRouteIds: [], reason: "only candidate" });
     completeMock.mockResolvedValue(makeQueuedOutput({ status: "completed" }));
     failMock.mockResolvedValue(makeQueuedOutput({ status: "failed" }));
     failQueuedMock.mockResolvedValue(makeQueuedOutput({ status: "failed", retryCount: 1 }));
     refreshStatusMock.mockResolvedValue("completed");
     refundCreditsMock.mockResolvedValue({ status: "refunded" });
     requeueOnceMock.mockResolvedValue(null);
+    // R-006/R-007 defaults: the first provider call is claimable and the
+    // lease is always held; tests exercise exhaustion/lease-loss explicitly.
+    claimImageCallMock.mockImplementation(async () =>
+      makeQueuedOutput({ status: "processing", imageCallCount: 1 }),
+    );
+    touchHeartbeatMock.mockImplementation(async () =>
+      makeQueuedOutput({ status: "processing" }),
+    );
+    // Identity normalization: buffers/mimeTypes pass through unchanged.
+    normalizeReferenceMock.mockImplementation(
+      async (input: { buffer: Buffer; mimeType?: string }) => ({
+        buffer: input.buffer,
+        mimeType: input.mimeType ?? "image/png",
+        width: 1080,
+        height: 1080,
+        originalBytes: input.buffer.byteLength,
+        finalBytes: input.buffer.byteLength,
+        hasTransparency: false,
+      }),
+    );
     sendMock.mockResolvedValue(undefined);
     ensureLibraryMock.mockResolvedValue({
       asset: { id: "asset-1" },
@@ -254,11 +330,20 @@ describe("creativeWorkOutputJob", () => {
   it("has Inngest function id, retries=0, and trigger configured correctly", () => {
     expect(creativeWorkOutputJob).toBeDefined();
     const opts = (creativeWorkOutputJob as unknown as {
-      opts: { id?: string; retries?: number; triggers?: Array<{ event?: string }> };
+      opts: {
+        id?: string;
+        retries?: number;
+        concurrency?: unknown;
+        triggers?: Array<{ event?: string }>;
+      };
     }).opts;
     expect(opts.id).toBe("generate-creative-work-output");
     expect(opts.retries).toBe(0);
     expect(opts.triggers).toEqual([{ event: "creative-work.generate" }]);
+    // R-007: at most one Creative Work image call in flight on rollout.
+    expect(opts.concurrency).toEqual([
+      { limit: 1, scope: "account", key: `"creative-work-image"` },
+    ]);
   });
 
   it("runs the full generation sequence on a fresh queued output", async () => {
@@ -298,6 +383,56 @@ describe("creativeWorkOutputJob", () => {
     expect(refreshStatusMock).toHaveBeenCalledWith("workspace-1", "work-1");
     // No refund should fire on a happy path.
     expect(refundCreditsMock).not.toHaveBeenCalled();
+  });
+
+  it("routes the job by the generation policy version frozen in the snapshot, not the env switch", async () => {
+    // The env switch only steers NEW preparations; an output whose snapshot
+    // froze quality_recovery_v1 keeps that contract even after rollback.
+    vi.stubEnv("CREATIVE_WORK_QUALITY_RECOVERY_ENABLED", "false");
+    getCreativeWorkMock.mockResolvedValue({
+      work: {
+        ...workItem,
+        inputSnapshot: {
+          generationPolicyVersion: "quality_recovery_v1",
+          request: "x",
+          settings: { targetFormats: [] },
+          sources: [],
+        },
+      },
+      outputs: [makeQueuedOutput()],
+    });
+    markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+    const result = await runJob();
+
+    expect(result).toMatchObject({ success: true });
+    expect(completeMock).toHaveBeenCalledWith(
+      "workspace-1",
+      "work-1",
+      "output-1",
+      expect.objectContaining({ outputKey: expect.stringContaining("creative-work/output-1/") }),
+    );
+    const infoMessages = vi.mocked(logger.info).mock.calls.map(([message]) => String(message));
+    expect(infoMessages.some((message) => message.includes("policy=quality_recovery_v1"))).toBe(true);
+  });
+
+  it("treats a snapshot without generationPolicyVersion as legacy even with the switch on", async () => {
+    vi.stubEnv("CREATIVE_WORK_QUALITY_RECOVERY_ENABLED", "true");
+    getCreativeWorkMock.mockResolvedValue({
+      work: {
+        ...workItem,
+        inputSnapshot: { request: "x", settings: { targetFormats: [] }, sources: [] },
+      },
+      outputs: [makeQueuedOutput()],
+    });
+    markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+    const result = await runJob();
+
+    expect(result).toMatchObject({ success: true });
+    expect(completeMock).toHaveBeenCalled();
+    const infoMessages = vi.mocked(logger.info).mock.calls.map(([message]) => String(message));
+    expect(infoMessages.some((message) => message.includes("quality_recovery_v1"))).toBe(false);
   });
 
   it("lets only one duplicate delivery claim the queued output", async () => {
@@ -410,10 +545,12 @@ describe("creativeWorkOutputJob", () => {
     requeueOnceMock.mockResolvedValue(makeQueuedOutput({ retryCount: 1 }));
     sendMock.mockRejectedValue(new Error("inngest unavailable"));
     const result = await runJob();
-    expect(result).toMatchObject({ success: false, failureCode: "auto_retry_dispatch_failed" });
-    expect(result).not.toHaveProperty("retrying", true);
-    expect(failQueuedMock).toHaveBeenCalledWith("workspace-1", "work-1", "output-1", "auto_retry_dispatch_failed");
-  });
+      expect(result).toMatchObject({ success: false, failureCode: "auto_retry_dispatch_failed" });
+      expect(result).not.toHaveProperty("retrying", true);
+      expect(failQueuedMock).toHaveBeenCalledWith("workspace-1", "work-1", "output-1", "auto_retry_dispatch_failed");
+      // Legacy keeps its historical no-refund behavior on dispatch failure.
+      expect(refundCreditsMock).not.toHaveBeenCalled();
+    });
 
   it("does not reopen an output when completion wins the automatic-retry CAS", async () => {
     getCreativeWorkMock.mockResolvedValue({ work: workItem, outputs: [makeQueuedOutput()] });
@@ -779,5 +916,1041 @@ describe("creativeWorkOutputJob", () => {
       }),
     );
     expect(call.locale).toBe("pt-BR");
+  });
+
+  describe("quality_recovery_v1 protocol routing", () => {
+    const v1Snapshot = {
+      generationPolicyVersion: "quality_recovery_v1" as const,
+      request: "Promoção de agosto com vagas limitadas",
+      settings: { targetFormats: [] },
+      sources: [],
+    };
+
+    /** R-003: adaptation/restyle snapshots carry the mandatory ready sources. */
+    const v1Source = (
+      sourceId: string,
+      usage: "content" | "style" | "both",
+      assetKey: string | null = `${sourceId}.png`,
+    ) => ({
+      sourceId,
+      updatedAt: "2026-07-20T00:00:00.000Z",
+      assetKey,
+      mimeType: assetKey ? "image/png" : null,
+      usage,
+      content: usage === "style" ? null : { product: "Produto da arte" },
+      style: usage === "content" ? null : { description: "Editorial" },
+    });
+
+    const v1AdaptationSnapshot = {
+      ...v1Snapshot,
+      sources: [v1Source("original", "content")],
+    };
+
+    const v1RestyleSnapshot = {
+      ...v1Snapshot,
+      sources: [v1Source("conteudo", "content"), v1Source("estilo", "style")],
+    };
+
+    function referenceNames(): string[] {
+      const input = generateAndStoreImageMock.mock.calls[0]?.[0] as {
+        referenceImages: Array<{ name: string }>;
+      };
+      return input.referenceImages.map((reference) => reference.name);
+    }
+
+    const ROUTES = ["one", "two", "three"].map((name, index) => ({
+      id: `route-${index + 1}`,
+      thesis: `Thesis ${name}`,
+      visualMechanism: `mechanism-${name}`,
+      scene: `Scene ${name}`,
+      composition: `Composition ${name}`,
+      preserve: ["brand"],
+      avoid: ["AI slop"],
+      renderPrompt: `Render ${name}`,
+    }));
+
+    function v1Work(toolKind: string) {
+      return { ...workItem, toolKind, inputSnapshot: v1Snapshot };
+    }
+
+    function executorModes(): string[] {
+      return vi.mocked(logger.info).mock.calls
+        .map(([message]) => String(message))
+        .filter((message) => message.includes("[executeCanonicalGeneration]"))
+        .map((message) => message.match(/mode=(\w+)/)?.[1] ?? "");
+    }
+
+    it("Peça única: one direct social_post call without planner, judge or refinement", async () => {
+      getCreativeWorkMock.mockResolvedValue({
+        work: v1Work("single"),
+        outputs: [makeQueuedOutput()],
+      });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+      const result = await runJob();
+
+      expect(result).toMatchObject({ success: true });
+      expect(planCreativeRoutesMock).not.toHaveBeenCalled();
+      expect(selectCreativeCandidateMock).not.toHaveBeenCalled();
+      expect(generateAndStoreImageMock).toHaveBeenCalledTimes(1);
+      expect(generateAndStoreImageMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          // social_post maps to art_variation at the provider seam.
+          generationMode: "art_variation",
+          executionPolicy: "direct",
+          routes: undefined,
+          selectCandidate: undefined,
+        }),
+      );
+      expect(executorModes()).toEqual(["social_post"]);
+    });
+
+    it("Variações: each output runs one direct art_variation call on the same snapshot with its persisted level", async () => {
+      getCreativeWorkMock.mockResolvedValue({
+        work: v1Work("variations"),
+        outputs: [
+          makeQueuedOutput({ id: "output-1", creativeLevel: "conservative" }),
+          makeQueuedOutput({ id: "output-2", creativeLevel: "bold" }),
+        ],
+      });
+      markProcessingMock.mockImplementation(async () => makeQueuedOutput({ status: "processing" }));
+
+      await runJob({ ...baseEvent, outputId: "output-1" });
+      await runJob({ ...baseEvent, outputId: "output-2" });
+
+      expect(planCreativeRoutesMock).not.toHaveBeenCalled();
+      expect(selectCreativeCandidateMock).not.toHaveBeenCalled();
+      expect(generateAndStoreImageMock).toHaveBeenCalledTimes(2);
+      const prompts = generateAndStoreImageMock.mock.calls.map(
+        ([input]) => (input as { prompt: string }).prompt,
+      );
+      expect(prompts[0]).toContain("CREATIVE LEVEL: conservative");
+      expect(prompts[1]).toContain("CREATIVE LEVEL: bold");
+      // Same frozen input snapshot feeds both directions.
+      expect(prompts[0]).toContain("REQUEST: Promoção de agosto com vagas limitadas");
+      expect(prompts[1]).toContain("REQUEST: Promoção de agosto com vagas limitadas");
+      for (const [input] of generateAndStoreImageMock.mock.calls) {
+        expect(input).toEqual(
+          expect.objectContaining({ generationMode: "art_variation", executionPolicy: "direct" }),
+        );
+      }
+      expect(executorModes()).toEqual(["art_variation", "art_variation"]);
+    });
+
+    it("Adaptar formatos: one direct format_adaptation call with the original art first", async () => {
+      getCreativeWorkMock.mockResolvedValue({
+        work: { ...workItem, toolKind: "format_adaptation", inputSnapshot: v1AdaptationSnapshot },
+        outputs: [makeQueuedOutput()],
+      });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+      await runJob();
+
+      expect(planCreativeRoutesMock).not.toHaveBeenCalled();
+      expect(generateAndStoreImageMock).toHaveBeenCalledTimes(1);
+      expect(generateAndStoreImageMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          generationMode: "format_adaptation",
+          executionPolicy: "direct",
+          routes: undefined,
+          selectCandidate: undefined,
+        }),
+      );
+      expect(executorModes()).toEqual(["format_adaptation"]);
+      // R-003: the original art occupies the first position; optional brand
+      // identity only fills the remaining slots. Source labels are role
+      // fallbacks — never the raw internal source id.
+      expect(referenceNames()).toEqual(["Original art", "Mood"]);
+      expect(objectGetMock).toHaveBeenCalledWith("original.png");
+    });
+
+    it("Adaptar formatos: fails as reference_failure with zero image calls when the original is not ready", async () => {
+      getCreativeWorkMock.mockResolvedValue({
+        // Stale snapshot: the original was frozen without an asset key
+        // (cross-workspace or deleted asset) — there is no fallback generate.
+        work: { ...workItem, toolKind: "format_adaptation", inputSnapshot: {
+          ...v1Snapshot,
+          sources: [v1Source("original", "content", null)],
+        } },
+        outputs: [makeQueuedOutput()],
+      });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+      const result = await runJob();
+
+      expect(result).toMatchObject({ success: false, failureCode: "reference_failure" });
+      expect(generateAndStoreImageMock).not.toHaveBeenCalled();
+      expect(failMock).toHaveBeenCalledWith("workspace-1", "work-1", "output-1", "reference_failure");
+      // Pre-provider failure: the per-output credit is refunded.
+      expect(refundCreditsMock).toHaveBeenCalledWith(
+        expect.objectContaining({ workspaceId: "workspace-1", amount: 5 }),
+      );
+      expect(completeMock).not.toHaveBeenCalled();
+    });
+
+    it("Adaptar formatos: fails as reference_failure with zero image calls when the original download is invalid", async () => {
+      getCreativeWorkMock.mockResolvedValue({
+        work: { ...workItem, toolKind: "format_adaptation", inputSnapshot: v1AdaptationSnapshot },
+        outputs: [makeQueuedOutput()],
+      });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+      objectGetMock.mockImplementation(async (key: string) => {
+        if (key === "original.png") throw new Error("R2 NoSuchKey");
+        return Buffer.from("png-bytes");
+      });
+
+      const result = await runJob();
+
+      expect(result).toMatchObject({ success: false, failureCode: "reference_failure" });
+      expect(generateAndStoreImageMock).not.toHaveBeenCalled();
+      expect(failMock).toHaveBeenCalledWith("workspace-1", "work-1", "output-1", "reference_failure");
+      expect(refundCreditsMock).toHaveBeenCalledWith(
+        expect.objectContaining({ workspaceId: "workspace-1", amount: 5 }),
+      );
+    });
+
+    it("Mudar estilo: one direct restyling call sending content first, style second, identity last", async () => {
+      getCreativeWorkMock.mockResolvedValue({
+        work: { ...workItem, toolKind: "restyle", inputSnapshot: v1RestyleSnapshot },
+        outputs: [makeQueuedOutput()],
+      });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+      await runJob();
+
+      expect(planCreativeRoutesMock).not.toHaveBeenCalled();
+      expect(generateAndStoreImageMock).toHaveBeenCalledWith(
+        expect.objectContaining({ generationMode: "restyling", executionPolicy: "direct" }),
+      );
+      expect(executorModes()).toEqual(["restyling"]);
+      // R-003: content authority, then style authority, then the optional
+      // brand identity asset inside the provider limit.
+      expect(referenceNames()).toEqual(["Content source", "Style source", "Mood"]);
+      expect(objectGetMock).toHaveBeenCalledWith("conteudo.png");
+      expect(objectGetMock).toHaveBeenCalledWith("estilo.png");
+    });
+
+    it("Mudar estilo: never evicts mandatory content/style references for optional identity", async () => {
+      const fourIdentityRefs = Array.from({ length: 4 }, (_, index) => ({
+        referenceId: `ref-ref-${index}`,
+        assetKey: `workspaces/workspace-1/brand-training/ref-${index}.png`,
+        label: `Identidade ${index}`,
+        category: "visual_reference",
+        usageMode: "reference",
+        analysis: { description: "x", visualAttributes: [], rules: [], constraints: [], confidence: 1 },
+        mimeType: "image/png",
+        hasAlpha: false,
+        placement: null,
+      }));
+      getCreativeWorkMock.mockResolvedValue({
+        work: {
+          ...workItem,
+          toolKind: "restyle",
+          inputSnapshot: {
+            ...v1Snapshot,
+            sources: [v1Source("conteudo", "content"), v1Source("conteudo-b", "both"), v1Source("estilo", "style")],
+          },
+          identitySnapshot: { ...identitySnapshot, assets: fourIdentityRefs },
+        },
+        outputs: [makeQueuedOutput()],
+      });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+      await runJob();
+
+      // Limit 4: all three mandatory sources stay; only one identity slot remains.
+      expect(referenceNames()).toEqual([
+        "Content source",
+        "Content source",
+        "Style source",
+        "Identidade 0",
+      ]);
+    });
+
+    it("Mudar estilo: drops an optional identity reference whose download fails and still generates with the mandatory authorities", async () => {
+      getCreativeWorkMock.mockResolvedValue({
+        work: { ...workItem, toolKind: "restyle", inputSnapshot: v1RestyleSnapshot },
+        outputs: [makeQueuedOutput()],
+      });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+      const failingIdentityKey = "workspaces/workspace-1/brand-training/ref-1.png";
+      objectGetMock.mockImplementation(async (key: string) => {
+        if (key === failingIdentityKey) throw new Error("R2 NoSuchKey");
+        return Buffer.from(`bytes:${key}`);
+      });
+
+      const result = await runJob();
+
+      expect(result).toMatchObject({ success: true });
+      // The failed optional slot was filtered out; every mandatory authority
+      // reached the provider with its bytes intact.
+      const input = generateAndStoreImageMock.mock.calls[0]?.[0] as {
+        referenceImages: Array<{ name: string; buffer: Buffer }>;
+      };
+      expect(input.referenceImages.map((reference) => reference.name)).toEqual(["Content source", "Style source"]);
+      expect(input.referenceImages.map((reference) => reference.buffer.toString())).toEqual([
+        "bytes:conteudo.png",
+        "bytes:estilo.png",
+      ]);
+      expect(
+        vi.mocked(logger.warn).mock.calls.some(([message]) =>
+          String(message).includes("optional reference skipped") && String(message).includes(failingIdentityKey)),
+      ).toBe(true);
+      expect(failMock).not.toHaveBeenCalled();
+      expect(refundCreditsMock).not.toHaveBeenCalled();
+    });
+
+    it("numbers the prompt references after the slots that actually loaded when an optional download fails", async () => {
+      getCreativeWorkMock.mockResolvedValue({
+        work: { ...workItem, toolKind: "restyle", inputSnapshot: v1RestyleSnapshot },
+        outputs: [makeQueuedOutput()],
+      });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+      const failingIdentityKey = "workspaces/workspace-1/brand-training/ref-1.png";
+      objectGetMock.mockImplementation(async (key: string) => {
+        if (key === failingIdentityKey) throw new Error("R2 NoSuchKey");
+        return Buffer.from(`bytes:${key}`);
+      });
+
+      const result = await runJob();
+
+      expect(result).toMatchObject({ success: true });
+      const input = generateAndStoreImageMock.mock.calls[0]?.[0] as {
+        prompt: string;
+        referenceImages: Array<{ name: string }>;
+      };
+      // The skipped optional slot leaves BOTH the prompt block and the
+      // provider array, so `#n` still matches the n-th attached image.
+      expect(input.prompt).toContain('- #1 [content] "Content source" (required)');
+      expect(input.prompt).toContain('- #2 [style] "Style source" (required)');
+      expect(input.prompt).not.toContain("- #3");
+      expect(input.prompt).toContain("image #1 is the first attached image");
+      expect(input.referenceImages.map((reference) => reference.name)).toEqual([
+        "Content source",
+        "Style source",
+      ]);
+    });
+
+    it("Mudar estilo: still fails as reference_failure when a REQUIRED source download fails", async () => {
+      getCreativeWorkMock.mockResolvedValue({
+        work: { ...workItem, toolKind: "restyle", inputSnapshot: v1RestyleSnapshot },
+        outputs: [makeQueuedOutput()],
+      });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+      objectGetMock.mockImplementation(async (key: string) => {
+        if (key === "conteudo.png") throw new Error("R2 NoSuchKey");
+        return Buffer.from(`bytes:${key}`);
+      });
+
+      const result = await runJob();
+
+      expect(result).toMatchObject({ success: false, failureCode: "reference_failure" });
+      expect(generateAndStoreImageMock).not.toHaveBeenCalled();
+      expect(failMock).toHaveBeenCalledWith("workspace-1", "work-1", "output-1", "reference_failure");
+    });
+
+    it("Mudar estilo: rejects a visually incomplete combination as reference_failure before the provider", async () => {
+      getCreativeWorkMock.mockResolvedValue({
+        work: { ...workItem, toolKind: "restyle", inputSnapshot: {
+          ...v1Snapshot,
+          sources: [v1Source("conteudo", "content"), v1Source("estilo", "style", null)],
+        } },
+        outputs: [makeQueuedOutput()],
+      });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+      const result = await runJob();
+
+      expect(result).toMatchObject({ success: false, failureCode: "reference_failure" });
+      expect(generateAndStoreImageMock).not.toHaveBeenCalled();
+      expect(failMock).toHaveBeenCalledWith("workspace-1", "work-1", "output-1", "reference_failure");
+      expect(refundCreditsMock).toHaveBeenCalledWith(
+        expect.objectContaining({ workspaceId: "workspace-1", amount: 5 }),
+      );
+    });
+
+    it("Revisão: one direct creative_revision call linked to the completed parent", async () => {
+      const parent = makeQueuedOutput({
+        id: "output-v1",
+        status: "completed",
+        outputKey: "creative-work/output-v1/original.png",
+        revisionInstruction: null,
+      });
+      const revision = makeQueuedOutput({
+        id: "output-1",
+        versionNumber: 2,
+        parentOutputId: parent.id,
+        revisionInstruction: "Troque o fundo por azul",
+      });
+      getCreativeWorkMock.mockResolvedValue({
+        work: v1Work("variations"),
+        outputs: [parent, revision],
+      });
+      markProcessingMock.mockResolvedValue({ ...revision, status: "processing" });
+
+      await runJob();
+
+      expect(planCreativeRoutesMock).not.toHaveBeenCalled();
+      expect(selectCreativeCandidateMock).not.toHaveBeenCalled();
+      expect(generateAndStoreImageMock).toHaveBeenCalledTimes(1);
+      const input = generateAndStoreImageMock.mock.calls[0]?.[0] as {
+        executionPolicy?: string;
+        referenceImages: Array<{ name: string }>;
+      };
+      expect(input.executionPolicy).toBe("direct");
+      expect(input.referenceImages[0]).toEqual(expect.objectContaining({ name: "Versão 1" }));
+      expect(executorModes()).toEqual(["creative_revision"]);
+    });
+
+    it("R-004: v1 direct outputs use the protocol-aware prompt with the frozen fact pack", async () => {
+      getCreativeWorkMock.mockResolvedValue({
+        work: {
+          ...v1Work("variations"),
+          inputSnapshot: {
+            ...v1Snapshot,
+            factPack: {
+              version: 1,
+              request: "Promoção de agosto com vagas limitadas",
+              facts: [
+                { value: "agosto", class: "date", required: true, origin: "request" },
+                { value: "vagas limitadas", class: "condition", required: true, origin: "request" },
+              ],
+              brand: { requiredElements: ["Logo visível"], prohibitedElements: [] },
+              identity: {
+                clientProfileId: "profile-1",
+                brandName: "Cliente XPTO",
+                brandAuthority: "active",
+              },
+            },
+          },
+        },
+        outputs: [makeQueuedOutput({ creativeLevel: "conservative" })],
+      });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+      await runJob();
+
+      const { prompt } = generateAndStoreImageMock.mock.calls[0]?.[0] as { prompt: string };
+      expect(prompt).toContain("CREATIVE WORK ART_VARIATION — VISUAL PROMPT");
+      expect(prompt).toContain("FACT PACK — AUDITABLE FACTUAL CONTRACT:");
+      expect(prompt).toContain("REQUEST: Promoção de agosto com vagas limitadas");
+      expect(prompt).toContain('[date] "agosto" (origin: request)');
+      expect(prompt).toContain('[condition] "vagas limitadas" (origin: request)');
+      expect(prompt).toContain("BRAND NAME: Cliente XPTO");
+      expect(prompt).toContain("MODE POLICY — VARIATION:");
+      expect(prompt).toContain("CREATIVE LEVEL: conservative");
+      // The legacy persisted-brief block and its generic audience are gone.
+      expect(prompt).not.toContain("PERSISTED BRIEF AND INPUT:");
+      expect(prompt).not.toContain("Público da marca");
+    });
+
+    it("warns without failing when a v1 direct output resolves no frozen fact pack", async () => {
+      // v1 direct outputs freeze the fact pack at prepare time (R-002); a
+      // snapshot without one is an upstream anomaly — logged, never failed.
+      getCreativeWorkMock.mockResolvedValue({
+        work: v1Work("variations"),
+        outputs: [makeQueuedOutput()],
+      });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+      const result = await runJob();
+
+      expect(result).toMatchObject({ success: true });
+      expect(generateAndStoreImageMock).toHaveBeenCalledTimes(1);
+      const warnMessages = vi.mocked(logger.warn).mock.calls.map(([message]) => String(message));
+      expect(
+        warnMessages.some((message) =>
+          message.includes("without frozen fact pack") &&
+          message.includes("outputId=output-1") &&
+          message.includes("workItemId=work-1")),
+      ).toBe(true);
+      // Generation follows with the snapshot request as sole factual authority.
+      const { prompt } = generateAndStoreImageMock.mock.calls[0]?.[0] as { prompt: string };
+      expect(prompt).toContain("REQUEST: Promoção de agosto com vagas limitadas");
+      expect(prompt).toContain("no frozen fact pack");
+    });
+
+    it("keeps the legacy tournament for the explicit social_post toolKind under v1", async () => {
+      planCreativeRoutesMock.mockResolvedValue(ROUTES);
+      getCreativeWorkMock.mockResolvedValue({
+        work: v1Work("social_post"),
+        outputs: [makeQueuedOutput()],
+      });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+      await runJob();
+
+      expect(planCreativeRoutesMock).toHaveBeenCalledTimes(1);
+      const input = generateAndStoreImageMock.mock.calls[0]?.[0] as {
+        routes?: Array<{ id: string }>;
+        selectCandidate?: unknown;
+        executionPolicy?: string;
+      };
+      expect(input.routes?.map((route) => route.id)).toEqual(["route-1", "route-2", "route-3"]);
+      expect(input.selectCandidate).toEqual(expect.any(Function));
+      expect(input.executionPolicy).toBe("legacy_tournament");
+    });
+
+    it("keeps legacy-frozen works on the planner path even for variations", async () => {
+      getCreativeWorkMock.mockResolvedValue({
+        work: {
+          ...workItem,
+          toolKind: "variations",
+          inputSnapshot: { request: "x", settings: { targetFormats: [] }, sources: [] },
+        },
+        outputs: [makeQueuedOutput()],
+      });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+      await runJob();
+
+      // Legacy contract: the job still sends social_post and the executor
+      // still consults the route planner (which fails here and falls back).
+      expect(planCreativeRoutesMock).toHaveBeenCalledTimes(1);
+      const input = generateAndStoreImageMock.mock.calls[0]?.[0] as { executionPolicy?: string };
+      expect(input.executionPolicy).toBeUndefined();
+    });
+
+    it("creates no extra image call, charge or event when the same v1 confirmation is redelivered", async () => {
+      getCreativeWorkMock.mockResolvedValue({
+        work: v1Work("single"),
+        outputs: [makeQueuedOutput()],
+      });
+      markProcessingMock
+        .mockResolvedValueOnce(makeQueuedOutput({ status: "processing" }))
+        .mockResolvedValueOnce(null);
+
+      const first = await runJob();
+      const second = await runJob();
+
+      expect(first).toMatchObject({ success: true });
+      expect(second).toMatchObject({ skipped: true });
+      expect(generateAndStoreImageMock).toHaveBeenCalledTimes(1);
+      expect(refundCreditsMock).not.toHaveBeenCalled();
+      expect(sendMock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("R-005 objective QA tri-state persistence (v1 direct)", () => {
+    const v1Snapshot = {
+      generationPolicyVersion: "quality_recovery_v1" as const,
+      request: "Promoção de agosto com vagas limitadas",
+      settings: { targetFormats: [] },
+      sources: [],
+    };
+
+    function v1DirectWork() {
+      return { ...workItem, toolKind: "single", inputSnapshot: v1Snapshot };
+    }
+
+    function completedQuality(): Record<string, unknown> {
+      const call = completeMock.mock.calls[0]?.[3] as {
+        quality: Record<string, unknown>;
+      };
+      return call.quality;
+    }
+
+    it("persists the versioned tri-state payload on complete", async () => {
+      getCreativeWorkMock.mockResolvedValue({
+        work: v1DirectWork(),
+        outputs: [makeQueuedOutput()],
+      });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+      const result = await runJob();
+
+      expect(result).toMatchObject({ success: true });
+      expect(completedQuality()).toMatchObject({
+        schemaVersion: 1,
+        objectiveVerdict: "pass",
+        objectiveCodes: [],
+        attempt: 1,
+        subjective: { scoreStatus: "analyzed", qualityScore: 80 },
+        evaluator: { status: "completed", error: null },
+        checks: {
+          file: { ok: true, width: 1080, height: 1080 },
+          dimensions: { ok: true, expected: { width: 1080, height: 1080 } },
+          references: { ok: true, missingRequired: [] },
+        },
+      });
+      expect(refundCreditsMock).not.toHaveBeenCalled();
+    });
+
+    it("score 95 + confirmed objective finding triggers the exclusive correction and completes on pass", async () => {
+      analyzeDerivationCreativeMock.mockResolvedValue({
+        scoreStatus: "analyzed",
+        qualityScore: 95,
+      });
+      analyzeCreativeWorkQaMock
+        .mockResolvedValueOnce({
+          findings: [
+            { code: "unsupported_claim", status: "confirmed", note: "Renderiza R$ 99 sem origem." },
+          ],
+          summary: "Fato inventado.",
+        })
+        .mockResolvedValueOnce({ findings: [], summary: "Íntegro após correção." });
+      claimImageCallMock
+        .mockImplementationOnce(async () => makeQueuedOutput({ status: "processing", imageCallCount: 1 }))
+        .mockImplementationOnce(async () => makeQueuedOutput({ status: "processing", imageCallCount: 2 }));
+      generateAndStoreImageMock
+        .mockResolvedValueOnce({
+          outputKey: "creative-work/output-1/base.png",
+          revisedPrompt: "revised",
+          imageOperation: "generate",
+          buffer: Buffer.from("generated-png"),
+        })
+        .mockResolvedValueOnce({
+          outputKey: "creative-work/output-1/correction.png",
+          revisedPrompt: "revised",
+          imageOperation: "generate",
+          buffer: Buffer.from("generated-png"),
+        });
+      getCreativeWorkMock.mockResolvedValue({
+        work: v1DirectWork(),
+        outputs: [makeQueuedOutput()],
+      });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+      const result = await runJob();
+
+      expect(result).toMatchObject({ success: true, outputKey: "creative-work/output-1/correction.png" });
+      // Exactly two provider calls: base + the exclusive objective correction.
+      expect(generateAndStoreImageMock).toHaveBeenCalledTimes(2);
+      expect(claimImageCallMock).toHaveBeenCalledTimes(2);
+      // The correction prompt starts from the original contract and appends
+      // only the failure codes and their surgical instructions.
+      const correctionRequest = generateAndStoreImageMock.mock.calls[1]?.[0] as { prompt: string; attempt: number };
+      expect(correctionRequest.prompt).toContain("OBJECTIVE CORRECTION — SECOND AND FINAL CALL:");
+      expect(correctionRequest.prompt).toContain("- unsupported_claim");
+      expect(correctionRequest.prompt).toContain("SURGICAL INSTRUCTIONS: Renderiza R$ 99 sem origem.");
+      expect(correctionRequest.attempt).toBe(1);
+      // The persisted payload is the correction's pass with attempt 2 — the
+      // scorer was skipped on the failed base attempt (95 could not soften
+      // the fail) and ran only for the passing correction.
+      expect(completedQuality()).toMatchObject({
+        objectiveVerdict: "pass",
+        objectiveCodes: [],
+        attempt: 2,
+      });
+      expect(completeMock).toHaveBeenCalledWith(
+        "workspace-1", "work-1", "output-1",
+        expect.objectContaining({ outputKey: "creative-work/output-1/correction.png" }),
+      );
+      // The correction never charges, never refunds and never requeues.
+      expect(failMock).not.toHaveBeenCalled();
+      expect(refundCreditsMock).not.toHaveBeenCalled();
+      expect(requeueOnceMock).not.toHaveBeenCalled();
+      expect(sendMock).not.toHaveBeenCalled();
+    });
+
+    it("low subjective score without objective failure completes instead of rejecting low_quality", async () => {
+      analyzeDerivationCreativeMock.mockResolvedValue({
+        scoreStatus: "analyzed",
+        qualityScore: 30,
+        scoreIssues: ["Composição genérica"],
+      });
+      getCreativeWorkMock.mockResolvedValue({
+        work: v1DirectWork(),
+        outputs: [makeQueuedOutput()],
+      });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+      const result = await runJob();
+
+      expect(result).toMatchObject({ success: true });
+      expect(completeMock).toHaveBeenCalled();
+      expect(failMock).not.toHaveBeenCalled();
+      expect(refundCreditsMock).not.toHaveBeenCalled();
+      expect(completedQuality()).toMatchObject({
+        objectiveVerdict: "pass",
+        subjective: {
+          scoreStatus: "analyzed",
+          qualityScore: 30,
+          issues: ["Composição genérica"],
+        },
+      });
+    });
+
+    it("evaluator error completes the output as inconclusive without retry or refund", async () => {
+      analyzeCreativeWorkQaMock.mockRejectedValue(new Error("vision QA timed out after 180s"));
+      getCreativeWorkMock.mockResolvedValue({
+        work: v1DirectWork(),
+        outputs: [makeQueuedOutput()],
+      });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+      const result = await runJob();
+
+      expect(result).toMatchObject({ success: true });
+      expect(completedQuality()).toMatchObject({
+        objectiveVerdict: "inconclusive",
+        objectiveCodes: [],
+        evaluator: { status: "failed", error: "vision QA timed out after 180s" },
+      });
+      expect(failMock).not.toHaveBeenCalled();
+      expect(requeueOnceMock).not.toHaveBeenCalled();
+      expect(sendMock).not.toHaveBeenCalled();
+      expect(refundCreditsMock).not.toHaveBeenCalled();
+    });
+
+    it("wrong dimensions fail again after the correction → terminal factual_violation with idempotent refund", async () => {
+      inspectCreativeWorkImageFileMock.mockResolvedValue({
+        ok: true,
+        width: 1024,
+        height: 1024,
+        format: "png",
+        bytes: 4096,
+        error: null,
+      });
+      claimImageCallMock
+        .mockImplementationOnce(async () => makeQueuedOutput({ status: "processing", imageCallCount: 1 }))
+        .mockImplementationOnce(async () => makeQueuedOutput({ status: "processing", imageCallCount: 2 }));
+      getCreativeWorkMock.mockResolvedValue({
+        work: v1DirectWork(),
+        outputs: [makeQueuedOutput()],
+      });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+      const result = await runJob();
+
+      // Both calls consumed (base + correction); the deterministic code was
+      // confirmed on both, so the output fails terminally — no third call.
+      expect(result).toMatchObject({ success: false, failureCode: "factual_violation" });
+      expect(generateAndStoreImageMock).toHaveBeenCalledTimes(2);
+      expect(completeMock).not.toHaveBeenCalled();
+      expect(failMock).toHaveBeenCalledWith("workspace-1", "work-1", "output-1", "factual_violation");
+      expect(refundCreditsMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          idempotencyKey: "creative-work:work-1:output:output-1:terminal-refund",
+          amount: 5,
+          metadata: expect.objectContaining({
+            description: "creative_work_output_terminal_refund",
+            reason: "creative_work_objective_correction_failed",
+          }),
+        }),
+      );
+      expect(requeueOnceMock).not.toHaveBeenCalled();
+      expect(sendMock).not.toHaveBeenCalled();
+    });
+
+    it("subjective scorer crash keeps the v1 output available without a score", async () => {
+      analyzeDerivationCreativeMock.mockRejectedValue(new Error("scorer 500"));
+      getCreativeWorkMock.mockResolvedValue({
+        work: v1DirectWork(),
+        outputs: [makeQueuedOutput()],
+      });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+      const result = await runJob();
+
+      expect(result).toMatchObject({ success: true });
+      expect(completedQuality()).toMatchObject({
+        objectiveVerdict: "pass",
+        subjective: { scoreStatus: "unavailable", qualityScore: null, issues: [] },
+      });
+    });
+
+    it("passes the frozen fact pack and the loaded references to the objective evaluator", async () => {
+      getCreativeWorkMock.mockResolvedValue({
+        work: {
+          ...v1DirectWork(),
+          inputSnapshot: {
+            ...v1Snapshot,
+            factPack: {
+              version: 1,
+              request: "Promoção de agosto com vagas limitadas",
+              facts: [{ value: "agosto", class: "date", required: true, origin: "request" }],
+              brand: { requiredElements: [], prohibitedElements: [] },
+              identity: {
+                clientProfileId: "profile-1",
+                brandName: "Cliente XPTO",
+                brandAuthority: "active",
+              },
+            },
+          },
+        },
+        outputs: [makeQueuedOutput()],
+      });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+      await runJob();
+
+      expect(analyzeCreativeWorkQaMock).toHaveBeenCalledTimes(1);
+      const qaInput = analyzeCreativeWorkQaMock.mock.calls[0]?.[0] as {
+        mode: string;
+        request: string;
+        factPack: { facts: Array<{ value: string }> } | null;
+        references: Array<{ role: string; label: string }>;
+      };
+      expect(qaInput.mode).toBe("social_post");
+      expect(qaInput.request).toBe("Promoção de agosto com vagas limitadas");
+      expect(qaInput.factPack?.facts.map((fact) => fact.value)).toContain("agosto");
+      // The brand identity reference slot reached the evaluator positionally.
+      expect(qaInput.references.map((reference) => reference.label)).toContain("Mood");
+    });
+  });
+
+  describe("R-006/R-007 durable budget, terminal refund and lease (v1)", () => {
+    const v1Snapshot = {
+      generationPolicyVersion: "quality_recovery_v1" as const,
+      request: "Promoção de agosto com vagas limitadas",
+      settings: { targetFormats: [] },
+      sources: [],
+    };
+
+    function v1Work() {
+      return { ...workItem, toolKind: "single", inputSnapshot: v1Snapshot };
+    }
+
+    it("fails as image_call_budget_exhausted with zero provider calls when the claim hits the ceiling", async () => {
+      claimImageCallMock.mockResolvedValue(null);
+      getCreativeWorkMock.mockResolvedValue({
+        work: v1Work(),
+        outputs: [makeQueuedOutput({ imageCallCount: 2 })],
+      });
+      markProcessingMock.mockResolvedValue(
+        makeQueuedOutput({ status: "processing", imageCallCount: 2 }),
+      );
+
+      const result = await runJob();
+
+      expect(result).toMatchObject({ success: false, failureCode: "image_call_budget_exhausted" });
+      // The CAS ceiling failed BEFORE the provider: zero calls in this run.
+      expect(generateAndStoreImageMock).not.toHaveBeenCalled();
+      expect(completeMock).not.toHaveBeenCalled();
+      expect(failMock).toHaveBeenCalledWith("workspace-1", "work-1", "output-1", "image_call_budget_exhausted");
+      expect(refundCreditsMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          idempotencyKey: "creative-work:work-1:output:output-1:terminal-refund",
+          amount: 5,
+        }),
+      );
+    });
+
+    it("refunds a v1 terminal provider failure and never requeues once the budget is consumed", async () => {
+      claimImageCallMock.mockImplementation(async () =>
+        makeQueuedOutput({ status: "processing", imageCallCount: 2 }),
+      );
+      generateAndStoreImageMock.mockRejectedValue(
+        Object.assign(new Error("provider timeout"), { retryable: true }),
+      );
+      getCreativeWorkMock.mockResolvedValue({
+        work: v1Work(),
+        outputs: [makeQueuedOutput({ imageCallCount: 1, retryCount: 1 })],
+      });
+      markProcessingMock.mockResolvedValue(
+        makeQueuedOutput({ status: "processing", imageCallCount: 1, retryCount: 1 }),
+      );
+
+      const result = await runJob();
+
+      expect(result).toMatchObject({ success: false, failureCode: "provider_timeout" });
+      // imageCallCount reached 2 — the XOR budget is spent: no requeue, no
+      // third call, terminal idempotent refund instead.
+      expect(requeueOnceMock).not.toHaveBeenCalled();
+      expect(sendMock).not.toHaveBeenCalled();
+      expect(refundCreditsMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          idempotencyKey: "creative-work:work-1:output:output-1:terminal-refund",
+        }),
+      );
+      expect(failMock).toHaveBeenCalledWith("workspace-1", "work-1", "output-1", "provider_timeout");
+    });
+
+    it("allows exactly one transport retry while the durable budget still has a call", async () => {
+      generateAndStoreImageMock.mockRejectedValue(
+        Object.assign(new Error("provider timeout"), { retryable: true }),
+      );
+      requeueOnceMock.mockResolvedValue(makeQueuedOutput({ retryCount: 1 }));
+      getCreativeWorkMock.mockResolvedValue({ work: v1Work(), outputs: [makeQueuedOutput()] });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+      const result = await runJob();
+
+      expect(result).toMatchObject({ success: false, retrying: true });
+      expect(sendMock).toHaveBeenCalledWith({ name: "creative-work.generate", data: baseEvent });
+      // The transport retry keeps the charge — no refund before the second
+      // call exists.
+      expect(refundCreditsMock).not.toHaveBeenCalled();
+    });
+
+    it("denies the correction when a transport retry already consumed the second call", async () => {
+      analyzeCreativeWorkQaMock.mockResolvedValue({
+        findings: [{ code: "wrong_brand", status: "confirmed", note: "Marca trocada." }],
+        summary: "Marca errada.",
+      });
+      claimImageCallMock
+        .mockImplementationOnce(async () =>
+          makeQueuedOutput({ status: "processing", imageCallCount: 2 }),
+        )
+        .mockResolvedValue(null);
+      getCreativeWorkMock.mockResolvedValue({
+        work: v1Work(),
+        outputs: [makeQueuedOutput({ imageCallCount: 1, retryCount: 1 })],
+      });
+      markProcessingMock.mockResolvedValue(
+        makeQueuedOutput({ status: "processing", imageCallCount: 1, retryCount: 1 }),
+      );
+
+      const result = await runJob();
+
+      expect(result).toMatchObject({ success: false, failureCode: "image_call_budget_exhausted" });
+      // The base call of this run produced an image with a confirmed
+      // objective fail, but the correction claim hit the CAS ceiling —
+      // exactly one provider call in this run, terminal refund applied.
+      expect(generateAndStoreImageMock).toHaveBeenCalledTimes(1);
+      expect(completeMock).not.toHaveBeenCalled();
+      expect(failMock).toHaveBeenCalledWith("workspace-1", "work-1", "output-1", "image_call_budget_exhausted");
+      expect(refundCreditsMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          idempotencyKey: "creative-work:work-1:output:output-1:terminal-refund",
+        }),
+      );
+    });
+
+    it("aborts before the provider call when the lease was lost", async () => {
+      touchHeartbeatMock.mockResolvedValue(null);
+      getCreativeWorkMock.mockResolvedValue({ work: v1Work(), outputs: [makeQueuedOutput()] });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+      const result = await runJob();
+
+      expect(result).toMatchObject({ success: false, leaseLost: true });
+      expect(generateAndStoreImageMock).not.toHaveBeenCalled();
+      expect(claimImageCallMock).not.toHaveBeenCalled();
+      expect(completeMock).not.toHaveBeenCalled();
+      expect(failMock).not.toHaveBeenCalled();
+      expect(refundCreditsMock).not.toHaveBeenCalled();
+    });
+
+    it("discards a late completion without touching billing or library", async () => {
+      completeMock.mockResolvedValue(null);
+      getCreativeWorkMock.mockResolvedValue({ work: v1Work(), outputs: [makeQueuedOutput()] });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+      const result = await runJob();
+
+      expect(result).toMatchObject({ success: true, skipped: true });
+      expect(ensureLibraryMock).not.toHaveBeenCalled();
+      expect(refundCreditsMock).not.toHaveBeenCalled();
+      expect(failMock).not.toHaveBeenCalled();
+    });
+
+    it("fails a required restyle reference that cannot be normalized as reference_failure with zero provider calls", async () => {
+      normalizeReferenceMock.mockRejectedValue(new Error("unable to decode reference image"));
+      const restyleSnapshot = {
+        ...v1Snapshot,
+        request: "Mude o estilo",
+        sources: [
+          {
+            sourceId: "conteudo",
+            updatedAt: "2026-07-20T00:00:00.000Z",
+            assetKey: "conteudo.png",
+            mimeType: "image/png",
+            usage: "content",
+            content: { product: "Produto da arte" },
+            style: null,
+          },
+          {
+            sourceId: "estilo",
+            updatedAt: "2026-07-20T00:00:00.000Z",
+            assetKey: "estilo.png",
+            mimeType: "image/png",
+            usage: "style",
+            content: null,
+            style: { description: "Editorial" },
+          },
+        ],
+      };
+      getCreativeWorkMock.mockResolvedValue({
+        work: { ...workItem, toolKind: "restyle", inputSnapshot: restyleSnapshot },
+        outputs: [makeQueuedOutput()],
+      });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+      const result = await runJob();
+
+      expect(result).toMatchObject({ success: false, failureCode: "reference_failure" });
+      expect(generateAndStoreImageMock).not.toHaveBeenCalled();
+      expect(claimImageCallMock).not.toHaveBeenCalled();
+      // Pre-provider failure: pregen refund, never the terminal one.
+      expect(refundCreditsMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          idempotencyKey: "creative-work:work-1:output:output-1:pregen-refund",
+        }),
+      );
+      expect(refundCreditsMock).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          idempotencyKey: "creative-work:work-1:output:output-1:terminal-refund",
+        }),
+      );
+    });
+
+    it("settles a v1 auto-retry dispatch failure at net zero (terminal refund, no debit leak)", async () => {
+      // Requeue CAS won but the redispatch never left the gate: the consumed
+      // image call makes this a terminal post-provider failure — the v1
+      // output must NOT keep the debit.
+      generateAndStoreImageMock.mockRejectedValue(
+        Object.assign(new Error("provider timeout"), { retryable: true }),
+      );
+      requeueOnceMock.mockResolvedValue(makeQueuedOutput({ retryCount: 1 }));
+      sendMock.mockRejectedValue(new Error("inngest unavailable"));
+      getCreativeWorkMock.mockResolvedValue({ work: v1Work(), outputs: [makeQueuedOutput()] });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+      const result = await runJob();
+
+      expect(result).toMatchObject({ success: false, failureCode: "auto_retry_dispatch_failed" });
+      expect(failQueuedMock).toHaveBeenCalledWith("workspace-1", "work-1", "output-1", "auto_retry_dispatch_failed");
+      expect(refundCreditsMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          idempotencyKey: "creative-work:work-1:output:output-1:terminal-refund",
+          metadata: expect.objectContaining({ reason: "auto_retry_dispatch_failed" }),
+        }),
+      );
+    });
+
+    it("keeps a completed output untouched when post-commit telemetry throws", async () => {
+      // R-007.7: auxiliary telemetry failing after the commit must not fall
+      // into the outer catch — the completed output keeps its status AND its
+      // debit (no terminal refund on a completed row).
+      const loggerInfoMock = logger.info as ReturnType<typeof vi.fn>;
+      loggerInfoMock.mockImplementation((payload: unknown) => {
+        if (
+          typeof payload === "object" &&
+          payload !== null &&
+          (payload as { event?: string }).event === "creative_work_output_terminal"
+        ) {
+          throw new Error("telemetry sink down");
+        }
+      });
+      getCreativeWorkMock.mockResolvedValue({ work: v1Work(), outputs: [makeQueuedOutput()] });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+      const result = await runJob();
+
+      expect(result).toMatchObject({ success: true });
+      expect(completeMock).toHaveBeenCalled();
+      expect(failMock).not.toHaveBeenCalled();
+      expect(refundCreditsMock).not.toHaveBeenCalled();
+    });
+
+    it("drops an optional identity reference that fails normalization and still generates", async () => {
+      // Single mode: the brand identity asset is an optional slot — a
+      // normalization failure drops it instead of failing the output.
+      normalizeReferenceMock.mockRejectedValue(new Error("unable to decode reference image"));
+      getCreativeWorkMock.mockResolvedValue({ work: v1Work(), outputs: [makeQueuedOutput()] });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+      const result = await runJob();
+
+      expect(result).toMatchObject({ success: true });
+      const request = generateAndStoreImageMock.mock.calls[0]?.[0] as {
+        referenceImages: unknown[];
+      };
+      expect(request.referenceImages).toEqual([]);
+      expect(completeMock).toHaveBeenCalled();
+      expect(refundCreditsMock).not.toHaveBeenCalled();
+    });
   });
 });
