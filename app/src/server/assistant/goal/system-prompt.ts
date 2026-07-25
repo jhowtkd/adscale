@@ -1,7 +1,7 @@
 import { GOAL_BLOCKING_FIELDS } from "./service";
 
 /**
- * Senior creative-director instructions for the MiniMax-M3 goal agent.
+ * Senior creative-director instructions for the OpenAI goal agent.
  *
  * The agent drives one thread to a single approved four-format creative
  * package. It must infer from scoped context before asking, keep facts and

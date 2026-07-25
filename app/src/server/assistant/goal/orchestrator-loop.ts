@@ -8,7 +8,7 @@ import {
   buildAssistantContext,
   toModelMessages,
 } from "@/server/assistant/context/context-builder";
-import { createMiniMaxModelAdapter } from "@/server/assistant/model/minimax-adapter";
+import { createOpenAIModelAdapter } from "@/server/assistant/model/openai-adapter";
 import { createAssistantMessage } from "@/server/repositories/assistant-message";
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
 import { containsDeniedPersistenceKeys } from "@/server/repositories/assistant-types";
@@ -55,7 +55,7 @@ export class AssistantGoalStepLimitError extends Error {
 }
 
 /**
- * Bounded MiniMax-M3 agent loop for the goal-agent pilot. Unlike the classic
+ * Bounded OpenAI agent loop for the goal-agent pilot. Unlike the classic
  * single-pass orchestrator, this loop appends assistant tool calls and the
  * sanitized tool results back to the request so the model can ground its next
  * step. The loop is hard-capped at `GOAL_AGENT_MAX_STEPS` so a chatty model
@@ -90,7 +90,7 @@ export async function* runGoalAgentTurn(
     threadId: input.threadId,
   });
 
-  const modelClient = input.modelClient ?? createMiniMaxModelAdapter();
+  const modelClient = input.modelClient ?? createOpenAIModelAdapter();
   const tools = listToolsForProvider();
 
   // Seed the conversation with the scoped context + the user turn. The system

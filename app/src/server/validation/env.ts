@@ -20,10 +20,8 @@ export const envSchema = z.object({
   BETTER_AUTH_SECRET: z.string().min(32),
   BETTER_AUTH_URL: z.string().url(),
   OPENAI_API_KEY: z.string().startsWith("sk-"),
-  OPENAI_TEXT_MODEL: z.string().default("gpt-5.6"),
+  OPENAI_TEXT_MODEL: z.string().default("gpt-5.6-sol"),
   OPENAI_IMAGE_MODEL: z.string().default("gpt-image-2-2026-04-21"),
-  MINIMAX_API_KEY: z.string().min(1),
-  MINIMAX_MODEL: z.string().default("MiniMax-M3"),
   R2_ACCOUNT_ID: z.string(),
   R2_ACCESS_KEY_ID: z.string(),
   R2_SECRET_ACCESS_KEY: z.string(),
@@ -53,6 +51,12 @@ export const envSchema = z.object({
   GITHUB_CLIENT_SECRET: z.string().optional(),
   BETA_ACCESS_CODES: z.string().optional(),
   NOTIFICATION_WEBHOOK_SECRET: z.string().min(16).optional(),
+  /**
+   * Temporary rollout switch (R-011): steers NEW creative work preparations
+   * to the quality-recovery policy. Jobs follow the version frozen in each
+   * work's input snapshot, never this live value. Removed after Gate 8.
+   */
+  CREATIVE_WORK_QUALITY_RECOVERY_ENABLED: z.enum(["true", "false"]).default("false"),
 });
 
 const parsed = envSchema.safeParse(process.env);

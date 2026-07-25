@@ -24,6 +24,9 @@ export const ALLOWED_PROPERTY_KEYS = [
   "variableKey",
   "confidence",
   "learningCount",
+  "traceId",
+  "evidenceEventCount",
+  "blockedFieldCount",
 ] as const;
 
 export type AllowedPropertyKey = (typeof ALLOWED_PROPERTY_KEYS)[number];
@@ -58,15 +61,24 @@ export const PHASE_121_BETA_EVENT_KEYS = [
   "derivation_auto_retry_unchanged",
 ] as const;
 
+export const PHASE_126_BETA_EVENT_KEYS = [
+  "output_learning_recommendation_viewed",
+  "output_learning_recommendation_dismissed",
+  "output_learning_recommendation_accepted",
+  "output_learning_recommendation_edited",
+] as const;
+
 export const BETA_EVENT_KEYS = [
   ...PHASE_76_BETA_EVENT_KEYS,
   ...PHASE_107_BETA_EVENT_KEYS,
   ...PHASE_121_BETA_EVENT_KEYS,
+  ...PHASE_126_BETA_EVENT_KEYS,
 ] as const;
 
 export type Phase76BetaEventKey = (typeof PHASE_76_BETA_EVENT_KEYS)[number];
 export type Phase107BetaEventKey = (typeof PHASE_107_BETA_EVENT_KEYS)[number];
 export type Phase121BetaEventKey = (typeof PHASE_121_BETA_EVENT_KEYS)[number];
+export type Phase126BetaEventKey = (typeof PHASE_126_BETA_EVENT_KEYS)[number];
 export type BetaEventKey = (typeof BETA_EVENT_KEYS)[number];
 
 const EVENT_KEY_PATTERN = /^[a-z][a-z0-9_]*$/;

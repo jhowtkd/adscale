@@ -11,7 +11,7 @@ import {
   classifyGuidedPath,
   classifyUserIntent,
 } from "@/server/assistant/action-contracts/intent-classifier";
-import { createMiniMaxModelAdapter } from "@/server/assistant/model/minimax-adapter";
+import { createOpenAIModelAdapter } from "@/server/assistant/model/openai-adapter";
 import type { AssistantModelClient } from "@/server/assistant/model/client";
 import { assertNoReasoningInText, stripThinkBlocks } from "@/server/assistant/model/reasoning-sanitizer";
 import { createAssistantMessage } from "@/server/repositories/assistant-message";
@@ -281,7 +281,7 @@ export async function* runAssistantTurn(
     return;
   }
 
-  const modelClient = input.modelClient ?? createMiniMaxModelAdapter();
+  const modelClient = input.modelClient ?? createOpenAIModelAdapter();
   const request = toAssistantModelRequest(
     context,
     input.userMessage,
