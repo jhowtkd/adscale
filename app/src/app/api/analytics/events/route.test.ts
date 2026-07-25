@@ -228,4 +228,107 @@ describe("POST /api/analytics/events", () => {
       expect.objectContaining({ sessionId: headerSessionId })
     );
   });
+
+  // Bodies mirror OutputLearningRecommendationCard.tsx recordEvent calls (R-009).
+  const OUTPUT_LEARNING_CARD_BODIES = [
+    {
+      eventKey: "output_learning_recommendation_viewed",
+      properties: {
+        recommendationId: "rec-1",
+        variableKey: "cta",
+        confidence: "high",
+        learningCount: 1,
+        source: "postgres",
+      },
+    },
+    {
+      eventKey: "output_learning_recommendation_dismissed",
+      properties: {
+        recommendationId: "rec-1",
+        variableKey: "cta",
+        confidence: "high",
+        reasonCode: "user_dismissed",
+      },
+    },
+    {
+      eventKey: "output_learning_recommendation_accepted",
+      properties: {
+        recommendationId: "rec-1",
+        variableKey: "cta",
+        confidence: "high",
+        recipeId: "performance_push",
+        action: "accept",
+        traceId: "ol-trace-1",
+        evidenceEventCount: 1,
+        blockedFieldCount: 0,
+      },
+    },
+    {
+      eventKey: "output_learning_recommendation_edited",
+      properties: {
+        recommendationId: "rec-1",
+        variableKey: "cta",
+        confidence: "high",
+        recipeId: "performance_push",
+        action: "edit",
+      },
+    },
+  ] as const;
+
+  it.each(OUTPUT_LEARNING_CARD_BODIES)(
+    "returns 201 for $eventKey with the exact card payload",
+    async ({ eventKey, properties }) => {
+      mockRecordBetaAnalyticsEvent.mockResolvedValue({
+        id: "event-ol-1",
+        workspaceId: "workspace-1",
+        userId: "user-1",
+        sessionId: null,
+        eventKey,
+        properties,
+        source: "client",
+        campaignId: VALID_CAMPAIGN_ID,
+        derivationId: null,
+        createdAt: new Date(),
+      } as never);
+
+      const res = await POST(
+        createRequest({
+          eventKey,
+          campaignId: VALID_CAMPAIGN_ID,
+          properties,
+        })
+      );
+
+      expect(res.status).toBe(201);
+      const body = await res.json();
+      expect(body.event.eventKey).toBe(eventKey);
+      expect(mockRecordBetaAnalyticsEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventKey,
+          campaignId: VALID_CAMPAIGN_ID,
+          properties,
+        })
+      );
+    }
+  );
+
+  it("returns 400 when record rejects an unknown output_learning_* event key", async () => {
+    mockRecordBetaAnalyticsEvent.mockRejectedValue(
+      new BetaEventPropertiesValidationError("unknown event_key", {
+        eventKey: "output_learning_recommendation_clicked",
+      })
+    );
+
+    const res = await POST(
+      createRequest({
+        eventKey: "output_learning_recommendation_clicked",
+        campaignId: VALID_CAMPAIGN_ID,
+        properties: { recommendationId: "rec-1" },
+      })
+    );
+
+    const body = await res.json();
+    expect(res.status).toBe(400);
+    expect(body.code).toBe("validation_error");
+  });
 });

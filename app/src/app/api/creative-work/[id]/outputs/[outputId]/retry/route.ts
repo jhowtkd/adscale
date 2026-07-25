@@ -12,7 +12,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string; outputId: string }> }
 ) {
   try {
-    const [{ workspace }, { id, outputId }] = await Promise.all([
+    const [{ workspace, user }, { id, outputId }] = await Promise.all([
       requireWorkspaceAccess(request),
       params,
     ]);
@@ -21,6 +21,8 @@ export async function POST(
       workspaceId: workspace.id,
       workItemId: id,
       outputId,
+      // R-006: attribute the reactivation ledger row to the caller.
+      userId: user.id,
     });
 
     if (!result.ok) {
@@ -33,6 +35,10 @@ export async function POST(
           return apiError("creativeWorkOutputNotRetriable", 409, {
             status: result.error.status,
           });
+        case "credit_blocked":
+          // R-006: the reactivation debit could not be placed — the retry
+          // is rejected before any requeue/enqueue (no free regeneration).
+          return apiError("insufficientCredits", 402);
         default:
           return apiError("invalidRequest", 400);
       }

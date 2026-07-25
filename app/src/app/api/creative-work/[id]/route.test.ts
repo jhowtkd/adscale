@@ -21,6 +21,7 @@ const refreshStatusMock = vi.hoisted(() => vi.fn());
 const confirmMock = vi.hoisted(() => vi.fn());
 const updateDraftMock = vi.hoisted(() => vi.fn());
 const prepareMock = vi.hoisted(() => vi.fn());
+const detectDraftConflictMock = vi.hoisted(() => vi.fn());
 const createSourceMock = vi.hoisted(() => vi.fn());
 const updateSourceMock = vi.hoisted(() => vi.fn());
 const updateSourceCasMock = vi.hoisted(() => vi.fn());
@@ -56,6 +57,7 @@ vi.mock("@/server/application/confirm-social-post-work", () => ({
 }));
 vi.mock("@/server/application/prepare-creative-work", () => ({
   prepareCreativeWork: (...args: unknown[]) => prepareMock(...args),
+  detectCreativeWorkDraftBrandConflict: (...args: unknown[]) => detectDraftConflictMock(...args),
 }));
 
 function makeParams(id: string) {
@@ -434,6 +436,84 @@ describe("PATCH /api/creative-work/[id]", () => {
       method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "prepare" }),
     }), { params: makeParams("work-1") });
     expect(res.status).toBe(status);
+  });
+
+  it("maps prepare invalid_context to 422 preserving the violations payload", async () => {
+    const violations = [{ class: "price", value: "50%", field: "headline" }];
+    prepareMock.mockResolvedValue({ ok: false, error: { code: "invalid_context", details: { violations } } });
+    const res = await PATCH(new Request("http://localhost/api/creative-work/work-1", {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "prepare" }),
+    }), { params: makeParams("work-1") });
+    const body = await res.json();
+    expect(res.status).toBe(422);
+    expect(body.code).toBe("invalid_context");
+    expect(body.details).toEqual({ violations });
+  });
+
+  it("maps prepare brand_conflict to 422 with exactly the two short choices (R-003)", async () => {
+    const details = { detectedBrand: "XTB", activeBrand: "Cenbrap", sourceId: "source-1", choices: ["source", "active"] };
+    prepareMock.mockResolvedValue({ ok: false, error: { code: "brand_conflict", details } });
+    const res = await PATCH(new Request("http://localhost/api/creative-work/work-1", {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "prepare" }),
+    }), { params: makeParams("work-1") });
+    const body = await res.json();
+    expect(res.status).toBe(422);
+    expect(body.code).toBe("brand_conflict");
+    expect(body.details).toEqual(details);
+    expect(body.details.choices).toHaveLength(2);
+  });
+
+  it("persists the brand conflict choice bound to the detected brand and invalidates the prepared blocks so the same draft resumes", async () => {
+    getWorkMock.mockResolvedValue({
+      work: { ...workItem, toolKind: "restyle", settings: { targetFormats: [] } },
+      outputs: [],
+      sources: [],
+    });
+    detectDraftConflictMock.mockResolvedValue({
+      detectedBrand: "XTB",
+      activeBrand: "Cenbrap",
+      sourceId: "source-1",
+      choices: ["source", "active"],
+    });
+    updateDraftMock.mockResolvedValue({ ...workItem, toolKind: "restyle" });
+    const res = await requestPatch({ action: "resolveBrandConflict", choice: "source" });
+    expect(res.status).toBe(200);
+    expect(updateDraftMock).toHaveBeenCalledWith("workspace-1", "work-1", {
+      settings: { targetFormats: [], brandConflictChoice: "source", brandConflictDetectedBrand: "XTB" },
+      brief: null,
+      copy: null,
+      inputSnapshot: null,
+    });
+  });
+
+  it("rejects resolveBrandConflict when no brand conflict is detectable in the current draft", async () => {
+    getWorkMock.mockResolvedValue({
+      work: { ...workItem, toolKind: "restyle", settings: { targetFormats: [] } },
+      outputs: [],
+      sources: [],
+    });
+    detectDraftConflictMock.mockResolvedValue(null);
+    const res = await requestPatch({ action: "resolveBrandConflict", choice: "active" });
+    expect(res.status).toBe(400);
+    expect(updateDraftMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects the brand conflict choice for non-restyle works and non-drafts", async () => {
+    getWorkMock.mockResolvedValue({
+      work: { ...workItem, toolKind: "variations", settings: { targetFormats: [] } },
+      outputs: [],
+      sources: [],
+    });
+    const wrongKind = await requestPatch({ action: "resolveBrandConflict", choice: "active" });
+    expect(wrongKind.status).toBe(400);
+    getWorkMock.mockResolvedValue({
+      work: { ...workItem, toolKind: "restyle", status: "ready", settings: { targetFormats: [] } },
+      outputs: [],
+      sources: [],
+    });
+    const notDraft = await requestPatch({ action: "resolveBrandConflict", choice: "active" });
+    expect(notDraft.status).toBe(409);
+    expect(updateDraftMock).not.toHaveBeenCalled();
   });
 
   it("maps work_not_found → 404", async () => {
