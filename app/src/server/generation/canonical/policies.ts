@@ -67,11 +67,15 @@ export function decideDerivationRefund(
 }
 
 /**
- * Criar Post refund rules (current production behaviour):
- * - Triplet charged upstream (15).
+ * Criar Post refund rules:
+ * - Triplet/batch charged upstream.
  * - Per-output refund (5) on pre_provider and low_quality.
  * - Worker-level failure refunds the undelivered output.
- * - Post-provider failure: no refund.
+ * - R-006: a v1 output that fails TERMINALLY after consuming its durable
+ *   image-call budget settles at net zero via an idempotent refund keyed per
+ *   output — repetition of the same refund is a duplicate, never a second
+ *   credit. Legacy-frozen works keep the historical behavior below.
+ * - Legacy post-provider failure: no refund.
  */
 export function decideCreativeWorkRefund(
   input: CreativeWorkRefundInput
@@ -88,6 +92,15 @@ export function decideCreativeWorkRefund(
         input.failurePhase === "low_quality"
           ? "creative_work_low_quality"
           : "creative_work_pre_provider",
+    };
+  }
+
+  if (input.failurePhase === "terminal") {
+    return {
+      refund: true,
+      amount: GENERATION_CREDIT_COSTS.creativeWorkOutput,
+      idempotencyKey: `creative-work:${input.workItemId}:output:${input.outputId}:terminal-refund`,
+      reason: "creative_work_terminal_failure",
     };
   }
 

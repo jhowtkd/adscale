@@ -1,14 +1,22 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import {
+  CREATIVE_FACT_CLASSES,
+  CREATIVE_FACT_ORIGINS,
   CREATIVE_SOURCE_STATUSES,
   CREATIVE_SOURCE_USAGES,
+  CREATIVE_WORK_GENERATION_POLICY_VERSIONS,
   CREATIVE_WORK_INTENTS,
   createCreativeWorkSchema,
   displayRequestForCreativeWork,
+  generationPolicyVersionFromSwitch,
   quoteCreativeWork,
   requestTextFromBrief,
+  resolveCreativeWorkFactPack,
   resolveCreativeWorkStatus,
+  resolveGenerationPolicyVersion,
+  socialPostBriefSchema,
+  type CreativeWorkInputSnapshot,
 } from "./contracts";
 
 describe("creative work contracts", () => {
@@ -67,6 +75,99 @@ describe("creative work contracts", () => {
     expect(resolveCreativeWorkStatus(["completed", "failed", "completed"])).toBe("partial");
   });
 
+  it("publishes the generation policy versions with legacy first", () => {
+    expect(CREATIVE_WORK_GENERATION_POLICY_VERSIONS).toEqual(["legacy", "quality_recovery_v1"]);
+  });
+
+  it("round-trips generationPolicyVersion through the input snapshot", () => {
+    const snapshot: CreativeWorkInputSnapshot = {
+      generationPolicyVersion: "quality_recovery_v1",
+      request: "Promoção",
+      settings: { targetFormats: [] },
+      sources: [],
+    };
+    const restored = JSON.parse(JSON.stringify(snapshot)) as CreativeWorkInputSnapshot;
+    expect(restored.generationPolicyVersion).toBe("quality_recovery_v1");
+    expect(resolveGenerationPolicyVersion(restored)).toBe("quality_recovery_v1");
+  });
+
+  it("resolves snapshots without generationPolicyVersion as legacy", () => {
+    const legacySnapshot = {
+      request: "Promoção",
+      settings: { targetFormats: [] },
+      sources: [],
+    } as CreativeWorkInputSnapshot;
+    expect(resolveGenerationPolicyVersion(legacySnapshot)).toBe("legacy");
+    expect(resolveGenerationPolicyVersion(null)).toBe("legacy");
+    expect(resolveGenerationPolicyVersion(undefined)).toBe("legacy");
+    expect(
+      resolveGenerationPolicyVersion({
+        ...legacySnapshot,
+        generationPolicyVersion: "unknown_future_version" as never,
+      }),
+    ).toBe("legacy");
+  });
+
+  it("maps the env switch to the version frozen into new snapshots", () => {
+    expect(generationPolicyVersionFromSwitch("true")).toBe("quality_recovery_v1");
+    expect(generationPolicyVersionFromSwitch("false")).toBe("legacy");
+    expect(generationPolicyVersionFromSwitch(undefined)).toBe("legacy");
+    expect(generationPolicyVersionFromSwitch("yes")).toBe("legacy");
+  });
+
+  it("publishes the fact classes and origins the IA may never invent", () => {
+    expect(CREATIVE_FACT_ORIGINS).toEqual(["request", "source", "brand"]);
+    expect(CREATIVE_FACT_CLASSES).toEqual(expect.arrayContaining([
+      "price", "date", "benefit", "proof", "condition", "credential", "brand", "product", "service",
+    ]));
+  });
+
+  it("round-trips the optional fact pack through the input snapshot", () => {
+    const snapshot: CreativeWorkInputSnapshot = {
+      request: "Grupo de terapia da Psicologia em agosto — vagas limitadas",
+      settings: { targetFormats: [] },
+      sources: [],
+      factPack: {
+        version: 1,
+        request: "Grupo de terapia da Psicologia em agosto — vagas limitadas",
+        facts: [
+          { value: "agosto", class: "date", required: true, origin: "request" },
+          { value: "vagas limitadas", class: "condition", required: true, origin: "request" },
+          { value: "Pós-graduação", class: "product", required: false, origin: "source", sourceId: "source-1" },
+          { value: "Cenbrap", class: "brand", required: true, origin: "brand" },
+        ],
+        brand: { requiredElements: ["logo"], prohibitedElements: ["clipart"] },
+        identity: { clientProfileId: "profile-1", brandName: "Cenbrap" },
+      },
+    };
+    const restored = JSON.parse(JSON.stringify(snapshot)) as CreativeWorkInputSnapshot;
+    expect(resolveCreativeWorkFactPack(restored)).toEqual(snapshot.factPack);
+  });
+
+  it("keeps snapshots without a fact pack readable and resolves unknown blocks as absent", () => {
+    const legacySnapshot = {
+      request: "Promoção",
+      settings: { targetFormats: [] },
+      sources: [],
+    } as CreativeWorkInputSnapshot;
+    expect(resolveCreativeWorkFactPack(legacySnapshot)).toBeNull();
+    expect(resolveCreativeWorkFactPack(null)).toBeNull();
+    expect(resolveCreativeWorkFactPack(undefined)).toBeNull();
+    expect(
+      resolveCreativeWorkFactPack({ ...legacySnapshot, factPack: { version: 99, garbage: true } as never }),
+    ).toBeNull();
+  });
+
+  it("accepts a brief with empty audience so missing targeting stays absent", () => {
+    const parsed = socialPostBriefSchema.parse({
+      theme: "Tema",
+      objective: "Objetivo",
+      audience: "",
+      offer: "Oferta",
+    });
+    expect(parsed.audience).toBe("");
+  });
+
   it("resolves completed only when all three outputs completed", () => {
     expect(resolveCreativeWorkStatus(["completed", "completed", "completed"])).toBe("completed");
   });
@@ -94,6 +195,20 @@ describe("creative work contracts", () => {
     [{ intent: "format_adaptation" as const, format: "4:5" as const, targetFormats: ["1:1", "9:16"] as const }, { unitCount: 2, credits: 10 }],
   ])("quotes %o", (input, expected) => {
     expect(quoteCreativeWork(input)).toMatchObject(expected);
+  });
+
+  it("quotes exactly one output per target format without duplicates", () => {
+    const quote = quoteCreativeWork({
+      intent: "format_adaptation",
+      format: "4:5",
+      targetFormats: ["1:1", "9:16", "1:1"],
+    });
+    expect(quote.plans).toEqual([
+      { creativeLevel: "balanced", targetFormat: "1:1", versionNumber: 1 },
+      { creativeLevel: "balanced", targetFormat: "9:16", versionNumber: 1 },
+    ]);
+    expect(quote.unitCount).toBe(2);
+    expect(quote.credits).toBe(10);
   });
 
   it("keeps migration 0075 backward compatible while backfilling new columns", () => {

@@ -6,7 +6,7 @@ import type {
   AssistantModelRequest,
   AssistantStreamEvent,
 } from "./client";
-import { getMiniMaxClient } from "./minimax-client";
+import { getOpenAIAssistantClient } from "./openai-client";
 import { stripReasoningFromDelta } from "./reasoning-sanitizer";
 
 interface ToolCallAccumulator {
@@ -15,15 +15,15 @@ interface ToolCallAccumulator {
   argumentsJson: string;
 }
 
-export interface MiniMaxModelAdapterOptions {
+export interface OpenAIModelAdapterOptions {
   client?: OpenAI;
 }
 
-export class MiniMaxModelAdapter implements AssistantModelClient {
+export class OpenAIModelAdapter implements AssistantModelClient {
   private readonly client: OpenAI;
 
-  constructor(options: MiniMaxModelAdapterOptions = {}) {
-    this.client = options.client ?? getMiniMaxClient();
+  constructor(options: OpenAIModelAdapterOptions = {}) {
+    this.client = options.client ?? getOpenAIAssistantClient();
   }
 
   async *stream(request: AssistantModelRequest): AsyncIterable<AssistantStreamEvent> {
@@ -40,7 +40,6 @@ export class MiniMaxModelAdapter implements AssistantModelClient {
             content: message.content,
           };
         }
-        // assistant turn: map tool calls to the OpenAI tool_calls shape.
         if (message.toolCalls && message.toolCalls.length > 0) {
           return {
             role: "assistant" as const,
@@ -72,12 +71,12 @@ export class MiniMaxModelAdapter implements AssistantModelClient {
     }));
 
     const stream = await this.client.chat.completions.create({
-      model: env.MINIMAX_MODEL,
+      model: env.OPENAI_TEXT_MODEL,
+      reasoning_effort: "none",
       stream: true,
       messages,
       ...(tools && tools.length > 0 ? { tools } : {}),
-      extra_body: { thinking: { type: "disabled" } },
-    } as Parameters<OpenAI["chat"]["completions"]["create"]>[0]);
+    });
 
     const toolCalls = new Map<number, ToolCallAccumulator>();
 
@@ -131,8 +130,8 @@ export class MiniMaxModelAdapter implements AssistantModelClient {
   }
 }
 
-export function createMiniMaxModelAdapter(
-  options?: MiniMaxModelAdapterOptions
+export function createOpenAIModelAdapter(
+  options?: OpenAIModelAdapterOptions
 ): AssistantModelClient {
-  return new MiniMaxModelAdapter(options);
+  return new OpenAIModelAdapter(options);
 }

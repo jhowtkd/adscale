@@ -47,6 +47,38 @@ describe("sanitizeBetaEventProperties", () => {
     });
   });
 
+  it("accepts Phase 126 output learning scalar properties", () => {
+    expect(
+      sanitizeBetaEventProperties({
+        traceId: "ol-trace-1",
+        evidenceEventCount: 3,
+        blockedFieldCount: 0,
+      })
+    ).toEqual({
+      traceId: "ol-trace-1",
+      evidenceEventCount: 3,
+      blockedFieldCount: 0,
+    });
+  });
+
+  it("rejects non-scalar values for output learning properties", () => {
+    expect(() =>
+      sanitizeBetaEventProperties({
+        traceId: { nested: true } as unknown as string,
+      })
+    ).toThrow(BetaEventPropertiesValidationError);
+    expect(() =>
+      sanitizeBetaEventProperties({
+        evidenceEventCount: ["3"] as unknown as number,
+      })
+    ).toThrow(BetaEventPropertiesValidationError);
+    expect(() =>
+      sanitizeBetaEventProperties({
+        blockedFieldCount: { count: 1 } as unknown as number,
+      })
+    ).toThrow(BetaEventPropertiesValidationError);
+  });
+
   it("rejects unknown property keys with validation_error", () => {
     expect(() =>
       sanitizeBetaEventProperties({ stage: "briefing", foo: "bar" })

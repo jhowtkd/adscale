@@ -48,3 +48,9 @@ mockup-*.html
 testsprite_tests/tmp/config.json
 app/test-results/
 app/tests/fixtures/goal-agent-e2e.json
+
+# FogLamp scan (editToken is a secret)
+.foglamp/
+
+# loopany tool scratch (local-only PR cards/reports)
+loopany/

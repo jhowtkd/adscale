@@ -2,13 +2,17 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { confirmSocialPostWork } from "@/server/application/confirm-social-post-work";
-import { prepareCreativeWork } from "@/server/application/prepare-creative-work";
+import {
+  detectCreativeWorkDraftBrandConflict,
+  prepareCreativeWork,
+} from "@/server/application/prepare-creative-work";
 import { analyzeCreativeWorkSource } from "@/server/application/analyze-creative-work-source";
 import { contentBriefSchema, styleBriefSchema } from "@/server/ai/image-analysis";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { projectCreativeWorkAsCanonicalWork } from "@/server/creative-work/projection/from-creative-work";
 import {
   CREATIVE_SOURCE_USAGES,
+  CREATIVE_WORK_BRAND_CHOICES,
   creativeWorkFormatSchema,
   creativeWorkIntentSchema,
   creativeWorkPreparationSchema,
@@ -57,6 +61,12 @@ const autosaveSchema = z.object({
   if (!parsed.success) parsed.error.issues.forEach((issue) => context.addIssue(issue));
 });
 const prepareSchema = z.object({ action: z.literal("prepare") }).strict();
+// R-003: persists the restyle brand-conflict choice ("source" | "active") in
+// CreativeWorkSettings so the same draft resumes without a new question.
+const resolveBrandConflictSchema = z.object({
+  action: z.literal("resolveBrandConflict"),
+  choice: z.enum(CREATIVE_WORK_BRAND_CHOICES),
+}).strict();
 const linkCampaignSchema = z.object({ action: z.literal("linkCampaign"), campaignId: z.string().min(1).nullable() }).strict();
 const sourceUsageSchema = z.enum(CREATIVE_SOURCE_USAGES);
 const attachSourceSchema = z.union([
@@ -75,7 +85,7 @@ const editSourceAnalysisSchema = z.object({
 const patchCreativeWorkSchema = z.union([
   autosaveSchema, prepareSchema, attachSourceSchema, updateSourceSchema,
   retrySourceSchema, removeSourceSchema, editSourceAnalysisSchema, confirmCreativeWorkSchema,
-  linkCampaignSchema,
+  linkCampaignSchema, resolveBrandConflictSchema,
 ]);
 
 function dispatchSourceAnalysis(workspaceId: string, workItemId: string, sourceId: string) {
@@ -221,9 +231,48 @@ export async function PATCH(
       if (!prepared.ok) {
         if (prepared.error.code === "work_not_found") return apiError("creativeWorkNotFound", 404);
         if (prepared.error.code === "missing_input") return apiError("creativeWorkInputRequired", 422);
+        // R-002: copy that cannot be grounded in the fact pack is a 422 with
+        // its violations payload preserved — never a bare 409.
+        if (prepared.error.code === "invalid_context") return apiError("invalid_context", 422, prepared.error.details);
+        // R-003: an explicit brand conflict is a 422 whose details carry the
+        // two short choices (source/active) — billing stays blocked.
+        if (prepared.error.code === "brand_conflict") return apiError("brand_conflict", 422, prepared.error.details);
         return apiError("creativeWorkNotReady", 409);
       }
       return NextResponse.json(prepared.value);
+    }
+
+    if ("action" in parsed.data && parsed.data.action === "resolveBrandConflict") {
+      const aggregate = await getCreativeWork(workspace.id, id);
+      if (!aggregate) return apiError("creativeWorkNotFound", 404);
+      if (aggregate.work.status !== "draft") return apiError("creativeWorkNotDraft", 409);
+      // The brand choice exists only for restyle — the single new visible
+      // decision of spec 11; other protocols never grow this wizard.
+      if (aggregate.work.toolKind !== "restyle") return apiError("invalidInput", 400);
+      // R-003: the choice is bound to the conflict it answers. It is only
+      // accepted while that exact conflict is detectable in the current
+      // draft — a draft without a detectable conflict has nothing to
+      // resolve, and a different future conflict asks again.
+      const conflict = await detectCreativeWorkDraftBrandConflict({
+        workspaceId: workspace.id,
+        work: aggregate.work,
+        sources: aggregate.sources,
+      });
+      if (!conflict) return apiError("invalidInput", 400);
+      const work = await updateCreativeWorkDraft(workspace.id, id, {
+        settings: {
+          ...aggregate.work.settings,
+          brandConflictChoice: parsed.data.choice,
+          brandConflictDetectedBrand: conflict.detectedBrand,
+        },
+        // The fact pack/copy depend on the resolved brand authority, so the
+        // prepared blocks are rebuilt by the next prepare of the same draft.
+        brief: null,
+        copy: null,
+        inputSnapshot: null,
+      });
+      if (!work) return apiError("creativeWorkNotFound", 404);
+      return NextResponse.json({ work });
     }
 
     if ("action" in parsed.data && parsed.data.action === "linkCampaign") {

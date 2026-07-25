@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
+import { Client } from "pg";
 import { expect, test, type Page, type APIRequestContext } from "@playwright/test";
 import { composeExactBrandAssets } from "../../src/server/creative-work/composite";
 
@@ -45,6 +46,8 @@ interface CreatePostFixture {
   approvedVisualReferenceAssetKey: string;
   pendingReferenceLabel: string;
   readyWorkId: string;
+  contentArtAssetId: string;
+  styleArtAssetId: string;
   seededAt: string;
 }
 
@@ -101,12 +104,17 @@ test.describe("Standalone Create Post acceptance gate", () => {
     const before = await fetchCampaignIds(page.request);
 
     await page.goto(`/?workId=${fixture.readyWorkId}`);
-    await expect(page.getByRole("textbox", { name: /pedido criativo|creative request/i }))
-      .toHaveValue(/Novo produto/);
-    await expect(page.getByTestId("proposal-level")).toHaveCount(3);
-    const firstIds = (await page.request.get(`/api/creative-work/${fixture.readyWorkId}`).then((res) => res.json()) as {
+    // The resumed work restores its full persisted state: the frozen request
+    // survives in the API projection (the variations surface renders the
+    // request only inside the variation brief, not as a standalone textbox)
+    // and every output card is rebuilt from the database.
+    const resumed = (await page.request.get(`/api/creative-work/${fixture.readyWorkId}`).then((res) => res.json()) as {
+      work: { request: string };
       outputs: Array<{ id: string }>;
-    }).outputs.map((output) => output.id).sort();
+    });
+    expect(resumed.work.request).toContain("Novo produto");
+    await expect(page.getByTestId("proposal-level")).toHaveCount(3);
+    const firstIds = resumed.outputs.map((output) => output.id).sort();
 
     await page.reload();
     await expect(page).toHaveURL(new RegExp(`workId=${fixture.readyWorkId}`));
@@ -425,5 +433,567 @@ test.describe("Standalone Create Post acceptance gate", () => {
 
     // Sanity-check: the base used to compose was not mutated either.
     expect(baseSeed.equals(base)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// R-010 — Creative Work v1 quality-recovery matrix (deterministic, no OpenAI,
+// no real credits). Requires the dev server started with:
+//   DATABASE_URL=postgres://test:test@localhost:5433/adscale_test \
+//   E2E_DISABLE_RATE_LIMIT=true E2E_CONTROLLED_PROVIDER=true \
+//   CREATIVE_WORK_QUALITY_RECOVERY_ENABLED=true npm run dev:next
+// plus `npm run inngest:dev` and a fresh `npm run seed:create-post-e2e`.
+// Failure markers travel inside the frozen request text:
+//   [e2e:timeout-once]  transport retry consumes the 2nd (final) call
+//   [e2e:always-fail]   both calls burn → terminal + idempotent refund
+//   [e2e:hard-fail-once] non-retryable 1st call → manual retry path
+//   [e2e:qa-fail-once]  objective fail on attempt 1 → correction succeeds
+//   [e2e:qa-fail-always] objective fail on both → terminal factual_violation
+//   [e2e:qa-error]      evaluator failure → inconclusive, no retry
+// ---------------------------------------------------------------------------
+
+const EVIDENCE_PATH = process.env.E2E_PROVIDER_EVIDENCE_PATH
+  ?? path.resolve(__dirname, ".evidence/provider-calls.jsonl");
+const E2E_DB_URL = process.env.DATABASE_URL
+  ?? "postgres://test:test@localhost:5433/adscale_test";
+
+interface ProviderCallEvidence {
+  outputPrefix: string;
+  attempt: number;
+  generationMode: string;
+  dimensions: { width: number; height: number };
+  referenceNames: string[];
+  promptMarkers: string[];
+  promptHasObjectiveCorrection: boolean;
+  outcome: "success" | "failure";
+}
+
+interface V1OutputRow {
+  id: string;
+  status: string;
+  failureCode: string | null;
+  imageCallCount: number;
+  retryCount: number;
+  creativeLevel: string;
+  targetFormat: string;
+  versionNumber: number;
+  parentOutputId: string | null;
+  quality: {
+    schemaVersion?: number;
+    objectiveVerdict?: string;
+    attempt?: number;
+    subjective?: { scoreStatus?: string };
+  } | null;
+}
+
+interface V1WorkDetail {
+  work: { id: string; status: string; toolKind: string; settings: Record<string, unknown> };
+  outputs: V1OutputRow[];
+  sources: Array<{ id: string; status: string; usage: string; assetId: string | null }>;
+}
+
+function readProviderEvidence(): ProviderCallEvidence[] {
+  if (!fs.existsSync(EVIDENCE_PATH)) return [];
+  return fs.readFileSync(EVIDENCE_PATH, "utf8")
+    .split("\n")
+    .filter((line) => line.trim().length > 0)
+    .map((line) => JSON.parse(line) as ProviderCallEvidence);
+}
+
+function evidenceForOutput(evidence: ProviderCallEvidence[], outputId: string): ProviderCallEvidence[] {
+  return evidence.filter((row) => row.outputPrefix === `creative-work/${outputId}`);
+}
+
+async function withDb<T>(run: (client: Client) => Promise<T>): Promise<T> {
+  const client = new Client({ connectionString: E2E_DB_URL });
+  await client.connect();
+  try {
+    return await run(client);
+  } finally {
+    await client.end();
+  }
+}
+
+async function dbOutputRow(outputId: string) {
+  return withDb(async (client) => {
+    const result = await client.query(
+      `select status, failure_code, image_call_count, retry_count
+       from adscale_app.creative_work_outputs where id = $1`,
+      [outputId],
+    );
+    return result.rows[0] as {
+      status: string;
+      failure_code: string | null;
+      image_call_count: number;
+      retry_count: number;
+    } | undefined;
+  });
+}
+
+async function dbLedgerFor(fixture: CreatePostFixture, workItemId: string) {
+  return withDb(async (client) => {
+    const result = await client.query(
+      `select idempotency_key, type, amount from adscale_app.usage_events
+       where workspace_id = $1 and idempotency_key like $2 order by created_at, id`,
+      [fixture.workspaceId, `creative-work:${workItemId}%`],
+    );
+    return result.rows as Array<{ idempotency_key: string; type: string; amount: number }>;
+  });
+}
+
+async function apiCreateV1Draft(
+  request: APIRequestContext,
+  fixture: CreatePostFixture,
+  input: { intent: string; request: string; targetFormats?: string[]; format?: string },
+): Promise<string> {
+  const res = await request.post("/api/creative-work", {
+    data: {
+      clientProfileId: fixture.primaryClientProfileId,
+      draftKey: crypto.randomUUID(),
+      request: input.request,
+      intent: input.intent,
+      format: input.format ?? "4:5",
+      settings: { targetFormats: input.targetFormats ?? [], formatMode: "manual" },
+    },
+  });
+  expect(res.ok(), `create draft must succeed (got ${res.status()})`).toBeTruthy();
+  const body = (await res.json()) as { work: { id: string } };
+  return body.work.id;
+}
+
+async function apiAttachSource(
+  request: APIRequestContext,
+  workId: string,
+  assetId: string,
+  usage: "content" | "style" | "both",
+): Promise<void> {
+  const res = await request.patch(`/api/creative-work/${workId}`, {
+    data: { action: "attachSource", assetId, usage },
+  });
+  expect(res.ok(), `attachSource must succeed (got ${res.status()})`).toBeTruthy();
+}
+
+async function apiGetWork(request: APIRequestContext, workId: string): Promise<V1WorkDetail> {
+  const res = await request.get(`/api/creative-work/${workId}`);
+  expect(res.ok(), `GET work must succeed (got ${res.status()})`).toBeTruthy();
+  return (await res.json()) as V1WorkDetail;
+}
+
+async function apiPrepare(request: APIRequestContext, workId: string) {
+  const res = await request.patch(`/api/creative-work/${workId}`, {
+    data: { action: "prepare" },
+  });
+  return { status: res.status(), body: (await res.json()) as Record<string, unknown> };
+}
+
+async function waitForSourcesReady(request: APIRequestContext, workId: string): Promise<void> {
+  await expect.poll(
+    async () => {
+      const detail = await apiGetWork(request, workId);
+      return detail.sources.every((source) => source.status === "ready") && detail.sources.length > 0;
+    },
+    { timeout: 60_000, intervals: [1_000, 2_000, 3_000] },
+  ).toBe(true);
+}
+
+async function apiGenerateInitial(request: APIRequestContext, workId: string): Promise<void> {
+  const res = await request.post(`/api/creative-work/${workId}/generate`, {
+    data: { action: "initial" },
+  });
+  expect(res.status(), `generate must answer 202 (got ${res.status()})`).toBe(202);
+}
+
+async function waitForTerminalOutputs(request: APIRequestContext, workId: string): Promise<V1WorkDetail> {
+  let detail!: V1WorkDetail;
+  await expect.poll(
+    async () => {
+      detail = await apiGetWork(request, workId);
+      return detail.outputs.length > 0
+        && detail.outputs.every((output) => output.status === "completed" || output.status === "failed");
+    },
+    { timeout: 180_000, intervals: [1_500, 2_500, 4_000] },
+  ).toBe(true);
+  return detail;
+}
+
+async function runV1Flow(
+  request: APIRequestContext,
+  fixture: CreatePostFixture,
+  input: { intent: string; request: string; targetFormats?: string[]; sources?: Array<{ assetId: string; usage: "content" | "style" | "both" }> },
+): Promise<V1WorkDetail> {
+  const workId = await apiCreateV1Draft(request, fixture, input);
+  for (const source of input.sources ?? []) {
+    await apiAttachSource(request, workId, source.assetId, source.usage);
+  }
+  if ((input.sources ?? []).length > 0) await waitForSourcesReady(request, workId);
+  const prepared = await apiPrepare(request, workId);
+  expect(prepared.status, `prepare must succeed (got ${prepared.status}): ${JSON.stringify(prepared.body)}`).toBe(200);
+  await apiGenerateInitial(request, workId);
+  const detail = await waitForTerminalOutputs(request, workId);
+  expect(detail.work.id).toBe(workId);
+  return detail;
+}
+
+test.describe("Creative Work v1 quality-recovery matrix (R-010)", () => {
+  test.beforeEach(async ({ page }) => {
+    await login(page);
+  });
+
+  test("Peça única: 1 output, 1 call, v1 pass payload, subjective advisory only", async ({ page }) => {
+    const fixture = loadFixture();
+    const detail = await runV1Flow(page.request, fixture, {
+      intent: "single",
+      request: "Promoção de agosto com vagas limitadas para mentoria de psicologia.",
+    });
+
+    expect(detail.outputs).toHaveLength(1);
+    const output = detail.outputs[0];
+    expect(output.status).toBe("completed");
+    expect(output.quality).toMatchObject({
+      schemaVersion: 1,
+      objectiveVerdict: "pass",
+      attempt: 1,
+      subjective: { scoreStatus: "analyzed" },
+    });
+    // Subjective signal present but never a retry trigger: exactly one call.
+    const calls = evidenceForOutput(readProviderEvidence(), output.id);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toMatchObject({
+      generationMode: "art_variation",
+      dimensions: { width: 1080, height: 1350 },
+      outcome: "success",
+    });
+    const row = await dbOutputRow(output.id);
+    expect(row).toMatchObject({ status: "completed", image_call_count: 1, retry_count: 0 });
+  });
+
+  test("Variações: 3 outputs / 3 direct art_variation calls on the same snapshot", async ({ page }) => {
+    const fixture = loadFixture();
+    const detail = await runV1Flow(page.request, fixture, {
+      intent: "variations",
+      request: "Variações da arte de matrículas abertas.",
+      sources: [{ assetId: fixture.contentArtAssetId, usage: "both" }],
+    });
+
+    expect(detail.outputs).toHaveLength(3);
+    const evidence = readProviderEvidence();
+    for (const output of detail.outputs) {
+      expect(output.status).toBe("completed");
+      expect(output.quality).toMatchObject({ schemaVersion: 1, objectiveVerdict: "pass", attempt: 1 });
+      const calls = evidenceForOutput(evidence, output.id);
+      expect(calls).toHaveLength(1);
+      expect(calls[0].generationMode).toBe("art_variation");
+      const row = await dbOutputRow(output.id);
+      expect(row?.image_call_count).toBe(1);
+    }
+  });
+
+  test("Adaptar formatos: 3 outputs / 3 format_adaptation calls with the original art first", async ({ page }) => {
+    const fixture = loadFixture();
+    const detail = await runV1Flow(page.request, fixture, {
+      intent: "format_adaptation",
+      request: "Adapte a arte de matrículas para todos os formatos.",
+      targetFormats: ["1:1", "4:5", "9:16"],
+      sources: [{ assetId: fixture.contentArtAssetId, usage: "content" }],
+    });
+
+    expect(detail.outputs).toHaveLength(3);
+    const expectedDimensions: Record<string, { width: number; height: number }> = {
+      "1:1": { width: 1080, height: 1080 },
+      "4:5": { width: 1080, height: 1350 },
+      "9:16": { width: 1080, height: 1920 },
+    };
+    const evidence = readProviderEvidence();
+    for (const output of detail.outputs) {
+      expect(output.status).toBe("completed");
+      const calls = evidenceForOutput(evidence, output.id);
+      expect(calls).toHaveLength(1);
+      expect(calls[0].generationMode).toBe("format_adaptation");
+      expect(calls[0].dimensions).toEqual(expectedDimensions[output.targetFormat]);
+      // R-003: the original art is always the FIRST attached reference.
+      expect(calls[0].referenceNames[0]).toContain("arte-fonte");
+    }
+  });
+
+  test("Mudar estilo sem conflito: 1 restyling call, content first, style second", async ({ page }) => {
+    const fixture = loadFixture();
+    const detail = await runV1Flow(page.request, fixture, {
+      intent: "restyle",
+      request: "Copie o estilo da referência para a minha arte.",
+      sources: [
+        { assetId: fixture.contentArtAssetId, usage: "content" },
+        { assetId: fixture.styleArtAssetId, usage: "style" },
+      ],
+    });
+
+    expect(detail.outputs).toHaveLength(1);
+    const output = detail.outputs[0];
+    expect(output.status).toBe("completed");
+    const calls = evidenceForOutput(readProviderEvidence(), output.id);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].generationMode).toBe("restyling");
+    expect(calls[0].referenceNames[0]).toContain("arte-fonte");
+    expect(calls[0].referenceNames[1]).toContain("arte-estilo");
+  });
+
+  test("Mudar estilo com conflito: 422 brand_conflict, escolha no mesmo draft, uma cobrança", async ({ page }) => {
+    const fixture = loadFixture();
+    const workId = await apiCreateV1Draft(page.request, fixture, {
+      intent: "restyle",
+      request: "Copie o estilo da referência para a arte da XTB.",
+    });
+    await apiAttachSource(page.request, workId, fixture.contentArtAssetId, "content");
+    await apiAttachSource(page.request, workId, fixture.styleArtAssetId, "style");
+    await waitForSourcesReady(page.request, workId);
+
+    // State the conflicting brand explicitly in the content analysis: "XTB"
+    // appears both in brandElements and in the headline (detector contract).
+    const detail = await apiGetWork(page.request, workId);
+    const contentSource = detail.sources.find((source) => source.usage === "content");
+    expect(contentSource).toBeDefined();
+    const current = await apiGetWork(page.request, workId);
+    const currentContent = current.sources.find((source) => source.id === contentSource!.id) as unknown as {
+      contentAnalysis: Record<string, unknown> | null;
+      styleAnalysis: Record<string, unknown> | null;
+    };
+    const edit = await page.request.patch(`/api/creative-work/${workId}`, {
+      data: {
+        action: "editSourceAnalysis",
+        sourceId: contentSource!.id,
+        content: {
+          ...(currentContent.contentAnalysis ?? {}),
+          product: "Produto da arte",
+          brandElements: ["XTB"],
+          textContent: { headline: "XTB abre turmas de agosto", bullets: [] },
+        },
+        style: null,
+      },
+    });
+    expect(edit.ok(), `editSourceAnalysis must succeed (got ${edit.status()})`).toBeTruthy();
+
+    // R-008: the conflict blocks prepare with exactly two short choices.
+    const blocked = await apiPrepare(page.request, workId);
+    expect(blocked.status).toBe(422);
+    expect(blocked.body.code).toBe("brand_conflict");
+    const conflictDetails = blocked.body.details as { detectedBrand: string; choices: string[] };
+    expect(conflictDetails.detectedBrand).toBe("XTB");
+    expect(conflictDetails.choices).toEqual(["source", "active"]);
+
+    // The choice persists on the SAME draft; the resumed prepare succeeds.
+    const resolve = await page.request.patch(`/api/creative-work/${workId}`, {
+      data: { action: "resolveBrandConflict", choice: "active" },
+    });
+    expect(resolve.ok(), `resolveBrandConflict must succeed (got ${resolve.status()})`).toBeTruthy();
+    const resolvedWork = (await resolve.json()) as { work: { id: string; settings: { brandConflictChoice?: string } } };
+    expect(resolvedWork.work.id).toBe(workId);
+    expect(resolvedWork.work.settings.brandConflictChoice).toBe("active");
+
+    const prepared = await apiPrepare(page.request, workId);
+    expect(prepared.status).toBe(200);
+    await apiGenerateInitial(page.request, workId);
+    const finished = await waitForTerminalOutputs(page.request, workId);
+    expect(finished.outputs).toHaveLength(1);
+    expect(finished.outputs[0].status).toBe("completed");
+
+    // Billing stayed blocked during the conflict: exactly one debit, no refunds.
+    const ledger = await dbLedgerFor(fixture, workId);
+    const debits = ledger.filter((row) => row.idempotency_key.endsWith(":initial"));
+    const refunds = ledger.filter((row) => row.idempotency_key.includes("refund"));
+    expect(debits).toHaveLength(1);
+    expect(refunds).toHaveLength(0);
+  });
+
+  test("Revisão: 1 creative_revision call linked to the completed parent", async ({ page }) => {
+    const fixture = loadFixture();
+    const detail = await runV1Flow(page.request, fixture, {
+      intent: "single",
+      request: "Peça única para revisão posterior.",
+    });
+    const parent = detail.outputs[0];
+    expect(parent.status).toBe("completed");
+
+    const revision = await page.request.post(`/api/creative-work/${detail.work.id}/generate`, {
+      data: {
+        action: "revision",
+        outputId: parent.id,
+        instruction: "Troque o fundo para azul escuro",
+        revisionKey: crypto.randomUUID(),
+        revisionAssetId: null,
+      },
+    });
+    expect(revision.status()).toBe(202);
+    const revisionBody = (await revision.json()) as { output: { id: string; parentOutputId: string } };
+    expect(revisionBody.output.parentOutputId).toBe(parent.id);
+
+    const finished = await waitForTerminalOutputs(page.request, detail.work.id);
+    const revisionOutput = finished.outputs.find((output) => output.id === revisionBody.output.id);
+    expect(revisionOutput).toBeDefined();
+    expect(revisionOutput!.status).toBe("completed");
+    expect(revisionOutput!.versionNumber).toBe(2);
+    const calls = evidenceForOutput(readProviderEvidence(), revisionOutput!.id);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].referenceNames[0]).toContain("Versão 1");
+    const row = await dbOutputRow(revisionOutput!.id);
+    expect(row?.image_call_count).toBe(1);
+  });
+
+  test("timeout na 1ª chamada usa a 2ª (transporte) e termina completed", async ({ page }) => {
+    const fixture = loadFixture();
+    const detail = await runV1Flow(page.request, fixture, {
+      intent: "single",
+      request: "Oferta de agosto [e2e:timeout-once] com vagas limitadas.",
+    });
+
+    const output = detail.outputs[0];
+    expect(output.status).toBe("completed");
+    // Two calls: the transport failure plus the exclusive retry — never a third.
+    const calls = evidenceForOutput(readProviderEvidence(), output.id);
+    expect(calls).toHaveLength(2);
+    expect(calls[0].outcome).toBe("failure");
+    expect(calls[1].outcome).toBe("success");
+    const row = await dbOutputRow(output.id);
+    expect(row).toMatchObject({ status: "completed", image_call_count: 2, retry_count: 1 });
+    // The transport retry is not a correction: no correction prompt, no refund.
+    expect(calls[1].promptHasObjectiveCorrection).toBe(false);
+    const ledger = await dbLedgerFor(fixture, detail.work.id);
+    expect(ledger.filter((row) => row.idempotency_key.includes("refund"))).toHaveLength(0);
+  });
+
+  test("falha objetiva usa a correção exclusiva e completa com attempt 2", async ({ page }) => {
+    const fixture = loadFixture();
+    const detail = await runV1Flow(page.request, fixture, {
+      intent: "single",
+      request: "Oferta relâmpago de agosto [e2e:qa-fail-once] com bônus.",
+    });
+
+    const output = detail.outputs[0];
+    expect(output.status).toBe("completed");
+    expect(output.quality).toMatchObject({ schemaVersion: 1, objectiveVerdict: "pass", attempt: 2 });
+    const calls = evidenceForOutput(readProviderEvidence(), output.id);
+    expect(calls).toHaveLength(2);
+    expect(calls[0].promptHasObjectiveCorrection).toBe(false);
+    expect(calls[1].promptHasObjectiveCorrection).toBe(true);
+    const row = await dbOutputRow(output.id);
+    expect(row).toMatchObject({ status: "completed", image_call_count: 2 });
+    // Correction never charges and never refunds.
+    const ledger = await dbLedgerFor(fixture, detail.work.id);
+    expect(ledger.filter((row) => row.idempotency_key.endsWith(":initial"))).toHaveLength(1);
+    expect(ledger.filter((row) => row.idempotency_key.includes("refund"))).toHaveLength(0);
+  });
+
+  test("QA inconclusivo completa sem retry e sem contar como aprovação objetiva", async ({ page }) => {
+    const fixture = loadFixture();
+    const detail = await runV1Flow(page.request, fixture, {
+      intent: "single",
+      request: "Oferta de inverno [e2e:qa-error] com condições especiais.",
+    });
+
+    const output = detail.outputs[0];
+    expect(output.status).toBe("completed");
+    expect(output.quality).toMatchObject({ schemaVersion: 1, objectiveVerdict: "inconclusive", attempt: 1 });
+    // Inconclusive never consumes the remaining budget.
+    const calls = evidenceForOutput(readProviderEvidence(), output.id);
+    expect(calls).toHaveLength(1);
+    const row = await dbOutputRow(output.id);
+    expect(row).toMatchObject({ status: "completed", image_call_count: 1, retry_count: 0 });
+  });
+
+  test("falha objetiva repetida falha como factual_violation com refund terminal único", async ({ page }) => {
+    const fixture = loadFixture();
+    const detail = await runV1Flow(page.request, fixture, {
+      intent: "single",
+      request: "Oferta impossível [e2e:qa-fail-always] de agosto.",
+    });
+
+    const output = detail.outputs[0];
+    expect(output.status).toBe("failed");
+    expect(output.failureCode).toBe("factual_violation");
+    const calls = evidenceForOutput(readProviderEvidence(), output.id);
+    expect(calls).toHaveLength(2);
+    expect(calls[1].promptHasObjectiveCorrection).toBe(true);
+    const row = await dbOutputRow(output.id);
+    expect(row).toMatchObject({ status: "failed", image_call_count: 2 });
+
+    // Net zero: one debit, one terminal refund, never duplicated.
+    const ledger = await dbLedgerFor(fixture, detail.work.id);
+    expect(ledger.filter((row) => row.idempotency_key.endsWith(":initial"))).toHaveLength(1);
+    const refunds = ledger.filter((row) => row.idempotency_key.endsWith(":terminal-refund"));
+    expect(refunds).toHaveLength(1);
+  });
+
+  test("lote parcial: dois sucessos e uma falha com refund único (R-010.5)", async ({ page }) => {
+    const fixture = loadFixture();
+    const detail = await runV1Flow(page.request, fixture, {
+      intent: "variations",
+      request: "Lote com falha controlada [e2e:retry-twice-bold] no ousado.",
+      sources: [{ assetId: fixture.contentArtAssetId, usage: "both" }],
+    });
+
+    expect(detail.outputs).toHaveLength(3);
+    const byLevel = new Map(detail.outputs.map((output) => [output.creativeLevel, output]));
+    expect(byLevel.get("conservative")?.status).toBe("completed");
+    expect(byLevel.get("balanced")?.status).toBe("completed");
+    const failed = byLevel.get("bold");
+    expect(failed?.status).toBe("failed");
+
+    // The failed output burned exactly two calls (both attempts) and was
+    // refunded exactly once; the two successes were never refunded.
+    const failedCalls = evidenceForOutput(readProviderEvidence(), failed!.id);
+    expect(failedCalls).toHaveLength(2);
+    const failedRow = await dbOutputRow(failed!.id);
+    expect(failedRow?.image_call_count).toBe(2);
+    const ledger = await dbLedgerFor(fixture, detail.work.id);
+    const refunds = ledger.filter((row) => row.idempotency_key.includes("refund"));
+    expect(refunds).toHaveLength(1);
+    expect(refunds[0].idempotency_key).toBe(`creative-work:${detail.work.id}:output:${failed!.id}:terminal-refund`);
+    // The batch stays partial — the failed sibling never erases a success.
+    expect(detail.work.status).toBe("partial");
+  });
+
+  test("reabertura + retry manual elegível: mesma linha, ledger único, sem duplicar", async ({ page }) => {
+    const fixture = loadFixture();
+    const detail = await runV1Flow(page.request, fixture, {
+      intent: "single",
+      request: "Oferta de agosto [e2e:hard-fail-once] imperdível.",
+    });
+
+    const output = detail.outputs[0];
+    expect(output.status).toBe("failed");
+    const failedRow = await dbOutputRow(output.id);
+    expect(failedRow?.image_call_count).toBe(1);
+
+    // Reopen the Home on the same work: the failure and the retry affordance
+    // are reconstructed from persisted state (R-008 / R-010.5).
+    await page.goto(`/?workId=${detail.work.id}`);
+    await expect(page.getByTestId("proposal-level")).toHaveCount(1);
+    await page.reload();
+    await expect(page).toHaveURL(new RegExp(`workId=${detail.work.id}`));
+    const retryButton = page.getByRole("button", { name: /repetir esta proposta/i });
+    await expect(retryButton).toBeVisible();
+    await retryButton.click();
+
+    // Poll explicitly for the retried completion — the pre-retry "failed"
+    // state is already terminal and would satisfy a naive terminal poll.
+    let finished = await apiGetWork(page.request, detail.work.id);
+    await expect.poll(
+      async () => {
+        finished = await apiGetWork(page.request, detail.work.id);
+        return finished.outputs.find((candidate) => candidate.id === output.id)?.status;
+      },
+      { timeout: 180_000, intervals: [1_500, 2_500, 4_000] },
+    ).toBe("completed");
+    expect(finished.outputs).toHaveLength(1);
+
+    // Same row, two calls total; the refunded charge was reactivated — at
+    // most one net debit, never two.
+    const row = await dbOutputRow(output.id);
+    expect(row).toMatchObject({ status: "completed", image_call_count: 2 });
+    const ledger = await dbLedgerFor(fixture, detail.work.id);
+    const debits = ledger.filter((row) => row.amount > 0);
+    const credits = ledger.filter((row) => row.amount < 0);
+    expect(debits.length).toBeLessThanOrEqual(2); // generate + reactivation
+    expect(credits).toHaveLength(1); // terminal refund, exactly once
+    const net = ledger.reduce((sum, row) => sum + row.amount, 0);
+    expect(net).toBe(5);
   });
 });

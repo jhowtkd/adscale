@@ -8,10 +8,14 @@ import { OBJECTIVE_INTEGRITY_FAILURE_CODES } from "./creative-contract";
 import { resolveContractPolicy } from "./canonical-creative-contract";
 import {
   analyzeCreativeQa,
+  CREATIVE_WORK_OBJECTIVE_FAILURE_CODES,
   type AnalyzeCreativeQaInput,
   type CreativeQaChecklist,
   type CreativeQaCriterion,
   type CreativeQaCriterionResult,
+  type CreativeWorkObjectiveFailureCode,
+  type CreativeWorkObjectiveVerdict,
+  type CreativeWorkQaFinding,
 } from "./creative-qa";
 import {
   CAMPAIGN_IDENTITY_DRIFT_PATTERN,
@@ -770,4 +774,214 @@ export async function runCompletedDerivationQualityGate(
     );
     await persistQualityGateFallback(input.derivationId, input.workspaceId, gatedAt);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Creative Work v1 objective verdict + persisted quality payload (R-005 /
+// spec 9). Integrity is separated from taste: a confirmed objective code
+// always forces `fail` regardless of any subjective score, and a technical
+// failure or ambiguity of the objective evaluator persists `inconclusive` —
+// the output stays available with a review signal, without retry and without
+// counting as an objective approval in Gate 8.
+// ---------------------------------------------------------------------------
+
+/** Technical status of the objective visual evaluator. */
+export type CreativeWorkQaEvaluatorStatus = "completed" | "failed" | "skipped";
+
+export interface CreativeWorkObjectiveVerdictResult {
+  verdict: CreativeWorkObjectiveVerdict;
+  objectiveCodes: CreativeWorkObjectiveFailureCode[];
+}
+
+/**
+ * Pure tri-state derivation (spec 9.1–9.2):
+ * - any confirmed objective code (deterministic or visual) → `fail`, no
+ *   matter what the subjective score says;
+ * - evaluator failure/skip without confirmed codes, or genuinely ambiguous
+ *   (`suspected`) findings → `inconclusive`;
+ * - otherwise → `pass` (requires valid deterministic checks upstream and no
+ *   confirmed objective failure).
+ */
+export function deriveCreativeWorkObjectiveVerdict(input: {
+  deterministicCodes: readonly CreativeWorkObjectiveFailureCode[];
+  findings: readonly CreativeWorkQaFinding[];
+  evaluatorStatus: CreativeWorkQaEvaluatorStatus;
+}): CreativeWorkObjectiveVerdictResult {
+  const confirmed: CreativeWorkObjectiveFailureCode[] = [];
+  const push = (code: CreativeWorkObjectiveFailureCode) => {
+    if (!confirmed.includes(code)) confirmed.push(code);
+  };
+  for (const code of input.deterministicCodes) push(code);
+  for (const finding of input.findings) {
+    if (finding.status === "confirmed") push(finding.code);
+  }
+  if (confirmed.length > 0) {
+    return { verdict: "fail", objectiveCodes: confirmed };
+  }
+  if (input.evaluatorStatus !== "completed") {
+    return { verdict: "inconclusive", objectiveCodes: [] };
+  }
+  if (input.findings.some((finding) => finding.status === "suspected")) {
+    return { verdict: "inconclusive", objectiveCodes: [] };
+  }
+  return { verdict: "pass", objectiveCodes: [] };
+}
+
+/** Version of the persisted `creative_work_outputs.quality` v1 payload. */
+export const CREATIVE_WORK_QUALITY_SCHEMA_VERSION = 1 as const;
+
+export interface CreativeWorkQualityFinding {
+  code: CreativeWorkObjectiveFailureCode;
+  status: "confirmed" | "suspected";
+  note: string;
+  /** Deterministic findings need no vision model; visual ones come from the evaluator. */
+  origin: "deterministic" | "vision";
+}
+
+export type CreativeWorkSubjectiveScoreStatus =
+  | "analyzed"
+  | "heuristic"
+  | "failed"
+  | "unavailable";
+
+/**
+ * Persisted shape of `creative_work_outputs.quality` for v1 direct outputs.
+ * Legacy rows keep the historical ScoreResult shape (or null) — readers must
+ * discriminate on `schemaVersion`/`objectiveVerdict` before consuming v1
+ * fields (documented for the T9 projection).
+ */
+export interface CreativeWorkQualityPayload {
+  schemaVersion: typeof CREATIVE_WORK_QUALITY_SCHEMA_VERSION;
+  objectiveVerdict: CreativeWorkObjectiveVerdict;
+  /** Confirmed objective failure codes — the input of the T8 surgical correction. */
+  objectiveCodes: CreativeWorkObjectiveFailureCode[];
+  findings: CreativeWorkQualityFinding[];
+  /** Advisory subjective signals — never a reject/retry trigger. */
+  subjective: {
+    scoreStatus: CreativeWorkSubjectiveScoreStatus;
+    qualityScore: number | null;
+    issues: string[];
+  };
+  evaluator: {
+    status: CreativeWorkQaEvaluatorStatus;
+    error: string | null;
+  };
+  /**
+   * One-sentence visual evaluator summary (T8): persisted for the T9 review
+   * surface. Null when the evaluator failed or was skipped.
+   */
+  evaluatorSummary: string | null;
+  checks: {
+    file: {
+      ok: boolean;
+      width: number | null;
+      height: number | null;
+      format: string | null;
+      bytes: number;
+    };
+    dimensions: {
+      ok: boolean;
+      expected: { width: number; height: number };
+      actual: { width: number; height: number } | null;
+    };
+    references: { ok: boolean; missingRequired: string[] };
+  };
+  /** 1-based attempt of the provider call that produced the assessed image. */
+  attempt: number;
+  checkedAt: string;
+}
+
+// Lazy membership check (no module-scope Set construction): test doubles that
+// partially mock creative-qa must not break this module at import time.
+function isKnownObjectiveCode(code: string): boolean {
+  return (CREATIVE_WORK_OBJECTIVE_FAILURE_CODES as readonly string[]).includes(code);
+}
+
+function asSubjectiveScoreStatus(value: unknown): CreativeWorkSubjectiveScoreStatus {
+  return value === "analyzed" || value === "heuristic" || value === "failed"
+    ? value
+    : "unavailable";
+}
+
+/**
+ * Assemble the versioned quality payload persisted on the output row. Pure:
+ * verdict, codes, findings, subjective signals, evaluator status and attempt
+ * are derived from the inputs only.
+ */
+export function buildCreativeWorkQualityPayload(input: {
+  deterministicFindings: readonly CreativeWorkQualityFinding[];
+  visionFindings: readonly CreativeWorkQaFinding[];
+  evaluatorStatus: CreativeWorkQaEvaluatorStatus;
+  evaluatorError?: string | null;
+  /** One-sentence evaluator summary — persisted for the review surface. */
+  evaluatorSummary?: string | null;
+  subjective: {
+    scoreStatus: string;
+    qualityScore: number | null;
+    issues: string[];
+  } | null;
+  checks: CreativeWorkQualityPayload["checks"];
+  attempt: number;
+  checkedAt?: Date;
+}): CreativeWorkQualityPayload {
+  // Defense in depth for persisted JSON: unknown codes (never emitted by the
+  // normalizer or the deterministic checks) are dropped BEFORE the verdict
+  // is derived, so a junk finding can neither force a fail nor reach the T8
+  // correction contract.
+  const deterministicFindings = input.deterministicFindings.filter((finding) =>
+    isKnownObjectiveCode(finding.code),
+  );
+  const visionFindings = input.visionFindings.filter((finding) =>
+    isKnownObjectiveCode(finding.code),
+  );
+  const { verdict, objectiveCodes } = deriveCreativeWorkObjectiveVerdict({
+    deterministicCodes: deterministicFindings.map((finding) => finding.code),
+    findings: visionFindings,
+    evaluatorStatus: input.evaluatorStatus,
+  });
+
+  const findings: CreativeWorkQualityFinding[] = [
+    ...deterministicFindings,
+    ...visionFindings.map((finding) => ({
+      code: finding.code,
+      status: finding.status,
+      note: finding.note,
+      origin: "vision" as const,
+    })),
+  ];
+
+  const attempt =
+    Number.isInteger(input.attempt) && input.attempt >= 1 ? input.attempt : 1;
+
+  return {
+    schemaVersion: CREATIVE_WORK_QUALITY_SCHEMA_VERSION,
+    objectiveVerdict: verdict,
+    objectiveCodes,
+    findings,
+    subjective: input.subjective
+      ? {
+          scoreStatus: asSubjectiveScoreStatus(input.subjective.scoreStatus),
+          qualityScore:
+            typeof input.subjective.qualityScore === "number" &&
+            Number.isFinite(input.subjective.qualityScore)
+              ? input.subjective.qualityScore
+              : null,
+          issues: input.subjective.issues
+            .filter((issue) => typeof issue === "string" && issue.trim().length > 0)
+            .slice(0, 6),
+        }
+      : { scoreStatus: "unavailable", qualityScore: null, issues: [] },
+    evaluator: {
+      status: input.evaluatorStatus,
+      error: input.evaluatorError ?? null,
+    },
+    evaluatorSummary:
+      typeof input.evaluatorSummary === "string" &&
+      input.evaluatorSummary.trim().length > 0
+        ? input.evaluatorSummary
+        : null,
+    checks: input.checks,
+    attempt,
+    checkedAt: (input.checkedAt ?? new Date()).toISOString(),
+  };
 }

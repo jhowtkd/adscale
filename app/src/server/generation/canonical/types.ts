@@ -19,11 +19,29 @@ export type GenerationMode =
 /** Explicit refund contract carried on generation events. */
 export type RefundPolicy = "default" | "none";
 
+/**
+ * How the executor reaches the provider (R-001).
+ *
+ * - `direct` (quality_recovery_v1 Creative Work outputs): exactly one
+ *   high-quality call per visible output — no route planning, candidate
+ *   judging, hidden candidates or refinement.
+ * - `legacy_tournament` / absent: current behavior (planner + judge +
+ *   optional refinement for `social_post` mode).
+ */
+export type GenerationExecutionPolicy = "direct" | "legacy_tournament";
+
 export type FailurePhase =
   | "pre_provider"
   | "post_provider"
   | "low_quality"
-  | "job_failure";
+  | "job_failure"
+  /**
+   * R-006: terminal failure of a v1 Creative Work output after its durable
+   * image-call budget was consumed (transport retry exhausted, objective
+   * correction failed, or ceiling reached). Distinct from the legacy
+   * `post_provider` phase, which intentionally stays non-refundable.
+   */
+  | "terminal";
 
 export interface GenerationCostPolicy {
   /** Credits charged for this generation unit. */
@@ -96,6 +114,12 @@ export interface GenerationRequest {
   cost: GenerationCostPolicy;
   idempotency: GenerationIdempotency;
   destination: GenerationDestination;
+  /**
+   * Execution policy for this request. `direct` forbids hidden route
+   * planning, candidate judging and refinement (quality_recovery_v1).
+   * Absent means the legacy/default behavior.
+   */
+  executionPolicy?: GenerationExecutionPolicy;
   /** Zero-based durable attempt number supplied by the owning domain row. */
   attempt?: number;
   /** Assistant creative_revision only — enables job-level refund. */

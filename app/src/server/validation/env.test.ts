@@ -5,8 +5,7 @@ const baseEnv = {
   BETTER_AUTH_SECRET: "test-secret-with-more-than-thirty-two-characters",
   BETTER_AUTH_URL: "http://localhost:3000",
   OPENAI_API_KEY: "sk-test",
-  MINIMAX_API_KEY: "minimax-test",
-  OPENAI_TEXT_MODEL: "gpt-5.6",
+  OPENAI_TEXT_MODEL: "gpt-5.6-sol",
   OPENAI_IMAGE_MODEL: "gpt-image-2-2026-04-21",
   R2_ACCOUNT_ID: "r2-account",
   R2_ACCESS_KEY_ID: "r2-key",
@@ -64,5 +63,46 @@ describe("envSchema", () => {
       MEM0_API_KEY: "m0_test_key",
       MEM0_USER_PREFIX: "adscale_test",
     });
+  });
+
+  it("defaults the creative work quality recovery switch to disabled", () => {
+    expect(
+      schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy" })
+        .CREATIVE_WORK_QUALITY_RECOVERY_ENABLED
+    ).toBe("false");
+  });
+
+  it("accepts explicit true/false for the quality recovery switch", () => {
+    expect(
+      schema.parse({
+        ...baseEnv,
+        STRIPE_SECRET_KEY: "sk_test_dummy",
+        CREATIVE_WORK_QUALITY_RECOVERY_ENABLED: "true",
+      }).CREATIVE_WORK_QUALITY_RECOVERY_ENABLED
+    ).toBe("true");
+    expect(
+      schema.parse({
+        ...baseEnv,
+        STRIPE_SECRET_KEY: "sk_test_dummy",
+        CREATIVE_WORK_QUALITY_RECOVERY_ENABLED: "false",
+      }).CREATIVE_WORK_QUALITY_RECOVERY_ENABLED
+    ).toBe("false");
+  });
+
+  it("rejects non-boolean values for the quality recovery switch", () => {
+    expect(() =>
+      schema.parse({
+        ...baseEnv,
+        STRIPE_SECRET_KEY: "sk_test_dummy",
+        CREATIVE_WORK_QUALITY_RECOVERY_ENABLED: "yes",
+      })
+    ).toThrow();
+    expect(() =>
+      schema.parse({
+        ...baseEnv,
+        STRIPE_SECRET_KEY: "sk_test_dummy",
+        CREATIVE_WORK_QUALITY_RECOVERY_ENABLED: "1",
+      })
+    ).toThrow();
   });
 });

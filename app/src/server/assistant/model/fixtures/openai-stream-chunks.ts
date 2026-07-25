@@ -1,11 +1,11 @@
 import type { ChatCompletionChunk } from "openai/resources/chat/completions";
 
-export const minimaxStreamChunks: ChatCompletionChunk[] = [
+export const openAIStreamChunks: ChatCompletionChunk[] = [
   {
     id: "chunk-1",
     object: "chat.completion.chunk",
     created: 0,
-    model: "MiniMax-M3",
+    model: "gpt-5.6-sol",
     choices: [
       {
         index: 0,
@@ -21,7 +21,7 @@ export const minimaxStreamChunks: ChatCompletionChunk[] = [
     id: "chunk-2",
     object: "chat.completion.chunk",
     created: 0,
-    model: "MiniMax-M3",
+    model: "gpt-5.6-sol",
     choices: [
       {
         index: 0,
@@ -36,7 +36,7 @@ export const minimaxStreamChunks: ChatCompletionChunk[] = [
     id: "chunk-3",
     object: "chat.completion.chunk",
     created: 0,
-    model: "MiniMax-M3",
+    model: "gpt-5.6-sol",
     choices: [
       {
         index: 0,
@@ -51,7 +51,7 @@ export const minimaxStreamChunks: ChatCompletionChunk[] = [
     id: "chunk-4",
     object: "chat.completion.chunk",
     created: 0,
-    model: "MiniMax-M3",
+    model: "gpt-5.6-sol",
     choices: [
       {
         index: 0,
@@ -73,7 +73,7 @@ export const minimaxStreamChunks: ChatCompletionChunk[] = [
     id: "chunk-5",
     object: "chat.completion.chunk",
     created: 0,
-    model: "MiniMax-M3",
+    model: "gpt-5.6-sol",
     choices: [
       {
         index: 0,
@@ -93,7 +93,7 @@ export const minimaxStreamChunks: ChatCompletionChunk[] = [
     id: "chunk-6",
     object: "chat.completion.chunk",
     created: 0,
-    model: "MiniMax-M3",
+    model: "gpt-5.6-sol",
     choices: [
       {
         index: 0,

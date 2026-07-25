@@ -446,6 +446,49 @@ describe("generateAndStoreImage", () => {
     }
   });
 
+  it("skips candidates, judging and refinement under the direct execution policy", async () => {
+    const { __setImageProviderForTests } = await import("./image-generation");
+    const generate = vi.fn(async (input: { prompt: string }) => ({
+      buffer: Buffer.from(input.prompt),
+      mimeType: "image/png",
+      providerMeta: {
+        provider: "openai" as const,
+        model: "gpt-image-2",
+        durationMs: 100,
+      },
+    }));
+    const selectCandidate = vi.fn(async () => 0);
+    __setImageProviderForTests({ name: "openai", generate });
+
+    try {
+      const result = await generateAndStoreImage({
+        ...BASE_INPUT,
+        outputPrefix: "creative-work/direct",
+        executionPolicy: "direct",
+        routes: [
+          { id: "route-1", prompt: "concept one" },
+          { id: "route-2", prompt: "concept two" },
+          { id: "route-3", prompt: "concept three" },
+        ],
+        selectCandidate,
+      });
+
+      // Exactly one high-quality provider call for the one visible output.
+      expect(generate).toHaveBeenCalledTimes(1);
+      expect(generate.mock.calls[0][0]).toEqual(
+        expect.objectContaining({ prompt: "a creative post", quality: "high" })
+      );
+      expect(selectCandidate).not.toHaveBeenCalled();
+      expect(result.candidates).toHaveLength(1);
+      expect(result.candidates[0]).toEqual(
+        expect.objectContaining({ routeId: "openai", winner: true })
+      );
+      expect(mockSharpPipeline.toBuffer).toHaveBeenCalledTimes(1);
+    } finally {
+      __setImageProviderForTests(null);
+    }
+  });
+
   it("refines the winner once at high quality and keeps the better version", async () => {
     const { __setImageProviderForTests } = await import("./image-generation");
     const generate = vi.fn(async (input: { prompt: string }) => ({

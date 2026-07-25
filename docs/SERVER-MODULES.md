@@ -2,7 +2,7 @@
 
 # Server Modules (`app/src/server/`)
 
-Reference for the server-side business-logic modules that back ADScale's API routes. Covers the 22 module directories plus the central `config.ts`.
+Reference for the server-side business-logic modules that back ADScale's API routes. Covers the **26** module directories plus the central `config.ts`.
 
 Cognitive organ names (Cortex, Hands, Gaze, …) and how modules wire as a body: [`COGNITIVE-ATLAS.md`](./COGNITIVE-ATLAS.md).
 
@@ -29,7 +29,7 @@ db/  (Drizzle client + Postgres schema)   storage/  (R2 object storage)
 - **Services and domain modules** (`ai/`, `assistant/`, `billing/`, `human-quality/`, `output-learning/`, …) hold the business rules and call external providers (OpenAI, MiniMax, Stripe, Mem0).
 - **`repositories/`** is the pure data-access layer: 57 Drizzle-backed files exposing ~315 query/mutation functions. Repositories never import from `services/`, `billing/`, `jobs/`, or `ai/` — they only depend on `db/` and `db/schema`.
 - **`db/`** owns the Drizzle client (`db` = `pg`-pool-backed, for Inngest jobs; `dbHttp` = Neon serverless HTTP driver, for serverless route handlers) and the single source-of-truth schema (`adscale_app` Postgres schema).
-- **`jobs/`** registers Inngest functions for async work (derivation generation, brand-memory ingestion, learning aggregation, trial notifications, workspace-asset analysis).
+- **`jobs/`** registers Inngest functions for async work (derivation generation, **creative-work output and source analysis**, brand training, brand-memory ingestion, learning aggregation, trial notifications, workspace-asset analysis).
 - A closed **quality/learning loop** spans `human-quality/` → `brand-taste/` → `olhar-calibration/` → `output-learning/`, projecting approved learnings back into `memory/` (Mem0).
 
 ---
@@ -388,6 +388,26 @@ The quality corpus loop: capture derivations → owner evaluation → calibratio
 
 **Dependencies:** `repositories/human-quality-*`, `repositories/calibration-*`, `repositories/client-learning-proposal`, `repositories/output-decision-event`, `brand-taste/` (calibration-signal bridge), `olhar-calibration/`. Aggregation is scheduled by `jobs/learning-proposal-aggregator.ts`.
 
+### `creative-work/`
+
+Canonical standalone creative aggregate (ADR 0013). Powers the home composer, quick tools, and inspiration flows without a campaign prerequisite.
+
+| Area | Key files | Role |
+|------|-----------|------|
+| Contracts | `contracts.ts` | Zod schemas for work, brief, copy, outputs, placements |
+| Prepare / autosave | `prepare.ts`, `canonical/briefing-persist.ts`, `canonical/queries.ts`, `canonical/status.ts` | Draft persistence and status transitions |
+| Generation helpers | `prompt.ts`, `copy.ts`, `identity.ts`, `composite.ts` | Prompt assembly, copy generation, identity snapshot, Sharp compositing |
+| Projection | `projection/from-creative-work.ts`, `projection/from-campaign.ts` | Canonical list projections for home and campaigns |
+| Telemetry | `funnel-events.ts`, `telemetry/projection-compare.ts` | Funnel events and projection comparison |
+
+**Repository:** `repositories/creative-work.ts` — scoped aggregate persistence, sources, outputs, idempotent output creation.
+
+**Application layer** (`server/application/`): `prepare-creative-work.ts`, `generate-creative-work.ts`, `analyze-creative-work-source.ts`, `select-creative-work-output.ts`, `revise-creative-work-output.ts`, `list-creative-inspirations.ts`, `ensure-creative-work-output-library.ts`.
+
+**Generation pipeline** (`server/generation/`): `pipeline/execute.ts`, `post-generation.ts`, `canonical/*` — shared execution path for creative-work and derivation jobs.
+
+**Dependencies:** `repositories/creative-work`, `repositories/workspace-asset`, `generation/pipeline`, `billing/paywall`, `storage/`, `ai/`. Jobs: `creativeWorkOutputJob`, `creativeWorkSourceAnalyzeJob`.
+
 ### `jobs/`
 
 Inngest function definitions, realtime channels, and middleware.
@@ -396,6 +416,9 @@ Inngest function definitions, realtime channels, and middleware.
 |--------|------|------|
 | `inngest` | `client.ts` | Inngest client (`id: "adscale"`, Sentry middleware, production `INNGEST_DEV` guard) |
 | `derivationJob` | `derivation.ts` | Async derivation generation + `scoreCompletedDerivation()` |
+| `creativeWorkOutputJob` | `creative-work.ts` | Async creative-work output generation (`creative-work.generate`) |
+| `creativeWorkSourceAnalyzeJob` | `creative-work-source.ts` | Source analysis for attached workspace assets (`creative-work.source.analyze`) |
+| `brandTrainingAnalyzeJob` | `brand-training.ts` | Brand training asset analysis |
 | `brandMemoryIngestJob` | `brand-memory.ts` | Ingests brand-memory events into Mem0 |
 | `learningProposalAggregatorJob` | `learning-proposal-aggregator.ts` | Nightly human-quality learning aggregation |
 | `trialNotificationJob` | `trial-notifications.ts` | Trial-expiry email notifications |

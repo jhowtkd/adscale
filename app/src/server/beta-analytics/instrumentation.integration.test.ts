@@ -326,3 +326,123 @@ describe("INST-04 smoke — events attach session_id when beta_sessions fixture 
     expect(mockInsert).not.toHaveBeenCalled();
   });
 });
+
+describe("R-009 output learning recommendation card payloads", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockValidateCampaign.mockResolvedValue(undefined);
+    mockValidateDerivation.mockResolvedValue(undefined);
+  });
+
+  // Bodies mirror OutputLearningRecommendationCard.tsx recordEvent calls.
+  const cardBodies = [
+    {
+      eventKey: "output_learning_recommendation_viewed",
+      properties: {
+        recommendationId: "rec-1",
+        variableKey: "cta",
+        confidence: "high",
+        learningCount: 1,
+        source: "postgres",
+      },
+    },
+    {
+      eventKey: "output_learning_recommendation_dismissed",
+      properties: {
+        recommendationId: "rec-1",
+        variableKey: "cta",
+        confidence: "high",
+        reasonCode: "user_dismissed",
+      },
+    },
+    {
+      eventKey: "output_learning_recommendation_accepted",
+      properties: {
+        recommendationId: "rec-1",
+        variableKey: "cta",
+        confidence: "high",
+        recipeId: "performance_push",
+        action: "accept",
+        traceId: "ol-trace-1",
+        evidenceEventCount: 1,
+        blockedFieldCount: 0,
+      },
+    },
+    {
+      eventKey: "output_learning_recommendation_edited",
+      properties: {
+        recommendationId: "rec-1",
+        variableKey: "cta",
+        confidence: "high",
+        recipeId: "performance_push",
+        action: "edit",
+      },
+    },
+  ] as const;
+
+  it.each(cardBodies)(
+    "persists $eventKey with the exact card payload and unchanged event key",
+    async ({ eventKey, properties }) => {
+      mockInsert.mockResolvedValue(
+        mockInsertedEvent({
+          eventKey,
+          campaignId: CAMPAIGN_ID,
+          properties,
+        }) as never
+      );
+
+      await recordBetaAnalyticsEvent({
+        workspaceId: WORKSPACE_ID,
+        userId: USER_ID,
+        eventKey,
+        campaignId: CAMPAIGN_ID,
+        properties,
+      });
+
+      expect(mockValidateCampaign).toHaveBeenCalledWith(
+        WORKSPACE_ID,
+        CAMPAIGN_ID
+      );
+      expect(mockInsert).toHaveBeenCalledTimes(1);
+      expect(mockInsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventKey,
+          campaignId: CAMPAIGN_ID,
+          properties,
+        })
+      );
+    }
+  );
+
+  it("rejects unknown output_learning_* event key before insert (negative control)", async () => {
+    await expect(
+      recordBetaAnalyticsEvent({
+        workspaceId: WORKSPACE_ID,
+        userId: USER_ID,
+        eventKey: "output_learning_recommendation_clicked",
+        campaignId: CAMPAIGN_ID,
+        properties: { recommendationId: "rec-1" },
+      })
+    ).rejects.toThrow(BetaEventPropertiesValidationError);
+
+    expect(mockInsert).not.toHaveBeenCalled();
+  });
+
+  it("rejects property outside the allowlist on output learning events (negative control)", async () => {
+    await expect(
+      recordBetaAnalyticsEvent({
+        workspaceId: WORKSPACE_ID,
+        userId: USER_ID,
+        eventKey: "output_learning_recommendation_accepted",
+        campaignId: CAMPAIGN_ID,
+        properties: {
+          recommendationId: "rec-1",
+          traceId: "ol-trace-1",
+          evidenceEventIds: ["evt-1"],
+        },
+      })
+    ).rejects.toThrow(BetaEventPropertiesValidationError);
+
+    expect(mockInsert).not.toHaveBeenCalled();
+  });
+});

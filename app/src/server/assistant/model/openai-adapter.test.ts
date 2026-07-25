@@ -1,27 +1,39 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+
+vi.mock("@/server/validation/env", () => ({
+  env: {
+    OPENAI_API_KEY: "sk-test",
+    OPENAI_TEXT_MODEL: "gpt-5.6-sol",
+  },
+}));
 import { assertNoReasoningInText } from "./reasoning-sanitizer";
-import { createMiniMaxModelAdapter } from "./minimax-adapter";
-import { minimaxStreamChunks } from "./fixtures/minimax-stream-chunks";
+import { createOpenAIModelAdapter } from "./openai-adapter";
+import { openAIStreamChunks } from "./fixtures/openai-stream-chunks";
 import type { AssistantStreamEvent } from "./client";
 
-function mockClientFromChunks(chunks: typeof minimaxStreamChunks) {
+function mockClientFromChunks(chunks: typeof openAIStreamChunks) {
+  const requests: unknown[] = [];
   return {
+    requests,
     chat: {
       completions: {
-        create: async () => ({
+        create: async (request: unknown) => {
+          requests.push(request);
+          return ({
           async *[Symbol.asyncIterator]() {
             for (const chunk of chunks) {
               yield chunk;
             }
           },
-        }),
+          });
+        },
       },
     },
   };
 }
 
 async function collectEvents(
-  adapter: ReturnType<typeof createMiniMaxModelAdapter>
+  adapter: ReturnType<typeof createOpenAIModelAdapter>
 ): Promise<AssistantStreamEvent[]> {
   const events: AssistantStreamEvent[] = [];
   for await (const event of adapter.stream({
@@ -33,10 +45,23 @@ async function collectEvents(
   return events;
 }
 
-describe("MiniMaxModelAdapter", () => {
+describe("OpenAIModelAdapter", () => {
+  it("uses Sol with tool-compatible reasoning disabled", async () => {
+    const client = mockClientFromChunks(openAIStreamChunks);
+    const adapter = createOpenAIModelAdapter({ client: client as never });
+
+    await collectEvents(adapter);
+
+    expect(client.requests[0]).toMatchObject({
+      model: "gpt-5.6-sol",
+      reasoning_effort: "none",
+      stream: true,
+    });
+  });
+
   it("yields text_delta for content chunks and skips reasoning-only chunks", async () => {
-    const adapter = createMiniMaxModelAdapter({
-      client: mockClientFromChunks(minimaxStreamChunks) as never,
+    const adapter = createOpenAIModelAdapter({
+      client: mockClientFromChunks(openAIStreamChunks) as never,
     });
 
     const events = await collectEvents(adapter);
@@ -49,8 +74,8 @@ describe("MiniMaxModelAdapter", () => {
   });
 
   it("yields tool_call after multi-chunk accumulation", async () => {
-    const adapter = createMiniMaxModelAdapter({
-      client: mockClientFromChunks(minimaxStreamChunks) as never,
+    const adapter = createOpenAIModelAdapter({
+      client: mockClientFromChunks(openAIStreamChunks) as never,
     });
 
     const events = await collectEvents(adapter);
@@ -65,8 +90,8 @@ describe("MiniMaxModelAdapter", () => {
   });
 
   it("ends with done event", async () => {
-    const adapter = createMiniMaxModelAdapter({
-      client: mockClientFromChunks(minimaxStreamChunks) as never,
+    const adapter = createOpenAIModelAdapter({
+      client: mockClientFromChunks(openAIStreamChunks) as never,
     });
 
     const events = await collectEvents(adapter);
@@ -74,8 +99,8 @@ describe("MiniMaxModelAdapter", () => {
   });
 
   it("serialized events pass assertNoReasoningInText", async () => {
-    const adapter = createMiniMaxModelAdapter({
-      client: mockClientFromChunks(minimaxStreamChunks) as never,
+    const adapter = createOpenAIModelAdapter({
+      client: mockClientFromChunks(openAIStreamChunks) as never,
     });
 
     const events = await collectEvents(adapter);

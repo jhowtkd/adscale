@@ -9,9 +9,9 @@ Internal HTTP API for the ADScale Next.js application (`app/src/app/api`). Consu
 | Base URL | Same origin as the deployed app (`APP_URL` / `BETTER_AUTH_URL`) <!-- VERIFY: confirm deployed base URL for the production API --> |
 | Format | JSON (except multipart uploads, CSV exports, and Stripe webhook raw body) |
 | Auth (default) | Better Auth session cookie + workspace scoping |
-| Max upload | 10 MB per file; images: `image/png`, `image/jpeg`, `image/webp` |
+| Max upload | 10 MB default (`upload-config.ts`); **50 MB** on `POST /api/workspace/assets`; images: `image/png`, `image/jpeg`, `image/webp` |
 
-Route handlers live under `app/src/app/api/**/route.ts` (150 route files across 23 route groups).
+Route handlers live under `app/src/app/api/**/route.ts` (**165** route files across **25** route groups).
 
 ---
 
@@ -221,7 +221,7 @@ Dynamic segments use `:id` notation. Auth column: **none**, **session**, **sessi
 | GET | `/api/health` | none | Liveness probe + static asset diagnostics |
 | GET | `/api/build-id` | none | Git commit / build identifier |
 | OPTIONS, POST | `/api/waitlist` | none (CORS) | Marketing-site waitlist signup |
-| GET, POST, PUT | `/api/inngest` | inngest-signing | Inngest job handler (derivation, trial, assets, brand memory, learning aggregator) |
+| GET, POST, PUT | `/api/inngest` | inngest-signing | Inngest job handler (derivation, creative-work, brand training, trial, assets, brand memory, learning aggregator) |
 | POST | `/api/billing/webhook` | stripe-signature | Stripe subscription events |
 | POST | `/api/notifications/webhook` | x-webhook-secret | Internal notification email dispatcher |
 
@@ -243,6 +243,27 @@ Dynamic segments use `:id` notation. Auth column: **none**, **session**, **sessi
 | POST | `/api/admin/quality/learning/proposals/:id/reject` | platform-owner | Reject learning proposal |
 | GET, POST | `/api/admin/testers` | platform-owner | List / create beta tester workspaces |
 | DELETE | `/api/admin/testers/:workspaceId` | platform-owner | Remove beta tester workspace |
+| GET, POST | `/api/admin/inspirations` | platform-owner | List / upload curated home inspirations (`source: curated_inspiration`) |
+| DELETE | `/api/admin/inspirations/:id` | platform-owner | Delete curated inspiration |
+
+### Creative work (session+workspace)
+
+Canonical standalone creative aggregate (ADR 0013). Powers the home composer, quick tools, and inspiration flows — no campaign prerequisite.
+
+| Method(s) | Path | Auth | Description |
+|-----------|------|------|-------------|
+| GET, POST | `/api/creative-work` | session+workspace | List canonical works; create draft. `GET ?view=inspirations&clientProfileId=` lists brand inspirations |
+| GET, PATCH | `/api/creative-work/:id` | session+workspace | Load/update work (autosave, confirm copy, link sources) |
+| POST | `/api/creative-work/:id/copy` | session+workspace | Generate social-post copy (metered) |
+| POST | `/api/creative-work/:id/generate` | session+workspace | Quote cost, create outputs, dispatch `creative-work.generate` job |
+| GET | `/api/creative-work/:id/identity-options` | session+workspace | Approved brand-training assets for identity snapshot |
+| GET | `/api/creative-work/:id/outputs/:outputId/download` | session+workspace | Signed download proxy |
+| POST | `/api/creative-work/:id/outputs/:outputId/retry` | session+workspace | Retry failed output (no re-spend) |
+| POST | `/api/creative-work/:id/outputs/:outputId/select` | session+workspace | Select output; optional library indexing |
+| GET | `/api/creative-work/inspirations/:id` | session+workspace | Inspiration metadata |
+| GET | `/api/creative-work/inspirations/:id/file` | session+workspace | Inspiration file proxy |
+
+**`GET /api/workspace/assets` query params:** `q`, `tags`, `type`, `source`, **`excludeSources`** (comma-separated, e.g. `curated_inspiration,curated_inspiration_copy`), `page`, `limit` (max 200, default 24). The Library page excludes curated inspirations so they only appear on the home inspiration rail.
 
 ### Assistant (session+workspace)
 
@@ -399,8 +420,9 @@ All billing routes except the webhook require **session+workspace**.
 | GET, POST, DELETE | `/api/workspace/brand-kit` | session+workspace | Brand kit CRUD |
 | POST | `/api/workspace/brand-kit/logo` | session+workspace | Upload logo |
 | POST | `/api/workspace/brand-kit/extract` | session+workspace | Extract brand from URL/assets |
-| GET, POST | `/api/workspace/assets` | session+workspace | List / upload workspace assets |
+| GET, POST | `/api/workspace/assets` | session+workspace | List (filtered) / upload workspace assets (50 MB max) |
 | GET, PATCH, DELETE | `/api/workspace/assets/:id` | session+workspace | Workspace asset CRUD |
+| GET | `/api/workspace/assets/:id/file` | session+workspace | Authenticated file proxy for library and creative outputs |
 | GET, POST, PATCH, DELETE | `/api/workspace/invites` | session+workspace / session | Manage invites; `PATCH` accepts invite (session) |
 | POST | `/api/workspace/invites/accept` | session | Accept invite by token |
 | GET, DELETE | `/api/workspace/members` | session+workspace | List / remove members (admin+) |

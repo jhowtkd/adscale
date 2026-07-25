@@ -1,5 +1,20 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+
+vi.mock("next-intl", () => ({
+  useTranslations: () => (key: string) => ({
+    failedGeneration: "Falha na geração",
+    reviewRecommended: "Revisão recomendada — a checagem automática ficou inconclusiva",
+    retryUnavailable: "Esta proposta já usou todas as tentativas automáticas. Crie um novo pedido para gerar outra versão.",
+    "failure.timeout": "A geração demorou demais e foi interrompida.",
+    "failure.invalid_context": "O pedido ou as fontes não tinham informação suficiente para gerar com fidelidade.",
+    "failure.factual_violation": "A peça não preservou os fatos ou a marca, mesmo após a correção automática.",
+    "failure.brand_conflict": "Há um conflito de marca entre a arte e a marca ativa.",
+    "failure.reference_failure": "Uma referência obrigatória não pôde ser usada. Reenvie a arte e tente novamente.",
+    "failure.unknown": "A geração falhou por um erro inesperado.",
+  }[key] ?? key),
+}));
+
 import { CreativeResultCard } from "./CreativeResultCard";
 import type { CreativeWorkOutput } from "@/lib/hooks/use-creative-work";
 
@@ -16,6 +31,7 @@ function output(overrides: Partial<CreativeWorkOutput> = {}): CreativeWorkOutput
     revisionAssetId: null,
     operationKey: "balanced:4:5:1",
     retryCount: 0,
+    imageCallCount: 1,
     status: "completed",
     outputKey: "creative-work/output-1/image.png",
     cost: 5,
@@ -114,5 +130,88 @@ describe("CreativeResultCard", () => {
       revisionInstruction: "Use mais contraste",
     }));
     expect(onRetry).not.toHaveBeenCalled();
+  });
+
+  it("explains the typed failure category and offers retry while the durable budget lasts (R-008)", () => {
+    render(
+      <CreativeResultCard
+        output={output({ status: "failed", outputKey: null, failureCode: "generation_timeout", imageCallCount: 1 })}
+        label="Equilibrada"
+        onRetry={vi.fn()}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+      />,
+    );
+
+    // One live region carries both the failure state and the typed category.
+    expect(screen.getByRole("status")).toHaveTextContent("Falha na geração");
+    expect(screen.getByTestId("failure-category")).toHaveTextContent("A geração demorou demais e foi interrompida");
+    expect(screen.getByRole("button", { name: "Repetir esta proposta" })).toBeVisible();
+  });
+
+  it("hides the free retry when the durable image-call budget is exhausted (R-006/R-008)", () => {
+    render(
+      <CreativeResultCard
+        output={output({ status: "failed", outputKey: null, failureCode: "image_call_budget_exhausted", imageCallCount: 2 })}
+        label="Equilibrada"
+        onRetry={vi.fn()}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Repetir esta proposta" })).not.toBeInTheDocument();
+    expect(screen.getByText(/já usou todas as tentativas automáticas/)).toBeVisible();
+  });
+
+  it("shows inconclusive as available-with-review, never as failure or objective approval (R-008)", () => {
+    render(
+      <CreativeResultCard
+        output={output({
+          status: "completed",
+          quality: {
+            schemaVersion: 1,
+            objectiveVerdict: "inconclusive",
+            objectiveCodes: [],
+            evaluatorSummary: "Avaliador visual indisponível durante a checagem.",
+          },
+        })}
+        label="Equilibrada"
+        onRetry={vi.fn()}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId("review-recommended")).toHaveTextContent("Revisão recomendada");
+    expect(screen.getByTestId("review-recommended")).toHaveTextContent("Avaliador visual indisponível");
+    // The output stays fully available: image, approve and download intact.
+    expect(screen.getByRole("img")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Aprovar" })).toBeVisible();
+    expect(screen.queryByTestId("failure-category")).not.toBeInTheDocument();
+  });
+
+  it("shows no review signal for an objectively approved v1 output or a legacy quality payload", () => {
+    const { rerender } = render(
+      <CreativeResultCard
+        output={output({ quality: { schemaVersion: 1, objectiveVerdict: "pass", objectiveCodes: [] } })}
+        label="Equilibrada"
+        onRetry={vi.fn()}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+      />,
+    );
+    expect(screen.queryByTestId("review-recommended")).not.toBeInTheDocument();
+
+    rerender(
+      <CreativeResultCard
+        output={output({ quality: { scoreStatus: "analyzed", qualityScore: 80 } as never })}
+        label="Equilibrada"
+        onRetry={vi.fn()}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+      />,
+    );
+    expect(screen.queryByTestId("review-recommended")).not.toBeInTheDocument();
   });
 });

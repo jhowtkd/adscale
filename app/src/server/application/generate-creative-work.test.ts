@@ -16,6 +16,7 @@ const failQueuedOutput = vi.hoisted(() => vi.fn());
 const refreshStatus = vi.hoisted(() => vi.fn());
 const send = vi.hoisted(() => vi.fn());
 const refund = vi.hoisted(() => vi.fn());
+const getBrandKitMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/repositories/creative-work", () => ({
   getCreativeWork: getWork,
@@ -29,6 +30,7 @@ vi.mock("@/server/repositories/creative-work", () => ({
   failQueuedCreativeWorkOutput: failQueuedOutput,
   refreshCreativeWorkStatus: refreshStatus,
 }));
+vi.mock("@/server/repositories/brand-kit", () => ({ getBrandKit: getBrandKitMock }));
 vi.mock("./prepare-creative-work", () => ({ prepareCreativeWork: prepare }));
 vi.mock("@/server/creative-work/identity", () => ({
   buildIdentityOptions: options,
@@ -74,6 +76,7 @@ describe("generateCreativeWork", () => {
     failQueuedOutput.mockImplementation(async (_ws, _work, outputId) => ({ ...rows.find((row) => row.id === outputId), status: "failed", failureCode: "dispatch_failed" }));
     refreshStatus.mockResolvedValue("failed");
     refund.mockResolvedValue({ status: "refunded" });
+    getBrandKitMock.mockResolvedValue({ name: "Cenbrap", requiredElements: null, prohibitedElements: null });
   });
 
   it("prepares, snapshots the ranked top three, charges the quote, and dispatches only IDs", async () => {
@@ -113,6 +116,32 @@ describe("generateCreativeWork", () => {
     expect(charge).toHaveBeenCalledWith(expect.objectContaining({ unitCount: 1, chargeAmount: 5 }), expect.anything());
   });
 
+  it("creates exactly one output per target format when the adaptation settings repeat a format", async () => {
+    const adaptationSettings = { targetFormats: ["1:1", "9:16", "1:1"] as Array<"1:1" | "9:16"> };
+    getWork.mockResolvedValue({
+      work: { ...work, toolKind: "format_adaptation", settings: adaptationSettings },
+      outputs: [],
+      sources: [],
+    });
+    prepare.mockResolvedValue({
+      ok: true,
+      value: { work: { ...preparedWork, toolKind: "format_adaptation", settings: adaptationSettings }, quote: {} },
+    });
+    const formatRows = [
+      { id: "f1", creativeLevel: "balanced", targetFormat: "1:1", status: "queued" },
+      { id: "f2", creativeLevel: "balanced", targetFormat: "9:16", status: "queued" },
+    ];
+    createOutputs.mockResolvedValue({ outputs: formatRows, newlyCreatedIds: formatRows.map((row) => row.id) });
+
+    await generateCreativeWork({ workspaceId: "ws-1", workItemId: "work-1", userId: "user-1" });
+
+    expect(createOutputs).toHaveBeenCalledWith("ws-1", "work-1", [
+      { creativeLevel: "balanced", targetFormat: "1:1", versionNumber: 1 },
+      { creativeLevel: "balanced", targetFormat: "9:16", versionNumber: 1 },
+    ]);
+    expect(charge).toHaveBeenCalledWith(expect.objectContaining({ unitCount: 2, chargeAmount: 10 }), expect.anything());
+  });
+
   it("fails newly-created rows and refunds the exact quote when dispatch fails", async () => {
     send.mockRejectedValue(new Error("transport down"));
     const result = await generateCreativeWork({ workspaceId: "ws-1", workItemId: "work-1", userId: "user-1" });
@@ -144,8 +173,44 @@ describe("generateCreativeWork", () => {
     getWork.mockResolvedValue({ work: { ...preparedWork, status: "ready", identitySnapshot, inputSnapshot: null }, outputs: [], sources: [] });
     const result = await generateCreativeWork({ workspaceId: "ws-1", workItemId: "work-1", userId: "user-1" });
     expect(result.ok).toBe(true);
-    expect(setLegacySnapshot).toHaveBeenCalledWith("ws-1", "work-1", expect.objectContaining({ request: "latest", sources: [] }));
+    expect(setLegacySnapshot).toHaveBeenCalledWith("ws-1", "work-1", expect.objectContaining({
+      request: "latest",
+      sources: [],
+      factPack: expect.objectContaining({ version: 1, request: "latest" }),
+    }));
     expect(confirmSnapshots).not.toHaveBeenCalled();
+    // Rebuilding the missing block never duplicates the charge.
+    expect(charge).toHaveBeenCalledOnce();
+  });
+
+  it("returns the typed invalid_context error before any charge or image dispatch", async () => {
+    const violations = [{ class: "price", value: "50%", field: "headline" }];
+    prepare.mockResolvedValue({
+      ok: false,
+      error: { code: "invalid_context", details: { violations } },
+    });
+    const result = await generateCreativeWork({ workspaceId: "ws-1", workItemId: "work-1", userId: "user-1" });
+    // The violations payload is forwarded unwrapped so the HTTP edge returns
+    // details.violations exactly like the prepare route does.
+    expect(result).toMatchObject({ ok: false, error: { code: "invalid_context", details: { violations } } });
+    expect(charge).not.toHaveBeenCalled();
+    expect(createOutputs).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("returns the typed brand_conflict error before any charge or image dispatch (R-003)", async () => {
+    const details = { detectedBrand: "XTB", activeBrand: "Cenbrap", sourceId: "source-1", choices: ["source", "active"] };
+    prepare.mockResolvedValue({
+      ok: false,
+      error: { code: "brand_conflict", details },
+    });
+    const result = await generateCreativeWork({ workspaceId: "ws-1", workItemId: "work-1", userId: "user-1" });
+    // Same forwarding contract as invalid_context: the HTTP edge returns the
+    // two short choices in details and billing stays blocked.
+    expect(result).toMatchObject({ ok: false, error: { code: "brand_conflict", details } });
+    expect(charge).not.toHaveBeenCalled();
+    expect(createOutputs).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
   });
 
   it("refunds only rows still queued after partial event acceptance", async () => {

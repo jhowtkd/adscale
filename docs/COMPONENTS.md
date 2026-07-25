@@ -2,7 +2,7 @@
 
 # ADScale Frontend Components
 
-The `app/src/components/` tree holds every React component in the ADScale web client — a Next.js (App Router) + React 19 application styled with Tailwind CSS and a CSS-variable design-token system. Components are organized into **18 feature-oriented subdirectories** that map closely to product surfaces: the conversational **Assistant**, **campaigns** management, the creative **workspace**, the **dashboard**, **settings**/**billing**, an owner-facing **feedback**/quality cockpit, an **admin** calibration console, plus cross-cutting **layout**, **providers**, **ui** primitives, and **animations**. There is no top-level barrel `index.ts`; each module exports its own components (mostly `export default` per file) and is imported via deep `@/components/<module>/<file>` paths. Two parallel UI generations coexist: the current production shell (`AppShell`/`AppSidebar`/`TopBar`) and an in-progress **v6** redesign living in `auth/v6`, `campaigns/v6`, `dashboard/v6`, `library/v6`, and `settings/v6` alongside their `*-v6-types.ts`/`map-*-v6.ts` view-model adapters.
+The `app/src/components/` tree holds every React component in the ADScale web client — a Next.js (App Router) + React 19 application styled with Tailwind CSS and a CSS-variable design-token system. Components are organized into **21 feature-oriented subdirectories** that map closely to product surfaces: the conversational **Assistant**, **campaigns** management, the creative **workspace**, the home **creative-work** composer, **brand-training**, **quick-tools**, the **dashboard**, **settings**/**billing**, an owner-facing **feedback**/quality cockpit, an **admin** calibration console, plus cross-cutting **layout**, **providers**, **ui** primitives, and **animations**. There is no top-level barrel `index.ts`; each module exports its own components (mostly `export default` per file) and is imported via deep `@/components/<module>/<file>` paths. Two parallel UI generations coexist: the current production shell (`AppShell`/`AppSidebar`/`TopBar`) and an in-progress **v6** redesign living in `auth/v6`, `campaigns/v6`, `dashboard/v6`, `library/v6`, and `settings/v6` alongside their `*-v6-types.ts`/`map-*-v6.ts` view-model adapters.
 
 ---
 
@@ -16,11 +16,14 @@ The `app/src/components/` tree holds every React component in the ADScale web cl
 | `auth/` | 7 | Sign-in / sign-up cards, password input with strength meter, social auth, plus `auth/v6` redesign |
 | `billing/` | 1 | `ConversionCta` — the conversion-gate call-to-action rendered on HTTP 402 spend blocks |
 | `campaigns/` | Campaign UI | Campaign list/grid/board views, cards, filter toolbar, kanban, and output learning |
+| `creative-work/` | 6 | Home composer, tool cards, inspirations rail, source chips, result cards |
+| `brand-training/` | 3 | Brand training upload and status surfaces |
+| `quick-tools/` | 1 | Quick-tool entry points (e.g. create-post proposal grid) |
 | `cookie-consent/` | 1 | GDPR-style cookie consent banner with localStorage-persisted preferences |
-| `dashboard/` | 13 | Home dashboard: mission path, credit panel/charts, masonry grid, activity feed, onboarding tour, plus `dashboard/v6` |
+| `dashboard/` | 13 | Home shell (`DashboardHomeActions`), credit panel/charts, masonry grid, activity feed, onboarding tour, plus `dashboard/v6` |
 | `feedback/` | 13 | Contextual feedback modal/provider plus owner-facing quality cockpit (corpus, learning proposals, analytics, beta sessions) |
 | `layout/` | 16 | Application shells, sidebar, top bar, page primitives (frame, header, section, panel, toolbar), runtime guards |
-| `library/` | 1 | Asset library surface (`library/v6` redesign only) |
+| `library/` | 1 | Asset library (`library/v6/LibraryV6View` — production page at `/library`) |
 | `mission-insights/` | 2 | Context provider + prompt that captures mission-completion sentiment signals |
 | `providers/` | 6 | App-wide React context providers (Query, Theme, Motion, A11y, Sentry boundary, Toast) |
 | `restyling/` | 2 | Creative restyling upload + form |
@@ -29,7 +32,7 @@ The `app/src/components/` tree holds every React component in the ADScale web cl
 | `ui/` | 18 | Shared design-system primitives (Base UI / shadcn-style): button, dialog, sheet, select, table, badge, plus higher-level `ConfirmDialog`, `EmptyState`, `StatusBadge`, `ThemeToggle`, `LanguageSwitcher` |
 | `workspace/` | 18 | Single-campaign workspace: briefing steps, derivation grid/cards/review, delivery package, pilot upload, strategy recipes |
 
-Totals across the tree: **178 component `.tsx` files** (excluding tests), **68 co-located `.test.tsx`** specs, and **27 `.ts`** support modules (types, mappers, label builders, pricing model, hooks).
+Totals across the tree: **199 component `.tsx` files** (excluding tests), **86 co-located `.test.tsx`** specs, and **27+ `.ts`** support modules (types, mappers, label builders, pricing model, hooks).
 
 ---
 
@@ -182,11 +185,41 @@ Campaign list/grid/board views, cards, filters, skeletons, and the active output
 
 - **`CookieBanner`** — renders a fixed bottom `<dialog>` only when no consent is stored. Exports `ConsentPreferences = { necessary; analytics; marketing }` (persisted to `localStorage` under `adscale_cookie_consent`) and an inner `CookieConsentProvider`. Uses `useSyncExternalStore` for SSR-safe mount detection. Accept-all / necessary-only / granular-update actions.
 
-### `dashboard/` — home dashboard
+### `creative-work/` — home composer & inspirations
+
+Primary standalone creative surface mounted on `/` via `DashboardHomeActions`. Orchestrated by `useCreativeComposer` against `/api/creative-work/*`.
 
 | Component | Key API | Role |
 |----------|---------|------|
-| `MissionPathCard` | exports `MissionKey` type | Mission progression card with `ActiveMissionPanel`, `MissionListItem`, `MissionStatusIcon` |
+| `CreativeComposer` | `CreativeComposerProps` | Request input, format selection, source attachments, proposal grid |
+| `useCreativeComposer` | hook | Draft lifecycle: autosave, source analysis polling, generate/select/revise |
+| `CreativeToolCards` | intent cards | Entry intents: variations, single, format_adaptation, restyle |
+| `BrandInspirations` | `useCreativeInspirations` | Curated/template/approved-work inspiration rail on home |
+| `CreativeSourceChip` | chip props | Attached source preview with remove/retry |
+| `CreativeSourceAnalysisEditor` | editor props | Edit analyzed source brief before generation |
+| `CreativeResultCard` | output props | Output card with select, revise, and download actions |
+
+Also uses `quick-tools/create-post/CreativeProposalGrid` for the proposal comparison grid.
+
+**Relationships:** hooks in `@/lib/hooks/use-creative-work.ts`, `@/lib/hooks/use-canonical-works.ts`, `@/lib/hooks/use-creative-inspirations.ts`; server contracts in `@/server/creative-work/contracts.ts`.
+
+### `dashboard/` — home dashboard
+
+Production home (`app/(dashboard)/page.tsx` → `DashboardHomeActions`) is **composer-first**:
+
+1. `CreativeToolCards` + active brand switcher
+2. `CreativeComposer` (primary creation surface)
+3. “Continue where you left off” via `useCanonicalWorks`
+4. `BrandInspirations`
+
+Search params: `workId`, `intent`, `compose=1`, `templateId` (`dashboard-search-params.ts`).
+
+Legacy dashboard widgets below remain in the tree for campaigns list and settings contexts; `MissionPathCard` is not mounted on the home route today.
+
+| Component | Key API | Role |
+|----------|---------|------|
+| `DashboardHomeActions` | — | Home layout composing creative-work modules |
+| `MissionPathCard` | exports `MissionKey` type | Mission progression card (legacy; not on home) |
 | `LaboratoryProgressPanel` | — | Lab/mission progress; `ActiveStep`, `MissionListItem`, `MissionKeyIcon` |
 | `AdsScientistProgressCard` | — | Compact progress summary |
 | `MissionCreditBanner` | `MissionCreditBannerProps` | Credit-estimate banner |
@@ -240,9 +273,15 @@ Split between **user-facing feedback capture** and **platform-owner quality oper
 | `AccountStatusBadge` | `{ variant: "demo" \| "tester" }` | Demo/tester account indicator |
 | `DeploymentVersionGuard` / `ChunkLoadRecovery` / `ClientRuntimeGuards` | — | Runtime safety: version mismatch banner, chunk-load error recovery, client guard checks |
 
-### `library/` — asset library (v6 redesign)
+### `library/` — asset library
 
-Only the **`library/v6/`** redesign exists: `LibraryV6View` (`LibraryV6ViewProps` with `LibraryV6Asset` / `LibraryV6Labels`), `map-library-v6.ts`, `library-v6-types.ts`, `build-library-v6-labels.ts`. Renders searchable asset cards (`AssetCard`) with upload entry. No production (non-v6) component yet.
+Production page `app/(dashboard)/library/page.tsx` renders **`LibraryV6View`** with workspace asset hooks:
+
+- `useWorkspaceAssets({ excludeSources: ["curated_inspiration", "curated_inspiration_copy"] })` — user uploads only; curated inspirations stay on the home rail
+- XHR upload to `POST /api/workspace/assets` (50 MB max)
+- Search debounce, pagination (`PAGE_SIZE=24`, `MAX_LIMIT=200`), delete confirm
+
+Supporting v6 adapters: `map-library-v6.ts`, `library-v6-types.ts`, `build-library-v6-labels.ts`, `LibraryV6View` (`LibraryV6Asset` / `LibraryV6Labels`).
 
 ### `mission-insights/` — mission sentiment capture
 

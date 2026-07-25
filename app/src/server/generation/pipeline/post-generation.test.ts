@@ -16,8 +16,20 @@ vi.mock("@/server/generation/pipeline/score-derivation", () => ({
   scoreCompletedDerivation: vi.fn(),
 }));
 
-vi.mock("@/server/ai/creative-quality-gate", () => ({
+vi.mock("@/server/ai/creative-quality-gate", async (importOriginal) => ({
+  // Keep the real pure verdict/payload builders (R-005) and mock only the
+  // derivation gate orchestration.
+  ...(await importOriginal<typeof import("@/server/ai/creative-quality-gate")>()),
   runCompletedDerivationQualityGate: vi.fn(),
+}));
+
+const analyzeCreativeWorkQaMock = vi.hoisted(() => vi.fn());
+const inspectCreativeWorkImageFileMock = vi.hoisted(() => vi.fn());
+
+vi.mock("@/server/ai/creative-qa", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/ai/creative-qa")>()),
+  analyzeCreativeWorkQa: (...args: unknown[]) => analyzeCreativeWorkQaMock(...args),
+  inspectCreativeWorkImageFile: (...args: unknown[]) => inspectCreativeWorkImageFileMock(...args),
 }));
 
 vi.mock("@/server/human-quality/candidate-capture", () => ({
@@ -25,7 +37,11 @@ vi.mock("@/server/human-quality/candidate-capture", () => ({
 }));
 
 import { analyzeDerivationCreative } from "@/server/ai/creative-score";
-import { runCreativeWorkPostGeneration } from "./post-generation";
+import {
+  runCreativeWorkPostGeneration,
+  runCreativeWorkQualityAssessment,
+  type CreativeWorkQualityAssessmentInput,
+} from "./post-generation";
 import {
   decideCreativeWorkRefund,
   decideDerivationRefund,
@@ -280,5 +296,223 @@ describe("shared pipeline parity across failure phases", () => {
     await executeCanonicalGeneration(unitRequest("campaign"));
     await executeCanonicalGeneration(unitRequest("quick_tool"));
     expect(mockGenerate).toHaveBeenCalledTimes(2);
+  });
+});
+
+
+// ---------------------------------------------------------------------------
+// R-005 — Creative Work v1 tri-state quality assessment
+// ---------------------------------------------------------------------------
+
+describe("runCreativeWorkQualityAssessment (R-005)", () => {
+  beforeEach(() => {
+    mockAnalyze.mockReset();
+    analyzeCreativeWorkQaMock.mockReset();
+    inspectCreativeWorkImageFileMock.mockReset();
+    // Default: a well-formed 1:1 file and a clean objective evaluation.
+    inspectCreativeWorkImageFileMock.mockResolvedValue({
+      ok: true,
+      width: 1080,
+      height: 1080,
+      format: "png",
+      bytes: 4096,
+      error: null,
+    });
+    analyzeCreativeWorkQaMock.mockResolvedValue({ findings: [], summary: "Objetivamente íntegro." });
+  });
+
+  function scoreResult(overrides: Record<string, unknown> = {}) {
+    return {
+      scoreStatus: "analyzed",
+      qualityScore: 80,
+      scoreBreakdown: {} as never,
+      scoreIssues: [],
+      regenerationSuggestion: "",
+      ...overrides,
+    };
+  }
+
+  function assessmentInput(
+    overrides: Partial<CreativeWorkQualityAssessmentInput> = {},
+  ): CreativeWorkQualityAssessmentInput {
+    return {
+      workItemId: "w1",
+      outputId: "o1",
+      attempt: 1,
+      imageBuffer: Buffer.from("img"),
+      expectedDimensions: { width: 1080, height: 1080 },
+      requiredReferenceRoles: [],
+      attachedReferenceRoles: [],
+      qa: {
+        mode: "social_post" as const,
+        format: "1:1",
+        request: "Promoção de agosto com vagas limitadas",
+        copy: { headline: "H", body: "B", cta: "C" },
+        factPack: null,
+        brandName: "Cliente XPTO",
+        references: [],
+        locale: "pt-BR",
+      },
+      score: analyzeInput(),
+      ...overrides,
+    };
+  }
+
+  it("score 95 + fato inventado confirmado → fail (o score nunca aprova falha objetiva e o scorer é pulado)", async () => {
+    mockAnalyze.mockResolvedValue(scoreResult({ qualityScore: 95 }));
+    analyzeCreativeWorkQaMock.mockResolvedValue({
+      findings: [
+        { code: "unsupported_claim", status: "confirmed", note: "Renderiza R$ 99 sem origem." },
+      ],
+      summary: "Fato inventado.",
+    });
+
+    const result = await runCreativeWorkQualityAssessment(assessmentInput());
+
+    expect(result.objectiveVerdict).toBe("fail");
+    expect(result.quality.schemaVersion).toBe(1);
+    expect(result.quality.objectiveCodes).toEqual(["unsupported_claim"]);
+    // T8: the advisory scorer is skipped on a confirmed objective fail — the
+    // output is headed for correction/terminal failure, so no score persists
+    // and the scorer is never called.
+    expect(mockAnalyze).not.toHaveBeenCalled();
+    expect(result.quality.subjective).toEqual({
+      scoreStatus: "unavailable",
+      qualityScore: null,
+      issues: [],
+    });
+    // T8: the one-sentence evaluator summary persists for the review surface.
+    expect(result.quality.evaluatorSummary).toBe("Fato inventado.");
+    expect(result.quality.findings[0]).toMatchObject({
+      code: "unsupported_claim",
+      origin: "vision",
+    });
+  });
+
+  it("score baixo sem falha objetiva → pass e o score permanece advisory", async () => {
+    mockAnalyze.mockResolvedValue(
+      scoreResult({ qualityScore: 30, scoreIssues: ["Composição genérica"] }),
+    );
+
+    const result = await runCreativeWorkQualityAssessment(assessmentInput());
+
+    expect(result.objectiveVerdict).toBe("pass");
+    expect(result.quality.objectiveCodes).toEqual([]);
+    expect(result.quality.subjective).toEqual({
+      scoreStatus: "analyzed",
+      qualityScore: 30,
+      issues: ["Composição genérica"],
+    });
+  });
+
+  it("dimensão errada é detectada deterministicamente (sem modelo de visão)", async () => {
+    inspectCreativeWorkImageFileMock.mockResolvedValue({
+      ok: true,
+      width: 1024,
+      height: 1024,
+      format: "png",
+      bytes: 4096,
+      error: null,
+    });
+    mockAnalyze.mockResolvedValue(scoreResult({ qualityScore: 92 }));
+
+    const result = await runCreativeWorkQualityAssessment(assessmentInput());
+
+    expect(result.objectiveVerdict).toBe("fail");
+    expect(result.quality.objectiveCodes).toContain("wrong_dimensions");
+    expect(result.quality.checks.dimensions).toEqual({
+      ok: false,
+      expected: { width: 1080, height: 1080 },
+      actual: { width: 1024, height: 1024 },
+    });
+    expect(result.quality.findings[0]).toMatchObject({
+      code: "wrong_dimensions",
+      status: "confirmed",
+      origin: "deterministic",
+    });
+    // File is decodable, so the visual evaluation still runs for other defects.
+    expect(analyzeCreativeWorkQaMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("arquivo inválido falha como unusable_file sem visão nem scorer", async () => {
+    inspectCreativeWorkImageFileMock.mockResolvedValue({
+      ok: false,
+      width: null,
+      height: null,
+      format: null,
+      bytes: 7,
+      error: "Input buffer contains unsupported image format",
+    });
+
+    const result = await runCreativeWorkQualityAssessment(assessmentInput());
+
+    expect(result.objectiveVerdict).toBe("fail");
+    expect(result.quality.objectiveCodes).toEqual(["unusable_file"]);
+    expect(result.quality.evaluator.status).toBe("skipped");
+    expect(result.quality.checks.file.ok).toBe(false);
+    // No vision/scorer call is burned on a file that cannot be evaluated.
+    expect(analyzeCreativeWorkQaMock).not.toHaveBeenCalled();
+    expect(mockAnalyze).not.toHaveBeenCalled();
+  });
+
+  it("ausência de referência obrigatória é detectada deterministicamente", async () => {
+    mockAnalyze.mockResolvedValue(scoreResult());
+
+    const result = await runCreativeWorkQualityAssessment(
+      assessmentInput({
+        requiredReferenceRoles: ["original"],
+        attachedReferenceRoles: [],
+      }),
+    );
+
+    expect(result.objectiveVerdict).toBe("fail");
+    expect(result.quality.objectiveCodes).toContain("ignored_mandatory_reference");
+    expect(result.quality.checks.references).toEqual({
+      ok: false,
+      missingRequired: ["original"],
+    });
+  });
+
+  it("QA indisponível (timeout/erro do avaliador) → inconclusive, sem retry e sem consumir segunda chamada", async () => {
+    analyzeCreativeWorkQaMock.mockRejectedValue(new Error("vision QA timed out after 180s"));
+    mockAnalyze.mockResolvedValue(scoreResult({ qualityScore: 88 }));
+
+    const result = await runCreativeWorkQualityAssessment(assessmentInput());
+
+    expect(result.objectiveVerdict).toBe("inconclusive");
+    expect(result.quality.objectiveCodes).toEqual([]);
+    expect(result.quality.evaluator).toEqual({
+      status: "failed",
+      error: "vision QA timed out after 180s",
+    });
+    // The assessment resolves normally — the adapter completes the output.
+    expect(result.quality.attempt).toBe(1);
+  });
+
+  it("finding exclusivamente subjetivo/suspeito permanece advisory → inconclusive quando ambíguo", async () => {
+    analyzeCreativeWorkQaMock.mockResolvedValue({
+      findings: [{ code: "wrong_brand", status: "suspected", note: "Logo parcialmente encoberto." }],
+      summary: "Ambíguo.",
+    });
+    mockAnalyze.mockResolvedValue(scoreResult({ qualityScore: 90 }));
+
+    const result = await runCreativeWorkQualityAssessment(assessmentInput());
+
+    expect(result.objectiveVerdict).toBe("inconclusive");
+    expect(result.quality.objectiveCodes).toEqual([]);
+    expect(result.quality.subjective.qualityScore).toBe(90);
+  });
+
+  it("falha técnica do scorer subjetivo mantém o output disponível sem score", async () => {
+    mockAnalyze.mockRejectedValue(new Error("scorer 500"));
+
+    const result = await runCreativeWorkQualityAssessment(assessmentInput());
+
+    expect(result.objectiveVerdict).toBe("pass");
+    expect(result.quality.subjective).toEqual({
+      scoreStatus: "unavailable",
+      qualityScore: null,
+      issues: [],
+    });
   });
 });

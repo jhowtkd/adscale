@@ -44,7 +44,11 @@ export async function executeCanonicalGeneration(
   );
 
   let routes: Array<{ id: string; prompt: string }> | undefined;
-  if (request.intent.mode === "social_post") {
+  // R-001: under the v1 direct policy the executor never invokes the route
+  // planner, the judge or hidden candidates for a Creative Work output —
+  // one visible output means one provider call.
+  const directExecution = request.executionPolicy === "direct";
+  if (request.intent.mode === "social_post" && !directExecution) {
     try {
       const plannedRoutes = await planCreativeRoutes({
         sourcePrompt: request.prompt.text,
@@ -69,6 +73,7 @@ export async function executeCanonicalGeneration(
     referenceImages: request.identity.referenceImages,
     generationMode: toProviderMode(request.intent.mode),
     outputSuffix: request.source.outputSuffix ?? "",
+    executionPolicy: request.executionPolicy,
     routes,
     selectCandidate: routes
       ? async (candidates) => {

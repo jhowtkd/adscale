@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { Paperclip, Sparkles } from "lucide-react";
@@ -21,6 +21,24 @@ export function CreativeComposer({ composer, composerRef }: {
   const t = useTranslations("dashboard.home.composer");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const styleInputRef = useRef<HTMLInputElement>(null);
+  // R-008: when the brand conflict appears, focus moves to the choice so
+  // keyboard/screen-reader users land on the only pending decision.
+  const brandConflictChoiceRef = useRef<HTMLButtonElement>(null);
+  const generateButtonRef = useRef<HTMLButtonElement>(null);
+  const hadBrandConflictRef = useRef(false);
+  useEffect(() => {
+    if (composer.brandConflict) {
+      hadBrandConflictRef.current = true;
+      brandConflictChoiceRef.current?.focus();
+      return;
+    }
+    // Restore focus only once the resumed submit settles back to idle —
+    // while it runs, the generate button is disabled and unfocusable.
+    if (hadBrandConflictRef.current && composer.actionPhase === "idle") {
+      hadBrandConflictRef.current = false;
+      generateButtonRef.current?.focus();
+    }
+  }, [composer.brandConflict, composer.actionPhase]);
   const isRestyle = composer.intent === "restyle";
   const isVariations = composer.intent === "variations";
   const isSingle = composer.intent === "single";
@@ -238,6 +256,40 @@ export function CreativeComposer({ composer, composerRef }: {
         </aside>
       ) : null}
 
+      {composer.brandConflict ? (
+        <fieldset
+          aria-describedby="brand-conflict-description"
+          className="rounded-[var(--radius-object)] border border-[var(--border-default)] bg-[var(--surface-base)] p-4"
+          data-testid="brand-conflict-choice"
+        >
+          <legend className="px-1 text-sm font-semibold text-[var(--text-primary)]">
+            {t("brandConflictTitle")}
+          </legend>
+          <p id="brand-conflict-description" className="mt-1 text-sm text-[var(--text-secondary)]">
+            {t("brandConflictDescription", { brand: composer.brandConflict.detectedBrand })}
+          </p>
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+            <button
+              ref={brandConflictChoiceRef}
+              type="button"
+              disabled={composer.isResolvingBrandConflict}
+              onClick={() => void composer.resolveBrandConflict("source")}
+              className="inline-flex min-h-[var(--control-touch)] flex-1 items-center justify-center rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-inset)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {t("brandConflictChoiceSource", { brand: composer.brandConflict.detectedBrand })}
+            </button>
+            <button
+              type="button"
+              disabled={composer.isResolvingBrandConflict}
+              onClick={() => void composer.resolveBrandConflict("active")}
+              className="inline-flex min-h-[var(--control-touch)] flex-1 items-center justify-center rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-inset)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {t("brandConflictChoiceActive", { brand: composer.brandConflict.activeBrand || composer.brandName || "" })}
+            </button>
+          </div>
+        </fieldset>
+      ) : null}
+
       {isFormatAdaptation ? (
         <fieldset className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-4">
           <legend className="px-1 text-sm font-medium text-[var(--text-primary)]">{t("targetFormats")}</legend>
@@ -291,6 +343,7 @@ export function CreativeComposer({ composer, composerRef }: {
         data-testid="creative-generate-action"
       >
         <button
+          ref={generateButtonRef}
           type="button"
           aria-busy={Boolean(pendingLabel)}
           disabled={!composer.canGenerate || Boolean(pendingLabel)}

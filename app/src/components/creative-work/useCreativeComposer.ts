@@ -17,8 +17,12 @@ import {
   useDownloadOutputUrl,
   useLinkCreativeWorkCampaign,
   useCreativeWorkCampaigns,
+  useResolveBrandConflict,
   useTriggerTriplet,
+  extractCreativeWorkBrandConflict,
   type CreativeSourceUsage,
+  type CreativeWorkBrandChoice,
+  type CreativeWorkBrandConflict,
   type CreativeWorkItem,
   type CreativeWorkOutput,
   type CreativeWorkQuote,
@@ -100,6 +104,9 @@ export function useCreativeComposer({
   const [isUploading, setIsUploading] = useState(false);
   const [actionPhase, setActionPhase] = useState<ComposerActionPhase>("idle");
   const [error, setError] = useState<string | null>(null);
+  // R-008: the only new visible decision — the restyle brand-authority
+  // conflict raised by the 422 prepare response.
+  const [brandConflict, setBrandConflict] = useState<CreativeWorkBrandConflict | null>(null);
   const [announcement, setAnnouncement] = useState("");
   const [brandTrainingSuggestion, setBrandTrainingSuggestion] = useState<string | null>(null);
   const [failedInitialTemplateId, setFailedInitialTemplateId] = useState<string | null>(null);
@@ -138,6 +145,7 @@ export function useCreativeComposer({
   const reviseOutputMutation = useReviseOutput();
   const selectOutputMutation = useSelectOutput();
   const linkCampaignMutation = useLinkCreativeWorkCampaign();
+  const resolveBrandConflictMutation = useResolveBrandConflict();
   const downloadOutputUrl = useDownloadOutputUrl();
   const campaignQuery = useCreativeWorkCampaigns(Boolean(detailQuery.data?.outputs.length));
 
@@ -426,6 +434,7 @@ export function useCreativeComposer({
     setWorkId(null);
     setRequestState("");
     setError(null);
+    setBrandConflict(null);
     setActionPhase("idle");
     intentRef.current = next;
     setIntent(next);
@@ -627,6 +636,9 @@ export function useCreativeComposer({
     submitGuardRef.current = true;
     setActionPhase("saving");
     setError(null);
+    // A new submit supersedes any stale conflict panel — a generic failure
+    // ahead must never render alongside an outdated choice.
+    setBrandConflict(null);
     try {
       const id = await flushAutosave();
       if (!id) return;
@@ -645,15 +657,39 @@ export function useCreativeComposer({
       setFormat(prepared.work.format);
       setActionPhase("submitting");
       const generated = await generateMutation.mutateAsync(id);
+      setBrandConflict(null);
       setBrandTrainingSuggestion(generated.brandTrainingSuggestion);
       setAnnouncement("Geração iniciada");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Falha ao gerar");
+      // R-008: an explicit brand conflict is NOT a generic error — it is the
+      // one visible decision of the flow. Surface it as a choice; everything
+      // else stays a safe, server-translated message.
+      const conflict = extractCreativeWorkBrandConflict(cause);
+      if (conflict) {
+        setBrandConflict(conflict);
+      } else {
+        setError(cause instanceof Error ? cause.message : "Falha ao gerar");
+      }
     } finally {
       submitGuardRef.current = false;
       setActionPhase("idle");
     }
   }, [detailQuery.data?.sources, detailQuery.data?.work, flushAutosave, generateMutation, prepareMutation]);
+
+  const resolveBrandConflict = useCallback(async (choice: CreativeWorkBrandChoice) => {
+    // Double-click guard: one choice in flight per conflict.
+    if (!workIdRef.current || !brandConflict || resolveBrandConflictMutation.isPending) return;
+    try {
+      // The choice autosaves on the SAME draft server-side; the interrupted
+      // submit then resumes unchanged (prepare → generate).
+      await resolveBrandConflictMutation.mutateAsync({ workItemId: workIdRef.current, choice });
+      setBrandConflict(null);
+      setAnnouncement("Escolha de marca salva");
+      await generate();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Falha ao salvar escolha de marca");
+    }
+  }, [brandConflict, generate, resolveBrandConflictMutation]);
 
   const retryOutput = useCallback(async (outputId: string) => {
     if (!workIdRef.current) return;
@@ -759,7 +795,10 @@ export function useCreativeComposer({
     && !sources.some((source) => source.status === "uploaded" || source.status === "analyzing")
     && (intent !== "single" || !sources.some((source) => source.usageConfirmed === false))
     && (intent !== "format_adaptation" || targetFormats.length > 0)
-    && !isUploading && actionPhase === "idle" && !generateMutation.isPending;
+    && !isUploading && actionPhase === "idle" && !generateMutation.isPending
+    // A brand choice being applied resumes the submit itself — a manual
+    // click in that window would race it with a concurrent generate.
+    && !resolveBrandConflictMutation.isPending;
 
   const campaigns = (campaignQuery.data ?? []).filter((campaign) =>
     !campaign.clientProfileId || campaign.clientProfileId === storedProfileId,
@@ -788,6 +827,8 @@ export function useCreativeComposer({
     sources: detail?.sources ?? [], outputs: detail?.outputs ?? [], quote, canGenerate, isUploading,
     campaignId: detail?.work.campaignId ?? null, campaigns,
     error, announcement, brandTrainingSuggestion: brandTrainingSuggestion ?? persistedBrandTrainingSuggestion,
+    brandConflict, resolveBrandConflict,
+    isResolvingBrandConflict: resolveBrandConflictMutation.isPending,
     requiresBrandSelection: active.requiresSelection,
     retryInitialTemplate: failedInitialTemplateId
       && !detail?.sources.some((source) => source.templateId === failedInitialTemplateId)

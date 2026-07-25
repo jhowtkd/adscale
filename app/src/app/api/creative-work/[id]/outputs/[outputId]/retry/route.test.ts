@@ -61,6 +61,8 @@ describe("POST /api/creative-work/[id]/outputs/[outputId]/retry", () => {
       workspaceId: "workspace-1",
       workItemId: "work-1",
       outputId: "output-1",
+      // R-006: the reactivation ledger row is attributed to the caller.
+      userId: "user-1",
     });
   });
 

@@ -17,7 +17,7 @@ vi.mock("../feedback/validate-refs", async (importOriginal) => {
   };
 });
 
-import { PHASE_76_BETA_EVENT_KEYS } from "./types";
+import { PHASE_76_BETA_EVENT_KEYS, PHASE_126_BETA_EVENT_KEYS } from "./types";
 import { recordBetaAnalyticsEvent } from "./record";
 import {
   insertBetaAnalyticsEvent,
@@ -227,6 +227,56 @@ describe("recordBetaAnalyticsEvent", () => {
       );
     }
   );
+
+  it.each(PHASE_126_BETA_EVENT_KEYS)(
+    "accepts allowed Phase 126 event_key %s",
+    async (eventKey) => {
+      mockInsert.mockResolvedValue(mockInsertedEvent({ eventKey }) as never);
+
+      await recordBetaAnalyticsEvent({
+        workspaceId: "ws-1",
+        userId: "user-1",
+        eventKey,
+      });
+
+      expect(mockInsert).toHaveBeenCalledWith(
+        expect.objectContaining({ eventKey })
+      );
+    }
+  );
+
+  it("persists output_learning_recommendation_accepted with card payload unchanged", async () => {
+    const properties = {
+      recommendationId: "rec-1",
+      variableKey: "cta",
+      confidence: "high",
+      recipeId: "performance_push",
+      action: "accept",
+      traceId: "ol-trace-1",
+      evidenceEventCount: 2,
+      blockedFieldCount: 1,
+    };
+    mockInsert.mockResolvedValue(
+      mockInsertedEvent({
+        eventKey: "output_learning_recommendation_accepted",
+        properties,
+      }) as never
+    );
+
+    await recordBetaAnalyticsEvent({
+      workspaceId: "ws-1",
+      userId: "user-1",
+      eventKey: "output_learning_recommendation_accepted",
+      properties,
+    });
+
+    expect(mockInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventKey: "output_learning_recommendation_accepted",
+        properties,
+      })
+    );
+  });
 
   it("rejects unknown event_key before insert", async () => {
     await expect(

@@ -555,7 +555,24 @@
         "photoTreatment": "Tratamento fotográfico",
         "saveData": "Salvar dados",
         "savingData": "Salvando...",
-        "saveDataError": "Não foi possível salvar. Suas alterações continuam aqui para uma nova tentativa."
+        "saveDataError": "Não foi possível salvar. Suas alterações continuam aqui para uma nova tentativa.",
+        "brandConflictTitle": "Qual marca vale nesta peça?",
+        "brandConflictDescription": "A arte de conteúdo é da marca {brand}, diferente da marca ativa. Escolha qual autoridade de marca a peça deve seguir.",
+        "brandConflictChoiceSource": "Usar a marca da arte ({brand})",
+        "brandConflictChoiceActive": "Manter a marca ativa ({brand})",
+        "results": {
+          "failedGeneration": "Falha na geração",
+          "reviewRecommended": "Revisão recomendada — a checagem automática ficou inconclusiva",
+          "retryUnavailable": "Esta proposta já usou todas as tentativas automáticas. Crie um novo pedido para gerar outra versão.",
+          "failure": {
+            "timeout": "A geração demorou demais e foi interrompida.",
+            "invalid_context": "O pedido ou as fontes não tinham informação suficiente para gerar com fidelidade. Ajuste o pedido e tente de novo.",
+            "factual_violation": "A peça não preservou os fatos ou a marca, mesmo após a correção automática. Revise o pedido e as referências.",
+            "brand_conflict": "Há um conflito de marca entre a arte e a marca ativa. Resolva a escolha de marca para continuar.",
+            "reference_failure": "Uma referência obrigatória não pôde ser usada. Reenvie a arte e tente novamente.",
+            "unknown": "A geração falhou por um erro inesperado."
+          }
+        }
       },
       "tools": {
         "title": "Escolha um protocolo de criação",
@@ -844,7 +861,7 @@
     "new": "Novo trabalho",
     "name": "Nome da campanha",
     "client": "Cliente",
-    "clientProfile": "Marca vinculada",
+    "clientProfile": "Perfil do cliente",
     "customClient": "Cliente sem marca vinculada",
     "clientProfileHint": "Vincular a marca libera Brand Kit, assistente e aprendizados desde o início.",
     "product": "Produto",
@@ -982,7 +999,6 @@
     "deleteTitle": "Excluir campanha",
     "createNew": "Criar nova campanha",
     "createDescription": "Comece com o briefing e a peça base. Gere um lote de variações e cure o que vai ao ar.",
-    "clientProfile": "Perfil do cliente",
     "selectClientProfile": "Selecione um perfil de cliente",
     "keyCreative": "Peça-chave",
     "uploadCreativeHint": "Clique para fazer upload da peça-chave",
@@ -2168,7 +2184,9 @@
     "invalid_quality_snapshot": "Esta saída tem metadados de aprendizado inválidos e não pode entrar no corpus.",
     "clientProfileNotFound": "Perfil de cliente não encontrado.",
     "voiceConfigNotFound": "Nenhuma proposta de voz para aprovar. Gere a voz primeiro.",
-    "unknown": "Erro desconhecido. Tente novamente."
+    "unknown": "Erro desconhecido. Tente novamente.",
+    "invalid_context": "O pedido ou as fontes não têm informação suficiente para gerar com fidelidade. Ajuste o texto ou as artes e tente novamente.",
+    "brand_conflict": "A arte de conteúdo pertence a uma marca diferente da marca ativa. Escolha qual marca a peça deve seguir."
   },
   "brandTraining": {
     "title": "Treinar identidade de marca",

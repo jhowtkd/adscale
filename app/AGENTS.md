@@ -13,3 +13,12 @@ provider seam because local E2E tests inject a deterministic implementation.
 Candidate metadata remains part of the canonical result so route-level
 generation and ranking can store multiple OpenAI candidates without changing
 downstream persistence contracts.
+
+### Creative work (home composer)
+
+Standalone creative flows use the `creative_work` aggregate (ADR 0013), not campaigns:
+
+- **UI:** `src/components/creative-work/` (`CreativeComposer`, `BrandInspirations`)
+- **API:** `/api/creative-work/*` — create draft, attach sources, generate outputs
+- **Jobs:** `creativeWorkOutputJob`, `creativeWorkSourceAnalyzeJob` (Inngest)
+- **Library:** `/library` lists workspace assets with `excludeSources` for curated inspirations

@@ -66,7 +66,7 @@ describe("quoteCreativeWork", () => {
 });
 
 describe("inferSocialPostBrief", () => {
-  it("fills a complete brief from request and ready content analysis", () => {
+  it("fills a brief from request and content analysis without placeholder audience", () => {
     expect(inferSocialPostBrief("Promoção de matrícula para julho", [{
       product: "Pós-graduação",
       offer: "20% de desconto",
@@ -78,8 +78,24 @@ describe("inferSocialPostBrief", () => {
     }])).toEqual({
       theme: "Promoção de matrícula para julho",
       objective: "Promover Pós-graduação",
-      audience: "Público da marca",
+      audience: "",
       offer: "20% de desconto",
     });
+  });
+
+  it("combines every content analysis instead of only the first", () => {
+    const analysis = (product: string, offer: string) => ({
+      product,
+      offer,
+      cta: { text: "Saiba mais", style: "button" },
+      brandElements: [],
+      keyVisual: "produto",
+      textContent: { headline: "", bullets: [] },
+      format: "4:5",
+    });
+    const brief = inferSocialPostBrief("", [analysis("Pós-graduação", "20% de desconto"), analysis("Mentoria", "vagas abertas")]);
+    expect(brief.objective).toBe("Promover Pós-graduação e Mentoria");
+    expect(brief.offer).toBe("20% de desconto e vagas abertas");
+    expect(JSON.stringify(brief)).not.toContain("Público da marca");
   });
 });

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const inferBrief = vi.hoisted(() => vi.fn());
+const envState = vi.hoisted(() => ({ qualityRecoveryEnabled: "false" }));
 const transactionExecutor = { scope: "preparation-tx" } as never;
 
 vi.mock("@/server/repositories/creative-work", () => ({
@@ -10,14 +11,24 @@ vi.mock("@/server/repositories/creative-work", () => ({
   withCreativeWorkPreparationLock: vi.fn(async (_workspaceId, _workItemId, callback) => callback(transactionExecutor)),
 }));
 vi.mock("@/server/repositories/brand-kit", () => ({ getBrandKit: vi.fn() }));
-vi.mock("@/server/creative-work/copy", () => ({ generateSocialPostCopy: vi.fn() }));
+vi.mock("@/server/creative-work/copy", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/creative-work/copy")>()),
+  generateSocialPostCopy: vi.fn(),
+}));
 vi.mock("./generate-social-post-copy", () => ({ generateSocialPostCopy: vi.fn() }));
+vi.mock("@/server/validation/env", () => ({
+  env: {
+    get CREATIVE_WORK_QUALITY_RECOVERY_ENABLED() {
+      return envState.qualityRecoveryEnabled;
+    },
+  },
+}));
 vi.mock("@/server/creative-work/prepare", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/server/creative-work/prepare")>()),
   inferSocialPostBrief: inferBrief,
 }));
 
-import { generateSocialPostCopy } from "@/server/creative-work/copy";
+import { generateSocialPostCopy, CreativeCopyContextError } from "@/server/creative-work/copy";
 import {
   getCreativeWork,
   updateCreativeWorkDraftIfUnchanged,
@@ -45,6 +56,7 @@ const work = {
 describe("prepareCreativeWork", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    envState.qualityRecoveryEnabled = "false";
     withLock.mockImplementation(async (_workspaceId, _workItemId, callback) => callback(transactionExecutor) as never);
     getKit.mockResolvedValue({ name: "Cenbrap", toneOfVoice: "Direto", requiredElements: null, prohibitedElements: null } as never);
     generateCopy.mockResolvedValue({ headline: "Julho", body: "Matricule-se", cta: "Saiba mais" });
@@ -133,6 +145,57 @@ describe("prepareCreativeWork", () => {
   });
 
   it("reuses persisted preparation when the input snapshot is unchanged", async () => {
+    // Real round trip: the first prepare persists the snapshot (fact pack
+    // included); the second prepare must reuse it without regenerating copy.
+    let current = { ...work } as typeof work & { inputSnapshot?: unknown; brief?: unknown; copy?: unknown };
+    getWork.mockImplementation(async () => ({ work: current, outputs: [], sources: [] } as never));
+    updateDraft.mockImplementation(async (_ws, _id, _updatedAt, patch) => {
+      current = { ...current, ...patch } as typeof current;
+      return current as never;
+    });
+    const first = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
+    const second = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
+    expect(first.ok).toBe(true);
+    expect(second.ok).toBe(true);
+    expect(generateCopy).toHaveBeenCalledOnce();
+    expect(updateDraft).toHaveBeenCalledOnce();
+  });
+
+  it("reuses preparation when the persisted snapshot only differs in jsonb key order", async () => {
+    // PostgreSQL jsonb does not preserve key order: a snapshot read back with
+    // recursively reordered keys is still the same input and must hit the
+    // reuse branch — no copy regeneration, no draft update.
+    const reverseKeys = (value: unknown): unknown => {
+      if (Array.isArray(value)) return value.map(reverseKeys);
+      if (value !== null && typeof value === "object") {
+        return Object.fromEntries(
+          Object.entries(value as Record<string, unknown>).reverse().map(([key, entry]) => [key, reverseKeys(entry)]),
+        );
+      }
+      return value;
+    };
+    let current = { ...work } as typeof work & { inputSnapshot?: unknown; brief?: unknown; copy?: unknown };
+    getWork.mockImplementation(async () => ({ work: current, outputs: [], sources: [] } as never));
+    updateDraft.mockImplementation(async (_ws, _id, _updatedAt, patch) => {
+      current = { ...current, ...patch } as typeof current;
+      return current as never;
+    });
+
+    const first = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
+    expect(first.ok).toBe(true);
+    const persistedSnapshot = current.inputSnapshot;
+    const reorderedSnapshot = reverseKeys(persistedSnapshot);
+    expect(JSON.stringify(reorderedSnapshot)).not.toBe(JSON.stringify(persistedSnapshot));
+    current = { ...current, inputSnapshot: reorderedSnapshot };
+
+    const second = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
+
+    expect(second.ok).toBe(true);
+    expect(generateCopy).toHaveBeenCalledOnce();
+    expect(updateDraft).toHaveBeenCalledOnce();
+  });
+
+  it("re-prepares an unchanged snapshot written before the fact pack existed, rebuilding only the missing block", async () => {
     const snapshot = { request: work.request, settings: work.settings, sources: [] };
     getWork.mockResolvedValue({ work: {
       ...work, inputSnapshot: snapshot,
@@ -141,8 +204,47 @@ describe("prepareCreativeWork", () => {
     }, outputs: [], sources: [] } as never);
     const result = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
     expect(result.ok).toBe(true);
-    expect(generateCopy).not.toHaveBeenCalled();
-    expect(updateDraft).not.toHaveBeenCalled();
+    expect(generateCopy).toHaveBeenCalledOnce();
+    expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now, expect.objectContaining({
+      inputSnapshot: expect.objectContaining({
+        request: work.request,
+        sources: [],
+        factPack: expect.objectContaining({ version: 1, request: work.request }),
+      }),
+    }), transactionExecutor);
+  });
+
+  it("freezes the policy version as legacy into the snapshot while the switch is disabled", async () => {
+    getWork.mockResolvedValue({ work, outputs: [], sources: [] } as never);
+    await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
+    expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now, expect.objectContaining({
+      inputSnapshot: expect.objectContaining({ generationPolicyVersion: "legacy" }),
+    }), transactionExecutor);
+  });
+
+  it("freezes quality_recovery_v1 into the snapshot while the switch is enabled", async () => {
+    envState.qualityRecoveryEnabled = "true";
+    getWork.mockResolvedValue({ work, outputs: [], sources: [] } as never);
+    await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
+    expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now, expect.objectContaining({
+      inputSnapshot: expect.objectContaining({ generationPolicyVersion: "quality_recovery_v1" }),
+    }), transactionExecutor);
+  });
+
+  it("re-prepares an old legacy snapshot when the enabled switch changes the resolved version", async () => {
+    envState.qualityRecoveryEnabled = "true";
+    const snapshot = { request: work.request, settings: work.settings, sources: [] };
+    getWork.mockResolvedValue({ work: {
+      ...work, inputSnapshot: snapshot,
+      brief: { theme: "Tema", objective: "Objetivo", audience: "Público", offer: "Oferta" },
+      copy: { headline: "H", body: "B", cta: "C" },
+    }, outputs: [], sources: [] } as never);
+    const result = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
+    expect(result.ok).toBe(true);
+    expect(generateCopy).toHaveBeenCalledOnce();
+    expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now, expect.objectContaining({
+      inputSnapshot: expect.objectContaining({ generationPolicyVersion: "quality_recovery_v1" }),
+    }), transactionExecutor);
   });
 
   it("blocks while a source is still analyzing", async () => {
@@ -212,5 +314,295 @@ describe("prepareCreativeWork", () => {
     expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now, expect.objectContaining({
       inputSnapshot: expect.objectContaining({ sources: [expect.objectContaining({ assetKey: "workspaces/ws/source.png", mimeType: "image/png", style: { description: "Editorial" } })] }),
     }), transactionExecutor);
+  });
+
+  it("freezes a fact pack with the full request, all content facts and provenance — never style-only facts", async () => {
+    const longRequest =
+      "Post para o consultório de Psicologia: grupo de terapia começa em agosto, vagas limitadas, atendimento online. " +
+      "Explique como funciona o grupo, quem conduz os encontros semanais e por que começar agora faz diferença.";
+    const contentAnalysis = (product: string, offer: string) => ({
+      product, offer,
+      cta: { text: "Inscreva-se", style: "botão" },
+      brandElements: [], keyVisual: "roda de conversa",
+      textContent: { headline: "Cuide da sua mente", bullets: [] }, format: "4:5",
+    });
+    getWork.mockResolvedValue({ work: { ...work, request: longRequest }, outputs: [], sources: [
+      { id: "source-content-1", status: "ready", usage: "content", usageConfirmed: true, updatedAt: now, contentAnalysis: contentAnalysis("Grupo de terapia", "Inscrições abertas"), styleAnalysis: null },
+      { id: "source-content-2", status: "ready", usage: "both", usageConfirmed: true, updatedAt: now, contentAnalysis: contentAnalysis("Mentoria individual", "Turma de agosto"), styleAnalysis: null },
+      { id: "source-style", status: "ready", usage: "style", usageConfirmed: true, updatedAt: now, contentAnalysis: contentAnalysis("Condomínio fechado", "R$ 900.000 à vista"), styleAnalysis: { description: "Editorial" } },
+    ] } as never);
+
+    const result = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
+
+    expect(result.ok).toBe(true);
+    // The full, untruncated request reaches both the snapshot and the copy call.
+    expect(generateCopy).toHaveBeenCalledWith(expect.objectContaining({
+      factPack: expect.objectContaining({ request: longRequest }),
+    }));
+    expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now, expect.objectContaining({
+      inputSnapshot: expect.objectContaining({
+        factPack: expect.objectContaining({
+          version: 1,
+          request: longRequest,
+          facts: expect.arrayContaining([
+            expect.objectContaining({ value: "agosto", class: "date", required: true, origin: "request" }),
+            expect.objectContaining({ value: "vagas limitadas", class: "condition", required: true, origin: "request" }),
+            expect.objectContaining({ value: "Grupo de terapia", class: "product", origin: "source", sourceId: "source-content-1" }),
+            expect.objectContaining({ value: "Mentoria individual", class: "product", origin: "source", sourceId: "source-content-2" }),
+            expect.objectContaining({ value: "Cenbrap", class: "brand", required: true, origin: "brand" }),
+          ]),
+        }),
+      }),
+    }), transactionExecutor);
+    const patch = updateDraft.mock.calls[0]?.[3] as { inputSnapshot: { factPack: unknown } };
+    const serialized = JSON.stringify(patch.inputSnapshot.factPack);
+    expect(serialized).not.toContain("Condomínio fechado");
+    expect(serialized).not.toContain("R$ 900.000");
+    expect(serialized).not.toContain("Público da marca");
+  });
+
+  it("fails as invalid_context before persistence when the copy keeps claims without origin", async () => {
+    getWork.mockResolvedValue({ work, outputs: [], sources: [] } as never);
+    generateCopy.mockRejectedValue(new CreativeCopyContextError([
+      { class: "price", value: "50%", field: "headline" },
+    ]));
+
+    await expect(prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" }))
+      .resolves.toEqual({
+        ok: false,
+        error: { code: "invalid_context", details: { violations: [{ class: "price", value: "50%", field: "headline" }] } },
+      });
+    expect(updateDraft).not.toHaveBeenCalled();
+  });
+
+  it("propagates provider failures from copy generation instead of masking them as invalid_context", async () => {
+    getWork.mockResolvedValue({ work, outputs: [], sources: [] } as never);
+    generateCopy.mockRejectedValue(new Error("provider unavailable"));
+    await expect(prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" }))
+      .rejects.toThrow("provider unavailable");
+    expect(updateDraft).not.toHaveBeenCalled();
+  });
+
+  describe("restyle brand conflict (R-003)", () => {
+    // Canonical XTB case: the content art explicitly carries the broker brand
+    // XTB while the workspace active brand is Cenbrap.
+    const xtbContentAnalysis = {
+      product: "Corretora XTB",
+      offer: "",
+      cta: { text: "Invista", style: "botão" },
+      brandElements: ["logo da XTB", "paleta azul"],
+      keyVisual: "gráficos de mercado",
+      textContent: { headline: "Invista com a XTB", bullets: [] },
+      format: "4:5",
+    };
+    const styleAnalysis = { description: "Editorial escuro" };
+    const restyleSources = [
+      { id: "source-content", assetId: "asset-content", status: "ready", usage: "both", usageConfirmed: true, updatedAt: now, contentAnalysis: xtbContentAnalysis, styleAnalysis: null },
+      { id: "source-style", assetId: "asset-style", status: "ready", usage: "both", usageConfirmed: true, updatedAt: now, contentAnalysis: null, styleAnalysis },
+    ];
+    const restyleAssetDetails = new Map([
+      ["source-content", { assetKey: "xtb.png", mimeType: "image/png", source: "upload" }],
+      ["source-style", { assetKey: "style.png", mimeType: "image/png", source: "curated_inspiration_copy" }],
+    ]);
+    const restyleWork = (settings: unknown = { targetFormats: [] }) => ({
+      ...work, toolKind: "restyle", request: "", settings,
+    });
+
+    function mockRestyleAggregate(settings?: unknown) {
+      getWork.mockResolvedValue({
+        work: restyleWork(settings ?? { targetFormats: [] }),
+        outputs: [],
+        sources: restyleSources,
+      } as never);
+      getSourceAssets.mockResolvedValue(restyleAssetDetails as never);
+      inferBrief.mockReturnValue({ theme: "Corretora XTB", objective: "Reestilizar", audience: "", offer: "Investimentos" });
+    }
+
+    it("blocks preparation with a typed brand_conflict before copy, persistence or billing", async () => {
+      mockRestyleAggregate();
+      const result = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
+      expect(result).toEqual({
+        ok: false,
+        error: {
+          code: "brand_conflict",
+          details: {
+            detectedBrand: "XTB",
+            activeBrand: "Cenbrap",
+            sourceId: "source-content",
+            choices: ["source", "active"],
+          },
+        },
+      });
+      expect(generateCopy).not.toHaveBeenCalled();
+      expect(updateDraft).not.toHaveBeenCalled();
+    });
+
+    it("resumes the same draft with the source brand once the source choice is saved", async () => {
+      getKit.mockResolvedValue({ name: "Cenbrap", toneOfVoice: "Direto", requiredElements: "Logo Cenbrap", prohibitedElements: "Clipart" } as never);
+      // 1) The same draft first blocks on the conflict.
+      mockRestyleAggregate();
+      const blocked = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
+      expect(blocked).toEqual(expect.objectContaining({ ok: false, error: expect.objectContaining({ code: "brand_conflict" }) }));
+      expect(generateCopy).not.toHaveBeenCalled();
+      expect(updateDraft).not.toHaveBeenCalled();
+
+      // 2) The persisted choice — bound to the detected brand it answered —
+      // lets the SAME draft prepare without asking again; copy is generated
+      // once, for the resumed prepare only.
+      mockRestyleAggregate({ targetFormats: [], brandConflictChoice: "source", brandConflictDetectedBrand: "XTB" });
+      const resumed = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
+      expect(resumed.ok).toBe(true);
+      expect(generateCopy).toHaveBeenCalledOnce();
+      // The copy speaks for the art's brand; the active kit's voice/elements
+      // belong to the other brand and stay out.
+      expect(generateCopy).toHaveBeenCalledWith(expect.objectContaining({
+        brandName: "XTB",
+        toneOfVoice: null,
+        requiredElements: null,
+        prohibitedElements: null,
+      }));
+      expect(updateDraft).toHaveBeenCalledOnce();
+      expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now, expect.objectContaining({
+        inputSnapshot: expect.objectContaining({
+          settings: expect.objectContaining({ brandConflictChoice: "source", brandConflictDetectedBrand: "XTB" }),
+          factPack: expect.objectContaining({
+            identity: { clientProfileId: "profile-1", brandName: "XTB", brandAuthority: "source" },
+            brand: { requiredElements: [], prohibitedElements: [] },
+            facts: expect.arrayContaining([
+              expect.objectContaining({ value: "XTB", class: "brand", required: true, origin: "brand" }),
+            ]),
+          }),
+        }),
+      }), transactionExecutor);
+      const patch = updateDraft.mock.calls[0]?.[3] as { inputSnapshot: { factPack: unknown } };
+      expect(JSON.stringify(patch.inputSnapshot.factPack)).not.toContain('"Cenbrap"');
+    });
+
+    it("converts to the active brand when the saved choice is active", async () => {
+      mockRestyleAggregate({ targetFormats: [], brandConflictChoice: "active", brandConflictDetectedBrand: "XTB" });
+      const result = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
+      expect(result.ok).toBe(true);
+      expect(generateCopy).toHaveBeenCalledWith(expect.objectContaining({ brandName: "Cenbrap", toneOfVoice: "Direto" }));
+      expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now, expect.objectContaining({
+        inputSnapshot: expect.objectContaining({
+          factPack: expect.objectContaining({
+            identity: { clientProfileId: "profile-1", brandName: "Cenbrap", brandAuthority: "active" },
+            facts: expect.arrayContaining([
+              expect.objectContaining({ value: "Cenbrap", class: "brand", required: true, origin: "brand" }),
+            ]),
+          }),
+        }),
+      }), transactionExecutor);
+    });
+
+    it("asks again when the saved choice was bound to a different detected brand", async () => {
+      // The old choice answered an XTB conflict; the current draft now
+      // carries an explicit Nu art — the stale binding never auto-resolves it.
+      const nuContentAnalysis = {
+        product: "Banco Nu",
+        offer: "",
+        cta: { text: "Abra sua conta", style: "botão" },
+        brandElements: ["logo Nu"],
+        keyVisual: "cartão roxo",
+        textContent: { headline: "Nu para todos", bullets: [] },
+        format: "4:5",
+      };
+      getWork.mockResolvedValue({
+        work: restyleWork({ targetFormats: [], brandConflictChoice: "source", brandConflictDetectedBrand: "XTB" }),
+        outputs: [],
+        sources: [{ ...restyleSources[0], contentAnalysis: nuContentAnalysis }, restyleSources[1]],
+      } as never);
+      getSourceAssets.mockResolvedValue(restyleAssetDetails as never);
+
+      const result = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
+
+      expect(result).toEqual({
+        ok: false,
+        error: {
+          code: "brand_conflict",
+          details: {
+            detectedBrand: "Nu",
+            activeBrand: "Cenbrap",
+            sourceId: "source-content",
+            choices: ["source", "active"],
+          },
+        },
+      });
+      expect(generateCopy).not.toHaveBeenCalled();
+      expect(updateDraft).not.toHaveBeenCalled();
+    });
+
+    it("asks again when a saved choice predates the detected-brand binding", async () => {
+      // Settings persisted before the binding existed carry only the bare
+      // choice — without a matching detectedBrand they never auto-resolve.
+      mockRestyleAggregate({ targetFormats: [], brandConflictChoice: "source" });
+      const result = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
+      expect(result).toEqual(expect.objectContaining({
+        ok: false,
+        error: expect.objectContaining({ code: "brand_conflict" }),
+      }));
+      expect(generateCopy).not.toHaveBeenCalled();
+      expect(updateDraft).not.toHaveBeenCalled();
+    });
+
+    it("registers the active brand in the fact pack without any question when the art's brand does not conflict", async () => {
+      getWork.mockResolvedValue({
+        work: restyleWork(),
+        outputs: [],
+        sources: [
+          { ...restyleSources[0], contentAnalysis: { ...xtbContentAnalysis, product: "Consultoria Cenbrap", brandElements: ["logo Cenbrap"], textContent: { headline: "Cenbrap para você", bullets: [] } } },
+          restyleSources[1],
+        ],
+      } as never);
+      getSourceAssets.mockResolvedValue(restyleAssetDetails as never);
+      inferBrief.mockReturnValue({ theme: "Cenbrap", objective: "Reestilizar", audience: "", offer: "Consultoria" });
+
+      const result = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
+
+      expect(result.ok).toBe(true);
+      expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now, expect.objectContaining({
+        inputSnapshot: expect.objectContaining({
+          factPack: expect.objectContaining({
+            identity: { clientProfileId: "profile-1", brandName: "Cenbrap", brandAuthority: "active" },
+          }),
+        }),
+      }), transactionExecutor);
+    });
+
+    it("proceeds with the active brand when the detected brands are ambiguous", async () => {
+      const ambiguousAnalysis = {
+        ...xtbContentAnalysis,
+        product: "XTB e Nu comparados",
+        brandElements: ["logo da XTB", "Nu"],
+        textContent: { headline: "XTB ou Nu: compare", bullets: [] },
+      };
+      getWork.mockResolvedValue({
+        work: restyleWork(),
+        outputs: [],
+        sources: [{ ...restyleSources[0], contentAnalysis: ambiguousAnalysis }, restyleSources[1]],
+      } as never);
+      getSourceAssets.mockResolvedValue(restyleAssetDetails as never);
+      inferBrief.mockReturnValue({ theme: "Comparativo", objective: "Reestilizar", audience: "", offer: "Investimentos" });
+
+      const result = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
+
+      expect(result.ok).toBe(true);
+      expect(generateCopy).toHaveBeenCalledWith(expect.objectContaining({ brandName: "Cenbrap" }));
+    });
+
+    it("never asks about brands outside restyle, even with an explicit foreign brand", async () => {
+      getWork.mockResolvedValue({
+        work: { ...work, toolKind: "variations" },
+        outputs: [],
+        sources: [{ id: "source-content", assetId: "asset-content", status: "ready", usage: "content", usageConfirmed: true, updatedAt: now, contentAnalysis: xtbContentAnalysis, styleAnalysis: null }],
+      } as never);
+      getSourceAssets.mockResolvedValue(new Map([["source-content", { assetKey: "xtb.png", mimeType: "image/png", source: "upload" }]]) as never);
+
+      const result = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
+
+      expect(result.ok).toBe(true);
+      expect(result).not.toMatchObject({ error: { code: "brand_conflict" } });
+      expect(generateCopy).toHaveBeenCalledOnce();
+    });
   });
 });

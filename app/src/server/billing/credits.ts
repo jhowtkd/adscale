@@ -351,6 +351,20 @@ export async function recordUsage(input: {
   return { status: "recorded" as const, usage, check };
 }
 
+/**
+ * Typed sentinel thrown inside the refund transaction when a concurrent
+ * refund already committed the same idempotency key. A typed class (not a
+ * message match) keeps rewrapped errors from being misclassified.
+ */
+export class DuplicateRefundError extends Error {
+  readonly code = "duplicate_refund" as const;
+
+  constructor() {
+    super("duplicate_refund");
+    this.name = "DuplicateRefundError";
+  }
+}
+
 export async function refundCredits(input: {
   workspaceId: string;
   action: CreditAction;
@@ -372,46 +386,78 @@ export async function refundCredits(input: {
 
   const unlimitedBillingBypass = await workspaceHasUnlimitedBillingAccess(input.workspaceId);
 
-  if (!unlimitedBillingBypass) {
-    try {
-      await db.transaction(async (tx) => {
+  // R-006: the grant credit and the idempotency-key reservation commit in the
+  // SAME transaction. The previous check-then-act split let two concurrent
+  // refunds with the same key both credit the grant before the second
+  // trackUsage hit the unique index — a double credit followed by an error.
+  // The duplicate is re-checked AFTER the FOR UPDATE grant lock so a
+  // concurrent refund that committed first becomes visible and loses cleanly.
+  try {
+    await db.transaction(async (tx) => {
+      const checkDuplicate = async () => {
+        const duplicate = await getUsageByIdempotencyKey(
+          input.workspaceId,
+          input.idempotencyKey,
+          tx
+        );
+        if (duplicate) {
+          throw new DuplicateRefundError();
+        }
+      };
+      await checkDuplicate();
+
+      if (!unlimitedBillingBypass) {
         const grants = await getAvailableCreditGrants(
           input.workspaceId,
           tx,
           true
         );
-        if (grants.length === 0) {
-          return;
+        if (grants.length > 0) {
+          await checkDuplicate();
+          const target = grants[0];
+          await updateCreditGrantRemaining(
+            target.id,
+            target.remaining + refundAmount,
+            tx
+          );
         }
-        const target = grants[0];
-        await updateCreditGrantRemaining(
-          target.id,
-          target.remaining + refundAmount,
-          tx
-        );
-      });
-    } catch (err) {
-      logger.error("[refundCredits] failed to credit grant", {
-        error: err,
-        workspaceId: input.workspaceId,
-        amount: refundAmount,
-      });
-      throw err;
-    }
-  }
+      }
 
-  await trackUsage(
-    input.workspaceId,
-    input.action,
-    unlimitedBillingBypass ? 0 : -refundAmount,
-    {
-      ...meta,
-      refund: true,
-      creditAmount: refundAmount,
-      unlimitedBillingBypass: unlimitedBillingBypass || undefined,
-    },
-    input.idempotencyKey
-  );
+      await trackUsage(
+        input.workspaceId,
+        input.action,
+        unlimitedBillingBypass ? 0 : -refundAmount,
+        {
+          ...meta,
+          refund: true,
+          creditAmount: refundAmount,
+          unlimitedBillingBypass: unlimitedBillingBypass || undefined,
+        },
+        input.idempotencyKey,
+        tx
+      );
+    });
+  } catch (err) {
+    if (err instanceof DuplicateRefundError) {
+      return { status: "duplicate" as const };
+    }
+    if (
+      typeof err === "object" &&
+      err !== null &&
+      "code" in err &&
+      (err as { code?: string }).code === "23505"
+    ) {
+      // Concurrent refund won the idempotency-key race inside the
+      // transaction — the credit landed exactly once.
+      return { status: "duplicate" as const };
+    }
+    logger.error("[refundCredits] failed to credit grant atomically", {
+      error: err,
+      workspaceId: input.workspaceId,
+      amount: refundAmount,
+    });
+    throw err;
+  }
 
   if (input.userId) {
     try {

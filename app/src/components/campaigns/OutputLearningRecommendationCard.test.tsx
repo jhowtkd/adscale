@@ -149,6 +149,109 @@ describe("OutputLearningRecommendationCard", () => {
     });
   });
 
+  it("accept records output_learning_recommendation_accepted with trace properties and still fires onAccept", () => {
+    vi.mocked(useOutputLearningRecommendation).mockReturnValue({
+      data: { status: "ready", recommendation },
+      isLoading: false,
+      isError: false,
+    } as ReturnType<typeof useOutputLearningRecommendation>);
+
+    const onAccept = vi.fn();
+    render(
+      <OutputLearningRecommendationCard
+        campaignId="camp-1"
+        onAccept={onAccept}
+        onEdit={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Aceitar e abrir receita/i }));
+
+    expect(recordEvent).toHaveBeenCalledWith(
+      "output_learning_recommendation_accepted",
+      expect.objectContaining({
+        recommendationId: "rec-1",
+        variableKey: "cta",
+        confidence: "high",
+        recipeId: "performance_push",
+        action: "accept",
+        traceId: "ol-trace-1",
+        evidenceEventCount: 1,
+        blockedFieldCount: 0,
+      })
+    );
+    // Fire-and-forget telemetry must not block the local action.
+    expect(onAccept).toHaveBeenCalledTimes(1);
+  });
+
+  it("edit records output_learning_recommendation_edited and still fires onEdit", () => {
+    vi.mocked(useOutputLearningRecommendation).mockReturnValue({
+      data: { status: "ready", recommendation },
+      isLoading: false,
+      isError: false,
+    } as ReturnType<typeof useOutputLearningRecommendation>);
+
+    const onEdit = vi.fn();
+    render(
+      <OutputLearningRecommendationCard
+        campaignId="camp-1"
+        onAccept={vi.fn()}
+        onEdit={onEdit}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "edit" }));
+
+    expect(recordEvent).toHaveBeenCalledWith(
+      "output_learning_recommendation_edited",
+      expect.objectContaining({
+        recommendationId: "rec-1",
+        variableKey: "cta",
+        confidence: "high",
+        recipeId: "performance_push",
+        action: "edit",
+      })
+    );
+    expect(onEdit).toHaveBeenCalledWith({
+      recipeId: "performance_push",
+      config: expect.objectContaining({ ctaVariants: ["Comprar agora"] }),
+    });
+  });
+
+  it("dismiss records output_learning_recommendation_dismissed and hides the card locally", () => {
+    vi.mocked(useOutputLearningRecommendation).mockReturnValue({
+      data: { status: "ready", recommendation },
+      isLoading: false,
+      isError: false,
+    } as ReturnType<typeof useOutputLearningRecommendation>);
+
+    render(
+      <OutputLearningRecommendationCard
+        campaignId="camp-1"
+        onAccept={vi.fn()}
+        onEdit={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "dismiss" }));
+
+    expect(recordEvent).toHaveBeenCalledWith(
+      "output_learning_recommendation_dismissed",
+      expect.objectContaining({
+        recommendationId: "rec-1",
+        variableKey: "cta",
+        confidence: "high",
+        reasonCode: "user_dismissed",
+      })
+    );
+    expect(
+      screen.queryByText(/Aprendizado de output sugerido/)
+    ).not.toBeInTheDocument();
+    expect(
+      sessionStorage.getItem("output-dismiss:camp-1:rec-1")
+    ).toBe("1");
+  });
+
   it("returns null when status is insufficient_evidence", () => {
     vi.mocked(useOutputLearningRecommendation).mockReturnValue({
       data: { status: "insufficient_evidence", recommendation: null },

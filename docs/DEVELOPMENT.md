@@ -66,6 +66,7 @@ For Stripe webhooks, billing smoke tests, and the full Docker stack, see [`app/R
 | `npm run analyze` | Production build with bundle analyzer (`ANALYZE=true`) |
 | `npm run analyze:ci` | CI-oriented bundle analysis (`scripts/analyze-bundle.mjs`) |
 | `npm run lint` | ESLint (`eslint`) |
+| `npm run typecheck` | TypeScript check (`tsc --noEmit`) |
 | `npm run inngest:dev` | Inngest dev server only (app must be running) |
 
 ### Testing
@@ -120,6 +121,22 @@ These scripts orchestrate phase release checks and write evidence JSON under `.p
 | `npm run olhar-release-evidence:build` | Build Olhar release evidence JSON from calibration data |
 | `npm run sample-coverage-evidence` | Sample coverage evidence across workspaces |
 | `npm run quality-trend-evidence` | Quality trend evidence across workspaces |
+
+### Convergence gates
+
+Product-architecture convergence checks (phase 8+). Run before merging convergence-related changes.
+
+| Command | Description |
+|---------|-------------|
+| `npm run convergence:check-destinations` | Verify primary navigation destinations |
+| `npm run convergence:check-frozen` | Verify frozen module boundaries |
+| `npm run convergence:check-planning` | Verify planning doc consistency |
+| `npm run convergence:check-inventory` | Verify surface inventory |
+| `npm run convergence:test` | Unit tests for convergence gate scripts |
+| `npm run convergence:baseline` | Capture convergence baseline snapshot |
+| `npm run convergence:phase8-check` | Phase 8 human evidence check |
+| `npm run convergence:inventory` | Regenerate surface inventory |
+| `npm run convergence:gate` | Full convergence gate orchestrator |
 
 ## Billing development
 

@@ -1,4 +1,4 @@
-import { eq, and, asc, desc, inArray, isNull, max, sql } from "drizzle-orm";
+import { eq, and, asc, desc, inArray, isNull, lt, max, sql } from "drizzle-orm";
 import { db } from "../db";
 import {
   creativeWorkItems,
@@ -344,16 +344,16 @@ export async function getCreativeWorkSourceAssetDetails(
   workspaceId: string,
   sources: Pick<CreativeWorkSource, "id" | "assetId">[],
   executor: Pick<typeof db, "select"> = db,
-): Promise<Map<string, { assetKey: string; mimeType: string; source: string }>> {
+): Promise<Map<string, { assetKey: string; mimeType: string; source: string; name: string }>> {
   const assetIds = sources.flatMap((source) => source.assetId ? [source.assetId] : []);
   if (assetIds.length === 0) return new Map();
-  const assets = await executor.select({ id: workspaceAssets.id, key: workspaceAssets.key, type: workspaceAssets.type, source: workspaceAssets.source })
+  const assets = await executor.select({ id: workspaceAssets.id, key: workspaceAssets.key, type: workspaceAssets.type, source: workspaceAssets.source, name: workspaceAssets.name })
     .from(workspaceAssets)
     .where(and(eq(workspaceAssets.workspaceId, workspaceId), inArray(workspaceAssets.id, assetIds)));
   const byId = new Map(assets.map((asset) => [asset.id, asset]));
   return new Map(sources.flatMap((source) => {
     const asset = source.assetId ? byId.get(source.assetId) : null;
-    return asset ? [[source.id, { assetKey: asset.key, mimeType: asset.type, source: asset.source }] as const] : [];
+    return asset ? [[source.id, { assetKey: asset.key, mimeType: asset.type, source: asset.source, name: asset.name }] as const] : [];
   }));
 }
 
@@ -807,6 +807,39 @@ export async function requeueCreativeWorkOutputOnce(workspaceId: string, workIte
   return row ?? null;
 }
 
+/**
+ * Absolute ceiling of provider image calls over the output row's lifetime:
+ * the normal generation plus one corrective/transport second call.
+ * `imageCallCount` is the sole authority for provider calls; `retryCount`
+ * keeps counting requeues/commands.
+ */
+export const CREATIVE_WORK_MAX_IMAGE_CALLS = 2;
+
+/**
+ * Atomically claims one provider image call for the output. The guarded
+ * UPDATE only matches while `image_call_count < CREATIVE_WORK_MAX_IMAGE_CALLS`,
+ * so once the counter reaches the ceiling the claim fails here — before the
+ * provider is reached — returning null without side effects.
+ * Intentionally status-agnostic: the transport-retry second call must be
+ * claimable within the same processing session; do not add a status guard.
+ */
+export async function claimCreativeWorkOutputImageCall(
+  workspaceId: string,
+  workItemId: string,
+  outputId: string,
+): Promise<CreativeWorkOutput | null> {
+  const [row] = await db.update(creativeWorkOutputs).set({
+    imageCallCount: sql`${creativeWorkOutputs.imageCallCount} + 1`,
+    updatedAt: new Date(),
+  }).where(and(
+    eq(creativeWorkOutputs.workspaceId, workspaceId),
+    eq(creativeWorkOutputs.workItemId, workItemId),
+    eq(creativeWorkOutputs.id, outputId),
+    lt(creativeWorkOutputs.imageCallCount, CREATIVE_WORK_MAX_IMAGE_CALLS),
+  )).returning();
+  return row ?? null;
+}
+
 export async function linkCreativeWorkCampaign(workspaceId: string, workItemId: string, campaignId: string | null): Promise<CreativeWorkItem | null> {
   const [work] = await db.select().from(creativeWorkItems).where(and(
     eq(creativeWorkItems.workspaceId, workspaceId),
@@ -886,6 +919,32 @@ export async function failCreativeWorkOutput(
       failureCode,
       updatedAt: new Date(),
     })
+    .where(
+      and(
+        eq(creativeWorkOutputs.workspaceId, workspaceId),
+        eq(creativeWorkOutputs.workItemId, workItemId),
+        eq(creativeWorkOutputs.id, outputId),
+        eq(creativeWorkOutputs.status, "processing")
+      )
+    )
+    .returning();
+  return row ?? null;
+}
+
+/**
+ * R-007 lease heartbeat: touches `updatedAt` ONLY while this job still owns
+ * the output (`status = processing`). Returns null when the lease was lost —
+ * the caller must abort before any further provider call or commit instead
+ * of completing/failing a row it no longer owns.
+ */
+export async function touchCreativeWorkOutputHeartbeat(
+  workspaceId: string,
+  workItemId: string,
+  outputId: string,
+): Promise<CreativeWorkOutput | null> {
+  const [row] = await db
+    .update(creativeWorkOutputs)
+    .set({ updatedAt: new Date() })
     .where(
       and(
         eq(creativeWorkOutputs.workspaceId, workspaceId),
@@ -1076,6 +1135,11 @@ export async function selectCreativeWorkOutput(
  * Free retry: flip a failed output back to `queued` with a status guard so a
  * concurrent change loses the race cleanly (returns null). No billing side
  * effects — the original triplet charge already covered generation.
+ *
+ * R-006: the durable budget guard (`image_call_count <
+ * CREATIVE_WORK_MAX_IMAGE_CALLS`) makes the CAS itself reject retries whose
+ * provider-call budget is already exhausted — defense in depth behind the
+ * application-level eligibility check in `retryCreativeWorkOutput`.
  */
 export async function requeueFailedCreativeWorkOutput(
   workspaceId: string,
@@ -1095,7 +1159,8 @@ export async function requeueFailedCreativeWorkOutput(
         eq(creativeWorkOutputs.workspaceId, workspaceId),
         eq(creativeWorkOutputs.workItemId, workItemId),
         eq(creativeWorkOutputs.id, outputId),
-        eq(creativeWorkOutputs.status, "failed")
+        eq(creativeWorkOutputs.status, "failed"),
+        lt(creativeWorkOutputs.imageCallCount, CREATIVE_WORK_MAX_IMAGE_CALLS)
       )
     )
     .returning();

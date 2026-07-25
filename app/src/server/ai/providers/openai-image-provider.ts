@@ -11,21 +11,6 @@ import type {
 
 const IMAGE_GENERATION_TIMEOUT_MS = 5 * 60 * 1000;
 
-function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-  let timeout: NodeJS.Timeout;
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timeout = setTimeout(() => {
-      const error = new Error(`${label} timed out after ${Math.round(ms / 1000)}s`) as Error & { code: string };
-      error.name = "TimeoutError";
-      error.code = "ETIMEDOUT";
-      reject(error);
-    }, ms);
-  });
-  return Promise.race([promise, timeoutPromise]).finally(() => {
-    clearTimeout(timeout);
-  });
-}
-
 function dimensionsToOpenAISdkSize(dimensions: { width: number; height: number }) {
   const ratio = dimensions.width / dimensions.height;
   const isGptImage2 = env.OPENAI_IMAGE_MODEL.startsWith("gpt-image-2");
@@ -43,7 +28,14 @@ function dimensionsToOpenAISdkSize(dimensions: { width: number; height: number }
   return toOpenAISdkImageSize("1536x1024");
 }
 
-const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 120_000 });
+const openai = new OpenAI({
+  apiKey: env.OPENAI_API_KEY,
+  // R-007: the SDK timeout is the SINGLE timeout authority — it aborts the
+  // underlying HTTP request, unlike an external Promise.race that would leave
+  // the request running. Durable job retries already own transient recovery.
+  timeout: IMAGE_GENERATION_TIMEOUT_MS,
+  maxRetries: 0,
+});
 
 export class OpenAIImageProvider implements ImageGenerationProvider {
   readonly name = "openai" as const;
@@ -59,18 +51,14 @@ export class OpenAIImageProvider implements ImageGenerationProvider {
           toFile(ref.buffer, ref.name, { type: ref.mimeType })
         )
       );
-      const response = await withTimeout(
-        openai.images.edit({
-          model: env.OPENAI_IMAGE_MODEL,
-          image: files,
-          prompt: input.prompt,
-          n: 1,
-          size: openaiSize,
-          quality: input.quality ?? "high",
-        }),
-        IMAGE_GENERATION_TIMEOUT_MS,
-        "OpenAI image edit"
-      );
+      const response = await openai.images.edit({
+        model: env.OPENAI_IMAGE_MODEL,
+        image: files,
+        prompt: input.prompt,
+        n: 1,
+        size: openaiSize,
+        quality: input.quality ?? "high",
+      });
       const first = response.data?.[0];
       if (!first) throw new Error("No image data returned from OpenAI");
       logger.info(
@@ -78,17 +66,13 @@ export class OpenAIImageProvider implements ImageGenerationProvider {
       );
       result = first;
     } else {
-      const response = await withTimeout(
-        openai.images.generate({
-          model: env.OPENAI_IMAGE_MODEL,
-          prompt: input.prompt,
-          n: 1,
-          size: openaiSize,
-          quality: input.quality ?? "high",
-        }),
-        IMAGE_GENERATION_TIMEOUT_MS,
-        "OpenAI image generation"
-      );
+      const response = await openai.images.generate({
+        model: env.OPENAI_IMAGE_MODEL,
+        prompt: input.prompt,
+        n: 1,
+        size: openaiSize,
+        quality: input.quality ?? "high",
+      });
       const first = response.data?.[0];
       if (!first) throw new Error("No image data returned from OpenAI");
       logger.info(`[OpenAIImageProvider] generate success`);

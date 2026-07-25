@@ -30,11 +30,14 @@ export async function GET(
     }
 
     const brief = existing.work.brief;
+    // Audience is intentionally absent from this gate: the brief schema
+    // accepts an empty audience (R-002 / spec 7.2 — unknown targeting stays
+    // absent instead of receiving a placeholder), so validity here is
+    // defined by the schema-shaped fields the prepare step persists.
     if (
       !brief ||
       !brief.theme?.trim() ||
       !brief.objective?.trim() ||
-      !brief.audience?.trim() ||
       !brief.offer?.trim()
     ) {
       return apiError("work_not_prepared", 409);

@@ -7,7 +7,22 @@
 import { logger } from "@/lib/logger";
 import { objectStorage } from "@/server/storage";
 import type { CreativeContract } from "@/server/ai/creative-contract";
-import { runCompletedDerivationQualityGate } from "@/server/ai/creative-quality-gate";
+import {
+  runCompletedDerivationQualityGate,
+  buildCreativeWorkQualityPayload,
+  deriveCreativeWorkObjectiveVerdict,
+  type CreativeWorkQaEvaluatorStatus,
+  type CreativeWorkQualityFinding,
+  type CreativeWorkQualityPayload,
+} from "@/server/ai/creative-quality-gate";
+import {
+  analyzeCreativeWorkQa,
+  inspectCreativeWorkImageFile,
+  type AnalyzeCreativeWorkQaInput,
+  type CreativeWorkObjectiveVerdict,
+  type CreativeWorkQaFinding,
+} from "@/server/ai/creative-qa";
+import type { CreativeWorkReferenceRole } from "@/server/creative-work/reference-plan";
 import {
   analyzeDerivationCreative,
   type AnalyzeInput,
@@ -232,4 +247,197 @@ export async function runCreativeWorkPostGeneration(input: {
     quality,
     reason: qualityDecision.reason,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Creative Work v1 tri-state quality assessment (R-005 / spec 9).
+// ---------------------------------------------------------------------------
+
+export interface CreativeWorkQualityAssessmentInput {
+  workItemId: string;
+  outputId: string;
+  /** 1-based attempt of the provider call that produced the assessed image. */
+  attempt: number;
+  imageBuffer: Buffer;
+  /** Canonical target dimensions — the deterministic dimension authority. */
+  expectedDimensions: { width: number; height: number };
+  /** Required roles from the reference plan (R-003). */
+  requiredReferenceRoles: readonly CreativeWorkReferenceRole[];
+  /** Required roles actually attached to the generation call. */
+  attachedReferenceRoles: readonly CreativeWorkReferenceRole[];
+  /** Visual objective QA context: fact pack, copy, mode, references. */
+  qa: Omit<AnalyzeCreativeWorkQaInput, "imageBuffer" | "mimeType">;
+  /** Advisory subjective scorer input — its failure never rejects. */
+  score: AnalyzeInput;
+}
+
+export interface CreativeWorkQualityAssessmentResult {
+  /**
+   * Tri-state objective verdict (spec 9.2). `fail` marks the output for the
+   * exclusive objective correction (T8/R-006) — the assessment persists the
+   * verdict but never triggers the second call and never rejects by score.
+   */
+  objectiveVerdict: CreativeWorkObjectiveVerdict;
+  /** Versioned payload persisted in `creative_work_outputs.quality`. */
+  quality: CreativeWorkQualityPayload;
+}
+
+function shortAssessmentError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.replace(/\s+/g, " ").trim().slice(0, 160) || "unknown error";
+}
+
+/**
+ * Objective QA for v1 direct outputs: deterministic file/dimension/reference
+ * checks (no vision model) + visual evaluation contextualized by the frozen
+ * fact pack and the role-bound references + advisory subjective score.
+ *
+ * Decision contract (spec 9.2):
+ * - confirmed objective code → `fail` (score can never override it);
+ * - evaluator timeout/error/ambiguity → `inconclusive`: the output completes
+ *   with a review signal, no retry, no Gate 8 objective approval;
+ * - subjective-only findings stay advisory and never reject or retry;
+ * - the function always resolves — the adapter completes the output with the
+ *   persisted payload; there is no `reject_low_quality` on this path.
+ */
+export async function runCreativeWorkQualityAssessment(
+  input: CreativeWorkQualityAssessmentInput,
+): Promise<CreativeWorkQualityAssessmentResult> {
+  // 1. Deterministic file + dimension checks (criterion 5 — no vision model).
+  const file = await inspectCreativeWorkImageFile(input.imageBuffer).catch((error) => ({
+    ok: false,
+    width: null,
+    height: null,
+    format: null,
+    bytes: input.imageBuffer.byteLength,
+    error: shortAssessmentError(error),
+  }));
+
+  const deterministicFindings: CreativeWorkQualityFinding[] = [];
+  if (!file.ok) {
+    deterministicFindings.push({
+      code: "unusable_file",
+      status: "confirmed",
+      note: `Produced image could not be decoded (${file.error ?? "unknown error"})`,
+      origin: "deterministic",
+    });
+  } else if (
+    file.width !== input.expectedDimensions.width ||
+    file.height !== input.expectedDimensions.height
+  ) {
+    deterministicFindings.push({
+      code: "wrong_dimensions",
+      status: "confirmed",
+      note: `Expected ${input.expectedDimensions.width}x${input.expectedDimensions.height}, produced ${file.width}x${file.height}`,
+      origin: "deterministic",
+    });
+  }
+
+  const missingRequired = [
+    ...new Set(
+      input.requiredReferenceRoles.filter(
+        (role) => !input.attachedReferenceRoles.includes(role),
+      ),
+    ),
+  ];
+  for (const role of missingRequired) {
+    deterministicFindings.push({
+      code: "ignored_mandatory_reference",
+      status: "confirmed",
+      note: `Mandatory ${role} reference was planned but not attached to the generation call`,
+      origin: "deterministic",
+    });
+  }
+
+  // 2. Visual objective evaluation. A corrupt/unusable file cannot be
+  // evaluated — the verdict is already a deterministic fail — so the vision
+  // call is skipped instead of burning an evaluator call on garbage.
+  let evaluatorStatus: CreativeWorkQaEvaluatorStatus = "completed";
+  let evaluatorError: string | null = null;
+  let evaluatorSummary: string | null = null;
+  let visionFindings: CreativeWorkQaFinding[] = [];
+  if (file.ok) {
+    try {
+      const qa = await analyzeCreativeWorkQa({
+        imageBuffer: input.imageBuffer,
+        mimeType: "image/png",
+        ...input.qa,
+        // R-010: the deterministic E2E branch distinguishes fail-once from
+        // fail-always by the durable attempt of the assessed call.
+        attempt: input.attempt,
+      });
+      visionFindings = qa.findings;
+      // T8: persist the one-sentence evaluator summary for the T9 review
+      // surface (null when the evaluator failed or was skipped).
+      evaluatorSummary = qa.summary.trim().length > 0 ? qa.summary.trim() : null;
+    } catch (error) {
+      evaluatorStatus = "failed";
+      evaluatorError = shortAssessmentError(error);
+      logger.warn(
+        `[creative-work-quality-assessment] objective evaluator failed outputId=${input.outputId} — persisting inconclusive: ${evaluatorError}`,
+      );
+    }
+  } else {
+    evaluatorStatus = "skipped";
+  }
+
+  // 3. Advisory subjective score. Skipped entirely when the objective
+  // verdict is already a confirmed fail (T8: never burn an advisory call on
+  // an output headed for correction/terminal failure). A scorer crash never
+  // rejects, never retries and never changes the objective verdict (spec
+  // 9.2): the output stays available without a subjective score.
+  const preVerdict = deriveCreativeWorkObjectiveVerdict({
+    deterministicCodes: deterministicFindings.map((finding) => finding.code),
+    findings: visionFindings,
+    evaluatorStatus,
+  });
+  let subjective: {
+    scoreStatus: string;
+    qualityScore: number | null;
+    issues: string[];
+  } | null = null;
+  if (file.ok && preVerdict.verdict !== "fail") {
+    try {
+      const score = await analyzeDerivationCreative(input.score);
+      subjective = {
+        scoreStatus: score.scoreStatus,
+        qualityScore: score.qualityScore,
+        issues: score.scoreIssues ?? [],
+      };
+    } catch (error) {
+      logger.warn(
+        `[creative-work-quality-assessment] subjective scorer failed outputId=${input.outputId} — output stays available without a score: ${shortAssessmentError(error)}`,
+      );
+    }
+  }
+
+  const quality = buildCreativeWorkQualityPayload({
+    deterministicFindings,
+    visionFindings,
+    evaluatorStatus,
+    evaluatorError,
+    evaluatorSummary,
+    subjective,
+    checks: {
+      file: {
+        ok: file.ok,
+        width: file.width,
+        height: file.height,
+        format: file.format,
+        bytes: file.bytes,
+      },
+      dimensions: {
+        ok:
+          file.ok &&
+          file.width === input.expectedDimensions.width &&
+          file.height === input.expectedDimensions.height,
+        expected: input.expectedDimensions,
+        actual: file.ok ? { width: file.width!, height: file.height! } : null,
+      },
+      references: { ok: missingRequired.length === 0, missingRequired },
+    },
+    attempt: input.attempt,
+  });
+
+  return { objectiveVerdict: quality.objectiveVerdict, quality };
 }

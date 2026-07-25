@@ -449,6 +449,27 @@ async function main(): Promise<void> {
     contentType: "image/png",
   });
 
+  // R-010: plain workspace assets the v1 matrix attaches as sources via the
+  // public API (content art, style art) — distinct from the identity
+  // references above, which seed Brand Training identity.
+  const contentArt = await uploadFixtureAsset({
+    workspaceId,
+    filename: "arte-fonte.png",
+    buffer: opaqueBuffer,
+    contentType: "image/png",
+  });
+  const styleArt = await uploadFixtureAsset({
+    workspaceId,
+    filename: "arte-estilo.png",
+    buffer: referenceBuffer,
+    contentType: "image/png",
+  });
+
+  // Fresh provider-call evidence for every seed run (R-010).
+  const evidencePath = process.env.E2E_PROVIDER_EVIDENCE_PATH
+    ?? path.resolve(__dirname, "../tests/e2e/.evidence/provider-calls.jsonl");
+  fs.rmSync(evidencePath, { force: true });
+
   const readyWorkId = await seedReadyWorkFixture({
     workspaceId,
     userId,
@@ -484,6 +505,8 @@ async function main(): Promise<void> {
     approvedVisualReferenceAssetKey: visualRef.assetKey,
     pendingReferenceLabel: "Logo Pendente",
     readyWorkId,
+    contentArtAssetId: contentArt.assetId,
+    styleArtAssetId: styleArt.assetId,
     expectedInitialCredits: 15,
     seededAt: new Date().toISOString(),
   };
