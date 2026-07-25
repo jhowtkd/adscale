@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SocialPostBrief } from "./contracts";
+import { buildCreativeWorkFactPack } from "./fact-pack";
 
 const openAiCreateMock = vi.hoisted(() => vi.fn());
 
@@ -20,7 +21,7 @@ vi.mock("@/server/validation/env", () => ({
   },
 }));
 
-import { generateSocialPostCopy } from "./copy";
+import { CreativeCopyContextError, generateSocialPostCopy } from "./copy";
 
 const brief: SocialPostBrief = {
   theme: "Novo produto",
@@ -28,6 +29,184 @@ const brief: SocialPostBrief = {
   audience: "Empreendedores digitais",
   offer: "Teste gratuito",
 };
+
+const PSICOLOGIA_REQUEST =
+  "Post para o consultório de Psicologia: grupo de terapia começa em agosto, vagas limitadas, atendimento online. " +
+  "Queremos um texto acolhedor que explique como funciona o grupo, quem conduz os encontros e por que começar agora.";
+
+const factPack = buildCreativeWorkFactPack({
+  request: PSICOLOGIA_REQUEST,
+  mode: "social_post",
+  sources: [{
+    sourceId: "source-1",
+    usage: "content",
+    content: {
+      product: "Grupo de terapia",
+      offer: "Inscrições abertas",
+      cta: { text: "Inscreva-se", style: "botão" },
+      brandElements: [],
+      keyVisual: "roda de conversa",
+      textContent: { headline: "Cuide da sua mente", bullets: [] },
+      format: "4:5",
+    },
+  }],
+  brand: { name: "Cenbrap", requiredElements: null, prohibitedElements: "Sem promessas de cura" },
+  clientProfileId: "profile-1",
+});
+
+function mockCopyResponse(copy: { headline: string; body: string; cta: string }) {
+  openAiCreateMock.mockResolvedValueOnce({
+    choices: [{ message: { content: JSON.stringify(copy) } }],
+  });
+}
+
+describe("generateSocialPostCopy with a fact pack", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("generates from the full request and sourced facts, not the reduced brief", async () => {
+    mockCopyResponse({
+      headline: "Grupo de terapia em agosto",
+      body: "Cuide da sua mente. Vagas limitadas, atendimento online.",
+      cta: "Inscreva-se",
+    });
+
+    const copy = await generateSocialPostCopy({
+      brief,
+      factPack,
+      brandName: "Cenbrap",
+      toneOfVoice: "Acolhedor",
+      requiredElements: null,
+      prohibitedElements: "Sem promessas de cura",
+    });
+
+    expect(copy.headline).toContain("agosto");
+    expect(openAiCreateMock).toHaveBeenCalledTimes(1);
+    const call = openAiCreateMock.mock.calls[0]?.[0] as {
+      messages?: Array<{ role: string; content: string }>;
+    };
+    const system = call.messages?.find((message) => message.role === "system")?.content ?? "";
+    const user = call.messages?.find((message) => message.role === "user")?.content ?? "";
+    expect(system).toContain("NEVER invent");
+    expect(user).toContain(PSICOLOGIA_REQUEST);
+    expect(user).toContain('"Grupo de terapia"');
+    expect(user).toContain("source source-1");
+    expect(user).toContain("Sem promessas de cura");
+    expect(user).not.toContain("Público da marca");
+  });
+
+  it("rewrites an unbacked claim exactly once and returns the grounded rewrite", async () => {
+    mockCopyResponse({
+      headline: "50% de desconto em agosto",
+      body: "Vagas limitadas no grupo de terapia.",
+      cta: "Inscreva-se",
+    });
+    mockCopyResponse({
+      headline: "Grupo de terapia em agosto",
+      body: "Vagas limitadas no grupo de terapia.",
+      cta: "Inscreva-se",
+    });
+
+    const copy = await generateSocialPostCopy({
+      brief,
+      factPack,
+      brandName: "Cenbrap",
+      toneOfVoice: null,
+      requiredElements: null,
+      prohibitedElements: null,
+    });
+
+    expect(copy.headline).toBe("Grupo de terapia em agosto");
+    expect(openAiCreateMock).toHaveBeenCalledTimes(2);
+    const rewriteCall = openAiCreateMock.mock.calls[1]?.[0] as {
+      messages?: Array<{ role: string; content: string }>;
+    };
+    const rewriteUser = rewriteCall.messages?.find((message) => message.role === "user")?.content ?? "";
+    expect(rewriteUser).toContain("Claims without origin");
+    expect(rewriteUser).toContain('"50%"');
+  });
+
+  it("blocks with CreativeCopyContextError when the rewrite keeps the invented claim", async () => {
+    const invented = {
+      headline: "50% de desconto em agosto",
+      body: "Vagas limitadas no grupo de terapia.",
+      cta: "Inscreva-se",
+    };
+    mockCopyResponse(invented);
+    mockCopyResponse(invented);
+
+    await expect(
+      generateSocialPostCopy({
+        brief,
+        factPack,
+        brandName: "Cenbrap",
+        toneOfVoice: null,
+        requiredElements: null,
+        prohibitedElements: null,
+      }),
+    ).rejects.toMatchObject({
+      name: "CreativeCopyContextError",
+      code: "invalid_context",
+      violations: expect.arrayContaining([
+        expect.objectContaining({ class: "price", value: "50%", field: "headline" }),
+      ]),
+    });
+    // Exactly one rewrite attempt — never a third call.
+    expect(openAiCreateMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("blocks with CreativeCopyContextError when the rewrite keeps an invented modality", async () => {
+    // The origins state "atendimento online"; a copy inventing "presencial"
+    // must be flagged and, surviving the single rewrite, blocked.
+    const invented = {
+      headline: "Grupo de terapia presencial",
+      body: "Vagas limitadas no grupo de terapia.",
+      cta: "Inscreva-se",
+    };
+    mockCopyResponse(invented);
+    mockCopyResponse(invented);
+
+    await expect(
+      generateSocialPostCopy({
+        brief,
+        factPack,
+        brandName: "Cenbrap",
+        toneOfVoice: null,
+        requiredElements: null,
+        prohibitedElements: null,
+      }),
+    ).rejects.toMatchObject({
+      name: "CreativeCopyContextError",
+      code: "invalid_context",
+      violations: expect.arrayContaining([
+        expect.objectContaining({ class: "modality", value: "presencial", field: "headline" }),
+      ]),
+    });
+    expect(openAiCreateMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("fails as invalid_context when the rewrite cannot be validated safely", async () => {
+    mockCopyResponse({
+      headline: "50% de desconto em agosto",
+      body: "Vagas limitadas.",
+      cta: "Inscreva-se",
+    });
+    openAiCreateMock.mockRejectedValueOnce(new Error("provider timeout"));
+
+    await expect(
+      generateSocialPostCopy({
+        brief,
+        factPack,
+        brandName: "Cenbrap",
+        toneOfVoice: null,
+        requiredElements: null,
+        prohibitedElements: null,
+      }),
+    ).rejects.toBeInstanceOf(CreativeCopyContextError);
+    expect(openAiCreateMock).toHaveBeenCalledTimes(2);
+  });
+});
 
 describe("generateSocialPostCopy", () => {
   beforeEach(() => {

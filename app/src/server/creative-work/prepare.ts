@@ -27,13 +27,41 @@ export function deriveCreativeWorkTitle(request: string): string {
   return firstSentence.replace(/[.!?]+$/, "").trim().slice(0, 80);
 }
 
+function uniqueTrimmed(values: readonly (string | null | undefined)[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const value of values) {
+    const trimmed = value?.trim() ?? "";
+    const key = trimmed.toLocaleLowerCase("pt-BR");
+    if (!trimmed || seen.has(key)) continue;
+    seen.add(key);
+    result.push(trimmed);
+  }
+  return result;
+}
+
+/**
+ * Reduced presentation brief: every content analysis contributes, and absent
+ * information stays absent — the audience is never filled with a generic
+ * placeholder (R-002 / spec 7.2). The factual truth for copy and generation
+ * lives in the fact pack, not here; `deriveCreativeWorkTitle` stays
+ * presentation-only.
+ */
 export function inferSocialPostBrief(request: string, analyses: readonly ContentBrief[]): SocialPostBrief {
-  const content = analyses[0];
-  const theme = deriveCreativeWorkTitle(request) || content?.textContent.headline || content?.product;
+  const title = deriveCreativeWorkTitle(request);
+  const products = uniqueTrimmed(analyses.map((analysis) => analysis.product));
+  const offers = uniqueTrimmed(analyses.map((analysis) => analysis.offer));
+  const headlines = uniqueTrimmed(analyses.map((analysis) => analysis.textContent?.headline));
+  const theme = title || headlines[0] || products[0] || "";
+  const objective = products.length > 0
+    ? `Promover ${products.join(" e ")}`
+    : theme
+      ? `Promover ${theme}`
+      : "";
   return {
-    theme,
-    objective: content?.product ? `Promover ${content.product}` : `Promover ${theme}`,
-    audience: "Público da marca",
-    offer: content?.offer?.trim() || theme,
+    theme: theme.slice(0, 240),
+    objective: objective.slice(0, 240),
+    audience: "",
+    offer: (offers.join(" e ") || theme).slice(0, 240),
   };
 }
