@@ -540,6 +540,13 @@
       "when": 1784462400000,
       "tag": "0076_confirm_creative_source_usage",
       "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1784764800000,
+      "tag": "0077_creative_work_output_image_call_count",
+      "breakpoints": true
     }
   ]
 }

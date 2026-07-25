@@ -2626,6 +2626,7 @@ export const creativeWorkOutputs = adscaleSchema.table(
     revisionInstruction: text("revision_instruction"),
     revisionAssetId: uuid("revision_asset_id").references(() => workspaceAssets.id, { onDelete: "set null" }),
     retryCount: integer("retry_count").notNull().default(0),
+    imageCallCount: integer("image_call_count").notNull().default(0),
     operationKey: text("operation_key").notNull(),
     status: text("status")
       .notNull()
