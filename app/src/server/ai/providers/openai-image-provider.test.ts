@@ -7,10 +7,14 @@ vi.mock("@/server/validation/env", () => ({
 const mockOpenAIImages = vi.hoisted(() => ({
   edit: vi.fn(),
   generate: vi.fn(),
+  clientOptions: undefined as unknown,
 }));
 vi.mock("openai", () => {
   return {
     default: class {
+      constructor(options: unknown) {
+        mockOpenAIImages.clientOptions = options;
+      }
       images = { edit: mockOpenAIImages.edit, generate: mockOpenAIImages.generate };
     },
     toFile: vi.fn(async (buffer: Buffer, name: string) => ({ buffer, name })),
@@ -27,6 +31,10 @@ describe("OpenAIImageProvider", () => {
   });
 
   it("calls images.generate when no references provided", async () => {
+    expect(mockOpenAIImages.clientOptions).toMatchObject({
+      timeout: 5 * 60 * 1000,
+      maxRetries: 0,
+    });
     mockGenerate.mockResolvedValue({
       data: [{ b64_json: Buffer.from("png-bytes").toString("base64") }],
     });
@@ -81,19 +89,24 @@ describe("OpenAIImageProvider", () => {
     ).rejects.toThrow(/No image data/);
   });
 
-  it("classifies the local image timeout without waiting in real time", async () => {
+  it("delegates timeout enforcement to the SDK client as the single authority", async () => {
+    // R-007: the SDK timeout (which aborts the underlying HTTP request) is
+    // the only timeout authority — no local Promise.race wraps the call, so
+    // a hung SDK promise stays pending even after the budget elapses.
+    expect(mockOpenAIImages.clientOptions).toMatchObject({
+      timeout: 5 * 60 * 1000,
+      maxRetries: 0,
+    });
     vi.useFakeTimers();
+    let settled = false;
     mockGenerate.mockReturnValue(new Promise(() => undefined));
     const provider = new OpenAIImageProvider();
-    const result = provider.generate({
+    void provider.generate({
       prompt: "x", dimensions: { width: 1024, height: 1024 }, referenceImages: [],
       generationMode: "art_variation", outputPrefix: "p",
-    }).catch((error) => error);
-    await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
-    const error = await result;
-    expect(error.message).toBe("OpenAI image generation timed out after 300s");
-    expect(error.name).toBe("TimeoutError");
-    expect(error.code).toBe("ETIMEDOUT");
+    }).finally(() => { settled = true; });
+    await vi.advanceTimersByTimeAsync(10 * 60 * 1000);
+    expect(settled).toBe(false);
     vi.useRealTimers();
   });
 });

@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import type {
   ImageCandidate,
   ImageGenerationProvider,
@@ -15,6 +17,40 @@ const CONTROLLED_PNG = Buffer.from(
 );
 
 const RETRY_SETTLE_DELAY_MS = 3_500;
+
+/**
+ * R-010: every controlled call (success AND failure) is appended as one
+ * JSONL record so the Playwright matrix can prove, per output: mode,
+ * dimensions, reference order, attempt and the absolute 2-call ceiling.
+ * Local-only seam — the path is overridable for hermetic runs.
+ */
+const DEFAULT_EVIDENCE_PATH = path.resolve("tests/e2e/.evidence/provider-calls.jsonl");
+
+function evidencePath(): string {
+  return process.env.E2E_PROVIDER_EVIDENCE_PATH ?? DEFAULT_EVIDENCE_PATH;
+}
+
+function recordProviderCall(input: ProviderGenerateInput, outcome: "success" | "failure", error?: unknown): void {
+  try {
+    const file = evidencePath();
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.appendFileSync(file, `${JSON.stringify({
+      ts: new Date().toISOString(),
+      outputPrefix: input.outputPrefix,
+      attempt: input.attempt ?? 0,
+      generationMode: input.generationMode,
+      dimensions: input.dimensions,
+      referenceNames: input.referenceImages.map((reference) => reference.name),
+      referenceMimeTypes: input.referenceImages.map((reference) => reference.mimeType),
+      promptMarkers: [...input.prompt.matchAll(/\[e2e:[a-z-]+\]/g)].map((match) => match[0]),
+      promptHasObjectiveCorrection: input.prompt.includes("OBJECTIVE CORRECTION"),
+      outcome,
+      error: outcome === "failure" ? (error instanceof Error ? error.message : String(error)) : null,
+    })}\n`);
+  } catch {
+    // Evidence is best-effort: it must never break a generation.
+  }
+}
 
 function isLocalAppUrl(value: string | undefined): boolean {
   try {
@@ -37,6 +73,13 @@ export function isE2EControlledProviderEnabled(
   // accidentally copies the flag there.
   if (environment.E2E_DISABLE_RATE_LIMIT !== "true") return false;
   return true;
+}
+
+function retryableTransportError(): Error {
+  return Object.assign(new Error("controlled_retryable_failure"), {
+    retryable: true,
+    status: 503,
+  });
 }
 
 export class E2EControlledImageProvider implements ImageGenerationProvider {
@@ -62,24 +105,47 @@ export class E2EControlledImageProvider implements ImageGenerationProvider {
   }
 
   async generate(input: ProviderGenerateInput): Promise<ImageCandidate> {
-    const failureAttempts = this.failureFixturesEnabled && input.prompt.includes("[e2e:retry-twice-bold]")
+    const attempt = input.attempt ?? 0;
+    const fixtures = this.failureFixturesEnabled;
+    const prompt = input.prompt;
+
+    // R-010 failure matrix (prompt markers travel inside the frozen request,
+    // so they are authoritative per output, never per process):
+    // - [e2e:timeout-once]: first call fails retryable → transport retry uses
+    //   the second (and final) call.
+    // - [e2e:always-fail]: every call fails retryable → both calls burn, the
+    //   output settles terminally with the idempotent refund.
+    // - [e2e:hard-fail-once]: first call fails NON-retryable → terminal fail
+    //   with budget left, exercising the manual-retry reactivation path.
+    const failRetryable =
+      (fixtures && prompt.includes("[e2e:always-fail]")) ||
+      (fixtures && prompt.includes("[e2e:timeout-once]") && attempt === 0);
+    const failHard = fixtures && prompt.includes("[e2e:hard-fail-once]") && attempt === 0;
+
+    // Legacy triplet markers (pre-R-010 contract, bold level only).
+    const legacyFailureAttempts = fixtures && prompt.includes("[e2e:retry-twice-bold]")
       ? 2
-      : this.failureFixturesEnabled && input.prompt.includes("[e2e:retry-once-bold]")
+      : fixtures && prompt.includes("[e2e:retry-once-bold]")
         ? 1
         : 0;
-    const attempt = input.attempt ?? 0;
-    if (failureAttempts > attempt && input.prompt.includes("CREATIVE LEVEL: bold")) {
-      throw Object.assign(new Error("controlled_retryable_failure"), {
-        retryable: true,
-        status: 503,
-      });
+    const failLegacy =
+      legacyFailureAttempts > attempt && prompt.includes("CREATIVE LEVEL: bold");
+
+    if (failRetryable || failLegacy) {
+      recordProviderCall(input, "failure", "controlled_retryable_failure");
+      throw retryableTransportError();
+    }
+    if (failHard) {
+      recordProviderCall(input, "failure", "controlled_hard_failure");
+      throw Object.assign(new Error("controlled_hard_failure"), { status: 400 });
     }
     // The canonical runtime generates three candidates concurrently. Fail all
     // candidates in the controlled attempt, then hold the successful retry
     // open long enough for the polling UI to render its partial state.
-    if (failureAttempts > 0 && attempt >= failureAttempts && this.retrySettleDelayMs > 0) {
+    if (legacyFailureAttempts > 0 && attempt >= legacyFailureAttempts && this.retrySettleDelayMs > 0) {
       await new Promise((resolve) => setTimeout(resolve, this.retrySettleDelayMs));
     }
+    recordProviderCall(input, "success");
     return {
       buffer: CONTROLLED_PNG,
       mimeType: "image/png",

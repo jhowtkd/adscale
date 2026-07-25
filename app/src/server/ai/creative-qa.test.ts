@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import sharp from "sharp";
 
 vi.mock("@/server/validation/env", () => ({
   env: {
@@ -9,9 +10,13 @@ vi.mock("@/server/validation/env", () => ({
 
 import {
   analyzeCreativeQa,
+  analyzeCreativeWorkQa,
   normalizeCreativeQaResult,
+  normalizeCreativeWorkQaResult,
   buildCreativeQaPrompt,
+  buildCreativeWorkQaPrompt,
   extractObservableRubricSection,
+  inspectCreativeWorkImageFile,
 } from "./creative-qa";
 
 describe("analyzeCreativeQa controlled E2E seam", () => {
@@ -419,5 +424,226 @@ describe("blind gate follow-up QA wording", () => {
     const prompt = buildCreativeQaPrompt(restylingInput);
     expect(prompt).toMatch(/full ad layout/i);
     expect(prompt).toMatch(/base-content restyled/i);
+  });
+});
+
+
+// ---------------------------------------------------------------------------
+// R-005 — Creative Work v1 objective QA
+// ---------------------------------------------------------------------------
+
+async function makePng(width: number, height: number): Promise<Buffer> {
+  return sharp({
+    create: { width, height, channels: 3, background: { r: 200, g: 200, b: 200 } },
+  })
+    .png()
+    .toBuffer();
+}
+
+describe("inspectCreativeWorkImageFile (deterministic, no vision model)", () => {
+  it("decodes a real PNG and reports its dimensions", async () => {
+    const png = await makePng(1080, 1350);
+    const result = await inspectCreativeWorkImageFile(png);
+    expect(result).toMatchObject({
+      ok: true,
+      width: 1080,
+      height: 1350,
+      format: "png",
+      bytes: png.byteLength,
+      error: null,
+    });
+  });
+
+  it("flags an undecodable buffer as not ok without throwing", async () => {
+    const result = await inspectCreativeWorkImageFile(Buffer.from("not-an-image"));
+    expect(result.ok).toBe(false);
+    expect(result.width).toBeNull();
+    expect(result.height).toBeNull();
+    expect(result.error).toBeTruthy();
+    expect(result.bytes).toBe(Buffer.from("not-an-image").byteLength);
+  });
+});
+
+describe("normalizeCreativeWorkQaResult", () => {
+  it("keeps valid findings and summary", () => {
+    const result = normalizeCreativeWorkQaResult({
+      findings: [
+        { code: "unsupported_claim", status: "confirmed", note: "Renderiza R$ 99 sem origem." },
+        { code: "wrong_brand", status: "suspected", note: "Logo pode ser de outra marca." },
+      ],
+      summary: "Um fato inventado.",
+    });
+    expect(result.findings).toEqual([
+      { code: "unsupported_claim", status: "confirmed", note: "Renderiza R$ 99 sem origem." },
+      { code: "wrong_brand", status: "suspected", note: "Logo pode ser de outra marca." },
+    ]);
+    expect(result.summary).toBe("Um fato inventado.");
+  });
+
+  it("drops unknown codes, invalid statuses and empty notes", () => {
+    const result = normalizeCreativeWorkQaResult({
+      findings: [
+        { code: "generic_template_aesthetic", status: "confirmed", note: "Subjective — not allowed." },
+        { code: "wrong_dimensions", status: "confirmed", note: "Deterministic — not model-assigned." },
+        { code: "unusable_file", status: "confirmed", note: "Deterministic — not model-assigned." },
+        { code: "wrong_brand", status: "maybe", note: "Invalid status." },
+        { code: "wrong_brand", status: "confirmed", note: "   " },
+      ],
+      summary: "",
+    });
+    expect(result.findings).toEqual([]);
+  });
+
+  it("keeps one finding per code with confirmed winning over suspected", () => {
+    const result = normalizeCreativeWorkQaResult({
+      findings: [
+        { code: "missing_required_fact", status: "suspected", note: "Talvez falte agosto." },
+        { code: "missing_required_fact", status: "confirmed", note: "Agosto não aparece." },
+      ],
+    });
+    expect(result.findings).toEqual([
+      { code: "missing_required_fact", status: "confirmed", note: "Agosto não aparece." },
+    ]);
+  });
+
+  it("tolerates garbage input and caps findings", () => {
+    expect(normalizeCreativeWorkQaResult(null)).toEqual({ findings: [], summary: "" });
+    expect(normalizeCreativeWorkQaResult("junk")).toEqual({ findings: [], summary: "" });
+    const many = normalizeCreativeWorkQaResult({
+      findings: Array.from({ length: 9 }, (_, index) => ({
+        code: index % 2 === 0 ? "wrong_brand" : "unsupported_claim",
+        status: "confirmed",
+        note: `n${index}`,
+      })),
+    });
+    expect(many.findings.length).toBeLessThanOrEqual(6);
+  });
+});
+
+describe("buildCreativeWorkQaPrompt", () => {
+  const factPack = {
+    version: 1 as const,
+    request: "Promoção de agosto com vagas limitadas",
+    facts: [
+      { value: "agosto", class: "date" as const, required: true, origin: "request" as const },
+      { value: "vagas limitadas", class: "condition" as const, required: true, origin: "request" as const },
+      { value: "Curso de Psicologia", class: "product" as const, required: false, origin: "source" as const, sourceId: "src-1" },
+    ],
+    brand: { requiredElements: ["Logo no rodapé"], prohibitedElements: ["Concorrente X"] },
+    identity: { clientProfileId: "profile-1", brandName: "Instituto Psi", brandAuthority: "active" as const },
+  };
+
+  const baseInput = {
+    mode: "social_post" as const,
+    format: "4:5",
+    request: "Promoção de agosto com vagas limitadas",
+    copy: { headline: "Últimas vagas", body: "Curso em agosto", cta: "Inscreva-se" },
+    factPack,
+    brandName: "Instituto Psi",
+    locale: "pt-BR",
+    references: [
+      {
+        role: "brand_identity" as const,
+        label: "Mood",
+        required: false,
+        buffer: Buffer.from("ref"),
+        mimeType: "image/png",
+      },
+    ],
+  };
+
+  it("embeds the fact pack with origins, required/allowed split and brand rules", () => {
+    const prompt = buildCreativeWorkQaPrompt(baseInput);
+    expect(prompt).toContain("FACT PACK — AUDITABLE FACTUAL CONTRACT:");
+    expect(prompt).toContain("REQUEST: Promoção de agosto com vagas limitadas");
+    expect(prompt).toContain('[date] "agosto" (origin: request)');
+    expect(prompt).toContain('[condition] "vagas limitadas" (origin: request)');
+    expect(prompt).toContain('[product] "Curso de Psicologia" (origin: source, source: src-1)');
+    expect(prompt).toContain("BRAND NAME: Instituto Psi");
+    expect(prompt).toContain("REQUIRED BRAND ELEMENTS: Logo no rodapé");
+    expect(prompt).toContain("PROHIBITED BRAND ELEMENTS");
+    expect(prompt).toContain("Concorrente X");
+  });
+
+  it("embeds the validated copy and positional references", () => {
+    const prompt = buildCreativeWorkQaPrompt(baseInput);
+    expect(prompt).toContain("HEADLINE: Últimas vagas");
+    expect(prompt).toContain("CTA: Inscreva-se");
+    expect(prompt).toContain('- #1 [brand_identity] "Mood"');
+    expect(prompt).toContain("image #1 is the attached image in this position");
+  });
+
+  it("lists the objective codes and bans subjective signals from findings", () => {
+    const prompt = buildCreativeWorkQaPrompt(baseInput);
+    for (const code of [
+      "missing_required_fact",
+      "unsupported_claim",
+      "wrong_brand",
+      "style_reference_contamination",
+      "ignored_mandatory_reference",
+      "cropped_critical_content",
+      "unreadable_required_text",
+    ]) {
+      expect(prompt).toContain(code);
+    }
+    expect(prompt).toMatch(/SUBJECTIVE signals scored elsewhere/i);
+    expect(prompt).toMatch(/confirmed.*ONLY when you are visually certain/i);
+    // Deterministic checks are explicitly out of the evaluator's scope.
+    expect(prompt).toMatch(/Dimensions and file integrity are validated deterministically elsewhere/i);
+  });
+
+  it("falls back to the request as sole authority when no fact pack was frozen", () => {
+    const prompt = buildCreativeWorkQaPrompt({ ...baseInput, factPack: null });
+    expect(prompt).toContain("no frozen fact pack");
+    expect(prompt).toContain("REQUEST: Promoção de agosto com vagas limitadas");
+    expect(prompt).not.toContain("REQUIRED FACTS");
+  });
+
+  it("restyle mode separates content authority from style authority", () => {
+    const prompt = buildCreativeWorkQaPrompt({
+      ...baseInput,
+      mode: "restyling",
+      references: [
+        { role: "content", label: "Content source", required: true, buffer: Buffer.from("c"), mimeType: "image/png" },
+        { role: "style", label: "Style source", required: true, buffer: Buffer.from("s"), mimeType: "image/png" },
+      ],
+    });
+    expect(prompt).toContain("MODE POLICY — RESTYLE:");
+    expect(prompt).toMatch(/STYLE authority transfers only palette, typography, texture, light, rhythm and atmosphere/i);
+    expect(prompt).toContain('- #1 [content] "Content source" (required)');
+    expect(prompt).toContain('- #2 [style] "Style source" (required)');
+  });
+
+  it("adaptation mode demands the same piece", () => {
+    const prompt = buildCreativeWorkQaPrompt({ ...baseInput, mode: "format_adaptation" });
+    expect(prompt).toContain("MODE POLICY — FORMAT ADAPTATION:");
+    expect(prompt).toMatch(/SAME piece as the original art/i);
+    expect(prompt).toMatch(/reinvents the concept, drops the original art/i);
+  });
+});
+
+describe("analyzeCreativeWorkQa controlled E2E seam", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("returns deterministic empty findings without calling the vision model", async () => {
+    vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv("E2E_CONTROLLED_PROVIDER", "true");
+    vi.stubEnv("APP_URL", "http://localhost:3000");
+
+    const result = await analyzeCreativeWorkQa({
+      imageBuffer: Buffer.from("controlled"),
+      mimeType: "image/png",
+      mode: "social_post",
+      format: "1:1",
+      request: "Promoção de agosto",
+      copy: { headline: "H", body: "B", cta: "C" },
+      factPack: null,
+      brandName: "ADScale",
+      references: [],
+      locale: "pt-BR",
+    });
+
+    expect(result.findings).toEqual([]);
+    expect(result.summary).toContain("Deterministic");
   });
 });

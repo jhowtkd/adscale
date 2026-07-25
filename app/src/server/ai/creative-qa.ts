@@ -1,8 +1,15 @@
+import sharp from "sharp";
 import { env } from "@/server/validation/env";
 import { getOpenAI, extractOutputText } from "./utils";
 import type { CreativeContract } from "./creative-contract";
 import { resolveAllowedEntitiesForCampaign } from "./creative-corpus";
 import { isE2EControlledProviderEnabled } from "./providers/e2e-controlled-provider";
+import type { GenerationMode } from "@/server/generation/canonical/types";
+import type {
+  CreativeWorkFactPack,
+  SocialPostCopy,
+} from "@/server/creative-work/contracts";
+import type { CreativeWorkReferenceRole } from "@/server/creative-work/reference-plan";
 import {
   CREATIVE_QA_CORE_CRITERIA,
   type CreativeQaCriterion,
@@ -321,4 +328,432 @@ export async function analyzeCreativeQa(input: AnalyzeCreativeQaInput): Promise<
   const raw = extractOutputText(response);
   if (!raw) throw new Error("Empty vision response for creative QA");
   return normalizeCreativeQaResult(JSON.parse(raw));
+}
+
+// ---------------------------------------------------------------------------
+// Creative Work v1 objective QA (R-005 / spec 9).
+//
+// The objective evaluator decides integrity only — never taste. Three kinds of
+// evidence feed the persisted tri-state verdict:
+//   1. deterministic file/dimension/reference checks (no vision model);
+//   2. this visual evaluation, contextualized by the frozen fact pack and the
+//      role-bound reference plan;
+//   3. the evaluator's own technical status — timeout/error/ambiguity persists
+//      `inconclusive`, never a rejection and never a retry trigger.
+// Subjective scoring lives in creative-score.ts and stays advisory.
+// ---------------------------------------------------------------------------
+
+/** Tri-state objective verdict persisted in `creative_work_outputs.quality`. */
+export type CreativeWorkObjectiveVerdict = "pass" | "fail" | "inconclusive";
+
+/**
+ * Objective failure codes for Creative Work v1 (spec 9.1). The persisted
+ * `quality.objectiveCodes` array feeds the surgical correction contract
+ * (`CreativeWorkObjectiveCorrection`, T6/T8) — keep values stable.
+ */
+export const CREATIVE_WORK_OBJECTIVE_FAILURE_CODES = [
+  /** A required fact is absent from — or altered in — the rendered piece. */
+  "missing_required_fact",
+  /** A rendered claim has no origin in the fact pack or request. */
+  "unsupported_claim",
+  /** Wrong brand, logo, product or service is rendered. */
+  "wrong_brand",
+  /** Facts/copy/brand/layout leaked from the style reference. */
+  "style_reference_contamination",
+  /** A mandatory reference was not honored by the generation. */
+  "ignored_mandatory_reference",
+  /** Rendered dimensions differ from the canonical target format. */
+  "wrong_dimensions",
+  /** The produced file is corrupted or otherwise unusable. */
+  "unusable_file",
+  /** Factual elements are severely cropped out of the piece. */
+  "cropped_critical_content",
+  /** Factual text chosen by the output is illegible or garbled. */
+  "unreadable_required_text",
+] as const;
+
+export type CreativeWorkObjectiveFailureCode =
+  (typeof CREATIVE_WORK_OBJECTIVE_FAILURE_CODES)[number];
+
+/**
+ * Codes the vision evaluator may assign. Deterministic-only codes
+ * (`wrong_dimensions`, `unusable_file`) are never model-emitted — they come
+ * from the file/dimension checks, which do not depend on the vision model.
+ */
+export const CREATIVE_WORK_VISION_FAILURE_CODES: readonly CreativeWorkObjectiveFailureCode[] =
+  CREATIVE_WORK_OBJECTIVE_FAILURE_CODES.filter(
+    (code) => code !== "wrong_dimensions" && code !== "unusable_file",
+  );
+
+export interface CreativeWorkQaFinding {
+  code: CreativeWorkObjectiveFailureCode;
+  /**
+   * `confirmed` forces `objectiveVerdict: "fail"` regardless of any score.
+   * `suspected` is evaluator ambiguity and resolves to `inconclusive`.
+   */
+  status: "confirmed" | "suspected";
+  note: string;
+}
+
+export interface CreativeWorkQaResult {
+  findings: CreativeWorkQaFinding[];
+  summary: string;
+}
+
+/**
+ * Deterministic file check result — no vision model involved (criterion 5).
+ * Discriminated union: a decodable file always carries concrete
+ * width/height, a failed one always carries the error — callers never need
+ * non-null assertions.
+ */
+export type CreativeWorkFileInspection =
+  | {
+      ok: true;
+      width: number;
+      height: number;
+      format: string | null;
+      bytes: number;
+      error: null;
+    }
+  | {
+      ok: false;
+      width: number | null;
+      height: number | null;
+      format: string | null;
+      bytes: number;
+      error: string;
+    };
+
+function shortErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.replace(/\s+/g, " ").trim().slice(0, 160) || "unknown error";
+}
+
+/**
+ * Decode the produced image and report its real dimensions. A buffer sharp
+ * cannot parse is an objective `unusable_file` failure; a parseable file with
+ * unexpected dimensions is `wrong_dimensions` (decided by the caller).
+ */
+export async function inspectCreativeWorkImageFile(
+  imageBuffer: Buffer,
+): Promise<CreativeWorkFileInspection> {
+  const bytes = imageBuffer.byteLength;
+  try {
+    const metadata = await sharp(imageBuffer).metadata();
+    const width = metadata.width ?? null;
+    const height = metadata.height ?? null;
+    if (!width || !height) {
+      return {
+        ok: false,
+        width,
+        height,
+        format: metadata.format ?? null,
+        bytes,
+        error: "image dimensions could not be determined",
+      };
+    }
+    return {
+      ok: true,
+      width,
+      height,
+      format: metadata.format ?? null,
+      bytes,
+      error: null,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      width: null,
+      height: null,
+      format: null,
+      bytes,
+      error: shortErrorMessage(error),
+    };
+  }
+}
+
+export interface AnalyzeCreativeWorkQaReference {
+  role: CreativeWorkReferenceRole;
+  label: string;
+  required: boolean;
+  buffer: Buffer;
+  mimeType: string;
+}
+
+export interface AnalyzeCreativeWorkQaInput {
+  imageBuffer: Buffer;
+  mimeType: string;
+  /** Canonical mode resolved by the protocol translation (R-001). */
+  mode: GenerationMode;
+  format: string;
+  /** Full untruncated user request — factual authority of origin "request". */
+  request: string;
+  copy: Pick<SocialPostCopy, "headline" | "body" | "cta">;
+  /** Fact pack frozen at prepare time (R-002); null only on anomalous snapshots. */
+  factPack: CreativeWorkFactPack | null;
+  brandName: string | null;
+  /** References actually attached to the generation call, in provider order. */
+  references: readonly AnalyzeCreativeWorkQaReference[];
+  locale: string;
+  /**
+   * 1-based attempt of the provider call that produced the assessed image.
+   * Only consumed by the deterministic local E2E branch (R-010 markers) —
+   * the production evaluator is attempt-agnostic.
+   */
+  attempt?: number;
+}
+
+type CreativeWorkQaPromptInput = Omit<
+  AnalyzeCreativeWorkQaInput,
+  "imageBuffer" | "mimeType" | "references"
+> & { references: readonly AnalyzeCreativeWorkQaReference[] };
+
+function creativeWorkQaModePolicy(mode: GenerationMode): string {
+  switch (mode) {
+    case "format_adaptation":
+      return [
+        "MODE POLICY — FORMAT ADAPTATION:",
+        "- The output must be the SAME piece as the original art: same facts, essential text, brand, concept and visual direction. Only composition, scale and spatial distribution change for the new format.",
+        "- A result that reinvents the concept, drops the original art or changes brand/facts is an objective failure (ignored_mandatory_reference, missing_required_fact or wrong_brand).",
+      ].join("\n");
+    case "restyling":
+      return [
+        "MODE POLICY — RESTYLE:",
+        "- The CONTENT authority preserves facts, subject and essential elements; the STYLE authority transfers only palette, typography, texture, light, rhythm and atmosphere.",
+        "- Any brand name, product, copy, price or complete ad layout copied from the STYLE reference is style_reference_contamination.",
+        "- Required facts or the content subject that vanished are missing_required_fact or ignored_mandatory_reference.",
+      ].join("\n");
+    case "creative_revision":
+      return [
+        "MODE POLICY — REVISION:",
+        "- The revision instruction must be applied WITHOUT breaking required facts, brand or the contract of the parent piece.",
+        "- A revision that alters facts, brand or offer while applying the instruction is an objective failure.",
+      ].join("\n");
+    case "art_variation":
+    case "social_post":
+    default:
+      return [
+        "MODE POLICY — SINGLE PIECE / VARIATION:",
+        "- The piece must preserve every REQUIRED fact and the authoritative brand exactly; visual language may vary freely within the creative level.",
+        "- Rendered facts or claims with no origin in the fact pack or request are unsupported_claim; a rendered brand different from the authoritative one is wrong_brand.",
+      ].join("\n");
+  }
+}
+
+function factPackSection(input: CreativeWorkQaPromptInput): string {
+  const factPack = input.factPack;
+  if (!factPack) {
+    // Anomalous snapshot (prepare always freezes one): the request is the
+    // sole factual authority — same defensive posture as the job.
+    return [
+      "FACT PACK — AUDITABLE FACTUAL CONTRACT:",
+      "(no frozen fact pack — the REQUEST below is the sole factual authority)",
+      `REQUEST: ${input.request}`,
+      `BRAND NAME: ${input.brandName ?? "none declared"}`,
+    ].join("\n");
+  }
+  const required = factPack.facts.filter((fact) => fact.required);
+  const allowed = factPack.facts.filter((fact) => !fact.required);
+  const factLine = (fact: (typeof factPack.facts)[number]) =>
+    `- [${fact.class}] "${fact.value}" (origin: ${fact.origin}${fact.sourceId ? `, source: ${fact.sourceId}` : ""})`;
+  return [
+    "FACT PACK — AUDITABLE FACTUAL CONTRACT:",
+    `REQUEST: ${factPack.request}`,
+    "REQUIRED FACTS (each must survive into the piece; absence or alteration is missing_required_fact):",
+    ...(required.length > 0 ? required.map(factLine) : ["- none"]),
+    "ALLOWED FACTS (may appear; never required):",
+    ...(allowed.length > 0 ? allowed.map(factLine) : ["- none"]),
+    `BRAND NAME: ${factPack.identity.brandName ?? input.brandName ?? "none declared"}`,
+    `REQUIRED BRAND ELEMENTS: ${factPack.brand.requiredElements.join("; ") || "none"}`,
+    `PROHIBITED BRAND ELEMENTS (their presence is an objective failure): ${factPack.brand.prohibitedElements.join("; ") || "none"}`,
+  ].join("\n");
+}
+
+export function buildCreativeWorkQaPrompt(input: CreativeWorkQaPromptInput): string {
+  const referenceLines =
+    input.references.length > 0
+      ? input.references.map(
+          (reference, index) =>
+            `- #${index + 1} [${reference.role}] "${reference.label}"${reference.required ? " (required)" : ""} — image #${index + 1} is the attached image in this position`,
+        )
+      : ["- none — the output was generated without visual references"];
+
+  return `Run the objective integrity evaluation of this generated ad creative.
+
+You decide ONLY objective integrity. Composition, impact, originality, rhythm, density, CTA prominence and generic-looking aesthetics are SUBJECTIVE signals scored elsewhere — they must never appear in your findings.
+
+## Objective failure codes (the only values allowed in findings[].code)
+- missing_required_fact: a REQUIRED fact from the fact pack is absent or altered in the rendered piece.
+- unsupported_claim: the piece renders a factual claim (price, date, offer, condition, credential, guarantee, benefit, proof, named entity) with no origin in the fact pack or request.
+- wrong_brand: the rendered brand, logo, product or service is wrong — including a prohibited brand element.
+- style_reference_contamination: facts, copy, brand or the complete ad layout were copied from the STYLE reference instead of the content authority.
+- ignored_mandatory_reference: a required reference was visibly ignored (for example an adaptation that does not preserve the original art).
+- cropped_critical_content: factual elements (offer, brand, required text, product) are severely cropped.
+- unreadable_required_text: factual text rendered by the output is illegible, garbled or corrupted.
+
+## Verdict discipline
+- findings[].status is "confirmed" ONLY when you are visually certain; use "suspected" when the evidence is genuinely ambiguous.
+- Dimensions and file integrity are validated deterministically elsewhere — never report them.
+- An empty findings array means the output is objectively sound.
+
+${factPackSection(input)}
+
+## VALIDATED COPY (textual authority chosen before generation)
+- HEADLINE: ${input.copy.headline}
+- BODY: ${input.copy.body}
+- CTA: ${input.copy.cta}
+
+${creativeWorkQaModePolicy(input.mode)}
+
+## REFERENCES ATTACHED TO THE GENERATION CALL
+${referenceLines.join("\n")}
+
+TARGET FORMAT: ${input.format}
+
+Return only JSON: { "findings": [{ "code", "status", "note" }], "summary": "<one sentence>" }.
+Keep notes short and evidence-based. Locale for notes: ${input.locale}.`;
+}
+
+const MAX_CREATIVE_WORK_QA_FINDINGS = 6;
+
+function asFindingStatus(value: unknown): "confirmed" | "suspected" | null {
+  return value === "confirmed" || value === "suspected" ? value : null;
+}
+
+export function normalizeCreativeWorkQaResult(value: unknown): CreativeWorkQaResult {
+  const input = (value && typeof value === "object" ? value : {}) as {
+    findings?: unknown;
+    summary?: unknown;
+  };
+  const allowedCodes = new Set<string>(CREATIVE_WORK_VISION_FAILURE_CODES);
+  const byCode = new Map<string, CreativeWorkQaFinding>();
+  const rawFindings = Array.isArray(input.findings) ? input.findings : [];
+  for (const raw of rawFindings) {
+    if (!raw || typeof raw !== "object") continue;
+    const item = raw as { code?: unknown; status?: unknown; note?: unknown };
+    const code = typeof item.code === "string" ? item.code.trim() : "";
+    const status = asFindingStatus(item.status);
+    const note = typeof item.note === "string" ? item.note.trim() : "";
+    if (!allowedCodes.has(code) || !status || note.length === 0) continue;
+    const typedCode = code as CreativeWorkObjectiveFailureCode;
+    const existing = byCode.get(code);
+    // One finding per code; a confirmed observation always wins over a
+    // suspected one for the same defect.
+    if (!existing || (existing.status === "suspected" && status === "confirmed")) {
+      byCode.set(code, { code: typedCode, status, note });
+    }
+  }
+  return {
+    findings: [...byCode.values()].slice(0, MAX_CREATIVE_WORK_QA_FINDINGS),
+    summary: typeof input.summary === "string" ? input.summary.trim() : "",
+  };
+}
+
+export async function analyzeCreativeWorkQa(
+  input: AnalyzeCreativeWorkQaInput,
+): Promise<CreativeWorkQaResult> {
+  if (isE2EControlledProviderEnabled()) {
+    // R-010 deterministic objective-QA matrix (markers travel in the frozen
+    // request): qa-error → evaluator failure (inconclusive); qa-fail-always
+    // → confirmed objective failure on every attempt (terminal + refund);
+    // qa-fail-once → confirmed failure only on the first attempt so the
+    // exclusive correction can succeed on the second.
+    if (input.request.includes("[e2e:qa-error]")) {
+      throw new Error("controlled_e2e_qa_evaluator_failure");
+    }
+    const failAlways = input.request.includes("[e2e:qa-fail-always]");
+    const failOnce =
+      input.request.includes("[e2e:qa-fail-once]") && (input.attempt ?? 1) === 1;
+    if (failAlways || failOnce) {
+      return {
+        findings: [{
+          code: "unsupported_claim",
+          status: "confirmed",
+          note: "[e2e] alegação controlada sem origem factual.",
+        }],
+        summary: "Deterministic local E2E objective QA failed.",
+      };
+    }
+    return {
+      findings: [],
+      summary: "Deterministic local E2E objective QA passed.",
+    };
+  }
+
+  const content: Array<
+    | { type: "input_text"; text: string }
+    | { type: "input_image"; image_url: string; detail: "high" }
+  > = [
+    { type: "input_text", text: buildCreativeWorkQaPrompt(input) },
+    { type: "input_text", text: "OUTPUT UNDER REVIEW:" },
+    {
+      type: "input_image",
+      image_url: `data:${input.mimeType};base64,${input.imageBuffer.toString("base64")}`,
+      detail: "high",
+    },
+  ];
+  input.references.forEach((reference, index) => {
+    content.push(
+      {
+        type: "input_text",
+        text: `REFERENCE #${index + 1} [${reference.role}] "${reference.label}"${reference.required ? " (required)" : ""}:`,
+      },
+      {
+        type: "input_image",
+        image_url: `data:${reference.mimeType};base64,${reference.buffer.toString("base64")}`,
+        detail: "high",
+      },
+    );
+  });
+
+  const response = await getOpenAI().responses.create(
+    {
+      model: env.OPENAI_TEXT_MODEL,
+      input: [
+        {
+          role: "system",
+          content:
+            "You are the objective integrity evaluator for generated ad creatives. You report only factual/brand/reference defects with structured codes — never taste.",
+        },
+        { role: "user", content },
+      ],
+      text: {
+        format: {
+          type: "json_schema",
+          name: "creative_work_objective_qa",
+          strict: true,
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              findings: {
+                type: "array",
+                maxItems: MAX_CREATIVE_WORK_QA_FINDINGS,
+                items: {
+                  type: "object",
+                  additionalProperties: false,
+                  properties: {
+                    code: {
+                      type: "string",
+                      enum: [...CREATIVE_WORK_VISION_FAILURE_CODES],
+                    },
+                    status: { type: "string", enum: ["confirmed", "suspected"] },
+                    note: { type: "string" },
+                  },
+                  required: ["code", "status", "note"],
+                },
+              },
+              summary: { type: "string" },
+            },
+            required: ["findings", "summary"],
+          },
+        },
+      },
+    },
+    { timeout: 180_000, maxRetries: 0 },
+  );
+
+  const raw = extractOutputText(response);
+  if (!raw) throw new Error("Empty vision response for creative work QA");
+  return normalizeCreativeWorkQaResult(JSON.parse(raw));
 }

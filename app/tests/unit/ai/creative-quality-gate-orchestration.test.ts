@@ -1,7 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { CreativeContract } from "@/server/ai/creative-contract";
 
-vi.mock("@/server/ai/creative-qa", () => ({
+vi.mock("@/server/ai/creative-qa", async (importOriginal) => ({
+  // Keep the real constants/types (R-005 objective codes are imported by the
+  // gate at module scope) and mock only the vision call.
+  ...(await importOriginal<typeof import("@/server/ai/creative-qa")>()),
   analyzeCreativeQa: vi.fn(),
 }));
 

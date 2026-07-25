@@ -56,6 +56,13 @@ export interface GenerateAndStoreImageInput {
   quality?: "medium" | "high";
   /** Distinct route prompts. When present they are generated in parallel at medium quality. */
   routes?: Array<{ id: string; prompt: string }>;
+  /**
+   * `direct` (quality_recovery_v1 Creative Work outputs): exactly one
+   * high-quality provider call for the one visible output — `routes`,
+   * `selectCandidate` and the refinement pass are ignored even when supplied.
+   * Absent keeps the current tournament behavior.
+   */
+  executionPolicy?: "direct" | "legacy_tournament";
   /** Returns the winning index from the successfully stored raw candidates. */
   selectCandidate?: (candidates: Array<{
     routeId: string;
@@ -161,10 +168,14 @@ export async function generateAndStoreImage(
     routes,
     selectCandidate,
     outputSuffix = "",
+    executionPolicy,
   } = input;
 
   const provider = getImageProvider();
-  const requestedRoutes = routes?.length
+  // Direct execution (quality_recovery_v1): a single visible output gets a
+  // single high-quality call; the candidate tournament never runs.
+  const tournamentEnabled = executionPolicy !== "direct";
+  const requestedRoutes = tournamentEnabled && routes?.length
     ? routes
     : [{ id: "openai", prompt }];
   const generationResults = await Promise.allSettled(
@@ -176,7 +187,7 @@ export async function generateAndStoreImage(
         generationMode,
         outputPrefix,
         attempt,
-        quality: routes?.length ? "medium" : quality,
+        quality: tournamentEnabled && routes?.length ? "medium" : quality,
       };
       return { routeId: route.id, candidate: await provider.generate(providerInput) };
     })
@@ -242,7 +253,7 @@ export async function generateAndStoreImage(
     throw new Error(`All per-candidate R2 uploads failed: ${summary}`);
   }
 
-  const selection = selectCandidate
+  const selection = tournamentEnabled && selectCandidate
     ? await selectCandidate(candidates.map(({ routeId, candidate }) => ({
         routeId,
         buffer: candidate.buffer,
@@ -255,7 +266,7 @@ export async function generateAndStoreImage(
     throw new Error(`Candidate selector returned invalid index ${winnerIndex}`);
   }
   const refinementPrompt = typeof selection === "number" ? undefined : selection.refinementPrompt;
-  if (selectCandidate && refinementPrompt) {
+  if (tournamentEnabled && selectCandidate && refinementPrompt) {
     const selected = candidates[winnerIndex];
     try {
       const refinedCandidate = await provider.generate({

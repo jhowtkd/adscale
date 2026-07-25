@@ -9,8 +9,10 @@ import { normalizeCreativeQaResult } from "@/server/ai/creative-qa";
 import { CONTAMINATION_FAILURE_CODES } from "@/server/ai/factual-visual-separation";
 import {
   assertDerivationApprovable,
+  buildCreativeWorkQualityPayload,
   classifyCreativeQualityGate,
   computeQualityGateFromAnalysis,
+  deriveCreativeWorkObjectiveVerdict,
   deriveQualityVerdict,
   extractPolishSuggestions,
   normalizeHardFailureCode,
@@ -1130,5 +1132,202 @@ describe("assertDerivationApprovable", () => {
         hardFailures: [],
       }).ok
     ).toBe(true);
+  });
+});
+
+
+// ---------------------------------------------------------------------------
+// R-005 — Creative Work v1 tri-state objective verdict + persisted payload
+// ---------------------------------------------------------------------------
+
+describe("deriveCreativeWorkObjectiveVerdict (R-005)", () => {
+  it("any confirmed objective code forces fail — a 95 subjective score cannot approve it", () => {
+    const { verdict, objectiveCodes } = deriveCreativeWorkObjectiveVerdict({
+      deterministicCodes: [],
+      findings: [
+        { code: "unsupported_claim", status: "confirmed", note: "Renderiza R$ 99 sem origem." },
+      ],
+      evaluatorStatus: "completed",
+    });
+    expect(verdict).toBe("fail");
+    expect(objectiveCodes).toEqual(["unsupported_claim"]);
+  });
+
+  it("deterministic codes (wrong_dimensions, unusable_file, ignored reference) fail without vision findings", () => {
+    const { verdict, objectiveCodes } = deriveCreativeWorkObjectiveVerdict({
+      deterministicCodes: ["wrong_dimensions"],
+      findings: [],
+      evaluatorStatus: "completed",
+    });
+    expect(verdict).toBe("fail");
+    expect(objectiveCodes).toEqual(["wrong_dimensions"]);
+  });
+
+  it("dedupes codes across deterministic and vision evidence", () => {
+    const { objectiveCodes } = deriveCreativeWorkObjectiveVerdict({
+      deterministicCodes: ["ignored_mandatory_reference"],
+      findings: [
+        { code: "ignored_mandatory_reference", status: "confirmed", note: "Arte original sumiu." },
+        { code: "wrong_brand", status: "confirmed", note: "Marca errada." },
+      ],
+      evaluatorStatus: "completed",
+    });
+    expect(objectiveCodes).toEqual(["ignored_mandatory_reference", "wrong_brand"]);
+  });
+
+  it("pass requires completed evaluator and no confirmed failure", () => {
+    const { verdict, objectiveCodes } = deriveCreativeWorkObjectiveVerdict({
+      deterministicCodes: [],
+      findings: [],
+      evaluatorStatus: "completed",
+    });
+    expect(verdict).toBe("pass");
+    expect(objectiveCodes).toEqual([]);
+  });
+
+  it("evaluator failure persists inconclusive, never a rejection", () => {
+    const { verdict, objectiveCodes } = deriveCreativeWorkObjectiveVerdict({
+      deterministicCodes: [],
+      findings: [],
+      evaluatorStatus: "failed",
+    });
+    expect(verdict).toBe("inconclusive");
+    expect(objectiveCodes).toEqual([]);
+  });
+
+  it("a suspected-only finding is ambiguity → inconclusive, not fail", () => {
+    const { verdict, objectiveCodes } = deriveCreativeWorkObjectiveVerdict({
+      deterministicCodes: [],
+      findings: [
+        { code: "wrong_brand", status: "suspected", note: "Logo parcialmente encoberto." },
+      ],
+      evaluatorStatus: "completed",
+    });
+    expect(verdict).toBe("inconclusive");
+    expect(objectiveCodes).toEqual([]);
+  });
+
+  it("a skipped evaluator (unusable file) stays fail on the deterministic code", () => {
+    const { verdict } = deriveCreativeWorkObjectiveVerdict({
+      deterministicCodes: ["unusable_file"],
+      findings: [],
+      evaluatorStatus: "skipped",
+    });
+    expect(verdict).toBe("fail");
+  });
+});
+
+describe("buildCreativeWorkQualityPayload (R-005)", () => {
+  const checks = {
+    file: { ok: true, width: 1080, height: 1080, format: "png", bytes: 1234 },
+    dimensions: {
+      ok: true,
+      expected: { width: 1080, height: 1080 },
+      actual: { width: 1080, height: 1080 },
+    },
+    references: { ok: true, missingRequired: [] as string[] },
+  };
+
+  it("persists the versioned tri-state contract: verdict, codes, findings, subjective signals, evaluator status and attempt", () => {
+    const payload = buildCreativeWorkQualityPayload({
+      deterministicFindings: [],
+      visionFindings: [
+        { code: "unsupported_claim", status: "confirmed", note: "Renderiza R$ 99 sem origem." },
+      ],
+      evaluatorStatus: "completed",
+      subjective: { scoreStatus: "analyzed", qualityScore: 95, issues: ["generic layout"] },
+      checks,
+      attempt: 1,
+      checkedAt: new Date("2026-07-22T12:00:00.000Z"),
+    });
+
+    expect(payload.schemaVersion).toBe(1);
+    expect(payload.objectiveVerdict).toBe("fail");
+    expect(payload.objectiveCodes).toEqual(["unsupported_claim"]);
+    expect(payload.findings).toEqual([
+      {
+        code: "unsupported_claim",
+        status: "confirmed",
+        note: "Renderiza R$ 99 sem origem.",
+        origin: "vision",
+      },
+    ]);
+    // Subjective signals persist as advisory data — they did not soften the fail.
+    expect(payload.subjective).toEqual({
+      scoreStatus: "analyzed",
+      qualityScore: 95,
+      issues: ["generic layout"],
+    });
+    expect(payload.evaluator).toEqual({ status: "completed", error: null });
+    expect(payload.checks).toEqual(checks);
+    expect(payload.attempt).toBe(1);
+    expect(payload.checkedAt).toBe("2026-07-22T12:00:00.000Z");
+  });
+
+  it("marks the subjective score unavailable when the scorer produced nothing", () => {
+    const payload = buildCreativeWorkQualityPayload({
+      deterministicFindings: [],
+      visionFindings: [],
+      evaluatorStatus: "completed",
+      subjective: null,
+      checks,
+      attempt: 1,
+    });
+    expect(payload.objectiveVerdict).toBe("pass");
+    expect(payload.subjective).toEqual({
+      scoreStatus: "unavailable",
+      qualityScore: null,
+      issues: [],
+    });
+  });
+
+  it("persists inconclusive with the evaluator error for the review signal", () => {
+    const payload = buildCreativeWorkQualityPayload({
+      deterministicFindings: [],
+      visionFindings: [],
+      evaluatorStatus: "failed",
+      evaluatorError: "vision QA timed out after 180s",
+      subjective: { scoreStatus: "analyzed", qualityScore: 88, issues: [] },
+      checks,
+      attempt: 2,
+    });
+    expect(payload.objectiveVerdict).toBe("inconclusive");
+    expect(payload.evaluator).toEqual({
+      status: "failed",
+      error: "vision QA timed out after 180s",
+    });
+    expect(payload.attempt).toBe(2);
+  });
+
+  it("keeps deterministic findings with their origin and drops unknown codes defensively", () => {
+    const payload = buildCreativeWorkQualityPayload({
+      deterministicFindings: [
+        {
+          code: "wrong_dimensions",
+          status: "confirmed",
+          note: "Expected 1080x1080, produced 1024x1024",
+          origin: "deterministic",
+        },
+      ],
+      visionFindings: [
+        // normalizeCreativeWorkQaResult already filters these; the payload is
+        // the second line of defense for persisted JSON.
+        { code: "generic_template_aesthetic" as never, status: "confirmed", note: "junk" },
+      ],
+      evaluatorStatus: "completed",
+      subjective: null,
+      checks,
+      attempt: 1,
+    });
+    expect(payload.objectiveVerdict).toBe("fail");
+    expect(payload.objectiveCodes).toEqual(["wrong_dimensions"]);
+    expect(payload.findings).toEqual([
+      {
+        code: "wrong_dimensions",
+        status: "confirmed",
+        note: "Expected 1080x1080, produced 1024x1024",
+        origin: "deterministic",
+      },
+    ]);
   });
 });
