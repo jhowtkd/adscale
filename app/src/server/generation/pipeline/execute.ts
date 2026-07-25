@@ -8,7 +8,10 @@
 import { logger } from "@/lib/logger";
 import {
   generateAndStoreImage,
+  DEFAULT_IMAGE_PROVIDER_CALL_BUDGET,
+  isRetryableProviderError,
   type GenerationMode as ProviderGenerationMode,
+  type ImagePipelineTelemetryContext,
 } from "@/server/ai/image-generation";
 import { planCreativeRoutes } from "@/server/ai/creative-route-planner";
 import { selectCreativeCandidate } from "@/server/ai/creative-candidate-selector";
@@ -17,6 +20,32 @@ import {
   type GenerationRequest,
   type GenerationResult,
 } from "@/server/generation/canonical/types";
+
+export type ExecuteCanonicalGenerationOptions = {
+  telemetry?: ImagePipelineTelemetryContext;
+  onStageHeartbeat?: (stage: string) => Promise<void>;
+  /** Shared across edit + generate-fallback so total provider calls stay ≤ 6. */
+  callBudget?: { remaining: number };
+};
+
+function isProviderGenerationFailure(error: unknown): boolean {
+  if (isRetryableProviderError(error)) return true;
+  if (
+    error instanceof Error &&
+    /All image candidates failed/i.test(error.message)
+  ) {
+    return true;
+  }
+  if (
+    error &&
+    typeof error === "object" &&
+    (("status" in error && typeof (error as { status?: unknown }).status === "number") ||
+      ("statusCode" in error && typeof (error as { statusCode?: unknown }).statusCode === "number"))
+  ) {
+    return true;
+  }
+  return false;
+}
 
 function toProviderMode(mode: GenerationRequest["intent"]["mode"]): ProviderGenerationMode {
   if (
@@ -35,7 +64,8 @@ function toProviderMode(mode: GenerationRequest["intent"]["mode"]): ProviderGene
  * Does not persist domain rows — callers/adapters own that.
  */
 export async function executeCanonicalGeneration(
-  request: GenerationRequest
+  request: GenerationRequest,
+  options?: ExecuteCanonicalGenerationOptions,
 ): Promise<GenerationResult> {
   assertGenerationRequest(request);
 
@@ -65,6 +95,21 @@ export async function executeCanonicalGeneration(
     }
   }
 
+  const destinationTelemetry: ImagePipelineTelemetryContext = {
+    workspaceId: request.authorship.workspaceId,
+    jobType:
+      request.surface === "quick_tool"
+        ? "creative_work"
+        : request.surface === "assistant"
+          ? "assistant"
+          : "derivation",
+    workId: request.destination.workItemId,
+    outputId: request.destination.kind === "creative_work_output" ? request.destination.id : undefined,
+    derivationId: request.destination.kind === "derivation" ? request.destination.id : undefined,
+    campaignId: request.destination.campaignId,
+    ...options?.telemetry,
+  };
+
   const result = await generateAndStoreImage({
     prompt: request.prompt.text,
     dimensions: request.format.dimensions,
@@ -75,6 +120,9 @@ export async function executeCanonicalGeneration(
     outputSuffix: request.source.outputSuffix ?? "",
     executionPolicy: request.executionPolicy,
     routes,
+    telemetry: destinationTelemetry,
+    onStageHeartbeat: options?.onStageHeartbeat,
+    callBudget: options?.callBudget,
     selectCandidate: routes
       ? async (candidates) => {
           const selection = await selectCreativeCandidate({
@@ -114,22 +162,31 @@ export async function executeCanonicalGeneration(
  * Used by the derivation adapter to preserve historical behaviour.
  */
 export async function executeCanonicalGenerationWithFallback(
-  request: GenerationRequest
+  request: GenerationRequest,
+  options?: ExecuteCanonicalGenerationOptions,
 ): Promise<GenerationResult> {
   assertGenerationRequest(request);
 
+  const callBudget = options?.callBudget ?? { remaining: DEFAULT_IMAGE_PROVIDER_CALL_BUDGET };
+  const sharedOptions: ExecuteCanonicalGenerationOptions = {
+    ...options,
+    callBudget,
+  };
+
   try {
-    return await executeCanonicalGeneration(request);
+    return await executeCanonicalGeneration(request, sharedOptions);
   } catch (editErr) {
     if (
       !request.source.allowGenerateFallback ||
       request.identity.referenceImages.length === 0 ||
-      request.source.outputSuffix
+      request.source.outputSuffix ||
+      callBudget.remaining <= 0 ||
+      !isProviderGenerationFailure(editErr)
     ) {
       throw editErr;
     }
     logger.warn(
-      `[executeCanonicalGeneration] edit failed, falling back to generate without references`,
+      `[executeCanonicalGeneration] edit failed, falling back to generate without references (budgetRemaining=${callBudget.remaining})`,
       editErr
     );
     const fallbackRequest: GenerationRequest = {
@@ -137,7 +194,7 @@ export async function executeCanonicalGenerationWithFallback(
       identity: { ...request.identity, referenceImages: [] },
       source: { ...request.source, allowGenerateFallback: false },
     };
-    const result = await executeCanonicalGeneration(fallbackRequest);
+    const result = await executeCanonicalGeneration(fallbackRequest, sharedOptions);
     return { ...result, imageOperation: "generation_fallback" };
   }
 }

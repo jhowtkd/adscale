@@ -7,7 +7,7 @@ vi.mock("next/cache", () => ({
   unstable_cache: <T extends (...args: never[]) => unknown>(fn: T) => fn,
 }));
 
-vi.mock("@/server/auth/platform-owner", () => ({
+vi.mock("@/server/auth/require-platform-owner", () => ({
   requirePlatformOwner: vi.fn(),
 }));
 
@@ -27,7 +27,7 @@ vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
 }));
 
-import { requirePlatformOwner } from "@/server/auth/platform-owner";
+import { requirePlatformOwner } from "@/server/auth/require-platform-owner";
 import { listBetaAnalyticsEventsForOwner } from "@/server/repositories/beta-analytics";
 import { listBetaSessions } from "@/server/repositories/beta-sessions";
 import { summarizeMissionCreditSignals } from "@/server/feedback/mission-credit-signals";

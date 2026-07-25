@@ -13,6 +13,7 @@ import {
 } from "@/server/repositories/client-reference";
 import { objectStorage } from "@/server/storage";
 import { env } from "@/server/validation/env";
+import { normalizeImageForAi } from "@/server/ai/normalize-image-for-ai";
 
 import { inngest } from "./client";
 
@@ -57,20 +58,13 @@ Return ONLY a JSON object with this exact shape (no markdown, no commentary):
   }
 }`;
 
-export const brandTrainingAnalyzeJob = inngest.createFunction(
-  {
-    id: "analyze-brand-training-asset",
-    retries: 2,
-    onFailure: async ({ event, error }) => {
-      const data = event.data.event.data as BrandTrainingAnalyzeEvent;
-      const message = error instanceof Error ? error.message : "Unknown error";
-      logger.error(
-        `[brandTrainingAnalyzeJob] FAILED referenceId=${data.referenceId} error=${message}`,
-      );
-    },
-    triggers: [{ event: "brand.training.analyze" }],
-  },
-  async ({ event, step }) => {
+async function brandTrainingAnalyzeHandler({
+  event,
+  step,
+}: {
+  event: { data: BrandTrainingAnalyzeEvent };
+  step: { run: <T>(id: string, fn: () => Promise<T>) => Promise<T> };
+}) {
     const data = event.data as BrandTrainingAnalyzeEvent;
     logger.info(
       `[brandTrainingAnalyzeJob] START referenceId=${data.referenceId} assetKey=${data.assetKey}`,
@@ -112,12 +106,13 @@ export const brandTrainingAnalyzeJob = inngest.createFunction(
     // stuck in pending_analysis).
     const proposal = await step.run("analyze-with-vision", async () => {
       const result = await objectStorage.get(data.assetKey);
-      const buffer = Buffer.isBuffer(result)
+      const raw = Buffer.isBuffer(result)
         ? result
         : Buffer.from((result as unknown as { data: number[] }).data);
-      const dataUri = `data:${data.mimeType};base64,${buffer.toString("base64")}`;
+      const normalized = await normalizeImageForAi({ buffer: raw, mimeType: data.mimeType });
+      const dataUri = `data:${normalized.mimeType};base64,${normalized.buffer.toString("base64")}`;
 
-      const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 60_000 });
+      const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 60_000, maxRetries: 0 });
       const response = await openai.chat.completions.create({
         model,
         messages: [
@@ -187,5 +182,37 @@ export const brandTrainingAnalyzeJob = inngest.createFunction(
       usageMode: proposal.usageMode,
       confidence: proposal.analysis.confidence,
     };
-  },
-);
+}
+
+function buildBrandTrainingAnalyzeJob(
+  client: typeof inngest,
+  options: { id: string; eventName: string },
+) {
+  return client.createFunction(
+    {
+      id: options.id,
+      retries: 2,
+      onFailure: async ({ event, error }) => {
+        const data = event.data.event.data as BrandTrainingAnalyzeEvent;
+        const message = error instanceof Error ? error.message : "Unknown error";
+        logger.error(
+          `[brandTrainingAnalyzeJob] FAILED referenceId=${data.referenceId} error=${message}`,
+        );
+      },
+      triggers: [{ event: options.eventName }],
+    },
+    brandTrainingAnalyzeHandler,
+  );
+}
+
+export const brandTrainingAnalyzeJob = buildBrandTrainingAnalyzeJob(inngest, {
+  id: "analyze-brand-training-asset",
+  eventName: "brand.training.analyze",
+});
+
+export function createBrandTrainingAnalyzeJobV2(client: typeof inngest) {
+  return buildBrandTrainingAnalyzeJob(client, {
+    id: "analyze-brand-training-asset-v2",
+    eventName: "brand.training.analyze.v2",
+  });
+}

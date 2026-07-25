@@ -36,6 +36,11 @@ vi.mock("@/server/repositories/creative-work", () => ({
   requeueCreativeWorkOutputOnce: (...args: unknown[]) => requeueOnceMock(...args),
   claimCreativeWorkOutputImageCall: (...args: unknown[]) => claimImageCallMock(...args),
   touchCreativeWorkOutputHeartbeat: (...args: unknown[]) => touchHeartbeatMock(...args),
+  markCreativeWorkOutputFailureCode: vi.fn(),
+}));
+
+vi.mock("@/server/ai/normalize-image-for-ai", () => ({
+  normalizeReferenceBuffers: async (references: unknown[]) => references,
 }));
 
 vi.mock("@/server/creative-work/reference-normalize", () => ({
@@ -373,7 +378,7 @@ describe("creativeWorkOutputJob", () => {
     expect(refundCreditsMock).toHaveBeenCalledWith(expect.objectContaining({
       workspaceId: "workspace-1",
       amount: 5,
-      idempotencyKey: "creative-work:work-1:output:output-1:job-refund",
+      idempotencyKey: "creative-output:output-1:compensatory-refund",
     }));
   });
 
@@ -545,18 +550,19 @@ describe("creativeWorkOutputJob", () => {
     expect(parent.outputKey).toBe("creative-work/output-v1/original.png");
   });
 
-  it("automatically redispatches a marked retryable provider failure once", async () => {
+  it("does not requeue a legacy provider failure after the pipeline retry budget", async () => {
     getCreativeWorkMock.mockResolvedValue({ work: workItem, outputs: [makeQueuedOutput()] });
     markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
     generateAndStoreImageMock.mockRejectedValue(Object.assign(new Error("provider timeout"), { retryable: true }));
     requeueOnceMock.mockResolvedValue(makeQueuedOutput({ retryCount: 1 }));
     const result = await runJob();
-    expect(result).toMatchObject({ success: false, retrying: true });
-    expect(sendMock).toHaveBeenCalledWith({ name: "creative-work.generate", data: baseEvent });
-    expect(failMock).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ success: false, failureCode: "provider_timeout" });
+    expect(sendMock).not.toHaveBeenCalled();
+    expect(requeueOnceMock).not.toHaveBeenCalled();
+    expect(failMock).toHaveBeenCalled();
   });
 
-  it("redispatches a retryable error shape preserved across an Inngest step boundary", async () => {
+  it("settles a transported legacy provider failure without a second job dispatch", async () => {
     getCreativeWorkMock.mockResolvedValue({ work: workItem, outputs: [makeQueuedOutput()] });
     markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
     const transported = new Error("All image candidates failed: Error: upstream request failed");
@@ -565,23 +571,23 @@ describe("creativeWorkOutputJob", () => {
     generateAndStoreImageMock.mockRejectedValue(transported);
     requeueOnceMock.mockResolvedValue(makeQueuedOutput({ retryCount: 1 }));
     const result = await runJob();
-    expect(result).toMatchObject({ success: false, retrying: true });
-    expect(sendMock).toHaveBeenCalledWith({ name: "creative-work.generate", data: baseEvent });
+    expect(result).toMatchObject({ success: false, failureCode: "all_image_candidates_failed_error_upstream_request_failed" });
+    expect(sendMock).not.toHaveBeenCalled();
+    expect(requeueOnceMock).not.toHaveBeenCalled();
   });
 
-  it("makes a won auto-retry CAS manually recoverable when redispatch fails", async () => {
+  it("refunds a terminal legacy provider failure with the compensatory policy", async () => {
     getCreativeWorkMock.mockResolvedValue({ work: workItem, outputs: [makeQueuedOutput()] });
     markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
     generateAndStoreImageMock.mockRejectedValue(Object.assign(new Error("provider timeout"), { retryable: true }));
     requeueOnceMock.mockResolvedValue(makeQueuedOutput({ retryCount: 1 }));
-    sendMock.mockRejectedValue(new Error("inngest unavailable"));
     const result = await runJob();
-      expect(result).toMatchObject({ success: false, failureCode: "auto_retry_dispatch_failed" });
-      expect(result).not.toHaveProperty("retrying", true);
-      expect(failQueuedMock).toHaveBeenCalledWith("workspace-1", "work-1", "output-1", "auto_retry_dispatch_failed");
-      // Legacy keeps its historical no-refund behavior on dispatch failure.
-      expect(refundCreditsMock).not.toHaveBeenCalled();
-    });
+    expect(result).toMatchObject({ success: false, failureCode: "provider_timeout" });
+    expect(requeueOnceMock).not.toHaveBeenCalled();
+    expect(refundCreditsMock).toHaveBeenCalledWith(expect.objectContaining({
+      idempotencyKey: "creative-output:output-1:compensatory-refund",
+    }));
+  });
 
   it("does not reopen an output when completion wins the automatic-retry CAS", async () => {
     getCreativeWorkMock.mockResolvedValue({ work: workItem, outputs: [makeQueuedOutput()] });
@@ -761,7 +767,7 @@ describe("creativeWorkOutputJob", () => {
     expect(completeMock).not.toHaveBeenCalled();
   });
 
-  it("marks the output failed with sanitized code, refreshes status, and does not refund on provider error", async () => {
+  it("marks the output failed and refunds according to the post-provider policy", async () => {
     getCreativeWorkMock.mockResolvedValue({
       work: workItem,
       outputs: [makeQueuedOutput()],
@@ -779,9 +785,9 @@ describe("creativeWorkOutputJob", () => {
     );
     expect(refreshStatusMock).toHaveBeenCalledWith("workspace-1", "work-1");
     expect(completeMock).not.toHaveBeenCalled();
-    // Provider failures happen AFTER the generator was invoked — the
-    // charge covers the dispatch slot and is intentionally non-refundable.
-    expect(refundCreditsMock).not.toHaveBeenCalled();
+    expect(refundCreditsMock).toHaveBeenCalledWith(expect.objectContaining({
+      idempotencyKey: "creative-output:output-1:compensatory-refund",
+    }));
   });
 
   it("refunds the per-output credit and marks failed when a reference image load fails (pre-generator)", async () => {
@@ -800,7 +806,7 @@ describe("creativeWorkOutputJob", () => {
         action: "image_derivation",
         amount: 5,
         idempotencyKey:
-          "creative-work:work-1:output:output-1:pregen-refund",
+          "creative-output:output-1:compensatory-refund",
       }),
     );
     expect(failMock).toHaveBeenCalled();
@@ -836,7 +842,7 @@ describe("creativeWorkOutputJob", () => {
         action: "image_derivation",
         amount: 5,
         idempotencyKey:
-          "creative-work:work-1:output:output-1:pregen-refund",
+          "creative-output:output-1:compensatory-refund",
       }),
     );
     expect(completeMock).not.toHaveBeenCalled();
@@ -1907,7 +1913,7 @@ describe("creativeWorkOutputJob", () => {
       // Pre-provider failure: pregen refund, never the terminal one.
       expect(refundCreditsMock).toHaveBeenCalledWith(
         expect.objectContaining({
-          idempotencyKey: "creative-work:work-1:output:output-1:pregen-refund",
+          idempotencyKey: "creative-output:output-1:compensatory-refund",
         }),
       );
       expect(refundCreditsMock).not.toHaveBeenCalledWith(

@@ -202,6 +202,8 @@ export interface ExecuteGenerationStepContext {
   authoredByUserId?: string | null;
   clientProfileId?: string | null;
   surface?: "campaign" | "assistant";
+  inngestRunId?: string;
+  inngestAttempt?: number;
   /** When set, appends the QA correction suffix, uses a `-retry.png` key, and disables edit→generate fallback. */
   autoRetry?: { correctionFeedback: string };
 }
@@ -327,7 +329,16 @@ export async function executeGenerationStep(
   };
 
   // Canonical executor — same path Criar Post uses (Gate 3).
-  const result = await executeCanonicalGenerationWithFallback(request);
+  const result = await executeCanonicalGenerationWithFallback(request, {
+    telemetry: {
+      derivationId: ctx.derivationId,
+      workspaceId: ctx.workspaceId,
+      campaignId: ctx.promptContext.campaign.id,
+      jobType: ctx.surface === "assistant" ? "assistant" : "derivation",
+      inngestRunId: ctx.inngestRunId,
+      inngestAttempt: ctx.inngestAttempt,
+    },
+  });
 
   return {
     prompt,

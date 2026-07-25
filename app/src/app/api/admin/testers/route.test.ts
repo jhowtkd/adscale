@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GET, POST } from "./route";
 
-vi.mock("@/server/auth/platform-owner", () => ({
+vi.mock("@/server/auth/require-platform-owner", () => ({
   requirePlatformOwner: vi.fn(),
 }));
 
@@ -24,7 +24,7 @@ vi.mock("@/server/db", () => ({
   },
 }));
 
-import { requirePlatformOwner } from "@/server/auth/platform-owner";
+import { requirePlatformOwner } from "@/server/auth/require-platform-owner";
 import {
   grantTesterEntitlement,
   listActiveTesterEntitlements,

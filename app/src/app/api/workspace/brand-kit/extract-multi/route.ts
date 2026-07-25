@@ -23,6 +23,7 @@ import {
 import { normalizeTrainingUpload } from "@/server/brand-training/upload";
 import { upsertBrandKit, resolveBrandKitProfileId } from "@/server/repositories/brand-kit";
 import { inngest } from "@/server/jobs/client";
+import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 
 const MAX_SIZE = 10 * 1024 * 1024;
 const MAX_ENTRIES = 12;
@@ -260,7 +261,7 @@ export async function POST(request: Request) {
           label: file.name,
         }));
       await inngest.send({
-        name: "brand.training.analyze",
+        name: heavyImageEventName("brand.training.analyze"),
         data: {
           workspaceId: workspace.id,
           clientProfileId: profileId,

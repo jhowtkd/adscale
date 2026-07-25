@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { mapRuleRowToCandidate } from "@/server/brand-taste/calibration-rules";
-import { requirePlatformOwner } from "@/server/auth/platform-owner";
+import { requirePlatformOwner } from "@/server/auth/require-platform-owner";
 import { db } from "@/server/db";
 import { clientProfiles } from "@/server/db/schema";
 import { listCalibrationRulesForClientProfile } from "@/server/repositories/calibration-rule";

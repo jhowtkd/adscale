@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, inArray, isNull, or } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, inArray, isNull, or } from "drizzle-orm";
 
 import { db } from "../db";
 import {
@@ -194,6 +194,39 @@ export async function getAvailableCreditGrants(workspaceId: string, tx?: DbOrTx,
     return query.for('update');
   }
   return query;
+}
+
+/**
+ * Grants eligible to receive a refund, including fully depleted (remaining = 0)
+ * non-expired rows. Spend drains FIFO; refund prefers a positive grant, else the
+ * last drained grant in that same order so a zeroed wallet can still be restored.
+ */
+export async function getRefundableCreditGrants(workspaceId: string, tx?: DbOrTx, lock = false) {
+  const client = tx ?? db;
+  const query = client
+    .select()
+    .from(creditGrants)
+    .where(
+      and(
+        eq(creditGrants.workspaceId, workspaceId),
+        gte(creditGrants.remaining, 0),
+        or(isNull(creditGrants.expiresAt), gt(creditGrants.expiresAt, new Date()))
+      )
+    )
+    .orderBy(asc(creditGrants.expiresAt), asc(creditGrants.createdAt));
+
+  if (lock) {
+    return query.for("update");
+  }
+  return query;
+}
+
+export function pickRefundTargetGrant<T extends { remaining: number }>(
+  grants: T[]
+): T | null {
+  if (grants.length === 0) return null;
+  const withBalance = grants.find((grant) => grant.remaining > 0);
+  return withBalance ?? grants[grants.length - 1] ?? null;
 }
 
 export async function updateCreditGrantRemaining(id: string, remaining: number, tx?: DbOrTx) {

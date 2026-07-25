@@ -13,6 +13,7 @@
 import { inngest } from "@/server/jobs/client";
 import { recordUsage } from "@/server/billing/credits";
 import { getUsageByIdempotencyKey } from "@/server/repositories/usage";
+import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 import {
   CREATIVE_WORK_MAX_IMAGE_CALLS,
   getCreativeWork,
@@ -166,7 +167,7 @@ export async function retryCreativeWorkOutput(
 
   await inngest.send([
     {
-      name: "creative-work.generate",
+      name: heavyImageEventName("creative-work.generate"),
       data: {
         workspaceId: input.workspaceId,
         workItemId: input.workItemId,

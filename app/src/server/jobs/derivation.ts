@@ -77,6 +77,9 @@ import {
   type BuildGenerationPromptContextInput,
   type GenerationReferenceInput,
 } from "../ai/derivation-pipeline";
+import {
+  normalizeImageForAi,
+} from "@/server/ai/normalize-image-for-ai";
 import { captureCorpusCandidateFromDerivation } from "../human-quality/candidate-capture";
 import { loadPromptCalibrationContext } from "../brand-taste/prompt-calibration-loader";
 import { getAssistantActionById } from "../repositories/assistant-action";
@@ -123,6 +126,37 @@ async function sendDerivationCompleteEmailBestEffort(
 }
 
 type CampaignAsset = Awaited<ReturnType<typeof getAssetsByCampaign>>[number];
+
+type DerivationJobData = {
+  derivationId: string;
+  campaignId: string;
+  workspaceId: string;
+  triggeredByUserId?: string | null;
+  locale?: string;
+  generationMode?: string;
+  variantIndex?: number | null;
+  ctaText?: string | null;
+  format?: string;
+  isPreview?: boolean;
+  styleAssetId?: string;
+  assistantActionId?: string;
+  goalRunId?: string;
+  refundPolicy?: string | null;
+};
+
+type DerivationJobEvent = { data: DerivationJobData };
+type DerivationFailureEvent = { data: { event: DerivationJobEvent } };
+type DerivationJobStep = {
+  run<T>(name: string, fn: () => Promise<T>): Promise<T>;
+  realtime: {
+    publish(...args: unknown[]): Promise<unknown>;
+  };
+};
+type DerivationFailureArgs = {
+  event: DerivationFailureEvent;
+  error: unknown;
+  step: DerivationJobStep;
+};
 
 function resolveRestylingBaseAsset(assets: CampaignAsset[]) {
   return (
@@ -189,139 +223,24 @@ export { normalizeGeneratedImage } from "@/server/ai/derivation-pipeline";
 // scoreCompletedDerivation imported from generation/pipeline (Phase 3).
 export { scoreCompletedDerivation };
 
-export const derivationJob = inngest.createFunction(
-  {
-    id: "generate-derivation",
-    retries: 2,
-    concurrency: [
-      // Account-scoped limits require a CEL key (virtual queue name).
-      // Without it, Inngest rejects PUT /api/inngest and background jobs stall.
-      { limit: 1, scope: "account", key: `"openai"` },
-      { limit: 3, key: "event.data.workspaceId" },
-    ],
-    onFailure: async ({ event, error, step }) => {
-      const originalEvent = event.data.event;
-      const { derivationId, campaignId, workspaceId, triggeredByUserId, assistantActionId, generationMode, refundPolicy, goalRunId } = originalEvent.data;
-      const { userMessage, technicalDetail } = sanitizeDerivationFailureError(error);
-      const errorId = crypto.randomUUID();
-      logger.error("[Inngest onFailure] derivation failed", {
-        errorId,
-        derivationId,
-        workspaceId,
-        campaignId,
-        technicalDetail,
-      });
-      if (process.env.SENTRY_DSN) {
-        Sentry.captureException(error, {
-          tags: { component: "inngest", fn: "generate-derivation", errorId },
-          extra: { derivationId, campaignId, workspaceId, assistantActionId, triggeredByUserId, technicalDetail },
-        });
-      }
-      await step.run("mark-failed", async () => {
-        await markDerivationFailed({
-          derivationId,
-          campaignId,
-          workspaceId,
-          userMessage,
-          assistantActionId,
-        });
-        if (assistantActionId && goalRunId) {
-          await finalizeGoalDerivation({
-            workspaceId,
-            actionId: assistantActionId,
-            goalRunId,
-            derivationId,
-            generationMode,
-            userId: triggeredByUserId,
-            outcome: "failed",
-          });
-        }
-      });
-      // Canonical refund policy (Phase 3): job refunds only assistant
-      // creative_revision when refundPolicy !== "none".
-      const refundDecision = decideDerivationRefund({
-        surface: assistantActionId ? "assistant" : "campaign",
-        generationMode,
-        refundPolicy,
-        assistantActionId,
-        failurePhase: "job_failure",
-      });
-      if (refundDecision.refund) {
-        await step.run("refund-creative-revision", async () => {
-          try {
-            const result = await refundCredits({
-              workspaceId,
-              action: "image_derivation",
-              idempotencyKey: refundDecision.idempotencyKey,
-              amount: refundDecision.amount,
-              metadata: {
-                actionId: assistantActionId,
-                derivationId,
-                campaignId,
-                mode: "creative_revision",
-                reason: refundDecision.reason,
-              },
-              userId: triggeredByUserId,
-            });
-            logger.info(
-              `[derivationJob onFailure] refundCredits ${result.status} assistantActionId=${assistantActionId} derivationId=${derivationId}`
-            );
-          } catch (refundErr) {
-            logger.error(
-              `[derivationJob onFailure] refundCredits FAILED assistantActionId=${assistantActionId} derivationId=${derivationId}`,
-              refundErr
-            );
-          }
-        });
-        await step.run("emit-generation-failed-telemetry", async () => {
-          const action = await getAssistantActionById(workspaceId, assistantActionId);
-          if (!action) return;
-          const thread = await getAssistantThreadById(workspaceId, action.threadId);
-          if (!thread?.campaignId) return;
-          emitArtifactIterationTelemetry({
-            scope: {
-              workspaceId,
-              clientProfileId: thread.clientProfileId,
-              campaignId: thread.campaignId,
-              threadId: thread.id,
-            },
-            eventKey: "generation_failed",
-            metadata: {
-              artifactType: "creative",
-              actionId: assistantActionId,
-              reasonCode: "derivation_failed",
-            },
-          });
-        });
-      }
-      await step.realtime.publish("status-failed", derivationChannel({ derivationId }).status, {
-        derivationId,
-        status: "failed",
-        updatedAt: new Date().toISOString(),
-      });
-      if (triggeredByUserId) {
-        await step.run("notify-failure", async () => {
-          const campaign = await getCampaignById(campaignId, workspaceId);
-          await createNotification({
-            userId: triggeredByUserId,
-            workspaceId,
-            type: "derivation_failed",
-            title: "Falha na geração",
-            message: `A derivação da campanha "${campaign?.name ?? "Desconhecida"}" falhou.`,
-            derivationId,
-            campaignId,
-          });
-        });
-      }
-    },
-    triggers: [{ event: "derivation.generate" }],
-  },
-  async ({ event, step }) => {
+const derivationJobHandler = async ({
+    event,
+    step,
+    attempt,
+    runId,
+  }: {
+    event: DerivationJobEvent;
+    step: DerivationJobStep;
+    attempt?: number;
+    runId?: string;
+  }) => {
     const { derivationId, campaignId, workspaceId, triggeredByUserId, locale, generationMode, variantIndex, ctaText, format, isPreview, styleAssetId, assistantActionId, goalRunId } = event.data;
-    logger.info(`[derivationJob] START derivationId=${derivationId} campaignId=${campaignId} locale=${locale ?? "default"}`);
 
     let generationLog: DerivationGenerationLog = createGenerationLog(campaignId, derivationId);
     await step.run("init-generation-log", async () => {
+      logger.info(
+        `[derivationJob] START derivationId=${derivationId} campaignId=${campaignId} locale=${locale ?? "default"} runId=${runId ?? "n/a"} attempt=${attempt ?? 0}`,
+      );
       await updateDerivationGenerationLog(derivationId, workspaceId, generationLog);
     });
 
@@ -657,27 +576,38 @@ export const derivationJob = inngest.createFunction(
         logger.info(`[generate-and-store-output] downloaded ${referenceBuffer.length} bytes`);
       }
 
+      if (referenceBuffer && referenceMimeType) {
+        const normalizedRef = await normalizeImageForAi({
+          buffer: referenceBuffer,
+          mimeType: referenceMimeType,
+        });
+        referenceBuffer = normalizedRef.buffer;
+        referenceMimeType = normalizedRef.mimeType;
+      }
+
       if (derivation.parentId && !parentDerivation?.outputKey && effectiveGenerationMode === "format_adaptation") {
         throw new Error("Parent derivation output is missing. Cannot perform package format adaptation without the approved winner image.");
       }
 
-      const brandReferenceImages = (
-        await Promise.all(
-          clientReferences
-            .filter((reference) => reference.usageMode === "reference")
-            .map(async (reference) => {
-              const assetRecord = await getWorkspaceAssetByKey(workspaceId, reference.assetKey);
-              if (!assetRecord) return null;
-              return {
-                buffer: await objectStorage.get(reference.assetKey),
-                mimeType: assetRecord.type,
-                name: `brand-${reference.trainingCategory ?? reference.kind}-${reference.id}`,
-              };
-            }),
-        )
-      ).filter(
-        (image): image is { buffer: Buffer; mimeType: string; name: string } => image !== null,
-      );
+      const brandReferenceImages: Array<{ buffer: Buffer; mimeType: string; name: string }> = [];
+      const brandRefs = clientReferences
+        .filter((reference) => reference.usageMode === "reference")
+        .slice(0, 4);
+      for (const reference of brandRefs) {
+        const assetRecord = await getWorkspaceAssetByKey(workspaceId, reference.assetKey);
+        if (!assetRecord) continue;
+        const raw = await objectStorage.get(reference.assetKey);
+        const normalized = await normalizeImageForAi({
+          buffer: raw,
+          mimeType: assetRecord.type,
+        });
+        const ext = normalized.mimeType === "image/png" ? "png" : "webp";
+        brandReferenceImages.push({
+          buffer: normalized.buffer,
+          mimeType: normalized.mimeType,
+          name: `brand-${reference.trainingCategory ?? reference.kind}-${reference.id}.${ext}`,
+        });
+      }
 
       const promptContextInput = {
         campaign,
@@ -740,14 +670,18 @@ export const derivationJob = inngest.createFunction(
       if (effectiveGenerationMode === "restyling") {
         const baseAsset = restylingBaseAsset!;
         const styleAsset = restylingStyleAsset!;
-        const baseBuffer = await objectStorage.get(baseAsset.key);
-        const styleBuffer = await objectStorage.get(styleAsset.key);
+        const baseRaw = await objectStorage.get(baseAsset.key);
+        const styleRaw = await objectStorage.get(styleAsset.key);
+        const [baseNormalized, styleNormalized] = await Promise.all([
+          normalizeImageForAi({ buffer: baseRaw, mimeType: baseAsset.type }),
+          normalizeImageForAi({ buffer: styleRaw, mimeType: styleAsset.type }),
+        ]);
         reference = {
           kind: "restyling",
-          baseBuffer,
-          baseMimeType: baseAsset.type,
-          styleBuffer,
-          styleMimeType: styleAsset.type,
+          baseBuffer: baseNormalized.buffer,
+          baseMimeType: baseNormalized.mimeType,
+          styleBuffer: styleNormalized.buffer,
+          styleMimeType: styleNormalized.mimeType,
           brandImages: brandReferenceImages,
         };
       } else if (brandReferenceImages.length > 0) {
@@ -778,6 +712,8 @@ export const derivationJob = inngest.createFunction(
         authoredByUserId: triggeredByUserId ?? null,
         clientProfileId: campaign.clientProfileId ?? null,
         surface: assistantActionId ? "assistant" : "campaign",
+        inngestRunId: typeof runId === "string" ? runId : undefined,
+        inngestAttempt: typeof attempt === "number" ? attempt : undefined,
       });
 
       const exactBrandReferences = clientReferences.filter(
@@ -988,7 +924,7 @@ export const derivationJob = inngest.createFunction(
         }
         const campaign = await getCampaignById(campaignId, workspaceId);
         await createNotification({
-          userId: triggeredByUserId,
+          userId: triggeredByUserId ?? undefined,
           workspaceId,
           type: "derivation_completed",
           title: "Derivação pronta",
@@ -1203,6 +1139,8 @@ export const derivationJob = inngest.createFunction(
         targetFormat: generated.targetFormat,
         generationMode: retryMode,
         isPreview: isPreview ?? derivation.isPreview ?? false,
+        inngestRunId: typeof runId === "string" ? runId : undefined,
+        inngestAttempt: typeof attempt === "number" ? attempt : undefined,
         promptContext: {
           campaign,
           plan,
@@ -1356,7 +1294,7 @@ export const derivationJob = inngest.createFunction(
           goalRunId,
           derivationId,
           generationMode: generated.effectiveGenerationMode,
-          userId: triggeredByUserId,
+          userId: triggeredByUserId ?? undefined,
         });
       });
     }
@@ -1389,5 +1327,168 @@ export const derivationJob = inngest.createFunction(
 
     logger.info(`[derivationJob] DONE derivationId=${derivationId} outputKey=${finalOutputKey}`);
     return { success: true, derivationId, outputKey: finalOutputKey };
-  }
-);
+  };
+
+function buildDerivationJob(
+  client: typeof inngest,
+  options: { id: string; eventName: string; openaiConcurrency: number },
+) {
+  const baseConfig = {
+    id: "generate-derivation",
+    // App-level controlled retry already covers one full route round.
+    // Inngest retries would multiply provider calls beyond the six-call cap.
+    retries: 0,
+    concurrency: [
+      // Account-scoped limits require a CEL key (virtual queue name).
+      // Without it, Inngest rejects PUT /api/inngest and background jobs stall.
+      { limit: 1, scope: "account", key: `"openai"` },
+      { limit: 3, key: "event.data.workspaceId" },
+    ],
+    onFailure: async ({ event, error, step }: DerivationFailureArgs) => {
+      const originalEvent = event.data.event;
+      const { derivationId, campaignId, workspaceId, triggeredByUserId, assistantActionId, generationMode, refundPolicy, goalRunId } = originalEvent.data;
+      const { userMessage, technicalDetail } = sanitizeDerivationFailureError(error);
+      const errorId = crypto.randomUUID();
+      logger.error("[Inngest onFailure] derivation failed", {
+        errorId,
+        derivationId,
+        workspaceId,
+        campaignId,
+        technicalDetail,
+      });
+      if (process.env.SENTRY_DSN) {
+        Sentry.captureException(error, {
+          tags: { component: "inngest", fn: "generate-derivation", errorId },
+          extra: { derivationId, campaignId, workspaceId, assistantActionId, triggeredByUserId, technicalDetail },
+        });
+      }
+      await step.run("mark-failed", async () => {
+        await markDerivationFailed({
+          derivationId,
+          campaignId,
+          workspaceId,
+          userMessage,
+          assistantActionId,
+        });
+        if (assistantActionId && goalRunId) {
+          await finalizeGoalDerivation({
+            workspaceId,
+            actionId: assistantActionId,
+            goalRunId,
+            derivationId,
+            generationMode: generationMode ?? "art_variation",
+            userId: triggeredByUserId ?? undefined,
+            outcome: "failed",
+          });
+        }
+      });
+      // Canonical refund policy (Phase 3): job refunds only assistant
+      // creative_revision when refundPolicy !== "none".
+      const refundDecision = decideDerivationRefund({
+        surface: assistantActionId ? "assistant" : "campaign",
+        generationMode,
+        refundPolicy,
+        assistantActionId,
+        failurePhase: "job_failure",
+      });
+      if (refundDecision.refund) {
+        await step.run("refund-creative-revision", async () => {
+          try {
+            const result = await refundCredits({
+              workspaceId,
+              action: "image_derivation",
+              idempotencyKey: refundDecision.idempotencyKey,
+              amount: refundDecision.amount,
+              metadata: {
+                actionId: assistantActionId,
+                derivationId,
+                campaignId,
+                mode: "creative_revision",
+                reason: refundDecision.reason,
+              },
+              userId: triggeredByUserId ?? undefined,
+            });
+            logger.info(
+              `[derivationJob onFailure] refundCredits ${result.status} assistantActionId=${assistantActionId} derivationId=${derivationId}`
+            );
+          } catch (refundErr) {
+            logger.error(
+              `[derivationJob onFailure] refundCredits FAILED assistantActionId=${assistantActionId} derivationId=${derivationId}`,
+              refundErr
+            );
+          }
+        });
+        await step.run("emit-generation-failed-telemetry", async () => {
+          if (!assistantActionId) return;
+          const action = await getAssistantActionById(workspaceId, assistantActionId);
+          if (!action) return;
+          const thread = await getAssistantThreadById(workspaceId, action.threadId);
+          if (!thread?.campaignId) return;
+          emitArtifactIterationTelemetry({
+            scope: {
+              workspaceId,
+              clientProfileId: thread.clientProfileId,
+              campaignId: thread.campaignId,
+              threadId: thread.id,
+            },
+            eventKey: "generation_failed",
+            metadata: {
+              artifactType: "creative",
+              actionId: assistantActionId,
+              reasonCode: "derivation_failed",
+            },
+          });
+        });
+      }
+      await step.realtime.publish("status-failed", derivationChannel({ derivationId }).status, {
+        derivationId,
+        status: "failed",
+        updatedAt: new Date().toISOString(),
+      });
+      if (triggeredByUserId) {
+        await step.run("notify-failure", async () => {
+          const campaign = await getCampaignById(campaignId, workspaceId);
+          await createNotification({
+            userId: triggeredByUserId,
+            workspaceId,
+            type: "derivation_failed",
+            title: "Falha na geração",
+            message: `A derivação da campanha "${campaign?.name ?? "Desconhecida"}" falhou.`,
+            derivationId,
+            campaignId,
+          });
+        });
+      }
+    },
+    triggers: [{ event: "derivation.generate" }],
+  };
+  return client.createFunction(
+    {
+      ...baseConfig,
+      id: options.id,
+      retries: 0 as const,
+      concurrency: [
+        { limit: options.openaiConcurrency, scope: "account" as const, key: `"openai"` },
+        { limit: 3, key: "event.data.workspaceId" },
+      ],
+      triggers: [{ event: options.eventName }],
+      onFailure: async (args: DerivationFailureArgs) =>
+        baseConfig.onFailure(args),
+    } as unknown as Parameters<typeof client.createFunction>[0],
+    derivationJobHandler,
+  );
+}
+
+export const derivationJob = buildDerivationJob(inngest, {
+  id: "generate-derivation",
+  eventName: "derivation.generate",
+  openaiConcurrency: 1,
+});
+
+export function createDerivationJobV2(client: typeof inngest) {
+  return buildDerivationJob(client, {
+    id: "generate-derivation-v2",
+    eventName: "derivation.generate.v2",
+    openaiConcurrency: 2,
+  });
+}

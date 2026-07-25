@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { unstable_cache } from "next/cache";
 import { handleApiError } from "@/lib/api-response";
-import { requirePlatformOwner } from "@/server/auth/platform-owner";
+import { requirePlatformOwner } from "@/server/auth/require-platform-owner";
 import { buildAnalyticsFunnelSummary } from "@/server/beta-analytics/aggregate";
 import { parseOwnerAnalyticsQuery } from "@/server/beta-analytics/query";
 import { listBetaAnalyticsEventsForOwner } from "@/server/repositories/beta-analytics";

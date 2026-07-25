@@ -1,6 +1,8 @@
 import { getWorkspaceBillingAccess } from "@/server/billing/access";
 import {
   getAvailableCreditGrants,
+  getRefundableCreditGrants,
+  pickRefundTargetGrant,
   updateCreditGrantRemaining,
 } from "@/server/repositories/billing";
 import {
@@ -407,22 +409,25 @@ export async function refundCredits(input: {
       await checkDuplicate();
 
       if (!unlimitedBillingBypass) {
-        const grants = await getAvailableCreditGrants(
+        const grants = await getRefundableCreditGrants(
           input.workspaceId,
           tx,
           true
         );
-        if (grants.length > 0) {
-          await checkDuplicate();
-          const target = grants[0];
-          await updateCreditGrantRemaining(
-            target.id,
-            target.remaining + refundAmount,
-            tx
-          );
+        const target = pickRefundTargetGrant(grants);
+        if (!target) {
+          throw new Error("no_refundable_grant");
         }
+        await checkDuplicate();
+        await updateCreditGrantRemaining(
+          target.id,
+          target.remaining + refundAmount,
+          tx
+        );
       }
 
+      // Reserve the idempotency key in the same transaction as the grant credit
+      // so concurrent refunds cannot double-increment the balance.
       await trackUsage(
         input.workspaceId,
         input.action,

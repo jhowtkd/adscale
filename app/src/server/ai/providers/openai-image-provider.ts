@@ -9,7 +9,7 @@ import type {
   ProviderGenerateInput,
 } from "./image-provider";
 
-const IMAGE_GENERATION_TIMEOUT_MS = 5 * 60 * 1000;
+const REQUEST_OPTIONS = { timeout: 120_000, maxRetries: 0 } as const;
 
 function dimensionsToOpenAISdkSize(dimensions: { width: number; height: number }) {
   const ratio = dimensions.width / dimensions.height;
@@ -30,10 +30,7 @@ function dimensionsToOpenAISdkSize(dimensions: { width: number; height: number }
 
 const openai = new OpenAI({
   apiKey: env.OPENAI_API_KEY,
-  // R-007: the SDK timeout is the SINGLE timeout authority — it aborts the
-  // underlying HTTP request, unlike an external Promise.race that would leave
-  // the request running. Durable job retries already own transient recovery.
-  timeout: IMAGE_GENERATION_TIMEOUT_MS,
+  timeout: 120_000,
   maxRetries: 0,
 });
 
@@ -51,14 +48,17 @@ export class OpenAIImageProvider implements ImageGenerationProvider {
           toFile(ref.buffer, ref.name, { type: ref.mimeType })
         )
       );
-      const response = await openai.images.edit({
-        model: env.OPENAI_IMAGE_MODEL,
-        image: files,
-        prompt: input.prompt,
-        n: 1,
-        size: openaiSize,
-        quality: input.quality ?? "high",
-      });
+      const response = await openai.images.edit(
+        {
+          model: env.OPENAI_IMAGE_MODEL,
+          image: files,
+          prompt: input.prompt,
+          n: 1,
+          size: openaiSize,
+          quality: input.quality ?? "high",
+        },
+        REQUEST_OPTIONS
+      );
       const first = response.data?.[0];
       if (!first) throw new Error("No image data returned from OpenAI");
       logger.info(
@@ -66,13 +66,16 @@ export class OpenAIImageProvider implements ImageGenerationProvider {
       );
       result = first;
     } else {
-      const response = await openai.images.generate({
-        model: env.OPENAI_IMAGE_MODEL,
-        prompt: input.prompt,
-        n: 1,
-        size: openaiSize,
-        quality: input.quality ?? "high",
-      });
+      const response = await openai.images.generate(
+        {
+          model: env.OPENAI_IMAGE_MODEL,
+          prompt: input.prompt,
+          n: 1,
+          size: openaiSize,
+          quality: input.quality ?? "high",
+        },
+        REQUEST_OPTIONS
+      );
       const first = response.data?.[0];
       if (!first) throw new Error("No image data returned from OpenAI");
       logger.info(`[OpenAIImageProvider] generate success`);

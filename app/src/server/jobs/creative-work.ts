@@ -2,6 +2,7 @@ import "server-only";
 import { logger } from "@/lib/logger";
 import { objectStorage } from "@/server/storage";
 import { isRetryableProviderError } from "@/server/ai/image-generation";
+import { normalizeReferenceBuffers } from "@/server/ai/normalize-image-for-ai";
 import { executeCanonicalGeneration } from "@/server/generation/pipeline/execute";
 import {
   runCreativeWorkPostGeneration,
@@ -29,6 +30,7 @@ import {
   refreshCreativeWorkStatus,
   requeueCreativeWorkOutputOnce,
   touchCreativeWorkOutputHeartbeat,
+  markCreativeWorkOutputFailureCode,
 } from "@/server/repositories/creative-work";
 import {
   buildCreativeWorkPrompt,
@@ -71,6 +73,7 @@ import type {
 import type { AnalyzeCreativeWorkQaReference } from "@/server/ai/creative-qa";
 import { ensureCreativeWorkOutputInLibrary } from "@/server/application/ensure-creative-work-output-library";
 import { inngest } from "./client";
+import { heavyImageEventName } from "./heavy-image-events";
 import {
   decideCreativeWorkRefund,
   decideJobIdempotency,
@@ -80,6 +83,14 @@ interface CreativeWorkGenerateEvent {
   workspaceId: string;
   workItemId: string;
   outputId: string;
+}
+
+interface CreativeWorkJobStep {
+  run<T>(name: string, fn: () => Promise<T>): Promise<T>;
+}
+
+interface CreativeWorkFailureEvent {
+  data: { event: { data: CreativeWorkGenerateEvent } };
 }
 
 const OUTPUT_COST = GENERATION_CREDIT_COSTS.creativeWorkOutput;
@@ -100,14 +111,18 @@ export function sanitizeCreativeWorkFailureCode(message: string): string {
   return slug;
 }
 
-export const creativeWorkOutputJob = inngest.createFunction(
-  {
+const creativeWorkOutputJobConfig: {
+  id: string;
+  retries: 0;
+  concurrency: [{ limit: number; scope: "account"; key: string }];
+  onFailure: (args: { event: CreativeWorkFailureEvent; error: unknown; step: CreativeWorkJobStep }) => Promise<void>;
+} = {
     id: "generate-creative-work-output",
-    retries: 0,
+    retries: 0 as const,
     concurrency: [
       // ponytail: the production web instance has 512 MB; keep every OpenAI
       // image job account-wide serial until generation has a dedicated worker.
-      { limit: 1, scope: "account", key: `"creative-work-image"` },
+      { limit: 1, scope: "account" as const, key: `"creative-work-image"` },
     ],
     onFailure: async ({ event, error, step }) => {
       const originalEvent = event.data.event;
@@ -129,8 +144,8 @@ export const creativeWorkOutputJob = inngest.createFunction(
       });
       if (!recovered) return;
 
-      await step.run("refund-interrupted-output", async () => {
-        await applyRefundDecision({
+      const refunded = await step.run("refund-interrupted-output", async () =>
+        applyRefundDecision({
           workspaceId,
           workItemId,
           outputId,
@@ -142,19 +157,39 @@ export const creativeWorkOutputJob = inngest.createFunction(
             outputId,
           }),
           description: "creative_work_output_job_refund",
+        }),
+      );
+      if (refunded === false) {
+        await step.run("mark-interrupted-refund-pending", async () => {
+          await markCreativeWorkOutputFailureCode(
+            workspaceId,
+            workItemId,
+            outputId,
+            "generation_interrupted_refund_pending",
+          );
         });
-      });
+      }
       logger.error(
-        `[creativeWorkOutputJob] INTERRUPTED outputId=${outputId} recovered=true`,
+        `[creativeWorkOutputJob] INTERRUPTED outputId=${outputId} recovered=true refunded=${refunded !== false}`,
       );
     },
-    triggers: [{ event: "creative-work.generate" }],
-  },
-  async ({ event, step }) => {
+  };
+
+const creativeWorkOutputJobHandler = async ({
+  event,
+  step,
+  attempt,
+  runId,
+}: {
+  event: { data: CreativeWorkGenerateEvent };
+  step: CreativeWorkJobStep;
+  attempt?: number;
+  runId?: string;
+}) => {
     const data = event.data as CreativeWorkGenerateEvent;
     const { workspaceId, workItemId, outputId } = data;
     logger.info(
-      `[creativeWorkOutputJob] START workspaceId=${workspaceId} workItemId=${workItemId} outputId=${outputId}`,
+      `[creativeWorkOutputJob] START workspaceId=${workspaceId} workItemId=${workItemId} outputId=${outputId} runId=${runId ?? "n/a"} attempt=${attempt ?? 0}`,
     );
 
     // R-006/R-007 runtime state shared between the happy path and the
@@ -162,6 +197,7 @@ export const creativeWorkOutputJob = inngest.createFunction(
     const jobTimer = createCreativeWorkJobTimer();
     let providerInvoked = false;
     let isV1Policy = false;
+    let isDirectExecution = false;
     let imageCallCount = 0;
     let terminalRefunded = false;
 
@@ -259,6 +295,7 @@ export const creativeWorkOutputJob = inngest.createFunction(
             revision: Boolean(parentOutput),
           })
         : null;
+      isDirectExecution = protocol?.execution === "direct";
       if (protocol) {
         logger.info(
           `[creativeWorkOutputJob] policy=quality_recovery_v1 outputId=${outputId} mode=${protocol.mode} execution=${protocol.execution}`,
@@ -292,6 +329,25 @@ export const creativeWorkOutputJob = inngest.createFunction(
           });
         }
         return alive;
+      };
+
+      const renewLease = async (stage: string): Promise<void> => {
+        const alive = await touchCreativeWorkOutputHeartbeat(workspaceId, workItemId, outputId);
+        if (!alive) {
+          const leaseError = new Error(`creative_work_lease_lost:${outputId}`) as Error & { code: string };
+          leaseError.code = "lease_lost";
+          throw leaseError;
+        }
+        logger.info({
+          event: "image_pipeline_stage",
+          stage: "heartbeat",
+          status: "completed",
+          heartbeatStage: stage,
+          workId: workItemId,
+          outputId,
+          workspaceId,
+          jobType: "creative_work",
+        });
       };
 
       const targetFormat = output.targetFormat as SocialPostFormat;
@@ -545,6 +601,7 @@ export const creativeWorkOutputJob = inngest.createFunction(
               name: asset.label,
             })),
           );
+          referenceImages = await normalizeReferenceBuffers(referenceImages);
         }
       } catch (error) {
         await refundPreGeneratorOutput({
@@ -611,7 +668,6 @@ export const creativeWorkOutputJob = inngest.createFunction(
         return { success: false, skipped: true, leaseLost: true, outputId };
       }
 
-      providerInvoked = Boolean(protocol);
       const generated = await step.run("generate-base", async () => {
         if (protocol) {
           // R-006: the provider call is claimed atomically BEFORE reaching
@@ -631,8 +687,19 @@ export const creativeWorkOutputJob = inngest.createFunction(
             detail: `imageCallCount=${imageCallCount}`,
           });
         }
+        providerInvoked = true;
         // Same canonical executor as campaign/assistant (Gate 3 / item 25).
-        const result = await executeCanonicalGeneration(generationRequest);
+        const result = await executeCanonicalGeneration(generationRequest, {
+          telemetry: {
+            workId: workItemId,
+            outputId,
+            workspaceId,
+            inngestRunId: typeof runId === "string" ? runId : undefined,
+            inngestAttempt: typeof attempt === "number" ? attempt : undefined,
+            jobType: "creative_work",
+          },
+          onStageHeartbeat: renewLease,
+        });
         return { outputKey: result.outputKey as string | null };
       });
       const generatedOutputKey = (generated as unknown as { outputKey: string | null }).outputKey;
@@ -657,6 +724,9 @@ export const creativeWorkOutputJob = inngest.createFunction(
           durationMs: jobTimer.elapsedMs(),
         });
         return { success: false, outputId, failureCode: "image_call_budget_exhausted" };
+      }
+      if (!(await checkLease("after-generate"))) {
+        return { success: false, skipped: true, leaseLost: true, outputId };
       }
       // The correction flow may replace the persisted key with its own.
       let finalOutputKey = generatedOutputKey;
@@ -869,10 +939,20 @@ export const creativeWorkOutputJob = inngest.createFunction(
             },
           });
           const result = await executeCanonicalGeneration({
-            ...generationRequest,
-            prompt: { text: correctionPrompt },
-            attempt: 1,
-          });
+              ...generationRequest,
+              prompt: { text: correctionPrompt },
+              attempt: 1,
+            }, {
+              telemetry: {
+                workId: workItemId,
+                outputId,
+                workspaceId,
+                inngestRunId: typeof runId === "string" ? runId : undefined,
+                inngestAttempt: typeof attempt === "number" ? attempt : undefined,
+                jobType: "creative_work",
+              },
+              onStageHeartbeat: renewLease,
+            });
           return { outputKey: result.outputKey as string | null };
         });
         const correctionOutputKey = (correction as unknown as { outputKey: string | null }).outputKey;
@@ -1044,6 +1124,7 @@ export const creativeWorkOutputJob = inngest.createFunction(
       // (imageCallCount = 2) never earns a third call. Legacy outputs never
       // claim, so their historical requeue behavior is unchanged.
       if (
+        isDirectExecution &&
         isRetryableProviderError(error) &&
         imageCallCount < CREATIVE_WORK_MAX_IMAGE_CALLS
       ) {
@@ -1051,7 +1132,7 @@ export const creativeWorkOutputJob = inngest.createFunction(
           const retried = await requeueCreativeWorkOutputOnce(workspaceId, workItemId, outputId);
           if (retried) {
             try {
-              await inngest.send({ name: "creative-work.generate", data: { workspaceId, workItemId, outputId } });
+              await inngest.send({ name: heavyImageEventName("creative-work.generate"), data: { workspaceId, workItemId, outputId } });
               return { success: false, retrying: true, outputId, failureCode: code };
             } catch (dispatchError) {
               await failQueuedCreativeWorkOutput(workspaceId, workItemId, outputId, "auto_retry_dispatch_failed");
@@ -1086,6 +1167,20 @@ export const creativeWorkOutputJob = inngest.createFunction(
           workItemId,
           outputId,
           reason: message,
+        });
+      } else if (providerInvoked) {
+        terminalRefunded = await applyRefundDecision({
+          workspaceId,
+          workItemId,
+          outputId,
+          reason: message,
+          decision: decideCreativeWorkRefund({
+            surface: "quick_tool",
+            failurePhase: "post_provider",
+            workItemId,
+            outputId,
+          }),
+          description: "creative_work_output_post_provider_refund",
         });
       }
       try {
@@ -1126,8 +1221,29 @@ export const creativeWorkOutputJob = inngest.createFunction(
         );
       }
     }
+  };
+
+export const creativeWorkOutputJob = inngest.createFunction(
+  {
+    ...creativeWorkOutputJobConfig,
+    triggers: [{ event: "creative-work.generate" }],
   },
+  creativeWorkOutputJobHandler,
 );
+
+export function createCreativeWorkOutputJobV2(client: typeof inngest) {
+  return client.createFunction(
+    {
+      ...creativeWorkOutputJobConfig,
+      id: "generate-creative-work-output-v2",
+      concurrency: [
+        { limit: 2, scope: "account" as const, key: `"openai"` },
+      ],
+      triggers: [{ event: "creative-work.generate.v2" }],
+    },
+    creativeWorkOutputJobHandler,
+  );
+}
 
 /**
  * Apply a shared RefundDecision (from policies / post-gen). Adapter-only:
@@ -1148,12 +1264,12 @@ async function applyRefundDecision({
   reason: string;
   decision: RefundDecision;
   description: string;
-}): Promise<void> {
+}): Promise<boolean> {
   if (!decision.refund) {
     logger.info(
       `[creativeWorkOutputJob] skip refund outputId=${outputId} reason=${decision.reason}`,
     );
-    return;
+    return true;
   }
   try {
     const result = await refundCredits({
@@ -1172,12 +1288,14 @@ async function applyRefundDecision({
     logger.info(
       `[creativeWorkOutputJob] refundCredits outputId=${outputId} status=${result.status} description=${description} reason=${reason}`,
     );
+    return true;
   } catch (refundError) {
     const detail =
       refundError instanceof Error ? refundError.message : "Unknown error";
     logger.error(
       `[creativeWorkOutputJob] refundCredits FAILED outputId=${outputId} description=${description}: ${detail}`,
     );
+    return false;
   }
 }
 

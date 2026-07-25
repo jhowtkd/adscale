@@ -322,7 +322,9 @@ describe("executeGenerationStep", () => {
   });
 
   it("falls back to generate when edit fails and allowGenerateFallback is true", async () => {
-    mockOpenAIImages.edit.mockRejectedValueOnce(new Error("edit unsupported"));
+    mockOpenAIImages.edit
+      .mockRejectedValueOnce(new Error("edit unsupported"))
+      .mockRejectedValueOnce(new Error("edit unsupported"));
 
     const result = await executeGenerationStep({
       workspaceId: "ws-1",
@@ -339,13 +341,15 @@ describe("executeGenerationStep", () => {
       },
     });
 
-    expect(mockOpenAIImages.edit).toHaveBeenCalledTimes(1);
+    expect(mockOpenAIImages.edit).toHaveBeenCalledTimes(2);
     expect(mockOpenAIImages.generate).toHaveBeenCalledTimes(1);
     expect(result.imageOperation).toBe("generation_fallback");
   });
 
   it("rethrows the edit error when the reference does not allow a generate fallback", async () => {
-    mockOpenAIImages.edit.mockRejectedValueOnce(new Error("edit unsupported"));
+    mockOpenAIImages.edit
+      .mockRejectedValueOnce(new Error("edit unsupported"))
+      .mockRejectedValueOnce(new Error("edit unsupported"));
 
     await expect(
       executeGenerationStep({
@@ -383,7 +387,8 @@ describe("executeGenerationStep", () => {
 
     expect(mockOpenAIImages.edit).toHaveBeenCalledTimes(1);
     expect(mockOpenAIImages.edit).toHaveBeenCalledWith(
-      expect.objectContaining({ image: [expect.anything(), expect.anything()] })
+      expect.objectContaining({ image: [expect.anything(), expect.anything()] }),
+      expect.objectContaining({ maxRetries: 0, timeout: 120000 }),
     );
     expect(result.imageOperation).toBe("edit");
   });
@@ -405,6 +410,7 @@ describe("executeGenerationStep", () => {
 
     expect(mockOpenAIImages.edit).toHaveBeenCalledWith(
       expect.objectContaining({ image: [expect.anything(), expect.anything(), expect.anything()] }),
+      expect.objectContaining({ maxRetries: 0, timeout: 120000 }),
     );
   });
 
@@ -439,19 +445,23 @@ describe("executeGenerationStep", () => {
     expect(mockOpenAIImages.edit).toHaveBeenCalledWith(
       expect.objectContaining({
         prompt: expect.stringContaining("AUTO-RETRY CORRECTION"),
-      })
+      }),
+      expect.objectContaining({ maxRetries: 0, timeout: 120000 }),
     );
     expect(mockOpenAIImages.edit).toHaveBeenCalledWith(
       expect.objectContaining({
         prompt: expect.stringContaining("Fix CTA drift"),
-      })
+      }),
+      expect.objectContaining({ maxRetries: 0, timeout: 120000 }),
     );
     expect(result.outputKey).toMatch(/^derivations\/derivation-retry\/\d+-retry\.png$/);
     expect(mockOpenAIImages.generate).not.toHaveBeenCalled();
   });
 
   it("does not fall back to generate on auto-retry when edit fails", async () => {
-    mockOpenAIImages.edit.mockRejectedValueOnce(new Error("edit unsupported"));
+    mockOpenAIImages.edit
+      .mockRejectedValueOnce(new Error("edit unsupported"))
+      .mockRejectedValueOnce(new Error("edit unsupported"));
 
     await expect(
       executeGenerationStep({

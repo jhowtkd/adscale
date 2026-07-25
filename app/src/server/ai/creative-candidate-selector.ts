@@ -1,6 +1,8 @@
 import sharp from "sharp";
 import { z } from "zod";
 import { env } from "@/server/validation/env";
+import { logger } from "@/lib/logger";
+import { objectStorage } from "@/server/storage";
 import { isE2EControlledProviderEnabled } from "./providers/e2e-controlled-provider";
 import type { ImageReference } from "./providers/image-provider";
 import { extractOutputText, getOpenAI } from "./utils";
@@ -35,20 +37,24 @@ export type CandidateJudgment = {
   ranking: string[];
   invalid: string[];
   reason: string;
-  repairInstruction: string;
+  repairInstruction?: string;
 };
 
 const candidateJudgmentSchema = z.object({
   ranking: z.array(z.string()).min(1),
   invalid: z.array(z.string()),
   reason: z.string(),
-  repairInstruction: z.string(),
+  repairInstruction: z.string().optional().default(""),
 });
+
+function truncateReason(reason: string, max = 500): string {
+  return reason.length > max ? `${reason.slice(0, max)}…` : reason;
+}
 
 export function aggregateCandidateJudgments(
   candidateIds: string[],
   judgments: CandidateJudgment[]
-): { winnerId: string; invalidIds: string[]; reason: string; refinementPrompt: string } {
+): { winnerId: string; invalidIds: string[]; reason: string; refinementPrompt?: string } {
   if (candidateIds.length === 0 || judgments.length === 0) {
     throw new Error("Candidate selection requires candidates and judgments");
   }
@@ -64,23 +70,37 @@ export function aggregateCandidateJudgments(
       const rank = judgment.ranking.indexOf(id);
       return total + (rank === -1 ? candidateIds.length : rank);
     }, 0);
-  const firstRanking = judgments[0].ranking;
-  eligible.sort((left, right) =>
-    score(left) - score(right) || firstRanking.indexOf(left) - firstRanking.indexOf(right)
-  );
+  const sorted = [...eligible].sort((left, right) => {
+    const scoreDiff = score(left) - score(right);
+    if (scoreDiff !== 0) return scoreDiff;
+    // Lexicographic tie-break so partial judgment sets never depend on input order.
+    return left.localeCompare(right);
+  });
+
+  const repairInstructions = [...new Set(
+    judgments
+      .map((judgment) => (judgment.repairInstruction ?? "").trim())
+      .filter(Boolean)
+  )];
 
   return {
-    winnerId: eligible[0],
+    winnerId: sorted[0],
     invalidIds,
-    reason: judgments.map((judgment) => judgment.reason).filter(Boolean).join(" | "),
-    refinementPrompt: [...new Set(
-      judgments.map((judgment) => judgment.repairInstruction.trim()).filter(Boolean)
-    )].join("\n"),
+    reason: truncateReason(judgments.map((judgment) => judgment.reason).filter(Boolean).join(" | ")),
+    refinementPrompt: repairInstructions[0] || undefined,
   };
 }
 
+type SelectableCandidate = {
+  routeId: string;
+  outputKey?: string;
+  buffer?: Buffer;
+  mimeType: string;
+  imageUrl?: string;
+};
+
 type SelectCreativeCandidateInput = {
-  candidates: Array<{ routeId: string; buffer: Buffer; mimeType: string }>;
+  candidates: SelectableCandidate[];
   brief: string;
   objective: string | null;
   brandConstraints: string | null;
@@ -88,13 +108,42 @@ type SelectCreativeCandidateInput = {
   referenceImages: ImageReference[];
 };
 
+type JudgeImageUrls = {
+  byRouteId: ReadonlyMap<string, string>;
+  references: readonly string[];
+};
+
+async function resolveCandidateBuffer(candidate: SelectableCandidate): Promise<Buffer> {
+  if (candidate.buffer) return candidate.buffer;
+  if (!candidate.outputKey) {
+    throw new Error(`Candidate ${candidate.routeId} has neither buffer nor outputKey`);
+  }
+  const loaded = await objectStorage.get(candidate.outputKey);
+  return Buffer.isBuffer(loaded) ? loaded : Buffer.from(loaded as ArrayBuffer);
+}
+
+async function buildJudgeImageUrls(input: SelectCreativeCandidateInput): Promise<JudgeImageUrls> {
+  return {
+    byRouteId: new Map(
+      await Promise.all(
+        input.candidates.map(async (candidate): Promise<[string, string]> => {
+          const buffer = await resolveCandidateBuffer(candidate);
+          return [candidate.routeId, await toJudgeImageUrl(buffer, candidate.mimeType)];
+        })
+      )
+    ),
+    references: await Promise.all(
+      input.referenceImages.map((reference) =>
+        toJudgeImageUrl(reference.buffer, reference.mimeType)
+      )
+    ),
+  };
+}
+
 async function judgeCandidates(
   input: SelectCreativeCandidateInput,
-  candidates: SelectCreativeCandidateInput["candidates"],
-  judgeImageUrls: {
-    byRouteId: ReadonlyMap<string, string>;
-    references: readonly string[];
-  }
+  candidates: SelectableCandidate[],
+  judgeImageUrls: JudgeImageUrls
 ): Promise<CandidateJudgment> {
   const candidateIds = candidates.map((candidate) => candidate.routeId);
   const content: Array<
@@ -107,7 +156,7 @@ async function judgeCandidates(
 Reject objective errors before aesthetic preference. Rank every candidate ID from best to worst.
 Judge dominant idea, brand specificity, gestalt, feed impact, factual integrity, and absence of generic AI-ad tropes.
 Do not reward polish without an idea.
-repairInstruction must describe one surgical edit to the top-ranked candidate, preserving everything already correct.
+repairInstruction may be an empty string when no surgical edit is warranted.
 
 OBJECTIVE: ${input.objective ?? "Not provided"}
 TARGET FORMAT: ${input.targetFormat}
@@ -180,6 +229,28 @@ CANDIDATE IDS: ${candidateIds.join(", ")}`,
   return judgment;
 }
 
+function deterministicFallback(
+  candidates: SelectableCandidate[]
+): { winnerIndex: number; invalidRouteIds: string[]; reason: string } {
+  // Prefer the lexicographically smallest routeId so the choice is stable and
+  // independent of presentation order (never "first array slot wins").
+  const sortedIds = [...candidates.map((c) => c.routeId)].sort((a, b) => a.localeCompare(b));
+  const winnerId = sortedIds[0];
+  const winnerIndex = candidates.findIndex((c) => c.routeId === winnerId);
+  logger.warn({
+    event: "image_pipeline_stage",
+    stage: "selection",
+    status: "failed",
+    message: "No valid selector judgments; using deterministic routeId fallback",
+    winnerId,
+  });
+  return {
+    winnerIndex: winnerIndex >= 0 ? winnerIndex : 0,
+    invalidRouteIds: [],
+    reason: "deterministic_fallback_by_route_id",
+  };
+}
+
 export async function selectCreativeCandidate(input: SelectCreativeCandidateInput): Promise<{
   winnerIndex: number;
   invalidRouteIds: string[];
@@ -197,28 +268,46 @@ export async function selectCreativeCandidate(input: SelectCreativeCandidateInpu
     };
   }
 
-  const judgeImageUrls = {
-    byRouteId: new Map<string, string>(
-      await Promise.all(
-        input.candidates.map(async (candidate): Promise<[string, string]> => [
-          candidate.routeId,
-          await toJudgeImageUrl(candidate.buffer, candidate.mimeType),
-        ])
-      )
-    ),
-    references: await Promise.all(
-      input.referenceImages.map((reference) =>
-        toJudgeImageUrl(reference.buffer, reference.mimeType)
-      )
-    ),
-  };
+  const judgeImageUrls = await buildJudgeImageUrls(input);
 
-  const forward = await judgeCandidates(input, input.candidates, judgeImageUrls);
-  const reverse = await judgeCandidates(input, [...input.candidates].reverse(), judgeImageUrls);
-  const judgments = [forward, reverse];
-  if (forward.ranking[0] !== reverse.ranking[0]) {
-    const rotated = [...input.candidates.slice(1), input.candidates[0]];
-    judgments.push(await judgeCandidates(input, rotated, judgeImageUrls));
+  const forwardPromise = judgeCandidates(input, input.candidates, judgeImageUrls);
+  const reversePromise = judgeCandidates(input, [...input.candidates].reverse(), judgeImageUrls);
+  const settled = await Promise.allSettled([forwardPromise, reversePromise]);
+
+  const judgments: CandidateJudgment[] = [];
+  for (const result of settled) {
+    if (result.status === "fulfilled") judgments.push(result.value);
+    else {
+      logger.warn({
+        event: "image_pipeline_stage",
+        stage: "selection_judgment",
+        status: "failed",
+        errorMessage: result.reason instanceof Error ? result.reason.message.slice(0, 500) : String(result.reason).slice(0, 500),
+      });
+    }
+  }
+
+  if (judgments.length === 0) {
+    return deterministicFallback(input.candidates);
+  }
+
+  if (
+    judgments.length >= 2 &&
+    settled[0].status === "fulfilled" &&
+    settled[1].status === "fulfilled" &&
+    settled[0].value.ranking[0] !== settled[1].value.ranking[0]
+  ) {
+    try {
+      const rotated = [...input.candidates.slice(1), input.candidates[0]];
+      judgments.push(await judgeCandidates(input, rotated, judgeImageUrls));
+    } catch (error) {
+      logger.warn({
+        event: "image_pipeline_stage",
+        stage: "selection_tiebreak",
+        status: "failed",
+        errorMessage: error instanceof Error ? error.message.slice(0, 500) : String(error).slice(0, 500),
+      });
+    }
   }
 
   const result = aggregateCandidateJudgments(
@@ -229,6 +318,6 @@ export async function selectCreativeCandidate(input: SelectCreativeCandidateInpu
     winnerIndex: input.candidates.findIndex((candidate) => candidate.routeId === result.winnerId),
     invalidRouteIds: result.invalidIds,
     reason: result.reason,
-    refinementPrompt: result.refinementPrompt || undefined,
+    refinementPrompt: result.refinementPrompt,
   };
 }

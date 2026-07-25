@@ -7,6 +7,7 @@ import { chargeForGenerationBatch } from "@/server/generation/canonical/charge";
 import { GENERATION_CREDIT_COSTS, type GenerationBatchCharge } from "@/server/generation/canonical/types";
 import { inngest } from "@/server/jobs/client";
 import { getBrandKit } from "@/server/repositories/brand-kit";
+import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 import {
   confirmCreativeWorkSnapshotsIfUnchanged,
   createPlannedCreativeWorkOutputs,
@@ -196,7 +197,7 @@ export async function generateCreativeWork(input: {
   const created = await createPlannedCreativeWorkOutputs(input.workspaceId, input.workItemId, quote.plans);
   const newIds = new Set(created.newlyCreatedIds);
   const events = created.outputs.filter((output) => newIds.has(output.id)).map((output) => ({
-    name: "creative-work.generate" as const,
+    name: heavyImageEventName("creative-work.generate"),
     data: { workspaceId: input.workspaceId, workItemId: input.workItemId, outputId: output.id },
   }));
   try {

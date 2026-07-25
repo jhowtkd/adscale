@@ -16,6 +16,17 @@ vi.mock("./providers/e2e-controlled-provider", () => ({
   isE2EControlledProviderEnabled: controlledProviderEnabled,
 }));
 
+vi.mock("@/lib/logger", () => ({
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+}));
+
+vi.mock("@/server/storage", () => ({
+  objectStorage: {
+    signedDownloadUrl: vi.fn(async (key: string) => `https://signed.example/${key}`),
+    get: vi.fn(async (key: string) => Buffer.from(`buffer:${key}`)),
+  },
+}));
+
 import {
   aggregateCandidateJudgments,
   selectCreativeCandidate,
@@ -37,6 +48,18 @@ describe("aggregateCandidateJudgments", () => {
     );
 
     expect(result.winnerId).toBe("route-2");
+  });
+
+  it("breaks Borda ties by lexicographic routeId instead of input order", () => {
+    const result = aggregateCandidateJudgments(
+      ["route-z", "route-a"],
+      [
+        { ranking: ["route-z", "route-a"], invalid: [], reason: "a", repairInstruction: "" },
+        { ranking: ["route-a", "route-z"], invalid: [], reason: "b", repairInstruction: "" },
+      ]
+    );
+
+    expect(result.winnerId).toBe("route-a");
   });
 
   it("excludes a candidate only when a majority flags an objective failure", () => {
@@ -102,6 +125,41 @@ describe("selectCreativeCandidate", () => {
     expect(mockResponsesCreate).toHaveBeenCalledTimes(2);
   });
 
+  it("starts A and B in parallel and skips C on agreement", async () => {
+    let inflight = 0;
+    let maxInflight = 0;
+    mockResponsesCreate.mockImplementation(async () => {
+      inflight += 1;
+      maxInflight = Math.max(maxInflight, inflight);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      inflight -= 1;
+      return {
+        output_text: JSON.stringify({
+          ranking: ["route-2", "route-1", "route-3"],
+          invalid: [],
+          reason: "agree",
+          repairInstruction: "tighten the offer",
+        }),
+      };
+    });
+
+    await selectCreativeCandidate({
+      candidates: ["route-1", "route-2", "route-3"].map((routeId) => ({
+        routeId,
+        buffer: Buffer.from(routeId),
+        mimeType: "image/png",
+      })),
+      brief: "brief",
+      objective: null,
+      brandConstraints: null,
+      targetFormat: "4:5",
+      referenceImages: [],
+    });
+
+    expect(maxInflight).toBeGreaterThanOrEqual(2);
+    expect(mockResponsesCreate).toHaveBeenCalledTimes(2);
+  });
+
   it("downscales candidates to JPEG once and reuses the encoding across judgment passes", async () => {
     const sharp = (await import("sharp")).default;
     const largePng = await sharp({
@@ -147,5 +205,69 @@ describe("selectCreativeCandidate", () => {
     }
     // The reversed pass reuses the exact encodings from the first pass.
     expect(new Set(imageUrlsPerCall[1])).toEqual(new Set(imageUrlsPerCall[0]));
+  });
+
+  it("runs a third judgment only when A and B disagree", async () => {
+    mockResponsesCreate
+      .mockResolvedValueOnce({
+        output_text: JSON.stringify({
+          ranking: ["route-1", "route-2", "route-3"],
+          invalid: [],
+          reason: "a",
+          repairInstruction: "",
+        }),
+      })
+      .mockResolvedValueOnce({
+        output_text: JSON.stringify({
+          ranking: ["route-2", "route-1", "route-3"],
+          invalid: [],
+          reason: "b",
+          repairInstruction: "",
+        }),
+      })
+      .mockResolvedValueOnce({
+        output_text: JSON.stringify({
+          ranking: ["route-2", "route-3", "route-1"],
+          invalid: [],
+          reason: "c",
+          repairInstruction: "optional",
+        }),
+      });
+
+    const result = await selectCreativeCandidate({
+      candidates: ["route-1", "route-2", "route-3"].map((routeId) => ({
+        routeId,
+        buffer: Buffer.from(routeId),
+        mimeType: "image/png",
+      })),
+      brief: "brief",
+      objective: null,
+      brandConstraints: null,
+      targetFormat: "4:5",
+      referenceImages: [],
+    });
+
+    expect(mockResponsesCreate).toHaveBeenCalledTimes(3);
+    expect(result.winnerIndex).toBe(1);
+  });
+
+  it("falls back by lexicographic routeId when all judgments fail", async () => {
+    mockResponsesCreate.mockRejectedValue(new Error("judge unavailable"));
+
+    const result = await selectCreativeCandidate({
+      candidates: [
+        { routeId: "route-z", buffer: Buffer.from("z"), mimeType: "image/png" },
+        { routeId: "route-a", buffer: Buffer.from("a"), mimeType: "image/png" },
+        { routeId: "route-m", buffer: Buffer.from("m"), mimeType: "image/png" },
+      ],
+      brief: "brief",
+      objective: null,
+      brandConstraints: null,
+      targetFormat: "4:5",
+      referenceImages: [],
+    });
+
+    expect(result.winnerIndex).toBe(1);
+    expect(result.reason).toBe("deterministic_fallback_by_route_id");
   });
 });

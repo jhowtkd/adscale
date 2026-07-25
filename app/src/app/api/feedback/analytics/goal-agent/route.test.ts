@@ -5,7 +5,7 @@ vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
 }));
 
-vi.mock("@/server/auth/platform-owner", () => ({
+vi.mock("@/server/auth/require-platform-owner", () => ({
   requirePlatformOwner: vi.fn(),
 }));
 
@@ -39,7 +39,7 @@ vi.mock("@/server/db", () => {
   return { db: { select: vi.fn(() => chain) } };
 });
 
-import { requirePlatformOwner } from "@/server/auth/platform-owner";
+import { requirePlatformOwner } from "@/server/auth/require-platform-owner";
 import { computeGraduationReport } from "@/server/assistant/goal/analytics";
 
 const mockRequireOwner = vi.mocked(requirePlatformOwner);

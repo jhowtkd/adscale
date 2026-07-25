@@ -6,6 +6,7 @@ import { shouldAutoRetryDerivation } from "./derivation-auto-retry-policy";
 import { getDerivationById, updateDerivationPromptProvenance } from "../repositories/derivation";
 import { formatToOpenAIImageSize, toOpenAISdkImageSize } from "@/lib/formats";
 import { logger } from "@/lib/logger";
+import { normalizeImageForAi } from "@/server/ai/normalize-image-for-ai";
 import {
   executeGenerationStep,
   type BuildGenerationPromptContextInput,
@@ -29,12 +30,18 @@ export interface AutoRetryDerivationInput {
   targetFormat: string;
   generationMode: "art_variation" | "format_adaptation" | "restyling";
   isPreview?: boolean;
+  inngestRunId?: string;
+  inngestAttempt?: number;
 }
 
 async function resolveAutoRetryReference(
   input: AutoRetryDerivationInput
 ): Promise<GenerationReferenceInput> {
-  const referenceBuffer = await objectStorage.get(input.referenceKey);
+  const referenceRaw = await objectStorage.get(input.referenceKey);
+  const referenceNormalized = await normalizeImageForAi({
+    buffer: referenceRaw,
+    mimeType: input.referenceMimeType,
+  });
 
   if (input.generationMode === "restyling") {
     if (!input.styleReferenceKey) {
@@ -43,26 +50,30 @@ async function resolveAutoRetryReference(
       );
       return {
         kind: "single",
-        buffer: referenceBuffer,
-        mimeType: input.referenceMimeType,
+        buffer: referenceNormalized.buffer,
+        mimeType: referenceNormalized.mimeType,
         allowGenerateFallback: false,
       };
     }
 
-    const styleBuffer = await objectStorage.get(input.styleReferenceKey);
+    const styleRaw = await objectStorage.get(input.styleReferenceKey);
+    const styleNormalized = await normalizeImageForAi({
+      buffer: styleRaw,
+      mimeType: input.styleReferenceMimeType ?? "image/png",
+    });
     return {
       kind: "restyling",
-      baseBuffer: referenceBuffer,
-      baseMimeType: input.referenceMimeType,
-      styleBuffer,
-      styleMimeType: input.styleReferenceMimeType ?? "image/png",
+      baseBuffer: referenceNormalized.buffer,
+      baseMimeType: referenceNormalized.mimeType,
+      styleBuffer: styleNormalized.buffer,
+      styleMimeType: styleNormalized.mimeType,
     };
   }
 
   return {
     kind: "single",
-    buffer: referenceBuffer,
-    mimeType: input.referenceMimeType,
+    buffer: referenceNormalized.buffer,
+    mimeType: referenceNormalized.mimeType,
     allowGenerateFallback: false,
   };
 }
@@ -107,6 +118,8 @@ export async function runDerivationAutoRetry(
     isPreview: input.isPreview,
     surface: "campaign",
     autoRetry: { correctionFeedback: input.correctionFeedback },
+    inngestRunId: input.inngestRunId,
+    inngestAttempt: input.inngestAttempt,
   });
 
   const openaiSize = toOpenAISdkImageSize(

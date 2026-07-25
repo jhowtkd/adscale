@@ -24,4 +24,3 @@ cd app && npm test -- tests/unit/output-learning/output-learning-pipeline-eval.t
 cd app && npm test -- tests/unit/ai/gate-failure-matrix.test.ts tests/unit/ai/creative-quality-gate.test.ts
 node app/scripts/check-output-learning-evidence.mjs
 ```
-

@@ -2,6 +2,7 @@ import { refundCredits } from "@/server/billing/credits";
 import { chargeForGenerationBatch } from "@/server/generation/canonical/charge";
 import { GENERATION_CREDIT_COSTS, type GenerationBatchCharge } from "@/server/generation/canonical/types";
 import { inngest } from "@/server/jobs/client";
+import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 import {
   createCreativeWorkRevision,
   failQueuedCreativeWorkOutput,
@@ -75,7 +76,7 @@ export async function reviseCreativeWorkOutput(input: {
   try {
     await inngest.send({
       id: `creative-work-revision:${output.id}`,
-      name: "creative-work.generate",
+      name: heavyImageEventName("creative-work.generate"),
       data: { workspaceId: input.workspaceId, workItemId: input.workItemId, outputId: output.id },
     });
   } catch {

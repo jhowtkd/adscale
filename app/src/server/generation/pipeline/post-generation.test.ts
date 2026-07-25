@@ -57,6 +57,8 @@ import {
 
 vi.mock("@/server/ai/image-generation", () => ({
   generateAndStoreImage: vi.fn(),
+  DEFAULT_IMAGE_PROVIDER_CALL_BUDGET: 6,
+  isRetryableProviderError: () => false,
 }));
 
 const mockAnalyze = vi.mocked(analyzeDerivationCreative);
@@ -233,7 +235,7 @@ describe("shared pipeline parity across failure phases", () => {
     expect(postRefund.refund).toBe(true);
   });
 
-  it("post_provider: shared executor throws; neither surface refunds in-job", async () => {
+  it("post_provider: shared executor throws; Criar Post refunds delivery failure", async () => {
     mockGenerate.mockRejectedValue(new Error("provider timeout"));
     await expect(
       executeCanonicalGeneration(unitRequest("campaign"))
@@ -255,7 +257,7 @@ describe("shared pipeline parity across failure phases", () => {
         workItemId: "w",
         outputId: "o",
       }).refund
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("low_quality: shared post-gen rejects Criar Post; campaign policy accepts", async () => {

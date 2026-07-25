@@ -29,6 +29,7 @@ vi.mock("@/server/storage", () => ({
   objectStorage: {
     get: vi.fn((key: string) => Promise.resolve(Buffer.from(`buffer:${key}`))),
     put: vi.fn(() => Promise.resolve()),
+    signedDownloadUrl: vi.fn((key: string) => Promise.resolve(`https://signed.example/${key}`)),
   },
 }));
 
@@ -81,7 +82,8 @@ describe("generateAndStoreImage", () => {
 
     expect(mockOpenAIImages.generate).toHaveBeenCalledTimes(1);
     expect(mockOpenAIImages.generate).toHaveBeenCalledWith(
-      expect.objectContaining({ quality: "high" })
+      expect.objectContaining({ quality: "high" }),
+      expect.objectContaining({ timeout: 120_000, maxRetries: 0 }),
     );
     expect(mockOpenAIImages.edit).not.toHaveBeenCalled();
     expect(result.imageOperation).toBe("generate");
@@ -159,7 +161,8 @@ describe("generateAndStoreImage", () => {
     });
 
     expect(mockOpenAIImages.generate).toHaveBeenCalledWith(
-      expect.objectContaining({ size: "1024x1280" })
+      expect.objectContaining({ size: "1024x1280" }),
+      expect.objectContaining({ timeout: 120_000, maxRetries: 0 }),
     );
   });
 
@@ -171,7 +174,8 @@ describe("generateAndStoreImage", () => {
     });
 
     expect(mockOpenAIImages.generate).toHaveBeenCalledWith(
-      expect.objectContaining({ size: "1152x2048" })
+      expect.objectContaining({ size: "1152x2048" }),
+      expect.objectContaining({ timeout: 120_000, maxRetries: 0 }),
     );
   });
 
@@ -183,7 +187,8 @@ describe("generateAndStoreImage", () => {
     });
 
     expect(mockOpenAIImages.generate).toHaveBeenCalledWith(
-      expect.objectContaining({ size: "1024x1024" })
+      expect.objectContaining({ size: "1024x1024" }),
+      expect.objectContaining({ timeout: 120_000, maxRetries: 0 }),
     );
   });
 
@@ -281,7 +286,7 @@ describe("generateAndStoreImage", () => {
     }
   });
 
-  it("keeps route generation serial to stay within the production memory budget", async () => {
+  it("keeps route generation within IMAGE_ROUTE_CONCURRENCY", async () => {
     const { __setImageProviderForTests } = await import("./image-generation");
     let active = 0;
     let peak = 0;
@@ -313,7 +318,10 @@ describe("generateAndStoreImage", () => {
         ],
       });
 
+      // Default IMAGE_ROUTE_CONCURRENCY is 1 in tests.
       expect(peak).toBe(1);
+      // Upload-and-release: each candidate is put before the next starts under concurrency 1.
+      expect(objectStorage.put).toHaveBeenCalled();
     } finally {
       __setImageProviderForTests(null);
     }
@@ -367,15 +375,18 @@ describe("generateAndStoreImage", () => {
     }
   });
 
-  it("marks a local TimeoutError shape retryable", async () => {
+  it("exhausts one controlled retry then marks total failure non-retryable", async () => {
     const { __setImageProviderForTests } = await import("./image-generation");
     const providerError = Object.assign(new Error("request timed out"), { name: "TimeoutError", code: "ETIMEDOUT" });
-    __setImageProviderForTests({ name: "openai", generate: vi.fn(async () => { throw providerError; }) });
+    const generate = vi.fn(async () => { throw providerError; });
+    __setImageProviderForTests({ name: "openai", generate });
     try {
       const error = await generateAndStoreImage({ ...BASE_INPUT, outputPrefix: "creative-work/retryable" }).catch((caught) => caught);
       expect(error).toBeInstanceOf(Error);
-      expect(error.retryable).toBe(true);
-      expect(error).toMatchObject({ name: "TimeoutError", code: "ETIMEDOUT" });
+      expect(error.retryable).toBe(false);
+      expect(String(error.message)).toMatch(/All image candidates failed/);
+      // One controlled app-level round retry (2 × 1 route).
+      expect(generate).toHaveBeenCalledTimes(2);
     } finally {
       __setImageProviderForTests(null);
     }
@@ -399,39 +410,18 @@ describe("generateAndStoreImage", () => {
     expect(isRetryableProviderError(transported)).toBe(false);
   });
 
-  it("marks an HTTP 429 provider error retryable", async () => {
-    const { __setImageProviderForTests } = await import("./image-generation");
-    __setImageProviderForTests({ name: "openai", generate: vi.fn(async () => { throw Object.assign(new Error("rate limited"), { status: 429 }); }) });
-    try {
-      const error = await generateAndStoreImage({ ...BASE_INPUT, outputPrefix: "creative-work/rate-limit" }).catch((caught) => caught);
-      expect(error.retryable).toBe(true);
-    } finally {
-      __setImageProviderForTests(null);
-    }
+  it("treats HTTP 429 as retryable via isRetryableProviderError", () => {
+    expect(isRetryableProviderError(Object.assign(new Error("rate limited"), { status: 429 }))).toBe(true);
   });
 
-  it("recognizes APIConnectionTimeoutError by constructor name", async () => {
-    const { __setImageProviderForTests } = await import("./image-generation");
+  it("recognizes APIConnectionTimeoutError by constructor name", () => {
     class APIConnectionTimeoutError extends Error { name = "Error"; }
-    __setImageProviderForTests({ name: "openai", generate: vi.fn(async () => { throw new APIConnectionTimeoutError("timeout"); }) });
-    try {
-      const error = await generateAndStoreImage({ ...BASE_INPUT, outputPrefix: "creative-work/sdk-timeout" }).catch((caught) => caught);
-      expect(error.retryable).toBe(true);
-    } finally {
-      __setImageProviderForTests(null);
-    }
+    expect(isRetryableProviderError(new APIConnectionTimeoutError("timeout"))).toBe(true);
   });
 
-  it("recognizes APIUserAbortError by constructor name", async () => {
-    const { __setImageProviderForTests } = await import("./image-generation");
+  it("recognizes APIUserAbortError by constructor name", () => {
     class APIUserAbortError extends Error { name = "Error"; }
-    __setImageProviderForTests({ name: "openai", generate: vi.fn(async () => { throw new APIUserAbortError("aborted"); }) });
-    try {
-      const error = await generateAndStoreImage({ ...BASE_INPUT, outputPrefix: "creative-work/sdk-abort" }).catch((caught) => caught);
-      expect(error.retryable).toBe(true);
-    } finally {
-      __setImageProviderForTests(null);
-    }
+    expect(isRetryableProviderError(new APIUserAbortError("aborted"))).toBe(true);
   });
 
   it("does not mark an input-like 400 provider error retryable", async () => {
@@ -446,7 +436,7 @@ describe("generateAndStoreImage", () => {
     }
   });
 
-  it("skips candidates, judging and refinement under the direct execution policy", async () => {
+  it("does not call the provider again after selection even when refinementPrompt is present", async () => {
     const { __setImageProviderForTests } = await import("./image-generation");
     const generate = vi.fn(async (input: { prompt: string }) => ({
       buffer: Buffer.from(input.prompt),
@@ -457,57 +447,11 @@ describe("generateAndStoreImage", () => {
         durationMs: 100,
       },
     }));
-    const selectCandidate = vi.fn(async () => 0);
-    __setImageProviderForTests({ name: "openai", generate });
-
-    try {
-      const result = await generateAndStoreImage({
-        ...BASE_INPUT,
-        outputPrefix: "creative-work/direct",
-        executionPolicy: "direct",
-        routes: [
-          { id: "route-1", prompt: "concept one" },
-          { id: "route-2", prompt: "concept two" },
-          { id: "route-3", prompt: "concept three" },
-        ],
-        selectCandidate,
-      });
-
-      // Exactly one high-quality provider call for the one visible output.
-      expect(generate).toHaveBeenCalledTimes(1);
-      expect(generate.mock.calls[0][0]).toEqual(
-        expect.objectContaining({ prompt: "a creative post", quality: "high" })
-      );
-      expect(selectCandidate).not.toHaveBeenCalled();
-      expect(result.candidates).toHaveLength(1);
-      expect(result.candidates[0]).toEqual(
-        expect.objectContaining({ routeId: "openai", winner: true })
-      );
-      expect(mockSharpPipeline.toBuffer).toHaveBeenCalledTimes(1);
-    } finally {
-      __setImageProviderForTests(null);
-    }
-  });
-
-  it("refines the winner once at high quality and keeps the better version", async () => {
-    const { __setImageProviderForTests } = await import("./image-generation");
-    const generate = vi.fn(async (input: { prompt: string }) => ({
-      buffer: Buffer.from(input.prompt),
-      mimeType: "image/png",
-      providerMeta: {
-        provider: "openai" as const,
-        model: "gpt-image-2",
-        durationMs: 100,
-      },
-    }));
-    const selectCandidate = vi
-      .fn()
-      .mockResolvedValueOnce({
-        winnerIndex: 0,
-        refinementPrompt: "Remove the synthetic glow while preserving the product.",
-        reason: "route-1 has the strongest dominant idea",
-      })
-      .mockResolvedValueOnce({ winnerIndex: 1, reason: "the refinement is cleaner" });
+    const selectCandidate = vi.fn().mockResolvedValue({
+      winnerIndex: 1,
+      refinementPrompt: "Remove the synthetic glow while preserving the product.",
+      reason: "route-2 has the strongest dominant idea",
+    });
     __setImageProviderForTests({ name: "openai", generate });
 
     try {
@@ -522,24 +466,87 @@ describe("generateAndStoreImage", () => {
         selectCandidate,
       });
 
+      expect(generate).toHaveBeenCalledTimes(3);
+      expect(selectCandidate).toHaveBeenCalledTimes(1);
+      expect(result.candidates.find((c) => c.winner)?.routeId).toBe("route-2");
+      expect(result.candidates.some((c) => c.routeId === "refined")).toBe(false);
+    } finally {
+      __setImageProviderForTests(null);
+    }
+  });
+
+  it("aborts pending routes when heartbeat reports lease loss", async () => {
+    const { __setImageProviderForTests } = await import("./image-generation");
+    process.env.IMAGE_ROUTE_CONCURRENCY = "1";
+    let active = 0;
+    const generate = vi.fn(async (input: { prompt: string }) => {
+      active += 1;
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      active -= 1;
+      return {
+        buffer: Buffer.from(input.prompt),
+        mimeType: "image/png",
+        providerMeta: {
+          provider: "openai" as const,
+          model: "gpt-image-2",
+          durationMs: 100,
+        },
+      };
+    });
+    __setImageProviderForTests({ name: "openai", generate });
+    const onStageHeartbeat = vi.fn(async (stage: string) => {
+      if (stage.includes("route-1")) {
+        const err = new Error("creative_work_lease_lost:output-1") as Error & { code: string };
+        err.code = "lease_lost";
+        throw err;
+      }
+    });
+
+    try {
+      const error = await generateAndStoreImage({
+        ...BASE_INPUT,
+        outputPrefix: "creative-work/lease-abort",
+        routes: [
+          { id: "route-1", prompt: "concept one" },
+          { id: "route-2", prompt: "concept two" },
+          { id: "route-3", prompt: "concept three" },
+        ],
+        onStageHeartbeat,
+      }).catch((caught) => caught);
+
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error & { code?: string }).code).toBe("lease_lost");
+      expect(generate.mock.calls.length).toBeLessThan(3);
+      expect(active).toBe(0);
+    } finally {
+      delete process.env.IMAGE_ROUTE_CONCURRENCY;
+      __setImageProviderForTests(null);
+    }
+  });
+
+  it("shares a call budget across controlled retries", async () => {
+    const { __setImageProviderForTests } = await import("./image-generation");
+    const generate = vi.fn(async () => {
+      throw Object.assign(new Error("timeout"), { status: 504 });
+    });
+    __setImageProviderForTests({ name: "openai", generate });
+    const callBudget = { remaining: 4 };
+
+    try {
+      await expect(
+        generateAndStoreImage({
+          ...BASE_INPUT,
+          outputPrefix: "creative-work/budget",
+          routes: [
+            { id: "route-1", prompt: "a" },
+            { id: "route-2", prompt: "b" },
+            { id: "route-3", prompt: "c" },
+          ],
+          callBudget,
+        })
+      ).rejects.toThrow(/All image candidates failed/);
       expect(generate).toHaveBeenCalledTimes(4);
-      expect(generate.mock.calls[3][0]).toEqual(
-        expect.objectContaining({
-          quality: "high",
-          prompt: expect.stringContaining("Remove the synthetic glow"),
-          referenceImages: expect.arrayContaining([
-            expect.objectContaining({ name: "selected-candidate.png" }),
-          ]),
-        })
-      );
-      expect(selectCandidate).toHaveBeenCalledTimes(2);
-      expect(result.candidates.at(-1)).toEqual(
-        expect.objectContaining({
-          routeId: "refined",
-          winner: true,
-          selectionReason: expect.stringContaining("refinement is cleaner"),
-        })
-      );
+      expect(callBudget.remaining).toBe(0);
     } finally {
       __setImageProviderForTests(null);
     }

@@ -6,6 +6,8 @@ vi.mock("sharp", () => ({
   default: vi.fn((input: unknown) => {
     sharpOperations.push({ method: "sharp", args: [input] });
     const chain = {
+      rotate: vi.fn(() => chain),
+      metadata: vi.fn(() => Promise.resolve({ width: 1080, height: 1080, hasAlpha: false })),
       resize: vi.fn((...args: unknown[]) => {
         sharpOperations.push({ method: "resize", args });
         return chain;
@@ -23,6 +25,7 @@ vi.mock("sharp", () => ({
         return chain;
       }),
       png: vi.fn(() => chain),
+      webp: vi.fn(() => chain),
       toBuffer: vi.fn(() => Promise.resolve(Buffer.from("normalized"))),
     };
     return chain;
@@ -1311,7 +1314,8 @@ describe("derivationJob", () => {
           expect.objectContaining({ name: "base-image" }),
           expect.objectContaining({ name: "style-reference" }),
         ],
-      })
+      }),
+      expect.objectContaining({ maxRetries: 0, timeout: 120000 }),
     );
   });
 
@@ -1704,7 +1708,8 @@ describe("derivationJob — format adaptation generation sizes (gpt-image-2)", (
     await runDerivationJob(buildFormatAdaptationJob("4:5"));
 
     expect(mockOpenAIImages.edit).toHaveBeenCalledWith(
-      expect.objectContaining({ size: "1024x1280" })
+      expect.objectContaining({ size: "1024x1280" }),
+      expect.objectContaining({ maxRetries: 0, timeout: 120000 }),
     );
     expect(mockOpenAIImages.edit).not.toHaveBeenCalledWith(
       expect.objectContaining({ size: "1024x1024" })
@@ -1731,7 +1736,8 @@ describe("derivationJob — format adaptation generation sizes (gpt-image-2)", (
     await runDerivationJob(buildFormatAdaptationJob("9:16"));
 
     expect(mockOpenAIImages.edit).toHaveBeenCalledWith(
-      expect.objectContaining({ size: "1152x2048" })
+      expect.objectContaining({ size: "1152x2048" }),
+      expect.objectContaining({ maxRetries: 0, timeout: 120000 }),
     );
     expect(mockOpenAIImages.edit).not.toHaveBeenCalledWith(
       expect.objectContaining({ size: "1024x1024" })
@@ -1761,7 +1767,8 @@ describe("derivationJob — format adaptation generation sizes (gpt-image-2)", (
       expect.objectContaining({ size: "1024x1024" })
     );
     expect(mockOpenAIImages.edit).toHaveBeenCalledWith(
-      expect.objectContaining({ size: "1024x1280" })
+      expect.objectContaining({ size: "1024x1280" }),
+      expect.objectContaining({ maxRetries: 0, timeout: 120000 }),
     );
   });
 
@@ -1788,7 +1795,8 @@ describe("derivationJob — format adaptation generation sizes (gpt-image-2)", (
       expect.objectContaining({ size: "1024x1024" })
     );
     expect(mockOpenAIImages.edit).toHaveBeenCalledWith(
-      expect.objectContaining({ size: "1152x2048" })
+      expect.objectContaining({ size: "1152x2048" }),
+      expect.objectContaining({ maxRetries: 0, timeout: 120000 }),
     );
   });
 

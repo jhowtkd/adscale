@@ -26,6 +26,18 @@ vi.mock("@/server/storage", () => ({
   },
 }));
 
+vi.mock("@/server/ai/normalize-image-for-ai", () => ({
+  normalizeImageForAi: async ({ buffer, mimeType }: { buffer: Buffer; mimeType?: string }) => ({
+    buffer,
+    mimeType: mimeType ?? "image/png",
+    width: 1080,
+    height: 1080,
+    originalBytes: buffer.byteLength,
+    finalBytes: buffer.byteLength,
+    hasTransparency: false,
+  }),
+}));
+
 vi.mock("@/server/repositories/client-reference", () => ({
   recordTrainingAnalysis: (...args: unknown[]) =>
     mockRecordTrainingAnalysis(...args),

@@ -9,6 +9,7 @@
 import { logger } from "@/lib/logger";
 import { spend, type SpendResult } from "@/server/billing/paywall";
 import { inngest } from "@/server/jobs/client";
+import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 import { updateCampaign } from "@/server/repositories/campaign";
 import {
   createDerivation,
@@ -89,7 +90,7 @@ export async function adaptFormat(
 
   try {
     await inngest.send({
-      name: "derivation.generate",
+      name: heavyImageEventName("derivation.generate"),
       data: {
         derivationId: child.id,
         campaignId: source.campaignId,

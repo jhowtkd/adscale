@@ -135,11 +135,18 @@ export function creativeWorkRefetchInterval(
       }
     | undefined,
 ) {
-  return data?.work.status === "generating" ||
+  const shouldPoll =
+    data?.work.status === "generating" ||
     data?.outputs.some((output) => output.status === "queued" || output.status === "processing") ||
-    ("sources" in (data ?? {}) && (data as CreativeWorkDetail).sources.some((source) => source.status === "uploaded" || source.status === "analyzing"))
-    ? 2000
-    : false;
+    ("sources" in (data ?? {}) &&
+      (data as CreativeWorkDetail).sources.some(
+        (source) => source.status === "uploaded" || source.status === "analyzing",
+      ));
+  if (!shouldPoll) return false;
+  if (typeof document !== "undefined" && document.visibilityState !== "visible") {
+    return false;
+  }
+  return 2000;
 }
 
 export class CreativeWorkRequestError extends Error {
@@ -274,8 +281,8 @@ export function extractCreativeWorkBrandConflict(cause: unknown): CreativeWorkBr
   };
 }
 
-function fetchCreativeWork(workItemId: string): Promise<CreativeWorkDetail> {
-  return apiFetch(`/api/creative-work/${workItemId}`).then(async (res) => {
+function fetchCreativeWork(workItemId: string, signal?: AbortSignal): Promise<CreativeWorkDetail> {
+  return apiFetch(`/api/creative-work/${workItemId}`, { signal }).then(async (res) => {
     if (!res.ok) throw await readError(res);
     const data = await res.json();
     return {
@@ -344,8 +351,9 @@ function patchJson<T>(url: string, body: unknown): Promise<T> {
 export function useCreativeWork(workItemId: string | null | undefined) {
   return useQuery({
     queryKey: ["creative-work", workItemId],
-    queryFn: () => fetchCreativeWork(workItemId!),
+    queryFn: ({ signal }) => fetchCreativeWork(workItemId!, signal),
     enabled: Boolean(workItemId),
+    refetchOnWindowFocus: true,
     refetchInterval: (query) => {
       if (!workItemId) return false;
       const data = query.state.data as CreativeWorkDetail | undefined;

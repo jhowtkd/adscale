@@ -2,6 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/server/ai/image-generation", () => ({
   generateAndStoreImage: vi.fn(),
+  DEFAULT_IMAGE_PROVIDER_CALL_BUDGET: 6,
+  isRetryableProviderError: (error: unknown) => {
+    if (!error || typeof error !== "object") return false;
+    const value = error as { retryable?: unknown; status?: unknown };
+    return value.retryable === true || value.status === 429 || (typeof value.status === "number" && value.status >= 500);
+  },
 }));
 
 vi.mock("@/server/ai/creative-route-planner", () => ({
@@ -21,6 +27,7 @@ import { planCreativeRoutes } from "@/server/ai/creative-route-planner";
 import { selectCreativeCandidate } from "@/server/ai/creative-candidate-selector";
 import {
   executeCanonicalGeneration,
+  executeCanonicalGenerationWithFallback,
 } from "@/server/generation/pipeline/execute";
 import {
   GENERATION_CREDIT_COSTS,
@@ -396,7 +403,7 @@ describe("pipeline policy parity across failure phases", () => {
     ).toBe(false);
   });
 
-  it("post_provider: neither surface refunds inside the job", () => {
+  it("post_provider: Criar Post refunds delivery failure; campaign does not", () => {
     expect(
       decideCreativeWorkRefund({
         surface: "quick_tool",
@@ -404,7 +411,7 @@ describe("pipeline policy parity across failure phases", () => {
         workItemId: "w",
         outputId: "o",
       }).refund
-    ).toBe(false);
+    ).toBe(true);
     expect(
       decideDerivationRefund({
         surface: "campaign",
@@ -442,5 +449,74 @@ describe("pipeline policy parity across failure phases", () => {
         outputStatus: "completed",
       }).skip
     ).toBe(true);
+  });
+});
+
+describe("executeCanonicalGenerationWithFallback", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGenerate.mockResolvedValue({
+      outputKey: "out.png",
+      revisedPrompt: "",
+      imageOperation: "edit",
+      buffer: Buffer.from("x"),
+      candidates: [],
+      providerCalls: 1,
+      providerRetries: 0,
+    });
+  });
+
+  function derivationRequest(): GenerationRequest {
+    return baseRequest({
+      surface: "campaign",
+      destination: { kind: "derivation", id: "d1", storagePrefix: "derivations/d1" },
+      identity: {
+        clientProfileId: "c1",
+        referenceImages: [{ buffer: Buffer.from("ref"), mimeType: "image/png", name: "ref.png" }],
+        brandConstraints: null,
+      },
+      source: {
+        parentId: null,
+        sourceVersionId: null,
+        lineageId: null,
+        packageSource: null,
+        allowGenerateFallback: true,
+      },
+    });
+  }
+
+  it("shares the call budget between edit and generate fallback", async () => {
+    const callBudget = { remaining: 6 };
+    mockGenerate
+      .mockImplementationOnce(async (input) => {
+        input.callBudget!.remaining -= 3;
+        throw Object.assign(new Error("All image candidates failed: timeout"), { status: 504 });
+      })
+      .mockImplementationOnce(async (input) => {
+        expect(input.callBudget!.remaining).toBe(3);
+        input.callBudget!.remaining -= 1;
+        return {
+          outputKey: "fallback.png",
+          revisedPrompt: "",
+          imageOperation: "generate",
+          buffer: Buffer.from("y"),
+          candidates: [],
+          providerCalls: 1,
+          providerRetries: 0,
+        };
+      });
+
+    const result = await executeCanonicalGenerationWithFallback(derivationRequest(), { callBudget });
+    expect(result.imageOperation).toBe("generation_fallback");
+    expect(mockGenerate).toHaveBeenCalledTimes(2);
+    expect(callBudget.remaining).toBe(2);
+  });
+
+  it("does not fallback on non-provider pipeline failures", async () => {
+    mockGenerate.mockRejectedValueOnce(new Error("signed URL unavailable"));
+    await expect(
+      executeCanonicalGenerationWithFallback(derivationRequest())
+    ).rejects.toThrow(/signed URL unavailable/);
+    expect(mockGenerate).toHaveBeenCalledTimes(1);
   });
 });

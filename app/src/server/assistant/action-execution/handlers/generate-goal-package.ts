@@ -7,6 +7,7 @@ import {
 import { resolveGoalCreativeVersion } from "@/server/assistant/goal/service";
 import { spendOrApiError } from "@/server/billing/paywall";
 import { inngest } from "@/server/jobs/client";
+import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 import { AssistantActionExecutionError } from "../types";
 import type { ActionExecutionContext, ActionExecutionResult } from "../types";
 
@@ -84,7 +85,7 @@ export async function executeGenerateGoalPackage(
 
     try {
       await inngest.send({
-        name: "derivation.generate",
+        name: heavyImageEventName("derivation.generate"),
         data: {
           derivationId: child.id,
           campaignId: goal.campaignId,

@@ -6,6 +6,7 @@ import {
 } from "@/server/repositories/derivation";
 import { spendOrApiError } from "@/server/billing/paywall";
 import { inngest } from "@/server/jobs/client";
+import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 import { GOAL_CREATIVE_LEVELS } from "@/lib/assistant/goal";
 import { AssistantActionExecutionError } from "../types";
 import type { ActionExecutionContext, ActionExecutionResult } from "../types";
@@ -98,7 +99,7 @@ export async function executeGenerateCreativeTriplet(
   for (const derivation of derivations) {
     try {
       await inngest.send({
-        name: "derivation.generate",
+        name: heavyImageEventName("derivation.generate"),
         data: {
           derivationId: derivation.id,
           campaignId: goal.campaignId!,

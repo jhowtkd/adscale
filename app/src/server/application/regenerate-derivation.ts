@@ -14,6 +14,7 @@ import { spend, type SpendResult } from "@/server/billing/paywall";
 import type { OutputLearningApplicationSnapshot } from "@/server/human-quality/corpus";
 import { sanitizeOutputLearningApplication } from "@/server/human-quality/application-schema";
 import { inngest } from "@/server/jobs/client";
+import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 import { recordCampaignMemoryEntry } from "@/server/memory/campaign-memory-context";
 import { recordOutputDecisionEvidenceBestEffort } from "@/server/output-learning/output-decision-recorder";
 import { extractRegenerationReason } from "@/server/output-learning/output-decision-reasons";
@@ -243,7 +244,7 @@ export async function regenerateDerivation(
 
   try {
     await inngest.send({
-      name: "derivation.generate",
+      name: heavyImageEventName("derivation.generate"),
       data: {
         derivationId: newDerivation.id,
         campaignId: original.campaignId,
