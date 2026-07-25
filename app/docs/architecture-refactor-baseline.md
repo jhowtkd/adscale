@@ -14,15 +14,15 @@ All commands run from `app/` on a clean checkout of the new branch. **No product
 
 | Command | Result | Notes |
 | --- | --- | --- |
-| `npm run lint` | ✅ 0 errors, 118 warnings | All warnings are pre-existing `@typescript-eslint/no-unused-vars`. Not blockers. |
+| `npm run lint` | ✅ 0 errors, warnings only | Pre-existing `@typescript-eslint/no-unused-vars`. Not blockers. |
 | `npm run typecheck` | ✅ Clean | `tsc --noEmit` exits 0 with no output. |
-| `npm test` | ✅ 484 files / 3110 passed / 6 skipped / 0 failed | Duration 46.67s. Vitest with `--passWithNoTests`. |
+| `npm test` | ✅ 600 files / 4011 passed / 7 skipped / 0 failed | Duration ~84s. Vitest with `--passWithNoTests`. |
 
 ### Test files counted
 
-- Total test files: **484**
-- Passing tests: **3110**
-- Skipped: **6**
+- Total test files: **600**
+- Passing tests: **4011**
+- Skipped: **7**
 - Failed: **0**
 
 There are no pre-existing failing tests blocking this refactor.

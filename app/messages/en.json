@@ -540,7 +540,38 @@
         "photoTreatment": "Photo treatment",
         "saveData": "Save data",
         "savingData": "Saving...",
-        "saveDataError": "Could not save. Your changes are still here so you can try again."
+        "saveDataError": "Could not save. Your changes are still here so you can try again.",
+        "brandConflictTitle": "Which brand applies to this piece?",
+        "brandConflictDescription": "The content artwork belongs to the brand {brand}, which differs from the active brand. Choose which brand authority the piece should follow.",
+        "brandConflictChoiceSource": "Use the artwork's brand ({brand})",
+        "brandConflictChoiceActive": "Keep the active brand ({brand})",
+        "results": {
+          "failedGeneration": "Generation failed",
+          "reviewRecommended": "Review recommended — the automated check was inconclusive",
+          "retryUnavailable": "This proposal already used all automatic attempts. Create a new request to generate another version.",
+          "failure": {
+            "timeout": "Generation took too long and was interrupted.",
+            "invalid_context": "The request or sources didn't have enough information to generate faithfully. Adjust the request and try again.",
+            "factual_violation": "The piece didn't preserve facts or brand, even after the automatic correction. Review the request and references.",
+            "brand_conflict": "There's a brand conflict between the artwork and the active brand. Resolve the brand choice to continue.",
+            "reference_failure": "A required reference couldn't be used. Re-upload the artwork and try again.",
+            "unknown": "Generation failed with an unexpected error."
+          }
+        },
+        "variationAnalysisTitle": "AI reading",
+        "variationContentTitle": "Identified content",
+        "variationStyleTitle": "Identified style",
+        "variationAnalysisUnavailable": "No information identified.",
+        "variationInstructionsLabel": "What do you want to vary?",
+        "variationInstructionsHint": "Optional. Write freely or use one line per change.",
+        "variationInstructionsPlaceholder": "E.g.:\n- Create a more direct copy\n- Suggest new CTAs\n- Highlight the offer",
+        "addOriginalArt": "Add original art",
+        "addStyleArt": "Add style reference",
+        "removeOriginalArt": "Remove original art",
+        "removeStyleArt": "Remove style reference",
+        "previewUnavailable": "Image unavailable",
+        "sourceUploading": "Uploading image",
+        "sourceReady": "Image ready"
       },
       "tools": {
         "title": "Choose a creation protocol",
@@ -829,7 +860,7 @@
     "new": "New work",
     "name": "Campaign name",
     "client": "Client",
-    "clientProfile": "Linked brand",
+    "clientProfile": "Client Profile",
     "customClient": "Client without a linked brand",
     "clientProfileHint": "Linking a brand enables Brand Kit, assistant, and learnings from the start.",
     "product": "Product",
@@ -967,7 +998,6 @@
     "deleteTitle": "Delete campaign",
     "createNew": "Create New Campaign",
     "createDescription": "Start with briefing and your base creative. Generate a variation batch, then approve what ships.",
-    "clientProfile": "Client Profile",
     "selectClientProfile": "Select a client profile",
     "keyCreative": "Key Creative",
     "uploadCreativeHint": "Click to upload key creative",
@@ -2152,7 +2182,9 @@
     "invalid_quality_snapshot": "This output has invalid learning metadata and cannot be added to the corpus.",
     "clientProfileNotFound": "Client profile not found.",
     "voiceConfigNotFound": "No voice proposal to approve. Generate the voice first.",
-    "unknown": "Unknown error. Please try again."
+    "unknown": "Unknown error. Please try again.",
+    "invalid_context": "The request or sources don't have enough information to generate faithfully. Adjust the text or artworks and try again.",
+    "brand_conflict": "The content artwork belongs to a different brand than the active one. Choose which brand the piece should follow."
   },
   "brandTraining": {
     "title": "Train brand identity",
