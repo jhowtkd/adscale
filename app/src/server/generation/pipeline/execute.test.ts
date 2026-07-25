@@ -259,6 +259,124 @@ describe("executeCanonicalGeneration parity", () => {
   });
 });
 
+describe("executeCanonicalGeneration quality_recovery_v1 direct execution", () => {
+  beforeEach(() => {
+    mockGenerate.mockReset();
+    mockPlanRoutes.mockReset();
+    mockSelectCandidate.mockReset();
+    mockPlanRoutes.mockResolvedValue(ROUTES);
+    mockSelectCandidate.mockResolvedValue({
+      winnerIndex: 1,
+      invalidRouteIds: [],
+      reason: "route-2 wins",
+      refinementPrompt: "Remove the synthetic glow.",
+    });
+    mockGenerate.mockResolvedValue({
+      outputKey: "out/1.png",
+      revisedPrompt: "revised",
+      imageOperation: "generate",
+      buffer: Buffer.from("img"),
+      candidates: [
+        {
+          provider: "openai",
+          model: "m",
+          outputKey: "out/1.png",
+          durationMs: 1,
+          winner: true,
+        },
+      ],
+    });
+  });
+
+  function creativeWorkRequest(
+    overrides: Partial<GenerationRequest> = {}
+  ): GenerationRequest {
+    return baseRequest({
+      surface: "quick_tool",
+      destination: {
+        kind: "creative_work_output",
+        id: "out-v1",
+        storagePrefix: "creative-work/out-v1",
+        workItemId: "work-v1",
+      },
+      cost: {
+        chargeAmount: GENERATION_CREDIT_COSTS.creativeWorkOutput,
+        refundPolicy: "default",
+      },
+      ...overrides,
+    });
+  }
+
+  it("makes one direct call for social_post without planner, judge or refinement", async () => {
+    // Peça única: canonical mode social_post, but the v1 direct policy forbids
+    // the hidden route tournament that legacy social_post still runs.
+    await executeCanonicalGeneration(
+      creativeWorkRequest({
+        intent: { mode: "social_post", objective: "Leads" },
+        executionPolicy: "direct",
+      })
+    );
+
+    expect(mockPlanRoutes).not.toHaveBeenCalled();
+    expect(mockSelectCandidate).not.toHaveBeenCalled();
+    expect(mockGenerate).toHaveBeenCalledTimes(1);
+    expect(mockGenerate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        routes: undefined,
+        selectCandidate: undefined,
+        executionPolicy: "direct",
+      })
+    );
+  });
+
+  it.each([
+    "art_variation",
+    "format_adaptation",
+    "restyling",
+    "creative_revision",
+  ] as const)("makes one direct call for canonical mode %s", async (mode) => {
+    await executeCanonicalGeneration(
+      creativeWorkRequest({
+        intent: { mode, objective: "Leads" },
+        executionPolicy: "direct",
+      })
+    );
+
+    expect(mockPlanRoutes).not.toHaveBeenCalled();
+    expect(mockSelectCandidate).not.toHaveBeenCalled();
+    expect(mockGenerate).toHaveBeenCalledTimes(1);
+    expect(mockGenerate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        generationMode: mode === "creative_revision" ? "art_variation" : mode,
+        routes: undefined,
+        selectCandidate: undefined,
+        executionPolicy: "direct",
+      })
+    );
+  });
+
+  it("keeps the tournament for an explicit legacy_tournament creative work output", async () => {
+    // Legacy social_post toolKind under a v1 snapshot still routes through the
+    // legacy adapter until its own migration.
+    await executeCanonicalGeneration(
+      creativeWorkRequest({
+        intent: { mode: "social_post", objective: "Leads" },
+        executionPolicy: "legacy_tournament",
+      })
+    );
+
+    expect(mockPlanRoutes).toHaveBeenCalledTimes(1);
+    const generationInput = mockGenerate.mock.calls[0][0];
+    expect(generationInput.routes?.map((route) => route.id)).toEqual([
+      "route-1",
+      "route-2",
+      "route-3",
+    ]);
+    expect(generationInput.selectCandidate).toEqual(expect.any(Function));
+    expect(generationInput.executionPolicy).toBe("legacy_tournament");
+  });
+});
+
 describe("pipeline policy parity across failure phases", () => {
   it("pre_provider: Criar Post refunds, derivation job does not", () => {
     expect(
