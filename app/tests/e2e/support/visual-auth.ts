@@ -25,7 +25,7 @@ export function seedVisualManifest(force = false): VisualManifest {
   if (force || !existsSync(MANIFEST_PATH)) {
     execFileSync("npx", ["tsx", "scripts/seed-visual-foundations.ts"], {
       cwd: process.cwd(),
-      env: { ...process.env, E2E_BASE_URL: process.env.E2E_BASE_URL ?? "http://localhost:3000" },
+      env: { ...process.env, E2E_BASE_URL: process.env.E2E_BASE_URL ?? "http://localhost:3000", NODE_OPTIONS: `--conditions=react-server ${process.env.NODE_OPTIONS ?? ""}`.trim() },
       stdio: "inherit",
     });
   }

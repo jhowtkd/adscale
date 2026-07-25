@@ -80,7 +80,7 @@ Equivalent to:
 vitest run --config config/vitest.config.ts --passWithNoTests
 ```
 
-The project currently has **494** Vitest test files (`*.test.ts` / `*.test.tsx`) — **372** under `app/src/` (co-located with source) and **122** under `app/tests/` (shared unit/integration suites, excluding `tests/e2e/`). A full local run reports **~2200** tests (exact count grows with the codebase; one billing regression gate test is skipped by default). Refresh with `find app/src app/tests -name "*.test.ts" -o -name "*.test.tsx" | grep -v node_modules | wc -l`.
+The project currently has **600** Vitest test files (`*.test.ts` / `*.test.tsx`) — **475** under `app/src/` (co-located with source) and **125** under `app/tests/` (shared unit/integration suites, excluding `tests/e2e/`). A full local run reports **4011 passed, 7 skipped** (4018 total). Refresh with `cd app && npm test`.
 
 ### Watch mode (development)
 
@@ -126,6 +126,7 @@ E2E specs live in `app/tests/e2e/` and use the `*.spec.ts` suffix. They are **no
 | Script | Config | Specs |
 |--------|--------|-------|
 | `npm run test:e2e` | `playwright.config.ts` | All E2E specs (isolated-visual + serial-flows projects) |
+| `npm run test:create-post-e2e` | `playwright.config.ts` | Create-post quick tool flow (`create-post.spec.ts`) |
 | `npm run test:visual-release` | `playwright.release.config.ts` | `visual-release-gate.spec.ts`, `visual-a11y-gate.spec.ts` |
 | `npm run test:guided-e2e` | `playwright.guided.config.ts` | `guided-assistant-journeys.spec.ts`, `guided-assistant-scenarios.spec.ts`, `iterative-copilot-loop.desktop.spec.ts`, `iterative-copilot-loop.mobile.spec.ts` |
 | `npm run release-gate` | (orchestrator) | Unit tests, lint, build, then visual release Playwright suite |
@@ -145,6 +146,11 @@ E2E specs live in `app/tests/e2e/` and use the `*.spec.ts` suffix. They are **no
 | `iterative-copilot-loop.desktop.spec.ts` | Iterative copilot loop on desktop viewport |
 | `iterative-copilot-loop.mobile.spec.ts` | Iterative copilot loop on mobile viewport |
 | `v6-preview-a11y-gate.spec.ts` | Accessibility gate for the v6 preview surface (run in CI) |
+| `frictionless-home.spec.ts` | Home CreativeComposer flow (draft, sources, generate) |
+| `create-post.spec.ts` | Standalone create-post quick tool |
+| `assistant-goal-agent.spec.ts` | Goal-agent assistant journey |
+| `phase6-gate6-uat.spec.ts` | Phase 6 UAT gate |
+| `template-materialize.spec.ts` | Template → campaign materialization |
 
 **Prerequisites for `test:e2e` (restyle and general E2E):**
 

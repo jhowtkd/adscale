@@ -336,7 +336,7 @@ Events are deduplicated via `processed_stripe_events`. Unsupported types are ski
 ### 9. Mission progression & insights (v11.10)
 
 1. `GET /api/workspace/missions` returns ordered mission statuses inferred from workspace evidence (`inferWorkspaceEvidence`, `inferMissionCompletions`).
-2. Dashboard `MissionPathCard` surfaces active mission, credit estimates, and deep links into campaign cockpit tabs.
+2. Home `/` is composer-first (`DashboardHomeActions` → `CreativeComposer`); mission progression APIs remain available but `MissionPathCard` is not mounted on the home route.
 3. Client cockpit UI records `cockpit_stage_entered` / `cockpit_stage_completed` / `cockpit_stage_abandoned`.
 4. `POST /api/workspace/mission-insights` persists structured diagnostic context on `feedback_reports`.
 5. `GET /api/feedback/mission-credit-signals` (owner) classifies mission insights into healthy vs frustration signals.
@@ -355,6 +355,19 @@ Events are deduplicated via `processed_stripe_events`. Unsupported types are ski
 1. Approval, export, and review flows record `output_decision_events` (via `output-learning/output-decision-recorder`).
 2. `recomputeClientOutputLearnings` aggregates events into `client_output_learnings` and projects to brand memory (`output-learning-projection`).
 3. `GET /api/client-profiles/[id]/output-learnings` exposes learnings for strategy surfaces.
+
+### 12. Frictionless creative work (home composer)
+
+Canonical standalone creative aggregate per ADR 0013 — no campaign prerequisite.
+
+1. Home `/` renders `DashboardHomeActions` → `CreativeToolCards` + `CreativeComposer` + `BrandInspirations`.
+2. User selects active brand, enters request, optionally attaches sources via `POST /api/workspace/assets` and links them via `PATCH /api/creative-work/:id`.
+3. Source analysis dispatches Inngest `creativeWorkSourceAnalyzeJob` (`creative-work.source.analyze`); generation is blocked until analysis completes.
+4. User confirms copy and cost → `POST /api/creative-work/:id/generate` creates outputs and dispatches `creativeWorkOutputJob` (`creative-work.generate`) via `generation/pipeline/execute`.
+5. User selects an output → `POST .../outputs/:outputId/select`; optional library indexing via `ensure-creative-work-output-library` (`source: creative_work`).
+6. Curated inspirations are uploaded by platform owners (`POST /api/admin/inspirations`) and excluded from `/library` via `excludeSources=curated_inspiration,curated_inspiration_copy`.
+
+**Key modules:** `server/creative-work/`, `server/application/prepare-creative-work.ts`, `server/repositories/creative-work.ts`, `components/creative-work/`.
 
 ### 13. Assistant turn (conversational AI)
 
@@ -553,7 +566,7 @@ Repositories take `workspaceId` as an explicit argument. Drizzle updates include
 
 **Platform-owner routes** use `requirePlatformOwner` — email in `PLATFORM_OWNER_EMAILS` or dev-admin allowlist.
 
-**Representative API groups** under `app/src/app/api/` (23 groups, 150 `route.ts` handlers):
+**Representative API groups** under `app/src/app/api/` (**25 groups, 165** `route.ts` handlers):
 
 - `campaigns/`, `derivations/`, `workspace/` (assets, brand-kit, invites, **missions**, **mission-insights**, progression)
 - `campaigns/[id]/restyle`, `competitors/`, `approval-package/`
@@ -562,7 +575,8 @@ Repositories take `workspaceId` as an explicit argument. Drizzle updates include
 - `analytics/events` — workspace-scoped beta event ingest
 - `feedback/` — reports, beta-sessions, human-quality corpus, analytics funnel/credit-signals/export, mission-credit-signals, quality-trend, calibration
 - `admin/quality/` — learning proposal accept/reject/generate, ingestion backfill/status (platform owner)
-- `client-profiles/` — references, memory, output-learnings
+- `creative-work/` — canonical standalone creative aggregate (home composer, quick tools, inspirations)
+- `client-profiles/` — references, memory, output-learnings, brand training
 - `creatives/`, `dashboard/`, `export/`, `templates/`, `user/`, `notifications/`
 - `inngest/` (worker webhook — Inngest signing, no end-user session)
 - `health/`, `share/` (token-based public read paths scope differently)
@@ -579,6 +593,9 @@ Repositories take `workspaceId` as an explicit argument. Drizzle updates include
 | Function | Purpose |
 |----------|---------|
 | `derivationJob` | AI image generation, scoring, quality gate, usage tracking |
+| `creativeWorkOutputJob` | Creative-work output generation (home composer / quick tools) |
+| `creativeWorkSourceAnalyzeJob` | Analyze attached workspace assets before generation |
+| `brandTrainingAnalyzeJob` | Brand training asset analysis |
 | `trialNotificationJob` | Trial lifecycle emails |
 | `workspaceAssetAnalyzeJob` | Asset analysis (preflight / metadata) |
 | `brandMemoryIngestJob` | Mem0 brand-memory ingestion |
@@ -675,11 +692,13 @@ Binary assets (campaign uploads, derivation outputs, brand kit logos) are stored
 
 ## Frontend architecture (summary)
 
-- **Routing:** App Router with `(dashboard)` layout; `(dashboard)/feedback` for owner analytics and human-quality corpus; `(dashboard)/assistant` for the conversational assistant; settings billing tab.
-- **Server state:** TanStack Query hooks in `app/src/lib/hooks/` (campaigns, derivations, **assistant** chat/threads/actions/versions, **billing**, export, missions, delivery-package, output learning, record-beta-event).
+- **Routing:** App Router with `(dashboard)` layout; home `/` is the frictionless creative composer; `(dashboard)/feedback` for owner analytics and human-quality corpus; `(dashboard)/assistant` for the conversational assistant; settings billing tab.
+- **Server state:** TanStack Query hooks in `app/src/lib/hooks/` (campaigns, derivations, **creative-work** / canonical works / inspirations, **assistant** chat/threads/actions/versions, **billing**, export, missions, delivery-package, output learning, record-beta-event).
+- **Home UX:** `DashboardHomeActions` composes `CreativeToolCards`, `CreativeComposer`, `BrandInspirations`, and `useCanonicalWorks` resume cards; hooks in `use-creative-work.ts` and `useCreativeComposer`.
 - **Assistant UX:** `AssistantShell` / `AssistantChatCore` consume the SSE stream; `AssistantTreeSidebar`, `VersionHistory`, `VersionComparisonDialog`, `GuidedFlowControls`, and `CreditConfirmModal` support guided flows, versioning, and gated actions.
 - **Billing UX:** `BillingTab`, `CreditPanel`, `CreditChart` consume `/api/billing/status` and `/api/billing/history`; 402 responses handled via `conversion-gate` client helpers.
-- **Mission UX:** `MissionPathCard`, `MissionInsightProvider`, cockpit stage events via `useRecordBetaEvent`.
+- **Library UX:** `/library` renders `LibraryV6View` with workspace assets excluding curated inspirations (`excludeSources`).
+- **Mission UX:** `MissionInsightProvider`, cockpit stage events via `useRecordBetaEvent` (mission path card available but not on home).
 - **Owner feedback UI:** `OwnerAnalyticsPanel`, `BetaSessionsPanel`, `HumanQualityCorpusPanel` consume platform-owner analytics and corpus APIs.
 - **UI state:** Zustand where needed (`app/src/lib/store.ts`).
 - **i18n:** `next-intl` (`app/src/i18n.ts`, message files under `app/src/i18n/`).

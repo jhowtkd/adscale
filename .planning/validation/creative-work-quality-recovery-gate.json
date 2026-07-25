@@ -1,0 +1,266 @@
+{
+  "schemaVersion": 1,
+  "gate": "creative_work_quality_recovery",
+  "status": "pending_human_review",
+  "_instructions": "Gate 8 humano (R-011 / spec secoes 13 e 15). Preencher SOMENTE apos aprovacao explicita de orcamento: executar as 10 jornadas cegas (producao congelada, geracao direta e Creative Work v1 anonimos), revelar os assignments, registrar vereditos objetivos, preferencias (empate = 'tie' e conta como nao preferencia pelo v1) e as metricas tecnicas/financeiras do rollout. Trocar status para 'completed' e rodar: npx tsx scripts/check-creative-work-quality-recovery-gate.ts ../.planning/validation/creative-work-quality-recovery-gate.json",
+  "budgetApproval": {
+    "approvedBy": null,
+    "approvedAt": null,
+    "reference": null
+  },
+  "evidenceWindow": {
+    "startedAt": null,
+    "endedAt": null
+  },
+  "journeys": [
+    {
+      "id": "journey-01",
+      "protocol": "single",
+      "brand": "Psicologia",
+      "segment": "<preencher: segmento>",
+      "mandatoryCase": "psicologia_fact_preservation",
+      "reviewerId": null,
+      "reviewedAt": null,
+      "plannedOutputs": 1,
+      "terminalCoherentOutputs": null,
+      "regressions": { "factual": 0, "brand": 0, "dimension": 0 },
+      "objectiveVerdict": null,
+      "inconclusiveResolution": null,
+      "blindComparison": {
+        "options": ["A", "B", "C"],
+        "assignmentsRevealed": false,
+        "assignments": { "A": null, "B": null, "C": null },
+        "preferenceVsProduction": null,
+        "preferenceVsDirect": null
+      },
+      "mandatoryAssertions": {
+        "requiredFacts": ["agosto", "vagas limitadas"],
+        "preservedFacts": []
+      }
+    },
+    {
+      "id": "journey-02",
+      "protocol": "single",
+      "brand": "<preencher: marca>",
+      "segment": "<preencher: segmento>",
+      "mandatoryCase": null,
+      "reviewerId": null,
+      "reviewedAt": null,
+      "plannedOutputs": 1,
+      "terminalCoherentOutputs": null,
+      "regressions": { "factual": 0, "brand": 0, "dimension": 0 },
+      "objectiveVerdict": null,
+      "inconclusiveResolution": null,
+      "blindComparison": {
+        "options": ["A", "B", "C"],
+        "assignmentsRevealed": false,
+        "assignments": { "A": null, "B": null, "C": null },
+        "preferenceVsProduction": null,
+        "preferenceVsDirect": null
+      },
+      "mandatoryAssertions": null
+    },
+    {
+      "id": "journey-03",
+      "protocol": "variations",
+      "brand": "<preencher: marca>",
+      "segment": "<preencher: segmento>",
+      "mandatoryCase": null,
+      "reviewerId": null,
+      "reviewedAt": null,
+      "plannedOutputs": 3,
+      "terminalCoherentOutputs": null,
+      "regressions": { "factual": 0, "brand": 0, "dimension": 0 },
+      "objectiveVerdict": null,
+      "inconclusiveResolution": null,
+      "blindComparison": {
+        "options": ["A", "B", "C"],
+        "assignmentsRevealed": false,
+        "assignments": { "A": null, "B": null, "C": null },
+        "preferenceVsProduction": null,
+        "preferenceVsDirect": null
+      },
+      "mandatoryAssertions": null
+    },
+    {
+      "id": "journey-04",
+      "protocol": "variations",
+      "brand": "<preencher: marca>",
+      "segment": "<preencher: segmento>",
+      "mandatoryCase": null,
+      "reviewerId": null,
+      "reviewedAt": null,
+      "plannedOutputs": 3,
+      "terminalCoherentOutputs": null,
+      "regressions": { "factual": 0, "brand": 0, "dimension": 0 },
+      "objectiveVerdict": null,
+      "inconclusiveResolution": null,
+      "blindComparison": {
+        "options": ["A", "B", "C"],
+        "assignmentsRevealed": false,
+        "assignments": { "A": null, "B": null, "C": null },
+        "preferenceVsProduction": null,
+        "preferenceVsDirect": null
+      },
+      "mandatoryAssertions": null
+    },
+    {
+      "id": "journey-05",
+      "protocol": "format_adaptation",
+      "brand": "NR1",
+      "segment": "<preencher: segmento>",
+      "mandatoryCase": "nr1_three_format_adaptation",
+      "reviewerId": null,
+      "reviewedAt": null,
+      "plannedOutputs": 3,
+      "terminalCoherentOutputs": null,
+      "regressions": { "factual": 0, "brand": 0, "dimension": 0 },
+      "objectiveVerdict": null,
+      "inconclusiveResolution": null,
+      "blindComparison": {
+        "options": ["A", "B", "C"],
+        "assignmentsRevealed": false,
+        "assignments": { "A": null, "B": null, "C": null },
+        "preferenceVsProduction": null,
+        "preferenceVsDirect": null
+      },
+      "mandatoryAssertions": {
+        "adaptedFromSamePiece": false,
+        "deliveredFormats": []
+      }
+    },
+    {
+      "id": "journey-06",
+      "protocol": "format_adaptation",
+      "brand": "<preencher: marca>",
+      "segment": "<preencher: segmento>",
+      "mandatoryCase": null,
+      "reviewerId": null,
+      "reviewedAt": null,
+      "plannedOutputs": 3,
+      "terminalCoherentOutputs": null,
+      "regressions": { "factual": 0, "brand": 0, "dimension": 0 },
+      "objectiveVerdict": null,
+      "inconclusiveResolution": null,
+      "blindComparison": {
+        "options": ["A", "B", "C"],
+        "assignmentsRevealed": false,
+        "assignments": { "A": null, "B": null, "C": null },
+        "preferenceVsProduction": null,
+        "preferenceVsDirect": null
+      },
+      "mandatoryAssertions": null
+    },
+    {
+      "id": "journey-07",
+      "protocol": "format_adaptation",
+      "brand": "<preencher: marca>",
+      "segment": "<preencher: segmento>",
+      "mandatoryCase": null,
+      "reviewerId": null,
+      "reviewedAt": null,
+      "plannedOutputs": 3,
+      "terminalCoherentOutputs": null,
+      "regressions": { "factual": 0, "brand": 0, "dimension": 0 },
+      "objectiveVerdict": null,
+      "inconclusiveResolution": null,
+      "blindComparison": {
+        "options": ["A", "B", "C"],
+        "assignmentsRevealed": false,
+        "assignments": { "A": null, "B": null, "C": null },
+        "preferenceVsProduction": null,
+        "preferenceVsDirect": null
+      },
+      "mandatoryAssertions": null
+    },
+    {
+      "id": "journey-08",
+      "protocol": "restyle",
+      "brand": "XTB",
+      "segment": "<preencher: segmento>",
+      "mandatoryCase": "xtb_content_style_identity_separation",
+      "reviewerId": null,
+      "reviewedAt": null,
+      "plannedOutputs": 1,
+      "terminalCoherentOutputs": null,
+      "regressions": { "factual": 0, "brand": 0, "dimension": 0 },
+      "objectiveVerdict": null,
+      "inconclusiveResolution": null,
+      "blindComparison": {
+        "options": ["A", "B", "C"],
+        "assignmentsRevealed": false,
+        "assignments": { "A": null, "B": null, "C": null },
+        "preferenceVsProduction": null,
+        "preferenceVsDirect": null
+      },
+      "mandatoryAssertions": {
+        "separatedDimensions": []
+      }
+    },
+    {
+      "id": "journey-09",
+      "protocol": "restyle",
+      "brand": "<preencher: marca>",
+      "segment": "<preencher: segmento>",
+      "mandatoryCase": null,
+      "reviewerId": null,
+      "reviewedAt": null,
+      "plannedOutputs": 1,
+      "terminalCoherentOutputs": null,
+      "regressions": { "factual": 0, "brand": 0, "dimension": 0 },
+      "objectiveVerdict": null,
+      "inconclusiveResolution": null,
+      "blindComparison": {
+        "options": ["A", "B", "C"],
+        "assignmentsRevealed": false,
+        "assignments": { "A": null, "B": null, "C": null },
+        "preferenceVsProduction": null,
+        "preferenceVsDirect": null
+      },
+      "mandatoryAssertions": null
+    },
+    {
+      "id": "journey-10",
+      "protocol": "restyle",
+      "brand": "<preencher: marca>",
+      "segment": "<preencher: segmento>",
+      "mandatoryCase": null,
+      "reviewerId": null,
+      "reviewedAt": null,
+      "plannedOutputs": 1,
+      "terminalCoherentOutputs": null,
+      "regressions": { "factual": 0, "brand": 0, "dimension": 0 },
+      "objectiveVerdict": null,
+      "inconclusiveResolution": null,
+      "blindComparison": {
+        "options": ["A", "B", "C"],
+        "assignmentsRevealed": false,
+        "assignments": { "A": null, "B": null, "C": null },
+        "preferenceVsProduction": null,
+        "preferenceVsDirect": null
+      },
+      "mandatoryAssertions": null
+    }
+  ],
+  "technicalMetrics": {
+    "outputDurationsMs": [],
+    "batchDurationsMs": [],
+    "rssPeakMb": [],
+    "rssMeasurement": {
+      "process": null,
+      "instanceType": null,
+      "method": null
+    },
+    "refinementCallCount": null,
+    "imageCallCounts": [],
+    "postgresReconciliation": {
+      "reconciledAt": null,
+      "method": null,
+      "terminalFailures": null,
+      "refundsIssued": null,
+      "unrefundedFailures": null,
+      "duplicateCharges": null,
+      "ledgerBalanced": false
+    }
+  }
+}

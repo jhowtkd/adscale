@@ -293,5 +293,5 @@ The Drizzle journal may be out of sync if migrations were applied manually. See 
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** — Components, data flow, and directory layout
 - **[CONFIGURATION.md](CONFIGURATION.md)** — Complete environment and config reference
 - **[DEVELOPMENT.md](DEVELOPMENT.md)** — Day-to-day dev workflow, scripts, lint, and PR process
-- **[TESTING.md](TESTING.md)** — Running Vitest (~2200 tests across **495** test files; both numbers grow with the codebase) and database test setup
+- **[TESTING.md](TESTING.md)** — Running Vitest (**4011** tests across **600** test files; both numbers grow with the codebase) and database test setup
 - **`app/README.md`** — Stripe test mode, focused billing test commands, and Docker notes (`app/DOCKER.md`)

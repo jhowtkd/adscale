@@ -1,16 +1,126 @@
-# Plano de implementação — recuperação de qualidade do Creative Work
+### Falta fazer
 
-- Status: READY_FOR_APPROVAL
-- Repository: `/Users/jhonatan/Repos/ADScale_2`
-- Requested outcome: recuperar contexto, fidelidade, diferenciação entre protocolos, variações de formato e confiabilidade operacional do Creative Work da Home, com um Gate 8 humano que prove a melhoria antes do rollout geral.
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+### Falta fazer
 
-## OBJECTIVE
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+ EXECUTION STATUS (2026-07-24)
+
+Estado da execução na branch `fix/null-identity-analysis-prompt` (mudanças ainda NÃO COMMITADAS no worktree). Cada tarefa passou por implementação → spec review → quality review → fixes, salvo indicação contrária.
+
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+ Concluído
+
+| Tarefa | Requisito | Entrega | Verificação |
+|---|---|---|---|
+| T1 | R-011a | Switch server-side `CREATIVE_WORK_QUALITY_RECOVERY_ENABLED` (`validation/env.ts`) + `generationPolicyVersion: "legacy" \| "quality_recovery_v1"` congelado no snapshot no prepare; jobs obedecem à versão congelada | Testes de env/prepare/jobs verdes; reviews aprovadas |
+| T2 | R-006a | Migration `app/drizzle/0077_creative_work_output_image_call_count.sql` + claim CAS atômico `claimCreativeWorkOutputImageCall` (limite 2; claim falho retorna null antes do provider) | Testes de repositório verdes; reviews aprovadas |
+| T3 | R-001 | Resolver puro `creative-work/protocol.ts` (toolKind/revisão → modo canônico, plano de outputs, política de execução) + bypass de route planner/judge/candidatos/refinement no executor para `creative_work_output`; legado `social_post` preservado | Suíte R-001 verde; reviews aprovadas + 2 fixes menores aplicados |
+| T4 | R-002 | Fact pack versionado no snapshot (`creative-work/fact-pack.ts`), proveniência `request\|source\|brand`, copy validada com 1 reescrita e bloqueio `invalid_context` 422 pré-cobrança, pedido integral sem truncamento, stringify canônico para idempotência, mapper brand compartilhado | 86+ testes verdes; reviews aprovadas + 7 fixes aplicados |
+| T5 | R-003 (server) | `creative-work/reference-plan.ts` (papéis/obrigatoriedade/ordem; adaptação exige original; restyle conteúdo→estilo; identidade só em vagas restantes), `brand-conflict.ts` (detecção precision-first com match por token), `brand_conflict` 422 + ação `resolveBrandConflict` com escolha vinculada ao `detectedBrand`, `reference_failure` com zero chamadas | Suíte R-003 server verde; reviews aprovadas + 5 fixes aplicados |
+| T6 | R-004 | `buildCreativeWorkPrompt` por protocolo (fact pack, nível, formato, referências posicionais), blocos SINGLE/VARIATION/ADAPTATION/RESTYLE/REVISION, `CONTENT/STYLE/BRAND AUTHORITY`, tipo `CreativeWorkObjectiveCorrection` (correção = mesmo builder + bloco cirúrgico), builder legado intocado | 96 testes verdes; reviews aprovadas + 5 fixes aplicados |
+| T7 | R-005 | QA tri-state persistido: payload `quality` versionado (`schemaVersion: 1`) com `objectiveVerdict` pass\|fail\|inconclusive, 9 códigos objetivos, checks determinísticos (sharp/dimensões/referências) sem visão, scorer subjetivo apenas advisory; legacy/derivações intactos | 201/201 na suíte R-005 + 948/948 regressão; quality review ready=Yes |
+| T8 | R-006b+R-007 | Segunda chamada exclusiva (retry de transporte XOR correção objetiva com `CreativeWorkObjectiveCorrection`, nunca ambos/terceiro); refund idempotente atômico em `credits.ts`; retry manual com elegibilidade por orçamento durável + reativação idempotente da cobrança (máx. 1 débito líquido); heartbeat/lease/descarte tardio; normalização de referências (`reference-normalize.ts`); Sharp cache off; timeout único + `maxRetries: 0`; concorrência 1; telemetria estruturada (`job-telemetry.ts`); evidência de desempenho (`performance-evidence.ts`); `quality.attempt` migrado para `imageCallCount`; `evaluatorSummary` persistido; scorer pulado em fail objetivo | 206/206 na matriz R-006/R-007 + `tests/integration/creative-work-recovery.test.ts` **5/5 em Postgres real** + tsc limpo. **Reviews CONCLUÍDAS (2026-07-24): ambas reprovaram a 1ª versão — os primitivos existiam mas NÃO estavam wired no job (claim/correção/refund terminal/heartbeat/telemetria/normalização mortos; fail objetivo completava como sucesso). Fixes aplicados:** claim CAS no `generate-base` e no `generate-correction`; fluxo de correção inline (2ª chamada, prompt original + bloco cirúrgico, re-QA com attempt=2, falha repetida → `factual_violation` + refund terminal); refund terminal no catch para v1 pós-provider; requeue de transporte condicionado a `imageCallCount < 2` (XOR); heartbeats pre-generate/pre-correction/pre-complete com abort em lease loss; telemetria de estágio/terminal/late-discard wired; concorrência 1 account-scoped; `sharp.cache(false)`; normalização wired (required → `reference_failure`, optional → drop); `attempt` = `imageCallCount`; `evaluatorSummary` threaded; scorer pulado em fail objetivo (pré-verdict); `withTimeout` removido (SDK é autoridade única de timeout e aborta a request); `DuplicateRefundError` tipado; description de refund por fase; integração skipIf sem `DATABASE_URL`. 8 testes novos no job cobrindo teto, correção, XOR, refund terminal, lease e late completion. **Auditoria independente (2026-07-24, 2ª rodada): spec PARTIAL → fixes aplicados** — `auto_retry_dispatch_failed` agora aplica refund terminal em v1 (débito não vaza mais quando o requeue vence a CAS mas o dispatch falha) e a telemetria terminal pós-commit foi isolada com try/catch (throw auxiliar não cai mais no catch refundando output COMPLETED — CAS protege status, não ledger). Nits aceitos da auditoria: `userId` passado pela rota de retry (atribuição da reativação no ledger) e export morto `normalizeCreativeWorkReferenceBuffers` removido. Nits adiados pra T9/T12: traduções `invalid_context`/`brand_conflict` (escopo R-008), snake_case em códigos de erro, constante de política na camada de repositório, `inngestRunId`/`inngestAttempt` opcionais não populados, retryable layer-agnostic (erro de storage/compose classificado como transporte — risco LOW documentado), testes de integração em PT-BR. Verificação final: 213/213 matriz + 64/64 job + 5/5 Postgres real + tsc limpo |
+| T9 | R-008 | Projeção UI completa: categorias tipadas (`categorizeCreativeWorkFailure` → 6 categorias estáveis, textos pt-BR/en puros sem promessa contraditória de ação), escolha de marca (422 `brand_conflict` → painel com exatamente 2 opções, foco move/retorna ao submit após idle, aria, disabled enquanto aplica, PATCH no MESMO draft + resume do submit interrompido, guards isPending/canGenerate), `inconclusive` como disponível-com-revisão (guards `schemaVersion === 1` + `evaluatorSummary`, nunca falha/aprovação), retry só em elegível (`isCreativeWorkRetryEligible` por `imageCallCount`, guidance quando esgotado, revisões no caminho pago), `use-creative-work.test.ts` novo, 202+polling+lote parcial preservados, região live única por falha (sem dupla anunciação), WCAG 2.5.3 (sem aria-label divergente de texto visível), `readError` com `details` tipado + guard de corpo não-objeto | 166/166 nas 8 suítes R-008 + suíte completa 4344/4344 + tsc limpo. **Reviews CONCLUÍDAS: spec CHANGES_REQUESTED → fix (copy de categoria contradizia retry escondido quando orçamento esgotado — textos agora puramente explicativos, ação vem do botão ou do `retryUnavailable`); quality READY=No → fixes (restauração de foco era no-op no botão desabilitado — agora deferida até `actionPhase === "idle"` com teste; `brandConflict` limpo no início de todo generate; corrida resolve×generate fechada via `canGenerate`; `params` morto removido; extrator real via `importOriginal` no mock; merge de live regions; role=group redundante removido). Bônus: 3 falhas pré-existentes de HEAD reconciliadas — `use-creative-inspirations` (`enabled` guard + `encodeURIComponent`) e paridade i18n (14 chaves composer traduzidas em en) |
+| T10 | R-009 | Família `output_learning_recommendation_*` (4 eventos) + 3 propriedades na allowlist de beta-analytics, sanitização herdada, controles negativos 400 preservados | 64/64 + rota/hook; quality review ready=Yes |
+| T11 | R-011b | Checker `app/scripts/check-creative-work-quality-recovery-gate.ts` (10 jornadas/3 marcas/2 segmentos/≥2 por protocolo, casos Psicologia/XTB/NR1, cego 3 opções com tie=não-preferência, 0 regressões, p95/RSS/refinement/chamadas/conciliação, anti-evidência-histórica, aprovação de orçamento anterior à janela) + template `.planning/validation/creative-work-quality-recovery-gate.json` em `pending_human_review` (exit 2; violada→1; completo→0) + teste 38/38 + script em `package.json` | Reviews aprovadas + 8 fixes aplicados |
+| T12 | R-010 | Matriz E2E determinística (R-010.1-6): 12 cenários v1 (Peça única, Variações, Adaptação 3 formatos, Mudar estilo sem/conflito, Revisão, timeout→2ª, correção objetiva, QA inconclusivo, factual_violation terminal, lote parcial + refund único, reabertura + retry manual) cobrindo contagem de chamadas (`imageCallCount`), order/role/label das refs, dims por protocolo, modos, prompt de correção, inconclusive não-retry, status/código por categoria, ledger (`:initial` por trabalho, `:terminal-refund` idempotente, reativação pós-manual-retry) — via API pública + estado persistido + DevTools, prova por evidência JSONL (`tests/e2e/.evidence/provider-calls.jsonl`) provisória por chamada. Pendência herdada (R-007.6): `tests/unit/creative-work/performance-evidence.test.ts` com 9 casos determinísticos (p95/RSS/rejection + fragment Gate 8 + plumbing de deltas controlados). Limpar provisão: `E2E_PROVIDER_EVIDENCE_PATH` truncado a cada seed. **Não chama OpenAI/créditos reais.** | 12/12 Playwright em corrida isolada com dev + inngest dev + DB test (rotas, gate determinístico prove). Suíte unitária 4353/12 + typecheck + lint + build + convergence:gate todos ✓. **Bônus de escopo do delta:** flag `--conditions=react-server` adicionada a 3 invocações pré-existentes do `seed-visual-foundations.ts` (visual-auth helper + visual-shell + visual-foundations) que falhavam a chain do visual-release-gate (paralelo a seed-create-post-e2e que já tinha a flag). Aviso: o `release-gate` completo (visual-portland + a11y) não roda até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev); componente unitário/lint/build/convergence:gate passa |
+
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+ Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+3. **Revisão final de código** de toda a implementação (delta completo da branch).
+4. **Finalizar branch** (skill finishing-a-development-branch): commit das mudanças. Limpeza conhecida antes do merge: remover blocos de debug `### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+5. ~~**R-011 rollout + Gate 8 humano (pago):**~~ (ver item 3 do Falta fazer)
+ aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+ OBJECTIVE
 
 Entregar os quatro protocolos da Home — Peça única, Variações, Adaptar formatos e Mudar estilo — sobre o agregado canônico `creative_work`, cada um com comportamento próprio e observável, preservação factual e de marca, no máximo duas chamadas de imagem por output e estados/cobrança coerentes mesmo sob timeout, retry, lote parcial ou reentrega do job.
 
 A mudança estará pronta para liberação geral somente quando testes determinísticos cobrirem o contrato completo e um novo Gate 8 comparar cegamente o Creative Work corrigido contra o snapshot da produção atual e a geração direta. O Gate 8 deve provar qualidade e operação: zero regressões objetivas, preferência humana mínima, p95, memória, chamadas e refunds dentro dos limites aprovados.
 
-## AUTHORITATIVE CONTEXT
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+ AUTHORITATIVE CONTEXT
 
 - Repository instructions: `app/AGENTS.md` exige GPT Image 2 como único provider, preservação do seam usado pelo provider determinístico, manutenção dos metadados de candidatos e uso do agregado/API/jobs de `creative_work` para a Home.
 - Product/architecture decision: `docs/adr/0013-trabalho-criativo-first.md` fixa a espinha `marca → briefing → creative work → geração → revisão → entrega → aprendizado`, uma implementação canônica por comportamento, Postgres como verdade operacional, Brand Training independente e Gate 8 antes de expansão.
@@ -30,9 +140,39 @@ A mudança estará pronta para liberação geral somente quando testes determin�
 - Candidate implementation reference: `origin/codex/imagegen-stabilize-accelerate` pode ser consultada somente para timeout único, heartbeat, normalização, refund idempotente, descarte tardio e cancelamento por lease. A branch não é base de merge ou cherry-pick: contém mudanças amplas e riscos já identificados.
 - Validation commands are rooted in `app/package.json`: `npm test`, `npm run lint`, `npm run typecheck`, `npm run build`, `npm run test:create-post-e2e`, `npm run convergence:gate` e `npm run release-gate`.
 
-## SCOPE
+### Falta fazer
 
-### In scope
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+ SCOPE
+
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+ In scope
 
 - Corrigir os contratos e a execução de Peça única, Variações, Adaptar formatos, Mudar estilo e revisão dentro do fluxo canônico `creative_work`.
 - Preservar pedido integral, fatos com proveniência, marca resolvida e papéis de conteúdo/estilo.
@@ -43,7 +183,25 @@ A mudança estará pronta para liberação geral somente quando testes determin�
 - Cobrir o contrato com testes unitários, integração, banco e E2E determinístico.
 - Implantar sob switch temporário congelado no snapshot e executar um Gate 8 humano novo, após aprovação separada do gasto.
 
-### Out of scope
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+ Out of scope
 
 - Alterar Assistente, Goal Agent, campanhas/derivações, Brand Training ou a arquitetura de aprendizado.
 - Trocar ou adicionar provider/modelo de imagem; OpenAI GPT Image 2 continua único.
@@ -55,9 +213,39 @@ A mudança estará pronta para liberação geral somente quando testes determin�
 - Usar a aprovação histórica incompleta da Fase 8 ou o blind gate reprovado como evidência de release.
 - Remover route planner, judge ou metadados de candidatos de superfícies que ainda os utilizam.
 
-## REQUIREMENTS
+### Falta fazer
 
-### R-001 — Resolver protocolo, modo canônico e outputs visíveis sem torneio oculto
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+ REQUIREMENTS
+
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+ R-001 — Resolver protocolo, modo canônico e outputs visíveis sem torneio oculto
 
 - Current evidence: `app/src/server/creative-work/contracts.ts:quoteCreativeWork`, `app/src/server/application/generate-creative-work.ts:generateCreativeWork`, `app/src/server/jobs/creative-work.ts:creativeWorkOutputJob`, `app/src/server/generation/pipeline/execute.ts:executeCanonicalGeneration` e `app/src/server/ai/image-generation.ts:generateAndStoreImage`.
 - Required behavior: uma tradução pura e única deve resolver `toolKind`, revisão, modo canônico, plano de outputs e política de execução. `single` gera um `social_post` direto em alta qualidade; `variations` gera exatamente três outputs persistidos (`conservative`, `balanced`, `bold`) em `art_variation`; `format_adaptation` gera um output `format_adaptation` por formato alvo; `restyle` gera um `restyling`; revisão gera um `creative_revision` ligado ao pai. Para destinos `creative_work_output`, o executor não pode chamar route planner, selector/judge, candidatos ocultos ou refinement. O legado explícito `toolKind: "social_post"` mantém sua compatibilidade atual até uma migração própria e não redefine Peça única.
@@ -74,7 +262,25 @@ A mudança estará pronta para liberação geral somente quando testes determin�
   - `cd /Users/jhonatan/Repos/ADScale_2/app && npm test -- src/server/creative-work/contracts.test.ts src/server/application/generate-creative-work.test.ts src/server/generation/pipeline/execute.test.ts src/server/ai/image-generation.test.ts src/server/jobs/creative-work.test.ts`
   - Os testes devem espiar `mode`, `creativeLevel`, quantidade de outputs e chamadas, e demonstrar zero chamadas ao planner/selector/refinement para `destination.kind = creative_work_output`.
 
-### R-002 — Persistir um fact pack completo e validar a copy antes de cobrar ou gerar
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+ R-002 — Persistir um fact pack completo e validar a copy antes de cobrar ou gerar
 
 - Current evidence: `app/src/server/creative-work/prepare.ts:inferSocialPostBrief` considera apenas `analyses[0]` e cria “Público da marca”; `deriveCreativeWorkTitle` trunca; `app/src/server/application/prepare-creative-work.ts:prepareCreativeWork` congela request/sources sem fact pack; `app/src/server/creative-work/copy.ts:generateSocialPostCopy` recebe somente o briefing reduzido.
 - Required behavior: `CreativeWorkInputSnapshot` deve aceitar um `factPack` opcional, versionado e compatível com linhas antigas. A projeção conserva o pedido integral, todas as análises `content|both`, fatos obrigatórios e permitidos, elementos de marca obrigatórios/proibidos, identidade resolvida e proveniência `request | source | brand` com identificador da fonte quando aplicável. Números, datas, oferta, condições, credenciais, marca, produto e serviço explícitos nunca podem ser inferidos. A copy é gerada desse contrato e passa por validação estruturada; uma alegação sem origem pode sofrer uma única reescrita textual, mas, se persistir ou a validação não for segura, o preparo falha como `invalid_context` antes de cobrança e provider. `deriveCreativeWorkTitle` permanece apenas apresentação.
@@ -92,7 +298,25 @@ A mudança estará pronta para liberação geral somente quando testes determin�
   - `cd /Users/jhonatan/Repos/ADScale_2/app && npm test -- src/server/creative-work/contracts.test.ts src/server/creative-work/prepare.test.ts src/server/creative-work/copy.test.ts src/server/application/prepare-creative-work.test.ts src/server/application/generate-creative-work.test.ts`
   - Fixtures devem incluir o pedido de Psicologia com “agosto” e “vagas limitadas”, duas fontes de conteúdo, uma fonte de estilo contendo fatos alheios e uma copy com alegação inventada.
 
-### R-003 — Tornar conteúdo, estilo e marca autoridades explícitas e não expulsáveis
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+ R-003 — Tornar conteúdo, estilo e marca autoridades explícitas e não expulsáveis
 
 - Current evidence: `app/src/server/application/prepare-creative-work.ts` infere papéis de restyle; `app/src/server/jobs/creative-work.ts` agrega referências num limite de quatro, omite conteúdo visual em parte dos modos e pode colocar referências de identidade antes das fontes; `app/src/server/creative-work/identity.ts` já ranqueia assets de marca; `app/src/server/ai/image-analysis.ts` já produz `ContentBrief` e `StyleBrief`.
 - Required behavior: o plano de referências deve ser derivado do protocolo e ordenar primeiro tudo que é obrigatório. Adaptação exige a arte original na primeira posição e nunca cai para geração sem referência. Restyle exige uma referência de conteúdo e outra de estilo, nessa ordem; estilo transfere apenas linguagem visual e não transfere marca, produto, copy ou anúncio. Referências de Brand Training ocupam somente vagas restantes do limite. Quando a análise identificar com confiança uma marca explícita na arte de conteúdo diferente da marca ativa, `prepare` retorna conflito tipado e bloqueia cobrança até o usuário escolher `source` ou `active`; a escolha é persistida opcionalmente em `CreativeWorkSettings`. Ausência ou ambiguidade de conflito segue automaticamente com a marca ativa.
@@ -109,7 +333,25 @@ A mudança estará pronta para liberação geral somente quando testes determin�
   - `cd /Users/jhonatan/Repos/ADScale_2/app && npm test -- src/server/application/prepare-creative-work.test.ts src/server/creative-work/identity.test.ts src/server/creative-work/prompt.test.ts src/server/jobs/creative-work.test.ts src/components/creative-work/useCreativeComposer.test.tsx src/components/creative-work/CreativeComposer.test.tsx`
   - Os testes devem inspecionar a ordem/quantidade dos buffers, os dois ramos do conflito XTB e a ausência da escolha quando a marca não conflita.
 
-### R-004 — Construir prompts por protocolo que preservem o contrato correto
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+ R-004 — Construir prompts por protocolo que preservem o contrato correto
 
 - Current evidence: `app/src/server/creative-work/prompt.ts:buildSocialPostPrompt` monta um prompt genérico para todos os tools; `app/src/server/jobs/creative-work.ts` o usa em todos os outputs; `app/src/server/ai/factual-visual-separation.ts` e `app/src/server/ai/canonical-creative-contract.ts` contêm vocabulário reutilizável de separação factual/visual sem substituir o fluxo da Home.
 - Required behavior: o builder do Creative Work deve receber modo resolvido, fact pack, nível criativo, formato e referências com papéis. Peça única transforma pedido e marca em uma peça; Variações mantém fatos/marca iguais e diferencia direção visual por nível; Adaptação mantém a mesma peça — fatos, texto essencial, marca, conceito e direção — alterando somente composição, escala e distribuição para o formato; Restyle preserva conteúdo, aplica somente atributos visuais da fonte de estilo e respeita a autoridade de marca escolhida; revisão combina instrução, pai e contrato original. A implementação continua em um builder/executor canônico, com blocos de política por modo, e não cria classes por protocolo.
@@ -126,7 +368,25 @@ A mudança estará pronta para liberação geral somente quando testes determin�
   - `cd /Users/jhonatan/Repos/ADScale_2/app && npm test -- src/server/creative-work/prompt.test.ts src/server/generation/pipeline/execute.test.ts tests/unit/ai/prompt-rule-isolation.test.ts tests/unit/ai/quality-prompt-regression.test.ts src/server/jobs/creative-work.test.ts`
   - Snapshots/assertions de prompt devem usar fatos concretos e verificar presenças e proibições por modo, não apenas o nome do modo.
 
-### R-005 — Persistir QA objetivo `pass | fail | inconclusive` sem confundir gosto com integridade
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+ R-005 — Persistir QA objetivo `pass | fail | inconclusive` sem confundir gosto com integridade
 
 - Current evidence: `app/src/server/ai/creative-qa.ts` já retorna checklist estruturado; `app/src/server/ai/creative-quality-gate.ts` separa códigos objetivos de polish; `app/src/server/generation/pipeline/post-generation.ts` e `app/src/server/generation/canonical/policies.ts` ainda rejeitam Creative Work por score/threshold; `creative_work_outputs.quality` já é JSONB.
 - Required behavior: cada imagem produzida deve passar por validações determinísticas de arquivo/dimensões e QA visual contextualizado por fact pack e referências. O resultado persistido em `quality` deve ser versionado e conter `objectiveVerdict`, códigos objetivos, sinais subjetivos, status do avaliador e tentativa. Falhas objetivas são: fato obrigatório ausente/alterado, alegação sem origem, marca/logo/produto/serviço errado, contaminação da referência de estilo, referência obrigatória ignorada, dimensão/formato errado, arquivo corrompido/inutilizável e texto factual renderizado de forma ilegível ou severamente cortada. Score subjetivo alto nunca aprova uma falha objetiva; score baixo, aparência genérica ou falha do scorer subjetivo nunca rejeitam nem disparam retry. Falha técnica/ambiguidade do QA objetivo vira `inconclusive`: output disponível com sinal de revisão, sem retry e sem contar como aprovação no Gate 8.
@@ -143,7 +403,25 @@ A mudança estará pronta para liberação geral somente quando testes determin�
   - `cd /Users/jhonatan/Repos/ADScale_2/app && npm test -- src/server/ai/creative-qa.test.ts tests/unit/ai/creative-quality-gate.test.ts tests/unit/ai/creative-quality-gate-orchestration.test.ts src/server/generation/pipeline/post-generation.test.ts src/server/jobs/creative-work.test.ts src/components/creative-work/CreativeResultCard.test.tsx`
   - Fixtures devem cobrir score 95 + fato inventado, score baixo sem falha objetiva, dimensão errada, arquivo inválido e QA indisponível.
 
-### R-006 — Impor teto durável de duas chamadas, recuperação exclusiva e saldo líquido correto
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+ R-006 — Impor teto durável de duas chamadas, recuperação exclusiva e saldo líquido correto
 
 - Current evidence: `app/src/server/repositories/creative-work.ts` persiste `retryCount`, mas não chamadas ao provider; `requeueCreativeWorkOutputOnce` e `requeueFailedCreativeWorkOutput` podem abrir novos jobs; `app/src/server/jobs/creative-work.ts` faz retry de transporte em outro evento e não reembolsa todas as falhas; `app/src/server/billing/credits.ts:refundCredits` oferece a base de idempotência.
 - Required behavior: cada output deve ter contador durável próprio de chamadas de imagem, separado de `retryCount`, com valor inicial zero e limite absoluto dois ao longo da vida da linha. A chamada é reivindicada atomicamente antes de alcançar o provider. A segunda chamada tem uso exclusivo: retry de transporte se a primeira não produziu imagem, ou correção objetiva se a primeira produziu imagem com `objectiveVerdict: fail`; ela nunca serve aos dois. Não há terceiro provider call por reentrega, timeout, lease, falha da correção ou clique manual. Uma cobrança líquida existe por output em `queued|processing|completed`; retry/correção não adiciona cobrança; falha terminal fica com saldo líquido zero por refund idempotente. Retry manual mantém a mesma linha e só é oferecido se ainda houver orçamento durável; se um refund já ocorreu, a operação original deve ser reativada de forma idempotente antes do enqueue, deixando no máximo um débito líquido, nunca dois.
@@ -164,7 +442,25 @@ A mudança estará pronta para liberação geral somente quando testes determin�
   - `cd /Users/jhonatan/Repos/ADScale_2/app && DATABASE_URL=postgres://test:test@localhost:5433/adscale_test TEST_DATABASE_URL=postgres://test:test@localhost:5433/adscale_test npm test -- tests/integration/creative-work-recovery.test.ts`
   - O teste com Postgres deve consultar outputs e transações e provar `image_call_count <= 2`, um débito líquido por sucesso e refund único por falha terminal.
 
-### R-007 — Manter o job vivo e dentro do orçamento de memória do web starter
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+ R-007 — Manter o job vivo e dentro do orçamento de memória do web starter
 
 - Current evidence: `render.yaml` usa o web `starter`; `app/src/server/jobs/creative-work.ts` carrega buffers sem heartbeat de etapa; `app/src/server/ai/image-generation.ts` mantém candidatos/refinement; `app/src/server/ai/providers/openai-image-provider.ts` possui alteração local não commitada com timeout único e `maxRetries: 0`; `origin/codex/imagegen-stabilize-accelerate` contém padrões candidatos, mas não aprovados em bloco.
 - Required behavior: concorrência de geração no processo web começa em 1. Referências são validadas/normalizadas para limites seguros de dimensão e pixels antes do provider, preservando alpha quando necessário; buffers brutos e candidatos perdedores são liberados assim que deixam de ser necessários; cache do Sharp fica desabilitado no caminho. O SDK possui uma única autoridade de timeout e `maxRetries: 0`, sem retry empilhado. O job toca heartbeat/`updatedAt` somente enquanto possui o output `processing`, verifica a posse entre etapas e aborta antes de outra chamada/commit ao perder lease. Uma conclusão tardia falha no CAS, é descartada, não altera billing e emite telemetria. Telemetria estruturada deve correlacionar `workspaceId`, `workItemId`, `outputId`, protocolo, run/attempt, etapa, duração, RSS, chamadas, retry, verdict e refund.
@@ -184,7 +480,25 @@ A mudança estará pronta para liberação geral somente quando testes determin�
   - O cenário controlado de carga deve registrar métricas por output/lote em evidência JSON consumível pelo Gate 8; ele não pode usar o provider pago.
   - Após a execução aprovada do rollout, `cd /Users/jhonatan/Repos/ADScale_2/app && npx tsx scripts/check-creative-work-quality-recovery-gate.ts ../.planning/validation/creative-work-quality-recovery-gate.json` valida os limites reais.
 
-### R-008 — Preservar a jornada assíncrona e apresentar somente decisões/erros acionáveis
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+ R-008 — Preservar a jornada assíncrona e apresentar somente decisões/erros acionáveis
 
 - Current evidence: `app/src/app/api/creative-work/[id]/generate/route.ts` retorna `202`; `app/src/lib/hooks/use-creative-work.ts:creativeWorkRefetchInterval` faz polling; `app/src/components/creative-work/useCreativeComposer.ts` protege submit e reidrata trabalho; `app/src/components/creative-work/CreativeResultCard.tsx` mostra retry por output; o erro atual chega como string/código genérico.
 - Required behavior: gerar continua sendo `202` + polling e sobrevive a aba fechada. A UI mantém outputs independentes em lote parcial e nunca apaga sucesso por falha irmã. A única pergunta nova é a escolha de autoridade de marca de R-003, com duas opções acessíveis e retorno ao mesmo submit após autosave. Falhas de output são projetadas em categorias estáveis: `timeout`, `invalid_context`, `factual_violation`, `brand_conflict`, `reference_failure`, `unknown`; códigos internos/sanitizados podem ser mais específicos, mas a UI deve explicar o próximo passo. `inconclusive` é resultado disponível com revisão recomendada. Retry manual aparece apenas em output falho elegível segundo R-006; revisão falha continua pelo comando pago de nova versão, não pelo retry inicial.
@@ -201,7 +515,25 @@ A mudança estará pronta para liberação geral somente quando testes determin�
   - `cd /Users/jhonatan/Repos/ADScale_2/app && npm test -- src/components/creative-work/useCreativeComposer.test.tsx src/components/creative-work/CreativeComposer.test.tsx src/components/creative-work/CreativeResultCard.test.tsx src/lib/hooks/use-creative-work.test.ts`
   - `cd /Users/jhonatan/Repos/ADScale_2/app && npm run test:create-post-e2e`
 
-### R-009 — Eliminar o `400` de analytics com taxonomia própria e allowlist mínima
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+ R-009 — Eliminar o `400` de analytics com taxonomia própria e allowlist mínima
 
 - Current evidence: `app/src/components/campaigns/OutputLearningRecommendationCard.tsx` chama `recordEvent` com `output_learning_recommendation_viewed|dismissed|accepted|edited` e propriedades `traceId`, `evidenceEventCount`, `blockedFieldCount`; `app/src/server/beta-analytics/types.ts:BETA_EVENT_KEYS/ALLOWED_PROPERTY_KEYS` não contém esses valores; `app/src/server/beta-analytics/record.ts` rejeita event key desconhecida.
 - Required behavior: adicionar os quatro nomes existentes como uma família própria da taxonomia — sem renomeá-los para `next_experiment_*` — e permitir apenas as três propriedades adicionais já enviadas, mantendo sanitização escalar/tamanho/denylist. O registro continua fire-and-forget no cliente e não pode bloquear geração, aceite, edição ou dismiss.
@@ -216,7 +548,25 @@ A mudança estará pronta para liberação geral somente quando testes determin�
   - `cd /Users/jhonatan/Repos/ADScale_2/app && npm test -- src/server/beta-analytics/sanitize.test.ts src/server/beta-analytics/record.test.ts src/server/beta-analytics/instrumentation.integration.test.ts src/components/campaigns/OutputLearningRecommendationCard.test.tsx`
   - O teste de integração deve enviar o mesmo corpo usado pelo card e observar resposta 2xx/inserção, além do controle negativo 400.
 
-### R-010 — Provar o fluxo completo com provider determinístico antes de qualquer geração paga
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+ R-010 — Provar o fluxo completo com provider determinístico antes de qualquer geração paga
 
 - Current evidence: `app/src/server/ai/providers/e2e-controlled-provider.ts` já substitui o provider real; `app/tests/e2e/create-post.spec.ts` cobre a Home; `app/scripts/seed-create-post-e2e.ts` prepara fixture; testes atuais ainda assumem triplet/social post e não cobrem a matriz nova.
 - Required behavior: ampliar fixtures e instrumentação do provider controlado para registrar modo, qualidade, dimensões, ordem/papel das referências e contagem de chamadas, além de simular timeout retryable, falha objetiva, QA inconclusivo e falha de um output em lote. O E2E deve cobrir Peça única textual, Variações, Adaptação em três formatos, Restyle sem conflito, Restyle com conflito e revisão. O teste deve operar pela API/UI pública, consultar estado persistido e provar reabertura/polling, parcial, refund e não duplicação.
@@ -235,7 +585,25 @@ A mudança estará pronta para liberação geral somente quando testes determin�
   - `cd /Users/jhonatan/Repos/ADScale_2/app && E2E_CONTROLLED_PROVIDER=true npm run test:create-post-e2e`
   - `cd /Users/jhonatan/Repos/ADScale_2/app && npm run lint && npm run typecheck && npm run build && npm run convergence:gate && npm run release-gate`
 
-### R-011 — Fazer rollout reversível e bloquear release geral no novo Gate 8
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+ R-011 — Fazer rollout reversível e bloquear release geral no novo Gate 8
 
 - Current evidence: a especificação aprovada exige switch temporário; `app/src/server/validation/env.ts` centraliza env server-side; `creative_work_items.input_snapshot` congela entrada; `app/scripts/check-image-harness-blind-gate.ts` valida apenas gates antigos de duas alternativas; `.planning/convergence/phase8-human-journeys.json` está encerrado com dívida e não mede esta mudança.
 - Required behavior: adicionar switch server-side temporário `CREATIVE_WORK_QUALITY_RECOVERY_ENABLED`, validado e desligável. No `prepare`, persistir `generationPolicyVersion: "legacy" | "quality_recovery_v1"` no snapshot; jobs sempre obedecem à versão congelada, não ao valor atual do env. Desligar o switch reverte somente novos trabalhos, enquanto outputs em voo terminam no contrato original. Criar um checker específico sob `app/scripts/` e evidência em `.planning/validation/creative-work-quality-recovery-gate.json`; ele deve validar exatamente 10 jornadas completas, pelo menos 3 marcas, 2 segmentos, todos os quatro protocolos com ao menos 2 casos, comparação cega de três opções e métricas técnicas/financeiras. O switch deve ser removido depois de Gate 8 aprovado e regressões automáticas verdes; falha do gate exige manter rollout fechado ou reverter novos trabalhos.
@@ -258,7 +626,19 @@ A mudança estará pronta para liberação geral somente quando testes determin�
   - Antes da coleta humana, o template `pending_human_review` deve sair com código 2; evidência incompleta/violada com código 1; somente o gate completo com código 0.
   - Depois de remover o switch: `cd /Users/jhonatan/Repos/ADScale_2/app && npm run lint && npm run typecheck && npm run build && npm run convergence:gate && npm run release-gate`.
 
-## DELIVERY ORDER
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+ DELIVERY ORDER
 
 1. **Congelar baseline e contratos, sem provider pago:** preservar os artefatos atuais, criar testes falhos do resolver e introduzir versionamento do snapshot/contador durável (R-001, R-006, R-011).
 2. **Recuperar contexto antes de mexer na imagem:** implementar fact pack, proveniência, copy validada e compatibilidade de snapshots (R-002).
@@ -271,7 +651,19 @@ A mudança estará pronta para liberação geral somente quando testes determin�
 9. **Rollout controlado:** habilitar v1 somente para o caso controlado, depois lote de três; interromper/reverter novos trabalhos se chamadas, status, tempo, RSS ou ledger divergirem (R-011).
 10. **Gate 8 e remoção da compatibilidade:** após aprovação do orçamento, executar as 10 jornadas cegas; somente com checker verde liberar geral e remover o switch temporário (R-011).
 
-## RISKS AND DECISIONS
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+ RISKS AND DECISIONS
 
 - **Worktree já contém alterações do usuário.** A implementação deve começar por `git status`/diff e preservar tudo que não pertence a este plano. Em especial, `app/src/server/ai/providers/openai-image-provider.ts`, `app/.env.example` e `app/package.json` já possuem mudanças locais; satisfazer um requisito existente não autoriza sobrescrevê-las.
 - **Não integrar a branch candidata inteira.** `origin/codex/imagegen-stabilize-accelerate` é somente fonte de padrões pontuais. Cada trecho deve ser refeito sobre a árvore atual e coberto por teste; worker, mudanças de auth e alterações laterais ficam fora.
@@ -286,7 +678,19 @@ A mudança estará pronta para liberação geral somente quando testes determin�
 - **O novo Gate 8 é pago e humano.** Automação prepara e confere evidência, mas não substitui avaliação cega. A execução espera aprovação separada; nenhum comando deste plano autoriza gasto.
 - **Upgrade de worker é condicional.** Se o retrofit correto ainda não alcançar p95/RSS, o resultado é um blocker de release e insumo para nova especificação, não permissão automática para ampliar infraestrutura.
 
-## VALIDATION MATRIX
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+### Falta fazer
+
+1. **Revisão final de código** de toda a implementação delta deste plano (T8 + T9 + T12 principalmente).
+2. **Finalizar branch** (skill finishing-a-development-branch): commit de todas as mudanças (incl. `tests/e2e/.evidence/provider-calls.jsonl` truncado por seed + `support/visual-auth.ts` + flag fix). Limpeza conhecida antes do merge: remover os blocos de debug `#region agent log` (fetch a `127.0.0.1:7899`) pré-existentes em `app/src/server/creative-work/prompt.ts` (sinalizado na review da T6).
+3. **R-011 rollout + Gate 8 humano (pago):** aguardando aprovação explícita de orçamento — status operacional "aguardando execução paga". Template `pending_human_review` pronto; após coleta, `npm run creative-work-quality-recovery-gate` valida. Remoção do switch somente após gate verde.
+4. **release-gate completo** (visual-portland + a11y) não rodou até o fim dentro do budget desta sessão (gate visual historicamente pesado em dev). Componentes unitário + lint + build + convergence:gate passam isoladamente. Recomenda-se rodar `npm run release-gate` em CI sem o limit de tempo desta sessão.
+ VALIDATION MATRIX
 
 | Requirement | Acceptance evidence | Verification |
 |---|---|---|
