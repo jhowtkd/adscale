@@ -10,6 +10,7 @@ vi.mock("@/server/repositories/derivation", () => ({
   deleteQueuedDerivation: vi.fn(),
   failQueuedDerivation: vi.fn(),
   getLatestFormatAdaptationChild: vi.fn(),
+  touchQueuedDerivation: vi.fn(),
 }));
 
 vi.mock("@/server/repositories/campaign", () => ({

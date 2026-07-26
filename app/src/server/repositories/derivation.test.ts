@@ -23,6 +23,7 @@ vi.mock("../db", () => ({
 import {
   failQueuedDerivation,
   getActivePackageChildren,
+  touchQueuedDerivation,
   updateDerivationDualVerdict,
   updateDerivationPromptProvenance,
   updateDerivationQa,
@@ -55,6 +56,23 @@ describe("derivation repository", () => {
         "workspace-id",
         "queued",
       ]);
+    });
+  });
+
+  describe("touchQueuedDerivation", () => {
+    it("advances the dispatch acknowledgement beyond the reservation timestamp", async () => {
+      const reservedAt = new Date(Date.now() + 1_000);
+      returningMock.mockResolvedValue([{ id: "derivation-id" }]);
+
+      await touchQueuedDerivation(
+        "derivation-id",
+        "workspace-id",
+        reservedAt,
+      );
+
+      expect(setMock).toHaveBeenCalledWith({
+        updatedAt: new Date(reservedAt.getTime() + 1),
+      });
     });
   });
 

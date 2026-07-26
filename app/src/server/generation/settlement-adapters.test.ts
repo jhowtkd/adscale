@@ -15,6 +15,7 @@ const deleteChild = vi.hoisted(() => vi.fn());
 const failChild = vi.hoisted(() => vi.fn());
 const getChild = vi.hoisted(() => vi.fn());
 const getPreviousChild = vi.hoisted(() => vi.fn());
+const touchChild = vi.hoisted(() => vi.fn());
 const getUsage = vi.hoisted(() => vi.fn());
 const updateCampaign = vi.hoisted(() => vi.fn());
 
@@ -41,6 +42,7 @@ vi.mock("@/server/repositories/derivation", () => ({
   failQueuedDerivation: failChild,
   getDerivationById: getChild,
   getLatestFormatAdaptationChild: getPreviousChild,
+  touchQueuedDerivation: touchChild,
 }));
 vi.mock("@/server/repositories/campaign", () => ({ updateCampaign }));
 
@@ -140,6 +142,7 @@ describe("Generation Settlement production adapters", () => {
     createChild.mockResolvedValue(child);
     failChild.mockResolvedValue({ ...child, status: "failed" });
     getPreviousChild.mockResolvedValue(null);
+    touchChild.mockResolvedValue({ ...child, updatedAt: originalChild.updatedAt });
     getChild.mockResolvedValue(originalChild);
     getUsage.mockResolvedValue({
       metadata: {
@@ -159,6 +162,11 @@ describe("Generation Settlement production adapters", () => {
     expect(batchResult.ok).toBe(true);
     expect(unitResult.ok).toBe(true);
     expect(send).toHaveBeenCalledTimes(2);
+    expect(touchChild).toHaveBeenCalledWith(
+      child.id,
+      "workspace-1",
+      child.updatedAt,
+    );
     expect(chargeUnit).toHaveBeenCalledWith(
       expect.objectContaining({
         intent: { mode: "format_adaptation", objective: null },

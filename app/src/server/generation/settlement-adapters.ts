@@ -27,6 +27,7 @@ import {
   failQueuedDerivation,
   getDerivationById,
   getLatestFormatAdaptationChild,
+  touchQueuedDerivation,
 } from "@/server/repositories/derivation";
 import { getUsageByIdempotencyKey } from "@/server/repositories/usage";
 import type {
@@ -416,6 +417,11 @@ export function formatAdaptationSettlementAdapter(input: {
       };
     },
     async completeDispatch(reservation) {
+      await touchQueuedDerivation(
+        reservation.value.derivation.id,
+        input.workspaceId,
+        reservation.value.derivation.updatedAt,
+      );
       await updateCampaign(input.source.campaignId, input.workspaceId, {
         status: "generating",
       });

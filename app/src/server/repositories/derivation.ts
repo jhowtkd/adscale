@@ -190,6 +190,24 @@ export async function failQueuedDerivation(
   return row ?? null;
 }
 
+export async function touchQueuedDerivation(
+  id: string,
+  workspaceId: string,
+  after: Date,
+) {
+  const updatedAt = new Date(Math.max(Date.now(), after.getTime() + 1));
+  const [row] = await db
+    .update(derivations)
+    .set({ updatedAt })
+    .where(and(
+      eq(derivations.id, id),
+      eq(derivations.workspaceId, workspaceId),
+      eq(derivations.status, "queued"),
+    ))
+    .returning();
+  return row ?? null;
+}
+
 export async function getLatestFormatAdaptationChild(input: {
   workspaceId: string;
   parentId: string;
