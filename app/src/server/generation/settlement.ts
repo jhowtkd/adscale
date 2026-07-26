@@ -18,7 +18,9 @@ export interface GenerationSettlementAdapter<
   R extends GenerationSettlementReservation<T> = GenerationSettlementReservation<T>,
 > {
   reserve(): Promise<R>;
+  join?(reservation: R): Promise<T | null>;
   charge(reservation: R): Promise<SpendResult>;
+  resolveReplay?(reservation: R): Promise<T | null>;
   release(reservation: R): Promise<void>;
   dispatch(reservation: R): Promise<void>;
   failDispatch(
@@ -53,7 +55,11 @@ export async function startGenerationSettlement<
 > {
   const reservation = await adapter.reserve();
   if (!reservation.claimed) {
-    return { ok: true, value: reservation.value };
+    const joined = adapter.join
+      ? await adapter.join(reservation)
+      : reservation.value;
+    if (joined) return { ok: true, value: joined };
+    return startGenerationSettlement(adapter);
   }
 
   let spend: SpendResult;
@@ -66,6 +72,13 @@ export async function startGenerationSettlement<
   if (!spend.ok) {
     await adapter.release(reservation);
     return { ok: false, error: { code: "credit_blocked", spend } };
+  }
+  if (spend.duplicate && adapter.resolveReplay) {
+    const replay = await adapter.resolveReplay(reservation);
+    if (replay) {
+      await adapter.release(reservation);
+      return { ok: true, value: replay };
+    }
   }
   try {
     await adapter.dispatch(reservation);

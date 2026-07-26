@@ -70,6 +70,26 @@ describe("startGenerationSettlement", () => {
     expect(adapter.dispatch).not.toHaveBeenCalled();
   });
 
+  it("retries when a joined reservation disappears before charging", async () => {
+    const adapter = testAdapter();
+    vi.mocked(adapter.reserve)
+      .mockResolvedValueOnce({
+        claimed: false,
+        value: { id: "output-1", status: "queued" },
+      })
+      .mockResolvedValueOnce({
+        claimed: true,
+        value: { id: "output-2", status: "queued" },
+      });
+    adapter.join = vi.fn().mockResolvedValue(null);
+
+    const result = await startGenerationSettlement(adapter);
+
+    expect(result.ok).toBe(true);
+    expect(adapter.reserve).toHaveBeenCalledTimes(2);
+    expect(adapter.charge).toHaveBeenCalledOnce();
+  });
+
   it("fails the reservation and compensates a synchronous dispatch failure", async () => {
     const adapter = testAdapter();
     const refundInput = {

@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { SQL } from "drizzle-orm";
+import { PgDialect } from "drizzle-orm/pg-core";
 
 const { whereMock, fromMock, selectMock, updateMock, setMock, updateWhereMock, returningMock } = vi.hoisted(() => {
   const whereMock = vi.fn();
@@ -19,6 +21,7 @@ vi.mock("../db", () => ({
 }));
 
 import {
+  failQueuedDerivation,
   getActivePackageChildren,
   updateDerivationDualVerdict,
   updateDerivationPromptProvenance,
@@ -34,6 +37,25 @@ describe("derivation repository", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     whereMock.mockResolvedValue([]);
+  });
+
+  describe("failQueuedDerivation", () => {
+    it("claims only the queued row in the requested workspace", async () => {
+      returningMock.mockResolvedValue([{ id: "derivation-id", status: "failed" }]);
+
+      await failQueuedDerivation("derivation-id", "workspace-id");
+
+      expect(setMock).toHaveBeenCalledWith(
+        expect.objectContaining({ status: "failed", updatedAt: expect.any(Date) }),
+      );
+      const condition = updateWhereMock.mock.calls[0]?.[0] as SQL;
+      const query = new PgDialect().sqlToQuery(condition);
+      expect(query.params).toEqual([
+        "derivation-id",
+        "workspace-id",
+        "queued",
+      ]);
+    });
   });
 
   describe("delivery package derivation helpers", () => {

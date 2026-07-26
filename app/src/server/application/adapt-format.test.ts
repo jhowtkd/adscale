@@ -6,9 +6,10 @@ vi.mock("@/server/billing/paywall", () => ({
 
 vi.mock("@/server/repositories/derivation", () => ({
   getDerivationById: vi.fn(),
-  createPackageChildIfAbsent: vi.fn(),
+  createDerivation: vi.fn(),
   deleteQueuedDerivation: vi.fn(),
-  updateDerivationStatus: vi.fn(),
+  failQueuedDerivation: vi.fn(),
+  getLatestFormatAdaptationChild: vi.fn(),
 }));
 
 vi.mock("@/server/repositories/campaign", () => ({
@@ -25,7 +26,7 @@ vi.mock("@/server/billing/credits", () => ({
 
 import { spend } from "@/server/billing/paywall";
 import {
-  createPackageChildIfAbsent,
+  createDerivation,
   getDerivationById,
 } from "@/server/repositories/derivation";
 import { inngest } from "@/server/jobs/client";
@@ -33,7 +34,7 @@ import { adaptFormat } from "./adapt-format";
 
 const mockSpend = vi.mocked(spend);
 const mockGet = vi.mocked(getDerivationById);
-const mockCreate = vi.mocked(createPackageChildIfAbsent);
+const mockCreate = vi.mocked(createDerivation);
 const mockSend = vi.mocked(inngest.send);
 
 describe("adaptFormat", () => {
@@ -48,10 +49,7 @@ describe("adaptFormat", () => {
       variantIndex: 0,
       ctaText: "Buy",
     } as never);
-    mockCreate.mockResolvedValue({
-      child: { id: "c1-child" },
-      created: true,
-    } as never);
+    mockCreate.mockResolvedValue({ id: "c1-child" } as never);
     mockSend.mockResolvedValue({ ids: ["e"] } as never);
   });
 

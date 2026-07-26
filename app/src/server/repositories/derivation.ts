@@ -1,4 +1,4 @@
-import { eq, and, desc, inArray, sql, isNotNull } from "drizzle-orm";
+import { eq, and, desc, inArray, sql, isNotNull, ne } from "drizzle-orm";
 import type {
   CreativeHardFailure,
   CreativeQualityVerdict,
@@ -172,6 +172,43 @@ export async function deleteQueuedDerivation(
     eq(derivations.workspaceId, workspaceId),
     eq(derivations.status, "queued"),
   ));
+}
+
+export async function failQueuedDerivation(
+  id: string,
+  workspaceId: string,
+): Promise<typeof derivations.$inferSelect | null> {
+  const [row] = await db
+    .update(derivations)
+    .set({ status: "failed", updatedAt: new Date() })
+    .where(and(
+      eq(derivations.id, id),
+      eq(derivations.workspaceId, workspaceId),
+      eq(derivations.status, "queued"),
+    ))
+    .returning();
+  return row ?? null;
+}
+
+export async function getLatestFormatAdaptationChild(input: {
+  workspaceId: string;
+  parentId: string;
+  format: string;
+  excludeId?: string;
+}) {
+  const [child] = await db
+    .select()
+    .from(derivations)
+    .where(and(
+      eq(derivations.workspaceId, input.workspaceId),
+      eq(derivations.parentId, input.parentId),
+      eq(derivations.generationMode, "format_adaptation"),
+      eq(derivations.format, input.format),
+      input.excludeId ? ne(derivations.id, input.excludeId) : undefined,
+    ))
+    .orderBy(desc(derivations.createdAt))
+    .limit(1);
+  return child ?? null;
 }
 
 export async function getDerivationsByCampaign(

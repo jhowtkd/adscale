@@ -1,10 +1,14 @@
 import { logger } from "@/lib/logger";
-import { spend } from "@/server/billing/paywall";
+import { getTargetDimensions } from "@/lib/formats";
 import type { CreativeWorkOutputPlan } from "@/server/creative-work/contracts";
-import { chargeForGenerationBatch } from "@/server/generation/canonical/charge";
+import {
+  chargeForGeneration,
+  chargeForGenerationBatch,
+} from "@/server/generation/canonical/charge";
 import {
   GENERATION_CREDIT_COSTS,
   type GenerationBatchCharge,
+  type GenerationRequest,
 } from "@/server/generation/canonical/types";
 import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 import { inngest } from "@/server/jobs/client";
@@ -18,11 +22,13 @@ import {
   setCreativeWorkStatus,
 } from "@/server/repositories/creative-work";
 import {
-  createPackageChildIfAbsent,
+  createDerivation,
   deleteQueuedDerivation,
+  failQueuedDerivation,
   getDerivationById,
-  updateDerivationStatus,
+  getLatestFormatAdaptationChild,
 } from "@/server/repositories/derivation";
+import { getUsageByIdempotencyKey } from "@/server/repositories/usage";
 import type {
   GenerationSettlementAdapter,
   GenerationSettlementReservation,
@@ -68,6 +74,25 @@ export function creativeWorkSettlementAdapter(input: {
         value: { work: input.readyWork, outputs: created.outputs },
         newlyCreatedIds: created.newlyCreatedIds,
       };
+    },
+    async join(reservation) {
+      for (let attempt = 0; attempt < 80; attempt += 1) {
+        if (
+          await getUsageByIdempotencyKey(
+            input.workspaceId,
+            input.batch.billingKey,
+          )
+        ) {
+          return reservation.value;
+        }
+        const aggregate = await getCreativeWork(
+          input.workspaceId,
+          input.workItemId,
+        );
+        if (!aggregate?.outputs.length) return null;
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      }
+      throw new Error("generation_settlement_join_timeout");
     },
     charge: () =>
       chargeForGenerationBatch(input.batch, {
@@ -140,16 +165,14 @@ export function creativeWorkSettlementAdapter(input: {
 type FormatSource = NonNullable<
   Awaited<ReturnType<typeof getDerivationById>>
 >;
-type FormatChild = Awaited<
-  ReturnType<typeof createPackageChildIfAbsent>
->["child"];
+type FormatChild = Awaited<ReturnType<typeof createDerivation>>;
 export type FormatAdaptationSettlementValue = {
   derivation: FormatChild;
   source: FormatSource;
 };
 type FormatAdaptationReservation =
   GenerationSettlementReservation<FormatAdaptationSettlementValue> & {
-    created: boolean;
+    previous: FormatChild | null;
   };
 
 export function formatAdaptationSettlementAdapter(input: {
@@ -167,7 +190,12 @@ export function formatAdaptationSettlementAdapter(input: {
 > {
   return {
     async reserve() {
-      const { child, created } = await createPackageChildIfAbsent({
+      const previous = await getLatestFormatAdaptationChild({
+        workspaceId: input.workspaceId,
+        parentId: input.source.id,
+        format: input.targetFormat,
+      });
+      const child = await createDerivation({
         campaignId: input.source.campaignId,
         workspaceId: input.workspaceId,
         planId: input.source.planId ?? undefined,
@@ -179,24 +207,89 @@ export function formatAdaptationSettlementAdapter(input: {
         format: input.targetFormat,
       });
       return {
-        claimed: created,
+        claimed: true,
         value: { derivation: child, source: input.source },
-        created,
+        previous,
       };
     },
-    charge: () =>
-      spend({
-        workspaceId: input.workspaceId,
-        action: "image_derivation",
-        amount: GENERATION_CREDIT_COSTS.singleDerivation,
-        idempotencyKey: input.billingIdempotencyKey,
+    charge(reservation) {
+      const dimensions =
+        getTargetDimensions(
+          input.targetFormat as "1:1" | "4:5" | "9:16",
+        ) ?? { width: 1024, height: 1024 };
+      const request: GenerationRequest = {
+        authorship: {
+          workspaceId: input.workspaceId,
+          userId: input.userId,
+        },
+        origin: input.assistantActionId ? "assistant" : "campaign",
+        surface: input.assistantActionId ? "assistant" : "campaign",
+        intent: { mode: "format_adaptation", objective: null },
+        identity: {
+          clientProfileId: null,
+          referenceImages: [],
+          brandConstraints: null,
+        },
+        format: {
+          targetFormat: input.targetFormat,
+          dimensions,
+          constraints: null,
+        },
+        source: {
+          parentId: input.source.id,
+          sourceVersionId: null,
+          lineageId: null,
+          packageSource: null,
+        },
+        prompt: {
+          text: `Adapt derivation ${input.source.id} to ${input.targetFormat}`,
+        },
+        cost: {
+          chargeAmount: GENERATION_CREDIT_COSTS.singleDerivation,
+          refundPolicy: "default",
+        },
+        idempotency: {
+          billingKey: input.billingIdempotencyKey,
+          skipWhenOutputExists: true,
+        },
+        destination: {
+          kind: "derivation",
+          id: reservation.value.derivation.id,
+          storagePrefix: `derivations/${reservation.value.derivation.id}`,
+          campaignId: input.source.campaignId,
+        },
+      };
+      return chargeForGeneration(request, {
         metadata: {
           sourceDerivationId: input.source.id,
+          derivationId: reservation.value.derivation.id,
           targetFormat: input.targetFormat,
           ...input.billingMetadata,
         },
-        userId: input.userId,
-      }),
+      });
+    },
+    async resolveReplay(reservation) {
+      const usage = await getUsageByIdempotencyKey(
+        input.workspaceId,
+        input.billingIdempotencyKey,
+      );
+      const metadata = usage?.metadata as
+        | { derivationId?: unknown; destinationId?: unknown }
+        | null
+        | undefined;
+      const originalId =
+        typeof metadata?.derivationId === "string"
+          ? metadata.derivationId
+          : typeof metadata?.destinationId === "string"
+            ? metadata.destinationId
+            : null;
+      const original = originalId
+        ? await getDerivationById(originalId, input.workspaceId)
+        : reservation.previous;
+      return original
+        ? { derivation: original, source: input.source }
+        : null;
+    },
     release: (reservation) =>
       deleteQueuedDerivation(
         reservation.value.derivation.id,
@@ -226,16 +319,17 @@ export function formatAdaptationSettlementAdapter(input: {
         `[adaptFormat] event send FAILED derivationId=${reservation.value.derivation.id}`,
         error,
       );
-      const failed =
-        (await updateDerivationStatus(
-          reservation.value.derivation.id,
-          input.workspaceId,
-          "failed",
-        )) ?? reservation.value.derivation;
+      const failed = await failQueuedDerivation(
+        reservation.value.derivation.id,
+        input.workspaceId,
+      );
       return {
-        value: { derivation: failed, source: input.source },
-        refunds: [
-          {
+        value: {
+          derivation: failed ?? reservation.value.derivation,
+          source: input.source,
+        },
+        refunds: failed
+          ? [{
             workspaceId: input.workspaceId,
             action: "image_derivation",
             idempotencyKey: `${input.billingIdempotencyKey}:dispatch-refund`,
@@ -247,8 +341,8 @@ export function formatAdaptationSettlementAdapter(input: {
               description: "format_adaptation_dispatch_refund",
             },
             userId: input.userId,
-          },
-        ],
+          }]
+          : [],
       };
     },
     async completeDispatch(reservation) {
