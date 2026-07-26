@@ -6,7 +6,7 @@ export type GenerationSettlementRefund = Parameters<typeof refundCredits>[0];
 export type GenerationSettlementDispatchFailure<T> = {
   value: T;
   refunds: GenerationSettlementRefund[];
-  compensationFailed?: boolean;
+  resumeAfterCompensation?: boolean;
 };
 
 export type GenerationSettlementDeferred<T> =
@@ -43,13 +43,16 @@ export interface GenerationSettlementAdapter<
 async function compensateDispatchFailure<T>(
   failure: GenerationSettlementDispatchFailure<T>,
 ) {
-  let compensated = !failure.compensationFailed;
+  let compensated = true;
   for (const refund of failure.refunds) {
     try {
       await refundCredits(refund);
     } catch {
       compensated = false;
     }
+  }
+  if (compensated && failure.resumeAfterCompensation) {
+    return { ok: true as const, value: failure.value };
   }
   return {
     ok: false as const,

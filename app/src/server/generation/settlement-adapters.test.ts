@@ -88,7 +88,7 @@ const batch = {
   refundPolicy: "default",
 } as const;
 
-function batchAdapter() {
+function batchAdapter(existing?: { work: typeof work; outputs: typeof outputs }) {
   return creativeWorkSettlementAdapter({
     workspaceId: "workspace-1",
     workItemId: "work-1",
@@ -100,6 +100,7 @@ function batchAdapter() {
       { creativeLevel: "bold", targetFormat: "4:5", versionNumber: 1 },
     ],
     batch,
+    existing: existing as never,
   });
 }
 
@@ -144,12 +145,16 @@ describe("Generation Settlement production adapters", () => {
     getPreviousChild.mockResolvedValue(null);
     touchChild.mockResolvedValue({ ...child, updatedAt: originalChild.updatedAt });
     getChild.mockResolvedValue(originalChild);
-    getUsage.mockResolvedValue({
-      metadata: {
-        derivationId: originalChild.id,
-        reservationUpdatedAt: "2026-07-26T12:00:00.000Z",
-      },
-    });
+    getUsage.mockImplementation(async (_workspaceId, idempotencyKey) =>
+      idempotencyKey.endsWith(":dispatch-refund")
+        ? null
+        : {
+            metadata: {
+              derivationId: originalChild.id,
+              reservationUpdatedAt: "2026-07-26T12:00:00.000Z",
+            },
+          },
+    );
     updateCampaign.mockResolvedValue(undefined);
   });
 
@@ -215,6 +220,47 @@ describe("Generation Settlement production adapters", () => {
     expect(send).not.toHaveBeenCalled();
   });
 
+  it("settles an existing failed batch replay through the shared contract", async () => {
+    const failedOutputs = outputs.map((output) => ({
+      ...output,
+      status: "failed",
+      failureCode: "dispatch_failed",
+    }));
+    getWork.mockResolvedValue({
+      work: { ...work, status: "failed" },
+      outputs: failedOutputs,
+    });
+
+    const result = await startGenerationSettlement(
+      batchAdapter({
+        work: { ...work, status: "failed" },
+        outputs: failedOutputs as never,
+      }),
+    );
+
+    expect(result).toMatchObject({ ok: true, value: { outputs: failedOutputs } });
+    expect(chargeBatch).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+    expect(refund).toHaveBeenCalledTimes(3);
+  });
+
+  it("recovers a queued batch replay from its recorded refund marker", async () => {
+    getWork.mockResolvedValue({ work, outputs });
+    getUsage.mockImplementation(async (_workspaceId, idempotencyKey) =>
+      idempotencyKey === "creative-work:work-1:output:a:dispatch-refund"
+        ? { id: "refund-a" }
+        : null,
+    );
+
+    const result = await startGenerationSettlement(
+      batchAdapter({ work, outputs }),
+    );
+
+    expect(result).toMatchObject({ ok: true, value: { outputs } });
+    expect(refund).toHaveBeenCalledTimes(3);
+    expect(send).not.toHaveBeenCalled();
+  });
+
   it("resolves an idempotent unit replay to the original derivation", async () => {
     chargeUnit.mockResolvedValue({
       ok: true,
@@ -232,6 +278,36 @@ describe("Generation Settlement production adapters", () => {
     expect(send).not.toHaveBeenCalled();
   });
 
+  it("retries the public campaign status before settling a unit replay", async () => {
+    updateCampaign
+      .mockRejectedValueOnce(new Error("campaign database down"))
+      .mockResolvedValueOnce(undefined);
+
+    await expect(
+      startGenerationSettlement(unitAdapter()),
+    ).rejects.toThrow("campaign database down");
+    expect(touchChild).toHaveBeenCalledWith(
+      child.id,
+      "workspace-1",
+      child.updatedAt,
+    );
+
+    chargeUnit.mockResolvedValue({
+      ok: true,
+      creditsSpent: 0,
+      duplicate: true,
+    });
+    getChild.mockResolvedValue({
+      ...originalChild,
+      status: "processing",
+    });
+
+    const replay = await startGenerationSettlement(unitAdapter());
+
+    expect(replay.ok).toBe(true);
+    expect(updateCampaign).toHaveBeenCalledTimes(2);
+  });
+
   it("replays a failed unit as dispatch_failed and retries its refund", async () => {
     chargeUnit.mockResolvedValue({
       ok: true,
@@ -239,6 +315,37 @@ describe("Generation Settlement production adapters", () => {
       duplicate: true,
     });
     getChild.mockResolvedValue({ ...originalChild, status: "failed" });
+
+    const result = await startGenerationSettlement(unitAdapter());
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "dispatch_failed", compensated: true },
+    });
+    expect(refund).toHaveBeenCalledWith(
+      expect.objectContaining({
+        idempotencyKey: "adapt:source-1:dispatch-refund",
+      }),
+    );
+  });
+
+  it("recovers a queued unit replay from its recorded refund marker", async () => {
+    chargeUnit.mockResolvedValue({
+      ok: true,
+      creditsSpent: 0,
+      duplicate: true,
+    });
+    getChild.mockResolvedValue(child);
+    getUsage.mockImplementation(async (_workspaceId, idempotencyKey) =>
+      idempotencyKey.endsWith(":dispatch-refund")
+        ? { id: "unit-refund" }
+        : {
+            metadata: {
+              derivationId: child.id,
+              reservationUpdatedAt: child.updatedAt.toISOString(),
+            },
+          },
+    );
 
     const result = await startGenerationSettlement(unitAdapter());
 
@@ -439,7 +546,7 @@ describe("Generation Settlement production adapters", () => {
     ).toBe(batch.chargeAmount);
   });
 
-  it("returns uncompensated after a partial batch failure claim", async () => {
+  it("refunds the full batch when one failure marker cannot be persisted", async () => {
     send.mockRejectedValue(new Error("transport down"));
     failOutput.mockImplementation(async (_ws, _work, outputId) => {
       if (outputId === "b") throw new Error("database down");
@@ -454,9 +561,9 @@ describe("Generation Settlement production adapters", () => {
 
     expect(result).toMatchObject({
       ok: false,
-      error: { code: "dispatch_failed", compensated: false },
+      error: { code: "dispatch_failed", compensated: true },
     });
-    expect(refund).toHaveBeenCalledTimes(2);
+    expect(refund).toHaveBeenCalledTimes(3);
   });
 
   it("refunds a rejected unit dispatch only after queued-to-failed CAS", async () => {
@@ -470,12 +577,33 @@ describe("Generation Settlement production adapters", () => {
     );
   });
 
-  it("does not refund a unit event already claimed by the worker", async () => {
+  it("refunds a unit dispatch failure even when the failure marker loses its claim", async () => {
     send.mockRejectedValue(new Error("ambiguous response"));
     failChild.mockResolvedValue(null);
 
     await startGenerationSettlement(unitAdapter());
 
-    expect(refund).not.toHaveBeenCalled();
+    expect(refund).toHaveBeenCalledWith(
+      expect.objectContaining({
+        idempotencyKey: "adapt:source-1:dispatch-refund",
+      }),
+    );
+  });
+
+  it("refunds a unit dispatch failure when failure persistence crashes", async () => {
+    send.mockRejectedValue(new Error("transport down"));
+    failChild.mockRejectedValue(new Error("database down"));
+
+    const result = await startGenerationSettlement(unitAdapter());
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "dispatch_failed", compensated: true },
+    });
+    expect(refund).toHaveBeenCalledWith(
+      expect.objectContaining({
+        idempotencyKey: "adapt:source-1:dispatch-refund",
+      }),
+    );
   });
 });

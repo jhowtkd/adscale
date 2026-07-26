@@ -1,4 +1,3 @@
-import { refundCredits } from "@/server/billing/credits";
 import { quoteCreativeWork, type CreativeWorkInputSnapshot } from "@/server/creative-work/contracts";
 import { buildCreativeWorkFactPack, creativeWorkFactPackBrandFromKit } from "@/server/creative-work/fact-pack";
 import { buildIdentityOptions, createIdentitySnapshot } from "@/server/creative-work/identity";
@@ -64,29 +63,6 @@ async function buildInputSnapshot(
   };
 }
 
-async function refundDispatchFailedOutputs(input: {
-  workspaceId: string;
-  workItemId: string;
-  userId: string;
-}, outputs: Array<{ id: string; failureCode: string | null }>): Promise<boolean> {
-  let ok = true;
-  for (const output of outputs.filter((row) => row.failureCode === "dispatch_failed")) {
-    try {
-      await refundCredits({
-        workspaceId: input.workspaceId,
-        action: "image_derivation",
-        idempotencyKey: `creative-work:${input.workItemId}:output:${output.id}:dispatch-refund`,
-        amount: GENERATION_CREDIT_COSTS.creativeWorkOutput,
-        metadata: { creativeWorkId: input.workItemId, outputId: output.id, description: "creative_work_dispatch_refund" },
-        userId: input.userId,
-      });
-    } catch {
-      ok = false;
-    }
-  }
-  return ok;
-}
-
 export async function generateCreativeWork(input: {
   workspaceId: string;
   workItemId: string;
@@ -96,16 +72,10 @@ export async function generateCreativeWork(input: {
   const existing = await getCreativeWork(input.workspaceId, input.workItemId);
   if (!existing) return { ok: false, error: { code: "work_not_found" } };
 
-  if (existing.outputs.length > 0) {
-    if (!await refundDispatchFailedOutputs(input, existing.outputs)) {
-      return { ok: false, error: { code: "dispatch_failed" } };
-    }
-    return { ok: true, value: { work: existing.work, outputs: existing.outputs, billingKey, brandTrainingSuggestion: null } };
-  }
   let work = existing.work;
   let readyWork = existing.work;
   let brandTrainingSuggestion: string | null = null;
-  if (work.status === "draft") {
+  if (existing.outputs.length === 0 && work.status === "draft") {
     const prepared = await prepareCreativeWork(input);
     if (!prepared.ok) {
       // R-002: an invalid fact pack/copy surfaces its own typed error, still
@@ -147,9 +117,13 @@ export async function generateCreativeWork(input: {
     if (!confirmed) return { ok: false, error: { code: "stale_input" } };
     readyWork = confirmed;
     brandTrainingSuggestion = selectedReferenceIds.length === 0 ? "missing_visual_references" : null;
-  } else if (work.status !== "ready" || !work.brief || !work.copy || !work.identitySnapshot) {
+  } else if (
+    existing.outputs.length === 0 &&
+    (work.status !== "ready" || !work.brief || !work.copy || !work.identitySnapshot)
+  ) {
     return { ok: false, error: { code: "work_not_draft" } };
-  } else {
+  } else if (existing.outputs.length === 0) {
+    if (!work.identitySnapshot) return { ok: false, error: { code: "work_not_draft" } };
     const hasTrainingReferences = work.identitySnapshot.assets.length > 0;
     // R-002: the snapshot backfill is intentionally all-or-nothing. It only
     // runs when the work has NO inputSnapshot at all; a legacy ready work
@@ -167,7 +141,9 @@ export async function generateCreativeWork(input: {
     }
     brandTrainingSuggestion = hasTrainingReferences ? null : "missing_visual_references";
   }
-  if (!work.brief) return { ok: false, error: { code: "work_not_prepared" } };
+  if (!work.brief && existing.outputs.length === 0) {
+    return { ok: false, error: { code: "work_not_prepared" } };
+  }
 
   const quote = quoteCreativeWork({ intent: work.toolKind, format: work.format, targetFormats: work.settings.targetFormats });
   const batch: GenerationBatchCharge = {
@@ -175,7 +151,7 @@ export async function generateCreativeWork(input: {
     authorship: { workspaceId: input.workspaceId, userId: input.userId },
     origin: "quick_tool",
     surface: "quick_tool",
-    intent: { mode: "social_post", objective: work.brief.objective },
+    intent: { mode: "social_post", objective: work.brief?.objective ?? null },
     parentId: input.workItemId,
     unitCount: quote.unitCount,
     chargeAmount: quote.credits,
@@ -191,6 +167,10 @@ export async function generateCreativeWork(input: {
       readyWork,
       plans: quote.plans,
       batch,
+      existing:
+        existing.outputs.length > 0
+          ? { work: existing.work, outputs: existing.outputs }
+          : undefined,
     }),
   );
   if (!settled.ok) {

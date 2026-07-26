@@ -70,6 +70,10 @@ function creativeWorkDispatchRefunds(
   }));
 }
 
+function creativeWorkDispatchRefundKey(workItemId: string, outputId: string) {
+  return `creative-work:${workItemId}:output:${outputId}:dispatch-refund`;
+}
+
 export function creativeWorkSettlementAdapter(input: {
   workspaceId: string;
   workItemId: string;
@@ -77,12 +81,20 @@ export function creativeWorkSettlementAdapter(input: {
   readyWork: CreativeWork;
   plans: CreativeWorkOutputPlan[];
   batch: GenerationBatchCharge;
+  existing?: CreativeWorkSettlementValue;
 }): GenerationSettlementAdapter<
   CreativeWorkSettlementValue,
   CreativeWorkReservation
 > {
   return {
     async reserve() {
+      if (input.existing) {
+        return {
+          claimed: false,
+          value: input.existing,
+          newlyCreatedIds: [],
+        };
+      }
       const created = await createPlannedCreativeWorkOutputs(
         input.workspaceId,
         input.workItemId,
@@ -104,12 +116,23 @@ export function creativeWorkSettlementAdapter(input: {
         const failed = aggregate.outputs.filter(
           (output) => output.failureCode === "dispatch_failed",
         );
-        if (failed.length > 0) {
+        const hasRecordedRefund = (
+          await Promise.all(
+            aggregate.outputs.map((output) =>
+              getUsageByIdempotencyKey(
+                input.workspaceId,
+                creativeWorkDispatchRefundKey(input.workItemId, output.id),
+              ),
+            ),
+          )
+        ).some((usage) => usage != null);
+        if (failed.length > 0 || hasRecordedRefund) {
           return {
             status: "dispatch_failed",
             failure: {
               value: { work: aggregate.work, outputs: aggregate.outputs },
-              refunds: creativeWorkDispatchRefunds(input, failed),
+              refunds: creativeWorkDispatchRefunds(input, aggregate.outputs),
+              resumeAfterCompensation: Boolean(input.existing),
             },
           };
         }
@@ -150,18 +173,15 @@ export function creativeWorkSettlementAdapter(input: {
       );
     },
     async failDispatch(reservation) {
-      const attempts = await Promise.allSettled(
-          reservation.newlyCreatedIds.map((outputId) =>
-            failQueuedCreativeWorkOutput(
-              input.workspaceId,
-              input.workItemId,
-              outputId,
-              "dispatch_failed",
-            ),
+      await Promise.allSettled(
+        reservation.newlyCreatedIds.map((outputId) =>
+          failQueuedCreativeWorkOutput(
+            input.workspaceId,
+            input.workItemId,
+            outputId,
+            "dispatch_failed",
           ),
-        );
-      const failed = attempts.flatMap((attempt) =>
-        attempt.status === "fulfilled" && attempt.value ? [attempt.value] : [],
+        ),
       );
       await refreshCreativeWorkStatus(
         input.workspaceId,
@@ -169,9 +189,9 @@ export function creativeWorkSettlementAdapter(input: {
       ).catch(() => undefined);
       return {
         value: reservation.value,
-        refunds: creativeWorkDispatchRefunds(input, failed),
-        compensationFailed: attempts.some(
-          (attempt) => attempt.status === "rejected",
+        refunds: creativeWorkDispatchRefunds(
+          input,
+          reservation.newlyCreatedIds.map((id) => ({ id })),
         ),
       };
     },
@@ -321,27 +341,39 @@ export function formatAdaptationSettlementAdapter(input: {
         typeof metadata?.reservationUpdatedAt === "string"
           ? new Date(metadata.reservationUpdatedAt)
           : null;
+      const dispatchRefund = {
+        workspaceId: input.workspaceId,
+        action: "image_derivation" as const,
+        idempotencyKey: `${input.billingIdempotencyKey}:dispatch-refund`,
+        amount: GENERATION_CREDIT_COSTS.singleDerivation,
+        metadata: {
+          sourceDerivationId: input.source.id,
+          derivationId: original?.id,
+          targetFormat: input.targetFormat,
+          description: "format_adaptation_dispatch_refund",
+        },
+        userId: input.userId,
+      };
+      const recordedRefund = await getUsageByIdempotencyKey(
+        input.workspaceId,
+        dispatchRefund.idempotencyKey,
+      );
+      if (recordedRefund && original) {
+        return {
+          status: "dispatch_failed",
+          failure: {
+            value: { derivation: original, source: input.source },
+            refunds: [dispatchRefund],
+          },
+        };
+      }
       for (let attempt = 0; original && attempt < 80; attempt += 1) {
         if (original.status === "failed") {
           return {
             status: "dispatch_failed",
             failure: {
               value: { derivation: original, source: input.source },
-              refunds: [
-                {
-                  workspaceId: input.workspaceId,
-                  action: "image_derivation",
-                  idempotencyKey: `${input.billingIdempotencyKey}:dispatch-refund`,
-                  amount: GENERATION_CREDIT_COSTS.singleDerivation,
-                  metadata: {
-                    sourceDerivationId: input.source.id,
-                    derivationId: original.id,
-                    targetFormat: input.targetFormat,
-                    description: "format_adaptation_dispatch_refund",
-                  },
-                  userId: input.userId,
-                },
-              ],
+              refunds: [dispatchRefund],
             },
           };
         }
@@ -350,6 +382,9 @@ export function formatAdaptationSettlementAdapter(input: {
           (reservationUpdatedAt &&
             original.updatedAt > reservationUpdatedAt)
         ) {
+          await updateCampaign(input.source.campaignId, input.workspaceId, {
+            status: "generating",
+          });
           return {
             status: "settled",
             value: { derivation: original, source: input.source },
@@ -393,14 +428,13 @@ export function formatAdaptationSettlementAdapter(input: {
       const failed = await failQueuedDerivation(
         reservation.value.derivation.id,
         input.workspaceId,
-      );
+      ).catch(() => null);
       return {
         value: {
           derivation: failed ?? reservation.value.derivation,
           source: input.source,
         },
-        refunds: failed
-          ? [{
+        refunds: [{
             workspaceId: input.workspaceId,
             action: "image_derivation",
             idempotencyKey: `${input.billingIdempotencyKey}:dispatch-refund`,
@@ -412,8 +446,7 @@ export function formatAdaptationSettlementAdapter(input: {
               description: "format_adaptation_dispatch_refund",
             },
             userId: input.userId,
-          }]
-          : [],
+          }],
       };
     },
     async completeDispatch(reservation) {

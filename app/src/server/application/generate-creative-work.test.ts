@@ -17,6 +17,7 @@ const failQueuedOutput = vi.hoisted(() => vi.fn());
 const refreshStatus = vi.hoisted(() => vi.fn());
 const send = vi.hoisted(() => vi.fn());
 const refund = vi.hoisted(() => vi.fn());
+const getUsage = vi.hoisted(() => vi.fn());
 const getBrandKitMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/repositories/creative-work", () => ({
@@ -42,6 +43,9 @@ vi.mock("@/server/generation/canonical/charge", () => ({ chargeForGenerationBatc
 vi.mock("@/server/billing/paywall", () => ({ spend: vi.fn() }));
 vi.mock("@/server/jobs/client", () => ({ inngest: { send } }));
 vi.mock("@/server/billing/credits", () => ({ refundCredits: refund }));
+vi.mock("@/server/repositories/usage", () => ({
+  getUsageByIdempotencyKey: getUsage,
+}));
 
 import { generateCreativeWork } from "./generate-creative-work";
 
@@ -79,6 +83,7 @@ describe("generateCreativeWork", () => {
     failQueuedOutput.mockImplementation(async (_ws, _work, outputId) => ({ ...rows.find((row) => row.id === outputId), status: "failed", failureCode: "dispatch_failed" }));
     refreshStatus.mockResolvedValue("failed");
     refund.mockResolvedValue({ status: "refunded" });
+    getUsage.mockResolvedValue(null);
     getBrandKitMock.mockResolvedValue({ name: "Cenbrap", requiredElements: null, prohibitedElements: null });
   });
 
@@ -216,12 +221,16 @@ describe("generateCreativeWork", () => {
     expect(send).not.toHaveBeenCalled();
   });
 
-  it("refunds only rows still queued after partial event acceptance", async () => {
+  it("refunds the full batch after a synchronous partial dispatch failure", async () => {
     send.mockRejectedValue(new Error("partial"));
     failQueuedOutput.mockImplementation(async (_ws, _work, outputId) => outputId === "a" ? null : ({ id: outputId, status: "failed", failureCode: "dispatch_failed" }));
     await generateCreativeWork({ workspaceId: "ws-1", workItemId: "work-1", userId: "user-1" });
-    expect(refund).toHaveBeenCalledTimes(2);
-    expect(refund).not.toHaveBeenCalledWith(expect.objectContaining({ idempotencyKey: expect.stringContaining(":a:") }));
+    expect(refund).toHaveBeenCalledTimes(3);
+    expect(refund).toHaveBeenCalledWith(
+      expect.objectContaining({
+        idempotencyKey: "creative-work:work-1:output:a:dispatch-refund",
+      }),
+    );
   });
 
   it("retries an idempotent dispatch refund before early-returning persisted rows", async () => {
