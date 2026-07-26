@@ -6,7 +6,15 @@ export type GenerationSettlementRefund = Parameters<typeof refundCredits>[0];
 export type GenerationSettlementDispatchFailure<T> = {
   value: T;
   refunds: GenerationSettlementRefund[];
+  compensationFailed?: boolean;
 };
+
+export type GenerationSettlementDeferred<T> =
+  | { status: "settled"; value: T }
+  | {
+      status: "dispatch_failed";
+      failure: GenerationSettlementDispatchFailure<T>;
+    };
 
 export type GenerationSettlementReservation<T> = {
   claimed: boolean;
@@ -18,9 +26,11 @@ export interface GenerationSettlementAdapter<
   R extends GenerationSettlementReservation<T> = GenerationSettlementReservation<T>,
 > {
   reserve(): Promise<R>;
-  join?(reservation: R): Promise<T | null>;
+  join?(reservation: R): Promise<GenerationSettlementDeferred<T> | null>;
   charge(reservation: R): Promise<SpendResult>;
-  resolveReplay?(reservation: R): Promise<T | null>;
+  resolveReplay?(
+    reservation: R,
+  ): Promise<GenerationSettlementDeferred<T> | null>;
   release(reservation: R): Promise<void>;
   dispatch(reservation: R): Promise<void>;
   failDispatch(
@@ -28,6 +38,27 @@ export interface GenerationSettlementAdapter<
     error: unknown,
   ): Promise<GenerationSettlementDispatchFailure<T>>;
   completeDispatch(reservation: R): Promise<T>;
+}
+
+async function compensateDispatchFailure<T>(
+  failure: GenerationSettlementDispatchFailure<T>,
+) {
+  let compensated = !failure.compensationFailed;
+  for (const refund of failure.refunds) {
+    try {
+      await refundCredits(refund);
+    } catch {
+      compensated = false;
+    }
+  }
+  return {
+    ok: false as const,
+    error: {
+      code: "dispatch_failed" as const,
+      value: failure.value,
+      compensated,
+    },
+  };
 }
 
 export async function startGenerationSettlement<
@@ -57,8 +88,13 @@ export async function startGenerationSettlement<
   if (!reservation.claimed) {
     const joined = adapter.join
       ? await adapter.join(reservation)
-      : reservation.value;
-    if (joined) return { ok: true, value: joined };
+      : { status: "settled" as const, value: reservation.value };
+    if (joined?.status === "settled") {
+      return { ok: true, value: joined.value };
+    }
+    if (joined?.status === "dispatch_failed") {
+      return compensateDispatchFailure(joined.failure);
+    }
     return startGenerationSettlement(adapter);
   }
 
@@ -74,32 +110,38 @@ export async function startGenerationSettlement<
     return { ok: false, error: { code: "credit_blocked", spend } };
   }
   if (spend.duplicate && adapter.resolveReplay) {
-    const replay = await adapter.resolveReplay(reservation);
-    if (replay) {
+    let replay: GenerationSettlementDeferred<T> | null;
+    try {
+      replay = await adapter.resolveReplay(reservation);
+    } catch (error) {
       await adapter.release(reservation);
-      return { ok: true, value: replay };
+      throw error;
     }
+    await adapter.release(reservation);
+    if (replay?.status === "settled") {
+      return { ok: true, value: replay.value };
+    }
+    if (replay?.status === "dispatch_failed") {
+      return compensateDispatchFailure(replay.failure);
+    }
+    throw new Error("generation_settlement_replay_missing");
   }
   try {
     await adapter.dispatch(reservation);
   } catch (error) {
-    const failure = await adapter.failDispatch(reservation, error);
-    let compensated = true;
-    for (const refund of failure.refunds) {
-      try {
-        await refundCredits(refund);
-      } catch {
-        compensated = false;
-      }
+    try {
+      const failure = await adapter.failDispatch(reservation, error);
+      return compensateDispatchFailure(failure);
+    } catch {
+      return {
+        ok: false,
+        error: {
+          code: "dispatch_failed",
+          value: reservation.value,
+          compensated: false,
+        },
+      };
     }
-    return {
-      ok: false,
-      error: {
-        code: "dispatch_failed",
-        value: failure.value,
-        compensated,
-      },
-    };
   }
   return {
     ok: true,

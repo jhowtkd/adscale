@@ -51,6 +51,24 @@ type CreativeWorkReservation =
     newlyCreatedIds: string[];
   };
 
+function creativeWorkDispatchRefunds(
+  input: { workspaceId: string; workItemId: string; userId: string },
+  outputs: Array<{ id: string }>,
+) {
+  return outputs.map((output) => ({
+    workspaceId: input.workspaceId,
+    action: "image_derivation" as const,
+    idempotencyKey: `creative-work:${input.workItemId}:output:${output.id}:dispatch-refund`,
+    amount: GENERATION_CREDIT_COSTS.creativeWorkOutput,
+    metadata: {
+      creativeWorkId: input.workItemId,
+      outputId: output.id,
+      description: "creative_work_dispatch_refund",
+    },
+    userId: input.userId,
+  }));
+}
+
 export function creativeWorkSettlementAdapter(input: {
   workspaceId: string;
   workItemId: string;
@@ -75,21 +93,34 @@ export function creativeWorkSettlementAdapter(input: {
         newlyCreatedIds: created.newlyCreatedIds,
       };
     },
-    async join(reservation) {
+    async join() {
       for (let attempt = 0; attempt < 80; attempt += 1) {
-        if (
-          await getUsageByIdempotencyKey(
-            input.workspaceId,
-            input.batch.billingKey,
-          )
-        ) {
-          return reservation.value;
-        }
         const aggregate = await getCreativeWork(
           input.workspaceId,
           input.workItemId,
         );
         if (!aggregate?.outputs.length) return null;
+        const failed = aggregate.outputs.filter(
+          (output) => output.failureCode === "dispatch_failed",
+        );
+        if (failed.length > 0) {
+          return {
+            status: "dispatch_failed",
+            failure: {
+              value: { work: aggregate.work, outputs: aggregate.outputs },
+              refunds: creativeWorkDispatchRefunds(input, failed),
+            },
+          };
+        }
+        if (
+          aggregate.work.status === "generating" ||
+          aggregate.outputs.some((output) => output.status !== "queued")
+        ) {
+          return {
+            status: "settled",
+            value: { work: aggregate.work, outputs: aggregate.outputs },
+          };
+        }
         await new Promise((resolve) => setTimeout(resolve, 25));
       }
       throw new Error("generation_settlement_join_timeout");
@@ -118,8 +149,7 @@ export function creativeWorkSettlementAdapter(input: {
       );
     },
     async failDispatch(reservation) {
-      const failed = (
-        await Promise.all(
+      const attempts = await Promise.allSettled(
           reservation.newlyCreatedIds.map((outputId) =>
             failQueuedCreativeWorkOutput(
               input.workspaceId,
@@ -128,26 +158,20 @@ export function creativeWorkSettlementAdapter(input: {
               "dispatch_failed",
             ),
           ),
-        )
-      ).filter((output) => output != null);
+        );
+      const failed = attempts.flatMap((attempt) =>
+        attempt.status === "fulfilled" && attempt.value ? [attempt.value] : [],
+      );
       await refreshCreativeWorkStatus(
         input.workspaceId,
         input.workItemId,
       ).catch(() => undefined);
       return {
         value: reservation.value,
-        refunds: failed.map((output) => ({
-          workspaceId: input.workspaceId,
-          action: "image_derivation" as const,
-          idempotencyKey: `creative-work:${input.workItemId}:output:${output.id}:dispatch-refund`,
-          amount: GENERATION_CREDIT_COSTS.creativeWorkOutput,
-          metadata: {
-            creativeWorkId: input.workItemId,
-            outputId: output.id,
-            description: "creative_work_dispatch_refund",
-          },
-          userId: input.userId,
-        })),
+        refunds: creativeWorkDispatchRefunds(input, failed),
+        compensationFailed: attempts.some(
+          (attempt) => attempt.status === "rejected",
+        ),
       };
     },
     async completeDispatch(reservation) {
@@ -263,6 +287,8 @@ export function formatAdaptationSettlementAdapter(input: {
         metadata: {
           sourceDerivationId: input.source.id,
           derivationId: reservation.value.derivation.id,
+          reservationUpdatedAt:
+            reservation.value.derivation.updatedAt.toISOString(),
           targetFormat: input.targetFormat,
           ...input.billingMetadata,
         },
@@ -274,7 +300,11 @@ export function formatAdaptationSettlementAdapter(input: {
         input.billingIdempotencyKey,
       );
       const metadata = usage?.metadata as
-        | { derivationId?: unknown; destinationId?: unknown }
+        | {
+            derivationId?: unknown;
+            destinationId?: unknown;
+            reservationUpdatedAt?: unknown;
+          }
         | null
         | undefined;
       const originalId =
@@ -283,12 +313,52 @@ export function formatAdaptationSettlementAdapter(input: {
           : typeof metadata?.destinationId === "string"
             ? metadata.destinationId
             : null;
-      const original = originalId
+      let original = originalId
         ? await getDerivationById(originalId, input.workspaceId)
         : reservation.previous;
-      return original
-        ? { derivation: original, source: input.source }
-        : null;
+      const reservationUpdatedAt =
+        typeof metadata?.reservationUpdatedAt === "string"
+          ? new Date(metadata.reservationUpdatedAt)
+          : null;
+      for (let attempt = 0; original && attempt < 80; attempt += 1) {
+        if (original.status === "failed") {
+          return {
+            status: "dispatch_failed",
+            failure: {
+              value: { derivation: original, source: input.source },
+              refunds: [
+                {
+                  workspaceId: input.workspaceId,
+                  action: "image_derivation",
+                  idempotencyKey: `${input.billingIdempotencyKey}:dispatch-refund`,
+                  amount: GENERATION_CREDIT_COSTS.singleDerivation,
+                  metadata: {
+                    sourceDerivationId: input.source.id,
+                    derivationId: original.id,
+                    targetFormat: input.targetFormat,
+                    description: "format_adaptation_dispatch_refund",
+                  },
+                  userId: input.userId,
+                },
+              ],
+            },
+          };
+        }
+        if (
+          original.status !== "queued" ||
+          (reservationUpdatedAt &&
+            original.updatedAt > reservationUpdatedAt)
+        ) {
+          return {
+            status: "settled",
+            value: { derivation: original, source: input.source },
+          };
+        }
+        await new Promise((resolve) => setTimeout(resolve, 25));
+        original = await getDerivationById(original.id, input.workspaceId);
+      }
+      if (!original) return null;
+      throw new Error("generation_settlement_join_timeout");
     },
     release: (reservation) =>
       deleteQueuedDerivation(

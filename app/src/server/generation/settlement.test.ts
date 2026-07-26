@@ -118,4 +118,21 @@ describe("startGenerationSettlement", () => {
     expect(refund).toHaveBeenCalledWith(refundInput);
     expect(adapter.completeDispatch).not.toHaveBeenCalled();
   });
+
+  it("keeps dispatch failure typed when failure persistence crashes", async () => {
+    const adapter = testAdapter();
+    vi.mocked(adapter.dispatch).mockRejectedValue(new Error("transport down"));
+    vi.mocked(adapter.failDispatch).mockRejectedValue(new Error("database down"));
+
+    const result = await startGenerationSettlement(adapter);
+
+    expect(result).toEqual({
+      ok: false,
+      error: {
+        code: "dispatch_failed",
+        value: { id: "output-1", status: "queued" },
+        compensated: false,
+      },
+    });
+  });
 });

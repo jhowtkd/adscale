@@ -62,8 +62,16 @@ const source = {
   variantIndex: 0,
   ctaText: "Buy",
 };
-const child = { id: "child-1", status: "queued" };
-const originalChild = { id: "original-child", status: "completed" };
+const child = {
+  id: "child-1",
+  status: "queued",
+  updatedAt: new Date("2026-07-26T12:00:00.000Z"),
+};
+const originalChild = {
+  id: "original-child",
+  status: "completed",
+  updatedAt: new Date("2026-07-26T12:00:01.000Z"),
+};
 const batch = {
   kind: "batch",
   authorship: { workspaceId: "workspace-1", userId: "user-1" },
@@ -125,13 +133,19 @@ describe("Generation Settlement production adapters", () => {
     }));
     refreshWork.mockResolvedValue("failed");
     setWorkStatus.mockResolvedValue({ ...work, status: "generating" });
-    getWork.mockResolvedValue({ work, outputs });
+    getWork.mockResolvedValue({
+      work: { ...work, status: "generating" },
+      outputs,
+    });
     createChild.mockResolvedValue(child);
     failChild.mockResolvedValue({ ...child, status: "failed" });
     getPreviousChild.mockResolvedValue(null);
     getChild.mockResolvedValue(originalChild);
     getUsage.mockResolvedValue({
-      metadata: { derivationId: originalChild.id },
+      metadata: {
+        derivationId: originalChild.id,
+        reservationUpdatedAt: "2026-07-26T12:00:00.000Z",
+      },
     });
     updateCampaign.mockResolvedValue(undefined);
   });
@@ -210,6 +224,27 @@ describe("Generation Settlement production adapters", () => {
     expect(send).not.toHaveBeenCalled();
   });
 
+  it("replays a failed unit as dispatch_failed and retries its refund", async () => {
+    chargeUnit.mockResolvedValue({
+      ok: true,
+      creditsSpent: 0,
+      duplicate: true,
+    });
+    getChild.mockResolvedValue({ ...originalChild, status: "failed" });
+
+    const result = await startGenerationSettlement(unitAdapter());
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "dispatch_failed", compensated: true },
+    });
+    expect(refund).toHaveBeenCalledWith(
+      expect.objectContaining({
+        idempotencyKey: "adapt:source-1:dispatch-refund",
+      }),
+    );
+  });
+
   it("lets only one concurrent batch claim charge and dispatch", async () => {
     let claimed = false;
     createOutputs.mockImplementation(async () => ({
@@ -269,6 +304,44 @@ describe("Generation Settlement production adapters", () => {
     expect(send).not.toHaveBeenCalled();
   });
 
+  it("returns dispatch_failed to both concurrent batch callers when dispatch fails", async () => {
+    let claimed = false;
+    createOutputs.mockImplementation(async () => ({
+      outputs,
+      newlyCreatedIds: claimed
+        ? []
+        : ((claimed = true), outputs.map((output) => output.id)),
+    }));
+    send.mockRejectedValue(new Error("transport down"));
+    getWork.mockImplementation(async () => {
+      const failed = failOutput.mock.calls.length > 0;
+      return {
+        work: { ...work, status: failed ? "failed" : "ready" },
+        outputs: outputs.map((output) =>
+          failed
+            ? { ...output, status: "failed", failureCode: "dispatch_failed" }
+            : output,
+        ),
+      };
+    });
+
+    const results = await Promise.all([
+      startGenerationSettlement(batchAdapter()),
+      startGenerationSettlement(batchAdapter()),
+    ]);
+
+    expect(results).toEqual([
+      expect.objectContaining({
+        ok: false,
+        error: expect.objectContaining({ code: "dispatch_failed" }),
+      }),
+      expect.objectContaining({
+        ok: false,
+        error: expect.objectContaining({ code: "dispatch_failed" }),
+      }),
+    ]);
+  });
+
   it("lets billing idempotency select one concurrent unit dispatch", async () => {
     let charged = false;
     createChild
@@ -288,6 +361,42 @@ describe("Generation Settlement production adapters", () => {
     expect(chargeUnit).toHaveBeenCalledTimes(2);
     expect(send).toHaveBeenCalledOnce();
     expect(deleteChild).toHaveBeenCalledOnce();
+  });
+
+  it("returns dispatch_failed to both concurrent unit callers when dispatch fails", async () => {
+    let charged = false;
+    createChild
+      .mockResolvedValueOnce(child)
+      .mockResolvedValueOnce({ ...child, id: "child-2" });
+    chargeUnit.mockImplementation(async () =>
+      charged
+        ? { ok: true, creditsSpent: 0, duplicate: true }
+        : ((charged = true), { ok: true, creditsSpent: 5 }),
+    );
+    getUsage.mockResolvedValue({
+      metadata: {
+        derivationId: child.id,
+        reservationUpdatedAt: child.updatedAt.toISOString(),
+      },
+    });
+    getChild.mockResolvedValue({ ...child, status: "failed" });
+    send.mockRejectedValue(new Error("transport down"));
+
+    const results = await Promise.all([
+      startGenerationSettlement(unitAdapter()),
+      startGenerationSettlement(unitAdapter()),
+    ]);
+
+    expect(results).toEqual([
+      expect.objectContaining({
+        ok: false,
+        error: expect.objectContaining({ code: "dispatch_failed" }),
+      }),
+      expect.objectContaining({
+        ok: false,
+        error: expect.objectContaining({ code: "dispatch_failed" }),
+      }),
+    ]);
   });
 
   it("keeps distinct assistant actions on distinct unit jobs", async () => {
@@ -320,6 +429,26 @@ describe("Generation Settlement production adapters", () => {
         0,
       ),
     ).toBe(batch.chargeAmount);
+  });
+
+  it("returns uncompensated after a partial batch failure claim", async () => {
+    send.mockRejectedValue(new Error("transport down"));
+    failOutput.mockImplementation(async (_ws, _work, outputId) => {
+      if (outputId === "b") throw new Error("database down");
+      return {
+        ...outputs.find((output) => output.id === outputId),
+        status: "failed",
+        failureCode: "dispatch_failed",
+      };
+    });
+
+    const result = await startGenerationSettlement(batchAdapter());
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "dispatch_failed", compensated: false },
+    });
+    expect(refund).toHaveBeenCalledTimes(2);
   });
 
   it("refunds a rejected unit dispatch only after queued-to-failed CAS", async () => {

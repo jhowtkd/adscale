@@ -49,7 +49,10 @@ describe("adaptFormat", () => {
       variantIndex: 0,
       ctaText: "Buy",
     } as never);
-    mockCreate.mockResolvedValue({ id: "c1-child" } as never);
+    mockCreate.mockResolvedValue({
+      id: "c1-child",
+      updatedAt: new Date("2026-07-26T12:00:00.000Z"),
+    } as never);
     mockSend.mockResolvedValue({ ids: ["e"] } as never);
   });
 
