@@ -12,6 +12,10 @@ ADScale é a infraestrutura da **inteligência criativa em escala** pra produç�
 
 A IA **reposiciona** o humano. Não substitui. [isso ficou vago e pouco rescritivo. tá muito lúdico]
 
+### Vocabulário operacional
+
+- **Generation Settlement (liquidação de geração):** ciclo que garante cobrança, reserva do trabalho, dispatch, compensação quando o dispatch falha, reativação em retry e refund terminal. Não inclui definir preço, produzir a imagem ou avaliar sua qualidade.
+
 ---
 
 ## 2. Tese central

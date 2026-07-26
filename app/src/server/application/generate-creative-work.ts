@@ -3,20 +3,15 @@ import { quoteCreativeWork, type CreativeWorkInputSnapshot } from "@/server/crea
 import { buildCreativeWorkFactPack, creativeWorkFactPackBrandFromKit } from "@/server/creative-work/fact-pack";
 import { buildIdentityOptions, createIdentitySnapshot } from "@/server/creative-work/identity";
 import { resolveCreativeWorkProtocol } from "@/server/creative-work/protocol";
-import { chargeForGenerationBatch } from "@/server/generation/canonical/charge";
 import { GENERATION_CREDIT_COSTS, type GenerationBatchCharge } from "@/server/generation/canonical/types";
-import { inngest } from "@/server/jobs/client";
+import { creativeWorkSettlementAdapter } from "@/server/generation/settlement-adapters";
+import { startGenerationSettlement } from "@/server/generation/settlement";
 import { getBrandKit } from "@/server/repositories/brand-kit";
-import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 import {
   confirmCreativeWorkSnapshotsIfUnchanged,
-  createPlannedCreativeWorkOutputs,
-  failQueuedCreativeWorkOutput,
   getCreativeWorkSourceAssetDetails,
   getCreativeWork,
-  refreshCreativeWorkStatus,
   setCreativeWorkInputSnapshotIfMissing,
-  setCreativeWorkStatus,
 } from "@/server/repositories/creative-work";
 import { prepareCreativeWork } from "./prepare-creative-work";
 
@@ -188,35 +183,30 @@ export async function generateCreativeWork(input: {
     billingKey,
     refundPolicy: "default",
   };
-  const spend = await chargeForGenerationBatch(batch, {
-    returnPath: `/quick-tools/create-post?workId=${input.workItemId}`,
-    metadata: { creativeWorkId: input.workItemId },
-  });
-  if (!spend.ok) return { ok: false, error: { code: "credit_blocked", details: spend } };
-
-  const created = await createPlannedCreativeWorkOutputs(input.workspaceId, input.workItemId, quote.plans);
-  const newIds = new Set(created.newlyCreatedIds);
-  const events = created.outputs.filter((output) => newIds.has(output.id)).map((output) => ({
-    name: heavyImageEventName("creative-work.generate"),
-    data: { workspaceId: input.workspaceId, workItemId: input.workItemId, outputId: output.id },
-  }));
-  try {
-    if (events.length > 0) await inngest.send(events);
-  } catch {
-    const compensated = (await Promise.all(created.newlyCreatedIds.map((outputId) =>
-      failQueuedCreativeWorkOutput(input.workspaceId, input.workItemId, outputId, "dispatch_failed")
-    ))).filter((output) => output != null);
-    await refundDispatchFailedOutputs(input, compensated);
-    await refreshCreativeWorkStatus(input.workspaceId, input.workItemId).catch(() => undefined);
+  const settled = await startGenerationSettlement(
+    creativeWorkSettlementAdapter({
+      workspaceId: input.workspaceId,
+      workItemId: input.workItemId,
+      userId: input.userId,
+      readyWork,
+      plans: quote.plans,
+      batch,
+    }),
+  );
+  if (!settled.ok) {
+    if (settled.error.code === "credit_blocked") {
+      return {
+        ok: false,
+        error: { code: "credit_blocked", details: settled.error.spend },
+      };
+    }
     return { ok: false, error: { code: "dispatch_failed" } };
   }
-
-  const generatingWork = await setCreativeWorkStatus(input.workspaceId, input.workItemId, "generating") ?? readyWork;
   return {
     ok: true,
     value: {
-      work: generatingWork,
-      outputs: created.outputs,
+      work: settled.value.work,
+      outputs: settled.value.outputs,
       billingKey,
       brandTrainingSuggestion,
     },

@@ -163,6 +163,17 @@ export async function createPackageChildIfAbsent(
   return db.transaction(run);
 }
 
+export async function deleteQueuedDerivation(
+  id: string,
+  workspaceId: string,
+): Promise<void> {
+  await db.delete(derivations).where(and(
+    eq(derivations.id, id),
+    eq(derivations.workspaceId, workspaceId),
+    eq(derivations.status, "queued"),
+  ));
+}
+
 export async function getDerivationsByCampaign(
   campaignId: string,
   workspaceId: string

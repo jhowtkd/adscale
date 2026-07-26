@@ -701,6 +701,20 @@ export async function createPlannedCreativeWorkOutputs(workspaceId: string, work
   return { outputs, newlyCreatedIds: inserted.map((row) => row.id) };
 }
 
+export async function deleteQueuedCreativeWorkOutputs(
+  workspaceId: string,
+  workItemId: string,
+  outputIds: string[],
+): Promise<void> {
+  if (outputIds.length === 0) return;
+  await db.delete(creativeWorkOutputs).where(and(
+    eq(creativeWorkOutputs.workspaceId, workspaceId),
+    eq(creativeWorkOutputs.workItemId, workItemId),
+    inArray(creativeWorkOutputs.id, outputIds),
+    eq(creativeWorkOutputs.status, "queued"),
+  ));
+}
+
 export async function createCreativeWorkRevision(
   workspaceId: string,
   workItemId: string,

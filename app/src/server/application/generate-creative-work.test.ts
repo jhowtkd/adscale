@@ -10,6 +10,7 @@ const setLegacySnapshot = vi.hoisted(() => vi.fn());
 const getSourceAssets = vi.hoisted(() => vi.fn());
 const charge = vi.hoisted(() => vi.fn());
 const createOutputs = vi.hoisted(() => vi.fn());
+const deleteOutputs = vi.hoisted(() => vi.fn());
 const setStatus = vi.hoisted(() => vi.fn());
 const failOutput = vi.hoisted(() => vi.fn());
 const failQueuedOutput = vi.hoisted(() => vi.fn());
@@ -25,6 +26,7 @@ vi.mock("@/server/repositories/creative-work", () => ({
   setCreativeWorkInputSnapshotIfMissing: setLegacySnapshot,
   getCreativeWorkSourceAssetDetails: getSourceAssets,
   createPlannedCreativeWorkOutputs: createOutputs,
+  deleteQueuedCreativeWorkOutputs: deleteOutputs,
   setCreativeWorkStatus: setStatus,
   failCreativeWorkOutput: failOutput,
   failQueuedCreativeWorkOutput: failQueuedOutput,
@@ -37,6 +39,7 @@ vi.mock("@/server/creative-work/identity", () => ({
   createIdentitySnapshot: snapshot,
 }));
 vi.mock("@/server/generation/canonical/charge", () => ({ chargeForGenerationBatch: charge }));
+vi.mock("@/server/billing/paywall", () => ({ spend: vi.fn() }));
 vi.mock("@/server/jobs/client", () => ({ inngest: { send } }));
 vi.mock("@/server/billing/credits", () => ({ refundCredits: refund }));
 

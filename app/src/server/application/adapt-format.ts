@@ -3,19 +3,15 @@
  * Assistente quick_format_adapt adapts transport; no dedicated panel route today —
  * campaign batch format_adaptation remains the multi-format campaign entry.
  *
- * Distinct from prepareDeliveryPackage: does not require approved status or package
- * child dedupe; single child via createDerivation.
+ * Distinct from prepareDeliveryPackage: does not require approved status.
  */
-import { logger } from "@/lib/logger";
-import { spend, type SpendResult } from "@/server/billing/paywall";
-import { inngest } from "@/server/jobs/client";
-import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
-import { updateCampaign } from "@/server/repositories/campaign";
+import type { SpendResult } from "@/server/billing/paywall";
 import {
-  createDerivation,
-  getDerivationById,
-  updateDerivationStatus,
-} from "@/server/repositories/derivation";
+  formatAdaptationSettlementAdapter,
+  type FormatAdaptationSettlementValue,
+} from "@/server/generation/settlement-adapters";
+import { startGenerationSettlement } from "@/server/generation/settlement";
+import { getDerivationById } from "@/server/repositories/derivation";
 
 export type AdaptFormatInput = {
   workspaceId: string;
@@ -35,7 +31,7 @@ export type AdaptFormatError =
   | { code: "dispatch_failed"; derivationId: string };
 
 export type AdaptFormatSuccess = {
-  derivation: Awaited<ReturnType<typeof createDerivation>>;
+  derivation: FormatAdaptationSettlementValue["derivation"];
   source: NonNullable<Awaited<ReturnType<typeof getDerivationById>>>;
 };
 
@@ -57,70 +53,24 @@ export async function adaptFormat(
     return { ok: false, error: { code: "source_missing_output" } };
   }
 
-  const spendResult = await spend({
-    workspaceId: input.workspaceId,
-    action: "image_derivation",
-    amount: 5,
-    idempotencyKey: input.billingIdempotencyKey,
-    metadata: {
-      sourceDerivationId: source.id,
-      targetFormat: input.targetFormat,
-      ...input.billingMetadata,
-    },
-    userId: input.userId,
-  });
-  if (!spendResult.ok) {
+  const settled = await startGenerationSettlement(
+    formatAdaptationSettlementAdapter({ ...input, source }),
+  );
+  if (!settled.ok) {
+    if (settled.error.code === "credit_blocked") {
+      return {
+        ok: false,
+        error: { code: "credit_blocked", spend: settled.error.spend },
+      };
+    }
     return {
       ok: false,
-      error: { code: "credit_blocked", spend: spendResult },
-    };
-  }
-
-  const child = await createDerivation({
-    campaignId: source.campaignId,
-    workspaceId: input.workspaceId,
-    planId: source.planId ?? undefined,
-    parentId: source.id,
-    status: "queued",
-    generationMode: "format_adaptation",
-    variantIndex: source.variantIndex ?? undefined,
-    ctaText: source.ctaText ?? undefined,
-    format: input.targetFormat,
-  });
-
-  try {
-    await inngest.send({
-      name: heavyImageEventName("derivation.generate"),
-      data: {
-        derivationId: child.id,
-        campaignId: source.campaignId,
-        workspaceId: input.workspaceId,
-        triggeredByUserId: input.userId,
-        locale: input.locale,
-        generationMode: "format_adaptation",
-        variantIndex: source.variantIndex,
-        ctaText: source.ctaText,
-        format: input.targetFormat,
-        ...(input.assistantActionId
-          ? { assistantActionId: input.assistantActionId }
-          : {}),
+      error: {
+        code: "dispatch_failed",
+        derivationId: settled.error.value.derivation.id,
       },
-    });
-  } catch (sendErr) {
-    logger.error(
-      `[adaptFormat] event send FAILED derivationId=${child.id}`,
-      sendErr
-    );
-    await updateDerivationStatus(child.id, input.workspaceId, "failed");
-    return {
-      ok: false,
-      error: { code: "dispatch_failed", derivationId: child.id },
     };
   }
 
-  await updateCampaign(source.campaignId, input.workspaceId, {
-    status: "generating",
-  });
-
-  return { ok: true, value: { derivation: child, source } };
+  return { ok: true, value: settled.value };
 }
