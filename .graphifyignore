@@ -1,0 +1,29 @@
+# Não indexar a própria saída do Graphify
+graphify-out/
+
+# Documentos históricos que não representam o fluxo atual do produto
+.superpowers/
+
+# Worktrees locais (são cópias de dev, não o produto)
+.worktrees/
+.claude/worktrees/
+
+# Alto volume e baixo valor arquitetural
+package-lock.json
+**/package-lock.json
+testsprite_tests/
+tasks/
+tmp/
+docs/
+mockup-*.png
+mockup-*.html
+autoresearch-results-plan.tsv
+
+# Tooling/agent cache local
+.playwright-cli/
+.playwright-mcp/
+.foglamp/
+.impeccable/
+.workflow/
+.bgs/
+.bgs/
