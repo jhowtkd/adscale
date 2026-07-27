@@ -7,7 +7,7 @@ import type { DeliveryFormat } from "@/components/workspace/DeliveryPackageModal
 
 export function useCreateDeliveryPackage() {
   const queryClient = useQueryClient();
-  // Keep key until success so a lost response + user retry stays one settlement.
+  // Keep key only across transport loss; any Response ends the attempt.
   const idempotencyRef = useRef(createMutationIdempotency());
 
   return useMutation({
@@ -19,17 +19,26 @@ export function useCreateDeliveryPackage() {
       derivationId: string;
       formats: DeliveryFormat[];
     }) => {
-      const res = await apiFetch(
-        `/api/derivations/${derivationId}/delivery-package`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Idempotency-Key": idempotencyRef.current.current(),
-          },
-          body: JSON.stringify({ formats }),
-        }
-      );
+      const key = idempotencyRef.current.current();
+      let res: Response;
+      try {
+        res = await apiFetch(
+          `/api/derivations/${derivationId}/delivery-package`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Idempotency-Key": key,
+            },
+            body: JSON.stringify({ formats }),
+          }
+        );
+      } catch (error) {
+        // No Response — keep key for retry after lost connection.
+        throw error;
+      }
+      // Confirmed Response (2xx or error body) ends this attempt.
+      idempotencyRef.current.rotateAfterResponse();
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || "Erro ao gerar pacote de entrega");
@@ -37,7 +46,6 @@ export function useCreateDeliveryPackage() {
       return res.json();
     },
     onSuccess: () => {
-      idempotencyRef.current.rotateAfterSuccess();
       queryClient.invalidateQueries({ queryKey: ["derivations"] });
       queryClient.invalidateQueries({ queryKey: ["campaigns"] });
       void invalidateCanonicalWorks(queryClient);

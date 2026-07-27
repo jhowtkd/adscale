@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createMutationIdempotency } from "./mutation-idempotency";
 
 describe("createMutationIdempotency", () => {
-  it("reuses the same key until success", () => {
+  it("keeps the key across transport failures and rotates after a response", () => {
     vi.spyOn(crypto, "randomUUID")
       .mockReturnValueOnce("key-a")
       .mockReturnValueOnce("key-b");
@@ -11,10 +11,11 @@ describe("createMutationIdempotency", () => {
     expect(idempotency.current()).toBe("key-a");
     expect(idempotency.current()).toBe("key-a");
 
-    // Error/retry path keeps the key (no rotate).
+    // Transport loss: no rotate — retry reuses key-a.
     expect(idempotency.current()).toBe("key-a");
 
-    idempotency.rotateAfterSuccess();
+    // Confirmed HTTP response (2xx or 5xx body): end attempt.
+    idempotency.rotateAfterResponse();
     expect(idempotency.current()).toBe("key-b");
   });
 });

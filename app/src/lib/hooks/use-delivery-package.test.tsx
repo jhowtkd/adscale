@@ -76,15 +76,16 @@ describe("useCreateDeliveryPackage", () => {
     });
   });
 
-  it("reuses Idempotency-Key after error and rotates after success", async () => {
+  it("reuses Idempotency-Key after transport loss and rotates after any Response", async () => {
     mockApiFetch
-      .mockResolvedValueOnce({
-        ok: false,
-        json: () => Promise.resolve({ error: "network" }),
-      } as unknown as Response)
+      .mockRejectedValueOnce(new Error("network down"))
       .mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ queued: [] }),
+      } as unknown as Response)
+      .mockResolvedValueOnce({
+        ok: false,
+        json: () => Promise.resolve({ error: "worker unavailable" }),
       } as unknown as Response)
       .mockResolvedValueOnce({
         ok: true,
@@ -100,7 +101,7 @@ describe("useCreateDeliveryPackage", () => {
         derivationId: "d1",
         formats: ["4:5"],
       }),
-    ).rejects.toThrow();
+    ).rejects.toThrow("network down");
 
     await result.current.mutateAsync({
       derivationId: "d1",
@@ -113,12 +114,22 @@ describe("useCreateDeliveryPackage", () => {
       .headers["Idempotency-Key"];
     expect(key1).toBe(key2);
 
+    await expect(
+      result.current.mutateAsync({
+        derivationId: "d1",
+        formats: ["4:5"],
+      }),
+    ).rejects.toThrow("worker unavailable");
+
     await result.current.mutateAsync({
       derivationId: "d1",
       formats: ["9:16"],
     });
     const key3 = (mockApiFetch.mock.calls[2]?.[1] as { headers: Record<string, string> })
       .headers["Idempotency-Key"];
+    const key4 = (mockApiFetch.mock.calls[3]?.[1] as { headers: Record<string, string> })
+      .headers["Idempotency-Key"];
     expect(key3).not.toBe(key1);
+    expect(key4).not.toBe(key3);
   });
 });

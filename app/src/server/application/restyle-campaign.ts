@@ -17,7 +17,6 @@ import {
   updateCampaign,
 } from "@/server/repositories/campaign";
 import { campaignHasActiveDerivations } from "@/server/repositories/derivation";
-import { getUsageByIdempotencyKey } from "@/server/repositories/usage";
 
 type CampaignAsset = Awaited<ReturnType<typeof getAssetsByCampaign>>[number];
 
@@ -180,23 +179,17 @@ export async function restyleCampaign(
     input.billingIdempotencyKey ??
     `restyling:${campaignId}:${baseAsset.id}:${styleAsset.id}:${styleParam}:${attemptId}`;
 
-  // Block concurrent work unless this is an idempotent retry of an in-flight
-  // restyle. Charge may lag reserve by a few ms — poll briefly before 429.
-  if (await campaignHasActiveDerivations(campaignId, input.workspaceId)) {
-    let existingCharge = await getUsageByIdempotencyKey(
-      input.workspaceId,
-      billingIdempotencyKey,
-    );
-    for (let attempt = 0; !existingCharge && attempt < 8; attempt += 1) {
-      await new Promise((resolve) => setTimeout(resolve, 25));
-      existingCharge = await getUsageByIdempotencyKey(
-        input.workspaceId,
-        billingIdempotencyKey,
-      );
-    }
-    if (!existingCharge) {
-      return { ok: false, error: { code: "derivations_in_progress" } };
-    }
+  // With an explicit attempt/action key, settlement owns concurrency (duplicate
+  // charge → resolveReplay; orphan reserves released). No charge-poll race.
+  // Legacy callers without a key still get the active-work 429 gate.
+  const hasExplicitSettlementKey = Boolean(
+    input.billingAttemptId || input.billingIdempotencyKey,
+  );
+  if (
+    !hasExplicitSettlementKey &&
+    (await campaignHasActiveDerivations(campaignId, input.workspaceId))
+  ) {
+    return { ok: false, error: { code: "derivations_in_progress" } };
   }
 
   await updateCampaign(campaignId, input.workspaceId, {

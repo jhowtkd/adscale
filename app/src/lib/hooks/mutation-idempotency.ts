@@ -1,6 +1,8 @@
 /**
  * Stable Idempotency-Key for one logical mutate attempt.
- * Survives network/error retries until success, then rotates for the next click.
+ *
+ * - Transport failure (no Response): keep key so retry is the same settlement.
+ * - Any confirmed Response (2xx or error body): rotate so the next click is new.
  */
 export function createMutationIdempotency() {
   let key: string | null = null;
@@ -10,8 +12,11 @@ export function createMutationIdempotency() {
       key ??= crypto.randomUUID();
       return key;
     },
-    /** Call only after a confirmed successful response. */
-    rotateAfterSuccess(): void {
+    /**
+     * Call after apiFetch returns a Response (success or HTTP error).
+     * Do not call when fetch rejects without a response.
+     */
+    rotateAfterResponse(): void {
       key = null;
     },
   };

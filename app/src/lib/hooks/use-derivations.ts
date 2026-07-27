@@ -264,37 +264,41 @@ export function useCreateDerivations(campaignId: string) {
   });
 }
 
-async function restyleCampaign(
-  campaignId: string,
-  input: { styleAssetIds?: string[]; styleIntensity?: string },
-  idempotencyKey: string,
-): Promise<Derivation[]> {
-  const res = await apiFetch(`/api/campaigns/${campaignId}/restyle`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Idempotency-Key": idempotencyKey,
-    },
-    body: JSON.stringify(input),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Erro ao criar restyling");
-  }
-  const data = await res.json();
-  return data.derivations as Derivation[];
-}
-
 export function useRestyleCampaign(campaignId: string) {
   const queryClient = useQueryClient();
-  // Keep key until success so a lost response + user retry stays one settlement.
+  // Keep key only across transport loss; any Response ends the attempt.
   const idempotencyRef = useRef(createMutationIdempotency());
   return useMutation({
     retry: 0,
-    mutationFn: (input: { styleAssetIds?: string[]; styleIntensity?: string }) =>
-      restyleCampaign(campaignId, input, idempotencyRef.current.current()),
+    mutationFn: async (input: {
+      styleAssetIds?: string[];
+      styleIntensity?: string;
+    }) => {
+      const key = idempotencyRef.current.current();
+      let res: Response;
+      try {
+        res = await apiFetch(`/api/campaigns/${campaignId}/restyle`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": key,
+          },
+          body: JSON.stringify(input),
+        });
+      } catch (error) {
+        // No Response — keep key for retry after lost connection.
+        throw error;
+      }
+      // Confirmed Response (2xx or error body) ends this attempt.
+      idempotencyRef.current.rotateAfterResponse();
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Erro ao criar restyling");
+      }
+      const data = await res.json();
+      return data.derivations as Derivation[];
+    },
     onSuccess: (created) => {
-      idempotencyRef.current.rotateAfterSuccess();
       queryClient.setQueryData<DerivationsQueryData>(
         ["derivations", campaignId],
         (old) => ({

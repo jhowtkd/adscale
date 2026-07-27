@@ -36,6 +36,8 @@ vi.mock("@/server/repositories/usage", () => ({
   trackUsage: vi.fn(),
 }));
 
+// getUsage still mocked for settlement adapters; restyle no longer polls it.
+
 import { spend } from "@/server/billing/paywall";
 import { refundCredits } from "@/server/billing/credits";
 import { getCampaignById, updateCampaign } from "@/server/repositories/campaign";
