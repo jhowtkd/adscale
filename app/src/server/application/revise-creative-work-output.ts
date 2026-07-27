@@ -1,13 +1,9 @@
-import { refundCredits } from "@/server/billing/credits";
-import { chargeForGenerationBatch } from "@/server/generation/canonical/charge";
-import { GENERATION_CREDIT_COSTS, type GenerationBatchCharge } from "@/server/generation/canonical/types";
-import { inngest } from "@/server/jobs/client";
-import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 import {
-  createCreativeWorkRevision,
-  failQueuedCreativeWorkOutput,
-  getCreativeWork,
-} from "@/server/repositories/creative-work";
+  creativeWorkRevisionSettlementAdapter,
+  InvalidCreativeWorkRevisionError,
+} from "@/server/generation/settlement-adapters";
+import { startGenerationSettlement } from "@/server/generation/settlement";
+import { getCreativeWork } from "@/server/repositories/creative-work";
 
 type RevisionErrorCode =
   | "work_not_found"
@@ -17,7 +13,14 @@ type RevisionErrorCode =
   | "dispatch_failed";
 
 export type ReviseCreativeWorkOutputResult =
-  | { ok: true; value: { output: NonNullable<Awaited<ReturnType<typeof createCreativeWorkRevision>>>["output"] } }
+  | {
+      ok: true;
+      value: {
+        output: NonNullable<
+          Awaited<ReturnType<typeof getCreativeWork>>
+        >["outputs"][number];
+      };
+    }
   | { ok: false; error: { code: RevisionErrorCode; details?: unknown } };
 
 export async function reviseCreativeWorkOutput(input: {
@@ -37,60 +40,33 @@ export async function reviseCreativeWorkOutput(input: {
     return { ok: false, error: { code: "output_not_ready" } };
   }
 
-  const reservation = await createCreativeWorkRevision(
-    input.workspaceId,
-    input.workItemId,
-    input.revisionKey,
-    parent.id,
-    input.instruction,
-    input.revisionAssetId,
-  );
-  if (!reservation) return { ok: false, error: { code: "invalid_revision" } };
-  const { output, claimedForDispatch } = reservation;
-  if (!claimedForDispatch) return { ok: true, value: { output } };
-
-  const billingKey = `creative-work:${input.workItemId}:revision:${output.id}`;
-  const chargeRequest: GenerationBatchCharge = {
-    kind: "batch",
-    authorship: { workspaceId: input.workspaceId, userId: input.userId },
-    origin: "quick_tool",
-    surface: "quick_tool",
-    intent: { mode: "creative_revision", objective: aggregate.work.brief?.objective ?? null },
-    parentId: input.workItemId,
-    unitCount: 1,
-    chargeAmount: GENERATION_CREDIT_COSTS.creativeWorkOutput,
-    unitChargeAmount: GENERATION_CREDIT_COSTS.creativeWorkOutput,
-    billingKey,
-    refundPolicy: "default",
-  };
-  const charged = await chargeForGenerationBatch(chargeRequest, {
-    metadata: { creativeWorkId: input.workItemId, outputId: output.id, revisionOf: parent.id },
-  });
-  if (!charged.ok) {
-    if (output.status === "queued") {
-      await failQueuedCreativeWorkOutput(input.workspaceId, input.workItemId, output.id, "credit_blocked");
-    }
-    return { ok: false, error: { code: "credit_blocked", details: charged.conversionPayload } };
-  }
-
   try {
-    await inngest.send({
-      id: `creative-work-revision:${output.id}`,
-      name: heavyImageEventName("creative-work.generate"),
-      data: { workspaceId: input.workspaceId, workItemId: input.workItemId, outputId: output.id },
-    });
-  } catch {
-    await failQueuedCreativeWorkOutput(input.workspaceId, input.workItemId, output.id, "dispatch_failed");
-    await refundCredits({
-      workspaceId: input.workspaceId,
-      action: "image_derivation",
-      amount: GENERATION_CREDIT_COSTS.creativeWorkOutput,
-      idempotencyKey: `${billingKey}:dispatch-refund`,
-      metadata: { creativeWorkId: input.workItemId, outputId: output.id, description: "creative_work_revision_dispatch_refund" },
-      userId: input.userId,
-    });
-    return { ok: false, error: { code: "dispatch_failed" } };
+    const settled = await startGenerationSettlement(
+      creativeWorkRevisionSettlementAdapter({
+        workspaceId: input.workspaceId,
+        workItemId: input.workItemId,
+        userId: input.userId,
+        parentOutputId: parent.id,
+        revisionKey: input.revisionKey,
+        instruction: input.instruction,
+        revisionAssetId: input.revisionAssetId,
+        objective: aggregate.work.brief?.objective ?? null,
+      }),
+    );
+    if (!settled.ok) {
+      if (settled.error.code === "credit_blocked") {
+        return {
+          ok: false,
+          error: { code: "credit_blocked", details: settled.error.details },
+        };
+      }
+      return { ok: false, error: { code: "dispatch_failed" } };
+    }
+    return { ok: true, value: { output: settled.value.output } };
+  } catch (error) {
+    if (error instanceof InvalidCreativeWorkRevisionError) {
+      return { ok: false, error: { code: "invalid_revision" } };
+    }
+    throw error;
   }
-
-  return { ok: true, value: { output } };
 }

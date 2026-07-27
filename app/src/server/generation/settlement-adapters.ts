@@ -15,6 +15,7 @@ import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 import { inngest } from "@/server/jobs/client";
 import { updateCampaign } from "@/server/repositories/campaign";
 import {
+  createCreativeWorkRevision,
   createPlannedCreativeWorkOutputs,
   deleteQueuedCreativeWorkOutputs,
   failQueuedCreativeWorkOutput,
@@ -603,6 +604,218 @@ export function formatAdaptationSettlementAdapter(input: {
       await updateCampaign(input.source.campaignId, input.workspaceId, {
         status: "generating",
       });
+      return reservation.value;
+    },
+  };
+}
+
+type CreativeWorkOutput = CreativeWorkOutputs[number];
+
+export type CreativeWorkRevisionSettlementValue = {
+  output: CreativeWorkOutput;
+};
+
+type CreativeWorkRevisionReservation =
+  GenerationSettlementReservation<CreativeWorkRevisionSettlementValue>;
+
+function revisionBillingKey(workItemId: string, outputId: string) {
+  return `creative-work:${workItemId}:revision:${outputId}`;
+}
+
+function revisionDispatchRefund(
+  input: { workspaceId: string; workItemId: string; userId: string },
+  outputId: string,
+) {
+  const billingKey = revisionBillingKey(input.workItemId, outputId);
+  return {
+    workspaceId: input.workspaceId,
+    action: "image_derivation" as const,
+    idempotencyKey: `${billingKey}:dispatch-refund`,
+    amount: GENERATION_CREDIT_COSTS.creativeWorkOutput,
+    metadata: {
+      creativeWorkId: input.workItemId,
+      outputId,
+      description: "creative_work_revision_dispatch_refund",
+    },
+    userId: input.userId,
+  };
+}
+
+export class InvalidCreativeWorkRevisionError extends Error {
+  readonly code = "invalid_revision" as const;
+  constructor() {
+    super("invalid_revision");
+    this.name = "InvalidCreativeWorkRevisionError";
+  }
+}
+
+export function creativeWorkRevisionSettlementAdapter(input: {
+  workspaceId: string;
+  workItemId: string;
+  userId: string;
+  parentOutputId: string;
+  revisionKey: string;
+  instruction: string;
+  revisionAssetId: string | null;
+  objective: string | null;
+}): GenerationSettlementAdapter<
+  CreativeWorkRevisionSettlementValue,
+  CreativeWorkRevisionReservation
+> {
+  return {
+    async reserve() {
+      const reservation = await createCreativeWorkRevision(
+        input.workspaceId,
+        input.workItemId,
+        input.revisionKey,
+        input.parentOutputId,
+        input.instruction,
+        input.revisionAssetId,
+      );
+      if (!reservation) {
+        throw new InvalidCreativeWorkRevisionError();
+      }
+      return {
+        claimed: reservation.claimedForDispatch,
+        value: { output: reservation.output },
+      };
+    },
+    async join(reservation) {
+      // Concurrent loser or HTTP replay of the same revisionKey.
+      // Settle immediately when no charge owns the row yet so losers do not
+      // block on the claimer. When a charge exists, wait for ack/failure.
+      let output = reservation.value.output;
+      const billingKey = revisionBillingKey(input.workItemId, output.id);
+      const refund = revisionDispatchRefund(input, output.id);
+      const chargeUsage = await getUsageByIdempotencyKey(
+        input.workspaceId,
+        billingKey,
+      );
+      if (!chargeUsage) {
+        if (output.failureCode === "dispatch_failed") {
+          return {
+            status: "dispatch_failed",
+            failure: { value: { output }, refunds: [refund] },
+          };
+        }
+        return { status: "settled", value: { output } };
+      }
+      const ack = settlementDispatchMetadata(chargeUsage.metadata);
+      for (let attempt = 0; attempt < 80; attempt += 1) {
+        const recordedRefund = await getUsageByIdempotencyKey(
+          input.workspaceId,
+          refund.idempotencyKey,
+        );
+        if (output.failureCode === "dispatch_failed" || recordedRefund) {
+          return {
+            status: "dispatch_failed",
+            failure: { value: { output }, refunds: [refund] },
+          };
+        }
+        if (ack.required) {
+          const recordedAck =
+            ack.key &&
+            (await getUsageByIdempotencyKey(input.workspaceId, ack.key));
+          if (recordedAck) {
+            return { status: "settled", value: { output } };
+          }
+        } else if (output.status !== "queued") {
+          return { status: "settled", value: { output } };
+        }
+        await new Promise((resolve) => setTimeout(resolve, 25));
+        output =
+          (
+            await getCreativeWork(input.workspaceId, input.workItemId)
+          )?.outputs.find((row) => row.id === output.id) ?? output;
+      }
+      throw new Error("generation_settlement_join_timeout");
+    },
+    async charge(reservation) {
+      const billingKey = revisionBillingKey(
+        input.workItemId,
+        reservation.value.output.id,
+      );
+      const ackKey = dispatchAckKey(billingKey);
+      const batch: GenerationBatchCharge = {
+        kind: "batch",
+        authorship: {
+          workspaceId: input.workspaceId,
+          userId: input.userId,
+        },
+        origin: "quick_tool",
+        surface: "quick_tool",
+        intent: {
+          mode: "creative_revision",
+          objective: input.objective,
+        },
+        parentId: input.workItemId,
+        unitCount: 1,
+        chargeAmount: GENERATION_CREDIT_COSTS.creativeWorkOutput,
+        unitChargeAmount: GENERATION_CREDIT_COSTS.creativeWorkOutput,
+        billingKey,
+        refundPolicy: "default",
+      };
+      const spend = await chargeForGenerationBatch(batch, {
+        metadata: {
+          creativeWorkId: input.workItemId,
+          outputId: reservation.value.output.id,
+          revisionOf: input.parentOutputId,
+          settlementDispatchAckRequired: true,
+          settlementDispatchAckKey: ackKey,
+        },
+      });
+      return toSettlementCharge(spend);
+    },
+    // release only runs on charge failure (no resolveReplay for revisions).
+    release: async (reservation) => {
+      await failQueuedCreativeWorkOutput(
+        input.workspaceId,
+        input.workItemId,
+        reservation.value.output.id,
+        "credit_blocked",
+      );
+    },
+    async dispatch(reservation) {
+      await inngest.send({
+        id: `creative-work-revision:${reservation.value.output.id}`,
+        name: heavyImageEventName("creative-work.generate"),
+        data: {
+          workspaceId: input.workspaceId,
+          workItemId: input.workItemId,
+          outputId: reservation.value.output.id,
+        },
+      });
+    },
+    async failDispatch(reservation) {
+      const failed = await failQueuedCreativeWorkOutput(
+        input.workspaceId,
+        input.workItemId,
+        reservation.value.output.id,
+        "dispatch_failed",
+      );
+      return {
+        value: { output: failed ?? reservation.value.output },
+        refunds: [
+          revisionDispatchRefund(input, reservation.value.output.id),
+        ],
+      };
+    },
+    async completeDispatch(reservation) {
+      const billingKey = revisionBillingKey(
+        input.workItemId,
+        reservation.value.output.id,
+      );
+      await trackUsage(
+        input.workspaceId,
+        "generation_dispatch_ack",
+        0,
+        {
+          creativeWorkId: input.workItemId,
+          outputId: reservation.value.output.id,
+          revisionOf: input.parentOutputId,
+        },
+        dispatchAckKey(billingKey),
+      );
       return reservation.value;
     },
   };

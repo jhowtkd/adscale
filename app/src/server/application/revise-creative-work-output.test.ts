@@ -6,17 +6,24 @@ const charge = vi.hoisted(() => vi.fn());
 const send = vi.hoisted(() => vi.fn());
 const failQueued = vi.hoisted(() => vi.fn());
 const refund = vi.hoisted(() => vi.fn());
+const getUsage = vi.hoisted(() => vi.fn());
+const trackUsage = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/repositories/creative-work", () => ({
   getCreativeWork: getWork,
   createCreativeWorkRevision: createRevision,
   failQueuedCreativeWorkOutput: failQueued,
+  deleteQueuedCreativeWorkOutputs: vi.fn(),
 }));
 vi.mock("@/server/generation/canonical/charge", () => ({
   chargeForGenerationBatch: charge,
 }));
 vi.mock("@/server/jobs/client", () => ({ inngest: { send } }));
 vi.mock("@/server/billing/credits", () => ({ refundCredits: refund }));
+vi.mock("@/server/repositories/usage", () => ({
+  getUsageByIdempotencyKey: getUsage,
+  trackUsage,
+}));
 
 import { reviseCreativeWorkOutput } from "./revise-creative-work-output";
 
@@ -62,6 +69,7 @@ const work = {
   createdByUserId: "user-1",
   request: "Campanha de matrícula",
   status: "completed",
+  brief: { objective: "Matrículas" },
 };
 
 describe("reviseCreativeWorkOutput", () => {
@@ -71,8 +79,10 @@ describe("reviseCreativeWorkOutput", () => {
     createRevision.mockResolvedValue({ output: revision, claimedForDispatch: true });
     charge.mockResolvedValue({ ok: true, creditsSpent: 5 });
     send.mockResolvedValue(undefined);
-    failQueued.mockResolvedValue({ ...revision, status: "failed" });
+    failQueued.mockResolvedValue({ ...revision, status: "failed", failureCode: "dispatch_failed" });
     refund.mockResolvedValue({ status: "refunded" });
+    getUsage.mockResolvedValue(null);
+    trackUsage.mockResolvedValue({ id: "ack" });
   });
 
   it("creates version 2, charges five credits, and dispatches only the new output", async () => {
@@ -102,13 +112,25 @@ describe("reviseCreativeWorkOutput", () => {
         unitChargeAmount: 5,
         billingKey: "creative-work:work-1:revision:output-v2",
       }),
-      expect.anything(),
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          revisionOf: parent.id,
+          settlementDispatchAckRequired: true,
+        }),
+      }),
     );
     expect(send).toHaveBeenCalledWith({
       id: "creative-work-revision:output-v2",
       name: "creative-work.generate",
       data: { workspaceId: "ws-1", workItemId: "work-1", outputId: "output-v2" },
     });
+    expect(trackUsage).toHaveBeenCalledWith(
+      "ws-1",
+      "generation_dispatch_ack",
+      0,
+      expect.objectContaining({ outputId: "output-v2" }),
+      "creative-work:work-1:revision:output-v2:dispatch-ack",
+    );
     expect(parent.outputKey).toBe("creative-work/output-v1/original.png");
   });
 
@@ -264,7 +286,7 @@ describe("reviseCreativeWorkOutput", () => {
       reviseCreativeWorkOutput(command),
     ]);
 
-    expect(results.filter((result) => !result.ok && result.error.code === "dispatch_failed")).toHaveLength(1);
+    expect(results.some((result) => !result.ok && result.error.code === "dispatch_failed")).toBe(true);
     expect(failQueued).toHaveBeenCalledOnce();
     expect(refund).toHaveBeenCalledOnce();
     expect(charge).toHaveBeenCalledOnce();
