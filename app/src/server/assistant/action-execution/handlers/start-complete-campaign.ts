@@ -89,8 +89,7 @@ export async function executeStartCompleteCampaign(ctx: ActionExecutionContext) 
   });
 
   // creative_plan charge + LLM plan materialization are outside Generation
-  // Settlement (image charge/reserve/dispatch). #91 migrates only the preview
-  // derivation generation below.
+  // Settlement. #91 migrates only the preview derivation generation below.
   let plan = await getPlanByCampaign(campaignId, ctx.workspaceId);
   if (!plan) {
     const creditError = await spendOrApiError({

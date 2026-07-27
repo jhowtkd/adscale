@@ -600,6 +600,38 @@ describe("Generation Settlement production adapters", () => {
     expect(refund).not.toHaveBeenCalled();
   });
 
+  it("waits for a late unit ack instead of refunding a fast terminal failure", async () => {
+    chargeUnit.mockResolvedValue({
+      ok: true,
+      creditsSpent: 0,
+      duplicate: true,
+    });
+    getChild.mockResolvedValue({ ...originalChild, status: "failed" });
+    let ackReads = 0;
+    getUsage.mockImplementation(async (_workspaceId, idempotencyKey) => {
+      if (idempotencyKey === "adapt:source-1") {
+        return {
+          metadata: {
+            derivationId: originalChild.id,
+            settlementDispatchAckRequired: true,
+            settlementDispatchAckKey: "adapt:source-1:dispatch-ack",
+          },
+        };
+      }
+      if (idempotencyKey === "adapt:source-1:dispatch-ack") {
+        ackReads += 1;
+        return ackReads >= 3 ? { id: "late-unit-ack" } : null;
+      }
+      return null;
+    });
+
+    const result = await startGenerationSettlement(unitAdapter());
+
+    expect(result.ok).toBe(true);
+    expect(ackReads).toBeGreaterThanOrEqual(3);
+    expect(refund).not.toHaveBeenCalled();
+  });
+
   it("recovers a queued unit replay from its recorded refund marker", async () => {
     chargeUnit.mockResolvedValue({
       ok: true,
@@ -1591,6 +1623,47 @@ describe("Assistant generation settlement adapters", () => {
     expect(send).not.toHaveBeenCalled();
   });
 
+  it("waits for a late dispatch ack instead of refunding a fast terminal failure", async () => {
+    chargeBatch.mockResolvedValue({
+      ok: true,
+      creditsSpent: 0,
+      duplicate: true,
+    });
+    getChild.mockImplementation(async (id: string) => ({
+      id,
+      status: "failed",
+      updatedAt: new Date("2026-07-26T12:00:01.000Z"),
+    }));
+    let ackReads = 0;
+    getUsage.mockImplementation(async (_workspaceId, idempotencyKey) => {
+      if (
+        idempotencyKey ===
+        "assistant-action:action-triplet:creative-triplet"
+      ) {
+        return {
+          metadata: {
+            derivationIds: ["t1", "t2", "t3"],
+            settlementDispatchAckRequired: true,
+            settlementDispatchAckKey:
+              "assistant-action:action-triplet:creative-triplet:dispatch-ack",
+          },
+        };
+      }
+      if (idempotencyKey.endsWith(":dispatch-ack")) {
+        ackReads += 1;
+        return ackReads >= 3 ? { id: "late-ack" } : null;
+      }
+      return null;
+    });
+
+    const result = await startGenerationSettlement(tripletAdapter());
+
+    expect(result.ok).toBe(true);
+    expect(ackReads).toBeGreaterThanOrEqual(3);
+    expect(refund).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+
   it("does not refund a terminal preview failure after dispatch was acknowledged", async () => {
     chargeUnit.mockResolvedValue({
       ok: true,
@@ -1620,6 +1693,42 @@ describe("Assistant generation settlement adapters", () => {
     const result = await startGenerationSettlement(previewAdapter());
 
     expect(result.ok).toBe(true);
+    expect(refund).not.toHaveBeenCalled();
+  });
+
+  it("waits for a late preview ack instead of refunding a fast terminal failure", async () => {
+    chargeUnit.mockResolvedValue({
+      ok: true,
+      creditsSpent: 0,
+      duplicate: true,
+    });
+    getChild.mockResolvedValue({
+      ...previewDerivation,
+      status: "failed",
+    });
+    let ackReads = 0;
+    getUsage.mockImplementation(async (_workspaceId, idempotencyKey) => {
+      if (idempotencyKey === "assistant-action:action-preview:preview") {
+        return {
+          metadata: {
+            derivationId: previewDerivation.id,
+            settlementDispatchAckRequired: true,
+            settlementDispatchAckKey:
+              "assistant-action:action-preview:preview:dispatch-ack",
+          },
+        };
+      }
+      if (idempotencyKey.endsWith(":dispatch-ack")) {
+        ackReads += 1;
+        return ackReads >= 3 ? { id: "late-preview-ack" } : null;
+      }
+      return null;
+    });
+
+    const result = await startGenerationSettlement(previewAdapter());
+
+    expect(result.ok).toBe(true);
+    expect(ackReads).toBeGreaterThanOrEqual(3);
     expect(refund).not.toHaveBeenCalled();
   });
 
