@@ -605,6 +605,41 @@ export function formatAdaptationSettlementAdapter(input: {
         original = await getDerivationById(original.id, input.workspaceId);
       }
       if (!original) return null;
+      // Timeout with ack required: only a successful queued re-send may mint
+      // ack. failed without ack/refund stays uncertain so the next replay can retry.
+      if (ack.required) {
+        const finalAck =
+          ack.key &&
+          (await getUsageByIdempotencyKey(input.workspaceId, ack.key));
+        if (finalAck) {
+          await updateCampaign(input.source.campaignId, input.workspaceId, {
+            status: "generating",
+          });
+          return {
+            status: "settled",
+            value: { derivation: original, source: input.source },
+          };
+        }
+        const finalRefund = await getUsageByIdempotencyKey(
+          input.workspaceId,
+          dispatchRefund.idempotencyKey,
+        );
+        if (finalRefund) {
+          return {
+            status: "dispatch_failed",
+            failure: {
+              value: { derivation: original, source: input.source },
+              refunds: [dispatchRefund],
+            },
+          };
+        }
+        if (original.status === "failed") {
+          logger.error(
+            `[generation-settlement] format recovery unresolved derivationId=${original.id} status=${original.status}`,
+          );
+          throw new Error("generation_settlement_dispatch_uncertain");
+        }
+      }
       // Missing ack is not proof of dispatch. Resume idempotent send while
       // still queued, then write ack and settle.
       if (original.status === "queued") {
@@ -1149,6 +1184,38 @@ async function resolveDerivationBatchReplay(input: {
     ).filter((row): row is NonNullable<typeof row> => row != null);
   }
   if (originals.length === 0) return null;
+  // Timeout with ack required: only a successful queued re-send may mint
+  // ack. failed without ack/refund stays uncertain so the next replay can retry.
+  if (ack.required) {
+    const finalAck =
+      ack.key &&
+      (await getUsageByIdempotencyKey(input.workspaceId, ack.key));
+    if (finalAck) {
+      await updateCampaign(input.campaignId, input.workspaceId, {
+        status: "generating",
+      });
+      return { status: "settled", value: { derivations: originals } };
+    }
+    const finalRefund = await getUsageByIdempotencyKey(
+      input.workspaceId,
+      refund.idempotencyKey,
+    );
+    if (finalRefund) {
+      return {
+        status: "dispatch_failed",
+        failure: {
+          value: { derivations: originals },
+          refunds: [refund],
+        },
+      };
+    }
+    if (originals.some((row) => row.status === "failed")) {
+      logger.error(
+        `[generation-settlement] derivation batch recovery unresolved billingKey=${input.billingKey}`,
+      );
+      throw new Error("generation_settlement_dispatch_uncertain");
+    }
+  }
   const queued = originals.filter((row) => row.status === "queued");
   if (queued.length > 0) {
     try {
@@ -1673,6 +1740,41 @@ export function assistantPreviewSettlementAdapter(input: {
         original = await getDerivationById(original.id, input.workspaceId);
       }
       if (!original) return null;
+      // Timeout with ack required: only a successful queued re-send may mint
+      // ack. failed without ack/refund stays uncertain so the next replay can retry.
+      if (ack.required) {
+        const finalAck =
+          ack.key &&
+          (await getUsageByIdempotencyKey(input.workspaceId, ack.key));
+        if (finalAck) {
+          await updateCampaign(input.campaignId, input.workspaceId, {
+            status: "generating",
+          });
+          return {
+            status: "settled",
+            value: { derivation: original },
+          };
+        }
+        const finalRefund = await getUsageByIdempotencyKey(
+          input.workspaceId,
+          refund.idempotencyKey,
+        );
+        if (finalRefund) {
+          return {
+            status: "dispatch_failed",
+            failure: {
+              value: { derivation: original },
+              refunds: [refund],
+            },
+          };
+        }
+        if (original.status === "failed") {
+          logger.error(
+            `[generation-settlement] preview recovery unresolved derivationId=${original.id} status=${original.status}`,
+          );
+          throw new Error("generation_settlement_dispatch_uncertain");
+        }
+      }
       if (original.status === "queued") {
         try {
           await inngest.send({
