@@ -323,7 +323,7 @@ describe("Generation Settlement production adapters", () => {
     expect(send).not.toHaveBeenCalled();
   });
 
-  it("settles a batch replay without a required dispatch acknowledgement", async () => {
+  it("settles a batch replay without ack when outputs already progressed", async () => {
     vi.useFakeTimers();
     getWork.mockResolvedValue({
       work: { ...work, status: "generating" },
@@ -351,6 +351,50 @@ describe("Generation Settlement production adapters", () => {
     expect(result.ok).toBe(true);
     expect(refund).not.toHaveBeenCalled();
     expect(send).not.toHaveBeenCalled();
+    expect(trackUsage).toHaveBeenCalledWith(
+      "workspace-1",
+      "generation_dispatch_ack",
+      0,
+      expect.objectContaining({ creativeWorkId: "work-1" }),
+      `${batch.billingKey}:dispatch-ack`,
+    );
+  });
+
+  it("resumes idempotent batch dispatch when charge exists but outputs stay queued", async () => {
+    vi.useFakeTimers();
+    getWork.mockResolvedValue({ work, outputs });
+    getUsage.mockImplementation(async (_workspaceId, idempotencyKey) => {
+      if (idempotencyKey === batch.billingKey) {
+        return {
+          metadata: {
+            settlementDispatchAckRequired: true,
+            settlementDispatchAckKey: `${batch.billingKey}:dispatch-ack`,
+          },
+        };
+      }
+      return null;
+    });
+
+    const pending = startGenerationSettlement(
+      batchAdapter({ work, outputs }),
+    );
+    await vi.advanceTimersByTimeAsync(2_000);
+    const result = await pending;
+    vi.useRealTimers();
+
+    expect(result.ok).toBe(true);
+    expect(refund).not.toHaveBeenCalled();
+    expect(send).toHaveBeenCalledWith(
+      outputs.map((output) => ({
+        id: `creative-work-generate:${output.id}`,
+        name: "creative-work.generate",
+        data: {
+          workspaceId: "workspace-1",
+          workItemId: "work-1",
+          outputId: output.id,
+        },
+      })),
+    );
   });
 
   it("settles a batch replay with its durable dispatch acknowledgement", async () => {
@@ -857,9 +901,9 @@ describe("Generation Settlement production adapters", () => {
     expect(refund).not.toHaveBeenCalled();
   });
 
-  it("replays a revision as settled after a lost dispatch acknowledgement", async () => {
+  it("resumes idempotent revision dispatch on replay after a lost acknowledgement", async () => {
     vi.useFakeTimers();
-    trackUsage.mockRejectedValue(new Error("usage write failed"));
+    trackUsage.mockRejectedValueOnce(new Error("usage write failed"));
     const first = await startGenerationSettlement(revisionAdapter());
     expect(first).toEqual({ ok: true, value: { output: revisionOutput } });
 
@@ -883,6 +927,7 @@ describe("Generation Settlement production adapters", () => {
       work,
       outputs: [revisionOutput],
     });
+    trackUsage.mockResolvedValue({ id: "ack-retry" });
 
     const pending = startGenerationSettlement(revisionAdapter());
     await vi.advanceTimersByTimeAsync(2_000);
@@ -891,7 +936,63 @@ describe("Generation Settlement production adapters", () => {
 
     expect(replay).toEqual({ ok: true, value: { output: revisionOutput } });
     expect(chargeBatch).toHaveBeenCalledOnce();
-    expect(send).toHaveBeenCalledOnce();
+    // First claim dispatched; replay resumes with the same durable event id.
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(send).toHaveBeenNthCalledWith(1, {
+      id: "creative-work-revision:output-v2",
+      name: "creative-work.generate",
+      data: {
+        workspaceId: "workspace-1",
+        workItemId: "work-1",
+        outputId: "output-v2",
+      },
+    });
+    expect(send).toHaveBeenNthCalledWith(2, {
+      id: "creative-work-revision:output-v2",
+      name: "creative-work.generate",
+      data: {
+        workspaceId: "workspace-1",
+        workItemId: "work-1",
+        outputId: "output-v2",
+      },
+    });
+    expect(refund).not.toHaveBeenCalled();
+  });
+
+  it("does not re-dispatch a progressed revision when only the ack is missing", async () => {
+    vi.useFakeTimers();
+    createRevision.mockResolvedValue({
+      output: { ...revisionOutput, status: "processing" },
+      claimedForDispatch: false,
+    });
+    getUsage.mockImplementation(async (_workspaceId, idempotencyKey) => {
+      if (idempotencyKey === "creative-work:work-1:revision:output-v2") {
+        return {
+          metadata: {
+            settlementDispatchAckRequired: true,
+            settlementDispatchAckKey:
+              "creative-work:work-1:revision:output-v2:dispatch-ack",
+          },
+        };
+      }
+      return null;
+    });
+    getWork.mockResolvedValue({
+      work,
+      outputs: [{ ...revisionOutput, status: "processing" }],
+    });
+
+    const pending = startGenerationSettlement(revisionAdapter());
+    await vi.advanceTimersByTimeAsync(2_000);
+    const result = await pending;
+    vi.useRealTimers();
+
+    expect(result).toEqual({
+      ok: true,
+      value: { output: { ...revisionOutput, status: "processing" } },
+    });
+    expect(send).not.toHaveBeenCalled();
+    expect(chargeBatch).not.toHaveBeenCalled();
     expect(refund).not.toHaveBeenCalled();
   });
 

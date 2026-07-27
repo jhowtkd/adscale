@@ -74,6 +74,18 @@ function dispatchAckKey(billingKey: string) {
   return `${billingKey}:dispatch-ack`;
 }
 
+function creativeWorkGenerateEventId(outputId: string) {
+  return `creative-work-generate:${outputId}`;
+}
+
+function formatAdaptationEventId(derivationId: string) {
+  return `format-adaptation:${derivationId}`;
+}
+
+function creativeWorkRevisionEventId(outputId: string) {
+  return `creative-work-revision:${outputId}`;
+}
+
 async function recordDispatchAck(
   workspaceId: string,
   metadata: Record<string, unknown>,
@@ -239,16 +251,56 @@ export function creativeWorkSettlementAdapter(input: {
         }
         await new Promise((resolve) => setTimeout(resolve, 25));
       }
-      // Lost ack after a successful dispatch must not refund. Prefer settle.
+      // Missing ack is not proof of dispatch. Resume idempotent send for still-
+      // queued rows, then write ack and settle. Already-progressed rows settle.
       if (lastAggregate) {
+        const queuedIds = lastAggregate.outputs
+          .filter((output) => output.status === "queued")
+          .map((output) => output.id);
+        if (queuedIds.length > 0) {
+          try {
+            await inngest.send(
+              queuedIds.map((outputId) => ({
+                id: creativeWorkGenerateEventId(outputId),
+                name: heavyImageEventName("creative-work.generate"),
+                data: {
+                  workspaceId: input.workspaceId,
+                  workItemId: input.workItemId,
+                  outputId,
+                },
+              })),
+            );
+          } catch {
+            return {
+              status: "dispatch_failed",
+              failure: {
+                value: {
+                  work: lastAggregate.work,
+                  outputs: lastAggregate.outputs,
+                },
+                refunds: creativeWorkDispatchRefunds(
+                  input,
+                  queuedIds.map((id) => ({ id })),
+                ),
+                resumeAfterCompensation: Boolean(input.existing),
+              },
+            };
+          }
+        }
+        await recordDispatchAck(
+          input.workspaceId,
+          {
+            creativeWorkId: input.workItemId,
+            outputIds: lastAggregate.outputs.map((output) => output.id),
+          },
+          dispatchAckKey(input.batch.billingKey),
+        );
         const work =
-          lastAggregate.work.status === "generating"
-            ? lastAggregate.work
-            : ((await setCreativeWorkStatus(
-                input.workspaceId,
-                input.workItemId,
-                "generating",
-              )) ?? lastAggregate.work);
+          (await setCreativeWorkStatus(
+            input.workspaceId,
+            input.workItemId,
+            "generating",
+          )) ?? lastAggregate.work;
         return {
           status: "settled",
           value: { work, outputs: lastAggregate.outputs },
@@ -277,6 +329,7 @@ export function creativeWorkSettlementAdapter(input: {
     async dispatch(reservation) {
       await inngest.send(
         reservation.newlyCreatedIds.map((outputId) => ({
+          id: creativeWorkGenerateEventId(outputId),
           name: heavyImageEventName("creative-work.generate"),
           data: {
             workspaceId: input.workspaceId,
@@ -540,7 +593,52 @@ export function formatAdaptationSettlementAdapter(input: {
         original = await getDerivationById(original.id, input.workspaceId);
       }
       if (!original) return null;
-      // Lost ack after a successful dispatch must not refund. Prefer settle.
+      // Missing ack is not proof of dispatch. Resume idempotent send while
+      // still queued, then write ack and settle.
+      if (original.status === "queued") {
+        try {
+          await inngest.send({
+            id: formatAdaptationEventId(original.id),
+            name: heavyImageEventName("derivation.generate"),
+            data: {
+              derivationId: original.id,
+              campaignId: input.source.campaignId,
+              workspaceId: input.workspaceId,
+              triggeredByUserId: input.userId,
+              locale: input.locale,
+              generationMode: "format_adaptation",
+              variantIndex: input.source.variantIndex,
+              ctaText: input.source.ctaText,
+              format: input.targetFormat,
+              ...(input.assistantActionId
+                ? { assistantActionId: input.assistantActionId }
+                : {}),
+            },
+          });
+        } catch {
+          return {
+            status: "dispatch_failed",
+            failure: {
+              value: { derivation: original, source: input.source },
+              refunds: [dispatchRefund],
+            },
+          };
+        }
+      }
+      await recordDispatchAck(
+        input.workspaceId,
+        {
+          sourceDerivationId: input.source.id,
+          derivationId: original.id,
+          targetFormat: input.targetFormat,
+        },
+        dispatchAckKey(input.billingIdempotencyKey),
+      );
+      await touchQueuedDerivation(
+        original.id,
+        input.workspaceId,
+        original.updatedAt,
+      );
       await updateCampaign(input.source.campaignId, input.workspaceId, {
         status: "generating",
       });
@@ -556,6 +654,7 @@ export function formatAdaptationSettlementAdapter(input: {
       ),
     async dispatch(reservation) {
       await inngest.send({
+        id: formatAdaptationEventId(reservation.value.derivation.id),
         name: heavyImageEventName("derivation.generate"),
         data: {
           derivationId: reservation.value.derivation.id,
@@ -744,7 +843,35 @@ export function creativeWorkRevisionSettlementAdapter(input: {
             await getCreativeWork(input.workspaceId, input.workItemId)
           )?.outputs.find((row) => row.id === output.id) ?? output;
       }
-      // Lost ack after a successful dispatch must not time out or refund.
+      // Missing ack is not proof of dispatch. Resume idempotent send while
+      // still queued, then write ack and settle.
+      if (output.status === "queued") {
+        try {
+          await inngest.send({
+            id: creativeWorkRevisionEventId(output.id),
+            name: heavyImageEventName("creative-work.generate"),
+            data: {
+              workspaceId: input.workspaceId,
+              workItemId: input.workItemId,
+              outputId: output.id,
+            },
+          });
+        } catch {
+          return {
+            status: "dispatch_failed",
+            failure: { value: { output }, refunds: [refund] },
+          };
+        }
+      }
+      await recordDispatchAck(
+        input.workspaceId,
+        {
+          creativeWorkId: input.workItemId,
+          outputId: output.id,
+          revisionOf: input.parentOutputId,
+        },
+        dispatchAckKey(billingKey),
+      );
       return { status: "settled", value: { output } };
     },
     async charge(reservation) {
@@ -794,7 +921,7 @@ export function creativeWorkRevisionSettlementAdapter(input: {
     },
     async dispatch(reservation) {
       await inngest.send({
-        id: `creative-work-revision:${reservation.value.output.id}`,
+        id: creativeWorkRevisionEventId(reservation.value.output.id),
         name: heavyImageEventName("creative-work.generate"),
         data: {
           workspaceId: input.workspaceId,

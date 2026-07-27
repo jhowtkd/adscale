@@ -101,7 +101,11 @@ describe("generateCreativeWork", () => {
       { creativeLevel: "balanced", targetFormat: "4:5", versionNumber: 1 },
       { creativeLevel: "bold", targetFormat: "4:5", versionNumber: 1 },
     ]);
-    expect(send).toHaveBeenCalledWith(rows.map((row) => ({ name: "creative-work.generate", data: { workspaceId: "ws-1", workItemId: "work-1", outputId: row.id } })));
+    expect(send).toHaveBeenCalledWith(rows.map((row) => ({
+      id: `creative-work-generate:${row.id}`,
+      name: "creative-work.generate",
+      data: { workspaceId: "ws-1", workItemId: "work-1", outputId: row.id },
+    })));
   });
 
   it("allows Brand-Kit-only generation and returns a non-blocking suggestion", async () => {
