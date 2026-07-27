@@ -11,15 +11,13 @@
  * two. Revisions must return through the paid revision command.
  */
 import { inngest } from "@/server/jobs/client";
-import { recordUsage } from "@/server/billing/credits";
-import { getUsageByIdempotencyKey } from "@/server/repositories/usage";
 import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 import {
   CREATIVE_WORK_MAX_IMAGE_CALLS,
   getCreativeWork,
   requeueFailedCreativeWorkOutput,
 } from "@/server/repositories/creative-work";
-import { GENERATION_CREDIT_COSTS } from "@/server/generation/canonical/types";
+import { reactivateCreativeWorkOutputRefund } from "@/server/generation/settlement-adapters";
 import type { CreativeWorkOutput } from "@/server/db/schema";
 
 export type RetryCreativeWorkOutputInput = {
@@ -43,66 +41,6 @@ export type RetryCreativeWorkOutputSuccess = {
 export type RetryCreativeWorkOutputResult =
   | { ok: true; value: RetryCreativeWorkOutputSuccess }
   | { ok: false; error: RetryCreativeWorkOutputError };
-
-/**
- * Refund keys a failed output may carry. Each one can be compensated by at
- * most one reactivation debit — keyed per refund kind so a later refund of
- * the same kind can never be reactivated twice, and a new refund kind still
- * restores the net debit exactly once.
- */
-const REFUND_KEY_KINDS = ["pregen", "terminal", "dispatch"] as const;
-type RefundKeyKind = (typeof REFUND_KEY_KINDS)[number];
-
-function refundIdempotencyKey(workItemId: string, outputId: string, kind: RefundKeyKind): string {
-  return `creative-work:${workItemId}:output:${outputId}:${kind}-refund`;
-}
-
-function reactivationIdempotencyKey(workItemId: string, outputId: string, kind: RefundKeyKind): string {
-  return `creative-work:${workItemId}:output:${outputId}:reactivate-${kind}`;
-}
-
-/**
- * Idempotent reactivation of the original per-output charge. For every
- * refund kind whose refund ledger row exists without a matching reactivation
- * row, re-debit the per-output amount under `...:reactivate-<kind>`.
- * recordUsage is idempotent by key, so repeating the manual command never
- * duplicates the debit; a blocked reactivation (insufficient credits) stops
- * the retry before any requeue/enqueue.
- */
-export async function reactivateCreativeWorkOutputChargeIfRefunded(input: {
-  workspaceId: string;
-  workItemId: string;
-  outputId: string;
-  userId?: string;
-}): Promise<{ reactivated: RefundKeyKind[] } | { blocked: true }> {
-  const reactivated: RefundKeyKind[] = [];
-  for (const kind of REFUND_KEY_KINDS) {
-    const refundKey = refundIdempotencyKey(input.workItemId, input.outputId, kind);
-    const refundRow = await getUsageByIdempotencyKey(input.workspaceId, refundKey);
-    if (!refundRow) continue;
-    const reactivationKey = reactivationIdempotencyKey(input.workItemId, input.outputId, kind);
-    const existingReactivation = await getUsageByIdempotencyKey(input.workspaceId, reactivationKey);
-    if (existingReactivation) continue;
-    const result = await recordUsage({
-      workspaceId: input.workspaceId,
-      action: "image_derivation",
-      idempotencyKey: reactivationKey,
-      amount: GENERATION_CREDIT_COSTS.creativeWorkOutput,
-      metadata: {
-        creativeWorkId: input.workItemId,
-        outputId: input.outputId,
-        description: "creative_work_retry_reactivation",
-        reactivates: refundKey,
-      },
-      userId: input.userId,
-    });
-    if (result.status === "blocked") {
-      return { blocked: true };
-    }
-    reactivated.push(kind);
-  }
-  return { reactivated };
-}
 
 export async function retryCreativeWorkOutput(
   input: RetryCreativeWorkOutputInput
@@ -142,8 +80,8 @@ export async function retryCreativeWorkOutput(
   }
 
   // Reactivate the refunded charge BEFORE the enqueue so a retried output
-  // always holds exactly one net debit. Idempotent per refund key.
-  const reactivation = await reactivateCreativeWorkOutputChargeIfRefunded({
+  // always holds exactly one net debit. Idempotent per refund kind.
+  const reactivation = await reactivateCreativeWorkOutputRefund({
     workspaceId: input.workspaceId,
     workItemId: input.workItemId,
     outputId: input.outputId,

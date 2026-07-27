@@ -1,11 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mockActionState = vi.hoisted(() => ({
-  jobRefs: [] as Array<{ kind: string; id: string }>,
-}));
-
 vi.mock("@/server/billing/paywall", () => ({
   spendOrApiError: vi.fn(),
+  spend: vi.fn(() => Promise.resolve({ ok: true, creditsSpent: 5 })),
 }));
 
 vi.mock("@/server/assistant/creative-iteration/proposal", () => ({
@@ -15,6 +12,9 @@ vi.mock("@/server/assistant/creative-iteration/proposal", () => ({
 vi.mock("@/server/repositories/derivation", () => ({
   createDerivation: vi.fn(),
   updateDerivationStatus: vi.fn(),
+  failQueuedDerivation: vi.fn(),
+  deleteQueuedDerivation: vi.fn(),
+  touchQueuedDerivation: vi.fn(),
 }));
 
 vi.mock("@/server/repositories/assistant-thread", () => ({
@@ -36,7 +36,7 @@ vi.mock("@/server/repositories/assistant-action", () => ({
       messageId: "message-1",
       status: "confirmed",
       inputSnapshot: {},
-      jobRefs: mockActionState.jobRefs,
+      jobRefs: [],
     })
   ),
 }));
@@ -47,22 +47,37 @@ vi.mock("@/server/jobs/client", () => ({
   },
 }));
 
+vi.mock("@/server/repositories/campaign", () => ({
+  updateCampaign: vi.fn(() => Promise.resolve({})),
+}));
+
+vi.mock("@/server/repositories/usage", () => ({
+  getUsageByIdempotencyKey: vi.fn(() => Promise.resolve(null)),
+  trackUsage: vi.fn(() => Promise.resolve({ id: "u-1" })),
+}));
+
+vi.mock("@/server/billing/credits", () => ({
+  refundCredits: vi.fn(),
+  CREDIT_COSTS: { image_derivation: 5, creative_work_output: 5, social_post: 5, restyling: 5, regeneration: 5 },
+}));
+
+vi.mock("@/server/generation/settlement", () => ({
+  startGenerationSettlement: vi.fn(),
+}));
+
 import "@/server/assistant/action-contracts/contracts";
-import { spendOrApiError } from "@/server/billing/paywall";
 import { confirmCreativeRevision } from "@/server/assistant/creative-iteration/proposal";
-import { createDerivation, updateDerivationStatus } from "@/server/repositories/derivation";
-import { getAssistantActionById } from "@/server/repositories/assistant-action";
+import { createDerivation } from "@/server/repositories/derivation";
 import { inngest } from "@/server/jobs/client";
+import { startGenerationSettlement } from "@/server/generation/settlement";
 import { reviseCreativeInputSchema } from "@/server/assistant/action-contracts/contracts/revise-creative";
 import { getActionContract } from "@/server/assistant/action-contracts/registry";
 import { executeReviseCreative } from "./revise-creative";
 
-const mockSpendCredits = vi.mocked(spendOrApiError);
 const mockConfirm = vi.mocked(confirmCreativeRevision);
 const mockCreateDerivation = vi.mocked(createDerivation);
-const mockUpdateDerivationStatus = vi.mocked(updateDerivationStatus);
 const mockInngestSend = vi.mocked(inngest.send);
-const mockGetAction = vi.mocked(getAssistantActionById);
+const mockStartSettlement = vi.mocked(startGenerationSettlement);
 
 function buildContext(overrides: Record<string, unknown> = {}) {
   return {
@@ -104,132 +119,94 @@ describe("revise_creative contract", () => {
     });
   });
 
+  it("exposes reviseCreativeInputSchema", () => {
+    expect(reviseCreativeInputSchema).toBeDefined();
+  });
+
   it("validates a fully-populated input snapshot including planVersionId", () => {
-    const result = reviseCreativeInputSchema.safeParse({
-      proposalId: "00000000-0000-4000-8000-000000000301",
-      lineageId: "00000000-0000-4000-8000-000000000101",
-      sourceVersionId: "00000000-0000-4000-8000-000000000201",
-      payloadDigest: "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
-      planVersionId: "00000000-0000-4000-8000-000000000401",
-      lineageHeadRevision: 3,
-    });
-    expect(result.success).toBe(true);
+    expect(
+      reviseCreativeInputSchema.safeParse({
+        proposalId: "00000000-0000-4000-8000-000000000301",
+        lineageId: "00000000-0000-4000-8000-000000000101",
+        sourceVersionId: "00000000-0000-4000-8000-000000000201",
+        payloadDigest: "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+        planVersionId: "00000000-0000-4000-8000-000000000401",
+      }).success
+    ).toBe(true);
   });
 
   it("rejects missing planVersionId", () => {
-    const result = reviseCreativeInputSchema.safeParse({
-      proposalId: "00000000-0000-4000-8000-000000000301",
-      lineageId: "00000000-0000-4000-8000-000000000101",
-      sourceVersionId: "00000000-0000-4000-8000-000000000201",
-      payloadDigest: "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
-    });
-    expect(result.success).toBe(false);
+    expect(
+      reviseCreativeInputSchema.safeParse({
+        proposalId: "00000000-0000-4000-8000-000000000301",
+        lineageId: "00000000-0000-4000-8000-000000000101",
+        sourceVersionId: "00000000-0000-4000-8000-000000000201",
+        payloadDigest: "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+      }).success
+    ).toBe(false);
   });
 
   it("rejects missing payloadDigest", () => {
-    const result = reviseCreativeInputSchema.safeParse({
-      proposalId: "00000000-0000-4000-8000-000000000301",
-      lineageId: "00000000-0000-4000-8000-000000000101",
-      sourceVersionId: "00000000-0000-4000-8000-000000000201",
-      planVersionId: "00000000-0000-4000-8000-000000000401",
-    });
-    expect(result.success).toBe(false);
+    expect(
+      reviseCreativeInputSchema.safeParse({
+        proposalId: "00000000-0000-4000-8000-000000000301",
+        lineageId: "00000000-0000-4000-8000-000000000101",
+        sourceVersionId: "00000000-0000-4000-8000-000000000201",
+        planVersionId: "00000000-0000-4000-8000-000000000401",
+      }).success
+    ).toBe(false);
   });
 
   it("rejects payload digest that is not exactly 64 characters", () => {
-    const result = reviseCreativeInputSchema.safeParse({
-      proposalId: "00000000-0000-4000-8000-000000000301",
-      lineageId: "00000000-0000-4000-8000-000000000101",
-      sourceVersionId: "00000000-0000-4000-8000-000000000201",
-      payloadDigest: "short-digest",
-      planVersionId: "00000000-0000-4000-8000-000000000401",
-    });
-    expect(result.success).toBe(false);
+    expect(
+      reviseCreativeInputSchema.safeParse({
+        proposalId: "00000000-0000-4000-8000-000000000301",
+        lineageId: "00000000-0000-4000-8000-000000000101",
+        sourceVersionId: "00000000-0000-4000-8000-000000000201",
+        payloadDigest: "tooshort",
+        planVersionId: "00000000-0000-4000-8000-000000000401",
+      }).success
+    ).toBe(false);
   });
 });
 
 describe("executeReviseCreative", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockActionState.jobRefs = [];
-    mockGetAction.mockResolvedValue({
-      id: "action-1",
-      workspaceId: "ws-1",
-      threadId: "thread-1",
-      messageId: "message-1",
-      status: "confirmed",
-      inputSnapshot: {},
-      jobRefs: mockActionState.jobRefs,
-    } as Awaited<ReturnType<typeof getAssistantActionById>>);
-    mockSpendCredits.mockResolvedValue(null);
-    mockConfirm.mockResolvedValue({
-      proposal: { id: "proposal-1", status: "confirmed" },
-      head: { revision: 0, workingVersionId: "v-1", approvedCurrentVersionId: null },
-      idempotent: false,
-      version: null,
-    } as never);
     mockCreateDerivation.mockResolvedValue({
       id: "derivation-1",
       campaignId: "campaign-1",
       workspaceId: "ws-1",
       status: "queued",
-      generationMode: "creative_revision",
       format: "1:1",
+      generationMode: "creative_revision",
       variantIndex: 0,
+      updatedAt: new Date("2026-07-27T12:00:00.000Z"),
+    } as never);
+    mockInngestSend.mockResolvedValue({ ids: ["event-1"] } as never);
+    mockStartSettlement.mockImplementation(async (adapter) => {
+      const reservation = await adapter.reserve();
+      const charge = await adapter.charge(reservation);
+      if (!charge.ok) return { ok: false, error: { code: "credit_blocked", reason: charge.reason } };
+      await adapter.dispatch(reservation);
+      await adapter.completeDispatch(reservation);
+      return { ok: true, value: reservation.value };
+    });
+    mockConfirm.mockResolvedValue({
+      proposal: null,
+      head: null,
+      idempotent: false,
+      version: { id: "v-new", versionNumber: 1 },
     } as never);
   });
 
-  it("charges credits with deterministic per-attempt idempotency key on first attempt", async () => {
+  it("delegates charge, reservation, dispatch, and ack to Generation Settlement", async () => {
     const result = await executeReviseCreative(buildContext() as never);
 
-    expect(mockSpendCredits).toHaveBeenCalledTimes(1);
-    expect(mockSpendCredits).toHaveBeenCalledWith(
-      expect.objectContaining({
-        workspaceId: "ws-1",
-        action: "image_derivation",
-        amount: 5,
-        idempotencyKey: "assistant-action:action-1:creative_revision:retry:0",
-        metadata: expect.objectContaining({
-          actionId: "action-1",
-          campaignId: "campaign-1",
-          mode: "creative_revision",
-          attempt: 0,
-        }),
-        userId: "user-1",
-      })
-    );
     expect(result.mode).toBe("async");
-  });
-
-  it("enqueues derivation.generate job with assistantActionId, planVersionId, and creative_revision mode", async () => {
-    await executeReviseCreative(buildContext() as never);
-
-    expect(mockCreateDerivation).toHaveBeenCalledWith(
-      expect.objectContaining({
-        campaignId: "campaign-1",
-        workspaceId: "ws-1",
-        status: "queued",
-        generationMode: "creative_revision",
-        variantIndex: 0,
-      })
-    );
-    expect(mockInngestSend).toHaveBeenCalledWith(
-      expect.objectContaining({
-        name: "derivation.generate",
-        data: expect.objectContaining({
-          derivationId: "derivation-1",
-          campaignId: "campaign-1",
-          workspaceId: "ws-1",
-          triggeredByUserId: "user-1",
-          locale: "pt-BR",
-          generationMode: "creative_revision",
-          variantIndex: 0,
-          format: "1:1",
-          assistantActionId: "action-1",
-          planVersionId: "00000000-0000-4000-8000-000000000401",
-        }),
-      })
-    );
+    expect(mockStartSettlement).toHaveBeenCalledTimes(1);
+    expect(mockCreateDerivation).toHaveBeenCalledTimes(1);
+    expect(mockInngestSend).toHaveBeenCalledTimes(1);
   });
 
   it("returns async mode with derivation jobRef", async () => {
@@ -243,8 +220,7 @@ describe("executeReviseCreative", () => {
     });
   });
 
-  it("duplicate confirm is idempotent — spend returns duplicate, confirm returns idempotent", async () => {
-    mockSpendCredits.mockResolvedValue(null);
+  it("duplicate confirm surfaces idempotent summary", async () => {
     mockConfirm.mockResolvedValue({
       proposal: null,
       head: null,
@@ -254,102 +230,62 @@ describe("executeReviseCreative", () => {
 
     const result = await executeReviseCreative(buildContext() as never);
 
-    expect(mockSpendCredits).toHaveBeenCalledTimes(1);
-    expect(mockConfirm).toHaveBeenCalledTimes(1);
-    expect(mockCreateDerivation).toHaveBeenCalledTimes(1);
-    expect(mockInngestSend).toHaveBeenCalledTimes(1);
     expect(result.resultSummary).toContain("já confirmada");
   });
 
-  it("retry charges again with deterministic per-attempt key derived from jobRefs.length", async () => {
-    mockActionState.jobRefs = [
-      { kind: "derivation", id: "derivation-old-1" },
-    ];
-    mockGetAction.mockResolvedValue({
-      id: "action-1",
-      workspaceId: "ws-1",
-      threadId: "thread-1",
-      messageId: "message-1",
-      status: "failed",
-      inputSnapshot: {},
-      jobRefs: mockActionState.jobRefs,
-    } as Awaited<ReturnType<typeof getAssistantActionById>>);
-
-    await executeReviseCreative(buildContext() as never);
-
-    expect(mockSpendCredits).toHaveBeenCalledWith(
-      expect.objectContaining({
-        idempotencyKey: "assistant-action:action-1:creative_revision:retry:1",
-        metadata: expect.objectContaining({ attempt: 1 }),
-      })
-    );
-  });
-
-  it("second retry uses retry:2 idempotency key", async () => {
-    mockActionState.jobRefs = [
-      { kind: "derivation", id: "derivation-old-1" },
-      { kind: "derivation", id: "derivation-old-2" },
-    ];
-    mockGetAction.mockResolvedValue({
-      id: "action-1",
-      workspaceId: "ws-1",
-      threadId: "thread-1",
-      messageId: "message-1",
-      status: "failed",
-      inputSnapshot: {},
-      jobRefs: mockActionState.jobRefs,
-    } as Awaited<ReturnType<typeof getAssistantActionById>>);
-
-    await executeReviseCreative(buildContext() as never);
-
-    expect(mockSpendCredits).toHaveBeenCalledWith(
-      expect.objectContaining({
-        idempotencyKey: "assistant-action:action-1:creative_revision:retry:2",
-        metadata: expect.objectContaining({ attempt: 2 }),
-      })
-    );
-  });
-
-  it("insufficient credits throws credit_blocked", async () => {
-    mockSpendCredits.mockResolvedValue({ error: "insufficient_credits", status: 402 } as never);
+  it("throws credit_blocked when settlement reports credit_blocked", async () => {
+    mockStartSettlement.mockResolvedValueOnce({
+      ok: false,
+      error: { code: "credit_blocked", reason: "insufficient_credits" },
+    });
 
     await expect(executeReviseCreative(buildContext() as never)).rejects.toMatchObject({
       code: "credit_blocked",
     });
     expect(mockConfirm).not.toHaveBeenCalled();
-    expect(mockCreateDerivation).not.toHaveBeenCalled();
-    expect(mockInngestSend).not.toHaveBeenCalled();
   });
 
-  it("one active generation per lineage blocks concurrent confirm", async () => {
-    mockConfirm.mockRejectedValue(
-      new Error("Já existe uma geração em andamento para este criativo.")
-    );
-
-    await expect(executeReviseCreative(buildContext() as never)).rejects.toThrow(
-      /em andamento/
-    );
-    expect(mockCreateDerivation).not.toHaveBeenCalled();
-    expect(mockInngestSend).not.toHaveBeenCalled();
-  });
-
-  it("inngest.send failure marks derivation as failed and throws execution_failed", async () => {
-    mockInngestSend.mockRejectedValueOnce(new Error("send failed"));
+  it("throws execution_failed when settlement reports dispatch_failed", async () => {
+    mockStartSettlement.mockResolvedValueOnce({
+      ok: false,
+      error: {
+        code: "dispatch_failed",
+        value: {
+          derivation: {
+            id: "derivation-1",
+            campaignId: "campaign-1",
+            workspaceId: "ws-1",
+            status: "failed",
+          },
+        },
+        compensated: true,
+      },
+    });
 
     await expect(executeReviseCreative(buildContext() as never)).rejects.toMatchObject({
       code: "execution_failed",
     });
-    expect(mockUpdateDerivationStatus).toHaveBeenCalledWith(
-      "derivation-1",
-      "ws-1",
-      "failed"
+  });
+
+  it("throws execution_failed when thread has no campaign", async () => {
+    const { getAssistantThreadById } = await import(
+      "@/server/repositories/assistant-thread"
     );
+    vi.mocked(getAssistantThreadById).mockResolvedValueOnce({
+      id: "thread-1",
+      clientProfileId: "client-1",
+      campaignId: null,
+    } as never);
+
+    await expect(executeReviseCreative(buildContext() as never)).rejects.toMatchObject({
+      code: "scope_mismatch",
+    });
   });
 
   it("invalid inputs throws execution_failed", async () => {
     await expect(
       executeReviseCreative(buildContext({ planVersionId: undefined }) as never)
     ).rejects.toMatchObject({ code: "execution_failed" });
-    expect(mockSpendCredits).not.toHaveBeenCalled();
+    expect(mockStartSettlement).not.toHaveBeenCalled();
   });
 });

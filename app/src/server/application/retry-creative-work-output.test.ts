@@ -12,6 +12,7 @@ vi.mock("@/server/repositories/usage", () => ({
 
 vi.mock("@/server/billing/credits", () => ({
   recordUsage: vi.fn(),
+  canSpend: vi.fn(),
 }));
 
 vi.mock("@/server/jobs/client", () => ({

@@ -39,9 +39,9 @@ import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
 import { getTemplateById } from "@/server/repositories/template";
 import { inngest } from "@/server/jobs/client";
 import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
-import { refundCredits } from "@/server/billing/credits";
 import { decideCreativeWorkRefund } from "@/server/generation/canonical/policies";
-import type { CreativeWorkOutput, CreativeWorkSource } from "@/server/db/schema";
+import { settleTerminalRefund } from "@/server/generation/settlement";
+import type { CreativeWorkSource } from "@/server/db/schema";
 import { logger } from "@/lib/logger";
 
 const QUEUED_GENERATION_LEASE_MS = 60 * 60 * 1000;
@@ -51,40 +51,38 @@ const SOURCE_ANALYSIS_LEASE_MS = 5 * 60 * 1000;
 async function refundCreativeWorkOutputCompensatory(input: {
   workspaceId: string;
   workItemId: string;
-  output: CreativeWorkOutput;
+  outputId: string;
   reason: string;
 }): Promise<boolean> {
   const decision = decideCreativeWorkRefund({
     surface: "quick_tool",
     failurePhase: "job_failure",
     workItemId: input.workItemId,
-    outputId: input.output.id,
+    outputId: input.outputId,
   });
   if (!decision.refund) return true;
-  try {
-    await refundCredits({
-      workspaceId: input.workspaceId,
-      action: "image_derivation",
-      amount: decision.amount,
-      idempotencyKey: decision.idempotencyKey,
-      metadata: {
-        creativeWorkId: input.workItemId,
-        outputId: input.output.id,
-        reason: input.reason,
-        description: "creative_work_compensatory_refund",
-      },
-    });
-    return true;
-  } catch (error) {
+  const settled = await settleTerminalRefund({
+    decision,
+    workspaceId: input.workspaceId,
+    action: "image_derivation",
+    metadata: {
+      creativeWorkId: input.workItemId,
+      outputId: input.outputId,
+      reason: input.reason,
+      description: "creative_work_compensatory_refund",
+    },
+  });
+  if (!settled.applied) {
     logger.warn({
       event: "image_pipeline_stage",
       stage: "compensatory_refund",
       status: "failed",
-      outputId: input.output.id,
-      errorMessage: error instanceof Error ? error.message.slice(0, 500) : String(error).slice(0, 500),
+      outputId: input.outputId,
+      errorMessage: settled.error,
     });
     return false;
   }
+  return true;
 }
 
 const confirmCreativeWorkSchema = z
@@ -219,7 +217,7 @@ export async function GET(
           const refunded = await refundCreativeWorkOutputCompensatory({
             workspaceId: workspace.id,
             workItemId: id,
-            output,
+            outputId: output.id,
             reason: "stale_generation_timeout",
           });
           if (!refunded) {
@@ -242,7 +240,7 @@ export async function GET(
           const refunded = await refundCreativeWorkOutputCompensatory({
             workspaceId: workspace.id,
             workItemId: id,
-            output,
+            outputId: output.id,
             reason: "retry_pending_compensatory_refund",
           });
           if (refunded) {
