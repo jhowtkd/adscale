@@ -176,12 +176,15 @@ describe("POST /api/campaigns/[id]/restyle", () => {
     expect(res.status).toBe(400);
   });
 
-  it("returns 429 when derivations are already queued or processing", async () => {
+  it("enters settlement when active work exists under an explicit attempt key", async () => {
+    // Panel always supplies billingAttemptId; settlement owns same-key concurrency
+    // so a mid-flight retry is not blocked by the active-work gate.
     mockHasActive.mockResolvedValue(true);
 
     const res = await POST(postRequest({}), { params: makeParams("camp-1") });
 
-    expect(res.status).toBe(429);
+    expect(res.status).toBe(201);
+    expect(mockCreateDerivation).toHaveBeenCalled();
   });
 
   it("returns 400 when no base asset exists", async () => {
