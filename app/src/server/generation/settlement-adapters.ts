@@ -239,20 +239,19 @@ export function creativeWorkSettlementAdapter(input: {
         }
         await new Promise((resolve) => setTimeout(resolve, 25));
       }
-      if (missingRequiredAck && lastAggregate) {
+      // Lost ack after a successful dispatch must not refund. Prefer settle.
+      if (lastAggregate) {
+        const work =
+          lastAggregate.work.status === "generating"
+            ? lastAggregate.work
+            : ((await setCreativeWorkStatus(
+                input.workspaceId,
+                input.workItemId,
+                "generating",
+              )) ?? lastAggregate.work);
         return {
-          status: "dispatch_failed",
-          failure: {
-            value: {
-              work: lastAggregate.work,
-              outputs: lastAggregate.outputs,
-            },
-            refunds: creativeWorkDispatchRefunds(
-              input,
-              lastAggregate.outputs,
-            ),
-            resumeAfterCompensation: Boolean(input.existing),
-          },
+          status: "settled",
+          value: { work, outputs: lastAggregate.outputs },
         };
       }
       throw new Error("generation_settlement_join_timeout");
@@ -541,16 +540,14 @@ export function formatAdaptationSettlementAdapter(input: {
         original = await getDerivationById(original.id, input.workspaceId);
       }
       if (!original) return null;
-      if (ack.required) {
-        return {
-          status: "dispatch_failed",
-          failure: {
-            value: { derivation: original, source: input.source },
-            refunds: [dispatchRefund],
-          },
-        };
-      }
-      throw new Error("generation_settlement_join_timeout");
+      // Lost ack after a successful dispatch must not refund. Prefer settle.
+      await updateCampaign(input.source.campaignId, input.workspaceId, {
+        status: "generating",
+      });
+      return {
+        status: "settled",
+        value: { derivation: original, source: input.source },
+      };
     },
     release: (reservation) =>
       deleteQueuedDerivation(
@@ -747,7 +744,8 @@ export function creativeWorkRevisionSettlementAdapter(input: {
             await getCreativeWork(input.workspaceId, input.workItemId)
           )?.outputs.find((row) => row.id === output.id) ?? output;
       }
-      throw new Error("generation_settlement_join_timeout");
+      // Lost ack after a successful dispatch must not time out or refund.
+      return { status: "settled", value: { output } };
     },
     async charge(reservation) {
       const billingKey = revisionBillingKey(
