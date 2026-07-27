@@ -1,23 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const spendMock = vi.hoisted(() => vi.fn());
-const createChildMock = vi.hoisted(() => vi.fn());
-const sendMock = vi.hoisted(() => vi.fn());
 const getGoalMock = vi.hoisted(() => vi.fn());
 const resolveVersionMock = vi.hoisted(() => vi.fn());
-const updateStatusMock = vi.hoisted(() => vi.fn());
+const settleMock = vi.hoisted(() => vi.fn());
+const buildAdapterMock = vi.hoisted(() => vi.fn());
 
-vi.mock("@/server/billing/paywall", () => ({ spendOrApiError: spendMock }));
-vi.mock("@/server/repositories/derivation", () => ({
-  createPackageChildIfAbsent: createChildMock,
-  updateDerivationStatus: updateStatusMock,
+vi.mock("@/server/repositories/assistant-goal", () => ({
+  getGoalRunScoped: getGoalMock,
 }));
 vi.mock("@/server/assistant/goal/service", () => ({
   resolveGoalCreativeVersion: resolveVersionMock,
 }));
-vi.mock("@/server/jobs/client", () => ({ inngest: { send: sendMock } }));
-vi.mock("@/server/repositories/assistant-goal", () => ({
-  getGoalRunScoped: getGoalMock,
+vi.mock("@/server/generation/settlement", () => ({
+  startGenerationSettlement: settleMock,
+}));
+vi.mock("@/server/generation/settlement-adapters", () => ({
+  assistantGoalPackageSettlementAdapter: buildAdapterMock,
 }));
 
 import { executeGenerateGoalPackage } from "./generate-goal-package";
@@ -57,85 +55,93 @@ const baseDerivation = {
   ctaText: "Compre",
 };
 
+const adapter = { kind: "goal-package-adapter" };
+const derivations = [
+  { id: "child-1" },
+  { id: "child-2" },
+  { id: "child-3" },
+];
+
 describe("executeGenerateGoalPackage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    spendMock.mockResolvedValue(null);
     getGoalMock.mockResolvedValue(goal);
     resolveVersionMock.mockResolvedValue({
       version: { id: ctx.inputSnapshot.baseVersionId },
       derivation: baseDerivation,
     });
-    let i = 0;
-    createChildMock.mockImplementation((data: { format: string }) => {
-      i += 1;
-      return {
-        child: { id: `child-${i}`, campaignId: "campaign-1", format: data.format },
-        created: true,
-      };
-    });
-    sendMock.mockResolvedValue(undefined);
-    updateStatusMock.mockResolvedValue(undefined);
+    buildAdapterMock.mockReturnValue(adapter);
+    settleMock.mockResolvedValue({ ok: true, value: { derivations } });
   });
 
-  it("marks a package slot failed when dispatch fails", async () => {
-    sendMock.mockRejectedValueOnce(new Error("dispatch failed"));
+  it("translates a settled package through the canonical interface", async () => {
+    const result = await executeGenerateGoalPackage(ctx);
 
-    await executeGenerateGoalPackage(ctx);
-
-    expect(updateStatusMock).toHaveBeenCalledWith("child-1", "ws-1", "failed");
-  });
-
-  it("charges 15 credits once before dispatch", async () => {
-    await executeGenerateGoalPackage(ctx);
-
-    expect(spendMock).toHaveBeenCalledTimes(1);
-    expect(spendMock).toHaveBeenCalledWith(
-      expect.objectContaining({ action: "delivery_package_child", amount: 15 })
+    expect(buildAdapterMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId: "ws-1",
+        userId: "user-1",
+        campaignId: "campaign-1",
+        actionId: ctx.actionId,
+        baseDerivation,
+        formats: ["4:5", "9:16", "16:9"],
+        planVersionId: ctx.inputSnapshot.planVersionId,
+        goalRunId: ctx.inputSnapshot.goalRunId,
+        locale: "pt-BR",
+      }),
     );
+    expect(settleMock).toHaveBeenCalledWith(adapter);
+    expect(result).toEqual({
+      mode: "async",
+      jobRefs: [
+        { kind: "derivation", id: "child-1" },
+        { kind: "derivation", id: "child-2" },
+        { kind: "derivation", id: "child-3" },
+      ],
+      resultSummary: "Pacote de formatos disparado",
+      campaignId: "campaign-1",
+    });
   });
 
-  it("proposes exactly 4:5, 9:16, and 16:9 children", async () => {
-    await executeGenerateGoalPackage(ctx);
+  it("maps credit_blocked and dispatch_failed from typed settlement results", async () => {
+    settleMock
+      .mockResolvedValueOnce({
+        ok: false,
+        error: { code: "credit_blocked", reason: "insufficient_credits" },
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        error: {
+          code: "dispatch_failed",
+          value: { derivations },
+          compensated: true,
+        },
+      });
 
-    expect(createChildMock).toHaveBeenCalledTimes(3);
-    const formats = createChildMock.mock.calls.map((c) => c[0].format).sort();
-    expect(formats).toEqual(["16:9", "4:5", "9:16"]);
+    await expect(executeGenerateGoalPackage(ctx)).rejects.toMatchObject({
+      code: "credit_blocked",
+    });
+    await expect(executeGenerateGoalPackage(ctx)).rejects.toMatchObject({
+      code: "execution_failed",
+      message: "Failed to queue goal package",
+    });
   });
 
-  it("binds every child to the approved base and copies creativeLevel", async () => {
-    await executeGenerateGoalPackage(ctx);
-
-    for (const call of createChildMock.mock.calls) {
-      expect(call[0].parentId).toBe(baseDerivation.id);
-      expect(call[0].generationMode).toBe("format_adaptation");
-      expect(call[0].creativeLevel).toBe("balanced");
-    }
-  });
-
-  it("dispatches three non-refundable package events", async () => {
-    await executeGenerateGoalPackage(ctx);
-
-    expect(sendMock).toHaveBeenCalledTimes(3);
-    for (const call of sendMock.mock.calls) {
-      expect(call[0].data.refundPolicy).toBe("none");
-      expect(call[0].data.generationMode).toBe("format_adaptation");
-      expect(call[0].data.assistantActionId).toBe(ctx.actionId);
-    }
-  });
-
-  it("rejects a stale goal revision", async () => {
+  it("rejects a stale goal revision without settling", async () => {
     getGoalMock.mockResolvedValue({ ...goal, revision: 99 });
 
     await expect(executeGenerateGoalPackage(ctx)).rejects.toBeInstanceOf(
-      AssistantActionExecutionError
+      AssistantActionExecutionError,
     );
+    expect(settleMock).not.toHaveBeenCalled();
   });
 
-  it("returns all three child job refs", async () => {
-    const result = await executeGenerateGoalPackage(ctx);
+  it("maps missing base to derivation_not_found", async () => {
+    resolveVersionMock.mockResolvedValue(null);
 
-    expect(result.mode).toBe("async");
-    expect(result.jobRefs).toHaveLength(3);
+    await expect(executeGenerateGoalPackage(ctx)).rejects.toMatchObject({
+      code: "derivation_not_found",
+    });
+    expect(settleMock).not.toHaveBeenCalled();
   });
 });

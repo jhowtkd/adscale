@@ -92,9 +92,25 @@ describe("chargeForGeneration", () => {
     expect(mockSpend).toHaveBeenCalledWith(
       expect.objectContaining({
         amount: 5,
+        action: "image_derivation",
         idempotencyKey: "derivation:d1:generate",
-        metadata: expect.objectContaining({ chargeKind: "unit" }),
+        metadata: expect.objectContaining({
+          chargeKind: "unit",
+          operation_key: "image_derivation",
+        }),
       })
+    );
+  });
+
+  it("accepts a ledger action override", async () => {
+    await chargeForGeneration(unitRequest(), { action: "delivery_package_child" });
+    expect(mockSpend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "delivery_package_child",
+        metadata: expect.objectContaining({
+          operation_key: "delivery_package_child",
+        }),
+      }),
     );
   });
 });

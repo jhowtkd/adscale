@@ -3,8 +3,6 @@ import { getActionContract } from "@/server/assistant/action-contracts/registry"
 import { buildPlanPrompt } from "@/server/ai/prompt-builder";
 import { getOpenAI } from "@/server/ai/utils";
 import { spendOrApiError } from "@/server/billing/paywall";
-import { inngest } from "@/server/jobs/client";
-import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 import { env } from "@/server/validation/env";
 import { z } from "zod";
 import { getAssetsByCampaign, getAssetWithMetadata } from "@/server/repositories/asset";
@@ -13,16 +11,14 @@ import {
   updateCampaign,
 } from "@/server/repositories/campaign";
 import {
-  createDerivation,
-  updateDerivationStatus,
-} from "@/server/repositories/derivation";
-import {
   createPlan,
   getPlanByCampaign,
 } from "@/server/repositories/plan";
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
 import { materializeExistingCreativeCampaign } from "@/server/assistant/guided-paths/existing-creative";
 import { getGuidedFlowByThread } from "@/server/repositories/guided-flow";
+import { assistantPreviewSettlementAdapter } from "@/server/generation/settlement-adapters";
+import { startGenerationSettlement } from "@/server/generation/settlement";
 import type { ActionExecutionContext } from "../types";
 import { AssistantActionExecutionError } from "../types";
 
@@ -132,63 +128,40 @@ export async function executeStartCompleteCampaign(ctx: ActionExecutionContext) 
     plan = await createPlan(campaignId, ctx.workspaceId, planPayload);
   }
 
-  const previewCreditError = await spendOrApiError({
-    workspaceId: ctx.workspaceId,
-    action: "image_derivation",
-    amount: 5,
-    idempotencyKey: `assistant-action:${ctx.actionId}:preview`,
-    metadata: { actionId: ctx.actionId, campaignId, preview: true },
-    userId: ctx.userId,
-  });
-  if (previewCreditError) {
-    throw new AssistantActionExecutionError("Insufficient credits", "credit_blocked");
-  }
+  const settled = await startGenerationSettlement(
+    assistantPreviewSettlementAdapter({
+      workspaceId: ctx.workspaceId,
+      userId: ctx.userId,
+      campaignId,
+      actionId: ctx.actionId,
+      planId: plan.id,
+      format: parsed.data.platformOrFormat,
+      ctaText: parsed.data.cta,
+      styleAssetId: parsed.data.styleReferenceId ?? null,
+      locale: ctx.locale,
+    }),
+  );
 
-  const derivation = await createDerivation({
-    campaignId,
-    workspaceId: ctx.workspaceId,
-    planId: plan.id,
-    status: "queued",
-    generationMode: "art_variation",
-    variantIndex: 0,
-    ctaText: parsed.data.cta,
-    format: parsed.data.platformOrFormat,
-    isPreview: true,
-    styleAssetId: parsed.data.styleReferenceId ?? undefined,
-  });
-
-  try {
-    await inngest.send({
-      name: heavyImageEventName("derivation.generate"),
-      data: {
-        derivationId: derivation.id,
-        campaignId,
-        workspaceId: ctx.workspaceId,
-        triggeredByUserId: ctx.userId,
-        locale: ctx.locale,
-        generationMode: "art_variation",
-        variantIndex: 0,
-        ctaText: parsed.data.cta,
-        format: parsed.data.platformOrFormat,
-        isPreview: true,
-        styleAssetId: parsed.data.styleReferenceId ?? null,
-        assistantActionId: ctx.actionId,
-      },
-    });
-  } catch {
-    await updateDerivationStatus(derivation.id, ctx.workspaceId, "failed");
+  if (!settled.ok) {
+    if (settled.error.code === "credit_blocked") {
+      throw new AssistantActionExecutionError(
+        "Insufficient credits",
+        "credit_blocked",
+      );
+    }
     throw new AssistantActionExecutionError(
       "Failed to queue preview generation",
-      "execution_failed"
+      "execution_failed",
     );
   }
 
-  await updateCampaign(campaignId, ctx.workspaceId, { status: "generating" });
-
   return {
     mode: "async" as const,
-    jobRef: { kind: "derivation" as const, id: derivation.id },
-    resultSummary: `Preview generation queued (${derivation.id})`,
+    jobRef: {
+      kind: "derivation" as const,
+      id: settled.value.derivation.id,
+    },
+    resultSummary: `Preview generation queued (${settled.value.derivation.id})`,
     campaignId,
   };
 }

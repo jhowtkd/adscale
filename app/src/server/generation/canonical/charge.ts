@@ -7,6 +7,7 @@
  */
 import { NextResponse } from "next/server";
 import { apiError } from "@/lib/api-response";
+import type { CreditAction } from "@/server/billing/credits";
 import { spend, spendOrApiError, type SpendResult } from "@/server/billing/paywall";
 import {
   assertGenerationBatchCharge,
@@ -15,18 +16,26 @@ import {
   type GenerationRequest,
 } from "@/server/generation/canonical/types";
 
+type ChargeOptions = {
+  returnPath?: string;
+  metadata?: Record<string, unknown>;
+  /** Ledger action override; defaults to image_derivation. */
+  action?: CreditAction;
+};
+
 /**
  * Charges credits for a single unit GenerationRequest.
  * Callers must execute the same request (or an equivalent unit) after charging.
  */
 export async function chargeForGeneration(
   request: GenerationRequest,
-  options?: { returnPath?: string; metadata?: Record<string, unknown> }
+  options?: ChargeOptions
 ): Promise<SpendResult> {
   assertGenerationRequest(request);
+  const action = options?.action ?? "image_derivation";
   return spend({
     workspaceId: request.authorship.workspaceId,
-    action: "image_derivation",
+    action,
     amount: request.cost.chargeAmount,
     idempotencyKey: request.idempotency.billingKey,
     metadata: {
@@ -36,7 +45,7 @@ export async function chargeForGeneration(
       destinationId: request.destination.id,
       mode: request.intent.mode,
       chargeKind: "unit",
-      operation_key: "image_derivation",
+      operation_key: action,
       ...options?.metadata,
     },
     userId: request.authorship.userId ?? undefined,
@@ -76,12 +85,13 @@ export async function chargeForGenerationOrApiError(
  */
 export async function chargeForGenerationBatch(
   batch: GenerationBatchCharge,
-  options?: { returnPath?: string; metadata?: Record<string, unknown> }
+  options?: ChargeOptions
 ): Promise<SpendResult> {
   assertGenerationBatchCharge(batch);
+  const action = options?.action ?? "image_derivation";
   return spend({
     workspaceId: batch.authorship.workspaceId,
-    action: "image_derivation",
+    action,
     amount: batch.chargeAmount,
     idempotencyKey: batch.billingKey,
     metadata: {
@@ -92,7 +102,7 @@ export async function chargeForGenerationBatch(
       parentId: batch.parentId,
       unitCount: batch.unitCount,
       unitChargeAmount: batch.unitChargeAmount,
-      operation_key: "image_derivation",
+      operation_key: action,
       ...options?.metadata,
     },
     userId: batch.authorship.userId ?? undefined,

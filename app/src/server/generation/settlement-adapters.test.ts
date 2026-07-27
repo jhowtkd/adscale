@@ -12,6 +12,7 @@ const refreshWork = vi.hoisted(() => vi.fn());
 const setWorkStatus = vi.hoisted(() => vi.fn());
 const getWork = vi.hoisted(() => vi.fn());
 const createChild = vi.hoisted(() => vi.fn());
+const createPackageChild = vi.hoisted(() => vi.fn());
 const deleteChild = vi.hoisted(() => vi.fn());
 const failChild = vi.hoisted(() => vi.fn());
 const getChild = vi.hoisted(() => vi.fn());
@@ -42,6 +43,7 @@ vi.mock("@/server/repositories/creative-work", () => ({
 }));
 vi.mock("@/server/repositories/derivation", () => ({
   createDerivation: createChild,
+  createPackageChildIfAbsent: createPackageChild,
   deleteQueuedDerivation: deleteChild,
   failQueuedDerivation: failChild,
   getDerivationById: getChild,
@@ -51,6 +53,9 @@ vi.mock("@/server/repositories/derivation", () => ({
 vi.mock("@/server/repositories/campaign", () => ({ updateCampaign }));
 
 import {
+  assistantCreativeTripletSettlementAdapter,
+  assistantGoalPackageSettlementAdapter,
+  assistantPreviewSettlementAdapter,
   creativeWorkRevisionSettlementAdapter,
   creativeWorkSettlementAdapter,
   formatAdaptationSettlementAdapter,
@@ -1213,5 +1218,311 @@ describe("Generation Settlement production adapters", () => {
     ]);
     expect(chargeBatch).toHaveBeenCalledOnce();
     expect(send).toHaveBeenCalledOnce();
+  });
+});
+
+const tripletDerivations = ["t1", "t2", "t3"].map((id, index) => ({
+  id,
+  status: "queued",
+  creativeLevel: ["conservative", "balanced", "bold"][index],
+  format: "1:1",
+  updatedAt: new Date("2026-07-26T12:00:00.000Z"),
+}));
+
+const packageChildren = ["4:5", "9:16", "16:9"].map((format, index) => ({
+  id: `pkg-${index + 1}`,
+  status: "queued",
+  format,
+  updatedAt: new Date("2026-07-26T12:00:00.000Z"),
+}));
+
+const previewDerivation = {
+  id: "preview-1",
+  status: "queued",
+  updatedAt: new Date("2026-07-26T12:00:00.000Z"),
+};
+
+function tripletAdapter() {
+  return assistantCreativeTripletSettlementAdapter({
+    workspaceId: "workspace-1",
+    userId: "user-1",
+    campaignId: "campaign-1",
+    actionId: "action-triplet",
+    format: "1:1",
+    planVersionId: "plan-1",
+    goalRunId: "goal-1",
+    locale: "pt-BR",
+  });
+}
+
+function goalPackageAdapter() {
+  return assistantGoalPackageSettlementAdapter({
+    workspaceId: "workspace-1",
+    userId: "user-1",
+    campaignId: "campaign-1",
+    actionId: "action-package",
+    baseDerivation: {
+      id: "base-1",
+      ctaText: "Buy",
+      creativeLevel: "balanced",
+    } as never,
+    formats: ["4:5", "9:16", "16:9"],
+    planVersionId: "plan-1",
+    goalRunId: "goal-1",
+    locale: "pt-BR",
+  });
+}
+
+function previewAdapter() {
+  return assistantPreviewSettlementAdapter({
+    workspaceId: "workspace-1",
+    userId: "user-1",
+    campaignId: "campaign-1",
+    actionId: "action-preview",
+    planId: "plan-1",
+    format: "1:1",
+    ctaText: "Buy now",
+    styleAssetId: null,
+    locale: "pt-BR",
+  });
+}
+
+describe("Assistant generation settlement adapters", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    chargeUnit.mockResolvedValue({ ok: true, creditsSpent: 5 });
+    chargeBatch.mockResolvedValue({ ok: true, creditsSpent: 15 });
+    refund.mockResolvedValue({ status: "refunded" });
+    send.mockResolvedValue(undefined);
+    let tripletIndex = 0;
+    createChild.mockImplementation(async (data: { isPreview?: boolean }) => {
+      if (data.isPreview) return previewDerivation;
+      const row = tripletDerivations[tripletIndex] ?? tripletDerivations[0];
+      tripletIndex += 1;
+      return row;
+    });
+    createPackageChild.mockImplementation(async (data: { format: string }) => {
+      const child =
+        packageChildren.find((row) => row.format === data.format) ??
+        packageChildren[0]!;
+      return { child, created: true };
+    });
+    failChild.mockImplementation(async (id: string) => ({
+      id,
+      status: "failed",
+    }));
+    getChild.mockResolvedValue(previewDerivation);
+    getUsage.mockResolvedValue(null);
+    trackUsage.mockResolvedValue({ id: "usage-event" });
+    updateCampaign.mockResolvedValue(undefined);
+  });
+
+  it("settles creative triplet batch with one charge and multi-send", async () => {
+    const result = await startGenerationSettlement(tripletAdapter());
+
+    expect(result.ok).toBe(true);
+    expect(createChild).toHaveBeenCalledTimes(3);
+    expect(chargeBatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chargeAmount: 15,
+        billingKey: "assistant-action:action-triplet:creative-triplet",
+        intent: { mode: "art_variation", objective: null },
+      }),
+      expect.objectContaining({
+        action: "image_derivation",
+        metadata: expect.objectContaining({
+          settlementDispatchAckRequired: true,
+          derivationIds: ["t1", "t2", "t3"],
+        }),
+      }),
+    );
+    expect(send).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "assistant-creative-triplet:t1",
+          data: expect.objectContaining({
+            refundPolicy: "none",
+            generationMode: "art_variation",
+            assistantActionId: "action-triplet",
+          }),
+        }),
+      ]),
+    );
+    expect(updateCampaign).toHaveBeenCalledWith(
+      "campaign-1",
+      "workspace-1",
+      { status: "generating" },
+    );
+  });
+
+  it("refunds creative triplet once on synchronous dispatch failure", async () => {
+    send.mockRejectedValueOnce(new Error("dispatch failed"));
+
+    const result = await startGenerationSettlement(tripletAdapter());
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "dispatch_failed", compensated: true },
+    });
+    expect(failChild).toHaveBeenCalledTimes(3);
+    expect(refund).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "image_derivation",
+        amount: 15,
+        idempotencyKey:
+          "assistant-action:action-triplet:creative-triplet:dispatch-refund",
+      }),
+    );
+  });
+
+  it("blocks creative triplet charge and releases reserved rows", async () => {
+    chargeBatch.mockResolvedValueOnce({
+      ok: false,
+      conversionPayload: { reason: "insufficient_credits" },
+    });
+
+    const result = await startGenerationSettlement(tripletAdapter());
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "credit_blocked" },
+    });
+    expect(deleteChild).toHaveBeenCalledTimes(3);
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("settles goal package with delivery_package_child action", async () => {
+    const result = await startGenerationSettlement(goalPackageAdapter());
+
+    expect(result.ok).toBe(true);
+    expect(createPackageChild).toHaveBeenCalledTimes(3);
+    expect(chargeBatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chargeAmount: 15,
+        billingKey: "assistant-action:action-package:goal-package",
+      }),
+      expect.objectContaining({
+        action: "delivery_package_child",
+      }),
+    );
+    expect(send).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          data: expect.objectContaining({
+            generationMode: "format_adaptation",
+            refundPolicy: "none",
+          }),
+        }),
+      ]),
+    );
+  });
+
+  it("refunds goal package once on synchronous dispatch failure", async () => {
+    send.mockRejectedValueOnce(new Error("dispatch failed"));
+
+    const result = await startGenerationSettlement(goalPackageAdapter());
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "dispatch_failed", compensated: true },
+    });
+    expect(refund).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "delivery_package_child",
+        amount: 15,
+        idempotencyKey:
+          "assistant-action:action-package:goal-package:dispatch-refund",
+      }),
+    );
+  });
+
+  it("settles assistant preview unit generation", async () => {
+    const result = await startGenerationSettlement(previewAdapter());
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: { derivation: previewDerivation },
+    });
+    expect(chargeUnit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        intent: { mode: "art_variation", objective: null },
+        cost: { chargeAmount: 5, refundPolicy: "default" },
+        idempotency: expect.objectContaining({
+          billingKey: "assistant-action:action-preview:preview",
+        }),
+      }),
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          preview: true,
+          settlementDispatchAckRequired: true,
+        }),
+      }),
+    );
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "assistant-preview:preview-1",
+        data: expect.objectContaining({
+          isPreview: true,
+          assistantActionId: "action-preview",
+        }),
+      }),
+    );
+  });
+
+  it("refunds assistant preview once on synchronous dispatch failure", async () => {
+    send.mockRejectedValueOnce(new Error("dispatch failed"));
+
+    const result = await startGenerationSettlement(previewAdapter());
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "dispatch_failed", compensated: true },
+    });
+    expect(failChild).toHaveBeenCalledWith("preview-1", "workspace-1");
+    expect(refund).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "image_derivation",
+        amount: 5,
+        idempotencyKey:
+          "assistant-action:action-preview:preview:dispatch-refund",
+      }),
+    );
+  });
+
+  it("resolves an idempotent preview replay to the original derivation", async () => {
+    chargeUnit.mockResolvedValue({
+      ok: true,
+      creditsSpent: 0,
+      duplicate: true,
+    });
+    getChild.mockResolvedValue({
+      ...previewDerivation,
+      status: "completed",
+    });
+    getUsage.mockImplementation(async (_workspaceId, idempotencyKey) => {
+      if (idempotencyKey === "assistant-action:action-preview:preview") {
+        return {
+          metadata: {
+            derivationId: previewDerivation.id,
+            reservationUpdatedAt: previewDerivation.updatedAt.toISOString(),
+          },
+        };
+      }
+      return null;
+    });
+
+    const result = await startGenerationSettlement(previewAdapter());
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: {
+        derivation: expect.objectContaining({ id: previewDerivation.id }),
+      },
+    });
+    expect(deleteChild).toHaveBeenCalledWith(
+      previewDerivation.id,
+      "workspace-1",
+    );
+    expect(send).not.toHaveBeenCalled();
   });
 });

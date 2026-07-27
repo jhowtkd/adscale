@@ -1,31 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const spendMock = vi.hoisted(() => vi.fn());
-const createDerivationMock = vi.hoisted(() => vi.fn());
-const sendMock = vi.hoisted(() => vi.fn());
-const updateStatusMock = vi.hoisted(() => vi.fn());
 const getGoalMock = vi.hoisted(() => vi.fn());
-const getCampaignMock = vi.hoisted(() => vi.fn());
-
-vi.mock("@/server/billing/paywall", () => ({
-  spendOrApiError: spendMock,
-}));
-
-vi.mock("@/server/repositories/derivation", () => ({
-  createDerivation: createDerivationMock,
-  updateDerivationStatus: updateStatusMock,
-}));
-
-vi.mock("@/server/jobs/client", () => ({
-  inngest: { send: sendMock },
-}));
+const settleMock = vi.hoisted(() => vi.fn());
+const buildAdapterMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/repositories/assistant-goal", () => ({
   getGoalRunScoped: getGoalMock,
 }));
-
-vi.mock("@/server/repositories/campaign", () => ({
-  getCampaignById: getCampaignMock,
+vi.mock("@/server/generation/settlement", () => ({
+  startGenerationSettlement: settleMock,
+}));
+vi.mock("@/server/generation/settlement-adapters", () => ({
+  assistantCreativeTripletSettlementAdapter: buildAdapterMock,
 }));
 
 import { executeGenerateCreativeTriplet } from "./generate-creative-triplet";
@@ -59,93 +45,78 @@ const goal = {
   plan: {},
 };
 
+const adapter = { kind: "triplet-adapter" };
+const derivations = [
+  { id: "deriv-1" },
+  { id: "deriv-2" },
+  { id: "deriv-3" },
+];
+
 describe("executeGenerateCreativeTriplet", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    spendMock.mockResolvedValue(null);
     getGoalMock.mockResolvedValue(goal);
-    getCampaignMock.mockResolvedValue({ id: "campaign-1", name: "Acme" });
-    let derivIndex = 0;
-    createDerivationMock.mockImplementation(() => {
-      derivIndex += 1;
-      return { id: `deriv-${derivIndex}`, campaignId: "campaign-1" };
+    buildAdapterMock.mockReturnValue(adapter);
+    settleMock.mockResolvedValue({ ok: true, value: { derivations } });
+  });
+
+  it("translates a settled triplet through the canonical interface", async () => {
+    const result = await executeGenerateCreativeTriplet(ctx);
+
+    expect(buildAdapterMock).toHaveBeenCalledWith({
+      workspaceId: "ws-1",
+      userId: "user-1",
+      campaignId: "campaign-1",
+      actionId: "action-1",
+      format: "1:1",
+      planVersionId: ctx.inputSnapshot.planVersionId,
+      goalRunId: ctx.inputSnapshot.goalRunId,
+      locale: "pt-BR",
     });
-    sendMock.mockResolvedValue(undefined);
-    updateStatusMock.mockResolvedValue(undefined);
+    expect(settleMock).toHaveBeenCalledWith(adapter);
+    expect(result).toEqual({
+      mode: "async",
+      jobRefs: [
+        { kind: "derivation", id: "deriv-1" },
+        { kind: "derivation", id: "deriv-2" },
+        { kind: "derivation", id: "deriv-3" },
+      ],
+      resultSummary: "Três direções criativas disparadas",
+      campaignId: "campaign-1",
+    });
   });
 
-  it("marks a triplet slot failed when dispatch fails", async () => {
-    sendMock.mockRejectedValueOnce(new Error("dispatch failed"));
-
-    await executeGenerateCreativeTriplet(ctx);
-
-    expect(updateStatusMock).toHaveBeenCalledWith("deriv-1", "ws-1", "failed");
-  });
-
-  it("charges 15 credits once before creating jobs", async () => {
-    await executeGenerateCreativeTriplet(ctx);
-
-    expect(spendMock).toHaveBeenCalledTimes(1);
-    expect(spendMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        action: "image_derivation",
-        amount: 15,
-        idempotencyKey: expect.stringContaining("creative-triplet"),
+  it("maps credit_blocked and dispatch_failed from typed settlement results", async () => {
+    settleMock
+      .mockResolvedValueOnce({
+        ok: false,
+        error: { code: "credit_blocked", reason: "insufficient_credits" },
       })
-    );
+      .mockResolvedValueOnce({
+        ok: false,
+        error: {
+          code: "dispatch_failed",
+          value: { derivations },
+          compensated: true,
+        },
+      });
+
+    await expect(executeGenerateCreativeTriplet(ctx)).rejects.toMatchObject({
+      code: "credit_blocked",
+      message: "Insufficient credits",
+    });
+    await expect(executeGenerateCreativeTriplet(ctx)).rejects.toMatchObject({
+      code: "execution_failed",
+      message: "Failed to queue creative triplet",
+    });
   });
 
-  it("creates exactly three 1:1 derivations with fixed creative levels", async () => {
-    await executeGenerateCreativeTriplet(ctx);
-
-    expect(createDerivationMock).toHaveBeenCalledTimes(3);
-    const created = createDerivationMock.mock.calls.map((c) => c[0]);
-    expect(created.every((d) => d.format === "1:1")).toBe(true);
-    expect(created.map((d) => d.creativeLevel).sort()).toEqual([
-      "balanced",
-      "bold",
-      "conservative",
-    ]);
-    // variantIndex stays 0 for every row so only intensity varies.
-    expect(created.every((d) => d.variantIndex === 0)).toBe(true);
-  });
-
-  it("dispatches three derivation.generate events with non-refundable policy", async () => {
-    await executeGenerateCreativeTriplet(ctx);
-
-    expect(sendMock).toHaveBeenCalledTimes(3);
-    for (const call of sendMock.mock.calls) {
-      expect(call[0].name).toBe("derivation.generate");
-      expect(call[0].data.refundPolicy).toBe("none");
-      expect(call[0].data.assistantActionId).toBe("action-1");
-      expect(call[0].data.generationMode).toBe("art_variation");
-      expect(call[0].data.format).toBe("1:1");
-      expect(call[0].data.variantIndex).toBe(0);
-    }
-  });
-
-  it("throws credit_blocked when spend fails", async () => {
-    spendMock.mockResolvedValue(new Response("blocked", { status: 402 }));
-
-    await expect(executeGenerateCreativeTriplet(ctx)).rejects.toBeInstanceOf(
-      AssistantActionExecutionError
-    );
-    expect(createDerivationMock).not.toHaveBeenCalled();
-  });
-
-  it("rejects a stale goal revision", async () => {
+  it("rejects a stale goal revision without settling", async () => {
     getGoalMock.mockResolvedValue({ ...goal, revision: 99 });
 
     await expect(executeGenerateCreativeTriplet(ctx)).rejects.toBeInstanceOf(
-      AssistantActionExecutionError
+      AssistantActionExecutionError,
     );
-  });
-
-  it("returns all three derivation job refs", async () => {
-    const result = await executeGenerateCreativeTriplet(ctx);
-
-    expect(result.mode).toBe("async");
-    expect(result.jobRefs).toHaveLength(3);
-    expect(result.jobRefs?.every((r) => r.kind === "derivation")).toBe(true);
+    expect(settleMock).not.toHaveBeenCalled();
   });
 });

@@ -1,24 +1,17 @@
-import { generateGoalPackageInputSchema, PACKAGE_CHILD_FORMATS } from "@/server/assistant/action-contracts/contracts/generate-goal-package";
-import { getGoalRunScoped } from "@/server/repositories/assistant-goal";
 import {
-  createPackageChildIfAbsent,
-  updateDerivationStatus,
-} from "@/server/repositories/derivation";
+  generateGoalPackageInputSchema,
+  PACKAGE_CHILD_FORMATS,
+} from "@/server/assistant/action-contracts/contracts/generate-goal-package";
+import { getGoalRunScoped } from "@/server/repositories/assistant-goal";
 import { resolveGoalCreativeVersion } from "@/server/assistant/goal/service";
-import { spendOrApiError } from "@/server/billing/paywall";
-import { inngest } from "@/server/jobs/client";
-import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
+import { assistantGoalPackageSettlementAdapter } from "@/server/generation/settlement-adapters";
+import { startGenerationSettlement } from "@/server/generation/settlement";
 import { AssistantActionExecutionError } from "../types";
 import type { ActionExecutionContext, ActionExecutionResult } from "../types";
 
 /**
  * Generates the three missing package formats (4:5, 9:16, 16:9) from the
- * approved 1:1 base. Reuses the existing package-child creation logic so legacy
- * and goal paths stay in sync. The base's creative level, copy, offer, and CTA
- * are preserved on every child — format adaptation varies only layout.
- *
- * Billing is definitive and non-refundable: one 15-credit charge covers all
- * three children.
+ * approved 1:1 base. Settlement owns charge/reserve/dispatch/compensation.
  */
 export async function executeGenerateGoalPackage(
   ctx: ActionExecutionContext
@@ -48,68 +41,37 @@ export async function executeGenerateGoalPackage(
   if (!base) {
     throw new AssistantActionExecutionError("Base not found", "derivation_not_found");
   }
-  const baseDerivation = base.derivation;
 
-  const creditError = await spendOrApiError({
-    workspaceId: ctx.workspaceId,
-    action: "delivery_package_child",
-    amount: 15,
-    idempotencyKey: `assistant-action:${ctx.actionId}:goal-package`,
-    metadata: {
-      actionId: ctx.actionId,
-      goalRunId: input.goalRunId,
-      baseVersionId: input.baseVersionId,
-      formats: PACKAGE_CHILD_FORMATS,
-    },
-    userId: ctx.userId,
-  });
-  if (creditError) {
-    throw new AssistantActionExecutionError("Insufficient credits", "credit_blocked");
-  }
-
-  const jobRefs: ActionExecutionResult["jobRefs"] = [];
-
-  for (const format of PACKAGE_CHILD_FORMATS) {
-    const { child } = await createPackageChildIfAbsent({
-      campaignId: goal.campaignId,
+  const settled = await startGenerationSettlement(
+    assistantGoalPackageSettlementAdapter({
       workspaceId: ctx.workspaceId,
-      parentId: baseDerivation.id,
-      format,
-      generationMode: "format_adaptation",
-      status: "queued",
-      ...(baseDerivation.ctaText ? { ctaText: baseDerivation.ctaText } : {}),
-      creativeLevel:
-        (baseDerivation.creativeLevel as "conservative" | "balanced" | "bold" | "extreme" | undefined) ??
-        "balanced",
-    });
+      userId: ctx.userId,
+      campaignId: goal.campaignId,
+      actionId: ctx.actionId,
+      baseDerivation: base.derivation,
+      formats: PACKAGE_CHILD_FORMATS,
+      planVersionId: input.planVersionId,
+      goalRunId: input.goalRunId,
+      locale: ctx.locale,
+    }),
+  );
 
-    try {
-      await inngest.send({
-        name: heavyImageEventName("derivation.generate"),
-        data: {
-          derivationId: child.id,
-          campaignId: goal.campaignId,
-          workspaceId: ctx.workspaceId,
-          triggeredByUserId: ctx.userId,
-          locale: ctx.locale,
-          generationMode: "format_adaptation",
-          format,
-          variantIndex: 0,
-          planVersionId: input.planVersionId,
-          assistantActionId: ctx.actionId,
-          goalRunId: input.goalRunId,
-          refundPolicy: "none",
-        },
-      });
-    } catch {
-      await updateDerivationStatus(child.id, ctx.workspaceId, "failed");
+  if (!settled.ok) {
+    if (settled.error.code === "credit_blocked") {
+      throw new AssistantActionExecutionError("Insufficient credits", "credit_blocked");
     }
-    jobRefs.push({ kind: "derivation", id: child.id });
+    throw new AssistantActionExecutionError(
+      "Failed to queue goal package",
+      "execution_failed"
+    );
   }
 
   return {
     mode: "async",
-    jobRefs,
+    jobRefs: settled.value.derivations.map((derivation) => ({
+      kind: "derivation" as const,
+      id: derivation.id,
+    })),
     resultSummary: "Pacote de formatos disparado",
     campaignId: goal.campaignId,
   };

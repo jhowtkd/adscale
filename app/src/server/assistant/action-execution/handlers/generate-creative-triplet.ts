@@ -1,13 +1,7 @@
 import { generateCreativeTripletInputSchema } from "@/server/assistant/action-contracts/contracts/generate-creative-triplet";
 import { getGoalRunScoped } from "@/server/repositories/assistant-goal";
-import {
-  createDerivation,
-  updateDerivationStatus,
-} from "@/server/repositories/derivation";
-import { spendOrApiError } from "@/server/billing/paywall";
-import { inngest } from "@/server/jobs/client";
-import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
-import { GOAL_CREATIVE_LEVELS } from "@/lib/assistant/goal";
+import { assistantCreativeTripletSettlementAdapter } from "@/server/generation/settlement-adapters";
+import { startGenerationSettlement } from "@/server/generation/settlement";
 import { AssistantActionExecutionError } from "../types";
 import type { ActionExecutionContext, ActionExecutionResult } from "../types";
 
@@ -15,10 +9,8 @@ import type { ActionExecutionContext, ActionExecutionResult } from "../types";
  * Materializes the controlled creative triplet: three `1:1` derivations bound
  * to the same plan, CTA, assets, and references, varying ONLY `creativeLevel`.
  *
- * Billing is definitive and non-refundable — a single 15-credit charge covers
- * all three candidates, and a technical failure on one derivation occupies its
- * slot as failed without refunding. The derivation job enforces `refundPolicy:
- * "none"` so the failure path never calls `refundCredits`.
+ * Settlement owns charge/reserve/dispatch/compensation. Terminal job failures
+ * remain non-refundable via `refundPolicy: "none"` on the derivation events.
  */
 export async function executeGenerateCreativeTriplet(
   ctx: ActionExecutionContext
@@ -29,9 +21,6 @@ export async function executeGenerateCreativeTriplet(
   }
   const input = parsed.data;
 
-  // Reload the goal under the current scope and reject a stale proposal. The
-  // confirm-time validator already checked this, but the handler is the last
-  // line of defense before charging.
   const goal = await getGoalRunScoped(
     ctx.workspaceId,
     ctx.clientProfileId,
@@ -56,80 +45,39 @@ export async function executeGenerateCreativeTriplet(
     );
   }
 
-  // One charge for the whole batch. The idempotency key is scoped to the action
-  // so a replay (e.g. retried dispatch) never double-charges.
-  const creditError = await spendOrApiError({
-    workspaceId: ctx.workspaceId,
-    action: "image_derivation",
-    amount: 15,
-    idempotencyKey: `assistant-action:${ctx.actionId}:creative-triplet`,
-    metadata: {
+  const settled = await startGenerationSettlement(
+    assistantCreativeTripletSettlementAdapter({
+      workspaceId: ctx.workspaceId,
+      userId: ctx.userId,
+      campaignId: goal.campaignId,
       actionId: ctx.actionId,
+      format: input.format,
+      planVersionId: input.planVersionId,
       goalRunId: input.goalRunId,
-      count: GOAL_CREATIVE_LEVELS.length,
-    },
-    userId: ctx.userId,
-  });
-  if (creditError) {
-    throw new AssistantActionExecutionError(
-      "Insufficient credits",
-      "credit_blocked"
-    );
-  }
-
-  const jobRefs: ActionExecutionResult["jobRefs"] = [];
-
-  // Create all three derivations up front, then dispatch. variantIndex stays 0
-  // for every row: encoding the level in variantIndex would vary two prompt
-  // inputs and invalidate the controlled experiment.
-  const derivations = await Promise.all(
-    GOAL_CREATIVE_LEVELS.map((creativeLevel) =>
-      createDerivation({
-        campaignId: goal.campaignId!,
-        workspaceId: ctx.workspaceId,
-        format: input.format,
-        generationMode: "art_variation",
-        variantIndex: 0,
-        status: "queued",
-        creativeLevel,
-      })
-    )
+      locale: ctx.locale,
+    }),
   );
 
-  for (const derivation of derivations) {
-    try {
-      await inngest.send({
-        name: heavyImageEventName("derivation.generate"),
-        data: {
-          derivationId: derivation.id,
-          campaignId: goal.campaignId!,
-          workspaceId: ctx.workspaceId,
-          triggeredByUserId: ctx.userId,
-          locale: ctx.locale,
-          generationMode: "art_variation",
-          creativeLevel: derivation.creativeLevel,
-          format: input.format,
-          variantIndex: 0,
-          planVersionId: input.planVersionId,
-          assistantActionId: ctx.actionId,
-          goalRunId: input.goalRunId,
-          refundPolicy: "none",
-        },
-      });
-      jobRefs.push({ kind: "derivation", id: derivation.id });
-    } catch {
-      // Dispatch failed after the row was created and charged: mark this slot
-      // failed without refunding. The other two candidates still run.
-      // Status update is best-effort; the aggregate job sync handles the rest.
-      await updateDerivationStatus(derivation.id, ctx.workspaceId, "failed");
-      jobRefs.push({ kind: "derivation", id: derivation.id });
+  if (!settled.ok) {
+    if (settled.error.code === "credit_blocked") {
+      throw new AssistantActionExecutionError(
+        "Insufficient credits",
+        "credit_blocked"
+      );
     }
+    throw new AssistantActionExecutionError(
+      "Failed to queue creative triplet",
+      "execution_failed"
+    );
   }
 
   return {
     mode: "async",
-    jobRefs,
+    jobRefs: settled.value.derivations.map((derivation) => ({
+      kind: "derivation" as const,
+      id: derivation.id,
+    })),
     resultSummary: "Três direções criativas disparadas",
-    campaignId: goal.campaignId!,
+    campaignId: goal.campaignId,
   };
 }

@@ -1,5 +1,7 @@
+import { GOAL_CREATIVE_LEVELS } from "@/lib/assistant/goal";
 import { logger } from "@/lib/logger";
 import { getTargetDimensions } from "@/lib/formats";
+import type { CreditAction } from "@/server/billing/credits";
 import type { SpendResult } from "@/server/billing/paywall";
 import type { CreativeWorkOutputPlan } from "@/server/creative-work/contracts";
 import {
@@ -25,6 +27,7 @@ import {
 } from "@/server/repositories/creative-work";
 import {
   createDerivation,
+  createPackageChildIfAbsent,
   deleteQueuedDerivation,
   failQueuedDerivation,
   getDerivationById,
@@ -953,6 +956,786 @@ export function creativeWorkRevisionSettlementAdapter(input: {
         },
         dispatchAckKey(billingKey),
       );
+      return reservation.value;
+    },
+  };
+}
+
+type DerivationRow = Awaited<ReturnType<typeof createDerivation>>;
+
+export type DerivationBatchSettlementValue = {
+  derivations: DerivationRow[];
+};
+
+type DerivationBatchReservation =
+  GenerationSettlementReservation<DerivationBatchSettlementValue> & {
+    newlyCreatedIds: string[];
+  };
+
+function derivationGenerateEventId(prefix: string, derivationId: string) {
+  return `${prefix}:${derivationId}`;
+}
+
+function derivationIdsFromMetadata(metadata: unknown): string[] {
+  const value = metadata as { derivationIds?: unknown } | null | undefined;
+  if (!Array.isArray(value?.derivationIds)) return [];
+  return value.derivationIds.filter(
+    (id): id is string => typeof id === "string",
+  );
+}
+
+function batchDispatchRefund(input: {
+  workspaceId: string;
+  userId: string;
+  billingKey: string;
+  amount: number;
+  action: CreditAction;
+  description: string;
+  metadata?: Record<string, unknown>;
+}) {
+  return {
+    workspaceId: input.workspaceId,
+    action: input.action,
+    idempotencyKey: `${input.billingKey}:dispatch-refund`,
+    amount: input.amount,
+    metadata: {
+      description: input.description,
+      ...input.metadata,
+    },
+    userId: input.userId,
+  };
+}
+
+async function resolveDerivationBatchReplay(input: {
+  workspaceId: string;
+  userId: string;
+  campaignId: string;
+  billingKey: string;
+  eventIdPrefix: string;
+  locale?: string;
+  assistantActionId: string;
+  amount: number;
+  action: CreditAction;
+  description: string;
+  buildEventData: (
+    derivation: DerivationRow,
+  ) => Record<string, unknown>;
+}): Promise<
+  | { status: "settled"; value: DerivationBatchSettlementValue }
+  | {
+      status: "dispatch_failed";
+      failure: {
+        value: DerivationBatchSettlementValue;
+        refunds: ReturnType<typeof batchDispatchRefund>[];
+      };
+    }
+  | null
+> {
+  const usage = await getUsageByIdempotencyKey(
+    input.workspaceId,
+    input.billingKey,
+  );
+  const metadata = usage?.metadata as
+    | {
+        derivationIds?: unknown;
+        settlementDispatchAckRequired?: unknown;
+        settlementDispatchAckKey?: unknown;
+      }
+    | null
+    | undefined;
+  const originalIds = derivationIdsFromMetadata(metadata);
+  const refund = batchDispatchRefund({
+    workspaceId: input.workspaceId,
+    userId: input.userId,
+    billingKey: input.billingKey,
+    amount: input.amount,
+    action: input.action,
+    description: input.description,
+    metadata: { derivationIds: originalIds },
+  });
+  const recordedRefund = await getUsageByIdempotencyKey(
+    input.workspaceId,
+    refund.idempotencyKey,
+  );
+  let originals =
+    originalIds.length > 0
+      ? (
+          await Promise.all(
+            originalIds.map((id) => getDerivationById(id, input.workspaceId)),
+          )
+        ).filter((row): row is NonNullable<typeof row> => row != null)
+      : [];
+  if (recordedRefund && originals.length > 0) {
+    return {
+      status: "dispatch_failed",
+      failure: {
+        value: { derivations: originals },
+        refunds: [refund],
+      },
+    };
+  }
+  const ack = settlementDispatchMetadata(metadata);
+  for (let attempt = 0; originals.length > 0 && attempt < 80; attempt += 1) {
+    if (originals.some((row) => row.status === "failed")) {
+      return {
+        status: "dispatch_failed",
+        failure: {
+          value: { derivations: originals },
+          refunds: [refund],
+        },
+      };
+    }
+    if (ack.required) {
+      const recordedAck =
+        ack.key &&
+        (await getUsageByIdempotencyKey(input.workspaceId, ack.key));
+      if (recordedAck) {
+        await updateCampaign(input.campaignId, input.workspaceId, {
+          status: "generating",
+        });
+        return { status: "settled", value: { derivations: originals } };
+      }
+    } else if (originals.some((row) => row.status !== "queued")) {
+      await updateCampaign(input.campaignId, input.workspaceId, {
+        status: "generating",
+      });
+      return { status: "settled", value: { derivations: originals } };
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    originals = (
+      await Promise.all(
+        originalIds.map((id) => getDerivationById(id, input.workspaceId)),
+      )
+    ).filter((row): row is NonNullable<typeof row> => row != null);
+  }
+  if (originals.length === 0) return null;
+  const queued = originals.filter((row) => row.status === "queued");
+  if (queued.length > 0) {
+    try {
+      await inngest.send(
+        queued.map((derivation) => ({
+          id: derivationGenerateEventId(input.eventIdPrefix, derivation.id),
+          name: heavyImageEventName("derivation.generate"),
+          data: input.buildEventData(derivation),
+        })),
+      );
+    } catch (error) {
+      logger.error(
+        `[generation-settlement] derivation batch recovery uncertain billingKey=${input.billingKey}`,
+        error,
+      );
+      throw new Error("generation_settlement_dispatch_uncertain");
+    }
+  }
+  await recordDispatchAck(
+    input.workspaceId,
+    {
+      campaignId: input.campaignId,
+      derivationIds: originals.map((row) => row.id),
+      assistantActionId: input.assistantActionId,
+    },
+    dispatchAckKey(input.billingKey),
+  );
+  await updateCampaign(input.campaignId, input.workspaceId, {
+    status: "generating",
+  });
+  return { status: "settled", value: { derivations: originals } };
+}
+
+function derivationBatchSettlementAdapter(input: {
+  workspaceId: string;
+  userId: string;
+  campaignId: string;
+  assistantActionId: string;
+  billingKey: string;
+  amount: number;
+  unitCount: number;
+  action: CreditAction;
+  intentMode: GenerationBatchCharge["intent"]["mode"];
+  eventIdPrefix: string;
+  refundDescription: string;
+  billingMetadata?: Record<string, unknown>;
+  reserve: () => Promise<DerivationBatchReservation>;
+  buildEventData: (derivation: DerivationRow) => Record<string, unknown>;
+}): GenerationSettlementAdapter<
+  DerivationBatchSettlementValue,
+  DerivationBatchReservation
+> {
+  return {
+    reserve: input.reserve,
+    async charge(reservation) {
+      const ackKey = dispatchAckKey(input.billingKey);
+      const derivationIds = reservation.value.derivations.map((row) => row.id);
+      const batch: GenerationBatchCharge = {
+        kind: "batch",
+        authorship: {
+          workspaceId: input.workspaceId,
+          userId: input.userId,
+        },
+        origin: "assistant",
+        surface: "assistant",
+        intent: { mode: input.intentMode, objective: null },
+        parentId: input.campaignId,
+        unitCount: input.unitCount,
+        chargeAmount: input.amount,
+        unitChargeAmount: GENERATION_CREDIT_COSTS.singleDerivation,
+        billingKey: input.billingKey,
+        refundPolicy: "default",
+      };
+      const spend = await chargeForGenerationBatch(batch, {
+        action: input.action,
+        metadata: {
+          campaignId: input.campaignId,
+          assistantActionId: input.assistantActionId,
+          derivationIds,
+          settlementDispatchAckRequired: true,
+          settlementDispatchAckKey: ackKey,
+          ...input.billingMetadata,
+        },
+      });
+      return toSettlementCharge(spend);
+    },
+    async resolveReplay() {
+      return resolveDerivationBatchReplay({
+        workspaceId: input.workspaceId,
+        userId: input.userId,
+        campaignId: input.campaignId,
+        billingKey: input.billingKey,
+        eventIdPrefix: input.eventIdPrefix,
+        assistantActionId: input.assistantActionId,
+        amount: input.amount,
+        action: input.action,
+        description: input.refundDescription,
+        buildEventData: input.buildEventData,
+      });
+    },
+    release: async (reservation) => {
+      await Promise.all(
+        reservation.newlyCreatedIds.map((id) =>
+          deleteQueuedDerivation(id, input.workspaceId),
+        ),
+      );
+    },
+    async dispatch(reservation) {
+      await inngest.send(
+        reservation.value.derivations.map((derivation) => ({
+          id: derivationGenerateEventId(input.eventIdPrefix, derivation.id),
+          name: heavyImageEventName("derivation.generate"),
+          data: input.buildEventData(derivation),
+        })),
+      );
+    },
+    async failDispatch(reservation) {
+      await Promise.allSettled(
+        reservation.value.derivations.map((derivation) =>
+          failQueuedDerivation(derivation.id, input.workspaceId),
+        ),
+      );
+      return {
+        value: reservation.value,
+        refunds: [
+          batchDispatchRefund({
+            workspaceId: input.workspaceId,
+            userId: input.userId,
+            billingKey: input.billingKey,
+            amount: input.amount,
+            action: input.action,
+            description: input.refundDescription,
+            metadata: {
+              derivationIds: reservation.value.derivations.map((row) => row.id),
+            },
+          }),
+        ],
+      };
+    },
+    async completeDispatch(reservation) {
+      await recordDispatchAck(
+        input.workspaceId,
+        {
+          campaignId: input.campaignId,
+          derivationIds: reservation.value.derivations.map((row) => row.id),
+          assistantActionId: input.assistantActionId,
+        },
+        dispatchAckKey(input.billingKey),
+      );
+      await updateCampaign(input.campaignId, input.workspaceId, {
+        status: "generating",
+      });
+      return reservation.value;
+    },
+  };
+}
+
+export function assistantCreativeTripletSettlementAdapter(input: {
+  workspaceId: string;
+  userId: string;
+  campaignId: string;
+  actionId: string;
+  format: string;
+  planVersionId: string;
+  goalRunId: string;
+  locale?: string;
+}): GenerationSettlementAdapter<
+  DerivationBatchSettlementValue,
+  DerivationBatchReservation
+> {
+  const billingKey = `assistant-action:${input.actionId}:creative-triplet`;
+  return derivationBatchSettlementAdapter({
+    workspaceId: input.workspaceId,
+    userId: input.userId,
+    campaignId: input.campaignId,
+    assistantActionId: input.actionId,
+    billingKey,
+    amount: GENERATION_CREDIT_COSTS.creativeWorkTriplet,
+    unitCount: GOAL_CREATIVE_LEVELS.length,
+    action: "image_derivation",
+    intentMode: "art_variation",
+    eventIdPrefix: "assistant-creative-triplet",
+    refundDescription: "assistant_creative_triplet_dispatch_refund",
+    billingMetadata: {
+      actionId: input.actionId,
+      goalRunId: input.goalRunId,
+      count: GOAL_CREATIVE_LEVELS.length,
+    },
+    async reserve() {
+      const derivations = await Promise.all(
+        GOAL_CREATIVE_LEVELS.map((creativeLevel) =>
+          createDerivation({
+            campaignId: input.campaignId,
+            workspaceId: input.workspaceId,
+            format: input.format,
+            generationMode: "art_variation",
+            variantIndex: 0,
+            status: "queued",
+            creativeLevel,
+          }),
+        ),
+      );
+      return {
+        claimed: true,
+        value: { derivations },
+        newlyCreatedIds: derivations.map((row) => row.id),
+      };
+    },
+    buildEventData: (derivation) => ({
+      derivationId: derivation.id,
+      campaignId: input.campaignId,
+      workspaceId: input.workspaceId,
+      triggeredByUserId: input.userId,
+      locale: input.locale,
+      generationMode: "art_variation",
+      creativeLevel: derivation.creativeLevel,
+      format: input.format,
+      variantIndex: 0,
+      planVersionId: input.planVersionId,
+      assistantActionId: input.actionId,
+      goalRunId: input.goalRunId,
+      refundPolicy: "none",
+    }),
+  });
+}
+
+export function assistantGoalPackageSettlementAdapter(input: {
+  workspaceId: string;
+  userId: string;
+  campaignId: string;
+  actionId: string;
+  baseDerivation: DerivationRow;
+  formats: readonly string[];
+  planVersionId: string;
+  goalRunId: string;
+  locale?: string;
+}): GenerationSettlementAdapter<
+  DerivationBatchSettlementValue,
+  DerivationBatchReservation
+> {
+  const billingKey = `assistant-action:${input.actionId}:goal-package`;
+  const creativeLevel =
+    (input.baseDerivation.creativeLevel as
+      | "conservative"
+      | "balanced"
+      | "bold"
+      | "extreme"
+      | null
+      | undefined) ?? "balanced";
+  return derivationBatchSettlementAdapter({
+    workspaceId: input.workspaceId,
+    userId: input.userId,
+    campaignId: input.campaignId,
+    assistantActionId: input.actionId,
+    billingKey,
+    amount: GENERATION_CREDIT_COSTS.goalPackage,
+    unitCount: input.formats.length,
+    action: "delivery_package_child",
+    intentMode: "format_adaptation",
+    eventIdPrefix: "assistant-goal-package",
+    refundDescription: "assistant_goal_package_dispatch_refund",
+    billingMetadata: {
+      actionId: input.actionId,
+      goalRunId: input.goalRunId,
+      baseVersionId: input.baseDerivation.id,
+      formats: [...input.formats],
+    },
+    async reserve() {
+      const created = await Promise.all(
+        input.formats.map((format) =>
+          createPackageChildIfAbsent({
+            campaignId: input.campaignId,
+            workspaceId: input.workspaceId,
+            parentId: input.baseDerivation.id,
+            format,
+            generationMode: "format_adaptation",
+            status: "queued",
+            ...(input.baseDerivation.ctaText
+              ? { ctaText: input.baseDerivation.ctaText }
+              : {}),
+            creativeLevel,
+          }),
+        ),
+      );
+      return {
+        claimed: true,
+        value: { derivations: created.map((row) => row.child) },
+        newlyCreatedIds: created
+          .filter((row) => row.created)
+          .map((row) => row.child.id),
+      };
+    },
+    buildEventData: (derivation) => ({
+      derivationId: derivation.id,
+      campaignId: input.campaignId,
+      workspaceId: input.workspaceId,
+      triggeredByUserId: input.userId,
+      locale: input.locale,
+      generationMode: "format_adaptation",
+      format: derivation.format,
+      variantIndex: 0,
+      planVersionId: input.planVersionId,
+      assistantActionId: input.actionId,
+      goalRunId: input.goalRunId,
+      refundPolicy: "none",
+    }),
+  });
+}
+
+export type AssistantPreviewSettlementValue = {
+  derivation: DerivationRow;
+};
+
+type AssistantPreviewReservation =
+  GenerationSettlementReservation<AssistantPreviewSettlementValue>;
+
+export function assistantPreviewSettlementAdapter(input: {
+  workspaceId: string;
+  userId: string;
+  campaignId: string;
+  actionId: string;
+  planId: string;
+  format: string;
+  ctaText: string;
+  styleAssetId?: string | null;
+  locale?: string;
+}): GenerationSettlementAdapter<
+  AssistantPreviewSettlementValue,
+  AssistantPreviewReservation
+> {
+  const billingKey = `assistant-action:${input.actionId}:preview`;
+  return {
+    async reserve() {
+      const derivation = await createDerivation({
+        campaignId: input.campaignId,
+        workspaceId: input.workspaceId,
+        planId: input.planId,
+        status: "queued",
+        generationMode: "art_variation",
+        variantIndex: 0,
+        ctaText: input.ctaText,
+        format: input.format,
+        isPreview: true,
+        styleAssetId: input.styleAssetId ?? undefined,
+      });
+      return { claimed: true, value: { derivation } };
+    },
+    async charge(reservation) {
+      const dimensions =
+        getTargetDimensions(input.format as "1:1" | "4:5" | "9:16") ?? {
+          width: 1024,
+          height: 1024,
+        };
+      const ackKey = dispatchAckKey(billingKey);
+      const request: GenerationRequest = {
+        authorship: {
+          workspaceId: input.workspaceId,
+          userId: input.userId,
+        },
+        origin: "assistant",
+        surface: "assistant",
+        intent: { mode: "art_variation", objective: null },
+        identity: {
+          clientProfileId: null,
+          referenceImages: [],
+          brandConstraints: null,
+        },
+        format: {
+          targetFormat: input.format,
+          dimensions,
+          constraints: null,
+        },
+        source: {
+          parentId: null,
+          sourceVersionId: null,
+          lineageId: null,
+          packageSource: null,
+        },
+        prompt: {
+          text: `Assistant complete-campaign preview ${reservation.value.derivation.id}`,
+        },
+        cost: {
+          chargeAmount: GENERATION_CREDIT_COSTS.singleDerivation,
+          refundPolicy: "default",
+        },
+        idempotency: {
+          billingKey,
+          skipWhenOutputExists: true,
+        },
+        destination: {
+          kind: "derivation",
+          id: reservation.value.derivation.id,
+          storagePrefix: `derivations/${reservation.value.derivation.id}`,
+          campaignId: input.campaignId,
+        },
+      };
+      const spend = await chargeForGeneration(request, {
+        metadata: {
+          actionId: input.actionId,
+          campaignId: input.campaignId,
+          preview: true,
+          derivationId: reservation.value.derivation.id,
+          reservationUpdatedAt:
+            reservation.value.derivation.updatedAt.toISOString(),
+          settlementDispatchAckRequired: true,
+          settlementDispatchAckKey: ackKey,
+        },
+      });
+      return toSettlementCharge(spend);
+    },
+    async resolveReplay() {
+      const usage = await getUsageByIdempotencyKey(
+        input.workspaceId,
+        billingKey,
+      );
+      const metadata = usage?.metadata as
+        | {
+            derivationId?: unknown;
+            destinationId?: unknown;
+            reservationUpdatedAt?: unknown;
+            settlementDispatchAckRequired?: unknown;
+            settlementDispatchAckKey?: unknown;
+          }
+        | null
+        | undefined;
+      const originalId =
+        typeof metadata?.derivationId === "string"
+          ? metadata.derivationId
+          : typeof metadata?.destinationId === "string"
+            ? metadata.destinationId
+            : null;
+      let original = originalId
+        ? await getDerivationById(originalId, input.workspaceId)
+        : null;
+      const reservationUpdatedAt =
+        typeof metadata?.reservationUpdatedAt === "string"
+          ? new Date(metadata.reservationUpdatedAt)
+          : null;
+      const refund = batchDispatchRefund({
+        workspaceId: input.workspaceId,
+        userId: input.userId,
+        billingKey,
+        amount: GENERATION_CREDIT_COSTS.singleDerivation,
+        action: "image_derivation",
+        description: "assistant_preview_dispatch_refund",
+        metadata: {
+          campaignId: input.campaignId,
+          derivationId: original?.id,
+          preview: true,
+        },
+      });
+      const recordedRefund = await getUsageByIdempotencyKey(
+        input.workspaceId,
+        refund.idempotencyKey,
+      );
+      if (recordedRefund && original) {
+        return {
+          status: "dispatch_failed",
+          failure: {
+            value: { derivation: original },
+            refunds: [refund],
+          },
+        };
+      }
+      const ack = settlementDispatchMetadata(metadata);
+      for (let attempt = 0; original && attempt < 80; attempt += 1) {
+        if (original.status === "failed") {
+          return {
+            status: "dispatch_failed",
+            failure: {
+              value: { derivation: original },
+              refunds: [refund],
+            },
+          };
+        }
+        if (ack.required) {
+          const recordedAck =
+            ack.key &&
+            (await getUsageByIdempotencyKey(input.workspaceId, ack.key));
+          if (recordedAck) {
+            await updateCampaign(input.campaignId, input.workspaceId, {
+              status: "generating",
+            });
+            return {
+              status: "settled",
+              value: { derivation: original },
+            };
+          }
+        } else if (
+          original.status !== "queued" ||
+          (reservationUpdatedAt && original.updatedAt > reservationUpdatedAt)
+        ) {
+          await updateCampaign(input.campaignId, input.workspaceId, {
+            status: "generating",
+          });
+          return {
+            status: "settled",
+            value: { derivation: original },
+          };
+        }
+        await new Promise((resolve) => setTimeout(resolve, 25));
+        original = await getDerivationById(original.id, input.workspaceId);
+      }
+      if (!original) return null;
+      if (original.status === "queued") {
+        try {
+          await inngest.send({
+            id: derivationGenerateEventId("assistant-preview", original.id),
+            name: heavyImageEventName("derivation.generate"),
+            data: {
+              derivationId: original.id,
+              campaignId: input.campaignId,
+              workspaceId: input.workspaceId,
+              triggeredByUserId: input.userId,
+              locale: input.locale,
+              generationMode: "art_variation",
+              variantIndex: 0,
+              ctaText: input.ctaText,
+              format: input.format,
+              isPreview: true,
+              styleAssetId: input.styleAssetId ?? null,
+              assistantActionId: input.actionId,
+            },
+          });
+        } catch (error) {
+          logger.error(
+            `[generation-settlement] preview recovery uncertain derivationId=${original.id}`,
+            error,
+          );
+          throw new Error("generation_settlement_dispatch_uncertain");
+        }
+      }
+      await recordDispatchAck(
+        input.workspaceId,
+        {
+          campaignId: input.campaignId,
+          derivationId: original.id,
+          preview: true,
+        },
+        dispatchAckKey(billingKey),
+      );
+      await touchQueuedDerivation(
+        original.id,
+        input.workspaceId,
+        original.updatedAt,
+      );
+      await updateCampaign(input.campaignId, input.workspaceId, {
+        status: "generating",
+      });
+      return { status: "settled", value: { derivation: original } };
+    },
+    release: (reservation) =>
+      deleteQueuedDerivation(
+        reservation.value.derivation.id,
+        input.workspaceId,
+      ),
+    async dispatch(reservation) {
+      await inngest.send({
+        id: derivationGenerateEventId(
+          "assistant-preview",
+          reservation.value.derivation.id,
+        ),
+        name: heavyImageEventName("derivation.generate"),
+        data: {
+          derivationId: reservation.value.derivation.id,
+          campaignId: input.campaignId,
+          workspaceId: input.workspaceId,
+          triggeredByUserId: input.userId,
+          locale: input.locale,
+          generationMode: "art_variation",
+          variantIndex: 0,
+          ctaText: input.ctaText,
+          format: input.format,
+          isPreview: true,
+          styleAssetId: input.styleAssetId ?? null,
+          assistantActionId: input.actionId,
+        },
+      });
+    },
+    async failDispatch(reservation, error) {
+      logger.error(
+        `[assistantPreview] event send FAILED derivationId=${reservation.value.derivation.id}`,
+        error,
+      );
+      const failed = await failQueuedDerivation(
+        reservation.value.derivation.id,
+        input.workspaceId,
+      ).catch(() => null);
+      return {
+        value: {
+          derivation: failed ?? reservation.value.derivation,
+        },
+        refunds: [
+          batchDispatchRefund({
+            workspaceId: input.workspaceId,
+            userId: input.userId,
+            billingKey,
+            amount: GENERATION_CREDIT_COSTS.singleDerivation,
+            action: "image_derivation",
+            description: "assistant_preview_dispatch_refund",
+            metadata: {
+              campaignId: input.campaignId,
+              derivationId: reservation.value.derivation.id,
+              preview: true,
+            },
+          }),
+        ],
+      };
+    },
+    async completeDispatch(reservation) {
+      await recordDispatchAck(
+        input.workspaceId,
+        {
+          campaignId: input.campaignId,
+          derivationId: reservation.value.derivation.id,
+          preview: true,
+        },
+        dispatchAckKey(billingKey),
+      );
+      await touchQueuedDerivation(
+        reservation.value.derivation.id,
+        input.workspaceId,
+        reservation.value.derivation.updatedAt,
+      );
+      await updateCampaign(input.campaignId, input.workspaceId, {
+        status: "generating",
+      });
       return reservation.value;
     },
   };
