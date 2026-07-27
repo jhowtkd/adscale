@@ -74,6 +74,29 @@ function dispatchAckKey(billingKey: string) {
   return `${billingKey}:dispatch-ack`;
 }
 
+async function recordDispatchAck(
+  workspaceId: string,
+  metadata: Record<string, unknown>,
+  ackKey: string,
+) {
+  try {
+    await trackUsage(
+      workspaceId,
+      "generation_dispatch_ack",
+      0,
+      metadata,
+      ackKey,
+    );
+  } catch (error) {
+    // Dispatch already left the process. Losing the ack must not convert a
+    // successful settlement into an untyped exception or force a refunding join.
+    logger.error(
+      `[generation-settlement] dispatch ack failed key=${ackKey}`,
+      error,
+    );
+  }
+}
+
 function settlementDispatchMetadata(metadata: unknown) {
   const value = metadata as
     | {
@@ -288,10 +311,8 @@ export function creativeWorkSettlementAdapter(input: {
       };
     },
     async completeDispatch(reservation) {
-      await trackUsage(
+      await recordDispatchAck(
         input.workspaceId,
-        "generation_dispatch_ack",
-        0,
         {
           creativeWorkId: input.workItemId,
           outputIds: reservation.newlyCreatedIds,
@@ -585,10 +606,8 @@ export function formatAdaptationSettlementAdapter(input: {
       };
     },
     async completeDispatch(reservation) {
-      await trackUsage(
+      await recordDispatchAck(
         input.workspaceId,
-        "generation_dispatch_ack",
-        0,
         {
           sourceDerivationId: input.source.id,
           derivationId: reservation.value.derivation.id,
@@ -805,10 +824,8 @@ export function creativeWorkRevisionSettlementAdapter(input: {
         input.workItemId,
         reservation.value.output.id,
       );
-      await trackUsage(
+      await recordDispatchAck(
         input.workspaceId,
-        "generation_dispatch_ack",
-        0,
         {
           creativeWorkId: input.workItemId,
           outputId: reservation.value.output.id,

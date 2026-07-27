@@ -5,6 +5,7 @@ const chargeBatch = vi.hoisted(() => vi.fn());
 const refund = vi.hoisted(() => vi.fn());
 const send = vi.hoisted(() => vi.fn());
 const createOutputs = vi.hoisted(() => vi.fn());
+const createRevision = vi.hoisted(() => vi.fn());
 const deleteOutputs = vi.hoisted(() => vi.fn());
 const failOutput = vi.hoisted(() => vi.fn());
 const refreshWork = vi.hoisted(() => vi.fn());
@@ -32,6 +33,7 @@ vi.mock("@/server/repositories/usage", () => ({
 }));
 vi.mock("@/server/repositories/creative-work", () => ({
   createPlannedCreativeWorkOutputs: createOutputs,
+  createCreativeWorkRevision: createRevision,
   deleteQueuedCreativeWorkOutputs: deleteOutputs,
   failQueuedCreativeWorkOutput: failOutput,
   refreshCreativeWorkStatus: refreshWork,
@@ -49,6 +51,7 @@ vi.mock("@/server/repositories/derivation", () => ({
 vi.mock("@/server/repositories/campaign", () => ({ updateCampaign }));
 
 import {
+  creativeWorkRevisionSettlementAdapter,
   creativeWorkSettlementAdapter,
   formatAdaptationSettlementAdapter,
 } from "./settlement-adapters";
@@ -89,6 +92,28 @@ const batch = {
   billingKey: "creative-work:work-1:initial",
   refundPolicy: "default",
 } as const;
+
+const revisionOutput = {
+  id: "output-v2",
+  status: "queued",
+  failureCode: null,
+  parentOutputId: "output-v1",
+  revisionInstruction: "Use mais contraste",
+};
+const REVISION_KEY = "00000000-0000-4000-8000-000000000101";
+
+function revisionAdapter() {
+  return creativeWorkRevisionSettlementAdapter({
+    workspaceId: "workspace-1",
+    workItemId: "work-1",
+    userId: "user-1",
+    parentOutputId: "output-v1",
+    revisionKey: REVISION_KEY,
+    instruction: "Use mais contraste",
+    revisionAssetId: null,
+    objective: "Sell",
+  });
+}
 
 function batchAdapter(existing?: { work: typeof work; outputs: typeof outputs }) {
   return creativeWorkSettlementAdapter({
@@ -131,8 +156,13 @@ describe("Generation Settlement production adapters", () => {
       outputs,
       newlyCreatedIds: outputs.map((output) => output.id),
     });
+    createRevision.mockResolvedValue({
+      output: revisionOutput,
+      claimedForDispatch: true,
+    });
     failOutput.mockImplementation(async (_ws, _work, outputId) => ({
-      ...outputs.find((output) => output.id === outputId),
+      ...(outputs.find((output) => output.id === outputId) ?? revisionOutput),
+      id: outputId,
       status: "failed",
       failureCode: "dispatch_failed",
     }));
@@ -770,5 +800,170 @@ describe("Generation Settlement production adapters", () => {
         idempotencyKey: "adapt:source-1:dispatch-refund",
       }),
     );
+  });
+
+  it("settles a creative work revision through charge, dispatch, and ack", async () => {
+    const result = await startGenerationSettlement(revisionAdapter());
+
+    expect(result).toEqual({ ok: true, value: { output: revisionOutput } });
+    expect(createRevision).toHaveBeenCalledWith(
+      "workspace-1",
+      "work-1",
+      REVISION_KEY,
+      "output-v1",
+      "Use mais contraste",
+      null,
+    );
+    expect(chargeBatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        unitCount: 1,
+        chargeAmount: 5,
+        billingKey: "creative-work:work-1:revision:output-v2",
+        intent: { mode: "creative_revision", objective: "Sell" },
+      }),
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          revisionOf: "output-v1",
+          settlementDispatchAckRequired: true,
+          settlementDispatchAckKey:
+            "creative-work:work-1:revision:output-v2:dispatch-ack",
+        }),
+      }),
+    );
+    expect(send).toHaveBeenCalledWith({
+      id: "creative-work-revision:output-v2",
+      name: "creative-work.generate",
+      data: {
+        workspaceId: "workspace-1",
+        workItemId: "work-1",
+        outputId: "output-v2",
+      },
+    });
+    expect(trackUsage).toHaveBeenCalledWith(
+      "workspace-1",
+      "generation_dispatch_ack",
+      0,
+      expect.objectContaining({ outputId: "output-v2" }),
+      "creative-work:work-1:revision:output-v2:dispatch-ack",
+    );
+  });
+
+  it("keeps a successful revision result when dispatch ack persistence fails", async () => {
+    trackUsage.mockRejectedValue(new Error("usage write failed"));
+
+    const result = await startGenerationSettlement(revisionAdapter());
+
+    expect(result).toEqual({ ok: true, value: { output: revisionOutput } });
+    expect(send).toHaveBeenCalledOnce();
+    expect(refund).not.toHaveBeenCalled();
+  });
+
+  it("marks a credit-blocked revision failed without dispatch", async () => {
+    chargeBatch.mockResolvedValue({
+      ok: false,
+      status: 402,
+      conversionPayload: { reason: "insufficient_credits" },
+    });
+
+    const result = await startGenerationSettlement(revisionAdapter());
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "credit_blocked" },
+    });
+    expect(failOutput).toHaveBeenCalledWith(
+      "workspace-1",
+      "work-1",
+      "output-v2",
+      "credit_blocked",
+    );
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("refunds a failed revision dispatch exactly once across repeated handling", async () => {
+    send.mockRejectedValue(new Error("transport down"));
+    const failed = {
+      ...revisionOutput,
+      status: "failed",
+      failureCode: "dispatch_failed",
+    };
+    failOutput.mockResolvedValue(failed);
+    createRevision
+      .mockResolvedValueOnce({
+        output: revisionOutput,
+        claimedForDispatch: true,
+      })
+      .mockResolvedValue({
+        output: failed,
+        claimedForDispatch: false,
+      });
+    getUsage.mockImplementation(async (_workspaceId, idempotencyKey) => {
+      if (idempotencyKey.endsWith(":dispatch-refund") && refund.mock.calls.length > 0) {
+        return { id: "refund-usage" };
+      }
+      return null;
+    });
+
+    const first = await startGenerationSettlement(revisionAdapter());
+    const second = await startGenerationSettlement(revisionAdapter());
+
+    expect(first).toMatchObject({
+      ok: false,
+      error: { code: "dispatch_failed", compensated: true },
+    });
+    expect(second).toMatchObject({
+      ok: false,
+      error: { code: "dispatch_failed", compensated: true },
+    });
+    expect(refund).toHaveBeenCalledTimes(2);
+    expect(refund).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        amount: 5,
+        idempotencyKey:
+          "creative-work:work-1:revision:output-v2:dispatch-refund",
+      }),
+    );
+    expect(refund).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        idempotencyKey:
+          "creative-work:work-1:revision:output-v2:dispatch-refund",
+      }),
+    );
+    expect(send).toHaveBeenCalledOnce();
+    expect(failOutput).toHaveBeenCalledOnce();
+  });
+
+  it("allows only one concurrent revision claimer to charge and dispatch", async () => {
+    getUsage.mockResolvedValue(null);
+    let calls = 0;
+    let claimed = false;
+    let release!: () => void;
+    const bothEntered = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    createRevision.mockImplementation(async () => {
+      calls += 1;
+      if (calls === 2) release();
+      await bothEntered;
+      if (!claimed) {
+        claimed = true;
+        return { output: revisionOutput, claimedForDispatch: true };
+      }
+      return { output: revisionOutput, claimedForDispatch: false };
+    });
+
+    const results = await Promise.all([
+      startGenerationSettlement(revisionAdapter()),
+      startGenerationSettlement(revisionAdapter()),
+    ]);
+
+    expect(results).toEqual([
+      { ok: true, value: { output: revisionOutput } },
+      { ok: true, value: { output: revisionOutput } },
+    ]);
+    expect(chargeBatch).toHaveBeenCalledOnce();
+    expect(send).toHaveBeenCalledOnce();
   });
 });
