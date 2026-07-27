@@ -515,19 +515,22 @@ export async function staleSiblingProposals(input: {
 
 export async function findActiveGenerationForLineage(
   scope: ArtifactScope,
-  lineageId: string
+  lineageId: string,
+  excludeActionId?: string
 ) {
+  const conditions = [
+    eq(assistantActionRecords.workspaceId, scope.workspaceId),
+    eq(assistantActionRecords.threadId, scope.threadId),
+    eq(assistantActionRecords.status, "running"),
+    sql`${assistantActionRecords.inputSnapshot}->>'lineageId' = ${lineageId}`,
+  ];
+  if (excludeActionId) {
+    conditions.push(ne(assistantActionRecords.id, excludeActionId));
+  }
   const rows = await db
     .select({ id: assistantActionRecords.id })
     .from(assistantActionRecords)
-    .where(
-      and(
-        eq(assistantActionRecords.workspaceId, scope.workspaceId),
-        eq(assistantActionRecords.threadId, scope.threadId),
-        eq(assistantActionRecords.status, "running"),
-        sql`${assistantActionRecords.inputSnapshot}->>'lineageId' = ${lineageId}`
-      )
-    )
+    .where(and(...conditions))
     .limit(1);
   return rows.length > 0;
 }

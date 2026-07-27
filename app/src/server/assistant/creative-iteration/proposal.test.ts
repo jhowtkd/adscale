@@ -45,8 +45,10 @@ import { clearCreativeFeedbackDraft } from "./draft";
 import {
   cancelCreativeRevision,
   confirmCreativeRevision,
+  finalizeCreativeRevisionProposal,
   proposeCreativeRevision,
   resolveCreativeRevisionSource,
+  validateCreativeRevisionProposal,
 } from "./proposal";
 import { canonicalProposalPayloadDigest } from "../plan-iteration/digest";
 
@@ -514,5 +516,233 @@ describe("confirmCreativeRevision", () => {
     });
     expect(result.idempotent).toBe(false);
     expect(transitionArtifactProposal).toHaveBeenCalled();
+  });
+});
+
+describe("validateCreativeRevisionProposal", () => {
+  const proposalRecord = {
+    id: "proposal-1",
+    lineageId: creativeLineageId,
+    sourceVersionId: workingVersionId,
+    proposalType: "creative_revision" as const,
+    status: "pending" as const,
+    payload: {
+      type: "creative_revision" as const,
+      schemaVersion: 1 as const,
+      summary: "Revisão visual",
+      intendedChanges: ["Muda cor"],
+      format: "1:1",
+      referenceIds: [],
+      creditImpact: 5,
+      writes: ["Gera nova versão"],
+      planVersionId,
+    },
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  const validDigest = canonicalProposalPayloadDigest(proposalRecord.payload);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(getArtifactProposal).mockResolvedValue(proposalRecord as never);
+    vi.mocked(getArtifactHead).mockResolvedValue(mockHead() as never);
+    vi.mocked(getArtifactLineage).mockResolvedValue({
+      id: creativeLineageId,
+      artifactType: "creative",
+      originalArtifactId: "creative-orig-1",
+    } as never);
+    vi.mocked(getArtifactVersion).mockResolvedValue(workingVersion as never);
+  });
+
+  it("forwards excludeActionId to the active-generation check", async () => {
+    const hasActiveGeneration = vi.fn(async () => false);
+
+    await validateCreativeRevisionProposal({
+      scope,
+      proposalId: "proposal-1",
+      lineageId: creativeLineageId,
+      sourceVersionId: workingVersionId,
+      payloadDigest: validDigest,
+      excludeActionId: "action-self",
+      hasActiveGeneration,
+    });
+
+    expect(hasActiveGeneration).toHaveBeenCalledWith(
+      scope,
+      creativeLineageId,
+      "action-self"
+    );
+  });
+
+  it("uses findActiveGenerationForLineage by default and passes excludeActionId", async () => {
+    const { findActiveGenerationForLineage } = await import(
+      "@/server/repositories/artifact-version"
+    );
+    vi.mocked(findActiveGenerationForLineage).mockResolvedValue(false);
+
+    await validateCreativeRevisionProposal({
+      scope,
+      proposalId: "proposal-1",
+      lineageId: creativeLineageId,
+      sourceVersionId: workingVersionId,
+      payloadDigest: validDigest,
+      excludeActionId: "action-self",
+    });
+
+    expect(findActiveGenerationForLineage).toHaveBeenCalledWith(
+      scope,
+      creativeLineageId,
+      "action-self"
+    );
+  });
+
+  it("rejects when another active generation exists (excluding self)", async () => {
+    await expect(
+      validateCreativeRevisionProposal({
+        scope,
+        proposalId: "proposal-1",
+        lineageId: creativeLineageId,
+        sourceVersionId: workingVersionId,
+        payloadDigest: validDigest,
+        excludeActionId: "action-self",
+        hasActiveGeneration: vi.fn(async () => true),
+      })
+    ).rejects.toBeInstanceOf(ArtifactVersionValidationError);
+  });
+});
+
+describe("finalizeCreativeRevisionProposal", () => {
+  const pendingProposal = {
+    id: "proposal-1",
+    lineageId: creativeLineageId,
+    sourceVersionId: workingVersionId,
+    proposalType: "creative_revision" as const,
+    status: "pending" as const,
+    payload: {
+      type: "creative_revision" as const,
+      schemaVersion: 1 as const,
+      summary: "Revisão visual",
+      intendedChanges: ["Muda cor"],
+      format: "1:1",
+      referenceIds: [],
+      creditImpact: 5,
+      writes: ["Gera nova versão"],
+      planVersionId,
+    },
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(getArtifactProposal).mockResolvedValue(pendingProposal as never);
+    vi.mocked(transitionArtifactProposal).mockResolvedValue({
+      ...pendingProposal,
+      status: "confirmed",
+    } as never);
+    vi.mocked(staleSiblingProposals).mockResolvedValue([]);
+    vi.mocked(listArtifactVersions).mockResolvedValue([]);
+  });
+
+  it("transitions pending proposal to confirmed and stales siblings", async () => {
+    const result = await finalizeCreativeRevisionProposal({
+      scope,
+      proposalId: "proposal-1",
+      lineageId: creativeLineageId,
+      sourceVersionId: workingVersionId,
+      actionId: "action-1",
+    });
+
+    expect(result.idempotent).toBe(false);
+    expect(staleSiblingProposals).toHaveBeenCalledWith({
+      scope,
+      lineageId: creativeLineageId,
+      sourceVersionId: workingVersionId,
+      exceptProposalId: "proposal-1",
+    });
+    expect(transitionArtifactProposal).toHaveBeenCalledWith({
+      scope,
+      proposalId: "proposal-1",
+      nextStatus: "confirmed",
+    });
+  });
+
+  it("returns idempotent when proposal was already confirmed by a concurrent run", async () => {
+    vi.mocked(getArtifactProposal).mockResolvedValue({
+      ...pendingProposal,
+      status: "confirmed",
+    } as never);
+
+    const result = await finalizeCreativeRevisionProposal({
+      scope,
+      proposalId: "proposal-1",
+      lineageId: creativeLineageId,
+      sourceVersionId: workingVersionId,
+      actionId: "action-1",
+    });
+
+    expect(result.idempotent).toBe(true);
+    expect(transitionArtifactProposal).not.toHaveBeenCalled();
+    expect(staleSiblingProposals).not.toHaveBeenCalled();
+  });
+
+  it("returns idempotent when proposal was staled by a sibling confirmation", async () => {
+    vi.mocked(getArtifactProposal).mockResolvedValue({
+      ...pendingProposal,
+      status: "stale",
+    } as never);
+
+    const result = await finalizeCreativeRevisionProposal({
+      scope,
+      proposalId: "proposal-1",
+      lineageId: creativeLineageId,
+      sourceVersionId: workingVersionId,
+      actionId: "action-1",
+    });
+
+    expect(result.idempotent).toBe(true);
+    expect(transitionArtifactProposal).not.toHaveBeenCalled();
+  });
+
+  it("returns idempotent when actionId already produced a version", async () => {
+    vi.mocked(listArtifactVersions).mockResolvedValue([
+      {
+        id: "version-prev",
+        lineageId: creativeLineageId,
+        versionNumber: 2,
+        provenance: { actionId: "action-1" },
+      } as never,
+    ]);
+
+    const result = await finalizeCreativeRevisionProposal({
+      scope,
+      proposalId: "proposal-1",
+      lineageId: creativeLineageId,
+      sourceVersionId: workingVersionId,
+      actionId: "action-1",
+    });
+
+    expect(result.idempotent).toBe(true);
+    expect(transitionArtifactProposal).not.toHaveBeenCalled();
+  });
+
+  it("does NOT re-validate digest, lineage head, or active generation", async () => {
+    const { findActiveGenerationForLineage } = await import(
+      "@/server/repositories/artifact-version"
+    );
+
+    await finalizeCreativeRevisionProposal({
+      scope,
+      proposalId: "proposal-1",
+      lineageId: creativeLineageId,
+      sourceVersionId: workingVersionId,
+      actionId: "action-1",
+    });
+
+    expect(findActiveGenerationForLineage).not.toHaveBeenCalled();
+    expect(getArtifactHead).not.toHaveBeenCalled();
+    expect(getArtifactVersion).not.toHaveBeenCalled();
+    expect(getArtifactLineage).not.toHaveBeenCalled();
   });
 });

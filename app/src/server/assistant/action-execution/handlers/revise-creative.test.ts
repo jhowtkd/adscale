@@ -6,13 +6,13 @@ vi.mock("@/server/billing/paywall", () => ({
 }));
 
 const validateMock = vi.hoisted(() => vi.fn());
-const confirmMock = vi.hoisted(() => vi.fn());
+const finalizeMock = vi.hoisted(() => vi.fn());
 const adapterInputMock = vi.hoisted(() => vi.fn());
 const startSettlementMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/assistant/creative-iteration/proposal", () => ({
   validateCreativeRevisionProposal: validateMock,
-  confirmCreativeRevision: confirmMock,
+  finalizeCreativeRevisionProposal: finalizeMock,
 }));
 
 vi.mock("@/server/repositories/derivation", () => ({
@@ -198,9 +198,9 @@ describe("executeReviseCreative", () => {
       sourceVersion: { versionNumber: 1 },
       lineage: { id: "lineage-1" },
     });
-    confirmMock.mockResolvedValue({
+    finalizeMock.mockResolvedValue({
       version: null,
-      head: { revision: 1 },
+      head: null,
       proposal: { id: "proposal-1", status: "confirmed" },
       idempotent: false,
     });
@@ -214,13 +214,23 @@ describe("executeReviseCreative", () => {
     expect(adapterInputMock).toHaveBeenCalledTimes(1);
     expect(startSettlementMock).toHaveBeenCalledTimes(1);
     expect(startSettlementMock).toHaveBeenCalledWith({ marker: "adapter-input" });
-    expect(confirmMock).toHaveBeenCalledTimes(1);
+    expect(finalizeMock).toHaveBeenCalledTimes(1);
     expect(result).toEqual({
       mode: "async",
       jobRef: { kind: "derivation", id: "derivation-1" },
       resultSummary: "Revisão do criativo em processamento.",
       campaignId: "campaign-1",
     });
+  });
+
+  it("passes excludeActionId to validateCreativeRevisionProposal so the preflight does not detect itself", async () => {
+    await executeReviseCreative(buildContext() as never);
+
+    expect(validateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        excludeActionId: "action-1",
+      })
+    );
   });
 
   it("runs side-effect-free preflight BEFORE settlement so a stale proposal never reaches billing", async () => {
@@ -232,7 +242,7 @@ describe("executeReviseCreative", () => {
       executeReviseCreative(buildContext() as never)
     ).rejects.toThrow(/proposal stale/);
     expect(startSettlementMock).not.toHaveBeenCalled();
-    expect(confirmMock).not.toHaveBeenCalled();
+    expect(finalizeMock).not.toHaveBeenCalled();
   });
 
   it("blocks on concurrent active generation without reaching settlement", async () => {
@@ -244,7 +254,7 @@ describe("executeReviseCreative", () => {
       executeReviseCreative(buildContext() as never)
     ).rejects.toThrow(/em andamento/);
     expect(startSettlementMock).not.toHaveBeenCalled();
-    expect(confirmMock).not.toHaveBeenCalled();
+    expect(finalizeMock).not.toHaveBeenCalled();
   });
 
   it("does NOT consume the proposal when settlement returns credit_blocked", async () => {
@@ -256,7 +266,7 @@ describe("executeReviseCreative", () => {
     await expect(
       executeReviseCreative(buildContext() as never)
     ).rejects.toMatchObject({ code: "credit_blocked" });
-    expect(confirmMock).not.toHaveBeenCalled();
+    expect(finalizeMock).not.toHaveBeenCalled();
   });
 
   it("does NOT consume the proposal when settlement returns dispatch_failed", async () => {
@@ -268,10 +278,10 @@ describe("executeReviseCreative", () => {
     await expect(
       executeReviseCreative(buildContext() as never)
     ).rejects.toMatchObject({ code: "execution_failed" });
-    expect(confirmMock).not.toHaveBeenCalled();
+    expect(finalizeMock).not.toHaveBeenCalled();
   });
 
-  it("confirms the proposal only AFTER settlement produces a real derivation", async () => {
+  it("finalizes the proposal only AFTER settlement produces a real derivation", async () => {
     const callOrder: string[] = [];
     validateMock.mockImplementationOnce(async () => {
       callOrder.push("validate");
@@ -286,11 +296,11 @@ describe("executeReviseCreative", () => {
       callOrder.push("settlement");
       return { ok: true, value: settledValue };
     });
-    confirmMock.mockImplementationOnce(async () => {
-      callOrder.push("confirm");
+    finalizeMock.mockImplementationOnce(async () => {
+      callOrder.push("finalize");
       return {
         version: null,
-        head: { revision: 1 },
+        head: null,
         proposal: { id: "proposal-1", status: "confirmed" },
         idempotent: false,
       };
@@ -298,13 +308,13 @@ describe("executeReviseCreative", () => {
 
     await executeReviseCreative(buildContext() as never);
 
-    expect(callOrder).toEqual(["validate", "settlement", "confirm"]);
+    expect(callOrder).toEqual(["validate", "settlement", "finalize"]);
   });
 
-  it("uses the idempotent summary when confirm reports a duplicate confirmation", async () => {
-    confirmMock.mockResolvedValueOnce({
+  it("uses the idempotent summary when finalize reports a duplicate confirmation", async () => {
+    finalizeMock.mockResolvedValueOnce({
       version: null,
-      head: { revision: 1 },
+      head: null,
       proposal: { id: "proposal-1", status: "confirmed" },
       idempotent: true,
     });
@@ -328,15 +338,15 @@ describe("executeReviseCreative", () => {
       executeReviseCreative(buildContext() as never)
     ).rejects.toMatchObject({ code: "scope_mismatch" });
     expect(startSettlementMock).not.toHaveBeenCalled();
-    expect(confirmMock).not.toHaveBeenCalled();
+    expect(finalizeMock).not.toHaveBeenCalled();
   });
 
-  it("throws execution_failed on invalid inputs without calling validate, settlement, or confirm", async () => {
+  it("throws execution_failed on invalid inputs without calling validate, settlement, or finalize", async () => {
     await expect(
       executeReviseCreative(buildContext({ planVersionId: undefined }) as never)
     ).rejects.toMatchObject({ code: "execution_failed" });
     expect(validateMock).not.toHaveBeenCalled();
     expect(startSettlementMock).not.toHaveBeenCalled();
-    expect(confirmMock).not.toHaveBeenCalled();
+    expect(finalizeMock).not.toHaveBeenCalled();
   });
 });

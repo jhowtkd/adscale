@@ -1,7 +1,7 @@
 import { getActionContract } from "@/server/assistant/action-contracts/registry";
 import { emitArtifactIterationTelemetry } from "@/server/assistant/artifact-iteration-telemetry";
 import {
-  confirmCreativeRevision,
+  finalizeCreativeRevisionProposal,
   validateCreativeRevisionProposal,
 } from "@/server/assistant/creative-iteration/proposal";
 import { logger } from "@/lib/logger";
@@ -69,9 +69,10 @@ export async function executeReviseCreative(
   };
 
   // Side-effect-free preflight: rejects stale / wrong-type proposals and a
-  // concurrent active lineage generation WITHOUT consuming the proposal. The
-  // canonical confirmation (sibling-stale + transition to "confirmed" +
-  // telemetry) only runs after settlement has produced a real derivation.
+  // concurrent active lineage generation WITHOUT consuming the proposal.
+  // excludeActionId = ctx.actionId prevents the preflight from detecting
+  // THIS action (already marked "running" by executeAction) as a conflicting
+  // active generation.
   await validateCreativeRevisionProposal({
     scope: proposalScope,
     proposalId: inputSnapshot.proposalId,
@@ -79,6 +80,7 @@ export async function executeReviseCreative(
     sourceVersionId: inputSnapshot.sourceVersionId,
     payloadDigest: inputSnapshot.payloadDigest,
     lineageHeadRevision: inputSnapshot.lineageHeadRevision,
+    excludeActionId: ctx.actionId,
   });
 
   const artifactScope = proposalScope;
@@ -177,17 +179,22 @@ export async function executeReviseCreative(
   // Settlement has produced a real derivation. Only now is it safe to mark
   // the proposal as confirmed and stale its siblings — a credit_blocked or
   // dispatch_failed attempt must NOT consume the proposal.
-  const confirmResult = await confirmCreativeRevision({
+  //
+  // finalizeCreativeRevisionProposal is idempotent: if a concurrent run
+  // already confirmed the proposal (or produced a version for this actionId),
+  // this returns success instead of throwing. Mutable preflight checks
+  // (proposal status, active generation) are NOT re-run — they were validated
+  // before settlement and re-running them after dispatch creates a TOCTOU
+  // window where a correctly-dispatched job would be marked failed.
+  const finalizeResult = await finalizeCreativeRevisionProposal({
     scope: proposalScope,
     proposalId: inputSnapshot.proposalId,
     lineageId: inputSnapshot.lineageId,
     sourceVersionId: inputSnapshot.sourceVersionId,
-    payloadDigest: inputSnapshot.payloadDigest,
-    lineageHeadRevision: inputSnapshot.lineageHeadRevision,
     actionId: ctx.actionId,
   });
 
-  const summary = confirmResult.idempotent
+  const summary = finalizeResult.idempotent
     ? "Revisão do criativo em processamento (ação já confirmada)."
     : "Revisão do criativo em processamento.";
 

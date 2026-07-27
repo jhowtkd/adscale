@@ -47,7 +47,8 @@ const CREATIVE_CREDIT_COST = 5;
 
 export type FindActiveGeneration = (
   scope: ArtifactScope,
-  lineageId: string
+  lineageId: string,
+  excludeActionId?: string
 ) => Promise<boolean>;
 
 function versionLabel(versionNumber: number): string {
@@ -436,6 +437,7 @@ export async function validateCreativeRevisionProposal(input: {
   payloadDigest: string;
   lineageHeadRevision?: number;
   hasActiveGeneration?: FindActiveGeneration;
+  excludeActionId?: string;
 }): Promise<{
   proposal: NonNullable<Awaited<ReturnType<typeof getArtifactProposal>>>;
   head: NonNullable<Awaited<ReturnType<typeof getArtifactHead>>>;
@@ -493,7 +495,11 @@ export async function validateCreativeRevisionProposal(input: {
   }
 
   const checkActive = input.hasActiveGeneration ?? findActiveGenerationForLineage;
-  const hasActive = await checkActive(input.scope, input.lineageId);
+  const hasActive = await checkActive(
+    input.scope,
+    input.lineageId,
+    input.excludeActionId
+  );
   if (hasActive) {
     throw new ArtifactVersionValidationError(
       "Já existe uma geração em andamento para este criativo."
@@ -561,6 +567,76 @@ export async function confirmCreativeRevision(input: {
   return {
     version: null,
     head,
+    proposal: confirmed,
+    idempotent: false as const,
+  };
+}
+
+/**
+ * Post-dispatch idempotent finalization. Performs ONLY the mutations
+ * (stale siblings + transition proposal) without re-running mutable preflight
+ * checks (proposal status, active generation, digest). A concurrent run that
+ * already confirmed the proposal must NOT cause this call to throw — the
+ * dispatch already succeeded.
+ *
+ * Use this AFTER paid work (settlement) has produced a real derivation.
+ * Use `validateCreativeRevisionProposal` for the side-effect-free preflight
+ * BEFORE settlement.
+ */
+export async function finalizeCreativeRevisionProposal(input: {
+  scope: ArtifactScope;
+  proposalId: string;
+  lineageId: string;
+  sourceVersionId: string;
+  actionId?: string | null;
+}) {
+  if (input.actionId) {
+    const existing = await findVersionByActionId(
+      input.scope,
+      input.lineageId,
+      input.actionId
+    );
+    if (existing) {
+      return { version: existing, head: null, proposal: null, idempotent: true as const };
+    }
+  }
+
+  const proposal = await getArtifactProposal(input.scope, input.proposalId);
+  if (!proposal) {
+    return { version: null, head: null, proposal: null, idempotent: true as const };
+  }
+  if (proposal.status !== "pending") {
+    return { version: null, head: null, proposal, idempotent: true as const };
+  }
+
+  await staleSiblingProposals({
+    scope: input.scope,
+    lineageId: input.lineageId,
+    sourceVersionId: input.sourceVersionId,
+    exceptProposalId: input.proposalId,
+  });
+
+  const confirmed = await transitionArtifactProposal({
+    scope: input.scope,
+    proposalId: input.proposalId,
+    nextStatus: "confirmed",
+  });
+
+  emitArtifactIterationTelemetry({
+    scope: input.scope,
+    eventKey: "proposal_confirmed",
+    metadata: {
+      artifactType: "creative",
+      lineageId: input.lineageId,
+      proposalId: input.proposalId,
+      ...(input.actionId ? { actionId: input.actionId } : {}),
+      idempotent: false,
+    },
+  });
+
+  return {
+    version: null,
+    head: null,
     proposal: confirmed,
     idempotent: false as const,
   };
