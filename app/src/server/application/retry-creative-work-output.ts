@@ -18,6 +18,7 @@ import {
   requeueFailedCreativeWorkOutput,
 } from "@/server/repositories/creative-work";
 import { reactivateCreativeWorkOutputRefund } from "@/server/generation/settlement-adapters";
+import { GENERATION_CREDIT_COSTS } from "@/server/generation/canonical/types";
 import type { CreativeWorkOutput } from "@/server/db/schema";
 
 export type RetryCreativeWorkOutputInput = {
@@ -80,11 +81,13 @@ export async function retryCreativeWorkOutput(
   }
 
   // Reactivate the refunded charge BEFORE the enqueue so a retried output
-  // always holds exactly one net debit. Idempotent per refund kind.
+  // always holds exactly one net debit. Idempotent per refund kind. The
+  // application layer owns the product price; settlement only executes it.
   const reactivation = await reactivateCreativeWorkOutputRefund({
     workspaceId: input.workspaceId,
     workItemId: input.workItemId,
     outputId: input.outputId,
+    amount: GENERATION_CREDIT_COSTS.creativeWorkOutput,
     userId: input.userId,
   });
   if ("blocked" in reactivation) {

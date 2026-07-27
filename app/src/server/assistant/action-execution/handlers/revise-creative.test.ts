@@ -58,7 +58,13 @@ vi.mock("@/server/repositories/usage", () => ({
 
 vi.mock("@/server/billing/credits", () => ({
   refundCredits: vi.fn(),
-  CREDIT_COSTS: { image_derivation: 5, creative_work_output: 5, social_post: 5, restyling: 5, regeneration: 5 },
+  CREDIT_COSTS: {
+    image_derivation: 5,
+    creative_work_output: 5,
+    social_post: 5,
+    restyling: 5,
+    regeneration: 5,
+  },
 }));
 
 vi.mock("@/server/generation/settlement", () => ({
@@ -67,16 +73,12 @@ vi.mock("@/server/generation/settlement", () => ({
 
 import "@/server/assistant/action-contracts/contracts";
 import { confirmCreativeRevision } from "@/server/assistant/creative-iteration/proposal";
-import { createDerivation } from "@/server/repositories/derivation";
-import { inngest } from "@/server/jobs/client";
 import { startGenerationSettlement } from "@/server/generation/settlement";
 import { reviseCreativeInputSchema } from "@/server/assistant/action-contracts/contracts/revise-creative";
 import { getActionContract } from "@/server/assistant/action-contracts/registry";
 import { executeReviseCreative } from "./revise-creative";
 
 const mockConfirm = vi.mocked(confirmCreativeRevision);
-const mockCreateDerivation = vi.mocked(createDerivation);
-const mockInngestSend = vi.mocked(inngest.send);
 const mockStartSettlement = vi.mocked(startGenerationSettlement);
 
 function buildContext(overrides: Record<string, unknown> = {}) {
@@ -98,6 +100,18 @@ function buildContext(overrides: Record<string, unknown> = {}) {
     },
   };
 }
+
+const settledValue = {
+  derivation: {
+    id: "derivation-1",
+    campaignId: "campaign-1",
+    workspaceId: "ws-1",
+    status: "queued",
+    format: "1:1",
+    generationMode: "creative_revision",
+    variantIndex: 0,
+  },
+};
 
 describe("revise_creative contract", () => {
   it("registers revise_creative in the action contract registry", () => {
@@ -173,101 +187,86 @@ describe("revise_creative contract", () => {
 describe("executeReviseCreative", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockCreateDerivation.mockResolvedValue({
-      id: "derivation-1",
-      campaignId: "campaign-1",
-      workspaceId: "ws-1",
-      status: "queued",
-      format: "1:1",
-      generationMode: "creative_revision",
-      variantIndex: 0,
-      updatedAt: new Date("2026-07-27T12:00:00.000Z"),
-    } as never);
-    mockInngestSend.mockResolvedValue({ ids: ["event-1"] } as never);
-    mockStartSettlement.mockImplementation(async (adapter) => {
-      const reservation = await adapter.reserve();
-      const charge = await adapter.charge(reservation);
-      if (!charge.ok) return { ok: false, error: { code: "credit_blocked", reason: charge.reason } };
-      await adapter.dispatch(reservation);
-      await adapter.completeDispatch(reservation);
-      return { ok: true, value: reservation.value };
-    });
     mockConfirm.mockResolvedValue({
       proposal: null,
       head: null,
       idempotent: false,
       version: { id: "v-new", versionNumber: 1 },
     } as never);
+    mockStartSettlement.mockResolvedValue({
+      ok: true,
+      value: settledValue,
+    });
   });
 
-  it("delegates charge, reservation, dispatch, and ack to Generation Settlement", async () => {
+  it("delegates to startGenerationSettlement and translates its typed result", async () => {
     const result = await executeReviseCreative(buildContext() as never);
 
-    expect(result.mode).toBe("async");
     expect(mockStartSettlement).toHaveBeenCalledTimes(1);
-    expect(mockCreateDerivation).toHaveBeenCalledTimes(1);
-    expect(mockInngestSend).toHaveBeenCalledTimes(1);
-  });
-
-  it("returns async mode with derivation jobRef", async () => {
-    const result = await executeReviseCreative(buildContext() as never);
-
     expect(result).toEqual({
       mode: "async",
       jobRef: { kind: "derivation", id: "derivation-1" },
-      resultSummary: expect.stringContaining("Revisão do criativo"),
+      resultSummary: "Revisão do criativo em processamento.",
       campaignId: "campaign-1",
     });
   });
 
-  it("duplicate confirm surfaces idempotent summary", async () => {
-    mockConfirm.mockResolvedValue({
-      proposal: null,
-      head: null,
-      idempotent: true,
-      version: { id: "v-existing", versionNumber: 4 },
-    } as never);
-
-    const result = await executeReviseCreative(buildContext() as never);
-
-    expect(result.resultSummary).toContain("já confirmada");
-  });
-
-  it("throws credit_blocked when settlement reports credit_blocked", async () => {
+  it("surfaces credit_blocked as the typed Assistant error", async () => {
     mockStartSettlement.mockResolvedValueOnce({
       ok: false,
       error: { code: "credit_blocked", reason: "insufficient_credits" },
     });
 
-    await expect(executeReviseCreative(buildContext() as never)).rejects.toMatchObject({
-      code: "credit_blocked",
-    });
-    expect(mockConfirm).not.toHaveBeenCalled();
+    await expect(
+      executeReviseCreative(buildContext() as never)
+    ).rejects.toMatchObject({ code: "credit_blocked" });
   });
 
-  it("throws execution_failed when settlement reports dispatch_failed", async () => {
+  it("surfaces dispatch_failed as execution_failed", async () => {
     mockStartSettlement.mockResolvedValueOnce({
       ok: false,
       error: {
         code: "dispatch_failed",
-        value: {
-          derivation: {
-            id: "derivation-1",
-            campaignId: "campaign-1",
-            workspaceId: "ws-1",
-            status: "failed",
-          },
-        },
+        value: settledValue,
         compensated: true,
       },
     });
 
-    await expect(executeReviseCreative(buildContext() as never)).rejects.toMatchObject({
-      code: "execution_failed",
-    });
+    await expect(
+      executeReviseCreative(buildContext() as never)
+    ).rejects.toMatchObject({ code: "execution_failed" });
   });
 
-  it("throws execution_failed when thread has no campaign", async () => {
+  it("runs confirmCreativeRevision BEFORE settlement so a stale proposal never enqueues paid work", async () => {
+    const callOrder: string[] = [];
+    mockConfirm.mockImplementationOnce(async () => {
+      callOrder.push("confirm");
+      throw new Error("proposal stale");
+    });
+    mockStartSettlement.mockImplementationOnce(async () => {
+      callOrder.push("settlement");
+      return { ok: true, value: settledValue };
+    });
+
+    await expect(
+      executeReviseCreative(buildContext() as never)
+    ).rejects.toThrow(/proposal stale/);
+    expect(callOrder).toEqual(["confirm"]);
+    expect(mockStartSettlement).not.toHaveBeenCalled();
+  });
+
+  it("blocks on concurrent active generation without reaching settlement", async () => {
+    mockConfirm.mockRejectedValueOnce(
+      new Error("Já existe uma geração em andamento para este criativo."),
+    );
+
+    await expect(
+      executeReviseCreative(buildContext() as never)
+    ).rejects.toThrow(/em andamento/);
+    expect(mockStartSettlement).not.toHaveBeenCalled();
+  });
+
+  it("throws scope_mismatch when thread has no campaign", async () => {
     const { getAssistantThreadById } = await import(
       "@/server/repositories/assistant-thread"
     );
@@ -277,15 +276,30 @@ describe("executeReviseCreative", () => {
       campaignId: null,
     } as never);
 
-    await expect(executeReviseCreative(buildContext() as never)).rejects.toMatchObject({
-      code: "scope_mismatch",
-    });
+    await expect(
+      executeReviseCreative(buildContext() as never)
+    ).rejects.toMatchObject({ code: "scope_mismatch" });
+    expect(mockStartSettlement).not.toHaveBeenCalled();
   });
 
-  it("invalid inputs throws execution_failed", async () => {
+  it("throws execution_failed on invalid inputs without calling confirm or settlement", async () => {
     await expect(
       executeReviseCreative(buildContext({ planVersionId: undefined }) as never)
     ).rejects.toMatchObject({ code: "execution_failed" });
+    expect(mockConfirm).not.toHaveBeenCalled();
     expect(mockStartSettlement).not.toHaveBeenCalled();
+  });
+
+  it("uses the idempotent summary when confirm reports a duplicate confirmation", async () => {
+    mockConfirm.mockResolvedValueOnce({
+      proposal: null,
+      head: null,
+      idempotent: true,
+      version: { id: "v-existing", versionNumber: 4 },
+    } as never);
+
+    const result = await executeReviseCreative(buildContext() as never);
+
+    expect(result.resultSummary).toContain("já confirmada");
   });
 });

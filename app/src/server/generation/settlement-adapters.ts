@@ -2415,15 +2415,19 @@ function creativeWorkReactivationIdempotencyKey(
 /**
  * Idempotent reactivation of the original per-output charge. For every
  * refund kind whose refund ledger row exists without a matching reactivation
- * row, re-debit the per-output amount under `...:reactivate-<kind>`.
+ * row, re-debit the product-resolved amount under `...:reactivate-<kind>`.
  * `recordUsage` is idempotent by key, so repeating the manual command never
  * duplicates the debit; a blocked reactivation (insufficient credits) stops
  * the retry before any requeue/enqueue.
+ *
+ * The caller resolves the price (see CONTEXT.md): settlement executes
+ * reactivation but does not define pricing.
  */
 export async function reactivateCreativeWorkOutputRefund(input: {
   workspaceId: string;
   workItemId: string;
   outputId: string;
+  amount: number;
   userId?: string;
 }): Promise<{ reactivated: CreativeWorkRefundKeyKind[] } | { blocked: true }> {
   const reactivated: CreativeWorkRefundKeyKind[] = [];
@@ -2449,7 +2453,7 @@ export async function reactivateCreativeWorkOutputRefund(input: {
       workspaceId: input.workspaceId,
       action: "image_derivation",
       idempotencyKey: reactivationKey,
-      amount: GENERATION_CREDIT_COSTS.creativeWorkOutput,
+      amount: input.amount,
       metadata: {
         creativeWorkId: input.workItemId,
         outputId: input.outputId,

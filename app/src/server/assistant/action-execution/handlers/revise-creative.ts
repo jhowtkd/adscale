@@ -58,6 +58,44 @@ export async function executeReviseCreative(
       ? ctx.inputSnapshot.format
       : "1:1";
 
+  // Validate the proposal and the lineage's "no active generation" guard
+  // BEFORE settlement so an invalid or stale proposal can never produce a
+  // charged derivation + dispatched job. Settlement owns reservation, charge,
+  // dispatch, and synchronous-dispatch compensation only.
+  const confirmResult = await confirmCreativeRevision({
+    scope: {
+      workspaceId: ctx.workspaceId,
+      clientProfileId: ctx.clientProfileId,
+      campaignId,
+      threadId: ctx.threadId,
+    },
+    proposalId: inputSnapshot.proposalId,
+    lineageId: inputSnapshot.lineageId,
+    sourceVersionId: inputSnapshot.sourceVersionId,
+    payloadDigest: inputSnapshot.payloadDigest,
+    lineageHeadRevision: inputSnapshot.lineageHeadRevision,
+    actionId: ctx.actionId,
+  });
+
+  const artifactScope = {
+    workspaceId: ctx.workspaceId,
+    clientProfileId: ctx.clientProfileId,
+    campaignId,
+    threadId: ctx.threadId,
+  };
+
+  if (attempt > 0) {
+    emitArtifactIterationTelemetry({
+      scope: artifactScope,
+      eventKey: "retry_requested",
+      metadata: {
+        artifactType: "creative",
+        actionId: ctx.actionId,
+        isRetry: true,
+      },
+    });
+  }
+
   const settled = await startGenerationSettlement(
     campaignDerivationUnitSettlementAdapter({
       workspaceId: ctx.workspaceId,
@@ -111,12 +149,7 @@ export async function executeReviseCreative(
       settled.error
     );
     emitArtifactIterationTelemetry({
-      scope: {
-        workspaceId: ctx.workspaceId,
-        clientProfileId: ctx.clientProfileId,
-        campaignId,
-        threadId: ctx.threadId,
-      },
+      scope: artifactScope,
       eventKey: "generation_failed",
       metadata: {
         artifactType: "creative",
@@ -128,42 +161,6 @@ export async function executeReviseCreative(
       "Falha ao enfileirar a geração da revisão do criativo.",
       "execution_failed"
     );
-  }
-
-  const derivation = settled.value.derivation;
-
-  const confirmResult = await confirmCreativeRevision({
-    scope: {
-      workspaceId: ctx.workspaceId,
-      clientProfileId: ctx.clientProfileId,
-      campaignId,
-      threadId: ctx.threadId,
-    },
-    proposalId: inputSnapshot.proposalId,
-    lineageId: inputSnapshot.lineageId,
-    sourceVersionId: inputSnapshot.sourceVersionId,
-    payloadDigest: inputSnapshot.payloadDigest,
-    lineageHeadRevision: inputSnapshot.lineageHeadRevision,
-    actionId: ctx.actionId,
-  });
-
-  const artifactScope = {
-    workspaceId: ctx.workspaceId,
-    clientProfileId: ctx.clientProfileId,
-    campaignId,
-    threadId: ctx.threadId,
-  };
-
-  if (attempt > 0) {
-    emitArtifactIterationTelemetry({
-      scope: artifactScope,
-      eventKey: "retry_requested",
-      metadata: {
-        artifactType: "creative",
-        actionId: ctx.actionId,
-        isRetry: true,
-      },
-    });
   }
 
   emitArtifactIterationTelemetry({
@@ -184,7 +181,7 @@ export async function executeReviseCreative(
 
   return {
     mode: "async" as const,
-    jobRef: { kind: "derivation" as const, id: derivation.id },
+    jobRef: { kind: "derivation" as const, id: settled.value.derivation.id },
     resultSummary: summary,
     campaignId,
   };
