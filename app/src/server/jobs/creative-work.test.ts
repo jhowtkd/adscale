@@ -22,7 +22,37 @@ const ensureLibraryMock = vi.hoisted(() => vi.fn());
 const objectGetMock = vi.hoisted(() => vi.fn());
 const objectPutMock = vi.hoisted(() => vi.fn());
 
-const refundCreditsMock = vi.hoisted(() => vi.fn());
+const settleTerminalRefundMock = vi.hoisted(() =>
+  vi.fn(
+    async (input: {
+      decision: {
+        refund: boolean;
+        reason: string;
+        amount?: number;
+        idempotencyKey?: string;
+      };
+    }) => {
+      if (!input.decision.refund) {
+        return {
+          refunded: false as const,
+          applied: true as const,
+          reason: input.decision.reason,
+        };
+      }
+      return {
+        refunded: true as const,
+        applied: true as const,
+        reason: input.decision.reason,
+        status: "refunded" as const,
+      };
+    },
+  ),
+);
+
+vi.mock("@/server/generation/settlement", () => ({
+  settleTerminalRefund: (...args: unknown[]) =>
+    settleTerminalRefundMock(...args),
+}));
 
 vi.mock("@/server/repositories/creative-work", () => ({
   CREATIVE_WORK_MAX_IMAGE_CALLS: 2,
@@ -51,10 +81,6 @@ vi.mock("@/server/creative-work/reference-normalize", () => ({
 vi.mock("@/server/application/ensure-creative-work-output-library", () => ({
   ensureCreativeWorkOutputInLibrary: (...args: unknown[]) =>
     ensureLibraryMock(...args),
-}));
-
-vi.mock("@/server/billing/credits", () => ({
-  refundCredits: (...args: unknown[]) => refundCreditsMock(...args),
 }));
 
 vi.mock("@/server/repositories/client-reference", () => ({
@@ -303,7 +329,7 @@ describe("creativeWorkOutputJob", () => {
     failMock.mockResolvedValue(makeQueuedOutput({ status: "failed" }));
     failQueuedMock.mockResolvedValue(makeQueuedOutput({ status: "failed", retryCount: 1 }));
     refreshStatusMock.mockResolvedValue("completed");
-    refundCreditsMock.mockResolvedValue({ status: "refunded" });
+    settleTerminalRefundMock.mockClear();
     requeueOnceMock.mockResolvedValue(null);
     // R-006/R-007 defaults: the first provider call is claimable and the
     // lease is always held; tests exercise exhaustion/lease-loss explicitly.
@@ -375,10 +401,13 @@ describe("creativeWorkOutputJob", () => {
       "generation_interrupted",
     );
     expect(refreshStatusMock).toHaveBeenCalledWith("workspace-1", "work-1");
-    expect(refundCreditsMock).toHaveBeenCalledWith(expect.objectContaining({
+    expect(settleTerminalRefundMock).toHaveBeenCalledWith(expect.objectContaining({
       workspaceId: "workspace-1",
-      amount: 5,
-      idempotencyKey: "creative-output:output-1:compensatory-refund",
+      decision: expect.objectContaining({
+        refund: true,
+        amount: 5,
+        idempotencyKey: "creative-output:output-1:compensatory-refund",
+      }),
     }));
   });
 
@@ -418,7 +447,7 @@ describe("creativeWorkOutputJob", () => {
     expect(ensureLibraryMock).toHaveBeenCalledAfter(completeMock);
     expect(refreshStatusMock).toHaveBeenCalledWith("workspace-1", "work-1");
     // No refund should fire on a happy path.
-    expect(refundCreditsMock).not.toHaveBeenCalled();
+    expect(settleTerminalRefundMock).not.toHaveBeenCalled();
   });
 
   it("routes the job by the generation policy version frozen in the snapshot, not the env switch", async () => {
@@ -584,8 +613,11 @@ describe("creativeWorkOutputJob", () => {
     const result = await runJob();
     expect(result).toMatchObject({ success: false, failureCode: "provider_timeout" });
     expect(requeueOnceMock).not.toHaveBeenCalled();
-    expect(refundCreditsMock).toHaveBeenCalledWith(expect.objectContaining({
-      idempotencyKey: "creative-output:output-1:compensatory-refund",
+    expect(settleTerminalRefundMock).toHaveBeenCalledWith(expect.objectContaining({
+      decision: expect.objectContaining({
+        refund: true,
+        idempotencyKey: "creative-output:output-1:compensatory-refund",
+      }),
     }));
   });
 
@@ -785,8 +817,11 @@ describe("creativeWorkOutputJob", () => {
     );
     expect(refreshStatusMock).toHaveBeenCalledWith("workspace-1", "work-1");
     expect(completeMock).not.toHaveBeenCalled();
-    expect(refundCreditsMock).toHaveBeenCalledWith(expect.objectContaining({
-      idempotencyKey: "creative-output:output-1:compensatory-refund",
+    expect(settleTerminalRefundMock).toHaveBeenCalledWith(expect.objectContaining({
+      decision: expect.objectContaining({
+        refund: true,
+        idempotencyKey: "creative-output:output-1:compensatory-refund",
+      }),
     }));
   });
 
@@ -800,13 +835,14 @@ describe("creativeWorkOutputJob", () => {
 
     await runJob();
 
-    expect(refundCreditsMock).toHaveBeenCalledWith(
+    expect(settleTerminalRefundMock).toHaveBeenCalledWith(
       expect.objectContaining({
         workspaceId: "workspace-1",
-        action: "image_derivation",
-        amount: 5,
-        idempotencyKey:
-          "creative-output:output-1:compensatory-refund",
+        decision: expect.objectContaining({
+          refund: true,
+          amount: 5,
+          idempotencyKey: "creative-output:output-1:compensatory-refund",
+        }),
       }),
     );
     expect(failMock).toHaveBeenCalled();
@@ -836,13 +872,14 @@ describe("creativeWorkOutputJob", () => {
       "output-1",
       "low_quality",
     );
-    expect(refundCreditsMock).toHaveBeenCalledWith(
+    expect(settleTerminalRefundMock).toHaveBeenCalledWith(
       expect.objectContaining({
         workspaceId: "workspace-1",
-        action: "image_derivation",
-        amount: 5,
-        idempotencyKey:
-          "creative-output:output-1:compensatory-refund",
+        decision: expect.objectContaining({
+          refund: true,
+          amount: 5,
+          idempotencyKey: "creative-output:output-1:compensatory-refund",
+        }),
       }),
     );
     expect(completeMock).not.toHaveBeenCalled();
@@ -888,7 +925,7 @@ describe("creativeWorkOutputJob", () => {
       "output-1",
       expect.objectContaining({ quality: null }),
     );
-    expect(refundCreditsMock).not.toHaveBeenCalled();
+    expect(settleTerminalRefundMock).not.toHaveBeenCalled();
     expect(failMock).not.toHaveBeenCalled();
   });
 
@@ -1119,8 +1156,11 @@ describe("creativeWorkOutputJob", () => {
       expect(generateAndStoreImageMock).not.toHaveBeenCalled();
       expect(failMock).toHaveBeenCalledWith("workspace-1", "work-1", "output-1", "reference_failure");
       // Pre-provider failure: the per-output credit is refunded.
-      expect(refundCreditsMock).toHaveBeenCalledWith(
-        expect.objectContaining({ workspaceId: "workspace-1", amount: 5 }),
+      expect(settleTerminalRefundMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          workspaceId: "workspace-1",
+          decision: expect.objectContaining({ refund: true, amount: 5 }),
+        }),
       );
       expect(completeMock).not.toHaveBeenCalled();
     });
@@ -1141,8 +1181,11 @@ describe("creativeWorkOutputJob", () => {
       expect(result).toMatchObject({ success: false, failureCode: "reference_failure" });
       expect(generateAndStoreImageMock).not.toHaveBeenCalled();
       expect(failMock).toHaveBeenCalledWith("workspace-1", "work-1", "output-1", "reference_failure");
-      expect(refundCreditsMock).toHaveBeenCalledWith(
-        expect.objectContaining({ workspaceId: "workspace-1", amount: 5 }),
+      expect(settleTerminalRefundMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          workspaceId: "workspace-1",
+          decision: expect.objectContaining({ refund: true, amount: 5 }),
+        }),
       );
     });
 
@@ -1234,7 +1277,7 @@ describe("creativeWorkOutputJob", () => {
           String(message).includes("optional reference skipped") && String(message).includes(failingIdentityKey)),
       ).toBe(true);
       expect(failMock).not.toHaveBeenCalled();
-      expect(refundCreditsMock).not.toHaveBeenCalled();
+      expect(settleTerminalRefundMock).not.toHaveBeenCalled();
     });
 
     it("numbers the prompt references after the slots that actually loaded when an optional download fails", async () => {
@@ -1301,8 +1344,11 @@ describe("creativeWorkOutputJob", () => {
       expect(result).toMatchObject({ success: false, failureCode: "reference_failure" });
       expect(generateAndStoreImageMock).not.toHaveBeenCalled();
       expect(failMock).toHaveBeenCalledWith("workspace-1", "work-1", "output-1", "reference_failure");
-      expect(refundCreditsMock).toHaveBeenCalledWith(
-        expect.objectContaining({ workspaceId: "workspace-1", amount: 5 }),
+      expect(settleTerminalRefundMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          workspaceId: "workspace-1",
+          decision: expect.objectContaining({ refund: true, amount: 5 }),
+        }),
       );
     });
 
@@ -1463,7 +1509,7 @@ describe("creativeWorkOutputJob", () => {
       expect(first).toMatchObject({ success: true });
       expect(second).toMatchObject({ skipped: true });
       expect(generateAndStoreImageMock).toHaveBeenCalledTimes(1);
-      expect(refundCreditsMock).not.toHaveBeenCalled();
+      expect(settleTerminalRefundMock).not.toHaveBeenCalled();
       expect(sendMock).not.toHaveBeenCalled();
     });
   });
@@ -1510,7 +1556,7 @@ describe("creativeWorkOutputJob", () => {
           references: { ok: true, missingRequired: [] },
         },
       });
-      expect(refundCreditsMock).not.toHaveBeenCalled();
+      expect(settleTerminalRefundMock).not.toHaveBeenCalled();
     });
 
     it("score 95 + confirmed objective finding triggers the exclusive correction and completes on pass", async () => {
@@ -1575,7 +1621,7 @@ describe("creativeWorkOutputJob", () => {
       );
       // The correction never charges, never refunds and never requeues.
       expect(failMock).not.toHaveBeenCalled();
-      expect(refundCreditsMock).not.toHaveBeenCalled();
+      expect(settleTerminalRefundMock).not.toHaveBeenCalled();
       expect(requeueOnceMock).not.toHaveBeenCalled();
       expect(sendMock).not.toHaveBeenCalled();
     });
@@ -1597,7 +1643,7 @@ describe("creativeWorkOutputJob", () => {
       expect(result).toMatchObject({ success: true });
       expect(completeMock).toHaveBeenCalled();
       expect(failMock).not.toHaveBeenCalled();
-      expect(refundCreditsMock).not.toHaveBeenCalled();
+      expect(settleTerminalRefundMock).not.toHaveBeenCalled();
       expect(completedQuality()).toMatchObject({
         objectiveVerdict: "pass",
         subjective: {
@@ -1627,7 +1673,7 @@ describe("creativeWorkOutputJob", () => {
       expect(failMock).not.toHaveBeenCalled();
       expect(requeueOnceMock).not.toHaveBeenCalled();
       expect(sendMock).not.toHaveBeenCalled();
-      expect(refundCreditsMock).not.toHaveBeenCalled();
+      expect(settleTerminalRefundMock).not.toHaveBeenCalled();
     });
 
     it("wrong dimensions fail again after the correction → terminal factual_violation with idempotent refund", async () => {
@@ -1656,10 +1702,13 @@ describe("creativeWorkOutputJob", () => {
       expect(generateAndStoreImageMock).toHaveBeenCalledTimes(2);
       expect(completeMock).not.toHaveBeenCalled();
       expect(failMock).toHaveBeenCalledWith("workspace-1", "work-1", "output-1", "factual_violation");
-      expect(refundCreditsMock).toHaveBeenCalledWith(
+      expect(settleTerminalRefundMock).toHaveBeenCalledWith(
         expect.objectContaining({
-          idempotencyKey: "creative-work:work-1:output:output-1:terminal-refund",
-          amount: 5,
+          decision: expect.objectContaining({
+            refund: true,
+            idempotencyKey: "creative-work:work-1:output:output-1:terminal-refund",
+            amount: 5,
+          }),
           metadata: expect.objectContaining({
             description: "creative_work_output_terminal_refund",
             reason: "creative_work_objective_correction_failed",
@@ -1756,10 +1805,13 @@ describe("creativeWorkOutputJob", () => {
       expect(generateAndStoreImageMock).not.toHaveBeenCalled();
       expect(completeMock).not.toHaveBeenCalled();
       expect(failMock).toHaveBeenCalledWith("workspace-1", "work-1", "output-1", "image_call_budget_exhausted");
-      expect(refundCreditsMock).toHaveBeenCalledWith(
+      expect(settleTerminalRefundMock).toHaveBeenCalledWith(
         expect.objectContaining({
-          idempotencyKey: "creative-work:work-1:output:output-1:terminal-refund",
-          amount: 5,
+          decision: expect.objectContaining({
+            refund: true,
+            idempotencyKey: "creative-work:work-1:output:output-1:terminal-refund",
+            amount: 5,
+          }),
         }),
       );
     });
@@ -1786,9 +1838,12 @@ describe("creativeWorkOutputJob", () => {
       // third call, terminal idempotent refund instead.
       expect(requeueOnceMock).not.toHaveBeenCalled();
       expect(sendMock).not.toHaveBeenCalled();
-      expect(refundCreditsMock).toHaveBeenCalledWith(
+      expect(settleTerminalRefundMock).toHaveBeenCalledWith(
         expect.objectContaining({
-          idempotencyKey: "creative-work:work-1:output:output-1:terminal-refund",
+          decision: expect.objectContaining({
+            refund: true,
+            idempotencyKey: "creative-work:work-1:output:output-1:terminal-refund",
+          }),
         }),
       );
       expect(failMock).toHaveBeenCalledWith("workspace-1", "work-1", "output-1", "provider_timeout");
@@ -1808,7 +1863,7 @@ describe("creativeWorkOutputJob", () => {
       expect(sendMock).toHaveBeenCalledWith({ name: "creative-work.generate", data: baseEvent });
       // The transport retry keeps the charge — no refund before the second
       // call exists.
-      expect(refundCreditsMock).not.toHaveBeenCalled();
+      expect(settleTerminalRefundMock).not.toHaveBeenCalled();
     });
 
     it("denies the correction when a transport retry already consumed the second call", async () => {
@@ -1838,9 +1893,12 @@ describe("creativeWorkOutputJob", () => {
       expect(generateAndStoreImageMock).toHaveBeenCalledTimes(1);
       expect(completeMock).not.toHaveBeenCalled();
       expect(failMock).toHaveBeenCalledWith("workspace-1", "work-1", "output-1", "image_call_budget_exhausted");
-      expect(refundCreditsMock).toHaveBeenCalledWith(
+      expect(settleTerminalRefundMock).toHaveBeenCalledWith(
         expect.objectContaining({
-          idempotencyKey: "creative-work:work-1:output:output-1:terminal-refund",
+          decision: expect.objectContaining({
+            refund: true,
+            idempotencyKey: "creative-work:work-1:output:output-1:terminal-refund",
+          }),
         }),
       );
     });
@@ -1857,7 +1915,7 @@ describe("creativeWorkOutputJob", () => {
       expect(claimImageCallMock).not.toHaveBeenCalled();
       expect(completeMock).not.toHaveBeenCalled();
       expect(failMock).not.toHaveBeenCalled();
-      expect(refundCreditsMock).not.toHaveBeenCalled();
+      expect(settleTerminalRefundMock).not.toHaveBeenCalled();
     });
 
     it("discards a late completion without touching billing or library", async () => {
@@ -1869,7 +1927,7 @@ describe("creativeWorkOutputJob", () => {
 
       expect(result).toMatchObject({ success: true, skipped: true });
       expect(ensureLibraryMock).not.toHaveBeenCalled();
-      expect(refundCreditsMock).not.toHaveBeenCalled();
+      expect(settleTerminalRefundMock).not.toHaveBeenCalled();
       expect(failMock).not.toHaveBeenCalled();
     });
 
@@ -1911,14 +1969,19 @@ describe("creativeWorkOutputJob", () => {
       expect(generateAndStoreImageMock).not.toHaveBeenCalled();
       expect(claimImageCallMock).not.toHaveBeenCalled();
       // Pre-provider failure: pregen refund, never the terminal one.
-      expect(refundCreditsMock).toHaveBeenCalledWith(
+      expect(settleTerminalRefundMock).toHaveBeenCalledWith(
         expect.objectContaining({
-          idempotencyKey: "creative-output:output-1:compensatory-refund",
+          decision: expect.objectContaining({
+            refund: true,
+            idempotencyKey: "creative-output:output-1:compensatory-refund",
+          }),
         }),
       );
-      expect(refundCreditsMock).not.toHaveBeenCalledWith(
+      expect(settleTerminalRefundMock).not.toHaveBeenCalledWith(
         expect.objectContaining({
-          idempotencyKey: "creative-work:work-1:output:output-1:terminal-refund",
+          decision: expect.objectContaining({
+            idempotencyKey: "creative-work:work-1:output:output-1:terminal-refund",
+          }),
         }),
       );
     });
@@ -1939,9 +2002,12 @@ describe("creativeWorkOutputJob", () => {
 
       expect(result).toMatchObject({ success: false, failureCode: "auto_retry_dispatch_failed" });
       expect(failQueuedMock).toHaveBeenCalledWith("workspace-1", "work-1", "output-1", "auto_retry_dispatch_failed");
-      expect(refundCreditsMock).toHaveBeenCalledWith(
+      expect(settleTerminalRefundMock).toHaveBeenCalledWith(
         expect.objectContaining({
-          idempotencyKey: "creative-work:work-1:output:output-1:terminal-refund",
+          decision: expect.objectContaining({
+            refund: true,
+            idempotencyKey: "creative-work:work-1:output:output-1:terminal-refund",
+          }),
           metadata: expect.objectContaining({ reason: "auto_retry_dispatch_failed" }),
         }),
       );
@@ -1969,7 +2035,7 @@ describe("creativeWorkOutputJob", () => {
       expect(result).toMatchObject({ success: true });
       expect(completeMock).toHaveBeenCalled();
       expect(failMock).not.toHaveBeenCalled();
-      expect(refundCreditsMock).not.toHaveBeenCalled();
+      expect(settleTerminalRefundMock).not.toHaveBeenCalled();
     });
 
     it("drops an optional identity reference that fails normalization and still generates", async () => {
@@ -1987,7 +2053,7 @@ describe("creativeWorkOutputJob", () => {
       };
       expect(request.referenceImages).toEqual([]);
       expect(completeMock).toHaveBeenCalled();
-      expect(refundCreditsMock).not.toHaveBeenCalled();
+      expect(settleTerminalRefundMock).not.toHaveBeenCalled();
     });
   });
 });

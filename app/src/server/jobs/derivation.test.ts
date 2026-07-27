@@ -171,10 +171,35 @@ vi.mock("../repositories/assistant-thread", () => ({
   getAssistantThreadById: mockGetAssistantThreadById,
 }));
 
-const mockRefundCredits = vi.hoisted(() => vi.fn(() => Promise.resolve({ status: "refunded" as const })));
+const mockSettleTerminalRefund = vi.hoisted(() =>
+  vi.fn(
+    async (input: {
+      decision: {
+        refund: boolean;
+        reason: string;
+        amount?: number;
+        idempotencyKey?: string;
+      };
+    }) => {
+      if (!input.decision.refund) {
+        return {
+          refunded: false as const,
+          applied: true as const,
+          reason: input.decision.reason,
+        };
+      }
+      return {
+        refunded: true as const,
+        applied: true as const,
+        reason: input.decision.reason,
+        status: "refunded" as const,
+      };
+    },
+  ),
+);
 
-vi.mock("../billing/credits", () => ({
-  refundCredits: mockRefundCredits,
+vi.mock("@/server/generation/settlement", () => ({
+  settleTerminalRefund: (...args: unknown[]) => mockSettleTerminalRefund(...args),
 }));
 
 const mockCreateArtifactVersion = vi.hoisted(() => vi.fn(() => Promise.resolve({
@@ -2015,7 +2040,7 @@ describe("creative revision callback (success path)", () => {
     mockCreateArtifactVersion.mockReset();
     mockUpdateArtifactHead.mockReset();
     mockSyncAssistantActionFromJob.mockClear();
-    mockRefundCredits.mockClear();
+    mockSettleTerminalRefund.mockClear();
   });
 
   it("creates a creative version linked to the source and updates working head", async () => {
@@ -2212,9 +2237,8 @@ describe("creative revision callback (failure path)", () => {
     vi.clearAllMocks();
     mockGetAssistantActionById.mockReset();
     mockGetAssistantThreadById.mockReset();
-    mockRefundCredits.mockReset();
+    mockSettleTerminalRefund.mockClear();
     mockSyncAssistantActionFromJob.mockClear();
-    mockRefundCredits.mockResolvedValue({ status: "refunded" } as never);
   });
 
   it("onFailure refunds credits when assistantActionId present and mode is creative_revision", async () => {
@@ -2247,13 +2271,15 @@ describe("creative revision callback (failure path)", () => {
       },
     });
 
-    expect(mockRefundCredits).toHaveBeenCalledTimes(1);
-    expect(mockRefundCredits).toHaveBeenCalledWith(
+    expect(mockSettleTerminalRefund).toHaveBeenCalledTimes(1);
+    expect(mockSettleTerminalRefund).toHaveBeenCalledWith(
       expect.objectContaining({
         workspaceId: "workspace-1",
-        action: "image_derivation",
-        idempotencyKey: "assistant-action:action-creative-1:refund",
-        amount: 5,
+        decision: expect.objectContaining({
+          refund: true,
+          idempotencyKey: "assistant-action:action-creative-1:refund",
+          amount: 5,
+        }),
         metadata: expect.objectContaining({
           actionId: "action-creative-1",
           derivationId: "derivation-id",
@@ -2261,11 +2287,11 @@ describe("creative revision callback (failure path)", () => {
           mode: "creative_revision",
         }),
         userId: "user-1",
-      })
+      }),
     );
   });
 
-  it("onFailure does NOT refund for non-creative-revision derivations", async () => {
+  it("onFailure settles a non-refundable decision for non-creative-revision derivations", async () => {
     const onFailure = (derivationJob as unknown as { opts: { onFailure: (...args: unknown[]) => Promise<unknown> } }).opts.onFailure;
 
     await onFailure({
@@ -2294,10 +2320,14 @@ describe("creative revision callback (failure path)", () => {
       },
     });
 
-    expect(mockRefundCredits).not.toHaveBeenCalled();
+    expect(mockSettleTerminalRefund).toHaveBeenCalledWith(
+      expect.objectContaining({
+        decision: expect.objectContaining({ refund: false }),
+      }),
+    );
   });
 
-  it("onFailure does NOT refund when assistantActionId is missing", async () => {
+  it("onFailure settles a non-refundable decision when assistantActionId is missing", async () => {
     const onFailure = (derivationJob as unknown as { opts: { onFailure: (...args: unknown[]) => Promise<unknown> } }).opts.onFailure;
 
     await onFailure({
@@ -2325,11 +2355,20 @@ describe("creative revision callback (failure path)", () => {
       },
     });
 
-    expect(mockRefundCredits).not.toHaveBeenCalled();
+    expect(mockSettleTerminalRefund).toHaveBeenCalledWith(
+      expect.objectContaining({
+        decision: expect.objectContaining({ refund: false }),
+      }),
+    );
   });
 
   it("onFailure swallows refund errors so failure cleanup is not blocked", async () => {
-    mockRefundCredits.mockRejectedValue(new Error("refund db unreachable"));
+    mockSettleTerminalRefund.mockResolvedValueOnce({
+      refunded: true,
+      applied: false,
+      reason: "assistant_creative_revision_job_failure",
+      error: "refund db unreachable",
+    });
     const onFailure = (derivationJob as unknown as { opts: { onFailure: (...args: unknown[]) => Promise<unknown> } }).opts.onFailure;
 
     await expect(
@@ -2360,6 +2399,6 @@ describe("creative revision callback (failure path)", () => {
       })
     ).resolves.not.toThrow();
 
-    expect(mockRefundCredits).toHaveBeenCalledTimes(1);
+    expect(mockSettleTerminalRefund).toHaveBeenCalledTimes(1);
   });
 });
