@@ -4,6 +4,8 @@ const getGoalMock = vi.hoisted(() => vi.fn());
 const listAnnotationsMock = vi.hoisted(() => vi.fn());
 const resolveVersionMock = vi.hoisted(() => vi.fn());
 const markAddressedMock = vi.hoisted(() => vi.fn());
+const adapterInputMock = vi.hoisted(() => vi.fn());
+const startSettlementMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/billing/paywall", () => ({
   spendOrApiError: vi.fn(),
@@ -43,14 +45,15 @@ vi.mock("@/server/billing/credits", () => ({
     regeneration: 5,
   },
 }));
+vi.mock("@/server/generation/settlement-adapters", () => ({
+  campaignDerivationUnitSettlementAdapter: adapterInputMock,
+}));
 vi.mock("@/server/generation/settlement", () => ({
-  startGenerationSettlement: vi.fn(),
+  startGenerationSettlement: startSettlementMock,
 }));
 
 import { executeReviseCreativeAnnotations } from "./revise-creative-annotations";
 import { AssistantActionExecutionError } from "../types";
-import { startGenerationSettlement } from "@/server/generation/settlement";
-const mockStartSettlement = vi.mocked(startGenerationSettlement);
 
 const ctx = {
   workspaceId: "ws-1",
@@ -67,8 +70,8 @@ const ctx = {
     planVersionId: "00000000-0000-4000-8000-000000000002",
     annotationIds: [
       "00000000-0000-4000-8000-000000000031",
-      "00000000-0000-4000-8000-000000000032",
-    ],
+      "00000000-4000-4000-8000-000000000032" as unknown as string,
+    ] as string[],
   },
 };
 
@@ -100,23 +103,28 @@ describe("executeReviseCreativeAnnotations", () => {
       { id: ctx.inputSnapshot.annotationIds[0], comment: "c1", status: "submitted", x: 0.1, y: 0.1, width: 0.2, height: 0.2 },
       { id: ctx.inputSnapshot.annotationIds[1], comment: "c2", status: "submitted", x: 0.5, y: 0.5, width: 0.2, height: 0.2 },
     ]);
+    // Source derivation uses a different format than 1:1 so a regression
+    // that copied the source format into the generation would be observable.
     resolveVersionMock.mockResolvedValue({
       version: { id: ctx.inputSnapshot.sourceVersionId },
       derivation: {
         id: "00000000-0000-4000-8000-000000000011",
         outputKey: "outputs/source.png",
         creativeLevel: "balanced",
-        format: "1:1",
+        format: "9:16",
       },
     });
     markAddressedMock.mockResolvedValue([]);
-    mockStartSettlement.mockResolvedValue({ ok: true, value: settledValue });
+    adapterInputMock.mockReturnValue({ marker: "adapter-input" });
+    startSettlementMock.mockResolvedValue({ ok: true, value: settledValue });
   });
 
-  it("delegates to startGenerationSettlement and translates the typed derivation result", async () => {
+  it("delegates to startGenerationSettlement with the adapter factory output and translates the typed derivation result", async () => {
     const result = await executeReviseCreativeAnnotations(ctx);
 
-    expect(mockStartSettlement).toHaveBeenCalledTimes(1);
+    expect(adapterInputMock).toHaveBeenCalledTimes(1);
+    expect(startSettlementMock).toHaveBeenCalledTimes(1);
+    expect(startSettlementMock).toHaveBeenCalledWith({ marker: "adapter-input" });
     expect(result).toEqual({
       mode: "async",
       jobRefs: [{ kind: "derivation", id: "child-1" }],
@@ -125,8 +133,29 @@ describe("executeReviseCreativeAnnotations", () => {
     });
   });
 
+  it("pins the annotation generation to 1:1 even when the source derivation is 9:16", async () => {
+    await executeReviseCreativeAnnotations(ctx);
+
+    expect(adapterInputMock).toHaveBeenCalledTimes(1);
+    const adapterInput = adapterInputMock.mock.calls[0][0];
+    expect(adapterInput).toMatchObject({
+      targetFormat: "1:1",
+      intentMode: "creative_revision",
+      assistantActionId: ctx.actionId,
+      parentId: "00000000-0000-4000-8000-000000000011",
+    });
+    const buildEventData = adapterInput.buildEventData;
+    expect(
+      buildEventData({ id: "child-1", format: "1:1", updatedAt: new Date() }),
+    ).toMatchObject({
+      format: "1:1",
+      generationMode: "creative_revision",
+      assistantActionId: ctx.actionId,
+    });
+  });
+
   it("throws credit_blocked when settlement reports insufficient credits", async () => {
-    mockStartSettlement.mockResolvedValueOnce({
+    startSettlementMock.mockResolvedValueOnce({
       ok: false,
       error: { code: "credit_blocked", reason: "insufficient_credits" },
     });
@@ -137,7 +166,7 @@ describe("executeReviseCreativeAnnotations", () => {
   });
 
   it("throws execution_failed when settlement reports dispatch_failed", async () => {
-    mockStartSettlement.mockResolvedValueOnce({
+    startSettlementMock.mockResolvedValueOnce({
       ok: false,
       error: { code: "dispatch_failed", value: settledValue, compensated: true },
     });
@@ -153,7 +182,7 @@ describe("executeReviseCreativeAnnotations", () => {
     await expect(executeReviseCreativeAnnotations(ctx)).rejects.toBeInstanceOf(
       AssistantActionExecutionError
     );
-    expect(mockStartSettlement).not.toHaveBeenCalled();
+    expect(startSettlementMock).not.toHaveBeenCalled();
   });
 
   it("rejects when annotations do not match the submitted ids without reaching settlement", async () => {
@@ -164,6 +193,6 @@ describe("executeReviseCreativeAnnotations", () => {
     await expect(executeReviseCreativeAnnotations(ctx)).rejects.toBeInstanceOf(
       AssistantActionExecutionError
     );
-    expect(mockStartSettlement).not.toHaveBeenCalled();
+    expect(startSettlementMock).not.toHaveBeenCalled();
   });
 });

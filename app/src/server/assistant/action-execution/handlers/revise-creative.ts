@@ -1,6 +1,9 @@
 import { getActionContract } from "@/server/assistant/action-contracts/registry";
 import { emitArtifactIterationTelemetry } from "@/server/assistant/artifact-iteration-telemetry";
-import { confirmCreativeRevision } from "@/server/assistant/creative-iteration/proposal";
+import {
+  confirmCreativeRevision,
+  validateCreativeRevisionProposal,
+} from "@/server/assistant/creative-iteration/proposal";
 import { logger } from "@/lib/logger";
 import { getAssistantActionById } from "@/server/repositories/assistant-action";
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
@@ -58,31 +61,27 @@ export async function executeReviseCreative(
       ? ctx.inputSnapshot.format
       : "1:1";
 
-  // Validate the proposal and the lineage's "no active generation" guard
-  // BEFORE settlement so an invalid or stale proposal can never produce a
-  // charged derivation + dispatched job. Settlement owns reservation, charge,
-  // dispatch, and synchronous-dispatch compensation only.
-  const confirmResult = await confirmCreativeRevision({
-    scope: {
-      workspaceId: ctx.workspaceId,
-      clientProfileId: ctx.clientProfileId,
-      campaignId,
-      threadId: ctx.threadId,
-    },
-    proposalId: inputSnapshot.proposalId,
-    lineageId: inputSnapshot.lineageId,
-    sourceVersionId: inputSnapshot.sourceVersionId,
-    payloadDigest: inputSnapshot.payloadDigest,
-    lineageHeadRevision: inputSnapshot.lineageHeadRevision,
-    actionId: ctx.actionId,
-  });
-
-  const artifactScope = {
+  const proposalScope = {
     workspaceId: ctx.workspaceId,
     clientProfileId: ctx.clientProfileId,
     campaignId,
     threadId: ctx.threadId,
   };
+
+  // Side-effect-free preflight: rejects stale / wrong-type proposals and a
+  // concurrent active lineage generation WITHOUT consuming the proposal. The
+  // canonical confirmation (sibling-stale + transition to "confirmed" +
+  // telemetry) only runs after settlement has produced a real derivation.
+  await validateCreativeRevisionProposal({
+    scope: proposalScope,
+    proposalId: inputSnapshot.proposalId,
+    lineageId: inputSnapshot.lineageId,
+    sourceVersionId: inputSnapshot.sourceVersionId,
+    payloadDigest: inputSnapshot.payloadDigest,
+    lineageHeadRevision: inputSnapshot.lineageHeadRevision,
+  });
+
+  const artifactScope = proposalScope;
 
   if (attempt > 0) {
     emitArtifactIterationTelemetry({
@@ -173,6 +172,19 @@ export async function executeReviseCreative(
       proposalId: inputSnapshot.proposalId,
       headRevision: inputSnapshot.lineageHeadRevision,
     },
+  });
+
+  // Settlement has produced a real derivation. Only now is it safe to mark
+  // the proposal as confirmed and stale its siblings — a credit_blocked or
+  // dispatch_failed attempt must NOT consume the proposal.
+  const confirmResult = await confirmCreativeRevision({
+    scope: proposalScope,
+    proposalId: inputSnapshot.proposalId,
+    lineageId: inputSnapshot.lineageId,
+    sourceVersionId: inputSnapshot.sourceVersionId,
+    payloadDigest: inputSnapshot.payloadDigest,
+    lineageHeadRevision: inputSnapshot.lineageHeadRevision,
+    actionId: ctx.actionId,
   });
 
   const summary = confirmResult.idempotent
