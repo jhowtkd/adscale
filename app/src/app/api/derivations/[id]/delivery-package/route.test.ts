@@ -19,6 +19,9 @@ vi.mock("@/server/repositories/derivation", () => ({
   createPackageChildIfAbsent: vi.fn(),
   getActivePackageChildren: vi.fn(),
   updateDerivationStatus: vi.fn(),
+  deleteQueuedDerivation: vi.fn(),
+  failQueuedDerivation: vi.fn(),
+  touchQueuedDerivation: vi.fn(),
 }));
 
 vi.mock("@/server/repositories/campaign", () => ({
@@ -35,6 +38,15 @@ vi.mock("@/server/billing/paywall", () => ({
   spendOrApiError: vi.fn(() => Promise.resolve(null)),
 }));
 
+vi.mock("@/server/billing/credits", () => ({
+  refundCredits: vi.fn(() => Promise.resolve({ status: "refunded" })),
+}));
+
+vi.mock("@/server/repositories/usage", () => ({
+  getUsageByIdempotencyKey: vi.fn(),
+  trackUsage: vi.fn(),
+}));
+
 vi.mock("@/server/memory/brand-memory-dispatch", () => ({
   recordBrandMemoryEvent: vi.fn(() => Promise.resolve()),
 }));
@@ -48,17 +60,19 @@ vi.mock("next-intl/server", () => ({
 import {
   getDerivationById,
   createPackageChildIfAbsent,
+  failQueuedDerivation,
   getActivePackageChildren,
-  updateDerivationStatus,
 } from "@/server/repositories/derivation";
 import { updateCampaign } from "@/server/repositories/campaign";
 import { inngest } from "@/server/jobs/client";
+import { refundCredits } from "@/server/billing/credits";
 const mockGetDerivationById = vi.mocked(getDerivationById);
 const mockCreatePackageChildIfAbsent = vi.mocked(createPackageChildIfAbsent);
 const mockGetActivePackageChildren = vi.mocked(getActivePackageChildren);
-const mockUpdateDerivationStatus = vi.mocked(updateDerivationStatus);
+const mockFailQueuedDerivation = vi.mocked(failQueuedDerivation);
 const mockUpdateCampaign = vi.mocked(updateCampaign);
 const mockInngestSend = vi.mocked(inngest.send);
+const mockRefundCredits = vi.mocked(refundCredits);
 
 
 function requestWith(body: unknown): Request {
@@ -77,6 +91,45 @@ describe("POST /api/derivations/[id]/delivery-package", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetActivePackageChildren.mockResolvedValue([]);
+    mockFailQueuedDerivation.mockImplementation(
+      async (id) => ({ id, status: "failed" }) as never,
+    );
+    mockCreatePackageChildIfAbsent.mockImplementation(async (input) => ({
+      created: true as const,
+      child: {
+        id: `child-${input.format}`,
+        campaignId: input.campaignId,
+        workspaceId: input.workspaceId,
+        planId: input.planId ?? null,
+        parentId: input.parentId ?? null,
+        status: input.status ?? "queued",
+        prompt: null,
+        outputKey: null,
+        format: input.format ?? null,
+        generationMode: input.generationMode ?? null,
+        variantIndex: input.variantIndex ?? null,
+        ctaText: input.ctaText ?? null,
+        cost: null,
+        feedback: input.feedback ?? null,
+        qualityScore: null,
+        scoreStatus: "pending",
+        scoreBreakdown: null,
+        scoreIssues: null,
+        regenerationSuggestion: null,
+        isPreview: input.isPreview ?? false,
+        scoredAt: null,
+        qaStatus: "pending",
+        qaChecklist: null,
+        qaIssues: null,
+        qaSuggestions: null,
+        qaAnalyzedAt: null,
+        inputPrompt: null,
+        createdAt: new Date(),
+        updatedAt: new Date("2026-07-27T12:00:00.000Z"),
+      },
+    }));
+    mockInngestSend.mockResolvedValue({ ids: ["event-id"] } as never);
+    mockRefundCredits.mockResolvedValue({ status: "refunded" } as never);
   });
 
   afterEach(() => {
@@ -333,7 +386,7 @@ describe("POST /api/derivations/[id]/delivery-package", () => {
     expect(mockUpdateCampaign).not.toHaveBeenCalled();
   });
 
-  it("marks a child failed and continues when one Inngest event send fails", async () => {
+  it("marks every dispatched child failed and refunds when batch dispatch fails", async () => {
     mockGetDerivationById.mockResolvedValue({
       id: "source-id",
       campaignId: "campaign-id",
@@ -346,43 +399,7 @@ describe("POST /api/derivations/[id]/delivery-package", () => {
       variantIndex: 0,
     } as Awaited<ReturnType<typeof getDerivationById>>);
 
-    mockCreatePackageChildIfAbsent.mockImplementation(async (input) => ({
-      created: true as const,
-      child: {
-      id: `child-${input.format}`,
-      campaignId: input.campaignId,
-      workspaceId: input.workspaceId,
-      planId: input.planId ?? null,
-      parentId: input.parentId ?? null,
-      status: input.status ?? "queued",
-      prompt: null,
-      outputKey: null,
-      format: input.format ?? null,
-      generationMode: input.generationMode ?? null,
-      variantIndex: input.variantIndex ?? null,
-      ctaText: input.ctaText ?? null,
-      cost: null,
-      feedback: input.feedback ?? null,
-      qualityScore: null,
-      scoreStatus: "pending",
-      scoreBreakdown: null,
-      scoreIssues: null,
-      regenerationSuggestion: null,
-      isPreview: input.isPreview ?? false,
-      scoredAt: null,
-      qaStatus: "pending",
-      qaChecklist: null,
-      qaIssues: null,
-      qaSuggestions: null,
-      qaAnalyzedAt: null,
-      inputPrompt: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      },
-    }));
-    mockInngestSend
-      .mockRejectedValueOnce(new Error("worker unavailable"))
-      .mockResolvedValueOnce({ ids: ["event-id"] });
+    mockInngestSend.mockRejectedValue(new Error("worker unavailable"));
 
     const res = await POST(
       requestWith({ formats: ["4:5", "9:16"] }),
@@ -391,17 +408,24 @@ describe("POST /api/derivations/[id]/delivery-package", () => {
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(mockUpdateDerivationStatus).toHaveBeenCalledWith(
-      "child-4:5",
-      "workspace-1",
-      "failed"
+    expect(mockFailQueuedDerivation).toHaveBeenCalledTimes(2);
+    expect(body.failed.map((item: { format: string }) => item.format).sort()).toEqual([
+      "4:5",
+      "9:16",
+    ]);
+    expect(body.queued).toEqual([]);
+    expect(mockRefundCredits).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId: "workspace-1",
+        action: "delivery_package_child",
+        amount: 10,
+        idempotencyKey: "delivery-package:source-id:4:5,9:16:dispatch-refund",
+      }),
     );
-    expect(body.failed).toEqual([{ id: "child-4:5", format: "4:5" }]);
-    expect(body.queued).toEqual([{ id: "child-9:16", format: "9:16" }]);
-    expect(mockUpdateCampaign).toHaveBeenCalledWith(
+    expect(mockUpdateCampaign).not.toHaveBeenCalledWith(
       "campaign-id",
       "workspace-1",
-      { status: "generating" }
+      { status: "generating" },
     );
   });
 });

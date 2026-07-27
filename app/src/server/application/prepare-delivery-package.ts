@@ -5,18 +5,14 @@
  * Implements full panel semantics: ready vs generatable formats, skip active
  * children, charge only new formats, createPackageChildIfAbsent, brand memory.
  */
-import { logger } from "@/lib/logger";
 import { assertDerivationApprovable } from "@/server/ai/creative-quality-gate";
-import { spend, type SpendResult } from "@/server/billing/paywall";
-import { inngest } from "@/server/jobs/client";
-import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
+import type { SpendResult } from "@/server/billing/paywall";
+import { deliveryPackageSettlementAdapter } from "@/server/generation/settlement-adapters";
+import { startGenerationSettlement } from "@/server/generation/settlement";
 import { recordBrandMemoryEvent } from "@/server/memory/brand-memory-dispatch";
-import { updateCampaign } from "@/server/repositories/campaign";
 import {
-  createPackageChildIfAbsent,
   getActivePackageChildren,
   getDerivationById,
-  updateDerivationStatus,
 } from "@/server/repositories/derivation";
 
 export type DeliveryFormatResult = {
@@ -119,111 +115,60 @@ export async function prepareDeliveryPackage(
     (format) => !activeFormats.has(format)
   );
 
+  const queued: DeliveryFormatResult[] = [];
+  const failed: DeliveryFormatResult[] = [];
+  const skippedFromRace: string[] = [];
+
   if (formatsToCreate.length > 0) {
     const billingIdempotencyKey =
       input.billingIdempotencyKey ??
       `delivery-package:${source.id}:${[...formatsToCreate].sort().join(",")}`;
 
-    const spendResult = await spend({
-      workspaceId: input.workspaceId,
-      action: "delivery_package_child",
-      amount: formatsToCreate.length * 5,
-      idempotencyKey: billingIdempotencyKey,
-      metadata: {
-        sourceDerivationId: source.id,
-        formats: formatsToCreate,
-        ...input.billingMetadata,
-      },
-      userId: input.userId,
-    });
-    if (!spendResult.ok) {
-      return {
-        ok: false,
-        error: { code: "credit_blocked", spend: spendResult },
-      };
+    const settled = await startGenerationSettlement(
+      deliveryPackageSettlementAdapter({
+        workspaceId: input.workspaceId,
+        userId: input.userId,
+        source,
+        formatsToCreate,
+        billingKey: billingIdempotencyKey,
+        billingMetadata: input.billingMetadata,
+        locale: input.locale,
+        assistantActionId: input.assistantActionId,
+      }),
+    );
+
+    if (!settled.ok) {
+      if (settled.error.code === "credit_blocked") {
+        const spend: Extract<SpendResult, { ok: false }> = {
+          ok: false,
+          status: 402,
+          conversionPayload: settled.error.details as Extract<
+            SpendResult,
+            { ok: false }
+          >["conversionPayload"],
+        };
+        return {
+          ok: false,
+          error: { code: "credit_blocked", spend },
+        };
+      }
+      for (const row of settled.error.value.derivations) {
+        if (row.format) failed.push({ id: row.id, format: row.format });
+      }
+    } else {
+      const newlyCreated = new Set(settled.value.newlyCreatedIds ?? []);
+      for (const row of settled.value.derivations) {
+        if (!row.format) continue;
+        if (newlyCreated.has(row.id)) {
+          queued.push({ id: row.id, format: row.format });
+        } else if (formatsToCreate.includes(row.format)) {
+          skippedFromRace.push(row.format);
+        }
+      }
     }
   }
 
-  const queuedResults = await Promise.all(
-    formatsToCreate.map(async (format) => {
-      const { child, created } = await createPackageChildIfAbsent({
-        campaignId: source.campaignId,
-        workspaceId: input.workspaceId,
-        planId: source.planId ?? undefined,
-        parentId: source.id,
-        status: "queued",
-        generationMode: "format_adaptation",
-        variantIndex: source.variantIndex ?? undefined,
-        ctaText: source.ctaText ?? undefined,
-        format,
-      });
-
-      if (!created) {
-        return { status: "skipped" as const, id: child.id, format };
-      }
-
-      try {
-        await inngest.send({
-          name: heavyImageEventName("derivation.generate"),
-          data: {
-            derivationId: child.id,
-            campaignId: source.campaignId,
-            workspaceId: input.workspaceId,
-            triggeredByUserId: input.userId,
-            locale: input.locale,
-            generationMode: "format_adaptation",
-            variantIndex: source.variantIndex,
-            ctaText: source.ctaText,
-            format,
-            ...(input.assistantActionId
-              ? { assistantActionId: input.assistantActionId }
-              : {}),
-          },
-        });
-        return { status: "queued" as const, id: child.id, format };
-      } catch (sendErr) {
-        logger.error(
-          `[prepareDeliveryPackage] event send FAILED derivationId=${child.id}`,
-          sendErr
-        );
-        await updateDerivationStatus(
-          child.id,
-          input.workspaceId,
-          "failed"
-        );
-        return { status: "failed" as const, id: child.id, format };
-      }
-    })
-  );
-
-  const { queued, failed, skippedFromRace } = queuedResults.reduce<{
-    queued: DeliveryFormatResult[];
-    failed: DeliveryFormatResult[];
-    skippedFromRace: DeliveryFormatResult[];
-  }>(
-    (acc, { status, id, format }) => {
-      if (status === "queued") {
-        acc.queued.push({ id, format });
-      } else if (status === "failed") {
-        acc.failed.push({ id, format });
-      } else {
-        acc.skippedFromRace.push({ id, format });
-      }
-      return acc;
-    },
-    { queued: [], failed: [], skippedFromRace: [] }
-  );
-
-  if (queued.length > 0) {
-    await updateCampaign(source.campaignId, input.workspaceId, {
-      status: "generating",
-    });
-  }
-
-  const skipped = [
-    ...activeFormats,
-    ...skippedFromRace.map((item) => item.format),
-  ];
+  const skipped = [...activeFormats, ...skippedFromRace];
 
   await recordBrandMemoryEvent({
     type: "delivery_prepared",

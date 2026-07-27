@@ -2,7 +2,6 @@
  * Canonical application command: regenerate a derivation (Phase 4).
  * HTTP POST and Assistente quick_regenerate adapt transport/billing keys only.
  */
-import { logger } from "@/lib/logger";
 import { resolveCtaSemantics } from "@/server/ai/creative-contract";
 import type { CreativeContract } from "@/server/ai/creative-contract";
 import type { CreativeHardFailure } from "@/server/ai/creative-quality-gate";
@@ -10,24 +9,16 @@ import {
   buildRegenerationCorrectionBrief,
   mergeUserRegenerationNotes,
 } from "@/server/ai/regeneration-correction-brief";
-import { spend, type SpendResult } from "@/server/billing/paywall";
+import type { SpendResult } from "@/server/billing/paywall";
 import type { OutputLearningApplicationSnapshot } from "@/server/human-quality/corpus";
 import { sanitizeOutputLearningApplication } from "@/server/human-quality/application-schema";
-import { inngest } from "@/server/jobs/client";
-import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
+import { regenerateDerivationSettlementAdapter } from "@/server/generation/settlement-adapters";
+import { startGenerationSettlement } from "@/server/generation/settlement";
 import { recordCampaignMemoryEntry } from "@/server/memory/campaign-memory-context";
 import { recordOutputDecisionEvidenceBestEffort } from "@/server/output-learning/output-decision-recorder";
 import { extractRegenerationReason } from "@/server/output-learning/output-decision-reasons";
-import {
-  getCampaignById,
-  refreshCampaignStatus,
-  updateCampaign,
-} from "@/server/repositories/campaign";
-import {
-  createDerivation,
-  getDerivationById,
-  updateDerivationStatus,
-} from "@/server/repositories/derivation";
+import { getCampaignById } from "@/server/repositories/campaign";
+import { getDerivationById } from "@/server/repositories/derivation";
 import { getLatestOpenFeedbackReportForDerivation } from "@/server/repositories/feedback";
 
 export type RegenerateDerivationInput = {
@@ -51,7 +42,7 @@ export type RegenerateDerivationError =
   | { code: "dispatch_failed"; derivationId: string };
 
 export type RegenerateDerivationSuccess = {
-  derivation: Awaited<ReturnType<typeof createDerivation>>;
+  derivation: NonNullable<Awaited<ReturnType<typeof getDerivationById>>>;
   sourceDerivation: NonNullable<Awaited<ReturnType<typeof getDerivationById>>>;
   primaryReason: string;
 };
@@ -189,23 +180,6 @@ export async function regenerateDerivation(
   );
   const feedback = resolved.promptFeedback;
 
-  const spendResult = await spend({
-    workspaceId: input.workspaceId,
-    action: "regeneration",
-    idempotencyKey: input.billingIdempotencyKey,
-    metadata: {
-      sourceDerivationId: original.id,
-      ...input.billingMetadata,
-    },
-    userId: input.userId,
-  });
-  if (!spendResult.ok) {
-    return {
-      ok: false,
-      error: { code: "credit_blocked", spend: spendResult },
-    };
-  }
-
   const parentContract = original.creativeContract ?? null;
   const regenerationCorrectionBrief = feedback
     ? {
@@ -226,60 +200,58 @@ export async function regenerateDerivation(
     );
   }
 
-  const newDerivation = await createDerivation({
-    campaignId: original.campaignId,
-    workspaceId: input.workspaceId,
-    planId: original.planId ?? undefined,
-    parentId: original.id,
-    feedback,
-    status: "queued",
-    generationMode: original.generationMode ?? undefined,
-    variantIndex: original.variantIndex ?? undefined,
-    ctaText: original.ctaText ?? undefined,
-    format: original.format ?? undefined,
-    creativeContract: parentContract ?? undefined,
-    regenerationCorrectionBrief,
-    outputLearningApplication,
-  });
-
-  try {
-    await inngest.send({
-      name: heavyImageEventName("derivation.generate"),
-      data: {
-        derivationId: newDerivation.id,
+  const settled = await startGenerationSettlement(
+    regenerateDerivationSettlementAdapter({
+      workspaceId: input.workspaceId,
+      userId: input.userId,
+      billingKey: input.billingIdempotencyKey,
+      billingMetadata: input.billingMetadata,
+      locale: input.locale,
+      assistantActionId: input.assistantActionId,
+      source: original,
+      createInput: {
         campaignId: original.campaignId,
         workspaceId: input.workspaceId,
-        triggeredByUserId: input.userId,
-        locale: input.locale,
-        generationMode: original.generationMode,
-        variantIndex: original.variantIndex,
-        ctaText: original.ctaText,
-        format: original.format,
-        ...(input.assistantActionId
-          ? { assistantActionId: input.assistantActionId }
-          : {}),
+        planId: original.planId ?? undefined,
+        parentId: original.id,
+        feedback,
+        status: "queued",
+        generationMode: original.generationMode ?? undefined,
+        variantIndex: original.variantIndex ?? undefined,
+        ctaText: original.ctaText ?? undefined,
+        format: original.format ?? undefined,
+        creativeContract: parentContract ?? undefined,
+        regenerationCorrectionBrief,
+        outputLearningApplication,
       },
-    });
-  } catch (sendErr) {
-    logger.error(
-      `[regenerateDerivation] event send FAILED derivationId=${newDerivation.id}`,
-      sendErr
-    );
-    await updateDerivationStatus(
-      newDerivation.id,
-      input.workspaceId,
-      "failed"
-    );
-    await refreshCampaignStatus(original.campaignId, input.workspaceId);
+    }),
+  );
+
+  if (!settled.ok) {
+    if (settled.error.code === "credit_blocked") {
+      const spend: Extract<SpendResult, { ok: false }> = {
+        ok: false,
+        status: 402,
+        conversionPayload: settled.error.details as Extract<
+          SpendResult,
+          { ok: false }
+        >["conversionPayload"],
+      };
+      return {
+        ok: false,
+        error: { code: "credit_blocked", spend },
+      };
+    }
     return {
       ok: false,
-      error: { code: "dispatch_failed", derivationId: newDerivation.id },
+      error: {
+        code: "dispatch_failed",
+        derivationId: settled.error.value.derivation.id,
+      },
     };
   }
 
-  await updateCampaign(original.campaignId, input.workspaceId, {
-    status: "generating",
-  });
+  const newDerivation = settled.value.derivation;
 
   if (feedback?.trim()) {
     await recordCampaignMemoryEntry(original.campaignId, input.workspaceId, {

@@ -4,11 +4,10 @@
  *
  * Billing action/key stay adapter-owned (panel vs chat may use different ledgers).
  */
-import { logger } from "@/lib/logger";
 import type { CreditAction } from "@/server/billing/credits";
-import { spend, type SpendResult } from "@/server/billing/paywall";
-import { inngest } from "@/server/jobs/client";
-import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
+import type { SpendResult } from "@/server/billing/paywall";
+import { restyleCampaignSettlementAdapter } from "@/server/generation/settlement-adapters";
+import { startGenerationSettlement } from "@/server/generation/settlement";
 import {
   getAssetWithMetadata,
   getAssetsByCampaign,
@@ -17,11 +16,7 @@ import {
   getCampaignById,
   updateCampaign,
 } from "@/server/repositories/campaign";
-import {
-  campaignHasActiveDerivations,
-  createDerivation,
-  updateDerivationStatus,
-} from "@/server/repositories/derivation";
+import { campaignHasActiveDerivations } from "@/server/repositories/derivation";
 
 type CampaignAsset = Awaited<ReturnType<typeof getAssetsByCampaign>>[number];
 
@@ -67,7 +62,7 @@ export type RestyleCampaignError =
   | { code: "dispatch_failed"; derivationId: string };
 
 export type RestyleCampaignSuccess = {
-  derivation: Awaited<ReturnType<typeof createDerivation>>;
+  derivation: import("@/server/generation/settlement-adapters").CampaignDerivationSettlementValue["derivation"];
   baseAsset: CampaignAsset;
   styleAsset: CampaignAsset;
   campaignId: string;
@@ -187,81 +182,58 @@ export async function restyleCampaign(
   const billingIdempotencyKey =
     input.billingIdempotencyKey ?? `restyling:${campaignId}:${baseAsset.id}`;
 
-  const spendResult = await spend({
-    workspaceId: input.workspaceId,
-    action: input.billingAction,
-    amount: input.billingAmount,
-    idempotencyKey: billingIdempotencyKey,
-    metadata: {
-      campaignId,
-      mode: "restyling",
-      ...input.billingMetadata,
-    },
-    userId: input.userId,
-  });
-  if (!spendResult.ok) {
-    return {
-      ok: false,
-      error: { code: "credit_blocked", spend: spendResult },
-    };
-  }
-
   const format =
     baseAsset.width && baseAsset.height
       ? `${baseAsset.width}x${baseAsset.height}`
       : "1:1";
 
-  const derivation = await createDerivation({
-    campaignId,
-    workspaceId: input.workspaceId,
-    status: "queued",
-    generationMode: "restyling",
-    variantIndex: 0,
-    format,
-    styleAssetId: styleAsset.id,
-  });
-
-  logger.info(
-    `[restyleCampaign] created derivationId=${derivation.id} mode=restyling`
+  const settled = await startGenerationSettlement(
+    restyleCampaignSettlementAdapter({
+      workspaceId: input.workspaceId,
+      userId: input.userId,
+      campaignId,
+      billingKey: billingIdempotencyKey,
+      billingAction: input.billingAction,
+      billingAmount: input.billingAmount,
+      billingMetadata: input.billingMetadata,
+      locale: input.locale,
+      assistantActionId: input.assistantActionId,
+      styleAssetId: styleAsset.id,
+      format,
+    }),
   );
 
-  try {
-    await inngest.send({
-      name: heavyImageEventName("derivation.generate"),
-      data: {
-        derivationId: derivation.id,
-        campaignId,
-        workspaceId: input.workspaceId,
-        triggeredByUserId: input.userId,
-        locale: input.locale,
-        generationMode: "restyling",
-        variantIndex: 0,
-        format: derivation.format,
-        styleAssetId: styleAsset.id,
-        ...(input.assistantActionId
-          ? { assistantActionId: input.assistantActionId }
-          : {}),
-      },
-    });
-    logger.info(`[restyleCampaign] event sent derivationId=${derivation.id}`);
-  } catch (sendErr) {
-    logger.error(
-      `[restyleCampaign] event send FAILED derivationId=${derivation.id}`,
-      sendErr
-    );
-    await updateDerivationStatus(derivation.id, input.workspaceId, "failed");
+  if (!settled.ok) {
+    if (settled.error.code === "credit_blocked") {
+      const spend: Extract<SpendResult, { ok: false }> = {
+        ok: false,
+        status: 402,
+        conversionPayload: settled.error.details as Extract<
+          SpendResult,
+          { ok: false }
+        >["conversionPayload"],
+      };
+      return {
+        ok: false,
+        error: { code: "credit_blocked", spend },
+      };
+    }
     return {
       ok: false,
-      error: { code: "dispatch_failed", derivationId: derivation.id },
+      error: {
+        code: "dispatch_failed",
+        derivationId: settled.error.value.derivation.id,
+      },
     };
   }
 
-  await updateCampaign(campaignId, input.workspaceId, {
-    status: "generating",
-  });
-
   return {
     ok: true,
-    value: { derivation, baseAsset, styleAsset, campaignId },
+    value: {
+      derivation: settled.value.derivation,
+      baseAsset,
+      styleAsset,
+      campaignId,
+    },
   };
 }

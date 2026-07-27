@@ -8,6 +8,9 @@ vi.mock("@/server/repositories/derivation", () => ({
   getDerivationById: vi.fn(),
   createDerivation: vi.fn(),
   updateDerivationStatus: vi.fn(),
+  deleteQueuedDerivation: vi.fn(),
+  failQueuedDerivation: vi.fn(),
+  touchQueuedDerivation: vi.fn(),
 }));
 
 vi.mock("@/server/repositories/campaign", () => ({
@@ -24,6 +27,15 @@ vi.mock("@/server/jobs/client", () => ({
   inngest: { send: vi.fn() },
 }));
 
+vi.mock("@/server/billing/credits", () => ({
+  refundCredits: vi.fn(),
+}));
+
+vi.mock("@/server/repositories/usage", () => ({
+  getUsageByIdempotencyKey: vi.fn(),
+  trackUsage: vi.fn(),
+}));
+
 vi.mock("@/server/memory/campaign-memory-context", () => ({
   recordCampaignMemoryEntry: vi.fn(() =>
     Promise.resolve({ schemaVersion: 1, entries: [] })
@@ -37,16 +49,22 @@ vi.mock("@/server/output-learning/output-decision-recorder", () => ({
 }));
 
 import { spend } from "@/server/billing/paywall";
+import { refundCredits } from "@/server/billing/credits";
 import {
   createDerivation,
+  deleteQueuedDerivation,
+  failQueuedDerivation,
   getDerivationById,
 } from "@/server/repositories/derivation";
 import { inngest } from "@/server/jobs/client";
 import { regenerateDerivation } from "./regenerate-derivation";
 
 const mockSpend = vi.mocked(spend);
+const mockRefund = vi.mocked(refundCredits);
 const mockGet = vi.mocked(getDerivationById);
 const mockCreate = vi.mocked(createDerivation);
+const mockDelete = vi.mocked(deleteQueuedDerivation);
+const mockFail = vi.mocked(failQueuedDerivation);
 const mockSend = vi.mocked(inngest.send);
 
 const source = {
@@ -71,8 +89,14 @@ describe("regenerateDerivation", () => {
     vi.clearAllMocks();
     mockSpend.mockResolvedValue({ ok: true, creditsSpent: 5 });
     mockGet.mockResolvedValue(source as never);
-    mockCreate.mockResolvedValue({ id: "d2", status: "queued" } as never);
+    mockCreate.mockResolvedValue({
+      id: "d2",
+      status: "queued",
+      updatedAt: new Date("2026-07-27T12:00:00.000Z"),
+    } as never);
     mockSend.mockResolvedValue({ ids: ["evt"] } as never);
+    mockFail.mockResolvedValue({ id: "d2", status: "failed" } as never);
+    mockRefund.mockResolvedValue({ status: "refunded" } as never);
   });
 
   it("charges once then creates child and dispatches job", async () => {
@@ -108,7 +132,7 @@ describe("regenerateDerivation", () => {
     );
   });
 
-  it("returns credit_blocked without creating derivation", async () => {
+  it("returns credit_blocked and releases the reserved derivation", async () => {
     mockSpend.mockResolvedValue({
       ok: false,
       status: 402,
@@ -124,6 +148,33 @@ describe("regenerateDerivation", () => {
 
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.code).toBe("credit_blocked");
-    expect(mockCreate).not.toHaveBeenCalled();
+    expect(mockCreate).toHaveBeenCalled();
+    expect(mockDelete).toHaveBeenCalledWith("d2", "ws-1");
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it("refunds exactly once when synchronous dispatch fails", async () => {
+    mockSend.mockRejectedValue(new Error("inngest down"));
+
+    const result = await regenerateDerivation({
+      workspaceId: "ws-1",
+      derivationId: "d1",
+      userId: "u1",
+      billingIdempotencyKey: "regen:d1:1",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "dispatch_failed", derivationId: "d2" },
+    });
+    expect(mockFail).toHaveBeenCalledWith("d2", "ws-1");
+    expect(mockRefund).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId: "ws-1",
+        action: "regeneration",
+        amount: 5,
+        idempotencyKey: "regen:d1:1:dispatch-refund",
+      }),
+    );
   });
 });

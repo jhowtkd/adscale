@@ -18,6 +18,9 @@ vi.mock("@/server/repositories/derivation", () => ({
   getDerivationById: vi.fn(),
   createDerivation: vi.fn(),
   updateDerivationStatus: vi.fn(),
+  deleteQueuedDerivation: vi.fn(),
+  failQueuedDerivation: vi.fn(),
+  touchQueuedDerivation: vi.fn(),
 }));
 
 vi.mock("@/server/repositories/campaign", () => ({
@@ -42,6 +45,15 @@ vi.mock("@/server/jobs/client", () => ({
 vi.mock("@/server/billing/paywall", () => ({
   spend: vi.fn(() => Promise.resolve({ ok: true, creditsSpent: 5 })),
   spendOrApiError: vi.fn(() => Promise.resolve(null)),
+}));
+
+vi.mock("@/server/billing/credits", () => ({
+  refundCredits: vi.fn(() => Promise.resolve({ status: "refunded" })),
+}));
+
+vi.mock("@/server/repositories/usage", () => ({
+  getUsageByIdempotencyKey: vi.fn(),
+  trackUsage: vi.fn(),
 }));
 
 vi.mock("@/server/memory/campaign-memory-context", () => ({
@@ -113,6 +125,7 @@ describe("POST /api/derivations/[id]/regenerate", () => {
       campaignId: "campaign-id",
       workspaceId: "workspace-1",
       status: "queued",
+      updatedAt: new Date("2026-07-27T12:00:00.000Z"),
     } as Awaited<ReturnType<typeof createDerivation>>);
     mockInngestSend.mockResolvedValue({ ids: ["event-id"] });
   });

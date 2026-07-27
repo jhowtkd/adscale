@@ -18,13 +18,26 @@ vi.mock("@/server/repositories/derivation", () => ({
   createDerivation: vi.fn(),
   updateDerivationStatus: vi.fn(),
   campaignHasActiveDerivations: vi.fn(),
+  deleteQueuedDerivation: vi.fn(),
+  failQueuedDerivation: vi.fn(),
+  touchQueuedDerivation: vi.fn(),
 }));
 
 vi.mock("@/server/jobs/client", () => ({
   inngest: { send: vi.fn() },
 }));
 
+vi.mock("@/server/billing/credits", () => ({
+  refundCredits: vi.fn(),
+}));
+
+vi.mock("@/server/repositories/usage", () => ({
+  getUsageByIdempotencyKey: vi.fn(),
+  trackUsage: vi.fn(),
+}));
+
 import { spend } from "@/server/billing/paywall";
+import { refundCredits } from "@/server/billing/credits";
 import { getCampaignById, updateCampaign } from "@/server/repositories/campaign";
 import {
   getAssetWithMetadata,
@@ -33,6 +46,7 @@ import {
 import {
   campaignHasActiveDerivations,
   createDerivation,
+  failQueuedDerivation,
 } from "@/server/repositories/derivation";
 import { inngest } from "@/server/jobs/client";
 import {
@@ -42,11 +56,13 @@ import {
 } from "./restyle-campaign";
 
 const mockSpend = vi.mocked(spend);
+const mockRefund = vi.mocked(refundCredits);
 const mockCampaign = vi.mocked(getCampaignById);
 const mockAssets = vi.mocked(getAssetsByCampaign);
 const mockAssetMeta = vi.mocked(getAssetWithMetadata);
 const mockHasActive = vi.mocked(campaignHasActiveDerivations);
 const mockCreate = vi.mocked(createDerivation);
+const mockFail = vi.mocked(failQueuedDerivation);
 const mockSend = vi.mocked(inngest.send);
 const mockUpdate = vi.mocked(updateCampaign);
 
@@ -84,9 +100,12 @@ describe("restyleCampaign", () => {
       id: "d1",
       format: "1080x1080",
       status: "queued",
+      updatedAt: new Date("2026-07-27T12:00:00.000Z"),
     } as never);
     mockSend.mockResolvedValue({ ids: ["e1"] } as never);
     mockUpdate.mockResolvedValue(undefined as never);
+    mockFail.mockResolvedValue({ id: "d1", status: "failed" } as never);
+    mockRefund.mockResolvedValue({ status: "refunded" } as never);
   });
 
   it("uses historical HTTP billing key when key omitted", async () => {
@@ -159,5 +178,30 @@ describe("restyleCampaign", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.code).toBe("invalid_base_asset");
     expect(mockSpend).not.toHaveBeenCalled();
+  });
+
+  it("refunds exactly once when synchronous dispatch fails", async () => {
+    mockSend.mockRejectedValue(new Error("inngest down"));
+
+    const result = await restyleCampaign({
+      workspaceId: "ws-1",
+      campaignId: "c1",
+      userId: "u1",
+      billingAction: "image_derivation",
+      billingAmount: 5,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "dispatch_failed", derivationId: "d1" },
+    });
+    expect(mockFail).toHaveBeenCalledWith("d1", "ws-1");
+    expect(mockRefund).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId: "ws-1",
+        idempotencyKey: "restyling:c1:base-1:dispatch-refund",
+        amount: 5,
+      }),
+    );
   });
 });

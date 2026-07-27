@@ -11,24 +11,22 @@ import {
 } from "@/server/repositories/campaign";
 import { getPlanByCampaign } from "@/server/repositories/plan";
 import {
-  createDerivation,
   failStaleActiveDerivations,
   getDerivationsByCampaign,
-  updateDerivationStatus,
 } from "@/server/repositories/derivation";
-import { inngest } from "@/server/jobs/client";
-import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 import { db } from "@/server/db";
 import { derivations } from "@/server/db/schema";
 import { getUserLocale } from "@/server/repositories/user";
 import { getAssetsByCampaign } from "@/server/repositories/asset";
 import { objectStorage } from "@/server/storage";
-import { chargeForBatchOrApiError } from "@/server/generation/canonical/charge";
 import {
   GENERATION_CREDIT_COSTS,
-  type GenerationBatchCharge,
   type GenerationMode,
 } from "@/server/generation/canonical/types";
+import {
+  campaignBatchDerivationSettlementAdapter,
+} from "@/server/generation/settlement-adapters";
+import { startGenerationSettlement } from "@/server/generation/settlement";
 import {
   deriveRegenerationPreview,
   derivationHasRegenerationPreview,
@@ -192,91 +190,59 @@ export async function POST(
     const jobsToCreate = isPreview ? jobs.slice(0, 1) : jobs;
     const unitChargeAmount = GENERATION_CREDIT_COSTS.singleDerivation;
     const unitCount = jobsToCreate.length;
-    // Batch charge (not a unit GenerationRequest): jobs execute unit requests later.
-    const batchCharge: GenerationBatchCharge = {
-      kind: "batch",
-      authorship: { workspaceId: workspace.id, userId: user.id },
-      origin: "campaign",
-      surface: "campaign",
-      intent: {
-        mode: (generationMode as GenerationMode) || "art_variation",
-        objective: campaign.objective ?? null,
-      },
-      parentId: campaignId,
-      unitCount,
-      chargeAmount: unitCount * unitChargeAmount,
-      unitChargeAmount,
-      billingKey: `derivations:${campaignId}:${isPreview ? "preview" : "batch"}:${jobsToCreate
-        .map((job) => `${job.variantIndex}:${job.ctaText ?? ""}:${job.format}`)
-        .join("|")}`,
-      refundPolicy: "default",
-    };
-    const creditError = await chargeForBatchOrApiError(batchCharge, {
-      metadata: {
+    const billingKey = `derivations:${campaignId}:${isPreview ? "preview" : "batch"}:${jobsToCreate
+      .map((job) => `${job.variantIndex}:${job.ctaText ?? ""}:${job.format}`)
+      .join("|")}`;
+
+    const settled = await startGenerationSettlement(
+      campaignBatchDerivationSettlementAdapter({
+        workspaceId: workspace.id,
+        userId: user.id,
         campaignId,
-        count: unitCount,
-        preview: isPreview,
-        operation_key: isPreview ? "preview" : "batch",
-        estimateCredits: unitCount * unitChargeAmount,
-      },
-    });
-    if (creditError) return creditError;
-
-    const results = await Promise.all(
-      jobsToCreate.map(async (job) => {
-        const derivation = await createDerivation({
-          campaignId,
-          workspaceId: workspace.id,
-          planId: plan?.id ?? undefined,
-          status: "queued",
-          generationMode,
+        billingKey,
+        amount: unitCount * unitChargeAmount,
+        unitCount,
+        action: "image_derivation",
+        intentMode: ((generationMode as GenerationMode) || "art_variation"),
+        locale,
+        isPreview,
+        planId: plan?.id,
+        jobs: jobsToCreate.map((job) => ({
           variantIndex: job.variantIndex,
-          ctaText: job.ctaText ?? undefined,
+          ctaText: job.ctaText,
           format: job.format,
-          isPreview,
-          outputLearningApplication,
-          ...(generationMode === "restyling" &&
-            requestedStyleAssetId && { styleAssetId: requestedStyleAssetId }),
-        });
-        logger.info(`[derivations POST] created derivationId=${derivation.id} mode=${generationMode} index=${job.variantIndex} format=${job.format} isPreview=${isPreview}`);
-
-        try {
-          await inngest.send({
-            name: heavyImageEventName("derivation.generate"),
-            data: {
-              derivationId: derivation.id,
-              campaignId,
-              workspaceId: workspace.id,
-              triggeredByUserId: user.id,
-              locale,
-              generationMode,
-              variantIndex: job.variantIndex,
-              ctaText: job.ctaText,
-              format: job.format,
-              isPreview,
-              styleAssetId: generationMode === "restyling" ? (requestedStyleAssetId ?? null) : null,
-              ...(generationMode === "art_variation" && {
-                creativeLevel: campaign.creativeLevel ?? "balanced",
-              }),
-            },
-          });
-          logger.info(`[derivations POST] event sent derivationId=${derivation.id}`);
-          return { derivation, queued: true };
-        } catch (sendErr) {
-          logger.error(`[derivations POST] event send FAILED derivationId=${derivation.id}`, sendErr);
-          await updateDerivationStatus(derivation.id, workspace.id, "failed");
-          return { derivation, queued: false };
-        }
+          generationMode,
+          ...(generationMode === "restyling" && requestedStyleAssetId
+            ? { styleAssetId: requestedStyleAssetId }
+            : {}),
+          ...(generationMode === "art_variation"
+            ? { creativeLevel: campaign.creativeLevel ?? "balanced" }
+            : {}),
+          ...(outputLearningApplication
+            ? { outputLearningApplication }
+            : {}),
+        })),
       })
     );
 
-    const created = results.map((result) => result.derivation);
-    const queuedCount = results.filter((result) => result.queued).length;
+    if (!settled.ok) {
+      if (settled.error.code === "credit_blocked") {
+        return apiError("creditBlocked", 402, settled.error.details);
+      }
+      // Preserve historical 201 body with failed rows; settlement already
+      // marked them failed and refunded the batch charge once.
+      logger.error(
+        `[derivations POST] dispatch FAILED campaignId=${campaignId}`,
+        settled.error
+      );
+      await updateCampaign(campaignId, workspace.id, { status: "failed" });
+      return NextResponse.json(
+        { derivations: settled.error.value.derivations },
+        { status: 201 },
+      );
+    }
 
-    await updateCampaign(campaignId, workspace.id, {
-      status: queuedCount > 0 ? "generating" : "failed",
-    });
-
+    const created = settled.value.derivations;
     return NextResponse.json({ derivations: created }, { status: 201 });
   } catch (error) {
     logRouteError("campaigns.[id].derivations.POST", error);

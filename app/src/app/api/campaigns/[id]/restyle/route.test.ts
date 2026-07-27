@@ -32,6 +32,9 @@ vi.mock("@/server/repositories/derivation", () => ({
   getDerivationsByCampaign: vi.fn(),
   updateDerivationStatus: vi.fn(),
   campaignHasActiveDerivations: vi.fn(() => Promise.resolve(false)),
+  deleteQueuedDerivation: vi.fn(),
+  failQueuedDerivation: vi.fn(),
+  touchQueuedDerivation: vi.fn(),
 }));
 
 vi.mock("@/server/repositories/asset", () => ({
@@ -45,6 +48,15 @@ vi.mock("@/server/jobs/client", () => ({
 vi.mock("@/server/billing/paywall", () => ({
   spend: vi.fn(() => Promise.resolve({ ok: true, creditsSpent: 5 })),
   spendOrApiError: vi.fn(() => Promise.resolve(null)),
+}));
+
+vi.mock("@/server/billing/credits", () => ({
+  refundCredits: vi.fn(() => Promise.resolve({ status: "refunded" })),
+}));
+
+vi.mock("@/server/repositories/usage", () => ({
+  getUsageByIdempotencyKey: vi.fn(),
+  trackUsage: vi.fn(),
 }));
 
 vi.mock("@/server/storage", () => ({
@@ -64,9 +76,9 @@ import {
 import {
   campaignHasActiveDerivations,
   createDerivation,
+  failQueuedDerivation,
   failStaleActiveDerivations,
   getDerivationsByCampaign,
-  updateDerivationStatus,
 } from "@/server/repositories/derivation";
 import { getAssetsByCampaign } from "@/server/repositories/asset";
 import { inngest } from "@/server/jobs/client";
@@ -76,9 +88,9 @@ import { objectStorage } from "@/server/storage";
 const mockGetCampaignById = vi.mocked(getCampaignById);
 const mockUpdateCampaign = vi.mocked(updateCampaign);
 const mockCreateDerivation = vi.mocked(createDerivation);
+const mockFailQueuedDerivation = vi.mocked(failQueuedDerivation);
 const mockFailStaleActiveDerivations = vi.mocked(failStaleActiveDerivations);
 const mockGetDerivationsByCampaign = vi.mocked(getDerivationsByCampaign);
-const mockUpdateDerivationStatus = vi.mocked(updateDerivationStatus);
 const mockHasActive = vi.mocked(campaignHasActiveDerivations);
 const mockGetAssetsByCampaign = vi.mocked(getAssetsByCampaign);
 const mockInngestSend = vi.mocked(inngest.send);
@@ -134,7 +146,12 @@ describe("POST /api/campaigns/[id]/restyle", () => {
       status: "queued",
       generationMode: "restyling",
       format: "1024x1024",
+      updatedAt: new Date("2026-07-27T12:00:00.000Z"),
     } as Awaited<ReturnType<typeof createDerivation>>);
+    mockFailQueuedDerivation.mockResolvedValue({
+      id: "derivation-1",
+      status: "failed",
+    } as never);
     mockInngestSend.mockResolvedValue(undefined);
     mockSpendCredits.mockResolvedValue({ ok: true, creditsSpent: 5 });
   });
@@ -252,10 +269,9 @@ describe("POST /api/campaigns/[id]/restyle", () => {
     const res = await POST(postRequest({}), { params: makeParams("camp-1") });
 
     expect(res.status).toBe(500);
-    expect(mockUpdateDerivationStatus).toHaveBeenCalledWith(
+    expect(mockFailQueuedDerivation).toHaveBeenCalledWith(
       "derivation-1",
       "workspace-1",
-      "failed"
     );
   });
 
