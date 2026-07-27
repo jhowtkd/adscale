@@ -1525,4 +1525,85 @@ describe("Assistant generation settlement adapters", () => {
     );
     expect(send).not.toHaveBeenCalled();
   });
+
+  it("resolves an idempotent triplet replay without double charge or send", async () => {
+    chargeBatch.mockResolvedValue({
+      ok: true,
+      creditsSpent: 0,
+      duplicate: true,
+    });
+    getChild.mockImplementation(async (id: string) => ({
+      id,
+      status: "completed",
+      updatedAt: new Date("2026-07-26T12:00:01.000Z"),
+    }));
+    getUsage.mockImplementation(async (_workspaceId, idempotencyKey) => {
+      if (
+        idempotencyKey ===
+        "assistant-action:action-triplet:creative-triplet"
+      ) {
+        return {
+          metadata: {
+            derivationIds: ["t1", "t2", "t3"],
+            settlementDispatchAckRequired: true,
+            settlementDispatchAckKey:
+              "assistant-action:action-triplet:creative-triplet:dispatch-ack",
+          },
+        };
+      }
+      return idempotencyKey.endsWith(":dispatch-ack")
+        ? { id: "triplet-ack" }
+        : null;
+    });
+
+    const result = await startGenerationSettlement(tripletAdapter());
+
+    expect(result.ok).toBe(true);
+    expect(chargeBatch).toHaveBeenCalledOnce();
+    expect(send).not.toHaveBeenCalled();
+    expect(deleteChild).toHaveBeenCalledTimes(3);
+  });
+
+  it("allows only one concurrent triplet claimer to dispatch", async () => {
+    let chargeCalls = 0;
+    chargeBatch.mockImplementation(async () => {
+      chargeCalls += 1;
+      if (chargeCalls === 1) {
+        return { ok: true, creditsSpent: 15 };
+      }
+      return { ok: true, creditsSpent: 0, duplicate: true };
+    });
+    getChild.mockImplementation(async (id: string) => ({
+      id,
+      status: "queued",
+      updatedAt: new Date("2026-07-26T12:00:00.000Z"),
+    }));
+    getUsage.mockImplementation(async (_workspaceId, idempotencyKey) => {
+      if (
+        chargeCalls > 1 &&
+        idempotencyKey ===
+          "assistant-action:action-triplet:creative-triplet"
+      ) {
+        return {
+          metadata: {
+            derivationIds: ["t1", "t2", "t3"],
+            settlementDispatchAckRequired: true,
+            settlementDispatchAckKey:
+              "assistant-action:action-triplet:creative-triplet:dispatch-ack",
+          },
+        };
+      }
+      return idempotencyKey.endsWith(":dispatch-ack")
+        ? { id: "triplet-ack" }
+        : null;
+    });
+
+    const results = await Promise.all([
+      startGenerationSettlement(tripletAdapter()),
+      startGenerationSettlement(tripletAdapter()),
+    ]);
+
+    expect(results.every((result) => result.ok)).toBe(true);
+    expect(send).toHaveBeenCalledOnce();
+  });
 });
