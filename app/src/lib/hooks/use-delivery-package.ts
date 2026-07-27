@@ -1,13 +1,14 @@
 import { apiFetch } from "@/lib/api-client";
 import { invalidateCanonicalWorks } from "@/lib/hooks/use-canonical-works";
+import { createMutationIdempotency } from "@/lib/hooks/mutation-idempotency";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRef } from "react";
 import type { DeliveryFormat } from "@/components/workspace/DeliveryPackageModal";
 
 export function useCreateDeliveryPackage() {
   const queryClient = useQueryClient();
-  // One key per mutate() attempt so retries of the same click stay idempotent.
-  const attemptKeyRef = useRef<string | null>(null);
+  // Keep key until success so a lost response + user retry stays one settlement.
+  const idempotencyRef = useRef(createMutationIdempotency());
 
   return useMutation({
     retry: 0,
@@ -18,14 +19,13 @@ export function useCreateDeliveryPackage() {
       derivationId: string;
       formats: DeliveryFormat[];
     }) => {
-      attemptKeyRef.current ??= crypto.randomUUID();
       const res = await apiFetch(
         `/api/derivations/${derivationId}/delivery-package`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Idempotency-Key": attemptKeyRef.current,
+            "Idempotency-Key": idempotencyRef.current.current(),
           },
           body: JSON.stringify({ formats }),
         }
@@ -36,10 +36,8 @@ export function useCreateDeliveryPackage() {
       }
       return res.json();
     },
-    onSettled: () => {
-      attemptKeyRef.current = null;
-    },
     onSuccess: () => {
+      idempotencyRef.current.rotateAfterSuccess();
       queryClient.invalidateQueries({ queryKey: ["derivations"] });
       queryClient.invalidateQueries({ queryKey: ["campaigns"] });
       void invalidateCanonicalWorks(queryClient);

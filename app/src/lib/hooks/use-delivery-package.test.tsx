@@ -75,4 +75,50 @@ describe("useCreateDeliveryPackage", () => {
       expect(result.current.isError).toBe(true);
     });
   });
+
+  it("reuses Idempotency-Key after error and rotates after success", async () => {
+    mockApiFetch
+      .mockResolvedValueOnce({
+        ok: false,
+        json: () => Promise.resolve({ error: "network" }),
+      } as unknown as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ queued: [] }),
+      } as unknown as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ queued: [] }),
+      } as unknown as Response);
+
+    const { result } = renderHook(() => useCreateDeliveryPackage(), {
+      wrapper: createWrapper(),
+    });
+
+    await expect(
+      result.current.mutateAsync({
+        derivationId: "d1",
+        formats: ["4:5"],
+      }),
+    ).rejects.toThrow();
+
+    await result.current.mutateAsync({
+      derivationId: "d1",
+      formats: ["4:5"],
+    });
+
+    const key1 = (mockApiFetch.mock.calls[0]?.[1] as { headers: Record<string, string> })
+      .headers["Idempotency-Key"];
+    const key2 = (mockApiFetch.mock.calls[1]?.[1] as { headers: Record<string, string> })
+      .headers["Idempotency-Key"];
+    expect(key1).toBe(key2);
+
+    await result.current.mutateAsync({
+      derivationId: "d1",
+      formats: ["9:16"],
+    });
+    const key3 = (mockApiFetch.mock.calls[2]?.[1] as { headers: Record<string, string> })
+      .headers["Idempotency-Key"];
+    expect(key3).not.toBe(key1);
+  });
 });

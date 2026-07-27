@@ -1389,6 +1389,8 @@ function tripletAdapter() {
     planVersionId: "plan-1",
     goalRunId: "goal-1",
     locale: "pt-BR",
+    amount: 15,
+    unitChargeAmount: 5,
   });
 }
 
@@ -1407,6 +1409,8 @@ function goalPackageAdapter() {
     planVersionId: "plan-1",
     goalRunId: "goal-1",
     locale: "pt-BR",
+    amount: 15,
+    unitChargeAmount: 5,
   });
 }
 

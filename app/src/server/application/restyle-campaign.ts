@@ -180,13 +180,20 @@ export async function restyleCampaign(
     input.billingIdempotencyKey ??
     `restyling:${campaignId}:${baseAsset.id}:${styleAsset.id}:${styleParam}:${attemptId}`;
 
-  // Block concurrent work unless this request is an idempotent settlement
-  // replay of an in-flight restyle (same billing key already charged).
+  // Block concurrent work unless this is an idempotent retry of an in-flight
+  // restyle. Charge may lag reserve by a few ms — poll briefly before 429.
   if (await campaignHasActiveDerivations(campaignId, input.workspaceId)) {
-    const existingCharge = await getUsageByIdempotencyKey(
+    let existingCharge = await getUsageByIdempotencyKey(
       input.workspaceId,
       billingIdempotencyKey,
     );
+    for (let attempt = 0; !existingCharge && attempt < 8; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+      existingCharge = await getUsageByIdempotencyKey(
+        input.workspaceId,
+        billingIdempotencyKey,
+      );
+    }
     if (!existingCharge) {
       return { ok: false, error: { code: "derivations_in_progress" } };
     }

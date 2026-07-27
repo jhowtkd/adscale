@@ -1452,6 +1452,9 @@ export function assistantCreativeTripletSettlementAdapter(input: {
   planVersionId: string;
   goalRunId: string;
   locale?: string;
+  /** Product-resolved batch total and unit price. */
+  amount: number;
+  unitChargeAmount: number;
 }): GenerationSettlementAdapter<
   DerivationBatchSettlementValue,
   DerivationBatchReservation
@@ -1463,9 +1466,9 @@ export function assistantCreativeTripletSettlementAdapter(input: {
     campaignId: input.campaignId,
     assistantActionId: input.actionId,
     billingKey,
-    amount: GENERATION_CREDIT_COSTS.creativeWorkTriplet,
+    amount: input.amount,
     unitCount: GOAL_CREATIVE_LEVELS.length,
-    unitChargeAmount: GENERATION_CREDIT_COSTS.singleDerivation,
+    unitChargeAmount: input.unitChargeAmount,
     action: "image_derivation",
     intentMode: "art_variation",
     eventIdPrefix: "assistant-creative-triplet",
@@ -1523,6 +1526,9 @@ export function assistantGoalPackageSettlementAdapter(input: {
   planVersionId: string;
   goalRunId: string;
   locale?: string;
+  /** Product-resolved batch total and unit price. */
+  amount: number;
+  unitChargeAmount: number;
 }): GenerationSettlementAdapter<
   DerivationBatchSettlementValue,
   DerivationBatchReservation
@@ -1542,9 +1548,9 @@ export function assistantGoalPackageSettlementAdapter(input: {
     campaignId: input.campaignId,
     assistantActionId: input.actionId,
     billingKey,
-    amount: GENERATION_CREDIT_COSTS.goalPackage,
+    amount: input.amount,
     unitCount: input.formats.length,
-    unitChargeAmount: GENERATION_CREDIT_COSTS.singleDerivation,
+    unitChargeAmount: input.unitChargeAmount,
     action: "delivery_package_child",
     intentMode: "format_adaptation",
     eventIdPrefix: "assistant-goal-package",
@@ -2647,6 +2653,7 @@ export function campaignBatchDerivationSettlementAdapter(input: {
   billingKey: string;
   amount: number;
   unitCount: number;
+  unitChargeAmount: number;
   action: CreditAction;
   intentMode: GenerationBatchCharge["intent"]["mode"];
   locale?: string;
@@ -2671,7 +2678,7 @@ export function campaignBatchDerivationSettlementAdapter(input: {
     billingKey: input.billingKey,
     amount: input.amount,
     unitCount: input.unitCount,
-    unitChargeAmount: GENERATION_CREDIT_COSTS.singleDerivation,
+    unitChargeAmount: input.unitChargeAmount,
     action: input.action,
     intentMode: input.intentMode,
     origin: "campaign",

@@ -12,6 +12,7 @@ import {
 } from "@/lib/campaign-load-error";
 import { STALE_TIME } from "@/lib/query-config";
 import { invalidateWorkListProjections } from "@/lib/hooks/use-canonical-works";
+import { createMutationIdempotency } from "@/lib/hooks/mutation-idempotency";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRef } from "react";
 
@@ -286,18 +287,14 @@ async function restyleCampaign(
 
 export function useRestyleCampaign(campaignId: string) {
   const queryClient = useQueryClient();
-  // One key per mutate() attempt so RQ/network retries stay idempotent.
-  const attemptKeyRef = useRef<string | null>(null);
+  // Keep key until success so a lost response + user retry stays one settlement.
+  const idempotencyRef = useRef(createMutationIdempotency());
   return useMutation({
     retry: 0,
-    mutationFn: (input: { styleAssetIds?: string[]; styleIntensity?: string }) => {
-      attemptKeyRef.current ??= crypto.randomUUID();
-      return restyleCampaign(campaignId, input, attemptKeyRef.current);
-    },
-    onSettled: () => {
-      attemptKeyRef.current = null;
-    },
+    mutationFn: (input: { styleAssetIds?: string[]; styleIntensity?: string }) =>
+      restyleCampaign(campaignId, input, idempotencyRef.current.current()),
     onSuccess: (created) => {
+      idempotencyRef.current.rotateAfterSuccess();
       queryClient.setQueryData<DerivationsQueryData>(
         ["derivations", campaignId],
         (old) => ({

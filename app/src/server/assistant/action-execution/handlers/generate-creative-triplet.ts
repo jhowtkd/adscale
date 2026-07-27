@@ -1,5 +1,6 @@
 import { generateCreativeTripletInputSchema } from "@/server/assistant/action-contracts/contracts/generate-creative-triplet";
 import { getGoalRunScoped } from "@/server/repositories/assistant-goal";
+import { GENERATION_CREDIT_COSTS } from "@/server/generation/canonical/types";
 import { assistantCreativeTripletSettlementAdapter } from "@/server/generation/settlement-adapters";
 import { startGenerationSettlement } from "@/server/generation/settlement";
 import { AssistantActionExecutionError } from "../types";
@@ -55,6 +56,8 @@ export async function executeGenerateCreativeTriplet(
       planVersionId: input.planVersionId,
       goalRunId: input.goalRunId,
       locale: ctx.locale,
+      amount: GENERATION_CREDIT_COSTS.creativeWorkTriplet,
+      unitChargeAmount: GENERATION_CREDIT_COSTS.singleDerivation,
     }),
   );
 

@@ -71,6 +71,45 @@ describe("useRestyleCampaign", () => {
     );
   });
 
+  it("reuses Idempotency-Key after error and rotates after success", async () => {
+    mockApiFetch
+      .mockResolvedValueOnce({
+        ok: false,
+        json: () => Promise.resolve({ error: "timeout" }),
+      } as unknown as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ derivations: [{ id: "d1" }] }),
+      } as unknown as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ derivations: [{ id: "d2" }] }),
+      } as unknown as Response);
+
+    const { result } = renderHook(() => useRestyleCampaign("camp-1"), {
+      wrapper: createWrapper(),
+    });
+
+    await expect(
+      result.current.mutateAsync({ styleAssetIds: ["asset-1"] }),
+    ).rejects.toThrow();
+
+    await result.current.mutateAsync({ styleAssetIds: ["asset-1"] });
+    const key1 = (
+      mockApiFetch.mock.calls[0]?.[1] as { headers: Record<string, string> }
+    ).headers["Idempotency-Key"];
+    const key2 = (
+      mockApiFetch.mock.calls[1]?.[1] as { headers: Record<string, string> }
+    ).headers["Idempotency-Key"];
+    expect(key1).toBe(key2);
+
+    await result.current.mutateAsync({ styleAssetIds: ["asset-2"] });
+    const key3 = (
+      mockApiFetch.mock.calls[2]?.[1] as { headers: Record<string, string> }
+    ).headers["Idempotency-Key"];
+    expect(key3).not.toBe(key1);
+  });
+
   it("returns derivations from successful response", async () => {
     const { result } = renderHook(() => useRestyleCampaign("camp-1"), {
       wrapper: createWrapper(),

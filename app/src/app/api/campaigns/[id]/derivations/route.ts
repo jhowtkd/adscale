@@ -202,6 +202,7 @@ export async function POST(
         billingKey,
         amount: unitCount * unitChargeAmount,
         unitCount,
+        unitChargeAmount,
         action: "image_derivation",
         intentMode: ((generationMode as GenerationMode) || "art_variation"),
         locale,

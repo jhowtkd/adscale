@@ -4,6 +4,7 @@ import {
 } from "@/server/assistant/action-contracts/contracts/generate-goal-package";
 import { getGoalRunScoped } from "@/server/repositories/assistant-goal";
 import { resolveGoalCreativeVersion } from "@/server/assistant/goal/service";
+import { GENERATION_CREDIT_COSTS } from "@/server/generation/canonical/types";
 import { assistantGoalPackageSettlementAdapter } from "@/server/generation/settlement-adapters";
 import { startGenerationSettlement } from "@/server/generation/settlement";
 import { AssistantActionExecutionError } from "../types";
@@ -53,6 +54,8 @@ export async function executeGenerateGoalPackage(
       planVersionId: input.planVersionId,
       goalRunId: input.goalRunId,
       locale: ctx.locale,
+      amount: GENERATION_CREDIT_COSTS.goalPackage,
+      unitChargeAmount: GENERATION_CREDIT_COSTS.singleDerivation,
     }),
   );
 

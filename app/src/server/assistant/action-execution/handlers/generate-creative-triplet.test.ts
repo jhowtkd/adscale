@@ -72,6 +72,8 @@ describe("executeGenerateCreativeTriplet", () => {
       planVersionId: ctx.inputSnapshot.planVersionId,
       goalRunId: ctx.inputSnapshot.goalRunId,
       locale: "pt-BR",
+      amount: 15,
+      unitChargeAmount: 5,
     });
     expect(settleMock).toHaveBeenCalledWith(adapter);
     expect(result).toEqual({
