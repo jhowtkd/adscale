@@ -572,6 +572,34 @@ describe("Generation Settlement production adapters", () => {
     );
   });
 
+  it("does not refund a terminal unit failure after dispatch was acknowledged", async () => {
+    chargeUnit.mockResolvedValue({
+      ok: true,
+      creditsSpent: 0,
+      duplicate: true,
+    });
+    getChild.mockResolvedValue({ ...originalChild, status: "failed" });
+    getUsage.mockImplementation(async (_workspaceId, idempotencyKey) => {
+      if (idempotencyKey === "adapt:source-1") {
+        return {
+          metadata: {
+            derivationId: originalChild.id,
+            settlementDispatchAckRequired: true,
+            settlementDispatchAckKey: "adapt:source-1:dispatch-ack",
+          },
+        };
+      }
+      return idempotencyKey === "adapt:source-1:dispatch-ack"
+        ? { id: "unit-ack" }
+        : null;
+    });
+
+    const result = await startGenerationSettlement(unitAdapter());
+
+    expect(result.ok).toBe(true);
+    expect(refund).not.toHaveBeenCalled();
+  });
+
   it("recovers a queued unit replay from its recorded refund marker", async () => {
     chargeUnit.mockResolvedValue({
       ok: true,
@@ -1524,6 +1552,75 @@ describe("Assistant generation settlement adapters", () => {
       "workspace-1",
     );
     expect(send).not.toHaveBeenCalled();
+  });
+
+  it("does not refund a terminal triplet failure after dispatch was acknowledged", async () => {
+    chargeBatch.mockResolvedValue({
+      ok: true,
+      creditsSpent: 0,
+      duplicate: true,
+    });
+    getChild.mockImplementation(async (id: string) => ({
+      id,
+      status: "failed",
+      updatedAt: new Date("2026-07-26T12:00:01.000Z"),
+    }));
+    getUsage.mockImplementation(async (_workspaceId, idempotencyKey) => {
+      if (
+        idempotencyKey ===
+        "assistant-action:action-triplet:creative-triplet"
+      ) {
+        return {
+          metadata: {
+            derivationIds: ["t1", "t2", "t3"],
+            settlementDispatchAckRequired: true,
+            settlementDispatchAckKey:
+              "assistant-action:action-triplet:creative-triplet:dispatch-ack",
+          },
+        };
+      }
+      return idempotencyKey.endsWith(":dispatch-ack")
+        ? { id: "triplet-ack" }
+        : null;
+    });
+
+    const result = await startGenerationSettlement(tripletAdapter());
+
+    expect(result.ok).toBe(true);
+    expect(refund).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("does not refund a terminal preview failure after dispatch was acknowledged", async () => {
+    chargeUnit.mockResolvedValue({
+      ok: true,
+      creditsSpent: 0,
+      duplicate: true,
+    });
+    getChild.mockResolvedValue({
+      ...previewDerivation,
+      status: "failed",
+    });
+    getUsage.mockImplementation(async (_workspaceId, idempotencyKey) => {
+      if (idempotencyKey === "assistant-action:action-preview:preview") {
+        return {
+          metadata: {
+            derivationId: previewDerivation.id,
+            settlementDispatchAckRequired: true,
+            settlementDispatchAckKey:
+              "assistant-action:action-preview:preview:dispatch-ack",
+          },
+        };
+      }
+      return idempotencyKey.endsWith(":dispatch-ack")
+        ? { id: "preview-ack" }
+        : null;
+    });
+
+    const result = await startGenerationSettlement(previewAdapter());
+
+    expect(result.ok).toBe(true);
+    expect(refund).not.toHaveBeenCalled();
   });
 
   it("resolves an idempotent triplet replay without double charge or send", async () => {

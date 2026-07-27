@@ -546,15 +546,8 @@ export function formatAdaptationSettlementAdapter(input: {
         };
       }
       for (let attempt = 0; original && attempt < 80; attempt += 1) {
-        if (original.status === "failed") {
-          return {
-            status: "dispatch_failed",
-            failure: {
-              value: { derivation: original, source: input.source },
-              refunds: [dispatchRefund],
-            },
-          };
-        }
+        // Ack means dispatch left the process. A later terminal job failure
+        // must not be reclassified as a compensating dispatch refund.
         if (ack.required) {
           const recordedAck =
             ack.key &&
@@ -568,6 +561,17 @@ export function formatAdaptationSettlementAdapter(input: {
               value: { derivation: original, source: input.source },
             };
           }
+        }
+        if (original.status === "failed") {
+          return {
+            status: "dispatch_failed",
+            failure: {
+              value: { derivation: original, source: input.source },
+              refunds: [dispatchRefund],
+            },
+          };
+        }
+        if (ack.required) {
           await new Promise((resolve) => setTimeout(resolve, 25));
           original = await getDerivationById(original.id, input.workspaceId);
           continue;
@@ -1076,15 +1080,8 @@ async function resolveDerivationBatchReplay(input: {
   }
   const ack = settlementDispatchMetadata(metadata);
   for (let attempt = 0; originals.length > 0 && attempt < 80; attempt += 1) {
-    if (originals.some((row) => row.status === "failed")) {
-      return {
-        status: "dispatch_failed",
-        failure: {
-          value: { derivations: originals },
-          refunds: [refund],
-        },
-      };
-    }
+    // Ack means dispatch left the process. A later terminal job failure
+    // must not be reclassified as a compensating dispatch refund.
     if (ack.required) {
       const recordedAck =
         ack.key &&
@@ -1095,6 +1092,18 @@ async function resolveDerivationBatchReplay(input: {
         });
         return { status: "settled", value: { derivations: originals } };
       }
+    }
+    if (originals.some((row) => row.status === "failed")) {
+      return {
+        status: "dispatch_failed",
+        failure: {
+          value: { derivations: originals },
+          refunds: [refund],
+        },
+      };
+    }
+    if (ack.required) {
+      // Still queued and waiting for a concurrent claimer to write ack.
     } else if (originals.some((row) => row.status !== "queued")) {
       await updateCampaign(input.campaignId, input.workspaceId, {
         status: "generating",
@@ -1575,15 +1584,8 @@ export function assistantPreviewSettlementAdapter(input: {
       }
       const ack = settlementDispatchMetadata(metadata);
       for (let attempt = 0; original && attempt < 80; attempt += 1) {
-        if (original.status === "failed") {
-          return {
-            status: "dispatch_failed",
-            failure: {
-              value: { derivation: original },
-              refunds: [refund],
-            },
-          };
-        }
+        // Ack means dispatch left the process. A later terminal job failure
+        // must not be reclassified as a compensating dispatch refund.
         if (ack.required) {
           const recordedAck =
             ack.key &&
@@ -1597,6 +1599,18 @@ export function assistantPreviewSettlementAdapter(input: {
               value: { derivation: original },
             };
           }
+        }
+        if (original.status === "failed") {
+          return {
+            status: "dispatch_failed",
+            failure: {
+              value: { derivation: original },
+              refunds: [refund],
+            },
+          };
+        }
+        if (ack.required) {
+          // Still queued and waiting for a concurrent claimer to write ack.
         } else if (
           original.status !== "queued" ||
           (reservationUpdatedAt && original.updatedAt > reservationUpdatedAt)
