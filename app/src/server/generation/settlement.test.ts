@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const refund = vi.hoisted(() => vi.fn());
 
@@ -7,6 +7,7 @@ vi.mock("@/server/billing/credits", () => ({
 }));
 
 import {
+  settleTerminalRefund,
   startGenerationSettlement,
   type GenerationSettlementAdapter,
 } from "./settlement";
@@ -137,6 +138,115 @@ describe("startGenerationSettlement", () => {
         value: { id: "output-1", status: "queued" },
         compensated: false,
       },
+    });
+  });
+});
+
+describe("settleTerminalRefund", () => {
+  beforeEach(() => {
+    refund.mockReset();
+  });
+
+  it("refunds a refundable decision exactly once through the ledger", async () => {
+    refund.mockResolvedValue({ status: "refunded" });
+
+    const result = await settleTerminalRefund({
+      decision: {
+        refund: true,
+        amount: 5,
+        idempotencyKey: "creative-work:work-1:output:output-1:terminal-refund",
+        reason: "creative_work_terminal_failure",
+      },
+      workspaceId: "workspace-1",
+      metadata: {
+        creativeWorkId: "work-1",
+        outputId: "output-1",
+        description: "creative_work_output_terminal_refund",
+      },
+      userId: "user-1",
+    });
+
+    expect(result).toEqual({
+      refunded: true,
+      applied: true,
+      reason: "creative_work_terminal_failure",
+      status: "refunded",
+    });
+    expect(refund).toHaveBeenCalledOnce();
+    expect(refund).toHaveBeenCalledWith({
+      workspaceId: "workspace-1",
+      action: "image_derivation",
+      idempotencyKey: "creative-work:work-1:output:output-1:terminal-refund",
+      amount: 5,
+      metadata: {
+        creativeWorkId: "work-1",
+        outputId: "output-1",
+        description: "creative_work_output_terminal_refund",
+      },
+      userId: "user-1",
+    });
+  });
+
+  it("skips non-refundable decisions without touching the ledger", async () => {
+    const result = await settleTerminalRefund({
+      decision: {
+        refund: false,
+        reason: "derivation_job_failure_non_refundable",
+      },
+      workspaceId: "workspace-1",
+      metadata: { derivationId: "derivation-1" },
+    });
+
+    expect(result).toEqual({
+      refunded: false,
+      applied: true,
+      reason: "derivation_job_failure_non_refundable",
+    });
+    expect(refund).not.toHaveBeenCalled();
+  });
+
+  it("treats duplicate ledger writes as applied (idempotent redelivery)", async () => {
+    refund.mockResolvedValue({ status: "duplicate" });
+
+    const result = await settleTerminalRefund({
+      decision: {
+        refund: true,
+        amount: 5,
+        idempotencyKey: "assistant-action:action-1:refund",
+        reason: "assistant_creative_revision_job_failure",
+      },
+      workspaceId: "workspace-1",
+      metadata: { actionId: "action-1" },
+      userId: "user-1",
+    });
+
+    expect(result).toEqual({
+      refunded: true,
+      applied: true,
+      reason: "assistant_creative_revision_job_failure",
+      status: "duplicate",
+    });
+    expect(refund).toHaveBeenCalledOnce();
+  });
+
+  it("reports applied=false when the ledger write fails", async () => {
+    refund.mockRejectedValue(new Error("billing down"));
+
+    const result = await settleTerminalRefund({
+      decision: {
+        refund: true,
+        amount: 5,
+        idempotencyKey: "creative-work:work-1:output:output-1:terminal-refund",
+        reason: "creative_work_terminal_failure",
+      },
+      workspaceId: "workspace-1",
+    });
+
+    expect(result).toEqual({
+      refunded: true,
+      applied: false,
+      reason: "creative_work_terminal_failure",
+      error: "billing down",
     });
   });
 });

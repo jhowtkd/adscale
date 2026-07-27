@@ -85,7 +85,7 @@ import { loadPromptCalibrationContext } from "../brand-taste/prompt-calibration-
 import { getAssistantActionById } from "../repositories/assistant-action";
 import { getAssistantThreadById } from "../repositories/assistant-thread";
 import { emitArtifactIterationTelemetry } from "@/server/assistant/artifact-iteration-telemetry";
-import { refundCredits } from "../billing/credits";
+import { settleTerminalRefund } from "@/server/generation/settlement";
 import {
   createArtifactVersion,
   getArtifactHead,
@@ -1382,7 +1382,7 @@ function buildDerivationJob(
           });
         }
       });
-      // Canonical refund policy (Phase 3): job refunds only assistant
+      // Canonical terminal refund via Generation Settlement: only assistant
       // creative_revision when refundPolicy !== "none".
       const refundDecision = decideDerivationRefund({
         surface: assistantActionId ? "assistant" : "campaign",
@@ -1391,33 +1391,30 @@ function buildDerivationJob(
         assistantActionId,
         failurePhase: "job_failure",
       });
-      if (refundDecision.refund) {
-        await step.run("refund-creative-revision", async () => {
-          try {
-            const result = await refundCredits({
-              workspaceId,
-              action: "image_derivation",
-              idempotencyKey: refundDecision.idempotencyKey,
-              amount: refundDecision.amount,
-              metadata: {
-                actionId: assistantActionId,
-                derivationId,
-                campaignId,
-                mode: "creative_revision",
-                reason: refundDecision.reason,
-              },
-              userId: triggeredByUserId ?? undefined,
-            });
-            logger.info(
-              `[derivationJob onFailure] refundCredits ${result.status} assistantActionId=${assistantActionId} derivationId=${derivationId}`
-            );
-          } catch (refundErr) {
-            logger.error(
-              `[derivationJob onFailure] refundCredits FAILED assistantActionId=${assistantActionId} derivationId=${derivationId}`,
-              refundErr
-            );
-          }
+      await step.run("refund-creative-revision", async () => {
+        const result = await settleTerminalRefund({
+          decision: refundDecision,
+          workspaceId,
+          metadata: {
+            actionId: assistantActionId,
+            derivationId,
+            campaignId,
+            mode: "creative_revision",
+            reason: refundDecision.reason,
+          },
+          userId: triggeredByUserId ?? undefined,
         });
+        if (result.applied && result.refunded) {
+          logger.info(
+            `[derivationJob onFailure] terminal refund ${result.status} assistantActionId=${assistantActionId} derivationId=${derivationId}`,
+          );
+        } else if (!result.applied) {
+          logger.error(
+            `[derivationJob onFailure] terminal refund FAILED assistantActionId=${assistantActionId} derivationId=${derivationId}: ${result.error}`,
+          );
+        }
+      });
+      if (refundDecision.refund) {
         await step.run("emit-generation-failed-telemetry", async () => {
           if (!assistantActionId) return;
           const action = await getAssistantActionById(workspaceId, assistantActionId);

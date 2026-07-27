@@ -18,7 +18,7 @@ import {
 } from "@/server/generation/canonical/types";
 import { getClientProfile } from "@/server/repositories/client-reference";
 import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
-import { refundCredits } from "@/server/billing/credits";
+import { settleTerminalRefund } from "@/server/generation/settlement";
 import {
   CREATIVE_WORK_MAX_IMAGE_CALLS,
   claimCreativeWorkOutputImageCall,
@@ -1246,7 +1246,7 @@ export function createCreativeWorkOutputJobV2(client: typeof inngest) {
 }
 
 /**
- * Apply a shared RefundDecision (from policies / post-gen). Adapter-only:
+ * Apply a shared RefundDecision via Generation Settlement. Adapter-only:
  * does not re-decide policy. `description` labels the ledger row per refund
  * kind so analytics never misattributes a terminal refund as pregen.
  */
@@ -1265,38 +1265,33 @@ async function applyRefundDecision({
   decision: RefundDecision;
   description: string;
 }): Promise<boolean> {
-  if (!decision.refund) {
+  const result = await settleTerminalRefund({
+    decision,
+    workspaceId,
+    metadata: {
+      creativeWorkId: workItemId,
+      outputId,
+      reason,
+      policyReason: decision.reason,
+      description,
+    },
+  });
+  if (!result.refunded) {
     logger.info(
-      `[creativeWorkOutputJob] skip refund outputId=${outputId} reason=${decision.reason}`,
+      `[creativeWorkOutputJob] skip refund outputId=${outputId} reason=${result.reason}`,
     );
     return true;
   }
-  try {
-    const result = await refundCredits({
-      workspaceId,
-      action: "image_derivation",
-      idempotencyKey: decision.idempotencyKey,
-      amount: decision.amount,
-      metadata: {
-        creativeWorkId: workItemId,
-        outputId,
-        reason,
-        policyReason: decision.reason,
-        description,
-      },
-    });
-    logger.info(
-      `[creativeWorkOutputJob] refundCredits outputId=${outputId} status=${result.status} description=${description} reason=${reason}`,
-    );
-    return true;
-  } catch (refundError) {
-    const detail =
-      refundError instanceof Error ? refundError.message : "Unknown error";
+  if (!result.applied) {
     logger.error(
-      `[creativeWorkOutputJob] refundCredits FAILED outputId=${outputId} description=${description}: ${detail}`,
+      `[creativeWorkOutputJob] terminal refund FAILED outputId=${outputId} description=${description}: ${result.error}`,
     );
     return false;
   }
+  logger.info(
+    `[creativeWorkOutputJob] terminal refund outputId=${outputId} status=${result.status} description=${description} reason=${reason}`,
+  );
+  return true;
 }
 
 /**

@@ -1,6 +1,71 @@
 import { refundCredits } from "@/server/billing/credits";
+import type { RefundDecision } from "@/server/generation/canonical/types";
 
 export type GenerationSettlementRefund = Parameters<typeof refundCredits>[0];
+
+export type TerminalRefundSettlementResult =
+  | {
+      refunded: false;
+      applied: true;
+      reason: string;
+    }
+  | {
+      refunded: true;
+      applied: true;
+      reason: string;
+      status: "refunded" | "duplicate";
+    }
+  | {
+      refunded: true;
+      applied: false;
+      reason: string;
+      error: string;
+    };
+
+/**
+ * Apply a resolved terminal refund policy exactly once.
+ * Non-refundable decisions are no-ops. Ledger idempotency keys prevent
+ * duplicate credits under repeated or concurrent job delivery.
+ */
+export async function settleTerminalRefund(input: {
+  decision: RefundDecision;
+  workspaceId: string;
+  metadata?: Record<string, unknown>;
+  userId?: string;
+  action?: GenerationSettlementRefund["action"];
+}): Promise<TerminalRefundSettlementResult> {
+  if (!input.decision.refund) {
+    return {
+      refunded: false,
+      applied: true,
+      reason: input.decision.reason,
+    };
+  }
+
+  try {
+    const result = await refundCredits({
+      workspaceId: input.workspaceId,
+      action: input.action ?? "image_derivation",
+      idempotencyKey: input.decision.idempotencyKey,
+      amount: input.decision.amount,
+      metadata: input.metadata,
+      userId: input.userId,
+    });
+    return {
+      refunded: true,
+      applied: true,
+      reason: input.decision.reason,
+      status: result.status,
+    };
+  } catch (error) {
+    return {
+      refunded: true,
+      applied: false,
+      reason: input.decision.reason,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
 
 export type GenerationSettlementChargeResult =
   | { ok: true; duplicate?: boolean }
