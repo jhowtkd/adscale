@@ -214,6 +214,7 @@ describe("retryCreativeWorkOutput", () => {
     expect(mockRecordUsage).toHaveBeenCalledWith(
       expect.objectContaining({
         workspaceId: "ws-1",
+        amount: 5,
         idempotencyKey: "creative-work:work-1:output:output-1:reactivate-terminal",
         metadata: expect.objectContaining({
           description: "creative_work_retry_reactivation",

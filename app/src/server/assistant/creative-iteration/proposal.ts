@@ -420,28 +420,28 @@ export async function cancelRunningCreativeRevision(input: {
   };
 }
 
-export async function confirmCreativeRevision(input: {
+/**
+ * Side-effect-free preflight for a creative-revision proposal. Performs every
+ * read check `confirmCreativeRevision` does — proposal existence, lineage,
+ * source version, payload digest, lineage head revision, "no active
+ * generation" guard — without staling siblings, transitioning the proposal,
+ * or emitting telemetry. Lets callers decide whether to consume the proposal
+ * only after their own paid work has succeeded.
+ */
+export async function validateCreativeRevisionProposal(input: {
   scope: ArtifactScope;
   proposalId: string;
   lineageId: string;
   sourceVersionId: string;
   payloadDigest: string;
-  messageId?: string | null;
-  actionId?: string | null;
   lineageHeadRevision?: number;
   hasActiveGeneration?: FindActiveGeneration;
-}) {
-  if (input.actionId) {
-    const existing = await findVersionByActionId(
-      input.scope,
-      input.lineageId,
-      input.actionId
-    );
-    if (existing) {
-      return { version: existing, head: null, proposal: null, idempotent: true as const };
-    }
-  }
-
+}): Promise<{
+  proposal: NonNullable<Awaited<ReturnType<typeof getArtifactProposal>>>;
+  head: NonNullable<Awaited<ReturnType<typeof getArtifactHead>>>;
+  sourceVersion: NonNullable<Awaited<ReturnType<typeof getArtifactVersion>>>;
+  lineage: NonNullable<Awaited<ReturnType<typeof getArtifactLineage>>>;
+}> {
   const proposal = await getArtifactProposal(input.scope, input.proposalId);
   if (!proposal) {
     throw new ArtifactVersionValidationError("Proposal not found");
@@ -499,6 +499,37 @@ export async function confirmCreativeRevision(input: {
       "Já existe uma geração em andamento para este criativo."
     );
   }
+
+  return { proposal, head, sourceVersion, lineage };
+}
+
+export async function confirmCreativeRevision(input: {
+  scope: ArtifactScope;
+  proposalId: string;
+  lineageId: string;
+  sourceVersionId: string;
+  payloadDigest: string;
+  messageId?: string | null;
+  actionId?: string | null;
+  lineageHeadRevision?: number;
+  hasActiveGeneration?: FindActiveGeneration;
+}) {
+  if (input.actionId) {
+    const existing = await findVersionByActionId(
+      input.scope,
+      input.lineageId,
+      input.actionId
+    );
+    if (existing) {
+      return { version: existing, head: null, proposal: null, idempotent: true as const };
+    }
+  }
+
+  const { proposal, head, sourceVersion, lineage } =
+    await validateCreativeRevisionProposal(input);
+
+  void proposal;
+  void lineage;
 
   await staleSiblingProposals({
     scope: input.scope,
