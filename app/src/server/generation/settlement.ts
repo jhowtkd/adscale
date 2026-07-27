@@ -1,7 +1,10 @@
-import type { SpendResult } from "@/server/billing/paywall";
 import { refundCredits } from "@/server/billing/credits";
 
 export type GenerationSettlementRefund = Parameters<typeof refundCredits>[0];
+
+export type GenerationSettlementChargeResult =
+  | { ok: true; duplicate?: boolean }
+  | { ok: false; reason: string; details?: unknown };
 
 export type GenerationSettlementDispatchFailure<T> = {
   value: T;
@@ -27,7 +30,7 @@ export interface GenerationSettlementAdapter<
 > {
   reserve(): Promise<R>;
   join?(reservation: R): Promise<GenerationSettlementDeferred<T> | null>;
-  charge(reservation: R): Promise<SpendResult>;
+  charge(reservation: R): Promise<GenerationSettlementChargeResult>;
   resolveReplay?(
     reservation: R,
   ): Promise<GenerationSettlementDeferred<T> | null>;
@@ -75,7 +78,8 @@ export async function startGenerationSettlement<
       ok: false;
       error: {
         code: "credit_blocked";
-        spend: Extract<SpendResult, { ok: false }>;
+        reason: string;
+        details?: unknown;
       };
     }
   | {
@@ -101,18 +105,25 @@ export async function startGenerationSettlement<
     return startGenerationSettlement(adapter);
   }
 
-  let spend: SpendResult;
+  let charge: GenerationSettlementChargeResult;
   try {
-    spend = await adapter.charge(reservation);
+    charge = await adapter.charge(reservation);
   } catch (error) {
     await adapter.release(reservation);
     throw error;
   }
-  if (!spend.ok) {
+  if (!charge.ok) {
     await adapter.release(reservation);
-    return { ok: false, error: { code: "credit_blocked", spend } };
+    return {
+      ok: false,
+      error: {
+        code: "credit_blocked",
+        reason: charge.reason,
+        details: charge.details,
+      },
+    };
   }
-  if (spend.duplicate && adapter.resolveReplay) {
+  if (charge.duplicate && adapter.resolveReplay) {
     let replay: GenerationSettlementDeferred<T> | null;
     try {
       replay = await adapter.resolveReplay(reservation);

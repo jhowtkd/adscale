@@ -44,16 +44,20 @@ describe("startGenerationSettlement", () => {
     const adapter = testAdapter();
     const blocked = {
       ok: false,
-      status: 402,
-      conversionPayload: { reason: "insufficient_credits" },
+      reason: "insufficient_credits",
+      details: { reason: "insufficient_credits" },
     } as const;
-    vi.mocked(adapter.charge).mockResolvedValue(blocked as never);
+    vi.mocked(adapter.charge).mockResolvedValue(blocked);
 
     const result = await startGenerationSettlement(adapter);
 
     expect(result).toEqual({
       ok: false,
-      error: { code: "credit_blocked", spend: blocked },
+      error: {
+        code: "credit_blocked",
+        reason: "insufficient_credits",
+        details: { reason: "insufficient_credits" },
+      },
     });
     expect(adapter.release).toHaveBeenCalledOnce();
     expect(adapter.dispatch).not.toHaveBeenCalled();

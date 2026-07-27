@@ -1,5 +1,6 @@
 import { logger } from "@/lib/logger";
 import { getTargetDimensions } from "@/lib/formats";
+import type { SpendResult } from "@/server/billing/paywall";
 import type { CreativeWorkOutputPlan } from "@/server/creative-work/contracts";
 import {
   chargeForGeneration,
@@ -29,9 +30,13 @@ import {
   getLatestFormatAdaptationChild,
   touchQueuedDerivation,
 } from "@/server/repositories/derivation";
-import { getUsageByIdempotencyKey } from "@/server/repositories/usage";
+import {
+  getUsageByIdempotencyKey,
+  trackUsage,
+} from "@/server/repositories/usage";
 import type {
   GenerationSettlementAdapter,
+  GenerationSettlementChargeResult,
   GenerationSettlementReservation,
 } from "./settlement";
 
@@ -51,6 +56,39 @@ type CreativeWorkReservation =
   GenerationSettlementReservation<CreativeWorkSettlementValue> & {
     newlyCreatedIds: string[];
   };
+
+function toSettlementCharge(
+  spend: SpendResult,
+): GenerationSettlementChargeResult {
+  return spend.ok
+    ? spend
+    : {
+        ok: false,
+        reason: spend.conversionPayload.reason,
+        details: spend.conversionPayload,
+      };
+}
+
+function dispatchAckKey(billingKey: string) {
+  return `${billingKey}:dispatch-ack`;
+}
+
+function settlementDispatchMetadata(metadata: unknown) {
+  const value = metadata as
+    | {
+        settlementDispatchAckRequired?: unknown;
+        settlementDispatchAckKey?: unknown;
+      }
+    | null
+    | undefined;
+  return {
+    required: value?.settlementDispatchAckRequired === true,
+    key:
+      typeof value?.settlementDispatchAckKey === "string"
+        ? value.settlementDispatchAckKey
+        : null,
+  };
+}
 
 function creativeWorkDispatchRefunds(
   input: { workspaceId: string; workItemId: string; userId: string },
@@ -107,12 +145,24 @@ export function creativeWorkSettlementAdapter(input: {
       };
     },
     async join() {
+      let lastAggregate: Awaited<ReturnType<typeof getCreativeWork>> = null;
+      let missingRequiredAck = false;
       for (let attempt = 0; attempt < 80; attempt += 1) {
         const aggregate = await getCreativeWork(
           input.workspaceId,
           input.workItemId,
         );
         if (!aggregate?.outputs.length) return null;
+        lastAggregate = aggregate;
+        const chargeUsage = await getUsageByIdempotencyKey(
+          input.workspaceId,
+          input.batch.billingKey,
+        );
+        const ack = settlementDispatchMetadata(chargeUsage?.metadata);
+        missingRequiredAck =
+          ack.required &&
+          (!ack.key ||
+            !(await getUsageByIdempotencyKey(input.workspaceId, ack.key)));
         const failed = aggregate.outputs.filter(
           (output) => output.failureCode === "dispatch_failed",
         );
@@ -136,6 +186,24 @@ export function creativeWorkSettlementAdapter(input: {
             },
           };
         }
+        if (ack.required) {
+          if (!missingRequiredAck) {
+            const work =
+              aggregate.outputs.every((output) => output.status === "queued")
+                ? ((await setCreativeWorkStatus(
+                    input.workspaceId,
+                    input.workItemId,
+                    "generating",
+                  )) ?? aggregate.work)
+                : aggregate.work;
+            return {
+              status: "settled",
+              value: { work, outputs: aggregate.outputs },
+            };
+          }
+          await new Promise((resolve) => setTimeout(resolve, 25));
+          continue;
+        }
         if (
           aggregate.work.status === "generating" ||
           aggregate.outputs.some((output) => output.status !== "queued")
@@ -147,13 +215,36 @@ export function creativeWorkSettlementAdapter(input: {
         }
         await new Promise((resolve) => setTimeout(resolve, 25));
       }
+      if (missingRequiredAck && lastAggregate) {
+        return {
+          status: "dispatch_failed",
+          failure: {
+            value: {
+              work: lastAggregate.work,
+              outputs: lastAggregate.outputs,
+            },
+            refunds: creativeWorkDispatchRefunds(
+              input,
+              lastAggregate.outputs,
+            ),
+            resumeAfterCompensation: Boolean(input.existing),
+          },
+        };
+      }
       throw new Error("generation_settlement_join_timeout");
     },
-    charge: () =>
-      chargeForGenerationBatch(input.batch, {
+    async charge() {
+      const ackKey = dispatchAckKey(input.batch.billingKey);
+      const spend = await chargeForGenerationBatch(input.batch, {
         returnPath: `/quick-tools/create-post?workId=${input.workItemId}`,
-        metadata: { creativeWorkId: input.workItemId },
-      }),
+        metadata: {
+          creativeWorkId: input.workItemId,
+          settlementDispatchAckRequired: true,
+          settlementDispatchAckKey: ackKey,
+        },
+      });
+      return toSettlementCharge(spend);
+    },
     release: (reservation) =>
       deleteQueuedCreativeWorkOutputs(
         input.workspaceId,
@@ -196,6 +287,16 @@ export function creativeWorkSettlementAdapter(input: {
       };
     },
     async completeDispatch(reservation) {
+      await trackUsage(
+        input.workspaceId,
+        "generation_dispatch_ack",
+        0,
+        {
+          creativeWorkId: input.workItemId,
+          outputIds: reservation.newlyCreatedIds,
+        },
+        dispatchAckKey(input.batch.billingKey),
+      );
       const work =
         (await setCreativeWorkStatus(
           input.workspaceId,
@@ -257,7 +358,7 @@ export function formatAdaptationSettlementAdapter(input: {
         previous,
       };
     },
-    charge(reservation) {
+    async charge(reservation) {
       const dimensions =
         getTargetDimensions(
           input.targetFormat as "1:1" | "4:5" | "9:16",
@@ -304,16 +405,20 @@ export function formatAdaptationSettlementAdapter(input: {
           campaignId: input.source.campaignId,
         },
       };
-      return chargeForGeneration(request, {
+      const ackKey = dispatchAckKey(input.billingIdempotencyKey);
+      const spend = await chargeForGeneration(request, {
         metadata: {
           sourceDerivationId: input.source.id,
           derivationId: reservation.value.derivation.id,
           reservationUpdatedAt:
             reservation.value.derivation.updatedAt.toISOString(),
-          targetFormat: input.targetFormat,
           ...input.billingMetadata,
+          settlementDispatchAckRequired: true,
+          settlementDispatchAckKey: ackKey,
+          targetFormat: input.targetFormat,
         },
       });
+      return toSettlementCharge(spend);
     },
     async resolveReplay(reservation) {
       const usage = await getUsageByIdempotencyKey(
@@ -325,6 +430,8 @@ export function formatAdaptationSettlementAdapter(input: {
             derivationId?: unknown;
             destinationId?: unknown;
             reservationUpdatedAt?: unknown;
+            settlementDispatchAckRequired?: unknown;
+            settlementDispatchAckKey?: unknown;
           }
         | null
         | undefined;
@@ -341,6 +448,7 @@ export function formatAdaptationSettlementAdapter(input: {
         typeof metadata?.reservationUpdatedAt === "string"
           ? new Date(metadata.reservationUpdatedAt)
           : null;
+      const ack = settlementDispatchMetadata(metadata);
       const dispatchRefund = {
         workspaceId: input.workspaceId,
         action: "image_derivation" as const,
@@ -377,6 +485,23 @@ export function formatAdaptationSettlementAdapter(input: {
             },
           };
         }
+        if (ack.required) {
+          const recordedAck =
+            ack.key &&
+            (await getUsageByIdempotencyKey(input.workspaceId, ack.key));
+          if (recordedAck) {
+            await updateCampaign(input.source.campaignId, input.workspaceId, {
+              status: "generating",
+            });
+            return {
+              status: "settled",
+              value: { derivation: original, source: input.source },
+            };
+          }
+          await new Promise((resolve) => setTimeout(resolve, 25));
+          original = await getDerivationById(original.id, input.workspaceId);
+          continue;
+        }
         if (
           original.status !== "queued" ||
           (reservationUpdatedAt &&
@@ -394,6 +519,15 @@ export function formatAdaptationSettlementAdapter(input: {
         original = await getDerivationById(original.id, input.workspaceId);
       }
       if (!original) return null;
+      if (ack.required) {
+        return {
+          status: "dispatch_failed",
+          failure: {
+            value: { derivation: original, source: input.source },
+            refunds: [dispatchRefund],
+          },
+        };
+      }
       throw new Error("generation_settlement_join_timeout");
     },
     release: (reservation) =>
@@ -450,6 +584,17 @@ export function formatAdaptationSettlementAdapter(input: {
       };
     },
     async completeDispatch(reservation) {
+      await trackUsage(
+        input.workspaceId,
+        "generation_dispatch_ack",
+        0,
+        {
+          sourceDerivationId: input.source.id,
+          derivationId: reservation.value.derivation.id,
+          targetFormat: input.targetFormat,
+        },
+        dispatchAckKey(input.billingIdempotencyKey),
+      );
       await touchQueuedDerivation(
         reservation.value.derivation.id,
         input.workspaceId,

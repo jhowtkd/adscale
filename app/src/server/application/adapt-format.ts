@@ -58,9 +58,17 @@ export async function adaptFormat(
   );
   if (!settled.ok) {
     if (settled.error.code === "credit_blocked") {
+      const spend: Extract<SpendResult, { ok: false }> = {
+        ok: false,
+        status: 402,
+        conversionPayload: settled.error.details as Extract<
+          SpendResult,
+          { ok: false }
+        >["conversionPayload"],
+      };
       return {
         ok: false,
-        error: { code: "credit_blocked", spend: settled.error.spend },
+        error: { code: "credit_blocked", spend },
       };
     }
     return {

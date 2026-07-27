@@ -25,6 +25,11 @@ vi.mock("@/server/billing/credits", () => ({
   refundCredits: vi.fn(),
 }));
 
+vi.mock("@/server/repositories/usage", () => ({
+  getUsageByIdempotencyKey: vi.fn(),
+  trackUsage: vi.fn(),
+}));
+
 import { spend } from "@/server/billing/paywall";
 import {
   createDerivation,
@@ -73,5 +78,27 @@ describe("adaptFormat", () => {
         parentId: "s1",
       })
     );
+  });
+
+  it("preserves the public credit-blocked spend at the application boundary", async () => {
+    const blocked = {
+      ok: false,
+      status: 402,
+      conversionPayload: { reason: "insufficient_credits" },
+    } as const;
+    mockSpend.mockResolvedValue(blocked as never);
+
+    const result = await adaptFormat({
+      workspaceId: "ws",
+      sourceDerivationId: "s1",
+      targetFormat: "9:16",
+      userId: "u1",
+      billingIdempotencyKey: "adapt:s1",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "credit_blocked", spend: blocked },
+    });
   });
 });

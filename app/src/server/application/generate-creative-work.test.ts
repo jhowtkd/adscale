@@ -18,6 +18,7 @@ const refreshStatus = vi.hoisted(() => vi.fn());
 const send = vi.hoisted(() => vi.fn());
 const refund = vi.hoisted(() => vi.fn());
 const getUsage = vi.hoisted(() => vi.fn());
+const trackUsage = vi.hoisted(() => vi.fn());
 const getBrandKitMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/repositories/creative-work", () => ({
@@ -45,6 +46,7 @@ vi.mock("@/server/jobs/client", () => ({ inngest: { send } }));
 vi.mock("@/server/billing/credits", () => ({ refundCredits: refund }));
 vi.mock("@/server/repositories/usage", () => ({
   getUsageByIdempotencyKey: getUsage,
+  trackUsage,
 }));
 
 import { generateCreativeWork } from "./generate-creative-work";
@@ -84,6 +86,7 @@ describe("generateCreativeWork", () => {
     refreshStatus.mockResolvedValue("failed");
     refund.mockResolvedValue({ status: "refunded" });
     getUsage.mockResolvedValue(null);
+    trackUsage.mockResolvedValue({ id: "dispatch-ack" });
     getBrandKitMock.mockResolvedValue({ name: "Cenbrap", requiredElements: null, prohibitedElements: null });
   });
 
@@ -106,6 +109,26 @@ describe("generateCreativeWork", () => {
     const result = await generateCreativeWork({ workspaceId: "ws-1", workItemId: "work-1", userId: "user-1" });
     expect(result).toMatchObject({ ok: true, value: { brandTrainingSuggestion: expect.any(String) } });
     expect(snapshot).toHaveBeenCalledWith(expect.objectContaining({ selectedReferenceIds: [] }));
+  });
+
+  it("preserves the public credit-blocked details at the application boundary", async () => {
+    const blocked = {
+      ok: false,
+      status: 402,
+      conversionPayload: { reason: "insufficient_credits" },
+    } as const;
+    charge.mockResolvedValue(blocked);
+
+    const result = await generateCreativeWork({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      userId: "user-1",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "credit_blocked", details: blocked },
+    });
   });
 
   it("returns persisted rows without new spend or dispatch on repeated HTTP confirmation", async () => {

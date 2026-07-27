@@ -1,4 +1,5 @@
 import { quoteCreativeWork, type CreativeWorkInputSnapshot } from "@/server/creative-work/contracts";
+import type { SpendResult } from "@/server/billing/paywall";
 import { buildCreativeWorkFactPack, creativeWorkFactPackBrandFromKit } from "@/server/creative-work/fact-pack";
 import { buildIdentityOptions, createIdentitySnapshot } from "@/server/creative-work/identity";
 import { resolveCreativeWorkProtocol } from "@/server/creative-work/protocol";
@@ -175,9 +176,17 @@ export async function generateCreativeWork(input: {
   );
   if (!settled.ok) {
     if (settled.error.code === "credit_blocked") {
+      const spend: Extract<SpendResult, { ok: false }> = {
+        ok: false,
+        status: 402,
+        conversionPayload: settled.error.details as Extract<
+          SpendResult,
+          { ok: false }
+        >["conversionPayload"],
+      };
       return {
         ok: false,
-        error: { code: "credit_blocked", details: settled.error.spend },
+        error: { code: "credit_blocked", details: spend },
       };
     }
     return { ok: false, error: { code: "dispatch_failed" } };
