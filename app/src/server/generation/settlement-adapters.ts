@@ -270,21 +270,14 @@ export function creativeWorkSettlementAdapter(input: {
                 },
               })),
             );
-          } catch {
-            return {
-              status: "dispatch_failed",
-              failure: {
-                value: {
-                  work: lastAggregate.work,
-                  outputs: lastAggregate.outputs,
-                },
-                refunds: creativeWorkDispatchRefunds(
-                  input,
-                  queuedIds.map((id) => ({ id })),
-                ),
-                resumeAfterCompensation: Boolean(input.existing),
-              },
-            };
+          } catch (error) {
+            // Ambiguous vs an earlier accepted send. Leave rows queued and do
+            // not refund — the next replay can resume again.
+            logger.error(
+              `[generation-settlement] batch recovery dispatch uncertain workItemId=${input.workItemId}`,
+              error,
+            );
+            throw new Error("generation_settlement_dispatch_uncertain");
           }
         }
         await recordDispatchAck(
@@ -615,14 +608,13 @@ export function formatAdaptationSettlementAdapter(input: {
                 : {}),
             },
           });
-        } catch {
-          return {
-            status: "dispatch_failed",
-            failure: {
-              value: { derivation: original, source: input.source },
-              refunds: [dispatchRefund],
-            },
-          };
+        } catch (error) {
+          // Ambiguous vs an earlier accepted send. Leave queued and do not refund.
+          logger.error(
+            `[generation-settlement] format recovery dispatch uncertain derivationId=${original.id}`,
+            error,
+          );
+          throw new Error("generation_settlement_dispatch_uncertain");
         }
       }
       await recordDispatchAck(
@@ -856,11 +848,14 @@ export function creativeWorkRevisionSettlementAdapter(input: {
               outputId: output.id,
             },
           });
-        } catch {
-          return {
-            status: "dispatch_failed",
-            failure: { value: { output }, refunds: [refund] },
-          };
+        } catch (error) {
+          // Ambiguous vs an earlier accepted send. Leave the revision queued
+          // and do not refund — the next replay can resume again.
+          logger.error(
+            `[generation-settlement] revision recovery dispatch uncertain outputId=${output.id}`,
+            error,
+          );
+          throw new Error("generation_settlement_dispatch_uncertain");
         }
       }
       await recordDispatchAck(

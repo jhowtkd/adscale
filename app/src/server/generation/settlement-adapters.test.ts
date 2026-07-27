@@ -996,6 +996,116 @@ describe("Generation Settlement production adapters", () => {
     expect(refund).not.toHaveBeenCalled();
   });
 
+  it("does not refund when recovery re-send fails for a still-queued revision", async () => {
+    vi.useFakeTimers();
+    createRevision.mockResolvedValue({
+      output: revisionOutput,
+      claimedForDispatch: false,
+    });
+    getUsage.mockImplementation(async (_workspaceId, idempotencyKey) => {
+      if (idempotencyKey === "creative-work:work-1:revision:output-v2") {
+        return {
+          metadata: {
+            settlementDispatchAckRequired: true,
+            settlementDispatchAckKey:
+              "creative-work:work-1:revision:output-v2:dispatch-ack",
+          },
+        };
+      }
+      return null;
+    });
+    getWork.mockResolvedValue({ work, outputs: [revisionOutput] });
+    send.mockRejectedValue(new Error("transport down"));
+
+    const pending = startGenerationSettlement(revisionAdapter());
+    const expectation = expect(pending).rejects.toThrow(
+      "generation_settlement_dispatch_uncertain",
+    );
+    await vi.advanceTimersByTimeAsync(2_000);
+    await expectation;
+    vi.useRealTimers();
+
+    expect(refund).not.toHaveBeenCalled();
+    expect(failOutput).not.toHaveBeenCalled();
+    expect(chargeBatch).not.toHaveBeenCalled();
+  });
+
+  it("resumes idempotent format dispatch when charge exists but child stays queued", async () => {
+    vi.useFakeTimers();
+    chargeUnit.mockResolvedValue({
+      ok: true,
+      creditsSpent: 0,
+      duplicate: true,
+    });
+    getChild.mockResolvedValue({ ...child, status: "queued" });
+    getUsage.mockImplementation(async (_workspaceId, idempotencyKey) => {
+      if (idempotencyKey === "adapt:source-1") {
+        return {
+          metadata: {
+            derivationId: child.id,
+            reservationUpdatedAt: child.updatedAt.toISOString(),
+            settlementDispatchAckRequired: true,
+            settlementDispatchAckKey: "adapt:source-1:dispatch-ack",
+          },
+        };
+      }
+      return null;
+    });
+
+    const pending = startGenerationSettlement(unitAdapter());
+    await vi.advanceTimersByTimeAsync(2_000);
+    const result = await pending;
+    vi.useRealTimers();
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: { derivation: expect.objectContaining({ id: child.id }) },
+    });
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: `format-adaptation:${child.id}`,
+        name: "derivation.generate",
+      }),
+    );
+    expect(refund).not.toHaveBeenCalled();
+    expect(deleteChild).toHaveBeenCalledWith(child.id, "workspace-1");
+  });
+
+  it("does not refund when format recovery re-send fails while still queued", async () => {
+    vi.useFakeTimers();
+    chargeUnit.mockResolvedValue({
+      ok: true,
+      creditsSpent: 0,
+      duplicate: true,
+    });
+    getChild.mockResolvedValue({ ...child, status: "queued" });
+    getUsage.mockImplementation(async (_workspaceId, idempotencyKey) => {
+      if (idempotencyKey === "adapt:source-1") {
+        return {
+          metadata: {
+            derivationId: child.id,
+            reservationUpdatedAt: child.updatedAt.toISOString(),
+            settlementDispatchAckRequired: true,
+            settlementDispatchAckKey: "adapt:source-1:dispatch-ack",
+          },
+        };
+      }
+      return null;
+    });
+    send.mockRejectedValue(new Error("transport down"));
+
+    const pending = startGenerationSettlement(unitAdapter());
+    const expectation = expect(pending).rejects.toThrow(
+      "generation_settlement_dispatch_uncertain",
+    );
+    await vi.advanceTimersByTimeAsync(2_000);
+    await expectation;
+    vi.useRealTimers();
+
+    expect(refund).not.toHaveBeenCalled();
+    expect(failChild).not.toHaveBeenCalled();
+  });
+
   it("marks a credit-blocked revision failed without dispatch", async () => {
     chargeBatch.mockResolvedValue({
       ok: false,
