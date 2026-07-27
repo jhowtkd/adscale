@@ -27,7 +27,10 @@ export type PrepareDeliveryPackageInput = {
   formats: string[];
   userId: string;
   locale?: string;
-  /** When omitted, uses historical HTTP key delivery-package:{id}:{formats}. */
+  /**
+   * Stable settlement key for this attempt. Prefer client Idempotency-Key so
+   * network retries replay; a new attempt after failure/complete needs a new key.
+   */
   billingIdempotencyKey?: string;
   billingMetadata?: Record<string, unknown>;
   assistantActionId?: string | null;
@@ -152,8 +155,13 @@ export async function prepareDeliveryPackage(
           error: { code: "credit_blocked", spend },
         };
       }
+      const claimedFailed = new Set(settled.error.value.newlyCreatedIds ?? []);
       for (const row of settled.error.value.derivations) {
-        if (row.format) failed.push({ id: row.id, format: row.format });
+        if (!row.format) continue;
+        // Only report rows this settlement claimed — never a concurrent request's child.
+        if (claimedFailed.size === 0 || claimedFailed.has(row.id)) {
+          failed.push({ id: row.id, format: row.format });
+        }
       }
     } else {
       const newlyCreated = new Set(settled.value.newlyCreatedIds ?? []);

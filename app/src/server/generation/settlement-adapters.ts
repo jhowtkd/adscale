@@ -1270,7 +1270,8 @@ function derivationBatchSettlementAdapter(input: {
   billingKey: string;
   amount: number;
   unitCount: number;
-  unitChargeAmount?: number;
+  /** Product-resolved unit price; required — settlement does not invent costs. */
+  unitChargeAmount: number;
   action: CreditAction;
   intentMode: GenerationBatchCharge["intent"]["mode"];
   origin?: CreativeWorkOrigin;
@@ -1298,15 +1299,13 @@ function derivationBatchSettlementAdapter(input: {
 > {
   const origin = input.origin ?? "assistant";
   const surface = input.surface ?? "assistant";
-  const defaultUnitCharge =
-    input.unitChargeAmount ?? GENERATION_CREDIT_COSTS.singleDerivation;
   const chargePlanFor = (reservation: DerivationBatchReservation) => {
     if (reservation.chargePlan) return reservation.chargePlan;
     const plan = input.resolveChargePlan?.(reservation) ?? {
       amount: input.amount,
       unitCount: input.unitCount,
       billingKey: input.billingKey,
-      unitChargeAmount: defaultUnitCharge,
+      unitChargeAmount: input.unitChargeAmount,
     };
     reservation.chargePlan = plan;
     return plan;
@@ -1399,7 +1398,10 @@ function derivationBatchSettlementAdapter(input: {
         ),
       );
       return {
-        value: reservation.value,
+        value: {
+          derivations: targets,
+          newlyCreatedIds: targets.map((row) => row.id),
+        },
         refunds: [
           batchDispatchRefund({
             workspaceId: input.workspaceId,
@@ -1463,6 +1465,7 @@ export function assistantCreativeTripletSettlementAdapter(input: {
     billingKey,
     amount: GENERATION_CREDIT_COSTS.creativeWorkTriplet,
     unitCount: GOAL_CREATIVE_LEVELS.length,
+    unitChargeAmount: GENERATION_CREDIT_COSTS.singleDerivation,
     action: "image_derivation",
     intentMode: "art_variation",
     eventIdPrefix: "assistant-creative-triplet",
@@ -1541,6 +1544,7 @@ export function assistantGoalPackageSettlementAdapter(input: {
     billingKey,
     amount: GENERATION_CREDIT_COSTS.goalPackage,
     unitCount: input.formats.length,
+    unitChargeAmount: GENERATION_CREDIT_COSTS.singleDerivation,
     action: "delivery_package_child",
     intentMode: "format_adaptation",
     eventIdPrefix: "assistant-goal-package",
@@ -2568,13 +2572,17 @@ export function deliveryPackageSettlementAdapter(input: {
         .map((row) => row.format as string)
         .sort();
       const unitCount = formats.length;
+      // Prefer explicit caller key (assistant action). Otherwise bind the
+      // charge to claimed child ids so a later attempt after failure/complete
+      // cannot replay an earlier settlement for the same formats.
+      const billingKey =
+        input.billingKey ??
+        `delivery-package:${input.source.id}:${formats.join(",")}:${[...claimed].sort().join(",")}`;
       return {
         amount: unitCount * input.unitChargeAmount,
         unitCount,
         unitChargeAmount: input.unitChargeAmount,
-        billingKey:
-          input.billingKey ??
-          `delivery-package:${input.source.id}:${formats.join(",")}`,
+        billingKey,
       };
     },
     async reserve() {
@@ -2659,6 +2667,7 @@ export function campaignBatchDerivationSettlementAdapter(input: {
     billingKey: input.billingKey,
     amount: input.amount,
     unitCount: input.unitCount,
+    unitChargeAmount: GENERATION_CREDIT_COSTS.singleDerivation,
     action: input.action,
     intentMode: input.intentMode,
     origin: "campaign",

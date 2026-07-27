@@ -59,7 +59,10 @@ describe("useRestyleCampaign", () => {
       "/api/campaigns/camp-1/restyle",
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": expect.any(String),
+        },
         body: JSON.stringify({
           styleAssetIds: ["asset-1", "asset-2"],
           styleIntensity: "strong",

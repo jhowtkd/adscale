@@ -45,7 +45,10 @@ describe("useCreateDeliveryPackage", () => {
       "/api/derivations/derivation-id/delivery-package",
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": expect.any(String),
+        },
         body: JSON.stringify({ formats: ["1:1", "4:5"] }),
       }
     );

@@ -32,7 +32,7 @@ vi.mock("@/server/billing/credits", () => ({
 }));
 
 vi.mock("@/server/repositories/usage", () => ({
-  getUsageByIdempotencyKey: vi.fn(),
+  getUsageByIdempotencyKey: vi.fn(() => Promise.resolve(null)),
   trackUsage: vi.fn(),
 }));
 

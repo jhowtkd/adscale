@@ -13,6 +13,7 @@ import {
 import { STALE_TIME } from "@/lib/query-config";
 import { invalidateWorkListProjections } from "@/lib/hooks/use-canonical-works";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useRef } from "react";
 
 export type { DerivationLoadErrorKind };
 export type DerivationLoadError = CampaignLoadError;
@@ -264,11 +265,15 @@ export function useCreateDerivations(campaignId: string) {
 
 async function restyleCampaign(
   campaignId: string,
-  input: { styleAssetIds?: string[]; styleIntensity?: string }
+  input: { styleAssetIds?: string[]; styleIntensity?: string },
+  idempotencyKey: string,
 ): Promise<Derivation[]> {
   const res = await apiFetch(`/api/campaigns/${campaignId}/restyle`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "Idempotency-Key": idempotencyKey,
+    },
     body: JSON.stringify(input),
   });
   if (!res.ok) {
@@ -281,9 +286,17 @@ async function restyleCampaign(
 
 export function useRestyleCampaign(campaignId: string) {
   const queryClient = useQueryClient();
+  // One key per mutate() attempt so RQ/network retries stay idempotent.
+  const attemptKeyRef = useRef<string | null>(null);
   return useMutation({
-    mutationFn: (input: { styleAssetIds?: string[]; styleIntensity?: string }) =>
-      restyleCampaign(campaignId, input),
+    retry: 0,
+    mutationFn: (input: { styleAssetIds?: string[]; styleIntensity?: string }) => {
+      attemptKeyRef.current ??= crypto.randomUUID();
+      return restyleCampaign(campaignId, input, attemptKeyRef.current);
+    },
+    onSettled: () => {
+      attemptKeyRef.current = null;
+    },
     onSuccess: (created) => {
       queryClient.setQueryData<DerivationsQueryData>(
         ["derivations", campaignId],

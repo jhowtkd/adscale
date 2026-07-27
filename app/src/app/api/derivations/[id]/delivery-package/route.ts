@@ -29,12 +29,18 @@ export async function POST(
       return apiError("invalidRequestBody", 400, parsed.error.flatten());
     }
 
+    const attemptId =
+      request.headers.get("idempotency-key")?.trim() ||
+      request.headers.get("x-idempotency-key")?.trim() ||
+      crypto.randomUUID();
+    const formatsKey = [...new Set(parsed.data.formats)].sort().join(",");
     const result = await prepareDeliveryPackage({
       workspaceId: workspace.id,
       sourceDerivationId: id,
       formats: parsed.data.formats,
       userId: user.id,
       locale,
+      billingIdempotencyKey: `delivery-package:${id}:${formatsKey}:${attemptId}`,
     });
 
     if (!result.ok) {

@@ -17,6 +17,7 @@ import {
   updateCampaign,
 } from "@/server/repositories/campaign";
 import { campaignHasActiveDerivations } from "@/server/repositories/derivation";
+import { getUsageByIdempotencyKey } from "@/server/repositories/usage";
 
 type CampaignAsset = Awaited<ReturnType<typeof getAssetsByCampaign>>[number];
 
@@ -133,10 +134,6 @@ export async function restyleCampaign(
     return { ok: false, error: { code: "campaign_not_found" } };
   }
 
-  if (await campaignHasActiveDerivations(campaignId, input.workspaceId)) {
-    return { ok: false, error: { code: "derivations_in_progress" } };
-  }
-
   const assets = await getAssetsByCampaign(campaignId, input.workspaceId);
   const baseAsset = resolveRestylingBaseAsset(assets);
   if (!baseAsset) {
@@ -176,6 +173,25 @@ export async function restyleCampaign(
     return { ok: false, error: { code: "missing_style_asset" } };
   }
 
+  const styleParam =
+    input.creativeLevel ?? input.styleIntensity ?? "default";
+  const attemptId = input.billingAttemptId ?? "0";
+  const billingIdempotencyKey =
+    input.billingIdempotencyKey ??
+    `restyling:${campaignId}:${baseAsset.id}:${styleAsset.id}:${styleParam}:${attemptId}`;
+
+  // Block concurrent work unless this request is an idempotent settlement
+  // replay of an in-flight restyle (same billing key already charged).
+  if (await campaignHasActiveDerivations(campaignId, input.workspaceId)) {
+    const existingCharge = await getUsageByIdempotencyKey(
+      input.workspaceId,
+      billingIdempotencyKey,
+    );
+    if (!existingCharge) {
+      return { ok: false, error: { code: "derivations_in_progress" } };
+    }
+  }
+
   await updateCampaign(campaignId, input.workspaceId, {
     generationMode: "restyling",
     ...(input.creativeLevel
@@ -184,13 +200,6 @@ export async function restyleCampaign(
         ? { styleIntensity: input.styleIntensity }
         : {}),
   });
-
-  const styleParam =
-    input.creativeLevel ?? input.styleIntensity ?? "default";
-  const attemptId = input.billingAttemptId ?? "0";
-  const billingIdempotencyKey =
-    input.billingIdempotencyKey ??
-    `restyling:${campaignId}:${baseAsset.id}:${styleAsset.id}:${styleParam}:${attemptId}`;
 
   const format =
     baseAsset.width && baseAsset.height

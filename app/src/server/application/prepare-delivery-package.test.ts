@@ -114,7 +114,10 @@ describe("prepareDeliveryPackage", () => {
       expect.objectContaining({
         action: "delivery_package_child",
         amount: 10,
-        idempotencyKey: "delivery-package:src-1:4:5,9:16",
+        // Key binds claimed child ids so a later attempt cannot replay this settlement.
+        idempotencyKey: expect.stringMatching(
+          /^delivery-package:src-1:4:5,9:16:child-4:5,child-9:16$/,
+        ),
       }),
     );
     expect(mockMemory).toHaveBeenCalledWith(
@@ -169,7 +172,9 @@ describe("prepareDeliveryPackage", () => {
         workspaceId: "ws-1",
         action: "delivery_package_child",
         amount: 10,
-        idempotencyKey: "delivery-package:src-1:4:5,9:16:dispatch-refund",
+        idempotencyKey: expect.stringMatching(
+          /^delivery-package:src-1:4:5,9:16:child-4:5,child-9:16:dispatch-refund$/,
+        ),
       }),
     );
   });
@@ -214,7 +219,9 @@ describe("prepareDeliveryPackage", () => {
       expect.objectContaining({
         action: "delivery_package_child",
         amount: 5,
-        idempotencyKey: "delivery-package:src-1:4:5",
+        idempotencyKey: expect.stringMatching(
+          /^delivery-package:src-1:4:5:child-4:5$/,
+        ),
       }),
     );
   });
