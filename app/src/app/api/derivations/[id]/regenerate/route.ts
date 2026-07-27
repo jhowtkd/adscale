@@ -41,7 +41,12 @@ export async function POST(
       return apiError("invalidRequestBody", 400, parsed.error.flatten());
     }
 
-    const regenerationRequestId = crypto.randomUUID();
+    // Prefer client Idempotency-Key so network retries share one settlement;
+    // otherwise each click is a new charge (intentional new generation).
+    const regenerationRequestId =
+      request.headers.get("idempotency-key")?.trim() ||
+      request.headers.get("x-idempotency-key")?.trim() ||
+      crypto.randomUUID();
     const result = await regenerateDerivation({
       workspaceId: workspace.id,
       derivationId: id,

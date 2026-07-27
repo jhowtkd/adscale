@@ -61,9 +61,13 @@ export async function POST(
       styleAssetIds,
       styleIntensity,
       creativeLevel,
-      // Preserve panel billing action + historical key (base resolved in command).
       billingAction: "image_derivation",
       billingAmount: 5,
+      // Each panel click is a new settlement; network retries may send Idempotency-Key.
+      billingAttemptId:
+        request.headers.get("idempotency-key")?.trim() ||
+        request.headers.get("x-idempotency-key")?.trim() ||
+        crypto.randomUUID(),
       billingMetadata: { campaignId, mode: "restyling" },
     });
 

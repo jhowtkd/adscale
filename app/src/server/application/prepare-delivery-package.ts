@@ -7,6 +7,7 @@
  */
 import { assertDerivationApprovable } from "@/server/ai/creative-quality-gate";
 import type { SpendResult } from "@/server/billing/paywall";
+import { GENERATION_CREDIT_COSTS } from "@/server/generation/canonical/types";
 import { deliveryPackageSettlementAdapter } from "@/server/generation/settlement-adapters";
 import { startGenerationSettlement } from "@/server/generation/settlement";
 import { recordBrandMemoryEvent } from "@/server/memory/brand-memory-dispatch";
@@ -120,17 +121,16 @@ export async function prepareDeliveryPackage(
   const skippedFromRace: string[] = [];
 
   if (formatsToCreate.length > 0) {
-    const billingIdempotencyKey =
-      input.billingIdempotencyKey ??
-      `delivery-package:${source.id}:${[...formatsToCreate].sort().join(",")}`;
-
     const settled = await startGenerationSettlement(
       deliveryPackageSettlementAdapter({
         workspaceId: input.workspaceId,
         userId: input.userId,
         source,
         formatsToCreate,
-        billingKey: billingIdempotencyKey,
+        // Caller key only when stable (assistant action). Otherwise charge key
+        // is derived from formats actually claimed after reserve.
+        billingKey: input.billingIdempotencyKey,
+        unitChargeAmount: GENERATION_CREDIT_COSTS.singleDerivation,
         billingMetadata: input.billingMetadata,
         locale: input.locale,
         assistantActionId: input.assistantActionId,

@@ -1028,6 +1028,12 @@ export type DerivationBatchSettlementValue = {
 type DerivationBatchReservation =
   GenerationSettlementReservation<DerivationBatchSettlementValue> & {
     newlyCreatedIds: string[];
+    chargePlan?: {
+      amount: number;
+      unitCount: number;
+      billingKey: string;
+      unitChargeAmount: number;
+    };
   };
 
 function derivationGenerateEventId(prefix: string, derivationId: string) {
@@ -1264,6 +1270,7 @@ function derivationBatchSettlementAdapter(input: {
   billingKey: string;
   amount: number;
   unitCount: number;
+  unitChargeAmount?: number;
   action: CreditAction;
   intentMode: GenerationBatchCharge["intent"]["mode"];
   origin?: CreativeWorkOrigin;
@@ -1275,12 +1282,35 @@ function derivationBatchSettlementAdapter(input: {
   buildEventData: (derivation: DerivationRow) => Record<string, unknown>;
   /** When set, only these ids are dispatched (defaults to all reserved). */
   dispatchIds?: (reservation: DerivationBatchReservation) => string[];
+  /**
+   * Product-owned charge plan from the reservation (e.g. charge only rows
+   * actually claimed in a race). Defaults to the fixed amount/key inputs.
+   */
+  resolveChargePlan?: (reservation: DerivationBatchReservation) => {
+    amount: number;
+    unitCount: number;
+    billingKey: string;
+    unitChargeAmount: number;
+  };
 }): GenerationSettlementAdapter<
   DerivationBatchSettlementValue,
   DerivationBatchReservation
 > {
   const origin = input.origin ?? "assistant";
   const surface = input.surface ?? "assistant";
+  const defaultUnitCharge =
+    input.unitChargeAmount ?? GENERATION_CREDIT_COSTS.singleDerivation;
+  const chargePlanFor = (reservation: DerivationBatchReservation) => {
+    if (reservation.chargePlan) return reservation.chargePlan;
+    const plan = input.resolveChargePlan?.(reservation) ?? {
+      amount: input.amount,
+      unitCount: input.unitCount,
+      billingKey: input.billingKey,
+      unitChargeAmount: defaultUnitCharge,
+    };
+    reservation.chargePlan = plan;
+    return plan;
+  };
   const dispatchTargets = (reservation: DerivationBatchReservation) => {
     const ids = new Set(
       input.dispatchIds
@@ -1292,8 +1322,10 @@ function derivationBatchSettlementAdapter(input: {
   return {
     reserve: input.reserve,
     async charge(reservation) {
-      const ackKey = dispatchAckKey(input.billingKey);
-      const derivationIds = reservation.value.derivations.map((row) => row.id);
+      const plan = chargePlanFor(reservation);
+      const ackKey = dispatchAckKey(plan.billingKey);
+      const targets = dispatchTargets(reservation);
+      const derivationIds = targets.map((row) => row.id);
       const batch: GenerationBatchCharge = {
         kind: "batch",
         authorship: {
@@ -1304,10 +1336,10 @@ function derivationBatchSettlementAdapter(input: {
         surface,
         intent: { mode: input.intentMode, objective: null },
         parentId: input.campaignId,
-        unitCount: input.unitCount,
-        chargeAmount: input.amount,
-        unitChargeAmount: GENERATION_CREDIT_COSTS.singleDerivation,
-        billingKey: input.billingKey,
+        unitCount: plan.unitCount,
+        chargeAmount: plan.amount,
+        unitChargeAmount: plan.unitChargeAmount,
+        billingKey: plan.billingKey,
         refundPolicy: "default",
       };
       const spend = await chargeForGenerationBatch(batch, {
@@ -1325,15 +1357,16 @@ function derivationBatchSettlementAdapter(input: {
       });
       return toSettlementCharge(spend);
     },
-    async resolveReplay() {
+    async resolveReplay(reservation) {
+      const plan = chargePlanFor(reservation);
       return resolveDerivationBatchReplay({
         workspaceId: input.workspaceId,
         userId: input.userId,
         campaignId: input.campaignId,
-        billingKey: input.billingKey,
+        billingKey: plan.billingKey,
         eventIdPrefix: input.eventIdPrefix,
         assistantActionId: input.assistantActionId ?? "",
-        amount: input.amount,
+        amount: plan.amount,
         action: input.action,
         description: input.refundDescription,
         buildEventData: input.buildEventData,
@@ -1359,6 +1392,7 @@ function derivationBatchSettlementAdapter(input: {
     },
     async failDispatch(reservation) {
       const targets = dispatchTargets(reservation);
+      const plan = chargePlanFor(reservation);
       await Promise.allSettled(
         targets.map((derivation) =>
           failQueuedDerivation(derivation.id, input.workspaceId),
@@ -1370,8 +1404,8 @@ function derivationBatchSettlementAdapter(input: {
           batchDispatchRefund({
             workspaceId: input.workspaceId,
             userId: input.userId,
-            billingKey: input.billingKey,
-            amount: input.amount,
+            billingKey: plan.billingKey,
+            amount: plan.amount,
             action: input.action,
             description: input.refundDescription,
             metadata: {
@@ -1382,6 +1416,7 @@ function derivationBatchSettlementAdapter(input: {
       };
     },
     async completeDispatch(reservation) {
+      const plan = chargePlanFor(reservation);
       await recordDispatchAck(
         input.workspaceId,
         {
@@ -1391,7 +1426,7 @@ function derivationBatchSettlementAdapter(input: {
             ? { assistantActionId: input.assistantActionId }
             : {}),
         },
-        dispatchAckKey(input.billingKey),
+        dispatchAckKey(plan.billingKey),
       );
       if (dispatchTargets(reservation).length > 0) {
         await updateCampaign(input.campaignId, input.workspaceId, {
@@ -2290,7 +2325,8 @@ export function restyleCampaignSettlementAdapter(input: {
   campaignId: string;
   billingKey: string;
   billingAction: CreditAction;
-  billingAmount?: number;
+  /** Product-resolved unit price; required so settlement does not invent cost. */
+  billingAmount: number;
   billingMetadata?: Record<string, unknown>;
   locale?: string;
   assistantActionId?: string | null;
@@ -2300,14 +2336,12 @@ export function restyleCampaignSettlementAdapter(input: {
   CampaignDerivationSettlementValue,
   CampaignDerivationReservation
 > {
-  const amount =
-    input.billingAmount ?? GENERATION_CREDIT_COSTS.singleDerivation;
   return campaignDerivationUnitSettlementAdapter({
     workspaceId: input.workspaceId,
     userId: input.userId,
     campaignId: input.campaignId,
     billingKey: input.billingKey,
-    amount,
+    amount: input.billingAmount,
     action: input.billingAction,
     intentMode: "restyling",
     eventIdPrefix: "campaign-restyle",
@@ -2432,12 +2466,13 @@ export function regenerateDerivationSettlementAdapter(input: {
   workspaceId: string;
   userId: string;
   billingKey: string;
+  /** Product-resolved unit price; required so settlement does not invent cost. */
+  amount: number;
   billingMetadata?: Record<string, unknown>;
   locale?: string;
   assistantActionId?: string | null;
   source: DerivationRow;
   createInput: Parameters<typeof createDerivation>[0];
-  onSettled?: () => Promise<void>;
 }): GenerationSettlementAdapter<
   CampaignDerivationSettlementValue,
   CampaignDerivationReservation
@@ -2447,7 +2482,7 @@ export function regenerateDerivationSettlementAdapter(input: {
     userId: input.userId,
     campaignId: input.source.campaignId,
     billingKey: input.billingKey,
-    amount: GENERATION_CREDIT_COSTS.singleDerivation,
+    amount: input.amount,
     action: "regeneration",
     intentMode:
       (input.source.generationMode as GenerationMode | null) ??
@@ -2481,7 +2516,6 @@ export function regenerateDerivationSettlementAdapter(input: {
         ? { assistantActionId: input.assistantActionId }
         : {}),
     }),
-    onComplete: input.onSettled,
   });
 }
 
@@ -2490,7 +2524,14 @@ export function deliveryPackageSettlementAdapter(input: {
   userId: string;
   source: DerivationRow;
   formatsToCreate: string[];
-  billingKey: string;
+  /**
+   * Optional caller-owned key (e.g. assistant-action:…). When omitted, the
+   * charge key is built from formats actually claimed after reserve so races
+   * never bill for rows another request created.
+   */
+  billingKey?: string;
+  /** Product-resolved per-format price. */
+  unitChargeAmount: number;
   billingMetadata?: Record<string, unknown>;
   locale?: string;
   assistantActionId?: string | null;
@@ -2498,16 +2539,17 @@ export function deliveryPackageSettlementAdapter(input: {
   DerivationBatchSettlementValue,
   DerivationBatchReservation
 > {
-  const amount =
-    input.formatsToCreate.length * GENERATION_CREDIT_COSTS.singleDerivation;
   return derivationBatchSettlementAdapter({
     workspaceId: input.workspaceId,
     userId: input.userId,
     campaignId: input.source.campaignId,
     assistantActionId: input.assistantActionId,
-    billingKey: input.billingKey,
-    amount,
-    unitCount: input.formatsToCreate.length,
+    billingKey:
+      input.billingKey ??
+      `delivery-package:${input.source.id}:pending`,
+    amount: 0,
+    unitCount: 0,
+    unitChargeAmount: input.unitChargeAmount,
     action: "delivery_package_child",
     intentMode: "format_adaptation",
     origin: input.assistantActionId ? "assistant" : "campaign",
@@ -2516,8 +2558,24 @@ export function deliveryPackageSettlementAdapter(input: {
     refundDescription: "delivery_package_dispatch_refund",
     billingMetadata: {
       sourceDerivationId: input.source.id,
-      formats: input.formatsToCreate,
+      formatsRequested: input.formatsToCreate,
       ...input.billingMetadata,
+    },
+    resolveChargePlan: (reservation) => {
+      const claimed = new Set(reservation.newlyCreatedIds);
+      const formats = reservation.value.derivations
+        .filter((row) => claimed.has(row.id) && row.format)
+        .map((row) => row.format as string)
+        .sort();
+      const unitCount = formats.length;
+      return {
+        amount: unitCount * input.unitChargeAmount,
+        unitCount,
+        unitChargeAmount: input.unitChargeAmount,
+        billingKey:
+          input.billingKey ??
+          `delivery-package:${input.source.id}:${formats.join(",")}`,
+      };
     },
     async reserve() {
       const created = await Promise.all(

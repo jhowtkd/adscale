@@ -115,7 +115,7 @@ describe("prepareDeliveryPackage", () => {
         action: "delivery_package_child",
         amount: 10,
         idempotencyKey: "delivery-package:src-1:4:5,9:16",
-      })
+      }),
     );
     expect(mockMemory).toHaveBeenCalledWith(
       expect.objectContaining({ type: "delivery_prepared" })
@@ -170,6 +170,51 @@ describe("prepareDeliveryPackage", () => {
         action: "delivery_package_child",
         amount: 10,
         idempotencyKey: "delivery-package:src-1:4:5,9:16:dispatch-refund",
+      }),
+    );
+  });
+
+  it("charges only formats actually claimed when a create race drops one", async () => {
+    mockCreate.mockImplementation(async (data) => {
+      if (data.format === "9:16") {
+        return {
+          child: {
+            id: "existing-9:16",
+            format: "9:16",
+            status: "queued",
+            updatedAt: new Date("2026-07-27T12:00:00.000Z"),
+          },
+          created: false as const,
+        };
+      }
+      return {
+        child: {
+          id: `child-${data.format}`,
+          format: data.format,
+          status: "queued",
+          updatedAt: new Date("2026-07-27T12:00:00.000Z"),
+        },
+        created: true as const,
+      };
+    });
+
+    const result = await prepareDeliveryPackage({
+      workspaceId: "ws-1",
+      sourceDerivationId: "src-1",
+      formats: ["4:5", "9:16"],
+      userId: "u1",
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.queued.map((q) => q.format)).toEqual(["4:5"]);
+      expect(result.value.skipped).toContain("9:16");
+    }
+    expect(mockSpend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "delivery_package_child",
+        amount: 5,
+        idempotencyKey: "delivery-package:src-1:4:5",
       }),
     );
   });

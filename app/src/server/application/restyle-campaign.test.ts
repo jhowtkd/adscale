@@ -108,21 +108,55 @@ describe("restyleCampaign", () => {
     mockRefund.mockResolvedValue({ status: "refunded" } as never);
   });
 
-  it("uses historical HTTP billing key when key omitted", async () => {
+  it("builds billing key from base, style, params, and attempt", async () => {
     const result = await restyleCampaign({
       workspaceId: "ws-1",
       campaignId: "c1",
       userId: "u1",
       billingAction: "image_derivation",
       billingAmount: 5,
+      billingAttemptId: "attempt-1",
+      styleIntensity: "strong",
     });
     expect(result.ok).toBe(true);
     expect(mockSpend).toHaveBeenCalledWith(
       expect.objectContaining({
         action: "image_derivation",
-        idempotencyKey: "restyling:c1:base-1",
+        idempotencyKey: "restyling:c1:base-1:style-1:strong:attempt-1",
       })
     );
+  });
+
+  it("does not reuse billing keys across successive attempts", async () => {
+    await restyleCampaign({
+      workspaceId: "ws-1",
+      campaignId: "c1",
+      userId: "u1",
+      billingAction: "image_derivation",
+      billingAmount: 5,
+      billingAttemptId: "a",
+    });
+    mockCreate.mockResolvedValue({
+      id: "d2",
+      format: "1080x1080",
+      status: "queued",
+      updatedAt: new Date("2026-07-27T12:01:00.000Z"),
+    } as never);
+    await restyleCampaign({
+      workspaceId: "ws-1",
+      campaignId: "c1",
+      userId: "u1",
+      billingAction: "image_derivation",
+      billingAmount: 5,
+      billingAttemptId: "b",
+    });
+    const keys = mockSpend.mock.calls.map(
+      (call) => (call[0] as { idempotencyKey: string }).idempotencyKey,
+    );
+    expect(keys).toEqual([
+      "restyling:c1:base-1:style-1:default:a",
+      "restyling:c1:base-1:style-1:default:b",
+    ]);
   });
 
   it("resolves baseCreativeId via asset repository (Assistente path)", async () => {
@@ -189,6 +223,7 @@ describe("restyleCampaign", () => {
       userId: "u1",
       billingAction: "image_derivation",
       billingAmount: 5,
+      billingAttemptId: "attempt-x",
     });
 
     expect(result).toEqual({
@@ -199,7 +234,7 @@ describe("restyleCampaign", () => {
     expect(mockRefund).toHaveBeenCalledWith(
       expect.objectContaining({
         workspaceId: "ws-1",
-        idempotencyKey: "restyling:c1:base-1:dispatch-refund",
+        idempotencyKey: "restyling:c1:base-1:style-1:default:attempt-x:dispatch-refund",
         amount: 5,
       }),
     );

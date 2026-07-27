@@ -42,8 +42,14 @@ export type RestyleCampaignInput = {
   styleIntensity?: "soft" | "medium" | "strong";
   creativeLevel?: "conservative" | "balanced" | "bold" | "extreme";
   billingAction: CreditAction;
-  /** When omitted, uses historical HTTP key `restyling:{campaignId}:{baseAssetId}`. */
+  /**
+   * Required for panel/HTTP when each click must start a new settlement.
+   * Assistant actions pass a stable action-scoped key.
+   * When omitted, built from base+style+params+attemptId.
+   */
   billingIdempotencyKey?: string;
+  /** Distinguishes successive panel restyles that share base/style/params. */
+  billingAttemptId?: string;
   billingMetadata?: Record<string, unknown>;
   billingAmount?: number;
   assistantActionId?: string | null;
@@ -179,13 +185,22 @@ export async function restyleCampaign(
         : {}),
   });
 
+  const styleParam =
+    input.creativeLevel ?? input.styleIntensity ?? "default";
+  const attemptId = input.billingAttemptId ?? "0";
   const billingIdempotencyKey =
-    input.billingIdempotencyKey ?? `restyling:${campaignId}:${baseAsset.id}`;
+    input.billingIdempotencyKey ??
+    `restyling:${campaignId}:${baseAsset.id}:${styleAsset.id}:${styleParam}:${attemptId}`;
 
   const format =
     baseAsset.width && baseAsset.height
       ? `${baseAsset.width}x${baseAsset.height}`
       : "1:1";
+
+  const billingAmount = input.billingAmount;
+  if (billingAmount == null || billingAmount <= 0) {
+    return { ok: false, error: { code: "invalid_input" } };
+  }
 
   const settled = await startGenerationSettlement(
     restyleCampaignSettlementAdapter({
@@ -194,7 +209,7 @@ export async function restyleCampaign(
       campaignId,
       billingKey: billingIdempotencyKey,
       billingAction: input.billingAction,
-      billingAmount: input.billingAmount,
+      billingAmount,
       billingMetadata: input.billingMetadata,
       locale: input.locale,
       assistantActionId: input.assistantActionId,

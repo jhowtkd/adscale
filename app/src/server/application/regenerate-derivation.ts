@@ -12,6 +12,7 @@ import {
 import type { SpendResult } from "@/server/billing/paywall";
 import type { OutputLearningApplicationSnapshot } from "@/server/human-quality/corpus";
 import { sanitizeOutputLearningApplication } from "@/server/human-quality/application-schema";
+import { GENERATION_CREDIT_COSTS } from "@/server/generation/canonical/types";
 import { regenerateDerivationSettlementAdapter } from "@/server/generation/settlement-adapters";
 import { startGenerationSettlement } from "@/server/generation/settlement";
 import { recordCampaignMemoryEntry } from "@/server/memory/campaign-memory-context";
@@ -205,6 +206,7 @@ export async function regenerateDerivation(
       workspaceId: input.workspaceId,
       userId: input.userId,
       billingKey: input.billingIdempotencyKey,
+      amount: GENERATION_CREDIT_COSTS.singleDerivation,
       billingMetadata: input.billingMetadata,
       locale: input.locale,
       assistantActionId: input.assistantActionId,
