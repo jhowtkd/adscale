@@ -45,7 +45,7 @@ Este ledger corrige a fonte de verdade para os **20 achados nomeados**:
 | A4 | Métricas de campanha | Não verificado | As contagens continuam calculadas em consulta agregada, porém não há volume, plano ou latência que justifique estado denormalizado e seu custo de consistência. | [#116](https://github.com/jhowtkd/adscale/issues/116) |
 | B1 | Leitura de derivações e object storage | Não verificado | A leitura aguarda URLs assinadas para todos os outputs retornados, em paralelo e com cache; o custo incremental ainda não foi medido. | [#121](https://github.com/jhowtkd/adscale/issues/121) |
 | B2 | Exportação de campanhas | Confirmado | Os dois fluxos de ZIP usam JSZip e materializam o pacote completo em buffer antes da resposta ou upload. | [#109](https://github.com/jhowtkd/adscale/issues/109) |
-| B3 | Clientes de provedores de IA | Resolvido | Os clientes têm timeouts explícitos de 60–120 s. O provedor de imagem usa zero retry deliberadamente porque cada chamada é cobrada e o orquestrador controla repetição e teto durável. | Fora do backlog; preservar a invariante de billing. |
+| B3 | Clientes de provedores de IA | Resolvido | Os clientes têm timeouts explícitos de 60–180 s. O provedor de imagem usa zero retry deliberadamente porque cada chamada é cobrada e o orquestrador controla repetição e teto durável. | Fora do backlog; preservar a invariante de billing. |
 | B4 | Proteção das APIs de leitura | Não verificado | Algumas leituras públicas têm rate limit e muitas leituras autenticadas não têm; não existe inventário de ameaça, custo ou controles que sustente uma correção global. | [#118](https://github.com/jhowtkd/adscale/issues/118) |
 | C1 | Polling de derivações | Resolvido | O polling para quando não há trabalho pendente e usa intervalos progressivos de 3 s, 5 s e 10 s. | Fora do backlog. |
 | C2 | Provider de consultas do cliente | Resolvido | Devtools são importados dinamicamente e renderizados somente em desenvolvimento. | Fora do backlog. |
@@ -68,7 +68,7 @@ Este ledger corrige a fonte de verdade para os **20 achados nomeados**:
 2. [#109 — Transmitir exportações ZIP incrementalmente](https://github.com/jhowtkd/adscale/issues/109)
 3. [#110 — Remover a residência duplicada da imagem no creative score](https://github.com/jhowtkd/adscale/issues/110)
 4. [#111 — Restringir a ferramenta de acessibilidade ao desenvolvimento](https://github.com/jhowtkd/adscale/issues/111)
-5. [#112–#114 — Migrar o sistema de animações para carregamento preguiçoso](https://github.com/jhowtkd/adscale/issues/112)
+5. [#112](https://github.com/jhowtkd/adscale/issues/112), [#113](https://github.com/jhowtkd/adscale/issues/113) e [#114](https://github.com/jhowtkd/adscale/issues/114) — Migrar o sistema de animações para carregamento preguiçoso
 
 ### Verificações antes de corrigir
 

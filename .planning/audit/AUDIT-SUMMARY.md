@@ -174,7 +174,7 @@ Testes:        █████████████████████�
 ├── AUDIT-SUMMARY.md      ← Este arquivo (consolidado)
 ├── code-quality.md        (63 achados)
 ├── security.md            (7 vulnerabilidades)
-├── performance.md         (32 problemas)
+├── performance.md         (32 problemas no snapshot; 20 achados revalidados)
 ├── architecture.md        (15 achados)
 └── testing.md             (51 gaps)
 ```
