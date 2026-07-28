@@ -1,5 +1,10 @@
 # 🔍 Auditoria Completa do Código — ADScale_2
 
+> **Snapshot histórico de 2026-05-23.** As contagens de performance abaixo
+> foram substituídas pelo [ledger revalidado](performance.md), que reconhece
+> 20 achados nomeados e mantém no backlog somente claims confirmados ou ainda
+> não verificados. As outras dimensões deste resumo não foram revalidadas.
+
 **Data:** 2026-05-23  
 **Método:** 5 subagentes de auditoria paralelos (Qualidade, Segurança, Performance, Arquitetura, Testes)  
 **Scope:** `app/src/` completo (~265 arquivos, ~50+ API routes, ~21 repositories, ~13 módulos AI)

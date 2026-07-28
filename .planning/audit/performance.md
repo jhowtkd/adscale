@@ -1,233 +1,92 @@
-# Auditoria de Performance — ADScale_2
+# Ledger revalidado — Performance do ADScale
 
-**Data:** 2026-05-23  
-**Auditor:** Subagente autônomo de performance  
-**Scope:** `app/src/server/**/*.ts`, `app/src/app/api/**`, `app/src/components/**`, `app/src/lib/**`  
-**Método:** Análise estática de padrões + heurísticas de performance
+**Verificado em:** 2026-07-28
 
----
+**Substitui:** auditoria heurística de 2026-05-23
 
-## Resumo Executivo
+**Fonte de verdade:** os 20 achados nomeados de A1 a F2
 
-| Categoria | Problemas Críticos | Problemas Altos | Problemas Médios |
-|-----------|-------------------|-----------------|------------------|
-| Database | 1 | 3 | 2 |
-| API Routes | 2 | 3 | 2 |
-| Frontend | 1 | 3 | 4 |
-| AI/Image | 1 | 2 | 2 |
-| Memory | 1 | 2 | 2 |
-| Build | 0 | 2 | 3 |
-| **Total** | **6** | **15** | **15** |
+## Reconciliação da contagem
 
----
+A auditoria anterior declarava 36 problemas no resumo executivo, enquanto o
+resumo consolidado registrava 32; o corpo continha 20 achados nomeados. As
+contagens posteriores de 18 e 22 também não podem ser reproduzidas a partir do
+documento: orçamento, Top 10 e Quick Wins repetiam ou reagrupavam os mesmos
+achados, sem formar claims independentes.
 
-## A. Database Queries
+Este ledger corrige a fonte de verdade para os **20 achados nomeados**:
 
-### A1. `getCampaigns()` sem paginação (CRITICAL)
-- **Arquivo:** `app/src/server/repositories/campaign.ts`
-- **Problema:** Dashboard carrega TODAS as campanhas do workspace sem limit/offset
-- **Impacto:** Latência cresce linearmente com número de campanhas
-- **Recomendação:**
-  ```ts
-  .limit(20).offset(page * 20)
-  .orderBy(desc(campaigns.updatedAt))
-  ```
+| Estado | Quantidade | Entra no backlog ativo? |
+|---|---:|---|
+| Confirmado | 5 | Sim — correção |
+| Resolvido | 5 | Não |
+| Referência inválida | 3 | Não |
+| Não verificado | 7 | Sim — verificação |
+| **Total** | **20** | |
 
-### A2. `SELECT *` em derivations/assets (HIGH)
-- **Arquivos:** `repositories/derivation.ts`, `repositories/asset.ts`
-- **Problema:** Seleciona todas as colunas incluindo dados pesados (URLs, metadados)
-- **Impacto:** Transferência desnecessária de dados
-- **Recomendação:** Selecionar apenas colunas necessárias para cada caso de uso
+## Critério de estado
 
-### A3. Índices ausentes (HIGH)
-- **Campos sem índice:** `status`, `updatedAt`, `createdAt` em múltiplas tabelas
-- **Impacto:** Table scans em queries frequentes
-- **Recomendação:** Adicionar índices compostos:
-  ```sql
-  CREATE INDEX idx_campaigns_workspace_status ON campaigns(workspace_id, status);
-  CREATE INDEX idx_derivations_campaign_status ON derivations(campaign_id, status);
-  ```
+- **Confirmado:** o comportamento ainda existe e a evidência basta para uma
+  correção delimitada.
+- **Resolvido:** o comportamento pedido pela auditoria já está implementado ou
+  o claim foi invalidado pelo contrato atual.
+- **Referência inválida:** o módulo citado não existe mais ou não contém o
+  comportamento descrito; não há correção ativa derivável do claim.
+- **Não verificado:** existe comportamento relacionado, mas falta medição de
+  impacto ou análise de risco. O próximo passo é verificar, não corrigir.
 
-### A4. Aggregation desnecessária (MEDIUM)
-- **Arquivo:** `repositories/campaign.ts` — `getCampaignById`
-- **Problema:** COUNT subqueries que poderiam ser evitadas com contadores denormalizados
-- **Recomendação:** Adicionar `derivationCount` e `assetCount` na tabela campaigns
+## Ledger dos 20 achados
 
----
+| ID | Módulo de domínio | Estado | Evidência em 2026-07-28 | Próximo passo |
+|---|---|---|---|---|
+| A1 | Listagem de campanhas | Resolvido | A listagem padrão limita 50 campanhas, ordenadas pela atualização mais recente; a variante paginada aceita limite e deslocamento. | Fora do backlog. |
+| A2 | Persistência de derivações e assets de campanha | Não verificado | Ainda existem leituras com projeção completa, mas não há medição de payload, latência ou custo por consumidor. | [#115](https://github.com/jhowtkd/adscale/issues/115) |
+| A3 | Persistência de campanhas e derivações | Não verificado | O schema possui 158 declarações de índice; campanhas e derivações já têm índices de escopo, mas não há slow query ou plano que prove os índices compostos sugeridos. | [#117](https://github.com/jhowtkd/adscale/issues/117) |
+| A4 | Métricas de campanha | Não verificado | As contagens continuam calculadas em consulta agregada, porém não há volume, plano ou latência que justifique estado denormalizado e seu custo de consistência. | [#116](https://github.com/jhowtkd/adscale/issues/116) |
+| B1 | Leitura de derivações e object storage | Não verificado | A leitura aguarda URLs assinadas para todos os outputs retornados, em paralelo e com cache; o custo incremental ainda não foi medido. | [#121](https://github.com/jhowtkd/adscale/issues/121) |
+| B2 | Exportação de campanhas | Confirmado | Os dois fluxos de ZIP usam JSZip e materializam o pacote completo em buffer antes da resposta ou upload. | [#109](https://github.com/jhowtkd/adscale/issues/109) |
+| B3 | Clientes de provedores de IA | Resolvido | Os clientes têm timeouts explícitos de 60–120 s. O provedor de imagem usa zero retry deliberadamente porque cada chamada é cobrada e o orquestrador controla repetição e teto durável. | Fora do backlog; preservar a invariante de billing. |
+| B4 | Proteção das APIs de leitura | Não verificado | Algumas leituras públicas têm rate limit e muitas leituras autenticadas não têm; não existe inventário de ameaça, custo ou controles que sustente uma correção global. | [#118](https://github.com/jhowtkd/adscale/issues/118) |
+| C1 | Polling de derivações | Resolvido | O polling para quando não há trabalho pendente e usa intervalos progressivos de 3 s, 5 s e 10 s. | Fora do backlog. |
+| C2 | Provider de consultas do cliente | Resolvido | Devtools são importados dinamicamente e renderizados somente em desenvolvimento. | Fora do backlog. |
+| C3 | Sistema de animações | Confirmado | Há importação direta de Framer Motion em 19 módulos do produto. | [#112](https://github.com/jhowtkd/adscale/issues/112), [#113](https://github.com/jhowtkd/adscale/issues/113) e [#114](https://github.com/jhowtkd/adscale/issues/114) |
+| C4 | Estado de notificações do cliente | Confirmado | Toasts têm auto-dismiss após 5 s, mas a operação de adição não impõe teto à coleção. | [#108](https://github.com/jhowtkd/adscale/issues/108) |
+| D1 | Pipeline de imagem | Referência inválida | O job citado apenas reexporta a normalização. A implementação canônica usa um único pipeline Sharp de resize, PNG e buffer; não há evidência dos três buffers descritos. | Fora do backlog. |
+| D2 | Creative score | Confirmado | A preparação da análise mantém o buffer de entrada, cria a string base64 e depois o data URL no mesmo escopo. | [#110](https://github.com/jhowtkd/adscale/issues/110) |
+| D3 | Orquestração da geração | Não verificado | O despacho trabalha por unidade, mas não há medição do overhead nem prova de que batching preservaria settlement, idempotência, cancelamento e reentrega. | [#119](https://github.com/jhowtkd/adscale/issues/119) |
+| E1 | Cache de URLs assinadas do object storage | Referência inválida | O módulo citado não existe. O adaptador atual usa LRU com teto de 1.000 entradas e TTL de 4 minutos. | Fora do backlog. |
+| E2 | Cliente do object storage | Referência inválida | O módulo citado não existe. O adaptador atual cria um cliente por instância e a aplicação exporta uma única instância compartilhada. | Fora do backlog. |
+| E3 | Cache de consultas do cliente | Resolvido | O provider global configura coleta após 5 minutos, exatamente o valor recomendado. | Fora do backlog. |
+| F1 | Ferramenta de acessibilidade | Confirmado | `@axe-core/react` permanece classificado como dependência de produção. | [#111](https://github.com/jhowtkd/adscale/issues/111) |
+| F2 | Configuração de build | Não verificado | Headers já existem; compressão e imports otimizados não foram medidos contra o gate real de bundle. | [#120](https://github.com/jhowtkd/adscale/issues/120) |
 
-## B. API Routes & Server
+## Backlog ativo
 
-### B1. Geração síncrona de presigned URLs (CRITICAL)
-- **Arquivo:** `app/src/app/api/campaigns/[id]/derivations/route.ts`
-- **Problema:** Gera presigned URLs para TODAS as derivações síncronamente
-- **Impacto:** Latência proporcional ao número de derivações
-- **Recomendação:** Gerar on-demand ou em batch assíncrono
+### Correções confirmadas
 
-### B2. ZIP export em memória (HIGH)
-- **Arquivo:** `app/src/app/api/export/zip/route.ts`
-- **Problema:** JSZip carrega todos os arquivos em memória antes de enviar
-- **Impacto:** Memory spike, OOM em campanhas grandes
-- **Recomendação:** Usar streaming ZIP (ex: `archiver` com streaming)
+1. [#108 — Limitar notificações efêmeras no cliente](https://github.com/jhowtkd/adscale/issues/108)
+2. [#109 — Transmitir exportações ZIP incrementalmente](https://github.com/jhowtkd/adscale/issues/109)
+3. [#110 — Remover a residência duplicada da imagem no creative score](https://github.com/jhowtkd/adscale/issues/110)
+4. [#111 — Restringir a ferramenta de acessibilidade ao desenvolvimento](https://github.com/jhowtkd/adscale/issues/111)
+5. [#112–#114 — Migrar o sistema de animações para carregamento preguiçoso](https://github.com/jhowtkd/adscale/issues/112)
 
-### B3. Chamadas OpenAI síncronas sem retry (HIGH)
-- **Arquivos:** Múltiplas API routes AI
-- **Problema:** Sem timeout configurado, sem exponential backoff
-- **Impacto:** Requests travados, UX degradada
-- **Recomendação:**
-  ```ts
-  const openai = new OpenAI({ timeout: 30000, maxRetries: 3 });
-  ```
+### Verificações antes de corrigir
 
-### B4. Rate limit só protege mutações (MEDIUM)
-- **Problema:** GET routes não rate-limited
-- **Impacto:** Scraping, enumeration attacks
-- **Recomendação:** Aplicar rate limit em todas as routes
+1. [#115 — Projeções de derivações e assets](https://github.com/jhowtkd/adscale/issues/115)
+2. [#116 — Contagens de campanha](https://github.com/jhowtkd/adscale/issues/116)
+3. [#117 — Necessidade de índices](https://github.com/jhowtkd/adscale/issues/117)
+4. [#118 — Rate limit em leituras](https://github.com/jhowtkd/adscale/issues/118)
+5. [#119 — Batching do orquestrador](https://github.com/jhowtkd/adscale/issues/119)
+6. [#120 — Configuração de build](https://github.com/jhowtkd/adscale/issues/120)
+7. [#121 — URLs assinadas na listagem de derivações](https://github.com/jhowtkd/adscale/issues/121)
 
----
+## Invariantes
 
-## C. Frontend Rendering
-
-### C1. Polling agressivo sem backoff (CRITICAL)
-- **Arquivo:** `app/src/lib/hooks/use-derivations.ts`
-- **Problema:** `refetchInterval: 2000ms` constante
-- **Impacto:** Bateria drenada, requisições desnecessárias
-- **Recomendação:**
-  ```ts
-  refetchInterval: (query) => 
-    query.state.data?.some(d => d.status === 'processing') ? 5000 : false
-  ```
-
-### C2. ReactQueryDevtools no bundle de produção (HIGH)
-- **Arquivo:** `app/src/components/providers/QueryProvider.tsx`
-- **Problema:** Devtools carregados em produção
-- **Impacto:** ~20KB+ no bundle
-- **Recomendação:**
-  ```tsx
-  {process.env.NODE_ENV === 'development' && <ReactQueryDevtools />}
-  ```
-
-### C3. Framer Motion sem lazy-loading (HIGH)
-- **Problema:** Importado em 19+ arquivos diretamente
-- **Impacto:** Bundle inicial maior
-- **Recomendação:**
-  ```ts
-  const MotionDiv = dynamic(() => import('framer-motion').then(m => m.motion.div));
-  ```
-
-### C4. Memory leak em toasts (MEDIUM)
-- **Arquivo:** `app/src/lib/store.ts` (Zustand)
-- **Problema:** Toasts acumulam no estado sem limite
-- **Impacto:** Crescimento indefinido do estado
-- **Recomendação:** Limitar a 5 toasts, auto-dismiss após 5s
-
----
-
-## D. AI / Image Processing
-
-### D1. `normalizeGeneratedImage` cria 3 buffers (CRITICAL)
-- **Arquivo:** `app/src/server/jobs/derivation.ts`
-- **Problema:** Cria 3 buffers de sharp por derivação
-- **Impacto:** Triplica uso de memória no pipeline
-- **Recomendação:** Pipeline single-pass com sharp streams
-
-### D2. Base64 duplica memória (HIGH)
-- **Arquivo:** `app/src/server/ai/creative-score.ts`
-- **Problema:** Imagem convertida para base64 mantém buffer original
-- **Impacto:** 2x memória por imagem analisada
-- **Recomendação:** Usar streams ou liberar buffer após conversão
-
-### D3. Inngest sem batching (MEDIUM)
-- **Arquivo:** `app/src/server/jobs/derivation.ts`
-- **Problema:** 1 evento por derivação
-- **Impacto:** Overhead de orquestração por item
-- **Recomendação:** Batch de 10-20 derivações por evento
-
----
-
-## E. Memory & Resources
-
-### E1. Cache de presigned URLs sem limite (CRITICAL)
-- **Arquivo:** `app/src/server/storage/r2.ts`
-- **Problema:** `Map` sem limite de tamanho
-- **Impacto:** Crescimento indefinido, memory leak
-- **Recomendação:** LRU cache com limite de 1000 entries
-
-### E2. S3Client sem connection pooling (HIGH)
-- **Arquivo:** `app/src/server/storage/r2.ts`
-- **Problema:** Novo cliente por request
-- **Impacto:** Overhead de conexão, file descriptor exhaustion
-- **Recomendação:** Singleton S3Client com `maxSockets`
-
-### E3. TanStack Query sem `gcTime` (MEDIUM)
-- **Problema:** Dados ficam em cache indefinidamente
-- **Impacto:** Memória do cliente cresce com navegação
-- **Recomendação:** Configurar `gcTime: 5 * 60 * 1000` globalmente
-
----
-
-## F. Build & Bundle
-
-### F1. `@axe-core/react` em dependencies (HIGH)
-- **Arquivo:** `app/package.json`
-- **Problema:** Deveria ser devDependency
-- **Impacto:** ~50KB no bundle
-
-### F2. `next.config.ts` sem otimizações (HIGH)
-- **Problemas:**
-  - Sem `optimizePackageImports`
-  - Sem `compress`
-  - Sem cache headers
-- **Recomendação:**
-  ```ts
-  experimental: {
-    optimizePackageImports: ['recharts', 'framer-motion', 'lucide-react'],
-  },
-  compress: true,
-  ```
-
----
-
-## Performance Budget Recomendado
-
-| Métrica | Atual (est.) | Target | Budget |
-|---------|--------------|--------|--------|
-| FCP | ~1.8s | <1.0s | 1.0s |
-| TTFB | ~800ms | <300ms | 300ms |
-| LCP | ~3.5s | <2.5s | 2.5s |
-| Bundle JS | ~350KB | <200KB | 200KB |
-| TBT | ~350ms | <200ms | 200ms |
-| Polling | 2000ms | 5000ms+ | 5000ms |
-| Memory (dashboard) | ~150MB | <60MB | 60MB |
-| DB p95 | ~250ms | <100ms | 100ms |
-
----
-
-## Top 10 Otimizações (por impacto)
-
-| # | Otimização | Impacto | Esforço |
-|---|-----------|---------|---------|
-| 1 | Paginar `getCampaigns()` | -70% TTFB dashboard | Baixo |
-| 2 | Headers de cache + compress | -50% transfer | Baixo |
-| 3 | Remover ReactQueryDevtools prod | -20KB bundle | 5 min |
-| 4 | Singleton S3Client | -80% connection overhead | Baixo |
-| 5 | Limitar cache presigned URLs | -60% memória server | Baixo |
-| 6 | Polling com backoff | -70% requests | Baixo |
-| 7 | Lazy load Framer Motion | -30KB bundle inicial | Médio |
-| 8 | Índices no DB | -80% query time | Baixo |
-| 9 | Streaming ZIP export | -90% memória export | Médio |
-| 10 | Batch Inngest events | -50% job overhead | Médio |
-
----
-
-## Quick Wins (~1 hora, ganho combinado significativo)
-
-1. ✅ Mover `@axe-core/react` para devDependencies
-2. ✅ Remover ReactQueryDevtools de produção
-3. ✅ Singleton S3Client
-4. ✅ Limitar toasts Zustand (5 max)
-5. ✅ Adicionar `gcTime` default no QueryClient
-6. ✅ Timeout + retry no OpenAI client
-7. ✅ Paginar listagens principais
-8. ✅ Adicionar índices compostos no DB
-9. ✅ Polling com backoff condicional
-10. ✅ `optimizePackageImports` no next.config
+- Teste automatizado verde prova ausência de regressão funcional; não prova
+  ganho de latência.
+- Ganho de performance exige medição antes/depois no ambiente real de
+  hospedagem.
+- O cliente do provedor de imagem não deve ganhar retry automático: o
+  orquestrador já controla repetição e cada chamada pode gerar cobrança.
+- Itens resolvidos ou com referência inválida só voltam ao backlog mediante
+  nova evidência datada.
