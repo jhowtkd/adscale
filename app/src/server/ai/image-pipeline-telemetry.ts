@@ -40,12 +40,33 @@ function truncateMessage(value: unknown, max = 500): string | undefined {
 
 export function logImagePipelineStage(fields: ImagePipelineStageFields): void {
   const { errorMessage, ...rest } = fields;
-  logger.info({
+  const payload = {
     event: "image_pipeline_stage",
     ...rest,
     ...memorySnapshot(),
     ...(errorMessage ? { errorMessage: truncateMessage(errorMessage) } : {}),
-  });
+  };
+  try {
+    logger.info(payload);
+  } catch (error) {
+    try {
+      logger.warn({
+        event: "image_pipeline_telemetry_emit_failed",
+        sourceEvent: "image_pipeline_stage",
+        inngestRunId: fields.inngestRunId,
+        inngestAttempt: fields.inngestAttempt,
+        workId: fields.workId,
+        outputId: fields.outputId,
+        workspaceId: fields.workspaceId,
+        jobType: fields.jobType,
+        stage: fields.stage,
+        status: fields.status,
+        errorMessage: truncateMessage(error) ?? "Unknown telemetry sink failure",
+      });
+    } catch {
+      // Telemetry must never change the generation outcome.
+    }
+  }
 }
 
 export function createPipelineTimer() {

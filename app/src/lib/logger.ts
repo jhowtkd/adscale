@@ -44,6 +44,18 @@ function shouldLog(level: LogLevel): boolean {
   return LOG_LEVEL_RANK[level] >= LOG_LEVEL_RANK[MIN_LOG_LEVEL];
 }
 
+function isStructuredEventPayload(
+  value: unknown
+): value is Record<string, unknown> & { event: string } {
+  if (value === null || typeof value !== "object") return false;
+  const prototype = Object.getPrototypeOf(value);
+  return (
+    (prototype === Object.prototype || prototype === null) &&
+    "event" in value &&
+    typeof value.event === "string"
+  );
+}
+
 interface Logger {
   debug: (...args: unknown[]) => void;
   info: (...args: unknown[]) => void;
@@ -97,20 +109,40 @@ function forwardToSentry(level: LogLevel, args: unknown[]): void {
 function createLogger(namespace?: string): Logger {
   const prefix = namespace ? `[${namespace}]` : "";
 
+  function write(level: LogLevel, ...args: unknown[]): void {
+    if (level === "error") {
+      console.error(...args);
+    } else if (level === "warn") {
+      console.warn(...args);
+    } else if (level === "debug") {
+      console.debug(...args);
+    } else {
+      console.info(...args);
+    }
+  }
+
   function log(level: LogLevel, ...args: unknown[]) {
     if (!shouldLog(level)) return;
     forwardToSentry(level, args);
     const timestamp = new Date().toISOString();
-    const label = `${timestamp} ${level.toUpperCase().padStart(5)} ${prefix}`;
-    if (level === "error") {
-      console.error(label, ...args);
-    } else if (level === "warn") {
-      console.warn(label, ...args);
-    } else if (level === "debug") {
-      console.debug(label, ...args);
-    } else {
-      console.info(label, ...args);
+    if (args.length === 1 && isStructuredEventPayload(args[0])) {
+      const payload = JSON.stringify(
+        {
+          ...args[0],
+          timestamp,
+          level,
+          ...(namespace ? { namespace } : {}),
+        },
+        (_key, value) =>
+          value instanceof Error
+            ? { name: value.name, message: value.message, stack: value.stack }
+            : value
+      );
+      write(level, payload);
+      return;
     }
+    const label = `${timestamp} ${level.toUpperCase().padStart(5)} ${prefix}`;
+    write(level, label, ...args);
   }
 
   return {
