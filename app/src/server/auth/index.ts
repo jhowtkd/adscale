@@ -18,6 +18,7 @@ import {
   ensureDevAdminEmailVerified,
   isDevAdminEmail,
 } from "./dev-admin";
+import { isE2EControlledProviderEnabled } from "../ai/providers/e2e-controlled-provider";
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -37,7 +38,8 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     autoSignIn: true,
-    requireEmailVerification: process.env.NODE_ENV === "production",
+    requireEmailVerification:
+      process.env.NODE_ENV === "production" && !isE2EControlledProviderEnabled(),
     revokeSessionsOnPasswordReset: true,
     sendResetPassword: async ({ user, url }) => {
       // E2E only: stash the reset URL so the dev endpoint can hand it to the
