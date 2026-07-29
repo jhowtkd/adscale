@@ -314,6 +314,21 @@ com 20 execuções por braço e p50/p95/p99 correlacionados a fila, estágios,
 provedor, memória, concorrência e falhas. O gate local determinístico de #105
 está verde, mas não substitui esse ambiente.
 
+#### Revalidação do preview PR #122 — 2026-07-29
+
+O PR draft `#122` foi publicado no commit `f9ac6e8f` e o serviço preview
+`adscale-app PR #122` foi criado em `srv-d9kqv9lckfvc73dosp0g`. O build Render
+passou com `npm ci --include=dev && npm run build && npm prune --omit=dev`,
+incluindo typecheck, geração do standalone e health check `/api/health` (`200`).
+
+O preview herdou a `DATABASE_URL` de produção. Para não medir nem executar
+geração contra dados reais, ele foi suspenso antes de qualquer geração paga;
+não há baseline #106 nesta tentativa. O boot chegou a aplicar as migrations
+0078–0081 e sincronizar o Inngest de produção; a sincronização da produção foi
+refeita e nenhuma chamada de geração foi disparada. A próxima execução exige
+uma `DATABASE_URL` descartável, configurada somente no preview, antes de
+retomar o serviço.
+
 ### #105 — timeline determinística e R-010
 
 Em 2026-07-28, `tests/e2e/create-post.spec.ts --grep "Creative Work v1
