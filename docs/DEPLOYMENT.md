@@ -25,7 +25,7 @@ There is **no separate Render worker service** in this repository. Background jo
 | `plan` | `starter` |
 | `region` | `oregon` |
 | `autoDeployTrigger` | `commit` |
-| `buildCommand` | `npm ci && npm run build` |
+| `buildCommand` | `npm ci --include=dev && npm run build && npm prune --omit=dev` |
 | `preDeployCommand` | none |
 | `startCommand` | `npm run db:migrate && npm run start:prod` |
 | `healthCheckPath` | `/api/health` |
@@ -85,7 +85,8 @@ There is **no deploy or release job** in CI. Render deploys when commits land on
 
 On each deploy to `adscale-app`:
 
-1. **Build** (in `app/`): `npm ci && npm run build`
+1. **Build** (in `app/`): `npm ci --include=dev && npm run build && npm prune --omit=dev`
+   - Dev dependencies are available for build-time typechecking (including the dev-only accessibility probe) and pruned before the standalone runtime is deployed.
    - `next build --webpack` with `output: 'standalone'` in `app/next.config.ts`
    - `postbuild`: `node scripts/prepare-standalone.mjs` copies `.next/static` and `public/` into the standalone output
 2. **Start:** `npm run db:migrate && npm run start:prod`

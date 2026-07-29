@@ -237,7 +237,7 @@ Render Blueprint for production:
 
 | Resource | Name | Notes |
 |----------|------|--------|
-| Web service | `adscale-app` | `rootDir: app`, `buildCommand: npm ci && npm run build`, `startCommand: npm run db:migrate && npm run start:prod`, health check `/api/health` |
+| Web service | `adscale-app` | `rootDir: app`, `buildCommand: npm ci --include=dev && npm run build && npm prune --omit=dev`, `startCommand: npm run db:migrate && npm run start:prod`, health check `/api/health` |
 | Database | `adscale-postgres` | PostgreSQL 16, database `adscale_db`, user `adscale` |
 
 Injected or fixed env vars include `NODE_ENV=production`, `DATABASE_URL` from the managed DB, generated `BETTER_AUTH_SECRET`, and public URLs. Secrets marked `sync: false` must be set in the Render Dashboard. See also `docs/render-deployment.md`.
