@@ -61,18 +61,36 @@ function isLocalAppUrl(value: string | undefined): boolean {
   }
 }
 
+function isRenderPullRequestPreviewUrl(value: string | undefined): boolean {
+  try {
+    const url = new URL(value ?? "");
+    return url.protocol === "https:" && /-pr-\d+\.onrender\.com$/.test(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
 export function isE2EControlledProviderEnabled(
   environment: NodeJS.ProcessEnv = process.env
 ): boolean {
   if (environment.E2E_CONTROLLED_PROVIDER !== "true") return false;
-  if (!isLocalAppUrl(environment.APP_URL)) return false;
-  if (environment.NODE_ENV !== "production") return true;
+  if (isLocalAppUrl(environment.APP_URL)) {
+    if (environment.NODE_ENV !== "production") return true;
 
-  // A local optimized build is the stable way to run the long Gate 6 suite.
-  // Keep the seam unavailable to any deployed production URL even if someone
-  // accidentally copies the flag there.
-  if (environment.E2E_DISABLE_RATE_LIMIT !== "true") return false;
-  return true;
+    // A local optimized build is the stable way to run the long Gate 6 suite.
+    // Keep the seam unavailable to any deployed production URL even if someone
+    // accidentally copies the flag there.
+    return environment.E2E_DISABLE_RATE_LIMIT === "true";
+  }
+
+  // Explicit, non-default escape hatch for a disposable Render PR preview.
+  // The URL gate keeps this seam out of the production custom domain and the
+  // flag must be configured on the preview itself.
+  return (
+    environment.NODE_ENV === "production" &&
+    environment.E2E_CONTROLLED_PROVIDER_PREVIEW === "true" &&
+    isRenderPullRequestPreviewUrl(environment.APP_URL)
+  );
 }
 
 function retryableTransportError(): Error {

@@ -51,6 +51,29 @@ describe("E2E controlled provider", () => {
         APP_URL: "https://app.example.com",
       })
     ).toBe(false);
+    expect(
+      isE2EControlledProviderEnabled({
+        NODE_ENV: "production",
+        E2E_CONTROLLED_PROVIDER: "true",
+        E2E_CONTROLLED_PROVIDER_PREVIEW: "true",
+        APP_URL: "https://adscale-app-pr-122.onrender.com",
+      })
+    ).toBe(true);
+    expect(
+      isE2EControlledProviderEnabled({
+        NODE_ENV: "production",
+        E2E_CONTROLLED_PROVIDER: "true",
+        E2E_CONTROLLED_PROVIDER_PREVIEW: "true",
+        APP_URL: "https://adscale.jhonatansoares.com",
+      })
+    ).toBe(false);
+    expect(
+      isE2EControlledProviderEnabled({
+        NODE_ENV: "production",
+        E2E_CONTROLLED_PROVIDER: "true",
+        APP_URL: "https://adscale-app-pr-122.onrender.com",
+      })
+    ).toBe(false);
     expect(isE2EControlledProviderEnabled({ NODE_ENV: "development" })).toBe(
       false
     );
