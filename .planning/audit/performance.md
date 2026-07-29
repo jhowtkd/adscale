@@ -106,11 +106,12 @@ Este ledger corrige a fonte de verdade para os **20 achados nomeados**:
 | #103 | Implementado | migrations `0080`/`0081`, marcadores CAS de primeira saída/conclusão e agregação também na recuperação stale. |
 | #104 | Implementado | RSS/heap/external e `activeUnitCount` no terminal; amostragem protegida contra falha. |
 | #105 | Verificado localmente | matriz determinística R-010: 12/12 testes, sem provider pago. |
-| #106 | Pendente de ambiente | falta preview Render com 20 execuções por braço; não é substituído pelo E2E local. |
+| #106 | Verificado no preview, com ressalva de capacidade | baseline controlado com 20 execuções mensuráveis por braço, percentis por estágio/memória/telemetria e falhas correlacionadas; o Starter de uma instância mostrou fila e pressão de memória sob concorrência. |
 
 Os estados acima descrevem implementação/evidência no worktree, não o estado
-das issues no GitHub. #106 permanece deliberadamente aberto até existir o
-ambiente externo exigido pelo próprio ticket.
+das issues no GitHub. A evidência externa de #106 está disponível abaixo; a
+issue só deve ser encerrada depois de decidir se a pressão observada no plano
+Starter é aceitável para o próximo gate de capacidade.
 
 ## Medição datada dos tickets #115–#121
 
@@ -309,10 +310,8 @@ histórico observável, mas não é uma baseline válida para o ticket: é produ
 anterior ao WIP e não contém as 20 execuções por braço exigidas. Nenhuma nova
 geração paga foi disparada.
 
-**Classificação:** #106 continua pendente de um preview Render reproduzível,
-com 20 execuções por braço e p50/p95/p99 correlacionados a fila, estágios,
-provedor, memória, concorrência e falhas. O gate local determinístico de #105
-está verde, mas não substitui esse ambiente.
+**Classificação anterior:** o histórico acima continua válido como contexto,
+mas foi substituído pela execução controlada abaixo.
 
 #### Revalidação do preview PR #122 — 2026-07-29
 
@@ -321,13 +320,55 @@ O PR draft `#122` foi publicado no commit `f9ac6e8f` e o serviço preview
 passou com `npm ci --include=dev && npm run build && npm prune --omit=dev`,
 incluindo typecheck, geração do standalone e health check `/api/health` (`200`).
 
-O preview herdou a `DATABASE_URL` de produção. Para não medir nem executar
-geração contra dados reais, ele foi suspenso antes de qualquer geração paga;
-não há baseline #106 nesta tentativa. O boot chegou a aplicar as migrations
-0078–0081 e sincronizar o Inngest de produção; a sincronização da produção foi
-refeita e nenhuma chamada de geração foi disparada. A próxima execução exige
-uma `DATABASE_URL` descartável, configurada somente no preview, antes de
-retomar o serviço.
+O primeiro boot herdou a `DATABASE_URL` de produção; o preview foi suspenso,
+as migrations `0078–0081` chegaram a ser aplicadas nesse banco e o Inngest de
+produção foi sincronizado uma vez. A sincronização foi refeita e nenhuma
+geração paga foi disparada. Depois o preview foi redeployado com Neon
+descartável (`neondb`), separado da produção, e a saúde permaneceu `200`.
+
+#### Baseline controlado concluído — 2026-07-29
+
+- **Deploy:** commit `c3beb9a7`, deploy Render `dep-d9l4ebb7uimc73cera30`,
+  URL `https://adscale-app-pr-122.onrender.com`.
+- **Infra:** Render Starter, uma instância, Node `24.14.1`, `WEB_CONCURRENCY=1`;
+  banco Neon descartável `neondb`; sem geração paga nem chamada real de
+  OpenAI. O provider determinístico do preview também tornou o planejamento
+  estável; os eventos `image_pipeline_external_call` são telemetria do caminho
+  controlado, não custo de provider externo.
+- **Flags temporárias:** `E2E_CONTROLLED_PROVIDER=true`,
+  `E2E_CONTROLLED_PROVIDER_PREVIEW=true`, `E2E_DISABLE_RATE_LIMIT=true` e
+  `PLATFORM_OWNER_EMAILS` apontando apenas para a conta descartável do
+  preview durante a medição; todas foram removidas no deploy de limpeza
+  `dep-d9l558df1gfc73dieuk0` antes da validação final de saúde.
+- **Amostra:** 20 execuções mensuráveis por braço (`single`, `variations`,
+  `format_adaptation`, `restyle`). A amostra final combina o controle de
+  baixa concorrência (10 `single`, 5 nos demais braços) com terminais do lote
+  de concorrência alta para completar `n=20`; saídas falhas continuam contadas.
+  p99 é indicativo, pois cada braço tem apenas 20 execuções. As durações de
+  estágio são o máximo observado por execução entre suas unidades.
+
+| Braço (`n=20`) | total p50/p95/p99 (ms) | fila p50/p95/p99 (ms) | geração-base p50/p95/p99 (ms) | QA p50/p95/p99 (ms) | RSS máx. (MB) | falhas de execução / outputs |
+|---|---:|---:|---:|---:|---:|---:|
+| `single` | 18.497 / 35.297 / 39.655 | 15.094 / 31.961 / 36.202 | 2.376 / 2.792 / 2.918 | 83 / 120 / 129 | 400 | 0 / 0 |
+| `variations` | 129.698 / 377.343 / 417.382 | 125.558 / 413.857 / 413.857 | 2.640 / 3.003 / 3.003 | 94 / 169 / 169 | 490 | 2 / 4 |
+| `format_adaptation` | 95.094 / 216.671 / 236.676 | 74.192 / 232.891 / 232.891 | 2.627 / 15.132 / 15.132 | 95 / 208 / 208 | 468 | 3 / 8 |
+| `restyle` | 156.123 / 245.088 / 251.564 | 152.218 / 241.088 / 247.640 | 2.485 / 2.797 / 3.392 | 87 / 94 / 98 | 440 | 0 / 0 |
+
+| Telemetria externa por execução | p50 (ms) | p95 (ms) | p99 indicativo (ms) |
+|---|---:|---:|---:|
+| planner | 0 | 7 | 7 |
+| image | 0 | 5 | 9 |
+| selector | 0 | 0 | 0 |
+| score | 0 | 0 | 3 |
+
+O controle de baixa concorrência, sem falhas e com `activeUnitCount=1`, ficou
+entre p95 de 39.655 ms (`single`), 77.334 ms (`variations`), 76.969 ms
+(`format_adaptation`) e 51.933 ms (`restyle`). Isso separa o custo de estágio
+do efeito de fila. No lote saturado, o serviço de uma instância atingiu
+aproximadamente 526 MB decimais (cerca de 502 MiB) no métrico de memória do
+Render; 29 saídas ficaram enfileiradas e foram canceladas ao encerrar o lote
+exploratório. O resultado é evidência de capacidade/concorrência do Starter,
+não de falha do provider controlado.
 
 ### #105 — timeline determinística e R-010
 
@@ -341,8 +382,8 @@ correção objetiva, QA inconclusivo, falha factual, lote parcial e retry manual
 O log confirmou correlação estável entre request, fila, stages, chamadas
 externas e terminal; no lote parcial, dois outputs completaram, o terceiro
 falhou após duas chamadas e recebeu uma única refund. Essa evidência prova a
-semântica/reentrega local de #105, não substitui a amostra de 20 execuções por
-braço nem os percentis de performance exigidos por #106.
+semântica/reentrega local de #105; o baseline de performance externo de #106
+está registrado na seção anterior.
 
 ### #109 — exportação incremental
 
