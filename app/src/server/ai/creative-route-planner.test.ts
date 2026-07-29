@@ -101,6 +101,25 @@ describe("planCreativeRoutes", () => {
       expect.objectContaining({ timeout: 180_000, maxRetries: 0 })
     );
   });
+
+  it("uses deterministic routes without a model call in controlled preview mode", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("APP_URL", "https://adscale-app-pr-122.onrender.com");
+    vi.stubEnv("E2E_CONTROLLED_PROVIDER", "true");
+    vi.stubEnv("E2E_CONTROLLED_PROVIDER_PREVIEW", "true");
+    mockResponsesCreate.mockClear();
+
+    const routes = await planCreativeRoutes({
+      sourcePrompt: "Create a branded social post.",
+      objective: "Increase qualified trial signups",
+      mode: "social_post",
+      referenceNames: [],
+    });
+
+    expect(routes).toHaveLength(3);
+    expect(new Set(routes.map((route) => route.visualMechanism)).size).toBe(3);
+    expect(mockResponsesCreate).not.toHaveBeenCalled();
+  });
 });
 
 describe("buildCreativeRoutePlannerPrompt", () => {
