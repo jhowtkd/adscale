@@ -31,6 +31,9 @@ const getAssetMock = vi.hoisted(() => vi.fn());
 const getTemplateMock = vi.hoisted(() => vi.fn());
 const analyzeSourceMock = vi.hoisted(() => vi.fn());
 const inngestSendMock = vi.hoisted(() => vi.fn());
+const terminalTelemetryMock = vi.hoisted(() => vi.fn());
+const aggregateTelemetryMock = vi.hoisted(() => vi.fn());
+const recordAggregateMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/repositories/creative-work", () => ({
   getCreativeWork: (...args: unknown[]) => getWorkMock(...args),
@@ -40,6 +43,7 @@ vi.mock("@/server/repositories/creative-work", () => ({
   failStaleCreativeWorkSources: (...args: unknown[]) => failStaleSourcesMock(...args),
   listCreativeWorkOutputsNeedingRefund: vi.fn(async () => []),
   markCreativeWorkOutputFailureCode: vi.fn(async () => null),
+  recordCreativeWorkGenerationAggregate: (...args: unknown[]) => recordAggregateMock(...args),
   refreshCreativeWorkStatus: (...args: unknown[]) => refreshStatusMock(...args),
   updateCreativeWorkDraft: (...args: unknown[]) => updateDraftMock(...args),
   createCreativeWorkSource: (...args: unknown[]) => createSourceMock(...args),
@@ -59,6 +63,10 @@ vi.mock("@/server/repositories/workspace-asset", () => ({
 vi.mock("@/server/repositories/template", () => ({ getTemplateById: (...args: unknown[]) => getTemplateMock(...args) }));
 vi.mock("@/server/application/analyze-creative-work-source", () => ({ analyzeCreativeWorkSource: (...args: unknown[]) => analyzeSourceMock(...args) }));
 vi.mock("@/server/jobs/client", () => ({ inngest: { send: (...args: unknown[]) => inngestSendMock(...args) } }));
+vi.mock("@/server/creative-work/job-telemetry", () => ({
+  logCreativeWorkGenerationAggregate: (...args: unknown[]) => aggregateTelemetryMock(...args),
+  logCreativeWorkOutputTerminal: (...args: unknown[]) => terminalTelemetryMock(...args),
+}));
 
 vi.mock("@/server/application/confirm-social-post-work", () => ({
   confirmSocialPostWork: (...args: unknown[]) => confirmMock(...args),
@@ -130,6 +138,7 @@ describe("GET /api/creative-work/[id]", () => {
     vi.clearAllMocks();
     failStaleOutputsMock.mockResolvedValue([]);
     failStaleSourcesMock.mockResolvedValue([]);
+    recordAggregateMock.mockResolvedValue(null);
   });
   afterEach(() => {
     vi.restoreAllMocks();
@@ -186,11 +195,39 @@ describe("GET /api/creative-work/[id]", () => {
   });
 
   it("turns stale generation into a terminal retryable failure", async () => {
-    failStaleOutputsMock.mockResolvedValue([{ id: "o1", status: "failed" }]);
+    failStaleOutputsMock
+      .mockResolvedValueOnce([{ id: "o1", status: "failed" }])
+      .mockResolvedValueOnce([]);
     refreshStatusMock.mockResolvedValue("failed");
+    const queuedAt = new Date("2026-07-13T12:00:00.000Z");
+    const terminalAt = new Date("2026-07-13T12:10:00.000Z");
+    recordAggregateMock.mockResolvedValue({
+      generationCorrelationId: "generation-1",
+      unitCount: 1,
+      terminalCount: 1,
+      successCount: 0,
+      failureCount: 1,
+      result: "failed",
+      firstTerminalAt: terminalAt.toISOString(),
+      completedAt: terminalAt.toISOString(),
+      timeToFirstOutputMs: 10 * 60 * 1000,
+      totalDurationMs: 10 * 60 * 1000,
+      firstTerminalEmitted: true,
+      completionEmitted: true,
+    });
     getWorkMock.mockResolvedValue({
       work: { ...workItem, status: "failed" },
-      outputs: [{ ...outputs[0], status: "failed", failureCode: "generation_timeout" }],
+      outputs: [{
+        ...outputs[0],
+        status: "failed",
+        failureCode: "generation_timeout",
+        generationCorrelationId: "generation-1",
+        imageCallCount: 1,
+        retryCount: 0,
+        queuedAt,
+        terminalAt,
+        updatedAt: terminalAt,
+      }],
     });
 
     const res = await GET(
@@ -209,6 +246,16 @@ describe("GET /api/creative-work/[id]", () => {
     expect(body.outputs[0]).toEqual(
       expect.objectContaining({ status: "failed", failureCode: "generation_timeout" }),
     );
+    expect(terminalTelemetryMock).toHaveBeenCalledWith(expect.objectContaining({
+      outputId: "o1",
+      generationCorrelationId: "generation-1",
+      outcome: "failed",
+      failureCode: "generation_timeout",
+      durationMs: 10 * 60 * 1000,
+    }));
+    expect(recordAggregateMock).toHaveBeenCalledWith("workspace-1", "work-1", "generation-1");
+    expect(aggregateTelemetryMock).toHaveBeenCalledWith(expect.objectContaining({ phase: "first_terminal" }));
+    expect(aggregateTelemetryMock).toHaveBeenCalledWith(expect.objectContaining({ phase: "completed" }));
   });
 
   it("turns stale source analysis into an explicit retryable failure", async () => {

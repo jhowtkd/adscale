@@ -1,7 +1,7 @@
 "use client";
 
 import { useReducer, useRef, useEffect, useMemo, useState } from "react";
-import { m, useReducedMotion } from "framer-motion";
+import { m, useReducedMotion } from "@/components/animations/MotionBoundary";
 import { Camera, Check, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/store";

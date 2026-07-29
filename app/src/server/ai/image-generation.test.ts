@@ -55,6 +55,7 @@ vi.mock("sharp", () => ({
 }));
 
 import { objectStorage } from "@/server/storage";
+import { logger } from "@/lib/logger";
 import { generateAndStoreImage, isRetryableProviderError, normalizeGeneratedImage } from "./image-generation";
 
 const BASE_INPUT = {
@@ -243,6 +244,46 @@ describe("generateAndStoreImage", () => {
     }
   });
 
+  it("uses the deterministic provider to prove correlated external-call telemetry without network timing", async () => {
+    const { E2EControlledImageProvider } = await import("./providers/e2e-controlled-provider");
+    const { __setImageProviderForTests } = await import("./image-generation");
+    __setImageProviderForTests(E2EControlledImageProvider.forUnitTests());
+
+    try {
+      const result = await generateAndStoreImage({
+        ...BASE_INPUT,
+        outputPrefix: "creative-work/deterministic",
+        executionPolicy: "direct",
+        callBudget: { remaining: 2 },
+        telemetry: {
+          workspaceId: "workspace-1",
+          workId: "work-1",
+          outputId: "output-1",
+          generationCorrelationId: "generation-1",
+          jobType: "creative_work",
+        },
+      });
+
+      const externalCalls = vi.mocked(logger.info).mock.calls
+        .map(([payload]) => payload)
+        .filter((payload): payload is { event: string } => (
+          typeof payload === "object" && payload !== null &&
+          (payload as { event?: string }).event === "image_pipeline_external_call"
+        ));
+      expect(result.providerCalls).toBe(1);
+      expect(externalCalls).toEqual([
+        expect.objectContaining({
+          callType: "image",
+          attempt: 0,
+          generationCorrelationId: "generation-1",
+          result: "success",
+        }),
+      ]);
+    } finally {
+      __setImageProviderForTests(null);
+    }
+  });
+
   it("generates three medium-quality routes and normalizes only the selected candidate", async () => {
     const { __setImageProviderForTests } = await import("./image-generation");
     const generate = vi.fn(async (input: { prompt: string }) => ({
@@ -281,6 +322,15 @@ describe("generateAndStoreImage", () => {
       ]);
       expect(result.candidates[1].winner).toBe(true);
       expect(mockSharpPipeline.toBuffer).toHaveBeenCalledTimes(1);
+      expect(result.providerCalls).toBe(3);
+      const imageCalls = vi.mocked(logger.info).mock.calls
+        .map(([payload]) => payload)
+        .filter((payload): payload is { event: string; callType?: string; callIndex?: number } => (
+          typeof payload === "object" && payload !== null
+          && (payload as { event?: string }).event === "image_pipeline_external_call"
+        ));
+      expect(imageCalls).toHaveLength(result.providerCalls);
+      expect(imageCalls.map((call) => call.callIndex)).toEqual([0, 1, 2]);
     } finally {
       __setImageProviderForTests(null);
     }

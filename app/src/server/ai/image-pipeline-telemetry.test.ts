@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { logImagePipelineStage } from "./image-pipeline-telemetry";
+import {
+  logImagePipelineStage,
+  observeImagePipelineExternalCall,
+} from "./image-pipeline-telemetry";
 
 describe("logImagePipelineStage", () => {
   afterEach(() => {
@@ -89,5 +92,44 @@ describe("logImagePipelineStage", () => {
         message: "provider unavailable",
       },
     });
+  });
+
+  it("records external call type, duration, result and attempt without retrying", async () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+
+    await expect(observeImagePipelineExternalCall({
+      callType: "image",
+      attempt: 2,
+      workspaceId: "workspace-1",
+      workId: "work-1",
+      outputId: "output-1",
+      generationCorrelationId: "generation-1",
+      jobType: "creative_work",
+    }, async () => "candidate")).resolves.toBe("candidate");
+
+    expect(JSON.parse(String(info.mock.calls[0]?.[0]))).toMatchObject({
+      event: "image_pipeline_external_call",
+      callType: "image",
+      attempt: 2,
+      generationCorrelationId: "generation-1",
+      result: "success",
+      durationMs: expect.any(Number),
+    });
+  });
+
+  it("reports a failed external call and rethrows without an automatic retry", async () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    const failure = new Error("provider unavailable");
+
+    await expect(observeImagePipelineExternalCall({
+      callType: "selector",
+      attempt: 1,
+      workId: "work-1",
+    }, async () => { throw failure; })).rejects.toBe(failure);
+
+    expect(info.mock.calls.map(([line]) => JSON.parse(String(line)))).toEqual(expect.arrayContaining([
+      expect.objectContaining({ callType: "selector", attempt: 1, result: "failed", errorMessage: "provider unavailable" }),
+    ]));
+    expect(info).toHaveBeenCalledTimes(1);
   });
 });

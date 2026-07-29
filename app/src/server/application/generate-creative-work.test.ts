@@ -20,6 +20,7 @@ const refund = vi.hoisted(() => vi.fn());
 const getUsage = vi.hoisted(() => vi.fn());
 const trackUsage = vi.hoisted(() => vi.fn());
 const getBrandKitMock = vi.hoisted(() => vi.fn());
+const logLifecycleMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/repositories/creative-work", () => ({
   getCreativeWork: getWork,
@@ -47,6 +48,9 @@ vi.mock("@/server/billing/credits", () => ({ refundCredits: refund }));
 vi.mock("@/server/repositories/usage", () => ({
   getUsageByIdempotencyKey: getUsage,
   trackUsage,
+}));
+vi.mock("@/server/creative-work/job-telemetry", () => ({
+  logCreativeWorkGenerationLifecycle: (...args: unknown[]) => logLifecycleMock(...args),
 }));
 
 import { generateCreativeWork } from "./generate-creative-work";
@@ -105,6 +109,37 @@ describe("generateCreativeWork", () => {
       id: `creative-work-generate:${row.id}`,
       name: "creative-work.generate",
       data: { workspaceId: "ws-1", workItemId: "work-1", outputId: row.id },
+    })));
+    expect(logLifecycleMock).toHaveBeenCalledWith(expect.objectContaining({
+      event: "creative_work_generation_accepted",
+      unitCount: 3,
+      outputIds: ["a", "b", "c"],
+      credits: 15,
+      result: "accepted",
+    }));
+  });
+
+  it("carries the persisted generation correlation into every dispatch payload", async () => {
+    const generationCorrelationId = "generation-correlation-1";
+    const correlatedWork = { ...work, generationCorrelationId };
+    const correlatedPreparedWork = { ...preparedWork, generationCorrelationId };
+    const correlatedRows = rows.map((row) => ({ ...row, generationCorrelationId }));
+    getWork.mockResolvedValue({ work: correlatedWork, outputs: [], sources: [] });
+    prepare.mockResolvedValue({ ok: true, value: { work: correlatedPreparedWork, quote: { plans: [], unitCount: 0, credits: 0 } } });
+    confirmSnapshots.mockResolvedValue({ ...correlatedPreparedWork, status: "ready", identitySnapshot });
+    createOutputs.mockResolvedValue({ outputs: correlatedRows, newlyCreatedIds: correlatedRows.map((row) => row.id) });
+
+    await generateCreativeWork({ workspaceId: "ws-1", workItemId: "work-1", userId: "user-1" });
+
+    expect(send).toHaveBeenCalledWith(correlatedRows.map((row) => ({
+      id: `creative-work-generate:${row.id}`,
+      name: "creative-work.generate",
+      data: {
+        workspaceId: "ws-1",
+        workItemId: "work-1",
+        outputId: row.id,
+        generationCorrelationId,
+      },
     })));
   });
 

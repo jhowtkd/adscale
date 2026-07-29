@@ -22,6 +22,7 @@ import { settleTerminalRefund } from "@/server/generation/settlement";
 import {
   CREATIVE_WORK_MAX_IMAGE_CALLS,
   claimCreativeWorkOutputImageCall,
+  countCreativeWorkProcessingOutputs,
   getCreativeWork,
   markCreativeWorkOutputProcessing,
   completeCreativeWorkOutput,
@@ -31,6 +32,7 @@ import {
   requeueCreativeWorkOutputOnce,
   touchCreativeWorkOutputHeartbeat,
   markCreativeWorkOutputFailureCode,
+  recordCreativeWorkGenerationAggregate,
 } from "@/server/repositories/creative-work";
 import {
   buildCreativeWorkPrompt,
@@ -44,9 +46,13 @@ import {
 } from "@/server/creative-work/reference-normalize";
 import {
   createCreativeWorkJobTimer,
+  creativeWorkQueueWaitMs,
+  logCreativeWorkGenerationAggregate,
   logCreativeWorkLateCompletionDiscarded,
   logCreativeWorkOutputStage,
-  logCreativeWorkOutputTerminal,
+  logCreativeWorkOutputTerminal as writeCreativeWorkOutputTerminal,
+  logCreativeWorkRetry,
+  observeCreativeWorkStage,
 } from "@/server/creative-work/job-telemetry";
 import {
   composeExactBrandAssets,
@@ -83,6 +89,8 @@ interface CreativeWorkGenerateEvent {
   workspaceId: string;
   workItemId: string;
   outputId: string;
+  /** New dispatches include this; old queued events resolve it from storage. */
+  generationCorrelationId?: string;
 }
 
 interface CreativeWorkJobStep {
@@ -95,6 +103,75 @@ interface CreativeWorkFailureEvent {
 
 const OUTPUT_COST = GENERATION_CREDIT_COSTS.creativeWorkOutput;
 const MAX_REFERENCE_IMAGES = 4;
+const CREATIVE_WORK_RUNTIME_ENVIRONMENT =
+  process.env.RENDER_SERVICE_NAME ?? process.env.RENDER_SERVICE_ID ?? process.env.NODE_ENV ?? "unknown";
+
+type SerializedCreativeWorkProviderError = {
+  message: string;
+  name: string;
+  code?: string;
+  retryable: boolean;
+};
+
+function serializeCreativeWorkProviderError(error: unknown): SerializedCreativeWorkProviderError {
+  const normalized = error instanceof Error ? error : new Error(String(error));
+  const code = typeof (normalized as Error & { code?: unknown }).code === "string"
+    ? (normalized as Error & { code: string }).code
+    : undefined;
+  return {
+    message: normalized.message,
+    name: normalized.name,
+    ...(code ? { code } : {}),
+    retryable: isRetryableProviderError(normalized),
+  };
+}
+
+function restoreCreativeWorkProviderError(error: SerializedCreativeWorkProviderError): Error {
+  const restored = new Error(error.message);
+  restored.name = error.name;
+  Object.assign(restored, {
+    ...(error.code ? { code: error.code } : {}),
+    retryable: error.retryable,
+  });
+  return restored;
+}
+
+function deserializeCreativeWorkTimestamp(value: Date | string): Date {
+  return value instanceof Date ? value : new Date(value);
+}
+
+async function recordCreativeWorkGenerationAggregateTelemetry(
+  workspaceId: string,
+  workItemId: string,
+  generationCorrelationId?: string,
+): Promise<void> {
+  const aggregate = await recordCreativeWorkGenerationAggregate(
+    workspaceId,
+    workItemId,
+    generationCorrelationId,
+  );
+  if (!aggregate) return;
+  const fields = {
+    workspaceId,
+    workItemId,
+    generationCorrelationId: aggregate.generationCorrelationId,
+    unitCount: aggregate.unitCount,
+    terminalCount: aggregate.terminalCount,
+    successCount: aggregate.successCount,
+    failureCount: aggregate.failureCount,
+    result: aggregate.result,
+    firstTerminalAt: aggregate.firstTerminalAt,
+    completedAt: aggregate.completedAt,
+    timeToFirstOutputMs: aggregate.timeToFirstOutputMs,
+    totalDurationMs: aggregate.totalDurationMs,
+  } as const;
+  if (aggregate.firstTerminalEmitted) {
+    logCreativeWorkGenerationAggregate({ phase: "first_terminal", ...fields });
+  }
+  if (aggregate.completionEmitted) {
+    logCreativeWorkGenerationAggregate({ phase: "completed", ...fields });
+  }
+}
 
 /**
  * Sanitize arbitrary error messages into a short, user-safe slug. The slug is
@@ -125,8 +202,28 @@ const creativeWorkOutputJobConfig: {
       { limit: 1, scope: "account" as const, key: `"creative-work-image"` },
     ],
     onFailure: async ({ event, error, step }) => {
+      const startedAt = performance.now();
       const originalEvent = event.data.event;
-      const { workspaceId, workItemId, outputId } = originalEvent.data as CreativeWorkGenerateEvent;
+      const { workspaceId, workItemId, outputId, generationCorrelationId } = originalEvent.data as CreativeWorkGenerateEvent;
+      let recoveredGenerationCorrelationId = generationCorrelationId;
+      let interruptedUnitCount = 1;
+      let interruptedActiveUnitCount = 1;
+      let interruptedImageCallCount = 0;
+      let interruptedRetryCount = 0;
+      try {
+        recoveredGenerationCorrelationId = await step.run(
+          "load-interrupted-correlation",
+          async () => {
+            const aggregate = await getCreativeWork(workspaceId, workItemId);
+            const output = aggregate?.outputs.find((candidate) => candidate.id === outputId);
+            return output?.generationCorrelationId ?? aggregate?.work.generationCorrelationId;
+          },
+        ) ?? recoveredGenerationCorrelationId;
+      } catch (correlationError) {
+        logger.warn(
+          `[creativeWorkOutputJob] correlation recovery failed outputId=${outputId}: ${correlationError instanceof Error ? correlationError.message : String(correlationError)}`,
+        );
+      }
       const recovered = await step.run("recover-interrupted-output", async () => {
         const failed = await failCreativeWorkOutput(
           workspaceId,
@@ -169,6 +266,64 @@ const creativeWorkOutputJobConfig: {
           );
         });
       }
+      try {
+        const telemetryScope = await step.run("load-interrupted-telemetry-scope", async () => {
+          const aggregate = await getCreativeWork(workspaceId, workItemId);
+          const scopedOutputs = (aggregate?.outputs ?? []).filter((candidate) =>
+            recoveredGenerationCorrelationId
+              ? candidate.generationCorrelationId === recoveredGenerationCorrelationId
+              : true,
+          );
+          const output = scopedOutputs.find((candidate) => candidate.id === outputId);
+          return {
+            unitCount: scopedOutputs.length,
+            activeUnitCount: scopedOutputs.filter((candidate) => candidate.status === "processing").length,
+            imageCallCount: output?.imageCallCount ?? 0,
+            retryCount: output?.retryCount ?? 0,
+          };
+        });
+        interruptedUnitCount = telemetryScope.unitCount || interruptedUnitCount;
+        interruptedActiveUnitCount = telemetryScope.activeUnitCount;
+        interruptedImageCallCount = telemetryScope.imageCallCount;
+        interruptedRetryCount = telemetryScope.retryCount;
+      } catch (telemetryScopeError) {
+        logger.warn(
+          `[creativeWorkOutputJob] interrupted telemetry scope failed outputId=${outputId}: ${telemetryScopeError instanceof Error ? telemetryScopeError.message : String(telemetryScopeError)}`,
+        );
+      }
+      try {
+        await step.run("record-generation-aggregate", async () => {
+          await recordCreativeWorkGenerationAggregateTelemetry(
+            workspaceId,
+            workItemId,
+            recoveredGenerationCorrelationId,
+          );
+        });
+      } catch (aggregateError) {
+        try {
+          logger.warn(
+            `[creativeWorkOutputJob] interrupted aggregate telemetry failed outputId=${outputId}: ${aggregateError instanceof Error ? aggregateError.message : String(aggregateError)}`,
+          );
+        } catch {
+          // Auxiliary telemetry must never suppress the terminal event.
+        }
+      }
+      writeCreativeWorkOutputTerminal({
+        workspaceId,
+        workItemId,
+        outputId,
+        generationCorrelationId: recoveredGenerationCorrelationId,
+        protocol: "unknown",
+        imageCallCount: interruptedImageCallCount,
+        retryCount: interruptedRetryCount,
+        unitCount: interruptedUnitCount,
+        activeUnitCount: interruptedActiveUnitCount,
+        environment: CREATIVE_WORK_RUNTIME_ENVIRONMENT,
+        outcome: "failed",
+        failureCode: "generation_interrupted",
+        refunded: refunded !== false,
+        durationMs: Math.round(performance.now() - startedAt),
+      });
       logger.error(
         `[creativeWorkOutputJob] INTERRUPTED outputId=${outputId} recovered=true refunded=${refunded !== false}`,
       );
@@ -199,7 +354,21 @@ const creativeWorkOutputJobHandler = async ({
     let isV1Policy = false;
     let isDirectExecution = false;
     let imageCallCount = 0;
+    let providerCalls = 0;
+    let providerRetries = 0;
     let terminalRefunded = false;
+    let leaseLostStage: string | undefined;
+    let generationCorrelationId: string | undefined;
+    let generationUnitCount = 1;
+    let activeUnitCount = 1;
+    let terminalTelemetryEmitted = false;
+    const logCreativeWorkOutputTerminal = (
+      fields: Parameters<typeof writeCreativeWorkOutputTerminal>[0],
+    ): void => {
+      if (terminalTelemetryEmitted) return;
+      terminalTelemetryEmitted = true;
+      writeCreativeWorkOutputTerminal(fields);
+    };
 
     try {
       const scopeRaw = (await step.run("load-scope", async () => {
@@ -209,6 +378,14 @@ const creativeWorkOutputJobHandler = async ({
         return {
           work: result.work,
           output,
+            generationUnitCount: result.outputs.filter(
+              (candidate) => candidate.generationCorrelationId === (output?.generationCorrelationId ?? result.work.generationCorrelationId),
+            ).length,
+            initialProcessingUnitCount: result.outputs.filter(
+              (candidate) =>
+                candidate.generationCorrelationId === (output?.generationCorrelationId ?? result.work.generationCorrelationId) &&
+                candidate.status === "processing",
+            ).length,
           parentOutput: output?.parentOutputId
             ? result.outputs.find((candidate) => candidate.id === output.parentOutputId) ?? null
             : null,
@@ -232,7 +409,9 @@ const creativeWorkOutputJobHandler = async ({
               ? Item | null
               : never
             : never
-          : never;
+            : never;
+        generationUnitCount: number;
+        initialProcessingUnitCount: number;
       } | null;
 
       if (
@@ -252,6 +431,9 @@ const creativeWorkOutputJobHandler = async ({
       const brief = work.brief;
       if (!brief) return { success: false, skipped: true, outputId };
       const output = scopeRaw.output;
+      generationCorrelationId = output.generationCorrelationId ?? scopeRaw.work.generationCorrelationId;
+      generationUnitCount = scopeRaw.generationUnitCount;
+      activeUnitCount = scopeRaw.initialProcessingUnitCount + (output.status === "queued" ? 1 : 0);
       const creativeLevel = output.creativeLevel;
       const parentOutput = scopeRaw.parentOutput;
       const identitySnapshot = work.identitySnapshot as CreativeWorkIdentitySnapshot;
@@ -270,12 +452,47 @@ const creativeWorkOutputJobHandler = async ({
         return { success: true, skipped: true, outputId, outputKey: output.outputKey };
       }
 
-      const claimed = await step.run("mark-processing", async () =>
-        Boolean(await markCreativeWorkOutputProcessing(workspaceId, workItemId, outputId))
+      const processingOutput = await step.run("mark-processing", async () =>
+        markCreativeWorkOutputProcessing(workspaceId, workItemId, outputId)
       );
-      if (!claimed) {
+      if (!processingOutput) {
         return { success: true, skipped: true, outputId };
       }
+
+      try {
+        activeUnitCount = await step.run(
+          "count-processing-units",
+          async () => countCreativeWorkProcessingOutputs(
+            workspaceId,
+            workItemId,
+            generationCorrelationId,
+          ),
+        );
+      } catch (concurrencyError) {
+        logger.warn(
+          `[creativeWorkOutputJob] concurrency snapshot failed outputId=${outputId}: ${concurrencyError instanceof Error ? concurrencyError.message : String(concurrencyError)}`,
+        );
+      }
+
+      // Inngest serializes Date values crossing a step boundary as ISO
+      // strings. Normalize at this boundary before calculating queue wait;
+      // unit tests that run the step callback inline otherwise hide this.
+      const queueEnteredAt = deserializeCreativeWorkTimestamp(
+        processingOutput.queuedAt ?? processingOutput.createdAt,
+      );
+      const processingStartedAt = deserializeCreativeWorkTimestamp(processingOutput.updatedAt);
+      logCreativeWorkOutputStage({
+        workspaceId,
+        workItemId,
+        outputId,
+        generationCorrelationId,
+        protocol: "pending",
+        stage: "queue_wait",
+        status: "completed",
+        stageDurationMs: creativeWorkQueueWaitMs({ queueEnteredAt, processingStartedAt }),
+        queueEnteredAt: queueEnteredAt.toISOString(),
+        processingStartedAt: processingStartedAt.toISOString(),
+      });
 
       // R-011: route by the generation policy version frozen in the input
       // snapshot at prepare time — never by the live env switch — so
@@ -308,9 +525,15 @@ const creativeWorkOutputJobHandler = async ({
         workspaceId,
         workItemId,
         outputId,
+        generationCorrelationId,
         protocol: protocol?.mode ?? "legacy",
         imageCallCount,
+        providerCalls,
+        providerRetries,
         retryCount: output.retryCount,
+        unitCount: generationUnitCount,
+        activeUnitCount,
+        environment: CREATIVE_WORK_RUNTIME_ENVIRONMENT,
       });
 
       // R-007 lease heartbeat: touches updatedAt ONLY while this job still
@@ -321,11 +544,14 @@ const creativeWorkOutputJobHandler = async ({
           Boolean(await touchCreativeWorkOutputHeartbeat(workspaceId, workItemId, outputId))
         );
         if (!alive) {
-          logCreativeWorkOutputTerminal({
+          leaseLostStage = stage;
+          logCreativeWorkOutputStage({
             ...telemetryBase(),
-            outcome: "lease_lost",
-            refunded: terminalRefunded,
-            durationMs: jobTimer.elapsedMs(),
+            stage: "lease",
+            status: "failed",
+            result: "failed",
+            leaseStage: stage,
+            detail: "lease_lost",
           });
         }
         return alive;
@@ -334,7 +560,16 @@ const creativeWorkOutputJobHandler = async ({
       const renewLease = async (stage: string): Promise<void> => {
         const alive = await touchCreativeWorkOutputHeartbeat(workspaceId, workItemId, outputId);
         if (!alive) {
-          const leaseError = new Error(`creative_work_lease_lost:${outputId}`) as Error & { code: string };
+          leaseLostStage = stage;
+          logCreativeWorkOutputStage({
+            ...telemetryBase(),
+            stage: "lease",
+            status: "failed",
+            result: "failed",
+            leaseStage: stage,
+            detail: "lease_lost",
+          });
+          const leaseError = new Error(`creative_work_lease_lost:${stage}:${outputId}`) as Error & { code: string };
           leaseError.code = "lease_lost";
           throw leaseError;
         }
@@ -347,6 +582,7 @@ const creativeWorkOutputJobHandler = async ({
           outputId,
           workspaceId,
           jobType: "creative_work",
+          generationCorrelationId,
         });
       };
 
@@ -604,7 +840,7 @@ const creativeWorkOutputJobHandler = async ({
           referenceImages = await normalizeReferenceBuffers(referenceImages);
         }
       } catch (error) {
-        await refundPreGeneratorOutput({
+        terminalRefunded = await refundPreGeneratorOutput({
           workspaceId,
           workItemId,
           outputId,
@@ -657,6 +893,7 @@ const creativeWorkOutputJobHandler = async ({
           id: outputId,
           storagePrefix: `creative-work/${outputId}`,
           workItemId,
+          generationCorrelationId,
         },
         executionPolicy: protocol?.execution,
         attempt: output.retryCount,
@@ -668,41 +905,73 @@ const creativeWorkOutputJobHandler = async ({
         return { success: false, skipped: true, leaseLost: true, outputId };
       }
 
-      const generated = await step.run("generate-base", async () => {
-        if (protocol) {
-          // R-006: the provider call is claimed atomically BEFORE reaching
-          // the provider — once image_call_count hits the absolute ceiling
-          // (2) the claim fails here and no provider call happens.
-          const claimedCall = await claimCreativeWorkOutputImageCall(
-            workspaceId,
-            workItemId,
-            outputId,
-          );
-          if (!claimedCall) return { outputKey: null as string | null };
-          imageCallCount = claimedCall.imageCallCount;
-          logCreativeWorkOutputStage({
-            ...telemetryBase(),
-            stage: "claim_image_call",
-            status: "completed",
-            detail: `imageCallCount=${imageCallCount}`,
-          });
-        }
-        providerInvoked = true;
-        // Same canonical executor as campaign/assistant (Gate 3 / item 25).
-        const result = await executeCanonicalGeneration(generationRequest, {
-          telemetry: {
-            workId: workItemId,
-            outputId,
-            workspaceId,
-            inngestRunId: typeof runId === "string" ? runId : undefined,
-            inngestAttempt: typeof attempt === "number" ? attempt : undefined,
-            jobType: "creative_work",
-          },
-          onStageHeartbeat: renewLease,
+      const generated = await observeCreativeWorkStage(telemetryBase(), "generate_base", async () => {
+        const result = await step.run("generate-base", async () => {
+          if (protocol) {
+            // R-006: the provider call is claimed atomically BEFORE reaching
+            // the provider — once image_call_count hits the absolute ceiling
+            // (2) the claim fails here and no provider call happens.
+            const claimedCall = await claimCreativeWorkOutputImageCall(
+              workspaceId,
+              workItemId,
+              outputId,
+            );
+            if (!claimedCall) return { outputKey: null as string | null };
+            imageCallCount = claimedCall.imageCallCount;
+            logCreativeWorkOutputStage({
+              ...telemetryBase(),
+              stage: "claim_image_call",
+              status: "completed",
+              detail: `imageCallCount=${imageCallCount}`,
+            });
+          }
+          providerInvoked = true;
+          // Same canonical executor as campaign/assistant (Gate 3 / item 25).
+          try {
+            const result = await executeCanonicalGeneration(generationRequest, {
+              telemetry: {
+                workId: workItemId,
+                outputId,
+                workspaceId,
+                generationCorrelationId,
+                ...(isDirectExecution ? { imageCallCount } : {}),
+                inngestRunId: typeof runId === "string" ? runId : undefined,
+                inngestAttempt: typeof attempt === "number" ? attempt : undefined,
+                jobType: "creative_work",
+              },
+              onStageHeartbeat: renewLease,
+            });
+            providerCalls = result.providerCalls ?? providerCalls;
+            providerRetries = result.providerRetries ?? providerRetries;
+            return {
+              outputKey: result.outputKey as string | null,
+              ...(result.providerCalls === undefined
+                ? {}
+                : {
+                    providerCalls: result.providerCalls,
+                    providerRetries: result.providerRetries ?? 0,
+                  }),
+            };
+          } catch (error) {
+            return {
+              outputKey: null as string | null,
+              generationError: serializeCreativeWorkProviderError(error),
+            };
+          }
         });
-        return { outputKey: result.outputKey as string | null };
+        if ("generationError" in result && result.generationError) {
+          throw restoreCreativeWorkProviderError(result.generationError);
+        }
+        return result;
       });
-      const generatedOutputKey = (generated as unknown as { outputKey: string | null }).outputKey;
+      const generatedResult = generated as unknown as {
+        outputKey: string | null;
+        providerCalls?: number;
+        providerRetries?: number;
+      };
+      providerCalls = generatedResult.providerCalls ?? providerCalls;
+      providerRetries = generatedResult.providerRetries ?? providerRetries;
+      const generatedOutputKey = generatedResult.outputKey;
       if (!generatedOutputKey) {
         // Durable budget already consumed before this run (e.g. a stalled
         // run raced a manual retry): terminal failure with ZERO provider
@@ -713,16 +982,18 @@ const creativeWorkOutputJobHandler = async ({
           outputId,
           reason: "image_call_budget_exhausted",
         });
-        await step.run("mark-failed", async () => {
-          await failCreativeWorkOutput(workspaceId, workItemId, outputId, "image_call_budget_exhausted");
-        });
-        logCreativeWorkOutputTerminal({
-          ...telemetryBase(),
-          outcome: "failed",
-          failureCode: "image_call_budget_exhausted",
-          refunded: terminalRefunded,
-          durationMs: jobTimer.elapsedMs(),
-        });
+        const failed = await step.run("mark-failed", async () =>
+          failCreativeWorkOutput(workspaceId, workItemId, outputId, "image_call_budget_exhausted")
+        );
+        if (failed) {
+          logCreativeWorkOutputTerminal({
+            ...telemetryBase(),
+            outcome: "failed",
+            failureCode: "image_call_budget_exhausted",
+            refunded: terminalRefunded,
+            durationMs: jobTimer.elapsedMs(),
+          });
+        }
         return { success: false, outputId, failureCode: "image_call_budget_exhausted" };
       }
       if (!(await checkLease("after-generate"))) {
@@ -813,9 +1084,18 @@ const creativeWorkOutputJobHandler = async ({
             locale: "pt-BR",
             contract: null,
           },
+          telemetry: {
+            workId: workItemId,
+            outputId,
+            workspaceId,
+            generationCorrelationId,
+            inngestRunId: typeof runId === "string" ? runId : undefined,
+            inngestAttempt: typeof attempt === "number" ? attempt : undefined,
+            jobType: "creative_work",
+          },
         });
 
-      const analyzed = (await step.run("analyze-quality", async () => {
+      const analyzed = (await observeCreativeWorkStage(telemetryBase(), "quality_assessment", () => step.run("analyze-quality", async () => {
         // Legacy-frozen works keep the historical score-threshold
         // post-generation byte-identical; v1 direct outputs run the tri-state
         // objective QA (R-005).
@@ -827,12 +1107,6 @@ const creativeWorkOutputJobHandler = async ({
           logger.info(
             `[creativeWorkOutputJob] objective QA outputId=${outputId} verdict=${assessment.objectiveVerdict} codes=${assessment.quality.objectiveCodes.join(",") || "none"} attempt=${assessment.quality.attempt}`,
           );
-          logCreativeWorkOutputStage({
-            ...telemetryBase(),
-            stage: "analyze_quality",
-            status: "completed",
-            verdict: assessment.objectiveVerdict,
-          });
           return { kind: "assessment" as const, assessment };
         }
         const postGen = await runCreativeWorkPostGeneration({
@@ -862,15 +1136,24 @@ const creativeWorkOutputJobHandler = async ({
             locale: "pt-BR",
             contract: null,
           },
+          telemetry: {
+            workId: workItemId,
+            outputId,
+            workspaceId,
+            generationCorrelationId,
+            inngestRunId: typeof runId === "string" ? runId : undefined,
+            inngestAttempt: typeof attempt === "number" ? attempt : undefined,
+            jobType: "creative_work",
+          },
         });
         return { kind: "postgen" as const, postGen };
-      })) as unknown as
+      }))) as unknown as
         | { kind: "assessment"; assessment: CreativeWorkQualityAssessmentResult }
         | { kind: "postgen"; postGen: CreativeWorkPostGenerationResult };
 
       if (analyzed.kind === "postgen" && analyzed.postGen.decision === "reject_low_quality") {
         // Adapter applies shared post-gen refund decision — does not re-decide policy.
-        await applyRefundDecision({
+        terminalRefunded = await applyRefundDecision({
           workspaceId,
           workItemId,
           outputId,
@@ -878,7 +1161,16 @@ const creativeWorkOutputJobHandler = async ({
           decision: analyzed.postGen.refund,
           description: "creative_work_output_low_quality_refund",
         });
-        await failCreativeWorkOutput(workspaceId, workItemId, outputId, "low_quality");
+        const failed = await failCreativeWorkOutput(workspaceId, workItemId, outputId, "low_quality");
+        if (failed) {
+          logCreativeWorkOutputTerminal({
+            ...telemetryBase(),
+            outcome: "failed",
+            failureCode: "low_quality",
+            refunded: terminalRefunded,
+            durationMs: jobTimer.elapsedMs(),
+          });
+        }
         logger.warn(
           `[creativeWorkOutputJob] low-quality outputId=${outputId} reason=${analyzed.postGen.reason}`,
         );
@@ -912,48 +1204,68 @@ const creativeWorkOutputJobHandler = async ({
           return { success: false, skipped: true, leaseLost: true, outputId };
         }
 
-        const correction = await step.run("generate-correction", async () => {
-          const claimedCall = await claimCreativeWorkOutputImageCall(
-            workspaceId,
-            workItemId,
-            outputId,
-          );
-          if (!claimedCall) return { outputKey: null as string | null };
-          imageCallCount = claimedCall.imageCallCount;
-          logCreativeWorkOutputStage({
-            ...telemetryBase(),
-            stage: "claim_correction_call",
-            status: "completed",
-            detail: `imageCallCount=${imageCallCount}`,
-          });
-          const confirmedNotes = analyzed.assessment.quality.findings
-            .filter((finding) => finding.status === "confirmed")
-            .map((finding) => finding.note);
-          const correctionPrompt = buildCreativeWorkPrompt({
-            ...v1PromptInputs!,
-            correction: {
-              codes: analyzed.assessment.quality.objectiveCodes,
-              instructions:
-                confirmedNotes.join(" ") ||
-                "Fix ONLY the confirmed objective failures listed above.",
-            },
-          });
-          const result = await executeCanonicalGeneration({
-              ...generationRequest,
-              prompt: { text: correctionPrompt },
-              attempt: 1,
-            }, {
-              telemetry: {
-                workId: workItemId,
-                outputId,
-                workspaceId,
-                inngestRunId: typeof runId === "string" ? runId : undefined,
-                inngestAttempt: typeof attempt === "number" ? attempt : undefined,
-                jobType: "creative_work",
-              },
-              onStageHeartbeat: renewLease,
+        const correction = await observeCreativeWorkStage(telemetryBase(), "objective_correction", async () => {
+          const result = await step.run("generate-correction", async () => {
+            const claimedCall = await claimCreativeWorkOutputImageCall(
+              workspaceId,
+              workItemId,
+              outputId,
+            );
+            if (!claimedCall) return { outputKey: null as string | null };
+            imageCallCount = claimedCall.imageCallCount;
+            logCreativeWorkOutputStage({
+              ...telemetryBase(),
+              stage: "claim_correction_call",
+              status: "completed",
+              detail: `imageCallCount=${imageCallCount}`,
             });
-          return { outputKey: result.outputKey as string | null };
+            const confirmedNotes = analyzed.assessment.quality.findings
+              .filter((finding) => finding.status === "confirmed")
+              .map((finding) => finding.note);
+            const correctionPrompt = buildCreativeWorkPrompt({
+              ...v1PromptInputs!,
+              correction: {
+                codes: analyzed.assessment.quality.objectiveCodes,
+                instructions:
+                  confirmedNotes.join(" ") ||
+                  "Fix ONLY the confirmed objective failures listed above.",
+              },
+            });
+            try {
+              const result = await executeCanonicalGeneration(
+                {
+                  ...generationRequest,
+                  prompt: { text: correctionPrompt },
+                  attempt: 1,
+                },
+                {
+                  telemetry: {
+                    workId: workItemId,
+                    outputId,
+                    workspaceId,
+                    generationCorrelationId,
+                    ...(isDirectExecution ? { imageCallCount } : {}),
+                    inngestRunId: typeof runId === "string" ? runId : undefined,
+                    inngestAttempt: typeof attempt === "number" ? attempt : undefined,
+                    jobType: "creative_work",
+                  },
+                  onStageHeartbeat: renewLease,
+                },
+              );
+              providerCalls += result.providerCalls ?? 0;
+              providerRetries += result.providerRetries ?? 0;
+              return { outputKey: result.outputKey as string | null };
+            } catch (error) {
+              return {
+                outputKey: null as string | null,
+                generationError: serializeCreativeWorkProviderError(error),
+              };
+            }
+          });
+          if ("generationError" in result && result.generationError) {
+            throw restoreCreativeWorkProviderError(result.generationError);
+          }
+          return result;
         });
         const correctionOutputKey = (correction as unknown as { outputKey: string | null }).outputKey;
 
@@ -964,17 +1276,19 @@ const creativeWorkOutputJobHandler = async ({
             outputId,
             reason: "image_call_budget_exhausted",
           });
-          await step.run("mark-failed", async () => {
-            await failCreativeWorkOutput(workspaceId, workItemId, outputId, "image_call_budget_exhausted");
-          });
-          logCreativeWorkOutputTerminal({
-            ...telemetryBase(),
-            outcome: "failed",
-            failureCode: "image_call_budget_exhausted",
-            verdict: "fail",
-            refunded: terminalRefunded,
-            durationMs: jobTimer.elapsedMs(),
-          });
+          const failed = await step.run("mark-failed", async () =>
+            failCreativeWorkOutput(workspaceId, workItemId, outputId, "image_call_budget_exhausted")
+          );
+          if (failed) {
+            logCreativeWorkOutputTerminal({
+              ...telemetryBase(),
+              outcome: "failed",
+              failureCode: "image_call_budget_exhausted",
+              verdict: "fail",
+              refunded: terminalRefunded,
+              durationMs: jobTimer.elapsedMs(),
+            });
+          }
           return { success: false, outputId, failureCode: "image_call_budget_exhausted" };
         }
 
@@ -998,15 +1312,13 @@ const creativeWorkOutputJobHandler = async ({
         }
 
         const correctedBuffer = await objectStorage.get(correctionOutputKey);
-        const correctionAssessment = (await step.run("analyze-correction", async () =>
-          runV1Assessment(correctedBuffer, Math.max(imageCallCount, 1))
+        const correctionAssessment = (await observeCreativeWorkStage(
+          telemetryBase(),
+          "correction_assessment",
+          () => step.run("analyze-correction", async () =>
+            runV1Assessment(correctedBuffer, Math.max(imageCallCount, 1))
+          ),
         )) as unknown as CreativeWorkQualityAssessmentResult;
-        logCreativeWorkOutputStage({
-          ...telemetryBase(),
-          stage: "analyze_correction",
-          status: "completed",
-          verdict: correctionAssessment.objectiveVerdict,
-        });
 
         if (correctionAssessment.objectiveVerdict === "fail") {
           // The correction confirmed the objective failure — terminal. No
@@ -1018,17 +1330,19 @@ const creativeWorkOutputJobHandler = async ({
             outputId,
             reason: "creative_work_objective_correction_failed",
           });
-          await step.run("mark-failed", async () => {
-            await failCreativeWorkOutput(workspaceId, workItemId, outputId, "factual_violation");
-          });
-          logCreativeWorkOutputTerminal({
-            ...telemetryBase(),
-            outcome: "failed",
-            failureCode: "factual_violation",
-            verdict: "fail",
-            refunded: terminalRefunded,
-            durationMs: jobTimer.elapsedMs(),
-          });
+          const failed = await step.run("mark-failed", async () =>
+            failCreativeWorkOutput(workspaceId, workItemId, outputId, "factual_violation")
+          );
+          if (failed) {
+            logCreativeWorkOutputTerminal({
+              ...telemetryBase(),
+              outcome: "failed",
+              failureCode: "factual_violation",
+              verdict: "fail",
+              refunded: terminalRefunded,
+              durationMs: jobTimer.elapsedMs(),
+            });
+          }
           return { success: false, outputId, failureCode: "factual_violation" };
         }
 
@@ -1044,11 +1358,11 @@ const creativeWorkOutputJobHandler = async ({
       }
 
       const completed = await step.run("mark-completed", async () =>
-        Boolean(await completeCreativeWorkOutput(workspaceId, workItemId, outputId, {
+        completeCreativeWorkOutput(workspaceId, workItemId, outputId, {
           outputKey: finalOutputKey,
           cost: OUTPUT_COST,
           quality: completedQuality,
-        }))
+        })
       );
       if (!completed) {
         // Late completion: the row left `processing` before the commit landed
@@ -1057,13 +1371,6 @@ const creativeWorkOutputJobHandler = async ({
         logCreativeWorkLateCompletionDiscarded({
           ...telemetryBase(),
           outputKey: finalOutputKey,
-        });
-        logCreativeWorkOutputTerminal({
-          ...telemetryBase(),
-          outcome: "late_completion_discarded",
-          verdict: completedVerdict,
-          refunded: terminalRefunded,
-          durationMs: jobTimer.elapsedMs(),
         });
         return { success: true, skipped: true, outputId };
       }
@@ -1132,10 +1439,20 @@ const creativeWorkOutputJobHandler = async ({
           const retried = await requeueCreativeWorkOutputOnce(workspaceId, workItemId, outputId);
           if (retried) {
             try {
-              await inngest.send({ name: heavyImageEventName("creative-work.generate"), data: { workspaceId, workItemId, outputId } });
+              logCreativeWorkRetry({
+                workspaceId,
+                workItemId,
+                outputId,
+                generationCorrelationId,
+                action: "auto_retry",
+                reason: code,
+                retryCount: retried.retryCount,
+                imageCallCount: retried.imageCallCount,
+              });
+              await inngest.send({ id: `creative-work-generate:${outputId}:retry-${retried.retryCount}`, name: heavyImageEventName("creative-work.generate"), data: { workspaceId, workItemId, outputId, generationCorrelationId } });
               return { success: false, retrying: true, outputId, failureCode: code };
             } catch (dispatchError) {
-              await failQueuedCreativeWorkOutput(workspaceId, workItemId, outputId, "auto_retry_dispatch_failed");
+              const failed = await failQueuedCreativeWorkOutput(workspaceId, workItemId, outputId, "auto_retry_dispatch_failed");
               logger.error(`[creativeWorkOutputJob] auto-retry dispatch failed outputId=${outputId}`, dispatchError);
               // R-006: the retry never left the gate but the image call was
               // already consumed — for v1 this is a terminal post-provider
@@ -1149,12 +1466,31 @@ const creativeWorkOutputJobHandler = async ({
                   reason: "auto_retry_dispatch_failed",
                 });
               }
+              if (failed) {
+                logCreativeWorkOutputTerminal({
+                  workspaceId,
+                  workItemId,
+                  outputId,
+                  generationCorrelationId,
+                  protocol: isV1Policy ? "v1" : "legacy",
+                  imageCallCount,
+                  providerCalls,
+                  providerRetries,
+                  unitCount: generationUnitCount,
+                  activeUnitCount,
+                  environment: CREATIVE_WORK_RUNTIME_ENVIRONMENT,
+                  outcome: "failed",
+                  failureCode: "auto_retry_dispatch_failed",
+                  refunded: terminalRefunded,
+                  durationMs: jobTimer.elapsedMs(),
+                });
+              }
               return { success: false, outputId, failureCode: "auto_retry_dispatch_failed" };
             }
-          }
-        } catch (retryError) {
-          logger.error(`[creativeWorkOutputJob] auto-retry dispatch failed outputId=${outputId}`, retryError);
         }
+      } catch (retryError) {
+          logger.error(`[creativeWorkOutputJob] auto-retry dispatch failed outputId=${outputId}`, retryError);
+      }
       }
       // R-006: a v1 output that fails TERMINALLY after the provider was
       // invoked settles net zero via the idempotent terminal refund (keyed
@@ -1183,10 +1519,11 @@ const creativeWorkOutputJobHandler = async ({
           description: "creative_work_output_post_provider_refund",
         });
       }
+      let failedOutput: Awaited<ReturnType<typeof failCreativeWorkOutput>> = null;
       try {
-        await step.run("mark-failed", async () => {
-          await failCreativeWorkOutput(workspaceId, workItemId, outputId, code);
-        });
+        failedOutput = await step.run("mark-failed", async () =>
+          failCreativeWorkOutput(workspaceId, workItemId, outputId, code)
+        );
       } catch (markError) {
         const detail =
           markError instanceof Error ? markError.message : "Unknown error";
@@ -1194,17 +1531,26 @@ const creativeWorkOutputJobHandler = async ({
           `[creativeWorkOutputJob] mark-failed error outputId=${outputId}: ${detail}`,
         );
       }
-      logCreativeWorkOutputTerminal({
-        workspaceId,
-        workItemId,
-        outputId,
-        protocol: isV1Policy ? "v1" : "legacy",
-        imageCallCount,
-        outcome: "failed",
-        failureCode: code,
-        refunded: terminalRefunded,
-        durationMs: jobTimer.elapsedMs(),
-      });
+      if (failedOutput) {
+        logCreativeWorkOutputTerminal({
+          workspaceId,
+          workItemId,
+          outputId,
+          generationCorrelationId,
+          protocol: isV1Policy ? "v1" : "legacy",
+          imageCallCount,
+          providerCalls,
+          providerRetries,
+          unitCount: generationUnitCount,
+          activeUnitCount,
+          environment: CREATIVE_WORK_RUNTIME_ENVIRONMENT,
+          outcome: leaseLostStage ? "lease_lost" : "failed",
+          leaseStage: leaseLostStage,
+          failureCode: leaseLostStage ? "lease_lost" : code,
+          refunded: terminalRefunded,
+          durationMs: jobTimer.elapsedMs(),
+        });
+      }
       return { success: false, outputId, failureCode: code };
     } finally {
       try {
@@ -1218,6 +1564,22 @@ const creativeWorkOutputJobHandler = async ({
             : "Unknown error";
         logger.warn(
           `[creativeWorkOutputJob] refresh-status failed outputId=${outputId}: ${detail}`,
+        );
+      }
+      try {
+        await step.run("record-generation-aggregate", async () => {
+          await recordCreativeWorkGenerationAggregateTelemetry(
+            workspaceId,
+            workItemId,
+            generationCorrelationId,
+          );
+        });
+      } catch (aggregateError) {
+        const detail = aggregateError instanceof Error
+          ? aggregateError.message
+          : "Unknown error";
+        logger.warn(
+          `[creativeWorkOutputJob] aggregate telemetry failed outputId=${outputId}: ${detail}`,
         );
       }
     }
@@ -1345,14 +1707,14 @@ async function refundPreGeneratorOutput({
   outputId: string;
   reason: string;
   failurePhase: "pre_provider" | "low_quality";
-}): Promise<void> {
+}): Promise<boolean> {
   const decision = decideCreativeWorkRefund({
     surface: "quick_tool",
     failurePhase,
     workItemId,
     outputId,
   });
-  await applyRefundDecision({
+  return applyRefundDecision({
     workspaceId,
     workItemId,
     outputId,

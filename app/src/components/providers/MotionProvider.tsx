@@ -1,11 +1,11 @@
 "use client";
 
-import { LazyMotion, domAnimation } from "framer-motion";
+import MotionBoundary from "@/components/animations/MotionBoundary";
 
 export default function MotionProvider({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <LazyMotion features={domAnimation}>{children}</LazyMotion>;
+  return <MotionBoundary>{children}</MotionBoundary>;
 }

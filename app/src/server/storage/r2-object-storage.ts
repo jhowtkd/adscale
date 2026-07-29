@@ -83,6 +83,22 @@ export class R2ObjectStorage implements ObjectStorage {
     await this.client.send(command);
   }
 
+  async putStream(
+    key: string,
+    data: Readable,
+    contentType: string,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const command = new PutObjectCommand({
+      Bucket: env.R2_BUCKET,
+      Key: key,
+      Body: data,
+      ContentType: contentType,
+      ContentDisposition: "attachment",
+    });
+    await this.client.send(command, { abortSignal: signal });
+  }
+
   async get(key: string, signal?: AbortSignal): Promise<Buffer> {
     const command = new GetObjectCommand({
       Bucket: env.R2_BUCKET,
@@ -138,7 +154,17 @@ export class R2ObjectStorage implements ObjectStorage {
     const command = new GetObjectCommand({ Bucket: env.R2_BUCKET, Key: key });
     const response = await this.client.send(command, { abortSignal: signal });
     if (!response.Body) throw new Error("Empty response body");
-    return response.Body as Readable;
+    const stream = response.Body as Readable;
+    if (!signal) return stream;
+
+    const onAbort = () => stream.destroy(new DOMException("Aborted", "AbortError"));
+    if (signal.aborted) {
+      onAbort();
+    } else {
+      signal.addEventListener("abort", onAbort, { once: true });
+      stream.once("close", () => signal.removeEventListener("abort", onAbort));
+    }
+    return stream;
   }
 
   async delete(key: string): Promise<void> {

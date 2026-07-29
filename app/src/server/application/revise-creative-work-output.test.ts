@@ -3,12 +3,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const getWork = vi.hoisted(() => vi.fn());
 const settle = vi.hoisted(() => vi.fn());
 const buildAdapter = vi.hoisted(() => vi.fn());
+const logLifecycle = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/repositories/creative-work", () => ({
   getCreativeWork: getWork,
 }));
 vi.mock("@/server/generation/settlement", () => ({
   startGenerationSettlement: settle,
+}));
+vi.mock("@/server/creative-work/job-telemetry", () => ({
+  logCreativeWorkGenerationLifecycle: logLifecycle,
 }));
 vi.mock("@/server/generation/settlement-adapters", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/server/generation/settlement-adapters")>();
@@ -32,6 +36,7 @@ const parent = {
 const revision = {
   id: "output-v2",
   status: "queued",
+  generationCorrelationId: "generation-revision-1",
   parentOutputId: parent.id,
   revisionInstruction: "Use mais contraste",
 };
@@ -74,6 +79,13 @@ describe("reviseCreativeWorkOutput", () => {
       objective: "Matrículas",
     });
     expect(settle).toHaveBeenCalledWith(adapter);
+    expect(logLifecycle).toHaveBeenCalledWith(expect.objectContaining({
+      event: "creative_work_generation_accepted",
+      generationCorrelationId: "generation-revision-1",
+      unitCount: 1,
+      outputIds: ["output-v2"],
+      result: "accepted",
+    }));
   });
 
   it("maps credit_blocked and dispatch_failed from typed settlement results", async () => {

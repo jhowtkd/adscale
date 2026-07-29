@@ -1,6 +1,7 @@
 import JSZip from "jszip";
 import pLimit from "p-limit";
 import "server-only";
+import type { Readable } from "stream";
 import { logger } from "@/lib/logger";
 import sharp from "sharp";
 import { ObjectStorage } from "../storage/object-storage";
@@ -30,6 +31,18 @@ function getContentType(format: "png" | "jpeg" | "webp") {
     webp: "image/webp",
   };
   return map[format];
+}
+
+function attachAbortSignal(stream: Readable, signal?: AbortSignal): Readable {
+  if (!signal) return stream;
+  const abort = () => stream.destroy();
+  if (signal.aborted) {
+    abort();
+    return stream;
+  }
+  signal.addEventListener("abort", abort, { once: true });
+  stream.once("close", () => signal.removeEventListener("abort", abort));
+  return stream;
 }
 
 export async function exportIndividual(
@@ -75,7 +88,8 @@ export async function exportAllApproved(
   storage: ObjectStorage,
   campaignId: string,
   workspaceId: string,
-  format: "png" | "jpeg" | "webp"
+  format: "png" | "jpeg" | "webp",
+  signal?: AbortSignal,
 ) {
   const [campaign, items] = await Promise.all([
     getCampaignById(campaignId, workspaceId),
@@ -105,17 +119,23 @@ export async function exportAllApproved(
         }
 
         try {
-          const buffer = await storage.get(derivation.outputKey);
           const storedFormat = derivation.format?.toLowerCase() as
             | "png"
             | "jpeg"
             | "webp"
             | undefined;
-          const finalBuffer =
-            storedFormat === format ? buffer : await convertImage(buffer, format);
-          folder.file(`${safeName}-${index + 1}.${format}`, finalBuffer);
+          if (storedFormat === format && storage.getStream) {
+            const stream = await storage.getStream(derivation.outputKey, signal);
+            folder.file(`${safeName}-${index + 1}.${format}`, stream);
+          } else {
+            const buffer = await storage.get(derivation.outputKey, signal);
+            const finalBuffer =
+              storedFormat === format ? buffer : await convertImage(buffer, format);
+            folder.file(`${safeName}-${index + 1}.${format}`, finalBuffer);
+          }
           return true;
         } catch (error) {
+          if (signal?.aborted) throw error;
           logger.error(
             `[exportAllApproved] failed to add derivation id=${derivation.id} key=${derivation.outputKey}`,
             error
@@ -131,12 +151,12 @@ export async function exportAllApproved(
     throw new Error("No exportable approved derivations");
   }
 
-  const zipBuffer = await zip.generateAsync({
+  const zipStream = attachAbortSignal(zip.generateNodeStream({
     type: "nodebuffer",
     streamFiles: true,
-  });
+  }) as Readable, signal);
   const zipKey = `exports/${workspaceId}/${campaignId}/${Date.now()}-all.zip`;
-  await storage.put(zipKey, zipBuffer, "application/zip");
+  await storage.putStream(zipKey, zipStream, "application/zip", signal);
 
   const [url] = await Promise.all([
     storage.signedDownloadUrl(zipKey),

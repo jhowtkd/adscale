@@ -17,7 +17,7 @@ vi.mock("next-intl", () => ({
     namespace === "brandTraining" || namespace === "common" ? `${namespace}.${key}` : key,
 }));
 
-vi.mock("framer-motion", () => ({
+vi.mock("@/components/animations/MotionBoundary", () => ({
   m: {
     div: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
     li: ({ children }: { children?: ReactNode }) => <li>{children}</li>,

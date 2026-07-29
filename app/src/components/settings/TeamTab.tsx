@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { m, useReducedMotion } from "framer-motion";
+import { m, useReducedMotion } from "@/components/animations/MotionBoundary";
 import { UserPlus, Edit, Trash2, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/store";

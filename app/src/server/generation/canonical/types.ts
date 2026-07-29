@@ -96,6 +96,7 @@ export interface GenerationDestination {
   storagePrefix: string;
   campaignId?: string;
   workItemId?: string;
+  generationCorrelationId?: string;
 }
 
 /**
@@ -132,6 +133,9 @@ export interface GenerationResult {
   buffer: Buffer;
   imageOperation: "generate" | "edit" | "generation_fallback";
   candidates: (GenerationCandidateMeta & { winner: boolean })[];
+  /** Provider calls made by the executor, including legacy candidate routes. */
+  providerCalls?: number;
+  providerRetries?: number;
   /** Echo of the request destination for adapters. */
   destination: GenerationDestination;
   surface: GenerationSurface;

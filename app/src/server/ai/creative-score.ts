@@ -249,6 +249,10 @@ export interface AnalyzeInput {
   contract?: CreativeContract | null;
 }
 
+export function buildCreativeScoreImageDataUrl(input: Pick<AnalyzeInput, "imageBuffer" | "mimeType">): string {
+  return `data:${input.mimeType};base64,${input.imageBuffer.toString("base64")}`;
+}
+
 function scoreDimensionPromptLines(): string {
   return SCORE_BREAKDOWN_KEYS.map((key) => {
     const criterion = SCORE_BREAKDOWN_TO_CRITERION[key];
@@ -410,9 +414,6 @@ export async function analyzeDerivationCreative(input: AnalyzeInput): Promise<Sc
     return createE2EControlledScore();
   }
 
-  const base64 = input.imageBuffer.toString("base64");
-  const dataUrl = `data:${input.mimeType};base64,${base64}`;
-
   const prompt = buildCreativeScorePrompt(input);
 
   const response = await getOpenAI().responses.create({
@@ -423,7 +424,11 @@ export async function analyzeDerivationCreative(input: AnalyzeInput): Promise<Sc
         role: "user",
         content: [
           { type: "input_text", text: prompt },
-          { type: "input_image", image_url: dataUrl, detail: "high" }
+          {
+            type: "input_image",
+            image_url: buildCreativeScoreImageDataUrl(input),
+            detail: "high",
+          }
         ],
       },
     ],

@@ -1,7 +1,7 @@
 "use client";
 
 import { Check } from "lucide-react";
-import { m } from "framer-motion";
+import { m } from "@/components/animations/MotionBoundary";
 import { cn } from "@/lib/utils";
 
 export interface BrandTrainingStep {

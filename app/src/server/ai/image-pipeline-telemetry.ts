@@ -23,6 +23,21 @@ export type ImagePipelineStageFields = {
   [key: string]: unknown;
 };
 
+export type ImagePipelineExternalCallType = "planner" | "image" | "selector" | "qa" | "score";
+
+export type ImagePipelineExternalCallFields = {
+  callType: ImagePipelineExternalCallType;
+  attempt: number;
+  workspaceId?: string;
+  workId?: string;
+  outputId?: string;
+  generationCorrelationId?: string;
+  /** Durable Creative Work claim count at the time of an image call. */
+  imageCallCount?: number;
+  jobType?: string;
+  callIndex?: number;
+};
+
 function memorySnapshot() {
   const usage = process.memoryUsage();
   return {
@@ -36,6 +51,51 @@ function truncateMessage(value: unknown, max = 500): string | undefined {
   if (value == null) return undefined;
   const text = value instanceof Error ? value.message : String(value);
   return text.length > max ? `${text.slice(0, max)}…` : text;
+}
+
+function logExternalCall(fields: ImagePipelineExternalCallFields & {
+  durationMs: number;
+  result: "success" | "failed";
+  errorMessage?: string;
+}): void {
+  try {
+    logger.info({ event: "image_pipeline_external_call", ...fields });
+  } catch (error) {
+    try {
+      logger.warn({
+        event: "image_pipeline_telemetry_emit_failed",
+        sourceEvent: "image_pipeline_external_call",
+        ...fields,
+        errorMessage: truncateMessage(error) ?? "Unknown telemetry sink failure",
+      });
+    } catch {
+      // Observability must never change provider or generation behavior.
+    }
+  }
+}
+
+export async function observeImagePipelineExternalCall<T>(
+  fields: ImagePipelineExternalCallFields,
+  operation: () => Promise<T>,
+): Promise<T> {
+  const started = performance.now();
+  try {
+    const result = await operation();
+    logExternalCall({
+      ...fields,
+      durationMs: Math.round(performance.now() - started),
+      result: "success",
+    });
+    return result;
+  } catch (error) {
+    logExternalCall({
+      ...fields,
+      durationMs: Math.round(performance.now() - started),
+      result: "failed",
+      errorMessage: truncateMessage(error),
+    });
+    throw error;
+  }
 }
 
 export function logImagePipelineStage(fields: ImagePipelineStageFields): void {

@@ -30,6 +30,7 @@ import {
   linkCreativeWorkCampaign,
   listCreativeWorkOutputsNeedingRefund,
   markCreativeWorkOutputFailureCode,
+  recordCreativeWorkGenerationAggregate,
   refreshCreativeWorkStatus,
   updateCreativeWorkSource,
   updateCreativeWorkSourceIfUnchanged,
@@ -43,6 +44,10 @@ import { decideCreativeWorkRefund } from "@/server/generation/canonical/policies
 import { settleTerminalRefund } from "@/server/generation/settlement";
 import type { CreativeWorkSource } from "@/server/db/schema";
 import { logger } from "@/lib/logger";
+import {
+  logCreativeWorkGenerationAggregate,
+  logCreativeWorkOutputTerminal,
+} from "@/server/creative-work/job-telemetry";
 
 const QUEUED_GENERATION_LEASE_MS = 60 * 60 * 1000;
 const PROCESSING_GENERATION_LEASE_MS = 10 * 60 * 1000;
@@ -53,10 +58,11 @@ async function refundCreativeWorkOutputCompensatory(input: {
   workItemId: string;
   outputId: string;
   reason: string;
+  failurePhase?: "job_failure" | "terminal";
 }): Promise<boolean> {
   const decision = decideCreativeWorkRefund({
     surface: "quick_tool",
-    failurePhase: "job_failure",
+    failurePhase: input.failurePhase ?? "job_failure",
     workItemId: input.workItemId,
     outputId: input.outputId,
   });
@@ -210,16 +216,22 @@ export async function GET(
       id,
       new Date(Date.now() - SOURCE_ANALYSIS_LEASE_MS),
     );
-    const staleOutputs = [...staleQueued, ...staleProcessing];
+    const staleOutputs = Array.from(
+      new Map(
+        [...staleQueued, ...staleProcessing].map((output) => [output.id, output]),
+      ).values(),
+    );
+    const staleRefunds = new Map<string, boolean>();
     if (staleOutputs.length > 0) {
       await Promise.all(
         staleOutputs.map(async (output) => {
           const refunded = await refundCreativeWorkOutputCompensatory({
             workspaceId: workspace.id,
             workItemId: id,
-            outputId: output.id,
-            reason: "stale_generation_timeout",
-          });
+              outputId: output.id,
+              reason: "stale_generation_timeout",
+            });
+          staleRefunds.set(output.id, refunded);
           if (!refunded) {
             await markCreativeWorkOutputFailureCode(
               workspace.id,
@@ -242,6 +254,7 @@ export async function GET(
             workItemId: id,
             outputId: output.id,
             reason: "retry_pending_compensatory_refund",
+            failurePhase: output.failureCode === "generation_canceled_refund_pending" ? "terminal" : "job_failure",
           });
           if (refunded) {
             const settledCode = (output.failureCode ?? "generation_timeout").replace(
@@ -261,6 +274,78 @@ export async function GET(
     const result = await getCreativeWork(workspace.id, id);
     if (!result) {
       return apiError("creativeWorkNotFound", 404);
+    }
+    if (staleOutputs.length > 0) {
+      const generationUnits = new Map<string, typeof result.outputs>();
+      for (const output of result.outputs) {
+        const correlation = output.generationCorrelationId ?? result.work.generationCorrelationId;
+        const units = generationUnits.get(correlation) ?? [];
+        units.push(output);
+        generationUnits.set(correlation, units);
+      }
+      for (const stale of staleOutputs) {
+        const output = result.outputs.find((candidate) => candidate.id === stale.id);
+        if (!output) continue;
+        const correlation = output.generationCorrelationId ?? result.work.generationCorrelationId;
+        const units = generationUnits.get(correlation) ?? [output];
+        const queuedAt = output.queuedAt ?? output.createdAt;
+        const terminalAt = output.terminalAt ?? output.createdAt;
+        logCreativeWorkOutputTerminal({
+          workspaceId: workspace.id,
+          workItemId: id,
+          outputId: output.id,
+          generationCorrelationId: correlation,
+          protocol: "unknown",
+          imageCallCount: output.imageCallCount,
+          retryCount: output.retryCount,
+          unitCount: units.length,
+          activeUnitCount: units.filter((unit) => unit.status === "processing").length,
+          environment: process.env.RENDER_SERVICE_NAME ?? process.env.NODE_ENV ?? "unknown",
+          outcome: "failed",
+          failureCode: output.failureCode ?? "generation_timeout",
+          refunded: staleRefunds.get(output.id) ?? false,
+          durationMs: Math.max(0, terminalAt.getTime() - queuedAt.getTime()),
+        });
+      }
+      for (const generationCorrelationId of new Set(
+        staleOutputs.map((stale) =>
+          result.outputs.find((output) => output.id === stale.id)?.generationCorrelationId
+          ?? result.work.generationCorrelationId,
+        ),
+      )) {
+        try {
+          const aggregate = await recordCreativeWorkGenerationAggregate(
+            workspace.id,
+            id,
+            generationCorrelationId,
+          );
+          if (!aggregate) continue;
+          const fields = {
+            workspaceId: workspace.id,
+            workItemId: id,
+            generationCorrelationId: aggregate.generationCorrelationId,
+            unitCount: aggregate.unitCount,
+            terminalCount: aggregate.terminalCount,
+            successCount: aggregate.successCount,
+            failureCount: aggregate.failureCount,
+            result: aggregate.result,
+            firstTerminalAt: aggregate.firstTerminalAt,
+            completedAt: aggregate.completedAt,
+            timeToFirstOutputMs: aggregate.timeToFirstOutputMs,
+            totalDurationMs: aggregate.totalDurationMs,
+          } as const;
+          if (aggregate.firstTerminalEmitted) {
+            logCreativeWorkGenerationAggregate({ phase: "first_terminal", ...fields });
+          }
+          if (aggregate.completionEmitted) {
+            logCreativeWorkGenerationAggregate({ phase: "completed", ...fields });
+          }
+        } catch (error) {
+          logger.warn(
+            `[creativeWork] stale aggregate telemetry failed workItemId=${id} correlation=${generationCorrelationId}: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
+      }
     }
     const canonical = projectCreativeWorkAsCanonicalWork(
       result.work,

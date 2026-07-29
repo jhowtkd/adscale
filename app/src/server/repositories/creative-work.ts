@@ -1,4 +1,4 @@
-import { eq, and, asc, desc, inArray, isNull, lt, max, sql } from "drizzle-orm";
+import { eq, and, asc, desc, count, inArray, isNull, lt, max, sql } from "drizzle-orm";
 import { db } from "../db";
 import {
   creativeWorkItems,
@@ -639,10 +639,16 @@ export async function createCreativeWorkOutputs(
   workItemId: string,
   targetFormat: CreativeWorkFormat = "4:5",
 ): Promise<CreativeWorkOutput[]> {
+  const [work] = await db.select({ generationCorrelationId: creativeWorkItems.generationCorrelationId })
+    .from(creativeWorkItems)
+    .where(and(eq(creativeWorkItems.workspaceId, workspaceId), eq(creativeWorkItems.id, workItemId)))
+    .limit(1);
+  if (!work) return [];
   const now = new Date();
   const seedRows = CREATIVE_LEVELS.map((creativeLevel) => ({
     workspaceId,
     workItemId,
+    generationCorrelationId: work.generationCorrelationId,
     creativeLevel,
     targetFormat,
     versionNumber: 1,
@@ -650,6 +656,7 @@ export async function createCreativeWorkOutputs(
     status: "queued" as const,
     isSelected: false,
     createdAt: now,
+    queuedAt: now,
     updatedAt: now,
   }));
 
@@ -676,7 +683,10 @@ export type { CreativeWorkOutputPlan } from "../creative-work/contracts";
 
 export async function createPlannedCreativeWorkOutputs(workspaceId: string, workItemId: string, plans: CreativeWorkOutputPlan[]): Promise<{ outputs: CreativeWorkOutput[]; newlyCreatedIds: string[] }> {
   if (plans.length === 0) return { outputs: [], newlyCreatedIds: [] };
-  const [work] = await db.select({ id: creativeWorkItems.id }).from(creativeWorkItems).where(and(
+  const [work] = await db.select({
+    id: creativeWorkItems.id,
+    generationCorrelationId: creativeWorkItems.generationCorrelationId,
+  }).from(creativeWorkItems).where(and(
     eq(creativeWorkItems.workspaceId, workspaceId),
     eq(creativeWorkItems.id, workItemId),
   )).limit(1);
@@ -685,6 +695,7 @@ export async function createPlannedCreativeWorkOutputs(workspaceId: string, work
   const inserted = await db.insert(creativeWorkOutputs).values(plans.map((plan) => ({
     workspaceId,
     workItemId,
+    generationCorrelationId: work.generationCorrelationId,
     creativeLevel: plan.creativeLevel,
     targetFormat: plan.targetFormat,
     versionNumber: 1,
@@ -692,6 +703,7 @@ export async function createPlannedCreativeWorkOutputs(workspaceId: string, work
     status: "queued" as const,
     isSelected: false,
     createdAt: now,
+    queuedAt: now,
     updatedAt: now,
   }))).onConflictDoNothing().returning({ id: creativeWorkOutputs.id });
   const outputs = await db.select().from(creativeWorkOutputs).where(and(
@@ -780,6 +792,7 @@ export async function createCreativeWorkRevision(
       operationKey,
       status: "queued",
       isSelected: false,
+      queuedAt: new Date(),
     }).onConflictDoNothing().returning();
     if (row) return { output: row, claimedForDispatch: true };
 
@@ -892,6 +905,26 @@ export async function markCreativeWorkOutputProcessing(
   return row ?? null;
 }
 
+export async function countCreativeWorkProcessingOutputs(
+  workspaceId: string,
+  workItemId: string,
+  generationCorrelationId?: string,
+): Promise<number> {
+  const conditions = [
+    eq(creativeWorkOutputs.workspaceId, workspaceId),
+    eq(creativeWorkOutputs.workItemId, workItemId),
+    eq(creativeWorkOutputs.status, "processing"),
+    ...(generationCorrelationId
+      ? [eq(creativeWorkOutputs.generationCorrelationId, generationCorrelationId)]
+      : []),
+  ];
+  const [row] = await db
+    .select({ count: count() })
+    .from(creativeWorkOutputs)
+    .where(and(...conditions));
+  return Number(row?.count ?? 0);
+}
+
 export async function completeCreativeWorkOutput(
   workspaceId: string,
   workItemId: string,
@@ -906,6 +939,7 @@ export async function completeCreativeWorkOutput(
       cost: data.cost,
       quality: data.quality,
       failureCode: null,
+      terminalAt: new Date(),
       updatedAt: new Date(),
     })
     .where(
@@ -931,6 +965,7 @@ export async function failCreativeWorkOutput(
     .set({
       status: "failed",
       failureCode,
+      terminalAt: new Date(),
       updatedAt: new Date(),
     })
     .where(
@@ -980,12 +1015,38 @@ export async function failQueuedCreativeWorkOutput(
   const [row] = await db.update(creativeWorkOutputs).set({
     status: "failed",
     failureCode,
+    terminalAt: new Date(),
     updatedAt: new Date(),
   }).where(and(
     eq(creativeWorkOutputs.workspaceId, workspaceId),
     eq(creativeWorkOutputs.workItemId, workItemId),
     eq(creativeWorkOutputs.id, outputId),
     eq(creativeWorkOutputs.status, "queued"),
+  )).returning();
+  return row ?? null;
+}
+
+/**
+ * Cancels a still-live output without changing the output contract to a new
+ * durable status: cancellation is a terminal failed row with its own cause,
+ * while telemetry carries the explicit `canceled` outcome. The status guard
+ * makes concurrent completion/cancellation idempotent.
+ */
+export async function cancelCreativeWorkOutput(
+  workspaceId: string,
+  workItemId: string,
+  outputId: string,
+): Promise<CreativeWorkOutput | null> {
+  const [row] = await db.update(creativeWorkOutputs).set({
+    status: "failed",
+    failureCode: "generation_canceled",
+    terminalAt: new Date(),
+    updatedAt: new Date(),
+  }).where(and(
+    eq(creativeWorkOutputs.workspaceId, workspaceId),
+    eq(creativeWorkOutputs.workItemId, workItemId),
+    eq(creativeWorkOutputs.id, outputId),
+    inArray(creativeWorkOutputs.status, ["queued", "processing"]),
   )).returning();
   return row ?? null;
 }
@@ -1000,6 +1061,7 @@ export async function failStaleQueuedCreativeWorkOutputs(
     .set({
       status: "failed",
       failureCode: "generation_timeout",
+      terminalAt: new Date(),
       updatedAt: new Date(),
     })
     .where(
@@ -1023,6 +1085,7 @@ export async function failStaleProcessingCreativeWorkOutputs(
     .set({
       status: "failed",
       failureCode: "generation_timeout",
+      terminalAt: new Date(),
       updatedAt: new Date(),
     })
     .where(
@@ -1182,6 +1245,147 @@ export async function refreshCreativeWorkStatus(
   return next;
 }
 
+export interface CreativeWorkGenerationAggregateSnapshot {
+  generationCorrelationId: string;
+  unitCount: number;
+  terminalCount: number;
+  successCount: number;
+  failureCount: number;
+  result: "partial" | "completed" | "failed";
+  firstTerminalAt: string;
+  completedAt?: string;
+  timeToFirstOutputMs: number;
+  totalDurationMs?: number;
+  firstTerminalEmitted: boolean;
+  completionEmitted: boolean;
+}
+
+/**
+ * Records the generation-level first/last terminal markers with CAS guards.
+ * The first output in a correlation is the durable aggregate anchor, so a
+ * revision can have its own generation without sharing the work-item markers.
+ */
+export async function recordCreativeWorkGenerationAggregate(
+  workspaceId: string,
+  workItemId: string,
+  generationCorrelationId?: string,
+): Promise<CreativeWorkGenerationAggregateSnapshot | null> {
+  return db.transaction(async (tx) => {
+    const [work] = await tx
+      .select({
+        generationCorrelationId: creativeWorkItems.generationCorrelationId,
+      })
+      .from(creativeWorkItems)
+      .where(and(
+        eq(creativeWorkItems.workspaceId, workspaceId),
+        eq(creativeWorkItems.id, workItemId),
+      ));
+    if (!work) return null;
+    const correlationId = generationCorrelationId ?? work.generationCorrelationId;
+
+    const outputs = await tx
+      .select({
+        id: creativeWorkOutputs.id,
+        status: creativeWorkOutputs.status,
+        createdAt: creativeWorkOutputs.createdAt,
+        queuedAt: creativeWorkOutputs.queuedAt,
+        updatedAt: creativeWorkOutputs.updatedAt,
+        terminalAt: creativeWorkOutputs.terminalAt,
+        generationFirstTerminalAt: creativeWorkOutputs.generationFirstTerminalAt,
+        generationCompletedAt: creativeWorkOutputs.generationCompletedAt,
+      })
+      .from(creativeWorkOutputs)
+      .where(and(
+        eq(creativeWorkOutputs.workspaceId, workspaceId),
+        eq(creativeWorkOutputs.workItemId, workItemId),
+        eq(creativeWorkOutputs.generationCorrelationId, correlationId),
+      ));
+    const terminalOutputs = outputs.filter((output) =>
+      output.status === "completed" || output.status === "failed"
+    );
+    if (terminalOutputs.length === 0) return null;
+    const anchor = outputs.reduce(
+      (earliest, output) => output.createdAt < earliest.createdAt ? output : earliest,
+      outputs[0]!,
+    );
+
+    const terminalAt = (output: (typeof terminalOutputs)[number]) =>
+      output.terminalAt ?? output.updatedAt;
+    const calculatedFirstTerminalAt = terminalOutputs.reduce(
+      (earliest, output) => terminalAt(output) < earliest ? terminalAt(output) : earliest,
+      terminalAt(terminalOutputs[0]!),
+    );
+    const generationStartedAt = outputs.reduce(
+      (earliest, output) => {
+        const queuedAt = output.queuedAt ?? output.createdAt ?? output.updatedAt;
+        return queuedAt < earliest ? queuedAt : earliest;
+      },
+      outputs[0]!.queuedAt ?? outputs[0]!.createdAt ?? outputs[0]!.updatedAt,
+    );
+    const firstTerminal = await tx
+      .update(creativeWorkOutputs)
+      .set({ generationFirstTerminalAt: calculatedFirstTerminalAt })
+      .where(and(
+        eq(creativeWorkOutputs.workspaceId, workspaceId),
+        eq(creativeWorkOutputs.workItemId, workItemId),
+        eq(creativeWorkOutputs.id, anchor.id),
+        isNull(creativeWorkOutputs.generationFirstTerminalAt),
+      ))
+      .returning({ id: creativeWorkOutputs.id });
+
+    const terminalCount = terminalOutputs.length;
+    const successCount = terminalOutputs.filter((output) => output.status === "completed").length;
+    const failureCount = terminalOutputs.filter((output) => output.status === "failed").length;
+    const allTerminal = terminalCount === outputs.length;
+    const calculatedCompletedAt = allTerminal
+      ? terminalOutputs.reduce(
+          (latest, output) => terminalAt(output) > latest ? terminalAt(output) : latest,
+          terminalAt(terminalOutputs[0]!),
+        )
+      : null;
+    const completion = allTerminal && calculatedCompletedAt && !anchor.generationCompletedAt
+      ? await tx
+          .update(creativeWorkOutputs)
+          .set({ generationCompletedAt: calculatedCompletedAt })
+          .where(and(
+            eq(creativeWorkOutputs.workspaceId, workspaceId),
+            eq(creativeWorkOutputs.workItemId, workItemId),
+            eq(creativeWorkOutputs.id, anchor.id),
+            isNull(creativeWorkOutputs.generationCompletedAt),
+          ))
+          .returning({ id: creativeWorkOutputs.id })
+      : [];
+
+    const firstTerminalAt = anchor.generationFirstTerminalAt ?? calculatedFirstTerminalAt;
+    const completedAt = anchor.generationCompletedAt
+      ?? (completion.length > 0 ? calculatedCompletedAt : undefined);
+    const result = !allTerminal
+      ? "partial"
+      : failureCount === 0
+        ? "completed"
+        : successCount === 0
+          ? "failed"
+          : "partial";
+
+    return {
+      generationCorrelationId: correlationId,
+      unitCount: outputs.length,
+      terminalCount,
+      successCount,
+      failureCount,
+      result,
+      firstTerminalAt: firstTerminalAt.toISOString(),
+      completedAt: completedAt?.toISOString(),
+      timeToFirstOutputMs: Math.max(0, firstTerminalAt.getTime() - generationStartedAt.getTime()),
+      totalDurationMs: completedAt
+        ? Math.max(0, completedAt.getTime() - generationStartedAt.getTime())
+        : undefined,
+      firstTerminalEmitted: firstTerminal.length > 0,
+      completionEmitted: completion.length > 0,
+    };
+  });
+}
+
 /**
  * Atomic selection: clears any previously selected output in the same
  * transaction before marking the new one. Relies on the unique partial index
@@ -1240,6 +1444,7 @@ export async function requeueFailedCreativeWorkOutput(
     .set({
       status: "queued",
       failureCode: null,
+      terminalAt: null,
       retryCount: sql`${creativeWorkOutputs.retryCount} + 1`,
       updatedAt: new Date(),
     })

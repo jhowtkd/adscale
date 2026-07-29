@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { AnimatePresence, m } from "framer-motion";
+import { AnimatePresence, m } from "@/components/animations/MotionBoundary";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import {

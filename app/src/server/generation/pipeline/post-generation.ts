@@ -35,6 +35,10 @@ import {
   decidePostGenerationQuality,
 } from "@/server/generation/canonical/policies";
 import type { RefundDecision } from "@/server/generation/canonical/types";
+import {
+  observeImagePipelineExternalCall,
+} from "@/server/ai/image-pipeline-telemetry";
+import type { ImagePipelineTelemetryContext } from "@/server/ai/image-generation";
 
 export interface PostGenerationCampaign {
   name: string;
@@ -210,10 +214,15 @@ export async function runCreativeWorkPostGeneration(input: {
   workItemId: string;
   outputId: string;
   analyze: AnalyzeInput;
+  telemetry?: ImagePipelineTelemetryContext;
 }): Promise<CreativeWorkPostGenerationResult> {
   let quality: ScoreResult | null = null;
   try {
-    quality = await analyzeDerivationCreative(input.analyze);
+    quality = await observeImagePipelineExternalCall({
+      callType: "score",
+      attempt: input.telemetry?.inngestAttempt ?? 0,
+      ...input.telemetry,
+    }, () => analyzeDerivationCreative(input.analyze));
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     logger.warn(
@@ -269,6 +278,7 @@ export interface CreativeWorkQualityAssessmentInput {
   qa: Omit<AnalyzeCreativeWorkQaInput, "imageBuffer" | "mimeType">;
   /** Advisory subjective scorer input — its failure never rejects. */
   score: AnalyzeInput;
+  telemetry?: ImagePipelineTelemetryContext;
 }
 
 export interface CreativeWorkQualityAssessmentResult {
@@ -358,14 +368,18 @@ export async function runCreativeWorkQualityAssessment(
   let visionFindings: CreativeWorkQaFinding[] = [];
   if (file.ok) {
     try {
-      const qa = await analyzeCreativeWorkQa({
+      const qa = await observeImagePipelineExternalCall({
+        callType: "qa",
+        attempt: input.attempt,
+        ...input.telemetry,
+      }, () => analyzeCreativeWorkQa({
         imageBuffer: input.imageBuffer,
         mimeType: "image/png",
         ...input.qa,
         // R-010: the deterministic E2E branch distinguishes fail-once from
         // fail-always by the durable attempt of the assessed call.
         attempt: input.attempt,
-      });
+      }));
       visionFindings = qa.findings;
       // T8: persist the one-sentence evaluator summary for the T9 review
       // surface (null when the evaluator failed or was skipped).
@@ -398,7 +412,11 @@ export async function runCreativeWorkQualityAssessment(
   } | null = null;
   if (file.ok && preVerdict.verdict !== "fail") {
     try {
-      const score = await analyzeDerivationCreative(input.score);
+      const score = await observeImagePipelineExternalCall({
+        callType: "score",
+        attempt: input.attempt,
+        ...input.telemetry,
+      }, () => analyzeDerivationCreative(input.score));
       subjective = {
         scoreStatus: score.scoreStatus,
         qualityScore: score.qualityScore,
