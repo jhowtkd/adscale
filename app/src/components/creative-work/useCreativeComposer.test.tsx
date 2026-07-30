@@ -264,6 +264,116 @@ describe("useCreativeComposer", () => {
     expect(result.current.quote).toEqual({ unitCount: 2, credits: 10 });
   });
 
+  it("applies the full received set with new selections when confirming the late initial response (#129)", async () => {
+    vi.useRealTimers();
+    const suggestions = Array.from({ length: 5 }, (_, index) => ({
+      id: `00000000-0000-4000-8000-0000000000c${index}`,
+      label: `Sugestão ${index}`,
+      instruction: `Instrução ${index}`,
+      order: index,
+      safetyBand: "safe" as const,
+      provenance: "ai-suggestion" as const,
+    }));
+    mocks.work.mockReturnValue({
+      data: {
+        ...workDetail(),
+        sources: [{ id: "source-1", status: "ready" }],
+      },
+      isLoading: false,
+      isError: false,
+    });
+    const round = deferred<{ directions: typeof suggestions }>();
+    mocks.suggest.mockReturnValue(round.promise);
+
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+    await act(async () => Promise.resolve());
+    await waitFor(() => expect(result.current.directionSuggestionState).toBe("loading"));
+
+    // The user picks chips before the late response lands (#129).
+    const defaults = result.current.directionPool!.directions;
+    act(() => result.current.toggleDirection(defaults[0].id));
+    const chosenIds = result.current.directionPool!.selectedIds;
+    expect(chosenIds).toHaveLength(2);
+
+    await act(async () => round.resolve({ directions: suggestions }));
+    await waitFor(() => expect(result.current.directionSuggestionState).toBe("ready"));
+
+    // The late response waits for confirmation flagged as a replacement.
+    expect(result.current.pendingDirectionSuggestions).toEqual({ directions: suggestions, preserveSelection: false });
+    expect(result.current.directionPool?.selectedIds).toEqual(chosenIds);
+
+    act(() => {
+      const pending = result.current.pendingDirectionSuggestions!;
+      result.current.applyDirectionSuggestions(pending.directions, pending.preserveSelection);
+    });
+
+    // The full received set applies, with its top suggestions selected.
+    expect(result.current.directionPool?.directions.map((direction) => direction.id)).toEqual(
+      suggestions.map((suggestion) => suggestion.id),
+    );
+    expect(result.current.directionPool?.selectedIds).toEqual(
+      suggestions.slice(0, 3).map((suggestion) => suggestion.id),
+    );
+    expect(result.current.pendingDirectionSuggestions).toBeNull();
+    expect(result.current.quote).toEqual({ unitCount: 3, credits: 15 });
+  });
+
+  it("preserves the selected chips when confirming a 'Sugerir novamente' response (#129)", async () => {
+    vi.useRealTimers();
+    const firstRound = Array.from({ length: 5 }, (_, index) => ({
+      id: `00000000-0000-4000-8000-0000000000d${index}`,
+      label: `Sugestão ${index}`,
+      instruction: `Instrução ${index}`,
+      order: index,
+      safetyBand: "safe" as const,
+      provenance: "ai-suggestion" as const,
+    }));
+    mocks.work.mockReturnValue({
+      data: {
+        ...workDetail(),
+        sources: [{ id: "source-1", status: "ready" }],
+      },
+      isLoading: false,
+      isError: false,
+    });
+    mocks.suggest.mockResolvedValue({ directions: firstRound });
+
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+    await waitFor(() => expect(result.current.directionPool?.directions[0].provenance).toBe("ai-suggestion"));
+
+    // The user adjusts the selection after the auto-apply…
+    act(() => result.current.toggleDirection(firstRound[0].id));
+    const keptIds = result.current.directionPool!.selectedIds;
+    expect(keptIds).toHaveLength(2);
+
+    // …then asks for a new round, which also lands as a pending confirmation.
+    const second = deferred<{ directions: typeof firstRound }>();
+    mocks.suggest.mockReturnValue(second.promise);
+    act(() => result.current.requestDirectionSuggestions());
+    await waitFor(() => expect(result.current.directionSuggestionState).toBe("loading"));
+
+    const fresh = firstRound.slice(0, 2).map((suggestion, index) => ({
+      ...suggestion,
+      id: `00000000-0000-4000-8000-0000000000e${index}`,
+      label: `Nova ${index}`,
+    }));
+    await act(async () => second.resolve({ directions: fresh }));
+    await waitFor(() => expect(result.current.directionSuggestionState).toBe("ready"));
+
+    expect(result.current.pendingDirectionSuggestions).toEqual({ directions: fresh, preserveSelection: true });
+
+    act(() => {
+      const pending = result.current.pendingDirectionSuggestions!;
+      result.current.applyDirectionSuggestions(pending.directions, pending.preserveSelection);
+    });
+
+    expect(result.current.directionPool?.selectedIds).toEqual(keptIds);
+    expect(result.current.directionPool?.directions.map((direction) => direction.id)).toEqual([
+      ...keptIds,
+      ...fresh.map((suggestion) => suggestion.id),
+    ]);
+  });
+
   it("never autosaves or regenerates a hydrated non-draft work", async () => {
     mocks.work.mockReturnValue({
       data: workDetail({ id: WORK_ID, status: "generating" }),

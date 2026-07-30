@@ -51,6 +51,11 @@ export function CreativeSourceChip({ source, onUsageChange, onRetry, onRemove, s
           onError={() => setPreviewFailed(true)}
           className="mb-2 h-24 w-full rounded-[var(--radius-control)] border border-[var(--border-subtle)] object-cover"
         />
+      ) : source.previewUrl ? (
+        // Explicit fallback when the authenticated preview fails; name and actions stay below.
+        <div className="mb-2 flex h-24 w-full items-center justify-center rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-inset)] px-4 text-center text-sm text-[var(--text-muted)]">
+          {t("previewUnavailable")}
+        </div>
       ) : null}
       <div className="flex items-center justify-between gap-3">
         <div><strong>{source.name}</strong><div className="text-xs text-[var(--text-muted)]">{t(`sourceOrigin_${source.origin}`)}</div></div>

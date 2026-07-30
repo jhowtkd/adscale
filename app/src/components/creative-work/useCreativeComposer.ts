@@ -132,7 +132,13 @@ export function useCreativeComposer({
     initialIntent === "variations" ? createDefaultCreativeDirectionPool() : undefined,
   ));
   const [directionSuggestionState, setDirectionSuggestionState] = useState<"idle" | "loading" | "ready" | "error">("idle");
-  const [pendingDirectionSuggestions, setPendingDirectionSuggestions] = useState<CreativeDirection[] | null>(null);
+  // #129: the pending set carries how it was fetched — the initial/late
+  // response replaces the current pool (preserveSelection=false); an explicit
+  // "Sugerir novamente" merges and keeps the selected chips (true).
+  const [pendingDirectionSuggestions, setPendingDirectionSuggestions] = useState<{
+    directions: CreativeDirection[];
+    preserveSelection: boolean;
+  } | null>(null);
   // Counts explicit "Sugerir novamente" requests. Persisted AI suggestions
   // block only the automatic first fetch (token 0); an explicit request must
   // always trigger a new suggestion call (#129).
@@ -551,8 +557,9 @@ export function useCreativeComposer({
     if (suggestions.length === 0) return;
     const current = directionPoolRef.current;
     // #129: "Sugerir novamente" keeps every selected chip and replaces only
-    // the unselected ones, up to five. The untouched first auto-apply passes
-    // preserveSelection=false so the contextual pool replaces the defaults.
+    // the unselected ones, up to five. The untouched first auto-apply and the
+    // confirmed initial/late response pass preserveSelection=false so the
+    // received set replaces the current pool with its top suggestions selected.
     const keptDirections = preserveSelection && current
       ? current.directions.filter((direction) => current.selectedIds.includes(direction.id))
       : [];
@@ -605,12 +612,15 @@ export function useCreativeComposer({
 
     directionSuggestionRequestedRef.current = workId;
     setDirectionSuggestionState("loading");
+    // Captured at fetch time: retry token 0 is the initial/late response
+    // (replace the pool on apply); token > 0 is "Sugerir novamente" (merge).
+    const preserveSelection = directionSuggestionRetryToken > 0;
     void suggestDirectionMutation.mutateAsync(workId).then((result) => {
       if (directionTouchedRef.current) {
-        setPendingDirectionSuggestions(result.directions);
+        setPendingDirectionSuggestions({ directions: result.directions, preserveSelection });
         setDirectionSuggestionState("ready");
       } else {
-        applyDirectionSuggestions(result.directions, directionSuggestionRetryToken > 0);
+        applyDirectionSuggestions(result.directions, preserveSelection);
       }
     }).catch(() => setDirectionSuggestionState("error"));
   }, [applyDirectionSuggestions, detailQuery.data?.sources, detailQuery.data?.work, directionSuggestionRetryToken, directionSuggestionState, intent, suggestDirectionMutation, workId]);

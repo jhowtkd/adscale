@@ -274,7 +274,10 @@ export function CreativeComposer({ composer, composerRef }: {
               <div className="mt-2 flex flex-wrap gap-2">
                 <button
                   type="button"
-                  onClick={() => composer.applyDirectionSuggestions(composer.pendingDirectionSuggestions!)}
+                  onClick={() => {
+                    const pending = composer.pendingDirectionSuggestions!;
+                    composer.applyDirectionSuggestions(pending.directions, pending.preserveSelection);
+                  }}
                   className="rounded-[var(--radius-control)] bg-[var(--accent-primary)] px-3 py-1.5 text-sm font-semibold text-[var(--text-on-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]"
                 >
                   {t("applyDirections")}

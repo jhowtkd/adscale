@@ -362,6 +362,34 @@ describe("CreativeComposer", () => {
     expect(screen.queryByRole("textbox", { name: "manualDirections" })).not.toBeInTheDocument();
   });
 
+  it("applies the pending late response as a replacement set (#129)", () => {
+    const pending = {
+      directions: [
+        { id: "00000000-0000-4000-8000-0000000000a1", label: "Sugerida", instruction: "Instrução", order: 0, safetyBand: "safe" as const, provenance: "ai-suggestion" as const },
+      ],
+      preserveSelection: false,
+    };
+    const value = composer({ directionSuggestionState: "ready", pendingDirectionSuggestions: pending });
+    renderComposer(value);
+
+    fireEvent.click(screen.getByRole("button", { name: "applyDirections" }));
+    expect(value.applyDirectionSuggestions).toHaveBeenCalledWith(pending.directions, false);
+  });
+
+  it("applies the pending 'Sugerir novamente' response preserving the selection (#129)", () => {
+    const pending = {
+      directions: [
+        { id: "00000000-0000-4000-8000-0000000000a2", label: "Nova", instruction: "Instrução", order: 0, safetyBand: "safe" as const, provenance: "ai-suggestion" as const },
+      ],
+      preserveSelection: true,
+    };
+    const value = composer({ directionSuggestionState: "ready", pendingDirectionSuggestions: pending });
+    renderComposer(value);
+
+    fireEvent.click(screen.getByRole("button", { name: "applyDirections" }));
+    expect(value.applyDirectionSuggestions).toHaveBeenCalledWith(pending.directions, true);
+  });
+
   it("shows automatic format as a distinct choice so 4:5 can be pinned", () => {
     const value = composer({ format: "4:5", formatMode: "auto" });
     renderComposer(value);

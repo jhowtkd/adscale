@@ -7,7 +7,7 @@ vi.mock("next-intl", () => ({ useTranslations: () => (key: string) => ({
   sourceUsage_content: "Conteúdo", sourceUsage_style: "Estilo", sourceUsage_both: "Ambos",
   sourceUsageRequired: "Escolha como esta arte será usada.", sourceStatus_uploaded: "Aguardando análise", continueSourceAnalysis: "Continuar análise",
   sourceStatus_analyzing: "Analisando arte", sourceStatus_ready: "Análise concluída", sourceStatus_failed: "Falha na análise",
-  extractedData: "Dados extraídos", retrySource: "Tentar novamente",
+  extractedData: "Dados extraídos", retrySource: "Tentar novamente", previewUnavailable: "Imagem indisponível",
 }[key] ?? key) }));
 
 import { CreativeSourceChip } from "./CreativeSourceChip";
@@ -71,13 +71,21 @@ describe("CreativeSourceChip", () => {
     render(<CreativeSourceChip source={baseSource} onUsageChange={vi.fn()} onRetry={vi.fn()} onRemove={vi.fn()} />);
 
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
+    expect(screen.queryByText("Imagem indisponível")).not.toBeInTheDocument();
   });
 
-  it("drops a broken preview instead of keeping a dead image", () => {
-    render(<CreativeSourceChip source={{ ...baseSource, previewUrl: "/api/workspace/assets/a1/file" }} onUsageChange={vi.fn()} onRetry={vi.fn()} onRemove={vi.fn()} />);
+  it("shows an explicit fallback when the preview fails to load, keeping name and actions", () => {
+    const onRetry = vi.fn();
+    render(<CreativeSourceChip source={{ ...baseSource, status: "failed", previewUrl: "/api/workspace/assets/a1/file" }} onUsageChange={vi.fn()} onRetry={onRetry} onRemove={vi.fn()} />);
 
     fireEvent.error(screen.getByRole("img", { name: "arte.png" }));
 
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
+    expect(screen.getByText("Imagem indisponível")).toBeInTheDocument();
+    expect(screen.getByText("arte.png")).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Usar arte como" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remover fonte" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
+    expect(onRetry).toHaveBeenCalledOnce();
   });
 });
