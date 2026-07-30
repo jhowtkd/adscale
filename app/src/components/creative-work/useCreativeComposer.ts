@@ -836,7 +836,7 @@ export function useCreativeComposer({
       submitGuardRef.current = false;
       setActionPhase("idle");
     }
-  }, [detailQuery, detailQuery.data?.sources, detailQuery.data?.work, flushAutosave, generateMutation, prepareMutation]);
+  }, [detailQuery, flushAutosave, generateMutation, prepareMutation]);
 
   const resolveBrandConflict = useCallback(async (choice: CreativeWorkBrandChoice) => {
     // Double-click guard: one choice in flight per conflict.
