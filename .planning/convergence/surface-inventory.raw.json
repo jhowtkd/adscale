@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-07-24T18:11:43.309Z",
+  "generatedAt": "2026-07-30T18:53:49.125Z",
   "schemaVersion": 2,
-  "fingerprint": "3577e243894e8dde0de27ddbce8d7b86178a5441f24624a5162033bbd00be4dc",
+  "fingerprint": "e838cef5f40c1e44326b40eabbc821ed0208a0a66d9a3fa7a560c958fd93bdd5",
   "counts": {
-    "dashboardPages": 14,
-    "apiRoutes": 165,
+    "dashboardPages": 15,
+    "apiRoutes": 167,
     "ctas": 61,
     "requiringDecision": 1
   },
@@ -49,6 +49,13 @@
       "kind": "dashboard_page",
       "route": "/campaigns",
       "file": "app/src/app/(dashboard)/campaigns/page.tsx",
+      "requiresDecision": false
+    },
+    {
+      "id": "page:/creative-work/:id",
+      "kind": "dashboard_page",
+      "route": "/creative-work/:id",
+      "file": "app/src/app/(dashboard)/creative-work/[id]/page.tsx",
       "requiresDecision": false
     },
     {
@@ -705,6 +712,13 @@
       "requiresDecision": false
     },
     {
+      "id": "api:/api/creative-work/[id]/outputs/[outputId]/cancel",
+      "kind": "api_route",
+      "route": "/api/creative-work/[id]/outputs/[outputId]/cancel",
+      "file": "app/src/app/api/creative-work/[id]/outputs/[outputId]/cancel/route.ts",
+      "requiresDecision": false
+    },
+    {
       "id": "api:/api/creative-work/[id]/outputs/[outputId]/download",
       "kind": "api_route",
       "route": "/api/creative-work/[id]/outputs/[outputId]/download",
@@ -730,6 +744,13 @@
       "kind": "api_route",
       "route": "/api/creative-work/[id]",
       "file": "app/src/app/api/creative-work/[id]/route.ts",
+      "requiresDecision": false
+    },
+    {
+      "id": "api:/api/creative-work/[id]/suggest",
+      "kind": "api_route",
+      "route": "/api/creative-work/[id]/suggest",
+      "file": "app/src/app/api/creative-work/[id]/suggest/route.ts",
       "requiresDecision": false
     },
     {
@@ -1456,12 +1477,12 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/creative-work/CreativeComposer.tsx:90",
+      "id": "nav:app/src/components/creative-work/CreativeComposer.tsx:96",
       "kind": "cta_navigation",
       "destination": "/",
       "file": "app/src/components/creative-work/CreativeComposer.tsx",
-      "line": 90,
-      "evidence": "app/src/components/creative-work/CreativeComposer.tsx:90",
+      "line": 96,
+      "evidence": "app/src/components/creative-work/CreativeComposer.tsx:96",
       "requiresDecision": false
     },
     {
