@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { Paperclip, Sparkles } from "lucide-react";
@@ -43,6 +43,9 @@ export function CreativeComposer({ composer, composerRef }: {
   const isVariations = composer.intent === "variations";
   const isSingle = composer.intent === "single";
   const isFormatAdaptation = composer.intent === "format_adaptation";
+  // The manual-instruction textarea only exists while the "Direcionamentos
+  // manuais" section is open — collapsed by default, never mounted outside it.
+  const [manualDirectionsOpen, setManualDirectionsOpen] = useState(false);
   const directions = composer.directionPool;
   const readyVariationSource = isVariations
     ? composer.sources.find((source) => source.status === "ready") ?? null
@@ -233,12 +236,7 @@ export function CreativeComposer({ composer, composerRef }: {
       ) : null}
 
       {readyVariationSource ? (
-        <CreativeVariationBrief
-          source={readyVariationSource}
-          value={composer.request}
-          onChange={composer.setRequest}
-          textareaRef={composerRef}
-        />
+        <CreativeVariationBrief source={readyVariationSource} />
       ) : null}
 
       {isVariations && directions ? (
@@ -299,16 +297,21 @@ export function CreativeComposer({ composer, composerRef }: {
           ) : composer.directionSuggestionState === "ready" && !composer.pendingDirectionSuggestions ? (
             <button type="button" onClick={composer.requestDirectionSuggestions} className="mt-3 text-sm font-semibold text-[var(--accent-primary-text)] underline">{t("suggestAgain")}</button>
           ) : null}
-          <details className="mt-3 rounded-[var(--radius-control)] bg-[var(--surface-inset)] px-3 py-2">
+          <details
+            className="mt-3 rounded-[var(--radius-control)] bg-[var(--surface-inset)] px-3 py-2"
+            onToggle={(event) => setManualDirectionsOpen(event.currentTarget.open)}
+          >
             <summary className="cursor-pointer text-sm font-medium text-[var(--text-secondary)]">{t("manualDirections")}</summary>
-            <textarea
-              aria-label={t("manualDirections")}
-              value={directions.manualInstruction ?? ""}
-              onChange={(event) => composer.setManualDirectionInstruction(event.target.value)}
-              placeholder={t("manualDirectionsPlaceholder")}
-              rows={3}
-              className="mt-2 w-full resize-y rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]"
-            />
+            {manualDirectionsOpen ? (
+              <textarea
+                aria-label={t("manualDirections")}
+                value={directions.manualInstruction ?? ""}
+                onChange={(event) => composer.setManualDirectionInstruction(event.target.value)}
+                placeholder={t("manualDirectionsPlaceholder")}
+                rows={3}
+                className="mt-2 w-full resize-y rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]"
+              />
+            ) : null}
           </details>
         </fieldset>
       ) : null}

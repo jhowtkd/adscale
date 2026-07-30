@@ -133,6 +133,10 @@ export function useCreativeComposer({
   ));
   const [directionSuggestionState, setDirectionSuggestionState] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [pendingDirectionSuggestions, setPendingDirectionSuggestions] = useState<CreativeDirection[] | null>(null);
+  // Counts explicit "Sugerir novamente" requests. Persisted AI suggestions
+  // block only the automatic first fetch (token 0); an explicit request must
+  // always trigger a new suggestion call (#129).
+  const [directionSuggestionRetryToken, setDirectionSuggestionRetryToken] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [actionPhase, setActionPhase] = useState<ComposerActionPhase>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -215,6 +219,13 @@ export function useCreativeComposer({
     setFormatMode(hydrated.settings.formatMode);
     setTargetFormats(work.settings.targetFormats);
     setDirectionPool(hydratedDirectionPool);
+    // Persisted AI suggestions mean a suggestion round already completed —
+    // surface "Sugerir novamente" instead of fetching again on reload (#129).
+    setDirectionSuggestionState(
+      hydrated.settings.directionPool?.directions.some((direction) => direction.provenance === "ai-suggestion")
+        ? "ready"
+        : "idle",
+    );
     setQuote(canonicalQuote(
       hydrated.intent,
       hydrated.format,
@@ -496,6 +507,7 @@ export function useCreativeComposer({
     directionTouchedRef.current = false;
     setPendingDirectionSuggestions(null);
     setDirectionSuggestionState("idle");
+    setDirectionSuggestionRetryToken(0);
     setActionPhase("idle");
     intentRef.current = next;
     setIntent(next);
@@ -535,13 +547,27 @@ export function useCreativeComposer({
     setDirectionPool(next);
   }, []);
 
-  const applyDirectionSuggestions = useCallback((suggestions: CreativeDirection[]) => {
+  const applyDirectionSuggestions = useCallback((suggestions: CreativeDirection[], preserveSelection = true) => {
     if (suggestions.length === 0) return;
     const current = directionPoolRef.current;
+    // #129: "Sugerir novamente" keeps every selected chip and replaces only
+    // the unselected ones, up to five. The untouched first auto-apply passes
+    // preserveSelection=false so the contextual pool replaces the defaults.
+    const keptDirections = preserveSelection && current
+      ? current.directions.filter((direction) => current.selectedIds.includes(direction.id))
+      : [];
+    const directions = [...keptDirections];
+    for (const suggestion of suggestions) {
+      if (directions.length >= 5) break;
+      if (!directions.some((direction) => direction.id === suggestion.id)) directions.push(suggestion);
+    }
+    if (directions.length === 0) return;
     const next = {
       version: 1,
-      directions: suggestions,
-      selectedIds: suggestions.slice(0, 3).map((direction) => direction.id),
+      directions,
+      selectedIds: keptDirections.length > 0
+        ? keptDirections.map((direction) => direction.id)
+        : directions.slice(0, 3).map((direction) => direction.id),
       manualInstruction: current?.manualInstruction ?? null,
     } satisfies CreativeDirectionPool;
     directionPoolRef.current = next;
@@ -554,6 +580,7 @@ export function useCreativeComposer({
   const requestDirectionSuggestions = useCallback(() => {
     directionSuggestionRequestedRef.current = null;
     setDirectionSuggestionState("idle");
+    setDirectionSuggestionRetryToken((value) => value + 1);
   }, []);
 
   const keepCurrentDirections = useCallback(() => {
@@ -569,7 +596,10 @@ export function useCreativeComposer({
       || !workId
       || !readySource
       || (currentWork && currentWork.status !== "draft")
-      || currentWork?.settings.directionPool?.directions.some((direction) => direction.provenance === "ai-suggestion")
+      // Persisted AI suggestions block only the automatic fetch; an explicit
+      // "Sugerir novamente" (retry token > 0) always fetches again (#129).
+      || (directionSuggestionRetryToken === 0
+        && currentWork?.settings.directionPool?.directions.some((direction) => direction.provenance === "ai-suggestion"))
       || directionSuggestionRequestedRef.current === workId
     ) return;
 
@@ -580,10 +610,10 @@ export function useCreativeComposer({
         setPendingDirectionSuggestions(result.directions);
         setDirectionSuggestionState("ready");
       } else {
-        applyDirectionSuggestions(result.directions);
+        applyDirectionSuggestions(result.directions, directionSuggestionRetryToken > 0);
       }
     }).catch(() => setDirectionSuggestionState("error"));
-  }, [applyDirectionSuggestions, detailQuery.data?.sources, detailQuery.data?.work, directionSuggestionState, intent, suggestDirectionMutation, workId]);
+  }, [applyDirectionSuggestions, detailQuery.data?.sources, detailQuery.data?.work, directionSuggestionRetryToken, directionSuggestionState, intent, suggestDirectionMutation, workId]);
 
   const toggleTargetFormat = useCallback((value: Format) => {
     setTargetFormats((current) => {
@@ -771,16 +801,24 @@ export function useCreativeComposer({
   const generate = useCallback(async () => {
     if (submitGuardRef.current || generateMutation.isPending) return;
     const current = detailQuery.data?.work;
-    if (current && current.status !== "draft") return;
+    // A work left "ready" without outputs by an uncertain submit (prepare
+    // confirmed, generation unconfirmed) resumes straight at the generation
+    // call — prepare requires a draft and must not run again.
+    const resumePrepared = Boolean(
+      current
+      && current.status === "ready"
+      && (detailQuery.data?.outputs.length ?? 0) === 0,
+    );
+    if (current && current.status !== "draft" && !resumePrepared) return;
     submitGuardRef.current = true;
-    setActionPhase("saving");
+    setActionPhase(resumePrepared ? "submitting" : "saving");
     setError(null);
     // A new submit supersedes any stale conflict panel — a generic failure
     // ahead must never render alongside an outdated choice.
     setBrandConflict(null);
-    let phase: ComposerActionPhase = "saving";
+    let phase: ComposerActionPhase = resumePrepared ? "submitting" : "saving";
     try {
-      const id = await flushAutosave();
+      const id = resumePrepared && current ? current.id : await flushAutosave();
       if (!id) return;
       const pendingSources = (detailQuery.data?.sources ?? []).filter(
         (source) => source.status === "uploaded" || source.status === "analyzing",
@@ -789,13 +827,15 @@ export function useCreativeComposer({
         setError("Aguarde a análise da arte terminar antes de gerar.");
         return;
       }
-      phase = "preparing";
-      setActionPhase(phase);
-      const prepared = await prepareMutation.mutateAsync({ workItemId: id });
-      lastPersistedRef.current = signature(snapshotFromWork(prepared.work));
-      setQuote(prepared.quote);
-      formatRef.current = prepared.work.format;
-      setFormat(prepared.work.format);
+      if (!resumePrepared) {
+        phase = "preparing";
+        setActionPhase(phase);
+        const prepared = await prepareMutation.mutateAsync({ workItemId: id });
+        lastPersistedRef.current = signature(snapshotFromWork(prepared.work));
+        setQuote(prepared.quote);
+        formatRef.current = prepared.work.format;
+        setFormat(prepared.work.format);
+      }
       phase = "submitting";
       setActionPhase(phase);
       const generated = await generateMutation.mutateAsync(id);
@@ -814,17 +854,20 @@ export function useCreativeComposer({
         try {
           const reconciled = await detailQuery.refetch();
           const detail = reconciled.data;
+          // Acceptance requires real evidence of generation: an in-flight
+          // status or persisted outputs. "ready" without outputs only proves
+          // the prepare step landed — the flow stays retryable, not accepted.
           const accepted = Boolean(
             detail
-            && (detail.work.status !== "draft" || detail.outputs.length > 0),
+            && (detail.work.status === "generating" || detail.outputs.length > 0),
           );
           if (accepted) {
             setError(null);
             setAnnouncement("Geração aceita; acompanhando o processamento");
           } else {
-            setError(phase === "preparing"
-              ? "A preparação não foi confirmada. Tente gerar novamente."
-              : "A geração não foi confirmada. Tente gerar novamente.");
+            setError(detail?.work.status === "ready" || phase === "submitting"
+              ? "A geração não foi confirmada. Tente gerar novamente."
+              : "A preparação não foi confirmada. Tente gerar novamente.");
           }
         } catch {
           setError("Não foi possível confirmar o estado da geração. Atualize e tente novamente.");
@@ -953,7 +996,10 @@ export function useCreativeComposer({
       ? readySources.length > 0
       : Boolean(request.trim() || sources.length);
   const canGenerate = Boolean(clientProfileId) && hasMeaningfulInput
-    && (!detail?.work || detail.work.status === "draft")
+    && (!detail?.work || detail.work.status === "draft"
+      // A "ready" work without outputs holds a confirmed prepare whose
+      // generation never landed — the submit stays retryable.
+      || (detail.work.status === "ready" && detail.outputs.length === 0))
     && !sources.some((source) => source.status === "uploaded" || source.status === "analyzing")
     && (intent !== "single" || !sources.some((source) => source.usageConfirmed === false))
     && (intent !== "format_adaptation" || targetFormats.length > 0)

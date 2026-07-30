@@ -119,7 +119,7 @@ describe("CreativeComposer", () => {
     expect(value.generate).not.toHaveBeenCalled();
   });
 
-  it("shows concise analysis and optional free-form instructions only for variations", () => {
+  it("shows concise analysis without the legacy free-form instructions for variations", () => {
     const value = composer({
       intent: "variations",
       request: "- Criar uma copy mais direta",
@@ -132,19 +132,9 @@ describe("CreativeComposer", () => {
     expect(screen.getByText(/Produto: Tênis/)).toBeInTheDocument();
     expect(screen.getByText(/Clima: urbano/)).toBeInTheDocument();
 
-    const instructions = screen.getByRole("textbox", {
-      name: "O que você quer variar?",
-    });
-
-    expect(instructions).toHaveValue("- Criar uma copy mais direta");
-
-    fireEvent.change(instructions, {
-      target: { value: "- Trocar copy\n- Adicionar CTA" },
-    });
-
-    expect(value.setRequest).toHaveBeenCalledWith(
-      "- Trocar copy\n- Adicionar CTA",
-    );
+    expect(
+      screen.queryByRole("textbox", { name: "O que você quer variar?" }),
+    ).not.toBeInTheDocument();
 
     expect(
       screen.queryByRole("textbox", { name: "Produto" }),
@@ -341,14 +331,35 @@ describe("CreativeComposer", () => {
     const source = {
       id: "source-1", name: "arte.png", origin: "upload", usage: "content", status: "failed",
       usageConfirmed: true, contentAnalysis: null, styleAnalysis: null,
+      previewUrl: "/api/workspace/assets/a1/file",
     };
     const value = composer({ intent: "single", sources: [source] });
     renderComposer(value);
 
+    expect(screen.getByRole("img", { name: "arte.png" })).toHaveAttribute("src", "/api/workspace/assets/a1/file");
     fireEvent.click(screen.getByRole("button", { name: "Estilo" }));
     fireEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
     expect(value.updateSource).toHaveBeenCalledWith("source-1", "style");
     expect(value.retrySource).toHaveBeenCalledWith("source-1");
+  });
+
+  it("mounts the manual instruction textarea only inside the open 'Direcionamentos manuais' section", () => {
+    const value = composer({ intent: "variations" });
+    renderComposer(value);
+
+    expect(screen.queryByRole("textbox", { name: "manualDirections" })).not.toBeInTheDocument();
+
+    const section = screen.getByText("manualDirections").closest("details")!;
+    section.open = true;
+    fireEvent(section, new Event("toggle"));
+
+    const textarea = screen.getByRole("textbox", { name: "manualDirections" });
+    fireEvent.change(textarea, { target: { value: "Destacar a oferta" } });
+    expect(value.setManualDirectionInstruction).toHaveBeenCalledWith("Destacar a oferta");
+
+    section.open = false;
+    fireEvent(section, new Event("toggle"));
+    expect(screen.queryByRole("textbox", { name: "manualDirections" })).not.toBeInTheDocument();
   });
 
   it("shows automatic format as a distinct choice so 4:5 can be pinned", () => {

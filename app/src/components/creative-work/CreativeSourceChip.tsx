@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 
 type Usage = "content" | "style" | "both";
@@ -15,6 +16,8 @@ type Props = {
     status: Status;
     contentAnalysis: Record<string, unknown> | null;
     styleAnalysis: Record<string, unknown> | null;
+    /** Authenticated preview from the work detail DTO; absent while unavailable. */
+    previewUrl?: string | null;
   };
   onUsageChange: (usage: Usage) => void;
   onRetry: () => void;
@@ -24,6 +27,14 @@ type Props = {
 
 export function CreativeSourceChip({ source, onUsageChange, onRetry, onRemove, simple = false }: Props) {
   const t = useTranslations("dashboard.home.composer");
+  const [previewFailed, setPreviewFailed] = useState(false);
+  const [trackedPreviewUrl, setTrackedPreviewUrl] = useState(source.previewUrl);
+
+  if (source.previewUrl !== trackedPreviewUrl) {
+    setTrackedPreviewUrl(source.previewUrl);
+    setPreviewFailed(false);
+  }
+
   const chips = [
     source.contentAnalysis?.product,
     source.contentAnalysis?.offer,
@@ -32,6 +43,15 @@ export function CreativeSourceChip({ source, onUsageChange, onRetry, onRemove, s
 
   return (
     <article className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] p-3">
+      {source.previewUrl && !previewFailed ? (
+        // eslint-disable-next-line @next/next/no-img-element -- authenticated asset route, not a static CDN path
+        <img
+          src={source.previewUrl}
+          alt={source.name}
+          onError={() => setPreviewFailed(true)}
+          className="mb-2 h-24 w-full rounded-[var(--radius-control)] border border-[var(--border-subtle)] object-cover"
+        />
+      ) : null}
       <div className="flex items-center justify-between gap-3">
         <div><strong>{source.name}</strong><div className="text-xs text-[var(--text-muted)]">{t(`sourceOrigin_${source.origin}`)}</div></div>
         <button type="button" onClick={onRemove} aria-label={t("removeSourceAria")}>{t("removeSource")}</button>

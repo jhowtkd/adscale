@@ -191,6 +191,79 @@ describe("useCreativeComposer", () => {
     expect(result.current.quote).toEqual({ unitCount: 3, credits: 15 });
   });
 
+  it("requests suggestions again on demand even when suggestions are already persisted (#129)", async () => {
+    vi.useRealTimers();
+    const aiDirection = {
+      id: "00000000-0000-4000-8000-0000000000a1",
+      label: "Sugerida",
+      instruction: "Instrução sugerida",
+      order: 0,
+      safetyBand: "safe" as const,
+      provenance: "ai-suggestion" as const,
+    };
+    mocks.work.mockReturnValue({
+      data: {
+        ...workDetail({
+          settings: {
+            targetFormats: [],
+            directionPool: { version: 1, directions: [aiDirection], selectedIds: [aiDirection.id], manualInstruction: null },
+          },
+        }),
+        sources: [{ id: "source-1", status: "ready" }],
+      },
+      isLoading: false,
+      isError: false,
+    });
+    const freshSuggestion = { ...aiDirection, id: "00000000-0000-4000-8000-0000000000b1", label: "Nova", order: 1 };
+    mocks.suggest.mockResolvedValue({ directions: [freshSuggestion] });
+
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+    await act(async () => Promise.resolve());
+
+    // Persisted suggestions never trigger another automatic fetch on reload…
+    expect(mocks.suggest).not.toHaveBeenCalled();
+    expect(result.current.directionSuggestionState).toBe("ready");
+
+    // …but "Sugerir novamente" always fetches a new round and keeps the selection.
+    act(() => result.current.requestDirectionSuggestions());
+    await waitFor(() => expect(mocks.suggest).toHaveBeenCalledWith("work-1"));
+    await waitFor(() => expect(result.current.directionSuggestionState).toBe("ready"));
+    expect(result.current.directionPool?.selectedIds).toEqual([aiDirection.id]);
+    expect(result.current.directionPool?.directions.map((direction) => direction.id)).toEqual([
+      aiDirection.id,
+      freshSuggestion.id,
+    ]);
+  });
+
+  it("keeps selected chips and replaces only the unselected ones when applying suggestions", async () => {
+    vi.useRealTimers();
+    mocks.work.mockReturnValue({ data: workDetail(), isLoading: false, isError: false });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+    await act(async () => Promise.resolve());
+
+    const defaults = result.current.directionPool!.directions;
+    act(() => result.current.toggleDirection(defaults[0].id));
+    const keptIds = result.current.directionPool!.selectedIds;
+    expect(keptIds).toHaveLength(2);
+
+    const suggestions = Array.from({ length: 5 }, (_, index) => ({
+      id: `00000000-0000-4000-8000-0000000000b${index}`,
+      label: `Sugestão ${index}`,
+      instruction: `Instrução ${index}`,
+      order: index,
+      safetyBand: "safe" as const,
+      provenance: "ai-suggestion" as const,
+    }));
+    act(() => result.current.applyDirectionSuggestions(suggestions));
+
+    expect(result.current.directionPool?.selectedIds).toEqual(keptIds);
+    expect(result.current.directionPool?.directions.map((direction) => direction.id)).toEqual([
+      ...keptIds,
+      ...suggestions.slice(0, 3).map((suggestion) => suggestion.id),
+    ]);
+    expect(result.current.quote).toEqual({ unitCount: 2, credits: 10 });
+  });
+
   it("never autosaves or regenerates a hydrated non-draft work", async () => {
     mocks.work.mockReturnValue({
       data: workDetail({ id: WORK_ID, status: "generating" }),
@@ -1123,6 +1196,44 @@ describe("useCreativeComposer", () => {
     expect(refetch).toHaveBeenCalledOnce();
     expect(result.current.error).toBeNull();
     expect(result.current.announcement).toContain("Geração aceita");
+  });
+
+  it("does not treat a prepared work without outputs as an accepted generation", async () => {
+    const refetch = vi.fn().mockResolvedValue({ data: {
+      ...workDetail({ status: "ready" }),
+      outputs: [],
+    } });
+    mocks.work.mockReturnValue({ data: workDetail(), isLoading: false, refetch });
+    mocks.generate.mockRejectedValue(Object.assign(new Error("request timed out"), { name: "TimeoutError" }));
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+
+    await act(async () => { await result.current.generate(); });
+
+    expect(refetch).toHaveBeenCalledOnce();
+    expect(result.current.announcement).not.toContain("Geração aceita");
+    expect(result.current.error).toBe("A geração não foi confirmada. Tente gerar novamente.");
+  });
+
+  it("resumes a prepared work without outputs straight at generation, without preparing again", async () => {
+    mocks.work.mockReturnValue({
+      data: {
+        ...workDetail({ status: "ready" }),
+        sources: [{ id: "source-1", status: "ready" }],
+        outputs: [],
+      },
+      isLoading: false,
+      isError: false,
+    });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+    await act(async () => Promise.resolve());
+
+    expect(result.current.canGenerate).toBe(true);
+    await act(async () => { await result.current.generate(); });
+
+    expect(mocks.autosave).not.toHaveBeenCalled();
+    expect(mocks.prepare).not.toHaveBeenCalled();
+    expect(mocks.generate).toHaveBeenCalledWith("work-1");
+    expect(result.current.announcement).toContain("Geração iniciada");
   });
 
   it("does not autosave a format inferred by prepare while generation starts", async () => {

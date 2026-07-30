@@ -97,7 +97,7 @@ describe("DashboardHomeActions", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("uses the composer anchor when continue already targets the open work", () => {
+  it("opens the work's own page even when continue targets the work open on Home (#126)", () => {
     useCanonicalWorksMock.mockReturnValue({
       data: [{
         id: "creative_work:w1", originKind: "creative_work", originId: "w1", origin: "quick_tool",
@@ -111,7 +111,7 @@ describe("DashboardHomeActions", () => {
 
     expect(screen.getByRole("link", { name: /Continue: Post social/i })).toHaveAttribute(
       "href",
-      "#creative-composer",
+      "/creative-work/w1",
     );
   });
 

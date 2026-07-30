@@ -60,4 +60,24 @@ describe("CreativeSourceChip", () => {
     expect(screen.getByRole("button", { name: "Ambos" })).toHaveAttribute("aria-pressed", "false");
     expect(screen.getByText("Escolha como esta arte será usada.")).toBeInTheDocument();
   });
+
+  it("renders the authenticated preview thumbnail when the DTO provides one", () => {
+    render(<CreativeSourceChip source={{ ...baseSource, previewUrl: "/api/workspace/assets/a1/file" }} onUsageChange={vi.fn()} onRetry={vi.fn()} onRemove={vi.fn()} />);
+
+    expect(screen.getByRole("img", { name: "arte.png" })).toHaveAttribute("src", "/api/workspace/assets/a1/file");
+  });
+
+  it("omits the thumbnail while no preview is available", () => {
+    render(<CreativeSourceChip source={baseSource} onUsageChange={vi.fn()} onRetry={vi.fn()} onRemove={vi.fn()} />);
+
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+  });
+
+  it("drops a broken preview instead of keeping a dead image", () => {
+    render(<CreativeSourceChip source={{ ...baseSource, previewUrl: "/api/workspace/assets/a1/file" }} onUsageChange={vi.fn()} onRetry={vi.fn()} onRemove={vi.fn()} />);
+
+    fireEvent.error(screen.getByRole("img", { name: "arte.png" }));
+
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+  });
 });

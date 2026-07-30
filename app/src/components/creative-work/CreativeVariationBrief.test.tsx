@@ -94,30 +94,15 @@ describe("CreativeVariationBrief", () => {
     );
   });
 
-  it("accepts free text with dashes and line breaks without parsing it", () => {
-    const onChange = vi.fn();
+  it("does not render the legacy free-form instructions textarea", () => {
+    // The variations journey supervises the batch through direction chips and
+    // the collapsed manual directions; the old "O que você quer variar?"
+    // textarea was removed so it no longer competes with the manual direction.
+    render(<CreativeVariationBrief source={source} />);
 
-    render(
-      <CreativeVariationBrief
-        source={source}
-        value=""
-        onChange={onChange}
-      />,
-    );
-
-    const instructions = screen.getByRole("textbox", {
-      name: "O que você quer variar?",
-    });
-
-    fireEvent.change(instructions, {
-      target: {
-        value: "- Criar uma copy mais direta\n- Sugerir novos CTAs",
-      },
-    });
-
-    expect(onChange).toHaveBeenCalledWith(
-      "- Criar uma copy mais direta\n- Sugerir novos CTAs",
-    );
+    expect(
+      screen.queryByRole("textbox", { name: "O que você quer variar?" }),
+    ).not.toBeInTheDocument();
   });
 
   it("shows localized fields, literal text, palette samples, mood chips, and composition schematic", () => {

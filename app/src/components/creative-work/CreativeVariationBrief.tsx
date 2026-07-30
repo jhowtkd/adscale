@@ -1,6 +1,5 @@
 "use client";
 
-import type { RefObject } from "react";
 import { useTranslations } from "next-intl";
 import type { CreativeWorkSource } from "@/lib/hooks/use-creative-work";
 
@@ -50,14 +49,8 @@ export function summarizeVariationStyle(
 
 export function CreativeVariationBrief({
   source,
-  value,
-  onChange,
-  textareaRef,
 }: {
   source: CreativeWorkSource;
-  value: string;
-  onChange: (value: string) => void;
-  textareaRef?: RefObject<HTMLTextAreaElement | null>;
 }) {
   const t = useTranslations("dashboard.home.composer");
   const content = source.contentAnalysis;
@@ -175,21 +168,6 @@ export function CreativeVariationBrief({
         </div>
       </div>
 
-      <label className="block text-sm font-medium text-[var(--text-primary)]">
-        {t("variationInstructionsLabel")}
-        <span className="mt-1 block text-xs font-normal text-[var(--text-muted)]">
-          {t("variationInstructionsHint")}
-        </span>
-        <textarea
-          ref={textareaRef}
-          aria-label={t("variationInstructionsLabel")}
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          placeholder={t("variationInstructionsPlaceholder")}
-          rows={4}
-          className="mt-2 w-full resize-y rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]"
-        />
-      </label>
     </section>
   );
 }
