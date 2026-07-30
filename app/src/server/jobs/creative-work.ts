@@ -839,6 +839,10 @@ const creativeWorkOutputJobHandler = async ({
           );
           referenceImages = await normalizeReferenceBuffers(referenceImages);
         }
+
+        if (output.directionSnapshot?.instruction) {
+          prompt += `\n\nDIRECTION INSTRUCTION:\n${output.directionSnapshot.instruction}`;
+        }
       } catch (error) {
         terminalRefunded = await refundPreGeneratorOutput({
           workspaceId,

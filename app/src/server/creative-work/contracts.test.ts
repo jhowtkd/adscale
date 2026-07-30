@@ -197,6 +197,36 @@ describe("creative work contracts", () => {
     expect(quoteCreativeWork(input)).toMatchObject(expected);
   });
 
+  it("quotes one output per selected direction when a direction pool is present", () => {
+    const directionPool = {
+      version: 1,
+      directions: [
+        { id: "d1", label: "A", instruction: "Make it A", order: 0, safetyBand: "experimental" as const, provenance: "manual" as const },
+        { id: "d2", label: "B", instruction: "Make it B", order: 1, safetyBand: "safe" as const, provenance: "ai-suggestion" as const },
+      ],
+      selectedIds: ["d2"],
+      manualInstruction: "Global",
+    };
+    const quote = quoteCreativeWork({ intent: "social_post", format: "4:5", targetFormats: [], directionPool });
+    expect(quote.plans).toEqual([
+      {
+        creativeLevel: "balanced",
+        targetFormat: "4:5",
+        versionNumber: 1,
+        directionId: "d2",
+        directionSnapshot: { label: "B", instruction: "Make it B", order: 1 },
+      },
+    ]);
+    expect(quote.unitCount).toBe(1);
+    expect(quote.credits).toBe(5);
+  });
+
+  it("falls back to three levels when the direction pool is absent", () => {
+    const quote = quoteCreativeWork({ intent: "variations", format: "4:5", targetFormats: [] });
+    expect(quote.plans).toHaveLength(3);
+    expect(quote.plans.every((plan) => plan.directionId === undefined)).toBe(true);
+  });
+
   it("quotes exactly one output per target format without duplicates", () => {
     const quote = quoteCreativeWork({
       intent: "format_adaptation",

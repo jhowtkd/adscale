@@ -256,6 +256,8 @@ function makeQueuedOutput(overrides: Partial<{
   parentOutputId: string | null;
   revisionInstruction: string | null;
   outputKey: string | null;
+  directionId: string | null;
+  directionSnapshot: { label: string; instruction: string; order: number } | null;
 }> = {}) {
   return {
     id: overrides.id ?? "output-1",
@@ -272,6 +274,8 @@ function makeQueuedOutput(overrides: Partial<{
     imageCallCount: overrides.imageCallCount ?? 0,
     status: overrides.status ?? "queued",
     outputKey: overrides.outputKey ?? null,
+    directionId: overrides.directionId ?? null,
+    directionSnapshot: overrides.directionSnapshot ?? null,
     cost: null,
     failureCode: null,
     quality: null,
@@ -731,6 +735,25 @@ describe("creativeWorkOutputJob", () => {
     expect(request.prompt).toContain("CREATIVE LEVEL: bold");
     expect(request.prompt).toContain("FORMAT: 1:1");
     expect(request.prompt).toContain("Use mais contraste");
+  });
+
+  it("appends the frozen direction snapshot instruction to the prompt", async () => {
+    getCreativeWorkMock.mockResolvedValue({
+      work: workItem,
+      outputs: [makeQueuedOutput({
+        directionId: "d1",
+        directionSnapshot: { label: "A", instruction: "Use a dark cinematic mood", order: 0 },
+      })],
+    });
+    markProcessingMock.mockResolvedValue(makeQueuedOutput({
+      status: "processing",
+      directionId: "d1",
+      directionSnapshot: { label: "A", instruction: "Use a dark cinematic mood", order: 0 },
+    }));
+    await runJob();
+    const request = generateAndStoreImageMock.mock.calls[0]?.[0] as { prompt: string };
+    expect(request.prompt).toContain("DIRECTION INSTRUCTION:");
+    expect(request.prompt).toContain("Use a dark cinematic mood");
   });
 
   it("passes the persisted output retry count as the canonical attempt", async () => {

@@ -732,6 +732,31 @@ describe("creative-work repository", () => {
       expect(result).toEqual({ outputs: [planned], newlyCreatedIds: [] });
     });
 
+    it("freezes direction id and snapshot on planned outputs", async () => {
+      const planned = workOutput({
+        id: "output-direction",
+        targetFormat: "4:5",
+        versionNumber: 1,
+        operationKey: "balanced:4:5:1:direction:d1",
+        directionId: "d1",
+        directionSnapshot: { label: "A", instruction: "Make it A", order: 0 },
+      });
+      mocks.state.selectResults.push([{ id: "work-1" }], [planned]);
+      const result = await createPlannedCreativeWorkOutputs("ws-1", "work-1", [{
+        creativeLevel: "balanced",
+        targetFormat: "4:5",
+        versionNumber: 1,
+        directionId: "d1",
+        directionSnapshot: { label: "A", instruction: "Make it A", order: 0 },
+      }]);
+      expect(mocks.valuesMock).toHaveBeenCalledWith([expect.objectContaining({
+        operationKey: "balanced:4:5:1:direction:d1",
+        directionId: "d1",
+        directionSnapshot: { label: "A", instruction: "Make it A", order: 0 },
+      })]);
+      expect(result.outputs).toHaveLength(1);
+    });
+
     it("increments retries only on a scoped output", async () => {
       const retried = workOutput({ retryCount: 1 });
       mocks.state.updateResults.push([retried]);

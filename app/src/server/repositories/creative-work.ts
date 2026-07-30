@@ -692,20 +692,27 @@ export async function createPlannedCreativeWorkOutputs(workspaceId: string, work
   )).limit(1);
   if (!work) return { outputs: [], newlyCreatedIds: [] };
   const now = new Date();
-  const inserted = await db.insert(creativeWorkOutputs).values(plans.map((plan) => ({
-    workspaceId,
-    workItemId,
-    generationCorrelationId: work.generationCorrelationId,
-    creativeLevel: plan.creativeLevel,
-    targetFormat: plan.targetFormat,
-    versionNumber: 1,
-    operationKey: `${plan.creativeLevel}:${plan.targetFormat}:1`,
-    status: "queued" as const,
-    isSelected: false,
-    createdAt: now,
-    queuedAt: now,
-    updatedAt: now,
-  }))).onConflictDoNothing().returning({ id: creativeWorkOutputs.id });
+  const inserted = await db.insert(creativeWorkOutputs).values(plans.map((plan) => {
+    const operationKey = plan.directionId
+      ? `${plan.creativeLevel}:${plan.targetFormat}:1:direction:${plan.directionId}`
+      : `${plan.creativeLevel}:${plan.targetFormat}:1`;
+    return {
+      workspaceId,
+      workItemId,
+      generationCorrelationId: work.generationCorrelationId,
+      creativeLevel: plan.creativeLevel,
+      targetFormat: plan.targetFormat,
+      versionNumber: 1,
+      operationKey,
+      status: "queued" as const,
+      isSelected: false,
+      directionId: plan.directionId ?? null,
+      directionSnapshot: plan.directionSnapshot ?? null,
+      createdAt: now,
+      queuedAt: now,
+      updatedAt: now,
+    };
+  })).onConflictDoNothing().returning({ id: creativeWorkOutputs.id });
   const outputs = await db.select().from(creativeWorkOutputs).where(and(
     eq(creativeWorkOutputs.workspaceId, workspaceId),
     eq(creativeWorkOutputs.workItemId, workItemId),

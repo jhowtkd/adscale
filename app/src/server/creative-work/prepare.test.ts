@@ -63,6 +63,22 @@ describe("quoteCreativeWork", () => {
     expect(quote).toMatchObject({ unitCount, credits });
     expect(quote.plans).toHaveLength(unitCount);
   });
+
+  it("quotes one plan per selected direction when a direction pool is provided", () => {
+    const directionPool = {
+      version: 1,
+      directions: [
+        { id: "d1", label: "A", instruction: "A", order: 0, safetyBand: "safe" as const, provenance: "default" as const },
+        { id: "d2", label: "B", instruction: "B", order: 1, safetyBand: "experimental" as const, provenance: "manual" as const },
+      ],
+      selectedIds: ["d1", "d2"],
+      manualInstruction: null,
+    };
+    const quote = quoteCreativeWork({ intent: "social_post", format: "4:5", targetFormats: [], directionPool });
+    expect(quote.plans).toHaveLength(2);
+    expect(quote.plans[0]).toMatchObject({ directionId: "d1", directionSnapshot: { label: "A" } });
+    expect(quote.plans[1]).toMatchObject({ directionId: "d2", directionSnapshot: { label: "B" } });
+  });
 });
 
 describe("inferSocialPostBrief", () => {

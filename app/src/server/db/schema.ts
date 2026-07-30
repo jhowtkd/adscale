@@ -2643,6 +2643,12 @@ export const creativeWorkOutputs = adscaleSchema.table(
     failureCode: text("failure_code"),
     quality: jsonb("quality"),
     isSelected: boolean("is_selected").notNull().default(false),
+    directionId: uuid("direction_id"),
+    directionSnapshot: jsonb("direction_snapshot").$type<{
+      label: string;
+      instruction: string;
+      order: number;
+    }>(),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
     queuedAt: timestamp("queued_at", { mode: "date" }).notNull().defaultNow(),
     terminalAt: timestamp("terminal_at", { mode: "date" }),

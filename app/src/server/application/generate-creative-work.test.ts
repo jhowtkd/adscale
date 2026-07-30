@@ -212,6 +212,38 @@ describe("generateCreativeWork", () => {
     expect(charge).toHaveBeenCalledWith(expect.objectContaining({ unitCount: 2, chargeAmount: 10 }), expect.anything());
   });
 
+  it("creates one output per selected direction when a direction pool is present", async () => {
+    const directionPool = {
+      version: 1,
+      directions: [
+        { id: "d1", label: "A", instruction: "A instruction", order: 0, safetyBand: "safe" as const, provenance: "manual" as const },
+        { id: "d2", label: "B", instruction: "B instruction", order: 1, safetyBand: "experimental" as const, provenance: "ai-suggestion" as const },
+      ],
+      selectedIds: ["d2"],
+      manualInstruction: "Global instruction",
+    };
+    const settings = { targetFormats: [], directionPool };
+    const directionRows = [
+      { id: "dir-1", creativeLevel: "balanced", targetFormat: "4:5", status: "queued", directionId: "d2", directionSnapshot: { label: "B", instruction: "B instruction", order: 1 } },
+    ];
+    getWork.mockResolvedValue({ work: { ...work, settings }, outputs: [], sources: [] });
+    prepare.mockResolvedValue({ ok: true, value: { work: { ...preparedWork, settings }, quote: {} } });
+    createOutputs.mockResolvedValue({ outputs: directionRows, newlyCreatedIds: directionRows.map((row) => row.id) });
+
+    await generateCreativeWork({ workspaceId: "ws-1", workItemId: "work-1", userId: "user-1" });
+
+    expect(createOutputs).toHaveBeenCalledWith("ws-1", "work-1", [
+      {
+        creativeLevel: "balanced",
+        targetFormat: "4:5",
+        versionNumber: 1,
+        directionId: "d2",
+        directionSnapshot: { label: "B", instruction: "B instruction", order: 1 },
+      },
+    ]);
+    expect(charge).toHaveBeenCalledWith(expect.objectContaining({ unitCount: 1, chargeAmount: 5 }), expect.anything());
+  });
+
   it("fails newly-created rows and refunds the exact quote when dispatch fails", async () => {
     send.mockRejectedValue(new Error("transport down"));
     const result = await generateCreativeWork({ workspaceId: "ws-1", workItemId: "work-1", userId: "user-1" });
