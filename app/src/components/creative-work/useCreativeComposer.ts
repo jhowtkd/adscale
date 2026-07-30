@@ -27,7 +27,11 @@ import {
   type CreativeWorkOutput,
   type CreativeWorkQuote,
 } from "@/lib/hooks/use-creative-work";
-import { quoteCreativeWork } from "@/server/creative-work/contracts";
+import {
+  createDefaultCreativeDirectionPool,
+  quoteCreativeWork,
+  type CreativeDirectionPool,
+} from "@/server/creative-work/contracts";
 import type { CreativeInspiration } from "@/server/application/list-creative-inspirations";
 
 export type ComposerState = "empty" | "saving" | "analyzing" | "ready" | "generating" | "results";
@@ -38,7 +42,11 @@ type DraftSnapshot = {
   request: string;
   intent: ComposerIntent;
   format: Format;
-  settings: { targetFormats: Format[]; formatMode: "auto" | "manual" };
+  settings: {
+    targetFormats: Format[];
+    formatMode: "auto" | "manual";
+    directionPool?: CreativeDirectionPool;
+  };
 };
 type DraftSource = ({ assetId: string } | { templateId: string }) & { usage?: CreativeSourceUsage };
 
@@ -50,8 +58,13 @@ const COMPOSER_INTENTS = new Set<ComposerIntent>([
 ]);
 const UUID_SCHEMA = z.string().uuid();
 
-function canonicalQuote(intent: ComposerIntent, format: Format, targetFormats: Format[]): CreativeWorkQuote {
-  const { unitCount, credits } = quoteCreativeWork({ intent, format, targetFormats });
+function canonicalQuote(
+  intent: ComposerIntent,
+  format: Format,
+  targetFormats: Format[],
+  directionPool?: CreativeDirectionPool,
+): CreativeWorkQuote {
+  const { unitCount, credits } = quoteCreativeWork({ intent, format, targetFormats, directionPool });
   return { unitCount, credits };
 }
 
@@ -67,6 +80,13 @@ function snapshotFromWork(work: Pick<CreativeWorkItem, "request" | "toolKind" | 
     settings: {
       targetFormats: [...work.settings.targetFormats],
       formatMode: work.settings.formatMode ?? "manual",
+      ...(work.settings.directionPool ? {
+        directionPool: {
+          ...work.settings.directionPool,
+          directions: work.settings.directionPool.directions.map((direction) => ({ ...direction })),
+          selectedIds: [...work.settings.directionPool.selectedIds],
+        },
+      } : {}),
     },
   };
 }
@@ -100,7 +120,15 @@ export function useCreativeComposer({
   const [format, setFormat] = useState<Format>("4:5");
   const [formatMode, setFormatMode] = useState<"auto" | "manual">("auto");
   const [targetFormats, setTargetFormats] = useState<Format[]>(initialTargetFormats);
-  const [quote, setQuote] = useState(() => canonicalQuote(initialIntent, "4:5", initialTargetFormats));
+  const [directionPool, setDirectionPool] = useState<CreativeDirectionPool | null>(
+    initialIntent === "variations" ? createDefaultCreativeDirectionPool() : null,
+  );
+  const [quote, setQuote] = useState(() => canonicalQuote(
+    initialIntent,
+    "4:5",
+    initialTargetFormats,
+    initialIntent === "variations" ? createDefaultCreativeDirectionPool() : undefined,
+  ));
   const [isUploading, setIsUploading] = useState(false);
   const [actionPhase, setActionPhase] = useState<ComposerActionPhase>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -118,6 +146,7 @@ export function useCreativeComposer({
   const intentRef = useRef(intent);
   const formatRef = useRef(format);
   const targetFormatsRef = useRef(targetFormats);
+  const directionPoolRef = useRef<CreativeDirectionPool | null>(directionPool);
   const formatModeRef = useRef<"auto" | "manual">("auto");
   const hydratedWorkRef = useRef<string | null>(null);
   const lastPersistedRef = useRef<string | null>(null);
@@ -162,9 +191,14 @@ export function useCreativeComposer({
     workIdRef.current = work.id;
     requestRef.current = work.request;
     const hydrated = snapshotFromWork(work);
+    const hydratedDirectionPool = hydrated.settings.directionPool
+      ?? (hydrated.intent === "variations" ? createDefaultCreativeDirectionPool() : null);
     intentRef.current = hydrated.intent;
     formatRef.current = hydrated.format;
     targetFormatsRef.current = hydrated.settings.targetFormats;
+    // Keep legacy drafts on the three-level contract until the user changes a
+    // direction; the visible default pool is only materialized on interaction.
+    directionPoolRef.current = hydrated.settings.directionPool ?? null;
     formatModeRef.current = hydrated.settings.formatMode;
     lastPersistedRef.current = signature(hydrated);
     /* TanStack Query is the external persisted source for hydration. */
@@ -173,14 +207,30 @@ export function useCreativeComposer({
     setFormat(work.format);
     setFormatMode(hydrated.settings.formatMode);
     setTargetFormats(work.settings.targetFormats);
-    setQuote(canonicalQuote(hydrated.intent, hydrated.format, hydrated.settings.targetFormats));
+    setDirectionPool(hydratedDirectionPool);
+    setQuote(canonicalQuote(
+      hydrated.intent,
+      hydrated.format,
+      hydrated.settings.targetFormats,
+      hydrated.settings.directionPool ?? hydratedDirectionPool ?? undefined,
+    ));
   }, [detailQuery.data]);
 
   const captureSnapshot = useCallback((): DraftSnapshot => ({
     request: requestRef.current,
     intent: intentRef.current,
     format: formatRef.current,
-    settings: { targetFormats: [...targetFormatsRef.current], formatMode: formatModeRef.current },
+    settings: {
+      targetFormats: [...targetFormatsRef.current],
+      formatMode: formatModeRef.current,
+      ...(directionPoolRef.current ? {
+        directionPool: {
+          ...directionPoolRef.current,
+          directions: directionPoolRef.current.directions.map((direction) => ({ ...direction })),
+          selectedIds: [...directionPoolRef.current.selectedIds],
+        },
+      } : {}),
+    },
   }), []);
 
   const enqueueSave = useCallback(<T,>(operation: () => Promise<T>): Promise<T> => {
@@ -415,7 +465,7 @@ export function useCreativeComposer({
       void save().catch((cause) => setError(cause instanceof Error ? cause.message : "Falha ao salvar"));
     }, 500);
     return () => window.clearTimeout(timer);
-  }, [active.activeClientProfileId, captureSnapshot, detailQuery.data?.work, ensureDraft, format, formatMode, initialWorkId, intent, persistSnapshot, request, targetFormats]);
+  }, [active.activeClientProfileId, captureSnapshot, detailQuery.data?.work, directionPool, ensureDraft, format, formatMode, initialWorkId, intent, persistSnapshot, request, targetFormats]);
 
   const setRequest = useCallback((value: string) => {
     requestRef.current = value;
@@ -441,16 +491,42 @@ export function useCreativeComposer({
     const nextTargets: Format[] = next === "format_adaptation" ? ["1:1", "9:16"] : [];
     targetFormatsRef.current = nextTargets;
     setTargetFormats(nextTargets);
-    setQuote(canonicalQuote(next, formatRef.current, nextTargets));
+    const nextDirectionPool = next === "variations" ? createDefaultCreativeDirectionPool() : null;
+    directionPoolRef.current = nextDirectionPool;
+    setDirectionPool(nextDirectionPool);
+    setQuote(canonicalQuote(next, formatRef.current, nextTargets, nextDirectionPool ?? undefined));
     exposeIntent(next);
     if (next !== "restyle") requestAnimationFrame(() => composerRef.current?.focus());
   }, [exposeIntent]);
+
+  const toggleDirection = useCallback((directionId: string) => {
+    if (intentRef.current !== "variations") return;
+    const current = directionPoolRef.current ?? createDefaultCreativeDirectionPool();
+    const selectedIds = current.selectedIds.includes(directionId)
+      ? current.selectedIds.filter((id) => id !== directionId)
+      : current.selectedIds.length < 5
+        ? [...current.selectedIds, directionId]
+        : current.selectedIds;
+    if (selectedIds.length === 0 || selectedIds === current.selectedIds) return;
+    const next = { ...current, selectedIds };
+    directionPoolRef.current = next;
+    setDirectionPool(next);
+    setQuote(canonicalQuote("variations", formatRef.current, targetFormatsRef.current, next));
+  }, []);
+
+  const setManualDirectionInstruction = useCallback((manualInstruction: string) => {
+    if (intentRef.current !== "variations") return;
+    const current = directionPoolRef.current ?? createDefaultCreativeDirectionPool();
+    const next = { ...current, manualInstruction: manualInstruction || null };
+    directionPoolRef.current = next;
+    setDirectionPool(next);
+  }, []);
 
   const toggleTargetFormat = useCallback((value: Format) => {
     setTargetFormats((current) => {
       const next = current.includes(value) ? current.filter((item) => item !== value) : [...current, value];
       targetFormatsRef.current = next;
-      setQuote(canonicalQuote(intentRef.current, formatRef.current, next));
+      setQuote(canonicalQuote(intentRef.current, formatRef.current, next, directionPoolRef.current ?? undefined));
       return next;
     });
   }, []);
@@ -840,13 +916,13 @@ export function useCreativeComposer({
       formatModeRef.current = "manual";
       setFormatMode("manual");
       setFormat(value);
-      setQuote(canonicalQuote(intentRef.current, value, targetFormatsRef.current));
+      setQuote(canonicalQuote(intentRef.current, value, targetFormatsRef.current, directionPoolRef.current ?? undefined));
     },
     setFormatAuto: () => {
       formatModeRef.current = "auto";
       setFormatMode("auto");
     },
-    targetFormats, toggleTargetFormat, state, actionPhase, workId, clientProfileId, brandName,
+    targetFormats, toggleTargetFormat, directionPool, toggleDirection, setManualDirectionInstruction, state, actionPhase, workId, clientProfileId, brandName,
     sources: detail?.sources ?? [], outputs: detail?.outputs ?? [], quote, canGenerate, isUploading,
     campaignId: detail?.work.campaignId ?? null, campaigns,
     error, announcement, brandTrainingSuggestion: brandTrainingSuggestion ?? persistedBrandTrainingSuggestion,

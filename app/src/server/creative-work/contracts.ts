@@ -49,6 +49,42 @@ export interface CreativeDirectionPool {
   manualInstruction: string | null;
 }
 
+export const DEFAULT_CREATIVE_DIRECTIONS: CreativeDirection[] = [
+  {
+    id: "00000000-0000-4000-8000-000000000001",
+    label: "Conservadora",
+    instruction: "Preserve a composição, a hierarquia e os elementos essenciais da referência, variando apenas a execução com segurança.",
+    order: 0,
+    safetyBand: "safe",
+    provenance: "default",
+  },
+  {
+    id: "00000000-0000-4000-8000-000000000002",
+    label: "Equilibrada",
+    instruction: "Mantenha a identidade da referência e proponha uma variação clara de composição, copy e tratamento visual.",
+    order: 1,
+    safetyBand: "safe",
+    provenance: "default",
+  },
+  {
+    id: "00000000-0000-4000-8000-000000000003",
+    label: "Ousada",
+    instruction: "Explore uma direção visual mais expressiva e contrastante, sem perder os fatos, a marca e a intenção do pedido.",
+    order: 2,
+    safetyBand: "experimental",
+    provenance: "default",
+  },
+];
+
+export function createDefaultCreativeDirectionPool(): CreativeDirectionPool {
+  return {
+    version: 1,
+    directions: DEFAULT_CREATIVE_DIRECTIONS.map((direction) => ({ ...direction })),
+    selectedIds: DEFAULT_CREATIVE_DIRECTIONS.map((direction) => direction.id),
+    manualInstruction: null,
+  };
+}
+
 export type CreativeWorkSettings = {
   targetFormats: CreativeWorkFormat[];
   formatMode?: "auto" | "manual";

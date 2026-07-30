@@ -43,6 +43,7 @@ export function CreativeComposer({ composer, composerRef }: {
   const isVariations = composer.intent === "variations";
   const isSingle = composer.intent === "single";
   const isFormatAdaptation = composer.intent === "format_adaptation";
+  const directions = composer.directionPool;
   const readyVariationSource = isVariations
     ? composer.sources.find((source) => source.status === "ready") ?? null
     : null;
@@ -238,6 +239,46 @@ export function CreativeComposer({ composer, composerRef }: {
           onChange={composer.setRequest}
           textareaRef={composerRef}
         />
+      ) : null}
+
+      {isVariations && directions ? (
+        <fieldset className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-4">
+          <legend className="px-1 text-sm font-medium text-[var(--text-primary)]">{t("directionsTitle")}</legend>
+          <p className="mt-1 text-sm text-[var(--text-muted)]">{t("directionsHint")}</p>
+          <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label={t("directionsTitle")}>
+            {directions.directions.map((direction) => {
+              const selected = directions.selectedIds.includes(direction.id);
+              return (
+                <button
+                  key={direction.id}
+                  type="button"
+                  aria-pressed={selected}
+                  disabled={!selected && directions.selectedIds.length >= 5}
+                  onClick={() => composer.toggleDirection(direction.id)}
+                  className={cn(
+                    "rounded-full border px-3 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)] disabled:cursor-not-allowed disabled:opacity-50",
+                    selected
+                      ? "border-[var(--accent-primary)] bg-[var(--accent-primary)]/10 text-[var(--accent-primary-text)]"
+                      : "border-[var(--border-default)] bg-[var(--surface-raised)] text-[var(--text-secondary)]",
+                  )}
+                >
+                  {direction.label}
+                </button>
+              );
+            })}
+          </div>
+          <details className="mt-3 rounded-[var(--radius-control)] bg-[var(--surface-inset)] px-3 py-2">
+            <summary className="cursor-pointer text-sm font-medium text-[var(--text-secondary)]">{t("manualDirections")}</summary>
+            <textarea
+              aria-label={t("manualDirections")}
+              value={directions.manualInstruction ?? ""}
+              onChange={(event) => composer.setManualDirectionInstruction(event.target.value)}
+              placeholder={t("manualDirectionsPlaceholder")}
+              rows={3}
+              className="mt-2 w-full resize-y rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]"
+            />
+          </details>
+        </fieldset>
       ) : null}
 
       {composer.brandTrainingSuggestion ? (

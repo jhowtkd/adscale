@@ -154,6 +154,7 @@ export async function POST(request: Request) {
             intent: created.work.toolKind,
             format: created.work.format,
             targetFormats: created.work.settings.targetFormats,
+            directionPool: created.work.settings.directionPool,
           }),
           source: {
             ...source,

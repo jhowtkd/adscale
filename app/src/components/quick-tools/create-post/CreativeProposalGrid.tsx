@@ -40,13 +40,16 @@ export default function CreativeProposalGrid({
 }: CreativeProposalGridProps) {
   const latest = new Map<string, CreativeWorkOutput>();
   for (const output of outputs) {
-    const key = `${output.targetFormat ?? "4:5"}:${output.creativeLevel}`;
+    const key = output.directionId
+      ? `${output.targetFormat ?? "4:5"}:direction:${output.directionId}`
+      : `${output.targetFormat ?? "4:5"}:${output.creativeLevel}`;
     const current = latest.get(key);
     if (!current || (output.versionNumber ?? 1) > (current.versionNumber ?? 1)) latest.set(key, output);
   }
   const visible = [...latest.values()].sort((left, right) =>
     (left.targetFormat ?? "4:5").localeCompare(right.targetFormat ?? "4:5")
-      || LEVEL_ORDER.indexOf(left.creativeLevel) - LEVEL_ORDER.indexOf(right.creativeLevel),
+      || (left.directionSnapshot?.order ?? LEVEL_ORDER.indexOf(left.creativeLevel))
+        - (right.directionSnapshot?.order ?? LEVEL_ORDER.indexOf(right.creativeLevel)),
   );
   const approve = onApprove ?? onSave ?? (() => undefined);
 
@@ -56,7 +59,7 @@ export default function CreativeProposalGrid({
         <CreativeResultCard
           key={output.id}
           output={output}
-          label={LEVEL_LABELS[output.creativeLevel]}
+          label={output.directionSnapshot?.label ?? LEVEL_LABELS[output.creativeLevel]}
           onRetry={onRetry}
           onRetryRevision={onRetryRevision}
           onApprove={approve}

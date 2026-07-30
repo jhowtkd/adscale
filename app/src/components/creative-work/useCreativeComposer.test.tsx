@@ -51,6 +51,7 @@ vi.mock("@/lib/api-client", () => ({
 }));
 
 import { useCreativeComposer } from "./useCreativeComposer";
+import { createDefaultCreativeDirectionPool } from "@/server/creative-work/contracts";
 
 const profileA = { id: "profile-a", name: "Marca A" };
 const profileB = { id: "profile-b", name: "Marca B" };
@@ -117,6 +118,46 @@ describe("useCreativeComposer", () => {
     expect(result.current.intent).toBe("format_adaptation");
     expect(result.current.targetFormats).toEqual(["1:1", "9:16"]);
     expect(result.current.quote).toEqual({ unitCount: 2, credits: 10 });
+  });
+
+  it("selects between one and five directions and recalculates the quote", async () => {
+    const base = createDefaultCreativeDirectionPool();
+    const pool = {
+      ...base,
+      directions: [
+        ...base.directions,
+        { ...base.directions[0], id: "00000000-0000-4000-8000-000000000004", label: "Direção 4", order: 3 },
+        { ...base.directions[0], id: "00000000-0000-4000-8000-000000000005", label: "Direção 5", order: 4 },
+      ],
+      selectedIds: base.directions.map((direction) => direction.id),
+    };
+    mocks.work.mockReturnValue({
+      data: workDetail({ settings: { targetFormats: [], directionPool: pool } }),
+      isLoading: false,
+      isError: false,
+    });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+    await act(async () => Promise.resolve());
+
+    act(() => result.current.toggleDirection(pool.selectedIds[0]));
+    expect(result.current.directionPool?.selectedIds).toHaveLength(2);
+    expect(result.current.quote).toEqual({ unitCount: 2, credits: 10 });
+
+    act(() => {
+      result.current.toggleDirection(pool.directions[3].id);
+      result.current.toggleDirection(pool.directions[4].id);
+    });
+    expect(result.current.directionPool?.selectedIds).toHaveLength(4);
+    expect(result.current.quote).toEqual({ unitCount: 4, credits: 20 });
+
+    act(() => result.current.toggleDirection(pool.selectedIds[1]));
+    expect(result.current.directionPool?.selectedIds).toHaveLength(3);
+    await act(() => vi.advanceTimersByTimeAsync(500));
+    expect(mocks.autosave).toHaveBeenCalledWith(expect.objectContaining({
+      settings: expect.objectContaining({
+        directionPool: expect.objectContaining({ selectedIds: expect.any(Array) }),
+      }),
+    }));
   });
 
   it("never autosaves or regenerates a hydrated non-draft work", async () => {

@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import { invalidateCanonicalWorks } from "@/lib/hooks/use-canonical-works";
 import type { ContentBrief, StyleBrief } from "@/server/ai/image-analysis";
+import type { CreativeDirectionPool } from "@/server/creative-work/contracts";
 
 export type CreativeWorkStatus =
   | "draft"
@@ -64,7 +65,11 @@ export interface CreativeWorkItem {
   status: CreativeWorkStatus;
   brief: SocialPostBrief;
   format: "1:1" | "4:5" | "9:16";
-  settings: { targetFormats: Array<"1:1" | "4:5" | "9:16">; formatMode?: "auto" | "manual" };
+  settings: {
+    targetFormats: Array<"1:1" | "4:5" | "9:16">;
+    formatMode?: "auto" | "manual";
+    directionPool?: CreativeDirectionPool;
+  };
   copy: SocialPostCopy | null;
   identitySnapshot: CreativeWorkIdentitySnapshot | null;
   createdAt: Date | string;
@@ -91,6 +96,8 @@ export interface CreativeWorkOutput {
   failureCode: string | null;
   quality: Record<string, unknown> | null;
   isSelected: boolean;
+  directionId?: string | null;
+  directionSnapshot?: { label: string; instruction: string; order: number } | null;
   createdAt: Date | string;
   updatedAt: Date | string;
 }

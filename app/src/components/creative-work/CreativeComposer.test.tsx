@@ -40,9 +40,23 @@ import { CreativeComposer } from "./CreativeComposer";
 import type { CreativeComposerModel, CreativeComposerViewModel } from "./useCreativeComposer";
 
 function composer(overrides = {}) {
+  const directionPool = {
+    version: 1,
+    directions: [
+      { id: "00000000-0000-4000-8000-000000000001", label: "Conservadora", instruction: "Preservar", order: 0, safetyBand: "safe" as const, provenance: "default" as const },
+      { id: "00000000-0000-4000-8000-000000000002", label: "Equilibrada", instruction: "Equilibrar", order: 1, safetyBand: "safe" as const, provenance: "default" as const },
+      { id: "00000000-0000-4000-8000-000000000003", label: "Ousada", instruction: "Explorar", order: 2, safetyBand: "experimental" as const, provenance: "default" as const },
+    ],
+    selectedIds: [
+      "00000000-0000-4000-8000-000000000001",
+      "00000000-0000-4000-8000-000000000002",
+      "00000000-0000-4000-8000-000000000003",
+    ],
+    manualInstruction: null,
+  };
   return {
     composerRef: { current: null }, request: "", setRequest: vi.fn(), intent: "variations", selectIntent: vi.fn(),
-    format: "4:5", formatMode: "manual", setFormat: vi.fn(), setFormatAuto: vi.fn(), targetFormats: [], toggleTargetFormat: vi.fn(), state: "empty", actionPhase: "idle",
+    format: "4:5", formatMode: "manual", setFormat: vi.fn(), setFormatAuto: vi.fn(), targetFormats: [], toggleTargetFormat: vi.fn(), directionPool, toggleDirection: vi.fn(), setManualDirectionInstruction: vi.fn(), state: "empty", actionPhase: "idle",
     workId: null, brandName: "Marca A", sources: [], outputs: [], quote: { unitCount: 3, credits: 15 },
     campaignId: null, campaigns: [], linkCampaign: vi.fn(), retryOutput: vi.fn(), retryRevisionOutput: vi.fn(), approveOutput: vi.fn(),
     downloadOutput: vi.fn(), reviseOutput: vi.fn(), isRetryingOutput: vi.fn(), isApprovingOutput: vi.fn(), isRevisingOutput: vi.fn(),
