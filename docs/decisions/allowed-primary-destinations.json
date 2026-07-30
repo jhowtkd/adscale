@@ -27,9 +27,10 @@
     {
       "id": "creative_work_home",
       "kind": "primary_destination",
-      "description": "Início: adaptador operacional do trabalho criativo. /quick-tools/create-post existe somente como rota de compatibilidade para redirecionar links antigos.",
+      "description": "Início: adaptador operacional do trabalho criativo. /quick-tools/create-post existe somente como rota de compatibilidade para redirecionar links antigos. Exceção aprovada em 2026-07-30: /creative-work/[id] é a página própria autenticada do mesmo trabalho (retomada sem campanha, issue #126), não uma jornada concorrente.",
       "entrypoints": [
         "/",
+        "/creative-work/[id]",
         "/quick-tools/create-post",
         "src/app/api/creative-work"
       ]
@@ -80,6 +81,7 @@
       "assistant",
       "brand-kit",
       "campaigns",
+      "creative-work",
       "dashboard",
       "docs",
       "feedback",
@@ -95,6 +97,7 @@
       "campaigns/[id]/page.tsx",
       "campaigns/new/page.tsx",
       "campaigns/page.tsx",
+      "creative-work/[id]/page.tsx",
       "dashboard/page.tsx",
       "docs/page.tsx",
       "feedback/page.tsx",
@@ -219,6 +222,7 @@
       "creative-work/[id]/outputs/[outputId]/retry/route.ts",
       "creative-work/[id]/outputs/[outputId]/select/route.ts",
       "creative-work/[id]/route.ts",
+      "creative-work/[id]/suggest/route.ts",
       "creative-work/route.ts",
       "creatives/[id]/persona-simulation/route.ts",
       "dashboard/route.ts",
