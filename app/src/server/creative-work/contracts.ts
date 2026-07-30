@@ -215,7 +215,7 @@ export const creativeWorkIntentSchema = z.enum(CREATIVE_WORK_INTENTS);
 export const creativeWorkFormatSchema = z.enum(["1:1", "4:5", "9:16"]);
 
 export const creativeDirectionSchema = z.object({
-  id: z.string().trim().min(1),
+  id: z.string().uuid(),
   label: z.string().trim().min(1),
   instruction: z.string().trim().min(1),
   order: z.number().int().min(0),
@@ -324,10 +324,12 @@ export function quoteCreativeWork(input: {
 }): { plans: CreativeWorkOutputPlan[]; unitCount: number; credits: number } {
   if (input.directionPool && input.directionPool.selectedIds.length > 0) {
     const byId = new Map(input.directionPool.directions.map((direction) => [direction.id, direction]));
-    const plans: CreativeWorkOutputPlan[] = input.directionPool.selectedIds
-      .map((id) => byId.get(id))
-      .filter((direction): direction is CreativeDirection => direction !== undefined)
-      .map((direction) => ({
+    const plans: CreativeWorkOutputPlan[] = input.directionPool.selectedIds.map((id) => {
+      const direction = byId.get(id);
+      if (!direction) {
+        throw new Error(`selected direction id not found in pool: ${id}`);
+      }
+      return {
         creativeLevel: "balanced" as const,
         targetFormat: input.format,
         versionNumber: 1,
@@ -337,7 +339,8 @@ export function quoteCreativeWork(input: {
           instruction: direction.instruction,
           order: direction.order,
         },
-      }));
+      };
+    });
     return { plans, unitCount: plans.length, credits: plans.length * 5 };
   }
   const plans: CreativeWorkOutputPlan[] = input.intent === "variations" || input.intent === "social_post"

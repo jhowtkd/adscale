@@ -2657,12 +2657,23 @@ export const creativeWorkOutputs = adscaleSchema.table(
     updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
   },
   (table) => [
-    uniqueIndex("creative_work_outputs_plan_uq").on(
-      table.workItemId,
-      table.creativeLevel,
-      table.targetFormat,
-      table.versionNumber,
-    ),
+    uniqueIndex("creative_work_outputs_direction_plan_uq")
+      .on(
+        table.workItemId,
+        table.creativeLevel,
+        table.targetFormat,
+        table.versionNumber,
+        table.directionId,
+      )
+      .where(sql`${table.directionId} is not null`),
+    uniqueIndex("creative_work_outputs_legacy_plan_uq")
+      .on(
+        table.workItemId,
+        table.creativeLevel,
+        table.targetFormat,
+        table.versionNumber,
+      )
+      .where(sql`${table.directionId} is null`),
     uniqueIndex("creative_work_outputs_operation_uq").on(table.workItemId, table.operationKey),
     uniqueIndex("creative_work_outputs_selected_uq")
       .on(table.workItemId)

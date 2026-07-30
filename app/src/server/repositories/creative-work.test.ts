@@ -737,8 +737,8 @@ describe("creative-work repository", () => {
         id: "output-direction",
         targetFormat: "4:5",
         versionNumber: 1,
-        operationKey: "balanced:4:5:1:direction:d1",
-        directionId: "d1",
+        operationKey: "balanced:4:5:1:direction:00000000-0000-4000-8000-0000000000d1",
+        directionId: "00000000-0000-4000-8000-0000000000d1",
         directionSnapshot: { label: "A", instruction: "Make it A", order: 0 },
       });
       mocks.state.selectResults.push([{ id: "work-1" }], [planned]);
@@ -746,15 +746,62 @@ describe("creative-work repository", () => {
         creativeLevel: "balanced",
         targetFormat: "4:5",
         versionNumber: 1,
-        directionId: "d1",
+        directionId: "00000000-0000-4000-8000-0000000000d1",
         directionSnapshot: { label: "A", instruction: "Make it A", order: 0 },
       }]);
       expect(mocks.valuesMock).toHaveBeenCalledWith([expect.objectContaining({
-        operationKey: "balanced:4:5:1:direction:d1",
-        directionId: "d1",
+        operationKey: "balanced:4:5:1:direction:00000000-0000-4000-8000-0000000000d1",
+        directionId: "00000000-0000-4000-8000-0000000000d1",
         directionSnapshot: { label: "A", instruction: "Make it A", order: 0 },
       })]);
       expect(result.outputs).toHaveLength(1);
+    });
+
+    it("creates distinct plans for each selected direction without unique conflicts", async () => {
+      const planned = [
+        workOutput({
+          id: "output-direction-a",
+          targetFormat: "4:5",
+          versionNumber: 1,
+          operationKey: "balanced:4:5:1:direction:00000000-0000-4000-8000-0000000000d1",
+          directionId: "00000000-0000-4000-8000-0000000000d1",
+          directionSnapshot: { label: "A", instruction: "Make it A", order: 0 },
+        }),
+        workOutput({
+          id: "output-direction-b",
+          targetFormat: "4:5",
+          versionNumber: 1,
+          operationKey: "balanced:4:5:1:direction:00000000-0000-4000-8000-0000000000d2",
+          directionId: "00000000-0000-4000-8000-0000000000d2",
+          directionSnapshot: { label: "B", instruction: "Make it B", order: 1 },
+        }),
+      ];
+      mocks.state.selectResults.push([{ id: "work-1" }], planned);
+      const result = await createPlannedCreativeWorkOutputs("ws-1", "work-1", [
+        {
+          creativeLevel: "balanced",
+          targetFormat: "4:5",
+          versionNumber: 1,
+          directionId: "00000000-0000-4000-8000-0000000000d1",
+          directionSnapshot: { label: "A", instruction: "Make it A", order: 0 },
+        },
+        {
+          creativeLevel: "balanced",
+          targetFormat: "4:5",
+          versionNumber: 1,
+          directionId: "00000000-0000-4000-8000-0000000000d2",
+          directionSnapshot: { label: "B", instruction: "Make it B", order: 1 },
+        },
+      ]);
+      const rows = mocks.valuesMock.mock.calls.at(-1)?.[0] as Array<Record<string, unknown>>;
+      expect(rows).toHaveLength(2);
+      const keys = rows.map((row) => row.operationKey);
+      expect(new Set(keys).size).toBe(2);
+      expect(keys).toEqual([
+        "balanced:4:5:1:direction:00000000-0000-4000-8000-0000000000d1",
+        "balanced:4:5:1:direction:00000000-0000-4000-8000-0000000000d2",
+      ]);
+      expect(result.outputs).toHaveLength(2);
     });
 
     it("increments retries only on a scoped output", async () => {

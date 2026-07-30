@@ -44,7 +44,7 @@ export async function PATCH(
       return apiError("creativeWorkNotFound", 404);
     }
 
-    return NextResponse.json({ work: updated });
+    return NextResponse.json({ work: updated, outputs: [], sources: [] });
   } catch (error) {
     return handleApiError(error, "creative-work.[id].directions.PATCH");
   }

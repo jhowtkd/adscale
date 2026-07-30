@@ -216,15 +216,15 @@ describe("generateCreativeWork", () => {
     const directionPool = {
       version: 1,
       directions: [
-        { id: "d1", label: "A", instruction: "A instruction", order: 0, safetyBand: "safe" as const, provenance: "manual" as const },
-        { id: "d2", label: "B", instruction: "B instruction", order: 1, safetyBand: "experimental" as const, provenance: "ai-suggestion" as const },
+        { id: "00000000-0000-4000-8000-0000000000d1", label: "A", instruction: "A instruction", order: 0, safetyBand: "safe" as const, provenance: "manual" as const },
+        { id: "00000000-0000-4000-8000-0000000000d2", label: "B", instruction: "B instruction", order: 1, safetyBand: "experimental" as const, provenance: "ai-suggestion" as const },
       ],
-      selectedIds: ["d2"],
+      selectedIds: ["00000000-0000-4000-8000-0000000000d2"],
       manualInstruction: "Global instruction",
     };
     const settings = { targetFormats: [], directionPool };
     const directionRows = [
-      { id: "dir-1", creativeLevel: "balanced", targetFormat: "4:5", status: "queued", directionId: "d2", directionSnapshot: { label: "B", instruction: "B instruction", order: 1 } },
+      { id: "dir-1", creativeLevel: "balanced", targetFormat: "4:5", status: "queued", directionId: "00000000-0000-4000-8000-0000000000d2", directionSnapshot: { label: "B", instruction: "B instruction", order: 1 } },
     ];
     getWork.mockResolvedValue({ work: { ...work, settings }, outputs: [], sources: [] });
     prepare.mockResolvedValue({ ok: true, value: { work: { ...preparedWork, settings }, quote: {} } });
@@ -237,7 +237,7 @@ describe("generateCreativeWork", () => {
         creativeLevel: "balanced",
         targetFormat: "4:5",
         versionNumber: 1,
-        directionId: "d2",
+        directionId: "00000000-0000-4000-8000-0000000000d2",
         directionSnapshot: { label: "B", instruction: "B instruction", order: 1 },
       },
     ]);

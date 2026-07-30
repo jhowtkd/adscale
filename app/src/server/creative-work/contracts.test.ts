@@ -201,10 +201,10 @@ describe("creative work contracts", () => {
     const directionPool = {
       version: 1,
       directions: [
-        { id: "d1", label: "A", instruction: "Make it A", order: 0, safetyBand: "experimental" as const, provenance: "manual" as const },
-        { id: "d2", label: "B", instruction: "Make it B", order: 1, safetyBand: "safe" as const, provenance: "ai-suggestion" as const },
+        { id: "00000000-0000-4000-8000-0000000000d1", label: "A", instruction: "Make it A", order: 0, safetyBand: "experimental" as const, provenance: "manual" as const },
+        { id: "00000000-0000-4000-8000-0000000000d2", label: "B", instruction: "Make it B", order: 1, safetyBand: "safe" as const, provenance: "ai-suggestion" as const },
       ],
-      selectedIds: ["d2"],
+      selectedIds: ["00000000-0000-4000-8000-0000000000d2"],
       manualInstruction: "Global",
     };
     const quote = quoteCreativeWork({ intent: "social_post", format: "4:5", targetFormats: [], directionPool });
@@ -213,7 +213,7 @@ describe("creative work contracts", () => {
         creativeLevel: "balanced",
         targetFormat: "4:5",
         versionNumber: 1,
-        directionId: "d2",
+        directionId: "00000000-0000-4000-8000-0000000000d2",
         directionSnapshot: { label: "B", instruction: "Make it B", order: 1 },
       },
     ]);
@@ -225,6 +225,19 @@ describe("creative work contracts", () => {
     const quote = quoteCreativeWork({ intent: "variations", format: "4:5", targetFormats: [] });
     expect(quote.plans).toHaveLength(3);
     expect(quote.plans.every((plan) => plan.directionId === undefined)).toBe(true);
+  });
+
+  it("throws when a selected direction id is not present in the pool", () => {
+    const directionPool = {
+      version: 1,
+      directions: [
+        { id: "00000000-0000-4000-8000-0000000000d1", label: "A", instruction: "A", order: 0, safetyBand: "safe" as const, provenance: "default" as const },
+      ],
+      selectedIds: ["00000000-0000-4000-8000-0000000000d1", "00000000-0000-4000-8000-0000000000d2"],
+      manualInstruction: null,
+    };
+    expect(() => quoteCreativeWork({ intent: "social_post", format: "4:5", targetFormats: [], directionPool }))
+      .toThrow("selected direction id not found in pool: 00000000-0000-4000-8000-0000000000d2");
   });
 
   it("quotes exactly one output per target format without duplicates", () => {

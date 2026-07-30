@@ -741,13 +741,13 @@ describe("creativeWorkOutputJob", () => {
     getCreativeWorkMock.mockResolvedValue({
       work: workItem,
       outputs: [makeQueuedOutput({
-        directionId: "d1",
+        directionId: "00000000-0000-4000-8000-0000000000d1",
         directionSnapshot: { label: "A", instruction: "Use a dark cinematic mood", order: 0 },
       })],
     });
     markProcessingMock.mockResolvedValue(makeQueuedOutput({
       status: "processing",
-      directionId: "d1",
+      directionId: "00000000-0000-4000-8000-0000000000d1",
       directionSnapshot: { label: "A", instruction: "Use a dark cinematic mood", order: 0 },
     }));
     await runJob();

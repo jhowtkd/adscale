@@ -63,11 +63,12 @@ function makeDirection(overrides: Partial<{
   safetyBand: "safe" | "experimental";
   provenance: "default" | "ai-suggestion" | "manual";
 }> = {}) {
+  const order = overrides.order ?? 0;
   return {
-    id: `direction-${overrides.order ?? 0}`,
+    id: `00000000-0000-4000-8000-0000000000${order.toString().padStart(2, "0")}`,
     label: "Direction",
     instruction: "Make it bold",
-    order: 0,
+    order,
     safetyBand: "experimental" as const,
     provenance: "manual" as const,
     ...overrides,
@@ -88,10 +89,10 @@ describe("PATCH /api/creative-work/[id]/directions", () => {
     const directionPool = {
       version: 1,
       directions: [
-        makeDirection({ id: "d1", order: 0 }),
-        makeDirection({ id: "d2", order: 1 }),
+        makeDirection({ order: 0 }),
+        makeDirection({ order: 1 }),
       ],
-      selectedIds: ["d1"],
+      selectedIds: ["00000000-0000-4000-8000-000000000000"],
       manualInstruction: "Global instruction",
     };
     const updatedWork = { ...workItem, settings: { ...workItem.settings, directionPool } };
@@ -105,6 +106,8 @@ describe("PATCH /api/creative-work/[id]/directions", () => {
       settings: { targetFormats: [], directionPool },
     });
     expect(body.work.settings.directionPool).toEqual(directionPool);
+    expect(body.outputs).toEqual([]);
+    expect(body.sources).toEqual([]);
   });
 
   it("rejects a non-draft work with 409", async () => {
@@ -112,8 +115,8 @@ describe("PATCH /api/creative-work/[id]/directions", () => {
     const res = await requestPatch({
       directionPool: {
         version: 1,
-        directions: [makeDirection({ id: "d1" })],
-        selectedIds: ["d1"],
+        directions: [makeDirection({ order: 0 })],
+        selectedIds: ["00000000-0000-4000-8000-000000000000"],
         manualInstruction: null,
       },
     });
@@ -122,14 +125,15 @@ describe("PATCH /api/creative-work/[id]/directions", () => {
   });
 
   it("rejects duplicate direction ids", async () => {
+    const duplicateId = "00000000-0000-4000-8000-000000000000";
     const res = await requestPatch({
       directionPool: {
         version: 1,
         directions: [
-          makeDirection({ id: "d1", order: 0 }),
-          makeDirection({ id: "d1", order: 1 }),
+          makeDirection({ id: duplicateId, order: 0 }),
+          makeDirection({ id: duplicateId, order: 1 }),
         ],
-        selectedIds: ["d1"],
+        selectedIds: [duplicateId],
         manualInstruction: null,
       },
     });
@@ -141,8 +145,8 @@ describe("PATCH /api/creative-work/[id]/directions", () => {
     const res = await requestPatch({
       directionPool: {
         version: 1,
-        directions: [makeDirection({ id: "d1" })],
-        selectedIds: ["d1", "d2"],
+        directions: [makeDirection({ order: 0 })],
+        selectedIds: ["00000000-0000-4000-8000-000000000000", "00000000-0000-4000-8000-000000000001"],
         manualInstruction: null,
       },
     });
@@ -151,7 +155,7 @@ describe("PATCH /api/creative-work/[id]/directions", () => {
   });
 
   it("rejects more than five selected ids", async () => {
-    const directions = Array.from({ length: 6 }, (_, index) => makeDirection({ id: `d${index}`, order: index }));
+    const directions = Array.from({ length: 6 }, (_, index) => makeDirection({ order: index }));
     const res = await requestPatch({
       directionPool: {
         version: 1,
@@ -168,7 +172,7 @@ describe("PATCH /api/creative-work/[id]/directions", () => {
     const res = await requestPatch({
       directionPool: {
         version: 1,
-        directions: [makeDirection({ id: "d1" })],
+        directions: [makeDirection({ order: 0 })],
         selectedIds: [],
         manualInstruction: null,
       },
@@ -182,8 +186,8 @@ describe("PATCH /api/creative-work/[id]/directions", () => {
     const res = await requestPatch({
       directionPool: {
         version: 1,
-        directions: [makeDirection({ id: "d1" })],
-        selectedIds: ["d1"],
+        directions: [makeDirection({ order: 0 })],
+        selectedIds: ["00000000-0000-4000-8000-000000000000"],
         manualInstruction: null,
       },
     });
@@ -198,8 +202,8 @@ describe("PATCH /api/creative-work/[id]/directions", () => {
       updateDraftMock.mockResolvedValue(workItem);
       const directionPool = {
         version: 1,
-        directions: [makeDirection({ id: "d1" })],
-        selectedIds: ["d1"],
+        directions: [makeDirection({ order: 0 })],
+        selectedIds: ["00000000-0000-4000-8000-000000000000"],
         manualInstruction,
       };
       const res = await requestPatch({ directionPool });
