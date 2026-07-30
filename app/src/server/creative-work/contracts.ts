@@ -244,7 +244,16 @@ export type CreativeWorkOutputPlan = {
   targetFormat: CreativeWorkFormat;
   versionNumber: 1;
   directionId?: string;
-  directionSnapshot?: { label: string; instruction: string; order: number };
+  directionSnapshot?: {
+    label: string;
+    instruction: string;
+    order: number;
+    /**
+     * Safety/experimentation band frozen from the direction (#123). Absent on
+     * snapshots persisted before the band was frozen; those stay readable.
+     */
+    safetyBand?: CreativeDirectionSafetyBand;
+  };
 };
 
 export const creativeWorkIntentSchema = z.enum(CREATIVE_WORK_INTENTS);
@@ -261,7 +270,9 @@ export const creativeDirectionSchema = z.object({
 
 export const creativeDirectionPoolSchema = z.object({
   version: z.number().int().nonnegative(),
-  directions: z.array(creativeDirectionSchema).min(1),
+  // The persisted pool obeys the same five-direction cap as the selection: an
+  // autosave may never store an unbounded chip set.
+  directions: z.array(creativeDirectionSchema).min(1).max(5),
   selectedIds: z.array(z.string().trim().min(1)).min(1).max(5),
   manualInstruction: z.string().nullable(),
 }).superRefine((value, context) => {
@@ -383,6 +394,9 @@ export function quoteCreativeWork(input: {
           label: direction.label,
           instruction: direction.instruction,
           order: direction.order,
+          // The safety/experimentation band freezes with the rest of the
+          // direction (#123); creativeLevel stays "balanced" (#128).
+          safetyBand: direction.safetyBand,
         },
       };
     });

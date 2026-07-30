@@ -76,8 +76,8 @@ describe("quoteCreativeWork", () => {
     };
     const quote = quoteCreativeWork({ intent: "social_post", format: "4:5", targetFormats: [], directionPool });
     expect(quote.plans).toHaveLength(2);
-    expect(quote.plans[0]).toMatchObject({ directionId: "00000000-0000-4000-8000-0000000000d1", directionSnapshot: { label: "A" } });
-    expect(quote.plans[1]).toMatchObject({ directionId: "00000000-0000-4000-8000-0000000000d2", directionSnapshot: { label: "B" } });
+    expect(quote.plans[0]).toMatchObject({ directionId: "00000000-0000-4000-8000-0000000000d1", directionSnapshot: { label: "A", safetyBand: "safe" } });
+    expect(quote.plans[1]).toMatchObject({ directionId: "00000000-0000-4000-8000-0000000000d2", directionSnapshot: { label: "B", safetyBand: "experimental" } });
   });
 });
 

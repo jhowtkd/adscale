@@ -742,17 +742,10 @@ export async function createCreativeWorkRevision(
   instruction: string,
   revisionAssetId: string | null,
 ): Promise<{ output: CreativeWorkOutput; claimedForDispatch: boolean } | null> {
-  const operationKey = `revision:${revisionKey}`;
   const matchesCommand = (output: CreativeWorkOutput) =>
     output.parentOutputId === parentOutputId
     && output.revisionInstruction === instruction
     && output.revisionAssetId === revisionAssetId;
-  const [existing] = await db.select().from(creativeWorkOutputs).where(and(
-    eq(creativeWorkOutputs.workspaceId, workspaceId),
-    eq(creativeWorkOutputs.workItemId, workItemId),
-    eq(creativeWorkOutputs.operationKey, operationKey),
-  )).limit(1);
-  if (existing) return matchesCommand(existing) ? { output: existing, claimedForDispatch: false } : null;
 
   const [parent] = await db.select().from(creativeWorkOutputs).where(and(
     eq(creativeWorkOutputs.workspaceId, workspaceId),
@@ -760,6 +753,20 @@ export async function createCreativeWorkRevision(
     eq(creativeWorkOutputs.id, parentOutputId),
   )).limit(1);
   if (!parent) return null;
+
+  // Revisions of a directional output (#124) keep the parent direction: it
+  // scopes the idempotency key and the version sequence, otherwise revisions
+  // of different directions collapse into the shared legacy sequence.
+  const operationKey = parent.directionId
+    ? `revision:${revisionKey}:direction:${parent.directionId}`
+    : `revision:${revisionKey}`;
+  const [existing] = await db.select().from(creativeWorkOutputs).where(and(
+    eq(creativeWorkOutputs.workspaceId, workspaceId),
+    eq(creativeWorkOutputs.workItemId, workItemId),
+    eq(creativeWorkOutputs.operationKey, operationKey),
+  )).limit(1);
+  if (existing) return matchesCommand(existing) ? { output: existing, claimedForDispatch: false } : null;
+
   if (revisionAssetId) {
     const [asset] = await db.select({ id: workspaceAssets.id, type: workspaceAssets.type }).from(workspaceAssets).where(and(
       eq(workspaceAssets.workspaceId, workspaceId),
@@ -768,7 +775,9 @@ export async function createCreativeWorkRevision(
     if (!asset?.type.startsWith("image/")) return null;
   }
   return db.transaction(async (tx) => {
-    const versionScope = `${workspaceId}:${workItemId}:${parent.creativeLevel}:${parent.targetFormat}`;
+    const versionScope = parent.directionId
+      ? `${workspaceId}:${workItemId}:${parent.creativeLevel}:${parent.targetFormat}:direction:${parent.directionId}`
+      : `${workspaceId}:${workItemId}:${parent.creativeLevel}:${parent.targetFormat}`;
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${versionScope}))`);
 
     const [retry] = await tx.select().from(creativeWorkOutputs).where(and(
@@ -785,6 +794,7 @@ export async function createCreativeWorkRevision(
         eq(creativeWorkOutputs.workItemId, workItemId),
         eq(creativeWorkOutputs.creativeLevel, parent.creativeLevel),
         eq(creativeWorkOutputs.targetFormat, parent.targetFormat),
+        ...(parent.directionId ? [eq(creativeWorkOutputs.directionId, parent.directionId)] : []),
       ));
     const versionNumber = (latest?.maxVersion ?? 0) + 1;
     const [row] = await tx.insert(creativeWorkOutputs).values({
@@ -799,6 +809,8 @@ export async function createCreativeWorkRevision(
       operationKey,
       status: "queued",
       isSelected: false,
+      directionId: parent.directionId ?? null,
+      directionSnapshot: parent.directionSnapshot ?? null,
       queuedAt: new Date(),
     }).onConflictDoNothing().returning();
     if (row) return { output: row, claimedForDispatch: true };

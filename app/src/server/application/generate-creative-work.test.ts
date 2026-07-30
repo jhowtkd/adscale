@@ -238,7 +238,7 @@ describe("generateCreativeWork", () => {
         targetFormat: "4:5",
         versionNumber: 1,
         directionId: "00000000-0000-4000-8000-0000000000d2",
-        directionSnapshot: { label: "B", instruction: "B instruction", order: 1 },
+        directionSnapshot: { label: "B", instruction: "B instruction", order: 1, safetyBand: "experimental" },
       },
     ]);
     expect(charge).toHaveBeenCalledWith(expect.objectContaining({ unitCount: 1, chargeAmount: 5 }), expect.anything());

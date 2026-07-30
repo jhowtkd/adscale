@@ -86,7 +86,13 @@ interface DirectionalOutputRow {
   status: string;
   creativeLevel: string;
   directionId: string | null;
-  directionSnapshot: { label: string; instruction: string; order: number } | null;
+  directionSnapshot: {
+    label: string;
+    instruction: string;
+    order: number;
+    // Frozen from the direction (#123); absent on rows persisted before the band existed.
+    safetyBand?: "safe" | "experimental";
+  } | null;
   outputKey: string | null;
 }
 
@@ -361,6 +367,7 @@ test.describe("Creative directions #128 — chip selection journeys", () => {
       label: "Conservadora",
       instruction: selectedDirection!.instruction,
       order: selectedDirection!.order,
+      safetyBand: selectedDirection!.safetyBand,
     });
 
     // The UI renders the direction label, not a creative level. Generation was
@@ -432,6 +439,7 @@ test.describe("Creative directions #128 — chip selection journeys", () => {
         label: direction!.label,
         instruction: direction!.instruction,
         order: direction!.order,
+        safetyBand: direction!.safetyBand,
       });
     }
 
@@ -567,11 +575,12 @@ test.describe("Creative directions #130 — partial failure and isolated retry",
     const failed = byDirection.get("44444444-4444-4444-8444-444444444444");
     expect(failed, "the marker direction must be the failed output").toBeDefined();
     expect(failed!.status).toBe("failed");
-    // The direction stays frozen on the failed row.
+    // The direction stays frozen on the failed row, safety band included.
     expect(failed!.directionSnapshot).toEqual({
       label: "Direção Delta",
       instruction: "Contraste máximo mantendo a marca. [e2e:hard-fail-once]",
       order: 3,
+      safetyBand: "experimental",
     });
     const completedBefore = detail.outputs.filter((output) => output.status === "completed");
     expect(completedBefore).toHaveLength(4);

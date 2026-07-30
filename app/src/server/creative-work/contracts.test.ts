@@ -215,7 +215,7 @@ describe("creative work contracts", () => {
         targetFormat: "4:5",
         versionNumber: 1,
         directionId: "00000000-0000-4000-8000-0000000000d2",
-        directionSnapshot: { label: "B", instruction: "Make it B", order: 1 },
+        directionSnapshot: { label: "B", instruction: "Make it B", order: 1, safetyBand: "safe" },
       },
     ]);
     expect(quote.unitCount).toBe(1);
@@ -254,6 +254,34 @@ describe("creative work contracts", () => {
     expect(parsed.success).toBe(false);
     if (parsed.success) return;
     expect(parsed.error.issues.some((issue) => issue.message === "selectedIdsMustBeUnique" && issue.path.join(".") === "selectedIds.1")).toBe(true);
+  });
+
+  it("rejects a persisted pool with more than five directions and accepts exactly five", () => {
+    const direction = (index: number) => ({
+      id: `00000000-0000-4000-8000-0000000000d${index}`,
+      label: `D${index}`,
+      instruction: `Instruction ${index}`,
+      order: index,
+      safetyBand: "safe",
+      provenance: "default",
+    });
+    const parsed = creativeDirectionPoolSchema.safeParse({
+      version: 1,
+      directions: [0, 1, 2, 3, 4, 5].map(direction),
+      selectedIds: ["00000000-0000-4000-8000-0000000000d0"],
+      manualInstruction: null,
+    });
+    expect(parsed.success).toBe(false);
+    if (parsed.success) return;
+    expect(parsed.error.issues.some((issue) => issue.code === "too_big" && issue.path.join(".") === "directions")).toBe(true);
+
+    const atCap = creativeDirectionPoolSchema.safeParse({
+      version: 1,
+      directions: [0, 1, 2, 3, 4].map(direction),
+      selectedIds: ["00000000-0000-4000-8000-0000000000d0"],
+      manualInstruction: null,
+    });
+    expect(atCap.success).toBe(true);
   });
 
   it("quotes exactly one output per target format without duplicates", () => {

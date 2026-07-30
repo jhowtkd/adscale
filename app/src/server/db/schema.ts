@@ -2648,6 +2648,8 @@ export const creativeWorkOutputs = adscaleSchema.table(
       label: string;
       instruction: string;
       order: number;
+      // Frozen from the direction (#123); absent on rows persisted before the band existed.
+      safetyBand?: import("../creative-work/contracts").CreativeDirectionSafetyBand;
     }>(),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
     queuedAt: timestamp("queued_at", { mode: "date" }).notNull().defaultNow(),
