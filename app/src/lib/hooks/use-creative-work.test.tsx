@@ -210,6 +210,10 @@ describe("useTriggerTriplet", () => {
         outputs: [expect.objectContaining({ status: "queued" })],
       })
     );
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      "/api/creative-work/work-1/generate",
+      expect.objectContaining({ timeoutMs: 120_000 }),
+    );
   });
 });
 

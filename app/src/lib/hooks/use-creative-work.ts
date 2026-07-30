@@ -337,9 +337,10 @@ function postJson<T>(url: string, body?: unknown, timeoutMs?: number): Promise<T
   });
 }
 
-function patchJson<T>(url: string, body: unknown): Promise<T> {
+function patchJson<T>(url: string, body: unknown, timeoutMs?: number): Promise<T> {
   return apiFetch(url, {
     method: "PATCH",
+    timeoutMs,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   }).then(async (res) => {
@@ -459,7 +460,11 @@ export function usePrepareCreativeWork() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: { workItemId: string }) =>
-      patchJson<{ work: CreativeWorkDraftItem; quote: CreativeWorkQuote }>(`/api/creative-work/${input.workItemId}`, { action: "prepare" }),
+      patchJson<{ work: CreativeWorkDraftItem; quote: CreativeWorkQuote }>(
+        `/api/creative-work/${input.workItemId}`,
+        { action: "prepare" },
+        120_000,
+      ),
     onSuccess: (_data, input) => invalidateCreativeDraft(queryClient, input.workItemId),
   });
 }
@@ -559,6 +564,7 @@ export function useTriggerTriplet() {
       postJson<{ work: CreativeWorkItem; outputs: CreativeWorkOutput[]; brandTrainingSuggestion: string | null }>(
         `/api/creative-work/${workItemId}/generate`,
         { action: "initial" },
+        120_000,
       ),
     onSuccess: async (data, workItemId) => {
       queryClient.setQueryData<CreativeWorkDetail>(

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { z } from "zod";
 import { collectImageFiles, uploadChatAttachment } from "@/lib/assistant/chat-attachments";
-import { apiFetch } from "@/lib/api-client";
+import { apiFetch, isApiRequestUncertain } from "@/lib/api-client";
 import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
 import {
   useAutosaveCreativeWork,
@@ -31,7 +31,7 @@ import { quoteCreativeWork } from "@/server/creative-work/contracts";
 import type { CreativeInspiration } from "@/server/application/list-creative-inspirations";
 
 export type ComposerState = "empty" | "saving" | "analyzing" | "ready" | "generating" | "results";
-export type ComposerActionPhase = "idle" | "saving" | "preparing" | "submitting";
+export type ComposerActionPhase = "idle" | "saving" | "preparing" | "submitting" | "reconciling";
 export type ComposerIntent = Exclude<CreativeWorkItem["toolKind"], "social_post">;
 type Format = CreativeWorkItem["format"];
 type DraftSnapshot = {
@@ -639,6 +639,7 @@ export function useCreativeComposer({
     // A new submit supersedes any stale conflict panel — a generic failure
     // ahead must never render alongside an outdated choice.
     setBrandConflict(null);
+    let phase: ComposerActionPhase = "saving";
     try {
       const id = await flushAutosave();
       if (!id) return;
@@ -649,13 +650,15 @@ export function useCreativeComposer({
         setError("Aguarde a análise da arte terminar antes de gerar.");
         return;
       }
-      setActionPhase("preparing");
+      phase = "preparing";
+      setActionPhase(phase);
       const prepared = await prepareMutation.mutateAsync({ workItemId: id });
       lastPersistedRef.current = signature(snapshotFromWork(prepared.work));
       setQuote(prepared.quote);
       formatRef.current = prepared.work.format;
       setFormat(prepared.work.format);
-      setActionPhase("submitting");
+      phase = "submitting";
+      setActionPhase(phase);
       const generated = await generateMutation.mutateAsync(id);
       setBrandConflict(null);
       setBrandTrainingSuggestion(generated.brandTrainingSuggestion);
@@ -667,6 +670,26 @@ export function useCreativeComposer({
       const conflict = extractCreativeWorkBrandConflict(cause);
       if (conflict) {
         setBrandConflict(conflict);
+      } else if (isApiRequestUncertain(cause) && workIdRef.current) {
+        setActionPhase("reconciling");
+        try {
+          const reconciled = await detailQuery.refetch();
+          const detail = reconciled.data;
+          const accepted = Boolean(
+            detail
+            && (detail.work.status !== "draft" || detail.outputs.length > 0),
+          );
+          if (accepted) {
+            setError(null);
+            setAnnouncement("Geração aceita; acompanhando o processamento");
+          } else {
+            setError(phase === "preparing"
+              ? "A preparação não foi confirmada. Tente gerar novamente."
+              : "A geração não foi confirmada. Tente gerar novamente.");
+          }
+        } catch {
+          setError("Não foi possível confirmar o estado da geração. Atualize e tente novamente.");
+        }
       } else {
         setError(cause instanceof Error ? cause.message : "Falha ao gerar");
       }
@@ -674,7 +697,7 @@ export function useCreativeComposer({
       submitGuardRef.current = false;
       setActionPhase("idle");
     }
-  }, [detailQuery.data?.sources, detailQuery.data?.work, flushAutosave, generateMutation, prepareMutation]);
+  }, [detailQuery, detailQuery.data?.sources, detailQuery.data?.work, flushAutosave, generateMutation, prepareMutation]);
 
   const resolveBrandConflict = useCallback(async (choice: CreativeWorkBrandChoice) => {
     // Double-click guard: one choice in flight per conflict.

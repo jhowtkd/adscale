@@ -513,6 +513,7 @@
         "actionSaving": "Salvando",
         "actionPreparing": "Preparando",
         "actionSubmitting": "Enviando para geração",
+        "actionReconciling": "Confirmando geração",
         "actionGenerating": "Gerando",
         "optionalSettings": "Ajustes opcionais",
         "format": "Formato",

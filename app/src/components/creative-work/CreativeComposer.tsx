@@ -74,9 +74,11 @@ export function CreativeComposer({ composer, composerRef }: {
       ? t("actionPreparing")
       : composer.actionPhase === "submitting"
         ? t("actionSubmitting")
-        : composer.state === "generating"
-          ? t("actionGenerating")
-          : null;
+        : composer.actionPhase === "reconciling"
+          ? t("actionReconciling")
+          : composer.state === "generating"
+            ? t("actionGenerating")
+            : null;
 
   const handleDrop = (event: React.DragEvent) => {
     event.preventDefault();

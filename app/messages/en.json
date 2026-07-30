@@ -493,6 +493,7 @@
         "actionSaving": "Saving",
         "actionPreparing": "Preparing",
         "actionSubmitting": "Sending to generation",
+        "actionReconciling": "Confirming generation",
         "actionGenerating": "Generating",
         "optionalSettings": "Optional settings",
         "format": "Format",

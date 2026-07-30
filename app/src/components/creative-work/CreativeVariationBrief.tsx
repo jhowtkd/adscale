@@ -125,6 +125,7 @@ export function CreativeVariationBrief({
           </h3>
           {style ? (
             <div className="mt-2 space-y-3 text-sm text-[var(--text-primary)]">
+              <p>{summarizeVariationStyle(source)}</p>
               {style.palette?.length ? (
                 <div>
                   <p className="text-xs text-[var(--text-muted)]">{t("dominantColors")}</p>

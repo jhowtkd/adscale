@@ -47,6 +47,7 @@ vi.mock("@/lib/assistant/chat-attachments", () => ({
 }));
 vi.mock("@/lib/api-client", () => ({
   apiFetch: (...args: unknown[]) => mocks.apiFetch(...args),
+  isApiRequestUncertain: (error: unknown) => error instanceof Error && error.name === "TimeoutError",
 }));
 
 import { useCreativeComposer } from "./useCreativeComposer";
@@ -1034,6 +1035,22 @@ describe("useCreativeComposer", () => {
     expect(mocks.prepare).toHaveBeenCalledOnce();
     expect(mocks.generate).toHaveBeenCalledOnce();
     expect(mocks.autosave.mock.invocationCallOrder[0]).toBeLessThan(mocks.generate.mock.invocationCallOrder[0]);
+  });
+
+  it("reconciles an uncertain generation response before showing an error", async () => {
+    const refetch = vi.fn().mockResolvedValue({ data: {
+      ...workDetail({ status: "generating" }),
+      outputs: [{ status: "queued" }],
+    } });
+    mocks.work.mockReturnValue({ data: workDetail(), isLoading: false, refetch });
+    mocks.generate.mockRejectedValue(Object.assign(new Error("request timed out"), { name: "TimeoutError" }));
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+
+    await act(async () => { await result.current.generate(); });
+
+    expect(refetch).toHaveBeenCalledOnce();
+    expect(result.current.error).toBeNull();
+    expect(result.current.announcement).toContain("Geração aceita");
   });
 
   it("does not autosave a format inferred by prepare while generation starts", async () => {
