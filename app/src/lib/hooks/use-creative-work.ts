@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import { invalidateCanonicalWorks } from "@/lib/hooks/use-canonical-works";
 import type { ContentBrief, StyleBrief } from "@/server/ai/image-analysis";
-import type { CreativeDirectionPool } from "@/server/creative-work/contracts";
+import type { CreativeDirection, CreativeDirectionPool } from "@/server/creative-work/contracts";
 
 export type CreativeWorkStatus =
   | "draft"
@@ -595,6 +595,13 @@ export function useTriggerTriplet() {
         invalidateCanonicalWorks(queryClient),
       ]);
     },
+  });
+}
+
+export function useSuggestCreativeDirections() {
+  return useMutation({
+    mutationFn: (workItemId: string) =>
+      postJson<{ directions: CreativeDirection[] }>(`/api/creative-work/${workItemId}/suggest`, undefined, 60_000),
   });
 }
 

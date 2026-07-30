@@ -245,6 +245,9 @@ export function CreativeComposer({ composer, composerRef }: {
         <fieldset className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-4">
           <legend className="px-1 text-sm font-medium text-[var(--text-primary)]">{t("directionsTitle")}</legend>
           <p className="mt-1 text-sm text-[var(--text-muted)]">{t("directionsHint")}</p>
+          {composer.directionSuggestionState === "loading" ? (
+            <p className="mt-2 text-xs text-[var(--text-muted)]" role="status">{t("directionsLoading")}</p>
+          ) : null}
           <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label={t("directionsTitle")}>
             {directions.directions.map((direction) => {
               const selected = directions.selectedIds.includes(direction.id);
@@ -267,6 +270,35 @@ export function CreativeComposer({ composer, composerRef }: {
               );
             })}
           </div>
+          {composer.pendingDirectionSuggestions ? (
+            <div className="mt-3 rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-inset)] p-3">
+              <p className="text-sm text-[var(--text-secondary)]">{t("directionsReady")}</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => composer.applyDirectionSuggestions(composer.pendingDirectionSuggestions!)}
+                  className="rounded-[var(--radius-control)] bg-[var(--accent-primary)] px-3 py-1.5 text-sm font-semibold text-[var(--text-on-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]"
+                >
+                  {t("applyDirections")}
+                </button>
+                <button
+                  type="button"
+                  onClick={composer.keepCurrentDirections}
+                  className="rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-1.5 text-sm text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]"
+                >
+                  {t("keepDirections")}
+                </button>
+              </div>
+            </div>
+          ) : null}
+          {composer.directionSuggestionState === "error" ? (
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-[var(--text-muted)]">
+              <span>{t("directionsUnavailable")}</span>
+              <button type="button" onClick={composer.requestDirectionSuggestions} className="font-semibold text-[var(--accent-primary-text)] underline">{t("retryDirections")}</button>
+            </div>
+          ) : composer.directionSuggestionState === "ready" && !composer.pendingDirectionSuggestions ? (
+            <button type="button" onClick={composer.requestDirectionSuggestions} className="mt-3 text-sm font-semibold text-[var(--accent-primary-text)] underline">{t("suggestAgain")}</button>
+          ) : null}
           <details className="mt-3 rounded-[var(--radius-control)] bg-[var(--surface-inset)] px-3 py-2">
             <summary className="cursor-pointer text-sm font-medium text-[var(--text-secondary)]">{t("manualDirections")}</summary>
             <textarea

@@ -19,6 +19,7 @@ import {
   useCreativeWorkCampaigns,
   useResolveBrandConflict,
   useTriggerTriplet,
+  useSuggestCreativeDirections,
   extractCreativeWorkBrandConflict,
   type CreativeSourceUsage,
   type CreativeWorkBrandChoice,
@@ -30,6 +31,7 @@ import {
 import {
   createDefaultCreativeDirectionPool,
   quoteCreativeWork,
+  type CreativeDirection,
   type CreativeDirectionPool,
 } from "@/server/creative-work/contracts";
 import type { CreativeInspiration } from "@/server/application/list-creative-inspirations";
@@ -129,6 +131,8 @@ export function useCreativeComposer({
     initialTargetFormats,
     initialIntent === "variations" ? createDefaultCreativeDirectionPool() : undefined,
   ));
+  const [directionSuggestionState, setDirectionSuggestionState] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [pendingDirectionSuggestions, setPendingDirectionSuggestions] = useState<CreativeDirection[] | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [actionPhase, setActionPhase] = useState<ComposerActionPhase>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -154,6 +158,8 @@ export function useCreativeComposer({
   const draftEpochRef = useRef(0);
   const saveChainRef = useRef<Promise<void>>(Promise.resolve());
   const submitGuardRef = useRef(false);
+  const directionSuggestionRequestedRef = useRef<string | null>(null);
+  const directionTouchedRef = useRef(false);
   const autosaveBlockedWorkRef = useRef<string | null>(null);
   const didFocusComposerRef = useRef(false);
   const focusFrameRef = useRef<number | null>(null);
@@ -170,6 +176,7 @@ export function useCreativeComposer({
   const prepareMutation = usePrepareCreativeWork();
   const sourceMutation = useCreativeWorkSourceActions();
   const generateMutation = useTriggerTriplet();
+  const suggestDirectionMutation = useSuggestCreativeDirections();
   const retryOutputMutation = useRetryOutput();
   const reviseOutputMutation = useReviseOutput();
   const selectOutputMutation = useSelectOutput();
@@ -485,6 +492,10 @@ export function useCreativeComposer({
     setRequestState("");
     setError(null);
     setBrandConflict(null);
+    directionSuggestionRequestedRef.current = null;
+    directionTouchedRef.current = false;
+    setPendingDirectionSuggestions(null);
+    setDirectionSuggestionState("idle");
     setActionPhase("idle");
     intentRef.current = next;
     setIntent(next);
@@ -509,6 +520,7 @@ export function useCreativeComposer({
         : current.selectedIds;
     if (selectedIds.length === 0 || selectedIds === current.selectedIds) return;
     const next = { ...current, selectedIds };
+    directionTouchedRef.current = true;
     directionPoolRef.current = next;
     setDirectionPool(next);
     setQuote(canonicalQuote("variations", formatRef.current, targetFormatsRef.current, next));
@@ -518,9 +530,60 @@ export function useCreativeComposer({
     if (intentRef.current !== "variations") return;
     const current = directionPoolRef.current ?? createDefaultCreativeDirectionPool();
     const next = { ...current, manualInstruction: manualInstruction || null };
+    directionTouchedRef.current = true;
     directionPoolRef.current = next;
     setDirectionPool(next);
   }, []);
+
+  const applyDirectionSuggestions = useCallback((suggestions: CreativeDirection[]) => {
+    if (suggestions.length === 0) return;
+    const current = directionPoolRef.current;
+    const next = {
+      version: 1,
+      directions: suggestions,
+      selectedIds: suggestions.slice(0, 3).map((direction) => direction.id),
+      manualInstruction: current?.manualInstruction ?? null,
+    } satisfies CreativeDirectionPool;
+    directionPoolRef.current = next;
+    setDirectionPool(next);
+    setQuote(canonicalQuote("variations", formatRef.current, targetFormatsRef.current, next));
+    setPendingDirectionSuggestions(null);
+    setDirectionSuggestionState("ready");
+  }, []);
+
+  const requestDirectionSuggestions = useCallback(() => {
+    directionSuggestionRequestedRef.current = null;
+    setDirectionSuggestionState("idle");
+  }, []);
+
+  const keepCurrentDirections = useCallback(() => {
+    setPendingDirectionSuggestions(null);
+    setDirectionSuggestionState("ready");
+  }, []);
+
+  useEffect(() => {
+    const currentWork = detailQuery.data?.work;
+    const readySource = detailQuery.data?.sources.find((source) => source.status === "ready");
+    if (
+      intent !== "variations"
+      || !workId
+      || !readySource
+      || (currentWork && currentWork.status !== "draft")
+      || currentWork?.settings.directionPool?.directions.some((direction) => direction.provenance === "ai-suggestion")
+      || directionSuggestionRequestedRef.current === workId
+    ) return;
+
+    directionSuggestionRequestedRef.current = workId;
+    setDirectionSuggestionState("loading");
+    void suggestDirectionMutation.mutateAsync(workId).then((result) => {
+      if (directionTouchedRef.current) {
+        setPendingDirectionSuggestions(result.directions);
+        setDirectionSuggestionState("ready");
+      } else {
+        applyDirectionSuggestions(result.directions);
+      }
+    }).catch(() => setDirectionSuggestionState("error"));
+  }, [applyDirectionSuggestions, detailQuery.data?.sources, detailQuery.data?.work, directionSuggestionState, intent, suggestDirectionMutation, workId]);
 
   const toggleTargetFormat = useCallback((value: Format) => {
     setTargetFormats((current) => {
@@ -922,7 +985,9 @@ export function useCreativeComposer({
       formatModeRef.current = "auto";
       setFormatMode("auto");
     },
-    targetFormats, toggleTargetFormat, directionPool, toggleDirection, setManualDirectionInstruction, state, actionPhase, workId, clientProfileId, brandName,
+    targetFormats, toggleTargetFormat, directionPool, toggleDirection, setManualDirectionInstruction,
+    directionSuggestionState, pendingDirectionSuggestions, applyDirectionSuggestions, requestDirectionSuggestions, keepCurrentDirections,
+    state, actionPhase, workId, clientProfileId, brandName,
     sources: detail?.sources ?? [], outputs: detail?.outputs ?? [], quote, canGenerate, isUploading,
     campaignId: detail?.work.campaignId ?? null, campaigns,
     error, announcement, brandTrainingSuggestion: brandTrainingSuggestion ?? persistedBrandTrainingSuggestion,

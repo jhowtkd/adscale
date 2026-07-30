@@ -1,4 +1,4 @@
-import { act, render, renderHook } from "@testing-library/react";
+import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { StrictMode, type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   prepare: vi.fn(),
   source: vi.fn(),
   generate: vi.fn(),
+  suggest: vi.fn(),
   upload: vi.fn(),
   retryOutput: vi.fn(),
   reviseOutput: vi.fn(),
@@ -33,6 +34,7 @@ vi.mock("@/lib/hooks/use-creative-work", async (importOriginal) => ({
   usePrepareCreativeWork: () => ({ mutateAsync: mocks.prepare, isPending: false }),
   useCreativeWorkSourceActions: () => ({ mutateAsync: mocks.source, isPending: false }),
   useTriggerTriplet: () => ({ mutateAsync: mocks.generate, isPending: false }),
+  useSuggestCreativeDirections: () => ({ mutateAsync: mocks.suggest, isPending: false }),
   useRetryOutput: () => ({ mutateAsync: mocks.retryOutput, isPending: false, variables: undefined }),
   useReviseOutput: () => ({ mutateAsync: mocks.reviseOutput, isPending: false, variables: undefined }),
   useSelectOutput: () => ({ mutateAsync: mocks.selectOutput, isPending: false, variables: undefined }),
@@ -104,6 +106,7 @@ describe("useCreativeComposer", () => {
     mocks.autosave.mockResolvedValue({ work: { id: "work-1" } });
     mocks.prepare.mockResolvedValue({ work: workDetail().work, quote: { unitCount: 3, credits: 15 } });
     mocks.generate.mockResolvedValue({ work: { status: "generating" }, outputs: [] });
+    mocks.suggest.mockResolvedValue({ directions: [] });
     mocks.upload.mockResolvedValue({ assetId: "asset-1", name: "arte.png" });
     mocks.source.mockResolvedValue({ source: { id: "source-1" } });
     // clearAllMocks keeps mockReturnValue implementations — reset explicitly.
@@ -158,6 +161,34 @@ describe("useCreativeComposer", () => {
         directionPool: expect.objectContaining({ selectedIds: expect.any(Array) }),
       }),
     }));
+  });
+
+  it("applies five contextual suggestions automatically when the user has not touched directions", async () => {
+    vi.useRealTimers();
+    const suggestions = Array.from({ length: 5 }, (_, index) => ({
+      id: `00000000-0000-4000-8000-00000000000${index + 1}`,
+      label: `Sugestão ${index + 1}`,
+      instruction: `Instrução ${index + 1}`,
+      order: index,
+      safetyBand: "safe" as const,
+      provenance: "ai-suggestion" as const,
+    }));
+    mocks.work.mockReturnValue({
+      data: {
+        ...workDetail(),
+        sources: [{ id: "source-1", status: "ready" }],
+      },
+      isLoading: false,
+      isError: false,
+    });
+    mocks.suggest.mockResolvedValue({ directions: suggestions });
+
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+    await waitFor(() => expect(result.current.directionPool?.directions[0].provenance).toBe("ai-suggestion"));
+
+    expect(mocks.suggest).toHaveBeenCalledWith("work-1");
+    expect(result.current.directionPool?.selectedIds).toEqual(suggestions.slice(0, 3).map((suggestion) => suggestion.id));
+    expect(result.current.quote).toEqual({ unitCount: 3, credits: 15 });
   });
 
   it("never autosaves or regenerates a hydrated non-draft work", async () => {

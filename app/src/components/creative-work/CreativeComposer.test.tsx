@@ -56,7 +56,7 @@ function composer(overrides = {}) {
   };
   return {
     composerRef: { current: null }, request: "", setRequest: vi.fn(), intent: "variations", selectIntent: vi.fn(),
-    format: "4:5", formatMode: "manual", setFormat: vi.fn(), setFormatAuto: vi.fn(), targetFormats: [], toggleTargetFormat: vi.fn(), directionPool, toggleDirection: vi.fn(), setManualDirectionInstruction: vi.fn(), state: "empty", actionPhase: "idle",
+    format: "4:5", formatMode: "manual", setFormat: vi.fn(), setFormatAuto: vi.fn(), targetFormats: [], toggleTargetFormat: vi.fn(), directionPool, toggleDirection: vi.fn(), setManualDirectionInstruction: vi.fn(), directionSuggestionState: "idle", pendingDirectionSuggestions: null, applyDirectionSuggestions: vi.fn(), requestDirectionSuggestions: vi.fn(), keepCurrentDirections: vi.fn(), state: "empty", actionPhase: "idle",
     workId: null, brandName: "Marca A", sources: [], outputs: [], quote: { unitCount: 3, credits: 15 },
     campaignId: null, campaigns: [], linkCampaign: vi.fn(), retryOutput: vi.fn(), retryRevisionOutput: vi.fn(), approveOutput: vi.fn(),
     downloadOutput: vi.fn(), reviseOutput: vi.fn(), isRetryingOutput: vi.fn(), isApprovingOutput: vi.fn(), isRevisingOutput: vi.fn(),
