@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useReducer, useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { m, useReducedMotion } from "framer-motion";
+import { m, useReducedMotion } from "@/components/animations/MotionBoundary";
 import { Check, Upload, X, Wand2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/store";

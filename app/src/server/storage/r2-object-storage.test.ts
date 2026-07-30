@@ -66,6 +66,38 @@ describe("R2ObjectStorage", () => {
     await expect(storage.get("assets/image.png")).resolves.toEqual(data);
   });
 
+  it("uploads a readable stream without materializing it in the adapter", async () => {
+    const storage = new R2ObjectStorage();
+    const stream = Readable.from([Buffer.from("zip")]);
+
+    mocks.send.mockResolvedValueOnce({});
+    await storage.putStream("exports/archive.zip", stream, "application/zip");
+
+    expect(mocks.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: expect.objectContaining({
+          Key: "exports/archive.zip",
+          Body: stream,
+          ContentType: "application/zip",
+        }),
+      }),
+      { abortSignal: undefined },
+    );
+  });
+
+  it("destroys a download stream when its signal is aborted", async () => {
+    const storage = new R2ObjectStorage();
+    const stream = Readable.from([Buffer.from("zip")]);
+    stream.on("error", () => undefined);
+    mocks.send.mockResolvedValueOnce({ Body: stream });
+    const controller = new AbortController();
+
+    await storage.getStream("exports/archive.zip", controller.signal);
+    controller.abort();
+
+    expect(stream.destroyed).toBe(true);
+  });
+
   it("normalizes head metadata and returns null when head fails", async () => {
     const storage = new R2ObjectStorage();
 

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { env } from "@/server/validation/env";
 import type { GenerationMode } from "@/server/generation/canonical/types";
 import { extractOutputText, getOpenAI } from "./utils";
+import { isE2EControlledProviderEnabled } from "./providers/e2e-controlled-provider";
 
 const creativeRouteSchema = z.object({
   id: z.string().min(1),
@@ -57,9 +58,49 @@ SOURCE CONTRACT:
 ${input.sourcePrompt}`;
 }
 
+function controlledRoutes(input: CreativeRoutePlannerInput): CreativeRoute[] {
+  const objective = input.objective ?? "the stated objective";
+  return normalizeCreativeRoutes({
+    routes: [
+      {
+        id: "controlled-monument",
+        thesis: `Make ${objective} immediately legible through one dominant idea`,
+        visualMechanism: "single_focal_composition",
+        scene: "A restrained editorial scene built around one clear focal subject",
+        composition: "Dominant subject centered with deliberate negative space",
+        preserve: ["brief objective", "brand identity"],
+        avoid: ["generic polish", "floating interface cards"],
+        renderPrompt: "A restrained editorial composition with one dominant focal subject and clear thumbnail reading.",
+      },
+      {
+        id: "controlled-moment",
+        thesis: `Show ${objective} in a concrete human context`,
+        visualMechanism: "documentary_context",
+        scene: "A natural, lived-in moment where the benefit is visible through action",
+        composition: "Subject offset to one side with environmental depth and an open text area",
+        preserve: ["brief objective", "natural materiality"],
+        avoid: ["stock-photo posing", "empty studio background"],
+        renderPrompt: "A candid documentary-style scene with natural light, visible action, and an honest lived-in context.",
+      },
+      {
+        id: "controlled-proof",
+        thesis: `Turn evidence for ${objective} into the visual structure`,
+        visualMechanism: "physical_proof_material",
+        scene: "A physical material or object makes the core proof tangible around the subject",
+        composition: "Structured still life with the proof interrupting a simple visual grid",
+        preserve: ["brief objective", "legible hierarchy"],
+        avoid: ["generic infographic", "oversized call-to-action"],
+        renderPrompt: "An editorial still life where the core proof becomes a tangible material in a structured, high-contrast composition.",
+      },
+    ],
+  });
+}
+
 export async function planCreativeRoutes(
   input: CreativeRoutePlannerInput
 ): Promise<CreativeRoute[]> {
+  if (isE2EControlledProviderEnabled()) return controlledRoutes(input);
+
   const response = await getOpenAI().responses.create(
     {
       model: env.OPENAI_TEXT_MODEL,

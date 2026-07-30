@@ -14,6 +14,7 @@ import {
   setCreativeWorkInputSnapshotIfMissing,
 } from "@/server/repositories/creative-work";
 import { prepareCreativeWork } from "./prepare-creative-work";
+import { logCreativeWorkGenerationLifecycle } from "@/server/creative-work/job-telemetry";
 
 export type GenerateCreativeWorkResult =
   | { ok: true; value: { work: NonNullable<Awaited<ReturnType<typeof getCreativeWork>>>["work"]; outputs: NonNullable<Awaited<ReturnType<typeof getCreativeWork>>>["outputs"]; billingKey: string; brandTrainingSuggestion: string | null } }
@@ -147,6 +148,15 @@ export async function generateCreativeWork(input: {
   }
 
   const quote = quoteCreativeWork({ intent: work.toolKind, format: work.format, targetFormats: work.settings.targetFormats });
+  logCreativeWorkGenerationLifecycle({
+    event: "creative_work_generation_requested",
+    workspaceId: input.workspaceId,
+    workItemId: input.workItemId,
+    generationCorrelationId: readyWork.generationCorrelationId,
+    unitCount: quote.unitCount,
+    credits: quote.credits,
+    unitChargeAmount: GENERATION_CREDIT_COSTS.creativeWorkOutput,
+  });
   const batch: GenerationBatchCharge = {
     kind: "batch",
     authorship: { workspaceId: input.workspaceId, userId: input.userId },
@@ -191,6 +201,17 @@ export async function generateCreativeWork(input: {
     }
     return { ok: false, error: { code: "dispatch_failed" } };
   }
+  logCreativeWorkGenerationLifecycle({
+    event: "creative_work_generation_accepted",
+    workspaceId: input.workspaceId,
+    workItemId: input.workItemId,
+    generationCorrelationId: settled.value.work.generationCorrelationId,
+    unitCount: settled.value.outputs.length,
+    outputIds: settled.value.outputs.map((output) => output.id),
+    credits: quote.credits,
+    unitChargeAmount: GENERATION_CREDIT_COSTS.creativeWorkOutput,
+    result: "accepted",
+  });
   return {
     ok: true,
     value: {

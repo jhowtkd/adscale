@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { m } from "framer-motion";
+import { m } from "@/components/animations/MotionBoundary";
 import {
   ArrowLeft,
   ArrowRight,

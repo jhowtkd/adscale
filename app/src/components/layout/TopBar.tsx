@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useMemo, useState, useRef, useEffect, useEffectEvent } from "react";
-import { AnimatePresence, m } from "framer-motion";
+import { AnimatePresence, m } from "@/components/animations/MotionBoundary";
 import { useAppStore } from "@/lib/store";
 import { authClient } from "@/lib/auth-client";
 import {

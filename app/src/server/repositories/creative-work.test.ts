@@ -156,6 +156,7 @@ vi.mock("./campaign", () => ({ getCampaignById: scopeMocks.getCampaignById }));
 import { creativeWorkOutputs } from "../db/schema";
 import {
   claimCreativeWorkOutputImageCall,
+  countCreativeWorkProcessingOutputs,
   confirmCreativeWorkIdentity,
   confirmCreativeWorkSnapshotsIfUnchanged,
   completeCreativeWorkOutput,
@@ -179,6 +180,7 @@ import {
   linkCreativeWorkCampaign,
   listCreativeWorkInspirationCandidates,
   refreshCreativeWorkStatus,
+  recordCreativeWorkGenerationAggregate,
   selectCreativeWorkOutput,
   setCreativeWorkBrief,
   setCreativeWorkCopy,
@@ -252,6 +254,7 @@ function workOutput(overrides: Partial<CreativeWorkOutput> = {}): CreativeWorkOu
     quality: null,
     isSelected: false,
     createdAt: new Date(),
+    terminalAt: null,
     updatedAt: new Date(),
     ...overrides,
   } as CreativeWorkOutput;
@@ -1048,7 +1051,7 @@ describe("creative-work repository", () => {
         workOutput({ id: "o3", creativeLevel: "bold", status: "queued" }),
       ];
       mocks.state.onConflictResults.push([]);
-      mocks.state.selectResults.push(outputs);
+      mocks.state.selectResults.push([{ generationCorrelationId: "generation-1" }], outputs);
 
       const result = await createCreativeWorkOutputs("ws-1", "work-1");
 
@@ -1068,7 +1071,7 @@ describe("creative-work repository", () => {
         workOutput({ id: "o3", creativeLevel: "bold" }),
       ];
       mocks.state.onConflictResults.push([]);
-      mocks.state.selectResults.push(existing);
+      mocks.state.selectResults.push([{ generationCorrelationId: "generation-1" }], existing);
 
       const result = await createCreativeWorkOutputs("ws-1", "work-1");
 
@@ -1089,6 +1092,17 @@ describe("creative-work repository", () => {
       );
       expect(result?.status).toBe("processing");
       expect(serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]).params).toContain("queued");
+    });
+  });
+
+  describe("countCreativeWorkProcessingOutputs", () => {
+    it("returns the current processing-unit snapshot scoped to the generation", async () => {
+      mocks.state.selectResults.push([{ count: "2" }]);
+
+      await expect(countCreativeWorkProcessingOutputs("ws-1", "work-1")).resolves.toBe(2);
+      expect(serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]).params).toEqual(
+        expect.arrayContaining(["ws-1", "work-1", "processing"]),
+      );
     });
   });
 
@@ -1211,6 +1225,41 @@ describe("creative-work repository", () => {
         expect.objectContaining({ status: "generating" })
       );
       expect(result?.status).toBe("generating");
+    });
+  });
+
+  describe("recordCreativeWorkGenerationAggregate", () => {
+    it("fixes the first terminal and closes a partial aggregate with durable CAS markers", async () => {
+      const createdAt = new Date("2026-07-28T12:00:00.000Z");
+      const queuedAt = new Date("2026-07-28T12:00:00.100Z");
+      const firstTerminalAt = new Date("2026-07-28T12:00:00.250Z");
+      const completedAt = new Date("2026-07-28T12:00:01.000Z");
+      mocks.state.selectResults.push(
+        [{
+          generationCorrelationId: "generation-1",
+          createdAt,
+          generationFirstTerminalAt: null,
+          generationCompletedAt: null,
+        }],
+        [
+          { status: "completed", queuedAt, createdAt: queuedAt, terminalAt: completedAt, updatedAt: new Date("2026-07-16T12:15:00.000Z") },
+          { status: "failed", queuedAt, createdAt: queuedAt, terminalAt: firstTerminalAt, updatedAt: new Date("2026-07-16T12:20:00.000Z") },
+        ],
+      );
+      mocks.state.txUpdateResults.push([{ id: "work-1" }], [{ id: "work-1" }]);
+
+      await expect(recordCreativeWorkGenerationAggregate("ws-1", "work-1")).resolves.toMatchObject({
+        generationCorrelationId: "generation-1",
+        unitCount: 2,
+        terminalCount: 2,
+        successCount: 1,
+        failureCount: 1,
+        result: "partial",
+        timeToFirstOutputMs: 150,
+        totalDurationMs: 900,
+        firstTerminalEmitted: true,
+        completionEmitted: true,
+      });
     });
   });
 

@@ -1,8 +1,8 @@
 "use client";
 
 import { memo, useCallback, useEffect, useRef, type CSSProperties } from "react";
+import { animate, useReducedMotion } from "@/components/animations/MotionBoundary";
 import { cn } from "@/lib/utils";
-import { animate } from "motion/react";
 
 interface GlowingEffectProps {
   blur?: number;
@@ -30,6 +30,7 @@ const GlowingEffect = memo(
     borderWidth = 1,
     disabled = true,
   }: GlowingEffectProps) => {
+    const reducedMotion = useReducedMotion();
     const containerRef = useRef<HTMLDivElement>(null);
     const lastPosition = useRef({ x: 0, y: 0 });
     const animationFrameRef = useRef<number>(0);
@@ -81,7 +82,7 @@ const GlowingEffect = memo(
           const newAngle = currentAngle + angleDiff;
 
           animate(currentAngle, newAngle, {
-            duration: movementDuration,
+            duration: reducedMotion ? 0 : movementDuration,
             ease: [0.16, 1, 0.3, 1],
             onUpdate: (value) => {
               element.style.setProperty("--start", String(value));
@@ -89,7 +90,7 @@ const GlowingEffect = memo(
           });
         });
       },
-      [inactiveZone, proximity, movementDuration]
+      [inactiveZone, proximity, movementDuration, reducedMotion]
     );
 
     useEffect(() => {

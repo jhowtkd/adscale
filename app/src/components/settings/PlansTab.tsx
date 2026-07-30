@@ -1,6 +1,6 @@
 "use client";
 
-import { m, useReducedMotion } from "framer-motion";
+import { m, useReducedMotion } from "@/components/animations/MotionBoundary";
 import { Check, Crown, Package } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";

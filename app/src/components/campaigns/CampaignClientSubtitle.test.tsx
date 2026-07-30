@@ -6,7 +6,7 @@ vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
 }));
 
-vi.mock("framer-motion", () => ({
+vi.mock("@/components/animations/MotionBoundary", () => ({
   m: {
     div: ({ children, ...props }: React.ComponentProps<"div">) => (
       <div {...props}>{children}</div>

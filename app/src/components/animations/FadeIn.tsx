@@ -1,6 +1,6 @@
 "use client"
 
-import { m, type HTMLMotionProps } from "framer-motion"
+import { m, type HTMLMotionProps } from "@/components/animations/MotionBoundary"
 import { ReactNode } from "react"
 import { useReducedMotion } from "@/lib/hooks/use-reduced-motion"
 import { fadeInUp, fadeIn, fadeInDown, scaleIn, slideInLeft, slideInRight } from "@/lib/animations/variants"

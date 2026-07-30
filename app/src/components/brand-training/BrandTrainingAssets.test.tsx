@@ -12,7 +12,7 @@ vi.mock("next-intl", () => ({
       : key,
 }));
 
-vi.mock("framer-motion", () => ({
+vi.mock("@/components/animations/MotionBoundary", () => ({
   m: {
     div: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
     li: ({ children }: { children?: ReactNode }) => <li>{children}</li>,

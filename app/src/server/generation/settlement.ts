@@ -75,6 +75,7 @@ export type GenerationSettlementDispatchFailure<T> = {
   value: T;
   refunds: GenerationSettlementRefund[];
   resumeAfterCompensation?: boolean;
+  onCompensated?: (input: { compensated: boolean }) => Promise<void>;
 };
 
 export type GenerationSettlementDeferred<T> =
@@ -118,6 +119,11 @@ async function compensateDispatchFailure<T>(
     } catch {
       compensated = false;
     }
+  }
+  try {
+    await failure.onCompensated?.({ compensated });
+  } catch {
+    // Settlement outcome is already decided; telemetry must not alter it.
   }
   if (compensated && failure.resumeAfterCompensation) {
     return { ok: true as const, value: failure.value };

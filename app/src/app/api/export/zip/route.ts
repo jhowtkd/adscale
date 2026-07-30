@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Readable } from "node:stream";
 import { z } from "zod";
 import JSZip from "jszip";
 import pLimit from "p-limit";
@@ -65,7 +66,7 @@ export async function POST(request: Request) {
 
     // ---- Goal branch: resolve the four approved canonical formats ----
     if (goalRunId) {
-      return resolveGoalExport(workspace.id, goalRunId);
+      return resolveGoalExport(workspace.id, goalRunId, request.signal);
     }
 
     // ---- Legacy branch: explicit derivation ids ----
@@ -85,28 +86,22 @@ export async function POST(request: Request) {
       return apiError("nothingToExport", 400);
     }
 
-    const zip = await buildZip(items, (item) => {
+    const zip = await buildZipStream(items, (item) => {
       const suffix = (item.format && FORMAT_TO_SUFFIX[item.format]) || "creative";
       return `derivation-${item.id}-${suffix}.png`;
-    });
+    }, undefined, request.signal);
 
     if (!zip.filesAdded) {
       return apiError("nothingToExport", 400);
     }
 
-    return new NextResponse(new Uint8Array(zip.buffer), {
-      status: 200,
-      headers: {
-        "Content-Type": "application/zip",
-        "Content-Disposition": `attachment; filename="adscale-derivations-${Date.now()}.zip"`,
-      },
-    });
+    return zipResponse(zip.stream, `attachment; filename="adscale-derivations-${Date.now()}.zip"`);
   } catch (error) {
     return handleApiError(error, "export.zip.POST");
   }
 }
 
-async function resolveGoalExport(workspaceId: string, goalRunId: string) {
+async function resolveGoalExport(workspaceId: string, goalRunId: string, signal?: AbortSignal) {
   const [goalRow] = await db
     .select()
     .from(assistantGoalRuns)
@@ -167,54 +162,58 @@ async function resolveGoalExport(workspaceId: string, goalRunId: string) {
     }),
   };
 
-  const zip = await buildZip(
+  const zip = await buildZipStream(
     GOAL_FORMATS.map((f) => byFormat.get(f)!),
     (item) => {
       const suffix = FORMAT_TO_SUFFIX[item.format ?? ""] ?? "creative";
       return `${slug}-${suffix}.png`;
     },
-    manifest
+    manifest,
+    signal,
   );
 
-  return new NextResponse(new Uint8Array(zip.buffer), {
-    status: 200,
-    headers: {
-      "Content-Type": "application/zip",
-      "Content-Disposition": `attachment; filename="${slug}-goal-package.zip"`,
-    },
-  });
+  return zipResponse(zip.stream, `attachment; filename="${slug}-goal-package.zip"`);
 }
 
 interface BuildZipResult {
-  buffer: Buffer;
+  stream: Readable;
   filesAdded: number;
 }
 
-async function buildZip(
+type ZipInput = Buffer | NodeJS.ReadableStream;
+
+async function buildZipStream(
   items: ExportItem[],
   fileNameFor: (item: ExportItem) => string,
-  manifest?: unknown
+  manifest?: unknown,
+  signal?: AbortSignal,
 ): Promise<BuildZipResult> {
+  if (signal?.aborted) {
+    throw new DOMException("Aborted", "AbortError");
+  }
   const zip = new JSZip();
   let filesAdded = 0;
   const concurrency = pLimit(4);
 
-  const files = await Promise.all(
+  const availableItems = await Promise.all(
     items.map((item) =>
       concurrency(async () => {
         if (!item.outputKey) return null;
         try {
-          const buffer = await objectStorage.get(item.outputKey);
-          return { fileName: fileNameFor(item), buffer };
-        } catch {
+          const data: ZipInput = objectStorage.getStream
+            ? await objectStorage.getStream(item.outputKey, signal)
+            : await objectStorage.get(item.outputKey, signal);
+          return { item, data };
+        } catch (error) {
+          if (signal?.aborted) throw error;
           return null;
         }
       })
     )
   );
-  for (const file of files) {
-    if (!file) continue;
-    zip.file(file.fileName, file.buffer);
+  for (const available of availableItems) {
+    if (!available) continue;
+    zip.file(fileNameFor(available.item), available.data);
     filesAdded++;
   }
 
@@ -224,7 +223,33 @@ async function buildZip(
   }
 
   return {
-    buffer: await zip.generateAsync({ type: "nodebuffer" }),
+    stream: attachAbortSignal(
+      zip.generateNodeStream({ type: "nodebuffer", streamFiles: true }),
+      signal,
+    ),
     filesAdded,
   };
+}
+
+function attachAbortSignal(stream: NodeJS.ReadableStream, signal?: AbortSignal): Readable {
+  const readable = stream as Readable;
+  if (!signal) return readable;
+  const abort = () => readable.destroy(new DOMException("Aborted", "AbortError"));
+  if (signal.aborted) {
+    abort();
+    return readable;
+  }
+  signal.addEventListener("abort", abort, { once: true });
+  readable.once("close", () => signal.removeEventListener("abort", abort));
+  return readable;
+}
+
+function zipResponse(stream: Readable, contentDisposition: string): NextResponse {
+  return new NextResponse(Readable.toWeb(stream) as ReadableStream<Uint8Array>, {
+    status: 200,
+    headers: {
+      "Content-Type": "application/zip",
+      "Content-Disposition": contentDisposition,
+    },
+  });
 }

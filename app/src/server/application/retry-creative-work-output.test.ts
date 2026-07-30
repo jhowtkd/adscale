@@ -37,6 +37,7 @@ const mockSend = vi.mocked(inngest.send);
 const workItem = {
   id: "work-1",
   workspaceId: "ws-1",
+  generationCorrelationId: "generation-1",
   brief: { theme: "Tema", objective: "O", audience: "A", offer: "Of" },
 };
 
@@ -44,6 +45,7 @@ const failedOutput = {
   id: "output-1",
   workspaceId: "ws-1",
   workItemId: "work-1",
+  generationCorrelationId: "generation-1",
   creativeLevel: "balanced",
   status: "failed",
   outputKey: null,
@@ -62,6 +64,7 @@ describe("retryCreativeWorkOutput", () => {
       ...failedOutput,
       status: "queued",
       failureCode: null,
+      retryCount: 1,
     } as never);
     // Default: no refund ledger rows, so no reactivation debit is needed.
     mockGetUsage.mockResolvedValue(null as never);
@@ -86,11 +89,13 @@ describe("retryCreativeWorkOutput", () => {
     expect(mockRequeue).toHaveBeenCalledWith("ws-1", "work-1", "output-1");
     expect(mockSend).toHaveBeenCalledWith([
       {
+        id: "creative-work-generate:output-1:retry-1",
         name: "creative-work.generate",
         data: {
           workspaceId: "ws-1",
           workItemId: "work-1",
           outputId: "output-1",
+          generationCorrelationId: "generation-1",
         },
       },
     ]);

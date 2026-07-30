@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useMemo } from "react";
-import { m } from "framer-motion";
+import { m } from "@/components/animations/MotionBoundary";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import ProfileTab from "@/components/settings/ProfileTab";

@@ -81,6 +81,7 @@ interface TestScope {
   grantId: string;
   clientProfileId: string;
   workItemId: string;
+  generationCorrelationId: string;
 }
 
 /**
@@ -149,6 +150,7 @@ async function createScope(): Promise<TestScope> {
     grantId: grant.id,
     clientProfileId: profile.id,
     workItemId: work.id,
+    generationCorrelationId: work.generationCorrelationId,
   };
 }
 
@@ -571,8 +573,14 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work recovery (Postgre
       expect(sendMock).toHaveBeenCalledTimes(1);
       expect(sendMock).toHaveBeenCalledWith([
         {
+          id: `creative-work-generate:${output.id}:retry-1`,
           name: "creative-work.generate",
-          data: { workspaceId: scope.workspaceId, workItemId: scope.workItemId, outputId: output.id },
+          data: {
+            workspaceId: scope.workspaceId,
+            workItemId: scope.workItemId,
+            outputId: output.id,
+            generationCorrelationId: scope.generationCorrelationId,
+          },
         },
       ]);
 

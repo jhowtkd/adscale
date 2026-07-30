@@ -1,4 +1,4 @@
-import { Variants } from "framer-motion"
+import type { Variants } from "@/components/animations/MotionBoundary"
 import { easings, durations } from "./easings"
 
 /** Fade in from bottom */

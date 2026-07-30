@@ -16,6 +16,17 @@ export interface NotificationItem {
   updatedAt: Date;
 }
 
+export const MAX_CLIENT_NOTIFICATIONS = 50;
+
+export function capNotifications(items: NotificationItem[]): NotificationItem[] {
+  return [...items]
+    .sort((a, b) => {
+      const byDate = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      return byDate || b.id.localeCompare(a.id);
+    })
+    .slice(0, MAX_CLIENT_NOTIFICATIONS);
+}
+
 async function fetchNotifications(): Promise<NotificationItem[]> {
   const res = await apiFetch("/api/notifications?limit=50");
   if (!res.ok) {
@@ -23,7 +34,7 @@ async function fetchNotifications(): Promise<NotificationItem[]> {
     throw new Error(err.error || "Erro ao carregar notificações");
   }
   const data = await res.json();
-  return data.notifications as NotificationItem[];
+  return capNotifications(data.notifications as NotificationItem[]);
 }
 
 async function markNotificationAsRead(notificationId: string): Promise<NotificationItem> {

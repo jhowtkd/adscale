@@ -12,6 +12,8 @@ const completeMock = vi.hoisted(() => vi.fn());
 const failMock = vi.hoisted(() => vi.fn());
 const failQueuedMock = vi.hoisted(() => vi.fn());
 const refreshStatusMock = vi.hoisted(() => vi.fn());
+const recordGenerationAggregateMock = vi.hoisted(() => vi.fn());
+const countProcessingOutputsMock = vi.hoisted(() => vi.fn());
 const requeueOnceMock = vi.hoisted(() => vi.fn());
 const claimImageCallMock = vi.hoisted(() => vi.fn());
 const touchHeartbeatMock = vi.hoisted(() => vi.fn());
@@ -63,6 +65,10 @@ vi.mock("@/server/repositories/creative-work", () => ({
   failCreativeWorkOutput: (...args: unknown[]) => failMock(...args),
   failQueuedCreativeWorkOutput: (...args: unknown[]) => failQueuedMock(...args),
   refreshCreativeWorkStatus: (...args: unknown[]) => refreshStatusMock(...args),
+  recordCreativeWorkGenerationAggregate: (...args: unknown[]) =>
+    recordGenerationAggregateMock(...args),
+  countCreativeWorkProcessingOutputs: (...args: unknown[]) =>
+    countProcessingOutputsMock(...args),
   requeueCreativeWorkOutputOnce: (...args: unknown[]) => requeueOnceMock(...args),
   claimCreativeWorkOutputImageCall: (...args: unknown[]) => claimImageCallMock(...args),
   touchCreativeWorkOutputHeartbeat: (...args: unknown[]) => touchHeartbeatMock(...args),
@@ -153,18 +159,22 @@ vi.mock("./client", () => ({
 }));
 
 import { logger } from "@/lib/logger";
+import { observeImagePipelineExternalCall } from "@/server/ai/image-pipeline-telemetry";
+import { E2EControlledImageProvider } from "@/server/ai/providers/e2e-controlled-provider";
 import { creativeWorkOutputJob } from "./creative-work";
 
 interface GenerateEvent {
   workspaceId: string;
   workItemId: string;
   outputId: string;
+  generationCorrelationId: string;
 }
 
 const baseEvent: GenerateEvent = {
   workspaceId: "workspace-1",
   workItemId: "work-1",
   outputId: "output-1",
+  generationCorrelationId: "generation-1",
 };
 
 const identitySnapshot = {
@@ -218,6 +228,7 @@ const identitySnapshot = {
 const workItem = {
   id: "work-1",
   workspaceId: "workspace-1",
+  generationCorrelationId: "generation-1",
   clientProfileId: "profile-1",
   createdByUserId: "user-1",
   toolKind: "social_post",
@@ -250,6 +261,7 @@ function makeQueuedOutput(overrides: Partial<{
     id: overrides.id ?? "output-1",
     workspaceId: "workspace-1",
     workItemId: "work-1",
+    generationCorrelationId: "generation-1",
     creativeLevel: overrides.creativeLevel ?? "balanced",
     targetFormat: "1:1",
     versionNumber: overrides.versionNumber ?? 1,
@@ -329,6 +341,8 @@ describe("creativeWorkOutputJob", () => {
     failMock.mockResolvedValue(makeQueuedOutput({ status: "failed" }));
     failQueuedMock.mockResolvedValue(makeQueuedOutput({ status: "failed", retryCount: 1 }));
     refreshStatusMock.mockResolvedValue("completed");
+    recordGenerationAggregateMock.mockResolvedValue(null);
+    countProcessingOutputsMock.mockResolvedValue(1);
     settleTerminalRefundMock.mockClear();
     requeueOnceMock.mockResolvedValue(null);
     // R-006/R-007 defaults: the first provider call is claimable and the
@@ -411,6 +425,71 @@ describe("creativeWorkOutputJob", () => {
     }));
   });
 
+  it("still emits the interrupted terminal event when aggregate telemetry fails", async () => {
+    const onFailure = (creativeWorkOutputJob as unknown as {
+      opts: { onFailure: (args: unknown) => Promise<unknown> };
+    }).opts.onFailure;
+    failMock.mockResolvedValue(makeQueuedOutput({ status: "failed" }));
+    recordGenerationAggregateMock.mockRejectedValueOnce(new Error("aggregate store down"));
+    const step = {
+      run: vi.fn(async (_name: string, fn: () => Promise<unknown>) => fn()),
+    };
+
+    await onFailure({
+      event: { data: { event: { data: baseEvent } } },
+      error: new Error("worker lost"),
+      step,
+    });
+
+    const terminalEvents = [
+      ...vi.mocked(logger.info).mock.calls,
+      ...vi.mocked(logger.warn).mock.calls,
+      ...vi.mocked(logger.error).mock.calls,
+    ].filter(([payload]) => (
+      typeof payload === "object" &&
+      payload !== null &&
+      (payload as { event?: string }).event === "creative_work_output_terminal"
+    ));
+    expect(terminalEvents).toHaveLength(1);
+    expect(terminalEvents[0]?.[0]).toEqual(expect.objectContaining({
+      failureCode: "generation_interrupted",
+      refunded: true,
+    }));
+  });
+
+  it("recovers the persisted correlation for legacy failure events", async () => {
+    const onFailure = (creativeWorkOutputJob as unknown as {
+      opts: { onFailure: (args: unknown) => Promise<unknown> };
+    }).opts.onFailure;
+    getCreativeWorkMock.mockResolvedValue({
+      work: workItem,
+      outputs: [makeQueuedOutput()],
+    });
+    failMock.mockResolvedValue(makeQueuedOutput({ status: "failed" }));
+    const step = {
+      run: vi.fn(async (_name: string, fn: () => Promise<unknown>) => fn()),
+    };
+
+    await onFailure({
+      event: { data: { event: { data: { ...baseEvent, generationCorrelationId: undefined } } } },
+      error: new Error("worker lost"),
+      step,
+    });
+
+    const terminalEvents = [
+      ...vi.mocked(logger.info).mock.calls,
+      ...vi.mocked(logger.warn).mock.calls,
+      ...vi.mocked(logger.error).mock.calls,
+    ].filter(([payload]) => (
+      typeof payload === "object" &&
+      payload !== null &&
+      (payload as { event?: string }).event === "creative_work_output_terminal"
+    ));
+    expect(terminalEvents).toEqual([
+      [expect.objectContaining({ generationCorrelationId: "generation-1" })],
+    ]);
+  });
+
   it("runs the full generation sequence on a fresh queued output", async () => {
     getCreativeWorkMock.mockResolvedValue({
       work: workItem,
@@ -448,6 +527,129 @@ describe("creativeWorkOutputJob", () => {
     expect(refreshStatusMock).toHaveBeenCalledWith("workspace-1", "work-1");
     // No refund should fire on a happy path.
     expect(settleTerminalRefundMock).not.toHaveBeenCalled();
+  });
+
+  it("normalizes serialized Inngest timestamps before measuring queue wait", async () => {
+    getCreativeWorkMock.mockResolvedValue({
+      work: workItem,
+      outputs: [makeQueuedOutput()],
+    });
+    markProcessingMock.mockResolvedValue({
+      ...makeQueuedOutput({ status: "processing" }),
+      queuedAt: "2026-07-28T12:00:00.000Z",
+      createdAt: "2026-07-28T12:00:00.000Z",
+      updatedAt: "2026-07-28T12:00:00.250Z",
+    } as unknown as ReturnType<typeof makeQueuedOutput>);
+
+    await expect(runJob()).resolves.toMatchObject({ success: true });
+
+    const queueWait = vi.mocked(logger.info).mock.calls
+      .map(([payload]) => payload)
+      .find((payload) => (
+        typeof payload === "object" && payload !== null &&
+        (payload as { event?: string }).event === "creative_work_output_stage" &&
+        (payload as { stage?: string }).stage === "queue_wait"
+      ));
+    expect(queueWait).toEqual(expect.objectContaining({ stageDurationMs: 250 }));
+  });
+
+  it("proves the deterministic correlated timeline without network timing", async () => {
+    const provider = E2EControlledImageProvider.forUnitTests();
+    generateAndStoreImageMock.mockImplementationOnce(async (input: {
+      prompt: string;
+      dimensions: { width: number; height: number };
+      referenceImages: Array<{ buffer: Buffer; mimeType: string; name: string }>;
+      outputPrefix: string;
+      attempt?: number;
+      generationMode?: "art_variation" | "format_adaptation" | "restyling";
+      telemetry?: { generationCorrelationId?: string; [key: string]: unknown };
+    }) => {
+      const candidate = await observeImagePipelineExternalCall({
+        callType: "image",
+        attempt: input.attempt ?? 0,
+        ...input.telemetry,
+      }, () => provider.generate({
+        prompt: input.prompt,
+        dimensions: input.dimensions,
+        referenceImages: input.referenceImages,
+        outputPrefix: input.outputPrefix,
+        attempt: input.attempt,
+        generationMode: input.generationMode ?? "art_variation",
+      }));
+      return {
+        outputKey: "creative-work/output-1/deterministic.png",
+        revisedPrompt: input.prompt,
+        imageOperation: "generate" as const,
+        buffer: candidate.buffer,
+        candidates: [],
+        providerCalls: 1,
+        providerRetries: 0,
+      };
+    });
+    getCreativeWorkMock.mockResolvedValue({
+      work: {
+        ...workItem,
+        toolKind: "single",
+        inputSnapshot: {
+          generationPolicyVersion: "quality_recovery_v1",
+          request: "Deterministic generation",
+          settings: { targetFormats: [] },
+          sources: [],
+        },
+      },
+      outputs: [makeQueuedOutput()],
+    });
+    markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+    await expect(runJob()).resolves.toMatchObject({ success: true });
+
+    const structuredEvents = vi.mocked(logger.info).mock.calls
+      .map(([payload]) => payload)
+      .filter((payload): payload is { event: string; [key: string]: unknown } => (
+        typeof payload === "object" && payload !== null &&
+        typeof (payload as { event?: unknown }).event === "string"
+      ));
+    const stageEvents = structuredEvents.filter((event) => event.event === "creative_work_output_stage");
+    const externalEvents = structuredEvents.filter((event) => event.event === "image_pipeline_external_call");
+    const terminalEvents = structuredEvents.filter((event) => event.event === "creative_work_output_terminal");
+
+    expect(stageEvents.map((event) => `${event.stage}:${event.status}`)).toEqual([
+      "queue_wait:completed",
+      "generate_base:started",
+      "claim_image_call:completed",
+      "generate_base:completed",
+      "quality_assessment:started",
+      "quality_assessment:completed",
+    ]);
+    expect(stageEvents.every((event) => event.generationCorrelationId === "generation-1")).toBe(true);
+    expect(externalEvents.map((event) => `${event.callType}:${event.result}`)).toEqual([
+      "image:success",
+      "qa:success",
+      "score:success",
+    ]);
+    expect(externalEvents).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        callType: "image",
+        generationCorrelationId: "generation-1",
+        result: "success",
+      }),
+      expect.objectContaining({
+        callType: "score",
+        generationCorrelationId: "generation-1",
+        result: "success",
+      }),
+    ]));
+      expect(terminalEvents).toEqual([
+        expect.objectContaining({
+          generationCorrelationId: "generation-1",
+          imageCallCount: 1,
+          providerCalls: 1,
+          activeUnitCount: 1,
+        outcome: "completed",
+        rssMb: expect.any(Number),
+        heapUsedMb: expect.any(Number),
+      }),
+    ]);
   });
 
   it("routes the job by the generation policy version frozen in the snapshot, not the env switch", async () => {
@@ -1455,6 +1657,14 @@ describe("creativeWorkOutputJob", () => {
 
     it("keeps the legacy tournament for the explicit social_post toolKind under v1", async () => {
       planCreativeRoutesMock.mockResolvedValue(ROUTES);
+      generateAndStoreImageMock.mockResolvedValueOnce({
+        outputKey: "creative-work/output-1/1700000000000.png",
+        revisedPrompt: "revised",
+        imageOperation: "generate",
+        buffer: Buffer.from("generated-png"),
+        providerCalls: 3,
+        providerRetries: 0,
+      });
       getCreativeWorkMock.mockResolvedValue({
         work: v1Work("social_post"),
         outputs: [makeQueuedOutput()],
@@ -1472,6 +1682,13 @@ describe("creativeWorkOutputJob", () => {
       expect(input.routes?.map((route) => route.id)).toEqual(["route-1", "route-2", "route-3"]);
       expect(input.selectCandidate).toEqual(expect.any(Function));
       expect(input.executionPolicy).toBe("legacy_tournament");
+      const terminalEvent = vi.mocked(logger.info).mock.calls
+        .map(([payload]) => payload)
+        .find((payload) => (
+          typeof payload === "object" && payload !== null &&
+          (payload as { event?: string }).event === "creative_work_output_terminal"
+        ));
+      expect(terminalEvent).toEqual(expect.objectContaining({ providerCalls: 3 }));
     });
 
     it("keeps legacy-frozen works on the planner path even for variations", async () => {
@@ -1788,6 +2005,103 @@ describe("creativeWorkOutputJob", () => {
       return { ...workItem, toolKind: "single", inputSnapshot: v1Snapshot };
     }
 
+    it("preserves correlation across a deterministic retry and duplicate without exceeding two provider calls", async () => {
+      const provider = E2EControlledImageProvider.forUnitTests();
+      const generateControlled = async (input: {
+        prompt: string;
+        dimensions: { width: number; height: number };
+        referenceImages: Array<{ buffer: Buffer; mimeType: string; name: string }>;
+        outputPrefix: string;
+        attempt?: number;
+        generationMode?: "art_variation" | "format_adaptation" | "restyling";
+        telemetry?: { generationCorrelationId?: string; [key: string]: unknown };
+      }) => {
+        const candidate = await observeImagePipelineExternalCall({
+          callType: "image",
+          attempt: input.attempt ?? 0,
+          ...input.telemetry,
+        }, () => provider.generate({
+          prompt: input.prompt,
+          dimensions: input.dimensions,
+          referenceImages: input.referenceImages,
+          outputPrefix: input.outputPrefix,
+          attempt: input.attempt,
+          generationMode: input.generationMode ?? "art_variation",
+        }));
+        return {
+          outputKey: `creative-work/output-1/attempt-${input.attempt ?? 0}.png`,
+          revisedPrompt: input.prompt,
+          imageOperation: "generate" as const,
+          buffer: candidate.buffer,
+          candidates: [],
+          providerCalls: 1,
+          providerRetries: 0,
+        };
+      };
+      generateAndStoreImageMock.mockImplementation(generateControlled);
+      const retryWork = {
+        ...v1Work(),
+        inputSnapshot: {
+          ...v1Snapshot,
+          request: "[e2e:timeout-once] Promoção de agosto com vagas limitadas",
+        },
+      };
+      claimImageCallMock
+        .mockResolvedValueOnce(makeQueuedOutput({ status: "processing", imageCallCount: 1 }))
+        .mockResolvedValueOnce(makeQueuedOutput({ status: "processing", imageCallCount: 2 }));
+      getCreativeWorkMock
+        .mockResolvedValueOnce({
+          work: retryWork,
+          outputs: [makeQueuedOutput()],
+        })
+        .mockResolvedValueOnce({
+          work: retryWork,
+          outputs: [makeQueuedOutput({ retryCount: 1, imageCallCount: 1 })],
+        })
+        .mockResolvedValueOnce({
+          work: retryWork,
+          outputs: [makeQueuedOutput({ status: "completed", retryCount: 1, imageCallCount: 2 })],
+        });
+      markProcessingMock
+        .mockResolvedValueOnce(makeQueuedOutput({ status: "processing" }))
+        .mockResolvedValueOnce(makeQueuedOutput({ status: "processing", retryCount: 1, imageCallCount: 1 }));
+      requeueOnceMock.mockResolvedValueOnce(makeQueuedOutput({ retryCount: 1, imageCallCount: 1 }));
+
+      const first = await runJob({ ...baseEvent });
+      const second = await runJob({ ...baseEvent });
+      const duplicate = await runJob({ ...baseEvent });
+
+      expect(first).toMatchObject({ success: false, retrying: true });
+      expect(second).toMatchObject({ success: true });
+      expect(duplicate).toMatchObject({ skipped: true });
+      expect(generateAndStoreImageMock).toHaveBeenCalledTimes(2);
+      expect(claimImageCallMock).toHaveBeenCalledTimes(2);
+      expect(sendMock).toHaveBeenCalledWith(expect.objectContaining({
+        id: "creative-work-generate:output-1:retry-1",
+        data: expect.objectContaining({ generationCorrelationId: "generation-1" }),
+      }));
+
+      const structuredEvents = [
+        ...vi.mocked(logger.info).mock.calls,
+        ...vi.mocked(logger.warn).mock.calls,
+        ...vi.mocked(logger.error).mock.calls,
+      ]
+        .map(([payload]) => payload)
+        .filter((payload): payload is { event: string; [key: string]: unknown } => (
+          typeof payload === "object" && payload !== null &&
+          typeof (payload as { event?: unknown }).event === "string"
+        ));
+      const externalEvents = structuredEvents.filter((event) => event.event === "image_pipeline_external_call");
+      expect(externalEvents.map((event) => `${event.callType}:${event.attempt}:${event.result}`)).toEqual([
+        "image:0:failed",
+        "image:1:success",
+        "qa:2:success",
+        "score:2:success",
+      ]);
+      expect(externalEvents.filter((event) => event.callType === "image").map((event) => event.imageCallCount)).toEqual([1, 2]);
+      expect(externalEvents.every((event) => event.generationCorrelationId === "generation-1")).toBe(true);
+    });
+
     it("fails as image_call_budget_exhausted with zero provider calls when the claim hits the ceiling", async () => {
       claimImageCallMock.mockResolvedValue(null);
       getCreativeWorkMock.mockResolvedValue({
@@ -1858,9 +2172,8 @@ describe("creativeWorkOutputJob", () => {
       markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
 
       const result = await runJob();
-
       expect(result).toMatchObject({ success: false, retrying: true });
-      expect(sendMock).toHaveBeenCalledWith({ name: "creative-work.generate", data: baseEvent });
+      expect(sendMock).toHaveBeenCalledWith({ id: "creative-work-generate:output-1:retry-1", name: "creative-work.generate", data: baseEvent });
       // The transport retry keeps the charge — no refund before the second
       // call exists.
       expect(settleTerminalRefundMock).not.toHaveBeenCalled();
@@ -1916,6 +2229,42 @@ describe("creativeWorkOutputJob", () => {
       expect(completeMock).not.toHaveBeenCalled();
       expect(failMock).not.toHaveBeenCalled();
       expect(settleTerminalRefundMock).not.toHaveBeenCalled();
+    });
+
+    it("preserves the provider heartbeat stage when the lease is lost in flight", async () => {
+      touchHeartbeatMock
+        .mockResolvedValueOnce(makeQueuedOutput({ status: "processing" }))
+        .mockResolvedValueOnce(null);
+      generateAndStoreImageMock.mockImplementationOnce(async (input: {
+        onStageHeartbeat?: (stage: string) => Promise<void>;
+      }) => {
+        await input.onStageHeartbeat?.("candidate_attempt:openai");
+        return {
+          outputKey: "creative-work/output-1/1700000000000.png",
+          revisedPrompt: "revised",
+          imageOperation: "generate" as const,
+          buffer: Buffer.from("generated-png"),
+        };
+      });
+      getCreativeWorkMock.mockResolvedValue({ work: v1Work(), outputs: [makeQueuedOutput()] });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+      const result = await runJob();
+
+      expect(result).toMatchObject({ success: false });
+      expect(failMock).toHaveBeenCalledWith("workspace-1", "work-1", "output-1", expect.stringContaining("lease_lost"));
+      const stageEvents = [
+        ...vi.mocked(logger.info).mock.calls,
+        ...vi.mocked(logger.warn).mock.calls,
+      ].map(([payload]) => payload).filter((payload): payload is { event: string; [key: string]: unknown } => (
+        typeof payload === "object" && payload !== null &&
+        (payload as { event?: unknown }).event === "creative_work_output_stage"
+      ));
+      expect(stageEvents).toContainEqual(expect.objectContaining({
+        stage: "lease",
+        leaseStage: "candidate_attempt:openai",
+        result: "failed",
+      }));
     });
 
     it("discards a late completion without touching billing or library", async () => {
@@ -2011,6 +2360,16 @@ describe("creativeWorkOutputJob", () => {
           metadata: expect.objectContaining({ reason: "auto_retry_dispatch_failed" }),
         }),
       );
+      const terminalEvents = [
+        ...vi.mocked(logger.info).mock.calls,
+        ...vi.mocked(logger.warn).mock.calls,
+        ...vi.mocked(logger.error).mock.calls,
+      ].filter(([payload]) => (
+        typeof payload === "object" &&
+        payload !== null &&
+        (payload as { event?: string }).event === "creative_work_output_terminal"
+      ));
+      expect(terminalEvents).toHaveLength(1);
     });
 
     it("keeps a completed output untouched when post-commit telemetry throws", async () => {

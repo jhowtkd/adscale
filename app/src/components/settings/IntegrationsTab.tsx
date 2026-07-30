@@ -1,6 +1,6 @@
 "use client";
 
-import { m, useReducedMotion } from "framer-motion";
+import { m, useReducedMotion } from "@/components/animations/MotionBoundary";
 import {
   Megaphone,
   Search,

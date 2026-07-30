@@ -15,6 +15,7 @@ import {
 } from "@/server/ai/image-generation";
 import { planCreativeRoutes } from "@/server/ai/creative-route-planner";
 import { selectCreativeCandidate } from "@/server/ai/creative-candidate-selector";
+import { observeImagePipelineExternalCall } from "@/server/ai/image-pipeline-telemetry";
 import {
   assertGenerationRequest,
   type GenerationRequest,
@@ -78,23 +79,6 @@ export async function executeCanonicalGeneration(
   // planner, the judge or hidden candidates for a Creative Work output —
   // one visible output means one provider call.
   const directExecution = request.executionPolicy === "direct";
-  if (request.intent.mode === "social_post" && !directExecution) {
-    try {
-      const plannedRoutes = await planCreativeRoutes({
-        sourcePrompt: request.prompt.text,
-        objective: request.intent.objective,
-        mode: request.intent.mode,
-        referenceNames: request.identity.referenceImages.map((reference) => reference.name),
-      });
-      routes = plannedRoutes.map((route) => ({
-        id: route.id,
-        prompt: `${route.renderPrompt}\n\nPRESERVE:\n${route.preserve.join("\n")}\n\nAVOID:\n${route.avoid.join("\n")}\n\nMANDATORY CONTRACT:\n${request.prompt.text}`,
-      }));
-    } catch (error) {
-      logger.warn("[executeCanonicalGeneration] creative route planning failed; using direct prompt", error);
-    }
-  }
-
   const destinationTelemetry: ImagePipelineTelemetryContext = {
     workspaceId: request.authorship.workspaceId,
     jobType:
@@ -106,9 +90,30 @@ export async function executeCanonicalGeneration(
     workId: request.destination.workItemId,
     outputId: request.destination.kind === "creative_work_output" ? request.destination.id : undefined,
     derivationId: request.destination.kind === "derivation" ? request.destination.id : undefined,
+    generationCorrelationId: request.destination.generationCorrelationId,
     campaignId: request.destination.campaignId,
     ...options?.telemetry,
   };
+  if (request.intent.mode === "social_post" && !directExecution) {
+    try {
+      const plannedRoutes = await observeImagePipelineExternalCall({
+        callType: "planner",
+        attempt: request.attempt ?? 0,
+        ...destinationTelemetry,
+      }, () => planCreativeRoutes({
+        sourcePrompt: request.prompt.text,
+        objective: request.intent.objective,
+        mode: request.intent.mode,
+        referenceNames: request.identity.referenceImages.map((reference) => reference.name),
+      }));
+      routes = plannedRoutes.map((route) => ({
+        id: route.id,
+        prompt: `${route.renderPrompt}\n\nPRESERVE:\n${route.preserve.join("\n")}\n\nAVOID:\n${route.avoid.join("\n")}\n\nMANDATORY CONTRACT:\n${request.prompt.text}`,
+      }));
+    } catch (error) {
+      logger.warn("[executeCanonicalGeneration] creative route planning failed; using direct prompt", error);
+    }
+  }
 
   const result = await generateAndStoreImage({
     prompt: request.prompt.text,
@@ -125,14 +130,18 @@ export async function executeCanonicalGeneration(
     callBudget: options?.callBudget,
     selectCandidate: routes
       ? async (candidates) => {
-          const selection = await selectCreativeCandidate({
+          const selection = await observeImagePipelineExternalCall({
+            callType: "selector",
+            attempt: request.attempt ?? 0,
+            ...destinationTelemetry,
+          }, () => selectCreativeCandidate({
             candidates,
             brief: request.prompt.text,
             objective: request.intent.objective,
             brandConstraints: request.identity.brandConstraints,
             targetFormat: request.format.targetFormat,
             referenceImages: request.identity.referenceImages,
-          });
+          }));
           logger.info(
             `[executeCanonicalGeneration] selected route=${candidates[selection.winnerIndex]?.routeId} reason=${selection.reason}`
           );
@@ -150,6 +159,8 @@ export async function executeCanonicalGeneration(
     revisedPrompt: result.revisedPrompt,
     buffer: result.buffer,
     imageOperation: result.imageOperation,
+    providerCalls: result.providerCalls,
+    providerRetries: result.providerRetries,
     candidates: result.candidates,
     destination: request.destination,
     surface: request.surface,

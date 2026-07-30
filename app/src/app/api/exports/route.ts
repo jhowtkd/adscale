@@ -74,7 +74,13 @@ export async function POST(request: Request) {
       if (!campaignId) {
         return apiError("campaignIdRequired", 400);
       }
-      const { url } = await exportAllApproved(objectStorage, campaignId, workspace.id, format);
+      const { url } = await exportAllApproved(
+        objectStorage,
+        campaignId,
+        workspace.id,
+        format,
+        request.signal,
+      );
       emitExportMissionCompleted({
         workspaceId: workspace.id,
         userId: user.id,

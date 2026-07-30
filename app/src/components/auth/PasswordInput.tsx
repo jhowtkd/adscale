@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { AnimatePresence, m } from "framer-motion";
+import { AnimatePresence, m } from "@/components/animations/MotionBoundary";
 import { Eye, EyeOff, Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";

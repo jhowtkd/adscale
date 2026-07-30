@@ -20,6 +20,11 @@ import {
   type GenerationSurface,
 } from "@/server/generation/canonical/types";
 import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
+import {
+  logCreativeWorkGenerationAggregate,
+  logCreativeWorkGenerationLifecycle,
+  logCreativeWorkOutputTerminal,
+} from "@/server/creative-work/job-telemetry";
 import { inngest } from "@/server/jobs/client";
 import { updateCampaign } from "@/server/repositories/campaign";
 import {
@@ -28,6 +33,7 @@ import {
   deleteQueuedCreativeWorkOutputs,
   failQueuedCreativeWorkOutput,
   getCreativeWork,
+  recordCreativeWorkGenerationAggregate,
   refreshCreativeWorkStatus,
   setCreativeWorkStatus,
 } from "@/server/repositories/creative-work";
@@ -157,6 +163,161 @@ function creativeWorkDispatchRefundKey(workItemId: string, outputId: string) {
   return `creative-work:${workItemId}:output:${outputId}:dispatch-refund`;
 }
 
+async function emitCreativeWorkDispatchFailureTelemetry(input: {
+  workspaceId: string;
+  workItemId: string;
+  outputIds: string[];
+  generationCorrelationId: string;
+  refunded: boolean;
+}): Promise<void> {
+  const aggregate = await getCreativeWork(input.workspaceId, input.workItemId);
+  const outputs = (aggregate?.outputs ?? []).filter(
+    (output) => output.generationCorrelationId === input.generationCorrelationId,
+  );
+  const scopedOutputs = outputs.length > 0
+    ? outputs
+    : (aggregate?.outputs ?? []).filter((output) => input.outputIds.includes(output.id));
+  const unitCount = scopedOutputs.length || input.outputIds.length;
+  const activeUnitCount = scopedOutputs.filter((output) => output.status === "processing").length;
+  for (const outputId of input.outputIds) {
+    const output = scopedOutputs.find((candidate) => candidate.id === outputId);
+    logCreativeWorkOutputTerminal({
+      workspaceId: input.workspaceId,
+      workItemId: input.workItemId,
+      outputId,
+      generationCorrelationId: input.generationCorrelationId,
+      protocol: "unknown",
+      imageCallCount: output?.imageCallCount ?? 0,
+      retryCount: output?.retryCount ?? 0,
+      unitCount,
+      activeUnitCount,
+      environment: process.env.RENDER_SERVICE_NAME ?? process.env.NODE_ENV ?? "unknown",
+      outcome: "failed",
+      failureCode: "dispatch_failed",
+      refunded: input.refunded,
+      durationMs: 0,
+    });
+  }
+  const generation = await recordCreativeWorkGenerationAggregate(
+    input.workspaceId,
+    input.workItemId,
+    input.generationCorrelationId,
+  );
+  if (!generation) return;
+  const fields = {
+    workspaceId: input.workspaceId,
+    workItemId: input.workItemId,
+    generationCorrelationId: generation.generationCorrelationId,
+    unitCount: generation.unitCount,
+    terminalCount: generation.terminalCount,
+    successCount: generation.successCount,
+    failureCount: generation.failureCount,
+    result: generation.result,
+    firstTerminalAt: generation.firstTerminalAt,
+    completedAt: generation.completedAt,
+    timeToFirstOutputMs: generation.timeToFirstOutputMs,
+    totalDurationMs: generation.totalDurationMs,
+  } as const;
+  if (generation.firstTerminalEmitted) {
+    logCreativeWorkGenerationAggregate({ phase: "first_terminal", ...fields });
+  }
+  if (generation.completionEmitted) {
+    logCreativeWorkGenerationAggregate({ phase: "completed", ...fields });
+  }
+}
+
+async function dispatchCreativeWorkOutputs(input: {
+  workspaceId: string;
+  workItemId: string;
+  generationCorrelationId: string;
+  outputIds: string[];
+  result: "sent" | "recovered";
+}) {
+  const started = performance.now();
+  try {
+    await inngest.send(
+      input.outputIds.map((outputId) => ({
+        id: creativeWorkGenerateEventId(outputId),
+        name: heavyImageEventName("creative-work.generate"),
+        data: {
+          workspaceId: input.workspaceId,
+          workItemId: input.workItemId,
+          outputId,
+          generationCorrelationId: input.generationCorrelationId,
+        },
+      })),
+    );
+    logCreativeWorkGenerationLifecycle({
+      event: "creative_work_generation_dispatched",
+      workspaceId: input.workspaceId,
+      workItemId: input.workItemId,
+      generationCorrelationId: input.generationCorrelationId,
+      unitCount: input.outputIds.length,
+      outputIds: input.outputIds,
+      dispatchDurationMs: Math.round(performance.now() - started),
+      result: input.result,
+    });
+  } catch (error) {
+    logCreativeWorkGenerationLifecycle({
+      event: "creative_work_generation_dispatched",
+      workspaceId: input.workspaceId,
+      workItemId: input.workItemId,
+      generationCorrelationId: input.generationCorrelationId,
+      unitCount: input.outputIds.length,
+      outputIds: input.outputIds,
+      dispatchDurationMs: Math.round(performance.now() - started),
+      result: "failed",
+      errorMessage: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
+}
+
+async function dispatchCreativeWorkRevision(input: {
+  workspaceId: string;
+  workItemId: string;
+  outputId: string;
+  generationCorrelationId: string;
+  result: "sent" | "recovered";
+}) {
+  const started = performance.now();
+  try {
+    await inngest.send({
+      id: creativeWorkRevisionEventId(input.outputId),
+      name: heavyImageEventName("creative-work.generate"),
+      data: {
+        workspaceId: input.workspaceId,
+        workItemId: input.workItemId,
+        outputId: input.outputId,
+        generationCorrelationId: input.generationCorrelationId,
+      },
+    });
+    logCreativeWorkGenerationLifecycle({
+      event: "creative_work_generation_dispatched",
+      workspaceId: input.workspaceId,
+      workItemId: input.workItemId,
+      generationCorrelationId: input.generationCorrelationId,
+      unitCount: 1,
+      outputIds: [input.outputId],
+      dispatchDurationMs: Math.round(performance.now() - started),
+      result: input.result,
+    });
+  } catch (error) {
+    logCreativeWorkGenerationLifecycle({
+      event: "creative_work_generation_dispatched",
+      workspaceId: input.workspaceId,
+      workItemId: input.workItemId,
+      generationCorrelationId: input.generationCorrelationId,
+      unitCount: 1,
+      outputIds: [input.outputId],
+      dispatchDurationMs: Math.round(performance.now() - started),
+      result: "failed",
+      errorMessage: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
+}
+
 export function creativeWorkSettlementAdapter(input: {
   workspaceId: string;
   workItemId: string;
@@ -268,17 +429,13 @@ export function creativeWorkSettlementAdapter(input: {
           .map((output) => output.id);
         if (queuedIds.length > 0) {
           try {
-            await inngest.send(
-              queuedIds.map((outputId) => ({
-                id: creativeWorkGenerateEventId(outputId),
-                name: heavyImageEventName("creative-work.generate"),
-                data: {
-                  workspaceId: input.workspaceId,
-                  workItemId: input.workItemId,
-                  outputId,
-                },
-              })),
-            );
+            await dispatchCreativeWorkOutputs({
+              workspaceId: input.workspaceId,
+              workItemId: input.workItemId,
+              generationCorrelationId: lastAggregate.work.generationCorrelationId,
+              outputIds: queuedIds,
+              result: "recovered",
+            });
           } catch (error) {
             // Ambiguous vs an earlier accepted send. Leave rows queued and do
             // not refund — the next replay can resume again.
@@ -293,6 +450,7 @@ export function creativeWorkSettlementAdapter(input: {
           input.workspaceId,
           {
             creativeWorkId: input.workItemId,
+            generationCorrelationId: lastAggregate.work.generationCorrelationId,
             outputIds: lastAggregate.outputs.map((output) => output.id),
           },
           dispatchAckKey(input.batch.billingKey),
@@ -329,29 +487,30 @@ export function creativeWorkSettlementAdapter(input: {
         reservation.newlyCreatedIds,
       ),
     async dispatch(reservation) {
-      await inngest.send(
-        reservation.newlyCreatedIds.map((outputId) => ({
-          id: creativeWorkGenerateEventId(outputId),
-          name: heavyImageEventName("creative-work.generate"),
-          data: {
-            workspaceId: input.workspaceId,
-            workItemId: input.workItemId,
-            outputId,
-          },
-        })),
-      );
+      await dispatchCreativeWorkOutputs({
+        workspaceId: input.workspaceId,
+        workItemId: input.workItemId,
+        generationCorrelationId: reservation.value.work.generationCorrelationId,
+        outputIds: reservation.newlyCreatedIds,
+        result: "sent",
+      });
     },
     async failDispatch(reservation) {
-      await Promise.allSettled(
-        reservation.newlyCreatedIds.map((outputId) =>
-          failQueuedCreativeWorkOutput(
-            input.workspaceId,
-            input.workItemId,
-            outputId,
-            "dispatch_failed",
-          ),
-        ),
-      );
+      const failedOutputIds = (await Promise.all(
+        reservation.newlyCreatedIds.map(async (outputId) => {
+          try {
+            const failed = await failQueuedCreativeWorkOutput(
+              input.workspaceId,
+              input.workItemId,
+              outputId,
+              "dispatch_failed",
+            );
+            return failed ? outputId : null;
+          } catch {
+            return null;
+          }
+        }),
+      )).filter((outputId): outputId is string => outputId !== null);
       await refreshCreativeWorkStatus(
         input.workspaceId,
         input.workItemId,
@@ -362,6 +521,14 @@ export function creativeWorkSettlementAdapter(input: {
           input,
           reservation.newlyCreatedIds.map((id) => ({ id })),
         ),
+          onCompensated: ({ compensated }) =>
+            emitCreativeWorkDispatchFailureTelemetry({
+              workspaceId: input.workspaceId,
+              workItemId: input.workItemId,
+              outputIds: failedOutputIds,
+              generationCorrelationId: reservation.value.work.generationCorrelationId,
+              refunded: compensated,
+            }),
       };
     },
     async completeDispatch(reservation) {
@@ -369,6 +536,7 @@ export function creativeWorkSettlementAdapter(input: {
         input.workspaceId,
         {
           creativeWorkId: input.workItemId,
+          generationCorrelationId: input.readyWork.generationCorrelationId,
           outputIds: reservation.newlyCreatedIds,
         },
         dispatchAckKey(input.batch.billingKey),
@@ -842,6 +1010,18 @@ export function creativeWorkRevisionSettlementAdapter(input: {
       if (!reservation) {
         throw new InvalidCreativeWorkRevisionError();
       }
+      if (reservation.claimedForDispatch) {
+        logCreativeWorkGenerationLifecycle({
+          event: "creative_work_generation_requested",
+          workspaceId: input.workspaceId,
+          workItemId: input.workItemId,
+          generationCorrelationId: reservation.output.generationCorrelationId,
+          unitCount: 1,
+          outputIds: [reservation.output.id],
+          credits: GENERATION_CREDIT_COSTS.creativeWorkOutput,
+          unitChargeAmount: GENERATION_CREDIT_COSTS.creativeWorkOutput,
+        });
+      }
       return {
         claimed: reservation.claimedForDispatch,
         value: { output: reservation.output },
@@ -899,14 +1079,12 @@ export function creativeWorkRevisionSettlementAdapter(input: {
       // still queued, then write ack and settle.
       if (output.status === "queued") {
         try {
-          await inngest.send({
-            id: creativeWorkRevisionEventId(output.id),
-            name: heavyImageEventName("creative-work.generate"),
-            data: {
-              workspaceId: input.workspaceId,
-              workItemId: input.workItemId,
-              outputId: output.id,
-            },
+          await dispatchCreativeWorkRevision({
+            workspaceId: input.workspaceId,
+            workItemId: input.workItemId,
+            outputId: output.id,
+            generationCorrelationId: output.generationCorrelationId,
+            result: "recovered",
           });
         } catch (error) {
           // Ambiguous vs an earlier accepted send. Leave the revision queued
@@ -975,14 +1153,12 @@ export function creativeWorkRevisionSettlementAdapter(input: {
       );
     },
     async dispatch(reservation) {
-      await inngest.send({
-        id: creativeWorkRevisionEventId(reservation.value.output.id),
-        name: heavyImageEventName("creative-work.generate"),
-        data: {
-          workspaceId: input.workspaceId,
-          workItemId: input.workItemId,
-          outputId: reservation.value.output.id,
-        },
+      await dispatchCreativeWorkRevision({
+        workspaceId: input.workspaceId,
+        workItemId: input.workItemId,
+        outputId: reservation.value.output.id,
+        generationCorrelationId: reservation.value.output.generationCorrelationId,
+        result: "sent",
       });
     },
     async failDispatch(reservation) {

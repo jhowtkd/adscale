@@ -1,6 +1,6 @@
 "use client";
 
-import { m } from "framer-motion";
+import { m } from "@/components/animations/MotionBoundary";
 import { useId } from "react";
 import { cn } from "@/lib/utils";
 import { useReducedMotion } from "@/lib/hooks/use-reduced-motion";

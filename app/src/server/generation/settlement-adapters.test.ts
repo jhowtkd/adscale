@@ -21,6 +21,10 @@ const touchChild = vi.hoisted(() => vi.fn());
 const getUsage = vi.hoisted(() => vi.fn());
 const trackUsage = vi.hoisted(() => vi.fn());
 const updateCampaign = vi.hoisted(() => vi.fn());
+const recordAggregate = vi.hoisted(() => vi.fn());
+const logLifecycle = vi.hoisted(() => vi.fn());
+const logTerminal = vi.hoisted(() => vi.fn());
+const logAggregate = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/generation/canonical/charge", () => ({
   chargeForGeneration: chargeUnit,
@@ -28,6 +32,11 @@ vi.mock("@/server/generation/canonical/charge", () => ({
 }));
 vi.mock("@/server/billing/credits", () => ({ refundCredits: refund }));
 vi.mock("@/server/jobs/client", () => ({ inngest: { send } }));
+vi.mock("@/server/creative-work/job-telemetry", () => ({
+  logCreativeWorkGenerationAggregate: logAggregate,
+  logCreativeWorkGenerationLifecycle: logLifecycle,
+  logCreativeWorkOutputTerminal: logTerminal,
+}));
 vi.mock("@/server/repositories/usage", () => ({
   getUsageByIdempotencyKey: getUsage,
   trackUsage,
@@ -38,6 +47,7 @@ vi.mock("@/server/repositories/creative-work", () => ({
   deleteQueuedCreativeWorkOutputs: deleteOutputs,
   failQueuedCreativeWorkOutput: failOutput,
   refreshCreativeWorkStatus: refreshWork,
+  recordCreativeWorkGenerationAggregate: recordAggregate,
   setCreativeWorkStatus: setWorkStatus,
   getCreativeWork: getWork,
 }));
@@ -62,10 +72,11 @@ import {
 } from "./settlement-adapters";
 import { startGenerationSettlement } from "./settlement";
 
-const work = { id: "work-1", status: "ready" };
+const work = { id: "work-1", status: "ready", generationCorrelationId: "generation-1" };
 const outputs = ["a", "b", "c"].map((id) => ({
   id,
   status: "queued",
+  generationCorrelationId: "generation-1",
 }));
 const source = {
   id: "source-1",
@@ -101,6 +112,7 @@ const batch = {
 const revisionOutput = {
   id: "output-v2",
   status: "queued",
+  generationCorrelationId: "generation-revision-1",
   failureCode: null,
   parentOutputId: "output-v1",
   revisionInstruction: "Use mais contraste",
@@ -177,6 +189,7 @@ describe("Generation Settlement production adapters", () => {
       work: { ...work, status: "generating" },
       outputs,
     });
+    recordAggregate.mockResolvedValue(null);
     createChild.mockResolvedValue(child);
     failChild.mockResolvedValue({ ...child, status: "failed" });
     getPreviousChild.mockResolvedValue(null);
@@ -397,6 +410,7 @@ describe("Generation Settlement production adapters", () => {
           workspaceId: "workspace-1",
           workItemId: "work-1",
           outputId: output.id,
+          generationCorrelationId: "generation-1",
         },
       })),
     );
@@ -837,6 +851,45 @@ describe("Generation Settlement production adapters", () => {
     ]);
   });
 
+  it("emits terminal and aggregate telemetry after dispatch compensation", async () => {
+    send.mockRejectedValue(new Error("transport down"));
+    recordAggregate.mockResolvedValue({
+      generationCorrelationId: "generation-1",
+      unitCount: 3,
+      terminalCount: 3,
+      successCount: 0,
+      failureCount: 3,
+      result: "failed",
+      firstTerminalAt: "2026-07-28T12:00:00.000Z",
+      completedAt: "2026-07-28T12:00:01.000Z",
+      timeToFirstOutputMs: 100,
+      totalDurationMs: 1000,
+      firstTerminalEmitted: true,
+      completionEmitted: true,
+    });
+
+    const result = await startGenerationSettlement(batchAdapter());
+
+    expect(result).toMatchObject({ ok: false, error: { code: "dispatch_failed" } });
+    expect(logTerminal).toHaveBeenCalledTimes(3);
+    expect(logTerminal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        outputId: "a",
+        generationCorrelationId: "generation-1",
+        outcome: "failed",
+        failureCode: "dispatch_failed",
+        refunded: true,
+        unitCount: 3,
+      }),
+    );
+    expect(logAggregate).toHaveBeenCalledWith(
+      expect.objectContaining({ phase: "first_terminal", unitCount: 3 }),
+    );
+    expect(logAggregate).toHaveBeenCalledWith(
+      expect.objectContaining({ phase: "completed", result: "failed" }),
+    );
+  });
+
   it("lets billing idempotency select one concurrent unit dispatch", async () => {
     let charged = false;
     createChild
@@ -1022,6 +1075,7 @@ describe("Generation Settlement production adapters", () => {
         workspaceId: "workspace-1",
         workItemId: "work-1",
         outputId: "output-v2",
+        generationCorrelationId: "generation-revision-1",
       },
     });
     expect(trackUsage).toHaveBeenCalledWith(
@@ -1031,6 +1085,21 @@ describe("Generation Settlement production adapters", () => {
       expect.objectContaining({ outputId: "output-v2" }),
       "creative-work:work-1:revision:output-v2:dispatch-ack",
     );
+    expect(logLifecycle).toHaveBeenCalledWith(expect.objectContaining({
+      event: "creative_work_generation_requested",
+      generationCorrelationId: "generation-revision-1",
+      unitCount: 1,
+      outputIds: ["output-v2"],
+      credits: 5,
+    }));
+    expect(logLifecycle).toHaveBeenCalledWith(expect.objectContaining({
+      event: "creative_work_generation_dispatched",
+      generationCorrelationId: "generation-revision-1",
+      unitCount: 1,
+      outputIds: ["output-v2"],
+      result: "sent",
+      dispatchDurationMs: expect.any(Number),
+    }));
   });
 
   it("keeps a successful revision result when dispatch ack persistence fails", async () => {
@@ -1087,6 +1156,7 @@ describe("Generation Settlement production adapters", () => {
         workspaceId: "workspace-1",
         workItemId: "work-1",
         outputId: "output-v2",
+        generationCorrelationId: "generation-revision-1",
       },
     });
     expect(send).toHaveBeenNthCalledWith(2, {
@@ -1096,6 +1166,7 @@ describe("Generation Settlement production adapters", () => {
         workspaceId: "workspace-1",
         workItemId: "work-1",
         outputId: "output-v2",
+        generationCorrelationId: "generation-revision-1",
       },
     });
     expect(refund).not.toHaveBeenCalled();

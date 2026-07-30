@@ -2507,6 +2507,9 @@ export const creativeWorkItems = adscaleSchema.table(
   "creative_work_items",
   {
     id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    generationCorrelationId: uuid("generation_correlation_id")
+      .notNull()
+      .defaultRandom(),
     workspaceId: uuid("workspace_id")
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
@@ -2611,6 +2614,9 @@ export const creativeWorkOutputs = adscaleSchema.table(
   "creative_work_outputs",
   {
     id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    generationCorrelationId: uuid("generation_correlation_id")
+      .notNull()
+      .defaultRandom(),
     workspaceId: uuid("workspace_id")
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
@@ -2638,6 +2644,10 @@ export const creativeWorkOutputs = adscaleSchema.table(
     quality: jsonb("quality"),
     isSelected: boolean("is_selected").notNull().default(false),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    queuedAt: timestamp("queued_at", { mode: "date" }).notNull().defaultNow(),
+    terminalAt: timestamp("terminal_at", { mode: "date" }),
+    generationFirstTerminalAt: timestamp("generation_first_terminal_at", { mode: "date" }),
+    generationCompletedAt: timestamp("generation_completed_at", { mode: "date" }),
     updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
   },
   (table) => [
@@ -2655,6 +2665,11 @@ export const creativeWorkOutputs = adscaleSchema.table(
       table.workspaceId,
       table.workItemId,
       table.status
+    ),
+    index("creative_work_outputs_correlation_idx").on(
+      table.workspaceId,
+      table.generationCorrelationId,
+      table.status,
     ),
     check(
       "creative_work_outputs_level_check",

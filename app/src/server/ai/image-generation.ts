@@ -2,12 +2,6 @@ import sharp from "sharp";
 import pLimit from "p-limit";
 import { objectStorage } from "@/server/storage";
 import { logger } from "@/lib/logger";
-
-// The generation path shares a 512 MB instance with the web server. sharp's
-// default in-process cache retains decoded pixel data between operations;
-// that residency is worth more as headroom than as cache hits here. (Guarded
-// because unit tests replace the sharp module with a minimal mock.)
-if (typeof sharp.cache === "function") sharp.cache(false);
 import { recordDualEngineCandidates } from "./generation-log";
 import { OpenAIImageProvider } from "./providers/openai-image-provider";
 import {
@@ -21,7 +15,11 @@ import type {
   ProviderGenerateInput,
 } from "./providers/image-provider";
 import { getImageRouteConcurrency } from "./image-runtime-config";
-import { createPipelineTimer, logImagePipelineStage } from "./image-pipeline-telemetry";
+import {
+  createPipelineTimer,
+  logImagePipelineStage,
+  observeImagePipelineExternalCall,
+} from "./image-pipeline-telemetry";
 
 export type GenerateAndStoreImageReference = ImageReference;
 
@@ -47,6 +45,9 @@ export type ImagePipelineTelemetryContext = {
   workspaceId?: string;
   campaignId?: string;
   derivationId?: string;
+  generationCorrelationId?: string;
+  /** Durable Creative Work claim count at the time of an image call. */
+  imageCallCount?: number;
   inngestRunId?: string;
   inngestAttempt?: number;
   jobType?: "derivation" | "creative_work" | "brand_training" | "assistant";
@@ -200,6 +201,7 @@ async function generateUploadRoutesRound(
     useMediumForRoutes: boolean;
     outputSuffix: string;
     onStageHeartbeat?: (stage: string) => Promise<void>;
+    telemetry?: ImagePipelineTelemetryContext;
     maxCalls: number;
   }
 ): Promise<{ results: PromiseSettledResult<StoredCandidate>[]; callsMade: number }> {
@@ -253,7 +255,12 @@ async function generateUploadRoutesRound(
           };
           try {
             assertNotAborted();
-            const candidate = await provider.generate(providerInput);
+            const candidate = await observeImagePipelineExternalCall({
+              callType: "image",
+              attempt: base.attempt,
+              callIndex: index,
+              ...base.telemetry,
+            }, () => provider.generate(providerInput));
             assertNotAborted();
             const stored = await uploadAndReleaseCandidate(
               route.id,
@@ -362,6 +369,7 @@ export async function generateAndStoreImage(
     workId: telemetry?.workId,
     outputId: telemetry?.outputId,
     workspaceId: telemetry?.workspaceId,
+    generationCorrelationId: telemetry?.generationCorrelationId,
     inngestRunId: telemetry?.inngestRunId,
     inngestAttempt: telemetry?.inngestAttempt,
     jobType: telemetry?.jobType ?? "derivation",
@@ -391,6 +399,7 @@ export async function generateAndStoreImage(
   const firstRound = await generateUploadRoutesRound(provider, requestedRoutes, {
     ...roundInput,
     maxCalls: budget.remaining,
+    telemetry,
   });
   let generationResults = firstRound.results;
   providerCalls += firstRound.callsMade;
@@ -413,6 +422,7 @@ export async function generateAndStoreImage(
       ...roundInput,
       attempt: attempt + 1,
       maxCalls: budget.remaining,
+      telemetry,
     });
     generationResults = secondRound.results;
     providerCalls += secondRound.callsMade;

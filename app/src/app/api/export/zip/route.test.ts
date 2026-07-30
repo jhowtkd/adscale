@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Readable } from "node:stream";
+import JSZip from "jszip";
 import { POST } from "./route";
 
 vi.mock("next-intl/server", () => ({
@@ -42,21 +44,8 @@ vi.mock("@/server/db", () => {
 vi.mock("@/server/storage", () => ({
   objectStorage: {
     get: vi.fn(async () => Buffer.from("png-bytes")),
+    getStream: vi.fn(async () => Readable.from([Buffer.from("png-bytes")])),
     publicUrl: vi.fn((key: string) => `https://cdn/${key}`),
-  },
-}));
-
-vi.mock("jszip", () => ({
-  default: class MockJSZip {
-    files: Record<string, unknown> = {};
-    file(name: string, buffer: unknown) {
-      this.files[name] = buffer;
-      return this;
-    }
-    async generateAsync() {
-      // Embed the file names so tests can assert which files were zipped.
-      return Buffer.from(Object.keys(this.files).join("|"));
-    }
   },
 }));
 
@@ -70,6 +59,7 @@ import { getCampaignById } from "@/server/repositories/campaign";
 
 const mockRequireAccess = vi.mocked(requireWorkspaceAccess);
 const mockStorage = vi.mocked(objectStorage.get);
+const mockStorageStream = vi.mocked(objectStorage.getStream!);
 const mockGetCampaign = vi.mocked(getCampaignById);
 
 const workspace = { id: "ws-1" };
@@ -93,6 +83,7 @@ describe("POST /api/export/zip goal branch", () => {
     dbState.results = [];
     mockRequireAccess.mockResolvedValue({ user, workspace } as never);
     mockStorage.mockResolvedValue(Buffer.from("png") as never);
+    mockStorageStream.mockResolvedValue(Readable.from([Buffer.from("png")]) as never);
     mockGetCampaign.mockResolvedValue({ id: "c1", name: "Acme", slug: "acme" } as never);
   });
 
@@ -124,8 +115,8 @@ describe("POST /api/export/zip goal branch", () => {
     );
 
     const response = await POST(req({ goalRunId: "00000000-0000-4000-8000-000000000001" }));
-    const buffer = Buffer.from(await response.arrayBuffer());
-    const fileNames = buffer.toString("utf-8").split("|");
+    const archive = await JSZip.loadAsync(await response.arrayBuffer());
+    const fileNames = Object.keys(archive.files);
 
     expect(response.status).toBe(200);
     expect(fileNames).toEqual(
@@ -139,6 +130,8 @@ describe("POST /api/export/zip goal branch", () => {
     );
     // Never treat 1:1 as an extension.
     expect(fileNames.some((n) => n.endsWith(".1:1"))).toBe(false);
+    expect(mockStorageStream).toHaveBeenCalledTimes(4);
+    expect(mockStorage).not.toHaveBeenCalled();
   });
 
   it("keeps the legacy derivationIds branch working", async () => {

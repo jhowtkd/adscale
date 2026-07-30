@@ -1,6 +1,6 @@
 "use client"
 
-import { m } from "framer-motion"
+import { m } from "@/components/animations/MotionBoundary"
 import { ReactNode } from "react"
 import { useReducedMotion } from "@/lib/hooks/use-reduced-motion"
 import { staggerContainer, staggerItem } from "@/lib/animations/variants"

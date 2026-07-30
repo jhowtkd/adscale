@@ -20,6 +20,7 @@ import {
 import { reactivateCreativeWorkOutputRefund } from "@/server/generation/settlement-adapters";
 import { GENERATION_CREDIT_COSTS } from "@/server/generation/canonical/types";
 import type { CreativeWorkOutput } from "@/server/db/schema";
+import { logCreativeWorkRetry } from "@/server/creative-work/job-telemetry";
 
 export type RetryCreativeWorkOutputInput = {
   workspaceId: string;
@@ -106,13 +107,25 @@ export async function retryCreativeWorkOutput(
     };
   }
 
+  logCreativeWorkRetry({
+    workspaceId: input.workspaceId,
+    workItemId: input.workItemId,
+    outputId: input.outputId,
+    generationCorrelationId: existing.work.generationCorrelationId,
+    action: "manual_retry",
+    reason: "user_requested_retry",
+    retryCount: reset.retryCount,
+    imageCallCount: reset.imageCallCount,
+  });
   await inngest.send([
     {
+      id: `creative-work-generate:${input.outputId}:retry-${reset.retryCount}`,
       name: heavyImageEventName("creative-work.generate"),
       data: {
         workspaceId: input.workspaceId,
         workItemId: input.workItemId,
         outputId: input.outputId,
+        generationCorrelationId: existing.work.generationCorrelationId,
       },
     },
   ]);
