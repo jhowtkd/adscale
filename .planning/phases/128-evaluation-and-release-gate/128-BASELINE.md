@@ -27,4 +27,3 @@ Generated at 2026-07-30T20:18:19.207Z.
 - total scenarios: 8
 - quality_signal: 5
 - factual_integrity: 3
-
