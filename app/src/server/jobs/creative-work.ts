@@ -841,7 +841,14 @@ const creativeWorkOutputJobHandler = async ({
         }
 
         if (output.directionSnapshot?.instruction) {
-          prompt += `\n\nDIRECTION INSTRUCTION:\n${output.directionSnapshot.instruction}`;
+          // The pool's global manual instruction constrains every directional
+          // output; rows generated before the pool have neither and keep the
+          // legacy prompt untouched.
+          const manualInstruction = inputSnapshot.settings?.directionPool?.manualInstruction?.trim();
+          const directionInstruction = [output.directionSnapshot.instruction, manualInstruction]
+            .filter(Boolean)
+            .join("\n");
+          prompt += `\n\nDIRECTION INSTRUCTION:\n${directionInstruction}`;
         }
       } catch (error) {
         terminalRefunded = await refundPreGeneratorOutput({

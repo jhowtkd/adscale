@@ -2147,6 +2147,7 @@
     "fileTooLarge": "File too large. Maximum size is 50MB.",
     "rateLimitExceeded": "Too many requests. Please try again later.",
     "creativeWorkNotDraft": "This work has already entered generation and can no longer be changed. Start a new creation to continue.",
+    "creativeWorkNotEligibleForSuggestion": "This work is not in the variations state with a ready source; direction suggestions are unavailable.",
     "nothingToExport": "No approved creative variant with an available file to export.",
     "invalidAssetKey": "Invalid asset key: must belong to the campaign",
     "assetNotFound": "Asset not found in storage",

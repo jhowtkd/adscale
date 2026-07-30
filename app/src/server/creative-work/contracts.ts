@@ -283,6 +283,15 @@ export const creativeDirectionPoolSchema = z.object({
         message: "selectedIdNotInPool",
       });
     }
+    // Each selected direction prices and persists exactly one output — a
+    // duplicate id would double-charge a single persisted row.
+    if (value.selectedIds.indexOf(selectedId) !== index) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["selectedIds", index],
+        message: "selectedIdsMustBeUnique",
+      });
+    }
   }
 });
 

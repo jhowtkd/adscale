@@ -756,6 +756,35 @@ describe("creativeWorkOutputJob", () => {
     expect(request.prompt).toContain("Use a dark cinematic mood");
   });
 
+  it("combines the pool manual instruction with each directional output prompt", async () => {
+    getCreativeWorkMock.mockResolvedValue({
+      work: {
+        ...workItem,
+        settings: {
+          targetFormats: ["1:1"],
+          directionPool: {
+            version: 1,
+            directions: [],
+            selectedIds: [],
+            manualInstruction: "Nunca use fundo branco",
+          },
+        },
+      },
+      outputs: [makeQueuedOutput({
+        directionId: "00000000-0000-4000-8000-0000000000d1",
+        directionSnapshot: { label: "A", instruction: "Use a dark cinematic mood", order: 0 },
+      })],
+    });
+    markProcessingMock.mockResolvedValue(makeQueuedOutput({
+      status: "processing",
+      directionId: "00000000-0000-4000-8000-0000000000d1",
+      directionSnapshot: { label: "A", instruction: "Use a dark cinematic mood", order: 0 },
+    }));
+    await runJob();
+    const request = generateAndStoreImageMock.mock.calls[0]?.[0] as { prompt: string };
+    expect(request.prompt).toContain("DIRECTION INSTRUCTION:\nUse a dark cinematic mood\nNunca use fundo branco");
+  });
+
   it("passes the persisted output retry count as the canonical attempt", async () => {
     getCreativeWorkMock.mockResolvedValue({
       work: workItem,

@@ -8,6 +8,7 @@ import {
   CREATIVE_WORK_GENERATION_POLICY_VERSIONS,
   CREATIVE_WORK_INTENTS,
   createCreativeWorkSchema,
+  creativeDirectionPoolSchema,
   displayRequestForCreativeWork,
   generationPolicyVersionFromSwitch,
   quoteCreativeWork,
@@ -238,6 +239,21 @@ describe("creative work contracts", () => {
     };
     expect(() => quoteCreativeWork({ intent: "social_post", format: "4:5", targetFormats: [], directionPool }))
       .toThrow("selected direction id not found in pool: 00000000-0000-4000-8000-0000000000d2");
+  });
+
+  it("rejects duplicated selected direction ids so a single output is never double-charged", () => {
+    const parsed = creativeDirectionPoolSchema.safeParse({
+      version: 1,
+      directions: [
+        { id: "00000000-0000-4000-8000-0000000000d1", label: "A", instruction: "A", order: 0, safetyBand: "safe", provenance: "default" },
+        { id: "00000000-0000-4000-8000-0000000000d2", label: "B", instruction: "B", order: 1, safetyBand: "safe", provenance: "default" },
+      ],
+      selectedIds: ["00000000-0000-4000-8000-0000000000d1", "00000000-0000-4000-8000-0000000000d1", "00000000-0000-4000-8000-0000000000d2"],
+      manualInstruction: null,
+    });
+    expect(parsed.success).toBe(false);
+    if (parsed.success) return;
+    expect(parsed.error.issues.some((issue) => issue.message === "selectedIdsMustBeUnique" && issue.path.join(".") === "selectedIds.1")).toBe(true);
   });
 
   it("quotes exactly one output per target format without duplicates", () => {

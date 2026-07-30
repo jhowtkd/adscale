@@ -400,6 +400,36 @@ describe("projectCreativeWorkAsCanonicalWork (Criar Post fixture)", () => {
       "balanced 4:5 · v2",
     ]);
   });
+
+  it("projects every directional output sharing the same level and format", () => {
+    const directionalOutput = (id: string, directionId: string, createdAt: string) => ({
+      id,
+      status: "completed",
+      creativeLevel: "balanced",
+      targetFormat: "4:5",
+      versionNumber: 1,
+      parentOutputId: null,
+      directionId,
+      outputKey: `out/${id}.png`,
+      isSelected: false,
+      createdAt,
+    });
+    const work = projectCreativeWorkAsCanonicalWork(
+      creativeWorkFixture({
+        status: "completed",
+        copy: { headline: "H", body: "B", cta: "C" },
+        identitySnapshot: {},
+      }),
+      [
+        directionalOutput("dir-a", "00000000-0000-4000-8000-0000000000d1", "2026-01-03T00:00:00.000Z"),
+        directionalOutput("dir-b", "00000000-0000-4000-8000-0000000000d2", "2026-01-04T00:00:00.000Z"),
+        directionalOutput("dir-c", "00000000-0000-4000-8000-0000000000d3", "2026-01-05T00:00:00.000Z"),
+      ],
+    );
+
+    expect(work.outputs.map((output) => output.id)).toEqual(["dir-a", "dir-b", "dir-c"]);
+    expect(work.versions.map((version) => version.outputId)).toEqual(["dir-a", "dir-b", "dir-c"]);
+  });
 });
 
 describe("projectAsCanonicalWork dispatch", () => {

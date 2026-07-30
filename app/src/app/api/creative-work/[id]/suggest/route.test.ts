@@ -21,7 +21,7 @@ describe("POST /api/creative-work/[id]/suggest", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("returns scoped suggestions without accepting a generation payload", async () => {
-    suggestMock.mockResolvedValue([{ id: "direction-1", label: "Oferta", instruction: "Destaque", order: 0, safetyBand: "safe", provenance: "ai-suggestion" }]);
+    suggestMock.mockResolvedValue({ ok: true, directions: [{ id: "direction-1", label: "Oferta", instruction: "Destaque", order: 0, safetyBand: "safe", provenance: "ai-suggestion" }] });
     const response = await POST(new Request("http://localhost/api/creative-work/work-1/suggest", { method: "POST" }), { params: Promise.resolve({ id: "work-1" }) });
     const body = await response.json();
 
@@ -31,8 +31,26 @@ describe("POST /api/creative-work/[id]/suggest", () => {
   });
 
   it("returns not found when the work is outside the workspace", async () => {
-    suggestMock.mockResolvedValue(null);
+    suggestMock.mockResolvedValue({ ok: false, error: { code: "work_not_found" } });
     const response = await POST(new Request("http://localhost/api/creative-work/work-1/suggest", { method: "POST" }), { params: Promise.resolve({ id: "work-1" }) });
     expect(response.status).toBe(404);
+  });
+
+  it("returns conflict when the work already left the draft state", async () => {
+    suggestMock.mockResolvedValue({ ok: false, error: { code: "work_not_draft", status: "generating" } });
+    const response = await POST(new Request("http://localhost/api/creative-work/work-1/suggest", { method: "POST" }), { params: Promise.resolve({ id: "work-1" }) });
+    expect(response.status).toBe(409);
+  });
+
+  it("returns conflict when the intent does not support variations", async () => {
+    suggestMock.mockResolvedValue({ ok: false, error: { code: "intent_not_supported", toolKind: "social_post" } });
+    const response = await POST(new Request("http://localhost/api/creative-work/work-1/suggest", { method: "POST" }), { params: Promise.resolve({ id: "work-1" }) });
+    expect(response.status).toBe(409);
+  });
+
+  it("returns conflict when no source is ready", async () => {
+    suggestMock.mockResolvedValue({ ok: false, error: { code: "source_not_ready" } });
+    const response = await POST(new Request("http://localhost/api/creative-work/work-1/suggest", { method: "POST" }), { params: Promise.resolve({ id: "work-1" }) });
+    expect(response.status).toBe(409);
   });
 });

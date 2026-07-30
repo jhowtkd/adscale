@@ -44,6 +44,12 @@ export interface CreativeWorkOutputProjectionSource {
   targetFormat?: string | null;
   versionNumber?: number | null;
   parentOutputId?: string | null;
+  /**
+   * Direction this output belongs to (#124). Directional outputs share the
+   * same creative level and format, so the plan key below must include it or
+   * later entries would overwrite earlier ones. Absent on legacy outputs.
+   */
+  directionId?: string | null;
   outputKey: string | null;
   isSelected: boolean | null;
   createdAt?: Date | string | null;
@@ -81,7 +87,10 @@ export function projectCreativeWorkAsCanonicalWork(
   });
   const latestByPlan = new Map<string, CreativeWorkOutputProjectionSource>();
   for (const output of orderedOutputs) {
-    latestByPlan.set(`${output.creativeLevel ?? ""}:${output.targetFormat ?? work.format}`, output);
+    const planKey = output.directionId
+      ? `${output.creativeLevel ?? ""}:${output.targetFormat ?? work.format}:direction:${output.directionId}`
+      : `${output.creativeLevel ?? ""}:${output.targetFormat ?? work.format}`;
+    latestByPlan.set(planKey, output);
   }
 
   const projectOutput = (o: CreativeWorkOutputProjectionSource): CanonicalOutput => {

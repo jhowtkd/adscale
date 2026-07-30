@@ -2140,6 +2140,7 @@
     "invalidInput": "Entrada inválida",
     "rateLimitExceeded": "Muitas requisições. Tente novamente mais tarde.",
     "creativeWorkNotDraft": "Este trabalho já entrou em geração e não pode mais ser alterado. Inicie uma nova criação para continuar.",
+    "creativeWorkNotEligibleForSuggestion": "Este trabalho não está no estado de variações com fonte pronta; sugestões de direcionamento não estão disponíveis.",
     "invalidRequestBody": "Corpo da requisição inválido",
     "aiEmptyResponse": "Resposta vazia da IA",
     "aiInvalidJson": "JSON inválido da IA",

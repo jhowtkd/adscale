@@ -15,9 +15,21 @@ export async function POST(
     ]);
     const rateLimitResult = await checkRateLimit(request, { category: "ai", workspaceId: workspace.id });
     if (rateLimitResult) return rateLimitResult;
-    const directions = await suggestCreativeDirections({ workspaceId: workspace.id, workItemId: id });
-    if (!directions) return apiError("creativeWorkNotFound", 404);
-    return NextResponse.json({ directions }, { status: 200 });
+    const result = await suggestCreativeDirections({ workspaceId: workspace.id, workItemId: id });
+    if (!result.ok) {
+      switch (result.error.code) {
+        case "work_not_found":
+          return apiError("creativeWorkNotFound", 404);
+        case "work_not_draft":
+          return apiError("creativeWorkNotDraft", 409, { status: result.error.status });
+        case "intent_not_supported":
+        case "source_not_ready":
+          return apiError("creativeWorkNotEligibleForSuggestion", 409);
+        default:
+          return apiError("invalidRequest", 400);
+      }
+    }
+    return NextResponse.json({ directions: result.directions }, { status: 200 });
   } catch (error) {
     return handleApiError(error, "creative-work.[id].suggest.POST");
   }

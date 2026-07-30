@@ -19,7 +19,7 @@ const WORK_ID = "11111111-1111-4111-8111-111111111111";
 
 function workAggregate() {
   return {
-    work: { id: WORK_ID, request: "Campanha de matrícula", status: "draft" },
+    work: { id: WORK_ID, request: "Campanha de matrícula", status: "draft", toolKind: "variations" },
     outputs: [],
     sources: [{
       id: "source-1",
@@ -50,10 +50,11 @@ describe("suggestCreativeDirections", () => {
     const first = await suggestCreativeDirections({ workspaceId: "workspace-1", workItemId: WORK_ID });
     const second = await suggestCreativeDirections({ workspaceId: "workspace-1", workItemId: WORK_ID });
 
-    expect(first).toHaveLength(5);
     expect(first).toEqual(second);
-    expect(first?.every((direction) => direction.provenance === "ai-suggestion")).toBe(true);
-    expect(first?.every((direction) => /^[0-9a-f-]{36}$/.test(direction.id))).toBe(true);
+    if (!first.ok) throw new Error("expected ok result");
+    expect(first.directions).toHaveLength(5);
+    expect(first.directions.every((direction) => direction.provenance === "ai-suggestion")).toBe(true);
+    expect(first.directions.every((direction) => /^[0-9a-f-]{36}$/.test(direction.id))).toBe(true);
     expect(createCompletionMock).toHaveBeenCalledTimes(2);
   });
 
@@ -62,15 +63,44 @@ describe("suggestCreativeDirections", () => {
 
     const result = await suggestCreativeDirections({ workspaceId: "workspace-1", workItemId: WORK_ID });
 
-    expect(result).toHaveLength(5);
-    expect(result?.map((direction) => direction.label)).toEqual([
+    if (!result.ok) throw new Error("expected ok result");
+    expect(result.directions).toHaveLength(5);
+    expect(result.directions.map((direction) => direction.label)).toEqual([
       "Conservadora", "Equilibrada", "Ousada", "Foco no produto", "Foco na oferta",
     ]);
   });
 
-  it("returns null for a work outside the workspace scope", async () => {
+  it("rejects a work outside the workspace scope without calling the provider", async () => {
     getWorkMock.mockResolvedValue(null);
-    await expect(suggestCreativeDirections({ workspaceId: "workspace-1", workItemId: WORK_ID })).resolves.toBeNull();
+    await expect(suggestCreativeDirections({ workspaceId: "workspace-1", workItemId: WORK_ID }))
+      .resolves.toEqual({ ok: false, error: { code: "work_not_found" } });
+    expect(createCompletionMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a work that already left the draft state", async () => {
+    const aggregate = workAggregate();
+    aggregate.work.status = "generating";
+    getWorkMock.mockResolvedValue(aggregate);
+    await expect(suggestCreativeDirections({ workspaceId: "workspace-1", workItemId: WORK_ID }))
+      .resolves.toEqual({ ok: false, error: { code: "work_not_draft", status: "generating" } });
+    expect(createCompletionMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a work whose intent does not support variations", async () => {
+    const aggregate = workAggregate();
+    aggregate.work.toolKind = "social_post";
+    getWorkMock.mockResolvedValue(aggregate);
+    await expect(suggestCreativeDirections({ workspaceId: "workspace-1", workItemId: WORK_ID }))
+      .resolves.toEqual({ ok: false, error: { code: "intent_not_supported", toolKind: "social_post" } });
+    expect(createCompletionMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a work without any ready source", async () => {
+    const aggregate = workAggregate();
+    aggregate.sources[0].status = "analyzing";
+    getWorkMock.mockResolvedValue(aggregate);
+    await expect(suggestCreativeDirections({ workspaceId: "workspace-1", workItemId: WORK_ID }))
+      .resolves.toEqual({ ok: false, error: { code: "source_not_ready" } });
     expect(createCompletionMock).not.toHaveBeenCalled();
   });
 });

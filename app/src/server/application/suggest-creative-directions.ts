@@ -96,17 +96,38 @@ Contexto das fontes analisadas: ${JSON.stringify(context).slice(0, 8_000)}`,
   return toDirections(workItemId, suggestionSchema.parse(JSON.parse(content)).directions);
 }
 
+export type SuggestCreativeDirectionsError =
+  | { code: "work_not_found" }
+  | { code: "work_not_draft"; status: string }
+  | { code: "intent_not_supported"; toolKind: string }
+  | { code: "source_not_ready" };
+
+export type SuggestCreativeDirectionsResult =
+  | { ok: true; directions: CreativeDirection[] }
+  | { ok: false; error: SuggestCreativeDirectionsError };
+
 export async function suggestCreativeDirections(input: {
   workspaceId: string;
   workItemId: string;
-}): Promise<CreativeDirection[] | null> {
+}): Promise<SuggestCreativeDirectionsResult> {
   const aggregate = await getCreativeWork(input.workspaceId, input.workItemId);
-  if (!aggregate) return null;
+  if (!aggregate) return { ok: false, error: { code: "work_not_found" } };
+  // Same eligibility the composer UI enforces, duplicated server-side so a
+  // direct POST cannot suggest for works outside the variations draft state.
+  if (aggregate.work.status !== "draft") {
+    return { ok: false, error: { code: "work_not_draft", status: aggregate.work.status } };
+  }
+  if (aggregate.work.toolKind !== "variations") {
+    return { ok: false, error: { code: "intent_not_supported", toolKind: aggregate.work.toolKind } };
+  }
   const context = sourceContext(aggregate);
+  if (context.length === 0) {
+    return { ok: false, error: { code: "source_not_ready" } };
+  }
   try {
-    return await generateSuggestions(input.workItemId, aggregate.work.request, context);
+    return { ok: true, directions: await generateSuggestions(input.workItemId, aggregate.work.request, context) };
   } catch {
-    return fallbackDirections(input.workItemId);
+    return { ok: true, directions: fallbackDirections(input.workItemId) };
   }
 }
 
