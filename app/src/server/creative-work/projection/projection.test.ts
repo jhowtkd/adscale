@@ -118,7 +118,7 @@ function expectCanonicalShape(
   expect(typeof work.resumable).toBe("boolean");
   expect(work.resumeHref.startsWith("/")).toBe(true);
   if (work.originKind === "creative_work") {
-    expect(work.resumeHref).toBe(`/?workId=${work.originId}`);
+    expect(work.resumeHref).toBe(`/creative-work/${work.originId}`);
   }
   expect(work.createdAt).toMatch(/Z$/);
   expect(work.updatedAt).toMatch(/Z$/);
@@ -282,6 +282,17 @@ describe("projectCampaignAsCanonicalWork", () => {
 });
 
 describe("projectCreativeWorkAsCanonicalWork (Criar Post fixture)", () => {
+  it("resumes an unlinked work on its authenticated detail page", () => {
+    expect(projectCreativeWorkAsCanonicalWork(creativeWorkFixture()).resumeHref)
+      .toBe(`/creative-work/${WORK_ID}`);
+  });
+
+  it("resumes a linked work in its campaign without changing the work id", () => {
+    const work = projectCreativeWorkAsCanonicalWork(creativeWorkFixture({ campaignId: CAMPAIGN_ID }));
+    expect(work.resumeHref).toBe(`/campaigns/${CAMPAIGN_ID}?creativeWork=${WORK_ID}`);
+    expect(work.id).toBe(`creative_work:${WORK_ID}`);
+  });
+
   it("uses the persisted work title as the canonical display name", () => {
     const work = projectCreativeWorkAsCanonicalWork(creativeWorkFixture({
       title: "Campanha de matrículas",

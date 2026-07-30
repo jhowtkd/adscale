@@ -77,7 +77,7 @@ describe("DashboardHomeActions", () => {
       data: [{
         id: "creative_work:w1", originKind: "creative_work", originId: "w1", origin: "quick_tool",
         workspaceId: "ws", name: "Post social", state: "generating", updatedAt: "2026-07-13T12:00:00.000Z",
-        resumable: true, resumeHref: "/?workId=w1",
+        resumable: true, resumeHref: "/creative-work/w1",
       }],
       isLoading: false, isError: false, refetch: vi.fn(),
     });
@@ -90,7 +90,7 @@ describe("DashboardHomeActions", () => {
     expect(screen.getByTestId("creative-composer")).toBeInTheDocument();
     expect(screen.getByTestId("active-client-switcher")).toBeInTheDocument();
     expect(protocols?.compareDocumentPosition(continueLink)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(continueLink).toHaveAttribute("href", "/?workId=w1");
+    expect(continueLink).toHaveAttribute("href", "/creative-work/w1");
     expect(screen.getAllByRole("button").filter((button) => button.hasAttribute("aria-pressed"))).toHaveLength(4);
     expect(screen.getByTestId("brand-inspirations-slot")).toBeInTheDocument();
     expect(screen.queryByText("dashboard.home.chooseIntent")).not.toBeInTheDocument();
@@ -102,7 +102,7 @@ describe("DashboardHomeActions", () => {
       data: [{
         id: "creative_work:w1", originKind: "creative_work", originId: "w1", origin: "quick_tool",
         workspaceId: "ws", name: "Post social", state: "reviewing", updatedAt: "2026-07-13T12:00:00.000Z",
-        resumable: true, resumeHref: "/?workId=w1",
+        resumable: true, resumeHref: "/creative-work/w1",
       }],
       isLoading: false, isError: false, refetch: vi.fn(),
     });
@@ -112,6 +112,24 @@ describe("DashboardHomeActions", () => {
     expect(screen.getByRole("link", { name: /Continue: Post social/i })).toHaveAttribute(
       "href",
       "#creative-composer",
+    );
+  });
+
+  it("keeps a linked work's campaign destination instead of intercepting it with the home anchor", () => {
+    useCanonicalWorksMock.mockReturnValue({
+      data: [{
+        id: "creative_work:w1", originKind: "creative_work", originId: "w1", origin: "quick_tool",
+        workspaceId: "ws", name: "Post social", state: "reviewing", updatedAt: "2026-07-13T12:00:00.000Z",
+        resumable: true, resumeHref: "/campaigns/c1?creativeWork=w1",
+      }],
+      isLoading: false, isError: false, refetch: vi.fn(),
+    });
+
+    render(<DashboardHomeActions workId="w1" />);
+
+    expect(screen.getByRole("link", { name: /Continue: Post social/i })).toHaveAttribute(
+      "href",
+      "/campaigns/c1?creativeWork=w1",
     );
   });
 
@@ -195,7 +213,7 @@ describe("DashboardHomeActions", () => {
       data: [{
         id: "creative_work:w1", originKind: "creative_work", originId: "w1", origin: "quick_tool",
         workspaceId: "ws", name: "Post social", state: "reviewing", updatedAt: "2026-07-13T12:00:00.000Z",
-        resumable: true, resumeHref: "/?workId=w1",
+        resumable: true, resumeHref: "/creative-work/w1",
       }],
       isLoading: false, isError: false, refetch: vi.fn(),
     });

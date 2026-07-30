@@ -101,6 +101,7 @@ export async function listCanonicalWorks(
           id: w.id,
           workspaceId: w.workspaceId,
           clientProfileId: w.clientProfileId,
+          campaignId: w.campaignId,
           title: w.title,
           toolKind: w.toolKind,
           status: w.status,

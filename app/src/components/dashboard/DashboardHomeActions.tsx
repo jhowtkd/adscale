@@ -163,6 +163,7 @@ export default function DashboardHomeActions({
             href={
               continueTarget.originKind === "creative_work"
               && continueTarget.originId === composer.workId
+              && !continueTarget.href.includes("?creativeWork=")
                 ? "#creative-composer"
                 : continueTarget.href
             }

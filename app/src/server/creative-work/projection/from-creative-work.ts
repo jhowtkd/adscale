@@ -16,6 +16,7 @@ export interface CreativeWorkProjectionSource {
   id: string;
   workspaceId: string;
   clientProfileId: string;
+  campaignId?: string | null;
   title?: string;
   toolKind: string;
   status: string;
@@ -48,8 +49,10 @@ export interface CreativeWorkOutputProjectionSource {
   createdAt?: Date | string | null;
 }
 
-function resumeHrefForCreativeWork(workItemId: string): string {
-  return `/?workId=${workItemId}`;
+function resumeHrefForCreativeWork(workItemId: string, campaignId: string | null | undefined): string {
+  return campaignId
+    ? `/campaigns/${campaignId}?creativeWork=${workItemId}`
+    : `/creative-work/${workItemId}`;
 }
 
 export function projectCreativeWorkAsCanonicalWork(
@@ -143,7 +146,7 @@ export function projectCreativeWorkAsCanonicalWork(
     createdAt: requireIso(work.createdAt),
     updatedAt: requireIso(work.updatedAt),
     resumable: state !== "abandoned" && state !== "failed",
-    resumeHref: resumeHrefForCreativeWork(work.id),
+    resumeHref: resumeHrefForCreativeWork(work.id, work.campaignId),
   };
 }
 
