@@ -88,7 +88,7 @@ describe("analyzeCreativeWorkSource", () => {
     await analyzeCreativeWorkSource({ workspaceId: "ws-1", workItemId: "work-1", sourceId: "source-2" });
 
     expect(updateCreativeWorkSourceIfUnchanged).toHaveBeenCalledWith("ws-1", "work-1", "source-1", expect.objectContaining({ status: "analyzing" }), { status: "failed", failureCode: "analysis_failed" });
-    expect(updateCreativeWorkSourceIfUnchanged).toHaveBeenCalledWith("ws-1", "work-1", "source-2", expect.objectContaining({ status: "analyzing" }), expect.objectContaining({ status: "ready", contentAnalysis: content }));
+    expect(updateCreativeWorkSourceIfUnchanged).toHaveBeenCalledWith("ws-1", "work-1", "source-2", expect.objectContaining({ status: "analyzing" }), expect.objectContaining({ status: "ready", contentAnalysis: expect.objectContaining(content) }));
   });
 
   it("offers one deterministic failed analysis before succeeding on manual retry", async () => {
@@ -155,6 +155,35 @@ describe("analyzeCreativeWorkSource", () => {
     expect(updateCreativeWorkSourceIfUnchanged).toHaveBeenLastCalledWith(
       "ws-1", "work-1", "source-1", expect.objectContaining({ status: "analyzing" }),
       expect.objectContaining({ status: "ready", contentAnalysis: expect.objectContaining({ product: "Tênis" }), styleAnalysis: expect.objectContaining({ mood: "direto" }) }),
+    );
+  });
+
+  it("persists localized reading and literal text without invoking image generation", async () => {
+    getCreativeWork.mockResolvedValue({ work: {}, outputs: [], sources: [source("source-1", "both")] });
+    analyzeImageContent.mockResolvedValue({
+      ...content,
+      summaryPt: "Resumo em português",
+      literalText: "Inscreva-se agora!",
+      entities: ["Cenbrap"],
+    });
+    analyzeImageStyle.mockResolvedValue({
+      ...style,
+      palette: [{ hex: "#123456", labelPt: "azul profundo" }],
+      moodChipsPt: ["profissional", "acolhedor"],
+      compositionPt: "hierarquia central",
+      typography: { ...style.typography, stylePt: "institucional" },
+    });
+
+    await analyzeCreativeWorkSource({ workspaceId: "ws-1", workItemId: "work-1", sourceId: "source-1" });
+
+    expect(updateCreativeWorkSourceIfUnchanged).toHaveBeenLastCalledWith(
+      "ws-1", "work-1", "source-1",
+      expect.objectContaining({ status: "analyzing" }),
+      expect.objectContaining({
+        status: "ready",
+        contentAnalysis: expect.objectContaining({ summaryPt: "Resumo em português", literalText: "Inscreva-se agora!" }),
+        styleAnalysis: expect.objectContaining({ palette: [{ hex: "#123456", labelPt: "azul profundo" }], moodChipsPt: ["profissional", "acolhedor"] }),
+      }),
     );
   });
 

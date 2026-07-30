@@ -2,6 +2,8 @@ import {
   analyzeImageContent,
   analyzeImageStyle,
   contentBriefSchema,
+  normalizeContentBrief,
+  normalizeStyleBrief,
   styleBriefSchema,
   type ContentBrief,
   type StyleBrief,
@@ -62,13 +64,13 @@ export async function analyzeCreativeWorkSource(input: Input) {
         source.usage !== "style" ? analyzeImageContent(normalized.buffer, normalized.mimeType) : null,
         source.usage !== "content" ? analyzeImageStyle(normalized.buffer, normalized.mimeType) : null,
       ]);
-      contentAnalysis = contentResult ? contentBriefSchema.parse(contentResult) : null;
-      styleAnalysis = styleResult ? styleBriefSchema.parse(styleResult) : null;
+      contentAnalysis = contentResult ? normalizeContentBrief(contentBriefSchema.parse(contentResult)) : null;
+      styleAnalysis = styleResult ? normalizeStyleBrief(styleBriefSchema.parse(styleResult)) : null;
     } else {
       const template = source.templateId ? await getTemplateById(source.templateId, input.workspaceId) : null;
       if (!template) throw new Error("creative_work_source_origin_invalid");
       if (source.usage !== "style") {
-        contentAnalysis = contentBriefSchema.parse({
+        contentAnalysis = normalizeContentBrief(contentBriefSchema.parse({
           product: template.product ?? "",
           offer: template.offer ?? "",
           cta: { text: (template.ctaVariants ?? []).join(", "), style: "template" },
@@ -76,10 +78,10 @@ export async function analyzeCreativeWorkSource(input: Input) {
           keyVisual: template.objective ?? "",
           textContent: { headline: template.objective ?? "", bullets: [template.audience ?? ""].filter(Boolean) },
           format: (template.targetFormats ?? []).join(", "),
-        });
+        }));
       }
       if (source.usage !== "content") {
-        styleAnalysis = styleBriefSchema.parse({
+        styleAnalysis = normalizeStyleBrief(styleBriefSchema.parse({
           colorPalette: { dominant: [], accents: [], gradients: "" },
           typography: { personality: template.tone ?? "", effects: [] },
           textures: [],
@@ -87,7 +89,7 @@ export async function analyzeCreativeWorkSource(input: Input) {
           mood: template.tone ?? "",
           decorativeElements: [],
           photoTreatment: "",
-        });
+        }));
       }
     }
     const ready = await updateCreativeWorkSourceIfUnchanged(
