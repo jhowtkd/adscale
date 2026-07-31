@@ -1,5 +1,5 @@
 import { env } from "@/server/validation/env";
-import { getOpenAI } from "@/server/ai/utils";
+import { extractOutputText, getOpenAI } from "@/server/ai/utils";
 import { isE2EControlledProviderEnabled } from "@/server/ai/providers/e2e-controlled-provider";
 import { z } from "zod";
 
@@ -69,24 +69,26 @@ export async function analyzeImageContent(
   const base64 = imageBuffer.toString("base64");
   const dataUrl = `data:${mimeType};base64,${base64}`;
 
-  const response = await getOpenAI().chat.completions.create({
+  const response = await getOpenAI().responses.create({
     model: env.OPENAI_TEXT_MODEL,
-    messages: [
+    input: [
       { role: "system", content: CONTENT_SYSTEM_PROMPT },
       {
         role: "user",
         content: [
+          { type: "input_text", text: "Extract the creative content as the requested JSON." },
           {
-            type: "image_url",
-            image_url: { url: dataUrl, detail: "high" },
+            type: "input_image",
+            image_url: dataUrl,
+            detail: "high",
           },
         ],
       },
     ],
-    max_completion_tokens: 2048,
+    text: { format: { type: "json_object" } },
   });
 
-  const raw = response.choices[0]?.message?.content;
+  const raw = extractOutputText(response);
   if (!raw) {
     throw new Error("Empty vision response for content analysis");
   }
@@ -181,24 +183,26 @@ export async function analyzeImageStyle(
   const base64 = imageBuffer.toString("base64");
   const dataUrl = `data:${mimeType};base64,${base64}`;
 
-  const response = await getOpenAI().chat.completions.create({
+  const response = await getOpenAI().responses.create({
     model: env.OPENAI_TEXT_MODEL,
-    messages: [
+    input: [
       { role: "system", content: STYLE_SYSTEM_PROMPT },
       {
         role: "user",
         content: [
+          { type: "input_text", text: "Extract the visual style as the requested JSON." },
           {
-            type: "image_url",
-            image_url: { url: dataUrl, detail: "high" },
+            type: "input_image",
+            image_url: dataUrl,
+            detail: "high",
           },
         ],
       },
     ],
-    max_completion_tokens: 2048,
+    text: { format: { type: "json_object" } },
   });
 
-  const raw = response.choices[0]?.message?.content;
+  const raw = extractOutputText(response);
   if (!raw) {
     throw new Error("Empty vision response for style analysis");
   }
