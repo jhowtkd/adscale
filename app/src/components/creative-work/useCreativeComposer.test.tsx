@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   linkCampaign: vi.fn(),
   resolveBrandConflict: vi.fn(),
   resolveBrandConflictPending: vi.fn(() => false),
+  refetch: vi.fn(),
   apiFetch: vi.fn(),
 }));
 
@@ -820,6 +821,35 @@ describe("useCreativeComposer", () => {
     expect(mocks.source).toHaveBeenCalledTimes(2);
     expect(result.current.error).toBeNull();
     expect(result.current.announcement).toBe("Arte adicionada");
+  });
+
+  it("re-reads instead of surfacing a transient 409 when a source retry loses its race", async () => {
+    vi.useRealTimers();
+    const refetch = mocks.refetch.mockResolvedValue({ data: workDetail() });
+    mocks.work.mockReturnValue({
+      data: {
+        ...workDetail({ id: WORK_ID }),
+        sources: [{
+          id: "source-1",
+          status: "failed",
+          usage: "both",
+          usageConfirmed: true,
+        }],
+      },
+      isLoading: false,
+      isError: false,
+      refetch,
+    });
+    mocks.source.mockRejectedValueOnce(
+      Object.assign(new Error("Entrada inválida"), { code: "invalidInput", status: 409 }),
+    );
+
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: WORK_ID }));
+    await act(async () => Promise.resolve());
+    await act(async () => result.current.retrySource("source-1"));
+
+    expect(refetch).toHaveBeenCalledOnce();
+    expect(result.current.error).toBeNull();
   });
 
   it("delivers an upload announcement to the composer mounted after draft canonicalization", async () => {

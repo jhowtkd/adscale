@@ -93,6 +93,12 @@ function snapshotFromWork(work: Pick<CreativeWorkItem, "request" | "toolKind" | 
   };
 }
 
+function isCreativeWorkConflict(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const candidate = error as Error & { status?: unknown };
+  return candidate.status === 409;
+}
+
 function focusBrandSwitcher() {
   (document.getElementById("active-brand-switcher-inline")
     ?? document.getElementById("active-brand-switcher"))?.focus();
@@ -801,8 +807,21 @@ export function useCreativeComposer({
   }, [runSourceAction]);
   const retrySource = useCallback((sourceId: string) => {
     if (!workIdRef.current) return Promise.resolve();
-    return runSourceAction({ workItemId: workIdRef.current, action: "retrySource", sourceId });
-  }, [runSourceAction]);
+    const workItemId = workIdRef.current;
+    return sourceMutation.mutateAsync({ workItemId, action: "retrySource", sourceId })
+      .then(() => undefined)
+      .catch(async (cause) => {
+        // A poll or a duplicate click may win the source CAS between the
+        // detail read and retry. The server's 409 is a safe no-op: refresh
+        // the canonical source state instead of surfacing "Entrada inválida".
+        if (isCreativeWorkConflict(cause)) {
+          await detailQuery.refetch();
+          setError(null);
+          return;
+        }
+        setError(cause instanceof Error ? cause.message : "Falha ao atualizar arte");
+      });
+  }, [detailQuery, sourceMutation]);
   const removeSource = useCallback((sourceId: string) => {
     if (!workIdRef.current) return Promise.resolve();
     return runSourceAction({ workItemId: workIdRef.current, action: "removeSource", sourceId });
