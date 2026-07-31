@@ -636,7 +636,7 @@ describe("creative-work repository", () => {
       expect(mocks.insertMock).not.toHaveBeenCalled();
     });
 
-    it("scopes revision key and version sequence to the parent direction", async () => {
+    it("keeps revision identity and version sequence scoped to the parent direction", async () => {
       const directionId = "00000000-0000-4000-8000-0000000000d1";
       const snapshot = { label: "A", instruction: "Make it A", order: 0 };
       const parent = workOutput({
@@ -653,7 +653,7 @@ describe("creative-work repository", () => {
         parentOutputId: "output-1",
         targetFormat: "4:5",
         versionNumber: 2,
-        operationKey: `revision:${key}:direction:${directionId}`,
+        operationKey: `revision:${key}`,
         revisionInstruction: "Shorter",
         directionId,
         directionSnapshot: snapshot,
@@ -669,7 +669,7 @@ describe("creative-work repository", () => {
 
       expect(mocks.valuesMock).toHaveBeenCalledWith(expect.objectContaining({
         versionNumber: 2,
-        operationKey: `revision:${key}:direction:${directionId}`,
+        operationKey: `revision:${key}`,
         directionId,
         directionSnapshot: snapshot,
       }));
@@ -679,6 +679,42 @@ describe("creative-work repository", () => {
         .map(([condition]) => serializedCondition(condition))
         .find((query) => query.params.includes("balanced") && query.params.includes(directionId));
       expect(versionScopeQuery?.params).toEqual(["ws-1", "work-1", "balanced", "4:5", directionId]);
+    });
+
+    it("rejects the same revision key against a different directional parent", async () => {
+      const directionA = "00000000-0000-4000-8000-0000000000d1";
+      const directionB = "00000000-0000-4000-8000-0000000000d2";
+      const parentA = workOutput({
+        id: "output-a",
+        directionId: directionA,
+        directionSnapshot: { label: "A", instruction: "Make it A", order: 0 },
+      });
+      const parentB = workOutput({
+        id: "output-b",
+        directionId: directionB,
+        directionSnapshot: { label: "B", instruction: "Make it B", order: 1 },
+      });
+      const key = "00000000-0000-4000-8000-000000000108";
+      const revision = workOutput({
+        id: "output-a2",
+        parentOutputId: parentA.id,
+        operationKey: `revision:${key}`,
+        revisionInstruction: "Shorter",
+        directionId: directionA,
+      });
+
+      mocks.state.selectResults.push([parentA], [], [], [{ maxVersion: 1 }]);
+      mocks.state.onConflictResults.push([revision]);
+      await expect(createCreativeWorkRevision("ws-1", "work-1", key, parentA.id, "Shorter", null)).resolves.toEqual({
+        output: revision,
+        claimedForDispatch: true,
+      });
+
+      mocks.state.selectResults.push([parentB], [revision]);
+      await expect(createCreativeWorkRevision("ws-1", "work-1", key, parentB.id, "Shorter", null)).resolves.toBeNull();
+
+      expect(mocks.valuesMock).toHaveBeenCalledOnce();
+      expect(mocks.executeMock).toHaveBeenCalledOnce();
     });
 
     it("keeps revisions of different directions at the same level and format in independent sequences", async () => {
@@ -702,7 +738,7 @@ describe("creative-work repository", () => {
         id: "output-a2",
         parentOutputId: "output-a",
         versionNumber: 2,
-        operationKey: `revision:${keyA}:direction:${directionA}`,
+        operationKey: `revision:${keyA}`,
         revisionInstruction: "Shorter",
         directionId: directionA,
       });
@@ -710,7 +746,7 @@ describe("creative-work repository", () => {
         id: "output-b2",
         parentOutputId: "output-b",
         versionNumber: 2,
-        operationKey: `revision:${keyB}:direction:${directionB}`,
+        operationKey: `revision:${keyB}`,
         revisionInstruction: "Shorter",
         directionId: directionB,
       });
@@ -731,12 +767,12 @@ describe("creative-work repository", () => {
 
       expect(mocks.valuesMock).toHaveBeenNthCalledWith(1, expect.objectContaining({
         versionNumber: 2,
-        operationKey: `revision:${keyA}:direction:${directionA}`,
+        operationKey: `revision:${keyA}`,
         directionId: directionA,
       }));
       expect(mocks.valuesMock).toHaveBeenNthCalledWith(2, expect.objectContaining({
         versionNumber: 2,
-        operationKey: `revision:${keyB}:direction:${directionB}`,
+        operationKey: `revision:${keyB}`,
         directionId: directionB,
       }));
       const versionScopes = mocks.whereMock.mock.calls

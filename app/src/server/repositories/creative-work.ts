@@ -754,12 +754,10 @@ export async function createCreativeWorkRevision(
   )).limit(1);
   if (!parent) return null;
 
-  // Revisions of a directional output (#124) keep the parent direction: it
-  // scopes the idempotency key and the version sequence, otherwise revisions
-  // of different directions collapse into the shared legacy sequence.
-  const operationKey = parent.directionId
-    ? `revision:${revisionKey}:direction:${parent.directionId}`
-    : `revision:${revisionKey}`;
+  // Revisions keep the parent direction for identity and versioning, while
+  // the operation key remains global so a revision key cannot be replayed
+  // against another parent and charge twice.
+  const operationKey = `revision:${revisionKey}`;
   const [existing] = await db.select().from(creativeWorkOutputs).where(and(
     eq(creativeWorkOutputs.workspaceId, workspaceId),
     eq(creativeWorkOutputs.workItemId, workItemId),
