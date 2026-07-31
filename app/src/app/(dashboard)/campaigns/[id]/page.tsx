@@ -76,6 +76,7 @@ import CampaignErrorState from "@/components/campaigns/CampaignErrorState";
 import CampaignNotFoundState from "@/components/campaigns/CampaignNotFoundState";
 
 import { CampaignAssistantPanel } from "@/components/assistant/CampaignAssistantDrawer";
+import { CreativeWorkResumeSurface } from "@/components/creative-work/CreativeWorkResumeSurface";
 import { useCampaignWorkspace } from "@/lib/hooks/use-campaign-workspace";
 import type { ReviewDerivationVariables } from "@/lib/hooks/use-review";
 import { useUpdateCampaign } from "@/lib/hooks/use-campaigns";
@@ -104,6 +105,7 @@ export default function CampaignWorkspacePage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const campaignId = params.id as string;
+  const linkedCreativeWorkId = searchParams.get("creativeWork");
   const isNew = campaignId === "new";
   const appliedDeepLinkRef = useRef<string | null>(null);
 
@@ -511,6 +513,9 @@ export default function CampaignWorkspacePage() {
 
   return (
     <div className="min-w-0 pb-10 workspace-scroll-padding shell-offset-bottom-mobile">
+      {linkedCreativeWorkId ? (
+        <CreativeWorkResumeSurface workId={linkedCreativeWorkId} campaignId={campaignId} />
+      ) : null}
       <div className="workspace-split lg:grid lg:grid-cols-[1fr_380px] lg:items-start">
         {/* Main workspace column. Always visible on desktop; toggled on mobile. */}
         <div

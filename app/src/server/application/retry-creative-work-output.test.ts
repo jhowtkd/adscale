@@ -103,6 +103,34 @@ describe("retryCreativeWorkOutput", () => {
     expect(mockRecordUsage).not.toHaveBeenCalled();
   });
 
+  it("retries only the failed directional output and preserves its frozen snapshot", async () => {
+    const directionalOutput = {
+      ...failedOutput,
+      directionId: "00000000-0000-4000-8000-000000000001",
+      directionSnapshot: {
+        label: "Oferta em primeiro plano",
+        instruction: "Destaque a oferta com hierarquia imediata.",
+        order: 0,
+      },
+    };
+    const completedSibling = { ...failedOutput, id: "output-completed", status: "completed", outputKey: "stored/image.png" };
+    mockGet.mockResolvedValue({ work: workItem, outputs: [completedSibling, directionalOutput] } as never);
+    mockRequeue.mockResolvedValue({ ...directionalOutput, status: "queued", failureCode: null, retryCount: 1 } as never);
+
+    const result = await retryCreativeWorkOutput({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      outputId: directionalOutput.id,
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: { output: { id: directionalOutput.id, directionId: directionalOutput.directionId, directionSnapshot: directionalOutput.directionSnapshot } },
+    });
+    expect(mockRequeue).toHaveBeenCalledWith("ws-1", "work-1", directionalOutput.id);
+    expect(mockRequeue).not.toHaveBeenCalledWith("ws-1", "work-1", completedSibling.id);
+  });
+
   it("rejects missing work without requeue or dispatch", async () => {
     mockGet.mockResolvedValue(null);
     const result = await retryCreativeWorkOutput({

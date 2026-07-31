@@ -8,6 +8,11 @@ vi.mock("next-intl", () => ({
       variationContentTitle: "Conteúdo identificado",
       variationStyleTitle: "Estilo identificado",
       variationAnalysisUnavailable: "Nenhuma informação identificada.",
+      literalTextTitle: "Texto literal da peça",
+      identifiedEntities: "Entidades identificadas",
+      paletteAria: "Amostras da paleta",
+      moodAria: "Clima visual",
+      compositionDiagramAria: "Esquema visual da composição",
       variationInstructionsLabel: "O que você quer variar?",
       variationInstructionsHint:
         "Opcional. Escreva livremente ou use uma linha para cada mudança.",
@@ -89,29 +94,45 @@ describe("CreativeVariationBrief", () => {
     );
   });
 
-  it("accepts free text with dashes and line breaks without parsing it", () => {
-    const onChange = vi.fn();
+  it("does not render the legacy free-form instructions textarea", () => {
+    // The variations journey supervises the batch through direction chips and
+    // the collapsed manual directions; the old "O que você quer variar?"
+    // textarea was removed so it no longer competes with the manual direction.
+    render(<CreativeVariationBrief source={source} />);
 
+    expect(
+      screen.queryByRole("textbox", { name: "O que você quer variar?" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows localized fields, literal text, palette samples, mood chips, and composition schematic", () => {
     render(
       <CreativeVariationBrief
-        source={source}
+        source={{
+          ...source,
+          contentAnalysis: {
+            ...source.contentAnalysis,
+            summaryPt: "Resumo em português",
+            literalText: "Inscreva-se agora!",
+            entities: ["Cenbrap", "agosto"],
+          },
+          styleAnalysis: {
+            ...source.styleAnalysis,
+            palette: [{ hex: "#123456", labelPt: "azul profundo" }],
+            moodChipsPt: ["profissional", "acolhedor"],
+            compositionPt: "hierarquia central",
+            typography: { ...source.styleAnalysis.typography, stylePt: "institucional" },
+          },
+        }}
         value=""
-        onChange={onChange}
+        onChange={vi.fn()}
       />,
     );
 
-    const instructions = screen.getByRole("textbox", {
-      name: "O que você quer variar?",
-    });
-
-    fireEvent.change(instructions, {
-      target: {
-        value: "- Criar uma copy mais direta\n- Sugerir novos CTAs",
-      },
-    });
-
-    expect(onChange).toHaveBeenCalledWith(
-      "- Criar uma copy mais direta\n- Sugerir novos CTAs",
-    );
+    expect(screen.getByText("Resumo em português")).toBeInTheDocument();
+    expect(screen.getByText("Inscreva-se agora!")).toBeInTheDocument();
+    expect(screen.getByText("azul profundo")).toBeInTheDocument();
+    expect(screen.getByText("acolhedor")).toBeInTheDocument();
+    expect(screen.getByLabelText("Esquema visual da composição")).toBeInTheDocument();
   });
 });

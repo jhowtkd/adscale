@@ -16,3 +16,8 @@ export async function apiFetch(
 
   return res;
 }
+
+export function isApiRequestUncertain(error: unknown): boolean {
+  if (error instanceof TypeError) return true;
+  return error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError");
+}

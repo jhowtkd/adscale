@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import { invalidateCanonicalWorks } from "@/lib/hooks/use-canonical-works";
 import type { ContentBrief, StyleBrief } from "@/server/ai/image-analysis";
+import type { CreativeDirection, CreativeDirectionPool } from "@/server/creative-work/contracts";
 
 export type CreativeWorkStatus =
   | "draft"
@@ -64,7 +65,11 @@ export interface CreativeWorkItem {
   status: CreativeWorkStatus;
   brief: SocialPostBrief;
   format: "1:1" | "4:5" | "9:16";
-  settings: { targetFormats: Array<"1:1" | "4:5" | "9:16">; formatMode?: "auto" | "manual" };
+  settings: {
+    targetFormats: Array<"1:1" | "4:5" | "9:16">;
+    formatMode?: "auto" | "manual";
+    directionPool?: CreativeDirectionPool;
+  };
   copy: SocialPostCopy | null;
   identitySnapshot: CreativeWorkIdentitySnapshot | null;
   createdAt: Date | string;
@@ -91,6 +96,8 @@ export interface CreativeWorkOutput {
   failureCode: string | null;
   quality: Record<string, unknown> | null;
   isSelected: boolean;
+  directionId?: string | null;
+  directionSnapshot?: { label: string; instruction: string; order: number } | null;
   createdAt: Date | string;
   updatedAt: Date | string;
 }
@@ -337,9 +344,10 @@ function postJson<T>(url: string, body?: unknown, timeoutMs?: number): Promise<T
   });
 }
 
-function patchJson<T>(url: string, body: unknown): Promise<T> {
+function patchJson<T>(url: string, body: unknown, timeoutMs?: number): Promise<T> {
   return apiFetch(url, {
     method: "PATCH",
+    timeoutMs,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   }).then(async (res) => {
@@ -459,7 +467,11 @@ export function usePrepareCreativeWork() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: { workItemId: string }) =>
-      patchJson<{ work: CreativeWorkDraftItem; quote: CreativeWorkQuote }>(`/api/creative-work/${input.workItemId}`, { action: "prepare" }),
+      patchJson<{ work: CreativeWorkDraftItem; quote: CreativeWorkQuote }>(
+        `/api/creative-work/${input.workItemId}`,
+        { action: "prepare" },
+        120_000,
+      ),
     onSuccess: (_data, input) => invalidateCreativeDraft(queryClient, input.workItemId),
   });
 }
@@ -559,6 +571,7 @@ export function useTriggerTriplet() {
       postJson<{ work: CreativeWorkItem; outputs: CreativeWorkOutput[]; brandTrainingSuggestion: string | null }>(
         `/api/creative-work/${workItemId}/generate`,
         { action: "initial" },
+        120_000,
       ),
     onSuccess: async (data, workItemId) => {
       queryClient.setQueryData<CreativeWorkDetail>(
@@ -582,6 +595,13 @@ export function useTriggerTriplet() {
         invalidateCanonicalWorks(queryClient),
       ]);
     },
+  });
+}
+
+export function useSuggestCreativeDirections() {
+  return useMutation({
+    mutationFn: (workItemId: string) =>
+      postJson<{ directions: CreativeDirection[] }>(`/api/creative-work/${workItemId}/suggest`, undefined, 60_000),
   });
 }
 

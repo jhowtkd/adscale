@@ -44,14 +44,14 @@ describe("resolveContinueWork", () => {
         state: "generating",
         resumable: true,
         updatedAt: "2026-07-13T10:00:00.000Z",
-        resumeHref: "/?workId=b",
+        resumeHref: "/creative-work/b",
       }),
     ]);
     expect(result).toEqual(
       expect.objectContaining({
         kind: "work",
         name: "Hot",
-        href: "/?workId=b",
+        href: "/creative-work/b",
         originId: "b",
       })
     );

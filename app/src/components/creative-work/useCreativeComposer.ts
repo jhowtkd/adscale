@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { z } from "zod";
 import { collectImageFiles, uploadChatAttachment } from "@/lib/assistant/chat-attachments";
-import { apiFetch } from "@/lib/api-client";
+import { apiFetch, isApiRequestUncertain } from "@/lib/api-client";
 import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
 import {
   useAutosaveCreativeWork,
@@ -19,6 +19,7 @@ import {
   useCreativeWorkCampaigns,
   useResolveBrandConflict,
   useTriggerTriplet,
+  useSuggestCreativeDirections,
   extractCreativeWorkBrandConflict,
   type CreativeSourceUsage,
   type CreativeWorkBrandChoice,
@@ -27,18 +28,27 @@ import {
   type CreativeWorkOutput,
   type CreativeWorkQuote,
 } from "@/lib/hooks/use-creative-work";
-import { quoteCreativeWork } from "@/server/creative-work/contracts";
+import {
+  createDefaultCreativeDirectionPool,
+  quoteCreativeWork,
+  type CreativeDirection,
+  type CreativeDirectionPool,
+} from "@/server/creative-work/contracts";
 import type { CreativeInspiration } from "@/server/application/list-creative-inspirations";
 
 export type ComposerState = "empty" | "saving" | "analyzing" | "ready" | "generating" | "results";
-export type ComposerActionPhase = "idle" | "saving" | "preparing" | "submitting";
+export type ComposerActionPhase = "idle" | "saving" | "preparing" | "submitting" | "reconciling";
 export type ComposerIntent = Exclude<CreativeWorkItem["toolKind"], "social_post">;
 type Format = CreativeWorkItem["format"];
 type DraftSnapshot = {
   request: string;
   intent: ComposerIntent;
   format: Format;
-  settings: { targetFormats: Format[]; formatMode: "auto" | "manual" };
+  settings: {
+    targetFormats: Format[];
+    formatMode: "auto" | "manual";
+    directionPool?: CreativeDirectionPool;
+  };
 };
 type DraftSource = ({ assetId: string } | { templateId: string }) & { usage?: CreativeSourceUsage };
 
@@ -50,8 +60,13 @@ const COMPOSER_INTENTS = new Set<ComposerIntent>([
 ]);
 const UUID_SCHEMA = z.string().uuid();
 
-function canonicalQuote(intent: ComposerIntent, format: Format, targetFormats: Format[]): CreativeWorkQuote {
-  const { unitCount, credits } = quoteCreativeWork({ intent, format, targetFormats });
+function canonicalQuote(
+  intent: ComposerIntent,
+  format: Format,
+  targetFormats: Format[],
+  directionPool?: CreativeDirectionPool,
+): CreativeWorkQuote {
+  const { unitCount, credits } = quoteCreativeWork({ intent, format, targetFormats, directionPool });
   return { unitCount, credits };
 }
 
@@ -67,6 +82,13 @@ function snapshotFromWork(work: Pick<CreativeWorkItem, "request" | "toolKind" | 
     settings: {
       targetFormats: [...work.settings.targetFormats],
       formatMode: work.settings.formatMode ?? "manual",
+      ...(work.settings.directionPool ? {
+        directionPool: {
+          ...work.settings.directionPool,
+          directions: work.settings.directionPool.directions.map((direction) => ({ ...direction })),
+          selectedIds: [...work.settings.directionPool.selectedIds],
+        },
+      } : {}),
     },
   };
 }
@@ -100,7 +122,27 @@ export function useCreativeComposer({
   const [format, setFormat] = useState<Format>("4:5");
   const [formatMode, setFormatMode] = useState<"auto" | "manual">("auto");
   const [targetFormats, setTargetFormats] = useState<Format[]>(initialTargetFormats);
-  const [quote, setQuote] = useState(() => canonicalQuote(initialIntent, "4:5", initialTargetFormats));
+  const [directionPool, setDirectionPool] = useState<CreativeDirectionPool | null>(
+    initialIntent === "variations" ? createDefaultCreativeDirectionPool() : null,
+  );
+  const [quote, setQuote] = useState(() => canonicalQuote(
+    initialIntent,
+    "4:5",
+    initialTargetFormats,
+    initialIntent === "variations" ? createDefaultCreativeDirectionPool() : undefined,
+  ));
+  const [directionSuggestionState, setDirectionSuggestionState] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  // #129: the pending set carries how it was fetched — the initial/late
+  // response replaces the current pool (preserveSelection=false); an explicit
+  // "Sugerir novamente" merges and keeps the selected chips (true).
+  const [pendingDirectionSuggestions, setPendingDirectionSuggestions] = useState<{
+    directions: CreativeDirection[];
+    preserveSelection: boolean;
+  } | null>(null);
+  // Counts explicit "Sugerir novamente" requests. Persisted AI suggestions
+  // block only the automatic first fetch (token 0); an explicit request must
+  // always trigger a new suggestion call (#129).
+  const [directionSuggestionRetryToken, setDirectionSuggestionRetryToken] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [actionPhase, setActionPhase] = useState<ComposerActionPhase>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -118,6 +160,7 @@ export function useCreativeComposer({
   const intentRef = useRef(intent);
   const formatRef = useRef(format);
   const targetFormatsRef = useRef(targetFormats);
+  const directionPoolRef = useRef<CreativeDirectionPool | null>(directionPool);
   const formatModeRef = useRef<"auto" | "manual">("auto");
   const hydratedWorkRef = useRef<string | null>(null);
   const lastPersistedRef = useRef<string | null>(null);
@@ -125,6 +168,8 @@ export function useCreativeComposer({
   const draftEpochRef = useRef(0);
   const saveChainRef = useRef<Promise<void>>(Promise.resolve());
   const submitGuardRef = useRef(false);
+  const directionSuggestionRequestedRef = useRef<string | null>(null);
+  const directionTouchedRef = useRef(false);
   const autosaveBlockedWorkRef = useRef<string | null>(null);
   const didFocusComposerRef = useRef(false);
   const focusFrameRef = useRef<number | null>(null);
@@ -141,6 +186,7 @@ export function useCreativeComposer({
   const prepareMutation = usePrepareCreativeWork();
   const sourceMutation = useCreativeWorkSourceActions();
   const generateMutation = useTriggerTriplet();
+  const suggestDirectionMutation = useSuggestCreativeDirections();
   const retryOutputMutation = useRetryOutput();
   const reviseOutputMutation = useReviseOutput();
   const selectOutputMutation = useSelectOutput();
@@ -162,9 +208,14 @@ export function useCreativeComposer({
     workIdRef.current = work.id;
     requestRef.current = work.request;
     const hydrated = snapshotFromWork(work);
+    const hydratedDirectionPool = hydrated.settings.directionPool
+      ?? (hydrated.intent === "variations" ? createDefaultCreativeDirectionPool() : null);
     intentRef.current = hydrated.intent;
     formatRef.current = hydrated.format;
     targetFormatsRef.current = hydrated.settings.targetFormats;
+    // Keep legacy drafts on the three-level contract until the user changes a
+    // direction; the visible default pool is only materialized on interaction.
+    directionPoolRef.current = hydrated.settings.directionPool ?? null;
     formatModeRef.current = hydrated.settings.formatMode;
     lastPersistedRef.current = signature(hydrated);
     /* TanStack Query is the external persisted source for hydration. */
@@ -173,14 +224,37 @@ export function useCreativeComposer({
     setFormat(work.format);
     setFormatMode(hydrated.settings.formatMode);
     setTargetFormats(work.settings.targetFormats);
-    setQuote(canonicalQuote(hydrated.intent, hydrated.format, hydrated.settings.targetFormats));
+    setDirectionPool(hydratedDirectionPool);
+    // Persisted AI suggestions mean a suggestion round already completed —
+    // surface "Sugerir novamente" instead of fetching again on reload (#129).
+    setDirectionSuggestionState(
+      hydrated.settings.directionPool?.directions.some((direction) => direction.provenance === "ai-suggestion")
+        ? "ready"
+        : "idle",
+    );
+    setQuote(canonicalQuote(
+      hydrated.intent,
+      hydrated.format,
+      hydrated.settings.targetFormats,
+      hydrated.settings.directionPool ?? hydratedDirectionPool ?? undefined,
+    ));
   }, [detailQuery.data]);
 
   const captureSnapshot = useCallback((): DraftSnapshot => ({
     request: requestRef.current,
     intent: intentRef.current,
     format: formatRef.current,
-    settings: { targetFormats: [...targetFormatsRef.current], formatMode: formatModeRef.current },
+    settings: {
+      targetFormats: [...targetFormatsRef.current],
+      formatMode: formatModeRef.current,
+      ...(directionPoolRef.current ? {
+        directionPool: {
+          ...directionPoolRef.current,
+          directions: directionPoolRef.current.directions.map((direction) => ({ ...direction })),
+          selectedIds: [...directionPoolRef.current.selectedIds],
+        },
+      } : {}),
+    },
   }), []);
 
   const enqueueSave = useCallback(<T,>(operation: () => Promise<T>): Promise<T> => {
@@ -415,7 +489,7 @@ export function useCreativeComposer({
       void save().catch((cause) => setError(cause instanceof Error ? cause.message : "Falha ao salvar"));
     }, 500);
     return () => window.clearTimeout(timer);
-  }, [active.activeClientProfileId, captureSnapshot, detailQuery.data?.work, ensureDraft, format, formatMode, initialWorkId, intent, persistSnapshot, request, targetFormats]);
+  }, [active.activeClientProfileId, captureSnapshot, detailQuery.data?.work, directionPool, ensureDraft, format, formatMode, initialWorkId, intent, persistSnapshot, request, targetFormats]);
 
   const setRequest = useCallback((value: string) => {
     requestRef.current = value;
@@ -435,22 +509,127 @@ export function useCreativeComposer({
     setRequestState("");
     setError(null);
     setBrandConflict(null);
+    directionSuggestionRequestedRef.current = null;
+    directionTouchedRef.current = false;
+    setPendingDirectionSuggestions(null);
+    setDirectionSuggestionState("idle");
+    setDirectionSuggestionRetryToken(0);
     setActionPhase("idle");
     intentRef.current = next;
     setIntent(next);
     const nextTargets: Format[] = next === "format_adaptation" ? ["1:1", "9:16"] : [];
     targetFormatsRef.current = nextTargets;
     setTargetFormats(nextTargets);
-    setQuote(canonicalQuote(next, formatRef.current, nextTargets));
+    const nextDirectionPool = next === "variations" ? createDefaultCreativeDirectionPool() : null;
+    directionPoolRef.current = nextDirectionPool;
+    setDirectionPool(nextDirectionPool);
+    setQuote(canonicalQuote(next, formatRef.current, nextTargets, nextDirectionPool ?? undefined));
     exposeIntent(next);
     if (next !== "restyle") requestAnimationFrame(() => composerRef.current?.focus());
   }, [exposeIntent]);
+
+  const toggleDirection = useCallback((directionId: string) => {
+    if (intentRef.current !== "variations") return;
+    const current = directionPoolRef.current ?? createDefaultCreativeDirectionPool();
+    const selectedIds = current.selectedIds.includes(directionId)
+      ? current.selectedIds.filter((id) => id !== directionId)
+      : current.selectedIds.length < 5
+        ? [...current.selectedIds, directionId]
+        : current.selectedIds;
+    if (selectedIds.length === 0 || selectedIds === current.selectedIds) return;
+    const next = { ...current, selectedIds };
+    directionTouchedRef.current = true;
+    directionPoolRef.current = next;
+    setDirectionPool(next);
+    setQuote(canonicalQuote("variations", formatRef.current, targetFormatsRef.current, next));
+  }, []);
+
+  const setManualDirectionInstruction = useCallback((manualInstruction: string) => {
+    if (intentRef.current !== "variations") return;
+    const current = directionPoolRef.current ?? createDefaultCreativeDirectionPool();
+    const next = { ...current, manualInstruction: manualInstruction || null };
+    directionTouchedRef.current = true;
+    directionPoolRef.current = next;
+    setDirectionPool(next);
+  }, []);
+
+  const applyDirectionSuggestions = useCallback((suggestions: CreativeDirection[], preserveSelection = true) => {
+    if (suggestions.length === 0) return;
+    const current = directionPoolRef.current;
+    // #129: "Sugerir novamente" keeps every selected chip and replaces only
+    // the unselected ones, up to five. The untouched first auto-apply and the
+    // confirmed initial/late response pass preserveSelection=false so the
+    // received set replaces the current pool with its top suggestions selected.
+    const keptDirections = preserveSelection && current
+      ? current.directions.filter((direction) => current.selectedIds.includes(direction.id))
+      : [];
+    const directions = [...keptDirections];
+    for (const suggestion of suggestions) {
+      if (directions.length >= 5) break;
+      if (!directions.some((direction) => direction.id === suggestion.id)) directions.push(suggestion);
+    }
+    if (directions.length === 0) return;
+    const next = {
+      version: 1,
+      directions,
+      selectedIds: keptDirections.length > 0
+        ? keptDirections.map((direction) => direction.id)
+        : directions.slice(0, 3).map((direction) => direction.id),
+      manualInstruction: current?.manualInstruction ?? null,
+    } satisfies CreativeDirectionPool;
+    directionPoolRef.current = next;
+    setDirectionPool(next);
+    setQuote(canonicalQuote("variations", formatRef.current, targetFormatsRef.current, next));
+    setPendingDirectionSuggestions(null);
+    setDirectionSuggestionState("ready");
+  }, []);
+
+  const requestDirectionSuggestions = useCallback(() => {
+    directionSuggestionRequestedRef.current = null;
+    setDirectionSuggestionState("idle");
+    setDirectionSuggestionRetryToken((value) => value + 1);
+  }, []);
+
+  const keepCurrentDirections = useCallback(() => {
+    setPendingDirectionSuggestions(null);
+    setDirectionSuggestionState("ready");
+  }, []);
+
+  useEffect(() => {
+    const currentWork = detailQuery.data?.work;
+    const readySource = detailQuery.data?.sources.find((source) => source.status === "ready");
+    if (
+      intent !== "variations"
+      || !workId
+      || !readySource
+      || (currentWork && currentWork.status !== "draft")
+      // Persisted AI suggestions block only the automatic fetch; an explicit
+      // "Sugerir novamente" (retry token > 0) always fetches again (#129).
+      || (directionSuggestionRetryToken === 0
+        && currentWork?.settings.directionPool?.directions.some((direction) => direction.provenance === "ai-suggestion"))
+      || directionSuggestionRequestedRef.current === workId
+    ) return;
+
+    directionSuggestionRequestedRef.current = workId;
+    setDirectionSuggestionState("loading");
+    // Captured at fetch time: retry token 0 is the initial/late response
+    // (replace the pool on apply); token > 0 is "Sugerir novamente" (merge).
+    const preserveSelection = directionSuggestionRetryToken > 0;
+    void suggestDirectionMutation.mutateAsync(workId).then((result) => {
+      if (directionTouchedRef.current) {
+        setPendingDirectionSuggestions({ directions: result.directions, preserveSelection });
+        setDirectionSuggestionState("ready");
+      } else {
+        applyDirectionSuggestions(result.directions, preserveSelection);
+      }
+    }).catch(() => setDirectionSuggestionState("error"));
+  }, [applyDirectionSuggestions, detailQuery.data?.sources, detailQuery.data?.work, directionSuggestionRetryToken, directionSuggestionState, intent, suggestDirectionMutation, workId]);
 
   const toggleTargetFormat = useCallback((value: Format) => {
     setTargetFormats((current) => {
       const next = current.includes(value) ? current.filter((item) => item !== value) : [...current, value];
       targetFormatsRef.current = next;
-      setQuote(canonicalQuote(intentRef.current, formatRef.current, next));
+      setQuote(canonicalQuote(intentRef.current, formatRef.current, next, directionPoolRef.current ?? undefined));
       return next;
     });
   }, []);
@@ -632,15 +811,24 @@ export function useCreativeComposer({
   const generate = useCallback(async () => {
     if (submitGuardRef.current || generateMutation.isPending) return;
     const current = detailQuery.data?.work;
-    if (current && current.status !== "draft") return;
+    // A work left "ready" without outputs by an uncertain submit (prepare
+    // confirmed, generation unconfirmed) resumes straight at the generation
+    // call — prepare requires a draft and must not run again.
+    const resumePrepared = Boolean(
+      current
+      && current.status === "ready"
+      && (detailQuery.data?.outputs.length ?? 0) === 0,
+    );
+    if (current && current.status !== "draft" && !resumePrepared) return;
     submitGuardRef.current = true;
-    setActionPhase("saving");
+    setActionPhase(resumePrepared ? "submitting" : "saving");
     setError(null);
     // A new submit supersedes any stale conflict panel — a generic failure
     // ahead must never render alongside an outdated choice.
     setBrandConflict(null);
+    let phase: ComposerActionPhase = resumePrepared ? "submitting" : "saving";
     try {
-      const id = await flushAutosave();
+      const id = resumePrepared && current ? current.id : await flushAutosave();
       if (!id) return;
       const pendingSources = (detailQuery.data?.sources ?? []).filter(
         (source) => source.status === "uploaded" || source.status === "analyzing",
@@ -649,13 +837,17 @@ export function useCreativeComposer({
         setError("Aguarde a análise da arte terminar antes de gerar.");
         return;
       }
-      setActionPhase("preparing");
-      const prepared = await prepareMutation.mutateAsync({ workItemId: id });
-      lastPersistedRef.current = signature(snapshotFromWork(prepared.work));
-      setQuote(prepared.quote);
-      formatRef.current = prepared.work.format;
-      setFormat(prepared.work.format);
-      setActionPhase("submitting");
+      if (!resumePrepared) {
+        phase = "preparing";
+        setActionPhase(phase);
+        const prepared = await prepareMutation.mutateAsync({ workItemId: id });
+        lastPersistedRef.current = signature(snapshotFromWork(prepared.work));
+        setQuote(prepared.quote);
+        formatRef.current = prepared.work.format;
+        setFormat(prepared.work.format);
+      }
+      phase = "submitting";
+      setActionPhase(phase);
       const generated = await generateMutation.mutateAsync(id);
       setBrandConflict(null);
       setBrandTrainingSuggestion(generated.brandTrainingSuggestion);
@@ -667,6 +859,29 @@ export function useCreativeComposer({
       const conflict = extractCreativeWorkBrandConflict(cause);
       if (conflict) {
         setBrandConflict(conflict);
+      } else if (isApiRequestUncertain(cause) && workIdRef.current) {
+        setActionPhase("reconciling");
+        try {
+          const reconciled = await detailQuery.refetch();
+          const detail = reconciled.data;
+          // Acceptance requires real evidence of generation: an in-flight
+          // status or persisted outputs. "ready" without outputs only proves
+          // the prepare step landed — the flow stays retryable, not accepted.
+          const accepted = Boolean(
+            detail
+            && (detail.work.status === "generating" || detail.outputs.length > 0),
+          );
+          if (accepted) {
+            setError(null);
+            setAnnouncement("Geração aceita; acompanhando o processamento");
+          } else {
+            setError(detail?.work.status === "ready" || phase === "submitting"
+              ? "A geração não foi confirmada. Tente gerar novamente."
+              : "A preparação não foi confirmada. Tente gerar novamente.");
+          }
+        } catch {
+          setError("Não foi possível confirmar o estado da geração. Atualize e tente novamente.");
+        }
       } else {
         setError(cause instanceof Error ? cause.message : "Falha ao gerar");
       }
@@ -674,7 +889,7 @@ export function useCreativeComposer({
       submitGuardRef.current = false;
       setActionPhase("idle");
     }
-  }, [detailQuery.data?.sources, detailQuery.data?.work, flushAutosave, generateMutation, prepareMutation]);
+  }, [detailQuery, flushAutosave, generateMutation, prepareMutation]);
 
   const resolveBrandConflict = useCallback(async (choice: CreativeWorkBrandChoice) => {
     // Double-click guard: one choice in flight per conflict.
@@ -791,7 +1006,10 @@ export function useCreativeComposer({
       ? readySources.length > 0
       : Boolean(request.trim() || sources.length);
   const canGenerate = Boolean(clientProfileId) && hasMeaningfulInput
-    && (!detail?.work || detail.work.status === "draft")
+    && (!detail?.work || detail.work.status === "draft"
+      // A "ready" work without outputs holds a confirmed prepare whose
+      // generation never landed — the submit stays retryable.
+      || (detail.work.status === "ready" && detail.outputs.length === 0))
     && !sources.some((source) => source.status === "uploaded" || source.status === "analyzing")
     && (intent !== "single" || !sources.some((source) => source.usageConfirmed === false))
     && (intent !== "format_adaptation" || targetFormats.length > 0)
@@ -817,13 +1035,15 @@ export function useCreativeComposer({
       formatModeRef.current = "manual";
       setFormatMode("manual");
       setFormat(value);
-      setQuote(canonicalQuote(intentRef.current, value, targetFormatsRef.current));
+      setQuote(canonicalQuote(intentRef.current, value, targetFormatsRef.current, directionPoolRef.current ?? undefined));
     },
     setFormatAuto: () => {
       formatModeRef.current = "auto";
       setFormatMode("auto");
     },
-    targetFormats, toggleTargetFormat, state, actionPhase, workId, clientProfileId, brandName,
+    targetFormats, toggleTargetFormat, directionPool, toggleDirection, setManualDirectionInstruction,
+    directionSuggestionState, pendingDirectionSuggestions, applyDirectionSuggestions, requestDirectionSuggestions, keepCurrentDirections,
+    state, actionPhase, workId, clientProfileId, brandName,
     sources: detail?.sources ?? [], outputs: detail?.outputs ?? [], quote, canGenerate, isUploading,
     campaignId: detail?.work.campaignId ?? null, campaigns,
     error, announcement, brandTrainingSuggestion: brandTrainingSuggestion ?? persistedBrandTrainingSuggestion,

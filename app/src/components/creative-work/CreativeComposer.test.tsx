@@ -40,9 +40,23 @@ import { CreativeComposer } from "./CreativeComposer";
 import type { CreativeComposerModel, CreativeComposerViewModel } from "./useCreativeComposer";
 
 function composer(overrides = {}) {
+  const directionPool = {
+    version: 1,
+    directions: [
+      { id: "00000000-0000-4000-8000-000000000001", label: "Conservadora", instruction: "Preservar", order: 0, safetyBand: "safe" as const, provenance: "default" as const },
+      { id: "00000000-0000-4000-8000-000000000002", label: "Equilibrada", instruction: "Equilibrar", order: 1, safetyBand: "safe" as const, provenance: "default" as const },
+      { id: "00000000-0000-4000-8000-000000000003", label: "Ousada", instruction: "Explorar", order: 2, safetyBand: "experimental" as const, provenance: "default" as const },
+    ],
+    selectedIds: [
+      "00000000-0000-4000-8000-000000000001",
+      "00000000-0000-4000-8000-000000000002",
+      "00000000-0000-4000-8000-000000000003",
+    ],
+    manualInstruction: null,
+  };
   return {
     composerRef: { current: null }, request: "", setRequest: vi.fn(), intent: "variations", selectIntent: vi.fn(),
-    format: "4:5", formatMode: "manual", setFormat: vi.fn(), setFormatAuto: vi.fn(), targetFormats: [], toggleTargetFormat: vi.fn(), state: "empty", actionPhase: "idle",
+    format: "4:5", formatMode: "manual", setFormat: vi.fn(), setFormatAuto: vi.fn(), targetFormats: [], toggleTargetFormat: vi.fn(), directionPool, toggleDirection: vi.fn(), setManualDirectionInstruction: vi.fn(), directionSuggestionState: "idle", pendingDirectionSuggestions: null, applyDirectionSuggestions: vi.fn(), requestDirectionSuggestions: vi.fn(), keepCurrentDirections: vi.fn(), state: "empty", actionPhase: "idle",
     workId: null, brandName: "Marca A", sources: [], outputs: [], quote: { unitCount: 3, credits: 15 },
     campaignId: null, campaigns: [], linkCampaign: vi.fn(), retryOutput: vi.fn(), retryRevisionOutput: vi.fn(), approveOutput: vi.fn(),
     downloadOutput: vi.fn(), reviseOutput: vi.fn(), isRetryingOutput: vi.fn(), isApprovingOutput: vi.fn(), isRevisingOutput: vi.fn(),
@@ -105,7 +119,7 @@ describe("CreativeComposer", () => {
     expect(value.generate).not.toHaveBeenCalled();
   });
 
-  it("shows concise analysis and optional free-form instructions only for variations", () => {
+  it("shows concise analysis without the legacy free-form instructions for variations", () => {
     const value = composer({
       intent: "variations",
       request: "- Criar uma copy mais direta",
@@ -118,19 +132,9 @@ describe("CreativeComposer", () => {
     expect(screen.getByText(/Produto: Tênis/)).toBeInTheDocument();
     expect(screen.getByText(/Clima: urbano/)).toBeInTheDocument();
 
-    const instructions = screen.getByRole("textbox", {
-      name: "O que você quer variar?",
-    });
-
-    expect(instructions).toHaveValue("- Criar uma copy mais direta");
-
-    fireEvent.change(instructions, {
-      target: { value: "- Trocar copy\n- Adicionar CTA" },
-    });
-
-    expect(value.setRequest).toHaveBeenCalledWith(
-      "- Trocar copy\n- Adicionar CTA",
-    );
+    expect(
+      screen.queryByRole("textbox", { name: "O que você quer variar?" }),
+    ).not.toBeInTheDocument();
 
     expect(
       screen.queryByRole("textbox", { name: "Produto" }),
@@ -327,14 +331,63 @@ describe("CreativeComposer", () => {
     const source = {
       id: "source-1", name: "arte.png", origin: "upload", usage: "content", status: "failed",
       usageConfirmed: true, contentAnalysis: null, styleAnalysis: null,
+      previewUrl: "/api/workspace/assets/a1/file",
     };
     const value = composer({ intent: "single", sources: [source] });
     renderComposer(value);
 
+    expect(screen.getByRole("img", { name: "arte.png" })).toHaveAttribute("src", "/api/workspace/assets/a1/file");
     fireEvent.click(screen.getByRole("button", { name: "Estilo" }));
     fireEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
     expect(value.updateSource).toHaveBeenCalledWith("source-1", "style");
     expect(value.retrySource).toHaveBeenCalledWith("source-1");
+  });
+
+  it("mounts the manual instruction textarea only inside the open 'Direcionamentos manuais' section", () => {
+    const value = composer({ intent: "variations" });
+    renderComposer(value);
+
+    expect(screen.queryByRole("textbox", { name: "manualDirections" })).not.toBeInTheDocument();
+
+    const section = screen.getByText("manualDirections").closest("details")!;
+    section.open = true;
+    fireEvent(section, new Event("toggle"));
+
+    const textarea = screen.getByRole("textbox", { name: "manualDirections" });
+    fireEvent.change(textarea, { target: { value: "Destacar a oferta" } });
+    expect(value.setManualDirectionInstruction).toHaveBeenCalledWith("Destacar a oferta");
+
+    section.open = false;
+    fireEvent(section, new Event("toggle"));
+    expect(screen.queryByRole("textbox", { name: "manualDirections" })).not.toBeInTheDocument();
+  });
+
+  it("applies the pending late response as a replacement set (#129)", () => {
+    const pending = {
+      directions: [
+        { id: "00000000-0000-4000-8000-0000000000a1", label: "Sugerida", instruction: "Instrução", order: 0, safetyBand: "safe" as const, provenance: "ai-suggestion" as const },
+      ],
+      preserveSelection: false,
+    };
+    const value = composer({ directionSuggestionState: "ready", pendingDirectionSuggestions: pending });
+    renderComposer(value);
+
+    fireEvent.click(screen.getByRole("button", { name: "applyDirections" }));
+    expect(value.applyDirectionSuggestions).toHaveBeenCalledWith(pending.directions, false);
+  });
+
+  it("applies the pending 'Sugerir novamente' response preserving the selection (#129)", () => {
+    const pending = {
+      directions: [
+        { id: "00000000-0000-4000-8000-0000000000a2", label: "Nova", instruction: "Instrução", order: 0, safetyBand: "safe" as const, provenance: "ai-suggestion" as const },
+      ],
+      preserveSelection: true,
+    };
+    const value = composer({ directionSuggestionState: "ready", pendingDirectionSuggestions: pending });
+    renderComposer(value);
+
+    fireEvent.click(screen.getByRole("button", { name: "applyDirections" }));
+    expect(value.applyDirectionSuggestions).toHaveBeenCalledWith(pending.directions, true);
   });
 
   it("shows automatic format as a distinct choice so 4:5 can be pinned", () => {

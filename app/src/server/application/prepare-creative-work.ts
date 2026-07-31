@@ -224,6 +224,7 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
       intent: preparation.data.intent,
       format: effectiveFormat,
       targetFormats: preparation.data.settings.targetFormats,
+      directionPool: preparation.data.settings.directionPool,
     });
     if (
       resolveGenerationPolicyVersion(aggregate.work.inputSnapshot) === resolveGenerationPolicyVersion(snapshot) &&

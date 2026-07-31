@@ -16,6 +16,7 @@ export interface CreativeWorkProjectionSource {
   id: string;
   workspaceId: string;
   clientProfileId: string;
+  campaignId?: string | null;
   title?: string;
   toolKind: string;
   status: string;
@@ -43,13 +44,21 @@ export interface CreativeWorkOutputProjectionSource {
   targetFormat?: string | null;
   versionNumber?: number | null;
   parentOutputId?: string | null;
+  /**
+   * Direction this output belongs to (#124). Directional outputs share the
+   * same creative level and format, so the plan key below must include it or
+   * later entries would overwrite earlier ones. Absent on legacy outputs.
+   */
+  directionId?: string | null;
   outputKey: string | null;
   isSelected: boolean | null;
   createdAt?: Date | string | null;
 }
 
-function resumeHrefForCreativeWork(workItemId: string): string {
-  return `/?workId=${workItemId}`;
+function resumeHrefForCreativeWork(workItemId: string, campaignId: string | null | undefined): string {
+  return campaignId
+    ? `/campaigns/${campaignId}?creativeWork=${workItemId}`
+    : `/creative-work/${workItemId}`;
 }
 
 export function projectCreativeWorkAsCanonicalWork(
@@ -78,7 +87,10 @@ export function projectCreativeWorkAsCanonicalWork(
   });
   const latestByPlan = new Map<string, CreativeWorkOutputProjectionSource>();
   for (const output of orderedOutputs) {
-    latestByPlan.set(`${output.creativeLevel ?? ""}:${output.targetFormat ?? work.format}`, output);
+    const planKey = output.directionId
+      ? `${output.creativeLevel ?? ""}:${output.targetFormat ?? work.format}:direction:${output.directionId}`
+      : `${output.creativeLevel ?? ""}:${output.targetFormat ?? work.format}`;
+    latestByPlan.set(planKey, output);
   }
 
   const projectOutput = (o: CreativeWorkOutputProjectionSource): CanonicalOutput => {
@@ -143,7 +155,7 @@ export function projectCreativeWorkAsCanonicalWork(
     createdAt: requireIso(work.createdAt),
     updatedAt: requireIso(work.updatedAt),
     resumable: state !== "abandoned" && state !== "failed",
-    resumeHref: resumeHrefForCreativeWork(work.id),
+    resumeHref: resumeHrefForCreativeWork(work.id, work.campaignId),
   };
 }
 

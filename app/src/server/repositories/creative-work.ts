@@ -692,20 +692,27 @@ export async function createPlannedCreativeWorkOutputs(workspaceId: string, work
   )).limit(1);
   if (!work) return { outputs: [], newlyCreatedIds: [] };
   const now = new Date();
-  const inserted = await db.insert(creativeWorkOutputs).values(plans.map((plan) => ({
-    workspaceId,
-    workItemId,
-    generationCorrelationId: work.generationCorrelationId,
-    creativeLevel: plan.creativeLevel,
-    targetFormat: plan.targetFormat,
-    versionNumber: 1,
-    operationKey: `${plan.creativeLevel}:${plan.targetFormat}:1`,
-    status: "queued" as const,
-    isSelected: false,
-    createdAt: now,
-    queuedAt: now,
-    updatedAt: now,
-  }))).onConflictDoNothing().returning({ id: creativeWorkOutputs.id });
+  const inserted = await db.insert(creativeWorkOutputs).values(plans.map((plan) => {
+    const operationKey = plan.directionId
+      ? `${plan.creativeLevel}:${plan.targetFormat}:1:direction:${plan.directionId}`
+      : `${plan.creativeLevel}:${plan.targetFormat}:1`;
+    return {
+      workspaceId,
+      workItemId,
+      generationCorrelationId: work.generationCorrelationId,
+      creativeLevel: plan.creativeLevel,
+      targetFormat: plan.targetFormat,
+      versionNumber: 1,
+      operationKey,
+      status: "queued" as const,
+      isSelected: false,
+      directionId: plan.directionId ?? null,
+      directionSnapshot: plan.directionSnapshot ?? null,
+      createdAt: now,
+      queuedAt: now,
+      updatedAt: now,
+    };
+  })).onConflictDoNothing().returning({ id: creativeWorkOutputs.id });
   const outputs = await db.select().from(creativeWorkOutputs).where(and(
     eq(creativeWorkOutputs.workspaceId, workspaceId),
     eq(creativeWorkOutputs.workItemId, workItemId),
@@ -735,17 +742,10 @@ export async function createCreativeWorkRevision(
   instruction: string,
   revisionAssetId: string | null,
 ): Promise<{ output: CreativeWorkOutput; claimedForDispatch: boolean } | null> {
-  const operationKey = `revision:${revisionKey}`;
   const matchesCommand = (output: CreativeWorkOutput) =>
     output.parentOutputId === parentOutputId
     && output.revisionInstruction === instruction
     && output.revisionAssetId === revisionAssetId;
-  const [existing] = await db.select().from(creativeWorkOutputs).where(and(
-    eq(creativeWorkOutputs.workspaceId, workspaceId),
-    eq(creativeWorkOutputs.workItemId, workItemId),
-    eq(creativeWorkOutputs.operationKey, operationKey),
-  )).limit(1);
-  if (existing) return matchesCommand(existing) ? { output: existing, claimedForDispatch: false } : null;
 
   const [parent] = await db.select().from(creativeWorkOutputs).where(and(
     eq(creativeWorkOutputs.workspaceId, workspaceId),
@@ -753,6 +753,18 @@ export async function createCreativeWorkRevision(
     eq(creativeWorkOutputs.id, parentOutputId),
   )).limit(1);
   if (!parent) return null;
+
+  // Revisions keep the parent direction for identity and versioning, while
+  // the operation key remains global so a revision key cannot be replayed
+  // against another parent and charge twice.
+  const operationKey = `revision:${revisionKey}`;
+  const [existing] = await db.select().from(creativeWorkOutputs).where(and(
+    eq(creativeWorkOutputs.workspaceId, workspaceId),
+    eq(creativeWorkOutputs.workItemId, workItemId),
+    eq(creativeWorkOutputs.operationKey, operationKey),
+  )).limit(1);
+  if (existing) return matchesCommand(existing) ? { output: existing, claimedForDispatch: false } : null;
+
   if (revisionAssetId) {
     const [asset] = await db.select({ id: workspaceAssets.id, type: workspaceAssets.type }).from(workspaceAssets).where(and(
       eq(workspaceAssets.workspaceId, workspaceId),
@@ -761,7 +773,9 @@ export async function createCreativeWorkRevision(
     if (!asset?.type.startsWith("image/")) return null;
   }
   return db.transaction(async (tx) => {
-    const versionScope = `${workspaceId}:${workItemId}:${parent.creativeLevel}:${parent.targetFormat}`;
+    const versionScope = parent.directionId
+      ? `${workspaceId}:${workItemId}:${parent.creativeLevel}:${parent.targetFormat}:direction:${parent.directionId}`
+      : `${workspaceId}:${workItemId}:${parent.creativeLevel}:${parent.targetFormat}`;
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${versionScope}))`);
 
     const [retry] = await tx.select().from(creativeWorkOutputs).where(and(
@@ -778,6 +792,7 @@ export async function createCreativeWorkRevision(
         eq(creativeWorkOutputs.workItemId, workItemId),
         eq(creativeWorkOutputs.creativeLevel, parent.creativeLevel),
         eq(creativeWorkOutputs.targetFormat, parent.targetFormat),
+        ...(parent.directionId ? [eq(creativeWorkOutputs.directionId, parent.directionId)] : []),
       ));
     const versionNumber = (latest?.maxVersion ?? 0) + 1;
     const [row] = await tx.insert(creativeWorkOutputs).values({
@@ -792,6 +807,8 @@ export async function createCreativeWorkRevision(
       operationKey,
       status: "queued",
       isSelected: false,
+      directionId: parent.directionId ?? null,
+      directionSnapshot: parent.directionSnapshot ?? null,
       queuedAt: new Date(),
     }).onConflictDoNothing().returning();
     if (row) return { output: row, claimedForDispatch: true };

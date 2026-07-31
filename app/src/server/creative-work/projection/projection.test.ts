@@ -118,7 +118,7 @@ function expectCanonicalShape(
   expect(typeof work.resumable).toBe("boolean");
   expect(work.resumeHref.startsWith("/")).toBe(true);
   if (work.originKind === "creative_work") {
-    expect(work.resumeHref).toBe(`/?workId=${work.originId}`);
+    expect(work.resumeHref).toBe(`/creative-work/${work.originId}`);
   }
   expect(work.createdAt).toMatch(/Z$/);
   expect(work.updatedAt).toMatch(/Z$/);
@@ -282,6 +282,17 @@ describe("projectCampaignAsCanonicalWork", () => {
 });
 
 describe("projectCreativeWorkAsCanonicalWork (Criar Post fixture)", () => {
+  it("resumes an unlinked work on its authenticated detail page", () => {
+    expect(projectCreativeWorkAsCanonicalWork(creativeWorkFixture()).resumeHref)
+      .toBe(`/creative-work/${WORK_ID}`);
+  });
+
+  it("resumes a linked work in its campaign without changing the work id", () => {
+    const work = projectCreativeWorkAsCanonicalWork(creativeWorkFixture({ campaignId: CAMPAIGN_ID }));
+    expect(work.resumeHref).toBe(`/campaigns/${CAMPAIGN_ID}?creativeWork=${WORK_ID}`);
+    expect(work.id).toBe(`creative_work:${WORK_ID}`);
+  });
+
   it("uses the persisted work title as the canonical display name", () => {
     const work = projectCreativeWorkAsCanonicalWork(creativeWorkFixture({
       title: "Campanha de matrículas",
@@ -388,6 +399,36 @@ describe("projectCreativeWorkAsCanonicalWork (Criar Post fixture)", () => {
       "balanced 4:5 · v1",
       "balanced 4:5 · v2",
     ]);
+  });
+
+  it("projects every directional output sharing the same level and format", () => {
+    const directionalOutput = (id: string, directionId: string, createdAt: string) => ({
+      id,
+      status: "completed",
+      creativeLevel: "balanced",
+      targetFormat: "4:5",
+      versionNumber: 1,
+      parentOutputId: null,
+      directionId,
+      outputKey: `out/${id}.png`,
+      isSelected: false,
+      createdAt,
+    });
+    const work = projectCreativeWorkAsCanonicalWork(
+      creativeWorkFixture({
+        status: "completed",
+        copy: { headline: "H", body: "B", cta: "C" },
+        identitySnapshot: {},
+      }),
+      [
+        directionalOutput("dir-a", "00000000-0000-4000-8000-0000000000d1", "2026-01-03T00:00:00.000Z"),
+        directionalOutput("dir-b", "00000000-0000-4000-8000-0000000000d2", "2026-01-04T00:00:00.000Z"),
+        directionalOutput("dir-c", "00000000-0000-4000-8000-0000000000d3", "2026-01-05T00:00:00.000Z"),
+      ],
+    );
+
+    expect(work.outputs.map((output) => output.id)).toEqual(["dir-a", "dir-b", "dir-c"]);
+    expect(work.versions.map((version) => version.outputId)).toEqual(["dir-a", "dir-b", "dir-c"]);
   });
 });
 

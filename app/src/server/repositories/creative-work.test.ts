@@ -580,21 +580,21 @@ describe("creative-work repository", () => {
       const revision2 = workOutput({ id: "output-2", parentOutputId: "output-1", targetFormat: "4:5", versionNumber: 2, operationKey: `revision:${key2}`, revisionInstruction: "Shorter" });
       const revision3 = workOutput({ id: "output-3", parentOutputId: "output-1", targetFormat: "4:5", versionNumber: 3, operationKey: `revision:${key3}`, revisionInstruction: "Different" });
 
-      mocks.state.selectResults.push([], [parent], [], [{ maxVersion: 1 }]);
+      mocks.state.selectResults.push([parent], [], [], [{ maxVersion: 1 }]);
       mocks.state.onConflictResults.push([revision2]);
       await expect(createCreativeWorkRevision("ws-1", "work-1", key2, "output-1", "Shorter", null)).resolves.toEqual({
         output: revision2,
         claimedForDispatch: true,
       });
 
-      mocks.state.selectResults.push([], [parent], [], [{ maxVersion: 2 }]);
+      mocks.state.selectResults.push([parent], [], [], [{ maxVersion: 2 }]);
       mocks.state.onConflictResults.push([revision3]);
       await expect(createCreativeWorkRevision("ws-1", "work-1", key3, "output-1", "Different", null)).resolves.toEqual({
         output: revision3,
         claimedForDispatch: true,
       });
 
-      mocks.state.selectResults.push([revision2]);
+      mocks.state.selectResults.push([parent], [revision2]);
       await expect(createCreativeWorkRevision("ws-1", "work-1", key2, "output-1", "Shorter", null)).resolves.toEqual({
         output: revision2,
         claimedForDispatch: false,
@@ -622,7 +622,7 @@ describe("creative-work repository", () => {
         { parentId: "output-1", instruction: "Different", assetId: "asset-1" },
         { parentId: "output-1", instruction: "Shorter", assetId: "asset-2" },
       ]) {
-        mocks.state.selectResults.push([revision]);
+        mocks.state.selectResults.push([workOutput({ id: command.parentId })], [revision]);
         await expect(createCreativeWorkRevision(
           "ws-1",
           "work-1",
@@ -634,6 +634,157 @@ describe("creative-work repository", () => {
       }
 
       expect(mocks.insertMock).not.toHaveBeenCalled();
+    });
+
+    it("keeps revision identity and version sequence scoped to the parent direction", async () => {
+      const directionId = "00000000-0000-4000-8000-0000000000d1";
+      const snapshot = { label: "A", instruction: "Make it A", order: 0 };
+      const parent = workOutput({
+        id: "output-1",
+        targetFormat: "4:5",
+        versionNumber: 1,
+        operationKey: `balanced:4:5:1:direction:${directionId}`,
+        directionId,
+        directionSnapshot: snapshot,
+      });
+      const key = "00000000-0000-4000-8000-000000000105";
+      const revision = workOutput({
+        id: "output-2",
+        parentOutputId: "output-1",
+        targetFormat: "4:5",
+        versionNumber: 2,
+        operationKey: `revision:${key}`,
+        revisionInstruction: "Shorter",
+        directionId,
+        directionSnapshot: snapshot,
+      });
+
+      mocks.state.selectResults.push([parent], [], [], [{ maxVersion: 1 }]);
+      mocks.state.onConflictResults.push([revision]);
+
+      await expect(createCreativeWorkRevision("ws-1", "work-1", key, "output-1", "Shorter", null)).resolves.toEqual({
+        output: revision,
+        claimedForDispatch: true,
+      });
+
+      expect(mocks.valuesMock).toHaveBeenCalledWith(expect.objectContaining({
+        versionNumber: 2,
+        operationKey: `revision:${key}`,
+        directionId,
+        directionSnapshot: snapshot,
+      }));
+      const lockQuery = serializedCondition(mocks.executeMock.mock.calls[0][0]);
+      expect(lockQuery.params).toEqual([`ws-1:work-1:balanced:4:5:direction:${directionId}`]);
+      const versionScopeQuery = mocks.whereMock.mock.calls
+        .map(([condition]) => serializedCondition(condition))
+        .find((query) => query.params.includes("balanced") && query.params.includes(directionId));
+      expect(versionScopeQuery?.params).toEqual(["ws-1", "work-1", "balanced", "4:5", directionId]);
+    });
+
+    it("rejects the same revision key against a different directional parent", async () => {
+      const directionA = "00000000-0000-4000-8000-0000000000d1";
+      const directionB = "00000000-0000-4000-8000-0000000000d2";
+      const parentA = workOutput({
+        id: "output-a",
+        directionId: directionA,
+        directionSnapshot: { label: "A", instruction: "Make it A", order: 0 },
+      });
+      const parentB = workOutput({
+        id: "output-b",
+        directionId: directionB,
+        directionSnapshot: { label: "B", instruction: "Make it B", order: 1 },
+      });
+      const key = "00000000-0000-4000-8000-000000000108";
+      const revision = workOutput({
+        id: "output-a2",
+        parentOutputId: parentA.id,
+        operationKey: `revision:${key}`,
+        revisionInstruction: "Shorter",
+        directionId: directionA,
+      });
+
+      mocks.state.selectResults.push([parentA], [], [], [{ maxVersion: 1 }]);
+      mocks.state.onConflictResults.push([revision]);
+      await expect(createCreativeWorkRevision("ws-1", "work-1", key, parentA.id, "Shorter", null)).resolves.toEqual({
+        output: revision,
+        claimedForDispatch: true,
+      });
+
+      mocks.state.selectResults.push([parentB], [revision]);
+      await expect(createCreativeWorkRevision("ws-1", "work-1", key, parentB.id, "Shorter", null)).resolves.toBeNull();
+
+      expect(mocks.valuesMock).toHaveBeenCalledOnce();
+      expect(mocks.executeMock).toHaveBeenCalledOnce();
+    });
+
+    it("keeps revisions of different directions at the same level and format in independent sequences", async () => {
+      const directionA = "00000000-0000-4000-8000-0000000000d1";
+      const directionB = "00000000-0000-4000-8000-0000000000d2";
+      const parentA = workOutput({
+        id: "output-a",
+        operationKey: `balanced:4:5:1:direction:${directionA}`,
+        directionId: directionA,
+        directionSnapshot: { label: "A", instruction: "Make it A", order: 0 },
+      });
+      const parentB = workOutput({
+        id: "output-b",
+        operationKey: `balanced:4:5:1:direction:${directionB}`,
+        directionId: directionB,
+        directionSnapshot: { label: "B", instruction: "Make it B", order: 1 },
+      });
+      const keyA = "00000000-0000-4000-8000-000000000106";
+      const keyB = "00000000-0000-4000-8000-000000000107";
+      const revisionA = workOutput({
+        id: "output-a2",
+        parentOutputId: "output-a",
+        versionNumber: 2,
+        operationKey: `revision:${keyA}`,
+        revisionInstruction: "Shorter",
+        directionId: directionA,
+      });
+      const revisionB = workOutput({
+        id: "output-b2",
+        parentOutputId: "output-b",
+        versionNumber: 2,
+        operationKey: `revision:${keyB}`,
+        revisionInstruction: "Shorter",
+        directionId: directionB,
+      });
+
+      mocks.state.selectResults.push([parentA], [], [], [{ maxVersion: 1 }]);
+      mocks.state.onConflictResults.push([revisionA]);
+      await expect(createCreativeWorkRevision("ws-1", "work-1", keyA, "output-a", "Shorter", null)).resolves.toEqual({
+        output: revisionA,
+        claimedForDispatch: true,
+      });
+
+      mocks.state.selectResults.push([parentB], [], [], [{ maxVersion: 1 }]);
+      mocks.state.onConflictResults.push([revisionB]);
+      await expect(createCreativeWorkRevision("ws-1", "work-1", keyB, "output-b", "Shorter", null)).resolves.toEqual({
+        output: revisionB,
+        claimedForDispatch: true,
+      });
+
+      expect(mocks.valuesMock).toHaveBeenNthCalledWith(1, expect.objectContaining({
+        versionNumber: 2,
+        operationKey: `revision:${keyA}`,
+        directionId: directionA,
+      }));
+      expect(mocks.valuesMock).toHaveBeenNthCalledWith(2, expect.objectContaining({
+        versionNumber: 2,
+        operationKey: `revision:${keyB}`,
+        directionId: directionB,
+      }));
+      const versionScopes = mocks.whereMock.mock.calls
+        .map(([condition]) => serializedCondition(condition))
+        .filter((query) => query.params.length === 5 && query.params[0] === "ws-1");
+      expect(versionScopes.map((query) => query.params.at(-1))).toEqual([directionA, directionB]);
+      const lockScopes = mocks.executeMock.mock.calls
+        .map(([query]) => serializedCondition(query).params[0]);
+      expect(lockScopes).toEqual([
+        `ws-1:work-1:balanced:4:5:direction:${directionA}`,
+        `ws-1:work-1:balanced:4:5:direction:${directionB}`,
+      ]);
     });
 
     it("updates draft preparation fields under workspace scope", async () => {
@@ -730,6 +881,78 @@ describe("creative-work repository", () => {
       const result = await createPlannedCreativeWorkOutputs("ws-1", "work-1", [{ creativeLevel: "bold", targetFormat: "1:1" }]);
       expect(mocks.valuesMock).toHaveBeenCalledWith([expect.objectContaining({ operationKey: "bold:1:1:1", versionNumber: 1 })]);
       expect(result).toEqual({ outputs: [planned], newlyCreatedIds: [] });
+    });
+
+    it("freezes direction id and snapshot on planned outputs", async () => {
+      const planned = workOutput({
+        id: "output-direction",
+        targetFormat: "4:5",
+        versionNumber: 1,
+        operationKey: "balanced:4:5:1:direction:00000000-0000-4000-8000-0000000000d1",
+        directionId: "00000000-0000-4000-8000-0000000000d1",
+        directionSnapshot: { label: "A", instruction: "Make it A", order: 0 },
+      });
+      mocks.state.selectResults.push([{ id: "work-1" }], [planned]);
+      const result = await createPlannedCreativeWorkOutputs("ws-1", "work-1", [{
+        creativeLevel: "balanced",
+        targetFormat: "4:5",
+        versionNumber: 1,
+        directionId: "00000000-0000-4000-8000-0000000000d1",
+        directionSnapshot: { label: "A", instruction: "Make it A", order: 0 },
+      }]);
+      expect(mocks.valuesMock).toHaveBeenCalledWith([expect.objectContaining({
+        operationKey: "balanced:4:5:1:direction:00000000-0000-4000-8000-0000000000d1",
+        directionId: "00000000-0000-4000-8000-0000000000d1",
+        directionSnapshot: { label: "A", instruction: "Make it A", order: 0 },
+      })]);
+      expect(result.outputs).toHaveLength(1);
+    });
+
+    it("creates distinct plans for each selected direction without unique conflicts", async () => {
+      const planned = [
+        workOutput({
+          id: "output-direction-a",
+          targetFormat: "4:5",
+          versionNumber: 1,
+          operationKey: "balanced:4:5:1:direction:00000000-0000-4000-8000-0000000000d1",
+          directionId: "00000000-0000-4000-8000-0000000000d1",
+          directionSnapshot: { label: "A", instruction: "Make it A", order: 0 },
+        }),
+        workOutput({
+          id: "output-direction-b",
+          targetFormat: "4:5",
+          versionNumber: 1,
+          operationKey: "balanced:4:5:1:direction:00000000-0000-4000-8000-0000000000d2",
+          directionId: "00000000-0000-4000-8000-0000000000d2",
+          directionSnapshot: { label: "B", instruction: "Make it B", order: 1 },
+        }),
+      ];
+      mocks.state.selectResults.push([{ id: "work-1" }], planned);
+      const result = await createPlannedCreativeWorkOutputs("ws-1", "work-1", [
+        {
+          creativeLevel: "balanced",
+          targetFormat: "4:5",
+          versionNumber: 1,
+          directionId: "00000000-0000-4000-8000-0000000000d1",
+          directionSnapshot: { label: "A", instruction: "Make it A", order: 0 },
+        },
+        {
+          creativeLevel: "balanced",
+          targetFormat: "4:5",
+          versionNumber: 1,
+          directionId: "00000000-0000-4000-8000-0000000000d2",
+          directionSnapshot: { label: "B", instruction: "Make it B", order: 1 },
+        },
+      ]);
+      const rows = mocks.valuesMock.mock.calls.at(-1)?.[0] as Array<Record<string, unknown>>;
+      expect(rows).toHaveLength(2);
+      const keys = rows.map((row) => row.operationKey);
+      expect(new Set(keys).size).toBe(2);
+      expect(keys).toEqual([
+        "balanced:4:5:1:direction:00000000-0000-4000-8000-0000000000d1",
+        "balanced:4:5:1:direction:00000000-0000-4000-8000-0000000000d2",
+      ]);
+      expect(result.outputs).toHaveLength(2);
     });
 
     it("increments retries only on a scoped output", async () => {

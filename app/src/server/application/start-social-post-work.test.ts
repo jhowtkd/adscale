@@ -108,7 +108,7 @@ describe("startSocialPostWork", () => {
       formatHint: "4:5",
       platforms: [],
     });
-    expect(result.value.canonical.resumeHref).toBe("/?workId=work-1");
+    expect(result.value.canonical.resumeHref).toBe("/creative-work/work-1");
     expect(result.value.work.id).toBe("work-1");
   });
 

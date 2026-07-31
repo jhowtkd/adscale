@@ -160,12 +160,9 @@ export default function DashboardHomeActions({
         ) : continueTarget.kind === "work" ? (
           <ContinueWorkCard
             target={continueTarget}
-            href={
-              continueTarget.originKind === "creative_work"
-              && continueTarget.originId === composer.workId
-                ? "#creative-composer"
-                : continueTarget.href
-            }
+            // #126: a work without a campaign resumes on its own page — the
+            // Home never intercepts the canonical destination with an anchor.
+            href={continueTarget.href}
             title={t("continueWhereLeftOff")}
             hint={t("continueCampaignHint", { name: continueTarget.name })}
           />

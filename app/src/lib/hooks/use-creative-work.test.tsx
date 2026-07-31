@@ -12,6 +12,7 @@ import {
   usePrepareCreativeWork,
   useReviseOutput,
   useTriggerTriplet,
+  useSuggestCreativeDirections,
 } from "./use-creative-work";
 
 vi.mock("@/lib/api-client", () => ({ apiFetch: vi.fn() }));
@@ -209,6 +210,25 @@ describe("useTriggerTriplet", () => {
         work: expect.objectContaining({ status: "generating" }),
         outputs: [expect.objectContaining({ status: "queued" })],
       })
+    );
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      "/api/creative-work/work-1/generate",
+      expect.objectContaining({ timeoutMs: 120_000 }),
+    );
+  });
+});
+
+describe("useSuggestCreativeDirections", () => {
+  it("allows the free suggestion request to outlive the generic short timeout", async () => {
+    mockApiFetch.mockResolvedValue({ ok: true, json: async () => ({ directions: [] }) } as Response);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { result } = renderHook(() => useSuggestCreativeDirections(), { wrapper: wrapperWith(queryClient) });
+
+    await act(() => result.current.mutateAsync("work-1"));
+
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      "/api/creative-work/work-1/suggest",
+      expect.objectContaining({ timeoutMs: 60_000 }),
     );
   });
 });

@@ -1,6 +1,7 @@
 import type { CanonicalCreative } from "./canonical-creative-contract";
 import type { InputSourceClassification } from "./factual-visual-separation";
 import type { CreativeLevel } from "../repositories/campaign";
+import type { CreativeDirectionPool } from "../creative-work/contracts";
 
 /**
  * Fidelity band for creative generation. Aliases the persisted campaign
@@ -136,6 +137,8 @@ export interface CreativeContract {
   creativeLevel?: CreativeFidelityLevel;
   /** Resolved creative policy; absent on old rows, which resolve "balanced". */
   policy?: CanonicalCreativePolicy;
+  /** Persistent creative direction pool; absent on rows written before directions. */
+  directionPool?: CreativeDirectionPool;
 }
 
 export type PromptProvenance = {

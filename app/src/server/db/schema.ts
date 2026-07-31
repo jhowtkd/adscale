@@ -2643,6 +2643,14 @@ export const creativeWorkOutputs = adscaleSchema.table(
     failureCode: text("failure_code"),
     quality: jsonb("quality"),
     isSelected: boolean("is_selected").notNull().default(false),
+    directionId: uuid("direction_id"),
+    directionSnapshot: jsonb("direction_snapshot").$type<{
+      label: string;
+      instruction: string;
+      order: number;
+      // Frozen from the direction (#123); absent on rows persisted before the band existed.
+      safetyBand?: import("../creative-work/contracts").CreativeDirectionSafetyBand;
+    }>(),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
     queuedAt: timestamp("queued_at", { mode: "date" }).notNull().defaultNow(),
     terminalAt: timestamp("terminal_at", { mode: "date" }),
@@ -2651,12 +2659,23 @@ export const creativeWorkOutputs = adscaleSchema.table(
     updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
   },
   (table) => [
-    uniqueIndex("creative_work_outputs_plan_uq").on(
-      table.workItemId,
-      table.creativeLevel,
-      table.targetFormat,
-      table.versionNumber,
-    ),
+    uniqueIndex("creative_work_outputs_direction_plan_uq")
+      .on(
+        table.workItemId,
+        table.creativeLevel,
+        table.targetFormat,
+        table.versionNumber,
+        table.directionId,
+      )
+      .where(sql`${table.directionId} is not null`),
+    uniqueIndex("creative_work_outputs_legacy_plan_uq")
+      .on(
+        table.workItemId,
+        table.creativeLevel,
+        table.targetFormat,
+        table.versionNumber,
+      )
+      .where(sql`${table.directionId} is null`),
     uniqueIndex("creative_work_outputs_operation_uq").on(table.workItemId, table.operationKey),
     uniqueIndex("creative_work_outputs_selected_uq")
       .on(table.workItemId)

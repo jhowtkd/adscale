@@ -8,6 +8,7 @@ import {
   CREATIVE_WORK_GENERATION_POLICY_VERSIONS,
   CREATIVE_WORK_INTENTS,
   createCreativeWorkSchema,
+  creativeDirectionPoolSchema,
   displayRequestForCreativeWork,
   generationPolicyVersionFromSwitch,
   quoteCreativeWork,
@@ -195,6 +196,92 @@ describe("creative work contracts", () => {
     [{ intent: "format_adaptation" as const, format: "4:5" as const, targetFormats: ["1:1", "9:16"] as const }, { unitCount: 2, credits: 10 }],
   ])("quotes %o", (input, expected) => {
     expect(quoteCreativeWork(input)).toMatchObject(expected);
+  });
+
+  it("quotes one output per selected direction when a direction pool is present", () => {
+    const directionPool = {
+      version: 1,
+      directions: [
+        { id: "00000000-0000-4000-8000-0000000000d1", label: "A", instruction: "Make it A", order: 0, safetyBand: "experimental" as const, provenance: "manual" as const },
+        { id: "00000000-0000-4000-8000-0000000000d2", label: "B", instruction: "Make it B", order: 1, safetyBand: "safe" as const, provenance: "ai-suggestion" as const },
+      ],
+      selectedIds: ["00000000-0000-4000-8000-0000000000d2"],
+      manualInstruction: "Global",
+    };
+    const quote = quoteCreativeWork({ intent: "social_post", format: "4:5", targetFormats: [], directionPool });
+    expect(quote.plans).toEqual([
+      {
+        creativeLevel: "balanced",
+        targetFormat: "4:5",
+        versionNumber: 1,
+        directionId: "00000000-0000-4000-8000-0000000000d2",
+        directionSnapshot: { label: "B", instruction: "Make it B", order: 1, safetyBand: "safe" },
+      },
+    ]);
+    expect(quote.unitCount).toBe(1);
+    expect(quote.credits).toBe(5);
+  });
+
+  it("falls back to three levels when the direction pool is absent", () => {
+    const quote = quoteCreativeWork({ intent: "variations", format: "4:5", targetFormats: [] });
+    expect(quote.plans).toHaveLength(3);
+    expect(quote.plans.every((plan) => plan.directionId === undefined)).toBe(true);
+  });
+
+  it("throws when a selected direction id is not present in the pool", () => {
+    const directionPool = {
+      version: 1,
+      directions: [
+        { id: "00000000-0000-4000-8000-0000000000d1", label: "A", instruction: "A", order: 0, safetyBand: "safe" as const, provenance: "default" as const },
+      ],
+      selectedIds: ["00000000-0000-4000-8000-0000000000d1", "00000000-0000-4000-8000-0000000000d2"],
+      manualInstruction: null,
+    };
+    expect(() => quoteCreativeWork({ intent: "social_post", format: "4:5", targetFormats: [], directionPool }))
+      .toThrow("selected direction id not found in pool: 00000000-0000-4000-8000-0000000000d2");
+  });
+
+  it("rejects duplicated selected direction ids so a single output is never double-charged", () => {
+    const parsed = creativeDirectionPoolSchema.safeParse({
+      version: 1,
+      directions: [
+        { id: "00000000-0000-4000-8000-0000000000d1", label: "A", instruction: "A", order: 0, safetyBand: "safe", provenance: "default" },
+        { id: "00000000-0000-4000-8000-0000000000d2", label: "B", instruction: "B", order: 1, safetyBand: "safe", provenance: "default" },
+      ],
+      selectedIds: ["00000000-0000-4000-8000-0000000000d1", "00000000-0000-4000-8000-0000000000d1", "00000000-0000-4000-8000-0000000000d2"],
+      manualInstruction: null,
+    });
+    expect(parsed.success).toBe(false);
+    if (parsed.success) return;
+    expect(parsed.error.issues.some((issue) => issue.message === "selectedIdsMustBeUnique" && issue.path.join(".") === "selectedIds.1")).toBe(true);
+  });
+
+  it("rejects a persisted pool with more than five directions and accepts exactly five", () => {
+    const direction = (index: number) => ({
+      id: `00000000-0000-4000-8000-0000000000d${index}`,
+      label: `D${index}`,
+      instruction: `Instruction ${index}`,
+      order: index,
+      safetyBand: "safe",
+      provenance: "default",
+    });
+    const parsed = creativeDirectionPoolSchema.safeParse({
+      version: 1,
+      directions: [0, 1, 2, 3, 4, 5].map(direction),
+      selectedIds: ["00000000-0000-4000-8000-0000000000d0"],
+      manualInstruction: null,
+    });
+    expect(parsed.success).toBe(false);
+    if (parsed.success) return;
+    expect(parsed.error.issues.some((issue) => issue.code === "too_big" && issue.path.join(".") === "directions")).toBe(true);
+
+    const atCap = creativeDirectionPoolSchema.safeParse({
+      version: 1,
+      directions: [0, 1, 2, 3, 4].map(direction),
+      selectedIds: ["00000000-0000-4000-8000-0000000000d0"],
+      manualInstruction: null,
+    });
+    expect(atCap.success).toBe(true);
   });
 
   it("quotes exactly one output per target format without duplicates", () => {

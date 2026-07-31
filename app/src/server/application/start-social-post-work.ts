@@ -140,6 +140,7 @@ export async function startSocialPostWork(
     intent: work.toolKind,
     format: work.format,
     targetFormats: work.settings?.targetFormats ?? [],
+    directionPool: work.settings?.directionPool,
   });
   return { ok: true, value: { work, canonical, quote } };
 }

@@ -130,4 +130,23 @@ describe("CreativeProposalGrid", () => {
     expect(screen.getAllByTestId("proposal-level")).toHaveLength(1);
     expect(screen.getByTestId("proposal-level-name")).toHaveTextContent("Equilibrada");
   });
+
+  it("keeps outputs with the same level separate when they come from directions", () => {
+    const directionOutputs = [
+      { ...balancedCompleted, id: "out-direction-1", directionId: "00000000-0000-4000-8000-000000000001", directionSnapshot: { label: "Direção 1", instruction: "Uma", order: 0 } },
+      { ...balancedCompleted, id: "out-direction-2", directionId: "00000000-0000-4000-8000-000000000002", directionSnapshot: { label: "Direção 2", instruction: "Duas", order: 1 } },
+    ];
+    render(
+      <CreativeProposalGrid
+        outputs={directionOutputs}
+        onRetry={vi.fn()}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+        onRevise={vi.fn()}
+      />,
+    );
+
+    expect(screen.getAllByTestId("proposal-level")).toHaveLength(2);
+    expect(screen.getAllByTestId("proposal-level-name").map((el) => el.textContent)).toEqual(["Direção 1", "Direção 2"]);
+  });
 });

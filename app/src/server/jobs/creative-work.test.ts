@@ -256,6 +256,8 @@ function makeQueuedOutput(overrides: Partial<{
   parentOutputId: string | null;
   revisionInstruction: string | null;
   outputKey: string | null;
+  directionId: string | null;
+  directionSnapshot: { label: string; instruction: string; order: number } | null;
 }> = {}) {
   return {
     id: overrides.id ?? "output-1",
@@ -272,6 +274,8 @@ function makeQueuedOutput(overrides: Partial<{
     imageCallCount: overrides.imageCallCount ?? 0,
     status: overrides.status ?? "queued",
     outputKey: overrides.outputKey ?? null,
+    directionId: overrides.directionId ?? null,
+    directionSnapshot: overrides.directionSnapshot ?? null,
     cost: null,
     failureCode: null,
     quality: null,
@@ -731,6 +735,54 @@ describe("creativeWorkOutputJob", () => {
     expect(request.prompt).toContain("CREATIVE LEVEL: bold");
     expect(request.prompt).toContain("FORMAT: 1:1");
     expect(request.prompt).toContain("Use mais contraste");
+  });
+
+  it("appends the frozen direction snapshot instruction to the prompt", async () => {
+    getCreativeWorkMock.mockResolvedValue({
+      work: workItem,
+      outputs: [makeQueuedOutput({
+        directionId: "00000000-0000-4000-8000-0000000000d1",
+        directionSnapshot: { label: "A", instruction: "Use a dark cinematic mood", order: 0 },
+      })],
+    });
+    markProcessingMock.mockResolvedValue(makeQueuedOutput({
+      status: "processing",
+      directionId: "00000000-0000-4000-8000-0000000000d1",
+      directionSnapshot: { label: "A", instruction: "Use a dark cinematic mood", order: 0 },
+    }));
+    await runJob();
+    const request = generateAndStoreImageMock.mock.calls[0]?.[0] as { prompt: string };
+    expect(request.prompt).toContain("DIRECTION INSTRUCTION:");
+    expect(request.prompt).toContain("Use a dark cinematic mood");
+  });
+
+  it("combines the pool manual instruction with each directional output prompt", async () => {
+    getCreativeWorkMock.mockResolvedValue({
+      work: {
+        ...workItem,
+        settings: {
+          targetFormats: ["1:1"],
+          directionPool: {
+            version: 1,
+            directions: [],
+            selectedIds: [],
+            manualInstruction: "Nunca use fundo branco",
+          },
+        },
+      },
+      outputs: [makeQueuedOutput({
+        directionId: "00000000-0000-4000-8000-0000000000d1",
+        directionSnapshot: { label: "A", instruction: "Use a dark cinematic mood", order: 0 },
+      })],
+    });
+    markProcessingMock.mockResolvedValue(makeQueuedOutput({
+      status: "processing",
+      directionId: "00000000-0000-4000-8000-0000000000d1",
+      directionSnapshot: { label: "A", instruction: "Use a dark cinematic mood", order: 0 },
+    }));
+    await runJob();
+    const request = generateAndStoreImageMock.mock.calls[0]?.[0] as { prompt: string };
+    expect(request.prompt).toContain("DIRECTION INSTRUCTION:\nUse a dark cinematic mood\nNunca use fundo branco");
   });
 
   it("passes the persisted output retry count as the canonical attempt", async () => {

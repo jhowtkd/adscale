@@ -28,6 +28,63 @@ export type CreativeWorkFormat = "1:1" | "4:5" | "9:16";
  */
 export const CREATIVE_WORK_BRAND_CHOICES = ["source", "active"] as const;
 export type CreativeWorkBrandChoice = (typeof CREATIVE_WORK_BRAND_CHOICES)[number];
+
+export type CreativeDirectionId = string;
+export type CreativeDirectionSafetyBand = "safe" | "experimental";
+export type CreativeDirectionProvenance = "default" | "ai-suggestion" | "manual";
+
+export interface CreativeDirection {
+  id: CreativeDirectionId;
+  label: string;
+  instruction: string;
+  order: number;
+  safetyBand: CreativeDirectionSafetyBand;
+  provenance: CreativeDirectionProvenance;
+}
+
+export interface CreativeDirectionPool {
+  version: number;
+  directions: CreativeDirection[];
+  selectedIds: CreativeDirectionId[];
+  manualInstruction: string | null;
+}
+
+export const DEFAULT_CREATIVE_DIRECTIONS: CreativeDirection[] = [
+  {
+    id: "00000000-0000-4000-8000-000000000001",
+    label: "Conservadora",
+    instruction: "Preserve a composição, a hierarquia e os elementos essenciais da referência, variando apenas a execução com segurança.",
+    order: 0,
+    safetyBand: "safe",
+    provenance: "default",
+  },
+  {
+    id: "00000000-0000-4000-8000-000000000002",
+    label: "Equilibrada",
+    instruction: "Mantenha a identidade da referência e proponha uma variação clara de composição, copy e tratamento visual.",
+    order: 1,
+    safetyBand: "safe",
+    provenance: "default",
+  },
+  {
+    id: "00000000-0000-4000-8000-000000000003",
+    label: "Ousada",
+    instruction: "Explore uma direção visual mais expressiva e contrastante, sem perder os fatos, a marca e a intenção do pedido.",
+    order: 2,
+    safetyBand: "experimental",
+    provenance: "default",
+  },
+];
+
+export function createDefaultCreativeDirectionPool(): CreativeDirectionPool {
+  return {
+    version: 1,
+    directions: DEFAULT_CREATIVE_DIRECTIONS.map((direction) => ({ ...direction })),
+    selectedIds: DEFAULT_CREATIVE_DIRECTIONS.map((direction) => direction.id),
+    manualInstruction: null,
+  };
+}
+
 export type CreativeWorkSettings = {
   targetFormats: CreativeWorkFormat[];
   formatMode?: "auto" | "manual";
@@ -44,6 +101,12 @@ export type CreativeWorkSettings = {
    * behave as unbound and also ask again.
    */
   brandConflictDetectedBrand?: string;
+  /**
+   * Ordered pool of persistent creative directions, the active selection and
+   * an optional manual instruction. Absent on drafts created before the
+   * directions feature; those keep the historical three-level behavior.
+   */
+  directionPool?: CreativeDirectionPool;
 };
 export const CREATIVE_WORK_GENERATION_POLICY_VERSIONS = ["legacy", "quality_recovery_v1"] as const;
 export type CreativeWorkGenerationPolicyVersion = (typeof CREATIVE_WORK_GENERATION_POLICY_VERSIONS)[number];
@@ -180,15 +243,75 @@ export type CreativeWorkOutputPlan = {
   creativeLevel: CreativeLevel;
   targetFormat: CreativeWorkFormat;
   versionNumber: 1;
+  directionId?: string;
+  directionSnapshot?: {
+    label: string;
+    instruction: string;
+    order: number;
+    /**
+     * Safety/experimentation band frozen from the direction (#123). Absent on
+     * snapshots persisted before the band was frozen; those stay readable.
+     */
+    safetyBand?: CreativeDirectionSafetyBand;
+  };
 };
 
 export const creativeWorkIntentSchema = z.enum(CREATIVE_WORK_INTENTS);
 export const creativeWorkFormatSchema = z.enum(["1:1", "4:5", "9:16"]);
+
+export const creativeDirectionSchema = z.object({
+  id: z.string().uuid(),
+  label: z.string().trim().min(1),
+  instruction: z.string().trim().min(1),
+  order: z.number().int().min(0),
+  safetyBand: z.enum(["safe", "experimental"]),
+  provenance: z.enum(["default", "ai-suggestion", "manual"]),
+});
+
+export const creativeDirectionPoolSchema = z.object({
+  version: z.number().int().nonnegative(),
+  // The persisted pool obeys the same five-direction cap as the selection: an
+  // autosave may never store an unbounded chip set.
+  directions: z.array(creativeDirectionSchema).min(1).max(5),
+  selectedIds: z.array(z.string().trim().min(1)).min(1).max(5),
+  manualInstruction: z.string().nullable(),
+}).superRefine((value, context) => {
+  const ids = value.directions.map((direction) => direction.id);
+  const uniqueIds = new Set(ids);
+  if (uniqueIds.size !== ids.length) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["directions"],
+      message: "directionIdsMustBeUnique",
+    });
+  }
+  for (let index = 0; index < value.selectedIds.length; index += 1) {
+    const selectedId = value.selectedIds[index];
+    if (!uniqueIds.has(selectedId)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["selectedIds", index],
+        message: "selectedIdNotInPool",
+      });
+    }
+    // Each selected direction prices and persists exactly one output — a
+    // duplicate id would double-charge a single persisted row.
+    if (value.selectedIds.indexOf(selectedId) !== index) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["selectedIds", index],
+        message: "selectedIdsMustBeUnique",
+      });
+    }
+  }
+});
+
 export const creativeWorkSettingsSchema = z.object({
   targetFormats: z.array(creativeWorkFormatSchema),
   formatMode: z.enum(["auto", "manual"]).optional(),
   brandConflictChoice: z.enum(CREATIVE_WORK_BRAND_CHOICES).optional(),
   brandConflictDetectedBrand: z.string().trim().min(1).optional(),
+  directionPool: creativeDirectionPoolSchema.optional(),
 });
 export const creativeWorkPreparationSchema = z.object({
   intent: creativeWorkIntentSchema,
@@ -253,12 +376,37 @@ export function quoteCreativeWork(input: {
   intent: CreativeWorkIntent;
   format: CreativeWorkFormat;
   targetFormats: readonly CreativeWorkFormat[];
+  directionPool?: CreativeDirectionPool;
 }): { plans: CreativeWorkOutputPlan[]; unitCount: number; credits: number } {
+  if (input.directionPool && input.directionPool.selectedIds.length > 0) {
+    const byId = new Map(input.directionPool.directions.map((direction) => [direction.id, direction]));
+    const plans: CreativeWorkOutputPlan[] = input.directionPool.selectedIds.map((id) => {
+      const direction = byId.get(id);
+      if (!direction) {
+        throw new Error(`selected direction id not found in pool: ${id}`);
+      }
+      return {
+        creativeLevel: "balanced" as const,
+        targetFormat: input.format,
+        versionNumber: 1,
+        directionId: direction.id,
+        directionSnapshot: {
+          label: direction.label,
+          instruction: direction.instruction,
+          order: direction.order,
+          // The safety/experimentation band freezes with the rest of the
+          // direction (#123); creativeLevel stays "balanced" (#128).
+          safetyBand: direction.safetyBand,
+        },
+      };
+    });
+    return { plans, unitCount: plans.length, credits: plans.length * 5 };
+  }
   const plans: CreativeWorkOutputPlan[] = input.intent === "variations" || input.intent === "social_post"
     ? CREATIVE_LEVELS.map((creativeLevel) => ({ creativeLevel, targetFormat: input.format, versionNumber: 1 }))
     // Exactly one output per target format, without duplicates (R-001).
     : (input.intent === "format_adaptation" ? [...new Set(input.targetFormats)] : [input.format])
-      .map((targetFormat) => ({ creativeLevel: "balanced", targetFormat, versionNumber: 1 }));
+      .map((targetFormat) => ({ creativeLevel: "balanced" as const, targetFormat, versionNumber: 1 }));
   return { plans, unitCount: plans.length, credits: plans.length * 5 };
 }
 

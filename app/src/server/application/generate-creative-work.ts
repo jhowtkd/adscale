@@ -147,7 +147,12 @@ export async function generateCreativeWork(input: {
     return { ok: false, error: { code: "work_not_prepared" } };
   }
 
-  const quote = quoteCreativeWork({ intent: work.toolKind, format: work.format, targetFormats: work.settings.targetFormats });
+  const quote = quoteCreativeWork({
+    intent: work.toolKind,
+    format: work.format,
+    targetFormats: work.settings.targetFormats,
+    directionPool: work.settings.directionPool,
+  });
   logCreativeWorkGenerationLifecycle({
     event: "creative_work_generation_requested",
     workspaceId: input.workspaceId,

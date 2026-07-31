@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { Paperclip, Sparkles } from "lucide-react";
@@ -43,6 +43,10 @@ export function CreativeComposer({ composer, composerRef }: {
   const isVariations = composer.intent === "variations";
   const isSingle = composer.intent === "single";
   const isFormatAdaptation = composer.intent === "format_adaptation";
+  // The manual-instruction textarea only exists while the "Direcionamentos
+  // manuais" section is open — collapsed by default, never mounted outside it.
+  const [manualDirectionsOpen, setManualDirectionsOpen] = useState(false);
+  const directions = composer.directionPool;
   const readyVariationSource = isVariations
     ? composer.sources.find((source) => source.status === "ready") ?? null
     : null;
@@ -74,9 +78,11 @@ export function CreativeComposer({ composer, composerRef }: {
       ? t("actionPreparing")
       : composer.actionPhase === "submitting"
         ? t("actionSubmitting")
-        : composer.state === "generating"
-          ? t("actionGenerating")
-          : null;
+        : composer.actionPhase === "reconciling"
+          ? t("actionReconciling")
+          : composer.state === "generating"
+            ? t("actionGenerating")
+            : null;
 
   const handleDrop = (event: React.DragEvent) => {
     event.preventDefault();
@@ -230,12 +236,87 @@ export function CreativeComposer({ composer, composerRef }: {
       ) : null}
 
       {readyVariationSource ? (
-        <CreativeVariationBrief
-          source={readyVariationSource}
-          value={composer.request}
-          onChange={composer.setRequest}
-          textareaRef={composerRef}
-        />
+        <CreativeVariationBrief source={readyVariationSource} />
+      ) : null}
+
+      {isVariations && directions ? (
+        <fieldset className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-4">
+          <legend className="px-1 text-sm font-medium text-[var(--text-primary)]">{t("directionsTitle")}</legend>
+          <p className="mt-1 text-sm text-[var(--text-muted)]">{t("directionsHint")}</p>
+          {composer.directionSuggestionState === "loading" ? (
+            <p className="mt-2 text-xs text-[var(--text-muted)]" role="status">{t("directionsLoading")}</p>
+          ) : null}
+          <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label={t("directionsTitle")}>
+            {directions.directions.map((direction) => {
+              const selected = directions.selectedIds.includes(direction.id);
+              return (
+                <button
+                  key={direction.id}
+                  type="button"
+                  aria-pressed={selected}
+                  disabled={!selected && directions.selectedIds.length >= 5}
+                  onClick={() => composer.toggleDirection(direction.id)}
+                  className={cn(
+                    "rounded-full border px-3 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)] disabled:cursor-not-allowed disabled:opacity-50",
+                    selected
+                      ? "border-[var(--accent-primary)] bg-[var(--accent-primary)]/10 text-[var(--accent-primary-text)]"
+                      : "border-[var(--border-default)] bg-[var(--surface-raised)] text-[var(--text-secondary)]",
+                  )}
+                >
+                  {direction.label}
+                </button>
+              );
+            })}
+          </div>
+          {composer.pendingDirectionSuggestions ? (
+            <div className="mt-3 rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-inset)] p-3">
+              <p className="text-sm text-[var(--text-secondary)]">{t("directionsReady")}</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const pending = composer.pendingDirectionSuggestions!;
+                    composer.applyDirectionSuggestions(pending.directions, pending.preserveSelection);
+                  }}
+                  className="rounded-[var(--radius-control)] bg-[var(--accent-primary)] px-3 py-1.5 text-sm font-semibold text-[var(--text-on-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]"
+                >
+                  {t("applyDirections")}
+                </button>
+                <button
+                  type="button"
+                  onClick={composer.keepCurrentDirections}
+                  className="rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-1.5 text-sm text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]"
+                >
+                  {t("keepDirections")}
+                </button>
+              </div>
+            </div>
+          ) : null}
+          {composer.directionSuggestionState === "error" ? (
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-[var(--text-muted)]">
+              <span>{t("directionsUnavailable")}</span>
+              <button type="button" onClick={composer.requestDirectionSuggestions} className="font-semibold text-[var(--accent-primary-text)] underline">{t("retryDirections")}</button>
+            </div>
+          ) : composer.directionSuggestionState === "ready" && !composer.pendingDirectionSuggestions ? (
+            <button type="button" onClick={composer.requestDirectionSuggestions} className="mt-3 text-sm font-semibold text-[var(--accent-primary-text)] underline">{t("suggestAgain")}</button>
+          ) : null}
+          <details
+            className="mt-3 rounded-[var(--radius-control)] bg-[var(--surface-inset)] px-3 py-2"
+            onToggle={(event) => setManualDirectionsOpen(event.currentTarget.open)}
+          >
+            <summary className="cursor-pointer text-sm font-medium text-[var(--text-secondary)]">{t("manualDirections")}</summary>
+            {manualDirectionsOpen ? (
+              <textarea
+                aria-label={t("manualDirections")}
+                value={directions.manualInstruction ?? ""}
+                onChange={(event) => composer.setManualDirectionInstruction(event.target.value)}
+                placeholder={t("manualDirectionsPlaceholder")}
+                rows={3}
+                className="mt-2 w-full resize-y rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]"
+              />
+            ) : null}
+          </details>
+        </fieldset>
       ) : null}
 
       {composer.brandTrainingSuggestion ? (
