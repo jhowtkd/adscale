@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-07-24T18:11:43.309Z",
+  "generatedAt": "2026-07-31T09:46:04.876Z",
   "schemaVersion": 2,
-  "fingerprint": "3577e243894e8dde0de27ddbce8d7b86178a5441f24624a5162033bbd00be4dc",
+  "fingerprint": "b64bee853dd45db4ccb00892c6cbe7dea152df2386cea75ec8368410141fa57a",
   "counts": {
     "dashboardPages": 14,
-    "apiRoutes": 165,
+    "apiRoutes": 166,
     "ctas": 61,
     "requiringDecision": 1
   },
@@ -702,6 +702,13 @@
       "kind": "api_route",
       "route": "/api/creative-work/[id]/identity-options",
       "file": "app/src/app/api/creative-work/[id]/identity-options/route.ts",
+      "requiresDecision": false
+    },
+    {
+      "id": "api:/api/creative-work/[id]/outputs/[outputId]/cancel",
+      "kind": "api_route",
+      "route": "/api/creative-work/[id]/outputs/[outputId]/cancel",
+      "file": "app/src/app/api/creative-work/[id]/outputs/[outputId]/cancel/route.ts",
       "requiresDecision": false
     },
     {
