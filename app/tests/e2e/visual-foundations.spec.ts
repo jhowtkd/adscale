@@ -333,11 +333,31 @@ test.describe("visual foundations", () => {
       const firstName = page.locator("#profile-first-name");
       await expect(firstName).toBeVisible();
       await firstName.fill(reducedMotion === "reduce" ? "Reduced" : "Motion");
-      const save = page.getByRole("button", { name: /salvar alterações|save changes/i });
+      const profileApi = /\/api\/user\/profile(?:\?|$)/;
+      if (reducedMotion === "no-preference") {
+        let failedOnce = false;
+        await page.route(profileApi, (route) => {
+          if (route.request().method() !== "PATCH" || failedOnce) return route.continue();
+          failedOnce = true;
+          return route.fulfill({
+            status: 500,
+            contentType: "application/json",
+            body: JSON.stringify({ error: "Synthetic profile failure" }),
+          });
+        });
+      }
+      const save = page.getByRole("button", { name: /salvar alterações|save changes|tentar novamente|retry/i });
       await save.focus();
       await page.keyboard.press("Enter");
+      if (reducedMotion === "no-preference") {
+        await expect(page.locator('button:has([data-action-status="error"])')).toContainText(/tentar novamente|retry/i);
+        await expect(page.getByText("Synthetic profile failure")).toBeVisible();
+        await expect(save).toBeFocused();
+        await page.keyboard.press("Enter");
+      }
       await expect(page.locator('button:has([data-action-status="success"])'))
         .toContainText(/salvo|saved/i);
+      await page.unroute(profileApi);
 
       await page.goto(manifest.routes.onboarding);
       await expect(page.locator("main")).toBeVisible();
@@ -352,9 +372,9 @@ test.describe("visual foundations", () => {
         library: libraryDuration,
       };
       if (reducedMotion === "reduce") {
-        expect(Math.max(...Object.values(durations))).toBeLessThanOrEqual(1);
+        for (const duration of Object.values(durations)) expect(duration).toBeLessThanOrEqual(1);
       } else {
-        expect(Math.max(...Object.values(durations))).toBeGreaterThanOrEqual(100);
+        for (const duration of Object.values(durations)) expect(duration).toBeGreaterThanOrEqual(100);
       }
       evidence.push({
         reducedMotion,

@@ -49,8 +49,8 @@ const row: CampaignV6Row = {
   originLabel: "Campanha",
 };
 
-function renderView(selectedIds = new Set<string>(), onToggleSelect = vi.fn()) {
-  return render(
+function view(selectedIds = new Set<string>(), onToggleSelect = vi.fn()) {
+  return (
     <CampaignsV6View
       labels={labels}
       rows={[row]}
@@ -69,8 +69,12 @@ function renderView(selectedIds = new Set<string>(), onToggleSelect = vi.fn()) {
       viewMode="list"
       selectedIds={selectedIds}
       onToggleSelect={onToggleSelect}
-    />,
+    />
   );
+}
+
+function renderView(selectedIds = new Set<string>(), onToggleSelect = vi.fn()) {
+  return render(view(selectedIds, onToggleSelect));
 }
 
 describe("CampaignsV6View motion selection contract", () => {
@@ -84,27 +88,7 @@ describe("CampaignsV6View motion selection contract", () => {
     expect(checkbox.closest("li")).not.toHaveAttribute("role");
     expect(screen.getByRole("link", { name: "Aquisição" })).toHaveAttribute("href", "/campaigns/campaign-1");
 
-    rerender(
-      <CampaignsV6View
-        labels={labels}
-        rows={[row]}
-        totalCount={1}
-        searchQuery=""
-        showCampaignFilters={false}
-        statusFilter="all"
-        statusFilterLabel="Todos"
-        statusOptions={[]}
-        platformFilter="all"
-        platformFilterLabel="Todas"
-        platformOptions={[]}
-        sortOption="updated"
-        sortLabel="Recentes"
-        sortOptions={[]}
-        viewMode="list"
-        selectedIds={new Set(["campaign-1"])}
-        onToggleSelect={onToggleSelect}
-      />,
-    );
+    rerender(view(new Set(["campaign-1"]), onToggleSelect));
 
     expect(checkbox).toBeChecked();
     expect(checkbox.closest("li")).toHaveAttribute("data-motion-highlight", "selected");

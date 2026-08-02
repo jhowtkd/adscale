@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { TrendingDown, TrendingUp } from "lucide-react";
-import { MotionValue } from "@/components/animations/MotionValue";
+import { AnimatedDisplayValue } from "@/components/animations/AnimatedDisplayValue";
 import { cn } from "@/lib/utils";
 import { useReducedMotion } from "@/lib/hooks/use-reduced-motion";
 import type { DashboardV6Labels, DashboardV6ViewModel } from "./dashboard-v6-types";
@@ -68,7 +68,7 @@ export default function DashboardV6View({
                     {kpi.label}
                   </div>
                   <div className="mt-2 text-2xl font-semibold tabular-nums text-[var(--text-primary)]">
-                    <MotionValue value={kpi.value} />
+                    <AnimatedDisplayValue value={kpi.value} />
                   </div>
                   <div className="mt-1 flex items-center gap-1 text-xs text-[var(--text-secondary)]">
                     {kpi.trendDir === "up" ? (
@@ -323,7 +323,7 @@ function MetaRow({ label, value, accent }: { label: string; value: string; accen
     <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-2 last:border-0 last:pb-0">
       <dt className="font-mono text-[10px] uppercase tracking-wider text-[var(--text-muted)]">{label}</dt>
       <dd className={`text-sm font-medium ${accent ? "text-[var(--accent-primary-text)]" : "text-[var(--text-primary)]"}`}>
-        <MotionValue value={value} />
+        <AnimatedDisplayValue value={value} />
       </dd>
     </div>
   );

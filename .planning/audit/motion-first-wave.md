@@ -8,7 +8,7 @@ Fontes: [baseline autenticado](./motion-baseline.md), [evidência bruta](./motio
 
 ## Resultado
 
-A primeira onda adota a política global de reduced motion e adapta quatro padrões de microfeedback. Ela não instala a Animate UI, não copia seus primitives e não adiciona outro runtime. Todo código novo deve entrar pelo `MotionBoundary`, usar os tokens locais e preservar o estado funcional já existente.
+A primeira onda adota a política global de reduced motion e adapta três padrões de microfeedback. Ela não instala a Animate UI, não copia seus primitives e não adiciona outro runtime. Todo código novo deve entrar pelo `MotionBoundary`, usar os tokens locais e preservar o estado funcional já existente.
 
 ## Linguagem de movimento
 

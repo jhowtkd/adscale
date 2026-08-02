@@ -46,7 +46,7 @@ interface ProfileFormState {
   lastName: string;
   bio: string;
   timezone: string;
-  saveState: "idle" | "saving" | "saved";
+  saveState: "idle" | "saving" | "saved" | "error";
 }
 
 function profileFormReducer(
@@ -76,6 +76,7 @@ export default function ProfileTab() {
   const { firstName, lastName, bio, timezone, saveState } = form;
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const saveButtonRef = useRef<HTMLButtonElement>(null);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pendingAvatarFile, setPendingAvatarFile] = useState<File | null>(null);
   const [localAvatarPreview, setLocalAvatarPreview] = useState<string | null>(
@@ -167,7 +168,8 @@ export default function ProfileTab() {
         2000
       );
     } catch (err) {
-      updateForm({ saveState: "idle" });
+      updateForm({ saveState: "error" });
+      requestAnimationFrame(() => saveButtonRef.current?.focus());
       addToast(
         "error",
         err instanceof Error ? err.message : tc("error")
@@ -276,12 +278,14 @@ export default function ProfileTab() {
         className="flex justify-end border-t border-[var(--border-dim)] pt-6"
       >
         <button
+          ref={saveButtonRef}
           type="button"
           onClick={handleSave}
           aria-busy={saveState === "saving"}
           disabled={
             !hasChanges ||
-            saveState !== "idle" ||
+            saveState === "saving" ||
+            saveState === "saved" ||
             updateProfile.isPending ||
             uploadAvatar.isPending
           }
@@ -294,14 +298,16 @@ export default function ProfileTab() {
           )}
         >
           <ActionStatusIcon
-            state={saveState === "saving" ? "pending" : saveState === "saved" ? "success" : "idle"}
+            state={saveState === "saving" ? "pending" : saveState === "saved" ? "success" : saveState === "error" ? "error" : "idle"}
           />
           <span>
             {saveState === "saving"
               ? t("saving")
               : saveState === "saved"
                 ? t("saved")
-                : t("saveChanges")}
+                : saveState === "error"
+                  ? tc("retry")
+                  : t("saveChanges")}
           </span>
         </button>
       </m.div>

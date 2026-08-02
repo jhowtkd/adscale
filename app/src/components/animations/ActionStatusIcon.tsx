@@ -14,7 +14,7 @@ export function ActionStatusIcon({ state }: { state: ActionStatus }) {
       data-testid="action-status-icon"
       data-action-status={state}
       aria-hidden="true"
-      className="motion-value-enter inline-flex"
+      className="motion-feedback-enter inline-flex"
     >
       <Icon size={16} className={cn(state === "pending" && "animate-spin")} />
     </span>

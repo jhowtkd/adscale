@@ -535,7 +535,7 @@
   }
 }
 
-.motion-value-enter {
+.motion-feedback-enter {
   animation: motion-value-in var(--duration-default) var(--ease-emphasized) both;
 }
 

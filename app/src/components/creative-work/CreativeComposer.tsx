@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Paperclip, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ActiveBrandSwitcher from "@/components/layout/ActiveBrandSwitcher";
-import { MotionValue } from "@/components/animations/MotionValue";
+import { AnimatedDisplayValue } from "@/components/animations/AnimatedDisplayValue";
 import { CreativeSourceChip } from "./CreativeSourceChip";
 import { CreativeSourcePreviewCard } from "./CreativeSourcePreviewCard";
 import { CreativeVariationBrief } from "./CreativeVariationBrief";
@@ -437,7 +437,7 @@ export function CreativeComposer({ composer, composerRef }: {
         >
           <Sparkles size={16} aria-hidden="true" />
           {pendingLabel ?? (
-            <MotionValue
+            <AnimatedDisplayValue
               value={
                 isRestyle
                   ? t("generateRestyle", { credits: composer.quote.credits })
