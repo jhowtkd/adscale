@@ -11,6 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 import type { PlatformFilter, SortOption, StatusFilter, ViewMode } from "@/components/campaigns/types";
 import type {
   CampaignsV6Labels,
@@ -342,7 +343,15 @@ function CampaignRow({
 
   return (
     <li
-      className="grid grid-cols-[auto_40px_minmax(0,1fr)_auto_auto_auto] items-center gap-3 px-4 py-3 hover:bg-[var(--surface-raised)] sm:gap-3.5"
+      data-motion-highlight={selected ? "selected" : "idle"}
+      className={cn(
+        "grid grid-cols-[auto_40px_minmax(0,1fr)_auto_auto_auto] items-center gap-3 px-4 py-3 sm:gap-3.5",
+        "transition-[background-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-product)]",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--focus-ring)]",
+        selected
+          ? "bg-[var(--accent-primary-subtle)] shadow-[inset_3px_0_0_var(--accent-primary)]"
+          : "hover:bg-[var(--surface-raised)] focus-visible:bg-[var(--surface-raised)]",
+      )}
       onClick={handleRowClick}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
