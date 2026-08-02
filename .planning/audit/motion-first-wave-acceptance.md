@@ -4,7 +4,7 @@ Data: 2026-08-02
 
 Baseline: `e64575cd`
 
-Implementação aceita: `6c3c8d05`
+Implementação aceita: `8787d76e`
 
 ## Resultado
 
@@ -12,14 +12,14 @@ A primeira onda foi aceita com primitives locais e CSS. `animate-ui` não foi in
 
 | Contrato | Evidência | Resultado |
 | --- | --- | --- |
-| Movimento normal | seleção de campanha e foco da biblioteca com transição de `120ms` | passou |
-| Movimento reduzido | mesmas superfícies resolvem em `0.01ms`, sem perda semântica | passou |
-| Resposta da seleção | `23ms` no modo normal e `164ms` com redução no walkthrough final | passou |
-| Teclado e foco | protocolo, checkbox, ação da biblioteca, salvar perfil e seletor de marca | passou |
+| Movimento normal | dashboard em `180ms`; campanha e biblioteca em `120ms` | passou |
+| Movimento reduzido | dashboard, campanha e biblioteca resolvem em `0.01ms`, sem perda semântica | passou |
+| Resposta da seleção | `36ms` no modo normal e `26ms` com redução no walkthrough final | passou |
+| Teclado e foco | protocolo, checkbox, ação da biblioteca, salvar perfil, falha/retry e seletor de marca | passou |
 | Estados e overlays | dashboard, campanhas, workspace, settings, confirmação destrutiva, review sheet e layer harness | passou |
 | Gate visual estático | 22 ocorrências de dívida na baseline e 22 após a onda; nenhuma ocorrência nova | passou |
 | Build de produção | baseline e implementação compilam com Next.js 16.2.6/Webpack | passou |
-| Bundle inicial | `675901` → `677127` bytes, `+1226` bytes (`+0.18%`), abaixo do limite de `2 MB` | passou |
+| Bundle inicial | `675901` → `677118` bytes, `+1217` bytes (`+0.18%`), abaixo do limite de `2 MB` | passou |
 | Volume lazy informativo | `2344947` → `2347863` bytes, `+2916` bytes (`+0.12%`) | passou |
 
 ## Matriz visual
