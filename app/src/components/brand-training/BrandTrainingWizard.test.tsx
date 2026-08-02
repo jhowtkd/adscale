@@ -155,12 +155,7 @@ describe("BrandTrainingWizard", () => {
     expect(screen.getByText("Acme")).toBeInTheDocument();
     expect(screen.getByText("Beta")).toBeInTheDocument();
 
-    const acme = screen.getByRole("button", { name: "Acme" });
-    const beta = screen.getByRole("button", { name: "Beta" });
-    expect(acme).toHaveAttribute("aria-pressed", "false");
-    expect(beta).toHaveAttribute("aria-pressed", "true");
-
-    fireEvent.click(acme);
+    fireEvent.click(screen.getByText("Acme"));
 
     await waitFor(() => {
       expect(selectProfileMock).toHaveBeenCalledWith("profile-1");

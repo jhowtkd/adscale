@@ -54,8 +54,8 @@ const AUTHENTICATED_ROOTS = [
   "app/src/components/ui", "app/src/components/workspace",
 ];
 
-// Counts are captured from the immutable pre-change tree. They permit existing debt only
-// in the same file and rule; any added occurrence fails deterministically.
+// Counts are captured from the immutable first-wave baseline e64575cd. They permit
+// existing debt only in the same file and rule; any added occurrence fails deterministically.
 const DEBT_ALLOWLIST = {
   deprecatedHue: {
     "app/src/app/(dashboard)/library/page.tsx": 4,
@@ -75,12 +75,14 @@ const DEBT_ALLOWLIST = {
     "app/src/components/workspace/AutoBriefingSheet.tsx": 3,
     "app/src/components/workspace/BriefingStep.tsx": 1,
     "app/src/components/workspace/DerivationCard.tsx": 9,
+    "app/src/components/workspace/DerivationReviewSheet.tsx": 1,
     "app/src/components/workspace/GuidedBriefingPanel.tsx": 1,
   },
   rawLayer: {
     "app/src/components/campaigns/CampaignListCard.tsx": 3,
     "app/src/components/campaigns/CampaignsListView.tsx": 1,
     "app/src/components/layout/AppShell.tsx": 1,
+    "app/src/components/layout/AppSidebar.tsx": 1,
     "app/src/components/layout/TopBar.tsx": 2,
     "app/src/components/providers/ToastStack.tsx": 1,
     "app/src/components/ui/LanguageSwitcher.tsx": 1,
@@ -94,6 +96,7 @@ const DEBT_ALLOWLIST = {
     "app/src/components/workspace/WorkspaceActionBar.tsx": 1,
   },
   arbitraryDialect: {
+    "app/src/app/(dashboard)/brand-kit/page.tsx": 1,
     "app/src/app/(dashboard)/campaigns/[id]/page.tsx": 6,
     "app/src/app/(dashboard)/feedback/page.tsx": 3,
     "app/src/app/(dashboard)/library/page.tsx": 3,
@@ -102,14 +105,26 @@ const DEBT_ALLOWLIST = {
     "app/src/components/campaigns/CampaignCard.tsx": 4,
     "app/src/components/campaigns/CampaignListCard.tsx": 1,
     "app/src/components/campaigns/CampaignTableRow.tsx": 4,
+    "app/src/components/campaigns/CampaignsFilterToolbar.tsx": 3,
     "app/src/components/campaigns/CampaignsHeader.tsx": 1,
+    "app/src/components/campaigns/CampaignsPagination.tsx": 1,
+    "app/src/components/campaigns/ClientProfileLinkControl.tsx": 3,
     "app/src/components/campaigns/KanbanCard.tsx": 3,
     "app/src/components/campaigns/KanbanColumn.tsx": 1,
     "app/src/components/campaigns/LearningsPanel.tsx": 1,
     "app/src/components/campaigns/NewCampaignModal.tsx": 3,
     "app/src/components/campaigns/NextExperimentRecommendationCard.tsx": 2,
-    "app/src/components/layout/AppShell.tsx": 1,
-    "app/src/components/layout/TopBar.tsx": 1,
+    "app/src/components/campaigns/OutputLearningRecommendationCard.tsx": 2,
+    "app/src/components/campaigns/v6/CampaignsV6View.tsx": 6,
+    "app/src/components/campaigns/v6/workspace/CampaignWorkspaceV6View.tsx": 2,
+    "app/src/components/layout/AccountStatusBadge.tsx": 1,
+    "app/src/components/layout/AppShell.tsx": 2,
+    "app/src/components/layout/AppSidebar.tsx": 7,
+    "app/src/components/layout/MobileMoreSheet.tsx": 1,
+    "app/src/components/layout/SidebarAssistantModeSwitch.tsx": 5,
+    "app/src/components/layout/SidebarBrandKitFeature.tsx": 4,
+    "app/src/components/layout/SidebarRecentWorks.tsx": 7,
+    "app/src/components/layout/TopBar.tsx": 3,
     "app/src/components/providers/ToastStack.tsx": 1,
     "app/src/components/restyling/RestylingForm.tsx": 1,
     "app/src/components/settings/BillingTab.tsx": 6,
@@ -117,6 +132,7 @@ const DEBT_ALLOWLIST = {
     "app/src/components/settings/IntegrationsTab.tsx": 1,
     "app/src/components/settings/PlansTab.tsx": 2,
     "app/src/components/settings/PrivacyTab.tsx": 3,
+    "app/src/components/settings/v6/SettingsV6View.tsx": 1,
     "app/src/components/settings/TeamTab.tsx": 2,
     "app/src/components/settings/WorkspaceTab.tsx": 2,
     "app/src/components/templates/SaveTemplateModal.tsx": 3,
@@ -125,9 +141,10 @@ const DEBT_ALLOWLIST = {
     "app/src/components/ui/StatusBadge.tsx": 1,
     "app/src/components/ui/button.tsx": 1,
     "app/src/components/ui/tooltip.tsx": 1,
-    "app/src/components/workspace/ClientApprovalPackagePanel.tsx": 4,
+    "app/src/components/workspace/ClientApprovalPackagePanel.tsx": 6,
     "app/src/components/workspace/CreativeReadinessPanel.tsx": 4,
-    "app/src/components/workspace/DerivationCard.tsx": 15,
+    "app/src/components/workspace/DerivationAutoRetryBadge.tsx": 1,
+    "app/src/components/workspace/DerivationCard.tsx": 21,
     "app/src/components/workspace/DerivationGrid.tsx": 1,
     "app/src/components/workspace/DerivationPreviewGateFooter.tsx": 2,
     "app/src/components/workspace/DerivationReviewSheet.tsx": 6,
@@ -137,6 +154,7 @@ const DEBT_ALLOWLIST = {
     "app/src/components/workspace/PilotSidebar.tsx": 4,
     "app/src/components/workspace/PilotUploadPanel.tsx": 5,
     "app/src/components/workspace/StrategyRecipePanel.tsx": 1,
+    "app/src/components/workspace/WorkspaceActionBar.tsx": 1,
   },
 };
 

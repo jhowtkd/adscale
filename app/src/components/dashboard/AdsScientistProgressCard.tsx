@@ -5,7 +5,6 @@ import { FlaskConical, ArrowRight, AlertCircle, RefreshCw } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { useProgression } from "@/lib/hooks/use-progression";
-import { MotionValue } from "@/components/animations/MotionValue";
 
 export default function AdsScientistProgressCard() {
   const t = useTranslations("dashboard.progression");
@@ -87,7 +86,7 @@ export default function AdsScientistProgressCard() {
               {t("progressLabel")}
             </span>
             <span className="text-xs font-mono font-bold text-[var(--accent-green)]">
-              <MotionValue value={progressPercent} suffix="%" />
+              {progressPercent}%
             </span>
           </div>
           <div
@@ -99,8 +98,8 @@ export default function AdsScientistProgressCard() {
             aria-label={t("progressAria", { percent: progressPercent })}
           >
             <div
-              className="gradient-progress h-full w-full origin-left rounded-full transition-transform duration-[var(--duration-default)] ease-[var(--ease-emphasized)]"
-              style={{ transform: `scaleX(${progressPercent / 100})` }}
+              className="gradient-progress h-full rounded-full transition-all duration-500"
+              style={{ width: `${progressPercent}%` }}
             />
           </div>
         </div>

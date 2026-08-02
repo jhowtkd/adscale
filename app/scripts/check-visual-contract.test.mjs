@@ -37,6 +37,24 @@ test("raw global layers are distinguished", () => {
   assert.ok(diagnostics.some(({ code }) => code === "RAW_GLOBAL_LAYER"));
 });
 
+test("baseline debt is capped per file", () => {
+  const file = "app/src/app/(dashboard)/brand-kit/page.tsx";
+  const oneExistingOccurrence = `className="text-[13px]"`;
+
+  assert.deepEqual(validateContract({
+    css: minimal,
+    sources: [{ file, content: oneExistingOccurrence }],
+    section: "dialect",
+    requireComplete: false,
+  }), []);
+  assert.ok(validateContract({
+    css: minimal,
+    sources: [{ file, content: `${oneExistingOccurrence} ${oneExistingOccurrence}` }],
+    section: "dialect",
+    requireComplete: false,
+  }).some(({ code }) => code === "ARBITRARY_VISUAL_DIALECT"));
+});
+
 test("malformed CSS is distinguished from contract assertions", () => {
   const diagnostics = validateContract({ css: `:root { --canvas: red`, requireComplete: false });
   assert.equal(diagnostics[0]?.code, "MALFORMED_CSS");

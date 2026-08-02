@@ -81,6 +81,8 @@ describe("CampaignsV6View motion selection contract", () => {
 
     fireEvent.click(checkbox);
     expect(onToggleSelect).toHaveBeenCalledWith("campaign-1", true);
+    expect(checkbox.closest("li")).not.toHaveAttribute("role");
+    expect(screen.getByRole("link", { name: "Aquisição" })).toHaveAttribute("href", "/campaigns/campaign-1");
 
     rerender(
       <CampaignsV6View

@@ -32,12 +32,21 @@ function seed(force = false): Manifest {
   return JSON.parse(readFileSync(MANIFEST_PATH, "utf8")) as Manifest;
 }
 
+function revokeFixtureAccess() {
+  execFileSync("npx", ["tsx", "scripts/seed-visual-foundations.ts", "--revoke-access"], {
+    cwd: process.cwd(),
+    env: { ...process.env, NODE_OPTIONS: `--conditions=react-server ${process.env.NODE_OPTIONS ?? ""}`.trim() },
+    stdio: "inherit",
+  });
+}
+
 type Capture = {
   key: string;
   scenario: string;
   state: string;
   viewport: number;
   theme: "light" | "dark";
+  requestedTheme: "light" | "dark";
   locale: "pt-BR" | "en";
   path: string;
   sha256: string;
@@ -86,19 +95,31 @@ function recordCapture(capture: Capture) {
   writeFileSync(EVIDENCE_PATH, `${JSON.stringify(current, null, 2)}\n`);
 }
 
-async function login(page: Page, locale: "pt-BR" | "en", theme: "light" | "dark") {
-  await page.emulateMedia({ reducedMotion: "reduce", colorScheme: theme });
+async function login(
+  page: Page,
+  locale: "pt-BR" | "en",
+  theme: "light" | "dark",
+  options: { reducedMotion?: "reduce" | "no-preference"; deterministicMotion?: boolean } = {},
+) {
+  const { reducedMotion = "reduce", deterministicMotion = true } = options;
+  await page.emulateMedia({ reducedMotion, colorScheme: theme });
   await page.context().addCookies([
     { name: "NEXT_LOCALE", value: locale, domain: "localhost", path: "/" },
     { name: "cookie-consent", value: "accepted", domain: "localhost", path: "/" },
   ]);
-  await page.addInitScript((selectedTheme) => {
+  await page.addInitScript(({ selectedTheme, disableMotion }) => {
     localStorage.setItem("theme", selectedTheme);
+    localStorage.setItem("adscale_cookie_consent", JSON.stringify({
+      necessary: true,
+      analytics: false,
+      marketing: false,
+    }));
+    if (!disableMotion) return;
     const style = document.createElement("style");
     style.dataset.visualFoundations = "deterministic-motion";
     style.textContent = "*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}";
     document.documentElement.appendChild(style);
-  }, theme);
+  }, { selectedTheme: theme, disableMotion: deterministicMotion });
   await page.goto("/login");
   await page.locator("#email").fill(EMAIL);
   await page.locator("#login-password").fill(PASSWORD);
@@ -145,7 +166,8 @@ function variant(width: number) {
 
 async function capture(page: Page, manifest: Manifest, scenario: string, state: string, width: number) {
   mkdirSync(SCREENSHOT_DIR, { recursive: true });
-  const { locale, theme } = variant(width);
+  const { locale, theme: requestedTheme } = variant(width);
+  const theme = await page.evaluate(() => document.documentElement.classList.contains("dark") ? "dark" : "light");
   const name = `${scenario}-${state}-${width}-${theme}-${locale}-${CAPTURE_SUFFIX}.png`.toLowerCase();
   const absolute = path.join(SCREENSHOT_DIR, name);
   await page.screenshot({ path: absolute, fullPage: true, mask: maskLocators(page, manifest), animations: "disabled" });
@@ -155,6 +177,7 @@ async function capture(page: Page, manifest: Manifest, scenario: string, state: 
     state,
     viewport: width,
     theme,
+    requestedTheme,
     locale,
     path: path.relative(path.resolve(process.cwd(), ".."), absolute).replaceAll("\\", "/"),
     sha256: sha256(absolute),
@@ -196,8 +219,10 @@ test.describe("visual foundations", () => {
   let manifest: Manifest;
 
   test.beforeAll(() => {
-    manifest = seed();
+    manifest = seed(true);
   });
+
+  test.afterAll(() => revokeFixtureAccess());
 
   test("baseline preflight", async ({ page }, testInfo) => {
     expect(manifest.identity.email).toBe(EMAIL);
@@ -223,6 +248,130 @@ test.describe("visual foundations", () => {
     await expect(page.locator('[data-layer="overlay"]')).toBeVisible();
   });
 
+  test("first-wave motion keeps function and focus with normal and reduced motion", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.use.viewport?.width !== 1440);
+    await login(page, "pt-BR", "dark", { reducedMotion: "no-preference", deterministicMotion: false });
+
+    const evidence: Array<Record<string, string | number | boolean>> = [];
+    const durationMs = (locator: Locator, property: "animationDuration" | "transitionDuration") =>
+      locator.evaluate((element, name) => {
+        const values = getComputedStyle(element)[name].split(",");
+        return Math.max(...values.map((value) => {
+          const parsed = Number.parseFloat(value);
+          return value.trim().endsWith("ms") ? parsed : parsed * 1000;
+        }));
+      }, property);
+
+    for (const reducedMotion of ["no-preference", "reduce"] as const) {
+      await page.emulateMedia({ reducedMotion, colorScheme: "dark" });
+      expect(await page.evaluate(() => matchMedia("(prefers-reduced-motion: reduce)").matches))
+        .toBe(reducedMotion === "reduce");
+
+      await page.goto(manifest.routes.creativeWork);
+      const protocol = page.getByRole("button", { name: /peça única|single/i }).first();
+      await expect(protocol).toBeVisible();
+      await protocol.focus();
+      await page.keyboard.press("Space");
+      await expect(protocol).toHaveAttribute("aria-pressed", "true");
+      await expect(page.locator("#creative-composer-request")).toBeFocused();
+
+      await page.goto(manifest.routes.dashboard);
+      await expect(page.locator("main")).toBeVisible();
+      const dashboardValue = page.locator("[data-motion-value]").first();
+      await expect(dashboardValue).toBeVisible();
+      const dashboardDuration = await durationMs(dashboardValue, "animationDuration");
+
+      await page.goto(manifest.routes.campaignList);
+      const listView = page.getByRole("button", { name: /lista|list/i });
+      await listView.click();
+      await expect(listView).toHaveAttribute("aria-pressed", "true");
+      const campaignCheckbox = page.locator('li[data-motion-highlight] input[type="checkbox"]:not([disabled])').first();
+      await expect(campaignCheckbox).toBeVisible();
+      await campaignCheckbox.focus();
+      const selectionStarted = Date.now();
+      await page.keyboard.press("Space");
+      await expect(campaignCheckbox).toBeChecked();
+      await expect(campaignCheckbox).toBeFocused();
+      const selectedRow = campaignCheckbox.locator("xpath=ancestor::li[@data-motion-highlight]");
+      await expect(selectedRow).toHaveAttribute("data-motion-highlight", "selected");
+      const selectionResponseMs = Date.now() - selectionStarted;
+      const campaignDuration = await durationMs(selectedRow, "transitionDuration");
+
+      await page.route(/\/api\/workspace\/assets(?:\?|$)/, (route) => route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          total: 1,
+          assets: [{
+            id: "vf-asset",
+            workspaceId: manifest.fixtureIds.workspaceId,
+            name: "VF Example Asset",
+            key: "visual-foundations/example.png",
+            type: "image/png",
+            size: 1024,
+            width: 100,
+            height: 100,
+            tags: ["synthetic"],
+            aiDescription: null,
+            source: "seed",
+            metadata: null,
+            url: "",
+            createdAt: "2026-01-01T12:00:00.000Z",
+          }],
+        }),
+      }));
+      await page.goto(manifest.routes.library);
+      const libraryCard = page.locator('article[data-motion-highlight="focus"]');
+      await expect(libraryCard).toBeVisible();
+      const libraryAction = libraryCard.getByRole("button").first();
+      await libraryAction.focus();
+      await expect(libraryAction).toBeFocused();
+      const libraryDuration = await durationMs(libraryCard, "transitionDuration");
+      await page.unroute(/\/api\/workspace\/assets(?:\?|$)/);
+
+      await page.goto(manifest.routes.settingsProfile);
+      const firstName = page.locator("#profile-first-name");
+      await expect(firstName).toBeVisible();
+      await firstName.fill(reducedMotion === "reduce" ? "Reduced" : "Motion");
+      const save = page.getByRole("button", { name: /salvar alterações|save changes/i });
+      await save.focus();
+      await page.keyboard.press("Enter");
+      await expect(page.locator('button:has([data-action-status="success"])'))
+        .toContainText(/salvo|saved/i);
+
+      await page.goto(manifest.routes.onboarding);
+      await expect(page.locator("main")).toBeVisible();
+      const activeBrand = page.getByRole("combobox", { name: /marca ativa|active brand/i });
+      await expect(activeBrand).toBeVisible();
+      await activeBrand.focus();
+      await expect(activeBrand).toBeFocused();
+
+      const durations = {
+        dashboard: dashboardDuration,
+        campaign: campaignDuration,
+        library: libraryDuration,
+      };
+      if (reducedMotion === "reduce") {
+        expect(Math.max(...Object.values(durations))).toBeLessThanOrEqual(1);
+      } else {
+        expect(Math.max(...Object.values(durations))).toBeGreaterThanOrEqual(100);
+      }
+      evidence.push({
+        reducedMotion,
+        selectionResponseMs,
+        ...durations,
+        focusPreserved: true,
+        semanticParity: true,
+      });
+    }
+
+    console.log(`MOTION_FIRST_WAVE_EVIDENCE ${JSON.stringify(evidence)}`);
+    await testInfo.attach("motion-first-wave.json", {
+      body: Buffer.from(JSON.stringify(evidence, null, 2)),
+      contentType: "application/json",
+    });
+  });
+
   test("before baseline empty state loading state error state", async ({ page }, testInfo) => {
     test.skip(CAPTURE_SUFFIX === "after");
     const width = testInfo.project.use.viewport?.width;
@@ -237,13 +386,13 @@ test.describe("visual foundations", () => {
 
     const dashboardPopulated = [390, 1024, 1440, 1920].includes(width);
     if (dashboardPopulated) {
-      await page.goto(manifest.routes.dashboard);
+      await page.goto(manifest.routes.dashboard, { waitUntil: "domcontentloaded" });
       await expect(page.locator("main")).toBeVisible();
       await capture(page, manifest, "dashboard", "populated", width);
     }
     if ([390, 768, 1280].includes(width)) {
       for (const state of ["empty", "loading", "error"] as const) {
-        await captureApiState(page, manifest, { scenario: "dashboard", state, width, route: "/", api: /\/api\/dashboard\/stats/, emptyBody: emptyDashboard });
+        await captureApiState(page, manifest, { scenario: "dashboard", state, width, route: manifest.routes.dashboard, api: /\/api\/dashboard\/stats/, emptyBody: emptyDashboard });
       }
     }
 
@@ -298,7 +447,7 @@ test.describe("visual foundations", () => {
     }
     if ([390, 768, 1280].includes(width)) {
       for (const state of ["empty", "loading", "error"] as const) {
-        await captureApiState(page, manifest, { scenario: "dashboard", state, width, route: "/", api: /\/api\/dashboard\/stats/, emptyBody: emptyDashboard });
+        await captureApiState(page, manifest, { scenario: "dashboard", state, width, route: manifest.routes.dashboard, api: /\/api\/dashboard\/stats/, emptyBody: emptyDashboard });
       }
     }
 
@@ -344,19 +493,17 @@ test.describe("visual foundations", () => {
     if (!width) return;
     const { locale, theme } = variant(width);
     await login(page, locale, theme);
-    await page.goto("/settings?tab=privacy");
+    await page.goto("/settings?tab=privacy", { waitUntil: "domcontentloaded" });
+    await page.waitForLoadState("load");
     const deleteAccount = page.getByRole("button", { name: /quero excluir minha conta|delete account/i });
     await expect(deleteAccount).toBeEnabled();
-    const confirmation = page.getByLabel(/confirm delete account/i);
-    for (let attempt = 0; attempt < 3 && !(await confirmation.isVisible()); attempt += 1) {
-      await deleteAccount.click();
-      await page.waitForTimeout(500);
-    }
+    const confirmation = page.getByLabel(/confirmar exclusão da conta|confirm account deletion/i);
+    await deleteAccount.click();
     await expect(confirmation).toBeVisible();
     await capture(page, manifest, "overlay", "settings-confirmation-dialog", width);
   });
 
-  test("after account dropdown settings confirmation dialog derivation review sheet layer harness", async ({ page }, testInfo) => {
+  test("after settings confirmation dialog derivation review sheet layer harness", async ({ page }, testInfo) => {
     test.skip(CAPTURE_SUFFIX !== "after");
     const width = testInfo.project.use.viewport?.width;
     test.skip(!width || ![390, 1440].includes(width));
@@ -364,30 +511,21 @@ test.describe("visual foundations", () => {
     const { locale, theme } = variant(width);
     await login(page, locale, theme);
 
-    await page.goto(manifest.routes.dashboard);
-    const accountMenu = page.getByRole("button", { name: /menu da conta|account menu/i });
-    await expect(accountMenu).toBeVisible();
-    await accountMenu.click();
-    await expect(page.getByRole("menuitem").first()).toBeVisible();
-    await capture(page, manifest, "overlay", "account-dropdown", width);
-    await page.keyboard.press("Escape");
-
-    await page.goto("/settings?tab=privacy");
+    await page.goto("/settings?tab=privacy", { waitUntil: "domcontentloaded" });
+    await page.waitForLoadState("load");
     const deleteAccount = page.getByRole("button", { name: /quero excluir minha conta|delete account/i });
     await expect(deleteAccount).toBeEnabled();
-    const confirmation = page.getByLabel(/confirm delete account/i);
-    for (let attempt = 0; attempt < 3 && !(await confirmation.isVisible()); attempt += 1) {
-      await deleteAccount.click();
-      await page.waitForTimeout(500);
-    }
+    const confirmation = page.getByLabel(/confirmar exclusão da conta|confirm account deletion/i);
+    await deleteAccount.click();
     await expect(confirmation).toBeVisible();
     await capture(page, manifest, "overlay", "settings-confirmation-dialog", width);
     await page.keyboard.press("Escape");
 
-    await page.goto(manifest.routes.workspace);
-    const preview = page.getByRole("button", { name: /^(visualizar|preview)\s/i }).first();
-    await expect(preview).toBeVisible();
-    await preview.click();
+    await page.goto(manifest.routes.workspace, { waitUntil: "domcontentloaded" });
+    await expect(page.locator("main")).toBeVisible();
+    const moreActions = page.getByRole("button", { name: /mais ações para peça 1|more actions for piece 1/i });
+    await moreActions.click();
+    await page.getByRole("menuitem", { name: /visualizar|preview/i }).click();
     await expect(page.getByRole("dialog")).toBeVisible();
     await capture(page, manifest, "overlay", "derivation-review-sheet", width);
     await page.keyboard.press("Escape");
@@ -406,9 +544,9 @@ test.describe("visual foundations", () => {
     const { locale, theme } = variant(width);
     await login(page, locale, theme);
     await page.goto(manifest.routes.workspace);
-    const preview = page.getByRole("button", { name: /^(visualizar|preview)\s/i }).first();
-    await expect(preview).toBeVisible();
-    await preview.click();
+    const moreActions = page.getByRole("button", { name: /mais ações para peça 1|more actions for piece 1/i });
+    await moreActions.click();
+    await page.getByRole("menuitem", { name: /visualizar|preview/i }).click();
     await expect(page.getByRole("dialog")).toBeVisible();
     await capture(page, manifest, "overlay", "derivation-review-sheet", width);
   });

@@ -52,7 +52,7 @@ Regras globais: sem bounce, sem atraso de conteúdo crítico, sem animar proprie
 ### 3. Progresso e números
 
 - **Decisão:** `adaptar` Counting Number/Progress como continuidade de valor, sem copiar o primitive upstream.
-- **Superfícies:** `AdsScientistProgressCard`/`LaboratoryProgressPanel` no dashboard e estados de progresso já expostos pelo Trabalho Criativo.
+- **Superfícies:** valores KPI e metadados de progresso no `DashboardV6View` montado em `/dashboard`, além dos estados já expostos pelo Trabalho Criativo. `AdsScientistProgressCard` e `LaboratoryProgressPanel` foram excluídos após a aceitação integrada confirmar que não são importados por nenhuma rota.
 - **Primitive local:** barra e texto de progresso existentes; helper pequeno somente se houver dois consumidores reais.
 - **Resultado:** largura/valor responde sem bounce, layout shift ou atraso; loading, sucesso, falha e retry mantêm a semântica atual.
 - **Intensidade:** moderada para progresso; contida para números auxiliares.
@@ -79,16 +79,11 @@ Regras globais: sem bounce, sem atraso de conteúdo crítico, sem animar proprie
 
 ### 5. Feedback de toggles Base UI
 
-- **Decisão:** `adaptar` o feedback visual dos toggles da Animate UI sobre os primitives locais; rejeitar os wrappers Base UI upstream.
-- **Superfícies:** seleção controlada de perfil no onboarding/Brand Training. Não existe hoje um switch booleano de configurações aprovado; nenhum controle novo será inventado só para receber animação.
-- **Primitive local:** `ToggleGroup`/`Toggle` do `@base-ui/react@1.4.1` já instalado, composto diretamente com Button e tokens locais.
-- **Resultado:** estado pressed e check respondem de forma contida sem alterar seleção global, URL ou persistência.
-- **Intensidade:** contida.
-- **Reduced motion:** posição final e contraste aparecem imediatamente; sem spring.
-- **Acessibilidade:** teclado, disabled, nome acessível, foco visível e semântica pressed permanecem do Base UI.
-- **Desempenho:** CSS e tokens locais; nenhuma cópia de `@base-ui-components/react` e nenhum runtime novo.
-- **Risco:** permitir estado vazio ou perder a sincronização com o perfil ativo. O valor controlado e a URL continuam sendo a fonte de verdade.
-- **Aceite:** teste da superfície verifica aria-pressed, clique controlado, persistência via seleção global/URL e reduced motion.
+- **Decisão:** `rejeitar` nesta onda. A aceitação integrada confirmou que `BrandTrainingWizard` e os outros toggles candidatos não são importados por nenhuma rota autenticada atual.
+- **Superfícies:** nenhuma superfície montada. O Brand Kit vivo usa um `<select>` nativo para perfil; convertê-lo em toggle mudaria a ergonomia e não resolveria uma lacuna demonstrada.
+- **Resultado:** nenhum controle novo, wrapper ou feedback morto é mantido só para satisfazer o catálogo.
+- **Acessibilidade e desempenho:** contratos vivos permanecem inalterados; não há payload nem primitive adicional.
+- **Aceite:** busca de reachability confirma ausência de consumidor e o walkthrough do Brand Kit preserva o seletor nativo, teclado, foco e persistência existentes.
 - **Entrega:** [#144](https://github.com/jhowtkd/adscale/issues/144).
 
 ## Manter
