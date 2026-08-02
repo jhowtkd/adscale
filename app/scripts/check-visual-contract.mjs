@@ -54,7 +54,7 @@ const AUTHENTICATED_ROOTS = [
   "app/src/components/ui", "app/src/components/workspace",
 ];
 
-// Counts are captured from the immutable first-wave baseline e64575cd. They permit
+// Counts are captured from the immutable first-wave baseline 3261b1b2. They permit
 // existing debt only in the same file and rule; any added occurrence fails deterministically.
 const DEBT_ALLOWLIST = {
   deprecatedHue: {
