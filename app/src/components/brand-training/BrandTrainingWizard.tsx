@@ -18,6 +18,8 @@ import { cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Toggle } from "@base-ui/react/toggle";
+import { ToggleGroup } from "@base-ui/react/toggle-group";
 import {
   useClientProfiles,
   useCreateClientProfile,
@@ -202,25 +204,35 @@ function ProfileStep({
       </div>
 
       {profiles.data && profiles.data.length > 0 ? (
-        <ul className="grid gap-2">
+        <ToggleGroup
+          aria-label={t("profileTitle")}
+          value={selectedId ? [selectedId] : []}
+          onValueChange={(values) => {
+            const next = values[0];
+            if (next) onSelect(next);
+          }}
+          className="grid gap-2"
+        >
           {profiles.data.map((p) => (
-            <li key={p.id}>
-              <button
-                type="button"
-                onClick={() => onSelect(p.id)}
-                className={cn(
-                  "flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-left transition-colors",
-                  selectedId === p.id
-                    ? "border-[var(--accent-green)] bg-[var(--accent-green-dim)]"
-                    : "border-[var(--border-dim)] bg-[var(--surface-raised)] hover:border-[var(--accent-green)]/50",
-                )}
-              >
-                <span className="text-sm font-medium text-[var(--text-primary)]">{p.name}</span>
-                {selectedId === p.id && <Check size={16} className="text-[var(--accent-green-text)]" />}
-              </button>
-            </li>
+            <Toggle
+              key={p.id}
+              value={p.id}
+              className={cn(
+                "flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-left",
+                "transition-[border-color,background-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-product)]",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
+                selectedId === p.id
+                  ? "border-[var(--accent-green)] bg-[var(--accent-green-dim)] shadow-[inset_3px_0_0_var(--accent-primary)]"
+                  : "border-[var(--border-dim)] bg-[var(--surface-raised)] hover:border-[var(--accent-green)]/50",
+              )}
+            >
+              <span className="text-sm font-medium text-[var(--text-primary)]">{p.name}</span>
+              {selectedId === p.id ? (
+                <Check size={16} aria-hidden="true" className="motion-value-enter text-[var(--accent-green-text)]" />
+              ) : null}
+            </Toggle>
           ))}
-        </ul>
+        </ToggleGroup>
       ) : null}
 
       <div className="rounded-lg border border-dashed border-[var(--border-dim)] p-3">

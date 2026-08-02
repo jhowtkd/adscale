@@ -80,15 +80,15 @@ Regras globais: sem bounce, sem atraso de conteúdo crítico, sem animar proprie
 ### 5. Feedback de toggles Base UI
 
 - **Decisão:** `adaptar` o feedback visual dos toggles da Animate UI sobre os primitives locais; rejeitar os wrappers Base UI upstream.
-- **Superfícies:** `Switch` compartilhado em configurações e a seleção de opções do onboarding/Brand Training que já usa estado controlado.
-- **Primitive local:** `app/src/components/ui/switch.tsx` e controles existentes.
-- **Resultado:** trilho/thumb e check respondem de forma contida sem alterar `checked`, `onCheckedChange`, formulário ou persistência.
+- **Superfícies:** seleção controlada de perfil no onboarding/Brand Training. Não existe hoje um switch booleano de configurações aprovado; nenhum controle novo será inventado só para receber animação.
+- **Primitive local:** `ToggleGroup`/`Toggle` do `@base-ui/react@1.4.1` já instalado, composto diretamente com Button e tokens locais.
+- **Resultado:** estado pressed e check respondem de forma contida sem alterar seleção global, URL ou persistência.
 - **Intensidade:** contida.
 - **Reduced motion:** posição final e contraste aparecem imediatamente; sem spring.
-- **Acessibilidade:** teclado, disabled, nome acessível, foco visível e semântica checked permanecem do Base UI.
+- **Acessibilidade:** teclado, disabled, nome acessível, foco visível e semântica pressed permanecem do Base UI.
 - **Desempenho:** CSS e tokens locais; nenhuma cópia de `@base-ui-components/react` e nenhum runtime novo.
-- **Risco:** wrapper quebrar refs/props controladas. A implementação deve tocar o primitive existente, não criar outro.
-- **Aceite:** teste do primitive e uma superfície representativa verificam mouse/teclado, controlled, disabled e reduce.
+- **Risco:** permitir estado vazio ou perder a sincronização com o perfil ativo. O valor controlado e a URL continuam sendo a fonte de verdade.
+- **Aceite:** teste da superfície verifica aria-pressed, clique controlado, persistência via seleção global/URL e reduced motion.
 - **Entrega:** [#144](https://github.com/jhowtkd/adscale/issues/144).
 
 ## Manter
