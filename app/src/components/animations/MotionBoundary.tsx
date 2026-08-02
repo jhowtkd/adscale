@@ -3,6 +3,7 @@
 import {
   AnimatePresence,
   LazyMotion,
+  MotionConfig,
   domAnimation,
   animate,
   m,
@@ -19,5 +20,9 @@ export default function MotionBoundary({
 }: {
   children: React.ReactNode;
 }) {
-  return <LazyMotion features={domAnimation}>{children}</LazyMotion>;
+  return (
+    <LazyMotion features={domAnimation}>
+      <MotionConfig reducedMotion="user">{children}</MotionConfig>
+    </LazyMotion>
+  );
 }
