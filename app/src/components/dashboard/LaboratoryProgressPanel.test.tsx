@@ -157,6 +157,14 @@ describe("LaboratoryProgressPanel", () => {
     expect(screen.getByText("Analista")).toBeInTheDocument();
     expect(screen.getByText("8/11")).toBeInTheDocument();
     expect(screen.getByText("Passo 9 de 11")).toBeInTheDocument();
+    expect(screen.getByText("82%").closest("[data-motion-value]")).toHaveAttribute(
+      "data-motion-value",
+      "82%",
+    );
+    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "82");
+    expect(screen.getByRole("progressbar").firstElementChild).toHaveStyle({
+      transform: "scaleX(0.82)",
+    });
     expect(screen.getByText("O que fazer agora")).toBeInTheDocument();
     expect(screen.getByText("Label readiness")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Continuar missao/i })).toHaveAttribute(

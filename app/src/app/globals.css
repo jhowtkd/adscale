@@ -523,6 +523,22 @@
   }
 }
 
+@keyframes motion-value-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.2em);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.motion-value-enter {
+  animation: motion-value-in var(--duration-default) var(--ease-emphasized) both;
+}
+
 /* One-shot emphasis when AI or system updates a field value */
 @keyframes suggest-emphasis {
   0% {

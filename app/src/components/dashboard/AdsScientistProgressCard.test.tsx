@@ -79,6 +79,11 @@ describe("AdsScientistProgressCard", () => {
 
     expect(screen.getByText("Aprendiz de Laboratorio")).toBeInTheDocument();
     expect(screen.getByText("Primeira campanha")).toBeInTheDocument();
+    expect(screen.getByTestId("motion-value")).toHaveAttribute("data-motion-value", "28%");
+    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "28");
+    expect(screen.getByRole("progressbar").firstElementChild).toHaveStyle({
+      transform: "scaleX(0.28)",
+    });
     expect(screen.getByRole("link", { name: /Continuar experimento/i })).toHaveAttribute(
       "href",
       "/campaigns?new=1"

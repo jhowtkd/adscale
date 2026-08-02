@@ -33,6 +33,7 @@ import { useProgression } from "@/lib/hooks/use-progression";
 import { useMissions } from "@/lib/hooks/use-missions";
 import { useMissionInsightOptional } from "@/components/mission-insights/MissionInsightProvider";
 import { MissionCreditBanner } from "@/components/dashboard/MissionCreditBanner";
+import { MotionValue } from "@/components/animations/MotionValue";
 import type { MissionCreditContext, MissionItem, MissionKey } from "@/lib/progression/missions/types";
 
 const MISSION_ICONS: Record<MissionKey, LucideIcon> = {
@@ -181,7 +182,7 @@ export default function LaboratoryProgressPanel() {
             {levelShortLabel}
           </span>
           <span className="text-[10px] font-mono text-[var(--text-muted)]">
-            {tMissions("progressCount", { completed: completedCount, total: totalCount })}
+            <MotionValue value={tMissions("progressCount", { completed: completedCount, total: totalCount })} />
           </span>
         </div>
       </div>
@@ -211,7 +212,7 @@ export default function LaboratoryProgressPanel() {
                     {t("stepLabel", { current: currentStep, total: totalCount })}
                   </span>
                   <span className="text-[10px] font-mono font-bold text-[var(--accent-green)]">
-                    {progressPercent}%
+                    <MotionValue value={progressPercent} suffix="%" />
                   </span>
                 </div>
                 <div
@@ -223,8 +224,8 @@ export default function LaboratoryProgressPanel() {
                   aria-label={tMissions("progressAria", { percent: progressPercent })}
                 >
                   <div
-                    className="h-full rounded-full bg-[var(--accent-green)] transition-all duration-500"
-                    style={{ width: `${progressPercent}%` }}
+                    className="h-full w-full origin-left rounded-full bg-[var(--accent-green)] transition-transform duration-[var(--duration-default)] ease-[var(--ease-emphasized)]"
+                    style={{ transform: `scaleX(${progressPercent / 100})` }}
                   />
                 </div>
               </div>
