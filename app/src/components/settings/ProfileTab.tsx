@@ -2,8 +2,9 @@
 
 import { useReducer, useRef, useEffect, useMemo, useState } from "react";
 import { m, useReducedMotion } from "@/components/animations/MotionBoundary";
-import { Camera, Check, RotateCcw } from "lucide-react";
+import { Camera, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ActionStatusIcon } from "@/components/animations/ActionStatusIcon";
 import { useAppStore } from "@/lib/store";
 import { useTranslations } from "next-intl";
 import { useOnboarding } from "@/lib/hooks/use-onboarding";
@@ -277,6 +278,7 @@ export default function ProfileTab() {
         <button
           type="button"
           onClick={handleSave}
+          aria-busy={saveState === "saving"}
           disabled={
             !hasChanges ||
             saveState !== "idle" ||
@@ -291,14 +293,9 @@ export default function ProfileTab() {
             "disabled:cursor-not-allowed disabled:opacity-50"
           )}
         >
-          {saveState === "saving" && (
-            <m.div
-              animate={{ rotate: 360 }}
-              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-              className="size-4 rounded-full border-2 border-white/30 border-t-white"
-            />
-          )}
-          {saveState === "saved" && <Check size={16} />}
+          <ActionStatusIcon
+            state={saveState === "saving" ? "pending" : saveState === "saved" ? "success" : "idle"}
+          />
           <span>
             {saveState === "saving"
               ? t("saving")

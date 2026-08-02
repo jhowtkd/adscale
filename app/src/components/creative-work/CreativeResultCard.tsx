@@ -9,6 +9,7 @@ import {
   isCreativeWorkRetryEligible,
   type CreativeWorkOutput,
 } from "@/lib/hooks/use-creative-work";
+import { ActionStatusIcon } from "@/components/animations/ActionStatusIcon";
 
 type CreativeResultCardProps = {
   output: CreativeWorkOutput;
@@ -30,7 +31,7 @@ const STATUS_LABELS: Record<CreativeWorkOutput["status"], string> = {
   failed: "Falhou",
 };
 
-const actionClass = "inline-flex min-h-[var(--control-touch)] flex-1 items-center justify-center rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-inset)] disabled:cursor-not-allowed disabled:opacity-60";
+const actionClass = "inline-flex min-h-[var(--control-touch)] flex-1 items-center justify-center gap-2 rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-inset)] disabled:cursor-not-allowed disabled:opacity-60";
 
 export function CreativeResultCard({
   output,
@@ -138,8 +139,15 @@ export function CreativeResultCard({
       {isCompleted ? (
         <>
           <div className="flex flex-wrap gap-2">
-            <button type="button" className={actionClass} disabled={isApproving || output.isSelected} onClick={() => onApprove(output.id)}>
-              {output.isSelected ? "Aprovada" : "Aprovar"}
+            <button
+              type="button"
+              className={actionClass}
+              aria-busy={isApproving}
+              disabled={isApproving || output.isSelected}
+              onClick={() => onApprove(output.id)}
+            >
+              <ActionStatusIcon state={isApproving ? "pending" : output.isSelected ? "success" : "idle"} />
+              {isApproving ? "Aprovando" : output.isSelected ? "Aprovada" : "Aprovar"}
             </button>
             <button type="button" className={actionClass} onClick={() => onDownload(output.id)}>Baixar</button>
             {onRevise ? <button type="button" className={actionClass} aria-expanded={editing} onClick={() => setEditing((value) => !value)}>Editar</button> : null}
