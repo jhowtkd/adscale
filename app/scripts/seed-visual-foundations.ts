@@ -2,7 +2,7 @@ import "./load-env";
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { and, eq, like } from "drizzle-orm";
+import { and, eq, like, or } from "drizzle-orm";
 import { db } from "../src/server/db";
 import { campaigns, clientProfiles, derivations, user, workspaceMembers, workspaces } from "../src/server/db/schema";
 import { createCampaign } from "../src/server/repositories/campaign";
@@ -76,14 +76,17 @@ async function main() {
     .where(eq(workspaces.id, workspaceId));
   await db.delete(clientProfiles).where(and(
     eq(clientProfiles.workspaceId, workspaceId),
-    like(clientProfiles.name, "VF Example Brand%"),
+    or(
+      like(clientProfiles.name, "VF Example Brand%"),
+      eq(clientProfiles.name, "Example Test Brand Kit"),
+    ),
   ));
   const fixtureProfile = await createClientProfile(workspaceId, {
     name: "VF Example Brand",
     description: "Synthetic example.test onboarding fixture",
   });
   await upsertBrandKit(workspaceId, {
-    name: "Example Test Brand Kit",
+    name: "VF Example Brand Kit",
     description: "Synthetic example.test visual fixture",
     brandColors: ["#00B34A", "#172018"],
     brandFonts: ["Inter"],
