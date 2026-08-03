@@ -36,4 +36,43 @@ describe("DashboardV6View motion values", () => {
     expect(screen.getByText("● 75%").closest("[data-motion-value]")).toHaveAttribute("data-motion-value", "● 75%");
     expect(screen.getAllByTestId("motion-value")).toHaveLength(5);
   });
+
+  it.each([
+    ["warning", "bg-[var(--warning-bg)]", "bg-[var(--warning-dot)]"],
+    ["danger", "bg-[var(--danger-bg)]", "bg-[var(--danger-dot)]"],
+    ["success", "bg-[var(--success-bg)]", "bg-[var(--success-dot)]"],
+    ["info", "bg-[var(--info-bg)]", "bg-[var(--info-dot)]"],
+    ["neutral", "bg-[var(--neutral-bg)]", "bg-[var(--neutral-dot)]"],
+  ] as const)("renders %s activity status with semantic tokens", (statusClass, backgroundClass, dotClass) => {
+    render(
+      <DashboardV6View
+        view={{
+          ...view,
+          hero: { ...view.hero!, badge: `Hero ${statusClass}`, badgeClass: statusClass },
+          activity: [{
+            id: statusClass,
+            href: "/campaigns/1",
+            thumb: "✦",
+            name: "Campaign",
+            subtitle: "Now",
+            status: statusClass,
+            statusClass,
+            platforms: "—",
+            variations: "0 / 0",
+            updated: "now",
+          }],
+        }}
+        labels={labels}
+        summary="Resumo"
+      />,
+    );
+
+    const pill = screen.getByText(statusClass);
+    expect(pill).toHaveClass(backgroundClass);
+    expect(pill?.firstElementChild).toHaveClass(dotClass);
+
+    const heroBadge = screen.getByText(`heroProduction · Hero ${statusClass}`);
+    expect(heroBadge).toHaveClass(backgroundClass);
+    expect(heroBadge.firstElementChild).toHaveClass(dotClass);
+  });
 });

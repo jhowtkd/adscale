@@ -220,13 +220,13 @@ export function LearningProposalsTab({
       </div>
 
       {generateSummary ? (
-        <p className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-200">
+        <p className="rounded-md border border-[var(--success-border)] bg-[var(--success-bg)] px-3 py-2 text-xs text-[var(--success-text)]">
           {generateSummary}
         </p>
       ) : null}
 
       {actionError ? (
-        <p className="text-xs text-rose-400">{actionError}</p>
+        <p className="text-xs text-[var(--danger-text)]">{actionError}</p>
       ) : null}
 
       {proposals.length === 0 ? (
@@ -261,7 +261,7 @@ export function LearningProposalsTab({
                     <td className="max-w-md px-2 py-1.5 text-[var(--text-secondary)]">
                       {proposal.rationale}
                       {isFixtureOnly ? (
-                        <label className="mt-1.5 flex items-start gap-2 text-[10px] text-amber-200/90">
+                        <label className="mt-1.5 flex items-start gap-2 text-[10px] text-[var(--warning-text)]">
                           <input
                             type="checkbox"
                             className="mt-0.5"

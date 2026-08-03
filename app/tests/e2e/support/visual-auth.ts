@@ -11,10 +11,14 @@ export type VisualManifest = {
   identity: { email: string; name: string };
   fixtureIds: { userId: string; workspaceId: string; campaignIds: string[]; derivationId: string };
   labels: { workspace: string; clients: string[] };
+  variationSources: { name: string; width: number; height: number }[];
   routes: {
+    creativeWork: string;
     dashboard: string;
     campaignList: string;
+    library: string;
     workspace: string;
+    variationWorkspace: string;
     settingsProfile: string;
     settingsBilling: string;
   };
@@ -22,7 +26,10 @@ export type VisualManifest = {
 };
 
 export function seedVisualManifest(force = false): VisualManifest {
-  if (force || !existsSync(MANIFEST_PATH)) {
+  const current = existsSync(MANIFEST_PATH)
+    ? JSON.parse(readFileSync(MANIFEST_PATH, "utf8")) as Partial<VisualManifest>
+    : null;
+  if (force || !current?.routes?.variationWorkspace || current.variationSources?.length !== 3) {
     execFileSync("npx", ["tsx", "scripts/seed-visual-foundations.ts"], {
       cwd: process.cwd(),
       env: { ...process.env, E2E_BASE_URL: process.env.E2E_BASE_URL ?? "http://localhost:3000", NODE_OPTIONS: `--conditions=react-server ${process.env.NODE_OPTIONS ?? ""}`.trim() },

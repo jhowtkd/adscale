@@ -1,0 +1,1889 @@
+{
+  "baselineRevision": "dda6504d2a0ad577662d6a262c6847504a5f3d8b",
+  "baselineDigest": "aa61e78162e0b7de3dae0cb7ac3588682ab52f5165e7b1d5c473a036721d77df",
+  "entries": [
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/app/(dashboard)/brand-kit/page.tsx",
+      "match": "text-[10px]",
+      "context": "<span className=\"rounded-full border border-[color-mix(in_oklch,var(--warning-text)_40%,transparent)] px-1.5 py-0.5 font-mono text-[10px] font-semibold text-[var(--warning-text)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/app/(dashboard)/feedback/page.tsx",
+      "match": "text-[10px]",
+      "context": "\"rounded-full px-2 py-1 text-[10px] font-medium uppercase tracking-wide\",",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/app/share/[token]/GalleryGrid.tsx",
+      "match": "text-[10px]",
+      "context": "<span className=\"absolute bottom-2 left-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/admin/BrandCalibrationRulesPanel.tsx",
+      "match": "text-[10px]",
+      "context": "<td className=\"px-2 py-1.5 font-mono text-[10px]\">{rule.category}</td>",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/assistant/AssistantContextPanel.tsx",
+      "match": "text-[10px]",
+      "context": "<p className=\"font-mono text-[10px] uppercase tracking-wider text-[var(--text-muted)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/assistant/AssistantContextPanel.tsx",
+      "match": "text-[10px]",
+      "context": "<p className=\"font-mono text-[10px] uppercase tracking-wider text-[var(--text-muted)]\">",
+      "occurrence": 2
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/assistant/AssistantJourneyCards.tsx",
+      "match": "text-[10px]",
+      "context": "<span className=\"w-6 shrink-0 font-mono text-[10px] uppercase tracking-wider text-[var(--text-muted)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/assistant/AssistantMobileTabs.tsx",
+      "match": "text-[11px]",
+      "context": "\"flex min-h-11 flex-col items-center justify-center gap-0.5 rounded-[var(--radius-control)] px-1 py-2 text-[11px] font-medium sm:text-xs\",",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/assistant/AssistantTreeSidebar.tsx",
+      "match": "text-[10px]",
+      "context": "<p className=\"font-mono text-[10px] uppercase tracking-wider text-[var(--text-muted)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/assistant/AssistantTreeSidebar.tsx",
+      "match": "text-[10px]",
+      "context": "<span className=\"shrink-0 text-[10px] uppercase tracking-wide text-[var(--text-muted)]\">",
+      "occurrence": 2
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/assistant/AssistantTreeSidebar.tsx",
+      "match": "text-[10px]",
+      "context": "<span className=\"shrink-0 text-[10px] text-[var(--text-muted)]\">",
+      "occurrence": 3
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/assistant/AssistantTreeSidebar.tsx",
+      "match": "text-[11px]",
+      "context": "<span className=\"block truncate text-[11px] text-[var(--text-muted)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/assistant/markdown-lite.tsx",
+      "match": "text-[12px]",
+      "context": "className=\"rounded bg-[var(--surface-base)] px-1 py-0.5 font-mono text-[12px] text-[var(--text-primary)]\"",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/assistant/markdown-lite.tsx",
+      "match": "text-[12px]",
+      "context": "<code key={key} className=\"rounded bg-[var(--surface-base)] px-1 py-0.5 font-mono text-[12px]\">",
+      "occurrence": 2
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/auth/SocialAuthButtons.tsx",
+      "match": "text-[11px]",
+      "context": "<p className=\"text-center text-[11px] text-[var(--text-secondary)] leading-relaxed\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/auth/v6/AuthV6BrandingPanel.tsx",
+      "match": "text-[10px]",
+      "context": "<p className=\"font-mono text-[10px] uppercase tracking-wider text-[var(--text-muted)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/auth/v6/AuthV6Header.tsx",
+      "match": "text-[1.75rem]",
+      "context": "<h1 className=\"text-2xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-[1.75rem]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/auth/v6/AuthV6Header.tsx",
+      "match": "text-[10px]",
+      "context": "<p className=\"font-mono text-[10px] uppercase tracking-wider text-[var(--text-muted)]\">{sectionLabel}</p>",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/brand-training/BrandTrainingAssets.tsx",
+      "match": "text-[11px]",
+      "context": "<p className=\"text-[11px] text-[var(--text-muted)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/brand-training/BrandTrainingAssets.tsx",
+      "match": "text-[11px]",
+      "context": "<p role=\"alert\" className=\"text-[11px] text-[var(--accent-rose)]\">",
+      "occurrence": 2
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/brand-training/BrandTrainingAssets.tsx",
+      "match": "text-[11px]",
+      "context": "<p className=\"mt-1 text-[11px] text-[var(--text-muted)]\">",
+      "occurrence": 3
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/brand-training/BrandTrainingAssets.tsx",
+      "match": "text-[11px]",
+      "context": "<p className=\"mt-0.5 text-[11px] text-[var(--text-muted)]\">",
+      "occurrence": 4
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/brand-training/BrandTrainingAssets.tsx",
+      "match": "text-[11px]",
+      "context": "<p className=\"mt-0.5 text-[11px] text-[var(--text-muted)]\">",
+      "occurrence": 5
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/brand-training/BrandTrainingAssets.tsx",
+      "match": "text-[11px]",
+      "context": "<p className=\"text-[11px] text-[var(--text-muted)]\">",
+      "occurrence": 6
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/brand-training/BrandTrainingAssets.tsx",
+      "match": "text-[11px]",
+      "context": "<label className=\"space-y-1 text-[11px] text-[var(--text-muted)]\">",
+      "occurrence": 7
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/brand-training/BrandTrainingAssets.tsx",
+      "match": "text-[11px]",
+      "context": "<label className=\"space-y-1 text-[11px] text-[var(--text-muted)]\">",
+      "occurrence": 8
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/brand-training/BrandTrainingAssets.tsx",
+      "match": "text-[11px]",
+      "context": "<label className=\"block space-y-1 text-[11px] text-[var(--text-muted)]\">",
+      "occurrence": 9
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/brand-training/BrandTrainingAssets.tsx",
+      "match": "text-[11px]",
+      "context": "className=\"rounded-md border border-[var(--accent-rose)]/40 bg-[var(--accent-rose-dim)] px-2 py-1.5 text-[11px] text-[var(--accent-rose)]\"",
+      "occurrence": 10
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/brand-training/BrandTrainingAssets.tsx",
+      "match": "text-[11px]",
+      "context": "<p className=\"mt-0.5 text-[11px] text-[var(--text-muted)]\">",
+      "occurrence": 11
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/brand-training/BrandTrainingAssets.tsx",
+      "match": "text-[11px]",
+      "context": "<p className=\"mt-0.5 text-[11px] text-[var(--text-muted)]\">",
+      "occurrence": 12
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/brand-training/BrandTrainingAssets.tsx",
+      "match": "text-[11px]",
+      "context": "<p className=\"mt-0.5 text-[11px] text-[var(--text-muted)]\">",
+      "occurrence": 13
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/brand-training/BrandTrainingWizard.tsx",
+      "match": "text-[11px]",
+      "context": "<span className=\"text-[11px] text-[var(--text-muted)]\">{hint}</span>",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/campaigns/CampaignCard.tsx",
+      "match": "text-[10px]",
+      "context": "className=\"inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider\"",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/campaigns/CampaignCard.tsx",
+      "match": "text-[11px]",
+      "context": "<span className=\"flex items-center gap-1 text-[11px] text-[var(--text-secondary)] font-mono\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/campaigns/CampaignCard.tsx",
+      "match": "text-[11px]",
+      "context": "<span className=\"text-[11px] text-[var(--text-muted)] font-mono\">",
+      "occurrence": 2
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/campaigns/CampaignCard.tsx",
+      "match": "text-[15px]",
+      "context": "<h3 className=\"text-[15px] font-semibold text-[var(--text-primary)] truncate leading-tight group-hover:text-[var(--accent-green)] transition-colors duration-300\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/campaigns/CampaignListCard.tsx",
+      "match": "text-[10px]",
+      "context": "<span className=\"inline-flex items-center gap-1 rounded-md border border-[var(--accent-amber)]/40 bg-[var(--accent-amber)]/10 px-2 py-0.5 text-[10px] font-medium text-[var(--text-primary)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/campaigns/CampaignTableRow.tsx",
+      "match": "text-[10px]",
+      "context": "<span className=\"inline-flex items-center gap-1 rounded-md border border-[var(--accent-amber)]/40 bg-[var(--accent-amber)]/10 px-2 py-0.5 text-[10px] font-medium text-[var(--text-primary)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/campaigns/CampaignTableRow.tsx",
+      "match": "text-[13px]",
+      "context": "<p className=\"mt-0.5 truncate text-[13px] text-[var(--text-secondary)] md:hidden\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/campaigns/CampaignTableRow.tsx",
+      "match": "text-[13px]",
+      "context": "<span className=\"text-[13px] text-[var(--text-secondary)]\" title={campaign.platforms?.join(\", \")}>",
+      "occurrence": 2
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/campaigns/CampaignTableRow.tsx",
+      "match": "text-[13px]",
+      "context": "<span className=\"text-[13px] text-[var(--text-muted)]\">",
+      "occurrence": 3
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/campaigns/CampaignsFilterToolbar.tsx",
+      "match": "text-[10px]",
+      "context": "<span className=\"px-0.5 text-[10px] font-medium uppercase tracking-wider text-[var(--text-muted)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/campaigns/CampaignsFilterToolbar.tsx",
+      "match": "text-[10px]",
+      "context": "<span className=\"px-0.5 text-[10px] font-medium uppercase tracking-wider text-[var(--text-muted)]\">",
+      "occurrence": 2
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/campaigns/CampaignsFilterToolbar.tsx",
+      "match": "text-[10px]",
+      "context": "<span className=\"px-0.5 text-[10px] font-medium uppercase tracking-wider text-[var(--text-muted)]\">",
+      "occurrence": 3
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/campaigns/CampaignsPagination.tsx",
+      "match": "text-[8px]",
+      "context": "<span className=\"font-pixel text-[8px] uppercase tracking-wider text-[var(--text-muted)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/campaigns/ClientProfileLinkControl.tsx",
+      "match": "text-[10px]",
+      "context": "<p className=\"font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ghost)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/campaigns/ClientProfileLinkControl.tsx",
+      "match": "text-[10px]",
+      "context": "<span className=\"rounded-full bg-[var(--accent-green-dim)] px-2 py-0.5 text-[10px] font-medium text-[var(--accent-green-text)]\">",
+      "occurrence": 2
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/campaigns/ClientProfileLinkControl.tsx",
+      "match": "text-[11px]",
+      "context": "<p className=\"text-[11px] leading-snug text-[var(--text-muted)]\">{t(\"profileLinkHelp\")}</p>",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/campaigns/KanbanCard.tsx",
+      "match": "text-[10px]",
+      "context": "<StatusBadge status={campaign.status} className=\"text-[10px] px-1.5 py-0.5\" />",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/campaigns/KanbanCard.tsx",
+      "match": "text-[10px]",
+      "context": "className=\"inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium\"",
+      "occurrence": 2
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/campaigns/KanbanCard.tsx",
+      "match": "text-[10px]",
+      "context": "<span className=\"text-[10px] text-[var(--text-muted)]\">",
+      "occurrence": 3
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/campaigns/KanbanColumn.tsx",
+      "match": "text-[11px]",
+      "context": "className=\"inline-flex items-center justify-center min-w-[20px] h-5 rounded-full px-1.5 text-[11px] font-bold\"",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/campaigns/OutputLearningRecommendationCard.tsx",
+      "match": "text-[10px]",
+      "context": "<p className=\"font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--accent-green-text)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/campaigns/OutputLearningRecommendationCard.tsx",
+      "match": "text-[11px]",
+      "context": "<p className=\"mt-3 text-[11px] text-[var(--text-secondary)]\">{t(\"disclaimer\")}</p>",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/campaigns/v6/CampaignsV6View.tsx",
+      "match": "text-[10px]",
+      "context": "<span className=\"rounded border border-[var(--border-default)] px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-[var(--text-muted)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/campaigns/v6/CampaignsV6View.tsx",
+      "match": "text-[10px]",
+      "context": "className=\"grid h-10 w-10 place-items-center rounded-[var(--radius-control)] bg-[var(--accent-primary-subtle)] text-[10px] font-bold text-[var(--accent-primary-text)]\"",
+      "occurrence": 2
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/campaigns/v6/CampaignsV6View.tsx",
+      "match": "text-[10px]",
+      "context": "className=\"grid h-10 w-10 shrink-0 place-items-center rounded-[var(--radius-control)] bg-[var(--accent-primary-subtle)] text-[10px] font-bold text-[var(--accent-primary-text)]\"",
+      "occurrence": 3
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/campaigns/v6/CampaignsV6View.tsx",
+      "match": "text-[10px]",
+      "context": "<span className=\"rounded border border-[var(--border-subtle)] px-1.5 py-px font-mono text-[10px] text-[var(--text-muted)]\">",
+      "occurrence": 4
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/campaigns/v6/CampaignsV6View.tsx",
+      "match": "text-[13px]",
+      "context": "className=\"inline-flex items-center gap-2 rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] px-3 py-2 text-[13px] font-medium text-[var(--text-secondary)]\"",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/campaigns/v6/CampaignsV6View.tsx",
+      "match": "text-[13px]",
+      "context": "className=\"inline-flex items-center gap-2 rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] px-3 py-2 text-[13px] font-medium text-[var(--text-secondary)]\"",
+      "occurrence": 2
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/campaigns/v6/workspace/CampaignWorkspaceV6View.tsx",
+      "match": "text-[10px]",
+      "context": "<span className=\"font-mono text-[10px] uppercase tracking-wider text-[var(--text-muted)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/campaigns/v6/workspace/CampaignWorkspaceV6View.tsx",
+      "match": "text-[10px]",
+      "context": "<p className=\"font-mono text-[10px] uppercase tracking-wider text-[var(--text-muted)]\">{labels.rulesTitle}</p>",
+      "occurrence": 2
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/creative-work/CreativeResultCard.tsx",
+      "match": "text-[10px]",
+      "context": "<span aria-label={`Status ${STATUS_LABELS[output.status]}`} className=\"rounded-full bg-[var(--surface-raised)] px-2 py-0.5 text-[10px] uppercase tracking-wider text-[var(--text-muted)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/dashboard/AdsScientistProgressCard.tsx",
+      "match": "text-[10px]",
+      "context": "<p className=\"text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)] mb-1\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/dashboard/AdsScientistProgressCard.tsx",
+      "match": "text-[10px]",
+      "context": "<p className=\"text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)] mb-1\">",
+      "occurrence": 2
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/dashboard/AdsScientistProgressCard.tsx",
+      "match": "text-[11px]",
+      "context": "<span className=\"text-[11px] font-mono uppercase tracking-wider text-[var(--text-muted)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/dashboard/LaboratoryProgressPanel.tsx",
+      "match": "text-[10px]",
+      "context": "className=\"inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-[var(--accent-green-dark)] transition-colors hover:text-[var(--accent-green)]\"",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/dashboard/LaboratoryProgressPanel.tsx",
+      "match": "text-[10px]",
+      "context": "<span className=\"rounded-full border border-[var(--border-dim)] bg-[var(--surface-raised)] px-2 py-0.5 text-[10px] font-medium text-[var(--text-primary)]\">",
+      "occurrence": 2
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/dashboard/LaboratoryProgressPanel.tsx",
+      "match": "text-[10px]",
+      "context": "<span className=\"text-[10px] font-mono text-[var(--text-muted)]\">",
+      "occurrence": 3
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/dashboard/LaboratoryProgressPanel.tsx",
+      "match": "text-[10px]",
+      "context": "<p className=\"text-[10px] text-[var(--text-secondary)]\">{tMissions(\"allCompleteDescription\")}</p>",
+      "occurrence": 4
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/dashboard/LaboratoryProgressPanel.tsx",
+      "match": "text-[10px]",
+      "context": "<p className=\"line-clamp-2 text-[10px] leading-snug text-[var(--text-secondary)]\">",
+      "occurrence": 5
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/dashboard/LaboratoryProgressPanel.tsx",
+      "match": "text-[10px]",
+      "context": "<span className=\"text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)]\">",
+      "occurrence": 6
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/dashboard/LaboratoryProgressPanel.tsx",
+      "match": "text-[10px]",
+      "context": "<span className=\"text-[10px] font-mono font-bold text-[var(--accent-green)]\">",
+      "occurrence": 7
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/dashboard/LaboratoryProgressPanel.tsx",
+      "match": "text-[10px]",
+      "context": "className=\"inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-[var(--accent-green-dark)] transition-colors hover:text-[var(--accent-green)]\"",
+      "occurrence": 8
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/dashboard/LaboratoryProgressPanel.tsx",
+      "match": "text-[10px]",
+      "context": "<p className=\"mt-0.5 line-clamp-2 text-[10px] leading-snug text-[var(--text-secondary)]\">",
+      "occurrence": 9
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/dashboard/LaboratoryProgressPanel.tsx",
+      "match": "text-[10px]",
+      "context": "<p className=\"mt-1.5 flex items-start gap-1 text-[10px] text-[var(--accent-rose)]\">",
+      "occurrence": 10
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/dashboard/LaboratoryProgressPanel.tsx",
+      "match": "text-[10px]",
+      "context": "<span className=\"inline-flex items-center rounded-md border border-[var(--border-dim)] px-2.5 py-1.5 text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)]\">",
+      "occurrence": 11
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/dashboard/LaboratoryProgressPanel.tsx",
+      "match": "text-[10px]",
+      "context": "className=\"inline-flex items-center gap-1.5 rounded-md bg-[var(--accent-green)] px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--accent-green-on-fill)] transition-colors hover:bg-[var(--accent-green-light)]\"",
+      "occurrence": 12
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/dashboard/LaboratoryProgressPanel.tsx",
+      "match": "text-[10px]",
+      "context": "<p className=\"line-clamp-1 text-[10px] text-[var(--text-secondary)]\">{description}</p>",
+      "occurrence": 13
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/dashboard/LaboratoryProgressPanel.tsx",
+      "match": "text-[10px]",
+      "context": "<p className=\"text-[10px] text-[var(--accent-rose)]\">{blockedReasonText}</p>",
+      "occurrence": 14
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/dashboard/LaboratoryProgressPanel.tsx",
+      "match": "text-[8px]",
+      "context": "className=\"font-pixel text-[8px] uppercase tracking-wider text-[var(--text-muted)]\"",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/dashboard/LaboratoryProgressPanel.tsx",
+      "match": "text-[9px]",
+      "context": "<p className=\"text-[9px] font-mono uppercase tracking-wider text-[var(--text-muted)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/dashboard/LaboratoryProgressPanel.tsx",
+      "match": "text-[9px]",
+      "context": "<p className=\"text-[9px] text-[var(--text-muted)]\">{blockedCtaHint}</p>",
+      "occurrence": 2
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/dashboard/LaboratoryProgressPanel.tsx",
+      "match": "text-[9px]",
+      "context": "className=\"text-[9px] font-mono uppercase tracking-wider text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)]\"",
+      "occurrence": 3
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/dashboard/LaboratoryProgressPanel.tsx",
+      "match": "text-[9px]",
+      "context": "className=\"shrink-0 text-[9px] font-mono uppercase tracking-wider text-[var(--accent-green-dark)] hover:text-[var(--accent-green)]\"",
+      "occurrence": 4
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/dashboard/LaboratoryProgressPanel.tsx",
+      "match": "text-[9px]",
+      "context": "className=\"shrink-0 text-[9px] font-mono uppercase tracking-wider text-[var(--accent-green-dark)] hover:text-[var(--accent-green)]\"",
+      "occurrence": 5
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/dashboard/LaboratoryProgressPanel.tsx",
+      "match": "text-[9px]",
+      "context": "<span className=\"shrink-0 text-[9px] font-mono uppercase tracking-wider text-[var(--accent-green)]\">",
+      "occurrence": 6
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/dashboard/MissionPathCard.tsx",
+      "match": "text-[10px]",
+      "context": "<p className=\"text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)] mb-1\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/dashboard/MissionPathCard.tsx",
+      "match": "text-[10px]",
+      "context": "<p className=\"text-[10px] text-center text-[var(--text-muted)]\">{t(\"blockedCtaHint\")}</p>",
+      "occurrence": 2
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/dashboard/MissionPathCard.tsx",
+      "match": "text-[10px]",
+      "context": "className=\"text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)] hover:text-[var(--text-secondary)]\"",
+      "occurrence": 3
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/dashboard/MissionPathCard.tsx",
+      "match": "text-[10px]",
+      "context": "className=\"shrink-0 text-[10px] font-mono uppercase tracking-wider text-[var(--accent-green-dark)] hover:text-[var(--accent-green)]\"",
+      "occurrence": 4
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/dashboard/MissionPathCard.tsx",
+      "match": "text-[10px]",
+      "context": "className=\"shrink-0 text-[10px] font-mono uppercase tracking-wider text-[var(--accent-green-dark)] hover:text-[var(--accent-green)]\"",
+      "occurrence": 5
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/dashboard/MissionPathCard.tsx",
+      "match": "text-[10px]",
+      "context": "<span className=\"shrink-0 text-[10px] font-mono uppercase tracking-wider text-[var(--accent-green)]\">",
+      "occurrence": 6
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/dashboard/MissionPathCard.tsx",
+      "match": "text-[11px]",
+      "context": "<span className=\"text-[11px] font-mono uppercase tracking-wider text-[var(--text-muted)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/dashboard/MissionPathCard.tsx",
+      "match": "text-[8px]",
+      "context": "<span className=\"font-pixel text-[8px] uppercase tracking-wider text-[var(--text-muted)] ml-1\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/dashboard/OnboardingTour.tsx",
+      "match": "text-[13px]",
+      "context": "<p className=\"mb-5 text-[13px] leading-relaxed text-[var(--text-secondary)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/dashboard/OnboardingTour.tsx",
+      "match": "text-[13px]",
+      "context": "className=\"flex min-h-11 items-center gap-1 rounded-md px-3 py-2 text-[13px] font-medium text-[var(--text-secondary)] hover:bg-[var(--deep-bg)] transition-colors\"",
+      "occurrence": 2
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/dashboard/OnboardingTour.tsx",
+      "match": "text-[13px]",
+      "context": "className=\"flex min-h-11 items-center gap-1 rounded-md bg-[var(--accent-green)] px-4 py-2 text-[13px] font-medium text-[var(--ink)] hover:bg-[var(--accent-green-light)] transition-colors\"",
+      "occurrence": 3
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/dashboard/OnboardingTour.tsx",
+      "match": "text-[15px]",
+      "context": "<h3 className=\"text-[15px] font-semibold text-[var(--text-primary)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/dashboard/v6/DashboardV6View.tsx",
+      "match": "text-[10px]",
+      "context": "<dt className=\"font-mono text-[10px] uppercase tracking-wider text-[var(--text-muted)]\">{row.key}</dt>",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/dashboard/v6/DashboardV6View.tsx",
+      "match": "text-[10px]",
+      "context": "<dt className=\"font-mono text-[10px] uppercase tracking-wider text-[var(--text-muted)]\">{label}</dt>",
+      "occurrence": 2
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/dashboard/v6/DashboardV6View.tsx",
+      "match": "text-[10px]",
+      "context": "<thead className=\"border-b border-[var(--border-subtle)] bg-[var(--surface-raised)] font-mono text-[10px] uppercase tracking-wider text-[var(--text-muted)]\">",
+      "occurrence": 3
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/dashboard/v6/DashboardV6View.tsx",
+      "match": "text-[11px]",
+      "context": "<span className=\"inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-wider text-[var(--accent-primary-text)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/dashboard/v6/DashboardV6View.tsx",
+      "match": "text-[11px]",
+      "context": "<span className=\"shrink-0 font-mono text-[11px] text-[var(--text-muted)]\">",
+      "occurrence": 2
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/feedback/FactualAlertsPanel.tsx",
+      "match": "text-[10px]",
+      "context": "<span className=\"rounded border border-amber-500/50 bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-200\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/feedback/FactualAlertsPanel.tsx",
+      "match": "text-[10px]",
+      "context": "<code className=\"text-[10px]\">corpus_quality</code>. Revise manualmente os itens",
+      "occurrence": 2
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/feedback/FactualAlertsPanel.tsx",
+      "match": "text-[10px]",
+      "context": "<code className=\"text-[10px]\">corpus_quality</code> prompt rules. Review corpus",
+      "occurrence": 3
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/feedback/FactualAlertsPanel.tsx",
+      "match": "text-[10px]",
+      "context": "<td className=\"max-w-[12rem] truncate px-2 py-1.5 font-mono text-[10px]\">",
+      "occurrence": 4
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/feedback/FactualAlertsPanel.tsx",
+      "match": "text-[10px]",
+      "context": "<td className=\"px-2 py-1.5 font-mono text-[10px]\">{alert.workspaceId}</td>",
+      "occurrence": 5
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/feedback/FactualAlertsPanel.tsx",
+      "match": "text-[10px]",
+      "context": "className=\"font-mono text-[10px] text-[var(--text-primary)] underline underline-offset-2\"",
+      "occurrence": 6
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/feedback/FactualAlertsPanel.tsx",
+      "match": "text-[10px]",
+      "context": "className=\"font-mono text-[10px] text-[var(--text-primary)] underline underline-offset-2\"",
+      "occurrence": 7
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/feedback/HumanQualityCorpusPanel.tsx",
+      "match": "text-[10px]",
+      "context": "<td className=\"px-2 py-1.5 font-mono text-[10px]\">{slice.sliceKey}</td>",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/feedback/HumanQualityCorpusPanel.tsx",
+      "match": "text-[10px]",
+      "context": "<td className=\"px-2 py-1.5 font-mono text-[10px]\">",
+      "occurrence": 2
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/feedback/HumanQualityCorpusPanel.tsx",
+      "match": "text-[10px]",
+      "context": "<span className=\"rounded bg-indigo-500/20 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-indigo-200\">",
+      "occurrence": 3
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/feedback/HumanQualityCorpusPanel.tsx",
+      "match": "text-[10px]",
+      "context": "<p className=\"text-[10px] text-[var(--text-muted)]\">",
+      "occurrence": 4
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/feedback/HumanQualityCorpusPanel.tsx",
+      "match": "text-[10px]",
+      "context": "className=\"rounded border border-[var(--border-dim)] bg-[var(--surface-base)] px-1.5 py-0.5 font-mono text-[10px]\"",
+      "occurrence": 5
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/feedback/HumanQualityCorpusPanel.tsx",
+      "match": "text-[10px]",
+      "context": "<p className=\"rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[10px] text-amber-200\">",
+      "occurrence": 6
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/feedback/HumanQualityCorpusPanel.tsx",
+      "match": "text-[10px]",
+      "context": "<label className=\"flex items-start gap-2 text-[10px] text-amber-200/90\">",
+      "occurrence": 7
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/feedback/HumanQualityCorpusPanel.tsx",
+      "match": "text-[10px]",
+      "context": "<td className=\"px-2 py-1.5 font-mono text-[10px]\">",
+      "occurrence": 8
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/feedback/HumanQualityCorpusPanel.tsx",
+      "match": "text-[10px]",
+      "context": "className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] ${",
+      "occurrence": 9
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/feedback/HumanQualityCorpusPanel.tsx",
+      "match": "text-[10px]",
+      "context": "<td className=\"px-2 py-1.5 font-mono text-[10px]\">",
+      "occurrence": 10
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/feedback/HumanQualityCorpusPanel.tsx",
+      "match": "text-[10px]",
+      "context": "<td className=\"px-2 py-1.5 font-mono text-[10px]\">",
+      "occurrence": 11
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/feedback/HumanQualityCorpusPanel.tsx",
+      "match": "text-[10px]",
+      "context": "<td className=\"px-2 py-1.5 font-mono text-[10px]\">",
+      "occurrence": 12
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/feedback/HumanQualityCorpusPanel.tsx",
+      "match": "text-[11px]",
+      "context": "<h4 className=\"text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/feedback/HumanQualityCorpusPanel.tsx",
+      "match": "text-[11px]",
+      "context": "<table className=\"min-w-full text-[11px]\">",
+      "occurrence": 2
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/feedback/HumanQualityCorpusPanel.tsx",
+      "match": "text-[11px]",
+      "context": "<span className=\"text-[11px] text-[var(--text-muted)]\">",
+      "occurrence": 3
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/feedback/HumanQualityCorpusPanel.tsx",
+      "match": "text-[11px]",
+      "context": "<li key={adjustment.adjustmentId} className=\"font-mono text-[11px]\">",
+      "occurrence": 4
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/feedback/HumanQualityCorpusPanel.tsx",
+      "match": "text-[11px]",
+      "context": "<span className=\"text-[11px] text-[var(--text-muted)]\">",
+      "occurrence": 5
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/feedback/HumanQualityCorpusPanel.tsx",
+      "match": "text-[11px]",
+      "context": "className=\"h-9 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-2 font-mono text-[11px]\"",
+      "occurrence": 6
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/feedback/HumanQualityCorpusPanel.tsx",
+      "match": "text-[11px]",
+      "context": "className=\"h-9 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-2 font-mono text-[11px]\"",
+      "occurrence": 7
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/feedback/HumanQualityCorpusPanel.tsx",
+      "match": "text-[11px]",
+      "context": "<span className=\"text-[11px] text-[var(--text-muted)]\">",
+      "occurrence": 8
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/feedback/HumanQualityCorpusPanel.tsx",
+      "match": "text-[11px]",
+      "context": "className=\"h-9 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-2 font-mono text-[11px]\"",
+      "occurrence": 9
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/feedback/HumanQualityCorpusPanel.tsx",
+      "match": "text-[11px]",
+      "context": "<p className=\"rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-200/90\">",
+      "occurrence": 10
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/feedback/HumanQualityCorpusPanel.tsx",
+      "match": "text-[11px]",
+      "context": "<p className=\"text-[11px] font-medium uppercase tracking-wide text-[var(--text-muted)]\">",
+      "occurrence": 11
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/feedback/LearningProposalsTab.tsx",
+      "match": "text-[10px]",
+      "context": "<td className=\"max-w-[12rem] truncate px-2 py-1.5 font-mono text-[10px]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/feedback/LearningProposalsTab.tsx",
+      "match": "text-[10px]",
+      "context": "<label className=\"mt-1.5 flex items-start gap-2 text-[10px] text-amber-200/90\">",
+      "occurrence": 2
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/feedback/OwnerAnalyticsPanel.tsx",
+      "match": "text-[10px]",
+      "context": "<span className=\"rounded-full bg-[var(--accent-green)]/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[var(--accent-green)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/feedback/OwnerAnalyticsPanel.tsx",
+      "match": "text-[11px]",
+      "context": "<p className=\"text-[11px] text-[var(--text-muted)]\">{label}</p>",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/layout/AccountStatusBadge.tsx",
+      "match": "text-[10px]",
+      "context": "\"inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide\",",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/layout/AppShell.tsx",
+      "match": "text-[10px]",
+      "context": "\"flex min-h-11 flex-col items-center justify-center gap-0.5 rounded-md px-0.5 py-2 text-[10px] font-medium leading-tight\",",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/layout/AppShell.tsx",
+      "match": "text-[10px]",
+      "context": "\"flex min-h-11 flex-col items-center justify-center gap-0.5 rounded-md px-0.5 py-2 text-[10px] font-medium leading-tight\",",
+      "occurrence": 2
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/layout/AppSidebar.tsx",
+      "match": "text-[10px]",
+      "context": "<p className=\"font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--text-muted)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/layout/AppSidebar.tsx",
+      "match": "text-[10px]",
+      "context": "\"relative flex flex-col items-center gap-1 rounded-[var(--radius-control)] px-1 py-2 text-[10px] font-medium transition-colors\",",
+      "occurrence": 2
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/layout/AppSidebar.tsx",
+      "match": "text-[11px]",
+      "context": "<span className=\"grid h-[30px] w-[30px] shrink-0 place-items-center rounded-full bg-[var(--neutral-bg)] text-[11px] font-bold text-[var(--text-primary)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/layout/AppSidebar.tsx",
+      "match": "text-[13px]",
+      "context": "<p className=\"truncate text-[13px] font-semibold text-[var(--text-primary)]\">{displayName}</p>",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/layout/AppSidebar.tsx",
+      "match": "text-[13px]",
+      "context": "className=\"mt-1 flex w-full items-center gap-2.5 rounded-[var(--radius-control)] px-2.5 py-2 text-[13px] font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-base)] hover:text-[var(--accent-rose)]\"",
+      "occurrence": 2
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/layout/AppSidebar.tsx",
+      "match": "text-[13px]",
+      "context": "\"flex items-center gap-2.5 rounded-[var(--radius-control)] px-2.5 py-2 text-[13px] font-medium transition-colors\",",
+      "occurrence": 3
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/layout/AppSidebar.tsx",
+      "match": "text-[8px]",
+      "context": "<span className=\"absolute right-0.5 top-0.5 rounded border border-[var(--border-subtle)] bg-[var(--surface-base)] px-1 font-mono text-[8px] text-[var(--text-muted)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/layout/MobileMoreSheet.tsx",
+      "match": "text-[9px]",
+      "context": "<span className=\"rounded-full border border-[color-mix(in_oklch,var(--warning-text)_40%,transparent)] px-1.5 py-0.5 font-mono text-[9px] text-[var(--warning-text)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/layout/SidebarAssistantModeSwitch.tsx",
+      "match": "rounded-[calc(var(--radius-control)-2px)]",
+      "context": "\"w-full rounded-[calc(var(--radius-control)-2px)] px-3 py-2.5 text-left text-[13px] font-medium transition-colors\",",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/layout/SidebarAssistantModeSwitch.tsx",
+      "match": "rounded-[calc(var(--radius-control)-2px)]",
+      "context": "\"flex w-full items-center justify-between gap-2 rounded-[calc(var(--radius-control)-2px)] px-3 py-2.5 text-left text-[13px] font-medium transition-colors\",",
+      "occurrence": 2
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/layout/SidebarAssistantModeSwitch.tsx",
+      "match": "text-[13px]",
+      "context": "\"w-full rounded-[calc(var(--radius-control)-2px)] px-3 py-2.5 text-left text-[13px] font-medium transition-colors\",",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/layout/SidebarAssistantModeSwitch.tsx",
+      "match": "text-[13px]",
+      "context": "\"flex w-full items-center justify-between gap-2 rounded-[calc(var(--radius-control)-2px)] px-3 py-2.5 text-left text-[13px] font-medium transition-colors\",",
+      "occurrence": 2
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/layout/SidebarAssistantModeSwitch.tsx",
+      "match": "text-[9px]",
+      "context": "className=\"rounded bg-[var(--accent-primary)] px-1.5 py-0.5 font-mono text-[9px] font-semibold leading-none text-[var(--text-on-accent)]\"",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/layout/SidebarBrandKitFeature.tsx",
+      "match": "rounded-[calc(var(--radius-control)-1px)]",
+      "context": "\"relative flex flex-col gap-0.5 rounded-[calc(var(--radius-control)-1px)] px-3 py-2.5\",",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/layout/SidebarBrandKitFeature.tsx",
+      "match": "text-[11px]",
+      "context": "<span className=\"text-[11px] text-[var(--text-muted)]\">{tNav(\"brandKitHint\")}</span>",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/layout/SidebarBrandKitFeature.tsx",
+      "match": "text-[13px]",
+      "context": "<span className=\"text-[13px] font-semibold text-[var(--text-primary)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/layout/SidebarBrandKitFeature.tsx",
+      "match": "text-[9px]",
+      "context": "<span className=\"rounded-full border border-[color-mix(in_oklch,var(--warning-text)_40%,transparent)] px-1.5 py-0.5 font-mono text-[9px] font-semibold text-[var(--warning-text)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/layout/SidebarRecentWorks.tsx",
+      "match": "text-[10px]",
+      "context": "<p className=\"px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/layout/SidebarRecentWorks.tsx",
+      "match": "text-[10px]",
+      "context": "<span className=\"grid size-7 shrink-0 place-items-center rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] font-mono text-[10px] font-bold text-[var(--accent-primary-text)]\">C</span>",
+      "occurrence": 2
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/layout/SidebarRecentWorks.tsx",
+      "match": "text-[10px]",
+      "context": "<time className=\"block text-[10px] text-[var(--text-muted)]\" dateTime={work.updatedAt}>{formattedDate}</time>",
+      "occurrence": 3
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/layout/SidebarRecentWorks.tsx",
+      "match": "text-[12px]",
+      "context": "<p className=\"text-[12px] text-[var(--text-muted)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/layout/SidebarRecentWorks.tsx",
+      "match": "text-[12px]",
+      "context": "className=\"mt-2 inline-block text-[12px] font-medium text-[var(--accent-primary-text)] hover:underline\"",
+      "occurrence": 2
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/layout/SidebarRecentWorks.tsx",
+      "match": "text-[12px]",
+      "context": "<summary className=\"cursor-pointer truncate rounded-[var(--radius-control)] px-2 py-2 text-[12px] font-semibold text-[var(--text-secondary)] hover:bg-[var(--surface-inset)]\">",
+      "occurrence": 3
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/layout/SidebarRecentWorks.tsx",
+      "match": "text-[12px]",
+      "context": "<span className=\"block truncate text-[12px] font-medium text-[var(--text-primary)]\">{work.name}</span>",
+      "occurrence": 4
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/layout/TopBar.tsx",
+      "match": "text-[10px]",
+      "context": "\"flex size-9 cursor-pointer items-center justify-center rounded-full text-[10px] font-semibold sm:size-10 sm:text-xs\",",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/layout/TopBar.tsx",
+      "match": "text-[13px]",
+      "context": "<p className=\"truncate text-[13px] text-[var(--text-muted)]\">{contextLabel}</p>",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/layout/TopBar.tsx",
+      "match": "text-[13px]",
+      "context": "className=\"hidden items-center gap-2 rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] px-3.5 py-2 text-[13px] font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-inset)] sm:inline-flex\"",
+      "occurrence": 2
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/library/v6/LibraryV6View.tsx",
+      "match": "text-[10px]",
+      "context": "<p className=\"font-mono text-[10px] uppercase tracking-wider text-[var(--text-muted)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/library/v6/LibraryV6View.tsx",
+      "match": "text-[10px]",
+      "context": "className=\"rounded border border-[var(--border-subtle)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]\"",
+      "occurrence": 2
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/mission-insights/MissionInsightPrompt.tsx",
+      "match": "text-[11px]",
+      "context": "<p className=\"text-[11px] text-[var(--text-muted)]\">{t(\"privacyNote\")}</p>",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/providers/ToastStack.tsx",
+      "match": "text-[13px]",
+      "context": "<p className=\"text-[13px] font-medium text-[var(--text-primary)] leading-snug\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/restyling/RestylingForm.tsx",
+      "match": "text-[11px]",
+      "context": "\"text-[11px] leading-relaxed\",",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/settings/BillingTab.tsx",
+      "match": "text-[15px]",
+      "context": "<h3 className=\"text-[15px] font-semibold text-[var(--text-primary)]\">{t(\"noAccess.title\")}</h3>",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/settings/BillingTab.tsx",
+      "match": "text-[15px]",
+      "context": "<h3 className=\"text-[15px] font-semibold text-[var(--text-primary)]\">{t(\"plans.title\")}</h3>",
+      "occurrence": 2
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/settings/BillingTab.tsx",
+      "match": "text-[15px]",
+      "context": "<h3 className=\"text-[15px] font-semibold text-[var(--text-primary)]\">{t(\"forecast.title\")}</h3>",
+      "occurrence": 3
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/settings/BillingTab.tsx",
+      "match": "text-[15px]",
+      "context": "<h3 className=\"text-[15px] font-semibold text-[var(--text-primary)]\">{t(\"financial.title\")}</h3>",
+      "occurrence": 4
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/settings/BillingTab.tsx",
+      "match": "text-[15px]",
+      "context": "<h3 className=\"text-[15px] font-semibold text-[var(--text-primary)]\">{t(\"grants.title\")}</h3>",
+      "occurrence": 5
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/settings/BillingTab.tsx",
+      "match": "text-[15px]",
+      "context": "<h3 className=\"text-[15px] font-semibold text-[var(--text-primary)]\">{t(\"blockingRules.title\")}</h3>",
+      "occurrence": 6
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/settings/BrandKitTab.tsx",
+      "match": "text-[10px]",
+      "context": "<p className=\"text-[10px] text-[var(--text-muted)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/settings/BrandKitTab.tsx",
+      "match": "text-[15px]",
+      "context": "<h2 className=\"text-[15px] font-semibold text-[var(--text-primary)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/settings/BrandKitTab.tsx",
+      "match": "text-[15px]",
+      "context": "<h3 className=\"text-[15px] font-semibold text-[var(--accent-rose)]\">",
+      "occurrence": 2
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/settings/IntegrationsTab.tsx",
+      "match": "text-[15px]",
+      "context": "<h4 className=\"text-[15px] font-semibold text-[var(--text-primary)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/settings/PlansTab.tsx",
+      "match": "text-[15px]",
+      "context": "<h3 className=\"text-[15px] font-semibold text-[var(--text-primary)]\">{t(\"compareTitle\")}</h3>",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/settings/PrivacyTab.tsx",
+      "match": "text-[15px]",
+      "context": "<h3 className=\"text-[15px] font-semibold text-[var(--text-primary)]\">{t(\"exportTitle\")}</h3>",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/settings/PrivacyTab.tsx",
+      "match": "text-[15px]",
+      "context": "<h3 className=\"text-[15px] font-semibold text-[var(--text-primary)]\">{t(\"legalTitle\")}</h3>",
+      "occurrence": 2
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/settings/PrivacyTab.tsx",
+      "match": "text-[15px]",
+      "context": "<h3 className=\"text-[15px] font-semibold text-[var(--text-primary)]\">{t(\"deleteTitle\")}</h3>",
+      "occurrence": 3
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/settings/TeamTab.tsx",
+      "match": "text-[15px]",
+      "context": "<h3 className=\"text-[15px] font-semibold text-[var(--text-primary)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/settings/TeamTab.tsx",
+      "match": "text-[15px]",
+      "context": "<h3 className=\"text-[15px] font-semibold text-[var(--text-primary)] mb-4\">",
+      "occurrence": 2
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/settings/WorkspaceTab.tsx",
+      "match": "text-[15px]",
+      "context": "className=\"text-[15px] font-semibold text-[var(--text-primary)] pb-3 border-b border-[var(--border-dim)]\"",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/settings/WorkspaceTab.tsx",
+      "match": "text-[15px]",
+      "context": "<h3 className=\"text-[15px] font-semibold text-[var(--accent-rose)]\">",
+      "occurrence": 2
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/settings/v6/SettingsV6View.tsx",
+      "match": "text-[10px]",
+      "context": "<p className=\"font-mono text-[10px] uppercase tracking-wider text-[var(--text-muted)]\">{labels.sectionLabel}</p>",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/templates/SaveTemplateModal.tsx",
+      "match": "text-[13px]",
+      "context": "<Label className=\"text-[13px] text-[var(--text-secondary)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/templates/SaveTemplateModal.tsx",
+      "match": "text-[13px]",
+      "context": "<Label className=\"text-[13px] text-[var(--text-secondary)]\">",
+      "occurrence": 2
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/templates/SaveTemplateModal.tsx",
+      "match": "text-[18px]",
+      "context": "<DialogTitle className=\"text-[18px] font-semibold text-[var(--text-primary)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/templates/TemplateCard.tsx",
+      "match": "text-[10px]",
+      "context": "className=\"text-[10px] flex-shrink-0 ml-2\"",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/ClientApprovalPackagePanel.tsx",
+      "match": "text-[10px]",
+      "context": "className=\"inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-1 text-[10px] font-medium text-amber-400\"",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/ClientApprovalPackagePanel.tsx",
+      "match": "text-[10px]",
+      "context": "<span className=\"rounded bg-[var(--surface-raised)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--ghost)]\">",
+      "occurrence": 2
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/ClientApprovalPackagePanel.tsx",
+      "match": "text-[10px]",
+      "context": "<span className=\"inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-400\">",
+      "occurrence": 3
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/ClientApprovalPackagePanel.tsx",
+      "match": "text-[10px]",
+      "context": "<p className=\"mt-1 text-[10px] text-[var(--text-muted)]\">",
+      "occurrence": 4
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/ClientApprovalPackagePanel.tsx",
+      "match": "text-[10px]",
+      "context": "<p className=\"mt-1 text-[10px] text-amber-500/90\">",
+      "occurrence": 5
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/ClientApprovalPackagePanel.tsx",
+      "match": "text-[10px]",
+      "context": "<p className=\"text-[10px] text-[var(--text-muted)]\">",
+      "occurrence": 6
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/CreativeReadinessPanel.tsx",
+      "match": "text-[10px]",
+      "context": "<p className=\"font-mono text-[10px] uppercase tracking-wide text-[var(--ghost)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/CreativeReadinessPanel.tsx",
+      "match": "text-[10px]",
+      "context": "<p className=\"font-mono text-[10px] uppercase tracking-wide text-[var(--accent-rose)]\">",
+      "occurrence": 2
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/CreativeReadinessPanel.tsx",
+      "match": "text-[10px]",
+      "context": "<p className=\"font-mono text-[10px] uppercase tracking-wide text-[var(--text-muted)]\">",
+      "occurrence": 3
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/CreativeReadinessPanel.tsx",
+      "match": "text-[11px]",
+      "context": "<p className=\"text-[11px] text-[var(--text-muted)]\">{t(\"disclaimer\")}</p>",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/DerivationAutoRetryBadge.tsx",
+      "match": "text-[10px]",
+      "context": "\"inline-flex items-center rounded-md border border-sky-500/35 bg-sky-500/10 px-2 py-0.5 text-[10px] font-semibold text-sky-400\"",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/DerivationCard.tsx",
+      "match": "rounded-[15px]",
+      "context": "\"animate-fade-in group rounded-[15px] border border-[var(--border-subtle)] bg-[var(--surface-base)] overflow-hidden transition-all duration-300\",",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/DerivationCard.tsx",
+      "match": "text-[10px]",
+      "context": "<span className=\"text-[10px] text-[var(--text-muted)] mt-0.5\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/DerivationCard.tsx",
+      "match": "text-[10px]",
+      "context": "<p className=\"truncate text-[10px] text-[var(--text-muted)]\">",
+      "occurrence": 2
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/DerivationCard.tsx",
+      "match": "text-[10px]",
+      "context": "\"inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-semibold\",",
+      "occurrence": 3
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/DerivationCard.tsx",
+      "match": "text-[10px]",
+      "context": "\"inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-semibold\",",
+      "occurrence": 4
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/DerivationCard.tsx",
+      "match": "text-[10px]",
+      "context": "<span className=\"inline-flex items-center rounded-md border border-[var(--danger-border)] bg-[var(--danger-bg)] px-2 py-0.5 text-[10px] font-semibold text-[var(--danger-text)]\">",
+      "occurrence": 5
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/DerivationCard.tsx",
+      "match": "text-[10px]",
+      "context": "<span className=\"inline-flex items-center rounded-md border border-[var(--warning-border)] bg-[var(--warning-bg)] px-2 py-0.5 text-[10px] font-semibold text-[var(--warning-text)]\">",
+      "occurrence": 6
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/DerivationCard.tsx",
+      "match": "text-[10px]",
+      "context": "<span className=\"text-[10px] font-medium text-[var(--text-muted)]\">",
+      "occurrence": 7
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/DerivationCard.tsx",
+      "match": "text-[10px]",
+      "context": "<span className=\"text-[10px] font-semibold text-[var(--text-secondary)]\">",
+      "occurrence": 8
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/DerivationCard.tsx",
+      "match": "text-[10px]",
+      "context": "className=\"inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium\"",
+      "occurrence": 9
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/DerivationCard.tsx",
+      "match": "text-[10px]",
+      "context": "<span className=\"inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium bg-[var(--surface-raised)] text-[var(--text-secondary)] border border-[var(--border-dim)]\">",
+      "occurrence": 10
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/DerivationCard.tsx",
+      "match": "text-[10px]",
+      "context": "<span className=\"text-[10px] text-[var(--text-muted)]\">",
+      "occurrence": 11
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/DerivationCard.tsx",
+      "match": "text-[10px]",
+      "context": "<span className=\"mt-0.5 block text-[10px] text-[var(--text-muted)]\">{detail}</span>",
+      "occurrence": 12
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/DerivationCard.tsx",
+      "match": "text-[11px]",
+      "context": "<p className=\"text-[11px] text-[var(--danger-text)] leading-snug\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/DerivationCard.tsx",
+      "match": "text-[11px]",
+      "context": "<p className=\"text-[11px] text-[var(--text-secondary)] line-clamp-2 leading-snug\">",
+      "occurrence": 2
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/DerivationCard.tsx",
+      "match": "text-[11px]",
+      "context": "<li key={failure.code} className=\"text-[11px] text-[var(--danger-text)] leading-snug\">",
+      "occurrence": 3
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/DerivationCard.tsx",
+      "match": "text-[11px]",
+      "context": "<p className=\"line-clamp-2 text-[11px] text-[var(--warning-text)]\">",
+      "occurrence": 4
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/DerivationCard.tsx",
+      "match": "text-[11px]",
+      "context": "<p className=\"text-[11px] text-[var(--text-muted)] line-clamp-1\">",
+      "occurrence": 5
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/DerivationCard.tsx",
+      "match": "text-[11px]",
+      "context": "<p className=\"line-clamp-1 text-[11px] text-[var(--text-muted)]\">",
+      "occurrence": 6
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/DerivationCard.tsx",
+      "match": "text-[9px]",
+      "context": "<span className=\"text-[9px] uppercase tracking-wide opacity-70 mr-1\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/DerivationCard.tsx",
+      "match": "text-[9px]",
+      "context": "<span className=\"text-[9px] uppercase tracking-wide opacity-70 mr-1\">",
+      "occurrence": 2
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/DerivationGrid.tsx",
+      "match": "text-[10px]",
+      "context": "<span className=\"mt-2 font-mono text-[10px] uppercase tracking-wide text-[var(--ghost)] group-hover:text-[var(--accent-green)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/DerivationPreviewGateFooter.tsx",
+      "match": "text-[11px]",
+      "context": "<p className=\"mt-0.5 text-[11px] leading-relaxed text-[var(--text-secondary)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/DerivationReviewSheet.tsx",
+      "match": "text-[10px]",
+      "context": "<dt className=\"text-[10px] uppercase tracking-wide text-[var(--text-muted)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/DerivationReviewSheet.tsx",
+      "match": "text-[11px]",
+      "context": "<p className=\"text-[11px] font-medium uppercase tracking-wide text-[var(--text-muted)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/GuidedBriefingPanel.tsx",
+      "match": "text-[10px]",
+      "context": "<p className=\"font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ghost)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/PilotSidebar.tsx",
+      "match": "text-[10px]",
+      "context": "<p className=\"font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ghost)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/PilotSidebar.tsx",
+      "match": "text-[10px]",
+      "context": "<span className=\"inline-flex items-center rounded-full bg-[var(--accent-green-dim)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-[var(--accent-green-text)]\">",
+      "occurrence": 2
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/PilotSidebar.tsx",
+      "match": "text-[10px]",
+      "context": "<span className=\"inline-flex items-center rounded-full bg-[var(--surface-raised)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-[var(--text-muted)]\">",
+      "occurrence": 3
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/PilotSidebar.tsx",
+      "match": "text-[10px]",
+      "context": "<p className=\"mb-2 font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ghost)]\">",
+      "occurrence": 4
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/PilotUploadPanel.tsx",
+      "match": "text-[10px]",
+      "context": "<p className=\"font-mono text-[10px] uppercase tracking-wide text-[var(--ghost)] mt-1\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/PilotUploadPanel.tsx",
+      "match": "text-[10px]",
+      "context": "\"font-mono text-[10px] uppercase tracking-wide\",",
+      "occurrence": 2
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/PilotUploadPanel.tsx",
+      "match": "text-[15px]",
+      "context": "<h3 className=\"text-[15px] font-semibold text-[var(--text-primary)] mb-1\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/PilotUploadPanel.tsx",
+      "match": "text-[15px]",
+      "context": "<h3 className=\"text-[15px] font-semibold text-[var(--text-primary)] mb-1\">",
+      "occurrence": 2
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/PilotUploadPanel.tsx",
+      "match": "text-[15px]",
+      "context": "<h3 className=\"text-[15px] font-semibold text-[var(--text-primary)] mb-1\">",
+      "occurrence": 3
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/StrategyRecipePanel.tsx",
+      "match": "text-[9px]",
+      "context": "<span className=\"shrink-0 rounded-full bg-[var(--accent-green-dim)] px-2 py-0.5 font-mono text-[9px] uppercase tracking-wide text-[var(--accent-green-text)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "arbitraryDialect",
+      "file": "app/src/components/workspace/WorkspaceActionBar.tsx",
+      "match": "text-[9px]",
+      "context": "<span className=\"inline-flex max-w-full items-center gap-1.5 truncate rounded-md border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-2 py-1 font-mono text-[9px] uppercase tracking-wide text-[var(--text-muted)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "rawLayer",
+      "file": "app/src/app/layout.tsx",
+      "match": "z-[100]",
+      "context": "className=\"sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:bg-[var(--surface-base)] focus:text-[var(--text-primary)] focus:rounded-md focus:shadow-lg focus:ring-2 focus:ring-[var(--accent-green)]\"",
+      "occurrence": 1
+    },
+    {
+      "rule": "rawLayer",
+      "file": "app/src/app/share/[token]/GalleryGrid.tsx",
+      "match": "z-10",
+      "context": "className=\"relative z-10 max-h-[90vh] max-w-4xl overflow-hidden rounded-xl bg-[var(--surface-base)] shadow-2xl ring-1 ring-[var(--border-medium)]\"",
+      "occurrence": 1
+    },
+    {
+      "rule": "rawLayer",
+      "file": "app/src/app/share/[token]/GalleryGrid.tsx",
+      "match": "z-10",
+      "context": "className=\"absolute right-3 top-3 z-10 rounded-full bg-black/50 p-1.5 text-white transition hover:bg-black/70\"",
+      "occurrence": 2
+    },
+    {
+      "rule": "rawLayer",
+      "file": "app/src/app/share/[token]/GalleryGrid.tsx",
+      "match": "z-50",
+      "context": "className=\"fixed inset-0 z-50 m-0 flex size-full max-h-none max-w-none items-center justify-center border-0 bg-black/80 p-4 backdrop-blur-sm\"",
+      "occurrence": 1
+    },
+    {
+      "rule": "rawLayer",
+      "file": "app/src/components/assistant/AssistantShell.tsx",
+      "match": "z-10",
+      "context": "className=\"absolute left-2 top-2 z-10 flex size-8 items-center justify-center rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]\"",
+      "occurrence": 1
+    },
+    {
+      "rule": "rawLayer",
+      "file": "app/src/components/assistant/VersionComparisonDialog.tsx",
+      "match": "z-10",
+      "context": "<DialogHeader className=\"sticky top-0 z-10 bg-[var(--surface-overlay)] pr-4\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "rawLayer",
+      "file": "app/src/components/auth/AuthPageShell.tsx",
+      "match": "z-50",
+      "context": "<main className=\"relative z-50 flex w-full max-w-5xl flex-col gap-6 lg:flex-row lg:items-stretch lg:gap-8\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "rawLayer",
+      "file": "app/src/components/campaigns/CampaignListCard.tsx",
+      "match": "z-0",
+      "context": "className=\"absolute inset-0 z-0 rounded-xl\"",
+      "occurrence": 1
+    },
+    {
+      "rule": "rawLayer",
+      "file": "app/src/components/campaigns/CampaignListCard.tsx",
+      "match": "z-10",
+      "context": "<div className=\"relative z-10 mb-2\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "rawLayer",
+      "file": "app/src/components/campaigns/CampaignListCard.tsx",
+      "match": "z-10",
+      "context": "<div className=\"relative z-10 flex items-start gap-3\">",
+      "occurrence": 2
+    },
+    {
+      "rule": "rawLayer",
+      "file": "app/src/components/campaigns/CampaignsListView.tsx",
+      "match": "z-20",
+      "context": "<TableHeader className=\"sticky top-0 z-20\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "rawLayer",
+      "file": "app/src/components/cookie-consent/CookieBanner.tsx",
+      "match": "z-50",
+      "context": "className=\"fixed inset-x-0 bottom-0 z-50 m-0 w-full max-w-none border-t border-[var(--border-dim)] bg-[var(--surface-base)] p-4 shadow-lg sm:px-6\"",
+      "occurrence": 1
+    },
+    {
+      "rule": "rawLayer",
+      "file": "app/src/components/dashboard/CreditChartBars.tsx",
+      "match": "z-10",
+      "context": "className=\"pointer-events-none absolute z-10 rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-2 py-1 text-xs shadow-sm\"",
+      "occurrence": 1
+    },
+    {
+      "rule": "rawLayer",
+      "file": "app/src/components/dashboard/OnboardingTour.tsx",
+      "match": "z-[100]",
+      "context": "className=\"fixed inset-0 z-[100]\"",
+      "occurrence": 1
+    },
+    {
+      "rule": "rawLayer",
+      "file": "app/src/components/dashboard/VisualCampaignCard.tsx",
+      "match": "z-10",
+      "context": "<div className=\"relative z-10\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "rawLayer",
+      "file": "app/src/components/dashboard/VisualCampaignCard.tsx",
+      "match": "z-10",
+      "context": "<div className=\"absolute top-4 right-4 z-10\">",
+      "occurrence": 2
+    },
+    {
+      "rule": "rawLayer",
+      "file": "app/src/components/feedback/BetaSessionsPanel.tsx",
+      "match": "z-10",
+      "context": "<div className=\"sticky top-0 z-10 -mx-5 border-b border-[var(--border-dim)] bg-[var(--surface-base)] px-5 py-3 space-y-2\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "rawLayer",
+      "file": "app/src/components/layout/AppShell.tsx",
+      "match": "z-[calc(var(--layer-shell-floating)+2)]",
+      "context": "className=\"layer-shell-floating fixed bottom-0 left-0 right-0 z-[calc(var(--layer-shell-floating)+2)] grid grid-cols-5 border-t border-[var(--border-dim)] bg-[var(--surface-base)] p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:hidden\"",
+      "occurrence": 1
+    },
+    {
+      "rule": "rawLayer",
+      "file": "app/src/components/layout/AppSidebar.tsx",
+      "match": "z-[1]",
+      "context": "<div className=\"relative z-[1] flex min-h-0 flex-1 flex-col gap-1\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "rawLayer",
+      "file": "app/src/components/providers/ToastStack.tsx",
+      "match": "z-[200]",
+      "context": "<div className=\"fixed top-4 right-4 z-[200] flex flex-col gap-2.5 pointer-events-none\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "rawLayer",
+      "file": "app/src/components/ui/LanguageSwitcher.tsx",
+      "match": "z-50",
+      "context": "<div className=\"absolute right-0 top-11 z-50 w-44 overflow-hidden rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)] shadow-[0_16px_48px_rgba(0,0,0,0.1)]\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "rawLayer",
+      "file": "app/src/components/workspace/DerivationCard.tsx",
+      "match": "z-10",
+      "context": "<div className=\"absolute top-2 right-2 z-10\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "rawLayer",
+      "file": "app/src/components/workspace/PilotUploadPanel.tsx",
+      "match": "z-10",
+      "context": "<div className=\"relative z-10 flex flex-col items-center animate-fade-in\">",
+      "occurrence": 1
+    },
+    {
+      "rule": "rawLayer",
+      "file": "app/src/components/workspace/PilotUploadPanel.tsx",
+      "match": "z-10",
+      "context": "<div className=\"relative z-10 flex flex-col items-center w-full max-w-xs animate-fade-in\">",
+      "occurrence": 2
+    },
+    {
+      "rule": "rawLayer",
+      "file": "app/src/components/workspace/PilotUploadPanel.tsx",
+      "match": "z-10",
+      "context": "<div className=\"relative z-10 flex flex-col items-center animate-fade-in max-w-sm px-4\">",
+      "occurrence": 3
+    }
+  ]
+}

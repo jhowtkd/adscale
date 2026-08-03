@@ -96,15 +96,17 @@ export default function SaveTemplateModal({
             <div className="space-y-1.5">
               <Label className="text-[13px] text-[var(--text-secondary)]">
                 {tTemplate("templateName")}{" "}
-                <span className="text-[var(--accent-rose)]">*</span>
+                <span aria-hidden="true" className="text-[var(--utility-icon)]">*</span>
               </Label>
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder={tTemplate("namePlaceholder")}
+                aria-required="true"
+                aria-invalid={Boolean(error)}
                 className={cn(
                   "bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]",
-                  error && "border-[var(--accent-rose)]"
+                  error && "border-[var(--danger-border)]"
                 )}
               />
               <AnimatePresence>
@@ -113,7 +115,8 @@ export default function SaveTemplateModal({
                     initial={{ opacity: 0, y: -4 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -4 }}
-                    className="text-xs text-[var(--accent-rose)]"
+                    role="alert"
+                    className="text-xs text-[var(--danger-text)]"
                   >
                     {error}
                   </m.p>
@@ -146,7 +149,7 @@ export default function SaveTemplateModal({
             <Button
               type="submit"
               disabled={createTemplate.isPending}
-              className="bg-[var(--accent-blue)] text-[var(--text-on-accent)] hover:bg-[var(--accent-blue-light)]"
+              className="bg-[var(--action-primary-bg)] text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)]"
             >
               {createTemplate.isPending ? tCommon("saving") : tCommon("save")}
             </Button>

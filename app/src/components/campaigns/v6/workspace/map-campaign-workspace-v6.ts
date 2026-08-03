@@ -23,7 +23,7 @@ function statusToBadge(status: WorkspaceCampaignSource["status"]): { label: stri
   if (status === "completed") return { label: "completed", variant: "success" };
   if (status === "generating") return { label: "generating", variant: "warning" };
   if (status === "active") return { label: "active", variant: "info" };
-  if (status === "failed") return { label: "failed", variant: "warning" };
+  if (status === "failed") return { label: "failed", variant: "danger" };
   return { label: "draft", variant: "neutral" };
 }
 

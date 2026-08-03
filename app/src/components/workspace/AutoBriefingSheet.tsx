@@ -62,9 +62,9 @@ function autoBriefingReducer(
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 function confidenceColor(score: number) {
-  if (score >= 0.8) return "text-[var(--accent-teal)]";
-  if (score >= 0.5) return "text-[var(--accent-amber)]";
-  return "text-[var(--accent-rose)]";
+  if (score >= 0.8) return "text-[var(--success-text)]";
+  if (score >= 0.5) return "text-[var(--warning-text)]";
+  return "text-[var(--danger-text)]";
 }
 
 export default function AutoBriefingSheet({
@@ -186,7 +186,7 @@ export default function AutoBriefingSheet({
                 onDrop={handleDrop}
                 className={cn(
                   "border-2 border-dashed rounded-xl p-8 text-center transition-colors",
-                  "border-[var(--border-dim)] hover:border-[var(--accent-green)]",
+                  "border-[var(--border-dim)] hover:border-[var(--selection-border)]",
                   "bg-[var(--surface-base)]"
                 )}
               >
@@ -234,7 +234,7 @@ export default function AutoBriefingSheet({
                 {!preview && (
                   <label
                     htmlFor="auto-briefing-file"
-                    className="mt-3 inline-block cursor-pointer rounded-md bg-[var(--accent-blue)] px-4 py-2 text-sm font-medium text-[var(--text-on-accent)] transition-colors hover:bg-[var(--accent-blue-light)]"
+                    className="mt-3 inline-block cursor-pointer rounded-md bg-[var(--action-primary-bg)] px-4 py-2 text-sm font-medium text-[var(--action-primary-text)] transition-colors hover:bg-[var(--action-primary-hover)]"
                   >
                     {tc("chooseFile")}
                   </label>
@@ -242,7 +242,7 @@ export default function AutoBriefingSheet({
               </div>
 
               {error && (
-                <div className="flex items-center gap-2 text-sm text-[var(--accent-rose)]">
+                <div className="flex items-center gap-2 text-sm text-[var(--danger-text)]">
                   <AlertCircle size={16} />
                   {error}
                 </div>
@@ -300,7 +300,7 @@ export default function AutoBriefingSheet({
                         "w-full text-left p-3 rounded-lg border transition-all",
                         "flex items-start gap-3",
                         isSelected
-                          ? "border-[var(--accent-green)] bg-[var(--accent-green-dim)]"
+                          ? "border-[var(--selection-border)] bg-[var(--selection-bg)]"
                           : "border-[var(--border-dim)] hover:border-[var(--border-medium)]"
                       )}
                     >
@@ -308,7 +308,7 @@ export default function AutoBriefingSheet({
                         className={cn(
                           "mt-0.5 size-5 rounded flex items-center justify-center flex-shrink-0 transition-colors",
                           isSelected
-                            ? "bg-[var(--accent-green)] text-[var(--accent-green-on-fill)]"
+                            ? "border border-[var(--selection-border)] bg-[var(--selection-bg)] text-[var(--selection-text)]"
                             : "border-2 border-[var(--border-medium)]"
                         )}
                       >

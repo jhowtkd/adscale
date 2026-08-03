@@ -317,7 +317,7 @@ export default function FeedbackTriagePage() {
                 className={cn(
                   "w-full rounded-lg border px-3 py-3 text-left transition-colors",
                   selected?.id === report.id
-                    ? "border-[var(--accent-green)] bg-[var(--surface-raised)]"
+                    ? "border-[var(--selection-border)] bg-[var(--selection-bg)]"
                     : "border-[var(--border-dim)] hover:bg-[var(--surface-raised)]"
                 )}
               >
@@ -408,7 +408,7 @@ export default function FeedbackTriagePage() {
                           href={asset.url}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-[var(--accent-green)] hover:underline"
+                          className="text-[var(--selection-text)] hover:underline"
                         >
                           {asset.kind} · {asset.key ?? asset.id}
                         </a>

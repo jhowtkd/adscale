@@ -87,4 +87,17 @@ describe("mapCanonicalWorkToV6Row", () => {
     expect(row.variations).toBe(2);
     expect(row.approved).toBe(1);
   });
+
+  it("keeps failed work dangerous while generating work stays warning", () => {
+    const mapState = (state: CanonicalWorkSummary["state"]) =>
+      mapCanonicalWorkToV6Row({
+        work: { ...base, state },
+        originLabel: "Post",
+        formatUpdated: () => "1h",
+        tState: (value) => value,
+      }).statusVariant;
+
+    expect(mapState("failed")).toBe("danger");
+    expect(mapState("generating")).toBe("warning");
+  });
 });

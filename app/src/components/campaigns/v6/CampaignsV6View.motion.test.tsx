@@ -49,11 +49,15 @@ const row: CampaignV6Row = {
   originLabel: "Campanha",
 };
 
-function view(selectedIds = new Set<string>(), onToggleSelect = vi.fn()) {
+function view(
+  selectedIds = new Set<string>(),
+  onToggleSelect = vi.fn(),
+  rows: CampaignV6Row[] = [row],
+) {
   return (
     <CampaignsV6View
       labels={labels}
-      rows={[row]}
+      rows={rows}
       totalCount={1}
       searchQuery=""
       showCampaignFilters={false}
@@ -78,6 +82,18 @@ function renderView(selectedIds = new Set<string>(), onToggleSelect = vi.fn()) {
 }
 
 describe("CampaignsV6View motion selection contract", () => {
+  it("renders failed status as danger and generating status as warning", () => {
+    render(
+      view(new Set(), vi.fn(), [
+        { ...row, id: "failed", name: "Failed", status: "Failed", statusVariant: "danger" },
+        { ...row, id: "generating", name: "Generating", status: "Generating", statusVariant: "warning" },
+      ]),
+    );
+
+    expect(screen.getByText("Failed", { selector: "span" })).toHaveClass("bg-[var(--danger-bg)]");
+    expect(screen.getByText("Generating", { selector: "span" })).toHaveClass("bg-[var(--warning-bg)]");
+  });
+
   it("keeps checkbox semantics and exposes the selected visual state", () => {
     const onToggleSelect = vi.fn();
     const { rerender } = renderView(new Set(), onToggleSelect);
@@ -92,5 +108,7 @@ describe("CampaignsV6View motion selection contract", () => {
 
     expect(checkbox).toBeChecked();
     expect(checkbox.closest("li")).toHaveAttribute("data-motion-highlight", "selected");
+    expect(checkbox.closest("li")).toHaveAttribute("data-selection-marker", "selected");
+    expect(checkbox).toHaveClass("accent-[var(--selection-text)]");
   });
 });

@@ -106,7 +106,7 @@ export function BrandEvidencePanel({ clientProfileId }: { clientProfileId: strin
       <div
         className={
           status.variant === "warning"
-            ? "rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100"
+            ? "rounded-md border border-[var(--warning-border)] bg-[var(--warning-bg)] px-3 py-2 text-sm text-[var(--warning-text)]"
             : "rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-primary)]"
         }
       >
@@ -123,7 +123,7 @@ export function BrandEvidencePanel({ clientProfileId }: { clientProfileId: strin
 
       {report.fixtureOnly && report.fixtureCaveat ? (
         <div
-          className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100"
+          className="rounded-md border border-[var(--warning-border)] bg-[var(--warning-bg)] px-3 py-2 text-sm text-[var(--warning-text)]"
           data-testid="fixture-caveat-banner"
         >
           <p className="font-medium">Aviso de fixture</p>

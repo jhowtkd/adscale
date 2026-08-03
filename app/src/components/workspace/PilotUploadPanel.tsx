@@ -392,11 +392,11 @@ function PilotUploadDropzone({
         onDragOver={onDragOver}
         className={cn(
           "relative flex flex-col items-center justify-center min-h-[360px] rounded-2xl border-2 border-dashed transition-all duration-200 overflow-hidden",
-          "bg-[var(--accent-green-dim)]",
+          "bg-[var(--surface-raised)]",
           isInteractive
-            ? "cursor-pointer hover:border-[var(--accent-green)] hover:bg-[var(--accent-green-dim)]"
+            ? "cursor-pointer hover:border-[var(--selection-border)] hover:bg-[var(--selection-bg)]"
             : "cursor-default",
-          isProcessing ? "border-[var(--accent-green)]" : "border-[var(--border-medium)]"
+          isProcessing ? "border-[var(--selection-border)]" : "border-[var(--border-medium)]"
         )}
         style={{
           backgroundImage:
@@ -431,7 +431,7 @@ function PilotUploadDropzone({
         {state === "error" && (
           <div className="flex flex-col items-center animate-fade-in px-6">
             <div className="mb-4">
-              <AlertCircle size={48} className="text-[var(--accent-rose)]" />
+              <AlertCircle size={48} className="text-[var(--danger-text)]" />
             </div>
             <h3 className="text-[15px] font-semibold text-[var(--text-primary)] mb-1">
               Falha no processamento
@@ -467,7 +467,7 @@ function PilotUploadDropzone({
         {/* Uploading State */}
         {state === "uploading" && (
           <div className="relative z-10 flex flex-col items-center animate-fade-in">
-            <Loader2 size={32} className="text-[var(--accent-green)] animate-spin mb-3" />
+            <Loader2 size={32} className="text-[var(--utility-icon)] animate-spin mb-3" />
             <div className="w-48 h-1 bg-[var(--border-dim)] rounded-full overflow-hidden mb-2">
               <div
                 className="h-full gradient-progress rounded-full transition-all duration-200"
@@ -499,7 +499,7 @@ function PilotUploadDropzone({
                     className={cn(
                       "flex items-center gap-3 rounded-lg border px-4 py-3 transition-all duration-300",
                       isDone
-                        ? "border-[var(--accent-green)]/30 bg-[var(--accent-green-dim)]"
+                        ? "border-[var(--success-border)] bg-[var(--success-bg)]"
                         : isCurrent
                         ? "border-[var(--border-medium)] bg-[var(--surface-base)]"
                         : "border-[var(--border-dim)] bg-[var(--surface-base)]/50"
@@ -509,23 +509,23 @@ function PilotUploadDropzone({
                       className={cn(
                         "flex size-5 items-center justify-center rounded-full border transition-all duration-300",
                         isDone
-                          ? "border-[var(--accent-green)] bg-[var(--accent-green)] text-[var(--accent-green-on-fill)]"
+                          ? "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success-text)]"
                           : isCurrent
-                          ? "border-[var(--accent-green)]"
+                          ? "border-[var(--selection-border)]"
                           : "border-[var(--border-dim)]"
                       )}
                     >
                       {isDone ? (
                         <Check size={12} />
                       ) : isCurrent ? (
-                        <Loader2 size={12} className="text-[var(--accent-green)] animate-spin" />
+                        <Loader2 size={12} className="text-[var(--utility-icon)] animate-spin" />
                       ) : null}
                     </div>
                     <span
                       className={cn(
                         "font-mono text-[10px] uppercase tracking-wide",
                         isDone
-                          ? "text-[var(--accent-green)]"
+                          ? "text-[var(--success-text)]"
                           : isCurrent
                           ? "text-[var(--text-primary)]"
                           : "text-[var(--ghost)]"
@@ -543,14 +543,14 @@ function PilotUploadDropzone({
         {/* Reviewing State */}
         {state === "reviewing" && (
           <div className="relative z-10 flex flex-col items-center animate-fade-in max-w-sm px-4">
-            <div className="flex size-12 items-center justify-center rounded-full bg-[var(--accent-green-dim)] mb-3">
-              <Check size={24} className="text-[var(--accent-green)]" />
+            <div className="flex size-12 items-center justify-center rounded-full bg-[var(--success-bg)] mb-3">
+              <Check size={24} className="text-[var(--success-text)]" />
             </div>
             <h3 className="text-[15px] font-semibold text-[var(--text-primary)] mb-1">
               Análise concluída
             </h3>
             {warningMessage ? (
-              <p className="text-xs text-[var(--accent-amber)] mb-4 text-center">
+              <p className="text-xs text-[var(--warning-text)] mb-4 text-center">
                 {warningMessage}
               </p>
             ) : (

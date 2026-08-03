@@ -67,6 +67,22 @@ describe("CreativeSourceChip", () => {
     expect(screen.getByRole("img", { name: "arte.png" })).toHaveAttribute("src", "/api/workspace/assets/a1/file");
   });
 
+  it.each([
+    ["square", "/api/workspace/assets/square/file"],
+    ["portrait", "/api/workspace/assets/portrait/file"],
+    ["landscape", "/api/workspace/assets/landscape/file"],
+  ])("keeps a %s full preview contained on a neutral bounded canvas", (_aspect, previewUrl) => {
+    render(<CreativeSourceChip source={{ ...baseSource, previewUrl }} onUsageChange={vi.fn()} onRetry={vi.fn()} onRemove={vi.fn()} fullPreview />);
+
+    expect(screen.getByRole("img", { name: "arte.png" })).toHaveClass(
+      "h-64",
+      "sm:h-80",
+      "bg-[var(--surface-inset)]",
+      "object-contain",
+    );
+    expect(screen.getByRole("img", { name: "arte.png" })).not.toHaveClass("object-cover");
+  });
+
   it("omits the thumbnail while no preview is available", () => {
     render(<CreativeSourceChip source={baseSource} onUsageChange={vi.fn()} onRetry={vi.fn()} onRemove={vi.fn()} />);
 

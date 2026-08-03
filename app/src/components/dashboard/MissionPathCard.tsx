@@ -23,9 +23,9 @@ import type { MissionCreditContext, MissionItem, MissionKey } from "@/lib/progre
 function MissionStatusIcon({ status }: { status: MissionItem["status"] }) {
   switch (status) {
     case "completed":
-      return <CheckCircle2 size={16} className="text-[var(--accent-green)] shrink-0" aria-hidden="true" />;
+      return <CheckCircle2 size={16} className="text-[var(--success-text)] shrink-0" aria-hidden="true" />;
     case "active":
-      return <Sparkles size={16} className="text-[var(--accent-green)] shrink-0" aria-hidden="true" />;
+      return <Sparkles size={16} className="text-[var(--selection-text)] shrink-0" aria-hidden="true" />;
     case "blocked":
       return <Lock size={16} className="text-[var(--text-muted)] shrink-0" aria-hidden="true" />;
     default:
@@ -65,17 +65,17 @@ export default function MissionPathCard() {
     return (
       <div className="mt-4 overflow-hidden rounded-xl border border-[var(--border-dim)] bg-[var(--surface-base)]">
         <div className="px-5 py-4 border-b border-[var(--border-dim)] flex items-center gap-2">
-          <FlaskConical size={16} className="text-[var(--accent-green)]" aria-hidden="true" />
+          <FlaskConical size={16} className="text-[var(--utility-icon)]" aria-hidden="true" />
           <h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("title")}</h2>
         </div>
         <div className="p-5 flex items-start gap-3">
-          <AlertCircle size={18} className="text-[var(--accent-rose)] shrink-0 mt-0.5" aria-hidden="true" />
+          <AlertCircle size={18} className="text-[var(--danger-text)] shrink-0 mt-0.5" aria-hidden="true" />
           <div className="space-y-3">
             <p className="text-sm text-[var(--text-secondary)]">{t("error")}</p>
             <button
               type="button"
               onClick={() => refetch()}
-              className="inline-flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-[var(--accent-green-dark)] hover:text-[var(--accent-green)] transition-colors"
+              className="inline-flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-[var(--active-navigation-text)] hover:text-[var(--active-navigation-text)] transition-colors"
             >
               <RefreshCw size={14} aria-hidden="true" />
               {t("retry")}
@@ -103,7 +103,7 @@ export default function MissionPathCard() {
     <div className="mt-4 overflow-hidden rounded-xl border border-[var(--border-dim)] bg-[var(--surface-base)]">
       <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border-dim)]">
         <div className="flex items-center gap-2">
-          <FlaskConical size={16} className="text-[var(--accent-green)]" aria-hidden="true" />
+          <FlaskConical size={16} className="text-[var(--utility-icon)]" aria-hidden="true" />
           <h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("title")}</h2>
           <span className="font-pixel text-[8px] uppercase tracking-wider text-[var(--text-muted)] ml-1">
             v1
@@ -117,7 +117,7 @@ export default function MissionPathCard() {
           <button
             type="button"
             onClick={() => setExpanded((value) => !value)}
-            className="inline-flex items-center gap-1 text-xs font-mono uppercase tracking-wider text-[var(--accent-green-dark)] hover:text-[var(--accent-green)] transition-colors"
+            className="inline-flex items-center gap-1 text-xs font-mono uppercase tracking-wider text-[var(--active-navigation-text)] hover:text-[var(--active-navigation-text)] transition-colors"
             aria-expanded={expanded}
             aria-controls="mission-path-list"
           >
@@ -133,7 +133,7 @@ export default function MissionPathCard() {
             <span className="text-[11px] font-mono uppercase tracking-wider text-[var(--text-muted)]">
               {t("pathLabel")}
             </span>
-            <span className="text-xs font-mono font-bold text-[var(--accent-green)]">
+            <span className="text-xs font-mono font-bold text-[var(--success-text)]">
               {progressPercent}%
             </span>
           </div>
@@ -153,7 +153,7 @@ export default function MissionPathCard() {
         </div>
 
         {allComplete ? (
-          <div className="rounded-lg border border-[var(--accent-green)]/30 bg-[var(--accent-green)]/5 p-4">
+          <div className="rounded-lg border border-[var(--success-border)] bg-[var(--success-bg)] p-4">
             <p className="text-sm font-semibold text-[var(--text-primary)]">{t("allCompleteTitle")}</p>
             <p className="text-xs text-[var(--text-secondary)] mt-1">{t("allCompleteDescription")}</p>
           </div>
@@ -215,7 +215,7 @@ function ActiveMissionPanel({
       <p className="text-sm font-semibold text-[var(--text-primary)]">{label}</p>
       <p className="text-xs text-[var(--text-secondary)] mt-1">{description}</p>
       {blockedReasonText ? (
-        <p className="text-xs text-[var(--accent-rose)] mt-2 flex items-start gap-1.5">
+        <p className="text-xs text-[var(--danger-text)] mt-2 flex items-start gap-1.5">
           <AlertCircle size={14} className="shrink-0 mt-0.5" aria-hidden="true" />
           {blockedReasonText}
         </p>
@@ -240,7 +240,7 @@ function ActiveMissionPanel({
         <div className="mt-4 flex flex-col gap-2">
           <Link
             href={mission.href}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--accent-green)] px-4 py-2.5 text-xs font-mono uppercase tracking-wider text-[var(--accent-green-on-fill)] transition-colors hover:bg-[var(--accent-green-light)]"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--action-primary-bg)] px-4 py-2.5 text-xs font-mono uppercase tracking-wider text-[var(--action-primary-text)] transition-colors hover:bg-[var(--action-primary-hover)]"
           >
             {t("cta")}
           </Link>
@@ -273,7 +273,7 @@ function MissionListItem({
       className={cn(
         "flex items-start gap-3 rounded-lg border px-3 py-3",
         mission.status === "active"
-          ? "border-[var(--accent-green)]/40 bg-[var(--accent-green)]/5"
+          ? "border-[var(--selection-border)] bg-[var(--selection-bg)]"
           : "border-[var(--border-dim)] bg-[var(--deep-bg)]",
         mission.status === "completed" && "opacity-80"
       )}
@@ -283,13 +283,13 @@ function MissionListItem({
         <p className="text-sm font-medium text-[var(--text-primary)]">{label}</p>
         <p className="text-xs text-[var(--text-secondary)] mt-0.5">{description}</p>
         {mission.status === "blocked" && blockedReasonText ? (
-          <p className="text-xs text-[var(--accent-rose)] mt-1">{blockedReasonText}</p>
+          <p className="text-xs text-[var(--danger-text)] mt-1">{blockedReasonText}</p>
         ) : null}
       </div>
       {mission.status === "blocked" ? (
         <Link
           href={mission.href}
-          className="shrink-0 text-[10px] font-mono uppercase tracking-wider text-[var(--accent-green-dark)] hover:text-[var(--accent-green)]"
+          className="shrink-0 text-[10px] font-mono uppercase tracking-wider text-[var(--active-navigation-text)] hover:text-[var(--active-navigation-text)]"
         >
           {t(`blockedResume.${mission.key}`, { defaultValue: t("blockedResume.default") })}
         </Link>
@@ -297,13 +297,13 @@ function MissionListItem({
       {mission.status === "active" || mission.status === "upcoming" ? (
         <Link
           href={mission.href}
-          className="shrink-0 text-[10px] font-mono uppercase tracking-wider text-[var(--accent-green-dark)] hover:text-[var(--accent-green)]"
+          className="shrink-0 text-[10px] font-mono uppercase tracking-wider text-[var(--active-navigation-text)] hover:text-[var(--active-navigation-text)]"
         >
           {t("resume")}
         </Link>
       ) : null}
       {mission.status === "completed" ? (
-        <span className="shrink-0 text-[10px] font-mono uppercase tracking-wider text-[var(--accent-green)]">
+        <span className="shrink-0 text-[10px] font-mono uppercase tracking-wider text-[var(--success-text)]">
           {t("done")}
         </span>
       ) : null}

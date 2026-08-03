@@ -84,8 +84,8 @@ function CampaignListCard({
       />
       {campaign.previewPendingBatch ? (
         <div className="relative z-10 mb-2">
-          <span className="inline-flex items-center gap-1 rounded-md border border-[var(--accent-amber)]/40 bg-[var(--accent-amber)]/10 px-2 py-0.5 text-[10px] font-medium text-[var(--text-primary)]">
-            <Zap className="size-3 text-[var(--accent-amber)]" />
+          <span className="inline-flex items-center gap-1 rounded-md border border-[var(--warning-border)] bg-[var(--warning-bg)] px-2 py-0.5 text-[10px] font-medium text-[var(--warning-text)]">
+            <Zap className="size-3 text-[var(--warning-dot)]" />
             {tCampaigns("previewPendingBatchCta")}
           </span>
         </div>

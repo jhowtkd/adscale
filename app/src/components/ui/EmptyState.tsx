@@ -62,7 +62,7 @@ export default function EmptyState({
             <div className="flex size-16 items-center justify-center rounded-[var(--radius-object)] bg-[var(--surface-raised)] border border-[var(--border-subtle)]">
               <Icon
                 size={32}
-                className="text-[var(--accent-primary)]"
+                className="text-[var(--utility-icon)]"
                 strokeWidth={1.5}
               />
             </div>
@@ -82,7 +82,7 @@ export default function EmptyState({
             {steps.map((step, index) => (
               <div key={step} className="flex items-center gap-[var(--space-2)]">
                 <div className="flex items-center gap-1.5">
-                  <span className="inline-flex size-5 items-center justify-center rounded-full bg-[var(--accent-primary-subtle)] text-[length:var(--text-caption)] font-semibold text-[var(--accent-primary-text)]">
+                  <span className="inline-flex size-5 items-center justify-center rounded-full bg-[var(--selection-bg)] text-[length:var(--text-caption)] font-semibold text-[var(--selection-text)]">
                     {index + 1}
                   </span>
                   <span className="text-[length:var(--text-caption)] text-[var(--text-secondary)]">

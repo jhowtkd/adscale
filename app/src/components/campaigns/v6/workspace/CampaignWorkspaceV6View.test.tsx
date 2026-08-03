@@ -40,6 +40,33 @@ const view: CampaignWorkspaceV6ViewModel = {
 };
 
 describe("CampaignWorkspaceV6Chrome", () => {
+  it("renders failed status as danger and generating status as warning", () => {
+    const { rerender } = render(
+      <CampaignWorkspaceV6Chrome
+        view={{ ...view, status: "Failed", statusVariant: "danger" }}
+        labels={labels}
+      />,
+    );
+    expect(screen.getByText("Failed")).toHaveClass("bg-[var(--danger-bg)]");
+
+    rerender(
+      <CampaignWorkspaceV6Chrome
+        view={{ ...view, status: "Generating", statusVariant: "warning" }}
+        labels={labels}
+      />,
+    );
+    expect(screen.getByText("Generating")).toHaveClass("bg-[var(--warning-bg)]");
+  });
+
+  it("marks the current stage with neutral navigation roles and semantic status", () => {
+    render(<CampaignWorkspaceV6Chrome view={view} labels={labels} />);
+
+    const currentStage = screen.getByText("Produce").closest("[aria-current]");
+    expect(currentStage).toHaveAttribute("aria-current", "step");
+    expect(currentStage).toHaveClass("bg-[var(--active-navigation-bg)]");
+    expect(screen.getByText("Active")).toHaveClass("bg-[var(--success-bg)]");
+  });
+
   it("calls onStageSelect when a phase is clicked", () => {
     const onStageSelect = vi.fn();
     render(

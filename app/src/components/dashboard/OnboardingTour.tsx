@@ -310,7 +310,7 @@ export function OnboardingTour({ steps, onComplete, onSkip }: OnboardingTourProp
               ref={nextButtonRef}
               type="button"
               onClick={handleNext}
-              className="flex min-h-11 items-center gap-1 rounded-md bg-[var(--accent-green)] px-4 py-2 text-[13px] font-medium text-[var(--ink)] hover:bg-[var(--accent-green-light)] transition-colors"
+            className="flex min-h-11 items-center gap-1 rounded-md bg-[var(--action-primary-bg)] px-4 py-2 text-[13px] font-medium text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)] transition-colors"
             >
               {isLast ? t("finish") : t("next")}
               {!isLast ? <ChevronRight size={14} aria-hidden="true" /> : null}

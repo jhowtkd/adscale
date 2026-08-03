@@ -53,7 +53,7 @@ function ListThumbnail({
   }
 
   return (
-    <span className="font-mono text-sm font-bold text-[var(--accent-green)]">
+    <span className="font-mono text-sm font-bold text-[var(--utility-icon)]">
       {initials}
     </span>
   );
@@ -82,8 +82,8 @@ export default function DashboardCampaignListView({
               prefetch={false}
               className={cn(
                 "group flex items-center gap-4 rounded-xl border-2 border-[var(--border-dim)] bg-[var(--surface-base)] p-3",
-                "transition-colors duration-200 hover:border-[var(--accent-green)]/40 hover:bg-[var(--surface-raised)]",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-green)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--deep-bg)]",
+                "transition-colors duration-200 hover:border-[var(--selection-border)] hover:bg-[var(--surface-raised)]",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--deep-bg)]",
               )}
               aria-label={`${t("openCampaign")}: ${campaign.name}`}
             >
@@ -92,13 +92,13 @@ export default function DashboardCampaignListView({
               </div>
 
               <div className="min-w-0 flex-1">
-                <p className="truncate text-base font-bold text-[var(--text-primary)] group-hover:text-[var(--accent-green)] transition-colors">
+                <p className="truncate text-base font-bold text-[var(--text-primary)] group-hover:text-[var(--active-navigation-text)] transition-colors">
                   {campaign.name}
                 </p>
                 <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--text-secondary)]">
                   <span className="flex items-center gap-1.5 font-semibold">
-                    <Layers size={12} className="text-[var(--accent-green)]/60" aria-hidden="true" />
-                    <span className="text-[var(--accent-green)]">{campaign.pieceCount}</span>
+                    <Layers size={12} className="text-[var(--utility-icon)]" aria-hidden="true" />
+                    <span className="text-[var(--text-secondary)]">{campaign.pieceCount}</span>
                     <span>
                       {campaign.pieceCount === 1
                         ? t("variationSingular")

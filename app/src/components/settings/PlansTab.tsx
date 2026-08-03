@@ -49,7 +49,7 @@ export default function PlansTab() {
               className={cn(
                 "relative flex flex-col rounded-lg border bg-[var(--surface-base)] p-5",
                 tier.recommended
-                  ? "border-[var(--accent-green)] shadow-[0_12px_32px_var(--accent-green-dim)]"
+                  ? "border-[var(--selection-border)] shadow-[0_12px_32px_var(--neutral-bg)]"
                   : "border-[var(--border-dim)]"
               )}
             >
@@ -58,14 +58,14 @@ export default function PlansTab() {
                   className={cn(
                     "rounded-full px-2.5 py-1 text-xs font-medium",
                     tier.recommended
-                      ? "bg-[var(--accent-green-dim)] text-[var(--accent-green-text)]"
+                      ? "bg-[var(--selection-bg)] text-[var(--selection-text)]"
                       : "bg-[var(--surface-raised)] text-[var(--text-secondary)]"
                   )}
                 >
                   {t(`tiers.${tierKey}.badge`)}
                 </span>
                 {tier.recommended ? (
-                  <Crown size={16} className="text-[var(--accent-green)]" aria-hidden="true" />
+                  <Crown size={16} className="text-[var(--utility-icon)]" aria-hidden="true" />
                 ) : (
                   <Package size={16} className="text-[var(--text-muted)]" aria-hidden="true" />
                 )}
@@ -93,7 +93,7 @@ export default function PlansTab() {
               <ul className="mt-5 flex-1 space-y-2">
                 {features.map((feature) => (
                   <li key={feature} className="flex gap-2 text-sm text-[var(--text-secondary)]">
-                    <Check size={15} className="mt-0.5 shrink-0 text-[var(--accent-green)]" aria-hidden="true" />
+                    <Check size={15} className="mt-0.5 shrink-0 text-[var(--utility-icon)]" aria-hidden="true" />
                     <span>{feature}</span>
                   </li>
                 ))}
@@ -105,9 +105,7 @@ export default function PlansTab() {
                 disabled={tier.trial || checkout.isPending}
                 className={cn(
                   "mt-5 min-h-[var(--control-touch)] rounded-md text-sm font-medium transition-all disabled:cursor-not-allowed disabled:opacity-60",
-                  tier.recommended
-                    ? "bg-[var(--accent-green)] text-[var(--text-on-accent)] hover:bg-[var(--accent-green-light)]"
-                    : "border border-[var(--border-dim)] bg-[var(--surface-raised)] text-[var(--text-primary)] hover:border-[var(--border-medium)]"
+                  "bg-[var(--action-primary-bg)] text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)]"
                 )}
               >
                 {checkout.isPending ? t("opening") : tier.trial ? t("trialIncluded") : t("selectPlan")}

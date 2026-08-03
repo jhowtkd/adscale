@@ -285,22 +285,13 @@ export default function TopBar({
         <LanguageSwitcher className="[&_button]:size-9 [&_button]:justify-center [&_button]:gap-0 [&_button]:px-0 sm:[&_button]:h-9 sm:[&_button]:w-auto sm:[&_button]:gap-1 sm:[&_button]:px-2 [&_button_svg]:hidden sm:[&_button_svg]:block" />
         {!isShellFloating && <FeedbackTriggerButton />}
 
-        {isShellFloating && (
-          <Link
-            href="/docs"
-            className="hidden items-center gap-2 rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] px-3.5 py-2 text-[13px] font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-inset)] sm:inline-flex"
-          >
-            {tNav("howToUse")}
-          </Link>
-        )}
-
         {isHome && !isShellFloating && (
           <Link
             href="/campaigns?new=1"
             aria-label={tCampaign("new")}
             className={cn(
-              "flex size-9 shrink-0 items-center justify-center rounded-lg whitespace-nowrap sm:size-auto sm:h-10 sm:min-h-11 sm:rounded-md sm:px-5 sm:py-2.5 text-sm font-medium text-[var(--deep-bg)]",
-              "bg-[var(--accent-green)] transition-colors duration-200 hover:bg-[var(--accent-green-light)]"
+              "flex size-9 shrink-0 items-center justify-center rounded-lg whitespace-nowrap sm:size-auto sm:h-10 sm:min-h-11 sm:rounded-md sm:px-5 sm:py-2.5 text-sm font-medium text-[var(--action-primary-text)]",
+              "bg-[var(--action-primary-bg)] transition-colors duration-200 hover:bg-[var(--action-primary-hover)]"
             )}
           >
             <Plus size={16} className="sm:hidden" aria-hidden="true" />
@@ -320,9 +311,10 @@ export default function TopBar({
               onClick={() => setNotificationsOpen((open) => !open)}
               className={cn(
                 "relative flex size-9 items-center justify-center rounded-full sm:size-10",
-                "text-[var(--text-muted)] hover:text-[var(--text-primary)]",
+                unreadCount > 0 ? "text-[var(--info-text)]" : "text-[var(--utility-icon)] hover:text-[var(--text-primary)]",
                 "hover:bg-[var(--surface-raised)]",
-                notificationsOpen && "bg-[var(--surface-raised)] text-[var(--text-primary)]",
+                notificationsOpen && "bg-[var(--selection-bg)] text-[var(--selection-text)]",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
                 "transition-all duration-200"
               )}
             >
@@ -330,7 +322,7 @@ export default function TopBar({
               {unreadCount > 0 && (
                 <span
                   aria-hidden="true"
-                  className="absolute -top-0.5 -right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--accent-rose)] px-1 text-xs font-semibold text-[var(--deep-bg)]"
+                  className="absolute -top-0.5 -right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--info-dot)] px-1 text-xs font-semibold text-[var(--text-on-accent)]"
                 >
                   {unreadCount > 9 ? "9+" : unreadCount}
                 </span>
@@ -359,9 +351,10 @@ export default function TopBar({
           <DropdownMenuTrigger
             className={cn(
               "flex size-9 cursor-pointer items-center justify-center rounded-full text-[10px] font-semibold sm:size-10 sm:text-xs",
-              "bg-[var(--accent-green-dim)] text-[var(--accent-green-text)]",
+              "bg-[var(--selection-bg)] text-[var(--selection-text)]",
               "ring-1 ring-[var(--border-medium)] sm:ring-2",
               "hover:ring-[var(--border-medium)] hover:brightness-110",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
               "transition-all duration-200"
             )}
             aria-label={tCommon("accountMenu")}
@@ -530,7 +523,7 @@ function NotificationPanel({ items, onClose, onClear, onMarkAsRead, onMarkAllAsR
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -8, scale: 0.98 }}
       transition={{ duration: 0.15 }}
-      className="layer-popover absolute right-0 top-[calc(100%+0.5rem)] z-[var(--layer-popover)] w-[360px] max-w-[calc(100vw-2rem)] rounded-xl border border-[var(--border-dim)] bg-[var(--surface-raised)] shadow-[0_24px_80px_rgba(0,0,0,0.1)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-green)]"
+      className="layer-popover absolute right-0 top-[calc(100%+0.5rem)] z-[var(--layer-popover)] w-[360px] max-w-[calc(100vw-2rem)] rounded-xl border border-[var(--border-dim)] bg-[var(--surface-raised)] shadow-[0_24px_80px_rgba(0,0,0,0.1)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
     >
       <div className="flex items-center justify-between border-b border-[var(--border-dim)] px-4 py-3">
         <div>
@@ -546,7 +539,7 @@ function NotificationPanel({ items, onClose, onClear, onMarkAsRead, onMarkAllAsR
             <button
               type="button"
               onClick={onMarkAllAsRead}
-              className="rounded-md px-2 py-1 text-xs font-medium text-[var(--accent-green-text)] hover:bg-[var(--accent-green-dim)]"
+              className="rounded-md px-2 py-1 text-xs font-medium text-[var(--selection-text)] hover:bg-[var(--selection-bg)]"
             >
               {tCommon("markAllAsRead") ?? "Marcar todas"}
             </button>
@@ -584,10 +577,8 @@ function NotificationPanel({ items, onClose, onClear, onMarkAsRead, onMarkAllAsR
                   : "#";
                 const Icon = batch.type === "derivation_failed" ? AlertCircle : CheckCircle2;
                 const iconColor = batch.type === "derivation_failed"
-                  ? "text-[var(--accent-rose)] bg-[var(--accent-rose-dim)]"
-                  : batch.allRead
-                    ? "bg-[var(--surface-raised)] text-[var(--text-muted)]"
-                    : "bg-[var(--accent-green-dim)] text-[var(--accent-green-text)]";
+                  ? "bg-[var(--danger-bg)] text-[var(--danger-text)]"
+                  : "bg-[var(--success-bg)] text-[var(--success-text)]";
                 const campaignName = campaignNameFromBatch(batch);
 
                 let summary: string;
@@ -632,7 +623,7 @@ function NotificationPanel({ items, onClose, onClear, onMarkAsRead, onMarkAllAsR
                       </p>
                     </div>
                     {!batch.allRead && (
-                      <span className="mt-2 size-2 shrink-0 rounded-full bg-[var(--accent-green)]" />
+                      <span className="mt-2 size-2 shrink-0 rounded-full bg-[var(--info-dot)]" />
                     )}
                   </Link>
                 );
@@ -695,14 +686,19 @@ function NavLink({
   return (
     <Link
       href={href}
+      aria-current={active ? "page" : undefined}
       className={cn(
         "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
         active
-          ? "bg-[var(--accent-green-dim)] text-[var(--accent-green-text)]"
+          ? "bg-[var(--active-navigation-bg)] text-[var(--active-navigation-text)]"
           : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)]"
       )}
     >
-      <Icon size={16} aria-hidden="true" />
+      <Icon
+        size={16}
+        aria-hidden="true"
+        className={active ? "text-[var(--active-navigation-text)]" : "text-[var(--utility-icon)]"}
+      />
       {label}
     </Link>
   );

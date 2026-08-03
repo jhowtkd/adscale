@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { resolveWorkspaceStage } from "./map-campaign-workspace-v6";
+import {
+  mapCampaignWorkspaceToV6View,
+  resolveWorkspaceStage,
+} from "./map-campaign-workspace-v6";
 
 const baseCtx = {
   workspaceState: "trabalho" as const,
@@ -38,5 +41,26 @@ describe("resolveWorkspaceStage", () => {
         isGenerating: true,
       }),
     ).toBe(2);
+  });
+});
+
+describe("mapCampaignWorkspaceToV6View", () => {
+  it("keeps failed campaigns dangerous while generating campaigns stay warning", () => {
+    const mapStatus = (status: "failed" | "generating") =>
+      mapCampaignWorkspaceToV6View({
+        campaign: {
+          name: "Campaign",
+          status,
+          createdAt: new Date("2026-07-13T12:00:00.000Z"),
+        },
+        derivations: [],
+        workspaceState: "trabalho",
+        tStatus: (value) => value,
+        tWorkspace: (value) => value,
+        formatDate: () => "today",
+      }).statusVariant;
+
+    expect(mapStatus("failed")).toBe("danger");
+    expect(mapStatus("generating")).toBe("warning");
   });
 });

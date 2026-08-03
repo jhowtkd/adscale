@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import type { PlatformFilter, SortOption, StatusFilter, ViewMode } from "@/components/campaigns/types";
 import type {
   CampaignsV6Labels,
+  CampaignV6BadgeVariant,
   CampaignV6Row,
   WorkOriginFilter,
 } from "./campaigns-v6-types";
@@ -127,7 +128,7 @@ export default function CampaignsV6View({
                     <DropdownMenuItem
                       key={option.value}
                       onClick={() => onSortChange(option.value)}
-                      className={sortOption === option.value ? "text-[var(--accent-primary-text)]" : undefined}
+                      className={sortOption === option.value ? "bg-[var(--active-navigation-bg)] text-[var(--active-navigation-text)]" : undefined}
                     >
                       {option.label}
                     </DropdownMenuItem>
@@ -146,7 +147,7 @@ export default function CampaignsV6View({
           <button
             type="button"
             onClick={interactive ? onNewCampaign : undefined}
-            className="inline-flex items-center gap-2 rounded-[var(--radius-control)] bg-[var(--accent-primary)] px-4 py-2 text-sm font-medium text-[var(--text-on-accent)]"
+            className="inline-flex items-center gap-2 rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-4 py-2 text-sm font-medium text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
           >
             {labels.newCampaign}
           </button>
@@ -162,7 +163,7 @@ export default function CampaignsV6View({
           <div className="relative min-w-[220px] max-w-xs flex-1">
             <Search
               size={16}
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]"
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--utility-icon)]"
               aria-hidden="true"
             />
             <input
@@ -285,12 +286,12 @@ function CampaignGrid({
           <Link
             href={interactive ? row.href : "#"}
             aria-label={`${labels.openCampaign}: ${row.name}`}
-            className="flex min-h-36 flex-col justify-between rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4 transition-colors hover:border-[var(--border-default)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]"
+            className="flex min-h-36 flex-col justify-between rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4 transition-colors hover:border-[var(--border-default)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             onClick={interactive ? undefined : (event) => event.preventDefault()}
           >
             <div className="flex items-start justify-between gap-3">
               <span
-                className="grid h-10 w-10 place-items-center rounded-[var(--radius-control)] bg-[var(--accent-primary-subtle)] text-[10px] font-bold text-[var(--accent-primary-text)]"
+                className="grid h-10 w-10 place-items-center rounded-[var(--radius-control)] bg-[var(--neutral-bg)] text-xs font-bold text-[var(--neutral-text)]"
                 aria-hidden="true"
               >
                 {row.initials}
@@ -344,11 +345,12 @@ function CampaignRow({
   return (
     <li
       data-motion-highlight={selected ? "selected" : "idle"}
+      data-selection-marker={selected ? "selected" : undefined}
       className={cn(
         "grid grid-cols-[auto_40px_minmax(0,1fr)_auto_auto_auto] items-center gap-3 px-4 py-3 sm:gap-3.5",
         "transition-[background-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-product)]",
         selected
-          ? "bg-[var(--accent-primary-subtle)] shadow-[inset_3px_0_0_var(--accent-primary)]"
+          ? "bg-[var(--selection-bg)] shadow-[inset_3px_0_0_var(--selection-border)]"
           : "hover:bg-[var(--surface-raised)]",
       )}
       onClick={handleRowClick}
@@ -360,10 +362,10 @@ function CampaignRow({
         onChange={(e) => onToggleSelect?.(row.id, e.target.checked)}
         onClick={(e) => e.stopPropagation()}
         disabled={!interactive || !isCampaign}
-        className="size-4 accent-[var(--accent-primary)]"
+        className="size-4 accent-[var(--selection-text)]"
       />
       <span
-        className="grid h-10 w-10 shrink-0 place-items-center rounded-[var(--radius-control)] bg-[var(--accent-primary-subtle)] text-[10px] font-bold text-[var(--accent-primary-text)]"
+        className="grid h-10 w-10 shrink-0 place-items-center rounded-[var(--radius-control)] bg-[var(--neutral-bg)] text-xs font-bold text-[var(--neutral-text)]"
         aria-hidden="true"
       >
         {row.initials}
@@ -382,7 +384,7 @@ function CampaignRow({
             <>
               {" · "}
               {row.variations} {labels.variationsLabel} ·{" "}
-              <span className="text-[var(--accent-primary-text)]">
+              <span className="text-[var(--success-text)]">
                 {row.approved} {labels.approvedLabel}
               </span>
             </>
@@ -396,7 +398,7 @@ function CampaignRow({
           <DropdownMenuTrigger
             type="button"
             aria-label={labels.actionsFor(row.name)}
-            className="grid h-8 w-8 place-items-center rounded-[var(--radius-control)] text-[var(--text-muted)] hover:bg-[var(--surface-inset)]"
+            className="grid h-8 w-8 place-items-center rounded-[var(--radius-control)] text-[var(--utility-icon)] hover:bg-[var(--surface-inset)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             onClick={(e) => e.stopPropagation()}
           >
             ⋮
@@ -422,7 +424,7 @@ function CampaignRow({
         <button
           type="button"
           aria-label={labels.actionsFor(row.name)}
-          className="grid h-8 w-8 place-items-center rounded-[var(--radius-control)] text-[var(--text-muted)]"
+          className="grid h-8 w-8 place-items-center rounded-[var(--radius-control)] text-[var(--utility-icon)]"
         >
           ⋮
         </button>
@@ -473,7 +475,7 @@ function FilterChip<T extends string>({
           <DropdownMenuItem
             key={option.value}
             onClick={() => onChange(option.value)}
-            className={value === option.value ? "text-[var(--accent-primary-text)]" : undefined}
+            className={value === option.value ? "bg-[var(--active-navigation-bg)] text-[var(--active-navigation-text)]" : undefined}
           >
             {option.label}
           </DropdownMenuItem>
@@ -502,7 +504,7 @@ function ViewToggle({
       onClick={onClick}
       className={`rounded px-2 py-1.5 text-xs font-medium ${className ?? ""} ${
         pressed
-          ? "bg-[var(--accent-primary)] text-[var(--text-on-accent)]"
+          ? "bg-[var(--active-navigation-bg)] text-[var(--active-navigation-text)]"
           : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
       }`}
     >
@@ -515,12 +517,13 @@ function CampaignBadge({
   variant,
   label,
 }: {
-  variant: "success" | "warning" | "info" | "neutral";
+  variant: CampaignV6BadgeVariant;
   label: string;
 }) {
   const styles = {
     success: "bg-[var(--success-bg)] text-[var(--success-text)]",
     warning: "bg-[var(--warning-bg)] text-[var(--warning-text)]",
+    danger: "bg-[var(--danger-bg)] text-[var(--danger-text)]",
     info: "bg-[var(--info-bg)] text-[var(--info-text)]",
     neutral: "bg-[var(--neutral-bg)] text-[var(--neutral-text)]",
   };

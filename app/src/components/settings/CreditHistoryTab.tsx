@@ -28,10 +28,10 @@ const ResponsiveContainer = dynamic(() => import("recharts").then(m => ({ defaul
 const Cell = dynamic(() => import("recharts").then(m => ({ default: m.Cell })));
 
 const TYPE_COLORS: Record<string, string> = {
-  usage: "var(--accent-rose)",
-  refund: "var(--accent-green)",
-  grant: "var(--accent-secondary)",
-  purchase: "var(--accent-green)",
+  usage: "var(--danger-text)",
+  refund: "var(--success-text)",
+  grant: "var(--neutral-text)",
+  purchase: "var(--success-text)",
 };
 
 const EMPTY_TRANSACTIONS: NonNullable<ReturnType<typeof useCreditHistory>["data"]>["transactions"] = [];
@@ -250,7 +250,7 @@ export default function CreditHistoryTab() {
                   <TableCell
                     className="font-medium"
                     style={{
-                      color: tx.amount < 0 ? 'var(--accent-rose)' : 'var(--accent-green)',
+                      color: tx.amount < 0 ? 'var(--danger-text)' : 'var(--success-text)',
                     }}
                   >
                     {tx.amount > 0 ? `+${tx.amount}` : tx.amount}

@@ -14,28 +14,28 @@ const icons = {
 
 const styles = {
   success: {
-    border: "border-[var(--accent-green)]/30",
-    bg: "bg-[var(--accent-green)]/8",
-    icon: "text-[var(--accent-green)]",
-    progress: "bg-[var(--accent-green)]",
+    border: "border-[var(--success-border)]",
+    bg: "bg-[var(--success-bg)]",
+    icon: "text-[var(--success-text)]",
+    progress: "bg-[var(--success-dot)]",
   },
   error: {
-    border: "border-[var(--accent-rose)]/30",
-    bg: "bg-[var(--accent-rose)]/8",
-    icon: "text-[var(--accent-rose)]",
-    progress: "bg-[var(--accent-rose)]",
+    border: "border-[var(--danger-border)]",
+    bg: "bg-[var(--danger-bg)]",
+    icon: "text-[var(--danger-text)]",
+    progress: "bg-[var(--danger-dot)]",
   },
   warning: {
-    border: "border-amber-400/30",
-    bg: "bg-amber-400/8",
-    icon: "text-amber-500",
-    progress: "bg-amber-500",
+    border: "border-[var(--warning-border)]",
+    bg: "bg-[var(--warning-bg)]",
+    icon: "text-[var(--warning-text)]",
+    progress: "bg-[var(--warning-dot)]",
   },
   info: {
-    border: "border-[var(--accent-blue)]/30",
-    bg: "bg-[var(--accent-blue)]/8",
-    icon: "text-[var(--accent-blue)]",
-    progress: "bg-[var(--accent-blue)]",
+    border: "border-[var(--info-border)]",
+    bg: "bg-[var(--info-bg)]",
+    icon: "text-[var(--info-text)]",
+    progress: "bg-[var(--info-dot)]",
   },
 };
 

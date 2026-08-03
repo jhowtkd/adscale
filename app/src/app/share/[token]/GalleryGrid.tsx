@@ -32,7 +32,7 @@ export default function GalleryGrid({ items }: GalleryGridProps) {
             key={item.id}
             onClick={() => setSelectedId(item.id)}
             className={cn(
-              "group relative aspect-square overflow-hidden rounded-lg border border-[var(--border-medium)] bg-[var(--surface-raised)] shadow-[0_12px_40px_rgba(0,0,0,0.35)] transition hover:border-[var(--accent-green)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-green)]"
+              "group relative aspect-square overflow-hidden rounded-lg border border-[var(--border-default)] bg-[var(--surface-raised)] shadow-[0_12px_40px_rgba(0,0,0,0.35)] transition hover:border-[var(--selection-border)] focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]"
             )}
           >
             <Image
@@ -60,7 +60,7 @@ export default function GalleryGrid({ items }: GalleryGridProps) {
       {selected && (
         <dialog
           open
-          className="fixed inset-0 z-50 m-0 flex size-full max-h-none max-w-none items-center justify-center border-0 bg-black/80 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[var(--layer-popover)] m-0 flex size-full max-h-none max-w-none items-center justify-center border-0 bg-black/80 p-4 backdrop-blur-sm"
           aria-modal="true"
         >
           <button
@@ -70,7 +70,7 @@ export default function GalleryGrid({ items }: GalleryGridProps) {
             aria-label="Fechar visualizacao"
           />
           <div
-            className="relative z-10 max-h-[90vh] max-w-4xl overflow-hidden rounded-xl bg-[var(--surface-base)] shadow-2xl ring-1 ring-[var(--border-medium)]"
+            className="relative z-[var(--layer-raised)] max-h-[90vh] max-w-4xl overflow-hidden rounded-xl bg-[var(--surface-base)] shadow-2xl ring-1 ring-[var(--border-default)]"
           >
             <button type="button"
               onClick={() => setSelectedId(null)}
@@ -88,9 +88,9 @@ export default function GalleryGrid({ items }: GalleryGridProps) {
         height={800}
         unoptimized
       />
-            <div className="flex items-center gap-3 border-t border-[var(--border-dim)] bg-[var(--deep-bg)] px-4 py-3 text-xs text-[var(--text-secondary)]">
+            <div className="flex items-center gap-3 border-t border-[var(--border-subtle)] bg-[var(--canvas)] px-4 py-3 text-xs text-[var(--text-secondary)]">
               {selected.format && (
-                <span className="rounded bg-[var(--border-medium)] px-2 py-0.5 font-medium">
+                <span className="rounded bg-[var(--border-default)] px-2 py-0.5 font-medium">
                   {selected.format.toUpperCase()}
                 </span>
               )}

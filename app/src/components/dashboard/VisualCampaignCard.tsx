@@ -17,7 +17,7 @@ import {
 import { useReducedMotion } from "@/lib/hooks/use-reduced-motion";
 import {
   type DashboardCampaignItem,
-  statusConfig,
+  getCampaignStatusConfig,
 } from "@/components/dashboard/campaign-status-config";
 
 interface VisualCampaignCardProps extends DashboardCampaignItem {
@@ -52,8 +52,8 @@ function ThumbnailPlaceholder({ name }: { name: string }) {
       }}
     >
       <div className="relative z-10">
-        <div className="size-20 rounded-xl bg-[var(--deep-bg)] border-[3px] border-[var(--accent-green)]/40 flex items-center justify-center">
-          <span className="font-mono text-2xl font-bold text-[var(--accent-green)] tracking-wider">
+        <div className="size-20 rounded-xl bg-[var(--deep-bg)] border-[3px] border-[var(--selection-border)] flex items-center justify-center">
+          <span className="font-mono text-2xl font-bold text-[var(--utility-icon)] tracking-wider">
             {initials}
           </span>
         </div>
@@ -77,7 +77,7 @@ const VisualCampaignCard = memo(function VisualCampaignCard({
   const locale = useLocale();
   const dateLocale = locale.startsWith("pt") ? ptBR : enUS;
   const reducedMotion = useReducedMotion();
-  const statusInfo = statusConfig[status] ?? statusConfig.draft;
+  const statusInfo = getCampaignStatusConfig(status);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [imageDimensions, setImageDimensions] = useState<{
@@ -116,8 +116,8 @@ const VisualCampaignCard = memo(function VisualCampaignCard({
         "group relative overflow-hidden rounded-2xl border border-[var(--border-dim)] bg-[var(--surface-base)] animate-fade-in",
         "transition-colors duration-300",
         !reducedMotion && "will-change-transform hover:border-[var(--border-medium)]",
-        "hover:border-[var(--accent-green)]/40 hover:shadow-[0_0_24px_var(--accent-green-dim),0_4px_16px_rgba(0,0,0,0.3)]",
-        "focus-within:border-[var(--accent-green)]/50 focus-within:shadow-[0_0_24px_var(--accent-green-dim)]",
+        "hover:border-[var(--selection-border)]",
+        "focus-within:border-[var(--selection-border)]",
         !reducedMotion && "active:scale-[0.98] active:duration-100",
       )}
       style={{
@@ -127,7 +127,7 @@ const VisualCampaignCard = memo(function VisualCampaignCard({
       <Link
         href={`/campaigns/${id}`}
         prefetch={false}
-        className="block outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-green)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--deep-bg)] rounded-2xl"
+        className="block outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--deep-bg)] rounded-2xl"
         aria-label={`${t("openCampaign")}: ${name}`}
       >
         {/* Thumbnail Area — natural height from image aspect ratio for masonry layout */}
@@ -169,13 +169,7 @@ const VisualCampaignCard = memo(function VisualCampaignCard({
               className={cn(
                 "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide",
                 "bg-black/60 border border-white/10 text-white",
-                status === "active" || status === "generating" || status === "completed"
-                  ? "text-[var(--accent-green-light)]"
-                  : status === "failed"
-                    ? "text-[var(--accent-rose)]"
-                    : status === "draft"
-                      ? "text-[var(--accent-amber)]"
-                      : "text-white/80",
+                statusInfo.text,
               )}
             >
               <span className={cn("size-2 rounded-full", statusInfo.dot)} />
@@ -195,15 +189,15 @@ const VisualCampaignCard = memo(function VisualCampaignCard({
 
         {/* Info Area */}
         <div className="p-5">
-          <h3 className="text-base font-bold text-[var(--text-primary)] truncate leading-tight group-hover:text-[var(--accent-green)] transition-colors">
+          <h3 className="text-base font-bold text-[var(--text-primary)] truncate leading-tight group-hover:text-[var(--active-navigation-text)] transition-colors">
             {displayName}
           </h3>
 
           <div className="flex items-center justify-between mt-3 gap-2">
             <div className="flex items-center gap-2 min-w-0 flex-wrap">
               <span className="flex items-center gap-1.5 text-xs font-semibold text-[var(--text-secondary)]">
-                <Layers size={13} className="text-[var(--accent-green)]/60" aria-hidden="true" />
-                <span className="text-[var(--accent-green)]">{pieceCount}</span>
+                <Layers size={13} className="text-[var(--utility-icon)]" aria-hidden="true" />
+                <span className="text-[var(--text-secondary)]">{pieceCount}</span>
                 <span>
                   {pieceCount === 1 ? t("variationSingular") : t("variationPlural")}
                 </span>
@@ -233,7 +227,7 @@ const VisualCampaignCard = memo(function VisualCampaignCard({
                 </span>
               ))}
               {platforms.length > 3 && (
-                <span className="px-2.5 py-1 rounded-lg text-xs font-bold text-[var(--accent-green)]">
+                <span className="px-2.5 py-1 rounded-lg text-xs font-bold text-[var(--text-secondary)]">
                   +{platforms.length - 3}
                 </span>
               )}
@@ -247,7 +241,7 @@ const VisualCampaignCard = memo(function VisualCampaignCard({
         <DropdownMenu>
           <DropdownMenuTrigger
             aria-label={t("moreActions")}
-            className="min-h-11 min-w-11 rounded-xl bg-[var(--surface-base)] border-2 border-[var(--border-dim)] flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--accent-green)] hover:border-[var(--accent-green)]/40 transition-colors"
+            className="min-h-11 min-w-11 rounded-xl bg-[var(--surface-base)] border-2 border-[var(--border-dim)] flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--active-navigation-text)] hover:border-[var(--selection-border)] transition-colors"
             onClick={(e) => e.stopPropagation()}
           >
             <MoreHorizontal size={16} aria-hidden="true" />
@@ -261,7 +255,7 @@ const VisualCampaignCard = memo(function VisualCampaignCard({
               <Copy size={14} className="mr-2" aria-hidden="true" />
               Duplicar
             </DropdownMenuItem>
-            <DropdownMenuItem className="cursor-pointer text-[var(--accent-rose)] font-semibold">
+            <DropdownMenuItem className="cursor-pointer text-[var(--danger-text)] font-semibold">
               <Trash2 size={14} className="mr-2" aria-hidden="true" />
               Excluir
             </DropdownMenuItem>

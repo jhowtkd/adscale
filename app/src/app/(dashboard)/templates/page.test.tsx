@@ -8,4 +8,22 @@ describe("template composer CTA", () => {
     expect(source.match(new RegExp(href.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g")))
       .toHaveLength(1);
   });
+
+  it("uses role tokens for template actions, utility icons, and validation", () => {
+    const page = readFileSync("src/app/(dashboard)/templates/page.tsx", "utf8");
+    const card = readFileSync("src/components/templates/TemplateCard.tsx", "utf8");
+    const modal = readFileSync("src/components/templates/SaveTemplateModal.tsx", "utf8");
+
+    expect(page).toContain("bg-[var(--action-primary-bg)]");
+    expect(card).toContain('variant="neutral"');
+    expect(card).toContain("text-[var(--utility-icon)]");
+    expect(card).toContain("bg-[var(--action-primary-bg)]");
+    expect(card).toContain("hover:text-[var(--danger-text)]");
+    expect(modal).toContain('aria-required="true"');
+    expect(modal).toContain('aria-invalid={Boolean(error)}');
+    expect(modal).toContain('role="alert"');
+    expect(modal).toContain("border-[var(--danger-border)]");
+    expect(modal).toContain("bg-[var(--action-primary-bg)]");
+    expect(`${card}\n${modal}`).not.toMatch(/--accent-(?:green|blue|rose)/);
+  });
 });

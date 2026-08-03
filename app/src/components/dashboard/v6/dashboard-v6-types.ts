@@ -9,7 +9,7 @@ export type DashboardV6Hero = {
   id: string;
   name: string;
   badge: string;
-  badgeClass: "warning" | "info" | "success" | "neutral";
+  badgeClass: DashboardStatusTone;
   description: string;
   briefingProgress: number | null;
   variationsDone: number;
@@ -25,7 +25,7 @@ export type DashboardV6ActivityRow = {
   name: string;
   subtitle: string;
   status: string;
-  statusClass: "running" | "review" | "approved" | "draft";
+  statusClass: DashboardStatusTone;
   platforms: string;
   variations: string;
   updated: string;
@@ -91,3 +91,4 @@ export type DashboardV6Labels = {
   briefingEmptyDescription: string;
   briefingEmptyAction: string;
 };
+import type { DashboardStatusTone } from "../campaign-status-config";

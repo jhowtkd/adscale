@@ -56,12 +56,12 @@ export default function DerivationPreviewGateFooter({
     <div
       role="status"
       className={cn(
-        "mt-3 space-y-3 rounded-[var(--radius-control)] border border-[color-mix(in_srgb,var(--accent-amber)_35%,transparent)] bg-[var(--warning-bg)] p-3",
+        "mt-3 space-y-3 rounded-[var(--radius-control)] border border-[var(--warning-border)] bg-[var(--warning-bg)] p-3",
         className
       )}
     >
       <div className="flex items-start gap-2">
-        <AlertTriangle className="mt-0.5 size-4 shrink-0 text-[var(--accent-amber)]" aria-hidden="true" />
+        <AlertTriangle className="mt-0.5 size-4 shrink-0 text-[var(--warning-text)]" aria-hidden="true" />
         <div className="min-w-0 flex-1">
           <p className="text-xs font-semibold text-[var(--text-primary)]">{t("title")}</p>
           <p className="mt-0.5 text-[11px] leading-relaxed text-[var(--text-secondary)]">

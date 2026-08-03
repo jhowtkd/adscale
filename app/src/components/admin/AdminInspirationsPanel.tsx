@@ -87,7 +87,7 @@ export function AdminInspirationsPanel() {
             As imagens aparecem na área de inspirações para qualquer usuário usar como referência de reestyling.
           </p>
         </div>
-        <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-[var(--radius-control)] bg-[var(--accent-primary)] px-4 py-2 text-sm font-medium text-[var(--text-on-accent)] focus-within:ring-2 focus-within:ring-[var(--accent-primary)] focus-within:ring-offset-2">
+        <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-4 py-2 text-sm font-medium text-[var(--action-primary-text)] focus-within:ring-2 focus-within:ring-[var(--focus-ring)] focus-within:ring-offset-2">
           <ImagePlus size={16} aria-hidden="true" />
           {upload.isPending ? "Enviando..." : "Adicionar imagens"}
           <input

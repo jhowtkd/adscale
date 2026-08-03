@@ -91,7 +91,7 @@ function ContinueWorkCard({
   return (
     <Link
       href={href}
-      className="group grid min-h-40 grid-cols-[minmax(0,1fr)_6rem] items-center gap-5 overflow-hidden rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-6 transition-colors hover:bg-[var(--surface-inset)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)] sm:min-h-44 sm:grid-cols-[minmax(0,1fr)_8rem] sm:p-7 lg:min-h-48 lg:grid-cols-[minmax(0,1fr)_10rem]"
+      className="group grid min-h-40 grid-cols-[minmax(0,1fr)_6rem] items-center gap-5 overflow-hidden rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-6 transition-colors hover:bg-[var(--surface-inset)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] sm:min-h-44 sm:grid-cols-[minmax(0,1fr)_8rem] sm:p-7 lg:min-h-48 lg:grid-cols-[minmax(0,1fr)_10rem]"
     >
       <span className="min-w-0">
         <span id="continue-work-title" className="block text-base font-semibold text-[var(--text-primary)] sm:text-lg">{title}</span>
@@ -132,7 +132,7 @@ export default function DashboardHomeActions({
       <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 px-4 text-center">
         <h1 className="text-lg font-semibold text-[var(--text-primary)]">{t("errorTitle")}</h1>
         <p className="text-sm text-[var(--text-muted)]">{t("errorDescription")}</p>
-        <button type="button" onClick={() => void refetch()} className="rounded-[var(--radius-control)] bg-[var(--accent-primary)] px-5 py-2.5 text-sm font-medium text-[var(--text-on-accent)]">
+        <button type="button" onClick={() => void refetch()} className="rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-5 py-2.5 text-sm font-medium text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)]">
           {t("retry")}
         </button>
       </div>

@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { m } from "@/components/animations/MotionBoundary";
 import { useTranslations } from "next-intl";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Trash2, Copy, Pencil, Check, X } from "lucide-react";
@@ -27,6 +26,7 @@ export default function TemplateCard({
 }: TemplateCardProps) {
   const tTemplate = useTranslations("template");
   const tCampaign = useTranslations("campaign");
+  const tCommon = useTranslations("common");
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState("");
 
@@ -71,10 +71,20 @@ export default function TemplateCard({
                   if (e.key === "Escape") handleCancel();
                 }}
               />
-              <button type="button" onClick={handleSave} className="text-[var(--accent-green)] hover:text-[var(--accent-green-light)]">
+              <button
+                type="button"
+                onClick={handleSave}
+                className="rounded-[var(--radius-control)] text-[var(--utility-icon)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                aria-label={tCommon("save")}
+              >
                 <Check size={16} />
               </button>
-              <button type="button" onClick={handleCancel} className="text-[var(--text-muted)] hover:text-[var(--text-primary)]">
+              <button
+                type="button"
+                onClick={handleCancel}
+                className="rounded-[var(--radius-control)] text-[var(--utility-icon)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                aria-label={tCommon("cancel")}
+              >
                 <X size={16} />
               </button>
             </div>
@@ -83,12 +93,14 @@ export default function TemplateCard({
               <h3 className="text-sm font-semibold text-[var(--text-primary)] truncate">
                 {template.name}
               </h3>
-              <button type="button"
+              <button
+                type="button"
                 onClick={() => {
                   setEditName(template.name);
                   setIsEditing(true);
                 }}
-                className="text-[var(--text-muted)] hover:text-[var(--accent-green)] transition-colors"
+                className="rounded-[var(--radius-control)] text-[var(--utility-icon)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                aria-label={tCommon("edit")}
               >
                 <Pencil size={12} />
               </button>
@@ -101,13 +113,7 @@ export default function TemplateCard({
           )}
         </div>
         <Badge
-          variant={
-            template.generationMode === "art_variation"
-              ? "info"
-              : template.generationMode === "format_adaptation"
-                ? "success"
-                : "neutral"
-          }
+          variant="neutral"
           className="text-[10px] flex-shrink-0 ml-2"
         >
           {modeLabels[template.generationMode] || template.generationMode}
@@ -144,7 +150,7 @@ export default function TemplateCard({
         <Button
           size="sm"
           onClick={() => onUse(template)}
-          className="flex-1 text-xs"
+          className="flex-1 bg-[var(--action-primary-bg)] text-xs text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)]"
         >
           <Copy size={14} aria-hidden="true" />
           {tTemplate("useTemplate")}
@@ -153,7 +159,7 @@ export default function TemplateCard({
           size="sm"
           variant="ghost"
           onClick={() => onDelete(template.id)}
-          className="text-[var(--text-muted)] hover:text-[var(--danger-text)] hover:bg-[var(--danger-bg)]"
+          className="text-[var(--utility-icon)] hover:bg-[var(--danger-bg)] hover:text-[var(--danger-text)]"
           aria-label={tTemplate("delete")}
         >
           <Trash2 size={14} />

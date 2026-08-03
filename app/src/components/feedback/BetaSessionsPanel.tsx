@@ -336,7 +336,7 @@ export function BetaSessionsPanel() {
                   className={cn(
                     "rounded-lg border p-4 space-y-2",
                     completed
-                      ? "border-[var(--accent-green)]/30 bg-[var(--accent-green)]/5"
+                      ? "border-[var(--success-border)] bg-[var(--success-bg)]"
                       : "border-[var(--border-dim)]"
                   )}
                 >

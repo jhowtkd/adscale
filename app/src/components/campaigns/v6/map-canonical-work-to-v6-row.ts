@@ -5,7 +5,8 @@ import type { CampaignV6BadgeVariant, CampaignV6Row } from "./campaigns-v6-types
 
 function stateToBadgeVariant(state: string): CampaignV6BadgeVariant {
   if (state === "approved" || state === "delivered") return "success";
-  if (state === "generating" || state === "failed") return "warning";
+  if (state === "generating") return "warning";
+  if (state === "failed") return "danger";
   if (state === "reviewing") return "info";
   return "neutral";
 }

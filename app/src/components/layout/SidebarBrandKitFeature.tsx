@@ -20,30 +20,16 @@ export default function SidebarBrandKitFeature() {
       href="/brand-kit"
       data-testid="sidebar-brand-kit-feature"
       className={cn(
-        "group relative block overflow-hidden rounded-[var(--radius-control)] p-[1.5px]",
-        "transition-transform hover:scale-[1.01]"
+        "block rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] transition-colors",
+        "hover:border-[var(--selection-border)] hover:bg-[var(--surface-base)]",
+        isActive && "border-[var(--selection-border)] bg-[var(--selection-bg)]"
       )}
       aria-current={isActive ? "page" : undefined}
     >
       <span
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 rounded-[var(--radius-control)] opacity-90"
-        style={{
-          background:
-            "conic-gradient(from 120deg, #ff5c5c, #ffb020, #5cff8d, #5cb8ff, #c45cff, #ff5c5c)",
-          mask: "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)",
-          WebkitMask:
-            "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)",
-          WebkitMaskComposite: "xor",
-          maskComposite: "exclude",
-          padding: "1.5px",
-        }}
-      />
-      <span
         className={cn(
-          "relative flex flex-col gap-0.5 rounded-[calc(var(--radius-control)-1px)] px-3 py-2.5",
-          "bg-[var(--surface-raised)]",
-          isActive && "bg-[var(--accent-primary-subtle)]"
+          "flex flex-col gap-0.5 rounded-[calc(var(--radius-control)-1px)] px-3 py-2.5",
+          isActive && "text-[var(--selection-text)]"
         )}
       >
         <span className="flex items-center justify-between gap-2">

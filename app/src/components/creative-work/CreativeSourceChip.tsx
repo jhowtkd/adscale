@@ -23,9 +23,10 @@ type Props = {
   onRetry: () => void;
   onRemove: () => void;
   simple?: boolean;
+  fullPreview?: boolean;
 };
 
-export function CreativeSourceChip({ source, onUsageChange, onRetry, onRemove, simple = false }: Props) {
+export function CreativeSourceChip({ source, onUsageChange, onRetry, onRemove, simple = false, fullPreview = false }: Props) {
   const t = useTranslations("dashboard.home.composer");
   const [previewFailed, setPreviewFailed] = useState(false);
   const [trackedPreviewUrl, setTrackedPreviewUrl] = useState(source.previewUrl);
@@ -40,20 +41,23 @@ export function CreativeSourceChip({ source, onUsageChange, onRetry, onRemove, s
     source.contentAnalysis?.offer,
     source.styleAnalysis?.mood,
   ].filter((value): value is string => typeof value === "string" && value.length > 0);
+  const previewClassName = fullPreview
+    ? "mb-3 h-64 w-full rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-inset)] object-contain sm:h-80"
+    : "mb-2 h-24 w-full rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-inset)] object-contain";
 
   return (
-    <article className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] p-3">
+    <article className="min-w-0 rounded-[var(--radius-object)] border border-[var(--border-subtle)] p-3">
       {source.previewUrl && !previewFailed ? (
         // eslint-disable-next-line @next/next/no-img-element -- authenticated asset route, not a static CDN path
         <img
           src={source.previewUrl}
           alt={source.name}
           onError={() => setPreviewFailed(true)}
-          className="mb-2 h-24 w-full rounded-[var(--radius-control)] border border-[var(--border-subtle)] object-cover"
+          className={previewClassName}
         />
       ) : source.previewUrl ? (
         // Explicit fallback when the authenticated preview fails; name and actions stay below.
-        <div className="mb-2 flex h-24 w-full items-center justify-center rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-inset)] px-4 text-center text-sm text-[var(--text-muted)]">
+        <div className={`${previewClassName} flex items-center justify-center px-4 text-center text-sm text-[var(--text-muted)]`}>
           {t("previewUnavailable")}
         </div>
       ) : null}
@@ -68,7 +72,7 @@ export function CreativeSourceChip({ source, onUsageChange, onRetry, onRemove, s
           </button>
         ))}
       </div> : null}
-      {!simple && !source.usageConfirmed && <p className="mt-2 text-xs font-medium text-[var(--accent-amber-text)]">{t("sourceUsageRequired")}</p>}
+      {!simple && !source.usageConfirmed && <p className="mt-2 text-xs font-medium text-[var(--warning-text)]">{t("sourceUsageRequired")}</p>}
       <p role="status" aria-live="polite" className="mt-2 text-sm">{t(`sourceStatus_${source.status}`)}</p>
       {!simple && chips.length > 0 && (
         <details className="mt-2">

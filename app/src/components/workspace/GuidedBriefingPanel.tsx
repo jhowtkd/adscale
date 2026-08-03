@@ -86,7 +86,7 @@ function FullFieldsDisclosure({
 
   return (
     <details className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)]">
-      <summary className="cursor-pointer list-none px-4 py-3 text-xs text-[var(--accent-blue)] hover:underline [&::-webkit-details-marker]:hidden">
+      <summary className="cursor-pointer list-none px-4 py-3 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:underline [&::-webkit-details-marker]:hidden">
         {t("editAllFields")}
       </summary>
       <div className="space-y-3 border-t border-[var(--border-dim)] p-4">
@@ -325,7 +325,7 @@ export default function GuidedBriefingPanel({
 
       {!guided.isEditing ? (
         <div className="space-y-3 rounded-xl border border-[var(--border-dim)] bg-[var(--surface-raised)] p-4">
-          <div className="flex items-center gap-2 text-xs text-[var(--accent-amber)]">
+          <div className="flex items-center gap-2 text-xs text-[var(--warning-text)]">
             <Lightbulb size={14} />
             <span>{t("suggested")}</span>
           </div>

@@ -124,7 +124,7 @@ function BulletList({
           key={item}
           className={cn(
             "text-xs leading-snug",
-            tone === "positive" ? "text-emerald-400/90" : "text-rose-300/90"
+            tone === "positive" ? "text-[var(--success-text)]" : "text-[var(--danger-text)]"
           )}
         >
           {item}
@@ -334,7 +334,7 @@ export default function DerivationReviewSheet({
               </h3>
               <DerivationAutoRetryBadge
                 derivation={derivation}
-                className="inline-flex items-center rounded-md border border-sky-500/35 bg-sky-500/10 px-2 py-0.5 text-xs font-semibold text-sky-400"
+                className="inline-flex items-center rounded-md border border-[var(--info-border)] bg-[var(--info-bg)] px-2 py-0.5 text-xs font-semibold text-[var(--info-text)]"
               />
               {olharDisplay ? (
                 <span
@@ -425,7 +425,7 @@ export default function DerivationReviewSheet({
                     className="w-full rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-primary)]"
                   />
                   {directionReasonError ? (
-                    <p className="text-xs text-rose-400">{directionReasonError}</p>
+                    <p className="text-xs text-[var(--danger-text)]">{directionReasonError}</p>
                   ) : null}
                 </div>
               )}
@@ -477,7 +477,7 @@ export default function DerivationReviewSheet({
                   size="sm"
                   onClick={onRegenerateWithFixes}
                   disabled={isRegenerating}
-                  className="px-0 text-[var(--accent-blue)]"
+                  className="px-0 text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                 >
                   <RefreshCw className="size-4 mr-1" />
                   {tr("regenerateWithFixesConfirm")}
@@ -485,11 +485,11 @@ export default function DerivationReviewSheet({
               ) : null}
               {approvalBlocked ? (
                 <div
-                  className="space-y-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2"
+                  className="space-y-2 rounded-lg border border-[var(--warning-border)] bg-[var(--warning-bg)] px-3 py-2"
                   role="region"
                   aria-label={tr("overrideApprovalAction")}
                 >
-                  <p className="text-xs leading-relaxed text-amber-400">{tr("overrideWarning")}</p>
+                  <p className="text-xs leading-relaxed text-[var(--warning-text)]">{tr("overrideWarning")}</p>
                   {overrideMode ? (
                     <div className="space-y-1.5">
                       <label
@@ -515,7 +515,7 @@ export default function DerivationReviewSheet({
                         className="w-full rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-primary)]"
                       />
                       {overrideReasonError ? (
-                        <p className="text-xs text-rose-400">{overrideReasonError}</p>
+                        <p className="text-xs text-[var(--danger-text)]">{overrideReasonError}</p>
                       ) : null}
                     </div>
                   ) : null}
@@ -633,7 +633,7 @@ export default function DerivationReviewSheet({
                 </p>
               ) : null}
               {derivation.qualityVerdict === "improvable" ? (
-                <p className="text-amber-500">{t("improvableOutputBadge")}</p>
+                <p className="text-[var(--warning-text)]">{t("improvableOutputBadge")}</p>
               ) : null}
               {derivation.scoreIssues?.map((issue) => (
                 <p key={issue}>{issue}</p>

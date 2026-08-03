@@ -221,7 +221,7 @@ function CreativeComparison({
       <section className="space-y-3" aria-label={`Versão ${side}`}>
         <VersionHeader label={`Versão ${side}`} version={value} />
         <div
-          className="flex aspect-square min-h-64 touch-none items-center justify-center overflow-hidden rounded-lg bg-[var(--surface-inset)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]"
+          className="flex aspect-square min-h-64 touch-none items-center justify-center overflow-hidden rounded-lg bg-[var(--surface-inset)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
           tabIndex={0}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}

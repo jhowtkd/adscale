@@ -64,14 +64,14 @@ export function FactualAlertsPanel({
   return (
     <section
       data-testid="factual-alerts-panel"
-      className="space-y-3 rounded-md border border-amber-500/40 bg-amber-500/5 p-4"
+      className="space-y-3 rounded-md border border-[var(--warning-border)] bg-[var(--warning-bg)] p-4"
     >
       <div className="space-y-1">
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="text-sm font-semibold text-[var(--text-primary)]">
             {isBrandVariant ? "Alertas de problema factual" : "Factual issue alerts"}
           </h3>
-          <span className="rounded border border-amber-500/50 bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-200">
+          <span className="rounded border border-[var(--warning-border)] bg-[var(--warning-bg)] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[var(--warning-text)]">
             Factual guard — not a calibration rule
           </span>
         </div>

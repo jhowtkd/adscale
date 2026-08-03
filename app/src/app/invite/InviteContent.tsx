@@ -131,12 +131,16 @@ function InviteContentInner() {
             <div className="space-y-4">
               <AuthV6ErrorAlert>{error}</AuthV6ErrorAlert>
               <div className="flex justify-center gap-3">
-                <Button variant="outline" onClick={() => router.push("/login")}>
+                <Button
+                  variant="outline"
+                  className="border-[var(--neutral-border)] bg-[var(--surface-raised)] text-[var(--neutral-text)] hover:bg-[var(--neutral-bg)]"
+                  onClick={() => router.push("/login")}
+                >
                   {t("backToSignIn")}
                 </Button>
                 {token && (
                   <Button
-                    className="rounded-[var(--radius-control)] bg-[var(--accent-primary)] text-[var(--text-on-accent)]"
+                    className="rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)]"
                     onClick={() => {
                       hasStartedRef.current = true;
                       acceptInviteMutation.reset();

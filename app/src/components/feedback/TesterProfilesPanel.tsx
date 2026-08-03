@@ -122,7 +122,7 @@ export function TesterProfilesPanel() {
         </Button>
       </form>
 
-      {errorMessage ? <p className="text-sm text-[var(--accent-rose)]">{errorMessage}</p> : null}
+      {errorMessage ? <p className="text-sm text-[var(--danger-text)]">{errorMessage}</p> : null}
 
       <div className="overflow-x-auto">
         <table className="min-w-full text-left text-sm">

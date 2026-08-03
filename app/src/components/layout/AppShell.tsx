@@ -89,14 +89,19 @@ function MobileNavItem({
   return (
     <Link
       href={href}
+      aria-current={active ? "page" : undefined}
       className={cn(
         "flex min-h-11 flex-col items-center justify-center gap-0.5 rounded-md px-0.5 py-2 text-[10px] font-medium leading-tight",
         active
-          ? "bg-[var(--accent-green-dim)] text-[var(--accent-green-text)]"
+          ? "bg-[var(--active-navigation-bg)] text-[var(--active-navigation-text)]"
           : "text-[var(--text-secondary)]"
       )}
     >
-      <Icon size={18} aria-hidden="true" />
+      <Icon
+        size={18}
+        aria-hidden="true"
+        className={active ? "text-[var(--active-navigation-text)]" : "text-[var(--utility-icon)]"}
+      />
       <span className="max-w-full text-center whitespace-normal">{label}</span>
     </Link>
   );
@@ -120,11 +125,15 @@ function MobileNavButton({
       className={cn(
         "flex min-h-11 flex-col items-center justify-center gap-0.5 rounded-md px-0.5 py-2 text-[10px] font-medium leading-tight",
         active
-          ? "bg-[var(--accent-green-dim)] text-[var(--accent-green-text)]"
+          ? "bg-[var(--active-navigation-bg)] text-[var(--active-navigation-text)]"
           : "text-[var(--text-secondary)]"
       )}
     >
-      <Icon size={18} aria-hidden="true" />
+      <Icon
+        size={18}
+        aria-hidden="true"
+        className={active ? "text-[var(--active-navigation-text)]" : "text-[var(--utility-icon)]"}
+      />
       <span className="max-w-full text-center whitespace-normal">{label}</span>
     </button>
   );

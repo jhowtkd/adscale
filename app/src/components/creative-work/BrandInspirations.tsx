@@ -62,7 +62,7 @@ export function BrandInspirations({ clientProfileId, onAttach }: {
       ) : isError ? (
         <div className="rounded-[var(--radius-object)] border border-[var(--danger-border)] bg-[var(--surface-raised)] p-4">
           <p role="alert" className="text-sm text-[var(--danger-text)]">Não foi possível carregar as inspirações.</p>
-          <button type="button" onClick={() => void refetch()} className="mt-3 rounded-[var(--radius-control)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]">
+          <button type="button" onClick={() => void refetch()} className="mt-3 rounded-[var(--radius-control)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
             Tentar novamente
           </button>
         </div>
@@ -88,7 +88,7 @@ export function BrandInspirations({ clientProfileId, onAttach }: {
                   setPendingId(inspiration.id);
                   void Promise.resolve(onAttach(inspiration)).finally(() => setPendingId(null));
                 }}
-                className="block w-full overflow-hidden rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] transition-colors hover:border-[var(--border-default)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)] disabled:opacity-60"
+                className="block w-full overflow-hidden rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] transition-colors hover:border-[var(--border-default)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-60"
               >
                 {inspiration.previewUrl ? (
                   // The browser's intrinsic image ratio is the masonry height.

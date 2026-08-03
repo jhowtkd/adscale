@@ -44,13 +44,13 @@ function AddNewCard({ onClick }: { onClick: () => void }) {
       onClick={onClick}
       className={cn(
         "group flex flex-col items-center justify-center rounded-xl border-2 border-dashed transition-all duration-200 min-h-[280px]",
-        "border-[var(--border-dim)] bg-[var(--surface-base)] hover:border-[var(--accent-green)] hover:bg-[var(--accent-green-dim)]"
+        "border-[var(--border-dim)] bg-[var(--surface-base)] hover:border-[var(--selection-border)] hover:bg-[var(--selection-bg)]"
       )}
     >
-      <div className="flex size-10 items-center justify-center rounded-full bg-[var(--surface-raised)] text-[var(--text-muted)] transition-colors duration-200 group-hover:bg-[var(--accent-green)] group-hover:text-[var(--accent-green-on-fill)]">
+      <div className="flex size-10 items-center justify-center rounded-full bg-[var(--surface-raised)] text-[var(--utility-icon)] transition-colors duration-200 group-hover:bg-[var(--selection-bg)] group-hover:text-[var(--selection-text)]">
         <Plus size={18} />
       </div>
-      <span className="mt-2 font-mono text-[10px] uppercase tracking-wide text-[var(--ghost)] group-hover:text-[var(--accent-green)]">
+      <span className="mt-2 font-mono text-[var(--text-caption)] uppercase tracking-wide text-[var(--ghost)] group-hover:text-[var(--selection-text)]">
         Nova
       </span>
     </button>
@@ -99,7 +99,7 @@ export default function DerivationGrid({
             key={derivation.id}
             className={cn(
               isPreviewGateCard &&
-                "rounded-xl ring-2 ring-[var(--accent-green)]/40 ring-offset-2 ring-offset-[var(--surface-base)]"
+                "rounded-xl ring-2 ring-[var(--selection-border)] ring-offset-2 ring-offset-[var(--surface-base)]"
             )}
           >
             <DerivationCard

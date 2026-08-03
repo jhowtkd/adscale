@@ -252,6 +252,20 @@ describe("CampaignWorkspacePage", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("keeps the mobile workspace view selection accessible", async () => {
+    renderPage();
+
+    await waitFor(() => expect(mockMutateAsync).toHaveBeenCalled());
+
+    const gridTab = screen.getByRole("tab", { name: "campaign.workspace.gridTab" });
+    const chatTab = screen.getByRole("tab", { name: "campaign.workspace.chatTab" });
+    expect(gridTab).toHaveAttribute("aria-selected", "true");
+    expect(gridTab).toHaveClass("bg-[var(--selection-bg)]");
+
+    fireEvent.click(chatTab);
+    expect(chatTab).toHaveAttribute("aria-selected", "true");
+  });
+
   it("continues a campaign created from scratch after completing its briefing", async () => {
     renderPage();
 

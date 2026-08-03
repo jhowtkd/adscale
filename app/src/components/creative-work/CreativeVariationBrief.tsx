@@ -156,7 +156,7 @@ export function CreativeVariationBrief({
                 <p className="text-xs text-[var(--text-muted)]">{t("composition")}</p>
                 <div className="mt-1 flex items-center gap-2" aria-label={t("compositionDiagramAria")}>
                   <span className="grid h-10 w-14 grid-cols-3 gap-0.5 rounded border border-[var(--border-default)] bg-[var(--surface-raised)] p-1" aria-hidden="true">
-                    <span className="col-span-2 rounded-sm bg-[var(--accent-primary)]/40" />
+                    <span className="col-span-2 rounded-sm bg-[var(--neutral-bg)]" />
                     <span className="rounded-sm bg-[var(--text-muted)]/30" />
                     <span className="col-span-3 rounded-sm bg-[var(--text-muted)]/20" />
                   </span>

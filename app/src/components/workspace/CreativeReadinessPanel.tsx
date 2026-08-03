@@ -81,7 +81,7 @@ function ReadinessIssueList({
 
   const borderClass =
     variant === "blocking"
-      ? "border-[var(--accent-rose)]/25 bg-[var(--accent-rose)]/5"
+      ? "border-[var(--danger-border)] bg-[var(--danger-bg)]"
       : "border-[var(--border-dim)] bg-[var(--surface-raised)]/40";
 
   return (
@@ -128,13 +128,13 @@ function ReadinessIssueList({
 function statusIcon(status: ReadinessStatus | "pending" | "analyzing" | "failed" | "missing") {
   switch (status) {
     case "ready":
-      return <ShieldCheck size={18} className="text-[var(--accent-green)]" />;
+      return <ShieldCheck size={18} className="text-[var(--success-text)]" />;
     case "needs_attention":
-      return <ShieldAlert size={18} className="text-[var(--accent-amber)]" />;
+      return <ShieldAlert size={18} className="text-[var(--warning-text)]" />;
     case "blocked":
-      return <ShieldX size={18} className="text-[var(--accent-rose)]" />;
+      return <ShieldX size={18} className="text-[var(--danger-text)]" />;
     case "failed":
-      return <AlertCircle size={18} className="text-[var(--accent-rose)]" />;
+      return <AlertCircle size={18} className="text-[var(--danger-text)]" />;
     case "analyzing":
     case "pending":
       return <Loader2 size={18} className="animate-spin text-[var(--text-muted)]" />;
@@ -257,7 +257,7 @@ export default function CreativeReadinessPanel({
 
       {displayStatus === "failed" && (
         <div className="mt-4 space-y-3">
-          <p className="text-xs text-[var(--accent-rose)]">{t("failed")}</p>
+          <p className="text-xs text-[var(--danger-text)]">{t("failed")}</p>
           <button
             type="button"
             onClick={handleRerun}
@@ -314,7 +314,7 @@ export default function CreativeReadinessPanel({
 
           {readiness.blockingIssues.length > 0 && (
             <div>
-              <p className="font-mono text-[10px] uppercase tracking-wide text-[var(--accent-rose)]">
+              <p className="font-mono text-[var(--text-caption)] uppercase tracking-wide text-[var(--danger-text)]">
                 {t("blockingIssues")}
                 <span className="ml-1.5 text-[var(--text-muted)]">({readiness.blockingIssues.length})</span>
               </p>
@@ -324,7 +324,7 @@ export default function CreativeReadinessPanel({
                   type="button"
                   onClick={handleOverride}
                   disabled={readinessOverride.isPending}
-                  className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-[var(--accent-amber)]/40 bg-[var(--accent-amber)]/10 px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] hover:border-[var(--accent-amber)]"
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-[var(--warning-border)] bg-[var(--warning-bg)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] hover:border-[var(--warning-text)]"
                 >
                   {t("overrideFalsePositive")}
                 </button>

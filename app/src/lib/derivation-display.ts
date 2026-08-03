@@ -222,11 +222,11 @@ export function isNormalApprovalBlocked(input: {
 export function verdictBadgeClassName(tone: VerdictBadgeTone): string {
   switch (tone) {
     case "ready":
-      return "border-emerald-500/40 bg-emerald-500/10 text-emerald-400";
+      return "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success-text)]";
     case "quase":
-      return "border-amber-500/40 bg-amber-500/10 text-amber-500";
+      return "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning-text)]";
     case "blocked":
-      return "border-rose-500/40 bg-rose-500/10 text-rose-400";
+      return "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger-text)]";
     default:
       return "border-[var(--border-dim)] bg-[var(--surface-raised)] text-[var(--text-secondary)]";
   }

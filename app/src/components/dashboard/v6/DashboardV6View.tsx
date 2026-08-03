@@ -6,6 +6,7 @@ import { TrendingDown, TrendingUp } from "lucide-react";
 import { AnimatedDisplayValue } from "@/components/animations/AnimatedDisplayValue";
 import { cn } from "@/lib/utils";
 import { useReducedMotion } from "@/lib/hooks/use-reduced-motion";
+import type { DashboardStatusTone } from "../campaign-status-config";
 import type { DashboardV6Labels, DashboardV6ViewModel } from "./dashboard-v6-types";
 
 type DashboardV6ViewProps = {
@@ -14,6 +15,22 @@ type DashboardV6ViewProps = {
   summary: ReactNode;
   isLoading?: boolean;
   interactive?: boolean;
+};
+
+const statusPillStyles: Record<DashboardStatusTone, string> = {
+  warning: "bg-[var(--warning-bg)] text-[var(--warning-text)]",
+  danger: "bg-[var(--danger-bg)] text-[var(--danger-text)]",
+  success: "bg-[var(--success-bg)] text-[var(--success-text)]",
+  info: "bg-[var(--info-bg)] text-[var(--info-text)]",
+  neutral: "bg-[var(--neutral-bg)] text-[var(--neutral-text)]",
+};
+
+const statusDotClasses: Record<DashboardStatusTone, string> = {
+  warning: "bg-[var(--warning-dot)]",
+  danger: "bg-[var(--danger-dot)]",
+  success: "bg-[var(--success-dot)]",
+  info: "bg-[var(--info-dot)]",
+  neutral: "bg-[var(--neutral-dot)]",
 };
 
 export default function DashboardV6View({
@@ -94,8 +111,8 @@ export default function DashboardV6View({
         >
           <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:gap-8">
             <div className="flex-1 space-y-4">
-              <span className="inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-wider text-[var(--accent-primary-text)]">
-                <span className={cn("inline-block h-1.5 w-1.5 rounded-full bg-[var(--neutral-dot)]", pulseDotClass)} />
+              <span className={cn("inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-wider", statusPillStyles[view.hero.badgeClass])}>
+                <span className={cn("inline-block h-1.5 w-1.5 rounded-full", statusDotClasses[view.hero.badgeClass], pulseDotClass)} />
                 {labels.heroProduction} · {view.hero.badge}
               </span>
               <h2 className="product-page-title text-[var(--text-primary)]">{view.hero.name}</h2>
@@ -104,7 +121,7 @@ export default function DashboardV6View({
                 <ActionLink
                   interactive={interactive}
                   href={`/campaigns/${view.hero.id}`}
-                  className="inline-flex min-h-[var(--control-touch)] items-center gap-2 rounded-[var(--radius-control)] bg-[var(--accent-primary)] px-5 py-2.5 text-sm font-medium text-[var(--text-on-accent)] transition-colors hover:bg-[var(--accent-primary-hover)]"
+                  className="inline-flex min-h-[var(--control-touch)] items-center gap-2 rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-5 py-2.5 text-sm font-medium text-[var(--action-primary-text)] transition-colors hover:bg-[var(--action-primary-hover)]"
                 >
                   {labels.openCampaign}
                 </ActionLink>
@@ -166,7 +183,7 @@ export default function DashboardV6View({
                       className="flex items-center gap-3 rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-3 transition-colors hover:border-[var(--border-default)]"
                     >
                       <span
-                        className="grid h-8 w-8 place-items-center rounded-[var(--radius-control)] bg-[var(--accent-primary-subtle)] text-sm"
+                        className="grid h-8 w-8 place-items-center rounded-[var(--radius-control)] bg-[var(--selection-bg)] text-sm"
                         aria-hidden="true"
                       >
                         {recipe.icon}
@@ -185,7 +202,7 @@ export default function DashboardV6View({
               <div className="mt-4">
                 <Link
                   href="/templates"
-                  className="text-sm text-[var(--accent-primary)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] rounded-sm"
+                  className="text-sm text-[var(--active-navigation-text)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] rounded-sm"
                 >
                   {labels.templatesLink}
                 </Link>
@@ -232,7 +249,7 @@ export default function DashboardV6View({
                 <ActionLink
                   interactive={interactive}
                   href={view.activeBriefingCampaignId ? `/campaigns/${view.activeBriefingCampaignId}` : "/campaigns?new=1"}
-                  className="flex-1 rounded-[var(--radius-control)] bg-[var(--accent-primary)] py-2 text-center text-sm font-medium text-[var(--text-on-accent)]"
+                  className="flex-1 rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] py-2 text-center text-sm font-medium text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)]"
                 >
                   {labels.goToActions}
                 </ActionLink>
@@ -310,7 +327,7 @@ function SectionEmpty({
       <ActionLink
         interactive={interactive}
         href={actionHref}
-        className="inline-flex min-h-[var(--control-touch)] items-center rounded-[var(--radius-control)] bg-[var(--accent-primary)] px-4 py-2 text-sm font-medium text-[var(--text-on-accent)] transition-colors hover:bg-[var(--accent-primary-hover)]"
+        className="inline-flex min-h-[var(--control-touch)] items-center rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-4 py-2 text-sm font-medium text-[var(--action-primary-text)] transition-colors hover:bg-[var(--action-primary-hover)]"
       >
         {actionLabel}
       </ActionLink>
@@ -322,7 +339,7 @@ function MetaRow({ label, value, accent }: { label: string; value: string; accen
   return (
     <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-2 last:border-0 last:pb-0">
       <dt className="font-mono text-[10px] uppercase tracking-wider text-[var(--text-muted)]">{label}</dt>
-      <dd className={`text-sm font-medium ${accent ? "text-[var(--accent-primary-text)]" : "text-[var(--text-primary)]"}`}>
+      <dd className={`text-sm font-medium ${accent ? "text-[var(--success-text)]" : "text-[var(--text-primary)]"}`}>
         <AnimatedDisplayValue value={value} />
       </dd>
     </div>
@@ -352,7 +369,7 @@ function ActivitySection({
         <ActionLink
           interactive={interactive}
           href="/campaigns"
-          className="text-xs font-medium text-[var(--accent-primary-text)]"
+          className="text-xs font-medium text-[var(--active-navigation-text)]"
         >
           {labels.viewAll}
         </ActionLink>
@@ -439,24 +456,12 @@ function ActivityRowContent({ row }: { row: DashboardV6ViewModel["activity"][num
   );
 }
 
-function StatusPill({ variant, label }: { variant: string; label: string }) {
-  const styles: Record<string, string> = {
-    running: "bg-[var(--warning-bg)] text-[var(--warning-text)]",
-    review: "bg-[var(--warning-bg)] text-[var(--warning-text)]",
-    approved: "bg-[var(--success-bg)] text-[var(--success-text)]",
-    draft: "bg-[var(--neutral-bg)] text-[var(--neutral-text)]",
-  };
-  const dotColor: Record<string, string> = {
-    running: "bg-[var(--warning-dot)]",
-    review: "bg-[var(--warning-dot)]",
-    approved: "bg-[var(--success-dot)]",
-    draft: "bg-[var(--neutral-dot)]",
-  };
+function StatusPill({ variant, label }: { variant: DashboardStatusTone; label: string }) {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${styles[variant] ?? styles.draft}`}
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${statusPillStyles[variant]}`}
     >
-      <span className={`inline-block h-1.5 w-1.5 rounded-full ${dotColor[variant] ?? dotColor.draft}`} />
+      <span className={`inline-block h-1.5 w-1.5 rounded-full ${statusDotClasses[variant]}`} />
       {label}
     </span>
   );

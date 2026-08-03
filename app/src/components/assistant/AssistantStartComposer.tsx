@@ -205,7 +205,7 @@ export default function AssistantStartComposer({
             value={effectiveClientId ?? ""}
             onChange={(event) => selectProfile(event.target.value)}
             disabled={createThread.isPending}
-            className="block w-full rounded-xl border border-[var(--border-dim)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-primary)] focus-visible:border-[var(--accent-primary)] focus-visible:outline-none"
+            className="block w-full rounded-xl border border-[var(--border-dim)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
           >
             {!effectiveClientId ? <option value="">{t("chooseProject")}</option> : null}
             {clients.map((client) => (
@@ -227,11 +227,11 @@ export default function AssistantStartComposer({
         </div>
       ) : (
         <>
-          <div className="w-full max-w-2xl rounded-[var(--radius-object)] border border-[var(--accent-green)]/25 bg-[var(--accent-green-dim)]/40 px-4 py-3 text-center">
+          <div className="w-full max-w-2xl rounded-[var(--radius-object)] border border-[var(--info-border)] bg-[var(--info-bg)] px-4 py-3 text-center">
             <p className="text-sm text-[var(--text-secondary)]">{t("composerPathHint")}</p>
             <Link
               href="/?compose=1"
-              className="mt-2 inline-flex min-h-9 items-center justify-center rounded-[var(--radius-control)] px-2 text-sm font-semibold text-[var(--accent-green-text)] underline-offset-2 transition-colors hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-green)] focus-visible:ring-offset-2"
+              className="mt-2 inline-flex min-h-9 items-center justify-center rounded-[var(--radius-control)] px-2 text-sm font-semibold text-[var(--info-text)] underline-offset-2 transition-colors hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2"
             >
               {t("openHomeComposer")}
             </Link>
@@ -265,8 +265,8 @@ export default function AssistantStartComposer({
       >
         <div
           className={cn(
-            "overflow-hidden rounded-2xl border border-[var(--border-dim)] bg-[var(--surface-raised)] shadow-lg shadow-black/20 focus-within:border-[var(--accent-primary)]",
-            dragOver && "border-[var(--accent-primary)] ring-2 ring-inset ring-[var(--accent-primary)]"
+            "overflow-hidden rounded-2xl border border-[var(--border-dim)] bg-[var(--surface-raised)] shadow-lg shadow-black/20 focus-within:ring-2 focus-within:ring-[var(--focus-ring)]",
+            dragOver && "border-[var(--selection-border)] ring-2 ring-inset ring-[var(--selection-border)]"
           )}
           data-testid="assistant-start-dropzone"
           {...dragHandlers}
@@ -344,7 +344,7 @@ export default function AssistantStartComposer({
               className={cn(
                 "size-11 rounded-full",
                 canSend
-                  ? "bg-[var(--accent-primary)] text-[var(--text-on-accent)] hover:bg-[var(--accent-primary-hover)]"
+                  ? "bg-[var(--action-primary-bg)] text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)]"
                   : "bg-[var(--surface-inset)] text-[var(--text-muted)]"
               )}
             >

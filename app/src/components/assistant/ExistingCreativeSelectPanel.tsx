@@ -113,7 +113,7 @@ export default function ExistingCreativeSelectPanel({
                 data-testid={`existing-creative-asset-${asset.id}`}
                 className={cn(
                   "relative aspect-square overflow-hidden rounded-lg border border-[var(--border-dim)] bg-[var(--surface-inset)]",
-                  "hover:border-[var(--accent-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]",
+                  "hover:border-[var(--selection-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
                   busy && "pointer-events-none opacity-50"
                 )}
               >

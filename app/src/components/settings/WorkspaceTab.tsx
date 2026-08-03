@@ -13,7 +13,7 @@ import {
 } from "@/lib/hooks/use-workspace-settings";
 
 const FOCUS_RING =
-  "focus:outline-none focus:border-[var(--accent-green)] focus:ring-[3px] focus:ring-[var(--accent-green-dim)]";
+  "focus:outline-none focus:border-[var(--focus-ring)] focus:ring-[3px] focus:ring-[var(--focus-ring)]";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -156,7 +156,7 @@ export default function WorkspaceTab() {
       {isError && !isLoading && (
         <m.div
           variants={itemVariants}
-          className="rounded-lg border border-[var(--accent-rose)]/30 bg-[var(--accent-rose)]/10 px-4 py-3 text-sm text-[var(--accent-rose)]"
+          className="rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-3 text-sm text-[var(--danger-text)]"
         >
           {error?.message || tc("error")}
         </m.div>
@@ -197,7 +197,7 @@ export default function WorkspaceTab() {
                   "w-full h-10 rounded-md border px-3 text-sm",
                   "bg-[var(--surface-base)] text-[var(--text-primary)]",
                   "placeholder:text-[var(--text-muted)]",
-                  "focus:outline-none focus:border-[var(--accent-green)] focus:ring-[3px] focus:ring-[var(--accent-green-dim)]",
+                  "focus:outline-none focus:border-[var(--focus-ring)] focus:ring-[3px] focus:ring-[var(--focus-ring)]",
                   "transition-all duration-200 border-[var(--border-dim)]",
                   "disabled:opacity-60 disabled:cursor-not-allowed"
                 )}
@@ -349,8 +349,8 @@ export default function WorkspaceTab() {
                 updateSettings.isPending
               }
               className={cn(
-                "h-10 px-5 rounded-md text-sm font-medium text-[var(--text-on-accent)] flex items-center gap-2",
-                "bg-[var(--accent-green)] hover:bg-[var(--accent-green-light)]",
+                "h-10 px-5 rounded-md text-sm font-medium text-[var(--action-primary-text)] flex items-center gap-2",
+                "bg-[var(--action-primary-bg)] hover:bg-[var(--action-primary-hover)]",
                 "active:scale-[0.98] active:brightness-90",
                 "transition-all duration-200",
                 "disabled:opacity-50 disabled:cursor-not-allowed"
@@ -380,8 +380,8 @@ export default function WorkspaceTab() {
             className="rounded-xl border border-[var(--danger-border)] p-5 space-y-4"
           >
             <div className="flex items-center gap-2">
-              <AlertTriangle size={16} className="text-[var(--accent-rose)]" />
-              <h3 className="text-[15px] font-semibold text-[var(--accent-rose)]">
+              <AlertTriangle size={16} className="text-[var(--danger-text)]" />
+              <h3 className="text-sm font-semibold text-[var(--danger-text)]">
                 {t("dangerZone")}
               </h3>
             </div>
@@ -394,7 +394,7 @@ export default function WorkspaceTab() {
               disabled={!canEdit}
               className={cn(
                 "h-9 px-4 rounded-md text-sm font-medium text-[var(--text-on-accent)]",
-                "bg-[var(--accent-rose)] hover:brightness-110",
+                "bg-[var(--danger-text)] hover:brightness-110",
                 "active:scale-[0.98]",
                 "transition-all duration-200",
                 "disabled:opacity-50 disabled:cursor-not-allowed"

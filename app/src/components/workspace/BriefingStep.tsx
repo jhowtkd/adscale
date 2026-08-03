@@ -144,7 +144,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
         <div  className="animate-fade-in">
           <Label className="flex items-center gap-1 text-xs font-medium text-[var(--text-secondary)] mb-2">
             {tCampaign("name")}
-            <span className="text-[var(--accent-rose)]">*</span>
+            <span className="text-[var(--danger-text)]">*</span>
           </Label>
           <Input
             placeholder={tBriefing("namePlaceholder")}
@@ -152,13 +152,13 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
             onChange={(e) => updateField("name", e.target.value)}
             className={cn(
               "h-10 bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]",
-              "focus:border-[var(--accent-green)] focus:ring-[3px] focus:ring-[var(--accent-green-dim)]",
-              errors.name && "border-[var(--accent-rose)] ring-[3px] ring-[rgba(244,63,94,0.15)]"
+              "focus:border-[var(--focus-ring)] focus:ring-[3px] focus:ring-[var(--focus-ring)]",
+              errors.name && "border-[var(--danger-border)] ring-[3px] ring-[var(--danger-bg)]"
             )}
             autoFocus
           />
           {errors.name && (
-            <p className="text-xs text-[var(--accent-rose)] mt-1 animate-fade-in">
+            <p className="text-xs text-[var(--danger-text)] mt-1 animate-fade-in">
               {errors.name}
             </p>
           )}
@@ -168,7 +168,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
         <div  className="animate-fade-in" style={{ animationDelay: "50ms" }}>
           <Label className="flex items-center gap-1 text-xs font-medium text-[var(--text-secondary)] mb-2">
             {tCampaign("client")}
-            <span className="text-[var(--accent-rose)]">*</span>
+            <span className="text-[var(--danger-text)]">*</span>
           </Label>
           <Input
             placeholder={tBriefing("clientPlaceholder")}
@@ -176,15 +176,15 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
             onChange={(e) => updateField("client", e.target.value)}
             className={cn(
               "h-10 bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]",
-              "focus:border-[var(--accent-green)] focus:ring-[3px] focus:ring-[var(--accent-green-dim)]",
-              errors.client && "border-[var(--accent-rose)] ring-[3px] ring-[rgba(244,63,94,0.15)]"
+              "focus:border-[var(--focus-ring)] focus:ring-[3px] focus:ring-[var(--focus-ring)]",
+              errors.client && "border-[var(--danger-border)] ring-[3px] ring-[var(--danger-bg)]"
             )}
           />
           <p className="text-xs text-[var(--text-muted)] mt-1">
             {tBriefing("clientHelp")}
           </p>
           {errors.client && (
-            <p className="text-xs text-[var(--accent-rose)] mt-1 animate-fade-in">
+            <p className="text-xs text-[var(--danger-text)] mt-1 animate-fade-in">
               {errors.client}
             </p>
           )}
@@ -229,7 +229,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
             rows={2}
             value={formData.audience}
             onChange={(e) => updateField("audience", e.target.value)}
-            className="bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-green)] focus:ring-[3px] focus:ring-[var(--accent-green-dim)] resize-none"
+              className="bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--focus-ring)] focus:ring-[3px] focus:ring-[var(--focus-ring)] resize-none"
           />
         </div>
 
@@ -243,7 +243,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
             rows={2}
             value={formData.constraints}
             onChange={(e) => updateField("constraints", e.target.value)}
-            className="bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-green)] focus:ring-[3px] focus:ring-[var(--accent-green-dim)] resize-none"
+            className="bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--focus-ring)] focus:ring-[3px] focus:ring-[var(--focus-ring)] resize-none"
           />
           <p className="text-xs text-[var(--text-muted)] mt-1">
             {tBriefing("constraintsHelp")}
@@ -256,7 +256,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
             <button
               type="button"
               onClick={() => updateState({ showNotes: true })}
-              className="text-sm text-[var(--accent-green)] hover:text-[var(--accent-green-light)] transition-colors"
+              className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
             >
               + {tBriefing("addNotes")}
             </button>
@@ -271,7 +271,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
               rows={3}
               value={formData.notes}
               onChange={(e) => updateField("notes", e.target.value)}
-              className="bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-green)] focus:ring-[3px] focus:ring-[var(--accent-green-dim)] resize-none"
+            className="bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--focus-ring)] focus:ring-[3px] focus:ring-[var(--focus-ring)] resize-none"
             />
           </div>
         )}
@@ -294,7 +294,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
       {/* ---- AI Assist Badge + Form Actions ---- */}
       <div className="max-w-[720px] mx-auto mt-8 space-y-4 animate-fade-in" style={{ animationDelay: "400ms" }}>
         <div className="flex justify-end animate-fade-in" style={{ animationDelay: "500ms" }}>
-          <div className="inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-xs font-medium bg-[var(--accent-green-dim)] text-[var(--accent-green-text)] border border-[var(--accent-green)]/15">
+          <div className="inline-flex items-center gap-2 rounded-full border border-[var(--selection-border)] bg-[var(--selection-bg)] px-3.5 py-2 text-xs font-medium text-[var(--selection-text)]">
             <Sparkles size={14} />
             {tBriefing("aiAssist")}
           </div>
@@ -322,7 +322,7 @@ export default function BriefingStep({ campaign, onContinue, onSaveDraft }: Brie
           <button
             type="button"
             onClick={handleContinue}
-            className="inline-flex items-center justify-center rounded-md bg-[var(--accent-green)] px-6 py-2.5 text-sm font-medium text-[var(--accent-green-on-fill)] transition-colors duration-200 hover:bg-[var(--accent-green-light)] active:scale-[0.98]"
+            className="inline-flex items-center justify-center rounded-md bg-[var(--action-primary-bg)] px-6 py-2.5 text-sm font-medium text-[var(--action-primary-text)] transition-colors duration-200 hover:bg-[var(--action-primary-hover)] active:scale-[0.98]"
           >
             {tBriefing("saveContinue")}
           </button>

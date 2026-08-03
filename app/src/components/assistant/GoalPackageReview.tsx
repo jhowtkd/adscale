@@ -66,7 +66,7 @@ export default function GoalPackageReview({
               className={cn(
                 "flex flex-col gap-2 rounded-xl border bg-[var(--surface-raised)] p-3",
                 approved
-                  ? "border-[var(--success)]"
+                  ? "border-[var(--success-border)]"
                   : "border-[var(--border-dim)]"
               )}
             >
@@ -111,9 +111,9 @@ export default function GoalPackageReview({
                   className={cn(
                     "flex-1 rounded-md px-2 py-1 text-xs font-medium",
                     approved
-                      ? "bg-[var(--success)] text-[var(--text-on-accent)]"
+                      ? "bg-[var(--success-bg)] text-[var(--success-text)]"
                       : canApprove
-                        ? "bg-[var(--accent-primary)] text-[var(--text-on-accent)]"
+                        ? "bg-[var(--action-primary-bg)] text-[var(--action-primary-text)]"
                         : "cursor-not-allowed bg-[var(--surface-inset)] text-[var(--text-muted)]"
                   )}
                 >

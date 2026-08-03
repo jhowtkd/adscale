@@ -39,9 +39,9 @@ export default function ThemeToggle({ className }: { className?: string }) {
       className={cn(
         "relative flex items-center justify-center size-9 rounded-full",
         "bg-[var(--surface-raised)] text-[var(--text-secondary)]",
-        "hover:text-[var(--accent-green-text)] hover:bg-[var(--accent-green)]/10",
+        "hover:text-[var(--text-secondary)] hover:bg-[var(--selection-bg)]",
         "transition-all duration-300 ease-out",
-        "focus-visible:ring-2 focus-visible:ring-[var(--accent-green)] focus-visible:ring-offset-2",
+        "focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2",
         className
       )}
       aria-label={isDark ? "Mudar para light mode" : "Mudar para dark mode"}

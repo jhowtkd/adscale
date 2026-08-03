@@ -102,10 +102,10 @@ function CampaignTableRow({
       onKeyDown={handleKeyDown}
       onMouseEnter={() => prefetch(campaign.id)}
       className={cn("animate-fade-in",
-        "group border-b border-[var(--border-dim)] transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-green)] focus-visible:ring-inset cursor-pointer",
+        "group border-b border-[var(--border-dim)] transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-inset cursor-pointer",
         "md:table-row flex flex-col rounded-xl md:rounded-none mb-3 md:mb-0 bg-[var(--surface-base)] md:bg-transparent shadow-sm md:shadow-none p-4 md:p-0",
-        index % 2 === 1 && "md:bg-[rgba(0,0,0,0.02)]",
-        selected && "bg-[var(--accent-green-dim)]",
+        index % 2 === 1 && "md:bg-[var(--surface-raised)]",
+        selected && "bg-[var(--selection-bg)]",
         !selected && "hover:bg-[var(--surface-raised)]"
       )}
     >
@@ -147,7 +147,7 @@ function CampaignTableRow({
           <div className="min-w-0 flex-1">
             <Link
               href={`/campaigns/${campaign.id}`}
-              className="text-sm font-semibold text-[var(--text-primary)] group-hover:text-[var(--accent-green)] transition-colors duration-150 truncate block hover:underline"
+              className="block truncate text-sm font-semibold text-[var(--text-primary)] transition-colors duration-150 hover:underline group-hover:text-[var(--neutral-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             >
               {campaign.name}
             </Link>
@@ -232,8 +232,8 @@ function CampaignTableRow({
         <div className="flex flex-wrap items-center gap-2">
           <StatusBadge status={campaign.status} />
           {campaign.previewPendingBatch ? (
-            <span className="inline-flex items-center gap-1 rounded-md border border-[var(--accent-amber)]/40 bg-[var(--accent-amber)]/10 px-2 py-0.5 text-[10px] font-medium text-[var(--text-primary)]">
-              <Zap className="size-3 text-[var(--accent-amber)]" />
+            <span className="inline-flex items-center gap-1 rounded-md border border-[var(--warning-border)] bg-[var(--warning-bg)] px-2 py-0.5 text-[10px] font-medium text-[var(--warning-text)]">
+              <Zap className="size-3 text-[var(--warning-dot)]" />
               {tCampaigns("previewPendingBatchCta")}
             </span>
           ) : null}

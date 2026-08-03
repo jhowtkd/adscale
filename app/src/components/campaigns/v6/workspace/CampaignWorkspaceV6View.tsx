@@ -122,8 +122,8 @@ function WorkspaceStageList({
                 <button
                   type="button"
                   onClick={() => onStageSelect?.(tab)}
-                  className={`flex min-h-9 items-center gap-2 rounded-[var(--radius-control)] px-3 py-2 transition-colors duration-[var(--duration-fast)] hover:bg-[var(--surface-raised)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-green)] focus-visible:ring-offset-2 ${
-                    isActive ? "bg-[var(--accent-green-dim)]" : ""
+                  className={`flex min-h-9 items-center gap-2 rounded-[var(--radius-control)] px-3 py-2 transition-colors duration-[var(--duration-fast)] hover:bg-[var(--surface-raised)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2 ${
+                    isActive ? "border border-[var(--selection-border)] bg-[var(--active-navigation-bg)]" : ""
                   }`}
                   aria-current={isActive ? "step" : undefined}
                 >
@@ -131,7 +131,7 @@ function WorkspaceStageList({
                   <span
                     className={`text-sm font-medium ${
                       isActive
-                        ? "text-[var(--accent-green-text)]"
+                        ? "text-[var(--active-navigation-text)]"
                         : isPast
                           ? "text-[var(--text-primary)]"
                           : "text-[var(--text-secondary)]"
@@ -143,7 +143,7 @@ function WorkspaceStageList({
               ) : (
                 <div
                   className={`flex min-h-9 items-center gap-2 rounded-[var(--radius-control)] px-3 py-2 ${
-                    isActive ? "bg-[var(--accent-green-dim)]" : ""
+                    isActive ? "border border-[var(--selection-border)] bg-[var(--active-navigation-bg)]" : ""
                   }`}
                   aria-current={isActive ? "step" : undefined}
                 >
@@ -151,7 +151,7 @@ function WorkspaceStageList({
                   <span
                     className={`text-sm font-medium ${
                       isActive
-                        ? "text-[var(--accent-green-text)]"
+                        ? "text-[var(--active-navigation-text)]"
                         : isPast
                           ? "text-[var(--text-primary)]"
                           : "text-[var(--text-secondary)]"
@@ -185,9 +185,9 @@ function StageStepMarker({
     <span
       className={`grid h-7 w-7 place-items-center rounded-full text-xs font-semibold ${
         isActive
-          ? "bg-[var(--accent-green)] text-[var(--accent-green-on-fill)]"
+          ? "border border-[var(--selection-border)] bg-[var(--active-navigation-bg)] text-[var(--active-navigation-text)]"
           : isPast
-            ? "bg-[var(--accent-green-dim)] text-[var(--accent-green-text)]"
+            ? "border border-[var(--selection-border)] bg-[var(--selection-bg)] text-[var(--selection-text)]"
             : "border border-[var(--border-default)] bg-[var(--surface-raised)] text-[var(--text-muted)]"
       }`}
     >
@@ -263,6 +263,7 @@ export function WorkspaceBadge({
   const styles = {
     success: "bg-[var(--success-bg)] text-[var(--success-text)]",
     warning: "bg-[var(--warning-bg)] text-[var(--warning-text)]",
+    danger: "bg-[var(--danger-bg)] text-[var(--danger-text)]",
     info: "bg-[var(--info-bg)] text-[var(--info-text)]",
     neutral: "bg-[var(--neutral-bg)] text-[var(--neutral-text)]",
   };

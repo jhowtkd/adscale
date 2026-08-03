@@ -17,7 +17,7 @@ export function DerivationLoadErrorBanner({ kind, onRetry }: DerivationLoadError
   return (
     <div
       className={cn(
-        "rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3",
+        "rounded-lg border border-[var(--warning-border)] bg-[var(--warning-bg)] px-4 py-3",
         "flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
       )}
       role="alert"

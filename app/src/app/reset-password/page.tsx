@@ -12,7 +12,7 @@ export default function ResetPasswordPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center bg-[var(--deep-bg)] px-4">
+        <div className="flex min-h-screen items-center justify-center bg-[var(--canvas)] px-4">
           <AuthCard>
             <div className="space-y-2 text-center">
               <h1 className="text-2xl font-semibold tracking-tight">Carregando…</h1>

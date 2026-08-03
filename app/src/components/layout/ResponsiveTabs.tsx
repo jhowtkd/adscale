@@ -47,7 +47,7 @@ export default function ResponsiveTabs({
                 disabled
                   ? "cursor-not-allowed opacity-50 text-[var(--text-muted)]"
                   : active
-                    ? "text-[var(--accent-green)]"
+                    ? "text-[var(--selection-text)]"
                     : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]",
               )}
             >
@@ -58,7 +58,7 @@ export default function ResponsiveTabs({
               {active ? (
                 <span
                   aria-hidden="true"
-                  className="absolute inset-x-0 bottom-0 h-0.5 bg-[var(--accent-green)]"
+                  className="absolute inset-x-0 bottom-0 h-0.5 bg-[var(--selection-border)]"
                 />
               ) : null}
             </button>

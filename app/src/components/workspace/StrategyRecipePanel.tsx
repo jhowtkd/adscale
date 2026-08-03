@@ -274,7 +274,7 @@ export default function StrategyRecipePanel({
                   className={cn(
                     "w-full rounded-lg border p-3 text-left transition-colors",
                     selected
-                      ? "border-[var(--accent-green)] bg-[var(--accent-green-dim)]"
+                      ? "border-[var(--selection-border)] bg-[var(--selection-bg)]"
                       : "border-[var(--border-dim)] hover:border-[var(--border-medium)]"
                   )}
                 >
@@ -288,7 +288,7 @@ export default function StrategyRecipePanel({
                       </p>
                     </div>
                     {ranked?.recommended && (
-                      <span className="shrink-0 rounded-full bg-[var(--accent-green-dim)] px-2 py-0.5 font-mono text-[9px] uppercase tracking-wide text-[var(--accent-green-text)]">
+                      <span className="shrink-0 rounded-full bg-[var(--selection-bg)] px-2 py-0.5 font-mono text-[var(--text-caption)] uppercase tracking-wide text-[var(--selection-text)]">
                         {t("recommended")}
                       </span>
                     )}
@@ -310,7 +310,7 @@ export default function StrategyRecipePanel({
                 className={cn(
                   "flex-1 rounded-md border px-2 py-1.5 text-xs",
                   isArtMode
-                    ? "border-[var(--accent-green)]"
+                    ? "border-[var(--selection-border)] bg-[var(--selection-bg)] text-[var(--selection-text)]"
                     : "border-[var(--border-dim)]"
                 )}
               >
@@ -322,7 +322,7 @@ export default function StrategyRecipePanel({
                 className={cn(
                   "flex-1 rounded-md border px-2 py-1.5 text-xs",
                   !isArtMode
-                    ? "border-[var(--accent-green)]"
+                    ? "border-[var(--selection-border)] bg-[var(--selection-bg)] text-[var(--selection-text)]"
                     : "border-[var(--border-dim)]"
                 )}
               >
@@ -398,11 +398,11 @@ export default function StrategyRecipePanel({
                           className={cn(
                             "min-h-11 rounded-lg border px-3 py-2.5 text-left text-xs",
                             isSelected
-                              ? "border-[var(--accent-green)] bg-[var(--accent-green-dim)]"
+                              ? "border-[var(--selection-border)] bg-[var(--selection-bg)]"
                               : "border-[var(--border-dim)]",
                             highlightedFields.creativeLevel &&
                               isSelected &&
-                              "ring-1 ring-[var(--accent-green)]/40"
+                              "ring-1 ring-[var(--focus-ring)]"
                           )}
                         >
                           <span className="block font-medium text-[var(--text-primary)]">
@@ -448,7 +448,7 @@ export default function StrategyRecipePanel({
                             className={cn(
                               "mt-1.5",
                               highlightedFields.ctaIndices.includes(index) &&
-                                "border-[var(--accent-green)] bg-[var(--accent-green-dim)]"
+                                "border-[var(--selection-border)] bg-[var(--selection-bg)]"
                             )}
                           />
                         </div>
@@ -533,13 +533,13 @@ function FormatSelectionFields({
             className={cn(
               "flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors",
               isSelected
-                ? "border-[var(--accent-green)] bg-[var(--accent-green-dim)]"
+                ? "border-[var(--selection-border)] bg-[var(--selection-bg)]"
                 : "border-[var(--border-dim)] bg-[var(--surface-base)]"
             )}
           >
             <input
               type="checkbox"
-              className="mt-0.5 size-4 shrink-0 accent-[var(--accent-green)]"
+              className="mt-0.5 size-4 shrink-0 accent-[var(--selection-text)]"
               checked={isSelected}
               onChange={() => toggleFormat(format)}
               aria-label={tBriefing(`targetFormats.${labelKey}.label`)}

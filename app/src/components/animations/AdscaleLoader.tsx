@@ -16,7 +16,7 @@ import { useReducedMotion } from "@/lib/hooks/use-reduced-motion";
  * prefers-reduced-motion by rendering a static, non-animated variant.
  */
 
-const ACCENT = "var(--accent-green)";
+const ACCENT = "var(--utility-icon)";
 // Mirrors the Remotion Easing.bezier(0.45, 0, 0.55, 1).
 const EASE = [0.45, 0, 0.55, 1] as const;
 const LOOP_DURATION = 2.4;

@@ -97,7 +97,7 @@ export default function PlatformsDrawer({
                 className={cn(
                   "flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 transition-colors",
                   checked
-                    ? "border-[var(--accent-green)]/40 bg-[var(--accent-green)]/5"
+                    ? "border-[var(--selection-border)] bg-[var(--selection-bg)]"
                     : "border-[var(--border-dim)] bg-[var(--surface-base)] hover:bg-[var(--surface-raised)]"
                 )}
               >
@@ -106,7 +106,7 @@ export default function PlatformsDrawer({
                   type="checkbox"
                   checked={checked}
                   onChange={() => togglePlatform(platform)}
-                  className="size-4 accent-[var(--accent-green)]"
+                  className="size-4 accent-[var(--selection-text)]"
                 />
                 <span className="text-sm text-[var(--text-primary)]">
                   {t(PLATFORM_I18N_KEYS[platform])}

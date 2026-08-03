@@ -54,8 +54,8 @@ const integrations: Integration[] = [
     description: "Export derivations directly to Meta Ads Manager",
     icon: <Megaphone size={22} />,
     status: "not_connected",
-    iconBg: "var(--accent-green-dim)",
-    iconColor: "var(--accent-green)",
+    iconBg: "var(--neutral-bg)",
+    iconColor: "var(--utility-icon)",
   },
   {
     id: "google",
@@ -63,8 +63,8 @@ const integrations: Integration[] = [
     description: "Push creatives to Google Ads campaigns",
     icon: <Search size={22} />,
     status: "not_connected",
-    iconBg: "var(--accent-green-dim)",
-    iconColor: "var(--accent-green)",
+    iconBg: "var(--neutral-bg)",
+    iconColor: "var(--utility-icon)",
   },
   {
     id: "tiktok",
@@ -72,8 +72,8 @@ const integrations: Integration[] = [
     description: "Upload variations to TikTok Ad Library",
     icon: <Music size={22} />,
     status: "not_connected",
-    iconBg: "var(--danger-bg)",
-    iconColor: "var(--accent-rose)",
+    iconBg: "var(--neutral-bg)",
+    iconColor: "var(--utility-icon)",
   },
   {
     id: "slack",
@@ -81,8 +81,8 @@ const integrations: Integration[] = [
     description: "Get generation notifications in Slack",
     icon: <MessageSquare size={22} />,
     status: "not_connected",
-    iconBg: "var(--accent-green-dim)",
-    iconColor: "var(--accent-green)",
+    iconBg: "var(--neutral-bg)",
+    iconColor: "var(--utility-icon)",
   },
   {
     id: "webhook",
@@ -90,8 +90,8 @@ const integrations: Integration[] = [
     description: "Send events to your custom endpoint",
     icon: <Webhook size={22} />,
     status: "not_connected",
-    iconBg: "var(--warning-bg)",
-    iconColor: "var(--accent-amber)",
+    iconBg: "var(--neutral-bg)",
+    iconColor: "var(--utility-icon)",
   },
   {
     id: "api",
@@ -99,8 +99,8 @@ const integrations: Integration[] = [
     description: "Generate API keys for programmatic access",
     icon: <Key size={22} />,
     status: "connected",
-    iconBg: "var(--accent-green-dim)",
-    iconColor: "var(--accent-green)",
+    iconBg: "var(--neutral-bg)",
+    iconColor: "var(--utility-icon)",
   },
 ];
 
@@ -108,9 +108,9 @@ const statusConfig: Record<
   IntegrationStatus,
   { label: string; color: string }
 > = {
-  connected: { label: "Connected", color: "var(--accent-teal)" },
+  connected: { label: "Connected", color: "var(--success-text)" },
   not_connected: { label: "Not connected", color: "var(--text-muted)" },
-  error: { label: "Error", color: "var(--accent-rose)" },
+  error: { label: "Error", color: "var(--danger-text)" },
 };
 
 const statusKeyMap: Record<IntegrationStatus, string> = {
@@ -186,7 +186,7 @@ export default function IntegrationsTab() {
                 "rounded-xl p-5 space-y-4",
                 "bg-[var(--surface-base)] border transition-all duration-200",
                 isConnected
-                  ? "border-[var(--accent-teal)]/30"
+                  ? "border-[var(--success-border)]"
                   : "border-[var(--border-dim)] hover:border-[var(--border-medium)]"
               )}
             >

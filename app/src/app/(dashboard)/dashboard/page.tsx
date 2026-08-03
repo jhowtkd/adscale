@@ -69,7 +69,7 @@ export default function DashboardDataPage() {
         <button
           type="button"
           onClick={() => void refetch()}
-          className="rounded-[var(--radius-control)] bg-[var(--accent-primary)] px-5 py-2.5 text-sm font-medium text-[var(--text-on-accent)]"
+          className="rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-5 py-2.5 text-sm font-medium text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)]"
         >
           {tHome("retry")}
         </button>
@@ -89,7 +89,7 @@ export default function DashboardDataPage() {
           </strong>
         ),
         ready: (chunks) => (
-          <strong className="text-[var(--accent-primary-text)]">
+          <strong className="text-[var(--success-text)]">
             {tV6("summaryReady", { count: view.readyToApproveCount })}
             {chunks}
           </strong>

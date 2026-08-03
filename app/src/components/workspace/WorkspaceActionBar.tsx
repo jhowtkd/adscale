@@ -64,7 +64,7 @@ export default function WorkspaceActionBar({
           title={generateTitle}
           aria-label={t("generate")}
           aria-describedby={hasBlocking ? "mission-generate-blocked" : undefined}
-          className="min-h-9 bg-[var(--accent-green)] text-[var(--accent-green-on-fill)] hover:bg-[var(--accent-green-light)]"
+          className="min-h-9 bg-[var(--action-primary-bg)] text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)]"
           onClick={onGenerate}
         >
           {isGenerating ? (
@@ -79,14 +79,14 @@ export default function WorkspaceActionBar({
           type="button"
           disabled={disabled || isGenerating}
           onClick={onAdjustStrategy}
-          className="min-h-9 rounded-[var(--radius-control)] px-1 text-xs font-medium text-[var(--text-secondary)] underline-offset-2 transition-colors hover:text-[var(--text-primary)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-green)] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+          className="min-h-9 rounded-[var(--radius-control)] px-1 text-xs font-medium text-[var(--text-secondary)] underline-offset-2 transition-colors hover:text-[var(--text-primary)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
         >
           {t("adjustStrategy")}
         </button>
 
         {recommendedRecipeLabel ? (
           <span className="inline-flex max-w-full items-center gap-1.5 truncate rounded-md border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-2 py-1 font-mono text-[9px] uppercase tracking-wide text-[var(--text-muted)]">
-            <span className="shrink-0 text-[var(--accent-green-text)]">{t("recommended")}</span>
+            <span className="shrink-0 text-[var(--selection-text)]">{t("recommended")}</span>
             <span className="truncate text-[var(--text-secondary)] normal-case tracking-normal">
               {recommendedRecipeLabel}
             </span>
@@ -101,7 +101,7 @@ export default function WorkspaceActionBar({
             disabled={disabled || isGenerating}
             aria-label={t("estilizar")}
             onClick={onEstilizar}
-            className="ml-auto min-h-9 border-[var(--accent-green)]/45 bg-[var(--accent-green)]/12 font-semibold text-[var(--accent-green-text)] hover:border-[var(--accent-green)]/60 hover:bg-[var(--accent-green)]/22 hover:text-[var(--accent-green-text)]"
+            className="ml-auto min-h-9 border-[var(--selection-border)] bg-[var(--selection-bg)] font-semibold text-[var(--selection-text)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)]"
           >
             <Sparkles size={14} aria-hidden="true" />
             {t("estilizar")}

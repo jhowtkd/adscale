@@ -2,17 +2,21 @@ import "./load-env";
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { and, eq, like, or } from "drizzle-orm";
+import { and, eq, inArray, like, or } from "drizzle-orm";
 import { db } from "../src/server/db";
-import { campaigns, clientProfiles, derivations, user, workspaceMembers, workspaces } from "../src/server/db/schema";
+import { campaigns, clientProfiles, creativeWorkItems, derivations, user, workspaceAssets, workspaceMembers, workspaces } from "../src/server/db/schema";
 import { createCampaign } from "../src/server/repositories/campaign";
 import { upsertBrandKit } from "../src/server/repositories/brand-kit";
 import { createClientProfile } from "../src/server/repositories/client-reference";
+import { createCreativeWorkDraft, createCreativeWorkSource } from "../src/server/repositories/creative-work";
 import {
   getActiveTesterEntitlementByWorkspace,
   grantTesterEntitlement,
   revokeTesterEntitlement,
 } from "../src/server/repositories/entitlements";
+import { createWorkspaceAsset } from "../src/server/repositories/workspace-asset";
+import { createDefaultCreativeDirectionPool } from "../src/server/creative-work/contracts";
+import { objectStorage } from "../src/server/storage";
 
 const EMAIL = "visual-foundations@example.test";
 const NAME = "Visual Foundations Tester";
@@ -21,6 +25,16 @@ const CAMPAIGN_PREFIX = "VF Example";
 const PASSWORD = process.env.VISUAL_FOUNDATIONS_PASSWORD ?? "VisualFoundations123!";
 const BASE_URL = (process.env.E2E_BASE_URL ?? process.env.BETTER_AUTH_URL ?? "http://localhost:3000").replace(/\/$/, "");
 const MANIFEST_PATH = path.resolve(process.cwd(), "test-results/visual-foundations/manifest.json");
+const VARIATION_DRAFT_KEY = "00000000-0000-4000-8000-000000000167";
+const VARIATION_SOURCES = [
+  { name: "vf-variation-horizontal-320x180.svg", width: 320, height: 180, color: "#00b34a", label: "Horizontal" },
+  { name: "vf-variation-square-240x240.svg", width: 240, height: 240, color: "#0f766e", label: "Square" },
+  { name: "vf-variation-vertical-180x320.svg", width: 180, height: 320, color: "#7c3aed", label: "Vertical" },
+] as const;
+
+function variationSourceSvg({ width, height, color, label }: (typeof VARIATION_SOURCES)[number]) {
+  return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="${width}" height="${height}" fill="#172018"/><rect x="12" y="12" width="${width - 24}" height="${height - 24}" fill="${color}"/><text x="${width / 2}" y="${height / 2}" fill="white" font-family="Arial" font-size="20" text-anchor="middle">${label}</text></svg>`);
+}
 
 async function ensureAccount() {
   const existing = await db.select().from(user).where(eq(user.email, EMAIL)).limit(1);
@@ -148,6 +162,81 @@ async function main() {
     scoreStatus: "analyzed",
     qaStatus: "passed",
   }).returning();
+  await db.delete(creativeWorkItems).where(and(
+    eq(creativeWorkItems.workspaceId, workspaceId),
+    eq(creativeWorkItems.draftKey, VARIATION_DRAFT_KEY),
+  ));
+  await db.delete(workspaceAssets).where(and(
+    eq(workspaceAssets.workspaceId, workspaceId),
+    inArray(workspaceAssets.name, VARIATION_SOURCES.map(({ name }) => name)),
+  ));
+  const variationAssets = [];
+  for (const fixture of VARIATION_SOURCES) {
+    const source = variationSourceSvg(fixture);
+    const key = `e2e/visual-foundations/${workspaceId.slice(0, 8)}/${fixture.name}`;
+    await objectStorage.put(key, source, "image/svg+xml");
+    variationAssets.push(await createWorkspaceAsset({
+      workspaceId,
+      key,
+      name: fixture.name,
+      type: "image/svg+xml",
+      size: source.byteLength,
+      width: fixture.width,
+      height: fixture.height,
+    }));
+  }
+  const variationDirections = createDefaultCreativeDirectionPool();
+  variationDirections.directions = variationDirections.directions.map((direction) => ({
+    ...direction,
+    provenance: "ai-suggestion",
+  }));
+  const variationWork = await createCreativeWorkDraft({
+    workspaceId,
+    clientProfileId: fixtureProfile.id,
+    createdByUserId: userId,
+    draftKey: VARIATION_DRAFT_KEY,
+    intent: "variations",
+    title: "VF visual variations fixture",
+    request: "Variações visuais sem geração.",
+    campaignId: created[0].id,
+    format: "4:5",
+    settings: { targetFormats: [], formatMode: "manual", directionPool: variationDirections },
+  });
+  if (!variationWork) throw new Error("Could not create visual variations fixture");
+  for (const [index, asset] of variationAssets.entries()) {
+    const fixture = VARIATION_SOURCES[index];
+    const variationSource = await createCreativeWorkSource({
+      workspaceId,
+      workItemId: variationWork.id,
+      assetId: asset.id,
+      usage: "both",
+      usageConfirmed: true,
+      status: "ready",
+      contentAnalysis: {
+        summaryPt: "Fixture visual de variações",
+        literalText: fixture.label,
+        entities: [fixture.label],
+        product: "Fixture visual",
+        offer: "Sem oferta",
+        cta: { text: "Saiba mais", style: "botão" },
+        brandElements: ["ADScale"],
+        keyVisual: "Bloco colorido",
+        textContent: { headline: fixture.label, bullets: [] },
+        format: `${fixture.width}:${fixture.height}`,
+      },
+      styleAnalysis: {
+        palette: [{ hex: fixture.color, labelPt: "cor da fixture" }],
+        colorPalette: { dominant: [fixture.color], accents: ["#172018"], gradients: "none" },
+        typography: { personality: "Direta", effects: [] },
+        textures: [],
+        composition: fixture.label,
+        mood: "Clara",
+        decorativeElements: [],
+        photoTreatment: "Gráfico",
+      },
+    });
+    if (!variationSource) throw new Error(`Could not create ${fixture.name}`);
+  }
 
   const routes = {
     creativeWork: "/",
@@ -156,6 +245,7 @@ async function main() {
     library: "/library",
     onboarding: "/brand-kit",
     workspace: `/campaigns/${created[0].id}`,
+    variationWorkspace: `/?workId=${variationWork.id}&intent=variations`,
     settingsProfile: "/settings?tab=profile",
     settingsBilling: "/settings?tab=billing",
   };
@@ -167,10 +257,11 @@ async function main() {
   };
 
   const manifest = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     identity: { email: EMAIL, name: NAME },
     fixtureIds: { userId, workspaceId, campaignIds: created.map((campaign) => campaign.id), derivationId: derivation.id },
     labels: { workspace: WORKSPACE_NAME, clients: fixtures.map((fixture) => fixture.client) },
+    variationSources: VARIATION_SOURCES.map(({ name, width, height }) => ({ name, width, height })),
     routes,
     states,
   };

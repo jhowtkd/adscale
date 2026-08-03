@@ -39,7 +39,7 @@ export function MissionCreditBanner({
   return (
     <div className="mt-3 space-y-2 rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)]/50 p-3">
       <div className="flex items-start gap-2 text-xs text-[var(--text-secondary)]">
-        <Coins size={14} className="mt-0.5 shrink-0 text-[var(--accent-green)]" aria-hidden="true" />
+        <Coins size={14} className="mt-0.5 shrink-0 text-[var(--utility-icon)]" aria-hidden="true" />
         <p>{t(costKey, { ads: credit.adCost, credits: credit.creditCost })}</p>
       </div>
       <div className="flex items-center justify-between gap-2 text-xs">
@@ -50,7 +50,7 @@ export function MissionCreditBanner({
           })}
         </span>
         {credit.insufficientCredits ? (
-          <span className="inline-flex items-center gap-1 text-[var(--accent-rose)]">
+          <span className="inline-flex items-center gap-1 text-[var(--danger-text)]">
             <AlertCircle size={12} aria-hidden="true" />
             {t("insufficient")}
           </span>

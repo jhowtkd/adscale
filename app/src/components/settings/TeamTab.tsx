@@ -48,7 +48,7 @@ const roleConfig: Record<
 > = {
   Owner: { color: "var(--warning-text)", bg: "var(--warning-bg)" },
   Admin: { color: "var(--info-text)", bg: "var(--info-bg)" },
-  Editor: { color: "var(--accent-green)", bg: "var(--accent-green-dim)" },
+  Editor: { color: "var(--neutral-text)", bg: "var(--neutral-bg)" },
   Viewer: { color: "var(--neutral-text)", bg: "var(--neutral-bg)" },
 };
 
@@ -211,7 +211,7 @@ export default function TeamTab() {
       {isError && !isLoading && (
         <m.div
           variants={itemVariants}
-          className="rounded-lg border border-[var(--accent-rose)]/30 bg-[var(--accent-rose)]/10 px-4 py-3 text-sm text-[var(--accent-rose)]"
+          className="rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-3 text-sm text-[var(--danger-text)]"
         >
           {error?.message || tc("error")}
         </m.div>
@@ -256,7 +256,7 @@ export default function TeamTab() {
                   "size-9 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0",
                   member.status === "Pending"
                     ? "bg-[var(--border-dim)] text-[var(--text-muted)]"
-                    : "bg-[var(--accent-green-dim)] text-[var(--accent-green-text)]"
+                    : "bg-[var(--neutral-bg)] text-[var(--neutral-text)]"
                 )}
               >
                 {getInitials(member.name)}
@@ -288,7 +288,7 @@ export default function TeamTab() {
                 className={cn(
                   "text-xs flex-shrink-0",
                   member.status === "Active"
-                    ? "text-[var(--accent-teal)]"
+                    ? "text-[var(--success-text)]"
                     : "text-[var(--text-muted)]"
                 )}
               >
@@ -309,7 +309,7 @@ export default function TeamTab() {
                     onClick={() => handleRemove(member)}
                     disabled={removeMember.isPending}
                     aria-label={t("team.removeMember")}
-                    className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--accent-rose)] hover:bg-[var(--surface-raised)] transition-all disabled:opacity-50"
+                    className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--danger-text)] hover:bg-[var(--surface-raised)] transition-all disabled:opacity-50"
                   >
                     <Trash2 size={14} />
                   </button>
@@ -347,7 +347,7 @@ export default function TeamTab() {
                 "w-full h-10 rounded-md border px-3 text-sm",
                 "bg-[var(--surface-base)] text-[var(--text-primary)]",
                 "placeholder:text-[var(--text-muted)]",
-                "focus:outline-none focus:border-[var(--accent-green)] focus:ring-[3px] focus:ring-[var(--accent-green-dim)]",
+                "focus:outline-none focus:border-[var(--focus-ring)] focus:ring-[3px] focus:ring-[var(--focus-ring)]",
                 "transition-all duration-200 border-[var(--border-dim)]"
               )}
             />
@@ -363,7 +363,7 @@ export default function TeamTab() {
               className={cn(
                 "h-10 w-full rounded-md border px-3 text-sm sm:w-auto",
                 "bg-[var(--surface-base)] text-[var(--text-primary)]",
-                "focus:outline-none focus:border-[var(--accent-green)] focus:ring-[3px] focus:ring-[var(--accent-green-dim)]",
+                "focus:outline-none focus:border-[var(--focus-ring)] focus:ring-[3px] focus:ring-[var(--focus-ring)]",
                 "transition-all duration-200 border-[var(--border-dim)]",
                 "appearance-none cursor-pointer"
               )}
@@ -377,8 +377,8 @@ export default function TeamTab() {
             onClick={handleSendInvite}
             disabled={inviteMember.isPending}
             className={cn(
-              "h-10 px-4 rounded-md text-sm font-medium text-[var(--text-on-accent)]",
-              "bg-[var(--accent-green)] hover:bg-[var(--accent-green-light)]",
+              "h-10 px-4 rounded-md text-sm font-medium text-[var(--action-primary-text)]",
+              "bg-[var(--action-primary-bg)] hover:bg-[var(--action-primary-hover)]",
               "active:scale-[0.98]",
               "transition-all duration-200",
               "disabled:opacity-60 disabled:cursor-not-allowed"

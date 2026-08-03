@@ -64,22 +64,22 @@ export default function SocialAuthButtons({ mode, callbackURL = "/" }: SocialAut
         <Button
           type="button"
           variant="outline"
-          className="w-full gap-2 rounded-[var(--radius-control)] border-[var(--border-default)] bg-[var(--surface-raised)] text-[var(--text-primary)] hover:bg-[var(--surface-base)] min-h-[44px]"
+          className="min-h-[44px] w-full gap-2 rounded-[var(--radius-control)] border-[var(--neutral-border)] bg-[var(--surface-raised)] text-[var(--neutral-text)] hover:bg-[var(--neutral-bg)]"
           onClick={() => handleSocialSignIn("google")}
           disabled={loading !== null}
         >
-          <GoogleIcon className="size-4" />
+          <GoogleIcon className="size-4 text-[var(--neutral-text)]" />
           <span className="text-sm">Google</span>
         </Button>
 
         <Button
           type="button"
           variant="outline"
-          className="w-full gap-2 rounded-[var(--radius-control)] border-[var(--border-default)] bg-[var(--surface-raised)] text-[var(--text-primary)] hover:bg-[var(--surface-base)] min-h-[44px]"
+          className="min-h-[44px] w-full gap-2 rounded-[var(--radius-control)] border-[var(--neutral-border)] bg-[var(--surface-raised)] text-[var(--neutral-text)] hover:bg-[var(--neutral-bg)]"
           onClick={() => handleSocialSignIn("github")}
           disabled={loading !== null}
         >
-          <GitHubIcon className="size-4" />
+          <GitHubIcon className="size-4 text-[var(--neutral-text)]" />
           <span className="text-sm">GitHub</span>
         </Button>
       </div>
@@ -87,11 +87,19 @@ export default function SocialAuthButtons({ mode, callbackURL = "/" }: SocialAut
       {mode === "signup" && (
         <p className="text-center text-[11px] text-[var(--text-secondary)] leading-relaxed">
           {t("socialConsentPrefix")}{" "}
-          <Link href="/terms" className="text-[var(--accent-primary-text)] hover:underline" target="_blank">
+          <Link
+            href="/terms"
+            className="text-[var(--neutral-text)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+            target="_blank"
+          >
             {t("terms")}
           </Link>{" "}
           {t("and")}{" "}
-          <Link href="/privacy" className="text-[var(--accent-primary-text)] hover:underline" target="_blank">
+          <Link
+            href="/privacy"
+            className="text-[var(--neutral-text)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+            target="_blank"
+          >
             {t("privacy")}
           </Link>
           .

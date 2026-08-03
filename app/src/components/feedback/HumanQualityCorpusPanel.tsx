@@ -514,14 +514,14 @@ function SampleGuidanceList({
 }) {
   if (!guidance || guidance.length === 0) {
     return (
-      <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100/90">
+      <p className="rounded-md border border-[var(--warning-border)] bg-[var(--warning-bg)] px-3 py-2 text-sm text-[var(--warning-text)]">
         {fallback}
       </p>
     );
   }
 
   return (
-    <div className="space-y-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100/90">
+    <div className="space-y-2 rounded-md border border-[var(--warning-border)] bg-[var(--warning-bg)] px-3 py-2 text-sm text-[var(--warning-text)]">
       <p className="text-xs font-medium">Sample guidance from API thresholds:</p>
       <ul className="list-inside list-disc text-xs">
         {guidance.map((item) => (
@@ -1256,7 +1256,7 @@ function CalibrationTabContent({
             Proposed adjustments
           </h4>
           {actionError ? (
-            <p className="text-xs text-rose-400">{actionError}</p>
+            <p className="text-xs text-[var(--danger-text)]">{actionError}</p>
           ) : null}
           <ul className="space-y-2 text-xs text-[var(--text-primary)]">
             {report.adjustments.map((adjustment) => {
@@ -1282,7 +1282,7 @@ function CalibrationTabContent({
                 >
                   <div className="flex flex-wrap items-center gap-2">
                     {isCrossClient ? (
-                      <span className="rounded bg-indigo-500/20 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-indigo-200">
+                      <span className="rounded bg-[var(--info-bg)] px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[var(--info-text)]">
                         Cross-client
                       </span>
                     ) : null}
@@ -1312,7 +1312,7 @@ function CalibrationTabContent({
                   ) : null}
 
                   {isFixtureOnly ? (
-                    <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[10px] text-amber-200">
+                    <p className="rounded-md border border-[var(--warning-border)] bg-[var(--warning-bg)] px-2 py-1.5 text-[10px] text-[var(--warning-text)]">
                       This proposal uses only fixture evidence — acknowledge before accepting.
                     </p>
                   ) : null}
@@ -1320,7 +1320,7 @@ function CalibrationTabContent({
                   {adjustment.status === "proposed" && adjustment.id ? (
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       {isFixtureOnly ? (
-                        <label className="flex items-start gap-2 text-[10px] text-amber-200/90">
+                        <label className="flex items-start gap-2 text-[10px] text-[var(--warning-text)]">
                           <input
                             type="checkbox"
                             className="mt-0.5"
@@ -1599,19 +1599,19 @@ function TrendTabContent({
       </dl>
 
       {report.truncated ? (
-        <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100/90">
+        <p className="rounded-md border border-[var(--warning-border)] bg-[var(--warning-bg)] px-3 py-2 text-xs text-[var(--warning-text)]">
           Trend report truncated at row limit — aggregates may omit recent evaluations.
         </p>
       ) : null}
 
       {report.alertFlags.insufficientCoverage ? (
         <div
-          className="space-y-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2"
+          className="space-y-2 rounded-md border border-[var(--warning-border)] bg-[var(--warning-bg)] px-3 py-2"
           data-testid="trend-alert-insufficient-coverage"
         >
-          <p className="text-xs font-medium text-amber-100">Insufficient coverage</p>
+          <p className="text-xs font-medium text-[var(--warning-text)]">Insufficient coverage</p>
           {report.alertFlags.reasons?.insufficientCoverage ? (
-            <p className="text-xs text-amber-100/90">{report.alertFlags.reasons.insufficientCoverage}</p>
+            <p className="text-xs text-[var(--warning-text)]">{report.alertFlags.reasons.insufficientCoverage}</p>
           ) : null}
           <SampleGuidanceList
             guidance={report.sampleGuidance}
@@ -1622,7 +1622,7 @@ function TrendTabContent({
 
       {report.alertFlags.staleEvidence ? (
         <p
-          className="rounded-md border border-sky-500/40 bg-sky-500/10 px-3 py-2 text-xs text-sky-100"
+          className="rounded-md border border-[var(--info-border)] bg-[var(--info-bg)] px-3 py-2 text-xs text-[var(--info-text)]"
           data-testid="trend-alert-stale-evidence"
         >
           Corpus refreshed — re-run evidence CLI
@@ -1634,7 +1634,7 @@ function TrendTabContent({
 
       {report.alertFlags.regressionDetected ? (
         <p
-          className="rounded-md border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-xs text-rose-100"
+          className="rounded-md border border-[var(--danger-border)] bg-[var(--danger-bg)] px-3 py-2 text-xs text-[var(--danger-text)]"
           data-testid="trend-alert-regression"
         >
           Regression detected
@@ -1751,8 +1751,8 @@ function TrendTabContent({
                 key={point.bucketKey}
                 className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] ${
                   point.learningImpactStatus === "ok"
-                    ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-200"
-                    : "border-amber-500/40 bg-amber-500/10 text-amber-200"
+                    ? "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success-text)]"
+                    : "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning-text)]"
                 }`}
               >
                 {point.bucketKey}: Learning impact comparability{" "}
@@ -2004,7 +2004,7 @@ function CoverageTabContent({
             </p>
           ) : null}
           {globalEvidence.dependsOnOperator.length > 0 ? (
-            <p className="text-xs text-amber-400">{globalEvidence.dependsOnOperator[0]}</p>
+            <p className="text-xs text-[var(--warning-text)]">{globalEvidence.dependsOnOperator[0]}</p>
           ) : null}
         </div>
       ) : null}
@@ -2777,7 +2777,7 @@ export function HumanQualityCorpusPanel() {
 
                 {currentItem.sourceLabel &&
                 getHumanQualitySourceCaveat(currentItem.sourceLabel) ? (
-                  <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-200/90">
+                  <p className="rounded-md border border-[var(--warning-border)] bg-[var(--warning-bg)] px-2 py-1.5 text-[11px] text-[var(--warning-text)]">
                     {getHumanQualitySourceCaveat(currentItem.sourceLabel)}
                   </p>
                 ) : null}
@@ -2787,7 +2787,7 @@ export function HumanQualityCorpusPanel() {
                     <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--text-muted)]">
                       Auto hard failures
                     </p>
-                    <ul className="space-y-1 text-xs text-rose-300/90">
+                    <ul className="space-y-1 text-xs text-[var(--danger-text)]">
                       {snapshot.hardFailures.map((failure, index) => (
                         <li key={`${failure.code ?? "failure"}-${index}`}>
                           {failure.code ?? "failure"}
@@ -2901,7 +2901,7 @@ export function HumanQualityCorpusPanel() {
                 </label>
 
                 {submitError ? (
-                  <p className="text-xs text-rose-400">{submitError}</p>
+                  <p className="text-xs text-[var(--danger-text)]">{submitError}</p>
                 ) : null}
 
                 <Button type="submit" disabled={!formValid || submitMutation.isPending}>

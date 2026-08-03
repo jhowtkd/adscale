@@ -67,6 +67,18 @@ describe("AppSidebar role-aware navigation", () => {
     );
   });
 
+  it("uses neutral active-navigation roles for the selected shell item", () => {
+    render(<AppSidebar />);
+
+    const works = screen.getByRole("link", { name: "navigation.works" });
+    expect(works).toHaveAttribute("aria-current", "page");
+    expect(works).toHaveClass(
+      "bg-[var(--active-navigation-bg)]",
+      "text-[var(--active-navigation-text)]"
+    );
+    expect(document.querySelector(".glow")).not.toBeInTheDocument();
+  });
+
   it("does not show a decorative search / ⌘K affordance", () => {
     render(<AppSidebar />);
     expect(screen.queryByText(/Buscar/i)).not.toBeInTheDocument();

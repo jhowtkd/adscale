@@ -20,9 +20,9 @@ const labels: LibraryV6Labels = {
   loadingMore: "Carregando",
 };
 
-describe("LibraryV6View motion focus contract", () => {
-  it("keeps keyboard focus on the asset action and exposes its visual group", () => {
-    render(
+describe("LibraryV6View visual role contract", () => {
+  it("keeps keyboard focus and assigns semantic roles to Library controls", () => {
+    const { container } = render(
       <LibraryV6View
         labels={labels}
         assets={[{
@@ -36,10 +36,11 @@ describe("LibraryV6View motion focus contract", () => {
           gradient: "bg-[var(--surface-inset)]",
         }]}
         shownCount={1}
-        totalCount={1}
+        totalCount={2}
         searchQuery=""
         useImagePreview={false}
         onDeleteAsset={vi.fn()}
+        onLoadMore={vi.fn()}
       />,
     );
 
@@ -48,5 +49,10 @@ describe("LibraryV6View motion focus contract", () => {
 
     expect(action).toHaveFocus();
     expect(action.closest("article")).toHaveAttribute("data-motion-highlight", "focus");
+    expect(action.closest("article")?.className).toContain("border-[var(--selection-border)]");
+    expect(action.className).toContain("bg-[var(--danger-bg)]");
+    expect(screen.getByRole("button", { name: "Enviar" }).className).toContain("bg-[var(--action-primary-bg)]");
+    expect(screen.getByRole("button", { name: "Carregar mais" }).className).toContain("bg-[var(--active-navigation-bg)]");
+    expect(container.querySelector('input[type="search"]')?.previousElementSibling?.getAttribute("class")).toContain("text-[var(--utility-icon)]");
   });
 });

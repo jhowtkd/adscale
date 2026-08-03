@@ -150,7 +150,7 @@ export default function CreativeAnnotationEditor({
           >
             {draft ? (
               <div
-                className="absolute border-2 border-[var(--accent-primary)] bg-[var(--accent-primary)]/10"
+                className="absolute border-2 border-[var(--selection-border)] bg-[var(--selection-bg)]"
                 style={{
                   left: `${draft.x * 100}%`,
                   top: `${draft.y * 100}%`,
@@ -164,7 +164,7 @@ export default function CreativeAnnotationEditor({
               .map((annotation, index) => (
                 <div
                   key={annotation.id}
-                  className="absolute border-2 border-[#ff3b30]/80"
+                  className="absolute border-2 border-[var(--danger-border)]"
                   style={{
                     left: `${annotation.x * 100}%`,
                     top: `${annotation.y * 100}%`,
@@ -172,7 +172,7 @@ export default function CreativeAnnotationEditor({
                     height: `${annotation.height * 100}%`,
                   }}
                 >
-                  <span className="absolute -top-5 left-0 rounded bg-[#ff3b30] px-1 text-xs text-white">
+                  <span className="absolute -top-5 left-0 rounded bg-[var(--danger-bg)] px-1 text-xs text-[var(--danger-text)]">
                     {index + 1}
                   </span>
                 </div>
@@ -182,7 +182,7 @@ export default function CreativeAnnotationEditor({
       </div>
 
       {draft ? (
-        <div className="flex flex-col gap-2 rounded-lg border border-[var(--accent-primary)] bg-[var(--surface-raised)] p-3">
+        <div className="flex flex-col gap-2 rounded-lg border border-[var(--selection-border)] bg-[var(--surface-raised)] p-3">
           <label className="text-xs font-medium text-[var(--text-secondary)]">
             {t("annotationComment")}
           </label>
@@ -191,7 +191,7 @@ export default function CreativeAnnotationEditor({
             value={comment}
             onChange={(event) => setComment(event.target.value)}
             rows={2}
-            className="block w-full resize-none rounded-md border border-[var(--border-dim)] bg-[var(--surface-inset)] px-2 py-1 text-sm text-[var(--text-primary)] focus-visible:border-[var(--accent-primary)] focus-visible:outline-none"
+            className="block w-full resize-none rounded-md border border-[var(--border-dim)] bg-[var(--surface-inset)] px-2 py-1 text-sm text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             placeholder={t("annotationCommentPlaceholder")}
             autoFocus
           />
@@ -212,7 +212,7 @@ export default function CreativeAnnotationEditor({
               className={cn(
                 "rounded-md px-3 py-1 text-xs font-medium",
                 comment.trim()
-                  ? "bg-[var(--accent-primary)] text-[var(--text-on-accent)]"
+                  ? "bg-[var(--action-primary-bg)] text-[var(--action-primary-text)]"
                   : "cursor-not-allowed bg-[var(--surface-inset)] text-[var(--text-muted)]"
               )}
             >
@@ -236,7 +236,7 @@ export default function CreativeAnnotationEditor({
               )}
             >
               <span>
-                <span className="font-medium text-[#ff3b30]">{index + 1}.</span>{" "}
+                <span className="font-medium text-[var(--danger-text)]">{index + 1}.</span>{" "}
                 {annotation.comment}
                 {annotation.status === "addressed"
                   ? ` · ${t("addressed")}`

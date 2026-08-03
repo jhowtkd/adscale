@@ -30,7 +30,7 @@ export default function ActiveBrandSwitcher({
         id={id}
         value={activeClientProfileId ?? ""}
         onChange={(event) => selectProfile(event.target.value)}
-        className="block w-full rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] px-2 py-2 text-xs font-medium text-[var(--text-primary)] focus-visible:border-[var(--accent-primary)] focus-visible:outline-none"
+        className="block w-full rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] px-2 py-2 text-xs font-medium text-[var(--text-primary)] focus-visible:border-[var(--focus-ring)] focus-visible:outline-none"
       >
         {!activeClientProfileId ? (
           <option value="" disabled>
