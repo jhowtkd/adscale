@@ -364,6 +364,7 @@ Canonical standalone creative aggregate per ADR 0013 — no campaign prerequisit
 2. User selects active brand, enters request, optionally attaches sources via `POST /api/workspace/assets` and links them via `PATCH /api/creative-work/:id`.
 3. Source analysis dispatches Inngest `creativeWorkSourceAnalyzeJob` (`creative-work.source.analyze`); generation is blocked until analysis completes.
 4. User confirms copy and cost → `POST /api/creative-work/:id/generate` creates outputs and dispatches `creativeWorkOutputJob` (`creative-work.generate`) via `generation/pipeline/execute`.
+   While the request is in the `generating` state, `CreativeComposer` renders the `ThinkingOrb` working indicator next to the generate action; it is state-driven and does not appear during source analysis or other composer states.
 5. User selects an output → `POST .../outputs/:outputId/select`; optional library indexing via `ensure-creative-work-output-library` (`source: creative_work`).
 6. Curated inspirations are uploaded by platform owners (`POST /api/admin/inspirations`) and excluded from `/library` via `excludeSources=curated_inspiration,curated_inspiration_copy`.
 

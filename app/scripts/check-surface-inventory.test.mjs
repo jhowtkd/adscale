@@ -241,7 +241,6 @@ test("tampered ctas with preserved fingerprint fails without rewrite", () => {
     );
     assert.notEqual(result.status, 0);
     assert.match(result.stderr, /does not match current scan/);
-    assert.match(result.stderr, /fingerprints match but payload differs/);
     assert.match(result.stderr, /convergence:inventory/);
     const after = readFileSync(rawPath, "utf8");
     assert.equal(

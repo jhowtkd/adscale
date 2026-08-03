@@ -40,7 +40,7 @@ export function ContextualHelp({
       <TooltipContent
         id={descriptionId}
         role="tooltip"
-        className="max-w-sm items-start px-3 py-2 text-left leading-5"
+        className="max-w-[260px] items-start px-2.5 py-1.5 text-left text-xs leading-4"
       >
         {children}
       </TooltipContent>

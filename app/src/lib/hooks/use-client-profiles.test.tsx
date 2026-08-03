@@ -17,10 +17,11 @@ import { apiFetch } from "@/lib/api-client";
 
 const mockApiFetch = vi.mocked(apiFetch);
 
-function createWrapper() {
-  const queryClient = new QueryClient({
+function createWrapper(
+  queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
-  });
+  }),
+) {
   return function Wrapper({ children }: { children: React.ReactNode }) {
     return (
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
@@ -67,8 +68,12 @@ describe("useCreateClientProfile", () => {
   });
 
   it("posts profile input and invalidates client-profiles", async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const invalidateQueries = vi.spyOn(queryClient, "invalidateQueries");
     const { result } = renderHook(() => useCreateClientProfile(), {
-      wrapper: createWrapper(),
+      wrapper: createWrapper(queryClient),
     });
 
     await result.current.mutateAsync({ name: "Acme" });
@@ -80,6 +85,9 @@ describe("useCreateClientProfile", () => {
         body: JSON.stringify({ name: "Acme" }),
       })
     );
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["client-profiles"],
+    });
   });
 });
 

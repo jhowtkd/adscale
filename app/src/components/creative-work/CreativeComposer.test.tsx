@@ -42,6 +42,12 @@ vi.mock("next-intl", () => ({ useTranslations: () => (key: string, values?: Reco
 import { CreativeComposer } from "./CreativeComposer";
 import type { CreativeComposerModel, CreativeComposerViewModel } from "./useCreativeComposer";
 
+vi.mock("thinking-orbs", () => ({
+  ThinkingOrb: ({ state, size }: { state: string; size: number }) => (
+    <div data-testid="thinking-orb" data-state={state} data-size={size} />
+  ),
+}));
+
 function composer(overrides = {}) {
   const directionPool = {
     version: 1,
@@ -374,6 +380,22 @@ describe("CreativeComposer", () => {
     expect(screen.getByRole("button", { name: "Preparando" })).toBeDisabled();
     expect(screen.getByRole("status")).toHaveTextContent("Preparando");
     expect(screen.getByRole("status")).not.toHaveClass("sr-only");
+  });
+
+  it("shows the working orb only while the composer is generating", () => {
+    const { rerender } = renderComposer(composer({ state: "generating" }));
+
+    const orb = screen.getByTestId("thinking-orb");
+    expect(orb).toHaveAttribute("data-state", "working");
+    expect(orb).toHaveAttribute("data-size", "64");
+
+    rerender(
+      <CreativeComposer
+        composer={composer({ state: "analyzing" }) as CreativeComposerViewModel}
+        composerRef={{ current: null }}
+      />,
+    );
+    expect(screen.queryByTestId("thinking-orb")).not.toBeInTheDocument();
   });
 
   it("renders CreativeSourceChip and dispatches its actions", () => {

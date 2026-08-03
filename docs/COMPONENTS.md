@@ -191,7 +191,7 @@ Primary standalone creative surface mounted on `/` via `DashboardHomeActions`. O
 
 | Component | Key API | Role |
 |----------|---------|------|
-| `CreativeComposer` | `CreativeComposerProps` | Request input, format selection, source attachments, proposal grid |
+| `CreativeComposer` | `CreativeComposerProps` | Request input, format selection, source attachments, proposal grid, and the `ThinkingOrb` shown while generation is in progress |
 | `useCreativeComposer` | hook | Draft lifecycle: autosave, source analysis polling, generate/select/revise |
 | `CreativeToolCards` | intent cards | Entry intents: variations, single, format_adaptation, restyle |
 | `BrandInspirations` | `useCreativeInspirations` | Curated/template/approved-work inspiration rail on home |
@@ -202,6 +202,8 @@ Primary standalone creative surface mounted on `/` via `DashboardHomeActions`. O
 Also uses `quick-tools/create-post/CreativeProposalGrid` for the proposal comparison grid.
 
 **Relationships:** hooks in `@/lib/hooks/use-creative-work.ts`, `@/lib/hooks/use-canonical-works.ts`, `@/lib/hooks/use-creative-inspirations.ts`; server contracts in `@/server/creative-work/contracts.ts`.
+
+When `useCreativeComposer` reports `state === "generating"`, `CreativeComposer` renders `ThinkingOrb` with `state="working"` and `size={64}` beside the generate action. The orb is removed for every other composer state.
 
 ### `dashboard/` — home dashboard
 
