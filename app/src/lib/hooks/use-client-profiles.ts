@@ -166,9 +166,7 @@ export function useCreateClientProfile() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: createClientProfile,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["client-profiles"] });
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["client-profiles"] }),
   });
 }
 

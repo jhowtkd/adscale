@@ -20,16 +20,34 @@ export interface AssistantCreateClientDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: (clientId: string) => void;
+  labels?: Partial<{
+    title: string;
+    description: string;
+    nameLabel: string;
+    namePlaceholder: string;
+    submit: string;
+    cancel: string;
+  }>;
 }
 
 export default function AssistantCreateClientDialog({
   open,
   onOpenChange,
   onSuccess,
+  labels,
 }: AssistantCreateClientDialogProps) {
   const t = useTranslations("assistant.createClient");
   const [name, setName] = useState("");
   const createClient = useCreateClientProfile();
+  const copy = {
+    title: t("title"),
+    description: t("description"),
+    nameLabel: t("nameLabel"),
+    namePlaceholder: t("namePlaceholder"),
+    submit: t("submit"),
+    cancel: t("cancel"),
+    ...labels,
+  };
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -53,17 +71,17 @@ export default function AssistantCreateClientDialog({
       <DialogContent size="sm">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>{t("title")}</DialogTitle>
-            <DialogDescription>{t("description")}</DialogDescription>
+            <DialogTitle>{copy.title}</DialogTitle>
+            <DialogDescription>{copy.description}</DialogDescription>
           </DialogHeader>
           <DialogBody className="space-y-3">
             <div className="space-y-1.5">
-              <Label htmlFor="assistant-create-client-name">{t("nameLabel")}</Label>
+              <Label htmlFor="assistant-create-client-name">{copy.nameLabel}</Label>
               <Input
                 id="assistant-create-client-name"
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                placeholder={t("namePlaceholder")}
+                placeholder={copy.namePlaceholder}
                 autoFocus
                 required
               />
@@ -76,10 +94,10 @@ export default function AssistantCreateClientDialog({
               onClick={() => onOpenChange(false)}
               disabled={createClient.isPending}
             >
-              {t("cancel")}
+              {copy.cancel}
             </Button>
             <Button type="submit" disabled={!name.trim() || createClient.isPending}>
-              {t("submit")}
+              {copy.submit}
             </Button>
           </DialogFooter>
         </form>
