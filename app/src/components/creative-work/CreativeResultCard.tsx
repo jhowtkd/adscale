@@ -21,6 +21,7 @@ type CreativeResultCardProps = {
   onRevise?: (outputId: string, instruction: string, attachment: File | null) => void | Promise<void>;
   isRetrying?: boolean;
   isApproving?: boolean;
+  approvalError?: boolean;
   isRevising?: boolean;
 };
 
@@ -43,6 +44,7 @@ export function CreativeResultCard({
   onRevise,
   isRetrying = false,
   isApproving = false,
+  approvalError = false,
   isRevising = false,
 }: CreativeResultCardProps) {
   const [editing, setEditing] = useState(false);
@@ -146,8 +148,8 @@ export function CreativeResultCard({
               disabled={isApproving || output.isSelected}
               onClick={() => onApprove(output.id)}
             >
-              <ActionStatusIcon state={isApproving ? "pending" : output.isSelected ? "success" : "idle"} />
-              {isApproving ? "Aprovando" : output.isSelected ? "Aprovada" : "Aprovar"}
+              <ActionStatusIcon state={isApproving ? "pending" : output.isSelected ? "success" : approvalError ? "error" : "idle"} />
+              {isApproving ? "Aprovando" : output.isSelected ? "Aprovada" : approvalError ? "Tentar novamente" : "Aprovar"}
             </button>
             <button type="button" className={actionClass} onClick={() => onDownload(output.id)}>Baixar</button>
             {onRevise ? <button type="button" className={actionClass} aria-expanded={editing} onClick={() => setEditing((value) => !value)}>Editar</button> : null}

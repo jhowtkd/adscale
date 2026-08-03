@@ -14,6 +14,7 @@ type CreativeProposalGridProps = {
   onRevise?: (outputId: string, instruction: string, attachment: File | null) => void | Promise<void>;
   isRetrying?: (outputId: string) => boolean;
   isApproving?: (outputId: string) => boolean;
+  approvalErrorOutputId?: string | null;
   isRevising?: (outputId: string) => boolean;
   isSaving?: (outputId: string) => boolean;
 };
@@ -35,6 +36,7 @@ export default function CreativeProposalGrid({
   onRevise,
   isRetrying,
   isApproving,
+  approvalErrorOutputId,
   isRevising,
   isSaving,
 }: CreativeProposalGridProps) {
@@ -67,6 +69,7 @@ export default function CreativeProposalGrid({
           onRevise={onRevise}
           isRetrying={isRetrying?.(output.id)}
           isApproving={isApproving?.(output.id) ?? isSaving?.(output.id)}
+          approvalError={approvalErrorOutputId === output.id}
           isRevising={isRevising?.(output.id)}
         />
       ))}

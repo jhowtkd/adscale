@@ -210,10 +210,31 @@ async function captureApiState(
     return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(options.emptyBody) });
   });
   await page.goto(options.route, { waitUntil: "domcontentloaded" });
-  await page.waitForTimeout(options.state === "loading" ? 800 : 300);
+  if (options.state === "loading") {
+    if (options.scenario === "workspace") {
+      await expect(page.getByRole("img", { name: /carregando|loading/i })).toBeVisible();
+    } else {
+      await expect(page.locator('[aria-busy="true"]')).toBeVisible();
+    }
+  } else if (options.state === "empty" && options.scenario === "dashboard") {
+    await expect(page.locator('[data-motion-value="0"]')).toHaveCount(3);
+    await expect(page.locator('[data-motion-value="0%"]')).toHaveCount(1);
+  } else if (options.state === "empty" && options.scenario === "campaign-list") {
+    await expect(page.getByRole("heading", { name: /nenhum trabalho ainda|no work yet/i })).toBeVisible();
+  } else if (options.state === "error" && options.scenario === "dashboard") {
+    await expect(page.getByRole("heading", { name: /erro ao carregar|failed to load/i })).toBeVisible();
+  } else if (options.state === "error" && options.scenario === "campaign-list") {
+    await expect(page.getByRole("heading", { name: /erro ao carregar campanhas|error loading campaigns/i })).toBeVisible();
+  } else if (options.state === "error" && options.scenario === "workspace") {
+    await expect(page.getByRole("heading", { name: /erro no servidor|server error/i })).toBeVisible();
+  } else {
+    throw new Error(`Missing visual assertion for ${options.scenario}:${options.state}`);
+  }
   await capture(page, manifest, options.scenario, options.state, options.width);
   await page.unroute(options.api);
 }
+
+test.describe.configure({ mode: "serial" });
 
 test.describe("visual foundations", () => {
   let manifest: Manifest;
@@ -423,7 +444,7 @@ test.describe("visual foundations", () => {
     }
     if ([390, 768, 1280].includes(width)) {
       for (const state of ["empty", "loading", "error"] as const) {
-        await captureApiState(page, manifest, { scenario: "campaign-list", state, width, route: "/campaigns", api: /\/api\/campaigns(?:\?|$)/, emptyBody: { campaigns: [], totalCount: 0 } });
+        await captureApiState(page, manifest, { scenario: "campaign-list", state, width, route: "/campaigns", api: /\/api\/creative-work(?:\?|$)/, emptyBody: { works: [] } });
       }
     }
 
@@ -478,7 +499,7 @@ test.describe("visual foundations", () => {
     }
     if ([390, 768, 1280].includes(width)) {
       for (const state of ["empty", "loading", "error"] as const) {
-        await captureApiState(page, manifest, { scenario: "campaign-list", state, width, route: "/campaigns", api: /\/api\/campaigns(?:\?|$)/, emptyBody: { campaigns: [], totalCount: 0 } });
+        await captureApiState(page, manifest, { scenario: "campaign-list", state, width, route: "/campaigns", api: /\/api\/creative-work(?:\?|$)/, emptyBody: { works: [] } });
       }
     }
 

@@ -28,7 +28,7 @@ export default function DashboardV6View({
   const pulseDotClass = reducedMotion ? "" : "animate-pulse-dot";
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8" aria-busy={isLoading}>
       <header className="space-y-2" data-tour-step="1">
         <h1 className="product-page-title text-[var(--text-primary)]">
           {isLoading ? (

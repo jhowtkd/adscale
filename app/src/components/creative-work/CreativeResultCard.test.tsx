@@ -88,6 +88,11 @@ describe("CreativeResultCard", () => {
     expect(pending).toHaveAttribute("aria-busy", "true");
     expect(screen.getByTestId("action-status-icon")).toHaveAttribute("data-action-status", "pending");
 
+    rerender(<CreativeResultCard output={output()} {...props} approvalError />);
+
+    expect(screen.getByRole("button", { name: "Tentar novamente" })).toBeEnabled();
+    expect(screen.getByTestId("action-status-icon")).toHaveAttribute("data-action-status", "error");
+
     rerender(<CreativeResultCard output={output({ isSelected: true })} {...props} />);
 
     expect(screen.getByRole("button", { name: "Aprovada" })).toBeDisabled();

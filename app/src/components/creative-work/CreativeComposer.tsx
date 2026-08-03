@@ -480,6 +480,7 @@ export function CreativeComposer({ composer, composerRef }: {
             onRevise={composer.reviseOutput}
             isRetrying={composer.isRetryingOutput}
             isApproving={composer.isApprovingOutput}
+            approvalErrorOutputId={composer.approvalErrorOutputId}
             isRevising={composer.isRevisingOutput}
           />
         </section>
