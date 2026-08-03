@@ -525,12 +525,10 @@
 
 @keyframes motion-value-in {
   from {
-    opacity: 0;
     transform: translateY(0.2em);
   }
 
   to {
-    opacity: 1;
     transform: translateY(0);
   }
 }
