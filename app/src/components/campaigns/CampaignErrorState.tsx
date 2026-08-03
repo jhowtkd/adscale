@@ -31,7 +31,7 @@ export default function CampaignErrorState({ kind = "unknown", onRetry }: Campai
         ) : null}
         <Link
           href="/campaigns"
-          className="text-sm text-[var(--accent-green)] hover:underline"
+          className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
         >
           {tc("backToCampaigns")}
         </Link>

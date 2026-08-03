@@ -13,8 +13,8 @@ export interface AssistantGoalPlanProps {
 
 const STEP_STATUS_DOT: Record<string, string> = {
   pending: "bg-[var(--neutral-dot)]",
-  active: "bg-[var(--accent-primary)]",
-  done: "bg-[var(--success)]",
+  active: "bg-[var(--info-dot)]",
+  done: "bg-[var(--success-dot)]",
   blocked: "bg-[var(--danger-text)]",
 };
 

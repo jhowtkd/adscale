@@ -28,7 +28,7 @@ import type { PlatformFilter, SortOption, StatusFilter } from "@/components/camp
 const CANONICAL_LIST_LIMIT = 50;
 
 const KanbanBoard = dynamic(() => import("@/components/campaigns/KanbanBoard"), {
-  loading: () => <div className="flex h-64 items-center justify-center"><div className="size-8 animate-spin rounded-full border-b-2 border-primary" /></div>,
+  loading: () => <div className="flex h-64 items-center justify-center"><div className="size-8 animate-spin rounded-full border-2 border-[var(--border-subtle)] border-b-[var(--utility-icon)]" /></div>,
 });
 
 const SaveTemplateModal = dynamic(() => import("@/components/templates/SaveTemplateModal"), {

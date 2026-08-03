@@ -44,9 +44,9 @@ export default function WorkspaceStageStrip({
               onClick={() => onPhaseSelect(item.id)}
               className={cn(
                 "inline-flex min-h-8 items-center rounded-full px-3 py-1 text-xs font-medium transition-colors duration-[var(--duration-fast)]",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-green)] focus-visible:ring-offset-2",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2",
                 active
-                  ? "bg-[var(--accent-green-dim)] text-[var(--accent-green-text)]"
+                  ? "border border-[var(--selection-border)] bg-[var(--active-navigation-bg)] text-[var(--active-navigation-text)]"
                   : "bg-[var(--surface-raised)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
               )}
               aria-current={active ? "step" : undefined}
@@ -69,7 +69,7 @@ function StagePill({ active, label }: { active: boolean; label: string }) {
       className={cn(
         "inline-flex items-center rounded-full px-3 py-1 text-xs font-medium transition-colors",
         active
-          ? "bg-[var(--accent-green-dim)] text-[var(--accent-green-text)]"
+          ? "border border-[var(--selection-border)] bg-[var(--active-navigation-bg)] text-[var(--active-navigation-text)]"
           : "bg-[var(--surface-raised)] text-[var(--text-muted)]"
       )}
       aria-current={active ? "step" : undefined}

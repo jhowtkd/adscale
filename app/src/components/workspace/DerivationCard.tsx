@@ -106,15 +106,15 @@ function StatusOverlay({ status, onRetry }: { status: DerivationDisplayStatus; o
 
     case "failed":
       return (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-[rgba(244,63,94,0.15)] rounded-t-[15px]">
-          <AlertCircle size={24} className="text-[var(--accent-rose)] mb-2" />
-          <span className="text-sm text-[var(--accent-rose)] font-medium">{t("failed")}</span>
+        <div className="absolute inset-0 flex flex-col items-center justify-center rounded-t-[15px] bg-[var(--danger-bg)]">
+          <AlertCircle size={24} className="mb-2 text-[var(--danger-text)]" />
+          <span className="text-sm font-medium text-[var(--danger-text)]">{t("failed")}</span>
           <button type="button"
             onClick={(e) => {
               e.stopPropagation();
               onRetry?.();
             }}
-            className="mt-2 inline-flex items-center rounded-md px-3 py-1.5 text-xs font-medium border border-[var(--accent-rose)]/30 text-[var(--accent-rose)] hover:bg-[var(--accent-rose)]/10 transition-colors"
+            className="mt-2 inline-flex items-center rounded-md border border-[var(--danger-border)] px-3 py-1.5 text-xs font-medium text-[var(--danger-text)] hover:bg-[var(--danger-bg)] transition-colors"
           >
             {commonT("retry")}
           </button>
@@ -179,9 +179,9 @@ export default function DerivationCard({
 
   const qaStatusColor = (
     {
-      ready: "text-[var(--accent-green)]",
+      ready: "text-[var(--success-text)]",
       warning: "text-[var(--warning-text)]",
-      review: "text-[var(--accent-rose)]",
+      review: "text-[var(--danger-text)]",
     } as Record<string, string>
   )[derivation.qaStatus ?? ""] ?? "text-[var(--text-muted)]";
   const qaLabelKey = getQaLabelKey(derivation.qaStatus);
@@ -246,10 +246,10 @@ export default function DerivationCard({
       className={cn(
         "animate-fade-in group rounded-[15px] border border-[var(--border-subtle)] bg-[var(--surface-base)] overflow-hidden transition-all duration-300",
         derivation.isPreview
-          ? "border-dashed border-orange-400/60"
+          ? "border-dashed border-[var(--warning-border)]"
           : "",
         isCompleted && !derivation.isPreview && "hover:border-[var(--border-medium)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.08)]",
-        isSelectedForCompare && "ring-2 ring-[var(--accent-green)] border-[var(--accent-green)]"
+        isSelectedForCompare && "ring-2 ring-[var(--selection-border)] border-[var(--selection-border)] bg-[var(--selection-bg)]"
       )}
       style={{ animationDelay: `${index * 80}ms` }}
     >
@@ -314,7 +314,7 @@ export default function DerivationCard({
         {/* Preview badge */}
         {derivation.isPreview && (
           <div className="absolute top-2 right-2 z-10">
-            <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 text-orange-700 text-xs font-medium px-2 py-1 border border-dashed border-orange-400">
+            <span className="inline-flex items-center gap-1 rounded-full border border-dashed border-[var(--warning-border)] bg-[var(--warning-bg)] px-2 py-1 text-xs font-medium text-[var(--warning-text)]">
               {t("previewBadge")}
             </span>
           </div>
@@ -481,10 +481,10 @@ export default function DerivationCard({
                 <DropdownMenuTrigger
                   aria-label={t("moreActions", { name: derivation.name })}
                   className={cn(
-                    "flex size-8 items-center justify-center rounded-md text-[var(--text-muted)]",
+                    "flex size-8 items-center justify-center rounded-md text-[var(--utility-icon)]",
                     "opacity-70 transition-opacity duration-[var(--duration-fast)]",
                     "hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)] hover:opacity-100",
-                    "focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-green)] focus-visible:ring-offset-2",
+                    "focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2",
                     "group-hover:opacity-100"
                   )}
                 >
@@ -600,7 +600,7 @@ export default function DerivationCard({
             <div className="flex gap-2">
               <Button
                 size="sm"
-                className="min-h-9 flex-1 bg-[var(--accent-green)] text-[var(--accent-green-on-fill)] hover:bg-[var(--accent-green-light)] sm:flex-none"
+                className="min-h-9 flex-1 bg-[var(--action-primary-bg)] text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)] sm:flex-none"
                 onClick={onApprove}
                 disabled={isApproving || approvalBlocked}
                 title={
@@ -634,7 +634,7 @@ export default function DerivationCard({
               <Button
                 size="sm"
                 onClick={onCreateDeliveryPackage}
-                className="min-h-9 w-fit bg-[var(--accent-green)] text-[var(--accent-green-on-fill)] hover:bg-[var(--accent-green-light)]"
+                className="min-h-9 w-fit bg-[var(--action-primary-bg)] text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)]"
               >
                 <Package className="mr-1 size-4" />
                 {t("generatePackage")}

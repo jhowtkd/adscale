@@ -98,7 +98,7 @@ export default function AssistantChatInput({
       onSubmit={handleSubmit}
       className={cn(
         "layer-sticky shrink-0 border-t border-[var(--border-subtle)] bg-[var(--surface-base)] p-3",
-        dragOver && "ring-2 ring-inset ring-[var(--accent-primary)]"
+        dragOver && "ring-2 ring-inset ring-[var(--selection-border)]"
       )}
       data-testid="assistant-chat-input"
       {...dragHandlers}
@@ -148,7 +148,7 @@ export default function AssistantChatInput({
       <div
         className={cn(
           "flex items-end gap-2 rounded-[var(--radius-panel)] border border-[var(--border-default)] bg-[var(--surface-raised)] p-2",
-          dragOver && "border-[var(--accent-primary)]"
+          dragOver && "border-[var(--selection-border)]"
         )}
         data-testid="assistant-chat-input-dropzone"
       >
@@ -189,7 +189,7 @@ export default function AssistantChatInput({
           size="icon"
           disabled={!canSend}
           aria-label={t("send")}
-          className="grid h-9 w-9 shrink-0 place-items-center rounded-[var(--radius-control)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] hover:bg-[var(--accent-primary)]"
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)]"
         >
           <Send className="size-4" aria-hidden="true" />
         </Button>

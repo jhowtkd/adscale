@@ -128,6 +128,34 @@ describe("CreativeAnnotationEditor", () => {
     expect(onRemove).toHaveBeenCalledWith("ann-1");
   });
 
+  it("uses danger surface tokens for active annotation markers", () => {
+    render(
+      <CreativeAnnotationEditor
+        {...baseProps}
+        annotations={[
+          {
+            id: "ann-1",
+            versionId: baseProps.versionId,
+            x: 0.1,
+            y: 0.1,
+            width: 0.2,
+            height: 0.2,
+            comment: "Old note",
+            status: "draft" as const,
+            addressedByVersionId: null,
+          },
+        ]}
+      />
+    );
+
+    const marker = screen.getByText("1", { selector: "span" });
+    expect(marker).toHaveClass(
+      "bg-[var(--danger-bg)]",
+      "text-[var(--danger-text)]"
+    );
+    expect(marker).not.toHaveClass("text-[var(--text-on-accent)]");
+  });
+
   it("disables drawing on mobile with an explanatory label", () => {
     Object.defineProperty(window, "matchMedia", {
       writable: true,

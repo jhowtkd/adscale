@@ -29,7 +29,7 @@ export default function BriefingRestoreBanner({ tBriefing, onRestore, onDiscard 
           <button
             type="button"
             onClick={onRestore}
-            className="inline-flex min-h-9 items-center rounded-md bg-[var(--accent-primary)] px-3 py-1.5 text-xs font-medium text-[var(--text-on-accent)] transition-colors hover:bg-[var(--accent-primary-hover)]"
+            className="inline-flex min-h-9 items-center rounded-md bg-[var(--action-primary-bg)] px-3 py-1.5 text-xs font-medium text-[var(--action-primary-text)] transition-colors hover:bg-[var(--action-primary-hover)]"
           >
             {tBriefing("restore")}
           </button>

@@ -24,9 +24,9 @@ const activityIcons: Record<string, React.ReactNode> = {
 };
 
 const activityColors: Record<string, string> = {
-  derivation_approved: "text-[var(--accent-green)]",
-  derivations_generated: "text-[var(--accent-amber)]",
-  creative_uploaded: "text-[var(--accent-green)]",
+  derivation_approved: "text-[var(--success-text)]",
+  derivations_generated: "text-[var(--warning-text)]",
+  creative_uploaded: "text-[var(--success-text)]",
   invite_accepted: "text-[var(--accent-secondary)]",
 };
 

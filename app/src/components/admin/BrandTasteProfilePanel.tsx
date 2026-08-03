@@ -127,7 +127,7 @@ export function BrandTasteProfilePanel({ clientProfileId }: { clientProfileId: s
       <div
         className={
           status.variant === "warning"
-            ? "rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100"
+            ? "rounded-md border border-[var(--warning-border)] bg-[var(--warning-bg)] px-3 py-2 text-sm text-[var(--warning-text)]"
             : "rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-primary)]"
         }
       >

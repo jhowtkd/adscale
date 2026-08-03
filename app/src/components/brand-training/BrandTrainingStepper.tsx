@@ -33,9 +33,9 @@ export function BrandTrainingStepper({
               className={cn(
                 "flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold transition-colors",
                 isComplete &&
-                  "bg-[var(--accent-green-dim)] text-[var(--accent-green-text)]",
+                  "bg-[var(--success-bg)] text-[var(--success-text)]",
                 isCurrent &&
-                  "bg-[var(--accent-green)] text-[var(--surface-base)] ring-2 ring-[var(--accent-green-dim)]",
+                  "bg-[var(--active-navigation-bg)] text-[var(--active-navigation-text)] ring-2 ring-[var(--focus-ring)]",
                 !isComplete &&
                   !isCurrent &&
                   "bg-[var(--surface-raised)] text-[var(--text-muted)] border border-[var(--border-dim)]",
@@ -59,7 +59,7 @@ export function BrandTrainingStepper({
                 className={cn(
                   "ml-1 h-px w-6 sm:w-10",
                   isComplete
-                    ? "bg-[var(--accent-green-dim)]"
+                    ? "bg-[var(--success-border)]"
                     : "bg-[var(--border-dim)]",
                 )}
               />

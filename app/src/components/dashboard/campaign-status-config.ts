@@ -1,50 +1,112 @@
-export const statusConfig: Record<
-  string,
-  { dot: string; label: string; bg: string; text: string; border: string }
-> = {
+export type DashboardStatusTone = "warning" | "danger" | "success" | "info" | "neutral";
+
+type CampaignStatusConfig = {
+  tone: DashboardStatusTone;
+  dot: string;
+  label: string;
+  bg: string;
+  text: string;
+  border: string;
+};
+
+export const statusConfig: Record<string, CampaignStatusConfig> = {
   active: {
-    dot: "bg-[var(--accent-green)]",
+    tone: "info",
+    dot: "bg-[var(--info-dot)]",
     label: "ATIVA",
-    bg: "bg-[var(--accent-green)]/15",
-    text: "text-[var(--accent-green-text)]",
-    border: "border-[var(--accent-green)]/30",
+    bg: "bg-[var(--info-bg)]",
+    text: "text-[var(--info-text)]",
+    border: "border-[var(--info-border)]",
+  },
+  review: {
+    tone: "info",
+    dot: "bg-[var(--info-dot)]",
+    label: "EM REVISÃO",
+    bg: "bg-[var(--info-bg)]",
+    text: "text-[var(--info-text)]",
+    border: "border-[var(--info-border)]",
   },
   draft: {
-    dot: "bg-[var(--accent-amber)]",
+    tone: "neutral",
+    dot: "bg-[var(--neutral-dot)]",
     label: "RASCUNHO",
-    bg: "bg-[var(--accent-amber)]/15",
-    text: "text-[var(--accent-amber)]",
-    border: "border-[var(--accent-amber)]/30",
+    bg: "bg-[var(--neutral-bg)]",
+    text: "text-[var(--neutral-text)]",
+    border: "border-[var(--neutral-border)]",
   },
   generating: {
-    dot: "bg-[var(--accent-green)] animate-pulse",
+    tone: "warning",
+    dot: "bg-[var(--warning-dot)] animate-pulse",
     label: "GERANDO",
-    bg: "bg-[var(--accent-green)]/15",
-    text: "text-[var(--accent-green-text)]",
-    border: "border-[var(--accent-green)]/30",
+    bg: "bg-[var(--warning-bg)]",
+    text: "text-[var(--warning-text)]",
+    border: "border-[var(--warning-border)]",
+  },
+  processing: {
+    tone: "warning",
+    dot: "bg-[var(--warning-dot)] animate-pulse",
+    label: "PROCESSANDO",
+    bg: "bg-[var(--warning-bg)]",
+    text: "text-[var(--warning-text)]",
+    border: "border-[var(--warning-border)]",
+  },
+  queued: {
+    tone: "warning",
+    dot: "bg-[var(--warning-dot)]",
+    label: "NA FILA",
+    bg: "bg-[var(--warning-bg)]",
+    text: "text-[var(--warning-text)]",
+    border: "border-[var(--warning-border)]",
   },
   completed: {
-    dot: "bg-[var(--accent-green)]",
+    tone: "success",
+    dot: "bg-[var(--success-dot)]",
     label: "CONCLUÍDA",
-    bg: "bg-[var(--accent-green)]/10",
-    text: "text-[var(--accent-green-text)]",
-    border: "border-[var(--accent-green)]/20",
+    bg: "bg-[var(--success-bg)]",
+    text: "text-[var(--success-text)]",
+    border: "border-[var(--success-border)]",
+  },
+  approved: {
+    tone: "success",
+    dot: "bg-[var(--success-dot)]",
+    label: "APROVADA",
+    bg: "bg-[var(--success-bg)]",
+    text: "text-[var(--success-text)]",
+    border: "border-[var(--success-border)]",
   },
   failed: {
-    dot: "bg-[var(--accent-rose)]",
+    tone: "danger",
+    dot: "bg-[var(--danger-dot)]",
     label: "FALHOU",
-    bg: "bg-[var(--accent-rose)]/15",
-    text: "text-[var(--accent-rose)]",
-    border: "border-[var(--accent-rose)]/30",
+    bg: "bg-[var(--danger-bg)]",
+    text: "text-[var(--danger-text)]",
+    border: "border-[var(--danger-border)]",
   },
   archived: {
-    dot: "bg-[var(--text-muted)]",
+    tone: "neutral",
+    dot: "bg-[var(--neutral-dot)]",
     label: "ARQUIVADA",
-    bg: "bg-[var(--surface-raised)]",
-    text: "text-[var(--text-secondary)]",
-    border: "border-[var(--border-medium)]",
+    bg: "bg-[var(--neutral-bg)]",
+    text: "text-[var(--neutral-text)]",
+    border: "border-[var(--neutral-border)]",
+  },
+  unknown: {
+    tone: "neutral",
+    dot: "bg-[var(--neutral-dot)]",
+    label: "DESCONHECIDO",
+    bg: "bg-[var(--neutral-bg)]",
+    text: "text-[var(--neutral-text)]",
+    border: "border-[var(--neutral-border)]",
   },
 };
+
+export function getCampaignStatusConfig(status: string): CampaignStatusConfig {
+  return statusConfig[status] ?? statusConfig.unknown;
+}
+
+export function getCampaignStatusTone(status: string): DashboardStatusTone {
+  return getCampaignStatusConfig(status).tone;
+}
 
 export interface DashboardCampaignItem {
   id: string;

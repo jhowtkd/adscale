@@ -638,7 +638,7 @@ export default function CampaignWorkspacePage() {
           className={cn(
             "rounded-[var(--radius-control)] border px-3 py-2 text-sm font-medium",
             mobileView === "grid"
-              ? "border-[var(--accent-primary)] bg-[var(--accent-primary-dim)] text-[var(--accent-primary-text)]"
+              ? "border-[var(--selection-border)] bg-[var(--selection-bg)] text-[var(--selection-text)]"
               : "border-[var(--border-default)] bg-[var(--surface-base)] text-[var(--text-secondary)]"
           )}
         >
@@ -652,7 +652,7 @@ export default function CampaignWorkspacePage() {
           className={cn(
             "rounded-[var(--radius-control)] border px-3 py-2 text-sm font-medium",
             mobileView === "chat"
-              ? "border-[var(--accent-primary)] bg-[var(--accent-primary-dim)] text-[var(--accent-primary-text)]"
+              ? "border-[var(--selection-border)] bg-[var(--selection-bg)] text-[var(--selection-text)]"
               : "border-[var(--border-default)] bg-[var(--surface-base)] text-[var(--text-secondary)]"
           )}
         >
@@ -944,7 +944,7 @@ function CampaignWorkspaceCard({
               <PageSection title={tCampaign("derivationsSectionTitle")}>
                 {isGenerating && (
                   <p className="text-xs text-[var(--text-secondary)] mb-3 flex items-center gap-2">
-                    <span className="inline-block size-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                    <span className="inline-block size-3 animate-spin rounded-full border-2 border-[var(--utility-icon)] border-t-transparent" />
                     {tCampaign("generatingDerivations")}
                   </p>
                 )}

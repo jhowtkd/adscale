@@ -66,12 +66,12 @@ export default function MissionInsightPrompt({
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onDismiss()}>
-      <DialogContent className="max-w-md gap-0 p-0 overflow-hidden border-[var(--accent-green)]/20">
-        <div className="border-b border-[var(--border-dim)] bg-[var(--accent-green)]/5 px-5 py-4">
+      <DialogContent className="max-w-md gap-0 overflow-hidden border-[var(--border-subtle)] p-0">
+        <div className="border-b border-[var(--border-dim)] bg-[var(--surface-raised)] px-5 py-4">
           <DialogHeader className="space-y-2 text-left">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-2">
-                <FlaskConical size={18} className="text-[var(--accent-green)] shrink-0" />
+                <FlaskConical size={18} className="shrink-0 text-[var(--utility-icon)]" />
                 <DialogTitle className="text-base">{t("title")}</DialogTitle>
               </div>
               <button
@@ -103,8 +103,8 @@ export default function MissionInsightPrompt({
                   className={cn(
                     "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
                     sentiment === value
-                      ? "border-[var(--accent-green)] bg-[var(--accent-green)]/10 text-[var(--accent-green-text)]"
-                      : "border-[var(--border-dim)] text-[var(--text-secondary)] hover:border-[var(--accent-green)]/40"
+                      ? "border-[var(--selection-border)] bg-[var(--selection-bg)] text-[var(--selection-text)]"
+                      : "border-[var(--border-dim)] text-[var(--text-secondary)] hover:border-[var(--selection-border)]"
                   )}
                 >
                   {t(`sentiments.${value}`)}
@@ -164,7 +164,7 @@ export default function MissionInsightPrompt({
               });
               onDismiss();
             }}
-            className="text-xs text-[var(--accent-green-dark)] hover:text-[var(--accent-green)] underline-offset-2 hover:underline"
+            className="text-xs text-[var(--text-secondary)] underline-offset-2 hover:text-[var(--text-primary)] hover:underline"
           >
             {t("openDetailedFeedback")}
           </button>

@@ -117,12 +117,12 @@ export function GuidedFlowFeedbackPanel() {
           <button
             type="submit"
             disabled={status === "saving"}
-            className="inline-flex h-9 items-center rounded-md bg-[var(--accent-green)] px-4 text-sm font-medium text-[var(--accent-green-on-fill)] disabled:opacity-60"
+            className="inline-flex h-9 items-center rounded-md bg-[var(--action-primary-bg)] px-4 text-sm font-medium text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)] disabled:opacity-60"
           >
             {t("submit")}
           </button>
           {status === "saved" ? (
-            <span className="text-xs text-[var(--accent-green-text)]">{t("saved")}</span>
+            <span className="text-xs text-[var(--success-text)]">{t("saved")}</span>
           ) : null}
           {status === "error" ? (
             <span className="text-xs text-[var(--danger-text)]" role="alert">

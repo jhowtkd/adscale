@@ -61,7 +61,7 @@ export default function PrivacyTab() {
     <div className="animate-fade-in space-y-6">
       <div className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-5">
         <div className="mb-4 flex items-center gap-2">
-          <Download size={18} className="text-[var(--accent-green)]" />
+          <Download size={18} className="text-[var(--utility-icon)]" />
           <h3 className="text-[15px] font-semibold text-[var(--text-primary)]">{t("exportTitle")}</h3>
         </div>
         <p className="text-sm text-[var(--text-secondary)]">{t("exportDescription")}</p>
@@ -78,7 +78,7 @@ export default function PrivacyTab() {
 
       <div className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-5">
         <div className="mb-4 flex items-center gap-2">
-          <FileText size={18} className="text-[var(--accent-green)]" />
+          <FileText size={18} className="text-[var(--utility-icon)]" />
           <h3 className="text-[15px] font-semibold text-[var(--text-primary)]">{t("legalTitle")}</h3>
         </div>
         <div className="flex flex-wrap gap-3">
@@ -111,7 +111,7 @@ export default function PrivacyTab() {
           <button
             type="button"
             onClick={() => setShowDeleteDialog(true)}
-            className="mt-4 inline-flex min-h-[var(--control-touch)] items-center gap-2 rounded-md border border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 text-sm font-medium text-[var(--danger-text)] transition-all hover:bg-[color-mix(in_oklch,var(--danger-bg)_80%,var(--accent-rose)_20%)]"
+            className="mt-4 inline-flex min-h-[var(--control-touch)] items-center gap-2 rounded-md border border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 text-sm font-medium text-[var(--danger-text)] transition-all hover:bg-[var(--danger-bg)]"
           >
             <AlertTriangle size={16} aria-hidden="true" />
             {t("deleteButton")}
@@ -150,7 +150,7 @@ export default function PrivacyTab() {
                 type="button"
                 onClick={handleDelete}
                 disabled={deleting}
-                className="min-h-[var(--control-touch)] flex-1 rounded-md bg-[var(--accent-rose)] text-sm font-medium text-[var(--text-on-accent)] transition-all hover:opacity-90 disabled:opacity-60"
+                className="min-h-[var(--control-touch)] flex-1 rounded-md bg-[var(--danger-text)] text-sm font-medium text-[var(--text-on-accent)] transition-all hover:opacity-90 disabled:opacity-60"
               >
                 {deleting ? t("deleting") : t("deleteConfirmButton")}
               </button>

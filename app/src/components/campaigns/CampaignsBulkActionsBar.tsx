@@ -23,10 +23,9 @@ export default function CampaignsBulkActionsBar({
 
   return (
     <div
-      className="mb-3 flex items-center justify-between rounded-lg px-4 py-3 transition-all duration-250"
-      style={{ backgroundColor: "var(--accent-green-dim)" }}
+      className="mb-3 flex items-center justify-between rounded-lg border border-[var(--selection-border)] bg-[var(--selection-bg)] px-4 py-3 transition-all duration-250"
     >
-      <span className="text-sm font-medium text-[var(--accent-green)]">
+      <span className="text-sm font-medium text-[var(--selection-text)]">
         {selectedCount} {tc("selected")}
       </span>
       <div className="flex items-center gap-2">

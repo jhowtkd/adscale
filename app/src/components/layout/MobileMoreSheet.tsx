@@ -64,15 +64,20 @@ export default function MobileMoreSheet({ open, onOpenChange }: MobileMoreSheetP
             <Link
               key={href}
               href={href}
+              aria-current={active ? "page" : undefined}
               onClick={() => onOpenChange(false)}
               className={cn(
                 "flex min-h-11 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium",
                 active
-                  ? "bg-[var(--accent-green-dim)] text-[var(--accent-green-text)]"
+                  ? "bg-[var(--active-navigation-bg)] text-[var(--active-navigation-text)]"
                   : "text-[var(--text-secondary)] hover:bg-[var(--surface-base)]"
               )}
             >
-              <Icon size={18} aria-hidden="true" />
+              <Icon
+                size={18}
+                aria-hidden="true"
+                className={active ? "text-[var(--active-navigation-text)]" : "text-[var(--utility-icon)]"}
+              />
               <span className="min-w-0 flex-1 truncate">{label}</span>
               {badge ? (
                 <span className="rounded-full border border-[color-mix(in_oklch,var(--warning-text)_40%,transparent)] px-1.5 py-0.5 font-mono text-[9px] text-[var(--warning-text)]">

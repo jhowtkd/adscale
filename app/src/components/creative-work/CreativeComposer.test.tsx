@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("@/components/layout/ActiveBrandSwitcher", () => ({
   default: ({ id }: { id?: string }) => <select id={id ?? "active-brand-switcher"} aria-label="Marca ativa"><option>Escolha</option></select>,
 }));
-vi.mock("next-intl", () => ({ useTranslations: () => (key: string, values?: Record<string, number>) => ({
+vi.mock("next-intl", () => ({ useTranslations: () => (key: string, values?: Record<string, string | number>) => ({
   requestLabel: "Pedido criativo", placeholder: "Descreva", addArt: "Adicionar arte", dropHint: "Solte aqui",
   restyleTitle: "Copiar o estilo da referência", restyleSubtitle: "Adicione a arte original e a referência de estilo.",
   variationsTitle: "Gere variações a partir de uma arte", variationsSubtitle: "Envie uma arte para a IA analisar.",
@@ -19,6 +19,9 @@ vi.mock("next-intl", () => ({ useTranslations: () => (key: string, values?: Reco
   restyleAddArt: "Adicionar arte original", addStyleReference: "Adicionar referência de estilo", generateRestyle: "Gerar reestilização · 5 créditos",
   actionSaving: "Salvando", actionPreparing: "Preparando", actionSubmitting: "Enviando para geração", actionGenerating: "Gerando",
   optionalSettings: "Ajustes opcionais", format: "Formato", formatAuto: "Automático (agora: 4:5)", targetFormats: "Formatos de destino",
+  directionHelpLabel: `Ajuda sobre ${values?.direction}`, directionHelp: `Usa a orientação ${values?.instruction}`,
+  formatHelpLabel: "Ajuda sobre formato", formatHelp: "Define a proporção da peça.",
+  targetFormatsHelpLabel: "Ajuda sobre formatos de destino", targetFormatsHelp: "Cria uma versão para cada formato marcado.",
   brandTrainingSuggestion: "Treine referências visuais para aproximar futuros resultados da marca.", brandTrainingCta: "Treinar marca",
   sourceOrigin_upload: "Upload", sourceOrigin_template: "Template", sourceOrigin_approved_work: "Trabalho aprovado",
   removeSource: "Remover", removeSourceAria: "Remover fonte", sourceUsageAria: "Usar arte como",
@@ -139,6 +142,52 @@ describe("CreativeComposer", () => {
     expect(
       screen.queryByRole("textbox", { name: "Produto" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("keeps the variation reference, AI reading, and directions in one responsive workspace", () => {
+    renderComposer(composer({ intent: "variations", sources: [{ ...readySource, previewUrl: "/api/workspace/assets/a1/file" }] }));
+
+    const workspace = screen.getByTestId("variation-workspace");
+    const referenceAndContext = screen.getByTestId("variation-reference-context");
+    const directions = screen.getByTestId("variation-directions-region");
+    const optionalSettings = screen.getByTestId("creative-optional-settings");
+    const action = screen.getByTestId("creative-generate-action");
+
+    expect(workspace).toHaveClass("lg:grid-cols-2");
+    expect(referenceAndContext).toContainElement(screen.getByRole("img", { name: "arte.png" }));
+    expect(referenceAndContext).toContainElement(screen.getByRole("heading", { name: "Leitura da IA" }));
+    expect(
+      referenceAndContext.compareDocumentPosition(directions)
+        & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      directions.compareDocumentPosition(optionalSettings)
+        & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      optionalSettings.compareDocumentPosition(action)
+        & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Conservadora" })).toHaveClass(
+      "border-[var(--selection-border)]",
+      "bg-[var(--selection-bg)]",
+      "text-[var(--selection-text)]",
+      "focus-visible:ring-[var(--focus-ring)]",
+    );
+  });
+
+  it("explains directions from their available instruction without changing selection or the five-direction limit", async () => {
+    const value = composer();
+    renderComposer(value);
+
+    const help = screen.getByRole("button", { name: "Ajuda sobre Conservadora" });
+    fireEvent.focus(help);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("Usa a orientação Preservar");
+    expect(help).toHaveAttribute("aria-describedby");
+
+    fireEvent.click(screen.getByRole("button", { name: "Conservadora" }));
+    expect(value.toggleDirection).toHaveBeenCalledWith("00000000-0000-4000-8000-000000000001");
+    expect(screen.getByRole("button", { name: "Conservadora" })).toHaveAttribute("aria-pressed", "true");
   });
 
   it.each(["single", "format_adaptation", "restyle"] as const)(
@@ -343,23 +392,36 @@ describe("CreativeComposer", () => {
     expect(value.retrySource).toHaveBeenCalledWith("source-1");
   });
 
-  it("mounts the manual instruction textarea only inside the open 'Direcionamentos manuais' section", () => {
-    const value = composer({ intent: "variations" });
+  it("mounts the manual instruction textarea only while open without clearing the direction state", () => {
+    const value = composer({
+      intent: "variations",
+      directionPool: {
+        ...composer().directionPool,
+        manualInstruction: "Manter a oferta",
+      },
+    });
     renderComposer(value);
 
     expect(screen.queryByRole("textbox", { name: "manualDirections" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Conservadora" })).toHaveAttribute("aria-pressed", "true");
 
     const section = screen.getByText("manualDirections").closest("details")!;
     section.open = true;
     fireEvent(section, new Event("toggle"));
 
     const textarea = screen.getByRole("textbox", { name: "manualDirections" });
+    expect(textarea).toHaveValue("Manter a oferta");
     fireEvent.change(textarea, { target: { value: "Destacar a oferta" } });
     expect(value.setManualDirectionInstruction).toHaveBeenCalledWith("Destacar a oferta");
 
     section.open = false;
     fireEvent(section, new Event("toggle"));
     expect(screen.queryByRole("textbox", { name: "manualDirections" })).not.toBeInTheDocument();
+
+    section.open = true;
+    fireEvent(section, new Event("toggle"));
+    expect(screen.getByRole("textbox", { name: "manualDirections" })).toHaveValue("Manter a oferta");
+    expect(screen.getByRole("button", { name: "Conservadora" })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("applies the pending late response as a replacement set (#129)", () => {
@@ -398,6 +460,16 @@ describe("CreativeComposer", () => {
     expect(select).toHaveValue("auto");
     fireEvent.change(select, { target: { value: "4:5" } });
     expect(value.setFormat).toHaveBeenCalledWith("4:5");
+  });
+
+  it("explains format settings without attaching redundant help to generation", async () => {
+    renderComposer(composer({ intent: "format_adaptation", targetFormats: ["1:1"] }));
+
+    const targetFormatsHelp = screen.getByRole("button", { name: "Ajuda sobre formatos de destino" });
+    fireEvent.pointerDown(targetFormatsHelp, { pointerType: "touch" });
+    fireEvent.click(targetFormatsHelp);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("Cria uma versão para cada formato marcado.");
+    expect(screen.queryByRole("button", { name: /Ajuda sobre (Adicionar|Remover|Tentar novamente|Gerar)/i })).not.toBeInTheDocument();
   });
 
   it("renders the hydrated model without applying a second preset state", () => {

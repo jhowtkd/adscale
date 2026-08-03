@@ -7,6 +7,7 @@ import { Paperclip, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ActiveBrandSwitcher from "@/components/layout/ActiveBrandSwitcher";
 import { AnimatedDisplayValue } from "@/components/animations/AnimatedDisplayValue";
+import { ContextualHelp } from "@/components/ui/contextual-help";
 import { CreativeSourceChip } from "./CreativeSourceChip";
 import { CreativeSourcePreviewCard } from "./CreativeSourcePreviewCard";
 import { CreativeVariationBrief } from "./CreativeVariationBrief";
@@ -84,6 +85,94 @@ export function CreativeComposer({ composer, composerRef }: {
           : composer.state === "generating"
             ? t("actionGenerating")
             : null;
+  const variationDirections = isVariations && directions ? (
+    <fieldset
+      className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-4"
+      data-testid="variation-directions-region"
+    >
+      <legend className="px-1 text-sm font-medium text-[var(--text-primary)]">{t("directionsTitle")}</legend>
+      <p className="mt-1 text-sm text-[var(--text-muted)]">{t("directionsHint")}</p>
+      {composer.directionSuggestionState === "loading" ? (
+        <p className="mt-2 text-xs text-[var(--text-muted)]" role="status">{t("directionsLoading")}</p>
+      ) : null}
+      <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label={t("directionsTitle")}>
+        {directions.directions.map((direction) => {
+          const selected = directions.selectedIds.includes(direction.id);
+          return (
+            <div key={direction.id} className="flex items-center gap-1">
+              <button
+                type="button"
+                aria-pressed={selected}
+                disabled={!selected && directions.selectedIds.length >= 5}
+                onClick={() => composer.toggleDirection(direction.id)}
+                className={cn(
+                  "rounded-full border px-3 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-50",
+                  selected
+                    ? "border-[var(--selection-border)] bg-[var(--selection-bg)] text-[var(--selection-text)]"
+                    : "border-[var(--border-default)] bg-[var(--surface-raised)] text-[var(--text-secondary)]",
+                )}
+              >
+                {direction.label}
+              </button>
+              <ContextualHelp
+                label={t("directionHelpLabel", { direction: direction.label })}
+              >
+                {t("directionHelp", { instruction: direction.instruction })}
+              </ContextualHelp>
+            </div>
+          );
+        })}
+      </div>
+      {composer.pendingDirectionSuggestions ? (
+        <div className="mt-3 rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-inset)] p-3">
+          <p className="text-sm text-[var(--text-secondary)]">{t("directionsReady")}</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                const pending = composer.pendingDirectionSuggestions!;
+                composer.applyDirectionSuggestions(pending.directions, pending.preserveSelection);
+              }}
+              className="rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-3 py-1.5 text-sm font-semibold text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+            >
+              {t("applyDirections")}
+            </button>
+            <button
+              type="button"
+              onClick={composer.keepCurrentDirections}
+              className="rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-1.5 text-sm text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+            >
+              {t("keepDirections")}
+            </button>
+          </div>
+        </div>
+      ) : null}
+      {composer.directionSuggestionState === "error" ? (
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-[var(--text-muted)]">
+          <span>{t("directionsUnavailable")}</span>
+          <button type="button" onClick={composer.requestDirectionSuggestions} className="font-semibold text-[var(--text-secondary)] underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">{t("retryDirections")}</button>
+        </div>
+      ) : composer.directionSuggestionState === "ready" && !composer.pendingDirectionSuggestions ? (
+        <button type="button" onClick={composer.requestDirectionSuggestions} className="mt-3 text-sm font-semibold text-[var(--text-secondary)] underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">{t("suggestAgain")}</button>
+      ) : null}
+      <details
+        className="mt-3 rounded-[var(--radius-control)] bg-[var(--surface-inset)] px-3 py-2"
+        onToggle={(event) => setManualDirectionsOpen(event.currentTarget.open)}
+      >
+        <summary className="cursor-pointer text-sm font-medium text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">{t("manualDirections")}</summary>
+        {manualDirectionsOpen ? (
+          <textarea
+            aria-label={t("manualDirections")}
+            value={directions.manualInstruction ?? ""}
+            onChange={(event) => composer.setManualDirectionInstruction(event.target.value)}
+            placeholder={t("manualDirectionsPlaceholder")}
+            rows={3}
+            className="mt-2 w-full resize-y rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+          />
+        ) : null}
+      </details>
+    </fieldset>
+  ) : null;
 
   const handleDrop = (event: React.DragEvent) => {
     event.preventDefault();
@@ -94,7 +183,7 @@ export function CreativeComposer({ composer, composerRef }: {
     return (
       <section id="creative-composer" className="rounded-[var(--radius-object)] border border-[var(--danger-border)] bg-[var(--surface-raised)] p-6 text-center">
         <p role="alert" className="text-sm font-medium text-[var(--danger-text)]">{t("invalidWork")}</p>
-        <Link href="/" className="mt-4 inline-flex rounded-[var(--radius-control)] bg-[var(--accent-primary)] px-4 py-2 text-sm font-semibold text-[var(--text-on-accent)]">
+        <Link href="/" className="mt-4 inline-flex rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
           {t("startNew")}
         </Link>
       </section>
@@ -181,7 +270,7 @@ export function CreativeComposer({ composer, composerRef }: {
           data-testid="creative-composer-dropzone"
           onDragOver={(event) => event.preventDefault()}
           onDrop={handleDrop}
-          className="rounded-[var(--radius-object)] border border-[var(--border-default)] bg-[var(--surface-raised)] p-4 focus-within:ring-2 focus-within:ring-[var(--accent-primary)]"
+          className="rounded-[var(--radius-object)] border border-[var(--border-default)] bg-[var(--surface-raised)] p-4 focus-within:ring-2 focus-within:ring-[var(--focus-ring)]"
         >
           {isSingle ? <>
             <label htmlFor="creative-composer-request" className="sr-only">{t("requestLabel")}</label>
@@ -211,7 +300,7 @@ export function CreativeComposer({ composer, composerRef }: {
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="inline-flex items-center gap-2 rounded-[var(--radius-control)] px-3 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-inset)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]"
+              className="inline-flex items-center gap-2 rounded-[var(--radius-control)] px-3 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-inset)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             >
               <Paperclip size={16} aria-hidden="true" />
               {composer.isUploading ? t("uploading") : t("addArt")}
@@ -221,7 +310,7 @@ export function CreativeComposer({ composer, composerRef }: {
         </div>
       )}
 
-      {!isRestyle && composer.sources.length > 0 ? (
+      {!isRestyle && !isVariations && composer.sources.length > 0 ? (
         <div className="grid gap-3 sm:grid-cols-2">
           {composer.sources.map((source) => (
             <CreativeSourceChip
@@ -236,89 +325,29 @@ export function CreativeComposer({ composer, composerRef }: {
         </div>
       ) : null}
 
-      {readyVariationSource ? (
-        <CreativeVariationBrief source={readyVariationSource} />
-      ) : null}
-
-      {isVariations && directions ? (
-        <fieldset className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-4">
-          <legend className="px-1 text-sm font-medium text-[var(--text-primary)]">{t("directionsTitle")}</legend>
-          <p className="mt-1 text-sm text-[var(--text-muted)]">{t("directionsHint")}</p>
-          {composer.directionSuggestionState === "loading" ? (
-            <p className="mt-2 text-xs text-[var(--text-muted)]" role="status">{t("directionsLoading")}</p>
-          ) : null}
-          <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label={t("directionsTitle")}>
-            {directions.directions.map((direction) => {
-              const selected = directions.selectedIds.includes(direction.id);
-              return (
-                <button
-                  key={direction.id}
-                  type="button"
-                  aria-pressed={selected}
-                  disabled={!selected && directions.selectedIds.length >= 5}
-                  onClick={() => composer.toggleDirection(direction.id)}
-                  className={cn(
-                    "rounded-full border px-3 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)] disabled:cursor-not-allowed disabled:opacity-50",
-                    selected
-                      ? "border-[var(--accent-primary)] bg-[var(--accent-primary)]/10 text-[var(--accent-primary-text)]"
-                      : "border-[var(--border-default)] bg-[var(--surface-raised)] text-[var(--text-secondary)]",
-                  )}
-                >
-                  {direction.label}
-                </button>
-              );
-            })}
-          </div>
-          {composer.pendingDirectionSuggestions ? (
-            <div className="mt-3 rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-inset)] p-3">
-              <p className="text-sm text-[var(--text-secondary)]">{t("directionsReady")}</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const pending = composer.pendingDirectionSuggestions!;
-                    composer.applyDirectionSuggestions(pending.directions, pending.preserveSelection);
-                  }}
-                  className="rounded-[var(--radius-control)] bg-[var(--accent-primary)] px-3 py-1.5 text-sm font-semibold text-[var(--text-on-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]"
-                >
-                  {t("applyDirections")}
-                </button>
-                <button
-                  type="button"
-                  onClick={composer.keepCurrentDirections}
-                  className="rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-1.5 text-sm text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]"
-                >
-                  {t("keepDirections")}
-                </button>
-              </div>
-            </div>
-          ) : null}
-          {composer.directionSuggestionState === "error" ? (
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-[var(--text-muted)]">
-              <span>{t("directionsUnavailable")}</span>
-              <button type="button" onClick={composer.requestDirectionSuggestions} className="font-semibold text-[var(--accent-primary-text)] underline">{t("retryDirections")}</button>
-            </div>
-          ) : composer.directionSuggestionState === "ready" && !composer.pendingDirectionSuggestions ? (
-            <button type="button" onClick={composer.requestDirectionSuggestions} className="mt-3 text-sm font-semibold text-[var(--accent-primary-text)] underline">{t("suggestAgain")}</button>
-          ) : null}
-          <details
-            className="mt-3 rounded-[var(--radius-control)] bg-[var(--surface-inset)] px-3 py-2"
-            onToggle={(event) => setManualDirectionsOpen(event.currentTarget.open)}
-          >
-            <summary className="cursor-pointer text-sm font-medium text-[var(--text-secondary)]">{t("manualDirections")}</summary>
-            {manualDirectionsOpen ? (
-              <textarea
-                aria-label={t("manualDirections")}
-                value={directions.manualInstruction ?? ""}
-                onChange={(event) => composer.setManualDirectionInstruction(event.target.value)}
-                placeholder={t("manualDirectionsPlaceholder")}
-                rows={3}
-                className="mt-2 w-full resize-y rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]"
+      {isVariations && composer.sources.length > 0 ? (
+        <section
+          aria-label={t("variationsTitle")}
+          className="grid min-w-0 gap-4 lg:grid-cols-2"
+          data-testid="variation-workspace"
+        >
+          <div className="min-w-0 space-y-4" data-testid="variation-reference-context">
+            {composer.sources.map((source) => (
+              <CreativeSourceChip
+                key={source.id}
+                source={source}
+                onUsageChange={(usage) => void composer.updateSource(source.id, usage)}
+                onRetry={() => void composer.retrySource(source.id)}
+                onRemove={() => void composer.removeSource(source.id)}
+                simple
+                fullPreview
               />
-            ) : null}
-          </details>
-        </fieldset>
-      ) : null}
+            ))}
+            {readyVariationSource ? <CreativeVariationBrief source={readyVariationSource} /> : null}
+          </div>
+          {variationDirections}
+        </section>
+      ) : variationDirections}
 
       {composer.brandTrainingSuggestion ? (
         <aside className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-4">
@@ -331,7 +360,7 @@ export function CreativeComposer({ composer, composerRef }: {
                 ...(composer.clientProfileId ? { clientProfileId: composer.clientProfileId } : {}),
               },
             }}
-            className="text-sm font-semibold text-[var(--accent-primary-text)] hover:underline"
+            className="text-sm font-semibold text-[var(--text-secondary)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
           >
             {t("brandTrainingCta")}
           </Link>
@@ -356,7 +385,7 @@ export function CreativeComposer({ composer, composerRef }: {
               type="button"
               disabled={composer.isResolvingBrandConflict}
               onClick={() => void composer.resolveBrandConflict("source")}
-              className="inline-flex min-h-[var(--control-touch)] flex-1 items-center justify-center rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-inset)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)] disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-[var(--control-touch)] flex-1 items-center justify-center rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-inset)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {t("brandConflictChoiceSource", { brand: composer.brandConflict.detectedBrand })}
             </button>
@@ -364,7 +393,7 @@ export function CreativeComposer({ composer, composerRef }: {
               type="button"
               disabled={composer.isResolvingBrandConflict}
               onClick={() => void composer.resolveBrandConflict("active")}
-              className="inline-flex min-h-[var(--control-touch)] flex-1 items-center justify-center rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-inset)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)] disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-[var(--control-touch)] flex-1 items-center justify-center rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-inset)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {t("brandConflictChoiceActive", { brand: composer.brandConflict.activeBrand || composer.brandName || "" })}
             </button>
@@ -374,7 +403,14 @@ export function CreativeComposer({ composer, composerRef }: {
 
       {isFormatAdaptation ? (
         <fieldset className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-4">
-          <legend className="px-1 text-sm font-medium text-[var(--text-primary)]">{t("targetFormats")}</legend>
+          <legend className="px-1 text-sm font-medium text-[var(--text-primary)]">
+            <span className="inline-flex items-center gap-2">
+              {t("targetFormats")}
+              <ContextualHelp label={t("targetFormatsHelpLabel")}>
+                {t("targetFormatsHelp")}
+              </ContextualHelp>
+            </span>
+          </legend>
           <div className="mt-2 flex flex-wrap gap-3">
             {FORMATS.map((value) => (
               <label key={value} className="inline-flex items-center gap-2 text-sm text-[var(--text-primary)]">
@@ -384,26 +420,39 @@ export function CreativeComposer({ composer, composerRef }: {
             ))}
           </div>
         </fieldset>
-      ) : !isRestyle ? <details className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-4">
-        <summary className="cursor-pointer text-sm font-medium text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]">
+      ) : !isRestyle ? <details className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-4" data-testid="creative-optional-settings">
+        <summary className="cursor-pointer text-sm font-medium text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
           {t("optionalSettings")}
         </summary>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <label className="text-sm text-[var(--text-secondary)]">
-            <span className="mb-1 block">{t("format")}</span>
+          <div className="text-sm text-[var(--text-secondary)]">
+            <div className="mb-1 flex items-center gap-2">
+              <label htmlFor="creative-composer-format">{t("format")}</label>
+              <ContextualHelp label={t("formatHelpLabel")}>
+                {t("formatHelp")}
+              </ContextualHelp>
+            </div>
             <select
+              id="creative-composer-format"
               value={composer.formatMode === "auto" ? "auto" : composer.format}
               onChange={(event) => event.target.value === "auto"
                 ? composer.setFormatAuto()
                 : composer.setFormat(event.target.value as typeof composer.format)}
-              className="w-full rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]"
+              className="w-full rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             >
               <option value="auto">{t("formatAuto", { format: composer.format })}</option>
               {FORMATS.map((value) => <option key={value} value={value}>{value}</option>)}
             </select>
-          </label>
+          </div>
           <fieldset>
-            <legend className="mb-1 text-sm text-[var(--text-secondary)]">{t("targetFormats")}</legend>
+            <legend className="mb-1 text-sm text-[var(--text-secondary)]">
+              <span className="inline-flex items-center gap-2">
+                {t("targetFormats")}
+                <ContextualHelp label={t("targetFormatsHelpLabel")}>
+                  {t("targetFormatsHelp")}
+                </ContextualHelp>
+              </span>
+            </legend>
             <div className="flex flex-wrap gap-3">
               {FORMATS.map((value) => (
                 <label key={value} className="inline-flex items-center gap-2 text-sm text-[var(--text-primary)]">
@@ -431,8 +480,8 @@ export function CreativeComposer({ composer, composerRef }: {
           disabled={!composer.canGenerate || Boolean(pendingLabel)}
           onClick={() => void composer.generate()}
           className={cn(
-            "inline-flex min-h-[var(--control-touch)] w-full items-center justify-center gap-2 rounded-[var(--radius-control)] bg-[var(--accent-primary)] px-4 py-2 text-sm font-semibold text-[var(--text-on-accent)] sm:w-auto",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+            "inline-flex min-h-[var(--control-touch)] w-full items-center justify-center gap-2 rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)] sm:w-auto",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
           )}
         >
           <Sparkles size={16} aria-hidden="true" />
@@ -493,7 +542,7 @@ export function CreativeComposer({ composer, composerRef }: {
             <button
               type="button"
               onClick={composer.retryInitialTemplate}
-              className="rounded-[var(--radius-control)] px-2 py-1 text-sm font-semibold text-[var(--danger-text)] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]"
+              className="rounded-[var(--radius-control)] px-2 py-1 text-sm font-semibold text-[var(--danger-text)] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             >
               {t("retryTemplate")}
             </button>
@@ -503,7 +552,7 @@ export function CreativeComposer({ composer, composerRef }: {
       <p
         role="status"
         aria-live="polite"
-        className={pendingLabel ? "text-sm font-medium text-[var(--accent-primary-text)]" : "sr-only"}
+        className={pendingLabel ? "text-sm font-medium text-[var(--info-text)]" : "sr-only"}
       >
         {pendingLabel ?? composer.announcement ?? composer.state}
       </p>

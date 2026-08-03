@@ -47,7 +47,7 @@ export default function CreativeTripletGrid({
             className={cn(
               "flex flex-col gap-3 rounded-xl border bg-[var(--surface-raised)] p-3",
               isSelected
-                ? "border-[var(--accent-primary)]"
+                ? "border-[var(--selection-border)]"
                 : "border-[var(--border-dim)]"
             )}
           >
@@ -94,7 +94,7 @@ export default function CreativeTripletGrid({
                 disabled
                   ? "cursor-not-allowed bg-[var(--surface-inset)] text-[var(--text-muted)]"
                   : isSelected
-                    ? "bg-[var(--accent-primary)] text-[var(--text-on-accent)]"
+                    ? "bg-[var(--selection-bg)] text-[var(--selection-text)]"
                     : "border border-[var(--border-dim)] text-[var(--text-primary)] hover:bg-[var(--surface-inset)]"
               )}
             >

@@ -110,7 +110,7 @@ export default function AssistantTreeSidebar({
           type="button"
           variant="default"
           size="sm"
-          className="mt-2 w-full rounded-[var(--radius-control)] bg-[var(--accent-primary)] text-xs font-medium text-[var(--text-on-accent)] hover:bg-[var(--accent-primary)]"
+          className="mt-2 w-full rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] text-xs font-medium text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)]"
           aria-label={t("newClient")}
           onClick={onNewClient}
         >
@@ -269,7 +269,7 @@ function ProjectNode({
                         className={cn(
                           "flex w-full flex-col rounded-[var(--radius-control)] px-2.5 py-2 text-left transition-colors",
                           isActive
-                            ? "bg-[var(--accent-primary-subtle)] text-[var(--accent-primary-text)]"
+                            ? "bg-[var(--active-navigation-bg)] text-[var(--active-navigation-text)]"
                             : "text-[var(--text-secondary)] hover:bg-[var(--surface-raised)]"
                         )}
                       >

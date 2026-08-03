@@ -200,10 +200,10 @@ export function RestylingUpload({
             className={cn(
               "relative flex flex-col items-center justify-center min-h-[180px] rounded-xl border-2 border-dashed transition-all duration-200 cursor-pointer",
               isDragActive
-                ? "border-[var(--accent-green)] bg-[var(--accent-green-dim)]"
+                ? "border-[var(--selection-border)] bg-[var(--selection-bg)]"
                 : displayError
-                ? "border-[var(--accent-rose)]"
-                : "border-[var(--border-medium)] bg-[var(--surface-raised)] hover:border-[var(--accent-green)] hover:bg-[var(--accent-green-dim)]"
+                ? "border-[var(--danger-border)]"
+                : "border-[var(--border-medium)] bg-[var(--surface-raised)] hover:border-[var(--selection-border)] hover:bg-[var(--selection-bg)]"
             )}
           >
             <div className="mb-3">
@@ -212,9 +212,9 @@ export function RestylingUpload({
                 className={cn(
                   "transition-colors duration-200",
                   isDragActive
-                    ? "text-[var(--accent-green)]"
+                    ? "text-[var(--selection-text)]"
                     : displayError
-                    ? "text-[var(--accent-rose)]"
+                    ? "text-[var(--danger-text)]"
                     : "text-[var(--text-muted)]"
                 )}
               />
@@ -228,9 +228,9 @@ export function RestylingUpload({
             </p>
 
             {displayError && (
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[rgba(244,63,94,0.08)] border border-[var(--accent-rose)]/20 animate-fade-in">
-                <X size={14} className="text-[var(--accent-rose)]" />
-                <span className="text-xs text-[var(--accent-rose)]">
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2 rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] px-3 py-1.5 animate-fade-in">
+                <X size={14} className="text-[var(--danger-text)]" />
+                <span className="text-xs text-[var(--danger-text)]">
                   {displayError}
                 </span>
               </div>
@@ -241,4 +241,3 @@ export function RestylingUpload({
     </div>
   );
 }
-

@@ -144,10 +144,10 @@ export default function OutputLearningRecommendationCard({
       : { value: recommendation.primaryVariableValue };
 
   return (
-    <article className="rounded-lg border border-[var(--accent-green)]/30 bg-[var(--surface-raised)] p-4">
+    <article className="rounded-lg border border-[var(--neutral-border)] bg-[var(--surface-raised)] p-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--accent-green-text)]">
+          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--neutral-text)]">
             {t("eyebrow")}
           </p>
           <h3 className="mt-1 text-base font-medium text-[var(--text-primary)]">

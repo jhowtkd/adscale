@@ -57,7 +57,7 @@ export default function ConfirmDialog({
       >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-[var(--text-primary)]">
-            <AlertTriangle size={20} className="text-[var(--accent-rose)]" />
+            <AlertTriangle size={20} className="text-[var(--danger-text)]" />
             {title}
           </DialogTitle>
           <DialogDescription className="text-[var(--text-secondary)]">
@@ -79,7 +79,7 @@ export default function ConfirmDialog({
             disabled={loading || isLoading}
             className={
               variant === "destructive"
-                ? "bg-[var(--accent-rose)] text-[var(--text-on-accent)] hover:bg-[var(--accent-rose)]/80"
+                ? "bg-[var(--danger-bg)] text-[var(--danger-text)] hover:bg-[var(--danger-bg)]"
                 : ""
             }
           >

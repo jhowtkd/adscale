@@ -266,7 +266,7 @@ function RateCell({ rate }: { rate: number | null }) {
         <div
           className={cn(
             "h-full rounded-full transition-[width]",
-            pct > 0 ? "bg-[var(--accent-green)]" : "bg-transparent"
+            pct > 0 ? "bg-[var(--success-dot)]" : "bg-transparent"
           )}
           style={{ width: `${pct}%` }}
         />
@@ -289,7 +289,7 @@ function CountCell({ value, highlight }: { value: number; highlight?: "positive"
       className={cn(
         "tabular-nums",
         highlight === "positive" && value > 0 && "font-medium text-[var(--text-primary)]",
-        highlight === "warning" && value > 0 && "font-medium text-[var(--accent-rose)]"
+        highlight === "warning" && value > 0 && "font-medium text-[var(--danger-text)]"
       )}
     >
       {value}
@@ -488,7 +488,7 @@ export function OwnerAnalyticsPanel({
             <span className="flex items-center gap-2">
               {t("filters.toggle")}
               {filtersActive ? (
-                <span className="rounded-full bg-[var(--accent-green)]/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[var(--accent-green)]">
+                <span className="rounded-full bg-[var(--selection-bg)] px-2 py-0.5 text-caption font-medium uppercase tracking-wide text-[var(--selection-text)]">
                   {t("filters.active")}
                 </span>
               ) : null}
@@ -870,7 +870,7 @@ export function OwnerAnalyticsPanel({
                         key="delta"
                         className={cn(
                           "tabular-nums",
-                          row.delta !== 0 && "font-medium text-[var(--accent-rose)]"
+                          row.delta !== 0 && "font-medium text-[var(--danger-text)]"
                         )}
                       >
                         {row.delta}
@@ -1025,7 +1025,7 @@ export function OwnerAnalyticsPanel({
                           className={cn(
                             "rounded-md border px-3 py-2",
                             signal.kind === "operator_note"
-                              ? "border-[var(--accent-green)]/30 bg-[var(--accent-green)]/5"
+                              ? "border-[var(--info-border)] bg-[var(--info-bg)]"
                               : "border-[var(--border-dim)]"
                           )}
                         >

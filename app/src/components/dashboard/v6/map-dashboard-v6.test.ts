@@ -112,4 +112,33 @@ describe("mapDashboardToV6View", () => {
     expect(view.recipes[2]?.id).toBe("t-2");
     expect(view.recipes[3]?.id).toBe("t-3");
   });
+
+  it.each([
+    ["generating", "warning"],
+    ["processing", "warning"],
+    ["queued", "warning"],
+    ["failed", "danger"],
+    ["completed", "success"],
+    ["approved", "success"],
+    ["active", "info"],
+    ["review", "info"],
+    ["draft", "neutral"],
+    ["archived", "neutral"],
+    ["unknown", "neutral"],
+  ] as const)("maps %s to %s across activity and hero", (status, tone) => {
+    const stats = {
+      ...baseStats,
+      recentCampaigns: [{ ...baseStats.recentCampaigns[0], status }],
+    };
+
+    const view = mapDashboardToV6View({
+      stats,
+      firstName: "Ana",
+      templates: [],
+      ...labels,
+    });
+
+    expect(view.activity[0]?.statusClass).toBe(tone);
+    expect(view.hero?.badgeClass).toBe(tone);
+  });
 });

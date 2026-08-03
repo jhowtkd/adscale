@@ -28,17 +28,17 @@ export default function AdsScientistProgressCard() {
     return (
       <div className="overflow-hidden rounded-xl border border-[var(--border-dim)] bg-[var(--surface-base)]">
         <div className="px-5 py-4 border-b border-[var(--border-dim)] flex items-center gap-2">
-          <FlaskConical size={16} className="text-[var(--accent-green)]" aria-hidden="true" />
+          <FlaskConical size={16} className="text-[var(--utility-icon)]" aria-hidden="true" />
           <h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("title")}</h2>
         </div>
         <div className="p-5 flex items-start gap-3">
-          <AlertCircle size={18} className="text-[var(--accent-rose)] shrink-0 mt-0.5" aria-hidden="true" />
+          <AlertCircle size={18} className="text-[var(--danger-text)] shrink-0 mt-0.5" aria-hidden="true" />
           <div className="space-y-3">
             <p className="text-sm text-[var(--text-secondary)]">{t("error")}</p>
             <button
               type="button"
               onClick={() => refetch()}
-              className="inline-flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-[var(--accent-green-dark)] hover:text-[var(--accent-green)] transition-colors"
+              className="inline-flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-[var(--active-navigation-text)] hover:text-[var(--active-navigation-text)] transition-colors"
             >
               <RefreshCw size={14} aria-hidden="true" />
               {t("retry")}
@@ -65,7 +65,7 @@ export default function AdsScientistProgressCard() {
     <div className="overflow-hidden rounded-xl border border-[var(--border-dim)] bg-[var(--surface-base)]">
       <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border-dim)]">
         <div className="flex items-center gap-2">
-          <FlaskConical size={16} className="text-[var(--accent-green)]" aria-hidden="true" />
+          <FlaskConical size={16} className="text-[var(--utility-icon)]" aria-hidden="true" />
           <h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("title")}</h2>
         </div>
         {isFetching ? <span className="sr-only">{t("updating")}</span> : null}
@@ -85,7 +85,7 @@ export default function AdsScientistProgressCard() {
             <span className="text-[11px] font-mono uppercase tracking-wider text-[var(--text-muted)]">
               {t("progressLabel")}
             </span>
-            <span className="text-xs font-mono font-bold text-[var(--accent-green)]">
+            <span className="text-xs font-mono font-bold text-[var(--success-text)]">
               {progressPercent}%
             </span>
           </div>
@@ -111,7 +111,7 @@ export default function AdsScientistProgressCard() {
           <p className="text-sm font-semibold text-[var(--text-primary)]">{nextActionLabel}</p>
           <p className="text-xs text-[var(--text-secondary)] mt-1">{nextActionDescription}</p>
           {nextAction.blocked && nextActionBlockedReason ? (
-            <p className="text-xs text-[var(--accent-rose)] mt-2 flex items-start gap-1.5">
+            <p className="text-xs text-[var(--danger-text)] mt-2 flex items-start gap-1.5">
               <AlertCircle size={14} className="shrink-0 mt-0.5" aria-hidden="true" />
               {nextActionBlockedReason}
             </p>
@@ -128,7 +128,7 @@ export default function AdsScientistProgressCard() {
           ) : (
             <Link
               href={nextAction.href}
-              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--accent-green)] px-4 py-2.5 text-xs font-mono uppercase tracking-wider text-[var(--accent-green-on-fill)] transition-colors hover:bg-[var(--accent-green-light)]"
+              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--action-primary-bg)] px-4 py-2.5 text-xs font-mono uppercase tracking-wider text-[var(--action-primary-text)] transition-colors hover:bg-[var(--action-primary-hover)]"
             >
               {t("cta")}
               <ArrowRight size={14} aria-hidden="true" />

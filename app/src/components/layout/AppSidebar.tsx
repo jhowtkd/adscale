@@ -19,7 +19,6 @@ import { authClient } from "@/lib/auth-client";
 import AccountStatusBadge from "@/components/layout/AccountStatusBadge";
 import SidebarBrandKitFeature from "@/components/layout/SidebarBrandKitFeature";
 import AppSidebarCampaignMap from "@/components/layout/AppSidebarCampaignMap";
-import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { cn } from "@/lib/utils";
 
 export default function AppSidebar() {
@@ -63,16 +62,8 @@ export default function AppSidebar() {
   };
 
   return (
-    <aside className="v6-shell-sidebar relative" aria-label="Navegação principal">
-      <GlowingEffect
-        spread={40}
-        glow
-        disabled={false}
-        proximity={64}
-        inactiveZone={0.01}
-        borderWidth={2}
-      />
-      <div className="relative z-[1] flex min-h-0 flex-1 flex-col gap-1">
+    <aside className="v6-shell-sidebar" aria-label="Navegação principal">
+      <div className="flex min-h-0 flex-1 flex-col gap-1">
       <div className="mb-2.5 shrink-0 border-b border-[var(--border-subtle)] px-2 pb-4 pt-2">
         <Link href="/" className="flex w-full justify-center rounded-md py-0.5" aria-label="ADScale">
           <Image
@@ -142,7 +133,7 @@ export default function AppSidebar() {
         <div
           className="flex items-center gap-2 rounded-[var(--radius-control)] px-2 py-2 transition-colors hover:bg-[var(--surface-base)]"
         >
-          <span className="grid h-[30px] w-[30px] shrink-0 place-items-center rounded-full bg-[var(--neutral-bg)] text-[11px] font-bold text-[var(--text-primary)]">
+          <span className="grid h-[30px] w-[30px] shrink-0 place-items-center rounded-full bg-[var(--selection-bg)] text-xs font-bold text-[var(--selection-text)]">
             {initials}
           </span>
           <div className="min-w-0">
@@ -160,7 +151,7 @@ export default function AppSidebar() {
         <button
           type="button"
           onClick={handleLogout}
-          className="mt-1 flex w-full items-center gap-2.5 rounded-[var(--radius-control)] px-2.5 py-2 text-[13px] font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-base)] hover:text-[var(--accent-rose)]"
+          className="mt-1 flex w-full items-center gap-2.5 rounded-[var(--radius-control)] px-2.5 py-2 text-sm font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-base)] hover:text-[var(--danger-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
         >
           <LogOut size={16} aria-hidden="true" className="shrink-0" />
           <span>{tNav("logout")}</span>
@@ -192,11 +183,15 @@ function IconNavItem({
       className={cn(
         "relative flex flex-col items-center gap-1 rounded-[var(--radius-control)] px-1 py-2 text-[10px] font-medium transition-colors",
         active
-          ? "bg-[var(--accent-primary-subtle)] text-[var(--accent-primary-text)]"
+          ? "bg-[var(--active-navigation-bg)] text-[var(--active-navigation-text)]"
           : "text-[var(--text-secondary)] hover:bg-[var(--surface-base)] hover:text-[var(--text-primary)]"
       )}
     >
-      <Icon size={18} aria-hidden="true" />
+      <Icon
+        size={18}
+        aria-hidden="true"
+        className={active ? "text-[var(--active-navigation-text)]" : "text-[var(--utility-icon)]"}
+      />
       <span className="max-w-full truncate text-center leading-tight">{label}</span>
       {count ? (
         <span className="absolute right-0.5 top-0.5 rounded border border-[var(--border-subtle)] bg-[var(--surface-base)] px-1 font-mono text-[8px] text-[var(--text-muted)]">
@@ -221,14 +216,21 @@ function TextNavItem({
   return (
     <Link
       href={href}
+      aria-current={active ? "page" : undefined}
       className={cn(
         "flex items-center gap-2.5 rounded-[var(--radius-control)] px-2.5 py-2 text-[13px] font-medium transition-colors",
         active
-          ? "bg-[var(--accent-primary-subtle)] text-[var(--accent-primary-text)]"
+          ? "bg-[var(--active-navigation-bg)] text-[var(--active-navigation-text)]"
           : "text-[var(--text-secondary)] hover:bg-[var(--surface-base)] hover:text-[var(--text-primary)]"
       )}
     >
-      {Icon ? <Icon size={16} aria-hidden="true" /> : null}
+      {Icon ? (
+        <Icon
+          size={16}
+          aria-hidden="true"
+          className={active ? "text-[var(--active-navigation-text)]" : "text-[var(--utility-icon)]"}
+        />
+      ) : null}
       <span className="min-w-0 flex-1 truncate">{label}</span>
     </Link>
   );

@@ -52,9 +52,9 @@ const MISSION_ICONS: Record<MissionKey, LucideIcon> = {
 function MissionStatusIcon({ status }: { status: MissionItem["status"] }) {
   switch (status) {
     case "completed":
-      return <CheckCircle2 size={14} className="shrink-0 text-[var(--accent-green)]" aria-hidden="true" />;
+      return <CheckCircle2 size={14} className="shrink-0 text-[var(--success-text)]" aria-hidden="true" />;
     case "active":
-      return <Sparkles size={14} className="shrink-0 text-[var(--accent-green)]" aria-hidden="true" />;
+      return <Sparkles size={14} className="shrink-0 text-[var(--selection-text)]" aria-hidden="true" />;
     case "blocked":
       return <Lock size={14} className="shrink-0 text-[var(--text-muted)]" aria-hidden="true" />;
     default:
@@ -64,7 +64,7 @@ function MissionStatusIcon({ status }: { status: MissionItem["status"] }) {
 
 function MissionKeyIcon({ missionKey, size = 18 }: { missionKey: MissionKey; size?: number }) {
   const Icon = MISSION_ICONS[missionKey];
-  return <Icon size={size} className="shrink-0 text-[var(--accent-green)]" aria-hidden="true" />;
+  return <Icon size={size} className="shrink-0 text-[var(--utility-icon)]" aria-hidden="true" />;
 }
 
 export default function LaboratoryProgressPanel() {
@@ -122,11 +122,11 @@ export default function LaboratoryProgressPanel() {
     return (
       <Panel padding="none">
         <div className="flex items-center gap-2 border-b border-[var(--border-dim)] px-3 py-2.5">
-          <FlaskConical size={14} className="text-[var(--accent-green)]" aria-hidden="true" />
+          <FlaskConical size={14} className="text-[var(--utility-icon)]" aria-hidden="true" />
           <h2 className="text-xs font-semibold text-[var(--text-primary)]">{t("title")}</h2>
         </div>
         <div className="flex items-start gap-2 p-3">
-          <AlertCircle size={16} className="mt-0.5 shrink-0 text-[var(--accent-rose)]" aria-hidden="true" />
+          <AlertCircle size={16} className="mt-0.5 shrink-0 text-[var(--danger-text)]" aria-hidden="true" />
           <div className="space-y-2">
             <p className="text-xs text-[var(--text-secondary)]">{t("error")}</p>
             <button
@@ -135,7 +135,7 @@ export default function LaboratoryProgressPanel() {
                 void progression.refetch();
                 void missions.refetch();
               }}
-              className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-[var(--accent-green-dark)] transition-colors hover:text-[var(--accent-green)]"
+              className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-[var(--active-navigation-text)] transition-colors hover:text-[var(--active-navigation-text)]"
             >
               <RefreshCw size={12} aria-hidden="true" />
               {t("retry")}
@@ -172,7 +172,7 @@ export default function LaboratoryProgressPanel() {
           >
             v1
           </span>
-          <FlaskConical size={14} className="shrink-0 text-[var(--accent-green)]" aria-hidden="true" />
+          <FlaskConical size={14} className="shrink-0 text-[var(--utility-icon)]" aria-hidden="true" />
           <h2 className="text-xs font-semibold text-[var(--text-primary)]">{t("title")}</h2>
           {isFetching ? <span className="sr-only">{t("updating")}</span> : null}
         </div>
@@ -188,8 +188,8 @@ export default function LaboratoryProgressPanel() {
 
       <div className="p-3">
         {allComplete ? (
-          <div className="flex items-center gap-2.5 rounded-md border border-[var(--accent-green)]/30 bg-[var(--accent-green)]/5 px-3 py-2">
-            <CheckCircle2 size={16} className="shrink-0 text-[var(--accent-green)]" aria-hidden="true" />
+          <div className="flex items-center gap-2.5 rounded-md border border-[var(--success-border)] bg-[var(--success-bg)] px-3 py-2">
+            <CheckCircle2 size={16} className="shrink-0 text-[var(--success-text)]" aria-hidden="true" />
             <div className="min-w-0">
               <p className="text-xs font-semibold text-[var(--text-primary)]">{tMissions("allCompleteTitle")}</p>
               <p className="text-[10px] text-[var(--text-secondary)]">{tMissions("allCompleteDescription")}</p>
@@ -210,7 +210,7 @@ export default function LaboratoryProgressPanel() {
                   <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)]">
                     {t("stepLabel", { current: currentStep, total: totalCount })}
                   </span>
-                  <span className="text-[10px] font-mono font-bold text-[var(--accent-green)]">
+                  <span className="text-[10px] font-mono font-bold text-[var(--success-text)]">
                     {progressPercent}%
                   </span>
                 </div>
@@ -223,7 +223,7 @@ export default function LaboratoryProgressPanel() {
                   aria-label={tMissions("progressAria", { percent: progressPercent })}
                 >
                   <div
-                    className="h-full rounded-full bg-[var(--accent-green)] transition-all duration-500"
+                    className="h-full rounded-full bg-[var(--success-bg)] transition-all duration-500"
                     style={{ width: `${progressPercent}%` }}
                   />
                 </div>
@@ -236,9 +236,9 @@ export default function LaboratoryProgressPanel() {
                     className={cn(
                       "h-1.5 flex-1 rounded-full",
                       mission.status === "completed"
-                        ? "bg-[var(--accent-green)]"
+                        ? "bg-[var(--success-bg)]"
                         : mission.status === "active"
-                          ? "bg-[var(--accent-green)]/50"
+                          ? "bg-[var(--selection-bg)]"
                           : "bg-[var(--surface-raised)]",
                     )}
                     title={tMissions(`items.${mission.key}.label`)}
@@ -270,7 +270,7 @@ export default function LaboratoryProgressPanel() {
           <button
             type="button"
             onClick={() => setExpanded((value) => !value)}
-            className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-[var(--accent-green-dark)] transition-colors hover:text-[var(--accent-green)]"
+            className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-[var(--active-navigation-text)] transition-colors hover:text-[var(--active-navigation-text)]"
             aria-expanded={expanded}
             aria-controls="laboratory-mission-list"
           >
@@ -336,7 +336,7 @@ function ActiveStep({
             "flex h-8 w-8 shrink-0 items-center justify-center rounded-md border",
             mission.status === "blocked"
               ? "border-[var(--border-dim)] bg-[var(--deep-bg)]"
-              : "border-[var(--accent-green)]/30 bg-[var(--accent-green)]/10",
+              : "border-[var(--selection-border)] bg-[var(--selection-bg)]",
           )}
         >
           <MissionKeyIcon missionKey={mission.key} size={16} />
@@ -353,7 +353,7 @@ function ActiveStep({
       </div>
 
       {blockedReasonText ? (
-        <p className="mt-1.5 flex items-start gap-1 text-[10px] text-[var(--accent-rose)]">
+        <p className="mt-1.5 flex items-start gap-1 text-[10px] text-[var(--danger-text)]">
           <AlertCircle size={12} className="mt-0.5 shrink-0" aria-hidden="true" />
           {blockedReasonText}
         </p>
@@ -374,7 +374,7 @@ function ActiveStep({
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <Link
             href={mission.href}
-            className="inline-flex items-center gap-1.5 rounded-md bg-[var(--accent-green)] px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--accent-green-on-fill)] transition-colors hover:bg-[var(--accent-green-light)]"
+            className="inline-flex items-center gap-1.5 rounded-md bg-[var(--action-primary-bg)] px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--action-primary-text)] transition-colors hover:bg-[var(--action-primary-hover)]"
           >
             {ctaLabel}
             <ArrowRight size={12} aria-hidden="true" />
@@ -408,7 +408,7 @@ function MissionListItem({
       className={cn(
         "flex items-center gap-2 rounded-md border px-2 py-1.5",
         mission.status === "active"
-          ? "border-[var(--accent-green)]/40 bg-[var(--accent-green)]/5"
+          ? "border-[var(--selection-border)] bg-[var(--selection-bg)]"
           : "border-[var(--border-dim)] bg-[var(--deep-bg)]",
         mission.status === "completed" && "opacity-80",
       )}
@@ -421,13 +421,13 @@ function MissionListItem({
         <p className="text-xs font-medium leading-tight text-[var(--text-primary)]">{label}</p>
         <p className="line-clamp-1 text-[10px] text-[var(--text-secondary)]">{description}</p>
         {mission.status === "blocked" && blockedReasonText ? (
-          <p className="text-[10px] text-[var(--accent-rose)]">{blockedReasonText}</p>
+          <p className="text-[10px] text-[var(--danger-text)]">{blockedReasonText}</p>
         ) : null}
       </div>
       {mission.status === "blocked" ? (
         <Link
           href={mission.href}
-          className="shrink-0 text-[9px] font-mono uppercase tracking-wider text-[var(--accent-green-dark)] hover:text-[var(--accent-green)]"
+          className="shrink-0 text-[9px] font-mono uppercase tracking-wider text-[var(--active-navigation-text)] hover:text-[var(--active-navigation-text)]"
         >
           {t(`blockedResume.${mission.key}`, { defaultValue: t("blockedResume.default") })}
         </Link>
@@ -435,13 +435,13 @@ function MissionListItem({
       {mission.status === "active" || mission.status === "upcoming" ? (
         <Link
           href={mission.href}
-          className="shrink-0 text-[9px] font-mono uppercase tracking-wider text-[var(--accent-green-dark)] hover:text-[var(--accent-green)]"
+          className="shrink-0 text-[9px] font-mono uppercase tracking-wider text-[var(--active-navigation-text)] hover:text-[var(--active-navigation-text)]"
         >
           {t("resume")}
         </Link>
       ) : null}
       {mission.status === "completed" ? (
-        <span className="shrink-0 text-[9px] font-mono uppercase tracking-wider text-[var(--accent-green)]">
+        <span className="shrink-0 text-[9px] font-mono uppercase tracking-wider text-[var(--success-text)]">
           {t("done")}
         </span>
       ) : null}

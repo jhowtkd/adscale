@@ -135,9 +135,9 @@ export function CorpusIngestionBanner() {
         </Button>
       </div>
       {backfillSummary ? (
-        <p className="text-xs text-emerald-200">{backfillSummary}</p>
+        <p className="text-xs text-[var(--success-text)]">{backfillSummary}</p>
       ) : null}
-      {backfillError ? <p className="text-xs text-rose-400">{backfillError}</p> : null}
+      {backfillError ? <p className="text-xs text-[var(--danger-text)]">{backfillError}</p> : null}
     </div>
   );
 }

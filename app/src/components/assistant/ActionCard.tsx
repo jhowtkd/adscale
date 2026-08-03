@@ -109,15 +109,15 @@ export function ActionCard({
 
       {status === "executing" ? (
         <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-          <span className="inline-block size-3 animate-spin rounded-full border-2 border-[var(--accent-primary)] border-t-transparent" />
+          <span className="inline-block size-3 animate-spin rounded-full border-2 border-[var(--info-text)] border-t-transparent" />
           {t("executing")}
         </div>
       ) : status === "error" ? (
-        <div className="text-xs text-[var(--accent-rose)]">
+        <div className="text-xs text-[var(--danger-text)]">
           {t("errorTitle")}: {errorMessage}
         </div>
       ) : status === "completed" ? (
-        <div className="text-xs text-[var(--accent-green)]">{t("successTitle")}</div>
+        <div className="text-xs text-[var(--success-text)]">{t("successTitle")}</div>
       ) : isEditing ? (
         <div className="flex justify-end gap-2">
           <button
@@ -130,7 +130,7 @@ export function ActionCard({
           <button
             type="button"
             onClick={handleSubmitEdit}
-            className="rounded bg-[var(--accent-primary)] px-3 py-1.5 text-xs font-semibold text-[var(--accent-primary-contrast)]"
+            className="rounded bg-[var(--action-primary-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--action-primary-text)]"
           >
             {t("confirm")}
           </button>
@@ -156,7 +156,7 @@ export function ActionCard({
           <button
             type="button"
             onClick={onConfirm}
-            className="rounded bg-[var(--accent-primary)] px-3 py-1.5 text-xs font-semibold text-[var(--accent-primary-contrast)]"
+            className="rounded bg-[var(--action-primary-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--action-primary-text)]"
           >
             {t("confirm")}
           </button>

@@ -68,7 +68,7 @@ export function CreativeSourcePreviewCard({
             type="button"
             onClick={onRemove}
             aria-label={removeLabel}
-            className="text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]"
+            className="text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
           >
             {t("removeSource")}
           </button>
@@ -93,7 +93,7 @@ export function CreativeSourcePreviewCard({
             type="button"
             onClick={onChoose}
             aria-label={addLabel}
-            className="flex h-full w-full flex-col items-center justify-center gap-2 px-4 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-raised)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]"
+            className="flex h-full w-full flex-col items-center justify-center gap-2 px-4 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-raised)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
           >
             <Paperclip size={18} aria-hidden="true" />
             {addLabel}
@@ -112,7 +112,7 @@ export function CreativeSourcePreviewCard({
           <button
             type="button"
             onClick={onRetry}
-            className="text-sm font-semibold text-[var(--accent-primary-text)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]"
+            className="text-sm font-semibold text-[var(--text-secondary)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
           >
             {t("retrySource")}
           </button>

@@ -35,6 +35,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { ContextualHelp } from "@/components/ui/contextual-help";
 
 describe("dialog overlay primitive", () => {
   it("dialog exposes accessible content on canonical overlay layers", async () => {
@@ -189,5 +190,48 @@ describe("tooltip popover primitive", () => {
     const tooltip = await screen.findByText("Layered tooltip");
     expect(tooltip.getAttribute("data-slot")).toBe("tooltip-content");
     expect(tooltip.className).toContain("z-[var(--layer-popover)]");
+  });
+
+  it("contextual help opens by hover, focus, and touch/click without interactive tooltip content", async () => {
+    render(
+      <TooltipProvider>
+        <ContextualHelp label="Help with format">
+          Sets the output aspect ratio.
+        </ContextualHelp>
+      </TooltipProvider>
+    );
+
+    const trigger = screen.getByRole("button", { name: "Help with format" });
+    expect(trigger).not.toHaveAttribute("aria-describedby");
+
+    fireEvent.keyDown(window, { key: "Tab", code: "Tab" });
+    trigger.focus();
+    const focusedTooltip = await screen.findByRole("tooltip");
+    await waitFor(() => expect(trigger).toHaveAttribute("aria-describedby", focusedTooltip.id));
+
+    fireEvent.keyDown(trigger, { key: "Escape", code: "Escape" });
+    await waitFor(() => {
+      expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+      expect(trigger).not.toHaveAttribute("aria-describedby");
+    });
+
+    fireEvent.mouseEnter(trigger);
+    const hoveredTooltip = await screen.findByRole("tooltip");
+    expect(hoveredTooltip).toHaveTextContent("Sets the output aspect ratio.");
+    expect(trigger).toHaveAttribute("aria-describedby", hoveredTooltip.id);
+    expect(document.getElementById(hoveredTooltip.id)).toBe(hoveredTooltip);
+    expect(hoveredTooltip.querySelectorAll("button, a[href], input, select, textarea, [tabindex]:not([tabindex='-1'])")).toHaveLength(0);
+
+    fireEvent.keyDown(trigger, { key: "Escape", code: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("tooltip")).not.toBeInTheDocument());
+
+    fireEvent.pointerDown(trigger, { pointerType: "touch" });
+    fireEvent.click(trigger);
+    expect(await screen.findByRole("tooltip")).toBeInTheDocument();
+
+    trigger.focus();
+    fireEvent.click(trigger);
+    await waitFor(() => expect(screen.queryByRole("tooltip")).not.toBeInTheDocument());
+    expect(trigger).toHaveFocus();
   });
 });

@@ -24,7 +24,7 @@ import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 const FOCUS_RING =
-  "focus:outline-none focus:border-primary focus:ring-[3px] focus:ring-primary/15";
+  "focus:outline-none focus:border-[var(--focus-ring)] focus:ring-[3px] focus:ring-[var(--focus-ring)]";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -119,21 +119,21 @@ function TagInput({
       className={cn(
         "w-full min-h-[40px] rounded-md border px-2 py-1.5 flex flex-wrap gap-1.5",
         "bg-[var(--surface-base)] border-[var(--border-dim)]",
-        "focus-within:border-[var(--accent-green)] focus-within:ring-[3px] focus-within:ring-[var(--accent-green-dim)]",
+        "focus-within:border-[var(--focus-ring)] focus-within:ring-[3px] focus-within:ring-[var(--focus-ring)]",
         "transition-all duration-200"
       )}
     >
       {tags.map((tag) => (
         <span
           key={tag}
-          className="inline-flex items-center gap-1 rounded-md bg-[var(--accent-green-dim)] px-2 py-0.5 text-xs font-medium text-[var(--accent-green-text)]"
+          className="inline-flex items-center gap-1 rounded-md bg-[var(--selection-bg)] px-2 py-0.5 text-xs font-medium text-[var(--selection-text)]"
         >
           {tag}
           <button
             type="button"
             onClick={() => onChange(tags.filter((t) => t !== tag))}
             aria-label={`${tc("remove")} ${tag}`}
-            className="hover:text-[var(--accent-rose)]"
+            className="hover:text-[var(--danger-text)]"
           >
             <X size={12} />
           </button>
@@ -471,7 +471,7 @@ export default function BrandKitTab() {
       {needsClientProfileSetup && !isLoading && (
         <m.div
           variants={itemVariants}
-          className="rounded-lg border border-[var(--accent-green)]/40 bg-[var(--accent-green-dim)] px-4 py-4 space-y-3"
+          className="rounded-lg border border-[var(--selection-border)] bg-[var(--selection-bg)] px-4 py-4 space-y-3"
           role="group"
           aria-labelledby="brand-kit-workspace-selector-title"
         >
@@ -499,7 +499,7 @@ export default function BrandKitTab() {
                 className={cn(
                   "w-full h-10 rounded-md border px-3 text-sm",
                   "bg-[var(--surface-base)] text-[var(--text-primary)]",
-                  "focus:outline-none focus:border-[var(--accent-green)] focus:ring-[3px] focus:ring-[var(--accent-green-dim)]",
+                  "focus:outline-none focus:border-[var(--focus-ring)] focus:ring-[3px] focus:ring-[var(--focus-ring)]",
                   "transition-all duration-200 border-[var(--border-dim)]"
                 )}
               >
@@ -573,7 +573,7 @@ export default function BrandKitTab() {
       {isError && !isLoading && !needsClientProfileSetup && (
         <m.div
           variants={itemVariants}
-          className="rounded-lg border border-[var(--accent-rose)]/30 bg-[var(--accent-rose)]/10 px-4 py-3 text-sm text-[var(--accent-rose)]"
+          className="rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-3 text-sm text-[var(--danger-text)]"
         >
           {profileNotFoundError
             ? t("brandKit.workspaceSelector.retryFailed")
@@ -599,7 +599,7 @@ export default function BrandKitTab() {
                 "w-full h-10 rounded-md border px-3 text-sm",
                 "bg-[var(--surface-base)] text-[var(--text-primary)]",
                 "placeholder:text-[var(--text-muted)]",
-                "focus:outline-none focus:border-[var(--accent-green)] focus:ring-[3px] focus:ring-[var(--accent-green-dim)]",
+                "focus:outline-none focus:border-[var(--focus-ring)] focus:ring-[3px] focus:ring-[var(--focus-ring)]",
                 "transition-all duration-200 border-[var(--border-dim)]"
               )}
             />
@@ -654,7 +654,7 @@ export default function BrandKitTab() {
                   type="button"
                   onClick={() => updateState({ logoAssetKey: null })}
                   aria-label={tc("remove")}
-                  className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--accent-rose)] hover:bg-[var(--surface-raised)] transition-all"
+                  className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--danger-text)] hover:bg-[var(--surface-raised)] transition-all"
                 >
                   <Trash2 size={14} />
                 </button>
@@ -673,7 +673,7 @@ export default function BrandKitTab() {
                 className={cn(
                   "flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-6 py-8 cursor-pointer transition-all",
                   isDragging
-                    ? "border-[var(--accent-green)] bg-[var(--accent-green-dim)]"
+                    ? "border-[var(--selection-border)] bg-[var(--selection-bg)]"
                     : "border-[var(--border-dim)] bg-[var(--surface-base)] hover:border-[var(--border-medium)] hover:bg-[var(--surface-raised)]"
                 )}
               >
@@ -873,8 +873,8 @@ export default function BrandKitTab() {
                 !hasChanges || saveState !== "idle" || updateBrandKit.isPending
               }
               className={cn(
-                "h-10 px-5 rounded-md text-sm font-medium text-[var(--accent-green-on-fill)] flex items-center gap-2",
-                "bg-[var(--accent-green)] hover:bg-[var(--accent-green-light)]",
+                "h-10 px-5 rounded-md text-sm font-medium text-[var(--action-primary-text)] flex items-center gap-2",
+                "bg-[var(--action-primary-bg)] hover:bg-[var(--action-primary-hover)]",
                 "active:scale-[0.98] active:brightness-90",
                 "transition-all duration-200",
                 "disabled:opacity-50 disabled:cursor-not-allowed"
@@ -904,8 +904,8 @@ export default function BrandKitTab() {
             className="rounded-xl border border-[var(--danger-border)] p-5 space-y-4"
           >
             <div className="flex items-center gap-2">
-              <Trash2 size={16} className="text-[var(--accent-rose)]" />
-              <h3 className="text-[15px] font-semibold text-[var(--accent-rose)]">
+              <Trash2 size={16} className="text-[var(--danger-text)]" />
+              <h3 className="text-sm font-semibold text-[var(--danger-text)]">
                 {t("brandKit.clearTitle")}
               </h3>
             </div>
@@ -916,8 +916,8 @@ export default function BrandKitTab() {
               onClick={() => updateState({ showClearDialog: true })}
               disabled={clearBrandKit.isPending || !brandKit}
               className={cn(
-                "h-9 px-4 rounded-md text-sm font-medium text-[var(--accent-green-on-fill)]",
-                "bg-[var(--accent-rose)] hover:brightness-110",
+                "h-9 px-4 rounded-md text-sm font-medium text-[var(--text-on-accent)]",
+                "bg-[var(--danger-text)] hover:brightness-110",
                 "active:scale-[0.98]",
                 "transition-all duration-200",
                 "disabled:opacity-50 disabled:cursor-not-allowed"

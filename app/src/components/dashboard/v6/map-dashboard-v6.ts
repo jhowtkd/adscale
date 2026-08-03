@@ -2,6 +2,7 @@ import { formatCampaignPlatforms } from "@/lib/campaign-platforms";
 import type { CampaignTemplate } from "@/lib/hooks/use-templates";
 import type { DashboardStats } from "@/server/repositories/dashboard";
 import { buildCreatePostQuickTool } from "@/components/dashboard/quick-tool-recipes";
+import { getCampaignStatusTone } from "@/components/dashboard/campaign-status-config";
 import type {
   DashboardV6ActivityRow,
   DashboardV6Hero,
@@ -45,10 +46,7 @@ function formatTrend(change: number, suffix: string): { trend: string; trendDir:
 }
 
 function statusToClass(status: string): DashboardV6ActivityRow["statusClass"] {
-  if (status === "generating" || status === "processing" || status === "queued") return "running";
-  if (status === "active") return "review";
-  if (status === "completed" || status === "approved") return "approved";
-  return "draft";
+  return getCampaignStatusTone(status);
 }
 
 function statusLabel(status: string, tStatus: (key: string) => string): string {
@@ -82,14 +80,7 @@ function pickHero(
 
   if (!candidate) return null;
 
-  const badgeClass =
-    candidate.status === "generating"
-      ? "warning"
-      : candidate.status === "active"
-        ? "info"
-        : candidate.status === "completed"
-          ? "success"
-          : "neutral";
+  const badgeClass = getCampaignStatusTone(candidate.status);
 
   const badge =
     candidate.status === "generating"

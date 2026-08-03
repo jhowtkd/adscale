@@ -6,9 +6,9 @@ import { cn } from "@/lib/utils";
 type AccountStatusBadgeVariant = "demo" | "tester";
 
 const badgeStyles: Record<AccountStatusBadgeVariant, string> = {
-  demo: "bg-[var(--accent-green-dim)] text-[var(--accent-green-text)]",
+  demo: "border border-[var(--neutral-border)] bg-[var(--neutral-bg)] text-[var(--neutral-text)]",
   tester:
-    "border border-[color-mix(in_oklch,var(--accent-secondary)_35%,transparent)] bg-[color-mix(in_oklch,var(--accent-secondary)_14%,transparent)] text-[var(--accent-secondary)]",
+    "border border-[var(--neutral-border)] bg-[var(--neutral-bg)] text-[var(--neutral-text)]",
 };
 
 export default function AccountStatusBadge({

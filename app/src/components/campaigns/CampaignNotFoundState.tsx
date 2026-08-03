@@ -13,7 +13,7 @@ export default function CampaignNotFoundState() {
       </h2>
       <Link
         href="/campaigns"
-        className="text-sm text-[var(--accent-blue)] hover:underline"
+        className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
       >
         {tc("backToCampaigns")}
       </Link>

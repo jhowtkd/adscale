@@ -40,7 +40,7 @@ const intensityOptions = [
 ];
 
 const INPUT_BASE =
-  "h-10 bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-primary focus:ring-[3px] focus:ring-primary/15";
+  "h-10 bg-[var(--surface-base)] border-[var(--border-dim)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:ring-[3px] focus:ring-[var(--focus-ring)]";
 
 export default function RestylingForm({
   name,
@@ -63,7 +63,7 @@ export default function RestylingForm({
       <div>
         <Label className="flex items-center gap-1 text-xs font-medium text-[var(--text-secondary)] mb-2">
           {t("name")}
-          <span className="text-[var(--accent-rose)]">*</span>
+          <span className="text-[var(--danger-text)]">*</span>
         </Label>
         <Input
           placeholder={t("namePlaceholder")}
@@ -76,7 +76,7 @@ export default function RestylingForm({
           autoFocus
         />
         {errors.name && (
-          <p className="text-xs text-[var(--accent-rose)] mt-1 animate-fade-in">
+          <p className="text-xs text-[var(--danger-text)] mt-1 animate-fade-in">
             {errors.name}
           </p>
         )}
@@ -140,14 +140,14 @@ export default function RestylingForm({
                 className={cn(
                   "flex flex-col items-center gap-1 rounded-lg border p-3 text-center transition-all duration-200",
                   isSelected
-                    ? "border-primary bg-primary/10"
+                    ? "border-[var(--selection-border)] bg-[var(--selection-bg)]"
                     : "border-[var(--border-dim)] bg-[var(--surface-base)] hover:border-[var(--border-medium)] hover:bg-[var(--surface-raised)]"
                 )}
               >
                 <span
                   className={cn(
                     "text-sm font-medium",
-                    isSelected ? "text-primary" : "text-[var(--text-primary)]"
+                    isSelected ? "text-[var(--selection-text)]" : "text-[var(--text-primary)]"
                   )}
                 >
                   {t(option.labelKey)}
@@ -155,7 +155,7 @@ export default function RestylingForm({
                 <span
                   className={cn(
                     "text-[11px] leading-relaxed",
-                    isSelected ? "text-primary/80" : "text-[var(--text-muted)]"
+                    isSelected ? "text-[var(--selection-text)]" : "text-[var(--text-muted)]"
                   )}
                 >
                   {t(option.descriptionKey)}

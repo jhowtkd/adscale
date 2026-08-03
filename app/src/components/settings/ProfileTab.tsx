@@ -32,7 +32,7 @@ const fieldClass = cn(
   "w-full h-10 rounded-md border px-3 text-sm",
   "bg-[var(--surface-base)] text-[var(--text-primary)]",
   "placeholder:text-[var(--text-muted)]",
-  "focus:outline-none focus:border-[var(--accent-green)] focus:ring-[3px] focus:ring-[var(--accent-green-dim)]",
+  "focus:outline-none focus:border-[var(--focus-ring)] focus:ring-[3px] focus:ring-[var(--focus-ring)]",
   "transition-all duration-200 border-[var(--border-dim)]"
 );
 
@@ -210,7 +210,7 @@ export default function ProfileTab() {
 
   if (isError) {
     return (
-      <div className="rounded-lg border border-[var(--accent-rose)]/30 bg-[var(--accent-rose)]/10 px-4 py-3 text-sm text-[var(--accent-rose)]">
+      <div className="rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-3 text-sm text-[var(--danger-text)]">
         {error?.message || tc("error")}
       </div>
     );
@@ -290,8 +290,8 @@ export default function ProfileTab() {
             uploadAvatar.isPending
           }
           className={cn(
-            "flex h-10 items-center gap-2 rounded-md px-5 text-sm font-medium text-[var(--accent-green-on-fill)]",
-            "bg-[var(--accent-green)] hover:bg-[var(--accent-green-light)]",
+            "flex h-10 items-center gap-2 rounded-md px-5 text-sm font-medium text-[var(--action-primary-text)]",
+            "bg-[var(--action-primary-bg)] hover:bg-[var(--action-primary-hover)]",
             "active:scale-[0.98] active:brightness-90",
             "transition-all duration-200",
             "disabled:cursor-not-allowed disabled:opacity-50"
@@ -345,7 +345,7 @@ function ProfileAvatarSection({
         <div
           className={cn(
             "flex size-24 items-center justify-center rounded-full text-2xl font-semibold",
-            "bg-[var(--accent-green-dim)] text-[var(--accent-green-text)]",
+            "bg-[var(--neutral-bg)] text-[var(--neutral-text)]",
             "ring-2 ring-[var(--border-medium)]",
             avatarPreview ? "overflow-hidden" : ""
           )}
@@ -400,7 +400,7 @@ function ProfileAvatarSection({
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className="text-sm font-medium text-[var(--accent-green)] hover:underline"
+          className="text-sm font-medium text-[var(--selection-text)] hover:underline"
         >
           {t("changeAvatar")}
         </button>
@@ -408,7 +408,7 @@ function ProfileAvatarSection({
           <button
             type="button"
             onClick={onRemoveAvatar}
-            className="text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--accent-rose)]"
+            className="text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--danger-text)]"
           >
             {t("remove")}
           </button>

@@ -204,7 +204,7 @@ export default function VersionHistory({
                   {!isOfficial && comparisonBase ? (
                     <button
                       type="button"
-                      className="mt-2 min-h-11 text-left text-xs font-medium text-[var(--accent-primary)] underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]"
+                      className="mt-2 min-h-11 text-left text-xs font-medium text-[var(--text-secondary)] underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                       onClick={() => openPair(selectedLineage!, comparisonBase.id, version.id)}
                     >
                       {official ? "Comparar com a oficial" : "Comparar para aprovar"}

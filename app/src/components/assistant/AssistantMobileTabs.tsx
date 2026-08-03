@@ -36,7 +36,7 @@ export default function AssistantMobileTabs({
             className={cn(
               "flex min-h-11 flex-col items-center justify-center gap-0.5 rounded-[var(--radius-control)] px-1 py-2 text-[11px] font-medium sm:text-xs",
               active
-                ? "bg-[var(--accent-primary-subtle)] text-[var(--accent-primary-text)]"
+                ? "bg-[var(--active-navigation-bg)] text-[var(--active-navigation-text)]"
                 : "text-[var(--text-secondary)]"
             )}
           >

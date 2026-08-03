@@ -29,7 +29,7 @@ export function DerivationAutoRetryBadge({
     <span
       className={
         className ??
-        "inline-flex items-center rounded-md border border-sky-500/35 bg-sky-500/10 px-2 py-0.5 text-[10px] font-semibold text-sky-400"
+        "inline-flex items-center rounded-md border border-[var(--info-border)] bg-[var(--info-bg)] px-2 py-0.5 text-[10px] font-semibold text-[var(--info-text)]"
       }
       title={title}
     >

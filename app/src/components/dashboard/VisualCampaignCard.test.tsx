@@ -99,4 +99,16 @@ describe("VisualCampaignCard", () => {
     expect(image).toHaveAttribute("width", "1080");
     expect(image).toHaveAttribute("height", "1920");
   });
+
+  it.each([
+    ["generating", "GERANDO", "text-[var(--warning-text)]"],
+    ["failed", "FALHOU", "text-[var(--danger-text)]"],
+    ["completed", "CONCLUÍDA", "text-[var(--success-text)]"],
+    ["active", "ATIVA", "text-[var(--info-text)]"],
+    ["draft", "RASCUNHO", "text-[var(--neutral-text)]"],
+  ])("renders %s with its semantic status tone", (status, label, toneClass) => {
+    render(<VisualCampaignCard {...baseProps} status={status} />);
+
+    expect(screen.getByText(label)).toHaveClass(toneClass);
+  });
 });

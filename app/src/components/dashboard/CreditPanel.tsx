@@ -43,12 +43,12 @@ export default function CreditPanel({ remaining, total, planKey, renewalDate }: 
           </div>
           <div className="flex items-center gap-1.5">
             {isLow ? (
-              <AlertTriangle size={14} className="text-[var(--accent-rose)]" aria-hidden="true" />
+              <AlertTriangle size={14} className="text-[var(--danger-text)]" aria-hidden="true" />
             ) : null}
             <span
               className={cn(
                 "text-xs font-mono font-bold",
-                isLow ? "text-[var(--accent-rose)]" : "text-[var(--accent-green)]",
+                isLow ? "text-[var(--danger-text)]" : "text-[var(--success-text)]",
               )}
               aria-label={isLow ? t("lowBalance") : undefined}
             >
@@ -57,13 +57,13 @@ export default function CreditPanel({ remaining, total, planKey, renewalDate }: 
           </div>
         </div>
         {isLow ? (
-          <p className="mb-2 text-xs font-medium text-[var(--accent-rose)]">{t("lowBalance")}</p>
+          <p className="mb-2 text-xs font-medium text-[var(--danger-text)]">{t("lowBalance")}</p>
         ) : null}
         <div className="h-2 overflow-hidden rounded-full bg-[var(--surface-raised)]">
           <div
             className={cn(
               "h-full rounded-full transition-all duration-500",
-              isLow ? "bg-[var(--accent-rose)]" : "bg-[var(--accent-green)]",
+              isLow ? "bg-[var(--danger-bg)]" : "bg-[var(--success-bg)]",
             )}
             style={{ width: `${percentage}%` }}
             role="progressbar"

@@ -36,7 +36,7 @@ export default function DocsPage() {
             <li key={link.href}>
               <Link
                 href={link.href}
-                className="flex flex-col gap-1 px-1 py-4 transition-colors hover:text-[var(--accent-primary-text)]"
+                className="flex flex-col gap-1 px-1 py-4 transition-colors hover:text-[var(--active-navigation-text)]"
               >
                 <span className="text-sm font-medium text-[var(--text-primary)]">{link.title}</span>
                 <span className="text-sm text-[var(--text-muted)]">{link.description}</span>

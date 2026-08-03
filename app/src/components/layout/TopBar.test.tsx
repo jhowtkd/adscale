@@ -44,11 +44,11 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("@/components/ui/LanguageSwitcher", () => ({
-  default: () => null,
+  default: () => <button type="button" aria-label="language-switcher">Language</button>,
 }));
 
 vi.mock("@/components/feedback/FeedbackTriggerButton", () => ({
-  default: () => null,
+  default: () => <button type="button" aria-label="feedback-trigger">Feedback</button>,
 }));
 
 vi.mock("next-intl", () => ({
@@ -130,7 +130,10 @@ describe("TopBar notifications", () => {
 
     render(<TopBar />, { wrapper: createWrapper() });
 
-    expect(screen.getByText("1")).toBeInTheDocument();
+    expect(screen.getByText("1")).toHaveClass("bg-[var(--info-dot)]");
+    expect(screen.getByRole("button", { name: /notifications/i })).toHaveClass(
+      "text-[var(--info-text)]"
+    );
   });
 
   it("does not show badge when all notifications are read", () => {
@@ -236,8 +239,40 @@ describe("TopBar navigation quick-links", () => {
   it("still renders the core Dashboard, Campaigns and Settings nav links", () => {
     render(<TopBar />, { wrapper: createWrapper() });
 
-    expect(screen.getByRole("link", { name: "campaigns" })).toBeInTheDocument();
+    const campaignsLink = screen.getByRole("link", { name: "campaigns" });
+
+    expect(campaignsLink).toBeInTheDocument();
+    expect(campaignsLink).toHaveAttribute("aria-current", "page");
+    expect(campaignsLink).toHaveClass(
+      "bg-[var(--active-navigation-bg)]",
+      "text-[var(--active-navigation-text)]"
+    );
     expect(screen.getByRole("link", { name: "settings" })).toBeInTheDocument();
+  });
+});
+
+describe("TopBar shell-floating", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUsePathname.mockReturnValue("/campaigns");
+    mockUseSearchParams.mockReturnValue(new URLSearchParams());
+    mockUseNotifications.mockReturnValue({ data: [] } as ReturnType<typeof useNotifications>);
+  });
+
+  it("removes only the floating documentation link while preserving the language control", () => {
+    render(<TopBar variant="shell-floating" />, { wrapper: createWrapper() });
+
+    expect(screen.queryByRole("link", { name: "howToUse" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /docs/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "language-switcher" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "feedback-trigger" })).not.toBeInTheDocument();
+  });
+
+  it("keeps adjacent controls in the regular top bar", () => {
+    render(<TopBar />, { wrapper: createWrapper() });
+
+    expect(screen.getByRole("button", { name: "language-switcher" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "feedback-trigger" })).toBeInTheDocument();
   });
 });
 

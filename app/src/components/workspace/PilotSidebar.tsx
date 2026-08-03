@@ -118,7 +118,7 @@ export default function PilotSidebar({
 
         <div>
           <div className="mb-2 flex items-center gap-2">
-            <span className="inline-flex items-center rounded-full bg-[var(--accent-green-dim)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-[var(--accent-green-text)]">
+            <span className="inline-flex items-center rounded-full bg-[var(--selection-bg)] px-2 py-0.5 font-mono text-[var(--text-caption)] uppercase tracking-wide text-[var(--selection-text)]">
               {t("pilotBadge")}
             </span>
             {campaign.client ? (

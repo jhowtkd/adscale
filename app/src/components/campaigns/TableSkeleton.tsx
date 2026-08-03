@@ -22,7 +22,7 @@ export default function TableSkeleton() {
           key={i}
           className={cn(
             "p-4 border-b border-[var(--border-dim)] flex items-center gap-4",
-            i % 2 === 1 && "bg-[rgba(0,0,0,0.02)]"
+            i % 2 === 1 && "bg-[var(--surface-raised)]"
           )}
         >
           <Skeleton className="size-4 flex-shrink-0" />

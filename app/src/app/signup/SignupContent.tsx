@@ -36,12 +36,13 @@ function signupReducer(state: SignupState, payload: Partial<SignupState>): Signu
 }
 
 const authFieldClass =
-  "rounded-[var(--radius-control)] border-[var(--border-default)] bg-[var(--surface-raised)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]";
+  "rounded-[var(--radius-control)] border-[var(--border-default)] bg-[var(--surface-raised)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus-visible:border-[var(--neutral-border)] focus-visible:ring-[var(--focus-ring)]";
 
 const authPrimaryButtonClass =
-  "w-full rounded-[var(--radius-control)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] hover:bg-[var(--accent-primary-hover)]";
+  "w-full rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)]";
 
-const authTextLinkClass = "font-medium text-[var(--accent-primary-text)] hover:underline";
+const authTextLinkClass =
+  "font-medium text-[var(--neutral-text)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]";
 
 export default function SignupContent() {
   const router = useRouter();
@@ -141,7 +142,7 @@ export default function SignupContent() {
                 type="checkbox"
                 checked={consent}
                 onChange={(e) => dispatch({ consent: e.target.checked })}
-                className="mt-0.5 accent-[var(--accent-primary)]"
+                className="mt-0.5 accent-[var(--neutral-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
               />
               <span>
                 {t("consentPrefix")}{" "}

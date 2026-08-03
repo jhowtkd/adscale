@@ -148,7 +148,7 @@ export default function FromZeroReferencesPanel({
                 className={cn(
                   "relative aspect-square overflow-hidden rounded-lg border bg-[var(--surface-raised)]",
                   isSelected
-                    ? "border-[var(--accent-primary)] ring-2 ring-[var(--accent-primary)]"
+                    ? "border-[var(--selection-border)] ring-2 ring-[var(--selection-border)]"
                     : "border-[var(--border-dim)]"
                 )}
               >

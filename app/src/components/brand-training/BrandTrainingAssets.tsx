@@ -229,7 +229,7 @@ function UploadField({
       <label
         htmlFor="brand-training-files"
         className={cn(
-          "flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-[var(--border-dim)] bg-[var(--surface-raised)] px-3 py-4 text-xs text-[var(--text-muted)] transition-colors hover:border-[var(--accent-green)]/50",
+          "flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-[var(--border-dim)] bg-[var(--surface-raised)] px-3 py-4 text-xs text-[var(--text-muted)] transition-colors hover:border-[var(--selection-border)]",
           disabled && "cursor-not-allowed opacity-60",
         )}
       >
@@ -259,7 +259,7 @@ function UploadField({
         {t("assets.uploadHint")}
       </p>
       {validationError ? (
-        <p role="alert" className="text-[11px] text-[var(--accent-rose)]">
+        <p role="alert" className="text-[11px] text-[var(--danger-text)]">
           {validationError}
         </p>
       ) : null}
@@ -386,7 +386,7 @@ function PendingApprovalCard({
     <li
       role="status"
       aria-live="polite"
-      className="space-y-3 rounded-lg border border-[var(--accent-green)]/40 bg-[var(--surface-raised)] p-3"
+      className="space-y-3 rounded-lg border border-[var(--selection-border)] bg-[var(--surface-raised)] p-3"
     >
       <AssetThumb url={asset.url} label={asset.label} />
       <div>
@@ -409,7 +409,7 @@ function PendingApprovalCard({
             aria-label={t("assets.category")}
             value={category}
             onChange={(e) => setCategory(e.target.value as Category)}
-            className="block w-full rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-2 py-1.5 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-green)] focus:ring-[3px] focus:ring-[var(--accent-green-dim)]"
+            className="block w-full rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-2 py-1.5 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-[3px] focus:ring-[var(--focus-ring)]"
           >
             {CATEGORIES.map((value) => (
               <option key={value} value={value}>
@@ -424,7 +424,7 @@ function PendingApprovalCard({
             aria-label={t("assets.usageMode")}
             value={usageMode}
             onChange={(e) => setUsageMode(e.target.value as UsageMode)}
-            className="block w-full rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-2 py-1.5 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-green)] focus:ring-[3px] focus:ring-[var(--accent-green-dim)]"
+            className="block w-full rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-2 py-1.5 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-[3px] focus:ring-[var(--focus-ring)]"
           >
             {USAGE_MODES.map((value) => (
               <option key={value} value={value}>
@@ -443,14 +443,14 @@ function PendingApprovalCard({
             setAnalysis({ ...analysis, description: e.target.value })
           }
           rows={2}
-          className="block w-full rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-2 py-1.5 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-green)] focus:ring-[3px] focus:ring-[var(--accent-green-dim)]"
+          className="block w-full rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-2 py-1.5 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-[3px] focus:ring-[var(--focus-ring)]"
         />
       </label>
 
       {blocksExact ? (
         <p
           role="alert"
-          className="rounded-md border border-[var(--accent-rose)]/40 bg-[var(--accent-rose-dim)] px-2 py-1.5 text-[11px] text-[var(--accent-rose)]"
+          className="rounded-md border border-[var(--danger-border)] bg-[var(--danger-bg)] px-2 py-1.5 text-[11px] text-[var(--danger-text)]"
         >
           {t("assets.transparentRequired")}
         </p>

@@ -180,7 +180,7 @@ export default function CampaignsFilterToolbar({
               className={cn(
                 "flex size-7 items-center justify-center rounded-md transition-colors duration-200",
                 viewMode === "list"
-                  ? "bg-[var(--surface-base)] text-[var(--accent-green-text)] shadow-sm"
+                  ? "bg-[var(--active-navigation-bg)] text-[var(--active-navigation-text)] shadow-sm"
                   : "text-[var(--text-muted)] hover:text-[var(--text-primary)]",
               )}
             >
@@ -195,7 +195,7 @@ export default function CampaignsFilterToolbar({
               className={cn(
                 "flex size-7 items-center justify-center rounded-md transition-colors duration-200",
                 viewMode === "grid"
-                  ? "bg-[var(--surface-base)] text-[var(--accent-green-text)] shadow-sm"
+                  ? "bg-[var(--active-navigation-bg)] text-[var(--active-navigation-text)] shadow-sm"
                   : "text-[var(--text-muted)] hover:text-[var(--text-primary)]",
               )}
             >
@@ -210,7 +210,7 @@ export default function CampaignsFilterToolbar({
               className={cn(
                 "flex size-7 items-center justify-center rounded-md transition-colors duration-200",
                 viewMode === "board"
-                  ? "bg-[var(--surface-base)] text-[var(--accent-green-text)] shadow-sm"
+                  ? "bg-[var(--active-navigation-bg)] text-[var(--active-navigation-text)] shadow-sm"
                   : "text-[var(--text-muted)] hover:text-[var(--text-primary)]",
               )}
             >
@@ -235,7 +235,7 @@ export default function CampaignsFilterToolbar({
                 <button type="button"
                   onClick={filter.onRemove}
                   aria-label={tc("clear")}
-                  className="ml-0.5 text-[var(--text-muted)] hover:text-[var(--accent-rose)] transition-colors"
+                  className="ml-0.5 text-[var(--utility-icon)] hover:text-[var(--danger-text)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                 >
                   <X size={12} />
                 </button>
@@ -243,7 +243,7 @@ export default function CampaignsFilterToolbar({
             ))}
             <button type="button"
               onClick={onClearFilters}
-              className="text-xs text-[var(--accent-green)] hover:text-[var(--accent-green-light)] transition-colors ml-1"
+              className="ml-1 text-xs text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             >
               {tc("clearAll")}
             </button>

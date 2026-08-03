@@ -193,7 +193,7 @@ export default function ClientApprovalPackagePanel({
         </div>
         {data?.package.isStale && (
           <span
-            className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-1 text-[10px] font-medium text-amber-400"
+            className="inline-flex items-center gap-1 rounded-full bg-[var(--warning-bg)] px-2 py-1 text-[var(--text-caption)] font-medium text-[var(--warning-text)]"
             title={t("staleTooltip")}
           >
             <AlertTriangle className="size-3" />
@@ -204,10 +204,10 @@ export default function ClientApprovalPackagePanel({
 
       {data?.package.isStale && (
         <div
-          className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs"
+          className="rounded-lg border border-[var(--warning-border)] bg-[var(--warning-bg)] px-3 py-2 text-xs"
           role="status"
         >
-          <p className="font-medium text-amber-400">{t("staleTitle")}</p>
+          <p className="font-medium text-[var(--warning-text)]">{t("staleTitle")}</p>
           <p className="mt-1 text-[var(--text-secondary)]">{t("staleHint")}</p>
           <p className="mt-1 text-[var(--text-muted)]">{t("staleAction")}</p>
         </div>
@@ -227,7 +227,7 @@ export default function ClientApprovalPackagePanel({
                 type="checkbox"
                 checked={selectedRootIds.includes(root.id)}
                 onChange={() => toggleRoot(root.id)}
-                className="accent-[var(--accent-green)]"
+                className="accent-[var(--selection-text)]"
               />
               <span className="min-w-0 flex-1 text-[var(--text-primary)]">
                 {root.ctaText || t("untitledCreative")}
@@ -260,7 +260,7 @@ export default function ClientApprovalPackagePanel({
             }))
           }
           rows={3}
-          className="w-full rounded-lg border border-[var(--border-dim)] bg-[var(--deep-bg)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent-green)]"
+          className="w-full rounded-lg border border-[var(--border-dim)] bg-[var(--deep-bg)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--focus-ring)] focus:ring-2 focus:ring-[var(--focus-ring)]"
           placeholder={t("notesPlaceholder")}
         />
       </div>
@@ -277,7 +277,7 @@ export default function ClientApprovalPackagePanel({
                 className={cn(
                   "flex items-start justify-between gap-3 rounded-lg border px-3 py-2",
                   item.approvalOverride
-                    ? "border-amber-500/30 bg-amber-500/5"
+                    ? "border-[var(--warning-border)] bg-[var(--warning-bg)]"
                     : "border-[var(--border-dim)]"
                 )}
               >
@@ -287,7 +287,7 @@ export default function ClientApprovalPackagePanel({
                       {item.creativeNote}
                     </p>
                     {item.approvalOverride ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-400">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-[var(--warning-bg)] px-2 py-0.5 text-[var(--text-caption)] font-medium text-[var(--warning-text)]">
                         <AlertTriangle className="size-3" />
                         {t("approvalOverrideBadge")}
                       </span>
@@ -299,7 +299,7 @@ export default function ClientApprovalPackagePanel({
                   </p>
                   {item.approvalOverride &&
                   (item.olharVerdictValue || item.exportStatusValue) ? (
-                    <p className="mt-1 text-[10px] text-amber-500/90">
+                    <p className="mt-1 text-[var(--text-caption)] text-[var(--warning-text)]">
                       {t("approvalOverrideVerdictContext", {
                         olhar: item.olharVerdictValue
                           ? tr(`olharVerdict.${item.olharVerdictValue}`)
@@ -326,11 +326,11 @@ export default function ClientApprovalPackagePanel({
                   )}
                   {item.approvalOverride ? (
                     <AlertTriangle
-                      className="size-4 text-amber-400"
+                      className="size-4 text-[var(--warning-text)]"
                       aria-label={t("approvalOverrideBadge")}
                     />
                   ) : item.status === "approved" ? (
-                    <CheckCircle2 className="size-4 text-[var(--accent-green-text)]" />
+                    <CheckCircle2 className="size-4 text-[var(--success-text)]" />
                   ) : (
                     <Loader2 className="size-4 animate-spin text-[var(--text-muted)]" />
                   )}

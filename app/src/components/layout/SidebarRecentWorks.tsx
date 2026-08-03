@@ -62,7 +62,7 @@ export default function SidebarRecentWorks() {
           </p>
           <Link
             href="/"
-            className="mt-2 inline-block text-[12px] font-medium text-[var(--accent-primary-text)] hover:underline"
+            className="mt-2 inline-block text-xs font-medium text-[var(--selection-text)] hover:underline"
           >
             {tNav("recentWorksCreate")}
           </Link>
@@ -93,7 +93,7 @@ export default function SidebarRecentWorks() {
                           "transition-colors hover:bg-[var(--surface-inset)]"
                         )}
                       >
-                        <span className="grid size-7 shrink-0 place-items-center rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] font-mono text-[10px] font-bold text-[var(--accent-primary-text)]">C</span>
+                        <span className="grid size-7 shrink-0 place-items-center rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] font-mono text-xs font-bold text-[var(--utility-icon)]">C</span>
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-[12px] font-medium text-[var(--text-primary)]">{work.name}</span>
                           <time className="block text-[10px] text-[var(--text-muted)]" dateTime={work.updatedAt}>{formattedDate}</time>

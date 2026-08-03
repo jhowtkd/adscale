@@ -39,7 +39,7 @@ export default function BrandKitPage() {
               role="status"
               className={
                 status.data.trained
-                  ? "inline-flex w-fit items-center gap-1 rounded-full bg-[var(--accent-green-dim)] px-2.5 py-1 text-xs font-medium text-[var(--accent-green-text)]"
+                  ? "inline-flex w-fit items-center gap-1 rounded-full bg-[var(--success-bg)] px-2.5 py-1 text-xs font-medium text-[var(--success-text)]"
                   : "inline-flex w-fit rounded-full border border-[var(--border-dim)] bg-[var(--surface-raised)] px-2.5 py-1 text-xs font-medium text-[var(--text-muted)]"
               }
             >

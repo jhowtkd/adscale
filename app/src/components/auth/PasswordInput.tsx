@@ -15,11 +15,11 @@ const strengthConfig: Record<
   PasswordStrength,
   { label: string; color: string; segments: number }
 > = {
-  empty: { label: "", color: "var(--border-dim)", segments: 0 },
-  weak: { label: "Weak", color: "var(--accent-rose)", segments: 1 },
-  fair: { label: "Fair", color: "var(--accent-amber)", segments: 2 },
-  good: { label: "Good", color: "var(--accent-blue)", segments: 3 },
-  strong: { label: "Strong", color: "var(--accent-teal)", segments: 4 },
+  empty: { label: "", color: "var(--border-subtle)", segments: 0 },
+  weak: { label: "Weak", color: "var(--danger-dot)", segments: 1 },
+  fair: { label: "Fair", color: "var(--warning-dot)", segments: 2 },
+  good: { label: "Good", color: "var(--info-dot)", segments: 3 },
+  strong: { label: "Strong", color: "var(--success-dot)", segments: 4 },
 };
 
 // ============================================
@@ -89,7 +89,7 @@ export default function PasswordInput({
             "w-full h-10 rounded-[var(--radius-control)] border px-3 pr-10 text-sm",
             "bg-[var(--surface-raised)] text-[var(--text-primary)]",
             "placeholder:text-[var(--text-muted)]",
-            "focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)]/20 focus:border-[var(--accent-primary)]",
+            "focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)] focus:border-[var(--neutral-border)]",
             "transition-all duration-200",
             error
               ? "border-[var(--danger-border)] focus:border-[var(--danger-border)]"
@@ -104,8 +104,8 @@ export default function PasswordInput({
           aria-label={visible ? "Hide password" : "Show password"}
           className={cn(
             "absolute right-3 top-1/2 -translate-y-1/2",
-            "text-[var(--text-muted)] hover:text-[var(--text-secondary)]",
-            "transition-colors duration-200 focus:outline-none"
+            "text-[var(--neutral-text)] hover:text-[var(--text-primary)]",
+            "transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]"
           )}
           tabIndex={-1}
         >
@@ -179,7 +179,7 @@ export default function PasswordInput({
                 {req.met ? (
                   <Check
                     size={12}
-                    className="text-[var(--accent-teal)] flex-shrink-0"
+                    className="text-[var(--success-text)] flex-shrink-0"
                   />
                 ) : (
                   <X
@@ -190,7 +190,7 @@ export default function PasswordInput({
                 <span
                   className={
                     req.met
-                      ? "text-[var(--accent-teal)]"
+                      ? "text-[var(--success-text)]"
                       : "text-[var(--text-muted)]"
                   }
                 >

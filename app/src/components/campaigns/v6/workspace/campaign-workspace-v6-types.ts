@@ -1,6 +1,6 @@
 import type { WorkspaceState } from "@/lib/hooks/use-campaign-workspace";
 
-export type WorkspaceV6BadgeVariant = "success" | "warning" | "info" | "neutral";
+export type WorkspaceV6BadgeVariant = "success" | "warning" | "danger" | "info" | "neutral";
 
 export type WorkspaceV6BriefingSlider = {
   label: string;

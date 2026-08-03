@@ -35,12 +35,12 @@ function CampaignCard({ campaign, index }: CampaignCardProps) {
       className={cn("animate-fade-in",
         "group rounded-xl border border-[var(--border-dim)] bg-[var(--surface-base)] overflow-hidden",
         "transition-colors duration-300 ease-out",
-        "hover:border-[var(--accent-green)]/30 hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)]",
+        "hover:border-[var(--neutral-border)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)]",
         "cursor-pointer"
       )}
       style={{ animationDelay: `${index * 80}ms` }}
     >
-      <Link href={`/campaigns/${campaign.id}`} className="block">
+      <Link href={`/campaigns/${campaign.id}`} className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
         {/* Top Section - Preview */}
         <div className="relative h-[140px] bg-[var(--surface-raised)] overflow-hidden">
           <div className="absolute inset-0 flex items-center justify-center">
@@ -63,10 +63,10 @@ function CampaignCard({ campaign, index }: CampaignCardProps) {
                 <div
                   className="flex items-center justify-center size-12 rounded-lg"
                   style={{
-                    background: "var(--accent-green-dim)",
+                    background: "var(--neutral-bg)",
                   }}
                 >
-                  <ImageIcon size={24} className="text-[var(--accent-green)]" />
+                  <ImageIcon size={24} className="text-[var(--utility-icon)]" />
                 </div>
                 <span className="text-xs text-[var(--text-muted)] font-mono">
                   {campaign.name
@@ -91,7 +91,7 @@ function CampaignCard({ campaign, index }: CampaignCardProps) {
         {/* Bottom Section - Info */}
         <div className="p-4">
           {/* Campaign name */}
-          <h3 className="text-[15px] font-semibold text-[var(--text-primary)] truncate leading-tight group-hover:text-[var(--accent-green)] transition-colors duration-300">
+          <h3 className="truncate text-[15px] font-semibold leading-tight text-[var(--text-primary)] transition-colors duration-300 group-hover:text-[var(--neutral-text)]">
             {campaign.name}
           </h3>
 
@@ -104,8 +104,8 @@ function CampaignCard({ campaign, index }: CampaignCardProps) {
                   key={platform}
                   className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider"
                   style={{
-                    backgroundColor: colors?.bg || "var(--accent-green-dim)",
-                    color: colors?.text || "var(--accent-green)",
+                    backgroundColor: colors?.bg || "var(--neutral-bg)",
+                    color: colors?.text || "var(--neutral-text)",
                   }}
                 >
                   {platform}

@@ -1,6 +1,6 @@
 import type { UiCampaign } from "@/lib/hooks/use-campaigns";
 
-export type CampaignV6BadgeVariant = "success" | "warning" | "info" | "neutral";
+export type CampaignV6BadgeVariant = "success" | "warning" | "danger" | "info" | "neutral";
 
 /** Origin grouping for Trabalhos (item 46): campaigns as filter, not synonym. */
 export type WorkOriginFilter = "all" | "campaign" | "creative_work";

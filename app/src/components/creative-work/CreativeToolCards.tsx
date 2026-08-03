@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { CopyPlus, Image, Maximize, WandSparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ContextualHelp } from "@/components/ui/contextual-help";
 import type { ComposerIntent } from "./useCreativeComposer";
 
 const TOOLS = [
@@ -29,21 +30,29 @@ export function CreativeToolCards({ selected, onSelect, headerAction }: {
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {TOOLS.map(({ id, icon: Icon }) => (
-          <button
-            key={id}
-            type="button"
-            aria-pressed={selected === id}
-            onClick={() => onSelect(id)}
-            className={cn(
-              "rounded-[var(--radius-object)] border bg-[var(--surface-raised)] p-4 text-left",
-              "transition-colors hover:bg-[var(--surface-inset)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]",
-              selected === id ? "border-[var(--accent-primary)]" : "border-[var(--border-subtle)]",
-            )}
-          >
-            <Icon size={18} aria-hidden="true" className="mb-3 text-[var(--accent-primary-text)]" />
-            <span className="block text-sm font-semibold text-[var(--text-primary)]">{t(id)}</span>
-            <span className="mt-1 block text-xs text-[var(--text-muted)]">{t(`${id}Description`)}</span>
-          </button>
+          <div key={id} className="relative">
+            <button
+              type="button"
+              aria-pressed={selected === id}
+              onClick={() => onSelect(id)}
+              className={cn(
+                "w-full rounded-[var(--radius-object)] border bg-[var(--surface-raised)] p-4 pr-12 text-left",
+                "transition-colors hover:bg-[var(--surface-inset)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
+                selected === id
+                  ? "border-[var(--selection-border)] bg-[var(--selection-bg)]"
+                  : "border-[var(--border-subtle)]",
+              )}
+            >
+              <Icon size={18} aria-hidden="true" className="mb-3 text-[var(--utility-icon)]" />
+              <span className="block text-sm font-semibold text-[var(--text-primary)]">{t(id)}</span>
+              <span className="mt-1 block text-xs text-[var(--text-muted)]">{t(`${id}Description`)}</span>
+            </button>
+            <div className="absolute right-2 top-2">
+              <ContextualHelp label={t(`${id}HelpLabel`)}>
+                {t(`${id}Help`)}
+              </ContextualHelp>
+            </div>
+          </div>
         ))}
       </div>
     </section>

@@ -11,7 +11,8 @@ export function getCampaignInitials(name: string): string {
 
 export function statusToBadgeVariant(status: UiCampaign["status"]): CampaignV6BadgeVariant {
   if (status === "completed") return "success";
-  if (status === "generating" || status === "failed") return "warning";
+  if (status === "generating") return "warning";
+  if (status === "failed") return "danger";
   if (status === "active") return "info";
   return "neutral";
 }

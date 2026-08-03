@@ -42,7 +42,7 @@ export default function SidebarAssistantModeSwitch() {
         className={cn(
           "w-full rounded-[calc(var(--radius-control)-2px)] px-3 py-2.5 text-left text-[13px] font-medium transition-colors",
           !isChatMode
-            ? "bg-[var(--accent-primary-subtle)] font-semibold text-[var(--accent-primary-text)]"
+            ? "bg-[var(--selection-bg)] font-semibold text-[var(--selection-text)]"
             : "text-[var(--text-secondary)] hover:bg-[var(--surface-inset)] hover:text-[var(--text-primary)]"
         )}
       >
@@ -55,14 +55,14 @@ export default function SidebarAssistantModeSwitch() {
         className={cn(
           "flex w-full items-center justify-between gap-2 rounded-[calc(var(--radius-control)-2px)] px-3 py-2.5 text-left text-[13px] font-medium transition-colors",
           isChatMode
-            ? "bg-[var(--accent-primary-subtle)] font-semibold text-[var(--accent-primary-text)]"
+            ? "bg-[var(--selection-bg)] font-semibold text-[var(--selection-text)]"
             : "text-[var(--text-secondary)] hover:bg-[var(--surface-inset)] hover:text-[var(--text-primary)]"
         )}
       >
         <span>{tAssistant("chat")}</span>
         <span
           aria-hidden="true"
-          className="rounded bg-[var(--accent-primary)] px-1.5 py-0.5 font-mono text-[9px] font-semibold leading-none text-[var(--text-on-accent)]"
+          className="rounded bg-[var(--info-bg)] px-1.5 py-0.5 font-mono text-xs font-semibold leading-none text-[var(--info-text)]"
         >
           NOVO
         </span>

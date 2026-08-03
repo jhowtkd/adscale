@@ -49,7 +49,7 @@ const STEPS: { id: StepId; label: "stepProfile" | "stepIngest" | "stepValidate" 
 ];
 
 const FOCUS_RING =
-  "focus:outline-none focus:border-[var(--accent-green)] focus:ring-[3px] focus:ring-[var(--accent-green-dim)]";
+  "focus:outline-none focus:ring-[3px] focus:ring-[var(--focus-ring)]";
 
 export default function BrandTrainingWizard() {
   const t = useTranslations("brandTraining");
@@ -107,7 +107,7 @@ export default function BrandTrainingWizard() {
             {t("title")}
           </h1>
           {trained && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-[var(--accent-green-dim)] px-2.5 py-1 text-xs font-medium text-[var(--accent-green-text)]">
+            <span className="inline-flex items-center gap-1 rounded-full bg-[var(--success-bg)] px-2.5 py-1 text-xs font-medium text-[var(--success-text)]">
               <Check size={12} /> {t("trainedBadge")}
             </span>
           )}
@@ -211,12 +211,12 @@ function ProfileStep({
                 className={cn(
                   "flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-left transition-colors",
                   selectedId === p.id
-                    ? "border-[var(--accent-green)] bg-[var(--accent-green-dim)]"
-                    : "border-[var(--border-dim)] bg-[var(--surface-raised)] hover:border-[var(--accent-green)]/50",
+                    ? "border-[var(--selection-border)] bg-[var(--selection-bg)]"
+                    : "border-[var(--border-dim)] bg-[var(--surface-raised)] hover:border-[var(--selection-border)]",
                 )}
               >
                 <span className="text-sm font-medium text-[var(--text-primary)]">{p.name}</span>
-                {selectedId === p.id && <Check size={16} className="text-[var(--accent-green-text)]" />}
+                {selectedId === p.id && <Check size={16} className="text-[var(--selection-text)]" />}
               </button>
             </li>
           ))}
@@ -377,7 +377,7 @@ function Dropzone({
       </div>
       <label
         htmlFor={inputId}
-        className="flex cursor-pointer items-center justify-center rounded-lg border border-dashed border-[var(--border-dim)] bg-[var(--surface-raised)] px-3 py-4 text-xs text-[var(--text-muted)] transition-colors hover:border-[var(--accent-green)]/50"
+        className="flex cursor-pointer items-center justify-center rounded-lg border border-dashed border-[var(--border-dim)] bg-[var(--surface-raised)] px-3 py-4 text-xs text-[var(--text-muted)] transition-colors hover:border-[var(--selection-border)]"
       >
         <Upload size={14} className="mr-1.5" />
         <span>Arraste ou clique para enviar</span>
@@ -402,7 +402,7 @@ function Dropzone({
             >
               {file.name}
               <button type="button" onClick={() => onRemove(key)} aria-label="remove">
-                <X size={12} className="text-[var(--text-muted)] hover:text-[var(--accent-rose)]" />
+                <X size={12} className="text-[var(--text-muted)] hover:text-[var(--danger-text)]" />
               </button>
             </li>
           ))}
@@ -655,13 +655,13 @@ function TagInput({
       className={cn(
         "flex min-h-[40px] w-full flex-wrap gap-1.5 rounded-md border px-2 py-1.5",
         "border-[var(--border-dim)] bg-[var(--surface-base)]",
-        "focus-within:border-[var(--accent-green)] focus-within:ring-[3px] focus-within:ring-[var(--accent-green-dim)]",
+        "focus-within:ring-[3px] focus-within:ring-[var(--focus-ring)]",
       )}
     >
       {tags.map((tag) => (
         <span
           key={tag}
-          className="inline-flex items-center gap-1 rounded-md bg-[var(--accent-green-dim)] px-2 py-0.5 text-xs font-medium text-[var(--accent-green-text)]"
+          className="inline-flex items-center gap-1 rounded-md bg-[var(--selection-bg)] px-2 py-0.5 text-xs font-medium text-[var(--selection-text)]"
         >
           {tag}
           <button type="button" onClick={() => onChange(tags.filter((x) => x !== tag))}>

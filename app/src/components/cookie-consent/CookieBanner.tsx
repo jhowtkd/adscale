@@ -67,13 +67,13 @@ export default function CookieBanner() {
     <dialog
       open
       aria-label="Consentimento de cookies"
-      className="fixed inset-x-0 bottom-0 z-50 m-0 w-full max-w-none border-t border-[var(--border-dim)] bg-[var(--surface-base)] p-4 shadow-lg sm:px-6"
+      className="fixed inset-x-0 bottom-0 z-[var(--layer-popover)] m-0 w-full max-w-none border-t border-[var(--border-subtle)] bg-[var(--surface-base)] p-4 shadow-lg sm:px-6"
     >
       <div className="mx-auto flex max-w-7xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="text-sm text-[var(--text-secondary)]">
           <p>
             Utilizamos cookies para melhorar sua experiencia.{" "}
-            <Link href="/privacy" className="text-[var(--accent-green)] hover:underline">
+            <Link href="/privacy" className="text-[var(--neutral-text)] hover:underline">
               Saiba mais
             </Link>
             .
@@ -85,21 +85,21 @@ export default function CookieBanner() {
             <button
               type="button"
               onClick={acceptNecessary}
-              className="h-9 rounded-md border border-[var(--border-dim)] px-4 text-xs font-medium text-[var(--text-primary)] transition-all hover:bg-[var(--surface-raised)]"
+              className="h-9 rounded-md border border-[var(--border-default)] px-4 text-xs font-medium text-[var(--text-primary)] transition-all hover:bg-[var(--surface-raised)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             >
               Apenas necessarios
             </button>
             <button
               type="button"
               onClick={acceptAll}
-              className="h-9 rounded-md bg-[var(--accent-green)] px-4 text-xs font-medium text-[var(--ink)] transition-all hover:bg-[var(--accent-green-light)]"
+              className="h-9 rounded-md bg-[var(--action-primary-bg)] px-4 text-xs font-medium text-[var(--action-primary-text)] transition-all hover:bg-[var(--action-primary-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             >
               Aceitar todos
             </button>
             <button
               type="button"
               onClick={() => setShowDetails(true)}
-              className="h-9 px-3 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+              className="h-9 px-3 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             >
               Gerenciar
             </button>
@@ -107,15 +107,15 @@ export default function CookieBanner() {
         ) : (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <label htmlFor="cookie-necessary" className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-              <input type="checkbox" id="cookie-necessary" checked readOnly disabled className="accent-[var(--accent-green)]" />
+              <input type="checkbox" id="cookie-necessary" checked readOnly disabled className="accent-[var(--selection-text)]" />
               Necessarios (obrigatorio)
             </label>
             <label htmlFor="cookie-analytics" className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-              <input type="checkbox" id="cookie-analytics" className="accent-[var(--accent-green)]" />
+              <input type="checkbox" id="cookie-analytics" className="accent-[var(--selection-text)]" />
               Analiticos
             </label>
             <label htmlFor="cookie-marketing" className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-              <input type="checkbox" id="cookie-marketing" className="accent-[var(--accent-green)]" />
+              <input type="checkbox" id="cookie-marketing" className="accent-[var(--selection-text)]" />
               Marketing
             </label>
             <button
@@ -126,7 +126,7 @@ export default function CookieBanner() {
                 saveConsent({ necessary: true, analytics, marketing });
                 window.location.reload();
               }}
-              className="h-9 rounded-md bg-[var(--accent-green)] px-4 text-xs font-medium text-[var(--ink)] transition-all hover:bg-[var(--accent-green-light)]"
+              className="h-9 rounded-md bg-[var(--action-primary-bg)] px-4 text-xs font-medium text-[var(--action-primary-text)] transition-all hover:bg-[var(--action-primary-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             >
               Salvar preferencias
             </button>

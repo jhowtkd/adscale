@@ -10,6 +10,8 @@ const useComposerMock = vi.fn();
 const useCreativeWorkMock = vi.fn();
 const selectIntentMock = vi.fn();
 const addInspirationMock = vi.fn();
+const protocolButton = (intent: "variations" | "single" | "format_adaptation" | "restyle") =>
+  screen.getByRole("button", { name: `dashboard.home.${intent}dashboard.home.${intent}Description`, exact: true });
 
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string, values?: Record<string, string>) =>
@@ -144,13 +146,13 @@ describe("DashboardHomeActions", () => {
       focusComposer: false,
       initialTemplateId: undefined,
     });
-    expect(screen.getByRole("button", { name: /dashboard\.home\.single/i })).toHaveAttribute("aria-pressed", "true");
+    expect(protocolButton("single")).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByTestId("creative-composer")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /dashboard\.home\.restyle/i }));
+    fireEvent.click(protocolButton("restyle"));
 
     expect(selectIntentMock).toHaveBeenCalledWith("restyle");
-    expect(screen.getByRole("button", { name: /dashboard\.home\.restyle/i })).toHaveAttribute("aria-pressed", "true");
+    expect(protocolButton("restyle")).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByTestId("creative-composer")).toBeInTheDocument();
   });
 
@@ -160,13 +162,13 @@ describe("DashboardHomeActions", () => {
     render(<DashboardHomeActions />);
     expect(screen.getByTestId("creative-composer")).toHaveTextContent("single:5");
 
-    fireEvent.click(screen.getByRole("button", { name: /dashboard\.home\.variations/i }));
+    fireEvent.click(protocolButton("variations"));
     expect(screen.getByTestId("creative-composer")).toHaveTextContent("variations:5");
 
-    fireEvent.click(screen.getByRole("button", { name: /dashboard\.home\.format_adaptation/i }));
+    fireEvent.click(protocolButton("format_adaptation"));
     expect(screen.getByTestId("creative-composer")).toHaveTextContent("format_adaptation:10");
 
-    fireEvent.click(screen.getByRole("button", { name: /dashboard\.home\.restyle/i }));
+    fireEvent.click(protocolButton("restyle"));
     expect(screen.getByTestId("creative-composer")).toHaveTextContent("restyle:5");
   });
 

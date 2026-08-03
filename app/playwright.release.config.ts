@@ -31,16 +31,20 @@ export default defineConfig({
       name: `layout-${width}`,
       testMatch: /visual-release-gate\.spec\.ts$/,
       use: {
-        ...devices["Desktop Chrome"],
+        ...(width === 390 ? devices["iPhone 13"] : devices["Desktop Chrome"]),
         viewport: { width, height: width <= 768 ? 844 : 900 },
+        hasTouch: width === 390,
+        isMobile: width === 390,
       },
     })),
     {
       name: "a11y-390",
       testMatch: /visual-a11y-gate\.spec\.ts$/,
       use: {
-        ...devices["Desktop Chrome"],
+        ...devices["iPhone 13"],
         viewport: { width: 390, height: 844 },
+        hasTouch: true,
+        isMobile: true,
       },
     },
     {
@@ -49,6 +53,8 @@ export default defineConfig({
       use: {
         ...devices["Desktop Chrome"],
         viewport: { width: 1280, height: 900 },
+        hasTouch: false,
+        isMobile: false,
       },
     },
   ],

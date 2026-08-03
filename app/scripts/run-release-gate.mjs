@@ -25,6 +25,7 @@ function writeAutomatedStep(step, result) {
 }
 
 const steps = [
+  ["node", ["scripts/check-visual-contract.mjs"], "visual-contract"],
   ["npm", ["test"], "unit"],
   ["npm", ["run", "lint"], "lint"],
   ["npm", ["run", "build"], "build"],
@@ -56,6 +57,7 @@ try {
     "QA-17": {
       result: "pass",
       automated: "node scripts/run-release-gate.mjs",
+      visualContract: evidence.automated?.["visual-contract"],
       unit: evidence.automated?.unit,
       lint: evidence.automated?.lint,
       build: evidence.automated?.build,

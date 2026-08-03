@@ -91,7 +91,7 @@ export default function ClientProfileLinkControl({
           <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ghost)]">
             {t("clientProfileLabel")}
           </p>
-          <span className="rounded-full bg-[var(--accent-green-dim)] px-2 py-0.5 text-[10px] font-medium text-[var(--accent-green-text)]">
+          <span className="rounded-full bg-[var(--success-bg)] px-2 py-0.5 text-[10px] font-medium text-[var(--success-text)]">
             {t("linkedBadge")}
           </span>
         </div>
@@ -115,7 +115,7 @@ export default function ClientProfileLinkControl({
 
   const containerClass =
     variant === "banner"
-      ? "rounded-lg border border-[var(--accent-green)]/40 bg-[var(--accent-green-dim)] px-4 py-4 space-y-3"
+      ? "space-y-3 rounded-lg border border-[var(--neutral-border)] bg-[var(--neutral-bg)] px-4 py-4"
       : "space-y-3";
 
   return (
@@ -144,7 +144,7 @@ export default function ClientProfileLinkControl({
             aria-label={t("existingClientLabel")}
             className={cn(
               "h-9 w-full rounded-md border bg-[var(--surface-base)] px-2 text-xs text-[var(--text-primary)] transition-colors disabled:opacity-60",
-              "border-[var(--accent-green)]/60 focus:border-[var(--accent-green)] focus:ring-2 focus:ring-[var(--accent-green-dim)]"
+              "border-[var(--border-default)] focus:border-[var(--border-strong)] focus:ring-2 focus:ring-[var(--focus-ring)]"
             )}
           >
             <option value="none">{t("noProfileLinked")}</option>

@@ -65,8 +65,62 @@ describe("visual foundation contract", () => {
 
   it("tokens, themes, aliases, and semantic states are canonical", () => {
     expect(stylesheet).toContain("--canvas:");
-    expect(stylesheet).toContain("--deep-bg: var(--canvas)");
+    for (const [alias, token] of [
+      ["--deep-bg", "--canvas"],
+      ["--border-dim", "--border-subtle"],
+      ["--border-medium", "--border-default"],
+      ["--ghost", "--text-muted"],
+      ["--accent-secondary", "--neutral-text"],
+    ]) {
+      expect(stylesheet).toContain(`${alias}: var(${token})`);
+    }
+    for (const alias of ["--accent-green", "--accent-rose", "--accent-mint", "--accent-blue", "--accent-teal", "--accent-purple", "--pale", "--cream", "--ink"]) {
+      expect(stylesheet).not.toMatch(new RegExp(`${alias}:`));
+    }
     expect(stylesheet).toContain("--status-approved-bg: var(--success-bg)");
+  });
+
+  it("keeps success semantics distinct from neutral in both themes", () => {
+    const themes = [
+      stylesheet.slice(
+        stylesheet.indexOf("/* Canonical light theme */"),
+        stylesheet.indexOf("/* Light-mode logo"),
+      ),
+      stylesheet.slice(
+        stylesheet.indexOf("/* Canonical dark theme */"),
+      ),
+    ];
+
+    for (const theme of themes) {
+      for (const role of ["bg", "border", "text", "dot"]) {
+        expect(theme).toMatch(new RegExp(`--success-${role}:\\s*oklch\\(`));
+      }
+    }
+  });
+
+  it("maps active status and decorative emphasis to their neutral semantic roles", () => {
+    for (const [token, role] of [
+      ["--status-active", "--info-dot"],
+      ["--status-active-bg", "--info-bg"],
+      ["--status-active-text", "--info-text"],
+      ["--status-active-dot", "--info-dot"],
+    ]) {
+      expect(stylesheet).toContain(`${token}: var(${role})`);
+    }
+
+    const pulseGlow = stylesheet.slice(
+      stylesheet.indexOf("@keyframes pulse-glow"),
+      stylesheet.indexOf("@keyframes shimmer"),
+    );
+    expect(pulseGlow).toContain("var(--focus-ring)");
+    expect(pulseGlow).not.toContain("rgba(0, 232, 94");
+
+    const suggestEmphasis = stylesheet.slice(
+      stylesheet.indexOf("@keyframes suggest-emphasis"),
+      stylesheet.indexOf("@keyframes spin-slow"),
+    );
+    expect(suggestEmphasis).toContain("var(--selection-border)");
+    expect(suggestEmphasis).not.toContain("var(--accent-green)");
   });
 
   it("geometry, density, typography, radius, motion, and content width are named", () => {

@@ -23,8 +23,8 @@ import {
 
 const planConfig = {
   starter: { name: "Starter", credits: 30, price: "R$ 29/mês", icon: Zap, color: "var(--text-secondary)" },
-  growth: { name: "Growth", credits: 120, price: "R$ 79/mês", icon: TrendingUp, color: "var(--accent-green)" },
-  scale: { name: "Scale", credits: 360, price: "R$ 199/mês", icon: Crown, color: "var(--accent-amber)" },
+  growth: { name: "Growth", credits: 120, price: "R$ 79/mês", icon: TrendingUp, color: "var(--utility-icon)" },
+  scale: { name: "Scale", credits: 360, price: "R$ 199/mês", icon: Crown, color: "var(--utility-icon)" },
 };
 
 type ForecastInputs = typeof pricingAssumptions;
@@ -198,7 +198,7 @@ export default function BillingTab() {
             type="button"
             onClick={() => portal.mutate()}
             disabled={portal.isPending || !billingStatus?.hasCustomer}
-            className="mt-4 h-10 rounded-md bg-[var(--accent-green)] px-4 text-sm font-medium text-[var(--accent-green-on-fill)] disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-4 h-10 rounded-md bg-[var(--action-primary-bg)] px-4 text-sm font-medium text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {portal.isPending ? t("pastDue.opening") : t("pastDue.action")}
           </button>
@@ -216,7 +216,7 @@ export default function BillingTab() {
             type="button"
             onClick={() => checkout.mutate({ planKey: subscription?.planKey as "starter" | "growth" | "scale" | undefined ?? "starter" })}
             disabled={checkout.isPending}
-            className="mt-4 h-10 rounded-md bg-[var(--accent-green)] px-4 text-sm font-medium text-[var(--accent-green-on-fill)] disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-4 h-10 rounded-md bg-[var(--action-primary-bg)] px-4 text-sm font-medium text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {checkout.isPending ? t("canceled.redirecting") : t("canceled.action")}
           </button>
@@ -224,7 +224,7 @@ export default function BillingTab() {
       )}
 
       {isBeta && (
-        <div className="rounded-lg border border-[var(--accent-green)]/30 bg-[var(--accent-green-dim)]/40 p-4 text-sm text-[var(--accent-green-text)]">
+        <div className="rounded-lg border border-[var(--success-border)] bg-[var(--success-bg)] p-4 text-sm text-[var(--success-text)]">
           <div className="flex items-center gap-2 font-medium">
             <Sparkles size={16} />
             {t("beta.title")}
@@ -258,13 +258,13 @@ export default function BillingTab() {
               value={betaCode}
               onChange={(event) => setBetaCode(event.target.value)}
               placeholder={t("noAccess.placeholder")}
-              className="h-10 flex-1 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent-green)]"
+              className="h-10 flex-1 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--focus-ring)]"
             />
             <button
               type="button"
               onClick={handleRedeemBeta}
               disabled={redeemBeta.isPending || !betaCode.trim()}
-              className="h-10 shrink-0 rounded-md bg-[var(--accent-green)] px-4 text-sm font-medium text-[var(--accent-green-on-fill)] disabled:opacity-60"
+              className="h-10 shrink-0 rounded-md bg-[var(--action-primary-bg)] px-4 text-sm font-medium text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)] disabled:opacity-60"
             >
               {redeemBeta.isPending ? t("noAccess.redeeming") : t("noAccess.action")}
             </button>
@@ -308,8 +308,7 @@ export default function BillingTab() {
                     type="button"
                     onClick={() => checkout.mutate({ planKey: key })}
                     disabled={checkout.isPending}
-                    className="mt-5 h-10 w-full rounded-md text-sm font-medium text-[var(--text-on-accent)] transition-opacity hover:opacity-90 disabled:opacity-60"
-                    style={{ background: plan.color }}
+                    className="mt-5 h-10 w-full rounded-md bg-[var(--action-primary-bg)] text-sm font-medium text-[var(--action-primary-text)] transition-colors hover:bg-[var(--action-primary-hover)] disabled:opacity-60"
                   >
                     {checkout.isPending ? t("plans.redirecting") : t("plans.startTrial")}
                   </button>
@@ -327,7 +326,7 @@ export default function BillingTab() {
               <h3 className="text-[15px] font-semibold text-[var(--text-primary)]">{t("forecast.title")}</h3>
               <p className="mt-1 text-sm text-[var(--text-secondary)]">{t("forecast.subtitle")}</p>
             </div>
-            <span className="rounded-full bg-[var(--accent-green-dim)] px-2.5 py-1 text-xs font-medium text-[var(--accent-green-text)]">
+            <span className="rounded-full bg-[var(--neutral-bg)] px-2.5 py-1 text-xs font-medium text-[var(--neutral-text)]">
               R$ {USD_BRL_PLANNING_RATE.toFixed(2)}/US$
             </span>
           </div>
@@ -369,7 +368,7 @@ export default function BillingTab() {
         <div className="space-y-4">
           <div className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-5">
             <div className="mb-4 flex items-center gap-2">
-              <CreditCard size={18} className="text-[var(--accent-green)]" />
+              <CreditCard size={18} className="text-[var(--utility-icon)]" />
               <h3 className="text-[15px] font-semibold text-[var(--text-primary)]">{t("financial.title")}</h3>
               {isTrialing && (
                 <span className="ml-auto rounded-full bg-[var(--warning-bg)] px-2 py-0.5 text-xs font-medium text-[var(--warning-text)]">
@@ -418,7 +417,7 @@ export default function BillingTab() {
                       type="button"
                       onClick={() => checkout.mutate({ planKey: "growth" })}
                       disabled={checkout.isPending}
-                      className="h-10 flex-1 rounded-md bg-[var(--accent-green)] text-sm font-medium text-[var(--accent-green-on-fill)] transition-all hover:bg-[var(--accent-green-light)] disabled:opacity-60"
+                      className="h-10 flex-1 rounded-md bg-[var(--action-primary-bg)] text-sm font-medium text-[var(--action-primary-text)] transition-all hover:bg-[var(--action-primary-hover)] disabled:opacity-60"
                     >
                       {checkout.isPending ? t("plans.redirecting") : t("financial.upgrade")}
                     </button>
@@ -439,7 +438,7 @@ export default function BillingTab() {
                     type="button"
                     onClick={() => checkout.mutate({ planKey: "starter" })}
                     disabled={checkout.isPending}
-                    className="mt-5 h-10 w-full rounded-md bg-[var(--accent-green)] text-sm font-medium text-[var(--accent-green-on-fill)] transition-all hover:bg-[var(--accent-green-light)] disabled:opacity-60"
+                    className="mt-5 h-10 w-full rounded-md bg-[var(--action-primary-bg)] text-sm font-medium text-[var(--action-primary-text)] transition-all hover:bg-[var(--action-primary-hover)] disabled:opacity-60"
                   >
                     {checkout.isPending ? t("plans.redirecting") : t("financial.startTrial")}
                   </button>
@@ -543,7 +542,7 @@ function NumberField({
         min={0}
         value={value}
         onChange={(event) => onChange(Number(event.target.value) || 0)}
-        className="h-9 w-full rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent-green)] focus:ring-2 focus:ring-[var(--accent-green-dim)]"
+        className="h-9 w-full rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--focus-ring)] focus:ring-2 focus:ring-[var(--focus-ring)]"
       />
     </label>
   );

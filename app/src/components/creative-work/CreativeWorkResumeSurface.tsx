@@ -21,7 +21,7 @@ export function CreativeWorkResumeSurface({
     <main className="mx-auto w-full max-w-6xl space-y-5 px-4 py-8 sm:px-6 lg:py-12">
       <Link
         href={campaignId ? `/campaigns/${campaignId}` : "/"}
-        className="inline-flex items-center gap-2 text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]"
+        className="inline-flex items-center gap-2 text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
       >
         <ArrowLeft size={16} aria-hidden="true" />
         Voltar

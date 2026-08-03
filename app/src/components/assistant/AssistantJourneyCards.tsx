@@ -48,7 +48,7 @@ export default function AssistantJourneyCards({
           <span className="w-6 shrink-0 font-mono text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
             {step}
           </span>
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-[var(--surface-inset)] text-[var(--accent-primary)]">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-[var(--surface-inset)] text-[var(--utility-icon)]">
             <Icon className="size-4" aria-hidden="true" />
           </span>
           <span className="min-w-0 flex-1">

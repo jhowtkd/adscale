@@ -36,13 +36,13 @@ export default function SettingsV6View({
             <article
               className={`flex h-full flex-col gap-3 rounded-[var(--radius-object)] border p-5 transition-colors ${
                 isActive
-                  ? "border-[var(--accent-primary)] bg-[var(--accent-primary-subtle)]"
+                  ? "border-[var(--selection-border)] bg-[var(--selection-bg)]"
                   : card.enabled
                     ? "border-[var(--border-subtle)] bg-[var(--surface-base)] hover:border-[var(--border-default)]"
                     : "border-[var(--border-subtle)] bg-[var(--surface-base)] opacity-55"
               }`}
             >
-              <span className="grid h-10 w-10 place-items-center rounded-[var(--radius-control)] bg-[var(--accent-primary-subtle)] text-[var(--accent-primary)]">
+              <span className="grid h-10 w-10 place-items-center rounded-[var(--radius-control)] bg-[var(--neutral-bg)] text-[var(--utility-icon)]">
                 <span aria-hidden="true">{card.icon}</span>
               </span>
               <h2 className="text-base font-semibold text-[var(--text-primary)]">{card.title}</h2>

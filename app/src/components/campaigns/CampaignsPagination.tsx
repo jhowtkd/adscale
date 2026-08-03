@@ -75,10 +75,11 @@ export default function CampaignsPagination({
               variant={visibleCurrentPage === page ? "default" : "outline"}
               size="sm"
               onClick={() => onPageChange(page)}
+              aria-current={visibleCurrentPage === page ? "page" : undefined}
               className={cn(
                 "size-8 p-0 text-xs font-medium",
                 visibleCurrentPage === page
-                  ? "bg-[var(--accent-green)] text-[var(--accent-green-on-fill)] hover:bg-[var(--accent-green-light)] border-transparent"
+                  ? "border-[var(--border-default)] bg-[var(--active-navigation-bg)] text-[var(--active-navigation-text)] hover:bg-[var(--active-navigation-bg)]"
                   : "border-[var(--border-dim)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-raised)]"
               )}
             >

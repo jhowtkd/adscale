@@ -113,7 +113,7 @@ describe("BrandEvidencePanel", () => {
 
     const banner = await screen.findByTestId("fixture-caveat-banner");
     expect(banner).toHaveTextContent(fixtureOnlyReport.fixtureCaveat!);
-    expect(banner).toHaveClass("border-amber-500/30");
+    expect(banner).toHaveClass("border-[var(--warning-border)]");
   });
 
   it("lists claimsBlocked including validated_against_customer_real for fixture-only", async () => {

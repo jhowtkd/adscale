@@ -66,7 +66,7 @@ export default function LibraryV6View({
           type="button"
           onClick={interactive ? onUploadClick : undefined}
           disabled={isUploading}
-          className="inline-flex shrink-0 items-center gap-2 rounded-[var(--radius-control)] bg-[var(--accent-primary)] px-4 py-2 text-sm font-medium text-[var(--text-on-accent)] transition-colors hover:bg-[var(--accent-primary-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-60"
+          className="inline-flex shrink-0 items-center gap-2 rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-4 py-2 text-sm font-medium text-[var(--action-primary-text)] transition-colors hover:bg-[var(--action-primary-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-60"
         >
           <Upload size={16} aria-hidden="true" />
           {isUploading ? `${uploadProgress}%` : labels.upload}
@@ -77,7 +77,7 @@ export default function LibraryV6View({
         <div
           className={`flex flex-col items-center justify-center gap-2 border-b border-dashed px-6 py-10 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] ${
             dragOver
-              ? "border-[var(--border-strong)] bg-[var(--surface-inset)]"
+              ? "border-[var(--selection-border)] bg-[var(--selection-bg)]"
               : "border-[var(--border-default)] bg-[var(--surface-raised)]"
           }`}
           role="button"
@@ -98,7 +98,7 @@ export default function LibraryV6View({
           onDragLeave={interactive ? onDragLeave : undefined}
           onDrop={interactive ? onDrop : undefined}
         >
-          <Upload size={24} className="text-[var(--text-muted)]" aria-hidden="true" />
+          <Upload size={24} className="text-[var(--utility-icon)]" aria-hidden="true" />
           <p className="text-sm font-medium text-[var(--text-primary)]">{labels.dropzoneTitle}</p>
           <p className="text-xs text-[var(--text-muted)]">{labels.dropzoneHint}</p>
         </div>
@@ -107,7 +107,7 @@ export default function LibraryV6View({
           <div className="relative w-full max-w-md">
             <Search
               size={16}
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]"
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--utility-icon)]"
               aria-hidden="true"
             />
             <input
@@ -159,7 +159,7 @@ export default function LibraryV6View({
               type="button"
               onClick={onLoadMore}
               disabled={isLoadingMore}
-              className="rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-inset)] disabled:opacity-60"
+              className="rounded-[var(--radius-control)] border border-[var(--selection-border)] bg-[var(--active-navigation-bg)] px-4 py-2 text-sm font-medium text-[var(--active-navigation-text)] transition-colors hover:bg-[var(--selection-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-60"
             >
               {isLoadingMore ? labels.loadingMore : labels.loadMore}
             </button>
@@ -186,7 +186,7 @@ function AssetCard({
   return (
     <article
       data-motion-highlight="focus"
-      className="group overflow-hidden rounded-[var(--radius-panel)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] transition-[border-color,background-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-product)] focus-within:border-[var(--border-strong)] focus-within:bg-[var(--surface-inset)] focus-within:shadow-[0_0_0_2px_var(--focus-ring)]"
+      className="group overflow-hidden rounded-[var(--radius-panel)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] transition-[border-color,background-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-product)] focus-within:border-[var(--selection-border)] focus-within:bg-[var(--selection-bg)] focus-within:shadow-[0_0_0_2px_var(--focus-ring)]"
     >
       <div className={`relative flex h-32 items-center justify-center ${asset.gradient}`}>
         {useImagePreview && asset.imageUrl ? (
@@ -206,7 +206,7 @@ function AssetCard({
             type="button"
             aria-label={labels.deleteAsset}
             onClick={() => onDelete(asset.id, asset.name)}
-            className="absolute right-2 top-2 flex size-9 items-center justify-center rounded-[var(--radius-control)] bg-[color-mix(in_oklch,var(--text-primary)_55%,transparent)] text-[var(--text-on-accent)] opacity-100 transition-opacity focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
+            className="absolute right-2 top-2 flex size-9 items-center justify-center rounded-[var(--radius-control)] border border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger-text)] opacity-100 transition-opacity focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
           >
             <X size={14} aria-hidden="true" />
           </button>
