@@ -55,7 +55,7 @@ export class OpenAIImageProvider implements ImageGenerationProvider {
           prompt: input.prompt,
           n: 1,
           size: openaiSize,
-          quality: input.quality ?? "high",
+          quality: input.quality ?? "medium",
         },
         REQUEST_OPTIONS
       );
@@ -72,7 +72,7 @@ export class OpenAIImageProvider implements ImageGenerationProvider {
           prompt: input.prompt,
           n: 1,
           size: openaiSize,
-          quality: input.quality ?? "high",
+          quality: input.quality ?? "medium",
         },
         REQUEST_OPTIONS
       );

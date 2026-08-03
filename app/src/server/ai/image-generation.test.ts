@@ -83,7 +83,7 @@ describe("generateAndStoreImage", () => {
 
     expect(mockOpenAIImages.generate).toHaveBeenCalledTimes(1);
     expect(mockOpenAIImages.generate).toHaveBeenCalledWith(
-      expect.objectContaining({ quality: "high" }),
+      expect.objectContaining({ quality: "medium" }),
       expect.objectContaining({ timeout: 120_000, maxRetries: 0 }),
     );
     expect(mockOpenAIImages.edit).not.toHaveBeenCalled();

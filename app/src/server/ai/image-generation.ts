@@ -345,7 +345,7 @@ export async function generateAndStoreImage(
     referenceImages,
     attempt = 0,
     generationMode = "art_variation",
-    quality = "high",
+    quality = "medium",
     routes,
     selectCandidate,
     outputSuffix = "",
