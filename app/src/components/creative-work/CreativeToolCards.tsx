@@ -30,13 +30,13 @@ export function CreativeToolCards({ selected, onSelect, headerAction }: {
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {TOOLS.map(({ id, icon: Icon }) => (
-          <div key={id} className="relative">
+          <div key={id} className="relative h-full">
             <button
               type="button"
               aria-pressed={selected === id}
               onClick={() => onSelect(id)}
               className={cn(
-                "w-full rounded-[var(--radius-object)] border bg-[var(--surface-raised)] p-4 pr-12 text-left",
+                "h-full w-full rounded-[var(--radius-object)] border bg-[var(--surface-raised)] p-4 pr-12 text-left",
                 "transition-colors hover:bg-[var(--surface-inset)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
                 selected === id
                   ? "border-[var(--selection-border)] bg-[var(--selection-bg)]"
