@@ -110,8 +110,24 @@ describe("useCreativeComposer", () => {
     mocks.suggest.mockResolvedValue({ directions: [] });
     mocks.upload.mockResolvedValue({ assetId: "asset-1", name: "arte.png" });
     mocks.source.mockResolvedValue({ source: { id: "source-1" } });
+    mocks.selectOutput.mockResolvedValue({});
     // clearAllMocks keeps mockReturnValue implementations — reset explicitly.
     mocks.resolveBrandConflictPending.mockReturnValue(false);
+  });
+
+  it("keeps an approval failure on the affected output until retry", async () => {
+    mocks.work.mockReturnValue({ data: workDetail(), isLoading: false, isError: false });
+    mocks.selectOutput.mockRejectedValueOnce(new Error("Falha na aprovação"));
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+
+    await act(() => result.current.approveOutput("output-1"));
+
+    expect(result.current.approvalErrorOutputId).toBe("output-1");
+    expect(result.current.error).toBe("Falha na aprovação");
+
+    await act(() => result.current.approveOutput("output-1"));
+
+    expect(result.current.approvalErrorOutputId).toBeNull();
   });
 
   it("starts a new composer from the whitelisted intent and canonical quote", () => {

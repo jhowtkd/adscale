@@ -184,7 +184,10 @@ function AssetCard({
   onDelete?: (id: string, name: string) => void;
 }) {
   return (
-    <article className="group overflow-hidden rounded-[var(--radius-panel)] border border-[var(--border-subtle)] bg-[var(--surface-raised)]">
+    <article
+      data-motion-highlight="focus"
+      className="group overflow-hidden rounded-[var(--radius-panel)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] transition-[border-color,background-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-product)] focus-within:border-[var(--border-strong)] focus-within:bg-[var(--surface-inset)] focus-within:shadow-[0_0_0_2px_var(--focus-ring)]"
+    >
       <div className={`relative flex h-32 items-center justify-center ${asset.gradient}`}>
         {useImagePreview && asset.imageUrl ? (
           <Image

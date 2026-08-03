@@ -11,6 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 import type { PlatformFilter, SortOption, StatusFilter, ViewMode } from "@/components/campaigns/types";
 import type {
   CampaignsV6Labels,
@@ -93,7 +94,7 @@ export default function CampaignsV6View({
   const title = isLoading ? "" : labels.formatTitle(totalCount);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" aria-busy={isLoading}>
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-2">
           <div className="flex items-center gap-2">
@@ -342,16 +343,15 @@ function CampaignRow({
 
   return (
     <li
-      className="grid grid-cols-[auto_40px_minmax(0,1fr)_auto_auto_auto] items-center gap-3 px-4 py-3 hover:bg-[var(--surface-raised)] sm:gap-3.5"
+      data-motion-highlight={selected ? "selected" : "idle"}
+      className={cn(
+        "grid grid-cols-[auto_40px_minmax(0,1fr)_auto_auto_auto] items-center gap-3 px-4 py-3 sm:gap-3.5",
+        "transition-[background-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-product)]",
+        selected
+          ? "bg-[var(--accent-primary-subtle)] shadow-[inset_3px_0_0_var(--accent-primary)]"
+          : "hover:bg-[var(--surface-raised)]",
+      )}
       onClick={handleRowClick}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          handleRowClick();
-        }
-      }}
-      role={interactive ? "link" : undefined}
-      tabIndex={interactive ? 0 : undefined}
     >
       <input
         type="checkbox"

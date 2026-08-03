@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Paperclip, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ActiveBrandSwitcher from "@/components/layout/ActiveBrandSwitcher";
+import { AnimatedDisplayValue } from "@/components/animations/AnimatedDisplayValue";
 import { CreativeSourceChip } from "./CreativeSourceChip";
 import { CreativeSourcePreviewCard } from "./CreativeSourcePreviewCard";
 import { CreativeVariationBrief } from "./CreativeVariationBrief";
@@ -436,12 +437,16 @@ export function CreativeComposer({ composer, composerRef }: {
         >
           <Sparkles size={16} aria-hidden="true" />
           {pendingLabel ?? (
-            isRestyle
-              ? t("generateRestyle", { credits: composer.quote.credits })
-              : t("generate", {
-                  count: composer.quote.unitCount,
-                  credits: composer.quote.credits,
-                })
+            <AnimatedDisplayValue
+              value={
+                isRestyle
+                  ? t("generateRestyle", { credits: composer.quote.credits })
+                  : t("generate", {
+                      count: composer.quote.unitCount,
+                      credits: composer.quote.credits,
+                    })
+              }
+            />
           )}
         </button>
       </div>
@@ -475,6 +480,7 @@ export function CreativeComposer({ composer, composerRef }: {
             onRevise={composer.reviseOutput}
             isRetrying={composer.isRetryingOutput}
             isApproving={composer.isApprovingOutput}
+            approvalErrorOutputId={composer.approvalErrorOutputId}
             isRevising={composer.isRevisingOutput}
           />
         </section>

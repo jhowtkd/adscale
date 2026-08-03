@@ -31,7 +31,7 @@ const baseComposer = {
   workId: "work-1", brandName: "Marca A", outputs: [], quote: { unitCount: 3, credits: 15 },
   campaignId: null, campaigns: [], linkCampaign: vi.fn(), retryOutput: vi.fn(), retryRevisionOutput: vi.fn(),
   approveOutput: vi.fn(), downloadOutput: vi.fn(), reviseOutput: vi.fn(), isRetryingOutput: vi.fn(),
-  isApprovingOutput: vi.fn(), isRevisingOutput: vi.fn(), canGenerate: true, isUploading: false,
+  isApprovingOutput: vi.fn(), approvalErrorOutputId: null, isRevisingOutput: vi.fn(), canGenerate: true, isUploading: false,
   error: null, announcement: "", brandTrainingSuggestion: null, requiresBrandSelection: false, workError: false,
   addFiles: vi.fn(), addInspiration: vi.fn(), updateSource: vi.fn(), editSource: vi.fn(), retrySource: vi.fn(), removeSource: vi.fn(), generate: vi.fn(),
 };

@@ -72,6 +72,33 @@ describe("CreativeResultCard", () => {
     expect(onRevise).toHaveBeenCalledWith("output-1", "Use mais contraste", file);
   });
 
+  it("keeps approval pending and success states coherent", () => {
+    const props = {
+      label: "Equilibrada",
+      onRetry: vi.fn(),
+      onApprove: vi.fn(),
+      onDownload: vi.fn(),
+    };
+    const { rerender } = render(
+      <CreativeResultCard output={output()} {...props} isApproving />,
+    );
+
+    const pending = screen.getByRole("button", { name: "Aprovando" });
+    expect(pending).toBeDisabled();
+    expect(pending).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByTestId("action-status-icon")).toHaveAttribute("data-action-status", "pending");
+
+    rerender(<CreativeResultCard output={output()} {...props} approvalError />);
+
+    expect(screen.getByRole("button", { name: "Tentar novamente" })).toBeEnabled();
+    expect(screen.getByTestId("action-status-icon")).toHaveAttribute("data-action-status", "error");
+
+    rerender(<CreativeResultCard output={output({ isSelected: true })} {...props} />);
+
+    expect(screen.getByRole("button", { name: "Aprovada" })).toBeDisabled();
+    expect(screen.getByTestId("action-status-icon")).toHaveAttribute("data-action-status", "success");
+  });
+
   it("renders an independent status for processing and retries only the failed card", () => {
     const onRetry = vi.fn();
     const { rerender } = render(

@@ -152,6 +152,7 @@ export function useCreativeComposer({
   const [isUploading, setIsUploading] = useState(false);
   const [actionPhase, setActionPhase] = useState<ComposerActionPhase>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [approvalErrorOutputId, setApprovalErrorOutputId] = useState<string | null>(null);
   // R-008: the only new visible decision — the restyle brand-authority
   // conflict raised by the 422 prepare response.
   const [brandConflict, setBrandConflict] = useState<CreativeWorkBrandConflict | null>(null);
@@ -936,10 +937,12 @@ export function useCreativeComposer({
 
   const approveOutput = useCallback(async (outputId: string) => {
     if (!workIdRef.current) return;
+    setApprovalErrorOutputId(null);
     try {
       await selectOutputMutation.mutateAsync({ workItemId: workIdRef.current, outputId, saveToLibrary: false });
       setAnnouncement("Proposta aprovada");
     } catch (cause) {
+      setApprovalErrorOutputId(outputId);
       setError(cause instanceof Error ? cause.message : "Falha ao aprovar proposta");
     }
   }, [selectOutputMutation]);
@@ -1065,7 +1068,7 @@ export function useCreativeComposer({
     state, actionPhase, workId, clientProfileId, brandName,
     sources: detail?.sources ?? [], outputs: detail?.outputs ?? [], quote, canGenerate, isUploading,
     campaignId: detail?.work.campaignId ?? null, campaigns,
-    error, announcement, brandTrainingSuggestion: brandTrainingSuggestion ?? persistedBrandTrainingSuggestion,
+    error, announcement, approvalErrorOutputId, brandTrainingSuggestion: brandTrainingSuggestion ?? persistedBrandTrainingSuggestion,
     brandConflict, resolveBrandConflict,
     isResolvingBrandConflict: resolveBrandConflictMutation.isPending,
     requiresBrandSelection: active.requiresSelection,

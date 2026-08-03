@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-08-02T17:39:32.702Z",
+  "sourceCommit": "cf9a6090d796cfacb2fe17ff74c2161e5a596155",
+  "worktreeDiffSha256": "56ceea60fd49d5411e2b0b9c4d6f94957e52c66fea7c1bfca9d2c420854c8e16",
+  "environment": {
+    "browser": "Chromium via Playwright MCP",
+    "baseUrl": "http://localhost:3000",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "settleMs": 800
+  },
+  "fixture": {
+    "email": "visual-foundations@example.test",
+    "workspaceId": "e45edece-7fe9-4bf0-8dc8-256fd4e9d096",
+    "userId": "eQJJMzs2FwXPmvQpjVLzllZXrX3X6YvF",
+    "seedCommand": "NODE_OPTIONS='--conditions=react-server' npx tsx scripts/seed-visual-foundations.ts",
+    "setup": "grantTesterEntitlement({ workspaceId, grantedByUserId: userId, notes: 'temporary local motion audit reproducibility' })",
+    "cleanup": "revokeTesterEntitlement(workspaceId)",
+    "cleanupPostcondition": "getActiveTesterEntitlementByWorkspace(workspaceId) === null",
+    "cleanupVerified": true
+  },
+  "predicates": {
+    "visible": "bounding box width and height > 0 and computed visibility != hidden",
+    "moving": "computed animationName != none or any computed transitionDuration > 0",
+    "broad": "computed transitionProperty contains all",
+    "nonMinimal": "any computed transitionDuration or animationDuration > 0.02 seconds",
+    "transformed": "computed transform != none"
+  },
+  "observations": [
+    {
+      "path": "/",
+      "reducedMotion": "no-preference",
+      "heading": "Escolha um protocolo de criação",
+      "moving": 19,
+      "broad": 6,
+      "nonMinimal": 19,
+      "transformed": 0,
+      "animationNames": ["pulse"],
+      "durations": ["0.15s", "0s", "2s"]
+    },
+    {
+      "path": "/dashboard",
+      "reducedMotion": "no-preference",
+      "heading": null,
+      "moving": 37,
+      "broad": 28,
+      "nonMinimal": 37,
+      "transformed": 0,
+      "animationNames": ["pulse"],
+      "durations": ["0.15s", "0s", "2s"]
+    },
+    {
+      "path": "/campaigns",
+      "reducedMotion": "no-preference",
+      "heading": null,
+      "moving": 21,
+      "broad": 11,
+      "nonMinimal": 21,
+      "transformed": 0,
+      "animationNames": ["pulse"],
+      "durations": ["0.15s", "0s", "2s"]
+    },
+    {
+      "path": "/",
+      "reducedMotion": "reduce",
+      "heading": "Escolha um protocolo de criação",
+      "moving": 261,
+      "broad": 247,
+      "nonMinimal": 0,
+      "transformed": 0,
+      "animationNames": ["pulse"],
+      "durations": ["1e-05s"]
+    },
+    {
+      "path": "/dashboard",
+      "reducedMotion": "reduce",
+      "heading": "Boa tarde, User.",
+      "moving": 314,
+      "broad": 300,
+      "nonMinimal": 0,
+      "transformed": 0,
+      "animationNames": ["pulse"],
+      "durations": ["1e-05s"]
+    }
+  ],
+  "focusCheck": {
+    "path": "/",
+    "reducedMotion": "reduce",
+    "locator": "getByRole('button', { name: /Peça única/i })",
+    "activeElementTag": "BUTTON",
+    "activeElementTextPrefix": "Peça única"
+  },
+  "consoleFindings": [
+    "aria-labelledby used on a section without a valid role",
+    "some inspected controls or regions lacked an accessible name"
+  ],
+  "blockedState": {
+    "request": "GET /api/creative-work",
+    "status": 500,
+    "cause": "column generation_correlation_id does not exist",
+    "migrationRun": false
+  },
+  "cleanup": {
+    "browserClosed": true,
+    "devServerStopped": true,
+    "testerEntitlementRevoked": true
+  }
+}

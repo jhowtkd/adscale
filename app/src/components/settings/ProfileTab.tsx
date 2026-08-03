@@ -2,8 +2,9 @@
 
 import { useReducer, useRef, useEffect, useMemo, useState } from "react";
 import { m, useReducedMotion } from "@/components/animations/MotionBoundary";
-import { Camera, Check, RotateCcw } from "lucide-react";
+import { Camera, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ActionStatusIcon } from "@/components/animations/ActionStatusIcon";
 import { useAppStore } from "@/lib/store";
 import { useTranslations } from "next-intl";
 import { useOnboarding } from "@/lib/hooks/use-onboarding";
@@ -45,7 +46,7 @@ interface ProfileFormState {
   lastName: string;
   bio: string;
   timezone: string;
-  saveState: "idle" | "saving" | "saved";
+  saveState: "idle" | "saving" | "saved" | "error";
 }
 
 function profileFormReducer(
@@ -75,6 +76,7 @@ export default function ProfileTab() {
   const { firstName, lastName, bio, timezone, saveState } = form;
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const saveButtonRef = useRef<HTMLButtonElement>(null);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pendingAvatarFile, setPendingAvatarFile] = useState<File | null>(null);
   const [localAvatarPreview, setLocalAvatarPreview] = useState<string | null>(
@@ -166,7 +168,8 @@ export default function ProfileTab() {
         2000
       );
     } catch (err) {
-      updateForm({ saveState: "idle" });
+      updateForm({ saveState: "error" });
+      requestAnimationFrame(() => saveButtonRef.current?.focus());
       addToast(
         "error",
         err instanceof Error ? err.message : tc("error")
@@ -275,11 +278,14 @@ export default function ProfileTab() {
         className="flex justify-end border-t border-[var(--border-dim)] pt-6"
       >
         <button
+          ref={saveButtonRef}
           type="button"
           onClick={handleSave}
+          aria-busy={saveState === "saving"}
           disabled={
             !hasChanges ||
-            saveState !== "idle" ||
+            saveState === "saving" ||
+            saveState === "saved" ||
             updateProfile.isPending ||
             uploadAvatar.isPending
           }
@@ -291,20 +297,17 @@ export default function ProfileTab() {
             "disabled:cursor-not-allowed disabled:opacity-50"
           )}
         >
-          {saveState === "saving" && (
-            <m.div
-              animate={{ rotate: 360 }}
-              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-              className="size-4 rounded-full border-2 border-white/30 border-t-white"
-            />
-          )}
-          {saveState === "saved" && <Check size={16} />}
+          <ActionStatusIcon
+            state={saveState === "saving" ? "pending" : saveState === "saved" ? "success" : saveState === "error" ? "error" : "idle"}
+          />
           <span>
             {saveState === "saving"
               ? t("saving")
               : saveState === "saved"
                 ? t("saved")
-                : t("saveChanges")}
+                : saveState === "error"
+                  ? tc("retry")
+                  : t("saveChanges")}
           </span>
         </button>
       </m.div>

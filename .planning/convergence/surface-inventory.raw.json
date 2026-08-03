@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-07-31T10:00:55.712Z",
+  "generatedAt": "2026-08-02T23:15:43.837Z",
   "schemaVersion": 2,
-  "fingerprint": "e838cef5f40c1e44326b40eabbc821ed0208a0a66d9a3fa7a560c958fd93bdd5",
+  "fingerprint": "e3aac5d4fe8d16bd6559a5ae5c5496354d87f8478f1981c4282effac78a0a7d4",
   "counts": {
     "dashboardPages": 15,
     "apiRoutes": 167,
@@ -1477,12 +1477,12 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/creative-work/CreativeComposer.tsx:96",
+      "id": "nav:app/src/components/creative-work/CreativeComposer.tsx:97",
       "kind": "cta_navigation",
       "destination": "/",
       "file": "app/src/components/creative-work/CreativeComposer.tsx",
-      "line": 96,
-      "evidence": "app/src/components/creative-work/CreativeComposer.tsx:96",
+      "line": 97,
+      "evidence": "app/src/components/creative-work/CreativeComposer.tsx:97",
       "requiresDecision": false
     },
     {
@@ -1513,39 +1513,39 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/dashboard/v6/DashboardV6View.tsx:103",
+      "id": "nav:app/src/components/dashboard/v6/DashboardV6View.tsx:106",
       "kind": "cta_navigation",
       "destination": "/campaigns/${view.hero.id}",
       "file": "app/src/components/dashboard/v6/DashboardV6View.tsx",
-      "line": 103,
-      "evidence": "app/src/components/dashboard/v6/DashboardV6View.tsx:103",
+      "line": 106,
+      "evidence": "app/src/components/dashboard/v6/DashboardV6View.tsx:106",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/dashboard/v6/DashboardV6View.tsx:110",
+      "id": "nav:app/src/components/dashboard/v6/DashboardV6View.tsx:113",
       "kind": "cta_navigation",
       "destination": "/campaigns/${view.hero.id}?tab=brief",
       "file": "app/src/components/dashboard/v6/DashboardV6View.tsx",
-      "line": 110,
-      "evidence": "app/src/components/dashboard/v6/DashboardV6View.tsx:110",
+      "line": 113,
+      "evidence": "app/src/components/dashboard/v6/DashboardV6View.tsx:113",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/dashboard/v6/DashboardV6View.tsx:184",
+      "id": "nav:app/src/components/dashboard/v6/DashboardV6View.tsx:187",
       "kind": "cta_navigation",
       "destination": "/templates",
       "file": "app/src/components/dashboard/v6/DashboardV6View.tsx",
-      "line": 184,
-      "evidence": "app/src/components/dashboard/v6/DashboardV6View.tsx:184",
+      "line": 187,
+      "evidence": "app/src/components/dashboard/v6/DashboardV6View.tsx:187",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/dashboard/v6/DashboardV6View.tsx:351",
+      "id": "nav:app/src/components/dashboard/v6/DashboardV6View.tsx:354",
       "kind": "cta_navigation",
       "destination": "/campaigns",
       "file": "app/src/components/dashboard/v6/DashboardV6View.tsx",
-      "line": 351,
-      "evidence": "app/src/components/dashboard/v6/DashboardV6View.tsx:351",
+      "line": 354,
+      "evidence": "app/src/components/dashboard/v6/DashboardV6View.tsx:354",
       "requiresDecision": false
     },
     {

@@ -2,11 +2,17 @@ import "./load-env";
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { and, eq, like } from "drizzle-orm";
+import { and, eq, like, or } from "drizzle-orm";
 import { db } from "../src/server/db";
-import { campaigns, derivations, user, workspaceMembers, workspaces } from "../src/server/db/schema";
+import { campaigns, clientProfiles, derivations, user, workspaceMembers, workspaces } from "../src/server/db/schema";
 import { createCampaign } from "../src/server/repositories/campaign";
 import { upsertBrandKit } from "../src/server/repositories/brand-kit";
+import { createClientProfile } from "../src/server/repositories/client-reference";
+import {
+  getActiveTesterEntitlementByWorkspace,
+  grantTesterEntitlement,
+  revokeTesterEntitlement,
+} from "../src/server/repositories/entitlements";
 
 const EMAIL = "visual-foundations@example.test";
 const NAME = "Visual Foundations Tester";
@@ -50,14 +56,41 @@ async function main() {
   if (!membership[0]) throw new Error("Synthetic account has no workspace membership");
 
   const workspaceId = membership[0].workspaceId;
+
+  if (process.argv.includes("--revoke-access")) {
+    await revokeTesterEntitlement(workspaceId);
+    if (await getActiveTesterEntitlementByWorkspace(workspaceId)) {
+      throw new Error("Synthetic tester access was not revoked");
+    }
+    console.log("Visual foundations tester access revoked.");
+    return;
+  }
+
+  await grantTesterEntitlement({
+    workspaceId,
+    grantedByUserId: userId,
+    grantedByEmail: EMAIL,
+    notes: "Local visual foundations harness",
+  });
   await db.update(workspaces).set({ name: WORKSPACE_NAME, updatedAt: new Date() })
     .where(eq(workspaces.id, workspaceId));
+  await db.delete(clientProfiles).where(and(
+    eq(clientProfiles.workspaceId, workspaceId),
+    or(
+      like(clientProfiles.name, "VF Example Brand%"),
+      eq(clientProfiles.name, "Example Test Brand Kit"),
+    ),
+  ));
+  const fixtureProfile = await createClientProfile(workspaceId, {
+    name: "VF Example Brand",
+    description: "Synthetic example.test onboarding fixture",
+  });
   await upsertBrandKit(workspaceId, {
-    name: "Example Test Brand Kit",
+    name: "VF Example Brand Kit",
     description: "Synthetic example.test visual fixture",
     brandColors: ["#00B34A", "#172018"],
     brandFonts: ["Inter"],
-  });
+  }, fixtureProfile.id);
   await db.delete(campaigns).where(and(
     eq(campaigns.workspaceId, workspaceId),
     like(campaigns.name, `${CAMPAIGN_PREFIX}%`),
@@ -117,8 +150,11 @@ async function main() {
   }).returning();
 
   const routes = {
-    dashboard: "/",
+    creativeWork: "/",
+    dashboard: "/dashboard",
     campaignList: "/campaigns",
+    library: "/library",
+    onboarding: "/brand-kit",
     workspace: `/campaigns/${created[0].id}`,
     settingsProfile: "/settings?tab=profile",
     settingsBilling: "/settings?tab=billing",
