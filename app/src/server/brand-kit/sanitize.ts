@@ -1,5 +1,13 @@
 const HEX_RE = /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/;
 
+/**
+ * Brand-kit logos live under workspaces/{id}/... as object-storage keys —
+ * not campaign_assets. Path ownership is the ownership check.
+ */
+export function isBrandKitOwnedAssetKey(workspaceId: string, key: string): boolean {
+  return key.startsWith(`workspaces/${workspaceId}/`);
+}
+
 /** Normalize a free-form color string to #RRGGBB, or null if not hex. */
 export function normalizeHexColor(raw: string): string | null {
   let value = raw.trim();

@@ -15,6 +15,7 @@ import {
 import { getClientProfiles } from "@/server/repositories/client-reference";
 import { objectStorage } from "@/server/storage";
 import {
+  isBrandKitOwnedAssetKey,
   sanitizeBrandColors,
   sanitizeBrandFonts,
 } from "@/server/brand-kit/sanitize";
@@ -44,14 +45,6 @@ const brandKitSchema = z.object({
   prohibitedElements: z.string().trim().max(TEXT_LIMITS.prohibitedElements).optional(),
   requiredElements: z.string().trim().max(TEXT_LIMITS.requiredElements).optional(),
 });
-
-/**
- * Brand-kit logos live under workspaces/{id}/brand-kit/... as object-storage
- * keys + client_references — NOT campaign_assets. Path ownership is the check.
- */
-export function isBrandKitOwnedAssetKey(workspaceId: string, key: string): boolean {
-  return key.startsWith(`workspaces/${workspaceId}/`);
-}
 
 /** AI extract / loose UI can ship junk colors/fonts — sanitize before Zod. */
 function preprocessBrandKitBody(body: unknown): unknown {

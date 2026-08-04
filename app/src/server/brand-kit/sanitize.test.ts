@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  isBrandKitOwnedAssetKey,
   normalizeHexColor,
   sanitizeBrandColors,
   sanitizeBrandFonts,
@@ -34,5 +35,19 @@ describe("sanitizeBrandFonts", () => {
       "Inter",
       "Roboto",
     ]);
+  });
+});
+
+describe("isBrandKitOwnedAssetKey", () => {
+  it("accepts keys under the workspace prefix", () => {
+    expect(
+      isBrandKitOwnedAssetKey("ws-1", "workspaces/ws-1/brand-kit/logo.png"),
+    ).toBe(true);
+  });
+
+  it("rejects foreign workspace keys", () => {
+    expect(
+      isBrandKitOwnedAssetKey("ws-1", "workspaces/other/brand-kit/logo.png"),
+    ).toBe(false);
   });
 });
