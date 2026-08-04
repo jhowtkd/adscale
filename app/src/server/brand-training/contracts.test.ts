@@ -30,4 +30,24 @@ describe("brand training contracts", () => {
       }),
     ).toThrow();
   });
+
+  it("accepts archive without analysis (auto-approved uploads)", () => {
+    const parsed = reviewTrainingAssetSchema.parse({
+      trainingCategory: "visual_reference",
+      usageMode: "reference",
+      analysis: null,
+      reviewStatus: "archived",
+    });
+    expect(parsed.reviewStatus).toBe("archived");
+    expect(parsed.analysis).toBeNull();
+  });
+
+  it("accepts archive omitting analysis entirely", () => {
+    const parsed = reviewTrainingAssetSchema.parse({
+      trainingCategory: "visual_reference",
+      usageMode: "reference",
+      reviewStatus: "archived",
+    });
+    expect(parsed.reviewStatus).toBe("archived");
+  });
 });

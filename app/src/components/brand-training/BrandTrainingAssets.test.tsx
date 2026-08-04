@@ -319,4 +319,44 @@ describe("BrandTrainingAssets", () => {
       expect.any(Object),
     );
   });
+
+  it("archives approved assets with analysis: null (no empty description)", async () => {
+    const mutate = vi.fn();
+    useReviewBrandTrainingAssetMock.mockReturnValue({
+      mutate,
+      isPending: false,
+    });
+
+    useBrandTrainingAssetsMock.mockReturnValue({
+      data: [
+        asset({
+          id: "approved-no-analysis",
+          reviewStatus: "approved",
+          trainingCategory: "visual_reference",
+          usageMode: "reference",
+          trainingAnalysis: null,
+        }),
+      ],
+      isLoading: false,
+    });
+
+    render(<BrandTrainingAssets clientProfileId="profile-1" />, {
+      wrapper: createWrapper(),
+    });
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "brandTraining.assets.archive",
+      }),
+    );
+
+    expect(mutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        referenceId: "approved-no-analysis",
+        reviewStatus: "archived",
+        analysis: null,
+      }),
+      expect.any(Object),
+    );
+  });
 });

@@ -258,7 +258,7 @@ export interface ReviewBrandTrainingAssetInput {
   referenceId: string;
   trainingCategory: "logo" | "graphic" | "character" | "visual_reference";
   usageMode: "exact" | "reference" | "rule";
-  analysis: BrandTrainingAssetRecord["trainingAnalysis"];
+  analysis: BrandTrainingAssetRecord["trainingAnalysis"] | null;
   reviewStatus: "approved" | "archived";
 }
 

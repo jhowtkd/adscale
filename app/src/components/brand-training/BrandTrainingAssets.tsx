@@ -139,9 +139,16 @@ export function BrandTrainingAssets({
                 },
               )
             }
-            onArchive={(input) =>
+            onArchive={() =>
               review.mutate(
-                { referenceId: asset.id, ...input, reviewStatus: "archived" },
+                {
+                  referenceId: asset.id,
+                  trainingCategory:
+                    (asset.trainingCategory as Category | null) ?? "visual_reference",
+                  usageMode: (asset.usageMode as UsageMode | null) ?? "reference",
+                  analysis: null,
+                  reviewStatus: "archived",
+                },
                 {
                   onSuccess: () => addToast("success", tc("saved")),
                   onError: (err) => addToast("error", err.message),
@@ -160,9 +167,16 @@ export function BrandTrainingAssets({
           <ApprovedCard
             key={asset.id}
             asset={asset}
-            onArchive={(input) =>
+            onArchive={() =>
               review.mutate(
-                { ...input, reviewStatus: "archived" },
+                {
+                  referenceId: asset.id,
+                  trainingCategory:
+                    (asset.trainingCategory as Category | null) ?? "visual_reference",
+                  usageMode: (asset.usageMode as UsageMode | null) ?? "reference",
+                  analysis: null,
+                  reviewStatus: "archived",
+                },
                 {
                   onSuccess: () => addToast("success", tc("saved")),
                   onError: (err) => addToast("error", err.message),
@@ -352,9 +366,7 @@ function PendingApprovalCard({
   onApprove: (input: Omit<AssetDraft, "analysis"> & {
     analysis: AssetDraft["analysis"];
   }) => void;
-  onArchive: (input: Omit<AssetDraft, "analysis"> & {
-    analysis: AssetDraft["analysis"];
-  }) => void;
+  onArchive: () => void;
   submitting: boolean;
 }) {
   const t = useTranslations("brandTraining");
@@ -461,7 +473,7 @@ function PendingApprovalCard({
           type="button"
           variant="ghost"
           disabled={submitting}
-          onClick={() => onArchive(buildInput())}
+          onClick={onArchive}
         >
           <Archive size={14} className="mr-1" />
           {t("assets.archive")}
@@ -489,25 +501,13 @@ function ApprovedCard({
   submitting,
 }: {
   asset: BrandTrainingAssetRecord;
-  onArchive: (input: {
-    referenceId: string;
-    trainingCategory: Category;
-    usageMode: UsageMode;
-    analysis: AssetDraft["analysis"];
-  }) => void;
+  onArchive: () => void;
   submitting: boolean;
 }) {
   const t = useTranslations("brandTraining");
   const reviewedAt = formatReviewedAt(asset.reviewedAt);
   const category = (asset.trainingCategory ?? "graphic") as Category;
   const usageMode = (asset.usageMode ?? "reference") as UsageMode;
-  const analysis = asset.trainingAnalysis ?? {
-    description: "",
-    visualAttributes: [],
-    rules: [],
-    constraints: [],
-    confidence: 0,
-  };
   return (
     <li className="space-y-2 rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-3">
       <AssetThumb url={asset.url} label={asset.label} />
@@ -529,14 +529,7 @@ function ApprovedCard({
           type="button"
           variant="ghost"
           disabled={submitting}
-          onClick={() =>
-            onArchive({
-              referenceId: asset.id,
-              trainingCategory: category,
-              usageMode,
-              analysis,
-            })
-          }
+          onClick={onArchive}
         >
           <Archive size={14} className="mr-1" />
           {t("assets.archive")}

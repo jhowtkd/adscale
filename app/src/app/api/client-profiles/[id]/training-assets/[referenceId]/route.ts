@@ -41,10 +41,9 @@ export async function PATCH(
       return apiError("clientProfileNotFound", 404);
     }
 
-    // For usageMode "exact" we must verify the bound workspace asset has an
-    // alpha channel — exact usage requires transparency, otherwise the
-    // asset cannot be composited as a literal element.
-    if (body.usageMode === "exact") {
+    // Exact mode needs alpha only when approving — archive must not be blocked
+    // by compositing rules for an asset leaving the training set.
+    if (body.reviewStatus === "approved" && body.usageMode === "exact") {
       const references = await getTrainingReferences(workspace.id, id);
       const reference = references.find((row) => row.id === referenceId);
       if (!reference) {
@@ -63,7 +62,7 @@ export async function PATCH(
       {
         trainingCategory: body.trainingCategory,
         usageMode: body.usageMode,
-        analysis: body.analysis,
+        analysis: body.analysis ?? null,
         reviewStatus: body.reviewStatus,
         reviewedByUserId: user.id,
       },

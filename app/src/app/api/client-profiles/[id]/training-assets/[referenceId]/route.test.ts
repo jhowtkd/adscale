@@ -252,4 +252,61 @@ describe("PATCH /api/client-profiles/[id]/training-assets/[referenceId]", () => 
       expect.objectContaining({ reviewStatus: "archived" }),
     );
   });
+
+  it("archives with analysis: null (auto-approved upload without AI analysis yet)", async () => {
+    reviewTrainingReference.mockResolvedValue({
+      id: REFERENCE_ID,
+      workspaceId: WORKSPACE_ID,
+      clientProfileId: PROFILE_ID,
+      assetKey: ASSET_KEY,
+      reviewStatus: "archived",
+      trainingCategory: "visual_reference",
+      usageMode: "reference",
+      trainingAnalysis: null,
+      reviewedByUserId: "user-1",
+    });
+
+    const res = await PATCH(
+      patchRequest({
+        trainingCategory: "visual_reference",
+        usageMode: "reference",
+        analysis: null,
+        reviewStatus: "archived",
+      }),
+      { params: Promise.resolve({ id: PROFILE_ID, referenceId: REFERENCE_ID }) },
+    );
+
+    expect(res.status).toBe(200);
+    expect(reviewTrainingReference).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ reviewStatus: "archived", analysis: null }),
+    );
+  });
+
+  it("does not run alpha check when archiving exact-mode assets", async () => {
+    getWorkspaceAssetByKey.mockResolvedValue({
+      id: "asset-1",
+      workspaceId: WORKSPACE_ID,
+      key: ASSET_KEY,
+      metadata: { hasAlpha: false },
+    });
+    reviewTrainingReference.mockResolvedValue({
+      id: REFERENCE_ID,
+      reviewStatus: "archived",
+      usageMode: "exact",
+    });
+
+    const res = await PATCH(
+      patchRequest({
+        trainingCategory: "logo",
+        usageMode: "exact",
+        analysis: null,
+        reviewStatus: "archived",
+      }),
+      { params: Promise.resolve({ id: PROFILE_ID, referenceId: REFERENCE_ID }) },
+    );
+
+    expect(res.status).toBe(200);
+    expect(getWorkspaceAssetByKey).not.toHaveBeenCalled();
+  });
 });

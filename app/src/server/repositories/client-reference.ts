@@ -391,12 +391,16 @@ export async function reviewTrainingReference(
   scope: TrainingReferenceScope,
   review: ReviewTrainingReferenceInput,
 ) {
+  // Archive with null analysis must not wipe existing AI analysis.
+  const preserveAnalysis =
+    review.reviewStatus === "archived" && review.analysis === null;
+
   const [row] = await db
     .update(clientReferences)
     .set({
       trainingCategory: review.trainingCategory,
       usageMode: review.usageMode,
-      trainingAnalysis: review.analysis,
+      ...(preserveAnalysis ? {} : { trainingAnalysis: review.analysis }),
       reviewStatus: review.reviewStatus,
       reviewedAt: new Date(),
       reviewedByUserId: review.reviewedByUserId,

@@ -342,7 +342,7 @@ describe("client-reference repository", () => {
       expect(whereMock).toHaveBeenCalledTimes(1);
     });
 
-    it("sets reviewedAt on archive decisions", async () => {
+    it("sets reviewedAt on archive decisions without wiping analysis", async () => {
       returningMock.mockResolvedValue([{ id: "ref-1", reviewStatus: "archived" }]);
 
       const result = await reviewTrainingReference(
@@ -357,7 +357,14 @@ describe("client-reference repository", () => {
       );
 
       expect(result?.reviewStatus).toBe("archived");
-      expect(setMock).toHaveBeenCalledTimes(1);
+      expect(setMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          reviewStatus: "archived",
+          reviewedByUserId: "user-1",
+        }),
+      );
+      const setArg = setMock.mock.calls[0]?.[0] as Record<string, unknown>;
+      expect(setArg).not.toHaveProperty("trainingAnalysis");
       expect(whereMock).toHaveBeenCalledTimes(1);
     });
   });

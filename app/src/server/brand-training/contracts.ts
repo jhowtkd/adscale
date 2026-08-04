@@ -32,11 +32,12 @@ export const reviewTrainingAssetSchema = z
   .object({
     trainingCategory: z.enum(BRAND_TRAINING_CATEGORIES),
     usageMode: z.enum(BRAND_TRAINING_USAGE_MODES),
-    analysis: brandTrainingAnalysisSchema.nullable(),
+    // Archive may omit analysis (auto-approved uploads often have none yet).
+    analysis: brandTrainingAnalysisSchema.nullable().optional(),
     reviewStatus: z.enum(["approved", "archived"]),
   })
   .superRefine((value, ctx) => {
-    if (value.reviewStatus === "approved" && value.analysis === null) {
+    if (value.reviewStatus === "approved" && value.analysis == null) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["analysis"],
