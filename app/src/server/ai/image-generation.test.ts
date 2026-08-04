@@ -84,7 +84,7 @@ describe("generateAndStoreImage", () => {
     expect(mockOpenAIImages.generate).toHaveBeenCalledTimes(1);
     expect(mockOpenAIImages.generate).toHaveBeenCalledWith(
       expect.objectContaining({ quality: "medium" }),
-      expect.objectContaining({ timeout: 120_000, maxRetries: 0 }),
+      expect.objectContaining({ timeout: 180_000, maxRetries: 1 }),
     );
     expect(mockOpenAIImages.edit).not.toHaveBeenCalled();
     expect(result.imageOperation).toBe("generate");
@@ -154,7 +154,7 @@ describe("generateAndStoreImage", () => {
     });
   });
 
-  it("uses 1024x1280 for 4:5 dimensions (gpt-image-2 target-aspect size)", async () => {
+  it("uses 1088x1360 for 4:5 dimensions (gpt-image-2 target-aspect size)", async () => {
     await generateAndStoreImage({
       ...BASE_INPUT,
       outputPrefix: "creative-work/output-3",
@@ -162,8 +162,8 @@ describe("generateAndStoreImage", () => {
     });
 
     expect(mockOpenAIImages.generate).toHaveBeenCalledWith(
-      expect.objectContaining({ size: "1024x1280" }),
-      expect.objectContaining({ timeout: 120_000, maxRetries: 0 }),
+      expect.objectContaining({ size: "1088x1360" }),
+      expect.objectContaining({ timeout: 180_000, maxRetries: 1 }),
     );
   });
 
@@ -176,11 +176,11 @@ describe("generateAndStoreImage", () => {
 
     expect(mockOpenAIImages.generate).toHaveBeenCalledWith(
       expect.objectContaining({ size: "1152x2048" }),
-      expect.objectContaining({ timeout: 120_000, maxRetries: 0 }),
+      expect.objectContaining({ timeout: 180_000, maxRetries: 1 }),
     );
   });
 
-  it("uses 1024x1024 for 1:1 dimensions", async () => {
+  it("uses 1088x1088 for 1:1 dimensions", async () => {
     await generateAndStoreImage({
       ...BASE_INPUT,
       outputPrefix: "creative-work/output-5",
@@ -188,8 +188,8 @@ describe("generateAndStoreImage", () => {
     });
 
     expect(mockOpenAIImages.generate).toHaveBeenCalledWith(
-      expect.objectContaining({ size: "1024x1024" }),
-      expect.objectContaining({ timeout: 120_000, maxRetries: 0 }),
+      expect.objectContaining({ size: "1088x1088" }),
+      expect.objectContaining({ timeout: 180_000, maxRetries: 1 }),
     );
   });
 

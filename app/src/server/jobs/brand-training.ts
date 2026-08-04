@@ -6,11 +6,14 @@ import {
   BRAND_TRAINING_CATEGORIES,
   BRAND_TRAINING_USAGE_MODES,
   brandTrainingAnalysisSchema,
+  mergeMeasurementIntoAnalysis,
 } from "@/server/brand-training/contracts";
+import { measureImageBuffer } from "@/server/brand-training/measure-image";
 import {
   getTrainingReferenceForAnalysis,
   recordTrainingAnalysis,
 } from "@/server/repositories/client-reference";
+import { getBrandKit } from "@/server/repositories/brand-kit";
 import { objectStorage } from "@/server/storage";
 import { env } from "@/server/validation/env";
 import { normalizeImageForAi } from "@/server/ai/normalize-image-for-ai";
@@ -101,14 +104,31 @@ async function brandTrainingAnalyzeHandler({
 
     const model = env.OPENAI_TEXT_MODEL || "gpt-4o-mini";
 
-    // Download + analyze in one step so image bytes never become Inngest step
-    // output (large PNGs exceed the step output size limit and leave rows
-    // stuck in pending_analysis).
+    // Download once; measure deterministically; vision may still fail without
+    // blocking reanalysis (measurement failure never freezes generation).
     const proposal = await step.run("analyze-with-vision", async () => {
       const result = await objectStorage.get(data.assetKey);
       const raw = Buffer.isBuffer(result)
         ? result
         : Buffer.from((result as unknown as { data: number[] }).data);
+
+      let measurement = null as Awaited<ReturnType<typeof measureImageBuffer>> | null;
+      try {
+        const kit = await getBrandKit(data.workspaceId, data.clientProfileId);
+        const colors = (Array.isArray(kit?.brandColors) ? kit.brandColors : [])
+          .filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
+          .map((hex) => ({ hex }));
+        measurement = await measureImageBuffer(raw, {
+          colorTargets: colors.slice(0, 12),
+        });
+      } catch (error) {
+        logger.warn(
+          `[brandTrainingAnalyzeJob] measurement failed referenceId=${data.referenceId} error=${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+
       const normalized = await normalizeImageForAi({ buffer: raw, mimeType: data.mimeType });
       const dataUri = `data:${normalized.mimeType};base64,${normalized.buffer.toString("base64")}`;
 
@@ -151,7 +171,11 @@ async function brandTrainingAnalyzeHandler({
         );
       }
 
-      return proposalSchema.parse(parsed);
+      const proposal = proposalSchema.parse(parsed);
+      const analysis = measurement
+        ? mergeMeasurementIntoAnalysis(proposal.analysis, measurement)
+        : proposal.analysis;
+      return { ...proposal, analysis: brandTrainingAnalysisSchema.parse(analysis) };
     });
 
     await step.run("persist-proposal", async () => {

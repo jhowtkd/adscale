@@ -1,7 +1,11 @@
 import OpenAI, { toFile } from "openai";
 import { env } from "@/server/validation/env";
 import { logger } from "@/lib/logger";
-import { toOpenAISdkImageSize } from "@/lib/formats";
+import {
+  dimensionsToGptImage2Size,
+  toOpenAISdkImageSize,
+  type OpenAIImageSize,
+} from "@/lib/formats";
 import { fetchProviderUrlSafe } from "@/server/ai/safe-fetch";
 import type {
   ImageCandidate,
@@ -9,29 +13,30 @@ import type {
   ProviderGenerateInput,
 } from "./image-provider";
 
-const REQUEST_OPTIONS = { timeout: 120_000, maxRetries: 0 } as const;
+/**
+ * Transport reliability only — NOT a second creative call.
+ * Creative correction budget (max 2 image calls) is enforced upstream.
+ * Timeout sits above OpenAI's documented "up to 2 minutes" worst case so a
+ * legitimately slow prompt is not aborted at the ceiling.
+ */
+const REQUEST_OPTIONS = { timeout: 180_000, maxRetries: 1 } as const;
 
-function dimensionsToOpenAISdkSize(dimensions: { width: number; height: number }) {
-  const ratio = dimensions.width / dimensions.height;
+function resolveOpenAISize(input: ProviderGenerateInput): OpenAIImageSize {
   const isGptImage2 = env.OPENAI_IMAGE_MODEL.startsWith("gpt-image-2");
-  if (Math.abs(ratio - 1) < 0.05) {
-    return toOpenAISdkImageSize("1024x1024");
+  if (isGptImage2) {
+    return dimensionsToGptImage2Size(input.dimensions);
   }
-  if (ratio < 1) {
-    if (isGptImage2) {
-      return ratio < 0.7
-        ? toOpenAISdkImageSize("1152x2048")
-        : toOpenAISdkImageSize("1024x1280");
-    }
-    return toOpenAISdkImageSize("1024x1536");
-  }
-  return toOpenAISdkImageSize("1536x1024");
+  // Legacy models: square / portrait / landscape SDK enum only.
+  const ratio = input.dimensions.width / input.dimensions.height;
+  if (Math.abs(ratio - 1) < 0.05) return "1024x1024";
+  if (ratio < 1) return "1024x1536";
+  return "1536x1024";
 }
 
 const openai = new OpenAI({
   apiKey: env.OPENAI_API_KEY,
-  timeout: 120_000,
-  maxRetries: 0,
+  timeout: REQUEST_OPTIONS.timeout,
+  maxRetries: REQUEST_OPTIONS.maxRetries,
 });
 
 export class OpenAIImageProvider implements ImageGenerationProvider {
@@ -39,7 +44,7 @@ export class OpenAIImageProvider implements ImageGenerationProvider {
 
   async generate(input: ProviderGenerateInput): Promise<ImageCandidate> {
     const start = Date.now();
-    const openaiSize = dimensionsToOpenAISdkSize(input.dimensions);
+    const openaiSize = toOpenAISdkImageSize(resolveOpenAISize(input));
     let result: OpenAI.Images.Image;
 
     if (input.referenceImages.length > 0) {
@@ -103,3 +108,5 @@ export class OpenAIImageProvider implements ImageGenerationProvider {
     };
   }
 }
+
+

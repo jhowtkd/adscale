@@ -82,26 +82,101 @@ export function getTargetDimensions(formatId: string, isPreview?: boolean): { wi
 // gpt-image-2 (and dated variants like gpt-image-2-2026-04-21) support non-square portrait sizes.
 const GPT_IMAGE_2_PATTERN = /^gpt-image-2/;
 
-// Target-aspect generation sizes supported by gpt-image-2.
-// These intentionally exceed the legacy SDK union type — the cast is isolated here.
-const GPT_IMAGE_2_GENERATION_SIZES: Record<string, string> = {
-  "1:1": "1024x1024",
-  "4:5": "1024x1280",
-  "9:16": "1152x2048",
-};
+/**
+ * gpt-image-2 generation sizes. Edges must be divisible by 16; prefer sizes
+ * larger than the delivery target so the permanent resize is a downscale.
+ * 1080 is not divisible by 16, so final delivery always resizes.
+ * Single table — format id and dimension-ratio paths both read from here.
+ */
+const GPT_IMAGE_2_SIZE_TABLE: ReadonlyArray<{
+  formatId: string;
+  size: OpenAIImageSize;
+  ratio: number;
+}> = [
+  { formatId: "1:1", size: "1088x1088", ratio: 1 },
+  { formatId: "4:5", size: "1088x1360", ratio: 0.8 },
+  { formatId: "9:16", size: "1152x2048", ratio: 9 / 16 },
+  { formatId: "16:9", size: "2048x1152", ratio: 16 / 9 },
+  { formatId: "1.91:1", size: "2048x1072", ratio: 1.91 },
+];
+
+const GPT_IMAGE_2_GENERATION_SIZES: Record<string, OpenAIImageSize> =
+  Object.fromEntries(GPT_IMAGE_2_SIZE_TABLE.map((row) => [row.formatId, row.size]));
 
 export type OpenAIImageSize =
   | "1024x1024"
   | "1024x1536"
   | "1536x1024"
   | "1024x1280"
-  | "1152x2048";
+  | "1088x1088"
+  | "1088x1360"
+  | "1152x2048"
+  | "2048x1072"
+  | "2048x1152";
 
 /** Legacy OpenAI SDK image size union — cast gpt-image-2 sizes only here. */
 export type OpenAISdkImageSize = "1024x1024" | "1024x1536" | "1536x1024";
 
+export function parseOpenAIImageSize(size: string): { width: number; height: number } | null {
+  const match = /^(\d+)x(\d+)$/.exec(size);
+  if (!match) return null;
+  const width = Number(match[1]);
+  const height = Number(match[2]);
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width < 1 || height < 1) {
+    return null;
+  }
+  return { width, height };
+}
+
+/**
+ * gpt-image-2 requires both edges divisible by 16, aspect between 1:3 and 3:1,
+ * and max edge 3840. Throws on illegal sizes so callers never ship a 400.
+ */
+export function assertValidGptImage2Size(size: string): OpenAIImageSize {
+  const dims = parseOpenAIImageSize(size);
+  if (!dims) {
+    throw new Error(`Invalid image size "${size}": expected WIDTHxHEIGHT`);
+  }
+  const { width, height } = dims;
+  if (width % 16 !== 0 || height % 16 !== 0) {
+    throw new Error(
+      `Invalid image size "${size}": width and height must be divisible by 16`,
+    );
+  }
+  if (width > 3840 || height > 3840) {
+    throw new Error(`Invalid image size "${size}": max edge is 3840`);
+  }
+  const ratio = width / height;
+  if (ratio < 1 / 3 || ratio > 3) {
+    throw new Error(`Invalid image size "${size}": aspect ratio must be between 1:3 and 3:1`);
+  }
+  return size as OpenAIImageSize;
+}
+
 export function toOpenAISdkImageSize(size: OpenAIImageSize): OpenAISdkImageSize {
-  return size as OpenAISdkImageSize;
+  return assertValidGptImage2Size(size) as OpenAISdkImageSize;
+}
+
+/**
+ * Pick a gpt-image-2 generation size from target canvas dimensions.
+ * Always returns a size that downscales (or matches) the target aspect —
+ * never a coarser aspect that would force crop/distort.
+ */
+export function dimensionsToGptImage2Size(dimensions: {
+  width: number;
+  height: number;
+}): OpenAIImageSize {
+  const ratio = dimensions.width / dimensions.height;
+  let best = GPT_IMAGE_2_SIZE_TABLE[0]!;
+  let bestDist = Math.abs(ratio - best.ratio);
+  for (const row of GPT_IMAGE_2_SIZE_TABLE) {
+    const dist = Math.abs(ratio - row.ratio);
+    if (dist < bestDist) {
+      best = row;
+      bestDist = dist;
+    }
+  }
+  return assertValidGptImage2Size(best.size);
 }
 
 /**
@@ -123,7 +198,9 @@ export function formatToOpenAIImageSize(
   if (GPT_IMAGE_2_PATTERN.test(modelName)) {
     // gpt-image-2 supports target-aspect sizes; use them even in preview mode
     // so the model never produces a square that then gets blurred-bar padded.
-    return (GPT_IMAGE_2_GENERATION_SIZES[formatId] ?? "1024x1024") as OpenAIImageSize;
+    return assertValidGptImage2Size(
+      GPT_IMAGE_2_GENERATION_SIZES[formatId] ?? "1088x1088",
+    );
   }
 
   // Non-flexible model fallback: preview defaults to square (legacy behaviour),

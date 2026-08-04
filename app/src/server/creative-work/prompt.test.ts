@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type {
   BrandTrainingAnalysis,
@@ -201,6 +203,21 @@ describe("buildSocialPostPrompt", () => {
     expect(prompt).toContain("(no description)");
     expect(prompt).toContain("REFERENCE-MODE DESCRIPTIONS");
     expect(prompt).toContain("ref-null");
+  });
+
+  it("does not ship localhost debug ingest calls in creative-work sources", () => {
+    const dir = join(import.meta.dirname);
+    const sources = readdirSync(dir).filter(
+      (name) => name.endsWith(".ts") && !name.endsWith(".test.ts"),
+    );
+    const leaks: string[] = [];
+    for (const name of sources) {
+      const body = readFileSync(join(dir, name), "utf8");
+      if (/127\.0\.0\.1:7899|#region agent log/.test(body)) {
+        leaks.push(name);
+      }
+    }
+    expect(leaks).toEqual([]);
   });
 
   it("reserves clean placement instructions for exact-mode assets", () => {

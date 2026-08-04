@@ -21,6 +21,8 @@ import { OpenAIImageProvider } from "./openai-image-provider";
 
 const { edit: mockEdit, generate: mockGenerate } = mockOpenAIImages;
 
+const TRANSPORT = { timeout: 180_000, maxRetries: 1 };
+
 describe("OpenAIImageProvider", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -33,7 +35,7 @@ describe("OpenAIImageProvider", () => {
     const provider = new OpenAIImageProvider();
     const result = await provider.generate({
       prompt: "a hero image",
-      dimensions: { width: 1024, height: 1024 },
+      dimensions: { width: 1080, height: 1080 },
       referenceImages: [],
       generationMode: "art_variation",
       outputPrefix: "derivations/test",
@@ -41,8 +43,8 @@ describe("OpenAIImageProvider", () => {
     });
     expect(mockGenerate).toHaveBeenCalledOnce();
     expect(mockGenerate).toHaveBeenCalledWith(
-      expect.objectContaining({ quality: "medium" }),
-      { timeout: 120_000, maxRetries: 0 }
+      expect.objectContaining({ quality: "medium", size: "1088x1088" }),
+      TRANSPORT,
     );
     expect(mockEdit).not.toHaveBeenCalled();
     expect(result.buffer).toBeInstanceOf(Buffer);
@@ -56,7 +58,7 @@ describe("OpenAIImageProvider", () => {
     const provider = new OpenAIImageProvider();
     const result = await provider.generate({
       prompt: "with ref",
-      dimensions: { width: 1024, height: 1280 },
+      dimensions: { width: 1080, height: 1350 },
       referenceImages: [
         { buffer: Buffer.from("ref"), mimeType: "image/png", name: "r.png" },
       ],
@@ -65,8 +67,11 @@ describe("OpenAIImageProvider", () => {
     });
     expect(mockEdit).toHaveBeenCalledOnce();
     expect(mockEdit).toHaveBeenCalledWith(
-      expect.objectContaining({ model: "gpt-image-2-2026-04-21" }),
-      { timeout: 120_000, maxRetries: 0 }
+      expect.objectContaining({
+        model: "gpt-image-2-2026-04-21",
+        size: "1088x1360",
+      }),
+      TRANSPORT,
     );
     expect(mockGenerate).not.toHaveBeenCalled();
     expect(result.providerMeta.model).toBe("gpt-image-2-2026-04-21");
@@ -78,26 +83,52 @@ describe("OpenAIImageProvider", () => {
     await expect(
       provider.generate({
         prompt: "x",
-        dimensions: { width: 1024, height: 1024 },
+        dimensions: { width: 1080, height: 1080 },
         referenceImages: [],
         generationMode: "art_variation",
         outputPrefix: "p",
-      })
+      }),
     ).rejects.toThrow(/No image data/);
   });
 
-  it("disables SDK retries and uses a 120s request timeout", async () => {
+  it("uses transport timeout above the 2-minute worst case with one transport retry", async () => {
     mockGenerate.mockResolvedValue({
       data: [{ b64_json: Buffer.from("png").toString("base64") }],
     });
     const provider = new OpenAIImageProvider();
     await provider.generate({
       prompt: "x",
-      dimensions: { width: 1024, height: 1024 },
+      dimensions: { width: 1080, height: 1080 },
       referenceImages: [],
       generationMode: "art_variation",
       outputPrefix: "p",
     });
-    expect(mockGenerate.mock.calls[0][1]).toEqual({ timeout: 120_000, maxRetries: 0 });
+    // maxRetries here is transport reliability only — not a second creative call.
+    expect(mockGenerate.mock.calls[0][1]).toEqual(TRANSPORT);
+    expect(TRANSPORT.timeout).toBeGreaterThan(120_000);
+    expect(TRANSPORT.maxRetries).toBe(1);
+  });
+
+  it.each([
+    { label: "1:1", dims: { width: 1080, height: 1080 }, size: "1088x1088" },
+    { label: "4:5", dims: { width: 1080, height: 1350 }, size: "1088x1360" },
+    { label: "9:16", dims: { width: 1080, height: 1920 }, size: "1152x2048" },
+    { label: "landscape 1.91:1", dims: { width: 1200, height: 628 }, size: "2048x1072" },
+    { label: "landscape 16:9", dims: { width: 1920, height: 1080 }, size: "2048x1152" },
+  ])("requests $size for $label", async ({ dims, size }) => {
+    mockGenerate.mockResolvedValue({
+      data: [{ b64_json: Buffer.from("png").toString("base64") }],
+    });
+    const provider = new OpenAIImageProvider();
+    await provider.generate({
+      prompt: "x",
+      dimensions: dims,
+      referenceImages: [],
+      generationMode: "art_variation",
+      outputPrefix: "p",
+    });
+    expect(mockGenerate.mock.calls[0][0]).toEqual(
+      expect.objectContaining({ size }),
+    );
   });
 });

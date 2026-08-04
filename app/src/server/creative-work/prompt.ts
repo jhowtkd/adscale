@@ -70,30 +70,6 @@ function describeAnalysisForRule(
   asset: CreativeWorkIdentityAssetSnapshot,
 ): string {
   const a = asset.analysis;
-  // #region agent log
-  if (a == null) {
-    fetch("http://127.0.0.1:7899/ingest/cfdc6907-57c9-49e8-855d-2427aa77ea62", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Debug-Session-Id": "600ace",
-      },
-      body: JSON.stringify({
-        sessionId: "600ace",
-        runId: "post-fix",
-        hypothesisId: "H1",
-        location: "prompt.ts:describeAnalysisForRule",
-        message: "null analysis on rule asset",
-        data: {
-          referenceId: asset.referenceId,
-          usageMode: asset.usageMode,
-          category: asset.category,
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-  }
-  // #endregion
   if (!a) return "";
   const pieces = [a.description, ...(a.rules ?? []), ...(a.constraints ?? [])]
     .filter((piece): piece is string => Boolean(piece && piece.trim().length > 0));
@@ -104,30 +80,6 @@ function describeAnalysisForReference(
   asset: CreativeWorkIdentityAssetSnapshot,
 ): string {
   const a = asset.analysis;
-  // #region agent log
-  if (a == null) {
-    fetch("http://127.0.0.1:7899/ingest/cfdc6907-57c9-49e8-855d-2427aa77ea62", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Debug-Session-Id": "600ace",
-      },
-      body: JSON.stringify({
-        sessionId: "600ace",
-        runId: "post-fix",
-        hypothesisId: "H1",
-        location: "prompt.ts:describeAnalysisForReference",
-        message: "null analysis on reference asset",
-        data: {
-          referenceId: asset.referenceId,
-          usageMode: asset.usageMode,
-          category: asset.category,
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-  }
-  // #endregion
   if (!a) return "";
   const pieces = [a.description, ...(a.visualAttributes ?? [])]
     .filter((piece): piece is string => Boolean(piece && piece.trim().length > 0));

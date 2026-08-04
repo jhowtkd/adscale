@@ -1340,7 +1340,7 @@ describe("derivationJob", () => {
           expect.objectContaining({ name: "style-reference" }),
         ],
       }),
-      expect.objectContaining({ maxRetries: 0, timeout: 120000 }),
+      expect.objectContaining({ maxRetries: 1, timeout: 180000 }),
     );
   });
 
@@ -1713,7 +1713,7 @@ describe("derivationJob — format adaptation generation sizes (gpt-image-2)", (
     (env as unknown as Record<string, string>).OPENAI_IMAGE_MODEL = "gpt-image-1";
   });
 
-  it("4:5 format adaptation edit request receives target-aspect size 1024x1280", async () => {
+  it("4:5 format adaptation edit request receives target-aspect size 1088x1360", async () => {
     mockGetDerivationById.mockResolvedValue({
       id: "size-test-id",
       campaignId: "campaign-id",
@@ -1733,8 +1733,8 @@ describe("derivationJob — format adaptation generation sizes (gpt-image-2)", (
     await runDerivationJob(buildFormatAdaptationJob("4:5"));
 
     expect(mockOpenAIImages.edit).toHaveBeenCalledWith(
-      expect.objectContaining({ size: "1024x1280" }),
-      expect.objectContaining({ maxRetries: 0, timeout: 120000 }),
+      expect.objectContaining({ size: "1088x1360" }),
+      expect.objectContaining({ maxRetries: 1, timeout: 180000 }),
     );
     expect(mockOpenAIImages.edit).not.toHaveBeenCalledWith(
       expect.objectContaining({ size: "1024x1024" })
@@ -1762,7 +1762,7 @@ describe("derivationJob — format adaptation generation sizes (gpt-image-2)", (
 
     expect(mockOpenAIImages.edit).toHaveBeenCalledWith(
       expect.objectContaining({ size: "1152x2048" }),
-      expect.objectContaining({ maxRetries: 0, timeout: 120000 }),
+      expect.objectContaining({ maxRetries: 1, timeout: 180000 }),
     );
     expect(mockOpenAIImages.edit).not.toHaveBeenCalledWith(
       expect.objectContaining({ size: "1024x1024" })
@@ -1792,8 +1792,8 @@ describe("derivationJob — format adaptation generation sizes (gpt-image-2)", (
       expect.objectContaining({ size: "1024x1024" })
     );
     expect(mockOpenAIImages.edit).toHaveBeenCalledWith(
-      expect.objectContaining({ size: "1024x1280" }),
-      expect.objectContaining({ maxRetries: 0, timeout: 120000 }),
+      expect.objectContaining({ size: "1088x1360" }),
+      expect.objectContaining({ maxRetries: 1, timeout: 180000 }),
     );
   });
 
@@ -1821,7 +1821,7 @@ describe("derivationJob — format adaptation generation sizes (gpt-image-2)", (
     );
     expect(mockOpenAIImages.edit).toHaveBeenCalledWith(
       expect.objectContaining({ size: "1152x2048" }),
-      expect.objectContaining({ maxRetries: 0, timeout: 120000 }),
+      expect.objectContaining({ maxRetries: 1, timeout: 180000 }),
     );
   });
 
