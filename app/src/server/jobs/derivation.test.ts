@@ -1340,7 +1340,7 @@ describe("derivationJob", () => {
           expect.objectContaining({ name: "style-reference" }),
         ],
       }),
-      expect.objectContaining({ maxRetries: 1, timeout: 180000 }),
+      expect.objectContaining({ maxRetries: 0, timeout: 180000 }),
     );
   });
 
@@ -1734,7 +1734,7 @@ describe("derivationJob — format adaptation generation sizes (gpt-image-2)", (
 
     expect(mockOpenAIImages.edit).toHaveBeenCalledWith(
       expect.objectContaining({ size: "1088x1360" }),
-      expect.objectContaining({ maxRetries: 1, timeout: 180000 }),
+      expect.objectContaining({ maxRetries: 0, timeout: 180000 }),
     );
     expect(mockOpenAIImages.edit).not.toHaveBeenCalledWith(
       expect.objectContaining({ size: "1024x1024" })
@@ -1762,7 +1762,7 @@ describe("derivationJob — format adaptation generation sizes (gpt-image-2)", (
 
     expect(mockOpenAIImages.edit).toHaveBeenCalledWith(
       expect.objectContaining({ size: "1152x2048" }),
-      expect.objectContaining({ maxRetries: 1, timeout: 180000 }),
+      expect.objectContaining({ maxRetries: 0, timeout: 180000 }),
     );
     expect(mockOpenAIImages.edit).not.toHaveBeenCalledWith(
       expect.objectContaining({ size: "1024x1024" })
@@ -1793,7 +1793,7 @@ describe("derivationJob — format adaptation generation sizes (gpt-image-2)", (
     );
     expect(mockOpenAIImages.edit).toHaveBeenCalledWith(
       expect.objectContaining({ size: "1088x1360" }),
-      expect.objectContaining({ maxRetries: 1, timeout: 180000 }),
+      expect.objectContaining({ maxRetries: 0, timeout: 180000 }),
     );
   });
 
@@ -1821,7 +1821,7 @@ describe("derivationJob — format adaptation generation sizes (gpt-image-2)", (
     );
     expect(mockOpenAIImages.edit).toHaveBeenCalledWith(
       expect.objectContaining({ size: "1152x2048" }),
-      expect.objectContaining({ maxRetries: 1, timeout: 180000 }),
+      expect.objectContaining({ maxRetries: 0, timeout: 180000 }),
     );
   });
 

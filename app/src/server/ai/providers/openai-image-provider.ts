@@ -14,12 +14,16 @@ import type {
 } from "./image-provider";
 
 /**
- * Transport reliability only — NOT a second creative call.
- * Creative correction budget (max 2 image calls) is enforced upstream.
  * Timeout sits above OpenAI's documented "up to 2 minutes" worst case so a
  * legitimately slow prompt is not aborted at the ceiling.
+ *
+ * maxRetries stays 0 on purpose: the OpenAI SDK retries the HTTP request on
+ * timeout/408/429/5xx, and a server-side image generation that finishes after
+ * the client timed out can still be billed. Spec budget is max 2 provider
+ * image calls per output (creative correction is the second). SDK retries
+ * would silently multiply billed calls without the upstream counter seeing them.
  */
-const REQUEST_OPTIONS = { timeout: 180_000, maxRetries: 1 } as const;
+const REQUEST_OPTIONS = { timeout: 180_000, maxRetries: 0 } as const;
 
 function resolveOpenAISize(input: ProviderGenerateInput): OpenAIImageSize {
   const isGptImage2 = env.OPENAI_IMAGE_MODEL.startsWith("gpt-image-2");

@@ -84,7 +84,7 @@ describe("generateAndStoreImage", () => {
     expect(mockOpenAIImages.generate).toHaveBeenCalledTimes(1);
     expect(mockOpenAIImages.generate).toHaveBeenCalledWith(
       expect.objectContaining({ quality: "medium" }),
-      expect.objectContaining({ timeout: 180_000, maxRetries: 1 }),
+      expect.objectContaining({ timeout: 180_000, maxRetries: 0 }),
     );
     expect(mockOpenAIImages.edit).not.toHaveBeenCalled();
     expect(result.imageOperation).toBe("generate");
@@ -163,7 +163,7 @@ describe("generateAndStoreImage", () => {
 
     expect(mockOpenAIImages.generate).toHaveBeenCalledWith(
       expect.objectContaining({ size: "1088x1360" }),
-      expect.objectContaining({ timeout: 180_000, maxRetries: 1 }),
+      expect.objectContaining({ timeout: 180_000, maxRetries: 0 }),
     );
   });
 
@@ -176,7 +176,7 @@ describe("generateAndStoreImage", () => {
 
     expect(mockOpenAIImages.generate).toHaveBeenCalledWith(
       expect.objectContaining({ size: "1152x2048" }),
-      expect.objectContaining({ timeout: 180_000, maxRetries: 1 }),
+      expect.objectContaining({ timeout: 180_000, maxRetries: 0 }),
     );
   });
 
@@ -189,7 +189,7 @@ describe("generateAndStoreImage", () => {
 
     expect(mockOpenAIImages.generate).toHaveBeenCalledWith(
       expect.objectContaining({ size: "1088x1088" }),
-      expect.objectContaining({ timeout: 180_000, maxRetries: 1 }),
+      expect.objectContaining({ timeout: 180_000, maxRetries: 0 }),
     );
   });
 

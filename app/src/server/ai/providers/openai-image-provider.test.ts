@@ -21,7 +21,7 @@ import { OpenAIImageProvider } from "./openai-image-provider";
 
 const { edit: mockEdit, generate: mockGenerate } = mockOpenAIImages;
 
-const TRANSPORT = { timeout: 180_000, maxRetries: 1 };
+const TRANSPORT = { timeout: 180_000, maxRetries: 0 };
 
 describe("OpenAIImageProvider", () => {
   beforeEach(() => {
@@ -91,7 +91,7 @@ describe("OpenAIImageProvider", () => {
     ).rejects.toThrow(/No image data/);
   });
 
-  it("uses transport timeout above the 2-minute worst case with one transport retry", async () => {
+  it("uses timeout above the 2-minute worst case and zero SDK retries", async () => {
     mockGenerate.mockResolvedValue({
       data: [{ b64_json: Buffer.from("png").toString("base64") }],
     });
@@ -103,10 +103,11 @@ describe("OpenAIImageProvider", () => {
       generationMode: "art_variation",
       outputPrefix: "p",
     });
-    // maxRetries here is transport reliability only — not a second creative call.
+    // maxRetries: 0 — SDK HTTP retries would bill extra image gens outside the
+    // upstream 2-call creative budget.
     expect(mockGenerate.mock.calls[0][1]).toEqual(TRANSPORT);
     expect(TRANSPORT.timeout).toBeGreaterThan(120_000);
-    expect(TRANSPORT.maxRetries).toBe(1);
+    expect(TRANSPORT.maxRetries).toBe(0);
   });
 
   it.each([

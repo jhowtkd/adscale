@@ -388,7 +388,7 @@ describe("executeGenerationStep", () => {
     expect(mockOpenAIImages.edit).toHaveBeenCalledTimes(1);
     expect(mockOpenAIImages.edit).toHaveBeenCalledWith(
       expect.objectContaining({ image: [expect.anything(), expect.anything()] }),
-      expect.objectContaining({ maxRetries: 1, timeout: 180000 }),
+      expect.objectContaining({ maxRetries: 0, timeout: 180000 }),
     );
     expect(result.imageOperation).toBe("edit");
   });
@@ -410,7 +410,7 @@ describe("executeGenerationStep", () => {
 
     expect(mockOpenAIImages.edit).toHaveBeenCalledWith(
       expect.objectContaining({ image: [expect.anything(), expect.anything(), expect.anything()] }),
-      expect.objectContaining({ maxRetries: 1, timeout: 180000 }),
+      expect.objectContaining({ maxRetries: 0, timeout: 180000 }),
     );
   });
 
@@ -446,13 +446,13 @@ describe("executeGenerationStep", () => {
       expect.objectContaining({
         prompt: expect.stringContaining("AUTO-RETRY CORRECTION"),
       }),
-      expect.objectContaining({ maxRetries: 1, timeout: 180000 }),
+      expect.objectContaining({ maxRetries: 0, timeout: 180000 }),
     );
     expect(mockOpenAIImages.edit).toHaveBeenCalledWith(
       expect.objectContaining({
         prompt: expect.stringContaining("Fix CTA drift"),
       }),
-      expect.objectContaining({ maxRetries: 1, timeout: 180000 }),
+      expect.objectContaining({ maxRetries: 0, timeout: 180000 }),
     );
     expect(result.outputKey).toMatch(/^derivations\/derivation-retry\/\d+-retry\.png$/);
     expect(mockOpenAIImages.generate).not.toHaveBeenCalled();
