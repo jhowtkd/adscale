@@ -15,6 +15,10 @@ import {
 import { getClientProfiles } from "@/server/repositories/client-reference";
 import { objectStorage } from "@/server/storage";
 import { isWorkspaceAssetKey } from "@/server/repositories/asset";
+import {
+  sanitizeBrandColors,
+  sanitizeBrandFonts,
+} from "@/server/brand-kit/sanitize";
 
 const brandKitSchema = z.object({
   clientProfileId: z.string().uuid().optional(),
@@ -30,6 +34,34 @@ const brandKitSchema = z.object({
   prohibitedElements: z.string().trim().max(1000).optional(),
   requiredElements: z.string().trim().max(1000).optional(),
 });
+
+/** AI extract / loose UI can ship junk colors/fonts — sanitize before Zod. */
+function preprocessBrandKitBody(body: unknown): unknown {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return body;
+  const raw = body as Record<string, unknown>;
+  const next = { ...raw };
+  if ("brandColors" in raw) next.brandColors = sanitizeBrandColors(raw.brandColors);
+  if ("brandFonts" in raw) next.brandFonts = sanitizeBrandFonts(raw.brandFonts);
+  // Empty optional strings → omit so trim().min(1) fields don't 400 on "".
+  for (const key of [
+    "name",
+    "description",
+    "visualNotes",
+    "toneNotes",
+    "constraints",
+    "toneOfVoice",
+    "prohibitedElements",
+    "requiredElements",
+  ] as const) {
+    if (typeof next[key] === "string" && next[key].trim() === "") {
+      delete next[key];
+    }
+  }
+  if (next.clientProfileId === "" || next.clientProfileId === null) {
+    delete next.clientProfileId;
+  }
+  return next;
+}
 
 function readClientProfileId(request: Request) {
   return new URL(request.url).searchParams.get("clientProfileId");
@@ -115,7 +147,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const { workspace } = await requireWorkspaceAccess(request);
-    const body = await request.json();
+    const body = preprocessBrandKitBody(await request.json());
     const parsed = brandKitSchema.safeParse(body);
 
     if (!parsed.success) {

@@ -22,6 +22,10 @@ import {
 } from "@/server/repositories/workspace-asset";
 import { normalizeTrainingUpload } from "@/server/brand-training/upload";
 import { upsertBrandKit, resolveBrandKitProfileId } from "@/server/repositories/brand-kit";
+import {
+  sanitizeBrandColors,
+  sanitizeBrandFonts,
+} from "@/server/brand-kit/sanitize";
 import { inngest } from "@/server/jobs/client";
 import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 
@@ -209,8 +213,8 @@ export async function POST(request: Request) {
       await upsertBrandKit(
         workspace.id,
         {
-          brandColors: result.brandKit.colors ?? [],
-          brandFonts: result.brandKit.fonts ?? [],
+          brandColors: sanitizeBrandColors(result.brandKit.colors ?? []),
+          brandFonts: sanitizeBrandFonts(result.brandKit.fonts ?? []),
           toneOfVoice: result.brandKit.toneOfVoice ?? "",
           prohibitedElements: result.brandKit.prohibitedElements ?? "",
           requiredElements: result.brandKit.requiredElements ?? "",

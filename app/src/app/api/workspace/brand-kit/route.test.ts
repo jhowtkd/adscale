@@ -137,6 +137,36 @@ describe("POST /api/workspace/brand-kit", () => {
       PROFILE_A
     );
   });
+
+  it("sanitizes AI junk colors/fonts instead of 400", async () => {
+    mockUpsertBrandKit.mockResolvedValue({
+      id: PROFILE_A,
+      logoAssetKey: null,
+    } as Awaited<ReturnType<typeof upsertBrandKit>>);
+
+    const res = await POST(
+      new Request("http://localhost/api/workspace/brand-kit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientProfileId: PROFILE_A,
+          brandColors: ["#0a0", "navy", "rgb(1,2,3)", "#FF00AA"],
+          brandFonts: [" Inter ", "", "Roboto"],
+          toneOfVoice: "",
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockUpsertBrandKit).toHaveBeenCalledWith(
+      "workspace-1",
+      {
+        brandColors: ["#00AA00", "#FF00AA"],
+        brandFonts: ["Inter", "Roboto"],
+      },
+      PROFILE_A,
+    );
+  });
 });
 
 describe("DELETE /api/workspace/brand-kit", () => {

@@ -119,7 +119,9 @@ export function useExtractVoice(clientProfileId: string | null) {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ creativeDescriptions }),
+          body: JSON.stringify(
+            creativeDescriptions !== undefined ? { creativeDescriptions } : {},
+          ),
           timeoutMs: 120_000,
         },
       );

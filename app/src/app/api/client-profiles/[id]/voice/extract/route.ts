@@ -10,7 +10,11 @@ import {
   toOlharVoiceConfigPayload,
 } from "@/server/ai/voices/voice-extractor";
 import { getBrandKit } from "@/server/repositories/brand-kit";
-import { getClientProfile, getClientReferences } from "@/server/repositories/client-reference";
+import {
+  getApprovedTrainingReferences,
+  getClientProfile,
+  getClientReferences,
+} from "@/server/repositories/client-reference";
 import { upsertOlharVoiceConfig } from "@/server/repositories/client-profile-olhar-config";
 
 const extractVoiceSchema = z
@@ -54,17 +58,52 @@ export async function POST(
       return apiError("clientProfileNotFound", 404);
     }
 
-    const [brandKit, references] = await Promise.all([
+    const [brandKit, references, trainingRefs] = await Promise.all([
       getBrandKit(workspace.id, id),
       getClientReferences(workspace.id, id),
+      getApprovedTrainingReferences(workspace.id, id),
     ]);
 
-    // Build captions for example creatives from style/product/layout refs.
-    const creativeDescriptions = parsed.data.creativeDescriptions ??
-      references
-        .filter((r) => r.kind === "style" || r.kind === "product" || r.kind === "layout")
-        .map((r) => r.notes ?? r.label)
-        .filter((s): s is string => Boolean(s && s.trim()));
+    // Prefer explicit captions; else legacy style/product/layout notes +
+    // approved brand-training analysis (kind is "other", so legacy filter misses them).
+    const fromLegacy = references
+      .filter((r) => r.kind === "style" || r.kind === "product" || r.kind === "layout")
+      .map((r) => r.notes ?? r.label)
+      .filter((s): s is string => Boolean(s && s.trim()));
+    const fromTraining = trainingRefs
+      .map((r) => {
+        const analysis = r.trainingAnalysis as { description?: unknown } | null;
+        const description =
+          analysis && typeof analysis.description === "string"
+            ? analysis.description.trim()
+            : "";
+        return description || r.label?.trim() || "";
+      })
+      .filter((s) => s.length > 0);
+    const creativeDescriptions = (
+      parsed.data.creativeDescriptions?.length
+        ? parsed.data.creativeDescriptions
+        : [...fromTraining, ...fromLegacy]
+    )
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 20);
+
+    const hasTextInput = Boolean(
+      brandKit?.toneOfVoice?.trim() ||
+        brandKit?.visualNotes?.trim() ||
+        brandKit?.toneNotes?.trim() ||
+        brandKit?.constraints?.trim() ||
+        brandKit?.prohibitedElements?.trim() ||
+        brandKit?.requiredElements?.trim() ||
+        creativeDescriptions.length > 0,
+    );
+    if (!hasTextInput) {
+      return apiError("invalidInput", 400, {
+        message:
+          "Preencha tom de voz, notas do brand kit ou aprove materiais de treino antes de gerar a voz.",
+      });
+    }
 
     const inputsHash = createHash("sha256")
       .update(
@@ -73,6 +112,8 @@ export async function POST(
           visualNotes: brandKit?.visualNotes ?? null,
           toneNotes: brandKit?.toneNotes ?? null,
           constraints: brandKit?.constraints ?? null,
+          prohibitedElements: brandKit?.prohibitedElements ?? null,
+          requiredElements: brandKit?.requiredElements ?? null,
           creativeDescriptions,
         }),
       )
@@ -91,10 +132,19 @@ export async function POST(
       toneOfVoice: brandKit?.toneOfVoice ?? null,
       visualNotes: brandKit?.visualNotes ?? null,
       toneNotes: brandKit?.toneNotes ?? null,
-      constraints: brandKit?.constraints ?? null,
+      constraints: [
+        brandKit?.constraints,
+        brandKit?.prohibitedElements
+          ? `Prohibited: ${brandKit.prohibitedElements}`
+          : null,
+        brandKit?.requiredElements
+          ? `Required: ${brandKit.requiredElements}`
+          : null,
+      ]
+        .filter((s): s is string => Boolean(s && s.trim()))
+        .join("\n") || null,
       creativeDescriptions,
     });
-
     const configPayload = toOlharVoiceConfigPayload(extracted);
     const config = await upsertOlharVoiceConfig({
       workspaceId: workspace.id,
