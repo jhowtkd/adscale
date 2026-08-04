@@ -14,26 +14,44 @@ import {
 } from "@/server/repositories/brand-kit";
 import { getClientProfiles } from "@/server/repositories/client-reference";
 import { objectStorage } from "@/server/storage";
-import { isWorkspaceAssetKey } from "@/server/repositories/asset";
 import {
   sanitizeBrandColors,
   sanitizeBrandFonts,
 } from "@/server/brand-kit/sanitize";
 
+const TEXT_LIMITS = {
+  name: 120,
+  description: 500,
+  visualNotes: 1000,
+  toneNotes: 1000,
+  constraints: 1000,
+  toneOfVoice: 1000,
+  prohibitedElements: 1000,
+  requiredElements: 1000,
+} as const;
+
 const brandKitSchema = z.object({
   clientProfileId: z.string().uuid().optional(),
-  name: z.string().trim().min(1).max(120).optional(),
-  description: z.string().trim().max(500).optional(),
-  visualNotes: z.string().trim().max(1000).optional(),
-  toneNotes: z.string().trim().max(1000).optional(),
-  constraints: z.string().trim().max(1000).optional(),
+  name: z.string().trim().min(1).max(TEXT_LIMITS.name).optional(),
+  description: z.string().trim().max(TEXT_LIMITS.description).optional(),
+  visualNotes: z.string().trim().max(TEXT_LIMITS.visualNotes).optional(),
+  toneNotes: z.string().trim().max(TEXT_LIMITS.toneNotes).optional(),
+  constraints: z.string().trim().max(TEXT_LIMITS.constraints).optional(),
   brandColors: z.array(z.string().regex(/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/)).max(50).optional(),
   brandFonts: z.array(z.string().trim().min(1)).max(50).optional(),
   logoAssetKey: z.string().trim().min(1).optional().nullable(),
-  toneOfVoice: z.string().trim().max(1000).optional(),
-  prohibitedElements: z.string().trim().max(1000).optional(),
-  requiredElements: z.string().trim().max(1000).optional(),
+  toneOfVoice: z.string().trim().max(TEXT_LIMITS.toneOfVoice).optional(),
+  prohibitedElements: z.string().trim().max(TEXT_LIMITS.prohibitedElements).optional(),
+  requiredElements: z.string().trim().max(TEXT_LIMITS.requiredElements).optional(),
 });
+
+/**
+ * Brand-kit logos live under workspaces/{id}/brand-kit/... as object-storage
+ * keys + client_references — NOT campaign_assets. Path ownership is the check.
+ */
+export function isBrandKitOwnedAssetKey(workspaceId: string, key: string): boolean {
+  return key.startsWith(`workspaces/${workspaceId}/`);
+}
 
 /** AI extract / loose UI can ship junk colors/fonts — sanitize before Zod. */
 function preprocessBrandKitBody(body: unknown): unknown {
@@ -42,23 +60,21 @@ function preprocessBrandKitBody(body: unknown): unknown {
   const next = { ...raw };
   if ("brandColors" in raw) next.brandColors = sanitizeBrandColors(raw.brandColors);
   if ("brandFonts" in raw) next.brandFonts = sanitizeBrandFonts(raw.brandFonts);
-  // Empty optional strings → omit so trim().min(1) fields don't 400 on "".
-  for (const key of [
-    "name",
-    "description",
-    "visualNotes",
-    "toneNotes",
-    "constraints",
-    "toneOfVoice",
-    "prohibitedElements",
-    "requiredElements",
-  ] as const) {
-    if (typeof next[key] === "string" && next[key].trim() === "") {
+  for (const [key, max] of Object.entries(TEXT_LIMITS)) {
+    const value = next[key];
+    if (typeof value !== "string") continue;
+    const trimmed = value.trim();
+    if (trimmed === "") {
       delete next[key];
+    } else {
+      next[key] = trimmed.slice(0, max);
     }
   }
   if (next.clientProfileId === "" || next.clientProfileId === null) {
     delete next.clientProfileId;
+  }
+  if (next.logoAssetKey === "") {
+    next.logoAssetKey = null;
   }
   return next;
 }
@@ -154,13 +170,13 @@ export async function POST(request: Request) {
       return apiError("invalidInput", 400, parsed.error.flatten());
     }
 
-    if (parsed.data.logoAssetKey) {
-      const valid = await isWorkspaceAssetKey(workspace.id, parsed.data.logoAssetKey);
-      if (!valid) {
-        return apiError("invalidInput", 400, {
-          detail: "logoAssetKey does not belong to this workspace",
-        });
-      }
+    if (
+      parsed.data.logoAssetKey &&
+      !isBrandKitOwnedAssetKey(workspace.id, parsed.data.logoAssetKey)
+    ) {
+      return apiError("invalidInput", 400, {
+        detail: "logoAssetKey does not belong to this workspace",
+      });
     }
 
     const { clientProfileId, ...brandKitData } = parsed.data;

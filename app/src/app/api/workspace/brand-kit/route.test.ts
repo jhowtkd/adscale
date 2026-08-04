@@ -41,10 +41,6 @@ vi.mock("@/server/storage", () => ({
     delete: vi.fn(),
   },}));
 
-vi.mock("@/server/repositories/asset", () => ({
-  isWorkspaceAssetKey: vi.fn(() => Promise.resolve(true)),
-}));
-
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
 }));
@@ -164,6 +160,75 @@ describe("POST /api/workspace/brand-kit", () => {
         brandColors: ["#00AA00", "#FF00AA"],
         brandFonts: ["Inter", "Roboto"],
       },
+      PROFILE_A,
+    );
+  });
+
+  it("accepts brand-kit logo keys under workspaces/{id}/ (not campaign_assets)", async () => {
+    const logoKey = "workspaces/workspace-1/brand-kit/abc-logo.png";
+    mockUpsertBrandKit.mockResolvedValue({
+      id: PROFILE_A,
+      logoAssetKey: logoKey,
+    } as Awaited<ReturnType<typeof upsertBrandKit>>);
+
+    const res = await POST(
+      new Request("http://localhost/api/workspace/brand-kit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientProfileId: PROFILE_A,
+          name: "CENBRAP",
+          logoAssetKey: logoKey,
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockUpsertBrandKit).toHaveBeenCalledWith(
+      "workspace-1",
+      { name: "CENBRAP", logoAssetKey: logoKey },
+      PROFILE_A,
+    );
+  });
+
+  it("rejects logo keys outside the workspace prefix", async () => {
+    const res = await POST(
+      new Request("http://localhost/api/workspace/brand-kit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientProfileId: PROFILE_A,
+          logoAssetKey: "workspaces/other-ws/brand-kit/x.png",
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(mockUpsertBrandKit).not.toHaveBeenCalled();
+  });
+
+  it("truncates overlong AI text fields instead of 400", async () => {
+    mockUpsertBrandKit.mockResolvedValue({
+      id: PROFILE_A,
+      logoAssetKey: null,
+    } as Awaited<ReturnType<typeof upsertBrandKit>>);
+
+    const longTone = "a".repeat(2500);
+    const res = await POST(
+      new Request("http://localhost/api/workspace/brand-kit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientProfileId: PROFILE_A,
+          toneOfVoice: longTone,
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockUpsertBrandKit).toHaveBeenCalledWith(
+      "workspace-1",
+      { toneOfVoice: "a".repeat(1000) },
       PROFILE_A,
     );
   });
