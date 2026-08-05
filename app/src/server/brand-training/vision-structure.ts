@@ -68,12 +68,10 @@ export const layoutZoneSchema = z
     }
   });
 
-export const visionStructureSchema = z.object({
+const visionStructureFields = {
   version: z.literal(VISION_STRUCTURE_VERSION),
   /** provenance of this block — never "measurement". */
   source: z.enum(["vision", "human"]),
-  /** Always ISO-8601 from the server clock for vision; human may set freely. */
-  inferredAt: z.string().datetime(),
   zones: z.array(layoutZoneSchema).max(24).nullable(),
   archetype: z
     .object({
@@ -128,10 +126,34 @@ export const visionStructureSchema = z.object({
     })
     .nullable(),
   overallConfidence: confidence,
+} as const;
+
+/**
+ * Write path: strict ISO-8601 with Z (server clock).
+ * Read path: any non-empty string so legacy rows and human UI offsets still load.
+ */
+export const visionStructureSchema = z.object({
+  ...visionStructureFields,
+  inferredAt: z.string().datetime(),
+});
+
+/** Lenient read for persisted JSON (legacy free-text timestamps still unlock human lock). */
+export const visionStructureReadSchema = z.object({
+  ...visionStructureFields,
+  inferredAt: z.string().min(1),
 });
 
 export type VisionStructure = z.infer<typeof visionStructureSchema>;
 export type LayoutZone = z.infer<typeof layoutZoneSchema>;
+
+/** Coarse layout band for prompt text — not a measured pixel quantity. */
+export function zoneBand(zone: Pick<LayoutZone, "x" | "y" | "width" | "height">): string {
+  const cx = zone.x + zone.width / 2;
+  const cy = zone.y + zone.height / 2;
+  const v = cy < 0.33 ? "top" : cy > 0.66 ? "bottom" : "mid";
+  const h = cx < 0.33 ? "left" : cx > 0.66 ? "right" : "center";
+  return `${v}-${h}`;
+}
 
 /**
  * Parse model JSON into structure. Unknown roles / impossible coords fail.

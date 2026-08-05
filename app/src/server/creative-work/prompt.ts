@@ -1,6 +1,7 @@
 import "server-only";
 import { logger } from "@/lib/logger";
 import type { GenerationMode } from "@/server/generation/canonical/types";
+import { zoneBand } from "@/server/brand-training/vision-structure";
 import type {
   CreativeFact,
   CreativeLevel,
@@ -76,22 +77,26 @@ function describeAnalysisForRule(
   return pieces.join(" | ");
 }
 
+const STRUCTURE_PROMPT_FLOOR = 0.5;
+
 function describeStructureHint(
   analysis: NonNullable<CreativeWorkIdentityAssetSnapshot["analysis"]>,
 ): string {
   // Vision inference only — never restate measurement percentages here.
+  // Labels only above floor; no raw confidence floats (they read as false authority).
   const s = analysis.structure;
   if (!s) return "";
   const bits: string[] = [];
-  if (s.archetype) {
-    bits.push(
-      `archetype=${s.archetype.id} (${s.source} conf=${s.archetype.confidence.toFixed(2)})`,
-    );
+  if (s.archetype && s.archetype.confidence >= STRUCTURE_PROMPT_FLOOR) {
+    bits.push(`archetype=${s.archetype.id}`);
   }
-  if (s.media?.type) {
+  if (s.media?.type && s.media.confidence >= STRUCTURE_PROMPT_FLOOR) {
     bits.push(`media=${s.media.type}`);
   }
-  if (s.accentPlacement?.inHighlightPosition != null) {
+  if (
+    s.accentPlacement?.inHighlightPosition != null &&
+    s.accentPlacement.confidence >= STRUCTURE_PROMPT_FLOOR
+  ) {
     bits.push(
       s.accentPlacement.inHighlightPosition
         ? "accent-in-highlight-position"
@@ -99,7 +104,13 @@ function describeStructureHint(
     );
   }
   if (s.zones && s.zones.length > 0) {
-    bits.push(`zones=${s.zones.map((z) => z.role).join("+")}`);
+    // Coarse band (top-left …) — position without sounding like measured px/%.
+    const kept = s.zones.filter((z) => z.confidence >= STRUCTURE_PROMPT_FLOOR);
+    if (kept.length > 0) {
+      bits.push(
+        `zones=${kept.map((z) => `${z.role}@${zoneBand(z)}`).join("+")}`,
+      );
+    }
   }
   return bits.length > 0 ? `structure[${s.source}]: ${bits.join("; ")}` : "";
 }

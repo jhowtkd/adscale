@@ -110,48 +110,7 @@ describe("brand training contracts", () => {
     ).toBe(false);
   });
 
-  it("does not overwrite human-locked structure on merge", () => {
-    const human: BrandTrainingAnalysis = {
-      description: "Human edited",
-      visualAttributes: [],
-      rules: [],
-      constraints: [],
-      confidence: 1,
-      structure: {
-        version: 1,
-        source: "human",
-        inferredAt: "2026-08-01T00:00:00.000Z",
-        zones: null,
-        archetype: { id: "text_led_card", confidence: 1 },
-        typography: null,
-        grid: null,
-        media: null,
-        contentPattern: null,
-        accentPlacement: null,
-        authenticityRisk: null,
-        overallConfidence: 1,
-      },
-    };
-    const incoming: VisionStructure = {
-      version: 1,
-      source: "vision",
-      inferredAt: "2026-08-05T00:00:00.000Z",
-      zones: null,
-      archetype: { id: "modular_card", confidence: 0.9 },
-      typography: null,
-      grid: null,
-      media: null,
-      contentPattern: null,
-      accentPlacement: null,
-      authenticityRisk: null,
-      overallConfidence: 0.9,
-    };
-    const merged = mergeStructureIntoAnalysis(human, incoming);
-    expect(merged.structure?.source).toBe("human");
-    expect(merged.structure?.archetype?.id).toBe("text_led_card");
-  });
-
-  it("preserveHumanStructure restores lock even when vision parse was null", () => {
+  it("preserveHumanStructure is the sole human-lock owner after a null vision parse", () => {
     const prior: BrandTrainingAnalysis = {
       description: "prior",
       visualAttributes: [],

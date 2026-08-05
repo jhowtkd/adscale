@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { DETERMINISTIC_MEASUREMENT_VERSION } from "./measure-image";
 import {
+  visionStructureReadSchema,
   visionStructureSchema,
   type VisionStructure,
 } from "./vision-structure";
@@ -87,11 +88,17 @@ export const brandTrainingAnalysisSchema = z.object({
   /**
    * Vision/structure inference only. Never store measured quantities here.
    * Optional — assets analyzed before structure layer still validate.
+   * Read-lenient so legacy free-text `inferredAt` still loads (write path is strict).
    */
-  structure: visionStructureSchema.optional(),
+  structure: visionStructureReadSchema.optional(),
 });
 
 export type BrandTrainingAnalysis = z.infer<typeof brandTrainingAnalysisSchema>;
+
+/** Minimal prior shape needed to keep a human lock across reanalysis. */
+export type PriorStructureHolder = {
+  structure?: z.infer<typeof visionStructureReadSchema>;
+} | null | undefined;
 
 /**
  * Merge a fresh measurement into analysis without clobbering human-edited prose.
@@ -105,32 +112,29 @@ export function mergeMeasurementIntoAnalysis(
 }
 
 /**
- * Merge vision structure without clobbering a human-locked structure block
- * or the deterministic measurement block.
- * Pass `structure: null` to clear a prior vision inference while keeping human lock.
+ * Apply a new vision structure (or clear it). Does not enforce human lock —
+ * call `preserveHumanStructure` after this so a null parse cannot wipe humans.
  */
 export function mergeStructureIntoAnalysis(
   analysis: BrandTrainingAnalysis,
   structure: VisionStructure | null,
 ): BrandTrainingAnalysis {
-  if (analysis.structure?.source === "human") {
-    return analysis;
-  }
   if (structure == null) {
     const { structure: _drop, ...rest } = analysis;
     return rest;
   }
-  return { ...analysis, structure };
+  // Write-strict: normalize to datetime Z before persist.
+  return { ...analysis, structure: visionStructureSchema.parse(structure) };
 }
 
 /**
  * Carry forward a human-locked structure from a prior analysis onto a fresh one.
  * Call this even when the new vision parse failed (null), so reanalysis never
- * silently wipes a human correction.
+ * silently wipes a human correction. Sole owner of the human-lock invariant.
  */
 export function preserveHumanStructure(
   next: BrandTrainingAnalysis,
-  prior: BrandTrainingAnalysis | null | undefined,
+  prior: PriorStructureHolder,
 ): BrandTrainingAnalysis {
   if (prior?.structure?.source !== "human") return next;
   return { ...next, structure: prior.structure };

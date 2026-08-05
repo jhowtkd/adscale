@@ -220,14 +220,11 @@ async function brandTrainingAnalyzeHandler({
       }
 
       // Structure failure must never block generation — drop invalid inference.
-      // Human-locked structure is restored OUTSIDE the parse-success branch so a
-      // null parse cannot wipe a prior human correction on replace.
+      // Human lock lives only in preserveHumanStructure (runs even on null parse).
       const priorParsed = brandTrainingAnalysisSchema
         .partial()
         .safeParse(existingRow.trainingAnalysis);
-      const priorAnalysis = priorParsed.success
-        ? (priorParsed.data as import("@/server/brand-training/contracts").BrandTrainingAnalysis)
-        : null;
+      const priorHolder = priorParsed.success ? priorParsed.data : null;
 
       try {
         const structure = parseVisionStructure(proposal.structure);
@@ -242,7 +239,7 @@ async function brandTrainingAnalyzeHandler({
           }`,
         );
       }
-      analysis = preserveHumanStructure(analysis, priorAnalysis);
+      analysis = preserveHumanStructure(analysis, priorHolder);
 
       return {
         trainingCategory: proposal.trainingCategory,

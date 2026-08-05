@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   nullifyLowConfidence,
   parseVisionStructure,
+  visionStructureReadSchema,
   visionStructureSchema,
+  zoneBand,
 } from "./vision-structure";
 
 const validRaw = {
@@ -144,5 +146,30 @@ describe("nullifyLowConfidence", () => {
       { now: () => new Date("2026-08-05T12:00:00.000Z") },
     );
     expect(parsed?.inferredAt).toBe("2026-08-05T12:00:00.000Z");
+  });
+
+  it("read schema accepts legacy free-text timestamps; write schema does not", () => {
+    const legacy = {
+      version: 1 as const,
+      source: "human" as const,
+      inferredAt: "ontem",
+      zones: null,
+      archetype: { id: "text_led_card" as const, confidence: 1 },
+      typography: null,
+      grid: null,
+      media: null,
+      contentPattern: null,
+      accentPlacement: null,
+      authenticityRisk: null,
+      overallConfidence: 1,
+    };
+    expect(visionStructureReadSchema.safeParse(legacy).success).toBe(true);
+    expect(visionStructureSchema.safeParse(legacy).success).toBe(false);
+  });
+
+  it("zoneBand maps centers to coarse bands", () => {
+    expect(zoneBand({ x: 0, y: 0, width: 0.2, height: 0.2 })).toBe("top-left");
+    expect(zoneBand({ x: 0.4, y: 0.4, width: 0.2, height: 0.2 })).toBe("mid-center");
+    expect(zoneBand({ x: 0.7, y: 0.7, width: 0.25, height: 0.25 })).toBe("bottom-right");
   });
 });
