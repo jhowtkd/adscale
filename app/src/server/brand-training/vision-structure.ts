@@ -143,16 +143,15 @@ export function parseVisionStructure(
   if (raw == null || typeof raw !== "object") return null;
   const now = options?.now ?? (() => new Date());
   const source = options?.source ?? "vision";
+  const inferredAt =
+    typeof (raw as { inferredAt?: unknown }).inferredAt === "string"
+      ? (raw as { inferredAt: string }).inferredAt
+      : now().toISOString();
   const candidate = {
+    ...(raw as Record<string, unknown>),
     version: VISION_STRUCTURE_VERSION,
     source,
-    inferredAt:
-      typeof (raw as { inferredAt?: unknown }).inferredAt === "string"
-        ? (raw as { inferredAt: string }).inferredAt
-        : now().toISOString(),
-    ...raw,
-    version: VISION_STRUCTURE_VERSION,
-    source,
+    inferredAt,
   };
   const parsed = visionStructureSchema.safeParse(candidate);
   if (!parsed.success) return null;
