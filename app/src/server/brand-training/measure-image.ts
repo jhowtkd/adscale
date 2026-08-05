@@ -39,6 +39,11 @@ export interface DeterministicImageMeasurement {
   hasRealTransparency: boolean;
   transparentAreaPercent: number;
   colorCoverage: ColorCoverage[];
+  /**
+   * % of opaque pixels not assigned to any brand color (only when
+   * `maxAssignDeltaE` is set, or in `within_tolerance` mode).
+   */
+  unassignedPercent: number;
   contentBoundingBox: {
     left: number;
     top: number;
@@ -59,8 +64,22 @@ export interface DeterministicImageMeasurement {
 export interface MeasureImageOptions {
   /** Palette colors to measure coverage for. */
   colorTargets?: readonly ColorTarget[];
-  /** ΔE76 tolerance in CIELAB (default 4 — mid of the researched 3–5 band). */
+  /**
+   * Color assignment mode (default `"nearest"`).
+   * - `nearest`: every opaque pixel joins the closest brand color (gradients/
+   *   shadows stay in-family — required for real brand pieces).
+   * - `within_tolerance`: only count pixels within `deltaETolerance` of a
+   *   target (old radius mode; collapses under brand gradients).
+   */
+  colorAssignment?: "nearest" | "within_tolerance";
+  /** ΔE76 radius for `within_tolerance` mode (default 4). Ignored by `nearest`. */
   deltaETolerance?: number;
+  /**
+   * Optional ceiling for `nearest`: if the closest brand color is farther than
+   * this ΔE, the pixel is left unassigned (counts in `unassignedPercent`).
+   * Default: no ceiling — always assign.
+   */
+  maxAssignDeltaE?: number;
   /** Region grid (default 3 → 3×3). */
   regionGrid?: number;
   /** Clock override for tests. */
@@ -141,6 +160,8 @@ export async function measureImageBuffer(
   options: MeasureImageOptions = {},
 ): Promise<DeterministicImageMeasurement> {
   const deltaETolerance = options.deltaETolerance ?? 4;
+  const colorAssignment = options.colorAssignment ?? "nearest";
+  const maxAssignDeltaE = options.maxAssignDeltaE;
   const regionGrid = Math.max(1, options.regionGrid ?? 3);
   const now = options.now ?? (() => new Date());
   const colorTargets = options.colorTargets ?? [];
@@ -178,6 +199,7 @@ export async function measureImageBuffer(
 
   let opaqueCount = 0;
   let transparentCount = 0;
+  let unassignedCount = 0;
   let sumLuma = 0;
   let minX = info.width;
   let minY = info.height;
@@ -252,8 +274,23 @@ export async function measureImageBuffer(
           bestIdx = t;
         }
       }
-      if (bestIdx >= 0 && bestDe <= deltaETolerance) {
+      if (bestIdx < 0) {
+        unassignedCount += 1;
+        continue;
+      }
+      // nearest: join closest brand color (gradients stay in-family).
+      // within_tolerance: only count if inside the radius (legacy / unit tests of radius).
+      const withinRadius = bestDe <= deltaETolerance;
+      const withinCeiling =
+        maxAssignDeltaE == null || bestDe <= maxAssignDeltaE;
+      const assign =
+        colorAssignment === "nearest"
+          ? withinCeiling
+          : withinRadius;
+      if (assign) {
         targetLabs[bestIdx]!.count += 1;
+      } else {
+        unassignedCount += 1;
       }
     }
   }
@@ -264,6 +301,7 @@ export async function measureImageBuffer(
     ...(t.label ? { label: t.label } : {}),
     coveragePercent: Math.round((t.count / denom) * 1000) / 10,
   }));
+  const unassignedPercent = Math.round((unassignedCount / denom) * 1000) / 10;
 
   const hasAlphaChannel = meta.hasAlpha === true;
   // Real transparency: alpha channel present AND some pixels actually transparent.
@@ -315,6 +353,7 @@ export async function measureImageBuffer(
     hasRealTransparency,
     transparentAreaPercent,
     colorCoverage,
+    unassignedPercent,
     contentBoundingBox,
     margins,
     meanLuminance: Math.round((sumLuma / denom) * 1000) / 1000,

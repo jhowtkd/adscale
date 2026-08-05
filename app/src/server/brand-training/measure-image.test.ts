@@ -181,6 +181,62 @@ describe("measureImageBuffer", () => {
     expect(measured.margins).toEqual({ left: 10, top: 10, right: 10, bottom: 10 });
   });
 
+  it("assigns brand-gradient yellows to the yellow family (nearest), not a tight radius", async () => {
+    // Reproduces the PreceptorIA pyramid failure: real yellows are #E0B010 /
+    // #C08000 / #A07000 — none is #FFC914, so radius mode reports ~0%.
+    const width = 100;
+    const height = 100;
+    const gradientYellows = [
+      { r: 0xe0, g: 0xb0, b: 0x10 },
+      { r: 0xc0, g: 0x80, b: 0x00 },
+      { r: 0xd0, g: 0x90, b: 0x00 },
+      { r: 0xb0, g: 0x80, b: 0x00 },
+      { r: 0xa0, g: 0x70, b: 0x00 },
+    ];
+    const buf = Buffer.alloc(width * height * 3);
+    // 15% of rows = gradient yellow band; rest navy
+    const yellowRows = 15;
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const i = (y * width + x) * 3;
+        if (y < yellowRows) {
+          const c = gradientYellows[y % gradientYellows.length]!;
+          buf[i] = c.r;
+          buf[i + 1] = c.g;
+          buf[i + 2] = c.b;
+        } else {
+          buf[i] = NAVY.r;
+          buf[i + 1] = NAVY.g;
+          buf[i + 2] = NAVY.b;
+        }
+      }
+    }
+    const png = await sharp(buf, { raw: { width, height, channels: 3 } }).png().toBuffer();
+    const targets = [
+      { hex: "#071522", label: "navy" },
+      { hex: "#FFC914", label: "yellow" },
+      { hex: "#FFFFFF", label: "white" },
+    ];
+
+    const radius = await measureImageBuffer(png, {
+      colorTargets: targets,
+      colorAssignment: "within_tolerance",
+      deltaETolerance: 5,
+    });
+    const nearest = await measureImageBuffer(png, {
+      colorTargets: targets,
+      colorAssignment: "nearest",
+    });
+
+    const radiusYellow = radius.colorCoverage.find((c) => c.label === "yellow")!;
+    const nearestYellow = nearest.colorCoverage.find((c) => c.label === "yellow")!;
+    // Radius mode collapses the gradient (the bug we saw on the pyramid piece).
+    expect(radiusYellow.coveragePercent).toBeLessThan(2);
+    // Nearest-family recovers the 15% band.
+    expect(Math.abs(nearestYellow.coveragePercent - 15)).toBeLessThanOrEqual(0.5);
+    expect(nearestYellow.coveragePercent).toBeGreaterThan(radiusYellow.coveragePercent * 5);
+  });
+
   it("reports regional luminance from a single raw pass (not whole-image stats)", async () => {
     // Left half black, right half white
     const width = 60;

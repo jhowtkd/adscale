@@ -46,6 +46,8 @@ export const deterministicMeasurementSchema = z.object({
   hasRealTransparency: z.boolean(),
   transparentAreaPercent: z.number(),
   colorCoverage: z.array(colorCoverageSchema),
+  /** Present on measurements after nearest-assignment; older rows omit it. */
+  unassignedPercent: z.number().optional(),
   contentBoundingBox: z
     .object({
       left: z.number(),
