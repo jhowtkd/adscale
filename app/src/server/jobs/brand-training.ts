@@ -7,8 +7,16 @@ import {
   BRAND_TRAINING_USAGE_MODES,
   brandTrainingAnalysisSchema,
   mergeMeasurementIntoAnalysis,
+  mergeStructureIntoAnalysis,
 } from "@/server/brand-training/contracts";
 import { measureImageBuffer } from "@/server/brand-training/measure-image";
+import {
+  LAYOUT_ARCHETYPES,
+  LAYOUT_ROLES,
+  MEDIA_TYPES,
+  nullifyLowConfidence,
+  parseVisionStructure,
+} from "@/server/brand-training/vision-structure";
 import {
   getTrainingReferenceForAnalysis,
   recordTrainingAnalysis,
@@ -32,21 +40,29 @@ interface BrandTrainingAnalyzeEvent {
 const proposalSchema = z.object({
   trainingCategory: z.enum(BRAND_TRAINING_CATEGORIES),
   usageMode: z.enum(BRAND_TRAINING_USAGE_MODES),
-  analysis: brandTrainingAnalysisSchema,
+  // Structure is optional and validated separately — never required for persist.
+  analysis: brandTrainingAnalysisSchema.omit({ measurement: true, structure: true }),
+  structure: z.unknown().optional(),
 });
 
 const SYSTEM_PROMPT = `You are a brand training asset analyst for an advertising platform.
 
-You are given an image uploaded by a brand trainer. Your job is to classify the image so it can condition creative generation.
+You are given an image uploaded by a brand trainer. Your job is to classify the image so it can condition creative generation, and to infer layout structure for visual references.
 
 Important constraints:
 - Choose the best trainingCategory and usageMode for how this asset should condition generation.
 - usageMode "exact" means the asset should be used verbatim. This is only valid for assets with a transparent background (alpha channel). For PNG/WEBP without alpha, prefer "reference" or "rule".
 - usageMode "reference" means the asset conveys style/mood that should inspire new generated creatives.
 - usageMode "rule" means the asset encodes a constraint that downstream generation must respect.
+- Structure inference is SEPARATE from measured numbers. Never invent pixel percentages or margins — those come from deterministic measurement supplied in the user message when present.
+- If you are unsure about a structure field, set it to null or use low confidence. Do not invent.
 
 trainingCategory must be one of: ${BRAND_TRAINING_CATEGORIES.join(", ")}.
 usageMode must be one of: ${BRAND_TRAINING_USAGE_MODES.join(", ")}.
+Layout roles must be one of: ${LAYOUT_ROLES.join(", ")}.
+Archetypes must be one of: ${LAYOUT_ARCHETYPES.join(", ")}.
+Media types must be one of: ${MEDIA_TYPES.join(", ")}.
+Zone coordinates are normalized 0–1 (x,y,width,height) and must stay inside the unit square.
 
 Return ONLY a JSON object with this exact shape (no markdown, no commentary):
 {
@@ -58,6 +74,17 @@ Return ONLY a JSON object with this exact shape (no markdown, no commentary):
     "rules": ["how downstream creatives should use this asset, up to 20 entries"],
     "constraints": ["what downstream creatives must NOT do, up to 20 entries"],
     "confidence": 0.0
+  },
+  "structure": {
+    "zones": [{"role":"headline","x":0,"y":0,"width":1,"height":0.15,"confidence":0.0}] | null,
+    "archetype": {"id":"modular_card","confidence":0.0} | null,
+    "typography": {"titleBodyScaleRatio":1.5,"hierarchyNotes":"...","confidence":0.0} | null,
+    "grid": {"columns":2,"alignment":"left","confidence":0.0} | null,
+    "media": {"type":"device","treatment":"...","confidence":0.0} | null,
+    "contentPattern": {"centralMessages":1,"listItems":0,"ctaStyle":"pill","hasLegalDisclaimer":true,"confidence":0.0} | null,
+    "accentPlacement": {"inHighlightPosition":true,"notes":"...","confidence":0.0} | null,
+    "authenticityRisk": {"level":"low","confidence":0.0} | null,
+    "overallConfidence": 0.0
   }
 }`;
 
@@ -132,6 +159,17 @@ async function brandTrainingAnalyzeHandler({
       const normalized = await normalizeImageForAi({ buffer: raw, mimeType: data.mimeType });
       const dataUri = `data:${normalized.mimeType};base64,${normalized.buffer.toString("base64")}`;
 
+      const measuredFacts = measurement
+        ? [
+            "DETERMINISTIC MEASUREMENT (facts — do not contradict or restate as guesses):",
+            `size=${measurement.width}x${measurement.height} aspect=${measurement.aspectRatio}`,
+            `meanLuminance=${measurement.meanLuminance}`,
+            `hasRealTransparency=${measurement.hasRealTransparency}`,
+            `colorCoverage=${JSON.stringify(measurement.colorCoverage)}`,
+            "Infer structure (what/why) only. Coverage % and margins are already measured.",
+          ].join("\n")
+        : "No deterministic measurement available for this asset.";
+
       const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 60_000, maxRetries: 0 });
       const response = await openai.chat.completions.create({
         model,
@@ -146,15 +184,18 @@ async function brandTrainingAnalyzeHandler({
               },
               {
                 type: "text",
-                text: `Propose a brand-training classification for this asset. The asset's alpha channel is ${
-                  data.hasAlpha ? "present" : "absent"
-                }. Return only the JSON object described in the system instructions.`,
+                text: [
+                  `Propose a brand-training classification and layout structure for this asset.`,
+                  `Alpha channel is ${data.hasAlpha ? "present" : "absent"}.`,
+                  measuredFacts,
+                  `Return only the JSON object described in the system instructions.`,
+                ].join("\n"),
               },
             ],
           },
         ],
         response_format: { type: "json_object" },
-        max_tokens: 800,
+        max_tokens: 1600,
       });
 
       const content = response.choices[0]?.message?.content;
@@ -172,10 +213,40 @@ async function brandTrainingAnalyzeHandler({
       }
 
       const proposal = proposalSchema.parse(parsed);
-      const analysis = measurement
-        ? mergeMeasurementIntoAnalysis(proposal.analysis, measurement)
-        : proposal.analysis;
-      return { ...proposal, analysis: brandTrainingAnalysisSchema.parse(analysis) };
+      let analysis = proposal.analysis as ReturnType<typeof brandTrainingAnalysisSchema.parse>;
+      if (measurement) {
+        analysis = mergeMeasurementIntoAnalysis(analysis, measurement);
+      }
+
+      // Structure failure must never block generation — drop invalid inference.
+      try {
+        const structure = parseVisionStructure(proposal.structure);
+        if (structure) {
+          const priorAnalysis = brandTrainingAnalysisSchema
+            .partial()
+            .safeParse(existingRow.trainingAnalysis);
+          const withPrior =
+            priorAnalysis.success && priorAnalysis.data.structure?.source === "human"
+              ? { ...analysis, structure: priorAnalysis.data.structure }
+              : analysis;
+          analysis = mergeStructureIntoAnalysis(
+            withPrior,
+            nullifyLowConfidence(structure),
+          );
+        }
+      } catch (error) {
+        logger.warn(
+          `[brandTrainingAnalyzeJob] structure inference dropped referenceId=${data.referenceId} error=${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+
+      return {
+        trainingCategory: proposal.trainingCategory,
+        usageMode: proposal.usageMode,
+        analysis: brandTrainingAnalysisSchema.parse(analysis),
+      };
     });
 
     await step.run("persist-proposal", async () => {

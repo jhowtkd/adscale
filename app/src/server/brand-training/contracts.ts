@@ -1,5 +1,9 @@
 import { z } from "zod";
 import { DETERMINISTIC_MEASUREMENT_VERSION } from "./measure-image";
+import {
+  visionStructureSchema,
+  type VisionStructure,
+} from "./vision-structure";
 
 export const BRAND_TRAINING_CATEGORIES = [
   "logo",
@@ -75,8 +79,16 @@ export const brandTrainingAnalysisSchema = z.object({
   rules: z.array(z.string().trim().min(1).max(240)).max(20),
   constraints: z.array(z.string().trim().min(1).max(240)).max(20),
   confidence: z.number().min(0).max(1),
-  /** Optional — assets analyzed before measurement still validate. */
+  /**
+   * Deterministic Sharp metrics only. Never store vision labels here.
+   * Optional — assets analyzed before measurement still validate.
+   */
   measurement: deterministicMeasurementSchema.optional(),
+  /**
+   * Vision/structure inference only. Never store measured quantities here.
+   * Optional — assets analyzed before structure layer still validate.
+   */
+  structure: visionStructureSchema.optional(),
 });
 
 export type BrandTrainingAnalysis = z.infer<typeof brandTrainingAnalysisSchema>;
@@ -90,6 +102,27 @@ export function mergeMeasurementIntoAnalysis(
   measurement: z.infer<typeof deterministicMeasurementSchema>,
 ): BrandTrainingAnalysis {
   return { ...analysis, measurement };
+}
+
+/**
+ * Merge vision structure without clobbering a human-locked structure block
+ * or the deterministic measurement block.
+ */
+export function mergeStructureIntoAnalysis(
+  analysis: BrandTrainingAnalysis,
+  structure: VisionStructure,
+): BrandTrainingAnalysis {
+  if (analysis.structure?.source === "human") {
+    return analysis;
+  }
+  return { ...analysis, structure };
+}
+
+/** Downstream guard: never treat structure fields as measured facts. */
+export function isMeasuredField(
+  path: "measurement" | "structure" | "description",
+): path is "measurement" {
+  return path === "measurement";
 }
 
 export const reviewTrainingAssetSchema = z
