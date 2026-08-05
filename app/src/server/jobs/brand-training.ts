@@ -8,6 +8,7 @@ import {
   brandTrainingAnalysisSchema,
   mergeMeasurementIntoAnalysis,
   mergeStructureIntoAnalysis,
+  preserveHumanStructure,
 } from "@/server/brand-training/contracts";
 import { measureImageBuffer } from "@/server/brand-training/measure-image";
 import {
@@ -219,21 +220,21 @@ async function brandTrainingAnalyzeHandler({
       }
 
       // Structure failure must never block generation — drop invalid inference.
+      // Human-locked structure is restored OUTSIDE the parse-success branch so a
+      // null parse cannot wipe a prior human correction on replace.
+      const priorParsed = brandTrainingAnalysisSchema
+        .partial()
+        .safeParse(existingRow.trainingAnalysis);
+      const priorAnalysis = priorParsed.success
+        ? (priorParsed.data as import("@/server/brand-training/contracts").BrandTrainingAnalysis)
+        : null;
+
       try {
         const structure = parseVisionStructure(proposal.structure);
-        if (structure) {
-          const priorAnalysis = brandTrainingAnalysisSchema
-            .partial()
-            .safeParse(existingRow.trainingAnalysis);
-          const withPrior =
-            priorAnalysis.success && priorAnalysis.data.structure?.source === "human"
-              ? { ...analysis, structure: priorAnalysis.data.structure }
-              : analysis;
-          analysis = mergeStructureIntoAnalysis(
-            withPrior,
-            nullifyLowConfidence(structure),
-          );
-        }
+        analysis = mergeStructureIntoAnalysis(
+          analysis,
+          structure ? nullifyLowConfidence(structure) : null,
+        );
       } catch (error) {
         logger.warn(
           `[brandTrainingAnalyzeJob] structure inference dropped referenceId=${data.referenceId} error=${
@@ -241,6 +242,7 @@ async function brandTrainingAnalyzeHandler({
           }`,
         );
       }
+      analysis = preserveHumanStructure(analysis, priorAnalysis);
 
       return {
         trainingCategory: proposal.trainingCategory,

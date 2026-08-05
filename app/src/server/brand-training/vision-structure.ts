@@ -72,7 +72,8 @@ export const visionStructureSchema = z.object({
   version: z.literal(VISION_STRUCTURE_VERSION),
   /** provenance of this block — never "measurement". */
   source: z.enum(["vision", "human"]),
-  inferredAt: z.string().min(1),
+  /** Always ISO-8601 from the server clock for vision; human may set freely. */
+  inferredAt: z.string().datetime(),
   zones: z.array(layoutZoneSchema).max(24).nullable(),
   archetype: z
     .object({
@@ -135,6 +136,7 @@ export type LayoutZone = z.infer<typeof layoutZoneSchema>;
 /**
  * Parse model JSON into structure. Unknown roles / impossible coords fail.
  * Low-confidence or missing branches stay null — never invented by this helper.
+ * Vision timestamps always come from the server clock (model cannot stamp provenance).
  */
 export function parseVisionStructure(
   raw: unknown,
@@ -143,10 +145,7 @@ export function parseVisionStructure(
   if (raw == null || typeof raw !== "object") return null;
   const now = options?.now ?? (() => new Date());
   const source = options?.source ?? "vision";
-  const inferredAt =
-    typeof (raw as { inferredAt?: unknown }).inferredAt === "string"
-      ? (raw as { inferredAt: string }).inferredAt
-      : now().toISOString();
+  const inferredAt = now().toISOString();
   const candidate = {
     ...(raw as Record<string, unknown>),
     version: VISION_STRUCTURE_VERSION,
@@ -156,6 +155,19 @@ export function parseVisionStructure(
   const parsed = visionStructureSchema.safeParse(candidate);
   if (!parsed.success) return null;
   return parsed.data;
+}
+
+function hasAnyInference(structure: VisionStructure): boolean {
+  return Boolean(
+    (structure.zones && structure.zones.length > 0) ||
+      structure.archetype ||
+      structure.typography ||
+      structure.grid ||
+      structure.media ||
+      structure.contentPattern ||
+      structure.accentPlacement ||
+      structure.authenticityRisk,
+  );
 }
 
 /** Drop fields below a confidence floor to null (uncertain → null, never invent). */
@@ -170,12 +182,19 @@ export function nullifyLowConfidence(
     return block.confidence < floor ? null : block;
   };
 
-  return {
+  const keptZones =
+    structure.zones
+      ?.map((z) => (z.confidence < floor ? null : z))
+      .filter((z): z is LayoutZone => z != null) ?? null;
+
+  // [] = "inferred all weak" collapses to null = "no zone inference".
+  // Keeps the schema's null-vs-present distinction honest.
+  const zones =
+    keptZones == null ? null : keptZones.length === 0 ? null : keptZones;
+
+  const next: VisionStructure = {
     ...structure,
-    zones:
-      structure.zones
-        ?.map((z) => (z.confidence < floor ? null : z))
-        .filter((z): z is LayoutZone => z != null) ?? null,
+    zones,
     archetype: gate(structure.archetype),
     typography: gate(structure.typography),
     grid: gate(structure.grid),
@@ -183,5 +202,12 @@ export function nullifyLowConfidence(
     contentPattern: gate(structure.contentPattern),
     accentPlacement: gate(structure.accentPlacement),
     authenticityRisk: gate(structure.authenticityRisk),
+    overallConfidence: structure.overallConfidence,
   };
+
+  // Do not advertise high overall confidence on an empty structure.
+  if (!hasAnyInference(next)) {
+    next.overallConfidence = Math.min(next.overallConfidence, floor);
+  }
+  return next;
 }

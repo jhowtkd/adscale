@@ -118,4 +118,31 @@ describe("nullifyLowConfidence", () => {
     expect(gated.media).toBeNull();
     expect(gated.archetype?.id).toBe("modular_card");
   });
+
+  it("collapses all-weak zones to null and caps overallConfidence when empty", () => {
+    const full = parseVisionStructure({
+      zones: [
+        { role: "headline", x: 0, y: 0, width: 1, height: 0.1, confidence: 0.1 },
+      ],
+      archetype: null,
+      typography: null,
+      grid: null,
+      media: null,
+      contentPattern: null,
+      accentPlacement: null,
+      authenticityRisk: null,
+      overallConfidence: 0.95,
+    })!;
+    const gated = nullifyLowConfidence(full, 0.35);
+    expect(gated.zones).toBeNull();
+    expect(gated.overallConfidence).toBeLessThanOrEqual(0.35);
+  });
+
+  it("always stamps inferredAt from the server clock, not the model", () => {
+    const parsed = parseVisionStructure(
+      { ...validRaw, inferredAt: "ontem" },
+      { now: () => new Date("2026-08-05T12:00:00.000Z") },
+    );
+    expect(parsed?.inferredAt).toBe("2026-08-05T12:00:00.000Z");
+  });
 });

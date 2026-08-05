@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   mergeMeasurementIntoAnalysis,
   mergeStructureIntoAnalysis,
+  preserveHumanStructure,
   reviewTrainingAssetSchema,
   type BrandTrainingAnalysis,
 } from "./contracts";
@@ -148,6 +149,42 @@ describe("brand training contracts", () => {
     const merged = mergeStructureIntoAnalysis(human, incoming);
     expect(merged.structure?.source).toBe("human");
     expect(merged.structure?.archetype?.id).toBe("text_led_card");
+  });
+
+  it("preserveHumanStructure restores lock even when vision parse was null", () => {
+    const prior: BrandTrainingAnalysis = {
+      description: "prior",
+      visualAttributes: [],
+      rules: [],
+      constraints: [],
+      confidence: 1,
+      structure: {
+        version: 1,
+        source: "human",
+        inferredAt: "2026-08-01T00:00:00.000Z",
+        zones: null,
+        archetype: { id: "text_led_card", confidence: 1 },
+        typography: null,
+        grid: null,
+        media: null,
+        contentPattern: null,
+        accentPlacement: null,
+        authenticityRisk: null,
+        overallConfidence: 1,
+      },
+    };
+    const next: BrandTrainingAnalysis = {
+      description: "fresh vision prose",
+      visualAttributes: ["x"],
+      rules: [],
+      constraints: [],
+      confidence: 0.5,
+    };
+    const cleared = mergeStructureIntoAnalysis(next, null);
+    expect(cleared.structure).toBeUndefined();
+    const kept = preserveHumanStructure(cleared, prior);
+    expect(kept.structure?.source).toBe("human");
+    expect(kept.structure?.archetype?.id).toBe("text_led_card");
   });
 
   it("mergeMeasurement does not touch structure", () => {

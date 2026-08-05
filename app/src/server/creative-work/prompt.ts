@@ -76,13 +76,44 @@ function describeAnalysisForRule(
   return pieces.join(" | ");
 }
 
+function describeStructureHint(
+  analysis: NonNullable<CreativeWorkIdentityAssetSnapshot["analysis"]>,
+): string {
+  // Vision inference only — never restate measurement percentages here.
+  const s = analysis.structure;
+  if (!s) return "";
+  const bits: string[] = [];
+  if (s.archetype) {
+    bits.push(
+      `archetype=${s.archetype.id} (${s.source} conf=${s.archetype.confidence.toFixed(2)})`,
+    );
+  }
+  if (s.media?.type) {
+    bits.push(`media=${s.media.type}`);
+  }
+  if (s.accentPlacement?.inHighlightPosition != null) {
+    bits.push(
+      s.accentPlacement.inHighlightPosition
+        ? "accent-in-highlight-position"
+        : "accent-not-highlight-position",
+    );
+  }
+  if (s.zones && s.zones.length > 0) {
+    bits.push(`zones=${s.zones.map((z) => z.role).join("+")}`);
+  }
+  return bits.length > 0 ? `structure[${s.source}]: ${bits.join("; ")}` : "";
+}
+
 function describeAnalysisForReference(
   asset: CreativeWorkIdentityAssetSnapshot,
 ): string {
   const a = asset.analysis;
   if (!a) return "";
-  const pieces = [a.description, ...(a.visualAttributes ?? [])]
-    .filter((piece): piece is string => Boolean(piece && piece.trim().length > 0));
+  const pieces = [
+    a.description,
+    ...(a.visualAttributes ?? []),
+    describeStructureHint(a),
+  ].filter((piece): piece is string => Boolean(piece && piece.trim().length > 0));
   return pieces.join(" | ");
 }
 

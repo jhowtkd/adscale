@@ -107,22 +107,33 @@ export function mergeMeasurementIntoAnalysis(
 /**
  * Merge vision structure without clobbering a human-locked structure block
  * or the deterministic measurement block.
+ * Pass `structure: null` to clear a prior vision inference while keeping human lock.
  */
 export function mergeStructureIntoAnalysis(
   analysis: BrandTrainingAnalysis,
-  structure: VisionStructure,
+  structure: VisionStructure | null,
 ): BrandTrainingAnalysis {
   if (analysis.structure?.source === "human") {
     return analysis;
   }
+  if (structure == null) {
+    const { structure: _drop, ...rest } = analysis;
+    return rest;
+  }
   return { ...analysis, structure };
 }
 
-/** Downstream guard: never treat structure fields as measured facts. */
-export function isMeasuredField(
-  path: "measurement" | "structure" | "description",
-): path is "measurement" {
-  return path === "measurement";
+/**
+ * Carry forward a human-locked structure from a prior analysis onto a fresh one.
+ * Call this even when the new vision parse failed (null), so reanalysis never
+ * silently wipes a human correction.
+ */
+export function preserveHumanStructure(
+  next: BrandTrainingAnalysis,
+  prior: BrandTrainingAnalysis | null | undefined,
+): BrandTrainingAnalysis {
+  if (prior?.structure?.source !== "human") return next;
+  return { ...next, structure: prior.structure };
 }
 
 export const reviewTrainingAssetSchema = z
