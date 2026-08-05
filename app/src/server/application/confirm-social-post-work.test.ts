@@ -139,10 +139,14 @@ describe("confirmSocialPostWork", () => {
     if (!result.ok) return;
 
     expect(mockSetCopy).toHaveBeenCalledWith("ws-1", "work-1", copy);
+    // brief + format ride along only to steer the ranked fallback (#178);
+    // the explicit selectedReferenceIds still decides this call.
     expect(mockSnapshot).toHaveBeenCalledWith({
       workspaceId: "ws-1",
       clientProfileId: profileId,
       selectedReferenceIds: [refId],
+      brief: workItem.brief,
+      format: workItem.format,
     });
     expect(mockConfirm).toHaveBeenCalledWith(
       "ws-1",

@@ -9,10 +9,12 @@ import type {
   BrandTrainingUsageMode,
 } from "../brand-training/contracts";
 import type {
+  CreativeWorkFormat,
   CreativeWorkIdentityAssetSnapshot,
   CreativeWorkIdentitySnapshot,
   SocialPostBrief,
 } from "./contracts";
+import { selectReferences, type ReferenceCandidate } from "./reference-selection";
 
 /**
  * Default placement applied to exact-mode assets per category. Visual
@@ -242,10 +244,79 @@ export async function buildIdentityOptions(
   });
 }
 
+/**
+ * Turn approved rows into the reference set that conditions one request (#178).
+ *
+ * Exact-mode assets are always carried: the placement policy composites them,
+ * so they belong in the snapshot without competing for a style slot. The style
+ * slots are ranked by `selectReferences` — requested format, layout archetype,
+ * content density, brief overlap — never by insertion order.
+ */
+function pickReferenceIds(
+  refs: ApprovedReferenceRow[],
+  brief: SocialPostBrief | null,
+  format: CreativeWorkFormat | null,
+  limit?: number
+): { referenceIds: string[]; reasons: Record<string, string[]> } {
+  const briefTokens = brief ? buildBriefTokenSet(brief) : new Set<string>();
+  const candidates: ReferenceCandidate[] = refs.map((ref) => ({
+    referenceId: ref.id,
+    usageMode: ref.usageMode,
+    analysis: ref.trainingAnalysis,
+    briefOverlap:
+      briefTokens.size > 0
+        ? overlapCount(readAnalysisText(ref.trainingAnalysis), briefTokens)
+        : 0,
+  }));
+
+  const exactIds = refs
+    .filter((ref) => ref.usageMode === "exact")
+    .map((ref) => ref.id)
+    .sort((a, b) => a.localeCompare(b));
+
+  const selection = selectReferences({
+    candidates,
+    format,
+    objective: brief?.objective ?? "",
+    limit,
+  });
+
+  const reasons: Record<string, string[]> = {};
+  for (const id of exactIds) {
+    reasons[id] = ["exact asset — composited, does not consume a style slot"];
+  }
+  for (const entry of selection.selected) {
+    reasons[entry.referenceId] = entry.reasons;
+  }
+
+  return {
+    referenceIds: [...exactIds, ...selection.selected.map((entry) => entry.referenceId)],
+    reasons,
+  };
+}
+
+/** Ranked reference set for a request, loaded and scored server-side. */
+export async function selectIdentityReferenceIds(input: {
+  workspaceId: string;
+  clientProfileId: string;
+  brief: SocialPostBrief;
+  format: CreativeWorkFormat | null;
+  limit?: number;
+}): Promise<{ referenceIds: string[]; reasons: Record<string, string[]> }> {
+  const refs = (await getApprovedTrainingReferences(
+    input.workspaceId,
+    input.clientProfileId
+  )) as ApprovedReferenceRow[];
+  return pickReferenceIds(refs, input.brief, input.format, input.limit);
+}
+
 interface CreateIdentitySnapshotInput {
   workspaceId: string;
   clientProfileId: string;
   selectedReferenceIds: string[];
+  /** Request context for the ranked fallback (#178). Absent = neutral ranking. */
+  brief?: SocialPostBrief | null;
+  format?: CreativeWorkFormat | null;
 }
 
 export class IdentitySnapshotMissingReferenceError extends Error {
@@ -287,10 +358,13 @@ export async function createIdentitySnapshot(
   )) as ApprovedReferenceRow[];
 
   const approvedById = new Map(approved.map((row) => [row.id, row]));
+  // #178: an operator choice always wins; without one the ranked selector
+  // decides. Insertion order is never a fallback.
   const effectiveReferenceIds =
     selectedReferenceIds.length > 0
       ? selectedReferenceIds
-      : approved.slice(0, 3).map((row) => row.id);
+      : pickReferenceIds(approved, input.brief ?? null, input.format ?? null)
+          .referenceIds;
 
   for (const id of effectiveReferenceIds) {
     if (!approvedById.has(id)) {

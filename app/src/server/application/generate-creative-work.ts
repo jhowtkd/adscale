@@ -1,7 +1,7 @@
 import { quoteCreativeWork, type CreativeWorkInputSnapshot } from "@/server/creative-work/contracts";
 import type { SpendResult } from "@/server/billing/paywall";
 import { buildCreativeWorkFactPack, creativeWorkFactPackBrandFromKit } from "@/server/creative-work/fact-pack";
-import { buildIdentityOptions, createIdentitySnapshot } from "@/server/creative-work/identity";
+import { createIdentitySnapshot, selectIdentityReferenceIds } from "@/server/creative-work/identity";
 import { resolveCreativeWorkProtocol } from "@/server/creative-work/protocol";
 import { GENERATION_CREDIT_COSTS, type GenerationBatchCharge } from "@/server/generation/canonical/types";
 import { creativeWorkSettlementAdapter } from "@/server/generation/settlement-adapters";
@@ -101,12 +101,21 @@ export async function generateCreativeWork(input: {
     work = prepared.value.work;
     if (!work.brief) return { ok: false, error: { code: "work_not_prepared" } };
 
-    const ranked = await buildIdentityOptions(input.workspaceId, work.clientProfileId, work.brief);
-    const selectedReferenceIds = ranked.slice(0, 3).map((option) => option.referenceId);
+    // #178: ranked by requested format, archetype and brief — not by the
+    // order rows were inserted. Exact assets ride along for compositing
+    // without consuming one of the three style slots.
+    const { referenceIds: selectedReferenceIds } = await selectIdentityReferenceIds({
+      workspaceId: input.workspaceId,
+      clientProfileId: work.clientProfileId,
+      brief: work.brief,
+      format: work.format,
+    });
     const identitySnapshot = await createIdentitySnapshot({
       workspaceId: input.workspaceId,
       clientProfileId: work.clientProfileId,
       selectedReferenceIds,
+      brief: work.brief,
+      format: work.format,
     });
     if (!work.inputSnapshot) return { ok: false, error: { code: "work_not_prepared" } };
     const confirmed = await confirmCreativeWorkSnapshotsIfUnchanged(
