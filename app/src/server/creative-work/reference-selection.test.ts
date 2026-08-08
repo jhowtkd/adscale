@@ -28,6 +28,7 @@ function measurement(aspectRatio: number): NonNullable<BrandTrainingAnalysis["me
 function structure(
   archetypeId: string,
   centralMessages: number | null,
+  mediaType: "photo" | "illustration" | "device" | "abstract" | "none" | "other" | null = null,
 ): NonNullable<BrandTrainingAnalysis["structure"]> {
   return {
     version: 1,
@@ -37,7 +38,7 @@ function structure(
     archetype: { id: archetypeId as never, confidence: 0.8 },
     typography: null,
     grid: null,
-    media: null,
+    media: mediaType == null ? null : { type: mediaType, treatment: null, confidence: 0.8 },
     contentPattern:
       centralMessages == null
         ? null
@@ -58,6 +59,7 @@ function analysis(input: {
   aspectRatio?: number;
   archetype?: string;
   centralMessages?: number | null;
+  mediaType?: "photo" | "illustration" | "device" | "abstract" | "none" | "other";
 }): BrandTrainingAnalysis {
   return {
     description: "referência sintética",
@@ -67,7 +69,7 @@ function analysis(input: {
     confidence: 0.9,
     ...(input.aspectRatio != null ? { measurement: measurement(input.aspectRatio) } : {}),
     ...(input.archetype != null
-      ? { structure: structure(input.archetype, input.centralMessages ?? 1) }
+      ? { structure: structure(input.archetype, input.centralMessages ?? 1, input.mediaType ?? null) }
       : {}),
   };
 }
@@ -78,6 +80,7 @@ function candidate(
     aspectRatio?: number;
     archetype?: string;
     centralMessages?: number | null;
+    mediaType?: "photo" | "illustration" | "device" | "abstract" | "none" | "other";
     usageMode?: ReferenceCandidate["usageMode"];
     briefOverlap?: number;
   } = {},
@@ -155,6 +158,60 @@ describe("selectReferences — content pattern drives the choice", () => {
     });
 
     expect(result.selected).toHaveLength(3);
+  });
+});
+
+describe("selectReferences — requested media drives the choice", () => {
+  it("changes the ranking when the requested media type changes", () => {
+    const candidates = [
+      candidate("ref-device", { aspectRatio: SQUARE, archetype: "modular_card", mediaType: "device" }),
+      candidate("ref-photo", { aspectRatio: SQUARE, archetype: "modular_card", mediaType: "photo" }),
+    ];
+
+    const device = selectReferences({
+      candidates,
+      format: "1:1",
+      objective: "",
+      preferredMediaTypes: ["device"],
+      limit: 1,
+    });
+    const photo = selectReferences({
+      candidates,
+      format: "1:1",
+      objective: "",
+      preferredMediaTypes: ["photo"],
+      limit: 1,
+    });
+
+    expect(device.selected[0]?.referenceId).toBe("ref-device");
+    expect(photo.selected[0]?.referenceId).toBe("ref-photo");
+  });
+});
+
+describe("selectReferences — requested density drives the choice", () => {
+  it("changes the ranking when the requested message count changes", () => {
+    const candidates = [
+      candidate("ref-single", { aspectRatio: SQUARE, archetype: "modular_card", centralMessages: 1 }),
+      candidate("ref-dense", { aspectRatio: SQUARE, archetype: "modular_card", centralMessages: 4 }),
+    ];
+
+    const single = selectReferences({
+      candidates,
+      format: "1:1",
+      objective: "",
+      desiredCentralMessages: 1,
+      limit: 1,
+    });
+    const dense = selectReferences({
+      candidates,
+      format: "1:1",
+      objective: "",
+      desiredCentralMessages: 4,
+      limit: 1,
+    });
+
+    expect(single.selected[0]?.referenceId).toBe("ref-single");
+    expect(dense.selected[0]?.referenceId).toBe("ref-dense");
   });
 });
 

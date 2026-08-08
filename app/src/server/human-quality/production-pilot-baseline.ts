@@ -1,7 +1,7 @@
 /**
  * Controlled reference for production-pilot baselines (e.g. PreceptorIA).
  * Versioned metadata only — images stay out of git. Anchors on the phase-115
- * corpus infrastructure without a second parallel baseline system.
+ * human-quality corpus infrastructure without a second parallel baseline system.
  */
 import { z } from "zod";
 

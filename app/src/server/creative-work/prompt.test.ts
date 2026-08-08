@@ -166,6 +166,25 @@ describe("buildSocialPostPrompt", () => {
     expect(prompt).toContain("Use sparingly");
   });
 
+  it("turns archived creatives into explicit text-only negative patterns", () => {
+    const prompt = buildSocialPostPrompt({
+      ...promptInput,
+      identitySnapshot: snapshot({
+        negativePatterns: [
+          {
+            referenceId: "rejected-1",
+            label: "Rejected badge wall",
+            description: "crowded layout with duplicated badges",
+          },
+        ],
+      }),
+    });
+
+    expect(prompt).toContain("NEGATIVE VISUAL PATTERNS (text only)");
+    expect(prompt).toContain("Avoid reproducing Rejected badge wall");
+    expect(prompt).toContain("crowded layout with duplicated badges");
+  });
+
   it("surfaces reference-mode descriptions from assets", () => {
     const prompt = buildSocialPostPrompt(promptInput);
 
@@ -481,6 +500,22 @@ describe("buildCreativeWorkPrompt", () => {
     // The legacy persisted-brief block (with its generic audience) is gone.
     expect(prompt).not.toContain("PERSISTED BRIEF AND INPUT:");
     expect(prompt).not.toContain("Público da marca");
+  });
+
+  it("forbids literal copying from Brand Training identity references", () => {
+    const prompt = buildCreativeWorkPrompt(
+      creativeWorkPromptInput({
+        mode: "social_post",
+        references: [slot("brand_identity", "Peça aprovada", false)],
+      }),
+    );
+
+    expect(prompt).toContain(
+      "BRAND IDENTITY references transfer ONLY abstract visual attributes",
+    );
+    expect(prompt).toContain(
+      "Never copy their complete layout, visible copy, claims, products or logos",
+    );
   });
 
   it("tolerates a missing fact pack by falling back to the snapshot request as sole authority", () => {

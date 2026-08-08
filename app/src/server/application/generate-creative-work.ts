@@ -1,7 +1,7 @@
 import { quoteCreativeWork, type CreativeWorkInputSnapshot } from "@/server/creative-work/contracts";
 import type { SpendResult } from "@/server/billing/paywall";
 import { buildCreativeWorkFactPack, creativeWorkFactPackBrandFromKit } from "@/server/creative-work/fact-pack";
-import { createIdentitySnapshot, selectIdentityReferenceIds } from "@/server/creative-work/identity";
+import { createIdentitySnapshot } from "@/server/creative-work/identity";
 import { resolveCreativeWorkProtocol } from "@/server/creative-work/protocol";
 import { GENERATION_CREDIT_COSTS, type GenerationBatchCharge } from "@/server/generation/canonical/types";
 import { creativeWorkSettlementAdapter } from "@/server/generation/settlement-adapters";
@@ -101,19 +101,12 @@ export async function generateCreativeWork(input: {
     work = prepared.value.work;
     if (!work.brief) return { ok: false, error: { code: "work_not_prepared" } };
 
-    // #178: ranked by requested format, archetype and brief — not by the
-    // order rows were inserted. Exact assets ride along for compositing
-    // without consuming one of the three style slots.
-    const { referenceIds: selectedReferenceIds } = await selectIdentityReferenceIds({
-      workspaceId: input.workspaceId,
-      clientProfileId: work.clientProfileId,
-      brief: work.brief,
-      format: work.format,
-    });
+    // Empty selection delegates ranking to the snapshot's single canonical
+    // selector. Operator-selected IDs use the same path in confirmSocialPostWork.
     const identitySnapshot = await createIdentitySnapshot({
       workspaceId: input.workspaceId,
       clientProfileId: work.clientProfileId,
-      selectedReferenceIds,
+      selectedReferenceIds: [],
       brief: work.brief,
       format: work.format,
     });
@@ -127,7 +120,9 @@ export async function generateCreativeWork(input: {
     );
     if (!confirmed) return { ok: false, error: { code: "stale_input" } };
     readyWork = confirmed;
-    brandTrainingSuggestion = selectedReferenceIds.length === 0 ? "missing_visual_references" : null;
+    brandTrainingSuggestion = identitySnapshot.assets.length === 0
+      ? "missing_visual_references"
+      : null;
   } else if (
     existing.outputs.length === 0 &&
     (work.status !== "ready" || !work.brief || !work.copy || !work.identitySnapshot)

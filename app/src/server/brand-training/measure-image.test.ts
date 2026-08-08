@@ -40,7 +40,7 @@ async function syntheticPiece(opts?: {
   fill(yellowH, YELLOW);
   fill(whiteH, WHITE);
 
-  let pipeline = sharp(buf, {
+  const pipeline = sharp(buf, {
     raw: { width, height, channels: channels as 3 | 4 },
   });
   if (opts?.format === "jpeg") {

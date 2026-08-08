@@ -427,6 +427,19 @@ export interface CreativeWorkIdentitySnapshot {
   clientProfileId: string;
   confirmedAt: string;
   assets: CreativeWorkIdentityAssetSnapshot[];
+  /** Why these references were frozen; optional only for legacy snapshots. */
+  referenceSelection?: {
+    strategy: "ranked" | "manual";
+    format: CreativeWorkFormat | null;
+    operatorSelectedReferenceIds: string[];
+    reasons: Record<string, string[]>;
+  };
+  /** Archived/rejected creatives are textual constraints, never image references. */
+  negativePatterns?: Array<{
+    referenceId: string;
+    label: string;
+    description: string;
+  }>;
   brandKit: {
     colors: string[];
     fonts: string[];

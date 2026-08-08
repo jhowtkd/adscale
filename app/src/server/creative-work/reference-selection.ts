@@ -2,7 +2,12 @@ import type {
   BrandTrainingAnalysis,
   BrandTrainingUsageMode,
 } from "../brand-training/contracts";
+import type { VisionStructure } from "../brand-training/vision-structure";
 import type { CreativeWorkFormat } from "./contracts";
+
+export type ReferenceMediaType = NonNullable<
+  NonNullable<VisionStructure["media"]>["type"]
+>;
 
 /**
  * Deterministic reference selection (#178).
@@ -52,8 +57,9 @@ const OBJECTIVE_ARCHETYPES: Array<{ tokens: string[]; archetypes: string[] }> = 
 
 const WEIGHTS = {
   format: 0.4,
-  archetype: 0.25,
-  density: 0.15,
+  archetype: 0.2,
+  density: 0.1,
+  media: 0.1,
   overlap: 0.2,
 } as const;
 
@@ -125,15 +131,22 @@ function archetypeScore(
   return preferred.includes(id) ? 1 : 0.35;
 }
 
-/**
- * The spec asks for one central message per creative, so a reference that
- * models that is worth more than one cramming several.
- */
-function densityScore(analysis: BrandTrainingAnalysis | null): number {
+function densityScore(
+  analysis: BrandTrainingAnalysis | null,
+  desiredCentralMessages: number | null,
+): number {
   const central = analysis?.structure?.contentPattern?.centralMessages;
-  if (central == null) return NEUTRAL;
-  if (central === 1) return 1;
-  return central === 0 ? 0.5 : 0.4;
+  if (central == null || desiredCentralMessages == null) return NEUTRAL;
+  return 1 / (1 + Math.abs(central - desiredCentralMessages));
+}
+
+function mediaScore(
+  analysis: BrandTrainingAnalysis | null,
+  preferred: readonly ReferenceMediaType[],
+): number {
+  const mediaType = analysis?.structure?.media?.type;
+  if (!mediaType || preferred.length === 0) return NEUTRAL;
+  return preferred.includes(mediaType) ? 1 : 0.25;
 }
 
 /** Diminishing returns: 0→0, 1→0.33, 4→0.67. Never outweighs format. */
@@ -146,16 +159,20 @@ function scoreCandidate(
   candidate: ReferenceCandidate,
   targetAspect: number | null,
   preferred: string[],
+  preferredMediaTypes: readonly ReferenceMediaType[],
+  desiredCentralMessages: number | null,
 ): ReferenceSelectionEntry {
   const format = formatScore(candidate.analysis, targetAspect);
   const archetype = archetypeScore(candidate.analysis, preferred);
-  const density = densityScore(candidate.analysis);
+  const density = densityScore(candidate.analysis, desiredCentralMessages);
+  const media = mediaScore(candidate.analysis, preferredMediaTypes);
   const overlap = overlapScore(candidate.briefOverlap);
 
   const score =
     format * WEIGHTS.format +
     archetype * WEIGHTS.archetype +
     density * WEIGHTS.density +
+    media * WEIGHTS.media +
     overlap * WEIGHTS.overlap;
 
   const measured = candidate.analysis?.measurement?.aspectRatio;
@@ -166,6 +183,14 @@ function scoreCandidate(
       : "format neutral (unmeasured)",
   ];
   if (archetypeId) reasons.push(`archetype ${archetypeId} ${archetype.toFixed(2)}`);
+  const mediaType = candidate.analysis?.structure?.media?.type;
+  if (mediaType) reasons.push(`media ${mediaType} ${media.toFixed(2)}`);
+  const centralMessages = candidate.analysis?.structure?.contentPattern?.centralMessages;
+  if (centralMessages != null && desiredCentralMessages != null) {
+    reasons.push(
+      `density ${density.toFixed(2)} (${centralMessages} vs requested ${desiredCentralMessages})`,
+    );
+  }
   if (candidate.briefOverlap > 0) reasons.push(`brief overlap ${candidate.briefOverlap}`);
 
   return { referenceId: candidate.referenceId, score, archetype: archetypeId, reasons };
@@ -182,11 +207,15 @@ export function selectReferences(input: {
   candidates: ReferenceCandidate[];
   format: CreativeWorkFormat | null;
   objective: string;
+  preferredMediaTypes?: ReferenceMediaType[];
+  desiredCentralMessages?: number | null;
   limit?: number;
 }): ReferenceSelection {
   const limit = input.limit ?? 3;
   const targetAspect = input.format ? FORMAT_ASPECT[input.format] : null;
   const preferred = preferredArchetypes(input.objective);
+  const preferredMediaTypes = input.preferredMediaTypes ?? [];
+  const desiredCentralMessages = input.desiredCentralMessages ?? null;
 
   // Exact assets are composited, never sent as style references (#178 item 4).
   const excludedExactCount = input.candidates.filter(
@@ -197,7 +226,15 @@ export function selectReferences(input: {
   );
 
   const scored = stylable
-    .map((candidate) => scoreCandidate(candidate, targetAspect, preferred))
+    .map((candidate) =>
+      scoreCandidate(
+        candidate,
+        targetAspect,
+        preferred,
+        preferredMediaTypes,
+        desiredCentralMessages,
+      ),
+    )
     // Full sort ending on an id tiebreak: input order cannot survive this.
     .sort((a, b) =>
       b.score !== a.score ? b.score - a.score : a.referenceId.localeCompare(b.referenceId),

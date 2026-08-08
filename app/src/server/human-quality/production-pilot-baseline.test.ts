@@ -4,7 +4,7 @@ import {
   productionPilotBaselineSchema,
 } from "./production-pilot-baseline";
 
-describe("productionPilotBaselineSchema", () => {
+describe("production pilot baseline schema", () => {
   it("accepts a PreceptorIA-shaped controlled reference without image bytes", () => {
     const baseline = productionPilotBaselineSchema.parse({
       version: 1,

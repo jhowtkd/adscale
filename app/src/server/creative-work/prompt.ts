@@ -147,6 +147,21 @@ function buildRuleModeBlock(
   return lines.join("\n");
 }
 
+function buildNegativePatternBlock(
+  patterns: CreativeWorkIdentitySnapshot["negativePatterns"],
+): string {
+  if (!patterns || patterns.length === 0) {
+    return "NEGATIVE VISUAL PATTERNS (text only):\n(none)";
+  }
+  return [
+    "NEGATIVE VISUAL PATTERNS (text only):",
+    ...patterns.map(
+      (pattern) =>
+        `- Avoid reproducing ${pattern.label}: ${pattern.description}`,
+    ),
+  ].join("\n");
+}
+
 function buildReferenceModeBlock(
   assets: CreativeWorkIdentityAssetSnapshot[],
 ): string {
@@ -193,6 +208,7 @@ export function buildSocialPostPrompt(input: BuildSocialPostPromptInput): string
   const fixedContract = buildFixedContract(input);
   const brandKitBlock = buildBrandKitBlock(identitySnapshot.brandKit);
   const ruleModeBlock = buildRuleModeBlock(identitySnapshot.assets);
+  const negativePatternBlock = buildNegativePatternBlock(identitySnapshot.negativePatterns);
   const referenceModeBlock = buildReferenceModeBlock(identitySnapshot.assets);
   const reservedPlacementsBlock = buildReservedPlacementsBlock(
     identitySnapshot.assets,
@@ -219,6 +235,8 @@ export function buildSocialPostPrompt(input: BuildSocialPostPromptInput): string
     brandKitBlock,
     "",
     ruleModeBlock,
+    "",
+    negativePatternBlock,
     "",
     referenceModeBlock,
     "",
@@ -330,6 +348,12 @@ function buildReferenceRolesBlock(
   lines.push(
     "The numbering above is positional: image #1 is the first attached image, #2 the second, and so on, in the exact order listed.",
   );
+  if (references.some((slot) => slot.role === "brand_identity")) {
+    lines.push(
+      "BRAND IDENTITY references transfer ONLY abstract visual attributes: palette, hierarchy, rhythm, media treatment and atmosphere.",
+      "Never copy their complete layout, visible copy, claims, products or logos; exact brand assets are composited separately.",
+    );
+  }
   return lines.join("\n");
 }
 
@@ -438,6 +462,9 @@ export function buildCreativeWorkPrompt(input: BuildCreativeWorkPromptInput): st
   const referenceRolesBlock = buildReferenceRolesBlock(input.references);
   const brandKitBlock = buildBrandKitBlock(input.identitySnapshot.brandKit);
   const ruleModeBlock = buildRuleModeBlock(input.identitySnapshot.assets);
+  const negativePatternBlock = buildNegativePatternBlock(
+    input.identitySnapshot.negativePatterns,
+  );
   const referenceModeBlock = buildReferenceModeBlock(input.identitySnapshot.assets);
   const reservedPlacementsBlock = buildReservedPlacementsBlock(
     input.identitySnapshot.assets,
@@ -457,6 +484,8 @@ export function buildCreativeWorkPrompt(input: BuildCreativeWorkPromptInput): st
     brandKitBlock,
     "",
     ruleModeBlock,
+    "",
+    negativePatternBlock,
     "",
     referenceModeBlock,
     "",

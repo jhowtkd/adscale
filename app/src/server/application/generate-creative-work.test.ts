@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getWork = vi.hoisted(() => vi.fn());
 const prepare = vi.hoisted(() => vi.fn());
-const options = vi.hoisted(() => vi.fn());
 const snapshot = vi.hoisted(() => vi.fn());
 const confirm = vi.hoisted(() => vi.fn());
 const confirmSnapshots = vi.hoisted(() => vi.fn());
@@ -38,7 +37,6 @@ vi.mock("@/server/repositories/creative-work", () => ({
 vi.mock("@/server/repositories/brand-kit", () => ({ getBrandKit: getBrandKitMock }));
 vi.mock("./prepare-creative-work", () => ({ prepareCreativeWork: prepare }));
 vi.mock("@/server/creative-work/identity", () => ({
-  selectIdentityReferenceIds: options,
   createIdentitySnapshot: snapshot,
 }));
 vi.mock("@/server/generation/canonical/charge", () => ({ chargeForGenerationBatch: charge }));
@@ -75,7 +73,6 @@ describe("generateCreativeWork", () => {
     vi.clearAllMocks();
     getWork.mockResolvedValue({ work, outputs: [], sources: [] });
     prepare.mockResolvedValue({ ok: true, value: { work: preparedWork, quote: { plans: [], unitCount: 0, credits: 0 } } });
-    options.mockResolvedValue({ referenceIds: ["ref-3", "ref-1", "ref-2"], reasons: {} });
     snapshot.mockResolvedValue(identitySnapshot);
     confirm.mockResolvedValue({ ...preparedWork, status: "ready", identitySnapshot });
     confirmSnapshots.mockResolvedValue({ ...preparedWork, status: "ready", identitySnapshot });
@@ -102,7 +99,7 @@ describe("generateCreativeWork", () => {
     expect(snapshot).toHaveBeenCalledWith({
       workspaceId: "ws-1",
       clientProfileId: "profile-1",
-      selectedReferenceIds: ["ref-3", "ref-1", "ref-2"],
+      selectedReferenceIds: [],
       brief: preparedWork.brief,
       format: preparedWork.format,
     });
@@ -152,7 +149,6 @@ describe("generateCreativeWork", () => {
   });
 
   it("allows Brand-Kit-only generation and returns a non-blocking suggestion", async () => {
-    options.mockResolvedValue({ referenceIds: [], reasons: {} });
     const result = await generateCreativeWork({ workspaceId: "ws-1", workItemId: "work-1", userId: "user-1" });
     expect(result).toMatchObject({ ok: true, value: { brandTrainingSuggestion: expect.any(String) } });
     expect(snapshot).toHaveBeenCalledWith(expect.objectContaining({ selectedReferenceIds: [] }));
@@ -267,7 +263,6 @@ describe("generateCreativeWork", () => {
     const result = await generateCreativeWork({ workspaceId: "ws-1", workItemId: "work-1", userId: "user-1" });
     expect(result.ok).toBe(true);
     expect(prepare).not.toHaveBeenCalled();
-    expect(options).not.toHaveBeenCalled();
     expect(snapshot).not.toHaveBeenCalled();
     expect(charge).toHaveBeenCalledOnce();
   });

@@ -297,6 +297,23 @@ export async function getApprovedTrainingReferences(
     .orderBy(desc(clientReferences.createdAt));
 }
 
+export async function getArchivedTrainingReferences(
+  workspaceId: string,
+  clientProfileId: string,
+) {
+  return db
+    .select()
+    .from(clientReferences)
+    .where(
+      and(
+        eq(clientReferences.workspaceId, workspaceId),
+        eq(clientReferences.clientProfileId, clientProfileId),
+        eq(clientReferences.reviewStatus, "archived"),
+      ),
+    )
+    .orderBy(desc(clientReferences.createdAt));
+}
+
 /**
  * Load a single training reference scoped to a workspace+profile+id.
  *

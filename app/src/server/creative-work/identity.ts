@@ -1,7 +1,10 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "../db";
 import { workspaceAssets } from "../db/schema";
-import { getApprovedTrainingReferences } from "../repositories/client-reference";
+import {
+  getApprovedTrainingReferences,
+  getArchivedTrainingReferences,
+} from "../repositories/client-reference";
 import { getBrandKit } from "../repositories/brand-kit";
 import type {
   BrandTrainingAnalysis,
@@ -14,7 +17,11 @@ import type {
   CreativeWorkIdentitySnapshot,
   SocialPostBrief,
 } from "./contracts";
-import { selectReferences, type ReferenceCandidate } from "./reference-selection";
+import {
+  selectReferences,
+  type ReferenceCandidate,
+  type ReferenceMediaType,
+} from "./reference-selection";
 
 /**
  * Default placement applied to exact-mode assets per category. Visual
@@ -53,6 +60,8 @@ const TOKEN_NORMALIZE = /[^a-z0-9]+/g;
 function normalizeTokens(value: string): string[] {
   return value
     .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
     .split(TOKEN_NORMALIZE)
     .filter((token) => token.length > 0);
 }
@@ -76,6 +85,34 @@ function overlapCount(text: string, briefTokens: Set<string>): number {
     if (briefTokens.has(token)) count += 1;
   }
   return count;
+}
+
+function referenceRequestSignals(brief: SocialPostBrief | null): {
+  desiredCentralMessages: number | null;
+  preferredMediaTypes: ReferenceMediaType[];
+} {
+  // ponytail: deterministic brief keywords until the brief contract exposes
+  // explicit density/media fields; replace this inference when those exist.
+  if (!brief) return { desiredCentralMessages: null, preferredMediaTypes: [] };
+  const tokens = buildBriefTokenSet(brief);
+  const hasAny = (...values: string[]) => values.some((value) => tokens.has(value));
+  const preferredMediaTypes: ReferenceMediaType[] = [];
+  if (hasAny("app", "plataforma", "software", "tela", "dashboard", "interface")) {
+    preferredMediaTypes.push("device");
+  }
+  if (hasAny("foto", "retrato", "pessoa", "equipe", "professor", "professora")) {
+    preferredMediaTypes.push("photo");
+  }
+  if (hasAny("ilustracao", "desenho", "personagem", "mascote")) {
+    preferredMediaTypes.push("illustration");
+  }
+  if (hasAny("abstrato", "textura", "gradiente")) {
+    preferredMediaTypes.push("abstract");
+  }
+  if (hasAny("beneficios", "vantagens", "passos", "lista", "comparativo", "itens")) {
+    return { desiredCentralMessages: 3, preferredMediaTypes };
+  }
+  return { desiredCentralMessages: 1, preferredMediaTypes };
 }
 
 function classifyGroup(
@@ -191,7 +228,8 @@ function readAnalysisText(analysis: BrandTrainingAnalysis | null): string {
 export async function buildIdentityOptions(
   workspaceId: string,
   clientProfileId: string,
-  brief: SocialPostBrief
+  brief: SocialPostBrief,
+  format: CreativeWorkFormat | null = null,
 ): Promise<Array<CreativeWorkIdentityAssetSnapshot & { reason: string }>> {
   const refs = (await getApprovedTrainingReferences(
     workspaceId,
@@ -218,12 +256,13 @@ export async function buildIdentityOptions(
         entry !== null
     );
 
-  decorated.sort((a, b) => {
-    const groupDiff = GROUP_ORDER[a.group] - GROUP_ORDER[b.group];
-    if (groupDiff !== 0) return groupDiff;
-    if (b.overlap !== a.overlap) return b.overlap - a.overlap;
-    return a.ref.id.localeCompare(b.ref.id);
-  });
+  const ranked = pickReferenceIds(refs, brief, format, refs.length);
+  const rankById = new Map(ranked.referenceIds.map((id, index) => [id, index]));
+  decorated.sort(
+    (a, b) =>
+      (rankById.get(a.ref.id) ?? Number.MAX_SAFE_INTEGER) -
+      (rankById.get(b.ref.id) ?? Number.MAX_SAFE_INTEGER),
+  );
 
   return decorated.map(({ ref, group, hasAlpha, overlap }) => {
     const meta = assetMeta.get(ref.assetKey);
@@ -239,7 +278,9 @@ export async function buildIdentityOptions(
       mimeType,
       hasAlpha,
       placement,
-      reason: descriptionForGroup(ref, group, overlap, hasAlpha),
+      reason:
+        ranked.reasons[ref.id]?.join("; ") ??
+        descriptionForGroup(ref, group, overlap, hasAlpha),
     };
   });
 }
@@ -256,8 +297,14 @@ function pickReferenceIds(
   refs: ApprovedReferenceRow[],
   brief: SocialPostBrief | null,
   format: CreativeWorkFormat | null,
-  limit?: number
-): { referenceIds: string[]; reasons: Record<string, string[]> } {
+  limit?: number,
+  operatorSelectedReferenceIds: string[] = [],
+): {
+  referenceIds: string[];
+  reasons: Record<string, string[]>;
+  strategy: "ranked" | "manual";
+  operatorSelectedReferenceIds: string[];
+} {
   const briefTokens = brief ? buildBriefTokenSet(brief) : new Set<string>();
   const candidates: ReferenceCandidate[] = refs.map((ref) => ({
     referenceId: ref.id,
@@ -271,6 +318,21 @@ function pickReferenceIds(
 
   const exactIds = refs
     .filter((ref) => ref.usageMode === "exact")
+    .sort((a, b) => {
+      const aGroup = classifyGroup(a.trainingCategory, a.usageMode);
+      const bGroup = classifyGroup(b.trainingCategory, b.usageMode);
+      const groupDiff =
+        (aGroup ? GROUP_ORDER[aGroup] : Number.MAX_SAFE_INTEGER) -
+        (bGroup ? GROUP_ORDER[bGroup] : Number.MAX_SAFE_INTEGER);
+      if (groupDiff !== 0) return groupDiff;
+      const overlapDiff =
+        overlapCount(readAnalysisText(b.trainingAnalysis), briefTokens) -
+        overlapCount(readAnalysisText(a.trainingAnalysis), briefTokens);
+      return overlapDiff !== 0 ? overlapDiff : a.id.localeCompare(b.id);
+    })
+    .map((ref) => ref.id);
+  const ruleIds = refs
+    .filter((ref) => ref.usageMode === "rule")
     .map((ref) => ref.id)
     .sort((a, b) => a.localeCompare(b));
 
@@ -278,6 +340,7 @@ function pickReferenceIds(
     candidates,
     format,
     objective: brief?.objective ?? "",
+    ...referenceRequestSignals(brief),
     limit,
   });
 
@@ -285,29 +348,27 @@ function pickReferenceIds(
   for (const id of exactIds) {
     reasons[id] = ["exact asset — composited, does not consume a style slot"];
   }
+  for (const id of ruleIds) {
+    reasons[id] = ["approved rule — textual guidance, does not consume a style slot"];
+  }
   for (const entry of selection.selected) {
     reasons[entry.referenceId] = entry.reasons;
   }
+  for (const id of operatorSelectedReferenceIds) {
+    reasons[id] = ["operator override"];
+  }
+
+  const styleIds =
+    operatorSelectedReferenceIds.length > 0
+      ? operatorSelectedReferenceIds
+      : selection.selected.map((entry) => entry.referenceId);
 
   return {
-    referenceIds: [...exactIds, ...selection.selected.map((entry) => entry.referenceId)],
+    referenceIds: [...new Set([...exactIds, ...styleIds, ...ruleIds])],
     reasons,
+    strategy: operatorSelectedReferenceIds.length > 0 ? "manual" : "ranked",
+    operatorSelectedReferenceIds,
   };
-}
-
-/** Ranked reference set for a request, loaded and scored server-side. */
-export async function selectIdentityReferenceIds(input: {
-  workspaceId: string;
-  clientProfileId: string;
-  brief: SocialPostBrief;
-  format: CreativeWorkFormat | null;
-  limit?: number;
-}): Promise<{ referenceIds: string[]; reasons: Record<string, string[]> }> {
-  const refs = (await getApprovedTrainingReferences(
-    input.workspaceId,
-    input.clientProfileId
-  )) as ApprovedReferenceRow[];
-  return pickReferenceIds(refs, input.brief, input.format, input.limit);
 }
 
 interface CreateIdentitySnapshotInput {
@@ -352,19 +413,30 @@ export async function createIdentitySnapshot(
 ): Promise<CreativeWorkIdentitySnapshot> {
   const { workspaceId, clientProfileId, selectedReferenceIds } = input;
 
-  const approved = (await getApprovedTrainingReferences(
-    workspaceId,
-    clientProfileId
-  )) as ApprovedReferenceRow[];
+  const [approved, archived] = await Promise.all([
+    getApprovedTrainingReferences(workspaceId, clientProfileId) as Promise<ApprovedReferenceRow[]>,
+    getArchivedTrainingReferences(workspaceId, clientProfileId) as Promise<ApprovedReferenceRow[]>,
+  ]);
 
   const approvedById = new Map(approved.map((row) => [row.id, row]));
   // #178: an operator choice always wins; without one the ranked selector
   // decides. Insertion order is never a fallback.
-  const effectiveReferenceIds =
-    selectedReferenceIds.length > 0
-      ? selectedReferenceIds
-      : pickReferenceIds(approved, input.brief ?? null, input.format ?? null)
-          .referenceIds;
+  const picked = pickReferenceIds(
+    approved,
+    input.brief ?? null,
+    input.format ?? null,
+    undefined,
+    selectedReferenceIds,
+  );
+  const effectiveReferenceIds = picked.referenceIds;
+  const referenceSelection: NonNullable<
+    CreativeWorkIdentitySnapshot["referenceSelection"]
+  > = {
+    strategy: picked.strategy,
+    format: input.format ?? null,
+    operatorSelectedReferenceIds: picked.operatorSelectedReferenceIds,
+    reasons: picked.reasons,
+  };
 
   for (const id of effectiveReferenceIds) {
     if (!approvedById.has(id)) {
@@ -406,6 +478,17 @@ export async function createIdentitySnapshot(
   }
 
   const brandKit = await getBrandKit(workspaceId, clientProfileId);
+  // ponytail: archived is today's rejection state; split the statuses if
+  // neutral archival is introduced later.
+  const negativePatterns = archived
+    .filter((ref) => ref.trainingAnalysis != null)
+    .map((ref) => ({
+      referenceId: ref.id,
+      label: ref.label,
+      description: readAnalysisText(ref.trainingAnalysis),
+    }))
+    .filter((pattern) => pattern.description.length > 0)
+    .sort((a, b) => a.referenceId.localeCompare(b.referenceId));
 
   const colors = (brandKit?.brandColors as string[] | null | undefined) ?? [];
   const fonts = (brandKit?.brandFonts as string[] | null | undefined) ?? [];
@@ -414,6 +497,8 @@ export async function createIdentitySnapshot(
     clientProfileId,
     confirmedAt: new Date().toISOString(),
     assets,
+    referenceSelection,
+    negativePatterns,
     brandKit: {
       colors,
       fonts,
