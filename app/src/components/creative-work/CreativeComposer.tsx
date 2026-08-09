@@ -86,6 +86,30 @@ export function CreativeComposer({ composer, composerRef }: {
           : composer.state === "generating"
             ? t("actionGenerating")
             : null;
+  const inferredBriefing = composer.inferredBriefing;
+  const briefingStateLabels = {
+    sourced: t("briefingStateSourced"),
+    inferred: t("briefingStateInferred"),
+    unknown: t("briefingStateUnknown"),
+  } as const;
+  const briefingReadinessLabels = {
+    ready: t("briefingReadinessReady"),
+    exploratory: t("briefingReadinessExploratory"),
+    blocked: t("briefingReadinessBlocked"),
+  } as const;
+  const briefingConfidenceLabels = {
+    high: t("briefingConfidenceHigh"),
+    medium: t("briefingConfidenceMedium"),
+    low: t("briefingConfidenceLow"),
+  } as const;
+  const briefingFields = inferredBriefing ? [
+    ["message", t("briefingMessage"), inferredBriefing.message],
+    ["objective", t("briefingObjective"), inferredBriefing.objective],
+    ["audience", t("briefingAudience"), inferredBriefing.audience],
+    ["offer", t("briefingOffer"), inferredBriefing.offer],
+    ["tone", t("briefingTone"), inferredBriefing.tone],
+    ["constraints", t("briefingConstraints"), inferredBriefing.constraints],
+  ] as const : [];
   const variationDirections = isVariations && directions ? (
     <fieldset
       className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-4"
@@ -349,6 +373,41 @@ export function CreativeComposer({ composer, composerRef }: {
           {variationDirections}
         </section>
       ) : variationDirections}
+
+      {inferredBriefing ? (
+        <section
+          aria-labelledby="inferred-briefing-title"
+          aria-busy={composer.actionPhase !== "idle"}
+          className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-4"
+          data-testid="inferred-briefing"
+        >
+          <h2 id="inferred-briefing-title" className="text-base font-semibold text-[var(--text-primary)]">
+            {t("inferredBriefingTitle")}
+          </h2>
+          <p className="mt-1 text-sm text-[var(--text-secondary)]">
+            {t("inferredBriefingSentence", { message: inferredBriefing.message.value ?? t("briefingUnknown") })}
+          </p>
+          <dl className="mt-4 grid gap-3 sm:grid-cols-2" aria-label={t("briefingFieldsLabel")}>
+            {briefingFields.map(([key, label, field]) => (
+              <div key={key} data-testid={`inferred-briefing-${key}`} data-state={field.state}>
+                <dt className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">{label}</dt>
+                <dd className="mt-1 text-sm text-[var(--text-primary)]">
+                  {field.value ?? t("briefingUnknown")}
+                  <span className="ml-2 text-xs text-[var(--text-muted)]">
+                    {briefingStateLabels[field.state]}
+                    {field.confidence ? ` · ${briefingConfidenceLabels[field.confidence]}` : ""}
+                  </span>
+                </dd>
+              </div>
+            ))}
+          </dl>
+          <p className="mt-4 text-xs text-[var(--text-secondary)]" role="status" aria-label={t("briefingStatus")}>
+            {t("briefingReadiness")}: <strong>{briefingReadinessLabels[inferredBriefing.readiness]}</strong>
+            {" · "}
+            {t("briefingConfidence")}: <strong>{briefingConfidenceLabels[inferredBriefing.confidence]}</strong>
+          </p>
+        </section>
+      ) : null}
 
       {composer.brandTrainingSuggestion ? (
         <aside className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-4">

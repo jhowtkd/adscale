@@ -1338,6 +1338,33 @@ describe("useCreativeComposer", () => {
     expect(mocks.autosave.mock.invocationCallOrder[0]).toBeLessThan(mocks.generate.mock.invocationCallOrder[0]);
   });
 
+  it("keeps the prepared briefing available to the Home surface", async () => {
+    const briefing = {
+      version: 1,
+      message: { value: "Pedido salvo", state: "sourced" },
+      objective: { value: "Gerar interesse", state: "inferred", confidence: "medium" },
+      audience: { value: null, state: "unknown" },
+      offer: { value: null, state: "unknown" },
+      tone: { value: "Direto", state: "sourced" },
+      constraints: { value: null, state: "unknown" },
+      readiness: "exploratory",
+      confidence: "low",
+    } as const;
+    mocks.work.mockReturnValue({ data: workDetail(), isLoading: false });
+    mocks.prepare.mockResolvedValue({
+      work: workDetail().work,
+      quote: { unitCount: 3, credits: 15 },
+      briefing,
+      readiness: briefing.readiness,
+      confidence: briefing.confidence,
+    });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+
+    await act(async () => { await result.current.generate(); });
+
+    expect(result.current.inferredBriefing).toEqual(briefing);
+  });
+
   it("reconciles an uncertain generation response before showing an error", async () => {
     const refetch = vi.fn().mockResolvedValue({ data: {
       ...workDetail({ status: "generating" }),

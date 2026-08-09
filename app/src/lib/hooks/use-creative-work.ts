@@ -4,7 +4,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import { invalidateCanonicalWorks } from "@/lib/hooks/use-canonical-works";
 import type { ContentBrief, StyleBrief } from "@/server/ai/image-analysis";
-import type { CreativeDirection, CreativeDirectionPool } from "@/server/creative-work/contracts";
+import type {
+  BriefingConfidence,
+  BriefingReadiness,
+  CreativeDirection,
+  CreativeDirectionPool,
+  InferredBriefing,
+} from "@/server/creative-work/contracts";
 
 export type CreativeWorkStatus =
   | "draft"
@@ -137,6 +143,7 @@ export interface CreativeWorkDetail {
   work: CreativeWorkItem;
   outputs: CreativeWorkOutput[];
   sources: CreativeWorkSource[];
+  inferredBriefing?: InferredBriefing | null;
 }
 
 export interface CreativeWorkCampaignOption {
@@ -319,6 +326,7 @@ function fetchCreativeWork(workItemId: string, signal?: AbortSignal): Promise<Cr
         createdAt: new Date(source.createdAt),
         updatedAt: new Date(source.updatedAt),
       })),
+      inferredBriefing: (data.inferredBriefing as InferredBriefing | null | undefined) ?? null,
     };
   });
 }
@@ -478,7 +486,13 @@ export function usePrepareCreativeWork() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: { workItemId: string }) =>
-      patchJson<{ work: CreativeWorkDraftItem; quote: CreativeWorkQuote }>(
+      patchJson<{
+        work: CreativeWorkDraftItem;
+        quote: CreativeWorkQuote;
+        briefing: InferredBriefing;
+        readiness: BriefingReadiness;
+        confidence: BriefingConfidence;
+      }>(
         `/api/creative-work/${input.workItemId}`,
         { action: "prepare" },
         120_000,
@@ -546,7 +560,12 @@ export function useGenerateCopy() {
       };
       queryClient.setQueryData<CreativeWorkDetail>(
         ["creative-work", workItemId],
-        (current) => ({ work, outputs: current?.outputs ?? [], sources: current?.sources ?? [] })
+        (current) => ({
+          work,
+          outputs: current?.outputs ?? [],
+          sources: current?.sources ?? [],
+          inferredBriefing: current?.inferredBriefing ?? null,
+        })
       );
       void queryClient.invalidateQueries({
         queryKey: ["creative-work", workItemId],

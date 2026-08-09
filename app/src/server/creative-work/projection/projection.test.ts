@@ -320,6 +320,39 @@ describe("projectCreativeWorkAsCanonicalWork (Criar Post fixture)", () => {
     expect(work.briefing.headline).toBe("H");
   });
 
+  it("projects the versioned briefing and keeps an unknown offer unknown", () => {
+    const work = projectCreativeWorkAsCanonicalWork(creativeWorkFixture({
+      brief: {
+        theme: "Legacy theme",
+        objective: "Legacy objective",
+        audience: "Legacy audience",
+        offer: "Legacy offer",
+      },
+      inputSnapshot: {
+        inferredBriefing: {
+          version: 1,
+          message: { value: "Algo moderno", state: "sourced" },
+          objective: { value: "Gerar interesse", state: "inferred", confidence: "medium" },
+          audience: { value: "Professores", state: "inferred", confidence: "low" },
+          offer: { value: null, state: "unknown" },
+          tone: { value: "Direto", state: "sourced" },
+          constraints: { value: null, state: "unknown" },
+          readiness: "exploratory",
+          confidence: "low",
+        },
+      },
+    }));
+
+    expect(work.intent.objective).toBe("Gerar interesse");
+    expect(work.briefing).toMatchObject({
+      theme: "Algo moderno",
+      audience: "Professores",
+      offer: null,
+      tone: "Direto",
+      constraints: null,
+    });
+  });
+
   it("marks selected output as approved stage", () => {
     const work = projectCreativeWorkAsCanonicalWork(
       creativeWorkFixture({

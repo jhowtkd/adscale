@@ -18,6 +18,7 @@ import {
   creativeWorkPreparationSchema,
   creativeWorkSettingsSchema,
   displayRequestForCreativeWork,
+  resolveCreativeWorkInferredBriefing,
   socialPostCopySchema,
 } from "@/server/creative-work/contracts";
 import {
@@ -359,6 +360,7 @@ export async function GET(
       },
       outputs: result.outputs,
       sources,
+      inferredBriefing: resolveCreativeWorkInferredBriefing(result.work.inputSnapshot),
       canonical,
     });
   } catch (error) {

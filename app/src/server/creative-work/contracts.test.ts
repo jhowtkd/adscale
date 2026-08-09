@@ -11,9 +11,11 @@ import {
   creativeDirectionPoolSchema,
   displayRequestForCreativeWork,
   generationPolicyVersionFromSwitch,
+  inferredBriefingSchema,
   quoteCreativeWork,
   requestTextFromBrief,
   resolveCreativeWorkFactPack,
+  resolveCreativeWorkInferredBriefing,
   resolveCreativeWorkStatus,
   resolveGenerationPolicyVersion,
   socialPostBriefSchema,
@@ -145,6 +147,26 @@ describe("creative work contracts", () => {
     expect(resolveCreativeWorkFactPack(restored)).toEqual(snapshot.factPack);
   });
 
+  it("round-trips the versioned inferred briefing and rejects confidence on sourced fields", () => {
+    const briefing = {
+      version: 1,
+      message: { value: "Matrículas", state: "sourced" },
+      objective: { value: "Gerar inscrições", state: "inferred", confidence: "medium" },
+      audience: { value: null, state: "unknown" },
+      offer: { value: null, state: "unknown" },
+      tone: { value: "Direto", state: "sourced" },
+      constraints: { value: null, state: "unknown" },
+      readiness: "exploratory",
+      confidence: "low",
+    } as const;
+    expect(inferredBriefingSchema.parse(JSON.parse(JSON.stringify(briefing)))).toEqual(briefing);
+    expect(resolveCreativeWorkInferredBriefing({ inferredBriefing: briefing })).toEqual(briefing);
+    expect(() => inferredBriefingSchema.parse({
+      ...briefing,
+      message: { value: "Matrículas", state: "sourced", confidence: "high" },
+    })).toThrow();
+  });
+
   it("keeps snapshots without a fact pack readable and resolves unknown blocks as absent", () => {
     const legacySnapshot = {
       request: "Promoção",
@@ -167,6 +189,10 @@ describe("creative work contracts", () => {
       offer: "Oferta",
     });
     expect(parsed.audience).toBe("");
+  });
+
+  it("accepts an empty offer so unknown offers stay empty in the legacy adapter", () => {
+    expect(socialPostBriefSchema.parse({ theme: "Tema", objective: "Objetivo", audience: "", offer: "" }).offer).toBe("");
   });
 
   it("resolves completed only when all three outputs completed", () => {

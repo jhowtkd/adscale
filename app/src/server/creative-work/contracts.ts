@@ -178,6 +178,47 @@ export const creativeWorkFactPackSchema = z.object({
 });
 export type CreativeWorkFactPack = z.infer<typeof creativeWorkFactPackSchema>;
 
+export const INFERRED_FIELD_STATES = ["sourced", "inferred", "unknown"] as const;
+export const BRIEFING_READINESS_STATES = ["ready", "exploratory", "blocked"] as const;
+export const BRIEFING_CONFIDENCE_LEVELS = ["high", "medium", "low"] as const;
+export const INFERRED_BRIEFING_VERSION = 1 as const;
+
+export const inferredFieldSchema = z.object({
+  value: z.string().trim().min(1).nullable(),
+  state: z.enum(INFERRED_FIELD_STATES),
+  confidence: z.enum(BRIEFING_CONFIDENCE_LEVELS).optional(),
+}).superRefine((field, context) => {
+  if (field.state === "unknown" && field.value !== null) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["value"], message: "unknownValueMustBeNull" });
+  }
+  if (field.state !== "unknown" && field.value === null) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["value"], message: "knownValueRequired" });
+  }
+  if (field.state === "inferred" && !field.confidence) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["confidence"], message: "inferredConfidenceRequired" });
+  }
+  if (field.state !== "inferred" && field.confidence) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["confidence"], message: "confidenceOnlyForInferred" });
+  }
+});
+
+export const inferredBriefingSchema = z.object({
+  version: z.literal(INFERRED_BRIEFING_VERSION),
+  message: inferredFieldSchema,
+  objective: inferredFieldSchema,
+  audience: inferredFieldSchema,
+  offer: inferredFieldSchema,
+  tone: inferredFieldSchema,
+  constraints: inferredFieldSchema,
+  readiness: z.enum(BRIEFING_READINESS_STATES),
+  confidence: z.enum(BRIEFING_CONFIDENCE_LEVELS),
+});
+
+export type InferredField = z.infer<typeof inferredFieldSchema>;
+export type BriefingReadiness = z.infer<typeof inferredBriefingSchema>["readiness"];
+export type BriefingConfidence = z.infer<typeof inferredBriefingSchema>["confidence"];
+export type InferredBriefing = z.infer<typeof inferredBriefingSchema>;
+
 export type CreativeWorkInputSnapshot = {
   /**
    * Generation policy frozen at prepare time (R-011). Jobs obey this value
@@ -190,6 +231,8 @@ export type CreativeWorkInputSnapshot = {
    * before the fact pack existed; those stay readable and are rebuilt.
    */
   factPack?: CreativeWorkFactPack;
+  /** Versioned presentation contract; absent on legacy snapshots. */
+  inferredBriefing?: InferredBriefing;
   request: string;
   settings: CreativeWorkSettings;
   sources: Array<{
@@ -219,6 +262,15 @@ export function resolveCreativeWorkFactPack(
 ): CreativeWorkFactPack | null {
   if (!snapshot?.factPack) return null;
   const parsed = creativeWorkFactPackSchema.safeParse(snapshot.factPack);
+  return parsed.success ? parsed.data : null;
+}
+
+/** Legacy snapshots remain readable without pretending they have a briefing. */
+export function resolveCreativeWorkInferredBriefing(
+  snapshot: Pick<CreativeWorkInputSnapshot, "inferredBriefing"> | null | undefined,
+): InferredBriefing | null {
+  if (!snapshot?.inferredBriefing) return null;
+  const parsed = inferredBriefingSchema.safeParse(snapshot.inferredBriefing);
   return parsed.success ? parsed.data : null;
 }
 
@@ -329,7 +381,9 @@ export const socialPostBriefSchema = z.object({
   // Audience may be empty: unknown targeting stays absent instead of
   // receiving a generic placeholder like "Público da marca" (R-002 / spec 7.2).
   audience: z.string().trim().max(240),
-  offer: z.string().trim().min(1).max(240),
+  // An absent offer is valid. The inferred briefing carries it as null; this
+  // legacy adapter keeps the JSONB shape readable with an empty string.
+  offer: z.string().trim().max(240),
 });
 
 export const socialPostCopySchema = z.object({

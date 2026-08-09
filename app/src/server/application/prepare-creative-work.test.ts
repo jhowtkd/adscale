@@ -76,8 +76,47 @@ describe("prepareCreativeWork", () => {
     expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now, expect.objectContaining({
       brief: expect.objectContaining({ theme: "Promoção de matrícula para julho" }),
       copy: { headline: "Julho", body: "Matricule-se", cta: "Saiba mais" },
+      inputSnapshot: expect.objectContaining({
+        inferredBriefing: expect.objectContaining({
+          version: 1,
+          offer: { value: null, state: "unknown" },
+        }),
+      }),
     }), transactionExecutor);
-    if (result.ok) expect(result.value.quote).toMatchObject({ unitCount: 3, credits: 15 });
+    if (result.ok) {
+      expect(result.value.quote).toMatchObject({ unitCount: 3, credits: 15 });
+      expect(result.value.briefing).toMatchObject({
+        version: 1,
+        readiness: "ready",
+        offer: { value: null, state: "unknown" },
+      });
+    }
+  });
+
+  it("persists an exploratory briefing with an unknown offer instead of using the theme as fallback", async () => {
+    const sparseWork = { ...work, request: "Algo moderno para Instagram" };
+    getWork.mockResolvedValue({ work: sparseWork, outputs: [], sources: [] } as never);
+    inferBrief.mockReturnValue({ theme: "Algo moderno para Instagram", objective: "Promover Algo moderno para Instagram", audience: "", offer: "" });
+
+    const result = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.briefing).toMatchObject({
+        readiness: "exploratory",
+        confidence: "low",
+        offer: { value: null, state: "unknown" },
+      });
+      expect(result.value.quote).toBeDefined();
+    }
+    expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now, expect.objectContaining({
+      inputSnapshot: expect.objectContaining({
+        inferredBriefing: expect.objectContaining({
+          offer: { value: null, state: "unknown" },
+          readiness: "exploratory",
+        }),
+      }),
+    }), transactionExecutor);
   });
 
   it("serializes identical concurrent prepares and calls copy once", async () => {
@@ -351,6 +390,9 @@ describe("prepareCreativeWork", () => {
             expect.objectContaining({ value: "Mentoria individual", class: "product", origin: "source", sourceId: "source-content-2" }),
             expect.objectContaining({ value: "Cenbrap", class: "brand", required: true, origin: "brand" }),
           ]),
+        }),
+        inferredBriefing: expect.objectContaining({
+          offer: { value: "Inscrições abertas", state: "sourced" },
         }),
       }),
     }), transactionExecutor);

@@ -33,6 +33,7 @@ import {
   quoteCreativeWork,
   type CreativeDirection,
   type CreativeDirectionPool,
+  type InferredBriefing,
 } from "@/server/creative-work/contracts";
 import type { CreativeInspiration } from "@/server/application/list-creative-inspirations";
 
@@ -137,6 +138,7 @@ export function useCreativeComposer({
     initialTargetFormats,
     initialIntent === "variations" ? createDefaultCreativeDirectionPool() : undefined,
   ));
+  const [inferredBriefing, setInferredBriefing] = useState<InferredBriefing | null>(null);
   const [directionSuggestionState, setDirectionSuggestionState] = useState<"idle" | "loading" | "ready" | "error">("idle");
   // #129: the pending set carries how it was fetched — the initial/late
   // response replaces the current pool (preserveSelection=false); an explicit
@@ -227,6 +229,7 @@ export function useCreativeComposer({
     lastPersistedRef.current = signature(hydrated);
     /* TanStack Query is the external persisted source for hydration. */
     setRequestState(work.request);
+    setInferredBriefing(detailQuery.data?.inferredBriefing ?? null);
     setIntent(intentRef.current);
     setFormat(work.format);
     setFormatMode(hydrated.settings.formatMode);
@@ -501,6 +504,7 @@ export function useCreativeComposer({
   const setRequest = useCallback((value: string) => {
     requestRef.current = value;
     setRequestState(value);
+    setInferredBriefing(null);
   }, []);
 
   const selectIntent = useCallback((next: ComposerIntent) => {
@@ -516,6 +520,7 @@ export function useCreativeComposer({
     setRequestState("");
     setError(null);
     setBrandConflict(null);
+    setInferredBriefing(null);
     directionSuggestionRequestedRef.current = null;
     directionTouchedRef.current = false;
     setPendingDirectionSuggestions(null);
@@ -675,6 +680,7 @@ export function useCreativeComposer({
           });
         }
       }
+      setInferredBriefing(null);
       announce(images.length === 1 ? "Arte adicionada" : `${images.length} artes adicionadas`);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Falha ao adicionar arte");
@@ -696,6 +702,7 @@ export function useCreativeComposer({
         ...source,
         usage: source.usage ?? (intentRef.current === "restyle" ? "style" : "both"),
       });
+      setInferredBriefing(null);
       return true;
     }
     return Boolean(await ensureDraft(source));
@@ -795,6 +802,7 @@ export function useCreativeComposer({
   const runSourceAction = useCallback(async (action: Parameters<typeof sourceMutation.mutateAsync>[0]): Promise<boolean> => {
     try {
       await sourceMutation.mutateAsync(action);
+      setInferredBriefing(null);
       return true;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Falha ao atualizar arte");
@@ -810,13 +818,16 @@ export function useCreativeComposer({
     if (!workIdRef.current) return Promise.resolve();
     const workItemId = workIdRef.current;
     return sourceMutation.mutateAsync({ workItemId, action: "retrySource", sourceId })
-      .then(() => undefined)
+      .then(() => {
+        setInferredBriefing(null);
+      })
       .catch(async (cause) => {
         // A poll or a duplicate click may win the source CAS between the
         // detail read and retry. The server's 409 is a safe no-op: refresh
         // the canonical source state instead of surfacing "Entrada inválida".
         if (isCreativeWorkConflict(cause)) {
           await detailQuery.refetch();
+          setInferredBriefing(null);
           setError(null);
           return;
         }
@@ -861,6 +872,7 @@ export function useCreativeComposer({
         phase = "preparing";
         setActionPhase(phase);
         const prepared = await prepareMutation.mutateAsync({ workItemId: id });
+        if (prepared.briefing) setInferredBriefing(prepared.briefing);
         lastPersistedRef.current = signature(snapshotFromWork(prepared.work));
         setQuote(prepared.quote);
         formatRef.current = prepared.work.format;
@@ -1067,6 +1079,7 @@ export function useCreativeComposer({
     directionSuggestionState, pendingDirectionSuggestions, applyDirectionSuggestions, requestDirectionSuggestions, keepCurrentDirections,
     state, actionPhase, workId, clientProfileId, brandName,
     sources: detail?.sources ?? [], outputs: detail?.outputs ?? [], quote, canGenerate, isUploading,
+    inferredBriefing,
     campaignId: detail?.work.campaignId ?? null, campaigns,
     error, announcement, approvalErrorOutputId, brandTrainingSuggestion: brandTrainingSuggestion ?? persistedBrandTrainingSuggestion,
     brandConflict, resolveBrandConflict,

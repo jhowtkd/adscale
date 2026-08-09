@@ -107,6 +107,7 @@ export async function listCanonicalWorks(
           status: w.status,
           format: w.format,
           brief: w.brief,
+          inputSnapshot: w.inputSnapshot,
           copy: w.copy,
           identitySnapshot: w.identitySnapshot,
           createdAt: w.createdAt,

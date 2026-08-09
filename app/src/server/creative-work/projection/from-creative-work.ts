@@ -11,6 +11,10 @@ import {
   type CanonicalVersion,
   type CanonicalWorkSummary,
 } from "@/server/creative-work/canonical/types";
+import {
+  resolveCreativeWorkInferredBriefing,
+  type CreativeWorkInputSnapshot,
+} from "@/server/creative-work/contracts";
 
 export interface CreativeWorkProjectionSource {
   id: string;
@@ -27,6 +31,7 @@ export interface CreativeWorkProjectionSource {
     audience?: string | null;
     offer?: string | null;
   } | null;
+  inputSnapshot?: Pick<CreativeWorkInputSnapshot, "inferredBriefing"> | null;
   copy: {
     headline?: string | null;
     body?: string | null;
@@ -118,7 +123,8 @@ export function projectCreativeWorkAsCanonicalWork(
 
   const selected = orderedOutputs.find((output) => output.isSelected) ?? null;
 
-  const theme = work.brief?.theme ?? null;
+  const inferredBriefing = resolveCreativeWorkInferredBriefing(work.inputSnapshot);
+  const theme = inferredBriefing ? inferredBriefing.message.value : work.brief?.theme ?? null;
   const name = work.title?.trim() || theme?.trim() || `Criar Post ${work.id.slice(0, 8)}`;
 
   return {
@@ -132,17 +138,17 @@ export function projectCreativeWorkAsCanonicalWork(
     state,
     intent: {
       kind: "social_post",
-      objective: work.brief?.objective ?? null,
+      objective: inferredBriefing ? inferredBriefing.objective.value : work.brief?.objective ?? null,
       formatHint: work.format,
       platforms: [],
     },
     briefing: {
       product: null,
       client: null,
-      audience: work.brief?.audience ?? null,
-      offer: work.brief?.offer ?? null,
-      tone: null,
-      constraints: null,
+      audience: inferredBriefing ? inferredBriefing.audience.value : work.brief?.audience ?? null,
+      offer: inferredBriefing ? inferredBriefing.offer.value : work.brief?.offer ?? null,
+      tone: inferredBriefing?.tone.value ?? null,
+      constraints: inferredBriefing?.constraints.value ?? null,
       notes: null,
       headline: work.copy?.headline ?? null,
       body: work.copy?.body ?? null,

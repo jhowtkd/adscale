@@ -13,6 +13,13 @@ vi.mock("next-intl", () => ({ useTranslations: () => (key: string, values?: Reco
   variationInstructionsPlaceholder: "Ex.:\n- Criar uma copy mais direta\n- Sugerir novos CTAs\n- Destacar a oferta",
   formatAdaptationTitle: "Adapte uma arte para outros formatos", formatAdaptationSubtitle: "Envie a arte original e escolha os formatos.",
   originalArt: "Arte original", styleReference: "Referência de estilo", fullBriefing: "Briefing visual sugerido pela IA",
+  inferredBriefingTitle: "A IA entendeu assim", inferredBriefingSentence: `A IA entendeu assim: ${values?.message ?? ""}`,
+  briefingFieldsLabel: "Campos do briefing inferido", briefingMessage: "Mensagem", briefingObjective: "Objetivo",
+  briefingAudience: "Público", briefingOffer: "Oferta", briefingTone: "Tom", briefingConstraints: "Restrições",
+  briefingUnknown: "Não informado", briefingStateSourced: "Fonte factual", briefingStateInferred: "Hipótese da IA",
+  briefingStateUnknown: "Desconhecido", briefingStatus: "Prontidão e confiança do briefing", briefingReadiness: "Prontidão",
+  briefingReadinessReady: "Pronto", briefingReadinessExploratory: "Exploratório", briefingReadinessBlocked: "Bloqueado",
+  briefingConfidence: "Confiança", briefingConfidenceHigh: "Alta", briefingConfidenceMedium: "Média", briefingConfidenceLow: "Baixa",
   addOriginalArt: "Adicionar arte original", addStyleArt: "Adicionar referência de estilo",
   removeOriginalArt: "Remover arte original", removeStyleArt: "Remover referência de estilo",
   previewUnavailable: "Imagem indisponível", sourceUploading: "Enviando imagem", sourceReady: "Imagem pronta",
@@ -67,6 +74,7 @@ function composer(overrides = {}) {
     composerRef: { current: null }, request: "", setRequest: vi.fn(), intent: "variations", selectIntent: vi.fn(),
     format: "4:5", formatMode: "manual", setFormat: vi.fn(), setFormatAuto: vi.fn(), targetFormats: [], toggleTargetFormat: vi.fn(), directionPool, toggleDirection: vi.fn(), setManualDirectionInstruction: vi.fn(), directionSuggestionState: "idle", pendingDirectionSuggestions: null, applyDirectionSuggestions: vi.fn(), requestDirectionSuggestions: vi.fn(), keepCurrentDirections: vi.fn(), state: "empty", actionPhase: "idle",
     workId: null, brandName: "Marca A", sources: [], outputs: [], quote: { unitCount: 3, credits: 15 },
+    inferredBriefing: null,
     campaignId: null, campaigns: [], linkCampaign: vi.fn(), retryOutput: vi.fn(), retryRevisionOutput: vi.fn(), approveOutput: vi.fn(),
     downloadOutput: vi.fn(), reviseOutput: vi.fn(), isRetryingOutput: vi.fn(), isApprovingOutput: vi.fn(), approvalErrorOutputId: null, isRevisingOutput: vi.fn(),
     canGenerate: true, isUploading: false, error: null, announcement: "", brandTrainingSuggestion: null, requiresBrandSelection: false,
@@ -116,6 +124,29 @@ function renderComposer(value = composer()) {
 }
 
 describe("CreativeComposer", () => {
+  it("shows the versioned inferred briefing with states, readiness and unknown offer", () => {
+    renderComposer(composer({
+      inferredBriefing: {
+        version: 1,
+        message: { value: "Algo moderno", state: "sourced" },
+        objective: { value: "Gerar interesse", state: "inferred", confidence: "medium" },
+        audience: { value: null, state: "unknown" },
+        offer: { value: null, state: "unknown" },
+        tone: { value: "Direto", state: "sourced" },
+        constraints: { value: null, state: "unknown" },
+        readiness: "exploratory",
+        confidence: "low",
+      },
+    }));
+
+    expect(screen.getByTestId("inferred-briefing")).toHaveTextContent("A IA entendeu assim: Algo moderno");
+    expect(screen.getByTestId("inferred-briefing-offer")).toHaveTextContent("Não informado");
+    expect(screen.getByTestId("inferred-briefing-offer")).toHaveAttribute("data-state", "unknown");
+    expect(screen.getByTestId("inferred-briefing")).toHaveTextContent("Hipótese da IA");
+    expect(screen.getByTestId("inferred-briefing")).toHaveTextContent("Prontidão: Exploratório");
+    expect(screen.getByTestId("inferred-briefing")).toHaveTextContent("Confiança: Baixa");
+  });
+
   it("keeps Enter as a newline in Peça única and never generates from the textarea", () => {
     const value = composer({ intent: "single", quote: { unitCount: 1, credits: 5 } });
     renderComposer(value);

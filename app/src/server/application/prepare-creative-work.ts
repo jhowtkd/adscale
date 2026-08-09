@@ -13,6 +13,7 @@ import {
   deriveCreativeWorkTitle,
   inferCreativeWorkFormat,
   inferSocialPostBrief,
+  buildInferredBriefing,
 } from "@/server/creative-work/prepare";
 import { resolveCreativeWorkProtocol } from "@/server/creative-work/protocol";
 import {
@@ -20,6 +21,7 @@ import {
   generationPolicyVersionFromSwitch,
   quoteCreativeWork,
   resolveGenerationPolicyVersion,
+  resolveCreativeWorkInferredBriefing,
   socialPostBriefSchema,
   socialPostCopySchema,
   type CreativeSourceStatus,
@@ -198,12 +200,26 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
       // question ever appears without a confident conflict).
       brandAuthority,
     });
+    const parsedBrief = socialPostBriefSchema.safeParse(inferSocialPostBrief(
+      aggregate.work.request,
+      contentAnalyses,
+    ));
+    if (!parsedBrief.success) {
+      return { ok: false as const, error: { code: "invalid_preparation" as const } };
+    }
+    const briefing = buildInferredBriefing({
+      request: aggregate.work.request,
+      brief: parsedBrief.data,
+      factPack,
+      toneOfVoice: brandAuthority.kind === "source" ? null : brandKit?.toneOfVoice ?? null,
+    });
     // R-011: the env switch is a creation-time policy. Its current value is
     // frozen into the snapshot here; jobs later obey this frozen version and
     // never re-read the env, so rollback only affects newly prepared work.
     const snapshot: CreativeWorkInputSnapshot = {
       generationPolicyVersion: generationPolicyVersionFromSwitch(env.CREATIVE_WORK_QUALITY_RECOVERY_ENABLED),
       factPack,
+      inferredBriefing: briefing,
       request: aggregate.work.request,
       settings: preparation.data.settings,
       sources: effectiveSources.map(({ source, usage }) => ({
@@ -235,14 +251,17 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
       socialPostBriefSchema.safeParse(aggregate.work.brief).success &&
       socialPostCopySchema.safeParse(aggregate.work.copy).success
     ) {
-      return { ok: true as const, value: { work: aggregate.work, quote } };
-    }
-    const parsedBrief = socialPostBriefSchema.safeParse(inferSocialPostBrief(
-      aggregate.work.request,
-      contentAnalyses,
-    ));
-    if (!parsedBrief.success) {
-      return { ok: false as const, error: { code: "invalid_preparation" as const } };
+      const persistedBriefing = resolveCreativeWorkInferredBriefing(aggregate.work.inputSnapshot) ?? briefing;
+      return {
+        ok: true as const,
+        value: {
+          briefing: persistedBriefing,
+          readiness: persistedBriefing.readiness,
+          confidence: persistedBriefing.confidence,
+          work: aggregate.work,
+          quote,
+        },
+      };
     }
     // R-002: the copy is generated from the fact pack (full request + sourced
     // facts + brand) and validated for provenance. A copy that keeps claims
@@ -285,6 +304,15 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
       executor,
     );
     if (!work) return { ok: false as const, error: { code: "stale_input" as const } };
-    return { ok: true as const, value: { work, quote } };
+    return {
+      ok: true as const,
+      value: {
+        briefing,
+        readiness: briefing.readiness,
+        confidence: briefing.confidence,
+        work,
+        quote,
+      },
+    };
   });
 }
