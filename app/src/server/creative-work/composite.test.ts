@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import sharp from "sharp";
-import { composeExactBrandAssets } from "./composite";
+import {
+  composeExactBrandAssets,
+  meanOpaqueLuminance,
+  pickContrastSafePlacement,
+  runExactComposition,
+} from "./composite";
+import { policyForExactAsset, clearspacePx } from "./placement-policy";
 
 async function makeBase(width: number, height: number): Promise<Buffer> {
   return sharp({
@@ -261,5 +267,143 @@ describe("composeExactBrandAssets", () => {
       .raw()
       .toBuffer();
     expect([...pixel.subarray(0, 3)]).toEqual([255, 0, 0]);
+  });
+
+  it("honours clearspace so the logo is not flush with the canvas edge", async () => {
+    const base = await makeBase(100, 100);
+    const layer = {
+      buffer: await makeTransparentLayer(20, 20, { r: 0, g: 255, b: 0 }),
+      gravity: "southwest" as const,
+      widthRatio: 0.2,
+      clearspacePx: 10,
+    };
+    const result = await composeExactBrandAssets(base, [layer], {
+      width: 100,
+      height: 100,
+    });
+    // With pad=10 and 20×20 layer, top-left of logo is (10, 70)
+    const onLogo = await sharp(result)
+      .extract({ left: 15, top: 75, width: 1, height: 1 })
+      .raw()
+      .toBuffer();
+    expect([...onLogo.subarray(0, 3)]).toEqual([0, 255, 0]);
+    const edge = await sharp(result)
+      .extract({ left: 2, top: 97, width: 1, height: 1 })
+      .raw()
+      .toBuffer();
+    expect([...edge.subarray(0, 3)]).toEqual([255, 255, 255]);
+  });
+
+  it("preserves source aspect ratio (no stretch)", async () => {
+    const base = await makeBase(200, 200);
+    // 40×10 source → widthRatio 0.2 → target width 40, height 10
+    const layer = {
+      buffer: await makeTransparentLayer(40, 10, { r: 0, g: 0, b: 255 }),
+      gravity: "northwest" as const,
+      widthRatio: 0.2,
+    };
+    const result = await composeExactBrandAssets(base, [layer], {
+      width: 200,
+      height: 200,
+    });
+    const inside = await sharp(result)
+      .extract({ left: 5, top: 5, width: 1, height: 1 })
+      .raw()
+      .toBuffer();
+    expect([...inside.subarray(0, 3)]).toEqual([0, 0, 255]);
+    // Below the 10px-tall layer should still be white
+    const below = await sharp(result)
+      .extract({ left: 5, top: 15, width: 1, height: 1 })
+      .raw()
+      .toBuffer();
+    expect([...below.subarray(0, 3)]).toEqual([255, 255, 255]);
+  });
+});
+
+describe("pickContrastSafePlacement + runExactComposition", () => {
+  it("prefers a corner with usable contrast over a matching dark underlay", async () => {
+    // Left half black, right half white — yellow logo should prefer the dark side.
+    const width = 200;
+    const height = 200;
+    const raw = Buffer.alloc(width * height * 3);
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const i = (y * width + x) * 3;
+        const v = x < width / 2 ? 10 : 240;
+        raw[i] = v;
+        raw[i + 1] = v;
+        raw[i + 2] = v;
+      }
+    }
+    const base = await sharp(raw, { raw: { width, height, channels: 3 } }).png().toBuffer();
+    const logo = await makeTransparentLayer(40, 20, { r: 255, g: 201, b: 20 });
+    const policy = policyForExactAsset("logo", "1:1")!;
+    const plan = {
+      referenceId: "r1",
+      assetKey: "k",
+      label: "Logo",
+      category: "logo" as const,
+      gravity: "southeast" as const, // white side
+      widthRatio: 0.2,
+      clearspacePx: clearspacePx({ width, height }, policy),
+      policy,
+      status: "compose" as const,
+      reason: "test",
+    };
+    const picked = await pickContrastSafePlacement({
+      base,
+      logo,
+      plan,
+      dimensions: { width, height },
+    });
+    expect(picked.contrast).toBeGreaterThanOrEqual(policy.minContrast);
+    // Should move off the bright southeast toward a darker corner (west side).
+    expect(["southwest", "northwest"]).toContain(picked.gravity);
+  });
+
+  it("records provenance for composed logo without an extra provider call", async () => {
+    // Navy base
+    const navy = await sharp({
+      create: {
+        width: 108,
+        height: 135,
+        channels: 3,
+        background: { r: 7, g: 21, b: 34 },
+      },
+    })
+      .png()
+      .toBuffer();
+    const logo = await makeTransparentLayer(40, 16, { r: 255, g: 201, b: 20 });
+    const result = await runExactComposition({
+      base: navy,
+      format: "4:5",
+      dimensions: { width: 108, height: 135 },
+      assets: [
+        {
+          referenceId: "logo-1",
+          assetKey: "ws/logo.png",
+          label: "Logo oficial",
+          category: "logo",
+          usageMode: "exact",
+          analysis: null,
+          mimeType: "image/png",
+          hasAlpha: true,
+          placement: { gravity: "southwest", widthRatio: 0.2 },
+        },
+      ],
+      loadAsset: async () => logo,
+    });
+    expect(result.provenance.composed).toHaveLength(1);
+    expect(result.provenance.composed[0]?.referenceId).toBe("logo-1");
+    expect(result.provenance.composed[0]?.policy.required).toBe(true);
+    expect(result.provenance.composed[0]?.clearspacePx).toBeGreaterThan(0);
+    expect(result.provenance.omitted).toEqual([]);
+    // Yellow on navy — high contrast, no backdrop needed
+    expect(result.provenance.composed[0]?.usedBackdrop).toBe(false);
+    expect(await meanOpaqueLuminance(logo)).toBeGreaterThan(0.5);
+    // Logo pixels present on composed canvas
+    const meta = await sharp(result.buffer).metadata();
+    expect(meta.width).toBe(108);
+    expect(meta.height).toBe(135);
   });
 });

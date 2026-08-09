@@ -47,6 +47,7 @@ export async function GET(
       workspace.id,
       existing.work.clientProfileId,
       brief,
+      existing.work.format,
     );
 
     return NextResponse.json({ options });

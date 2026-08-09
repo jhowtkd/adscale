@@ -54,10 +54,11 @@ import {
   logCreativeWorkRetry,
   observeCreativeWorkStage,
 } from "@/server/creative-work/job-telemetry";
+import { runExactComposition } from "@/server/creative-work/composite";
 import {
-  composeExactBrandAssets,
-  type BrandAssetGravity,
-} from "@/server/creative-work/composite";
+  preflightExactComposition,
+  type CompositionProvenance,
+} from "@/server/creative-work/placement-policy";
 import { getTargetDimensions } from "@/lib/formats";
 import {
   resolveCreativeWorkFactPack,
@@ -910,6 +911,44 @@ const creativeWorkOutputJobHandler = async ({
         attempt: output.retryCount,
       };
 
+      // Exact assets (logo…) must be composable before we spend a provider call.
+      const exactPreflight = preflightExactComposition({
+        format: targetFormat,
+        dimensions,
+        assets: identitySnapshot.assets,
+      });
+      if (!exactPreflight.ok) {
+        terminalRefunded = await refundTerminalOutput({
+          workspaceId,
+          workItemId,
+          outputId,
+          reason: "exact_asset_preflight_failed",
+        });
+        const failed = await step.run("mark-failed-exact-preflight", async () =>
+          failCreativeWorkOutput(
+            workspaceId,
+            workItemId,
+            outputId,
+            "exact_asset_preflight_failed",
+          ),
+        );
+        if (failed) {
+          logCreativeWorkOutputTerminal({
+            ...telemetryBase(),
+            outcome: "failed",
+            failureCode: "exact_asset_preflight_failed",
+            refunded: terminalRefunded,
+            durationMs: jobTimer.elapsedMs(),
+          });
+        }
+        return {
+          success: false,
+          outputId,
+          failureCode: "exact_asset_preflight_failed",
+          blocked: exactPreflight.blocked,
+        };
+      }
+
       // R-007: lease re-check between steps — abort BEFORE the provider call
       // when this job no longer owns the processing row.
       if (!(await checkLease("pre-generate"))) {
@@ -1013,27 +1052,26 @@ const creativeWorkOutputJobHandler = async ({
       // The correction flow may replace the persisted key with its own.
       let finalOutputKey = generatedOutputKey;
 
+      // Exact brand assets (logo etc.) are composited after generation —
+      // never drawn by the image model. Policy is per-asset/per-format.
       const exactAssets = identitySnapshot.assets.filter(
-        (asset) => asset.usageMode === "exact" && asset.placement,
+        (asset) => asset.usageMode === "exact",
       );
+      let compositionProvenance: CompositionProvenance | null = null;
 
       if (exactAssets.length > 0) {
-        await step.run("compose-exact-layers", async () => {
-          const [baseBuffer, layers] = await Promise.all([
-            objectStorage.get(generatedOutputKey),
-            Promise.all(exactAssets.map(async (asset) => ({
-              buffer: await objectStorage.get(asset.assetKey),
-              gravity: asset.placement!.gravity as BrandAssetGravity,
-              widthRatio: asset.placement!.widthRatio,
-            }))),
-          ]);
-          const composed = await composeExactBrandAssets(
-            baseBuffer,
-            layers,
+        compositionProvenance = (await step.run("compose-exact-layers", async () => {
+          const baseBuffer = await objectStorage.get(generatedOutputKey);
+          const result = await runExactComposition({
+            base: baseBuffer,
+            format: targetFormat,
             dimensions,
-          );
-          await objectStorage.put(generatedOutputKey, composed, "image/png");
-        });
+            assets: identitySnapshot.assets,
+            loadAsset: (assetKey) => objectStorage.get(assetKey),
+          });
+          await objectStorage.put(generatedOutputKey, result.buffer, "image/png");
+          return result.provenance;
+        })) as CompositionProvenance;
       }
 
       // Keep the image buffer out of step results; only its storage key is
@@ -1304,22 +1342,25 @@ const creativeWorkOutputJobHandler = async ({
         }
 
         if (exactAssets.length > 0) {
-          await step.run("compose-exact-layers-correction", async () => {
-            const [baseBuffer, layers] = await Promise.all([
-              objectStorage.get(correctionOutputKey),
-              Promise.all(exactAssets.map(async (asset) => ({
-                buffer: await objectStorage.get(asset.assetKey),
-                gravity: asset.placement!.gravity as BrandAssetGravity,
-                widthRatio: asset.placement!.widthRatio,
-              }))),
-            ]);
-            const composed = await composeExactBrandAssets(
-              baseBuffer,
-              layers,
-              dimensions,
-            );
-            await objectStorage.put(correctionOutputKey, composed, "image/png");
-          });
+          compositionProvenance = (await step.run(
+            "compose-exact-layers-correction",
+            async () => {
+              const baseBuffer = await objectStorage.get(correctionOutputKey);
+              const result = await runExactComposition({
+                base: baseBuffer,
+                format: targetFormat,
+                dimensions,
+                assets: identitySnapshot.assets,
+                loadAsset: (assetKey) => objectStorage.get(assetKey),
+              });
+              await objectStorage.put(
+                correctionOutputKey,
+                result.buffer,
+                "image/png",
+              );
+              return result.provenance;
+            },
+          )) as CompositionProvenance;
         }
 
         const correctedBuffer = await objectStorage.get(correctionOutputKey);
@@ -1360,6 +1401,14 @@ const creativeWorkOutputJobHandler = async ({
         finalOutputKey = correctionOutputKey;
         completedQuality = correctionAssessment.quality as unknown as Record<string, unknown>;
         completedVerdict = correctionAssessment.objectiveVerdict;
+      }
+
+      // Provenance of exact-asset composition (logo etc.) — which asset, where, policy.
+      if (compositionProvenance) {
+        completedQuality = {
+          ...(completedQuality ?? {}),
+          exactComposition: compositionProvenance,
+        };
       }
 
       // R-007: lease re-check before the commit — a job that lost the row

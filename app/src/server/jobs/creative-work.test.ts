@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const generateAndStoreImageMock = vi.hoisted(() => vi.fn());
-const composeExactBrandAssetsMock = vi.hoisted(() => vi.fn());
+const runExactCompositionMock = vi.hoisted(() => vi.fn());
 const analyzeDerivationCreativeMock = vi.hoisted(() => vi.fn());
 const planCreativeRoutesMock = vi.hoisted(() => vi.fn());
 const selectCreativeCandidateMock = vi.hoisted(() => vi.fn());
@@ -104,8 +104,7 @@ vi.mock("@/server/ai/image-generation", () => ({
 }));
 
 vi.mock("@/server/creative-work/composite", () => ({
-  composeExactBrandAssets: (...args: unknown[]) =>
-    composeExactBrandAssetsMock(...args),
+  runExactComposition: (...args: unknown[]) => runExactCompositionMock(...args),
 }));
 
 vi.mock("@/server/ai/creative-route-planner", () => ({
@@ -317,7 +316,35 @@ describe("creativeWorkOutputJob", () => {
       imageOperation: "generate",
       buffer: Buffer.from("generated-png"),
     });
-    composeExactBrandAssetsMock.mockResolvedValue(Buffer.from("composed-png"));
+    runExactCompositionMock.mockResolvedValue({
+      buffer: Buffer.from("composed-png"),
+      provenance: {
+        version: 1,
+        format: "4:5",
+        dimensions: { width: 1080, height: 1350 },
+        composed: [
+          {
+            referenceId: "ref-logo",
+            assetKey: "logo.png",
+            label: "Logo",
+            category: "logo",
+            gravity: "southwest",
+            widthRatio: 0.2,
+            clearspacePx: 40,
+            contrast: 8,
+            usedBackdrop: false,
+            policy: {
+              required: true,
+              omissible: false,
+              preferredGravity: "southwest",
+              minContrast: 1.6,
+            },
+          },
+        ],
+        omitted: [],
+        blocked: [],
+      },
+    });
     analyzeDerivationCreativeMock.mockResolvedValue({
       scoreStatus: "analyzed",
       qualityScore: 80,
@@ -504,7 +531,7 @@ describe("creativeWorkOutputJob", () => {
     await runJob();
 
     expect(markProcessingMock).toHaveBeenCalledBefore(generateAndStoreImageMock);
-    expect(composeExactBrandAssetsMock).toHaveBeenCalledTimes(1);
+    expect(runExactCompositionMock).toHaveBeenCalledTimes(1);
     expect(completeMock).toHaveBeenCalledWith(
       "workspace-1",
       "work-1",
@@ -517,6 +544,12 @@ describe("creativeWorkOutputJob", () => {
         quality: expect.objectContaining({
           scoreStatus: "analyzed",
           qualityScore: 80,
+          exactComposition: expect.objectContaining({
+            version: 1,
+            composed: expect.arrayContaining([
+              expect.objectContaining({ referenceId: "ref-logo" }),
+            ]),
+          }),
         }),
       }),
     );
@@ -1049,7 +1082,7 @@ describe("creativeWorkOutputJob", () => {
     );
     expect(markProcessingMock).not.toHaveBeenCalled();
     expect(generateAndStoreImageMock).not.toHaveBeenCalled();
-    expect(composeExactBrandAssetsMock).not.toHaveBeenCalled();
+    expect(runExactCompositionMock).not.toHaveBeenCalled();
     expect(completeMock).not.toHaveBeenCalled();
   });
 
@@ -1163,7 +1196,7 @@ describe("creativeWorkOutputJob", () => {
     );
   });
 
-  it("persists quality: null when the scorer itself crashes (best-effort)", async () => {
+  it("still records exactComposition provenance when the scorer crashes", async () => {
     getCreativeWorkMock.mockResolvedValue({
       work: workItem,
       outputs: [makeQueuedOutput()],
@@ -1177,7 +1210,11 @@ describe("creativeWorkOutputJob", () => {
       "workspace-1",
       "work-1",
       "output-1",
-      expect.objectContaining({ quality: null }),
+      expect.objectContaining({
+        quality: expect.objectContaining({
+          exactComposition: expect.objectContaining({ version: 1 }),
+        }),
+      }),
     );
     expect(settleTerminalRefundMock).not.toHaveBeenCalled();
     expect(failMock).not.toHaveBeenCalled();
@@ -1192,15 +1229,17 @@ describe("creativeWorkOutputJob", () => {
 
     await runJob();
 
-    expect(composeExactBrandAssetsMock).toHaveBeenCalledWith(
-      Buffer.from("generated-png"),
-      expect.arrayContaining([
-        expect.objectContaining({
-          gravity: "southeast",
-          widthRatio: 0.4,
+    expect(runExactCompositionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        base: Buffer.from("generated-png"),
+        format: expect.any(String),
+        dimensions: expect.objectContaining({
+          width: expect.any(Number),
+          height: expect.any(Number),
         }),
-      ]),
-      expect.objectContaining({ width: expect.any(Number), height: expect.any(Number) }),
+        assets: expect.any(Array),
+        loadAsset: expect.any(Function),
+      }),
     );
     // The composed buffer overwrites the generated key via objectStorage.put.
     expect(objectPutMock).toHaveBeenCalledWith(

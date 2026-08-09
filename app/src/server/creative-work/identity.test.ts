@@ -23,6 +23,7 @@ const mocks = vi.hoisted(() => {
 
   return {
     getApprovedTrainingReferencesMock: vi.fn(),
+    getArchivedTrainingReferencesMock: vi.fn(),
     getBrandKitMock: vi.fn(),
     selectResults,
     selectChain: queryChain,
@@ -38,6 +39,7 @@ vi.mock("../db", () => ({
 
 vi.mock("../repositories/client-reference", () => ({
   getApprovedTrainingReferences: mocks.getApprovedTrainingReferencesMock,
+  getArchivedTrainingReferences: mocks.getArchivedTrainingReferencesMock,
 }));
 
 vi.mock("../repositories/brand-kit", () => ({
@@ -90,10 +92,44 @@ function approvedReference(overrides: {
   };
 }
 
+function analyzedLayout(input: {
+  mediaType: "photo" | "device";
+  centralMessages?: number;
+}): BrandTrainingAnalysis {
+  return {
+    description: `${input.mediaType} layout`,
+    visualAttributes: [],
+    rules: [],
+    constraints: [],
+    confidence: 0.9,
+    structure: {
+      version: 1,
+      source: "vision",
+      inferredAt: "2026-01-01T00:00:00.000Z",
+      zones: null,
+      archetype: { id: "modular_card", confidence: 0.9 },
+      typography: null,
+      grid: null,
+      media: { type: input.mediaType, treatment: null, confidence: 0.9 },
+      contentPattern: {
+        centralMessages: input.centralMessages ?? 1,
+        listItems: null,
+        ctaStyle: null,
+        hasLegalDisclaimer: null,
+        confidence: 0.9,
+      },
+      accentPlacement: null,
+      authenticityRisk: null,
+      overallConfidence: 0.9,
+    },
+  };
+}
+
 describe("creative-work identity module", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.selectResults.length = 0;
+    mocks.getArchivedTrainingReferencesMock.mockResolvedValue([]);
   });
 
   describe("DEFAULT_EXACT_PLACEMENT", () => {
@@ -108,6 +144,49 @@ describe("creative-work identity module", () => {
   });
 
   describe("buildIdentityOptions", () => {
+    it("orders operator options with the same request signals as automatic selection", async () => {
+      mocks.getApprovedTrainingReferencesMock.mockResolvedValue([
+        approvedReference({
+          id: "device",
+          trainingCategory: "visual_reference",
+          usageMode: "reference",
+          analysis: analyzedLayout({ mediaType: "device" }),
+        }),
+        approvedReference({
+          id: "photo",
+          trainingCategory: "visual_reference",
+          usageMode: "reference",
+          analysis: analyzedLayout({ mediaType: "photo" }),
+        }),
+      ]);
+      mocks.selectResults.push(
+        [
+          { key: "workspaces/ws-1/assets/device.png", type: "image/png", metadata: { hasAlpha: false } },
+          { key: "workspaces/ws-1/assets/photo.png", type: "image/png", metadata: { hasAlpha: false } },
+        ],
+        [
+          { key: "workspaces/ws-1/assets/device.png", type: "image/png", metadata: { hasAlpha: false } },
+          { key: "workspaces/ws-1/assets/photo.png", type: "image/png", metadata: { hasAlpha: false } },
+        ],
+      );
+
+      const device = await buildIdentityOptions(
+        "ws-1",
+        "profile-1",
+        { ...socialBrief, objective: "Demonstração da plataforma na tela" },
+        "1:1",
+      );
+      const photo = await buildIdentityOptions(
+        "ws-1",
+        "profile-1",
+        { ...socialBrief, objective: "Retrato com foto da equipe" },
+        "1:1",
+      );
+
+      expect(device[0]?.referenceId).toBe("device");
+      expect(photo[0]?.referenceId).toBe("photo");
+    });
+
     it("recommends only approved references and preserves all approved rules", async () => {
       mocks.getApprovedTrainingReferencesMock.mockResolvedValue([
         approvedReference({ id: "logo", trainingCategory: "logo", usageMode: "exact" }),
@@ -233,6 +312,161 @@ describe("creative-work identity module", () => {
   });
 
   describe("createIdentitySnapshot", () => {
+    it("persists a manual override as selection provenance", async () => {
+      mocks.getApprovedTrainingReferencesMock.mockResolvedValue([
+        approvedReference({
+          id: "device",
+          trainingCategory: "visual_reference",
+          usageMode: "reference",
+          analysis: analyzedLayout({ mediaType: "device" }),
+        }),
+        approvedReference({
+          id: "photo",
+          trainingCategory: "visual_reference",
+          usageMode: "reference",
+          analysis: analyzedLayout({ mediaType: "photo" }),
+        }),
+        approvedReference({ id: "logo", trainingCategory: "logo", usageMode: "exact" }),
+        approvedReference({ id: "rule", trainingCategory: "graphic", usageMode: "rule" }),
+      ]);
+      mocks.selectResults.push([
+        { key: "workspaces/ws-1/assets/logo.png", type: "image/png", metadata: { hasAlpha: true } },
+        { key: "workspaces/ws-1/assets/photo.png", type: "image/png", metadata: { hasAlpha: false } },
+        { key: "workspaces/ws-1/assets/rule.png", type: "image/png", metadata: { hasAlpha: false } },
+      ]);
+      mocks.getBrandKitMock.mockResolvedValue(null);
+
+      const snapshot = await createIdentitySnapshot({
+        workspaceId: "ws-1",
+        clientProfileId: "profile-1",
+        selectedReferenceIds: ["photo"],
+        brief: { ...socialBrief, objective: "Demonstração da plataforma na tela" },
+        format: "1:1",
+      });
+
+      expect(snapshot.assets.map((asset) => asset.referenceId)).toEqual([
+        "logo",
+        "photo",
+        "rule",
+      ]);
+      expect(snapshot.referenceSelection).toMatchObject({
+        strategy: "manual",
+        format: "1:1",
+        operatorSelectedReferenceIds: ["photo"],
+      });
+    });
+
+    it("uses the brief media request in the ranked fallback", async () => {
+      const references = [
+        approvedReference({
+          id: "device",
+          trainingCategory: "visual_reference",
+          usageMode: "reference",
+          analysis: analyzedLayout({ mediaType: "device" }),
+        }),
+        approvedReference({
+          id: "photo",
+          trainingCategory: "visual_reference",
+          usageMode: "reference",
+          analysis: analyzedLayout({ mediaType: "photo" }),
+        }),
+      ];
+      mocks.getApprovedTrainingReferencesMock.mockResolvedValue(references);
+      mocks.selectResults.push(
+        [
+          { key: "workspaces/ws-1/assets/device.png", type: "image/png", metadata: { hasAlpha: false } },
+          { key: "workspaces/ws-1/assets/photo.png", type: "image/png", metadata: { hasAlpha: false } },
+        ],
+        [
+          { key: "workspaces/ws-1/assets/device.png", type: "image/png", metadata: { hasAlpha: false } },
+          { key: "workspaces/ws-1/assets/photo.png", type: "image/png", metadata: { hasAlpha: false } },
+        ],
+      );
+      mocks.getBrandKitMock.mockResolvedValue(null);
+
+      const device = await createIdentitySnapshot({
+        workspaceId: "ws-1",
+        clientProfileId: "profile-1",
+        selectedReferenceIds: [],
+        brief: { ...socialBrief, objective: "Demonstração da plataforma na tela" },
+        format: "1:1",
+      });
+      const photo = await createIdentitySnapshot({
+        workspaceId: "ws-1",
+        clientProfileId: "profile-1",
+        selectedReferenceIds: [],
+        brief: { ...socialBrief, objective: "Retrato com foto da equipe" },
+        format: "1:1",
+      });
+
+      expect(device.assets[0]?.referenceId).toBe("device");
+      expect(photo.assets[0]?.referenceId).toBe("photo");
+    });
+
+    it("keeps archived creatives as text-only negative patterns", async () => {
+      mocks.getApprovedTrainingReferencesMock.mockResolvedValue([]);
+      mocks.getArchivedTrainingReferencesMock.mockResolvedValue([
+        {
+          ...approvedReference({
+            id: "rejected",
+            trainingCategory: "visual_reference",
+            usageMode: "reference",
+            analysis: {
+              description: "Layout crowded with duplicated badges",
+              visualAttributes: ["dense badge wall"],
+              rules: [],
+              constraints: ["illegible footer"],
+              confidence: 0.9,
+            },
+          }),
+          reviewStatus: "archived",
+        },
+      ]);
+      mocks.getBrandKitMock.mockResolvedValue(null);
+
+      const snapshot = await createIdentitySnapshot({
+        workspaceId: "ws-1",
+        clientProfileId: "profile-1",
+        selectedReferenceIds: [],
+        brief: socialBrief,
+        format: "1:1",
+      });
+
+      expect(snapshot.assets).toEqual([]);
+      expect(snapshot.negativePatterns).toEqual([
+        {
+          referenceId: "rejected",
+          label: "Asset",
+          description: "Layout crowded with duplicated badges dense badge wall illegible footer",
+        },
+      ]);
+    });
+
+    it("keeps approved rule-mode assets as textual guidance in the ranked fallback", async () => {
+      mocks.getApprovedTrainingReferencesMock.mockResolvedValue([
+        approvedReference({ id: "rule", trainingCategory: "graphic", usageMode: "rule" }),
+        approvedReference({ id: "visual", trainingCategory: "visual_reference", usageMode: "reference" }),
+      ]);
+      mocks.selectResults.push([
+        { key: "workspaces/ws-1/assets/rule.png", type: "image/png", metadata: { hasAlpha: false } },
+        { key: "workspaces/ws-1/assets/visual.png", type: "image/png", metadata: { hasAlpha: false } },
+      ]);
+      mocks.getBrandKitMock.mockResolvedValue(null);
+
+      const snapshot = await createIdentitySnapshot({
+        workspaceId: "ws-1",
+        clientProfileId: "profile-1",
+        selectedReferenceIds: [],
+        brief: socialBrief,
+        format: "1:1",
+      });
+
+      expect(snapshot.assets.map((asset) => [asset.referenceId, asset.usageMode])).toEqual([
+        ["visual", "reference"],
+        ["rule", "rule"],
+      ]);
+    });
+
     it("rejects selected IDs that are not present in approved references", async () => {
       mocks.getApprovedTrainingReferencesMock.mockResolvedValue([
         approvedReference({ id: "logo", trainingCategory: "logo", usageMode: "exact" }),

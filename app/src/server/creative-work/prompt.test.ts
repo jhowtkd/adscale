@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type {
   BrandTrainingAnalysis,
@@ -164,6 +166,25 @@ describe("buildSocialPostPrompt", () => {
     expect(prompt).toContain("Use sparingly");
   });
 
+  it("turns archived creatives into explicit text-only negative patterns", () => {
+    const prompt = buildSocialPostPrompt({
+      ...promptInput,
+      identitySnapshot: snapshot({
+        negativePatterns: [
+          {
+            referenceId: "rejected-1",
+            label: "Rejected badge wall",
+            description: "crowded layout with duplicated badges",
+          },
+        ],
+      }),
+    });
+
+    expect(prompt).toContain("NEGATIVE VISUAL PATTERNS (text only)");
+    expect(prompt).toContain("Avoid reproducing Rejected badge wall");
+    expect(prompt).toContain("crowded layout with duplicated badges");
+  });
+
   it("surfaces reference-mode descriptions from assets", () => {
     const prompt = buildSocialPostPrompt(promptInput);
 
@@ -201,6 +222,21 @@ describe("buildSocialPostPrompt", () => {
     expect(prompt).toContain("(no description)");
     expect(prompt).toContain("REFERENCE-MODE DESCRIPTIONS");
     expect(prompt).toContain("ref-null");
+  });
+
+  it("does not ship localhost debug ingest calls in creative-work sources", () => {
+    const dir = join(import.meta.dirname);
+    const sources = readdirSync(dir).filter(
+      (name) => name.endsWith(".ts") && !name.endsWith(".test.ts"),
+    );
+    const leaks: string[] = [];
+    for (const name of sources) {
+      const body = readFileSync(join(dir, name), "utf8");
+      if (/127\.0\.0\.1:7899|#region agent log/.test(body)) {
+        leaks.push(name);
+      }
+    }
+    expect(leaks).toEqual([]);
   });
 
   it("reserves clean placement instructions for exact-mode assets", () => {
@@ -464,6 +500,22 @@ describe("buildCreativeWorkPrompt", () => {
     // The legacy persisted-brief block (with its generic audience) is gone.
     expect(prompt).not.toContain("PERSISTED BRIEF AND INPUT:");
     expect(prompt).not.toContain("Público da marca");
+  });
+
+  it("forbids literal copying from Brand Training identity references", () => {
+    const prompt = buildCreativeWorkPrompt(
+      creativeWorkPromptInput({
+        mode: "social_post",
+        references: [slot("brand_identity", "Peça aprovada", false)],
+      }),
+    );
+
+    expect(prompt).toContain(
+      "BRAND IDENTITY references transfer ONLY abstract visual attributes",
+    );
+    expect(prompt).toContain(
+      "Never copy their complete layout, visible copy, claims, products or logos",
+    );
   });
 
   it("tolerates a missing fact pack by falling back to the snapshot request as sole authority", () => {

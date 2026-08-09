@@ -43,6 +43,17 @@ export interface CreativeWorkIdentitySnapshot {
     hasAlpha: boolean;
     placement: { gravity: string; widthRatio: number } | null;
   }>;
+  referenceSelection?: {
+    strategy: "ranked" | "manual";
+    format: "1:1" | "4:5" | "9:16" | null;
+    operatorSelectedReferenceIds: string[];
+    reasons: Record<string, string[]>;
+  };
+  negativePatterns?: Array<{
+    referenceId: string;
+    label: string;
+    description: string;
+  }>;
   brandKit: {
     colors: string[];
     fonts: string[];

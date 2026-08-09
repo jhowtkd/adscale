@@ -32,7 +32,12 @@ describe("GET /api/creative-work/[id]/identity-options", () => {
 
   it("serves a work prepared with an empty audience (schema defines validity)", async () => {
     getWork.mockResolvedValue({
-      work: { id: "work-1", clientProfileId: "profile-1", brief: preparedBrief },
+      work: {
+        id: "work-1",
+        clientProfileId: "profile-1",
+        brief: preparedBrief,
+        format: "4:5",
+      },
       outputs: [],
       sources: [],
     });
@@ -41,7 +46,12 @@ describe("GET /api/creative-work/[id]/identity-options", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(buildOptions).toHaveBeenCalledWith("ws-1", "profile-1", preparedBrief);
+    expect(buildOptions).toHaveBeenCalledWith(
+      "ws-1",
+      "profile-1",
+      preparedBrief,
+      "4:5",
+    );
     expect(body.options).toHaveLength(1);
   });
 

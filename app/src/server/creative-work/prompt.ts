@@ -1,6 +1,7 @@
 import "server-only";
 import { logger } from "@/lib/logger";
 import type { GenerationMode } from "@/server/generation/canonical/types";
+import { zoneBand } from "@/server/brand-training/vision-structure";
 import type {
   CreativeFact,
   CreativeLevel,
@@ -70,67 +71,60 @@ function describeAnalysisForRule(
   asset: CreativeWorkIdentityAssetSnapshot,
 ): string {
   const a = asset.analysis;
-  // #region agent log
-  if (a == null) {
-    fetch("http://127.0.0.1:7899/ingest/cfdc6907-57c9-49e8-855d-2427aa77ea62", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Debug-Session-Id": "600ace",
-      },
-      body: JSON.stringify({
-        sessionId: "600ace",
-        runId: "post-fix",
-        hypothesisId: "H1",
-        location: "prompt.ts:describeAnalysisForRule",
-        message: "null analysis on rule asset",
-        data: {
-          referenceId: asset.referenceId,
-          usageMode: asset.usageMode,
-          category: asset.category,
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-  }
-  // #endregion
   if (!a) return "";
   const pieces = [a.description, ...(a.rules ?? []), ...(a.constraints ?? [])]
     .filter((piece): piece is string => Boolean(piece && piece.trim().length > 0));
   return pieces.join(" | ");
 }
 
+const STRUCTURE_PROMPT_FLOOR = 0.5;
+
+function describeStructureHint(
+  analysis: NonNullable<CreativeWorkIdentityAssetSnapshot["analysis"]>,
+): string {
+  // Vision inference only — never restate measurement percentages here.
+  // Labels only above floor; no raw confidence floats (they read as false authority).
+  const s = analysis.structure;
+  if (!s) return "";
+  const bits: string[] = [];
+  if (s.archetype && s.archetype.confidence >= STRUCTURE_PROMPT_FLOOR) {
+    bits.push(`archetype=${s.archetype.id}`);
+  }
+  if (s.media?.type && s.media.confidence >= STRUCTURE_PROMPT_FLOOR) {
+    bits.push(`media=${s.media.type}`);
+  }
+  if (
+    s.accentPlacement?.inHighlightPosition != null &&
+    s.accentPlacement.confidence >= STRUCTURE_PROMPT_FLOOR
+  ) {
+    bits.push(
+      s.accentPlacement.inHighlightPosition
+        ? "accent-in-highlight-position"
+        : "accent-not-highlight-position",
+    );
+  }
+  if (s.zones && s.zones.length > 0) {
+    // Coarse band (top-left …) — position without sounding like measured px/%.
+    const kept = s.zones.filter((z) => z.confidence >= STRUCTURE_PROMPT_FLOOR);
+    if (kept.length > 0) {
+      bits.push(
+        `zones=${kept.map((z) => `${z.role}@${zoneBand(z)}`).join("+")}`,
+      );
+    }
+  }
+  return bits.length > 0 ? `structure[${s.source}]: ${bits.join("; ")}` : "";
+}
+
 function describeAnalysisForReference(
   asset: CreativeWorkIdentityAssetSnapshot,
 ): string {
   const a = asset.analysis;
-  // #region agent log
-  if (a == null) {
-    fetch("http://127.0.0.1:7899/ingest/cfdc6907-57c9-49e8-855d-2427aa77ea62", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Debug-Session-Id": "600ace",
-      },
-      body: JSON.stringify({
-        sessionId: "600ace",
-        runId: "post-fix",
-        hypothesisId: "H1",
-        location: "prompt.ts:describeAnalysisForReference",
-        message: "null analysis on reference asset",
-        data: {
-          referenceId: asset.referenceId,
-          usageMode: asset.usageMode,
-          category: asset.category,
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-  }
-  // #endregion
   if (!a) return "";
-  const pieces = [a.description, ...(a.visualAttributes ?? [])]
-    .filter((piece): piece is string => Boolean(piece && piece.trim().length > 0));
+  const pieces = [
+    a.description,
+    ...(a.visualAttributes ?? []),
+    describeStructureHint(a),
+  ].filter((piece): piece is string => Boolean(piece && piece.trim().length > 0));
   return pieces.join(" | ");
 }
 
@@ -151,6 +145,21 @@ function buildRuleModeBlock(
     );
   }
   return lines.join("\n");
+}
+
+function buildNegativePatternBlock(
+  patterns: CreativeWorkIdentitySnapshot["negativePatterns"],
+): string {
+  if (!patterns || patterns.length === 0) {
+    return "NEGATIVE VISUAL PATTERNS (text only):\n(none)";
+  }
+  return [
+    "NEGATIVE VISUAL PATTERNS (text only):",
+    ...patterns.map(
+      (pattern) =>
+        `- Avoid reproducing ${pattern.label}: ${pattern.description}`,
+    ),
+  ].join("\n");
 }
 
 function buildReferenceModeBlock(
@@ -199,6 +208,7 @@ export function buildSocialPostPrompt(input: BuildSocialPostPromptInput): string
   const fixedContract = buildFixedContract(input);
   const brandKitBlock = buildBrandKitBlock(identitySnapshot.brandKit);
   const ruleModeBlock = buildRuleModeBlock(identitySnapshot.assets);
+  const negativePatternBlock = buildNegativePatternBlock(identitySnapshot.negativePatterns);
   const referenceModeBlock = buildReferenceModeBlock(identitySnapshot.assets);
   const reservedPlacementsBlock = buildReservedPlacementsBlock(
     identitySnapshot.assets,
@@ -225,6 +235,8 @@ export function buildSocialPostPrompt(input: BuildSocialPostPromptInput): string
     brandKitBlock,
     "",
     ruleModeBlock,
+    "",
+    negativePatternBlock,
     "",
     referenceModeBlock,
     "",
@@ -336,6 +348,12 @@ function buildReferenceRolesBlock(
   lines.push(
     "The numbering above is positional: image #1 is the first attached image, #2 the second, and so on, in the exact order listed.",
   );
+  if (references.some((slot) => slot.role === "brand_identity")) {
+    lines.push(
+      "BRAND IDENTITY references transfer ONLY abstract visual attributes: palette, hierarchy, rhythm, media treatment and atmosphere.",
+      "Never copy their complete layout, visible copy, claims, products or logos; exact brand assets are composited separately.",
+    );
+  }
   return lines.join("\n");
 }
 
@@ -444,6 +462,9 @@ export function buildCreativeWorkPrompt(input: BuildCreativeWorkPromptInput): st
   const referenceRolesBlock = buildReferenceRolesBlock(input.references);
   const brandKitBlock = buildBrandKitBlock(input.identitySnapshot.brandKit);
   const ruleModeBlock = buildRuleModeBlock(input.identitySnapshot.assets);
+  const negativePatternBlock = buildNegativePatternBlock(
+    input.identitySnapshot.negativePatterns,
+  );
   const referenceModeBlock = buildReferenceModeBlock(input.identitySnapshot.assets);
   const reservedPlacementsBlock = buildReservedPlacementsBlock(
     input.identitySnapshot.assets,
@@ -463,6 +484,8 @@ export function buildCreativeWorkPrompt(input: BuildCreativeWorkPromptInput): st
     brandKitBlock,
     "",
     ruleModeBlock,
+    "",
+    negativePatternBlock,
     "",
     referenceModeBlock,
     "",

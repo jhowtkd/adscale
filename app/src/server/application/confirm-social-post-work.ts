@@ -126,7 +126,11 @@ export async function confirmSocialPostWork(
     snapshot = await createIdentitySnapshot({
       workspaceId: input.workspaceId,
       clientProfileId: existing.work.clientProfileId,
+      // An explicit operator choice still wins; brief + format only steer the
+      // ranked fallback when the operator picked nothing (#178).
       selectedReferenceIds: input.selectedReferenceIds,
+      brief: existing.work.brief,
+      format: existing.work.format,
     });
   } catch (error) {
     if (error instanceof IdentitySnapshotMissingReferenceError) {

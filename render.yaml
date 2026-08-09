@@ -7,8 +7,10 @@ services:
     rootDir: app
     branch: main
     autoDeployTrigger: commit
+    # PR previews off: July bill was ~81% idle preview services (~$79 of ~$97).
+    # Re-enable only with a short TTL / manual generation if needed.
     previews:
-      generation: automatic
+      generation: manual
     # Accessibility instrumentation is dev-only, but Next typechecks the
     # provider during the production build. Install dev dependencies for the
     # build, then remove them before the standalone runtime is launched.

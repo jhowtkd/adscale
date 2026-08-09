@@ -12,6 +12,11 @@ import {
   validateSocialPostCopyAgainstFactPack,
   type CopyClaimViolation,
 } from "./fact-pack";
+import {
+  copySafeBrandElements,
+  partitionBrandKitForCopy,
+  type CopySafeBrandVoice,
+} from "./brand-field-routing";
 import { isE2EControlledProviderEnabled } from "@/server/ai/providers/e2e-controlled-provider";
 
 const SOCIAL_POST_COPY_SYSTEM_PROMPT = [
@@ -29,6 +34,7 @@ const SOCIAL_POST_COPY_SYSTEM_PROMPT = [
   "- Headline, body, and CTA must be on-brand and consistent with the brief.",
   "- Do not include emojis unless explicitly required.",
   "- Do not include trailing whitespace.",
+  "- NEVER write visual production instructions as copy (no logo placement, hex colors, background colors, typography rules, or layout directions).",
 ].join("\n");
 
 const FACT_PACK_GROUNDING_PROMPT = [
@@ -37,7 +43,8 @@ const FACT_PACK_GROUNDING_PROMPT = [
   "- Use ONLY facts present in the user request or in the FACT PACK below.",
   "- NEVER invent or assume prices, discounts, dates, deadlines, offers, benefits, proofs, conditions, credentials, brands, products, services or numbers.",
   "- Information that is absent from the request and the fact pack must stay absent from the copy.",
-  "- Required brand elements must be respected; prohibited brand elements must never appear.",
+  "- Prohibited claims must never appear.",
+  "- If a LEGAL DISCLAIMER is listed, include its exact text once in the body (never paraphrase, never repeat).",
 ].join("\n");
 
 /**
@@ -59,20 +66,16 @@ export class CreativeCopyContextError extends Error {
   }
 }
 
-function renderVoiceBlock(
-  toneOfVoice: string | null,
-  requiredElements: string | null,
-  prohibitedElements: string | null,
-): string {
+function renderVoiceBlock(voice: CopySafeBrandVoice): string {
   const lines: string[] = [];
-  if (toneOfVoice && toneOfVoice.trim().length > 0) {
-    lines.push(`- Tone of voice: ${toneOfVoice.trim()}`);
+  if (voice.toneOfVoice && voice.toneOfVoice.trim().length > 0) {
+    lines.push(`- Tone of voice: ${voice.toneOfVoice.trim()}`);
   }
-  if (requiredElements && requiredElements.trim().length > 0) {
-    lines.push(`- Required elements: ${requiredElements.trim()}`);
+  for (const disclaimer of voice.legalDisclaimers) {
+    lines.push(`- LEGAL DISCLAIMER (include exact text once in body): ${disclaimer}`);
   }
-  if (prohibitedElements && prohibitedElements.trim().length > 0) {
-    lines.push(`- Prohibited elements: ${prohibitedElements.trim()}`);
+  if (voice.prohibitedClaims.length > 0) {
+    lines.push(`- Prohibited claims: ${voice.prohibitedClaims.join("; ")}`);
   }
   return lines.join("\n");
 }
@@ -84,15 +87,29 @@ function renderFactLine(fact: CreativeFact): string {
   return `- [${fact.class}] "${fact.value}" (origin: ${origin}; ${fact.required ? "required" : "allowed"})`;
 }
 
+/** Project the fact pack's brand slice to copy-safe elements only. */
+function factPackForCopyPrompt(factPack: CreativeWorkFactPack): CreativeWorkFactPack {
+  const safe = copySafeBrandElements({
+    requiredElements: factPack.brand.requiredElements.join("\n"),
+    prohibitedElements: factPack.brand.prohibitedElements.join("\n"),
+  });
+  return {
+    ...factPack,
+    brand: {
+      requiredElements: safe.requiredElements,
+      prohibitedElements: safe.prohibitedElements,
+    },
+  };
+}
+
 function renderFactPackPrompt(input: {
   factPack: CreativeWorkFactPack;
   brandName: string;
-  toneOfVoice: string | null;
-  requiredElements: string | null;
-  prohibitedElements: string | null;
+  voice: CopySafeBrandVoice;
 }): string {
-  const { factPack, brandName, toneOfVoice, requiredElements, prohibitedElements } = input;
-  const voiceBlock = renderVoiceBlock(toneOfVoice, requiredElements, prohibitedElements);
+  const { brandName, voice } = input;
+  const factPack = factPackForCopyPrompt(input.factPack);
+  const voiceBlock = renderVoiceBlock(voice);
   const factLines = factPack.facts.map(renderFactLine);
   return [
     `Brand: ${factPack.identity.brandName ?? brandName}`,
@@ -103,13 +120,13 @@ function renderFactPackPrompt(input: {
     "FACT PACK (the only claims allowed in the copy):",
     factLines.length > 0 ? factLines.join("\n") : "- (no sourced facts — only the user request above)",
     "",
-    `Brand required elements: ${factPack.brand.requiredElements.join("; ") || "(none)"}`,
-    `Brand prohibited elements: ${factPack.brand.prohibitedElements.join("; ") || "(none)"}`,
+    `Legal disclaimers (exact text, once): ${factPack.brand.requiredElements.join("; ") || "(none)"}`,
+    `Prohibited claims: ${factPack.brand.prohibitedElements.join("; ") || "(none)"}`,
     "",
     "Approved brand voice:",
     voiceBlock.length > 0 ? voiceBlock : "- (no voice notes provided)",
     "",
-    "Write the social post copy in pt-BR following the JSON contract in the system prompt. Every factual claim in the copy must trace to the request or the fact pack above.",
+    "Write the social post copy in pt-BR following the JSON contract in the system prompt. Every factual claim in the copy must trace to the request or the fact pack above. Do not turn brand-kit visual rules into headline, body, or CTA.",
   ].join("\n");
 }
 
@@ -175,10 +192,34 @@ function truncateAtWordBoundary(text: string, max: number): string {
 /** Deterministic E2E copy built exclusively from fact pack content. */
 function buildControlledCopyFromFactPack(factPack: CreativeWorkFactPack): SocialPostCopy {
   const base = factPack.request.trim() || factPack.facts[0]?.value || "Trabalho criativo";
+  const legal = copySafeBrandElements({
+    requiredElements: factPack.brand.requiredElements.join("\n"),
+  }).requiredElements[0];
+  const body = legal
+    ? truncateAtWordBoundary(`${base} ${legal}`, 600)
+    : truncateAtWordBoundary(base, 600);
   return socialPostCopySchema.parse({
     headline: truncateAtWordBoundary(`UAT: ${base}`, 120),
-    body: truncateAtWordBoundary(base, 600),
+    body,
     cta: "Saiba mais",
+  });
+}
+
+function resolveCopyVoice(input: {
+  toneOfVoice: string | null;
+  requiredElements: string | null;
+  prohibitedElements: string | null;
+  toneNotes?: string | null;
+  description?: string | null;
+  constraints?: string | null;
+}): CopySafeBrandVoice {
+  return partitionBrandKitForCopy({
+    toneOfVoice: input.toneOfVoice,
+    toneNotes: input.toneNotes ?? null,
+    description: input.description ?? null,
+    requiredElements: input.requiredElements,
+    prohibitedElements: input.prohibitedElements,
+    constraints: input.constraints ?? null,
   });
 }
 
@@ -195,14 +236,20 @@ export async function generateSocialPostCopy(input: {
   toneOfVoice: string | null;
   requiredElements: string | null;
   prohibitedElements: string | null;
+  toneNotes?: string | null;
+  description?: string | null;
+  constraints?: string | null;
 }): Promise<SocialPostCopy> {
-  const { brief, factPack, brandName, toneOfVoice, requiredElements, prohibitedElements } =
-    input;
+  const { brief, factPack, brandName } = input;
+  const voice = resolveCopyVoice(input);
 
   if (isE2EControlledProviderEnabled()) {
     if (factPack) {
       const copy = buildControlledCopyFromFactPack(factPack);
-      const violations = validateSocialPostCopyAgainstFactPack(copy, factPack);
+      const violations = validateSocialPostCopyAgainstFactPack(
+        copy,
+        factPackForCopyPrompt(factPack),
+      );
       if (violations.length > 0) throw new CreativeCopyContextError(violations);
       return copy;
     }
@@ -216,7 +263,7 @@ export async function generateSocialPostCopy(input: {
   if (!factPack) {
     // Legacy single-shot path kept for callers without a fact pack (e.g. the
     // paid copy regeneration endpoint); no provenance contract applies there.
-    const voiceBlock = renderVoiceBlock(toneOfVoice, requiredElements, prohibitedElements);
+    const voiceBlock = renderVoiceBlock(voice);
     const legacyPrompt = [
       `Brand: ${brandName}`,
       "",
@@ -229,22 +276,21 @@ export async function generateSocialPostCopy(input: {
       "Approved brand voice:",
       voiceBlock.length > 0 ? voiceBlock : "- (no voice notes provided)",
       "",
-      "Write the social post copy in pt-BR following the JSON contract in the system prompt.",
+      "Write the social post copy in pt-BR following the JSON contract in the system prompt. Never write visual production instructions as copy.",
     ].join("\n");
     return requestCopy(SOCIAL_POST_COPY_SYSTEM_PROMPT, legacyPrompt);
   }
 
   const systemPrompt = SOCIAL_POST_COPY_SYSTEM_PROMPT + "\n" + FACT_PACK_GROUNDING_PROMPT;
+  const groundedPack = factPackForCopyPrompt(factPack);
   const factPackPrompt = renderFactPackPrompt({
     factPack,
     brandName,
-    toneOfVoice,
-    requiredElements,
-    prohibitedElements,
+    voice,
   });
 
   const first = await requestCopy(systemPrompt, factPackPrompt);
-  const firstViolations = validateSocialPostCopyAgainstFactPack(first, factPack);
+  const firstViolations = validateSocialPostCopyAgainstFactPack(first, groundedPack);
   if (firstViolations.length === 0) return first;
 
   // Exactly one textual rewrite — it never consumes an image call (spec 7.3).
@@ -260,7 +306,7 @@ export async function generateSocialPostCopy(input: {
     // trusted, so the preparation must fail as invalid_context.
     throw new CreativeCopyContextError(firstViolations);
   }
-  const secondViolations = validateSocialPostCopyAgainstFactPack(rewritten, factPack);
+  const secondViolations = validateSocialPostCopyAgainstFactPack(rewritten, groundedPack);
   if (secondViolations.length > 0) throw new CreativeCopyContextError(secondViolations);
   return rewritten;
 }

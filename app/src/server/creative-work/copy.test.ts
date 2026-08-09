@@ -255,7 +255,7 @@ describe("generateSocialPostCopy", () => {
       brandName: "Acme",
       toneOfVoice: "Direto e caloroso",
       requiredElements: "Logo no canto",
-      prohibitedElements: "Sem clipart",
+      prohibitedElements: "Sem clipart; Sem promessas de cura",
     });
 
     expect(openAiCreateMock).toHaveBeenCalledTimes(1);
@@ -273,10 +273,52 @@ describe("generateSocialPostCopy", () => {
     expect(systemMessage?.content.toLowerCase()).toContain("json");
     expect(userMessage?.content).toContain("Acme");
     expect(userMessage?.content).toContain("Direto e caloroso");
-    expect(userMessage?.content).toContain("Logo no canto");
-    expect(userMessage?.content).toContain("Sem clipart");
+    // Visual brand rules never reach the copywriter.
+    expect(userMessage?.content).not.toContain("Logo no canto");
+    expect(userMessage?.content).not.toContain("Sem clipart");
+    expect(userMessage?.content).toContain("Sem promessas de cura");
     expect(userMessage?.content).toContain(brief.theme);
     expect(userMessage?.content).toContain(brief.offer);
+  });
+
+  it("never ships PreceptorIA visual rules into the copy prompt", async () => {
+    mockCopyResponse({
+      headline: "PreceptorIA já está disponível para teste",
+      body: "Apoio à decisão: não substitui avaliação e julgamento médico. Não inclua dados identificáveis de pacientes.",
+      cta: "Comece o teste",
+    });
+
+    const preceptoriaPack = buildCreativeWorkFactPack({
+      request: "PreceptorIA já está disponível para teste",
+      mode: "social_post",
+      sources: [],
+      brand: {
+        name: "PreceptorIA",
+        requiredElements:
+          "inclua o logo oficial PreceptorIA; fundo azul-marinho (#071522) com amarelo (#FFC914); Apoio à decisão: não substitui avaliação e julgamento médico. Não inclua dados identificáveis de pacientes.",
+        prohibitedElements: "Não alterar proporções do logo",
+      },
+      clientProfileId: "profile-1",
+    });
+
+    await generateSocialPostCopy({
+      brief,
+      factPack: preceptoriaPack,
+      brandName: "PreceptorIA",
+      toneOfVoice: "Clínico e claro",
+      requiredElements: preceptoriaPack.brand.requiredElements.join("; "),
+      prohibitedElements: preceptoriaPack.brand.prohibitedElements.join("; "),
+    });
+
+    const call = openAiCreateMock.mock.calls[0]?.[0] as {
+      messages?: Array<{ role: string; content: string }>;
+    };
+    const user = call.messages?.find((message) => message.role === "user")?.content ?? "";
+    expect(user).not.toMatch(/#071522|#FFC914/i);
+    expect(user).not.toMatch(/logo oficial/i);
+    expect(user).not.toMatch(/proporções do logo/i);
+    expect(user).toMatch(/não substitui avaliação e julgamento médico/i);
+    expect(user).toContain("Clínico e claro");
   });
 
   it("fails loudly when the model returns invalid JSON that does not match the schema", async () => {
