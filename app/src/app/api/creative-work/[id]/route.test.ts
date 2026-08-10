@@ -156,8 +156,15 @@ describe("GET /api/creative-work/[id]", () => {
       readiness: "exploratory",
       confidence: "low",
     } as const;
+    const factPack = {
+      version: 1,
+      request: "Tema",
+      facts: [{ value: "Marca", class: "brand", required: true, origin: "brand" }],
+      brand: { requiredElements: [], prohibitedElements: [] },
+      identity: { clientProfileId: profileId, brandName: "Marca", brandAuthority: "active" },
+    } as const;
     getWorkMock.mockResolvedValue({
-      work: { ...workItem, inputSnapshot: { inferredBriefing } },
+      work: { ...workItem, toolKind: "single", inputSnapshot: { inferredBriefing, factPack } },
       outputs,
     });
 
@@ -174,7 +181,40 @@ describe("GET /api/creative-work/[id]", () => {
     expect(body.canonical.intent.kind).toBe("social_post");
     expect(body.canonical.briefing.theme).toBe("Tema");
     expect(body.inferredBriefing).toEqual(inferredBriefing);
+    expect(body.briefingFactPack).toEqual(factPack);
     expect(getWorkMock).toHaveBeenCalledWith("workspace-1", "work-1");
+  });
+
+  it("does not expose a Peça Única envelope from another protocol", async () => {
+    getWorkMock.mockResolvedValue({
+      work: {
+        ...workItem,
+        toolKind: "variations",
+        inputSnapshot: {
+          inferredBriefing: {
+            version: 1,
+            message: { value: "Tema", state: "sourced" },
+            objective: { value: "Objetivo", state: "inferred", confidence: "medium" },
+            audience: { value: null, state: "unknown" },
+            offer: { value: null, state: "unknown" },
+            tone: { value: null, state: "unknown" },
+            constraints: { value: null, state: "unknown" },
+            readiness: "exploratory",
+            confidence: "low",
+          },
+        },
+      },
+      outputs: [],
+    });
+
+    const res = await GET(
+      new Request("http://localhost/api/creative-work/work-1"),
+      { params: makeParams("work-1") },
+    );
+    const body = await res.json();
+
+    expect(body.inferredBriefing).toBeNull();
+    expect(body.briefingFactPack).toBeNull();
   });
 
   it("humanizes a legacy JSON request when resuming a work", async () => {

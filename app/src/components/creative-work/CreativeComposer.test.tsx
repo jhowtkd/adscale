@@ -13,7 +13,10 @@ vi.mock("next-intl", () => ({ useTranslations: () => (key: string, values?: Reco
   variationInstructionsPlaceholder: "Ex.:\n- Criar uma copy mais direta\n- Sugerir novos CTAs\n- Destacar a oferta",
   formatAdaptationTitle: "Adapte uma arte para outros formatos", formatAdaptationSubtitle: "Envie a arte original e escolha os formatos.",
   originalArt: "Arte original", styleReference: "Referência de estilo", fullBriefing: "Briefing visual sugerido pela IA",
-  inferredBriefingTitle: "A IA entendeu assim", inferredBriefingSentence: `A IA entendeu assim: ${values?.message ?? ""}`,
+  inferredBriefingTitle: "Briefing inferido",
+  inferredBriefingSentence: `A IA entendeu assim: ${values?.message}; objetivo ${values?.objective}; público ${values?.audience}; oferta ${values?.offer}; tom ${values?.tone}; restrições ${values?.constraints}.`,
+  briefingProvenance: "Proveniência", briefingProvenanceRequest: "Pedido do operador",
+  briefingProvenanceBrand: `Marca: ${values?.brand}`, briefingProvenanceSource: `Fonte: ${values?.source}`,
   briefingFieldsLabel: "Campos do briefing inferido", briefingMessage: "Mensagem", briefingObjective: "Objetivo",
   briefingAudience: "Público", briefingOffer: "Oferta", briefingTone: "Tom", briefingConstraints: "Restrições",
   briefingUnknown: "Não informado", briefingStateSourced: "Fonte factual", briefingStateInferred: "Hipótese da IA",
@@ -74,7 +77,7 @@ function composer(overrides = {}) {
     composerRef: { current: null }, request: "", setRequest: vi.fn(), intent: "variations", selectIntent: vi.fn(),
     format: "4:5", formatMode: "manual", setFormat: vi.fn(), setFormatAuto: vi.fn(), targetFormats: [], toggleTargetFormat: vi.fn(), directionPool, toggleDirection: vi.fn(), setManualDirectionInstruction: vi.fn(), directionSuggestionState: "idle", pendingDirectionSuggestions: null, applyDirectionSuggestions: vi.fn(), requestDirectionSuggestions: vi.fn(), keepCurrentDirections: vi.fn(), state: "empty", actionPhase: "idle",
     workId: null, brandName: "Marca A", sources: [], outputs: [], quote: { unitCount: 3, credits: 15 },
-    inferredBriefing: null,
+    inferredBriefing: null, briefingFactPack: null,
     campaignId: null, campaigns: [], linkCampaign: vi.fn(), retryOutput: vi.fn(), retryRevisionOutput: vi.fn(), approveOutput: vi.fn(),
     downloadOutput: vi.fn(), reviseOutput: vi.fn(), isRetryingOutput: vi.fn(), isApprovingOutput: vi.fn(), approvalErrorOutputId: null, isRevisingOutput: vi.fn(),
     canGenerate: true, isUploading: false, error: null, announcement: "", brandTrainingSuggestion: null, requiresBrandSelection: false,
@@ -126,6 +129,8 @@ function renderComposer(value = composer()) {
 describe("CreativeComposer", () => {
   it("shows the versioned inferred briefing with states, readiness and unknown offer", () => {
     renderComposer(composer({
+      intent: "single",
+      sources: [readySource],
       inferredBriefing: {
         version: 1,
         message: { value: "Algo moderno", state: "sourced" },
@@ -137,14 +142,46 @@ describe("CreativeComposer", () => {
         readiness: "exploratory",
         confidence: "low",
       },
+      briefingFactPack: {
+        version: 1,
+        request: "Algo moderno",
+        facts: [
+          { value: "Algo moderno", class: "text", required: true, origin: "request" },
+          { value: "Direto", class: "text", required: false, origin: "source", sourceId: "source-1" },
+        ],
+        brand: { requiredElements: [], prohibitedElements: [] },
+        identity: { clientProfileId: "profile-1", brandName: "Marca A", brandAuthority: "active" },
+      },
     }));
 
-    expect(screen.getByTestId("inferred-briefing")).toHaveTextContent("A IA entendeu assim: Algo moderno");
+    const briefing = screen.getByTestId("inferred-briefing");
+    expect(briefing).toHaveTextContent("A IA entendeu assim: Algo moderno; objetivo Gerar interesse; público Não informado; oferta Não informado; tom Direto; restrições Não informado.");
+    expect(briefing.textContent?.match(/A IA entendeu assim/g)).toHaveLength(1);
+    expect(briefing).toHaveTextContent("Pedido do operador · Marca: Marca A · Fonte: arte.png");
     expect(screen.getByTestId("inferred-briefing-offer")).toHaveTextContent("Não informado");
     expect(screen.getByTestId("inferred-briefing-offer")).toHaveAttribute("data-state", "unknown");
     expect(screen.getByTestId("inferred-briefing")).toHaveTextContent("Hipótese da IA");
     expect(screen.getByTestId("inferred-briefing")).toHaveTextContent("Prontidão: Exploratório");
     expect(screen.getByTestId("inferred-briefing")).toHaveTextContent("Confiança: Baixa");
+  });
+
+  it("does not show the Peça Única briefing in another protocol", () => {
+    renderComposer(composer({
+      intent: "variations",
+      inferredBriefing: {
+        version: 1,
+        message: { value: "Mensagem", state: "sourced" },
+        objective: { value: "Objetivo", state: "inferred", confidence: "medium" },
+        audience: { value: null, state: "unknown" },
+        offer: { value: null, state: "unknown" },
+        tone: { value: null, state: "unknown" },
+        constraints: { value: null, state: "unknown" },
+        readiness: "exploratory",
+        confidence: "low",
+      },
+    }));
+
+    expect(screen.queryByTestId("inferred-briefing")).not.toBeInTheDocument();
   });
 
   it("keeps Enter as a newline in Peça única and never generates from the textarea", () => {

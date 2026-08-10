@@ -74,6 +74,7 @@ function buildBriefTokenSet(brief: SocialPostBrief): Set<string> {
       brief.audience,
       brief.offer,
     ]
+      .filter((value): value is string => value !== null)
       .flatMap(normalizeTokens)
   );
 }

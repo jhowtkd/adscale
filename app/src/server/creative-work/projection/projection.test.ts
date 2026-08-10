@@ -321,7 +321,8 @@ describe("projectCreativeWorkAsCanonicalWork (Criar Post fixture)", () => {
   });
 
   it("projects the versioned briefing and keeps an unknown offer unknown", () => {
-    const work = projectCreativeWorkAsCanonicalWork(creativeWorkFixture({
+    const input = creativeWorkFixture({
+      toolKind: "single",
       brief: {
         theme: "Legacy theme",
         objective: "Legacy objective",
@@ -341,7 +342,8 @@ describe("projectCreativeWorkAsCanonicalWork (Criar Post fixture)", () => {
           confidence: "low",
         },
       },
-    }));
+    });
+    const work = projectCreativeWorkAsCanonicalWork(input);
 
     expect(work.intent.objective).toBe("Gerar interesse");
     expect(work.briefing).toMatchObject({
@@ -351,6 +353,8 @@ describe("projectCreativeWorkAsCanonicalWork (Criar Post fixture)", () => {
       tone: "Direto",
       constraints: null,
     });
+    expect(projectCreativeWorkAsCanonicalWork({ ...input, toolKind: "variations" }).briefing.offer)
+      .toBe("Legacy offer");
   });
 
   it("marks selected output as approved stage", () => {

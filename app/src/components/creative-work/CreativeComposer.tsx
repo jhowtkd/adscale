@@ -110,6 +110,21 @@ export function CreativeComposer({ composer, composerRef }: {
     ["tone", t("briefingTone"), inferredBriefing.tone],
     ["constraints", t("briefingConstraints"), inferredBriefing.constraints],
   ] as const : [];
+  const briefingUnknown = t("briefingUnknown");
+  const briefingFactPack = composer.briefingFactPack;
+  const briefingProvenance = briefingFactPack ? [
+    t("briefingProvenanceRequest"),
+    ...(briefingFactPack.identity.brandName
+      ? [t("briefingProvenanceBrand", { brand: briefingFactPack.identity.brandName })]
+      : []),
+    ...Array.from(new Set(
+      briefingFactPack.facts
+        .filter((fact) => fact.origin === "source" && fact.sourceId)
+        .map((fact) => t("briefingProvenanceSource", {
+          source: composer.sources.find((source) => source.id === fact.sourceId)?.name ?? fact.sourceId!,
+        })),
+    )),
+  ] : [];
   const variationDirections = isVariations && directions ? (
     <fieldset
       className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-4"
@@ -374,7 +389,7 @@ export function CreativeComposer({ composer, composerRef }: {
         </section>
       ) : variationDirections}
 
-      {inferredBriefing ? (
+      {isSingle && inferredBriefing ? (
         <section
           aria-labelledby="inferred-briefing-title"
           aria-busy={composer.actionPhase !== "idle"}
@@ -385,14 +400,26 @@ export function CreativeComposer({ composer, composerRef }: {
             {t("inferredBriefingTitle")}
           </h2>
           <p className="mt-1 text-sm text-[var(--text-secondary)]">
-            {t("inferredBriefingSentence", { message: inferredBriefing.message.value ?? t("briefingUnknown") })}
+            {t("inferredBriefingSentence", {
+              message: inferredBriefing.message.value ?? briefingUnknown,
+              objective: inferredBriefing.objective.value ?? briefingUnknown,
+              audience: inferredBriefing.audience.value ?? briefingUnknown,
+              offer: inferredBriefing.offer.value ?? briefingUnknown,
+              tone: inferredBriefing.tone.value ?? briefingUnknown,
+              constraints: inferredBriefing.constraints.value ?? briefingUnknown,
+            })}
           </p>
+          {briefingProvenance.length > 0 ? (
+            <p className="mt-2 text-xs text-[var(--text-muted)]" aria-label={t("briefingProvenance")}>
+              {briefingProvenance.join(" · ")}
+            </p>
+          ) : null}
           <dl className="mt-4 grid gap-3 sm:grid-cols-2" aria-label={t("briefingFieldsLabel")}>
             {briefingFields.map(([key, label, field]) => (
               <div key={key} data-testid={`inferred-briefing-${key}`} data-state={field.state}>
                 <dt className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">{label}</dt>
                 <dd className="mt-1 text-sm text-[var(--text-primary)]">
-                  {field.value ?? t("briefingUnknown")}
+                  {field.value ?? briefingUnknown}
                   <span className="ml-2 text-xs text-[var(--text-muted)]">
                     {briefingStateLabels[field.state]}
                     {field.confidence ? ` · ${briefingConfidenceLabels[field.confidence]}` : ""}

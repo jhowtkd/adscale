@@ -41,6 +41,15 @@ describe("toSocialPostBrief", () => {
     });
   });
 
+  it("persists an explicitly unknown offer as null", () => {
+    expect(
+      toSocialPostBrief(
+        { offer: null },
+        { theme: "Tema", objective: "Objetivo", audience: "Público", offer: "Oferta antiga" },
+      ),
+    ).toEqual({ theme: "Tema", objective: "Objetivo", audience: "Público", offer: null });
+  });
+
   it("rejects empty required fields", () => {
     expect(() => toSocialPostBrief({ theme: "x" })).toThrow();
   });

@@ -118,7 +118,7 @@ describe("inferSocialPostBrief", () => {
 
   it("does not turn the theme into an offer when no source states one", () => {
     const brief = inferSocialPostBrief("Algo moderno para Instagram", []);
-    expect(brief.offer).toBe("");
+    expect(brief.offer).toBeNull();
     const briefing = buildInferredBriefing({
       request: "Algo moderno para Instagram",
       brief,
@@ -134,6 +134,48 @@ describe("inferSocialPostBrief", () => {
     expect(briefing.offer).toEqual({ value: null, state: "unknown" });
     expect(briefing.readiness).toBe("exploratory");
     expect(briefing.confidence).toBe("low");
+  });
+
+  it("does not turn a requested month into the audience", () => {
+    const request = "Promoção de matrícula para julho";
+    const briefing = buildInferredBriefing({
+      request,
+      brief: inferSocialPostBrief(request, []),
+      factPack: {
+        version: 1,
+        request,
+        facts: [{ value: "julho", class: "date", required: true, origin: "request" }],
+        brand: { requiredElements: [], prohibitedElements: [] },
+        identity: { clientProfileId: "profile-1", brandName: "Marca", brandAuthority: "active" },
+      },
+      toneOfVoice: null,
+    });
+
+    expect(briefing.audience).toEqual({ value: null, state: "unknown" });
+  });
+
+  it("preserves request and brand constraints as sourced content", () => {
+    const request = "Matrículas em julho com vagas limitadas";
+    const briefing = buildInferredBriefing({
+      request,
+      brief: inferSocialPostBrief(request, []),
+      factPack: {
+        version: 1,
+        request,
+        facts: [
+          { value: "julho", class: "date", required: true, origin: "request" },
+          { value: "vagas limitadas", class: "condition", required: true, origin: "request" },
+        ],
+        brand: { requiredElements: ["logo"], prohibitedElements: ["clipart"] },
+        identity: { clientProfileId: "profile-1", brandName: "Marca", brandAuthority: "active" },
+      },
+      toneOfVoice: null,
+    });
+
+    expect(briefing.constraints).toEqual({
+      value: "julho; vagas limitadas; Incluir: logo; Evitar: clipart",
+      state: "sourced",
+    });
   });
 
   it("preserves an explicit request discount as a sourced offer", () => {
@@ -157,7 +199,7 @@ describe("inferSocialPostBrief", () => {
     expect(briefing).toMatchObject({
       readiness: "ready",
       offer: { value: "20%", state: "sourced" },
-      audience: { value: "professores", state: "sourced" },
+      audience: { value: null, state: "unknown" },
     });
   });
 });

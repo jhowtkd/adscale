@@ -9,6 +9,7 @@ import type {
   BriefingReadiness,
   CreativeDirection,
   CreativeDirectionPool,
+  CreativeWorkFactPack,
   InferredBriefing,
 } from "@/server/creative-work/contracts";
 
@@ -28,7 +29,7 @@ export interface SocialPostBrief {
   theme: string;
   objective: string;
   audience: string;
-  offer: string;
+  offer: string | null;
 }
 
 export interface SocialPostCopy {
@@ -144,6 +145,7 @@ export interface CreativeWorkDetail {
   outputs: CreativeWorkOutput[];
   sources: CreativeWorkSource[];
   inferredBriefing?: InferredBriefing | null;
+  briefingFactPack?: CreativeWorkFactPack | null;
 }
 
 export interface CreativeWorkCampaignOption {
@@ -327,6 +329,7 @@ function fetchCreativeWork(workItemId: string, signal?: AbortSignal): Promise<Cr
         updatedAt: new Date(source.updatedAt),
       })),
       inferredBriefing: (data.inferredBriefing as InferredBriefing | null | undefined) ?? null,
+      briefingFactPack: (data.briefingFactPack as CreativeWorkFactPack | null | undefined) ?? null,
     };
   });
 }
@@ -489,9 +492,10 @@ export function usePrepareCreativeWork() {
       patchJson<{
         work: CreativeWorkDraftItem;
         quote: CreativeWorkQuote;
-        briefing: InferredBriefing;
-        readiness: BriefingReadiness;
-        confidence: BriefingConfidence;
+        briefing?: InferredBriefing;
+        briefingFactPack?: CreativeWorkFactPack;
+        readiness?: BriefingReadiness;
+        confidence?: BriefingConfidence;
       }>(
         `/api/creative-work/${input.workItemId}`,
         { action: "prepare" },
@@ -565,6 +569,7 @@ export function useGenerateCopy() {
           outputs: current?.outputs ?? [],
           sources: current?.sources ?? [],
           inferredBriefing: current?.inferredBriefing ?? null,
+          briefingFactPack: current?.briefingFactPack ?? null,
         })
       );
       void queryClient.invalidateQueries({

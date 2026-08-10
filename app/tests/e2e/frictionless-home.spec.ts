@@ -182,7 +182,10 @@ test.describe("Frictionless operational Home", () => {
 
     const settled = await workDetail(page, workId);
     expect(settled.inferredBriefing?.version).toBe(1);
+    expect(settled.inferredBriefing?.offer).toEqual({ value: null, state: "unknown" });
     await expect(page.getByTestId("inferred-briefing")).toContainText(/a ia entendeu assim|what the ai understood/i);
+    await expect(page.getByTestId("inferred-briefing-offer")).toHaveAttribute("data-state", "unknown");
+    await expect(page.getByTestId("inferred-briefing-offer")).toContainText(/não informado|not provided/i);
     const retried = settled.outputs.find((output) => output.creativeLevel === "bold")!;
     expect(retried.retryCount).toBe(1);
     expect(settled.outputs.map((output) => output.id).sort()).toEqual(initialIds);

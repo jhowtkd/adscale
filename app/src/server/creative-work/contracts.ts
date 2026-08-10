@@ -381,9 +381,9 @@ export const socialPostBriefSchema = z.object({
   // Audience may be empty: unknown targeting stays absent instead of
   // receiving a generic placeholder like "Público da marca" (R-002 / spec 7.2).
   audience: z.string().trim().max(240),
-  // An absent offer is valid. The inferred briefing carries it as null; this
-  // legacy adapter keeps the JSONB shape readable with an empty string.
-  offer: z.string().trim().max(240),
+  // An absent offer remains null across both the legacy projection and the
+  // versioned envelope; direction must never masquerade as a factual offer.
+  offer: z.string().trim().min(1).max(240).nullable(),
 });
 
 export const socialPostCopySchema = z.object({

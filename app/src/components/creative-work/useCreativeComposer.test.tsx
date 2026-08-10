@@ -1350,11 +1350,19 @@ describe("useCreativeComposer", () => {
       readiness: "exploratory",
       confidence: "low",
     } as const;
+    const briefingFactPack = {
+      version: 1,
+      request: "Pedido salvo",
+      facts: [{ value: "Pedido salvo", class: "text", required: true, origin: "request" }],
+      brand: { requiredElements: [], prohibitedElements: [] },
+      identity: { clientProfileId: profileA.id, brandName: "Marca A", brandAuthority: "active" },
+    } as const;
     mocks.work.mockReturnValue({ data: workDetail(), isLoading: false });
     mocks.prepare.mockResolvedValue({
       work: workDetail().work,
       quote: { unitCount: 3, credits: 15 },
       briefing,
+      briefingFactPack,
       readiness: briefing.readiness,
       confidence: briefing.confidence,
     });
@@ -1363,6 +1371,7 @@ describe("useCreativeComposer", () => {
     await act(async () => { await result.current.generate(); });
 
     expect(result.current.inferredBriefing).toEqual(briefing);
+    expect(result.current.briefingFactPack).toEqual(briefingFactPack);
   });
 
   it("reconciles an uncertain generation response before showing an error", async () => {

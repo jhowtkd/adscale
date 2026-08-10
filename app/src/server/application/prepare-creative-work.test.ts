@@ -76,27 +76,14 @@ describe("prepareCreativeWork", () => {
     expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now, expect.objectContaining({
       brief: expect.objectContaining({ theme: "Promoção de matrícula para julho" }),
       copy: { headline: "Julho", body: "Matricule-se", cta: "Saiba mais" },
-      inputSnapshot: expect.objectContaining({
-        inferredBriefing: expect.objectContaining({
-          version: 1,
-          offer: { value: null, state: "unknown" },
-        }),
-      }),
     }), transactionExecutor);
-    if (result.ok) {
-      expect(result.value.quote).toMatchObject({ unitCount: 3, credits: 15 });
-      expect(result.value.briefing).toMatchObject({
-        version: 1,
-        readiness: "ready",
-        offer: { value: null, state: "unknown" },
-      });
-    }
+    if (result.ok) expect(result.value.quote).toMatchObject({ unitCount: 3, credits: 15 });
   });
 
   it("persists an exploratory briefing with an unknown offer instead of using the theme as fallback", async () => {
-    const sparseWork = { ...work, request: "Algo moderno para Instagram" };
+    const sparseWork = { ...work, toolKind: "single", request: "Algo moderno para Instagram" };
     getWork.mockResolvedValue({ work: sparseWork, outputs: [], sources: [] } as never);
-    inferBrief.mockReturnValue({ theme: "Algo moderno para Instagram", objective: "Promover Algo moderno para Instagram", audience: "", offer: "" });
+    inferBrief.mockReturnValue({ theme: "Algo moderno para Instagram", objective: "Promover Algo moderno para Instagram", audience: "", offer: null });
 
     const result = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
 
@@ -117,6 +104,17 @@ describe("prepareCreativeWork", () => {
         }),
       }),
     }), transactionExecutor);
+  });
+
+  it("does not persist the Peça Única envelope for other protocols", async () => {
+    getWork.mockResolvedValue({ work, outputs: [], sources: [] } as never);
+
+    const result = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value).not.toHaveProperty("briefing");
+    const patch = updateDraft.mock.calls[0]?.[3] as { inputSnapshot: Record<string, unknown> };
+    expect(patch.inputSnapshot).not.toHaveProperty("inferredBriefing");
   });
 
   it("serializes identical concurrent prepares and calls copy once", async () => {
@@ -365,7 +363,7 @@ describe("prepareCreativeWork", () => {
       brandElements: [], keyVisual: "roda de conversa",
       textContent: { headline: "Cuide da sua mente", bullets: [] }, format: "4:5",
     });
-    getWork.mockResolvedValue({ work: { ...work, request: longRequest }, outputs: [], sources: [
+    getWork.mockResolvedValue({ work: { ...work, toolKind: "single", request: longRequest }, outputs: [], sources: [
       { id: "source-content-1", status: "ready", usage: "content", usageConfirmed: true, updatedAt: now, contentAnalysis: contentAnalysis("Grupo de terapia", "Inscrições abertas"), styleAnalysis: null },
       { id: "source-content-2", status: "ready", usage: "both", usageConfirmed: true, updatedAt: now, contentAnalysis: contentAnalysis("Mentoria individual", "Turma de agosto"), styleAnalysis: null },
       { id: "source-style", status: "ready", usage: "style", usageConfirmed: true, updatedAt: now, contentAnalysis: contentAnalysis("Condomínio fechado", "R$ 900.000 à vista"), styleAnalysis: { description: "Editorial" } },

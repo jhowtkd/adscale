@@ -123,7 +123,12 @@ export function projectCreativeWorkAsCanonicalWork(
 
   const selected = orderedOutputs.find((output) => output.isSelected) ?? null;
 
-  const inferredBriefing = resolveCreativeWorkInferredBriefing(work.inputSnapshot);
+  // Historical read compatibility: #194 keeps completed rows immutable.
+  // Remove this fallback only after an explicit migration proves no stored
+  // Creative Work still lacks the versioned envelope.
+  const inferredBriefing = work.toolKind === "single"
+    ? resolveCreativeWorkInferredBriefing(work.inputSnapshot)
+    : null;
   const theme = inferredBriefing ? inferredBriefing.message.value : work.brief?.theme ?? null;
   const name = work.title?.trim() || theme?.trim() || `Criar Post ${work.id.slice(0, 8)}`;
 

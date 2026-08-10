@@ -2,7 +2,7 @@
 
 > **Fonte canônica do "o que é o ADScale, em que acredita, e como opera."**
 > Tudo passa pelo crivo da tese central **inteligência criativa em escala** (antes chamada "Curator > operator", reformulada em 2026-06-27).
-> Última atualização: 2026-07-18.
+> Última atualização: 2026-08-09.
 
 ---
 
@@ -15,6 +15,15 @@ A IA **reposiciona** o humano. Não substitui. [isso ficou vago e pouco rescriti
 ### Vocabulário operacional
 
 - **Generation Settlement (liquidação de geração):** ciclo que garante cobrança, reserva do trabalho, dispatch, compensação quando o dispatch falha, reativação em retry e refund terminal. Não inclui definir preço, produzir a imagem ou avaliar sua qualidade.
+- **Contexto autorizado:** pedido do operador, marca ativa e fontes explicitamente ligadas ao Creative Work; histórico amplo do workspace não entra por padrão.
+- **Fonte factual:** origem que pode sustentar produto, oferta, benefício, preço ou outro claim da peça — pedido, fonte marcada como conteúdo ou identidade da marca.
+- **Referência visual:** ativo aprovado usado para orientar linguagem visual, composição e repertório; não sustenta fatos de campanha.
+- **Direção inferida:** hipótese operacional sobre objetivo, público, mensagem ou tom, criada a partir do contexto autorizado; não é fato confirmado.
+- **Briefing inferido:** projeção versionada da intenção e da direção criativa, com cada campo marcado como sustentado, inferido ou desconhecido.
+- **Prontidão do briefing:** estado que distingue direção pronta para geração normal (`ready`), teste visual sem claims factuais (`exploratory`) e ausência de direção segura ou conflito aberto (`blocked`).
+- **Briefing inferido:** visão editável que combina a direção da peça com fatos sustentados pelo contexto autorizado. Cada campo permanece distinguível como sustentado, inferido ou desconhecido; desconhecidos não recebem valores genéricos.
+- **Prontidão do briefing:** estado que distingue direção pronta para geração normal, direção apenas exploratória sem claims e ausência de direção segura para gerar. Oferta, benefício, preço e outros fatos desconhecidos nunca são preenchidos para alcançar prontidão.
+- **Avaliação inconclusiva:** resultado pós-geração em que a integridade da peça não pôde ser confirmada nem refutada. A peça permanece disponível para decisão humana, mas não conta como aprovação automática.
 
 ---
 

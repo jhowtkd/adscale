@@ -66,14 +66,13 @@ export function inferSocialPostBrief(request: string, analyses: readonly Content
     theme: theme.slice(0, 240),
     objective: objective.slice(0, 240),
     audience: "",
-    offer: offers.join(" e ").slice(0, 240),
+    offer: offers.length > 0 ? offers.join(" e ").slice(0, 240) : null,
   };
 }
 
 const FACTUAL_CLASSES = new Set([
   "price", "date", "offer", "benefit", "proof", "condition", "credential", "modality", "guarantee", "product", "service",
 ]);
-const PLATFORM_NAMES = new Set(["instagram", "facebook", "linkedin", "tiktok", "meta", "google", "youtube", "threads"]);
 const TONE_WORDS = /\b(moderno|moderna|direto|direta|acolhedor|acolhedora|sofisticado|sofisticada|leve|premium|ousado|ousada|minimalista|editorial)\b/i;
 
 function unknownField(): InferredBriefing["message"] {
@@ -86,13 +85,6 @@ function knownField(value: string, state: "sourced" | "inferred", confidence?: B
     : { value, state };
 }
 
-function findExplicitAudience(request: string): string | null {
-  const match = request.match(/\bpara\s+([^,.!?;\n]+)/i);
-  const value = match?.[1]?.trim().replace(/\s+/g, " ") ?? "";
-  if (!value || PLATFORM_NAMES.has(value.toLocaleLowerCase("pt-BR"))) return null;
-  return value.slice(0, 240);
-}
-
 function findExplicitTone(request: string): string | null {
   return request.match(TONE_WORDS)?.[0] ?? null;
 }
@@ -101,6 +93,16 @@ function valueHasOrigin(value: string, factPack: CreativeWorkFactPack): boolean 
   const normalized = value.toLocaleLowerCase("pt-BR").trim();
   return factPack.request.toLocaleLowerCase("pt-BR").includes(normalized)
     || factPack.facts.some((fact) => fact.value.toLocaleLowerCase("pt-BR") === normalized);
+}
+
+function sourcedConstraints(factPack: CreativeWorkFactPack): string {
+  return uniqueTrimmed([
+    ...factPack.facts
+      .filter((fact) => fact.class === "date" || fact.class === "condition")
+      .map((fact) => fact.value),
+    ...factPack.brand.requiredElements.map((value) => `Incluir: ${value}`),
+    ...factPack.brand.prohibitedElements.map((value) => `Evitar: ${value}`),
+  ]).join("; ");
 }
 
 /** Build the durable presentation envelope without adding a second fact source. */
@@ -112,13 +114,14 @@ export function buildInferredBriefing(input: {
 }): InferredBriefing {
   const message = input.brief.theme.trim();
   const objective = input.brief.objective.trim();
-  const audience = input.brief.audience.trim() || findExplicitAudience(input.request) || "";
+  const audience = input.brief.audience.trim();
   // A request discount is an explicit offer even though the fact pack keeps
   // its factual class as `price`; source offers remain the richer value.
   const offerFact = input.factPack.facts.find((fact) => fact.class === "offer")
     ?? input.factPack.facts.find((fact) => fact.class === "price" && fact.origin === "request");
   const offer = offerFact?.value ?? "";
   const tone = findExplicitTone(input.request) ?? input.toneOfVoice?.trim() ?? "";
+  const constraints = sourcedConstraints(input.factPack);
   const hasFactualContext = input.factPack.facts.some((fact) => FACTUAL_CLASSES.has(fact.class));
   const hasActionableDirection = Boolean(message && objective);
   const readiness: BriefingReadiness = hasActionableDirection
@@ -144,7 +147,7 @@ export function buildInferredBriefing(input: {
       : unknownField(),
     offer: offer ? knownField(offer, "sourced") : unknownField(),
     tone: tone ? knownField(tone, "sourced") : unknownField(),
-    constraints: unknownField(),
+    constraints: constraints ? knownField(constraints, "sourced") : unknownField(),
     readiness,
     confidence,
   };

@@ -191,8 +191,9 @@ describe("creative work contracts", () => {
     expect(parsed.audience).toBe("");
   });
 
-  it("accepts an empty offer so unknown offers stay empty in the legacy adapter", () => {
-    expect(socialPostBriefSchema.parse({ theme: "Tema", objective: "Objetivo", audience: "", offer: "" }).offer).toBe("");
+  it("keeps an unknown offer null in the legacy adapter", () => {
+    expect(socialPostBriefSchema.parse({ theme: "Tema", objective: "Objetivo", audience: "", offer: null }).offer).toBeNull();
+    expect(() => socialPostBriefSchema.parse({ theme: "Tema", objective: "Objetivo", audience: "", offer: "" })).toThrow();
   });
 
   it("resolves completed only when all three outputs completed", () => {
