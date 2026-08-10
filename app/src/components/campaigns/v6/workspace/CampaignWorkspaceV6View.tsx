@@ -125,7 +125,7 @@ function WorkspaceStageList({
                   className={`flex min-h-9 items-center gap-2 rounded-[var(--radius-control)] px-3 py-2 transition-colors duration-[var(--duration-fast)] hover:bg-[var(--surface-raised)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2 ${
                     isActive ? "border border-[var(--selection-border)] bg-[var(--active-navigation-bg)]" : ""
                   }`}
-                  aria-current={isActive ? "step" : undefined}
+                  aria-pressed={isActive}
                 >
                   <StageStepMarker step={step} isActive={isActive} isPast={isPast} />
                   <span

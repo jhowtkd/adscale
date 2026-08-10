@@ -47,6 +47,13 @@ export async function acceptInvite(token: string, userId: string, userEmail: str
 
   const existing = invite[0];
 
+  if (existing.status === "revoked") {
+    throw new Error("Invite removed");
+  }
+  if (existing.status === "accepted") {
+    throw new Error("Invite already accepted");
+  }
+
   if (existing.expiresAt < new Date()) {
     throw new Error("Invite expired");
   }
@@ -75,7 +82,8 @@ export async function acceptInvite(token: string, userId: string, userEmail: str
   }
 
   await db
-    .delete(workspaceInvites)
+    .update(workspaceInvites)
+    .set({ status: "accepted" })
     .where(eq(workspaceInvites.id, existing.id));
 
   return existing;

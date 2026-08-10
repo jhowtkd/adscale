@@ -7,7 +7,7 @@ describe("ImageCursorTrail", () => {
     const { container } = render(
       <ImageCursorTrail items={["/one.jpg", "/two.jpg"]} distance={100} maxNumberOfImages={1} />
     );
-    const trail = container.querySelector("section")!;
+    const trail = container.querySelector("div")!;
     const images = container.querySelectorAll("img");
 
     fireEvent.pointerMove(trail, { clientX: 100, clientY: 100 });

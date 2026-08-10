@@ -16,6 +16,7 @@ type LayoutCheck = {
   scenario: string;
   route: string;
   viewport: number;
+  height: number;
   locale: "pt-BR" | "en";
   theme: "light" | "dark";
   overflowX: number;
@@ -92,11 +93,13 @@ async function assertResponsiveLayout(
   });
 
   const { locale, theme } = releaseLocaleTheme(viewport);
+  const height = page.viewportSize()?.height ?? 900;
   const check: LayoutCheck = {
-    key: `${scenario}@${viewport}`,
+    key: `${scenario}@${viewport}x${height}`,
     scenario,
     route,
     viewport,
+    height,
     locale,
     theme,
     ...report,
@@ -104,10 +107,10 @@ async function assertResponsiveLayout(
       report.overflowX <= 2 && report.mainVisible && report.clippedActions === 0 ? "pass" : "fail",
   };
 
+  appendEvidence(check);
   expect(check.overflowX, `${scenario}@${viewport}: horizontal overflow`).toBeLessThanOrEqual(2);
   expect(check.mainVisible, `${scenario}@${viewport}: main visible`).toBe(true);
   expect(check.clippedActions, `${scenario}@${viewport}: clipped actions`).toBe(0);
-  appendEvidence(check);
   return check;
 }
 

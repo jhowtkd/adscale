@@ -59,6 +59,9 @@ export async function GET(request: Request) {
   try {
     await requirePlatformOwner(request);
     const { searchParams } = new URL(request.url);
+    if (searchParams.get("access") === "1") {
+      return NextResponse.json({ allowed: true });
+    }
 
     const reports = await listFeedbackReports({
       workspaceId: searchParams.get("workspaceId") ?? undefined,

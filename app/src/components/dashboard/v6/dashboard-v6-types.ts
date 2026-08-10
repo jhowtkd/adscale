@@ -7,6 +7,8 @@ export type DashboardV6Kpi = {
 
 export type DashboardV6Hero = {
   id: string;
+  href: string;
+  briefingHref: string;
   name: string;
   badge: string;
   badgeClass: DashboardStatusTone;
@@ -14,8 +16,7 @@ export type DashboardV6Hero = {
   briefingProgress: number | null;
   variationsDone: number;
   variationsTotal: number;
-  approved: number;
-  credits: number;
+  approved: number | null;
 };
 
 export type DashboardV6ActivityRow = {
@@ -54,7 +55,6 @@ export type DashboardV6ViewModel = {
   activity: DashboardV6ActivityRow[];
   recipes: DashboardV6Recipe[];
   briefingRows: DashboardV6BriefingRow[];
-  activeBriefingCampaignId: string | null;
 };
 
 export type DashboardV6Labels = {
@@ -66,7 +66,6 @@ export type DashboardV6Labels = {
   metaBriefing: string;
   metaVariations: string;
   metaApproved: string;
-  metaCredits: string;
   activityTitle: string;
   activitySubtitle: string;
   viewAll: string;

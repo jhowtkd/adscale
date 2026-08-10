@@ -12,7 +12,6 @@ export function buildDashboardV6Labels(t: Translate): Omit<DashboardV6Labels, "g
     metaBriefing: t("metaBriefing"),
     metaVariations: t("metaVariations"),
     metaApproved: t("metaApproved"),
-    metaCredits: t("metaCredits"),
     activityTitle: t("activityTitle"),
     activitySubtitle: t("activitySubtitle"),
     viewAll: t("viewAll"),
@@ -40,6 +39,7 @@ export function buildDashboardV6Labels(t: Translate): Omit<DashboardV6Labels, "g
 }
 
 export function buildDashboardV6Greeting(t: Translate, firstName: string, hour = new Date().getHours()) {
+  if (!firstName.trim()) return t("greetingNoName");
   const key = hour < 12 ? "greetingMorning" : hour < 18 ? "greetingAfternoon" : "greetingEvening";
   return t(key, { firstName });
 }

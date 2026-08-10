@@ -5,7 +5,10 @@
  * list e open usam as mesmas regras de projeção (item 15): estados impossíveis
  * são rejeitados; list não inventa outputs.
  */
-import { getCampaignById, getCampaigns } from "@/server/repositories/campaign";
+import {
+  getCampaignById,
+  getCampaignsPage,
+} from "@/server/repositories/campaign";
 import {
   getCreativeWork,
   listCreativeWorksWithOutputs,
@@ -38,10 +41,12 @@ export async function listCanonicalWorks(
   workspaceId: string,
   options: ListCanonicalWorksOptions = {}
 ): Promise<CanonicalWorkSummary[]> {
-  const limit = options.limit ?? 50;
-  const [campaigns, worksWithOutputs] = await Promise.all([
-    getCampaigns(workspaceId, limit),
-    listCreativeWorksWithOutputs(workspaceId, limit),
+  const campaignQuery = options.limit === undefined ? {} : { limit: options.limit };
+  const [{ campaigns }, worksWithOutputs] = await Promise.all([
+    getCampaignsPage(workspaceId, campaignQuery),
+    options.limit === undefined
+      ? listCreativeWorksWithOutputs(workspaceId)
+      : listCreativeWorksWithOutputs(workspaceId, options.limit),
   ]);
 
   const campaignSummaries: CanonicalWorkSummary[] = [];

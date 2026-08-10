@@ -121,12 +121,11 @@ describe("/api/feedback/quality-improvement GET", () => {
     });
   });
 
-  it("allows workspace admin with scoped workspaceId", async () => {
-    mockRequireAccess.mockResolvedValue({
-      user: { id: "admin-1", email: "admin@test.com" },
-      scope: "workspace-admin",
-      workspaceId: WORKSPACE_ID,
-    });
+  it("rejects workspace admin even with scoped workspaceId", async () => {
+    const { WorkspaceAuthError, AUTH_ERROR_CODES } = await import("@/server/auth/errors");
+    mockRequireAccess.mockRejectedValue(
+      new WorkspaceAuthError(AUTH_ERROR_CODES.forbidden, "Forbidden")
+    );
 
     const res = await GET(
       new Request(
@@ -134,13 +133,8 @@ describe("/api/feedback/quality-improvement GET", () => {
       )
     );
 
-    expect(res.status).toBe(200);
-    expect(mockRunQualityImprovement).toHaveBeenCalledWith({
-      workspaceId: WORKSPACE_ID,
-      cohort: "baseline",
-      improvementDeployedAt: undefined,
-      capturedAt: expect.any(String),
-    });
+    expect(res.status).toBe(403);
+    expect(mockRunQualityImprovement).not.toHaveBeenCalled();
   });
 
   it("returns 403 for non-admin member", async () => {

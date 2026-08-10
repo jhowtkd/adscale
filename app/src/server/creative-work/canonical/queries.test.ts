@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/server/repositories/campaign", () => ({
   getCampaignById: vi.fn(),
-  getCampaigns: vi.fn(),
+  getCampaignsPage: vi.fn(),
 }));
 
 vi.mock("@/server/repositories/creative-work", () => ({
@@ -18,7 +18,7 @@ vi.mock("@/lib/logger", () => ({
   logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-import { getCampaignById, getCampaigns } from "@/server/repositories/campaign";
+import { getCampaignById, getCampaignsPage } from "@/server/repositories/campaign";
 import {
   getCreativeWork,
   listCreativeWorksWithOutputs,
@@ -32,7 +32,7 @@ import {
 import { logger } from "@/lib/logger";
 
 const mockGetCampaignById = vi.mocked(getCampaignById);
-const mockGetCampaigns = vi.mocked(getCampaigns);
+const mockGetCampaignsPage = vi.mocked(getCampaignsPage);
 const mockGetCreativeWork = vi.mocked(getCreativeWork);
 const mockListWithOutputs = vi.mocked(listCreativeWorksWithOutputs);
 const mockGetDerivations = vi.mocked(getDerivationsByCampaign);
@@ -45,13 +45,14 @@ const WORK_ID = "33333333-3333-4333-8333-333333333333";
 describe("canonical queries isolation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetCampaigns.mockResolvedValue([]);
+    mockGetCampaignsPage.mockResolvedValue({ campaigns: [], totalCount: 0 });
     mockListWithOutputs.mockResolvedValue([]);
     mockGetDerivations.mockResolvedValue([]);
   });
 
   it("lists both origins scoped by workspaceId", async () => {
-    mockGetCampaigns.mockResolvedValue([
+    mockGetCampaignsPage.mockResolvedValue({
+      campaigns: [
       {
         id: CAMPAIGN_ID,
         workspaceId: WS,
@@ -77,8 +78,10 @@ describe("canonical queries isolation", () => {
         variations: 0,
         creditsUsed: 0,
         previewPendingBatch: false,
-      },
-    ] as never);
+      } as never,
+      ],
+      totalCount: 1,
+    });
     mockListWithOutputs.mockResolvedValue([
       {
         work: {
@@ -105,11 +108,18 @@ describe("canonical queries isolation", () => {
     ] as never);
 
     const list = await listCanonicalWorks(WS);
-    expect(mockGetCampaigns).toHaveBeenCalledWith(WS, 50);
-    expect(mockListWithOutputs).toHaveBeenCalledWith(WS, 50);
+    expect(mockGetCampaignsPage).toHaveBeenCalledWith(WS, {});
+    expect(mockListWithOutputs).toHaveBeenCalledWith(WS);
     expect(list).toHaveLength(2);
     expect(list[0].originKind).toBe("creative_work");
     expect(list.map((i) => i.workspaceId)).toEqual([WS, WS]);
+  });
+
+  it("passes an explicit limit without imposing one by default", async () => {
+    await listCanonicalWorks(WS, { limit: 10 });
+
+    expect(mockGetCampaignsPage).toHaveBeenCalledWith(WS, { limit: 10 });
+    expect(mockListWithOutputs).toHaveBeenCalledWith(WS, 10);
   });
 
   it("list and open both reject generating Creative Work without outputs", async () => {

@@ -264,7 +264,7 @@ function ProjectNode({
                     <li key={thread.id}>
                       <button
                         type="button"
-                        aria-current={isActive ? "true" : undefined}
+                        aria-pressed={isActive}
                         onClick={() => handleSelect(thread.id)}
                         className={cn(
                           "flex w-full flex-col rounded-[var(--radius-control)] px-2.5 py-2 text-left transition-colors",

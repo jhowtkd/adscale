@@ -669,14 +669,19 @@
       "browser": "SCN-TEMPLATES@1280, SCN-DASHBOARD@390, SCN-CAMPAIGN-LIST@390, SCN-CAMPAIGN-WORKSPACE@390, SCN-LIBRARY@390, SCN-TEMPLATES@390, SCN-RESTYLING@390, SCN-QUICK-RESTYLING@390, SCN-FEEDBACK@390, SCN-SETTINGS@390, SCN-DASHBOARD@768, SCN-CAMPAIGN-LIST@768, SCN-CAMPAIGN-WORKSPACE@768, SCN-LIBRARY@768, SCN-TEMPLATES@768, SCN-RESTYLING@768, SCN-QUICK-RESTYLING@768, SCN-FEEDBACK@768, SCN-SETTINGS@768, SCN-DASHBOARD@1024, SCN-CAMPAIGN-LIST@1024, SCN-CAMPAIGN-WORKSPACE@1024, SCN-LIBRARY@1024, SCN-TEMPLATES@1024, SCN-RESTYLING@1024, SCN-QUICK-RESTYLING@1024, SCN-FEEDBACK@1024, SCN-SETTINGS@1024, SCN-DASHBOARD@1280, SCN-CAMPAIGN-LIST@1280, SCN-CAMPAIGN-WORKSPACE@1280, SCN-LIBRARY@1280, SCN-RESTYLING@1280, SCN-QUICK-RESTYLING@1280, SCN-FEEDBACK@1280, SCN-SETTINGS@1280, SCN-DASHBOARD@1440, SCN-CAMPAIGN-LIST@1440, SCN-CAMPAIGN-WORKSPACE@1440, SCN-LIBRARY@1440, SCN-TEMPLATES@1440, SCN-RESTYLING@1440, SCN-QUICK-RESTYLING@1440, SCN-FEEDBACK@1440, SCN-SETTINGS@1440, SCN-DASHBOARD@1920, SCN-CAMPAIGN-LIST@1920, SCN-CAMPAIGN-WORKSPACE@1920, SCN-LIBRARY@1920, SCN-TEMPLATES@1920, SCN-RESTYLING@1920, SCN-QUICK-RESTYLING@1920, SCN-FEEDBACK@1920, SCN-SETTINGS@1920"
     },
     "QA-17": {
-      "result": "pass",
+      "result": "pending",
       "automated": "node scripts/run-release-gate.mjs",
       "unit": "pass",
       "lint": "pass",
       "build": "pass",
       "visualRelease": "pass",
-      "a11y": "pass",
-      "routes": "/@390, /campaigns@390, /library@390, /settings?tab=profile@390, /@1280, /campaigns@1280, /library@1280, /settings?tab=profile@1280"
+      "a11y": "pending",
+      "routes": "login@390:chromium, home@390:chromium, creative-work@390:chromium, dashboard@390:chromium, campaign-list@390:chromium, campaign-workspace@390:chromium, variations-workspace@390:chromium, library@390:chromium, settings@390:chromium, docs@390:chromium, templates@390:chromium, invite@390:chromium, console@390:chromium, login@768:chromium, home@768:chromium, creative-work@768:chromium, dashboard@768:chromium, campaign-list@768:chromium, campaign-workspace@768:chromium, variations-workspace@768:chromium, library@768:chromium, settings@768:chromium, docs@768:chromium, templates@768:chromium, invite@768:chromium, console@768:chromium, login@1280:chromium, home@1280:chromium, creative-work@1280:chromium, dashboard@1280:chromium, campaign-list@1280:chromium, campaign-workspace@1280:chromium, variations-workspace@1280:chromium, library@1280:chromium, settings@1280:chromium, docs@1280:chromium, templates@1280:chromium, invite@1280:chromium, console@1280:chromium, login@390:webkit, home@390:webkit, creative-work@390:webkit, dashboard@390:webkit, campaign-list@390:webkit, campaign-workspace@390:webkit, variations-workspace@390:webkit, library@390:webkit, settings@390:webkit, docs@390:webkit, templates@390:webkit, invite@390:webkit, console@390:webkit, login@1280:webkit, home@1280:webkit, creative-work@1280:webkit, dashboard@1280:webkit, campaign-list@1280:webkit, campaign-workspace@1280:webkit, variations-workspace@1280:webkit, library@1280:webkit, settings@1280:webkit, docs@1280:webkit, templates@1280:webkit, invite@1280:webkit, console@1280:webkit",
+      "interaction": "pass",
+      "expectedA11yChecks": 65,
+      "completedA11yChecks": 8,
+      "expectedInteractionChecks": 5,
+      "completedInteractionChecks": 5
     }
   },
   "a11yChecks": [
@@ -751,13 +756,241 @@
       "deferredViolations": 0,
       "blockingViolations": 0,
       "result": "pass"
+    },
+    {
+      "key": "login@390",
+      "route": "/login",
+      "viewport": 390,
+      "violations": 0,
+      "incomplete": 1,
+      "indeterminateIncomplete": 1,
+      "blockingIncomplete": 0,
+      "result": "pass"
+    },
+    {
+      "key": "invite@390",
+      "route": "/invite?token=invalid",
+      "viewport": 390,
+      "violations": 0,
+      "incomplete": 0,
+      "indeterminateIncomplete": 0,
+      "blockingIncomplete": 0,
+      "result": "pass"
+    },
+    {
+      "key": "home@390",
+      "route": "/",
+      "viewport": 390,
+      "violations": 0,
+      "incomplete": 0,
+      "indeterminateIncomplete": 0,
+      "blockingIncomplete": 0,
+      "result": "pass"
+    },
+    {
+      "key": "creative-work@390",
+      "route": "/",
+      "viewport": 390,
+      "violations": 0,
+      "incomplete": 0,
+      "indeterminateIncomplete": 0,
+      "blockingIncomplete": 0,
+      "result": "pass"
+    },
+    {
+      "key": "variations-workspace@390",
+      "route": "/?workId=99ab454f-2eaa-4a0f-8d73-cc82473a9583&intent=variations",
+      "viewport": 390,
+      "violations": 0,
+      "incomplete": 0,
+      "indeterminateIncomplete": 0,
+      "blockingIncomplete": 0,
+      "result": "pass"
+    },
+    {
+      "key": "home@390:chromium",
+      "route": "/",
+      "viewport": 390,
+      "browser": "chromium",
+      "violations": 0,
+      "incomplete": 0,
+      "indeterminateIncomplete": 0,
+      "blockingIncomplete": 0,
+      "result": "pass"
+    },
+    {
+      "key": "creative-work@390:chromium",
+      "route": "/",
+      "viewport": 390,
+      "browser": "chromium",
+      "violations": 0,
+      "incomplete": 0,
+      "indeterminateIncomplete": 0,
+      "blockingIncomplete": 0,
+      "result": "pass"
+    },
+    {
+      "key": "variations-workspace@390:chromium",
+      "route": "/?workId=99ab454f-2eaa-4a0f-8d73-cc82473a9583&intent=variations",
+      "viewport": 390,
+      "browser": "chromium",
+      "violations": 0,
+      "incomplete": 0,
+      "indeterminateIncomplete": 0,
+      "blockingIncomplete": 0,
+      "result": "pass"
+    },
+    {
+      "key": "login@390:chromium",
+      "route": "/login",
+      "viewport": 390,
+      "browser": "chromium",
+      "violations": 0,
+      "incomplete": 0,
+      "indeterminateIncomplete": 0,
+      "blockingIncomplete": 0,
+      "result": "pass"
+    },
+    {
+      "key": "login@1280:chromium",
+      "route": "/login",
+      "viewport": 1280,
+      "browser": "chromium",
+      "violations": 0,
+      "incomplete": 1,
+      "indeterminateIncomplete": 1,
+      "blockingIncomplete": 0,
+      "result": "pass"
+    },
+    {
+      "key": "login@768:chromium",
+      "route": "/login",
+      "viewport": 768,
+      "browser": "chromium",
+      "violations": 0,
+      "incomplete": 1,
+      "indeterminateIncomplete": 1,
+      "blockingIncomplete": 0,
+      "result": "pass"
+    },
+    {
+      "key": "login@390:webkit",
+      "route": "/login",
+      "viewport": 390,
+      "browser": "webkit",
+      "violations": 0,
+      "incomplete": 0,
+      "indeterminateIncomplete": 0,
+      "blockingIncomplete": 0,
+      "result": "pass"
+    },
+    {
+      "key": "login@1280:webkit",
+      "route": "/login",
+      "viewport": 1280,
+      "browser": "webkit",
+      "violations": 0,
+      "incomplete": 0,
+      "indeterminateIncomplete": 0,
+      "blockingIncomplete": 0,
+      "result": "pass"
     }
   ],
-  "verifiedAt": "2026-07-24T18:26:32.385Z",
   "automated": {
     "unit": "pass",
     "lint": "pass",
     "build": "pass",
     "visual-release": "pass"
-  }
+  },
+  "interactionChecks": [
+    {
+      "key": "login-interaction@390",
+      "route": "/login",
+      "viewport": 390,
+      "mainCount": 1,
+      "skipLinkCount": 1,
+      "invalidLabelledBy": [],
+      "focusOrder": true,
+      "accessibleControls": true,
+      "textZoomOverflowX": 0,
+      "lowHeightOverflowX": 0,
+      "touchTargetMin": 44,
+      "result": "pass"
+    },
+    {
+      "key": "login-interaction@390:chromium",
+      "route": "/login",
+      "viewport": 390,
+      "browser": "chromium",
+      "mainCount": 1,
+      "skipLinkCount": 1,
+      "invalidLabelledBy": [],
+      "focusOrder": true,
+      "accessibleControls": true,
+      "textZoomOverflowX": 0,
+      "lowHeightOverflowX": 0,
+      "touchTargetMin": 44,
+      "result": "pass"
+    },
+    {
+      "key": "login-interaction@1280:chromium",
+      "route": "/login",
+      "viewport": 1280,
+      "browser": "chromium",
+      "mainCount": 1,
+      "skipLinkCount": 1,
+      "invalidLabelledBy": [],
+      "focusOrder": true,
+      "accessibleControls": true,
+      "textZoomOverflowX": 0,
+      "lowHeightOverflowX": 0,
+      "touchTargetMin": 44,
+      "result": "pass"
+    },
+    {
+      "key": "login-interaction@768:chromium",
+      "route": "/login",
+      "viewport": 768,
+      "browser": "chromium",
+      "mainCount": 1,
+      "skipLinkCount": 1,
+      "invalidLabelledBy": [],
+      "focusOrder": true,
+      "accessibleControls": true,
+      "textZoomOverflowX": 0,
+      "lowHeightOverflowX": 0,
+      "touchTargetMin": 44,
+      "result": "pass"
+    },
+    {
+      "key": "login-interaction@390:webkit",
+      "route": "/login",
+      "viewport": 390,
+      "browser": "webkit",
+      "mainCount": 1,
+      "skipLinkCount": 1,
+      "invalidLabelledBy": [],
+      "focusOrder": true,
+      "accessibleControls": true,
+      "textZoomOverflowX": 0,
+      "lowHeightOverflowX": 0,
+      "touchTargetMin": 44,
+      "result": "pass"
+    },
+    {
+      "key": "login-interaction@1280:webkit",
+      "route": "/login",
+      "viewport": 1280,
+      "browser": "webkit",
+      "mainCount": 1,
+      "skipLinkCount": 1,
+      "invalidLabelledBy": [],
+      "focusOrder": true,
+      "accessibleControls": true,
+      "textZoomOverflowX": 0,
+      "lowHeightOverflowX": 0,
+      "touchTargetMin": 44,
+      "result": "pass"
+    }
+  ]
 }

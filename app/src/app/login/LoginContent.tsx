@@ -13,6 +13,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { authClient } from "@/lib/auth-client";
+import { safeCallbackPath } from "@/lib/auth-callback";
 import { cn } from "@/lib/utils";
 
 interface LoginState {
@@ -46,21 +47,14 @@ function loginReducer(state: LoginState, action: LoginAction): LoginState {
   return { ...state, ...action.payload };
 }
 
-function safeCallbackPath(value: string | null): string {
-  if (!value || !value.startsWith("/") || value.startsWith("//")) {
-    return "/";
-  }
-  return value;
-}
-
 const authFieldClass =
-  "rounded-[var(--radius-control)] border-[var(--border-default)] bg-[var(--surface-raised)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus-visible:border-[var(--neutral-border)] focus-visible:ring-[var(--focus-ring)]";
+  "min-h-11 rounded-[var(--radius-control)] border-[var(--border-default)] bg-[var(--surface-raised)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus-visible:border-[var(--neutral-border)] focus-visible:ring-[var(--focus-ring)]";
 
 const authPrimaryButtonClass =
-  "w-full rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)]";
+  "min-h-11 w-full rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)]";
 
 const authTextLinkClass =
-  "font-medium text-[var(--neutral-text)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]";
+  "font-medium text-[var(--text-primary)] underline underline-offset-2 hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]";
 
 export default function LoginContent() {
   const router = useRouter();
@@ -103,7 +97,7 @@ export default function LoginContent() {
     try {
       const { error: magicLinkError } = await authClient.signIn.magicLink({
         email,
-        callbackURL: "/",
+        callbackURL: callbackUrl,
       });
 
       if (magicLinkError) {
@@ -195,6 +189,7 @@ export default function LoginContent() {
                   </div>
                   <PasswordInput
                     id="login-password"
+                    label={null}
                     placeholder={t("passwordPlaceholder")}
                     value={password}
                     onChange={(value) => dispatch({ type: "patch", payload: { password: value } })}

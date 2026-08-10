@@ -1,5 +1,6 @@
-import { eq, and, asc, desc, count, inArray, isNull, lt, max, sql } from "drizzle-orm";
+import { eq, and, asc, desc, count, inArray, isNull, isNotNull, lt, max, sql } from "drizzle-orm";
 import { db } from "../db";
+import { getCreativeWorkSelectionPolicy } from "@/lib/creative-work-selection-policy";
 import {
   creativeWorkItems,
   creativeWorkOutputs,
@@ -493,14 +494,14 @@ export async function deleteCreativeWorkSource(workspaceId: string, workItemId: 
 /** Workspace-scoped list for canonical queries (Phase 2). No cross-tenant leak. */
 export async function listCreativeWorks(
   workspaceId: string,
-  limit = 50
+  limit?: number
 ): Promise<CreativeWorkItem[]> {
-  return db
+  const query = db
     .select()
     .from(creativeWorkItems)
     .where(eq(creativeWorkItems.workspaceId, workspaceId))
-    .orderBy(desc(creativeWorkItems.updatedAt))
-    .limit(limit);
+    .orderBy(desc(creativeWorkItems.updatedAt));
+  return typeof limit === "number" ? query.limit(limit) : query;
 }
 
 /**
@@ -509,7 +510,7 @@ export async function listCreativeWorks(
  */
 export async function listCreativeWorksWithOutputs(
   workspaceId: string,
-  limit = 50
+  limit?: number
 ): Promise<Array<{ work: CreativeWorkItem; outputs: CreativeWorkOutput[] }>> {
   const works = await listCreativeWorks(workspaceId, limit);
   if (works.length === 0) return [];
@@ -1411,9 +1412,35 @@ export async function recordCreativeWorkGenerationAggregate(
 export async function selectCreativeWorkOutput(
   workspaceId: string,
   workItemId: string,
-  outputId: string
+  outputId: string,
+  options: { confirmObjective?: boolean } = {}
 ): Promise<CreativeWorkOutput | null> {
   return db.transaction(async (tx) => {
+    const [candidate] = await tx
+      .select()
+      .from(creativeWorkOutputs)
+      .where(
+        and(
+          eq(creativeWorkOutputs.workspaceId, workspaceId),
+          eq(creativeWorkOutputs.workItemId, workItemId),
+          eq(creativeWorkOutputs.id, outputId)
+        )
+      )
+      .for("update");
+
+    if (
+      !candidate ||
+      candidate.status !== "completed" ||
+      !candidate.outputKey
+    ) {
+      return null;
+    }
+
+    const policy = getCreativeWorkSelectionPolicy(candidate.quality);
+    if (!policy.selectable || (policy.requiresConfirmation && !options.confirmObjective)) {
+      return null;
+    }
+
     await tx
       .update(creativeWorkOutputs)
       .set({ isSelected: false, updatedAt: new Date() })
@@ -1432,7 +1459,9 @@ export async function selectCreativeWorkOutput(
         and(
           eq(creativeWorkOutputs.workspaceId, workspaceId),
           eq(creativeWorkOutputs.workItemId, workItemId),
-          eq(creativeWorkOutputs.id, outputId)
+          eq(creativeWorkOutputs.id, outputId),
+          eq(creativeWorkOutputs.status, "completed"),
+          isNotNull(creativeWorkOutputs.outputKey)
         )
       )
       .returning();

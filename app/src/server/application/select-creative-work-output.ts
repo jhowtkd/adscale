@@ -8,6 +8,7 @@ import {
   selectCreativeWorkOutput,
 } from "@/server/repositories/creative-work";
 import type { CreativeWorkOutput } from "@/server/db/schema";
+import { getCreativeWorkSelectionPolicy, type CreativeWorkSelectionPolicy } from "@/lib/creative-work-selection-policy";
 
 export type SelectCreativeWorkOutputInput = {
   workspaceId: string;
@@ -15,6 +16,8 @@ export type SelectCreativeWorkOutputInput = {
   outputId: string;
   /** Default true — skip library registration when false. */
   saveToLibrary?: boolean;
+  /** Required for legacy/inconclusive objective checks; never bypasses a fail. */
+  confirmObjective?: boolean;
 };
 
 export type SelectCreativeWorkOutputError =
@@ -22,7 +25,10 @@ export type SelectCreativeWorkOutputError =
   | { code: "work_not_prepared" }
   | { code: "output_not_found" }
   | { code: "output_not_selectable"; status: string }
-  | { code: "output_missing_key" };
+  | { code: "output_missing_key" }
+  | { code: "objective_selection_blocked"; policy: CreativeWorkSelectionPolicy }
+  | { code: "objective_confirmation_required"; policy: CreativeWorkSelectionPolicy };
+
 
 export type SelectCreativeWorkOutputSuccess = {
   output: CreativeWorkOutput;
@@ -61,12 +67,45 @@ export async function selectCreativeWorkOutputCommand(
     return { ok: false, error: { code: "output_missing_key" } };
   }
 
+  const policy = getCreativeWorkSelectionPolicy(output.quality);
+  if (!policy.selectable) {
+    return { ok: false, error: { code: "objective_selection_blocked", policy } };
+  }
+  if (policy.requiresConfirmation && !input.confirmObjective) {
+    return { ok: false, error: { code: "objective_confirmation_required", policy } };
+  }
+
   const selected = await selectCreativeWorkOutput(
     input.workspaceId,
     input.workItemId,
-    input.outputId
+    input.outputId,
+    { confirmObjective: input.confirmObjective }
   );
   if (!selected) {
+    const current = await getCreativeWork(input.workspaceId, input.workItemId);
+    const currentOutput = current?.outputs.find((candidate) => candidate.id === input.outputId);
+    if (!current) {
+      return { ok: false, error: { code: "work_not_found" } };
+    }
+    if (!currentOutput) {
+      return { ok: false, error: { code: "output_not_found" } };
+    }
+    if (currentOutput.status !== "completed") {
+      return {
+        ok: false,
+        error: { code: "output_not_selectable", status: currentOutput.status },
+      };
+    }
+    if (!currentOutput.outputKey) {
+      return { ok: false, error: { code: "output_missing_key" } };
+    }
+    const currentPolicy = getCreativeWorkSelectionPolicy(currentOutput.quality);
+    if (!currentPolicy.selectable) {
+      return { ok: false, error: { code: "objective_selection_blocked", policy: currentPolicy } };
+    }
+    if (currentPolicy.requiresConfirmation && !input.confirmObjective) {
+      return { ok: false, error: { code: "objective_confirmation_required", policy: currentPolicy } };
+    }
     return { ok: false, error: { code: "output_not_found" } };
   }
 

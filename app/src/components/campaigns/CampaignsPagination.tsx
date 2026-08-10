@@ -75,7 +75,7 @@ export default function CampaignsPagination({
               variant={visibleCurrentPage === page ? "default" : "outline"}
               size="sm"
               onClick={() => onPageChange(page)}
-              aria-current={visibleCurrentPage === page ? "page" : undefined}
+              aria-pressed={visibleCurrentPage === page}
               className={cn(
                 "size-8 p-0 text-xs font-medium",
                 visibleCurrentPage === page

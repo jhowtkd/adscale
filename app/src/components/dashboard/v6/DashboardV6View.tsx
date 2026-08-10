@@ -120,14 +120,14 @@ export default function DashboardV6View({
               <div className="flex flex-wrap gap-3">
                 <ActionLink
                   interactive={interactive}
-                  href={`/campaigns/${view.hero.id}`}
+                  href={view.hero.href}
                   className="inline-flex min-h-[var(--control-touch)] items-center gap-2 rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-5 py-2.5 text-sm font-medium text-[var(--action-primary-text)] transition-colors hover:bg-[var(--action-primary-hover)]"
                 >
                   {labels.openCampaign}
                 </ActionLink>
                 <ActionLink
                   interactive={interactive}
-                  href={`/campaigns/${view.hero.id}?tab=brief`}
+                  href={view.hero.briefingHref}
                   className="inline-flex min-h-[var(--control-touch)] items-center gap-2 rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-5 py-2.5 text-sm font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-inset)]"
                 >
                   {labels.viewBriefing}
@@ -144,8 +144,11 @@ export default function DashboardV6View({
                 label={labels.metaVariations}
                 value={`${view.hero.variationsDone} / ${view.hero.variationsTotal}`}
               />
-              <MetaRow label={labels.metaApproved} value={String(view.hero.approved)} accent />
-              <MetaRow label={labels.metaCredits} value={String(view.hero.credits)} />
+              <MetaRow
+                label={labels.metaApproved}
+                value={view.hero.approved == null ? "—" : String(view.hero.approved)}
+                accent
+              />
             </dl>
           </div>
         </section>
@@ -241,14 +244,14 @@ export default function DashboardV6View({
               <div className="mt-4 flex gap-2 border-t border-[var(--border-subtle)] pt-4">
                 <ActionLink
                   interactive={interactive}
-                  href={view.activeBriefingCampaignId ? `/campaigns/${view.activeBriefingCampaignId}?tab=brief` : "/templates"}
+                  href={view.hero?.briefingHref ?? "/templates"}
                   className="flex-1 rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] py-2 text-center text-sm font-medium text-[var(--text-primary)]"
                 >
                   {labels.editBriefing}
                 </ActionLink>
                 <ActionLink
                   interactive={interactive}
-                  href={view.activeBriefingCampaignId ? `/campaigns/${view.activeBriefingCampaignId}` : "/campaigns?new=1"}
+                  href={view.hero?.href ?? "/campaigns?new=1"}
                   className="flex-1 rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] py-2 text-center text-sm font-medium text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)]"
                 >
                   {labels.goToActions}

@@ -12,6 +12,8 @@ const view: DashboardV6ViewModel = {
   kpis: [{ label: "Aprovação", value: "60%", trend: "0%", trendDir: "neutral" }],
   hero: {
     id: "campaign-1",
+    href: "/campaigns/campaign-1",
+    briefingHref: "/campaigns/campaign-1?tab=brief",
     name: "Campanha",
     badge: "Ativa",
     badgeClass: "success",
@@ -25,7 +27,6 @@ const view: DashboardV6ViewModel = {
   activity: [],
   recipes: [],
   briefingRows: [],
-  activeBriefingCampaignId: null,
 };
 
 describe("DashboardV6View motion values", () => {
@@ -34,7 +35,7 @@ describe("DashboardV6View motion values", () => {
 
     expect(screen.getByText("60%").closest("[data-motion-value]")).toHaveAttribute("data-motion-value", "60%");
     expect(screen.getByText("● 75%").closest("[data-motion-value]")).toHaveAttribute("data-motion-value", "● 75%");
-    expect(screen.getAllByTestId("motion-value")).toHaveLength(5);
+    expect(screen.getAllByTestId("motion-value")).toHaveLength(4);
   });
 
   it.each([

@@ -152,9 +152,46 @@ export default function DashboardHomeActions({
         )}
       />
 
+      {composer.pendingProtocolSwitch ? (
+        <div
+          role="alertdialog"
+          aria-label={t("protocolSwitchPending")}
+          className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-object)] border border-[var(--warning-border)] bg-[var(--warning-bg)] px-4 py-3"
+        >
+          <p className="text-sm text-[var(--warning-text)]">{t("protocolSwitchPending")}</p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={composer.confirmProtocolSwitch}
+              className="rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-3 py-2 text-sm font-medium text-[var(--action-primary-text)]"
+            >
+              {t("protocolSwitchConfirm")}
+            </button>
+            <button
+              type="button"
+              onClick={composer.cancelProtocolSwitch}
+              className="rounded-[var(--radius-control)] border border-[var(--border-default)] px-3 py-2 text-sm font-medium text-[var(--text-primary)]"
+            >
+              {t("protocolSwitchCancel")}
+            </button>
+          </div>
+        </div>
+      ) : composer.protocolSwitchNotice ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-object)] border border-[var(--info-border)] bg-[var(--info-bg)] px-4 py-3">
+          <p className="text-sm text-[var(--info-text)]">{t("protocolSwitchPreserved")}</p>
+          <button
+            type="button"
+            onClick={composer.returnToPreviousProtocol}
+            className="rounded-[var(--radius-control)] border border-[var(--info-border)] px-3 py-2 text-sm font-medium text-[var(--info-text)]"
+          >
+            {t("protocolSwitchBack")}
+          </button>
+        </div>
+      ) : null}
+
       <CreativeComposer composer={composer} composerRef={composerRef} />
 
-      <section aria-labelledby="continue-work-title">
+      <section aria-labelledby={isLoading && works.length === 0 ? undefined : "continue-work-title"}>
         {isLoading && works.length === 0 ? (
           <div className="h-40 animate-pulse rounded-[var(--radius-object)] bg-[var(--surface-raised)] sm:h-44 lg:h-48" aria-hidden="true" />
         ) : continueTarget.kind === "work" ? (

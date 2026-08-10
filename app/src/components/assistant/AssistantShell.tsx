@@ -34,6 +34,7 @@ export default function AssistantShell({
   const searchParams = useSearchParams();
   const activeThreadId = searchParams.get("threadId");
   const [contextOpen, setContextOpen] = useState(() => {
+    if (!activeThreadId) return false;
     if (typeof window === "undefined") return true;
     const stored = window.sessionStorage.getItem(CONTEXT_OPEN_KEY);
     return stored === null ? true : stored === "true";
@@ -61,8 +62,7 @@ export default function AssistantShell({
   const isWorkspace = mode === "workspace" || surface.workspaceMode;
 
   const mainPanel = (
-    <main
-      id="main"
+    <div
       data-testid={isMobile ? "assistant-mobile-chat" : "assistant-desktop-main"}
       className="relative flex min-h-0 min-w-0 flex-col overflow-hidden bg-[var(--surface-base)]"
     >
@@ -77,7 +77,7 @@ export default function AssistantShell({
           <ChevronLeft size={16} aria-hidden="true" />
         </button>
       ) : null}
-    </main>
+    </div>
   );
 
   if (isMobile) {

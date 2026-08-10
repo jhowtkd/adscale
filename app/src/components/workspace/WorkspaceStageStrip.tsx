@@ -49,7 +49,7 @@ export default function WorkspaceStageStrip({
                   ? "border border-[var(--selection-border)] bg-[var(--active-navigation-bg)] text-[var(--active-navigation-text)]"
                   : "bg-[var(--surface-raised)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
               )}
-              aria-current={active ? "step" : undefined}
+              aria-pressed={active}
             >
               {item.label}
             </button>

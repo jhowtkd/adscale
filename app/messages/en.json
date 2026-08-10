@@ -4,7 +4,7 @@
     "description": "From one base creative and brief to a batch of platform-ready variations — you brief, AI assists, you approve what ships."
   },
   "navigation": {
-    "dashboard": "Dashboard",
+    "dashboard": "Overview",
     "home": "Home",
     "campaigns": "Campaigns",
     "templates": "Templates",
@@ -29,6 +29,10 @@
     "brandKit": "Visual Training",
     "brandKitBeta": "BETA",
     "brandKitHint": "Train the client brand",
+    "brandKitStatusLoading": "Checking brand status…",
+    "brandKitStatusReady": "Brand trained",
+    "brandKitStatusSetup": "Configure brand",
+    "brandKitStatusSelect": "Select a brand",
     "howToUse": "How to use",
     "works": "Works",
     "brands": "Brand",
@@ -520,8 +524,8 @@
         "uploading": "Uploading...",
         "dropHint": "or drag and drop here",
         "retryTemplate": "Retry template attachment",
-        "generate": "Generate {count, plural, one {# variation} other {# variations}} · {credits} credits",
-        "generateRestyle": "Generate restyle · {credits} credits",
+        "generate": "Generate {count, plural, one {# variation} other {# variations}}",
+        "generateRestyle": "Generate restyle",
         "actionSaving": "Saving",
         "actionPreparing": "Preparing",
         "actionSubmitting": "Sending to generation",
@@ -532,13 +536,13 @@
         "formatAuto": "Automatic (now: {format})",
         "targetFormats": "Target formats",
         "directionHelpLabel": "Help with {direction}",
-        "directionHelp": "Uses the instruction \"{instruction}\" as an alternative path. Choose it when it fits the artwork; each selected direction generates one 5-credit variation.",
+        "directionHelp": "Uses the instruction \"{instruction}\" as an alternative path. Choose it when it fits the artwork; each selected direction generates one variation.",
         "formatHelpLabel": "Help with format",
         "formatHelp": "Sets the piece's aspect ratio. Use Automatic to keep the current suggestion or choose a format to pin the output canvas; this does not change the number of variations.",
         "targetFormatsHelpLabel": "Help with target formats",
-        "targetFormatsHelp": "Creates one version for each selected format. Use it when the same idea needs more than one channel; the credit total updates before generation.",
+        "targetFormatsHelp": "Creates one version for each selected format. Use it when the same idea needs more than one channel.",
         "directionsTitle": "Directions",
-        "directionsHint": "Choose 1 to 5 paths to generate. Each one costs 5 credits.",
+        "directionsHint": "Choose 1 to 5 paths to generate one variation from each direction.",
         "directionsLoading": "Finding AI suggestions…",
         "directionsReady": "AI found new paths. Would you like to apply them?",
         "applyDirections": "Apply suggestions",
@@ -599,6 +603,11 @@
         "results": {
           "failedGeneration": "Generation failed",
           "reviewRecommended": "Review recommended — the automated check was inconclusive",
+          "objectiveFailed": "The objective check rejected this piece.",
+          "objectiveFailedNext": "Generate another version before approving.",
+          "legacyReviewRequired": "This piece has no objective verdict. Review it before confirming approval.",
+          "reviewBeforeApprove": "Review and approve",
+          "confirmApproval": "Confirm approval",
           "retryUnavailable": "This proposal already used all automatic attempts. Create a new request to generate another version.",
           "failure": {
             "timeout": "Generation took too long and was interrupted.",
@@ -619,6 +628,22 @@
         "paletteAria": "Palette samples",
         "moodAria": "Visual mood",
         "compositionDiagramAria": "Visual composition schematic",
+        "provenanceTitle": "Reading sources",
+        "provenanceRequest": "Request",
+        "provenanceSource": "Artwork",
+        "provenanceBrand": "Brand",
+        "provenanceInference": "Visual inference",
+        "provenanceUnknown": "Unknown",
+        "provenanceVisualOnly": "A visual-only reference does not provide facts for the piece.",
+        "unknownValue": "Not provided",
+        "editAnalysis": "Correct reading",
+        "saveAnalysis": "Save reading",
+        "cancelAnalysis": "Cancel",
+        "retryAnalysis": "Try saving again",
+        "savingAnalysis": "Saving reading",
+        "savedAnalysis": "Reading saved",
+        "saveAnalysisError": "Could not save. Your edit is still here.",
+        "complementaryText": "Dates and conditions",
         "variationInstructionsLabel": "What do you want to vary?",
         "variationInstructionsHint": "Optional. Write freely or use one line per change.",
         "variationInstructionsPlaceholder": "E.g.:\n- Create a more direct copy\n- Suggest new CTAs\n- Highlight the offer",
@@ -635,15 +660,15 @@
         "variations": "Variations",
         "variationsDescription": "Explore three directions for the same idea.",
         "variationsHelpLabel": "Help with Variations",
-        "variationsHelp": "Analyzes an artwork to explore alternative paths. Use it when you want to compare approaches; each selected direction becomes one 5-credit variation.",
+        "variationsHelp": "Analyzes an artwork to explore alternative paths. Use it when you want to compare approaches; each selected direction becomes one variation.",
         "single": "Single piece",
         "singleDescription": "Produce one direct, balanced option.",
         "singleHelpLabel": "Help with Single piece",
-        "singleHelp": "Creates one piece from the request and references. Use it when the direction is clear; the cost appears on the generate button before submission.",
+        "singleHelp": "Creates one piece from the request and references. Use it when the direction is clear.",
         "format_adaptation": "Adapt formats",
         "format_adaptationDescription": "Take the idea to other sizes.",
         "format_adaptationHelpLabel": "Help with Adapt formats",
-        "format_adaptationHelp": "Recomposes the same idea for the selected formats. Use it when an artwork is ready for other channels; each format creates one version and updates the credit total.",
+        "format_adaptationHelp": "Recomposes the same idea for the selected formats. Use it when an artwork is ready for other channels; each format creates one version.",
         "restyle": "Change style",
         "restyleDescription": "Reinterpret an image with another visual direction.",
         "restyleHelpLabel": "Help with Change style",
@@ -651,7 +676,12 @@
       },
       "errorTitle": "Failed to load",
       "errorDescription": "Could not load dashboard",
-      "retry": "Try again"
+      "retry": "Try again",
+      "protocolSwitchPending": "There are unsaved changes or an upload in progress. Preserve the draft before switching protocols?",
+      "protocolSwitchConfirm": "Preserve and switch",
+      "protocolSwitchCancel": "Stay here",
+      "protocolSwitchPreserved": "Your draft was preserved in this protocol.",
+      "protocolSwitchBack": "Go back"
     },
     "creditsPanel": {
       "title": "Credits",
@@ -678,15 +708,18 @@
       "greetingMorning": "Good morning, {firstName}.",
       "greetingAfternoon": "Good afternoon, {firstName}.",
       "greetingEvening": "Good evening, {firstName}.",
+      "greetingNoName": "Hello.",
+      "authorFallback": "Your workspace",
       "summary": "You have <inReview></inReview> and <ready></ready>.",
       "summaryInReview": "{count, plural, one {# campaign in review} other {# campaigns in review}}",
       "summaryReady": "{count, plural, one {# derivation ready to approve} other {# derivations ready to approve}}",
       "kpisAria": "Key metrics",
-      "heroProduction": "Campaign in production",
+      "heroProduction": "Featured work",
       "heroPilot": "Pilot",
       "heroInReview": "In review",
       "heroDescription": "{pieceCount} variations · {approvedCount} approved",
-      "openCampaign": "Open campaign",
+      "heroWorkDescription": "{resultCount} results in this work",
+      "openCampaign": "Open work",
       "viewBriefing": "View briefing",
       "metaBriefing": "Briefing",
       "metaVariations": "Variations",
@@ -720,17 +753,17 @@
       "relativeDays": "{count} days ago",
       "activityEmptyTitle": "No recent activity",
       "activityEmptyDescription": "Campaigns and derivations you work on will show up here.",
-      "activityEmptyAction": "Create campaign",
+      "activityEmptyAction": "Create work",
       "recipesEmptyTitle": "No saved recipes yet",
       "recipesEmptyDescription": "Save a briefing as a template to reuse it in your next campaign.",
       "recipesEmptyAction": "Browse templates",
       "templatesLink": "Templates",
       "briefingEmptyTitle": "No active briefing",
       "briefingEmptyDescription": "Start a campaign briefing or pick a template to see fields here.",
-      "briefingEmptyAction": "New campaign",
+      "briefingEmptyAction": "New work",
       "createPostName": "Create post",
       "createPostDescription": "Briefing + approved identity → 3 visual proposals in one click.",
-      "createPostCount": "15 credits"
+      "createPostCount": "3 proposals"
     },
     "laboratory": {
       "title": "Ads Laboratory",
@@ -862,8 +895,8 @@
         "costSingle": "This step uses about {ads} ad ({credits} credits) — you see value before scaling spend.",
         "costFrom": "This step starts at about {ads} ads (from {credits} credits) depending on your recipe.",
         "balance": "Balance: {ads} ads · {credits} credits",
-        "insufficient": "Not enough credits for this step",
-        "upgradeHint": "Need more runway after you've seen results?",
+        "insufficient": "Your plan has reached the limit for this step",
+        "upgradeHint": "Manage your plan to keep creating",
         "upgradeLink": "View billing"
       },
       "items": {
@@ -877,7 +910,7 @@
         },
         "readiness": {
           "label": "Run readiness analysis",
-          "description": "Scan the creative for strengths and gaps before spending credits on generation."
+          "description": "Scan the creative for strengths and gaps before generating."
         },
         "guided_briefing": {
           "label": "Complete guided briefing",
@@ -889,7 +922,7 @@
         },
         "preview": {
           "label": "Generate a preview",
-          "description": "Test one variation cheaply before committing to a full batch."
+          "description": "Test one variation before committing to a full batch."
         },
         "batch": {
           "label": "Run batch generation",
@@ -1032,6 +1065,22 @@
       "openCampaign": "Open",
       "variationsLabel": "variations",
       "approvedLabel": "approved",
+      "resultsLabel": "results",
+      "previewUnavailable": "Preview unavailable",
+      "protocols": {
+        "campaign": "Campaign",
+        "variations": "Variations",
+        "single": "Single piece",
+        "format_adaptation": "Adapt formats",
+        "restyle": "Change style",
+        "unknown": "Protocol"
+      },
+      "nextActions": {
+        "resume": "Resume",
+        "review": "Review",
+        "retry": "Try again",
+        "open": "Open"
+      },
       "searchPlaceholder": "Search work, piece, or client…",
       "stagesAria": "Campaign stages",
       "briefingTitle": "Briefing",
@@ -1585,7 +1634,7 @@
     "continueToPlan": "Continue to Generation →",
     "generatePreview": "Generate preview",
     "previewLabel": "Preview",
-    "targetFormatsHelp": "Select the formats you want to generate. Each format uses credits separately.",
+    "targetFormatsHelp": "Select the formats you want to generate. Each format creates a separate version.",
     "targetFormats": {
       "square": {
         "label": "1:1 Square",
@@ -1880,8 +1929,25 @@
     "inviteSubtitle": "Accept your invitation to join the workspace",
     "processingInvite": "Processing your invitation...",
     "inviteSuccess": "You have successfully joined the workspace!",
+    "inviteDestination": "Destination: {workspace}",
     "redirecting": "Redirecting to dashboard...",
     "invalidToken": "Invalid or missing invitation token",
+    "inviteExpired": "This invite has expired. Ask the sender for a new invite.",
+    "inviteRemoved": "This invite was removed. Ask the sender to send another.",
+    "inviteAlreadyAccepted": "This invite was already accepted. Return to ADScale to continue.",
+    "inviteEmailMismatch": "This account does not match the invited email. Switch accounts to accept.",
+    "inviteTimeout": "Validation is taking too long. Try again or return to ADScale.",
+    "inviteWorkspaceLabel": "Workspace",
+    "inviteRoleLabel": "Role",
+    "inviteRecipientLabel": "Invited account",
+    "inviteSenderLabel": "Sent by",
+    "inviteAccount": "Current account: {email}",
+    "inviteWrongAccount": "Current account: {email}. It does not match the invite.",
+    "inviteSignInToContinue": "Sign in with the invited account to confirm acceptance.",
+    "inviteSignInToAccept": "Sign in to accept",
+    "switchAccount": "Switch account",
+    "acceptInvite": "Accept invite",
+    "backToAdscale": "Back to ADScale",
     "consentRequired": "You must accept the Terms of Use and Privacy Policy to continue.",
     "consentPrefix": "I agree to the",
     "v6": {
@@ -2005,10 +2071,15 @@
       "plansCard": "Starter / Growth / Scale — compare benefits and upgrade.",
       "integrationsCard": "Connect Meta, Google, TikTok, and webhooks to your flow.",
       "privacyCard": "Privacy preferences and account data controls.",
-      "badges": {
-        "implemented": "Implemented",
-        "outsideLab": "Outside the lab",
-        "capturePending": "Capture pending"
+      "statuses": {
+        "available": "Available",
+        "requiresConfiguration": "Requires configuration",
+        "comingSoon": "Coming soon"
+      },
+      "actions": {
+        "available": "Open settings",
+        "requiresConfiguration": "Configure",
+        "comingSoon": "Coming soon"
       }
     },
     "onboarding": {
@@ -2162,7 +2233,7 @@
   },
   "errors": {
     "generic": "Something went wrong. Please try again.",
-    "insufficientCredits": "Insufficient credits for this generation.",
+    "insufficientCredits": "Your plan has reached the limit for this generation.",
     "internalError": "Internal error. Please try again.",
     "unauthorized": "Unauthorized access",
     "noWorkspace": "Workspace not found",
@@ -2194,6 +2265,8 @@
     "rateLimitExceeded": "Too many requests. Please try again later.",
     "creativeWorkNotDraft": "This work has already entered generation and can no longer be changed. Start a new creation to continue.",
     "creativeWorkNotEligibleForSuggestion": "This work is not in the variations state with a ready source; direction suggestions are unavailable.",
+    "creativeWorkOutputObjectiveFailed": "The objective check rejected this piece. Generate another version.",
+    "creativeWorkOutputConfirmationRequired": "The objective check was inconclusive. Review the piece and confirm approval.",
     "nothingToExport": "No approved creative variant with an available file to export.",
     "invalidAssetKey": "Invalid asset key: must belong to the campaign",
     "assetNotFound": "Asset not found in storage",
@@ -2234,6 +2307,8 @@
     "inviteNotFound": "Invite not found",
     "inviteExpired": "This invite has expired",
     "inviteEmailMismatch": "Invite email does not match your account",
+    "inviteRemoved": "This invite was removed",
+    "inviteAlreadyAccepted": "This invite was already accepted",
     "cannotRemoveSelf": "You cannot remove yourself",
     "memberNotFound": "Member not found",
     "missing_client_profile": "Link this campaign to a client profile in campaign settings, or set the client name to match an existing profile exactly (e.g. CENBRAP).",
@@ -2270,9 +2345,9 @@
     "profileNamePlaceholder": "Brand name",
     "create": "Create",
     "ingestTitle": "Ingest brand inputs",
-    "ingestDesc": "Each input type contributes differently. Brand guides cost a credit; logo and creatives only use storage.",
+    "ingestDesc": "Each material type contributes differently to brand training.",
     "kind_guide": "Brand guide",
-    "kind_guide_hint": "Extracts palette, typography, tone and rules (1 credit)",
+    "kind_guide_hint": "Extracts palette, typography, tone and rules",
     "kind_logo": "Logo",
     "kind_logo_hint": "Registers as logo and visual reference",
     "kind_creative": "Example creatives",
@@ -2584,13 +2659,13 @@
     "step1Title": "Welcome to ADScale",
     "step1Desc": "You supervise this workspace. Define your brief here, run variations as a batch, and approve what ships.",
     "step2Title": "Active production",
-    "step2Desc": "Your top campaign in progress lives here—track briefing completion, variations, approvals, and credits at a glance.",
+    "step2Desc": "Your top campaign in progress lives here—track briefing completion, variations, and approvals at a glance.",
     "step3Title": "Your approval queue",
     "step3Desc": "Recent campaigns are your review queue. Open a campaign to review variants, make approval decisions, and export delivery packages.",
     "step4Title": "Recipe shortcuts",
     "step4Desc": "Saved templates and recipes jump-start new batches—pick one to pre-fill briefing fields and launch faster.",
-    "step5Title": "Workspace credits",
-    "step5Desc": "Credits power batch generation in your workspace. Track available balance and monthly usage here."
+    "step5Title": "Workspace plan",
+    "step5Desc": "Manage the workspace plan and limits in Settings."
   },
   "template": {
     "title": "Templates",
@@ -2614,7 +2689,7 @@
     "formats": "Formats",
     "deleteConfirm": "Are you sure you want to delete this template?",
     "emptyTitle": "No briefing templates yet",
-    "emptyDescription": "Save a campaign briefing as a template to reuse your briefing and approval patterns in new campaigns.",
+    "emptyDescription": "Open a Work, complete its brief, and save it as a template to reuse your briefing and approval patterns.",
     "delete": "Delete"
   },
   "library": {
@@ -2639,11 +2714,45 @@
       "sectionLabel": "Workspace · Assets",
       "subtitle": "Assets, references, and workspace materials",
       "searchPlaceholder": "Search asset by name or tag…",
+      "filtersAria": "Filter assets by function",
+      "filterAll": "All",
+      "filterReference": "Reference",
+      "filterLogo": "Logo",
+      "filterPhoto": "Photography",
+      "filterGenerated": "Generated result",
       "countSummary": "{shown} of {total} assets",
       "dropzoneAria": "Drag files here or click to select",
       "deleteAsset": "Delete asset",
+      "previewLoading": "Loading preview…",
+      "previewNoPreview": "Preview unavailable for this asset",
+      "previewError": "Preview could not be loaded",
+      "retryPreview": "Try again",
+      "replaceAsset": "Replace asset",
+      "originLabel": "Origin",
+      "createdLabel": "Date",
+      "functionLabel": "Function",
       "loadMore": "Load more",
       "loadingMore": "Loading…"
+    }
+  },
+  "docs": {
+    "title": "Documentation",
+    "subtitle": "Practical answers for briefing, references, failures, and approval.",
+    "openLink": "Open {title}",
+    "topicsTitle": "How to work in ADScale",
+    "links": {
+      "create": { "title": "Create work", "description": "Start a Work and generate creative variations." },
+      "templates": { "title": "Templates", "description": "Reuse approved briefs in new Works." },
+      "library": { "title": "Library", "description": "Find references, logos, photography, and generated results." },
+      "feedback": { "title": "Feedback", "description": "Send questions, bugs, or suggestions to the team." }
+    },
+    "topics": {
+      "protocols": { "title": "Protocols", "body": "Single Piece creates one asset from the brief. Variations preserves the base piece and creates alternatives. Restyle preserves content and uses another reference for visual language." },
+      "references": { "title": "Using references", "body": "Choose references compatible with the Work's role and confirm their origin. A visual reference guides composition, color, and rhythm; it is not an automatic source of facts." },
+      "contentStyle": { "title": "Content versus style", "body": "Use the base piece for brand, product, offer, CTA, and other facts. Use a style reference only for visual direction, without copying claims or text." },
+      "inference": { "title": "Inferences and unknowns", "body": "The system separates provided facts from visual inference and keeps unknown values when there is no evidence. Review the inferred brief before generating." },
+      "failures": { "title": "Failures", "body": "When a source, preview, or generation fails, retry or replace the material. Failure is not approval and should not hide the next step." },
+      "approval": { "title": "Approval", "body": "Review the result and objective verdict. Inconclusive or legacy items require human confirmation; failed items need another attempt." }
     }
   },
   "copyGenerator": {
@@ -2683,6 +2792,11 @@
     "usageOverTime": "Usage over time",
     "usage": "Usage"
   },
+  "dashboardNotFound": {
+    "title": "This page does not exist",
+    "body": "The address may have changed. You are still in ADScale and can return to your work.",
+    "action": "Back to Work"
+  },
   "share": {
     "title": "ADScale Gallery",
     "description": "Public gallery of approved creatives.",
@@ -2693,7 +2807,15 @@
     "recipientGuideStepReview": "Browse each creative below and check format, CTA, and visual quality.",
     "recipientGuideStepFeedback": "Reply to your contact with approve / revise notes for each variation.",
     "recipientGuideStepDownload": "Right-click or long-press an image to save, or ask your contact for export files.",
-    "noImages": "No images available in this gallery.",
+    "noImages": "This package is valid, but it does not have any images available yet.",
+    "invalidTitle": "Invalid link",
+    "invalidBody": "Check that the full address was copied or request a new link.",
+    "expiredTitle": "Expired link",
+    "expiredBody": "This link has reached the end of its access period. Request a new link from the team that shared the package.",
+    "removedTitle": "Removed link",
+    "removedBody": "Access to this package has ended. Request a new link from the responsible team.",
+    "unavailableTitle": "Package unavailable",
+    "unavailableBody": "This package could not be loaded right now. Try again later or contact the team that sent the link.",
     "publicGallery": "Public gallery"
   },
   "assistant": {
@@ -2734,6 +2856,9 @@
       "promptGeneric": "What should we work on?",
       "inputPlaceholder": "Start your briefing — paste a link, describe the client, or ask for a suggestion",
       "accessFull": "Full access",
+      "organizeBriefing": "Organize briefing",
+      "firstActionHint": "Your request will be organized before any generation.",
+      "sendBriefing": "Send briefing",
       "modelHigh": "High priority",
       "send": "Send",
       "submitting": "Creating conversation…",
@@ -3106,6 +3231,13 @@
     "triage": {
       "title": "Beta feedback triage",
       "description": "Review beta reports with linked diagnostic context.",
+      "consoleTabsAria": "Platform owner console",
+      "consoleTabs": {
+        "metrics": "Metrics",
+        "quality": "Quality",
+        "feedback": "Feedback",
+        "inspirations": "Inspirations"
+      },
       "forbidden": "This triage surface is restricted to platform owners.",
       "filterStatus": "Filter by status",
       "filterSeverity": "Filter by severity",
@@ -3119,6 +3251,9 @@
       "statusArchived": "Archived",
       "loading": "Loading…",
       "noReports": "No reports yet.",
+      "loadError": "Could not load reports.",
+      "retry": "Try again",
+      "lastUpdated": "Updated at {time}",
       "loadingDetail": "Loading detail…",
       "creditSignalsTitle": "Credit activation signals",
       "creditSignalsDescription": "Separate healthy spend from frustration using mission insights.",
@@ -3458,7 +3593,7 @@
         "portal": "Update payment method"
       },
       "reasons": {
-        "insufficient_credits": "Not enough credits for this step",
+        "insufficient_credits": "Your plan has reached the limit for this step",
         "beta_exhausted": "Beta allowance used — upgrade to keep generating",
         "subscription_required": "Subscribe to continue creating ads",
         "past_due_recovery": "Payment pending — update billing to restore access"

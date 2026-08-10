@@ -30,7 +30,7 @@ interface PasswordInputProps {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
-  label?: string;
+  label?: string | null;
   id?: string;
   showStrengthMeter?: boolean;
   showRequirements?: boolean;
@@ -69,12 +69,14 @@ export default function PasswordInput({
   return (
     <div className="space-y-2">
       {/* Label */}
-      <label
-        htmlFor={id}
-        className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]"
-      >
-        {label}
-      </label>
+      {label ? (
+        <label
+          htmlFor={id}
+          className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]"
+        >
+          {label}
+        </label>
+      ) : null}
 
       {/* Input with toggle */}
       <div className="relative">
@@ -86,9 +88,9 @@ export default function PasswordInput({
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           className={cn(
-            "w-full h-10 rounded-[var(--radius-control)] border px-3 pr-10 text-sm",
+            "w-full min-h-11 h-10 rounded-[var(--radius-control)] border px-3 pr-10 text-sm",
             "bg-[var(--surface-raised)] text-[var(--text-primary)]",
-            "placeholder:text-[var(--text-muted)]",
+            "placeholder:text-[var(--text-secondary)]",
             "focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)] focus:border-[var(--neutral-border)]",
             "transition-all duration-200",
             error

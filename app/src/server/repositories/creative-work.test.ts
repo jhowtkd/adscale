@@ -50,6 +50,7 @@ const mocks = vi.hoisted(() => {
       limitMock();
       return chain;
     });
+    chain.for = vi.fn(() => chain);
     chain.offset = vi.fn(() => chain);
     chain.groupBy = vi.fn(() => chain);
     chain.then = (resolve: (value: unknown) => void) =>
@@ -1488,10 +1489,13 @@ describe("creative-work repository", () => {
 
   describe("selectCreativeWorkOutput", () => {
     it("clears the previous selection and selects the new output in one transaction", async () => {
-      // Only the second update call uses `.returning()` to fetch the selected
-      // row. The first update simply awaits `.where()` to clear any prior
-      // selected output. We therefore queue a single returning payload.
       const newlySelected = workOutput({ id: "output-1", isSelected: true });
+      mocks.state.selectResults.push([workOutput({
+        id: "output-1",
+        status: "completed",
+        outputKey: "creative-work/output-1/out.png",
+        quality: { schemaVersion: 1, objectiveVerdict: "pass" },
+      })]);
       mocks.state.txUpdateResults.push([newlySelected]);
 
       const result = await selectCreativeWorkOutput("ws-1", "work-1", "output-1");
@@ -1508,6 +1512,22 @@ describe("creative-work repository", () => {
       );
       expect(result?.id).toBe("output-1");
       expect(result?.isSelected).toBe(true);
+    });
+
+    it("keeps the previous selection when the locked candidate fails objective policy", async () => {
+      mocks.state.selectResults.push([
+        workOutput({
+          id: "output-2",
+          status: "completed",
+          outputKey: "creative-work/output-2/out.png",
+          quality: { schemaVersion: 1, objectiveVerdict: "fail" },
+        }),
+      ]);
+
+      await expect(
+        selectCreativeWorkOutput("ws-1", "work-1", "output-2", { confirmObjective: true })
+      ).resolves.toBeNull();
+      expect(mocks.txUpdateMock).not.toHaveBeenCalled();
     });
   });
 });

@@ -73,7 +73,7 @@ export default function CookieBanner() {
         <div className="text-sm text-[var(--text-secondary)]">
           <p>
             Utilizamos cookies para melhorar sua experiencia.{" "}
-            <Link href="/privacy" className="text-[var(--neutral-text)] hover:underline">
+            <Link href="/privacy" className="text-[var(--text-primary)] underline underline-offset-2 hover:no-underline">
               Saiba mais
             </Link>
             .

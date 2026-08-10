@@ -42,5 +42,7 @@ export function useCanonicalWorks() {
     queryKey: CANONICAL_WORKS_QUERY_KEY,
     queryFn: fetchCanonicalWorks,
     staleTime: STALE_TIME.DYNAMIC,
+    refetchInterval: 5_000,
+    refetchIntervalInBackground: false,
   });
 }

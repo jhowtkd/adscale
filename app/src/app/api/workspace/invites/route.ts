@@ -4,7 +4,12 @@ import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess, requireRole } from "@/server/auth/workspace";
 import { getSessionFromHeaders } from "@/server/auth/session";
 import { acceptInvite } from "@/server/auth/team";
-import { createInvitation, getPendingInvitations, cancelInvitation } from "@/server/repositories/invitation";
+import {
+  createInvitation,
+  getInvitationByToken,
+  getPendingInvitations,
+  cancelInvitation,
+} from "@/server/repositories/invitation";
 import { sendInviteEmail } from "@/server/services/email";
 import { getUserLocale } from "@/server/repositories/user";
 
@@ -17,8 +22,45 @@ const acceptInviteSchema = z.object({
   token: z.string().min(1),
 });
 
+const previewSchema = z.object({ token: z.string().min(1) });
+
+function maskEmail(email: string) {
+  const [local, domain] = email.split("@", 2);
+  if (!local || !domain) return "•••";
+  return `${local.slice(0, 1)}${"•".repeat(Math.min(Math.max(local.length - 1, 2), 4))}@${domain}`;
+}
+
 export async function GET(request: Request) {
   try {
+    const token = new URL(request.url).searchParams.get("token");
+    if (token !== null) {
+      const parsed = previewSchema.safeParse({ token });
+      if (!parsed.success) return apiError("invalidInput", 400, parsed.error.flatten());
+
+      const invite = await getInvitationByToken(parsed.data.token);
+      if (!invite) return apiError("inviteNotFound", 404);
+      if (invite.status === "revoked") return apiError("inviteRemoved", 410);
+      if (invite.status === "accepted") return apiError("inviteAlreadyAccepted", 409);
+      if (invite.expiresAt < new Date()) return apiError("inviteExpired", 410);
+
+      const session = await getSessionFromHeaders(request.headers);
+      return NextResponse.json({
+        invite: {
+          workspaceName: invite.workspaceName,
+          role: invite.role,
+          senderName: invite.senderName,
+          recipientEmail: maskEmail(invite.email),
+          expiresAt: invite.expiresAt.toISOString(),
+        },
+        account: session
+          ? {
+              email: session.user.email,
+              matchesInvite: session.user.email.toLowerCase() === invite.email.toLowerCase(),
+            }
+          : null,
+      });
+    }
+
     const { workspace } = await requireWorkspaceAccess(request);
     const invites = await getPendingInvitations(workspace.id);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars

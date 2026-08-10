@@ -24,9 +24,6 @@ import {
 } from "@/components/campaigns/filter-labels";
 import type { PlatformFilter, SortOption, StatusFilter } from "@/components/campaigns/types";
 
-/** Matches listCanonicalWorks default so list metadata covers the same universe. */
-const CANONICAL_LIST_LIMIT = 50;
-
 const KanbanBoard = dynamic(() => import("@/components/campaigns/KanbanBoard"), {
   loading: () => <div className="flex h-64 items-center justify-center"><div className="size-8 animate-spin rounded-full border-2 border-[var(--border-subtle)] border-b-[var(--utility-icon)]" /></div>,
 });
@@ -69,9 +66,8 @@ function CampaignsListContent() {
     error: worksErrorObj,
     refetch: refetchWorks,
   } = useCanonicalWorks();
-  // Same universe as listCanonicalWorks (limit 50) — not the paginated page slice.
+  // Metadata enrich is optional; the canonical query itself is the source of list membership.
   const { campaigns: campaignsMeta, isLoading: metaLoading } = useCampaigns({
-    limit: CANONICAL_LIST_LIMIT,
     page: 1,
   });
   const {

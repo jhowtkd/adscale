@@ -80,7 +80,7 @@ describe("page primitives", () => {
     );
 
     const profile = screen.getByRole("button", { name: "Profile" });
-    expect(profile).toHaveAttribute("aria-current", "page");
+    expect(profile).toHaveAttribute("aria-pressed", "true");
 
     fireEvent.click(screen.getByRole("button", { name: "Billing" }));
     expect(active).toBe("billing");
@@ -98,7 +98,7 @@ describe("page primitives", () => {
     );
 
     expect(screen.getByRole("navigation", { name: "Settings" })).toHaveClass("overflow-x-auto");
-    expect(screen.getByRole("button", { name: "Billing" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("button", { name: "Billing" })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("ResponsiveTabs disables tabs and blocks selection", () => {

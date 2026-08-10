@@ -35,6 +35,12 @@ export async function POST(request: Request) {
     if (error instanceof Error && error.message === "Invite email mismatch") {
       return apiError("inviteEmailMismatch", 403);
     }
+    if (error instanceof Error && error.message === "Invite removed") {
+      return apiError("inviteRemoved", 410);
+    }
+    if (error instanceof Error && error.message === "Invite already accepted") {
+      return apiError("inviteAlreadyAccepted", 409);
+    }
     return handleApiError(error, "workspace.invites.accept.POST");
   }
 }

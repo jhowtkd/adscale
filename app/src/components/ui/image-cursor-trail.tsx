@@ -22,7 +22,7 @@ export default function ImageCursorTrail({
   maxNumberOfImages = 5,
   fadeAnimation = false,
 }: ImageCursorTrailProps) {
-  const containerRef = useRef<HTMLElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const imageRefs = useRef<(HTMLImageElement | null)[]>([]);
   const indexRef = useRef(0);
   const zIndexRef = useRef(1);
@@ -64,7 +64,7 @@ export default function ImageCursorTrail({
   }
 
   return (
-    <section
+    <div
       ref={containerRef}
       onPointerMove={(event) => handlePointerMove(event.clientX, event.clientY)}
       className={cn("relative overflow-hidden", className)}
@@ -89,6 +89,6 @@ export default function ImageCursorTrail({
         />
       ))}
       {children}
-    </section>
+    </div>
   );
 }

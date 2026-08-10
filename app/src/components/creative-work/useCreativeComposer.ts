@@ -37,6 +37,7 @@ import {
   type InferredBriefing,
 } from "@/server/creative-work/contracts";
 import type { CreativeInspiration } from "@/server/application/list-creative-inspirations";
+import type { ContentBrief, StyleBrief } from "@/server/ai/image-analysis";
 
 export type ComposerState = "empty" | "saving" | "analyzing" | "ready" | "generating" | "results";
 export type ComposerActionPhase = "idle" | "saving" | "preparing" | "submitting" | "reconciling";
@@ -61,6 +62,28 @@ const COMPOSER_INTENTS = new Set<ComposerIntent>([
   "restyle",
 ]);
 const UUID_SCHEMA = z.string().uuid();
+const DRAFT_STORAGE_PREFIX = "adscale:creative-draft:v1";
+
+function draftStorageKey(clientProfileId: string, intent: ComposerIntent): string {
+  return `${DRAFT_STORAGE_PREFIX}:${clientProfileId}:${intent}`;
+}
+
+function readStoredDraft(clientProfileId: string, intent: ComposerIntent): string | null {
+  if (typeof window === "undefined") return null;
+  if (typeof window.localStorage?.getItem !== "function") return null;
+  const value = window.localStorage.getItem(draftStorageKey(clientProfileId, intent));
+  return value && UUID_SCHEMA.safeParse(value).success ? value : null;
+}
+
+function writeStoredDraft(clientProfileId: string, intent: ComposerIntent, workId: string): void {
+  if (typeof window === "undefined" || typeof window.localStorage?.setItem !== "function" || !UUID_SCHEMA.safeParse(workId).success) return;
+  window.localStorage.setItem(draftStorageKey(clientProfileId, intent), workId);
+}
+
+function clearStoredDraft(clientProfileId: string, intent: ComposerIntent): void {
+  if (typeof window === "undefined" || typeof window.localStorage?.removeItem !== "function") return;
+  window.localStorage.removeItem(draftStorageKey(clientProfileId, intent));
+}
 
 function canonicalQuote(
   intent: ComposerIntent,
@@ -165,6 +188,11 @@ export function useCreativeComposer({
   // conflict raised by the 422 prepare response.
   const [brandConflict, setBrandConflict] = useState<CreativeWorkBrandConflict | null>(null);
   const [announcement, setAnnouncement] = useState("");
+  const [pendingProtocolSwitch, setPendingProtocolSwitch] = useState<ComposerIntent | null>(null);
+  const [protocolSwitchNotice, setProtocolSwitchNotice] = useState<{
+    from: ComposerIntent;
+    to: ComposerIntent;
+  } | null>(null);
   const [brandTrainingSuggestion, setBrandTrainingSuggestion] = useState<string | null>(null);
   const [failedInitialTemplateId, setFailedInitialTemplateId] = useState<string | null>(null);
   const [templateRetryToken, setTemplateRetryToken] = useState(0);
@@ -191,6 +219,7 @@ export function useCreativeComposer({
   const autoTemplateRef = useRef<string | null>(null);
   const consumedTemplateUrlRef = useRef(false);
   const mountedRef = useRef(false);
+  const restoredProfileRef = useRef<string | null>(null);
   const lifecycleRef = useRef(0);
   const persistOnUnmountRef = useRef<() => Promise<void>>(async () => undefined);
   const revisionAttemptsRef = useRef(new Map<string, { revisionKey: string; revisionAssetId: string | null }>());
@@ -219,6 +248,14 @@ export function useCreativeComposer({
   useEffect(() => {
     const work = detailQuery.data?.work;
     if (!work || hydratedWorkRef.current === work.id) return;
+    if (!initialWorkId && work.status !== "draft") {
+      clearStoredDraft(work.clientProfileId, work.toolKind === "social_post" ? "variations" : work.toolKind);
+      workIdRef.current = null;
+      // The persisted query is the source of truth for this invalid restored id.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setWorkId(null);
+      return;
+    }
     hydratedWorkRef.current = work.id;
     workIdRef.current = work.id;
     requestRef.current = work.request;
@@ -258,7 +295,7 @@ export function useCreativeComposer({
       hydrated.settings.targetFormats,
       hydrated.settings.directionPool ?? hydratedDirectionPool ?? undefined,
     ));
-  }, [detailQuery.data]);
+  }, [detailQuery.data, initialWorkId]);
 
   const captureSnapshot = useCallback((): DraftSnapshot => ({
     request: requestRef.current,
@@ -297,6 +334,17 @@ export function useCreativeComposer({
     params.set("intent", next);
     window.history.replaceState(window.history.state, "", `${window.location.pathname}?${params}`);
   }, []);
+
+  useEffect(() => {
+    const profileId = active.activeClientProfileId;
+    if (initialWorkId || workIdRef.current || !profileId || restoredProfileRef.current === profileId) return;
+    restoredProfileRef.current = profileId;
+    const storedWorkId = readStoredDraft(profileId, intentRef.current);
+    if (!storedWorkId) return;
+    workIdRef.current = storedWorkId;
+    setWorkId(storedWorkId);
+    exposeWorkId(storedWorkId);
+  }, [active.activeClientProfileId, exposeWorkId, initialWorkId]);
 
   const consumeInitialTemplateParams = useCallback(() => {
     if (
@@ -362,6 +410,7 @@ export function useCreativeComposer({
       if (draftEpoch !== draftEpochRef.current) return null;
       workIdRef.current = result.work.id;
       lastPersistedRef.current = signature(snapshotFromWork(result.work));
+      writeStoredDraft(active.activeClientProfileId!, intentRef.current, result.work.id);
       if (!silent && mountedRef.current) {
         setWorkId(result.work.id);
         setQuote(result.quote);
@@ -495,6 +544,7 @@ export function useCreativeComposer({
   useEffect(() => {
     if (initialWorkId && !hydratedWorkRef.current) return;
     const current = detailQuery.data?.work;
+    if (workIdRef.current && (!current || current.id !== workIdRef.current)) return;
     if (workIdRef.current && current?.id === workIdRef.current && current.status !== "draft") return;
     if (workIdRef.current && autosaveBlockedWorkRef.current === workIdRef.current) return;
     const timer = window.setTimeout(() => {
@@ -517,16 +567,33 @@ export function useCreativeComposer({
     setInferredBriefingContext(null);
   }, []);
 
-  const selectIntent = useCallback((next: ComposerIntent) => {
-    if (next === intentRef.current) return;
+  const switchToProtocol = useCallback(async (next: ComposerIntent) => {
+    const previous = intentRef.current;
+    if (next === previous) return;
+
+    const currentWork = detailQuery.data?.work;
+    const currentWorkId = workIdRef.current;
+    const currentIsDraft = Boolean(currentWorkId && currentWork?.status === "draft");
+    const profileId = currentWork?.clientProfileId ?? active.activeClientProfileId;
+
+    if (currentIsDraft) {
+      try {
+        setActionPhase("saving");
+        await flushAutosave();
+      } catch (cause) {
+        setActionPhase("idle");
+        setError(cause instanceof Error ? cause.message : "Falha ao preservar o rascunho");
+        return;
+      }
+      if (profileId && currentWorkId) writeStoredDraft(profileId, previous, currentWorkId);
+    }
+
     draftEpochRef.current += 1;
     createInFlightRef.current = null;
-    workIdRef.current = null;
     autosaveBlockedWorkRef.current = null;
-    draftKeyRef.current = crypto.randomUUID();
+    hydratedWorkRef.current = null;
     lastPersistedRef.current = null;
     requestRef.current = "";
-    setWorkId(null);
     setRequestState("");
     setError(null);
     setBrandConflict(null);
@@ -546,9 +613,49 @@ export function useCreativeComposer({
     directionPoolRef.current = nextDirectionPool;
     setDirectionPool(nextDirectionPool);
     setQuote(canonicalQuote(next, formatRef.current, nextTargets, nextDirectionPool ?? undefined));
-    exposeIntent(next);
+    const nextWorkId = profileId ? readStoredDraft(profileId, next) : null;
+    workIdRef.current = nextWorkId;
+    setWorkId(nextWorkId);
+    if (nextWorkId) exposeWorkId(nextWorkId);
+    else {
+      draftKeyRef.current = crypto.randomUUID();
+      exposeIntent(next);
+    }
+    setProtocolSwitchNotice(currentIsDraft ? { from: previous, to: next } : null);
     if (next !== "restyle") requestAnimationFrame(() => composerRef.current?.focus());
-  }, [exposeIntent]);
+  }, [active.activeClientProfileId, detailQuery.data?.work, exposeIntent, exposeWorkId, flushAutosave]);
+
+  const selectIntent = useCallback((next: ComposerIntent) => {
+    if (next === intentRef.current) return;
+    const currentSnapshot = captureSnapshot();
+    const hasUnsavedChanges = lastPersistedRef.current !== null
+      && signature(currentSnapshot) !== lastPersistedRef.current;
+    const hasPendingWork = isUploading
+      || actionPhase !== "idle"
+      || sourceMutation.isPending
+      || createMutation.isPending
+      || Boolean(createInFlightRef.current)
+      || hasUnsavedChanges;
+    if (hasPendingWork) {
+      setPendingProtocolSwitch(next);
+      return;
+    }
+    void switchToProtocol(next);
+  }, [actionPhase, captureSnapshot, createMutation.isPending, isUploading, sourceMutation.isPending, switchToProtocol]);
+
+  const confirmProtocolSwitch = useCallback(() => {
+    const next = pendingProtocolSwitch;
+    setPendingProtocolSwitch(null);
+    if (next) void switchToProtocol(next);
+  }, [pendingProtocolSwitch, switchToProtocol]);
+
+  const cancelProtocolSwitch = useCallback(() => setPendingProtocolSwitch(null), []);
+
+  const returnToPreviousProtocol = useCallback(() => {
+    const previous = protocolSwitchNotice?.from;
+    if (!previous) return;
+    void switchToProtocol(previous);
+  }, [protocolSwitchNotice, switchToProtocol]);
 
   const toggleDirection = useCallback((directionId: string) => {
     if (intentRef.current !== "variations") return;
@@ -824,6 +931,16 @@ export function useCreativeComposer({
     if (!workIdRef.current) return Promise.resolve();
     return runSourceAction({ workItemId: workIdRef.current, action: "updateSource", sourceId, usage });
   }, [runSourceAction]);
+  const editSource = useCallback((sourceId: string, content: ContentBrief | null, style: StyleBrief | null) => {
+    if (!workIdRef.current) return Promise.resolve(false);
+    return runSourceAction({
+      workItemId: workIdRef.current,
+      action: "editSourceAnalysis",
+      sourceId,
+      content,
+      style,
+    });
+  }, [runSourceAction]);
   const retrySource = useCallback((sourceId: string) => {
     if (!workIdRef.current) return Promise.resolve();
     const workItemId = workIdRef.current;
@@ -959,11 +1076,16 @@ export function useCreativeComposer({
     }
   }, [retryOutputMutation]);
 
-  const approveOutput = useCallback(async (outputId: string) => {
+  const approveOutput = useCallback(async (outputId: string, confirmObjective = false) => {
     if (!workIdRef.current) return;
     setApprovalErrorOutputId(null);
     try {
-      await selectOutputMutation.mutateAsync({ workItemId: workIdRef.current, outputId, saveToLibrary: false });
+      await selectOutputMutation.mutateAsync({
+        workItemId: workIdRef.current,
+        outputId,
+        saveToLibrary: false,
+        confirmObjective,
+      });
       setAnnouncement("Proposta aprovada");
     } catch (cause) {
       setApprovalErrorOutputId(outputId);
@@ -1004,7 +1126,7 @@ export function useCreativeComposer({
         instruction: output.revisionInstruction,
         revisionAssetId: output.revisionAssetId,
       });
-      setAnnouncement("Nova tentativa em geração · 5 créditos");
+      setAnnouncement("Nova tentativa em geração");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Falha ao tentar nova versão");
     }
@@ -1090,6 +1212,8 @@ export function useCreativeComposer({
     targetFormats, toggleTargetFormat, directionPool, toggleDirection, setManualDirectionInstruction,
     directionSuggestionState, pendingDirectionSuggestions, applyDirectionSuggestions, requestDirectionSuggestions, keepCurrentDirections,
     state, actionPhase, workId, clientProfileId, brandName,
+    pendingProtocolSwitch, confirmProtocolSwitch, cancelProtocolSwitch,
+    protocolSwitchNotice, returnToPreviousProtocol,
     sources: detail?.sources ?? [], outputs: detail?.outputs ?? [], quote, canGenerate, isUploading,
     inferredBriefing, briefingFactPack,
     campaignId: detail?.work.campaignId ?? null, campaigns,
@@ -1102,7 +1226,7 @@ export function useCreativeComposer({
       ? retryInitialTemplate
       : null,
     workError: Boolean(workId && detailQuery.isError),
-    addFiles, addInspiration, updateSource, retrySource, removeSource, generate,
+    addFiles, addInspiration, updateSource, editSource, retrySource, removeSource, generate,
     retryOutput, retryRevisionOutput, approveOutput, reviseOutput, linkCampaign,
     downloadOutput: (outputId: string) => {
       if (!workIdRef.current) return;
