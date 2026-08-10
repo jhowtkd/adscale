@@ -368,7 +368,7 @@ export function CreativeComposer({ composer, composerRef }: {
       {isVariations && composer.sources.length > 0 ? (
         <section
           aria-label={t("variationsTitle")}
-          className="grid min-w-0 gap-4 lg:grid-cols-2"
+          className="grid min-w-0 items-start gap-4 lg:grid-cols-2"
           data-testid="variation-workspace"
         >
           <div className="min-w-0 space-y-4" data-testid="variation-reference-context">
@@ -383,9 +383,11 @@ export function CreativeComposer({ composer, composerRef }: {
                 fullPreview
               />
             ))}
+          </div>
+          <div className="min-w-0 space-y-4" data-testid="variation-guidance">
+            {variationDirections}
             {readyVariationSource ? <CreativeVariationBrief source={readyVariationSource} /> : null}
           </div>
-          {variationDirections}
         </section>
       ) : variationDirections}
 
