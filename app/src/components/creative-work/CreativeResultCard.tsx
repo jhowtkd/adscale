@@ -4,11 +4,13 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   categorizeCreativeWorkFailure,
-  getCreativeWorkEvaluatorSummary,
-  getCreativeWorkObjectiveVerdict,
   isCreativeWorkRetryEligible,
   type CreativeWorkOutput,
 } from "@/lib/hooks/use-creative-work";
+import {
+  getCreativeWorkEvaluatorSummary,
+  getCreativeWorkSelectionPolicy,
+} from "@/lib/creative-work-selection-policy";
 import { ActionStatusIcon } from "@/components/animations/ActionStatusIcon";
 
 type CreativeResultCardProps = {
@@ -16,13 +18,14 @@ type CreativeResultCardProps = {
   label: string;
   onRetry: (outputId: string) => void;
   onRetryRevision?: (output: CreativeWorkOutput) => void | Promise<void>;
-  onApprove: (outputId: string) => void;
+  onApprove: (outputId: string, confirmObjective?: boolean) => void;
   onDownload: (outputId: string) => void;
   onRevise?: (outputId: string, instruction: string, attachment: File | null) => void | Promise<void>;
   isRetrying?: boolean;
   isApproving?: boolean;
   approvalError?: boolean;
   isRevising?: boolean;
+  hidePreview?: boolean;
 };
 
 const STATUS_LABELS: Record<CreativeWorkOutput["status"], string> = {
@@ -46,11 +49,13 @@ export function CreativeResultCard({
   isApproving = false,
   approvalError = false,
   isRevising = false,
+  hidePreview = false,
 }: CreativeResultCardProps) {
   const [editing, setEditing] = useState(false);
   const [instruction, setInstruction] = useState("");
   const [attachment, setAttachment] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [confirmingSelection, setConfirmingSelection] = useState(false);
   const t = useTranslations("dashboard.home.composer.results");
   const isCompleted = output.status === "completed" && Boolean(output.outputKey);
   const isRevision = Boolean(output.parentOutputId);
@@ -62,13 +67,14 @@ export function CreativeResultCard({
   const retryEligible = isCreativeWorkRetryEligible(output);
   // R-008: `inconclusive` is an available output with a review signal — never
   // a failure, never an objective approval.
-  const objectiveVerdict = isCompleted ? getCreativeWorkObjectiveVerdict(output.quality) : null;
+  const selectionPolicy = isCompleted ? getCreativeWorkSelectionPolicy(output.quality) : null;
+  const objectiveVerdict = selectionPolicy?.verdict === "legacy" ? null : selectionPolicy?.verdict ?? null;
   const evaluatorSummary = objectiveVerdict === "inconclusive"
     ? getCreativeWorkEvaluatorSummary(output.quality)
     : null;
 
   return (
-    <article
+    <div
       data-testid="proposal-level"
       data-level={output.creativeLevel}
       data-status={output.status}
@@ -76,22 +82,22 @@ export function CreativeResultCard({
       className="flex flex-col gap-3 rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-4"
     >
       <header className="flex items-center justify-between gap-2">
-        <h3 className="text-sm font-medium text-[var(--text-primary)]">
+        <p className="text-sm font-medium text-[var(--text-primary)]">
           <span data-testid="proposal-level-name">{label}</span>
           <span className="ml-1 text-[var(--text-muted)]">· {output.targetFormat ?? "4:5"} · v{output.versionNumber ?? 1}</span>
-        </h3>
+        </p>
         <span aria-label={`Status ${STATUS_LABELS[output.status]}`} className="rounded-full bg-[var(--surface-raised)] px-2 py-0.5 text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
           {STATUS_LABELS[output.status]}
         </span>
       </header>
 
-      <div className="aspect-square w-full overflow-hidden rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)]">
+      {!hidePreview ? <div className="w-full overflow-hidden rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)]" style={{ aspectRatio: (output.targetFormat ?? "4:5").replace(":", " / ") }}>
         {isCompleted ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={`/api/creative-work/${output.workItemId}/outputs/${output.id}/download`}
             alt={`Proposta ${label}`}
-            className="h-full w-full object-cover"
+            className="h-full w-full object-contain"
           />
         ) : (
           <div role="status" className="flex h-full flex-col items-center justify-center gap-1 text-xs text-[var(--text-muted)]">
@@ -107,7 +113,7 @@ export function CreativeResultCard({
             ) : "Gerando..."}
           </div>
         )}
-      </div>
+      </div> : null}
 
       {objectiveVerdict === "inconclusive" ? (
         <div
@@ -122,11 +128,28 @@ export function CreativeResultCard({
         </div>
       ) : null}
 
+      {selectionPolicy?.verdict === "fail" ? (
+        <div
+          role="note"
+          data-testid="objective-selection-blocked"
+          className="rounded-[var(--radius-control)] border border-[var(--danger-border)] bg-[var(--danger-bg)] px-3 py-2 text-xs text-[var(--danger-text)]"
+        >
+          <p className="font-medium">{t("objectiveFailed")}</p>
+          <p className="mt-0.5">{t("objectiveFailedNext")}</p>
+        </div>
+      ) : null}
+
+      {selectionPolicy?.verdict === "legacy" ? (
+        <div role="note" data-testid="legacy-selection-review" className="rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-3 py-2 text-xs text-[var(--text-secondary)]">
+          {t("legacyReviewRequired")}
+        </div>
+      ) : null}
+
       {output.status === "failed" ? (
         isRevision ? (
           onRetryRevision ? (
             <button type="button" className={actionClass} disabled={isRevising} onClick={() => onRetryRevision(output)}>
-              Tentar novamente · 5 créditos
+              Tentar novamente
             </button>
           ) : null
         ) : retryEligible ? (
@@ -141,16 +164,33 @@ export function CreativeResultCard({
       {isCompleted ? (
         <>
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              className={actionClass}
-              aria-busy={isApproving}
-              disabled={isApproving || output.isSelected}
-              onClick={() => onApprove(output.id)}
-            >
-              <ActionStatusIcon state={isApproving ? "pending" : output.isSelected ? "success" : approvalError ? "error" : "idle"} />
-              {isApproving ? "Aprovando" : output.isSelected ? "Aprovada" : approvalError ? "Tentar novamente" : "Aprovar"}
-            </button>
+            {selectionPolicy?.selectable ? (
+              <button
+                type="button"
+                className={actionClass}
+                aria-busy={isApproving}
+                disabled={isApproving || output.isSelected}
+                onClick={() => {
+                  if (selectionPolicy.requiresConfirmation && !confirmingSelection) {
+                    setConfirmingSelection(true);
+                    return;
+                  }
+                  if (selectionPolicy.requiresConfirmation) onApprove(output.id, true);
+                  else onApprove(output.id);
+                }}
+              >
+                <ActionStatusIcon state={isApproving ? "pending" : output.isSelected ? "success" : approvalError ? "error" : "idle"} />
+                {isApproving
+                  ? "Aprovando"
+                  : output.isSelected
+                    ? "Aprovada"
+                    : approvalError
+                      ? "Tentar novamente"
+                      : selectionPolicy.requiresConfirmation
+                        ? confirmingSelection ? t("confirmApproval") : t("reviewBeforeApprove")
+                        : "Aprovar"}
+              </button>
+            ) : null}
             <button type="button" className={actionClass} onClick={() => onDownload(output.id)}>Baixar</button>
             {onRevise ? <button type="button" className={actionClass} aria-expanded={editing} onClick={() => setEditing((value) => !value)}>Editar</button> : null}
           </div>
@@ -189,12 +229,12 @@ export function CreativeResultCard({
                 />
               </label>
               <button type="submit" className={actionClass} disabled={!instruction.trim() || isRevising || submitting}>
-                Gerar nova versão · 5 créditos
+                Gerar nova versão
               </button>
             </form>
           ) : null}
         </>
       ) : null}
-    </article>
+    </div>
   );
 }

@@ -2,6 +2,50 @@ import { eq, and, desc } from "drizzle-orm";
 import { db } from "../db";
 import { workspaceMembers, workspaceInvites, user } from "../db/schema";
 
+export const ACTIVE_WORKSPACE_COOKIE = "adscale_active_workspace";
+export const ACTIVE_WORKSPACE_COOKIE_OPTIONS = {
+  httpOnly: true,
+  maxAge: 60 * 60 * 24 * 30,
+  path: "/",
+  sameSite: "lax" as const,
+  secure: process.env.NODE_ENV === "production",
+};
+
+export type InviteErrorCode =
+  | "inviteNotFound"
+  | "inviteRemoved"
+  | "inviteAlreadyAccepted"
+  | "inviteExpired"
+  | "inviteEmailMismatch";
+
+const INVITE_ERROR_STATUS: Record<InviteErrorCode, number> = {
+  inviteNotFound: 404,
+  inviteRemoved: 410,
+  inviteAlreadyAccepted: 409,
+  inviteExpired: 410,
+  inviteEmailMismatch: 403,
+};
+
+export class InviteStateError extends Error {
+  readonly status: number;
+
+  constructor(readonly code: InviteErrorCode) {
+    super(code);
+    this.name = "InviteStateError";
+    this.status = INVITE_ERROR_STATUS[code];
+  }
+}
+
+export function isInviteStateError(error: unknown): error is InviteStateError {
+  return error instanceof InviteStateError;
+}
+
+export function assertInviteUsable(invite: { status: string; expiresAt: Date }) {
+  if (invite.status === "revoked") throw new InviteStateError("inviteRemoved");
+  if (invite.status === "accepted") throw new InviteStateError("inviteAlreadyAccepted");
+  if (invite.expiresAt < new Date()) throw new InviteStateError("inviteExpired");
+}
+
 export async function getWorkspaceMembers(workspaceId: string) {
   return db
     .select({
@@ -42,24 +86,15 @@ export async function acceptInvite(token: string, userId: string, userEmail: str
     .limit(1);
 
   if (invite.length === 0) {
-    throw new Error("Invite not found");
+    throw new InviteStateError("inviteNotFound");
   }
 
   const existing = invite[0];
 
-  if (existing.status === "revoked") {
-    throw new Error("Invite removed");
-  }
-  if (existing.status === "accepted") {
-    throw new Error("Invite already accepted");
-  }
-
-  if (existing.expiresAt < new Date()) {
-    throw new Error("Invite expired");
-  }
+  assertInviteUsable(existing);
 
   if (existing.email.toLowerCase() !== userEmail.toLowerCase()) {
-    throw new Error("Invite email mismatch");
+    throw new InviteStateError("inviteEmailMismatch");
   }
 
   const existingMember = await db

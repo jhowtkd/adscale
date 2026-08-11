@@ -66,6 +66,7 @@ export async function listCanonicalWorks(
         constraints: c.constraints,
         notes: c.notes,
         clientProfileId: c.clientProfileId,
+        generationMode: c.generationMode,
         status: c.status,
         creativeDiagnosisStatus: c.creativeDiagnosisStatus,
         createdAt: c.createdAt,

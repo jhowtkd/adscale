@@ -1,6 +1,8 @@
 import { eq, and } from "drizzle-orm";
 import { getSession, getSessionFromHeaders } from "./session";
-import { getWorkspaceForUser } from "../repositories/workspace";
+import { cookies } from "next/headers";
+import { ACTIVE_WORKSPACE_COOKIE } from "./team";
+import { getWorkspaceForUser, getWorkspaceForUserInWorkspace } from "../repositories/workspace";
 import { db } from "../db";
 import { workspaceMembers } from "../db/schema";
 
@@ -11,6 +13,19 @@ import { AUTH_ERROR_CODES, WorkspaceAuthError } from "./errors";
 
 export type WorkspaceMemberRole = "owner" | "admin" | "member";
 
+function getActiveWorkspaceCookie(request: Request) {
+  const value = request.headers.get("cookie")
+    ?.split(";")
+    .map((entry) => entry.trim().split("=", 2))
+    .find(([name]) => name === ACTIVE_WORKSPACE_COOKIE)?.[1];
+  if (!value) return undefined;
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return undefined;
+  }
+}
+
 export async function requireWorkspaceAccess(request?: Request) {
   const session = request
     ? await getSessionFromHeaders(request.headers)
@@ -20,7 +35,20 @@ export async function requireWorkspaceAccess(request?: Request) {
     throw new WorkspaceAuthError(AUTH_ERROR_CODES.unauthorized, "Unauthorized");
   }
 
-  const workspace = await getWorkspaceForUser(session.user.id);
+  let activeWorkspaceId: string | undefined;
+  if (request) {
+    activeWorkspaceId = getActiveWorkspaceCookie(request);
+  } else {
+    try {
+      activeWorkspaceId = (await cookies()).get(ACTIVE_WORKSPACE_COOKIE)?.value;
+    } catch {
+      // Server-side unit callers may not have a request cookie store.
+    }
+  }
+  const workspace = activeWorkspaceId
+    ? (await getWorkspaceForUserInWorkspace(session.user.id, activeWorkspaceId))
+      ?? (await getWorkspaceForUser(session.user.id))
+    : await getWorkspaceForUser(session.user.id);
   if (!workspace) {
     throw new WorkspaceAuthError(AUTH_ERROR_CODES.noWorkspace, "No workspace");
   }

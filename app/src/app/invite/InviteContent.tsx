@@ -32,6 +32,9 @@ type InvitePreview = {
   account: { email: string; matchesInvite: boolean } | null;
 };
 
+type InviteAcceptance = { success: true; workspaceId: string };
+const INVITE_REQUEST_TIMEOUT_MS = 15_000;
+
 async function requestInvite(path: string, token: string, signal?: AbortSignal) {
   const isPreview = path === "/api/workspace/invites";
   const url = isPreview ? `${path}?${new URLSearchParams({ token })}` : path;
@@ -53,11 +56,25 @@ async function requestInvite(path: string, token: string, signal?: AbortSignal) 
 }
 
 async function loadInvitePreview(token: string, signal?: AbortSignal): Promise<InvitePreview> {
-  return requestInvite("/api/workspace/invites", token, signal) as Promise<InvitePreview>;
+  return requestInviteWithTimeout("/api/workspace/invites", token, signal) as Promise<InvitePreview>;
 }
 
-async function acceptInvite(token: string, signal?: AbortSignal) {
-  await requestInvite("/api/workspace/invites/accept", token, signal);
+async function acceptInvite(token: string, signal?: AbortSignal): Promise<InviteAcceptance> {
+  return requestInviteWithTimeout("/api/workspace/invites/accept", token, signal) as Promise<InviteAcceptance>;
+}
+
+async function requestInviteWithTimeout(path: string, token: string, signal?: AbortSignal) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), INVITE_REQUEST_TIMEOUT_MS);
+  const abortFromParent = () => controller.abort();
+  if (signal?.aborted) controller.abort();
+  else signal?.addEventListener("abort", abortFromParent, { once: true });
+  try {
+    return await requestInvite(path, token, controller.signal);
+  } finally {
+    clearTimeout(timeoutId);
+    signal?.removeEventListener("abort", abortFromParent);
+  }
 }
 
 export default function InviteContent() {
@@ -105,18 +122,10 @@ function InviteContentInner() {
     queryFn: ({ signal }) => loadInvitePreview(token!, signal),
   });
   const acceptInviteMutation = useMutation({
-    mutationFn: async (inviteToken: string) => {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
-      try {
-        await acceptInvite(inviteToken, controller.signal);
-      } finally {
-        clearTimeout(timeoutId);
-      }
-    },
-    onSuccess: () => {
+    mutationFn: (inviteToken: string) => acceptInvite(inviteToken),
+    onSuccess: (accepted) => {
       queryClient.invalidateQueries({ queryKey: ["workspace"] });
-      setTimeout(() => window.location.assign("/"), 2000);
+      setTimeout(() => window.location.assign(`/?workspaceId=${encodeURIComponent(accepted.workspaceId)}`), 2000);
     },
   });
 

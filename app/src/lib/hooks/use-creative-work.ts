@@ -4,6 +4,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import { invalidateCanonicalWorks } from "@/lib/hooks/use-canonical-works";
 import type { ContentBrief, StyleBrief } from "@/server/ai/image-analysis";
+export {
+  getCreativeWorkEvaluatorSummary,
+  getCreativeWorkObjectiveVerdict,
+  type CreativeWorkObjectiveVerdict,
+} from "@/lib/creative-work-selection-policy";
 import type {
   BriefingConfidence,
   BriefingReadiness,
@@ -232,34 +237,6 @@ export function categorizeCreativeWorkFailure(
   if (failureCode === "reference_failure") return "reference_failure";
   if (failureCode.includes("timeout") || failureCode.includes("timed_out")) return "timeout";
   return "unknown";
-}
-
-export type CreativeWorkObjectiveVerdict = "pass" | "fail" | "inconclusive";
-
-/**
- * Reads the tri-state objective verdict from a v1 quality payload
- * (R-005/R-008). Legacy shapes (ScoreResult or null) have no verdict —
- * callers must discriminate on `schemaVersion === 1` via this guard instead
- * of trusting untyped fields.
- */
-export function getCreativeWorkObjectiveVerdict(
-  quality: Record<string, unknown> | null | undefined,
-): CreativeWorkObjectiveVerdict | null {
-  if (!quality || quality.schemaVersion !== 1) return null;
-  const verdict = quality.objectiveVerdict;
-  return verdict === "pass" || verdict === "fail" || verdict === "inconclusive"
-    ? verdict
-    : null;
-}
-
-/** One-sentence evaluator summary persisted on v1 payloads (T8) — null otherwise. */
-export function getCreativeWorkEvaluatorSummary(
-  quality: Record<string, unknown> | null | undefined,
-): string | null {
-  if (!quality || quality.schemaVersion !== 1) return null;
-  return typeof quality.evaluatorSummary === "string" && quality.evaluatorSummary.trim().length > 0
-    ? quality.evaluatorSummary
-    : null;
 }
 
 /** Absolute provider-call ceiling per output (mirrors server R-006). */
@@ -702,14 +679,16 @@ export function useSelectOutput() {
       workItemId,
       outputId,
       saveToLibrary,
+      confirmObjective,
     }: {
       workItemId: string;
       outputId: string;
       saveToLibrary: boolean;
+      confirmObjective?: boolean;
     }) =>
       postJson<{ output: CreativeWorkOutput }>(
         `/api/creative-work/${workItemId}/outputs/${outputId}/select`,
-        { saveToLibrary },
+        { saveToLibrary, confirmObjective: confirmObjective ?? false },
       ),
     onSuccess: async (_data, variables) => {
       // Saving the selected output materialises a new workspace asset. The

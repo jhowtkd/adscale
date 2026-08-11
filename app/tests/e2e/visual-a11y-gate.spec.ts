@@ -294,6 +294,7 @@ test.describe("visual a11y gate", () => {
       completedA11yChecks: checks.filter((check) => expectedKeys.includes(check.key) && check.result === "pass").length,
       expectedInteractionChecks: expectedInteractionKeys.length,
       completedInteractionChecks: interactions.filter((check) => expectedInteractionKeys.includes(check.key) && check.result === "pass").length,
+      manualAssistiveTechnology: evidence.requirements["QA-17"]?.manualAssistiveTechnology ?? "pending",
       routes: expectedKeys.join(", "),
     };
     if (!allA11yPass || !allInteractionPass) {

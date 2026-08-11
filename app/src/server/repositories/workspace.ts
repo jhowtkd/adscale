@@ -133,6 +133,24 @@ export const getWorkspaceForUser = cache(async (userId: string) => {
   return workspace[0] ?? null;
 });
 
+export async function getWorkspaceForUserInWorkspace(userId: string, workspaceId: string) {
+  const member = await db
+    .select({ workspaceId: workspaceMembers.workspaceId })
+    .from(workspaceMembers)
+    .where(and(eq(workspaceMembers.userId, userId), eq(workspaceMembers.workspaceId, workspaceId)))
+    .limit(1);
+
+  if (member.length === 0) return null;
+
+  const workspace = await db
+    .select()
+    .from(workspaces)
+    .where(eq(workspaces.id, workspaceId))
+    .limit(1);
+
+  return workspace[0] ?? null;
+}
+
 export async function createWorkspace(data: {
   name: string;
   slug: string;

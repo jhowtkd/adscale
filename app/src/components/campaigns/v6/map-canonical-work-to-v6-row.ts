@@ -15,6 +15,7 @@ function stateToBadgeVariant(state: string): CampaignV6BadgeVariant {
 export function stubCampaignFromCanonicalWork(
   work: CanonicalWorkSummary
 ): UiCampaign {
+  const resultCount = work.resultCount ?? 0;
   return {
     id: work.originId,
     workspaceId: work.workspaceId,
@@ -22,9 +23,9 @@ export function stubCampaignFromCanonicalWork(
     platforms: [],
     generationMode: "art_variation",
     status: "active",
-    variations: 0,
+    variations: resultCount,
     creditsUsed: 0,
-    totalDerivations: 0,
+    totalDerivations: resultCount,
     activeDerivations: 0,
     failedDerivations: 0,
     completedDerivations: 0,
@@ -43,12 +44,16 @@ export function mapCanonicalWorkToV6Row({
   originLabel,
   formatUpdated,
   tState,
+  formatProtocol,
+  formatNextAction,
 }: {
   work: CanonicalWorkSummary;
   campaign?: UiCampaign;
   originLabel: string;
   formatUpdated: (date: Date) => string;
   tState: (state: string) => string;
+  formatProtocol?: (protocol: string | null | undefined) => string;
+  formatNextAction?: (action: string | null | undefined) => string;
 }): CampaignV6Row {
   const campaignPayload =
     work.originKind === "campaign"
@@ -61,7 +66,7 @@ export function mapCanonicalWorkToV6Row({
     initials: getCampaignInitials(work.name),
     name: work.name,
     variations:
-      campaignPayload?.variations ?? campaignPayload?.totalDerivations ?? 0,
+      campaignPayload?.variations ?? work.resultCount ?? campaignPayload?.totalDerivations ?? 0,
     approved: campaignPayload?.completedDerivations ?? 0,
     status: tState(work.state),
     statusVariant: stateToBadgeVariant(work.state),
@@ -69,5 +74,10 @@ export function mapCanonicalWorkToV6Row({
     campaign: campaignPayload,
     originKind: work.originKind,
     originLabel,
+    protocol: formatProtocol?.(work.protocol) ?? work.protocol ?? null,
+    nextAction: formatNextAction?.(work.nextAction) ?? work.nextAction ?? null,
+    resultCount: work.resultCount ?? 0,
+    previewHref: work.previewHref ?? null,
+    previewAlt: work.previewAlt ?? work.name,
   };
 }

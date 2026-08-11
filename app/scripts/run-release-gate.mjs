@@ -24,6 +24,32 @@ function writeAutomatedStep(step, result) {
   writeFileSync(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`);
 }
 
+function markQa17Pending() {
+  mkdirSync(phaseDir, { recursive: true });
+  const evidence = existsSync(evidencePath)
+    ? JSON.parse(readFileSync(evidencePath, "utf8"))
+    : { schemaVersion: 1, capturedAt: new Date().toISOString() };
+  evidence.automated = {
+    ...(evidence.automated ?? {}),
+    unit: "pending",
+    lint: "pending",
+    build: "pending",
+    "visual-release": "pending",
+  };
+  evidence.requirements = {
+    ...(evidence.requirements ?? {}),
+    "QA-17": {
+      ...(evidence.requirements?.["QA-17"] ?? {}),
+      result: "pending",
+      a11y: "pending",
+      interaction: "pending",
+      manualAssistiveTechnology: evidence.requirements?.["QA-17"]?.manualAssistiveTechnology ?? "pending",
+    },
+  };
+  delete evidence.verifiedAt;
+  writeFileSync(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`);
+}
+
 const steps = [
   ["node", ["scripts/check-visual-contract.mjs"], "visual-contract"],
   ["npm", ["test"], "unit"],
@@ -39,35 +65,25 @@ const convergenceSteps = [
 ];
 
 try {
+  markQa17Pending();
+
   for (const [command, args, step] of convergenceSteps) {
     run(command, args, step);
   }
 
   for (const [command, args, step] of steps) {
     run(command, args, step);
-    if (step !== "visual-release") writeAutomatedStep(step, "pass");
+    writeAutomatedStep(step, "pass");
   }
 
-  execFileSync("node", ["scripts/check-release-gate.mjs"], { cwd: appDir, stdio: "inherit" });
-  writeAutomatedStep("visual-release", "pass");
+  execFileSync("node", ["scripts/check-release-gate.mjs", "--preflight"], { cwd: appDir, stdio: "inherit" });
 
-  const evidence = JSON.parse(readFileSync(evidencePath, "utf8"));
-  evidence.requirements = {
-    ...(evidence.requirements ?? {}),
-    "QA-17": {
-      result: "pass",
-      automated: "node scripts/run-release-gate.mjs",
-      visualContract: evidence.automated?.["visual-contract"],
-      unit: evidence.automated?.unit,
-      lint: evidence.automated?.lint,
-      build: evidence.automated?.build,
-      visualRelease: evidence.automated?.["visual-release"],
-    },
-  };
-  evidence.verifiedAt = new Date().toISOString();
-  writeFileSync(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`);
+  // QA-17 is promoted only by the evidence-producing Playwright hooks and
+  // the strict checker; this runner must never manufacture a pass timestamp.
+  execFileSync("node", ["scripts/check-release-gate.mjs"], { cwd: appDir, stdio: "inherit" });
   console.log("\nRelease gate passed.");
 } catch (error) {
+  markQa17Pending();
   console.error("\nRelease gate failed.");
   process.exitCode = 1;
 }

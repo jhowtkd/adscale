@@ -13,6 +13,7 @@ import type {
 
 export type CanonicalWorkOrigin = CreativeWorkOrigin;
 export type CanonicalWorkState = CreativeWorkFunnelStage;
+export type CanonicalWorkNextAction = "resume" | "review" | "retry" | "open";
 
 export type CanonicalWorkRefKind = "campaign" | "creative_work";
 
@@ -88,6 +89,12 @@ export interface CanonicalCreativeWork {
   resumable: boolean;
   /** Path hint for resume (no UI change in Phase 2 — contract only). */
   resumeHref: string;
+  protocol?: string | null;
+  brandName?: string | null;
+  previewHref?: string | null;
+  previewAlt?: string | null;
+  resultCount?: number;
+  nextAction?: CanonicalWorkNextAction;
 }
 
 export interface CanonicalWorkSummary {
@@ -102,6 +109,12 @@ export interface CanonicalWorkSummary {
   updatedAt: string;
   resumable: boolean;
   resumeHref: string;
+  protocol?: string | null;
+  brandName?: string | null;
+  previewHref?: string | null;
+  previewAlt?: string | null;
+  resultCount?: number;
+  nextAction?: CanonicalWorkNextAction;
 }
 
 export function makeCanonicalWorkId(

@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { getSessionFromHeaders } from "@/server/auth/session";
-import { acceptInvite } from "@/server/auth/team";
+import {
+  ACTIVE_WORKSPACE_COOKIE,
+  ACTIVE_WORKSPACE_COOKIE_OPTIONS,
+  acceptInvite,
+  isInviteStateError,
+} from "@/server/auth/team";
 
 const acceptInviteSchema = z.object({
   token: z.string().min(1),
@@ -22,25 +27,13 @@ export async function POST(request: Request) {
       return apiError("invalidInput", 400, parsed.error.flatten());
     }
 
-    await acceptInvite(parsed.data.token, session.user.id, session.user.email);
+    const accepted = await acceptInvite(parsed.data.token, session.user.id, session.user.email);
 
-    return NextResponse.json({ success: true });
+    const response = NextResponse.json({ success: true, workspaceId: accepted.workspaceId });
+    response.cookies.set(ACTIVE_WORKSPACE_COOKIE, accepted.workspaceId, ACTIVE_WORKSPACE_COOKIE_OPTIONS);
+    return response;
   } catch (error) {
-    if (error instanceof Error && error.message === "Invite not found") {
-      return apiError("inviteNotFound", 404);
-    }
-    if (error instanceof Error && error.message === "Invite expired") {
-      return apiError("inviteExpired", 410);
-    }
-    if (error instanceof Error && error.message === "Invite email mismatch") {
-      return apiError("inviteEmailMismatch", 403);
-    }
-    if (error instanceof Error && error.message === "Invite removed") {
-      return apiError("inviteRemoved", 410);
-    }
-    if (error instanceof Error && error.message === "Invite already accepted") {
-      return apiError("inviteAlreadyAccepted", 409);
-    }
+    if (isInviteStateError(error)) return apiError(error.code, error.status);
     return handleApiError(error, "workspace.invites.accept.POST");
   }
 }

@@ -279,6 +279,20 @@ describe("projectCampaignAsCanonicalWork", () => {
     const missing = projectCampaignAsCanonicalWork(campaignFixture());
     expect(missing.intent.formatHint).toBeNull();
   });
+
+  it("keeps the persisted protocol and result count in summary projections", () => {
+    const work = projectCampaignAsCanonicalWork(
+      campaignFixture({
+        generationMode: "format_adaptation",
+        status: "completed",
+        totalDerivations: 4,
+        completedDerivations: 4,
+      }),
+    );
+
+    expect(work.protocol).toBe("format_adaptation");
+    expect(work.resultCount).toBe(4);
+  });
 });
 
 describe("projectCreativeWorkAsCanonicalWork (Criar Post fixture)", () => {

@@ -86,9 +86,13 @@ function pickHero(
         ? tStatus("generating")
         : canonicalCandidate.state === "failed"
           ? tStatus("failed")
-          : canonicalCandidate.state === "reviewing" || canonicalCandidate.state === "approved"
+          : canonicalCandidate.state === "reviewing"
             ? tHero("heroInReview")
-            : tHero("heroPilot");
+            : canonicalCandidate.state === "approved"
+              ? tStatus("approved")
+              : canonicalCandidate.state === "delivered"
+                ? tStatus("completed")
+                : tHero("heroPilot");
     const briefingHref =
       canonicalCandidate.originKind === "campaign"
         ? `${canonicalCandidate.resumeHref}?tab=brief`

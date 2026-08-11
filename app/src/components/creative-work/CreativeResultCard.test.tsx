@@ -5,7 +5,12 @@ vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => ({
     failedGeneration: "Falha na geração",
     reviewRecommended: "Revisão recomendada — a checagem automática ficou inconclusiva",
-    retryUnavailable: "Esta proposta já usou todas as tentativas automáticas. Crie um novo pedido para gerar outra versão.",
+    objectiveFailed: "A checagem objetiva reprovou esta peça.",
+    objectiveFailedNext: "Gere uma nova variação antes de aprovar.",
+    legacyReviewRequired: "Esta peça não tem veredito objetivo. Revise-a antes de confirmar a aprovação.",
+    reviewBeforeApprove: "Revisar e aprovar",
+    confirmApproval: "Confirmar aprovação",
+    retryUnavailable: "Esta proposta já usou todas as tentativas automáticas. Crie um novo pedido para gerar uma nova variação.",
     "failure.timeout": "A geração demorou demais e foi interrompida.",
     "failure.invalid_context": "O pedido ou as fontes não tinham informação suficiente para gerar com fidelidade.",
     "failure.factual_violation": "A peça não preservou os fatos ou a marca, mesmo após a correção automática.",
@@ -36,7 +41,7 @@ function output(overrides: Partial<CreativeWorkOutput> = {}): CreativeWorkOutput
     outputKey: "creative-work/output-1/image.png",
     cost: 5,
     failureCode: null,
-    quality: null,
+    quality: { schemaVersion: 1, objectiveVerdict: "pass" },
     isSelected: false,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -67,7 +72,8 @@ describe("CreativeResultCard", () => {
     });
     const file = new File(["image"], "referencia.png", { type: "image/png" });
     fireEvent.change(screen.getByLabelText("Anexo opcional"), { target: { files: [file] } });
-    fireEvent.click(screen.getByRole("button", { name: "Gerar nova versão · 5 créditos" }));
+    fireEvent.click(screen.getByRole("button", { name: "Gerar nova versão" }));
+    expect(screen.queryByText(/crédit/i)).not.toBeInTheDocument();
 
     expect(onRevise).toHaveBeenCalledWith("output-1", "Use mais contraste", file);
   });
@@ -150,7 +156,8 @@ describe("CreativeResultCard", () => {
     );
 
     expect(screen.queryByRole("button", { name: "Repetir esta proposta" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Tentar novamente · 5 créditos" }));
+    fireEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
+    expect(screen.queryByText(/crédit/i)).not.toBeInTheDocument();
     expect(onRetryRevision).toHaveBeenCalledWith(expect.objectContaining({
       id: "output-1",
       parentOutputId: "output-v1",
@@ -212,9 +219,11 @@ describe("CreativeResultCard", () => {
 
     expect(screen.getByTestId("review-recommended")).toHaveTextContent("Revisão recomendada");
     expect(screen.getByTestId("review-recommended")).toHaveTextContent("Avaliador visual indisponível");
-    // The output stays fully available: image, approve and download intact.
+    // The output stays fully available: image, review-confirmation and download intact.
     expect(screen.getByRole("img")).toBeVisible();
-    expect(screen.getByRole("button", { name: "Aprovar" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Revisar e aprovar" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Revisar e aprovar" }));
+    expect(screen.getByRole("button", { name: "Confirmar aprovação" })).toBeVisible();
     expect(screen.queryByTestId("failure-category")).not.toBeInTheDocument();
   });
 
@@ -240,5 +249,20 @@ describe("CreativeResultCard", () => {
       />,
     );
     expect(screen.queryByTestId("review-recommended")).not.toBeInTheDocument();
+  });
+
+  it("does not offer approval for an objectively rejected output", () => {
+    render(
+      <CreativeResultCard
+        output={output({ quality: { schemaVersion: 1, objectiveVerdict: "fail", objectiveCodes: ["objective_mismatch"] } })}
+        label="Equilibrada"
+        onRetry={vi.fn()}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId("objective-selection-blocked")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Aprovar" })).not.toBeInTheDocument();
   });
 });

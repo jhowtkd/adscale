@@ -681,7 +681,8 @@
       "expectedA11yChecks": 65,
       "completedA11yChecks": 8,
       "expectedInteractionChecks": 5,
-      "completedInteractionChecks": 5
+      "completedInteractionChecks": 5,
+      "manualAssistiveTechnology": "pending"
     }
   },
   "a11yChecks": [

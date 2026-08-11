@@ -156,6 +156,34 @@ describe("mapDashboardToV6View", () => {
   });
 
   it.each([
+    ["approved", "approved"],
+    ["delivered", "completed"],
+  ] as const)("keeps the hero badge semantic for %s", (state, badge) => {
+    const view = mapDashboardToV6View({
+      stats: baseStats,
+      canonicalWorks: [{
+        id: "creative_work:work-1",
+        originKind: "creative_work",
+        originId: "work-1",
+        origin: "quick_tool",
+        workspaceId: "workspace-1",
+        clientProfileId: null,
+        name: "Work",
+        state,
+        updatedAt: "2026-06-03T12:00:00.000Z",
+        resumable: true,
+        resumeHref: "/creative-work/work-1",
+        resultCount: 1,
+      }] as never,
+      firstName: "Ana",
+      templates: [],
+      ...labels,
+    });
+
+    expect(view.hero?.badge).toBe(badge);
+  });
+
+  it.each([
     ["generating", "warning"],
     ["processing", "warning"],
     ["queued", "warning"],

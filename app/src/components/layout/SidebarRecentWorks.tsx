@@ -22,7 +22,7 @@ export default function SidebarRecentWorks() {
     const names = new Map(active.profiles.map((profile) => [profile.id, profile.name]));
     const grouped = new Map<string, typeof works>();
     for (const work of works) {
-      if (work.originKind !== "campaign" || !work.resumable) continue;
+      if (!work.resumable) continue;
       const key = work.clientProfileId ?? "unassigned";
       const items = grouped.get(key) ?? [];
       if (items.length < 5) items.push(work);
@@ -43,7 +43,7 @@ export default function SidebarRecentWorks() {
       data-testid="sidebar-recent-works"
     >
       <p className="px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-        {tNav("recentCampaigns")}
+        {tNav("recentWorks")}
       </p>
 
       {isLoading && groups.length === 0 ? (
@@ -93,7 +93,7 @@ export default function SidebarRecentWorks() {
                           "transition-colors hover:bg-[var(--surface-inset)]"
                         )}
                       >
-                        <span className="grid size-7 shrink-0 place-items-center rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] font-mono text-xs font-bold text-[var(--utility-icon)]">C</span>
+                        <span className="grid size-7 shrink-0 place-items-center rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] font-mono text-xs font-bold text-[var(--utility-icon)]">W</span>
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-[12px] font-medium text-[var(--text-primary)]">{work.name}</span>
                           <time className="block text-[10px] text-[var(--text-muted)]" dateTime={work.updatedAt}>{formattedDate}</time>

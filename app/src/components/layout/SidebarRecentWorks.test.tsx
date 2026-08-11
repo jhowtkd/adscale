@@ -51,7 +51,7 @@ describe("SidebarRecentWorks", () => {
     useCanonicalWorksMock.mockReset();
   });
 
-  it("groups recent campaigns by client and omits standalone pieces", () => {
+  it("groups recent work by client, including standalone pieces", () => {
     useCanonicalWorksMock.mockReturnValue({
       data: [
         {
@@ -100,8 +100,11 @@ describe("SidebarRecentWorks", () => {
     render(<SidebarRecentWorks />, { wrapper });
 
     expect(screen.getByTestId("sidebar-recent-works")).toBeInTheDocument();
-    expect(screen.getByText("navigation.recentCampaigns")).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /Post social/i })).not.toBeInTheDocument();
+    expect(screen.getByText("navigation.recentWorks")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Post social/i })).toHaveAttribute(
+      "href",
+      "/?workId=w1"
+    );
     expect(screen.getByText("Marca A")).toBeInTheDocument();
     expect(screen.getByText("Marca B")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Black Friday/i })).toHaveAttribute(

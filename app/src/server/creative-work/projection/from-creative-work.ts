@@ -9,6 +9,7 @@ import {
   type CanonicalCreativeWork,
   type CanonicalOutput,
   type CanonicalVersion,
+  type CanonicalWorkNextAction,
   type CanonicalWorkSummary,
 } from "@/server/creative-work/canonical/types";
 import {
@@ -64,6 +65,13 @@ function resumeHrefForCreativeWork(workItemId: string, campaignId: string | null
   return campaignId
     ? `/campaigns/${campaignId}?creativeWork=${workItemId}`
     : `/creative-work/${workItemId}`;
+}
+
+function nextActionForState(state: CanonicalCreativeWork["state"]): CanonicalWorkNextAction {
+  if (state === "failed") return "retry";
+  if (state === "reviewing" || state === "approved" || state === "delivered") return "review";
+  if (state === "generating") return "open";
+  return "resume";
 }
 
 export function projectCreativeWorkAsCanonicalWork(
@@ -122,6 +130,7 @@ export function projectCreativeWorkAsCanonicalWork(
   }));
 
   const selected = orderedOutputs.find((output) => output.isSelected) ?? null;
+  const preview = [...orderedOutputs].reverse().find((output) => output.outputKey && output.status === "completed") ?? null;
 
   // Historical read compatibility: #194 keeps completed rows immutable.
   // Remove this fallback only after an explicit migration proves no stored
@@ -167,6 +176,14 @@ export function projectCreativeWorkAsCanonicalWork(
     updatedAt: requireIso(work.updatedAt),
     resumable: state !== "abandoned" && state !== "failed",
     resumeHref: resumeHrefForCreativeWork(work.id, work.campaignId),
+    protocol: work.toolKind === "social_post" ? "variations" : work.toolKind,
+    brandName: null,
+    previewHref: preview
+      ? `/api/creative-work/${work.id}/outputs/${preview.id}/download`
+      : null,
+    previewAlt: name,
+    resultCount: outputs.length,
+    nextAction: nextActionForState(state),
   };
 }
 
@@ -187,5 +204,11 @@ export function summarizeCreativeWorkAsCanonicalWork(
     updatedAt: full.updatedAt,
     resumable: full.resumable,
     resumeHref: full.resumeHref,
+    protocol: full.protocol,
+    brandName: full.brandName,
+    previewHref: full.previewHref,
+    previewAlt: full.previewAlt,
+    resultCount: full.resultCount,
+    nextAction: full.nextAction,
   };
 }

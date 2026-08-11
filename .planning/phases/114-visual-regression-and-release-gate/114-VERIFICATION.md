@@ -7,7 +7,9 @@ Verification status: pending — the automated gate has not completed against th
 | RESP-07 | pass | 54 layout checks across 390–1920px |
 | QA-15 | pass | 9 scenarios × 6 viewports, no fail results |
 | QA-16 | pass | `visual-release-gate.spec.ts` + `visual-a11y-gate.spec.ts` |
-| QA-17 | pending | unit/lint/build + playwright release gate; current evidence is incomplete and the authenticated route run is blocked by the missing `creative_work_outputs.direction_id` schema column |
+| QA-17 | pending | unit/lint/build + strict 65-route Axe/5-interaction release gate; current evidence is incomplete and the authenticated route run is blocked by the missing `creative_work_outputs.direction_id` schema column |
+
+The release checker also requires `requirements.QA-17.manualAssistiveTechnology = "pass"`; automated role/name/focus checks do not substitute for assistive-technology acceptance.
 
 ## Automated gate
 

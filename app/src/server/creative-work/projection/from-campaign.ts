@@ -9,6 +9,7 @@ import {
   type CanonicalCreativeWork,
   type CanonicalOutput,
   type CanonicalVersion,
+  type CanonicalWorkNextAction,
   type CanonicalWorkSummary,
 } from "@/server/creative-work/canonical/types";
 
@@ -28,6 +29,8 @@ export interface CampaignProjectionSource {
   clientProfileId: string | null;
   /** First entry becomes intent.formatHint (template / campaign target formats). */
   targetFormats?: string[] | null;
+  /** Persisted creation mode; exposed as the canonical Protocol. */
+  generationMode?: string | null;
   status: string;
   creativeDiagnosisStatus?: string | null;
   createdAt: Date | string;
@@ -49,6 +52,13 @@ export interface DerivationProjectionSource {
 
 function resumeHrefForCampaign(campaignId: string): string {
   return `/campaigns/${campaignId}`;
+}
+
+function nextActionForState(state: CanonicalCreativeWork["state"]): CanonicalWorkNextAction {
+  if (state === "failed") return "retry";
+  if (state === "reviewing" || state === "approved" || state === "delivered") return "review";
+  if (state === "generating") return "open";
+  return "resume";
 }
 
 export function projectCampaignAsCanonicalWork(
@@ -126,6 +136,12 @@ export function projectCampaignAsCanonicalWork(
     updatedAt: requireIso(campaign.updatedAt),
     resumable: state !== "abandoned" && state !== "failed",
     resumeHref: resumeHrefForCampaign(campaign.id),
+    protocol: campaign.generationMode ?? null,
+    brandName: campaign.client,
+    previewHref: null,
+    previewAlt: campaign.name,
+    resultCount: campaign.totalDerivations ?? derivations.length,
+    nextAction: nextActionForState(state),
   };
 }
 
@@ -146,5 +162,11 @@ export function summarizeCampaignAsCanonicalWork(
     updatedAt: full.updatedAt,
     resumable: full.resumable,
     resumeHref: full.resumeHref,
+    protocol: full.protocol,
+    brandName: full.brandName,
+    previewHref: full.previewHref,
+    previewAlt: full.previewAlt,
+    resultCount: full.resultCount,
+    nextAction: full.nextAction,
   };
 }

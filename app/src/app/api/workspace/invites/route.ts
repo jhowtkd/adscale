@@ -3,7 +3,13 @@ import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess, requireRole } from "@/server/auth/workspace";
 import { getSessionFromHeaders } from "@/server/auth/session";
-import { acceptInvite } from "@/server/auth/team";
+import {
+  ACTIVE_WORKSPACE_COOKIE,
+  ACTIVE_WORKSPACE_COOKIE_OPTIONS,
+  acceptInvite,
+  assertInviteUsable,
+  isInviteStateError,
+} from "@/server/auth/team";
 import {
   createInvitation,
   getInvitationByToken,
@@ -39,9 +45,7 @@ export async function GET(request: Request) {
 
       const invite = await getInvitationByToken(parsed.data.token);
       if (!invite) return apiError("inviteNotFound", 404);
-      if (invite.status === "revoked") return apiError("inviteRemoved", 410);
-      if (invite.status === "accepted") return apiError("inviteAlreadyAccepted", 409);
-      if (invite.expiresAt < new Date()) return apiError("inviteExpired", 410);
+      assertInviteUsable(invite);
 
       const session = await getSessionFromHeaders(request.headers);
       return NextResponse.json({
@@ -67,6 +71,7 @@ export async function GET(request: Request) {
     const sanitized = invites.map(({ token, ...rest }) => rest);
     return NextResponse.json({ invites: sanitized });
   } catch (error) {
+    if (isInviteStateError(error)) return apiError(error.code, error.status);
     return handleApiError(error, "workspace.invites.GET");
   }
 }
@@ -123,19 +128,13 @@ export async function PATCH(request: Request) {
       return apiError("invalidInput", 400, parsed.error.flatten());
     }
 
-    await acceptInvite(parsed.data.token, session.user.id, session.user.email);
+    const accepted = await acceptInvite(parsed.data.token, session.user.id, session.user.email);
 
-    return NextResponse.json({ success: true });
+    const response = NextResponse.json({ success: true, workspaceId: accepted.workspaceId });
+    response.cookies.set(ACTIVE_WORKSPACE_COOKIE, accepted.workspaceId, ACTIVE_WORKSPACE_COOKIE_OPTIONS);
+    return response;
   } catch (error) {
-    if (error instanceof Error && error.message === "Invite not found") {
-      return apiError("inviteNotFound", 404);
-    }
-    if (error instanceof Error && error.message === "Invite expired") {
-      return apiError("inviteExpired", 410);
-    }
-    if (error instanceof Error && error.message === "Invite email mismatch") {
-      return apiError("inviteEmailMismatch", 403);
-    }
+    if (isInviteStateError(error)) return apiError(error.code, error.status);
     return handleApiError(error, "workspace.invites.PATCH");
   }
 }
