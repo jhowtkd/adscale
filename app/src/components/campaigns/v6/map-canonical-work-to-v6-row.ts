@@ -74,6 +74,7 @@ export function mapCanonicalWorkToV6Row({
     campaign: campaignPayload,
     originKind: work.originKind,
     originLabel,
+    brandName: work.brandName ?? null,
     protocol: formatProtocol?.(work.protocol) ?? work.protocol ?? null,
     nextAction: formatNextAction?.(work.nextAction) ?? work.nextAction ?? null,
     resultCount: work.resultCount ?? 0,

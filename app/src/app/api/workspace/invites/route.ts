@@ -1,15 +1,19 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
-import { requireWorkspaceAccess, requireRole } from "@/server/auth/workspace";
-import { getSessionFromHeaders } from "@/server/auth/session";
 import {
   ACTIVE_WORKSPACE_COOKIE,
   ACTIVE_WORKSPACE_COOKIE_OPTIONS,
+  requireWorkspaceAccess,
+  requireRole,
+} from "@/server/auth/workspace";
+import { getSessionFromHeaders } from "@/server/auth/session";
+import {
   acceptInvite,
   assertInviteUsable,
   isInviteStateError,
 } from "@/server/auth/team";
+import { getInviteErrorHttpStatus } from "@/server/auth/invite-http";
 import {
   createInvitation,
   getInvitationByToken,
@@ -71,7 +75,7 @@ export async function GET(request: Request) {
     const sanitized = invites.map(({ token, ...rest }) => rest);
     return NextResponse.json({ invites: sanitized });
   } catch (error) {
-    if (isInviteStateError(error)) return apiError(error.code, error.status);
+    if (isInviteStateError(error)) return apiError(error.code, getInviteErrorHttpStatus(error.code));
     return handleApiError(error, "workspace.invites.GET");
   }
 }
@@ -134,7 +138,7 @@ export async function PATCH(request: Request) {
     response.cookies.set(ACTIVE_WORKSPACE_COOKIE, accepted.workspaceId, ACTIVE_WORKSPACE_COOKIE_OPTIONS);
     return response;
   } catch (error) {
-    if (isInviteStateError(error)) return apiError(error.code, error.status);
+    if (isInviteStateError(error)) return apiError(error.code, getInviteErrorHttpStatus(error.code));
     return handleApiError(error, "workspace.invites.PATCH");
   }
 }

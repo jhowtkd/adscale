@@ -97,7 +97,7 @@ describe("VersionComparisonDialog", () => {
     mocks.promote.mockReturnValue({ mutateAsync: vi.fn(), isPending: false, reset: vi.fn() });
   });
 
-  it("shows semantic changes and requires an explicit no-credit confirmation", async () => {
+  it("shows semantic changes and requires an explicit version confirmation", async () => {
     const promote = vi.fn().mockResolvedValue({ effect: {}, state: [] });
     mocks.promote.mockReturnValue({ mutateAsync: promote, isPending: false, reset: vi.fn() });
 
@@ -109,7 +109,8 @@ describe("VersionComparisonDialog", () => {
     expect(screen.getByText("Antes")).toBeInTheDocument();
     expect(screen.getByText("Depois")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Aprovar v2" }));
-    expect(screen.getByText(/não usa créditos e não exclui nenhuma versão/i)).toBeInTheDocument();
+    expect(screen.getByText(/não exclui nenhuma versão/i)).toBeInTheDocument();
+    expect(screen.queryByText(/crédit/i)).not.toBeInTheDocument();
     expect(promote).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Tornar v2 oficial" }));

@@ -13,7 +13,13 @@ const base: CanonicalWorkSummary = {
   state: "generating",
   updatedAt: "2026-07-13T12:00:00.000Z",
   resumable: true,
-    resumeHref: "/creative-work/w1",
+  resumeHref: "/creative-work/w1",
+  brandName: "Marca Aurora",
+  protocol: "variations",
+  nextAction: "review",
+  resultCount: 2,
+  previewHref: "/api/creative-work/w1/outputs/o1/download",
+  previewAlt: "Peça da Marca Aurora",
 };
 
 describe("mapCanonicalWorkToV6Row", () => {
@@ -28,6 +34,14 @@ describe("mapCanonicalWorkToV6Row", () => {
     expect(row.originKind).toBe("creative_work");
     expect(row.campaign).toBeUndefined();
     expect(row.originLabel).toBe("Post");
+    expect(row).toMatchObject({
+      brandName: "Marca Aurora",
+      protocol: "variations",
+      nextAction: "review",
+      resultCount: 2,
+      previewHref: "/api/creative-work/w1/outputs/o1/download",
+      previewAlt: "Peça da Marca Aurora",
+    });
   });
 
   it("keeps canonical result counts when campaign metadata is missing", () => {

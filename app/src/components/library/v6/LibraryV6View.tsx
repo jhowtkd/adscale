@@ -1,9 +1,12 @@
 "use client";
 
 import Image from "next/image";
+import { useState } from "react";
 import type { ReactNode } from "react";
 import { Search, Upload, X } from "lucide-react";
 import type { LibraryV6Asset, LibraryV6Labels } from "./library-v6-types";
+
+type LibraryV6Filter = "all" | LibraryV6Asset["kind"];
 
 type LibraryV6ViewProps = {
   labels: LibraryV6Labels;
@@ -14,6 +17,8 @@ type LibraryV6ViewProps = {
   interactive?: boolean;
   searchQuery: string;
   onSearchChange?: (value: string) => void;
+  activeFilter?: LibraryV6Filter;
+  onFilterChange?: (value: LibraryV6Filter) => void;
   dragOver?: boolean;
   isUploading?: boolean;
   uploadProgress?: number;
@@ -23,6 +28,7 @@ type LibraryV6ViewProps = {
   onDrop?: (e: React.DragEvent) => void;
   onUploadClick?: () => void;
   onDeleteAsset?: (id: string, name: string) => void;
+  onReplaceAsset?: () => void;
   emptyState?: ReactNode;
   useImagePreview?: boolean;
   onLoadMore?: () => void;
@@ -38,6 +44,8 @@ export default function LibraryV6View({
   interactive = true,
   searchQuery,
   onSearchChange,
+  activeFilter = "all",
+  onFilterChange,
   dragOver = false,
   isUploading = false,
   uploadProgress = 0,
@@ -47,6 +55,7 @@ export default function LibraryV6View({
   onDrop,
   onUploadClick,
   onDeleteAsset,
+  onReplaceAsset,
   emptyState,
   useImagePreview = true,
   onLoadMore,
@@ -116,9 +125,32 @@ export default function LibraryV6View({
               aria-label={labels.searchAria}
               value={searchQuery}
               onChange={interactive && onSearchChange ? (e) => onSearchChange(e.target.value) : undefined}
-              readOnly={!interactive}
+              readOnly={!interactive || !onSearchChange}
               className="w-full rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] py-2 pl-9 pr-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             />
+          </div>
+          <div className="flex max-w-full gap-1 overflow-x-auto pb-1" role="group" aria-label={labels.filtersAria}>
+            {([
+              ["all", labels.filterAll],
+              ["reference", labels.filterReference],
+              ["logo", labels.filterLogo],
+              ["photo", labels.filterPhoto],
+              ["generated", labels.filterGenerated],
+            ] as const).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={activeFilter === value}
+                onClick={() => onFilterChange?.(value)}
+                className={`shrink-0 rounded-full border px-3 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] ${
+                  activeFilter === value
+                    ? "border-[var(--selection-border)] bg-[var(--selection-bg)] text-[var(--text-primary)]"
+                    : "border-[var(--border-default)] text-[var(--text-muted)] hover:bg-[var(--surface-inset)]"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
           <p className="shrink-0 font-mono text-xs text-[var(--text-muted)]">
             {labels.countSummary
@@ -145,6 +177,7 @@ export default function LibraryV6View({
                   interactive={interactive}
                   useImagePreview={useImagePreview}
                   onDelete={onDeleteAsset}
+                  onReplace={onReplaceAsset}
                 />
               </li>
             ))}
@@ -176,31 +209,86 @@ function AssetCard({
   interactive,
   useImagePreview,
   onDelete,
+  onReplace,
 }: {
   asset: LibraryV6Asset;
   labels: LibraryV6Labels;
   interactive: boolean;
   useImagePreview: boolean;
   onDelete?: (id: string, name: string) => void;
+  onReplace?: () => void;
 }) {
+  const [previewState, setPreviewState] = useState<"loading" | "ready" | "no-preview" | "error">(
+    useImagePreview && asset.imageUrl ? "loading" : "no-preview",
+  );
+  const [retryKey, setRetryKey] = useState(0);
+  const kindLabel = {
+    reference: labels.filterReference,
+    logo: labels.filterLogo,
+    photo: labels.filterPhoto,
+    generated: labels.filterGenerated,
+  }[asset.kind];
+
+  const retryPreview = () => {
+    if (!asset.imageUrl) return;
+    setPreviewState("loading");
+    setRetryKey((key) => key + 1);
+  };
+
   return (
     <article
       data-motion-highlight="focus"
       className="group overflow-hidden rounded-[var(--radius-panel)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] transition-[border-color,background-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-product)] focus-within:border-[var(--selection-border)] focus-within:bg-[var(--selection-bg)] focus-within:shadow-[0_0_0_2px_var(--focus-ring)]"
     >
-      <div className={`relative flex h-32 items-center justify-center ${asset.gradient}`}>
-        {useImagePreview && asset.imageUrl ? (
+      <div className={`relative flex h-32 items-center justify-center ${asset.gradient}`} data-preview-state={previewState}>
+        {(previewState === "loading" || previewState === "ready") && asset.imageUrl ? (
           <Image
+            key={`${asset.id}-${retryKey}`}
             src={asset.imageUrl}
             alt={asset.name}
             fill
             className="object-cover"
             sizes="(max-width: 768px) 50vw, 25vw"
             unoptimized
+            onLoad={() => setPreviewState("ready")}
+            onError={() => setPreviewState("error")}
           />
+        ) : previewState === "loading" ? (
+          <span role="status" aria-label={labels.previewLoading} className="text-xs text-[var(--text-muted)]">
+            {labels.previewLoading}
+          </span>
+        ) : previewState === "error" ? (
+          <div className="flex flex-col items-center gap-2 px-3 text-center text-xs text-[var(--text-muted)]">
+            <span role="img" aria-label={labels.previewError}>{labels.previewError}</span>
+            <div className="flex flex-wrap justify-center gap-2">
+              <button
+                type="button"
+                onClick={retryPreview}
+                className="rounded border border-[var(--border-default)] px-2 py-1 text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+              >
+                {labels.retryPreview}
+              </button>
+              {interactive && onReplace ? (
+                <button
+                  type="button"
+                  onClick={onReplace}
+                  className="rounded border border-[var(--border-default)] px-2 py-1 text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                >
+                  {labels.replaceAsset}
+                </button>
+              ) : null}
+            </div>
+          </div>
         ) : (
-          <span className="font-mono text-sm font-bold tracking-widest text-[var(--text-muted)]">{asset.glyph}</span>
+          <span role="img" aria-label={labels.previewNoPreview} className="font-mono text-sm font-bold tracking-widest text-[var(--text-muted)]">
+            {asset.glyph}
+          </span>
         )}
+        {previewState === "loading" && asset.imageUrl ? (
+          <span role="status" aria-label={labels.previewLoading} className="absolute inset-x-0 bottom-2 mx-auto w-fit rounded bg-black/60 px-2 py-1 text-[10px] text-white">
+            {labels.previewLoading}
+          </span>
+        ) : null}
         {interactive && onDelete ? (
           <button
             type="button"
@@ -230,6 +318,12 @@ function AssetCard({
           <span className="font-mono">{asset.sizeLabel}</span>
           <span>{asset.dimensionsLabel}</span>
         </div>
+        <dl className="grid grid-cols-2 gap-x-2 gap-y-1 text-[10px] text-[var(--text-muted)]">
+          <div><dt className="inline">{labels.originLabel}: </dt><dd className="inline">{asset.source}</dd></div>
+          <div><dt className="inline">{labels.functionLabel}: </dt><dd className="inline">{kindLabel}</dd></div>
+          <div><dt className="inline">{labels.createdLabel}: </dt><dd className="inline">{asset.createdAtLabel}</dd></div>
+          <div><dt className="inline">Ratio: </dt><dd className="inline">{asset.aspectRatioLabel}</dd></div>
+        </dl>
       </div>
     </article>
   );

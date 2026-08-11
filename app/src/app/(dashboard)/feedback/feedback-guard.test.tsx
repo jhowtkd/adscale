@@ -62,7 +62,7 @@ describe("feedback route guard", () => {
     platformOwnerAllowed = false;
   });
 
-  it("redirects non-owner/admin users and renders only the forbidden state", async () => {
+  it("redirects non-platform-owner workspace roles and renders only the forbidden state", async () => {
     platformOwnerAllowed = false;
     const { container } = render(<FeedbackTriagePage />);
     await waitFor(() => {
@@ -82,7 +82,7 @@ describe("feedback route guard", () => {
     });
   });
 
-  it("allows owner role and renders operational content", async () => {
+  it("allows the platform owner and renders operational content", async () => {
     platformOwnerAllowed = true;
     render(<FeedbackTriagePage />);
     await flushPromises();
@@ -92,11 +92,4 @@ describe("feedback route guard", () => {
     expect(screen.getByTestId("owner-analytics")).toBeTruthy();
   });
 
-  it("allows admin role and renders operational content", async () => {
-    platformOwnerAllowed = true;
-    render(<FeedbackTriagePage />);
-    await flushPromises();
-    expect(replaceMock).not.toHaveBeenCalled();
-    expect(screen.getByTestId("beta-sessions")).toBeTruthy();
-  });
 });

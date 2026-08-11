@@ -235,27 +235,6 @@ export default function StrategyRecipePanel({
             </div>
           ) : null}
 
-          {/* Phase 6 / S09: credits from server resolve surface (not client-estimated) */}
-          <div
-            role="status"
-            data-testid="strategy-recipe-credits"
-            className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)] px-3 py-2 text-xs text-[var(--text-secondary)]"
-          >
-            <p data-testid="strategy-recipe-preview-credits">
-              {recipe.isLoading
-                ? t("creditPreview", { credits: "…" })
-                : t("creditPreview", { credits: recipe.previewCredits })}
-            </p>
-            <p
-              data-testid="strategy-recipe-batch-credits"
-              className="mt-0.5 text-[var(--text-primary)]"
-            >
-              {recipe.isLoading
-                ? t("creditBatchEstimate", { credits: "…" })
-                : t("creditBatchEstimate", { credits: recipe.batchCredits })}
-            </p>
-          </div>
-
           <div className="space-y-2">
             {STRATEGY_RECIPE_IDS.map((id) => {
               const ranked = recipe.rankedRecipes.find((r) => r.id === id);

@@ -19,6 +19,12 @@ export type CampaignV6Row = {
   campaign?: UiCampaign;
   originKind: "campaign" | "creative_work";
   originLabel: string;
+  protocol?: string | null;
+  brandName?: string | null;
+  nextAction?: string | null;
+  resultCount?: number;
+  previewHref?: string | null;
+  previewAlt?: string | null;
 };
 
 export type CampaignsV6Labels = {
@@ -49,4 +55,10 @@ export type CampaignsV6Labels = {
   delete: string;
   variationsLabel: string;
   approvedLabel: string;
+  formatProtocol?: (protocol: string | null | undefined) => string;
+  formatNextAction?: (action: string | null | undefined) => string;
+  resultsLabel?: string;
+  previewUnavailable?: string;
+  previewLoading?: string;
+  previewError?: string;
 };

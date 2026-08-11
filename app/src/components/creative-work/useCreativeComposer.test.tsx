@@ -463,6 +463,9 @@ describe("useCreativeComposer", () => {
     act(() => result.current.setRequest("Pedido antigo"));
     await act(() => vi.advanceTimersByTimeAsync(500));
     act(() => result.current.selectIntent("restyle"));
+    expect(result.current.intent).toBe("variations");
+    expect(result.current.pendingProtocolSwitch).toBe("restyle");
+    act(() => result.current.confirmProtocolSwitch());
     await act(async () => creating.resolve({
       work: workDetail({ id: WORK_ID, request: "Pedido antigo", toolKind: "variations" }).work,
       quote: { unitCount: 3, credits: 15 },
@@ -868,6 +871,30 @@ describe("useCreativeComposer", () => {
     expect(result.current.error).toBeNull();
   });
 
+  it("persists a corrected source reading on the same creative work", async () => {
+    mocks.work.mockReturnValue({ data: workDetail({ id: WORK_ID }), isLoading: false, isError: false });
+    const content = {
+      product: "Curso",
+      offer: "30%",
+      cta: { text: "Inscreva-se", style: "botão" },
+      brandElements: [],
+      keyVisual: "Médica",
+      textContent: { headline: "Nova turma", bullets: ["Agosto"] },
+      format: "4:5",
+    };
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: WORK_ID }));
+
+    await act(async () => result.current.editSource("source-1", content, null));
+
+    expect(mocks.source).toHaveBeenCalledWith({
+      workItemId: WORK_ID,
+      action: "editSourceAnalysis",
+      sourceId: "source-1",
+      content,
+      style: null,
+    });
+  });
+
   it("delivers an upload announcement to the composer mounted after draft canonicalization", async () => {
     const creating = deferred<{
       work: ReturnType<typeof workDetail>["work"];
@@ -1217,7 +1244,9 @@ describe("useCreativeComposer", () => {
 
     expect(result.current.intent).toBe("variations");
     expect(result.current.quote).toEqual({ unitCount: 3, credits: 15 });
+    await act(async () => Promise.resolve());
     act(() => result.current.selectIntent(nextIntent));
+    await act(async () => Promise.resolve());
     expect(result.current.intent).toBe(nextIntent);
     expect(result.current.quote).toEqual(expectedQuote);
     expect(result.current.workId).toBeNull();

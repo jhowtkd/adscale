@@ -1,7 +1,6 @@
 import { eq, and } from "drizzle-orm";
 import { getSession, getSessionFromHeaders } from "./session";
 import { cookies } from "next/headers";
-import { ACTIVE_WORKSPACE_COOKIE } from "./team";
 import { getWorkspaceForUser, getWorkspaceForUserInWorkspace } from "../repositories/workspace";
 import { db } from "../db";
 import { workspaceMembers } from "../db/schema";
@@ -12,6 +11,15 @@ export type { AuthErrorCode } from "./errors";
 import { AUTH_ERROR_CODES, WorkspaceAuthError } from "./errors";
 
 export type WorkspaceMemberRole = "owner" | "admin" | "member";
+
+export const ACTIVE_WORKSPACE_COOKIE = "adscale_active_workspace";
+export const ACTIVE_WORKSPACE_COOKIE_OPTIONS = {
+  httpOnly: true,
+  maxAge: 60 * 60 * 24 * 30,
+  path: "/",
+  sameSite: "lax" as const,
+  secure: process.env.NODE_ENV === "production",
+};
 
 function getActiveWorkspaceCookie(request: Request) {
   const value = request.headers.get("cookie")

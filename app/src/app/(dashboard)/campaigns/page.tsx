@@ -9,6 +9,7 @@ import { formatDistanceToNow } from "date-fns";
 
 import CampaignsBulkActionsBar from "@/components/campaigns/CampaignsBulkActionsBar";
 import CampaignsPagination from "@/components/campaigns/CampaignsPagination";
+import { WorksRecoveryPrototype } from "@/components/campaigns/WorksRecoveryPrototype";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { useCampaignsPage } from "@/components/campaigns/useCampaignsPage";
 import CampaignsV6View from "@/components/campaigns/v6/CampaignsV6View";
@@ -57,6 +58,18 @@ export default function CampaignsListPage() {
 }
 
 function CampaignsListContent() {
+  const searchParams = useSearchParams();
+  const requestedVariant = searchParams.get("variant")?.toUpperCase();
+  if (
+    process.env.NODE_ENV !== "production" &&
+    searchParams.get("prototype") === "works" &&
+    (requestedVariant === "A" || requestedVariant === "B" || requestedVariant === "C")
+  ) return <WorksRecoveryPrototype variant={requestedVariant} />;
+
+  return <CampaignsProductContent />;
+}
+
+function CampaignsProductContent() {
   const searchParams = useSearchParams();
   const [originFilter, setOriginFilter] = useState<WorkOriginFilter>("all");
   const {
@@ -160,9 +173,11 @@ function CampaignsListContent() {
             const key = `v6.workStates.${state}` as Parameters<typeof t>[0];
             return t.has(key) ? t(key) : state;
           },
+          formatProtocol: labels.formatProtocol,
+          formatNextAction: labels.formatNextAction,
         })
       ),
-    [filteredWorks, campaignById, labels.originCampaigns, labels.originPosts, t]
+    [filteredWorks, campaignById, labels.formatNextAction, labels.formatProtocol, labels.originCampaigns, labels.originPosts, t]
   );
 
   const displayCount = isCanonicalMode ? filteredWorks.length : campaignsTotalCount;

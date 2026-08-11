@@ -136,7 +136,7 @@ describe("MissionPathCard", () => {
     );
   });
 
-  it("shows credit cost and balance for credit-consuming active mission", () => {
+  it("keeps credit cost and balance out of an active creative mission", () => {
     mockUseMissions.mockReturnValue({
       data: {
         missions: [
@@ -171,8 +171,9 @@ describe("MissionPathCard", () => {
     } as ReturnType<typeof useMissions>);
 
     render(<MissionPathCard />);
-    expect(screen.getByText(/Custa 1 anuncio/i)).toBeInTheDocument();
-    expect(screen.getByText(/Saldo 5 anuncios/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Custa 1 anuncio/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Saldo 5 anuncios/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/crédit/i)).not.toBeInTheDocument();
   });
 
   it("shows upgrade prompt only when gated on", () => {

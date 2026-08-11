@@ -20,7 +20,7 @@ export async function GET(
     }
 
     if (!link.derivationIds.includes(derivationId)) {
-      return apiError("derivationNotInShareLink", 403);
+      return apiError("shareAssetForbidden", 403);
     }
 
     const derivation = await getDerivationById(

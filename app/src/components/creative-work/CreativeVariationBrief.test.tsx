@@ -13,6 +13,30 @@ vi.mock("next-intl", () => ({
       paletteAria: "Amostras da paleta",
       moodAria: "Clima visual",
       compositionDiagramAria: "Esquema visual da composição",
+      provenanceTitle: "Origens da leitura",
+      provenanceRequest: "Pedido",
+      provenanceSource: "Arte",
+      provenanceBrand: "Marca",
+      provenanceInference: "Inferência",
+      provenanceUnknown: "Desconhecido",
+      provenanceVisualOnly: "Referência visual não fornece fatos.",
+      unknownValue: "Não informado",
+      editAnalysis: "Corrigir leitura",
+      saveAnalysis: "Salvar leitura",
+      cancelAnalysis: "Cancelar",
+      retryAnalysis: "Tentar salvar novamente",
+      savingAnalysis: "Salvando leitura",
+      savedAnalysis: "Leitura salva",
+      saveAnalysisError: "Não foi possível salvar. Sua edição continua aqui.",
+      product: "Produto",
+      headline: "Headline",
+      offer: "Oferta ou preço",
+      ctaText: "CTA",
+      keyVisual: "Visual principal",
+      literalTextTitle: "Texto literal da peça",
+      complementaryText: "Datas e condições",
+      mood: "Clima",
+      composition: "Composição",
       variationInstructionsLabel: "O que você quer variar?",
       variationInstructionsHint:
         "Opcional. Escreva livremente ou use uma linha para cada mudança.",
@@ -134,5 +158,59 @@ describe("CreativeVariationBrief", () => {
     expect(screen.getByText("azul profundo")).toBeInTheDocument();
     expect(screen.getByText("acolhedor")).toBeInTheDocument();
     expect(screen.getByLabelText("Esquema visual da composição")).toBeInTheDocument();
+  });
+
+  it("distinguishes request, art, brand, inference and unknown origins", () => {
+    render(
+      <CreativeVariationBrief
+        source={{ ...source, contentAnalysis: { ...source.contentAnalysis, offer: "" } }}
+        request="Criar uma variação sóbria"
+        brandName="Cenbrap"
+      />,
+    );
+
+    expect(screen.getByText("Criar uma variação sóbria")).toHaveAttribute("data-origin", "request");
+    expect(screen.getByText("arte.png")).toHaveAttribute("data-origin", "source");
+    expect(screen.getByText("Cenbrap")).toHaveAttribute("data-origin", "brand");
+    expect(screen.getAllByText("profissional").every((node) => node.dataset.origin === "inferred")).toBe(true);
+    expect(screen.getByTestId("variation-field-offer")).toHaveAttribute("data-origin", "unknown");
+    expect(screen.getByTestId("variation-field-offer")).toHaveTextContent("Não informado");
+    expect(screen.getByTestId("variation-field-offer")).toHaveTextContent("Desconhecido");
+  });
+
+  it("never treats a visual-only reference as a factual source", () => {
+    render(
+      <CreativeVariationBrief
+        source={{ ...source, usage: "style", contentAnalysis: { ...source.contentAnalysis, offer: "20%" } }}
+        request=""
+        brandName={null}
+      />,
+    );
+
+    expect(screen.getByText("Referência visual não fornece fatos.")).toBeInTheDocument();
+    expect(screen.queryByText("20%")).not.toBeInTheDocument();
+  });
+
+  it("preserves a failed local edit and retries the same confirmed reading", async () => {
+    const onSave = vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    render(<CreativeVariationBrief source={source} request="" brandName="Cenbrap" onSave={onSave} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Corrigir leitura" }));
+    fireEvent.change(screen.getByLabelText("Oferta ou preço"), { target: { value: "30%" } });
+    fireEvent.change(screen.getByLabelText("Datas e condições"), { target: { value: "Até 30 de agosto\nVagas limitadas" } });
+    fireEvent.click(screen.getByRole("button", { name: "Salvar leitura" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Sua edição continua aqui");
+    expect(screen.getByLabelText("Oferta ou preço")).toHaveValue("30%");
+    fireEvent.click(screen.getByRole("button", { name: "Tentar salvar novamente" }));
+
+    expect(onSave).toHaveBeenLastCalledWith(expect.objectContaining({
+      contentAnalysis: expect.objectContaining({
+        offer: "30%",
+        textContent: expect.objectContaining({ bullets: ["Até 30 de agosto", "Vagas limitadas"] }),
+      }),
+    }));
+    expect(await screen.findByText("Leitura salva")).toBeInTheDocument();
+    expect(screen.getByTestId("variation-field-conditions")).toHaveTextContent("Até 30 de agosto · Vagas limitadas");
   });
 });

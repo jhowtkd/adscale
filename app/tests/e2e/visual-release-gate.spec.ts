@@ -296,11 +296,10 @@ test.describe("visual release gate", () => {
     if (!existsSync(EVIDENCE_PATH)) return;
     const evidence = JSON.parse(readFileSync(EVIDENCE_PATH, "utf8"));
     const checks: LayoutCheck[] = evidence.layoutChecks ?? [];
-    const expected = scenarioEntries.length * RELEASE_VIEWPORTS.length;
-    const allPass = checks.length >= expected && checks.every((check) => check.result === "pass");
+    const expected = scenarioEntries.length * (RELEASE_VIEWPORTS.length + 1);
+    const allPass = checks.length === expected && checks.every((check) => check.result === "pass");
     if (!allPass) return;
 
-    evidence.verifiedAt = new Date().toISOString();
     for (const id of ["RESP-07", "QA-15", "QA-16"]) {
       evidence.requirements[id] = {
         result: "pass",

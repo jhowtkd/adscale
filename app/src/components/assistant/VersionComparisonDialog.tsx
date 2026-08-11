@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  useEffect,
   useRef,
   useState,
   type KeyboardEvent,
@@ -546,7 +545,7 @@ export default function VersionComparisonDialog({
             <p>Atualiza a versão oficial e a versão em trabalho usadas fora do assistente.</p>
             <p>{lineage.pendingProposals.length} proposta(s) pendente(s) se tornarão obsoletas.</p>
             {needsPlanReview ? <p>Esta ação é única: ou as duas versões mudam, ou nenhuma muda.</p> : null}
-            <p>Esta ação não usa créditos e não exclui nenhuma versão.</p>
+            <p>Esta ação não exclui nenhuma versão.</p>
           </DialogBody>
           <DialogFooter>
             <Button type="button" variant="outline" disabled={busy} onClick={() => setConfirmationOpen(false)}>Voltar à comparação</Button>

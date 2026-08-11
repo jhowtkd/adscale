@@ -2,15 +2,6 @@ import { eq, and, desc } from "drizzle-orm";
 import { db } from "../db";
 import { workspaceMembers, workspaceInvites, user } from "../db/schema";
 
-export const ACTIVE_WORKSPACE_COOKIE = "adscale_active_workspace";
-export const ACTIVE_WORKSPACE_COOKIE_OPTIONS = {
-  httpOnly: true,
-  maxAge: 60 * 60 * 24 * 30,
-  path: "/",
-  sameSite: "lax" as const,
-  secure: process.env.NODE_ENV === "production",
-};
-
 export type InviteErrorCode =
   | "inviteNotFound"
   | "inviteRemoved"
@@ -18,21 +9,10 @@ export type InviteErrorCode =
   | "inviteExpired"
   | "inviteEmailMismatch";
 
-const INVITE_ERROR_STATUS: Record<InviteErrorCode, number> = {
-  inviteNotFound: 404,
-  inviteRemoved: 410,
-  inviteAlreadyAccepted: 409,
-  inviteExpired: 410,
-  inviteEmailMismatch: 403,
-};
-
 export class InviteStateError extends Error {
-  readonly status: number;
-
   constructor(readonly code: InviteErrorCode) {
     super(code);
     this.name = "InviteStateError";
-    this.status = INVITE_ERROR_STATUS[code];
   }
 }
 

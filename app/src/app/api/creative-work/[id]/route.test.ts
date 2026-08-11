@@ -347,7 +347,22 @@ describe("GET /api/creative-work/[id]", () => {
       work: workItem,
       outputs: [],
       sources: [
-        { id: "source-1", assetId: "asset-1", templateId: null, usage: "content", status: "ready" },
+        {
+          id: "source-1",
+          assetId: "asset-1",
+          templateId: null,
+          usage: "content",
+          status: "ready",
+          contentAnalysis: {
+            product: "Curso",
+            offer: "30%",
+            cta: { text: "Inscreva-se", style: "botão" },
+            brandElements: [],
+            keyVisual: "Médica",
+            textContent: { headline: "Nova turma", bullets: ["Até agosto"] },
+            format: "4:5",
+          },
+        },
         { id: "source-2", assetId: null, templateId: "template-1", usage: "style", status: "ready" },
       ],
     });
@@ -358,7 +373,12 @@ describe("GET /api/creative-work/[id]", () => {
     const body = await res.json();
 
     expect(body.sources).toEqual([
-      expect.objectContaining({ id: "source-1", name: "aprovada.png", origin: "approved_work" }),
+      expect.objectContaining({
+        id: "source-1",
+        name: "aprovada.png",
+        origin: "approved_work",
+        contentAnalysis: expect.objectContaining({ offer: "30%" }),
+      }),
       expect.objectContaining({ id: "source-2", name: "Black Friday", origin: "template" }),
     ]);
     expect(getAssetMock).toHaveBeenCalledWith("asset-1", "workspace-1");

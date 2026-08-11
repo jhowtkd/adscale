@@ -3,24 +3,22 @@ import type { SettingsV6Card } from "./settings-v6-types";
 
 const cardMeta: Record<
   SettingsTabId,
-  { icon: string; descriptionKey: string; badgeKey: string; badgeVariant: SettingsV6Card["badgeVariant"] }
+  { icon: string; descriptionKey: string; status: "available" | "requiresConfiguration" | "comingSoon"; badgeVariant: SettingsV6Card["badgeVariant"] }
 > = {
-  team: { icon: "👥", descriptionKey: "teamCard", badgeKey: "implemented", badgeVariant: "success" },
-  profile: { icon: "👤", descriptionKey: "profileCard", badgeKey: "outsideLab", badgeVariant: "neutral" },
-  workspace: { icon: "🖥", descriptionKey: "workspaceCard", badgeKey: "outsideLab", badgeVariant: "neutral" },
-  billing: { icon: "💳", descriptionKey: "billingCard", badgeKey: "capturePending", badgeVariant: "warning" },
-  creditHistory: { icon: "📊", descriptionKey: "creditHistoryCard", badgeKey: "implemented", badgeVariant: "success" },
-  plans: { icon: "📦", descriptionKey: "plansCard", badgeKey: "capturePending", badgeVariant: "warning" },
-  integrations: { icon: "🔌", descriptionKey: "integrationsCard", badgeKey: "capturePending", badgeVariant: "warning" },
-  privacy: { icon: "🔒", descriptionKey: "privacyCard", badgeKey: "implemented", badgeVariant: "success" },
+  team: { icon: "👥", descriptionKey: "teamCard", status: "available", badgeVariant: "success" },
+  profile: { icon: "👤", descriptionKey: "profileCard", status: "available", badgeVariant: "success" },
+  workspace: { icon: "🖥", descriptionKey: "workspaceCard", status: "available", badgeVariant: "success" },
+  billing: { icon: "💳", descriptionKey: "billingCard", status: "requiresConfiguration", badgeVariant: "warning" },
+  creditHistory: { icon: "📊", descriptionKey: "creditHistoryCard", status: "available", badgeVariant: "success" },
+  plans: { icon: "📦", descriptionKey: "plansCard", status: "requiresConfiguration", badgeVariant: "warning" },
+  integrations: { icon: "🔌", descriptionKey: "integrationsCard", status: "comingSoon", badgeVariant: "neutral" },
+  privacy: { icon: "🔒", descriptionKey: "privacyCard", status: "available", badgeVariant: "success" },
 };
 
 export function mapSettingsToV6Cards({
   t,
-  tc,
 }: {
   t: (key: string) => string;
-  tc: (key: string) => string;
 }): SettingsV6Card[] {
   return settingsTabs.map((tab) => {
     const meta = cardMeta[tab.id];
@@ -28,8 +26,9 @@ export function mapSettingsToV6Cards({
       id: tab.id,
       title: t(tab.labelKey),
       description: t(`v6.${meta.descriptionKey}`),
-      badge: tab.enabled ? t(`v6.badges.${meta.badgeKey}`) : tc("comingSoon"),
+      badge: t(`v6.statuses.${tab.enabled ? meta.status : "comingSoon"}`),
       badgeVariant: tab.enabled ? meta.badgeVariant : "neutral",
+      actionLabel: t(`v6.actions.${tab.enabled ? meta.status : "comingSoon"}`),
       enabled: tab.enabled,
       icon: meta.icon,
       href: `/settings?tab=${tab.id}`,

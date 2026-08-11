@@ -46,6 +46,7 @@ const updateCampaignSchema = z.object({
     path: ["targetFormats"],
   }
 );
+const campaignIdSchema = z.string().uuid();
 
 export async function GET(
   request: Request,
@@ -56,6 +57,9 @@ export async function GET(
       requireWorkspaceAccess(request),
       params,
     ]);
+    if (!campaignIdSchema.safeParse(id).success) {
+      return apiError("campaignNotFound", 404);
+    }
     const campaign = await getCampaignById(id, workspace.id);
 
     if (!campaign) {
@@ -77,6 +81,9 @@ export async function PATCH(
       requireWorkspaceAccess(request),
       params,
     ]);
+    if (!campaignIdSchema.safeParse(id).success) {
+      return apiError("campaignNotFound", 404);
+    }
     const body = await request.json();
     const parsed = updateCampaignSchema.safeParse(body);
 

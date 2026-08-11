@@ -2,7 +2,7 @@
 
 > **Fonte canônica do "o que é o ADScale, em que acredita, e como opera."**
 > Tudo passa pelo crivo da tese central **inteligência criativa em escala** (antes chamada "Curator > operator", reformulada em 2026-06-27).
-> Última atualização: 2026-08-09.
+> Última atualização: 2026-08-10.
 
 ---
 
@@ -24,6 +24,43 @@ A IA **reposiciona** o humano. Não substitui. [isso ficou vago e pouco rescriti
 - **Briefing inferido:** visão editável que combina a direção da peça com fatos sustentados pelo contexto autorizado. Cada campo permanece distinguível como sustentado, inferido ou desconhecido; desconhecidos não recebem valores genéricos.
 - **Prontidão do briefing:** estado que distingue direção pronta para geração normal, direção apenas exploratória sem claims e ausência de direção segura para gerar. Oferta, benefício, preço e outros fatos desconhecidos nunca são preenchidos para alcançar prontidão.
 - **Avaliação inconclusiva:** resultado pós-geração em que a integridade da peça não pôde ser confirmada nem refutada. A peça permanece disponível para decisão humana, mas não conta como aprovação automática.
+- **Veredito objetivo:** avaliação automática de integridade expressa como aprovado, reprovado ou inconclusivo. Não deriva do score subjetivo.
+- **Aprovação humana:** decisão explícita do operador de selecionar uma Peça. Pode confirmar um veredito inconclusivo ou ausente, mas nunca substituir uma reprovação objetiva.
+- **Dono da plataforma:** operador autorizado a acessar dados e ferramentas globais do ADScale entre workspaces. Não equivale a owner ou admin de um workspace.
+
+### Modelo de produto canônico
+
+**Trabalho**:
+Unidade criativa retomável que reúne intenção, briefing, fontes, estado e resultados sob uma marca.
+_Evitar_: Campanha como sinônimo, job, projeto.
+
+**Campanha**:
+Agrupamento opcional de Trabalhos que compartilham uma iniciativa, objetivo ou período.
+_Evitar_: Trabalho, pasta.
+
+**Protocolo**:
+Modo de criação aplicado a um Trabalho, como Variações, Peça única, Adaptar formatos ou Mudar estilo.
+_Evitar_: ferramenta, fluxo, tipo de campanha.
+
+**Rascunho**:
+Estado editável e retomável de um Trabalho, sempre vinculado a um único Protocolo. Trocar de Protocolo preserva o Rascunho atual em vez de convertê-lo.
+_Evitar_: sessão temporária, formulário descartável.
+
+**Peça**:
+Resultado visual produzido por um Trabalho, independentemente do Protocolo usado.
+_Evitar_: output, asset gerado, derivação.
+
+**Variação**:
+Peça criada como alternativa relacionada a uma base, direção ou Peça anterior.
+_Evitar_: versão, derivação.
+
+**Início**:
+Superfície operacional para começar um Trabalho ou retomar o mais relevante.
+_Evitar_: Dashboard.
+
+**Visão geral**:
+Superfície gerencial secundária para acompanhar indicadores, atividade e itens que exigem atenção.
+_Evitar_: Início, Dashboard como nome visível.
 
 ---
 

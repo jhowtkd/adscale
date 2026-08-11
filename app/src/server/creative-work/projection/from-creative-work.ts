@@ -1,4 +1,5 @@
 import {
+  getCanonicalWorkNextAction,
   mapCreativeWorkOutputStatusToCanonical,
   normalizeCreativeWorkState,
 } from "@/server/creative-work/canonical/status";
@@ -9,7 +10,6 @@ import {
   type CanonicalCreativeWork,
   type CanonicalOutput,
   type CanonicalVersion,
-  type CanonicalWorkNextAction,
   type CanonicalWorkSummary,
 } from "@/server/creative-work/canonical/types";
 import {
@@ -21,6 +21,7 @@ export interface CreativeWorkProjectionSource {
   id: string;
   workspaceId: string;
   clientProfileId: string;
+  brandName?: string | null;
   campaignId?: string | null;
   title?: string;
   toolKind: string;
@@ -65,13 +66,6 @@ function resumeHrefForCreativeWork(workItemId: string, campaignId: string | null
   return campaignId
     ? `/campaigns/${campaignId}?creativeWork=${workItemId}`
     : `/creative-work/${workItemId}`;
-}
-
-function nextActionForState(state: CanonicalCreativeWork["state"]): CanonicalWorkNextAction {
-  if (state === "failed") return "retry";
-  if (state === "reviewing" || state === "approved" || state === "delivered") return "review";
-  if (state === "generating") return "open";
-  return "resume";
 }
 
 export function projectCreativeWorkAsCanonicalWork(
@@ -177,13 +171,15 @@ export function projectCreativeWorkAsCanonicalWork(
     resumable: state !== "abandoned" && state !== "failed",
     resumeHref: resumeHrefForCreativeWork(work.id, work.campaignId),
     protocol: work.toolKind === "social_post" ? "variations" : work.toolKind,
-    brandName: null,
+    brandName: work.brandName ?? null,
     previewHref: preview
       ? `/api/creative-work/${work.id}/outputs/${preview.id}/download`
       : null,
     previewAlt: name,
-    resultCount: outputs.length,
-    nextAction: nextActionForState(state),
+    resultCount: canonicalOutputs.filter(
+      (output) => output.outputKey && (output.status === "ready" || output.status === "approved"),
+    ).length,
+    nextAction: getCanonicalWorkNextAction(state),
   };
 }
 

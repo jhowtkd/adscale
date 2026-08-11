@@ -1067,6 +1067,8 @@
       "approvedLabel": "aprovadas",
       "resultsLabel": "resultados",
       "previewUnavailable": "Preview indisponível",
+      "previewLoading": "Carregando preview",
+      "previewError": "Falha ao carregar preview",
       "protocols": {
         "campaign": "Campanha",
         "variations": "Variações",

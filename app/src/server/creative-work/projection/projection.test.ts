@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import {
   ImpossibleCanonicalStateError,
+  getCanonicalWorkNextAction,
   normalizeCampaignState,
   normalizeCreativeWorkState,
   mapDerivationStatusToCanonical,
@@ -134,6 +135,28 @@ describe("canonical types", () => {
       originId: WORK_ID,
     });
     expect(parseCanonicalWorkId("not-an-id")).toBeNull();
+  });
+
+  it("derives one next action for every canonical state", () => {
+    expect([
+      "intending",
+      "briefing",
+      "generating",
+      "reviewing",
+      "approved",
+      "delivered",
+      "abandoned",
+      "failed",
+    ].map((state) => getCanonicalWorkNextAction(state as never))).toEqual([
+      "resume",
+      "resume",
+      "open",
+      "review",
+      "review",
+      "review",
+      "resume",
+      "retry",
+    ]);
   });
 });
 
@@ -293,6 +316,14 @@ describe("projectCampaignAsCanonicalWork", () => {
     expect(work.protocol).toBe("format_adaptation");
     expect(work.resultCount).toBe(4);
   });
+
+  it("counts completed campaign results instead of every derivation", () => {
+    const work = projectCampaignAsCanonicalWork(
+      campaignFixture({ status: "active", totalDerivations: 4, completedDerivations: 2 }),
+    );
+
+    expect(work.resultCount).toBe(2);
+  });
 });
 
 describe("projectCreativeWorkAsCanonicalWork (Criar Post fixture)", () => {
@@ -450,6 +481,15 @@ describe("projectCreativeWorkAsCanonicalWork (Criar Post fixture)", () => {
       "balanced 4:5 · v1",
       "balanced 4:5 · v2",
     ]);
+    expect(work.resultCount).toBe(2);
+  });
+
+  it("keeps the client profile name in the canonical projection", () => {
+    const work = projectCreativeWorkAsCanonicalWork(
+      creativeWorkFixture({ brandName: "Marca Aurora" }),
+    );
+
+    expect(work.brandName).toBe("Marca Aurora");
   });
 
   it("projects every directional output sharing the same level and format", () => {

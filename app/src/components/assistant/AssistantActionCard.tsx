@@ -6,11 +6,9 @@ import { Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  formatCreditImpact,
   getRiskLabelVariant,
   isTerminalActionStatus,
   parseActionCardDisplay,
-  shouldShowCreditImpact,
   type ActionCardStatus,
 } from "@/lib/assistant/contract-display";
 import {
@@ -37,14 +35,7 @@ function parseStatus(payload: Record<string, unknown>): ActionCardStatus {
   return "pending";
 }
 
-function extractCreditCost(creditImpact: unknown): number | null {
-  if (!creditImpact || typeof creditImpact !== "object") return null;
-  const record = creditImpact as Record<string, unknown>;
-  if (typeof record.credits === "number") return record.credits;
-  const label = typeof record.label === "string" ? record.label : "";
-  const match = label.match(/(\d+)/);
-  return match ? Number.parseInt(match[1], 10) : null;
-}
+const FINANCIAL_COPY = /\b(cr[eé]ditos?|credits?|saldo|balance|custo|cost|pre[çc]o|price|estimativa|estimate)\b/i;
 
 function resolveProposalId(
   payload: Record<string, unknown>,
@@ -165,7 +156,8 @@ export default function AssistantActionCard({
       ? "Confirmar revisão do criativo"
       : t("confirm");
 
-  const creditCost = extractCreditCost(display?.creditImpact) ?? 5;
+  const visibleWrites = display?.writes?.filter((line) => !FINANCIAL_COPY.test(line));
+  const visibleRiskCopy = display?.riskCopyLines?.filter((line) => !FINANCIAL_COPY.test(line));
 
   return (
     <div
@@ -260,12 +252,12 @@ export default function AssistantActionCard({
               <dd>Plano: {display.planVersionLabel}</dd>
             </div>
           ) : null}
-          {display.writes && display.writes.length > 0 ? (
+          {visibleWrites && visibleWrites.length > 0 ? (
             <div>
               <dt className="font-medium text-[var(--text-muted)]">Efeitos</dt>
               <dd>
                 <ul className="mt-1 list-disc space-y-1 pl-4">
-                  {display.writes.map((line) => (
+                  {visibleWrites.map((line) => (
                     <li key={line}>{line}</li>
                   ))}
                 </ul>
@@ -275,14 +267,6 @@ export default function AssistantActionCard({
           {display.proposalStatus === "stale" ? (
             <div className="text-[var(--warning-text)]">
               Esta proposta pode estar obsoleta. Atualize antes de confirmar.
-            </div>
-          ) : null}
-          {shouldShowCreditImpact(display) ? (
-            <div>
-              <dt className="font-medium text-[var(--text-muted)]">
-                {t("creditImpact")}
-              </dt>
-              <dd>{formatCreditImpact(display.creditImpact)}</dd>
             </div>
           ) : null}
           {display.confirmationPolicy ? (
@@ -297,14 +281,14 @@ export default function AssistantActionCard({
               </dd>
             </div>
           ) : null}
-          {display.riskCopyLines && display.riskCopyLines.length > 0 ? (
+          {visibleRiskCopy && visibleRiskCopy.length > 0 ? (
             <div>
               <dt className="font-medium text-[var(--text-muted)]">
                 {t("riskDetails")}
               </dt>
               <dd>
                 <ul className="mt-1 list-disc space-y-1 pl-4">
-                  {display.riskCopyLines.map((line) => (
+                  {visibleRiskCopy.map((line) => (
                     <li key={line}>{line}</li>
                   ))}
                 </ul>
@@ -412,7 +396,6 @@ export default function AssistantActionCard({
       {isReviseCreative ? (
         <CreditConfirmModal
           open={showCreditModal}
-          creditCost={creditCost}
           isPending={confirmMutation.isPending}
           onConfirm={handleModalConfirm}
           onCancel={handleModalCancel}

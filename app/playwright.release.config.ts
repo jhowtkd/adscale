@@ -12,7 +12,7 @@ export default defineConfig({
   reporter: [["list"]],
   outputDir: "test-results/visual-release-gate/artifacts",
   webServer: {
-    command: "E2E_DISABLE_RATE_LIMIT=true npm run dev:next",
+    command: "E2E_DISABLE_RATE_LIMIT=true PLATFORM_OWNER_EMAILS=visual-foundations@example.test npm run dev:next",
     url: "http://localhost:3000/login",
     timeout: 120_000,
     reuseExistingServer: true,
@@ -97,6 +97,14 @@ export default defineConfig({
         viewport: { width: 1280, height: 900 },
         hasTouch: false,
         isMobile: false,
+      },
+    },
+    {
+      name: "feedback-role-matrix",
+      testMatch: /feedback-role-matrix\.spec\.ts$/,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 1280, height: 900 },
       },
     },
   ],

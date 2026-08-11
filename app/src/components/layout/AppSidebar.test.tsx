@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 
 let pathnameMock = "/campaigns";
+let platformOwnerAllowed = true;
 
 vi.mock("next/navigation", () => ({
   usePathname: () => pathnameMock,
@@ -23,6 +24,9 @@ vi.mock("@/lib/hooks/use-canonical-works", () => ({
 }));
 vi.mock("@/lib/hooks/use-billing", () => ({
   useBillingStatus: vi.fn(),
+}));
+vi.mock("@/lib/hooks/use-platform-owner", () => ({
+  usePlatformOwnerAccess: () => ({ data: { allowed: platformOwnerAllowed } }),
 }));
 vi.mock("@/lib/auth-client", () => ({
   authClient: {
@@ -52,6 +56,7 @@ import { authClient } from "@/lib/auth-client";
 describe("AppSidebar role-aware navigation", () => {
   beforeEach(() => {
     pathnameMock = "/campaigns";
+    platformOwnerAllowed = true;
     vi.mocked(useBillingStatus).mockReturnValue({
       data: { access: { kind: "paid", role: "owner", label: "Owner" }, creditBalance: 10 },
     } as ReturnType<typeof useBillingStatus>);
@@ -138,6 +143,7 @@ describe("AppSidebar role-aware navigation", () => {
   });
 
   it("hides Feedback link for non-owner/admin roles", () => {
+    platformOwnerAllowed = false;
     vi.mocked(useBillingStatus).mockReturnValue({
       data: { access: { kind: "tester", label: "Tester" }, creditBalance: 10 },
     } as ReturnType<typeof useBillingStatus>);

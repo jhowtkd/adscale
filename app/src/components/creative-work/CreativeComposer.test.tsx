@@ -26,7 +26,7 @@ vi.mock("next-intl", () => ({ useTranslations: () => (key: string, values?: Reco
   addOriginalArt: "Adicionar arte original", addStyleArt: "Adicionar referência de estilo",
   removeOriginalArt: "Remover arte original", removeStyleArt: "Remover referência de estilo",
   previewUnavailable: "Imagem indisponível", sourceUploading: "Enviando imagem", sourceReady: "Imagem pronta",
-  restyleAddArt: "Adicionar arte original", addStyleReference: "Adicionar referência de estilo", generateRestyle: "Gerar reestilização · 5 créditos",
+  restyleAddArt: "Adicionar arte original", addStyleReference: "Adicionar referência de estilo", generateRestyle: "Gerar reestilização",
   actionSaving: "Salvando", actionPreparing: "Preparando", actionSubmitting: "Enviando para geração", actionGenerating: "Gerando",
   optionalSettings: "Ajustes opcionais", format: "Formato", formatAuto: "Automático (agora: 4:5)", targetFormats: "Formatos de destino",
   directionHelpLabel: `Ajuda sobre ${values?.direction}`, directionHelp: `Usa a orientação ${values?.instruction}`,
@@ -47,7 +47,7 @@ vi.mock("next-intl", () => ({ useTranslations: () => (key: string, values?: Reco
   brandConflictChoiceSourceAria: `Usar a marca da arte, ${values?.brand}, como autoridade de marca`,
   brandConflictChoiceActive: `Manter a marca ativa (${values?.brand})`,
   brandConflictChoiceActiveAria: `Manter a marca ativa, ${values?.brand}, como autoridade de marca`,
-}[key] ?? (key === "generate" ? `Gerar ${values?.count} variações · ${values?.credits} créditos` : key)) }));
+}[key] ?? (key === "generate" ? `Gerar ${values?.count} variações` : key)) }));
 
 import { CreativeComposer } from "./CreativeComposer";
 import type { CreativeComposerModel, CreativeComposerViewModel } from "./useCreativeComposer";
@@ -279,12 +279,13 @@ describe("CreativeComposer", () => {
     },
   );
 
-  it("shows the canonical paid CTA and sends dropped files to the same composer", () => {
+  it("shows the canonical CTA without financial copy and sends dropped files to the same composer", () => {
     const value = composer();
     renderComposer(value);
     const file = new File(["image"], "arte.png", { type: "image/png" });
 
-    expect(screen.getByRole("button", { name: "Gerar 3 variações · 15 créditos" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Gerar 3 variações" })).toBeInTheDocument();
+    expect(screen.queryByText(/crédit/i)).not.toBeInTheDocument();
     fireEvent.drop(screen.getByTestId("creative-composer-dropzone"), { dataTransfer: { files: [file] } });
     expect(value.addFiles).toHaveBeenCalledWith([file]);
     expect(screen.getByLabelText("Adicionar arte", { selector: "input" })).toHaveAttribute("tabindex", "-1");
@@ -300,7 +301,7 @@ describe("CreativeComposer", () => {
 
     expect(screen.getByRole("heading", { name: "Copiar o estilo da referência" })).toBeInTheDocument();
     expect(screen.queryByRole("textbox", { name: /pedido criativo/i })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Gerar reestilização · 5 créditos" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Gerar reestilização" })).toBeInTheDocument();
     expect(screen.getByLabelText("Adicionar arte original", { selector: "input" })).toBeInTheDocument();
     expect(screen.getByLabelText("Adicionar referência de estilo", { selector: "input" })).toBeInTheDocument();
     expect(screen.queryByText("Ajustes opcionais")).not.toBeInTheDocument();
@@ -376,7 +377,7 @@ describe("CreativeComposer", () => {
       quote: { unitCount: 1, credits: 5 },
     }));
 
-    expect(screen.getByRole("button", { name: "Gerar reestilização · 5 créditos" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Gerar reestilização" })).toBeDisabled();
   });
 
   it("routes restyle retry and remove to the matching visual card", () => {
@@ -568,7 +569,7 @@ describe("CreativeComposer", () => {
     const value = composer({ workId: "work-1", intent: "single", quote: { unitCount: 1, credits: 5 } });
     renderComposer(value);
     expect(value.selectIntent).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "Gerar 1 variações · 5 créditos" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Gerar 1 variações" })).toBeInTheDocument();
   });
 
   it("renders a focusable inline brand choice and disables paid work for a new draft", () => {
@@ -629,12 +630,15 @@ describe("CreativeComposer", () => {
     });
     renderComposer(value);
 
-    expect(screen.getAllByRole("img")).toHaveLength(2);
-    expect(screen.getByText("Gerando...")).toBeVisible();
-    fireEvent.click(screen.getAllByRole("button", { name: "Aprovar" })[0]);
-    expect(value.approveOutput).toHaveBeenCalledWith("output-1");
-    expect(screen.getAllByRole("button", { name: "Baixar" })).toHaveLength(2);
-    expect(screen.getAllByRole("button", { name: "Editar" })).toHaveLength(2);
+    expect(screen.getAllByRole("img")).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Selecionar Ousada em 4:5" }));
+    expect(screen.getByText("Gerando…")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Selecionar Conservadora em 4:5" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "reviewBeforeApprove" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "confirmApproval" })[0]);
+    expect(value.approveOutput).toHaveBeenCalledWith("output-1", true);
+    expect(screen.getAllByRole("button", { name: "Baixar" })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "Editar" })).toHaveLength(1);
   });
 
   it("groups an existing campaign without creating one", () => {

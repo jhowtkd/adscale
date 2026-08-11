@@ -5,9 +5,12 @@ import { getSessionFromHeaders } from "@/server/auth/session";
 import {
   ACTIVE_WORKSPACE_COOKIE,
   ACTIVE_WORKSPACE_COOKIE_OPTIONS,
+} from "@/server/auth/workspace";
+import {
   acceptInvite,
   isInviteStateError,
 } from "@/server/auth/team";
+import { getInviteErrorHttpStatus } from "@/server/auth/invite-http";
 
 const acceptInviteSchema = z.object({
   token: z.string().min(1),
@@ -33,7 +36,7 @@ export async function POST(request: Request) {
     response.cookies.set(ACTIVE_WORKSPACE_COOKIE, accepted.workspaceId, ACTIVE_WORKSPACE_COOKIE_OPTIONS);
     return response;
   } catch (error) {
-    if (isInviteStateError(error)) return apiError(error.code, error.status);
+    if (isInviteStateError(error)) return apiError(error.code, getInviteErrorHttpStatus(error.code));
     return handleApiError(error, "workspace.invites.accept.POST");
   }
 }

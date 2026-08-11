@@ -31,5 +31,17 @@ export function buildCampaignsV6Labels(t: Translate, tc: Translate): CampaignsV6
     delete: tc("delete"),
     variationsLabel: t("v6.variationsLabel"),
     approvedLabel: t("v6.approvedLabel"),
+    formatProtocol: (protocol) => {
+      const key = `v6.protocols.${protocol ?? "unknown"}` as Parameters<typeof t>[0];
+      return t.has(key) ? t(key) : protocol ?? t("v6.protocols.unknown");
+    },
+    formatNextAction: (action) => {
+      const key = `v6.nextActions.${action ?? "open"}` as Parameters<typeof t>[0];
+      return t.has(key) ? t(key) : t("v6.nextActions.open");
+    },
+    resultsLabel: t("v6.resultsLabel"),
+    previewUnavailable: t("v6.previewUnavailable"),
+    previewLoading: t("v6.previewLoading"),
+    previewError: t("v6.previewError"),
   };
 }

@@ -4,11 +4,15 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
+import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
+import { useBrandTrainingStatus } from "@/lib/hooks/use-brand-training";
 
 export default function SidebarBrandKitFeature() {
   const tNav = useTranslations("navigation");
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { activeClientProfileId } = useActiveClientProfile();
+  const { data: training, isLoading } = useBrandTrainingStatus(activeClientProfileId);
   const settingsTab = searchParams.get("tab");
   const isActive =
     pathname.startsWith("/brand-kit") ||
@@ -36,11 +40,16 @@ export default function SidebarBrandKitFeature() {
           <span className="text-[13px] font-semibold text-[var(--text-primary)]">
             {tNav("brandKit")}
           </span>
-          <span className="rounded-full border border-[color-mix(in_oklch,var(--warning-text)_40%,transparent)] px-1.5 py-0.5 font-mono text-[9px] font-semibold text-[var(--warning-text)]">
-            {tNav("brandKitBeta")}
-          </span>
         </span>
-        <span className="text-[11px] text-[var(--text-muted)]">{tNav("brandKitHint")}</span>
+        <span className="text-[11px] text-[var(--text-muted)]">
+          {isLoading
+            ? tNav("brandKitStatusLoading")
+            : training?.trained
+              ? tNav("brandKitStatusReady")
+              : activeClientProfileId
+                ? tNav("brandKitStatusSetup")
+                : tNav("brandKitStatusSelect")}
+        </span>
       </span>
     </Link>
   );

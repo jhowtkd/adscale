@@ -1,4 +1,5 @@
 import {
+  getCanonicalWorkNextAction,
   mapDerivationStatusToCanonical,
   normalizeCampaignState,
 } from "@/server/creative-work/canonical/status";
@@ -9,7 +10,6 @@ import {
   type CanonicalCreativeWork,
   type CanonicalOutput,
   type CanonicalVersion,
-  type CanonicalWorkNextAction,
   type CanonicalWorkSummary,
 } from "@/server/creative-work/canonical/types";
 
@@ -52,13 +52,6 @@ export interface DerivationProjectionSource {
 
 function resumeHrefForCampaign(campaignId: string): string {
   return `/campaigns/${campaignId}`;
-}
-
-function nextActionForState(state: CanonicalCreativeWork["state"]): CanonicalWorkNextAction {
-  if (state === "failed") return "retry";
-  if (state === "reviewing" || state === "approved" || state === "delivered") return "review";
-  if (state === "generating") return "open";
-  return "resume";
 }
 
 export function projectCampaignAsCanonicalWork(
@@ -140,8 +133,9 @@ export function projectCampaignAsCanonicalWork(
     brandName: campaign.client,
     previewHref: null,
     previewAlt: campaign.name,
-    resultCount: campaign.totalDerivations ?? derivations.length,
-    nextAction: nextActionForState(state),
+    resultCount: campaign.completedDerivations
+      ?? outputs.filter((output) => output.outputKey && (output.status === "ready" || output.status === "approved")).length,
+    nextAction: getCanonicalWorkNextAction(state),
   };
 }
 

@@ -1,5 +1,4 @@
-import { notFound } from "next/navigation";
-import { validateShareToken } from "@/lib/share-token";
+import { resolveShareToken } from "@/lib/share-token";
 import { recordShareLinkOpened } from "@/server/beta-analytics/share-analytics";
 import { logger } from "@/lib/logger";
 import { db } from "@/server/db";
@@ -23,16 +22,35 @@ interface SharePageProps {
   params: Promise<{ token: string }>;
 }
 
+function ShareStatus({ title, body }: { title: string; body: string }) {
+  return (
+    <main id="main" className="flex min-h-screen items-center justify-center bg-[var(--canvas)] px-4">
+      <div className="max-w-md rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-8 text-center">
+        <h1 className="text-2xl font-semibold text-[var(--text-primary)]">{title}</h1>
+        <p className="mt-3 text-sm text-[var(--text-secondary)]">{body}</p>
+      </div>
+    </main>
+  );
+}
+
 export default async function SharePage({ params }: SharePageProps) {
   const { token } = await params;
-  const [link, locale] = await Promise.all([
-    validateShareToken(token),
+  const [resolution, locale] = await Promise.all([
+    resolveShareToken(token),
     getLocale(),
   ]);
+  const t = await getTranslations({ locale, namespace: "share" });
 
-  if (!link) {
-    notFound();
+  if (resolution.status !== "valid") {
+    const copy = {
+      invalid: { title: t("invalidTitle"), body: t("invalidBody") },
+      expired: { title: t("expiredTitle"), body: t("expiredBody") },
+      removed: { title: t("removedTitle"), body: t("removedBody") },
+    }[resolution.status];
+    return <ShareStatus {...copy} />;
   }
+
+  const { link } = resolution;
 
   void recordShareLinkOpened({
     workspaceId: link.workspaceId,
@@ -42,30 +60,46 @@ export default async function SharePage({ params }: SharePageProps) {
     logger.warn("[share page] share_link_opened analytics failed", err);
   });
 
-  const [t, [campaign], items] = await Promise.all([
-    getTranslations({ locale, namespace: "share" }),
-    db
-      .select({
-        name: campaigns.name,
-        client: campaigns.client,
-        notes: campaigns.notes,
-      })
-      .from(campaigns)
-      .where(eq(campaigns.id, link.campaignId))
-      .limit(1),
-    db
-      .select({
-        id: derivations.id,
-        outputKey: derivations.outputKey,
-        format: derivations.format,
-        generationMode: derivations.generationMode,
-        variantIndex: derivations.variantIndex,
-        ctaText: derivations.ctaText,
-        createdAt: derivations.createdAt,
-      })
-      .from(derivations)
-      .where(inArray(derivations.id, link.derivationIds)),
-  ]);
+  let campaign;
+  let items;
+  try {
+    [[campaign], items] = await Promise.all([
+      db
+        .select({
+          name: campaigns.name,
+          client: campaigns.client,
+          notes: campaigns.notes,
+        })
+        .from(campaigns)
+        .where(eq(campaigns.id, link.campaignId))
+        .limit(1),
+      link.derivationIds.length > 0
+        ? db
+            .select({
+              id: derivations.id,
+              outputKey: derivations.outputKey,
+              format: derivations.format,
+              generationMode: derivations.generationMode,
+              variantIndex: derivations.variantIndex,
+              ctaText: derivations.ctaText,
+              createdAt: derivations.createdAt,
+            })
+            .from(derivations)
+            .where(inArray(derivations.id, link.derivationIds))
+        : Promise.resolve([]),
+    ]);
+  } catch (error) {
+    logger.warn("[share page] package unavailable", error);
+    return <ShareStatus title={t("unavailableTitle")} body={t("unavailableBody")} />;
+  }
+
+  if (!campaign) {
+    return <ShareStatus title={t("removedTitle")} body={t("removedBody")} />;
+  }
+
+  if (link.derivationIds.length > 0 && items.length === 0) {
+    return <ShareStatus title={t("unavailableTitle")} body={t("unavailableBody")} />;
+  }
 
   const galleryItems = items.flatMap((d) =>
     d.outputKey
@@ -84,13 +118,13 @@ export default async function SharePage({ params }: SharePageProps) {
   );
 
   return (
-    <main className="min-h-screen bg-[var(--canvas)]">
+    <main id="main" className="min-h-screen bg-[var(--canvas)]">
       <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="mb-8 text-center">
           <h1 className="text-2xl font-bold text-[var(--text-primary)] sm:text-3xl">
-            {campaign?.name ?? t("fallbackTitle")}
+            {campaign.name ?? t("fallbackTitle")}
           </h1>
-          {campaign?.client && (
+          {campaign.client && (
             <p className="mt-1 text-sm text-[var(--text-muted)]">
               {campaign.client}
             </p>
@@ -109,7 +143,7 @@ export default async function SharePage({ params }: SharePageProps) {
               <li>{t("recipientGuideStepDownload")}</li>
             </ul>
           </div>
-          {campaign?.notes && (
+          {campaign.notes && (
             <p className="mx-auto mt-4 max-w-2xl rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-base)] px-4 py-3 text-sm text-[var(--text-secondary)]">
               {campaign.notes}
             </p>

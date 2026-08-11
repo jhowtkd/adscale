@@ -28,7 +28,7 @@ type InteractionCheck = {
   invalidLabelledBy: string[];
   focusOrder: boolean;
   accessibleControls: boolean;
-  textZoomOverflowX: number;
+  textResizeOverflowX: number;
   lowHeightOverflowX: number;
   touchTargetMin: number;
   result: "pass" | "fail";
@@ -214,7 +214,7 @@ test.describe("visual a11y gate", () => {
       });
       return Math.round(Math.min(...dimensions));
     });
-    const textZoomOverflowX = await page.evaluate(() => {
+    const textResizeOverflowX = await page.evaluate(() => {
       const root = document.documentElement;
       const previous = root.style.fontSize;
       root.style.fontSize = "200%";
@@ -236,7 +236,7 @@ test.describe("visual a11y gate", () => {
       ...shell,
       focusOrder: passwordFocused && submitFocused,
       accessibleControls,
-      textZoomOverflowX,
+      textResizeOverflowX,
       lowHeightOverflowX,
       touchTargetMin,
       result:
@@ -246,7 +246,7 @@ test.describe("visual a11y gate", () => {
         && passwordFocused
         && submitFocused
         && accessibleControls
-        && textZoomOverflowX <= 2
+        && textResizeOverflowX <= 2
         && lowHeightOverflowX <= 2
         && touchTargetMin >= 44
           ? "pass"
@@ -259,7 +259,7 @@ test.describe("visual a11y gate", () => {
     expect(check.invalidLabelledBy, `login@${width}: valid aria-labelledby refs`).toEqual([]);
     expect(check.focusOrder, `login@${width}: keyboard focus order`).toBe(true);
     expect(check.accessibleControls, `login@${width}: accessible control names`).toBe(true);
-    expect(check.textZoomOverflowX, `login@${width}: text zoom horizontal overflow`).toBeLessThanOrEqual(2);
+    expect(check.textResizeOverflowX, `login@${width}: 200% text resize horizontal overflow`).toBeLessThanOrEqual(2);
     expect(check.lowHeightOverflowX, `login@${width}: low-height horizontal overflow`).toBeLessThanOrEqual(2);
     expect(check.touchTargetMin, `login@${width}: primary touch target`).toBeGreaterThanOrEqual(44);
   });
@@ -285,28 +285,31 @@ test.describe("visual a11y gate", () => {
       interactions.some((check) => check.key === key && check.result === "pass"),
     );
     evidence.requirements = evidence.requirements ?? {};
+    const previousQa17 = evidence.requirements["QA-17"] ?? {};
+    const manualPass = previousQa17.manualAssistiveTechnology === "pass"
+      && previousQa17.manualZoom200 === "pass"
+      && previousQa17.manualDegradedStates === "pass"
+      && typeof previousQa17.manualEvidence === "string"
+      && previousQa17.manualEvidence.trim().length > 0;
     evidence.requirements["QA-17"] = {
-      ...(evidence.requirements["QA-17"] ?? {}),
-      result: allA11yPass && allInteractionPass ? "pass" : "pending",
+      ...previousQa17,
+      result: allA11yPass && allInteractionPass && manualPass ? "pass" : "pending",
       a11y: allA11yPass ? "pass" : "pending",
       interaction: allInteractionPass ? "pass" : "pending",
       expectedA11yChecks: expectedKeys.length,
       completedA11yChecks: checks.filter((check) => expectedKeys.includes(check.key) && check.result === "pass").length,
       expectedInteractionChecks: expectedInteractionKeys.length,
       completedInteractionChecks: interactions.filter((check) => expectedInteractionKeys.includes(check.key) && check.result === "pass").length,
-      manualAssistiveTechnology: evidence.requirements["QA-17"]?.manualAssistiveTechnology ?? "pending",
+      manualAssistiveTechnology: previousQa17.manualAssistiveTechnology ?? "pending",
+      manualZoom200: previousQa17.manualZoom200 ?? "pending",
+      manualDegradedStates: previousQa17.manualDegradedStates ?? "pending",
       routes: expectedKeys.join(", "),
     };
-    if (!allA11yPass || !allInteractionPass) {
+    if (!allA11yPass || !allInteractionPass || !manualPass) {
       delete evidence.verifiedAt;
       writeFileSync(EVIDENCE_PATH, `${JSON.stringify(evidence, null, 2)}\n`);
       return;
     }
-    evidence.requirements["QA-17"] = {
-      ...(evidence.requirements["QA-17"] ?? {}),
-      a11y: "pass",
-      routes: expectedKeys.join(", "),
-    };
     writeFileSync(EVIDENCE_PATH, `${JSON.stringify(evidence, null, 2)}\n`);
   });
 });

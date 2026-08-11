@@ -50,7 +50,7 @@ export default function SettingsV6View({
               <div className="flex items-center justify-between border-t border-[var(--border-subtle)] pt-3">
                 <SettingsBadge variant={card.badgeVariant} label={card.badge} />
                 <span className="text-sm text-[var(--text-muted)]">
-                  {card.enabled ? labels.openCard : labels.unavailable}
+                  {card.actionLabel}
                 </span>
               </div>
             </article>

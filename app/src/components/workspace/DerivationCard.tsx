@@ -469,12 +469,7 @@ export default function DerivationCard({
           </p>
         )}
 
-        {/* Row 4: Cost + stage primary actions + overflow */}
-        <div className="flex items-center justify-between gap-2 pt-1">
-          <span className="text-xs text-[var(--text-muted)]">
-            ~{derivation.creditCost} {commonT("credits")}
-          </span>
-
+        <div className="flex items-center justify-end gap-2 pt-1">
           <div className="flex items-center gap-1">
             {showOverflowMenu ? (
               <DropdownMenu>

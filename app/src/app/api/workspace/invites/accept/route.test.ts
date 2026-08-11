@@ -5,6 +5,11 @@ vi.mock("@/server/auth/session", () => ({
 }));
 
 vi.mock("@/server/auth/team", () => ({
+  acceptInvite: vi.fn(),
+  isInviteStateError: () => false,
+}));
+
+vi.mock("@/server/auth/workspace", () => ({
   ACTIVE_WORKSPACE_COOKIE: "adscale_active_workspace",
   ACTIVE_WORKSPACE_COOKIE_OPTIONS: {
     httpOnly: true,
@@ -13,8 +18,6 @@ vi.mock("@/server/auth/team", () => ({
     sameSite: "lax",
     secure: false,
   },
-  acceptInvite: vi.fn(),
-  isInviteStateError: () => false,
 }));
 
 vi.mock("next-intl/server", () => ({

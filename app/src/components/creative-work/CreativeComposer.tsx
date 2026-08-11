@@ -386,7 +386,18 @@ export function CreativeComposer({ composer, composerRef }: {
           </div>
           <div className="min-w-0 space-y-4" data-testid="variation-guidance">
             {variationDirections}
-            {readyVariationSource ? <CreativeVariationBrief source={readyVariationSource} /> : null}
+            {readyVariationSource ? (
+              <CreativeVariationBrief
+                source={readyVariationSource}
+                request={composer.request}
+                brandName={composer.brandName}
+                onSave={({ contentAnalysis, styleAnalysis }) => composer.editSource(
+                  readyVariationSource.id,
+                  contentAnalysis,
+                  styleAnalysis,
+                )}
+              />
+            ) : null}
           </div>
         </section>
       ) : variationDirections}
@@ -579,10 +590,9 @@ export function CreativeComposer({ composer, composerRef }: {
             <AnimatedDisplayValue
               value={
                 isRestyle
-                  ? t("generateRestyle", { credits: composer.quote.credits })
+                  ? t("generateRestyle")
                   : t("generate", {
                       count: composer.quote.unitCount,
-                      credits: composer.quote.credits,
                     })
               }
             />

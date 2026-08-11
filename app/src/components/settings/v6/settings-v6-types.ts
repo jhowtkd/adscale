@@ -6,6 +6,7 @@ export type SettingsV6Card = {
   description: string;
   badge: string;
   badgeVariant: SettingsV6BadgeVariant;
+  actionLabel: string;
   enabled: boolean;
   icon: string;
   href: string;

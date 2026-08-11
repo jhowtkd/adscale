@@ -339,7 +339,6 @@ function IngestStep({
       ))}
 
       <div className="flex items-center justify-between rounded-md bg-[var(--surface-raised)] px-3 py-2">
-        <span className="text-xs text-[var(--text-muted)]">{t("creditHint")}</span>
         <Button onClick={handleExtract} disabled={extractMulti.isPending} className="gap-1.5">
           {extractMulti.isPending ? (
             <Loader2 size={16} className="animate-spin" />

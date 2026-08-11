@@ -42,7 +42,7 @@ export default function AppShell({ children }: AppShellProps) {
           href="/"
           label={tNav("home")}
           icon={Home}
-          active={pathname === "/" || pathname === "/dashboard" || pathname.startsWith("/dashboard/")}
+          active={pathname === "/"}
         />
         <MobileNavItem
           href="/campaigns"

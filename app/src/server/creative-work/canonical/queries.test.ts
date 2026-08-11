@@ -14,6 +14,11 @@ vi.mock("@/server/repositories/derivation", () => ({
   getDerivationsByCampaign: vi.fn(),
 }));
 
+vi.mock("@/server/repositories/client-reference", () => ({
+  getClientProfile: vi.fn(),
+  getClientProfiles: vi.fn(),
+}));
+
 vi.mock("@/lib/logger", () => ({
   logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
@@ -24,6 +29,10 @@ import {
   listCreativeWorksWithOutputs,
 } from "@/server/repositories/creative-work";
 import { getDerivationsByCampaign } from "@/server/repositories/derivation";
+import {
+  getClientProfile,
+  getClientProfiles,
+} from "@/server/repositories/client-reference";
 import {
   listCanonicalWorks,
   openCanonicalWork,
@@ -36,6 +45,8 @@ const mockGetCampaignsPage = vi.mocked(getCampaignsPage);
 const mockGetCreativeWork = vi.mocked(getCreativeWork);
 const mockListWithOutputs = vi.mocked(listCreativeWorksWithOutputs);
 const mockGetDerivations = vi.mocked(getDerivationsByCampaign);
+const mockGetClientProfile = vi.mocked(getClientProfile);
+const mockGetClientProfiles = vi.mocked(getClientProfiles);
 
 const WS = "11111111-1111-4111-8111-111111111111";
 const OTHER_WS = "99999999-9999-4999-8999-999999999999";
@@ -48,6 +59,8 @@ describe("canonical queries isolation", () => {
     mockGetCampaignsPage.mockResolvedValue({ campaigns: [], totalCount: 0 });
     mockListWithOutputs.mockResolvedValue([]);
     mockGetDerivations.mockResolvedValue([]);
+    mockGetClientProfile.mockResolvedValue(null);
+    mockGetClientProfiles.mockResolvedValue([]);
   });
 
   it("lists both origins scoped by workspaceId", async () => {
@@ -106,12 +119,19 @@ describe("canonical queries isolation", () => {
         outputs: [],
       },
     ] as never);
+    mockGetClientProfiles.mockResolvedValue([
+      {
+        id: "66666666-6666-4666-8666-666666666666",
+        name: "Marca Aurora",
+      },
+    ] as never);
 
     const list = await listCanonicalWorks(WS);
     expect(mockGetCampaignsPage).toHaveBeenCalledWith(WS, {});
     expect(mockListWithOutputs).toHaveBeenCalledWith(WS);
     expect(list).toHaveLength(2);
     expect(list[0].originKind).toBe("creative_work");
+    expect(list[0].brandName).toBe("Marca Aurora");
     expect(list.map((i) => i.workspaceId)).toEqual([WS, WS]);
   });
 

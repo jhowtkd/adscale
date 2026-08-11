@@ -89,6 +89,7 @@ export async function upsertShareLinkForCampaign(data: {
       .set({
         derivationIds: data.derivationIds,
         expiresAt: data.expiresAt,
+        revokedAt: null,
       })
       .where(eq(shareLinks.id, existing.id))
       .returning();

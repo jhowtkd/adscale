@@ -109,12 +109,13 @@ const nextConfig: NextConfig = {
     ];
   },
   async redirects() {
-    // Standalone restyle pages were removed; restyle is now exclusively a
-    // quick_restyle action within the campaign chat. Redirect old URLs to
-    // /campaigns so existing links/bookmarks don't 404.
+    // Compatibility only. Keep /monitoring untouched: Sentry owns that
+    // transport route below.
     return [
-      { source: "/restyling", destination: "/campaigns", permanent: false },
-      { source: "/quick-tools/restyling", destination: "/campaigns", permanent: false },
+      { source: "/jobs", destination: "/campaigns", permanent: false },
+      { source: "/quick-tools", destination: "/", permanent: false },
+      { source: "/restyling", destination: "/?intent=restyle", permanent: false },
+      { source: "/quick-tools/restyling", destination: "/?intent=restyle", permanent: false },
     ];
   },
 };

@@ -8,7 +8,7 @@ import type { Campaign } from "@/lib/mock-data";
 import { platformColors } from "@/lib/mock-data";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { formatDistanceToNow } from "date-fns";
-import { Layers, Zap, ImageIcon } from "lucide-react";
+import { Layers, ImageIcon } from "lucide-react";
 
 interface CampaignCardProps {
   campaign: Campaign;
@@ -123,10 +123,6 @@ function CampaignCard({ campaign, index }: CampaignCardProps) {
               <span className="flex items-center gap-1 text-xs text-[var(--text-secondary)] font-mono">
                 <Layers size={12} />
                 {campaign.variations > 0 ? campaign.variations : "—"}
-              </span>
-              <span className="flex items-center gap-1 text-[11px] text-[var(--text-secondary)] font-mono">
-                <Zap size={12} />
-                {campaign.creditsUsed > 0 ? `~${campaign.creditsUsed}` : "—"}
               </span>
             </div>
             <span className="text-[11px] text-[var(--text-muted)] font-mono">
