@@ -90,6 +90,7 @@ describe("useCreativeComposer", () => {
     vi.useFakeTimers();
     vi.clearAllMocks();
     window.history.replaceState({}, "", "/");
+    if (typeof window.localStorage?.clear === "function") window.localStorage.clear();
     window.sessionStorage.clear();
     mocks.active.mockReturnValue(active());
     mocks.work.mockReturnValue({ data: undefined, isLoading: false });
