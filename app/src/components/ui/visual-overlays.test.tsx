@@ -225,7 +225,9 @@ describe("tooltip popover primitive", () => {
     fireEvent.keyDown(trigger, { key: "Escape", code: "Escape" });
     await waitFor(() => expect(screen.queryByRole("tooltip")).not.toBeInTheDocument());
 
+    trigger.blur();
     fireEvent.pointerDown(trigger, { pointerType: "touch" });
+    trigger.focus();
     fireEvent.click(trigger);
     expect(await screen.findByRole("tooltip")).toBeInTheDocument();
 

@@ -308,7 +308,7 @@ export default function FeedbackTriagePage() {
                 <p className="text-lg font-bold text-[var(--text-primary)]">
                   {creditSignalsQuery.data.healthyCount}
                 </p>
-                <p className="text-[var(--text-muted)]">
+                <p className="text-[var(--success-text)]">
                   {t("afterSpend", { count: creditSignalsQuery.data.positiveAfterSpendCount })}
                 </p>
               </div>
@@ -317,7 +317,7 @@ export default function FeedbackTriagePage() {
                 <p className="text-lg font-bold text-[var(--text-primary)]">
                   {creditSignalsQuery.data.frustrationCount}
                 </p>
-                <p className="text-[var(--text-muted)]">
+                <p className="text-[var(--danger-text)]">
                   {t("creditFriction", {
                     friction: creditSignalsQuery.data.creditFrictionCount,
                     skipped: creditSignalsQuery.data.skippedCreditMissionCount,

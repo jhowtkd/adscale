@@ -164,7 +164,7 @@ export default function DashboardV6View({
 
       <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
         <section
-          className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-5 sm:p-6"
+          className="min-w-0 rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-5 sm:p-6"
           data-tour-step="4"
         >
           <h2 className="product-section-title text-[var(--text-primary)]">{labels.recipesTitle}</h2>
@@ -179,11 +179,11 @@ export default function DashboardV6View({
             <>
               <ul className="mt-4 space-y-2.5">
                 {view.recipes.map((recipe) => (
-                  <li key={recipe.id}>
+                  <li key={recipe.id} className="min-w-0">
                     <ActionLink
                       interactive={interactive}
                       href={recipe.href}
-                      className="flex items-center gap-3 rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-3 transition-colors hover:border-[var(--border-default)]"
+                      className="flex w-full min-w-0 items-center gap-3 rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-3 transition-colors hover:border-[var(--border-default)]"
                     >
                       <span
                         className="grid h-8 w-8 place-items-center rounded-[var(--radius-control)] bg-[var(--selection-bg)] text-sm"
@@ -223,7 +223,7 @@ export default function DashboardV6View({
           )}
         </section>
 
-        <section className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-5 sm:p-6">
+        <section className="min-w-0 rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-5 sm:p-6">
           <h2 className="product-section-title text-[var(--text-primary)]">{labels.briefingTitle}</h2>
           {isLoading ? (
             <div className="mt-4 space-y-3">

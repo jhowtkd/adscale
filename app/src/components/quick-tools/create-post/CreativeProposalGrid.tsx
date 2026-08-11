@@ -104,7 +104,7 @@ export default function CreativeProposalGrid({
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={outputSource(output)} alt="" className="h-full w-full object-cover" />
                 ) : <span className="text-xs text-[var(--text-muted)]">{output.status === "failed" ? "Falhou" : "…"}</span>}
-                <span className="absolute inset-x-1 bottom-1 rounded bg-black/70 px-1 py-0.5 text-[10px] font-medium text-white">{outputFormat}</span>
+          <span className="absolute inset-x-1 bottom-1 rounded bg-black/70 px-1 py-0.5 text-xs font-medium text-white">{outputFormat}</span>
               </button>
             );
           })}

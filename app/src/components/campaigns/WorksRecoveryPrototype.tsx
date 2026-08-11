@@ -22,7 +22,7 @@ type PrototypeWork = {
   updated: string;
   nextAction: string;
   lane: Lane;
-  accent?: string;
+  accent?: "primary" | "success" | "danger" | "selection";
 };
 
 const VARIANTS = [
@@ -32,31 +32,37 @@ const VARIANTS = [
 ] as const;
 
 const WORKS: PrototypeWork[] = [
-  { id: "preceptoria", name: "Preceptoria em Saúde", brand: "CENBRAP", protocol: "Peça única", stage: "Em revisão", results: "1 resultado", origin: "Avulso", updated: "há 8 min", nextAction: "Revisar", lane: "Revisar", accent: "linear-gradient(145deg,#172554,#2563eb 55%,#f8fafc)" },
-  { id: "pos", name: "Lançamento Pós 2026", brand: "CENBRAP", protocol: "Variações", stage: "Gerando", results: "3 de 5 resultados", origin: "Campanha · Pós 2026", updated: "há 12 min", nextAction: "Acompanhar", lane: "Continuar", accent: "linear-gradient(145deg,#052e2b,#0f766e 58%,#fde68a)" },
-  { id: "black-friday", name: "Black Friday — Stories", brand: "Loja Pascoal", protocol: "Adaptar formatos", stage: "Falhou", results: "2 de 3 resultados", origin: "Campanha · Black Friday", updated: "há 26 min", nextAction: "Recuperar geração", lane: "Recuperar", accent: "linear-gradient(145deg,#18181b,#7f1d1d 60%,#fb923c)" },
+  { id: "preceptoria", name: "Preceptoria em Saúde", brand: "CENBRAP", protocol: "Peça única", stage: "Em revisão", results: "1 resultado", origin: "Avulso", updated: "há 8 min", nextAction: "Revisar", lane: "Revisar", accent: "primary" },
+  { id: "pos", name: "Lançamento Pós 2026", brand: "CENBRAP", protocol: "Variações", stage: "Gerando", results: "3 de 5 resultados", origin: "Campanha · Pós 2026", updated: "há 12 min", nextAction: "Acompanhar", lane: "Continuar", accent: "success" },
+  { id: "black-friday", name: "Black Friday — Stories", brand: "Loja Pascoal", protocol: "Adaptar formatos", stage: "Falhou", results: "2 de 3 resultados", origin: "Campanha · Black Friday", updated: "há 26 min", nextAction: "Recuperar geração", lane: "Recuperar", accent: "danger" },
   { id: "norte", name: "Reposicionamento institucional", brand: "Marca Norte", protocol: "Mudar estilo", stage: "Rascunho", results: "Nenhum resultado", origin: "Avulso", updated: "ontem", nextAction: "Continuar briefing", lane: "Continuar" },
-  { id: "medicos", name: "Dia do Médico", brand: "CENBRAP", protocol: "Peça única", stage: "Aprovado", results: "3 resultados", origin: "Campanha · Datas", updated: "há 2 dias", nextAction: "Abrir trabalho", lane: "Revisar", accent: "linear-gradient(145deg,#3f1d5e,#9333ea 58%,#f5d0fe)" },
+  { id: "medicos", name: "Dia do Médico", brand: "CENBRAP", protocol: "Peça única", stage: "Aprovado", results: "3 resultados", origin: "Campanha · Datas", updated: "há 2 dias", nextAction: "Abrir trabalho", lane: "Revisar", accent: "selection" },
 ];
 
 const STAGE_STYLE: Record<Stage, string> = {
   Rascunho: "bg-neutral-100 text-neutral-700",
-  Gerando: "bg-blue-50 text-blue-700",
-  "Em revisão": "bg-amber-50 text-amber-800",
-  Aprovado: "bg-emerald-50 text-emerald-700",
-  Falhou: "bg-red-50 text-red-700",
+  Gerando: "bg-[var(--status-generating-bg)] text-[var(--status-generating-text)]",
+  "Em revisão": "bg-[var(--warning-bg)] text-[var(--warning-text)]",
+  Aprovado: "bg-[var(--status-approved-bg)] text-[var(--status-approved-text)]",
+  Falhou: "bg-[var(--status-failed-bg)] text-[var(--status-failed-text)]",
+};
+
+const ACCENT_STYLE: Record<NonNullable<PrototypeWork["accent"]>, string> = {
+  primary: "bg-[var(--action-primary-bg)]",
+  success: "bg-[var(--success-bg)]",
+  danger: "bg-[var(--danger-bg)]",
+  selection: "bg-[var(--selection-bg)]",
 };
 
 function WorkPreview({ work, compact = false }: { work: PrototypeWork; compact?: boolean }) {
   return (
     <div
-      className={cn("relative flex shrink-0 items-end overflow-hidden rounded-[var(--radius-control)] bg-[var(--surface-inset)]", compact ? "h-20 w-20" : "aspect-[4/3] w-full")}
-      style={work.accent ? { background: work.accent } : undefined}
+      className={cn("relative flex shrink-0 items-end overflow-hidden rounded-[var(--radius-control)] bg-[var(--surface-inset)]", work.accent && ACCENT_STYLE[work.accent], compact ? "h-20 w-20" : "aspect-[4/3] w-full")}
     >
       {work.accent ? (
-        <div className="p-3 text-white"><p className="text-[10px] font-semibold uppercase tracking-[0.16em] opacity-80">{work.brand}</p><p className="mt-0.5 max-w-40 text-sm font-bold leading-tight">{work.name}</p></div>
+        <div className="p-3 text-[var(--text-primary)]"><p className="text-xs font-semibold uppercase tracking-[0.16em] opacity-80">{work.brand}</p><p className="mt-0.5 max-w-40 text-sm font-bold leading-tight">{work.name}</p></div>
       ) : (
-        <div className="flex h-full w-full flex-col items-center justify-center gap-1 p-2 text-center text-[var(--text-muted)]"><ImageOff className="size-5" /><span className="text-[10px] leading-tight">Sem preview<br />briefing preservado</span></div>
+        <div className="flex h-full w-full flex-col items-center justify-center gap-1 p-2 text-center text-[var(--text-muted)]"><ImageOff className="size-5" /><span className="text-xs leading-tight">Sem preview<br />briefing preservado</span></div>
       )}
     </div>
   );

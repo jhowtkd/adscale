@@ -248,17 +248,18 @@ describe("badge and status primitives", () => {
     );
   });
 
-  it("status badge maps product statuses with dot and accessible label", () => {
+  it("status badge maps product statuses with visible text", () => {
     render(<StatusBadge status="approved" />);
-    const badge = screen.getByLabelText("approved");
+    const badge = screen.getByText("approved");
     expect(badge).toHaveTextContent("approved");
+    expect(badge).not.toHaveAttribute("aria-label");
     expect(badge.querySelector("[aria-hidden='true']")).toBeTruthy();
     expect(badge.className).toContain("bg-[var(--status-approved-bg)]");
   });
 
   it("status badge falls back to neutral semantics for unknown values", () => {
     render(<StatusBadge status="custom-status" showDot />);
-    const badge = screen.getByLabelText("custom-status");
+    const badge = screen.getByText("custom-status");
     expect(badge.className).toContain("bg-[var(--neutral-bg)]");
   });
 });

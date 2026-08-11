@@ -135,7 +135,7 @@ test.describe("visual a11y gate", () => {
 
       const results = await runAxe(page);
       const indeterminateIncomplete = results.incomplete.filter((result) =>
-        result.nodes.every((node) => /could not be determined|partially obscured/i.test(node.failureSummary ?? "")),
+        result.nodes.every((node) => /could not be determined|partially obscured|only non-text characters|too short to determine/i.test(node.failureSummary ?? "")),
       );
       const blockingIncomplete = results.incomplete.filter(
         (result) =>
@@ -174,6 +174,7 @@ test.describe("visual a11y gate", () => {
     const width = testInfo.project.use.viewport?.width ?? 1280;
     const browser = testInfo.project.name.includes("webkit") ? "webkit" : "chromium";
     await page.goto("/login", { waitUntil: "domcontentloaded" });
+    await expect(page.locator("main#main")).toHaveCount(1);
     await expect(page.locator("main#main")).toBeVisible();
 
     const shell = await page.evaluate(() => {

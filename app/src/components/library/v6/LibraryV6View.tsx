@@ -307,7 +307,7 @@ function AssetCard({
             {asset.tags.slice(0, 3).map((tag) => (
               <span
                 key={tag}
-                className="rounded border border-[var(--border-subtle)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]"
+                className="rounded border border-[var(--border-subtle)] px-1.5 py-0.5 text-xs text-[var(--text-muted)]"
               >
                 {tag}
               </span>
@@ -318,7 +318,7 @@ function AssetCard({
           <span className="font-mono">{asset.sizeLabel}</span>
           <span>{asset.dimensionsLabel}</span>
         </div>
-        <dl className="grid grid-cols-2 gap-x-2 gap-y-1 text-[10px] text-[var(--text-muted)]">
+              <dl className="grid grid-cols-2 gap-x-2 gap-y-1 text-xs text-[var(--text-muted)]">
           <div><dt className="inline">{labels.originLabel}: </dt><dd className="inline">{asset.source}</dd></div>
           <div><dt className="inline">{labels.functionLabel}: </dt><dd className="inline">{kindLabel}</dd></div>
           <div><dt className="inline">{labels.createdLabel}: </dt><dd className="inline">{asset.createdAtLabel}</dd></div>

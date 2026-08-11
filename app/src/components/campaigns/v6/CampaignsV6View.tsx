@@ -282,11 +282,11 @@ function CampaignGrid({
   return (
     <ul className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
       {rows.map((row) => (
-        <li key={row.id}>
+        <li key={row.id} className="min-w-0">
           <Link
             href={interactive ? row.href : "#"}
             aria-label={`${labels.openCampaign}: ${row.name}`}
-            className="flex min-h-36 flex-col justify-between rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4 transition-colors hover:border-[var(--border-default)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+            className="flex min-h-36 min-w-0 flex-col justify-between rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4 transition-colors hover:border-[var(--border-default)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             onClick={interactive ? undefined : (event) => event.preventDefault()}
           >
             <div className="flex items-start justify-between gap-3">

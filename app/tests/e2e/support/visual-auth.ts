@@ -46,10 +46,19 @@ export function seedVisualManifest(force = false): VisualManifest {
 
 export async function loginVisualIdentity(page: Page, email: string) {
   await page.goto("/login", { waitUntil: "domcontentloaded" });
-  await page.locator("#email").fill(email);
-  await page.locator("#login-password").fill(VISUAL_PASSWORD);
-  await page.locator("form:has(#email) button[type=submit]").click();
+  await page.waitForLoadState("load");
+  await page.locator("#email:visible").fill(email);
+  await page.locator("#login-password:visible").fill(VISUAL_PASSWORD);
+  const signInResponse = page.waitForResponse((response) =>
+    response.url().includes("/api/auth/sign-in/email"),
+  );
+  await page.locator("form:has(#email:visible) button[type=submit]").click();
+  const response = await signInResponse;
+  if (!response.ok()) {
+    throw new Error(`Synthetic sign-in failed (${response.status()}): ${await response.text()}`);
+  }
   await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 45_000 });
+  await page.waitForTimeout(250);
 }
 
 export async function loginVisualFoundation(
@@ -58,32 +67,26 @@ export async function loginVisualFoundation(
   theme: "light" | "dark" = "light",
 ) {
   await page.emulateMedia({ reducedMotion: "reduce", colorScheme: theme });
+  const baseURL = process.env.E2E_BASE_URL ?? "http://localhost:3000";
+  const response = await page.context().request.post(`${baseURL}/api/auth/sign-in/email`, {
+    data: { email: VISUAL_EMAIL, password: VISUAL_PASSWORD },
+    headers: { Origin: baseURL },
+  });
+  if (!response.ok()) {
+    throw new Error(`Synthetic sign-in failed (${response.status()}): ${await response.text()}`);
+  }
   await page.context().addCookies([
-    { name: "NEXT_LOCALE", value: locale, domain: "localhost", path: "/" },
-    { name: "cookie-consent", value: "accepted", domain: "localhost", path: "/" },
+    { name: "locale", value: locale, url: baseURL },
   ]);
   await page.addInitScript((selectedTheme) => {
     localStorage.setItem("theme", selectedTheme);
+    localStorage.setItem("adscale_cookie_consent", JSON.stringify({ necessary: true, analytics: false, marketing: false }));
     const style = document.createElement("style");
     style.dataset.visualRelease = "deterministic-motion";
     style.textContent =
       "*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}";
     document.documentElement.appendChild(style);
   }, theme);
-
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    try {
-      await page.goto("/login", { waitUntil: "domcontentloaded", timeout: 30_000 });
-      await page.locator("#email").fill(VISUAL_EMAIL);
-      await page.locator("#login-password").fill(VISUAL_PASSWORD);
-      await page.locator("form:has(#email) button[type=submit]").click();
-      await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 45_000 });
-      return;
-    } catch (error) {
-      if (attempt === 2) throw error;
-      await page.waitForTimeout(1_500);
-    }
-  }
 }
 
 export const RELEASE_VIEWPORTS = [390, 768, 1024, 1280, 1440, 1920] as const;
