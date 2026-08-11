@@ -1,6 +1,7 @@
 import { formatCampaignPlatforms } from "@/lib/campaign-platforms";
 import type { CampaignTemplate } from "@/lib/hooks/use-templates";
 import type { DashboardStats } from "@/server/repositories/dashboard";
+import type { CanonicalWorkSummary } from "@/server/creative-work/canonical/types";
 import { buildCreatePostQuickTool } from "@/components/dashboard/quick-tool-recipes";
 import { getCampaignStatusTone } from "@/components/dashboard/campaign-status-config";
 import type {
@@ -28,13 +29,6 @@ type BriefingKeyLabels = {
   constraints: string;
 };
 
-function formatCredits(value: number): string {
-  if (value >= 1000) {
-    return `${(value / 1000).toFixed(1).replace(/\.0$/, "")}k`;
-  }
-  return String(value);
-}
-
 function formatTrend(change: number, suffix: string): { trend: string; trendDir: "up" | "down" | "neutral" } {
   if (change > 0) {
     return { trend: `+${change}% ${suffix}`, trendDir: "up" };
@@ -57,6 +51,13 @@ function statusLabel(status: string, tStatus: (key: string) => string): string {
   return status;
 }
 
+function dashboardStatusForCanonicalState(state: string): string {
+  if (state === "briefing" || state === "reviewing") return "review";
+  if (state === "intending") return "draft";
+  if (state === "delivered") return "completed";
+  return state;
+}
+
 function formatRelativeTime(date: Date | string, labels: RelativeTimeLabels, now = new Date()): string {
   const diffMs = now.getTime() - new Date(date).getTime();
   const diffMin = Math.floor(diffMs / 60_000);
@@ -69,50 +70,54 @@ function formatRelativeTime(date: Date | string, labels: RelativeTimeLabels, now
 }
 
 function pickHero(
-  stats: DashboardStats,
+  canonicalWorks: CanonicalWorkSummary[] | undefined,
   tStatus: (key: string) => string,
   tHero: (key: string, values?: Record<string, string | number>) => string,
 ): DashboardV6Hero | null {
-  const candidate =
-    stats.recentCampaigns.find((c) => c.status === "generating") ??
-    stats.recentCampaigns.find((c) => c.status === "active") ??
-    stats.recentCampaigns[0];
+  const canonicalCandidate =
+    canonicalWorks?.find((work) => work.state === "generating") ??
+    canonicalWorks?.find((work) => work.state === "reviewing") ??
+    canonicalWorks?.[0];
 
-  if (!candidate) return null;
+  if (canonicalCandidate) {
+    const resultCount = canonicalCandidate.resultCount ?? 0;
+    const badge =
+      canonicalCandidate.state === "generating"
+        ? tStatus("generating")
+        : canonicalCandidate.state === "failed"
+          ? tStatus("failed")
+          : canonicalCandidate.state === "reviewing"
+            ? tHero("heroInReview")
+            : canonicalCandidate.state === "approved"
+              ? tStatus("approved")
+              : canonicalCandidate.state === "delivered"
+                ? tStatus("completed")
+                : tHero("heroPilot");
+    const briefingHref =
+      canonicalCandidate.originKind === "campaign"
+        ? `${canonicalCandidate.resumeHref}?tab=brief`
+        : canonicalCandidate.resumeHref;
 
-  const badgeClass = getCampaignStatusTone(candidate.status);
-
-  const badge =
-    candidate.status === "generating"
-      ? tStatus("generating")
-      : candidate.status === "active"
-        ? tHero("heroInReview")
-        : candidate.status === "completed"
-          ? tStatus("completed")
-          : tHero("heroPilot");
-
-  const briefingProgress =
-    candidate.pieceCount > 0 ? Math.min(100, Math.round((candidate.approvedCount / candidate.pieceCount) * 100)) : null;
-
-  return {
-    id: candidate.id,
-    name: candidate.name,
-    badge,
-    badgeClass,
-    description: tHero("heroDescription", {
-      pieceCount: candidate.pieceCount,
-      approvedCount: candidate.approvedCount,
-    }),
-    briefingProgress,
-    variationsDone: candidate.approvedCount,
-    variationsTotal: candidate.pieceCount,
-    approved: candidate.approvedCount,
-    credits: stats.creditsRemaining,
-  };
+    return {
+      id: canonicalCandidate.originId,
+      href: canonicalCandidate.resumeHref,
+      briefingHref,
+      name: canonicalCandidate.name,
+      badge,
+      badgeClass: getCampaignStatusTone(dashboardStatusForCanonicalState(canonicalCandidate.state)),
+      description: tHero("heroWorkDescription", { resultCount }),
+      briefingProgress: null,
+      variationsDone: resultCount,
+      variationsTotal: resultCount,
+      approved: null,
+    };
+  }
+  return null;
 }
 
 export function mapDashboardToV6View({
   stats,
+  canonicalWorks,
   firstName,
   templates,
   tKpi,
@@ -125,6 +130,7 @@ export function mapDashboardToV6View({
   varsCount,
 }: {
   stats: DashboardStats;
+  canonicalWorks?: CanonicalWorkSummary[];
   firstName: string;
   templates: CampaignTemplate[];
   tKpi: (key: string) => string;
@@ -159,12 +165,6 @@ export function mapDashboardToV6View({
       trend: approvalTrend.trend,
       trendDir: approvalTrend.trendDir,
     },
-    {
-      label: tKpi("credits"),
-      value: formatCredits(stats.creditsRemaining),
-      trend: tKpi("usedThisMonth"),
-      trendDir: "neutral",
-    },
   ];
 
   const inReviewCount = stats.recentCampaigns.filter((c) => c.status === "active").length;
@@ -197,7 +197,7 @@ export function mapDashboardToV6View({
     href: `/templates`,
   }))].slice(0, 4);
 
-  const hero = pickHero(stats, tStatus, tHero);
+  const hero = pickHero(canonicalWorks, tStatus, tHero);
   const primaryTemplate = templates[0];
   const briefingRows = primaryTemplate
     ? [
@@ -222,6 +222,5 @@ export function mapDashboardToV6View({
     activity,
     recipes,
     briefingRows,
-    activeBriefingCampaignId: hero?.id ?? null,
   };
 }

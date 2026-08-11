@@ -23,6 +23,10 @@ function nonEmpty(value: string | null | undefined, fallback: string): string {
   return trimmed.length > 0 ? trimmed : fallback;
 }
 
+function nullable(value: string | null | undefined, fallback: string | null | undefined): string | null {
+  return (value === undefined ? fallback : value)?.trim() || null;
+}
+
 /** Map canonical briefing (+ intent objective) → SocialPostBrief JSONB. */
 export function toSocialPostBrief(
   write: CanonicalBriefingWrite,
@@ -32,7 +36,7 @@ export function toSocialPostBrief(
     theme: nonEmpty(write.theme, existing?.theme ?? ""),
     objective: nonEmpty(write.objective, existing?.objective ?? ""),
     audience: nonEmpty(write.audience, existing?.audience ?? ""),
-    offer: nonEmpty(write.offer, existing?.offer ?? ""),
+    offer: nullable(write.offer, existing?.offer),
   });
 }
 

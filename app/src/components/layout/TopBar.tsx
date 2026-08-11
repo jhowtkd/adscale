@@ -260,7 +260,7 @@ export default function TopBar({
             {/* Navigation */}
             <nav className="hidden md:flex items-center gap-1">
               <NavLink href="/dashboard" icon={LayoutDashboard} label={tNav("dashboard")} active={pathname === "/dashboard" || pathname.startsWith("/dashboard/")} />
-              <NavLink href="/campaigns" icon={FolderOpen} label={tNav("campaigns")} active={pathname.startsWith("/campaigns")} />
+              <NavLink href="/campaigns" icon={FolderOpen} label={tNav("works")} active={pathname.startsWith("/campaigns")} />
               <NavLink href="/settings" icon={Settings} label={tNav("settings")} active={pathname.startsWith("/settings")} />
             </nav>
 

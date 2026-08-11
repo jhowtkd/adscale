@@ -38,7 +38,7 @@ export default function AuthPageShell({ children, showBranding = true }: AuthPag
       className="isolate flex min-h-screen w-full items-center justify-center bg-[var(--canvas)] px-4 py-8"
     >
       <div className="pointer-events-none absolute inset-0 dot-grid opacity-40" aria-hidden />
-      <main className="relative z-50 flex w-full max-w-5xl flex-col gap-6 lg:flex-row lg:items-stretch lg:gap-8">
+      <main id="main" className="relative z-50 flex w-full max-w-5xl flex-col gap-6 lg:flex-row lg:items-stretch lg:gap-8">
         {showBranding ? <AuthV6BrandingPanel labels={brandingLabels} /> : null}
         <div className="flex flex-1 items-center justify-center">{children}</div>
       </main>

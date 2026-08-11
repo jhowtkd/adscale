@@ -69,12 +69,11 @@ describe("/api/feedback/calibration-adjustments/[id]/accept PATCH", () => {
     });
   });
 
-  it("allows workspace admin via requireCalibrationAccess", async () => {
-    mockRequireAccess.mockResolvedValue({
-      user: { id: "admin-1", email: "admin@test.com" },
-      scope: "workspace-admin",
-      workspaceId: "550e8400-e29b-41d4-a716-446655440002",
-    });
+  it("rejects workspace admin via requireCalibrationAccess", async () => {
+    const { WorkspaceAuthError, AUTH_ERROR_CODES } = await import("@/server/auth/errors");
+    mockRequireAccess.mockRejectedValue(
+      new WorkspaceAuthError(AUTH_ERROR_CODES.forbidden, "Forbidden")
+    );
 
     const res = await PATCH(
       new Request("http://localhost/api/feedback/calibration-adjustments/adj-1/accept", {
@@ -84,7 +83,8 @@ describe("/api/feedback/calibration-adjustments/[id]/accept PATCH", () => {
       { params: Promise.resolve({ id: "adj-1" }) }
     );
 
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(403);
+    expect(mockAccept).not.toHaveBeenCalled();
   });
 
   it("returns 403 for non-admin member", async () => {

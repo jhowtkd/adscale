@@ -3,7 +3,11 @@
  * Rejeita combinações impossíveis (Gate 2 / item 15).
  */
 import type { CreativeWorkFunnelStage } from "@/server/creative-work/funnel-events";
-import type { CanonicalOutputStatus, CanonicalWorkState } from "./types";
+import type {
+  CanonicalOutputStatus,
+  CanonicalWorkNextAction,
+  CanonicalWorkState,
+} from "./types";
 
 export class ImpossibleCanonicalStateError extends Error {
   readonly code: string;
@@ -31,6 +35,13 @@ export type CreativeWorkStatusInput = {
   outputStatuses: string[];
   hasSelectedOutput: boolean;
 };
+
+export function getCanonicalWorkNextAction(state: CanonicalWorkState): CanonicalWorkNextAction {
+  if (state === "failed") return "retry";
+  if (state === "reviewing" || state === "approved" || state === "delivered") return "review";
+  if (state === "generating") return "open";
+  return "resume";
+}
 
 const CAMPAIGN_STATUSES = new Set([
   "draft",

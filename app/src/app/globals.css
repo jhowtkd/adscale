@@ -318,7 +318,7 @@
   --text-secondary: oklch(0.72 0.008 145);
   --text-muted: oklch(0.66 0.01 145);
   --text-disabled: oklch(0.48 0.009 145);
-  --text-on-accent: oklch(0.16 0.02 145);
+  --text-on-accent: oklch(0.13 0.02 145);
   --border-subtle: oklch(0.96 0.006 145 / 0.06);
   --border-default: oklch(0.96 0.006 145 / 0.1);
   --border-strong: oklch(0.96 0.006 145 / 0.2);

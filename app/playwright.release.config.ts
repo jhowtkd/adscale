@@ -12,7 +12,7 @@ export default defineConfig({
   reporter: [["list"]],
   outputDir: "test-results/visual-release-gate/artifacts",
   webServer: {
-    command: "E2E_DISABLE_RATE_LIMIT=true npm run dev:next",
+    command: "E2E_DISABLE_RATE_LIMIT=true PLATFORM_OWNER_EMAILS=visual-foundations@example.test npm run dev:next",
     url: "http://localhost:3000/login",
     timeout: 120_000,
     reuseExistingServer: true,
@@ -48,6 +48,16 @@ export default defineConfig({
       },
     },
     {
+      name: "layout-low-height",
+      testMatch: /visual-release-gate\.spec\.ts$/,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 1280, height: 480 },
+        hasTouch: false,
+        isMobile: false,
+      },
+    },
+    {
       name: "a11y-1280",
       testMatch: /visual-a11y-gate\.spec\.ts$/,
       use: {
@@ -55,6 +65,46 @@ export default defineConfig({
         viewport: { width: 1280, height: 900 },
         hasTouch: false,
         isMobile: false,
+      },
+    },
+    {
+      name: "a11y-768",
+      testMatch: /visual-a11y-gate\.spec\.ts$/,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 768, height: 844 },
+        hasTouch: false,
+        isMobile: false,
+      },
+    },
+    {
+      name: "a11y-webkit-390",
+      testMatch: /visual-a11y-gate\.spec\.ts$/,
+      use: {
+        ...devices["iPhone 13"],
+        browserName: "webkit",
+        viewport: { width: 390, height: 844 },
+        hasTouch: true,
+        isMobile: true,
+      },
+    },
+    {
+      name: "a11y-webkit-1280",
+      testMatch: /visual-a11y-gate\.spec\.ts$/,
+      use: {
+        ...devices["Desktop Safari"],
+        browserName: "webkit",
+        viewport: { width: 1280, height: 900 },
+        hasTouch: false,
+        isMobile: false,
+      },
+    },
+    {
+      name: "feedback-role-matrix",
+      testMatch: /feedback-role-matrix\.spec\.ts$/,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 1280, height: 900 },
       },
     },
   ],

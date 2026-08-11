@@ -24,7 +24,7 @@ describe("CreativeProposalGrid", () => {
     outputKey: "key-conservative",
     cost: null,
     failureCode: null,
-    quality: null,
+    quality: { schemaVersion: 1, objectiveVerdict: "pass" },
     isSelected: false,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -48,7 +48,7 @@ describe("CreativeProposalGrid", () => {
 
   const outputs = [boldFailed, conservativeCompleted, balancedCompleted];
 
-  it("renders the three level cards in fixed neutral order", () => {
+  it("renders the three thumbnails in fixed neutral order", () => {
     render(
       <CreativeProposalGrid
         outputs={outputs}
@@ -59,8 +59,12 @@ describe("CreativeProposalGrid", () => {
       />,
     );
 
-    const levels = screen.getAllByTestId("proposal-level-name");
-    expect(levels.map((el) => el.textContent)).toEqual(["Conservadora", "Equilibrada", "Ousada"]);
+    expect(screen.getAllByRole("button", { name: /Selecionar/ }).map((button) => button.getAttribute("aria-label"))).toEqual([
+      "Selecionar Conservadora em 4:5",
+      "Selecionar Equilibrada em 4:5",
+      "Selecionar Ousada em 4:5",
+    ]);
+    expect(screen.getByTestId("proposal-level-name")).toHaveTextContent("Conservadora");
   });
 
   it("exposes a retry affordance on failed cards", () => {
@@ -74,6 +78,7 @@ describe("CreativeProposalGrid", () => {
       />,
     );
 
+    fireEvent.click(screen.getByRole("button", { name: "Selecionar Ousada em 4:5" }));
     expect(screen.getByRole("button", { name: "Repetir esta proposta" })).toBeVisible();
   });
 
@@ -88,9 +93,13 @@ describe("CreativeProposalGrid", () => {
       />,
     );
 
-    expect(screen.getAllByRole("button", { name: "Aprovar" })).toHaveLength(2);
-    expect(screen.getAllByRole("button", { name: "Baixar" })).toHaveLength(2);
-    expect(screen.getAllByRole("button", { name: "Editar" })).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "Aprovar" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Baixar" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Editar" })).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "Selecionar Equilibrada em 4:5" }));
+    expect(screen.getByTestId("proposal-level-name")).toHaveTextContent("Equilibrada");
+    expect(screen.getByRole("button", { name: "Aprovar" })).toBeVisible();
   });
 
   it("invokes retry/save/download callbacks", () => {
@@ -108,9 +117,11 @@ describe("CreativeProposalGrid", () => {
       />,
     );
 
+    fireEvent.click(screen.getByRole("button", { name: "Selecionar Ousada em 4:5" }));
     fireEvent.click(screen.getByRole("button", { name: "Repetir esta proposta" }));
-    fireEvent.click(screen.getAllByRole("button", { name: "Aprovar" })[0]);
-    fireEvent.click(screen.getAllByRole("button", { name: "Baixar" })[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Selecionar Conservadora em 4:5" }));
+    fireEvent.click(screen.getByRole("button", { name: "Aprovar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Baixar" }));
 
     expect(onRetry).toHaveBeenCalledWith(boldFailed.id);
     expect(onApprove).toHaveBeenCalledWith(conservativeCompleted.id);
@@ -146,7 +157,53 @@ describe("CreativeProposalGrid", () => {
       />,
     );
 
-    expect(screen.getAllByTestId("proposal-level")).toHaveLength(2);
-    expect(screen.getAllByTestId("proposal-level-name").map((el) => el.textContent)).toEqual(["Direção 1", "Direção 2"]);
+    expect(screen.getAllByRole("button", { name: /Selecionar Direção/ })).toHaveLength(2);
+    expect(screen.getByTestId("proposal-level-name")).toHaveTextContent("Direção 1");
+
+    fireEvent.click(screen.getByRole("button", { name: "Selecionar Direção 2 em 4:5" }));
+    expect(screen.getByTestId("proposal-level-name")).toHaveTextContent("Direção 2");
+  });
+
+  it("uses thumbnails to navigate one faithful approval surface", () => {
+    render(
+      <CreativeProposalGrid
+        outputs={[
+          { ...conservativeCompleted, id: "square", targetFormat: "1:1" },
+          { ...balancedCompleted, id: "portrait", targetFormat: "4:5" },
+          { ...balancedCompleted, id: "story", targetFormat: "9:16" },
+        ]}
+        onRetry={vi.fn()}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+        onRevise={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("navigation", { name: "Miniaturas das propostas" })).toBeVisible();
+    expect(screen.getAllByTestId("proposal-level")).toHaveLength(1);
+    expect(screen.getByTestId("review-preview")).toHaveStyle({ aspectRatio: "1 / 1" });
+    expect(screen.getByRole("img", { name: /conservadora.*1:1/i })).toHaveClass("object-contain");
+
+    fireEvent.click(screen.getByRole("button", { name: /selecionar equilibrada em 9:16/i }));
+
+    expect(screen.getByTestId("review-preview")).toHaveStyle({ aspectRatio: "9 / 16" });
+    expect(screen.getByRole("img", { name: /equilibrada.*9:16/i })).toHaveClass("object-contain");
+  });
+
+  it("opens the selected proposal in a faithful enlarged inspector", () => {
+    render(
+      <CreativeProposalGrid
+        outputs={[{ ...balancedCompleted, id: "story", targetFormat: "9:16" }]}
+        onRetry={vi.fn()}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+        onRevise={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Ampliar Equilibrada em 9:16" }));
+
+    expect(screen.getByRole("dialog")).toBeVisible();
+    expect(screen.getByRole("img", { name: /equilibrada.*9:16.*ampliada/i })).toHaveClass("object-contain");
   });
 });

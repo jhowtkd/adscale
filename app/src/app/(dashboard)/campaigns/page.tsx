@@ -9,6 +9,7 @@ import { formatDistanceToNow } from "date-fns";
 
 import CampaignsBulkActionsBar from "@/components/campaigns/CampaignsBulkActionsBar";
 import CampaignsPagination from "@/components/campaigns/CampaignsPagination";
+import { WorksRecoveryPrototype } from "@/components/campaigns/WorksRecoveryPrototype";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { useCampaignsPage } from "@/components/campaigns/useCampaignsPage";
 import CampaignsV6View from "@/components/campaigns/v6/CampaignsV6View";
@@ -23,9 +24,6 @@ import {
   getStatusFilterLabel,
 } from "@/components/campaigns/filter-labels";
 import type { PlatformFilter, SortOption, StatusFilter } from "@/components/campaigns/types";
-
-/** Matches listCanonicalWorks default so list metadata covers the same universe. */
-const CANONICAL_LIST_LIMIT = 50;
 
 const KanbanBoard = dynamic(() => import("@/components/campaigns/KanbanBoard"), {
   loading: () => <div className="flex h-64 items-center justify-center"><div className="size-8 animate-spin rounded-full border-2 border-[var(--border-subtle)] border-b-[var(--utility-icon)]" /></div>,
@@ -61,6 +59,18 @@ export default function CampaignsListPage() {
 
 function CampaignsListContent() {
   const searchParams = useSearchParams();
+  const requestedVariant = searchParams.get("variant")?.toUpperCase();
+  if (
+    process.env.NODE_ENV !== "production" &&
+    searchParams.get("prototype") === "works" &&
+    (requestedVariant === "A" || requestedVariant === "B" || requestedVariant === "C")
+  ) return <WorksRecoveryPrototype variant={requestedVariant} />;
+
+  return <CampaignsProductContent />;
+}
+
+function CampaignsProductContent() {
+  const searchParams = useSearchParams();
   const [originFilter, setOriginFilter] = useState<WorkOriginFilter>("all");
   const {
     data: canonicalWorks = [],
@@ -69,9 +79,8 @@ function CampaignsListContent() {
     error: worksErrorObj,
     refetch: refetchWorks,
   } = useCanonicalWorks();
-  // Same universe as listCanonicalWorks (limit 50) — not the paginated page slice.
+  // Metadata enrich is optional; the canonical query itself is the source of list membership.
   const { campaigns: campaignsMeta, isLoading: metaLoading } = useCampaigns({
-    limit: CANONICAL_LIST_LIMIT,
     page: 1,
   });
   const {
@@ -164,9 +173,11 @@ function CampaignsListContent() {
             const key = `v6.workStates.${state}` as Parameters<typeof t>[0];
             return t.has(key) ? t(key) : state;
           },
+          formatProtocol: labels.formatProtocol,
+          formatNextAction: labels.formatNextAction,
         })
       ),
-    [filteredWorks, campaignById, labels.originCampaigns, labels.originPosts, t]
+    [filteredWorks, campaignById, labels.formatNextAction, labels.formatProtocol, labels.originCampaigns, labels.originPosts, t]
   );
 
   const displayCount = isCanonicalMode ? filteredWorks.length : campaignsTotalCount;

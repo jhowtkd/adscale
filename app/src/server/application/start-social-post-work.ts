@@ -116,6 +116,7 @@ export async function startSocialPostWork(
       status: work.status,
       format: work.format,
       brief: work.brief,
+      inputSnapshot: work.inputSnapshot,
       copy: work.copy,
       identitySnapshot: work.identitySnapshot,
       createdAt: work.createdAt,

@@ -8,6 +8,7 @@ import {
   BookOpen,
   FolderOpen,
   House,
+  LayoutDashboard,
   LogOut,
   Settings,
   type LucideIcon,
@@ -15,6 +16,7 @@ import {
 import { useAppStore } from "@/lib/store";
 import { useBillingStatus } from "@/lib/hooks/use-billing";
 import { useCanonicalWorks } from "@/lib/hooks/use-canonical-works";
+import { usePlatformOwnerAccess } from "@/lib/hooks/use-platform-owner";
 import { authClient } from "@/lib/auth-client";
 import AccountStatusBadge from "@/components/layout/AccountStatusBadge";
 import SidebarBrandKitFeature from "@/components/layout/SidebarBrandKitFeature";
@@ -31,6 +33,7 @@ export default function AppSidebar() {
   const { data: session } = authClient.useSession();
   const { data: works = [] } = useCanonicalWorks();
   const { data: billingStatus } = useBillingStatus();
+  const { data: ownerAccess } = usePlatformOwnerAccess();
 
   const displayName =
     session?.user?.name?.trim() || `${user.firstName} ${user.lastName}`.trim() || user.email;
@@ -42,12 +45,12 @@ export default function AppSidebar() {
     .join("") || "U";
   const planLabel = billingStatus?.access?.label ?? billing.planName;
   const isTesterAccount = billingStatus?.access?.kind === "tester";
-  const accessRole = billingStatus?.access?.role;
-  const isOwnerOrAdmin = accessRole === "owner" || accessRole === "admin";
+  const isPlatformOwner = ownerAccess?.allowed === true;
 
   // Frictionless shell: Início · Trabalhos · Biblioteca, with Marca/Configurações below.
   const isWorks = pathname.startsWith("/campaigns");
   const isHome = pathname === "/" || pathname === "/quick-tools/create-post";
+  const isOverview = pathname === "/dashboard" || pathname.startsWith("/dashboard/");
   const isLibrary = pathname.startsWith("/library");
   const isConfig = pathname.startsWith("/settings");
 
@@ -80,7 +83,7 @@ export default function AppSidebar() {
       </div>
 
       <nav
-        className="mb-3 grid shrink-0 grid-cols-3 gap-1"
+        className="mb-3 grid shrink-0 grid-cols-4 gap-1"
         aria-label={tNav("sectionPrincipal")}
       >
         <IconNavItem
@@ -95,6 +98,12 @@ export default function AppSidebar() {
           label={tNav("works")}
           icon={FolderOpen}
           count={worksCount}
+        />
+        <IconNavItem
+          href="/dashboard"
+          active={isOverview}
+          label={tNav("dashboard")}
+          icon={LayoutDashboard}
         />
         <IconNavItem
           href="/library"
@@ -113,7 +122,7 @@ export default function AppSidebar() {
         <AppSidebarCampaignMap />
       </div>
 
-      {isOwnerOrAdmin && (
+      {isPlatformOwner && (
         <div className="mt-2 shrink-0 border-t border-[var(--border-subtle)] pt-2">
           <TextNavItem
             href="/feedback"

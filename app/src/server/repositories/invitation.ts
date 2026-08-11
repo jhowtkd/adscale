@@ -1,6 +1,6 @@
 import { eq, and, desc } from "drizzle-orm";
 import { db } from "@/server/db";
-import { workspaceInvites } from "@/server/db/schema";
+import { user, workspaceInvites, workspaces } from "@/server/db/schema";
 import { INVITE_EXPIRATION_DAYS } from "@/server/config";
 
 export async function createInvitation(data: {
@@ -42,9 +42,32 @@ export async function getPendingInvitations(workspaceId: string) {
     .orderBy(desc(workspaceInvites.createdAt));
 }
 
+export async function getInvitationByToken(token: string) {
+  const [invite] = await db
+    .select({
+      id: workspaceInvites.id,
+      workspaceId: workspaceInvites.workspaceId,
+      workspaceName: workspaces.name,
+      email: workspaceInvites.email,
+      role: workspaceInvites.role,
+      status: workspaceInvites.status,
+      expiresAt: workspaceInvites.expiresAt,
+      createdAt: workspaceInvites.createdAt,
+      senderName: user.name,
+    })
+    .from(workspaceInvites)
+    .innerJoin(workspaces, eq(workspaceInvites.workspaceId, workspaces.id))
+    .innerJoin(user, eq(workspaceInvites.createdBy, user.id))
+    .where(eq(workspaceInvites.token, token))
+    .limit(1);
+
+  return invite ?? null;
+}
+
 export async function cancelInvitation(inviteId: string, workspaceId: string) {
   const result = await db
-    .delete(workspaceInvites)
+    .update(workspaceInvites)
+    .set({ status: "revoked" })
     .where(
       and(
         eq(workspaceInvites.id, inviteId),

@@ -333,16 +333,16 @@ export default function AssistantStartComposer({
                 )}
               </Button>
               <span className="rounded-md border border-[var(--border-dim)] px-2 py-1 text-xs text-[var(--text-secondary)]">
-                {t("accessFull")}
+                {t("organizeBriefing")}
               </span>
             </div>
             <Button
               type="submit"
-              size="icon"
+              size="default"
               disabled={!canSend}
               aria-label={t("send")}
               className={cn(
-                "size-11 rounded-full",
+                "min-h-11 rounded-[var(--radius-control)] px-4",
                 canSend
                   ? "bg-[var(--action-primary-bg)] text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)]"
                   : "bg-[var(--surface-inset)] text-[var(--text-muted)]"
@@ -351,11 +351,15 @@ export default function AssistantStartComposer({
               {createThread.isPending ? (
                 <Loader2 className="size-4 animate-spin" aria-hidden="true" />
               ) : (
-                <ArrowUp className="size-4" aria-hidden="true" />
+                <>
+                  <span>{t("sendBriefing")}</span>
+                  <ArrowUp className="size-4" aria-hidden="true" />
+                </>
               )}
             </Button>
           </div>
         </div>
+        <p className="mt-2 text-xs text-[var(--text-muted)]">{t("firstActionHint")}</p>
       </form>
     </div>
   );

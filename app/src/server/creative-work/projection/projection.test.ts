@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import {
   ImpossibleCanonicalStateError,
+  getCanonicalWorkNextAction,
   normalizeCampaignState,
   normalizeCreativeWorkState,
   mapDerivationStatusToCanonical,
@@ -134,6 +135,28 @@ describe("canonical types", () => {
       originId: WORK_ID,
     });
     expect(parseCanonicalWorkId("not-an-id")).toBeNull();
+  });
+
+  it("derives one next action for every canonical state", () => {
+    expect([
+      "intending",
+      "briefing",
+      "generating",
+      "reviewing",
+      "approved",
+      "delivered",
+      "abandoned",
+      "failed",
+    ].map((state) => getCanonicalWorkNextAction(state as never))).toEqual([
+      "resume",
+      "resume",
+      "open",
+      "review",
+      "review",
+      "review",
+      "resume",
+      "retry",
+    ]);
   });
 });
 
@@ -279,6 +302,28 @@ describe("projectCampaignAsCanonicalWork", () => {
     const missing = projectCampaignAsCanonicalWork(campaignFixture());
     expect(missing.intent.formatHint).toBeNull();
   });
+
+  it("keeps the persisted protocol and result count in summary projections", () => {
+    const work = projectCampaignAsCanonicalWork(
+      campaignFixture({
+        generationMode: "format_adaptation",
+        status: "completed",
+        totalDerivations: 4,
+        completedDerivations: 4,
+      }),
+    );
+
+    expect(work.protocol).toBe("format_adaptation");
+    expect(work.resultCount).toBe(4);
+  });
+
+  it("counts completed campaign results instead of every derivation", () => {
+    const work = projectCampaignAsCanonicalWork(
+      campaignFixture({ status: "active", totalDerivations: 4, completedDerivations: 2 }),
+    );
+
+    expect(work.resultCount).toBe(2);
+  });
 });
 
 describe("projectCreativeWorkAsCanonicalWork (Criar Post fixture)", () => {
@@ -318,6 +363,43 @@ describe("projectCreativeWorkAsCanonicalWork (Criar Post fixture)", () => {
     expect(work.intent.kind).toBe("social_post");
     expect(work.briefing.theme).toBe("Lançamento");
     expect(work.briefing.headline).toBe("H");
+  });
+
+  it("projects the versioned briefing and keeps an unknown offer unknown", () => {
+    const input = creativeWorkFixture({
+      toolKind: "single",
+      brief: {
+        theme: "Legacy theme",
+        objective: "Legacy objective",
+        audience: "Legacy audience",
+        offer: "Legacy offer",
+      },
+      inputSnapshot: {
+        inferredBriefing: {
+          version: 1,
+          message: { value: "Algo moderno", state: "sourced" },
+          objective: { value: "Gerar interesse", state: "inferred", confidence: "medium" },
+          audience: { value: "Professores", state: "inferred", confidence: "low" },
+          offer: { value: null, state: "unknown" },
+          tone: { value: "Direto", state: "sourced" },
+          constraints: { value: null, state: "unknown" },
+          readiness: "exploratory",
+          confidence: "low",
+        },
+      },
+    });
+    const work = projectCreativeWorkAsCanonicalWork(input);
+
+    expect(work.intent.objective).toBe("Gerar interesse");
+    expect(work.briefing).toMatchObject({
+      theme: "Algo moderno",
+      audience: "Professores",
+      offer: null,
+      tone: "Direto",
+      constraints: null,
+    });
+    expect(projectCreativeWorkAsCanonicalWork({ ...input, toolKind: "variations" }).briefing.offer)
+      .toBe("Legacy offer");
   });
 
   it("marks selected output as approved stage", () => {
@@ -399,6 +481,15 @@ describe("projectCreativeWorkAsCanonicalWork (Criar Post fixture)", () => {
       "balanced 4:5 · v1",
       "balanced 4:5 · v2",
     ]);
+    expect(work.resultCount).toBe(2);
+  });
+
+  it("keeps the client profile name in the canonical projection", () => {
+    const work = projectCreativeWorkAsCanonicalWork(
+      creativeWorkFixture({ brandName: "Marca Aurora" }),
+    );
+
+    expect(work.brandName).toBe("Marca Aurora");
   });
 
   it("projects every directional output sharing the same level and format", () => {

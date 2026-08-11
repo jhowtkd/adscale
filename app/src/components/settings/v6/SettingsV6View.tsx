@@ -39,7 +39,7 @@ export default function SettingsV6View({
                   ? "border-[var(--selection-border)] bg-[var(--selection-bg)]"
                   : card.enabled
                     ? "border-[var(--border-subtle)] bg-[var(--surface-base)] hover:border-[var(--border-default)]"
-                    : "border-[var(--border-subtle)] bg-[var(--surface-base)] opacity-55"
+                    : "border-[var(--border-subtle)] bg-[var(--surface-base)]"
               }`}
             >
               <span className="grid h-10 w-10 place-items-center rounded-[var(--radius-control)] bg-[var(--neutral-bg)] text-[var(--utility-icon)]">
@@ -50,7 +50,7 @@ export default function SettingsV6View({
               <div className="flex items-center justify-between border-t border-[var(--border-subtle)] pt-3">
                 <SettingsBadge variant={card.badgeVariant} label={card.badge} />
                 <span className="text-sm text-[var(--text-muted)]">
-                  {card.enabled ? labels.openCard : labels.unavailable}
+                  {card.actionLabel}
                 </span>
               </div>
             </article>

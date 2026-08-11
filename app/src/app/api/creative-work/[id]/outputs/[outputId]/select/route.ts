@@ -7,8 +7,9 @@ import { requireWorkspaceAccess } from "@/server/auth/workspace";
 const selectOutputSchema = z
   .object({
     saveToLibrary: z.boolean().default(true),
+    confirmObjective: z.boolean().default(false),
   })
-  .default({ saveToLibrary: true });
+  .default({ saveToLibrary: true, confirmObjective: false });
 
 /**
  * Select a completed output as the winner — HTTP adapter only (Phase 5 / item 38).
@@ -36,6 +37,7 @@ export async function POST(
       workItemId: id,
       outputId,
       saveToLibrary: parsed.data.saveToLibrary,
+      confirmObjective: parsed.data.confirmObjective,
     });
 
     if (!result.ok) {
@@ -50,6 +52,10 @@ export async function POST(
           });
         case "output_missing_key":
           return apiError("creativeWorkOutputMissingKey", 409);
+        case "objective_selection_blocked":
+          return apiError("creativeWorkOutputObjectiveFailed", 409, result.error.policy);
+        case "objective_confirmation_required":
+          return apiError("creativeWorkOutputConfirmationRequired", 409, result.error.policy);
         default:
           return apiError("invalidRequest", 400);
       }

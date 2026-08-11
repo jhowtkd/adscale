@@ -51,7 +51,7 @@ export default function TemplatesPage() {
       <PageHeader
         title={tTemplate("title")}
         description={tTemplate("subtitle")}
-        actions={
+        actions={templates && templates.length > 0 ? (
           <Button
             onClick={() => router.push("/campaigns")}
             className="bg-[var(--action-primary-bg)] text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)]"
@@ -59,7 +59,7 @@ export default function TemplatesPage() {
             <Plus size={16} aria-hidden="true" />
             {tTemplate("createFromCampaign")}
           </Button>
-        }
+        ) : undefined}
       />
 
       <Panel padding={isLoading || (templates && templates.length > 0) ? "sm" : "none"}>

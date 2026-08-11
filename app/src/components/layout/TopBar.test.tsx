@@ -236,14 +236,14 @@ describe("TopBar navigation quick-links", () => {
     expect(screen.queryByRole("link", { name: /restyling/i })).not.toBeInTheDocument();
   });
 
-  it("still renders the core Dashboard, Campaigns and Settings nav links", () => {
+  it("still renders the core overview, works and settings nav links", () => {
     render(<TopBar />, { wrapper: createWrapper() });
 
-    const campaignsLink = screen.getByRole("link", { name: "campaigns" });
+    const worksLink = screen.getByRole("link", { name: "works" });
 
-    expect(campaignsLink).toBeInTheDocument();
-    expect(campaignsLink).toHaveAttribute("aria-current", "page");
-    expect(campaignsLink).toHaveClass(
+    expect(worksLink).toBeInTheDocument();
+    expect(worksLink).toHaveAttribute("aria-current", "page");
+    expect(worksLink).toHaveClass(
       "bg-[var(--active-navigation-bg)]",
       "text-[var(--active-navigation-text)]"
     );

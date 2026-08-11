@@ -93,6 +93,18 @@ describe("mapDashboardToV6View", () => {
     expect(view.kpis[2]?.trend).toBe("0% vs período anterior");
   });
 
+  it("keeps credits out of the overview projection", () => {
+    const view = mapDashboardToV6View({
+      stats: baseStats,
+      firstName: "Ana",
+      templates: [],
+      ...labels,
+    });
+
+    expect(view.kpis).toHaveLength(3);
+    expect(JSON.stringify({ hero: view.hero, kpis: view.kpis })).not.toMatch(/credit|crédit/i);
+  });
+
   it("prepends the create-post quick action to the recipes list", () => {
     const view = mapDashboardToV6View({
       stats: baseStats,
@@ -111,6 +123,64 @@ describe("mapDashboardToV6View", () => {
     expect(view.recipes[1]?.id).toBe("t-1");
     expect(view.recipes[2]?.id).toBe("t-2");
     expect(view.recipes[3]?.id).toBe("t-3");
+  });
+
+  it("can feature a Creative Work from the canonical feed", () => {
+    const view = mapDashboardToV6View({
+      stats: baseStats,
+      canonicalWorks: [
+        {
+          id: "creative_work:work-1",
+          originKind: "creative_work",
+          originId: "work-1",
+          origin: "quick_tool",
+          workspaceId: "workspace-1",
+          clientProfileId: null,
+          name: "Criar Post",
+          state: "reviewing",
+          updatedAt: "2026-06-03T12:00:00.000Z",
+          resumable: true,
+          resumeHref: "/creative-work/work-1",
+          resultCount: 3,
+        },
+      ] as never,
+      firstName: "Ana",
+      templates: [],
+      ...labels,
+    });
+
+    expect(view.hero?.id).toBe("work-1");
+    expect(view.hero?.href).toBe("/creative-work/work-1");
+    expect(view.hero?.briefingHref).toBe("/creative-work/work-1");
+    expect(view.hero?.name).toBe("Criar Post");
+  });
+
+  it.each([
+    ["approved", "approved"],
+    ["delivered", "completed"],
+  ] as const)("keeps the hero badge semantic for %s", (state, badge) => {
+    const view = mapDashboardToV6View({
+      stats: baseStats,
+      canonicalWorks: [{
+        id: "creative_work:work-1",
+        originKind: "creative_work",
+        originId: "work-1",
+        origin: "quick_tool",
+        workspaceId: "workspace-1",
+        clientProfileId: null,
+        name: "Work",
+        state,
+        updatedAt: "2026-06-03T12:00:00.000Z",
+        resumable: true,
+        resumeHref: "/creative-work/work-1",
+        resultCount: 1,
+      }] as never,
+      firstName: "Ana",
+      templates: [],
+      ...labels,
+    });
+
+    expect(view.hero?.badge).toBe(badge);
   });
 
   it.each([
@@ -133,6 +203,20 @@ describe("mapDashboardToV6View", () => {
 
     const view = mapDashboardToV6View({
       stats,
+      canonicalWorks: [{
+        id: "creative_work:work-1",
+        originKind: "creative_work",
+        originId: "work-1",
+        origin: "quick_tool",
+        workspaceId: "workspace-1",
+        clientProfileId: null,
+        name: "Work",
+        state: status === "active" ? "reviewing" : status,
+        updatedAt: "2026-06-03T12:00:00.000Z",
+        resumable: true,
+        resumeHref: "/creative-work/work-1",
+        resultCount: 1,
+      }] as never,
       firstName: "Ana",
       templates: [],
       ...labels,
@@ -140,5 +224,17 @@ describe("mapDashboardToV6View", () => {
 
     expect(view.activity[0]?.statusClass).toBe(tone);
     expect(view.hero?.badgeClass).toBe(tone);
+  });
+
+  it("does not promote a legacy campaign when the canonical feed is empty", () => {
+    const view = mapDashboardToV6View({
+      stats: baseStats,
+      canonicalWorks: [],
+      firstName: "Ana",
+      templates: [],
+      ...labels,
+    });
+
+    expect(view.hero).toBeNull();
   });
 });

@@ -11,7 +11,6 @@ describe("CreditConfirmModal", () => {
     render(
       <CreditConfirmModal
         open={false}
-        creditCost={5}
         isPending={false}
         onConfirm={vi.fn()}
         onCancel={vi.fn()}
@@ -21,11 +20,10 @@ describe("CreditConfirmModal", () => {
     expect(screen.queryByTestId("credit-confirm-modal")).not.toBeInTheDocument();
   });
 
-  it("renders credit cost text when open", () => {
+  it("renders neutral version context when open", () => {
     render(
       <CreditConfirmModal
         open={true}
-        creditCost={5}
         isPending={false}
         onConfirm={vi.fn()}
         onCancel={vi.fn()}
@@ -33,14 +31,14 @@ describe("CreditConfirmModal", () => {
     );
 
     expect(screen.getByTestId("credit-confirm-modal")).toBeInTheDocument();
-    expect(screen.getByText(/Esta revisão custa 5 créditos/)).toBeInTheDocument();
+    expect(screen.getByText(/A versão atual continuará disponível/)).toBeInTheDocument();
+    expect(screen.queryByText(/crédit|saldo|custo/i)).not.toBeInTheDocument();
   });
 
   it("renders confirm and cancel buttons", () => {
     render(
       <CreditConfirmModal
         open={true}
-        creditCost={5}
         isPending={false}
         onConfirm={vi.fn()}
         onCancel={vi.fn()}
@@ -57,7 +55,6 @@ describe("CreditConfirmModal", () => {
     render(
       <CreditConfirmModal
         open={true}
-        creditCost={5}
         isPending={false}
         onConfirm={onConfirm}
         onCancel={onCancel}
@@ -75,7 +72,6 @@ describe("CreditConfirmModal", () => {
     render(
       <CreditConfirmModal
         open={true}
-        creditCost={5}
         isPending={false}
         onConfirm={onConfirm}
         onCancel={onCancel}
@@ -91,7 +87,6 @@ describe("CreditConfirmModal", () => {
     render(
       <CreditConfirmModal
         open={true}
-        creditCost={5}
         isPending={true}
         onConfirm={vi.fn()}
         onCancel={vi.fn()}
@@ -107,7 +102,6 @@ describe("CreditConfirmModal", () => {
     render(
       <CreditConfirmModal
         open={true}
-        creditCost={5}
         isPending={true}
         onConfirm={vi.fn()}
         onCancel={vi.fn()}
@@ -122,7 +116,6 @@ describe("CreditConfirmModal", () => {
     render(
       <CreditConfirmModal
         open={true}
-        creditCost={5}
         isPending={false}
         onConfirm={vi.fn()}
         onCancel={onCancel}

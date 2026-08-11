@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import AssistantShell from "./AssistantShell";
 import { AssistantSurfaceProvider } from "./AssistantSurfaceContext";
 
@@ -13,8 +13,10 @@ vi.mock("@/lib/hooks/use-media-query", () => ({
   useIsMobile: () => mockUseIsMobile(),
 }));
 
+const mockUseSearchParams = vi.fn(() => new URLSearchParams("threadId=thread-1"));
+
 vi.mock("next/navigation", () => ({
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => mockUseSearchParams(),
 }));
 
 function shell(props: {
@@ -32,6 +34,10 @@ function shell(props: {
 }
 
 describe("AssistantShell", () => {
+  beforeEach(() => {
+    mockUseSearchParams.mockReturnValue(new URLSearchParams("threadId=thread-1"));
+  });
+
   it("renders desktop three-column regions with slot content", () => {
     mockUseIsMobile.mockReturnValue(false);
     shell({

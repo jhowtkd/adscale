@@ -9,6 +9,7 @@ import {
 } from "@/components/dashboard/v6/build-dashboard-v6-labels";
 import { mapDashboardToV6View } from "@/components/dashboard/v6/map-dashboard-v6";
 import { useDashboardStats } from "@/lib/hooks/use-dashboard-stats";
+import { useCanonicalWorks } from "@/lib/hooks/use-canonical-works";
 import { useTemplates } from "@/lib/hooks/use-templates";
 import { useAppStore } from "@/lib/store";
 
@@ -29,11 +30,12 @@ export default function DashboardDataPage() {
   const firstName = useAppStore((s) => s.user.firstName);
   const { data: stats, isLoading, isError, refetch } = useDashboardStats("month", "7");
   const { data: templates = [], isLoading: templatesLoading } = useTemplates();
+  const { data: canonicalWorks } = useCanonicalWorks();
 
   const labels = useMemo(
     () => ({
       ...buildDashboardV6Labels(tV6),
-      greeting: buildDashboardV6Greeting(tV6, firstName || "User"),
+      greeting: buildDashboardV6Greeting(tV6, firstName || ""),
     }),
     [tV6, firstName]
   );
@@ -42,7 +44,8 @@ export default function DashboardDataPage() {
     if (!stats) return null;
     return mapDashboardToV6View({
       stats,
-      firstName: firstName || "User",
+      canonicalWorks,
+      firstName: firstName || "",
       templates,
       tKpi,
       tStatus,
@@ -55,11 +58,11 @@ export default function DashboardDataPage() {
         oneDay: tV6("relativeOneDay"),
         days: (count) => tV6("relativeDays", { count }),
       },
-      authorName: firstName || "User",
+      authorName: firstName || tV6("authorFallback"),
       templateFallback: tV6("templateFallback"),
       varsCount: (count) => tV6("varsCount", { count }),
     });
-  }, [stats, templates, firstName, tKpi, tStatus, tV6]);
+  }, [stats, canonicalWorks, templates, firstName, tKpi, tStatus, tV6]);
 
   if (isError && !stats) {
     return (
@@ -103,7 +106,7 @@ export default function DashboardDataPage() {
       <DashboardV6View
         view={
           view ?? {
-            firstName: firstName || "User",
+            firstName: firstName || "",
             inReviewCount: 0,
             readyToApproveCount: 0,
             kpis: [],
@@ -111,7 +114,6 @@ export default function DashboardDataPage() {
             activity: [],
             recipes: [],
             briefingRows: [],
-            activeBriefingCampaignId: null,
           }
         }
         labels={labels}

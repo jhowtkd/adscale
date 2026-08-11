@@ -255,7 +255,7 @@ export async function generateSocialPostCopy(input: {
     }
     return socialPostCopySchema.parse({
       headline: `UAT: ${brief.theme}`,
-      body: `${brief.objective} para ${brief.audience}. Oferta: ${brief.offer}.`,
+      body: `${brief.objective} para ${brief.audience}.${brief.offer ? ` Oferta: ${brief.offer}.` : ""}`,
       cta: "Saiba mais",
     });
   }
@@ -271,7 +271,7 @@ export async function generateSocialPostCopy(input: {
       `- Theme: ${brief.theme}`,
       `- Objective: ${brief.objective}`,
       `- Audience: ${brief.audience}`,
-      `- Offer: ${brief.offer}`,
+      ...(brief.offer ? [`- Offer: ${brief.offer}`] : []),
       "",
       "Approved brand voice:",
       voiceBlock.length > 0 ? voiceBlock : "- (no voice notes provided)",

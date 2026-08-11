@@ -40,7 +40,7 @@ export default function ResponsiveTabs({
                 if (!disabled) onSelect(item.id);
               }}
               disabled={disabled}
-              aria-current={active ? "page" : undefined}
+              aria-pressed={active}
               aria-disabled={disabled || undefined}
               className={cn(
                 "relative shrink-0 whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors duration-200",

@@ -124,7 +124,7 @@ describe("StrategyRecipePanel", () => {
     expect(screen.getByText("recipes.visual_differentiation.name")).toBeInTheDocument();
   });
 
-  it("displays server-derived preview and batch credits", () => {
+  it("keeps server-derived preview and batch credits out of the creative surface", () => {
     render(
       <StrategyRecipePanel
         campaignId="camp-1"
@@ -135,8 +135,9 @@ describe("StrategyRecipePanel", () => {
       />
     );
 
-    expect(screen.getByTestId("strategy-recipe-preview-credits")).toBeInTheDocument();
-    expect(screen.getByTestId("strategy-recipe-batch-credits")).toBeInTheDocument();
+    expect(screen.queryByTestId("strategy-recipe-preview-credits")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("strategy-recipe-batch-credits")).not.toBeInTheDocument();
+    expect(screen.queryByText(/crédit|credit/i)).not.toBeInTheDocument();
   });
 
   it("shows a recoverable error when the server recipe surface fails", () => {

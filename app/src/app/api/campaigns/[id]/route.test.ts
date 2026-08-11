@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { PATCH } from "./route";
+import { GET, PATCH } from "./route";
 
 vi.mock("@/server/auth/workspace", () => ({
   requireWorkspaceAccess: vi.fn(() =>
@@ -11,6 +11,7 @@ vi.mock("@/server/auth/workspace", () => ({
 }));
 
 vi.mock("@/server/repositories/campaign", () => ({
+  getCampaignById: vi.fn(),
   updateCampaign: vi.fn(),
 }));
 
@@ -27,15 +28,12 @@ vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
 }));
 
-import { updateCampaign } from "@/server/repositories/campaign";
-import {
-  getClientProfile,
-  getClientReferencesByIds,
-} from "@/server/repositories/client-reference";
+import { getCampaignById, updateCampaign } from "@/server/repositories/campaign";
+import { getClientProfile } from "@/server/repositories/client-reference";
 
 const mockUpdateCampaign = vi.mocked(updateCampaign);
+const mockGetCampaignById = vi.mocked(getCampaignById);
 const mockGetClientProfile = vi.mocked(getClientProfile);
-const mockGetClientReferencesByIds = vi.mocked(getClientReferencesByIds);
 
 const CAMPAIGN_ID = "33333333-3333-4333-8333-333333333333";
 const PROFILE_ID = "550e8400-e29b-41d4-a716-446655440000";
@@ -47,6 +45,17 @@ function patchRequest(body: Record<string, unknown>) {
     body: JSON.stringify(body),
   });
 }
+
+describe("GET /api/campaigns/[id]", () => {
+  it("treats a malformed campaign id as not found without querying the database", async () => {
+    const res = await GET(new Request("http://localhost/api/campaigns/nao-existe"), {
+      params: Promise.resolve({ id: "nao-existe" }),
+    });
+
+    expect(res.status).toBe(404);
+    expect(mockGetCampaignById).not.toHaveBeenCalled();
+  });
+});
 
 describe("PATCH /api/campaigns/[id]", () => {
   beforeEach(() => {

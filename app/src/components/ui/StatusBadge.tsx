@@ -87,7 +87,6 @@ export default function StatusBadge({
         tokenClass,
         className
       )}
-      aria-label={label}
     >
       {showDot && (
         <span

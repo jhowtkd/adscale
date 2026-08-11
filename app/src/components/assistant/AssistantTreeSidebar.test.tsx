@@ -193,7 +193,7 @@ describe("AssistantTreeSidebar", () => {
 
     await waitFor(() => {
       const threadButton = screen.getByRole("button", { name: /Main thread/i });
-      expect(threadButton).toHaveAttribute("aria-current", "true");
+      expect(threadButton).toHaveAttribute("aria-pressed", "true");
     });
   });
 });

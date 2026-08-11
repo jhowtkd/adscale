@@ -13,10 +13,20 @@ vi.mock("next-intl", () => ({ useTranslations: () => (key: string, values?: Reco
   variationInstructionsPlaceholder: "Ex.:\n- Criar uma copy mais direta\n- Sugerir novos CTAs\n- Destacar a oferta",
   formatAdaptationTitle: "Adapte uma arte para outros formatos", formatAdaptationSubtitle: "Envie a arte original e escolha os formatos.",
   originalArt: "Arte original", styleReference: "Referência de estilo", fullBriefing: "Briefing visual sugerido pela IA",
+  inferredBriefingTitle: "Briefing inferido",
+  inferredBriefingSentence: `A IA entendeu assim: ${values?.message}; objetivo ${values?.objective}; público ${values?.audience}; oferta ${values?.offer}; tom ${values?.tone}; restrições ${values?.constraints}.`,
+  briefingProvenance: "Proveniência", briefingProvenanceRequest: "Pedido do operador",
+  briefingProvenanceBrand: `Marca: ${values?.brand}`, briefingProvenanceSource: `Fonte: ${values?.source}`,
+  briefingFieldsLabel: "Campos do briefing inferido", briefingMessage: "Mensagem", briefingObjective: "Objetivo",
+  briefingAudience: "Público", briefingOffer: "Oferta", briefingTone: "Tom", briefingConstraints: "Restrições",
+  briefingUnknown: "Não informado", briefingStateSourced: "Fonte factual", briefingStateInferred: "Hipótese da IA",
+  briefingStateUnknown: "Desconhecido", briefingStatus: "Prontidão e confiança do briefing", briefingReadiness: "Prontidão",
+  briefingReadinessReady: "Pronto", briefingReadinessExploratory: "Exploratório", briefingReadinessBlocked: "Bloqueado",
+  briefingConfidence: "Confiança", briefingConfidenceHigh: "Alta", briefingConfidenceMedium: "Média", briefingConfidenceLow: "Baixa",
   addOriginalArt: "Adicionar arte original", addStyleArt: "Adicionar referência de estilo",
   removeOriginalArt: "Remover arte original", removeStyleArt: "Remover referência de estilo",
   previewUnavailable: "Imagem indisponível", sourceUploading: "Enviando imagem", sourceReady: "Imagem pronta",
-  restyleAddArt: "Adicionar arte original", addStyleReference: "Adicionar referência de estilo", generateRestyle: "Gerar reestilização · 5 créditos",
+  restyleAddArt: "Adicionar arte original", addStyleReference: "Adicionar referência de estilo", generateRestyle: "Gerar reestilização",
   actionSaving: "Salvando", actionPreparing: "Preparando", actionSubmitting: "Enviando para geração", actionGenerating: "Gerando",
   optionalSettings: "Ajustes opcionais", format: "Formato", formatAuto: "Automático (agora: 4:5)", targetFormats: "Formatos de destino",
   directionHelpLabel: `Ajuda sobre ${values?.direction}`, directionHelp: `Usa a orientação ${values?.instruction}`,
@@ -37,7 +47,7 @@ vi.mock("next-intl", () => ({ useTranslations: () => (key: string, values?: Reco
   brandConflictChoiceSourceAria: `Usar a marca da arte, ${values?.brand}, como autoridade de marca`,
   brandConflictChoiceActive: `Manter a marca ativa (${values?.brand})`,
   brandConflictChoiceActiveAria: `Manter a marca ativa, ${values?.brand}, como autoridade de marca`,
-}[key] ?? (key === "generate" ? `Gerar ${values?.count} variações · ${values?.credits} créditos` : key)) }));
+}[key] ?? (key === "generate" ? `Gerar ${values?.count} variações` : key)) }));
 
 import { CreativeComposer } from "./CreativeComposer";
 import type { CreativeComposerModel, CreativeComposerViewModel } from "./useCreativeComposer";
@@ -67,6 +77,7 @@ function composer(overrides = {}) {
     composerRef: { current: null }, request: "", setRequest: vi.fn(), intent: "variations", selectIntent: vi.fn(),
     format: "4:5", formatMode: "manual", setFormat: vi.fn(), setFormatAuto: vi.fn(), targetFormats: [], toggleTargetFormat: vi.fn(), directionPool, toggleDirection: vi.fn(), setManualDirectionInstruction: vi.fn(), directionSuggestionState: "idle", pendingDirectionSuggestions: null, applyDirectionSuggestions: vi.fn(), requestDirectionSuggestions: vi.fn(), keepCurrentDirections: vi.fn(), state: "empty", actionPhase: "idle",
     workId: null, brandName: "Marca A", sources: [], outputs: [], quote: { unitCount: 3, credits: 15 },
+    inferredBriefing: null, briefingFactPack: null,
     campaignId: null, campaigns: [], linkCampaign: vi.fn(), retryOutput: vi.fn(), retryRevisionOutput: vi.fn(), approveOutput: vi.fn(),
     downloadOutput: vi.fn(), reviseOutput: vi.fn(), isRetryingOutput: vi.fn(), isApprovingOutput: vi.fn(), approvalErrorOutputId: null, isRevisingOutput: vi.fn(),
     canGenerate: true, isUploading: false, error: null, announcement: "", brandTrainingSuggestion: null, requiresBrandSelection: false,
@@ -116,6 +127,63 @@ function renderComposer(value = composer()) {
 }
 
 describe("CreativeComposer", () => {
+  it("shows the versioned inferred briefing with states, readiness and unknown offer", () => {
+    renderComposer(composer({
+      intent: "single",
+      sources: [readySource],
+      inferredBriefing: {
+        version: 1,
+        message: { value: "Algo moderno", state: "sourced" },
+        objective: { value: "Gerar interesse", state: "inferred", confidence: "medium" },
+        audience: { value: null, state: "unknown" },
+        offer: { value: null, state: "unknown" },
+        tone: { value: "Direto", state: "sourced" },
+        constraints: { value: null, state: "unknown" },
+        readiness: "exploratory",
+        confidence: "low",
+      },
+      briefingFactPack: {
+        version: 1,
+        request: "Algo moderno",
+        facts: [
+          { value: "Algo moderno", class: "text", required: true, origin: "request" },
+          { value: "Direto", class: "text", required: false, origin: "source", sourceId: "source-1" },
+        ],
+        brand: { requiredElements: [], prohibitedElements: [] },
+        identity: { clientProfileId: "profile-1", brandName: "Marca A", brandAuthority: "active" },
+      },
+    }));
+
+    const briefing = screen.getByTestId("inferred-briefing");
+    expect(briefing).toHaveTextContent("A IA entendeu assim: Algo moderno; objetivo Gerar interesse; público Não informado; oferta Não informado; tom Direto; restrições Não informado.");
+    expect(briefing.textContent?.match(/A IA entendeu assim/g)).toHaveLength(1);
+    expect(briefing).toHaveTextContent("Pedido do operador · Marca: Marca A · Fonte: arte.png");
+    expect(screen.getByTestId("inferred-briefing-offer")).toHaveTextContent("Não informado");
+    expect(screen.getByTestId("inferred-briefing-offer")).toHaveAttribute("data-state", "unknown");
+    expect(screen.getByTestId("inferred-briefing")).toHaveTextContent("Hipótese da IA");
+    expect(screen.getByTestId("inferred-briefing")).toHaveTextContent("Prontidão: Exploratório");
+    expect(screen.getByTestId("inferred-briefing")).toHaveTextContent("Confiança: Baixa");
+  });
+
+  it("does not show the Peça Única briefing in another protocol", () => {
+    renderComposer(composer({
+      intent: "variations",
+      inferredBriefing: {
+        version: 1,
+        message: { value: "Mensagem", state: "sourced" },
+        objective: { value: "Objetivo", state: "inferred", confidence: "medium" },
+        audience: { value: null, state: "unknown" },
+        offer: { value: null, state: "unknown" },
+        tone: { value: null, state: "unknown" },
+        constraints: { value: null, state: "unknown" },
+        readiness: "exploratory",
+        confidence: "low",
+      },
+    }));
+
+    expect(screen.queryByTestId("inferred-briefing")).not.toBeInTheDocument();
+  });
+
   it("keeps Enter as a newline in Peça única and never generates from the textarea", () => {
     const value = composer({ intent: "single", quote: { unitCount: 1, credits: 5 } });
     renderComposer(value);
@@ -155,13 +223,15 @@ describe("CreativeComposer", () => {
 
     const workspace = screen.getByTestId("variation-workspace");
     const referenceAndContext = screen.getByTestId("variation-reference-context");
+    const guidance = screen.getByTestId("variation-guidance");
     const directions = screen.getByTestId("variation-directions-region");
     const optionalSettings = screen.getByTestId("creative-optional-settings");
     const action = screen.getByTestId("creative-generate-action");
 
-    expect(workspace).toHaveClass("lg:grid-cols-2");
+    expect(workspace).toHaveClass("items-start", "lg:grid-cols-2");
     expect(referenceAndContext).toContainElement(screen.getByRole("img", { name: "arte.png" }));
-    expect(referenceAndContext).toContainElement(screen.getByRole("heading", { name: "Leitura da IA" }));
+    expect(guidance).toContainElement(directions);
+    expect(guidance).toContainElement(screen.getByRole("heading", { name: "Leitura da IA" }));
     expect(
       referenceAndContext.compareDocumentPosition(directions)
         & Node.DOCUMENT_POSITION_FOLLOWING,
@@ -209,12 +279,13 @@ describe("CreativeComposer", () => {
     },
   );
 
-  it("shows the canonical paid CTA and sends dropped files to the same composer", () => {
+  it("shows the canonical CTA without financial copy and sends dropped files to the same composer", () => {
     const value = composer();
     renderComposer(value);
     const file = new File(["image"], "arte.png", { type: "image/png" });
 
-    expect(screen.getByRole("button", { name: "Gerar 3 variações · 15 créditos" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Gerar 3 variações" })).toBeInTheDocument();
+    expect(screen.queryByText(/crédit/i)).not.toBeInTheDocument();
     fireEvent.drop(screen.getByTestId("creative-composer-dropzone"), { dataTransfer: { files: [file] } });
     expect(value.addFiles).toHaveBeenCalledWith([file]);
     expect(screen.getByLabelText("Adicionar arte", { selector: "input" })).toHaveAttribute("tabindex", "-1");
@@ -230,7 +301,7 @@ describe("CreativeComposer", () => {
 
     expect(screen.getByRole("heading", { name: "Copiar o estilo da referência" })).toBeInTheDocument();
     expect(screen.queryByRole("textbox", { name: /pedido criativo/i })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Gerar reestilização · 5 créditos" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Gerar reestilização" })).toBeInTheDocument();
     expect(screen.getByLabelText("Adicionar arte original", { selector: "input" })).toBeInTheDocument();
     expect(screen.getByLabelText("Adicionar referência de estilo", { selector: "input" })).toBeInTheDocument();
     expect(screen.queryByText("Ajustes opcionais")).not.toBeInTheDocument();
@@ -306,7 +377,7 @@ describe("CreativeComposer", () => {
       quote: { unitCount: 1, credits: 5 },
     }));
 
-    expect(screen.getByRole("button", { name: "Gerar reestilização · 5 créditos" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Gerar reestilização" })).toBeDisabled();
   });
 
   it("routes restyle retry and remove to the matching visual card", () => {
@@ -498,7 +569,7 @@ describe("CreativeComposer", () => {
     const value = composer({ workId: "work-1", intent: "single", quote: { unitCount: 1, credits: 5 } });
     renderComposer(value);
     expect(value.selectIntent).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "Gerar 1 variações · 5 créditos" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Gerar 1 variações" })).toBeInTheDocument();
   });
 
   it("renders a focusable inline brand choice and disables paid work for a new draft", () => {
@@ -559,12 +630,15 @@ describe("CreativeComposer", () => {
     });
     renderComposer(value);
 
-    expect(screen.getAllByRole("img")).toHaveLength(2);
-    expect(screen.getByText("Gerando...")).toBeVisible();
-    fireEvent.click(screen.getAllByRole("button", { name: "Aprovar" })[0]);
-    expect(value.approveOutput).toHaveBeenCalledWith("output-1");
-    expect(screen.getAllByRole("button", { name: "Baixar" })).toHaveLength(2);
-    expect(screen.getAllByRole("button", { name: "Editar" })).toHaveLength(2);
+    expect(screen.getAllByRole("img")).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Selecionar Ousada em 4:5" }));
+    expect(screen.getByText("Gerando…")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Selecionar Conservadora em 4:5" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "reviewBeforeApprove" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "confirmApproval" })[0]);
+    expect(value.approveOutput).toHaveBeenCalledWith("output-1", true);
+    expect(screen.getAllByRole("button", { name: "Baixar" })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "Editar" })).toHaveLength(1);
   });
 
   it("groups an existing campaign without creating one", () => {

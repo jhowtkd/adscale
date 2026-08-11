@@ -228,7 +228,8 @@ describe("AssistantActionCard", () => {
       expect(screen.getByText("1:1")).toBeInTheDocument();
       expect(screen.getByText("3 referências")).toBeInTheDocument();
       expect(screen.getByText(/Plano: v2/)).toBeInTheDocument();
-      expect(screen.getByText("5 créditos")).toBeInTheDocument();
+      expect(screen.getByText("Gera nova versão do criativo")).toBeInTheDocument();
+      expect(screen.queryByText(/crédit/i)).not.toBeInTheDocument();
       expect(
         screen.getByRole("button", { name: "Confirmar revisão do criativo" })
       ).toBeInTheDocument();

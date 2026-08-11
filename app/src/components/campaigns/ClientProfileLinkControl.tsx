@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Loader2, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -30,6 +30,9 @@ export default function ClientProfileLinkControl({
   const { data: profiles = [], isLoading } = useClientProfiles();
   const updateCampaign = useUpdateCampaign(campaignId);
   const createProfile = useCreateClientProfile();
+  const fieldId = useId();
+  const titleId = `${fieldId}-title`;
+  const clientNameId = `${fieldId}-name`;
   const [draftClientName, setDraftClientName] = useState(clientName?.trim() ?? "");
   const [prevClientName, setPrevClientName] = useState(clientName);
   if (clientName !== prevClientName) {
@@ -119,10 +122,10 @@ export default function ClientProfileLinkControl({
       : "space-y-3";
 
   return (
-    <div className={cn(containerClass, className)} role="group" aria-labelledby="client-profile-link-title">
+    <div className={cn(containerClass, className)} role="group" aria-labelledby={titleId}>
       <div>
         <h4
-          id="client-profile-link-title"
+          id={titleId}
           className="text-sm font-semibold text-[var(--text-primary)]"
         >
           {t("newClientTitle")}
@@ -158,11 +161,11 @@ export default function ClientProfileLinkControl({
       ) : null}
 
       <div className="space-y-2">
-        <label htmlFor={`client-profile-name-${campaignId}`} className="block text-xs font-medium text-[var(--text-secondary)]">
+        <label htmlFor={clientNameId} className="block text-xs font-medium text-[var(--text-secondary)]">
           {t("clientNameLabel")}
         </label>
         <Input
-          id={`client-profile-name-${campaignId}`}
+          id={clientNameId}
           value={draftClientName}
           onChange={(event) => setDraftClientName(event.target.value)}
           placeholder={t("clientNamePlaceholder")}

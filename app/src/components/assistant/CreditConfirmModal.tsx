@@ -13,7 +13,6 @@ import {
 
 export interface CreditConfirmModalProps {
   open: boolean;
-  creditCost: number;
   isPending: boolean;
   onConfirm: () => void;
   onCancel: () => void;
@@ -21,7 +20,6 @@ export interface CreditConfirmModalProps {
 
 export default function CreditConfirmModal({
   open,
-  creditCost,
   isPending,
   onConfirm,
   onCancel,
@@ -32,8 +30,7 @@ export default function CreditConfirmModal({
         <DialogHeader>
           <DialogTitle>Confirmar revisão do criativo</DialogTitle>
           <DialogDescription>
-            Esta revisão custa {creditCost} créditos. O valor será descontado agora e a geração
-            acontecerá em segundo plano.
+            Uma nova versão será gerada em segundo plano. A versão atual continuará disponível.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>

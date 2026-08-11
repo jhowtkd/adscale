@@ -1,10 +1,25 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
-import { requireWorkspaceAccess, requireRole } from "@/server/auth/workspace";
+import {
+  ACTIVE_WORKSPACE_COOKIE,
+  ACTIVE_WORKSPACE_COOKIE_OPTIONS,
+  requireWorkspaceAccess,
+  requireRole,
+} from "@/server/auth/workspace";
 import { getSessionFromHeaders } from "@/server/auth/session";
-import { acceptInvite } from "@/server/auth/team";
-import { createInvitation, getPendingInvitations, cancelInvitation } from "@/server/repositories/invitation";
+import {
+  acceptInvite,
+  assertInviteUsable,
+  isInviteStateError,
+} from "@/server/auth/team";
+import { getInviteErrorHttpStatus } from "@/server/auth/invite-http";
+import {
+  createInvitation,
+  getInvitationByToken,
+  getPendingInvitations,
+  cancelInvitation,
+} from "@/server/repositories/invitation";
 import { sendInviteEmail } from "@/server/services/email";
 import { getUserLocale } from "@/server/repositories/user";
 
@@ -17,14 +32,50 @@ const acceptInviteSchema = z.object({
   token: z.string().min(1),
 });
 
+const previewSchema = z.object({ token: z.string().min(1) });
+
+function maskEmail(email: string) {
+  const [local, domain] = email.split("@", 2);
+  if (!local || !domain) return "•••";
+  return `${local.slice(0, 1)}${"•".repeat(Math.min(Math.max(local.length - 1, 2), 4))}@${domain}`;
+}
+
 export async function GET(request: Request) {
   try {
+    const token = new URL(request.url).searchParams.get("token");
+    if (token !== null) {
+      const parsed = previewSchema.safeParse({ token });
+      if (!parsed.success) return apiError("invalidInput", 400, parsed.error.flatten());
+
+      const invite = await getInvitationByToken(parsed.data.token);
+      if (!invite) return apiError("inviteNotFound", 404);
+      assertInviteUsable(invite);
+
+      const session = await getSessionFromHeaders(request.headers);
+      return NextResponse.json({
+        invite: {
+          workspaceName: invite.workspaceName,
+          role: invite.role,
+          senderName: invite.senderName,
+          recipientEmail: maskEmail(invite.email),
+          expiresAt: invite.expiresAt.toISOString(),
+        },
+        account: session
+          ? {
+              email: session.user.email,
+              matchesInvite: session.user.email.toLowerCase() === invite.email.toLowerCase(),
+            }
+          : null,
+      });
+    }
+
     const { workspace } = await requireWorkspaceAccess(request);
     const invites = await getPendingInvitations(workspace.id);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const sanitized = invites.map(({ token, ...rest }) => rest);
     return NextResponse.json({ invites: sanitized });
   } catch (error) {
+    if (isInviteStateError(error)) return apiError(error.code, getInviteErrorHttpStatus(error.code));
     return handleApiError(error, "workspace.invites.GET");
   }
 }
@@ -81,19 +132,13 @@ export async function PATCH(request: Request) {
       return apiError("invalidInput", 400, parsed.error.flatten());
     }
 
-    await acceptInvite(parsed.data.token, session.user.id, session.user.email);
+    const accepted = await acceptInvite(parsed.data.token, session.user.id, session.user.email);
 
-    return NextResponse.json({ success: true });
+    const response = NextResponse.json({ success: true, workspaceId: accepted.workspaceId });
+    response.cookies.set(ACTIVE_WORKSPACE_COOKIE, accepted.workspaceId, ACTIVE_WORKSPACE_COOKIE_OPTIONS);
+    return response;
   } catch (error) {
-    if (error instanceof Error && error.message === "Invite not found") {
-      return apiError("inviteNotFound", 404);
-    }
-    if (error instanceof Error && error.message === "Invite expired") {
-      return apiError("inviteExpired", 410);
-    }
-    if (error instanceof Error && error.message === "Invite email mismatch") {
-      return apiError("inviteEmailMismatch", 403);
-    }
+    if (isInviteStateError(error)) return apiError(error.code, getInviteErrorHttpStatus(error.code));
     return handleApiError(error, "workspace.invites.PATCH");
   }
 }

@@ -2,6 +2,30 @@ import { eq, and, desc } from "drizzle-orm";
 import { db } from "../db";
 import { workspaceMembers, workspaceInvites, user } from "../db/schema";
 
+export type InviteErrorCode =
+  | "inviteNotFound"
+  | "inviteRemoved"
+  | "inviteAlreadyAccepted"
+  | "inviteExpired"
+  | "inviteEmailMismatch";
+
+export class InviteStateError extends Error {
+  constructor(readonly code: InviteErrorCode) {
+    super(code);
+    this.name = "InviteStateError";
+  }
+}
+
+export function isInviteStateError(error: unknown): error is InviteStateError {
+  return error instanceof InviteStateError;
+}
+
+export function assertInviteUsable(invite: { status: string; expiresAt: Date }) {
+  if (invite.status === "revoked") throw new InviteStateError("inviteRemoved");
+  if (invite.status === "accepted") throw new InviteStateError("inviteAlreadyAccepted");
+  if (invite.expiresAt < new Date()) throw new InviteStateError("inviteExpired");
+}
+
 export async function getWorkspaceMembers(workspaceId: string) {
   return db
     .select({
@@ -42,17 +66,15 @@ export async function acceptInvite(token: string, userId: string, userEmail: str
     .limit(1);
 
   if (invite.length === 0) {
-    throw new Error("Invite not found");
+    throw new InviteStateError("inviteNotFound");
   }
 
   const existing = invite[0];
 
-  if (existing.expiresAt < new Date()) {
-    throw new Error("Invite expired");
-  }
+  assertInviteUsable(existing);
 
   if (existing.email.toLowerCase() !== userEmail.toLowerCase()) {
-    throw new Error("Invite email mismatch");
+    throw new InviteStateError("inviteEmailMismatch");
   }
 
   const existingMember = await db
@@ -75,7 +97,8 @@ export async function acceptInvite(token: string, userId: string, userEmail: str
   }
 
   await db
-    .delete(workspaceInvites)
+    .update(workspaceInvites)
+    .set({ status: "accepted" })
     .where(eq(workspaceInvites.id, existing.id));
 
   return existing;

@@ -44,20 +44,32 @@ export interface ValidatedShareToken {
   expiresAt: Date;
 }
 
+export type ShareTokenResolution =
+  | { status: "invalid" | "expired" | "removed" }
+  | { status: "valid"; link: ValidatedShareToken };
+
+export async function resolveShareToken(token: string): Promise<ShareTokenResolution> {
+  const link = await getShareLinkByToken(token);
+  if (!link) return { status: "invalid" };
+  if (link.revokedAt) return { status: "removed" };
+  if (new Date() > link.expiresAt) return { status: "expired" };
+
+  return {
+    status: "valid",
+    link: {
+      campaignId: link.campaignId,
+      workspaceId: link.workspaceId,
+      derivationIds: link.derivationIds,
+      expiresAt: link.expiresAt,
+    },
+  };
+}
+
 export async function validateShareToken(
   token: string
 ): Promise<ValidatedShareToken | null> {
-  const link = await getShareLinkByToken(token);
-  if (!link) return null;
-  if (new Date() > link.expiresAt) return null;
-  if (link.revokedAt) return null;
-
-  return {
-    campaignId: link.campaignId,
-    workspaceId: link.workspaceId,
-    derivationIds: link.derivationIds,
-    expiresAt: link.expiresAt,
-  };
+  const resolution = await resolveShareToken(token);
+  return resolution.status === "valid" ? resolution.link : null;
 }
 
 /**

@@ -90,6 +90,7 @@ describe("useCreativeComposer", () => {
     vi.useFakeTimers();
     vi.clearAllMocks();
     window.history.replaceState({}, "", "/");
+    if (typeof window.localStorage?.clear === "function") window.localStorage.clear();
     window.sessionStorage.clear();
     mocks.active.mockReturnValue(active());
     mocks.work.mockReturnValue({ data: undefined, isLoading: false });
@@ -463,6 +464,9 @@ describe("useCreativeComposer", () => {
     act(() => result.current.setRequest("Pedido antigo"));
     await act(() => vi.advanceTimersByTimeAsync(500));
     act(() => result.current.selectIntent("restyle"));
+    expect(result.current.intent).toBe("variations");
+    expect(result.current.pendingProtocolSwitch).toBe("restyle");
+    act(() => result.current.confirmProtocolSwitch());
     await act(async () => creating.resolve({
       work: workDetail({ id: WORK_ID, request: "Pedido antigo", toolKind: "variations" }).work,
       quote: { unitCount: 3, credits: 15 },
@@ -868,6 +872,30 @@ describe("useCreativeComposer", () => {
     expect(result.current.error).toBeNull();
   });
 
+  it("persists a corrected source reading on the same creative work", async () => {
+    mocks.work.mockReturnValue({ data: workDetail({ id: WORK_ID }), isLoading: false, isError: false });
+    const content = {
+      product: "Curso",
+      offer: "30%",
+      cta: { text: "Inscreva-se", style: "botão" },
+      brandElements: [],
+      keyVisual: "Médica",
+      textContent: { headline: "Nova turma", bullets: ["Agosto"] },
+      format: "4:5",
+    };
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: WORK_ID }));
+
+    await act(async () => result.current.editSource("source-1", content, null));
+
+    expect(mocks.source).toHaveBeenCalledWith({
+      workItemId: WORK_ID,
+      action: "editSourceAnalysis",
+      sourceId: "source-1",
+      content,
+      style: null,
+    });
+  });
+
   it("delivers an upload announcement to the composer mounted after draft canonicalization", async () => {
     const creating = deferred<{
       work: ReturnType<typeof workDetail>["work"];
@@ -1217,7 +1245,9 @@ describe("useCreativeComposer", () => {
 
     expect(result.current.intent).toBe("variations");
     expect(result.current.quote).toEqual({ unitCount: 3, credits: 15 });
+    await act(async () => Promise.resolve());
     act(() => result.current.selectIntent(nextIntent));
+    await act(async () => Promise.resolve());
     expect(result.current.intent).toBe(nextIntent);
     expect(result.current.quote).toEqual(expectedQuote);
     expect(result.current.workId).toBeNull();
@@ -1336,6 +1366,42 @@ describe("useCreativeComposer", () => {
     expect(mocks.prepare).toHaveBeenCalledOnce();
     expect(mocks.generate).toHaveBeenCalledOnce();
     expect(mocks.autosave.mock.invocationCallOrder[0]).toBeLessThan(mocks.generate.mock.invocationCallOrder[0]);
+  });
+
+  it("keeps the prepared briefing available to the Home surface", async () => {
+    const briefing = {
+      version: 1,
+      message: { value: "Pedido salvo", state: "sourced" },
+      objective: { value: "Gerar interesse", state: "inferred", confidence: "medium" },
+      audience: { value: null, state: "unknown" },
+      offer: { value: null, state: "unknown" },
+      tone: { value: "Direto", state: "sourced" },
+      constraints: { value: null, state: "unknown" },
+      readiness: "exploratory",
+      confidence: "low",
+    } as const;
+    const briefingFactPack = {
+      version: 1,
+      request: "Pedido salvo",
+      facts: [{ value: "Pedido salvo", class: "text", required: true, origin: "request" }],
+      brand: { requiredElements: [], prohibitedElements: [] },
+      identity: { clientProfileId: profileA.id, brandName: "Marca A", brandAuthority: "active" },
+    } as const;
+    mocks.work.mockReturnValue({ data: workDetail(), isLoading: false });
+    mocks.prepare.mockResolvedValue({
+      work: workDetail().work,
+      quote: { unitCount: 3, credits: 15 },
+      briefing,
+      briefingFactPack,
+      readiness: briefing.readiness,
+      confidence: briefing.confidence,
+    });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+
+    await act(async () => { await result.current.generate(); });
+
+    expect(result.current.inferredBriefing).toEqual(briefing);
+    expect(result.current.briefingFactPack).toEqual(briefingFactPack);
   });
 
   it("reconciles an uncertain generation response before showing an error", async () => {

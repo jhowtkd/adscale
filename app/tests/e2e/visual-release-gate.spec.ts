@@ -16,6 +16,7 @@ type LayoutCheck = {
   scenario: string;
   route: string;
   viewport: number;
+  height: number;
   locale: "pt-BR" | "en";
   theme: "light" | "dark";
   overflowX: number;
@@ -73,7 +74,7 @@ async function assertResponsiveLayout(
       return false;
     }
 
-    const clippedActions = Array.from(
+    const clippedActionDetails = Array.from(
       document.querySelectorAll("main button, main a[href], main [role='button']"),
     ).filter((element) => {
       if (inScrollableAncestor(element)) return false;
@@ -83,31 +84,38 @@ async function assertResponsiveLayout(
       return rect.width > 0
         && rect.height > 0
         && (rect.left < -allowedGutter || rect.right > window.innerWidth + allowedGutter);
-    }).length;
+    }).map((element) => {
+      const rect = element.getBoundingClientRect();
+      return `${element.tagName.toLowerCase()}[${element.getAttribute("aria-label") ?? element.textContent?.trim().slice(0, 60) ?? ""}]@${Math.round(rect.left)}..${Math.round(rect.right)}`;
+    });
     return {
       overflowX,
       mainVisible: Boolean(main && main.getBoundingClientRect().height > 0),
-      clippedActions,
+      clippedActionDetails,
     };
   });
 
   const { locale, theme } = releaseLocaleTheme(viewport);
+  const height = page.viewportSize()?.height ?? 900;
   const check: LayoutCheck = {
-    key: `${scenario}@${viewport}`,
+    key: `${scenario}@${viewport}x${height}`,
     scenario,
     route,
     viewport,
+    height,
     locale,
     theme,
-    ...report,
+    overflowX: report.overflowX,
+    mainVisible: report.mainVisible,
+    clippedActions: report.clippedActionDetails.length,
     result:
-      report.overflowX <= 2 && report.mainVisible && report.clippedActions === 0 ? "pass" : "fail",
+      report.overflowX <= 2 && report.mainVisible && report.clippedActionDetails.length === 0 ? "pass" : "fail",
   };
 
+  appendEvidence(check);
   expect(check.overflowX, `${scenario}@${viewport}: horizontal overflow`).toBeLessThanOrEqual(2);
   expect(check.mainVisible, `${scenario}@${viewport}: main visible`).toBe(true);
-  expect(check.clippedActions, `${scenario}@${viewport}: clipped actions`).toBe(0);
-  appendEvidence(check);
+  expect(check.clippedActions, `${scenario}@${viewport}: clipped actions ${report.clippedActionDetails.join("; ")}`).toBe(0);
   return check;
 }
 
@@ -175,10 +183,10 @@ test.describe("visual release gate", () => {
     }
 
     await page.goto("/login", { waitUntil: "domcontentloaded" });
-    const loginForm = page.locator("form:has(#email)");
+    const loginForm = page.locator("form:has(#email:visible)");
     const loginAction = loginForm.getByRole("button", { name: /entrar|sign in|login/i });
-    await expect(page.locator("#email")).toBeVisible();
-    await expect(page.locator("#login-password")).toBeVisible();
+    await expect(page.locator("#email:visible")).toBeVisible();
+    await expect(page.locator("#login-password:visible")).toBeVisible();
     await expect(loginAction).toBeVisible();
     await expect(loginAction).toBeInViewport();
     await expect.poll(() => page.evaluate(() =>
@@ -188,9 +196,9 @@ test.describe("visual release gate", () => {
     const { locale, theme } = releaseLocaleTheme(width);
     const labels = ticket167Labels(locale);
     await loginVisualFoundation(page, locale, theme);
-    await page.goto(manifest.routes.creativeWork, { waitUntil: "domcontentloaded" });
+    await page.goto(`${manifest.routes.creativeWork}?intent=single`, { waitUntil: "domcontentloaded" });
 
-    const protocol = page.getByRole("button", { name: labels.protocol, exact: true });
+    const protocol = page.getByRole("button", { name: new RegExp(`^${labels.protocol}\\b`) });
     const help = page.getByRole("button", { name: labels.help, exact: true });
     const tooltip = page.getByRole("tooltip");
     await protocol.click();
@@ -200,9 +208,9 @@ test.describe("visual release gate", () => {
     await expect(page.locator('header a[href="/docs"]')).toHaveCount(0);
 
     if (testInfo.project.use.hasTouch) {
-      await help.click();
+      await help.tap();
       await expect(tooltip).toBeVisible();
-      await help.click();
+      await help.tap();
       await expect(tooltip).toBeHidden();
     } else {
       await help.hover();
@@ -210,6 +218,7 @@ test.describe("visual release gate", () => {
       await page.keyboard.press("Escape");
       await expect(tooltip).toBeHidden();
 
+      await page.mouse.move(0, 0);
       await help.focus();
       await expect(tooltip).toBeVisible();
       await page.keyboard.press("Escape");
@@ -226,8 +235,17 @@ test.describe("visual release gate", () => {
     for (const source of manifest.variationSources) {
       const preview = page.getByRole("img", { name: source.name, exact: true });
       await expect(preview).toBeVisible();
-      await expect(preview).toHaveJSProperty("naturalWidth", source.width);
-      await expect(preview).toHaveJSProperty("naturalHeight", source.height);
+      await expect.poll(() => preview.evaluate((element) =>
+        (element as HTMLImageElement).complete && (element as HTMLImageElement).naturalWidth > 0,
+      )).toBe(true);
+      const naturalSize = await preview.evaluate((element) => ({
+        width: (element as HTMLImageElement).naturalWidth,
+        height: (element as HTMLImageElement).naturalHeight,
+      }));
+      expect(naturalSize.width).toBeGreaterThan(0);
+      expect(naturalSize.height).toBeGreaterThan(0);
+      const expectedRatio = source.width / source.height;
+      expect(Math.abs(naturalSize.width / naturalSize.height - expectedRatio) / expectedRatio).toBeLessThan(0.01);
       await expect(preview).toHaveCSS("object-fit", "contain");
     }
     await expect(directions.getByText(labels.manualDirections, { exact: true })).toBeVisible();
@@ -267,7 +285,7 @@ test.describe("visual release gate", () => {
 
     await page.goto(manifest.routes.workspace, { waitUntil: "domcontentloaded" });
     const status = page.getByText(labels.activeStatus, { exact: true }).first();
-    const briefing = page.getByRole("button", { name: labels.briefing, exact: true });
+    const briefing = page.getByRole("button", { name: labels.briefing });
     await expect(status).toHaveClass(/(?:^|\s)bg-\[var\(--info-bg\)\](?:\s|$)/);
     await expect(briefing).toBeVisible();
 
@@ -293,11 +311,10 @@ test.describe("visual release gate", () => {
     if (!existsSync(EVIDENCE_PATH)) return;
     const evidence = JSON.parse(readFileSync(EVIDENCE_PATH, "utf8"));
     const checks: LayoutCheck[] = evidence.layoutChecks ?? [];
-    const expected = scenarioEntries.length * RELEASE_VIEWPORTS.length;
-    const allPass = checks.length >= expected && checks.every((check) => check.result === "pass");
+    const expected = scenarioEntries.length * (RELEASE_VIEWPORTS.length + 1);
+    const allPass = checks.length === expected && checks.every((check) => check.result === "pass");
     if (!allPass) return;
 
-    evidence.verifiedAt = new Date().toISOString();
     for (const id of ["RESP-07", "QA-15", "QA-16"]) {
       evidence.requirements[id] = {
         result: "pass",

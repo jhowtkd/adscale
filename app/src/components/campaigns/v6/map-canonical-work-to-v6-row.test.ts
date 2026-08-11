@@ -13,7 +13,13 @@ const base: CanonicalWorkSummary = {
   state: "generating",
   updatedAt: "2026-07-13T12:00:00.000Z",
   resumable: true,
-    resumeHref: "/creative-work/w1",
+  resumeHref: "/creative-work/w1",
+  brandName: "Marca Aurora",
+  protocol: "variations",
+  nextAction: "review",
+  resultCount: 2,
+  previewHref: "/api/creative-work/w1/outputs/o1/download",
+  previewAlt: "Peça da Marca Aurora",
 };
 
 describe("mapCanonicalWorkToV6Row", () => {
@@ -28,9 +34,17 @@ describe("mapCanonicalWorkToV6Row", () => {
     expect(row.originKind).toBe("creative_work");
     expect(row.campaign).toBeUndefined();
     expect(row.originLabel).toBe("Post");
+    expect(row).toMatchObject({
+      brandName: "Marca Aurora",
+      protocol: "variations",
+      nextAction: "review",
+      resultCount: 2,
+      previewHref: "/api/creative-work/w1/outputs/o1/download",
+      previewAlt: "Peça da Marca Aurora",
+    });
   });
 
-  it("stubs campaign payload when metadata is missing so actions stay operational", () => {
+  it("keeps canonical result counts when campaign metadata is missing", () => {
     const row = mapCanonicalWorkToV6Row({
       work: {
         ...base,
@@ -41,6 +55,7 @@ describe("mapCanonicalWorkToV6Row", () => {
         resumeHref: "/campaigns/c1",
         name: "BF",
         state: "briefing",
+        resultCount: 4,
       },
       originLabel: "Campanha",
       formatUpdated: () => "1h",
@@ -50,6 +65,8 @@ describe("mapCanonicalWorkToV6Row", () => {
     expect(row.href).toBe("/campaigns/c1");
     expect(row.campaign?.id).toBe("c1");
     expect(row.campaign?.name).toBe("BF");
+    expect(row.variations).toBe(4);
+    expect(row.resultCount).toBe(4);
   });
 
   it("prefers enriched campaign metadata when provided", () => {

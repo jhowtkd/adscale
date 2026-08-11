@@ -59,12 +59,15 @@ describe("selectCreativeWorkOutputCommand", () => {
       workspaceId: "ws-1",
       workItemId: "work-1",
       outputId: "output-1",
+      confirmObjective: true,
     });
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.value.output.isSelected).toBe(true);
-    expect(mockSelect).toHaveBeenCalledWith("ws-1", "work-1", "output-1");
+    expect(mockSelect).toHaveBeenCalledWith("ws-1", "work-1", "output-1", {
+      confirmObjective: true,
+    });
     expect(mockEnsure).toHaveBeenCalledWith({
       workspaceId: "ws-1",
       outputKey: completedOutput.outputKey,
@@ -84,10 +87,85 @@ describe("selectCreativeWorkOutputCommand", () => {
       workItemId: "work-1",
       outputId: "output-1",
       saveToLibrary: false,
+      confirmObjective: true,
     });
 
     expect(result.ok).toBe(true);
     expect(mockEnsure).not.toHaveBeenCalled();
+  });
+
+  it("reports the current objective block when selection loses a quality race", async () => {
+    mockGet
+      .mockResolvedValueOnce({
+        work: workItem,
+        outputs: [{
+          ...completedOutput,
+          quality: { schemaVersion: 1, objectiveVerdict: "pass" },
+        }],
+      } as never)
+      .mockResolvedValueOnce({
+        work: workItem,
+        outputs: [{
+          ...completedOutput,
+          quality: { schemaVersion: 1, objectiveVerdict: "fail" },
+        }],
+      } as never);
+    mockSelect.mockResolvedValue(null);
+
+    const result = await selectCreativeWorkOutputCommand({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      outputId: "output-1",
+      confirmObjective: true,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: expect.objectContaining({ code: "objective_selection_blocked" }),
+    });
+    expect(mockGet).toHaveBeenCalledTimes(2);
+    expect(mockEnsure).not.toHaveBeenCalled();
+  });
+
+  it("allows only one concurrent caller to win a selection race", async () => {
+    let readCount = 0;
+    mockGet.mockImplementation(async () => {
+      readCount += 1;
+      return {
+        work: workItem,
+        outputs: [{
+          ...completedOutput,
+          quality:
+            readCount <= 2
+              ? { schemaVersion: 1, objectiveVerdict: "pass" }
+              : { schemaVersion: 1, objectiveVerdict: "fail" },
+        }],
+      } as never;
+    });
+    mockSelect
+      .mockResolvedValueOnce({ ...completedOutput, isSelected: true })
+      .mockResolvedValueOnce(null);
+
+    const results = await Promise.all([
+      selectCreativeWorkOutputCommand({
+        workspaceId: "ws-1",
+        workItemId: "work-1",
+        outputId: "output-1",
+        confirmObjective: true,
+      }),
+      selectCreativeWorkOutputCommand({
+        workspaceId: "ws-1",
+        workItemId: "work-1",
+        outputId: "output-1",
+        confirmObjective: true,
+      }),
+    ]);
+
+    expect(results.filter((result) => result.ok)).toHaveLength(1);
+    expect(results.filter((result) => !result.ok)).toEqual([
+      { ok: false, error: expect.objectContaining({ code: "objective_selection_blocked" }) },
+    ]);
+    expect(mockEnsure).toHaveBeenCalledTimes(1);
   });
 
   it("rejects missing work", async () => {

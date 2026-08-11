@@ -18,6 +18,8 @@ import {
   creativeWorkPreparationSchema,
   creativeWorkSettingsSchema,
   displayRequestForCreativeWork,
+  resolveCreativeWorkFactPack,
+  resolveCreativeWorkInferredBriefing,
   socialPostCopySchema,
 } from "@/server/creative-work/contracts";
 import {
@@ -352,6 +354,9 @@ export async function GET(
       result.outputs
     );
     const sources = await Promise.all((result.sources ?? []).map((source) => projectSourceDto(workspace.id, source)));
+    const inferredBriefing = result.work.toolKind === "single"
+      ? resolveCreativeWorkInferredBriefing(result.work.inputSnapshot)
+      : null;
     return NextResponse.json({
       work: {
         ...result.work,
@@ -359,6 +364,8 @@ export async function GET(
       },
       outputs: result.outputs,
       sources,
+      inferredBriefing,
+      briefingFactPack: inferredBriefing ? resolveCreativeWorkFactPack(result.work.inputSnapshot) : null,
       canonical,
     });
   } catch (error) {

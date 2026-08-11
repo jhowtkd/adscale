@@ -57,7 +57,6 @@ function SettingsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const t = useTranslations("settings");
-  const tc = useTranslations("common");
   const requestedTab = searchParams.get("tab");
 
   useEffect(() => {
@@ -73,7 +72,7 @@ function SettingsContent() {
   const activeTab = resolveSettingsTab(requestedTab);
 
   const labels = useMemo(() => buildSettingsV6Labels(t), [t]);
-  const cards = useMemo(() => mapSettingsToV6Cards({ t, tc }), [t, tc]);
+  const cards = useMemo(() => mapSettingsToV6Cards({ t }), [t]);
 
   if (isLegacyBrandSettingsTab(requestedTab)) {
     return <SettingsTabSkeleton />;

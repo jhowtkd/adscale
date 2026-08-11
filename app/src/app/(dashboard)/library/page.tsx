@@ -26,6 +26,7 @@ interface LibraryState {
   uploadProgress: number;
   dragOver: boolean;
   deleteTarget: { id: string; name: string } | null;
+  filter: "all" | "reference" | "logo" | "photo" | "generated";
 }
 
 const initialLibraryState: LibraryState = {
@@ -36,6 +37,7 @@ const initialLibraryState: LibraryState = {
   uploadProgress: 0,
   dragOver: false,
   deleteTarget: null,
+  filter: "all",
 };
 
 function libraryReducer(state: LibraryState, payload: Partial<LibraryState>): LibraryState {
@@ -52,7 +54,7 @@ export default function LibraryPage() {
   const tCommon = useTranslations("common");
   const queryClient = useQueryClient();
   const [state, updateState] = useReducer(libraryReducer, initialLibraryState);
-  const { search, debouncedSearch, limit, isUploading, uploadProgress, dragOver, deleteTarget } = state;
+  const { search, debouncedSearch, limit, isUploading, uploadProgress, dragOver, deleteTarget, filter } = state;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const xhrRef = useRef<XMLHttpRequest | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -66,10 +68,14 @@ export default function LibraryPage() {
   const labels = useMemo(() => buildLibraryV6Labels(t), [t]);
 
   const assets = useMemo(
-    () => (data?.assets ?? []).map((asset, index) => mapWorkspaceAssetToV6(asset, index, formatSize)),
+    () => (data?.assets ?? []).map((asset, index) => mapWorkspaceAssetToV6(asset, index, formatSize, (date) => new Date(date).toLocaleDateString())),
     [data?.assets],
   );
-  const totalCount = data?.total ?? assets.length;
+  const visibleAssets = useMemo(
+    () => (filter === "all" ? assets : assets.filter((asset) => asset.kind === filter)),
+    [assets, filter],
+  );
+  const totalCount = filter === "all" ? data?.total ?? assets.length : visibleAssets.length;
 
   useEffect(() => {
     return () => {
@@ -186,7 +192,7 @@ export default function LibraryPage() {
         onClick: () => queryClient.invalidateQueries({ queryKey: ["workspace-assets"] }),
       }}
     />
-  ) : !isLoading && assets.length === 0 ? (
+  ) : !isLoading && visibleAssets.length === 0 ? (
     <EmptyState
       icon={ImageIcon}
       title={t("emptyTitle")}
@@ -219,12 +225,14 @@ export default function LibraryPage() {
 
       <LibraryV6View
         labels={labels}
-        assets={assets}
-        shownCount={assets.length}
+        assets={visibleAssets}
+        shownCount={visibleAssets.length}
         totalCount={totalCount}
         isLoading={isLoading}
         searchQuery={search}
         onSearchChange={handleSearch}
+        activeFilter={filter}
+        onFilterChange={(value) => updateState({ filter: value, limit: value === "all" ? PAGE_SIZE : MAX_LIMIT })}
         dragOver={dragOver}
         isUploading={isUploading}
         uploadProgress={uploadProgress}
@@ -237,6 +245,7 @@ export default function LibraryPage() {
         onDrop={handleDrop}
         onUploadClick={() => fileInputRef.current?.click()}
         onDeleteAsset={(id, name) => updateState({ deleteTarget: { id, name } })}
+        onReplaceAsset={() => fileInputRef.current?.click()}
         emptyState={emptyState}
         onLoadMore={handleLoadMore}
         isLoadingMore={isFetching && !isLoading}

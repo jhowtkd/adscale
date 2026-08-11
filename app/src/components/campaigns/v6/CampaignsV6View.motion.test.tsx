@@ -33,6 +33,10 @@ const labels: CampaignsV6Labels = {
   delete: "Excluir",
   variationsLabel: "variações",
   approvedLabel: "aprovadas",
+  resultsLabel: "resultados",
+  previewUnavailable: "Sem preview",
+  previewLoading: "Carregando preview",
+  previewError: "Preview indisponível",
 };
 
 const row: CampaignV6Row = {
@@ -82,6 +86,28 @@ function renderView(selectedIds = new Set<string>(), onToggleSelect = vi.fn()) {
 }
 
 describe("CampaignsV6View motion selection contract", () => {
+  it("shows the brand, protocol, results, next action, and distinct preview states", () => {
+    const detailedRow = {
+      ...row,
+      brandName: "Marca Aurora",
+      protocol: "Variações",
+      resultCount: 2,
+      nextAction: "Revisar",
+      previewHref: "/preview.png",
+      previewAlt: "Peça da Marca Aurora",
+    } as CampaignV6Row;
+    const { rerender } = render(view(new Set(), vi.fn(), [detailedRow]));
+
+    expect(screen.getByText(/Marca Aurora.*Variações.*2 resultados.*Revisar/)).toBeVisible();
+    expect(screen.getByRole("status", { name: "Carregando preview: Peça da Marca Aurora" })).toBeVisible();
+
+    fireEvent.error(screen.getByRole("img", { name: "Peça da Marca Aurora" }));
+    expect(screen.getByRole("img", { name: "Preview indisponível: Peça da Marca Aurora" })).toBeVisible();
+
+    rerender(view(new Set(), vi.fn(), [{ ...detailedRow, previewHref: null }]));
+    expect(screen.getByRole("img", { name: "Sem preview: Peça da Marca Aurora" })).toBeVisible();
+  });
+
   it("renders failed status as danger and generating status as warning", () => {
     render(
       view(new Set(), vi.fn(), [

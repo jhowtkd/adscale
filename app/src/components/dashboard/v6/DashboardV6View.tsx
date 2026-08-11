@@ -120,14 +120,14 @@ export default function DashboardV6View({
               <div className="flex flex-wrap gap-3">
                 <ActionLink
                   interactive={interactive}
-                  href={`/campaigns/${view.hero.id}`}
+                  href={view.hero.href}
                   className="inline-flex min-h-[var(--control-touch)] items-center gap-2 rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-5 py-2.5 text-sm font-medium text-[var(--action-primary-text)] transition-colors hover:bg-[var(--action-primary-hover)]"
                 >
                   {labels.openCampaign}
                 </ActionLink>
                 <ActionLink
                   interactive={interactive}
-                  href={`/campaigns/${view.hero.id}?tab=brief`}
+                  href={view.hero.briefingHref}
                   className="inline-flex min-h-[var(--control-touch)] items-center gap-2 rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-5 py-2.5 text-sm font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-inset)]"
                 >
                   {labels.viewBriefing}
@@ -144,8 +144,11 @@ export default function DashboardV6View({
                 label={labels.metaVariations}
                 value={`${view.hero.variationsDone} / ${view.hero.variationsTotal}`}
               />
-              <MetaRow label={labels.metaApproved} value={String(view.hero.approved)} accent />
-              <MetaRow label={labels.metaCredits} value={String(view.hero.credits)} />
+              <MetaRow
+                label={labels.metaApproved}
+                value={view.hero.approved == null ? "—" : String(view.hero.approved)}
+                accent
+              />
             </dl>
           </div>
         </section>
@@ -161,7 +164,7 @@ export default function DashboardV6View({
 
       <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
         <section
-          className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-5 sm:p-6"
+          className="min-w-0 rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-5 sm:p-6"
           data-tour-step="4"
         >
           <h2 className="product-section-title text-[var(--text-primary)]">{labels.recipesTitle}</h2>
@@ -176,11 +179,11 @@ export default function DashboardV6View({
             <>
               <ul className="mt-4 space-y-2.5">
                 {view.recipes.map((recipe) => (
-                  <li key={recipe.id}>
+                  <li key={recipe.id} className="min-w-0">
                     <ActionLink
                       interactive={interactive}
                       href={recipe.href}
-                      className="flex items-center gap-3 rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-3 transition-colors hover:border-[var(--border-default)]"
+                      className="flex w-full min-w-0 items-center gap-3 rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-3 transition-colors hover:border-[var(--border-default)]"
                     >
                       <span
                         className="grid h-8 w-8 place-items-center rounded-[var(--radius-control)] bg-[var(--selection-bg)] text-sm"
@@ -220,7 +223,7 @@ export default function DashboardV6View({
           )}
         </section>
 
-        <section className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-5 sm:p-6">
+        <section className="min-w-0 rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-5 sm:p-6">
           <h2 className="product-section-title text-[var(--text-primary)]">{labels.briefingTitle}</h2>
           {isLoading ? (
             <div className="mt-4 space-y-3">
@@ -241,14 +244,14 @@ export default function DashboardV6View({
               <div className="mt-4 flex gap-2 border-t border-[var(--border-subtle)] pt-4">
                 <ActionLink
                   interactive={interactive}
-                  href={view.activeBriefingCampaignId ? `/campaigns/${view.activeBriefingCampaignId}?tab=brief` : "/templates"}
+                  href={view.hero?.briefingHref ?? "/templates"}
                   className="flex-1 rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] py-2 text-center text-sm font-medium text-[var(--text-primary)]"
                 >
                   {labels.editBriefing}
                 </ActionLink>
                 <ActionLink
                   interactive={interactive}
-                  href={view.activeBriefingCampaignId ? `/campaigns/${view.activeBriefingCampaignId}` : "/campaigns?new=1"}
+                  href={view.hero?.href ?? "/campaigns?new=1"}
                   className="flex-1 rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] py-2 text-center text-sm font-medium text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)]"
                 >
                   {labels.goToActions}

@@ -5,12 +5,19 @@
  * list e open usam as mesmas regras de projeção (item 15): estados impossíveis
  * são rejeitados; list não inventa outputs.
  */
-import { getCampaignById, getCampaigns } from "@/server/repositories/campaign";
+import {
+  getCampaignById,
+  getCampaignsPage,
+} from "@/server/repositories/campaign";
 import {
   getCreativeWork,
   listCreativeWorksWithOutputs,
 } from "@/server/repositories/creative-work";
 import { getDerivationsByCampaign } from "@/server/repositories/derivation";
+import {
+  getClientProfile,
+  getClientProfiles,
+} from "@/server/repositories/client-reference";
 import {
   parseCanonicalWorkId,
   type CanonicalCreativeWork,
@@ -38,11 +45,15 @@ export async function listCanonicalWorks(
   workspaceId: string,
   options: ListCanonicalWorksOptions = {}
 ): Promise<CanonicalWorkSummary[]> {
-  const limit = options.limit ?? 50;
-  const [campaigns, worksWithOutputs] = await Promise.all([
-    getCampaigns(workspaceId, limit),
-    listCreativeWorksWithOutputs(workspaceId, limit),
+  const campaignQuery = options.limit === undefined ? {} : { limit: options.limit };
+  const [{ campaigns }, worksWithOutputs, clientProfiles] = await Promise.all([
+    getCampaignsPage(workspaceId, campaignQuery),
+    options.limit === undefined
+      ? listCreativeWorksWithOutputs(workspaceId)
+      : listCreativeWorksWithOutputs(workspaceId, options.limit),
+    getClientProfiles(workspaceId),
   ]);
+  const brandNameByProfileId = new Map(clientProfiles.map((profile) => [profile.id, profile.name]));
 
   const campaignSummaries: CanonicalWorkSummary[] = [];
   for (const c of campaigns) {
@@ -61,6 +72,7 @@ export async function listCanonicalWorks(
         constraints: c.constraints,
         notes: c.notes,
         clientProfileId: c.clientProfileId,
+        generationMode: c.generationMode,
         status: c.status,
         creativeDiagnosisStatus: c.creativeDiagnosisStatus,
         createdAt: c.createdAt,
@@ -101,12 +113,14 @@ export async function listCanonicalWorks(
           id: w.id,
           workspaceId: w.workspaceId,
           clientProfileId: w.clientProfileId,
+          brandName: brandNameByProfileId.get(w.clientProfileId) ?? null,
           campaignId: w.campaignId,
           title: w.title,
           toolKind: w.toolKind,
           status: w.status,
           format: w.format,
           brief: w.brief,
+          inputSnapshot: w.inputSnapshot,
           copy: w.copy,
           identitySnapshot: w.identitySnapshot,
           createdAt: w.createdAt,
@@ -185,9 +199,13 @@ export async function openCanonicalWork(
 
   const row = await getCreativeWork(workspaceId, parsed.originId);
   if (!row) return null;
+  const clientProfile = await getClientProfile(workspaceId, row.work.clientProfileId);
   let projected: CanonicalCreativeWork;
   try {
-    projected = projectCreativeWorkAsCanonicalWork(row.work, row.outputs);
+    projected = projectCreativeWorkAsCanonicalWork(
+      { ...row.work, brandName: clientProfile?.name ?? null },
+      row.outputs,
+    );
   } catch (err) {
     if (err instanceof ImpossibleCanonicalStateError) {
       logger.warn(

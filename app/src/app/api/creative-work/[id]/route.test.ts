@@ -145,7 +145,28 @@ describe("GET /api/creative-work/[id]", () => {
   });
 
   it("returns work, outputs, and canonical projection", async () => {
-    getWorkMock.mockResolvedValue({ work: workItem, outputs });
+    const inferredBriefing = {
+      version: 1,
+      message: { value: "Tema", state: "sourced" },
+      objective: { value: "Objetivo", state: "inferred", confidence: "medium" },
+      audience: { value: "Publico", state: "sourced" },
+      offer: { value: null, state: "unknown" },
+      tone: { value: null, state: "unknown" },
+      constraints: { value: null, state: "unknown" },
+      readiness: "exploratory",
+      confidence: "low",
+    } as const;
+    const factPack = {
+      version: 1,
+      request: "Tema",
+      facts: [{ value: "Marca", class: "brand", required: true, origin: "brand" }],
+      brand: { requiredElements: [], prohibitedElements: [] },
+      identity: { clientProfileId: profileId, brandName: "Marca", brandAuthority: "active" },
+    } as const;
+    getWorkMock.mockResolvedValue({
+      work: { ...workItem, toolKind: "single", inputSnapshot: { inferredBriefing, factPack } },
+      outputs,
+    });
 
     const res = await GET(
       new Request("http://localhost/api/creative-work/work-1"),
@@ -159,7 +180,41 @@ describe("GET /api/creative-work/[id]", () => {
     expect(body.canonical.id).toBe("creative_work:work-1");
     expect(body.canonical.intent.kind).toBe("social_post");
     expect(body.canonical.briefing.theme).toBe("Tema");
+    expect(body.inferredBriefing).toEqual(inferredBriefing);
+    expect(body.briefingFactPack).toEqual(factPack);
     expect(getWorkMock).toHaveBeenCalledWith("workspace-1", "work-1");
+  });
+
+  it("does not expose a Peça Única envelope from another protocol", async () => {
+    getWorkMock.mockResolvedValue({
+      work: {
+        ...workItem,
+        toolKind: "variations",
+        inputSnapshot: {
+          inferredBriefing: {
+            version: 1,
+            message: { value: "Tema", state: "sourced" },
+            objective: { value: "Objetivo", state: "inferred", confidence: "medium" },
+            audience: { value: null, state: "unknown" },
+            offer: { value: null, state: "unknown" },
+            tone: { value: null, state: "unknown" },
+            constraints: { value: null, state: "unknown" },
+            readiness: "exploratory",
+            confidence: "low",
+          },
+        },
+      },
+      outputs: [],
+    });
+
+    const res = await GET(
+      new Request("http://localhost/api/creative-work/work-1"),
+      { params: makeParams("work-1") },
+    );
+    const body = await res.json();
+
+    expect(body.inferredBriefing).toBeNull();
+    expect(body.briefingFactPack).toBeNull();
   });
 
   it("humanizes a legacy JSON request when resuming a work", async () => {
@@ -292,7 +347,22 @@ describe("GET /api/creative-work/[id]", () => {
       work: workItem,
       outputs: [],
       sources: [
-        { id: "source-1", assetId: "asset-1", templateId: null, usage: "content", status: "ready" },
+        {
+          id: "source-1",
+          assetId: "asset-1",
+          templateId: null,
+          usage: "content",
+          status: "ready",
+          contentAnalysis: {
+            product: "Curso",
+            offer: "30%",
+            cta: { text: "Inscreva-se", style: "botão" },
+            brandElements: [],
+            keyVisual: "Médica",
+            textContent: { headline: "Nova turma", bullets: ["Até agosto"] },
+            format: "4:5",
+          },
+        },
         { id: "source-2", assetId: null, templateId: "template-1", usage: "style", status: "ready" },
       ],
     });
@@ -303,7 +373,12 @@ describe("GET /api/creative-work/[id]", () => {
     const body = await res.json();
 
     expect(body.sources).toEqual([
-      expect.objectContaining({ id: "source-1", name: "aprovada.png", origin: "approved_work" }),
+      expect.objectContaining({
+        id: "source-1",
+        name: "aprovada.png",
+        origin: "approved_work",
+        contentAnalysis: expect.objectContaining({ offer: "30%" }),
+      }),
       expect.objectContaining({ id: "source-2", name: "Black Friday", origin: "template" }),
     ]);
     expect(getAssetMock).toHaveBeenCalledWith("asset-1", "workspace-1");
@@ -455,11 +530,32 @@ describe("PATCH /api/creative-work/[id]", () => {
   });
 
   it("prepares through the existing detail patch", async () => {
-    prepareMock.mockResolvedValue({ ok: true, value: { work: workItem, quote: [{}, {}, {}] } });
+    const briefing = {
+      version: 1,
+      message: { value: "Tema", state: "sourced" },
+      objective: { value: "Objetivo", state: "inferred", confidence: "medium" },
+      audience: { value: null, state: "unknown" },
+      offer: { value: null, state: "unknown" },
+      tone: { value: null, state: "unknown" },
+      constraints: { value: null, state: "unknown" },
+      readiness: "exploratory",
+      confidence: "low",
+    } as const;
+    prepareMock.mockResolvedValue({
+      ok: true,
+      value: {
+        work: workItem,
+        quote: { unitCount: 3, credits: 15 },
+        briefing,
+        readiness: briefing.readiness,
+        confidence: briefing.confidence,
+      },
+    });
     const res = await PATCH(new Request("http://localhost/api/creative-work/work-1", {
       method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "prepare" }),
     }), { params: makeParams("work-1") });
     expect(res.status).toBe(200);
+    expect(await res.clone().json()).toEqual(expect.objectContaining({ briefing }));
     expect(prepareMock).toHaveBeenCalledWith({ workspaceId: "workspace-1", workItemId: "work-1" });
   });
 

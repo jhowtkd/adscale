@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
 // --- Mocks ---------------------------------------------------------------
@@ -41,11 +41,12 @@ vi.mock("@/components/feedback/GuidedFlowFeedbackPanel", () => ({
   GuidedFlowFeedbackPanel: () => <div data-testid="guided-flow-feedback" />,
 }));
 
-// useBillingStatus is mocked per-test via billingAccessRole.
-let billingAccessRole: string | undefined = "member";
-vi.mock("@/lib/hooks/use-billing", () => ({
-  useBillingStatus: () => ({
-    data: { access: { kind: "paid", role: billingAccessRole, label: "Member" } },
+// Platform-owner access is independent of workspace role.
+let platformOwnerAllowed = false;
+vi.mock("@/lib/hooks/use-platform-owner", () => ({
+  usePlatformOwnerAccess: () => ({
+    data: { allowed: platformOwnerAllowed },
+    isLoading: false,
   }),
 }));
 
@@ -58,11 +59,11 @@ function flushPromises() {
 describe("feedback route guard", () => {
   beforeEach(() => {
     replaceMock.mockClear();
-    billingAccessRole = "member";
+    platformOwnerAllowed = false;
   });
 
-  it("redirects non-owner/admin users to /campaigns and renders nothing", async () => {
-    billingAccessRole = "member";
+  it("redirects non-platform-owner workspace roles and renders only the forbidden state", async () => {
+    platformOwnerAllowed = false;
     const { container } = render(<FeedbackTriagePage />);
     await waitFor(() => {
       expect(replaceMock).toHaveBeenCalledWith("/campaigns");
@@ -70,31 +71,25 @@ describe("feedback route guard", () => {
     // No operational panels leak to a member.
     expect(container.querySelector('[data-testid="owner-analytics"]')).toBeNull();
     expect(container.querySelector('[data-testid="beta-sessions"]')).toBeNull();
-    expect(container.textContent).toBe("");
+    expect(container.textContent).toContain("feedback.triage.forbidden");
   });
 
   it("does not redirect tester roles either", async () => {
-    billingAccessRole = "tester";
+    platformOwnerAllowed = false;
     render(<FeedbackTriagePage />);
     await waitFor(() => {
       expect(replaceMock).toHaveBeenCalledWith("/campaigns");
     });
   });
 
-  it("allows owner role and renders operational content", async () => {
-    billingAccessRole = "owner";
+  it("allows the platform owner and renders operational content", async () => {
+    platformOwnerAllowed = true;
     render(<FeedbackTriagePage />);
     await flushPromises();
     expect(replaceMock).not.toHaveBeenCalled();
-    expect(screen.getByTestId("owner-analytics")).toBeTruthy();
     expect(screen.getByTestId("beta-sessions")).toBeTruthy();
+    fireEvent.click(screen.getByRole("tab", { name: "feedback.triage.consoleTabs.metrics" }));
+    expect(screen.getByTestId("owner-analytics")).toBeTruthy();
   });
 
-  it("allows admin role and renders operational content", async () => {
-    billingAccessRole = "admin";
-    render(<FeedbackTriagePage />);
-    await flushPromises();
-    expect(replaceMock).not.toHaveBeenCalled();
-    expect(screen.getByTestId("owner-analytics")).toBeTruthy();
-  });
 });

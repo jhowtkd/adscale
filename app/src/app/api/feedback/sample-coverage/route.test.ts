@@ -80,12 +80,11 @@ describe("/api/feedback/sample-coverage GET", () => {
     });
   });
 
-  it("scopes to workspace when workspaceId provided", async () => {
-    mockRequireAccess.mockResolvedValue({
-      user: { id: "admin-1", email: "admin@test.com" },
-      scope: "workspace-admin",
-      workspaceId: WORKSPACE_ID,
-    });
+  it("rejects workspace admin when workspaceId is provided", async () => {
+    const { WorkspaceAuthError, AUTH_ERROR_CODES } = await import("@/server/auth/errors");
+    mockRequireAccess.mockRejectedValue(
+      new WorkspaceAuthError(AUTH_ERROR_CODES.forbidden, "Forbidden")
+    );
 
     const res = await GET(
       new Request(
@@ -93,13 +92,8 @@ describe("/api/feedback/sample-coverage GET", () => {
       )
     );
 
-    expect(res.status).toBe(200);
-    expect(mockRequireAccess).toHaveBeenCalledWith(expect.any(Request), WORKSPACE_ID);
-    expect(mockRunCoverage).toHaveBeenCalledWith({
-      workspaceId: WORKSPACE_ID,
-      cohort: "baseline",
-      capturedAt: expect.any(String),
-    });
+    expect(res.status).toBe(403);
+    expect(mockRunCoverage).not.toHaveBeenCalled();
   });
 
   it("returns 403 for unauthorized user", async () => {

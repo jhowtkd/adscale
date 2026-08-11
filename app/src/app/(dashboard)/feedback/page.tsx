@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
-import { useBillingStatus } from "@/lib/hooks/use-billing";
+import { usePlatformOwnerAccess } from "@/lib/hooks/use-platform-owner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { BetaSessionsPanel } from "@/components/feedback/BetaSessionsPanel";
@@ -82,8 +82,13 @@ async function fetchReportDetail(workspaceId: string, id: string) {
   const res = await apiFetch(
     `/api/feedback/reports/${id}?workspaceId=${encodeURIComponent(workspaceId)}`
   );
+  if (res.status === 403) throw new Error("forbidden");
   if (!res.ok) throw new Error("failed");
   return (await res.json()) as ReportDetail;
+}
+
+function retryFeedbackQuery(failureCount: number, error: unknown) {
+  return !(error instanceof Error && error.message === "forbidden") && failureCount < 1;
 }
 
 export default function FeedbackTriagePage() {
@@ -91,19 +96,17 @@ export default function FeedbackTriagePage() {
   const tFeedback = useTranslations("feedback");
   const queryClient = useQueryClient();
   const router = useRouter();
-  const { data: billingStatus } = useBillingStatus();
+  const { data: ownerAccess, isLoading: ownerAccessLoading } = usePlatformOwnerAccess();
 
-  // Operational tooling: restrict to owner/admin workspace roles. Member (and
-  // any non-privileged role) is redirected to /campaigns. See Task 12.
-  const accessRole = billingStatus?.access?.role;
-  const isOwnerOrAdmin = accessRole === "owner" || accessRole === "admin";
+  const isPlatformOwner = ownerAccess?.allowed === true;
 
   useEffect(() => {
-    if (accessRole && !isOwnerOrAdmin) {
+    if (!ownerAccessLoading && ownerAccess && !isPlatformOwner) {
       router.replace("/campaigns");
     }
-  }, [accessRole, isOwnerOrAdmin, router]);
+  }, [isPlatformOwner, ownerAccess, ownerAccessLoading, router]);
 
+  const [consoleTab, setConsoleTab] = useState<"metrics" | "quality" | "feedback" | "inspirations">("feedback");
   const [status, setStatus] = useState("");
   const [severity, setSeverity] = useState("");
   const [category, setCategory] = useState("");
@@ -119,23 +122,25 @@ export default function FeedbackTriagePage() {
     return value;
   }, [status, severity, category]);
 
-  const { data, error, isLoading } = useQuery({
+  const { data, error, isLoading, dataUpdatedAt, refetch } = useQuery({
     queryKey: ["feedback-reports", filters],
     queryFn: () => fetchReports(filters),
-    retry: false,
+    retry: retryFeedbackQuery,
+    enabled: isPlatformOwner,
   });
 
   const creditSignalsQuery = useQuery({
     queryKey: ["feedback-mission-credit-signals"],
     queryFn: fetchMissionCreditSignals,
-    retry: false,
-    enabled: category === "mission" || category === "",
+    retry: retryFeedbackQuery,
+    enabled: isPlatformOwner && (category === "mission" || category === ""),
   });
 
   const detailQuery = useQuery({
     queryKey: ["feedback-report", selected?.id, selected?.workspaceId],
     queryFn: () => fetchReportDetail(selected!.workspaceId, selected!.id),
-    enabled: Boolean(selected),
+    retry: retryFeedbackQuery,
+    enabled: isPlatformOwner && Boolean(selected),
   });
 
   const sessionsQuery = useQuery({
@@ -149,7 +154,8 @@ export default function FeedbackTriagePage() {
       };
       return payload.sessions ?? [];
     },
-    retry: false,
+    retry: retryFeedbackQuery,
+    enabled: isPlatformOwner,
   });
 
   const sessionOptions = useMemo(
@@ -194,7 +200,9 @@ export default function FeedbackTriagePage() {
     },
   });
 
-  if (error instanceof Error && error.message === "forbidden") {
+  if (ownerAccessLoading) return null;
+
+  if (!isPlatformOwner || (error instanceof Error && error.message === "forbidden")) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 text-center text-[var(--text-secondary)]">
         {t("forbidden")}
@@ -202,25 +210,46 @@ export default function FeedbackTriagePage() {
     );
   }
 
-  // While billing status is loading, or once a non-allowed role is known,
-  // render nothing so operational content never flashes to end users. Hooks
-  // above all run unconditionally; this early return is safe.
-  if (!isOwnerOrAdmin) return null;
-
   const reports = data?.reports ?? [];
   const detail = detailQuery.data;
+  const reportsError = Boolean(error);
+  const detailError = Boolean(detailQuery.error);
 
   return (
     <PageFrame width="operational" className="min-w-0 space-y-6 py-8">
       <PageHeader title={t("title")} description={t("description")} />
 
-      <OwnerAnalyticsPanel sessionOptions={sessionOptions} />
-      <HumanQualityCorpusPanel />
-      <AdminInspirationsPanel />
-      <TesterProfilesPanel />
-      <GuidedFlowFeedbackPanel />
-      <BetaSessionsPanel />
-      <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
+      <nav aria-label={t("consoleTabsAria")} className="flex flex-wrap gap-2" role="tablist">
+        {(["metrics", "quality", "feedback", "inspirations"] as const).map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            role="tab"
+            aria-selected={consoleTab === tab}
+            onClick={() => setConsoleTab(tab)}
+            className={cn(
+              "rounded-[var(--radius-control)] border px-3 py-2 text-sm font-medium",
+              consoleTab === tab
+                ? "border-[var(--selection-border)] bg-[var(--selection-bg)] text-[var(--selection-text)]"
+                : "border-[var(--border-default)] text-[var(--text-secondary)]",
+            )}
+          >
+            {t(`consoleTabs.${tab}`)}
+          </button>
+        ))}
+      </nav>
+
+      {consoleTab === "metrics" ? <OwnerAnalyticsPanel sessionOptions={sessionOptions} /> : null}
+      {consoleTab === "quality" ? <HumanQualityCorpusPanel /> : null}
+      {consoleTab === "inspirations" ? <AdminInspirationsPanel /> : null}
+      {consoleTab === "feedback" ? (
+        <>
+          <TesterProfilesPanel />
+          <GuidedFlowFeedbackPanel />
+          <BetaSessionsPanel />
+        </>
+      ) : null}
+      {consoleTab === "feedback" ? <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
         <Panel padding="md" className="space-y-4">
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           <select
@@ -279,7 +308,7 @@ export default function FeedbackTriagePage() {
                 <p className="text-lg font-bold text-[var(--text-primary)]">
                   {creditSignalsQuery.data.healthyCount}
                 </p>
-                <p className="text-[var(--text-muted)]">
+                <p className="text-[var(--success-text)]">
                   {t("afterSpend", { count: creditSignalsQuery.data.positiveAfterSpendCount })}
                 </p>
               </div>
@@ -288,7 +317,7 @@ export default function FeedbackTriagePage() {
                 <p className="text-lg font-bold text-[var(--text-primary)]">
                   {creditSignalsQuery.data.frustrationCount}
                 </p>
-                <p className="text-[var(--text-muted)]">
+                <p className="text-[var(--danger-text)]">
                   {t("creditFriction", {
                     friction: creditSignalsQuery.data.creditFrictionCount,
                     skipped: creditSignalsQuery.data.skippedCreditMissionCount,
@@ -299,10 +328,28 @@ export default function FeedbackTriagePage() {
           </div>
         ) : null}
 
-        <div className="space-y-2">
+        {reportsError ? (
+          <div
+            role="alert"
+            className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] p-3 text-sm text-[var(--danger-text)]"
+          >
+            <span>{t("loadError")}</span>
+            <Button type="button" variant="outline" size="sm" onClick={() => void refetch()}>
+              {t("retry")}
+            </Button>
+          </div>
+        ) : null}
+
+        {dataUpdatedAt > 0 ? (
+          <p className="text-xs text-[var(--text-muted)]">
+            {t("lastUpdated", { time: new Date(dataUpdatedAt).toLocaleTimeString() })}
+          </p>
+        ) : null}
+
+        <div className="max-h-[70vh] space-y-2 overflow-y-auto pr-1">
           {isLoading ? (
             <p className="text-sm text-[var(--text-muted)]">{t("loading")}</p>
-          ) : reports.length === 0 ? (
+          ) : reportsError && reports.length === 0 ? null : reports.length === 0 ? (
             <p className="text-sm text-[var(--text-muted)]">{t("noReports")}</p>
           ) : (
             reports.map((report) => (
@@ -341,9 +388,19 @@ export default function FeedbackTriagePage() {
         </div>
         </Panel>
 
-      <Panel padding="md">
+      <Panel padding="md" className="max-h-[70vh] overflow-y-auto">
         {!selected ? (
           <p className="text-sm text-[var(--text-muted)]">Select a report to inspect details.</p>
+        ) : detailError ? (
+          <div
+            role="alert"
+            className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] p-3 text-sm text-[var(--danger-text)]"
+          >
+            <span>{t("loadError")}</span>
+            <Button type="button" variant="outline" size="sm" onClick={() => void detailQuery.refetch()}>
+              {t("retry")}
+            </Button>
+          </div>
         ) : detail ? (
           <div className="space-y-5">
             <div>
@@ -464,11 +521,16 @@ export default function FeedbackTriagePage() {
               ))}
             </div>
           </div>
-        ) : (
+        ) : detailQuery.isLoading ? (
           <p className="text-sm text-[var(--text-muted)]">{t("loadingDetail")}</p>
-        )}
+        ) : null}
+        {detail && detailQuery.dataUpdatedAt > 0 ? (
+          <p className="mt-4 text-xs text-[var(--text-muted)]">
+            {t("lastUpdated", { time: new Date(detailQuery.dataUpdatedAt).toLocaleTimeString() })}
+          </p>
+        ) : null}
       </Panel>
-    </div>
+      </div> : null}
     </PageFrame>
   );
 }

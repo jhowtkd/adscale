@@ -4,7 +4,19 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import { invalidateCanonicalWorks } from "@/lib/hooks/use-canonical-works";
 import type { ContentBrief, StyleBrief } from "@/server/ai/image-analysis";
-import type { CreativeDirection, CreativeDirectionPool } from "@/server/creative-work/contracts";
+export {
+  getCreativeWorkEvaluatorSummary,
+  getCreativeWorkObjectiveVerdict,
+  type CreativeWorkObjectiveVerdict,
+} from "@/lib/creative-work-selection-policy";
+import type {
+  BriefingConfidence,
+  BriefingReadiness,
+  CreativeDirection,
+  CreativeDirectionPool,
+  CreativeWorkFactPack,
+  InferredBriefing,
+} from "@/server/creative-work/contracts";
 
 export type CreativeWorkStatus =
   | "draft"
@@ -22,7 +34,7 @@ export interface SocialPostBrief {
   theme: string;
   objective: string;
   audience: string;
-  offer: string;
+  offer: string | null;
 }
 
 export interface SocialPostCopy {
@@ -137,6 +149,8 @@ export interface CreativeWorkDetail {
   work: CreativeWorkItem;
   outputs: CreativeWorkOutput[];
   sources: CreativeWorkSource[];
+  inferredBriefing?: InferredBriefing | null;
+  briefingFactPack?: CreativeWorkFactPack | null;
 }
 
 export interface CreativeWorkCampaignOption {
@@ -225,34 +239,6 @@ export function categorizeCreativeWorkFailure(
   return "unknown";
 }
 
-export type CreativeWorkObjectiveVerdict = "pass" | "fail" | "inconclusive";
-
-/**
- * Reads the tri-state objective verdict from a v1 quality payload
- * (R-005/R-008). Legacy shapes (ScoreResult or null) have no verdict —
- * callers must discriminate on `schemaVersion === 1` via this guard instead
- * of trusting untyped fields.
- */
-export function getCreativeWorkObjectiveVerdict(
-  quality: Record<string, unknown> | null | undefined,
-): CreativeWorkObjectiveVerdict | null {
-  if (!quality || quality.schemaVersion !== 1) return null;
-  const verdict = quality.objectiveVerdict;
-  return verdict === "pass" || verdict === "fail" || verdict === "inconclusive"
-    ? verdict
-    : null;
-}
-
-/** One-sentence evaluator summary persisted on v1 payloads (T8) — null otherwise. */
-export function getCreativeWorkEvaluatorSummary(
-  quality: Record<string, unknown> | null | undefined,
-): string | null {
-  if (!quality || quality.schemaVersion !== 1) return null;
-  return typeof quality.evaluatorSummary === "string" && quality.evaluatorSummary.trim().length > 0
-    ? quality.evaluatorSummary
-    : null;
-}
-
 /** Absolute provider-call ceiling per output (mirrors server R-006). */
 export const CREATIVE_WORK_RETRY_IMAGE_CALL_LIMIT = 2;
 
@@ -319,6 +305,8 @@ function fetchCreativeWork(workItemId: string, signal?: AbortSignal): Promise<Cr
         createdAt: new Date(source.createdAt),
         updatedAt: new Date(source.updatedAt),
       })),
+      inferredBriefing: (data.inferredBriefing as InferredBriefing | null | undefined) ?? null,
+      briefingFactPack: (data.briefingFactPack as CreativeWorkFactPack | null | undefined) ?? null,
     };
   });
 }
@@ -478,7 +466,14 @@ export function usePrepareCreativeWork() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: { workItemId: string }) =>
-      patchJson<{ work: CreativeWorkDraftItem; quote: CreativeWorkQuote }>(
+      patchJson<{
+        work: CreativeWorkDraftItem;
+        quote: CreativeWorkQuote;
+        briefing?: InferredBriefing;
+        briefingFactPack?: CreativeWorkFactPack;
+        readiness?: BriefingReadiness;
+        confidence?: BriefingConfidence;
+      }>(
         `/api/creative-work/${input.workItemId}`,
         { action: "prepare" },
         120_000,
@@ -546,7 +541,13 @@ export function useGenerateCopy() {
       };
       queryClient.setQueryData<CreativeWorkDetail>(
         ["creative-work", workItemId],
-        (current) => ({ work, outputs: current?.outputs ?? [], sources: current?.sources ?? [] })
+        (current) => ({
+          work,
+          outputs: current?.outputs ?? [],
+          sources: current?.sources ?? [],
+          inferredBriefing: current?.inferredBriefing ?? null,
+          briefingFactPack: current?.briefingFactPack ?? null,
+        })
       );
       void queryClient.invalidateQueries({
         queryKey: ["creative-work", workItemId],
@@ -678,14 +679,16 @@ export function useSelectOutput() {
       workItemId,
       outputId,
       saveToLibrary,
+      confirmObjective,
     }: {
       workItemId: string;
       outputId: string;
       saveToLibrary: boolean;
+      confirmObjective?: boolean;
     }) =>
       postJson<{ output: CreativeWorkOutput }>(
         `/api/creative-work/${workItemId}/outputs/${outputId}/select`,
-        { saveToLibrary },
+        { saveToLibrary, confirmObjective: confirmObjective ?? false },
       ),
     onSuccess: async (_data, variables) => {
       // Saving the selected output materialises a new workspace asset. The

@@ -1,9 +1,15 @@
+export type LibraryV6AssetKind = "reference" | "logo" | "photo" | "generated";
+
 export type LibraryV6Asset = {
   id: string;
   name: string;
   tags: string[];
   sizeLabel: string;
   dimensionsLabel: string;
+  aspectRatioLabel: string;
+  source: string;
+  createdAtLabel: string;
+  kind: LibraryV6AssetKind;
   imageUrl: string;
   glyph: string;
   gradient: string;
@@ -19,8 +25,22 @@ export type LibraryV6Labels = {
   dropzoneAria: string;
   searchPlaceholder: string;
   searchAria: string;
+  filtersAria: string;
+  filterAll: string;
+  filterReference: string;
+  filterLogo: string;
+  filterPhoto: string;
+  filterGenerated: string;
   countSummary: string;
   deleteAsset: string;
+  previewLoading: string;
+  previewNoPreview: string;
+  previewError: string;
+  retryPreview: string;
+  replaceAsset: string;
+  originLabel: string;
+  createdLabel: string;
+  functionLabel: string;
   loadMore: string;
   loadingMore: string;
 };

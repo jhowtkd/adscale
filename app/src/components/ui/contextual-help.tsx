@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState, type ReactNode } from "react";
+import { useId, useRef, useState, type ReactNode } from "react";
 import { CircleHelp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -13,6 +13,7 @@ export function ContextualHelp({
   label: string;
 }) {
   const [open, setOpen] = useState(false);
+  const openOnPointerDown = useRef(false);
   const descriptionId = useId();
 
   return (
@@ -27,7 +28,8 @@ export function ContextualHelp({
           <button
             type="button"
             aria-label={label}
-            onClick={() => setOpen((currentOpen) => !currentOpen)}
+            onPointerDown={() => { openOnPointerDown.current = open; }}
+            onClick={(event) => setOpen(event.detail === 0 ? !open : !openOnPointerDown.current)}
             className={cn(
               "inline-flex size-[var(--control-touch)] items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--surface-raised)] text-[var(--text-muted)] hover:bg-[var(--surface-inset)] hover:text-[var(--text-secondary)]",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",

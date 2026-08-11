@@ -6,6 +6,17 @@ import { useQuery, type QueryClient } from "@tanstack/react-query";
 import type { CanonicalWorkSummary } from "@/server/creative-work/canonical/types";
 
 export const CANONICAL_WORKS_QUERY_KEY = ["canonical-works"] as const;
+const ACTIVE_STATES = new Set<CanonicalWorkSummary["state"]>([
+  "intending",
+  "briefing",
+  "generating",
+]);
+
+export function canonicalWorksRefetchInterval(
+  works: readonly CanonicalWorkSummary[] | undefined,
+): number | false {
+  return works?.some((work) => ACTIVE_STATES.has(work.state)) ? 5_000 : false;
+}
 
 async function fetchCanonicalWorks(): Promise<CanonicalWorkSummary[]> {
   const res = await apiFetch("/api/creative-work");
@@ -42,5 +53,7 @@ export function useCanonicalWorks() {
     queryKey: CANONICAL_WORKS_QUERY_KEY,
     queryFn: fetchCanonicalWorks,
     staleTime: STALE_TIME.DYNAMIC,
+    refetchInterval: (query) => canonicalWorksRefetchInterval(query.state.data),
+    refetchIntervalInBackground: false,
   });
 }

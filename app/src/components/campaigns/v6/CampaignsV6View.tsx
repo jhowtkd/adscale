@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Search } from "lucide-react";
 import {
   DropdownMenu,
@@ -282,19 +282,18 @@ function CampaignGrid({
   return (
     <ul className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
       {rows.map((row) => (
-        <li key={row.id}>
+        <li key={row.id} className="min-w-0">
           <Link
             href={interactive ? row.href : "#"}
             aria-label={`${labels.openCampaign}: ${row.name}`}
-            className="flex min-h-36 flex-col justify-between rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4 transition-colors hover:border-[var(--border-default)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+            className="flex min-h-36 min-w-0 flex-col justify-between rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4 transition-colors hover:border-[var(--border-default)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             onClick={interactive ? undefined : (event) => event.preventDefault()}
           >
             <div className="flex items-start justify-between gap-3">
               <span
                 className="grid h-10 w-10 place-items-center rounded-[var(--radius-control)] bg-[var(--neutral-bg)] text-xs font-bold text-[var(--neutral-text)]"
-                aria-hidden="true"
               >
-                {row.initials}
+                <WorkPreview key={row.previewHref ?? "missing"} row={row} labels={labels} />
               </span>
               <CampaignBadge variant={row.statusVariant} label={row.status} />
             </div>
@@ -303,6 +302,12 @@ function CampaignGrid({
               <p className="mt-1 flex items-center justify-between gap-2 text-xs text-[var(--text-muted)]">
                 <span className="font-mono uppercase tracking-wide">{row.originLabel}</span>
                 <span>{row.updated}</span>
+              </p>
+              <p className="mt-1 truncate text-xs text-[var(--text-secondary)]">
+                {row.brandName ?? row.originLabel}
+                {row.protocol ? ` · ${row.protocol}` : ""}
+                {row.resultCount !== undefined ? ` · ${row.resultCount} ${labels.resultsLabel ?? "resultados"}` : ""}
+                {row.nextAction ? ` · ${row.nextAction}` : ""}
               </p>
             </div>
           </Link>
@@ -366,9 +371,8 @@ function CampaignRow({
       />
       <span
         className="grid h-10 w-10 shrink-0 place-items-center rounded-[var(--radius-control)] bg-[var(--neutral-bg)] text-xs font-bold text-[var(--neutral-text)]"
-        aria-hidden="true"
       >
-        {row.initials}
+        <WorkPreview key={row.previewHref ?? "missing"} row={row} labels={labels} />
       </span>
       <div className="min-w-0">
         {interactive ? (
@@ -389,6 +393,10 @@ function CampaignRow({
               </span>
             </>
           ) : null}
+          {row.brandName ? <> · {row.brandName}</> : null}
+          {row.protocol ? <> · {row.protocol}</> : null}
+          {row.resultCount !== undefined ? <> · {row.resultCount} {labels.resultsLabel ?? "resultados"}</> : null}
+          {row.nextAction ? <> · {row.nextAction}</> : null}
         </p>
       </div>
       <CampaignBadge variant={row.statusVariant} label={row.status} />
@@ -430,6 +438,46 @@ function CampaignRow({
         </button>
       )}
     </li>
+  );
+}
+
+function WorkPreview({ row, labels }: { row: CampaignV6Row; labels: CampaignsV6Labels }) {
+  const [status, setStatus] = useState<"loading" | "ready" | "failed">("loading");
+  if (!row.previewHref || status === "failed") {
+    const label = row.previewHref && status === "failed"
+      ? labels.previewError ?? "Preview indisponível"
+      : labels.previewUnavailable ?? "Sem preview";
+    return (
+      <span
+        role="img"
+        aria-label={`${label}: ${row.previewAlt ?? row.name}`}
+        className="grid h-full w-full rounded-[var(--radius-control)] bg-[var(--neutral-bg)] place-items-center text-xs font-bold text-[var(--neutral-text)]"
+      >
+        {row.initials}
+      </span>
+    );
+  }
+  return (
+    <span className="relative block h-full w-full overflow-hidden rounded-[var(--radius-control)]">
+      {status === "loading" ? (
+        <span
+          role="status"
+          aria-label={`${labels.previewLoading ?? "Carregando preview"}: ${row.previewAlt ?? row.name}`}
+          className="absolute inset-0 animate-pulse bg-[var(--surface-inset)]"
+        />
+      ) : null}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={row.previewHref}
+        alt={row.previewAlt ?? row.name}
+        className={cn(
+          "h-full w-full rounded-[var(--radius-control)] object-cover",
+          status === "loading" && "opacity-0",
+        )}
+        onLoad={() => setStatus("ready")}
+        onError={() => setStatus("failed")}
+      />
+    </span>
   );
 }
 

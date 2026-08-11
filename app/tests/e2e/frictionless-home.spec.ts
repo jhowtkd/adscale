@@ -15,6 +15,12 @@ type Fixture = {
 
 type WorkDetail = {
   work: { id: string; campaignId: string | null; request: string };
+  inferredBriefing?: {
+    version: number;
+    offer: { value: string | null; state: string };
+    readiness: string;
+    confidence: string;
+  } | null;
   outputs: Array<{
     id: string;
     status: "queued" | "processing" | "completed" | "failed";
@@ -175,6 +181,11 @@ test.describe("Frictionless operational Home", () => {
     { timeout: 120_000, intervals: [250, 500, 1_000] }).toBe("completed,completed,completed");
 
     const settled = await workDetail(page, workId);
+    expect(settled.inferredBriefing?.version).toBe(1);
+    expect(settled.inferredBriefing?.offer).toEqual({ value: null, state: "unknown" });
+    await expect(page.getByTestId("inferred-briefing")).toContainText(/a ia entendeu assim|what the ai understood/i);
+    await expect(page.getByTestId("inferred-briefing-offer")).toHaveAttribute("data-state", "unknown");
+    await expect(page.getByTestId("inferred-briefing-offer")).toContainText(/não informado|not provided/i);
     const retried = settled.outputs.find((output) => output.creativeLevel === "bold")!;
     expect(retried.retryCount).toBe(1);
     expect(settled.outputs.map((output) => output.id).sort()).toEqual(initialIds);
@@ -186,6 +197,7 @@ test.describe("Frictionless operational Home", () => {
     await page.reload();
     await expect(page).toHaveURL(new RegExp(`workId=${workId}`));
     await assertSingleActiveBrand(page);
+    await expect(page.getByTestId("inferred-briefing")).toBeVisible();
     await expect(page.getByTestId("proposal-level")).toHaveCount(3, { timeout: 60_000 });
     expect((await workDetail(page, workId)).outputs.map((output) => output.id).sort()).toEqual(initialIds);
 

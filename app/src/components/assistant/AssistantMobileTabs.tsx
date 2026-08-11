@@ -31,7 +31,7 @@ export default function AssistantMobileTabs({
           <button
             key={tab.id}
             type="button"
-            aria-current={active ? "page" : undefined}
+            aria-pressed={active}
             onClick={() => onTabChange(tab.id)}
             className={cn(
               "flex min-h-11 flex-col items-center justify-center gap-0.5 rounded-[var(--radius-control)] px-1 py-2 text-[11px] font-medium sm:text-xs",

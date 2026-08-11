@@ -20,6 +20,10 @@ import { objectStorage } from "../src/server/storage";
 
 const EMAIL = "visual-foundations@example.test";
 const NAME = "Visual Foundations Tester";
+const ROLE_IDENTITIES = [
+  { email: "visual-admin@example.test", name: "Visual Workspace Admin", role: "admin" },
+  { email: "visual-member@example.test", name: "Visual Workspace Member", role: "member" },
+] as const;
 const WORKSPACE_NAME = "Example Test Creative Lab";
 const CAMPAIGN_PREFIX = "VF Example";
 const PASSWORD = process.env.VISUAL_FOUNDATIONS_PASSWORD ?? "VisualFoundations123!";
@@ -36,8 +40,8 @@ function variationSourceSvg({ width, height, color, label }: (typeof VARIATION_S
   return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="${width}" height="${height}" fill="#172018"/><rect x="12" y="12" width="${width - 24}" height="${height - 24}" fill="${color}"/><text x="${width / 2}" y="${height / 2}" fill="white" font-family="Arial" font-size="20" text-anchor="middle">${label}</text></svg>`);
 }
 
-async function ensureAccount() {
-  const existing = await db.select().from(user).where(eq(user.email, EMAIL)).limit(1);
+async function ensureAccount(email = EMAIL, name = NAME) {
+  const existing = await db.select().from(user).where(eq(user.email, email)).limit(1);
   if (!existing[0]) {
     const response = await fetch(`${BASE_URL}/api/auth/sign-up/email`, {
       method: "POST",
@@ -46,15 +50,17 @@ async function ensureAccount() {
         Origin: BASE_URL,
         Referer: `${BASE_URL}/signup`,
       },
-      body: JSON.stringify({ email: EMAIL, password: PASSWORD, name: NAME }),
+      body: JSON.stringify({ email, password: PASSWORD, name }),
     });
     if (!response.ok) throw new Error(`Synthetic sign-up failed (${response.status}): ${await response.text()}`);
   }
 
-  const rows = await db.select().from(user).where(eq(user.email, EMAIL)).limit(1);
-  if (!rows[0]) throw new Error(`Synthetic account ${EMAIL} was not created`);
+  const rows = await db.select().from(user).where(eq(user.email, email)).limit(1);
+  if (!rows[0]) {
+    throw new Error(`Synthetic account ${email} is missing from the seeder database; the running app and seeder must use the same database`);
+  }
   await db.update(user).set({
-    name: NAME,
+    name,
     emailVerified: true,
     onboardingCompletedAt: new Date("2026-01-01T12:00:00.000Z"),
     locale: "pt-BR",
@@ -70,6 +76,14 @@ async function main() {
   if (!membership[0]) throw new Error("Synthetic account has no workspace membership");
 
   const workspaceId = membership[0].workspaceId;
+  for (const identity of ROLE_IDENTITIES) {
+    const roleUserId = await ensureAccount(identity.email, identity.name);
+    const roleMembership = await db.select().from(workspaceMembers)
+      .where(eq(workspaceMembers.userId, roleUserId)).limit(1);
+    if (!roleMembership[0]) throw new Error(`Synthetic account ${identity.email} has no workspace membership`);
+    await db.update(workspaceMembers).set({ role: identity.role })
+      .where(eq(workspaceMembers.id, roleMembership[0].id));
+  }
 
   if (process.argv.includes("--revoke-access")) {
     await revokeTesterEntitlement(workspaceId);
@@ -259,6 +273,11 @@ async function main() {
   const manifest = {
     schemaVersion: 2,
     identity: { email: EMAIL, name: NAME },
+    roleMatrix: {
+      platformOwner: { email: EMAIL, role: "platform-owner" },
+      workspaceAdmin: { email: ROLE_IDENTITIES[0].email, role: ROLE_IDENTITIES[0].role },
+      workspaceMember: { email: ROLE_IDENTITIES[1].email, role: ROLE_IDENTITIES[1].role },
+    },
     fixtureIds: { userId, workspaceId, campaignIds: created.map((campaign) => campaign.id), derivationId: derivation.id },
     labels: { workspace: WORKSPACE_NAME, clients: fixtures.map((fixture) => fixture.client) },
     variationSources: VARIATION_SOURCES.map(({ name, width, height }) => ({ name, width, height })),
