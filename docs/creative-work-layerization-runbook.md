@@ -1,6 +1,6 @@
 # Runbook de separação do Trabalho em camadas
 
-Esta capacidade é exclusiva do owner e só opera sobre a Peça canônica
+Esta capacidade é exclusiva do **Dono da plataforma** e só opera sobre a Peça canônica
 selecionada após aprovação. Ela cria camadas PNG privadas e um PSD; o ZIP de
 diagnóstico é materializado somente quando solicitado. A saída original do Trabalho nunca é substituída e nenhum crédito
 ou lançamento de geração do ADScale é criado.
@@ -34,14 +34,21 @@ ou lançamento de geração do ADScale é criado.
 
 1. Confirm the deploy has the migration, `FAL_KEY` only in the server secret
    store, and `APP_URL`/`BETTER_AUTH_URL` points at the callback origin.
-2. Confirm the owner account is in `PLATFORM_OWNER_EMAILS` (or the existing
-   development-owner allowlist).
+2. Confirm the Dono da plataforma account is in `PLATFORM_OWNER_EMAILS` (or the existing
+   development allowlist).
 3. Run `npm run typecheck`, the layerization unit tests, `npm test`, and
    `npm run convergence:gate` plus `graphify update .` from the repository
    root. Keep the gate report separate from dirty unrelated worktree changes.
 4. Verify the Inngest function list includes `layerize-creative-work-output`
    in web mode or its `-v2` worker counterpart. Do not paste keys, callback
    tokens, signed URLs, or provider responses into evidence.
+
+## Recovery
+
+- Recovery is read-triggered: a detail read by the Dono da plataforma asks the canonical application service to claim expired callback attempts or a stale five-minute `finalizing` lease.
+- An attempt without a persisted provider request id becomes `submission_unknown`; it is never submitted again automatically.
+- A known provider request keeps reconciling after the callback deadline until fal returns an explicit terminal failure or a valid result. A stale `finalizing` lease returns to `reconciling` and rewrites only deterministic private artifact keys.
+- If recovery event dispatch fails, a compare-and-set releases only that attempt's five-minute lease. The next authorized detail read can retry immediately; duplicate events cannot create another paid submission because the provider request id is already durable.
 
 ## Synthetic smoke
 
@@ -65,8 +72,8 @@ production deployment, partner contract approval, or paid generation.
 ## Three smoke formats
 
 1. **Synthetic contract smoke:** fake provider HTTP, deterministic PNG layers,
-   in-memory/private object storage, and no network, credits, or `FAL_KEY`.
-2. **Authenticated acceptance smoke:** deployed owner/non-owner requests using
+   in-memory/private object storage, no real fal credential or external network, and only a fake `FAL_KEY` value to enable the guarded action in-process.
+2. **Authenticated acceptance smoke:** deployed Dono da plataforma and ordinary-user requests using
    only synthetic or owned assets; verify authorization, state transitions,
    private PSD/ZIP downloads, and original-output immutability. Record build,
    deploy, and auth evidence separately.
@@ -79,14 +86,14 @@ production deployment, partner contract approval, or paid generation.
 
 As of 2026-08-12, the [public Seedream Layerize page](https://fal.ai/models/bytedance/seedream/v5/pro/layerize/api) publishes the layer and bounding-box contract implemented by the adapter. The endpoint is still marked `Partner`: use only synthetic or ADScale-owned assets until the contractual review explicitly approves real client brand assets. Do not run a paid smoke without that approval and explicit authorization for the cost. The [fal queue protocol](https://fal.ai/docs/documentation/model-apis/inference/queue) and [platform headers](https://fal.ai/docs/documentation/model-apis/common-parameters) remain the source of truth. Record build, deploy, authentication, paid-generation, and human-approval evidence separately.
 
-## Local validation log — 2026-08-12
+## Local validation evidence — 2026-08-12
 
-- `npm run test:db:setup`: PostgreSQL 16 test container started and all
-  migrations, including `0083_creative_work_layerization.sql`, applied.
-- `DATABASE_URL=postgres://test:test@localhost:5433/adscale_test TEST_DATABASE_URL=postgres://test:test@localhost:5433/adscale_test npm test -- --run tests/integration/creative-work-layerization-journey.test.ts`:
-  1 file and 1 test passed. The tracer covered idempotent PATCH, callback replay
-  and callback/reconciliation race, real repository persistence, expired
-  recovery with and without provider request id, private PSD readback, and
-  on-demand ZIP contents.
-- This was synthetic, local evidence. No fal request, paid generation, deploy,
-  push, authenticated production acceptance, or partner approval occurred.
+The retained command output, exit codes, and tested revision are recorded in
+[`docs/evidence/creative-work-layerization-local-validation-2026-08-12.md`](evidence/creative-work-layerization-local-validation-2026-08-12.md).
+The tracer keeps HTTP authorization, application services, repositories,
+Postgres, the registered job handler, private storage, PSD readback, ZIP
+materialization, callback/polling race, terminal-claim concurrency, recovery
+dispatch lease, and `finalizing` resumption real. Only fal HTTP, authentication,
+the Inngest event transport, and object storage are boundary fakes; the job
+handler is invoked in-process. This does not prove deployment, paid generation,
+production authentication, partner approval, or semantic layer quality.

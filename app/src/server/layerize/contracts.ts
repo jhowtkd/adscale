@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const LAYERIZATION_CALLBACK_TTL_MS = 2 * 60 * 60 * 1000;
+export const LAYERIZATION_RECOVERY_LEASE_MS = 5 * 60 * 1000;
 export const LAYERIZATION_SOURCE_URL_TTL_SECONDS = 2 * 60 * 60 + 15 * 60;
 
 export const LAYERIZATION_STATUSES = [

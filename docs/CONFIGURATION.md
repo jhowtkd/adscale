@@ -21,7 +21,7 @@ Runtime secrets and service URLs are read from `process.env`. The canonical list
 | `OPENAI_API_KEY` | Yes | — | OpenAI API key; must start with `sk-`. |
 | `OPENAI_TEXT_MODEL` | No | `gpt-5-mini` | Text model for AI features. |
 | `OPENAI_IMAGE_MODEL` | No | `gpt-image-2-2026-04-21` | Image model for AI features. |
-| `FAL_KEY` | No | — | Optional server-only fal credential for owner-only Trabalho layerization. Missing disables the action; never expose it to the browser. |
+| `FAL_KEY` | No | — | Optional server-only fal credential for Trabalho layerization by the Dono da plataforma. Missing disables the action; never expose it to the browser. |
 | `MINIMAX_API_KEY` | Yes | — | MiniMax chat-model API key; required by the assistant orchestrator (`app/src/server/assistant/model/minimax-client.ts`). Zod-validated as non-empty. |
 | `MINIMAX_MODEL` | No | `MiniMax-M3` | MiniMax chat model identifier; defaults to `MiniMax-M3` if unset. |
 | `R2_ACCOUNT_ID` | Yes | — | Cloudflare R2 account ID. |
@@ -183,7 +183,7 @@ The script validates env presence, Zod schema, plan-to-price alignment, URL orig
 - Marketing proxy — `/hi` rewrites to `MARKETING_UPSTREAM_URL` (defaults to `https://adscale-marketing.onrender.com` when unset).
 - Beta access — off unless `BETA_ACCESS_CODES` lists at least one code.
 - Dev admins — no special treatment unless `DEV_ADMIN_EMAIL` lists one or more addresses. Hard-gated behind `NODE_ENV`: `parseDevAdminEmails()` returns an empty set in production regardless of the env var (`app/src/server/auth/dev-admin.ts`).
-- Platform owners — `PLATFORM_OWNER_EMAILS` entries can access owner-only admin routes (`app/src/server/auth/platform-owner.ts`).
+- Donos da plataforma — `PLATFORM_OWNER_EMAILS` entries can access global admin routes (`app/src/server/auth/platform-owner.ts`).
 - Mem0 brand memory — off unless `env.MEM0_ENABLED === "true"` and `env.MEM0_API_KEY` is set (`mem0-client.ts`).
 - Human-quality source labels — auto-capture defaults to `real_customer`; workspaces listed in `HUMAN_QUALITY_SYNTHETIC_WORKSPACE_IDS` are labeled `synthetic_fixture`.
 - Sentry — disabled when `SENTRY_DSN` is unset (`silent: !process.env.SENTRY_DSN` in `app/next.config.ts`).
@@ -257,10 +257,12 @@ Production URLs in the committed blueprint:
 
 <!-- VERIFY: Confirm the live Render service URL and custom domain in the Render Dashboard; update BETTER_AUTH_URL, APP_URL, MARKETING_*, and Stripe redirect URLs in render.yaml if they differ -->
 
-`sync: false` secrets to set in the Dashboard before first deploy:
+Required `sync: false` secrets to set in the Dashboard before first deploy:
 
-- `OPENAI_API_KEY`, `FAL_KEY`, R2 (`R2_*`), Inngest (`INNGEST_*`), Resend (`RESEND_API_KEY`, `RESEND_WAITLIST_SEGMENT_ID`, `EMAIL_FROM`)
+- `OPENAI_API_KEY`, R2 (`R2_*`), Inngest (`INNGEST_*`), Resend (`RESEND_API_KEY`, `RESEND_WAITLIST_SEGMENT_ID`, `EMAIL_FROM`)
 - All Stripe vars: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_STARTER_PRICE_ID`, `STRIPE_GROWTH_PRICE_ID`, `STRIPE_SCALE_PRICE_ID`
+
+`FAL_KEY` is also declared as `sync: false`, but it is optional and must remain unset until the Seedream partner review and paid smoke are explicitly approved.
 
 ### `app/drizzle.config.ts`
 
