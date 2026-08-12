@@ -88,7 +88,6 @@ export function CreativeResultCard({
     "dispatch_failed",
     "missing_configuration",
     "source_missing",
-    "provider_error",
   ].includes(layerization.failureCode ?? "");
   const layerizationFailureMessage = layerization?.failureCode === "unsafe_media"
     ? "O provedor devolveu uma mídia que não passou pela validação de segurança."
@@ -255,7 +254,7 @@ export function CreativeResultCard({
                 <p className="text-xs text-[var(--text-secondary)]">Reconciliação necessária — a cobrança pode ter ocorrido. Aguarde a confirmação antes de tentar novamente.</p>
               ) : layerization.status === "completed" ? (
                 <div className="flex flex-wrap gap-2">
-                  <button type="button" className={`${actionClass} border-[var(--focus-ring)]`} onClick={() => onDownloadLayerized?.(output.id, "psd")}>Baixar PSD</button>
+                  <button type="button" className={`${actionClass} border-[var(--focus-ring)]`} onClick={() => onDownloadLayerized?.(output.id, "psd")}>Baixar PSD ({layerization.layers.length} {layerization.layers.length === 1 ? "camada" : "camadas"})</button>
                   <button type="button" className={actionClass} onClick={() => onDownloadLayerized?.(output.id, "zip")}>Baixar PNGs</button>
                 </div>
               ) : (

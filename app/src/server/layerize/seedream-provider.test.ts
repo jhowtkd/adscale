@@ -1,41 +1,70 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   createSeedreamProvider,
+  downloadSeedreamLayers,
   downloadSeedreamMedia,
+  estimateSeedreamLayerizationCostUsd,
   normalizeSeedreamLayerResponse,
   validateSeedreamMediaUrl,
 } from "./seedream-provider";
+import sharp from "sharp";
 
 const png = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 0]);
 const publicLookup = async () => [{ address: "93.184.216.34" }];
 
 function layerResponse() {
   return {
-    width: 4,
-    height: 4,
+    images: [],
     layers: [
-      { base: true, order: 0, name: "Base", description: "Canvas base", url: "https://v3.fal.media/base.png", bbox: { x: 0, y: 0, width: 4, height: 4 } },
-      { order: 1, name: "Headline", description: "Main headline", url: "https://v3.fal.media/headline.png", bbox: { x: 1, y: 1, width: 2, height: 1 } },
+      {
+        image: { url: "https://v3.fal.media/base.png", width: 4, height: 4 },
+        z_index: 0,
+        bounding_box: null,
+        name: null,
+        description: null,
+      },
+      {
+        image: { url: "https://v3.fal.media/headline.png", width: 2, height: 1 },
+        z_index: 1,
+        name: "Headline",
+        description: "Main headline",
+        bounding_box: {
+          absolute: [1, 1, 3, 2],
+          normalized: [250, 250, 750, 500],
+        },
+      },
     ],
   };
 }
 
 describe("seedream layerize contract", () => {
+  it("estimates the documented per-layer price from the generated base area", () => {
+    expect(estimateSeedreamLayerizationCostUsd(1536, 1536, 8)).toBeCloseTo(0.27);
+    expect(estimateSeedreamLayerizationCostUsd(1537, 1536, 8)).toBeCloseTo(0.54);
+  });
+
   it("normalizes a base plus ordered layers and rejects duplicates", () => {
     const normalized = normalizeSeedreamLayerResponse(layerResponse());
     expect(normalized.layers.map((layer) => [layer.order, layer.isBase])).toEqual([[0, true], [1, false]]);
+    expect(normalized).toMatchObject({
+      width: 4,
+      height: 4,
+      layers: [
+        { order: 0, isBase: true, x: 0, y: 0, width: 4, height: 4 },
+        { order: 1, isBase: false, x: 1, y: 1, width: 2, height: 1 },
+      ],
+    });
     expect(() => normalizeSeedreamLayerResponse({
       ...layerResponse(),
-      layers: [layerResponse().layers[0], { ...layerResponse().layers[1], order: 0 }],
+      layers: [layerResponse().layers[0], { ...layerResponse().layers[1], z_index: 0 }],
     })).toThrow(/ordered/);
-    expect(() => normalizeSeedreamLayerResponse({ ...layerResponse(), width: 100_000, height: 100_000 })).toThrow(/canvas dimensions/);
     expect(() => normalizeSeedreamLayerResponse({
       ...layerResponse(),
-      layers: [layerResponse().layers[0], { ...layerResponse().layers[1], order: 17 }],
-    })).toThrow(/ordered/);
+      layers: [{ ...layerResponse().layers[0], image: { ...layerResponse().layers[0].image, width: 100_000, height: 100_000 } }, layerResponse().layers[1]],
+    })).toThrow(/canvas dimensions/);
     expect(() => normalizeSeedreamLayerResponse({
       ...layerResponse(),
-      layers: [layerResponse().layers[0], { ...layerResponse().layers[1], name: "x".repeat(129) }],
+      layers: [layerResponse().layers[0], { ...layerResponse().layers[1], z_index: 17 }],
     })).toThrow(/ordered/);
   });
 
@@ -45,14 +74,29 @@ describe("seedream layerize contract", () => {
       .mockResolvedValueOnce(new Response(JSON.stringify({ status: "COMPLETED" }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify(layerResponse()), { status: 200 }));
     const provider = createSeedreamProvider({ apiKey: "test-key", fetchImpl });
-    await expect(provider.submit({ prompt: "x", imageUrl: "https://signed.example/source.png" })).resolves.toEqual({ requestId: "req-1" });
+    await expect(provider.submit({
+      prompt: "x",
+      imageUrl: "https://signed.example/source.png",
+      callbackUrl: "https://app.example/api/creative-work/work-1?token=secret",
+    })).resolves.toEqual({ requestId: "req-1" });
     await expect(provider.status("req-1")).resolves.toBe("COMPLETED");
-    await expect(provider.result("req-1")).resolves.toMatchObject({ width: 4 });
+    await expect(provider.result("req-1")).resolves.toEqual(layerResponse());
     const headers = fetchImpl.mock.calls[0][1]?.headers as Record<string, string>;
     expect(headers.Authorization).toBe("Key test-key");
     expect(headers["X-Fal-Store-IO"]).toBe("0");
     expect(headers["X-Fal-No-Retry"]).toBe("1");
     expect(headers["x-app-fal-disable-fallback"]).toBe("true");
+    expect(fetchImpl.mock.calls[0][0].toString()).toBe(
+      "https://queue.fal.run/bytedance/seedream/v5/pro/layerize?fal_webhook=https%3A%2F%2Fapp.example%2Fapi%2Fcreative-work%2Fwork-1%3Ftoken%3Dsecret",
+    );
+    expect(JSON.parse(String(fetchImpl.mock.calls[0][1]?.body))).toMatchObject({
+      image_url: "https://signed.example/source.png",
+      enable_safety_checker: true,
+    });
+    expect(JSON.parse(String(fetchImpl.mock.calls[0][1]?.body))).not.toHaveProperty("image_urls");
+    expect(fetchImpl.mock.calls[2][0].toString()).toBe(
+      "https://queue.fal.run/bytedance/seedream/v5/pro/layerize/requests/req-1",
+    );
   });
 
   it("surfaces provider HTTP failures without retrying", async () => {
@@ -91,5 +135,21 @@ describe("seedream layerize contract", () => {
       fetchImpl: bad,
       lookup: publicLookup,
     })).rejects.toThrow(/invalid PNG/);
+  });
+
+  it("rejects a fully transparent non-base layer before storing it", async () => {
+    const transparent = await sharp({
+      create: { width: 2, height: 2, channels: 4, background: [0, 0, 0, 0] },
+    }).png().toBuffer();
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(new Response(transparent, {
+      status: 200,
+      headers: { "content-type": "image/png" },
+    }));
+    const store = vi.fn(async () => undefined);
+
+    await expect(downloadSeedreamLayers([
+      { sourceUrl: "https://v3.fal.media/empty.png", isBase: false },
+    ], { fetchImpl, lookup: publicLookup, store })).rejects.toThrow(/transparent/);
+    expect(store).not.toHaveBeenCalled();
   });
 });

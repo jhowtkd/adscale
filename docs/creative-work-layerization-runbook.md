@@ -1,22 +1,25 @@
-# Creative Work layerization runbook
+# Runbook de separação do Trabalho em camadas
 
-This capability is an owner-only, post-approval operation on the selected
-canonical Piece. It creates private PNG layers, a PSD, and a diagnostic ZIP;
-the original Creative Work output is never replaced and no ADScale credit or
-generation ledger entry is created.
+Esta capacidade é exclusiva do owner e só opera sobre a Peça canônica
+selecionada após aprovação. Ela cria camadas PNG privadas, um PSD e um ZIP de
+diagnóstico; a saída original do Trabalho nunca é substituída e nenhum crédito
+ou lançamento de geração do ADScale é criado.
 
 ## Configuration
 
 - `FAL_KEY` is optional and server-only. If absent, the action is disabled.
 - The adapter uses the fixed model id
-  `bytedance/seedream/v5/pro/edit`, native fal queue REST, safety enabled,
+  `bytedance/seedream/v5/pro/layerize`, native fal queue REST, safety enabled,
   provider retry disabled, fallback disabled, and a one-hour provider object
   lifecycle. Do not add a fallback model or SDK without reopening #227.
-- The queue endpoint is `https://queue.fal.run/bytedance/seedream/v5/pro/edit`;
-  the official model page and queue/header documentation are the source of
-  truth for schema, price, and headers. On 2026-08-12 the public page listed
-  $0.0675 for the base edit request up to 1536 px (plus input-image pricing),
-  but did not publish the required layer/bbox response contract.
+- The queue endpoint is
+  `https://queue.fal.run/bytedance/seedream/v5/pro/layerize`; the request uses
+  singular `image_url`, and the result is fetched from
+  `/requests/{request_id}`. The adapter accepts only the documented `layers`,
+  `z_index`, and `bounding_box` contract.
+- On 2026-08-12 the public page listed $0.03375 per generated layer when the
+  generated base area is at most 1536x1536 pixels, and $0.0675 per layer above
+  that threshold. Recheck the model page immediately before a paid smoke.
 - Apply migration `0083_creative_work_layerization.sql` before enabling the
   action.
 - `IMAGE_JOB_TARGET=web` runs the existing job factory in the web process;
@@ -40,7 +43,7 @@ generation ledger entry is created.
 
 Use fake fal HTTP and an in-memory object store. The smoke must prove:
 
-- one selected Piece claims one attempt under two concurrent requests;
+- one selected Peça claims one attempt under two concurrent requests;
 - a provider response with two or more ordered layers produces a readable PSD;
 - the ZIP contains only original/layer PNGs, recomposed preview, and a
   secret-free manifest;
@@ -70,4 +73,4 @@ production deployment, partner contract approval, or paid generation.
 
 ## Current provider gate
 
-As of 2026-08-12, the [public Seedream Pro edit page](https://fal.ai/models/bytedance/seedream/v5/pro/edit) documents image output, not a PSD/layer/bbox response. The adapter therefore rejects that response as `invalid_provider_response`; do not set `FAL_KEY` or run a paid smoke until the partner supplies and approves the exact layer schema, price, headers, and retention terms. The [fal queue protocol](https://fal.ai/docs/documentation/model-apis/inference/queue) and [common request headers](https://fal.ai/docs/documentation/model-apis/common-parameters) are recorded for that review. Record the outcome separately as build, deploy, auth, and paid-generation evidence.
+As of 2026-08-12, the [public Seedream Layerize page](https://fal.ai/models/bytedance/seedream/v5/pro/layerize/api) publishes the layer and bounding-box contract implemented by the adapter. The endpoint is still marked `Partner`: use only synthetic or ADScale-owned assets until the contractual review explicitly approves real client brand assets. Do not run a paid smoke without that approval and explicit authorization for the cost. The [fal queue protocol](https://fal.ai/docs/documentation/model-apis/inference/queue) and [platform headers](https://fal.ai/docs/documentation/model-apis/common-parameters) remain the source of truth. Record build, deploy, authentication, paid-generation, and human-approval evidence separately.

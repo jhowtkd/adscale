@@ -219,6 +219,20 @@ describe("GET /api/creative-work/[id]", () => {
     expect(body.outputs[0].layerization).toBeNull();
   });
 
+  it("keeps layerization disabled for an owner when FAL_KEY is absent", async () => {
+    const previous = process.env.FAL_KEY;
+    delete process.env.FAL_KEY;
+    isPlatformOwnerEmailMock.mockReturnValue(true);
+    getWorkMock.mockResolvedValue({ work: workItem, outputs, sources: [] });
+
+    const res = await GET(new Request("http://localhost/api/creative-work/work-1"), { params: makeParams("work-1") });
+    const body = await res.json();
+
+    expect(body.canLayerize).toBe(false);
+    if (previous === undefined) delete process.env.FAL_KEY;
+    else process.env.FAL_KEY = previous;
+  });
+
   it("does not expose a Peça Única envelope from another protocol", async () => {
     getWorkMock.mockResolvedValue({
       work: {

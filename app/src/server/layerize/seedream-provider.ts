@@ -3,9 +3,11 @@ import "server-only";
 import { lookup as dnsLookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import pLimit from "p-limit";
+import sharp from "sharp";
+import { env } from "@/server/validation/env";
 import type { LayerizationLayer } from "./contracts";
 
-export const SEEDREAM_LAYERIZE_MODEL_ID = "bytedance/seedream/v5/pro/edit";
+export const SEEDREAM_LAYERIZE_MODEL_ID = "bytedance/seedream/v5/pro/layerize";
 export const SEEDREAM_QUEUE_URL = `https://queue.fal.run/${SEEDREAM_LAYERIZE_MODEL_ID}`;
 export const SEEDREAM_PROVIDER_ENDPOINT = SEEDREAM_QUEUE_URL;
 export const SEEDREAM_PROVIDER_DOCS_URL = `https://fal.ai/models/${SEEDREAM_LAYERIZE_MODEL_ID}/api`;
@@ -16,6 +18,9 @@ export const SEEDREAM_MAX_ASSET_BYTES = 25 * 1024 * 1024;
 export const SEEDREAM_MAX_TOTAL_ASSET_BYTES = 200 * 1024 * 1024;
 export const SEEDREAM_MAX_CANVAS_PIXELS = 40_000_000;
 export const SEEDREAM_MAX_RESPONSE_BYTES = 256 * 1024;
+const SEEDREAM_STANDARD_LAYER_PRICE_USD = 0.03375;
+const SEEDREAM_LARGE_LAYER_PRICE_USD = 0.0675;
+const SEEDREAM_STANDARD_MAX_PIXELS = 1536 * 1536;
 
 export type SeedreamProviderStatus = "IN_QUEUE" | "IN_PROGRESS" | "COMPLETED" | "FAILED";
 
@@ -47,7 +52,13 @@ export type SeedreamProvider = {
   result(requestId: string): Promise<unknown>;
 };
 
-function apiKeyOrThrow(apiKey = process.env.FAL_KEY): string {
+export function estimateSeedreamLayerizationCostUsd(width: number, height: number, layerCount: number): number {
+  return layerCount * (width * height <= SEEDREAM_STANDARD_MAX_PIXELS
+    ? SEEDREAM_STANDARD_LAYER_PRICE_USD
+    : SEEDREAM_LARGE_LAYER_PRICE_USD);
+}
+
+function apiKeyOrThrow(apiKey = env.FAL_KEY): string {
   if (!apiKey?.trim()) {
     throw new SeedreamProviderError("FAL_KEY is not configured", "missing_configuration");
   }
@@ -137,13 +148,15 @@ export function createSeedreamProvider(options: {
 
   return {
     async submit(input) {
-      const payload = await request("", {
+      const webhookQuery = input.callbackUrl
+        ? `?fal_webhook=${encodeURIComponent(input.callbackUrl)}`
+        : "";
+      const payload = await request(webhookQuery, {
         method: "POST",
         body: JSON.stringify({
           prompt: input.prompt,
-          image_urls: [input.imageUrl],
+          image_url: input.imageUrl,
           enable_safety_checker: true,
-          ...(input.callbackUrl ? { webhook_url: input.callbackUrl } : {}),
         }),
       });
       return { requestId: requestIdFrom(payload) };
@@ -153,7 +166,7 @@ export function createSeedreamProvider(options: {
       return normalizeStatus(payload);
     },
     async result(requestId) {
-      return request(`/requests/${encodeURIComponent(requestId)}/response`, { method: "GET" });
+      return request(`/requests/${encodeURIComponent(requestId)}`, { method: "GET" });
     },
   };
 }
@@ -180,23 +193,33 @@ function imageUrlFrom(value: Record<string, unknown>): string | null {
   return stringValue(value.image_url, value.url, image?.url, image?.image_url);
 }
 
-function bboxFrom(value: Record<string, unknown>, width: number, height: number) {
-  const bbox = firstRecord(value.bounding_box, value.boundingBox, value.bbox) ?? value;
-  const x = numberValue(bbox.x, bbox.left);
-  const y = numberValue(bbox.y, bbox.top);
-  const boxWidth = numberValue(bbox.width, bbox.w);
-  const boxHeight = numberValue(bbox.height, bbox.h);
-  if (x === null || y === null || boxWidth === null || boxHeight === null) return null;
-  if (![x, y, boxWidth, boxHeight].every(Number.isInteger) || boxWidth <= 0 || boxHeight <= 0) return null;
-  if (x < 0 || y < 0 || x + boxWidth > width || y + boxHeight > height) return null;
+function bboxFrom(value: Record<string, unknown>, width: number, height: number, isBase: boolean) {
+  if (isBase) {
+    return {
+      x: 0,
+      y: 0,
+      width,
+      height,
+      normalizedBoundingBox: { x: 0, y: 0, width: 1, height: 1 },
+    };
+  }
+  const bbox = firstRecord(value.bounding_box);
+  const absolute = bbox?.absolute;
+  const normalized = bbox?.normalized;
+  if (!Array.isArray(absolute) || absolute.length !== 4 || !absolute.every(Number.isInteger)) return null;
+  if (!Array.isArray(normalized) || normalized.length !== 4 || !normalized.every((part) => Number.isInteger(part) && part >= 0 && part <= 1000)) return null;
+  const [left, top, right, bottom] = absolute as number[];
+  const boxWidth = right - left;
+  const boxHeight = bottom - top;
+  if (left < 0 || top < 0 || boxWidth <= 0 || boxHeight <= 0 || right > width || bottom > height) return null;
   return {
-    x,
-    y,
+    x: left,
+    y: top,
     width: boxWidth,
     height: boxHeight,
     normalizedBoundingBox: {
-      x: x / width,
-      y: y / height,
+      x: left / width,
+      y: top / height,
       width: boxWidth / width,
       height: boxHeight / height,
     },
@@ -216,45 +239,32 @@ export function normalizeSeedreamLayerResponse(payload: unknown): {
   if (!isRecord(root)) {
     throw new SeedreamProviderError("Seedream layer payload is not an object", "invalid_provider_response");
   }
-  const canvas = firstRecord(root.canvas, root.base, root.base_layer);
-  const width = numberValue(root.width, canvas?.width, canvas?.dimensions && isRecord(canvas.dimensions) ? canvas.dimensions.width : null);
-  const height = numberValue(root.height, canvas?.height, canvas?.dimensions && isRecord(canvas.dimensions) ? canvas.dimensions.height : null);
+  const declaredLayers = Array.isArray(root.layers) ? root.layers : [];
+  const base = declaredLayers[0];
+  const baseImage = isRecord(base) ? firstRecord(base.image) : null;
+  const width = numberValue(baseImage?.width);
+  const height = numberValue(baseImage?.height);
   if (width === null || height === null || !Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0 || width * height > SEEDREAM_MAX_CANVAS_PIXELS) {
     throw new SeedreamProviderError("Seedream layer payload has invalid canvas dimensions", "invalid_provider_response");
   }
 
-  const declaredLayers = Array.isArray(root.layers)
-    ? root.layers
-    : Array.isArray(root.image_layers)
-      ? root.image_layers
-      : [];
-  const hasDeclaredBase = declaredLayers.some((value) => isRecord(value) && (
-    value.base === true || value.is_base === true || value.role === "base"
-  ));
-  const baseUrl = canvas ? imageUrlFrom(canvas) : null;
-  const values = baseUrl && !hasDeclaredBase
-    ? [{ ...canvas, base: true, order: 0, name: "Base", description: "Base layer", bounding_box: { x: 0, y: 0, width, height } }, ...declaredLayers]
-    : declaredLayers;
-  if (values.length < 2 || values.length > SEEDREAM_MAX_LAYERS) {
+  if (declaredLayers.length < 2 || declaredLayers.length > SEEDREAM_MAX_LAYERS) {
     throw new SeedreamProviderError("Seedream must return between 2 and 17 layers", "invalid_provider_response");
   }
 
   const seenOrders = new Set<number>();
   let baseCount = 0;
-  const layers = values.map((value, index) => {
+  const layers = declaredLayers.map((value, index) => {
     if (!isRecord(value)) {
       throw new SeedreamProviderError("Seedream returned a non-object layer", "invalid_provider_response");
     }
-    const isBase = value.base === true || value.is_base === true || value.role === "base";
+    const order = numberValue(value.z_index);
+    const isBase = index === 0 && order === 0 && value.bounding_box == null;
     if (isBase) baseCount += 1;
-    const order = numberValue(value.order, value.z_index, value.index, index);
-    const name = stringValue(value.name, value.label, isBase ? "Base" : null);
-    const description = stringValue(value.description, value.prompt, isBase ? "Base layer" : null);
-    const sourceUrl = imageUrlFrom(value) ?? (isBase ? baseUrl : null);
-    const bbox = bboxFrom(value, width, height) ?? (isBase ? {
-      x: 0, y: 0, width, height,
-      normalizedBoundingBox: { x: 0, y: 0, width: 1, height: 1 },
-    } : null);
+    const name = stringValue(value.name, isBase ? "Base" : null);
+    const description = stringValue(value.description, isBase ? "Base layer" : null);
+    const sourceUrl = imageUrlFrom(value);
+    const bbox = bboxFrom(value, width, height, isBase);
     if (order === null || !Number.isInteger(order) || order < 0 || order >= SEEDREAM_MAX_LAYERS || seenOrders.has(order) || !name || name.length > 128 || !description || description.length > 1000 || !sourceUrl || sourceUrl.length > 2048 || !bbox) {
       throw new SeedreamProviderError("Seedream layer is missing an ordered name, description, bbox, or image", "invalid_provider_response");
     }
@@ -392,18 +402,26 @@ export async function downloadSeedreamMedia(
 }
 
 export async function downloadSeedreamLayers(
-  layers: Array<{ sourceUrl: string }>,
-  options: Parameters<typeof downloadSeedreamMedia>[1] = {},
-): Promise<Buffer[]> {
+  layers: Array<{ sourceUrl: string; isBase: boolean }>,
+  options: Parameters<typeof downloadSeedreamMedia>[1] & {
+    store: (layer: { sourceUrl: string; isBase: boolean }, index: number, buffer: Buffer) => Promise<void>;
+  },
+): Promise<number[]> {
   const limit = pLimit(3);
   let total = 0;
-  const buffers = await Promise.all(layers.map((layer) => limit(async () => {
+  return Promise.all(layers.map((layer, index) => limit(async () => {
     const buffer = await downloadSeedreamMedia(layer.sourceUrl, options);
+    if (!layer.isBase) {
+      const alpha = (await sharp(buffer).ensureAlpha().stats()).channels[3];
+      if (!alpha || alpha.max === 0) {
+        throw new SeedreamProviderError("Seedream returned a fully transparent layer", "invalid_provider_response");
+      }
+    }
     total += buffer.length;
     if (total > SEEDREAM_MAX_TOTAL_ASSET_BYTES) {
       throw new SeedreamProviderError("Seedream layers exceed total size limit", "unsafe_media");
     }
-    return buffer;
+    await options.store(layer, index, buffer);
+    return buffer.length;
   })));
-  return buffers;
 }
