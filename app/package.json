@@ -40,7 +40,7 @@
     "snapshot:goal-agent-graduation": "tsx scripts/snapshot-goal-agent-graduation.ts",
     "validate:creative": "node scripts/check-creative-validation-evidence.mjs --stage final",
     "validate:creative:live": "npx tsx scripts/run-creative-validation.ts",
-    "validate:brand-consistency": "tsx scripts/run-brand-consistency-validation.ts",
+    "validate:brand-consistency": "NODE_OPTIONS=--conditions=react-server tsx scripts/run-brand-consistency-validation.ts",
     "creative-release-gate": "node scripts/run-creative-release-gate.mjs",
     "creative-work-quality-recovery-gate": "tsx scripts/check-creative-work-quality-recovery-gate.ts ../.planning/validation/creative-work-quality-recovery-gate.json",
     "output-learning-release-gate": "node scripts/run-output-learning-release-gate.mjs",

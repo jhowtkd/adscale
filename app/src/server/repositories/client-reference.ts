@@ -233,6 +233,20 @@ export async function createTrainingReference(
   return row;
 }
 
+export async function deleteTrainingReference(scope: TrainingReferenceScope) {
+  const [row] = await db
+    .delete(clientReferences)
+    .where(
+      and(
+        eq(clientReferences.workspaceId, scope.workspaceId),
+        eq(clientReferences.clientProfileId, scope.clientProfileId),
+        eq(clientReferences.id, scope.referenceId),
+      ),
+    )
+    .returning();
+  return row ?? null;
+}
+
 export async function getTrainingReferenceByAssetKey(
   workspaceId: string,
   clientProfileId: string,

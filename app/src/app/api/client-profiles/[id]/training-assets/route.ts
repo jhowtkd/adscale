@@ -3,6 +3,7 @@ import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import {
   createTrainingReference,
+  deleteTrainingReference,
   getClientProfile,
   getTrainingReferences,
 } from "@/server/repositories/client-reference";
@@ -138,17 +139,28 @@ export async function POST(
       throw error;
     }
 
-    await inngest.send({
-      name: heavyImageEventName("brand.training.analyze"),
-      data: {
+    try {
+      await inngest.send({
+        name: heavyImageEventName("brand.training.analyze"),
+        data: {
+          workspaceId: workspace.id,
+          clientProfileId: id,
+          referenceId: reference.id,
+          assetKey: key,
+          mimeType: normalized.type,
+          hasAlpha: normalized.hasAlpha,
+        },
+      });
+    } catch (error) {
+      await deleteTrainingReference({
         workspaceId: workspace.id,
         clientProfileId: id,
         referenceId: reference.id,
-        assetKey: key,
-        mimeType: normalized.type,
-        hasAlpha: normalized.hasAlpha,
-      },
-    });
+      }).catch(() => null);
+      await deleteWorkspaceAsset(asset.id, workspace.id).catch(() => null);
+      await objectStorage.delete(key).catch(() => null);
+      throw error;
+    }
 
     return NextResponse.json(
       {

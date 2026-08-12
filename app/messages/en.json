@@ -2428,8 +2428,7 @@
         "reference": "Reference (inspire the layout)",
         "rule": "Rule (enforce style)"
       },
-      "reviewedAt": "Reviewed {when}",
-      "legacyReviewRequired": "Legacy asset: confirm this review before it participates in the Brand Cortex."
+      "reviewedAt": "Reviewed {when}"
     }
   },
   "review": {

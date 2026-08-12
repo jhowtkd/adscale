@@ -39,14 +39,22 @@ export async function PATCH(
       return apiError("clientProfileNotFound", 404);
     }
 
+    const references = await getTrainingReferences(workspace.id, id);
+    const reference = references.find((row) => row.id === referenceId);
+    if (!reference) {
+      return apiError("clientProfileNotFound", 404);
+    }
+    if (
+      body.reviewStatus === "approved" &&
+      reference.reviewStatus !== "pending_approval" &&
+      reference.reviewStatus !== "approved"
+    ) {
+      return apiError("clientProfileNotFound", 404);
+    }
+
     // Exact mode needs alpha only when approving — archive must not be blocked
     // by compositing rules for an asset leaving the training set.
     if (body.reviewStatus === "approved" && body.usageMode === "exact") {
-      const references = await getTrainingReferences(workspace.id, id);
-      const reference = references.find((row) => row.id === referenceId);
-      if (!reference) {
-        return apiError("clientProfileNotFound", 404);
-      }
       const asset = await getWorkspaceAssetByKey(workspace.id, reference.assetKey);
       const metadata = asset?.metadata as Record<string, unknown> | null | undefined;
       const hasAlpha = metadata?.hasAlpha === true;

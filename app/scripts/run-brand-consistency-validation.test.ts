@@ -12,26 +12,55 @@ import {
 const temporaryDirectories: string[] = [];
 
 afterEach(() => {
+  delete process.env.E2E_PROVIDER_EVIDENCE_PATH;
   for (const directory of temporaryDirectories.splice(0)) {
     rmSync(directory, { recursive: true, force: true });
   }
 });
 
 describe("run-brand-consistency-validation", () => {
-  it("writes structured evidence and keeps the human-readable run separate", () => {
+  it("executes the controlled replay and hashes the generated artifact", async () => {
     const directory = mkdtempSync(path.join(os.tmpdir(), "adscale-brand-baseline-"));
     temporaryDirectories.push(directory);
+    process.env.E2E_PROVIDER_EVIDENCE_PATH = path.join(directory, "provider-calls.jsonl");
     const manifestPath = path.join(directory, "fixtures.json");
     const manifest = {
       version: 1,
       pilotId: "fixtures",
       brandName: "Acme",
       provenance: { source: "synthetic_fixture" },
-      requests: [],
+      requests: [
+        {
+          requestId: "fixture-square",
+          requestText: "Post institucional quadrado",
+          format: "1:1",
+          contentPattern: "text_led_ad",
+          effectivePrompt: "replaced by the canonical prompt",
+          selectedReferences: [
+            { referenceId: "fixture-style", reason: "approved fixture" },
+          ],
+          observedHardFailures: [],
+          humanVerdict: "pending",
+          capturedAt: "2026-08-12T12:00:00.000Z",
+          replay: {
+            brief: {
+              theme: "Institucional",
+              objective: "Apresentar a marca",
+              audience: "",
+              offer: null,
+            },
+            copy: {
+              headline: "Conheça a marca",
+              body: "Uma apresentação institucional.",
+              cta: "Saiba mais",
+            },
+          },
+        },
+      ],
     };
     writeFileSync(manifestPath, JSON.stringify(manifest), "utf8");
 
-    const result = runBrandConsistencyValidation({
+    const result = await runBrandConsistencyValidation({
       manifestPath,
       capturedAt: "2026-08-12T12:00:00.000Z",
     });
@@ -41,8 +70,19 @@ describe("run-brand-consistency-validation", () => {
       schemaVersion: 1,
       reportType: "brand-consistency-baseline",
       status: "human_needed",
-      execution: { paidGeneration: false, providerCalls: 0 },
+      execution: {
+        provider: "e2e-controlled-replay",
+        paidGeneration: false,
+        providerCalls: 1,
+      },
       generatedAt: "2026-08-12T12:00:00.000Z",
     });
+    expect(result.report.requests[0]?.result.artifact).toMatchObject({
+      mimeType: "image/png",
+      width: 1080,
+      height: 1080,
+      sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+    });
+    expect(result.report.requests[0]?.hashes.result).toMatch(/^[a-f0-9]{64}$/);
   });
 });

@@ -167,7 +167,6 @@ export function BrandTrainingAssets({
           <ApprovedCard
             key={asset.id}
             asset={asset}
-            legacy={asset.reviewedByUserId == null}
             onArchive={() =>
               review.mutate(
                 {
@@ -498,12 +497,10 @@ function PendingApprovalCard({
 
 function ApprovedCard({
   asset,
-  legacy,
   onArchive,
   submitting,
 }: {
   asset: BrandTrainingAssetRecord;
-  legacy: boolean;
   onArchive: () => void;
   submitting: boolean;
 }) {
@@ -524,11 +521,6 @@ function ApprovedCard({
         {reviewedAt ? (
           <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
             {t("assets.reviewedAt", { when: reviewedAt })}
-          </p>
-        ) : null}
-        {legacy ? (
-          <p className="mt-1 text-[11px] text-[var(--text-muted)]">
-            {t("assets.legacyReviewRequired")}
           </p>
         ) : null}
       </div>
