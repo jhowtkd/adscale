@@ -72,13 +72,10 @@ async function login(page: Page): Promise<void> {
       /* ignore */
     }
   });
-  await page.goto("/login");
-  await page.locator("#email").fill(fixture.email);
-  await page.locator("#login-password").fill(fixture.password);
-  await page.locator("form:has(#email) button[type=submit]").click();
-  await page.waitForURL((url) => !url.pathname.startsWith("/login"), {
-    timeout: 30_000,
+  const response = await page.request.post("/api/auth/sign-in/email", {
+    data: { email: fixture.email, password: fixture.password },
   });
+  expect(response.ok(), `E2E login must succeed (got ${response.status()})`).toBeTruthy();
 }
 
 async function fetchCampaignIds(
@@ -540,6 +537,7 @@ interface ProviderCallEvidence {
   referenceNames: string[];
   promptMarkers: string[];
   promptHasObjectiveCorrection: boolean;
+  promptHasDeterministicText: boolean;
   outcome: "success" | "failure";
 }
 
@@ -558,6 +556,16 @@ interface V1OutputRow {
     objectiveVerdict?: string;
     attempt?: number;
     subjective?: { scoreStatus?: string };
+    textComposition?: {
+      version: number;
+      execution: "deterministic" | "generative";
+      format: string;
+      font?: { assetKey: string; sha256: string };
+      copy?: { headline: string; body: string; cta: string };
+      planHash?: string;
+      outputHash?: string;
+      reason?: string;
+    };
   } | null;
 }
 
@@ -694,7 +702,7 @@ async function waitForTerminalOutputs(request: APIRequestContext, workId: string
 async function runV1Flow(
   request: APIRequestContext,
   fixture: CreatePostFixture,
-  input: { intent: string; request: string; targetFormats?: string[]; sources?: Array<{ assetId: string; usage: "content" | "style" | "both" }> },
+  input: { intent: string; request: string; targetFormats?: string[]; format?: string; sources?: Array<{ assetId: string; usage: "content" | "style" | "both" }> },
 ): Promise<V1WorkDetail> {
   const workId = await apiCreateV1Draft(request, fixture, input);
   for (const source of input.sources ?? []) {
@@ -740,6 +748,90 @@ test.describe("Creative Work v1 quality-recovery matrix (R-010)", () => {
     });
     const row = await dbOutputRow(output.id);
     expect(row).toMatchObject({ status: "completed", image_call_count: 1, retry_count: 0 });
+  });
+
+  test("Peça única 1:1: fonte aprovada compõe copy após o background controlado", async ({ page }) => {
+    const fixture = loadFixture();
+    const fontBuffer = fs.readFileSync(path.resolve(
+      process.cwd(),
+      "node_modules/next/dist/compiled/@vercel/og/Geist-Regular.ttf",
+    ));
+    let fontKey: string | null = null;
+    let fontAssetId: string | null = null;
+
+    try {
+      const upload = await page.request.post(
+        `/api/client-profiles/${fixture.primaryClientProfileId}/brand-fonts`,
+        {
+          multipart: {
+            file: { name: "Geist-Regular.ttf", mimeType: "font/ttf", buffer: fontBuffer },
+            family: "Geist",
+            source: "Fixture licenciada do projeto",
+            weight: "400",
+            style: "normal",
+            rightsConfirmed: "true",
+          },
+        },
+      );
+      expect(upload.status(), `font upload must succeed (got ${upload.status()})`).toBe(201);
+      const uploaded = (await upload.json()) as { font: { assetKey: string; sha256: string } };
+      fontKey = uploaded.font.assetKey;
+      fontAssetId = await withDb(async (client) => {
+        const result = await client.query(
+          `select id from adscale_app.workspace_assets where workspace_id = $1 and key = $2`,
+          [fixture.workspaceId, fontKey],
+        );
+        return (result.rows[0]?.id as string | undefined) ?? null;
+      });
+
+      const detail = await runV1Flow(page.request, fixture, {
+        intent: "single",
+        format: "1:1",
+        request: "Peça quadrada com chamada literal para a mentoria de psicologia.",
+      });
+
+      expect(detail.outputs).toHaveLength(1);
+      const output = detail.outputs[0];
+      expect(output.status).toBe("completed");
+      expect(output.quality?.textComposition).toMatchObject({
+        version: 1,
+        execution: "deterministic",
+        format: "1:1",
+        font: { assetKey: fontKey, sha256: uploaded.font.sha256 },
+        copy: {
+          headline: expect.any(String),
+          body: expect.any(String),
+          cta: expect.any(String),
+        },
+        planHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+        outputHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+      });
+      expect(evidenceForOutput(readProviderEvidence(), output.id)).toEqual([
+        expect.objectContaining({
+          dimensions: { width: 1080, height: 1080 },
+          promptHasDeterministicText: true,
+          outcome: "success",
+        }),
+      ]);
+    } finally {
+      if (fontKey) {
+        await withDb(async (client) => {
+          await client.query(
+            `update adscale_app.client_profiles
+             set brand_font_assets = coalesce((
+               select jsonb_agg(font)
+               from jsonb_array_elements(coalesce(brand_font_assets, '[]'::jsonb)) font
+               where font->>'assetKey' <> $1
+             ), '[]'::jsonb)
+             where workspace_id = $2 and id = $3`,
+            [fontKey, fixture.workspaceId, fixture.primaryClientProfileId],
+          );
+        });
+      }
+      if (fontAssetId) {
+        await page.request.delete(`/api/workspace/assets/${fontAssetId}`);
+      }
+    }
   });
 
   test("Variações: 3 outputs / 3 direct art_variation calls on the same snapshot", async ({ page }) => {

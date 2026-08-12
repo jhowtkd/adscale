@@ -56,6 +56,10 @@ import {
 } from "@/server/creative-work/job-telemetry";
 import { runExactComposition } from "@/server/creative-work/composite";
 import {
+  runSquareTextComposition,
+  type TextCompositionProvenance,
+} from "@/server/creative-work/text-composite";
+import {
   preflightExactComposition,
   type CompositionProvenance,
 } from "@/server/creative-work/placement-policy";
@@ -592,6 +596,9 @@ const creativeWorkOutputJobHandler = async ({
         width: 1024,
         height: 1280,
       };
+      const approvedSquareFont = work.toolKind === "single" && targetFormat === "1:1"
+        ? identitySnapshot.brandKit.fontAssets?.[0] ?? null
+        : null;
 
       // Pre-generator block: prompt assembly + reference image load. Any
       // failure here happens before the upstream provider is invoked, so
@@ -785,6 +792,7 @@ const creativeWorkOutputJobHandler = async ({
                 creativeLevel,
                 references: loadedSlots,
                 revisionInstruction: output.revisionInstruction,
+                textExecution: approvedSquareFont ? "deterministic" : "generative",
               })
             : buildSocialPostPrompt({
                 format: targetFormat,
@@ -806,6 +814,7 @@ const creativeWorkOutputJobHandler = async ({
               creativeLevel,
               references: loadedSlots,
               revisionInstruction: output.revisionInstruction,
+              textExecution: approvedSquareFont ? "deterministic" : "generative",
             };
           }
         } else {
@@ -1058,6 +1067,29 @@ const creativeWorkOutputJobHandler = async ({
         (asset) => asset.usageMode === "exact",
       );
       let compositionProvenance: CompositionProvenance | null = null;
+      let textCompositionProvenance: TextCompositionProvenance | null = null;
+
+      const composeApprovedText = async (
+        outputKey: string,
+        stepName: string,
+      ): Promise<TextCompositionProvenance | null> => {
+        if (!approvedSquareFont) return null;
+        return (await step.run(stepName, async () => {
+          const [baseBuffer, fontBuffer] = await Promise.all([
+            objectStorage.get(outputKey),
+            objectStorage.get(approvedSquareFont.assetKey),
+          ]);
+          const result = await runSquareTextComposition({
+            base: baseBuffer,
+            dimensions: { width: 1080, height: 1080 },
+            copy,
+            font: approvedSquareFont,
+            fontBuffer,
+          });
+          await objectStorage.put(outputKey, result.buffer, "image/png");
+          return result.provenance;
+        })) as TextCompositionProvenance;
+      };
 
       if (exactAssets.length > 0) {
         compositionProvenance = (await step.run("compose-exact-layers", async () => {
@@ -1073,6 +1105,11 @@ const creativeWorkOutputJobHandler = async ({
           return result.provenance;
         })) as CompositionProvenance;
       }
+
+      textCompositionProvenance = await composeApprovedText(
+        generatedOutputKey,
+        "compose-approved-copy",
+      );
 
       // Keep the image buffer out of step results; only its storage key is
       // durable/serializable across Inngest boundaries.
@@ -1362,6 +1399,10 @@ const creativeWorkOutputJobHandler = async ({
             },
           )) as CompositionProvenance;
         }
+        textCompositionProvenance = await composeApprovedText(
+          correctionOutputKey,
+          "compose-approved-copy-correction",
+        );
 
         const correctedBuffer = await objectStorage.get(correctionOutputKey);
         const correctionAssessment = (await observeCreativeWorkStage(
@@ -1408,6 +1449,17 @@ const creativeWorkOutputJobHandler = async ({
         completedQuality = {
           ...(completedQuality ?? {}),
           exactComposition: compositionProvenance,
+        };
+      }
+      if (work.toolKind === "single" && targetFormat === "1:1") {
+        completedQuality = {
+          ...(completedQuality ?? {}),
+          textComposition: textCompositionProvenance ?? {
+            version: 1,
+            execution: "generative",
+            format: "1:1",
+            reason: "approved_font_missing",
+          },
         };
       }
 

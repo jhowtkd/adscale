@@ -44,6 +44,7 @@ function recordProviderCall(input: ProviderGenerateInput, outcome: "success" | "
       referenceMimeTypes: input.referenceImages.map((reference) => reference.mimeType),
       promptMarkers: [...input.prompt.matchAll(/\[e2e:[a-z-]+\]/g)].map((match) => match[0]),
       promptHasObjectiveCorrection: input.prompt.includes("OBJECTIVE CORRECTION"),
+      promptHasDeterministicText: input.prompt.includes("DETERMINISTIC TEXT CONTRACT"),
       outcome,
       error: outcome === "failure" ? (error instanceof Error ? error.message : String(error)) : null,
     })}\n`);

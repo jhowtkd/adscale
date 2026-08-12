@@ -1,4 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import sharp from "sharp";
 
 const generateAndStoreImageMock = vi.hoisted(() => vi.fn());
 const runExactCompositionMock = vi.hoisted(() => vi.fn());
@@ -422,6 +426,132 @@ describe("creativeWorkOutputJob", () => {
     expect(opts.onFailure).toBeDefined();
     expect(opts.triggers).toEqual([{ event: "creative-work.generate" }]);
     // R-007: at most one Creative Work image call in flight on rollout.
+  });
+
+  it("composes approved copy after square Peça única generation and persists provenance", async () => {
+    const fontKey = "workspaces/workspace-1/brand-fonts/geist.ttf";
+    const font = readFileSync(resolve(
+      process.cwd(),
+      "node_modules/next/dist/compiled/@vercel/og/Geist-Regular.ttf",
+    ));
+    const base = await sharp({
+      create: {
+        width: 1080,
+        height: 1080,
+        channels: 3,
+        background: { r: 220, g: 210, b: 180 },
+      },
+    }).png().toBuffer();
+    const stored = new Map<string, Buffer>([[
+      "creative-work/output-1/1700000000000.png",
+      base,
+    ]]);
+    objectGetMock.mockImplementation(async (key: string) => {
+      if (key === fontKey) return font;
+      return stored.get(key) ?? Buffer.from("png-bytes");
+    });
+    objectPutMock.mockImplementation(async (key: string, buffer: Buffer) => {
+      stored.set(key, buffer);
+    });
+    getCreativeWorkMock.mockResolvedValue({
+      work: {
+        ...workItem,
+        toolKind: "single",
+        format: "1:1",
+        identitySnapshot: {
+          ...identitySnapshot,
+          assets: [],
+          brandKit: {
+            ...identitySnapshot.brandKit,
+            fontAssets: [{
+              assetKey: fontKey,
+              family: "Geist",
+              source: "Licença do projeto",
+              weight: 400,
+              style: "normal",
+              sha256: createHash("sha256").update(font).digest("hex"),
+              approvedAt: "2026-08-12T12:00:00.000Z",
+              approvedByUserId: "user-1",
+            }],
+          },
+        },
+        inputSnapshot: {
+          generationPolicyVersion: "quality_recovery_v1",
+          request: "Peça quadrada com composição literal",
+          settings: { targetFormats: [] },
+          sources: [],
+        },
+      },
+      outputs: [makeQueuedOutput()],
+    });
+    markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+    await expect(runJob()).resolves.toMatchObject({ success: true });
+
+    const generationInput = generateAndStoreImageMock.mock.calls[0]?.[0] as { prompt: string };
+    expect(generationInput.prompt).toContain("DETERMINISTIC TEXT CONTRACT:");
+    expect(generationInput.prompt).not.toContain('HEADLINE: "H"');
+    expect(objectGetMock).toHaveBeenCalledWith(fontKey);
+    expect(objectPutMock).toHaveBeenCalledWith(
+      "creative-work/output-1/1700000000000.png",
+      expect.any(Buffer),
+      "image/png",
+    );
+    expect(completeMock).toHaveBeenCalledWith(
+      "workspace-1",
+      "work-1",
+      "output-1",
+      expect.objectContaining({
+        quality: expect.objectContaining({
+          textComposition: expect.objectContaining({
+            version: 1,
+            execution: "deterministic",
+            format: "1:1",
+            font: expect.objectContaining({ assetKey: fontKey }),
+            copy: workItem.copy,
+            planHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+            outputHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("records the generative fallback when a square Peça única has no approved font", async () => {
+    getCreativeWorkMock.mockResolvedValue({
+      work: {
+        ...workItem,
+        toolKind: "single",
+        format: "1:1",
+        identitySnapshot: { ...identitySnapshot, assets: [] },
+        inputSnapshot: {
+          generationPolicyVersion: "quality_recovery_v1",
+          request: "Peça sem arquivo de fonte",
+          settings: { targetFormats: [] },
+          sources: [],
+        },
+      },
+      outputs: [makeQueuedOutput()],
+    });
+    markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+    await expect(runJob()).resolves.toMatchObject({ success: true });
+
+    expect(completeMock).toHaveBeenCalledWith(
+      "workspace-1",
+      "work-1",
+      "output-1",
+      expect.objectContaining({
+        quality: expect.objectContaining({
+          textComposition: {
+            version: 1,
+            execution: "generative",
+            format: "1:1",
+            reason: "approved_font_missing",
+          },
+        }),
+      }),
+    );
   });
 
   it("closes and refunds an output when the worker dies outside the handler", async () => {

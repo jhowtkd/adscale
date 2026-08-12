@@ -28,8 +28,19 @@ export interface BuildSocialPostPromptInput {
 }
 
 function buildFixedContract(
-  input: Pick<BuildSocialPostPromptInput, "format" | "copy">,
+  input: Pick<BuildSocialPostPromptInput, "format" | "copy"> & {
+    textExecution?: "generative" | "deterministic";
+  },
 ): string {
+  if (input.textExecution === "deterministic") {
+    return [
+      "DETERMINISTIC TEXT CONTRACT:",
+      `FORMAT: ${input.format}`,
+      "Do not render any visible text, letters, words, labels or CTA in the image.",
+      "Generate only the visual background and leave the top half visually clean for deterministic text composition after generation.",
+      "Exact brand assets and approved copy will be composited after generation.",
+    ].join("\n");
+  }
   return [
     "FIXED CONTRACT:",
     `FORMAT: ${input.format}`,
@@ -275,6 +286,8 @@ export interface BuildCreativeWorkPromptInput {
   format: SocialPostFormat;
   /** Validated copy contract (R-002) — fixed for every mode. */
   copy: SocialPostCopy;
+  /** Approved 1:1 font path composes copy after generation when deterministic. */
+  textExecution?: "generative" | "deterministic";
   inputSnapshot: CreativeWorkInputSnapshot;
   /** Frozen fact pack from the snapshot; null only on defensive legacy reads. */
   factPack: CreativeWorkFactPack | null;
