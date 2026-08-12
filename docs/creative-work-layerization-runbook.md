@@ -78,3 +78,15 @@ production deployment, partner contract approval, or paid generation.
 ## Current provider gate
 
 As of 2026-08-12, the [public Seedream Layerize page](https://fal.ai/models/bytedance/seedream/v5/pro/layerize/api) publishes the layer and bounding-box contract implemented by the adapter. The endpoint is still marked `Partner`: use only synthetic or ADScale-owned assets until the contractual review explicitly approves real client brand assets. Do not run a paid smoke without that approval and explicit authorization for the cost. The [fal queue protocol](https://fal.ai/docs/documentation/model-apis/inference/queue) and [platform headers](https://fal.ai/docs/documentation/model-apis/common-parameters) remain the source of truth. Record build, deploy, authentication, paid-generation, and human-approval evidence separately.
+
+## Local validation log — 2026-08-12
+
+- `npm run test:db:setup`: PostgreSQL 16 test container started and all
+  migrations, including `0083_creative_work_layerization.sql`, applied.
+- `DATABASE_URL=postgres://test:test@localhost:5433/adscale_test TEST_DATABASE_URL=postgres://test:test@localhost:5433/adscale_test npm test -- --run tests/integration/creative-work-layerization-journey.test.ts`:
+  1 file and 1 test passed. The tracer covered idempotent PATCH, callback replay
+  and callback/reconciliation race, real repository persistence, expired
+  recovery with and without provider request id, private PSD readback, and
+  on-demand ZIP contents.
+- This was synthetic, local evidence. No fal request, paid generation, deploy,
+  push, authenticated production acceptance, or partner approval occurred.

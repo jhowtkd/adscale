@@ -185,6 +185,30 @@ export async function markCreativeWorkLayerizationSubmissionUnknown(
   return getCreativeWorkLayerizationOutput(workspaceId, workItemId, outputId);
 }
 
+export async function claimExpiredCreativeWorkLayerizationRecovery(input: {
+  workspaceId: string;
+  workItemId: string;
+  outputId: string;
+  now: Date;
+}): Promise<LayerizationOutputRow | null> {
+  const now = input.now.toISOString();
+  const leaseBefore = new Date(input.now.getTime() - 5 * 60 * 1000).toISOString();
+  const [claimed] = await db.update(creativeWorkOutputs).set({
+    layerization: sql`${creativeWorkOutputs.layerization} || jsonb_build_object(
+      'status', case when ${creativeWorkOutputs.layerization}->>'providerRequestId' is null then 'submission_unknown' else 'reconciling' end,
+      'failureCode', case when ${creativeWorkOutputs.layerization}->>'providerRequestId' is null then 'submission_unknown' else null end,
+      'updatedAt', ${now}::text
+    )`,
+    updatedAt: input.now,
+  }).where(and(
+    scope(input.workspaceId, input.workItemId, input.outputId),
+    sql`${creativeWorkOutputs.layerization}->>'status' in ('processing', 'reconciling')`,
+    sql`(${creativeWorkOutputs.layerization}->>'callbackDeadlineAt')::timestamptz <= ${now}::timestamptz`,
+    sql`(${creativeWorkOutputs.layerization}->>'updatedAt')::timestamptz <= ${leaseBefore}::timestamptz`,
+  )).returning();
+  return claimed ?? null;
+}
+
 export async function acceptCreativeWorkLayerizationCallback(input: {
   workItemId: string;
   outputId: string;

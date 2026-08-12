@@ -654,10 +654,10 @@
           "layerizeQueued": "Separação na fila",
           "layerizeProcessing": "Separando camadas",
           "layerizeReconciling": "Reconciliação em andamento",
+          "layerizeFinalizing": "Preparando o PSD em camadas",
           "layerizeSubmissionUnknown": "Reconciliação necessária — a cobrança pode ter ocorrido. Aguarde a confirmação antes de tentar novamente.",
           "layerizeCompleted": "Camadas prontas",
           "layerizeFailed": "A separação em camadas falhou.",
-          "downloadPsd": "Baixar PSD",
           "downloadPsdWithLayers": "Baixar PSD ({count, plural, one {# camada} other {# camadas}})",
           "downloadPngs": "Baixar PNGs",
           "layerizeFailure": {

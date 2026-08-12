@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { eq, inArray, sql } from "drizzle-orm";
 import { initializeCanvas, readPsd } from "ag-psd";
+import JSZip from "jszip";
 import sharp from "sharp";
 
 const envBeforeTest = vi.hoisted(() => {
@@ -45,7 +46,7 @@ import {
 } from "@/server/db/schema";
 import { objectStorage } from "@/server/storage";
 import { InMemoryObjectStorage } from "@/server/storage/in-memory-object-storage";
-import { PATCH, POST } from "@/app/api/creative-work/[id]/route";
+import { GET, PATCH, POST } from "@/app/api/creative-work/[id]/route";
 import { GET as downloadOutput } from "@/app/api/creative-work/[id]/outputs/[outputId]/download/route";
 import { creativeWorkLayerizationJob } from "@/server/jobs/creative-work-layerization";
 import { markCreativeWorkLayerizationReconciling } from "@/server/repositories/creative-work-layerization";
@@ -145,6 +146,18 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work layerization HTTP
     expect(sendMock).toHaveBeenCalledOnce();
     const event = sendMock.mock.calls[0][0].data;
 
+    const patchReplay = await PATCH(new Request(`https://app.example/api/creative-work/${work.id}`, {
+      method: "PATCH",
+      headers: {
+        "content-type": "application/json",
+        cookie: `adscale_active_workspace=${workspace.id}`,
+      },
+      body: JSON.stringify({ action: "layerizeOutput", outputId: output.id }),
+    }), { params: Promise.resolve({ id: work.id }) });
+    expect(patchReplay.status).toBe(200);
+    await expect(patchReplay.json()).resolves.toMatchObject({ replay: true });
+    expect(sendMock).toHaveBeenCalledOnce();
+
     const callbackRequest = () => new Request(event.callbackUrl, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -209,5 +222,76 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work layerization HTTP
     ]);
     expect(parsed.imageData?.data).toBeDefined();
     expect(parsed.children?.every((layer) => layer.imageData?.data)).toBe(true);
+
+    const zipDownload = await downloadOutput(new Request(
+      `https://app.example/api/creative-work/${work.id}/outputs/${output.id}/download?format=zip`,
+      { headers: { accept: "application/json", cookie: `adscale_active_workspace=${workspace.id}` } },
+    ), { params: Promise.resolve({ id: work.id, outputId: output.id }) });
+    expect(zipDownload.status).toBe(200);
+    const { url: zipUrl } = await zipDownload.json() as { url: string };
+    const zip = await JSZip.loadAsync(await storage.get(zipUrl.replace("memory://download/", "")));
+    expect(Object.keys(zip.files)).toEqual(expect.arrayContaining([
+      "manifest.json",
+      "original.png",
+      "recomposed-preview.png",
+      "layers/00-base.png",
+      "layers/01-product.png",
+    ]));
+    await expect(zip.file("manifest.json")?.async("string")).resolves.toContain('"attemptId":');
+
+    const expiredLayerization = {
+      status: "reconciling" as const,
+      attemptId: "recovery-attempt",
+      callbackTokenHash: "a".repeat(64),
+      callbackConsumedAt: null,
+      requestedByUserId: userId,
+      createdAt: "2026-08-12T10:00:00.000Z",
+      updatedAt: "2026-08-12T10:00:00.000Z",
+      callbackDeadlineAt: "2026-08-12T12:00:00.000Z",
+      latencyMs: null,
+      providerRequestId: null,
+      providerModel: "bytedance/seedream/v5/pro/layerize",
+      providerEndpoint: "https://queue.fal.run/bytedance/seedream/v5/pro/layerize",
+      estimatedCostUsd: null,
+      baseWidth: null,
+      baseHeight: null,
+      layers: [],
+      psdKey: null,
+      diagnosticZipKey: null,
+      fidelity: null,
+      failureCode: null,
+    };
+    const [expiredOutput] = await db.insert(creativeWorkOutputs).values({
+      workspaceId: workspace.id,
+      workItemId: work.id,
+      creativeLevel: "balanced",
+      targetFormat: "4:5",
+      versionNumber: 2,
+      operationKey: "balanced:4:5:recovery",
+      status: "completed",
+      outputKey: sourceKey,
+      isSelected: false,
+      layerization: expiredLayerization,
+    }).returning();
+    const detailRequest = () => new Request(`https://app.example/api/creative-work/${work.id}`, {
+      headers: { cookie: `adscale_active_workspace=${workspace.id}` },
+    });
+    const sendsBeforeRecovery = sendMock.mock.calls.length;
+    const unknownRecovery = await GET(detailRequest(), { params: Promise.resolve({ id: work.id }) });
+    expect(unknownRecovery.status).toBe(200);
+    const unknownBody = await unknownRecovery.json();
+    expect(unknownBody.outputs.find((candidate: { id: string }) => candidate.id === expiredOutput.id).layerization.status).toBe("submission_unknown");
+    expect(sendMock).toHaveBeenCalledTimes(sendsBeforeRecovery);
+
+    await db.update(creativeWorkOutputs).set({
+      layerization: { ...expiredLayerization, providerRequestId: "request-recovery" },
+    }).where(eq(creativeWorkOutputs.id, expiredOutput.id));
+    const knownRecovery = await GET(detailRequest(), { params: Promise.resolve({ id: work.id }) });
+    expect(knownRecovery.status).toBe(200);
+    expect(sendMock).toHaveBeenCalledTimes(sendsBeforeRecovery + 1);
+    expect(sendMock.mock.calls.at(-1)?.[0].data).toMatchObject({
+      outputId: expiredOutput.id,
+      attemptId: "recovery-attempt",
+    });
   }, 30_000);
 });
