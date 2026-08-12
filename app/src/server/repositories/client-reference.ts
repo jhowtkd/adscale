@@ -1,4 +1,4 @@
-import { eq, and, desc, inArray, isNull, or, sql } from "drizzle-orm";
+import { eq, and, desc, inArray, isNull, or } from "drizzle-orm";
 import { db } from "../db";
 import { clientProfiles, clientReferences } from "../db/schema";
 import { isWorkspaceAssetKey } from "./asset";
@@ -9,10 +9,6 @@ import type {
   BrandTrainingUsageMode,
   BrandTrainingReviewStatus,
 } from "../brand-training/contracts";
-
-/** Defaults applied when a training upload is auto-approved without human review. */
-const AUTO_APPROVE_CATEGORY: BrandTrainingCategory = "visual_reference";
-const AUTO_APPROVE_USAGE_MODE: BrandTrainingUsageMode = "reference";
 
 export type ClientReferenceKind =
   | "style"
@@ -174,6 +170,9 @@ export async function getClientReferencesByIdsForProfile(
         eq(clientReferences.workspaceId, workspaceId),
         eq(clientReferences.clientProfileId, clientProfileId),
         inArray(clientReferences.id, ids),
+        // Generic legacy references have no training review state; training
+        // assets must be explicitly approved before generation can use them.
+        or(isNull(clientReferences.reviewStatus), eq(clientReferences.reviewStatus, "approved")),
       ),
     )
     .orderBy(desc(clientReferences.createdAt));
@@ -202,6 +201,7 @@ export interface TrainingReferenceScope {
 }
 
 export interface RecordTrainingAnalysisInput {
+  existingReviewStatus: BrandTrainingReviewStatus;
   trainingCategory: BrandTrainingCategory;
   usageMode: BrandTrainingUsageMode;
   analysis: BrandTrainingAnalysis;
@@ -219,9 +219,6 @@ export async function createTrainingReference(
   workspaceId: string,
   input: CreateTrainingReferenceInput,
 ) {
-  // Uploads are auto-approved immediately: there is no human-approval UI
-  // gate in the product surface. AI analysis may still enrich category /
-  // usage / analysis fields asynchronously after create.
   const [row] = await db
     .insert(clientReferences)
     .values({
@@ -230,10 +227,7 @@ export async function createTrainingReference(
       assetKey: input.assetKey,
       label: input.label,
       kind: "other",
-      trainingCategory: AUTO_APPROVE_CATEGORY,
-      usageMode: AUTO_APPROVE_USAGE_MODE,
-      reviewStatus: "approved",
-      reviewedAt: new Date(),
+      reviewStatus: "pending_analysis",
     })
     .returning();
   return row;
@@ -340,64 +334,35 @@ export async function getTrainingReferenceForAnalysis(
   return rows[0] ?? null;
 }
 
-/**
- * Promote legacy pending_analysis / pending_approval rows to approved so
- * assets uploaded before auto-approval still condition generation without a
- * missing human-review step.
- */
-export async function autoApprovePendingTrainingReferences(
-  workspaceId: string,
-  clientProfileId: string,
-) {
-  return db
-    .update(clientReferences)
-    .set({
-      trainingCategory: sql`coalesce(${clientReferences.trainingCategory}, ${AUTO_APPROVE_CATEGORY})`,
-      usageMode: sql`coalesce(${clientReferences.usageMode}, ${AUTO_APPROVE_USAGE_MODE})`,
-      reviewStatus: "approved",
-      reviewedAt: sql`coalesce(${clientReferences.reviewedAt}, now())`,
-    })
-    .where(
-      and(
-        eq(clientReferences.workspaceId, workspaceId),
-        eq(clientReferences.clientProfileId, clientProfileId),
-        inArray(clientReferences.reviewStatus, [
-          "pending_analysis",
-          "pending_approval",
-        ]),
-      ),
-    )
-    .returning();
-}
-
 export async function recordTrainingAnalysis(
   scope: TrainingReferenceScope,
   analysis: RecordTrainingAnalysisInput,
 ) {
-  // Auto-approve on analysis: human approval was removed from the product
-  // surface. Also enrich approved uploads that still lack analysis.
   const [row] = await db
     .update(clientReferences)
     .set({
       trainingCategory: analysis.trainingCategory,
       usageMode: analysis.usageMode,
       trainingAnalysis: analysis.analysis,
-      reviewStatus: "approved",
-      reviewedAt: new Date(),
+      // Reanalysis may enrich a legacy approved row, but must not silently
+      // revoke its existing human/legacy availability state.
+      reviewStatus:
+        analysis.existingReviewStatus === "approved"
+          ? "approved"
+          : "pending_approval",
     })
     .where(
       and(
         eq(clientReferences.workspaceId, scope.workspaceId),
         eq(clientReferences.clientProfileId, scope.clientProfileId),
         eq(clientReferences.id, scope.referenceId),
-        or(
-          eq(clientReferences.reviewStatus, "pending_analysis"),
-          eq(clientReferences.reviewStatus, "pending_approval"),
-          and(
-            eq(clientReferences.reviewStatus, "approved"),
-            isNull(clientReferences.trainingAnalysis),
-          ),
-        ),
+        eq(clientReferences.reviewStatus, analysis.existingReviewStatus),
+        inArray(clientReferences.reviewStatus, [
+          "pending_analysis",
+          "pending_approval",
+          "approved",
+        ]),
+        isNull(clientReferences.trainingAnalysis),
       ),
     )
     .returning();

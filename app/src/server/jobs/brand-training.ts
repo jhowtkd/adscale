@@ -114,19 +114,22 @@ async function brandTrainingAnalyzeHandler({
       );
       return { success: false, reason: "reference_not_found", referenceId: data.referenceId };
     }
+    const reviewStatus = existingRow.reviewStatus;
     const needsAnalysis =
-      existingRow.reviewStatus === "pending_analysis" ||
-      existingRow.reviewStatus === "pending_approval" ||
-      (existingRow.reviewStatus === "approved" && !existingRow.trainingAnalysis);
-    if (!needsAnalysis) {
+      reviewStatus !== null &&
+      !existingRow.trainingAnalysis &&
+      (reviewStatus === "pending_analysis" ||
+        reviewStatus === "pending_approval" ||
+        reviewStatus === "approved");
+    if (!needsAnalysis || !reviewStatus) {
       logger.info(
-        `[brandTrainingAnalyzeJob] SKIP stale retry referenceId=${data.referenceId} reviewStatus=${existingRow.reviewStatus}`,
+        `[brandTrainingAnalyzeJob] SKIP stale retry referenceId=${data.referenceId} reviewStatus=${reviewStatus}`,
       );
       return {
         success: true,
         reason: "already_processed",
         referenceId: data.referenceId,
-        reviewStatus: existingRow.reviewStatus,
+        reviewStatus,
       };
     }
 
@@ -249,8 +252,8 @@ async function brandTrainingAnalyzeHandler({
     });
 
     await step.run("persist-proposal", async () => {
-      // Auto-approve: recordTrainingAnalysis persists the proposal and marks
-      // the asset approved so it conditions generation without a human gate.
+      // Analysis proposes metadata; only the authenticated review route can
+      // approve an asset for generation.
       await recordTrainingAnalysis(
         {
           workspaceId: data.workspaceId,
@@ -258,6 +261,7 @@ async function brandTrainingAnalyzeHandler({
           referenceId: data.referenceId,
         },
         {
+          existingReviewStatus: reviewStatus,
           trainingCategory: proposal.trainingCategory,
           usageMode: proposal.usageMode,
           analysis: proposal.analysis,

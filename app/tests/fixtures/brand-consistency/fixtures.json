@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "pilotId": "piece-unica-baseline-fixtures",
+  "brandName": "ADScale fixture brand",
+  "provenance": {
+    "source": "synthetic_fixture",
+    "operator": "local-test"
+  },
+  "requests": [
+    {
+      "requestId": "fixture-square",
+      "requestText": "Post institucional quadrado",
+      "format": "1:1",
+      "contentPattern": "text_led_ad",
+      "effectivePrompt": "controlled square replay",
+      "selectedReferences": [
+        { "referenceId": "fixture-logo", "reason": "approved logo slot" }
+      ],
+      "snapshot": { "available": true, "version": "legacy-fixture-1" },
+      "expectedHardFailures": [],
+      "observedHardFailures": [],
+      "expectedHumanVerdict": "pending",
+      "humanVerdict": "pending",
+      "capturedAt": "2026-08-12T12:00:00.000Z"
+    },
+    {
+      "requestId": "fixture-portrait",
+      "requestText": "Oferta em formato retrato",
+      "format": "4:5",
+      "contentPattern": "evidence_data",
+      "effectivePrompt": "controlled portrait replay",
+      "selectedReferences": [],
+      "expectedHardFailures": [],
+      "observedHardFailures": [],
+      "expectedHumanVerdict": "pending",
+      "humanVerdict": "pending",
+      "capturedAt": "2026-08-12T12:00:01.000Z"
+    },
+    {
+      "requestId": "fixture-vertical",
+      "requestText": "Institucional com foto vertical",
+      "format": "9:16",
+      "contentPattern": "institutional_photo",
+      "effectivePrompt": "controlled vertical replay",
+      "selectedReferences": [],
+      "expectedHardFailures": [],
+      "observedHardFailures": [],
+      "expectedHumanVerdict": "pending",
+      "humanVerdict": "pending",
+      "capturedAt": "2026-08-12T12:00:02.000Z"
+    }
+  ]
+}

@@ -172,6 +172,48 @@ describe("BrandTrainingAssets", () => {
     ).toBeEnabled();
   });
 
+  it("identifies approved rows without a reviewer as legacy", async () => {
+    useBrandTrainingAssetsMock.mockReturnValue({
+      data: [
+        asset({
+          id: "legacy-1",
+          reviewStatus: "approved",
+          reviewedByUserId: null,
+        }),
+      ],
+      isLoading: false,
+    });
+
+    render(<BrandTrainingAssets clientProfileId="profile-1" />, {
+      wrapper: createWrapper(),
+    });
+
+    expect(
+      await screen.findByText("brandTraining.assets.legacyReviewRequired"),
+    ).toBeVisible();
+  });
+
+  it("does not label a human-approved row as legacy", async () => {
+    useBrandTrainingAssetsMock.mockReturnValue({
+      data: [
+        asset({
+          id: "human-approved-1",
+          reviewStatus: "approved",
+          reviewedByUserId: "user-1",
+        }),
+      ],
+      isLoading: false,
+    });
+
+    render(<BrandTrainingAssets clientProfileId="profile-1" />, {
+      wrapper: createWrapper(),
+    });
+
+    expect(
+      screen.queryByText("brandTraining.assets.legacyReviewRequired"),
+    ).not.toBeInTheDocument();
+  });
+
   it("renders archived assets without actions", async () => {
     useBrandTrainingAssetsMock.mockReturnValue({
       data: [

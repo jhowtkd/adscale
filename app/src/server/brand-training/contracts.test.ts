@@ -38,7 +38,7 @@ describe("brand training contracts", () => {
     ).toThrow();
   });
 
-  it("accepts archive without analysis (auto-approved uploads)", () => {
+  it("accepts archive without analysis (legacy uploads)", () => {
     const parsed = reviewTrainingAssetSchema.parse({
       trainingCategory: "visual_reference",
       usageMode: "reference",

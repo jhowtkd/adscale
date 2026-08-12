@@ -2385,12 +2385,12 @@
     "approveVoice": "Aprovar voz",
     "voiceApproved": "Voz aprovada e ativa para geração.",
     "assets": {
-      "title": "Materiais visuais aprovados",
-      "description": "Suba imagens que treinam o perfil da marca. Cada uma é aprovada automaticamente no envio e analisada pela IA para condicionar a geração.",
+      "title": "Materiais visuais da marca",
+      "description": "Suba imagens que treinam o perfil da marca. Cada material passa por análise e aprovação humana antes de condicionar a geração.",
       "uploadLabel": "Enviar imagens para treino",
       "uploadHint": "PNG, JPEG, WebP ou SVG. Até 10MB cada.",
       "uploadFailed": "Não foi possível enviar o arquivo. Tente um PNG, JPEG, WebP ou SVG abaixo de 10MB.",
-      "analysisExplanation": "O modelo inspecionou esta imagem e classificou categoria e modo de uso. Você pode arquivar se não quiser usá-la no treino.",
+      "analysisExplanation": "O modelo inspecionou esta imagem e propôs categoria e modo de uso. Revise a proposta antes de aprovar ou arquivar o material.",
       "category": "Categoria",
       "usageMode": "Modo de uso",
       "descriptionField": "Descrição",
@@ -2401,7 +2401,7 @@
       "archive": "Arquivar material",
       "transparentRequired": "O modo exato exige fundo transparente (PNG com alpha). Suba uma versão com alpha ou escolha outro modo de uso.",
       "emptyTitle": "Nenhum material de treino ainda",
-      "emptyDescription": "Envie referências em PNG, JPEG, WebP ou SVG. Materiais aprovados condicionam a geração das campanhas.",
+      "emptyDescription": "Envie referências em PNG, JPEG, WebP ou SVG. Materiais aprovados condicionam a geração das peças.",
       "statusPendingAnalysis": "Aguardando análise",
       "statusPendingApproval": "Aguardando aprovação",
       "statusApproved": "Aprovado",
@@ -2417,7 +2417,8 @@
         "reference": "Referência (inspirar o layout)",
         "rule": "Regra (aplicar o estilo)"
       },
-      "reviewedAt": "Revisado em {when}"
+      "reviewedAt": "Revisado em {when}",
+      "legacyReviewRequired": "Material legado: confirme esta revisão para que ele possa participar do Córtex da Marca."
     }
   },
   "review": {

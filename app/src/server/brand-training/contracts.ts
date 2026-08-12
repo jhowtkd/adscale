@@ -144,7 +144,7 @@ export const reviewTrainingAssetSchema = z
   .object({
     trainingCategory: z.enum(BRAND_TRAINING_CATEGORIES),
     usageMode: z.enum(BRAND_TRAINING_USAGE_MODES),
-    // Archive may omit analysis (auto-approved uploads often have none yet).
+    // Archive may omit analysis for legacy uploads without an AI proposal.
     analysis: brandTrainingAnalysisSchema.nullable().optional(),
     reviewStatus: z.enum(["approved", "archived"]),
   })

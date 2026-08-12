@@ -2384,12 +2384,12 @@
     "approveVoice": "Approve voice",
     "voiceApproved": "Voice approved and active for generation.",
     "assets": {
-      "title": "Approved visual assets",
-      "description": "Upload images that train the brand profile. Each one is approved automatically on upload and analyzed by AI to condition generation.",
+      "title": "Brand visual assets",
+      "description": "Upload images that train the brand profile. Each asset is analyzed and human-approved before it can condition generation.",
       "uploadLabel": "Upload images for training",
       "uploadHint": "PNG, JPEG, WebP or SVG. Up to 10MB each.",
       "uploadFailed": "Could not upload the file. Try a PNG, JPEG, WebP or SVG under 10MB.",
-      "analysisExplanation": "The model inspected this image and classified its category and usage mode. Archive it if you do not want it in the training set.",
+      "analysisExplanation": "The model inspected this image and proposed its category and usage mode. Review the proposal before approving or archiving it.",
       "category": "Category",
       "usageMode": "Usage mode",
       "descriptionField": "Description",
@@ -2400,7 +2400,7 @@
       "archive": "Archive asset",
       "transparentRequired": "Exact mode requires a transparent background (PNG with alpha). Re-upload a version with alpha or pick another usage mode.",
       "emptyTitle": "No training assets yet",
-      "emptyDescription": "Upload PNG, JPEG, WebP or SVG references. Approved assets condition campaign generation.",
+      "emptyDescription": "Upload PNG, JPEG, WebP or SVG references. Approved assets condition piece generation.",
       "statusPendingAnalysis": "Awaiting analysis",
       "statusPendingApproval": "Awaiting approval",
       "statusApproved": "Approved",
@@ -2416,7 +2416,8 @@
         "reference": "Reference (inspire the layout)",
         "rule": "Rule (enforce style)"
       },
-      "reviewedAt": "Reviewed {when}"
+      "reviewedAt": "Reviewed {when}",
+      "legacyReviewRequired": "Legacy asset: confirm this review before it participates in the Brand Cortex."
     }
   },
   "review": {
