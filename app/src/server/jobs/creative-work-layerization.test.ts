@@ -249,17 +249,17 @@ describe("creative work layerization job", () => {
     expect(provider.submit).toHaveBeenCalledOnce();
   });
 
-  it("fails a known provider request once the reconciliation deadline expires", async () => {
+  it("keeps a known provider request reconciling after the callback deadline", async () => {
     const expired = state("reconciling", "request-1");
     expired.callbackDeadlineAt = "2020-01-01T00:00:00.000Z";
     getOutputMock.mockResolvedValue(row(expired));
     getCreativeWorkMock.mockResolvedValue({ outputs: [{ id: event.outputId, outputKey: "creative-work/original.png" }] });
     provider.status.mockRejectedValueOnce(new Error("provider unavailable"));
-    failMock.mockResolvedValue(row({ ...expired, status: "failed", failureCode: "provider_error" }));
+    markReconcilingMock.mockResolvedValue(row(expired));
 
-    await expect(runCreativeWorkLayerization({ event, provider })).resolves.toEqual({ status: "failed" });
-    expect(failMock).toHaveBeenCalledWith(expect.objectContaining({ code: "provider_error" }));
-    expect(markReconcilingMock).not.toHaveBeenCalled();
+    await expect(runCreativeWorkLayerization({ event, provider })).resolves.toEqual({ status: "reconciling" });
+    expect(failMock).not.toHaveBeenCalled();
+    expect(markReconcilingMock).toHaveBeenCalledOnce();
   });
 
   it("polls a reconciling request before finalizing it", async () => {

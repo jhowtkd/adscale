@@ -19,7 +19,7 @@ const requirePlatformOwnerMock = vi.hoisted(() => vi.fn());
 const isPlatformOwnerEmailMock = vi.hoisted(() => vi.fn());
 const requestLayerizationMock = vi.hoisted(() => vi.fn());
 const callbackHandlerMock = vi.hoisted(() => vi.fn());
-const claimExpiredLayerizationRecoveryMock = vi.hoisted(() => vi.fn());
+const recoverExpiredLayerizationsMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/auth/require-platform-owner", () => ({
   requirePlatformOwner: (...args: unknown[]) => requirePlatformOwnerMock(...args),
@@ -33,8 +33,8 @@ vi.mock("@/server/application/request-creative-work-layerization", () => ({
 vi.mock("@/server/application/handle-creative-work-layerization-callback", () => ({
   handleCreativeWorkLayerizationCallback: (...args: unknown[]) => callbackHandlerMock(...args),
 }));
-vi.mock("@/server/repositories/creative-work-layerization", () => ({
-  claimExpiredCreativeWorkLayerizationRecovery: (...args: unknown[]) => claimExpiredLayerizationRecoveryMock(...args),
+vi.mock("@/server/application/recover-expired-creative-work-layerizations", () => ({
+  recoverExpiredCreativeWorkLayerizations: (...args: unknown[]) => recoverExpiredLayerizationsMock(...args),
 }));
 
 const getWorkMock = vi.hoisted(() => vi.fn());
@@ -273,18 +273,17 @@ describe("GET /api/creative-work/[id]", () => {
       outputs: [{ ...outputs[0], layerization: expired }],
       sources: [],
     });
-    claimExpiredLayerizationRecoveryMock.mockResolvedValue({ ...outputs[0], layerization: unknown });
+    recoverExpiredLayerizationsMock.mockResolvedValue(new Map([["o1", unknown]]));
 
     try {
       const res = await GET(new Request("http://localhost/api/creative-work/work-1"), { params: makeParams("work-1") });
       const body = await res.json();
 
       expect(res.status).toBe(200);
-      expect(claimExpiredLayerizationRecoveryMock).toHaveBeenCalledWith({
+      expect(recoverExpiredLayerizationsMock).toHaveBeenCalledWith({
         workspaceId: "workspace-1",
         workItemId: "work-1",
-        outputId: "o1",
-        now: expect.any(Date),
+        outputs: [{ ...outputs[0], layerization: expired }],
       });
       expect(body.outputs[0].layerization.status).toBe("submission_unknown");
       expect(inngestSendMock).not.toHaveBeenCalled();
@@ -305,22 +304,14 @@ describe("GET /api/creative-work/[id]", () => {
       outputs: [{ ...outputs[0], layerization: expired }],
       sources: [],
     });
-    claimExpiredLayerizationRecoveryMock.mockResolvedValue({ ...outputs[0], layerization: recovered });
+    recoverExpiredLayerizationsMock.mockResolvedValue(new Map([["o1", recovered]]));
 
     try {
       const res = await GET(new Request("http://localhost/api/creative-work/work-1"), { params: makeParams("work-1") });
 
       expect(res.status).toBe(200);
-      expect(inngestSendMock).toHaveBeenCalledWith({
-        id: "creative-work-layerize:o1:attempt-1:recovery:2026-08-12T15:00:00.000Z",
-        name: "creative-work.layerize",
-        data: {
-          workspaceId: "workspace-1",
-          workItemId: "work-1",
-          outputId: "o1",
-          attemptId: "attempt-1",
-        },
-      });
+      expect(recoverExpiredLayerizationsMock).toHaveBeenCalledOnce();
+      expect(inngestSendMock).not.toHaveBeenCalled();
     } finally {
       if (previous === undefined) delete process.env.FAL_KEY;
       else process.env.FAL_KEY = previous;

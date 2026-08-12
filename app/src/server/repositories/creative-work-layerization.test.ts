@@ -41,6 +41,7 @@ import {
   failCreativeWorkLayerization,
   hashLayerizationCallbackToken,
   markCreativeWorkLayerizationReconciling,
+  releaseCreativeWorkLayerizationRecoveryLease,
 } from "./creative-work-layerization";
 
 const dialect = new PgDialect();
@@ -149,6 +150,7 @@ describe("creative work layerization state transitions", () => {
     })).resolves.toEqual(claimed);
 
     const recoveryWhere = serialized(mocks.where.mock.calls.at(-1)?.[0]);
+    expect(recoveryWhere.sql).toContain("finalizing");
     expect(recoveryWhere.sql).toContain("callbackDeadlineAt");
     expect(recoveryWhere.sql).toContain("updatedAt");
     expect(recoveryWhere.params).toContain("2026-08-12T14:55:00.000Z");
@@ -156,6 +158,45 @@ describe("creative work layerization state transitions", () => {
     const layerizationPatch = serialized(setValue.layerization);
     expect(layerizationPatch.sql).toContain("jsonb_build_object");
     expect(layerizationPatch.params).toContain("2026-08-12T15:00:00.000Z");
+  });
+
+  it("reclaims stale finalization with the same five-minute lease", async () => {
+    const claimed = row(state({ status: "finalizing", providerRequestId: "request-1" }));
+    mocks.updateResults.push([claimed]);
+
+    await expect(claimCreativeWorkLayerizationFinalization(
+      "workspace-1",
+      "work-1",
+      "output-1",
+      new Date("2026-08-12T15:00:00.000Z"),
+    )).resolves.toEqual(claimed);
+
+    const finalizationWhere = serialized(mocks.where.mock.calls.at(-1)?.[0]);
+    expect(finalizationWhere.sql).toContain("finalizing");
+    expect(finalizationWhere.sql).toContain("updatedAt");
+    expect(finalizationWhere.params).toContain("2026-08-12T14:55:00.000Z");
+  });
+
+  it("releases only the lease claimed by the same attempt", async () => {
+    mocks.updateResults.push([{ id: "output-1" }]);
+
+    await expect(releaseCreativeWorkLayerizationRecoveryLease({
+      workspaceId: "workspace-1",
+      workItemId: "work-1",
+      outputId: "output-1",
+      attemptId: "attempt-1",
+      claimedAt: "2026-08-12T15:00:00.000Z",
+      now: new Date("2026-08-12T15:00:00.000Z"),
+    })).resolves.toBe(true);
+
+    const releaseWhere = serialized(mocks.where.mock.calls.at(-1)?.[0]);
+    expect(releaseWhere.sql).toContain("attemptId");
+    expect(releaseWhere.sql).toContain("updatedAt");
+    expect(releaseWhere.params).toContain("attempt-1");
+    expect(releaseWhere.params).toContain("2026-08-12T15:00:00.000Z");
+    const setValue = mocks.set.mock.calls.at(-1)?.[0] as { layerization?: unknown };
+    const layerizationPatch = serialized(setValue.layerization);
+    expect(layerizationPatch.params.some((param) => typeof param === "string" && param.includes("2026-08-12T14:55:00.000Z"))).toBe(true);
   });
 
   it("rejects a callback for a different provider request", async () => {

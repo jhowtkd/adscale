@@ -5,6 +5,7 @@ import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { db } from "@/server/db";
 import { creativeWorkOutputs } from "@/server/db/schema";
 import {
+  LAYERIZATION_RECOVERY_LEASE_MS,
   layerizationStateFromDatabase,
   type LayerizationState,
   type LayerizationStatus,
@@ -192,21 +193,50 @@ export async function claimExpiredCreativeWorkLayerizationRecovery(input: {
   now: Date;
 }): Promise<LayerizationOutputRow | null> {
   const now = input.now.toISOString();
-  const leaseBefore = new Date(input.now.getTime() - 5 * 60 * 1000).toISOString();
+  const leaseBefore = new Date(input.now.getTime() - LAYERIZATION_RECOVERY_LEASE_MS).toISOString();
   const [claimed] = await db.update(creativeWorkOutputs).set({
     layerization: sql`${creativeWorkOutputs.layerization} || jsonb_build_object(
-      'status', case when ${creativeWorkOutputs.layerization}->>'providerRequestId' is null then 'submission_unknown' else 'reconciling' end,
+      'status', case
+        when ${creativeWorkOutputs.layerization}->>'providerRequestId' is null then 'submission_unknown'
+        else 'reconciling'
+      end,
       'failureCode', case when ${creativeWorkOutputs.layerization}->>'providerRequestId' is null then 'submission_unknown' else null end,
       'updatedAt', ${now}::text
     )`,
     updatedAt: input.now,
   }).where(and(
     scope(input.workspaceId, input.workItemId, input.outputId),
-    sql`${creativeWorkOutputs.layerization}->>'status' in ('processing', 'reconciling')`,
-    sql`(${creativeWorkOutputs.layerization}->>'callbackDeadlineAt')::timestamptz <= ${now}::timestamptz`,
+    sql`(
+      (
+        ${creativeWorkOutputs.layerization}->>'status' in ('processing', 'reconciling')
+        and (${creativeWorkOutputs.layerization}->>'callbackDeadlineAt')::timestamptz <= ${now}::timestamptz
+      )
+      or ${creativeWorkOutputs.layerization}->>'status' = 'finalizing'
+    )`,
     sql`(${creativeWorkOutputs.layerization}->>'updatedAt')::timestamptz <= ${leaseBefore}::timestamptz`,
   )).returning();
   return claimed ?? null;
+}
+
+export async function releaseCreativeWorkLayerizationRecoveryLease(input: {
+  workspaceId: string;
+  workItemId: string;
+  outputId: string;
+  attemptId: string;
+  claimedAt: string;
+  now: Date;
+}): Promise<boolean> {
+  const retryAt = new Date(input.now.getTime() - LAYERIZATION_RECOVERY_LEASE_MS).toISOString();
+  const released = await db.update(creativeWorkOutputs).set({
+    layerization: patchLayerizationState({ updatedAt: retryAt }),
+    updatedAt: input.now,
+  }).where(and(
+    scope(input.workspaceId, input.workItemId, input.outputId),
+    sql`${creativeWorkOutputs.layerization}->>'attemptId' = ${input.attemptId}`,
+    sql`${creativeWorkOutputs.layerization}->>'updatedAt' = ${input.claimedAt}`,
+    sql`${creativeWorkOutputs.layerization}->>'status' in ('reconciling', 'finalizing')`,
+  )).returning({ id: creativeWorkOutputs.id });
+  return released.length > 0;
 }
 
 export async function acceptCreativeWorkLayerizationCallback(input: {
@@ -261,13 +291,21 @@ export async function claimCreativeWorkLayerizationFinalization(
   workspaceId: string,
   workItemId: string,
   outputId: string,
+  now = new Date(),
 ): Promise<LayerizationOutputRow | null> {
+  const leaseBefore = new Date(now.getTime() - LAYERIZATION_RECOVERY_LEASE_MS).toISOString();
   const [claimed] = await db.update(creativeWorkOutputs).set({
-    layerization: patchLayerizationStatus("finalizing"),
-    updatedAt: new Date(),
+    layerization: patchLayerizationState({ status: "finalizing", failureCode: null, updatedAt: now.toISOString() }),
+    updatedAt: now,
   }).where(and(
     scope(workspaceId, workItemId, outputId),
-    sql`${creativeWorkOutputs.layerization}->>'status' in ('processing', 'reconciling')`,
+    sql`(
+      ${creativeWorkOutputs.layerization}->>'status' in ('processing', 'reconciling')
+      or (
+        ${creativeWorkOutputs.layerization}->>'status' = 'finalizing'
+        and (${creativeWorkOutputs.layerization}->>'updatedAt')::timestamptz <= ${leaseBefore}::timestamptz
+      )
+    )`,
   )).returning();
   return claimed ?? null;
 }

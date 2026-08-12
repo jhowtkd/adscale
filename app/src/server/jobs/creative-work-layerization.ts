@@ -172,28 +172,10 @@ export async function runCreativeWorkLayerization(input: {
       return { status: "failed" };
     }
     if (status !== "COMPLETED") {
-      if (callbackDeadlinePassed(state)) {
-        await failCreativeWorkLayerization({
-          workspaceId: event.workspaceId,
-          workItemId: event.workItemId,
-          outputId: event.outputId,
-          code: "provider_error",
-        });
-        return { status: "failed" };
-      }
       await markCreativeWorkLayerizationReconciling(event.workspaceId, event.workItemId, event.outputId);
       return { status: "reconciling" };
     }
   } catch {
-    if (callbackDeadlinePassed(state)) {
-      await failCreativeWorkLayerization({
-        workspaceId: event.workspaceId,
-        workItemId: event.workItemId,
-        outputId: event.outputId,
-        code: "provider_error",
-      });
-      return { status: "failed" };
-    }
     await markCreativeWorkLayerizationReconciling(event.workspaceId, event.workItemId, event.outputId);
     return { status: "reconciling" };
   }
@@ -209,15 +191,6 @@ export async function runCreativeWorkLayerization(input: {
         workItemId: event.workItemId,
         outputId: event.outputId,
         code: "invalid_provider_response",
-      });
-      return { status: "failed" };
-    }
-    if (callbackDeadlinePassed(state)) {
-      await failCreativeWorkLayerization({
-        workspaceId: event.workspaceId,
-        workItemId: event.workItemId,
-        outputId: event.outputId,
-        code: "provider_error",
       });
       return { status: "failed" };
     }

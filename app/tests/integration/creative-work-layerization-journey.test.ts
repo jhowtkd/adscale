@@ -48,8 +48,7 @@ import { objectStorage } from "@/server/storage";
 import { InMemoryObjectStorage } from "@/server/storage/in-memory-object-storage";
 import { GET, PATCH, POST } from "@/app/api/creative-work/[id]/route";
 import { GET as downloadOutput } from "@/app/api/creative-work/[id]/outputs/[outputId]/download/route";
-import { creativeWorkLayerizationJob } from "@/server/jobs/creative-work-layerization";
-import { markCreativeWorkLayerizationReconciling } from "@/server/repositories/creative-work-layerization";
+import { creativeWorkLayerizationJob, runCreativeWorkLayerization } from "@/server/jobs/creative-work-layerization";
 
 initializeCanvas(
   () => { throw new Error("Canvas rendering is not used in this test"); },
@@ -158,19 +157,13 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work layerization HTTP
     await expect(patchReplay.json()).resolves.toMatchObject({ replay: true });
     expect(sendMock).toHaveBeenCalledOnce();
 
-    const callbackRequest = () => new Request(event.callbackUrl, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ status: "OK", request_id: "request-1" }),
-    });
-    const [callback] = await Promise.all([
-      POST(callbackRequest(), { params: Promise.resolve({ id: work.id }) }),
-      markCreativeWorkLayerizationReconciling(workspace.id, work.id, output.id),
-    ]);
-    expect(callback.status).toBe(202);
-    const replay = await POST(callbackRequest(), { params: Promise.resolve({ id: work.id }) });
-    expect(replay.status).toBe(202);
-    await expect(replay.json()).resolves.toMatchObject({ replay: true });
+    const submissionProvider = {
+      submit: vi.fn(async () => ({ requestId: "request-1" })),
+      status: vi.fn(async () => "IN_PROGRESS" as const),
+      result: vi.fn(async () => { throw new Error("result is not ready"); }),
+    };
+    await expect(runCreativeWorkLayerization({ event, provider: submissionProvider })).resolves.toEqual({ status: "reconciling" });
+    expect(submissionProvider.submit).toHaveBeenCalledOnce();
 
     const providerPayload = {
       images: [],
@@ -185,27 +178,68 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work layerization HTTP
         },
       ],
     };
+    const fetchedUrls: string[] = [];
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = input.toString();
+      fetchedUrls.push(url);
       if (url.endsWith("/status")) return new Response(JSON.stringify({ status: "COMPLETED" }), { status: 200 });
       if (url.endsWith("/requests/request-1")) return new Response(JSON.stringify(providerPayload), { status: 200 });
       if (url.endsWith("base.png")) return new Response(base, { status: 200, headers: { "content-type": "image/png" } });
       if (url.endsWith("overlay.png")) return new Response(overlay, { status: 200, headers: { "content-type": "image/png" } });
       throw new Error(`Unexpected fal request: ${url}`);
     });
-    const callbackEvent = sendMock.mock.calls.at(-1)?.[0].data;
-    const job = creativeWorkLayerizationJob as unknown as {
-      fn(input: { event: { data: typeof callbackEvent }; step: { run<T>(name: string, fn: () => Promise<T>): Promise<T>; sleep(name: string, duration: string): Promise<void> } }): Promise<unknown>;
-    };
-    await expect(job.fn({
-      event: { data: callbackEvent },
-      step: { run: async (_name, fn) => fn(), sleep: async () => undefined },
-    })).resolves.toEqual({ status: "completed" });
-    fetchSpy.mockRestore();
 
-    const [persisted] = await db.select().from(creativeWorkOutputs).where(eq(creativeWorkOutputs.id, output.id)).limit(1);
+    const callbackRequest = () => new Request(event.callbackUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ status: "OK", request_id: "request-1" }),
+    });
+    const job = creativeWorkLayerizationJob as unknown as {
+      fn(input: { event: { data: typeof event }; step: { run<T>(name: string, fn: () => Promise<T>): Promise<T>; sleep(name: string, duration: string): Promise<void> } }): Promise<unknown>;
+    };
+    const [callback, handlerResult, pollingResult] = await Promise.all([
+      POST(callbackRequest(), { params: Promise.resolve({ id: work.id }) }),
+      job.fn({
+        event: { data: event },
+        step: { run: async (_name, fn) => fn(), sleep: async () => undefined },
+      }),
+      runCreativeWorkLayerization({ event }),
+    ]);
+    expect(callback.status).toBe(202);
+    expect([handlerResult, pollingResult]).toContainEqual({ status: "completed" });
+    expect(fetchedUrls.filter((url) => url.endsWith("base.png"))).toHaveLength(1);
+    expect(fetchedUrls.filter((url) => url.endsWith("overlay.png"))).toHaveLength(1);
+    const replay = await POST(callbackRequest(), { params: Promise.resolve({ id: work.id }) });
+    expect(replay.status).toBe(202);
+    await expect(replay.json()).resolves.toMatchObject({ replay: true });
+
+    let [persisted] = await db.select().from(creativeWorkOutputs).where(eq(creativeWorkOutputs.id, output.id)).limit(1);
     expect(persisted.outputKey).toBe(sourceKey);
     expect(persisted.layerization).toMatchObject({ status: "completed", estimatedCostUsd: 0.0675 });
+
+    const completedLayerization = persisted.layerization as Record<string, unknown>;
+    await db.update(creativeWorkOutputs).set({
+      layerization: {
+        ...completedLayerization,
+        status: "finalizing",
+        updatedAt: "2026-08-12T10:00:00.000Z",
+      },
+    }).where(eq(creativeWorkOutputs.id, output.id));
+    const detailRequest = () => new Request(`https://app.example/api/creative-work/${work.id}`, {
+      headers: { cookie: `adscale_active_workspace=${workspace.id}` },
+    });
+    const sendsBeforeFinalizingRecovery = sendMock.mock.calls.length;
+    const finalizingRecovery = await GET(detailRequest(), { params: Promise.resolve({ id: work.id }) });
+    expect(finalizingRecovery.status).toBe(200);
+    expect(sendMock).toHaveBeenCalledTimes(sendsBeforeFinalizingRecovery + 1);
+    const recoveryEvent = sendMock.mock.calls.at(-1)?.[0].data;
+    await expect(job.fn({
+      event: { data: recoveryEvent },
+      step: { run: async (_name, fn) => fn(), sleep: async () => undefined },
+    })).resolves.toEqual({ status: "completed" });
+    [persisted] = await db.select().from(creativeWorkOutputs).where(eq(creativeWorkOutputs.id, output.id)).limit(1);
+    expect(persisted.layerization).toMatchObject({ status: "completed" });
+    fetchSpy.mockRestore();
 
     const download = await downloadOutput(new Request(
       `https://app.example/api/creative-work/${work.id}/outputs/${output.id}/download?format=psd`,
@@ -273,9 +307,6 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work layerization HTTP
       isSelected: false,
       layerization: expiredLayerization,
     }).returning();
-    const detailRequest = () => new Request(`https://app.example/api/creative-work/${work.id}`, {
-      headers: { cookie: `adscale_active_workspace=${workspace.id}` },
-    });
     const sendsBeforeRecovery = sendMock.mock.calls.length;
     const unknownRecovery = await GET(detailRequest(), { params: Promise.resolve({ id: work.id }) });
     expect(unknownRecovery.status).toBe(200);
@@ -286,9 +317,13 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work layerization HTTP
     await db.update(creativeWorkOutputs).set({
       layerization: { ...expiredLayerization, providerRequestId: "request-recovery" },
     }).where(eq(creativeWorkOutputs.id, expiredOutput.id));
+    sendMock.mockRejectedValueOnce(new Error("inngest unavailable"));
+    const failedDispatch = await GET(detailRequest(), { params: Promise.resolve({ id: work.id }) });
+    expect(failedDispatch.status).toBe(200);
+    expect(sendMock).toHaveBeenCalledTimes(sendsBeforeRecovery + 1);
     const knownRecovery = await GET(detailRequest(), { params: Promise.resolve({ id: work.id }) });
     expect(knownRecovery.status).toBe(200);
-    expect(sendMock).toHaveBeenCalledTimes(sendsBeforeRecovery + 1);
+    expect(sendMock).toHaveBeenCalledTimes(sendsBeforeRecovery + 2);
     expect(sendMock.mock.calls.at(-1)?.[0].data).toMatchObject({
       outputId: expiredOutput.id,
       attemptId: "recovery-attempt",
