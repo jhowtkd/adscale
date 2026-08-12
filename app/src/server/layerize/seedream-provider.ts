@@ -1,11 +1,16 @@
 import "server-only";
 
 import { lookup as dnsLookup } from "node:dns/promises";
+import { createReadStream } from "node:fs";
+import { mkdtemp, open, rm } from "node:fs/promises";
 import { isIP } from "node:net";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import type { Readable } from "node:stream";
 import pLimit from "p-limit";
 import sharp from "sharp";
 import { env } from "@/server/validation/env";
-import type { LayerizationLayer } from "./contracts";
+import { LAYERIZATION_CALLBACK_TTL_MS, type LayerizationLayer } from "./contracts";
 
 export const SEEDREAM_LAYERIZE_MODEL_ID = "bytedance/seedream/v5/pro/layerize";
 export const SEEDREAM_QUEUE_URL = `https://queue.fal.run/${SEEDREAM_LAYERIZE_MODEL_ID}`;
@@ -71,6 +76,7 @@ function providerHeaders(apiKey: string): HeadersInit {
     "Content-Type": "application/json",
     "X-Fal-Store-IO": "0",
     "X-Fal-No-Retry": "1",
+    "X-Fal-Request-Timeout": String(LAYERIZATION_CALLBACK_TTL_MS / 1000),
     "X-Fal-Object-Lifecycle-Preference": JSON.stringify({
       expiration_duration_seconds: SEEDREAM_LIFECYCLE_SECONDS,
     }),
@@ -189,8 +195,8 @@ function numberValue(...values: unknown[]): number | null {
 }
 
 function imageUrlFrom(value: Record<string, unknown>): string | null {
-  const image = firstRecord(value.image, value.asset, value.output);
-  return stringValue(value.image_url, value.url, image?.url, image?.image_url);
+  const image = isRecord(value.image) ? value.image : null;
+  return stringValue(image?.url);
 }
 
 function bboxFrom(value: Record<string, unknown>, width: number, height: number, isBase: boolean) {
@@ -235,7 +241,7 @@ export function normalizeSeedreamLayerResponse(payload: unknown): {
   height: number;
   layers: Array<Omit<LayerizationLayer, "storageKey" | "sourceBytes"> & { sourceUrl: string }>;
 } {
-  const root = isRecord(payload) && isRecord(payload.output) ? payload.output : payload;
+  const root = payload;
   if (!isRecord(root)) {
     throw new SeedreamProviderError("Seedream layer payload is not an object", "invalid_provider_response");
   }
@@ -357,6 +363,19 @@ export async function downloadSeedreamMedia(
     maxBytes?: number;
   } = {},
 ): Promise<Buffer> {
+  const maxBytes = options.maxBytes ?? SEEDREAM_MAX_ASSET_BYTES;
+  const response = await fetchSeedreamMediaResponse(value, options);
+  const chunks: Buffer[] = [];
+  await consumeSeedreamMedia(response, maxBytes, async (chunk) => {
+    chunks.push(chunk);
+  });
+  return Buffer.concat(chunks);
+}
+
+async function fetchSeedreamMediaResponse(
+  value: string,
+  options: NonNullable<Parameters<typeof downloadSeedreamMedia>[1]> = {},
+): Promise<Response> {
   const fetchImpl = options.fetchImpl ?? fetch;
   const maxBytes = options.maxBytes ?? SEEDREAM_MAX_ASSET_BYTES;
   let current = value;
@@ -379,49 +398,82 @@ export async function downloadSeedreamMedia(
     const advertised = Number(response.headers.get("content-length"));
     if (Number.isFinite(advertised) && advertised > maxBytes) throw new SeedreamProviderError("Seedream media is too large", "unsafe_media");
     if (!response.body) throw new SeedreamProviderError("Seedream media has no body", "unsafe_media");
-    const reader = response.body.getReader();
-    const chunks: Buffer[] = [];
-    let total = 0;
-    while (true) {
-      const next = await reader.read();
-      if (next.done) break;
-      total += next.value.byteLength;
-      if (total > maxBytes) {
-        await reader.cancel();
-        throw new SeedreamProviderError("Seedream media is too large", "unsafe_media");
-      }
-      chunks.push(Buffer.from(next.value));
-    }
-    const buffer = Buffer.concat(chunks);
-    if (buffer.length < 8 || !buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) {
-      throw new SeedreamProviderError("Seedream media has invalid PNG bytes", "unsafe_media");
-    }
-    return buffer;
+    return response;
   }
   throw new SeedreamProviderError("Seedream media redirect failed", "unsafe_media");
+}
+
+async function consumeSeedreamMedia(
+  response: Response,
+  maxBytes: number,
+  onChunk: (chunk: Buffer) => Promise<void>,
+): Promise<number> {
+  if (!response.body) throw new SeedreamProviderError("Seedream media has no body", "unsafe_media");
+  const reader = response.body.getReader();
+  const signature = Buffer.alloc(8);
+  let signatureBytes = 0;
+  let total = 0;
+  while (true) {
+    const next = await reader.read();
+    if (next.done) break;
+    const chunk = Buffer.from(next.value);
+    total += chunk.length;
+    if (total > maxBytes) {
+      await reader.cancel();
+      throw new SeedreamProviderError("Seedream media is too large", "unsafe_media");
+    }
+    if (signatureBytes < signature.length) {
+      const copyBytes = Math.min(signature.length - signatureBytes, chunk.length);
+      chunk.copy(signature, signatureBytes, 0, copyBytes);
+      signatureBytes += copyBytes;
+    }
+    await onChunk(chunk);
+  }
+  if (signatureBytes < signature.length || !signature.equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) {
+    throw new SeedreamProviderError("Seedream media has invalid PNG bytes", "unsafe_media");
+  }
+  return total;
 }
 
 export async function downloadSeedreamLayers(
   layers: Array<{ sourceUrl: string; isBase: boolean }>,
   options: Parameters<typeof downloadSeedreamMedia>[1] & {
-    store: (layer: { sourceUrl: string; isBase: boolean }, index: number, buffer: Buffer) => Promise<void>;
+    store: (layer: { sourceUrl: string; isBase: boolean }, index: number, stream: Readable) => Promise<void>;
   },
 ): Promise<number[]> {
   const limit = pLimit(3);
-  let total = 0;
-  return Promise.all(layers.map((layer, index) => limit(async () => {
-    const buffer = await downloadSeedreamMedia(layer.sourceUrl, options);
-    if (!layer.isBase) {
-      const alpha = (await sharp(buffer).ensureAlpha().stats()).channels[3];
-      if (!alpha || alpha.max === 0) {
-        throw new SeedreamProviderError("Seedream returned a fully transparent layer", "invalid_provider_response");
+  const directory = await mkdtemp(join(tmpdir(), "adscale-layerize-"));
+  try {
+    const downloaded = await Promise.all(layers.map((layer, index) => limit(async () => {
+      const filePath = join(directory, `${String(index).padStart(2, "0")}.png`);
+      const file = await open(filePath, "w");
+      let bytes: number;
+      try {
+        const response = await fetchSeedreamMediaResponse(layer.sourceUrl, options);
+        bytes = await consumeSeedreamMedia(response, options.maxBytes ?? SEEDREAM_MAX_ASSET_BYTES, async (chunk) => {
+          await file.write(chunk);
+        });
+      } finally {
+        await file.close();
       }
-    }
-    total += buffer.length;
-    if (total > SEEDREAM_MAX_TOTAL_ASSET_BYTES) {
+      if (!layer.isBase) {
+        const alpha = (await sharp(filePath).ensureAlpha().stats()).channels[3];
+        if (!alpha || alpha.max === 0) {
+          throw new SeedreamProviderError("Seedream returned a fully transparent layer", "invalid_provider_response");
+        }
+      }
+      return { layer, index, filePath, bytes };
+    })));
+    if (downloaded.reduce((sum, item) => sum + item.bytes, 0) > SEEDREAM_MAX_TOTAL_ASSET_BYTES) {
       throw new SeedreamProviderError("Seedream layers exceed total size limit", "unsafe_media");
     }
-    await options.store(layer, index, buffer);
-    return buffer.length;
-  })));
+    await Promise.all(downloaded.map((item) => limit(() => options.store(
+      item.layer,
+      item.index,
+      createReadStream(item.filePath),
+    ))));
+    return downloaded.map((item) => item.bytes);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 }

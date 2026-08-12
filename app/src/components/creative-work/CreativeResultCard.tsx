@@ -12,6 +12,10 @@ import {
   getCreativeWorkSelectionPolicy,
 } from "@/lib/creative-work-selection-policy";
 import { ActionStatusIcon } from "@/components/animations/ActionStatusIcon";
+import {
+  isLayerizationRetryableFailure,
+  type LayerizationFailureCode,
+} from "@/server/layerize/contracts";
 
 type CreativeResultCardProps = {
   output: CreativeWorkOutput;
@@ -40,6 +44,18 @@ const STATUS_LABELS: Record<CreativeWorkOutput["status"], string> = {
 };
 
 const actionClass = "inline-flex min-h-[var(--control-touch)] flex-1 items-center justify-center gap-2 rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-inset)] disabled:cursor-not-allowed disabled:opacity-60";
+
+const LAYERIZATION_FAILURE_KEYS: Record<LayerizationFailureCode, "unsafeMedia" | "fidelity" | "invalidResponse" | "provider" | "unknown"> = {
+  unsafe_media: "unsafeMedia",
+  fidelity_gate_failed: "fidelity",
+  invalid_provider_response: "invalidResponse",
+  provider_error: "provider",
+  dispatch_failed: "unknown",
+  missing_configuration: "unknown",
+  source_missing: "unknown",
+  storage_error: "unknown",
+  submission_unknown: "unknown",
+};
 
 export function CreativeResultCard({
   output,
@@ -84,20 +100,10 @@ export function CreativeResultCard({
     : null;
   const layerization = output.layerization;
   const layerizationBusy = layerization?.status === "queued" || layerization?.status === "processing" || layerization?.status === "reconciling" || layerization?.status === "finalizing";
-  const layerizationRetryable = layerization?.status === "failed" && [
-    "dispatch_failed",
-    "missing_configuration",
-    "source_missing",
-  ].includes(layerization.failureCode ?? "");
-  const layerizationFailureMessage = layerization?.failureCode === "unsafe_media"
-    ? "O provedor devolveu uma mídia que não passou pela validação de segurança."
-    : layerization?.failureCode === "fidelity_gate_failed"
-      ? "A recomposição não passou pela checagem de fidelidade."
-      : layerization?.failureCode === "invalid_provider_response"
-        ? "A resposta do provedor não trouxe um pacote de camadas válido."
-        : layerization?.failureCode === "provider_error"
-          ? "O provedor não concluiu a separação."
-          : "A separação não foi concluída.";
+  const layerizationRetryable = isLayerizationRetryableFailure(layerization);
+  const layerizationFailureMessage = t(`layerizeFailure.${layerization?.failureCode
+    ? LAYERIZATION_FAILURE_KEYS[layerization.failureCode]
+    : "unknown"}`);
   useEffect(() => {
     if (layerizationBusy || isLayerizing) {
       layerizationWasBusy.current = true;
@@ -231,8 +237,8 @@ export function CreativeResultCard({
             {onRevise ? <button type="button" className={actionClass} aria-expanded={editing} onClick={() => setEditing((value) => !value)}>Editar</button> : null}
           </div>
           {canLayerize && output.isSelected && onLayerize ? (
-            <div ref={layerizeRegionRef} tabIndex={-1} className="space-y-2 border-t border-[var(--border-subtle)] pt-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" data-testid="layerization-actions">
-              <p className="text-xs font-medium text-[var(--text-secondary)]">Separação editável</p>
+            <div ref={layerizeRegionRef} tabIndex={-1} aria-busy={layerizationBusy || isLayerizing} className="space-y-2 border-t border-[var(--border-subtle)] pt-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" data-testid="layerization-actions">
+              <p className="text-xs font-medium text-[var(--text-secondary)]">{t("layerizeSection")}</p>
               {!layerization || layerization.status === "failed" ? (
                 <>
                   {layerization?.status === "failed" ? (
@@ -246,35 +252,35 @@ export function CreativeResultCard({
                       disabled={isLayerizing}
                       onClick={() => onLayerize(output.id, Boolean(layerization))}
                     >
-                      {isLayerizing ? "Separando camadas" : layerization ? "Tentar separar novamente" : "Separar em camadas"}
+                      {isLayerizing ? t("layerizeProcessing") : layerization ? t("layerizeRetry") : t("layerizeStart")}
                     </button>
                   ) : null}
                 </>
               ) : layerization.status === "submission_unknown" ? (
-                <p className="text-xs text-[var(--text-secondary)]">Reconciliação necessária — a cobrança pode ter ocorrido. Aguarde a confirmação antes de tentar novamente.</p>
+                <p className="text-xs text-[var(--text-secondary)]">{t("layerizeSubmissionUnknown")}</p>
               ) : layerization.status === "completed" ? (
                 <div className="flex flex-wrap gap-2">
-                  <button type="button" className={`${actionClass} border-[var(--focus-ring)]`} onClick={() => onDownloadLayerized?.(output.id, "psd")}>Baixar PSD ({layerization.layers.length} {layerization.layers.length === 1 ? "camada" : "camadas"})</button>
-                  <button type="button" className={actionClass} onClick={() => onDownloadLayerized?.(output.id, "zip")}>Baixar PNGs</button>
+                  <button type="button" className={`${actionClass} border-[var(--focus-ring)]`} onClick={() => onDownloadLayerized?.(output.id, "psd")}>{t("downloadPsdWithLayers", { count: layerization.layers.length })}</button>
+                  <button type="button" className={actionClass} onClick={() => onDownloadLayerized?.(output.id, "zip")}>{t("downloadPngs")}</button>
                 </div>
               ) : (
                 <p className="text-xs text-[var(--text-secondary)]">
-                  {layerization.status === "queued" ? "Separação na fila" : layerization.status === "processing" ? "Separando camadas" : "Reconciliação em andamento"}
+                  {layerization.status === "queued" ? t("layerizeQueued") : layerization.status === "processing" ? t("layerizeProcessing") : t("layerizeReconciling")}
                 </p>
               )}
               <p aria-live="polite" className="sr-only" data-testid="layerization-live-region">
                 {layerization?.status === "queued"
-                  ? "Separação em camadas na fila."
+                  ? t("layerizeQueued")
                   : layerization?.status === "processing"
-                    ? "Separação em camadas em andamento."
+                    ? t("layerizeProcessing")
                     : layerization?.status === "reconciling"
-                      ? "Reconciliação em andamento."
+                      ? t("layerizeReconciling")
                       : layerization?.status === "submission_unknown"
-                        ? "Reconciliação necessária; a cobrança pode ter ocorrido."
+                        ? t("layerizeSubmissionUnknown")
                         : layerization?.status === "completed"
-                          ? "PSD e pacote de PNGs prontos para baixar."
+                          ? t("layerizeCompleted")
                           : layerization?.status === "failed"
-                            ? "A separação em camadas falhou."
+                            ? t("layerizeFailed")
                             : null}
               </p>
             </div>

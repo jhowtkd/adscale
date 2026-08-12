@@ -18,6 +18,6 @@ export interface ObjectStorage {
   delete(key: string): Promise<void>;
   head(key: string): Promise<StorageMetadata | null>;
   signedUploadUrl(key: string, contentType: string, contentLength: number): Promise<string>;
-  signedDownloadUrl(key: string): Promise<string>;
+  signedDownloadUrl(key: string, expiresInSeconds?: number): Promise<string>;
   publicUrl(key: string): string;
 }

@@ -7,33 +7,45 @@ import type { LayerizationLayer, FidelityResult } from "./contracts";
 
 export type LayerBitmap = LayerizationLayer & { png: Buffer };
 
+export function layerizationArtifactKey(input: { workItemId: string; attemptId: string }, extension: "psd" | "zip"): string {
+  return `creative-work/${input.workItemId}/layerize/${input.attemptId}/piece.${extension}`;
+}
+
 export async function recomposeLayerBitmaps(input: {
   width: number;
   height: number;
   layers: LayerBitmap[];
 }): Promise<Buffer> {
+  return recomposeStoredLayers({
+    width: input.width,
+    height: input.height,
+    layers: input.layers,
+    load: async (layer) => input.layers.find((candidate) => candidate.storageKey === layer.storageKey)!.png,
+  });
+}
+
+export async function recomposeStoredLayers(input: {
+  width: number;
+  height: number;
+  layers: LayerizationLayer[];
+  load: (layer: LayerizationLayer) => Promise<Buffer>;
+}): Promise<Buffer> {
   const base = input.layers.find((layer) => layer.isBase);
   if (!base) throw new Error("Layerization has no base bitmap");
-  const basePng = await sharp(base.png)
+  let recomposed = await sharp(await input.load(base))
     .resize(input.width, input.height, { fit: "fill" })
     .ensureAlpha()
     .png()
     .toBuffer();
-  const overlays = await Promise.all(
-    input.layers
-      .filter((layer) => !layer.isBase)
-      .sort((left, right) => left.order - right.order)
-      .map(async (layer) => ({
-        input: await sharp(layer.png)
-          .resize(layer.width, layer.height, { fit: "fill" })
-          .ensureAlpha()
-          .png()
-          .toBuffer(),
-        left: layer.x,
-        top: layer.y,
-      })),
-  );
-  return sharp(basePng).composite(overlays).png().toBuffer();
+  for (const layer of input.layers.filter((candidate) => !candidate.isBase).sort((left, right) => left.order - right.order)) {
+    const overlay = await sharp(await input.load(layer))
+      .resize(layer.width, layer.height, { fit: "fill" })
+      .ensureAlpha()
+      .png()
+      .toBuffer();
+    recomposed = await sharp(recomposed).composite([{ input: overlay, left: layer.x, top: layer.y }]).png().toBuffer();
+  }
+  return recomposed;
 }
 
 export async function calculateLayerizationFidelity(
@@ -86,18 +98,30 @@ export async function writeLayerizationPsd(input: {
   layers: LayerBitmap[];
   recomposed: Buffer;
 }): Promise<Buffer> {
-  const children = await Promise.all(
-    [...input.layers]
-      .sort((left, right) => right.order - left.order)
-      .map(async (layer) => ({
-        name: layer.name,
-        left: layer.x,
-        top: layer.y,
-        right: layer.x + layer.width,
-        bottom: layer.y + layer.height,
-        imageData: await imageData(layer.png, layer.width, layer.height),
-      })),
-  );
+  return writeStoredLayerizationPsd({
+    ...input,
+    load: async (layer) => input.layers.find((candidate) => candidate.storageKey === layer.storageKey)!.png,
+  });
+}
+
+export async function writeStoredLayerizationPsd(input: {
+  width: number;
+  height: number;
+  layers: LayerizationLayer[];
+  recomposed: Buffer;
+  load: (layer: LayerizationLayer) => Promise<Buffer>;
+}): Promise<Buffer> {
+  const children = [];
+  for (const layer of [...input.layers].sort((left, right) => right.order - left.order)) {
+    children.push({
+      name: layer.name,
+      left: layer.x,
+      top: layer.y,
+      right: layer.x + layer.width,
+      bottom: layer.y + layer.height,
+      imageData: await imageData(await input.load(layer), layer.width, layer.height),
+    });
+  }
   return writePsdBuffer({
     width: input.width,
     height: input.height,

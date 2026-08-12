@@ -20,8 +20,12 @@ function scope(workspaceId: string, workItemId: string, outputId: string) {
   );
 }
 
-function withStatus(state: LayerizationState, status: LayerizationStatus, failureCode: LayerizationState["failureCode"] = null): LayerizationState {
-  return { ...state, status, failureCode, updatedAt: new Date().toISOString() };
+function patchLayerizationState(patch: Partial<LayerizationState>) {
+  return sql`${creativeWorkOutputs.layerization} || ${JSON.stringify(patch)}::jsonb`;
+}
+
+function patchLayerizationStatus(status: LayerizationStatus, failureCode: LayerizationState["failureCode"] = null) {
+  return patchLayerizationState({ status, failureCode, updatedAt: new Date().toISOString() });
 }
 
 export function hashLayerizationCallbackToken(token: string): string {
@@ -93,11 +97,8 @@ export async function claimCreativeWorkLayerizationProcessing(
   workItemId: string,
   outputId: string,
 ): Promise<LayerizationOutputRow | null> {
-  const row = await getCreativeWorkLayerizationOutput(workspaceId, workItemId, outputId);
-  const state = layerizationStateFromDatabase(row?.layerization);
-  if (!row || !state) return null;
   const [claimed] = await db.update(creativeWorkOutputs).set({
-    layerization: withStatus(state, "processing"),
+    layerization: patchLayerizationStatus("processing"),
     updatedAt: new Date(),
   }).where(and(
     scope(workspaceId, workItemId, outputId),
@@ -112,12 +113,8 @@ export async function recordCreativeWorkLayerizationProviderRequest(
   outputId: string,
   requestId: string,
 ): Promise<LayerizationOutputRow | null> {
-  const row = await getCreativeWorkLayerizationOutput(workspaceId, workItemId, outputId);
-  const state = layerizationStateFromDatabase(row?.layerization);
-  if (!row || !state) return null;
-  if (state.providerRequestId) return row;
   const [updated] = await db.update(creativeWorkOutputs).set({
-    layerization: { ...state, providerRequestId: requestId, updatedAt: new Date().toISOString() },
+    layerization: patchLayerizationState({ providerRequestId: requestId, updatedAt: new Date().toISOString() }),
     updatedAt: new Date(),
   }).where(and(
     scope(workspaceId, workItemId, outputId),
@@ -126,7 +123,7 @@ export async function recordCreativeWorkLayerizationProviderRequest(
   )).returning();
   if (updated) return updated;
   const refreshed = await getCreativeWorkLayerizationOutput(workspaceId, workItemId, outputId);
-  return refreshed ?? row;
+  return refreshed ?? null;
 }
 
 export async function markCreativeWorkLayerizationReconciling(
@@ -134,17 +131,15 @@ export async function markCreativeWorkLayerizationReconciling(
   workItemId: string,
   outputId: string,
 ): Promise<LayerizationOutputRow | null> {
-  const row = await getCreativeWorkLayerizationOutput(workspaceId, workItemId, outputId);
-  const state = layerizationStateFromDatabase(row?.layerization);
-  if (!row || !state) return null;
   const [updated] = await db.update(creativeWorkOutputs).set({
-    layerization: withStatus(state, "reconciling"),
+    layerization: patchLayerizationStatus("reconciling"),
     updatedAt: new Date(),
   }).where(and(
     scope(workspaceId, workItemId, outputId),
     sql`${creativeWorkOutputs.layerization}->>'status' in ('processing', 'reconciling')`,
   )).returning();
-  return updated ?? row;
+  if (updated) return updated;
+  return getCreativeWorkLayerizationOutput(workspaceId, workItemId, outputId);
 }
 
 export async function updateCreativeWorkLayerizationState(input: {
@@ -153,8 +148,17 @@ export async function updateCreativeWorkLayerizationState(input: {
   outputId: string;
   state: LayerizationState;
 }): Promise<LayerizationOutputRow | null> {
+  const { state } = input;
   const [updated] = await db.update(creativeWorkOutputs).set({
-    layerization: input.state,
+    layerization: patchLayerizationState({
+      estimatedCostUsd: state.estimatedCostUsd,
+      latencyMs: state.latencyMs,
+      baseWidth: state.baseWidth,
+      baseHeight: state.baseHeight,
+      layers: state.layers,
+      fidelity: state.fidelity,
+      updatedAt: state.updatedAt,
+    }),
     updatedAt: new Date(),
   }).where(and(
     scope(input.workspaceId, input.workItemId, input.outputId),
@@ -168,11 +172,8 @@ export async function markCreativeWorkLayerizationSubmissionUnknown(
   workItemId: string,
   outputId: string,
 ): Promise<LayerizationOutputRow | null> {
-  const row = await getCreativeWorkLayerizationOutput(workspaceId, workItemId, outputId);
-  const state = layerizationStateFromDatabase(row?.layerization);
-  if (!row || !state) return null;
   const [updated] = await db.update(creativeWorkOutputs).set({
-    layerization: withStatus(state, "submission_unknown", "submission_unknown"),
+    layerization: patchLayerizationStatus("submission_unknown", "submission_unknown"),
     updatedAt: new Date(),
   }).where(and(
     scope(workspaceId, workItemId, outputId),
@@ -180,7 +181,8 @@ export async function markCreativeWorkLayerizationSubmissionUnknown(
     sql`${creativeWorkOutputs.layerization}->>'providerRequestId' is null`,
     sql`${creativeWorkOutputs.layerization}->>'callbackConsumedAt' is null`,
   )).returning();
-  return updated ?? row;
+  if (updated) return updated;
+  return getCreativeWorkLayerizationOutput(workspaceId, workItemId, outputId);
 }
 
 export async function acceptCreativeWorkLayerizationCallback(input: {
@@ -188,7 +190,7 @@ export async function acceptCreativeWorkLayerizationCallback(input: {
   outputId: string;
   attemptId: string;
   token: string;
-  requestId?: string;
+  requestId: string;
 }): Promise<{ accepted: boolean; replay: boolean; row: LayerizationOutputRow | null }> {
   const row = await getCreativeWorkLayerizationOutputById(input.workItemId, input.outputId);
   const state = layerizationStateFromDatabase(row?.layerization);
@@ -206,19 +208,25 @@ export async function acceptCreativeWorkLayerizationCallback(input: {
     return { accepted: false, replay: true, row };
   }
   if (state.callbackConsumedAt) return { accepted: false, replay: true, row };
-  const next = {
-    ...withStatus(state, "processing", null),
-    callbackConsumedAt: new Date().toISOString(),
-    providerRequestId: state.providerRequestId ?? input.requestId ?? null,
-  } satisfies LayerizationState;
+  if (state.providerRequestId && state.providerRequestId !== input.requestId) {
+    return { accepted: false, replay: false, row };
+  }
+  const callbackConsumedAt = new Date().toISOString();
   const [updated] = await db.update(creativeWorkOutputs).set({
-    layerization: next,
+    layerization: patchLayerizationState({
+      status: "processing",
+      failureCode: null,
+      callbackConsumedAt,
+      providerRequestId: input.requestId,
+      updatedAt: callbackConsumedAt,
+    }),
     updatedAt: new Date(),
   }).where(and(
     eq(creativeWorkOutputs.workItemId, input.workItemId),
     eq(creativeWorkOutputs.id, input.outputId),
     sql`${creativeWorkOutputs.layerization}->>'status' in ('queued', 'processing', 'reconciling', 'submission_unknown')`,
     sql`${creativeWorkOutputs.layerization}->>'callbackConsumedAt' is null`,
+    sql`(${creativeWorkOutputs.layerization}->>'providerRequestId' is null or ${creativeWorkOutputs.layerization}->>'providerRequestId' = ${input.requestId})`,
   )).returning();
   return updated
     ? { accepted: true, replay: false, row: updated }
@@ -230,11 +238,8 @@ export async function claimCreativeWorkLayerizationFinalization(
   workItemId: string,
   outputId: string,
 ): Promise<LayerizationOutputRow | null> {
-  const row = await getCreativeWorkLayerizationOutput(workspaceId, workItemId, outputId);
-  const state = layerizationStateFromDatabase(row?.layerization);
-  if (!row || !state) return null;
   const [claimed] = await db.update(creativeWorkOutputs).set({
-    layerization: withStatus(state, "finalizing"),
+    layerization: patchLayerizationStatus("finalizing"),
     updatedAt: new Date(),
   }).where(and(
     scope(workspaceId, workItemId, outputId),
@@ -250,7 +255,13 @@ export async function completeCreativeWorkLayerization(input: {
   state: LayerizationState;
 }): Promise<LayerizationOutputRow | null> {
   const [row] = await db.update(creativeWorkOutputs).set({
-    layerization: withStatus(input.state, "completed"),
+    layerization: patchLayerizationState({
+      status: "completed",
+      failureCode: null,
+      psdKey: input.state.psdKey,
+      diagnosticZipKey: input.state.diagnosticZipKey,
+      updatedAt: new Date().toISOString(),
+    }),
     updatedAt: new Date(),
   }).where(and(
     scope(input.workspaceId, input.workItemId, input.outputId),
@@ -265,15 +276,13 @@ export async function failCreativeWorkLayerization(input: {
   outputId: string;
   code: LayerizationState["failureCode"];
 }): Promise<LayerizationOutputRow | null> {
-  const row = await getCreativeWorkLayerizationOutput(input.workspaceId, input.workItemId, input.outputId);
-  const state = layerizationStateFromDatabase(row?.layerization);
-  if (!row || !state || !input.code) return null;
   const [updated] = await db.update(creativeWorkOutputs).set({
-    layerization: withStatus(state, "failed", input.code),
+    layerization: patchLayerizationStatus("failed", input.code),
     updatedAt: new Date(),
   }).where(and(
     scope(input.workspaceId, input.workItemId, input.outputId),
     sql`${creativeWorkOutputs.layerization}->>'status' in ('queued', 'processing', 'reconciling', 'finalizing')`,
   )).returning();
-  return updated ?? row;
+  if (updated) return updated;
+  return getCreativeWorkLayerizationOutput(input.workspaceId, input.workItemId, input.outputId);
 }

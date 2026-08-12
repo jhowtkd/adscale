@@ -54,6 +54,9 @@ vi.mock("@/lib/api-client", () => ({
   apiFetch: (...args: unknown[]) => mocks.apiFetch(...args),
   isApiRequestUncertain: (error: unknown) => error instanceof Error && error.name === "TimeoutError",
 }));
+vi.mock("next-intl", () => ({
+  useTranslations: () => (key: string) => key,
+}));
 
 import { useCreativeComposer } from "./useCreativeComposer";
 import { createDefaultCreativeDirectionPool } from "@/server/creative-work/contracts";

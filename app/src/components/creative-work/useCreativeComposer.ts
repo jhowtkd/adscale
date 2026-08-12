@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useTranslations } from "next-intl";
 import { z } from "zod";
 import { collectImageFiles, uploadChatAttachment } from "@/lib/assistant/chat-attachments";
 import { apiFetch, isApiRequestUncertain } from "@/lib/api-client";
@@ -144,6 +145,7 @@ export function useCreativeComposer({
   focusComposer?: boolean;
   initialTemplateId?: string;
 } = {}) {
+  const tResults = useTranslations("dashboard.home.composer.results");
   const active = useActiveClientProfile();
   const initialTargetFormats: Format[] = initialIntent === "format_adaptation"
     ? ["1:1", "9:16"]
@@ -1082,11 +1084,11 @@ export function useCreativeComposer({
     if (!workIdRef.current) return;
     try {
       await layerizeOutputMutation.mutateAsync({ workItemId: workIdRef.current, outputId, ...(retry ? { retry: true } : {}) });
-      setAnnouncement(retry ? "Nova separação em camadas iniciada" : "Separação em camadas iniciada");
+      setAnnouncement(retry ? tResults("layerizeRestarted") : tResults("layerizeStarted"));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Falha ao separar em camadas");
+      setError(cause instanceof Error ? cause.message : tResults("layerizeRequestFailed"));
     }
-  }, [layerizeOutputMutation]);
+  }, [layerizeOutputMutation, tResults]);
 
   const approveOutput = useCallback(async (outputId: string, confirmObjective = false) => {
     if (!workIdRef.current) return;

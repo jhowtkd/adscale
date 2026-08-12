@@ -1,8 +1,8 @@
 # Runbook de separação do Trabalho em camadas
 
 Esta capacidade é exclusiva do owner e só opera sobre a Peça canônica
-selecionada após aprovação. Ela cria camadas PNG privadas, um PSD e um ZIP de
-diagnóstico; a saída original do Trabalho nunca é substituída e nenhum crédito
+selecionada após aprovação. Ela cria camadas PNG privadas e um PSD; o ZIP de
+diagnóstico é materializado somente quando solicitado. A saída original do Trabalho nunca é substituída e nenhum crédito
 ou lançamento de geração do ADScale é criado.
 
 ## Configuration
@@ -17,6 +17,10 @@ ou lançamento de geração do ADScale é criado.
   singular `image_url`, and the result is fetched from
   `/requests/{request_id}`. The adapter accepts only the documented `layers`,
   `z_index`, and `bounding_box` contract.
+- The source URL sent to fal is signed for 2h15, covering the two-hour callback
+  deadline plus margin; `X-Fal-Request-Timeout: 7200` prevents a queued request
+  from starting after that deadline. Layer responses stream through bounded temporary files
+  into private object storage; the job does not retain every compressed PNG.
 - On 2026-08-12 the public page listed $0.03375 per generated layer when the
   generated base area is at most 1536x1536 pixels, and $0.0675 per layer above
   that threshold. Recheck the model page immediately before a paid smoke.
@@ -45,13 +49,13 @@ Use fake fal HTTP and an in-memory object store. The smoke must prove:
 
 - one selected Peça claims one attempt under two concurrent requests;
 - a provider response with two or more ordered layers produces a readable PSD;
-- the ZIP contains only original/layer PNGs, recomposed preview, and a
+- requesting the diagnostic ZIP materializes it on demand and it contains only original/layer PNGs, recomposed preview, and a
   secret-free manifest;
 - an invalid token, replayed callback, provider error, unsafe URL, clipped
   bbox, or failed fidelity gate changes no unrelated output and cannot cause
   another provider submission.
 
-The MAE/RMSE/PSNR values and provisional gate are pixel diagnostics only; they
+The persisted latency, dimensions, layer count, MAE/RMSE/PSNR values and provisional gate are operational diagnostics only; they
 are not evidence of semantic quality, typography correctness, or editable
 structure. Those claims require separate human/partner validation.
 
