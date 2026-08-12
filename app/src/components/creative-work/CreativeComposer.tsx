@@ -533,6 +533,7 @@ export function CreativeComposer({ composer, composerRef }: {
             </div>
             <select
               id="creative-composer-format"
+              disabled={composer.settingsLocked}
               value={composer.formatMode === "auto" ? "auto" : composer.format}
               onChange={(event) => event.target.value === "auto"
                 ? composer.setFormatAuto()
@@ -543,6 +544,41 @@ export function CreativeComposer({ composer, composerRef }: {
               {FORMATS.map((value) => <option key={value} value={value}>{value}</option>)}
             </select>
           </div>
+          {isSingle ? (
+            <div className="text-sm text-[var(--text-secondary)]">
+              <label className="mb-1 block" htmlFor="creative-composer-text-layout">{t("textLayout")}</label>
+              <select
+                id="creative-composer-text-layout"
+                disabled={composer.settingsLocked}
+                value={composer.textLayout}
+                onChange={(event) => composer.setTextLayout(event.target.value as typeof composer.textLayout)}
+                className="w-full rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+              >
+                {(["top", "center", "bottom"] as const).map((layout) => (
+                  <option key={layout} value={layout}>{t(`textLayout_${layout}`)}</option>
+                ))}
+              </select>
+            </div>
+          ) : null}
+          {isSingle && composer.fontOptions.length > 0 ? (
+            <div className="text-sm text-[var(--text-secondary)]">
+              <label className="mb-1 block" htmlFor="creative-composer-brand-font">{t("brandFont")}</label>
+              <select
+                id="creative-composer-brand-font"
+                disabled={composer.settingsLocked}
+                value={composer.fontAssetKey ?? (composer.fontOptions.length === 1 ? composer.fontOptions[0]!.assetKey : "")}
+                onChange={(event) => composer.setFontAssetKey(event.target.value || null)}
+                className="w-full rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+              >
+                {composer.fontOptions.length > 1 ? <option value="">{t("brandFontChoose")}</option> : null}
+                {composer.fontOptions.map((font) => (
+                  <option key={font.assetKey} value={font.assetKey}>
+                    {font.family} · {font.weight}{font.style === "italic" ? " · italic" : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
           <fieldset>
             <legend className="mb-1 text-sm text-[var(--text-secondary)]">
               <span className="inline-flex items-center gap-2">

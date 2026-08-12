@@ -35,6 +35,7 @@ export interface CompositionLayerPlan {
   reason: string;
   contrast?: number;
   usedBackdrop?: boolean;
+  box?: { left: number; top: number; width: number; height: number };
 }
 
 export interface CompositionProvenance {
@@ -51,6 +52,7 @@ export interface CompositionProvenance {
     clearspacePx: number;
     contrast: number | null;
     usedBackdrop: boolean;
+    box: { left: number; top: number; width: number; height: number } | null;
     policy: {
       required: boolean;
       omissible: boolean;
@@ -323,6 +325,7 @@ export function toProvenance(input: {
         clearspacePx: l.clearspacePx,
         contrast: l.contrast ?? null,
         usedBackdrop: l.usedBackdrop ?? false,
+        box: l.box ?? null,
         policy: {
           required: l.policy.required,
           omissible: l.policy.omissible,

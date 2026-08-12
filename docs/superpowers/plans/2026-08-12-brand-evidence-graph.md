@@ -2,7 +2,7 @@
 
 **Data:** 2026-08-12
 
-**Status:** em execução — núcleos de S00/S01 entregues; ingestão, snapshot e tracer 1:1 de S02 entregues
+**Status:** em execução — núcleos de S00/S01 e implementação técnica de S02 entregues; revisão humana de S02 pendente
 
 **Escopo inicial:** Brand Training + protocolo Peça única (`social_post`)
 
@@ -100,7 +100,7 @@ As evidências continuam nos donos atuais (`clientReferences`, `workspaceAssets`
   > After this: o mesmo harness mede fixtures e peças existentes, separando copy, tipografia, logo, paleta, custo, latência e avaliação humana sem executar geração paga.
 - [ ] **S01: Fechar a autoaprovação** `risk:high` `depends:[]` `AFK` — fluxo novo e E2E autenticado entregues; legado permanece em #238
   > After this: um upload novo passa por análise e revisão humana antes de poder condicionar Peça única. A UI específica de legado fica para a slice que introduzir claims/versionamento, quando houver uma ação real para esses registros.
-- [ ] **S02: Compor copy e tipografia com fontes reais** `risk:high` `depends:[S00,S01]` `HITL` — upload/UI/snapshot e composição 1:1 entregues em #240; formatos, layouts e auto-fit permanecem em #241
+- [ ] **S02: Compor copy e tipografia com fontes reais** `risk:high` `depends:[S00,S01]` `HITL` — implementação técnica entregue em #240/#241; revisão humana permanece obrigatória
   > After this: Peça única pode gerar somente o background e compor headline, body e CTA com arquivo TTF/OTF aprovado, layout limitado, contraste e proveniência reproduzível.
 - [ ] **S03: Brand Fidelity determinística primeiro** `risk:high` `depends:[S02]` `AFK`
   > After this: o resultado informa checks comprováveis de texto, fonte, logo, dimensão, safe area e contraste; análises semânticas permanecem suspeitas inconclusivas.
@@ -236,7 +236,7 @@ Para perfil com fonte renderizável:
 6. o arquivo temporário é removido em `finally`;
 7. o output guarda hashes de copy, fonte e plano.
 
-O tracer de #240 congela um template `top` em 1:1. #241 amplia para os formatos e layouts previstos, com auto-fit e tratamento de conflito. Não será criado editor livre.
+O tracer de #240 foi ampliado em #241 para 1:1, 4:5 e 9:16, com layouts limitados `top | center | bottom`, auto-fit com piso tipográfico, contraste/área segura e relocação antes de falhar por conflito com asset exato. Não será criado editor livre.
 
 ### Entregue em #240
 
@@ -245,6 +245,13 @@ O tracer de #240 congela um template `top` em 1:1. #241 amplia para os formatos 
 - A qualidade do output registra copy, fonte, posições, dimensões e hashes de base, plano e resultado.
 - Sem fonte aprovada, o fluxo permanece generativo e registra explicitamente `reason: "approved_font_missing"`.
 - O E2E autenticado atravessa confirmação, provider controlado, composição 1:1 e limpeza do asset de teste sem provider externo ou pago.
+
+### Entregue em #241
+
+- A fonte é a escolhida no snapshot, ou a única aprovada; a ordem de upload não decide mais a tipografia.
+- Os três formatos e os três layouts compartilham o mesmo compositor, com falha explícita para overflow e colisão sem posição segura.
+- Paleta, contraste, safe area, layout solicitado/aplicado, ajustes, caixas e hashes ficam na proveniência do output.
+- O E2E baixa o PNG, recalcula `outputHash` e verifica pixels renderizados nas caixas de headline, body e CTA.
 
 ### Arquivos
 

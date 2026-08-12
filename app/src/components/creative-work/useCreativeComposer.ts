@@ -6,6 +6,7 @@ import { z } from "zod";
 import { collectImageFiles, uploadChatAttachment } from "@/lib/assistant/chat-attachments";
 import { apiFetch, isApiRequestUncertain } from "@/lib/api-client";
 import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
+import { useBrandFonts } from "@/lib/hooks/use-brand-training";
 import {
   useAutosaveCreativeWork,
   useCreateCreativeWorkDraft,
@@ -52,6 +53,8 @@ type DraftSnapshot = {
   settings: {
     targetFormats: Format[];
     formatMode: "auto" | "manual";
+    textLayout?: "top" | "center" | "bottom";
+    fontAssetKey?: string;
     directionPool?: CreativeDirectionPool;
   };
 };
@@ -109,6 +112,8 @@ function snapshotFromWork(work: Pick<CreativeWorkItem, "request" | "toolKind" | 
     settings: {
       targetFormats: [...work.settings.targetFormats],
       formatMode: work.settings.formatMode ?? "manual",
+      ...(work.settings.textLayout ? { textLayout: work.settings.textLayout } : {}),
+      ...(work.settings.fontAssetKey ? { fontAssetKey: work.settings.fontAssetKey } : {}),
       ...(work.settings.directionPool ? {
         directionPool: {
           ...work.settings.directionPool,
@@ -156,6 +161,8 @@ export function useCreativeComposer({
   const [format, setFormat] = useState<Format>("4:5");
   const [formatMode, setFormatMode] = useState<"auto" | "manual">("auto");
   const [targetFormats, setTargetFormats] = useState<Format[]>(initialTargetFormats);
+  const [textLayout, setTextLayout] = useState<"top" | "center" | "bottom">("top");
+  const [fontAssetKey, setFontAssetKey] = useState<string | null>(null);
   const [directionPool, setDirectionPool] = useState<CreativeDirectionPool | null>(
     initialIntent === "variations" ? createDefaultCreativeDirectionPool() : null,
   );
@@ -206,6 +213,8 @@ export function useCreativeComposer({
   const intentRef = useRef(intent);
   const formatRef = useRef(format);
   const targetFormatsRef = useRef(targetFormats);
+  const textLayoutRef = useRef<"top" | "center" | "bottom">("top");
+  const fontAssetKeyRef = useRef<string | null>(null);
   const directionPoolRef = useRef<CreativeDirectionPool | null>(directionPool);
   const formatModeRef = useRef<"auto" | "manual">("auto");
   const hydratedWorkRef = useRef<string | null>(null);
@@ -229,6 +238,11 @@ export function useCreativeComposer({
   const revisionAttemptsRef = useRef(new Map<string, { revisionKey: string; revisionAssetId: string | null }>());
 
   const detailQuery = useCreativeWork(workId);
+  const brandFontsQuery = useBrandFonts(
+    intent === "single"
+      ? detailQuery.data?.work.clientProfileId ?? active.activeClientProfileId ?? null
+      : null,
+  );
   const createMutation = useCreateCreativeWorkDraft();
   const autosaveMutation = useAutosaveCreativeWork();
   const prepareMutation = usePrepareCreativeWork();
@@ -249,6 +263,8 @@ export function useCreativeComposer({
   useEffect(() => { intentRef.current = intent; }, [intent]);
   useEffect(() => { formatRef.current = format; }, [format]);
   useEffect(() => { targetFormatsRef.current = targetFormats; }, [targetFormats]);
+  useEffect(() => { textLayoutRef.current = textLayout; }, [textLayout]);
+  useEffect(() => { fontAssetKeyRef.current = fontAssetKey; }, [fontAssetKey]);
 
   useEffect(() => {
     const profileId = active.activeClientProfileId;
@@ -273,6 +289,8 @@ export function useCreativeComposer({
     const nextTargetFormats: Format[] = initialIntent === "format_adaptation" ? ["1:1", "9:16"] : [];
     const nextDirectionPool = initialIntent === "variations" ? createDefaultCreativeDirectionPool() : null;
     targetFormatsRef.current = nextTargetFormats;
+    textLayoutRef.current = "top";
+    fontAssetKeyRef.current = null;
     directionPoolRef.current = nextDirectionPool;
     directionSuggestionRequestedRef.current = null;
     directionTouchedRef.current = false;
@@ -284,6 +302,8 @@ export function useCreativeComposer({
     setFormat("4:5");
     setFormatMode("auto");
     setTargetFormats(nextTargetFormats);
+    setTextLayout("top");
+    setFontAssetKey(null);
     setDirectionPool(nextDirectionPool);
     setQuote(canonicalQuote(initialIntent, "4:5", nextTargetFormats, nextDirectionPool ?? undefined));
     setInferredBriefingContext(null);
@@ -320,6 +340,8 @@ export function useCreativeComposer({
     intentRef.current = hydrated.intent;
     formatRef.current = hydrated.format;
     targetFormatsRef.current = hydrated.settings.targetFormats;
+    textLayoutRef.current = hydrated.settings.textLayout ?? "top";
+    fontAssetKeyRef.current = hydrated.settings.fontAssetKey ?? null;
     // Keep legacy drafts on the three-level contract until the user changes a
     // direction; the visible default pool is only materialized on interaction.
     directionPoolRef.current = hydrated.settings.directionPool ?? null;
@@ -336,6 +358,8 @@ export function useCreativeComposer({
     setFormat(work.format);
     setFormatMode(hydrated.settings.formatMode);
     setTargetFormats(work.settings.targetFormats);
+    setTextLayout(hydrated.settings.textLayout ?? "top");
+    setFontAssetKey(hydrated.settings.fontAssetKey ?? null);
     setDirectionPool(hydratedDirectionPool);
     // Persisted AI suggestions mean a suggestion round already completed —
     // surface "Sugerir novamente" instead of fetching again on reload (#129).
@@ -359,6 +383,10 @@ export function useCreativeComposer({
     settings: {
       targetFormats: [...targetFormatsRef.current],
       formatMode: formatModeRef.current,
+      ...(intentRef.current === "single" ? {
+        ...(textLayoutRef.current !== "top" ? { textLayout: textLayoutRef.current } : {}),
+        ...(fontAssetKeyRef.current ? { fontAssetKey: fontAssetKeyRef.current } : {}),
+      } : {}),
       ...(directionPoolRef.current ? {
         directionPool: {
           ...directionPoolRef.current,
@@ -614,7 +642,7 @@ export function useCreativeComposer({
       void save().catch((cause) => setError(cause instanceof Error ? cause.message : "Falha ao salvar"));
     }, 500);
     return () => window.clearTimeout(timer);
-  }, [active.activeClientProfileId, captureSnapshot, detailQuery.data?.work, directionPool, ensureDraft, format, formatMode, initialWorkId, intent, persistSnapshot, request, targetFormats]);
+  }, [active.activeClientProfileId, captureSnapshot, detailQuery.data?.work, directionPool, ensureDraft, fontAssetKey, format, formatMode, initialWorkId, intent, persistSnapshot, request, targetFormats, textLayout]);
 
   const setRequest = useCallback((value: string) => {
     requestRef.current = value;
@@ -664,6 +692,10 @@ export function useCreativeComposer({
     const nextTargets: Format[] = next === "format_adaptation" ? ["1:1", "9:16"] : [];
     targetFormatsRef.current = nextTargets;
     setTargetFormats(nextTargets);
+    textLayoutRef.current = "top";
+    fontAssetKeyRef.current = null;
+    setTextLayout("top");
+    setFontAssetKey(null);
     const nextDirectionPool = next === "variations" ? createDefaultCreativeDirectionPool() : null;
     directionPoolRef.current = nextDirectionPool;
     setDirectionPool(nextDirectionPool);
@@ -1246,6 +1278,7 @@ export function useCreativeComposer({
     && !sources.some((source) => source.status === "uploaded" || source.status === "analyzing")
     && (intent !== "single" || !sources.some((source) => source.usageConfirmed === false))
     && (intent !== "format_adaptation" || targetFormats.length > 0)
+    && (intent !== "single" || (brandFontsQuery.data?.length ?? 0) <= 1 || Boolean(fontAssetKey))
     && !isUploading && actionPhase === "idle" && !generateMutation.isPending
     // A brand choice being applied resumes the submit itself — a manual
     // click in that window would race it with a concurrent generate.
@@ -1274,12 +1307,25 @@ export function useCreativeComposer({
       formatModeRef.current = "auto";
       setFormatMode("auto");
     },
-    targetFormats, toggleTargetFormat, directionPool, toggleDirection, setManualDirectionInstruction,
+    targetFormats, toggleTargetFormat,
+    textLayout,
+    setTextLayout: (value: "top" | "center" | "bottom") => {
+      textLayoutRef.current = value;
+      setTextLayout(value);
+    },
+    fontAssetKey,
+    setFontAssetKey: (value: string | null) => {
+      fontAssetKeyRef.current = value;
+      setFontAssetKey(value);
+    },
+    fontOptions: brandFontsQuery.data ?? [],
+    directionPool, toggleDirection, setManualDirectionInstruction,
     directionSuggestionState, pendingDirectionSuggestions, applyDirectionSuggestions, requestDirectionSuggestions, keepCurrentDirections,
     state, actionPhase, workId, clientProfileId, brandName,
     pendingProtocolSwitch, confirmProtocolSwitch, cancelProtocolSwitch,
     protocolSwitchNotice, returnToPreviousProtocol,
     sources: detail?.sources ?? [], outputs: detail?.outputs ?? [], quote, canGenerate, isUploading,
+    settingsLocked: Boolean(detail?.work && detail.work.status !== "draft"),
     inferredBriefing, briefingFactPack,
     campaignId: detail?.work.campaignId ?? null, campaigns,
     error, announcement, approvalErrorOutputId, brandTrainingSuggestion: brandTrainingSuggestion ?? persistedBrandTrainingSuggestion,

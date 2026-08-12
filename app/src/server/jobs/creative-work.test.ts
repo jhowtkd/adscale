@@ -27,6 +27,7 @@ const ensureLibraryMock = vi.hoisted(() => vi.fn());
 
 const objectGetMock = vi.hoisted(() => vi.fn());
 const objectPutMock = vi.hoisted(() => vi.fn());
+const objectDeleteMock = vi.hoisted(() => vi.fn());
 
 const settleTerminalRefundMock = vi.hoisted(() =>
   vi.fn(
@@ -140,6 +141,7 @@ vi.mock("@/server/storage", () => ({
   objectStorage: {
     get: (...args: unknown[]) => objectGetMock(...args),
     put: (...args: unknown[]) => objectPutMock(...args),
+    delete: (...args: unknown[]) => objectDeleteMock(...args),
   },
 }));
 
@@ -261,6 +263,7 @@ function makeQueuedOutput(overrides: Partial<{
   outputKey: string | null;
   directionId: string | null;
   directionSnapshot: { label: string; instruction: string; order: number } | null;
+  targetFormat: "1:1" | "4:5" | "9:16";
 }> = {}) {
   return {
     id: overrides.id ?? "output-1",
@@ -268,7 +271,7 @@ function makeQueuedOutput(overrides: Partial<{
     workItemId: "work-1",
     generationCorrelationId: "generation-1",
     creativeLevel: overrides.creativeLevel ?? "balanced",
-    targetFormat: "1:1",
+    targetFormat: overrides.targetFormat ?? "1:1",
     versionNumber: overrides.versionNumber ?? 1,
     parentOutputId: overrides.parentOutputId ?? null,
     revisionInstruction: overrides.revisionInstruction ?? "Use mais contraste",
@@ -428,7 +431,7 @@ describe("creativeWorkOutputJob", () => {
     // R-007: at most one Creative Work image call in flight on rollout.
   });
 
-  it("composes approved copy after square Peça única generation and persists provenance", async () => {
+  it("uses the frozen font and relocates a 4:5 layout away from an exact asset", async () => {
     const fontKey = "workspaces/workspace-1/brand-fonts/geist.ttf";
     const font = readFileSync(resolve(
       process.cwd(),
@@ -436,8 +439,8 @@ describe("creativeWorkOutputJob", () => {
     ));
     const base = await sharp({
       create: {
-        width: 1080,
-        height: 1080,
+        width: 1024,
+        height: 1536,
         channels: 3,
         background: { r: 220, g: 210, b: 180 },
       },
@@ -453,17 +456,55 @@ describe("creativeWorkOutputJob", () => {
     objectPutMock.mockImplementation(async (key: string, buffer: Buffer) => {
       stored.set(key, buffer);
     });
+    runExactCompositionMock.mockResolvedValueOnce({
+      buffer: base,
+      provenance: {
+        version: 1,
+        format: "4:5",
+        dimensions: { width: 1080, height: 1350 },
+        composed: [{
+          referenceId: "ref-exact-1",
+          assetKey: "workspaces/workspace-1/brand-training/exact-1.png",
+          label: "Logo",
+          category: "logo",
+          gravity: "southeast",
+          widthRatio: 0.4,
+          clearspacePx: 40,
+          contrast: 8,
+          usedBackdrop: false,
+          box: { left: 0, top: 725, width: 1080, height: 560 },
+          policy: {
+            required: true,
+            omissible: false,
+            preferredGravity: "southeast",
+            minContrast: 1.6,
+          },
+        }],
+        omitted: [],
+        blocked: [],
+      },
+    });
     getCreativeWorkMock.mockResolvedValue({
       work: {
         ...workItem,
         toolKind: "single",
-        format: "1:1",
+        format: "4:5",
         identitySnapshot: {
           ...identitySnapshot,
-          assets: [],
+          assets: identitySnapshot.assets.slice(0, 1),
           brandKit: {
             ...identitySnapshot.brandKit,
+            colors: ["#071522", "#FFC914"],
             fontAssets: [{
+              assetKey: "workspaces/workspace-1/brand-fonts/first.ttf",
+              family: "First",
+              source: "Licença do projeto",
+              weight: 400,
+              style: "normal",
+              sha256: "0".repeat(64),
+              approvedAt: "2026-08-12T11:00:00.000Z",
+              approvedByUserId: "user-1",
+            }, {
               assetKey: fontKey,
               family: "Geist",
               source: "Licença do projeto",
@@ -477,14 +518,34 @@ describe("creativeWorkOutputJob", () => {
         },
         inputSnapshot: {
           generationPolicyVersion: "quality_recovery_v1",
-          request: "Peça quadrada com composição literal",
-          settings: { targetFormats: [] },
+          request: "Peça 4:5 com composição literal",
+          settings: { targetFormats: [], textLayout: "bottom", fontAssetKey: fontKey },
+          typographyPlan: {
+            version: 1,
+            execution: "deterministic",
+            format: "4:5",
+            requestedLayout: "bottom",
+            fontAssetKey: fontKey,
+            fontSelection: "operator_selected",
+            overflowPolicy: { strategy: "autofit_then_fail", minimumDpi: { headline: 96, body: 72, cta: 72 } },
+            collisionPolicy: "relocate_layout_then_fail",
+            contrastPolicy: "brand_plate_wcag_aa",
+            safeAreaPolicy: "format_default",
+          },
           sources: [],
         },
       },
-      outputs: [makeQueuedOutput()],
+      outputs: [makeQueuedOutput({ targetFormat: "4:5" })],
     });
-    markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+    markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing", targetFormat: "4:5" }));
+    inspectCreativeWorkImageFileMock.mockResolvedValue({
+      ok: true,
+      width: 1080,
+      height: 1350,
+      format: "png",
+      bytes: 4096,
+      error: null,
+    });
 
     await expect(runJob()).resolves.toMatchObject({ success: true });
 
@@ -504,9 +565,12 @@ describe("creativeWorkOutputJob", () => {
       expect.objectContaining({
         quality: expect.objectContaining({
           textComposition: expect.objectContaining({
-            version: 1,
+            version: 2,
             execution: "deterministic",
-            format: "1:1",
+            format: "4:5",
+            requestedLayout: "bottom",
+            appliedLayout: "top",
+            adjustments: ["layout_relocated"],
             font: expect.objectContaining({ assetKey: fontKey }),
             copy: workItem.copy,
             planHash: expect.stringMatching(/^[a-f0-9]{64}$/),
@@ -543,15 +607,73 @@ describe("creativeWorkOutputJob", () => {
       "output-1",
       expect.objectContaining({
         quality: expect.objectContaining({
-          textComposition: {
+          textComposition: expect.objectContaining({
             version: 1,
             execution: "generative",
             format: "1:1",
             reason: "approved_font_missing",
-          },
+          }),
         }),
       }),
     );
+  });
+
+  it("fails before the provider when the frozen typography format diverges", async () => {
+    const font = {
+      assetKey: "fonts/geist.ttf", family: "Geist", source: "Licença",
+      weight: 400 as const, style: "normal" as const, sha256: "0".repeat(64),
+      approvedAt: "2026-08-12T12:00:00.000Z", approvedByUserId: "user-1",
+    };
+    getCreativeWorkMock.mockResolvedValue({
+      work: {
+        ...workItem,
+        toolKind: "single",
+        format: "1:1",
+        identitySnapshot: { ...identitySnapshot, assets: [], brandKit: { ...identitySnapshot.brandKit, fontAssets: [font] } },
+        inputSnapshot: {
+          request: "Peça quadrada",
+          settings: { targetFormats: [] },
+          sources: [],
+          typographyPlan: {
+            version: 1, execution: "deterministic", format: "4:5", requestedLayout: "top",
+            fontAssetKey: font.assetKey, fontSelection: "only_approved_font",
+            overflowPolicy: { strategy: "autofit_then_fail", minimumDpi: { headline: 96, body: 72, cta: 72 } },
+            collisionPolicy: "relocate_layout_then_fail", contrastPolicy: "brand_plate_wcag_aa", safeAreaPolicy: "format_default",
+          },
+        },
+      },
+      outputs: [makeQueuedOutput({ targetFormat: "1:1" })],
+    });
+    markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+    await expect(runJob()).resolves.toMatchObject({ success: false, failureCode: "brand_typography_format_mismatch" });
+
+    expect(generateAndStoreImageMock).not.toHaveBeenCalled();
+    expect(failMock).toHaveBeenCalledWith("workspace-1", "work-1", "output-1", "brand_typography_format_mismatch");
+  });
+
+  it("deletes the generated object when deterministic composition fails", async () => {
+    const font = {
+      assetKey: "fonts/geist.ttf", family: "Geist", source: "Licença",
+      weight: 400 as const, style: "normal" as const, sha256: "0".repeat(64),
+      approvedAt: "2026-08-12T12:00:00.000Z", approvedByUserId: "user-1",
+    };
+    getCreativeWorkMock.mockResolvedValue({
+      work: {
+        ...workItem,
+        toolKind: "single",
+        format: "1:1",
+        identitySnapshot: { ...identitySnapshot, assets: [], brandKit: { ...identitySnapshot.brandKit, fontAssets: [font] } },
+        inputSnapshot: { request: "Peça quadrada", settings: { targetFormats: [] }, sources: [] },
+      },
+      outputs: [makeQueuedOutput({ targetFormat: "1:1" })],
+    });
+    markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+    await expect(runJob()).resolves.toMatchObject({ success: false, failureCode: "brand_font_hash_mismatch" });
+
+    expect(objectDeleteMock).toHaveBeenCalledWith("creative-work/output-1/1700000000000.png");
+    expect(failMock).toHaveBeenCalledWith("workspace-1", "work-1", "output-1", "brand_font_hash_mismatch");
   });
 
   it("closes and refunds an output when the worker dies outside the handler", async () => {
@@ -1300,6 +1422,7 @@ describe("creativeWorkOutputJob", () => {
       }),
     );
     expect(completeMock).not.toHaveBeenCalled();
+    expect(objectDeleteMock).toHaveBeenCalledWith("creative-work/output-1/1700000000000.png");
   });
 
   it("fails the output as low_quality when the scorer explicitly reports scoreStatus='failed'", async () => {
@@ -2057,6 +2180,8 @@ describe("creativeWorkOutputJob", () => {
         "workspace-1", "work-1", "output-1",
         expect.objectContaining({ outputKey: "creative-work/output-1/correction.png" }),
       );
+      expect(objectDeleteMock).toHaveBeenCalledWith("creative-work/output-1/base.png");
+      expect(objectDeleteMock).not.toHaveBeenCalledWith("creative-work/output-1/correction.png");
       // The correction never charges, never refunds and never requeues.
       expect(failMock).not.toHaveBeenCalled();
       expect(settleTerminalRefundMock).not.toHaveBeenCalled();

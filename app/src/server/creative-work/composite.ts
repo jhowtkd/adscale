@@ -221,7 +221,7 @@ export async function composeExactBrandAssets(
   }
 
   return sharp(base)
-    .resize(dimensions.width, dimensions.height, { fit: "fill" })
+    .resize(dimensions.width, dimensions.height, { fit: "cover" })
     .composite(composites)
     .png()
     .toBuffer();
@@ -328,6 +328,17 @@ export async function runExactComposition(input: {
         ? "composed_with_backdrop"
         : "composed_contrast_ok",
     };
+    const meta = await sharp(buffer).metadata();
+    const targetWidth = Math.max(1, Math.round(input.dimensions.width * plan.widthRatio));
+    const targetHeight = Math.max(1, Math.round(
+      targetWidth * ((meta.height ?? targetWidth) / (meta.width ?? targetWidth)),
+    ));
+    layerPlan.box = layerBox({
+      gravity: picked.gravity,
+      canvas: input.dimensions,
+      layer: { width: targetWidth, height: targetHeight },
+      clearspacePx: plan.clearspacePx,
+    });
     finalLayers.push(layerPlan);
 
     const logoLum = await meanOpaqueLuminance(buffer);

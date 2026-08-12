@@ -502,24 +502,44 @@ describe("buildCreativeWorkPrompt", () => {
     expect(prompt).not.toContain("Público da marca");
   });
 
-  it("asks for a text-free background when the square piece will compose approved copy", () => {
+  it.each([
+    ["top", "top"],
+    ["center", "central"],
+    ["bottom", "bottom"],
+  ] as const)("reserves the %s band when approved copy is composed", (layout, band) => {
     const deterministicCopy = {
       headline: "HEADLINE_LITERAL_42",
       body: "BODY_LITERAL_42",
       cta: "CTA_LITERAL_42",
     };
-    const prompt = buildCreativeWorkPrompt(
-      creativeWorkPromptInput({
+    const baseInput = creativeWorkPromptInput({
         mode: "social_post",
         format: "1:1",
         copy: deterministicCopy,
         textExecution: "deterministic",
-      }),
-    );
+      });
+    const prompt = buildCreativeWorkPrompt({
+      ...baseInput,
+      inputSnapshot: {
+        ...baseInput.inputSnapshot,
+        typographyPlan: {
+          version: 1,
+          execution: "deterministic",
+          format: "1:1",
+          requestedLayout: layout,
+          fontAssetKey: "fonts/geist.ttf",
+          fontSelection: "operator_selected",
+          overflowPolicy: { strategy: "autofit_then_fail", minimumDpi: { headline: 96, body: 72, cta: 72 } },
+          collisionPolicy: "relocate_layout_then_fail",
+          contrastPolicy: "brand_plate_wcag_aa",
+          safeAreaPolicy: "format_default",
+        },
+      },
+    });
 
     expect(prompt).toContain("DETERMINISTIC TEXT CONTRACT:");
     expect(prompt).toContain("Do not render any visible text, letters, words, labels or CTA");
-    expect(prompt).toContain("leave the top half visually clean");
+    expect(prompt).toContain(`leave the ${band} composition band visually calm`);
     expect(prompt).not.toContain(deterministicCopy.headline);
     expect(prompt).not.toContain(deterministicCopy.body);
     expect(prompt).not.toContain(deterministicCopy.cta);

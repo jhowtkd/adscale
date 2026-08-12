@@ -29,6 +29,8 @@ vi.mock("next-intl", () => ({ useTranslations: () => (key: string, values?: Reco
   restyleAddArt: "Adicionar arte original", addStyleReference: "Adicionar referência de estilo", generateRestyle: "Gerar reestilização",
   actionSaving: "Salvando", actionPreparing: "Preparando", actionSubmitting: "Enviando para geração", actionGenerating: "Gerando",
   optionalSettings: "Ajustes opcionais", format: "Formato", formatAuto: "Automático (agora: 4:5)", targetFormats: "Formatos de destino",
+  textLayout: "Posição do texto", textLayout_top: "Superior", textLayout_center: "Central", textLayout_bottom: "Inferior",
+  brandFont: "Fonte da marca", brandFontChoose: "Escolha uma fonte",
   directionHelpLabel: `Ajuda sobre ${values?.direction}`, directionHelp: `Usa a orientação ${values?.instruction}`,
   formatHelpLabel: "Ajuda sobre formato", formatHelp: "Define a proporção da peça.",
   targetFormatsHelpLabel: "Ajuda sobre formatos de destino", targetFormatsHelp: "Cria uma versão para cada formato marcado.",
@@ -75,12 +77,14 @@ function composer(overrides = {}) {
   };
   return {
     composerRef: { current: null }, request: "", setRequest: vi.fn(), intent: "variations", selectIntent: vi.fn(),
-    format: "4:5", formatMode: "manual", setFormat: vi.fn(), setFormatAuto: vi.fn(), targetFormats: [], toggleTargetFormat: vi.fn(), directionPool, toggleDirection: vi.fn(), setManualDirectionInstruction: vi.fn(), directionSuggestionState: "idle", pendingDirectionSuggestions: null, applyDirectionSuggestions: vi.fn(), requestDirectionSuggestions: vi.fn(), keepCurrentDirections: vi.fn(), state: "empty", actionPhase: "idle",
+    format: "4:5", formatMode: "manual", setFormat: vi.fn(), setFormatAuto: vi.fn(), targetFormats: [], toggleTargetFormat: vi.fn(),
+    textLayout: "top", setTextLayout: vi.fn(), fontAssetKey: null, setFontAssetKey: vi.fn(), fontOptions: [],
+    directionPool, toggleDirection: vi.fn(), setManualDirectionInstruction: vi.fn(), directionSuggestionState: "idle", pendingDirectionSuggestions: null, applyDirectionSuggestions: vi.fn(), requestDirectionSuggestions: vi.fn(), keepCurrentDirections: vi.fn(), state: "empty", actionPhase: "idle",
     workId: null, brandName: "Marca A", sources: [], outputs: [], quote: { unitCount: 3, credits: 15 },
     inferredBriefing: null, briefingFactPack: null,
     campaignId: null, campaigns: [], linkCampaign: vi.fn(), retryOutput: vi.fn(), retryRevisionOutput: vi.fn(), approveOutput: vi.fn(),
     downloadOutput: vi.fn(), reviseOutput: vi.fn(), isRetryingOutput: vi.fn(), isApprovingOutput: vi.fn(), approvalErrorOutputId: null, isRevisingOutput: vi.fn(),
-    canGenerate: true, isUploading: false, error: null, announcement: "", brandTrainingSuggestion: null, requiresBrandSelection: false,
+    canGenerate: true, isUploading: false, settingsLocked: false, error: null, announcement: "", brandTrainingSuggestion: null, requiresBrandSelection: false,
     brandConflict: null, resolveBrandConflict: vi.fn(), isResolvingBrandConflict: false,
     retryInitialTemplate: null,
     workError: false,
@@ -537,6 +541,41 @@ describe("CreativeComposer", () => {
     expect(select).toHaveValue("auto");
     fireEvent.change(select, { target: { value: "4:5" } });
     expect(value.setFormat).toHaveBeenCalledWith("4:5");
+  });
+
+  it("lets Peça única choose a limited text layout and an approved font", () => {
+    const value = composer({
+      intent: "single",
+      textLayout: "top",
+      fontOptions: [
+        { assetKey: "fonts/heading.ttf", family: "Heading", weight: 700, style: "normal" },
+        { assetKey: "fonts/body.ttf", family: "Body", weight: 400, style: "normal" },
+      ],
+      quote: { unitCount: 1, credits: 5 },
+    });
+    renderComposer(value);
+
+    const details = screen.getByTestId("creative-optional-settings");
+    fireEvent.click(details.querySelector("summary")!);
+    fireEvent.change(screen.getByRole("combobox", { name: "Posição do texto" }), { target: { value: "bottom" } });
+    fireEvent.change(screen.getByRole("combobox", { name: "Fonte da marca" }), { target: { value: "fonts/body.ttf" } });
+
+    expect(value.setTextLayout).toHaveBeenCalledWith("bottom");
+    expect(value.setFontAssetKey).toHaveBeenCalledWith("fonts/body.ttf");
+  });
+
+  it("locks frozen typography controls after preparation", () => {
+    renderComposer(composer({
+      intent: "single",
+      settingsLocked: true,
+      fontOptions: [{ assetKey: "fonts/body.ttf", family: "Body", weight: 400, style: "normal" }],
+      quote: { unitCount: 1, credits: 5 },
+    }));
+
+    fireEvent.click(screen.getByTestId("creative-optional-settings").querySelector("summary")!);
+    expect(screen.getByRole("combobox", { name: "Formato" })).toBeDisabled();
+    expect(screen.getByRole("combobox", { name: "Posição do texto" })).toBeDisabled();
+    expect(screen.getByRole("combobox", { name: "Fonte da marca" })).toBeDisabled();
   });
 
   it("explains format settings without attaching redundant help to generation", async () => {
