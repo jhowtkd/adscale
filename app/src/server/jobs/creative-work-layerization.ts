@@ -1,6 +1,5 @@
 import "server-only";
 
-import { Readable } from "node:stream";
 import { objectStorage } from "@/server/storage";
 import { getCreativeWork } from "@/server/repositories/creative-work";
 import {
@@ -15,6 +14,7 @@ import {
   updateCreativeWorkLayerizationState,
 } from "@/server/repositories/creative-work-layerization";
 import {
+  LAYERIZATION_SOURCE_URL_TTL_SECONDS,
   layerizationStateFromDatabase,
   type LayerizationLayer,
   type LayerizationState,
@@ -28,10 +28,9 @@ import {
 } from "@/server/layerize/seedream-provider";
 import {
   calculateLayerizationFidelity,
-  recomposeLayerBitmaps,
-  writeLayerizationDiagnosticZip,
-  writeLayerizationPsd,
-  type LayerBitmap,
+  layerizationArtifactKey,
+  recomposeStoredLayers,
+  writeStoredLayerizationPsd,
 } from "@/server/layerize/artifacts";
 import { inngest } from "./client";
 
@@ -60,10 +59,6 @@ function layerStorageKey(input: CreativeWorkLayerizationEvent, order: number): s
   return `creative-work/${input.workItemId}/layerize/${input.attemptId}/layers/${String(order).padStart(2, "0")}.png`;
 }
 
-function artifactKey(input: CreativeWorkLayerizationEvent, extension: "psd" | "zip"): string {
-  return `creative-work/${input.workItemId}/layerize/${input.attemptId}/piece.${extension}`;
-}
-
 async function readCurrentState(input: CreativeWorkLayerizationEvent): Promise<LayerizationState | null> {
   const row = await getCreativeWorkLayerizationOutput(input.workspaceId, input.workItemId, input.outputId);
   return layerizationStateFromDatabase(row?.layerization);
@@ -75,6 +70,7 @@ function stateWithArtifacts(
 ): LayerizationState {
   return {
     ...state,
+    latencyMs: Math.max(0, Date.now() - Date.parse(state.createdAt)),
     baseWidth: input.width,
     baseHeight: input.height,
     layers: input.layers,
@@ -130,7 +126,7 @@ export async function runCreativeWorkLayerization(input: {
   if (!state.providerRequestId && maySubmit) {
     let requestId: string;
     try {
-      const sourceUrl = await objectStorage.signedDownloadUrl(output.outputKey);
+      const sourceUrl = await objectStorage.signedDownloadUrl(output.outputKey, LAYERIZATION_SOURCE_URL_TTL_SECONDS);
       const submitted = await provider.submit({
         prompt: LAYERIZE_PROMPT,
         imageUrl: sourceUrl,
@@ -237,10 +233,10 @@ export async function runCreativeWorkLayerization(input: {
     const normalized = normalizeSeedreamLayerResponse(providerPayload);
     const layerBytes = await downloadSeedreamLayers(normalized.layers, {
       ...input.downloadOptions,
-      store: async (_layer, index, buffer) => {
+      store: async (_layer, index, stream) => {
         await objectStorage.putStream(
           layerStorageKey(event, normalized.layers[index].order),
-          Readable.from(buffer),
+          stream,
           "image/png",
         );
       },
@@ -254,15 +250,12 @@ export async function runCreativeWorkLayerization(input: {
         sourceBytes: layerBytes[index],
       };
     });
-    const layerBitmaps: LayerBitmap[] = [];
-    for (const layer of durableLayers) {
-      layerBitmaps.push({ ...layer, png: await objectStorage.get(layer.storageKey) });
-    }
     const original = await objectStorage.get(output.outputKey);
-    const recomposed = await recomposeLayerBitmaps({
+    const recomposed = await recomposeStoredLayers({
       width: normalized.width,
       height: normalized.height,
-      layers: layerBitmaps,
+      layers: durableLayers,
+      load: (layer) => objectStorage.get(layer.storageKey),
     });
     const fidelity = await calculateLayerizationFidelity(original, recomposed, {
       width: normalized.width,
@@ -288,32 +281,16 @@ export async function runCreativeWorkLayerization(input: {
       });
       return { status: "failed" };
     }
-    const psdKey = artifactKey(event, "psd");
-    const diagnosticZipKey = artifactKey(event, "zip");
-    const psd = await writeLayerizationPsd({
+    const psdKey = layerizationArtifactKey(event, "psd");
+    const psd = await writeStoredLayerizationPsd({
       width: normalized.width,
       height: normalized.height,
-      layers: layerBitmaps,
+      layers: durableLayers,
       recomposed,
-    });
-    const diagnosticZip = await writeLayerizationDiagnosticZip({
-      original,
-      recomposed,
-      layers: layerBitmaps,
-      manifest: {
-        version: 1,
-        workItemId: event.workItemId,
-        outputId: event.outputId,
-        attemptId: event.attemptId,
-        providerModel: state.providerModel,
-        canvas: { width: normalized.width, height: normalized.height },
-        layers: durableLayers,
-        fidelity,
-      },
+      load: (layer) => objectStorage.get(layer.storageKey),
     });
     await objectStorage.put(psdKey, psd, "image/vnd.adobe.photoshop");
-    await objectStorage.put(diagnosticZipKey, diagnosticZip, "application/zip");
-    const completedState = { ...state, psdKey, diagnosticZipKey, updatedAt: new Date().toISOString() };
+    const completedState = { ...state, psdKey, diagnosticZipKey: null, updatedAt: new Date().toISOString() };
     await completeCreativeWorkLayerization({
       workspaceId: event.workspaceId,
       workItemId: event.workItemId,

@@ -259,7 +259,7 @@ Production URLs in the committed blueprint:
 
 `sync: false` secrets to set in the Dashboard before first deploy:
 
-- `OPENAI_API_KEY`, R2 (`R2_*`), Inngest (`INNGEST_*`), Resend (`RESEND_API_KEY`, `RESEND_WAITLIST_SEGMENT_ID`, `EMAIL_FROM`)
+- `OPENAI_API_KEY`, `FAL_KEY`, R2 (`R2_*`), Inngest (`INNGEST_*`), Resend (`RESEND_API_KEY`, `RESEND_WAITLIST_SEGMENT_ID`, `EMAIL_FROM`)
 - All Stripe vars: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_STARTER_PRICE_ID`, `STRIPE_GROWTH_PRICE_ID`, `STRIPE_SCALE_PRICE_ID`
 
 ### `app/drizzle.config.ts`

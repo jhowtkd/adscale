@@ -20,7 +20,8 @@ async function solid(width: number, height: number, rgba: [number, number, numbe
 describe("layerization artifacts", () => {
   it("recomposes deterministically, passes the provisional gate, and writes a readable PSD/ZIP", async () => {
     const base = await solid(4, 4, [20, 30, 40, 255]);
-    const overlay = await solid(2, 1, [220, 30, 40, 255]);
+    const overlay = await solid(4, 2, [220, 30, 40, 255]);
+    const topOverlay = await solid(1, 1, [30, 220, 40, 255]);
     const layers: LayerBitmap[] = [
       {
         order: 0,
@@ -50,6 +51,20 @@ describe("layerization artifacts", () => {
         sourceBytes: overlay.length,
         png: overlay,
       },
+      {
+        order: 2,
+        isBase: false,
+        name: "Badge",
+        description: "Topmost clipped badge",
+        x: 3,
+        y: 0,
+        width: 1,
+        height: 1,
+        normalizedBoundingBox: { x: 0.75, y: 0, width: 0.25, height: 0.25 },
+        storageKey: "layers/02.png",
+        sourceBytes: topOverlay.length,
+        png: topOverlay,
+      },
     ];
     const original = await recomposeLayerBitmaps({ width: 4, height: 4, layers });
     const recomposed = await recomposeLayerBitmaps({ width: 4, height: 4, layers });
@@ -62,11 +77,33 @@ describe("layerization artifacts", () => {
     });
     await expect(calculateLayerizationFidelity(original, misplaced, { width: 4, height: 4 }))
       .resolves.toMatchObject({ gate: "failed" });
+    const wrongScale = await recomposeLayerBitmaps({
+      width: 4,
+      height: 4,
+      layers: layers.map((layer) => layer.order === 1 ? { ...layer, width: 1, height: 1 } : layer),
+    });
+    await expect(calculateLayerizationFidelity(original, wrongScale, { width: 4, height: 4 }))
+      .resolves.toMatchObject({ gate: "failed" });
+    const clipped = await recomposeLayerBitmaps({
+      width: 4,
+      height: 4,
+      layers: layers.map((layer) => layer.order === 2 ? { ...layer, x: 2 } : layer),
+    });
+    await expect(calculateLayerizationFidelity(original, clipped, { width: 4, height: 4 }))
+      .resolves.toMatchObject({ gate: "failed" });
+    const wrongOrder = await recomposeLayerBitmaps({
+      width: 4,
+      height: 4,
+      layers: layers.map((layer) => layer.order === 1 ? { ...layer, order: 3 } : layer.order === 2 ? { ...layer, order: 1, x: 1, y: 1 } : layer),
+    });
+    await expect(calculateLayerizationFidelity(original, wrongOrder, { width: 4, height: 4 }))
+      .resolves.toMatchObject({ gate: "failed" });
     const psd = await writeLayerizationPsd({ width: 4, height: 4, layers, recomposed });
     const parsed = readPsd(psd, { skipThumbnail: true, useImageData: true });
     expect(parsed.width).toBe(4);
-    expect(parsed.children?.map((layer) => layer.name)).toEqual(["Headline", "Base"]);
+    expect(parsed.children?.map((layer) => layer.name)).toEqual(["Badge", "Headline", "Base"]);
     expect(parsed.children?.map(({ left, top, right, bottom }) => ({ left, top, right, bottom }))).toEqual([
+      { left: 3, top: 0, right: 4, bottom: 1 },
       { left: 1, top: 1, right: 3, bottom: 2 },
       { left: 0, top: 0, right: 4, bottom: 4 },
     ]);
@@ -83,6 +120,7 @@ describe("layerization artifacts", () => {
       "layers/",
       "layers/00-base.png",
       "layers/01-headline.png",
+      "layers/02-badge.png",
       "manifest.json",
       "original.png",
       "recomposed-preview.png",

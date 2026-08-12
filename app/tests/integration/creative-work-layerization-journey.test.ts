@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { eq, inArray, sql } from "drizzle-orm";
-import { readPsd } from "ag-psd";
+import { initializeCanvas, readPsd } from "ag-psd";
 import sharp from "sharp";
 
 const envBeforeTest = vi.hoisted(() => {
@@ -30,6 +30,9 @@ vi.mock("@/server/storage", async () => {
   const { InMemoryObjectStorage } = await import("@/server/storage/in-memory-object-storage");
   return { objectStorage: new InMemoryObjectStorage() };
 });
+vi.mock("node:dns/promises", () => ({
+  lookup: vi.fn(async () => [{ address: "93.184.216.34", family: 4 }]),
+}));
 
 import { db } from "@/server/db";
 import {
@@ -42,10 +45,16 @@ import {
 } from "@/server/db/schema";
 import { objectStorage } from "@/server/storage";
 import { InMemoryObjectStorage } from "@/server/storage/in-memory-object-storage";
-import { PATCH } from "@/app/api/creative-work/[id]/route";
+import { PATCH, POST } from "@/app/api/creative-work/[id]/route";
 import { GET as downloadOutput } from "@/app/api/creative-work/[id]/outputs/[outputId]/download/route";
-import { runCreativeWorkLayerization } from "@/server/jobs/creative-work-layerization";
-import type { SeedreamProvider } from "@/server/layerize/seedream-provider";
+import { creativeWorkLayerizationJob } from "@/server/jobs/creative-work-layerization";
+import { markCreativeWorkLayerizationReconciling } from "@/server/repositories/creative-work-layerization";
+
+initializeCanvas(
+  () => { throw new Error("Canvas rendering is not used in this test"); },
+  () => { throw new Error("Thumbnail rendering is not used in this test"); },
+  (width, height) => ({ width, height, colorSpace: "srgb", data: new Uint8ClampedArray(width * height * 4) }),
+);
 
 const TEST_DB_EXPLICITLY_CONFIGURED = Boolean(process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL);
 const runId = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
@@ -136,35 +145,50 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work layerization HTTP
     expect(sendMock).toHaveBeenCalledOnce();
     const event = sendMock.mock.calls[0][0].data;
 
-    const provider: SeedreamProvider = {
-      submit: vi.fn(async () => ({ requestId: "request-1" })),
-      status: vi.fn(async () => "COMPLETED"),
-      result: vi.fn(async () => ({
-        images: [],
-        layers: [
-          { image: { url: "https://v3.fal.media/base.png", width: 8, height: 8 }, z_index: 0, bounding_box: null },
-          {
-            image: { url: "https://v3.fal.media/overlay.png", width: 2, height: 2 },
-            z_index: 1,
-            name: "Product",
-            description: "Synthetic foreground",
-            bounding_box: { absolute: [3, 2, 5, 4], normalized: [375, 250, 625, 500] },
-          },
-        ],
-      })),
+    const callbackRequest = () => new Request(event.callbackUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ status: "OK", request_id: "request-1" }),
+    });
+    const [callback] = await Promise.all([
+      POST(callbackRequest(), { params: Promise.resolve({ id: work.id }) }),
+      markCreativeWorkLayerizationReconciling(workspace.id, work.id, output.id),
+    ]);
+    expect(callback.status).toBe(202);
+    const replay = await POST(callbackRequest(), { params: Promise.resolve({ id: work.id }) });
+    expect(replay.status).toBe(202);
+    await expect(replay.json()).resolves.toMatchObject({ replay: true });
+
+    const providerPayload = {
+      images: [],
+      layers: [
+        { image: { url: "https://v3.fal.media/base.png", width: 8, height: 8 }, z_index: 0, bounding_box: null },
+        {
+          image: { url: "https://v3.fal.media/overlay.png", width: 2, height: 2 },
+          z_index: 1,
+          name: "Product",
+          description: "Synthetic foreground",
+          bounding_box: { absolute: [3, 2, 5, 4], normalized: [375, 250, 625, 500] },
+        },
+      ],
     };
-    const fetchImpl = vi.fn<typeof fetch>(async (input) => new Response(
-      input.toString().endsWith("base.png") ? base : overlay,
-      { status: 200, headers: { "content-type": "image/png" } },
-    ));
-    await expect(runCreativeWorkLayerization({
-      event,
-      provider,
-      downloadOptions: {
-        fetchImpl,
-        lookup: async () => [{ address: "93.184.216.34" }],
-      },
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = input.toString();
+      if (url.endsWith("/status")) return new Response(JSON.stringify({ status: "COMPLETED" }), { status: 200 });
+      if (url.endsWith("/requests/request-1")) return new Response(JSON.stringify(providerPayload), { status: 200 });
+      if (url.endsWith("base.png")) return new Response(base, { status: 200, headers: { "content-type": "image/png" } });
+      if (url.endsWith("overlay.png")) return new Response(overlay, { status: 200, headers: { "content-type": "image/png" } });
+      throw new Error(`Unexpected fal request: ${url}`);
+    });
+    const callbackEvent = sendMock.mock.calls.at(-1)?.[0].data;
+    const job = creativeWorkLayerizationJob as unknown as {
+      fn(input: { event: { data: typeof callbackEvent }; step: { run<T>(name: string, fn: () => Promise<T>): Promise<T>; sleep(name: string, duration: string): Promise<void> } }): Promise<unknown>;
+    };
+    await expect(job.fn({
+      event: { data: callbackEvent },
+      step: { run: async (_name, fn) => fn(), sleep: async () => undefined },
     })).resolves.toEqual({ status: "completed" });
+    fetchSpy.mockRestore();
 
     const [persisted] = await db.select().from(creativeWorkOutputs).where(eq(creativeWorkOutputs.id, output.id)).limit(1);
     expect(persisted.outputKey).toBe(sourceKey);
@@ -177,7 +201,13 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work layerization HTTP
     expect(download.status).toBe(200);
     const { url } = await download.json() as { url: string };
     const psd = await storage.get(url.replace("memory://download/", ""));
-    const parsed = readPsd(psd, { skipCompositeImageData: true, skipLayerImageData: true, skipThumbnail: true });
+    const parsed = readPsd(psd, { skipThumbnail: true, useImageData: true });
     expect(parsed.children?.map((layer) => layer.name)).toEqual(["Product", "Base"]);
+    expect(parsed.children?.map(({ left, top, right, bottom }) => ({ left, top, right, bottom }))).toEqual([
+      { left: 3, top: 2, right: 5, bottom: 4 },
+      { left: 0, top: 0, right: 8, bottom: 8 },
+    ]);
+    expect(parsed.imageData?.data).toBeDefined();
+    expect(parsed.children?.every((layer) => layer.imageData?.data)).toBe(true);
   }, 30_000);
 });

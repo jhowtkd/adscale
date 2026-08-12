@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Readable } from "node:stream";
 import type { LayerizationState } from "@/server/layerize/contracts";
 
 const getCreativeWorkMock = vi.hoisted(() => vi.fn());
@@ -52,9 +53,10 @@ vi.mock("@/server/layerize/seedream-provider", () => ({
   normalizeSeedreamLayerResponse: (...args: unknown[]) => normalizeResponseMock(...args),
 }));
 vi.mock("@/server/layerize/artifacts", () => ({
-  recomposeLayerBitmaps: (...args: unknown[]) => recomposeMock(...args),
+  layerizationArtifactKey: (input: { workItemId: string; attemptId: string }, extension: string) => `creative-work/${input.workItemId}/layerize/${input.attemptId}/piece.${extension}`,
+  recomposeStoredLayers: (...args: unknown[]) => recomposeMock(...args),
   calculateLayerizationFidelity: (...args: unknown[]) => fidelityMock(...args),
-  writeLayerizationPsd: (...args: unknown[]) => writePsdMock(...args),
+  writeStoredLayerizationPsd: (...args: unknown[]) => writePsdMock(...args),
   writeLayerizationDiagnosticZip: (...args: unknown[]) => writeZipMock(...args),
 }));
 vi.mock("./client", () => ({
@@ -85,6 +87,7 @@ function state(status: LayerizationState["status"], providerRequestId: string | 
     createdAt: now,
     updatedAt: now,
     callbackDeadlineAt: "2099-08-12T14:00:00.000Z",
+    latencyMs: null,
     providerRequestId,
     providerModel: "bytedance/seedream/v5/pro/layerize",
     providerEndpoint: "https://queue.fal.run/bytedance/seedream/v5/pro/layerize",
@@ -163,10 +166,10 @@ function configureCompletedFlow() {
   });
   downloadLayersMock.mockImplementation(async (
     layers: Array<{ sourceUrl: string; isBase: boolean }>,
-    options: { store: (layer: { sourceUrl: string; isBase: boolean }, index: number, buffer: Buffer) => Promise<void> },
+    options: { store: (layer: { sourceUrl: string; isBase: boolean }, index: number, stream: Readable) => Promise<void> },
   ) => {
     const buffers = [basePng, overlayPng];
-    await Promise.all(layers.map((layer, index) => options.store(layer, index, buffers[index])));
+    await Promise.all(layers.map((layer, index) => options.store(layer, index, Readable.from(buffers[index]))));
     return buffers.map((buffer) => buffer.length);
   });
   recomposeMock.mockResolvedValue(Buffer.from("recomposed"));
@@ -191,9 +194,11 @@ describe("creative work layerization job", () => {
 
     expect(result.status).toBe("completed");
     expect(provider.submit).toHaveBeenCalledOnce();
+    expect(objectSignedUrlMock).toHaveBeenCalledWith("creative-work/original.png", 8_100);
     expect(objectGetMock).toHaveBeenCalledWith("creative-work/original.png");
     expect(objectPutStreamMock).toHaveBeenCalledTimes(2);
-    expect(objectPutMock).toHaveBeenCalledTimes(2);
+    expect(objectPutMock).toHaveBeenCalledTimes(1);
+    expect(writeZipMock).not.toHaveBeenCalled();
     expect(updateStateMock).toHaveBeenCalledWith(expect.objectContaining({
       state: expect.objectContaining({
         layers: expect.not.arrayContaining([expect.objectContaining({ sourceUrl: expect.any(String) })]),
@@ -203,7 +208,7 @@ describe("creative work layerization job", () => {
       state: expect.objectContaining({
         status: "finalizing",
         psdKey: expect.stringMatching(/piece\.psd$/),
-        diagnosticZipKey: expect.stringMatching(/piece\.zip$/),
+        diagnosticZipKey: null,
       }),
     }));
   });

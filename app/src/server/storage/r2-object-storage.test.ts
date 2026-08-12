@@ -132,4 +132,17 @@ describe("R2ObjectStorage", () => {
 
     expect(mocks.getSignedUrl).toHaveBeenCalledTimes(1);
   });
+
+  it("keeps long-lived provider input URLs separate from the short user-download cache", async () => {
+    const storage = new R2ObjectStorage();
+    mocks.getSignedUrl
+      .mockResolvedValueOnce("https://signed.example/short")
+      .mockResolvedValueOnce("https://signed.example/provider");
+
+    await storage.signedDownloadUrl("assets/image.png");
+    await storage.signedDownloadUrl("assets/image.png", 8_100);
+
+    expect(mocks.getSignedUrl).toHaveBeenNthCalledWith(1, expect.anything(), expect.anything(), { expiresIn: 300 });
+    expect(mocks.getSignedUrl).toHaveBeenNthCalledWith(2, expect.anything(), expect.anything(), { expiresIn: 8_100 });
+  });
 });

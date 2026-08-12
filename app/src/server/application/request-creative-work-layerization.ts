@@ -12,6 +12,7 @@ import {
 import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 import { inngest } from "@/server/jobs/client";
 import {
+  LAYERIZATION_CALLBACK_TTL_MS,
   isLayerizationRetryableFailure,
   layerizationStateFromDatabase,
   type LayerizationState,
@@ -21,8 +22,6 @@ import {
   SEEDREAM_PROVIDER_ENDPOINT,
 } from "@/server/layerize/seedream-provider";
 import { env } from "@/server/validation/env";
-
-const LAYERIZATION_CALLBACK_TTL_MS = 2 * 60 * 60 * 1000;
 
 export type RequestCreativeWorkLayerizationError =
   | { code: "work_not_found" }
@@ -62,6 +61,7 @@ function newLayerizationState(input: {
     createdAt: now.toISOString(),
     updatedAt: now.toISOString(),
     callbackDeadlineAt: new Date(now.getTime() + LAYERIZATION_CALLBACK_TTL_MS).toISOString(),
+    latencyMs: null,
     providerRequestId: null,
     providerModel: SEEDREAM_LAYERIZE_MODEL_ID,
     providerEndpoint: SEEDREAM_PROVIDER_ENDPOINT,

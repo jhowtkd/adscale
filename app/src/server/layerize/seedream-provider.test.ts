@@ -66,6 +66,14 @@ describe("seedream layerize contract", () => {
       ...layerResponse(),
       layers: [layerResponse().layers[0], { ...layerResponse().layers[1], z_index: 17 }],
     })).toThrow(/ordered/);
+    expect(() => normalizeSeedreamLayerResponse({
+      ...layerResponse(),
+      layers: [
+        layerResponse().layers[0],
+        { ...layerResponse().layers[1], image: undefined, image_url: "https://v3.fal.media/headline.png" },
+      ],
+    })).toThrow(/ordered name, description, bbox, or image/);
+    expect(() => normalizeSeedreamLayerResponse({ output: layerResponse() })).toThrow(/not an object|invalid canvas/);
   });
 
   it("sends the official queue safety headers without provider retries", async () => {
@@ -85,6 +93,7 @@ describe("seedream layerize contract", () => {
     expect(headers.Authorization).toBe("Key test-key");
     expect(headers["X-Fal-Store-IO"]).toBe("0");
     expect(headers["X-Fal-No-Retry"]).toBe("1");
+    expect(headers["X-Fal-Request-Timeout"]).toBe("7200");
     expect(headers["x-app-fal-disable-fallback"]).toBe("true");
     expect(fetchImpl.mock.calls[0][0].toString()).toBe(
       "https://queue.fal.run/bytedance/seedream/v5/pro/layerize?fal_webhook=https%3A%2F%2Fapp.example%2Fapi%2Fcreative-work%2Fwork-1%3Ftoken%3Dsecret",
@@ -151,5 +160,31 @@ describe("seedream layerize contract", () => {
       { sourceUrl: "https://v3.fal.media/empty.png", isBase: false },
     ], { fetchImpl, lookup: publicLookup, store })).rejects.toThrow(/transparent/);
     expect(store).not.toHaveBeenCalled();
+  });
+
+  it("streams validated PNG layers to storage instead of handing it a buffer", async () => {
+    const opaque = await sharp({
+      create: { width: 2, height: 2, channels: 4, background: [20, 30, 40, 255] },
+    }).png().toBuffer();
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(new Response(opaque, {
+      status: 200,
+      headers: { "content-type": "image/png" },
+    }));
+    const stored: Buffer[] = [];
+
+    await downloadSeedreamLayers([
+      { sourceUrl: "https://v3.fal.media/opaque.png", isBase: false },
+    ], {
+      fetchImpl,
+      lookup: publicLookup,
+      store: async (_layer, _index, stream) => {
+        expect(Buffer.isBuffer(stream)).toBe(false);
+        const chunks: Buffer[] = [];
+        for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+        stored.push(Buffer.concat(chunks));
+      },
+    });
+
+    expect(stored).toEqual([opaque]);
   });
 });

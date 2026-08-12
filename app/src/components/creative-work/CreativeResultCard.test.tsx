@@ -17,6 +17,18 @@ vi.mock("next-intl", () => ({
     "failure.brand_conflict": "Há um conflito de marca entre a arte e a marca ativa.",
     "failure.reference_failure": "Uma referência obrigatória não pôde ser usada. Reenvie a arte e tente novamente.",
     "failure.unknown": "A geração falhou por um erro inesperado.",
+    layerizeSection: "Editable separation",
+    layerizeStart: "Translate: separate",
+    layerizeRetry: "Translate: retry separation",
+    layerizeQueued: "Translate: queued",
+    layerizeProcessing: "Translate: processing",
+    layerizeReconciling: "Translate: reconciling",
+    layerizeSubmissionUnknown: "Translate: charge may have occurred",
+    layerizeCompleted: "Translate: layers ready",
+    layerizeFailed: "Translate: separation failed",
+    downloadPsdWithLayers: "Translate: PSD with 2 layers",
+    downloadPngs: "Translate: PNGs",
+    "layerizeFailure.unknown": "Translate: unknown failure",
   }[key] ?? key),
 }));
 
@@ -59,6 +71,7 @@ function layerization(status: PublicLayerizationState["status"], failureCode: Pu
     createdAt: "2026-08-12T12:00:00.000Z",
     updatedAt: "2026-08-12T12:00:00.000Z",
     callbackDeadlineAt: "2026-08-12T14:00:00.000Z",
+    latencyMs: null,
     providerRequestId: "request-1",
     providerModel: "bytedance/seedream/v5/pro/layerize",
     providerEndpoint: "https://queue.fal.run/bytedance/seedream/v5/pro/layerize",
@@ -333,8 +346,9 @@ describe("CreativeResultCard", () => {
       />,
     );
 
-    expect(screen.getByText("Separação na fila")).toBeVisible();
-    expect(screen.getByTestId("layerization-live-region")).toHaveTextContent("na fila");
+    expect(screen.getAllByText("Translate: queued")[0]).toBeVisible();
+    expect(screen.getByTestId("layerization-actions")).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByTestId("layerization-live-region")).toHaveTextContent("Translate: queued");
 
     rerender(
       <CreativeResultCard
@@ -349,8 +363,8 @@ describe("CreativeResultCard", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Baixar PSD (2 camadas)" }));
-    fireEvent.click(screen.getByRole("button", { name: "Baixar PNGs" }));
+    fireEvent.click(screen.getByRole("button", { name: "Translate: PSD with 2 layers" }));
+    fireEvent.click(screen.getByRole("button", { name: "Translate: PNGs" }));
     expect(onDownloadLayerized).toHaveBeenNthCalledWith(1, "output-1", "psd");
     expect(onDownloadLayerized).toHaveBeenNthCalledWith(2, "output-1", "zip");
   });
@@ -368,8 +382,8 @@ describe("CreativeResultCard", () => {
       />,
     );
 
-    expect(screen.getAllByText(/a cobrança pode ter ocorrido/i)[0]).toBeVisible();
-    expect(screen.queryByRole("button", { name: /separar novamente/i })).not.toBeInTheDocument();
-    expect(screen.getByTestId("layerization-live-region")).toHaveTextContent("cobrança pode ter ocorrido");
+    expect(screen.getAllByText("Translate: charge may have occurred")[0]).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Translate: retry separation" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("layerization-live-region")).toHaveTextContent("Translate: charge may have occurred");
   });
 });

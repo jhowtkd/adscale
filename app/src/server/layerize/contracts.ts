@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+export const LAYERIZATION_CALLBACK_TTL_MS = 2 * 60 * 60 * 1000;
+export const LAYERIZATION_SOURCE_URL_TTL_SECONDS = 2 * 60 * 60 + 15 * 60;
+
 export const LAYERIZATION_STATUSES = [
   "queued",
   "processing",
@@ -67,6 +70,7 @@ export const layerizationStateSchema = z.object({
   createdAt: isoDate,
   updatedAt: isoDate,
   callbackDeadlineAt: isoDate,
+  latencyMs: z.number().int().nonnegative().nullable().default(null),
   providerRequestId: z.string().min(1).max(256).nullable(),
   providerModel: z.string().min(1).max(256),
   providerEndpoint: z.string().url(),

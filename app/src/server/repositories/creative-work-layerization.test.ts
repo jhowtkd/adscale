@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => {
   const selectResults: unknown[][] = [];
   const updateResults: unknown[][] = [];
   const where = vi.fn();
+  const set = vi.fn();
   const selectChain: Record<string, unknown> = {};
   selectChain.from = vi.fn(() => selectChain);
   selectChain.where = vi.fn((condition: unknown) => {
@@ -16,14 +17,17 @@ const mocks = vi.hoisted(() => {
   selectChain.limit = vi.fn(() => selectChain);
   selectChain.then = (resolve: (value: unknown) => void) => Promise.resolve(selectResults.shift() ?? []).then(resolve);
   const update = vi.fn(() => ({
-    set: vi.fn(() => ({
+    set: vi.fn((value: unknown) => {
+      set(value);
+      return ({
       where: vi.fn((condition: unknown) => {
         where(condition);
         return { returning: vi.fn(async () => updateResults.shift() ?? []) };
       }),
-    })),
+      });
+    }),
   }));
-  return { selectResults, updateResults, where, update, select: vi.fn(() => selectChain) };
+  return { selectResults, updateResults, where, set, update, select: vi.fn(() => selectChain) };
 });
 
 vi.mock("@/server/db", () => ({
@@ -35,6 +39,7 @@ import {
   claimCreativeWorkLayerizationFinalization,
   failCreativeWorkLayerization,
   hashLayerizationCallbackToken,
+  markCreativeWorkLayerizationReconciling,
 } from "./creative-work-layerization";
 
 const dialect = new PgDialect();
@@ -51,6 +56,7 @@ function state(overrides: Partial<LayerizationState> = {}): LayerizationState {
     createdAt: now,
     updatedAt: now,
     callbackDeadlineAt: "2099-08-12T14:00:00.000Z",
+    latencyMs: null,
     providerRequestId: null,
     providerModel: "bytedance/seedream/v5/pro/layerize",
     providerEndpoint: "https://queue.fal.run/bytedance/seedream/v5/pro/layerize",
@@ -115,5 +121,34 @@ describe("creative work layerization state transitions", () => {
     });
     const failureWhere = serialized(mocks.where.mock.calls.at(-1)?.[0]);
     expect(failureWhere.sql).not.toContain("callbackConsumedAt");
+  });
+
+  it("patches reconciliation atomically without writing a stale provider identity", async () => {
+    mocks.selectResults.push([row(state())]);
+    mocks.updateResults.push([row(state({ status: "reconciling", providerRequestId: "request-1", callbackConsumedAt: now }))]);
+
+    await markCreativeWorkLayerizationReconciling("workspace-1", "work-1", "output-1");
+
+    const setValue = mocks.set.mock.calls.at(-1)?.[0] as { layerization?: unknown };
+    const layerizationPatch = serialized(setValue.layerization);
+    expect(layerizationPatch.sql).toContain("||");
+    expect(layerizationPatch.params.some((param) => typeof param === "string" && param.includes("providerRequestId"))).toBe(false);
+    expect(layerizationPatch.params.some((param) => typeof param === "string" && param.includes("callbackConsumedAt"))).toBe(false);
+  });
+
+  it("rejects a callback for a different provider request", async () => {
+    mocks.selectResults.push([row(state({
+      providerRequestId: "request-1",
+      callbackTokenHash: hashLayerizationCallbackToken("token"),
+    }))]);
+
+    await expect(acceptCreativeWorkLayerizationCallback({
+      workItemId: "work-1",
+      outputId: "output-1",
+      attemptId: "attempt-1",
+      token: "token",
+      requestId: "request-2",
+    })).resolves.toMatchObject({ accepted: false, replay: false });
+    expect(mocks.update).not.toHaveBeenCalled();
   });
 });
