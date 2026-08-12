@@ -50,11 +50,13 @@ export async function POST(
     const form = await request.formData();
     const file = form.get("file");
     const family = typeof form.get("family") === "string" ? String(form.get("family")).trim() : "";
+    const source = typeof form.get("source") === "string" ? String(form.get("source")).trim() : "";
     const weight = Number(form.get("weight"));
     const style = form.get("style");
     if (
       !(file instanceof File) ||
       family.length === 0 || family.length > 100 ||
+      source.length === 0 || source.length > 200 ||
       !FONT_WEIGHTS.has(weight) ||
       (style !== "normal" && style !== "italic") ||
       form.get("rightsConfirmed") !== "true"
@@ -85,7 +87,7 @@ export async function POST(
         type: normalized.mimeType,
         size: normalized.buffer.byteLength,
         source: "brand_font",
-        metadata: { clientProfileId: id, family, weight, style, sha256: normalized.sha256, rightsConfirmed: true },
+        metadata: { clientProfileId: id, family, source, weight, style, sha256: normalized.sha256, rightsConfirmed: true },
       });
     } catch (error) {
       await objectStorage.delete(key).catch(() => null);
@@ -95,6 +97,7 @@ export async function POST(
     const font: BrandFontAsset = {
       assetKey: key,
       family,
+      source,
       weight: weight as BrandFontAsset["weight"],
       style,
       sha256: normalized.sha256,

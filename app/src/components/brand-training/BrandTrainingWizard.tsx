@@ -30,8 +30,11 @@ import {
 import {
   useApproveVoice,
   useBrandTrainingStatus,
+  useBrandFonts,
   useExtractMulti,
   useExtractVoice,
+  useUploadBrandFont,
+  type BrandFontAssetRecord,
   type BrandVoiceConfig,
   type MultiExtractResult,
 } from "@/lib/hooks/use-brand-training";
@@ -472,6 +475,7 @@ function ValidateStep({
       <Field label={t("fieldFonts")}>
         <TagInput tags={fonts} onChange={setFonts} placeholder="Inter" />
       </Field>
+      <BrandFontFiles clientProfileId={clientProfileId} />
       <Field label={t("fieldTone")}>
         <textarea
           value={toneOfVoice}
@@ -517,6 +521,98 @@ function ValidateStep({
           {tc("save")}
         </Button>
       </div>
+    </div>
+  );
+}
+
+function BrandFontFiles({ clientProfileId }: { clientProfileId: string }) {
+  const t = useTranslations("brandTraining.fonts");
+  const addToast = useAppStore((s) => s.addToast);
+  const fonts = useBrandFonts(clientProfileId);
+  const upload = useUploadBrandFont(clientProfileId);
+  const [file, setFile] = useState<File | null>(null);
+  const [family, setFamily] = useState("");
+  const [source, setSource] = useState("");
+  const [weight, setWeight] = useState<BrandFontAssetRecord["weight"]>(400);
+  const [style, setStyle] = useState<"normal" | "italic">("normal");
+  const [rightsConfirmed, setRightsConfirmed] = useState(false);
+
+  const submit = () => {
+    if (!file || !family.trim() || !source.trim() || !rightsConfirmed) return;
+    upload.mutate(
+      { file, family: family.trim(), source: source.trim(), weight, style },
+      {
+        onSuccess: () => {
+          setFile(null);
+          setFamily("");
+          setSource("");
+          setRightsConfirmed(false);
+          addToast("success", t("approved"));
+        },
+        onError: (error) => addToast("error", error.message),
+      },
+    );
+  };
+
+  return (
+    <div className="space-y-3 rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)] p-3">
+      <div>
+        <h3 className="text-xs font-semibold text-[var(--text-primary)]">{t("title")}</h3>
+        <p className="text-[11px] text-[var(--text-muted)]">{t("generativeNotice")}</p>
+      </div>
+      {fonts.data && fonts.data.length > 0 && (
+        <ul className="space-y-1 text-xs text-[var(--text-primary)]">
+          {fonts.data.map((font) => (
+            <li key={font.sha256} className="flex items-center justify-between gap-2 rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-2 py-1.5">
+              <span>{font.family} · {font.weight} · {font.style}</span>
+              <span className="text-[var(--success-text)]">{t("statusApproved")}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="grid gap-2 sm:grid-cols-2">
+        <label className="space-y-1 text-xs text-[var(--text-primary)]">
+          <span>{t("file")}</span>
+          <input
+            id="brand-font-file"
+            type="file"
+            accept=".ttf,.otf,font/ttf,font/otf"
+            onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+            className="block w-full text-xs text-[var(--text-muted)]"
+          />
+        </label>
+        <label className="space-y-1 text-xs text-[var(--text-primary)]">
+          <span>{t("family")}</span>
+          <input value={family} onChange={(event) => setFamily(event.target.value)} className={cn("w-full rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-2 py-1.5", FOCUS_RING)} />
+        </label>
+        <label className="space-y-1 text-xs text-[var(--text-primary)]">
+          <span>{t("source")}</span>
+          <input value={source} onChange={(event) => setSource(event.target.value)} className={cn("w-full rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-2 py-1.5", FOCUS_RING)} />
+        </label>
+        <div className="grid grid-cols-2 gap-2">
+          <label className="space-y-1 text-xs text-[var(--text-primary)]">
+            <span>{t("weight")}</span>
+            <select value={weight} onChange={(event) => setWeight(Number(event.target.value) as BrandFontAssetRecord["weight"])} className="w-full rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-2 py-1.5">
+              {[100, 200, 300, 400, 500, 600, 700, 800, 900].map((value) => <option key={value} value={value}>{value}</option>)}
+            </select>
+          </label>
+          <label className="space-y-1 text-xs text-[var(--text-primary)]">
+            <span>{t("style")}</span>
+            <select value={style} onChange={(event) => setStyle(event.target.value as "normal" | "italic")} className="w-full rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-2 py-1.5">
+              <option value="normal">{t("normal")}</option>
+              <option value="italic">{t("italic")}</option>
+            </select>
+          </label>
+        </div>
+      </div>
+      <label className="flex items-start gap-2 text-xs text-[var(--text-muted)]">
+        <input type="checkbox" checked={rightsConfirmed} onChange={(event) => setRightsConfirmed(event.target.checked)} />
+        <span>{t("rightsConfirmed")}</span>
+      </label>
+      <Button type="button" onClick={submit} disabled={!file || !family.trim() || !source.trim() || !rightsConfirmed || upload.isPending} className="gap-1.5">
+        {upload.isPending ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+        {t("approve")}
+      </Button>
     </div>
   );
 }

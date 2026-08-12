@@ -60,6 +60,7 @@ describe("brand font upload route", () => {
     const form = new FormData();
     form.set("file", new File(["font"], "Brand.ttf", { type: "font/ttf" }));
     form.set("family", "Brand Sans");
+    form.set("source", "Contrato da agência");
     form.set("weight", "700");
     form.set("style", "normal");
     form.set("rightsConfirmed", "true");
@@ -76,6 +77,7 @@ describe("brand font upload route", () => {
     );
     expect(mocks.addBrandFontAsset).toHaveBeenCalledWith("workspace-1", "profile-1", expect.objectContaining({
       family: "Brand Sans",
+      source: "Contrato da agência",
       weight: 700,
       style: "normal",
       approvedByUserId: "user-1",
@@ -87,6 +89,7 @@ describe("brand font upload route", () => {
     const form = new FormData();
     form.set("file", new File(["font"], "Brand.ttf", { type: "font/ttf" }));
     form.set("family", "Brand Sans");
+    form.set("source", "Contrato da agência");
     form.set("weight", "700");
     form.set("style", "normal");
 

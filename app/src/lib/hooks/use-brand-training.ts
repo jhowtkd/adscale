@@ -159,6 +159,64 @@ export function useApproveVoice(clientProfileId: string | null) {
   });
 }
 
+export interface BrandFontAssetRecord {
+  assetKey: string;
+  family: string;
+  source: string;
+  weight: 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900;
+  style: "normal" | "italic";
+  sha256: string;
+  approvedAt: string;
+  approvedByUserId: string;
+}
+
+const brandFontsKey = (clientProfileId: string) =>
+  ["brand-fonts", clientProfileId] as const;
+
+export function useBrandFonts(clientProfileId: string | null) {
+  return useQuery({
+    queryKey: brandFontsKey(clientProfileId ?? ""),
+    queryFn: async (): Promise<BrandFontAssetRecord[]> => {
+      const res = await apiFetch(`/api/client-profiles/${clientProfileId}/brand-fonts`);
+      if (!res.ok) throw new Error(await readError(res));
+      const data = await res.json();
+      return Array.isArray(data?.fonts) ? data.fonts : [];
+    },
+    enabled: Boolean(clientProfileId),
+  });
+}
+
+export function useUploadBrandFont(clientProfileId: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      file: File;
+      family: string;
+      source: string;
+      weight: BrandFontAssetRecord["weight"];
+      style: BrandFontAssetRecord["style"];
+    }): Promise<BrandFontAssetRecord> => {
+      const form = new FormData();
+      form.set("file", input.file);
+      form.set("family", input.family);
+      form.set("source", input.source);
+      form.set("weight", String(input.weight));
+      form.set("style", input.style);
+      form.set("rightsConfirmed", "true");
+      const res = await apiFetch(
+        `/api/client-profiles/${clientProfileId}/brand-fonts`,
+        { method: "POST", body: form },
+      );
+      if (!res.ok) throw new Error(await readError(res));
+      const data = await res.json();
+      return data.font as BrandFontAssetRecord;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: brandFontsKey(clientProfileId ?? "") });
+    },
+  });
+}
+
 /* ------------------------------------------------------------------ *
  * Approved visual assets (Tasks 3-5).                                *
  * ------------------------------------------------------------------ */

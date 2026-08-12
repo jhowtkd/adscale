@@ -14,7 +14,7 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("next-intl", () => ({
   useTranslations: (namespace: string) => (key: string) =>
-    namespace === "brandTraining" || namespace === "common" ? `${namespace}.${key}` : key,
+    namespace.startsWith("brandTraining") || namespace === "common" ? `${namespace}.${key}` : key,
 }));
 
 vi.mock("@/components/animations/MotionBoundary", () => ({
@@ -70,6 +70,8 @@ const useApproveVoiceMock = vi.fn();
 const useBrandTrainingAssetsMock = vi.fn();
 const useUploadBrandTrainingAssetMock = vi.fn();
 const useReviewBrandTrainingAssetMock = vi.fn();
+const useBrandFontsMock = vi.fn();
+const useUploadBrandFontMock = vi.fn();
 vi.mock("@/lib/hooks/use-brand-training", () => ({
   useBrandTrainingStatus: (...args: unknown[]) => useBrandTrainingStatusMock(...args),
   useExtractMulti: () => useExtractMultiMock(),
@@ -78,6 +80,8 @@ vi.mock("@/lib/hooks/use-brand-training", () => ({
   useBrandTrainingAssets: () => useBrandTrainingAssetsMock(),
   useUploadBrandTrainingAsset: () => useUploadBrandTrainingAssetMock(),
   useReviewBrandTrainingAsset: () => useReviewBrandTrainingAssetMock(),
+  useBrandFonts: () => useBrandFontsMock(),
+  useUploadBrandFont: () => useUploadBrandFontMock(),
 }));
 
 const useBrandKitMock = vi.fn();
@@ -128,6 +132,8 @@ function defaultHooks() {
     mutate: vi.fn(),
     isPending: false,
   });
+  useBrandFontsMock.mockReturnValue({ data: [], isLoading: false });
+  useUploadBrandFontMock.mockReturnValue({ mutate: vi.fn(), isPending: false });
   useBrandKitMock.mockReturnValue({ data: null });
   useUpdateBrandKitMock.mockReturnValue({ mutate: vi.fn(), isPending: false });
 }
@@ -253,5 +259,19 @@ describe("BrandTrainingWizard", () => {
     expect(
       screen.getByText("brandTraining.validateTitle"),
     ).toBeInTheDocument();
+  });
+
+  it("shows real font upload and distinguishes font names from approved files", () => {
+    render(<BrandTrainingWizard />, { wrapper: createWrapper() });
+
+    fireEvent.click(screen.getByText("common.next"));
+    fireEvent.click(screen.getByText("common.next"));
+
+    expect(screen.getByText("brandTraining.fonts.title")).toBeInTheDocument();
+    expect(screen.getByText("brandTraining.fonts.generativeNotice")).toBeInTheDocument();
+    expect(document.querySelector<HTMLInputElement>("#brand-font-file")?.accept).toBe(
+      ".ttf,.otf,font/ttf,font/otf",
+    );
+    expect(screen.getByRole("checkbox", { name: "brandTraining.fonts.rightsConfirmed" })).toBeInTheDocument();
   });
 });

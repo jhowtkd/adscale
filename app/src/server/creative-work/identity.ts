@@ -493,6 +493,7 @@ export async function createIdentitySnapshot(
 
   const colors = (brandKit?.brandColors as string[] | null | undefined) ?? [];
   const fonts = (brandKit?.brandFonts as string[] | null | undefined) ?? [];
+  const fontAssets = brandKit?.brandFontAssets ?? [];
 
   return {
     clientProfileId,
@@ -503,6 +504,7 @@ export async function createIdentitySnapshot(
     brandKit: {
       colors,
       fonts,
+      fontAssets,
       toneOfVoice: brandKit?.toneOfVoice ?? null,
       prohibitedElements: brandKit?.prohibitedElements ?? null,
       requiredElements: brandKit?.requiredElements ?? null,

@@ -497,6 +497,7 @@ export interface CreativeWorkIdentitySnapshot {
   brandKit: {
     colors: string[];
     fonts: string[];
+    fontAssets?: import("../brand-training/font-assets").BrandFontAsset[];
     toneOfVoice: string | null;
     prohibitedElements: string | null;
     requiredElements: string | null;
