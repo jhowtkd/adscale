@@ -166,6 +166,81 @@ test.describe("Standalone Create Post acceptance gate", () => {
     expect(approvedReferences.length, "at least one approved reference must exist").toBeGreaterThan(0);
   });
 
+  test("human approval makes a trained asset eligible for controlled Peça única generation", async ({ page }) => {
+    const fixture = loadFixture();
+    const analysis = {
+      description: "Referência visual controlada para o gate E2E.",
+      visualAttributes: ["contraste controlado"],
+      rules: ["preservar a identidade"],
+      constraints: ["não inventar elementos"],
+      confidence: 1,
+    };
+    const list = await page.request.get(
+      `/api/client-profiles/${fixture.primaryClientProfileId}/training-assets`,
+    );
+    expect(list.ok()).toBeTruthy();
+    const pending = ((await list.json()) as {
+      references: Array<{ id: string; label: string; reviewStatus: string }>;
+    }).references.find((reference) => reference.label === fixture.pendingReferenceLabel);
+    expect(pending?.reviewStatus).toBe("pending_analysis");
+
+    try {
+      await withDb(async (client) => {
+        await client.query(
+          `update adscale_app.client_references
+           set training_category = 'visual_reference', usage_mode = 'reference',
+               training_analysis = $1::jsonb, review_status = 'pending_approval'
+           where id = $2 and workspace_id = $3 and client_profile_id = $4`,
+          [JSON.stringify(analysis), pending!.id, fixture.workspaceId, fixture.primaryClientProfileId],
+        );
+      });
+
+      for (let read = 0; read < 2; read += 1) {
+        const response = await page.request.get(
+          `/api/client-profiles/${fixture.primaryClientProfileId}/training-assets`,
+        );
+        const current = ((await response.json()) as {
+          references: Array<{ id: string; reviewStatus: string }>;
+        }).references.find((reference) => reference.id === pending!.id);
+        expect(current?.reviewStatus).toBe("pending_approval");
+      }
+
+      const approval = await page.request.patch(
+        `/api/client-profiles/${fixture.primaryClientProfileId}/training-assets/${pending!.id}`,
+        {
+          data: {
+            trainingCategory: "visual_reference",
+            usageMode: "reference",
+            analysis,
+            reviewStatus: "approved",
+          },
+        },
+      );
+      expect(approval.ok(), `approval must succeed (got ${approval.status()})`).toBeTruthy();
+
+      const detail = await runV1Flow(page.request, fixture, {
+        intent: "single",
+        request: "Peça única controlada após aprovação humana da referência.",
+      });
+      expect(detail.outputs).toHaveLength(1);
+      const calls = evidenceForOutput(readProviderEvidence(), detail.outputs[0].id);
+      expect(calls).toHaveLength(1);
+      expect(calls[0].referenceNames.some(
+        (name) => path.parse(name).name === fixture.pendingReferenceLabel,
+      )).toBe(true);
+    } finally {
+      await withDb(async (client) => {
+        await client.query(
+          `update adscale_app.client_references
+           set training_category = 'graphic', usage_mode = 'exact', training_analysis = null,
+               review_status = 'pending_analysis', reviewed_at = null, reviewed_by_user_id = null
+           where id = $1 and workspace_id = $2 and client_profile_id = $3`,
+          [pending!.id, fixture.workspaceId, fixture.primaryClientProfileId],
+        );
+      });
+    }
+  });
+
   test("triplet always returns exactly three fixed creative levels", async ({ page }) => {
     const request = page.request;
     const fixture = loadFixture();

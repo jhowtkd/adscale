@@ -17,6 +17,14 @@ export const BRAND_CONSISTENCY_EVIDENCE_SCHEMA_VERSION = 1 as const;
 
 type RequestStatus = "pass" | "fail" | "mixed" | "pending";
 type BaselineStatus = "pass" | "human_needed" | "fail";
+type BaselineProvider = "manifest-observation" | "e2e-controlled-replay";
+
+export interface BrandConsistencyExecution {
+  provider: BaselineProvider;
+  providerCalls: number;
+  durationMs?: number | null;
+  rssBytes?: number | null;
+}
 
 interface RequestHashes {
   input: string;
@@ -48,6 +56,7 @@ export interface BrandConsistencyEvidenceRequest {
     humanVerdict: RequestStatus;
     humanNotes: string | null;
     artifactRef: string | null;
+    artifact: ProductionPilotRequestBaseline["artifact"] | null;
   };
   evidence: {
     source: HumanQualitySourceLabel;
@@ -67,18 +76,18 @@ export interface BrandConsistencyEvidence {
   coverage: ReturnType<typeof baselineCoverageReport> & { evaluatedCount: number };
   requests: BrandConsistencyEvidenceRequest[];
   execution: {
-    provider: "e2e-controlled-replay";
+    provider: BaselineProvider;
     paidGeneration: false;
-    providerCalls: 0;
+    providerCalls: number;
   };
   evidenceClasses: {
-    automatedBaseline: { status: "recorded"; count: number };
+    automatedBaseline: { status: "recorded" | "not_run"; count: number };
     humanEvaluation: { status: "recorded" | "pending"; count: number };
     paidGeneration: { status: "not_run"; count: 0; costUsd: null };
   };
   metrics: {
-    durationMs: null;
-    rssBytes: null;
+    durationMs: number | null;
+    rssBytes: number | null;
     tokens: null;
     costUsd: null;
   };
@@ -169,6 +178,7 @@ function buildRequestEvidence(
     humanVerdict: request.humanVerdict,
     humanNotes: request.humanNotes ?? null,
     artifactRef: request.artifactRef ?? null,
+    artifact: request.artifact ?? null,
   };
   const hashes = {
     input: stableHash(input),
@@ -201,6 +211,10 @@ function emptySourceComposition(): Record<HumanQualitySourceLabel, number> {
 export function buildBrandConsistencyEvidence(
   input: unknown,
   capturedAt = new Date().toISOString(),
+  execution: BrandConsistencyExecution = {
+    provider: "manifest-observation",
+    providerCalls: 0,
+  },
 ): BrandConsistencyEvidence {
   const baseline = productionPilotBaselineSchema.parse(input);
   const requests = baseline.requests.map((request) =>
@@ -212,20 +226,38 @@ export function buildBrandConsistencyEvidence(
   const evaluatedCount = requests.filter(
     (request) => request.result.humanVerdict !== "pending",
   ).length;
+  const rejectedCount = requests.filter(
+    (request) => request.result.humanVerdict === "fail",
+  ).length;
+  const mixedCount = requests.filter(
+    (request) => request.result.humanVerdict === "mixed",
+  ).length;
+  const evaluatedRealCustomerCount = requests.filter(
+    (request) =>
+      request.evidence.source === "real_customer" &&
+      request.result.humanVerdict !== "pending",
+  ).length;
   const coverage = {
     ...baselineCoverageReport(baseline),
     evaluatedCount,
   };
   const divergences = requests.flatMap((request) => request.evidence.divergences);
-  const status: BaselineStatus = divergences.length > 0
+  const status: BaselineStatus = divergences.length > 0 || rejectedCount > 0
     ? "fail"
-    : evaluatedCount === 0 || !coverage.meetsMinimum
+    : evaluatedCount === 0 || mixedCount > 0 || evaluatedCount < requests.length || !coverage.meetsMinimum
       ? "human_needed"
       : "pass";
 
   const claimsAllowed = baseline.requests.length > 0
-    ? ["baseline_inputs_recorded", "automated_evidence_hashed"]
+    ? ["baseline_inputs_recorded"]
     : [];
+  if (
+    execution.provider === "e2e-controlled-replay" &&
+    requests.length > 0 &&
+    requests.every((request) => request.result.artifact !== null)
+  ) {
+    claimsAllowed.push("automated_evidence_hashed");
+  }
   const claimsBlocked = [CUSTOMER_REAL_CLAIM, "paid_generation_quality"];
   const withheldClaims = [CUSTOMER_REAL_CLAIM, "paid_generation_quality"];
   if (evaluatedCount > 0) {
@@ -238,7 +270,7 @@ export function buildBrandConsistencyEvidence(
   }
   if (
     sourceComposition.real_customer > 0 &&
-    evaluatedCount > 0 &&
+    evaluatedRealCustomerCount > 0 &&
     coverage.meetsMinimum &&
     divergences.length === 0
   ) {
@@ -273,12 +305,15 @@ export function buildBrandConsistencyEvidence(
     coverage,
     requests,
     execution: {
-      provider: "e2e-controlled-replay",
+      provider: execution.provider,
       paidGeneration: false,
-      providerCalls: 0,
+      providerCalls: execution.providerCalls,
     },
     evidenceClasses: {
-      automatedBaseline: { status: "recorded", count: requests.length },
+      automatedBaseline: {
+        status: execution.provider === "e2e-controlled-replay" ? "recorded" : "not_run",
+        count: execution.provider === "e2e-controlled-replay" ? requests.length : 0,
+      },
       humanEvaluation: {
         status: evaluatedCount > 0 ? "recorded" : "pending",
         count: evaluatedCount,
@@ -286,8 +321,8 @@ export function buildBrandConsistencyEvidence(
       paidGeneration: { status: "not_run", count: 0, costUsd: null },
     },
     metrics: {
-      durationMs: null,
-      rssBytes: null,
+      durationMs: execution.durationMs ?? null,
+      rssBytes: execution.rssBytes ?? null,
       tokens: null,
       costUsd: null,
     },
@@ -306,7 +341,7 @@ export function formatBrandConsistencyEvidence(
     `Brand consistency baseline: ${report.pilotId}`,
     `Status: ${report.status}`,
     `Requests: ${report.requests.length} · evaluated: ${report.coverage.evaluatedCount}`,
-    `Provider: ${report.execution.provider} · paid generation: no · calls: 0`,
+    `Provider: ${report.execution.provider} · paid generation: no · calls: ${report.execution.providerCalls}`,
     `Hashes: inputs=${report.hashes.inputs} evidence=${report.hashes.evidence}`,
   ];
   if (report.divergences.length > 0) {

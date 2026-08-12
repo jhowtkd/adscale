@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
   getClientProfile: vi.fn(),
   createTrainingReference: vi.fn(),
+  deleteTrainingReference: vi.fn(),
   getTrainingReferences: vi.fn(),
   createWorkspaceAsset: vi.fn(),
   deleteWorkspaceAsset: vi.fn(),
@@ -40,6 +41,7 @@ vi.mock("next-intl/server", () => ({
 vi.mock("@/server/repositories/client-reference", () => ({
   getClientProfile: (...args: unknown[]) => mocks.getClientProfile(...args),
   createTrainingReference: (...args: unknown[]) => mocks.createTrainingReference(...args),
+  deleteTrainingReference: (...args: unknown[]) => mocks.deleteTrainingReference(...args),
   getTrainingReferences: (...args: unknown[]) => mocks.getTrainingReferences(...args),
 }));
 
@@ -66,10 +68,9 @@ vi.mock("@/server/jobs/client", () => ({
   inngest: { send: (...args: unknown[]) => mocks.inngestSend(...args) },
 }));
 
-import { objectStorage } from "@/server/storage";
-
 const getClientProfile = mocks.getClientProfile;
 const createTrainingReference = mocks.createTrainingReference;
+const deleteTrainingReference = mocks.deleteTrainingReference;
 const getTrainingReferences = mocks.getTrainingReferences;
 const createWorkspaceAsset = mocks.createWorkspaceAsset;
 const deleteWorkspaceAsset = mocks.deleteWorkspaceAsset;
@@ -104,6 +105,7 @@ describe("POST /api/client-profiles/[id]/training-assets", () => {
     putObject.mockResolvedValue(undefined);
     deleteObject.mockResolvedValue(undefined);
     deleteWorkspaceAsset.mockResolvedValue(null);
+    deleteTrainingReference.mockResolvedValue(null);
     publicUrl.mockImplementation((key: string) => `https://cdn.example/${key}`);
     inngestSend.mockResolvedValue(undefined);
   });
@@ -273,6 +275,53 @@ describe("POST /api/client-profiles/[id]/training-assets", () => {
     expect(deleteCalls).toHaveLength(1);
     expect(deleteCalls[0]).toMatch(
       /^workspaces\/workspace-1\/brand-training\/[a-f0-9-]+-logo\.png$/,
+    );
+  });
+
+  it("rolls back reference, asset, and object when analysis dispatch fails", async () => {
+    getClientProfile.mockResolvedValue({
+      id: PROFILE_ID,
+      workspaceId: WORKSPACE_ID,
+      name: "Acme",
+    });
+    normalizeTrainingUpload.mockResolvedValue({
+      buffer: Buffer.from("png-bytes"),
+      type: "image/png",
+      extension: "png",
+      hasAlpha: false,
+    });
+    createWorkspaceAsset.mockResolvedValue({
+      id: "asset-3",
+      workspaceId: WORKSPACE_ID,
+      key: `workspaces/${WORKSPACE_ID}/brand-training/dispatch-logo.png`,
+    });
+    createTrainingReference.mockResolvedValue({
+      id: "ref-dispatch",
+      workspaceId: WORKSPACE_ID,
+      clientProfileId: PROFILE_ID,
+      reviewStatus: "pending_analysis",
+    });
+    inngestSend.mockRejectedValue(new Error("dispatch down"));
+
+    const res = await POST(
+      new Request(
+        `http://localhost/api/client-profiles/${PROFILE_ID}/training-assets`,
+        { method: "POST", body: formDataWithFile() },
+      ),
+      { params: Promise.resolve({ id: PROFILE_ID }) },
+    );
+
+    expect(res.status).toBeGreaterThanOrEqual(500);
+    expect(deleteTrainingReference).toHaveBeenCalledWith({
+      workspaceId: WORKSPACE_ID,
+      clientProfileId: PROFILE_ID,
+      referenceId: "ref-dispatch",
+    });
+    expect(deleteWorkspaceAsset).toHaveBeenCalledWith("asset-3", WORKSPACE_ID);
+    expect(deleteObject).toHaveBeenCalledWith(
+      expect.stringMatching(
+        /^workspaces\/workspace-1\/brand-training\/[a-f0-9-]+-logo\.png$/,
+      ),
     );
   });
 });

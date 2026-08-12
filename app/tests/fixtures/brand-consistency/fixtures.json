@@ -21,7 +21,20 @@
       "observedHardFailures": [],
       "expectedHumanVerdict": "pending",
       "humanVerdict": "pending",
-      "capturedAt": "2026-08-12T12:00:00.000Z"
+      "capturedAt": "2026-08-12T12:00:00.000Z",
+      "replay": {
+        "brief": {
+          "theme": "Institucional",
+          "objective": "Apresentar a marca",
+          "audience": "",
+          "offer": null
+        },
+        "copy": {
+          "headline": "Conheça a marca",
+          "body": "Uma apresentação institucional.",
+          "cta": "Saiba mais"
+        }
+      }
     },
     {
       "requestId": "fixture-portrait",
@@ -34,7 +47,20 @@
       "observedHardFailures": [],
       "expectedHumanVerdict": "pending",
       "humanVerdict": "pending",
-      "capturedAt": "2026-08-12T12:00:01.000Z"
+      "capturedAt": "2026-08-12T12:00:01.000Z",
+      "replay": {
+        "brief": {
+          "theme": "Oferta",
+          "objective": "Apresentar uma oferta",
+          "audience": "",
+          "offer": "Oferta de teste"
+        },
+        "copy": {
+          "headline": "Oferta de teste",
+          "body": "Condição controlada para o baseline.",
+          "cta": "Conheça"
+        }
+      }
     },
     {
       "requestId": "fixture-vertical",
@@ -47,7 +73,20 @@
       "observedHardFailures": [],
       "expectedHumanVerdict": "pending",
       "humanVerdict": "pending",
-      "capturedAt": "2026-08-12T12:00:02.000Z"
+      "capturedAt": "2026-08-12T12:00:02.000Z",
+      "replay": {
+        "brief": {
+          "theme": "Institucional vertical",
+          "objective": "Apresentar a equipe",
+          "audience": "",
+          "offer": null
+        },
+        "copy": {
+          "headline": "Nossa equipe",
+          "body": "Uma apresentação vertical controlada.",
+          "cta": "Saiba mais"
+        }
+      }
     }
   ]
 }

@@ -645,6 +645,14 @@
           "reviewBeforeApprove": "Revisar e aprovar",
           "confirmApproval": "Confirmar aprovação",
           "retryUnavailable": "Esta proposta já usou todas as tentativas automáticas. Crie um novo pedido para gerar uma nova variação.",
+          "layerizeStart": "Separar em camadas",
+          "layerizeQueued": "Separação na fila",
+          "layerizeProcessing": "Separando camadas",
+          "layerizeReconciling": "Reconciliação necessária — a cobrança pode ter ocorrido; aguarde a confirmação.",
+          "layerizeCompleted": "Camadas prontas",
+          "layerizeFailed": "A separação em camadas falhou.",
+          "downloadPsd": "Baixar PSD",
+          "downloadPngs": "Baixar PNGs",
           "failure": {
             "timeout": "A geração demorou demais e foi interrompida.",
             "invalid_context": "O pedido ou as fontes não tinham informação suficiente para gerar com fidelidade. Ajuste o pedido e tente de novo.",
@@ -2257,6 +2265,10 @@
     "derivationHardFailures": "Esta criação tem falhas graves de qualidade e não pode ser aprovada nem usada para entrega até ser corrigida",
     "derivationMissingOutput": "Variação criativa está sem imagem de saída",
     "invalidInput": "Entrada inválida",
+    "creativeWorkLayerizationNotEligible": "Apenas uma Peça concluída e aprovada pode ser separada em camadas.",
+    "creativeWorkLayerizationNotConfigured": "A separação em camadas ainda não está configurada neste ambiente.",
+    "creativeWorkLayerizationDispatchFailed": "Não foi possível iniciar a separação em camadas. Tente novamente.",
+    "creativeWorkLayerizationNotFound": "Tentativa de separação não encontrada.",
     "rateLimitExceeded": "Muitas requisições. Tente novamente mais tarde.",
     "creativeWorkNotDraft": "Este trabalho já entrou em geração e não pode mais ser alterado. Inicie uma nova criação para continuar.",
     "creativeWorkNotEligibleForSuggestion": "Este trabalho não está no estado de variações com fonte pronta; sugestões de direcionamento não estão disponíveis.",
@@ -2417,8 +2429,7 @@
         "reference": "Referência (inspirar o layout)",
         "rule": "Regra (aplicar o estilo)"
       },
-      "reviewedAt": "Revisado em {when}",
-      "legacyReviewRequired": "Material legado: confirme esta revisão para que ele possa participar do Córtex da Marca."
+      "reviewedAt": "Revisado em {when}"
     }
   },
   "review": {

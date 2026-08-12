@@ -158,6 +158,31 @@ describe("PATCH /api/client-profiles/[id]/training-assets/[referenceId]", () => 
     );
   });
 
+  it("does not reactivate an archived reference", async () => {
+    getTrainingReferences.mockResolvedValue([
+      {
+        id: REFERENCE_ID,
+        workspaceId: WORKSPACE_ID,
+        clientProfileId: PROFILE_ID,
+        assetKey: ASSET_KEY,
+        reviewStatus: "archived",
+      },
+    ]);
+
+    const res = await PATCH(
+      patchRequest({
+        trainingCategory: "graphic",
+        usageMode: "reference",
+        analysis: validAnalysis,
+        reviewStatus: "approved",
+      }),
+      { params: Promise.resolve({ id: PROFILE_ID, referenceId: REFERENCE_ID }) },
+    );
+
+    expect(res.status).toBe(404);
+    expect(reviewTrainingReference).not.toHaveBeenCalled();
+  });
+
   it("returns 404 when the scoped update returns null", async () => {
     reviewTrainingReference.mockResolvedValue(null);
 

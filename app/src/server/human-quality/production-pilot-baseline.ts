@@ -59,6 +59,54 @@ export const productionPilotRequestBaselineSchema = z.object({
   observedHardFailures: z.array(hardFailureSchema),
   humanVerdict: z.enum(["pass", "fail", "mixed", "pending"]),
   humanNotes: z.string().optional(),
+  artifact: z
+    .object({
+      sha256: z.string().regex(/^[a-f0-9]{64}$/),
+      mimeType: z.string().min(1),
+      byteLength: z.number().int().positive(),
+      width: z.number().int().positive(),
+      height: z.number().int().positive(),
+      measurement: z.object({
+        aspectRatio: z.number().positive(),
+        meanLuminance: z.number(),
+        hasRealTransparency: z.boolean(),
+        transparentAreaPercent: z.number(),
+        colorCoverage: z.array(
+          z.object({
+            hex: z.string(),
+            label: z.string().optional(),
+            coveragePercent: z.number(),
+          }),
+        ),
+        contentBoundingBox: z
+          .object({
+            left: z.number(),
+            top: z.number(),
+            width: z.number(),
+            height: z.number(),
+          })
+          .nullable(),
+        margins: z
+          .object({
+            left: z.number(),
+            top: z.number(),
+            right: z.number(),
+            bottom: z.number(),
+          })
+          .nullable(),
+        regions: z.array(
+          z.object({
+            x: z.number(),
+            y: z.number(),
+            width: z.number(),
+            height: z.number(),
+            meanLuminance: z.number(),
+            contrast: z.number(),
+          }),
+        ),
+      }),
+    })
+    .optional(),
   /** External artifact pointer (R2 key, URL, or local path outside git). */
   artifactRef: z.string().optional(),
   capturedAt: z.string(),
