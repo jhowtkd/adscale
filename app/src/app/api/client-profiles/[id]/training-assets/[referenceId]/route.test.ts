@@ -253,7 +253,7 @@ describe("PATCH /api/client-profiles/[id]/training-assets/[referenceId]", () => 
     );
   });
 
-  it("archives with analysis: null (auto-approved upload without AI analysis yet)", async () => {
+  it("archives with analysis: null (legacy upload without AI analysis)", async () => {
     reviewTrainingReference.mockResolvedValue({
       id: REFERENCE_ID,
       workspaceId: WORKSPACE_ID,

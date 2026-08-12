@@ -16,7 +16,6 @@ const mocks = vi.hoisted(() => ({
   getClientProfile: vi.fn(),
   createTrainingReference: vi.fn(),
   getTrainingReferences: vi.fn(),
-  autoApprovePendingTrainingReferences: vi.fn(() => Promise.resolve([])),
   createWorkspaceAsset: vi.fn(),
   deleteWorkspaceAsset: vi.fn(),
   getWorkspaceAssetByKey: vi.fn(),
@@ -42,8 +41,6 @@ vi.mock("@/server/repositories/client-reference", () => ({
   getClientProfile: (...args: unknown[]) => mocks.getClientProfile(...args),
   createTrainingReference: (...args: unknown[]) => mocks.createTrainingReference(...args),
   getTrainingReferences: (...args: unknown[]) => mocks.getTrainingReferences(...args),
-  autoApprovePendingTrainingReferences: (...args: unknown[]) =>
-    mocks.autoApprovePendingTrainingReferences(...args),
 }));
 
 vi.mock("@/server/repositories/workspace-asset", () => ({
@@ -74,7 +71,6 @@ import { objectStorage } from "@/server/storage";
 const getClientProfile = mocks.getClientProfile;
 const createTrainingReference = mocks.createTrainingReference;
 const getTrainingReferences = mocks.getTrainingReferences;
-const autoApprovePendingTrainingReferences = mocks.autoApprovePendingTrainingReferences;
 const createWorkspaceAsset = mocks.createWorkspaceAsset;
 const deleteWorkspaceAsset = mocks.deleteWorkspaceAsset;
 const getWorkspaceAssetByKey = mocks.getWorkspaceAssetByKey;
@@ -150,7 +146,7 @@ describe("POST /api/client-profiles/[id]/training-assets", () => {
       kind: "other",
       trainingCategory: "visual_reference",
       usageMode: "reference",
-      reviewStatus: "approved",
+      reviewStatus: "pending_analysis",
     };
     createTrainingReference.mockResolvedValue(reference);
     createWorkspaceAsset.mockResolvedValue({
@@ -284,6 +280,23 @@ describe("POST /api/client-profiles/[id]/training-assets", () => {
 describe("GET /api/client-profiles/[id]/training-assets", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    getClientProfile.mockResolvedValue({
+      id: PROFILE_ID,
+      workspaceId: WORKSPACE_ID,
+      name: "Acme",
+    });
+  });
+
+  it("returns 404 when the profile does not belong to the workspace", async () => {
+    getClientProfile.mockResolvedValue(null);
+
+    const res = await GET(
+      new Request(`http://localhost/api/client-profiles/${PROFILE_ID}/training-assets`),
+      { params: Promise.resolve({ id: PROFILE_ID }) },
+    );
+
+    expect(res.status).toBe(404);
+    expect(getTrainingReferences).not.toHaveBeenCalled();
   });
 
   it("lists training references with their workspace assets and urls", async () => {
@@ -315,10 +328,6 @@ describe("GET /api/client-profiles/[id]/training-assets", () => {
     });
 
     expect(res.status).toBe(200);
-    expect(autoApprovePendingTrainingReferences).toHaveBeenCalledWith(
-      WORKSPACE_ID,
-      PROFILE_ID,
-    );
     expect(getTrainingReferences).toHaveBeenCalledWith(WORKSPACE_ID, PROFILE_ID);
     const body = await res.json();
     expect(body.references).toHaveLength(1);

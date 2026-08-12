@@ -13,9 +13,7 @@ import { getWorkspaceAssetByKey } from "@/server/repositories/workspace-asset";
 /**
  * PATCH /api/client-profiles/:id/training-assets/:referenceId
  *
- * Authenticated review for a brand training asset (archive, or adjust
- * category/mode on an already-approved upload). New uploads are
- * auto-approved on create; this route remains for archive / edits.
+ * Authenticated review for a brand training asset (approve or archive).
  */
 export async function PATCH(
   request: Request,

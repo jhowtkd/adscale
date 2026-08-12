@@ -193,6 +193,7 @@ export interface BrandTrainingAssetRecord {
     confidence: number;
   } | null;
   reviewedAt: string | Date | null;
+  reviewedByUserId?: string | null;
   createdAt: string | Date;
   asset: {
     id: string;
