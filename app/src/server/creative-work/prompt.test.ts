@@ -502,6 +502,29 @@ describe("buildCreativeWorkPrompt", () => {
     expect(prompt).not.toContain("Público da marca");
   });
 
+  it("asks for a text-free background when the square piece will compose approved copy", () => {
+    const deterministicCopy = {
+      headline: "HEADLINE_LITERAL_42",
+      body: "BODY_LITERAL_42",
+      cta: "CTA_LITERAL_42",
+    };
+    const prompt = buildCreativeWorkPrompt(
+      creativeWorkPromptInput({
+        mode: "social_post",
+        format: "1:1",
+        copy: deterministicCopy,
+        textExecution: "deterministic",
+      }),
+    );
+
+    expect(prompt).toContain("DETERMINISTIC TEXT CONTRACT:");
+    expect(prompt).toContain("Do not render any visible text, letters, words, labels or CTA");
+    expect(prompt).toContain("leave the top half visually clean");
+    expect(prompt).not.toContain(deterministicCopy.headline);
+    expect(prompt).not.toContain(deterministicCopy.body);
+    expect(prompt).not.toContain(deterministicCopy.cta);
+  });
+
   it("forbids literal copying from Brand Training identity references", () => {
     const prompt = buildCreativeWorkPrompt(
       creativeWorkPromptInput({
