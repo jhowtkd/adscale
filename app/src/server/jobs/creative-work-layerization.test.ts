@@ -14,6 +14,7 @@ const markUnknownMock = vi.hoisted(() => vi.fn());
 const objectSignedUrlMock = vi.hoisted(() => vi.fn());
 const objectGetMock = vi.hoisted(() => vi.fn());
 const objectPutMock = vi.hoisted(() => vi.fn());
+const objectPutStreamMock = vi.hoisted(() => vi.fn());
 const createProviderMock = vi.hoisted(() => vi.fn());
 const downloadLayersMock = vi.hoisted(() => vi.fn());
 const normalizeResponseMock = vi.hoisted(() => vi.fn());
@@ -41,11 +42,13 @@ vi.mock("@/server/storage", () => ({
     signedDownloadUrl: (...args: unknown[]) => objectSignedUrlMock(...args),
     get: (...args: unknown[]) => objectGetMock(...args),
     put: (...args: unknown[]) => objectPutMock(...args),
+    putStream: (...args: unknown[]) => objectPutStreamMock(...args),
   },
 }));
 vi.mock("@/server/layerize/seedream-provider", () => ({
   createSeedreamProvider: (...args: unknown[]) => createProviderMock(...args),
   downloadSeedreamLayers: (...args: unknown[]) => downloadLayersMock(...args),
+  estimateSeedreamLayerizationCostUsd: () => 0.0675,
   normalizeSeedreamLayerResponse: (...args: unknown[]) => normalizeResponseMock(...args),
 }));
 vi.mock("@/server/layerize/artifacts", () => ({
@@ -81,11 +84,11 @@ function state(status: LayerizationState["status"], providerRequestId: string | 
     requestedByUserId: "owner-1",
     createdAt: now,
     updatedAt: now,
-    callbackDeadlineAt: "2026-08-12T14:00:00.000Z",
+    callbackDeadlineAt: "2099-08-12T14:00:00.000Z",
     providerRequestId,
-    providerModel: "bytedance/seedream/v5/pro/edit",
-    providerEndpoint: "https://queue.fal.run/bytedance/seedream/v5/pro/edit",
-    estimatedCostUsd: 0.0675,
+    providerModel: "bytedance/seedream/v5/pro/layerize",
+    providerEndpoint: "https://queue.fal.run/bytedance/seedream/v5/pro/layerize",
+    estimatedCostUsd: null,
     baseWidth: null,
     baseHeight: null,
     layers: [],
@@ -127,6 +130,7 @@ function configureCompletedFlow() {
   objectSignedUrlMock.mockResolvedValue("https://storage.example/original.png");
   objectGetMock.mockResolvedValue(basePng);
   objectPutMock.mockResolvedValue(undefined);
+  objectPutStreamMock.mockResolvedValue(undefined);
   normalizeResponseMock.mockReturnValue({
     width: 2,
     height: 2,
@@ -157,7 +161,14 @@ function configureCompletedFlow() {
       },
     ],
   });
-  downloadLayersMock.mockResolvedValue([basePng, overlayPng]);
+  downloadLayersMock.mockImplementation(async (
+    layers: Array<{ sourceUrl: string; isBase: boolean }>,
+    options: { store: (layer: { sourceUrl: string; isBase: boolean }, index: number, buffer: Buffer) => Promise<void> },
+  ) => {
+    const buffers = [basePng, overlayPng];
+    await Promise.all(layers.map((layer, index) => options.store(layer, index, buffers[index])));
+    return buffers.map((buffer) => buffer.length);
+  });
   recomposeMock.mockResolvedValue(Buffer.from("recomposed"));
   fidelityMock.mockResolvedValue({ normalizedMae: 0, rmse: 0, psnrDb: 99, gate: "passed" });
   writePsdMock.mockResolvedValue(Buffer.from("psd"));
@@ -181,7 +192,8 @@ describe("creative work layerization job", () => {
     expect(result.status).toBe("completed");
     expect(provider.submit).toHaveBeenCalledOnce();
     expect(objectGetMock).toHaveBeenCalledWith("creative-work/original.png");
-    expect(objectPutMock).toHaveBeenCalledTimes(4);
+    expect(objectPutStreamMock).toHaveBeenCalledTimes(2);
+    expect(objectPutMock).toHaveBeenCalledTimes(2);
     expect(updateStateMock).toHaveBeenCalledWith(expect.objectContaining({
       state: expect.objectContaining({
         layers: expect.not.arrayContaining([expect.objectContaining({ sourceUrl: expect.any(String) })]),
@@ -196,16 +208,53 @@ describe("creative work layerization job", () => {
     }));
   });
 
-  it("marks a redelivered attempt without a request id as unknown instead of submitting again", async () => {
+  it("keeps a redelivered attempt without a request id reconciling instead of submitting again", async () => {
     getOutputMock.mockResolvedValue(row(state("processing")));
-    markUnknownMock.mockResolvedValue(row(state("submission_unknown")));
+    markReconcilingMock.mockResolvedValue(row(state("reconciling")));
 
     const result = await runCreativeWorkLayerization({ event, provider });
 
-    expect(result).toEqual({ status: "submission_unknown" });
+    expect(result).toEqual({ status: "reconciling" });
     expect(provider.submit).not.toHaveBeenCalled();
     expect(getCreativeWorkMock).not.toHaveBeenCalled();
+    expect(markReconcilingMock).toHaveBeenCalledOnce();
+  });
+
+  it("marks an unidentified submission unknown only after its callback deadline", async () => {
+    const expired = state("reconciling");
+    expired.callbackDeadlineAt = "2020-01-01T00:00:00.000Z";
+    getOutputMock.mockResolvedValue(row(expired));
+    markUnknownMock.mockResolvedValue(row(state("submission_unknown")));
+
+    await expect(runCreativeWorkLayerization({ event, provider })).resolves.toEqual({ status: "submission_unknown" });
+    expect(provider.submit).not.toHaveBeenCalled();
     expect(markUnknownMock).toHaveBeenCalledOnce();
+  });
+
+  it("waits for callback when the submit response is lost", async () => {
+    getOutputMock.mockResolvedValueOnce(row(state("queued")));
+    claimProcessingMock.mockResolvedValueOnce(row(state("processing")));
+    getCreativeWorkMock.mockResolvedValue({ outputs: [{ id: event.outputId, outputKey: "creative-work/original.png" }] });
+    objectSignedUrlMock.mockResolvedValue("https://storage.example/original.png");
+    provider.submit.mockRejectedValueOnce(new Error("response lost"));
+    markReconcilingMock.mockResolvedValue(row(state("reconciling")));
+
+    await expect(runCreativeWorkLayerization({ event, provider })).resolves.toEqual({ status: "reconciling" });
+    expect(markUnknownMock).not.toHaveBeenCalled();
+    expect(provider.submit).toHaveBeenCalledOnce();
+  });
+
+  it("fails a known provider request once the reconciliation deadline expires", async () => {
+    const expired = state("reconciling", "request-1");
+    expired.callbackDeadlineAt = "2020-01-01T00:00:00.000Z";
+    getOutputMock.mockResolvedValue(row(expired));
+    getCreativeWorkMock.mockResolvedValue({ outputs: [{ id: event.outputId, outputKey: "creative-work/original.png" }] });
+    provider.status.mockRejectedValueOnce(new Error("provider unavailable"));
+    failMock.mockResolvedValue(row({ ...expired, status: "failed", failureCode: "provider_error" }));
+
+    await expect(runCreativeWorkLayerization({ event, provider })).resolves.toEqual({ status: "failed" });
+    expect(failMock).toHaveBeenCalledWith(expect.objectContaining({ code: "provider_error" }));
+    expect(markReconcilingMock).not.toHaveBeenCalled();
   });
 
   it("polls a reconciling request before finalizing it", async () => {
@@ -219,6 +268,7 @@ describe("creative work layerization job", () => {
     getCreativeWorkMock.mockResolvedValue({ outputs: [{ id: event.outputId, outputKey: "creative-work/original.png" }] });
     objectGetMock.mockResolvedValue(basePng);
     objectPutMock.mockResolvedValue(undefined);
+    objectPutStreamMock.mockResolvedValue(undefined);
     objectSignedUrlMock.mockResolvedValue("https://storage.example/original.png");
     provider.status.mockResolvedValueOnce("IN_PROGRESS").mockResolvedValueOnce("COMPLETED");
     provider.result.mockResolvedValue({ provider: "payload" });
@@ -238,6 +288,6 @@ describe("creative work layerization job", () => {
 
     expect(result).toEqual({ status: "completed" });
     expect(provider.status).toHaveBeenCalledTimes(2);
-    expect(sleep).toHaveBeenCalledWith("wait-for-layerization-0", "15s");
+    expect(sleep).toHaveBeenCalledWith("wait-for-layerization-0", "5m");
   });
 });

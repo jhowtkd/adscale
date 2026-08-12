@@ -20,9 +20,9 @@ import {
   SEEDREAM_LAYERIZE_MODEL_ID,
   SEEDREAM_PROVIDER_ENDPOINT,
 } from "@/server/layerize/seedream-provider";
+import { env } from "@/server/validation/env";
 
 const LAYERIZATION_CALLBACK_TTL_MS = 2 * 60 * 60 * 1000;
-const LAYERIZATION_ESTIMATED_COST_USD = 0.0675;
 
 export type RequestCreativeWorkLayerizationError =
   | { code: "work_not_found" }
@@ -65,7 +65,7 @@ function newLayerizationState(input: {
     providerRequestId: null,
     providerModel: SEEDREAM_LAYERIZE_MODEL_ID,
     providerEndpoint: SEEDREAM_PROVIDER_ENDPOINT,
-    estimatedCostUsd: LAYERIZATION_ESTIMATED_COST_USD,
+    estimatedCostUsd: null,
     baseWidth: null,
     baseHeight: null,
     layers: [],
@@ -84,7 +84,7 @@ export async function requestCreativeWorkLayerization(input: {
   callbackUrl: string;
   retry?: boolean;
 }): Promise<RequestCreativeWorkLayerizationResult> {
-  if (!process.env.FAL_KEY?.trim()) {
+  if (!env.FAL_KEY?.trim()) {
     return { ok: false, error: { code: "layerization_not_configured" } };
   }
   const aggregate = await getCreativeWork(input.workspaceId, input.workItemId);

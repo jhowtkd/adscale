@@ -9,7 +9,7 @@ import {
 } from "@/server/repositories/creative-work-layerization";
 
 export const creativeWorkLayerizationCallbackSchema = z.object({
-  status: z.enum(["COMPLETED", "FAILED"]),
+  status: z.enum(["OK", "ERROR"]),
   request_id: z.string().min(1).max(256),
 }).passthrough();
 
@@ -36,7 +36,7 @@ export async function handleCreativeWorkLayerizationCallback(input: {
   if (!accepted.row) return { ok: false, code: "unknown_attempt" };
   if (!accepted.accepted && !accepted.replay) return { ok: false, code: "invalid_callback" };
   if (accepted.replay) return { ok: true, replay: true };
-  if (parsed.data.status === "FAILED" && accepted.accepted) {
+  if (parsed.data.status === "ERROR" && accepted.accepted) {
     await failCreativeWorkLayerization({
       workspaceId: accepted.row.workspaceId,
       workItemId: input.workItemId,

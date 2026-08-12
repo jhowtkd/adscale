@@ -143,7 +143,6 @@ export async function markCreativeWorkLayerizationReconciling(
   }).where(and(
     scope(workspaceId, workItemId, outputId),
     sql`${creativeWorkOutputs.layerization}->>'status' in ('processing', 'reconciling')`,
-    sql`${creativeWorkOutputs.layerization}->>'callbackConsumedAt' is null`,
   )).returning();
   return updated ?? row;
 }
@@ -203,12 +202,12 @@ export async function acceptCreativeWorkLayerizationCallback(input: {
   if (Date.parse(state.callbackDeadlineAt) <= Date.now()) {
     return { accepted: false, replay: false, row };
   }
-  if (state.status === "completed" || state.status === "failed" || state.status === "submission_unknown" || state.status === "finalizing") {
+  if (state.status === "completed" || state.status === "failed" || state.status === "finalizing") {
     return { accepted: false, replay: true, row };
   }
   if (state.callbackConsumedAt) return { accepted: false, replay: true, row };
   const next = {
-    ...withStatus(state, "processing"),
+    ...withStatus(state, "processing", null),
     callbackConsumedAt: new Date().toISOString(),
     providerRequestId: state.providerRequestId ?? input.requestId ?? null,
   } satisfies LayerizationState;
@@ -218,7 +217,7 @@ export async function acceptCreativeWorkLayerizationCallback(input: {
   }).where(and(
     eq(creativeWorkOutputs.workItemId, input.workItemId),
     eq(creativeWorkOutputs.id, input.outputId),
-    sql`${creativeWorkOutputs.layerization}->>'status' in ('queued', 'processing', 'reconciling')`,
+    sql`${creativeWorkOutputs.layerization}->>'status' in ('queued', 'processing', 'reconciling', 'submission_unknown')`,
     sql`${creativeWorkOutputs.layerization}->>'callbackConsumedAt' is null`,
   )).returning();
   return updated
@@ -240,7 +239,6 @@ export async function claimCreativeWorkLayerizationFinalization(
   }).where(and(
     scope(workspaceId, workItemId, outputId),
     sql`${creativeWorkOutputs.layerization}->>'status' in ('processing', 'reconciling')`,
-    sql`${creativeWorkOutputs.layerization}->>'callbackConsumedAt' is null`,
   )).returning();
   return claimed ?? null;
 }
@@ -276,7 +274,6 @@ export async function failCreativeWorkLayerization(input: {
   }).where(and(
     scope(input.workspaceId, input.workItemId, input.outputId),
     sql`${creativeWorkOutputs.layerization}->>'status' in ('queued', 'processing', 'reconciling', 'finalizing')`,
-    sql`${creativeWorkOutputs.layerization}->>'callbackConsumedAt' is null`,
   )).returning();
   return updated ?? row;
 }

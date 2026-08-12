@@ -53,6 +53,7 @@ import { decideCreativeWorkRefund } from "@/server/generation/canonical/policies
 import { settleTerminalRefund } from "@/server/generation/settlement";
 import type { CreativeWorkSource } from "@/server/db/schema";
 import { logger } from "@/lib/logger";
+import { env } from "@/server/validation/env";
 import {
   logCreativeWorkGenerationAggregate,
   logCreativeWorkOutputTerminal,
@@ -370,7 +371,7 @@ export async function GET(
     const inferredBriefing = result.work.toolKind === "single"
       ? resolveCreativeWorkInferredBriefing(result.work.inputSnapshot)
       : null;
-    const canLayerize = isPlatformOwnerEmail(user.email);
+    const canLayerize = isPlatformOwnerEmail(user.email) && Boolean(env.FAL_KEY?.trim());
     const outputs = result.outputs.map((output) => ({
       ...output,
       layerization: canLayerize ? toPublicLayerizationState(output.layerization) : null,
@@ -413,7 +414,7 @@ export async function PATCH(
 
     if ("action" in parsed.data && parsed.data.action === "layerizeOutput") {
       const [{ user }] = await Promise.all([requirePlatformOwner(request)]);
-      const callbackOrigin = process.env.APP_URL?.trim() || process.env.BETTER_AUTH_URL?.trim();
+      const callbackOrigin = env.APP_URL?.trim() || env.BETTER_AUTH_URL?.trim();
       const callbackUrl = new URL(callbackOrigin ? `/api/creative-work/${id}` : request.url, callbackOrigin ?? undefined);
       callbackUrl.search = "";
       const result = await requestCreativeWorkLayerization({

@@ -1,5 +1,6 @@
 import "server-only";
 
+import { Readable } from "node:stream";
 import { objectStorage } from "@/server/storage";
 import { getCreativeWork } from "@/server/repositories/creative-work";
 import {
@@ -21,6 +22,7 @@ import {
 import {
   createSeedreamProvider,
   downloadSeedreamLayers,
+  estimateSeedreamLayerizationCostUsd,
   normalizeSeedreamLayerResponse,
   type SeedreamProvider,
 } from "@/server/layerize/seedream-provider";
@@ -45,7 +47,8 @@ type LayerizationStep = {
   run<T>(name: string, fn: () => Promise<T>): Promise<T>;
   sleep(name: string, duration: string): Promise<void>;
 };
-const MAX_RECONCILIATION_POLLS = 4;
+const MAX_RECONCILIATION_POLLS = 25;
+const RECONCILIATION_INTERVAL = "5m";
 
 const LAYERIZE_PROMPT = [
   "Separate this approved flat creative into editable named PNG layers.",
@@ -75,14 +78,20 @@ function stateWithArtifacts(
     baseWidth: input.width,
     baseHeight: input.height,
     layers: input.layers,
+    estimatedCostUsd: estimateSeedreamLayerizationCostUsd(input.width, input.height, input.layers.length),
     fidelity: input.fidelity,
     updatedAt: new Date().toISOString(),
   };
 }
 
+function callbackDeadlinePassed(state: LayerizationState): boolean {
+  return Date.parse(state.callbackDeadlineAt) <= Date.now();
+}
+
 export async function runCreativeWorkLayerization(input: {
   event: CreativeWorkLayerizationEvent;
   provider?: SeedreamProvider;
+  downloadOptions?: Omit<Parameters<typeof downloadSeedreamLayers>[1], "store">;
 }): Promise<{ status: LayerizationState["status"] | "skipped" }> {
   const { event } = input;
   const provider = input.provider ?? createSeedreamProvider();
@@ -91,14 +100,19 @@ export async function runCreativeWorkLayerization(input: {
   let state: LayerizationState = initialState;
   if (["completed", "failed", "submission_unknown"].includes(state.status)) return { status: state.status };
 
+  let maySubmit = false;
   if (state.status === "queued") {
     const claimed = await claimCreativeWorkLayerizationProcessing(event.workspaceId, event.workItemId, event.outputId);
     if (!claimed) return { status: "skipped" };
     state = layerizationStateFromDatabase(claimed.layerization) ?? state;
-  } else if (state.status === "processing" && !state.providerRequestId) {
-    // A redelivery after the submit boundary is unknown: never submit again.
-    await markCreativeWorkLayerizationSubmissionUnknown(event.workspaceId, event.workItemId, event.outputId);
-    return { status: "submission_unknown" };
+    maySubmit = true;
+  } else if (!state.providerRequestId) {
+    if (callbackDeadlinePassed(state)) {
+      await markCreativeWorkLayerizationSubmissionUnknown(event.workspaceId, event.workItemId, event.outputId);
+      return { status: "submission_unknown" };
+    }
+    await markCreativeWorkLayerizationReconciling(event.workspaceId, event.workItemId, event.outputId);
+    return { status: "reconciling" };
   }
 
   const aggregate = await getCreativeWork(event.workspaceId, event.workItemId);
@@ -113,7 +127,7 @@ export async function runCreativeWorkLayerization(input: {
     return { status: "failed" };
   }
 
-  if (!state.providerRequestId) {
+  if (!state.providerRequestId && maySubmit) {
     let requestId: string;
     try {
       const sourceUrl = await objectStorage.signedDownloadUrl(output.outputKey);
@@ -134,8 +148,12 @@ export async function runCreativeWorkLayerization(input: {
         });
         return { status: "failed" };
       }
-      await markCreativeWorkLayerizationSubmissionUnknown(event.workspaceId, event.workItemId, event.outputId);
-      return { status: "submission_unknown" };
+      if (callbackDeadlinePassed(state)) {
+        await markCreativeWorkLayerizationSubmissionUnknown(event.workspaceId, event.workItemId, event.outputId);
+        return { status: "submission_unknown" };
+      }
+      await markCreativeWorkLayerizationReconciling(event.workspaceId, event.workItemId, event.outputId);
+      return { status: "reconciling" };
     }
     const recorded = await recordCreativeWorkLayerizationProviderRequest(
       event.workspaceId,
@@ -158,10 +176,28 @@ export async function runCreativeWorkLayerization(input: {
       return { status: "failed" };
     }
     if (status !== "COMPLETED") {
+      if (callbackDeadlinePassed(state)) {
+        await failCreativeWorkLayerization({
+          workspaceId: event.workspaceId,
+          workItemId: event.workItemId,
+          outputId: event.outputId,
+          code: "provider_error",
+        });
+        return { status: "failed" };
+      }
       await markCreativeWorkLayerizationReconciling(event.workspaceId, event.workItemId, event.outputId);
       return { status: "reconciling" };
     }
   } catch {
+    if (callbackDeadlinePassed(state)) {
+      await failCreativeWorkLayerization({
+        workspaceId: event.workspaceId,
+        workItemId: event.workItemId,
+        outputId: event.outputId,
+        code: "provider_error",
+      });
+      return { status: "failed" };
+    }
     await markCreativeWorkLayerizationReconciling(event.workspaceId, event.workItemId, event.outputId);
     return { status: "reconciling" };
   }
@@ -180,6 +216,15 @@ export async function runCreativeWorkLayerization(input: {
       });
       return { status: "failed" };
     }
+    if (callbackDeadlinePassed(state)) {
+      await failCreativeWorkLayerization({
+        workspaceId: event.workspaceId,
+        workItemId: event.workItemId,
+        outputId: event.outputId,
+        code: "provider_error",
+      });
+      return { status: "failed" };
+    }
     await markCreativeWorkLayerizationReconciling(event.workspaceId, event.workItemId, event.outputId);
     return { status: "reconciling" };
   }
@@ -190,18 +235,29 @@ export async function runCreativeWorkLayerization(input: {
 
   try {
     const normalized = normalizeSeedreamLayerResponse(providerPayload);
-    const layerBuffers = await downloadSeedreamLayers(normalized.layers);
-    const layerBitmaps: LayerBitmap[] = normalized.layers.map((layer, index) => {
+    const layerBytes = await downloadSeedreamLayers(normalized.layers, {
+      ...input.downloadOptions,
+      store: async (_layer, index, buffer) => {
+        await objectStorage.putStream(
+          layerStorageKey(event, normalized.layers[index].order),
+          Readable.from(buffer),
+          "image/png",
+        );
+      },
+    });
+    const durableLayers = normalized.layers.map((layer, index) => {
       const { sourceUrl: _sourceUrl, ...metadata } = layer;
       void _sourceUrl;
       return {
         ...metadata,
         storageKey: layerStorageKey(event, layer.order),
-        sourceBytes: layerBuffers[index].length,
-        png: layerBuffers[index],
+        sourceBytes: layerBytes[index],
       };
     });
-    await Promise.all(layerBitmaps.map((layer) => objectStorage.put(layer.storageKey, layer.png, "image/png")));
+    const layerBitmaps: LayerBitmap[] = [];
+    for (const layer of durableLayers) {
+      layerBitmaps.push({ ...layer, png: await objectStorage.get(layer.storageKey) });
+    }
     const original = await objectStorage.get(output.outputKey);
     const recomposed = await recomposeLayerBitmaps({
       width: normalized.width,
@@ -211,11 +267,6 @@ export async function runCreativeWorkLayerization(input: {
     const fidelity = await calculateLayerizationFidelity(original, recomposed, {
       width: normalized.width,
       height: normalized.height,
-    });
-    const durableLayers = layerBitmaps.map((layer) => {
-      const { png, ...durable } = layer;
-      void png;
-      return durable;
     });
     state = await updateCreativeWorkLayerizationState({
       workspaceId: event.workspaceId,
@@ -296,7 +347,7 @@ async function layerizationJobHandler({ event, step }: { event: { data: Creative
   for (let poll = 0; poll < MAX_RECONCILIATION_POLLS; poll += 1) {
     result = await step.run(`layerize-creative-work-${poll}`, () => runCreativeWorkLayerization({ event: event.data }));
     if (result.status !== "reconciling" || poll === MAX_RECONCILIATION_POLLS - 1) return result;
-    await step.sleep(`wait-for-layerization-${poll}`, "15s");
+    await step.sleep(`wait-for-layerization-${poll}`, RECONCILIATION_INTERVAL);
   }
   return result;
 }

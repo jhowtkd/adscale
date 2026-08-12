@@ -24,8 +24,8 @@ vi.mock("@/server/jobs/heavy-image-events", () => ({
   heavyImageEventName: (name: string) => name,
 }));
 vi.mock("@/server/layerize/seedream-provider", () => ({
-  SEEDREAM_LAYERIZE_MODEL_ID: "bytedance/seedream/v5/pro/edit",
-  SEEDREAM_PROVIDER_ENDPOINT: "https://queue.fal.run/bytedance/seedream/v5/pro/edit",
+  SEEDREAM_LAYERIZE_MODEL_ID: "bytedance/seedream/v5/pro/layerize",
+  SEEDREAM_PROVIDER_ENDPOINT: "https://queue.fal.run/bytedance/seedream/v5/pro/layerize",
 }));
 
 import { requestCreativeWorkLayerization } from "./request-creative-work-layerization";
@@ -87,9 +87,9 @@ describe("requestCreativeWorkLayerization", () => {
       updatedAt: "2026-08-12T12:00:00.000Z",
       callbackDeadlineAt: "2026-08-12T14:00:00.000Z",
       providerRequestId: null,
-      providerModel: "bytedance/seedream/v5/pro/edit",
-      providerEndpoint: "https://queue.fal.run/bytedance/seedream/v5/pro/edit",
-      estimatedCostUsd: 0.0675,
+      providerModel: "bytedance/seedream/v5/pro/layerize",
+      providerEndpoint: "https://queue.fal.run/bytedance/seedream/v5/pro/layerize",
+      estimatedCostUsd: null,
       baseWidth: null,
       baseHeight: null,
       layers: [],
@@ -103,6 +103,37 @@ describe("requestCreativeWorkLayerization", () => {
 
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.code).toBe("submission_unknown");
+    expect(claimMock).not.toHaveBeenCalled();
+    expect(sendMock).not.toHaveBeenCalled();
+  });
+
+  it("does not retry a provider failure that may already have been charged", async () => {
+    output.layerization = {
+      status: "failed",
+      attemptId: "attempt-1",
+      callbackTokenHash: "a".repeat(64),
+      callbackConsumedAt: null,
+      requestedByUserId: "owner-1",
+      createdAt: "2026-08-12T12:00:00.000Z",
+      updatedAt: "2026-08-12T12:00:00.000Z",
+      callbackDeadlineAt: "2026-08-12T14:00:00.000Z",
+      providerRequestId: "request-1",
+      providerModel: "bytedance/seedream/v5/pro/layerize",
+      providerEndpoint: "https://queue.fal.run/bytedance/seedream/v5/pro/layerize",
+      estimatedCostUsd: null,
+      baseWidth: null,
+      baseHeight: null,
+      layers: [],
+      psdKey: null,
+      diagnosticZipKey: null,
+      fidelity: null,
+      failureCode: "provider_error",
+    };
+
+    const result = await requestCreativeWorkLayerization({ ...input, retry: true });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("failed");
     expect(claimMock).not.toHaveBeenCalled();
     expect(sendMock).not.toHaveBeenCalled();
   });

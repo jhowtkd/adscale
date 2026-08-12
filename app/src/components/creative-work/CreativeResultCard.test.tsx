@@ -60,12 +60,39 @@ function layerization(status: PublicLayerizationState["status"], failureCode: Pu
     updatedAt: "2026-08-12T12:00:00.000Z",
     callbackDeadlineAt: "2026-08-12T14:00:00.000Z",
     providerRequestId: "request-1",
-    providerModel: "bytedance/seedream/v5/pro/edit",
-    providerEndpoint: "https://queue.fal.run/bytedance/seedream/v5/pro/edit",
+    providerModel: "bytedance/seedream/v5/pro/layerize",
+    providerEndpoint: "https://queue.fal.run/bytedance/seedream/v5/pro/layerize",
     estimatedCostUsd: 0.0675,
     baseWidth: null,
     baseHeight: null,
-    layers: [],
+    layers: status === "completed" ? [
+      {
+        order: 0,
+        isBase: true,
+        name: "Base",
+        description: "Base layer",
+        x: 0,
+        y: 0,
+        width: 4,
+        height: 4,
+        normalizedBoundingBox: { x: 0, y: 0, width: 1, height: 1 },
+        storageKey: "layers/00.png",
+        sourceBytes: 10,
+      },
+      {
+        order: 1,
+        isBase: false,
+        name: "Headline",
+        description: "Headline layer",
+        x: 1,
+        y: 1,
+        width: 2,
+        height: 1,
+        normalizedBoundingBox: { x: 0.25, y: 0.25, width: 0.5, height: 0.25 },
+        storageKey: "layers/01.png",
+        sourceBytes: 10,
+      },
+    ] : [],
     psdKey: status === "completed" ? "creative-work/layerize/attempt-1/piece.psd" : null,
     diagnosticZipKey: status === "completed" ? "creative-work/layerize/attempt-1/piece.zip" : null,
     fidelity: null,
@@ -322,7 +349,7 @@ describe("CreativeResultCard", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Baixar PSD" }));
+    fireEvent.click(screen.getByRole("button", { name: "Baixar PSD (2 camadas)" }));
     fireEvent.click(screen.getByRole("button", { name: "Baixar PNGs" }));
     expect(onDownloadLayerized).toHaveBeenNthCalledWith(1, "output-1", "psd");
     expect(onDownloadLayerized).toHaveBeenNthCalledWith(2, "output-1", "zip");

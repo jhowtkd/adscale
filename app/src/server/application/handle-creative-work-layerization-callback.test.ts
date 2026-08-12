@@ -37,7 +37,7 @@ describe("creative work layerization callback", () => {
 
     const result = await handleCreativeWorkLayerizationCallback({
       ...callback,
-      payload: { status: "COMPLETED", request_id: "request-1", response: { layers: [] } },
+      payload: { status: "OK", request_id: "request-1", payload: { layers: [] } },
     });
 
     expect(result).toEqual({ ok: true, replay: false });
@@ -61,7 +61,7 @@ describe("creative work layerization callback", () => {
 
     await expect(handleCreativeWorkLayerizationCallback({
       ...callback,
-      payload: { status: "COMPLETED", request_id: "request-1" },
+      payload: { status: "OK", request_id: "request-1" },
     })).resolves.toEqual({ ok: true, replay: true });
     expect(sendMock).not.toHaveBeenCalled();
   });
@@ -71,10 +71,26 @@ describe("creative work layerization callback", () => {
 
     await expect(handleCreativeWorkLayerizationCallback({
       ...callback,
-      payload: { status: "COMPLETED", request_id: "" },
+      payload: { status: "OK", request_id: "" },
     })).resolves.toEqual({ ok: false, code: "invalid_callback" });
     expect(acceptMock).not.toHaveBeenCalled();
     expect(sendMock).not.toHaveBeenCalled();
     expect(failMock).not.toHaveBeenCalled();
+  });
+
+  it("records a provider error from the documented webhook status", async () => {
+    acceptMock.mockResolvedValue({
+      accepted: true,
+      replay: false,
+      row: { workspaceId: "workspace-1" },
+    });
+
+    await expect(handleCreativeWorkLayerizationCallback({
+      ...callback,
+      payload: { status: "ERROR", request_id: "request-1", error: "provider failed" },
+    })).resolves.toEqual({ ok: true, replay: false });
+
+    expect(failMock).toHaveBeenCalledWith(expect.objectContaining({ code: "provider_error" }));
+    expect(sendMock).not.toHaveBeenCalled();
   });
 });
