@@ -6,6 +6,7 @@ export const HEAVY_IMAGE_EVENT_BASES = {
   creativeWorkSourceAnalyze: "creative-work.source.analyze",
   workspaceAssetAnalyze: "workspace.asset.analyze",
   brandTrainingAnalyze: "brand.training.analyze",
+  creativeWorkLayerize: "creative-work.layerize",
 } as const satisfies Record<string, HeavyImageEventBase>;
 
 export function heavyImageEventName(

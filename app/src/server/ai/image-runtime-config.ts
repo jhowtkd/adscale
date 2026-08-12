@@ -9,6 +9,7 @@ const HEAVY_EVENT_BASES = [
   "creative-work.source.analyze",
   "workspace.asset.analyze",
   "brand.training.analyze",
+  "creative-work.layerize",
 ] as const;
 
 export type HeavyImageEventBase = (typeof HEAVY_EVENT_BASES)[number];

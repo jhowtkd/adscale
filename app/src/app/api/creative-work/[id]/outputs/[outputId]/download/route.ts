@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { resolveCreativeWorkOutputDownload } from "@/server/application/resolve-creative-work-output-download";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import { requirePlatformOwner } from "@/server/auth/require-platform-owner";
 
 /**
  * Signed download URL for a completed output — HTTP adapter only (Phase 5 / item 38).
@@ -19,11 +20,19 @@ export async function GET(
       requireWorkspaceAccess(request),
       params,
     ]);
+    const query = new URL(request.url).searchParams;
+    const requestedFormat = query.get("format");
+    const rawFormat = requestedFormat === "json" ? "original" : requestedFormat ?? "original";
+    if (rawFormat !== "original" && rawFormat !== "psd" && rawFormat !== "zip") {
+      return apiError("invalidRequest", 400);
+    }
+    if (rawFormat !== "original") await requirePlatformOwner(request);
 
     const result = await resolveCreativeWorkOutputDownload({
       workspaceId: workspace.id,
       workItemId: id,
       outputId,
+      ...(rawFormat !== "original" ? { format: rawFormat } : {}),
     });
 
     if (!result.ok) {

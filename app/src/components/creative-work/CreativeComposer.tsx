@@ -626,6 +626,10 @@ export function CreativeComposer({ composer, composerRef }: {
             onRetryRevision={composer.retryRevisionOutput}
             onApprove={composer.approveOutput}
             onDownload={composer.downloadOutput}
+            canLayerize={composer.canLayerize}
+            onLayerize={composer.layerizeOutput}
+            onDownloadLayerized={composer.downloadLayerizedOutput}
+            isLayerizing={composer.isLayerizingOutput}
             onRevise={composer.reviseOutput}
             isRetrying={composer.isRetryingOutput}
             isApproving={composer.isApprovingOutput}
