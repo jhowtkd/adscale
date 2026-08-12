@@ -220,6 +220,7 @@ export function useCreativeComposer({
   const consumedTemplateUrlRef = useRef(false);
   const mountedRef = useRef(false);
   const restoredProfileRef = useRef<string | null>(null);
+  const activeProfileIdRef = useRef<string | null | undefined>(undefined);
   const lifecycleRef = useRef(0);
   const persistOnUnmountRef = useRef<() => Promise<void>>(async () => undefined);
   const revisionAttemptsRef = useRef(new Map<string, { revisionKey: string; revisionAssetId: string | null }>());
@@ -246,8 +247,58 @@ export function useCreativeComposer({
   useEffect(() => { targetFormatsRef.current = targetFormats; }, [targetFormats]);
 
   useEffect(() => {
+    const profileId = active.activeClientProfileId;
+    if (initialWorkId || activeProfileIdRef.current === undefined) {
+      activeProfileIdRef.current = profileId;
+      return;
+    }
+    if (activeProfileIdRef.current === profileId) return;
+
+    activeProfileIdRef.current = profileId;
+    draftEpochRef.current += 1;
+    createInFlightRef.current = null;
+    hydratedWorkRef.current = null;
+    lastPersistedRef.current = null;
+    autosaveBlockedWorkRef.current = null;
+    restoredProfileRef.current = null;
+    workIdRef.current = null;
+    requestRef.current = "";
+    intentRef.current = initialIntent;
+    formatRef.current = "4:5";
+    formatModeRef.current = "auto";
+    const nextTargetFormats: Format[] = initialIntent === "format_adaptation" ? ["1:1", "9:16"] : [];
+    const nextDirectionPool = initialIntent === "variations" ? createDefaultCreativeDirectionPool() : null;
+    targetFormatsRef.current = nextTargetFormats;
+    directionPoolRef.current = nextDirectionPool;
+    directionSuggestionRequestedRef.current = null;
+    directionTouchedRef.current = false;
+    draftKeyRef.current = crypto.randomUUID();
+
+    setWorkId(null);
+    setRequestState("");
+    setIntent(initialIntent);
+    setFormat("4:5");
+    setFormatMode("auto");
+    setTargetFormats(nextTargetFormats);
+    setDirectionPool(nextDirectionPool);
+    setQuote(canonicalQuote(initialIntent, "4:5", nextTargetFormats, nextDirectionPool ?? undefined));
+    setInferredBriefingContext(null);
+    setPendingDirectionSuggestions(null);
+    setDirectionSuggestionState("idle");
+    setDirectionSuggestionRetryToken(0);
+    setError(null);
+    setApprovalErrorOutputId(null);
+    setBrandConflict(null);
+    setBrandTrainingSuggestion(null);
+    setPendingProtocolSwitch(null);
+    setProtocolSwitchNotice(null);
+    setAnnouncement("");
+  }, [active.activeClientProfileId, initialIntent, initialWorkId]);
+
+  useEffect(() => {
     const work = detailQuery.data?.work;
     if (!work || hydratedWorkRef.current === work.id) return;
+    if (!initialWorkId && work.clientProfileId !== active.activeClientProfileId) return;
     if (!initialWorkId && work.status !== "draft") {
       clearStoredDraft(work.clientProfileId, work.toolKind === "social_post" ? "variations" : work.toolKind);
       workIdRef.current = null;
@@ -295,7 +346,7 @@ export function useCreativeComposer({
       hydrated.settings.targetFormats,
       hydrated.settings.directionPool ?? hydratedDirectionPool ?? undefined,
     ));
-  }, [detailQuery.data, initialWorkId]);
+  }, [active.activeClientProfileId, detailQuery.data, initialWorkId]);
 
   const captureSnapshot = useCallback((): DraftSnapshot => ({
     request: requestRef.current,

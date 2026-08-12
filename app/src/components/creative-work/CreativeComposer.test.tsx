@@ -453,22 +453,6 @@ describe("CreativeComposer", () => {
     expect(screen.getByRole("status")).not.toHaveClass("sr-only");
   });
 
-  it("shows the working orb only while the composer is generating", () => {
-    const { rerender } = renderComposer(composer({ state: "generating" }));
-
-    const orb = screen.getByTestId("thinking-orb");
-    expect(orb).toHaveAttribute("data-state", "working");
-    expect(orb).toHaveAttribute("data-size", "64");
-
-    rerender(
-      <CreativeComposer
-        composer={composer({ state: "analyzing" }) as CreativeComposerViewModel}
-        composerRef={{ current: null }}
-      />,
-    );
-    expect(screen.queryByTestId("thinking-orb")).not.toBeInTheDocument();
-  });
-
   it("renders CreativeSourceChip and dispatches its actions", () => {
     const source = {
       id: "source-1", name: "arte.png", origin: "upload", usage: "content", status: "failed",

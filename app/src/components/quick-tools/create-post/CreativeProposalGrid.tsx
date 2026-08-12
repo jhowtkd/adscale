@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Expand } from "lucide-react";
+import { ThinkingOrb } from "thinking-orbs";
 import { CreativeResultCard } from "@/components/creative-work/CreativeResultCard";
 import {
   Dialog,
@@ -82,6 +83,7 @@ export default function CreativeProposalGrid({
   const label = outputLabel(selected);
   const format = selected.targetFormat ?? "4:5";
   const available = selected.status === "completed" && Boolean(selected.outputKey);
+  const isGenerating = selected.status === "queued" || selected.status === "processing";
 
   return (
     <>
@@ -123,6 +125,11 @@ export default function CreativeProposalGrid({
             {available ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={outputSource(selected)} alt={`Proposta ${label}, formato ${format}`} className="h-full w-full object-contain" />
+            ) : isGenerating ? (
+              <span role="status" className="flex h-full flex-col items-center justify-center gap-2 text-sm text-[var(--text-muted)]">
+                <ThinkingOrb state="working" size={64} aria-hidden="true" />
+                <span>Gerando…</span>
+              </span>
             ) : (
               <span role="status" className="text-sm text-[var(--text-muted)]">{selected.status === "failed" ? "Falhou" : "Gerando…"}</span>
             )}

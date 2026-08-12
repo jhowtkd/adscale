@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { Paperclip, Sparkles } from "lucide-react";
-import { ThinkingOrb } from "thinking-orbs";
 import { cn } from "@/lib/utils";
 import ActiveBrandSwitcher from "@/components/layout/ActiveBrandSwitcher";
 import { AnimatedDisplayValue } from "@/components/animations/AnimatedDisplayValue";
@@ -573,7 +572,6 @@ export function CreativeComposer({ composer, composerRef }: {
         className="flex justify-end"
         data-testid="creative-generate-action"
       >
-        {composer.state === "generating" ? <ThinkingOrb state="working" size={64} /> : null}
         <button
           ref={generateButtonRef}
           type="button"

@@ -5,6 +5,12 @@ vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
 }));
 
+vi.mock("thinking-orbs", () => ({
+  ThinkingOrb: ({ state, size }: { state: string; size: number }) => (
+    <div data-testid="thinking-orb" data-state={state} data-size={size} />
+  ),
+}));
+
 import CreativeProposalGrid from "./CreativeProposalGrid";
 
 describe("CreativeProposalGrid", () => {
@@ -188,6 +194,23 @@ describe("CreativeProposalGrid", () => {
 
     expect(screen.getByTestId("review-preview")).toHaveStyle({ aspectRatio: "9 / 16" });
     expect(screen.getByRole("img", { name: /equilibrada.*9:16/i })).toHaveClass("object-contain");
+  });
+
+  it("renders the working orb inside a processing preview", () => {
+    render(
+      <CreativeProposalGrid
+        outputs={[{ ...balancedCompleted, status: "processing", outputKey: null }]}
+        onRetry={vi.fn()}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+      />,
+    );
+
+    const orb = screen.getByTestId("thinking-orb");
+    expect(orb).toHaveAttribute("data-state", "working");
+    expect(orb).toHaveAttribute("data-size", "64");
+    expect(screen.getByTestId("review-preview")).toContainElement(orb);
+    expect(screen.getByRole("status")).toHaveTextContent("Gerando…");
   });
 
   it("opens the selected proposal in a faithful enlarged inspector", () => {

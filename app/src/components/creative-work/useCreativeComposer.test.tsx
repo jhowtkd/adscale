@@ -1066,6 +1066,33 @@ describe("useCreativeComposer", () => {
     select.remove();
   });
 
+  it("clears the draft fields when the active brand changes", async () => {
+    let currentActive = active({ profiles: [profileA, profileB] });
+    mocks.active.mockImplementation(() => currentActive);
+    mocks.work.mockImplementation((id: string | null) => ({
+      data: id ? workDetail({ id, request: "Pedido da Marca A" }) : undefined,
+      isLoading: false,
+      isError: false,
+    }));
+    const { result, rerender } = renderHook(() => useCreativeComposer());
+
+    act(() => result.current.setRequest("Pedido da Marca A"));
+    await act(() => vi.advanceTimersByTimeAsync(500));
+    expect(result.current.request).toBe("Pedido da Marca A");
+    expect(result.current.workId).toBe(WORK_ID);
+
+    currentActive = active({
+      profiles: [profileA, profileB],
+      activeProfile: profileB,
+      activeClientProfileId: profileB.id,
+    });
+    rerender();
+
+    expect(result.current.request).toBe("");
+    expect(result.current.workId).toBeNull();
+    expect(result.current.inferredBriefing).toBeNull();
+  });
+
   it("restores request and the stored brand even when the global brand differs", async () => {
     mocks.active.mockReturnValue(active({ profiles: [profileA, profileB] }));
     mocks.work.mockReturnValue({ data: workDetail({ clientProfileId: profileB.id }), isLoading: false });
