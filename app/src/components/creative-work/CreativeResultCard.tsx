@@ -265,7 +265,7 @@ export function CreativeResultCard({
                 </div>
               ) : (
                 <p className="text-xs text-[var(--text-secondary)]">
-                  {layerization.status === "queued" ? t("layerizeQueued") : layerization.status === "processing" ? t("layerizeProcessing") : t("layerizeReconciling")}
+                  {layerization.status === "queued" ? t("layerizeQueued") : layerization.status === "processing" ? t("layerizeProcessing") : layerization.status === "finalizing" ? t("layerizeFinalizing") : t("layerizeReconciling")}
                 </p>
               )}
               <p aria-live="polite" className="sr-only" data-testid="layerization-live-region">
@@ -275,13 +275,15 @@ export function CreativeResultCard({
                     ? t("layerizeProcessing")
                     : layerization?.status === "reconciling"
                       ? t("layerizeReconciling")
-                      : layerization?.status === "submission_unknown"
-                        ? t("layerizeSubmissionUnknown")
-                        : layerization?.status === "completed"
-                          ? t("layerizeCompleted")
-                          : layerization?.status === "failed"
-                            ? t("layerizeFailed")
-                            : null}
+                      : layerization?.status === "finalizing"
+                        ? t("layerizeFinalizing")
+                        : layerization?.status === "submission_unknown"
+                          ? t("layerizeSubmissionUnknown")
+                          : layerization?.status === "completed"
+                            ? t("layerizeCompleted")
+                            : layerization?.status === "failed"
+                              ? t("layerizeFailed")
+                              : null}
               </p>
             </div>
           ) : null}

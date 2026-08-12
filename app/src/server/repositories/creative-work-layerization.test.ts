@@ -36,6 +36,7 @@ vi.mock("@/server/db", () => ({
 
 import {
   acceptCreativeWorkLayerizationCallback,
+  claimExpiredCreativeWorkLayerizationRecovery,
   claimCreativeWorkLayerizationFinalization,
   failCreativeWorkLayerization,
   hashLayerizationCallbackToken,
@@ -134,6 +135,27 @@ describe("creative work layerization state transitions", () => {
     expect(layerizationPatch.sql).toContain("||");
     expect(layerizationPatch.params.some((param) => typeof param === "string" && param.includes("providerRequestId"))).toBe(false);
     expect(layerizationPatch.params.some((param) => typeof param === "string" && param.includes("callbackConsumedAt"))).toBe(false);
+  });
+
+  it("claims expired recovery atomically with a five-minute dispatch lease", async () => {
+    const claimed = row(state({ providerRequestId: "request-1", updatedAt: now }));
+    mocks.updateResults.push([claimed]);
+
+    await expect(claimExpiredCreativeWorkLayerizationRecovery({
+      workspaceId: "workspace-1",
+      workItemId: "work-1",
+      outputId: "output-1",
+      now: new Date("2026-08-12T15:00:00.000Z"),
+    })).resolves.toEqual(claimed);
+
+    const recoveryWhere = serialized(mocks.where.mock.calls.at(-1)?.[0]);
+    expect(recoveryWhere.sql).toContain("callbackDeadlineAt");
+    expect(recoveryWhere.sql).toContain("updatedAt");
+    expect(recoveryWhere.params).toContain("2026-08-12T14:55:00.000Z");
+    const setValue = mocks.set.mock.calls.at(-1)?.[0] as { layerization?: unknown };
+    const layerizationPatch = serialized(setValue.layerization);
+    expect(layerizationPatch.sql).toContain("jsonb_build_object");
+    expect(layerizationPatch.params).toContain("2026-08-12T15:00:00.000Z");
   });
 
   it("rejects a callback for a different provider request", async () => {

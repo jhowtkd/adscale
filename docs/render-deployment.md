@@ -14,6 +14,7 @@ ADScale_2 is deployed from the Git repository root with `render.yaml`. The Rende
 Set these in the Blueprint creation screen or service environment settings:
 
 - `OPENAI_API_KEY`
+- `FAL_KEY` (optional; enables owner-only Seedream layerization — leave unset until the paid smoke is approved)
 - `R2_ACCOUNT_ID`
 - `R2_ACCESS_KEY_ID`
 - `R2_SECRET_ACCESS_KEY`

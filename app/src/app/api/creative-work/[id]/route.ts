@@ -14,7 +14,7 @@ import { requestCreativeWorkLayerization } from "@/server/application/request-cr
 import {
   handleCreativeWorkLayerizationCallback,
 } from "@/server/application/handle-creative-work-layerization-callback";
-import { toPublicLayerizationState } from "@/server/layerize/contracts";
+import { layerizationStateFromDatabase, toPublicLayerizationState } from "@/server/layerize/contracts";
 import { isPlatformOwnerEmail } from "@/server/auth/platform-owner";
 import { projectCreativeWorkAsCanonicalWork } from "@/server/creative-work/projection/from-creative-work";
 import {
@@ -45,6 +45,7 @@ import {
   updateCreativeWorkSourceIfUnchanged,
   updateCreativeWorkDraft,
 } from "@/server/repositories/creative-work";
+import { claimExpiredCreativeWorkLayerizationRecovery } from "@/server/repositories/creative-work-layerization";
 import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
 import { getTemplateById } from "@/server/repositories/template";
 import { inngest } from "@/server/jobs/client";
@@ -372,9 +373,42 @@ export async function GET(
       ? resolveCreativeWorkInferredBriefing(result.work.inputSnapshot)
       : null;
     const canLayerize = isPlatformOwnerEmail(user.email) && Boolean(env.FAL_KEY?.trim());
+    const recoveredLayerizations = new Map<string, unknown>();
+    if (canLayerize) {
+      const now = new Date();
+      for (const output of result.outputs) {
+        const state = layerizationStateFromDatabase(output.layerization);
+        if (!state || !["processing", "reconciling"].includes(state.status) || Date.parse(state.callbackDeadlineAt) > now.getTime()) continue;
+        const recovered = await claimExpiredCreativeWorkLayerizationRecovery({
+          workspaceId: workspace.id,
+          workItemId: id,
+          outputId: output.id,
+          now,
+        });
+        const recoveredState = layerizationStateFromDatabase(recovered?.layerization);
+        if (!recoveredState) continue;
+        recoveredLayerizations.set(output.id, recoveredState);
+        if (recoveredState.status === "reconciling" && recoveredState.providerRequestId) {
+          try {
+            await inngest.send({
+              id: `creative-work-layerize:${output.id}:${recoveredState.attemptId}:recovery:${recoveredState.updatedAt}`,
+              name: heavyImageEventName("creative-work.layerize"),
+              data: {
+                workspaceId: workspace.id,
+                workItemId: id,
+                outputId: output.id,
+                attemptId: recoveredState.attemptId,
+              },
+            });
+          } catch (error) {
+            logger.warn(`[creativeWork] layerization recovery dispatch failed outputId=${output.id}: ${error instanceof Error ? error.message : String(error)}`);
+          }
+        }
+      }
+    }
     const outputs = result.outputs.map((output) => ({
       ...output,
-      layerization: canLayerize ? toPublicLayerizationState(output.layerization) : null,
+      layerization: canLayerize ? toPublicLayerizationState(recoveredLayerizations.get(output.id) ?? output.layerization) : null,
     }));
     return NextResponse.json({
       work: {

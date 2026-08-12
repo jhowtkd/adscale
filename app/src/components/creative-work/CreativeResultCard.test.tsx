@@ -23,6 +23,7 @@ vi.mock("next-intl", () => ({
     layerizeQueued: "Translate: queued",
     layerizeProcessing: "Translate: processing",
     layerizeReconciling: "Translate: reconciling",
+    layerizeFinalizing: "Translate: preparing PSD",
     layerizeSubmissionUnknown: "Translate: charge may have occurred",
     layerizeCompleted: "Translate: layers ready",
     layerizeFailed: "Translate: separation failed",
@@ -349,6 +350,20 @@ describe("CreativeResultCard", () => {
     expect(screen.getAllByText("Translate: queued")[0]).toBeVisible();
     expect(screen.getByTestId("layerization-actions")).toHaveAttribute("aria-busy", "true");
     expect(screen.getByTestId("layerization-live-region")).toHaveTextContent("Translate: queued");
+
+    rerender(
+      <CreativeResultCard
+        output={output({ isSelected: true, layerization: layerization("finalizing") })}
+        label="Equilibrada"
+        onRetry={vi.fn()}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+        canLayerize
+        onLayerize={onLayerize}
+        onDownloadLayerized={onDownloadLayerized}
+      />,
+    );
+    expect(screen.getByTestId("layerization-live-region")).toHaveTextContent("Translate: preparing PSD");
 
     rerender(
       <CreativeResultCard
