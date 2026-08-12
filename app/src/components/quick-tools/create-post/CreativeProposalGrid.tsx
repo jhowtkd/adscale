@@ -28,6 +28,10 @@ type CreativeProposalGridProps = {
   approvalErrorOutputId?: string | null;
   isRevising?: (outputId: string) => boolean;
   isSaving?: (outputId: string) => boolean;
+  canLayerize?: boolean;
+  onLayerize?: (outputId: string, retry?: boolean) => void;
+  onDownloadLayerized?: (outputId: string, format: "psd" | "zip") => void;
+  isLayerizing?: (outputId: string) => boolean;
 };
 
 const LEVEL_ORDER: CreativeWorkOutput["creativeLevel"][] = ["conservative", "balanced", "bold"];
@@ -59,6 +63,10 @@ export default function CreativeProposalGrid({
   approvalErrorOutputId,
   isRevising,
   isSaving,
+  canLayerize,
+  onLayerize,
+  onDownloadLayerized,
+  isLayerizing,
 }: CreativeProposalGridProps) {
   const latest = new Map<string, CreativeWorkOutput>();
   for (const output of outputs) {
@@ -150,6 +158,10 @@ export default function CreativeProposalGrid({
             isApproving={isApproving?.(selected.id) ?? isSaving?.(selected.id)}
             approvalError={approvalErrorOutputId === selected.id}
             isRevising={isRevising?.(selected.id)}
+            canLayerize={canLayerize}
+            onLayerize={onLayerize}
+            onDownloadLayerized={onDownloadLayerized}
+            isLayerizing={isLayerizing?.(selected.id)}
             hidePreview
           />
         </div>

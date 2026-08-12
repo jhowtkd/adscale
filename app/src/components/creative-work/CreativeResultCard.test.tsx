@@ -22,6 +22,7 @@ vi.mock("next-intl", () => ({
 
 import { CreativeResultCard } from "./CreativeResultCard";
 import type { CreativeWorkOutput } from "@/lib/hooks/use-creative-work";
+import type { PublicLayerizationState } from "@/server/layerize/contracts";
 
 function output(overrides: Partial<CreativeWorkOutput> = {}): CreativeWorkOutput {
   return {
@@ -46,6 +47,29 @@ function output(overrides: Partial<CreativeWorkOutput> = {}): CreativeWorkOutput
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,
+  };
+}
+
+function layerization(status: PublicLayerizationState["status"], failureCode: PublicLayerizationState["failureCode"] = null): PublicLayerizationState {
+  return {
+    status,
+    attemptId: "attempt-1",
+    callbackConsumedAt: null,
+    requestedByUserId: "owner-1",
+    createdAt: "2026-08-12T12:00:00.000Z",
+    updatedAt: "2026-08-12T12:00:00.000Z",
+    callbackDeadlineAt: "2026-08-12T14:00:00.000Z",
+    providerRequestId: "request-1",
+    providerModel: "bytedance/seedream/v5/pro/edit",
+    providerEndpoint: "https://queue.fal.run/bytedance/seedream/v5/pro/edit",
+    estimatedCostUsd: 0.0675,
+    baseWidth: null,
+    baseHeight: null,
+    layers: [],
+    psdKey: status === "completed" ? "creative-work/layerize/attempt-1/piece.psd" : null,
+    diagnosticZipKey: status === "completed" ? "creative-work/layerize/attempt-1/piece.zip" : null,
+    fidelity: null,
+    failureCode,
   };
 }
 
@@ -264,5 +288,61 @@ describe("CreativeResultCard", () => {
 
     expect(screen.getByTestId("objective-selection-blocked")).toBeVisible();
     expect(screen.queryByRole("button", { name: "Aprovar" })).not.toBeInTheDocument();
+  });
+
+  it("shows owner-only layerization progress and exposes PSD first with PNG diagnostics second", () => {
+    const onLayerize = vi.fn();
+    const onDownloadLayerized = vi.fn();
+    const { rerender } = render(
+      <CreativeResultCard
+        output={output({ isSelected: true, layerization: layerization("queued") })}
+        label="Equilibrada"
+        onRetry={vi.fn()}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+        canLayerize
+        onLayerize={onLayerize}
+        onDownloadLayerized={onDownloadLayerized}
+      />,
+    );
+
+    expect(screen.getByText("Separação na fila")).toBeVisible();
+    expect(screen.getByTestId("layerization-live-region")).toHaveTextContent("na fila");
+
+    rerender(
+      <CreativeResultCard
+        output={output({ isSelected: true, layerization: layerization("completed") })}
+        label="Equilibrada"
+        onRetry={vi.fn()}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+        canLayerize
+        onLayerize={onLayerize}
+        onDownloadLayerized={onDownloadLayerized}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Baixar PSD" }));
+    fireEvent.click(screen.getByRole("button", { name: "Baixar PNGs" }));
+    expect(onDownloadLayerized).toHaveBeenNthCalledWith(1, "output-1", "psd");
+    expect(onDownloadLayerized).toHaveBeenNthCalledWith(2, "output-1", "zip");
+  });
+
+  it("blocks retry after an unknown submission and states that a charge may have occurred", () => {
+    render(
+      <CreativeResultCard
+        output={output({ isSelected: true, layerization: layerization("submission_unknown", "submission_unknown") })}
+        label="Equilibrada"
+        onRetry={vi.fn()}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+        canLayerize
+        onLayerize={vi.fn()}
+      />,
+    );
+
+    expect(screen.getAllByText(/a cobrança pode ter ocorrido/i)[0]).toBeVisible();
+    expect(screen.queryByRole("button", { name: /separar novamente/i })).not.toBeInTheDocument();
+    expect(screen.getByTestId("layerization-live-region")).toHaveTextContent("cobrança pode ter ocorrido");
   });
 });

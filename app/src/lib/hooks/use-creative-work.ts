@@ -17,6 +17,7 @@ import type {
   CreativeWorkFactPack,
   InferredBriefing,
 } from "@/server/creative-work/contracts";
+import type { PublicLayerizationState } from "@/server/layerize/contracts";
 
 export type CreativeWorkStatus =
   | "draft"
@@ -118,6 +119,7 @@ export interface CreativeWorkOutput {
   cost: number | null;
   failureCode: string | null;
   quality: Record<string, unknown> | null;
+  layerization: PublicLayerizationState | null;
   isSelected: boolean;
   directionId?: string | null;
   directionSnapshot?: { label: string; instruction: string; order: number } | null;
@@ -151,6 +153,7 @@ export interface CreativeWorkDetail {
   sources: CreativeWorkSource[];
   inferredBriefing?: InferredBriefing | null;
   briefingFactPack?: CreativeWorkFactPack | null;
+  canLayerize?: boolean;
 }
 
 export interface CreativeWorkCampaignOption {
@@ -163,13 +166,13 @@ export function creativeWorkRefetchInterval(
   data:
     | {
         work: Pick<CreativeWorkItem, "status">;
-        outputs: Array<Pick<CreativeWorkOutput, "status">>;
+        outputs: Array<Pick<CreativeWorkOutput, "status"> & { layerization?: PublicLayerizationState | null }>;
       }
     | undefined,
 ) {
   const shouldPoll =
     data?.work.status === "generating" ||
-    data?.outputs.some((output) => output.status === "queued" || output.status === "processing") ||
+    data?.outputs.some((output) => output.status === "queued" || output.status === "processing" || ["queued", "processing", "reconciling", "finalizing"].includes(output.layerization?.status ?? "")) ||
     ("sources" in (data ?? {}) &&
       (data as CreativeWorkDetail).sources.some(
         (source) => source.status === "uploaded" || source.status === "analyzing",
@@ -307,6 +310,7 @@ function fetchCreativeWork(workItemId: string, signal?: AbortSignal): Promise<Cr
       })),
       inferredBriefing: (data.inferredBriefing as InferredBriefing | null | undefined) ?? null,
       briefingFactPack: (data.briefingFactPack as CreativeWorkFactPack | null | undefined) ?? null,
+      canLayerize: Boolean(data.canLayerize),
     };
   });
 }
@@ -635,6 +639,21 @@ export function useRetryOutput() {
   });
 }
 
+export function useLayerizeOutput() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ workItemId, outputId, retry }: { workItemId: string; outputId: string; retry?: boolean }) =>
+      patchJson<{ state: PublicLayerizationState }>(`/api/creative-work/${workItemId}`, {
+        action: "layerizeOutput",
+        outputId,
+        ...(retry ? { retry: true } : {}),
+      }),
+    onSuccess: async (_data, variables) => {
+      await queryClient.invalidateQueries({ queryKey: ["creative-work", variables.workItemId] });
+    },
+  });
+}
+
 export function useReviseOutput() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -705,6 +724,6 @@ export function useSelectOutput() {
 }
 
 export function useDownloadOutputUrl() {
-  return (workItemId: string, outputId: string) =>
-    `/api/creative-work/${workItemId}/outputs/${outputId}/download`;
+  return (workItemId: string, outputId: string, format: "original" | "psd" | "zip" = "original") =>
+    `/api/creative-work/${workItemId}/outputs/${outputId}/download${format === "original" ? "" : `?format=${format}`}`;
 }

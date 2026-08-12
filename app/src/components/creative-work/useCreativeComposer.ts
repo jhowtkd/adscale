@@ -12,6 +12,7 @@ import {
   useCreativeWorkSourceActions,
   usePrepareCreativeWork,
   useRetryOutput,
+  useLayerizeOutput,
   useReviseOutput,
   useSelectOutput,
   useDownloadOutputUrl,
@@ -233,6 +234,7 @@ export function useCreativeComposer({
   const generateMutation = useTriggerTriplet();
   const suggestDirectionMutation = useSuggestCreativeDirections();
   const retryOutputMutation = useRetryOutput();
+  const layerizeOutputMutation = useLayerizeOutput();
   const reviseOutputMutation = useReviseOutput();
   const selectOutputMutation = useSelectOutput();
   const linkCampaignMutation = useLinkCreativeWorkCampaign();
@@ -1127,6 +1129,16 @@ export function useCreativeComposer({
     }
   }, [retryOutputMutation]);
 
+  const layerizeOutput = useCallback(async (outputId: string, retry = false) => {
+    if (!workIdRef.current) return;
+    try {
+      await layerizeOutputMutation.mutateAsync({ workItemId: workIdRef.current, outputId, ...(retry ? { retry: true } : {}) });
+      setAnnouncement(retry ? "Nova separação em camadas iniciada" : "Separação em camadas iniciada");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Falha ao separar em camadas");
+    }
+  }, [layerizeOutputMutation]);
+
   const approveOutput = useCallback(async (outputId: string, confirmObjective = false) => {
     if (!workIdRef.current) return;
     setApprovalErrorOutputId(null);
@@ -1279,11 +1291,18 @@ export function useCreativeComposer({
     workError: Boolean(workId && detailQuery.isError),
     addFiles, addInspiration, updateSource, editSource, retrySource, removeSource, generate,
     retryOutput, retryRevisionOutput, approveOutput, reviseOutput, linkCampaign,
+    canLayerize: detail?.canLayerize ?? false,
+    layerizeOutput,
+    downloadLayerizedOutput: (outputId: string, format: "psd" | "zip") => {
+      if (!workIdRef.current) return;
+      window.open(downloadOutputUrl(workIdRef.current, outputId, format), "_blank", "noopener,noreferrer");
+    },
     downloadOutput: (outputId: string) => {
       if (!workIdRef.current) return;
       window.open(downloadOutputUrl(workIdRef.current, outputId), "_blank", "noopener,noreferrer");
     },
     isRetryingOutput: (outputId: string) => retryOutputMutation.isPending && retryOutputMutation.variables?.outputId === outputId,
+    isLayerizingOutput: (outputId: string) => layerizeOutputMutation.isPending && layerizeOutputMutation.variables?.outputId === outputId,
     isApprovingOutput: (outputId: string) => selectOutputMutation.isPending && selectOutputMutation.variables?.outputId === outputId,
     isRevisingOutput: (outputId: string) => {
       if (!reviseOutputMutation.isPending) return false;
