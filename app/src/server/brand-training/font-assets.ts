@@ -6,6 +6,7 @@ const REQUIRED_TABLES = ["head", "maxp", "name", "cmap"] as const;
 export interface BrandFontAsset {
   assetKey: string;
   family: string;
+  source: string;
   weight: 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900;
   style: "normal" | "italic";
   sha256: string;

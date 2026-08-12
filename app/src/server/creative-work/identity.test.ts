@@ -630,6 +630,7 @@ describe("creative-work identity module", () => {
       expect(snapshot.brandKit).toEqual({
         colors: ["#000000"],
         fonts: ["Inter"],
+        fontAssets: [],
         toneOfVoice: "Direct",
         prohibitedElements: "no clipart",
         requiredElements: "logo",
@@ -666,10 +667,59 @@ describe("creative-work identity module", () => {
       expect(snapshot.brandKit).toEqual({
         colors: ["#112233"],
         fonts: ["Geist"],
+        fontAssets: [],
         toneOfVoice: "Warm",
         prohibitedElements: null,
         requiredElements: null,
       });
+    });
+
+    it("freezes approved font files in the identity snapshot", async () => {
+      mocks.getApprovedTrainingReferencesMock.mockResolvedValue([]);
+      mocks.getBrandKitMock.mockResolvedValue({
+        id: "profile-1",
+        workspaceId: "ws-1",
+        name: "Acme",
+        brandColors: [],
+        brandFonts: ["Acme Sans", "Fallback Sans"],
+        brandFontAssets: [{
+          assetKey: "workspaces/ws-1/brand-fonts/acme.ttf",
+          family: "Acme Sans",
+          source: "Contrato da agência",
+          weight: 700,
+          style: "normal",
+          sha256: "abc123",
+          approvedAt: "2026-08-12T12:00:00.000Z",
+          approvedByUserId: "user-1",
+        }],
+        logoAssetKey: null,
+        toneOfVoice: null,
+        prohibitedElements: null,
+        requiredElements: null,
+        description: null,
+        visualNotes: null,
+        toneNotes: null,
+        constraints: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      const snapshot = await createIdentitySnapshot({
+        workspaceId: "ws-1",
+        clientProfileId: "profile-1",
+        selectedReferenceIds: [],
+      });
+
+      expect(snapshot.brandKit.fontAssets).toEqual([{
+        assetKey: "workspaces/ws-1/brand-fonts/acme.ttf",
+        family: "Acme Sans",
+        source: "Contrato da agência",
+        weight: 700,
+        style: "normal",
+        sha256: "abc123",
+        approvedAt: "2026-08-12T12:00:00.000Z",
+        approvedByUserId: "user-1",
+      }]);
     });
   });
 });

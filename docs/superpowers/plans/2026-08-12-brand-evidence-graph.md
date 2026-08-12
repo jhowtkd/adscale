@@ -2,7 +2,7 @@
 
 **Data:** 2026-08-12
 
-**Status:** em execução — S00 e núcleo de S01 concluídos
+**Status:** em execução — núcleos de S00/S01 entregues; ingestão e snapshot de fontes de S02 entregues
 
 **Escopo inicial:** Brand Training + protocolo Peça única (`social_post`)
 
@@ -96,11 +96,11 @@ As evidências continuam nos donos atuais (`clientReferences`, `workspaceAssets`
 
 ## Slices
 
-- [x] **S00: Baseline executável da consistência atual** `risk:high` `depends:[]` `HITL`
+- [ ] **S00: Baseline executável da consistência atual** `risk:high` `depends:[]` `HITL` — núcleo entregue; faltam medições reais e corpus humano
   > After this: o mesmo harness mede fixtures e peças existentes, separando copy, tipografia, logo, paleta, custo, latência e avaliação humana sem executar geração paga.
-- [x] **S01: Fechar a autoaprovação** `risk:high` `depends:[]` `AFK`
+- [ ] **S01: Fechar a autoaprovação** `risk:high` `depends:[]` `AFK` — fluxo novo e E2E autenticado entregues; legado permanece em #238
   > After this: um upload novo passa por análise e revisão humana antes de poder condicionar Peça única. A UI específica de legado fica para a slice que introduzir claims/versionamento, quando houver uma ação real para esses registros.
-- [ ] **S02: Compor copy e tipografia com fontes reais** `risk:high` `depends:[S00,S01]` `HITL`
+- [ ] **S02: Compor copy e tipografia com fontes reais** `risk:high` `depends:[S00,S01]` `HITL` — upload/UI/snapshot entregues; composição permanece em #240/#241
   > After this: Peça única pode gerar somente o background e compor headline, body e CTA com arquivo TTF/OTF aprovado, layout limitado, contraste e proveniência reproduzível.
 - [ ] **S03: Brand Fidelity determinística primeiro** `risk:high` `depends:[S02]` `AFK`
   > After this: o resultado informa checks comprováveis de texto, fonte, logo, dimensão, safe area e contraste; análises semânticas permanecem suspeitas inconclusivas.
@@ -215,6 +215,7 @@ V1 aceita somente TTF e OTF, com tamanho limitado e magic bytes validados. O arq
 type BrandFontAsset = {
   assetKey: string;
   family: string;
+  source: string;
   weight: 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900;
   style: "normal" | "italic";
   sha256: string;
@@ -240,7 +241,7 @@ O layout inicial é limitado e deliberado: três templates por formato (`top`, `
 ### Arquivos
 
 - Modificar: `app/src/server/db/schema.ts`
-- Criar: `app/drizzle/<next>_brand_font_assets.sql` usando o próximo número livre no momento da implementação (`0083` já pertence à layerization).
+- Entregue: `app/drizzle/0084_brand_font_assets.sql` (`0083` pertence à layerization).
 - Modificar: `app/drizzle/meta/_journal.json`
 - Criar: `app/src/server/brand-training/font-assets.ts`
 - Criar: `app/src/server/brand-training/font-assets.test.ts`
@@ -384,7 +385,7 @@ Guias enviados em `extract-multi` devem ser persistidos em `workspaceAssets` e v
 ### Arquivos
 
 - Modificar: `app/src/server/db/schema.ts`
-- Criar: `app/drizzle/0084_brand_knowledge.sql`
+- Criar: `app/drizzle/0085_brand_knowledge.sql`
 - Modificar: `app/drizzle/meta/_journal.json`
 - Criar: `app/src/server/brand-knowledge/contracts.ts`
 - Criar: `app/src/server/brand-knowledge/contracts.test.ts`
@@ -584,7 +585,7 @@ Produz:
 
 - transição `pending_analysis → pending_approval → approved`;
 - distinção entre revisão humana e legado;
-- invariant de que IA não promove fonte.
+- invariant de que IA não promove fonte; o upload validado só é aprovado pela confirmação explícita do usuário autenticado.
 
 S04 só cria claims ativos a partir de fonte explicitamente aprovada ou Brand Kit explícito.
 
