@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import sharp from "sharp";
 import { Client } from "pg";
@@ -560,17 +561,28 @@ interface V1OutputRow {
       version: number;
       execution: "deterministic" | "generative";
       format: string;
+      requestedLayout?: "top" | "center" | "bottom";
       font?: { assetKey: string; sha256: string };
       copy?: { headline: string; body: string; cta: string };
       planHash?: string;
       outputHash?: string;
       reason?: string;
+      layers?: Array<{
+        role: "headline" | "body" | "cta";
+        box: { left: number; top: number; width: number; height: number };
+      }>;
     };
   } | null;
 }
 
 interface V1WorkDetail {
-  work: { id: string; status: string; toolKind: string; settings: Record<string, unknown> };
+  work: {
+    id: string;
+    status: string;
+    toolKind: string;
+    settings: Record<string, unknown>;
+    copy: { headline: string; body: string; cta: string } | null;
+  };
   outputs: V1OutputRow[];
   sources: Array<{ id: string; status: string; usage: string; assetId: string | null }>;
 }
@@ -627,7 +639,14 @@ async function dbLedgerFor(fixture: CreatePostFixture, workItemId: string) {
 async function apiCreateV1Draft(
   request: APIRequestContext,
   fixture: CreatePostFixture,
-  input: { intent: string; request: string; targetFormats?: string[]; format?: string },
+  input: {
+    intent: string;
+    request: string;
+    targetFormats?: string[];
+    format?: string;
+    fontAssetKey?: string;
+    textLayout?: "top" | "center" | "bottom";
+  },
 ): Promise<string> {
   const res = await request.post("/api/creative-work", {
     data: {
@@ -636,7 +655,12 @@ async function apiCreateV1Draft(
       request: input.request,
       intent: input.intent,
       format: input.format ?? "4:5",
-      settings: { targetFormats: input.targetFormats ?? [], formatMode: "manual" },
+      settings: {
+        targetFormats: input.targetFormats ?? [],
+        formatMode: "manual",
+        ...(input.fontAssetKey ? { fontAssetKey: input.fontAssetKey } : {}),
+        ...(input.textLayout ? { textLayout: input.textLayout } : {}),
+      },
     },
   });
   expect(res.ok(), `create draft must succeed (got ${res.status()})`).toBeTruthy();
@@ -702,7 +726,15 @@ async function waitForTerminalOutputs(request: APIRequestContext, workId: string
 async function runV1Flow(
   request: APIRequestContext,
   fixture: CreatePostFixture,
-  input: { intent: string; request: string; targetFormats?: string[]; format?: string; sources?: Array<{ assetId: string; usage: "content" | "style" | "both" }> },
+  input: {
+    intent: string;
+    request: string;
+    targetFormats?: string[];
+    format?: string;
+    fontAssetKey?: string;
+    textLayout?: "top" | "center" | "bottom";
+    sources?: Array<{ assetId: string; usage: "content" | "style" | "both" }>;
+  },
 ): Promise<V1WorkDetail> {
   const workId = await apiCreateV1Draft(request, fixture, input);
   for (const source of input.sources ?? []) {
@@ -750,7 +782,7 @@ test.describe("Creative Work v1 quality-recovery matrix (R-010)", () => {
     expect(row).toMatchObject({ status: "completed", image_call_count: 1, retry_count: 0 });
   });
 
-  test("Peça única 1:1: fonte aprovada compõe copy após o background controlado", async ({ page }) => {
+  test("Peça única: fonte aprovada compõe copy nos três formatos e layouts", async ({ page }) => {
     const fixture = loadFixture();
     const fontBuffer = fs.readFileSync(path.resolve(
       process.cwd(),
@@ -784,35 +816,60 @@ test.describe("Creative Work v1 quality-recovery matrix (R-010)", () => {
         return (result.rows[0]?.id as string | undefined) ?? null;
       });
 
-      const detail = await runV1Flow(page.request, fixture, {
-        intent: "single",
-        format: "1:1",
-        request: "Peça quadrada com chamada literal para a mentoria de psicologia.",
-      });
+      const cases = [
+        { format: "1:1", layout: "top", dimensions: { width: 1080, height: 1080 } },
+        { format: "4:5", layout: "bottom", dimensions: { width: 1080, height: 1350 } },
+        { format: "9:16", layout: "center", dimensions: { width: 1080, height: 1920 } },
+      ] as const;
+      for (const fixtureCase of cases) {
+        const detail = await runV1Flow(page.request, fixture, {
+          intent: "single",
+          format: fixtureCase.format,
+          fontAssetKey: fontKey,
+          textLayout: fixtureCase.layout,
+          request: `Peça ${fixtureCase.format} com chamada literal para a mentoria de psicologia.`,
+        });
 
-      expect(detail.outputs).toHaveLength(1);
-      const output = detail.outputs[0];
-      expect(output.status).toBe("completed");
-      expect(output.quality?.textComposition).toMatchObject({
-        version: 1,
-        execution: "deterministic",
-        format: "1:1",
-        font: { assetKey: fontKey, sha256: uploaded.font.sha256 },
-        copy: {
-          headline: expect.any(String),
-          body: expect.any(String),
-          cta: expect.any(String),
-        },
-        planHash: expect.stringMatching(/^[a-f0-9]{64}$/),
-        outputHash: expect.stringMatching(/^[a-f0-9]{64}$/),
-      });
-      expect(evidenceForOutput(readProviderEvidence(), output.id)).toEqual([
-        expect.objectContaining({
-          dimensions: { width: 1080, height: 1080 },
-          promptHasDeterministicText: true,
-          outcome: "success",
-        }),
-      ]);
+        expect(detail.outputs).toHaveLength(1);
+        const output = detail.outputs[0];
+        expect(output.status).toBe("completed");
+        expect(output.quality?.textComposition).toMatchObject({
+          version: 2,
+          execution: "deterministic",
+          format: fixtureCase.format,
+          requestedLayout: fixtureCase.layout,
+          font: { assetKey: fontKey, sha256: uploaded.font.sha256 },
+          copy: detail.work.copy,
+          planHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+          outputHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+        });
+        const composition = output.quality?.textComposition;
+        expect(composition?.layers).toHaveLength(3);
+        const download = await page.request.get(
+          `/api/creative-work/${detail.work.id}/outputs/${output.id}/download?format=json`,
+        );
+        expect(download.ok(), `output download must succeed (got ${download.status()})`).toBeTruthy();
+        const { url } = (await download.json()) as { url: string };
+        const image = await page.request.get(url);
+        expect(image.ok(), `signed output URL must succeed (got ${image.status()})`).toBeTruthy();
+        const png = Buffer.from(await image.body());
+        expect(createHash("sha256").update(png).digest("hex")).toBe(composition?.outputHash);
+        expect(await sharp(png).metadata()).toMatchObject({ ...fixtureCase.dimensions, format: "png" });
+        for (const layer of composition?.layers ?? []) {
+          const stats = await sharp(png).extract(layer.box).stats();
+          expect(
+            Math.max(...stats.channels.slice(0, 3).map((channel) => channel.stdev)),
+            `${fixtureCase.format}/${fixtureCase.layout} ${layer.role} region must contain rendered ink`,
+          ).toBeGreaterThan(0.5);
+        }
+        expect(evidenceForOutput(readProviderEvidence(), output.id)).toEqual([
+          expect.objectContaining({
+            dimensions: fixtureCase.dimensions,
+            promptHasDeterministicText: true,
+            outcome: "success",
+          }),
+        ]);
+      }
     } finally {
       if (fontKey) {
         await withDb(async (client) => {

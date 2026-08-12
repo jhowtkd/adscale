@@ -3,26 +3,55 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import sharp from "sharp";
+import { parseHexColor } from "../brand-training/measure-image";
 import type { BrandFontAsset } from "../brand-training/font-assets";
-import type { SocialPostCopy } from "./contracts";
+import { canonicalJsonStringify } from "./canonical-json";
+import type { CreativeWorkFormat, SocialPostCopy } from "./contracts";
+import { contrastRatio, relativeLuminance } from "./placement-policy";
+import type { TextLayout, TypographyPlan } from "./typography-plan";
 
-const PLAN_VERSION = 1 as const;
+const PLAN_VERSION = 2 as const;
+const ROLE_MINIMUM_DPI = { headline: 96, body: 72, cta: 72 } as const;
 
-type TextRole = "headline" | "body" | "cta";
-type Box = { left: number; top: number; width: number; height: number };
+type TextRole = keyof typeof ROLE_MINIMUM_DPI;
+export type TextBox = { left: number; top: number; width: number; height: number };
 
 export interface TextCompositionProvenance {
   version: typeof PLAN_VERSION;
   execution: "deterministic";
-  format: "1:1";
-  dimensions: { width: 1080; height: 1080 };
+  format: CreativeWorkFormat;
+  dimensions: { width: number; height: number };
+  requestedLayout: TextLayout;
+  appliedLayout: TextLayout;
+  typographyPlan: TypographyPlan & { execution: "deterministic" };
   font: BrandFontAsset;
   copy: SocialPostCopy;
   copyHash: string;
   baseHash: string;
   planHash: string;
   outputHash: string;
-  layers: Array<{ role: TextRole; textHash: string; box: Box }>;
+  safeArea: TextBox & { right: number; bottom: number; verified: true };
+  palette: {
+    panel: string;
+    text: "#000000" | "#FFFFFF";
+    contrast: number;
+    source: "brand" | "fallback";
+  };
+  adjustments: Array<"layout_relocated">;
+  layers: Array<{
+    role: TextRole;
+    textHash: string;
+    box: TextBox;
+    renderedDpi: number;
+    minimumDpi: number;
+  }>;
+}
+
+export class TextCompositionError extends Error {
+  constructor(readonly code: "brand_font_hash_mismatch" | "brand_text_overflow" | "brand_text_exact_collision" | "brand_text_safe_area") {
+    super(code);
+    this.name = "TextCompositionError";
+  }
 }
 
 const hash = (value: string | Buffer): string =>
@@ -37,24 +66,237 @@ function escapePango(value: string): string {
     .replaceAll("'", "&apos;");
 }
 
-function squarePlan(copy: SocialPostCopy) {
-  // ponytail: #240 freezes one square/top plan; #241 adds format and layout selection.
-  const layers: Array<{ role: TextRole; text: string; box: Box }> = [
-    { role: "headline", text: copy.headline, box: { left: 104, top: 104, width: 872, height: 140 } },
-    { role: "body", text: copy.body, box: { left: 104, top: 274, width: 872, height: 110 } },
-    { role: "cta", text: copy.cta, box: { left: 104, top: 424, width: 400, height: 72 } },
-  ];
+function safeArea(format: CreativeWorkFormat, dimensions: { width: number; height: number }) {
+  const horizontal = Math.round(dimensions.width * 0.06);
+  const vertical = format === "9:16" ? Math.round(dimensions.height * 0.09) : horizontal;
   return {
-    version: PLAN_VERSION,
-    format: "1:1" as const,
-    dimensions: { width: 1080 as const, height: 1080 as const },
-    template: "top" as const,
-    panel: { left: 64, top: 64, width: 952, height: 496 },
-    layers,
+    left: horizontal,
+    top: vertical,
+    right: horizontal,
+    bottom: vertical,
+    width: dimensions.width - horizontal * 2,
+    height: dimensions.height - vertical * 2,
+    verified: true as const,
   };
 }
 
-/** Compose literal copy with the exact approved font file onto a 1:1 base. */
+function panelForLayout(
+  layout: TextLayout,
+  format: CreativeWorkFormat,
+  dimensions: { width: number; height: number },
+): TextBox {
+  const safe = safeArea(format, dimensions);
+  const height = Math.min(Math.round(dimensions.height * 0.46), 560);
+  const top = layout === "top"
+    ? safe.top
+    : layout === "bottom"
+      ? dimensions.height - safe.bottom - height
+      : Math.round((dimensions.height - height) / 2);
+  return { left: safe.left, top, width: safe.width, height };
+}
+
+function boxesForPanel(panel: TextBox): Array<{ role: TextRole; box: TextBox }> {
+  const inset = Math.max(32, Math.round(panel.width * 0.04));
+  const gap = 20;
+  const innerWidth = panel.width - inset * 2;
+  const headlineHeight = Math.round(panel.height * 0.3);
+  const bodyHeight = Math.round(panel.height * 0.27);
+  const ctaHeight = Math.round(panel.height * 0.16);
+  return [
+    { role: "headline", box: { left: panel.left + inset, top: panel.top + inset, width: innerWidth, height: headlineHeight } },
+    { role: "body", box: { left: panel.left + inset, top: panel.top + inset + headlineHeight + gap, width: innerWidth, height: bodyHeight } },
+    { role: "cta", box: { left: panel.left + inset, top: panel.top + panel.height - inset - ctaHeight, width: Math.round(innerWidth * 0.48), height: ctaHeight } },
+  ];
+}
+
+function overlaps(a: TextBox, b: TextBox): boolean {
+  return a.left < b.left + b.width &&
+    a.left + a.width > b.left &&
+    a.top < b.top + b.height &&
+    a.top + a.height > b.top;
+}
+
+function isInsideSafeArea(
+  box: TextBox,
+  safe: ReturnType<typeof safeArea>,
+  dimensions: { width: number; height: number },
+): boolean {
+  return box.left >= safe.left
+    && box.top >= safe.top
+    && box.left + box.width <= dimensions.width - safe.right
+    && box.top + box.height <= dimensions.height - safe.bottom;
+}
+
+function chooseLayout(input: {
+  requested: TextLayout;
+  format: CreativeWorkFormat;
+  dimensions: { width: number; height: number };
+  occupiedBoxes: readonly TextBox[];
+}) {
+  const layouts: TextLayout[] = [
+    input.requested,
+    ...(["top", "center", "bottom"] as const).filter((layout) => layout !== input.requested),
+  ];
+  for (const layout of layouts) {
+    const panel = panelForLayout(layout, input.format, input.dimensions);
+    if (!input.occupiedBoxes.some((box) => overlaps(panel, box))) {
+      return { layout, panel, relocated: layout !== input.requested };
+    }
+  }
+  throw new TextCompositionError("brand_text_exact_collision");
+}
+
+function normalizedHex(rgb: { r: number; g: number; b: number }): string {
+  return `#${[rgb.r, rgb.g, rgb.b].map((value) => value.toString(16).padStart(2, "0")).join("")}`.toUpperCase();
+}
+
+function choosePalette(colors: readonly string[]) {
+  const brand = colors.flatMap((color) => {
+    const rgb = parseHexColor(color);
+    return rgb ? [{ rgb, hex: normalizedHex(rgb) }] : [];
+  })[0];
+  const chosen = brand ?? { rgb: { r: 12, g: 16, b: 24 }, hex: "#0C1018" };
+  const luminance = relativeLuminance(chosen.rgb.r, chosen.rgb.g, chosen.rgb.b);
+  const black = contrastRatio(luminance, 0);
+  const white = contrastRatio(luminance, 1);
+  return black > white
+    ? { panel: chosen.hex, text: "#000000" as const, contrast: black, source: brand ? "brand" as const : "fallback" as const }
+    : { panel: chosen.hex, text: "#FFFFFF" as const, contrast: white, source: brand ? "brand" as const : "fallback" as const };
+}
+
+async function renderText(input: {
+  role: TextRole;
+  text: string;
+  box: TextBox;
+  font: BrandFontAsset;
+  fontPath: string;
+  color: string;
+}) {
+  const result = await sharp({
+    text: {
+      text: `<span foreground="${input.color}">${escapePango(input.text)}</span>`,
+      font: input.font.family,
+      fontfile: input.fontPath,
+      width: input.box.width,
+      height: input.box.height,
+      align: "left",
+      wrap: "word-char",
+      rgba: true,
+    },
+  }).png().toBuffer({ resolveWithObject: true });
+  const renderedDpi = result.info.textAutofitDpi ?? 0;
+  const minimumDpi = ROLE_MINIMUM_DPI[input.role];
+  if (renderedDpi < minimumDpi) {
+    throw new TextCompositionError("brand_text_overflow");
+  }
+  return { buffer: result.data, renderedDpi, minimumDpi };
+}
+
+export async function runTextComposition(input: {
+  base: Buffer;
+  dimensions: { width: number; height: number };
+  copy: SocialPostCopy;
+  font: BrandFontAsset;
+  fontBuffer: Buffer;
+  typographyPlan: TypographyPlan & { execution: "deterministic" };
+  brandColors: readonly string[];
+  occupiedBoxes: readonly TextBox[];
+}): Promise<{ buffer: Buffer; provenance: TextCompositionProvenance }> {
+  if (hash(input.fontBuffer) !== input.font.sha256) {
+    throw new TextCompositionError("brand_font_hash_mismatch");
+  }
+  const selected = chooseLayout({
+    requested: input.typographyPlan.requestedLayout,
+    format: input.typographyPlan.format,
+    dimensions: input.dimensions,
+    occupiedBoxes: input.occupiedBoxes,
+  });
+  const layers = boxesForPanel(selected.panel);
+  const safe = safeArea(input.typographyPlan.format, input.dimensions);
+  if (![selected.panel, ...layers.map((layer) => layer.box)].every(
+    (box) => isInsideSafeArea(box, safe, input.dimensions),
+  )) {
+    throw new TextCompositionError("brand_text_safe_area");
+  }
+  const palette = choosePalette(input.brandColors);
+  const tempDir = await mkdtemp(join(tmpdir(), "adscale-brand-font-"));
+  const extension = input.font.assetKey.toLowerCase().endsWith(".otf") ? "otf" : "ttf";
+  const fontPath = join(tempDir, `font.${extension}`);
+
+  try {
+    await writeFile(fontPath, input.fontBuffer, { flag: "wx" });
+    const copyByRole: Record<TextRole, string> = input.copy;
+    const rendered = await Promise.all(layers.map(async (layer) => ({
+      ...layer,
+      text: copyByRole[layer.role],
+      ...(await renderText({
+        ...layer,
+        text: copyByRole[layer.role],
+        font: input.font,
+        fontPath,
+        color: palette.text,
+      })),
+    })));
+    const panelBuffer = await sharp({
+      create: {
+        width: selected.panel.width,
+        height: selected.panel.height,
+        channels: 4,
+        background: palette.panel,
+      },
+    }).png().toBuffer();
+    const buffer = await sharp(input.base)
+      .resize(input.dimensions.width, input.dimensions.height, { fit: "cover" })
+      .composite([
+        { input: panelBuffer, left: selected.panel.left, top: selected.panel.top },
+        ...rendered.map((layer) => ({ input: layer.buffer, left: layer.box.left, top: layer.box.top })),
+      ])
+      .png()
+      .toBuffer();
+    const planRecord = {
+      typographyPlan: input.typographyPlan,
+      appliedLayout: selected.layout,
+      panel: selected.panel,
+      safeArea: safe,
+      palette,
+      layers: rendered.map(({ role, box, renderedDpi, minimumDpi }) => ({ role, box, renderedDpi, minimumDpi })),
+      font: input.font,
+    };
+
+    return {
+      buffer,
+      provenance: {
+        version: PLAN_VERSION,
+        execution: "deterministic",
+        format: input.typographyPlan.format,
+        dimensions: input.dimensions,
+        requestedLayout: input.typographyPlan.requestedLayout,
+        appliedLayout: selected.layout,
+        typographyPlan: input.typographyPlan,
+        font: input.font,
+        copy: input.copy,
+        copyHash: hash(canonicalJsonStringify(input.copy)),
+        baseHash: hash(input.base),
+        planHash: hash(canonicalJsonStringify(planRecord)),
+        outputHash: hash(buffer),
+        safeArea: safe,
+        palette,
+        adjustments: selected.relocated ? ["layout_relocated"] : [],
+        layers: rendered.map((layer) => ({
+          role: layer.role,
+          textHash: hash(layer.text),
+          box: layer.box,
+          renderedDpi: layer.renderedDpi,
+          minimumDpi: layer.minimumDpi,
+        })),
+      },
+    };
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+}
+
+/** Backwards-compatible entry point for the #240 square tracer. */
 export async function runSquareTextComposition(input: {
   base: Buffer;
   dimensions: { width: 1080; height: 1080 };
@@ -62,85 +304,21 @@ export async function runSquareTextComposition(input: {
   font: BrandFontAsset;
   fontBuffer: Buffer;
 }): Promise<{ buffer: Buffer; provenance: TextCompositionProvenance }> {
-  if (hash(input.fontBuffer) !== input.font.sha256) {
-    throw new Error("brand_font_hash_mismatch");
-  }
-
-  const plan = squarePlan(input.copy);
-  const tempDir = await mkdtemp(join(tmpdir(), "adscale-brand-font-"));
-  const extension = input.font.assetKey.toLowerCase().endsWith(".otf") ? "otf" : "ttf";
-  const fontPath = join(tempDir, `font.${extension}`);
-
-  try {
-    await writeFile(fontPath, input.fontBuffer, { flag: "wx" });
-    const panel = {
-      input: {
-        create: {
-          width: plan.panel.width,
-          height: plan.panel.height,
-          channels: 4 as const,
-          background: { r: 12, g: 16, b: 24, alpha: 0.78 },
-        },
-      },
-      left: plan.panel.left,
-      top: plan.panel.top,
-    };
-    const ctaPlate = {
-      input: {
-        create: {
-          width: plan.layers[2]!.box.width,
-          height: plan.layers[2]!.box.height,
-          channels: 4 as const,
-          background: { r: 255, g: 255, b: 255, alpha: 0.18 },
-        },
-      },
-      left: plan.layers[2]!.box.left,
-      top: plan.layers[2]!.box.top,
-    };
-    const textLayers = plan.layers.map((layer) => ({
-      input: {
-        text: {
-          text: `<span foreground="#ffffff">${escapePango(layer.text)}</span>`,
-          font: input.font.family,
-          fontfile: fontPath,
-          width: layer.box.width,
-          height: layer.box.height,
-          align: "left" as const,
-          wrap: "word-char" as const,
-          rgba: true,
-        },
-      },
-      left: layer.box.left,
-      top: layer.box.top,
-    }));
-    const buffer = await sharp(input.base)
-      .resize(1080, 1080, { fit: "fill" })
-      .composite([panel, ctaPlate, ...textLayers])
-      .png()
-      .toBuffer();
-    const planHash = hash(JSON.stringify({ ...plan, font: input.font }));
-
-    return {
-      buffer,
-      provenance: {
-        version: PLAN_VERSION,
-        execution: "deterministic",
-        format: "1:1",
-        dimensions: plan.dimensions,
-        font: input.font,
-        copy: input.copy,
-        copyHash: hash(JSON.stringify(input.copy)),
-        baseHash: hash(input.base),
-        planHash,
-        outputHash: hash(buffer),
-        layers: plan.layers.map((layer) => ({
-          role: layer.role,
-          textHash: hash(layer.text),
-          box: layer.box,
-        })),
-      },
-    };
-  } finally {
-    await rm(tempDir, { recursive: true, force: true });
-  }
+  return runTextComposition({
+    ...input,
+    typographyPlan: {
+      version: 1,
+      execution: "deterministic",
+      format: "1:1",
+      requestedLayout: "top",
+      fontAssetKey: input.font.assetKey,
+      fontSelection: "only_approved_font",
+      overflowPolicy: { strategy: "autofit_then_fail", minimumDpi: ROLE_MINIMUM_DPI },
+      collisionPolicy: "relocate_layout_then_fail",
+      contrastPolicy: "brand_plate_wcag_aa",
+      safeAreaPolicy: "format_default",
+    },
+    brandColors: [],
+    occupiedBoxes: [],
+  });
 }

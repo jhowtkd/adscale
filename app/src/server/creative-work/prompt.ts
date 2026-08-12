@@ -13,6 +13,7 @@ import type {
   SocialPostCopy,
 } from "./contracts";
 import type { CreativeWorkReferenceSlot } from "./reference-plan";
+import type { TextLayout } from "./typography-plan";
 import { CREATIVE_LEVEL_DIRECTIONS } from "@/server/ai/creative-level-direction";
 
 export type SocialPostFormat = "1:1" | "4:5" | "9:16";
@@ -30,14 +31,20 @@ export interface BuildSocialPostPromptInput {
 function buildFixedContract(
   input: Pick<BuildSocialPostPromptInput, "format" | "copy"> & {
     textExecution?: "generative" | "deterministic";
+    textLayout?: TextLayout;
   },
 ): string {
   if (input.textExecution === "deterministic") {
+    const band = input.textLayout === "bottom"
+      ? "bottom"
+      : input.textLayout === "center"
+        ? "central"
+        : "top";
     return [
       "DETERMINISTIC TEXT CONTRACT:",
       `FORMAT: ${input.format}`,
       "Do not render any visible text, letters, words, labels or CTA in the image.",
-      "Generate only the visual background and leave the top half visually clean for deterministic text composition after generation.",
+      `Generate only the visual background and leave the ${band} composition band visually calm and free of focal content for deterministic text composition after generation.`,
       "Exact brand assets and approved copy will be composited after generation.",
     ].join("\n");
   }
@@ -216,7 +223,10 @@ function buildReservedPlacementsBlock(
 export function buildSocialPostPrompt(input: BuildSocialPostPromptInput): string {
   const { identitySnapshot, creativeLevel } = input;
 
-  const fixedContract = buildFixedContract(input);
+  const fixedContract = buildFixedContract({
+    ...input,
+    textLayout: input.inputSnapshot.typographyPlan?.requestedLayout,
+  });
   const brandKitBlock = buildBrandKitBlock(identitySnapshot.brandKit);
   const ruleModeBlock = buildRuleModeBlock(identitySnapshot.assets);
   const negativePatternBlock = buildNegativePatternBlock(identitySnapshot.negativePatterns);
@@ -469,7 +479,10 @@ const PROMPT_SIZE_WARN_CHARS = 8000;
  * the legacy builder are untouched by this function.
  */
 export function buildCreativeWorkPrompt(input: BuildCreativeWorkPromptInput): string {
-  const fixedContract = buildFixedContract(input);
+  const fixedContract = buildFixedContract({
+    ...input,
+    textLayout: input.inputSnapshot.typographyPlan?.requestedLayout,
+  });
   const factPackBlock = buildFactPackBlock(input);
   const modePolicyBlock = buildModePolicyBlock(input);
   const referenceRolesBlock = buildReferenceRolesBlock(input.references);

@@ -397,6 +397,12 @@ describe("pickContrastSafePlacement + runExactComposition", () => {
     expect(result.provenance.composed[0]?.referenceId).toBe("logo-1");
     expect(result.provenance.composed[0]?.policy.required).toBe(true);
     expect(result.provenance.composed[0]?.clearspacePx).toBeGreaterThan(0);
+    expect(result.provenance.composed[0]?.box).toEqual({
+      left: expect.any(Number),
+      top: expect.any(Number),
+      width: expect.any(Number),
+      height: expect.any(Number),
+    });
     expect(result.provenance.omitted).toEqual([]);
     // Yellow on navy — high contrast, no backdrop needed
     expect(result.provenance.composed[0]?.usedBackdrop).toBe(false);

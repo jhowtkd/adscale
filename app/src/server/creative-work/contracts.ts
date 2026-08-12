@@ -5,6 +5,7 @@ import type {
   BrandTrainingUsageMode,
 } from "@/server/brand-training/contracts";
 import type { ContentBrief, StyleBrief } from "@/server/ai/image-analysis";
+import type { TextLayout, TypographyPlan } from "./typography-plan";
 
 export const CREATIVE_LEVELS = ["conservative", "balanced", "bold"] as const;
 export const CREATIVE_WORK_INTENTS = [
@@ -88,6 +89,10 @@ export function createDefaultCreativeDirectionPool(): CreativeDirectionPool {
 export type CreativeWorkSettings = {
   targetFormats: CreativeWorkFormat[];
   formatMode?: "auto" | "manual";
+  /** Limited deterministic text placement for Peça única. */
+  textLayout?: TextLayout;
+  /** Explicit approved font when the profile has more than one. */
+  fontAssetKey?: string;
   /**
    * Brand-authority choice for the restyle conflict (R-003). It only
    * auto-resolves the conflict it answered — see `brandConflictDetectedBrand`.
@@ -233,6 +238,8 @@ export type CreativeWorkInputSnapshot = {
   factPack?: CreativeWorkFactPack;
   /** Versioned presentation contract; absent on legacy snapshots. */
   inferredBriefing?: InferredBriefing;
+  /** Frozen rendering decision; absent on legacy and non-single snapshots. */
+  typographyPlan?: TypographyPlan;
   request: string;
   settings: CreativeWorkSettings;
   sources: Array<{
@@ -361,6 +368,8 @@ export const creativeDirectionPoolSchema = z.object({
 export const creativeWorkSettingsSchema = z.object({
   targetFormats: z.array(creativeWorkFormatSchema),
   formatMode: z.enum(["auto", "manual"]).optional(),
+  textLayout: z.enum(["top", "center", "bottom"]).optional(),
+  fontAssetKey: z.string().trim().min(1).optional(),
   brandConflictChoice: z.enum(CREATIVE_WORK_BRAND_CHOICES).optional(),
   brandConflictDetectedBrand: z.string().trim().min(1).optional(),
   directionPool: creativeDirectionPoolSchema.optional(),

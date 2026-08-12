@@ -56,9 +56,10 @@ import {
 } from "@/server/creative-work/job-telemetry";
 import { runExactComposition } from "@/server/creative-work/composite";
 import {
-  runSquareTextComposition,
+  runTextComposition,
   type TextCompositionProvenance,
 } from "@/server/creative-work/text-composite";
+import { buildTypographyPlan } from "@/server/creative-work/typography-plan";
 import {
   preflightExactComposition,
   type CompositionProvenance,
@@ -367,6 +368,8 @@ const creativeWorkOutputJobHandler = async ({
     let generationUnitCount = 1;
     let activeUnitCount = 1;
     let terminalTelemetryEmitted = false;
+    const incompleteOutputKeys = new Set<string>();
+    let retainedOutputKey: string | null = null;
     const logCreativeWorkOutputTerminal = (
       fields: Parameters<typeof writeCreativeWorkOutputTerminal>[0],
     ): void => {
@@ -596,8 +599,18 @@ const creativeWorkOutputJobHandler = async ({
         width: 1024,
         height: 1280,
       };
-      const approvedSquareFont = work.toolKind === "single" && targetFormat === "1:1"
-        ? identitySnapshot.brandKit.fontAssets?.[0] ?? null
+      const typographyPlan = work.toolKind === "single"
+        ? work.inputSnapshot?.typographyPlan ?? buildTypographyPlan({
+            format: targetFormat,
+            requestedLayout: work.settings?.textLayout,
+            selectedFontAssetKey: work.settings?.fontAssetKey,
+            fonts: identitySnapshot.brandKit.fontAssets ?? [],
+          })
+        : null;
+      const approvedFont = typographyPlan?.execution === "deterministic"
+        ? identitySnapshot.brandKit.fontAssets?.find(
+            (font) => font.assetKey === typographyPlan.fontAssetKey,
+          ) ?? null
         : null;
 
       // Pre-generator block: prompt assembly + reference image load. Any
@@ -618,6 +631,12 @@ const creativeWorkOutputJobHandler = async ({
       // only appends the failure codes (R-004 criterion 5).
       let v1PromptInputs: Omit<BuildCreativeWorkPromptInput, "correction"> | null = null;
       try {
+        if (typographyPlan && typographyPlan.format !== targetFormat) {
+          throw new Error("brand_typography_format_mismatch");
+        }
+        if (typographyPlan?.execution === "deterministic" && !approvedFont) {
+          throw new Error("brand_font_snapshot_missing");
+        }
         const inputSnapshot = work.inputSnapshot ?? {
           request: work.request,
           settings: work.settings,
@@ -792,7 +811,7 @@ const creativeWorkOutputJobHandler = async ({
                 creativeLevel,
                 references: loadedSlots,
                 revisionInstruction: output.revisionInstruction,
-                textExecution: approvedSquareFont ? "deterministic" : "generative",
+                textExecution: typographyPlan?.execution ?? "generative",
               })
             : buildSocialPostPrompt({
                 format: targetFormat,
@@ -814,7 +833,7 @@ const creativeWorkOutputJobHandler = async ({
               creativeLevel,
               references: loadedSlots,
               revisionInstruction: output.revisionInstruction,
-              textExecution: approvedSquareFont ? "deterministic" : "generative",
+              textExecution: typographyPlan?.execution ?? "generative",
             };
           }
         } else {
@@ -1055,6 +1074,7 @@ const creativeWorkOutputJobHandler = async ({
         }
         return { success: false, outputId, failureCode: "image_call_budget_exhausted" };
       }
+      incompleteOutputKeys.add(generatedOutputKey);
       if (!(await checkLease("after-generate"))) {
         return { success: false, skipped: true, leaseLost: true, outputId };
       }
@@ -1073,18 +1093,23 @@ const creativeWorkOutputJobHandler = async ({
         outputKey: string,
         stepName: string,
       ): Promise<TextCompositionProvenance | null> => {
-        if (!approvedSquareFont) return null;
+        if (!approvedFont || typographyPlan?.execution !== "deterministic") return null;
         return (await step.run(stepName, async () => {
           const [baseBuffer, fontBuffer] = await Promise.all([
             objectStorage.get(outputKey),
-            objectStorage.get(approvedSquareFont.assetKey),
+            objectStorage.get(approvedFont.assetKey),
           ]);
-          const result = await runSquareTextComposition({
+          const result = await runTextComposition({
             base: baseBuffer,
-            dimensions: { width: 1080, height: 1080 },
+            dimensions,
             copy,
-            font: approvedSquareFont,
+            font: approvedFont,
             fontBuffer,
+            typographyPlan,
+            brandColors: identitySnapshot.brandKit.colors,
+            occupiedBoxes: compositionProvenance?.composed.flatMap(
+              (asset) => asset.box ? [asset.box] : [],
+            ) ?? [],
           });
           await objectStorage.put(outputKey, result.buffer, "image/png");
           return result.provenance;
@@ -1377,6 +1402,7 @@ const creativeWorkOutputJobHandler = async ({
           }
           return { success: false, outputId, failureCode: "image_call_budget_exhausted" };
         }
+        incompleteOutputKeys.add(correctionOutputKey);
 
         if (exactAssets.length > 0) {
           compositionProvenance = (await step.run(
@@ -1451,15 +1477,10 @@ const creativeWorkOutputJobHandler = async ({
           exactComposition: compositionProvenance,
         };
       }
-      if (work.toolKind === "single" && targetFormat === "1:1") {
+      if (work.toolKind === "single" && typographyPlan) {
         completedQuality = {
           ...(completedQuality ?? {}),
-          textComposition: textCompositionProvenance ?? {
-            version: 1,
-            execution: "generative",
-            format: "1:1",
-            reason: "approved_font_missing",
-          },
+          textComposition: textCompositionProvenance ?? typographyPlan,
         };
       }
 
@@ -1486,6 +1507,7 @@ const creativeWorkOutputJobHandler = async ({
         });
         return { success: true, skipped: true, outputId };
       }
+      retainedOutputKey = finalOutputKey;
 
       // Phase 5 / item 37: library on complete (not only on select).
       // Isolated from generation success: a library/storage failure must never
@@ -1665,6 +1687,16 @@ const creativeWorkOutputJobHandler = async ({
       }
       return { success: false, outputId, failureCode: code };
     } finally {
+      for (const key of incompleteOutputKeys) {
+        if (key === retainedOutputKey) continue;
+        try {
+          await objectStorage.delete(key);
+        } catch (cleanupError) {
+          logger.warn(
+            `[creativeWorkOutputJob] orphan cleanup failed outputId=${outputId} key=${key}: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`,
+          );
+        }
+      }
       try {
         await step.run("refresh-aggregate-status", async () => {
           await refreshCreativeWorkStatus(workspaceId, workItemId);

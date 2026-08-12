@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => ({
   resolveBrandConflictPending: vi.fn(() => false),
   refetch: vi.fn(),
   apiFetch: vi.fn(),
+  brandFonts: vi.fn(() => ({ data: [], isLoading: false })),
 }));
 
 vi.mock("@/lib/hooks/use-active-client-profile", () => ({
@@ -43,6 +44,9 @@ vi.mock("@/lib/hooks/use-creative-work", async (importOriginal) => ({
   useResolveBrandConflict: () => ({ mutateAsync: mocks.resolveBrandConflict, isPending: mocks.resolveBrandConflictPending() }),
   useDownloadOutputUrl: () => (workItemId: string, outputId: string) => `/api/creative-work/${workItemId}/outputs/${outputId}/download`,
   useCreativeWorkCampaigns: () => ({ data: [] }),
+}));
+vi.mock("@/lib/hooks/use-brand-training", () => ({
+  useBrandFonts: (...args: unknown[]) => mocks.brandFonts(...args),
 }));
 vi.mock("@/lib/assistant/chat-attachments", () => ({
   collectImageFiles: (files: File[] | FileList | null) => Array.from(files ?? []),

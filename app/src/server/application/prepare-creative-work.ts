@@ -17,6 +17,10 @@ import {
 } from "@/server/creative-work/prepare";
 import { resolveCreativeWorkProtocol } from "@/server/creative-work/protocol";
 import {
+  buildTypographyPlan,
+  TypographyPlanError,
+} from "@/server/creative-work/typography-plan";
+import {
   creativeWorkPreparationSchema,
   generationPolicyVersionFromSwitch,
   quoteCreativeWork,
@@ -175,6 +179,22 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
     const effectiveFormat = preparation.data.settings.formatMode === "auto"
       ? inferCreativeWorkFormat(contentAnalyses, aggregate.work.request) ?? preparation.data.format
       : preparation.data.format;
+    let typographyPlan;
+    try {
+      typographyPlan = preparation.data.intent === "single"
+        ? buildTypographyPlan({
+            format: effectiveFormat,
+            requestedLayout: preparation.data.settings.textLayout,
+            selectedFontAssetKey: preparation.data.settings.fontAssetKey,
+            fonts: brandKit?.brandFontAssets ?? [],
+          })
+        : null;
+    } catch (error) {
+      if (error instanceof TypographyPlanError) {
+        return { ok: false as const, error: { code: "invalid_preparation" as const } };
+      }
+      throw error;
+    }
     // R-001: the canonical mode comes from the single pure translation; the
     // fact pack reuses it instead of re-inferring protocol obligations.
     const protocol = resolveCreativeWorkProtocol({
@@ -222,6 +242,7 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
       generationPolicyVersion: generationPolicyVersionFromSwitch(env.CREATIVE_WORK_QUALITY_RECOVERY_ENABLED),
       factPack,
       ...(briefing ? { inferredBriefing: briefing } : {}),
+      ...(typographyPlan ? { typographyPlan } : {}),
       request: aggregate.work.request,
       settings: preparation.data.settings,
       sources: effectiveSources.map(({ source, usage }) => ({

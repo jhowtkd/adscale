@@ -101,6 +101,8 @@ export interface CreativeWorkItem {
   settings: {
     targetFormats: Array<"1:1" | "4:5" | "9:16">;
     formatMode?: "auto" | "manual";
+    textLayout?: "top" | "center" | "bottom";
+    fontAssetKey?: string;
     directionPool?: CreativeDirectionPool;
   };
   copy: SocialPostCopy | null;
