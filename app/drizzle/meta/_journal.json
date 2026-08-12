@@ -589,6 +589,13 @@
       "when": 1786543115000,
       "tag": "0083_creative_work_layerization",
       "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "7",
+      "when": 1786554557685,
+      "tag": "0084_brand_font_assets",
+      "breakpoints": true
     }
   ]
 }

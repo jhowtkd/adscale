@@ -323,6 +323,9 @@ export const clientProfiles = adscaleSchema.table(
     constraints: text("constraints"),
     brandColors: jsonb("brand_colors"),
     brandFonts: jsonb("brand_fonts"),
+    brandFontAssets: jsonb("brand_font_assets").$type<
+      import("../brand-training/font-assets").BrandFontAsset[]
+    >(),
     logoAssetKey: text("logo_asset_key"),
     toneOfVoice: text("tone_of_voice"),
     prohibitedElements: text("prohibited_elements"),

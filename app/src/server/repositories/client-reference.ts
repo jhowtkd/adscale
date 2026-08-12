@@ -1,4 +1,4 @@
-import { eq, and, desc, inArray, isNull, or } from "drizzle-orm";
+import { eq, and, desc, inArray, isNull, or, sql } from "drizzle-orm";
 import { db } from "../db";
 import { clientProfiles, clientReferences } from "../db/schema";
 import { isWorkspaceAssetKey } from "./asset";
@@ -9,6 +9,7 @@ import type {
   BrandTrainingUsageMode,
   BrandTrainingReviewStatus,
 } from "../brand-training/contracts";
+import type { BrandFontAsset } from "../brand-training/font-assets";
 
 export type ClientReferenceKind =
   | "style"
@@ -68,6 +69,30 @@ export async function getClientProfile(workspaceId: string, id: string) {
     .where(and(eq(clientProfiles.workspaceId, workspaceId), eq(clientProfiles.id, id)))
     .limit(1);
   return result[0] ?? null;
+}
+
+export async function addBrandFontAsset(
+  workspaceId: string,
+  clientProfileId: string,
+  font: BrandFontAsset,
+): Promise<BrandFontAsset | null> {
+  const [updated] = await db
+    .update(clientProfiles)
+    .set({
+      brandFontAssets: sql`coalesce(${clientProfiles.brandFontAssets}, '[]'::jsonb) || ${JSON.stringify([font])}::jsonb`,
+      updatedAt: new Date(),
+    })
+    .where(and(
+      eq(clientProfiles.workspaceId, workspaceId),
+      eq(clientProfiles.id, clientProfileId),
+      sql`not exists (
+        select 1
+        from jsonb_array_elements(coalesce(${clientProfiles.brandFontAssets}, '[]'::jsonb)) as existing
+        where existing->>'sha256' = ${font.sha256}
+      )`,
+    ))
+    .returning({ id: clientProfiles.id });
+  return updated ? font : null;
 }
 
 function normalizeClientLabel(value: string): string {

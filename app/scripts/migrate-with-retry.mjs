@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
+import { ensureMigrationLedger } from "./migration-ledger.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const migrationsFolder = path.join(__dirname, "../drizzle");
@@ -139,6 +140,7 @@ async function runMigrationAttempt() {
 
   try {
     await pool.query('CREATE SCHEMA IF NOT EXISTS "adscale_app"');
+    await ensureMigrationLedger(pool);
 
     const journal = await readJournal();
     const journalCount = journal.entries.length;
