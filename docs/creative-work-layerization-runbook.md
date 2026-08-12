@@ -91,7 +91,7 @@ As of 2026-08-12, the [public Seedream Layerize page](https://fal.ai/models/byte
 The retained command output, exit codes, and tested revision are recorded in
 [`docs/evidence/creative-work-layerization-local-validation-2026-08-12.md`](evidence/creative-work-layerization-local-validation-2026-08-12.md).
 The tracer keeps HTTP authorization, application services, repositories,
-Postgres, the registered job handler, private storage, PSD readback, ZIP
+Postgres, the job handler wiring, private storage, PSD readback, ZIP
 materialization, callback/polling race, terminal-claim concurrency, recovery
 dispatch lease, and `finalizing` resumption real. Only fal HTTP, authentication,
 the Inngest event transport, and object storage are boundary fakes; the job
