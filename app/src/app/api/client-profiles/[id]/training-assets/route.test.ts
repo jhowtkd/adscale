@@ -178,7 +178,7 @@ describe("POST /api/client-profiles/[id]/training-assets", () => {
       expect.objectContaining({
         workspaceId: WORKSPACE_ID,
         source: "brand_training",
-        metadata: { hasAlpha: true, originalMimeType: "image/png" },
+        metadata: { hasAlpha: true, originalMimeType: "image/png", sha256: expect.stringMatching(/^[a-f0-9]{64}$/) },
       }),
     );
     expect(createTrainingReference).toHaveBeenCalledWith(

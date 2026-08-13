@@ -19,6 +19,8 @@ import {
   sanitizeBrandColors,
   sanitizeBrandFonts,
 } from "@/server/brand-kit/sanitize";
+import { compileExplicitBrandKitCandidates } from "@/server/brand-knowledge/candidate-compiler";
+import { createBrandKnowledgeCandidates } from "@/server/repositories/brand-knowledge";
 
 const TEXT_LIMITS = {
   name: 120,
@@ -174,6 +176,14 @@ export async function POST(request: Request) {
 
     const { clientProfileId, ...brandKitData } = parsed.data;
     const brandKit = await upsertBrandKit(workspace.id, brandKitData, clientProfileId);
+    const candidates = compileExplicitBrandKitCandidates({
+      profileId: brandKit.id,
+      brandColors: brandKit.brandColors as string[] | null,
+      brandFonts: brandKit.brandFonts as string[] | null,
+      requiredElements: brandKit.requiredElements,
+      prohibitedElements: brandKit.prohibitedElements,
+    });
+    await createBrandKnowledgeCandidates(workspace.id, brandKit.id, candidates);
     return NextResponse.json({
       brandKit,
       logoUrl: brandKit.logoAssetKey ? objectStorage.publicUrl(brandKit.logoAssetKey) : null,

@@ -13,6 +13,7 @@ import { extractBrandKitFromImage } from "@/server/ai/brand-kit-extractor";
 import { spendOrApiError } from "@/server/billing/paywall";
 import { objectStorage } from "@/server/storage";
 import {
+  createClientReference,
   createTrainingReference,
   getTrainingReferenceByAssetKey,
 } from "@/server/repositories/client-reference";
@@ -28,6 +29,8 @@ import {
 } from "@/server/brand-kit/sanitize";
 import { inngest } from "@/server/jobs/client";
 import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
+import { compileBrandKnowledgeCandidates } from "@/server/brand-knowledge/candidate-compiler";
+import { createBrandKnowledgeCandidates } from "@/server/repositories/brand-knowledge";
 
 const MAX_SIZE = 10 * 1024 * 1024;
 const MAX_ENTRIES = 12;
@@ -78,7 +81,7 @@ type PreparedEntry = {
  * Multi-input brand extraction (plan Fase 4.2).
  *
  * Routes each uploaded file by its declared `kind`:
- * - `guide`  → vision extraction of palette/fonts/tone/rules (1 credit each).
+ * - `guide`  → persisted evidence + vision extraction of reviewable claims (1 credit each).
  * - `logo`   → persisted to object storage + registered as a `logo` reference
  *              and as `logoAssetKey` on the profile. No charge.
  * - `creative` → persisted as a workspace asset only, returned for the
@@ -176,7 +179,12 @@ export async function POST(request: Request) {
       }
     }
 
-    for (const { entry, file } of guides) {
+    const profileId = await resolveBrandKitProfileId(
+      workspace.id,
+      clientProfileId ?? null,
+    );
+
+    for (const { file } of guides) {
       const creditError = await spendOrApiError({
         workspaceId: workspace.id,
         action: "creative_qa",
@@ -192,13 +200,45 @@ export async function POST(request: Request) {
       guides.map(({ entry, file, buffer }) =>
         extractGuide(async () => {
           const extracted = await extractBrandKitFromImage(buffer, file.type);
-          return { entry, extracted };
+          return { entry, file, extracted };
         }),
       ),
     );
 
-    for (const { entry, extracted } of guideExtractions) {
+    for (const { entry, file, extracted } of guideExtractions) {
       accumulateExtracted(result.brandKit, extracted);
+      const normalized = await normalizeTrainingUpload(file);
+      const sourceHash = createHash("sha256").update(normalized.buffer).digest("hex");
+      const key = `workspaces/${workspace.id}/brand-guides/${profileId}/${sourceHash.slice(0, 24)}.${normalized.extension}`;
+      let asset = await getWorkspaceAssetByKey(workspace.id, key);
+      if (!asset) {
+        await objectStorage.put(key, normalized.buffer, normalized.type);
+        asset = await createWorkspaceAsset({
+          workspaceId: workspace.id,
+          name: file.name,
+          key,
+          type: normalized.type,
+          size: normalized.buffer.byteLength,
+          source: "brand_training",
+          metadata: { ingestionKind: "guide", originalMimeType: file.type, sha256: sourceHash },
+        });
+      }
+      const reference = (await getTrainingReferenceByAssetKey(workspace.id, profileId, key))
+        ?? (await createClientReference(workspace.id, {
+          clientProfileId: profileId,
+          assetKey: key,
+          label: file.name,
+          kind: "brand_guide",
+        }));
+      await createBrandKnowledgeCandidates(
+        workspace.id,
+        profileId,
+        compileBrandKnowledgeCandidates({
+          evidence: { type: "brand_guide", id: reference.id, sourceHash },
+          extracted,
+        }),
+      );
+      result.assets.push({ kind: "guide", fileName: entry.fileName, assetKey: key, url: objectStorage.publicUrl(key) });
       result.charges.push({ fileName: entry.fileName, kind: entry.kind, charged: true });
     }
 
@@ -206,10 +246,6 @@ export async function POST(request: Request) {
     // edit and overwrite it, but advancing without pressing Save must not
     // leave Voice or downstream generation with an empty Brand Kit.
     if (guideExtractions.length > 0) {
-      const profileId = await resolveBrandKitProfileId(
-        workspace.id,
-        clientProfileId ?? null,
-      );
       await upsertBrandKit(
         workspace.id,
         {
@@ -225,11 +261,8 @@ export async function POST(request: Request) {
 
     for (const { entry, file } of assets) {
       const normalized = await normalizeTrainingUpload(file);
-      const profileId = await resolveBrandKitProfileId(
-        workspace.id,
-        clientProfileId ?? null,
-      );
       const digest = createHash("sha256").update(normalized.buffer).digest("hex").slice(0, 24);
+      const sourceHash = createHash("sha256").update(normalized.buffer).digest("hex");
       const key =
         entry.kind === "logo"
           ? `workspaces/${workspace.id}/brand-kit/${profileId}/${digest}.${normalized.extension}`
@@ -249,6 +282,7 @@ export async function POST(request: Request) {
             hasAlpha: normalized.hasAlpha,
             originalMimeType: file.type,
             ingestionKind: entry.kind,
+            sha256: sourceHash,
           },
         });
       }

@@ -1,4 +1,4 @@
-import { eq, and, desc, inArray, isNull, or, sql } from "drizzle-orm";
+import { eq, and, desc, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import { db } from "../db";
 import { clientProfiles, clientReferences } from "../db/schema";
 import { isWorkspaceAssetKey } from "./asset";
@@ -21,6 +21,7 @@ export type ClientReferenceKind =
   | "layout"
   | "logo"
   | "negative"
+  | "brand_guide"
   | "other";
 
 export interface CreateClientProfileInput {
@@ -243,6 +244,7 @@ export async function getClientReferencesByIdsForProfile(
         eq(clientReferences.workspaceId, workspaceId),
         eq(clientReferences.clientProfileId, clientProfileId),
         inArray(clientReferences.id, ids),
+        ne(clientReferences.kind, "brand_guide"),
         // Generic legacy references have no training review state; training
         // assets must be explicitly approved before generation can use them.
         or(isNull(clientReferences.reviewStatus), eq(clientReferences.reviewStatus, "approved")),

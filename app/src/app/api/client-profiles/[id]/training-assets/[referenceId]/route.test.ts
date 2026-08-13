@@ -19,6 +19,9 @@ const mocks = vi.hoisted(() => ({
   getTrainingReferences: vi.fn(),
   getWorkspaceAssetByKey: vi.fn(),
   reviewTrainingReference: vi.fn(),
+  createBrandKnowledgeCandidates: vi.fn(),
+  updateWorkspaceAsset: vi.fn(),
+  objectGet: vi.fn(),
 }));
 
 vi.mock("@/server/auth/workspace", () => ({
@@ -37,6 +40,15 @@ vi.mock("@/server/repositories/client-reference", () => ({
 
 vi.mock("@/server/repositories/workspace-asset", () => ({
   getWorkspaceAssetByKey: (...args: unknown[]) => mocks.getWorkspaceAssetByKey(...args),
+  updateWorkspaceAsset: (...args: unknown[]) => mocks.updateWorkspaceAsset(...args),
+}));
+
+vi.mock("@/server/storage", () => ({
+  objectStorage: { get: (...args: unknown[]) => mocks.objectGet(...args) },
+}));
+
+vi.mock("@/server/repositories/brand-knowledge", () => ({
+  createBrandKnowledgeCandidates: (...args: unknown[]) => mocks.createBrandKnowledgeCandidates(...args),
 }));
 
 const getClientProfile = mocks.getClientProfile;
@@ -92,6 +104,13 @@ describe("PATCH /api/client-profiles/[id]/training-assets/[referenceId]", () => 
       trainingAnalysis: validAnalysis,
       reviewedByUserId: "user-1",
     });
+    getWorkspaceAssetByKey.mockResolvedValue({
+      key: ASSET_KEY,
+      metadata: { hasAlpha: true, sha256: "a".repeat(64) },
+    });
+    mocks.createBrandKnowledgeCandidates.mockResolvedValue([]);
+    mocks.updateWorkspaceAsset.mockResolvedValue({ id: "asset-1" });
+    mocks.objectGet.mockResolvedValue(Buffer.from("legacy-asset"));
   });
 
   it("returns 400 for an invalid payload", async () => {
@@ -155,6 +174,17 @@ describe("PATCH /api/client-profiles/[id]/training-assets/[referenceId]", () => 
     const body = await res.json();
     expect(body.reference).toEqual(
       expect.objectContaining({ id: REFERENCE_ID, reviewStatus: "approved" }),
+    );
+    expect(mocks.createBrandKnowledgeCandidates).toHaveBeenCalledWith(
+      WORKSPACE_ID,
+      PROFILE_ID,
+      expect.arrayContaining([
+        expect.objectContaining({
+          claimKey: "visual.required_elements",
+          status: "candidate",
+          evidenceRefs: [expect.objectContaining({ id: REFERENCE_ID, type: "training_asset" })],
+        }),
+      ]),
     );
   });
 
@@ -289,6 +319,11 @@ describe("PATCH /api/client-profiles/[id]/training-assets/[referenceId]", () => 
     expect(reviewTrainingReference).toHaveBeenCalledWith(
       { workspaceId: WORKSPACE_ID, clientProfileId: PROFILE_ID, referenceId: REFERENCE_ID },
       expect.objectContaining({ usageMode: "exact", reviewStatus: "approved" }),
+    );
+    expect(mocks.updateWorkspaceAsset).toHaveBeenCalledWith(
+      "asset-1",
+      WORKSPACE_ID,
+      expect.objectContaining({ metadata: expect.objectContaining({ sha256: expect.stringMatching(/^[a-f0-9]{64}$/) }) }),
     );
   });
 

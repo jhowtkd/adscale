@@ -104,6 +104,7 @@ export function useExtractMulti(clientProfileId: string | null) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["brand-training-status", clientProfileId] });
       queryClient.invalidateQueries({ queryKey: ["brand-kit", clientProfileId] });
+      queryClient.invalidateQueries({ queryKey: ["brand-knowledge", clientProfileId] });
     },
   });
 }
@@ -341,7 +342,84 @@ export function useUploadBrandTrainingAsset(clientProfileId: string | null) {
       queryClient.invalidateQueries({
         queryKey: ["brand-training-status", clientProfileId],
       });
+      queryClient.invalidateQueries({ queryKey: ["brand-knowledge", clientProfileId] });
     },
+  });
+}
+
+export interface BrandKnowledgeClaimRecord {
+  id: string;
+  claimKey: string;
+  value: unknown;
+  authority: "human" | "explicit" | "measured" | "inferred";
+  confidence: "low" | "medium" | "high";
+  status: "candidate" | "approved" | "rejected" | "superseded";
+  evidenceRefs: Array<{ type: string; id: string; path: string; sourceHash: string }>;
+}
+
+export interface BrandKnowledgePayload {
+  claims: BrandKnowledgeClaimRecord[];
+  conflicts: Array<{
+    claimKey: string;
+    comparison: "conflict" | "human_needed";
+    claims: Array<Pick<BrandKnowledgeClaimRecord, "id" | "value" | "authority" | "confidence" | "evidenceRefs">>;
+  }>;
+  versions: Array<{
+    id: string;
+    versionNumber: number;
+    hash: string;
+    status: "active" | "superseded";
+    publishedByUserId: string;
+    publishedAt: string;
+    snapshot?: { claims: Array<{ id: string; claimKey: string; value: unknown; evidenceRefs: BrandKnowledgeClaimRecord["evidenceRefs"]; reviewedByUserId: string; reviewedAt: string }> };
+  }>;
+  activeVersion: { id: string; versionNumber: number; hash: string; status: "active" } | null;
+}
+
+const brandKnowledgeKey = (clientProfileId: string) => ["brand-knowledge", clientProfileId] as const;
+
+export function useBrandKnowledge(clientProfileId: string | null) {
+  return useQuery({
+    queryKey: brandKnowledgeKey(clientProfileId ?? ""),
+    queryFn: async (): Promise<BrandKnowledgePayload> => {
+      const response = await apiFetch(`/api/client-profiles/${clientProfileId}/brand-knowledge`);
+      if (!response.ok) throw new Error(await readError(response));
+      return response.json();
+    },
+    enabled: Boolean(clientProfileId),
+  });
+}
+
+export function useReviewBrandKnowledgeClaim(clientProfileId: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      claimId: string;
+      status: "approved" | "rejected";
+      value?: unknown;
+      alternatives?: Array<{ claimId: string; value: unknown }>;
+    }) => {
+      const response = await apiFetch(`/api/client-profiles/${clientProfileId}/brand-knowledge`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      if (!response.ok) throw new Error(await readError(response));
+      return response.json();
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: brandKnowledgeKey(clientProfileId ?? "") }),
+  });
+}
+
+export function usePublishBrandKnowledge(clientProfileId: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const response = await apiFetch(`/api/client-profiles/${clientProfileId}/brand-knowledge/publish`, { method: "POST" });
+      if (!response.ok) throw new Error(await readError(response));
+      return response.json();
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: brandKnowledgeKey(clientProfileId ?? "") }),
   });
 }
 

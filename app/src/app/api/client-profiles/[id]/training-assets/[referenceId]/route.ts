@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createHash } from "node:crypto";
 
 import { apiError, handleApiError } from "@/lib/api-response";
 import { reviewTrainingAssetSchema } from "@/server/brand-training/contracts";
@@ -8,7 +9,10 @@ import {
   getTrainingReferences,
   reviewTrainingReference,
 } from "@/server/repositories/client-reference";
-import { getWorkspaceAssetByKey } from "@/server/repositories/workspace-asset";
+import { getWorkspaceAssetByKey, updateWorkspaceAsset } from "@/server/repositories/workspace-asset";
+import { objectStorage } from "@/server/storage";
+import { compileBrandKnowledgeCandidates } from "@/server/brand-knowledge/candidate-compiler";
+import { createBrandKnowledgeCandidates } from "@/server/repositories/brand-knowledge";
 
 /**
  * PATCH /api/client-profiles/:id/training-assets/:referenceId
@@ -83,6 +87,36 @@ export async function PATCH(
 
     if (!updated) {
       return apiError("clientProfileNotFound", 404);
+    }
+
+    if (body.reviewStatus === "approved" && updated.trainingAnalysis) {
+      const asset = await getWorkspaceAssetByKey(workspace.id, updated.assetKey);
+      const metadata = asset?.metadata as { sha256?: unknown } | null;
+      if (!asset) return apiError("invalidInput", 400);
+      const sourceHash = typeof metadata?.sha256 === "string"
+        ? metadata.sha256
+        : createHash("sha256").update(await objectStorage.get(updated.assetKey)).digest("hex");
+      if (metadata?.sha256 !== sourceHash) {
+        await updateWorkspaceAsset(asset.id, workspace.id, {
+          metadata: { ...(asset.metadata as Record<string, unknown> | null), sha256: sourceHash },
+        });
+      }
+      await createBrandKnowledgeCandidates(
+        workspace.id,
+        id,
+        compileBrandKnowledgeCandidates({
+          evidence: { type: "training_asset", id: updated.id, sourceHash },
+          approvedAsset: {
+            assetKey: updated.assetKey,
+            category: updated.trainingCategory ?? body.trainingCategory,
+            usageMode: updated.usageMode ?? body.usageMode,
+            rules: updated.trainingAnalysis.rules,
+            constraints: updated.trainingAnalysis.constraints,
+            confidence: updated.trainingAnalysis.confidence,
+            structure: updated.trainingAnalysis.structure,
+          },
+        }),
+      );
     }
 
     return NextResponse.json({ reference: updated });
