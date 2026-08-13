@@ -33,6 +33,7 @@ import {
   useBrandFonts,
   useExtractMulti,
   useExtractVoice,
+  useReviewBrandFont,
   useUploadBrandFont,
   type BrandFontAssetRecord,
   type BrandVoiceConfig,
@@ -530,6 +531,7 @@ function BrandFontFiles({ clientProfileId }: { clientProfileId: string }) {
   const addToast = useAppStore((s) => s.addToast);
   const fonts = useBrandFonts(clientProfileId);
   const upload = useUploadBrandFont(clientProfileId);
+  const review = useReviewBrandFont(clientProfileId);
   const [file, setFile] = useState<File | null>(null);
   const [family, setFamily] = useState("");
   const [source, setSource] = useState("");
@@ -547,7 +549,7 @@ function BrandFontFiles({ clientProfileId }: { clientProfileId: string }) {
           setFamily("");
           setSource("");
           setRightsConfirmed(false);
-          addToast("success", t("approved"));
+          addToast("success", t("submitted"));
         },
         onError: (error) => addToast("error", error.message),
       },
@@ -562,12 +564,49 @@ function BrandFontFiles({ clientProfileId }: { clientProfileId: string }) {
       </div>
       {fonts.data && fonts.data.length > 0 && (
         <ul className="space-y-1 text-xs text-[var(--text-primary)]">
-          {fonts.data.map((font) => (
-            <li key={font.sha256} className="flex items-center justify-between gap-2 rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-2 py-1.5">
+          {fonts.data.map((font) => {
+            const status = font.reviewStatus ?? "approved";
+            return (
+            <li key={font.assetKey} className="flex items-center justify-between gap-2 rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-2 py-1.5">
               <span>{font.family} · {font.weight} · {font.style}</span>
-              <span className="text-[var(--success-text)]">{t("statusApproved")}</span>
+              <span className="flex items-center gap-2">
+                <span className={status === "approved" ? "text-[var(--success-text)]" : "text-[var(--text-muted)]"}>
+                  {t(status === "approved" ? "statusApproved" : status === "archived" ? "statusArchived" : "statusPending")}
+                </span>
+                {status === "pending_approval" ? (
+                  <Button
+                    type="button"
+                    disabled={review.isPending}
+                    onClick={() => review.mutate(
+                      { assetKey: font.assetKey, reviewStatus: "approved" },
+                      {
+                        onSuccess: () => addToast("success", t("reviewApproved")),
+                        onError: (error) => addToast("error", error.message),
+                      },
+                    )}
+                  >
+                    {t("approveReview")}
+                  </Button>
+                ) : null}
+                {status !== "archived" ? (
+                  <Button
+                    type="button"
+                    disabled={review.isPending}
+                    onClick={() => review.mutate(
+                      { assetKey: font.assetKey, reviewStatus: "archived" },
+                      {
+                        onSuccess: () => addToast("success", t("reviewArchived")),
+                        onError: (error) => addToast("error", error.message),
+                      },
+                    )}
+                  >
+                    {t("archiveReview")}
+                  </Button>
+                ) : null}
+              </span>
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
       <div className="grid gap-2 sm:grid-cols-2">
@@ -611,7 +650,7 @@ function BrandFontFiles({ clientProfileId }: { clientProfileId: string }) {
       </label>
       <Button type="button" onClick={submit} disabled={!file || !family.trim() || !source.trim() || !rightsConfirmed || upload.isPending} className="gap-1.5">
         {upload.isPending ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
-        {t("approve")}
+        {t("sendForReview")}
       </Button>
     </div>
   );

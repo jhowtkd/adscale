@@ -146,6 +146,42 @@ describe("prepareCreativeWork", () => {
     }), transactionExecutor);
   });
 
+  it("rejects a pending font selected from a stale draft", async () => {
+    getWork.mockResolvedValue({
+      work: {
+        ...work,
+        toolKind: "single",
+        settings: {
+          targetFormats: [],
+          formatMode: "manual",
+          textLayout: "top",
+          fontAssetKey: "fonts/pending.ttf",
+        },
+      },
+      outputs: [],
+      sources: [],
+    } as never);
+    getKit.mockResolvedValue({
+      brandFontAssets: [{
+        assetKey: "fonts/pending.ttf",
+        family: "Pending Sans",
+        source: "Upload",
+        weight: 400,
+        style: "normal",
+        sha256: "pending",
+        reviewStatus: "pending_approval",
+        uploadedAt: "2026-08-13T10:00:00.000Z",
+        uploadedByUserId: "user-1",
+        approvedAt: null,
+        approvedByUserId: null,
+      }],
+    } as never);
+
+    await expect(prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" }))
+      .resolves.toEqual({ ok: false, error: { code: "invalid_preparation" } });
+    expect(updateDraft).not.toHaveBeenCalled();
+  });
+
   it("does not persist the Peça Única envelope for other protocols", async () => {
     getWork.mockResolvedValue({ work, outputs: [], sources: [] } as never);
 

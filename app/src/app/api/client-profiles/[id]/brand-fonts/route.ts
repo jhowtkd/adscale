@@ -4,6 +4,7 @@ import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import {
   addBrandFontAsset,
   getClientProfile,
+  reviewBrandFontAsset,
 } from "@/server/repositories/client-reference";
 import {
   createWorkspaceAsset,
@@ -11,12 +12,40 @@ import {
 } from "@/server/repositories/workspace-asset";
 import {
   normalizeBrandFontUpload,
-  type BrandFontAsset,
+  type BrandFontAssetRecord,
 } from "@/server/brand-training/font-assets";
 import { sanitizeStorageFilename } from "@/server/brand-training/upload";
 import { objectStorage } from "@/server/storage";
 
 const FONT_WEIGHTS = new Set([100, 200, 300, 400, 500, 600, 700, 800, 900]);
+
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const [{ workspace, user }, { id }, body] = await Promise.all([
+      requireWorkspaceAccess(request),
+      params,
+      request.json().catch(() => null),
+    ]);
+    if (
+      !body || typeof body.assetKey !== "string"
+      || (body.reviewStatus !== "approved" && body.reviewStatus !== "archived")
+    ) return apiError("invalidInput", 400);
+    const font = await reviewBrandFontAsset(
+      workspace.id,
+      id,
+      body.assetKey,
+      body.reviewStatus,
+      user.id,
+    );
+    if (!font) return apiError("invalidInput", 409);
+    return NextResponse.json({ font });
+  } catch (error) {
+    return handleApiError(error, "client-profiles.[id].brand-fonts.PATCH");
+  }
+}
 
 export async function GET(
   request: Request,
@@ -94,15 +123,19 @@ export async function POST(
       throw error;
     }
 
-    const font: BrandFontAsset = {
+    const uploadedAt = new Date().toISOString();
+    const font: BrandFontAssetRecord = {
       assetKey: key,
       family,
       source,
-      weight: weight as BrandFontAsset["weight"],
+      weight: weight as BrandFontAssetRecord["weight"],
       style,
       sha256: normalized.sha256,
-      approvedAt: new Date().toISOString(),
-      approvedByUserId: user.id,
+      reviewStatus: "pending_approval",
+      uploadedAt,
+      uploadedByUserId: user.id,
+      approvedAt: null,
+      approvedByUserId: null,
     };
     try {
       const persisted = await addBrandFontAsset(workspace.id, id, font);

@@ -2382,9 +2382,15 @@
       "normal": "Normal",
       "italic": "Italic",
       "rightsConfirmed": "I confirm I have the right to use this file in the brand's pieces.",
-      "approve": "Validate and approve font",
-      "approved": "Font validated and approved.",
-      "statusApproved": "Approved"
+      "sendForReview": "Send font for review",
+      "submitted": "Font validated and sent for approval.",
+      "approveReview": "Approve",
+      "archiveReview": "Archive",
+      "reviewApproved": "Font approved.",
+      "reviewArchived": "Font archived.",
+      "statusPending": "Awaiting approval",
+      "statusApproved": "Approved",
+      "statusArchived": "Archived"
     },
     "curateTitle": "Reference review",
     "curateDesc": "Mark each creative as a style, product, layout or negative reference.",

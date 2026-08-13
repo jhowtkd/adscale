@@ -166,8 +166,13 @@ export interface BrandFontAssetRecord {
   weight: 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900;
   style: "normal" | "italic";
   sha256: string;
-  approvedAt: string;
-  approvedByUserId: string;
+  reviewStatus?: "pending_approval" | "approved" | "archived";
+  uploadedAt?: string;
+  uploadedByUserId?: string;
+  approvedAt: string | null;
+  approvedByUserId: string | null;
+  archivedAt?: string | null;
+  archivedByUserId?: string | null;
 }
 
 const brandFontsKey = (clientProfileId: string) =>
@@ -206,6 +211,31 @@ export function useUploadBrandFont(clientProfileId: string | null) {
       const res = await apiFetch(
         `/api/client-profiles/${clientProfileId}/brand-fonts`,
         { method: "POST", body: form },
+      );
+      if (!res.ok) throw new Error(await readError(res));
+      const data = await res.json();
+      return data.font as BrandFontAssetRecord;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: brandFontsKey(clientProfileId ?? "") });
+    },
+  });
+}
+
+export function useReviewBrandFont(clientProfileId: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      assetKey: string;
+      reviewStatus: "approved" | "archived";
+    }): Promise<BrandFontAssetRecord> => {
+      const res = await apiFetch(
+        `/api/client-profiles/${clientProfileId}/brand-fonts`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(input),
+        },
       );
       if (!res.ok) throw new Error(await readError(res));
       const data = await res.json();

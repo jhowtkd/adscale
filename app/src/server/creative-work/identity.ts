@@ -11,6 +11,7 @@ import type {
   BrandTrainingCategory,
   BrandTrainingUsageMode,
 } from "../brand-training/contracts";
+import { approvedBrandFontAssets } from "../brand-training/font-assets";
 import type {
   CreativeWorkFormat,
   CreativeWorkIdentityAssetSnapshot,
@@ -493,7 +494,7 @@ export async function createIdentitySnapshot(
 
   const colors = (brandKit?.brandColors as string[] | null | undefined) ?? [];
   const fonts = (brandKit?.brandFonts as string[] | null | undefined) ?? [];
-  const fontAssets = brandKit?.brandFontAssets ?? [];
+  const fontAssets = approvedBrandFontAssets(brandKit?.brandFontAssets ?? []);
 
   return {
     clientProfileId,
