@@ -135,6 +135,8 @@
       "workspace"
     ],
     "apiRouteFiles": [
+      "admin/inspirations/[id]/route.ts",
+      "admin/inspirations/route.ts",
       "admin/quality/brands/[clientProfileId]/evidence/route.ts",
       "admin/quality/brands/[clientProfileId]/profile/route.ts",
       "admin/quality/brands/[clientProfileId]/rules/route.ts",
@@ -206,6 +208,9 @@
       "campaigns/[id]/smart-resize-preview/route.ts",
       "campaigns/[id]/suggest-ctas/route.ts",
       "campaigns/route.ts",
+      "client-profiles/[id]/brand-fonts/route.ts",
+      "client-profiles/[id]/brand-knowledge/publish/route.ts",
+      "client-profiles/[id]/brand-knowledge/route.ts",
       "client-profiles/[id]/memory/route.ts",
       "client-profiles/[id]/output-learnings/route.ts",
       "client-profiles/[id]/references/route.ts",
@@ -218,11 +223,14 @@
       "creative-work/[id]/copy/route.ts",
       "creative-work/[id]/generate/route.ts",
       "creative-work/[id]/identity-options/route.ts",
+      "creative-work/[id]/outputs/[outputId]/cancel/route.ts",
       "creative-work/[id]/outputs/[outputId]/download/route.ts",
       "creative-work/[id]/outputs/[outputId]/retry/route.ts",
       "creative-work/[id]/outputs/[outputId]/select/route.ts",
       "creative-work/[id]/route.ts",
       "creative-work/[id]/suggest/route.ts",
+      "creative-work/inspirations/[id]/file/route.ts",
+      "creative-work/inspirations/[id]/route.ts",
       "creative-work/route.ts",
       "creatives/[id]/persona-simulation/route.ts",
       "dashboard/route.ts",
@@ -327,6 +335,7 @@
       "creative-readiness.ts",
       "creative-route-planner.test.ts",
       "creative-route-planner.ts",
+      "creative-score-payload.test.ts",
       "creative-score-ceilings.ts",
       "creative-score.ts",
       "creative-validation-aggregation.ts",
@@ -346,11 +355,18 @@
       "generation-log.ts",
       "guided-briefing.test.ts",
       "guided-briefing.ts",
+      "image-analysis.test.ts",
       "image-analysis.ts",
       "image-generation.test.ts",
       "image-generation.ts",
+      "image-pipeline-telemetry.test.ts",
+      "image-pipeline-telemetry.ts",
+      "image-runtime-config.test.ts",
+      "image-runtime-config.ts",
       "landing-page.test.ts",
       "landing-page.ts",
+      "normalize-image-for-ai.test.ts",
+      "normalize-image-for-ai.ts",
       "observable-rubric.ts",
       "olhar/art-direction-verdict.test.ts",
       "olhar/art-direction-verdict.ts",
@@ -398,6 +414,6 @@
       "voices/voice-prompt-section.ts",
       "voices/voice-review-gate.ts"
     ],
-    "capturedAt": "2026-07-14T23:20:40.192Z"
+    "capturedAt": "2026-08-13T13:22:38.000Z"
   }
 }
