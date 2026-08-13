@@ -56,6 +56,8 @@ export async function POST(
           return apiError("creativeWorkOutputObjectiveFailed", 409, result.error.policy);
         case "objective_confirmation_required":
           return apiError("creativeWorkOutputConfirmationRequired", 409, result.error.policy);
+        case "layerization_selection_locked":
+          return apiError("creativeWorkLayerizationSelectionLocked", 409);
         default:
           return apiError("invalidRequest", 400);
       }

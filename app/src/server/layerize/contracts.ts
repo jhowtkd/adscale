@@ -117,6 +117,13 @@ export function isLayerizationSubmitEligible(output: {
   return output.status === "completed" && output.isSelected === true && Boolean(output.outputKey);
 }
 
+export function isLayerizationSelectionLocked(
+  state: Pick<LayerizationState, "status" | "providerRequestId"> | null | undefined,
+): boolean {
+  if (!state) return false;
+  return state.status === "queued" || (state.status === "processing" && !state.providerRequestId);
+}
+
 export function layerizationStateFromDatabase(value: unknown): LayerizationState | null {
   if (!value) return null;
   const parsed = layerizationStateSchema.safeParse(value);

@@ -8,6 +8,7 @@ import {
   completeCreativeWorkLayerization,
   failCreativeWorkLayerization,
   getCreativeWorkLayerizationOutput,
+  isCreativeWorkOutputStillSelectedForLayerization,
   markCreativeWorkLayerizationReconciling,
   markCreativeWorkLayerizationSubmissionUnknown,
   recordCreativeWorkLayerizationProviderRequest,
@@ -137,6 +138,15 @@ export async function runCreativeWorkLayerization(input: {
     let requestId: string;
     try {
       const sourceUrl = await objectStorage.signedDownloadUrl(output.outputKey, LAYERIZATION_SOURCE_URL_TTL_SECONDS);
+      if (!await isCreativeWorkOutputStillSelectedForLayerization(event)) {
+        await failCreativeWorkLayerization({
+          workspaceId: event.workspaceId,
+          workItemId: event.workItemId,
+          outputId: event.outputId,
+          code: "no_longer_eligible",
+        });
+        return { status: "failed" };
+      }
       const submitted = await provider.submit({
         prompt: LAYERIZE_PROMPT,
         imageUrl: sourceUrl,

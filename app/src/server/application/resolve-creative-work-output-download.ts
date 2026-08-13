@@ -53,20 +53,20 @@ async function materializeDiagnosticZip(input: {
   if (!input.state.baseWidth || !input.state.baseHeight || !input.state.fidelity) {
     throw new Error("Completed layerization is missing diagnostic evidence");
   }
-  const original = await objectStorage.get(input.outputKey);
-  const recomposed = await recomposeStoredLayers({
-    width: input.state.baseWidth,
-    height: input.state.baseHeight,
-    layers: input.state.layers,
-    load: (layer) => objectStorage.get(layer.storageKey),
-  });
+  const width = input.state.baseWidth;
+  const height = input.state.baseHeight;
   const directory = await mkdtemp(join(tmpdir(), "adscale-layerize-zip-"));
   const filePath = join(directory, "piece.zip");
   try {
     await writeLayerizationDiagnosticZipFile({
       filePath,
-      original,
-      recomposed,
+      loadOriginal: () => objectStorage.get(input.outputKey),
+      loadRecomposed: () => recomposeStoredLayers({
+        width,
+        height,
+        layers: input.state.layers,
+        load: (layer) => objectStorage.get(layer.storageKey),
+      }),
       layers: input.state.layers,
       loadLayer: (layer) => objectStorage.get(layer.storageKey),
       manifest: {

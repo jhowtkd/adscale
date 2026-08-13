@@ -136,8 +136,8 @@ describe("layerization artifacts", () => {
     try {
       await writeLayerizationDiagnosticZipFile({
         filePath: join(directory, "piece.zip"),
-        original,
-        recomposed,
+        loadOriginal: async () => original,
+        loadRecomposed: async () => recomposed,
         layers,
         loadLayer: async (layer) => {
           concurrent += 1;

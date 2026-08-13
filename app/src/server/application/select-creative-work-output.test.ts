@@ -217,4 +217,50 @@ describe("selectCreativeWorkOutputCommand", () => {
     }
     expect(mockSelect).not.toHaveBeenCalled();
   });
+
+  it("blocks selecting another Piece while layerization is still pre-submit", async () => {
+    mockGet.mockResolvedValue({
+      work: workItem,
+      outputs: [
+        {
+          ...completedOutput,
+          id: "output-locked",
+          isSelected: true,
+          layerization: {
+            status: "queued",
+            attemptId: "attempt-1",
+            callbackTokenHash: "a".repeat(64),
+            callbackConsumedAt: null,
+            requestedByUserId: "owner-1",
+            createdAt: "2026-08-13T12:00:00.000Z",
+            updatedAt: "2026-08-13T12:00:00.000Z",
+            callbackDeadlineAt: "2026-08-13T14:00:00.000Z",
+            latencyMs: null,
+            providerRequestId: null,
+            providerModel: "bytedance/seedream/v5/pro/layerize",
+            providerEndpoint: "https://queue.fal.run/bytedance/seedream/v5/pro/layerize",
+            estimatedCostUsd: null,
+            baseWidth: null,
+            baseHeight: null,
+            layers: [],
+            psdKey: null,
+            diagnosticZipKey: null,
+            fidelity: null,
+            failureCode: null,
+          },
+        },
+        { ...completedOutput, id: "output-2" },
+      ],
+    } as never);
+
+    const result = await selectCreativeWorkOutputCommand({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      outputId: "output-2",
+      confirmObjective: true,
+    });
+
+    expect(result).toEqual({ ok: false, error: { code: "layerization_selection_locked" } });
+    expect(mockSelect).not.toHaveBeenCalled();
+  });
 });

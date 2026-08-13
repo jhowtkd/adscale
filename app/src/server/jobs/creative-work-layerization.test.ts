@@ -12,6 +12,7 @@ const updateStateMock = vi.hoisted(() => vi.fn());
 const completeMock = vi.hoisted(() => vi.fn());
 const failMock = vi.hoisted(() => vi.fn());
 const markUnknownMock = vi.hoisted(() => vi.fn());
+const stillSelectedMock = vi.hoisted(() => vi.fn());
 const objectSignedUrlMock = vi.hoisted(() => vi.fn());
 const objectGetMock = vi.hoisted(() => vi.fn());
 const objectPutMock = vi.hoisted(() => vi.fn());
@@ -37,6 +38,7 @@ vi.mock("@/server/repositories/creative-work-layerization", () => ({
   completeCreativeWorkLayerization: (...args: unknown[]) => completeMock(...args),
   failCreativeWorkLayerization: (...args: unknown[]) => failMock(...args),
   markCreativeWorkLayerizationSubmissionUnknown: (...args: unknown[]) => markUnknownMock(...args),
+  isCreativeWorkOutputStillSelectedForLayerization: (...args: unknown[]) => stillSelectedMock(...args),
 }));
 vi.mock("@/server/storage", () => ({
   objectStorage: {
@@ -187,6 +189,7 @@ describe("creative work layerization job", () => {
     provider.submit.mockResolvedValue({ requestId: "request-1" });
     provider.status.mockResolvedValue("COMPLETED");
     provider.result.mockResolvedValue({ provider: "payload" });
+    stillSelectedMock.mockResolvedValue(true);
   });
 
   it("submits once, keeps the original, stores private artifacts, and strips provider URLs from state", async () => {
@@ -261,6 +264,21 @@ describe("creative work layerization job", () => {
     });
 
     await expect(runCreativeWorkLayerization({ event, provider })).resolves.toEqual({ status: "failed" });
+    expect(provider.submit).not.toHaveBeenCalled();
+    expect(failMock).toHaveBeenCalledWith(expect.objectContaining({ code: "no_longer_eligible" }));
+  });
+
+  it("does not submit if selection changes after the signed URL is issued", async () => {
+    getOutputMock.mockResolvedValueOnce(row(state("queued")));
+    claimProcessingMock.mockResolvedValueOnce(row(state("processing")));
+    getCreativeWorkMock.mockResolvedValue({
+      outputs: [{ id: event.outputId, status: "completed", isSelected: true, outputKey: "creative-work/original.png" }],
+    });
+    objectSignedUrlMock.mockResolvedValue("https://storage.example/original.png");
+    stillSelectedMock.mockResolvedValueOnce(false);
+
+    await expect(runCreativeWorkLayerization({ event, provider })).resolves.toEqual({ status: "failed" });
+    expect(objectSignedUrlMock).toHaveBeenCalledOnce();
     expect(provider.submit).not.toHaveBeenCalled();
     expect(failMock).toHaveBeenCalledWith(expect.objectContaining({ code: "no_longer_eligible" }));
   });

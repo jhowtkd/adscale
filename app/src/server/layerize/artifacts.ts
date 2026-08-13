@@ -146,8 +146,8 @@ export async function writeLayerizationDiagnosticZip(input: {
   try {
     await writeLayerizationDiagnosticZipFile({
       filePath,
-      original: input.original,
-      recomposed: input.recomposed,
+      loadOriginal: async () => input.original,
+      loadRecomposed: async () => input.recomposed,
       layers: input.layers,
       loadLayer: async (layer) => input.layers.find((candidate) => candidate.storageKey === layer.storageKey)!.png,
       manifest: input.manifest,

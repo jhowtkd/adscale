@@ -2283,6 +2283,7 @@
     "creativeWorkLayerizationNotConfigured": "A separação em camadas ainda não está configurada neste ambiente.",
     "creativeWorkLayerizationDispatchFailed": "Não foi possível iniciar a separação em camadas. Tente novamente.",
     "creativeWorkLayerizationNotFound": "Tentativa de separação não encontrada.",
+    "creativeWorkLayerizationSelectionLocked": "Outra Peça está sendo separada em camadas. Espere essa tentativa iniciar ou falhar antes de trocar a Peça aprovada.",
     "rateLimitExceeded": "Muitas requisições. Tente novamente mais tarde.",
     "creativeWorkNotDraft": "Este trabalho já entrou em geração e não pode mais ser alterado. Inicie uma nova criação para continuar.",
     "creativeWorkNotEligibleForSuggestion": "Este trabalho não está no estado de variações com fonte pronta; sugestões de direcionamento não estão disponíveis.",

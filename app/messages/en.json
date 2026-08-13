@@ -2283,6 +2283,7 @@
     "creativeWorkLayerizationNotConfigured": "Layer separation is not configured in this environment yet.",
     "creativeWorkLayerizationDispatchFailed": "Layer separation could not be started. Try again.",
     "creativeWorkLayerizationNotFound": "Layer separation attempt not found.",
+    "creativeWorkLayerizationSelectionLocked": "Another Piece is being separated into layers. Wait for that attempt to start or fail before changing the approved Piece.",
     "invalidRequestBody": "Invalid request body",
     "aiEmptyResponse": "Empty response from AI",
     "aiInvalidJson": "Invalid JSON from AI",
