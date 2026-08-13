@@ -1,16 +1,21 @@
-# Validação local da separação do Trabalho em camadas — 2026-08-12
+# Validação local da separação da Peça em camadas — 2026-08-13
 
 ## Tested revision
 
 ```text
-commit: 2245209312760e9177e4544e7e15054261979b00
-subject: fix: close layerization recovery findings
-committed_at: 2026-08-12T19:22:02-03:00
+commit: 2ff93012ea6857cc068c37e5a55e844bf74d52a4
+subject: fix: close layerization review findings
+committed_at: 2026-08-13T08:53:46-03:00
 ```
 
-The commands below ran against that commit with unrelated, pre-existing local
-changes left unstaged. No real `FAL_KEY`, fal request, paid generation, deploy,
-push, production authentication, or partner approval occurred.
+The commands below ran against that commit on `feat/227-seedream-layerize`.
+Untracked `.planning/seedream-layerize-*.md` files were left unstaged. No real
+`FAL_KEY`, fal request, paid generation, deploy, production authentication, or
+partner approval occurred.
+
+This supersedes the 2026-08-12 note that referenced `22452093` (not an ancestor
+of this PR) and a `convergence:gate` failure caused by Brand Fonts on the mixed
+branch.
 
 ## Command results
 
@@ -18,7 +23,7 @@ push, production authentication, or partner approval occurred.
 
 ```text
 $ npm run test:db:setup
-Starting adscale-test-postgres container...
+Container adscale-test-postgres is already running.
 Postgres is ready.
 [✓] migrations applied successfully!
 ✅ Test database setup complete.
@@ -26,81 +31,96 @@ URL: postgres://test:test@localhost:5433/adscale_test
 exit: 0
 ```
 
-### TypeScript and focused unit/API tests
+### TypeScript and Layerize tests
 
 ```text
 $ npm run typecheck
 > tsc --noEmit
 exit: 0
 
-$ npm test -- --run src/server/application/recover-expired-creative-work-layerizations.test.ts src/server/repositories/creative-work-layerization.test.ts src/server/jobs/creative-work-layerization.test.ts 'src/app/api/creative-work/[id]/route.test.ts'
-Test Files  4 passed (4)
-Tests       73 passed (73)
+$ DATABASE_URL=postgres://test:test@localhost:5433/adscale_test \
+  TEST_DATABASE_URL=postgres://test:test@localhost:5433/adscale_test \
+  NODE_ENV=test npm test -- --run \
+  src/server/application/request-creative-work-layerization.test.ts \
+  src/server/application/recover-expired-creative-work-layerizations.test.ts \
+  src/server/repositories/creative-work-layerization.test.ts \
+  src/server/jobs/creative-work-layerization.test.ts \
+  src/server/layerize \
+  'src/app/api/creative-work/[id]/route.test.ts' \
+  tests/integration/creative-work-layerization-journey.test.ts \
+  src/components/creative-work/CreativeResultCard.test.tsx
+Test Files  9 passed (9)
+Tests       101 passed (101)
 exit: 0
 ```
 
 ### Real-Postgres journey tracer
 
 ```text
-$ DATABASE_URL=postgres://test:test@localhost:5433/adscale_test TEST_DATABASE_URL=postgres://test:test@localhost:5433/adscale_test npm test -- --run tests/integration/creative-work-layerization-journey.test.ts
+$ DATABASE_URL=postgres://test:test@localhost:5433/adscale_test \
+  TEST_DATABASE_URL=postgres://test:test@localhost:5433/adscale_test \
+  NODE_ENV=test npm test -- --run tests/integration/creative-work-layerization-journey.test.ts
 Test Files  1 passed (1)
 Tests       1 passed (1)
-Duration    975ms
+Duration    242ms
 exit: 0
 ```
 
-The tracer keeps the HTTP adapter, application services, repositories,
-Postgres state transitions, job handler wiring, callback/polling race,
-terminal claim, dispatch-lease release/retry, stale `finalizing` recovery,
-private PSD readback, and on-demand ZIP behavior in the exercised path. The
-auth session, fal HTTP, Inngest event transport, and object storage are boundary
-fakes; the job handler runs in-process.
+The tracer uses a real Better Auth session cookie, workspace authorization,
+Postgres, application services, repositories, the registered
+`layerizationJobHandler`, the production `objectStorage` singleton (in-process
+backend in CI), PSD readback, on-demand ZIP, callback race, `finalizing`
+recovery, and expired `queued` → `submission_unknown`. Only fal HTTP is a
+network fake. `inngest.send` is intercepted so CI does not need Inngest Cloud;
+continuation is the same handler registered on `/api/inngest`.
 
 ### Full automated suite
 
 ```text
-$ npm test
-Test Files  673 passed | 2 skipped (675)
-Tests       4865 passed | 13 skipped (4878)
-Duration    60.33s
-exit: 0
+$ DATABASE_URL=postgres://test:test@localhost:5433/adscale_test \
+  TEST_DATABASE_URL=postgres://test:test@localhost:5433/adscale_test \
+  NODE_ENV=test npm test
+Test Files  1 failed | 667 passed (668)
+Tests       1 failed | 4844 passed | 1 skipped (4846)
+Duration    104.48s
+exit: 1
 ```
 
-The suite emitted existing localstorage/fontconfig warnings; no test failed.
+The single failure is pre-existing on `origin/main` and outside this diff:
+`artifact-version.test.ts` expects `"Operation ID reused for a different command"`
+while the implementation throws `"Operation ID belongs to a different promotion command"`.
 
 ### Lint and production build
 
 ```text
 $ npm run lint
-✖ 112 problems (0 errors, 112 warnings)
+✖ 113 problems (0 errors, 113 warnings)
 exit: 0
 
 $ npm run build
-✓ Compiled successfully in 13.2s
-Finished TypeScript in 13.9s
+✓ Compiled successfully in 29.6s
+Finished TypeScript in 22.9s
 ✓ Generating static pages using 9 workers (94/94)
-[prepare-standalone] copied static: 540 files
+[prepare-standalone] copied static: 538 files
 [prepare-standalone] copied public: 19 files
 exit: 0
 ```
 
-The lint warnings and build-time single-instance rate-limiter warnings predate
-this layerization diff; neither command reported an error.
+The lint warnings predate this layerization diff. The build used dummy CI
+secrets; `FAL_KEY` was not set.
 
-### Convergence and graph
+### Convergence
 
 ```text
 $ npm run convergence:gate
-PRIMARY-DESTINATIONS: new API route file(s) (incl. nested): client-profiles/[id]/brand-fonts/route.ts.
-CONVERGENCE-GATE: failed at "anti-expansion gate".
-exit: 1
-
-$ graphify update .
-[graphify watch] Rebuilt: 25784 nodes, 44108 edges, 1992 communities
-Code graph updated.
+PRIMARY-DESTINATIONS: no expansion detected vs base "origin/main".
+FROZEN-MODULES: reviewed 6 commit(s) in d7e1971784..HEAD; no freeze violations.
+PLANNING-CONSISTENCY: ok
+SURFACE-INVENTORY: ok
+NO-PARALLEL-PREVIEW: ok
+CONVERGENCE-GATE: all gates passed.
 exit: 0
 ```
 
-The convergence failure is outside commit `22452093`: the reported brand-font
-route was already present at its parent revision. No layerization route or file
-was named by the gate.
+The previous Brand Fonts anti-expansion failure is absent from this branch.
+`FAL_KEY` remains unset. `#235` stays `ready-for-human`.
