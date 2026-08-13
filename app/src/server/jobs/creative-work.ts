@@ -1503,6 +1503,27 @@ const creativeWorkOutputJobHandler = async ({
           residual: buildResidualBrandFidelityReview(completedQuality),
         }));
         completedQuality = { ...(completedQuality ?? {}), brandFidelity };
+        if (identitySnapshot.brandKnowledge) {
+          const knowledge = identitySnapshot.brandKnowledge;
+          completedQuality = {
+            ...(completedQuality ?? {}),
+            brandKnowledge: {
+              schemaVersion: 1,
+              mode: knowledge.mode,
+              versionId: knowledge.versionId,
+              versionNumber: knowledge.versionNumber,
+              versionHash: knowledge.versionHash,
+              claimIds: knowledge.claims.map((claim) => claim.id),
+              evidenceRefs: knowledge.claims.flatMap((claim) => claim.evidenceRefs),
+              selectedAssets: identitySnapshot.assets.map((asset) => ({
+                referenceId: asset.referenceId,
+                assetKey: asset.assetKey,
+                usageMode: asset.usageMode,
+                reasons: identitySnapshot.referenceSelection?.reasons[asset.referenceId] ?? [],
+              })),
+            },
+          };
+        }
       }
 
       // R-007: lease re-check before the commit — a job that lost the row

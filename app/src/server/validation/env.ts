@@ -58,6 +58,8 @@ export const envSchema = z.object({
    * work's input snapshot, never this live value. Removed after Gate 8.
    */
   CREATIVE_WORK_QUALITY_RECOVERY_ENABLED: z.enum(["true", "false"]).default("false"),
+  /** New Peça única snapshots consume the active published Brand Cortex version. */
+  BRAND_CORTEX_SINGLE_PIECE_ENABLED: z.enum(["true", "false"]).default("false"),
 });
 
 const parsed = envSchema.safeParse(process.env);

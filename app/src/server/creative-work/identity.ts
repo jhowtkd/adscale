@@ -6,6 +6,7 @@ import {
   getArchivedTrainingReferences,
 } from "../repositories/client-reference";
 import { getBrandKit } from "../repositories/brand-kit";
+import { getActiveBrandKnowledgeVersion } from "../repositories/brand-knowledge";
 import type {
   BrandTrainingAnalysis,
   BrandTrainingCategory,
@@ -380,6 +381,8 @@ interface CreateIdentitySnapshotInput {
   /** Request context for the ranked fallback (#178). Absent = neutral ranking. */
   brief?: SocialPostBrief | null;
   format?: CreativeWorkFormat | null;
+  /** Rollout is intentionally restricted to newly confirmed Peça única works. */
+  includePublishedBrandKnowledge?: boolean;
 }
 
 export class IdentitySnapshotMissingReferenceError extends Error {
@@ -415,9 +418,12 @@ export async function createIdentitySnapshot(
 ): Promise<CreativeWorkIdentitySnapshot> {
   const { workspaceId, clientProfileId, selectedReferenceIds } = input;
 
-  const [approved, archived] = await Promise.all([
+  const [approved, archived, activeBrandKnowledge] = await Promise.all([
     getApprovedTrainingReferences(workspaceId, clientProfileId) as Promise<ApprovedReferenceRow[]>,
     getArchivedTrainingReferences(workspaceId, clientProfileId) as Promise<ApprovedReferenceRow[]>,
+    input.includePublishedBrandKnowledge
+      ? getActiveBrandKnowledgeVersion(workspaceId, clientProfileId)
+      : null,
   ]);
 
   const approvedById = new Map(approved.map((row) => [row.id, row]));
@@ -495,6 +501,27 @@ export async function createIdentitySnapshot(
   const colors = (brandKit?.brandColors as string[] | null | undefined) ?? [];
   const fonts = (brandKit?.brandFonts as string[] | null | undefined) ?? [];
   const fontAssets = approvedBrandFontAssets(brandKit?.brandFontAssets ?? []);
+  const brandKnowledge = input.includePublishedBrandKnowledge
+    ? activeBrandKnowledge
+      ? {
+          mode: "published" as const,
+          versionId: activeBrandKnowledge.id,
+          versionNumber: activeBrandKnowledge.versionNumber,
+          versionHash: activeBrandKnowledge.hash,
+          compiledAt: activeBrandKnowledge.snapshot.compiledAt,
+          claims: activeBrandKnowledge.snapshot.claims.filter((claim) =>
+            (!claim.scope.format || claim.scope.format === input.format) && !claim.scope.channel
+          ),
+        }
+      : {
+          mode: "legacy_fallback" as const,
+          versionId: null,
+          versionNumber: null,
+          versionHash: null,
+          compiledAt: null,
+          claims: [],
+        }
+    : undefined;
 
   return {
     clientProfileId,
@@ -502,6 +529,7 @@ export async function createIdentitySnapshot(
     assets,
     referenceSelection,
     negativePatterns,
+    ...(brandKnowledge ? { brandKnowledge } : {}),
     brandKit: {
       colors,
       fonts,

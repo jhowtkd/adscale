@@ -25,6 +25,7 @@ const mocks = vi.hoisted(() => {
     getApprovedTrainingReferencesMock: vi.fn(),
     getArchivedTrainingReferencesMock: vi.fn(),
     getBrandKitMock: vi.fn(),
+    getActiveBrandKnowledgeVersionMock: vi.fn(),
     selectResults,
     selectChain: queryChain,
     selectMock: vi.fn(() => queryChain),
@@ -44,6 +45,10 @@ vi.mock("../repositories/client-reference", () => ({
 
 vi.mock("../repositories/brand-kit", () => ({
   getBrandKit: mocks.getBrandKitMock,
+}));
+
+vi.mock("../repositories/brand-knowledge", () => ({
+  getActiveBrandKnowledgeVersion: mocks.getActiveBrandKnowledgeVersionMock,
 }));
 
 import {
@@ -130,6 +135,7 @@ describe("creative-work identity module", () => {
     vi.clearAllMocks();
     mocks.selectResults.length = 0;
     mocks.getArchivedTrainingReferencesMock.mockResolvedValue([]);
+    mocks.getActiveBrandKnowledgeVersionMock.mockResolvedValue(null);
   });
 
   describe("DEFAULT_EXACT_PLACEMENT", () => {
@@ -312,6 +318,65 @@ describe("creative-work identity module", () => {
   });
 
   describe("createIdentitySnapshot", () => {
+    it("freezes only applicable claims from the active published version", async () => {
+      mocks.getApprovedTrainingReferencesMock.mockResolvedValue([]);
+      mocks.getBrandKitMock.mockResolvedValue(null);
+      mocks.getActiveBrandKnowledgeVersionMock.mockResolvedValue({
+        id: "version-1",
+        versionNumber: 3,
+        hash: "a".repeat(64),
+        snapshot: {
+          compiledAt: "2026-08-13T12:00:00.000Z",
+          claims: [
+            { id: "global", claimKey: "palette.colors", value: ["#D71F2B"], scope: { level: "global" }, evidenceRefs: [] },
+            { id: "portrait", claimKey: "layout.density", value: "sparse", scope: { level: "global", format: "4:5" }, evidenceRefs: [] },
+            { id: "story", claimKey: "layout.density", value: "dense", scope: { level: "global", format: "9:16" }, evidenceRefs: [] },
+            { id: "channel", claimKey: "layout.hierarchy", value: "feed only", scope: { level: "global", channel: "instagram" }, evidenceRefs: [] },
+          ],
+        },
+      });
+
+      const snapshot = await createIdentitySnapshot({
+        workspaceId: "ws-1",
+        clientProfileId: "profile-1",
+        selectedReferenceIds: [],
+        brief: socialBrief,
+        format: "4:5",
+        includePublishedBrandKnowledge: true,
+      });
+
+      expect(snapshot.brandKnowledge).toMatchObject({
+        mode: "published",
+        versionId: "version-1",
+        versionNumber: 3,
+        versionHash: "a".repeat(64),
+        compiledAt: "2026-08-13T12:00:00.000Z",
+      });
+      expect(snapshot.brandKnowledge?.claims.map((claim) => claim.id)).toEqual(["global", "portrait"]);
+    });
+
+    it("records an explicit legacy fallback when no published version exists", async () => {
+      mocks.getApprovedTrainingReferencesMock.mockResolvedValue([]);
+      mocks.getBrandKitMock.mockResolvedValue(null);
+
+      const snapshot = await createIdentitySnapshot({
+        workspaceId: "ws-1",
+        clientProfileId: "profile-1",
+        selectedReferenceIds: [],
+        format: "1:1",
+        includePublishedBrandKnowledge: true,
+      });
+
+      expect(snapshot.brandKnowledge).toEqual({
+        mode: "legacy_fallback",
+        versionId: null,
+        versionNumber: null,
+        versionHash: null,
+        compiledAt: null,
+        claims: [],
+      });
+    });
+
     it("persists a manual override as selection provenance", async () => {
       mocks.getApprovedTrainingReferencesMock.mockResolvedValue([
         approvedReference({

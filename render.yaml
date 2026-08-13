@@ -96,6 +96,8 @@ services:
         value: https://adscale.jhonatansoares.com/settings?tab=plans&checkout=cancel
       - key: CREATIVE_WORK_QUALITY_RECOVERY_ENABLED
         value: "false"
+      - key: BRAND_CORTEX_SINGLE_PIECE_ENABLED
+        value: "false"
       - key: PLATFORM_OWNER_EMAILS
         value: jhonatan.marcela@gmail.com
 
