@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import sharp from "sharp";
@@ -12,6 +12,7 @@ import type { TextLayout, TypographyPlan } from "./typography-plan";
 
 const PLAN_VERSION = 2 as const;
 const ROLE_MINIMUM_DPI = { headline: 96, body: 72, cta: 72 } as const;
+const cachedFontPaths = new Map<string, Promise<string>>();
 
 type TextRole = keyof typeof ROLE_MINIMUM_DPI;
 export type TextBox = { left: number; top: number; width: number; height: number };
@@ -164,6 +165,24 @@ function choosePalette(colors: readonly string[]) {
     : { panel: chosen.hex, text: "#FFFFFF" as const, contrast: white, source: brand ? "brand" as const : "fallback" as const };
 }
 
+function cacheFontFile(font: BrandFontAsset, fontBuffer: Buffer): Promise<string> {
+  const extension = font.assetKey.toLowerCase().endsWith(".otf") ? "otf" : "ttf";
+  const cacheKey = `${font.sha256}.${extension}`;
+  const existing = cachedFontPaths.get(cacheKey);
+  if (existing) return existing;
+
+  // fontconfig keeps the registered path; removing it can change later rasterization.
+  // ponytail: process-lifetime cache; add eviction only if workers render unbounded fonts.
+  const pending = mkdtemp(join(tmpdir(), "adscale-brand-font-")).then(async (dir) => {
+    const fontPath = join(dir, `font.${extension}`);
+    await writeFile(fontPath, fontBuffer, { flag: "wx" });
+    return fontPath;
+  });
+  cachedFontPaths.set(cacheKey, pending);
+  void pending.catch(() => cachedFontPaths.delete(cacheKey));
+  return pending;
+}
+
 async function renderText(input: {
   role: TextRole;
   text: string;
@@ -219,81 +238,73 @@ export async function runTextComposition(input: {
     throw new TextCompositionError("brand_text_safe_area");
   }
   const palette = choosePalette(input.brandColors);
-  const tempDir = await mkdtemp(join(tmpdir(), "adscale-brand-font-"));
-  const extension = input.font.assetKey.toLowerCase().endsWith(".otf") ? "otf" : "ttf";
-  const fontPath = join(tempDir, `font.${extension}`);
-
-  try {
-    await writeFile(fontPath, input.fontBuffer, { flag: "wx" });
-    const copyByRole: Record<TextRole, string> = input.copy;
-    const rendered = await Promise.all(layers.map(async (layer) => ({
+  const fontPath = await cacheFontFile(input.font, input.fontBuffer);
+  const copyByRole: Record<TextRole, string> = input.copy;
+  const rendered = await Promise.all(layers.map(async (layer) => ({
+    ...layer,
+    text: copyByRole[layer.role],
+    ...(await renderText({
       ...layer,
       text: copyByRole[layer.role],
-      ...(await renderText({
-        ...layer,
-        text: copyByRole[layer.role],
-        font: input.font,
-        fontPath,
-        color: palette.text,
-      })),
-    })));
-    const panelBuffer = await sharp({
-      create: {
-        width: selected.panel.width,
-        height: selected.panel.height,
-        channels: 4,
-        background: palette.panel,
-      },
-    }).png().toBuffer();
-    const buffer = await sharp(input.base)
-      .resize(input.dimensions.width, input.dimensions.height, { fit: "cover" })
-      .composite([
-        { input: panelBuffer, left: selected.panel.left, top: selected.panel.top },
-        ...rendered.map((layer) => ({ input: layer.buffer, left: layer.box.left, top: layer.box.top })),
-      ])
-      .png()
-      .toBuffer();
-    const planRecord = {
-      typographyPlan: input.typographyPlan,
+      font: input.font,
+      fontPath,
+      color: palette.text,
+    })),
+  })));
+  const panelBuffer = await sharp({
+    create: {
+      width: selected.panel.width,
+      height: selected.panel.height,
+      channels: 4,
+      background: palette.panel,
+    },
+  }).png().toBuffer();
+  const buffer = await sharp(input.base)
+    .resize(input.dimensions.width, input.dimensions.height, { fit: "cover" })
+    .composite([
+      { input: panelBuffer, left: selected.panel.left, top: selected.panel.top },
+      ...rendered.map((layer) => ({ input: layer.buffer, left: layer.box.left, top: layer.box.top })),
+    ])
+    .png()
+    .toBuffer();
+  const planRecord = {
+    typographyPlan: input.typographyPlan,
+    appliedLayout: selected.layout,
+    panel: selected.panel,
+    safeArea: safe,
+    palette,
+    layers: rendered.map(({ role, box, renderedDpi, minimumDpi }) => ({ role, box, renderedDpi, minimumDpi })),
+    font: input.font,
+  };
+
+  return {
+    buffer,
+    provenance: {
+      version: PLAN_VERSION,
+      execution: "deterministic",
+      format: input.typographyPlan.format,
+      dimensions: input.dimensions,
+      requestedLayout: input.typographyPlan.requestedLayout,
       appliedLayout: selected.layout,
-      panel: selected.panel,
+      typographyPlan: input.typographyPlan,
+      font: input.font,
+      copy: input.copy,
+      copyHash: hash(canonicalJsonStringify(input.copy)),
+      baseHash: hash(input.base),
+      planHash: hash(canonicalJsonStringify(planRecord)),
+      outputHash: hash(buffer),
       safeArea: safe,
       palette,
-      layers: rendered.map(({ role, box, renderedDpi, minimumDpi }) => ({ role, box, renderedDpi, minimumDpi })),
-      font: input.font,
-    };
-
-    return {
-      buffer,
-      provenance: {
-        version: PLAN_VERSION,
-        execution: "deterministic",
-        format: input.typographyPlan.format,
-        dimensions: input.dimensions,
-        requestedLayout: input.typographyPlan.requestedLayout,
-        appliedLayout: selected.layout,
-        typographyPlan: input.typographyPlan,
-        font: input.font,
-        copy: input.copy,
-        copyHash: hash(canonicalJsonStringify(input.copy)),
-        baseHash: hash(input.base),
-        planHash: hash(canonicalJsonStringify(planRecord)),
-        outputHash: hash(buffer),
-        safeArea: safe,
-        palette,
-        adjustments: selected.relocated ? ["layout_relocated"] : [],
-        layers: rendered.map((layer) => ({
-          role: layer.role,
-          textHash: hash(layer.text),
-          box: layer.box,
-          renderedDpi: layer.renderedDpi,
-          minimumDpi: layer.minimumDpi,
-        })),
-      },
-    };
-  } finally {
-    await rm(tempDir, { recursive: true, force: true });
-  }
+      adjustments: selected.relocated ? ["layout_relocated"] : [],
+      layers: rendered.map((layer) => ({
+        role: layer.role,
+        textHash: hash(layer.text),
+        box: layer.box,
+        renderedDpi: layer.renderedDpi,
+        minimumDpi: layer.minimumDpi,
+      })),
+    },
+  };
 }
 
 /** Backwards-compatible entry point for the #240 square tracer. */
