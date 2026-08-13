@@ -85,4 +85,28 @@ describe("run-brand-consistency-validation", () => {
     });
     expect(result.report.requests[0]?.hashes.result).toMatch(/^[a-f0-9]{64}$/);
   });
+
+  it("keeps comparison hashes stable across repeated controlled runs", async () => {
+    const directory = mkdtempSync(path.join(os.tmpdir(), "adscale-brand-repeat-"));
+    temporaryDirectories.push(directory);
+    const manifestPath = path.resolve(
+      process.cwd(),
+      "../.planning/validation/brand-consistency-baseline.manifest.json",
+    );
+
+    const first = await runBrandConsistencyValidation({
+      manifestPath,
+      outputPath: path.join(directory, "first.json"),
+      capturedAt: "2026-08-13T12:00:00.000Z",
+    });
+    const second = await runBrandConsistencyValidation({
+      manifestPath,
+      outputPath: path.join(directory, "second.json"),
+      capturedAt: "2026-08-13T12:05:00.000Z",
+    });
+
+    expect(second.report.hashes).toEqual(first.report.hashes);
+    expect(second.report.requests.map((request) => request.hashes))
+      .toEqual(first.report.requests.map((request) => request.hashes));
+  });
 });
