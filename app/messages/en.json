@@ -654,7 +654,6 @@
           "visualConfidence": "Model confidence: {value}%",
           "visualNoConfidence": "No measurable confidence",
           "downloadPsd": "Download PSD",
-          "downloadPngs": "Download PNGs",
           "failure": {
             "timeout": "Generation took too long and was interrupted.",
             "invalid_context": "The request or sources didn't have enough information to generate faithfully. Adjust the request and try again.",

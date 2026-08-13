@@ -690,7 +690,6 @@
           "visualConfidence": "Confiança do modelo: {value}%",
           "visualNoConfidence": "Sem confiança mensurável",
           "downloadPsd": "Baixar PSD",
-          "downloadPngs": "Baixar PNGs",
           "failure": {
             "timeout": "A geração demorou demais e foi interrompida.",
             "invalid_context": "O pedido ou as fontes não tinham informação suficiente para gerar com fidelidade. Ajuste o pedido e tente de novo.",
