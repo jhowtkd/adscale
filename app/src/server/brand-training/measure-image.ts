@@ -119,6 +119,14 @@ function deltaE76(a: [number, number, number], b: [number, number, number]): num
   return Math.sqrt(dL * dL + dA * dA + dB * dB);
 }
 
+export function colorDeltaE(first: string, second: string): number | null {
+  const a = parseHexColor(first);
+  const b = parseHexColor(second);
+  return a && b
+    ? deltaE76(rgbToLab(a.r, a.g, a.b), rgbToLab(b.r, b.g, b.b))
+    : null;
+}
+
 export function parseHexColor(hex: string): { r: number; g: number; b: number } | null {
   const raw = hex.trim().replace(/^#/, "");
   if (!/^[0-9a-fA-F]{3}$|^[0-9a-fA-F]{6}$/.test(raw)) return null;

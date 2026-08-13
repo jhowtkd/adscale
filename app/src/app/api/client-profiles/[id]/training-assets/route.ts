@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createHash } from "node:crypto";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import {
@@ -119,6 +120,7 @@ export async function POST(
         metadata: {
           hasAlpha: normalized.hasAlpha,
           originalMimeType: file.type,
+          sha256: createHash("sha256").update(normalized.buffer).digest("hex"),
         },
       });
     } catch (error) {

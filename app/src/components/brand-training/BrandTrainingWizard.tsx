@@ -41,6 +41,7 @@ import {
 } from "@/lib/hooks/use-brand-training";
 import { BrandTrainingAssets } from "./BrandTrainingAssets";
 import { BrandTrainingStepper } from "./BrandTrainingStepper";
+import { BrandKnowledgeReview } from "./BrandKnowledgeReview";
 
 type StepId = "profile" | "ingest" | "validate" | "curate" | "voice";
 
@@ -477,6 +478,7 @@ function ValidateStep({
         <TagInput tags={fonts} onChange={setFonts} placeholder="Inter" />
       </Field>
       <BrandFontFiles clientProfileId={clientProfileId} />
+      <BrandKnowledgeReview clientProfileId={clientProfileId} />
       <Field label={t("fieldTone")}>
         <textarea
           value={toneOfVoice}

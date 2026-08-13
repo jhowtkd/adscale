@@ -14,6 +14,10 @@ vi.mock("@/server/repositories/client-reference", () => ({
   getClientProfiles: vi.fn(),
 }));
 
+vi.mock("@/server/repositories/brand-knowledge", () => ({
+  createBrandKnowledgeCandidates: vi.fn(() => Promise.resolve([])),
+}));
+
 vi.mock("@/server/repositories/brand-kit", () => ({
   BrandKitAmbiguityError: class BrandKitAmbiguityError extends Error {
     name = "BrandKitAmbiguityError";
@@ -55,12 +59,14 @@ import {
 } from "@/server/repositories/brand-kit";
 
 import { getClientProfiles } from "@/server/repositories/client-reference";
+import { createBrandKnowledgeCandidates } from "@/server/repositories/brand-knowledge";
 
 const mockGetClientProfiles = vi.mocked(getClientProfiles);
 const mockGetBrandKit = vi.mocked(getBrandKit);
 const mockGetBrandKitByWorkspace = vi.mocked(getBrandKitByWorkspace);
 const mockUpsertBrandKit = vi.mocked(upsertBrandKit);
 const mockDeleteBrandKit = vi.mocked(deleteBrandKit);
+const mockCreateBrandKnowledgeCandidates = vi.mocked(createBrandKnowledgeCandidates);
 
 describe("GET /api/workspace/brand-kit", () => {
   beforeEach(() => {
@@ -161,6 +167,33 @@ describe("POST /api/workspace/brand-kit", () => {
         brandFonts: ["Inter", "Roboto"],
       },
       PROFILE_A,
+    );
+  });
+
+  it("creates explicit review candidates without changing the active version", async () => {
+    mockUpsertBrandKit.mockResolvedValue({
+      id: PROFILE_A,
+      brandColors: ["#D71F2B"],
+      brandFonts: ["Poppins"],
+      requiredElements: "logo",
+      prohibitedElements: "neon",
+      logoAssetKey: null,
+    } as Awaited<ReturnType<typeof upsertBrandKit>>);
+
+    const res = await POST(new Request("http://localhost/api/workspace/brand-kit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clientProfileId: PROFILE_A, brandColors: ["#D71F2B"], brandFonts: ["Poppins"], requiredElements: "logo", prohibitedElements: "neon" }),
+    }));
+
+    expect(res.status).toBe(200);
+    expect(mockCreateBrandKnowledgeCandidates).toHaveBeenCalledWith(
+      "workspace-1",
+      PROFILE_A,
+      expect.arrayContaining([
+        expect.objectContaining({ claimKey: "palette.colors", authority: "explicit", status: "candidate" }),
+        expect.objectContaining({ claimKey: "visual.prohibited_elements", authority: "explicit", status: "candidate" }),
+      ]),
     );
   });
 
