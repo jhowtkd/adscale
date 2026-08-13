@@ -1,9 +1,12 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { initializeCanvas, readPsd } from "ag-psd";
 import JSZip from "jszip";
 import sharp from "sharp";
 import type { LayerBitmap } from "./artifacts";
-import { calculateLayerizationFidelity, recomposeLayerBitmaps, writeLayerizationDiagnosticZip, writeLayerizationPsd } from "./artifacts";
+import { calculateLayerizationFidelity, recomposeLayerBitmaps, writeLayerizationDiagnosticZip, writeLayerizationDiagnosticZipFile, writeLayerizationPsd } from "./artifacts";
 
 initializeCanvas(
   () => { throw new Error("Canvas rendering is not used in this test"); },
@@ -117,7 +120,6 @@ describe("layerization artifacts", () => {
     });
     const loaded = await JSZip.loadAsync(zip);
     expect(Object.keys(loaded.files).sort()).toEqual([
-      "layers/",
       "layers/00-base.png",
       "layers/01-headline.png",
       "layers/02-badge.png",
@@ -127,5 +129,29 @@ describe("layerization artifacts", () => {
     ]);
     await expect(loaded.file("manifest.json")?.async("string")).resolves.toContain('"gate": "passed"');
     await expect(loaded.file("layers/01-headline.png")?.async("nodebuffer")).resolves.toEqual(overlay);
+    const directory = await mkdtemp(join(tmpdir(), "adscale-layerize-seq-"));
+    const loadOrder: string[] = [];
+    let concurrent = 0;
+    let maxConcurrent = 0;
+    try {
+      await writeLayerizationDiagnosticZipFile({
+        filePath: join(directory, "piece.zip"),
+        original,
+        recomposed,
+        layers,
+        loadLayer: async (layer) => {
+          concurrent += 1;
+          maxConcurrent = Math.max(maxConcurrent, concurrent);
+          loadOrder.push(layer.storageKey);
+          concurrent -= 1;
+          return layer.png;
+        },
+        manifest: { fidelity },
+      });
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+    expect(maxConcurrent).toBe(1);
+    expect(loadOrder).toEqual(["layers/00.png", "layers/01.png", "layers/02.png"]);
   });
 });

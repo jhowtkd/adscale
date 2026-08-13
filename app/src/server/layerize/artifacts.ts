@@ -1,9 +1,12 @@
 import "server-only";
 
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { writePsdBuffer } from "ag-psd";
-import JSZip from "jszip";
 import sharp from "sharp";
 import type { LayerizationLayer, FidelityResult } from "./contracts";
+import { writeLayerizationDiagnosticZipFile } from "./artifacts-zip";
 
 export type LayerBitmap = LayerizationLayer & { png: Buffer };
 
@@ -130,9 +133,7 @@ export async function writeStoredLayerizationPsd(input: {
   });
 }
 
-function safeName(value: string): string {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48) || "layer";
-}
+export { writeLayerizationDiagnosticZipFile } from "./artifacts-zip";
 
 export async function writeLayerizationDiagnosticZip(input: {
   original: Buffer;
@@ -140,12 +141,19 @@ export async function writeLayerizationDiagnosticZip(input: {
   layers: LayerBitmap[];
   manifest: Record<string, unknown>;
 }): Promise<Buffer> {
-  const zip = new JSZip();
-  zip.file("original.png", input.original);
-  zip.file("recomposed-preview.png", input.recomposed);
-  for (const layer of [...input.layers].sort((left, right) => left.order - right.order)) {
-    zip.file(`layers/${String(layer.order).padStart(2, "0")}-${safeName(layer.name)}.png`, layer.png);
+  const directory = await mkdtemp(join(tmpdir(), "adscale-layerize-zip-"));
+  const filePath = join(directory, "piece.zip");
+  try {
+    await writeLayerizationDiagnosticZipFile({
+      filePath,
+      original: input.original,
+      recomposed: input.recomposed,
+      layers: input.layers,
+      loadLayer: async (layer) => input.layers.find((candidate) => candidate.storageKey === layer.storageKey)!.png,
+      manifest: input.manifest,
+    });
+    return readFile(filePath);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
   }
-  zip.file("manifest.json", JSON.stringify(input.manifest, null, 2));
-  return zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
 }

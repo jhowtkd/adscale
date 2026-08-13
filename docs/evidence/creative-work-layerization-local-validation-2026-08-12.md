@@ -67,12 +67,14 @@ exit: 0
 ```
 
 The tracer uses a real Better Auth session cookie, workspace authorization,
-Postgres, application services, repositories, the registered
-`layerizationJobHandler`, the production `objectStorage` singleton (in-process
-backend in CI), PSD readback, on-demand ZIP, callback race, `finalizing`
-recovery, and expired `queued` → `submission_unknown`. Only fal HTTP is a
-network fake. `inngest.send` is intercepted so CI does not need Inngest Cloud;
-continuation is the same handler registered on `/api/inngest`.
+Postgres, application services, and repositories. These seams stay intercepted:
+
+- `inngest.send` does not travel through `/api/inngest` or Inngest Cloud
+- continuation calls exported `layerizationJobHandler` in-process
+- `objectStorage` methods are delegated to `InMemoryObjectStorage`, not R2
+- fal HTTP is a fake server
+
+It does not prove Inngest registration, R2, deployment, or paid generation.
 
 ### Full automated suite
 

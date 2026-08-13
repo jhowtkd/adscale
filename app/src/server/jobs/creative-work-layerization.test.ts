@@ -129,7 +129,9 @@ function configureCompletedFlow() {
   claimFinalizationMock.mockResolvedValueOnce(row(finalizing));
   updateStateMock.mockImplementation(async (input: { state: LayerizationState }) => row(input.state));
   completeMock.mockImplementation(async (input: { state: LayerizationState }) => row({ ...input.state, status: "completed" }));
-  getCreativeWorkMock.mockResolvedValue({ outputs: [{ id: event.outputId, outputKey: "creative-work/original.png" }] });
+  getCreativeWorkMock.mockResolvedValue({
+    outputs: [{ id: event.outputId, status: "completed", isSelected: true, outputKey: "creative-work/original.png" }],
+  });
   objectSignedUrlMock.mockResolvedValue("https://storage.example/original.png");
   objectGetMock.mockResolvedValue(basePng);
   objectPutMock.mockResolvedValue(undefined);
@@ -239,7 +241,9 @@ describe("creative work layerization job", () => {
   it("waits for callback when the submit response is lost", async () => {
     getOutputMock.mockResolvedValueOnce(row(state("queued")));
     claimProcessingMock.mockResolvedValueOnce(row(state("processing")));
-    getCreativeWorkMock.mockResolvedValue({ outputs: [{ id: event.outputId, outputKey: "creative-work/original.png" }] });
+    getCreativeWorkMock.mockResolvedValue({
+      outputs: [{ id: event.outputId, status: "completed", isSelected: true, outputKey: "creative-work/original.png" }],
+    });
     objectSignedUrlMock.mockResolvedValue("https://storage.example/original.png");
     provider.submit.mockRejectedValueOnce(new Error("response lost"));
     markReconcilingMock.mockResolvedValue(row(state("reconciling")));
@@ -247,6 +251,18 @@ describe("creative work layerization job", () => {
     await expect(runCreativeWorkLayerization({ event, provider })).resolves.toEqual({ status: "reconciling" });
     expect(markUnknownMock).not.toHaveBeenCalled();
     expect(provider.submit).toHaveBeenCalledOnce();
+  });
+
+  it("does not submit a queued attempt after another Piece is selected", async () => {
+    getOutputMock.mockResolvedValueOnce(row(state("queued")));
+    claimProcessingMock.mockResolvedValueOnce(row(state("processing")));
+    getCreativeWorkMock.mockResolvedValue({
+      outputs: [{ id: event.outputId, status: "completed", isSelected: false, outputKey: "creative-work/original.png" }],
+    });
+
+    await expect(runCreativeWorkLayerization({ event, provider })).resolves.toEqual({ status: "failed" });
+    expect(provider.submit).not.toHaveBeenCalled();
+    expect(failMock).toHaveBeenCalledWith(expect.objectContaining({ code: "no_longer_eligible" }));
   });
 
   it("keeps a known provider request reconciling after the callback deadline", async () => {
@@ -270,7 +286,9 @@ describe("creative work layerization job", () => {
       .mockResolvedValueOnce(row(reconciling));
     markReconcilingMock.mockResolvedValue(row(reconciling));
     claimFinalizationMock.mockResolvedValue(row(finalizing));
-    getCreativeWorkMock.mockResolvedValue({ outputs: [{ id: event.outputId, outputKey: "creative-work/original.png" }] });
+    getCreativeWorkMock.mockResolvedValue({
+      outputs: [{ id: event.outputId, status: "completed", isSelected: true, outputKey: "creative-work/original.png" }],
+    });
     objectGetMock.mockResolvedValue(basePng);
     objectPutMock.mockResolvedValue(undefined);
     objectPutStreamMock.mockResolvedValue(undefined);

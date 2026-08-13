@@ -1,14 +1,14 @@
 /**
  * Primary Layerize journey at the HTTP boundary.
  *
- * Real: Better Auth session, workspace authorization, Postgres, application
- * services, repositories, the registered Inngest function (continuation/steps),
- * object-storage singleton, PSD readback, on-demand ZIP.
+ * Real: Better Auth session cookie, workspace authorization, Postgres,
+ * application services, repositories, PSD readback, on-demand ZIP.
  *
- * Fake: fal HTTP only. `inngest.send` is intercepted so CI does not need a
- * live Inngest Cloud; the same registered function `serve()` exposes is then
- * executed in-process. Object storage I/O uses the production singleton backed
- * by the in-process ObjectStorage implementation because CI has no R2.
+ * Still intercepted:
+ * - `inngest.send` does not go through `/api/inngest` or Inngest Cloud
+ * - continuation calls `layerizationJobHandler` in-process
+ * - `objectStorage` methods are delegated to `InMemoryObjectStorage`, not R2
+ * - fal HTTP is a fake server
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { randomBytes, randomUUID } from "node:crypto";

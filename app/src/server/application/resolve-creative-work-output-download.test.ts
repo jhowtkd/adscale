@@ -12,6 +12,7 @@ vi.mock("@/server/storage", () => ({
     head: vi.fn(),
     get: vi.fn(),
     put: vi.fn(),
+    putStream: vi.fn(),
   },
 }));
 
@@ -24,6 +25,7 @@ const mockSigned = vi.mocked(objectStorage.signedDownloadUrl);
 const mockHead = vi.mocked(objectStorage.head);
 const mockGetObject = vi.mocked(objectStorage.get);
 const mockPutObject = vi.mocked(objectStorage.put);
+const mockPutStream = vi.mocked(objectStorage.putStream);
 
 const workItem = {
   id: "work-1",
@@ -113,8 +115,10 @@ describe("resolveCreativeWorkOutputDownload", () => {
   it("materializes the diagnostic ZIP only when it is requested", async () => {
     const base = await sharp({ create: { width: 2, height: 2, channels: 4, background: [20, 30, 40, 255] } }).png().toBuffer();
     mockGetObject.mockResolvedValue(base);
-    let storedZip: Buffer | null = null;
-    mockPutObject.mockImplementation(async (_key, data) => { storedZip = data; });
+    const storedChunks: Buffer[] = [];
+    mockPutStream.mockImplementation(async (_key, data) => {
+      for await (const chunk of data) storedChunks.push(Buffer.from(chunk));
+    });
     mockGet.mockResolvedValue({
       work: workItem,
       outputs: [{
@@ -167,9 +171,9 @@ describe("resolveCreativeWorkOutputDownload", () => {
       ok: true,
       value: { outputKey: "creative-work/work-1/layerize/attempt-1/piece.zip" },
     });
-    expect(mockPutObject).toHaveBeenCalledOnce();
-    expect(storedZip).not.toBeNull();
-    const zip = await JSZip.loadAsync(storedZip!);
+    expect(mockPutStream).toHaveBeenCalledOnce();
+    expect(mockPutObject).not.toHaveBeenCalled();
+    const zip = await JSZip.loadAsync(Buffer.concat(storedChunks));
     expect(Object.keys(zip.files)).toContain("manifest.json");
   });
 });

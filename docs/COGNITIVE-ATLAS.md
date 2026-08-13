@@ -217,6 +217,7 @@ Prompt stack order (cognitive):
 | | |
 |--|--|
 | **Home** | `app/src/server/ai/export-validation.ts` |
+| **Layerize** | `app/src/server/layerize/` — post-approval Peça PSD/ZIP + fidelity |
 | **Payload** | `exportStatus` in `olhar/dual-verdict.ts` |
 | **Door** | `assertDerivationApprovable` (Gaze **and** Skin) |
 

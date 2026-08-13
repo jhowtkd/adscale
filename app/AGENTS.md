@@ -14,10 +14,11 @@ implementation. Candidate metadata remains part of the canonical result so
 route-level generation and ranking can store multiple OpenAI candidates without
 changing downstream persistence contracts.
 
-Seedream 5 Pro Layerize is not a generator. It is an optional, owner-only
-post-approval export of an already selected Peça (`src/server/layerize/`,
-`creative-work.layerize`). It must stay disabled when `FAL_KEY` is absent and
-must not enter generation routing or fallback.
+Seedream 5 Pro Layerize is not a generator. It is an optional post-approval
+export of an already selected Peça, exclusive to the Dono da plataforma
+(`src/server/layerize/`, `creative-work.layerize`). That role is not the
+workspace owner. It must stay disabled when `FAL_KEY` is absent and must not
+enter generation routing or fallback.
 
 ### Creative work (home composer)
 

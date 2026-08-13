@@ -15,6 +15,7 @@ import {
 } from "@/server/repositories/creative-work-layerization";
 import {
   LAYERIZATION_SOURCE_URL_TTL_SECONDS,
+  isLayerizationSubmitEligible,
   layerizationStateFromDatabase,
   type LayerizationLayer,
   type LayerizationState,
@@ -113,6 +114,15 @@ export async function runCreativeWorkLayerization(input: {
 
   const aggregate = await getCreativeWork(event.workspaceId, event.workItemId);
   const output = aggregate?.outputs.find((candidate) => candidate.id === event.outputId);
+  if (!state.providerRequestId && maySubmit && !isLayerizationSubmitEligible(output ?? {})) {
+    await failCreativeWorkLayerization({
+      workspaceId: event.workspaceId,
+      workItemId: event.workItemId,
+      outputId: event.outputId,
+      code: output?.outputKey ? "no_longer_eligible" : "source_missing",
+    });
+    return { status: "failed" };
+  }
   if (!output?.outputKey) {
     await failCreativeWorkLayerization({
       workspaceId: event.workspaceId,

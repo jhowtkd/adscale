@@ -53,6 +53,7 @@ const LAYERIZATION_FAILURE_KEYS: Record<LayerizationFailureCode, "unsafeMedia" |
   dispatch_failed: "unknown",
   missing_configuration: "unknown",
   source_missing: "unknown",
+  no_longer_eligible: "unknown",
   storage_error: "unknown",
   submission_unknown: "unknown",
 };

@@ -3,14 +3,17 @@
  * completed creative-work output. Transport (JSON vs redirect) stays in the
  * HTTP adapter.
  */
+import { createReadStream } from "node:fs";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { getCreativeWork } from "@/server/repositories/creative-work";
 import { objectStorage } from "@/server/storage";
 import { layerizationStateFromDatabase } from "@/server/layerize/contracts";
 import {
   layerizationArtifactKey,
-  recomposeLayerBitmaps,
-  writeLayerizationDiagnosticZip,
-  type LayerBitmap,
+  recomposeStoredLayers,
+  writeLayerizationDiagnosticZipFile,
 } from "@/server/layerize/artifacts";
 
 export type CreativeWorkOutputDownloadFormat = "original" | "psd" | "zip";
@@ -50,32 +53,37 @@ async function materializeDiagnosticZip(input: {
   if (!input.state.baseWidth || !input.state.baseHeight || !input.state.fidelity) {
     throw new Error("Completed layerization is missing diagnostic evidence");
   }
-  const layers: LayerBitmap[] = [];
-  for (const layer of input.state.layers) {
-    layers.push({ ...layer, png: await objectStorage.get(layer.storageKey) });
-  }
   const original = await objectStorage.get(input.outputKey);
-  const recomposed = await recomposeLayerBitmaps({
+  const recomposed = await recomposeStoredLayers({
     width: input.state.baseWidth,
     height: input.state.baseHeight,
-    layers,
+    layers: input.state.layers,
+    load: (layer) => objectStorage.get(layer.storageKey),
   });
-  const zip = await writeLayerizationDiagnosticZip({
-    original,
-    recomposed,
-    layers,
-    manifest: {
-      version: 1,
-      workItemId: input.workItemId,
-      outputId: input.outputId,
-      attemptId: input.state.attemptId,
-      providerModel: input.state.providerModel,
-      canvas: { width: input.state.baseWidth, height: input.state.baseHeight },
+  const directory = await mkdtemp(join(tmpdir(), "adscale-layerize-zip-"));
+  const filePath = join(directory, "piece.zip");
+  try {
+    await writeLayerizationDiagnosticZipFile({
+      filePath,
+      original,
+      recomposed,
       layers: input.state.layers,
-      fidelity: input.state.fidelity,
-    },
-  });
-  await objectStorage.put(zipKey, zip, "application/zip");
+      loadLayer: (layer) => objectStorage.get(layer.storageKey),
+      manifest: {
+        version: 1,
+        workItemId: input.workItemId,
+        outputId: input.outputId,
+        attemptId: input.state.attemptId,
+        providerModel: input.state.providerModel,
+        canvas: { width: input.state.baseWidth, height: input.state.baseHeight },
+        layers: input.state.layers,
+        fidelity: input.state.fidelity,
+      },
+    });
+    await objectStorage.putStream(zipKey, createReadStream(filePath), "application/zip");
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
   return zipKey;
 }
 

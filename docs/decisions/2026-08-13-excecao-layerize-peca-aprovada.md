@@ -1,7 +1,9 @@
 # Exceção ao congelamento: Layerize dormente da Peça aprovada
 
 **Data:** 2026-08-13
-**Status:** Proposta — aprovada quando este commit for mergeado na `main`
+**Status:** Aceita
+**Decisor:** Jhonatan Soares (founder)
+**Critério de aprovação:** merge do PR #249 (`feat/227-seedream-layerize`) em `main`.
 **Manifesto:** [`allowed-primary-destinations.json`](./allowed-primary-destinations.json)
 **ADR:** [`../adr/0013-trabalho-criativo-first.md`](../adr/0013-trabalho-criativo-first.md)
 **Demanda:** issues #227 e #229–#234

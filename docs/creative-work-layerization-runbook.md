@@ -90,12 +90,9 @@ As of 2026-08-12, the [public Seedream Layerize page](https://fal.ai/models/byte
 
 The retained command output, exit codes, and tested revision are recorded in
 [`docs/evidence/creative-work-layerization-local-validation-2026-08-12.md`](evidence/creative-work-layerization-local-validation-2026-08-12.md).
-The tracer keeps HTTP authorization (real Better Auth session), application
-services, repositories, Postgres, the registered Inngest function, private
-storage through the production singleton, PSD readback, ZIP materialization,
-callback/polling race, terminal-claim concurrency, recovery dispatch lease,
-expired `queued` recovery, and `finalizing` resumption real. Only fal HTTP is a
-network fake. `inngest.send` is intercepted so CI does not need Inngest Cloud;
-continuation uses the same registered function as `/api/inngest`. This does not
-prove deployment, paid generation, production authentication, partner approval,
-or semantic layer quality.
+The tracer keeps a real Better Auth session, workspace authorization,
+application services, repositories, and Postgres. It still intercepts
+`inngest.send` (no `/api/inngest` transport), continues via the exported
+`layerizationJobHandler`, and delegates `objectStorage` to an in-process
+memory backend. fal HTTP is also fake. This does not prove Inngest
+registration, R2, deployment, paid generation, or semantic layer quality.

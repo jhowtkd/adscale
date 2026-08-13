@@ -20,6 +20,7 @@ export const LAYERIZATION_FAILURE_CODES = [
   "dispatch_failed",
   "missing_configuration",
   "source_missing",
+  "no_longer_eligible",
   "provider_error",
   "invalid_provider_response",
   "unsafe_media",
@@ -103,8 +104,17 @@ export function isLayerizationRetryableFailure(
   return state?.status === "failed" && (
     state.failureCode === "dispatch_failed" ||
     state.failureCode === "missing_configuration" ||
-    state.failureCode === "source_missing"
+    state.failureCode === "source_missing" ||
+    state.failureCode === "no_longer_eligible"
   );
+}
+
+export function isLayerizationSubmitEligible(output: {
+  status?: string | null;
+  isSelected?: boolean | null;
+  outputKey?: string | null;
+}): boolean {
+  return output.status === "completed" && output.isSelected === true && Boolean(output.outputKey);
 }
 
 export function layerizationStateFromDatabase(value: unknown): LayerizationState | null {
