@@ -14,6 +14,30 @@ export interface BrandFontAsset {
   approvedByUserId: string;
 }
 
+export type BrandFontReviewStatus = "pending_approval" | "approved" | "archived";
+
+export interface BrandFontAssetRecord extends Omit<BrandFontAsset, "approvedAt" | "approvedByUserId"> {
+  reviewStatus: BrandFontReviewStatus;
+  uploadedAt: string;
+  uploadedByUserId: string;
+  approvedAt: string | null;
+  approvedByUserId: string | null;
+  archivedAt?: string | null;
+  archivedByUserId?: string | null;
+}
+
+export type StoredBrandFontAsset = BrandFontAsset | BrandFontAssetRecord;
+
+/** Legacy entries predate reviewStatus and remain approved for backwards compatibility. */
+export function approvedBrandFontAssets(
+  fonts: readonly StoredBrandFontAsset[],
+): BrandFontAsset[] {
+  return fonts.filter((font): font is BrandFontAsset => (
+    !("reviewStatus" in font)
+    || (font.reviewStatus === "approved" && Boolean(font.approvedAt && font.approvedByUserId))
+  ));
+}
+
 function readTag(buffer: Buffer, offset: number): string {
   return buffer.toString("ascii", offset, offset + 4);
 }

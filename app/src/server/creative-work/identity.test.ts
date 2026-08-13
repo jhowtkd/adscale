@@ -674,7 +674,7 @@ describe("creative-work identity module", () => {
       });
     });
 
-    it("freezes approved font files in the identity snapshot", async () => {
+    it("freezes only approved font files in the identity snapshot", async () => {
       mocks.getApprovedTrainingReferencesMock.mockResolvedValue([]);
       mocks.getBrandKitMock.mockResolvedValue({
         id: "profile-1",
@@ -682,16 +682,59 @@ describe("creative-work identity module", () => {
         name: "Acme",
         brandColors: [],
         brandFonts: ["Acme Sans", "Fallback Sans"],
-        brandFontAssets: [{
-          assetKey: "workspaces/ws-1/brand-fonts/acme.ttf",
-          family: "Acme Sans",
-          source: "Contrato da agência",
-          weight: 700,
-          style: "normal",
-          sha256: "abc123",
-          approvedAt: "2026-08-12T12:00:00.000Z",
-          approvedByUserId: "user-1",
-        }],
+        brandFontAssets: [
+          {
+            assetKey: "workspaces/ws-1/brand-fonts/acme.ttf",
+            family: "Acme Sans",
+            source: "Contrato da agência",
+            weight: 700,
+            style: "normal",
+            sha256: "abc123",
+            approvedAt: "2026-08-12T12:00:00.000Z",
+            approvedByUserId: "user-1",
+          },
+          {
+            assetKey: "workspaces/ws-1/brand-fonts/pending.ttf",
+            family: "Pending Sans",
+            source: "Upload",
+            weight: 400,
+            style: "normal",
+            sha256: "pending123",
+            reviewStatus: "pending_approval",
+            uploadedAt: "2026-08-12T13:00:00.000Z",
+            uploadedByUserId: "user-1",
+            approvedAt: null,
+            approvedByUserId: null,
+          },
+          {
+            assetKey: "workspaces/ws-1/brand-fonts/approved.otf",
+            family: "Approved Serif",
+            source: "Brand book",
+            weight: 500,
+            style: "italic",
+            sha256: "approved123",
+            reviewStatus: "approved",
+            uploadedAt: "2026-08-12T13:00:00.000Z",
+            uploadedByUserId: "user-1",
+            approvedAt: "2026-08-12T14:00:00.000Z",
+            approvedByUserId: "reviewer-1",
+          },
+          {
+            assetKey: "workspaces/ws-1/brand-fonts/archived.ttf",
+            family: "Archived Sans",
+            source: "Upload",
+            weight: 400,
+            style: "normal",
+            sha256: "archived123",
+            reviewStatus: "archived",
+            uploadedAt: "2026-08-12T13:00:00.000Z",
+            uploadedByUserId: "user-1",
+            approvedAt: null,
+            approvedByUserId: null,
+            archivedAt: "2026-08-12T14:00:00.000Z",
+            archivedByUserId: "reviewer-1",
+          },
+        ],
         logoAssetKey: null,
         toneOfVoice: null,
         prohibitedElements: null,
@@ -710,16 +753,22 @@ describe("creative-work identity module", () => {
         selectedReferenceIds: [],
       });
 
-      expect(snapshot.brandKit.fontAssets).toEqual([{
-        assetKey: "workspaces/ws-1/brand-fonts/acme.ttf",
-        family: "Acme Sans",
-        source: "Contrato da agência",
-        weight: 700,
-        style: "normal",
-        sha256: "abc123",
-        approvedAt: "2026-08-12T12:00:00.000Z",
-        approvedByUserId: "user-1",
-      }]);
+      expect(snapshot.brandKit.fontAssets).toEqual([
+        {
+          assetKey: "workspaces/ws-1/brand-fonts/acme.ttf",
+          family: "Acme Sans",
+          source: "Contrato da agência",
+          weight: 700,
+          style: "normal",
+          sha256: "abc123",
+          approvedAt: "2026-08-12T12:00:00.000Z",
+          approvedByUserId: "user-1",
+        },
+        expect.objectContaining({
+          assetKey: "workspaces/ws-1/brand-fonts/approved.otf",
+          reviewStatus: "approved",
+        }),
+      ]);
     });
   });
 });

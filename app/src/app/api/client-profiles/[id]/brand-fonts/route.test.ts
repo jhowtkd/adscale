@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   requireWorkspaceAccess: vi.fn(),
   getClientProfile: vi.fn(),
   addBrandFontAsset: vi.fn(),
+  reviewBrandFontAsset: vi.fn(),
   createWorkspaceAsset: vi.fn(),
   deleteWorkspaceAsset: vi.fn(),
   normalizeBrandFontUpload: vi.fn(),
@@ -21,6 +22,7 @@ vi.mock("@/server/auth/workspace", () => ({
 vi.mock("@/server/repositories/client-reference", () => ({
   getClientProfile: (...args: unknown[]) => mocks.getClientProfile(...args),
   addBrandFontAsset: (...args: unknown[]) => mocks.addBrandFontAsset(...args),
+  reviewBrandFontAsset: (...args: unknown[]) => mocks.reviewBrandFontAsset(...args),
 }));
 vi.mock("@/server/repositories/workspace-asset", () => ({
   createWorkspaceAsset: (...args: unknown[]) => mocks.createWorkspaceAsset(...args),
@@ -36,7 +38,7 @@ vi.mock("@/server/storage", () => ({
   },
 }));
 
-import { POST } from "./route";
+import { PATCH, POST } from "./route";
 
 describe("brand font upload route", () => {
   beforeEach(() => {
@@ -56,7 +58,7 @@ describe("brand font upload route", () => {
     mocks.addBrandFontAsset.mockImplementation(async (_workspaceId, _profileId, font) => font);
   });
 
-  it("stores an approved font under the authenticated workspace and profile", async () => {
+  it("stores a font pending human approval under the authenticated workspace and profile", async () => {
     const form = new FormData();
     form.set("file", new File(["font"], "Brand.ttf", { type: "font/ttf" }));
     form.set("family", "Brand Sans");
@@ -80,9 +82,31 @@ describe("brand font upload route", () => {
       source: "Contrato da agência",
       weight: 700,
       style: "normal",
-      approvedByUserId: "user-1",
+      reviewStatus: "pending_approval",
+      uploadedByUserId: "user-1",
+      approvedAt: null,
+      approvedByUserId: null,
       sha256: "a".repeat(64),
     }));
+  });
+
+  it.each(["approved", "archived"] as const)("records the human %s decision", async (reviewStatus) => {
+    mocks.reviewBrandFontAsset.mockResolvedValue({ assetKey: "fonts/brand.ttf", reviewStatus });
+
+    const response = await PATCH(new Request("http://localhost/api", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ assetKey: "fonts/brand.ttf", reviewStatus }),
+    }), { params: Promise.resolve({ id: "profile-1" }) });
+
+    expect(response.status).toBe(200);
+    expect(mocks.reviewBrandFontAsset).toHaveBeenCalledWith(
+      "workspace-1",
+      "profile-1",
+      "fonts/brand.ttf",
+      reviewStatus,
+      "user-1",
+    );
   });
 
   it("rejects upload without an explicit rights confirmation", async () => {

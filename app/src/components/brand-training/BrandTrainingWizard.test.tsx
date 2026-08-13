@@ -72,6 +72,7 @@ const useUploadBrandTrainingAssetMock = vi.fn();
 const useReviewBrandTrainingAssetMock = vi.fn();
 const useBrandFontsMock = vi.fn();
 const useUploadBrandFontMock = vi.fn();
+const useReviewBrandFontMock = vi.fn();
 vi.mock("@/lib/hooks/use-brand-training", () => ({
   useBrandTrainingStatus: (...args: unknown[]) => useBrandTrainingStatusMock(...args),
   useExtractMulti: () => useExtractMultiMock(),
@@ -82,6 +83,7 @@ vi.mock("@/lib/hooks/use-brand-training", () => ({
   useReviewBrandTrainingAsset: () => useReviewBrandTrainingAssetMock(),
   useBrandFonts: () => useBrandFontsMock(),
   useUploadBrandFont: () => useUploadBrandFontMock(),
+  useReviewBrandFont: () => useReviewBrandFontMock(),
 }));
 
 const useBrandKitMock = vi.fn();
@@ -134,6 +136,7 @@ function defaultHooks() {
   });
   useBrandFontsMock.mockReturnValue({ data: [], isLoading: false });
   useUploadBrandFontMock.mockReturnValue({ mutate: vi.fn(), isPending: false });
+  useReviewBrandFontMock.mockReturnValue({ mutate: vi.fn(), isPending: false });
   useBrandKitMock.mockReturnValue({ data: null });
   useUpdateBrandKitMock.mockReturnValue({ mutate: vi.fn(), isPending: false });
 }
@@ -273,5 +276,37 @@ describe("BrandTrainingWizard", () => {
       ".ttf,.otf,font/ttf,font/otf",
     );
     expect(screen.getByRole("checkbox", { name: "brandTraining.fonts.rightsConfirmed" })).toBeInTheDocument();
+  });
+
+  it("requires an explicit human decision before a font is available", () => {
+    const mutate = vi.fn();
+    useBrandFontsMock.mockReturnValue({
+      data: [{
+        assetKey: "fonts/pending.ttf",
+        family: "Pending Sans",
+        source: "Contrato",
+        weight: 400,
+        style: "normal",
+        sha256: "pending",
+        reviewStatus: "pending_approval",
+        uploadedAt: "2026-08-13T10:00:00.000Z",
+        uploadedByUserId: "user-1",
+        approvedAt: null,
+        approvedByUserId: null,
+      }],
+      isLoading: false,
+    });
+    useReviewBrandFontMock.mockReturnValue({ mutate, isPending: false });
+
+    render(<BrandTrainingWizard />, { wrapper: createWrapper() });
+    fireEvent.click(screen.getByText("common.next"));
+    fireEvent.click(screen.getByText("common.next"));
+
+    expect(screen.getByText("brandTraining.fonts.statusPending")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("brandTraining.fonts.approveReview"));
+    expect(mutate).toHaveBeenCalledWith(
+      { assetKey: "fonts/pending.ttf", reviewStatus: "approved" },
+      expect.any(Object),
+    );
   });
 });

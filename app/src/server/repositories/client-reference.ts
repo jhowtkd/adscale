@@ -9,7 +9,11 @@ import type {
   BrandTrainingUsageMode,
   BrandTrainingReviewStatus,
 } from "../brand-training/contracts";
-import type { BrandFontAsset } from "../brand-training/font-assets";
+import type {
+  BrandFontAssetRecord,
+  BrandFontReviewStatus,
+  StoredBrandFontAsset,
+} from "../brand-training/font-assets";
 
 export type ClientReferenceKind =
   | "style"
@@ -74,8 +78,8 @@ export async function getClientProfile(workspaceId: string, id: string) {
 export async function addBrandFontAsset(
   workspaceId: string,
   clientProfileId: string,
-  font: BrandFontAsset,
-): Promise<BrandFontAsset | null> {
+  font: StoredBrandFontAsset,
+): Promise<StoredBrandFontAsset | null> {
   const [updated] = await db
     .update(clientProfiles)
     .set({
@@ -93,6 +97,50 @@ export async function addBrandFontAsset(
     ))
     .returning({ id: clientProfiles.id });
   return updated ? font : null;
+}
+
+export async function reviewBrandFontAsset(
+  workspaceId: string,
+  clientProfileId: string,
+  assetKey: string,
+  reviewStatus: Exclude<BrandFontReviewStatus, "pending_approval">,
+  userId: string,
+): Promise<BrandFontAssetRecord | null> {
+  const decidedAt = new Date().toISOString();
+  const decision = reviewStatus === "approved"
+    ? { reviewStatus, approvedAt: decidedAt, approvedByUserId: userId }
+    : { reviewStatus, archivedAt: decidedAt, archivedByUserId: userId };
+  const eligibleStatus = reviewStatus === "approved"
+    ? sql`font->>'reviewStatus' = 'pending_approval'`
+    : sql`coalesce(font->>'reviewStatus', 'approved') in ('pending_approval', 'approved')`;
+  const [updated] = await db
+    .update(clientProfiles)
+    .set({
+      brandFontAssets: sql`(
+        select jsonb_agg(
+          case when font->>'assetKey' = ${assetKey}
+            then font || ${JSON.stringify(decision)}::jsonb
+            else font
+          end
+          order by ordinal
+        )
+        from jsonb_array_elements(coalesce(${clientProfiles.brandFontAssets}, '[]'::jsonb))
+          with ordinality as entries(font, ordinal)
+      )`,
+      updatedAt: new Date(),
+    })
+    .where(and(
+      eq(clientProfiles.workspaceId, workspaceId),
+      eq(clientProfiles.id, clientProfileId),
+      sql`exists (
+        select 1
+        from jsonb_array_elements(coalesce(${clientProfiles.brandFontAssets}, '[]'::jsonb)) as font
+        where font->>'assetKey' = ${assetKey}
+          and ${eligibleStatus}
+      )`,
+    ))
+    .returning({ fonts: clientProfiles.brandFontAssets });
+  return (updated?.fonts ?? []).find((font) => font.assetKey === assetKey) as BrandFontAssetRecord | undefined ?? null;
 }
 
 function normalizeClientLabel(value: string): string {

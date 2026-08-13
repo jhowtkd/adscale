@@ -2409,9 +2409,15 @@
       "normal": "Normal",
       "italic": "Itálico",
       "rightsConfirmed": "Confirmo que tenho direito de usar este arquivo nas peças da marca.",
-      "approve": "Validar e aprovar fonte",
-      "approved": "Fonte validada e aprovada.",
-      "statusApproved": "Aprovada"
+      "sendForReview": "Enviar fonte para revisão",
+      "submitted": "Fonte validada e enviada para aprovação.",
+      "approveReview": "Aprovar",
+      "archiveReview": "Arquivar",
+      "reviewApproved": "Fonte aprovada.",
+      "reviewArchived": "Fonte arquivada.",
+      "statusPending": "Aguardando aprovação",
+      "statusApproved": "Aprovada",
+      "statusArchived": "Arquivada"
     },
     "curateTitle": "Revisão de referências",
     "curateDesc": "Marque cada criativo como referência de estilo, produto, layout ou negativa.",

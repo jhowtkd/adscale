@@ -806,8 +806,16 @@ test.describe("Creative Work v1 quality-recovery matrix (R-010)", () => {
         },
       );
       expect(upload.status(), `font upload must succeed (got ${upload.status()})`).toBe(201);
-      const uploaded = (await upload.json()) as { font: { assetKey: string; sha256: string } };
+      const uploaded = (await upload.json()) as {
+        font: { assetKey: string; sha256: string; reviewStatus: string };
+      };
       fontKey = uploaded.font.assetKey;
+      expect(uploaded.font.reviewStatus).toBe("pending_approval");
+      const approval = await page.request.patch(
+        `/api/client-profiles/${fixture.primaryClientProfileId}/brand-fonts`,
+        { data: { assetKey: fontKey, reviewStatus: "approved" } },
+      );
+      expect(approval.status(), `font approval must succeed (got ${approval.status()})`).toBe(200);
       fontAssetId = await withDb(async (client) => {
         const result = await client.query(
           `select id from adscale_app.workspace_assets where workspace_id = $1 and key = $2`,

@@ -243,6 +243,9 @@ export function useCreativeComposer({
       ? detailQuery.data?.work.clientProfileId ?? active.activeClientProfileId ?? null
       : null,
   );
+  const fontOptions = (brandFontsQuery.data ?? []).filter(
+    (font) => font.reviewStatus === undefined || font.reviewStatus === "approved",
+  );
   const createMutation = useCreateCreativeWorkDraft();
   const autosaveMutation = useAutosaveCreativeWork();
   const prepareMutation = usePrepareCreativeWork();
@@ -1278,7 +1281,7 @@ export function useCreativeComposer({
     && !sources.some((source) => source.status === "uploaded" || source.status === "analyzing")
     && (intent !== "single" || !sources.some((source) => source.usageConfirmed === false))
     && (intent !== "format_adaptation" || targetFormats.length > 0)
-    && (intent !== "single" || (brandFontsQuery.data?.length ?? 0) <= 1 || Boolean(fontAssetKey))
+    && (intent !== "single" || fontOptions.length <= 1 || Boolean(fontAssetKey))
     && !isUploading && actionPhase === "idle" && !generateMutation.isPending
     // A brand choice being applied resumes the submit itself — a manual
     // click in that window would race it with a concurrent generate.
@@ -1318,7 +1321,7 @@ export function useCreativeComposer({
       fontAssetKeyRef.current = value;
       setFontAssetKey(value);
     },
-    fontOptions: brandFontsQuery.data ?? [],
+    fontOptions,
     directionPool, toggleDirection, setManualDirectionInstruction,
     directionSuggestionState, pendingDirectionSuggestions, applyDirectionSuggestions, requestDirectionSuggestions, keepCurrentDirections,
     state, actionPhase, workId, clientProfileId, brandName,

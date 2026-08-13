@@ -1,4 +1,5 @@
 import { CreativeCopyContextError, generateSocialPostCopy } from "@/server/creative-work/copy";
+import { approvedBrandFontAssets } from "@/server/brand-training/font-assets";
 import { canonicalJsonStringify } from "@/server/creative-work/canonical-json";
 import {
   detectCreativeWorkBrandConflict,
@@ -186,7 +187,7 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
             format: effectiveFormat,
             requestedLayout: preparation.data.settings.textLayout,
             selectedFontAssetKey: preparation.data.settings.fontAssetKey,
-            fonts: brandKit?.brandFontAssets ?? [],
+            fonts: approvedBrandFontAssets(brandKit?.brandFontAssets ?? []),
           })
         : null;
     } catch (error) {
