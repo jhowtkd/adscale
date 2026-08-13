@@ -468,14 +468,14 @@ describe("normalizeCreativeWorkQaResult", () => {
   it("keeps valid findings and summary", () => {
     const result = normalizeCreativeWorkQaResult({
       findings: [
-        { code: "unsupported_claim", status: "confirmed", note: "Renderiza R$ 99 sem origem." },
-        { code: "wrong_brand", status: "suspected", note: "Logo pode ser de outra marca." },
+        { code: "unsupported_claim", status: "confirmed", confidence: 0.98, note: "Renderiza R$ 99 sem origem." },
+        { code: "wrong_brand", status: "suspected", confidence: 0.64, note: "Logo pode ser de outra marca." },
       ],
       summary: "Um fato inventado.",
     });
     expect(result.findings).toEqual([
-      { code: "unsupported_claim", status: "confirmed", note: "Renderiza R$ 99 sem origem." },
-      { code: "wrong_brand", status: "suspected", note: "Logo pode ser de outra marca." },
+      { code: "unsupported_claim", status: "confirmed", confidence: 0.98, note: "Renderiza R$ 99 sem origem." },
+      { code: "wrong_brand", status: "suspected", confidence: 0.64, note: "Logo pode ser de outra marca." },
     ]);
     expect(result.summary).toBe("Um fato inventado.");
   });

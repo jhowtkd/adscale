@@ -615,6 +615,22 @@
           "reviewBeforeApprove": "Review and approve",
           "confirmApproval": "Confirm approval",
           "retryUnavailable": "This proposal already used all automatic attempts. Create a new request to generate a new variation.",
+          "brandFidelityTitle": "Provable brand fidelity",
+          "brandFidelityCheck": {
+            "copy": "Copy",
+            "font": "Font",
+            "exact_assets": "Exact assets",
+            "composition": "Composition"
+          },
+          "brandFidelityState": {
+            "proven": "Proven",
+            "nonconforming": "Nonconforming",
+            "not_applicable": "Not verifiable"
+          },
+          "visualSuspicionTitle": "Visual suspicion — human review recommended",
+          "visualInconclusiveTitle": "Visual review inconclusive",
+          "visualConfidence": "Model confidence: {value}%",
+          "visualNoConfidence": "No measurable confidence",
           "layerizeSection": "Editable separation",
           "layerizeStart": "Separate into layers",
           "layerizeRetry": "Try separating again",

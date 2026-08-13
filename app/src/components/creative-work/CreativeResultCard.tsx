@@ -16,6 +16,10 @@ import {
   isLayerizationRetryableFailure,
   type LayerizationFailureCode,
 } from "@/server/layerize/contracts";
+import type {
+  DeterministicBrandFidelityReport,
+  ResidualBrandFidelityReview,
+} from "@/server/creative-work/brand-fidelity";
 
 type CreativeResultCardProps = {
   output: CreativeWorkOutput;
@@ -97,6 +101,18 @@ export function CreativeResultCard({
   const objectiveVerdict = selectionPolicy?.verdict === "legacy" ? null : selectionPolicy?.verdict ?? null;
   const evaluatorSummary = objectiveVerdict === "inconclusive"
     ? getCreativeWorkEvaluatorSummary(output.quality)
+    : null;
+  const storedBrandFidelity = output.quality?.brandFidelity as {
+    deterministic?: DeterministicBrandFidelityReport;
+    residual?: ResidualBrandFidelityReview;
+  } | undefined;
+  const deterministicBrandFidelity = storedBrandFidelity?.deterministic?.deterministic === true
+    && Array.isArray(storedBrandFidelity.deterministic.checks)
+    ? storedBrandFidelity.deterministic
+    : null;
+  const residualBrandFidelity = storedBrandFidelity?.residual?.advisoryOnly === true
+    && Array.isArray(storedBrandFidelity.residual.signals)
+    ? storedBrandFidelity.residual
     : null;
   const layerization = output.layerization;
   const layerizationBusy = layerization?.status === "queued" || layerization?.status === "processing" || layerization?.status === "reconciling" || layerization?.status === "finalizing";
@@ -185,6 +201,54 @@ export function CreativeResultCard({
         <div role="note" data-testid="legacy-selection-review" className="rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-3 py-2 text-xs text-[var(--text-secondary)]">
           {t("legacyReviewRequired")}
         </div>
+      ) : null}
+
+      {deterministicBrandFidelity ? (
+        <section
+          data-testid="brand-fidelity-deterministic"
+          className="rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-3 py-2"
+        >
+          <h3 className="text-xs font-medium text-[var(--text-secondary)]">{t("brandFidelityTitle")}</h3>
+          <ul className="mt-1 space-y-1 text-xs">
+            {deterministicBrandFidelity.checks.map((brandCheck) => (
+              <li key={brandCheck.id}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[var(--text-secondary)]">{t(`brandFidelityCheck.${brandCheck.id}`)}</span>
+                  <span className={brandCheck.state === "nonconforming" ? "text-[var(--danger-text)]" : "text-[var(--text-muted)]"}>
+                    {t(`brandFidelityState.${brandCheck.state}`)}
+                  </span>
+                </div>
+                {brandCheck.evidence.length > 0 ? (
+                  <p className="break-all text-[10px] text-[var(--text-muted)]">
+                    {brandCheck.evidence.map((item) => item.path).join(" · ")}
+                  </p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {residualBrandFidelity && residualBrandFidelity.status !== "clear" ? (
+        <section
+          role="note"
+          data-testid="brand-fidelity-residual"
+          className="rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-3 py-2"
+        >
+          <h3 className="text-xs font-medium text-[var(--text-secondary)]">
+            {t(residualBrandFidelity.status === "suspected" ? "visualSuspicionTitle" : "visualInconclusiveTitle")}
+          </h3>
+          <ul className="mt-1 space-y-1 text-xs text-[var(--text-muted)]">
+            {residualBrandFidelity.signals.map((signal) => (
+              <li key={`${signal.classification}:${signal.code}`}>
+                <p>{signal.note}</p>
+                <p>{signal.confidence === null
+                  ? t("visualNoConfidence")
+                  : t("visualConfidence", { value: Math.round(signal.confidence * 100) })}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
       ) : null}
 
       {output.status === "failed" ? (

@@ -56,6 +56,10 @@ import {
 } from "@/server/creative-work/job-telemetry";
 import { runExactComposition } from "@/server/creative-work/composite";
 import {
+  buildDeterministicBrandFidelity,
+  buildResidualBrandFidelityReview,
+} from "@/server/creative-work/brand-fidelity";
+import {
   runTextComposition,
   type TextCompositionProvenance,
 } from "@/server/creative-work/text-composite";
@@ -1482,6 +1486,23 @@ const creativeWorkOutputJobHandler = async ({
           ...(completedQuality ?? {}),
           textComposition: textCompositionProvenance ?? typographyPlan,
         };
+      }
+      if (work.toolKind === "single") {
+        const brandFidelity = await step.run("verify-brand-fidelity", async () => ({
+          deterministic: buildDeterministicBrandFidelity({
+            copy,
+            format: targetFormat,
+            dimensions,
+            typographyPlan,
+            approvedFont,
+            exactAssets: identitySnapshot.assets,
+            exactComposition: compositionProvenance,
+            textComposition: textCompositionProvenance,
+            finalArtifact: await objectStorage.get(finalOutputKey),
+          }),
+          residual: buildResidualBrandFidelityReview(completedQuality),
+        }));
+        completedQuality = { ...(completedQuality ?? {}), brandFidelity };
       }
 
       // R-007: lease re-check before the commit — a job that lost the row

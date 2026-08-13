@@ -392,6 +392,8 @@ export interface CreativeWorkQaFinding {
    * `suspected` is evaluator ambiguity and resolves to `inconclusive`.
    */
   status: "confirmed" | "suspected";
+  /** Model-reported confidence for advisory review; never changes the verdict policy. */
+  confidence?: number;
   note: string;
 }
 
@@ -610,7 +612,7 @@ ${referenceLines.join("\n")}
 
 TARGET FORMAT: ${input.format}
 
-Return only JSON: { "findings": [{ "code", "status", "note" }], "summary": "<one sentence>" }.
+Return only JSON: { "findings": [{ "code", "status", "confidence": 0.0, "note" }], "summary": "<one sentence>" }.
 Keep notes short and evidence-based. Locale for notes: ${input.locale}.`;
 }
 
@@ -630,17 +632,20 @@ export function normalizeCreativeWorkQaResult(value: unknown): CreativeWorkQaRes
   const rawFindings = Array.isArray(input.findings) ? input.findings : [];
   for (const raw of rawFindings) {
     if (!raw || typeof raw !== "object") continue;
-    const item = raw as { code?: unknown; status?: unknown; note?: unknown };
+    const item = raw as { code?: unknown; status?: unknown; confidence?: unknown; note?: unknown };
     const code = typeof item.code === "string" ? item.code.trim() : "";
     const status = asFindingStatus(item.status);
     const note = typeof item.note === "string" ? item.note.trim() : "";
+    const confidence = typeof item.confidence === "number" && Number.isFinite(item.confidence)
+      ? Math.min(1, Math.max(0, item.confidence))
+      : undefined;
     if (!allowedCodes.has(code) || !status || note.length === 0) continue;
     const typedCode = code as CreativeWorkObjectiveFailureCode;
     const existing = byCode.get(code);
     // One finding per code; a confirmed observation always wins over a
     // suspected one for the same defect.
     if (!existing || (existing.status === "suspected" && status === "confirmed")) {
-      byCode.set(code, { code: typedCode, status, note });
+      byCode.set(code, { code: typedCode, status, ...(confidence === undefined ? {} : { confidence }), note });
     }
   }
   return {
@@ -669,6 +674,7 @@ export async function analyzeCreativeWorkQa(
         findings: [{
           code: "unsupported_claim",
           status: "confirmed",
+          confidence: 0.99,
           note: "[e2e] alegação controlada sem origem factual.",
         }],
         summary: "Deterministic local E2E objective QA failed.",
@@ -738,9 +744,10 @@ export async function analyzeCreativeWorkQa(
                       enum: [...CREATIVE_WORK_VISION_FAILURE_CODES],
                     },
                     status: { type: "string", enum: ["confirmed", "suspected"] },
+                    confidence: { type: "number", minimum: 0, maximum: 1 },
                     note: { type: "string" },
                   },
-                  required: ["code", "status", "note"],
+                  required: ["code", "status", "confidence", "note"],
                 },
               },
               summary: { type: "string" },

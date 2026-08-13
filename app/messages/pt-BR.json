@@ -651,6 +651,22 @@
           "reviewBeforeApprove": "Revisar e aprovar",
           "confirmApproval": "Confirmar aprovação",
           "retryUnavailable": "Esta proposta já usou todas as tentativas automáticas. Crie um novo pedido para gerar uma nova variação.",
+          "brandFidelityTitle": "Fidelidade de marca comprovável",
+          "brandFidelityCheck": {
+            "copy": "Copy",
+            "font": "Fonte",
+            "exact_assets": "Assets exatos",
+            "composition": "Composição"
+          },
+          "brandFidelityState": {
+            "proven": "Comprovado",
+            "nonconforming": "Não conforme",
+            "not_applicable": "Não verificável"
+          },
+          "visualSuspicionTitle": "Suspeita visual — revisão humana recomendada",
+          "visualInconclusiveTitle": "Análise visual inconclusiva",
+          "visualConfidence": "Confiança do modelo: {value}%",
+          "visualNoConfidence": "Sem confiança mensurável",
           "layerizeSection": "Separação editável",
           "layerizeStart": "Separar em camadas",
           "layerizeRetry": "Tentar separar novamente",
