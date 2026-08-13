@@ -14,6 +14,7 @@ import type {
 } from "./contracts";
 import type { CreativeWorkReferenceSlot } from "./reference-plan";
 import type { TextLayout } from "./typography-plan";
+import { canonicalJsonStringify } from "./canonical-json";
 import { CREATIVE_LEVEL_DIRECTIONS } from "@/server/ai/creative-level-direction";
 
 export type SocialPostFormat = "1:1" | "4:5" | "9:16";
@@ -83,6 +84,19 @@ function buildBrandKitBlock(
     `- Prohibited elements: ${brandKit.prohibitedElements ?? "(not provided)"}`,
   );
   return lines.join("\n");
+}
+
+function buildBrandKnowledgeBlock(
+  snapshot: CreativeWorkIdentitySnapshot["brandKnowledge"],
+): string {
+  if (!snapshot || snapshot.mode !== "published") return "";
+  return [
+    "PUBLISHED BRAND KNOWLEDGE — FROZEN SNAPSHOT:",
+    `Version: ${snapshot.versionNumber}; sha256=${snapshot.versionHash}`,
+    ...snapshot.claims.map((claim) =>
+      `- ${claim.claimKey} [${claim.kind}; ${claim.authority}/${claim.confidence}; claim=${claim.id}]: ${canonicalJsonStringify(claim.value)}`
+    ),
+  ].join("\n");
 }
 
 function describeAnalysisForRule(
@@ -228,6 +242,7 @@ export function buildSocialPostPrompt(input: BuildSocialPostPromptInput): string
     textLayout: input.inputSnapshot.typographyPlan?.requestedLayout,
   });
   const brandKitBlock = buildBrandKitBlock(identitySnapshot.brandKit);
+  const brandKnowledgeBlock = buildBrandKnowledgeBlock(identitySnapshot.brandKnowledge);
   const ruleModeBlock = buildRuleModeBlock(identitySnapshot.assets);
   const negativePatternBlock = buildNegativePatternBlock(identitySnapshot.negativePatterns);
   const referenceModeBlock = buildReferenceModeBlock(identitySnapshot.assets);
@@ -254,6 +269,7 @@ export function buildSocialPostPrompt(input: BuildSocialPostPromptInput): string
     sourceAnalysisBlock,
     "",
     brandKitBlock,
+    ...(brandKnowledgeBlock ? ["", brandKnowledgeBlock] : []),
     "",
     ruleModeBlock,
     "",
@@ -487,6 +503,7 @@ export function buildCreativeWorkPrompt(input: BuildCreativeWorkPromptInput): st
   const modePolicyBlock = buildModePolicyBlock(input);
   const referenceRolesBlock = buildReferenceRolesBlock(input.references);
   const brandKitBlock = buildBrandKitBlock(input.identitySnapshot.brandKit);
+  const brandKnowledgeBlock = buildBrandKnowledgeBlock(input.identitySnapshot.brandKnowledge);
   const ruleModeBlock = buildRuleModeBlock(input.identitySnapshot.assets);
   const negativePatternBlock = buildNegativePatternBlock(
     input.identitySnapshot.negativePatterns,
@@ -508,6 +525,7 @@ export function buildCreativeWorkPrompt(input: BuildCreativeWorkPromptInput): st
     referenceRolesBlock,
     "",
     brandKitBlock,
+    ...(brandKnowledgeBlock ? ["", brandKnowledgeBlock] : []),
     "",
     ruleModeBlock,
     "",

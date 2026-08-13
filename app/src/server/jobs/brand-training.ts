@@ -26,6 +26,7 @@ import { getBrandKit } from "@/server/repositories/brand-kit";
 import { objectStorage } from "@/server/storage";
 import { env } from "@/server/validation/env";
 import { normalizeImageForAi } from "@/server/ai/normalize-image-for-ai";
+import { isE2EControlledProviderEnabled } from "@/server/ai/providers/e2e-controlled-provider";
 
 import { inngest } from "./client";
 
@@ -160,61 +161,63 @@ async function brandTrainingAnalyzeHandler({
         );
       }
 
-      const normalized = await normalizeImageForAi({ buffer: raw, mimeType: data.mimeType });
-      const dataUri = `data:${normalized.mimeType};base64,${normalized.buffer.toString("base64")}`;
-
-      const measuredFacts = measurement
-        ? [
-            "DETERMINISTIC MEASUREMENT (facts — do not contradict or restate as guesses):",
-            `size=${measurement.width}x${measurement.height} aspect=${measurement.aspectRatio}`,
-            `meanLuminance=${measurement.meanLuminance}`,
-            `hasRealTransparency=${measurement.hasRealTransparency}`,
-            `colorCoverage=${JSON.stringify(measurement.colorCoverage)}`,
-            "Infer structure (what/why) only. Coverage % and margins are already measured.",
-          ].join("\n")
-        : "No deterministic measurement available for this asset.";
-
-      const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 60_000, maxRetries: 0 });
-      const response = await openai.chat.completions.create({
-        model,
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          {
-            role: "user",
-            content: [
-              {
-                type: "image_url",
-                image_url: { url: dataUri, detail: "high" },
-              },
-              {
-                type: "text",
-                text: [
-                  `Propose a brand-training classification and layout structure for this asset.`,
-                  `Alpha channel is ${data.hasAlpha ? "present" : "absent"}.`,
-                  measuredFacts,
-                  `Return only the JSON object described in the system instructions.`,
-                ].join("\n"),
-              },
-            ],
-          },
-        ],
-        response_format: { type: "json_object" },
-        max_tokens: 1600,
-      });
-
-      const content = response.choices[0]?.message?.content;
-      if (!content) {
-        throw new Error("OpenAI returned empty content for brand training analysis");
-      }
-
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(content);
-      } catch {
-        throw new Error(
-          `Invalid JSON from OpenAI for brand training analysis: ${content.slice(0, 200)}`,
-        );
-      }
+      const parsed: unknown = isE2EControlledProviderEnabled()
+        ? {
+            trainingCategory: data.hasAlpha ? "logo" : "visual_reference",
+            usageMode: data.hasAlpha ? "exact" : "reference",
+            analysis: {
+              description: "Controlled E2E brand-training asset",
+              visualAttributes: ["controlled fixture"],
+              rules: [data.hasAlpha ? "preserve exact asset" : "use as style reference"],
+              constraints: ["do not invent brand details"],
+              confidence: 1,
+            },
+          }
+        : await (async () => {
+            const normalized = await normalizeImageForAi({ buffer: raw, mimeType: data.mimeType });
+            const dataUri = `data:${normalized.mimeType};base64,${normalized.buffer.toString("base64")}`;
+            const measuredFacts = measurement
+              ? [
+                  "DETERMINISTIC MEASUREMENT (facts — do not contradict or restate as guesses):",
+                  `size=${measurement.width}x${measurement.height} aspect=${measurement.aspectRatio}`,
+                  `meanLuminance=${measurement.meanLuminance}`,
+                  `hasRealTransparency=${measurement.hasRealTransparency}`,
+                  `colorCoverage=${JSON.stringify(measurement.colorCoverage)}`,
+                  "Infer structure (what/why) only. Coverage % and margins are already measured.",
+                ].join("\n")
+              : "No deterministic measurement available for this asset.";
+            const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 60_000, maxRetries: 0 });
+            const response = await openai.chat.completions.create({
+              model,
+              messages: [
+                { role: "system", content: SYSTEM_PROMPT },
+                {
+                  role: "user",
+                  content: [
+                    { type: "image_url", image_url: { url: dataUri, detail: "high" } },
+                    {
+                      type: "text",
+                      text: [
+                        "Propose a brand-training classification and layout structure for this asset.",
+                        `Alpha channel is ${data.hasAlpha ? "present" : "absent"}.`,
+                        measuredFacts,
+                        "Return only the JSON object described in the system instructions.",
+                      ].join("\n"),
+                    },
+                  ],
+                },
+              ],
+              response_format: { type: "json_object" },
+              max_completion_tokens: 1600,
+            });
+            const content = response.choices[0]?.message?.content;
+            if (!content) throw new Error("OpenAI returned empty content for brand training analysis");
+            try {
+              return JSON.parse(content) as unknown;
+            } catch {
+              throw new Error(`Invalid JSON from OpenAI for brand training analysis: ${content.slice(0, 200)}`);
+            }
+          })();
 
       const proposal = proposalSchema.parse(parsed);
       let analysis = proposal.analysis as ReturnType<typeof brandTrainingAnalysisSchema.parse>;

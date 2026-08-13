@@ -9,6 +9,11 @@ const mockCreateChatCompletion = vi.hoisted(() => vi.fn());
 const mockGetObject = vi.hoisted(() => vi.fn());
 const mockRecordTrainingAnalysis = vi.hoisted(() => vi.fn());
 const mockGetTrainingReferenceForAnalysis = vi.hoisted(() => vi.fn());
+const controlledProvider = vi.hoisted(() => ({ enabled: false }));
+
+vi.mock("@/server/ai/providers/e2e-controlled-provider", () => ({
+  isE2EControlledProviderEnabled: () => controlledProvider.enabled,
+}));
 
 vi.mock("openai", () => ({
   default: class MockOpenAI {
@@ -102,6 +107,7 @@ async function runBrandTrainingAnalyzeJob() {
 describe("brandTrainingAnalyzeJob", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    controlledProvider.enabled = false;
     mockGetTrainingReferenceForAnalysis.mockResolvedValue({
       id: baseEventData.referenceId,
       workspaceId: baseEventData.workspaceId,
@@ -158,6 +164,7 @@ describe("brandTrainingAnalyzeJob", () => {
     };
     expect(call.model).toBe("gpt-5-mini");
     expect(call.response_format).toEqual({ type: "json_object" });
+    expect(call).toMatchObject({ max_completion_tokens: 1600 });
 
     expect(mockRecordTrainingAnalysis).toHaveBeenCalledWith(
       {
@@ -171,6 +178,25 @@ describe("brandTrainingAnalyzeJob", () => {
         usageMode: "reference",
         analysis: expect.objectContaining({ description: "Ondas verdes" }),
       },
+    );
+  });
+
+  it("uses deterministic analysis and never calls OpenAI under the controlled E2E provider", async () => {
+    controlledProvider.enabled = true;
+
+    await runBrandTrainingAnalyzeJob();
+
+    expect(mockCreateChatCompletion).not.toHaveBeenCalled();
+    expect(mockRecordTrainingAnalysis).toHaveBeenCalledWith(
+      expect.objectContaining({ referenceId: baseEventData.referenceId }),
+      expect.objectContaining({
+        trainingCategory: "logo",
+        usageMode: "exact",
+        analysis: expect.objectContaining({
+          description: "Controlled E2E brand-training asset",
+          confidence: 1,
+        }),
+      }),
     );
   });
 

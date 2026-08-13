@@ -26,10 +26,9 @@ import { composeExactBrandAssets } from "../../src/server/creative-work/composit
  * Seed: `npm run seed:create-post-e2e`
  */
 
-const FIXTURE_PATH = path.resolve(
-  __dirname,
-  "../fixtures/create-post-e2e.json",
-);
+const FIXTURE_PATH = process.env.CREATE_POST_E2E_FIXTURE_PATH
+  ? path.resolve(process.env.CREATE_POST_E2E_FIXTURE_PATH)
+  : path.resolve(__dirname, "../fixtures/create-post-e2e.json");
 
 interface CreatePostFixture {
   workspaceId: string;
@@ -514,7 +513,8 @@ test.describe("Standalone Create Post acceptance gate", () => {
 // no real credits). Requires the dev server started with:
 //   DATABASE_URL=postgres://test:test@localhost:5433/adscale_test \
 //   E2E_DISABLE_RATE_LIMIT=true E2E_CONTROLLED_PROVIDER=true \
-//   CREATIVE_WORK_QUALITY_RECOVERY_ENABLED=true npm run dev:next
+//   CREATIVE_WORK_QUALITY_RECOVERY_ENABLED=true \
+//   BRAND_CORTEX_SINGLE_PIECE_ENABLED=true npm run dev:next
 // plus `npm run inngest:dev` and a fresh `npm run seed:create-post-e2e`.
 // Failure markers travel inside the frozen request text:
 //   [e2e:timeout-once]  transport retry consumes the 2nd (final) call
@@ -527,6 +527,9 @@ test.describe("Standalone Create Post acceptance gate", () => {
 
 const EVIDENCE_PATH = process.env.E2E_PROVIDER_EVIDENCE_PATH
   ?? path.resolve(__dirname, ".evidence/provider-calls.jsonl");
+const BRAND_CORTEX_EVIDENCE_PATH = process.env.BRAND_CORTEX_EVIDENCE_PATH
+  ? path.resolve(process.env.BRAND_CORTEX_EVIDENCE_PATH)
+  : path.resolve(__dirname, ".evidence/brand-cortex-seam.json");
 const E2E_DB_URL = process.env.DATABASE_URL
   ?? "postgres://test:test@localhost:5433/adscale_test";
 
@@ -572,6 +575,25 @@ interface V1OutputRow {
         box: { left: number; top: number; width: number; height: number };
       }>;
     };
+    exactComposition?: {
+      composed?: Array<{ referenceId: string; sourceSha256?: string }>;
+    };
+    brandFidelity?: {
+      deterministic?: {
+        overall?: string;
+        checks?: Array<{ id: string; state: string }>;
+      };
+      residual?: { advisoryOnly?: boolean; status?: string };
+    };
+    brandKnowledge?: {
+      mode: string;
+      versionId: string | null;
+      versionNumber: number | null;
+      versionHash: string | null;
+      claimIds: string[];
+      evidenceRefs: Array<{ type: string; id: string; path: string; sourceHash: string }>;
+      selectedAssets: Array<{ referenceId: string; assetKey: string; usageMode: string; reasons: string[] }>;
+    };
   } | null;
 }
 
@@ -582,6 +604,17 @@ interface V1WorkDetail {
     toolKind: string;
     settings: Record<string, unknown>;
     copy: { headline: string; body: string; cta: string } | null;
+    identitySnapshot?: {
+      brandKnowledge?: {
+        mode: string;
+        versionId: string | null;
+        versionNumber: number | null;
+        versionHash: string | null;
+        claims: Array<{ id: string; evidenceRefs: unknown[] }>;
+      };
+      assets: Array<{ referenceId: string; assetKey: string; usageMode: string }>;
+      referenceSelection?: { reasons: Record<string, string[]> };
+    } | null;
   };
   outputs: V1OutputRow[];
   sources: Array<{ id: string; status: string; usage: string; assetId: string | null }>;
@@ -895,6 +928,215 @@ test.describe("Creative Work v1 quality-recovery matrix (R-010)", () => {
       }
       if (fontAssetId) {
         await page.request.delete(`/api/workspace/assets/${fontAssetId}`);
+      }
+    }
+  });
+
+  test("Brand Cortex: training → publicação → snapshot congelado → fidelity", async ({ page }) => {
+    test.skip(
+      process.env.BRAND_CORTEX_SINGLE_PIECE_ENABLED !== "true",
+      "requires BRAND_CORTEX_SINGLE_PIECE_ENABLED=true on the app and Playwright process",
+    );
+    const fixture = loadFixture();
+    let profileId: string | null = null;
+    try {
+      const profileResponse = await page.request.post("/api/client-profiles", {
+        data: { name: `Brand Cortex E2E ${crypto.randomUUID()}` },
+      });
+      expect(profileResponse.status()).toBe(201);
+      profileId = ((await profileResponse.json()) as { profile: { id: string } }).profile.id;
+      const scopedFixture = { ...fixture, primaryClientProfileId: profileId };
+
+      const logo = await sharp({
+        create: { width: 320, height: 160, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
+      }).composite([{
+        input: Buffer.from('<svg width="240" height="80"><rect width="240" height="80" rx="20" fill="#D71F2B"/></svg>'),
+        left: 40,
+        top: 40,
+      }]).png().toBuffer();
+      const upload = await page.request.post(`/api/client-profiles/${profileId}/training-assets`, {
+        multipart: {
+          file: { name: "brand-cortex-logo.png", mimeType: "image/png", buffer: logo },
+          label: "Brand Cortex exact logo",
+        },
+      });
+      expect(upload.status()).toBe(201);
+      const reference = ((await upload.json()) as {
+        reference: { id: string; assetKey: string };
+      }).reference;
+      await expect.poll(async () => {
+        const response = await page.request.get(`/api/client-profiles/${profileId}/training-assets`);
+        const rows = ((await response.json()) as { references: Array<{ id: string; reviewStatus: string }> }).references;
+        return rows.find((row) => row.id === reference.id)?.reviewStatus;
+      }, { timeout: 60_000, intervals: [1_000, 2_000, 3_000] }).toBe("pending_approval");
+
+      const analysis = {
+        description: "Logotipo exato aprovado para o Córtex.",
+        visualAttributes: ["vermelho institucional"],
+        rules: ["preservar o logotipo exato"],
+        constraints: ["não distorcer o logotipo"],
+        confidence: 1,
+      };
+      const assetApproval = await page.request.patch(
+        `/api/client-profiles/${profileId}/training-assets/${reference.id}`,
+        { data: { trainingCategory: "logo", usageMode: "exact", analysis, reviewStatus: "approved" } },
+      );
+      expect(assetApproval.status()).toBe(200);
+
+      const knowledgeResponse = await page.request.get(`/api/client-profiles/${profileId}/brand-knowledge`);
+      expect(knowledgeResponse.ok()).toBeTruthy();
+      const claim = ((await knowledgeResponse.json()) as {
+        claims: Array<{ id: string; claimKey: string; value: unknown; status: string; evidenceRefs: Array<{ id: string }> }>;
+      }).claims.find((candidate) =>
+        candidate.claimKey === "logo.primary_asset"
+        && candidate.status === "candidate"
+        && candidate.evidenceRefs.some((evidence) => evidence.id === reference.id)
+      );
+      expect(claim, "approval must create a reviewable logo claim").toBeDefined();
+      const claimApproval = await page.request.patch(`/api/client-profiles/${profileId}/brand-knowledge`, {
+        data: { claimId: claim!.id, status: "approved", alternatives: [] },
+      });
+      expect(claimApproval.status()).toBe(200);
+      const firstPublication = await page.request.post(`/api/client-profiles/${profileId}/brand-knowledge/publish`);
+      expect(firstPublication.status()).toBe(201);
+      const versionOne = ((await firstPublication.json()) as {
+        version: { id: string; versionNumber: number; hash: string };
+      }).version;
+      expect(versionOne).toMatchObject({ versionNumber: 1, hash: expect.stringMatching(/^[a-f0-9]{64}$/) });
+
+      const fontBuffer = fs.readFileSync(path.resolve(
+        process.cwd(),
+        "node_modules/next/dist/compiled/@vercel/og/Geist-Regular.ttf",
+      ));
+      const fontUpload = await page.request.post(`/api/client-profiles/${profileId}/brand-fonts`, {
+        multipart: {
+          file: { name: "Geist-Regular.ttf", mimeType: "font/ttf", buffer: fontBuffer },
+          family: "Geist",
+          source: "Fixture licenciada do projeto",
+          weight: "400",
+          style: "normal",
+          rightsConfirmed: "true",
+        },
+      });
+      expect(fontUpload.status()).toBe(201);
+      const font = ((await fontUpload.json()) as { font: { assetKey: string; sha256: string } }).font;
+      const fontApproval = await page.request.patch(`/api/client-profiles/${profileId}/brand-fonts`, {
+        data: { assetKey: font.assetKey, reviewStatus: "approved" },
+      });
+      expect(fontApproval.status()).toBe(200);
+
+      const workId = await apiCreateV1Draft(page.request, scopedFixture, {
+        intent: "single",
+        request: "Peça institucional do Córtex com chamada literal para conhecer a marca.",
+        format: "4:5",
+        fontAssetKey: font.assetKey,
+        textLayout: "top",
+      });
+      const prepared = await apiPrepare(page.request, workId);
+      expect(prepared.status).toBe(200);
+      await apiGenerateInitial(page.request, workId);
+      const confirmed = await apiGetWork(page.request, workId);
+      expect(confirmed.work.identitySnapshot?.brandKnowledge).toMatchObject({
+        mode: "published",
+        versionId: versionOne.id,
+        versionNumber: 1,
+        versionHash: versionOne.hash,
+      });
+      expect(confirmed.work.identitySnapshot?.assets).toEqual(expect.arrayContaining([
+        expect.objectContaining({ referenceId: reference.id, assetKey: reference.assetKey, usageMode: "exact" }),
+      ]));
+      expect(confirmed.work.identitySnapshot?.referenceSelection?.reasons[reference.id]?.length).toBeGreaterThan(0);
+
+      const rereview = await page.request.patch(`/api/client-profiles/${profileId}/brand-knowledge`, {
+        data: { claimId: claim!.id, status: "approved", value: claim!.value, alternatives: [] },
+      });
+      expect(rereview.status()).toBe(200);
+      const secondPublication = await page.request.post(`/api/client-profiles/${profileId}/brand-knowledge/publish`);
+      expect(secondPublication.status()).toBe(201);
+      const versionTwo = ((await secondPublication.json()) as {
+        version: { id: string; versionNumber: number; hash: string };
+      }).version;
+      expect(versionTwo.versionNumber).toBe(2);
+      expect(versionTwo.id).not.toBe(versionOne.id);
+
+      const finished = await waitForTerminalOutputs(page.request, workId);
+      expect(finished.work.identitySnapshot?.brandKnowledge?.versionId).toBe(versionOne.id);
+      const output = finished.outputs[0];
+      expect(output.status).toBe("completed");
+      expect(output.quality?.textComposition).toMatchObject({
+        execution: "deterministic",
+        font: { assetKey: font.assetKey, sha256: font.sha256 },
+        copy: finished.work.copy,
+      });
+      expect(output.quality?.exactComposition?.composed).toEqual(expect.arrayContaining([
+        expect.objectContaining({ referenceId: reference.id, sourceSha256: expect.stringMatching(/^[a-f0-9]{64}$/) }),
+      ]));
+      expect(output.quality?.brandFidelity).toMatchObject({
+        deterministic: {
+          overall: "proven",
+          checks: expect.arrayContaining([
+            expect.objectContaining({ id: "copy", state: "proven" }),
+            expect.objectContaining({ id: "font", state: "proven" }),
+            expect.objectContaining({ id: "exact_assets", state: "proven" }),
+            expect.objectContaining({ id: "composition", state: "proven" }),
+          ]),
+        },
+        residual: { advisoryOnly: true },
+      });
+      expect(output.quality?.brandKnowledge).toMatchObject({
+        mode: "published",
+        versionId: versionOne.id,
+        versionNumber: 1,
+        versionHash: versionOne.hash,
+        claimIds: [claim!.id],
+        evidenceRefs: expect.arrayContaining([expect.objectContaining({ id: reference.id })]),
+        selectedAssets: expect.arrayContaining([
+          expect.objectContaining({ referenceId: reference.id, usageMode: "exact" }),
+        ]),
+      });
+
+      fs.mkdirSync(path.dirname(BRAND_CORTEX_EVIDENCE_PATH), { recursive: true });
+      fs.writeFileSync(BRAND_CORTEX_EVIDENCE_PATH, `${JSON.stringify({
+        schemaVersion: 1,
+        status: "pass",
+        capturedAt: new Date().toISOString(),
+        authenticated: true,
+        provider: "e2e-controlled",
+        paidGeneration: false,
+        featureFlag: "enabled_for_test",
+        assertions: {
+          trainingReviewed: true,
+          versionPublished: true,
+          laterPublicationDidNotMutateSnapshot: true,
+          exactAssetProven: true,
+          approvedFontAndCopyProven: true,
+          deterministicAndResidualSeparated: true,
+          traceableToEvidence: true,
+        },
+        version: { frozen: versionOne, activeAfterConfirmation: versionTwo },
+      }, null, 2)}\n`, "utf8");
+    } finally {
+      if (profileId) {
+        const assetIds = await withDb(async (client) => {
+          const result = await client.query(
+            `with keys as (
+               select asset_key as key from adscale_app.client_references where client_profile_id = $1
+               union
+               select font->>'assetKey' from adscale_app.client_profiles,
+                 jsonb_array_elements(coalesce(brand_font_assets, '[]'::jsonb)) font where id = $1
+               union
+               select o.output_key from adscale_app.creative_work_outputs o
+                 join adscale_app.creative_work_items w on w.id = o.work_item_id
+                 where w.client_profile_id = $1 and o.output_key is not null
+             )
+             select id from adscale_app.workspace_assets
+             where workspace_id = $2 and key in (select key from keys)`,
+            [profileId, fixture.workspaceId],
+          );
+          await client.query("delete from adscale_app.client_profiles where id = $1 and workspace_id = $2", [profileId, fixture.workspaceId]);
+          return result.rows.map((row) => row.id as string);
+        });
+        await Promise.all(assetIds.map((assetId) => page.request.delete(`/api/workspace/assets/${assetId}`)));
       }
     }
   });

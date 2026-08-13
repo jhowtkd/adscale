@@ -20,6 +20,7 @@ const getUsage = vi.hoisted(() => vi.fn());
 const trackUsage = vi.hoisted(() => vi.fn());
 const getBrandKitMock = vi.hoisted(() => vi.fn());
 const logLifecycleMock = vi.hoisted(() => vi.fn());
+const envState = vi.hoisted(() => ({ brandCortexSinglePieceEnabled: "false" }));
 
 vi.mock("@/server/repositories/creative-work", () => ({
   getCreativeWork: getWork,
@@ -50,6 +51,13 @@ vi.mock("@/server/repositories/usage", () => ({
 vi.mock("@/server/creative-work/job-telemetry", () => ({
   logCreativeWorkGenerationLifecycle: (...args: unknown[]) => logLifecycleMock(...args),
 }));
+vi.mock("@/server/validation/env", () => ({
+  env: {
+    get BRAND_CORTEX_SINGLE_PIECE_ENABLED() {
+      return envState.brandCortexSinglePieceEnabled;
+    },
+  },
+}));
 
 import { generateCreativeWork } from "./generate-creative-work";
 
@@ -71,6 +79,7 @@ const rows = ["a", "b", "c"].map((id, index) => ({ id, creativeLevel: ["conserva
 describe("generateCreativeWork", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    envState.brandCortexSinglePieceEnabled = "false";
     getWork.mockResolvedValue({ work, outputs: [], sources: [] });
     prepare.mockResolvedValue({ ok: true, value: { work: preparedWork, quote: { plans: [], unitCount: 0, credits: 0 } } });
     snapshot.mockResolvedValue(identitySnapshot);
@@ -102,6 +111,7 @@ describe("generateCreativeWork", () => {
       selectedReferenceIds: [],
       brief: preparedWork.brief,
       format: preparedWork.format,
+      includePublishedBrandKnowledge: false,
     });
     expect(confirmSnapshots).toHaveBeenCalledWith("ws-1", "work-1", expect.anything(), preparedWork.inputSnapshot, identitySnapshot);
     expect(charge).toHaveBeenCalledWith(expect.objectContaining({ unitCount: 3, chargeAmount: 15, unitChargeAmount: 5, billingKey: "creative-work:work-1:initial" }), expect.anything());
@@ -188,6 +198,55 @@ describe("generateCreativeWork", () => {
     createOutputs.mockResolvedValue({ outputs: [rows[1]], newlyCreatedIds: [rows[1].id] });
     await generateCreativeWork({ workspaceId: "ws-1", workItemId: "work-1", userId: "user-1" });
     expect(charge).toHaveBeenCalledWith(expect.objectContaining({ unitCount: 1, chargeAmount: 5 }), expect.anything());
+  });
+
+  it("enables published Brand Cortex snapshots only for Peça única behind the rollout switch", async () => {
+    envState.brandCortexSinglePieceEnabled = "true";
+    getWork.mockResolvedValue({ work: { ...work, toolKind: "single" }, outputs: [], sources: [] });
+    prepare.mockResolvedValue({ ok: true, value: { work: { ...preparedWork, toolKind: "single" }, quote: {} } });
+    createOutputs.mockResolvedValue({ outputs: [rows[1]], newlyCreatedIds: [rows[1].id] });
+
+    await generateCreativeWork({ workspaceId: "ws-1", workItemId: "work-1", userId: "user-1" });
+
+    expect(snapshot).toHaveBeenCalledWith(expect.objectContaining({
+      includePublishedBrandKnowledge: true,
+    }));
+  });
+
+  it("keeps other protocols outside the Brand Cortex rollout", async () => {
+    envState.brandCortexSinglePieceEnabled = "true";
+
+    await generateCreativeWork({ workspaceId: "ws-1", workItemId: "work-1", userId: "user-1" });
+
+    expect(snapshot).toHaveBeenCalledWith(expect.objectContaining({
+      includePublishedBrandKnowledge: false,
+    }));
+  });
+
+  it("never replaces a frozen snapshot on an already confirmed Peça única", async () => {
+    envState.brandCortexSinglePieceEnabled = "true";
+    const frozen = {
+      ...identitySnapshot,
+      brandKnowledge: {
+        mode: "published",
+        versionId: "version-1",
+        versionNumber: 1,
+        versionHash: "a".repeat(64),
+        compiledAt: "2026-08-13T12:00:00.000Z",
+        claims: [],
+      },
+    };
+    getWork.mockResolvedValue({
+      work: { ...preparedWork, toolKind: "single", status: "ready", identitySnapshot: frozen },
+      outputs: [],
+      sources: [],
+    });
+    createOutputs.mockResolvedValue({ outputs: [rows[1]], newlyCreatedIds: [rows[1].id] });
+
+    await generateCreativeWork({ workspaceId: "ws-1", workItemId: "work-1", userId: "user-1" });
+
+    expect(snapshot).not.toHaveBeenCalled();
+    expect(confirmSnapshots).not.toHaveBeenCalled();
   });
 
   it("creates exactly one output per target format when the adaptation settings repeat a format", async () => {

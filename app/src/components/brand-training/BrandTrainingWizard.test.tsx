@@ -73,6 +73,9 @@ const useReviewBrandTrainingAssetMock = vi.fn();
 const useBrandFontsMock = vi.fn();
 const useUploadBrandFontMock = vi.fn();
 const useReviewBrandFontMock = vi.fn();
+const useBrandKnowledgeMock = vi.fn();
+const useReviewBrandKnowledgeClaimMock = vi.fn();
+const usePublishBrandKnowledgeMock = vi.fn();
 vi.mock("@/lib/hooks/use-brand-training", () => ({
   useBrandTrainingStatus: (...args: unknown[]) => useBrandTrainingStatusMock(...args),
   useExtractMulti: () => useExtractMultiMock(),
@@ -84,6 +87,9 @@ vi.mock("@/lib/hooks/use-brand-training", () => ({
   useBrandFonts: () => useBrandFontsMock(),
   useUploadBrandFont: () => useUploadBrandFontMock(),
   useReviewBrandFont: () => useReviewBrandFontMock(),
+  useBrandKnowledge: () => useBrandKnowledgeMock(),
+  useReviewBrandKnowledgeClaim: () => useReviewBrandKnowledgeClaimMock(),
+  usePublishBrandKnowledge: () => usePublishBrandKnowledgeMock(),
 }));
 
 const useBrandKitMock = vi.fn();
@@ -137,6 +143,12 @@ function defaultHooks() {
   useBrandFontsMock.mockReturnValue({ data: [], isLoading: false });
   useUploadBrandFontMock.mockReturnValue({ mutate: vi.fn(), isPending: false });
   useReviewBrandFontMock.mockReturnValue({ mutate: vi.fn(), isPending: false });
+  useBrandKnowledgeMock.mockReturnValue({
+    data: { claims: [], conflicts: [], versions: [], activeVersion: null },
+    isLoading: false,
+  });
+  useReviewBrandKnowledgeClaimMock.mockReturnValue({ mutate: vi.fn(), isPending: false });
+  usePublishBrandKnowledgeMock.mockReturnValue({ mutate: vi.fn(), isPending: false });
   useBrandKitMock.mockReturnValue({ data: null });
   useUpdateBrandKitMock.mockReturnValue({ mutate: vi.fn(), isPending: false });
 }

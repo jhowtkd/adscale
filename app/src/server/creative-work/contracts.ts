@@ -486,6 +486,15 @@ export interface CreativeWorkIdentityAssetSnapshot {
   placement: { gravity: "northwest" | "northeast" | "southwest" | "southeast" | "center"; widthRatio: number } | null;
 }
 
+export interface CreativeWorkBrandKnowledgeSnapshot {
+  mode: "published" | "legacy_fallback";
+  versionId: string | null;
+  versionNumber: number | null;
+  versionHash: string | null;
+  compiledAt: string | null;
+  claims: import("../brand-knowledge/version-compiler").PublishedBrandClaim[];
+}
+
 export interface CreativeWorkIdentitySnapshot {
   clientProfileId: string;
   confirmedAt: string;
@@ -503,6 +512,8 @@ export interface CreativeWorkIdentitySnapshot {
     label: string;
     description: string;
   }>;
+  /** Published ontology frozen at confirmation; absent only on old or non-Cortex works. */
+  brandKnowledge?: CreativeWorkBrandKnowledgeSnapshot;
   brandKit: {
     colors: string[];
     fonts: string[];
