@@ -59,8 +59,16 @@ export function BrandTrainingAssets({
     () => assets.filter((a) => a.reviewStatus === "pending_approval"),
     [assets],
   );
+  const legacyApproved = useMemo(
+    () => assets.filter((a) =>
+      a.reviewStatus === "approved" && (!a.reviewedAt || !a.reviewedByUserId)
+    ),
+    [assets],
+  );
   const approved = useMemo(
-    () => assets.filter((a) => a.reviewStatus === "approved"),
+    () => assets.filter((a) =>
+      a.reviewStatus === "approved" && Boolean(a.reviewedAt && a.reviewedByUserId)
+    ),
     [assets],
   );
   const archived = useMemo(
@@ -133,6 +141,50 @@ export function BrandTrainingAssets({
             onApprove={(input) =>
               review.mutate(
                 { referenceId: asset.id, ...input, reviewStatus: "approved" },
+                {
+                  onSuccess: () => addToast("success", tc("saved")),
+                  onError: (err) => addToast("error", err.message),
+                },
+              )
+            }
+            onArchive={() =>
+              review.mutate(
+                {
+                  referenceId: asset.id,
+                  trainingCategory:
+                    (asset.trainingCategory as Category | null) ?? "visual_reference",
+                  usageMode: (asset.usageMode as UsageMode | null) ?? "reference",
+                  analysis: null,
+                  reviewStatus: "archived",
+                },
+                {
+                  onSuccess: () => addToast("success", tc("saved")),
+                  onError: (err) => addToast("error", err.message),
+                },
+              )
+            }
+            submitting={review.isPending}
+          />
+        )}
+      />
+
+      <Group
+        title={t("assets.statusLegacyUnreviewed")}
+        items={legacyApproved}
+        renderItem={(asset) => (
+          <ApprovedCard
+            key={asset.id}
+            asset={asset}
+            onConfirm={() =>
+              review.mutate(
+                {
+                  referenceId: asset.id,
+                  trainingCategory:
+                    (asset.trainingCategory as Category | null) ?? "visual_reference",
+                  usageMode: (asset.usageMode as UsageMode | null) ?? "reference",
+                  analysis: asset.trainingAnalysis ?? null,
+                  reviewStatus: "approved",
+                },
                 {
                   onSuccess: () => addToast("success", tc("saved")),
                   onError: (err) => addToast("error", err.message),
@@ -497,10 +549,12 @@ function PendingApprovalCard({
 
 function ApprovedCard({
   asset,
+  onConfirm,
   onArchive,
   submitting,
 }: {
   asset: BrandTrainingAssetRecord;
+  onConfirm?: () => void;
   onArchive: () => void;
   submitting: boolean;
 }) {
@@ -523,8 +577,13 @@ function ApprovedCard({
             {t("assets.reviewedAt", { when: reviewedAt })}
           </p>
         ) : null}
+        {onConfirm ? (
+          <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
+            {t("assets.statusLegacyUnreviewed")}
+          </p>
+        ) : null}
       </div>
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
         <Button
           type="button"
           variant="ghost"
@@ -534,6 +593,12 @@ function ApprovedCard({
           <Archive size={14} className="mr-1" />
           {t("assets.archive")}
         </Button>
+        {onConfirm ? (
+          <Button type="button" disabled={submitting} onClick={onConfirm}>
+            <Check size={14} className="mr-1" />
+            {t("assets.confirmLegacy")}
+          </Button>
+        ) : null}
       </div>
     </li>
   );

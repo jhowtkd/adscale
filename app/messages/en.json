@@ -2456,8 +2456,10 @@
       "emptyDescription": "Upload PNG, JPEG, WebP or SVG references. Approved assets condition piece generation.",
       "statusPendingAnalysis": "Awaiting analysis",
       "statusPendingApproval": "Awaiting approval",
+      "statusLegacyUnreviewed": "Legacy asset not yet reviewed",
       "statusApproved": "Approved",
       "statusArchived": "Archived",
+      "confirmLegacy": "Confirm asset",
       "categories": {
         "logo": "Logo",
         "graphic": "Graphic element",

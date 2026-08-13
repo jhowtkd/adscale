@@ -51,6 +51,13 @@ export async function PATCH(
     ) {
       return apiError("clientProfileNotFound", 404);
     }
+    if (
+      body.reviewStatus === "approved" &&
+      reference.reviewStatus === "pending_approval" &&
+      body.analysis == null
+    ) {
+      return apiError("invalidInput", 400);
+    }
 
     // Exact mode needs alpha only when approving — archive must not be blocked
     // by compositing rules for an asset leaving the training set.
@@ -68,7 +75,7 @@ export async function PATCH(
       {
         trainingCategory: body.trainingCategory,
         usageMode: body.usageMode,
-        analysis: body.analysis ?? null,
+        analysis: body.analysis ?? reference.trainingAnalysis ?? null,
         reviewStatus: body.reviewStatus,
         reviewedByUserId: user.id,
       },

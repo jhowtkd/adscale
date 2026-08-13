@@ -2457,8 +2457,10 @@
       "emptyDescription": "Envie referências em PNG, JPEG, WebP ou SVG. Materiais aprovados condicionam a geração das peças.",
       "statusPendingAnalysis": "Aguardando análise",
       "statusPendingApproval": "Aguardando aprovação",
+      "statusLegacyUnreviewed": "Legado ainda não revisado",
       "statusApproved": "Aprovado",
       "statusArchived": "Arquivado",
+      "confirmLegacy": "Confirmar material",
       "categories": {
         "logo": "Logo",
         "graphic": "Elemento gráfico",
