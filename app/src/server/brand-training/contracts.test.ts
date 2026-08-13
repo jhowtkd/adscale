@@ -27,15 +27,14 @@ describe("brand training contracts", () => {
     expect(parsed.usageMode).toBe("reference");
   });
 
-  it("rejects approval without a completed analysis", () => {
-    expect(() =>
-      reviewTrainingAssetSchema.parse({
-        trainingCategory: "logo",
-        usageMode: "exact",
-        analysis: null,
-        reviewStatus: "approved",
-      }),
-    ).toThrow();
+  it("parses a status-only legacy confirmation for contextual route validation", () => {
+    const parsed = reviewTrainingAssetSchema.parse({
+      trainingCategory: "logo",
+      usageMode: "exact",
+      analysis: null,
+      reviewStatus: "approved",
+    });
+    expect(parsed.analysis).toBeNull();
   });
 
   it("accepts archive without analysis (legacy uploads)", () => {

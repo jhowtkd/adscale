@@ -158,6 +158,39 @@ describe("PATCH /api/client-profiles/[id]/training-assets/[referenceId]", () => 
     );
   });
 
+  it("confirms a legacy approved reference and records the reviewer identity", async () => {
+    getTrainingReferences.mockResolvedValue([{
+      id: REFERENCE_ID,
+      workspaceId: WORKSPACE_ID,
+      clientProfileId: PROFILE_ID,
+      assetKey: ASSET_KEY,
+      reviewStatus: "approved",
+      reviewedAt: null,
+      reviewedByUserId: null,
+      trainingAnalysis: null,
+    }]);
+
+    const res = await PATCH(
+      patchRequest({
+        trainingCategory: "visual_reference",
+        usageMode: "reference",
+        analysis: null,
+        reviewStatus: "approved",
+      }),
+      { params: Promise.resolve({ id: PROFILE_ID, referenceId: REFERENCE_ID }) },
+    );
+
+    expect(res.status).toBe(200);
+    expect(reviewTrainingReference).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        analysis: null,
+        reviewStatus: "approved",
+        reviewedByUserId: "user-1",
+      }),
+    );
+  });
+
   it("does not reactivate an archived reference", async () => {
     getTrainingReferences.mockResolvedValue([
       {

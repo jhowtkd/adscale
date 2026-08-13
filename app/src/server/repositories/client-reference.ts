@@ -460,9 +460,8 @@ export async function reviewTrainingReference(
   scope: TrainingReferenceScope,
   review: ReviewTrainingReferenceInput,
 ) {
-  // Archive with null analysis must not wipe existing AI analysis.
-  const preserveAnalysis =
-    review.reviewStatus === "archived" && review.analysis === null;
+  // A status-only legacy decision must not wipe existing AI analysis.
+  const preserveAnalysis = review.analysis === null;
 
   const [row] = await db
     .update(clientReferences)
