@@ -52,7 +52,7 @@ vi.mock("@/server/repositories/client-reference", () => ({
 
 vi.mock("@/server/validation/env", () => ({
   env: {
-    OPENAI_TEXT_MODEL: "gpt-5-mini",
+    OPENAI_TEXT_MODEL: "gpt-5.6",
     OPENAI_API_KEY: "test-key",
   },
 }));
@@ -170,9 +170,12 @@ describe("brandTrainingAnalyzeJob", () => {
       response_format?: { type?: string };
       messages?: Array<{ role: string; content: unknown }>;
     };
-    expect(call.model).toBe("gpt-5-mini");
+    expect(call.model).toBe("gpt-5.6");
     expect(call.response_format).toEqual({ type: "json_object" });
-    expect(call).toMatchObject({ max_completion_tokens: 1600 });
+    expect(call).toMatchObject({
+      max_completion_tokens: 1600,
+      reasoning_effort: "none",
+    });
 
     expect(mockRecordTrainingAnalysis).toHaveBeenCalledWith(
       {
