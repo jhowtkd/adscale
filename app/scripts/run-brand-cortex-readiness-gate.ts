@@ -6,6 +6,10 @@ import { fileURLToPath } from "node:url";
 import { z } from "zod";
 
 import { canonicalJsonStringify } from "@/server/creative-work/canonical-json";
+import {
+  evaluateBrandCortexPilotReview,
+  verifyBrandCortexPilotArtifacts,
+} from "@/server/creative-work/brand-cortex-release";
 import { runBrandConsistencyValidation } from "./run-brand-consistency-validation";
 
 type BaselineSummary = {
@@ -36,13 +40,26 @@ const seamEvidenceSchema = z.object({
   version: z.unknown().optional(),
 });
 
+const humanReleaseSchema = z.object({
+  schemaVersion: z.literal(1),
+  reportType: z.literal("brand-cortex-human-release"),
+  status: z.enum(["approved", "failed", "human_needed"]),
+  pilotId: z.string().min(1),
+  pilotSha256: z.string().regex(/^[a-f0-9]{64}$/),
+  reviewSha256: z.string().regex(/^[a-f0-9]{64}$/),
+  reviewerId: z.string().min(1),
+  reviewedAt: z.string().datetime(),
+  failures: z.array(z.string()),
+  pending: z.array(z.string()),
+});
+
 export type BrandCortexReadinessStatus = "approved" | "failed" | "human_needed";
 
 export function evaluateBrandCortexReadiness(input: {
   previousBaseline: BaselineSummary;
   rerunBaseline: BaselineSummary;
   seamEvidence: unknown | null;
-  humanRelease: "approved" | "rejected" | "pending";
+  humanRelease: unknown | null;
   generatedAt?: string;
 }) {
   const hashesMatch = canonicalJsonStringify(input.previousBaseline.hashes)
@@ -50,19 +67,24 @@ export function evaluateBrandCortexReadiness(input: {
   const parsedSeam = input.seamEvidence === null
     ? null
     : seamEvidenceSchema.safeParse(input.seamEvidence);
+  const parsedRelease = input.humanRelease === null
+    ? null
+    : humanReleaseSchema.safeParse(input.humanRelease);
   const baselineFailed = input.rerunBaseline.status === "fail"
     || input.rerunBaseline.divergences.length > 0
     || !hashesMatch;
   const seamFailed = parsedSeam !== null
     && (!parsedSeam.success || parsedSeam.data.status === "fail");
+  const releaseFailed = parsedRelease !== null
+    && (!parsedRelease.success || parsedRelease.data.status === "failed");
   const status: BrandCortexReadinessStatus = baselineFailed
     || seamFailed
-    || input.humanRelease === "rejected"
+    || releaseFailed
       ? "failed"
-      : input.rerunBaseline.status === "pass"
-        && parsedSeam?.success === true
+      : parsedSeam?.success === true
         && parsedSeam.data.status === "pass"
-        && input.humanRelease === "approved"
+        && parsedRelease?.success === true
+        && parsedRelease.data.status === "approved"
         ? "approved"
         : "human_needed";
 
@@ -86,9 +108,16 @@ export function evaluateBrandCortexReadiness(input: {
       : parsedSeam?.success
         ? { status: parsedSeam.data.status, evidence: parsedSeam.data }
         : { status: "invalid" as const, evidence: null },
-    humanRelease: input.humanRelease,
+    humanRelease: input.humanRelease === null
+      ? { status: "not_run" as const, evidence: null }
+      : parsedRelease?.success
+        ? { status: parsedRelease.data.status, evidence: parsedRelease.data }
+        : { status: "invalid" as const, evidence: null },
     featureFlag: { defaultEnabled: false, controllable: true },
-    paidGeneration: { executed: false, realProviderGate: "manual_and_authorized" as const },
+    paidGeneration: {
+      executed: parsedRelease?.success === true,
+      realProviderGate: parsedRelease?.success === true ? "reviewed" as const : "manual_and_authorized" as const,
+    },
   };
 }
 
@@ -98,7 +127,8 @@ function parseArgs(argv: string[]) {
     manifest: path.resolve(process.cwd(), "../.planning/validation/brand-consistency-baseline.manifest.json"),
     seam: path.resolve(process.cwd(), "tests/e2e/.evidence/brand-cortex-seam.json"),
     out: path.resolve(process.cwd(), "../.planning/validation/brand-cortex-readiness.evidence.json"),
-    humanRelease: "pending" as "approved" | "rejected" | "pending",
+    pilot: "",
+    review: "",
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -106,13 +136,9 @@ function parseArgs(argv: string[]) {
     else if (arg === "--manifest") defaults.manifest = path.resolve(argv[++index] ?? "");
     else if (arg === "--seam") defaults.seam = path.resolve(argv[++index] ?? "");
     else if (arg === "--out") defaults.out = path.resolve(argv[++index] ?? "");
-    else if (arg === "--human-release") {
-      const value = argv[++index];
-      if (value !== "approved" && value !== "rejected" && value !== "pending") {
-        throw new Error("--human-release must be approved, rejected or pending");
-      }
-      defaults.humanRelease = value;
-    } else throw new Error(`Unknown argument: ${arg}`);
+    else if (arg === "--pilot") defaults.pilot = path.resolve(argv[++index] ?? "");
+    else if (arg === "--review") defaults.review = path.resolve(argv[++index] ?? "");
+    else throw new Error(`Unknown argument: ${arg}`);
   }
   return defaults;
 }
@@ -130,16 +156,40 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     const seamEvidence = existsSync(args.seam)
       ? JSON.parse(readFileSync(args.seam, "utf8")) as unknown
       : null;
+    if (Boolean(args.pilot) !== Boolean(args.review)) {
+      throw new Error("--pilot and --review must be provided together");
+    }
+    const pilot = args.pilot
+      ? JSON.parse(readFileSync(args.pilot, "utf8")) as unknown
+      : null;
+    const reviewedRelease = pilot && args.review
+      ? evaluateBrandCortexPilotReview({
+          pilot,
+          review: JSON.parse(readFileSync(args.review, "utf8")) as unknown,
+        })
+      : null;
+    const artifactFailures = pilot && args.pilot
+      ? verifyBrandCortexPilotArtifacts(pilot, (artifactPath) =>
+          readFileSync(path.join(path.dirname(args.pilot), artifactPath)),
+        )
+      : [];
+    const humanRelease = reviewedRelease && artifactFailures.length > 0
+      ? {
+          ...reviewedRelease,
+          status: "failed" as const,
+          failures: [...reviewedRelease.failures, ...artifactFailures],
+        }
+      : reviewedRelease;
     const report = evaluateBrandCortexReadiness({
       previousBaseline,
       rerunBaseline: rerun.report,
       seamEvidence,
-      humanRelease: args.humanRelease,
+      humanRelease,
     });
     writeFileSync(args.out, `${JSON.stringify(report, null, 2)}\n`, "utf8");
     console.log(`BRAND-CORTEX: ${report.status}`);
     console.log(`Structured evidence: ${args.out}`);
-    return report.status === "failed" ? 1 : 0;
+    return report.status === "approved" ? 0 : 1;
   } catch (error) {
     console.error(`BRAND-CORTEX: ${error instanceof Error ? error.message : String(error)}`);
     return 1;

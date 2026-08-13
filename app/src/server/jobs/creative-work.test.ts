@@ -878,6 +878,77 @@ describe("creativeWorkOutputJob", () => {
     expect(settleTerminalRefundMock).not.toHaveBeenCalled();
   });
 
+  it("persists the winning provider provenance and exact prompt hash", async () => {
+    generateAndStoreImageMock.mockResolvedValueOnce({
+      outputKey: "creative-work/output-1/1700000000000.png",
+      revisedPrompt: "revised",
+      imageOperation: "edit",
+      buffer: Buffer.from("generated-png"),
+      candidates: [{
+        provider: "openai",
+        model: "gpt-image-2-2026-04-21",
+        outputKey: "creative-work/output-1/candidate.png",
+        durationMs: 12_345,
+        rawRequestId: "req-image-1",
+        winner: true,
+      }],
+      providerCalls: 1,
+      providerRetries: 0,
+    });
+    const output = makeQueuedOutput({
+      directionSnapshot: { label: "Editorial", instruction: "Use composição editorial", order: 0 },
+    });
+    getCreativeWorkMock.mockResolvedValue({
+      work: {
+        ...workItem,
+        toolKind: "single",
+        inputSnapshot: {
+          generationPolicyVersion: "quality_recovery_v1",
+          request: "Peça de marca",
+          settings: { targetFormats: [] },
+          sources: [],
+        },
+      },
+      outputs: [output],
+    });
+    markProcessingMock.mockResolvedValue({ ...output, status: "processing" });
+
+    await runJob();
+
+    const prompt = (generateAndStoreImageMock.mock.calls[0]?.[0] as { prompt: string }).prompt;
+    expect(completeMock).toHaveBeenCalledWith(
+      "workspace-1",
+      "work-1",
+      "output-1",
+      expect.objectContaining({
+        quality: expect.objectContaining({
+          generation: {
+            version: 1,
+            prompt,
+            promptSha256: createHash("sha256").update(prompt).digest("hex"),
+            imageOperation: "edit",
+            providerCalls: 1,
+            providerRetries: 0,
+            references: [expect.objectContaining({
+              position: 1,
+              role: "brand_identity",
+              assetKey: identitySnapshot.assets[1].assetKey,
+              sha256: createHash("sha256").update("png-bytes").digest("hex"),
+            })],
+            directionSnapshot: output.directionSnapshot,
+            directionSnapshotSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+            winner: {
+              provider: "openai",
+              model: "gpt-image-2-2026-04-21",
+              durationMs: 12_345,
+              rawRequestId: "req-image-1",
+            },
+          },
+        }),
+      }),
+    );
+  });
+
   it("normalizes serialized Inngest timestamps before measuring queue wait", async () => {
     getCreativeWorkMock.mockResolvedValue({
       work: workItem,

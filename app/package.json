@@ -41,6 +41,7 @@
     "validate:creative": "node scripts/check-creative-validation-evidence.mjs --stage final",
     "validate:creative:live": "npx tsx scripts/run-creative-validation.ts",
     "validate:brand-consistency": "NODE_OPTIONS=--conditions=react-server tsx scripts/run-brand-consistency-validation.ts",
+    "brand-cortex-pilot-package": "NODE_OPTIONS=--conditions=react-server tsx scripts/build-brand-cortex-pilot-package.ts",
     "brand-cortex-readiness-gate": "NODE_OPTIONS=--conditions=react-server tsx scripts/run-brand-cortex-readiness-gate.ts",
     "creative-release-gate": "node scripts/run-creative-release-gate.mjs",
     "creative-work-quality-recovery-gate": "tsx scripts/check-creative-work-quality-recovery-gate.ts ../.planning/validation/creative-work-quality-recovery-gate.json",

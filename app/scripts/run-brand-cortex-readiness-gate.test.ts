@@ -35,13 +35,26 @@ const seam = {
   },
 };
 
+const humanRelease = (status: "approved" | "failed" | "human_needed" = "approved") => ({
+  schemaVersion: 1 as const,
+  reportType: "brand-cortex-human-release" as const,
+  status,
+  pilotId: "pilot-1",
+  pilotSha256: "f".repeat(64),
+  reviewSha256: "9".repeat(64),
+  reviewerId: "reviewer-1",
+  reviewedAt: "2026-08-13T13:00:00.000Z",
+  failures: status === "failed" ? ["human release decision is rejected"] : [],
+  pending: status === "human_needed" ? ["9:16: human review is missing"] : [],
+});
+
 describe("Brand Cortex readiness gate", () => {
-  it("approves only with stable baseline, passing authenticated seam and human release", () => {
+  it("approves with stable controlled evidence and a hash-bound human release", () => {
     expect(evaluateBrandCortexReadiness({
-      previousBaseline: baseline(),
-      rerunBaseline: baseline(),
+      previousBaseline: baseline("human_needed"),
+      rerunBaseline: baseline("human_needed"),
       seamEvidence: seam,
-      humanRelease: "approved",
+      humanRelease: humanRelease(),
     }).status).toBe("approved");
   });
 
@@ -50,7 +63,7 @@ describe("Brand Cortex readiness gate", () => {
       previousBaseline: baseline("human_needed"),
       rerunBaseline: baseline("human_needed"),
       seamEvidence: null,
-      humanRelease: "pending",
+      humanRelease: null,
     }).status).toBe("human_needed");
   });
 
@@ -59,19 +72,19 @@ describe("Brand Cortex readiness gate", () => {
       previousBaseline: baseline(),
       rerunBaseline: { ...baseline(), hashes: { ...hashes, results: "f".repeat(64) } },
       seamEvidence: seam,
-      humanRelease: "approved",
+      humanRelease: humanRelease(),
     }).status).toBe("failed");
     expect(evaluateBrandCortexReadiness({
       previousBaseline: baseline(),
       rerunBaseline: baseline(),
       seamEvidence: seam,
-      humanRelease: "rejected",
+      humanRelease: humanRelease("failed"),
     }).status).toBe("failed");
     expect(evaluateBrandCortexReadiness({
       previousBaseline: baseline(),
       rerunBaseline: baseline(),
       seamEvidence: { ...seam, paidGeneration: true },
-      humanRelease: "approved",
+      humanRelease: humanRelease(),
     }).status).toBe("failed");
   });
 });
