@@ -528,7 +528,7 @@ function ValidateStep({
   );
 }
 
-function BrandFontFiles({ clientProfileId }: { clientProfileId: string }) {
+export function BrandFontFiles({ clientProfileId }: { clientProfileId: string }) {
   const t = useTranslations("brandTraining.fonts");
   const addToast = useAppStore((s) => s.addToast);
   const fonts = useBrandFonts(clientProfileId);

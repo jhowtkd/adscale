@@ -4,7 +4,7 @@ import { Check } from "lucide-react";
 import ActiveBrandSwitcher from "@/components/layout/ActiveBrandSwitcher";
 import BrandKitTab from "@/components/settings/BrandKitTab";
 import { BrandTrainingAssets } from "@/components/brand-training/BrandTrainingAssets";
-import { BrandVoiceSection } from "@/components/brand-training/BrandTrainingWizard";
+import { BrandFontFiles, BrandVoiceSection } from "@/components/brand-training/BrandTrainingWizard";
 import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
 import { useBrandTrainingStatus } from "@/lib/hooks/use-brand-training";
 import { useTranslations } from "next-intl";
@@ -65,6 +65,9 @@ export default function BrandKitPage() {
           <>
             <div className="mt-8 border-t border-[var(--border-dim)] pt-8">
               <BrandTrainingAssets clientProfileId={activeClientProfileId} />
+            </div>
+            <div className="mt-8 border-t border-[var(--border-dim)] pt-8">
+              <BrandFontFiles clientProfileId={activeClientProfileId} />
             </div>
             <div className="mt-8 border-t border-[var(--border-dim)] pt-8">
               <BrandVoiceSection clientProfileId={activeClientProfileId} />
