@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => ({
   resolveBrandConflictPending: vi.fn(() => false),
   refetch: vi.fn(),
   apiFetch: vi.fn(),
+  brandFonts: vi.fn(() => ({ data: [], isLoading: false })),
 }));
 
 vi.mock("@/lib/hooks/use-active-client-profile", () => ({
@@ -45,6 +46,9 @@ vi.mock("@/lib/hooks/use-creative-work", async (importOriginal) => ({
   useResolveBrandConflict: () => ({ mutateAsync: mocks.resolveBrandConflict, isPending: mocks.resolveBrandConflictPending() }),
   useDownloadOutputUrl: () => (workItemId: string, outputId: string) => `/api/creative-work/${workItemId}/outputs/${outputId}/download`,
   useCreativeWorkCampaigns: () => ({ data: [] }),
+}));
+vi.mock("@/lib/hooks/use-brand-training", () => ({
+  useBrandFonts: (...args: unknown[]) => mocks.brandFonts(...args),
 }));
 vi.mock("@/lib/assistant/chat-attachments", () => ({
   collectImageFiles: (files: File[] | FileList | null) => Array.from(files ?? []),
@@ -119,6 +123,7 @@ describe("useCreativeComposer", () => {
     mocks.selectOutput.mockResolvedValue({});
     // clearAllMocks keeps mockReturnValue implementations — reset explicitly.
     mocks.resolveBrandConflictPending.mockReturnValue(false);
+    mocks.brandFonts.mockReturnValue({ data: [], isLoading: false });
   });
 
   it("keeps an approval failure on the affected output until retry", async () => {
@@ -144,6 +149,25 @@ describe("useCreativeComposer", () => {
     expect(result.current.intent).toBe("format_adaptation");
     expect(result.current.targetFormats).toEqual(["1:1", "9:16"]);
     expect(result.current.quote).toEqual({ unitCount: 2, credits: 10 });
+  });
+
+  it("offers only human-approved brand font files", () => {
+    mocks.brandFonts.mockReturnValue({
+      data: [
+        { assetKey: "pending.ttf", family: "Pending", reviewStatus: "pending_approval" },
+        { assetKey: "approved.ttf", family: "Approved", reviewStatus: "approved" },
+        { assetKey: "legacy.ttf", family: "Legacy" },
+        { assetKey: "archived.ttf", family: "Archived", reviewStatus: "archived" },
+      ],
+      isLoading: false,
+    });
+
+    const { result } = renderHook(() => useCreativeComposer({ initialIntent: "single" }));
+
+    expect(result.current.fontOptions.map((font) => font.assetKey)).toEqual([
+      "approved.ttf",
+      "legacy.ttf",
+    ]);
   });
 
   it("selects between one and five directions and recalculates the quote", async () => {

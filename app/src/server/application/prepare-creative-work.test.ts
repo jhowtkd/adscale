@@ -106,6 +106,82 @@ describe("prepareCreativeWork", () => {
     }), transactionExecutor);
   });
 
+  it("freezes the selected font and layout into the Peça única input snapshot", async () => {
+    const single = {
+      ...work,
+      toolKind: "single",
+      format: "4:5",
+      settings: {
+        targetFormats: [],
+        formatMode: "manual",
+        textLayout: "bottom",
+        fontAssetKey: "fonts/body.ttf",
+      },
+    } as const;
+    getWork.mockResolvedValue({ work: single, outputs: [], sources: [] } as never);
+    getKit.mockResolvedValue({
+      name: "Cenbrap",
+      toneOfVoice: "Direto",
+      requiredElements: null,
+      prohibitedElements: null,
+      brandFontAssets: [
+        { assetKey: "fonts/headline.ttf" },
+        { assetKey: "fonts/body.ttf" },
+      ],
+    } as never);
+
+    await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
+
+    expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now, expect.objectContaining({
+      inputSnapshot: expect.objectContaining({
+        typographyPlan: expect.objectContaining({
+          version: 1,
+          execution: "deterministic",
+          format: "4:5",
+          requestedLayout: "bottom",
+          fontAssetKey: "fonts/body.ttf",
+          fontSelection: "operator_selected",
+        }),
+      }),
+    }), transactionExecutor);
+  });
+
+  it("rejects a pending font selected from a stale draft", async () => {
+    getWork.mockResolvedValue({
+      work: {
+        ...work,
+        toolKind: "single",
+        settings: {
+          targetFormats: [],
+          formatMode: "manual",
+          textLayout: "top",
+          fontAssetKey: "fonts/pending.ttf",
+        },
+      },
+      outputs: [],
+      sources: [],
+    } as never);
+    getKit.mockResolvedValue({
+      brandFontAssets: [{
+        assetKey: "fonts/pending.ttf",
+        family: "Pending Sans",
+        source: "Upload",
+        weight: 400,
+        style: "normal",
+        sha256: "pending",
+        reviewStatus: "pending_approval",
+        uploadedAt: "2026-08-13T10:00:00.000Z",
+        uploadedByUserId: "user-1",
+        approvedAt: null,
+        approvedByUserId: null,
+      }],
+    } as never);
+
+    await expect(prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" }))
+      .resolves.toEqual({ ok: false, error: { code: "invalid_preparation" } });
+    expect(updateDraft).not.toHaveBeenCalled();
+  });
+
   it("does not persist the Peça Única envelope for other protocols", async () => {
     getWork.mockResolvedValue({ work, outputs: [], sources: [] } as never);
 

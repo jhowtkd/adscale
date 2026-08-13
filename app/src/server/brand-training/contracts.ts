@@ -140,20 +140,10 @@ export function preserveHumanStructure(
   return { ...next, structure: prior.structure };
 }
 
-export const reviewTrainingAssetSchema = z
-  .object({
-    trainingCategory: z.enum(BRAND_TRAINING_CATEGORIES),
-    usageMode: z.enum(BRAND_TRAINING_USAGE_MODES),
-    // Archive may omit analysis (auto-approved uploads often have none yet).
-    analysis: brandTrainingAnalysisSchema.nullable().optional(),
-    reviewStatus: z.enum(["approved", "archived"]),
-  })
-  .superRefine((value, ctx) => {
-    if (value.reviewStatus === "approved" && value.analysis == null) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["analysis"],
-        message: "Approved training assets require analysis",
-      });
-    }
-  });
+export const reviewTrainingAssetSchema = z.object({
+  trainingCategory: z.enum(BRAND_TRAINING_CATEGORIES),
+  usageMode: z.enum(BRAND_TRAINING_USAGE_MODES),
+  // The route allows null only when preserving a legacy approved row or archiving.
+  analysis: brandTrainingAnalysisSchema.nullable().optional(),
+  reviewStatus: z.enum(["approved", "archived"]),
+});

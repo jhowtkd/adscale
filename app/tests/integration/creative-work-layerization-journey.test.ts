@@ -113,7 +113,7 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work layerization HTTP
         and table_name = 'creative_work_outputs'
         and column_name = 'layerization'
     `);
-    if (migration.rows.length === 0) throw new Error("Migration 0083 is not applied to the integration database");
+    if (migration.rows.length === 0) throw new Error("Migration 0085 is not applied to the integration database");
     bindProductionStorage();
     vi.spyOn(inngest, "send").mockImplementation(async (payload) => {
       dispatched.push(payload as (typeof dispatched)[number]);

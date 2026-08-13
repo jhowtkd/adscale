@@ -24,7 +24,7 @@ ou lançamento de geração do ADScale é criado.
 - On 2026-08-12 the public page listed $0.03375 per generated layer when the
   generated base area is at most 1536x1536 pixels, and $0.0675 per layer above
   that threshold. Recheck the model page immediately before a paid smoke.
-- Apply migration `0083_creative_work_layerization.sql` before enabling the
+- Apply migration `0085_creative_work_layerization.sql` before enabling the
   action.
 - `IMAGE_JOB_TARGET=web` runs the existing job factory in the web process;
   `IMAGE_JOB_TARGET=worker` routes the same factory to the existing image

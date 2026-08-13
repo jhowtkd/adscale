@@ -62,10 +62,9 @@ import {
 const E2E_EMAIL = "frictionless-e2e@adscale.local";
 const E2E_PASSWORD = "FrictionlessE2E123!";
 const PRIMARY_CLIENT_NAME = "Create Post E2E Brand";
-const FIXTURE_PATH = path.resolve(
-  __dirname,
-  "../tests/fixtures/create-post-e2e.json",
-);
+const FIXTURE_PATH = process.env.CREATE_POST_E2E_FIXTURE_PATH
+  ? path.resolve(process.env.CREATE_POST_E2E_FIXTURE_PATH)
+  : path.resolve(__dirname, "../tests/fixtures/create-post-e2e.json");
 
 /** Valid fully transparent PNG so composite-acceptance can rely on alpha=1. */
 async function buildTransparentPng(): Promise<Buffer> {

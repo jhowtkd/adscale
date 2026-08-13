@@ -35,12 +35,16 @@ export interface CompositionLayerPlan {
   reason: string;
   contrast?: number;
   usedBackdrop?: boolean;
+  box?: { left: number; top: number; width: number; height: number };
+  sourceSha256?: string;
 }
 
 export interface CompositionProvenance {
   version: 1;
   format: string;
   dimensions: { width: number; height: number };
+  baseHash?: string;
+  outputHash?: string;
   composed: Array<{
     referenceId: string;
     assetKey: string;
@@ -51,6 +55,8 @@ export interface CompositionProvenance {
     clearspacePx: number;
     contrast: number | null;
     usedBackdrop: boolean;
+    box: { left: number; top: number; width: number; height: number } | null;
+    sourceSha256?: string;
     policy: {
       required: boolean;
       omissible: boolean;
@@ -306,11 +312,15 @@ export function toProvenance(input: {
   layers: CompositionLayerPlan[];
   omitted: CompositionProvenance["omitted"];
   blocked: CompositionProvenance["blocked"];
+  baseHash?: string;
+  outputHash?: string;
 }): CompositionProvenance {
   return {
     version: 1,
     format: input.format,
     dimensions: input.dimensions,
+    ...(input.baseHash ? { baseHash: input.baseHash } : {}),
+    ...(input.outputHash ? { outputHash: input.outputHash } : {}),
     composed: input.layers
       .filter((l) => l.status === "compose")
       .map((l) => ({
@@ -323,6 +333,8 @@ export function toProvenance(input: {
         clearspacePx: l.clearspacePx,
         contrast: l.contrast ?? null,
         usedBackdrop: l.usedBackdrop ?? false,
+        box: l.box ?? null,
+        ...(l.sourceSha256 ? { sourceSha256: l.sourceSha256 } : {}),
         policy: {
           required: l.policy.required,
           omissible: l.policy.omissible,

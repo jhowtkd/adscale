@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createHash } from "node:crypto";
 
 import { apiError, handleApiError } from "@/lib/api-response";
 import { reviewTrainingAssetSchema } from "@/server/brand-training/contracts";
@@ -8,14 +9,15 @@ import {
   getTrainingReferences,
   reviewTrainingReference,
 } from "@/server/repositories/client-reference";
-import { getWorkspaceAssetByKey } from "@/server/repositories/workspace-asset";
+import { getWorkspaceAssetByKey, updateWorkspaceAsset } from "@/server/repositories/workspace-asset";
+import { objectStorage } from "@/server/storage";
+import { compileBrandKnowledgeCandidates } from "@/server/brand-knowledge/candidate-compiler";
+import { createBrandKnowledgeCandidates } from "@/server/repositories/brand-knowledge";
 
 /**
  * PATCH /api/client-profiles/:id/training-assets/:referenceId
  *
- * Authenticated review for a brand training asset (archive, or adjust
- * category/mode on an already-approved upload). New uploads are
- * auto-approved on create; this route remains for archive / edits.
+ * Authenticated review for a brand training asset (approve or archive).
  */
 export async function PATCH(
   request: Request,
@@ -41,14 +43,29 @@ export async function PATCH(
       return apiError("clientProfileNotFound", 404);
     }
 
+    const references = await getTrainingReferences(workspace.id, id);
+    const reference = references.find((row) => row.id === referenceId);
+    if (!reference) {
+      return apiError("clientProfileNotFound", 404);
+    }
+    if (
+      body.reviewStatus === "approved" &&
+      reference.reviewStatus !== "pending_approval" &&
+      reference.reviewStatus !== "approved"
+    ) {
+      return apiError("clientProfileNotFound", 404);
+    }
+    if (
+      body.reviewStatus === "approved" &&
+      reference.reviewStatus === "pending_approval" &&
+      body.analysis == null
+    ) {
+      return apiError("invalidInput", 400);
+    }
+
     // Exact mode needs alpha only when approving — archive must not be blocked
     // by compositing rules for an asset leaving the training set.
     if (body.reviewStatus === "approved" && body.usageMode === "exact") {
-      const references = await getTrainingReferences(workspace.id, id);
-      const reference = references.find((row) => row.id === referenceId);
-      if (!reference) {
-        return apiError("clientProfileNotFound", 404);
-      }
       const asset = await getWorkspaceAssetByKey(workspace.id, reference.assetKey);
       const metadata = asset?.metadata as Record<string, unknown> | null | undefined;
       const hasAlpha = metadata?.hasAlpha === true;
@@ -62,7 +79,7 @@ export async function PATCH(
       {
         trainingCategory: body.trainingCategory,
         usageMode: body.usageMode,
-        analysis: body.analysis ?? null,
+        analysis: body.analysis ?? reference.trainingAnalysis ?? null,
         reviewStatus: body.reviewStatus,
         reviewedByUserId: user.id,
       },
@@ -70,6 +87,36 @@ export async function PATCH(
 
     if (!updated) {
       return apiError("clientProfileNotFound", 404);
+    }
+
+    if (body.reviewStatus === "approved" && updated.trainingAnalysis) {
+      const asset = await getWorkspaceAssetByKey(workspace.id, updated.assetKey);
+      const metadata = asset?.metadata as { sha256?: unknown } | null;
+      if (!asset) return apiError("invalidInput", 400);
+      const sourceHash = typeof metadata?.sha256 === "string"
+        ? metadata.sha256
+        : createHash("sha256").update(await objectStorage.get(updated.assetKey)).digest("hex");
+      if (metadata?.sha256 !== sourceHash) {
+        await updateWorkspaceAsset(asset.id, workspace.id, {
+          metadata: { ...(asset.metadata as Record<string, unknown> | null), sha256: sourceHash },
+        });
+      }
+      await createBrandKnowledgeCandidates(
+        workspace.id,
+        id,
+        compileBrandKnowledgeCandidates({
+          evidence: { type: "training_asset", id: updated.id, sourceHash },
+          approvedAsset: {
+            assetKey: updated.assetKey,
+            category: updated.trainingCategory ?? body.trainingCategory,
+            usageMode: updated.usageMode ?? body.usageMode,
+            rules: updated.trainingAnalysis.rules,
+            constraints: updated.trainingAnalysis.constraints,
+            confidence: updated.trainingAnalysis.confidence,
+            structure: updated.trainingAnalysis.structure,
+          },
+        }),
+      );
     }
 
     return NextResponse.json({ reference: updated });

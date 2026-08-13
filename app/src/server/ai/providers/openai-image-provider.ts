@@ -50,6 +50,7 @@ export class OpenAIImageProvider implements ImageGenerationProvider {
     const start = Date.now();
     const openaiSize = toOpenAISdkImageSize(resolveOpenAISize(input));
     let result: OpenAI.Images.Image;
+    let requestId: string | undefined;
 
     if (input.referenceImages.length > 0) {
       const files = await Promise.all(
@@ -70,6 +71,7 @@ export class OpenAIImageProvider implements ImageGenerationProvider {
       );
       const first = response.data?.[0];
       if (!first) throw new Error("No image data returned from OpenAI");
+      requestId = response._request_id ?? undefined;
       logger.info(
         `[OpenAIImageProvider] edit success references=${input.referenceImages.length}`
       );
@@ -87,6 +89,7 @@ export class OpenAIImageProvider implements ImageGenerationProvider {
       );
       const first = response.data?.[0];
       if (!first) throw new Error("No image data returned from OpenAI");
+      requestId = response._request_id ?? undefined;
       logger.info(`[OpenAIImageProvider] generate success`);
       result = first;
     }
@@ -107,10 +110,10 @@ export class OpenAIImageProvider implements ImageGenerationProvider {
         provider: "openai",
         model: env.OPENAI_IMAGE_MODEL,
         durationMs: Date.now() - start,
+        rawRequestId: requestId,
         revisedPrompt: result.revised_prompt || undefined,
       },
     };
   }
 }
-
 

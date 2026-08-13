@@ -9,6 +9,11 @@ const mockCreateChatCompletion = vi.hoisted(() => vi.fn());
 const mockGetObject = vi.hoisted(() => vi.fn());
 const mockRecordTrainingAnalysis = vi.hoisted(() => vi.fn());
 const mockGetTrainingReferenceForAnalysis = vi.hoisted(() => vi.fn());
+const controlledProvider = vi.hoisted(() => ({ enabled: false }));
+
+vi.mock("@/server/ai/providers/e2e-controlled-provider", () => ({
+  isE2EControlledProviderEnabled: () => controlledProvider.enabled,
+}));
 
 vi.mock("openai", () => ({
   default: class MockOpenAI {
@@ -102,6 +107,7 @@ async function runBrandTrainingAnalyzeJob() {
 describe("brandTrainingAnalyzeJob", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    controlledProvider.enabled = false;
     mockGetTrainingReferenceForAnalysis.mockResolvedValue({
       id: baseEventData.referenceId,
       workspaceId: baseEventData.workspaceId,
@@ -132,7 +138,7 @@ describe("brandTrainingAnalyzeJob", () => {
       id: baseEventData.referenceId,
       workspaceId: baseEventData.workspaceId,
       clientProfileId: baseEventData.clientProfileId,
-      reviewStatus: "approved",
+      reviewStatus: "pending_approval",
       trainingCategory: "graphic",
       usageMode: "reference",
     });
@@ -158,6 +164,7 @@ describe("brandTrainingAnalyzeJob", () => {
     };
     expect(call.model).toBe("gpt-5-mini");
     expect(call.response_format).toEqual({ type: "json_object" });
+    expect(call).toMatchObject({ max_completion_tokens: 1600 });
 
     expect(mockRecordTrainingAnalysis).toHaveBeenCalledWith(
       {
@@ -166,10 +173,30 @@ describe("brandTrainingAnalyzeJob", () => {
         referenceId: "ref-1",
       },
       {
+        existingReviewStatus: "pending_analysis",
         trainingCategory: "graphic",
         usageMode: "reference",
         analysis: expect.objectContaining({ description: "Ondas verdes" }),
       },
+    );
+  });
+
+  it("uses deterministic analysis and never calls OpenAI under the controlled E2E provider", async () => {
+    controlledProvider.enabled = true;
+
+    await runBrandTrainingAnalyzeJob();
+
+    expect(mockCreateChatCompletion).not.toHaveBeenCalled();
+    expect(mockRecordTrainingAnalysis).toHaveBeenCalledWith(
+      expect.objectContaining({ referenceId: baseEventData.referenceId }),
+      expect.objectContaining({
+        trainingCategory: "logo",
+        usageMode: "exact",
+        analysis: expect.objectContaining({
+          description: "Controlled E2E brand-training asset",
+          confidence: 1,
+        }),
+      }),
     );
   });
 
@@ -187,7 +214,7 @@ describe("brandTrainingAnalyzeJob", () => {
     expect(systemContent.toLowerCase()).toContain("condition");
   });
 
-  it("persists analysis via recordTrainingAnalysis (auto-approve happens in repository)", async () => {
+  it("persists analysis via recordTrainingAnalysis for human review", async () => {
     await runBrandTrainingAnalyzeJob();
     expect(mockRecordTrainingAnalysis).toHaveBeenCalledTimes(1);
     expect(mockRecordTrainingAnalysis).toHaveBeenCalledWith(
@@ -282,6 +309,54 @@ describe("brandTrainingAnalyzeJob", () => {
       referenceId: baseEventData.referenceId,
       reviewStatus: "approved",
     });
+  });
+
+  it("does not repeat analysis when a pending approval already has a proposal", async () => {
+    mockGetTrainingReferenceForAnalysis.mockResolvedValueOnce({
+      id: baseEventData.referenceId,
+      workspaceId: baseEventData.workspaceId,
+      clientProfileId: baseEventData.clientProfileId,
+      reviewStatus: "pending_approval",
+      trainingAnalysis: {
+        description: "already proposed",
+        visualAttributes: [],
+        rules: [],
+        constraints: [],
+        confidence: 1,
+      },
+    });
+
+    const result = await runBrandTrainingAnalyzeJob();
+
+    expect(mockGetObject).not.toHaveBeenCalled();
+    expect(mockCreateChatCompletion).not.toHaveBeenCalled();
+    expect(mockRecordTrainingAnalysis).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      success: true,
+      reason: "already_processed",
+      reviewStatus: "pending_approval",
+    });
+  });
+
+  it("reanalyzes a legacy approved row without revoking approval", async () => {
+    mockGetTrainingReferenceForAnalysis.mockResolvedValueOnce({
+      id: baseEventData.referenceId,
+      workspaceId: baseEventData.workspaceId,
+      clientProfileId: baseEventData.clientProfileId,
+      reviewStatus: "approved",
+      reviewedByUserId: null,
+      trainingAnalysis: null,
+    });
+
+    const result = await runBrandTrainingAnalyzeJob();
+
+    expect(mockCreateChatCompletion).toHaveBeenCalledTimes(1);
+    expect(mockRecordTrainingAnalysis).toHaveBeenCalledTimes(1);
+    expect(mockRecordTrainingAnalysis).toHaveBeenCalledWith(
+      expect.objectContaining({ referenceId: baseEventData.referenceId }),
+      expect.objectContaining({ existingReviewStatus: "approved" }),
+    );
+    expect(result).toMatchObject({ success: true });
   });
 
   it("advertises valid category and mode enums in the system prompt", async () => {

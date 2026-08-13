@@ -15,6 +15,7 @@ import {
 } from "@/server/repositories/creative-work";
 import { prepareCreativeWork } from "./prepare-creative-work";
 import { logCreativeWorkGenerationLifecycle } from "@/server/creative-work/job-telemetry";
+import { env } from "@/server/validation/env";
 
 export type GenerateCreativeWorkResult =
   | { ok: true; value: { work: NonNullable<Awaited<ReturnType<typeof getCreativeWork>>>["work"]; outputs: NonNullable<Awaited<ReturnType<typeof getCreativeWork>>>["outputs"]; billingKey: string; brandTrainingSuggestion: string | null } }
@@ -109,6 +110,8 @@ export async function generateCreativeWork(input: {
       selectedReferenceIds: [],
       brief: work.brief,
       format: work.format,
+      includePublishedBrandKnowledge:
+        work.toolKind === "single" && env.BRAND_CORTEX_SINGLE_PIECE_ENABLED === "true",
     });
     if (!work.inputSnapshot) return { ok: false, error: { code: "work_not_prepared" } };
     const confirmed = await confirmCreativeWorkSnapshotsIfUnchanged(

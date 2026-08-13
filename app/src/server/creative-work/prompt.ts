@@ -13,6 +13,8 @@ import type {
   SocialPostCopy,
 } from "./contracts";
 import type { CreativeWorkReferenceSlot } from "./reference-plan";
+import type { TextLayout } from "./typography-plan";
+import { canonicalJsonStringify } from "./canonical-json";
 import { CREATIVE_LEVEL_DIRECTIONS } from "@/server/ai/creative-level-direction";
 
 export type SocialPostFormat = "1:1" | "4:5" | "9:16";
@@ -28,8 +30,25 @@ export interface BuildSocialPostPromptInput {
 }
 
 function buildFixedContract(
-  input: Pick<BuildSocialPostPromptInput, "format" | "copy">,
+  input: Pick<BuildSocialPostPromptInput, "format" | "copy"> & {
+    textExecution?: "generative" | "deterministic";
+    textLayout?: TextLayout;
+  },
 ): string {
+  if (input.textExecution === "deterministic") {
+    const band = input.textLayout === "bottom"
+      ? "bottom"
+      : input.textLayout === "center"
+        ? "central"
+        : "top";
+    return [
+      "DETERMINISTIC TEXT CONTRACT:",
+      `FORMAT: ${input.format}`,
+      "Do not render any visible text, letters, words, labels or CTA in the image.",
+      `Generate only the visual background and leave the ${band} composition band visually calm and free of focal content for deterministic text composition after generation.`,
+      "Exact brand assets and approved copy will be composited after generation.",
+    ].join("\n");
+  }
   return [
     "FIXED CONTRACT:",
     `FORMAT: ${input.format}`,
@@ -65,6 +84,19 @@ function buildBrandKitBlock(
     `- Prohibited elements: ${brandKit.prohibitedElements ?? "(not provided)"}`,
   );
   return lines.join("\n");
+}
+
+function buildBrandKnowledgeBlock(
+  snapshot: CreativeWorkIdentitySnapshot["brandKnowledge"],
+): string {
+  if (!snapshot || snapshot.mode !== "published") return "";
+  return [
+    "PUBLISHED BRAND KNOWLEDGE — FROZEN SNAPSHOT:",
+    `Version: ${snapshot.versionNumber}; sha256=${snapshot.versionHash}`,
+    ...snapshot.claims.map((claim) =>
+      `- ${claim.claimKey} [${claim.kind}; ${claim.authority}/${claim.confidence}; claim=${claim.id}]: ${canonicalJsonStringify(claim.value)}`
+    ),
+  ].join("\n");
 }
 
 function describeAnalysisForRule(
@@ -205,8 +237,12 @@ function buildReservedPlacementsBlock(
 export function buildSocialPostPrompt(input: BuildSocialPostPromptInput): string {
   const { identitySnapshot, creativeLevel } = input;
 
-  const fixedContract = buildFixedContract(input);
+  const fixedContract = buildFixedContract({
+    ...input,
+    textLayout: input.inputSnapshot.typographyPlan?.requestedLayout,
+  });
   const brandKitBlock = buildBrandKitBlock(identitySnapshot.brandKit);
+  const brandKnowledgeBlock = buildBrandKnowledgeBlock(identitySnapshot.brandKnowledge);
   const ruleModeBlock = buildRuleModeBlock(identitySnapshot.assets);
   const negativePatternBlock = buildNegativePatternBlock(identitySnapshot.negativePatterns);
   const referenceModeBlock = buildReferenceModeBlock(identitySnapshot.assets);
@@ -233,6 +269,7 @@ export function buildSocialPostPrompt(input: BuildSocialPostPromptInput): string
     sourceAnalysisBlock,
     "",
     brandKitBlock,
+    ...(brandKnowledgeBlock ? ["", brandKnowledgeBlock] : []),
     "",
     ruleModeBlock,
     "",
@@ -275,6 +312,8 @@ export interface BuildCreativeWorkPromptInput {
   format: SocialPostFormat;
   /** Validated copy contract (R-002) — fixed for every mode. */
   copy: SocialPostCopy;
+  /** Approved 1:1 font path composes copy after generation when deterministic. */
+  textExecution?: "generative" | "deterministic";
   inputSnapshot: CreativeWorkInputSnapshot;
   /** Frozen fact pack from the snapshot; null only on defensive legacy reads. */
   factPack: CreativeWorkFactPack | null;
@@ -456,11 +495,15 @@ const PROMPT_SIZE_WARN_CHARS = 8000;
  * the legacy builder are untouched by this function.
  */
 export function buildCreativeWorkPrompt(input: BuildCreativeWorkPromptInput): string {
-  const fixedContract = buildFixedContract(input);
+  const fixedContract = buildFixedContract({
+    ...input,
+    textLayout: input.inputSnapshot.typographyPlan?.requestedLayout,
+  });
   const factPackBlock = buildFactPackBlock(input);
   const modePolicyBlock = buildModePolicyBlock(input);
   const referenceRolesBlock = buildReferenceRolesBlock(input.references);
   const brandKitBlock = buildBrandKitBlock(input.identitySnapshot.brandKit);
+  const brandKnowledgeBlock = buildBrandKnowledgeBlock(input.identitySnapshot.brandKnowledge);
   const ruleModeBlock = buildRuleModeBlock(input.identitySnapshot.assets);
   const negativePatternBlock = buildNegativePatternBlock(
     input.identitySnapshot.negativePatterns,
@@ -482,6 +525,7 @@ export function buildCreativeWorkPrompt(input: BuildCreativeWorkPromptInput): st
     referenceRolesBlock,
     "",
     brandKitBlock,
+    ...(brandKnowledgeBlock ? ["", brandKnowledgeBlock] : []),
     "",
     ruleModeBlock,
     "",

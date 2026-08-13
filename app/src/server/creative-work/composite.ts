@@ -1,4 +1,5 @@
 import sharp from "sharp";
+import { createHash } from "node:crypto";
 import {
   contrastRatio,
   layerBox,
@@ -16,6 +17,8 @@ export type BrandAssetGravity =
   | "southwest"
   | "southeast"
   | "center";
+
+const sha256 = (buffer: Buffer) => createHash("sha256").update(buffer).digest("hex");
 
 export interface ComposeExactBrandAssetLayer {
   buffer: Buffer;
@@ -221,7 +224,7 @@ export async function composeExactBrandAssets(
   }
 
   return sharp(base)
-    .resize(dimensions.width, dimensions.height, { fit: "fill" })
+    .resize(dimensions.width, dimensions.height, { fit: "cover" })
     .composite(composites)
     .png()
     .toBuffer();
@@ -250,6 +253,7 @@ export async function runExactComposition(input: {
   });
 
   if (staticPlan.blocked.length > 0) {
+    const baseHash = sha256(input.base);
     return {
       buffer: input.base,
       provenance: toProvenance({
@@ -258,6 +262,8 @@ export async function runExactComposition(input: {
         layers: [],
         omitted: staticPlan.omitted,
         blocked: staticPlan.blocked,
+        baseHash,
+        outputHash: baseHash,
       }),
     };
   }
@@ -327,7 +333,19 @@ export async function runExactComposition(input: {
       reason: picked.usedBackdrop
         ? "composed_with_backdrop"
         : "composed_contrast_ok",
+      sourceSha256: sha256(buffer),
     };
+    const meta = await sharp(buffer).metadata();
+    const targetWidth = Math.max(1, Math.round(input.dimensions.width * plan.widthRatio));
+    const targetHeight = Math.max(1, Math.round(
+      targetWidth * ((meta.height ?? targetWidth) / (meta.width ?? targetWidth)),
+    ));
+    layerPlan.box = layerBox({
+      gravity: picked.gravity,
+      canvas: input.dimensions,
+      layer: { width: targetWidth, height: targetHeight },
+      clearspacePx: plan.clearspacePx,
+    });
     finalLayers.push(layerPlan);
 
     const logoLum = await meanOpaqueLuminance(buffer);
@@ -362,6 +380,8 @@ export async function runExactComposition(input: {
       layers: finalLayers,
       omitted,
       blocked: staticPlan.blocked,
+      baseHash: sha256(input.base),
+      outputHash: sha256(composed),
     }),
   };
 }

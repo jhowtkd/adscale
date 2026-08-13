@@ -58,10 +58,17 @@ vi.mock("@/server/repositories/brand-kit", () => ({
 }));
 
 const createTrainingReference = vi.fn();
+const createClientReference = vi.fn();
 const getTrainingReferenceByAssetKey = vi.fn();
 vi.mock("@/server/repositories/client-reference", () => ({
+  createClientReference: (...args: unknown[]) => createClientReference(...args),
   createTrainingReference: (...args: unknown[]) => createTrainingReference(...args),
   getTrainingReferenceByAssetKey: (...args: unknown[]) => getTrainingReferenceByAssetKey(...args),
+}));
+
+const createBrandKnowledgeCandidates = vi.fn();
+vi.mock("@/server/repositories/brand-knowledge", () => ({
+  createBrandKnowledgeCandidates: (...args: unknown[]) => createBrandKnowledgeCandidates(...args),
 }));
 
 vi.mock("@/server/brand-training/upload", () => ({
@@ -116,6 +123,8 @@ describe("POST /api/workspace/brand-kit/extract-multi", () => {
     resolveBrandKitProfileId.mockResolvedValue(PROFILE_ID);
     upsertBrandKit.mockResolvedValue({ id: PROFILE_ID });
     createTrainingReference.mockResolvedValue({ id: "ref-1" });
+    createClientReference.mockResolvedValue({ id: "guide-ref-1" });
+    createBrandKnowledgeCandidates.mockResolvedValue([]);
     getTrainingReferenceByAssetKey.mockResolvedValue(null);
     createWorkspaceAsset.mockResolvedValue({ id: "asset-1", key: "k" });
     getWorkspaceAssetByKey.mockResolvedValue(null);
@@ -150,6 +159,19 @@ describe("POST /api/workspace/brand-kit/extract-multi", () => {
     expect(body.result.charges).toEqual([
       { fileName: "guide-0-guide.png", kind: "guide", charged: true },
     ]);
+    expect(createClientReference).toHaveBeenCalledWith(
+      "workspace-1",
+      expect.objectContaining({ clientProfileId: PROFILE_ID, kind: "brand_guide" }),
+    );
+    expect(createBrandKnowledgeCandidates).toHaveBeenCalledWith(
+      "workspace-1",
+      PROFILE_ID,
+      expect.arrayContaining([
+        expect.objectContaining({ claimKey: "palette.colors", status: "candidate" }),
+        expect.objectContaining({ claimKey: "typography.families", status: "candidate" }),
+      ]),
+    );
+    expect(body.result.assets[0]).toEqual(expect.objectContaining({ kind: "guide" }));
   });
 
   it("persists a logo without charging and registers it on the profile", async () => {

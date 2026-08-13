@@ -5,7 +5,16 @@
  */
 import { z } from "zod";
 
+import { HUMAN_QUALITY_SOURCE_LABELS } from "./corpus";
+
 export const PRODUCTION_PILOT_BASELINE_VERSION = 1 as const;
+
+const PRODUCTION_PILOT_PROVENANCE_SOURCES = [
+  "production_pilot",
+  "manual_capture",
+  "replay",
+  ...HUMAN_QUALITY_SOURCE_LABELS,
+] as const;
 
 const hardFailureSchema = z.enum([
   "instruction_printed_as_copy",
@@ -37,9 +46,67 @@ export const productionPilotRequestBaselineSchema = z.object({
       reason: z.string(),
     }),
   ),
+  source: z.enum(HUMAN_QUALITY_SOURCE_LABELS).optional(),
+  expectedHardFailures: z.array(hardFailureSchema).optional(),
+  expectedHumanVerdict: z.enum(["pass", "fail", "mixed", "pending"]).optional(),
+  snapshot: z
+    .object({
+      available: z.boolean(),
+      version: z.string().optional(),
+      hash: z.string().optional(),
+    })
+    .optional(),
   observedHardFailures: z.array(hardFailureSchema),
   humanVerdict: z.enum(["pass", "fail", "mixed", "pending"]),
   humanNotes: z.string().optional(),
+  artifact: z
+    .object({
+      sha256: z.string().regex(/^[a-f0-9]{64}$/),
+      mimeType: z.string().min(1),
+      byteLength: z.number().int().positive(),
+      width: z.number().int().positive(),
+      height: z.number().int().positive(),
+      measurement: z.object({
+        aspectRatio: z.number().positive(),
+        meanLuminance: z.number(),
+        hasRealTransparency: z.boolean(),
+        transparentAreaPercent: z.number(),
+        colorCoverage: z.array(
+          z.object({
+            hex: z.string(),
+            label: z.string().optional(),
+            coveragePercent: z.number(),
+          }),
+        ),
+        contentBoundingBox: z
+          .object({
+            left: z.number(),
+            top: z.number(),
+            width: z.number(),
+            height: z.number(),
+          })
+          .nullable(),
+        margins: z
+          .object({
+            left: z.number(),
+            top: z.number(),
+            right: z.number(),
+            bottom: z.number(),
+          })
+          .nullable(),
+        regions: z.array(
+          z.object({
+            x: z.number(),
+            y: z.number(),
+            width: z.number(),
+            height: z.number(),
+            meanLuminance: z.number(),
+            contrast: z.number(),
+          }),
+        ),
+      }),
+    })
+    .optional(),
   /** External artifact pointer (R2 key, URL, or local path outside git). */
   artifactRef: z.string().optional(),
   capturedAt: z.string(),
@@ -53,11 +120,12 @@ export const productionPilotBaselineSchema = z.object({
   clientProfileId: z.string().optional(),
   /** Provenance of the capture session — not the image bytes. */
   provenance: z.object({
-    source: z.enum(["production_pilot", "manual_capture", "replay"]),
+    source: z.enum(PRODUCTION_PILOT_PROVENANCE_SOURCES),
+    evidenceSource: z.enum(HUMAN_QUALITY_SOURCE_LABELS).optional(),
     operator: z.string().optional(),
     notes: z.string().optional(),
   }),
-  requests: z.array(productionPilotRequestBaselineSchema).min(1),
+  requests: z.array(productionPilotRequestBaselineSchema),
 });
 
 export type ProductionPilotBaseline = z.infer<typeof productionPilotBaselineSchema>;
