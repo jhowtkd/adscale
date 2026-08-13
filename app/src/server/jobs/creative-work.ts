@@ -1,4 +1,5 @@
 import "server-only";
+import { createHash } from "node:crypto";
 import { logger } from "@/lib/logger";
 import { objectStorage } from "@/server/storage";
 import { isRetryableProviderError } from "@/server/ai/image-generation";
@@ -13,6 +14,7 @@ import {
 import {
   GENERATION_CREDIT_COSTS,
   creativeWorkUnitBillingKey,
+  type GenerationResult,
   type GenerationRequest,
   type RefundDecision,
 } from "@/server/generation/canonical/types";
@@ -69,6 +71,7 @@ import {
   type CompositionProvenance,
 } from "@/server/creative-work/placement-policy";
 import { getTargetDimensions } from "@/lib/formats";
+import { canonicalJsonStringify } from "@/server/creative-work/canonical-json";
 import {
   resolveCreativeWorkFactPack,
   resolveGenerationPolicyVersion,
@@ -115,6 +118,46 @@ const OUTPUT_COST = GENERATION_CREDIT_COSTS.creativeWorkOutput;
 const MAX_REFERENCE_IMAGES = 4;
 const CREATIVE_WORK_RUNTIME_ENVIRONMENT =
   process.env.RENDER_SERVICE_NAME ?? process.env.RENDER_SERVICE_ID ?? process.env.NODE_ENV ?? "unknown";
+
+type GenerationReferenceEvidence = {
+  position: number;
+  role: CreativeWorkReferenceRole;
+  required: boolean;
+  assetKey: string;
+  label: string;
+  sourceMimeType: string;
+  mimeType: string;
+  sha256: string;
+};
+
+function generationEvidence(
+  result: GenerationResult,
+  prompt: string,
+  references: GenerationReferenceEvidence[],
+  directionSnapshot: unknown | null,
+) {
+  const winner = result.candidates?.find((candidate) => candidate.winner);
+  if (!winner) return null;
+  return {
+    version: 1 as const,
+    prompt,
+    promptSha256: createHash("sha256").update(prompt).digest("hex"),
+    imageOperation: result.imageOperation,
+    providerCalls: result.providerCalls ?? 0,
+    providerRetries: result.providerRetries ?? 0,
+    references,
+    directionSnapshot,
+    directionSnapshotSha256: directionSnapshot
+      ? createHash("sha256").update(canonicalJsonStringify(directionSnapshot)).digest("hex")
+      : null,
+    winner: {
+      provider: winner.provider,
+      model: winner.model,
+      durationMs: winner.durationMs,
+      rawRequestId: winner.rawRequestId ?? null,
+    },
+  };
+}
 
 type SerializedCreativeWorkProviderError = {
   message: string;
@@ -634,6 +677,7 @@ const creativeWorkOutputJobHandler = async ({
       // correction — the second call starts from the SAME prompt/sources and
       // only appends the failure codes (R-004 criterion 5).
       let v1PromptInputs: Omit<BuildCreativeWorkPromptInput, "correction"> | null = null;
+      let generationReferences: GenerationReferenceEvidence[] = [];
       try {
         if (typographyPlan && typographyPlan.format !== targetFormat) {
           throw new Error("brand_typography_format_mismatch");
@@ -771,6 +815,16 @@ const creativeWorkOutputJobHandler = async ({
           }
           const loadedSlots = normalizedReferences.map((loaded) => loaded.slot);
           referenceImages = normalizedReferences.map((loaded) => loaded.reference);
+          generationReferences = normalizedReferences.map((loaded, index) => ({
+            position: index + 1,
+            role: loaded.slot.role,
+            required: loaded.slot.required,
+            assetKey: loaded.slot.assetKey,
+            label: loaded.slot.label,
+            sourceMimeType: loaded.slot.mimeType,
+            mimeType: loaded.reference.mimeType,
+            sha256: createHash("sha256").update(loaded.reference.buffer).digest("hex"),
+          }));
           // R-004: v1 direct outputs use the protocol-aware builder fed by the
           // resolved mode, the frozen fact pack, the persisted level/format
           // and the role-bound reference plan. The explicit legacy
@@ -1025,8 +1079,10 @@ const creativeWorkOutputJobHandler = async ({
             });
             providerCalls = result.providerCalls ?? providerCalls;
             providerRetries = result.providerRetries ?? providerRetries;
+            const generation = generationEvidence(result, prompt, generationReferences, output.directionSnapshot ?? null);
             return {
               outputKey: result.outputKey as string | null,
+              ...(generation ? { generation } : {}),
               ...(result.providerCalls === undefined
                 ? {}
                 : {
@@ -1048,6 +1104,7 @@ const creativeWorkOutputJobHandler = async ({
       });
       const generatedResult = generated as unknown as {
         outputKey: string | null;
+        generation?: ReturnType<typeof generationEvidence>;
         providerCalls?: number;
         providerRetries?: number;
       };
@@ -1084,6 +1141,7 @@ const creativeWorkOutputJobHandler = async ({
       }
       // The correction flow may replace the persisted key with its own.
       let finalOutputKey = generatedOutputKey;
+      let finalGenerationEvidence = generatedResult.generation ?? null;
 
       // Exact brand assets (logo etc.) are composited after generation —
       // never drawn by the image model. Policy is per-asset/per-format.
@@ -1369,7 +1427,11 @@ const creativeWorkOutputJobHandler = async ({
               );
               providerCalls += result.providerCalls ?? 0;
               providerRetries += result.providerRetries ?? 0;
-              return { outputKey: result.outputKey as string | null };
+              const generation = generationEvidence(result, correctionPrompt, generationReferences, output.directionSnapshot ?? null);
+              return {
+                outputKey: result.outputKey as string | null,
+                ...(generation ? { generation } : {}),
+              };
             } catch (error) {
               return {
                 outputKey: null as string | null,
@@ -1382,7 +1444,11 @@ const creativeWorkOutputJobHandler = async ({
           }
           return result;
         });
-        const correctionOutputKey = (correction as unknown as { outputKey: string | null }).outputKey;
+        const correctionResult = correction as unknown as {
+          outputKey: string | null;
+          generation?: ReturnType<typeof generationEvidence>;
+        };
+        const correctionOutputKey = correctionResult.outputKey;
 
         if (!correctionOutputKey) {
           terminalRefunded = await refundTerminalOutput({
@@ -1470,6 +1536,7 @@ const creativeWorkOutputJobHandler = async ({
         }
 
         finalOutputKey = correctionOutputKey;
+        finalGenerationEvidence = correctionResult.generation ?? finalGenerationEvidence;
         completedQuality = correctionAssessment.quality as unknown as Record<string, unknown>;
         completedVerdict = correctionAssessment.objectiveVerdict;
       }
@@ -1480,6 +1547,9 @@ const creativeWorkOutputJobHandler = async ({
           ...(completedQuality ?? {}),
           exactComposition: compositionProvenance,
         };
+      }
+      if (finalGenerationEvidence) {
+        completedQuality = { ...(completedQuality ?? {}), generation: finalGenerationEvidence };
       }
       if (work.toolKind === "single" && typographyPlan) {
         completedQuality = {
