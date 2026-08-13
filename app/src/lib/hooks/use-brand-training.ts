@@ -104,6 +104,7 @@ export function useExtractMulti(clientProfileId: string | null) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["brand-training-status", clientProfileId] });
       queryClient.invalidateQueries({ queryKey: ["brand-kit", clientProfileId] });
+      queryClient.invalidateQueries({ queryKey: ["brand-knowledge", clientProfileId] });
     },
   });
 }
@@ -159,6 +160,94 @@ export function useApproveVoice(clientProfileId: string | null) {
   });
 }
 
+export interface BrandFontAssetRecord {
+  assetKey: string;
+  family: string;
+  source: string;
+  weight: 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900;
+  style: "normal" | "italic";
+  sha256: string;
+  reviewStatus?: "pending_approval" | "approved" | "archived";
+  uploadedAt?: string;
+  uploadedByUserId?: string;
+  approvedAt: string | null;
+  approvedByUserId: string | null;
+  archivedAt?: string | null;
+  archivedByUserId?: string | null;
+}
+
+const brandFontsKey = (clientProfileId: string) =>
+  ["brand-fonts", clientProfileId] as const;
+
+export function useBrandFonts(clientProfileId: string | null) {
+  return useQuery({
+    queryKey: brandFontsKey(clientProfileId ?? ""),
+    queryFn: async (): Promise<BrandFontAssetRecord[]> => {
+      const res = await apiFetch(`/api/client-profiles/${clientProfileId}/brand-fonts`);
+      if (!res.ok) throw new Error(await readError(res));
+      const data = await res.json();
+      return Array.isArray(data?.fonts) ? data.fonts : [];
+    },
+    enabled: Boolean(clientProfileId),
+  });
+}
+
+export function useUploadBrandFont(clientProfileId: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      file: File;
+      family: string;
+      source: string;
+      weight: BrandFontAssetRecord["weight"];
+      style: BrandFontAssetRecord["style"];
+    }): Promise<BrandFontAssetRecord> => {
+      const form = new FormData();
+      form.set("file", input.file);
+      form.set("family", input.family);
+      form.set("source", input.source);
+      form.set("weight", String(input.weight));
+      form.set("style", input.style);
+      form.set("rightsConfirmed", "true");
+      const res = await apiFetch(
+        `/api/client-profiles/${clientProfileId}/brand-fonts`,
+        { method: "POST", body: form },
+      );
+      if (!res.ok) throw new Error(await readError(res));
+      const data = await res.json();
+      return data.font as BrandFontAssetRecord;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: brandFontsKey(clientProfileId ?? "") });
+    },
+  });
+}
+
+export function useReviewBrandFont(clientProfileId: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      assetKey: string;
+      reviewStatus: "approved" | "archived";
+    }): Promise<BrandFontAssetRecord> => {
+      const res = await apiFetch(
+        `/api/client-profiles/${clientProfileId}/brand-fonts`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(input),
+        },
+      );
+      if (!res.ok) throw new Error(await readError(res));
+      const data = await res.json();
+      return data.font as BrandFontAssetRecord;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: brandFontsKey(clientProfileId ?? "") });
+    },
+  });
+}
+
 /* ------------------------------------------------------------------ *
  * Approved visual assets (Tasks 3-5).                                *
  * ------------------------------------------------------------------ */
@@ -193,6 +282,7 @@ export interface BrandTrainingAssetRecord {
     confidence: number;
   } | null;
   reviewedAt: string | Date | null;
+  reviewedByUserId: string | null;
   createdAt: string | Date;
   asset: {
     id: string;
@@ -252,7 +342,84 @@ export function useUploadBrandTrainingAsset(clientProfileId: string | null) {
       queryClient.invalidateQueries({
         queryKey: ["brand-training-status", clientProfileId],
       });
+      queryClient.invalidateQueries({ queryKey: ["brand-knowledge", clientProfileId] });
     },
+  });
+}
+
+export interface BrandKnowledgeClaimRecord {
+  id: string;
+  claimKey: string;
+  value: unknown;
+  authority: "human" | "explicit" | "measured" | "inferred";
+  confidence: "low" | "medium" | "high";
+  status: "candidate" | "approved" | "rejected" | "superseded";
+  evidenceRefs: Array<{ type: string; id: string; path: string; sourceHash: string }>;
+}
+
+export interface BrandKnowledgePayload {
+  claims: BrandKnowledgeClaimRecord[];
+  conflicts: Array<{
+    claimKey: string;
+    comparison: "conflict" | "human_needed";
+    claims: Array<Pick<BrandKnowledgeClaimRecord, "id" | "value" | "authority" | "confidence" | "evidenceRefs">>;
+  }>;
+  versions: Array<{
+    id: string;
+    versionNumber: number;
+    hash: string;
+    status: "active" | "superseded";
+    publishedByUserId: string;
+    publishedAt: string;
+    snapshot?: { claims: Array<{ id: string; claimKey: string; value: unknown; evidenceRefs: BrandKnowledgeClaimRecord["evidenceRefs"]; reviewedByUserId: string; reviewedAt: string }> };
+  }>;
+  activeVersion: { id: string; versionNumber: number; hash: string; status: "active" } | null;
+}
+
+const brandKnowledgeKey = (clientProfileId: string) => ["brand-knowledge", clientProfileId] as const;
+
+export function useBrandKnowledge(clientProfileId: string | null) {
+  return useQuery({
+    queryKey: brandKnowledgeKey(clientProfileId ?? ""),
+    queryFn: async (): Promise<BrandKnowledgePayload> => {
+      const response = await apiFetch(`/api/client-profiles/${clientProfileId}/brand-knowledge`);
+      if (!response.ok) throw new Error(await readError(response));
+      return response.json();
+    },
+    enabled: Boolean(clientProfileId),
+  });
+}
+
+export function useReviewBrandKnowledgeClaim(clientProfileId: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      claimId: string;
+      status: "approved" | "rejected";
+      value?: unknown;
+      alternatives?: Array<{ claimId: string; value: unknown }>;
+    }) => {
+      const response = await apiFetch(`/api/client-profiles/${clientProfileId}/brand-knowledge`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      if (!response.ok) throw new Error(await readError(response));
+      return response.json();
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: brandKnowledgeKey(clientProfileId ?? "") }),
+  });
+}
+
+export function usePublishBrandKnowledge(clientProfileId: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const response = await apiFetch(`/api/client-profiles/${clientProfileId}/brand-knowledge/publish`, { method: "POST" });
+      if (!response.ok) throw new Error(await readError(response));
+      return response.json();
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: brandKnowledgeKey(clientProfileId ?? "") }),
   });
 }
 

@@ -582,6 +582,20 @@
       "when": 1785686400000,
       "tag": "0082_creative_work_directions",
       "breakpoints": true
+    },
+    {
+      "idx": 83,
+      "version": "7",
+      "when": 1786554557685,
+      "tag": "0083_brand_font_assets",
+      "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "7",
+      "when": 1786636800000,
+      "tag": "0084_brand_knowledge",
+      "breakpoints": true
     }
   ]
 }

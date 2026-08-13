@@ -1,0 +1,120 @@
+{
+  "version": 1,
+  "pilotId": "piece-unica-brand-baseline-v1",
+  "brandName": "Fixture Brand",
+  "provenance": {
+    "source": "replay",
+    "evidenceSource": "synthetic_fixture",
+    "notes": "Controlled provider only; no paid generation or customer-real claim."
+  },
+  "requests": [
+    {
+      "requestId": "square-text-led",
+      "requestText": "Crie uma peça institucional quadrada com chamada para conhecer a marca.",
+      "format": "1:1",
+      "contentPattern": "text_led_ad",
+      "effectivePrompt": "replaced by the canonical replay prompt",
+      "selectedReferences": [
+        { "referenceId": "brand-logo", "reason": "approved exact brand identifier" },
+        { "referenceId": "brand-layout", "reason": "approved visual layout reference" }
+      ],
+      "expectedHardFailures": [],
+      "expectedHumanVerdict": "pending",
+      "observedHardFailures": [],
+      "humanVerdict": "pending",
+      "capturedAt": "2026-08-13T12:00:00.000Z",
+      "replay": {
+        "brief": {
+          "theme": "Apresentação institucional",
+          "objective": "Apresentar a marca",
+          "audience": "Novos clientes",
+          "offer": null
+        },
+        "copy": {
+          "headline": "Conheça a Fixture Brand",
+          "body": "Identidade clara para uma comunicação consistente.",
+          "cta": "Saiba mais"
+        },
+        "brandKit": {
+          "colors": ["#0B1F33", "#F4B400"],
+          "fonts": ["Brand Sans"],
+          "toneOfVoice": "Direto e acolhedor",
+          "prohibitedElements": "Não usar gradientes",
+          "requiredElements": "Logo em área de respiro"
+        }
+      }
+    },
+    {
+      "requestId": "portrait-evidence",
+      "requestText": "Crie uma peça 4:5 destacando um dado de desempenho da marca.",
+      "format": "4:5",
+      "contentPattern": "evidence_data",
+      "effectivePrompt": "replaced by the canonical replay prompt",
+      "selectedReferences": [
+        { "referenceId": "brand-logo", "reason": "approved exact brand identifier" },
+        { "referenceId": "brand-layout", "reason": "approved visual layout reference" }
+      ],
+      "expectedHardFailures": [],
+      "expectedHumanVerdict": "pending",
+      "observedHardFailures": [],
+      "humanVerdict": "pending",
+      "capturedAt": "2026-08-13T12:00:00.000Z",
+      "replay": {
+        "brief": {
+          "theme": "Resultado comprovado",
+          "objective": "Demonstrar credibilidade",
+          "audience": "Gestores de marketing",
+          "offer": "Relatório de desempenho"
+        },
+        "copy": {
+          "headline": "Resultados que você consegue medir",
+          "body": "Um relatório claro para orientar a próxima decisão.",
+          "cta": "Ver relatório"
+        },
+        "brandKit": {
+          "colors": ["#0B1F33", "#F4B400"],
+          "fonts": ["Brand Sans"],
+          "toneOfVoice": "Direto e acolhedor",
+          "prohibitedElements": "Não usar gradientes",
+          "requiredElements": "Logo em área de respiro"
+        }
+      }
+    },
+    {
+      "requestId": "story-institutional-photo",
+      "requestText": "Crie um story institucional com retrato da equipe e chamada curta.",
+      "format": "9:16",
+      "contentPattern": "institutional_photo",
+      "effectivePrompt": "replaced by the canonical replay prompt",
+      "selectedReferences": [
+        { "referenceId": "brand-logo", "reason": "approved exact brand identifier" },
+        { "referenceId": "brand-layout", "reason": "approved visual layout reference" }
+      ],
+      "expectedHardFailures": [],
+      "expectedHumanVerdict": "pending",
+      "observedHardFailures": [],
+      "humanVerdict": "pending",
+      "capturedAt": "2026-08-13T12:00:00.000Z",
+      "replay": {
+        "brief": {
+          "theme": "Equipe",
+          "objective": "Humanizar a marca",
+          "audience": "Comunidade da marca",
+          "offer": null
+        },
+        "copy": {
+          "headline": "Pessoas que constroem junto",
+          "body": "Conheça quem transforma estratégia em resultado.",
+          "cta": "Conheça a equipe"
+        },
+        "brandKit": {
+          "colors": ["#0B1F33", "#F4B400"],
+          "fonts": ["Brand Sans"],
+          "toneOfVoice": "Direto e acolhedor",
+          "prohibitedElements": "Não usar gradientes",
+          "requiredElements": "Logo em área de respiro"
+        }
+      }
+    }
+  ]
+}

@@ -47,6 +47,7 @@ import {
   createClientReference,
   getClientReferences,
   getClientReferencesByIds,
+  getClientReferencesByIdsForProfile,
   resolveCampaignClientProfileId,
   createTrainingReference,
   getTrainingReferences,
@@ -231,9 +232,26 @@ describe("client-reference repository", () => {
     });
   });
 
+  describe("getClientReferencesByIdsForProfile", () => {
+    it("scopes selected references and excludes unreviewed training assets", async () => {
+      const rows = [{ id: "ref-1", reviewStatus: "approved" }];
+      orderByMock.mockResolvedValue(rows);
+
+      const result = await getClientReferencesByIdsForProfile(
+        "ws-1",
+        "profile-1",
+        ["ref-1"],
+      );
+
+      expect(whereMock).toHaveBeenCalledTimes(1);
+      expect(orderByMock).toHaveBeenCalledTimes(1);
+      expect(result).toBe(rows);
+    });
+  });
+
   describe("createTrainingReference", () => {
-    it("creates an auto-approved training reference", async () => {
-      returningMock.mockResolvedValue([{ id: "ref-1", reviewStatus: "approved" }]);
+    it("creates a training reference pending analysis", async () => {
+      returningMock.mockResolvedValue([{ id: "ref-1", reviewStatus: "pending_analysis" }]);
 
       await createTrainingReference("ws-1", {
         clientProfileId: "profile-1",
@@ -246,9 +264,7 @@ describe("client-reference repository", () => {
           workspaceId: "ws-1",
           clientProfileId: "profile-1",
           kind: "other",
-          trainingCategory: "visual_reference",
-          usageMode: "reference",
-          reviewStatus: "approved",
+          reviewStatus: "pending_analysis",
         }),
       );
     });
@@ -285,12 +301,13 @@ describe("client-reference repository", () => {
   });
 
   describe("recordTrainingAnalysis", () => {
-    it("auto-approves the pending_analysis row inside the triple-id scope", async () => {
-      returningMock.mockResolvedValue([{ id: "ref-1", reviewStatus: "approved" }]);
+    it("moves the pending_analysis row to pending_approval inside the triple-id scope", async () => {
+      returningMock.mockResolvedValue([{ id: "ref-1", reviewStatus: "pending_approval" }]);
 
       const result = await recordTrainingAnalysis(
         { workspaceId: "ws-1", clientProfileId: "profile-1", referenceId: "ref-1" },
         {
+          existingReviewStatus: "pending_analysis",
           trainingCategory: "graphic",
           usageMode: "reference",
           analysis: {
@@ -308,12 +325,38 @@ describe("client-reference repository", () => {
         expect.objectContaining({
           trainingCategory: "graphic",
           usageMode: "reference",
-          reviewStatus: "approved",
+          reviewStatus: "pending_approval",
         }),
       );
+      const setArg = setMock.mock.calls[0]?.[0] as Record<string, unknown>;
+      expect(setArg).not.toHaveProperty("reviewedAt");
       expect(whereMock).toHaveBeenCalledTimes(1);
       expect(returningMock).toHaveBeenCalledTimes(1);
       expect(result?.id).toBe("ref-1");
+    });
+
+    it("keeps an approved legacy row approved while adding missing analysis", async () => {
+      returningMock.mockResolvedValue([{ id: "ref-1", reviewStatus: "approved" }]);
+
+      await recordTrainingAnalysis(
+        { workspaceId: "ws-1", clientProfileId: "profile-1", referenceId: "ref-1" },
+        {
+          existingReviewStatus: "approved",
+          trainingCategory: "visual_reference",
+          usageMode: "reference",
+          analysis: {
+            description: "Legacy proposal",
+            visualAttributes: [],
+            rules: [],
+            constraints: [],
+            confidence: 0.7,
+          },
+        },
+      );
+
+      expect(setMock).toHaveBeenCalledWith(
+        expect.objectContaining({ reviewStatus: "approved" }),
+      );
     });
   });
 

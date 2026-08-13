@@ -502,6 +502,79 @@ describe("buildCreativeWorkPrompt", () => {
     expect(prompt).not.toContain("Público da marca");
   });
 
+  it("uses only the published claims frozen in the identity snapshot", () => {
+    const identitySnapshot = snapshot({
+      brandKnowledge: {
+        mode: "published",
+        versionId: "version-1",
+        versionNumber: 2,
+        versionHash: "a".repeat(64),
+        compiledAt: "2026-08-13T12:00:00.000Z",
+        claims: [{
+          id: "claim-1",
+          claimKey: "layout.density",
+          kind: "preference",
+          value: "sparse",
+          scope: { level: "global", format: "4:5" },
+          authority: "human",
+          confidence: "high",
+          evidenceRefs: [],
+          reviewedAt: "2026-08-13T11:00:00.000Z",
+          reviewedByUserId: "user-1",
+        }],
+      },
+    });
+
+    const prompt = buildCreativeWorkPrompt(creativeWorkPromptInput({ identitySnapshot }));
+
+    expect(prompt).toContain("PUBLISHED BRAND KNOWLEDGE — FROZEN SNAPSHOT:");
+    expect(prompt).toContain(`Version: 2; sha256=${"a".repeat(64)}`);
+    expect(prompt).toContain('- layout.density [preference; human/high; claim=claim-1]: "sparse"');
+  });
+
+  it.each([
+    ["top", "top"],
+    ["center", "central"],
+    ["bottom", "bottom"],
+  ] as const)("reserves the %s band when approved copy is composed", (layout, band) => {
+    const deterministicCopy = {
+      headline: "HEADLINE_LITERAL_42",
+      body: "BODY_LITERAL_42",
+      cta: "CTA_LITERAL_42",
+    };
+    const baseInput = creativeWorkPromptInput({
+        mode: "social_post",
+        format: "1:1",
+        copy: deterministicCopy,
+        textExecution: "deterministic",
+      });
+    const prompt = buildCreativeWorkPrompt({
+      ...baseInput,
+      inputSnapshot: {
+        ...baseInput.inputSnapshot,
+        typographyPlan: {
+          version: 1,
+          execution: "deterministic",
+          format: "1:1",
+          requestedLayout: layout,
+          fontAssetKey: "fonts/geist.ttf",
+          fontSelection: "operator_selected",
+          overflowPolicy: { strategy: "autofit_then_fail", minimumDpi: { headline: 96, body: 72, cta: 72 } },
+          collisionPolicy: "relocate_layout_then_fail",
+          contrastPolicy: "brand_plate_wcag_aa",
+          safeAreaPolicy: "format_default",
+        },
+      },
+    });
+
+    expect(prompt).toContain("DETERMINISTIC TEXT CONTRACT:");
+    expect(prompt).toContain("Do not render any visible text, letters, words, labels or CTA");
+    expect(prompt).toContain(`leave the ${band} composition band visually calm`);
+    expect(prompt).not.toContain(deterministicCopy.headline);
+    expect(prompt).not.toContain(deterministicCopy.body);
+    expect(prompt).not.toContain(deterministicCopy.cta);
+  });
+
   it("forbids literal copying from Brand Training identity references", () => {
     const prompt = buildCreativeWorkPrompt(
       creativeWorkPromptInput({

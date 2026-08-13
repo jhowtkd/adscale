@@ -323,6 +323,9 @@ export const clientProfiles = adscaleSchema.table(
     constraints: text("constraints"),
     brandColors: jsonb("brand_colors"),
     brandFonts: jsonb("brand_fonts"),
+    brandFontAssets: jsonb("brand_font_assets").$type<
+      import("../brand-training/font-assets").StoredBrandFontAsset[]
+    >(),
     logoAssetKey: text("logo_asset_key"),
     toneOfVoice: text("tone_of_voice"),
     prohibitedElements: text("prohibited_elements"),
@@ -408,6 +411,61 @@ export const clientReferences = adscaleSchema.table(
       table.reviewStatus,
     ),
   ]
+);
+
+export const brandKnowledgeClaims = adscaleSchema.table(
+  "brand_knowledge_claims",
+  {
+    id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    clientProfileId: uuid("client_profile_id").notNull().references(() => clientProfiles.id, { onDelete: "cascade" }),
+    claimKey: text("claim_key").notNull().$type<import("../brand-knowledge/contracts").BrandKnowledgeClaimKey>(),
+    kind: text("kind").notNull().$type<"fact" | "rule" | "preference" | "prohibition">(),
+    value: jsonb("value").notNull(),
+    scope: jsonb("scope").notNull().$type<{ level: "global"; format?: "1:1" | "4:5" | "9:16"; channel?: string }>(),
+    authority: text("authority").notNull().$type<"human" | "explicit" | "measured" | "inferred">(),
+    confidence: text("confidence").notNull().$type<"low" | "medium" | "high">(),
+    status: text("status").notNull().default("candidate").$type<import("../brand-knowledge/contracts").BrandKnowledgeClaimStatus>(),
+    evidenceRefs: jsonb("evidence_refs").notNull().$type<import("../brand-knowledge/contracts").BrandKnowledgeClaimInput["evidenceRefs"]>(),
+    extractorVersion: text("extractor_version").notNull(),
+    sourceHash: text("source_hash").notNull(),
+    reviewDecision: jsonb("review_decision").$type<{
+      action: "approved" | "rejected";
+      alternatives: Array<{ claimId: string; value: unknown }>;
+      evidenceRefs: import("../brand-knowledge/contracts").BrandKnowledgeClaimInput["evidenceRefs"];
+    }>(),
+    reviewedAt: timestamp("reviewed_at", { mode: "date" }),
+    reviewedByUserId: text("reviewed_by_user_id").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("brand_knowledge_claims_source_uq").on(table.workspaceId, table.clientProfileId, table.claimKey, table.sourceHash),
+    index("brand_knowledge_claims_scope_idx").on(table.workspaceId, table.clientProfileId, table.status),
+    check("brand_knowledge_claims_status_check", sql`${table.status} in ('candidate','approved','rejected','superseded')`),
+  ],
+);
+
+export const brandKnowledgeVersions = adscaleSchema.table(
+  "brand_knowledge_versions",
+  {
+    id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    clientProfileId: uuid("client_profile_id").notNull().references(() => clientProfiles.id, { onDelete: "cascade" }),
+    versionNumber: integer("version_number").notNull(),
+    hash: text("hash").notNull(),
+    status: text("status").notNull().default("active").$type<"active" | "superseded">(),
+    snapshot: jsonb("snapshot").notNull().$type<import("../brand-knowledge/version-compiler").BrandKnowledgeVersionSnapshot>(),
+    publishedByUserId: text("published_by_user_id").notNull().references(() => user.id, { onDelete: "restrict" }),
+    publishedAt: timestamp("published_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("brand_knowledge_versions_number_uq").on(table.workspaceId, table.clientProfileId, table.versionNumber),
+    uniqueIndex("brand_knowledge_versions_hash_uq").on(table.workspaceId, table.clientProfileId, table.hash),
+    uniqueIndex("brand_knowledge_versions_active_uq").on(table.workspaceId, table.clientProfileId).where(sql`${table.status} = 'active'`),
+    index("brand_knowledge_versions_history_idx").on(table.workspaceId, table.clientProfileId, table.publishedAt),
+    check("brand_knowledge_versions_status_check", sql`${table.status} in ('active','superseded')`),
+  ],
 );
 
 export const campaigns = adscaleSchema.table(

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { createHash } from "node:crypto";
 import sharp from "sharp";
 import {
   composeExactBrandAssets,
@@ -397,9 +398,19 @@ describe("pickContrastSafePlacement + runExactComposition", () => {
     expect(result.provenance.composed[0]?.referenceId).toBe("logo-1");
     expect(result.provenance.composed[0]?.policy.required).toBe(true);
     expect(result.provenance.composed[0]?.clearspacePx).toBeGreaterThan(0);
+    expect(result.provenance.composed[0]?.box).toEqual({
+      left: expect.any(Number),
+      top: expect.any(Number),
+      width: expect.any(Number),
+      height: expect.any(Number),
+    });
     expect(result.provenance.omitted).toEqual([]);
     // Yellow on navy — high contrast, no backdrop needed
     expect(result.provenance.composed[0]?.usedBackdrop).toBe(false);
+    expect(result.provenance.baseHash).toBe(createHash("sha256").update(navy).digest("hex"));
+    expect(result.provenance.outputHash).toBe(createHash("sha256").update(result.buffer).digest("hex"));
+    expect(result.provenance.composed[0]?.sourceSha256)
+      .toBe(createHash("sha256").update(logo).digest("hex"));
     expect(await meanOpaqueLuminance(logo)).toBeGreaterThan(0.5);
     // Logo pixels present on composed canvas
     const meta = await sharp(result.buffer).metadata();

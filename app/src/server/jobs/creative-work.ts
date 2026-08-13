@@ -1,4 +1,5 @@
 import "server-only";
+import { createHash } from "node:crypto";
 import { logger } from "@/lib/logger";
 import { objectStorage } from "@/server/storage";
 import { isRetryableProviderError } from "@/server/ai/image-generation";
@@ -13,6 +14,7 @@ import {
 import {
   GENERATION_CREDIT_COSTS,
   creativeWorkUnitBillingKey,
+  type GenerationResult,
   type GenerationRequest,
   type RefundDecision,
 } from "@/server/generation/canonical/types";
@@ -56,10 +58,20 @@ import {
 } from "@/server/creative-work/job-telemetry";
 import { runExactComposition } from "@/server/creative-work/composite";
 import {
+  buildDeterministicBrandFidelity,
+  buildResidualBrandFidelityReview,
+} from "@/server/creative-work/brand-fidelity";
+import {
+  runTextComposition,
+  type TextCompositionProvenance,
+} from "@/server/creative-work/text-composite";
+import { buildTypographyPlan } from "@/server/creative-work/typography-plan";
+import {
   preflightExactComposition,
   type CompositionProvenance,
 } from "@/server/creative-work/placement-policy";
 import { getTargetDimensions } from "@/lib/formats";
+import { canonicalJsonStringify } from "@/server/creative-work/canonical-json";
 import {
   resolveCreativeWorkFactPack,
   resolveGenerationPolicyVersion,
@@ -106,6 +118,46 @@ const OUTPUT_COST = GENERATION_CREDIT_COSTS.creativeWorkOutput;
 const MAX_REFERENCE_IMAGES = 4;
 const CREATIVE_WORK_RUNTIME_ENVIRONMENT =
   process.env.RENDER_SERVICE_NAME ?? process.env.RENDER_SERVICE_ID ?? process.env.NODE_ENV ?? "unknown";
+
+type GenerationReferenceEvidence = {
+  position: number;
+  role: CreativeWorkReferenceRole;
+  required: boolean;
+  assetKey: string;
+  label: string;
+  sourceMimeType: string;
+  mimeType: string;
+  sha256: string;
+};
+
+function generationEvidence(
+  result: GenerationResult,
+  prompt: string,
+  references: GenerationReferenceEvidence[],
+  directionSnapshot: unknown | null,
+) {
+  const winner = result.candidates?.find((candidate) => candidate.winner);
+  if (!winner) return null;
+  return {
+    version: 1 as const,
+    prompt,
+    promptSha256: createHash("sha256").update(prompt).digest("hex"),
+    imageOperation: result.imageOperation,
+    providerCalls: result.providerCalls ?? 0,
+    providerRetries: result.providerRetries ?? 0,
+    references,
+    directionSnapshot,
+    directionSnapshotSha256: directionSnapshot
+      ? createHash("sha256").update(canonicalJsonStringify(directionSnapshot)).digest("hex")
+      : null,
+    winner: {
+      provider: winner.provider,
+      model: winner.model,
+      durationMs: winner.durationMs,
+      rawRequestId: winner.rawRequestId ?? null,
+    },
+  };
+}
 
 type SerializedCreativeWorkProviderError = {
   message: string;
@@ -363,6 +415,8 @@ const creativeWorkOutputJobHandler = async ({
     let generationUnitCount = 1;
     let activeUnitCount = 1;
     let terminalTelemetryEmitted = false;
+    const incompleteOutputKeys = new Set<string>();
+    let retainedOutputKey: string | null = null;
     const logCreativeWorkOutputTerminal = (
       fields: Parameters<typeof writeCreativeWorkOutputTerminal>[0],
     ): void => {
@@ -592,6 +646,19 @@ const creativeWorkOutputJobHandler = async ({
         width: 1024,
         height: 1280,
       };
+      const typographyPlan = work.toolKind === "single"
+        ? work.inputSnapshot?.typographyPlan ?? buildTypographyPlan({
+            format: targetFormat,
+            requestedLayout: work.settings?.textLayout,
+            selectedFontAssetKey: work.settings?.fontAssetKey,
+            fonts: identitySnapshot.brandKit.fontAssets ?? [],
+          })
+        : null;
+      const approvedFont = typographyPlan?.execution === "deterministic"
+        ? identitySnapshot.brandKit.fontAssets?.find(
+            (font) => font.assetKey === typographyPlan.fontAssetKey,
+          ) ?? null
+        : null;
 
       // Pre-generator block: prompt assembly + reference image load. Any
       // failure here happens before the upstream provider is invoked, so
@@ -610,7 +677,14 @@ const creativeWorkOutputJobHandler = async ({
       // correction — the second call starts from the SAME prompt/sources and
       // only appends the failure codes (R-004 criterion 5).
       let v1PromptInputs: Omit<BuildCreativeWorkPromptInput, "correction"> | null = null;
+      let generationReferences: GenerationReferenceEvidence[] = [];
       try {
+        if (typographyPlan && typographyPlan.format !== targetFormat) {
+          throw new Error("brand_typography_format_mismatch");
+        }
+        if (typographyPlan?.execution === "deterministic" && !approvedFont) {
+          throw new Error("brand_font_snapshot_missing");
+        }
         const inputSnapshot = work.inputSnapshot ?? {
           request: work.request,
           settings: work.settings,
@@ -741,6 +815,16 @@ const creativeWorkOutputJobHandler = async ({
           }
           const loadedSlots = normalizedReferences.map((loaded) => loaded.slot);
           referenceImages = normalizedReferences.map((loaded) => loaded.reference);
+          generationReferences = normalizedReferences.map((loaded, index) => ({
+            position: index + 1,
+            role: loaded.slot.role,
+            required: loaded.slot.required,
+            assetKey: loaded.slot.assetKey,
+            label: loaded.slot.label,
+            sourceMimeType: loaded.slot.mimeType,
+            mimeType: loaded.reference.mimeType,
+            sha256: createHash("sha256").update(loaded.reference.buffer).digest("hex"),
+          }));
           // R-004: v1 direct outputs use the protocol-aware builder fed by the
           // resolved mode, the frozen fact pack, the persisted level/format
           // and the role-bound reference plan. The explicit legacy
@@ -785,6 +869,7 @@ const creativeWorkOutputJobHandler = async ({
                 creativeLevel,
                 references: loadedSlots,
                 revisionInstruction: output.revisionInstruction,
+                textExecution: typographyPlan?.execution ?? "generative",
               })
             : buildSocialPostPrompt({
                 format: targetFormat,
@@ -806,6 +891,7 @@ const creativeWorkOutputJobHandler = async ({
               creativeLevel,
               references: loadedSlots,
               revisionInstruction: output.revisionInstruction,
+              textExecution: typographyPlan?.execution ?? "generative",
             };
           }
         } else {
@@ -993,8 +1079,10 @@ const creativeWorkOutputJobHandler = async ({
             });
             providerCalls = result.providerCalls ?? providerCalls;
             providerRetries = result.providerRetries ?? providerRetries;
+            const generation = generationEvidence(result, prompt, generationReferences, output.directionSnapshot ?? null);
             return {
               outputKey: result.outputKey as string | null,
+              ...(generation ? { generation } : {}),
               ...(result.providerCalls === undefined
                 ? {}
                 : {
@@ -1016,6 +1104,7 @@ const creativeWorkOutputJobHandler = async ({
       });
       const generatedResult = generated as unknown as {
         outputKey: string | null;
+        generation?: ReturnType<typeof generationEvidence>;
         providerCalls?: number;
         providerRetries?: number;
       };
@@ -1046,11 +1135,13 @@ const creativeWorkOutputJobHandler = async ({
         }
         return { success: false, outputId, failureCode: "image_call_budget_exhausted" };
       }
+      incompleteOutputKeys.add(generatedOutputKey);
       if (!(await checkLease("after-generate"))) {
         return { success: false, skipped: true, leaseLost: true, outputId };
       }
       // The correction flow may replace the persisted key with its own.
       let finalOutputKey = generatedOutputKey;
+      let finalGenerationEvidence = generatedResult.generation ?? null;
 
       // Exact brand assets (logo etc.) are composited after generation —
       // never drawn by the image model. Policy is per-asset/per-format.
@@ -1058,6 +1149,34 @@ const creativeWorkOutputJobHandler = async ({
         (asset) => asset.usageMode === "exact",
       );
       let compositionProvenance: CompositionProvenance | null = null;
+      let textCompositionProvenance: TextCompositionProvenance | null = null;
+
+      const composeApprovedText = async (
+        outputKey: string,
+        stepName: string,
+      ): Promise<TextCompositionProvenance | null> => {
+        if (!approvedFont || typographyPlan?.execution !== "deterministic") return null;
+        return (await step.run(stepName, async () => {
+          const [baseBuffer, fontBuffer] = await Promise.all([
+            objectStorage.get(outputKey),
+            objectStorage.get(approvedFont.assetKey),
+          ]);
+          const result = await runTextComposition({
+            base: baseBuffer,
+            dimensions,
+            copy,
+            font: approvedFont,
+            fontBuffer,
+            typographyPlan,
+            brandColors: identitySnapshot.brandKit.colors,
+            occupiedBoxes: compositionProvenance?.composed.flatMap(
+              (asset) => asset.box ? [asset.box] : [],
+            ) ?? [],
+          });
+          await objectStorage.put(outputKey, result.buffer, "image/png");
+          return result.provenance;
+        })) as TextCompositionProvenance;
+      };
 
       if (exactAssets.length > 0) {
         compositionProvenance = (await step.run("compose-exact-layers", async () => {
@@ -1073,6 +1192,11 @@ const creativeWorkOutputJobHandler = async ({
           return result.provenance;
         })) as CompositionProvenance;
       }
+
+      textCompositionProvenance = await composeApprovedText(
+        generatedOutputKey,
+        "compose-approved-copy",
+      );
 
       // Keep the image buffer out of step results; only its storage key is
       // durable/serializable across Inngest boundaries.
@@ -1303,7 +1427,11 @@ const creativeWorkOutputJobHandler = async ({
               );
               providerCalls += result.providerCalls ?? 0;
               providerRetries += result.providerRetries ?? 0;
-              return { outputKey: result.outputKey as string | null };
+              const generation = generationEvidence(result, correctionPrompt, generationReferences, output.directionSnapshot ?? null);
+              return {
+                outputKey: result.outputKey as string | null,
+                ...(generation ? { generation } : {}),
+              };
             } catch (error) {
               return {
                 outputKey: null as string | null,
@@ -1316,7 +1444,11 @@ const creativeWorkOutputJobHandler = async ({
           }
           return result;
         });
-        const correctionOutputKey = (correction as unknown as { outputKey: string | null }).outputKey;
+        const correctionResult = correction as unknown as {
+          outputKey: string | null;
+          generation?: ReturnType<typeof generationEvidence>;
+        };
+        const correctionOutputKey = correctionResult.outputKey;
 
         if (!correctionOutputKey) {
           terminalRefunded = await refundTerminalOutput({
@@ -1340,6 +1472,7 @@ const creativeWorkOutputJobHandler = async ({
           }
           return { success: false, outputId, failureCode: "image_call_budget_exhausted" };
         }
+        incompleteOutputKeys.add(correctionOutputKey);
 
         if (exactAssets.length > 0) {
           compositionProvenance = (await step.run(
@@ -1362,6 +1495,10 @@ const creativeWorkOutputJobHandler = async ({
             },
           )) as CompositionProvenance;
         }
+        textCompositionProvenance = await composeApprovedText(
+          correctionOutputKey,
+          "compose-approved-copy-correction",
+        );
 
         const correctedBuffer = await objectStorage.get(correctionOutputKey);
         const correctionAssessment = (await observeCreativeWorkStage(
@@ -1399,6 +1536,7 @@ const creativeWorkOutputJobHandler = async ({
         }
 
         finalOutputKey = correctionOutputKey;
+        finalGenerationEvidence = correctionResult.generation ?? finalGenerationEvidence;
         completedQuality = correctionAssessment.quality as unknown as Record<string, unknown>;
         completedVerdict = correctionAssessment.objectiveVerdict;
       }
@@ -1409,6 +1547,53 @@ const creativeWorkOutputJobHandler = async ({
           ...(completedQuality ?? {}),
           exactComposition: compositionProvenance,
         };
+      }
+      if (finalGenerationEvidence) {
+        completedQuality = { ...(completedQuality ?? {}), generation: finalGenerationEvidence };
+      }
+      if (work.toolKind === "single" && typographyPlan) {
+        completedQuality = {
+          ...(completedQuality ?? {}),
+          textComposition: textCompositionProvenance ?? typographyPlan,
+        };
+      }
+      if (work.toolKind === "single") {
+        const brandFidelity = await step.run("verify-brand-fidelity", async () => ({
+          deterministic: buildDeterministicBrandFidelity({
+            copy,
+            format: targetFormat,
+            dimensions,
+            typographyPlan,
+            approvedFont,
+            exactAssets: identitySnapshot.assets,
+            exactComposition: compositionProvenance,
+            textComposition: textCompositionProvenance,
+            finalArtifact: await objectStorage.get(finalOutputKey),
+          }),
+          residual: buildResidualBrandFidelityReview(completedQuality),
+        }));
+        completedQuality = { ...(completedQuality ?? {}), brandFidelity };
+        if (identitySnapshot.brandKnowledge) {
+          const knowledge = identitySnapshot.brandKnowledge;
+          completedQuality = {
+            ...(completedQuality ?? {}),
+            brandKnowledge: {
+              schemaVersion: 1,
+              mode: knowledge.mode,
+              versionId: knowledge.versionId,
+              versionNumber: knowledge.versionNumber,
+              versionHash: knowledge.versionHash,
+              claimIds: knowledge.claims.map((claim) => claim.id),
+              evidenceRefs: knowledge.claims.flatMap((claim) => claim.evidenceRefs),
+              selectedAssets: identitySnapshot.assets.map((asset) => ({
+                referenceId: asset.referenceId,
+                assetKey: asset.assetKey,
+                usageMode: asset.usageMode,
+                reasons: identitySnapshot.referenceSelection?.reasons[asset.referenceId] ?? [],
+              })),
+            },
+          };
+        }
       }
 
       // R-007: lease re-check before the commit — a job that lost the row
@@ -1434,6 +1619,7 @@ const creativeWorkOutputJobHandler = async ({
         });
         return { success: true, skipped: true, outputId };
       }
+      retainedOutputKey = finalOutputKey;
 
       // Phase 5 / item 37: library on complete (not only on select).
       // Isolated from generation success: a library/storage failure must never
@@ -1613,6 +1799,16 @@ const creativeWorkOutputJobHandler = async ({
       }
       return { success: false, outputId, failureCode: code };
     } finally {
+      for (const key of incompleteOutputKeys) {
+        if (key === retainedOutputKey) continue;
+        try {
+          await objectStorage.delete(key);
+        } catch (cleanupError) {
+          logger.warn(
+            `[creativeWorkOutputJob] orphan cleanup failed outputId=${outputId} key=${key}: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`,
+          );
+        }
+      }
       try {
         await step.run("refresh-aggregate-status", async () => {
           await refreshCreativeWorkStatus(workspaceId, workItemId);

@@ -27,6 +27,7 @@ const nodeIncludes = [
   "src/server/**/*.test.ts",
   "src/app/api/**/*.test.ts",
   "tests/integration/**/*.test.ts",
+  "scripts/**/*.test.ts",
 ];
 
 export default defineConfig({

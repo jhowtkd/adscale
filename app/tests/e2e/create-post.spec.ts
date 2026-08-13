@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import sharp from "sharp";
 import { Client } from "pg";
@@ -25,10 +26,9 @@ import { composeExactBrandAssets } from "../../src/server/creative-work/composit
  * Seed: `npm run seed:create-post-e2e`
  */
 
-const FIXTURE_PATH = path.resolve(
-  __dirname,
-  "../fixtures/create-post-e2e.json",
-);
+const FIXTURE_PATH = process.env.CREATE_POST_E2E_FIXTURE_PATH
+  ? path.resolve(process.env.CREATE_POST_E2E_FIXTURE_PATH)
+  : path.resolve(__dirname, "../fixtures/create-post-e2e.json");
 
 interface CreatePostFixture {
   workspaceId: string;
@@ -72,13 +72,10 @@ async function login(page: Page): Promise<void> {
       /* ignore */
     }
   });
-  await page.goto("/login");
-  await page.locator("#email").fill(fixture.email);
-  await page.locator("#login-password").fill(fixture.password);
-  await page.locator("form:has(#email) button[type=submit]").click();
-  await page.waitForURL((url) => !url.pathname.startsWith("/login"), {
-    timeout: 30_000,
+  const response = await page.request.post("/api/auth/sign-in/email", {
+    data: { email: fixture.email, password: fixture.password },
   });
+  expect(response.ok(), `E2E login must succeed (got ${response.status()})`).toBeTruthy();
 }
 
 async function fetchCampaignIds(
@@ -164,6 +161,81 @@ test.describe("Standalone Create Post acceptance gate", () => {
       "pending reference must be excluded from the assets step",
     ).toBeUndefined();
     expect(approvedReferences.length, "at least one approved reference must exist").toBeGreaterThan(0);
+  });
+
+  test("human approval makes a trained asset eligible for controlled Peça única generation", async ({ page }) => {
+    const fixture = loadFixture();
+    const analysis = {
+      description: "Referência visual controlada para o gate E2E.",
+      visualAttributes: ["contraste controlado"],
+      rules: ["preservar a identidade"],
+      constraints: ["não inventar elementos"],
+      confidence: 1,
+    };
+    const list = await page.request.get(
+      `/api/client-profiles/${fixture.primaryClientProfileId}/training-assets`,
+    );
+    expect(list.ok()).toBeTruthy();
+    const pending = ((await list.json()) as {
+      references: Array<{ id: string; label: string; reviewStatus: string }>;
+    }).references.find((reference) => reference.label === fixture.pendingReferenceLabel);
+    expect(pending?.reviewStatus).toBe("pending_analysis");
+
+    try {
+      await withDb(async (client) => {
+        await client.query(
+          `update adscale_app.client_references
+           set training_category = 'visual_reference', usage_mode = 'reference',
+               training_analysis = $1::jsonb, review_status = 'pending_approval'
+           where id = $2 and workspace_id = $3 and client_profile_id = $4`,
+          [JSON.stringify(analysis), pending!.id, fixture.workspaceId, fixture.primaryClientProfileId],
+        );
+      });
+
+      for (let read = 0; read < 2; read += 1) {
+        const response = await page.request.get(
+          `/api/client-profiles/${fixture.primaryClientProfileId}/training-assets`,
+        );
+        const current = ((await response.json()) as {
+          references: Array<{ id: string; reviewStatus: string }>;
+        }).references.find((reference) => reference.id === pending!.id);
+        expect(current?.reviewStatus).toBe("pending_approval");
+      }
+
+      const approval = await page.request.patch(
+        `/api/client-profiles/${fixture.primaryClientProfileId}/training-assets/${pending!.id}`,
+        {
+          data: {
+            trainingCategory: "visual_reference",
+            usageMode: "reference",
+            analysis,
+            reviewStatus: "approved",
+          },
+        },
+      );
+      expect(approval.ok(), `approval must succeed (got ${approval.status()})`).toBeTruthy();
+
+      const detail = await runV1Flow(page.request, fixture, {
+        intent: "single",
+        request: "Peça única controlada após aprovação humana da referência.",
+      });
+      expect(detail.outputs).toHaveLength(1);
+      const calls = evidenceForOutput(readProviderEvidence(), detail.outputs[0].id);
+      expect(calls).toHaveLength(1);
+      expect(calls[0].referenceNames.some(
+        (name) => path.parse(name).name === fixture.pendingReferenceLabel,
+      )).toBe(true);
+    } finally {
+      await withDb(async (client) => {
+        await client.query(
+          `update adscale_app.client_references
+           set training_category = 'graphic', usage_mode = 'exact', training_analysis = null,
+               review_status = 'pending_analysis', reviewed_at = null, reviewed_by_user_id = null
+           where id = $1 and workspace_id = $2 and client_profile_id = $3`,
+          [pending!.id, fixture.workspaceId, fixture.primaryClientProfileId],
+        );
+      });
+    }
   });
 
   test("triplet always returns exactly three fixed creative levels", async ({ page }) => {
@@ -441,7 +513,8 @@ test.describe("Standalone Create Post acceptance gate", () => {
 // no real credits). Requires the dev server started with:
 //   DATABASE_URL=postgres://test:test@localhost:5433/adscale_test \
 //   E2E_DISABLE_RATE_LIMIT=true E2E_CONTROLLED_PROVIDER=true \
-//   CREATIVE_WORK_QUALITY_RECOVERY_ENABLED=true npm run dev:next
+//   CREATIVE_WORK_QUALITY_RECOVERY_ENABLED=true \
+//   BRAND_CORTEX_SINGLE_PIECE_ENABLED=true npm run dev:next
 // plus `npm run inngest:dev` and a fresh `npm run seed:create-post-e2e`.
 // Failure markers travel inside the frozen request text:
 //   [e2e:timeout-once]  transport retry consumes the 2nd (final) call
@@ -454,6 +527,9 @@ test.describe("Standalone Create Post acceptance gate", () => {
 
 const EVIDENCE_PATH = process.env.E2E_PROVIDER_EVIDENCE_PATH
   ?? path.resolve(__dirname, ".evidence/provider-calls.jsonl");
+const BRAND_CORTEX_EVIDENCE_PATH = process.env.BRAND_CORTEX_EVIDENCE_PATH
+  ? path.resolve(process.env.BRAND_CORTEX_EVIDENCE_PATH)
+  : path.resolve(__dirname, ".evidence/brand-cortex-seam.json");
 const E2E_DB_URL = process.env.DATABASE_URL
   ?? "postgres://test:test@localhost:5433/adscale_test";
 
@@ -465,6 +541,7 @@ interface ProviderCallEvidence {
   referenceNames: string[];
   promptMarkers: string[];
   promptHasObjectiveCorrection: boolean;
+  promptHasDeterministicText: boolean;
   outcome: "success" | "failure";
 }
 
@@ -483,11 +560,62 @@ interface V1OutputRow {
     objectiveVerdict?: string;
     attempt?: number;
     subjective?: { scoreStatus?: string };
+    textComposition?: {
+      version: number;
+      execution: "deterministic" | "generative";
+      format: string;
+      requestedLayout?: "top" | "center" | "bottom";
+      font?: { assetKey: string; sha256: string };
+      copy?: { headline: string; body: string; cta: string };
+      planHash?: string;
+      outputHash?: string;
+      reason?: string;
+      layers?: Array<{
+        role: "headline" | "body" | "cta";
+        box: { left: number; top: number; width: number; height: number };
+      }>;
+    };
+    exactComposition?: {
+      composed?: Array<{ referenceId: string; sourceSha256?: string }>;
+    };
+    brandFidelity?: {
+      deterministic?: {
+        overall?: string;
+        checks?: Array<{ id: string; state: string }>;
+      };
+      residual?: { advisoryOnly?: boolean; status?: string };
+    };
+    brandKnowledge?: {
+      mode: string;
+      versionId: string | null;
+      versionNumber: number | null;
+      versionHash: string | null;
+      claimIds: string[];
+      evidenceRefs: Array<{ type: string; id: string; path: string; sourceHash: string }>;
+      selectedAssets: Array<{ referenceId: string; assetKey: string; usageMode: string; reasons: string[] }>;
+    };
   } | null;
 }
 
 interface V1WorkDetail {
-  work: { id: string; status: string; toolKind: string; settings: Record<string, unknown> };
+  work: {
+    id: string;
+    status: string;
+    toolKind: string;
+    settings: Record<string, unknown>;
+    copy: { headline: string; body: string; cta: string } | null;
+    identitySnapshot?: {
+      brandKnowledge?: {
+        mode: string;
+        versionId: string | null;
+        versionNumber: number | null;
+        versionHash: string | null;
+        claims: Array<{ id: string; evidenceRefs: unknown[] }>;
+      };
+      assets: Array<{ referenceId: string; assetKey: string; usageMode: string }>;
+      referenceSelection?: { reasons: Record<string, string[]> };
+    } | null;
+  };
   outputs: V1OutputRow[];
   sources: Array<{ id: string; status: string; usage: string; assetId: string | null }>;
 }
@@ -544,7 +672,14 @@ async function dbLedgerFor(fixture: CreatePostFixture, workItemId: string) {
 async function apiCreateV1Draft(
   request: APIRequestContext,
   fixture: CreatePostFixture,
-  input: { intent: string; request: string; targetFormats?: string[]; format?: string },
+  input: {
+    intent: string;
+    request: string;
+    targetFormats?: string[];
+    format?: string;
+    fontAssetKey?: string;
+    textLayout?: "top" | "center" | "bottom";
+  },
 ): Promise<string> {
   const res = await request.post("/api/creative-work", {
     data: {
@@ -553,7 +688,12 @@ async function apiCreateV1Draft(
       request: input.request,
       intent: input.intent,
       format: input.format ?? "4:5",
-      settings: { targetFormats: input.targetFormats ?? [], formatMode: "manual" },
+      settings: {
+        targetFormats: input.targetFormats ?? [],
+        formatMode: "manual",
+        ...(input.fontAssetKey ? { fontAssetKey: input.fontAssetKey } : {}),
+        ...(input.textLayout ? { textLayout: input.textLayout } : {}),
+      },
     },
   });
   expect(res.ok(), `create draft must succeed (got ${res.status()})`).toBeTruthy();
@@ -619,7 +759,15 @@ async function waitForTerminalOutputs(request: APIRequestContext, workId: string
 async function runV1Flow(
   request: APIRequestContext,
   fixture: CreatePostFixture,
-  input: { intent: string; request: string; targetFormats?: string[]; sources?: Array<{ assetId: string; usage: "content" | "style" | "both" }> },
+  input: {
+    intent: string;
+    request: string;
+    targetFormats?: string[];
+    format?: string;
+    fontAssetKey?: string;
+    textLayout?: "top" | "center" | "bottom";
+    sources?: Array<{ assetId: string; usage: "content" | "style" | "both" }>;
+  },
 ): Promise<V1WorkDetail> {
   const workId = await apiCreateV1Draft(request, fixture, input);
   for (const source of input.sources ?? []) {
@@ -665,6 +813,332 @@ test.describe("Creative Work v1 quality-recovery matrix (R-010)", () => {
     });
     const row = await dbOutputRow(output.id);
     expect(row).toMatchObject({ status: "completed", image_call_count: 1, retry_count: 0 });
+  });
+
+  test("Peça única: fonte aprovada compõe copy nos três formatos e layouts", async ({ page }) => {
+    const fixture = loadFixture();
+    const fontBuffer = fs.readFileSync(path.resolve(
+      process.cwd(),
+      "node_modules/next/dist/compiled/@vercel/og/Geist-Regular.ttf",
+    ));
+    let fontKey: string | null = null;
+    let fontAssetId: string | null = null;
+
+    try {
+      const upload = await page.request.post(
+        `/api/client-profiles/${fixture.primaryClientProfileId}/brand-fonts`,
+        {
+          multipart: {
+            file: { name: "Geist-Regular.ttf", mimeType: "font/ttf", buffer: fontBuffer },
+            family: "Geist",
+            source: "Fixture licenciada do projeto",
+            weight: "400",
+            style: "normal",
+            rightsConfirmed: "true",
+          },
+        },
+      );
+      expect(upload.status(), `font upload must succeed (got ${upload.status()})`).toBe(201);
+      const uploaded = (await upload.json()) as {
+        font: { assetKey: string; sha256: string; reviewStatus: string };
+      };
+      fontKey = uploaded.font.assetKey;
+      expect(uploaded.font.reviewStatus).toBe("pending_approval");
+      const approval = await page.request.patch(
+        `/api/client-profiles/${fixture.primaryClientProfileId}/brand-fonts`,
+        { data: { assetKey: fontKey, reviewStatus: "approved" } },
+      );
+      expect(approval.status(), `font approval must succeed (got ${approval.status()})`).toBe(200);
+      fontAssetId = await withDb(async (client) => {
+        const result = await client.query(
+          `select id from adscale_app.workspace_assets where workspace_id = $1 and key = $2`,
+          [fixture.workspaceId, fontKey],
+        );
+        return (result.rows[0]?.id as string | undefined) ?? null;
+      });
+
+      const cases = [
+        { format: "1:1", layout: "top", dimensions: { width: 1080, height: 1080 } },
+        { format: "4:5", layout: "bottom", dimensions: { width: 1080, height: 1350 } },
+        { format: "9:16", layout: "center", dimensions: { width: 1080, height: 1920 } },
+      ] as const;
+      for (const fixtureCase of cases) {
+        const detail = await runV1Flow(page.request, fixture, {
+          intent: "single",
+          format: fixtureCase.format,
+          fontAssetKey: fontKey,
+          textLayout: fixtureCase.layout,
+          request: `Peça ${fixtureCase.format} com chamada literal para a mentoria de psicologia.`,
+        });
+
+        expect(detail.outputs).toHaveLength(1);
+        const output = detail.outputs[0];
+        expect(output.status).toBe("completed");
+        expect(output.quality?.textComposition).toMatchObject({
+          version: 2,
+          execution: "deterministic",
+          format: fixtureCase.format,
+          requestedLayout: fixtureCase.layout,
+          font: { assetKey: fontKey, sha256: uploaded.font.sha256 },
+          copy: detail.work.copy,
+          planHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+          outputHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+        });
+        const composition = output.quality?.textComposition;
+        expect(composition?.layers).toHaveLength(3);
+        const download = await page.request.get(
+          `/api/creative-work/${detail.work.id}/outputs/${output.id}/download?format=json`,
+        );
+        expect(download.ok(), `output download must succeed (got ${download.status()})`).toBeTruthy();
+        const { url } = (await download.json()) as { url: string };
+        const image = await page.request.get(url);
+        expect(image.ok(), `signed output URL must succeed (got ${image.status()})`).toBeTruthy();
+        const png = Buffer.from(await image.body());
+        expect(createHash("sha256").update(png).digest("hex")).toBe(composition?.outputHash);
+        expect(await sharp(png).metadata()).toMatchObject({ ...fixtureCase.dimensions, format: "png" });
+        for (const layer of composition?.layers ?? []) {
+          const stats = await sharp(png).extract(layer.box).stats();
+          expect(
+            Math.max(...stats.channels.slice(0, 3).map((channel) => channel.stdev)),
+            `${fixtureCase.format}/${fixtureCase.layout} ${layer.role} region must contain rendered ink`,
+          ).toBeGreaterThan(0.5);
+        }
+        expect(evidenceForOutput(readProviderEvidence(), output.id)).toEqual([
+          expect.objectContaining({
+            dimensions: fixtureCase.dimensions,
+            promptHasDeterministicText: true,
+            outcome: "success",
+          }),
+        ]);
+      }
+    } finally {
+      if (fontKey) {
+        await withDb(async (client) => {
+          await client.query(
+            `update adscale_app.client_profiles
+             set brand_font_assets = coalesce((
+               select jsonb_agg(font)
+               from jsonb_array_elements(coalesce(brand_font_assets, '[]'::jsonb)) font
+               where font->>'assetKey' <> $1
+             ), '[]'::jsonb)
+             where workspace_id = $2 and id = $3`,
+            [fontKey, fixture.workspaceId, fixture.primaryClientProfileId],
+          );
+        });
+      }
+      if (fontAssetId) {
+        await page.request.delete(`/api/workspace/assets/${fontAssetId}`);
+      }
+    }
+  });
+
+  test("Brand Cortex: training → publicação → snapshot congelado → fidelity", async ({ page }) => {
+    test.skip(
+      process.env.BRAND_CORTEX_SINGLE_PIECE_ENABLED !== "true",
+      "requires BRAND_CORTEX_SINGLE_PIECE_ENABLED=true on the app and Playwright process",
+    );
+    const fixture = loadFixture();
+    let profileId: string | null = null;
+    try {
+      const profileResponse = await page.request.post("/api/client-profiles", {
+        data: { name: `Brand Cortex E2E ${crypto.randomUUID()}` },
+      });
+      expect(profileResponse.status()).toBe(201);
+      profileId = ((await profileResponse.json()) as { profile: { id: string } }).profile.id;
+      const scopedFixture = { ...fixture, primaryClientProfileId: profileId };
+
+      const logo = await sharp({
+        create: { width: 320, height: 160, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
+      }).composite([{
+        input: Buffer.from('<svg width="240" height="80"><rect width="240" height="80" rx="20" fill="#D71F2B"/></svg>'),
+        left: 40,
+        top: 40,
+      }]).png().toBuffer();
+      const upload = await page.request.post(`/api/client-profiles/${profileId}/training-assets`, {
+        multipart: {
+          file: { name: "brand-cortex-logo.png", mimeType: "image/png", buffer: logo },
+          label: "Brand Cortex exact logo",
+        },
+      });
+      expect(upload.status()).toBe(201);
+      const reference = ((await upload.json()) as {
+        reference: { id: string; assetKey: string };
+      }).reference;
+      await expect.poll(async () => {
+        const response = await page.request.get(`/api/client-profiles/${profileId}/training-assets`);
+        const rows = ((await response.json()) as { references: Array<{ id: string; reviewStatus: string }> }).references;
+        return rows.find((row) => row.id === reference.id)?.reviewStatus;
+      }, { timeout: 60_000, intervals: [1_000, 2_000, 3_000] }).toBe("pending_approval");
+
+      const analysis = {
+        description: "Logotipo exato aprovado para o Córtex.",
+        visualAttributes: ["vermelho institucional"],
+        rules: ["preservar o logotipo exato"],
+        constraints: ["não distorcer o logotipo"],
+        confidence: 1,
+      };
+      const assetApproval = await page.request.patch(
+        `/api/client-profiles/${profileId}/training-assets/${reference.id}`,
+        { data: { trainingCategory: "logo", usageMode: "exact", analysis, reviewStatus: "approved" } },
+      );
+      expect(assetApproval.status()).toBe(200);
+
+      const knowledgeResponse = await page.request.get(`/api/client-profiles/${profileId}/brand-knowledge`);
+      expect(knowledgeResponse.ok()).toBeTruthy();
+      const claim = ((await knowledgeResponse.json()) as {
+        claims: Array<{ id: string; claimKey: string; value: unknown; status: string; evidenceRefs: Array<{ id: string }> }>;
+      }).claims.find((candidate) =>
+        candidate.claimKey === "logo.primary_asset"
+        && candidate.status === "candidate"
+        && candidate.evidenceRefs.some((evidence) => evidence.id === reference.id)
+      );
+      expect(claim, "approval must create a reviewable logo claim").toBeDefined();
+      const claimApproval = await page.request.patch(`/api/client-profiles/${profileId}/brand-knowledge`, {
+        data: { claimId: claim!.id, status: "approved", alternatives: [] },
+      });
+      expect(claimApproval.status()).toBe(200);
+      const firstPublication = await page.request.post(`/api/client-profiles/${profileId}/brand-knowledge/publish`);
+      expect(firstPublication.status()).toBe(201);
+      const versionOne = ((await firstPublication.json()) as {
+        version: { id: string; versionNumber: number; hash: string };
+      }).version;
+      expect(versionOne).toMatchObject({ versionNumber: 1, hash: expect.stringMatching(/^[a-f0-9]{64}$/) });
+
+      const fontBuffer = fs.readFileSync(path.resolve(
+        process.cwd(),
+        "node_modules/next/dist/compiled/@vercel/og/Geist-Regular.ttf",
+      ));
+      const fontUpload = await page.request.post(`/api/client-profiles/${profileId}/brand-fonts`, {
+        multipart: {
+          file: { name: "Geist-Regular.ttf", mimeType: "font/ttf", buffer: fontBuffer },
+          family: "Geist",
+          source: "Fixture licenciada do projeto",
+          weight: "400",
+          style: "normal",
+          rightsConfirmed: "true",
+        },
+      });
+      expect(fontUpload.status()).toBe(201);
+      const font = ((await fontUpload.json()) as { font: { assetKey: string; sha256: string } }).font;
+      const fontApproval = await page.request.patch(`/api/client-profiles/${profileId}/brand-fonts`, {
+        data: { assetKey: font.assetKey, reviewStatus: "approved" },
+      });
+      expect(fontApproval.status()).toBe(200);
+
+      const workId = await apiCreateV1Draft(page.request, scopedFixture, {
+        intent: "single",
+        request: "Peça institucional do Córtex com chamada literal para conhecer a marca.",
+        format: "4:5",
+        fontAssetKey: font.assetKey,
+        textLayout: "top",
+      });
+      const prepared = await apiPrepare(page.request, workId);
+      expect(prepared.status).toBe(200);
+      await apiGenerateInitial(page.request, workId);
+      const confirmed = await apiGetWork(page.request, workId);
+      expect(confirmed.work.identitySnapshot?.brandKnowledge).toMatchObject({
+        mode: "published",
+        versionId: versionOne.id,
+        versionNumber: 1,
+        versionHash: versionOne.hash,
+      });
+      expect(confirmed.work.identitySnapshot?.assets).toEqual(expect.arrayContaining([
+        expect.objectContaining({ referenceId: reference.id, assetKey: reference.assetKey, usageMode: "exact" }),
+      ]));
+      expect(confirmed.work.identitySnapshot?.referenceSelection?.reasons[reference.id]?.length).toBeGreaterThan(0);
+
+      const rereview = await page.request.patch(`/api/client-profiles/${profileId}/brand-knowledge`, {
+        data: { claimId: claim!.id, status: "approved", value: claim!.value, alternatives: [] },
+      });
+      expect(rereview.status()).toBe(200);
+      const secondPublication = await page.request.post(`/api/client-profiles/${profileId}/brand-knowledge/publish`);
+      expect(secondPublication.status()).toBe(201);
+      const versionTwo = ((await secondPublication.json()) as {
+        version: { id: string; versionNumber: number; hash: string };
+      }).version;
+      expect(versionTwo.versionNumber).toBe(2);
+      expect(versionTwo.id).not.toBe(versionOne.id);
+
+      const finished = await waitForTerminalOutputs(page.request, workId);
+      expect(finished.work.identitySnapshot?.brandKnowledge?.versionId).toBe(versionOne.id);
+      const output = finished.outputs[0];
+      expect(output.status).toBe("completed");
+      expect(output.quality?.textComposition).toMatchObject({
+        execution: "deterministic",
+        font: { assetKey: font.assetKey, sha256: font.sha256 },
+        copy: finished.work.copy,
+      });
+      expect(output.quality?.exactComposition?.composed).toEqual(expect.arrayContaining([
+        expect.objectContaining({ referenceId: reference.id, sourceSha256: expect.stringMatching(/^[a-f0-9]{64}$/) }),
+      ]));
+      expect(output.quality?.brandFidelity).toMatchObject({
+        deterministic: {
+          overall: "proven",
+          checks: expect.arrayContaining([
+            expect.objectContaining({ id: "copy", state: "proven" }),
+            expect.objectContaining({ id: "font", state: "proven" }),
+            expect.objectContaining({ id: "exact_assets", state: "proven" }),
+            expect.objectContaining({ id: "composition", state: "proven" }),
+          ]),
+        },
+        residual: { advisoryOnly: true },
+      });
+      expect(output.quality?.brandKnowledge).toMatchObject({
+        mode: "published",
+        versionId: versionOne.id,
+        versionNumber: 1,
+        versionHash: versionOne.hash,
+        claimIds: [claim!.id],
+        evidenceRefs: expect.arrayContaining([expect.objectContaining({ id: reference.id })]),
+        selectedAssets: expect.arrayContaining([
+          expect.objectContaining({ referenceId: reference.id, usageMode: "exact" }),
+        ]),
+      });
+
+      fs.mkdirSync(path.dirname(BRAND_CORTEX_EVIDENCE_PATH), { recursive: true });
+      fs.writeFileSync(BRAND_CORTEX_EVIDENCE_PATH, `${JSON.stringify({
+        schemaVersion: 1,
+        status: "pass",
+        capturedAt: new Date().toISOString(),
+        authenticated: true,
+        provider: "e2e-controlled",
+        paidGeneration: false,
+        featureFlag: "enabled_for_test",
+        assertions: {
+          trainingReviewed: true,
+          versionPublished: true,
+          laterPublicationDidNotMutateSnapshot: true,
+          exactAssetProven: true,
+          approvedFontAndCopyProven: true,
+          deterministicAndResidualSeparated: true,
+          traceableToEvidence: true,
+        },
+        version: { frozen: versionOne, activeAfterConfirmation: versionTwo },
+      }, null, 2)}\n`, "utf8");
+    } finally {
+      if (profileId) {
+        const assetIds = await withDb(async (client) => {
+          const result = await client.query(
+            `with keys as (
+               select asset_key as key from adscale_app.client_references where client_profile_id = $1
+               union
+               select font->>'assetKey' from adscale_app.client_profiles,
+                 jsonb_array_elements(coalesce(brand_font_assets, '[]'::jsonb)) font where id = $1
+               union
+               select o.output_key from adscale_app.creative_work_outputs o
+                 join adscale_app.creative_work_items w on w.id = o.work_item_id
+                 where w.client_profile_id = $1 and o.output_key is not null
+             )
+             select id from adscale_app.workspace_assets
+             where workspace_id = $2 and key in (select key from keys)`,
+            [profileId, fixture.workspaceId],
+          );
+          await client.query("delete from adscale_app.client_profiles where id = $1 and workspace_id = $2", [profileId, fixture.workspaceId]);
+          return result.rows.map((row) => row.id as string);
+        });
+        await Promise.all(assetIds.map((assetId) => page.request.delete(`/api/workspace/assets/${assetId}`)));
+      }
+    }
   });
 
   test("Variações: 3 outputs / 3 direct art_variation calls on the same snapshot", async ({ page }) => {

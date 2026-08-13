@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
+import { createHash } from "node:crypto";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import {
-  autoApprovePendingTrainingReferences,
   createTrainingReference,
+  deleteTrainingReference,
   getClientProfile,
   getTrainingReferences,
 } from "@/server/repositories/client-reference";
@@ -33,9 +34,10 @@ export async function GET(
     // Workspace ID is resolved exclusively from the session — never from query.
     void new URL(request.url);
 
-    // Promote legacy pending rows (uploaded before auto-approval) so they
-    // condition generation without a missing human-review step.
-    await autoApprovePendingTrainingReferences(workspace.id, id);
+    const profile = await getClientProfile(workspace.id, id);
+    if (!profile) {
+      return apiError("clientProfileNotFound", 404);
+    }
 
     const references = await getTrainingReferences(workspace.id, id);
 
@@ -118,6 +120,7 @@ export async function POST(
         metadata: {
           hasAlpha: normalized.hasAlpha,
           originalMimeType: file.type,
+          sha256: createHash("sha256").update(normalized.buffer).digest("hex"),
         },
       });
     } catch (error) {
@@ -138,17 +141,28 @@ export async function POST(
       throw error;
     }
 
-    await inngest.send({
-      name: heavyImageEventName("brand.training.analyze"),
-      data: {
+    try {
+      await inngest.send({
+        name: heavyImageEventName("brand.training.analyze"),
+        data: {
+          workspaceId: workspace.id,
+          clientProfileId: id,
+          referenceId: reference.id,
+          assetKey: key,
+          mimeType: normalized.type,
+          hasAlpha: normalized.hasAlpha,
+        },
+      });
+    } catch (error) {
+      await deleteTrainingReference({
         workspaceId: workspace.id,
         clientProfileId: id,
         referenceId: reference.id,
-        assetKey: key,
-        mimeType: normalized.type,
-        hasAlpha: normalized.hasAlpha,
-      },
-    });
+      }).catch(() => null);
+      await deleteWorkspaceAsset(asset.id, workspace.id).catch(() => null);
+      await objectStorage.delete(key).catch(() => null);
+      throw error;
+    }
 
     return NextResponse.json(
       {

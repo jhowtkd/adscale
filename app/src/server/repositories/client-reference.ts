@@ -1,4 +1,4 @@
-import { eq, and, desc, inArray, isNull, or, sql } from "drizzle-orm";
+import { eq, and, desc, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import { db } from "../db";
 import { clientProfiles, clientReferences } from "../db/schema";
 import { isWorkspaceAssetKey } from "./asset";
@@ -9,10 +9,11 @@ import type {
   BrandTrainingUsageMode,
   BrandTrainingReviewStatus,
 } from "../brand-training/contracts";
-
-/** Defaults applied when a training upload is auto-approved without human review. */
-const AUTO_APPROVE_CATEGORY: BrandTrainingCategory = "visual_reference";
-const AUTO_APPROVE_USAGE_MODE: BrandTrainingUsageMode = "reference";
+import type {
+  BrandFontAssetRecord,
+  BrandFontReviewStatus,
+  StoredBrandFontAsset,
+} from "../brand-training/font-assets";
 
 export type ClientReferenceKind =
   | "style"
@@ -20,6 +21,7 @@ export type ClientReferenceKind =
   | "layout"
   | "logo"
   | "negative"
+  | "brand_guide"
   | "other";
 
 export interface CreateClientProfileInput {
@@ -72,6 +74,74 @@ export async function getClientProfile(workspaceId: string, id: string) {
     .where(and(eq(clientProfiles.workspaceId, workspaceId), eq(clientProfiles.id, id)))
     .limit(1);
   return result[0] ?? null;
+}
+
+export async function addBrandFontAsset(
+  workspaceId: string,
+  clientProfileId: string,
+  font: StoredBrandFontAsset,
+): Promise<StoredBrandFontAsset | null> {
+  const [updated] = await db
+    .update(clientProfiles)
+    .set({
+      brandFontAssets: sql`coalesce(${clientProfiles.brandFontAssets}, '[]'::jsonb) || ${JSON.stringify([font])}::jsonb`,
+      updatedAt: new Date(),
+    })
+    .where(and(
+      eq(clientProfiles.workspaceId, workspaceId),
+      eq(clientProfiles.id, clientProfileId),
+      sql`not exists (
+        select 1
+        from jsonb_array_elements(coalesce(${clientProfiles.brandFontAssets}, '[]'::jsonb)) as existing
+        where existing->>'sha256' = ${font.sha256}
+      )`,
+    ))
+    .returning({ id: clientProfiles.id });
+  return updated ? font : null;
+}
+
+export async function reviewBrandFontAsset(
+  workspaceId: string,
+  clientProfileId: string,
+  assetKey: string,
+  reviewStatus: Exclude<BrandFontReviewStatus, "pending_approval">,
+  userId: string,
+): Promise<BrandFontAssetRecord | null> {
+  const decidedAt = new Date().toISOString();
+  const decision = reviewStatus === "approved"
+    ? { reviewStatus, approvedAt: decidedAt, approvedByUserId: userId }
+    : { reviewStatus, archivedAt: decidedAt, archivedByUserId: userId };
+  const eligibleStatus = reviewStatus === "approved"
+    ? sql`font->>'reviewStatus' = 'pending_approval'`
+    : sql`coalesce(font->>'reviewStatus', 'approved') in ('pending_approval', 'approved')`;
+  const [updated] = await db
+    .update(clientProfiles)
+    .set({
+      brandFontAssets: sql`(
+        select jsonb_agg(
+          case when font->>'assetKey' = ${assetKey}
+            then font || ${JSON.stringify(decision)}::jsonb
+            else font
+          end
+          order by ordinal
+        )
+        from jsonb_array_elements(coalesce(${clientProfiles.brandFontAssets}, '[]'::jsonb))
+          with ordinality as entries(font, ordinal)
+      )`,
+      updatedAt: new Date(),
+    })
+    .where(and(
+      eq(clientProfiles.workspaceId, workspaceId),
+      eq(clientProfiles.id, clientProfileId),
+      sql`exists (
+        select 1
+        from jsonb_array_elements(coalesce(${clientProfiles.brandFontAssets}, '[]'::jsonb)) as font
+        where font->>'assetKey' = ${assetKey}
+          and ${eligibleStatus}
+      )`,
+    ))
+    .returning({ fonts: clientProfiles.brandFontAssets });
+  return (updated?.fonts ?? []).find((font) => font.assetKey === assetKey) as BrandFontAssetRecord | undefined ?? null;
 }
 
 function normalizeClientLabel(value: string): string {
@@ -174,6 +244,10 @@ export async function getClientReferencesByIdsForProfile(
         eq(clientReferences.workspaceId, workspaceId),
         eq(clientReferences.clientProfileId, clientProfileId),
         inArray(clientReferences.id, ids),
+        ne(clientReferences.kind, "brand_guide"),
+        // Generic legacy references have no training review state; training
+        // assets must be explicitly approved before generation can use them.
+        or(isNull(clientReferences.reviewStatus), eq(clientReferences.reviewStatus, "approved")),
       ),
     )
     .orderBy(desc(clientReferences.createdAt));
@@ -202,6 +276,7 @@ export interface TrainingReferenceScope {
 }
 
 export interface RecordTrainingAnalysisInput {
+  existingReviewStatus: BrandTrainingReviewStatus;
   trainingCategory: BrandTrainingCategory;
   usageMode: BrandTrainingUsageMode;
   analysis: BrandTrainingAnalysis;
@@ -219,9 +294,6 @@ export async function createTrainingReference(
   workspaceId: string,
   input: CreateTrainingReferenceInput,
 ) {
-  // Uploads are auto-approved immediately: there is no human-approval UI
-  // gate in the product surface. AI analysis may still enrich category /
-  // usage / analysis fields asynchronously after create.
   const [row] = await db
     .insert(clientReferences)
     .values({
@@ -230,13 +302,24 @@ export async function createTrainingReference(
       assetKey: input.assetKey,
       label: input.label,
       kind: "other",
-      trainingCategory: AUTO_APPROVE_CATEGORY,
-      usageMode: AUTO_APPROVE_USAGE_MODE,
-      reviewStatus: "approved",
-      reviewedAt: new Date(),
+      reviewStatus: "pending_analysis",
     })
     .returning();
   return row;
+}
+
+export async function deleteTrainingReference(scope: TrainingReferenceScope) {
+  const [row] = await db
+    .delete(clientReferences)
+    .where(
+      and(
+        eq(clientReferences.workspaceId, scope.workspaceId),
+        eq(clientReferences.clientProfileId, scope.clientProfileId),
+        eq(clientReferences.id, scope.referenceId),
+      ),
+    )
+    .returning();
+  return row ?? null;
 }
 
 export async function getTrainingReferenceByAssetKey(
@@ -340,64 +423,35 @@ export async function getTrainingReferenceForAnalysis(
   return rows[0] ?? null;
 }
 
-/**
- * Promote legacy pending_analysis / pending_approval rows to approved so
- * assets uploaded before auto-approval still condition generation without a
- * missing human-review step.
- */
-export async function autoApprovePendingTrainingReferences(
-  workspaceId: string,
-  clientProfileId: string,
-) {
-  return db
-    .update(clientReferences)
-    .set({
-      trainingCategory: sql`coalesce(${clientReferences.trainingCategory}, ${AUTO_APPROVE_CATEGORY})`,
-      usageMode: sql`coalesce(${clientReferences.usageMode}, ${AUTO_APPROVE_USAGE_MODE})`,
-      reviewStatus: "approved",
-      reviewedAt: sql`coalesce(${clientReferences.reviewedAt}, now())`,
-    })
-    .where(
-      and(
-        eq(clientReferences.workspaceId, workspaceId),
-        eq(clientReferences.clientProfileId, clientProfileId),
-        inArray(clientReferences.reviewStatus, [
-          "pending_analysis",
-          "pending_approval",
-        ]),
-      ),
-    )
-    .returning();
-}
-
 export async function recordTrainingAnalysis(
   scope: TrainingReferenceScope,
   analysis: RecordTrainingAnalysisInput,
 ) {
-  // Auto-approve on analysis: human approval was removed from the product
-  // surface. Also enrich approved uploads that still lack analysis.
   const [row] = await db
     .update(clientReferences)
     .set({
       trainingCategory: analysis.trainingCategory,
       usageMode: analysis.usageMode,
       trainingAnalysis: analysis.analysis,
-      reviewStatus: "approved",
-      reviewedAt: new Date(),
+      // Reanalysis may enrich a legacy approved row, but must not silently
+      // revoke its existing human/legacy availability state.
+      reviewStatus:
+        analysis.existingReviewStatus === "approved"
+          ? "approved"
+          : "pending_approval",
     })
     .where(
       and(
         eq(clientReferences.workspaceId, scope.workspaceId),
         eq(clientReferences.clientProfileId, scope.clientProfileId),
         eq(clientReferences.id, scope.referenceId),
-        or(
-          eq(clientReferences.reviewStatus, "pending_analysis"),
-          eq(clientReferences.reviewStatus, "pending_approval"),
-          and(
-            eq(clientReferences.reviewStatus, "approved"),
-            isNull(clientReferences.trainingAnalysis),
-          ),
-        ),
+        eq(clientReferences.reviewStatus, analysis.existingReviewStatus),
+        inArray(clientReferences.reviewStatus, [
+          "pending_analysis",
+          "pending_approval",
+          "approved",
+        ]),
+        isNull(clientReferences.trainingAnalysis),
       ),
     )
     .returning();
@@ -408,9 +462,8 @@ export async function reviewTrainingReference(
   scope: TrainingReferenceScope,
   review: ReviewTrainingReferenceInput,
 ) {
-  // Archive with null analysis must not wipe existing AI analysis.
-  const preserveAnalysis =
-    review.reviewStatus === "archived" && review.analysis === null;
+  // A status-only legacy decision must not wipe existing AI analysis.
+  const preserveAnalysis = review.analysis === null;
 
   const [row] = await db
     .update(clientReferences)

@@ -836,6 +836,7 @@ export interface CreativeWorkQualityFinding {
   note: string;
   /** Deterministic findings need no vision model; visual ones come from the evaluator. */
   origin: "deterministic" | "vision";
+  confidence?: number;
 }
 
 export type CreativeWorkSubjectiveScoreStatus =
@@ -947,6 +948,7 @@ export function buildCreativeWorkQualityPayload(input: {
       status: finding.status,
       note: finding.note,
       origin: "vision" as const,
+      ...(finding.confidence === undefined ? {} : { confidence: finding.confidence }),
     })),
   ];
 

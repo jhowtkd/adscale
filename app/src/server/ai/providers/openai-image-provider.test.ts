@@ -31,6 +31,7 @@ describe("OpenAIImageProvider", () => {
   it("calls images.generate when no references provided", async () => {
     mockGenerate.mockResolvedValue({
       data: [{ b64_json: Buffer.from("png-bytes").toString("base64") }],
+      _request_id: "req-image-1",
     });
     const provider = new OpenAIImageProvider();
     const result = await provider.generate({
@@ -49,6 +50,7 @@ describe("OpenAIImageProvider", () => {
     expect(mockEdit).not.toHaveBeenCalled();
     expect(result.buffer).toBeInstanceOf(Buffer);
     expect(result.providerMeta.provider).toBe("openai");
+    expect(result.providerMeta.rawRequestId).toBe("req-image-1");
   });
 
   it("calls images.edit when at least one reference is provided", async () => {

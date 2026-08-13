@@ -82,6 +82,7 @@ function asset(overrides: Record<string, unknown> = {}) {
     usageMode: "reference",
     trainingAnalysis: baseAnalysis,
     reviewedAt: null,
+    reviewedByUserId: null,
     createdAt: new Date("2026-07-01T00:00:00Z"),
     asset: {
       id: "asset-1",
@@ -157,6 +158,7 @@ describe("BrandTrainingAssets", () => {
           id: "approved-1",
           reviewStatus: "approved",
           reviewedAt: new Date("2026-07-05T12:00:00Z"),
+          reviewedByUserId: "reviewer-1",
         }),
       ],
       isLoading: false,
@@ -170,6 +172,31 @@ describe("BrandTrainingAssets", () => {
     expect(
       screen.getByRole("button", { name: "brandTraining.assets.archive" }),
     ).toBeEnabled();
+  });
+
+  it("identifies and confirms a legacy auto-approved asset without removing it", async () => {
+    const mutate = vi.fn();
+    useReviewBrandTrainingAssetMock.mockReturnValue({ mutate, isPending: false });
+    useBrandTrainingAssetsMock.mockReturnValue({
+      data: [asset({ id: "legacy-1", reviewStatus: "approved" })],
+      isLoading: false,
+    });
+
+    render(<BrandTrainingAssets clientProfileId="profile-1" />, {
+      wrapper: createWrapper(),
+    });
+
+    expect((await screen.findAllByText("brandTraining.assets.statusLegacyUnreviewed")).length)
+      .toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("button", { name: "brandTraining.assets.confirmLegacy" }));
+    expect(mutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        referenceId: "legacy-1",
+        reviewStatus: "approved",
+        analysis: baseAnalysis,
+      }),
+      expect.any(Object),
+    );
   });
 
   it("renders archived assets without actions", async () => {

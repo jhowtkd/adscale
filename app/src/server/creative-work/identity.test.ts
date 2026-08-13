@@ -25,6 +25,7 @@ const mocks = vi.hoisted(() => {
     getApprovedTrainingReferencesMock: vi.fn(),
     getArchivedTrainingReferencesMock: vi.fn(),
     getBrandKitMock: vi.fn(),
+    getActiveBrandKnowledgeVersionMock: vi.fn(),
     selectResults,
     selectChain: queryChain,
     selectMock: vi.fn(() => queryChain),
@@ -44,6 +45,10 @@ vi.mock("../repositories/client-reference", () => ({
 
 vi.mock("../repositories/brand-kit", () => ({
   getBrandKit: mocks.getBrandKitMock,
+}));
+
+vi.mock("../repositories/brand-knowledge", () => ({
+  getActiveBrandKnowledgeVersion: mocks.getActiveBrandKnowledgeVersionMock,
 }));
 
 import {
@@ -130,6 +135,7 @@ describe("creative-work identity module", () => {
     vi.clearAllMocks();
     mocks.selectResults.length = 0;
     mocks.getArchivedTrainingReferencesMock.mockResolvedValue([]);
+    mocks.getActiveBrandKnowledgeVersionMock.mockResolvedValue(null);
   });
 
   describe("DEFAULT_EXACT_PLACEMENT", () => {
@@ -312,6 +318,65 @@ describe("creative-work identity module", () => {
   });
 
   describe("createIdentitySnapshot", () => {
+    it("freezes only applicable claims from the active published version", async () => {
+      mocks.getApprovedTrainingReferencesMock.mockResolvedValue([]);
+      mocks.getBrandKitMock.mockResolvedValue(null);
+      mocks.getActiveBrandKnowledgeVersionMock.mockResolvedValue({
+        id: "version-1",
+        versionNumber: 3,
+        hash: "a".repeat(64),
+        snapshot: {
+          compiledAt: "2026-08-13T12:00:00.000Z",
+          claims: [
+            { id: "global", claimKey: "palette.colors", value: ["#D71F2B"], scope: { level: "global" }, evidenceRefs: [] },
+            { id: "portrait", claimKey: "layout.density", value: "sparse", scope: { level: "global", format: "4:5" }, evidenceRefs: [] },
+            { id: "story", claimKey: "layout.density", value: "dense", scope: { level: "global", format: "9:16" }, evidenceRefs: [] },
+            { id: "channel", claimKey: "layout.hierarchy", value: "feed only", scope: { level: "global", channel: "instagram" }, evidenceRefs: [] },
+          ],
+        },
+      });
+
+      const snapshot = await createIdentitySnapshot({
+        workspaceId: "ws-1",
+        clientProfileId: "profile-1",
+        selectedReferenceIds: [],
+        brief: socialBrief,
+        format: "4:5",
+        includePublishedBrandKnowledge: true,
+      });
+
+      expect(snapshot.brandKnowledge).toMatchObject({
+        mode: "published",
+        versionId: "version-1",
+        versionNumber: 3,
+        versionHash: "a".repeat(64),
+        compiledAt: "2026-08-13T12:00:00.000Z",
+      });
+      expect(snapshot.brandKnowledge?.claims.map((claim) => claim.id)).toEqual(["global", "portrait"]);
+    });
+
+    it("records an explicit legacy fallback when no published version exists", async () => {
+      mocks.getApprovedTrainingReferencesMock.mockResolvedValue([]);
+      mocks.getBrandKitMock.mockResolvedValue(null);
+
+      const snapshot = await createIdentitySnapshot({
+        workspaceId: "ws-1",
+        clientProfileId: "profile-1",
+        selectedReferenceIds: [],
+        format: "1:1",
+        includePublishedBrandKnowledge: true,
+      });
+
+      expect(snapshot.brandKnowledge).toEqual({
+        mode: "legacy_fallback",
+        versionId: null,
+        versionNumber: null,
+        versionHash: null,
+        compiledAt: null,
+        claims: [],
+      });
+    });
+
     it("persists a manual override as selection provenance", async () => {
       mocks.getApprovedTrainingReferencesMock.mockResolvedValue([
         approvedReference({
@@ -630,6 +695,7 @@ describe("creative-work identity module", () => {
       expect(snapshot.brandKit).toEqual({
         colors: ["#000000"],
         fonts: ["Inter"],
+        fontAssets: [],
         toneOfVoice: "Direct",
         prohibitedElements: "no clipart",
         requiredElements: "logo",
@@ -666,10 +732,108 @@ describe("creative-work identity module", () => {
       expect(snapshot.brandKit).toEqual({
         colors: ["#112233"],
         fonts: ["Geist"],
+        fontAssets: [],
         toneOfVoice: "Warm",
         prohibitedElements: null,
         requiredElements: null,
       });
+    });
+
+    it("freezes only approved font files in the identity snapshot", async () => {
+      mocks.getApprovedTrainingReferencesMock.mockResolvedValue([]);
+      mocks.getBrandKitMock.mockResolvedValue({
+        id: "profile-1",
+        workspaceId: "ws-1",
+        name: "Acme",
+        brandColors: [],
+        brandFonts: ["Acme Sans", "Fallback Sans"],
+        brandFontAssets: [
+          {
+            assetKey: "workspaces/ws-1/brand-fonts/acme.ttf",
+            family: "Acme Sans",
+            source: "Contrato da agência",
+            weight: 700,
+            style: "normal",
+            sha256: "abc123",
+            approvedAt: "2026-08-12T12:00:00.000Z",
+            approvedByUserId: "user-1",
+          },
+          {
+            assetKey: "workspaces/ws-1/brand-fonts/pending.ttf",
+            family: "Pending Sans",
+            source: "Upload",
+            weight: 400,
+            style: "normal",
+            sha256: "pending123",
+            reviewStatus: "pending_approval",
+            uploadedAt: "2026-08-12T13:00:00.000Z",
+            uploadedByUserId: "user-1",
+            approvedAt: null,
+            approvedByUserId: null,
+          },
+          {
+            assetKey: "workspaces/ws-1/brand-fonts/approved.otf",
+            family: "Approved Serif",
+            source: "Brand book",
+            weight: 500,
+            style: "italic",
+            sha256: "approved123",
+            reviewStatus: "approved",
+            uploadedAt: "2026-08-12T13:00:00.000Z",
+            uploadedByUserId: "user-1",
+            approvedAt: "2026-08-12T14:00:00.000Z",
+            approvedByUserId: "reviewer-1",
+          },
+          {
+            assetKey: "workspaces/ws-1/brand-fonts/archived.ttf",
+            family: "Archived Sans",
+            source: "Upload",
+            weight: 400,
+            style: "normal",
+            sha256: "archived123",
+            reviewStatus: "archived",
+            uploadedAt: "2026-08-12T13:00:00.000Z",
+            uploadedByUserId: "user-1",
+            approvedAt: null,
+            approvedByUserId: null,
+            archivedAt: "2026-08-12T14:00:00.000Z",
+            archivedByUserId: "reviewer-1",
+          },
+        ],
+        logoAssetKey: null,
+        toneOfVoice: null,
+        prohibitedElements: null,
+        requiredElements: null,
+        description: null,
+        visualNotes: null,
+        toneNotes: null,
+        constraints: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      const snapshot = await createIdentitySnapshot({
+        workspaceId: "ws-1",
+        clientProfileId: "profile-1",
+        selectedReferenceIds: [],
+      });
+
+      expect(snapshot.brandKit.fontAssets).toEqual([
+        {
+          assetKey: "workspaces/ws-1/brand-fonts/acme.ttf",
+          family: "Acme Sans",
+          source: "Contrato da agência",
+          weight: 700,
+          style: "normal",
+          sha256: "abc123",
+          approvedAt: "2026-08-12T12:00:00.000Z",
+          approvedByUserId: "user-1",
+        },
+        expect.objectContaining({
+          assetKey: "workspaces/ws-1/brand-fonts/approved.otf",
+          reviewStatus: "approved",
+        }),
+      ]);
     });
   });
 });

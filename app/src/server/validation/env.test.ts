@@ -105,4 +105,18 @@ describe("envSchema", () => {
       })
     ).toThrow();
   });
+
+  it("keeps the Brand Cortex Peça única rollout disabled unless explicitly enabled", () => {
+    expect(schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy" }).BRAND_CORTEX_SINGLE_PIECE_ENABLED).toBe("false");
+    expect(schema.parse({
+      ...baseEnv,
+      STRIPE_SECRET_KEY: "sk_test_dummy",
+      BRAND_CORTEX_SINGLE_PIECE_ENABLED: "true",
+    }).BRAND_CORTEX_SINGLE_PIECE_ENABLED).toBe("true");
+    expect(() => schema.parse({
+      ...baseEnv,
+      STRIPE_SECRET_KEY: "sk_test_dummy",
+      BRAND_CORTEX_SINGLE_PIECE_ENABLED: "yes",
+    })).toThrow();
+  });
 });

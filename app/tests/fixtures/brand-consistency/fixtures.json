@@ -1,0 +1,92 @@
+{
+  "version": 1,
+  "pilotId": "piece-unica-baseline-fixtures",
+  "brandName": "ADScale fixture brand",
+  "provenance": {
+    "source": "synthetic_fixture",
+    "operator": "local-test"
+  },
+  "requests": [
+    {
+      "requestId": "fixture-square",
+      "requestText": "Post institucional quadrado",
+      "format": "1:1",
+      "contentPattern": "text_led_ad",
+      "effectivePrompt": "controlled square replay",
+      "selectedReferences": [
+        { "referenceId": "fixture-logo", "reason": "approved logo slot" }
+      ],
+      "snapshot": { "available": true, "version": "legacy-fixture-1" },
+      "expectedHardFailures": [],
+      "observedHardFailures": [],
+      "expectedHumanVerdict": "pending",
+      "humanVerdict": "pending",
+      "capturedAt": "2026-08-12T12:00:00.000Z",
+      "replay": {
+        "brief": {
+          "theme": "Institucional",
+          "objective": "Apresentar a marca",
+          "audience": "",
+          "offer": null
+        },
+        "copy": {
+          "headline": "Conheça a marca",
+          "body": "Uma apresentação institucional.",
+          "cta": "Saiba mais"
+        }
+      }
+    },
+    {
+      "requestId": "fixture-portrait",
+      "requestText": "Oferta em formato retrato",
+      "format": "4:5",
+      "contentPattern": "evidence_data",
+      "effectivePrompt": "controlled portrait replay",
+      "selectedReferences": [],
+      "expectedHardFailures": [],
+      "observedHardFailures": [],
+      "expectedHumanVerdict": "pending",
+      "humanVerdict": "pending",
+      "capturedAt": "2026-08-12T12:00:01.000Z",
+      "replay": {
+        "brief": {
+          "theme": "Oferta",
+          "objective": "Apresentar uma oferta",
+          "audience": "",
+          "offer": "Oferta de teste"
+        },
+        "copy": {
+          "headline": "Oferta de teste",
+          "body": "Condição controlada para o baseline.",
+          "cta": "Conheça"
+        }
+      }
+    },
+    {
+      "requestId": "fixture-vertical",
+      "requestText": "Institucional com foto vertical",
+      "format": "9:16",
+      "contentPattern": "institutional_photo",
+      "effectivePrompt": "controlled vertical replay",
+      "selectedReferences": [],
+      "expectedHardFailures": [],
+      "observedHardFailures": [],
+      "expectedHumanVerdict": "pending",
+      "humanVerdict": "pending",
+      "capturedAt": "2026-08-12T12:00:02.000Z",
+      "replay": {
+        "brief": {
+          "theme": "Institucional vertical",
+          "objective": "Apresentar a equipe",
+          "audience": "",
+          "offer": null
+        },
+        "copy": {
+          "headline": "Nossa equipe",
+          "body": "Uma apresentação vertical controlada.",
+          "cta": "Saiba mais"
+        }
+      }
+    }
+  ]
+}

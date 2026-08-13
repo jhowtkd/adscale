@@ -69,6 +69,16 @@ export interface CreativeWorkIdentitySnapshot {
   brandKit: {
     colors: string[];
     fonts: string[];
+    fontAssets?: Array<{
+      assetKey: string;
+      family: string;
+      source: string;
+      weight: number;
+      style: "normal" | "italic";
+      sha256: string;
+      approvedAt: string;
+      approvedByUserId: string;
+    }>;
     toneOfVoice: string | null;
     prohibitedElements: string | null;
     requiredElements: string | null;
@@ -91,6 +101,8 @@ export interface CreativeWorkItem {
   settings: {
     targetFormats: Array<"1:1" | "4:5" | "9:16">;
     formatMode?: "auto" | "manual";
+    textLayout?: "top" | "center" | "bottom";
+    fontAssetKey?: string;
     directionPool?: CreativeDirectionPool;
   };
   copy: SocialPostCopy | null;
