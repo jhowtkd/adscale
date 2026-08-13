@@ -17,6 +17,18 @@ vi.mock("next-intl", () => ({
     "failure.brand_conflict": "Há um conflito de marca entre a arte e a marca ativa.",
     "failure.reference_failure": "Uma referência obrigatória não pôde ser usada. Reenvie a arte e tente novamente.",
     "failure.unknown": "A geração falhou por um erro inesperado.",
+    brandFidelityTitle: "Fidelidade de marca",
+    "brandFidelityCheck.copy": "Copy",
+    "brandFidelityCheck.font": "Fonte",
+    "brandFidelityCheck.exact_assets": "Assets exatos",
+    "brandFidelityCheck.composition": "Composição",
+    "brandFidelityState.proven": "Comprovado",
+    "brandFidelityState.nonconforming": "Não conforme",
+    "brandFidelityState.not_applicable": "Não verificável",
+    visualSuspicionTitle: "Suspeita visual",
+    visualInconclusiveTitle: "Análise visual inconclusiva",
+    visualConfidence: "Confiança do modelo: 64%",
+    visualNoConfidence: "Sem confiança mensurável",
   }[key] ?? key),
 }));
 
@@ -265,4 +277,110 @@ describe("CreativeResultCard", () => {
     expect(screen.getByTestId("objective-selection-blocked")).toBeVisible();
     expect(screen.queryByRole("button", { name: "Aprovar" })).not.toBeInTheDocument();
   });
+  it("shows deterministic brand facts with their execution evidence", () => {
+    render(
+      <CreativeResultCard
+        output={output({
+          quality: {
+            schemaVersion: 1,
+            objectiveVerdict: "pass",
+            brandFidelity: {
+              deterministic: {
+                deterministic: true,
+                overall: "nonconforming",
+                checks: [
+                  { id: "copy", state: "proven", evidence: [{ path: "quality.textComposition.copyHash" }] },
+                  { id: "font", state: "not_applicable", evidence: [{ path: "quality.textComposition.font" }] },
+                  { id: "exact_assets", state: "nonconforming", evidence: [{ path: "identitySnapshot.assets[usageMode=exact]" }] },
+                ],
+              },
+              residual: { advisoryOnly: true, status: "clear", signals: [] },
+            },
+          } as never,
+        })}
+        label="Equilibrada"
+        onRetry={vi.fn()}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId("brand-fidelity-deterministic")).toHaveTextContent("CopyComprovado");
+    expect(screen.getByTestId("brand-fidelity-deterministic")).toHaveTextContent("FonteNão verificável");
+    expect(screen.getByTestId("brand-fidelity-deterministic")).toHaveTextContent("Assets exatosNão conforme");
+    expect(screen.getByText("quality.textComposition.copyHash")).toBeVisible();
+  });
+
+  it("shows visual suspicion as advisory evidence, separate from deterministic findings", () => {
+    render(
+      <CreativeResultCard
+        output={output({
+          quality: {
+            schemaVersion: 1,
+            objectiveVerdict: "pass",
+            brandFidelity: {
+              residual: {
+                advisoryOnly: true,
+                status: "suspected",
+                signals: [{
+                  classification: "suspected",
+                  code: "possible_palette_drift",
+                  confidence: 0.64,
+                  note: "Possível desvio de paleta",
+                  evidence: { source: "vision" },
+                }],
+              },
+            },
+          } as never,
+        })}
+        label="Equilibrada"
+        onRetry={vi.fn()}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+      />,
+    );
+
+    const advisory = screen.getByTestId("brand-fidelity-residual");
+    expect(advisory).toHaveTextContent("Suspeita visual");
+    expect(advisory).toHaveTextContent("Possível desvio de paleta");
+    expect(advisory).toHaveTextContent("Confiança do modelo: 64%");
+    expect(advisory).not.toHaveTextContent("Não conforme");
+  });
+
+  it("keeps the piece available when the residual visual review is inconclusive", () => {
+    render(
+      <CreativeResultCard
+        output={output({
+          quality: {
+            schemaVersion: 1,
+            objectiveVerdict: "inconclusive",
+            brandFidelity: {
+              residual: {
+                advisoryOnly: true,
+                status: "inconclusive",
+                signals: [{
+                  classification: "inconclusive",
+                  code: "visual_evaluator_unavailable",
+                  confidence: null,
+                  note: "vision QA timeout",
+                  evidence: { source: "vision" },
+                }],
+              },
+            },
+          } as never,
+        })}
+        label="Equilibrada"
+        onRetry={vi.fn()}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId("brand-fidelity-residual")).toHaveTextContent("Análise visual inconclusiva");
+    expect(screen.getByTestId("brand-fidelity-residual")).toHaveTextContent("Sem confiança mensurável");
+    expect(screen.getByRole("img")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Revisar e aprovar" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Baixar" })).toBeEnabled();
+  });
+
 });

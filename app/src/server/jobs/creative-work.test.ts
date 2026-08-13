@@ -462,6 +462,8 @@ describe("creativeWorkOutputJob", () => {
         version: 1,
         format: "4:5",
         dimensions: { width: 1080, height: 1350 },
+        baseHash: createHash("sha256").update(base).digest("hex"),
+        outputHash: createHash("sha256").update(base).digest("hex"),
         composed: [{
           referenceId: "ref-exact-1",
           assetKey: "workspaces/workspace-1/brand-training/exact-1.png",
@@ -473,6 +475,7 @@ describe("creativeWorkOutputJob", () => {
           contrast: 8,
           usedBackdrop: false,
           box: { left: 0, top: 725, width: 1080, height: 560 },
+          sourceSha256: "a".repeat(64),
           policy: {
             required: true,
             omissible: false,
@@ -576,6 +579,23 @@ describe("creativeWorkOutputJob", () => {
             planHash: expect.stringMatching(/^[a-f0-9]{64}$/),
             outputHash: expect.stringMatching(/^[a-f0-9]{64}$/),
           }),
+          brandFidelity: {
+            deterministic: expect.objectContaining({
+              version: 1,
+              deterministic: true,
+              overall: "proven",
+              checks: expect.arrayContaining([
+                expect.objectContaining({ id: "copy", state: "proven" }),
+                expect.objectContaining({ id: "font", state: "proven" }),
+                expect.objectContaining({ id: "exact_assets", state: "proven" }),
+                expect.objectContaining({ id: "composition", state: "proven" }),
+              ]),
+            }),
+            residual: expect.objectContaining({
+              advisoryOnly: true,
+              status: "clear",
+            }),
+          },
         }),
       }),
     );
@@ -2232,10 +2252,62 @@ describe("creativeWorkOutputJob", () => {
         objectiveVerdict: "inconclusive",
         objectiveCodes: [],
         evaluator: { status: "failed", error: "vision QA timed out after 180s" },
+        brandFidelity: {
+          residual: {
+            advisoryOnly: true,
+            status: "inconclusive",
+            signals: [expect.objectContaining({
+              classification: "inconclusive",
+              code: "visual_evaluator_unavailable",
+              confidence: null,
+            })],
+          },
+        },
       });
       expect(failMock).not.toHaveBeenCalled();
       expect(requeueOnceMock).not.toHaveBeenCalled();
       expect(sendMock).not.toHaveBeenCalled();
+      expect(settleTerminalRefundMock).not.toHaveBeenCalled();
+    });
+
+    it("persists visual suspicion as advisory evidence without retrying or blocking the piece", async () => {
+      analyzeCreativeWorkQaMock.mockResolvedValue({
+        findings: [{
+          code: "wrong_brand",
+          status: "suspected",
+          confidence: 0.64,
+          note: "Possível desvio visual de marca.",
+        }],
+        summary: "A identidade visual requer revisão humana.",
+      });
+      getCreativeWorkMock.mockResolvedValue({
+        work: v1DirectWork(),
+        outputs: [makeQueuedOutput()],
+      });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+      const result = await runJob();
+
+      expect(result).toMatchObject({ success: true });
+      expect(completedQuality()).toMatchObject({
+        objectiveVerdict: "inconclusive",
+        brandFidelity: {
+          residual: {
+            advisoryOnly: true,
+            status: "suspected",
+            signals: [expect.objectContaining({
+              classification: "suspected",
+              code: "wrong_brand",
+              confidence: 0.64,
+              note: "Possível desvio visual de marca.",
+              evidence: { source: "vision", originalStatus: "suspected" },
+            })],
+          },
+        },
+      });
+      expect(generateAndStoreImageMock).toHaveBeenCalledTimes(1);
+      expect(failMock).not.toHaveBeenCalled();
+      expect(requeueOnceMock).not.toHaveBeenCalled();
       expect(settleTerminalRefundMock).not.toHaveBeenCalled();
     });
 
