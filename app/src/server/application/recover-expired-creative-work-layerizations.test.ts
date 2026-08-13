@@ -81,4 +81,33 @@ describe("expired creative work layerization recovery", () => {
       now,
     });
   });
+
+  it("claims an expired queued attempt so it can become submission_unknown", async () => {
+    const unknown = { ...state("submission_unknown"), providerRequestId: null, failureCode: "submission_unknown" as const };
+    claimMock.mockResolvedValue({ id: "output-queued", layerization: unknown });
+
+    const result = await recoverExpiredCreativeWorkLayerizations({
+      workspaceId: "workspace-1",
+      workItemId: "work-1",
+      outputs: [{
+        id: "output-queued",
+        layerization: {
+          ...unknown,
+          status: "queued",
+          updatedAt: "2026-08-12T10:00:00.000Z",
+          callbackDeadlineAt: "2026-08-12T12:00:00.000Z",
+        },
+      }],
+      now,
+    });
+
+    expect(result.get("output-queued")).toEqual(unknown);
+    expect(claimMock).toHaveBeenCalledWith({
+      workspaceId: "workspace-1",
+      workItemId: "work-1",
+      outputId: "output-queued",
+      now,
+    });
+    expect(sendMock).not.toHaveBeenCalled();
+  });
 });

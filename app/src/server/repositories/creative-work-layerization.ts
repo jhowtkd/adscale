@@ -208,7 +208,7 @@ export async function claimExpiredCreativeWorkLayerizationRecovery(input: {
     scope(input.workspaceId, input.workItemId, input.outputId),
     sql`(
       (
-        ${creativeWorkOutputs.layerization}->>'status' in ('processing', 'reconciling')
+        ${creativeWorkOutputs.layerization}->>'status' in ('queued', 'processing', 'reconciling')
         and (${creativeWorkOutputs.layerization}->>'callbackDeadlineAt')::timestamptz <= ${now}::timestamptz
       )
       or ${creativeWorkOutputs.layerization}->>'status' = 'finalizing'
@@ -330,6 +330,24 @@ export async function completeCreativeWorkLayerization(input: {
     sql`${creativeWorkOutputs.layerization}->>'status' = 'finalizing'`,
   )).returning();
   return row ?? null;
+}
+
+export async function failQueuedCreativeWorkLayerization(input: {
+  workspaceId: string;
+  workItemId: string;
+  outputId: string;
+  attemptId: string;
+  code: LayerizationState["failureCode"];
+}): Promise<LayerizationOutputRow | null> {
+  const [updated] = await db.update(creativeWorkOutputs).set({
+    layerization: patchLayerizationStatus("failed", input.code),
+    updatedAt: new Date(),
+  }).where(and(
+    scope(input.workspaceId, input.workItemId, input.outputId),
+    sql`${creativeWorkOutputs.layerization}->>'status' = 'queued'`,
+    sql`${creativeWorkOutputs.layerization}->>'attemptId' = ${input.attemptId}`,
+  )).returning();
+  return updated ?? null;
 }
 
 export async function failCreativeWorkLayerization(input: {

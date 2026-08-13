@@ -2279,7 +2279,7 @@
     "derivationHardFailures": "Esta criação tem falhas graves de qualidade e não pode ser aprovada nem usada para entrega até ser corrigida",
     "derivationMissingOutput": "Variação criativa está sem imagem de saída",
     "invalidInput": "Entrada inválida",
-    "creativeWorkLayerizationNotEligible": "Apenas um Piece concluído e aprovado pode ser separado em camadas.",
+    "creativeWorkLayerizationNotEligible": "Apenas uma Peça concluída e aprovada pode ser separada em camadas.",
     "creativeWorkLayerizationNotConfigured": "A separação em camadas ainda não está configurada neste ambiente.",
     "creativeWorkLayerizationDispatchFailed": "Não foi possível iniciar a separação em camadas. Tente novamente.",
     "creativeWorkLayerizationNotFound": "Tentativa de separação não encontrada.",

@@ -292,7 +292,7 @@ const layerizationJobConfig = {
   retries: 0 as const,
 };
 
-async function layerizationJobHandler({ event, step }: { event: { data: CreativeWorkLayerizationEvent }; step: LayerizationStep }) {
+export async function layerizationJobHandler({ event, step }: { event: { data: CreativeWorkLayerizationEvent }; step: LayerizationStep }) {
   let result: Awaited<ReturnType<typeof runCreativeWorkLayerization>> = { status: "skipped" };
   for (let poll = 0; poll < MAX_RECONCILIATION_POLLS; poll += 1) {
     result = await step.run(`layerize-creative-work-${poll}`, () => runCreativeWorkLayerization({ event: event.data }));

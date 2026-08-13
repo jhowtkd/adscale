@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const getWorkMock = vi.hoisted(() => vi.fn());
 const claimMock = vi.hoisted(() => vi.fn());
 const clearFailedMock = vi.hoisted(() => vi.fn());
-const failMock = vi.hoisted(() => vi.fn());
+const failQueuedMock = vi.hoisted(() => vi.fn());
 const getOutputMock = vi.hoisted(() => vi.fn());
 const sendMock = vi.hoisted(() => vi.fn());
 
@@ -13,7 +13,7 @@ vi.mock("@/server/repositories/creative-work", () => ({
 vi.mock("@/server/repositories/creative-work-layerization", () => ({
   claimCreativeWorkLayerization: (...args: unknown[]) => claimMock(...args),
   clearFailedCreativeWorkLayerizationForRetry: (...args: unknown[]) => clearFailedMock(...args),
-  failCreativeWorkLayerization: (...args: unknown[]) => failMock(...args),
+  failQueuedCreativeWorkLayerization: (...args: unknown[]) => failQueuedMock(...args),
   getCreativeWorkLayerizationOutput: (...args: unknown[]) => getOutputMock(...args),
   hashLayerizationCallbackToken: () => "a".repeat(64),
 }));
@@ -138,5 +138,28 @@ describe("requestCreativeWorkLayerization", () => {
     if (!result.ok) expect(result.error.code).toBe("failed");
     expect(claimMock).not.toHaveBeenCalled();
     expect(sendMock).not.toHaveBeenCalled();
+  });
+
+  it("does not mark an already-advanced attempt failed when Inngest send is ambiguous", async () => {
+    sendMock.mockRejectedValue(new Error("inngest response lost"));
+    failQueuedMock.mockResolvedValue(null);
+    claimMock.mockImplementation(async (value: { state: Record<string, unknown> }) => {
+      getOutputMock.mockResolvedValue({
+        layerization: { ...value.state, status: "processing" },
+      });
+      return { id: "output-1", layerization: value.state };
+    });
+
+    const result = await requestCreativeWorkLayerization(input);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.state.status).toBe("processing");
+      expect(result.accepted).toBe(true);
+    }
+    expect(failQueuedMock).toHaveBeenCalledWith(expect.objectContaining({
+      outputId: "output-1",
+      code: "dispatch_failed",
+    }));
   });
 });

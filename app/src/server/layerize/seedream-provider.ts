@@ -372,9 +372,11 @@ export async function downloadSeedreamMedia(
   return Buffer.concat(chunks);
 }
 
+type SharedByteBudget = { remaining: number };
+
 async function fetchSeedreamMediaResponse(
   value: string,
-  options: NonNullable<Parameters<typeof downloadSeedreamMedia>[1]> = {},
+  options: NonNullable<Parameters<typeof downloadSeedreamMedia>[1]> & { budget?: SharedByteBudget } = {},
 ): Promise<Response> {
   const fetchImpl = options.fetchImpl ?? fetch;
   const maxBytes = options.maxBytes ?? SEEDREAM_MAX_ASSET_BYTES;
@@ -397,6 +399,9 @@ async function fetchSeedreamMediaResponse(
     if (contentType !== "image/png") throw new SeedreamProviderError("Seedream media is not a PNG", "unsafe_media");
     const advertised = Number(response.headers.get("content-length"));
     if (Number.isFinite(advertised) && advertised > maxBytes) throw new SeedreamProviderError("Seedream media is too large", "unsafe_media");
+    if (Number.isFinite(advertised) && options.budget && advertised > options.budget.remaining) {
+      throw new SeedreamProviderError("Seedream layers exceed total size limit", "unsafe_media");
+    }
     if (!response.body) throw new SeedreamProviderError("Seedream media has no body", "unsafe_media");
     return response;
   }
@@ -407,6 +412,7 @@ async function consumeSeedreamMedia(
   response: Response,
   maxBytes: number,
   onChunk: (chunk: Buffer) => Promise<void>,
+  budget?: SharedByteBudget,
 ): Promise<number> {
   if (!response.body) throw new SeedreamProviderError("Seedream media has no body", "unsafe_media");
   const reader = response.body.getReader();
@@ -421,6 +427,13 @@ async function consumeSeedreamMedia(
     if (total > maxBytes) {
       await reader.cancel();
       throw new SeedreamProviderError("Seedream media is too large", "unsafe_media");
+    }
+    if (budget) {
+      budget.remaining -= chunk.length;
+      if (budget.remaining < 0) {
+        await reader.cancel();
+        throw new SeedreamProviderError("Seedream layers exceed total size limit", "unsafe_media");
+      }
     }
     if (signatureBytes < signature.length) {
       const copyBytes = Math.min(signature.length - signatureBytes, chunk.length);
@@ -439,20 +452,22 @@ export async function downloadSeedreamLayers(
   layers: Array<{ sourceUrl: string; isBase: boolean }>,
   options: Parameters<typeof downloadSeedreamMedia>[1] & {
     store: (layer: { sourceUrl: string; isBase: boolean }, index: number, stream: Readable) => Promise<void>;
+    maxTotalBytes?: number;
   },
 ): Promise<number[]> {
   const limit = pLimit(3);
   const directory = await mkdtemp(join(tmpdir(), "adscale-layerize-"));
+  const budget: SharedByteBudget = { remaining: options.maxTotalBytes ?? SEEDREAM_MAX_TOTAL_ASSET_BYTES };
   try {
     const downloaded = await Promise.all(layers.map((layer, index) => limit(async () => {
       const filePath = join(directory, `${String(index).padStart(2, "0")}.png`);
       const file = await open(filePath, "w");
       let bytes: number;
       try {
-        const response = await fetchSeedreamMediaResponse(layer.sourceUrl, options);
+        const response = await fetchSeedreamMediaResponse(layer.sourceUrl, { ...options, budget });
         bytes = await consumeSeedreamMedia(response, options.maxBytes ?? SEEDREAM_MAX_ASSET_BYTES, async (chunk) => {
           await file.write(chunk);
-        });
+        }, budget);
       } finally {
         await file.close();
       }
@@ -464,7 +479,7 @@ export async function downloadSeedreamLayers(
       }
       return { layer, index, filePath, bytes };
     })));
-    if (downloaded.reduce((sum, item) => sum + item.bytes, 0) > SEEDREAM_MAX_TOTAL_ASSET_BYTES) {
+    if (downloaded.reduce((sum, item) => sum + item.bytes, 0) > (options.maxTotalBytes ?? SEEDREAM_MAX_TOTAL_ASSET_BYTES)) {
       throw new SeedreamProviderError("Seedream layers exceed total size limit", "unsafe_media");
     }
     await Promise.all(downloaded.map((item) => limit(() => options.store(

@@ -1,4 +1,17 @@
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+/**
+ * Primary Layerize journey at the HTTP boundary.
+ *
+ * Real: Better Auth session, workspace authorization, Postgres, application
+ * services, repositories, the registered Inngest function (continuation/steps),
+ * object-storage singleton, PSD readback, on-demand ZIP.
+ *
+ * Fake: fal HTTP only. `inngest.send` is intercepted so CI does not need a
+ * live Inngest Cloud; the same registered function `serve()` exposes is then
+ * executed in-process. Object storage I/O uses the production singleton backed
+ * by the in-process ObjectStorage implementation because CI has no R2.
+ */
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { randomBytes, randomUUID } from "node:crypto";
 import { eq, inArray, sql } from "drizzle-orm";
 import { initializeCanvas, readPsd } from "ag-psd";
 import JSZip from "jszip";
@@ -8,29 +21,18 @@ const envBeforeTest = vi.hoisted(() => {
   const previous = {
     falKey: process.env.FAL_KEY,
     ownerEmails: process.env.PLATFORM_OWNER_EMAILS,
+    authSecret: process.env.BETTER_AUTH_SECRET,
+    authUrl: process.env.BETTER_AUTH_URL,
+    appUrl: process.env.APP_URL,
   };
   process.env.FAL_KEY = "test-fal-key";
   process.env.PLATFORM_OWNER_EMAILS = "layerize-owner@example.com";
+  process.env.BETTER_AUTH_SECRET ??= "layerize-journey-secret-32-chars-min";
+  process.env.BETTER_AUTH_URL ??= "http://localhost:3000";
+  process.env.APP_URL ??= "http://localhost:3000";
   return previous;
 });
-const sessionState = vi.hoisted(() => ({
-  user: { id: "", email: "layerize-owner@example.com", name: "Layerize Owner" },
-}));
-const sendMock = vi.hoisted(() => vi.fn(async () => undefined));
 
-vi.mock("@/server/auth", () => ({
-  auth: { api: { getSession: vi.fn(async () => ({ user: sessionState.user })) } },
-}));
-vi.mock("@/server/jobs/client", () => ({
-  inngest: {
-    send: (...args: unknown[]) => sendMock(...args),
-    createFunction: vi.fn((options: unknown, handler: unknown) => ({ options, fn: handler })),
-  },
-}));
-vi.mock("@/server/storage", async () => {
-  const { InMemoryObjectStorage } = await import("@/server/storage/in-memory-object-storage");
-  return { objectStorage: new InMemoryObjectStorage() };
-});
 vi.mock("node:dns/promises", () => ({
   lookup: vi.fn(async () => [{ address: "93.184.216.34", family: 4 }]),
 }));
@@ -40,15 +42,17 @@ import {
   clientProfiles,
   creativeWorkItems,
   creativeWorkOutputs,
+  session,
   user,
   workspaceMembers,
   workspaces,
 } from "@/server/db/schema";
+import { inngest } from "@/server/jobs/client";
+import { layerizationJobHandler } from "@/server/jobs/creative-work-layerization";
 import { objectStorage } from "@/server/storage";
 import { InMemoryObjectStorage } from "@/server/storage/in-memory-object-storage";
 import { GET, PATCH, POST } from "@/app/api/creative-work/[id]/route";
 import { GET as downloadOutput } from "@/app/api/creative-work/[id]/outputs/[outputId]/download/route";
-import { creativeWorkLayerizationJob, runCreativeWorkLayerization } from "@/server/jobs/creative-work-layerization";
 
 initializeCanvas(
   () => { throw new Error("Canvas rendering is not used in this test"); },
@@ -60,7 +64,45 @@ const TEST_DB_EXPLICITLY_CONFIGURED = Boolean(process.env.TEST_DATABASE_URL ?? p
 const runId = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 const createdWorkspaceIds: string[] = [];
 const createdUserIds: string[] = [];
-const storage = objectStorage as InMemoryObjectStorage;
+const createdSessionTokens: string[] = [];
+const memory = new InMemoryObjectStorage();
+const dispatched: Array<{ data: { workspaceId: string; workItemId: string; outputId: string; attemptId: string; callbackUrl?: string } }> = [];
+
+function bindProductionStorage() {
+  vi.spyOn(objectStorage, "put").mockImplementation((key, data, contentType) => memory.put(key, data, contentType));
+  vi.spyOn(objectStorage, "putStream").mockImplementation((key, data, contentType, signal) => memory.putStream(key, data, contentType, signal));
+  vi.spyOn(objectStorage, "get").mockImplementation((key) => memory.get(key));
+  vi.spyOn(objectStorage, "head").mockImplementation((key) => memory.head(key));
+  vi.spyOn(objectStorage, "delete").mockImplementation((key) => memory.delete(key));
+  vi.spyOn(objectStorage, "signedDownloadUrl").mockImplementation((key) => memory.signedDownloadUrl(key));
+  vi.spyOn(objectStorage, "signedUploadUrl").mockImplementation((key) => memory.signedUploadUrl(key));
+}
+
+async function signedSessionCookie(token: string): Promise<string> {
+  const secret = process.env.BETTER_AUTH_SECRET;
+  if (!secret) throw new Error("BETTER_AUTH_SECRET is required for a real Better Auth session");
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(token));
+  const encoded = encodeURIComponent(`${token}.${btoa(String.fromCharCode(...new Uint8Array(signature)))}`);
+  return `better-auth.session_token=${encoded}`;
+}
+
+async function continueDispatchedJob(event = dispatched.at(-1)) {
+  if (!event) throw new Error("No layerization event was dispatched");
+  return layerizationJobHandler({
+    event: { data: event.data },
+    step: {
+      run: async (_name, fn) => fn(),
+      sleep: async () => undefined,
+    },
+  });
+}
 
 describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work layerization HTTP journey", () => {
   beforeAll(async () => {
@@ -72,10 +114,20 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work layerization HTTP
         and column_name = 'layerization'
     `);
     if (migration.rows.length === 0) throw new Error("Migration 0083 is not applied to the integration database");
+    bindProductionStorage();
+    vi.spyOn(inngest, "send").mockImplementation(async (payload) => {
+      dispatched.push(payload as (typeof dispatched)[number]);
+      return { ids: [`evt-${dispatched.length}`] };
+    });
   }, 30_000);
 
+  beforeEach(() => {
+    dispatched.length = 0;
+    memory.clear();
+  });
+
   afterAll(async () => {
-    storage.clear();
+    memory.clear();
     if (createdWorkspaceIds.length > 0) {
       await db.delete(creativeWorkOutputs).where(inArray(creativeWorkOutputs.workspaceId, createdWorkspaceIds));
       await db.delete(creativeWorkItems).where(inArray(creativeWorkItems.workspaceId, createdWorkspaceIds));
@@ -83,21 +135,37 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work layerization HTTP
       await db.delete(workspaceMembers).where(inArray(workspaceMembers.workspaceId, createdWorkspaceIds));
       await db.delete(workspaces).where(inArray(workspaces.id, createdWorkspaceIds));
     }
+    if (createdSessionTokens.length > 0) {
+      await db.delete(session).where(inArray(session.token, createdSessionTokens));
+    }
     if (createdUserIds.length > 0) await db.delete(user).where(inArray(user.id, createdUserIds));
     if (envBeforeTest.falKey === undefined) delete process.env.FAL_KEY;
     else process.env.FAL_KEY = envBeforeTest.falKey;
     if (envBeforeTest.ownerEmails === undefined) delete process.env.PLATFORM_OWNER_EMAILS;
     else process.env.PLATFORM_OWNER_EMAILS = envBeforeTest.ownerEmails;
+    if (envBeforeTest.authSecret === undefined) delete process.env.BETTER_AUTH_SECRET;
+    else process.env.BETTER_AUTH_SECRET = envBeforeTest.authSecret;
+    if (envBeforeTest.authUrl === undefined) delete process.env.BETTER_AUTH_URL;
+    else process.env.BETTER_AUTH_URL = envBeforeTest.authUrl;
+    if (envBeforeTest.appUrl === undefined) delete process.env.APP_URL;
+    else process.env.APP_URL = envBeforeTest.appUrl;
+    vi.restoreAllMocks();
   }, 30_000);
 
-  it("claims through HTTP, finalizes real artifacts, and serves the private PSD", async () => {
+  it("claims through HTTP, continues the dispatched job, and serves the private PSD", async () => {
     const userId = `layerize-${runId}`;
-    sessionState.user.id = userId;
+    const sessionToken = randomBytes(32).toString("hex");
     await db.insert(user).values({
       id: userId,
       name: "Layerize Owner",
-      email: sessionState.user.email,
+      email: "layerize-owner@example.com",
       emailVerified: true,
+    });
+    await db.insert(session).values({
+      id: randomUUID(),
+      userId,
+      token: sessionToken,
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000),
     });
     const [workspace] = await db.insert(workspaces).values({ name: `Layerize ${runId}`, slug: `layerize-${runId}` }).returning();
     await db.insert(workspaceMembers).values({ workspaceId: workspace.id, userId, role: "owner" });
@@ -126,44 +194,34 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work layerization HTTP
     }).returning();
     createdUserIds.push(userId);
     createdWorkspaceIds.push(workspace.id);
+    createdSessionTokens.push(sessionToken);
 
     const base = await sharp({ create: { width: 8, height: 8, channels: 4, background: [20, 30, 40, 255] } }).png().toBuffer();
     const overlay = await sharp({ create: { width: 2, height: 2, channels: 4, background: [220, 30, 40, 255] } }).png().toBuffer();
     const original = await sharp(base).composite([{ input: overlay, left: 3, top: 2 }]).png().toBuffer();
-    await storage.put(sourceKey, original, "image/png");
+    await objectStorage.put(sourceKey, original, "image/png");
 
-    const request = new Request(`https://app.example/api/creative-work/${work.id}`, {
+    const authHeaders = {
+      "content-type": "application/json",
+      cookie: `${await signedSessionCookie(sessionToken)}; adscale_active_workspace=${workspace.id}`,
+    };
+    const accepted = await PATCH(new Request(`https://app.example/api/creative-work/${work.id}`, {
       method: "PATCH",
-      headers: {
-        "content-type": "application/json",
-        cookie: `adscale_active_workspace=${workspace.id}`,
-      },
+      headers: authHeaders,
       body: JSON.stringify({ action: "layerizeOutput", outputId: output.id }),
-    });
-    const accepted = await PATCH(request, { params: Promise.resolve({ id: work.id }) });
+    }), { params: Promise.resolve({ id: work.id }) });
     expect(accepted.status).toBe(202);
-    expect(sendMock).toHaveBeenCalledOnce();
-    const event = sendMock.mock.calls[0][0].data;
+    expect(dispatched).toHaveLength(1);
+    const event = dispatched[0].data;
 
     const patchReplay = await PATCH(new Request(`https://app.example/api/creative-work/${work.id}`, {
       method: "PATCH",
-      headers: {
-        "content-type": "application/json",
-        cookie: `adscale_active_workspace=${workspace.id}`,
-      },
+      headers: authHeaders,
       body: JSON.stringify({ action: "layerizeOutput", outputId: output.id }),
     }), { params: Promise.resolve({ id: work.id }) });
     expect(patchReplay.status).toBe(200);
     await expect(patchReplay.json()).resolves.toMatchObject({ replay: true });
-    expect(sendMock).toHaveBeenCalledOnce();
-
-    const submissionProvider = {
-      submit: vi.fn(async () => ({ requestId: "request-1" })),
-      status: vi.fn(async () => "IN_PROGRESS" as const),
-      result: vi.fn(async () => { throw new Error("result is not ready"); }),
-    };
-    await expect(runCreativeWorkLayerization({ event, provider: submissionProvider })).resolves.toEqual({ status: "reconciling" });
-    expect(submissionProvider.submit).toHaveBeenCalledOnce();
+    expect(dispatched).toHaveLength(1);
 
     const providerPayload = {
       images: [],
@@ -182,6 +240,9 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work layerization HTTP
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = input.toString();
       fetchedUrls.push(url);
+      if (url.includes("queue.fal.run") && !url.includes("/requests/")) {
+        return new Response(JSON.stringify({ request_id: "request-1" }), { status: 200 });
+      }
       if (url.endsWith("/status")) return new Response(JSON.stringify({ status: "COMPLETED" }), { status: 200 });
       if (url.endsWith("/requests/request-1")) return new Response(JSON.stringify(providerPayload), { status: 200 });
       if (url.endsWith("base.png")) return new Response(base, { status: 200, headers: { "content-type": "image/png" } });
@@ -189,24 +250,17 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work layerization HTTP
       throw new Error(`Unexpected fal request: ${url}`);
     });
 
-    const callbackRequest = () => new Request(event.callbackUrl, {
+    const callbackRequest = () => new Request(event.callbackUrl!, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ status: "OK", request_id: "request-1" }),
     });
-    const job = creativeWorkLayerizationJob as unknown as {
-      fn(input: { event: { data: typeof event }; step: { run<T>(name: string, fn: () => Promise<T>): Promise<T>; sleep(name: string, duration: string): Promise<void> } }): Promise<unknown>;
-    };
-    const [callback, handlerResult, pollingResult] = await Promise.all([
+    const [callback, handlerResult] = await Promise.all([
       POST(callbackRequest(), { params: Promise.resolve({ id: work.id }) }),
-      job.fn({
-        event: { data: event },
-        step: { run: async (_name, fn) => fn(), sleep: async () => undefined },
-      }),
-      runCreativeWorkLayerization({ event }),
+      continueDispatchedJob(dispatched[0]),
     ]);
     expect(callback.status).toBe(202);
-    expect([handlerResult, pollingResult]).toContainEqual({ status: "completed" });
+    expect(handlerResult).toEqual({ status: "completed" });
     expect(fetchedUrls.filter((url) => url.endsWith("base.png"))).toHaveLength(1);
     expect(fetchedUrls.filter((url) => url.endsWith("overlay.png"))).toHaveLength(1);
     const replay = await POST(callbackRequest(), { params: Promise.resolve({ id: work.id }) });
@@ -226,28 +280,24 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work layerization HTTP
       },
     }).where(eq(creativeWorkOutputs.id, output.id));
     const detailRequest = () => new Request(`https://app.example/api/creative-work/${work.id}`, {
-      headers: { cookie: `adscale_active_workspace=${workspace.id}` },
+      headers: { cookie: authHeaders.cookie },
     });
-    const sendsBeforeFinalizingRecovery = sendMock.mock.calls.length;
+    const sendsBeforeFinalizingRecovery = dispatched.length;
     const finalizingRecovery = await GET(detailRequest(), { params: Promise.resolve({ id: work.id }) });
     expect(finalizingRecovery.status).toBe(200);
-    expect(sendMock).toHaveBeenCalledTimes(sendsBeforeFinalizingRecovery + 1);
-    const recoveryEvent = sendMock.mock.calls.at(-1)?.[0].data;
-    await expect(job.fn({
-      event: { data: recoveryEvent },
-      step: { run: async (_name, fn) => fn(), sleep: async () => undefined },
-    })).resolves.toEqual({ status: "completed" });
+    expect(dispatched).toHaveLength(sendsBeforeFinalizingRecovery + 1);
+    await expect(continueDispatchedJob(dispatched.at(-1))).resolves.toEqual({ status: "completed" });
     [persisted] = await db.select().from(creativeWorkOutputs).where(eq(creativeWorkOutputs.id, output.id)).limit(1);
     expect(persisted.layerization).toMatchObject({ status: "completed" });
     fetchSpy.mockRestore();
 
     const download = await downloadOutput(new Request(
       `https://app.example/api/creative-work/${work.id}/outputs/${output.id}/download?format=psd`,
-      { headers: { accept: "application/json", cookie: `adscale_active_workspace=${workspace.id}` } },
+      { headers: { accept: "application/json", cookie: authHeaders.cookie } },
     ), { params: Promise.resolve({ id: work.id, outputId: output.id }) });
     expect(download.status).toBe(200);
     const { url } = await download.json() as { url: string };
-    const psd = await storage.get(url.replace("memory://download/", ""));
+    const psd = await objectStorage.get(url.replace("memory://download/", ""));
     const parsed = readPsd(psd, { skipThumbnail: true, useImageData: true });
     expect(parsed.children?.map((layer) => layer.name)).toEqual(["Product", "Base"]);
     expect(parsed.children?.map(({ left, top, right, bottom }) => ({ left, top, right, bottom }))).toEqual([
@@ -259,11 +309,11 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work layerization HTTP
 
     const zipDownload = await downloadOutput(new Request(
       `https://app.example/api/creative-work/${work.id}/outputs/${output.id}/download?format=zip`,
-      { headers: { accept: "application/json", cookie: `adscale_active_workspace=${workspace.id}` } },
+      { headers: { accept: "application/json", cookie: authHeaders.cookie } },
     ), { params: Promise.resolve({ id: work.id, outputId: output.id }) });
     expect(zipDownload.status).toBe(200);
     const { url: zipUrl } = await zipDownload.json() as { url: string };
-    const zip = await JSZip.loadAsync(await storage.get(zipUrl.replace("memory://download/", "")));
+    const zip = await JSZip.loadAsync(await objectStorage.get(zipUrl.replace("memory://download/", "")));
     expect(Object.keys(zip.files)).toEqual(expect.arrayContaining([
       "manifest.json",
       "original.png",
@@ -274,8 +324,8 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work layerization HTTP
     await expect(zip.file("manifest.json")?.async("string")).resolves.toContain('"attemptId":');
 
     const expiredLayerization = {
-      status: "reconciling" as const,
-      attemptId: "recovery-attempt",
+      status: "queued" as const,
+      attemptId: "queued-attempt",
       callbackTokenHash: "a".repeat(64),
       callbackConsumedAt: null,
       requestedByUserId: userId,
@@ -295,37 +345,37 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work layerization HTTP
       fidelity: null,
       failureCode: null,
     };
-    const [expiredOutput] = await db.insert(creativeWorkOutputs).values({
+    const [expiredQueued] = await db.insert(creativeWorkOutputs).values({
       workspaceId: workspace.id,
       workItemId: work.id,
       creativeLevel: "balanced",
       targetFormat: "4:5",
       versionNumber: 2,
-      operationKey: "balanced:4:5:recovery",
+      operationKey: "balanced:4:5:queued-recovery",
       status: "completed",
       outputKey: sourceKey,
       isSelected: false,
       layerization: expiredLayerization,
     }).returning();
-    const sendsBeforeRecovery = sendMock.mock.calls.length;
-    const unknownRecovery = await GET(detailRequest(), { params: Promise.resolve({ id: work.id }) });
-    expect(unknownRecovery.status).toBe(200);
-    const unknownBody = await unknownRecovery.json();
-    expect(unknownBody.outputs.find((candidate: { id: string }) => candidate.id === expiredOutput.id).layerization.status).toBe("submission_unknown");
-    expect(sendMock).toHaveBeenCalledTimes(sendsBeforeRecovery);
+    const sendsBeforeQueuedRecovery = dispatched.length;
+    const queuedRecovery = await GET(detailRequest(), { params: Promise.resolve({ id: work.id }) });
+    expect(queuedRecovery.status).toBe(200);
+    const queuedBody = await queuedRecovery.json();
+    expect(queuedBody.outputs.find((candidate: { id: string }) => candidate.id === expiredQueued.id).layerization.status).toBe("submission_unknown");
+    expect(dispatched).toHaveLength(sendsBeforeQueuedRecovery);
 
     await db.update(creativeWorkOutputs).set({
-      layerization: { ...expiredLayerization, providerRequestId: "request-recovery" },
-    }).where(eq(creativeWorkOutputs.id, expiredOutput.id));
-    sendMock.mockRejectedValueOnce(new Error("inngest unavailable"));
+      layerization: { ...expiredLayerization, status: "reconciling", attemptId: "recovery-attempt", providerRequestId: "request-recovery" },
+    }).where(eq(creativeWorkOutputs.id, expiredQueued.id));
+    vi.mocked(inngest.send).mockRejectedValueOnce(new Error("inngest unavailable"));
     const failedDispatch = await GET(detailRequest(), { params: Promise.resolve({ id: work.id }) });
     expect(failedDispatch.status).toBe(200);
-    expect(sendMock).toHaveBeenCalledTimes(sendsBeforeRecovery + 1);
+    expect(dispatched).toHaveLength(sendsBeforeQueuedRecovery);
     const knownRecovery = await GET(detailRequest(), { params: Promise.resolve({ id: work.id }) });
     expect(knownRecovery.status).toBe(200);
-    expect(sendMock).toHaveBeenCalledTimes(sendsBeforeRecovery + 2);
-    expect(sendMock.mock.calls.at(-1)?.[0].data).toMatchObject({
-      outputId: expiredOutput.id,
+    expect(dispatched).toHaveLength(sendsBeforeQueuedRecovery + 1);
+    expect(dispatched.at(-1)?.data).toMatchObject({
+      outputId: expiredQueued.id,
       attemptId: "recovery-attempt",
     });
   }, 30_000);

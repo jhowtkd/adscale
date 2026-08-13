@@ -56,6 +56,8 @@ This atlas is a **mental model**, not a second architecture. When docs disagree 
               │   GAZE   │   │   SKIN   │
               │ (Olhar)  │   │  export  │
               │ art eye  │   │ boundary │
+              │          │   │ + Peça   │
+              │          │   │   PSD    │
               └────┬─────┘   └────┬─────┘
                    └───────┬──────┘
                            ▼

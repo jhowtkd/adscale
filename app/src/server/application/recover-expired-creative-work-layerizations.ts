@@ -19,7 +19,7 @@ export async function recoverExpiredCreativeWorkLayerizations(input: {
   const recovered = new Map<string, LayerizationState>();
   for (const output of input.outputs) {
     const current = layerizationStateFromDatabase(output.layerization);
-    if (!current || !["processing", "reconciling", "finalizing"].includes(current.status)) continue;
+    if (!current || !["queued", "processing", "reconciling", "finalizing"].includes(current.status)) continue;
     if (current.status !== "finalizing" && Date.parse(current.callbackDeadlineAt) > now.getTime()) continue;
     const claimed = await claimExpiredCreativeWorkLayerizationRecovery({
       workspaceId: input.workspaceId,

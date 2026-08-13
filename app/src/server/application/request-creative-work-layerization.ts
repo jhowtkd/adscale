@@ -5,7 +5,7 @@ import { getCreativeWork } from "@/server/repositories/creative-work";
 import {
   claimCreativeWorkLayerization,
   clearFailedCreativeWorkLayerizationForRetry,
-  failCreativeWorkLayerization,
+  failQueuedCreativeWorkLayerization,
   getCreativeWorkLayerizationOutput,
   hashLayerizationCallbackToken,
 } from "@/server/repositories/creative-work-layerization";
@@ -155,12 +155,19 @@ export async function requestCreativeWorkLayerization(input: {
       },
     });
   } catch {
-    await failCreativeWorkLayerization({
+    const failed = await failQueuedCreativeWorkLayerization({
       workspaceId: input.workspaceId,
       workItemId: input.workItemId,
       outputId: input.outputId,
+      attemptId,
       code: "dispatch_failed",
     });
+    if (failed) return { ok: false, error: { code: "dispatch_failed" } };
+    const refreshed = await getCreativeWorkLayerizationOutput(input.workspaceId, input.workItemId, input.outputId);
+    const refreshedState = layerizationStateFromDatabase(refreshed?.layerization);
+    if (refreshedState && refreshedState.attemptId === attemptId && refreshedState.status !== "failed") {
+      return { ok: true, accepted: true, replay: false, state: refreshedState };
+    }
     return { ok: false, error: { code: "dispatch_failed" } };
   }
   return { ok: true, accepted: true, replay: false, state };

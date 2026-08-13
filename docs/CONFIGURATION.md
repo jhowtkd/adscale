@@ -21,7 +21,7 @@ Runtime secrets and service URLs are read from `process.env`. The canonical list
 | `OPENAI_API_KEY` | Yes | — | OpenAI API key; must start with `sk-`. |
 | `OPENAI_TEXT_MODEL` | No | `gpt-5-mini` | Text model for AI features. |
 | `OPENAI_IMAGE_MODEL` | No | `gpt-image-2-2026-04-21` | Image model for AI features. |
-| `FAL_KEY` | No | — | Optional server-only fal credential for Trabalho layerization by the Dono da plataforma. Missing disables the action; never expose it to the browser. |
+| `FAL_KEY` | No | — | Optional server-only fal credential for Peça layerization by the Dono da plataforma. Missing disables the action; never expose it to the browser. |
 | `MINIMAX_API_KEY` | Yes | — | MiniMax chat-model API key; required by the assistant orchestrator (`app/src/server/assistant/model/minimax-client.ts`). Zod-validated as non-empty. |
 | `MINIMAX_MODEL` | No | `MiniMax-M3` | MiniMax chat model identifier; defaults to `MiniMax-M3` if unset. |
 | `R2_ACCOUNT_ID` | Yes | — | Cloudflare R2 account ID. |

@@ -1,8 +1,8 @@
-# Runbook de separação do Trabalho em camadas
+# Runbook de separação da Peça em camadas
 
 Esta capacidade é exclusiva do **Dono da plataforma** e só opera sobre a Peça canônica
 selecionada após aprovação. Ela cria camadas PNG privadas e um PSD; o ZIP de
-diagnóstico é materializado somente quando solicitado. A saída original do Trabalho nunca é substituída e nenhum crédito
+diagnóstico é materializado somente quando solicitado. A saída original da Peça nunca é substituída e nenhum crédito
 ou lançamento de geração do ADScale é criado.
 
 ## Configuration
@@ -45,8 +45,8 @@ ou lançamento de geração do ADScale é criado.
 
 ## Recovery
 
-- Recovery is read-triggered: a detail read by the Dono da plataforma asks the canonical application service to claim expired callback attempts or a stale five-minute `finalizing` lease.
-- An attempt without a persisted provider request id becomes `submission_unknown`; it is never submitted again automatically.
+- Recovery is read-triggered: a detail read by the Dono da plataforma asks the canonical application service to claim expired `queued`/`processing`/`reconciling` attempts or a stale five-minute `finalizing` lease.
+- An expired `queued` attempt, or any attempt without a persisted provider request id, becomes `submission_unknown`; it is never submitted again automatically.
 - A known provider request keeps reconciling after the callback deadline until fal returns an explicit terminal failure or a valid result. A stale `finalizing` lease returns to `reconciling` and rewrites only deterministic private artifact keys.
 - If recovery event dispatch fails, a compare-and-set releases only that attempt's five-minute lease. The next authorized detail read can retry immediately; duplicate events cannot create another paid submission because the provider request id is already durable.
 
@@ -90,10 +90,12 @@ As of 2026-08-12, the [public Seedream Layerize page](https://fal.ai/models/byte
 
 The retained command output, exit codes, and tested revision are recorded in
 [`docs/evidence/creative-work-layerization-local-validation-2026-08-12.md`](evidence/creative-work-layerization-local-validation-2026-08-12.md).
-The tracer keeps HTTP authorization, application services, repositories,
-Postgres, the job handler wiring, private storage, PSD readback, ZIP
-materialization, callback/polling race, terminal-claim concurrency, recovery
-dispatch lease, and `finalizing` resumption real. Only fal HTTP, authentication,
-the Inngest event transport, and object storage are boundary fakes; the job
-handler is invoked in-process. This does not prove deployment, paid generation,
-production authentication, partner approval, or semantic layer quality.
+The tracer keeps HTTP authorization (real Better Auth session), application
+services, repositories, Postgres, the registered Inngest function, private
+storage through the production singleton, PSD readback, ZIP materialization,
+callback/polling race, terminal-claim concurrency, recovery dispatch lease,
+expired `queued` recovery, and `finalizing` resumption real. Only fal HTTP is a
+network fake. `inngest.send` is intercepted so CI does not need Inngest Cloud;
+continuation uses the same registered function as `/api/inngest`. This does not
+prove deployment, paid generation, production authentication, partner approval,
+or semantic layer quality.

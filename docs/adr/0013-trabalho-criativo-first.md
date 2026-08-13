@@ -59,6 +59,9 @@ Cada superfície passa a ter um papel canônico:
 2. Interface HTTP, chat e painel são adapters; não duplicam regras.
 3. Compatibilidade temporária tem prazo e critério de remoção.
 4. Nenhuma nova função ampla entra antes do gate de evidência humana (Gate 8).
+   Exceção documentada: Layerize dormente da Peça aprovada
+   (`docs/decisions/2026-08-13-excecao-layerize-peca-aprovada.md`). Não é
+   geração nem destino novo; permanece desligada sem `FAL_KEY`.
 5. Status de planejamento é derivado de requisitos e evidências verificáveis.
 6. Testes observam comportamento pela interface pública do módulo.
 7. Brand Training continua independente de campanhas e Quick Tools.

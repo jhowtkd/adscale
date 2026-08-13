@@ -39,6 +39,7 @@ import {
   claimExpiredCreativeWorkLayerizationRecovery,
   claimCreativeWorkLayerizationFinalization,
   failCreativeWorkLayerization,
+  failQueuedCreativeWorkLayerization,
   hashLayerizationCallbackToken,
   markCreativeWorkLayerizationReconciling,
   releaseCreativeWorkLayerizationRecoveryLease,
@@ -150,6 +151,7 @@ describe("creative work layerization state transitions", () => {
     })).resolves.toEqual(claimed);
 
     const recoveryWhere = serialized(mocks.where.mock.calls.at(-1)?.[0]);
+    expect(recoveryWhere.sql).toContain("queued");
     expect(recoveryWhere.sql).toContain("finalizing");
     expect(recoveryWhere.sql).toContain("callbackDeadlineAt");
     expect(recoveryWhere.sql).toContain("updatedAt");
@@ -197,6 +199,23 @@ describe("creative work layerization state transitions", () => {
     const setValue = mocks.set.mock.calls.at(-1)?.[0] as { layerization?: unknown };
     const layerizationPatch = serialized(setValue.layerization);
     expect(layerizationPatch.params.some((param) => typeof param === "string" && param.includes("2026-08-12T14:55:00.000Z"))).toBe(true);
+  });
+
+  it("fails a dispatch only while the same attempt is still queued", async () => {
+    mocks.updateResults.push([row(state({ status: "failed", failureCode: "dispatch_failed" }))]);
+
+    await expect(failQueuedCreativeWorkLayerization({
+      workspaceId: "workspace-1",
+      workItemId: "work-1",
+      outputId: "output-1",
+      attemptId: "attempt-1",
+      code: "dispatch_failed",
+    })).resolves.toMatchObject({ layerization: { status: "failed" } });
+
+    const failureWhere = serialized(mocks.where.mock.calls.at(-1)?.[0]);
+    expect(failureWhere.sql).toContain("queued");
+    expect(failureWhere.sql).toContain("attemptId");
+    expect(failureWhere.params).toContain("attempt-1");
   });
 
   it("rejects a callback for a different provider request", async () => {

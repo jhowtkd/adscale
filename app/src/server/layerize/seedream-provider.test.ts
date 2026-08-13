@@ -187,4 +187,26 @@ describe("seedream layerize contract", () => {
 
     expect(stored).toEqual([opaque]);
   });
+
+  it("debits the shared aggregate budget while streaming and stops before storing", async () => {
+    const opaque = await sharp({
+      create: { width: 8, height: 8, channels: 4, background: [20, 30, 40, 255] },
+    }).png().toBuffer();
+    const fetchImpl = vi.fn<typeof fetch>().mockImplementation(async () => new Response(opaque, {
+      status: 200,
+      headers: { "content-type": "image/png" },
+    }));
+    const store = vi.fn(async () => undefined);
+
+    await expect(downloadSeedreamLayers([
+      { sourceUrl: "https://v3.fal.media/one.png", isBase: true },
+      { sourceUrl: "https://v3.fal.media/two.png", isBase: false },
+    ], {
+      fetchImpl,
+      lookup: publicLookup,
+      store,
+      maxTotalBytes: opaque.length + 4,
+    })).rejects.toThrow(/total size limit/);
+    expect(store).not.toHaveBeenCalled();
+  });
 });
