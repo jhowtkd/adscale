@@ -3,9 +3,9 @@
 ## Tested revision
 
 ```text
-commit: 2ff93012ea6857cc068c37e5a55e844bf74d52a4
-subject: fix: close layerization review findings
-committed_at: 2026-08-13T08:53:46-03:00
+commit: f07864532339676f69139011dff8ce4d9e989804
+subject: fix: revalidate eligibility and stream diagnostic ZIP
+committed_at: 2026-08-13T09:50:00-03:00
 ```
 
 The commands below ran against that commit on `feat/227-seedream-layerize`.
