@@ -226,6 +226,37 @@ describe("brandTrainingAnalyzeJob", () => {
     );
   });
 
+  it("falls back to an explicit human-review proposal when OpenAI returns no content", async () => {
+    mockCreateChatCompletion.mockResolvedValueOnce({
+      choices: [
+        {
+          finish_reason: "length",
+          message: { content: null, refusal: null },
+        },
+      ],
+    });
+
+    const result = await runBrandTrainingAnalyzeJob();
+
+    expect(mockRecordTrainingAnalysis).toHaveBeenCalledWith(
+      expect.objectContaining({ referenceId: baseEventData.referenceId }),
+      expect.objectContaining({
+        trainingCategory: "visual_reference",
+        usageMode: "reference",
+        analysis: expect.objectContaining({
+          confidence: 0,
+          description: expect.stringContaining("revisão humana"),
+        }),
+      }),
+    );
+    expect(result).toMatchObject({
+      success: true,
+      trainingCategory: "visual_reference",
+      usageMode: "reference",
+      confidence: 0,
+    });
+  });
+
   it("rejects invalid proposals that include a forbidden category or mode", async () => {
     mockCreateChatCompletion.mockResolvedValueOnce({
       choices: [

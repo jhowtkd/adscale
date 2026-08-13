@@ -31,8 +31,17 @@ vi.mock("@/components/brand-training/BrandTrainingAssets", () => ({
 }));
 
 vi.mock("@/components/brand-training/BrandTrainingWizard", () => ({
+  BrandFontFiles: ({ clientProfileId }: { clientProfileId: string }) => (
+    <div data-testid={`brand-fonts-${clientProfileId}`} />
+  ),
   BrandVoiceSection: ({ clientProfileId }: { clientProfileId: string }) => (
     <div data-testid={`brand-voice-${clientProfileId}`} />
+  ),
+}));
+
+vi.mock("@/components/brand-training/BrandKnowledgeReview", () => ({
+  BrandKnowledgeReview: ({ clientProfileId }: { clientProfileId: string }) => (
+    <div data-testid={`brand-knowledge-${clientProfileId}`} />
   ),
 }));
 
@@ -57,6 +66,8 @@ describe("BrandKitPage", () => {
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     expect(screen.getByTestId("brand-foundation")).toBeInTheDocument();
     expect(screen.getByTestId("brand-assets-profile-a")).toBeInTheDocument();
+    expect(screen.getByTestId("brand-fonts-profile-a")).toBeInTheDocument();
+    expect(screen.getByTestId("brand-knowledge-profile-a")).toBeInTheDocument();
     expect(screen.getByTestId("brand-voice-profile-a")).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("brandTraining.trainedBadge");
     expect(useBrandTrainingStatusMock).toHaveBeenCalledWith("profile-a");
