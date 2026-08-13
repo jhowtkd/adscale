@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SQL } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import type { CreativeWorkItem, CreativeWorkOutput } from "../db/schema";
+import type { LayerizationState } from "../layerize/contracts";
 
 const mocks = vi.hoisted(() => {
   const state = {
@@ -259,6 +260,31 @@ function workOutput(overrides: Partial<CreativeWorkOutput> = {}): CreativeWorkOu
     updatedAt: new Date(),
     ...overrides,
   } as CreativeWorkOutput;
+}
+
+function queuedLayerization(): LayerizationState {
+  return {
+    status: "queued",
+    attemptId: "attempt-1",
+    callbackTokenHash: "a".repeat(64),
+    callbackConsumedAt: null,
+    requestedByUserId: "owner-1",
+    createdAt: "2026-08-13T12:00:00.000Z",
+    updatedAt: "2026-08-13T12:00:00.000Z",
+    callbackDeadlineAt: "2026-08-13T14:00:00.000Z",
+    latencyMs: null,
+    providerRequestId: null,
+    providerModel: "bytedance/seedream/v5/pro/layerize",
+    providerEndpoint: "https://queue.fal.run/bytedance/seedream/v5/pro/layerize",
+    estimatedCostUsd: null,
+    baseWidth: null,
+    baseHeight: null,
+    layers: [],
+    psdKey: null,
+    diagnosticZipKey: null,
+    fidelity: null,
+    failureCode: null,
+  };
 }
 
 describe("creative-work repository", () => {
@@ -1526,6 +1552,29 @@ describe("creative-work repository", () => {
 
       await expect(
         selectCreativeWorkOutput("ws-1", "work-1", "output-2", { confirmObjective: true })
+      ).resolves.toBeNull();
+      expect(mocks.txUpdateMock).not.toHaveBeenCalled();
+    });
+
+    it("checks Layerize locks while holding the work outputs transaction lock", async () => {
+      mocks.state.selectResults.push([
+        workOutput({
+          id: "output-1",
+          status: "completed",
+          outputKey: "creative-work/output-1/out.png",
+          quality: { schemaVersion: 1, objectiveVerdict: "pass" },
+        }),
+        workOutput({
+          id: "output-2",
+          status: "completed",
+          outputKey: "creative-work/output-2/out.png",
+          isSelected: true,
+          layerization: queuedLayerization(),
+        }),
+      ]);
+
+      await expect(
+        selectCreativeWorkOutput("ws-1", "work-1", "output-1", { confirmObjective: true })
       ).resolves.toBeNull();
       expect(mocks.txUpdateMock).not.toHaveBeenCalled();
     });

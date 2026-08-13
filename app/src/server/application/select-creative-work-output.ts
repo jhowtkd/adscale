@@ -109,6 +109,12 @@ export async function selectCreativeWorkOutputCommand(
     if (!currentOutput.outputKey) {
       return { ok: false, error: { code: "output_missing_key" } };
     }
+    if (current.outputs.some((candidate) => (
+      candidate.id !== input.outputId
+      && isLayerizationSelectionLocked(layerizationStateFromDatabase(candidate.layerization))
+    ))) {
+      return { ok: false, error: { code: "layerization_selection_locked" } };
+    }
     const currentPolicy = getCreativeWorkSelectionPolicy(currentOutput.quality);
     if (!currentPolicy.selectable) {
       return { ok: false, error: { code: "objective_selection_blocked", policy: currentPolicy } };
