@@ -65,10 +65,10 @@ function buildFixedContract(
 function buildProviderOnlyLayerOverride(): string {
   return [
     "PROVIDER-ONLY LAYER OVERRIDE — HIGHEST PRIORITY:",
-    "This call produces a background plate only. The application owns every visible brand and content layer after generation.",
-    "Ignore any earlier instruction that asks the provider to preserve or render a fact, brand name, product, service, claim, logo, wordmark, symbol, lettering or other visible mark.",
-    "Do not render text, letters, numbers, logos, symbols, wordmarks, brand names, products, people, claims or recognizable entities. Use the brand kit only as abstract color, contrast and atmosphere guidance.",
-    "Leave the reserved composition area calm and never draw a logo-shaped mark; the approved logo and copy are added by the application afterward.",
+    "Return an empty abstract background plate made only from non-semantic color, texture, geometric forms and curves.",
+    "Do not add typography, lettering, numerals, logos, symbols, people, products or recognizable entities.",
+    "The application owns every visible brand and content layer after generation.",
+    "Keep the reserved composition band calm and free of focal content.",
   ].join("\n");
 }
 
