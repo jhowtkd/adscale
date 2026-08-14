@@ -65,8 +65,8 @@ function buildFixedContract(
 function buildProviderOnlyLayerOverride(): string {
   return [
     "PROVIDER-ONLY LAYER OVERRIDE — HIGHEST PRIORITY:",
-    "Return an empty abstract background plate made only from non-semantic color, texture, geometric forms and curves.",
-    "Do not add typography, lettering, numerals, logos, symbols, people, products or recognizable entities.",
+    "Return only a quiet non-semantic color field or smooth gradient background.",
+    "Do not add shapes, marks, diagrams, typography, lettering, numerals, logos, symbols, people, products or recognizable entities.",
     "The application owns every visible brand and content layer after generation.",
     "Keep the reserved composition band calm and free of focal content.",
   ].join("\n");
