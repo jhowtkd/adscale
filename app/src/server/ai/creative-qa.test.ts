@@ -575,6 +575,13 @@ describe("buildCreativeWorkQaPrompt", () => {
     expect(prompt).toContain("image #1 is the attached image in this position");
   });
 
+  it("separates deterministic composition from mandatory reference authority", () => {
+    const prompt = buildCreativeWorkQaPrompt(baseInput);
+    expect(prompt).toMatch(/exact logo\/brand assets and approved copy may be composited after the provider image/i);
+    expect(prompt).toMatch(/optional style and brand_identity references are never mandatory/i);
+    expect(prompt).toMatch(/only when a reference explicitly marked required is visibly omitted/i);
+  });
+
   it("lists the objective codes and bans subjective signals from findings", () => {
     const prompt = buildCreativeWorkQaPrompt(baseInput);
     for (const code of [

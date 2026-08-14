@@ -606,6 +606,11 @@ ${factPackSection(input)}
 - BODY: ${input.copy.body}
 - CTA: ${input.copy.cta}
 
+## DETERMINISTIC COMPOSITION AND REFERENCE AUTHORITY
+- In a single social_post, the exact logo/brand assets and approved copy may be composited after the provider image. Their presence in the OUTPUT is authorized; do not require a matching provider reference or flag the deterministic layer as ignored_mandatory_reference.
+- A reference marked optional is guidance only. In social_post, optional style and brand_identity references are never mandatory.
+- Use ignored_mandatory_reference only when a reference explicitly marked required is visibly omitted, or when the mode policy says a required original/content/style authority was not preserved.
+
 ${creativeWorkQaModePolicy(input.mode)}
 
 ## REFERENCES ATTACHED TO THE GENERATION CALL
