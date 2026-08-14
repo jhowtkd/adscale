@@ -188,6 +188,7 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
             requestedLayout: preparation.data.settings.textLayout,
             selectedFontAssetKey: preparation.data.settings.fontAssetKey,
             fonts: approvedBrandFontAssets(brandKit?.brandFontAssets ?? []),
+            declaredFontFamilies: (brandKit?.brandFonts as string[] | null | undefined) ?? [],
           })
         : null;
     } catch (error) {

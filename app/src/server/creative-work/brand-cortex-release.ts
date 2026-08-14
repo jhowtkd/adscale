@@ -42,7 +42,8 @@ export const brandCortexPilotManifestSchema = z.object({
   createdByUserId: z.string().min(1),
   workspaceId: z.string().min(1),
   clientProfileId: z.string().min(1),
-  paidGeneration: z.literal(true),
+  realProviderExecuted: z.literal(true).optional(),
+  paidGeneration: z.boolean(),
   brandKnowledge: z.object({
     versionId: z.string().min(1),
     versionNumber: z.number().int().positive(),
@@ -181,6 +182,126 @@ export function hashBrandCortexEvidence(value: unknown): string {
   return createHash("sha256").update(canonicalJsonStringify(value)).digest("hex");
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+function uniqueStrings(values: readonly unknown[]): string[] {
+  return [...new Set(values.flatMap((value) => typeof value === "string" && value.trim() ? [value.trim()] : []))];
+}
+
+function fontFamiliesFromBrandKit(brandKit: unknown): string[] {
+  const record = asRecord(brandKit);
+  const assets = Array.isArray(record?.fontAssets) ? record.fontAssets : [];
+  return uniqueStrings(assets.flatMap((asset) => {
+    const family = asRecord(asset)?.family;
+    return typeof family === "string" ? [family] : [];
+  }));
+}
+
+function declaredTypographyFamilies(pilot: BrandCortexPilotManifest): string[] {
+  const explicitClaims = pilot.claims.flatMap((claim) => {
+    const record = asRecord(claim);
+    if (
+      record?.claimKey !== "typography.families"
+      || record.authority !== "explicit"
+      || record.confidence !== "high"
+      || !Array.isArray(record.value)
+    ) return [];
+    return record.value;
+  });
+  if (explicitClaims.length > 0) return uniqueStrings(explicitClaims);
+  const fonts = asRecord(pilot.brandKit)?.fonts;
+  return uniqueStrings(Array.isArray(fonts) ? fonts : []);
+}
+
+export function inspectBrandCortexPilot(input: unknown, artifactFailures?: readonly string[]) {
+  const pilot = brandCortexPilotManifestSchema.parse(input);
+  const artifactsPerFormat = Object.fromEntries(pilot.coverage.requiredFormats.map((format) => [
+    format,
+    pilot.artifacts.filter((artifact) => artifact.format === format).length,
+  ]));
+  const coverage = {
+    requiredFormats: pilot.coverage.requiredFormats,
+    minimumArtifactsPerFormat: pilot.coverage.minimumArtifactsPerFormat,
+    artifactsPerFormat,
+    meetsMinimum: pilot.coverage.requiredFormats.every((format) =>
+      artifactsPerFormat[format] >= pilot.coverage.minimumArtifactsPerFormat,
+    ),
+  };
+  const integrityFailures = [...(artifactFailures ?? [])];
+  const integrity = {
+    status: artifactFailures === undefined
+      ? "not_checked" as const
+      : integrityFailures.length > 0 ? "fail" as const : "pass" as const,
+    checkedFiles: artifactFailures === undefined ? 0 : pilot.artifacts.length + pilot.referenceAssets.length,
+    failures: integrityFailures,
+  };
+  const declaredFamilies = declaredTypographyFamilies(pilot);
+  const deterministicArtifacts = pilot.artifacts.filter((artifact) => artifact.deterministicFidelity === "proven");
+  const appliedFamilies = uniqueStrings(deterministicArtifacts.flatMap((artifact) =>
+    fontFamiliesFromBrandKit(artifact.identity.brandKit ?? pilot.brandKit),
+  ));
+  const typographyConflicts = deterministicArtifacts.flatMap((artifact) => {
+    const applied = fontFamiliesFromBrandKit(artifact.identity.brandKit ?? pilot.brandKit);
+    if (declaredFamilies.length === 0 && applied.length === 0) return [];
+    if (declaredFamilies.length === 0) {
+      return [`${artifact.artifactId}: no authoritative typography family is available`];
+    }
+    if (applied.length === 0) {
+      return [`${artifact.artifactId}: deterministic typography has no applied font provenance`];
+    }
+    return applied
+      .filter((family) => !declaredFamilies.some((declared) => declared.toLocaleLowerCase() === family.toLocaleLowerCase()))
+      .map((family) => `${artifact.artifactId}: applied font family ${family} is outside explicit families ${declaredFamilies.join(", ")}`);
+  });
+  const typography = {
+    status: deterministicArtifacts.length === 0 || (declaredFamilies.length === 0 && appliedFamilies.length === 0)
+      ? "not_applicable" as const
+      : typographyConflicts.length > 0 ? "conflict" as const : "pass" as const,
+    precedence: "explicit_high_confidence_claim_over_approved_font_asset" as const,
+    declaredFamilies,
+    appliedFamilies,
+    conflicts: typographyConflicts,
+  };
+  return {
+    pilot,
+    pilotSha256: hashBrandCortexEvidence(pilot),
+    coverage,
+    integrity,
+    typography,
+  };
+}
+
+export function evaluateBrandCortexPilotPending(input: { pilot: unknown; artifactFailures?: readonly string[] }) {
+  const evidence = inspectBrandCortexPilot(input.pilot, input.artifactFailures);
+  const pending = evidence.coverage.requiredFormats.flatMap((format) => {
+    const count = evidence.coverage.artifactsPerFormat[format] ?? 0;
+    return count < evidence.coverage.minimumArtifactsPerFormat
+      ? [`${format}: requires ${evidence.coverage.minimumArtifactsPerFormat} real artifacts, found ${count}`]
+      : [];
+  });
+  pending.push(...evidence.typography.conflicts.map((conflict) => `typography: ${conflict}`));
+  pending.push("human review is missing");
+  return {
+    schemaVersion: 1 as const,
+    reportType: "brand-cortex-human-release" as const,
+    status: evidence.integrity.status === "fail" ? "failed" as const : "human_needed" as const,
+    pilotId: evidence.pilot.pilotId,
+    pilotSha256: evidence.pilotSha256,
+    reviewSha256: null,
+    reviewerId: null,
+    reviewedAt: null,
+    failures: evidence.integrity.failures,
+    pending,
+    coverage: evidence.coverage,
+    integrity: evidence.integrity,
+    typography: evidence.typography,
+  };
+}
+
 export function verifyBrandCortexPilotArtifacts(
   input: unknown,
   readArtifact: (artifactPath: string) => Buffer,
@@ -280,14 +401,15 @@ export function evaluateBrandCortexPilotReview(input: {
 }) {
   const pilot = brandCortexPilotManifestSchema.parse(input.pilot);
   const review = brandCortexReleaseReviewSchema.parse(input.review);
-  const pilotSha256 = hashBrandCortexEvidence(pilot);
+  const evidence = inspectBrandCortexPilot(pilot);
+  const pilotSha256 = evidence.pilotSha256;
   const artifactsById = new Map(pilot.artifacts.map((artifact) => [artifact.artifactId, artifact]));
   const failures: string[] = [];
   const pending: string[] = [];
-  for (const format of pilot.coverage.requiredFormats) {
-    const count = pilot.artifacts.filter((artifact) => artifact.format === format).length;
-    if (count < pilot.coverage.minimumArtifactsPerFormat) {
-      pending.push(`${format}: requires ${pilot.coverage.minimumArtifactsPerFormat} real artifacts, found ${count}`);
+  for (const format of evidence.coverage.requiredFormats) {
+    const count = evidence.coverage.artifactsPerFormat[format] ?? 0;
+    if (count < evidence.coverage.minimumArtifactsPerFormat) {
+      pending.push(`${format}: requires ${evidence.coverage.minimumArtifactsPerFormat} real artifacts, found ${count}`);
     }
   }
   if (review.pilotId !== pilot.pilotId) failures.push("pilot id does not match the reviewed manifest");
@@ -316,6 +438,7 @@ export function evaluateBrandCortexPilotReview(input: {
       else if (verdict === "needs_changes") pending.push(`${item.artifactId}: ${criterion} needs changes`);
     }
   }
+  failures.push(...evidence.typography.conflicts.map((conflict) => `typography: ${conflict}`));
   if (review.releaseDecision.status === "rejected") failures.push("human release decision is rejected");
   const reviewedIds = new Set(review.artifacts.map((item) => item.artifactId));
   for (const artifact of pilot.artifacts) {
@@ -337,5 +460,8 @@ export function evaluateBrandCortexPilotReview(input: {
     reviewedAt: review.reviewedAt,
     failures,
     pending,
+    coverage: evidence.coverage,
+    integrity: evidence.integrity,
+    typography: evidence.typography,
   };
 }

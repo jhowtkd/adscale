@@ -39,11 +39,20 @@ export class TypographyPlanError extends Error {
   }
 }
 
+export function isBrandFontAllowed(
+  font: Pick<BrandFontAsset, "family">,
+  declaredFontFamilies: readonly string[],
+): boolean {
+  return declaredFontFamilies.length === 0
+    || declaredFontFamilies.some((family) => family.trim().toLocaleLowerCase() === font.family.trim().toLocaleLowerCase());
+}
+
 export function buildTypographyPlan(input: {
   format: CreativeWorkFormat;
   requestedLayout?: TextLayout;
   selectedFontAssetKey?: string;
   fonts: readonly BrandFontAsset[];
+  declaredFontFamilies?: readonly string[];
 }): TypographyPlan {
   const policy: TypographyPolicy = {
     version: 1,
@@ -58,8 +67,11 @@ export function buildTypographyPlan(input: {
     safeAreaPolicy: "format_default",
   };
 
+  const declaredFontFamilies = input.declaredFontFamilies ?? [];
+  const eligibleFonts = input.fonts.filter((font) => isBrandFontAllowed(font, declaredFontFamilies));
   if (input.selectedFontAssetKey) {
-    if (!input.fonts.some((font) => font.assetKey === input.selectedFontAssetKey)) {
+    const selectedFont = input.fonts.find((font) => font.assetKey === input.selectedFontAssetKey);
+    if (!selectedFont || !isBrandFontAllowed(selectedFont, declaredFontFamilies)) {
       throw new TypographyPlanError();
     }
     return {
@@ -69,11 +81,11 @@ export function buildTypographyPlan(input: {
       fontSelection: "operator_selected",
     };
   }
-  if (input.fonts.length === 1) {
+  if (eligibleFonts.length === 1) {
     return {
       ...policy,
       execution: "deterministic",
-      fontAssetKey: input.fonts[0]!.assetKey,
+      fontAssetKey: eligibleFonts[0]!.assetKey,
       fontSelection: "only_approved_font",
     };
   }
@@ -81,7 +93,7 @@ export function buildTypographyPlan(input: {
     ...policy,
     execution: "generative",
     fontAssetKey: null,
-    reason: input.fonts.length === 0
+    reason: eligibleFonts.length === 0
       ? "approved_font_missing"
       : "approved_font_selection_required",
   };

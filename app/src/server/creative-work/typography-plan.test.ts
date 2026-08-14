@@ -44,4 +44,25 @@ describe("buildTypographyPlan", () => {
       reason: "approved_font_selection_required",
     });
   });
+
+  it("does not select an approved asset outside the declared brand families", () => {
+    expect(buildTypographyPlan({
+      format: "9:16",
+      fonts: [font("fonts/albert-sans.ttf", "Albert Sans")],
+      declaredFontFamilies: ["Montserrat", "Open Sans"],
+    })).toMatchObject({
+      execution: "generative",
+      fontAssetKey: null,
+      reason: "approved_font_missing",
+    });
+  });
+
+  it("rejects an operator selection outside the declared brand families", () => {
+    expect(() => buildTypographyPlan({
+      format: "1:1",
+      selectedFontAssetKey: "fonts/albert-sans.ttf",
+      fonts: [font("fonts/albert-sans.ttf", "Albert Sans")],
+      declaredFontFamilies: ["Montserrat", "Open Sans"],
+    })).toThrow("brand_font_selection_invalid");
+  });
 });

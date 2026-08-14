@@ -90,6 +90,21 @@ Return ONLY a JSON object with this exact shape (no markdown, no commentary):
   }
 }`;
 
+function buildHumanReviewFallbackProposal() {
+  return {
+    trainingCategory: "visual_reference" as const,
+    usageMode: "reference" as const,
+    analysis: {
+      description:
+        "A análise automática não produziu conteúdo; classifique este material na revisão humana antes de usá-lo.",
+      visualAttributes: [],
+      rules: ["Não usar este material até a revisão humana definir categoria e modo."],
+      constraints: ["Não inferir detalhes de marca a partir desta análise incompleta."],
+      confidence: 0,
+    },
+  };
+}
+
 async function brandTrainingAnalyzeHandler({
   event,
   step,
@@ -210,8 +225,15 @@ async function brandTrainingAnalyzeHandler({
               response_format: { type: "json_object" },
               max_completion_tokens: 1600,
             });
-            const content = response.choices[0]?.message?.content;
-            if (!content) throw new Error("OpenAI returned empty content for brand training analysis");
+            const choice = response.choices[0];
+            const content = choice?.message?.content;
+            if (!content) {
+              const refusal = choice?.message?.refusal;
+              logger.warn(
+                `[brandTrainingAnalyzeJob] provider returned empty content referenceId=${data.referenceId} finishReason=${choice?.finish_reason ?? "unknown"} refusal=${typeof refusal === "string" ? refusal.slice(0, 120) : "none"}`,
+              );
+              return buildHumanReviewFallbackProposal();
+            }
             try {
               return JSON.parse(content) as unknown;
             } catch {
