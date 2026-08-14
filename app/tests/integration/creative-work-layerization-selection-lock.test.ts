@@ -120,32 +120,44 @@ async function holdSelectedOutputLock(
   return { transaction, release: release.resolve };
 }
 
-async function waitForCreativeWorkLockWaiters(): Promise<LockWaiter[]> {
+async function findCreativeWorkLockWaiters(): Promise<LockWaiter[]> {
+  const result = await db.execute<LockWaiter>(sql`
+    select distinct on (activity.pid)
+      activity.pid,
+      activity.query,
+      activity.wait_event_type,
+      activity.wait_event,
+      locks.locktype,
+      locks.mode,
+      locks.relation::regclass::text as relation,
+      locks.transactionid::text as transactionid
+    from pg_stat_activity as activity
+    join pg_locks as locks on locks.pid = activity.pid
+    where activity.pid <> pg_backend_pid()
+      and activity.wait_event_type = 'Lock'
+      and locks.granted = false
+      and activity.query ilike ${"%creative_work_outputs%"}
+    order by activity.pid, locks.locktype
+  `);
+  return Array.from(new Map(
+    result.rows.map((waiter) => [waiter.pid, waiter]),
+  ).values());
+}
+
+async function captureExistingCreativeWorkLockWaiterPids(): Promise<Set<number>> {
+  const waiters = await findCreativeWorkLockWaiters();
+  return new Set(waiters.map(({ pid }) => pid));
+}
+
+async function waitForCreativeWorkLockWaiters(
+  existingPids: ReadonlySet<number>,
+): Promise<LockWaiter[]> {
   const deadline = Date.now() + LOCK_WAITER_TIMEOUT_MS;
   let lastWaiters: LockWaiter[] = [];
 
   while (Date.now() < deadline) {
-    const result = await db.execute<LockWaiter>(sql`
-      select distinct on (activity.pid)
-        activity.pid,
-        activity.query,
-        activity.wait_event_type,
-        activity.wait_event,
-        locks.locktype,
-        locks.mode,
-        locks.relation::regclass::text as relation,
-        locks.transactionid::text as transactionid
-      from pg_stat_activity as activity
-      join pg_locks as locks on locks.pid = activity.pid
-      where activity.pid <> pg_backend_pid()
-        and activity.wait_event_type = 'Lock'
-        and locks.granted = false
-        and activity.query ilike ${"%creative_work_outputs%"}
-      order by activity.pid, locks.locktype
-    `);
-    const waiters = Array.from(new Map(
-      result.rows.map((waiter) => [waiter.pid, waiter]),
-    ).values());
+    const waiters = (await findCreativeWorkLockWaiters())
+      .filter(({ pid }) => !existingPids.has(pid));
     lastWaiters = waiters;
 
     const hasSelectionWaiter = waiters.some(({ query }) =>
@@ -255,6 +267,7 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)(
     it("allows exactly one winner when Layerize claim races a new selection", async () => {
       for (let index = 0; index < 12; index += 1) {
         const race = await createRace(index);
+        const existingPids = await captureExistingCreativeWorkLockWaiterPids();
         const lock = await holdSelectedOutputLock(
           workspaceId,
           race.work.id,
@@ -277,7 +290,7 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)(
           );
           pending.push(claimPromise, selectionPromise);
 
-          const waiters = await waitForCreativeWorkLockWaiters();
+          const waiters = await waitForCreativeWorkLockWaiters(existingPids);
           expect(new Set(waiters.map(({ pid }) => pid)).size).toBeGreaterThanOrEqual(2);
           expect(waiters.some(({ query }) => /select[\s\S]*for update/i.test(query))).toBe(true);
           expect(waiters.some(({ query }) => /update[\s\S]*creative_work_outputs/i.test(query))).toBe(true);
