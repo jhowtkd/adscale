@@ -570,6 +570,8 @@ describe("buildCreativeWorkPrompt", () => {
     expect(prompt).toContain("DETERMINISTIC TEXT CONTRACT:");
     expect(prompt).toContain("Do not render any visible text, letters, words, labels or CTA");
     expect(prompt).toContain("PROVIDER-ONLY LAYER: render only the abstract background");
+    expect(prompt).toContain("PROVIDER-ONLY LAYER OVERRIDE — HIGHEST PRIORITY:");
+    expect(prompt).toContain("The application owns every visible brand and content layer after generation.");
     expect(prompt).toContain(`leave the ${band} composition band visually calm`);
     expect(prompt).not.toContain(deterministicCopy.headline);
     expect(prompt).not.toContain(deterministicCopy.body);
