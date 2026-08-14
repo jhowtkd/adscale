@@ -3,14 +3,15 @@
 ## Tested revision
 
 ```text
-commit: 9768500437fba996377dc6409a0581c829ea656f
-subject: test: isolate layerization lock waiters
-committed_at: 2026-08-14T07:06:21-03:00
+commit: 6444a87955e3392ec9581ff1cb8bd228a775b8be
+subject: docs: record isolated waiter validation
+committed_at: 2026-08-14T07:13:53-03:00
 ```
 
 The commands below ran against that revision on `feat/227-seedream-layerize`.
-This is the final waiter-isolation closeout atop `3a1e3def`, `13b994d8`,
-`e0e889ab`, `35fde18c`, and `7fea3cdb`. It includes the real-PostgreSQL
+This is the final timestamped validation refresh atop `3a1e3def`,
+`13b994d8`, `e0e889ab`, `35fde18c`, and `7fea3cdb`; the evidence-file commit
+itself is subsequent to these command runs. It includes the real-PostgreSQL
 selection-lock regression, per-race waiter PID isolation, and the
 artifact-version replay assertion fix. No real `FAL_KEY` was supplied in any
 command environment; tests may use synthetic in-process values for
@@ -34,7 +35,7 @@ Reading config file '/Users/jhonatan/Repos/ADScale_2-worktrees/seedream-layerize
 Using 'pg' driver for database querying
 [✓] migrations applied successfully!✅ Test database setup complete.
    URL: postgres://test:test@localhost:5433/adscale_test
-elapsed (capture): 1.777s
+elapsed (capture): 4.17s
 exit: 0
 ```
 
@@ -57,9 +58,9 @@ $ DATABASE_URL=postgres://test:test@localhost:5433/adscale_test \
   src/components/creative-work/CreativeResultCard.test.tsx
 Test Files  13 passed (13)
 Tests       188 passed (188)
-Start at  05:01:32
-Duration  1.70s (transform 1.52s, setup 797ms, import 5.25s, tests 891ms, environment 830ms)
-elapsed (capture): 2.188s
+Start at  07:28:56
+Duration  3.25s (transform 2.69s, setup 1.43s, import 8.52s, tests 1.61s, environment 1.22s)
+elapsed (capture): 4.31s
 exit: 0
 ```
 
@@ -75,9 +76,9 @@ $ DATABASE_URL=postgres://test:test@localhost:5433/adscale_test \
   tests/integration/creative-work-layerization-selection-lock.test.ts
 Test Files  1 passed (1)
 Tests       1 passed (1)
-Start at  07:05:39
-Duration  1.28s (transform 187ms, setup 93ms, import 570ms, tests 321ms, environment 0ms)
-elapsed (capture): 1.28s
+Start at  07:29:03
+Duration  1.05s (transform 159ms, setup 49ms, import 506ms, tests 316ms, environment 0ms)
+elapsed (capture): 1.84s
 exit: 0
 ```
 
@@ -97,9 +98,9 @@ $ DATABASE_URL=postgres://test:test@localhost:5433/adscale_test \
   src/server/repositories/artifact-version.test.ts
 Test Files  1 passed (1)
 Tests       17 passed (17)
-Start at  05:01:48
-Duration  638ms (transform 90ms, setup 26ms, import 291ms, tests 233ms, environment 0ms)
-elapsed (capture): 0.992s
+Start at  07:29:10
+Duration  1.02s (transform 144ms, setup 45ms, import 481ms, tests 336ms, environment 0ms)
+elapsed (capture): 1.76s
 exit: 0
 ```
 
@@ -129,9 +130,9 @@ $ DATABASE_URL=postgres://test:test@localhost:5433/adscale_test \
   NODE_ENV=test npm test
 Test Files  689 passed (689)
 Tests       4952 passed | 1 skipped (4953)
-Start at  07:11:06
-Duration  109.08s (transform 38.84s, setup 55.48s, import 324.48s, tests 102.90s, environment 304.32s)
-elapsed (capture): 109.08s
+Start at  07:33:53
+Duration  92.92s (transform 27.16s, setup 45.72s, import 272.65s, tests 97.24s, environment 244.40s)
+elapsed (capture): 93.90s
 exit: 0
 ```
 
@@ -142,13 +143,13 @@ The full suite is green and includes the corrected artifact-version test.
 ```text
 $ npm run typecheck
 > tsc --noEmit
-elapsed (capture): 2.854s
+elapsed (capture): 7.72s
 exit: 0
 
 $ npm run lint
 ✖ 111 problems (0 errors, 111 warnings)
   0 errors and 2 warnings potentially fixable with the `--fix` option.
-elapsed (capture): 13.815s
+elapsed (capture): 30.39s
 exit: 0
 ```
 
@@ -159,9 +160,11 @@ required local environment absent:
 
 ```text
 $ npm run build
+✓ Compiled successfully in 22.8s
+  Finished TypeScript in 22.9s
 Error: Env validation failed for DATABASE_URL: Required
-Error: Failed to collect page data for /api/admin/quality/ingestion/backfill
-elapsed (capture): 30.236s
+Error: Failed to collect page data for /api/admin/quality/brands/[clientProfileId]/evidence
+elapsed (capture): 49.38s
 exit: 1
 ```
 
@@ -172,12 +175,12 @@ unset:
 
 ```text
 $ [required local dummy environment; FAL_KEY unset] npm run build
-✓ Compiled successfully in 8.8s
-✓ Finished TypeScript in 12.7s
-✓ Generating static pages using 9 workers (94/94) in 312ms
+✓ Compiled successfully in 18.2s
+✓ Finished TypeScript in 22.9s
+✓ Generating static pages using 9 workers (94/94) in 574ms
 [prepare-standalone] copied static: 545 files
 [prepare-standalone] copied public: 19 files
-elapsed (capture): 27.682s
+elapsed (capture): 52.57s
 exit: 0
 ```
 
@@ -189,12 +192,12 @@ acceptance.
 ```text
 $ npm run convergence:gate
 PRIMARY-DESTINATIONS: no expansion detected vs base "origin/main". 12 dashboard group(s); 15 dashboard page(s); 25 api tree(s); 170 api route(s); 106 ai module(s).
-FROZEN-MODULES: reviewed 18 commit(s) in 676d029afb..HEAD; no freeze violations.
+FROZEN-MODULES: reviewed 22 commit(s) in 676d029afb..HEAD; no freeze violations.
 PLANNING-CONSISTENCY: ok (22 complete, 0 open, 0 accepted_debt)
 SURFACE-INVENTORY: ok (1 blockers 1:1, 1 blocker decisions, 6 curated)
 NO-PARALLEL-PREVIEW: ok (no /v6 route tree or route literals)
 CONVERGENCE-GATE: all gates passed.
-elapsed (capture): 1.075s
+elapsed (capture): 1.93s
 exit: 0
 ```
 
@@ -208,7 +211,7 @@ exit: 0
 $ graphify update .
 [graphify watch] No code-graph topology changes detected; outputs left untouched.
 Code graph updated.
-elapsed (capture): 18.430s
+elapsed (capture): 35.44s
 exit: 0
 
 $ git status --short graphify-out
