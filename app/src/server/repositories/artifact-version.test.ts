@@ -556,6 +556,6 @@ describeDb("artifact promotion transaction", () => {
           expectedRevision: 1,
         },
       })
-    ).rejects.toThrow("Operation ID reused for a different command");
+    ).rejects.toThrow("Operation ID belongs to a different promotion command");
   });
 });
