@@ -3,14 +3,15 @@
 ## Tested revision
 
 ```text
-commit: 3a1e3defedd9ca5aa64466c87fe1bfb5c720a0a2
-subject: test: force layerization race at postgres lock
-committed_at: 2026-08-14T04:46:58-03:00
+commit: 9768500437fba996377dc6409a0581c829ea656f
+subject: test: isolate layerization lock waiters
+committed_at: 2026-08-14T07:06:21-03:00
 ```
 
 The commands below ran against that revision on `feat/227-seedream-layerize`.
-This is the P2 closeout atop `13b994d8`, `e0e889ab`, `35fde18c`, and
-`7fea3cdb`. It includes the real-PostgreSQL selection-lock regression and the
+This is the final waiter-isolation closeout atop `3a1e3def`, `13b994d8`,
+`e0e889ab`, `35fde18c`, and `7fea3cdb`. It includes the real-PostgreSQL
+selection-lock regression, per-race waiter PID isolation, and the
 artifact-version replay assertion fix. No real `FAL_KEY` was supplied in any
 command environment; tests may use synthetic in-process values for
 disabled/enabled branch coverage. Existing `.planning/**` WIP was preserved
@@ -74,16 +75,17 @@ $ DATABASE_URL=postgres://test:test@localhost:5433/adscale_test \
   tests/integration/creative-work-layerization-selection-lock.test.ts
 Test Files  1 passed (1)
 Tests       1 passed (1)
-Start at  05:01:41
-Duration  524ms (transform 88ms, setup 23ms, import 276ms, tests 142ms, environment 0ms)
-elapsed (capture): 0.857s
+Start at  07:05:39
+Duration  1.28s (transform 187ms, setup 93ms, import 570ms, tests 321ms, environment 0ms)
+elapsed (capture): 1.28s
 exit: 0
 ```
 
 This is a real PostgreSQL concurrency check, not a promise-only race: one
 transaction holds the selected output with `FOR UPDATE`; both public
 selection/claim queries are observed waiting in `pg_stat_activity`/`pg_locks`,
-and twelve repeated races assert exactly one winner after the lock is released.
+and only PIDs not present in the pre-race relevant-waiter baseline are accepted.
+Twelve repeated races assert exactly one winner after the lock is released.
 It does not make a fal HTTP request or perform a paid operation.
 
 ### Artifact-version replay regression
@@ -127,9 +129,9 @@ $ DATABASE_URL=postgres://test:test@localhost:5433/adscale_test \
   NODE_ENV=test npm test
 Test Files  689 passed (689)
 Tests       4952 passed | 1 skipped (4953)
-Start at  05:02:26
-Duration  61.76s (transform 23.68s, setup 29.35s, import 185.75s, tests 67.86s, environment 153.74s)
-elapsed (capture): 62.26s
+Start at  07:11:06
+Duration  109.08s (transform 38.84s, setup 55.48s, import 324.48s, tests 102.90s, environment 304.32s)
+elapsed (capture): 109.08s
 exit: 0
 ```
 
