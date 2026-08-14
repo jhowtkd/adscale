@@ -34,6 +34,10 @@ vi.mock("./brand-training", () => ({
   createBrandTrainingAnalyzeJobV2: (client: WorkerClient) =>
     client.createFunction({ id: "analyze-brand-training-asset-v2" }, vi.fn()),
 }));
+vi.mock("./creative-work-layerization", () => ({
+  createCreativeWorkLayerizationJobV2: (client: WorkerClient) =>
+    client.createFunction({ id: "layerize-creative-work-output-v2" }, vi.fn()),
+}));
 
 import { assertImageWorkerEnv, buildImageWorkerConnectOptions } from "./image-worker";
 import { readFileSync } from "node:fs";
@@ -45,17 +49,18 @@ describe("image-worker", () => {
     vi.clearAllMocks();
   });
 
-  it("registers exactly five heavy v2 jobs with concurrency 2", () => {
+  it("registers exactly six heavy v2 jobs with concurrency 2", () => {
     const options = buildImageWorkerConnectOptions();
     expect(options.appId).toBe("adscale-image-worker");
     expect(options.maxWorkerConcurrency).toBe(2);
-    expect(options.functionCount).toBe(5);
+    expect(options.functionCount).toBe(6);
     expect(options.functionIds).toEqual([
       "generate-creative-work-output-v2",
       "generate-derivation-v2",
       "analyze-creative-work-source-v2",
       "analyze-workspace-asset-v2",
       "analyze-brand-training-asset-v2",
+      "layerize-creative-work-output-v2",
     ]);
   });
 

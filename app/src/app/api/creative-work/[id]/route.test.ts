@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { GET, PATCH } from "./route";
+import { GET, PATCH, POST } from "./route";
+import { AUTH_ERROR_CODES, WorkspaceAuthError } from "@/server/auth/errors";
 
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
@@ -12,6 +13,28 @@ vi.mock("@/server/auth/workspace", () => ({
       workspace: { id: "workspace-1" },
     })
   ),
+}));
+
+const requirePlatformOwnerMock = vi.hoisted(() => vi.fn());
+const isPlatformOwnerEmailMock = vi.hoisted(() => vi.fn());
+const requestLayerizationMock = vi.hoisted(() => vi.fn());
+const callbackHandlerMock = vi.hoisted(() => vi.fn());
+const recoverExpiredLayerizationsMock = vi.hoisted(() => vi.fn());
+
+vi.mock("@/server/auth/require-platform-owner", () => ({
+  requirePlatformOwner: (...args: unknown[]) => requirePlatformOwnerMock(...args),
+}));
+vi.mock("@/server/auth/platform-owner", () => ({
+  isPlatformOwnerEmail: (...args: unknown[]) => isPlatformOwnerEmailMock(...args),
+}));
+vi.mock("@/server/application/request-creative-work-layerization", () => ({
+  requestCreativeWorkLayerization: (...args: unknown[]) => requestLayerizationMock(...args),
+}));
+vi.mock("@/server/application/handle-creative-work-layerization-callback", () => ({
+  handleCreativeWorkLayerizationCallback: (...args: unknown[]) => callbackHandlerMock(...args),
+}));
+vi.mock("@/server/application/recover-expired-creative-work-layerizations", () => ({
+  recoverExpiredCreativeWorkLayerizations: (...args: unknown[]) => recoverExpiredLayerizationsMock(...args),
 }));
 
 const getWorkMock = vi.hoisted(() => vi.fn());
@@ -124,6 +147,31 @@ const outputs = [
   },
 ];
 
+function layerizationState(providerRequestId: string | null = null) {
+  return {
+    status: "reconciling" as const,
+    attemptId: "attempt-1",
+    callbackTokenHash: "a".repeat(64),
+    callbackConsumedAt: null,
+    requestedByUserId: "owner-1",
+    createdAt: "2026-08-12T10:00:00.000Z",
+    updatedAt: "2026-08-12T10:00:00.000Z",
+    callbackDeadlineAt: "2026-08-12T12:00:00.000Z",
+    latencyMs: null,
+    providerRequestId,
+    providerModel: "bytedance/seedream/v5/pro/layerize",
+    providerEndpoint: "https://queue.fal.run/bytedance/seedream/v5/pro/layerize",
+    estimatedCostUsd: null,
+    baseWidth: null,
+    baseHeight: null,
+    layers: [],
+    psdKey: null,
+    diagnosticZipKey: null,
+    fidelity: null,
+    failureCode: null,
+  };
+}
+
 const confirmBody = {
   copy: {
     headline: "Headline",
@@ -136,6 +184,8 @@ const confirmBody = {
 describe("GET /api/creative-work/[id]", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    isPlatformOwnerEmailMock.mockReturnValue(false);
+    requirePlatformOwnerMock.mockResolvedValue({ user: { id: "owner-1" } });
     failStaleOutputsMock.mockResolvedValue([]);
     failStaleSourcesMock.mockResolvedValue([]);
     recordAggregateMock.mockResolvedValue(null);
@@ -183,6 +233,89 @@ describe("GET /api/creative-work/[id]", () => {
     expect(body.inferredBriefing).toEqual(inferredBriefing);
     expect(body.briefingFactPack).toEqual(factPack);
     expect(getWorkMock).toHaveBeenCalledWith("workspace-1", "work-1");
+  });
+
+  it("does not project layerization state to a non-owner", async () => {
+    getWorkMock.mockResolvedValue({
+      work: workItem,
+      outputs: [{ ...outputs[0], layerization: { status: "completed", callbackTokenHash: "secret" } }],
+    });
+
+    const res = await GET(new Request("http://localhost/api/creative-work/work-1"), { params: makeParams("work-1") });
+    const body = await res.json();
+
+    expect(body.canLayerize).toBe(false);
+    expect(body.outputs[0].layerization).toBeNull();
+  });
+
+  it("keeps layerization disabled for an owner when FAL_KEY is absent", async () => {
+    const previous = process.env.FAL_KEY;
+    delete process.env.FAL_KEY;
+    isPlatformOwnerEmailMock.mockReturnValue(true);
+    getWorkMock.mockResolvedValue({ work: workItem, outputs, sources: [] });
+
+    const res = await GET(new Request("http://localhost/api/creative-work/work-1"), { params: makeParams("work-1") });
+    const body = await res.json();
+
+    expect(body.canLayerize).toBe(false);
+    if (previous === undefined) delete process.env.FAL_KEY;
+    else process.env.FAL_KEY = previous;
+  });
+
+  it("marks an expired owner-visible attempt unknown when no provider request was persisted", async () => {
+    const previous = process.env.FAL_KEY;
+    process.env.FAL_KEY = "test-fal-key";
+    isPlatformOwnerEmailMock.mockReturnValue(true);
+    const expired = layerizationState();
+    const unknown = { ...expired, status: "submission_unknown" as const, failureCode: "submission_unknown" as const };
+    getWorkMock.mockResolvedValue({
+      work: workItem,
+      outputs: [{ ...outputs[0], layerization: expired }],
+      sources: [],
+    });
+    recoverExpiredLayerizationsMock.mockResolvedValue(new Map([["o1", unknown]]));
+
+    try {
+      const res = await GET(new Request("http://localhost/api/creative-work/work-1"), { params: makeParams("work-1") });
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(recoverExpiredLayerizationsMock).toHaveBeenCalledWith({
+        workspaceId: "workspace-1",
+        workItemId: "work-1",
+        outputs: [{ ...outputs[0], layerization: expired }],
+      });
+      expect(body.outputs[0].layerization.status).toBe("submission_unknown");
+      expect(inngestSendMock).not.toHaveBeenCalled();
+    } finally {
+      if (previous === undefined) delete process.env.FAL_KEY;
+      else process.env.FAL_KEY = previous;
+    }
+  });
+
+  it("re-dispatches an expired owner-visible attempt when the provider request is known", async () => {
+    const previous = process.env.FAL_KEY;
+    process.env.FAL_KEY = "test-fal-key";
+    isPlatformOwnerEmailMock.mockReturnValue(true);
+    const expired = layerizationState("request-1");
+    const recovered = { ...expired, updatedAt: "2026-08-12T15:00:00.000Z" };
+    getWorkMock.mockResolvedValue({
+      work: workItem,
+      outputs: [{ ...outputs[0], layerization: expired }],
+      sources: [],
+    });
+    recoverExpiredLayerizationsMock.mockResolvedValue(new Map([["o1", recovered]]));
+
+    try {
+      const res = await GET(new Request("http://localhost/api/creative-work/work-1"), { params: makeParams("work-1") });
+
+      expect(res.status).toBe(200);
+      expect(recoverExpiredLayerizationsMock).toHaveBeenCalledOnce();
+      expect(inngestSendMock).not.toHaveBeenCalled();
+    } finally {
+      if (previous === undefined) delete process.env.FAL_KEY;
+      else process.env.FAL_KEY = previous;
+    }
   });
 
   it("does not expose a Peça Única envelope from another protocol", async () => {
@@ -448,6 +581,7 @@ describe("GET /api/creative-work/[id]", () => {
 describe("PATCH /api/creative-work/[id]", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    requirePlatformOwnerMock.mockResolvedValue({ user: { id: "owner-1" } });
     confirmMock.mockResolvedValue({
       ok: true,
       value: {
@@ -513,6 +647,33 @@ describe("PATCH /api/creative-work/[id]", () => {
     });
     expect(body.work.status).toBe("ready");
     expect(body.canonical.id).toBe("creative_work:work-1");
+  });
+
+  it("accepts the owner-only layerization command through the existing Work seam", async () => {
+    requestLayerizationMock.mockResolvedValue({ ok: true, accepted: true, replay: false, state: null });
+    const outputId = "00000000-0000-4000-8000-000000000099";
+
+    const res = await requestPatch({ action: "layerizeOutput", outputId });
+
+    expect(res.status).toBe(202);
+    expect(requirePlatformOwnerMock).toHaveBeenCalled();
+    expect(requestLayerizationMock).toHaveBeenCalledWith(expect.objectContaining({
+      workspaceId: "workspace-1",
+      workItemId: "work-1",
+      outputId,
+      userId: "owner-1",
+    }));
+  });
+
+  it("does not dispatch layerization for a non-owner", async () => {
+    requirePlatformOwnerMock.mockRejectedValue(new WorkspaceAuthError(AUTH_ERROR_CODES.forbidden, "Forbidden"));
+    const res = await requestPatch({
+      action: "layerizeOutput",
+      outputId: "00000000-0000-4000-8000-000000000099",
+    });
+
+    expect(res.status).toBe(403);
+    expect(requestLayerizationMock).not.toHaveBeenCalled();
   });
 
   it("autosaves only editable fields and preserves clientProfileId", async () => {
@@ -995,5 +1156,27 @@ describe("PATCH /api/creative-work/[id]", () => {
     );
 
     expect(res.status).toBe(422);
+  });
+});
+
+describe("POST /api/creative-work/[id] layerization callback", () => {
+  it("accepts a bounded callback only through the tokenized existing seam", async () => {
+    callbackHandlerMock.mockResolvedValue({ ok: true, replay: false });
+    const response = await POST(
+      new Request("http://localhost/api/creative-work/work-1?layerizeCallback=1&outputId=output-1&attemptId=attempt-1&token=token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "COMPLETED", request_id: "req-1", output: { layers: [] } }),
+      }),
+      { params: makeParams("work-1") },
+    );
+
+    expect(response.status).toBe(202);
+    expect(callbackHandlerMock).toHaveBeenCalledWith(expect.objectContaining({
+      workItemId: "work-1",
+      outputId: "output-1",
+      attemptId: "attempt-1",
+      token: "token",
+    }));
   });
 });

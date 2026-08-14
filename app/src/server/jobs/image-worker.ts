@@ -6,6 +6,7 @@ import { createDerivationJobV2 } from "./derivation";
 import { createCreativeWorkSourceAnalyzeJobV2 } from "./creative-work-source";
 import { createWorkspaceAssetAnalyzeJobV2 } from "./workspace-asset";
 import { createBrandTrainingAnalyzeJobV2 } from "./brand-training";
+import { createCreativeWorkLayerizationJobV2 } from "./creative-work-layerization";
 
 const REQUIRED_ENV = [
   "DATABASE_URL",
@@ -32,6 +33,7 @@ export function buildImageWorkerConnectOptions() {
     createCreativeWorkSourceAnalyzeJobV2(imageWorkerInngest),
     createWorkspaceAssetAnalyzeJobV2(imageWorkerInngest),
     createBrandTrainingAnalyzeJobV2(imageWorkerInngest),
+    createCreativeWorkLayerizationJobV2(imageWorkerInngest),
   ];
 
   return {

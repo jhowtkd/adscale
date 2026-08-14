@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   suggest: vi.fn(),
   upload: vi.fn(),
   retryOutput: vi.fn(),
+  layerizeOutput: vi.fn(),
   reviseOutput: vi.fn(),
   selectOutput: vi.fn(),
   linkCampaign: vi.fn(),
@@ -38,6 +39,7 @@ vi.mock("@/lib/hooks/use-creative-work", async (importOriginal) => ({
   useTriggerTriplet: () => ({ mutateAsync: mocks.generate, isPending: false }),
   useSuggestCreativeDirections: () => ({ mutateAsync: mocks.suggest, isPending: false }),
   useRetryOutput: () => ({ mutateAsync: mocks.retryOutput, isPending: false, variables: undefined }),
+  useLayerizeOutput: () => ({ mutateAsync: mocks.layerizeOutput, isPending: false, variables: undefined }),
   useReviseOutput: () => ({ mutateAsync: mocks.reviseOutput, isPending: false, variables: undefined }),
   useSelectOutput: () => ({ mutateAsync: mocks.selectOutput, isPending: false, variables: undefined }),
   useLinkCreativeWorkCampaign: () => ({ mutateAsync: mocks.linkCampaign, isPending: false }),
@@ -55,6 +57,9 @@ vi.mock("@/lib/assistant/chat-attachments", () => ({
 vi.mock("@/lib/api-client", () => ({
   apiFetch: (...args: unknown[]) => mocks.apiFetch(...args),
   isApiRequestUncertain: (error: unknown) => error instanceof Error && error.name === "TimeoutError",
+}));
+vi.mock("next-intl", () => ({
+  useTranslations: () => (key: string) => key,
 }));
 
 import { useCreativeComposer } from "./useCreativeComposer";

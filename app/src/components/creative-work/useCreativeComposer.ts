@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useTranslations } from "next-intl";
 import { z } from "zod";
 import { collectImageFiles, uploadChatAttachment } from "@/lib/assistant/chat-attachments";
 import { apiFetch, isApiRequestUncertain } from "@/lib/api-client";
@@ -13,6 +14,7 @@ import {
   useCreativeWorkSourceActions,
   usePrepareCreativeWork,
   useRetryOutput,
+  useLayerizeOutput,
   useReviseOutput,
   useSelectOutput,
   useDownloadOutputUrl,
@@ -148,6 +150,7 @@ export function useCreativeComposer({
   focusComposer?: boolean;
   initialTemplateId?: string;
 } = {}) {
+  const tResults = useTranslations("dashboard.home.composer.results");
   const active = useActiveClientProfile();
   const initialTargetFormats: Format[] = initialIntent === "format_adaptation"
     ? ["1:1", "9:16"]
@@ -249,6 +252,7 @@ export function useCreativeComposer({
   const generateMutation = useTriggerTriplet();
   const suggestDirectionMutation = useSuggestCreativeDirections();
   const retryOutputMutation = useRetryOutput();
+  const layerizeOutputMutation = useLayerizeOutput();
   const reviseOutputMutation = useReviseOutput();
   const selectOutputMutation = useSelectOutput();
   const linkCampaignMutation = useLinkCreativeWorkCampaign();
@@ -1107,6 +1111,16 @@ export function useCreativeComposer({
     }
   }, [retryOutputMutation]);
 
+  const layerizeOutput = useCallback(async (outputId: string, retry = false) => {
+    if (!workIdRef.current) return;
+    try {
+      await layerizeOutputMutation.mutateAsync({ workItemId: workIdRef.current, outputId, ...(retry ? { retry: true } : {}) });
+      setAnnouncement(retry ? tResults("layerizeRestarted") : tResults("layerizeStarted"));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : tResults("layerizeRequestFailed"));
+    }
+  }, [layerizeOutputMutation, tResults]);
+
   const approveOutput = useCallback(async (outputId: string, confirmObjective = false) => {
     if (!workIdRef.current) return;
     setApprovalErrorOutputId(null);
@@ -1273,11 +1287,18 @@ export function useCreativeComposer({
     workError: Boolean(workId && detailQuery.isError),
     addFiles, addInspiration, updateSource, editSource, retrySource, removeSource, generate,
     retryOutput, retryRevisionOutput, approveOutput, reviseOutput, linkCampaign,
+    canLayerize: detail?.canLayerize ?? false,
+    layerizeOutput,
+    downloadLayerizedOutput: (outputId: string, format: "psd" | "zip") => {
+      if (!workIdRef.current) return;
+      window.open(downloadOutputUrl(workIdRef.current, outputId, format), "_blank", "noopener,noreferrer");
+    },
     downloadOutput: (outputId: string) => {
       if (!workIdRef.current) return;
       window.open(downloadOutputUrl(workIdRef.current, outputId), "_blank", "noopener,noreferrer");
     },
     isRetryingOutput: (outputId: string) => retryOutputMutation.isPending && retryOutputMutation.variables?.outputId === outputId,
+    isLayerizingOutput: (outputId: string) => layerizeOutputMutation.isPending && layerizeOutputMutation.variables?.outputId === outputId,
     isApprovingOutput: (outputId: string) => selectOutputMutation.isPending && selectOutputMutation.variables?.outputId === outputId,
     isRevisingOutput: (outputId: string) => {
       if (!reviseOutputMutation.isPending) return false;

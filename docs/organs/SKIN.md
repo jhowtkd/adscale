@@ -20,6 +20,7 @@ Skin decides whether a derivation **may leave the body** for ads, delivery packa
 | Approval / package policy | `app/src/server/ai/client-approval-package.ts` |
 | UI mapping | `app/src/lib/derivation-display.ts` → `getExportDisplay` |
 | Review surface | `app/src/components/workspace/DerivationReviewSheet.tsx` |
+| Post-approval Peça export | `app/src/server/layerize/` → PSD/ZIP + fidelity |
 
 **Thesis:** a piece can be **pronta** in Gaze and **bloqueado** in Skin (or the reverse). The two truths must not collapse.
 
@@ -36,7 +37,12 @@ Hands complete image
   → assertDerivationApprovable (Gaze AND Skin)
 ```
 
-Skin does **not** call image models. It reclassifies gate evidence into an export payload.
+Skin does **not** call image models for generation. It reclassifies gate evidence into an export payload.
+
+After human approval of a Peça, Skin also owns the optional Layerize export:
+`src/server/layerize/` plus `creative-work.layerize` produce a positioned PSD
+and a diagnostic ZIP, and record numeric fidelity. That path is post-processing,
+not Hands generation, and stays off without `FAL_KEY`.
 
 Also consulted (read-only) when packaging / approving / some Cortex quick jobs that require an approvable source.
 

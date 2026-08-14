@@ -256,7 +256,7 @@ O tracer de #240 foi ampliado em #241 para 1:1, 4:5 e 9:16, com layouts limitado
 ### Arquivos
 
 - Modificar: `app/src/server/db/schema.ts`
-- Entregue: `app/drizzle/0084_brand_font_assets.sql` (`0083` pertence à layerization).
+- Entregue: `app/drizzle/0083_brand_font_assets.sql`.
 - Modificar: `app/drizzle/meta/_journal.json`
 - Criar: `app/src/server/brand-training/font-assets.ts`
 - Criar: `app/src/server/brand-training/font-assets.test.ts`
@@ -400,7 +400,7 @@ Guias enviados em `extract-multi` devem ser persistidos em `workspaceAssets` e v
 ### Arquivos
 
 - Modificar: `app/src/server/db/schema.ts`
-- Criar: `app/drizzle/0085_brand_knowledge.sql`
+- Criar: `app/drizzle/0084_brand_knowledge.sql`
 - Modificar: `app/drizzle/meta/_journal.json`
 - Criar: `app/src/server/brand-knowledge/contracts.ts`
 - Criar: `app/src/server/brand-knowledge/contracts.test.ts`

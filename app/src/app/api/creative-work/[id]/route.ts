@@ -9,6 +9,14 @@ import {
 import { analyzeCreativeWorkSource } from "@/server/application/analyze-creative-work-source";
 import { contentBriefSchema, styleBriefSchema } from "@/server/ai/image-analysis";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import { requirePlatformOwner } from "@/server/auth/require-platform-owner";
+import { requestCreativeWorkLayerization } from "@/server/application/request-creative-work-layerization";
+import {
+  handleCreativeWorkLayerizationCallback,
+} from "@/server/application/handle-creative-work-layerization-callback";
+import { recoverExpiredCreativeWorkLayerizations } from "@/server/application/recover-expired-creative-work-layerizations";
+import { toPublicLayerizationState } from "@/server/layerize/contracts";
+import { isPlatformOwnerEmail } from "@/server/auth/platform-owner";
 import { projectCreativeWorkAsCanonicalWork } from "@/server/creative-work/projection/from-creative-work";
 import {
   CREATIVE_SOURCE_USAGES,
@@ -46,6 +54,7 @@ import { decideCreativeWorkRefund } from "@/server/generation/canonical/policies
 import { settleTerminalRefund } from "@/server/generation/settlement";
 import type { CreativeWorkSource } from "@/server/db/schema";
 import { logger } from "@/lib/logger";
+import { env } from "@/server/validation/env";
 import {
   logCreativeWorkGenerationAggregate,
   logCreativeWorkOutputTerminal,
@@ -120,6 +129,11 @@ const resolveBrandConflictSchema = z.object({
   action: z.literal("resolveBrandConflict"),
   choice: z.enum(CREATIVE_WORK_BRAND_CHOICES),
 }).strict();
+const layerizeOutputSchema = z.object({
+  action: z.literal("layerizeOutput"),
+  outputId: z.string().uuid(),
+  retry: z.boolean().optional(),
+}).strict();
 const linkCampaignSchema = z.object({ action: z.literal("linkCampaign"), campaignId: z.string().min(1).nullable() }).strict();
 const sourceUsageSchema = z.enum(CREATIVE_SOURCE_USAGES);
 const attachSourceSchema = z.union([
@@ -139,6 +153,7 @@ const patchCreativeWorkSchema = z.union([
   autosaveSchema, prepareSchema, attachSourceSchema, updateSourceSchema,
   retrySourceSchema, removeSourceSchema, editSourceAnalysisSchema, confirmCreativeWorkSchema,
   linkCampaignSchema, resolveBrandConflictSchema,
+  layerizeOutputSchema,
 ]);
 
 function dispatchSourceAnalysis(workspaceId: string, workItemId: string, sourceId: string) {
@@ -197,7 +212,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const [{ workspace }, { id }] = await Promise.all([
+    const [{ workspace, user }, { id }] = await Promise.all([
       requireWorkspaceAccess(request),
       params,
     ]);
@@ -357,12 +372,25 @@ export async function GET(
     const inferredBriefing = result.work.toolKind === "single"
       ? resolveCreativeWorkInferredBriefing(result.work.inputSnapshot)
       : null;
+    const canLayerize = isPlatformOwnerEmail(user.email) && Boolean(env.FAL_KEY?.trim());
+    const recoveredLayerizations = canLayerize
+      ? await recoverExpiredCreativeWorkLayerizations({
+        workspaceId: workspace.id,
+        workItemId: id,
+        outputs: result.outputs,
+      })
+      : new Map();
+    const outputs = result.outputs.map((output) => ({
+      ...output,
+      layerization: canLayerize ? toPublicLayerizationState(recoveredLayerizations.get(output.id) ?? output.layerization) : null,
+    }));
     return NextResponse.json({
       work: {
         ...result.work,
         request: displayRequestForCreativeWork(result.work),
       },
-      outputs: result.outputs,
+      outputs,
+      canLayerize,
       sources,
       inferredBriefing,
       briefingFactPack: inferredBriefing ? resolveCreativeWorkFactPack(result.work.inputSnapshot) : null,
@@ -390,6 +418,38 @@ export async function PATCH(
     const parsed = patchCreativeWorkSchema.safeParse(await request.json());
     if (!parsed.success) {
       return apiError("invalidInput", 400, parsed.error.flatten());
+    }
+
+    if ("action" in parsed.data && parsed.data.action === "layerizeOutput") {
+      const [{ user }] = await Promise.all([requirePlatformOwner(request)]);
+      const callbackOrigin = env.APP_URL?.trim() || env.BETTER_AUTH_URL?.trim();
+      const callbackUrl = new URL(callbackOrigin ? `/api/creative-work/${id}` : request.url, callbackOrigin ?? undefined);
+      callbackUrl.search = "";
+      const result = await requestCreativeWorkLayerization({
+        workspaceId: workspace.id,
+        workItemId: id,
+        outputId: parsed.data.outputId,
+        userId: user.id,
+        callbackUrl: callbackUrl.toString(),
+        retry: parsed.data.retry,
+      });
+      if (!result.ok) {
+        switch (result.error.code) {
+          case "work_not_found": return apiError("creativeWorkNotFound", 404);
+          case "output_not_found": return apiError("creativeWorkOutputNotFound", 404);
+          case "output_not_eligible": return apiError("creativeWorkLayerizationNotEligible", 409);
+          case "layerization_not_configured": return apiError("creativeWorkLayerizationNotConfigured", 409);
+          case "already_running": return NextResponse.json({ state: toPublicLayerizationState(result.error.state), replay: true }, { status: 200 });
+          case "submission_unknown": return NextResponse.json({ state: toPublicLayerizationState(result.error.state), replay: true }, { status: 409 });
+          case "failed": return NextResponse.json({ state: toPublicLayerizationState(result.error.state), replay: true }, { status: 409 });
+          case "dispatch_failed": return apiError("creativeWorkLayerizationDispatchFailed", 503);
+        }
+      }
+      return NextResponse.json({
+        state: toPublicLayerizationState(result.state),
+        accepted: result.accepted,
+        replay: result.replay,
+      }, { status: result.accepted ? 202 : 200 });
     }
 
     if ("action" in parsed.data && parsed.data.action === "autosave") {
@@ -579,5 +639,46 @@ export async function PATCH(
     });
   } catch (error) {
     return handleApiError(error, "creative-work.[id].PATCH");
+  }
+}
+
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const url = new URL(request.url);
+  if (url.searchParams.get("layerizeCallback") !== "1") {
+    return apiError("invalidRequest", 400);
+  }
+  try {
+    const { id } = await params;
+    const outputId = url.searchParams.get("outputId");
+    const attemptId = url.searchParams.get("attemptId");
+    const token = url.searchParams.get("token");
+    const advertisedLength = Number(request.headers.get("content-length"));
+    if (!outputId || !attemptId || !token || outputId.length > 128 || attemptId.length > 128 || token.length > 128 || (Number.isFinite(advertisedLength) && advertisedLength > 256 * 1024)) {
+      return apiError("invalidRequest", 400);
+    }
+    const body = await request.arrayBuffer();
+    if (body.byteLength > 256 * 1024) return apiError("invalidRequest", 413);
+    let payload: unknown;
+    try {
+      payload = JSON.parse(new TextDecoder().decode(body)) as unknown;
+    } catch {
+      return apiError("invalidRequest", 400);
+    }
+    const result = await handleCreativeWorkLayerizationCallback({
+      workItemId: id,
+      outputId,
+      attemptId,
+      token,
+      payload,
+    });
+    if (!result.ok) {
+      return apiError(result.code === "unknown_attempt" ? "creativeWorkLayerizationNotFound" : "unauthorized", result.code === "unknown_attempt" ? 404 : 401);
+    }
+    return NextResponse.json({ accepted: true, replay: result.replay }, { status: 202 });
+  } catch (error) {
+    return handleApiError(error, "creative-work.[id].POST.layerize-callback");
   }
 }
