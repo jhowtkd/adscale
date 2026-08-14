@@ -3,19 +3,20 @@
 ## Tested revision
 
 ```text
-commit: f07864532339676f69139011dff8ce4d9e989804
-subject: fix: revalidate eligibility and stream diagnostic ZIP
-committed_at: 2026-08-13T09:50:00-03:00
+commit: 35fde18c7463dd62ca315ecd3f38ca7b63ca302c
+subject: chore: clean up layerize merge residue
+committed_at: 2026-08-13T20:56:37-03:00
 ```
 
-The commands below ran against that commit on `feat/227-seedream-layerize`.
-Untracked `.planning/seedream-layerize-*.md` files were left unstaged. No real
-`FAL_KEY`, fal request, paid generation, deploy, production authentication, or
-partner approval occurred.
-
-This supersedes the 2026-08-12 note that referenced `22452093` (not an ancestor
-of this PR) and a `convergence:gate` failure caused by Brand Fonts on the mixed
-branch.
+The commands below ran against that revision on `feat/227-seedream-layerize`.
+It includes the real-PostgreSQL selection-lock regression from `7fea3cdb` and
+the migration/catalog reconciliation through `0085` from the preceding
+closeout commits. No real `FAL_KEY` was supplied in any command environment;
+tests may use synthetic in-process values for disabled/enabled branch coverage.
+Existing `.planning/**` WIP was preserved outside this closeout and remains
+unstaged. The reconciled
+migration order is `0083_brand_font_assets`, `0084_brand_knowledge`,
+`0085_creative_work_layerization`.
 
 ## Command results
 
@@ -28,53 +29,68 @@ Postgres is ready.
 [✓] migrations applied successfully!
 ✅ Test database setup complete.
 URL: postgres://test:test@localhost:5433/adscale_test
+elapsed (capture): 2s
 exit: 0
 ```
 
-### TypeScript and Layerize tests
+### Focused Layerize suite
 
 ```text
-$ npm run typecheck
-> tsc --noEmit
-exit: 0
-
 $ DATABASE_URL=postgres://test:test@localhost:5433/adscale_test \
   TEST_DATABASE_URL=postgres://test:test@localhost:5433/adscale_test \
   NODE_ENV=test npm test -- --run \
   src/server/application/request-creative-work-layerization.test.ts \
   src/server/application/recover-expired-creative-work-layerizations.test.ts \
+  src/server/application/select-creative-work-output.test.ts \
+  src/server/repositories/creative-work.test.ts \
   src/server/repositories/creative-work-layerization.test.ts \
   src/server/jobs/creative-work-layerization.test.ts \
   src/server/layerize \
   'src/app/api/creative-work/[id]/route.test.ts' \
   tests/integration/creative-work-layerization-journey.test.ts \
+  tests/integration/creative-work-layerization-selection-lock.test.ts \
   src/components/creative-work/CreativeResultCard.test.tsx
-Test Files  9 passed (9)
-Tests       101 passed (101)
+Test Files  13 passed (13)
+Tests       188 passed (188)
+Duration    1.62s
+elapsed (capture): 2s
 exit: 0
 ```
 
-### Real-Postgres journey tracer
+The command contains 11 path arguments; Vitest expands the `src/server/layerize`
+directory into the two additional files reported above.
+
+### Real-PostgreSQL selection-lock race
 
 ```text
 $ DATABASE_URL=postgres://test:test@localhost:5433/adscale_test \
   TEST_DATABASE_URL=postgres://test:test@localhost:5433/adscale_test \
-  NODE_ENV=test npm test -- --run tests/integration/creative-work-layerization-journey.test.ts
+  NODE_ENV=test npm test -- --run \
+  tests/integration/creative-work-layerization-selection-lock.test.ts
 Test Files  1 passed (1)
 Tests       1 passed (1)
-Duration    242ms
+Duration    684ms
+elapsed (capture): 1s
 exit: 0
 ```
 
-The tracer uses a real Better Auth session cookie, workspace authorization,
-Postgres, application services, and repositories. These seams stay intercepted:
+This uses the real test PostgreSQL database and the public selection/claim
+repository functions. It does not make a fal HTTP request or perform a paid
+operation.
 
-- `inngest.send` does not travel through `/api/inngest` or Inngest Cloud
-- continuation calls exported `layerizationJobHandler` in-process
-- `objectStorage` methods are delegated to `InMemoryObjectStorage`, not R2
-- fal HTTP is a fake server
+### Journey tracer boundaries
 
-It does not prove Inngest registration, R2, deployment, or paid generation.
+The Layerize journey exercises a real local Better Auth session cookie,
+workspace authorization, PostgreSQL, application services, and repositories.
+These four seams remain intentionally intercepted:
+
+- `inngest.send` does not travel through `/api/inngest` or Inngest Cloud.
+- The continuation calls the exported `layerizationJobHandler` in-process.
+- `objectStorage` delegates to `InMemoryObjectStorage`, not an external storage service.
+- fal HTTP is a fake server.
+
+The journey therefore does not prove Inngest registration, external storage,
+deployment, or paid provider behavior.
 
 ### Full automated suite
 
@@ -82,47 +98,106 @@ It does not prove Inngest registration, R2, deployment, or paid generation.
 $ DATABASE_URL=postgres://test:test@localhost:5433/adscale_test \
   TEST_DATABASE_URL=postgres://test:test@localhost:5433/adscale_test \
   NODE_ENV=test npm test
-Test Files  1 failed | 667 passed (668)
-Tests       1 failed | 4844 passed | 1 skipped (4846)
-Duration    104.48s
+Test Files  1 failed | 688 passed (689)
+Tests       1 failed | 4951 passed | 1 skipped (4953)
+Duration    60.39s
+elapsed (capture): 61s
 exit: 1
 ```
 
-The single failure is pre-existing on `origin/main` and outside this diff:
-`artifact-version.test.ts` expects `"Operation ID reused for a different command"`
-while the implementation throws `"Operation ID belongs to a different promotion command"`.
+The failure is in `src/server/repositories/artifact-version.test.ts`: it
+expects `Operation ID reused for a different command`, while the implementation
+throws `Operation ID belongs to a different promotion command`. That file is
+unchanged versus `origin/main`, which has the same assertion; this explains the
+scope of the failure but does not make the full suite green.
 
-### Lint and production build
+### Typecheck and lint
 
 ```text
-$ npm run lint
-✖ 113 problems (0 errors, 113 warnings)
+$ npm run typecheck
+> tsc --noEmit
+elapsed (capture): 2s
 exit: 0
 
-$ npm run build
-✓ Compiled successfully in 29.6s
-Finished TypeScript in 22.9s
-✓ Generating static pages using 9 workers (94/94)
-[prepare-standalone] copied static: 538 files
-[prepare-standalone] copied public: 19 files
+$ npm run lint
+✖ 111 problems (0 errors, 111 warnings)
+elapsed (capture): 14s
 exit: 0
 ```
 
-The lint warnings predate this layerization diff. The build used dummy CI
-secrets; `FAL_KEY` was not set.
+### Build
+
+The requested bare invocation was also recorded:
+
+```text
+$ npm run build
+Error: Env validation failed for DATABASE_URL: Required
+Failed to collect page data for /api/admin/quality/brands
+elapsed (capture): 45s
+exit: 1
+```
+
+The same local build was then run with the required non-production dummy
+environment, a local test `DATABASE_URL`, and `FAL_KEY` still unset:
+
+```text
+$ [required local dummy environment; FAL_KEY unset] npm run build
+✓ Compiled successfully
+✓ Finished TypeScript
+✓ Generating static pages using 9 workers (94/94)
+[prepare-standalone] copied static: 545 files
+[prepare-standalone] copied public: 19 files
+elapsed (capture): 30s
+exit: 0
+```
+
+This is local compilation evidence only; it is not deployment or production
+acceptance.
 
 ### Convergence
 
 ```text
 $ npm run convergence:gate
 PRIMARY-DESTINATIONS: no expansion detected vs base "origin/main".
-FROZEN-MODULES: reviewed 6 commit(s) in d7e1971784..HEAD; no freeze violations.
-PLANNING-CONSISTENCY: ok
+FROZEN-MODULES: reviewed 15 commit(s) in 676d029a..HEAD; no freeze violations.
+PLANNING-CONSISTENCY: ok (22 complete, 0 open, 0 accepted_debt)
 SURFACE-INVENTORY: ok
-NO-PARALLEL-PREVIEW: ok
+NO-PARALLEL-PREVIEW: ok (no /v6 route tree or route literals)
 CONVERGENCE-GATE: all gates passed.
+elapsed (capture): 1s
 exit: 0
 ```
 
-The previous Brand Fonts anti-expansion failure is absent from this branch.
-`FAL_KEY` remains unset. `#235` stays `ready-for-human`.
+### Repository integrity and Graphify
+
+```text
+$ git diff --check origin/main...HEAD
+elapsed (capture): 0s
+exit: 0
+
+$ graphify update .
+[graphify watch] No code-graph topology changes detected; outputs left untouched.
+Code graph updated.
+elapsed (capture): 19s
+exit: 0
+
+$ git status --short graphify-out
+[no output]
+exit: 0
+```
+
+Graphify reported warnings for 102 source files producing zero nodes and 89
+SQL files without the optional `tree_sitter_sql` dependency, but it detected no
+topology change and produced no worktree diff.
+
+## Negative claims and human gate
+
+No real `FAL_KEY`, fal request, paid generation, deploy, production
+authentication, partner approval, push, or merge occurred. `#235` remains
+`ready-for-human`. Local automated checks do not establish CI status,
+mergeability, external storage behavior, provider economics, PSD application
+compatibility, or paid acceptance.
+
+The full suite remains blocked by the unrelated `artifact-version.test.ts`
+assertion above; this evidence commit records that failed validation state and
+does not authorize merge, deploy, or release.
