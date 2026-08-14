@@ -539,6 +539,7 @@
         "textLayout_top": "Top",
         "textLayout_center": "Center",
         "textLayout_bottom": "Bottom",
+        "textLayout_side": "Editorial side",
         "brandFont": "Brand font",
         "brandFontChoose": "Choose a font",
         "directionHelpLabel": "Help with {direction}",

@@ -37,7 +37,9 @@ function buildFixedContract(
   },
 ): string {
   if (input.textExecution === "deterministic") {
-    const band = input.textLayout === "bottom"
+    const band = input.textLayout === "side"
+      ? "right-side"
+      : input.textLayout === "bottom"
       ? "bottom"
       : input.textLayout === "center"
         ? "central"
@@ -46,8 +48,9 @@ function buildFixedContract(
       "DETERMINISTIC TEXT CONTRACT:",
       `FORMAT: ${input.format}`,
       "Do not render any visible text, letters, words, labels or CTA in the image.",
-      "PROVIDER-ONLY LAYER: render only the abstract background; do not draw any logo, wordmark, monogram, brand name, symbol or other brand mark. The approved logo and copy are added by the application after generation.",
+      "PROVIDER-ONLY LAYER: render only the art-directed visual layer; do not draw any text, logo, wordmark, monogram, brand name, symbol or other brand mark. Non-semantic visual subjects requested by the operator may be rendered. The approved logo and copy are added by the application after generation.",
       `Generate only the visual background and leave the ${band} composition band visually calm and free of focal content for deterministic text composition after generation.`,
+      `Do not place faces, people, products or other focal subjects inside the ${band} composition band; keep requested subjects legible outside that band.`,
       "Exact brand assets and approved copy will be composited after generation.",
     ].join("\n");
   }
@@ -65,11 +68,24 @@ function buildFixedContract(
 function buildProviderOnlyLayerOverride(): string {
   return [
     "PROVIDER-ONLY LAYER OVERRIDE — HIGHEST PRIORITY:",
-    "Return only a quiet non-semantic color field or smooth gradient background.",
-    "Do not add shapes, marks, diagrams, typography, lettering, numerals, logos, symbols, people, products or recognizable entities.",
+    "Return a brand-safe art-directed visual layer: an atmospheric background plus non-semantic visual subjects explicitly requested in the operator visual direction. Human professionals, portraits, photo crops, editorial cards, shapes and diagrams are allowed when requested.",
+    "Never add visible text, lettering, numerals, logos, symbols, offers, claims, prices, dates or CTAs. Do not invent products or branded entities.",
     "The application owns every visible brand and content layer after generation.",
     "Keep the reserved composition band calm and free of focal content.",
   ].join("\n");
+}
+
+function buildOperatorVisualDirection(
+  request: string,
+  copy: SocialPostCopy,
+): string {
+  let direction = request.trim();
+  for (const literal of [copy.headline, copy.body, copy.cta]) {
+    if (literal.trim().length > 0) {
+      direction = direction.split(literal).join("[approved copy omitted]");
+    }
+  }
+  return direction || "(none provided)";
 }
 
 function buildProviderOnlyPrompt(input: {
@@ -99,6 +115,8 @@ function buildProviderOnlyPrompt(input: {
     "",
     "ABSTRACT COLOR GUIDANCE:",
     `Use only these approved palette colors as abstract atmosphere and contrast guidance: ${colors}`,
+    "OPERATOR VISUAL DIRECTION (use for visual motifs and composition only; do not reproduce its wording):",
+    buildOperatorVisualDirection(input.inputSnapshot.request, input.copy),
     "Do not infer or reproduce any brand identity from text; the application owns all semantic content and exact assets.",
     ...(input.correction ? ["", buildObjectiveCorrectionBlock(input.correction)] : []),
     "",

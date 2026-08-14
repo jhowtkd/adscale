@@ -53,7 +53,7 @@ type DraftSnapshot = {
   settings: {
     targetFormats: Format[];
     formatMode: "auto" | "manual";
-    textLayout?: "top" | "center" | "bottom";
+    textLayout?: "top" | "center" | "bottom" | "side";
     fontAssetKey?: string;
     directionPool?: CreativeDirectionPool;
   };
@@ -161,7 +161,7 @@ export function useCreativeComposer({
   const [format, setFormat] = useState<Format>("4:5");
   const [formatMode, setFormatMode] = useState<"auto" | "manual">("auto");
   const [targetFormats, setTargetFormats] = useState<Format[]>(initialTargetFormats);
-  const [textLayout, setTextLayout] = useState<"top" | "center" | "bottom">("top");
+  const [textLayout, setTextLayout] = useState<"top" | "center" | "bottom" | "side">("top");
   const [fontAssetKey, setFontAssetKey] = useState<string | null>(null);
   const [directionPool, setDirectionPool] = useState<CreativeDirectionPool | null>(
     initialIntent === "variations" ? createDefaultCreativeDirectionPool() : null,
@@ -213,7 +213,7 @@ export function useCreativeComposer({
   const intentRef = useRef(intent);
   const formatRef = useRef(format);
   const targetFormatsRef = useRef(targetFormats);
-  const textLayoutRef = useRef<"top" | "center" | "bottom">("top");
+  const textLayoutRef = useRef<"top" | "center" | "bottom" | "side">("top");
   const fontAssetKeyRef = useRef<string | null>(null);
   const directionPoolRef = useRef<CreativeDirectionPool | null>(directionPool);
   const formatModeRef = useRef<"auto" | "manual">("auto");
@@ -1257,7 +1257,7 @@ export function useCreativeComposer({
     },
     targetFormats, toggleTargetFormat,
     textLayout,
-    setTextLayout: (value: "top" | "center" | "bottom") => {
+    setTextLayout: (value: "top" | "center" | "bottom" | "side") => {
       textLayoutRef.current = value;
       setTextLayout(value);
     },

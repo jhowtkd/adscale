@@ -1,7 +1,7 @@
 import type { BrandFontAsset } from "../brand-training/font-assets";
 import type { CreativeWorkFormat } from "./contracts";
 
-export const TEXT_LAYOUTS = ["top", "center", "bottom"] as const;
+export const TEXT_LAYOUTS = ["top", "center", "bottom", "side"] as const;
 export type TextLayout = (typeof TEXT_LAYOUTS)[number];
 
 interface TypographyPolicy {
