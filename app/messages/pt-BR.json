@@ -575,6 +575,7 @@
         "textLayout_top": "Superior",
         "textLayout_center": "Central",
         "textLayout_bottom": "Inferior",
+        "textLayout_side": "Lateral editorial",
         "brandFont": "Fonte da marca",
         "brandFontChoose": "Escolha uma fonte",
         "directionHelpLabel": "Ajuda sobre {direction}",

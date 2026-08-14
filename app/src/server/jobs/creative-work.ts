@@ -698,18 +698,11 @@ const creativeWorkOutputJobHandler = async ({
             .filter((asset) => asset.usageMode === "exact" && asset.category === "logo")
             .map((asset) => asset.label),
         );
-        const hasDeterministicExactLogo =
-          work.toolKind === "single"
-          && typographyPlan?.execution === "deterministic"
-          && exactLogoLabels.size > 0;
         const referenceAssets = identitySnapshot.assets
           .filter((asset) => asset.usageMode === "reference")
           // The exact logo is composited after generation. Sending the same
           // logo as a provider reference invites a second, model-drawn mark.
           .filter((asset) => !exactLogoLabels.has(asset.label))
-          // Style boards can contain the same logo under an unrelated filename.
-          // When exact composition is active, keep provider inputs brand-mark free.
-          .filter((asset) => !(hasDeterministicExactLogo && asset.category === "visual_reference"))
           .slice(0, MAX_REFERENCE_IMAGES);
 
         if (output.parentOutputId && (!parentOutput?.outputKey || parentOutput.status !== "completed")) {

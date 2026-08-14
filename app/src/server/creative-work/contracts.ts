@@ -368,7 +368,7 @@ export const creativeDirectionPoolSchema = z.object({
 export const creativeWorkSettingsSchema = z.object({
   targetFormats: z.array(creativeWorkFormatSchema),
   formatMode: z.enum(["auto", "manual"]).optional(),
-  textLayout: z.enum(["top", "center", "bottom"]).optional(),
+  textLayout: z.enum(["top", "center", "bottom", "side"]).optional(),
   fontAssetKey: z.string().trim().min(1).optional(),
   brandConflictChoice: z.enum(CREATIVE_WORK_BRAND_CHOICES).optional(),
   brandConflictDetectedBrand: z.string().trim().min(1).optional(),

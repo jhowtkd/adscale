@@ -555,7 +555,7 @@ export function CreativeComposer({ composer, composerRef }: {
                 onChange={(event) => composer.setTextLayout(event.target.value as typeof composer.textLayout)}
                 className="w-full rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
               >
-                {(["top", "center", "bottom"] as const).map((layout) => (
+                {(["top", "center", "bottom", "side"] as const).map((layout) => (
                   <option key={layout} value={layout}>{t(`textLayout_${layout}`)}</option>
                 ))}
               </select>

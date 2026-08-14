@@ -569,13 +569,51 @@ describe("buildCreativeWorkPrompt", () => {
 
     expect(prompt).toContain("DETERMINISTIC TEXT CONTRACT:");
     expect(prompt).toContain("Do not render any visible text, letters, words, labels or CTA");
-    expect(prompt).toContain("PROVIDER-ONLY LAYER: render only the abstract background");
+    expect(prompt).toContain("PROVIDER-ONLY LAYER: render only the art-directed visual layer");
     expect(prompt).toContain("PROVIDER-ONLY LAYER OVERRIDE — HIGHEST PRIORITY:");
     expect(prompt).toContain("The application owns every visible brand and content layer after generation.");
     expect(prompt).toContain(`leave the ${band} composition band visually calm`);
     expect(prompt).not.toContain(deterministicCopy.headline);
     expect(prompt).not.toContain(deterministicCopy.body);
     expect(prompt).not.toContain(deterministicCopy.cta);
+  });
+
+  it("keeps requested visual subjects while redacting deterministic copy", () => {
+    const prompt = buildCreativeWorkPrompt(
+      creativeWorkPromptInput({
+        mode: "social_post",
+        copy: {
+          headline: "Headline literal",
+          body: "Body literal",
+          cta: "CTA literal",
+        },
+        inputSnapshot: {
+          request: "Use a warm portrait of a physician in a white coat beside editorial photo cards. Headline literal",
+          settings: { targetFormats: [] },
+          sources: [],
+          typographyPlan: {
+            version: 1,
+            execution: "deterministic",
+            format: "4:5",
+            requestedLayout: "top",
+            fontAssetKey: "fonts/geist.ttf",
+            fontSelection: "operator_selected",
+            overflowPolicy: { strategy: "autofit_then_fail", minimumDpi: { headline: 96, body: 72, cta: 72 } },
+            collisionPolicy: "relocate_layout_then_fail",
+            contrastPolicy: "brand_plate_wcag_aa",
+            safeAreaPolicy: "format_default",
+          },
+        },
+        textExecution: "deterministic",
+      }),
+    );
+
+    expect(prompt).toContain("portrait of a physician in a white coat");
+    expect(prompt).toContain("non-semantic visual subjects explicitly requested");
+    expect(prompt).toContain("[approved copy omitted]");
+    expect(prompt).not.toContain("Headline literal");
+    expect(prompt).not.toContain("Body literal");
+    expect(prompt).not.toContain("CTA literal");
   });
 
   it("makes deterministic generation textually brand-mark free", () => {

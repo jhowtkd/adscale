@@ -87,6 +87,16 @@ function panelForLayout(
   dimensions: { width: number; height: number },
 ): TextBox {
   const safe = safeArea(format, dimensions);
+  if (layout === "side") {
+    const width = Math.round(dimensions.width * 0.4);
+    const height = Math.min(Math.round(dimensions.height * 0.56), 1080);
+    return {
+      left: dimensions.width - safe.right - width,
+      top: Math.max(safe.top, Math.round(dimensions.height * 0.16)),
+      width,
+      height,
+    };
+  }
   const height = Math.min(Math.round(dimensions.height * 0.46), 560);
   const top = layout === "top"
     ? safe.top
@@ -96,7 +106,10 @@ function panelForLayout(
   return { left: safe.left, top, width: safe.width, height };
 }
 
-function boxesForPanel(panel: TextBox): Array<{ role: TextRole; box: TextBox }> {
+function boxesForPanel(
+  panel: TextBox,
+  layout: TextLayout,
+): Array<{ role: TextRole; box: TextBox }> {
   const inset = Math.max(32, Math.round(panel.width * 0.04));
   const gap = 20;
   const innerWidth = panel.width - inset * 2;
@@ -106,7 +119,7 @@ function boxesForPanel(panel: TextBox): Array<{ role: TextRole; box: TextBox }> 
   return [
     { role: "headline", box: { left: panel.left + inset, top: panel.top + inset, width: innerWidth, height: headlineHeight } },
     { role: "body", box: { left: panel.left + inset, top: panel.top + inset + headlineHeight + gap, width: innerWidth, height: bodyHeight } },
-    { role: "cta", box: { left: panel.left + inset, top: panel.top + panel.height - inset - ctaHeight, width: Math.round(innerWidth * 0.48), height: ctaHeight } },
+    { role: "cta", box: { left: panel.left + inset, top: panel.top + panel.height - inset - ctaHeight, width: Math.round(innerWidth * (layout === "side" ? 0.86 : 0.48)), height: ctaHeight } },
   ];
 }
 
@@ -136,7 +149,7 @@ function chooseLayout(input: {
 }) {
   const layouts: TextLayout[] = [
     input.requested,
-    ...(["top", "center", "bottom"] as const).filter((layout) => layout !== input.requested),
+    ...(["top", "center", "bottom", "side"] as const).filter((layout) => layout !== input.requested),
   ];
   for (const layout of layouts) {
     const panel = panelForLayout(layout, input.format, input.dimensions);
@@ -190,6 +203,7 @@ async function renderText(input: {
   font: BrandFontAsset;
   fontPath: string;
   color: string;
+  layout: TextLayout;
 }) {
   const result = await sharp({
     text: {
@@ -199,7 +213,7 @@ async function renderText(input: {
       width: input.box.width,
       height: input.box.height,
       align: "left",
-      wrap: "word-char",
+      wrap: input.layout === "side" ? "word" : "word-char",
       rgba: true,
     },
   }).png().toBuffer({ resolveWithObject: true });
@@ -230,7 +244,7 @@ export async function runTextComposition(input: {
     dimensions: input.dimensions,
     occupiedBoxes: input.occupiedBoxes,
   });
-  const layers = boxesForPanel(selected.panel);
+  const layers = boxesForPanel(selected.panel, selected.layout);
   const safe = safeArea(input.typographyPlan.format, input.dimensions);
   if (![selected.panel, ...layers.map((layer) => layer.box)].every(
     (box) => isInsideSafeArea(box, safe, input.dimensions),
@@ -249,20 +263,27 @@ export async function runTextComposition(input: {
       font: input.font,
       fontPath,
       color: palette.text,
+      layout: selected.layout,
     })),
   })));
-  const panelBuffer = await sharp({
-    create: {
-      width: selected.panel.width,
-      height: selected.panel.height,
-      channels: 4,
-      background: palette.panel,
-    },
-  }).png().toBuffer();
+  const panelBuffer = selected.layout === "side"
+    ? null
+    : await sharp({
+        create: {
+          width: selected.panel.width,
+          height: selected.panel.height,
+          channels: 4,
+          background: palette.panel,
+        },
+      }).png().toBuffer();
+  const ctaPlate = selected.layout === "side"
+    ? await sharp(Buffer.from(`<svg width="${layers[2]!.box.width}" height="${layers[2]!.box.height}" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" rx="${Math.round(layers[2]!.box.height / 2)}" fill="#4DBF93"/></svg>`)).png().toBuffer()
+    : null;
   const buffer = await sharp(input.base)
     .resize(input.dimensions.width, input.dimensions.height, { fit: "cover" })
     .composite([
-      { input: panelBuffer, left: selected.panel.left, top: selected.panel.top },
+      ...(panelBuffer ? [{ input: panelBuffer, left: selected.panel.left, top: selected.panel.top }] : []),
+      ...(ctaPlate ? [{ input: ctaPlate, left: layers[2]!.box.left, top: layers[2]!.box.top }] : []),
       ...rendered.map((layer) => ({ input: layer.buffer, left: layer.box.left, top: layer.box.top })),
     ])
     .png()
