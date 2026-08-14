@@ -137,6 +137,65 @@ describe("runSquareTextComposition", () => {
     }
   });
 
+  it("keeps a side CTA on one line inside a padded pill", async () => {
+    const dimensions = { width: 1080, height: 1920 };
+    const base = await sharp({
+      create: { width: dimensions.width, height: dimensions.height, channels: 3, background: "#071522" },
+    }).png().toBuffer();
+    const fontBuffer = await readFile(join(
+      process.cwd(),
+      "node_modules/next/dist/compiled/@vercel/og/Geist-Regular.ttf",
+    ));
+    const font = {
+      assetKey: "fonts/geist.ttf",
+      family: "Geist",
+      source: "Licença do projeto",
+      weight: 400 as const,
+      style: "normal" as const,
+      sha256: createHash("sha256").update(fontBuffer).digest("hex"),
+      approvedAt: "2026-08-12T12:00:00.000Z",
+      approvedByUserId: "user-1",
+    };
+    const typographyPlan = buildTypographyPlan({
+      format: "9:16",
+      requestedLayout: "side",
+      selectedFontAssetKey: font.assetKey,
+      fonts: [font],
+    });
+    if (typographyPlan.execution !== "deterministic") throw new Error("test plan must be deterministic");
+
+    const result = await runTextComposition({
+      base,
+      dimensions,
+      copy: {
+        headline: "Presença que acolhe",
+        body: "Educação médica em uma linguagem humana, clara e próxima.",
+        cta: "Conheça a Cenbrap",
+      },
+      font,
+      fontBuffer,
+      typographyPlan,
+      brandColors: ["#071522"],
+      occupiedBoxes: [],
+    });
+
+    const ctaLayer = result.provenance.layers.find((layer) => layer.role === "cta");
+    expect(ctaLayer?.box).toEqual({ left: 639, top: 1242, width: 272, height: 108 });
+
+    const { data, info } = await sharp(result.buffer).raw().toBuffer({ resolveWithObject: true });
+    const whiteRows = new Set<number>();
+    for (let y = 1242; y < 1350; y += 1) {
+      for (let x = 639; x < 911; x += 1) {
+        const offset = (y * info.width + x) * info.channels;
+        if ((data[offset] ?? 0) > 200 && (data[offset + 1] ?? 0) > 200 && (data[offset + 2] ?? 0) > 200) {
+          whiteRows.add(y);
+        }
+      }
+    }
+    expect(whiteRows.size).toBeGreaterThan(0);
+    expect(Math.max(...whiteRows) - Math.min(...whiteRows) + 1).toBeLessThan(70);
+  });
+
   it("relocates text away from an exact asset and fails when every layout collides", async () => {
     const dimensions = { width: 1080, height: 1920 };
     const base = await sharp({
