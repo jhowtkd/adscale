@@ -224,6 +224,7 @@ No real `FAL_KEY`, fal request, paid generation, deploy, production
 authentication/browser smoke, partner approval, or push occurred. No merge of
 PR #249 into `main` occurred; this statement is limited to `main` and does not
 describe the branch's local commit history.
+`#235` remains `ready-for-human`; no paid pilot or partner approval is implied.
 
 Local automated checks do not establish CI status, remote mergeability,
 deployment, external/R2 storage behavior, provider economics, PSD application
