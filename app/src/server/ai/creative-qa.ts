@@ -537,7 +537,7 @@ function creativeWorkQaModePolicy(mode: GenerationMode): string {
       return [
         "MODE POLICY — SINGLE PIECE / VARIATION:",
         "- The piece must preserve every REQUIRED fact and the authoritative brand exactly; visual language may vary freely within the creative level.",
-        "- Rendered facts or claims with no origin in the fact pack or request are unsupported_claim; a rendered brand different from the authoritative one is wrong_brand.",
+        "- Rendered facts or claims with no origin in the fact pack, request, validated copy or authoritative brand are unsupported_claim; a rendered brand different from the authoritative one is wrong_brand.",
       ].join("\n");
   }
 }
@@ -586,7 +586,7 @@ You decide ONLY objective integrity. Composition, impact, originality, rhythm, d
 
 ## Objective failure codes (the only values allowed in findings[].code)
 - missing_required_fact: a REQUIRED fact from the fact pack is absent or altered in the rendered piece.
-- unsupported_claim: the piece renders a factual claim (price, date, offer, condition, credential, guarantee, benefit, proof, named entity) with no origin in the fact pack or request.
+- unsupported_claim: the piece renders a factual claim (price, date, offer, condition, credential, guarantee, benefit, proof, named entity) with no origin in the fact pack, request, validated copy or authoritative brand.
 - wrong_brand: the rendered brand, logo, product or service is wrong — including a prohibited brand element.
 - style_reference_contamination: facts, copy, brand or the complete ad layout were copied from the STYLE reference instead of the content authority.
 - ignored_mandatory_reference: a required reference was visibly ignored (for example an adaptation that does not preserve the original art).
@@ -600,7 +600,8 @@ You decide ONLY objective integrity. Composition, impact, originality, rhythm, d
 
 ${factPackSection(input)}
 
-## VALIDATED COPY (textual authority chosen before generation)
+## VALIDATED COPY (approved textual authority chosen before generation)
+- Exact or semantically equivalent rendering of this headline, body or CTA is authorized and is not an unsupported_claim merely because it is not repeated in the fact pack.
 - HEADLINE: ${input.copy.headline}
 - BODY: ${input.copy.body}
 - CTA: ${input.copy.cta}

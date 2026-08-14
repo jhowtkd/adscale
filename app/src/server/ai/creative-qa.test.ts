@@ -569,6 +569,8 @@ describe("buildCreativeWorkQaPrompt", () => {
     const prompt = buildCreativeWorkQaPrompt(baseInput);
     expect(prompt).toContain("HEADLINE: Últimas vagas");
     expect(prompt).toContain("CTA: Inscreva-se");
+    expect(prompt).toMatch(/approved textual authority/i);
+    expect(prompt).toMatch(/not an unsupported_claim merely because it is not repeated in the fact pack/i);
     expect(prompt).toContain('- #1 [brand_identity] "Mood"');
     expect(prompt).toContain("image #1 is the attached image in this position");
   });
