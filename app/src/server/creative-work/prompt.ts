@@ -545,10 +545,10 @@ export function buildCreativeWorkPrompt(input: BuildCreativeWorkPromptInput): st
     referenceModeBlock,
     "",
     reservedPlacementsBlock,
+    ...(input.correction ? ["", buildObjectiveCorrectionBlock(input.correction)] : []),
     ...(input.textExecution === "deterministic"
       ? ["", buildProviderOnlyLayerOverride()]
       : []),
-    ...(input.correction ? ["", buildObjectiveCorrectionBlock(input.correction)] : []),
   ].join("\n");
 
   if (prompt.length > PROMPT_SIZE_WARN_CHARS) {
