@@ -1,9 +1,9 @@
 /**
  * Real-PostgreSQL regression for the selected-Peça Layerize lock.
  *
- * Both repository calls start behind the same in-process barrier. PostgreSQL
- * decides which row lock wins; the invariant is that claim and selection can
- * never both commit successfully.
+ * A test transaction holds the currently selected output with FOR UPDATE
+ * before both repository calls start. PostgreSQL must show both public
+ * queries waiting on that real lock before the transaction is released.
  *
  * Requires:
  *   DATABASE_URL=postgres://test:test@localhost:5433/adscale_test \
@@ -11,7 +11,7 @@
  *   npm test -- --run tests/integration/creative-work-layerization-selection-lock.test.ts
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 
 import { db } from "@/server/db";
 import {
@@ -34,6 +34,18 @@ const createdWorkspaceIds: string[] = [];
 
 let workspaceId = "";
 let clientProfileId = "";
+const LOCK_WAITER_TIMEOUT_MS = 5_000;
+
+type LockWaiter = {
+  pid: number;
+  query: string;
+  wait_event_type: string | null;
+  wait_event: string | null;
+  locktype: string;
+  mode: string;
+  relation: string | null;
+  transactionid: string | null;
+};
 
 function queuedState(attemptId: string): LayerizationState {
   const now = new Date();
@@ -61,12 +73,99 @@ function queuedState(attemptId: string): LayerizationState {
   };
 }
 
-function controlledStart() {
-  let release!: () => void;
-  const wait = new Promise<void>((resolve) => {
-    release = resolve;
+function deferred() {
+  let resolve!: () => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<void>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
   });
-  return { wait, release };
+  return { promise, resolve, reject };
+}
+
+async function holdSelectedOutputLock(
+  workspaceId: string,
+  workItemId: string,
+  outputId: string,
+) {
+  const acquired = deferred();
+  const release = deferred();
+  const transaction = db.transaction(async (tx) => {
+    const [selected] = await tx
+      .select({ id: creativeWorkOutputs.id })
+      .from(creativeWorkOutputs)
+      .where(and(
+        eq(creativeWorkOutputs.workspaceId, workspaceId),
+        eq(creativeWorkOutputs.workItemId, workItemId),
+        eq(creativeWorkOutputs.id, outputId),
+        eq(creativeWorkOutputs.isSelected, true),
+      ))
+      .for("update");
+    if (!selected) {
+      throw new Error(`Selected output ${outputId} was not found for lock holder`);
+    }
+    acquired.resolve();
+    await release.promise;
+  });
+  void transaction.catch((error: unknown) => acquired.reject(error));
+
+  try {
+    await acquired.promise;
+  } catch (error) {
+    release.resolve();
+    await transaction.catch(() => undefined);
+    throw error;
+  }
+
+  return { transaction, release: release.resolve };
+}
+
+async function waitForCreativeWorkLockWaiters(): Promise<LockWaiter[]> {
+  const deadline = Date.now() + LOCK_WAITER_TIMEOUT_MS;
+  let lastWaiters: LockWaiter[] = [];
+
+  while (Date.now() < deadline) {
+    const result = await db.execute<LockWaiter>(sql`
+      select distinct on (activity.pid)
+        activity.pid,
+        activity.query,
+        activity.wait_event_type,
+        activity.wait_event,
+        locks.locktype,
+        locks.mode,
+        locks.relation::regclass::text as relation,
+        locks.transactionid::text as transactionid
+      from pg_stat_activity as activity
+      join pg_locks as locks on locks.pid = activity.pid
+      where activity.pid <> pg_backend_pid()
+        and activity.wait_event_type = 'Lock'
+        and locks.granted = false
+        and activity.query ilike ${"%creative_work_outputs%"}
+      order by activity.pid, locks.locktype
+    `);
+    const waiters = Array.from(new Map(
+      result.rows.map((waiter) => [waiter.pid, waiter]),
+    ).values());
+    lastWaiters = waiters;
+
+    const hasSelectionWaiter = waiters.some(({ query }) =>
+      /select[\s\S]*for update/i.test(query),
+    );
+    const hasClaimWaiter = waiters.some(({ query }) =>
+      /update[\s\S]*creative_work_outputs/i.test(query),
+    );
+    if (waiters.length >= 2 && hasSelectionWaiter && hasClaimWaiter) {
+      return waiters;
+    }
+
+    await new Promise<void>((resolve) => setImmediate(resolve));
+  }
+
+  throw new Error(
+    `Timed out after ${LOCK_WAITER_TIMEOUT_MS}ms waiting for two creative_work_outputs lock waiters: ${
+      JSON.stringify(lastWaiters)
+    }`,
+  );
 }
 
 async function createRace(index: number) {
@@ -156,42 +255,63 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)(
     it("allows exactly one winner when Layerize claim races a new selection", async () => {
       for (let index = 0; index < 12; index += 1) {
         const race = await createRace(index);
-        const start = controlledStart();
-
-        const claimPromise = start.wait.then(() => claimCreativeWorkLayerization({
-          workspaceId,
-          workItemId: race.work.id,
-          outputId: race.selected.id,
-          state: queuedState(`attempt-${runId}-${index}`),
-        }));
-        const selectionPromise = start.wait.then(() => selectCreativeWorkOutput(
+        const lock = await holdSelectedOutputLock(
           workspaceId,
           race.work.id,
-          race.candidate.id,
-          { confirmObjective: true },
-        ));
+          race.selected.id,
+        );
+        const pending: Promise<unknown>[] = [];
 
-        start.release();
-        const [claimed, newlySelected] = await Promise.all([claimPromise, selectionPromise]);
-        expect([claimed, newlySelected].filter(Boolean)).toHaveLength(1);
+        try {
+          const claimPromise = claimCreativeWorkLayerization({
+            workspaceId,
+            workItemId: race.work.id,
+            outputId: race.selected.id,
+            state: queuedState(`attempt-${runId}-${index}`),
+          });
+          const selectionPromise = selectCreativeWorkOutput(
+            workspaceId,
+            race.work.id,
+            race.candidate.id,
+            { confirmObjective: true },
+          );
+          pending.push(claimPromise, selectionPromise);
 
-        const rows = await db.select().from(creativeWorkOutputs)
-          .where(eq(creativeWorkOutputs.workItemId, race.work.id));
-        const original = rows.find((row) => row.id === race.selected.id);
-        const candidate = rows.find((row) => row.id === race.candidate.id);
-        expect(original).toBeDefined();
-        expect(candidate).toBeDefined();
+          const waiters = await waitForCreativeWorkLockWaiters();
+          expect(new Set(waiters.map(({ pid }) => pid)).size).toBeGreaterThanOrEqual(2);
+          expect(waiters.some(({ query }) => /select[\s\S]*for update/i.test(query))).toBe(true);
+          expect(waiters.some(({ query }) => /update[\s\S]*creative_work_outputs/i.test(query))).toBe(true);
+          expect(waiters.every(({ wait_event_type, locktype }) => (
+            wait_event_type === "Lock" && Boolean(locktype)
+          ))).toBe(true);
 
-        if (claimed) {
-          expect(newlySelected).toBeNull();
-          expect(original?.isSelected).toBe(true);
-          expect(candidate?.isSelected).toBe(false);
-          expect(layerizationStateFromDatabase(original?.layerization)?.status).toBe("queued");
-        } else {
-          expect(newlySelected?.id).toBe(race.candidate.id);
-          expect(original?.isSelected).toBe(false);
-          expect(candidate?.isSelected).toBe(true);
-          expect(original?.layerization).toBeNull();
+          lock.release();
+          const [claimed, newlySelected] = await Promise.all([claimPromise, selectionPromise]);
+          await lock.transaction;
+
+          expect([claimed, newlySelected].filter(Boolean)).toHaveLength(1);
+
+          const rows = await db.select().from(creativeWorkOutputs)
+            .where(eq(creativeWorkOutputs.workItemId, race.work.id));
+          const original = rows.find((row) => row.id === race.selected.id);
+          const candidate = rows.find((row) => row.id === race.candidate.id);
+          expect(original).toBeDefined();
+          expect(candidate).toBeDefined();
+
+          if (claimed) {
+            expect(newlySelected).toBeNull();
+            expect(original?.isSelected).toBe(true);
+            expect(candidate?.isSelected).toBe(false);
+            expect(layerizationStateFromDatabase(original?.layerization)?.status).toBe("queued");
+          } else {
+            expect(newlySelected?.id).toBe(race.candidate.id);
+            expect(original?.isSelected).toBe(false);
+            expect(candidate?.isSelected).toBe(true);
+            expect(original?.layerization).toBeNull();
+          }
+        } finally {
+          lock.release();
+          await Promise.allSettled([lock.transaction, ...pending]);
         }
       }
     }, 30_000);
