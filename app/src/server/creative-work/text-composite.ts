@@ -115,12 +115,53 @@ function boxesForPanel(
   const innerWidth = panel.width - inset * 2;
   const headlineHeight = Math.round(panel.height * 0.3);
   const bodyHeight = Math.round(panel.height * 0.27);
-  const ctaHeight = Math.round(panel.height * 0.16);
+  const cta = ctaGeometry(panel, layout, inset, innerWidth);
   return [
     { role: "headline", box: { left: panel.left + inset, top: panel.top + inset, width: innerWidth, height: headlineHeight } },
     { role: "body", box: { left: panel.left + inset, top: panel.top + inset + headlineHeight + gap, width: innerWidth, height: bodyHeight } },
-    { role: "cta", box: { left: panel.left + inset, top: panel.top + panel.height - inset - ctaHeight, width: Math.round(innerWidth * (layout === "side" ? 0.86 : 0.48)), height: ctaHeight } },
+    { role: "cta", box: cta.text },
   ];
+}
+
+function ctaGeometry(
+  panel: TextBox,
+  layout: TextLayout,
+  inset = Math.max(32, Math.round(panel.width * 0.04)),
+  innerWidth = panel.width - inset * 2,
+): { text: TextBox; plate: TextBox | null } {
+  const ctaHeight = layout === "side"
+    ? Math.max(72, Math.round(panel.height * 0.1))
+    : Math.round(panel.height * 0.16);
+  const top = panel.top + panel.height - inset - ctaHeight;
+  if (layout !== "side") {
+    return {
+      text: {
+        left: panel.left + inset,
+        top,
+        width: Math.round(innerWidth * 0.48),
+        height: ctaHeight,
+      },
+      plate: null,
+    };
+  }
+
+  const plateWidth = Math.min(innerWidth, Math.round(panel.width * 0.74));
+  const plate = {
+    left: panel.left + inset,
+    top,
+    width: plateWidth,
+    height: ctaHeight,
+  };
+  const textPadding = Math.max(24, Math.round(plateWidth * 0.075));
+  return {
+    text: {
+      left: plate.left + textPadding,
+      top: plate.top,
+      width: plate.width - textPadding * 2,
+      height: plate.height,
+    },
+    plate,
+  };
 }
 
 function overlaps(a: TextBox, b: TextBox): boolean {
@@ -213,16 +254,34 @@ async function renderText(input: {
       width: input.box.width,
       height: input.box.height,
       align: "left",
-      wrap: input.layout === "side" ? "word" : "word-char",
+      wrap: input.role === "cta" && input.layout === "side"
+        ? "none"
+        : input.layout === "side" ? "word" : "word-char",
       rgba: true,
     },
   }).png().toBuffer({ resolveWithObject: true });
   const renderedDpi = result.info.textAutofitDpi ?? 0;
   const minimumDpi = ROLE_MINIMUM_DPI[input.role];
-  if (renderedDpi < minimumDpi) {
+  if (
+    renderedDpi < minimumDpi
+    || result.info.width > input.box.width
+    || result.info.height > input.box.height
+  ) {
     throw new TextCompositionError("brand_text_overflow");
   }
-  return { buffer: result.data, renderedDpi, minimumDpi };
+  const horizontalPadding = input.box.width - result.info.width;
+  const verticalPadding = input.box.height - result.info.height;
+  const buffer = await sharp(result.data)
+    .extend({
+      left: 0,
+      right: horizontalPadding,
+      top: Math.floor(verticalPadding / 2),
+      bottom: Math.ceil(verticalPadding / 2),
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
+    .png()
+    .toBuffer();
+  return { buffer, renderedDpi, minimumDpi };
 }
 
 export async function runTextComposition(input: {
@@ -276,14 +335,15 @@ export async function runTextComposition(input: {
           background: palette.panel,
         },
       }).png().toBuffer();
-  const ctaPlate = selected.layout === "side"
-    ? await sharp(Buffer.from(`<svg width="${layers[2]!.box.width}" height="${layers[2]!.box.height}" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" rx="${Math.round(layers[2]!.box.height / 2)}" fill="#4DBF93"/></svg>`)).png().toBuffer()
+  const ctaPlateBox = ctaGeometry(selected.panel, selected.layout).plate;
+  const ctaPlate = ctaPlateBox
+    ? await sharp(Buffer.from(`<svg width="${ctaPlateBox.width}" height="${ctaPlateBox.height}" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" rx="${Math.round(ctaPlateBox.height / 2)}" fill="#4DBF93"/></svg>`)).png().toBuffer()
     : null;
   const buffer = await sharp(input.base)
     .resize(input.dimensions.width, input.dimensions.height, { fit: "cover" })
     .composite([
       ...(panelBuffer ? [{ input: panelBuffer, left: selected.panel.left, top: selected.panel.top }] : []),
-      ...(ctaPlate ? [{ input: ctaPlate, left: layers[2]!.box.left, top: layers[2]!.box.top }] : []),
+      ...(ctaPlate && ctaPlateBox ? [{ input: ctaPlate, left: ctaPlateBox.left, top: ctaPlateBox.top }] : []),
       ...rendered.map((layer) => ({ input: layer.buffer, left: layer.box.left, top: layer.box.top })),
     ])
     .png()
