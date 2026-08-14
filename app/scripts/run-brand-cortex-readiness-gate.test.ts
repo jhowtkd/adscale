@@ -67,6 +67,44 @@ describe("Brand Cortex readiness gate", () => {
     }).status).toBe("human_needed");
   });
 
+  it("keeps pilot-only evidence human-dependent without claiming paid generation", () => {
+    const report = evaluateBrandCortexReadiness({
+      previousBaseline: baseline("human_needed"),
+      rerunBaseline: baseline("human_needed"),
+      seamEvidence: null,
+      humanRelease: {
+        ...humanRelease("human_needed"),
+        reviewSha256: null,
+        reviewerId: null,
+        reviewedAt: null,
+        coverage: {
+          requiredFormats: ["1:1", "4:5", "9:16"],
+          minimumArtifactsPerFormat: 2,
+          artifactsPerFormat: { "1:1": 2, "4:5": 2, "9:16": 1 },
+          meetsMinimum: false,
+        },
+        integrity: { status: "pass", checkedFiles: 9, failures: [] },
+        typography: {
+          status: "conflict",
+          precedence: "explicit_high_confidence_claim_over_approved_font_asset",
+          declaredFamilies: ["Montserrat", "Open Sans"],
+          appliedFamilies: ["Albert Sans"],
+          conflicts: ["font mismatch"],
+        },
+      },
+    });
+
+    expect(report.status).toBe("human_needed");
+    expect(report.humanRelease).toMatchObject({
+      status: "human_needed",
+      evidence: { reviewSha256: null, coverage: { meetsMinimum: false } },
+    });
+    expect(report.paidGeneration).toEqual({
+      executed: false,
+      realProviderGate: "manual_and_authorized",
+    });
+  });
+
   it("fails on a baseline regression, rejected release or invalid paid evidence", () => {
     expect(evaluateBrandCortexReadiness({
       previousBaseline: baseline(),

@@ -114,6 +114,7 @@ describe("build Brand Cortex pilot package", () => {
       directionSnapshot,
       identity: { referenceAssetKeys: ["brand/reference.png"] },
     });
+    expect(result.manifest).toMatchObject({ realProviderExecuted: true, paidGeneration: false });
     expect(readFileSync(join(outDir, "artifacts/1x1-output-1.png"))).toEqual(artifact);
     expect(JSON.parse(readFileSync(join(outDir, "review.template.json"), "utf8"))).toMatchObject({
       pilotSha256: result.manifestSha256,

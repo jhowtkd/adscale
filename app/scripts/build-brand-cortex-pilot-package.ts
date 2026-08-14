@@ -25,6 +25,7 @@ export type BrandCortexPilotPackageInput = {
   createdByUserId: string;
   selections: Array<{ workItemId: string; outputId: string }>;
   outDir: string;
+  paidGeneration?: boolean;
   capturedAt?: string;
 };
 
@@ -245,7 +246,8 @@ export async function buildBrandCortexPilotPackage(
     createdByUserId: input.createdByUserId,
     workspaceId: input.workspaceId,
     clientProfileId: first.clientProfileId,
-    paidGeneration: artifacts.every((artifact) => artifact.billingCredits > 0),
+    realProviderExecuted: true,
+    paidGeneration: input.paidGeneration ?? false,
     brandKnowledge: {
       versionId: knowledge.versionId,
       versionNumber: knowledge.versionNumber,
@@ -275,6 +277,10 @@ function parseArgs(argv: string[]): BrandCortexPilotPackageInput {
     values[key.slice(2)] = value;
   }
   const selections = JSON.parse(values.selections ?? "[]") as BrandCortexPilotPackageInput["selections"];
+  const paidGeneration = values["paid-generation"];
+  if (paidGeneration !== undefined && paidGeneration !== "true" && paidGeneration !== "false") {
+    throw new Error("--paid-generation must be true or false");
+  }
   if (!values.workspace || !values.pilot || !values.user || !values.out) {
     throw new Error("Required: --workspace ID --pilot ID --user ID --selections JSON --out PATH");
   }
@@ -284,6 +290,7 @@ function parseArgs(argv: string[]): BrandCortexPilotPackageInput {
     createdByUserId: values.user,
     selections,
     outDir: values.out,
+    paidGeneration: paidGeneration === "true",
   };
 }
 

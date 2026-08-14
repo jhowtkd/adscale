@@ -7,7 +7,9 @@ import { z } from "zod";
 
 import { canonicalJsonStringify } from "@/server/creative-work/canonical-json";
 import {
+  evaluateBrandCortexPilotPending,
   evaluateBrandCortexPilotReview,
+  inspectBrandCortexPilot,
   verifyBrandCortexPilotArtifacts,
 } from "@/server/creative-work/brand-cortex-release";
 import { runBrandConsistencyValidation } from "./run-brand-consistency-validation";
@@ -46,11 +48,29 @@ const humanReleaseSchema = z.object({
   status: z.enum(["approved", "failed", "human_needed"]),
   pilotId: z.string().min(1),
   pilotSha256: z.string().regex(/^[a-f0-9]{64}$/),
-  reviewSha256: z.string().regex(/^[a-f0-9]{64}$/),
-  reviewerId: z.string().min(1),
-  reviewedAt: z.string().datetime(),
+  reviewSha256: z.string().regex(/^[a-f0-9]{64}$/).nullable(),
+  reviewerId: z.string().min(1).nullable(),
+  reviewedAt: z.string().datetime().nullable(),
   failures: z.array(z.string()),
   pending: z.array(z.string()),
+  coverage: z.object({
+    requiredFormats: z.array(z.enum(["1:1", "4:5", "9:16"])),
+    minimumArtifactsPerFormat: z.number().int().positive(),
+    artifactsPerFormat: z.record(z.number().int().nonnegative()),
+    meetsMinimum: z.boolean(),
+  }).optional(),
+  integrity: z.object({
+    status: z.enum(["pass", "fail", "not_checked"]),
+    checkedFiles: z.number().int().nonnegative(),
+    failures: z.array(z.string()),
+  }).optional(),
+  typography: z.object({
+    status: z.enum(["pass", "conflict", "not_applicable"]),
+    precedence: z.literal("explicit_high_confidence_claim_over_approved_font_asset"),
+    declaredFamilies: z.array(z.string()),
+    appliedFamilies: z.array(z.string()),
+    conflicts: z.array(z.string()),
+  }).optional(),
 });
 
 export type BrandCortexReadinessStatus = "approved" | "failed" | "human_needed";
@@ -115,8 +135,10 @@ export function evaluateBrandCortexReadiness(input: {
         : { status: "invalid" as const, evidence: null },
     featureFlag: { defaultEnabled: false, controllable: true },
     paidGeneration: {
-      executed: parsedRelease?.success === true,
-      realProviderGate: parsedRelease?.success === true ? "reviewed" as const : "manual_and_authorized" as const,
+      executed: false,
+      realProviderGate: parsedRelease?.success === true && parsedRelease.data.status === "approved"
+        ? "reviewed" as const
+        : "manual_and_authorized" as const,
     },
   };
 }
@@ -156,30 +178,38 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     const seamEvidence = existsSync(args.seam)
       ? JSON.parse(readFileSync(args.seam, "utf8")) as unknown
       : null;
-    if (Boolean(args.pilot) !== Boolean(args.review)) {
-      throw new Error("--pilot and --review must be provided together");
-    }
+    if (!args.pilot && args.review) throw new Error("--review requires --pilot");
     const pilot = args.pilot
       ? JSON.parse(readFileSync(args.pilot, "utf8")) as unknown
-      : null;
-    const reviewedRelease = pilot && args.review
-      ? evaluateBrandCortexPilotReview({
-          pilot,
-          review: JSON.parse(readFileSync(args.review, "utf8")) as unknown,
-        })
       : null;
     const artifactFailures = pilot && args.pilot
       ? verifyBrandCortexPilotArtifacts(pilot, (artifactPath) =>
           readFileSync(path.join(path.dirname(args.pilot), artifactPath)),
         )
       : [];
-    const humanRelease = reviewedRelease && artifactFailures.length > 0
-      ? {
-          ...reviewedRelease,
-          status: "failed" as const,
-          failures: [...reviewedRelease.failures, ...artifactFailures],
-        }
-      : reviewedRelease;
+    const pilotEvidence = pilot ? inspectBrandCortexPilot(pilot, artifactFailures) : null;
+    const reviewedRelease = pilot && args.review
+      ? evaluateBrandCortexPilotReview({
+          pilot,
+          review: JSON.parse(readFileSync(args.review, "utf8")) as unknown,
+        })
+      : null;
+    const humanRelease = pilot && pilotEvidence
+      ? reviewedRelease
+        ? {
+            ...reviewedRelease,
+            coverage: pilotEvidence.coverage,
+            integrity: pilotEvidence.integrity,
+            typography: pilotEvidence.typography,
+            ...(artifactFailures.length > 0
+              ? {
+                  status: "failed" as const,
+                  failures: [...reviewedRelease.failures, ...artifactFailures],
+                }
+              : {}),
+          }
+        : evaluateBrandCortexPilotPending({ pilot, artifactFailures })
+      : null;
     const report = evaluateBrandCortexReadiness({
       previousBaseline,
       rerunBaseline: rerun.report,

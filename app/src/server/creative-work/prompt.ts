@@ -45,6 +45,7 @@ function buildFixedContract(
       "DETERMINISTIC TEXT CONTRACT:",
       `FORMAT: ${input.format}`,
       "Do not render any visible text, letters, words, labels or CTA in the image.",
+      "PROVIDER-ONLY LAYER: render only the abstract background; do not draw any logo, wordmark, monogram, brand name, symbol or other brand mark. The approved logo and copy are added by the application after generation.",
       `Generate only the visual background and leave the ${band} composition band visually calm and free of focal content for deterministic text composition after generation.`,
       "Exact brand assets and approved copy will be composited after generation.",
     ].join("\n");

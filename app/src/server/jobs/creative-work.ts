@@ -65,7 +65,7 @@ import {
   runTextComposition,
   type TextCompositionProvenance,
 } from "@/server/creative-work/text-composite";
-import { buildTypographyPlan } from "@/server/creative-work/typography-plan";
+import { buildTypographyPlan, isBrandFontAllowed } from "@/server/creative-work/typography-plan";
 import {
   preflightExactComposition,
   type CompositionProvenance,
@@ -652,11 +652,13 @@ const creativeWorkOutputJobHandler = async ({
             requestedLayout: work.settings?.textLayout,
             selectedFontAssetKey: work.settings?.fontAssetKey,
             fonts: identitySnapshot.brandKit.fontAssets ?? [],
+            declaredFontFamilies: identitySnapshot.brandKit.fonts ?? [],
           })
         : null;
       const approvedFont = typographyPlan?.execution === "deterministic"
         ? identitySnapshot.brandKit.fontAssets?.find(
-            (font) => font.assetKey === typographyPlan.fontAssetKey,
+            (font) => font.assetKey === typographyPlan.fontAssetKey
+              && isBrandFontAllowed(font, identitySnapshot.brandKit.fonts ?? []),
           ) ?? null
         : null;
 
@@ -691,8 +693,16 @@ const creativeWorkOutputJobHandler = async ({
           sources: [],
         };
 
+        const exactLogoLabels = new Set(
+          identitySnapshot.assets
+            .filter((asset) => asset.usageMode === "exact" && asset.category === "logo")
+            .map((asset) => asset.label),
+        );
         const referenceAssets = identitySnapshot.assets
           .filter((asset) => asset.usageMode === "reference")
+          // The exact logo is composited after generation. Sending the same
+          // logo as a provider reference invites a second, model-drawn mark.
+          .filter((asset) => !exactLogoLabels.has(asset.label))
           .slice(0, MAX_REFERENCE_IMAGES);
 
         if (output.parentOutputId && (!parentOutput?.outputKey || parentOutput.status !== "completed")) {

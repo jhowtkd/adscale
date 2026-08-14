@@ -4,8 +4,10 @@ import { describe, expect, it } from "vitest";
 import {
   brandCortexReleaseReviewSchema,
   createBrandCortexReviewTemplate,
+  evaluateBrandCortexPilotPending,
   evaluateBrandCortexPilotReview,
   hashBrandCortexEvidence,
+  inspectBrandCortexPilot,
   renderBrandCortexReviewHtml,
   verifyBrandCortexPilotArtifacts,
 } from "./brand-cortex-release";
@@ -31,7 +33,7 @@ function pilotArtifact(format: "1:1" | "4:5" | "9:16", index: number) {
     billingCredits: 5,
     identity: {
       snapshotSha256: sha("a"),
-      brandKit: null,
+      brandKit: null as unknown,
       referenceAssetKeys: [],
       claimIds: [],
     },
@@ -71,8 +73,8 @@ function approvedPilot() {
       minimumArtifactsPerFormat: 2 as const,
     },
     referenceAssets: [],
-    brandKit: null,
-    claims: [],
+    brandKit: null as unknown,
+    claims: [] as unknown[],
     artifacts: (["1:1", "4:5", "9:16"] as const).flatMap((format) => [
       pilotArtifact(format, 1),
       pilotArtifact(format, 2),
@@ -81,6 +83,77 @@ function approvedPilot() {
 }
 
 describe("Brand Cortex real-pilot review", () => {
+  it("emits hash-bound coverage and integrity evidence before human review exists", () => {
+    const pilot = approvedPilot();
+    pilot.artifacts = pilot.artifacts.filter((artifact) => artifact.format !== "9:16" || artifact.artifactId !== "9:16-2");
+
+    const pending = evaluateBrandCortexPilotPending({ pilot, artifactFailures: [] });
+
+    expect(pending).toMatchObject({
+      status: "human_needed",
+      pilotSha256: hashBrandCortexEvidence(pilot),
+      reviewSha256: null,
+      coverage: {
+        artifactsPerFormat: { "1:1": 2, "4:5": 2, "9:16": 1 },
+        meetsMinimum: false,
+      },
+      integrity: { status: "pass", checkedFiles: 5, failures: [] },
+    });
+    expect(pending.pending).toContain("9:16: requires 2 real artifacts, found 1");
+    expect(pending.pending).toContain("human review is missing");
+  });
+
+  it("does not treat an approved asset as conforming when an explicit typography claim disagrees", () => {
+    const pilot = approvedPilot();
+    const brandKit = {
+      fonts: ["Montserrat", "Open Sans"],
+      fontAssets: [{ family: "Albert Sans" }],
+    };
+    pilot.brandKit = brandKit;
+    pilot.claims = [{
+      claimKey: "typography.families",
+      authority: "explicit",
+      confidence: "high",
+      value: ["Montserrat", "Open Sans"],
+    }];
+    pilot.artifacts = pilot.artifacts.map((artifact) => ({
+      ...artifact,
+      identity: { ...artifact.identity, brandKit },
+    }));
+
+    const evidence = inspectBrandCortexPilot(pilot);
+    expect(evidence.typography).toMatchObject({
+      status: "conflict",
+      precedence: "explicit_high_confidence_claim_over_approved_font_asset",
+      declaredFamilies: ["Montserrat", "Open Sans"],
+      appliedFamilies: ["Albert Sans"],
+    });
+
+    const review = createBrandCortexReviewTemplate(pilot);
+    review.reviewerId = "reviewer-1";
+    review.reviewedAt = "2026-08-13T13:00:00.000Z";
+    review.artifacts = review.artifacts.map((artifact) => ({
+      ...artifact,
+      verdict: "pass",
+      criteria: {
+        brandRecognition: "pass",
+        visualGrammar: "pass",
+        paletteAndTypography: "pass",
+        hierarchyAndComposition: "pass",
+        assetUse: "pass",
+        noInvention: "pass",
+      },
+    }));
+    review.releaseDecision = { status: "approved", notes: "Aprovado." };
+
+    expect(evaluateBrandCortexPilotReview({ pilot, review })).toMatchObject({
+      status: "failed",
+      failures: expect.arrayContaining([
+        expect.stringContaining("applied font family Albert Sans is outside explicit families"),
+      ]),
+    });
+  });
+
   it("approves only a complete human review bound to the pilot and artifact hashes", () => {
     const pilot = approvedPilot();
     const review = {
