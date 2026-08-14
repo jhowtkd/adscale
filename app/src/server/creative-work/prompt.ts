@@ -24,6 +24,7 @@ export interface BuildSocialPostPromptInput {
   copy: SocialPostCopy;
   brief: SocialPostBrief;
   inputSnapshot: CreativeWorkInputSnapshot;
+  textExecution?: "generative" | "deterministic";
   revisionInstruction?: string | null;
   identitySnapshot: CreativeWorkIdentitySnapshot;
   creativeLevel: CreativeLevel;
@@ -68,6 +69,40 @@ function buildProviderOnlyLayerOverride(): string {
     "Ignore any earlier instruction that asks the provider to preserve or render a fact, brand name, product, service, claim, logo, wordmark, symbol, lettering or other visible mark.",
     "Do not render text, letters, numbers, logos, symbols, wordmarks, brand names, products, people, claims or recognizable entities. Use the brand kit only as abstract color, contrast and atmosphere guidance.",
     "Leave the reserved composition area calm and never draw a logo-shaped mark; the approved logo and copy are added by the application afterward.",
+  ].join("\n");
+}
+
+function buildProviderOnlyPrompt(input: {
+  format: SocialPostFormat;
+  copy: SocialPostCopy;
+  inputSnapshot: CreativeWorkInputSnapshot;
+  identitySnapshot: CreativeWorkIdentitySnapshot;
+  creativeLevel: CreativeLevel;
+  correction?: CreativeWorkObjectiveCorrection | null;
+}): string {
+  const fixedContract = buildFixedContract({
+    ...input,
+    textLayout: input.inputSnapshot.typographyPlan?.requestedLayout,
+    textExecution: "deterministic",
+  });
+  const colors = input.identitySnapshot.brandKit.colors.length > 0
+    ? input.identitySnapshot.brandKit.colors.join(", ")
+    : "(none provided)";
+
+  return [
+    "PROVIDER-ONLY ABSTRACT BACKGROUND — VISUAL PROMPT",
+    `CREATIVE LEVEL: ${input.creativeLevel}`,
+    CREATIVE_LEVEL_DIRECTIONS[input.creativeLevel],
+    `FORMAT: ${input.format}`,
+    "",
+    fixedContract,
+    "",
+    "ABSTRACT COLOR GUIDANCE:",
+    `Use only these approved palette colors as abstract atmosphere and contrast guidance: ${colors}`,
+    "Do not infer or reproduce any brand identity from text; the application owns all semantic content and exact assets.",
+    ...(input.correction ? ["", buildObjectiveCorrectionBlock(input.correction)] : []),
+    "",
+    buildProviderOnlyLayerOverride(),
   ].join("\n");
 }
 
@@ -247,6 +282,10 @@ function buildReservedPlacementsBlock(
 
 export function buildSocialPostPrompt(input: BuildSocialPostPromptInput): string {
   const { identitySnapshot, creativeLevel } = input;
+
+  if (input.textExecution === "deterministic") {
+    return buildProviderOnlyPrompt(input);
+  }
 
   const fixedContract = buildFixedContract({
     ...input,
@@ -506,6 +545,10 @@ const PROMPT_SIZE_WARN_CHARS = 8000;
  * the legacy builder are untouched by this function.
  */
 export function buildCreativeWorkPrompt(input: BuildCreativeWorkPromptInput): string {
+  if (input.textExecution === "deterministic") {
+    return buildProviderOnlyPrompt(input);
+  }
+
   const fixedContract = buildFixedContract({
     ...input,
     textLayout: input.inputSnapshot.typographyPlan?.requestedLayout,
@@ -546,9 +589,6 @@ export function buildCreativeWorkPrompt(input: BuildCreativeWorkPromptInput): st
     "",
     reservedPlacementsBlock,
     ...(input.correction ? ["", buildObjectiveCorrectionBlock(input.correction)] : []),
-    ...(input.textExecution === "deterministic"
-      ? ["", buildProviderOnlyLayerOverride()]
-      : []),
   ].join("\n");
 
   if (prompt.length > PROMPT_SIZE_WARN_CHARS) {

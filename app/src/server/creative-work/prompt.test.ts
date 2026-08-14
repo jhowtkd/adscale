@@ -578,6 +578,58 @@ describe("buildCreativeWorkPrompt", () => {
     expect(prompt).not.toContain(deterministicCopy.cta);
   });
 
+  it("makes deterministic generation textually brand-mark free", () => {
+    const baseInput = creativeWorkPromptInput({
+      mode: "social_post",
+      textExecution: "deterministic",
+      identitySnapshot: snapshot({
+        brandKnowledge: {
+          mode: "published",
+          versionId: "version-1",
+          versionNumber: 3,
+          versionHash: "a".repeat(64),
+          compiledAt: "2026-08-13T12:00:00.000Z",
+          claims: [{
+            id: "claim-brand-name",
+            claimKey: "identity.brandName",
+            kind: "identity",
+            value: "Instituto Aurora",
+            scope: { level: "global" },
+            authority: "explicit",
+            confidence: "high",
+            evidenceRefs: [],
+            reviewedAt: "2026-08-13T11:00:00.000Z",
+            reviewedByUserId: "user-1",
+          }],
+        },
+        assets: [
+          asset({
+            label: "Logo_Horizontal_Negativo@2x.png",
+            category: "logo",
+            usageMode: "exact",
+          }),
+          asset({
+            label: "Logo_Horizontal_Negativo@2x.png",
+            category: "visual_reference",
+            usageMode: "reference",
+            placement: null,
+          }),
+        ],
+      }),
+    });
+    const prompt = buildCreativeWorkPrompt(baseInput);
+
+    expect(prompt).toContain("PROVIDER-ONLY ABSTRACT BACKGROUND");
+    expect(prompt).toContain("ABSTRACT COLOR GUIDANCE:");
+    expect(prompt).toContain("#000000");
+    expect(prompt).toContain("PROVIDER-ONLY LAYER OVERRIDE — HIGHEST PRIORITY:");
+    expect(prompt).not.toContain("FACT PACK — AUDITABLE FACTUAL CONTRACT");
+    expect(prompt).not.toContain("Instituto Aurora");
+    expect(prompt).not.toContain("Logo_Horizontal_Negativo@2x.png");
+    expect(prompt).not.toContain("REFERENCE-MODE DESCRIPTIONS");
+    expect(prompt).not.toContain("RESERVED PLACEMENTS");
+  });
+
   it("forbids literal copying from Brand Training identity references", () => {
     const prompt = buildCreativeWorkPrompt(
       creativeWorkPromptInput({
