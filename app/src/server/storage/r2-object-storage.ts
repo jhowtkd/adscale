@@ -17,6 +17,7 @@ const R2_GET_STREAM_TIMEOUT_MS = 30_000;
 
 const DOWNLOAD_URL_CACHE_TTL_MS = 4 * 60 * 1000;
 const DOWNLOAD_URL_CACHE_MAX_ENTRIES = 1000;
+const DEFAULT_DOWNLOAD_URL_TTL_SECONDS = 300;
 
 class LRUCache<K, V> {
   private cache = new Map<K, V>();
@@ -214,9 +215,10 @@ export class R2ObjectStorage implements ObjectStorage {
     });
   }
 
-  async signedDownloadUrl(key: string): Promise<string> {
+  async signedDownloadUrl(key: string, expiresInSeconds = DEFAULT_DOWNLOAD_URL_TTL_SECONDS): Promise<string> {
     const now = Date.now();
-    const cached = this.downloadUrlCache.get(key);
+    const cacheKey = `${expiresInSeconds}:${key}`;
+    const cached = this.downloadUrlCache.get(cacheKey);
     if (cached && cached.expiresAt > now) {
       return cached.url;
     }
@@ -225,8 +227,8 @@ export class R2ObjectStorage implements ObjectStorage {
       Bucket: env.R2_BUCKET,
       Key: key,
     });
-    const url = await getSignedUrl(this.client, command, { expiresIn: 300 });
-    this.downloadUrlCache.set(key, {
+    const url = await getSignedUrl(this.client, command, { expiresIn: expiresInSeconds });
+    this.downloadUrlCache.set(cacheKey, {
       url,
       expiresAt: now + DOWNLOAD_URL_CACHE_TTL_MS,
     });

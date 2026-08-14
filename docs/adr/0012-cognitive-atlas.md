@@ -19,7 +19,7 @@ Adotar o **Cognitive Atlas v0.1** como mapa mental canônico da cabeça criativa
 | **Cortex** | Intent → confirmed actions | `app/src/server/assistant/` |
 | **Hands** | Produce the image | `app/src/server/ai/` + `jobs/derivation.ts` |
 | **Gaze (Olhar)** | Art judgment | `app/src/server/ai/olhar/` |
-| **Skin** | Export / factual readiness | `app/src/server/ai/export-validation.ts` |
+| **Skin** | Export / factual readiness | `app/src/server/ai/export-validation.ts` + `app/src/server/layerize/` |
 | **Nerve** | Fast user-decision learning | `app/src/server/output-learning/` |
 | **Taste** | Approved brand prompt constraints | `app/src/server/brand-taste/` |
 | **Memory** | Recalled brand/campaign context | `app/src/server/memory/` |

@@ -17,6 +17,19 @@ vi.mock("next-intl", () => ({
     "failure.brand_conflict": "Há um conflito de marca entre a arte e a marca ativa.",
     "failure.reference_failure": "Uma referência obrigatória não pôde ser usada. Reenvie a arte e tente novamente.",
     "failure.unknown": "A geração falhou por um erro inesperado.",
+    layerizeSection: "Editable separation",
+    layerizeStart: "Translate: separate",
+    layerizeRetry: "Translate: retry separation",
+    layerizeQueued: "Translate: queued",
+    layerizeProcessing: "Translate: processing",
+    layerizeReconciling: "Translate: reconciling",
+    layerizeFinalizing: "Translate: preparing PSD",
+    layerizeSubmissionUnknown: "Translate: charge may have occurred",
+    layerizeCompleted: "Translate: layers ready",
+    layerizeFailed: "Translate: separation failed",
+    downloadPsdWithLayers: "Translate: PSD with 2 layers",
+    downloadPngs: "Translate: PNGs",
+    "layerizeFailure.unknown": "Translate: unknown failure",
     brandFidelityTitle: "Fidelidade de marca",
     "brandFidelityCheck.copy": "Copy",
     "brandFidelityCheck.font": "Fonte",
@@ -34,6 +47,7 @@ vi.mock("next-intl", () => ({
 
 import { CreativeResultCard } from "./CreativeResultCard";
 import type { CreativeWorkOutput } from "@/lib/hooks/use-creative-work";
+import type { PublicLayerizationState } from "@/server/layerize/contracts";
 
 function output(overrides: Partial<CreativeWorkOutput> = {}): CreativeWorkOutput {
   return {
@@ -58,6 +72,57 @@ function output(overrides: Partial<CreativeWorkOutput> = {}): CreativeWorkOutput
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,
+  };
+}
+
+function layerization(status: PublicLayerizationState["status"], failureCode: PublicLayerizationState["failureCode"] = null): PublicLayerizationState {
+  return {
+    status,
+    attemptId: "attempt-1",
+    callbackConsumedAt: null,
+    requestedByUserId: "owner-1",
+    createdAt: "2026-08-12T12:00:00.000Z",
+    updatedAt: "2026-08-12T12:00:00.000Z",
+    callbackDeadlineAt: "2026-08-12T14:00:00.000Z",
+    latencyMs: null,
+    providerRequestId: "request-1",
+    providerModel: "bytedance/seedream/v5/pro/layerize",
+    providerEndpoint: "https://queue.fal.run/bytedance/seedream/v5/pro/layerize",
+    estimatedCostUsd: 0.0675,
+    baseWidth: null,
+    baseHeight: null,
+    layers: status === "completed" ? [
+      {
+        order: 0,
+        isBase: true,
+        name: "Base",
+        description: "Base layer",
+        x: 0,
+        y: 0,
+        width: 4,
+        height: 4,
+        normalizedBoundingBox: { x: 0, y: 0, width: 1, height: 1 },
+        storageKey: "layers/00.png",
+        sourceBytes: 10,
+      },
+      {
+        order: 1,
+        isBase: false,
+        name: "Headline",
+        description: "Headline layer",
+        x: 1,
+        y: 1,
+        width: 2,
+        height: 1,
+        normalizedBoundingBox: { x: 0.25, y: 0.25, width: 0.5, height: 0.25 },
+        storageKey: "layers/01.png",
+        sourceBytes: 10,
+      },
+    ] : [],
+    psdKey: status === "completed" ? "creative-work/layerize/attempt-1/piece.psd" : null,
+    diagnosticZipKey: status === "completed" ? "creative-work/layerize/attempt-1/piece.zip" : null,
+    fidelity: null,
+    failureCode,
   };
 }
 
@@ -276,6 +341,76 @@ describe("CreativeResultCard", () => {
 
     expect(screen.getByTestId("objective-selection-blocked")).toBeVisible();
     expect(screen.queryByRole("button", { name: "Aprovar" })).not.toBeInTheDocument();
+  });
+  it("shows owner-only layerization progress and exposes PSD first with PNG diagnostics second", () => {
+    const onLayerize = vi.fn();
+    const onDownloadLayerized = vi.fn();
+    const { rerender } = render(
+      <CreativeResultCard
+        output={output({ isSelected: true, layerization: layerization("queued") })}
+        label="Equilibrada"
+        onRetry={vi.fn()}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+        canLayerize
+        onLayerize={onLayerize}
+        onDownloadLayerized={onDownloadLayerized}
+      />,
+    );
+
+    expect(screen.getAllByText("Translate: queued")[0]).toBeVisible();
+    expect(screen.getByTestId("layerization-actions")).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByTestId("layerization-live-region")).toHaveTextContent("Translate: queued");
+
+    rerender(
+      <CreativeResultCard
+        output={output({ isSelected: true, layerization: layerization("finalizing") })}
+        label="Equilibrada"
+        onRetry={vi.fn()}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+        canLayerize
+        onLayerize={onLayerize}
+        onDownloadLayerized={onDownloadLayerized}
+      />,
+    );
+    expect(screen.getByTestId("layerization-live-region")).toHaveTextContent("Translate: preparing PSD");
+
+    rerender(
+      <CreativeResultCard
+        output={output({ isSelected: true, layerization: layerization("completed") })}
+        label="Equilibrada"
+        onRetry={vi.fn()}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+        canLayerize
+        onLayerize={onLayerize}
+        onDownloadLayerized={onDownloadLayerized}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Translate: PSD with 2 layers" }));
+    fireEvent.click(screen.getByRole("button", { name: "Translate: PNGs" }));
+    expect(onDownloadLayerized).toHaveBeenNthCalledWith(1, "output-1", "psd");
+    expect(onDownloadLayerized).toHaveBeenNthCalledWith(2, "output-1", "zip");
+  });
+
+  it("blocks retry after an unknown submission and states that a charge may have occurred", () => {
+    render(
+      <CreativeResultCard
+        output={output({ isSelected: true, layerization: layerization("submission_unknown", "submission_unknown") })}
+        label="Equilibrada"
+        onRetry={vi.fn()}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+        canLayerize
+        onLayerize={vi.fn()}
+      />,
+    );
+
+    expect(screen.getAllByText("Translate: charge may have occurred")[0]).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Translate: retry separation" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("layerization-live-region")).toHaveTextContent("Translate: charge may have occurred");
   });
   it("shows deterministic brand facts with their execution evidence", () => {
     render(

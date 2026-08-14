@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   categorizeCreativeWorkFailure,
@@ -12,6 +12,10 @@ import {
   getCreativeWorkSelectionPolicy,
 } from "@/lib/creative-work-selection-policy";
 import { ActionStatusIcon } from "@/components/animations/ActionStatusIcon";
+import {
+  isLayerizationRetryableFailure,
+  type LayerizationFailureCode,
+} from "@/server/layerize/contracts";
 import type {
   DeterministicBrandFidelityReport,
   ResidualBrandFidelityReview,
@@ -30,6 +34,10 @@ type CreativeResultCardProps = {
   approvalError?: boolean;
   isRevising?: boolean;
   hidePreview?: boolean;
+  canLayerize?: boolean;
+  onLayerize?: (outputId: string, retry?: boolean) => void;
+  onDownloadLayerized?: (outputId: string, format: "psd" | "zip") => void;
+  isLayerizing?: boolean;
 };
 
 const STATUS_LABELS: Record<CreativeWorkOutput["status"], string> = {
@@ -40,6 +48,19 @@ const STATUS_LABELS: Record<CreativeWorkOutput["status"], string> = {
 };
 
 const actionClass = "inline-flex min-h-[var(--control-touch)] flex-1 items-center justify-center gap-2 rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-inset)] disabled:cursor-not-allowed disabled:opacity-60";
+
+const LAYERIZATION_FAILURE_KEYS: Record<LayerizationFailureCode, "unsafeMedia" | "fidelity" | "invalidResponse" | "provider" | "unknown"> = {
+  unsafe_media: "unsafeMedia",
+  fidelity_gate_failed: "fidelity",
+  invalid_provider_response: "invalidResponse",
+  provider_error: "provider",
+  dispatch_failed: "unknown",
+  missing_configuration: "unknown",
+  source_missing: "unknown",
+  no_longer_eligible: "unknown",
+  storage_error: "unknown",
+  submission_unknown: "unknown",
+};
 
 export function CreativeResultCard({
   output,
@@ -54,6 +75,10 @@ export function CreativeResultCard({
   approvalError = false,
   isRevising = false,
   hidePreview = false,
+  canLayerize = false,
+  onLayerize,
+  onDownloadLayerized,
+  isLayerizing = false,
 }: CreativeResultCardProps) {
   const [editing, setEditing] = useState(false);
   const [instruction, setInstruction] = useState("");
@@ -61,6 +86,8 @@ export function CreativeResultCard({
   const [submitting, setSubmitting] = useState(false);
   const [confirmingSelection, setConfirmingSelection] = useState(false);
   const t = useTranslations("dashboard.home.composer.results");
+  const layerizeRegionRef = useRef<HTMLDivElement>(null);
+  const layerizationWasBusy = useRef(false);
   const isCompleted = output.status === "completed" && Boolean(output.outputKey);
   const isRevision = Boolean(output.parentOutputId);
   // R-008: failure categories are stable and typed; the free retry exists
@@ -76,6 +103,22 @@ export function CreativeResultCard({
   const evaluatorSummary = objectiveVerdict === "inconclusive"
     ? getCreativeWorkEvaluatorSummary(output.quality)
     : null;
+  const layerization = output.layerization;
+  const layerizationBusy = layerization?.status === "queued" || layerization?.status === "processing" || layerization?.status === "reconciling" || layerization?.status === "finalizing";
+  const layerizationRetryable = isLayerizationRetryableFailure(layerization);
+  const layerizationFailureMessage = t(`layerizeFailure.${layerization?.failureCode
+    ? LAYERIZATION_FAILURE_KEYS[layerization.failureCode]
+    : "unknown"}`);
+  useEffect(() => {
+    if (layerizationBusy || isLayerizing) {
+      layerizationWasBusy.current = true;
+      return;
+    }
+    if (layerizationWasBusy.current && (layerization?.status === "completed" || layerization?.status === "failed" || layerization?.status === "submission_unknown")) {
+      layerizationWasBusy.current = false;
+      layerizeRegionRef.current?.focus();
+    }
+  }, [isLayerizing, layerization?.status, layerizationBusy]);
   const storedBrandFidelity = output.quality?.brandFidelity as {
     deterministic?: DeterministicBrandFidelityReport;
     residual?: ResidualBrandFidelityReview;
@@ -258,6 +301,57 @@ export function CreativeResultCard({
             <button type="button" className={actionClass} onClick={() => onDownload(output.id)}>Baixar</button>
             {onRevise ? <button type="button" className={actionClass} aria-expanded={editing} onClick={() => setEditing((value) => !value)}>Editar</button> : null}
           </div>
+          {canLayerize && output.isSelected && onLayerize ? (
+            <div ref={layerizeRegionRef} tabIndex={-1} aria-busy={layerizationBusy || isLayerizing} className="space-y-2 border-t border-[var(--border-subtle)] pt-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" data-testid="layerization-actions">
+              <p className="text-xs font-medium text-[var(--text-secondary)]">{t("layerizeSection")}</p>
+              {!layerization || layerization.status === "failed" ? (
+                <>
+                  {layerization?.status === "failed" ? (
+                    <p className="text-xs text-[var(--text-secondary)]">{layerizationFailureMessage}</p>
+                  ) : null}
+                  {(!layerization || layerizationRetryable) ? (
+                    <button
+                      type="button"
+                      className={actionClass}
+                      aria-busy={isLayerizing}
+                      disabled={isLayerizing}
+                      onClick={() => onLayerize(output.id, Boolean(layerization))}
+                    >
+                      {isLayerizing ? t("layerizeProcessing") : layerization ? t("layerizeRetry") : t("layerizeStart")}
+                    </button>
+                  ) : null}
+                </>
+              ) : layerization.status === "submission_unknown" ? (
+                <p className="text-xs text-[var(--text-secondary)]">{t("layerizeSubmissionUnknown")}</p>
+              ) : layerization.status === "completed" ? (
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" className={`${actionClass} border-[var(--focus-ring)]`} onClick={() => onDownloadLayerized?.(output.id, "psd")}>{t("downloadPsdWithLayers", { count: layerization.layers.length })}</button>
+                  <button type="button" className={actionClass} onClick={() => onDownloadLayerized?.(output.id, "zip")}>{t("downloadPngs")}</button>
+                </div>
+              ) : (
+                <p className="text-xs text-[var(--text-secondary)]">
+                  {layerization.status === "queued" ? t("layerizeQueued") : layerization.status === "processing" ? t("layerizeProcessing") : layerization.status === "finalizing" ? t("layerizeFinalizing") : t("layerizeReconciling")}
+                </p>
+              )}
+              <p aria-live="polite" className="sr-only" data-testid="layerization-live-region">
+                {layerization?.status === "queued"
+                  ? t("layerizeQueued")
+                  : layerization?.status === "processing"
+                    ? t("layerizeProcessing")
+                    : layerization?.status === "reconciling"
+                      ? t("layerizeReconciling")
+                      : layerization?.status === "finalizing"
+                        ? t("layerizeFinalizing")
+                        : layerization?.status === "submission_unknown"
+                          ? t("layerizeSubmissionUnknown")
+                          : layerization?.status === "completed"
+                            ? t("layerizeCompleted")
+                            : layerization?.status === "failed"
+                              ? t("layerizeFailed")
+                              : null}
+              </p>
+            </div>
+          ) : null}
           {editing && onRevise ? (
             <form
               className="space-y-3 rounded-[var(--radius-control)] bg-[var(--surface-raised)] p-3"

@@ -1,11 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { GET } from "./route";
+import { AUTH_ERROR_CODES, WorkspaceAuthError } from "@/server/auth/errors";
 
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
 }));
 
 const resolveMock = vi.hoisted(() => vi.fn());
+const requirePlatformOwnerMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/auth/workspace", () => ({
   requireWorkspaceAccess: vi.fn(() =>
@@ -14,6 +16,10 @@ vi.mock("@/server/auth/workspace", () => ({
       workspace: { id: "workspace-1" },
     })
   ),
+}));
+
+vi.mock("@/server/auth/require-platform-owner", () => ({
+  requirePlatformOwner: (...args: unknown[]) => requirePlatformOwnerMock(...args),
 }));
 
 vi.mock("@/server/application/resolve-creative-work-output-download", () => ({
@@ -27,6 +33,7 @@ function makeParams(id: string, outputId: string) {
 describe("GET /api/creative-work/[id]/outputs/[outputId]/download", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    requirePlatformOwnerMock.mockResolvedValue({ user: { id: "owner-1" } });
     resolveMock.mockResolvedValue({
       ok: true,
       value: {
@@ -78,6 +85,33 @@ describe("GET /api/creative-work/[id]/outputs/[outputId]/download", () => {
 
     expect(res.status).toBe(200);
     expect(body.url).toBe("https://signed.example.com/asset.png");
+  });
+
+  it.each(["psd", "zip"] as const)("restricts the %s artifact to the platform owner", async (format) => {
+    const res = await GET(
+      new Request(`http://localhost/api/creative-work/work-1/outputs/output-1/download?format=${format}`),
+      { params: makeParams("work-1", "output-1") },
+    );
+
+    expect(res.status).toBe(302);
+    expect(requirePlatformOwnerMock).toHaveBeenCalled();
+    expect(resolveMock).toHaveBeenCalledWith({
+      workspaceId: "workspace-1",
+      workItemId: "work-1",
+      outputId: "output-1",
+      format,
+    });
+  });
+
+  it("does not resolve a layered artifact for a non-owner", async () => {
+    requirePlatformOwnerMock.mockRejectedValue(new WorkspaceAuthError(AUTH_ERROR_CODES.forbidden, "Forbidden"));
+    const res = await GET(
+      new Request("http://localhost/api/creative-work/work-1/outputs/output-1/download?format=psd"),
+      { params: makeParams("work-1", "output-1") },
+    );
+
+    expect(res.status).toBe(403);
+    expect(resolveMock).not.toHaveBeenCalled();
   });
 
   it("maps work_not_found to 404", async () => {

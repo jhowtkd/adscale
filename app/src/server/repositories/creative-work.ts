@@ -1,6 +1,7 @@
 import { eq, and, asc, desc, count, inArray, isNull, isNotNull, lt, max, sql } from "drizzle-orm";
 import { db } from "../db";
 import { getCreativeWorkSelectionPolicy } from "@/lib/creative-work-selection-policy";
+import { isLayerizationSelectionLocked, layerizationStateFromDatabase } from "@/server/layerize/contracts";
 import {
   creativeWorkItems,
   creativeWorkOutputs,
@@ -1405,9 +1406,11 @@ export async function recordCreativeWorkGenerationAggregate(
 }
 
 /**
- * Atomic selection: clears any previously selected output in the same
- * transaction before marking the new one. Relies on the unique partial index
- * on `is_selected = true` per work item to keep the invariant.
+ * Atomic selection: locks every output for the work item before validating
+ * Layerize state and changing the selection. Layerize claims the same output
+ * row, so the row locks serialize selection with the pre-submit claim.
+ * Relies on the unique partial index on `is_selected = true` per work item to
+ * keep the invariant.
  */
 export async function selectCreativeWorkOutput(
   workspaceId: string,
@@ -1416,23 +1419,29 @@ export async function selectCreativeWorkOutput(
   options: { confirmObjective?: boolean } = {}
 ): Promise<CreativeWorkOutput | null> {
   return db.transaction(async (tx) => {
-    const [candidate] = await tx
+    const outputs = await tx
       .select()
       .from(creativeWorkOutputs)
-      .where(
-        and(
-          eq(creativeWorkOutputs.workspaceId, workspaceId),
-          eq(creativeWorkOutputs.workItemId, workItemId),
-          eq(creativeWorkOutputs.id, outputId)
-        )
-      )
+      .where(and(
+        eq(creativeWorkOutputs.workspaceId, workspaceId),
+        eq(creativeWorkOutputs.workItemId, workItemId),
+      ))
+      .orderBy(asc(creativeWorkOutputs.id))
       .for("update");
+    const candidate = outputs.find((output) => output.id === outputId);
 
     if (
       !candidate ||
       candidate.status !== "completed" ||
       !candidate.outputKey
     ) {
+      return null;
+    }
+
+    if (outputs.some((output) => (
+      output.id !== outputId
+      && isLayerizationSelectionLocked(layerizationStateFromDatabase(output.layerization))
+    ))) {
       return null;
     }
 

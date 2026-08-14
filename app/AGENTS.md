@@ -8,11 +8,17 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ### Image generation
 
-The platform uses OpenAI GPT Image 2 as its only image provider. Keep the
-provider seam because local E2E tests inject a deterministic implementation.
-Candidate metadata remains part of the canonical result so route-level
-generation and ranking can store multiple OpenAI candidates without changing
-downstream persistence contracts.
+The platform uses OpenAI GPT Image 2 as its only **image-generation** provider.
+Keep the provider seam because local E2E tests inject a deterministic
+implementation. Candidate metadata remains part of the canonical result so
+route-level generation and ranking can store multiple OpenAI candidates without
+changing downstream persistence contracts.
+
+Seedream 5 Pro Layerize is not a generator. It is an optional post-approval
+export of an already selected Peça, exclusive to the Dono da plataforma
+(`src/server/layerize/`, `creative-work.layerize`). That role is not the
+workspace owner. It must stay disabled when `FAL_KEY` is absent and must not
+enter generation routing or fallback.
 
 ### Creative work (home composer)
 
