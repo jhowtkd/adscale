@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "reportType": "brand-cortex-release-review",
+  "pilotId": "brand-cortex-cenbrap-2026-08-15-albert-sans-fixed-v8",
+  "pilotSha256": "6cdf90cc3524fd59184a1420e4cbe9e94e096e929098914d1bd785de9d71c8f6",
+  "reviewerId": "FI8LXz2zJBaZ4Fk9gcK5SVARQ9xRYwDp",
+  "reviewedAt": "2026-08-15T13:42:22.000Z",
+  "artifacts": [
+    {
+      "artifactId": "1:1-0c4e5524-618a-4fc3-838a-a49b4da0cb2a",
+      "artifactSha256": "eb50fcc1093f2e0026218682360b44390d3950309626e3586306374a72dc20b8",
+      "verdict": "pass",
+      "criteria": {
+        "brandRecognition": "pass",
+        "visualGrammar": "pass",
+        "paletteAndTypography": "pass",
+        "hierarchyAndComposition": "pass",
+        "assetUse": "pass",
+        "noInvention": "pass"
+      },
+      "notes": "Aprovado pelo usuário após revisão visual das seis peças."
+    },
+    {
+      "artifactId": "1:1-53c4fa1e-3c0a-46be-b007-dcac3e691640",
+      "artifactSha256": "cf17c3184f8149155d978d8c2ddd3e8214814c178126455b4cd17cd5ddacf8e1",
+      "verdict": "pass",
+      "criteria": {
+        "brandRecognition": "pass",
+        "visualGrammar": "pass",
+        "paletteAndTypography": "pass",
+        "hierarchyAndComposition": "pass",
+        "assetUse": "pass",
+        "noInvention": "pass"
+      },
+      "notes": "Aprovado pelo usuário após revisão visual das seis peças."
+    },
+    {
+      "artifactId": "4:5-da53e8aa-8789-4788-ac63-5d1be58b3755",
+      "artifactSha256": "baa884b64c7fdb6bfbcaec2d7ac6621135f47338a43cf900232d00c6936ff6a0",
+      "verdict": "pass",
+      "criteria": {
+        "brandRecognition": "pass",
+        "visualGrammar": "pass",
+        "paletteAndTypography": "pass",
+        "hierarchyAndComposition": "pass",
+        "assetUse": "pass",
+        "noInvention": "pass"
+      },
+      "notes": "Aprovado pelo usuário após revisão visual das seis peças."
+    },
+    {
+      "artifactId": "4:5-d6060072-1ab8-468f-a677-ff4ae85e459c",
+      "artifactSha256": "cf6a4d75735e9c7a0ce7ae6247987d64191c7eeeabaaf9746fdbdfb74fcf376f",
+      "verdict": "pass",
+      "criteria": {
+        "brandRecognition": "pass",
+        "visualGrammar": "pass",
+        "paletteAndTypography": "pass",
+        "hierarchyAndComposition": "pass",
+        "assetUse": "pass",
+        "noInvention": "pass"
+      },
+      "notes": "Aprovado pelo usuário após revisão visual das seis peças."
+    },
+    {
+      "artifactId": "9:16-291026b1-74a5-4d3f-9238-461584499820",
+      "artifactSha256": "6c4eb1c52afcb40e1de8f42d4233a1e020f497ea7827160019e5c18cef66a7b2",
+      "verdict": "pass",
+      "criteria": {
+        "brandRecognition": "pass",
+        "visualGrammar": "pass",
+        "paletteAndTypography": "pass",
+        "hierarchyAndComposition": "pass",
+        "assetUse": "pass",
+        "noInvention": "pass"
+      },
+      "notes": "Aprovado pelo usuário após revisão visual das seis peças."
+    },
+    {
+      "artifactId": "9:16-03e5c7a3-b63e-461c-ad39-b0ed6a1ded63",
+      "artifactSha256": "ffda9d1e1e5c20ab287615bf4697dc9959332de759cc424538a5f3b902088850",
+      "verdict": "pass",
+      "criteria": {
+        "brandRecognition": "pass",
+        "visualGrammar": "pass",
+        "paletteAndTypography": "pass",
+        "hierarchyAndComposition": "pass",
+        "assetUse": "pass",
+        "noInvention": "pass"
+      },
+      "notes": "Aprovado pelo usuário após revisão visual das seis peças."
+    }
+  ],
+  "releaseDecision": {
+    "status": "approved",
+    "notes": "Aprovado pelo usuário após revisão visual das seis peças."
+  }
+}

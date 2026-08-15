@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "reportType": "brand-cortex-authenticated-ui-observation",
+  "status": "pass",
+  "capturedAt": "2026-08-15T13:30:14.263Z",
+  "authenticated": true,
+  "provider": "production-ui-observation",
+  "paidGeneration": false,
+  "production": {
+    "baseUrl": "https://adscale.jhonatansoares.com",
+    "buildId": "387f32601554040c80b3924f808258f50f34dbcb",
+    "healthStatus": 200,
+    "authenticatedRole": "Dev Admin",
+    "brand": "Cenbrap",
+    "observedUi": "Each output page showed PRONTO, Fidelidade de marca comprovável, and four Comprovado labels."
+  },
+  "outputs": [
+    { "workItemId": "6af33dd6-4eb5-427f-bf7e-177dab98e804", "outputId": "0c4e5524-618a-4fc3-838a-a49b4da0cb2a", "format": "1:1", "status": "Pronto", "comprovadoCount": 4 },
+    { "workItemId": "23ac14db-96a7-43e1-bc8e-267f36cdf667", "outputId": "53c4fa1e-3c0a-46be-b007-dcac3e691640", "format": "1:1", "status": "Pronto", "comprovadoCount": 4 },
+    { "workItemId": "18bbe65c-8f17-4b52-b1b0-88fc89776354", "outputId": "da53e8aa-8789-4788-ac63-5d1be58b3755", "format": "4:5", "status": "Pronto", "comprovadoCount": 4 },
+    { "workItemId": "6ac660e0-6adb-4b5a-abac-22b0c82aedab", "outputId": "d6060072-1ab8-468f-a677-ff4ae85e459c", "format": "4:5", "status": "Pronto", "comprovadoCount": 4 },
+    { "workItemId": "546378aa-fffa-47c2-8188-da4ed182b2dc", "outputId": "291026b1-74a5-4d3f-9238-461584499820", "format": "9:16", "status": "Pronto", "comprovadoCount": 4 },
+    { "workItemId": "991bc3d8-23d6-4b76-8376-f996eedbf0d8", "outputId": "03e5c7a3-b63e-461c-ad39-b0ed6a1ded63", "format": "9:16", "status": "Pronto", "comprovadoCount": 4 }
+  ],
+  "evidenceLimits": [
+    "This observation proves authenticated production UI visibility and current output states; it does not replace the e2e-controlled seam used by the readiness gate.",
+    "Real provider execution, request IDs and paidGeneration are recorded in pilot.manifest.json."
+  ]
+}
