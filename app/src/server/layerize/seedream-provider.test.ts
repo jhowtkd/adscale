@@ -113,7 +113,7 @@ describe("seedream layerize contract", () => {
     const provider = createSeedreamProvider({ apiKey: "test-key", fetchImpl });
 
     await expect(provider.submit({ prompt: "x", imageUrl: "https://signed.example/source.png" }))
-      .rejects.toMatchObject({ code: "provider_error" });
+      .rejects.toMatchObject({ code: "provider_error", httpStatus: 503 });
     expect(fetchImpl).toHaveBeenCalledOnce();
   });
 

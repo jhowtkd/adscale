@@ -24,6 +24,8 @@ const recomposeMock = vi.hoisted(() => vi.fn());
 const fidelityMock = vi.hoisted(() => vi.fn());
 const writePsdMock = vi.hoisted(() => vi.fn());
 const writeZipMock = vi.hoisted(() => vi.fn());
+const loggerInfoMock = vi.hoisted(() => vi.fn());
+const loggerWarnMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/repositories/creative-work", () => ({
   getCreativeWork: (...args: unknown[]) => getCreativeWorkMock(...args),
@@ -46,6 +48,12 @@ vi.mock("@/server/storage", () => ({
     get: (...args: unknown[]) => objectGetMock(...args),
     put: (...args: unknown[]) => objectPutMock(...args),
     putStream: (...args: unknown[]) => objectPutStreamMock(...args),
+  },
+}));
+vi.mock("@/lib/logger", () => ({
+  logger: {
+    info: (...args: unknown[]) => loggerInfoMock(...args),
+    warn: (...args: unknown[]) => loggerWarnMock(...args),
   },
 }));
 vi.mock("@/server/layerize/seedream-provider", () => ({
@@ -215,6 +223,59 @@ describe("creative work layerization job", () => {
         psdKey: expect.stringMatching(/piece\.psd$/),
         diagnosticZipKey: null,
       }),
+    }));
+    expect(loggerInfoMock).toHaveBeenCalledWith(expect.objectContaining({
+      event: "creative_work_layerization_submission",
+      stage: "provider_submit",
+      status: "accepted",
+      providerRequestId: "request-1",
+    }));
+  });
+
+  it("logs signed source URL failures without submitting to the provider", async () => {
+    getOutputMock.mockResolvedValueOnce(row(state("queued")));
+    claimProcessingMock.mockResolvedValueOnce(row(state("processing")));
+    getCreativeWorkMock.mockResolvedValue({
+      outputs: [{ id: event.outputId, status: "completed", isSelected: true, outputKey: "creative-work/original.png" }],
+    });
+    objectSignedUrlMock.mockRejectedValueOnce(new Error("R2 unavailable"));
+    markReconcilingMock.mockResolvedValue(row(state("reconciling")));
+
+    await expect(runCreativeWorkLayerization({ event, provider })).resolves.toEqual({ status: "reconciling" });
+
+    expect(provider.submit).not.toHaveBeenCalled();
+    expect(loggerWarnMock).toHaveBeenCalledWith(expect.objectContaining({
+      event: "creative_work_layerization_submission",
+      stage: "source_url",
+      status: "failed",
+      errorName: "Error",
+      errorMessage: "R2 unavailable",
+    }));
+  });
+
+  it("logs provider submission failures without retrying an ambiguous request", async () => {
+    getOutputMock.mockResolvedValueOnce(row(state("queued")));
+    claimProcessingMock.mockResolvedValueOnce(row(state("processing")));
+    getCreativeWorkMock.mockResolvedValue({
+      outputs: [{ id: event.outputId, status: "completed", isSelected: true, outputKey: "creative-work/original.png" }],
+    });
+    objectSignedUrlMock.mockResolvedValue("https://storage.example/original.png");
+    provider.submit.mockRejectedValueOnce(Object.assign(new Error("upstream unavailable"), {
+      code: "provider_error",
+      httpStatus: 503,
+    }));
+    markReconcilingMock.mockResolvedValue(row(state("reconciling")));
+
+    await expect(runCreativeWorkLayerization({ event, provider })).resolves.toEqual({ status: "reconciling" });
+
+    expect(provider.submit).toHaveBeenCalledOnce();
+    expect(loggerWarnMock).toHaveBeenCalledWith(expect.objectContaining({
+      event: "creative_work_layerization_submission",
+      stage: "provider_submit",
+      status: "failed",
+      errorCode: "provider_error",
+      httpStatus: 503,
+      errorMessage: "upstream unavailable",
     }));
   });
 

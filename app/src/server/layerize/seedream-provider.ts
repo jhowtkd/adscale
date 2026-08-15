@@ -37,6 +37,7 @@ export class SeedreamProviderError extends Error {
       | "provider_error"
       | "invalid_provider_response"
       | "unsafe_media" = "provider_error",
+    readonly httpStatus?: number,
   ) {
     super(message);
     this.name = "SeedreamProviderError";
@@ -147,6 +148,7 @@ export function createSeedreamProvider(options: {
       throw new SeedreamProviderError(
         `Seedream request failed with ${response.status}`,
         "provider_error",
+        response.status,
       );
     }
     return readProviderJson(response);
