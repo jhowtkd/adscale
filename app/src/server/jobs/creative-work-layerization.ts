@@ -1,5 +1,6 @@
 import "server-only";
 
+import { logger } from "@/lib/logger";
 import { objectStorage } from "@/server/storage";
 import { getCreativeWork } from "@/server/repositories/creative-work";
 import {
@@ -50,6 +51,58 @@ type LayerizationStep = {
 };
 const MAX_RECONCILIATION_POLLS = 25;
 const RECONCILIATION_INTERVAL = "5m";
+
+type LayerizationSubmissionPhase = "source_url" | "eligibility_check" | "provider_submit";
+
+function errorField(error: unknown, field: "name" | "code" | "httpStatus"): string | number | undefined {
+  if (field === "name") return error instanceof Error ? error.name : "UnknownError";
+  if (!error || typeof error !== "object" || !(field in error)) return undefined;
+  const value = (error as Record<string, unknown>)[field];
+  if (field === "httpStatus") return typeof value === "number" && Number.isInteger(value) ? value : undefined;
+  return typeof value === "string" ? value : undefined;
+}
+
+function safeErrorMessage(error: unknown): string | undefined {
+  if (error == null) return undefined;
+  const message = error instanceof Error ? error.message : String(error);
+  return message
+    .replace(/https?:\/\/\S+/gi, "[redacted-url]")
+    .replace(/(?:authorization|bearer|api[-_]?key|token)[=:]\s*\S+/gi, "[redacted-secret]")
+    .slice(0, 500);
+}
+
+function logLayerizationSubmission(input: {
+  event: CreativeWorkLayerizationEvent;
+  phase: LayerizationSubmissionPhase;
+  status: "accepted" | "failed";
+  startedAt: number;
+  error?: unknown;
+  providerRequestId?: string;
+}): void {
+  const payload = {
+    event: "creative_work_layerization_submission",
+    stage: input.phase,
+    status: input.status,
+    workspaceId: input.event.workspaceId,
+    workItemId: input.event.workItemId,
+    outputId: input.event.outputId,
+    attemptId: input.event.attemptId,
+    durationMs: Math.max(0, Date.now() - input.startedAt),
+    ...(input.providerRequestId ? { providerRequestId: input.providerRequestId } : {}),
+    ...(input.error ? {
+      errorName: errorField(input.error, "name"),
+      errorCode: errorField(input.error, "code"),
+      httpStatus: errorField(input.error, "httpStatus"),
+      errorMessage: safeErrorMessage(input.error),
+    } : {}),
+  };
+  try {
+    if (input.status === "failed") logger.warn(payload);
+    else logger.info(payload);
+  } catch {
+    // Diagnostics must never change the provider or reconciliation outcome.
+  }
+}
 
 const LAYERIZE_PROMPT = [
   "Separate this approved flat creative into editable named PNG layers.",
@@ -135,9 +188,29 @@ export async function runCreativeWorkLayerization(input: {
   }
 
   if (!state.providerRequestId && maySubmit) {
+    const sourceUrlStartedAt = Date.now();
     let requestId: string;
+    let sourceUrl: string;
     try {
-      const sourceUrl = await objectStorage.signedDownloadUrl(output.outputKey, LAYERIZATION_SOURCE_URL_TTL_SECONDS);
+      sourceUrl = await objectStorage.signedDownloadUrl(output.outputKey, LAYERIZATION_SOURCE_URL_TTL_SECONDS);
+    } catch (error) {
+      logLayerizationSubmission({
+        event,
+        phase: "source_url",
+        status: "failed",
+        startedAt: sourceUrlStartedAt,
+        error,
+      });
+      if (callbackDeadlinePassed(state)) {
+        await markCreativeWorkLayerizationSubmissionUnknown(event.workspaceId, event.workItemId, event.outputId);
+        return { status: "submission_unknown" };
+      }
+      await markCreativeWorkLayerizationReconciling(event.workspaceId, event.workItemId, event.outputId);
+      return { status: "reconciling" };
+    }
+
+    const eligibilityCheckStartedAt = Date.now();
+    try {
       if (!await isCreativeWorkOutputStillSelectedForLayerization(event)) {
         await failCreativeWorkLayerization({
           workspaceId: event.workspaceId,
@@ -147,13 +220,45 @@ export async function runCreativeWorkLayerization(input: {
         });
         return { status: "failed" };
       }
+    } catch (error) {
+      logLayerizationSubmission({
+        event,
+        phase: "eligibility_check",
+        status: "failed",
+        startedAt: eligibilityCheckStartedAt,
+        error,
+      });
+      if (callbackDeadlinePassed(state)) {
+        await markCreativeWorkLayerizationSubmissionUnknown(event.workspaceId, event.workItemId, event.outputId);
+        return { status: "submission_unknown" };
+      }
+      await markCreativeWorkLayerizationReconciling(event.workspaceId, event.workItemId, event.outputId);
+      return { status: "reconciling" };
+    }
+
+    const providerSubmitStartedAt = Date.now();
+    try {
       const submitted = await provider.submit({
         prompt: LAYERIZE_PROMPT,
         imageUrl: sourceUrl,
         callbackUrl: event.callbackUrl,
       });
       requestId = submitted.requestId;
+      logLayerizationSubmission({
+        event,
+        phase: "provider_submit",
+        status: "accepted",
+        startedAt: providerSubmitStartedAt,
+        providerRequestId: requestId,
+      });
     } catch (error) {
+      logLayerizationSubmission({
+        event,
+        phase: "provider_submit",
+        status: "failed",
+        startedAt: providerSubmitStartedAt,
+        error,
+      });
       const code = error instanceof Error && "code" in error ? (error as { code?: unknown }).code : null;
       if (code === "missing_configuration") {
         await failCreativeWorkLayerization({
