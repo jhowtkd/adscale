@@ -279,6 +279,26 @@ describe("creative work layerization job", () => {
     }));
   });
 
+  it("fails definitively rejected provider submissions", async () => {
+    getOutputMock.mockResolvedValueOnce(row(state("queued")));
+    claimProcessingMock.mockResolvedValueOnce(row(state("processing")));
+    getCreativeWorkMock.mockResolvedValue({
+      outputs: [{ id: event.outputId, status: "completed", isSelected: true, outputKey: "creative-work/original.png" }],
+    });
+    objectSignedUrlMock.mockResolvedValue("https://storage.example/original.png");
+    provider.submit.mockRejectedValueOnce(Object.assign(new Error("forbidden"), {
+      code: "provider_error",
+      httpStatus: 403,
+    }));
+
+    await expect(runCreativeWorkLayerization({ event, provider })).resolves.toEqual({ status: "failed" });
+
+    expect(failMock).toHaveBeenCalledWith(expect.objectContaining({
+      code: "provider_error",
+    }));
+    expect(markReconcilingMock).not.toHaveBeenCalled();
+  });
+
   it("keeps a redelivered attempt without a request id reconciling instead of submitting again", async () => {
     getOutputMock.mockResolvedValue(row(state("processing")));
     markReconcilingMock.mockResolvedValue(row(state("reconciling")));

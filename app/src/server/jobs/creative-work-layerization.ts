@@ -259,13 +259,23 @@ export async function runCreativeWorkLayerization(input: {
         startedAt: providerSubmitStartedAt,
         error,
       });
-      const code = error instanceof Error && "code" in error ? (error as { code?: unknown }).code : null;
+      const code = errorField(error, "code");
+      const httpStatus = errorField(error, "httpStatus");
       if (code === "missing_configuration") {
         await failCreativeWorkLayerization({
           workspaceId: event.workspaceId,
           workItemId: event.workItemId,
           outputId: event.outputId,
           code: "missing_configuration",
+        });
+        return { status: "failed" };
+      }
+      if (code === "provider_error" && typeof httpStatus === "number" && httpStatus >= 400 && httpStatus < 500) {
+        await failCreativeWorkLayerization({
+          workspaceId: event.workspaceId,
+          workItemId: event.workItemId,
+          outputId: event.outputId,
+          code: "provider_error",
         });
         return { status: "failed" };
       }
