@@ -12,9 +12,11 @@ import type { TextLayout, TypographyPlan } from "./typography-plan";
 
 const PLAN_VERSION = 2 as const;
 const ROLE_MINIMUM_DPI = { headline: 96, body: 72, cta: 72 } as const;
+const ROLE_TEXT_WEIGHTS = { headline: "bold", body: "regular", cta: "bold" } as const;
 const cachedFontPaths = new Map<string, Promise<string>>();
 
 type TextRole = keyof typeof ROLE_MINIMUM_DPI;
+type TextWeight = (typeof ROLE_TEXT_WEIGHTS)[TextRole];
 export type TextBox = { left: number; top: number; width: number; height: number };
 
 export interface TextCompositionProvenance {
@@ -41,6 +43,7 @@ export interface TextCompositionProvenance {
   adjustments: Array<"layout_relocated">;
   layers: Array<{
     role: TextRole;
+    textWeight: TextWeight;
     textHash: string;
     box: TextBox;
     renderedDpi: number;
@@ -65,6 +68,11 @@ function escapePango(value: string): string {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&apos;");
+}
+
+function textMarkup(role: TextRole, color: string, text: string): string {
+  const weight = ROLE_TEXT_WEIGHTS[role] === "bold" ? ' weight="bold"' : "";
+  return `<span foreground="${color}"${weight}>${escapePango(text)}</span>`;
 }
 
 function safeArea(format: CreativeWorkFormat, dimensions: { width: number; height: number }) {
@@ -248,7 +256,7 @@ async function renderText(input: {
 }) {
   const result = await sharp({
     text: {
-      text: `<span foreground="${input.color}">${escapePango(input.text)}</span>`,
+      text: textMarkup(input.role, input.color, input.text),
       font: input.font.family,
       fontfile: input.fontPath,
       width: input.box.width,
@@ -281,7 +289,7 @@ async function renderText(input: {
     })
     .png()
     .toBuffer();
-  return { buffer, renderedDpi, minimumDpi };
+  return { buffer, renderedDpi, minimumDpi, textWeight: ROLE_TEXT_WEIGHTS[input.role] };
 }
 
 export async function runTextComposition(input: {
@@ -354,7 +362,13 @@ export async function runTextComposition(input: {
     panel: selected.panel,
     safeArea: safe,
     palette,
-    layers: rendered.map(({ role, box, renderedDpi, minimumDpi }) => ({ role, box, renderedDpi, minimumDpi })),
+    layers: rendered.map(({ role, box, renderedDpi, minimumDpi, textWeight }) => ({
+      role,
+      textWeight,
+      box,
+      renderedDpi,
+      minimumDpi,
+    })),
     font: input.font,
   };
 
@@ -379,6 +393,7 @@ export async function runTextComposition(input: {
       adjustments: selected.relocated ? ["layout_relocated"] : [],
       layers: rendered.map((layer) => ({
         role: layer.role,
+        textWeight: layer.textWeight,
         textHash: hash(layer.text),
         box: layer.box,
         renderedDpi: layer.renderedDpi,
