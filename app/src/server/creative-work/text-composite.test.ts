@@ -56,9 +56,9 @@ describe("runSquareTextComposition", () => {
       },
       copy: input.copy,
       layers: [
-        { role: "headline", box: expect.objectContaining({ width: expect.any(Number) }) },
-        { role: "body", box: expect.objectContaining({ width: expect.any(Number) }) },
-        { role: "cta", box: expect.objectContaining({ width: expect.any(Number) }) },
+        { role: "headline", textWeight: "bold", box: expect.objectContaining({ width: expect.any(Number) }) },
+        { role: "body", textWeight: "regular", box: expect.objectContaining({ width: expect.any(Number) }) },
+        { role: "cta", textWeight: "bold", box: expect.objectContaining({ width: expect.any(Number) }) },
       ],
       planHash: expect.stringMatching(/^[a-f0-9]{64}$/),
       outputHash: expect.stringMatching(/^[a-f0-9]{64}$/),
