@@ -1,0 +1,113 @@
+{
+  "schemaVersion": 1,
+  "reportType": "brand-cortex-readiness",
+  "generatedAt": "2026-08-15T13:43:03.466Z",
+  "status": "approved",
+  "baselineComparison": {
+    "previousStatus": "human_needed",
+    "rerunStatus": "human_needed",
+    "hashesMatch": true,
+    "previousHashes": {
+      "inputs": "005e1c786272567a608d6656dde38e7f05ae54eccad606e36264d6222095c29e",
+      "selection": "cd1a907c4639db88757f2e1b7f8bb3be4eb2ef2bd0d8ae42fb720367abc3aee6",
+      "snapshots": "25d96ab753a57e07a5aec652c23ebf91804c07565f84fd95d0e1f3d60af0d7de",
+      "results": "a40e0139c9295fcdbcc8d62a45221de124a4a9b4a229f49666b43deed96bb454",
+      "evidence": "83e6b41ab2621480bfa263095df253d1d32b3e74eed3a44d4b1083684fc0ea18"
+    },
+    "rerunHashes": {
+      "inputs": "005e1c786272567a608d6656dde38e7f05ae54eccad606e36264d6222095c29e",
+      "selection": "cd1a907c4639db88757f2e1b7f8bb3be4eb2ef2bd0d8ae42fb720367abc3aee6",
+      "snapshots": "25d96ab753a57e07a5aec652c23ebf91804c07565f84fd95d0e1f3d60af0d7de",
+      "results": "a40e0139c9295fcdbcc8d62a45221de124a4a9b4a229f49666b43deed96bb454",
+      "evidence": "83e6b41ab2621480bfa263095df253d1d32b3e74eed3a44d4b1083684fc0ea18"
+    },
+    "regressions": []
+  },
+  "authenticatedControlledSeam": {
+    "status": "pass",
+    "evidence": {
+      "schemaVersion": 1,
+      "status": "pass",
+      "capturedAt": "2026-08-14T21:13:46.300Z",
+      "authenticated": true,
+      "provider": "e2e-controlled",
+      "paidGeneration": false,
+      "featureFlag": "enabled_for_test",
+      "assertions": {
+        "trainingReviewed": true,
+        "versionPublished": true,
+        "laterPublicationDidNotMutateSnapshot": true,
+        "exactAssetProven": true,
+        "approvedFontAndCopyProven": true,
+        "deterministicAndResidualSeparated": true,
+        "traceableToEvidence": true
+      },
+      "version": {
+        "versionId": "73d3f66b-2770-4420-b974-63d11eb8aae8",
+        "versionNumber": 3,
+        "versionHash": "a6cc5c9952a654a9e14b92d54e01eae5c1c9f8fbee577c43619d2a8529ac56a7",
+        "workspaceId": "95cd1bfc-0933-45e1-8688-3110a266cb4d",
+        "clientProfileId": "29849209-b4a6-4590-b58d-7a271f68fd53",
+        "brand": "Cenbrap",
+        "fontFamilies": [
+          "Albert Sans"
+        ],
+        "fontAssetSha256": "8fe5d4cf5822d7096d4d17ad781c90f97c745ac13a22be619db74966fba45fda",
+        "identitySnapshotSha256": "a68f7ca9cf1a6c3622490e413c736e8c897c3366663fbd11d937cbf2afee8fdf"
+      }
+    }
+  },
+  "humanRelease": {
+    "status": "approved",
+    "evidence": {
+      "schemaVersion": 1,
+      "reportType": "brand-cortex-human-release",
+      "status": "approved",
+      "pilotId": "brand-cortex-cenbrap-2026-08-15-albert-sans-fixed-v8",
+      "pilotSha256": "6cdf90cc3524fd59184a1420e4cbe9e94e096e929098914d1bd785de9d71c8f6",
+      "reviewSha256": "fc3d93e725b449be4feeebd09bbe76eb067094e23cfb039ae5890d27571bf16b",
+      "reviewerId": "FI8LXz2zJBaZ4Fk9gcK5SVARQ9xRYwDp",
+      "reviewedAt": "2026-08-15T13:42:22.000Z",
+      "failures": [],
+      "pending": [],
+      "coverage": {
+        "requiredFormats": [
+          "1:1",
+          "4:5",
+          "9:16"
+        ],
+        "minimumArtifactsPerFormat": 2,
+        "artifactsPerFormat": {
+          "1:1": 2,
+          "4:5": 2,
+          "9:16": 2
+        },
+        "meetsMinimum": true
+      },
+      "integrity": {
+        "status": "pass",
+        "checkedFiles": 16,
+        "failures": []
+      },
+      "typography": {
+        "status": "pass",
+        "precedence": "explicit_high_confidence_claim_over_approved_font_asset",
+        "declaredFamilies": [
+          "Albert Sans"
+        ],
+        "appliedFamilies": [
+          "Albert Sans"
+        ],
+        "conflicts": []
+      }
+    }
+  },
+  "featureFlag": {
+    "defaultEnabled": false,
+    "controllable": true
+  },
+  "paidGeneration": {
+    "executed": false,
+    "realProviderGate": "reviewed"
+  }
+}
