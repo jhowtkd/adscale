@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
   refetch: vi.fn(),
   apiFetch: vi.fn(),
   brandFonts: vi.fn(() => ({ data: [], isLoading: false })),
+  brandKnowledge: vi.fn(() => ({ data: { activeVersion: null }, isLoading: false })),
 }));
 
 vi.mock("@/lib/hooks/use-active-client-profile", () => ({
@@ -49,6 +50,7 @@ vi.mock("@/lib/hooks/use-creative-work", async (importOriginal) => ({
 }));
 vi.mock("@/lib/hooks/use-brand-training", () => ({
   useBrandFonts: (...args: unknown[]) => mocks.brandFonts(...args),
+  useBrandKnowledge: (...args: unknown[]) => mocks.brandKnowledge(...args),
 }));
 vi.mock("@/lib/assistant/chat-attachments", () => ({
   collectImageFiles: (files: File[] | FileList | null) => Array.from(files ?? []),
@@ -124,6 +126,45 @@ describe("useCreativeComposer", () => {
     // clearAllMocks keeps mockReturnValue implementations — reset explicitly.
     mocks.resolveBrandConflictPending.mockReturnValue(false);
     mocks.brandFonts.mockReturnValue({ data: [], isLoading: false });
+    mocks.brandKnowledge.mockReturnValue({ data: { activeVersion: null }, isLoading: false });
+  });
+
+  it("exposes the frozen Brand Cortex snapshot on Peça única", async () => {
+    mocks.work.mockReturnValue({
+      data: workDetail({
+        toolKind: "single",
+        status: "ready",
+        identitySnapshot: {
+          assets: [{
+            referenceId: "ref-1",
+            label: "Logo oficial",
+            usageMode: "exact",
+          }],
+          referenceSelection: { reasons: { "ref-1": ["logo primário"] } },
+          brandKnowledge: {
+            mode: "published",
+            versionNumber: 3,
+          },
+        },
+      }),
+      isLoading: false,
+      isError: false,
+    });
+
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1", initialIntent: "single" }));
+
+    expect(result.current.brandIdentity).toEqual({
+      source: "snapshot",
+      mode: "published",
+      versionNumber: 3,
+      assets: [{
+        referenceId: "ref-1",
+        label: "Logo oficial",
+        usageMode: "exact",
+        reasons: ["logo primário"],
+      }],
+    });
+    expect(mocks.brandKnowledge).toHaveBeenCalledWith(null);
   });
 
   it("keeps an approval failure on the affected output until retry", async () => {

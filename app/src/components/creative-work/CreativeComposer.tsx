@@ -242,6 +242,32 @@ export function CreativeComposer({ composer, composerRef }: {
         </span>
       </div>
 
+      {composer.intent === "single" && composer.brandIdentity ? (
+        <section
+          data-testid="brand-identity"
+          className="rounded-[var(--radius-object)] border border-[var(--border-default)] bg-[var(--surface-base)] p-4"
+        >
+          <h2 className="text-sm font-medium text-[var(--text-primary)]">{t("brandIdentityTitle")}</h2>
+          <p className="mt-1 text-sm text-[var(--text-secondary)]">
+            {composer.brandIdentity.mode === "published" && composer.brandIdentity.versionNumber
+              ? t("brandIdentityPublished", { version: composer.brandIdentity.versionNumber })
+              : t("brandIdentityLegacy")}
+            {" · "}
+            {composer.brandIdentity.source === "snapshot" ? t("brandIdentityFrozen") : t("brandIdentityLive")}
+          </p>
+          {composer.brandIdentity.assets.length > 0 ? (
+            <ul className="mt-2 space-y-1 text-xs text-[var(--text-muted)]">
+              {composer.brandIdentity.assets.map((asset) => (
+                <li key={asset.referenceId}>
+                  {asset.label} · {t(`brandIdentity${asset.usageMode === "exact" ? "Exact" : asset.usageMode === "rule" ? "Rule" : "Reference"}`)}
+                  {asset.reasons.length > 0 ? ` · ${asset.reasons.join(", ")}` : ""}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </section>
+      ) : null}
+
       {composer.requiresBrandSelection && !composer.workId ? (
         <div className="rounded-[var(--radius-object)] border border-[var(--border-default)] bg-[var(--surface-base)] p-4">
           <p className="text-sm text-[var(--text-secondary)]">{t("selectBrandMessage")}</p>

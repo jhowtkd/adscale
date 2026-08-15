@@ -6,7 +6,7 @@ import { z } from "zod";
 import { collectImageFiles, uploadChatAttachment } from "@/lib/assistant/chat-attachments";
 import { apiFetch, isApiRequestUncertain } from "@/lib/api-client";
 import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
-import { useBrandFonts } from "@/lib/hooks/use-brand-training";
+import { useBrandFonts, useBrandKnowledge } from "@/lib/hooks/use-brand-training";
 import {
   useAutosaveCreativeWork,
   useCreateCreativeWorkDraft,
@@ -239,6 +239,11 @@ export function useCreativeComposer({
   const detailQuery = useCreativeWork(workId);
   const brandFontsQuery = useBrandFonts(
     intent === "single"
+      ? detailQuery.data?.work.clientProfileId ?? active.activeClientProfileId ?? null
+      : null,
+  );
+  const brandKnowledgeQuery = useBrandKnowledge(
+    intent === "single" && !detailQuery.data?.work.identitySnapshot?.brandKnowledge
       ? detailQuery.data?.work.clientProfileId ?? active.activeClientProfileId ?? null
       : null,
   );
@@ -1241,6 +1246,27 @@ export function useCreativeComposer({
     && detail.work.status !== "draft"
     ? "missing_visual_references"
     : null;
+  const frozenKnowledge = detail?.work.identitySnapshot?.brandKnowledge;
+  const brandIdentity = intent === "single"
+    ? frozenKnowledge
+      ? {
+          source: "snapshot" as const,
+          mode: frozenKnowledge.mode,
+          versionNumber: frozenKnowledge.versionNumber,
+          assets: (detail?.work.identitySnapshot?.assets ?? []).map((asset) => ({
+            referenceId: asset.referenceId,
+            label: asset.label,
+            usageMode: asset.usageMode,
+            reasons: detail?.work.identitySnapshot?.referenceSelection?.reasons[asset.referenceId] ?? [],
+          })),
+        }
+      : {
+          source: "live" as const,
+          mode: brandKnowledgeQuery.data?.activeVersion ? "published" as const : "legacy_fallback" as const,
+          versionNumber: brandKnowledgeQuery.data?.activeVersion?.versionNumber ?? null,
+          assets: [],
+        }
+    : null;
 
   return {
     composerRef: composerRef as RefObject<HTMLTextAreaElement | null>, request, setRequest,
@@ -1274,7 +1300,7 @@ export function useCreativeComposer({
     protocolSwitchNotice, returnToPreviousProtocol,
     sources: detail?.sources ?? [], outputs: detail?.outputs ?? [], quote, canGenerate, isUploading,
     settingsLocked: Boolean(detail?.work && detail.work.status !== "draft"),
-    inferredBriefing, briefingFactPack,
+    inferredBriefing, briefingFactPack, brandIdentity,
     campaignId: detail?.work.campaignId ?? null, campaigns,
     error, announcement, approvalErrorOutputId, brandTrainingSuggestion: brandTrainingSuggestion ?? persistedBrandTrainingSuggestion,
     brandConflict, resolveBrandConflict,

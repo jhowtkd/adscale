@@ -35,6 +35,9 @@ vi.mock("next-intl", () => ({ useTranslations: () => (key: string, values?: Reco
   formatHelpLabel: "Ajuda sobre formato", formatHelp: "Define a proporção da peça.",
   targetFormatsHelpLabel: "Ajuda sobre formatos de destino", targetFormatsHelp: "Cria uma versão para cada formato marcado.",
   brandTrainingSuggestion: "Treine referências visuais para aproximar futuros resultados da marca.", brandTrainingCta: "Treinar marca",
+  brandIdentityTitle: "Identidade aplicada", brandIdentityPublished: `Córtex da Marca v${values?.version}`,
+  brandIdentityLegacy: "Fluxo legado da marca", brandIdentityFrozen: "Congelada neste trabalho",
+  brandIdentityLive: "Versão ativa atual", brandIdentityExact: "exato", brandIdentityReference: "referência", brandIdentityRule: "regra",
   sourceOrigin_upload: "Upload", sourceOrigin_template: "Template", sourceOrigin_approved_work: "Trabalho aprovado",
   removeSource: "Remover", removeSourceAria: "Remover fonte", sourceUsageAria: "Usar arte como",
   sourceUsage_content: "Conteúdo", sourceUsage_style: "Estilo", sourceUsage_both: "Ambos",
@@ -84,7 +87,7 @@ function composer(overrides = {}) {
     inferredBriefing: null, briefingFactPack: null,
     campaignId: null, campaigns: [], linkCampaign: vi.fn(), retryOutput: vi.fn(), retryRevisionOutput: vi.fn(), approveOutput: vi.fn(),
     downloadOutput: vi.fn(), reviseOutput: vi.fn(), isRetryingOutput: vi.fn(), isApprovingOutput: vi.fn(), approvalErrorOutputId: null, isRevisingOutput: vi.fn(),
-    canGenerate: true, isUploading: false, settingsLocked: false, error: null, announcement: "", brandTrainingSuggestion: null, requiresBrandSelection: false,
+    canGenerate: true, isUploading: false, settingsLocked: false, error: null, announcement: "", brandTrainingSuggestion: null, brandIdentity: null, requiresBrandSelection: false,
     brandConflict: null, resolveBrandConflict: vi.fn(), isResolvingBrandConflict: false,
     retryInitialTemplate: null,
     workError: false,
@@ -186,6 +189,39 @@ describe("CreativeComposer", () => {
     }));
 
     expect(screen.queryByTestId("inferred-briefing")).not.toBeInTheDocument();
+  });
+
+  it("shows the frozen Brand Cortex identity only on Peça única", () => {
+    renderComposer(composer({
+      intent: "single",
+      brandIdentity: {
+        source: "snapshot",
+        mode: "published",
+        versionNumber: 3,
+        assets: [{
+          referenceId: "ref-1",
+          label: "Logo oficial",
+          usageMode: "exact",
+          reasons: ["logo primário"],
+        }],
+      },
+    }));
+
+    const identity = screen.getByTestId("brand-identity");
+    expect(identity).toHaveTextContent("Córtex da Marca v3");
+    expect(identity).toHaveTextContent("Congelada neste trabalho");
+    expect(identity).toHaveTextContent("Logo oficial · exato · logo primário");
+
+    renderComposer(composer({
+      intent: "variations",
+      brandIdentity: {
+        source: "snapshot",
+        mode: "published",
+        versionNumber: 3,
+        assets: [],
+      },
+    }));
+    expect(screen.queryAllByTestId("brand-identity")).toHaveLength(1);
   });
 
   it("keeps Enter as a newline in Peça única and never generates from the textarea", () => {
