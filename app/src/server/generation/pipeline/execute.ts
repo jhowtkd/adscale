@@ -162,6 +162,7 @@ export async function executeCanonicalGeneration(
     providerCalls: result.providerCalls,
     providerRetries: result.providerRetries,
     candidates: result.candidates,
+    excludedCalls: result.excludedCalls,
     destination: request.destination,
     surface: request.surface,
   };

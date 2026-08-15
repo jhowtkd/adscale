@@ -943,7 +943,77 @@ describe("creativeWorkOutputJob", () => {
               durationMs: 12_345,
               rawRequestId: "req-image-1",
             },
+            excludedCalls: [],
           },
+        }),
+      }),
+    );
+  });
+
+  it("persists excluded provider calls with request id, status, attempt and output link", async () => {
+    generateAndStoreImageMock.mockResolvedValueOnce({
+      outputKey: "creative-work/output-1/1700000000000.png",
+      revisedPrompt: "revised",
+      imageOperation: "edit",
+      buffer: Buffer.from("generated-png"),
+      candidates: [{
+        provider: "openai",
+        model: "gpt-image-2-2026-04-21",
+        outputKey: "creative-work/output-1/candidate.png",
+        durationMs: 8_000,
+        rawRequestId: "req-winner",
+        winner: true,
+      }],
+      excludedCalls: [{
+        requestId: "req-timeout",
+        status: "failed",
+        attempt: 0,
+        outputId: "output-1",
+        durationMs: 180_000,
+        error: "ETIMEDOUT",
+      }],
+      providerCalls: 2,
+      providerRetries: 1,
+    });
+    const output = makeQueuedOutput({
+      directionSnapshot: { label: "Editorial", instruction: "Use composição editorial", order: 0 },
+    });
+    getCreativeWorkMock.mockResolvedValue({
+      work: {
+        ...workItem,
+        toolKind: "single",
+        inputSnapshot: {
+          generationPolicyVersion: "quality_recovery_v1",
+          request: "Peça de marca",
+          settings: { targetFormats: [] },
+          sources: [],
+        },
+      },
+      outputs: [output],
+    });
+    markProcessingMock.mockResolvedValue({ ...output, status: "processing" });
+
+    await runJob();
+
+    expect(completeMock).toHaveBeenCalledWith(
+      "workspace-1",
+      "work-1",
+      "output-1",
+      expect.objectContaining({
+        quality: expect.objectContaining({
+          generation: expect.objectContaining({
+            providerCalls: 2,
+            providerRetries: 1,
+            winner: expect.objectContaining({ rawRequestId: "req-winner" }),
+            excludedCalls: [{
+              requestId: "req-timeout",
+              status: "failed",
+              attempt: 0,
+              outputId: "output-1",
+              durationMs: 180_000,
+              error: "ETIMEDOUT",
+            }],
+          }),
         }),
       }),
     );
@@ -2318,6 +2388,85 @@ describe("creativeWorkOutputJob", () => {
       expect(settleTerminalRefundMock).not.toHaveBeenCalled();
       expect(requeueOnceMock).not.toHaveBeenCalled();
       expect(sendMock).not.toHaveBeenCalled();
+    });
+
+    it("keeps excluded request IDs from the failed base after a passing correction", async () => {
+      analyzeDerivationCreativeMock.mockResolvedValue({
+        scoreStatus: "analyzed",
+        qualityScore: 95,
+      });
+      analyzeCreativeWorkQaMock
+        .mockResolvedValueOnce({
+          findings: [
+            { code: "unsupported_claim", status: "confirmed", note: "Renderiza R$ 99 sem origem." },
+          ],
+          summary: "Fato inventado.",
+        })
+        .mockResolvedValueOnce({ findings: [], summary: "Íntegro após correção." });
+      claimImageCallMock
+        .mockImplementationOnce(async () => makeQueuedOutput({ status: "processing", imageCallCount: 1 }))
+        .mockImplementationOnce(async () => makeQueuedOutput({ status: "processing", imageCallCount: 2 }));
+      generateAndStoreImageMock
+        .mockResolvedValueOnce({
+          outputKey: "creative-work/output-1/base.png",
+          revisedPrompt: "revised",
+          imageOperation: "generate",
+          buffer: Buffer.from("generated-png"),
+          candidates: [{
+            provider: "openai",
+            model: "gpt-image-2-2026-04-21",
+            outputKey: "creative-work/output-1/base-candidate.png",
+            durationMs: 8_000,
+            rawRequestId: "req-base",
+            winner: true,
+          }],
+          excludedCalls: [{
+            requestId: "req-timeout",
+            status: "failed",
+            attempt: 0,
+            outputId: "output-1",
+            error: "ETIMEDOUT",
+          }],
+          providerCalls: 2,
+          providerRetries: 1,
+        })
+        .mockResolvedValueOnce({
+          outputKey: "creative-work/output-1/correction.png",
+          revisedPrompt: "revised",
+          imageOperation: "generate",
+          buffer: Buffer.from("generated-png"),
+          candidates: [{
+            provider: "openai",
+            model: "gpt-image-2-2026-04-21",
+            outputKey: "creative-work/output-1/correction-candidate.png",
+            durationMs: 9_000,
+            rawRequestId: "req-correction",
+            winner: true,
+          }],
+          excludedCalls: [],
+          providerCalls: 1,
+          providerRetries: 0,
+        });
+      getCreativeWorkMock.mockResolvedValue({
+        work: v1DirectWork(),
+        outputs: [makeQueuedOutput()],
+      });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+      await runJob();
+
+      expect(completedQuality()).toMatchObject({
+        generation: {
+          winner: { rawRequestId: "req-correction" },
+          excludedCalls: [{
+            requestId: "req-timeout",
+            status: "failed",
+            attempt: 0,
+            outputId: "output-1",
+            error: "ETIMEDOUT",
+          }],
+        },
+      });
     });
 
     it("low subjective score without objective failure completes instead of rejecting low_quality", async () => {

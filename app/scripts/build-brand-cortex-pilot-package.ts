@@ -92,6 +92,7 @@ export async function buildBrandCortexPilotPackage(
   mkdirSync(artifactsDir, { recursive: true });
 
   const artifacts: BrandCortexPilotManifest["artifacts"] = [];
+  const excludedCalls: BrandCortexPilotManifest["excludedCalls"] = [];
   const referenceBytes = new Map<string, Buffer>();
   const providerReferences = new Map<string, {
     assetKey: string;
@@ -181,6 +182,25 @@ export async function buildBrandCortexPilotPackage(
     }
     const artifactPath = `artifacts/${output.targetFormat.replace(":", "x")}-${output.id}.png`;
     writeFileSync(path.join(outputDir, artifactPath), bytes);
+    if (Array.isArray(generation.excludedCalls)) {
+      for (const value of generation.excludedCalls) {
+        const call = record(value);
+        const requestId = string(call.requestId);
+        const status = string(call.status);
+        const outputId = string(call.outputId) ?? output.id;
+        if (!requestId || (status !== "failed" && status !== "rejected") || number(call.attempt) === null) {
+          throw new Error(`${output.id}: excluded provider provenance is incomplete`);
+        }
+        excludedCalls.push({
+          requestId,
+          status,
+          attempt: number(call.attempt)!,
+          outputId,
+          ...(number(call.durationMs) === null ? {} : { durationMs: number(call.durationMs)! }),
+          ...(string(call.error) ? { error: string(call.error)! } : {}),
+        });
+      }
+    }
     artifacts.push({
       artifactId: `${output.targetFormat}-${output.id}`,
       workItemId: aggregate.work.id,
@@ -248,6 +268,23 @@ export async function buildBrandCortexPilotPackage(
     clientProfileId: first.clientProfileId,
     realProviderExecuted: true,
     paidGeneration: input.paidGeneration ?? false,
+    excludedCalls,
+    settlement: (input.paidGeneration ?? false)
+      ? {
+          kind: "internal_ledger_debit" as const,
+          billedCredits: artifacts.reduce((sum, artifact) => sum + artifact.billingCredits, 0),
+          internalDebit: true,
+          refund: "unproven" as const,
+          reason: "paid_generation_requires_raw_ledger_link",
+        }
+      : {
+          kind: "unlimited_billing_bypass" as const,
+          billedCredits: 0,
+          listedCredits: artifacts.reduce((sum, artifact) => sum + artifact.billingCredits, 0),
+          internalDebit: false,
+          refund: "not_applicable" as const,
+          reason: "settled_without_internal_debit",
+        },
     brandKnowledge: {
       versionId: knowledge.versionId,
       versionNumber: knowledge.versionNumber,

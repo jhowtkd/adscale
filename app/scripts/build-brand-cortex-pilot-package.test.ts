@@ -84,6 +84,14 @@ describe("build Brand Cortex pilot package", () => {
             directionSnapshot,
             directionSnapshotSha256: hashBrandCortexEvidence(directionSnapshot),
             winner: { provider: "openai", model: "gpt-image-2-2026-04-21", durationMs: 2_500, rawRequestId: "req-1" },
+            excludedCalls: [{
+              requestId: "req-timeout",
+              status: "failed",
+              attempt: 0,
+              outputId: "output-1",
+              durationMs: 180_000,
+              error: "ETIMEDOUT",
+            }],
           },
           brandFidelity: {
             deterministic: { overall: "proven", artifactSha256 },
@@ -113,6 +121,20 @@ describe("build Brand Cortex pilot package", () => {
       provider: { requestId: "req-1", inputs: [expect.objectContaining({ sha256: referenceSha256 })] },
       directionSnapshot,
       identity: { referenceAssetKeys: ["brand/reference.png"] },
+    });
+    expect(result.manifest.excludedCalls).toEqual([{
+      requestId: "req-timeout",
+      status: "failed",
+      attempt: 0,
+      outputId: "output-1",
+      durationMs: 180_000,
+      error: "ETIMEDOUT",
+    }]);
+    expect(result.manifest.settlement).toMatchObject({
+      kind: "unlimited_billing_bypass",
+      billedCredits: 0,
+      internalDebit: false,
+      refund: "not_applicable",
     });
     expect(result.manifest).toMatchObject({ realProviderExecuted: true, paidGeneration: false });
     expect(readFileSync(join(outDir, "artifacts/1x1-output-1.png"))).toEqual(artifact);

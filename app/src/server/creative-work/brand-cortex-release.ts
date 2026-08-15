@@ -44,6 +44,22 @@ export const brandCortexPilotManifestSchema = z.object({
   clientProfileId: z.string().min(1),
   realProviderExecuted: z.literal(true).optional(),
   paidGeneration: z.boolean(),
+  excludedCalls: z.array(z.object({
+    requestId: z.string().min(1),
+    status: z.enum(["failed", "rejected"]),
+    attempt: z.number().int().nonnegative(),
+    outputId: z.string().min(1),
+    durationMs: z.number().nonnegative().optional(),
+    error: z.string().min(1).optional(),
+  })).default([]),
+  settlement: z.object({
+    kind: z.enum(["unlimited_billing_bypass", "internal_ledger_debit"]),
+    billedCredits: z.number().int().nonnegative(),
+    listedCredits: z.number().int().nonnegative().optional(),
+    internalDebit: z.boolean(),
+    refund: z.enum(["not_applicable", "unproven"]),
+    reason: z.string().min(1),
+  }).optional(),
   brandKnowledge: z.object({
     versionId: z.string().min(1),
     versionNumber: z.number().int().positive(),
@@ -154,6 +170,33 @@ export const brandCortexPilotManifestSchema = z.object({
       context.addIssue({ code: z.ZodIssueCode.custom, path: ["artifacts", index, "provider", "inputs"], message: "provider input positions must be contiguous and ordered" });
     }
   });
+  const artifactOutputIds = new Set(pilot.artifacts.map((artifact) => artifact.outputId));
+  const excludedRequestIds = new Set<string>();
+  pilot.excludedCalls.forEach((call, index) => {
+    if (!artifactOutputIds.has(call.outputId)) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ["excludedCalls", index, "outputId"], message: "excluded call must link to a pilot output" });
+    }
+    if (call.requestId !== "requestIdMissing" && excludedRequestIds.has(call.requestId)) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ["excludedCalls", index, "requestId"], message: "excluded request IDs must be unique" });
+    }
+    excludedRequestIds.add(call.requestId);
+  });
+  if (pilot.settlement) {
+    if (pilot.paidGeneration && pilot.settlement.kind === "unlimited_billing_bypass") {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["settlement", "kind"],
+        message: "paid generation cannot be recorded as a billing bypass",
+      });
+    }
+    if (!pilot.paidGeneration && (pilot.settlement.kind !== "unlimited_billing_bypass" || pilot.settlement.internalDebit || pilot.settlement.refund !== "not_applicable")) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["settlement"],
+        message: "unpaid real-provider pilots must record bypass settlement without internal debit or refund",
+      });
+    }
+  }
 });
 
 export const brandCortexReleaseReviewSchema = z.object({
@@ -266,12 +309,17 @@ export function inspectBrandCortexPilot(input: unknown, artifactFailures?: reado
     appliedFamilies,
     conflicts: typographyConflicts,
   };
+  const provenancePending: string[] = [];
+  if (pilot.paidGeneration === false && !pilot.settlement) {
+    provenancePending.push("bypass settlement evidence is missing; internal debit is not a refund");
+  }
   return {
     pilot,
     pilotSha256: hashBrandCortexEvidence(pilot),
     coverage,
     integrity,
     typography,
+    provenancePending,
   };
 }
 
@@ -284,6 +332,7 @@ export function evaluateBrandCortexPilotPending(input: { pilot: unknown; artifac
       : [];
   });
   pending.push(...evidence.typography.conflicts.map((conflict) => `typography: ${conflict}`));
+  pending.push(...evidence.provenancePending);
   pending.push("human review is missing");
   return {
     schemaVersion: 1 as const,

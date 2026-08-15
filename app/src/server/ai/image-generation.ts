@@ -87,6 +87,17 @@ export interface GenerateAndStoreImageInput {
   callBudget?: { remaining: number };
 }
 
+export const MISSING_PROVIDER_REQUEST_ID = "requestIdMissing";
+
+export type ExcludedProviderCall = {
+  requestId: string;
+  status: "failed" | "rejected";
+  attempt: number;
+  outputId?: string;
+  durationMs?: number;
+  error?: string;
+};
+
 export const DEFAULT_IMAGE_PROVIDER_CALL_BUDGET = 6;
 
 export interface GenerateAndStoreImageResult {
@@ -95,6 +106,7 @@ export interface GenerateAndStoreImageResult {
   imageOperation: "generate" | "edit";
   buffer: Buffer;
   candidates: (GenerationCandidateMeta & { winner: boolean })[];
+  excludedCalls: ExcludedProviderCall[];
   providerCalls: number;
   providerRetries: number;
 }
@@ -204,7 +216,7 @@ async function generateUploadRoutesRound(
     telemetry?: ImagePipelineTelemetryContext;
     maxCalls: number;
   }
-): Promise<{ results: PromiseSettledResult<StoredCandidate>[]; callsMade: number }> {
+): Promise<{ results: PromiseSettledResult<StoredCandidate>[]; callsMade: number; excludedCalls: ExcludedProviderCall[] }> {
   const limit = pLimit({
     concurrency: getImageRouteConcurrency(),
     rejectOnClear: true,
@@ -326,7 +338,42 @@ async function generateUploadRoutesRound(
     return true;
   }).length;
 
-  return { results, callsMade };
+  const excludedCalls = results.flatMap((result) => {
+    if (result.status !== "rejected") return [];
+    const call = toExcludedProviderCall(result.reason, {
+      attempt: base.attempt,
+      outputId: base.telemetry?.outputId,
+    });
+    return call ? [call] : [];
+  });
+
+  return { results, callsMade, excludedCalls };
+}
+
+
+function providerErrorField(error: unknown, key: "requestID" | "requestId" | "code" | "status"): unknown {
+  if (!error || typeof error !== "object") return undefined;
+  return (error as Record<string, unknown>)[key];
+}
+
+function toExcludedProviderCall(
+  reason: unknown,
+  context: { attempt: number; outputId?: string },
+): ExcludedProviderCall | null {
+  if (reason instanceof Error && reason.message.startsWith("Provider call budget exhausted")) {
+    return null;
+  }
+  const requestId = [providerErrorField(reason, "requestID"), providerErrorField(reason, "requestId")]
+    .find((value): value is string => typeof value === "string" && value.length > 0)
+    ?? MISSING_PROVIDER_REQUEST_ID;
+  const code = providerErrorField(reason, "code");
+  return {
+    requestId,
+    status: "failed",
+    attempt: context.attempt,
+    ...(context.outputId ? { outputId: context.outputId } : {}),
+    ...(typeof code === "string" && code ? { error: code } : reason instanceof Error && reason.name ? { error: reason.name } : {}),
+  };
 }
 
 async function loadCandidateBuffer(candidate: StoredCandidate): Promise<Buffer> {
@@ -365,6 +412,7 @@ export async function generateAndStoreImage(
   const generationTimer = createPipelineTimer();
   let providerCalls = 0;
   let providerRetries = 0;
+  const excludedCalls: ExcludedProviderCall[] = [];
   const correlation = {
     workId: telemetry?.workId,
     outputId: telemetry?.outputId,
@@ -403,6 +451,7 @@ export async function generateAndStoreImage(
   });
   let generationResults = firstRound.results;
   providerCalls += firstRound.callsMade;
+  excludedCalls.push(...firstRound.excludedCalls);
   budget.remaining = Math.max(0, budget.remaining - firstRound.callsMade);
 
   let candidates = generationResults
@@ -426,6 +475,7 @@ export async function generateAndStoreImage(
     });
     generationResults = secondRound.results;
     providerCalls += secondRound.callsMade;
+    excludedCalls.push(...secondRound.excludedCalls);
     budget.remaining = Math.max(0, budget.remaining - secondRound.callsMade);
     candidates = generationResults
       .map((result) => (result.status === "fulfilled" ? result.value : null))
@@ -564,6 +614,7 @@ export async function generateAndStoreImage(
     imageOperation: referenceImages.length > 0 ? "edit" : "generate",
     buffer: normalizedWinner,
     candidates: candidateMeta,
+    excludedCalls,
     providerCalls,
     providerRetries,
   };
