@@ -21,6 +21,7 @@ import {
   getCreativeWork,
   setCreativeWorkCopy,
 } from "@/server/repositories/creative-work";
+import { env } from "@/server/validation/env";
 
 export type ConfirmSocialPostWorkInput = {
   workspaceId: string;
@@ -132,6 +133,8 @@ export async function confirmSocialPostWork(
       selectedReferenceIds: input.selectedReferenceIds,
       brief: existing.work.brief,
       format: existing.work.format,
+      includePublishedBrandKnowledge:
+        existing.work.toolKind === "single" && env.BRAND_CORTEX_SINGLE_PIECE_ENABLED === "true",
     });
   } catch (error) {
     if (error instanceof IdentitySnapshotMissingReferenceError) {
