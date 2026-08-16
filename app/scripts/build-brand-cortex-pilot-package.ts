@@ -11,6 +11,8 @@ import {
   createBrandCortexReviewTemplate,
   hashBrandCortexEvidence,
   renderBrandCortexReviewHtml,
+  brandCortexRawLedgerEvidenceSchema,
+  type BrandCortexRawLedgerEvidence,
   type BrandCortexPilotManifest,
 } from "@/server/creative-work/brand-cortex-release";
 import { normalizeCreativeWorkReferenceImage } from "@/server/creative-work/reference-normalize";
@@ -26,6 +28,7 @@ export type BrandCortexPilotPackageInput = {
   selections: Array<{ workItemId: string; outputId: string }>;
   outDir: string;
   paidGeneration?: boolean;
+  rawLedgerEvidence?: BrandCortexRawLedgerEvidence;
   capturedAt?: string;
 };
 
@@ -76,6 +79,16 @@ export async function buildBrandCortexPilotPackage(
   },
 ) {
   if (input.selections.length === 0) throw new Error("At least one pilot output is required");
+  const paidGeneration = input.paidGeneration ?? false;
+  const rawLedgerEvidence = input.rawLedgerEvidence
+    ? brandCortexRawLedgerEvidenceSchema.parse(input.rawLedgerEvidence)
+    : undefined;
+  if (paidGeneration && !rawLedgerEvidence) {
+    throw new Error("paid generation requires raw ledger evidence");
+  }
+  if (!paidGeneration && rawLedgerEvidence) {
+    throw new Error("raw ledger evidence requires paid generation");
+  }
   const aggregates = await Promise.all(input.selections.map(async (selection) => {
     const aggregate = await dependencies.getWork(input.workspaceId, selection.workItemId);
     if (!aggregate) throw new Error(`Creative Work not found: ${selection.workItemId}`);
@@ -267,15 +280,16 @@ export async function buildBrandCortexPilotPackage(
     workspaceId: input.workspaceId,
     clientProfileId: first.clientProfileId,
     realProviderExecuted: true,
-    paidGeneration: input.paidGeneration ?? false,
+    paidGeneration,
     excludedCalls,
-    settlement: (input.paidGeneration ?? false)
+    settlement: paidGeneration
       ? {
           kind: "internal_ledger_debit" as const,
           billedCredits: artifacts.reduce((sum, artifact) => sum + artifact.billingCredits, 0),
           internalDebit: true,
           refund: "unproven" as const,
           reason: "paid_generation_requires_raw_ledger_link",
+          rawLedgerEvidence,
         }
       : {
           kind: "unlimited_billing_bypass" as const,
@@ -321,6 +335,11 @@ function parseArgs(argv: string[]): BrandCortexPilotPackageInput {
   if (!values.workspace || !values.pilot || !values.user || !values.out) {
     throw new Error("Required: --workspace ID --pilot ID --user ID --selections JSON --out PATH");
   }
+  const rawLedgerEvidenceValue = values["raw-ledger-evidence"];
+  let rawLedgerEvidence: BrandCortexRawLedgerEvidence | undefined;
+  if (rawLedgerEvidenceValue) {
+    rawLedgerEvidence = brandCortexRawLedgerEvidenceSchema.parse(JSON.parse(rawLedgerEvidenceValue));
+  }
   return {
     workspaceId: values.workspace,
     pilotId: values.pilot,
@@ -328,6 +347,7 @@ function parseArgs(argv: string[]): BrandCortexPilotPackageInput {
     selections,
     outDir: values.out,
     paidGeneration: paidGeneration === "true",
+    rawLedgerEvidence,
   };
 }
 

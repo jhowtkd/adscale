@@ -179,6 +179,15 @@ describe("build Brand Cortex pilot package", () => {
       .rejects.toThrow("GPT Image 2 provider evidence is required");
   });
 
+  it("rejects paid packages without a raw ledger link", async () => {
+    const outDir = join(mkdtempSync(join(tmpdir(), "brand-cortex-package-")), "pilot");
+    await expect(buildBrandCortexPilotPackage({
+      workspaceId: "workspace-1", pilotId: "pilot-1", createdByUserId: "operator-1",
+      selections: [{ workItemId: "work-1", outputId: "output-1" }], outDir, paidGeneration: true,
+    }, { getWork: async () => null, getObject: async () => Buffer.from("unused") }))
+      .rejects.toThrow("paid generation requires raw ledger evidence");
+  });
+
   it("rejects legacy outputs whose provider inputs were not frozen", async () => {
     const outDir = join(mkdtempSync(join(tmpdir(), "brand-cortex-package-")), "pilot");
     const aggregate = {
