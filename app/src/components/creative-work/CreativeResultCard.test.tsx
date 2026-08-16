@@ -30,6 +30,7 @@ vi.mock("next-intl", () => ({
     downloadPsdWithLayers: "Translate: PSD with 2 layers",
     downloadPngs: "Translate: PNGs",
     "layerizeFailure.unknown": "Translate: unknown failure",
+    "layerizeFailure.provider": "Translate: provider failure",
     brandFidelityTitle: "Fidelidade de marca",
     "brandFidelityCheck.copy": "Copy",
     "brandFidelityCheck.font": "Fonte",
@@ -518,4 +519,22 @@ describe("CreativeResultCard", () => {
     expect(screen.getByRole("button", { name: "Baixar" })).toBeEnabled();
   });
 
+  it("offers an explicit retry after the provider fails layer separation", () => {
+    const onLayerize = vi.fn();
+    render(
+      <CreativeResultCard
+        output={output({ isSelected: true, layerization: layerization("failed", "provider_error") })}
+        label="Equilibrada"
+        onRetry={vi.fn()}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+        canLayerize
+        onLayerize={onLayerize}
+      />,
+    );
+
+    expect(screen.getByText("Translate: provider failure")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Translate: retry separation" }));
+    expect(onLayerize).toHaveBeenCalledWith("output-1", true);
+  });
 });
