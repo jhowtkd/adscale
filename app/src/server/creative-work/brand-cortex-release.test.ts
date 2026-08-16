@@ -70,6 +70,12 @@ function approvedPilot() {
       internalDebit: true,
       refund: "unproven" as const,
       reason: "paid_generation_requires_raw_ledger_link",
+      rawLedgerEvidence: {
+        provider: "openai",
+        reference: "provider-settlement:pilot-1",
+        capturedAt: "2026-08-13T12:05:00.000Z",
+        sha256: sha("c"),
+      },
     },
     brandKnowledge: {
       versionId: "version-1",
@@ -119,6 +125,13 @@ describe("Brand Cortex real-pilot review", () => {
     const pending = evaluateBrandCortexPilotPending({ pilot, artifactFailures: [] });
     expect(pending.status).toBe("human_needed");
     expect(pending.pending).toContain("bypass settlement evidence is missing; internal debit is not a refund");
+  });
+
+  it("rejects a paid pilot without raw ledger evidence", () => {
+    const pilot = approvedPilot();
+    delete (pilot.settlement as { rawLedgerEvidence?: unknown }).rawLedgerEvidence;
+
+    expect(() => createBrandCortexReviewTemplate(pilot)).toThrow("paid generation requires raw ledger evidence");
   });
 
   it("does not treat an approved asset as conforming when an explicit typography claim disagrees", () => {

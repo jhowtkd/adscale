@@ -6,6 +6,12 @@ import { getTargetDimensions } from "@/lib/formats";
 import { canonicalJsonStringify } from "./canonical-json";
 
 const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/);
+export const brandCortexRawLedgerEvidenceSchema = z.object({
+  provider: z.string().min(1),
+  reference: z.string().min(1),
+  capturedAt: z.string().datetime(),
+  sha256: sha256Schema,
+});
 const packagedArtifactPathSchema = z.string().regex(/^artifacts\/[A-Za-z0-9._-]+$/);
 const formatSchema = z.enum(["1:1", "4:5", "9:16"]);
 const reviewCriterionSchema = z.enum(["pass", "fail", "needs_changes"]);
@@ -59,6 +65,7 @@ export const brandCortexPilotManifestSchema = z.object({
     internalDebit: z.boolean(),
     refund: z.enum(["not_applicable", "unproven"]),
     reason: z.string().min(1),
+    rawLedgerEvidence: brandCortexRawLedgerEvidenceSchema.optional(),
   }).optional(),
   brandKnowledge: z.object({
     versionId: z.string().min(1),
@@ -196,6 +203,26 @@ export const brandCortexPilotManifestSchema = z.object({
         message: "unpaid real-provider pilots must record bypass settlement without internal debit or refund",
       });
     }
+    if (!pilot.paidGeneration && pilot.settlement.rawLedgerEvidence) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["settlement", "rawLedgerEvidence"],
+        message: "raw ledger evidence requires paid generation",
+      });
+    }
+    if (pilot.paidGeneration && !pilot.settlement.rawLedgerEvidence) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["settlement", "rawLedgerEvidence"],
+        message: "paid generation requires raw ledger evidence",
+      });
+    }
+  } else if (pilot.paidGeneration) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["settlement"],
+      message: "paid generation requires settlement with raw ledger evidence",
+    });
   }
 });
 
@@ -219,6 +246,7 @@ export const brandCortexReleaseReviewSchema = z.object({
 });
 
 export type BrandCortexPilotManifest = z.infer<typeof brandCortexPilotManifestSchema>;
+export type BrandCortexRawLedgerEvidence = z.infer<typeof brandCortexRawLedgerEvidenceSchema>;
 export type BrandCortexReleaseReview = z.infer<typeof brandCortexReleaseReviewSchema>;
 
 export function hashBrandCortexEvidence(value: unknown): string {

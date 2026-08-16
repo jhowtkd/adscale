@@ -27,7 +27,7 @@ npm run brand-cortex-pilot-package -- \
   --out ../.planning/validation/brand-cortex-pilot/PILOT_ID
 ```
 
-Para um workspace com `unlimitedBillingBypass`, passe `--paid-generation false` (padrão). O manifesto registra `realProviderExecuted: true` e um `settlement` de bypass sem débito interno; saldo ou débito interno não prova reembolso. Use `--paid-generation true` somente quando o ledger bruto confirmar débito real.
+Para um workspace com `unlimitedBillingBypass`, passe `--paid-generation false` (padrão). O manifesto registra `realProviderExecuted: true` e um `settlement` de bypass sem débito interno; saldo ou débito interno não prova reembolso. Use `--paid-generation true` somente quando o ledger bruto confirmar débito real e informe `--raw-ledger-evidence` com JSON contendo `provider`, `reference`, `capturedAt` e `sha256`; sem esse vínculo o builder recusa o pacote.
 
 O diretório contém:
 
