@@ -525,6 +525,42 @@ describe("refundCredits", () => {
     );
   });
 
+  it("records a settled unused bypass without treating the unused amount as a refund", async () => {
+    mockWorkspaceHasUnlimitedBillingAccess.mockResolvedValue(true);
+    mockTrackUsage.mockResolvedValue({
+      id: "usage-bypass",
+      workspaceId: "workspace-1",
+      type: "image_derivation",
+      amount: 0,
+      idempotencyKey: "creative-work:work-1:output:output-1:generate",
+      metadata: { creditAmount: 5, unlimitedBillingBypass: true },
+      createdAt: new Date(),
+    });
+
+    const result = await recordUsage({
+      workspaceId: "workspace-1",
+      action: "image_derivation",
+      idempotencyKey: "creative-work:work-1:output:output-1:generate",
+      amount: 5,
+      metadata: { creativeWorkId: "work-1", outputId: "output-1" },
+      userId: "user-1",
+    });
+
+    expect(result.status).toBe("recorded");
+    if (result.status !== "recorded") throw new Error("expected recorded");
+    expect(result.usage.amount).toBe(0);
+    expect(result.settlement).toEqual({
+      kind: "unlimited_billing_bypass",
+      billedCredits: 0,
+      listedCredits: 5,
+      internalDebit: false,
+      refund: "not_applicable",
+      reason: "settled_without_internal_debit",
+    });
+    expect(mockUpdateCreditGrantRemaining).not.toHaveBeenCalled();
+    expect(mockCreateCreditTransaction).not.toHaveBeenCalled();
+  });
+
   it("does not modify grants for unlimited billing workspaces but still records transaction", async () => {
     mockWorkspaceHasUnlimitedBillingAccess.mockResolvedValue(true);
 

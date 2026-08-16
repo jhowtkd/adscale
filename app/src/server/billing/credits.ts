@@ -350,7 +350,28 @@ export async function recordUsage(input: {
     emitCreditSpendAnalytics({ ...input, userId: input.userId }, check);
   }
 
-  return { status: "recorded" as const, usage, check };
+  return {
+    status: "recorded" as const,
+    usage,
+    check,
+    settlement: unlimitedBillingBypass
+      ? {
+          kind: "unlimited_billing_bypass" as const,
+          billedCredits: 0,
+          listedCredits: check.amount,
+          internalDebit: false,
+          refund: "not_applicable" as const,
+          reason: "settled_without_internal_debit",
+        }
+      : {
+          kind: "internal_ledger_debit" as const,
+          billedCredits: check.amount,
+          listedCredits: check.amount,
+          internalDebit: true,
+          refund: "unproven" as const,
+          reason: "internal_debit_is_not_raw_provider_settlement",
+        },
+  };
 }
 
 /**

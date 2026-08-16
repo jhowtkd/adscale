@@ -1,9 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const envState = vi.hoisted(() => ({ brandCortexSinglePieceEnabled: "false" }));
+
 vi.mock("@/server/repositories/creative-work", () => ({
   getCreativeWork: vi.fn(),
   setCreativeWorkCopy: vi.fn(),
   confirmCreativeWorkIdentity: vi.fn(),
+}));
+
+vi.mock("@/server/validation/env", () => ({
+  env: {
+    get BRAND_CORTEX_SINGLE_PIECE_ENABLED() {
+      return envState.brandCortexSinglePieceEnabled;
+    },
+  },
 }));
 
 vi.mock("@/server/creative-work/identity", () => ({
@@ -89,6 +99,7 @@ const identitySnapshot = {
 describe("confirmSocialPostWork", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    envState.brandCortexSinglePieceEnabled = "false";
     mockGet.mockResolvedValue({ work: workItem, outputs: [] } as never);
     mockSetCopy.mockResolvedValue({ ...workItem, copy } as never);
     mockSnapshot.mockResolvedValue(identitySnapshot as never);
@@ -147,6 +158,7 @@ describe("confirmSocialPostWork", () => {
       selectedReferenceIds: [refId],
       brief: workItem.brief,
       format: workItem.format,
+      includePublishedBrandKnowledge: false,
     });
     expect(mockConfirm).toHaveBeenCalledWith(
       "ws-1",
@@ -195,5 +207,40 @@ describe("confirmSocialPostWork", () => {
       }
     }
     expect(mockConfirm).not.toHaveBeenCalled();
+  });
+
+  it("freezes published Brand Cortex on Peça única confirmation when the rollout is on", async () => {
+    envState.brandCortexSinglePieceEnabled = "true";
+    mockGet.mockResolvedValue({
+      work: { ...workItem, toolKind: "single" },
+      outputs: [],
+    } as never);
+
+    const result = await confirmSocialPostWork({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      copy,
+      selectedReferenceIds: [refId],
+    });
+
+    expect(result.ok).toBe(true);
+    expect(mockSnapshot).toHaveBeenCalledWith(expect.objectContaining({
+      includePublishedBrandKnowledge: true,
+    }));
+  });
+
+  it("does not freeze Brand Cortex on other protocols even when the rollout is on", async () => {
+    envState.brandCortexSinglePieceEnabled = "true";
+
+    await confirmSocialPostWork({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      copy,
+      selectedReferenceIds: [refId],
+    });
+
+    expect(mockSnapshot).toHaveBeenCalledWith(expect.objectContaining({
+      includePublishedBrandKnowledge: false,
+    }));
   });
 });

@@ -67,6 +67,13 @@ export interface CreativeWorkIdentitySnapshot {
     label: string;
     description: string;
   }>;
+  brandKnowledge?: {
+    mode: "published" | "legacy_fallback";
+    versionId: string | null;
+    versionNumber: number | null;
+    versionHash: string | null;
+    compiledAt: string | null;
+  };
   brandKit: {
     colors: string[];
     fonts: string[];

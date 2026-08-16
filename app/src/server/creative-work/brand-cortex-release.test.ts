@@ -63,6 +63,14 @@ function approvedPilot() {
     workspaceId: "workspace-1",
     clientProfileId: "profile-1",
     paidGeneration: true as const,
+    excludedCalls: [] as const,
+    settlement: {
+      kind: "internal_ledger_debit" as const,
+      billedCredits: 30,
+      internalDebit: true,
+      refund: "unproven" as const,
+      reason: "paid_generation_requires_raw_ledger_link",
+    },
     brandKnowledge: {
       versionId: "version-1",
       versionNumber: 1,
@@ -101,6 +109,16 @@ describe("Brand Cortex real-pilot review", () => {
     });
     expect(pending.pending).toContain("9:16: requires 2 real artifacts, found 1");
     expect(pending.pending).toContain("human review is missing");
+  });
+
+  it("keeps an unpaid legacy pilot readable and names the missing bypass settlement", () => {
+    const pilot = approvedPilot();
+    pilot.paidGeneration = false;
+    delete (pilot as { settlement?: unknown }).settlement;
+
+    const pending = evaluateBrandCortexPilotPending({ pilot, artifactFailures: [] });
+    expect(pending.status).toBe("human_needed");
+    expect(pending.pending).toContain("bypass settlement evidence is missing; internal debit is not a refund");
   });
 
   it("does not treat an approved asset as conforming when an explicit typography claim disagrees", () => {
@@ -418,6 +436,29 @@ describe("Brand Cortex real-pilot review", () => {
     const unpaid = approvedPilot();
     unpaid.artifacts[0]!.billingCredits = 0;
     expect(() => createBrandCortexReviewTemplate(unpaid)).toThrow("Number must be greater than 0");
+
+    const legacyUnpaid = approvedPilot();
+    legacyUnpaid.paidGeneration = false;
+    delete (legacyUnpaid as { settlement?: unknown }).settlement;
+    expect(() => createBrandCortexReviewTemplate(legacyUnpaid)).not.toThrow();
+
+    const unpaidWithDebit = approvedPilot();
+    unpaidWithDebit.paidGeneration = false;
+    unpaidWithDebit.settlement = {
+      kind: "internal_ledger_debit",
+      billedCredits: 5,
+      internalDebit: true,
+      refund: "unproven",
+      reason: "internal_debit_is_not_raw_provider_settlement",
+    };
+    expect(() => createBrandCortexReviewTemplate(unpaidWithDebit)).toThrow("unpaid real-provider pilots must record bypass settlement without internal debit or refund");
+
+    const missingIds = approvedPilot();
+    missingIds.excludedCalls = [
+      { requestId: "requestIdMissing", status: "failed", attempt: 0, outputId: missingIds.artifacts[0]!.outputId },
+      { requestId: "requestIdMissing", status: "failed", attempt: 1, outputId: missingIds.artifacts[0]!.outputId },
+    ];
+    expect(() => createBrandCortexReviewTemplate(missingIds)).not.toThrow();
   });
 
   it("requires a reviewer note for every non-pass verdict", () => {

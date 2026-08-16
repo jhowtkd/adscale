@@ -5,7 +5,7 @@
  */
 import type { CreativeWorkOrigin } from "@/server/creative-work/funnel-events";
 import type { ImageReference } from "@/server/ai/providers/image-provider";
-import type { GenerationCandidateMeta } from "@/server/ai/image-generation";
+import type { ExcludedProviderCall, GenerationCandidateMeta } from "@/server/ai/image-generation";
 
 export type GenerationSurface = "campaign" | "assistant" | "quick_tool";
 
@@ -133,6 +133,7 @@ export interface GenerationResult {
   buffer: Buffer;
   imageOperation: "generate" | "edit" | "generation_fallback";
   candidates: (GenerationCandidateMeta & { winner: boolean })[];
+  excludedCalls?: ExcludedProviderCall[];
   /** Provider calls made by the executor, including legacy candidate routes. */
   providerCalls?: number;
   providerRetries?: number;

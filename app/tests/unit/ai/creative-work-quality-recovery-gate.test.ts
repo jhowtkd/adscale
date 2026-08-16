@@ -143,7 +143,10 @@ function expectFailure(
 }
 
 function runChecker(file: string) {
-  return spawnSync(tsxBin, [scriptPath, file], { encoding: "utf8" });
+  return spawnSync(tsxBin, [scriptPath, file], {
+    encoding: "utf8",
+    env: { ...process.env, NODE_NO_WARNINGS: "1" },
+  });
 }
 
 function runCheckerWithEvidence(evidence: unknown) {

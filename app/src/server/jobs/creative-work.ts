@@ -156,6 +156,28 @@ function generationEvidence(
       durationMs: winner.durationMs,
       rawRequestId: winner.rawRequestId ?? null,
     },
+    excludedCalls: result.excludedCalls ?? [],
+  };
+}
+
+
+function mergeGenerationEvidence(
+  previous: ReturnType<typeof generationEvidence> | null,
+  next: ReturnType<typeof generationEvidence> | null,
+) {
+  if (!next) return previous;
+  if (!previous) return next;
+  const seen = new Set(
+    next.excludedCalls
+      .map((call) => call.requestId)
+      .filter((requestId) => requestId !== "requestIdMissing"),
+  );
+  return {
+    ...next,
+    excludedCalls: [
+      ...previous.excludedCalls.filter((call) => call.requestId === "requestIdMissing" || !seen.has(call.requestId)),
+      ...next.excludedCalls,
+    ],
   };
 }
 
@@ -1546,7 +1568,10 @@ const creativeWorkOutputJobHandler = async ({
         }
 
         finalOutputKey = correctionOutputKey;
-        finalGenerationEvidence = correctionResult.generation ?? finalGenerationEvidence;
+        finalGenerationEvidence = mergeGenerationEvidence(
+          finalGenerationEvidence,
+          correctionResult.generation ?? null,
+        );
         completedQuality = correctionAssessment.quality as unknown as Record<string, unknown>;
         completedVerdict = correctionAssessment.objectiveVerdict;
       }
