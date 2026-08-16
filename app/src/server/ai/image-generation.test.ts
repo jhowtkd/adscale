@@ -370,6 +370,62 @@ describe("generateAndStoreImage", () => {
     }
   });
 
+  it("keeps provider identity when candidate persistence rejects before a later route succeeds", async () => {
+    const { __setImageProviderForTests } = await import("./image-generation");
+    const generate = vi.fn()
+      .mockResolvedValueOnce({
+        buffer: Buffer.from("first"),
+        mimeType: "image/png",
+        providerMeta: {
+          provider: "openai" as const,
+          model: "gpt-image-2",
+          durationMs: 120,
+          rawRequestId: "req-storage-failure",
+        },
+      })
+      .mockResolvedValueOnce({
+        buffer: Buffer.from("second"),
+        mimeType: "image/png",
+        providerMeta: {
+          provider: "openai" as const,
+          model: "gpt-image-2",
+          durationMs: 90,
+          rawRequestId: "req-winner",
+        },
+      });
+    vi.mocked(objectStorage.put)
+      .mockRejectedValueOnce(new Error("storage unavailable"));
+    __setImageProviderForTests({ name: "openai", generate });
+
+    try {
+      const result = await generateAndStoreImage({
+        ...BASE_INPUT,
+        outputPrefix: "creative-work/excluded-storage-call",
+        routes: [
+          { id: "first", prompt: "first" },
+          { id: "second", prompt: "second" },
+        ],
+        telemetry: { outputId: "output-1" },
+      });
+
+      expect(result.candidates[0]).toMatchObject({
+        winner: true,
+        rawRequestId: "req-winner",
+      });
+      expect(result.excludedCalls).toEqual([
+        expect.objectContaining({
+          requestId: "req-storage-failure",
+          status: "rejected",
+          attempt: 0,
+          outputId: "output-1",
+          durationMs: 120,
+        }),
+      ]);
+    } finally {
+      __setImageProviderForTests(null);
+    }
+  });
+
   it("generates three medium-quality routes and normalizes only the selected candidate", async () => {
     const { __setImageProviderForTests } = await import("./image-generation");
     const generate = vi.fn(async (input: { prompt: string }) => ({

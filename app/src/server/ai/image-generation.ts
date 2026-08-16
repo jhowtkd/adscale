@@ -274,13 +274,24 @@ async function generateUploadRoutesRound(
               ...base.telemetry,
             }, () => provider.generate(providerInput));
             assertNotAborted();
-            const stored = await uploadAndReleaseCandidate(
-              route.id,
-              candidate,
-              base.outputPrefix,
-              base.outputSuffix
-            );
-            return { index, result: { status: "fulfilled" as const, value: stored } };
+
+            try {
+              const stored = await uploadAndReleaseCandidate(
+                route.id,
+                candidate,
+                base.outputPrefix,
+                base.outputSuffix
+              );
+              return { index, result: { status: "fulfilled" as const, value: stored } };
+            } catch (reason) {
+              return {
+                index,
+                result: {
+                  status: "rejected" as const,
+                  reason: annotateProviderArtifactFailure(reason, candidate),
+                },
+              };
+            }
           } catch (reason) {
             if (isAbortSignal(reason)) {
               markAborted(reason);
@@ -351,9 +362,30 @@ async function generateUploadRoutesRound(
 }
 
 
-function providerErrorField(error: unknown, key: "requestID" | "requestId" | "code" | "status"): unknown {
+function providerErrorField(
+  error: unknown,
+  key:
+    | "requestID"
+    | "requestId"
+    | "providerRequestId"
+    | "providerFailureStatus"
+    | "providerDurationMs"
+    | "code"
+    | "status",
+): unknown {
   if (!error || typeof error !== "object") return undefined;
   return (error as Record<string, unknown>)[key];
+}
+
+function annotateProviderArtifactFailure(reason: unknown, candidate: ImageCandidate): Error {
+  const normalized = reason instanceof Error
+    ? reason
+    : new Error(typeof reason === "string" ? reason : "provider_artifact_persistence_failed");
+  return Object.assign(normalized, {
+    providerRequestId: candidate.providerMeta.rawRequestId,
+    providerFailureStatus: "rejected" as const,
+    providerDurationMs: candidate.providerMeta.durationMs,
+  });
 }
 
 function toExcludedProviderCall(
@@ -364,14 +396,18 @@ function toExcludedProviderCall(
     return null;
   }
   const requestId = [providerErrorField(reason, "requestID"), providerErrorField(reason, "requestId")]
+    .concat(providerErrorField(reason, "providerRequestId"))
     .find((value): value is string => typeof value === "string" && value.length > 0)
     ?? MISSING_PROVIDER_REQUEST_ID;
   const code = providerErrorField(reason, "code");
+  const status = providerErrorField(reason, "providerFailureStatus");
+  const durationMs = providerErrorField(reason, "providerDurationMs");
   return {
     requestId,
-    status: "failed",
+    status: status === "rejected" ? "rejected" : "failed",
     attempt: context.attempt,
     ...(context.outputId ? { outputId: context.outputId } : {}),
+    ...(typeof durationMs === "number" && Number.isFinite(durationMs) ? { durationMs } : {}),
     ...(typeof code === "string" && code ? { error: code } : reason instanceof Error && reason.name ? { error: reason.name } : {}),
   };
 }
