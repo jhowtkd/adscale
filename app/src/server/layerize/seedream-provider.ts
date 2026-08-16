@@ -10,22 +10,29 @@ import type { Readable } from "node:stream";
 import pLimit from "p-limit";
 import sharp from "sharp";
 import { env } from "@/server/validation/env";
-import { LAYERIZATION_CALLBACK_TTL_MS, type LayerizationLayer } from "./contracts";
+import { type LayerizationLayer } from "./contracts";
 
-export const SEEDREAM_LAYERIZE_MODEL_ID = "bytedance/seedream/v5/pro/layerize";
-export const SEEDREAM_QUEUE_URL = `https://queue.fal.run/${SEEDREAM_LAYERIZE_MODEL_ID}`;
-export const SEEDREAM_PROVIDER_ENDPOINT = SEEDREAM_QUEUE_URL;
-export const SEEDREAM_PROVIDER_DOCS_URL = `https://fal.ai/models/${SEEDREAM_LAYERIZE_MODEL_ID}/api`;
-export const SEEDREAM_LIFECYCLE_SECONDS = 3600;
-export const SEEDREAM_MEDIA_HOSTS = ["fal.media", "v3.fal.media", "v3b.fal.media"] as const;
+export const SEEDREAM_LAYERIZE_MODEL_ID = "bytedance/seedream-v5.0-pro/layer-decomposition";
+export const ATLASCLOUD_GENERATE_URL = "https://api.atlascloud.ai/api/v1/model/generateImage";
+export const ATLASCLOUD_PREDICTION_URL = "https://api.atlascloud.ai/api/v1/model/prediction";
+export const SEEDREAM_PROVIDER_ENDPOINT = ATLASCLOUD_GENERATE_URL;
+export const SEEDREAM_PROVIDER_DOCS_URL = "https://www.atlascloud.ai/models/seedream-5.0-pro";
+export const SEEDREAM_MEDIA_HOSTS = [
+  "fal.media",
+  "v3.fal.media",
+  "v3b.fal.media",
+  "static.atlascloud.ai",
+  "storage.atlascloud.ai",
+  "atlas-media.oss-us-west-1.aliyuncs.com",
+] as const;
 export const SEEDREAM_MAX_LAYERS = 17;
 export const SEEDREAM_MAX_ASSET_BYTES = 25 * 1024 * 1024;
 export const SEEDREAM_MAX_TOTAL_ASSET_BYTES = 200 * 1024 * 1024;
 export const SEEDREAM_MAX_CANVAS_PIXELS = 40_000_000;
 export const SEEDREAM_MAX_RESPONSE_BYTES = 256 * 1024;
-const SEEDREAM_STANDARD_LAYER_PRICE_USD = 0.03375;
-const SEEDREAM_LARGE_LAYER_PRICE_USD = 0.0675;
-const SEEDREAM_STANDARD_MAX_PIXELS = 1536 * 1536;
+const ATLASCLOUD_STANDARD_LAYER_PRICE_USD = 0.045;
+const ATLASCLOUD_LARGE_LAYER_PRICE_USD = 0.09;
+const ATLASCLOUD_STANDARD_MAX_PIXELS = 1536 * 1536;
 
 export type SeedreamProviderStatus = "IN_QUEUE" | "IN_PROGRESS" | "COMPLETED" | "FAILED";
 
@@ -58,35 +65,28 @@ export type SeedreamProvider = {
 };
 
 export function estimateSeedreamLayerizationCostUsd(width: number, height: number, layerCount: number): number {
-  return layerCount * (width * height <= SEEDREAM_STANDARD_MAX_PIXELS
-    ? SEEDREAM_STANDARD_LAYER_PRICE_USD
-    : SEEDREAM_LARGE_LAYER_PRICE_USD);
+  return layerCount * (width * height <= ATLASCLOUD_STANDARD_MAX_PIXELS
+    ? ATLASCLOUD_STANDARD_LAYER_PRICE_USD
+    : ATLASCLOUD_LARGE_LAYER_PRICE_USD);
 }
 
-function apiKeyOrThrow(apiKey = env.FAL_KEY): string {
+function apiKeyOrThrow(apiKey = env.ATLASCLOUD_API_KEY): string {
   if (!apiKey?.trim()) {
-    throw new SeedreamProviderError("FAL_KEY is not configured", "missing_configuration");
+    throw new SeedreamProviderError("ATLASCLOUD_API_KEY is not configured", "missing_configuration");
   }
   return apiKey.trim();
 }
 
 function providerHeaders(apiKey: string): HeadersInit {
   return {
-    Authorization: `Key ${apiKey}`,
+    Authorization: `Bearer ${apiKey}`,
     "Content-Type": "application/json",
-    "X-Fal-Store-IO": "0",
-    "X-Fal-No-Retry": "1",
-    "X-Fal-Request-Timeout": String(LAYERIZATION_CALLBACK_TTL_MS / 1000),
-    "X-Fal-Object-Lifecycle-Preference": JSON.stringify({
-      expiration_duration_seconds: SEEDREAM_LIFECYCLE_SECONDS,
-    }),
-    "x-app-fal-disable-fallback": "true",
   };
 }
 
 async function readProviderJson(response: Response): Promise<unknown> {
   if (!response.body) {
-    throw new SeedreamProviderError("Seedream response has no body", "invalid_provider_response");
+    throw new SeedreamProviderError("Atlas response has no body", "invalid_provider_response");
   }
   const reader = response.body.getReader();
   const chunks: Buffer[] = [];
@@ -97,7 +97,7 @@ async function readProviderJson(response: Response): Promise<unknown> {
     total += next.value.byteLength;
     if (total > SEEDREAM_MAX_RESPONSE_BYTES) {
       await reader.cancel();
-      throw new SeedreamProviderError("Seedream response is too large", "invalid_provider_response");
+      throw new SeedreamProviderError("Atlas response is too large", "invalid_provider_response");
     }
     chunks.push(Buffer.from(next.value));
   }
@@ -105,29 +105,48 @@ async function readProviderJson(response: Response): Promise<unknown> {
   try {
     return JSON.parse(text) as unknown;
   } catch {
-    throw new SeedreamProviderError("Seedream returned invalid JSON", "invalid_provider_response");
+    throw new SeedreamProviderError("Atlas returned invalid JSON", "invalid_provider_response");
   }
 }
 
-function requestIdFrom(payload: unknown): string {
-  if (!payload || typeof payload !== "object") {
-    throw new SeedreamProviderError("Seedream response has no request id", "invalid_provider_response");
+function providerData(payload: unknown): Record<string, unknown> {
+  if (!isRecord(payload)) {
+    throw new SeedreamProviderError("Atlas response is not an object", "invalid_provider_response");
   }
-  const requestId = (payload as { request_id?: unknown }).request_id;
+  return isRecord(payload.data) ? payload.data : payload;
+}
+
+function requestIdFrom(payload: unknown): string {
+  const data = providerData(payload);
+  const requestId = stringValue(data.id, data.request_id, data.prediction_id);
   if (typeof requestId !== "string" || requestId.trim().length < 1 || requestId.length > 256) {
-    throw new SeedreamProviderError("Seedream response has no request id", "invalid_provider_response");
+    throw new SeedreamProviderError("Atlas response has no request id", "invalid_provider_response");
   }
   return requestId.trim();
 }
 
 function normalizeStatus(payload: unknown): SeedreamProviderStatus {
-  const status = payload && typeof payload === "object"
-    ? (payload as { status?: unknown }).status
-    : undefined;
-  if (status === "IN_QUEUE" || status === "IN_PROGRESS" || status === "COMPLETED" || status === "FAILED") {
-    return status;
+  const status = providerData(payload).status;
+  if (typeof status !== "string") {
+    throw new SeedreamProviderError("Atlas response has an unknown status", "invalid_provider_response");
   }
-  throw new SeedreamProviderError("Seedream returned an unknown status", "invalid_provider_response");
+  switch (status.toLowerCase()) {
+    case "created":
+    case "queued":
+    case "in_queue":
+      return "IN_QUEUE";
+    case "processing":
+    case "in_progress":
+      return "IN_PROGRESS";
+    case "completed":
+    case "succeeded":
+      return "COMPLETED";
+    case "failed":
+    case "timeout":
+      return "FAILED";
+    default:
+      throw new SeedreamProviderError("Atlas response has an unknown status", "invalid_provider_response");
+  }
 }
 
 export function createSeedreamProvider(options: {
@@ -136,8 +155,8 @@ export function createSeedreamProvider(options: {
 } = {}): SeedreamProvider {
   const fetchImpl = options.fetchImpl ?? fetch;
 
-  async function request(path: string, init: RequestInit): Promise<unknown> {
-    const response = await fetchImpl(`${SEEDREAM_QUEUE_URL}${path}`, {
+  async function request(url: string, init: RequestInit): Promise<unknown> {
+    const response = await fetchImpl(url, {
       ...init,
       headers: providerHeaders(apiKeyOrThrow(options.apiKey)),
       redirect: "error",
@@ -145,7 +164,7 @@ export function createSeedreamProvider(options: {
     });
     if (!response.ok) {
       throw new SeedreamProviderError(
-        `Seedream request failed with ${response.status}`,
+        `Atlas request failed with ${response.status}`,
         "provider_error",
       );
     }
@@ -154,25 +173,26 @@ export function createSeedreamProvider(options: {
 
   return {
     async submit(input) {
-      const webhookQuery = input.callbackUrl
-        ? `?fal_webhook=${encodeURIComponent(input.callbackUrl)}`
-        : "";
-      const payload = await request(webhookQuery, {
+      const payload = await request(ATLASCLOUD_GENERATE_URL, {
         method: "POST",
         body: JSON.stringify({
+          model: SEEDREAM_LAYERIZE_MODEL_ID,
           prompt: input.prompt,
-          image_url: input.imageUrl,
-          enable_safety_checker: true,
+          image: input.imageUrl,
+          size: "1K",
+          output_format: "png",
+          enable_sync_mode: false,
+          enable_base64_output: false,
         }),
       });
       return { requestId: requestIdFrom(payload) };
     },
     async status(requestId) {
-      const payload = await request(`/requests/${encodeURIComponent(requestId)}/status`, { method: "GET" });
+      const payload = await request(`${ATLASCLOUD_PREDICTION_URL}/${encodeURIComponent(requestId)}`, { method: "GET" });
       return normalizeStatus(payload);
     },
     async result(requestId) {
-      return request(`/requests/${encodeURIComponent(requestId)}`, { method: "GET" });
+      return request(`${ATLASCLOUD_PREDICTION_URL}/${encodeURIComponent(requestId)}`, { method: "GET" });
     },
   };
 }
@@ -194,11 +214,6 @@ function numberValue(...values: unknown[]): number | null {
   return typeof value === "number" ? value : null;
 }
 
-function imageUrlFrom(value: Record<string, unknown>): string | null {
-  const image = isRecord(value.image) ? value.image : null;
-  return stringValue(image?.url);
-}
-
 function bboxFrom(value: Record<string, unknown>, width: number, height: number, isBase: boolean) {
   if (isBase) {
     return {
@@ -214,7 +229,13 @@ function bboxFrom(value: Record<string, unknown>, width: number, height: number,
   const normalized = bbox?.normalized;
   if (!Array.isArray(absolute) || absolute.length !== 4 || !absolute.every(Number.isInteger)) return null;
   if (!Array.isArray(normalized) || normalized.length !== 4 || !normalized.every((part) => Number.isInteger(part) && part >= 0 && part <= 1000)) return null;
-  const [left, top, right, bottom] = absolute as number[];
+  const [absoluteLeft, absoluteTop, absoluteRight, absoluteBottom] = absolute as number[];
+  if (absoluteLeft < 0 || absoluteTop < 0 || absoluteRight <= absoluteLeft || absoluteBottom <= absoluteTop) return null;
+  const [normalizedLeft, normalizedTop, normalizedRight, normalizedBottom] = normalized as number[];
+  const left = Math.floor(normalizedLeft * width / 1000);
+  const top = Math.floor(normalizedTop * height / 1000);
+  const right = Math.ceil(normalizedRight * width / 1000);
+  const bottom = Math.ceil(normalizedBottom * height / 1000);
   const boxWidth = right - left;
   const boxHeight = bottom - top;
   if (left < 0 || top < 0 || boxWidth <= 0 || boxHeight <= 0 || right > width || bottom > height) return null;
@@ -236,49 +257,50 @@ function bboxFrom(value: Record<string, unknown>, width: number, height: number,
  * Converts only the documented layer contract into our durable shape. The
  * provider may return other image fields, but it cannot bypass this gate.
  */
-export function normalizeSeedreamLayerResponse(payload: unknown): {
+export function normalizeSeedreamLayerResponse(
+  payload: unknown,
+  canvas?: { width: number; height: number },
+): {
   width: number;
   height: number;
   layers: Array<Omit<LayerizationLayer, "storageKey" | "sourceBytes"> & { sourceUrl: string }>;
 } {
-  const root = payload;
-  if (!isRecord(root)) {
-    throw new SeedreamProviderError("Seedream layer payload is not an object", "invalid_provider_response");
-  }
+  const root = providerData(payload);
   const declaredLayers = Array.isArray(root.layers) ? root.layers : [];
+  const outputs = Array.isArray(root.outputs) ? root.outputs : [];
   const base = declaredLayers[0];
-  const baseImage = isRecord(base) ? firstRecord(base.image) : null;
-  const width = numberValue(baseImage?.width);
-  const height = numberValue(baseImage?.height);
+  const baseImage = isRecord(base) && isRecord(base.image) ? base.image : null;
+  const width = canvas?.width ?? numberValue(baseImage?.width);
+  const height = canvas?.height ?? numberValue(baseImage?.height);
   if (width === null || height === null || !Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0 || width * height > SEEDREAM_MAX_CANVAS_PIXELS) {
-    throw new SeedreamProviderError("Seedream layer payload has invalid canvas dimensions", "invalid_provider_response");
+    throw new SeedreamProviderError("Atlas layer payload has invalid canvas dimensions", "invalid_provider_response");
   }
 
-  if (declaredLayers.length < 2 || declaredLayers.length > SEEDREAM_MAX_LAYERS) {
-    throw new SeedreamProviderError("Seedream must return between 2 and 17 layers", "invalid_provider_response");
+  if (declaredLayers.length < 2 || declaredLayers.length > SEEDREAM_MAX_LAYERS || outputs.length !== declaredLayers.length) {
+    throw new SeedreamProviderError("Atlas must return between 2 and 17 aligned outputs", "invalid_provider_response");
   }
 
   const seenOrders = new Set<number>();
   let baseCount = 0;
   const layers = declaredLayers.map((value, index) => {
     if (!isRecord(value)) {
-      throw new SeedreamProviderError("Seedream returned a non-object layer", "invalid_provider_response");
+      throw new SeedreamProviderError("Atlas returned a non-object layer", "invalid_provider_response");
     }
-    const order = numberValue(value.z_index);
+    const order = numberValue(value.z_index, index === 0 ? 0 : null);
     const isBase = index === 0 && order === 0 && value.bounding_box == null;
     if (isBase) baseCount += 1;
     const name = stringValue(value.name, isBase ? "Base" : null);
     const description = stringValue(value.description, isBase ? "Base layer" : null);
-    const sourceUrl = imageUrlFrom(value);
+    const sourceUrl = stringValue(outputs[index]);
     const bbox = bboxFrom(value, width, height, isBase);
     if (order === null || !Number.isInteger(order) || order < 0 || order >= SEEDREAM_MAX_LAYERS || seenOrders.has(order) || !name || name.length > 128 || !description || description.length > 1000 || !sourceUrl || sourceUrl.length > 2048 || !bbox) {
-      throw new SeedreamProviderError("Seedream layer is missing an ordered name, description, bbox, or image", "invalid_provider_response");
+      throw new SeedreamProviderError("Atlas layer is missing an ordered name, description, bbox, or output", "invalid_provider_response");
     }
     seenOrders.add(order);
     return { order, isBase, name, description, sourceUrl, ...bbox };
   });
   if (baseCount !== 1) {
-    throw new SeedreamProviderError("Seedream response must contain exactly one base layer", "invalid_provider_response");
+    throw new SeedreamProviderError("Atlas response must contain exactly one base layer", "invalid_provider_response");
   }
   return { width, height, layers: layers.sort((left, right) => left.order - right.order) };
 }

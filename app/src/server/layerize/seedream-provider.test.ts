@@ -14,17 +14,16 @@ const publicLookup = async () => [{ address: "93.184.216.34" }];
 
 function layerResponse() {
   return {
-    images: [],
+    outputs: [
+      "https://storage.atlascloud.ai/base.png",
+      "https://storage.atlascloud.ai/headline.png",
+    ],
     layers: [
       {
-        image: { url: "https://v3.fal.media/base.png", width: 4, height: 4 },
         z_index: 0,
         bounding_box: null,
-        name: null,
-        description: null,
       },
       {
-        image: { url: "https://v3.fal.media/headline.png", width: 2, height: 1 },
         z_index: 1,
         name: "Headline",
         description: "Main headline",
@@ -39,12 +38,12 @@ function layerResponse() {
 
 describe("seedream layerize contract", () => {
   it("estimates the documented per-layer price from the generated base area", () => {
-    expect(estimateSeedreamLayerizationCostUsd(1536, 1536, 8)).toBeCloseTo(0.27);
-    expect(estimateSeedreamLayerizationCostUsd(1537, 1536, 8)).toBeCloseTo(0.54);
+    expect(estimateSeedreamLayerizationCostUsd(1536, 1536, 8)).toBeCloseTo(0.36);
+    expect(estimateSeedreamLayerizationCostUsd(1537, 1536, 8)).toBeCloseTo(0.72);
   });
 
   it("normalizes a base plus ordered layers and rejects duplicates", () => {
-    const normalized = normalizeSeedreamLayerResponse(layerResponse());
+    const normalized = normalizeSeedreamLayerResponse(layerResponse(), { width: 4, height: 4 });
     expect(normalized.layers.map((layer) => [layer.order, layer.isBase])).toEqual([[0, true], [1, false]]);
     expect(normalized).toMatchObject({
       width: 4,
@@ -57,30 +56,30 @@ describe("seedream layerize contract", () => {
     expect(() => normalizeSeedreamLayerResponse({
       ...layerResponse(),
       layers: [layerResponse().layers[0], { ...layerResponse().layers[1], z_index: 0 }],
-    })).toThrow(/ordered/);
+    }, { width: 4, height: 4 })).toThrow(/ordered/);
     expect(() => normalizeSeedreamLayerResponse({
       ...layerResponse(),
-      layers: [{ ...layerResponse().layers[0], image: { ...layerResponse().layers[0].image, width: 100_000, height: 100_000 } }, layerResponse().layers[1]],
-    })).toThrow(/canvas dimensions/);
+      layers: [layerResponse().layers[0], layerResponse().layers[1]],
+    }, { width: 100_000, height: 100_000 })).toThrow(/canvas dimensions/);
     expect(() => normalizeSeedreamLayerResponse({
       ...layerResponse(),
       layers: [layerResponse().layers[0], { ...layerResponse().layers[1], z_index: 17 }],
-    })).toThrow(/ordered/);
+    }, { width: 4, height: 4 })).toThrow(/ordered/);
     expect(() => normalizeSeedreamLayerResponse({
       ...layerResponse(),
       layers: [
         layerResponse().layers[0],
-        { ...layerResponse().layers[1], image: undefined, image_url: "https://v3.fal.media/headline.png" },
+        { ...layerResponse().layers[1], z_index: undefined },
       ],
-    })).toThrow(/ordered name, description, bbox, or image/);
+    }, { width: 4, height: 4 })).toThrow(/ordered name, description, bbox, or output/);
     expect(() => normalizeSeedreamLayerResponse({ output: layerResponse() })).toThrow(/not an object|invalid canvas/);
   });
 
-  it("sends the official queue safety headers without provider retries", async () => {
+  it("submits to Atlas and polls the prediction endpoint without provider retries", async () => {
     const fetchImpl = vi.fn<typeof fetch>()
-      .mockResolvedValueOnce(new Response(JSON.stringify({ request_id: "req-1" }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ status: "COMPLETED" }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(layerResponse()), { status: 200 }));
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { id: "req-1" } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { status: "completed" } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: layerResponse() }), { status: 200 }));
     const provider = createSeedreamProvider({ apiKey: "test-key", fetchImpl });
     await expect(provider.submit({
       prompt: "x",
@@ -88,23 +87,20 @@ describe("seedream layerize contract", () => {
       callbackUrl: "https://app.example/api/creative-work/work-1?token=secret",
     })).resolves.toEqual({ requestId: "req-1" });
     await expect(provider.status("req-1")).resolves.toBe("COMPLETED");
-    await expect(provider.result("req-1")).resolves.toEqual(layerResponse());
+    await expect(provider.result("req-1")).resolves.toEqual({ data: layerResponse() });
     const headers = fetchImpl.mock.calls[0][1]?.headers as Record<string, string>;
-    expect(headers.Authorization).toBe("Key test-key");
-    expect(headers["X-Fal-Store-IO"]).toBe("0");
-    expect(headers["X-Fal-No-Retry"]).toBe("1");
-    expect(headers["X-Fal-Request-Timeout"]).toBe("7200");
-    expect(headers["x-app-fal-disable-fallback"]).toBe("true");
+    expect(headers.Authorization).toBe("Bearer test-key");
     expect(fetchImpl.mock.calls[0][0].toString()).toBe(
-      "https://queue.fal.run/bytedance/seedream/v5/pro/layerize?fal_webhook=https%3A%2F%2Fapp.example%2Fapi%2Fcreative-work%2Fwork-1%3Ftoken%3Dsecret",
+      "https://api.atlascloud.ai/api/v1/model/generateImage",
     );
     expect(JSON.parse(String(fetchImpl.mock.calls[0][1]?.body))).toMatchObject({
-      image_url: "https://signed.example/source.png",
-      enable_safety_checker: true,
+      model: "bytedance/seedream-v5.0-pro/layer-decomposition",
+      image: "https://signed.example/source.png",
+      size: "1K",
+      output_format: "png",
     });
-    expect(JSON.parse(String(fetchImpl.mock.calls[0][1]?.body))).not.toHaveProperty("image_urls");
     expect(fetchImpl.mock.calls[2][0].toString()).toBe(
-      "https://queue.fal.run/bytedance/seedream/v5/pro/layerize/requests/req-1",
+      "https://api.atlascloud.ai/api/v1/model/prediction/req-1",
     );
   });
 
@@ -119,10 +115,10 @@ describe("seedream layerize contract", () => {
 
   it("rejects non-allowlisted or private media before fetching", async () => {
     await expect(validateSeedreamMediaUrl("https://example.com/image.png", { lookup: publicLookup })).rejects.toThrow(/allowlisted/);
-    await expect(validateSeedreamMediaUrl("https://v3.fal.media/image.png", {
+    await expect(validateSeedreamMediaUrl("https://storage.atlascloud.ai/image.png", {
       lookup: async () => [{ address: "169.254.169.254" }],
     })).rejects.toThrow(/private/);
-    await expect(validateSeedreamMediaUrl("https://v3.fal.media/image.png", {
+    await expect(validateSeedreamMediaUrl("https://storage.atlascloud.ai/image.png", {
       lookup: async () => [{ address: "::ffff:0a00:0001" }],
     })).rejects.toThrow(/private/);
   });
@@ -132,7 +128,7 @@ describe("seedream layerize contract", () => {
       status: 200,
       headers: { "content-type": "image/png" },
     }));
-    await expect(downloadSeedreamMedia("https://v3.fal.media/image.png", {
+    await expect(downloadSeedreamMedia("https://storage.atlascloud.ai/image.png", {
       fetchImpl,
       lookup: publicLookup,
     })).resolves.toEqual(png);
@@ -140,7 +136,7 @@ describe("seedream layerize contract", () => {
       status: 200,
       headers: { "content-type": "image/png" },
     }));
-    await expect(downloadSeedreamMedia("https://v3.fal.media/image.png", {
+    await expect(downloadSeedreamMedia("https://storage.atlascloud.ai/image.png", {
       fetchImpl: bad,
       lookup: publicLookup,
     })).rejects.toThrow(/invalid PNG/);
@@ -157,7 +153,7 @@ describe("seedream layerize contract", () => {
     const store = vi.fn(async () => undefined);
 
     await expect(downloadSeedreamLayers([
-      { sourceUrl: "https://v3.fal.media/empty.png", isBase: false },
+      { sourceUrl: "https://storage.atlascloud.ai/empty.png", isBase: false },
     ], { fetchImpl, lookup: publicLookup, store })).rejects.toThrow(/transparent/);
     expect(store).not.toHaveBeenCalled();
   });
@@ -173,7 +169,7 @@ describe("seedream layerize contract", () => {
     const stored: Buffer[] = [];
 
     await downloadSeedreamLayers([
-      { sourceUrl: "https://v3.fal.media/opaque.png", isBase: false },
+      { sourceUrl: "https://storage.atlascloud.ai/opaque.png", isBase: false },
     ], {
       fetchImpl,
       lookup: publicLookup,

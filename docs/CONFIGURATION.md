@@ -21,7 +21,7 @@ Runtime secrets and service URLs are read from `process.env`. The canonical list
 | `OPENAI_API_KEY` | Yes | — | OpenAI API key; must start with `sk-`. |
 | `OPENAI_TEXT_MODEL` | No | `gpt-5-mini` | Text model for AI features. |
 | `OPENAI_IMAGE_MODEL` | No | `gpt-image-2-2026-04-21` | Image model for AI features. |
-| `FAL_KEY` | No | — | Optional server-only fal credential for Trabalho layerization by the Dono da plataforma. Missing disables the action; never expose it to the browser. |
+| `ATLASCLOUD_API_KEY` | No | — | Optional server-only Atlas Cloud credential for Trabalho layerization by the Dono da plataforma. Missing disables the action; never expose it to the browser. |
 | `MINIMAX_API_KEY` | Yes | — | MiniMax chat-model API key; required by the assistant orchestrator (`app/src/server/assistant/model/minimax-client.ts`). Zod-validated as non-empty. |
 | `MINIMAX_MODEL` | No | `MiniMax-M3` | MiniMax chat model identifier; defaults to `MiniMax-M3` if unset. |
 | `R2_ACCOUNT_ID` | Yes | — | Cloudflare R2 account ID. |
@@ -262,7 +262,7 @@ Required `sync: false` secrets to set in the Dashboard before first deploy:
 - `OPENAI_API_KEY`, R2 (`R2_*`), Inngest (`INNGEST_*`), Resend (`RESEND_API_KEY`, `RESEND_WAITLIST_SEGMENT_ID`, `EMAIL_FROM`)
 - All Stripe vars: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_STARTER_PRICE_ID`, `STRIPE_GROWTH_PRICE_ID`, `STRIPE_SCALE_PRICE_ID`
 
-`FAL_KEY` is also declared as `sync: false`, but it is optional and must remain unset until the Seedream partner review and paid smoke are explicitly approved.
+`ATLASCLOUD_API_KEY` is also declared as `sync: false`, but it is optional and must remain unset until the Seedream provider review and paid smoke are explicitly approved.
 
 ### `app/drizzle.config.ts`
 

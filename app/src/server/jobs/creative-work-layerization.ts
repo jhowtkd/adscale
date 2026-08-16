@@ -1,5 +1,6 @@
 import "server-only";
 
+import sharp from "sharp";
 import { objectStorage } from "@/server/storage";
 import { getCreativeWork } from "@/server/repositories/creative-work";
 import {
@@ -24,6 +25,7 @@ import {
   downloadSeedreamLayers,
   estimateSeedreamLayerizationCostUsd,
   normalizeSeedreamLayerResponse,
+  SeedreamProviderError,
   type SeedreamProvider,
 } from "@/server/layerize/seedream-provider";
 import {
@@ -203,7 +205,15 @@ export async function runCreativeWorkLayerization(input: {
   state = layerizationStateFromDatabase(finalizing.layerization) ?? state;
 
   try {
-    const normalized = normalizeSeedreamLayerResponse(providerPayload);
+    const original = await objectStorage.get(output.outputKey);
+    const originalMetadata = await sharp(original).metadata();
+    if (!originalMetadata.width || !originalMetadata.height) {
+      throw new SeedreamProviderError("Source image has no readable dimensions", "invalid_provider_response");
+    }
+    const normalized = normalizeSeedreamLayerResponse(providerPayload, {
+      width: originalMetadata.width,
+      height: originalMetadata.height,
+    });
     const layerBytes = await downloadSeedreamLayers(normalized.layers, {
       ...input.downloadOptions,
       store: async (_layer, index, stream) => {
@@ -223,7 +233,6 @@ export async function runCreativeWorkLayerization(input: {
         sourceBytes: layerBytes[index],
       };
     });
-    const original = await objectStorage.get(output.outputKey);
     const recomposed = await recomposeStoredLayers({
       width: normalized.width,
       height: normalized.height,

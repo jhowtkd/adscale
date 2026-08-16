@@ -159,8 +159,8 @@ function layerizationState(providerRequestId: string | null = null) {
     callbackDeadlineAt: "2026-08-12T12:00:00.000Z",
     latencyMs: null,
     providerRequestId,
-    providerModel: "bytedance/seedream/v5/pro/layerize",
-    providerEndpoint: "https://queue.fal.run/bytedance/seedream/v5/pro/layerize",
+    providerModel: "bytedance/seedream-v5.0-pro/layer-decomposition",
+    providerEndpoint: "https://api.atlascloud.ai/api/v1/model/generateImage",
     estimatedCostUsd: null,
     baseWidth: null,
     baseHeight: null,
@@ -248,9 +248,9 @@ describe("GET /api/creative-work/[id]", () => {
     expect(body.outputs[0].layerization).toBeNull();
   });
 
-  it("keeps layerization disabled for an owner when FAL_KEY is absent", async () => {
-    const previous = process.env.FAL_KEY;
-    delete process.env.FAL_KEY;
+  it("keeps layerization disabled for an owner when ATLASCLOUD_API_KEY is absent", async () => {
+    const previous = process.env.ATLASCLOUD_API_KEY;
+    delete process.env.ATLASCLOUD_API_KEY;
     isPlatformOwnerEmailMock.mockReturnValue(true);
     getWorkMock.mockResolvedValue({ work: workItem, outputs, sources: [] });
 
@@ -258,13 +258,13 @@ describe("GET /api/creative-work/[id]", () => {
     const body = await res.json();
 
     expect(body.canLayerize).toBe(false);
-    if (previous === undefined) delete process.env.FAL_KEY;
-    else process.env.FAL_KEY = previous;
+    if (previous === undefined) delete process.env.ATLASCLOUD_API_KEY;
+    else process.env.ATLASCLOUD_API_KEY = previous;
   });
 
   it("marks an expired owner-visible attempt unknown when no provider request was persisted", async () => {
-    const previous = process.env.FAL_KEY;
-    process.env.FAL_KEY = "test-fal-key";
+    const previous = process.env.ATLASCLOUD_API_KEY;
+    process.env.ATLASCLOUD_API_KEY = "test-atlas-key";
     isPlatformOwnerEmailMock.mockReturnValue(true);
     const expired = layerizationState();
     const unknown = { ...expired, status: "submission_unknown" as const, failureCode: "submission_unknown" as const };
@@ -288,14 +288,14 @@ describe("GET /api/creative-work/[id]", () => {
       expect(body.outputs[0].layerization.status).toBe("submission_unknown");
       expect(inngestSendMock).not.toHaveBeenCalled();
     } finally {
-      if (previous === undefined) delete process.env.FAL_KEY;
-      else process.env.FAL_KEY = previous;
+    if (previous === undefined) delete process.env.ATLASCLOUD_API_KEY;
+    else process.env.ATLASCLOUD_API_KEY = previous;
     }
   });
 
   it("re-dispatches an expired owner-visible attempt when the provider request is known", async () => {
-    const previous = process.env.FAL_KEY;
-    process.env.FAL_KEY = "test-fal-key";
+    const previous = process.env.ATLASCLOUD_API_KEY;
+    process.env.ATLASCLOUD_API_KEY = "test-atlas-key";
     isPlatformOwnerEmailMock.mockReturnValue(true);
     const expired = layerizationState("request-1");
     const recovered = { ...expired, updatedAt: "2026-08-12T15:00:00.000Z" };
@@ -313,8 +313,8 @@ describe("GET /api/creative-work/[id]", () => {
       expect(recoverExpiredLayerizationsMock).toHaveBeenCalledOnce();
       expect(inngestSendMock).not.toHaveBeenCalled();
     } finally {
-      if (previous === undefined) delete process.env.FAL_KEY;
-      else process.env.FAL_KEY = previous;
+    if (previous === undefined) delete process.env.ATLASCLOUD_API_KEY;
+    else process.env.ATLASCLOUD_API_KEY = previous;
     }
   });
 
