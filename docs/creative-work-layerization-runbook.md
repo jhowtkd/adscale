@@ -7,23 +7,24 @@ ou lançamento de geração do ADScale é criado.
 
 ## Configuration
 
-- `FAL_KEY` is optional and server-only. If absent, the action is disabled.
+- `ATLASCLOUD_API_KEY` is optional and server-only. If absent, the action is disabled.
 - The adapter uses the fixed model id
-  `bytedance/seedream/v5/pro/layerize`, native fal queue REST, safety enabled,
-  provider retry disabled, fallback disabled, and a one-hour provider object
-  lifecycle. Do not add a fallback model or SDK without reopening #227.
+  `bytedance/seedream-v5.0-pro/layer-decomposition` through Atlas Cloud's
+  asynchronous image API. It submits `image`, `size: "1K"`, and PNG output,
+  then polls `/api/v1/model/prediction/{id}`. Do not add a fallback model or
+  SDK without reopening #227.
 - The queue endpoint is
-  `https://queue.fal.run/bytedance/seedream/v5/pro/layerize`; the request uses
-  singular `image_url`, and the result is fetched from
-  `/requests/{request_id}`. The adapter accepts only the documented `layers`,
-  `z_index`, and `bounding_box` contract.
-- The source URL sent to fal is signed for 2h15, covering the two-hour callback
-  deadline plus margin; `X-Fal-Request-Timeout: 7200` prevents a queued request
-  from starting after that deadline. Layer responses stream through bounded temporary files
-  into private object storage; the job does not retain every compressed PNG.
-- On 2026-08-12 the public page listed $0.03375 per generated layer when the
-  generated base area is at most 1536x1536 pixels, and $0.0675 per layer above
-  that threshold. Recheck the model page immediately before a paid smoke.
+  `https://api.atlascloud.ai/api/v1/model/generateImage`; authentication uses
+  `Authorization: Bearer ...`. The result is returned under `data`, with
+  aligned `outputs` and `layers` arrays. The adapter accepts only the
+  documented `z_index`, `bounding_box`, name, description, and PNG URL contract.
+- The source URL sent to Atlas is signed for 2h15, covering the two-hour
+  reconciliation deadline plus margin. Layer responses stream through bounded
+  temporary files into private object storage; the job does not retain every
+  compressed PNG.
+- The provisional estimate is $0.1575 per request, from the 2026-08-17 paid
+  smoke invoice. The catalog list price of $0.022 per image was stale. Recheck
+  the Atlas invoice immediately before another paid smoke.
 - Apply migration `0085_creative_work_layerization.sql` before enabling the
   action.
 - `IMAGE_JOB_TARGET=web` runs the existing job factory in the web process;
@@ -32,7 +33,7 @@ ou lançamento de geração do ADScale é criado.
 
 ## Preflight
 
-1. Confirm the deploy has the migration, `FAL_KEY` only in the server secret
+1. Confirm the deploy has the migration, `ATLASCLOUD_API_KEY` only in the server secret
    store, and `APP_URL`/`BETTER_AUTH_URL` points at the callback origin.
 2. Confirm the Dono da plataforma account is in `PLATFORM_OWNER_EMAILS` (or the existing
    development allowlist).
@@ -72,7 +73,7 @@ production deployment, partner contract approval, or paid generation.
 ## Three smoke formats
 
 1. **Synthetic contract smoke:** fake provider HTTP, deterministic PNG layers,
-   in-memory/private object storage, no real fal credential or external network, and only a fake `FAL_KEY` value to enable the guarded action in-process.
+   in-memory/private object storage, no real Atlas credential or external network, and only a fake `ATLASCLOUD_API_KEY` value to enable the guarded action in-process.
 2. **Authenticated acceptance smoke:** deployed Dono da plataforma and ordinary-user requests using
    only synthetic or owned assets; verify authorization, state transitions,
    private PSD/ZIP downloads, and original-output immutability. Record build,
@@ -84,7 +85,7 @@ production deployment, partner contract approval, or paid generation.
 
 ## Current provider gate
 
-As of 2026-08-12, the [public Seedream Layerize page](https://fal.ai/models/bytedance/seedream/v5/pro/layerize/api) publishes the layer and bounding-box contract implemented by the adapter. The endpoint is still marked `Partner`: use only synthetic or ADScale-owned assets until the contractual review explicitly approves real client brand assets. Do not run a paid smoke without that approval and explicit authorization for the cost. The [fal queue protocol](https://fal.ai/docs/documentation/model-apis/inference/queue) and [platform headers](https://fal.ai/docs/documentation/model-apis/common-parameters) remain the source of truth. Record build, deploy, authentication, paid-generation, and human-approval evidence separately.
+The [Atlas Seedream model page](https://www.atlascloud.ai/models/seedream-5.0-pro) and [Atlas Predictions API](https://www.atlascloud.ai/docs/en/predictions) are the source of truth for the current layer and polling contract. Use only synthetic or ADScale-owned assets until the provider review explicitly approves real client brand assets. Do not run a paid smoke without that approval and explicit authorization for the cost. Record build, deploy, authentication, paid-generation, and human-approval evidence separately.
 
 ## Local validation evidence — 2026-08-12
 

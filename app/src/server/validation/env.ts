@@ -22,7 +22,7 @@ export const envSchema = z.object({
   OPENAI_API_KEY: z.string().startsWith("sk-"),
   OPENAI_TEXT_MODEL: z.string().default("gpt-5.6-sol"),
   OPENAI_IMAGE_MODEL: z.string().default("gpt-image-2-2026-04-21"),
-  FAL_KEY: z.string().min(1).optional(),
+  ATLASCLOUD_API_KEY: z.string().min(1).optional(),
   R2_ACCOUNT_ID: z.string(),
   R2_ACCESS_KEY_ID: z.string(),
   R2_SECRET_ACCESS_KEY: z.string(),

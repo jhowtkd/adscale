@@ -86,9 +86,9 @@ function layerization(status: PublicLayerizationState["status"], failureCode: Pu
     callbackDeadlineAt: "2026-08-12T14:00:00.000Z",
     latencyMs: null,
     providerRequestId: "request-1",
-    providerModel: "bytedance/seedream/v5/pro/layerize",
-    providerEndpoint: "https://queue.fal.run/bytedance/seedream/v5/pro/layerize",
-    estimatedCostUsd: 0.0675,
+    providerModel: "bytedance/seedream-v5.0-pro/layer-decomposition",
+    providerEndpoint: "https://api.atlascloud.ai/api/v1/model/generateImage",
+    estimatedCostUsd: 0.09,
     baseWidth: null,
     baseHeight: null,
     layers: status === "completed" ? [

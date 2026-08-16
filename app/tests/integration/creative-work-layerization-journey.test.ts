@@ -19,13 +19,13 @@ import sharp from "sharp";
 
 const envBeforeTest = vi.hoisted(() => {
   const previous = {
-    falKey: process.env.FAL_KEY,
+    atlasCloudKey: process.env.ATLASCLOUD_API_KEY,
     ownerEmails: process.env.PLATFORM_OWNER_EMAILS,
     authSecret: process.env.BETTER_AUTH_SECRET,
     authUrl: process.env.BETTER_AUTH_URL,
     appUrl: process.env.APP_URL,
   };
-  process.env.FAL_KEY = "test-fal-key";
+  process.env.ATLASCLOUD_API_KEY = "test-atlas-key";
   process.env.PLATFORM_OWNER_EMAILS = "layerize-owner@example.com";
   process.env.BETTER_AUTH_SECRET ??= "layerize-journey-secret-32-chars-min";
   process.env.BETTER_AUTH_URL ??= "http://localhost:3000";
@@ -139,8 +139,8 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work layerization HTTP
       await db.delete(session).where(inArray(session.token, createdSessionTokens));
     }
     if (createdUserIds.length > 0) await db.delete(user).where(inArray(user.id, createdUserIds));
-    if (envBeforeTest.falKey === undefined) delete process.env.FAL_KEY;
-    else process.env.FAL_KEY = envBeforeTest.falKey;
+    if (envBeforeTest.atlasCloudKey === undefined) delete process.env.ATLASCLOUD_API_KEY;
+    else process.env.ATLASCLOUD_API_KEY = envBeforeTest.atlasCloudKey;
     if (envBeforeTest.ownerEmails === undefined) delete process.env.PLATFORM_OWNER_EMAILS;
     else process.env.PLATFORM_OWNER_EMAILS = envBeforeTest.ownerEmails;
     if (envBeforeTest.authSecret === undefined) delete process.env.BETTER_AUTH_SECRET;
@@ -224,30 +224,32 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work layerization HTTP
     expect(dispatched).toHaveLength(1);
 
     const providerPayload = {
-      images: [],
-      layers: [
-        { image: { url: "https://v3.fal.media/base.png", width: 8, height: 8 }, z_index: 0, bounding_box: null },
+      data: {
+        id: "request-1",
+        status: "completed",
+        outputs: [
+          "https://storage.atlascloud.ai/base.png",
+          "https://storage.atlascloud.ai/overlay.png",
+        ],
+        layers: [
+          { z_index: 0, bounding_box: null },
         {
-          image: { url: "https://v3.fal.media/overlay.png", width: 2, height: 2 },
           z_index: 1,
           name: "Product",
           description: "Synthetic foreground",
           bounding_box: { absolute: [3, 2, 5, 4], normalized: [375, 250, 625, 500] },
         },
-      ],
+        ],
+      },
     };
     const fetchedUrls: string[] = [];
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = input.toString();
       fetchedUrls.push(url);
-      if (url.includes("queue.fal.run") && !url.includes("/requests/")) {
-        return new Response(JSON.stringify({ request_id: "request-1" }), { status: 200 });
-      }
-      if (url.endsWith("/status")) return new Response(JSON.stringify({ status: "COMPLETED" }), { status: 200 });
-      if (url.endsWith("/requests/request-1")) return new Response(JSON.stringify(providerPayload), { status: 200 });
+      if (url.endsWith("/prediction/request-1")) return new Response(JSON.stringify(providerPayload), { status: 200 });
       if (url.endsWith("base.png")) return new Response(base, { status: 200, headers: { "content-type": "image/png" } });
       if (url.endsWith("overlay.png")) return new Response(overlay, { status: 200, headers: { "content-type": "image/png" } });
-      throw new Error(`Unexpected fal request: ${url}`);
+      throw new Error(`Unexpected Atlas request: ${url}`);
     });
 
     const callbackRequest = () => new Request(event.callbackUrl!, {
@@ -269,7 +271,7 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work layerization HTTP
 
     let [persisted] = await db.select().from(creativeWorkOutputs).where(eq(creativeWorkOutputs.id, output.id)).limit(1);
     expect(persisted.outputKey).toBe(sourceKey);
-    expect(persisted.layerization).toMatchObject({ status: "completed", estimatedCostUsd: 0.0675 });
+    expect(persisted.layerization).toMatchObject({ status: "completed", estimatedCostUsd: 0.09 });
 
     const completedLayerization = persisted.layerization as Record<string, unknown>;
     await db.update(creativeWorkOutputs).set({
@@ -334,8 +336,8 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work layerization HTTP
       callbackDeadlineAt: "2026-08-12T12:00:00.000Z",
       latencyMs: null,
       providerRequestId: null,
-      providerModel: "bytedance/seedream/v5/pro/layerize",
-      providerEndpoint: "https://queue.fal.run/bytedance/seedream/v5/pro/layerize",
+      providerModel: "bytedance/seedream-v5.0-pro/layer-decomposition",
+      providerEndpoint: "https://api.atlascloud.ai/api/v1/model/generateImage",
       estimatedCostUsd: null,
       baseWidth: null,
       baseHeight: null,

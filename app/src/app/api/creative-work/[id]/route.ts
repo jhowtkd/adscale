@@ -372,7 +372,7 @@ export async function GET(
     const inferredBriefing = result.work.toolKind === "single"
       ? resolveCreativeWorkInferredBriefing(result.work.inputSnapshot)
       : null;
-    const canLayerize = isPlatformOwnerEmail(user.email) && Boolean(env.FAL_KEY?.trim());
+    const canLayerize = isPlatformOwnerEmail(user.email) && Boolean(env.ATLASCLOUD_API_KEY?.trim());
     const recoveredLayerizations = canLayerize
       ? await recoverExpiredCreativeWorkLayerizations({
         workspaceId: workspace.id,
