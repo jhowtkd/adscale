@@ -108,7 +108,7 @@ describe("requestCreativeWorkLayerization", () => {
     expect(sendMock).not.toHaveBeenCalled();
   });
 
-  it("does not retry a provider failure that may already have been charged", async () => {
+  it("allows an explicit retry after a provider failure", async () => {
     output.layerization = {
       status: "failed",
       attemptId: "attempt-1",
@@ -134,9 +134,13 @@ describe("requestCreativeWorkLayerization", () => {
 
     const result = await requestCreativeWorkLayerization({ ...input, retry: true });
 
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error.code).toBe("failed");
-    expect(claimMock).not.toHaveBeenCalled();
-    expect(sendMock).not.toHaveBeenCalled();
+    expect(result.ok).toBe(true);
+    expect(clearFailedMock).toHaveBeenCalledWith(expect.objectContaining({
+      workspaceId: input.workspaceId,
+      workItemId: input.workItemId,
+      outputId: input.outputId,
+    }));
+    expect(claimMock).toHaveBeenCalledOnce();
+    expect(sendMock).toHaveBeenCalledOnce();
   });
 });

@@ -103,7 +103,11 @@ export function isLayerizationRetryableFailure(
   return state?.status === "failed" && (
     state.failureCode === "dispatch_failed" ||
     state.failureCode === "missing_configuration" ||
-    state.failureCode === "source_missing"
+    state.failureCode === "source_missing" ||
+    state.failureCode === "provider_error" ||
+    state.failureCode === "invalid_provider_response" ||
+    state.failureCode === "fidelity_gate_failed" ||
+    state.failureCode === "storage_error"
   );
 }
 
