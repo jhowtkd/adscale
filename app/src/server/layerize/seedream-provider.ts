@@ -24,15 +24,15 @@ export const SEEDREAM_MEDIA_HOSTS = [
   "static.atlascloud.ai",
   "storage.atlascloud.ai",
   "atlas-media.oss-us-west-1.aliyuncs.com",
+  "ark-acg-ap-southeast-1.tos-ap-southeast-1.volces.com",
 ] as const;
 export const SEEDREAM_MAX_LAYERS = 17;
 export const SEEDREAM_MAX_ASSET_BYTES = 25 * 1024 * 1024;
 export const SEEDREAM_MAX_TOTAL_ASSET_BYTES = 200 * 1024 * 1024;
 export const SEEDREAM_MAX_CANVAS_PIXELS = 40_000_000;
 export const SEEDREAM_MAX_RESPONSE_BYTES = 256 * 1024;
-const ATLASCLOUD_STANDARD_LAYER_PRICE_USD = 0.045;
-const ATLASCLOUD_LARGE_LAYER_PRICE_USD = 0.09;
-const ATLASCLOUD_STANDARD_MAX_PIXELS = 1536 * 1536;
+// ponytail: billed 2026-08-17 1:1 smoke was $0.1575/image; catalog $0.022 is stale. Split by size if invoices diverge.
+const ATLASCLOUD_IMAGE_PRICE_USD = 0.1575;
 
 export type SeedreamProviderStatus = "IN_QUEUE" | "IN_PROGRESS" | "COMPLETED" | "FAILED";
 
@@ -64,10 +64,8 @@ export type SeedreamProvider = {
   result(requestId: string): Promise<unknown>;
 };
 
-export function estimateSeedreamLayerizationCostUsd(width: number, height: number, layerCount: number): number {
-  return layerCount * (width * height <= ATLASCLOUD_STANDARD_MAX_PIXELS
-    ? ATLASCLOUD_STANDARD_LAYER_PRICE_USD
-    : ATLASCLOUD_LARGE_LAYER_PRICE_USD);
+export function estimateSeedreamLayerizationCostUsd(_width: number, _height: number, _layerCount: number): number {
+  return ATLASCLOUD_IMAGE_PRICE_USD;
 }
 
 function apiKeyOrThrow(apiKey = env.ATLASCLOUD_API_KEY): string {

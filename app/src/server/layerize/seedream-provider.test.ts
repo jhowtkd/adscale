@@ -37,9 +37,9 @@ function layerResponse() {
 }
 
 describe("seedream layerize contract", () => {
-  it("estimates the documented per-layer price from the generated base area", () => {
-    expect(estimateSeedreamLayerizationCostUsd(1536, 1536, 8)).toBeCloseTo(0.36);
-    expect(estimateSeedreamLayerizationCostUsd(1537, 1536, 8)).toBeCloseTo(0.72);
+  it("estimates the observed per-image Atlas invoice, not per-layer catalog price", () => {
+    expect(estimateSeedreamLayerizationCostUsd(1536, 1536, 8)).toBeCloseTo(0.1575);
+    expect(estimateSeedreamLayerizationCostUsd(1537, 1536, 1)).toBeCloseTo(0.1575);
   });
 
   it("normalizes a base plus ordered layers and rejects duplicates", () => {
@@ -115,6 +115,7 @@ describe("seedream layerize contract", () => {
 
   it("rejects non-allowlisted or private media before fetching", async () => {
     await expect(validateSeedreamMediaUrl("https://example.com/image.png", { lookup: publicLookup })).rejects.toThrow(/allowlisted/);
+    await expect(validateSeedreamMediaUrl("https://ark-acg-ap-southeast-1.tos-ap-southeast-1.volces.com/image.png", { lookup: publicLookup })).resolves.toMatchObject({ hostname: "ark-acg-ap-southeast-1.tos-ap-southeast-1.volces.com" });
     await expect(validateSeedreamMediaUrl("https://storage.atlascloud.ai/image.png", {
       lookup: async () => [{ address: "169.254.169.254" }],
     })).rejects.toThrow(/private/);
