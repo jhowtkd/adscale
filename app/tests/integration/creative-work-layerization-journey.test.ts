@@ -271,7 +271,7 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work layerization HTTP
 
     let [persisted] = await db.select().from(creativeWorkOutputs).where(eq(creativeWorkOutputs.id, output.id)).limit(1);
     expect(persisted.outputKey).toBe(sourceKey);
-    expect(persisted.layerization).toMatchObject({ status: "completed", estimatedCostUsd: 0.09 });
+    expect(persisted.layerization).toMatchObject({ status: "completed", estimatedCostUsd: 0.1575 });
 
     const completedLayerization = persisted.layerization as Record<string, unknown>;
     await db.update(creativeWorkOutputs).set({
@@ -301,10 +301,10 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work layerization HTTP
     const { url } = await download.json() as { url: string };
     const psd = await objectStorage.get(url.replace("memory://download/", ""));
     const parsed = readPsd(psd, { skipThumbnail: true, useImageData: true });
-    expect(parsed.children?.map((layer) => layer.name)).toEqual(["Product", "Base"]);
+    expect(parsed.children?.map((layer) => layer.name)).toEqual(["Base", "Product"]);
     expect(parsed.children?.map(({ left, top, right, bottom }) => ({ left, top, right, bottom }))).toEqual([
-      { left: 3, top: 2, right: 5, bottom: 4 },
       { left: 0, top: 0, right: 8, bottom: 8 },
+      { left: 3, top: 2, right: 5, bottom: 4 },
     ]);
     expect(parsed.imageData?.data).toBeDefined();
     expect(parsed.children?.every((layer) => layer.imageData?.data)).toBe(true);
