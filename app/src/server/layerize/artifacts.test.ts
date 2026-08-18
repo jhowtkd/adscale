@@ -104,11 +104,11 @@ describe("layerization artifacts", () => {
     const psd = await writeLayerizationPsd({ width: 4, height: 4, layers, recomposed });
     const parsed = readPsd(psd, { skipThumbnail: true, useImageData: true });
     expect(parsed.width).toBe(4);
-    expect(parsed.children?.map((layer) => layer.name)).toEqual(["Badge", "Headline", "Base"]);
+    expect(parsed.children?.map((layer) => layer.name)).toEqual(["Base", "Headline", "Badge"]);
     expect(parsed.children?.map(({ left, top, right, bottom }) => ({ left, top, right, bottom }))).toEqual([
-      { left: 3, top: 0, right: 4, bottom: 1 },
-      { left: 1, top: 1, right: 3, bottom: 2 },
       { left: 0, top: 0, right: 4, bottom: 4 },
+      { left: 1, top: 1, right: 3, bottom: 2 },
+      { left: 3, top: 0, right: 4, bottom: 1 },
     ]);
     expect(parsed.imageData?.data).toBeDefined();
     expect(parsed.children?.every((layer) => layer.imageData?.data)).toBe(true);
