@@ -9,7 +9,6 @@ import { formatDistanceToNow } from "date-fns";
 
 import CampaignsBulkActionsBar from "@/components/campaigns/CampaignsBulkActionsBar";
 import CampaignsPagination from "@/components/campaigns/CampaignsPagination";
-import { WorksRecoveryPrototype } from "@/components/campaigns/WorksRecoveryPrototype";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { useCampaignsPage } from "@/components/campaigns/useCampaignsPage";
 import CampaignsV6View from "@/components/campaigns/v6/CampaignsV6View";
@@ -58,14 +57,6 @@ export default function CampaignsListPage() {
 }
 
 function CampaignsListContent() {
-  const searchParams = useSearchParams();
-  const requestedVariant = searchParams.get("variant")?.toUpperCase();
-  if (
-    process.env.NODE_ENV !== "production" &&
-    searchParams.get("prototype") === "works" &&
-    (requestedVariant === "A" || requestedVariant === "B" || requestedVariant === "C")
-  ) return <WorksRecoveryPrototype variant={requestedVariant} />;
-
   return <CampaignsProductContent />;
 }
 

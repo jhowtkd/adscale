@@ -3602,6 +3602,16 @@
     }
   },
   "billing": {
+    "accessGate": {
+      "title": "Libere seu workspace",
+      "description": "Você precisa de um plano ativo ou de um código beta para gerar criativos. Resgate um código abaixo ou comece um plano.",
+      "betaCodePlaceholder": "Código beta",
+      "redeem": "Resgatar",
+      "redeeming": "Resgatando...",
+      "redeemError": "Não foi possível liberar o acesso. Tente novamente.",
+      "checkout": "Começar um plano",
+      "redirecting": "Redirecionando..."
+    },
     "account": {
       "loading": "Carregando cobrança...",
       "error": "Não foi possível carregar as informações de cobrança. Tente novamente em instantes.",

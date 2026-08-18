@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { ArrowRight, ImageIcon } from "lucide-react";
+import { AccessGatePanel } from "@/components/billing/AccessGatePanel";
 import { CreativeComposer } from "@/components/creative-work/CreativeComposer";
 import { CreativeToolCards } from "@/components/creative-work/CreativeToolCards";
 import { BrandInspirations } from "@/components/creative-work/BrandInspirations";
@@ -141,6 +142,7 @@ export default function DashboardHomeActions({
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-8 px-4 py-8 sm:px-6 lg:py-12">
+      <AccessGatePanel />
       <CreativeToolCards
         selected={composer.intent}
         onSelect={composer.selectIntent}

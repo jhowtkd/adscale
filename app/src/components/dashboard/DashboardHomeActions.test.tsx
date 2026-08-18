@@ -26,6 +26,24 @@ vi.mock("@/lib/hooks/use-active-client-profile", () => ({
 vi.mock("@/lib/hooks/use-creative-work", () => ({
   useCreativeWork: (...args: unknown[]) => useCreativeWorkMock(...args),
 }));
+vi.mock("@/lib/hooks/use-billing", () => ({
+  useBillingStatus: () => ({
+    data: { access: { hasSpendAccess: true } },
+    isLoading: false,
+  }),
+  useRedeemBetaAccess: () => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+    isError: false,
+    error: null,
+  }),
+  useStartCheckout: () => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+    isError: false,
+    error: null,
+  }),
+}));
 vi.mock("@/components/creative-work/useCreativeComposer", () => ({
   useCreativeComposer: (...args: unknown[]) => useComposerMock(...args),
 }));

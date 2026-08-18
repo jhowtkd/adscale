@@ -2,12 +2,11 @@
 
 import { useReducer, useRef, useEffect, useMemo, useState } from "react";
 import { m, useReducedMotion } from "@/components/animations/MotionBoundary";
-import { Camera, RotateCcw } from "lucide-react";
+import { Camera } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ActionStatusIcon } from "@/components/animations/ActionStatusIcon";
 import { useAppStore } from "@/lib/store";
 import { useTranslations } from "next-intl";
-import { useOnboarding } from "@/lib/hooks/use-onboarding";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   useUserProfile,
@@ -141,9 +140,6 @@ export default function ProfileTab() {
     setLocalAvatarPreview(null);
   };
 
-  const { completed: onboardingCompleted, restart, isRestarting } =
-    useOnboarding();
-
   const handleSave = async () => {
     updateForm({ saveState: "saving" });
     try {
@@ -175,11 +171,6 @@ export default function ProfileTab() {
         err instanceof Error ? err.message : tc("error")
       );
     }
-  };
-
-  const handleRestartTour = () => {
-    restart();
-    addToast("success", tc("tourRestarted"));
   };
 
   const email = profile?.email ?? "";
@@ -241,35 +232,6 @@ export default function ProfileTab() {
             timezone={timezone}
             updateForm={updateForm}
           />
-
-          {onboardingCompleted && (
-            <m.div
-              variants={itemVariants}
-              className="rounded-xl border border-[var(--border-dim)] bg-[var(--surface-raised)] px-4 py-4 sm:px-5"
-            >
-              <h3 className="text-sm font-medium text-[var(--text-primary)]">
-                {t("onboarding.preferences")}
-              </h3>
-              <p className="mt-1 text-xs text-[var(--text-muted)]">
-                {t("onboarding.restartDescription")}
-              </p>
-              <button
-                type="button"
-                onClick={handleRestartTour}
-                disabled={isRestarting}
-                className={cn(
-                  "mt-3 inline-flex h-9 items-center gap-2 rounded-md px-4 text-sm font-medium",
-                  "border border-[var(--border-dim)] bg-[var(--surface-base)] text-[var(--text-primary)]",
-                  "hover:border-[var(--border-medium)] hover:bg-[var(--surface-raised)]",
-                  "transition-all duration-200",
-                  "disabled:cursor-not-allowed disabled:opacity-50"
-                )}
-              >
-                <RotateCcw size={14} />
-                {isRestarting ? t("onboarding.restarting") : t("onboarding.restartTour")}
-              </button>
-            </m.div>
-          )}
         </div>
       </div>
 

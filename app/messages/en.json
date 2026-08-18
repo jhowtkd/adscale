@@ -3573,6 +3573,16 @@
     }
   },
   "billing": {
+    "accessGate": {
+      "title": "Unlock your workspace",
+      "description": "You need an active plan or a beta code to generate creatives. Redeem a code below or start a plan.",
+      "betaCodePlaceholder": "Beta code",
+      "redeem": "Redeem",
+      "redeeming": "Redeeming...",
+      "redeemError": "Could not unlock access. Try again.",
+      "checkout": "Start a plan",
+      "redirecting": "Redirecting..."
+    },
     "account": {
       "loading": "Loading billing...",
       "error": "Could not load billing information. Try again in a moment.",
