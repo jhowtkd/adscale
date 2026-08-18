@@ -29,7 +29,7 @@ Set these in the Blueprint creation screen or service environment settings:
 - `STRIPE_GROWTH_PRICE_ID`
 - `STRIPE_SCALE_PRICE_ID`
 
-`FAL_KEY` is optional and enables Seedream layerization only for the **Dono da plataforma**. Leave it unset until the partner review and paid smoke are explicitly approved; it is not required to deploy the rest of ADScale.
+`ATLASCLOUD_API_KEY` is optional and enables Seedream layerization only for the **Dono da plataforma**. Leave it unset until the provider review and paid smoke are explicitly approved; it is not required to deploy the rest of ADScale.
 
 For Resend, create a fresh API key in the Resend dashboard and use it as `RESEND_API_KEY`. If an API key was pasted into chat or logs, revoke it and replace it before deploying.
 
@@ -64,7 +64,7 @@ Also update external integrations to point back to the Render URL:
 https://dashboard.render.com/blueprint/new?repo=https://github.com/jhowtkd/adscale
 ```
 
-3. Fill every required `sync: false` secret. Leave optional `FAL_KEY` unset until its explicit release gate is approved.
+3. Fill every required `sync: false` secret. Leave optional `ATLASCLOUD_API_KEY` unset until its explicit release gate is approved.
 4. Apply the Blueprint.
 5. Confirm `/api/health` returns 200 after the deploy is live.
 

@@ -59,8 +59,9 @@ vi.mock("@/lib/logger", () => ({
 vi.mock("@/server/layerize/seedream-provider", () => ({
   createSeedreamProvider: (...args: unknown[]) => createProviderMock(...args),
   downloadSeedreamLayers: (...args: unknown[]) => downloadLayersMock(...args),
-  estimateSeedreamLayerizationCostUsd: () => 0.0675,
+  estimateSeedreamLayerizationCostUsd: () => 0.09,
   normalizeSeedreamLayerResponse: (...args: unknown[]) => normalizeResponseMock(...args),
+  SeedreamProviderError: class SeedreamProviderError extends Error {},
 }));
 vi.mock("@/server/layerize/artifacts", () => ({
   layerizationArtifactKey: (input: { workItemId: string; attemptId: string }, extension: string) => `creative-work/${input.workItemId}/layerize/${input.attemptId}/piece.${extension}`,
@@ -99,8 +100,8 @@ function state(status: LayerizationState["status"], providerRequestId: string | 
     callbackDeadlineAt: "2099-08-12T14:00:00.000Z",
     latencyMs: null,
     providerRequestId,
-    providerModel: "bytedance/seedream/v5/pro/layerize",
-    providerEndpoint: "https://queue.fal.run/bytedance/seedream/v5/pro/layerize",
+    providerModel: "bytedance/seedream-v5.0-pro/layer-decomposition",
+    providerEndpoint: "https://api.atlascloud.ai/api/v1/model/generateImage",
     estimatedCostUsd: null,
     baseWidth: null,
     baseHeight: null,
@@ -121,7 +122,7 @@ function row(layerization: LayerizationState) {
   };
 }
 
-const basePng = Buffer.from("base-png");
+const basePng = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=", "base64");
 const overlayPng = Buffer.from("overlay-png");
 const provider = {
   submit: vi.fn(async () => ({ requestId: "request-1" })),

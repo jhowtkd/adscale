@@ -24,13 +24,13 @@ vi.mock("@/server/jobs/heavy-image-events", () => ({
   heavyImageEventName: (name: string) => name,
 }));
 vi.mock("@/server/layerize/seedream-provider", () => ({
-  SEEDREAM_LAYERIZE_MODEL_ID: "bytedance/seedream/v5/pro/layerize",
-  SEEDREAM_PROVIDER_ENDPOINT: "https://queue.fal.run/bytedance/seedream/v5/pro/layerize",
+  SEEDREAM_LAYERIZE_MODEL_ID: "bytedance/seedream-v5.0-pro/layer-decomposition",
+  SEEDREAM_PROVIDER_ENDPOINT: "https://api.atlascloud.ai/api/v1/model/generateImage",
 }));
 
 import { requestCreativeWorkLayerization } from "./request-creative-work-layerization";
 
-const originalFalKey = process.env.FAL_KEY;
+const originalAtlasCloudKey = process.env.ATLASCLOUD_API_KEY;
 const input = {
   workspaceId: "workspace-1",
   workItemId: "work-1",
@@ -44,7 +44,7 @@ describe("requestCreativeWorkLayerization", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env.FAL_KEY = "test-key";
+    process.env.ATLASCLOUD_API_KEY = "test-key";
     output = {
       id: "output-1",
       status: "completed",
@@ -58,8 +58,8 @@ describe("requestCreativeWorkLayerization", () => {
   });
 
   afterEach(() => {
-    if (originalFalKey === undefined) delete process.env.FAL_KEY;
-    else process.env.FAL_KEY = originalFalKey;
+    if (originalAtlasCloudKey === undefined) delete process.env.ATLASCLOUD_API_KEY;
+    else process.env.ATLASCLOUD_API_KEY = originalAtlasCloudKey;
   });
 
   it("claims one attempt and replays a second command without another event", async () => {
@@ -88,8 +88,8 @@ describe("requestCreativeWorkLayerization", () => {
       callbackDeadlineAt: "2026-08-12T14:00:00.000Z",
       latencyMs: null,
       providerRequestId: null,
-      providerModel: "bytedance/seedream/v5/pro/layerize",
-      providerEndpoint: "https://queue.fal.run/bytedance/seedream/v5/pro/layerize",
+      providerModel: "bytedance/seedream-v5.0-pro/layer-decomposition",
+      providerEndpoint: "https://api.atlascloud.ai/api/v1/model/generateImage",
       estimatedCostUsd: null,
       baseWidth: null,
       baseHeight: null,
@@ -108,7 +108,7 @@ describe("requestCreativeWorkLayerization", () => {
     expect(sendMock).not.toHaveBeenCalled();
   });
 
-  it("does not retry a provider failure that may already have been charged", async () => {
+  it("allows an explicit retry after a provider failure", async () => {
     output.layerization = {
       status: "failed",
       attemptId: "attempt-1",
@@ -120,8 +120,8 @@ describe("requestCreativeWorkLayerization", () => {
       callbackDeadlineAt: "2026-08-12T14:00:00.000Z",
       latencyMs: null,
       providerRequestId: "request-1",
-      providerModel: "bytedance/seedream/v5/pro/layerize",
-      providerEndpoint: "https://queue.fal.run/bytedance/seedream/v5/pro/layerize",
+      providerModel: "bytedance/seedream-v5.0-pro/layer-decomposition",
+      providerEndpoint: "https://api.atlascloud.ai/api/v1/model/generateImage",
       estimatedCostUsd: null,
       baseWidth: null,
       baseHeight: null,
@@ -134,10 +134,14 @@ describe("requestCreativeWorkLayerization", () => {
 
     const result = await requestCreativeWorkLayerization({ ...input, retry: true });
 
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error.code).toBe("failed");
-    expect(claimMock).not.toHaveBeenCalled();
-    expect(sendMock).not.toHaveBeenCalled();
+    expect(result.ok).toBe(true);
+    expect(clearFailedMock).toHaveBeenCalledWith(expect.objectContaining({
+      workspaceId: input.workspaceId,
+      workItemId: input.workItemId,
+      outputId: input.outputId,
+    }));
+    expect(claimMock).toHaveBeenCalledOnce();
+    expect(sendMock).toHaveBeenCalledOnce();
   });
 
   it("does not mark an already-advanced attempt failed when Inngest send is ambiguous", async () => {

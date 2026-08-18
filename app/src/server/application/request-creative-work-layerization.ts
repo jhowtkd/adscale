@@ -84,7 +84,7 @@ export async function requestCreativeWorkLayerization(input: {
   callbackUrl: string;
   retry?: boolean;
 }): Promise<RequestCreativeWorkLayerizationResult> {
-  if (!env.FAL_KEY?.trim()) {
+  if (!env.ATLASCLOUD_API_KEY?.trim()) {
     return { ok: false, error: { code: "layerization_not_configured" } };
   }
   const aggregate = await getCreativeWork(input.workspaceId, input.workItemId);

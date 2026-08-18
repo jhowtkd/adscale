@@ -115,7 +115,8 @@ export async function writeStoredLayerizationPsd(input: {
   load: (layer: LayerizationLayer) => Promise<Buffer>;
 }): Promise<Buffer> {
   const children = [];
-  for (const layer of [...input.layers].sort((left, right) => right.order - left.order)) {
+  // PSD layer records are bottom-to-top. Write Atlas z_index 0 first so Photoshop shows Base at the bottom.
+  for (const layer of [...input.layers].sort((left, right) => left.order - right.order)) {
     children.push({
       name: layer.name,
       left: layer.x,
