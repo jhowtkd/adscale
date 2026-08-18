@@ -22,9 +22,9 @@ ou lançamento de geração do ADScale é criado.
   reconciliation deadline plus margin. Layer responses stream through bounded
   temporary files into private object storage; the job does not retain every
   compressed PNG.
-- The provisional estimate uses $0.045 per generated layer up to 1536x1536
-  pixels and $0.09 above that threshold. Recheck the Atlas model page immediately
-  before a paid smoke.
+- The provisional estimate is $0.1575 per request, from the 2026-08-17 paid
+  smoke invoice. The catalog list price of $0.022 per image was stale. Recheck
+  the Atlas invoice immediately before another paid smoke.
 - Apply migration `0083_creative_work_layerization.sql` before enabling the
   action.
 - `IMAGE_JOB_TARGET=web` runs the existing job factory in the web process;
