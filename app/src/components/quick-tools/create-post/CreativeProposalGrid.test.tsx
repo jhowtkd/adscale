@@ -8,7 +8,7 @@ vi.mock("next-intl", () => ({
 const annotationMocks = vi.hoisted(() => ({ compile: vi.fn(() => "1. Reduzir título"), render: vi.fn(), isMobile: vi.fn(() => false) }));
 vi.mock("@/lib/hooks/use-media-query", () => ({ useIsMobile: annotationMocks.isMobile }));
 vi.mock("@/components/assistant/CreativeAnnotationEditor", () => ({
-  default: ({ onAdd, annotations, isMobile }: { onAdd: (item: { x: number; y: number; width: number; height: number; comment: string }) => void; annotations: unknown[]; isMobile: boolean }) => <div data-testid="annotation-editor" data-mobile={String(isMobile)} data-count={annotations.length}><button type="button" onClick={() => onAdd({ x: 0.1, y: 0.2, width: 0.3, height: 0.2, comment: "Reduzir título" })}>add annotation</button></div>,
+  default: ({ onAdd, annotations, isMobile, layout, sidePanel }: { onAdd: (item: { x: number; y: number; width: number; height: number; comment: string }) => void; annotations: unknown[]; isMobile: boolean; layout?: string; sidePanel?: React.ReactNode }) => <div data-testid="annotation-editor" data-layout={layout} data-mobile={String(isMobile)} data-count={annotations.length}><div data-testid="annotation-editor-preview"><button type="button" onClick={() => onAdd({ x: 0.1, y: 0.2, width: 0.3, height: 0.2, comment: "Reduzir título" })}>add annotation</button></div><aside data-testid="annotation-editor-right-panel">{annotations.length > 0 ? <ol data-testid="annotation-numbered-list"><li>1. Reduzir título</li></ol> : null}{sidePanel}</aside></div>,
 }));
 vi.mock("@/components/creative-work/output-annotation", () => ({
   OUTPUT_ANNOTATION_MAX_COUNT: 5,
@@ -218,6 +218,7 @@ describe("CreativeProposalGrid", () => {
 
     expect(screen.getByRole("dialog")).toBeVisible();
     expect(screen.getByTestId("annotation-editor")).toBeVisible();
+    expect(screen.getByTestId("annotation-editor")).toHaveAttribute("data-layout", "split");
   });
 
   it("submits one annotated revision and clears only on success", async () => {
@@ -232,6 +233,16 @@ describe("CreativeProposalGrid", () => {
     await waitFor(() => expect(onRevise).toHaveBeenCalledWith("out-balanced", "1. Reduzir título", annotatedFile));
     expect(onRevise).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("places numbered comments and the revision control in the inspector right panel", () => {
+    render(<CreativeProposalGrid outputs={[balancedCompleted]} onRetry={vi.fn()} onApprove={vi.fn()} onDownload={vi.fn()} onRevise={vi.fn(async () => true)} />);
+    fireEvent.click(screen.getByRole("button", { name: "Ampliar Equilibrada em 4:5" }));
+    fireEvent.click(screen.getByRole("button", { name: "add annotation" }));
+    const rightPanel = screen.getByTestId("annotation-editor-right-panel");
+    expect(rightPanel).toContainElement(screen.getByTestId("annotation-numbered-list"));
+    expect(rightPanel).toContainElement(screen.getByRole("button", { name: "Gerar variação · 5 créditos" }));
+    expect(screen.getByTestId("annotation-editor-preview")).not.toContainElement(screen.getByTestId("annotation-numbered-list"));
   });
 
   it("keeps annotations isolated across a two-output round trip after command failure", async () => {

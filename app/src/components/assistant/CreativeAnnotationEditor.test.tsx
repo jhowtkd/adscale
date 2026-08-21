@@ -186,6 +186,14 @@ describe("CreativeAnnotationEditor", () => {
     expect(screen.getAllByText("privacy")).toHaveLength(1);
   });
 
+  it("moves the numbered comment list into the split right panel", () => {
+    render(<CreativeAnnotationEditor {...baseProps} layout="split" annotations={[{ id: "ann-1", x: 0, y: 0, width: 1, height: 1, comment: "Geral", status: "draft" }]} sidePanel={<button type="button">submit revision</button>} />);
+    const rightPanel = screen.getByTestId("assistant-annotation-right-panel");
+    expect(rightPanel).toContainElement(screen.getByTestId("assistant-annotation-item-ann-1"));
+    expect(rightPanel).toContainElement(screen.getByRole("button", { name: "submit revision" }));
+    expect(screen.getByTestId("assistant-annotation-image").parentElement).not.toContainElement(screen.getByTestId("assistant-annotation-item-ann-1"));
+  });
+
   it("appends voice comments, blocks save while voice is busy, and honors active limits", () => {
     const { container, rerender } = render(<CreativeAnnotationEditor {...baseProps} />);
     drawRect(container, 0, 0, 100, 100);

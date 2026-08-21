@@ -3333,6 +3333,7 @@
       "stop": "Parar gravação",
       "recording": "Gravando {seconds}s",
       "transcribing": "Transcrevendo…",
+      "transcriptAdded": "Transcrição adicionada.",
       "permissionError": "Permita o acesso ao microfone para usar a voz.",
       "transcriptionError": "Não foi possível transcrever. Tente novamente.",
       "privacy": "O áudio do microfone é enviado à OpenAI para transcrição e não é armazenado pela ADScale."

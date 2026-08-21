@@ -189,11 +189,12 @@ export default function CreativeProposalGrid({
             <DialogTitle>{label} · {format}</DialogTitle>
             <DialogDescription>Inspeção ampliada na proporção original, sem corte.</DialogDescription>
           </DialogHeader>
-          <DialogBody className="grid min-h-0 gap-4 overflow-y-auto lg:grid-cols-[minmax(0,1fr)_20rem]">
+          <DialogBody className="min-h-0 overflow-y-auto">
             {available ? <CreativeAnnotationEditor
               imageUrl={outputSource(selected)}
               annotations={selectedAnnotations}
               isMobile={isMobile}
+              layout="split"
               maxAnnotations={OUTPUT_ANNOTATION_MAX_COUNT}
               commentMaxLength={OUTPUT_ANNOTATION_COMMENT_MAX_LENGTH}
               onAdd={(annotation) => updateSelectedAnnotations([
@@ -201,39 +202,39 @@ export default function CreativeProposalGrid({
                 { id: crypto.randomUUID(), status: "draft", ...annotation },
               ])}
               onRemove={(annotationId) => updateSelectedAnnotations(selectedAnnotations.filter((annotation) => annotation.id !== annotationId))}
-            /> : null}
-            <aside className="flex flex-col gap-3">
-              <p className="text-sm text-[var(--text-secondary)]">{t("annotationHelp")}</p>
-              {annotationError ? <p role="alert" className="text-sm text-[var(--danger-text)]">{annotationError}</p> : null}
-              <Button
-                type="button"
-                disabled={!onRevise || selectedAnnotations.length === 0 || submittingAnnotations || isRevising?.(selected.id)}
-                onClick={async () => {
-                  if (!onRevise || selectedAnnotations.length === 0) return;
-                  setSubmittingAnnotations(true);
-                  setAnnotationError(null);
-                  try {
-                    const instruction = compileOutputAnnotationInstruction(selectedAnnotations);
-                    const file = await renderAnnotatedOutputFile({ outputId: selected.id, imageUrl: outputSource(selected), annotations: selectedAnnotations });
-                    const accepted = await onRevise(selected.id, instruction, file);
-                    if (accepted) {
-                      setAnnotationsByOutput((current) => {
-                        const next = { ...current };
-                        delete next[selected.id];
-                        return next;
-                      });
-                      setExpanded(false);
+              sidePanel={<>
+                <p className="text-sm text-[var(--text-secondary)]">{t("annotationHelp")}</p>
+                {annotationError ? <p role="alert" className="text-sm text-[var(--danger-text)]">{annotationError}</p> : null}
+                <Button
+                  type="button"
+                  disabled={!onRevise || selectedAnnotations.length === 0 || submittingAnnotations || isRevising?.(selected.id)}
+                  onClick={async () => {
+                    if (!onRevise || selectedAnnotations.length === 0) return;
+                    setSubmittingAnnotations(true);
+                    setAnnotationError(null);
+                    try {
+                      const instruction = compileOutputAnnotationInstruction(selectedAnnotations);
+                      const file = await renderAnnotatedOutputFile({ outputId: selected.id, imageUrl: outputSource(selected), annotations: selectedAnnotations });
+                      const accepted = await onRevise(selected.id, instruction, file);
+                      if (accepted) {
+                        setAnnotationsByOutput((current) => {
+                          const next = { ...current };
+                          delete next[selected.id];
+                          return next;
+                        });
+                        setExpanded(false);
+                      }
+                    } catch {
+                      setAnnotationError(t("annotationPreparationError"));
+                    } finally {
+                      setSubmittingAnnotations(false);
                     }
-                  } catch {
-                    setAnnotationError(t("annotationPreparationError"));
-                  } finally {
-                    setSubmittingAnnotations(false);
-                  }
-                }}
-              >
-                {t("revisionCta", { credits: GENERATION_CREDIT_COSTS.creativeWorkOutput })}
-              </Button>
-            </aside>
+                  }}
+                >
+                  {t("revisionCta", { credits: GENERATION_CREDIT_COSTS.creativeWorkOutput })}
+                </Button>
+              </>}
+            /> : null}
           </DialogBody>
         </DialogContent>
       </Dialog>

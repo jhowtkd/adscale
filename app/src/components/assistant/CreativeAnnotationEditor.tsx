@@ -5,6 +5,7 @@ import {
   useState,
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
+  type ReactNode,
 } from "react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
@@ -29,6 +30,8 @@ export interface CreativeAnnotationEditorProps {
   isMobile?: boolean;
   maxAnnotations?: number;
   commentMaxLength?: number;
+  layout?: "stacked" | "split";
+  sidePanel?: ReactNode;
 }
 
 interface DraftRect {
@@ -54,6 +57,8 @@ export default function CreativeAnnotationEditor({
   isMobile = false,
   maxAnnotations = Number.POSITIVE_INFINITY,
   commentMaxLength = 1_000,
+  layout = "stacked",
+  sidePanel,
 }: CreativeAnnotationEditorProps) {
   const t = useTranslations("assistant.goal");
   const tVoice = useTranslations("feedback.voice");
@@ -138,7 +143,7 @@ export default function CreativeAnnotationEditor({
 
   return (
     <section
-      className="flex flex-col gap-3"
+      className={layout === "split" ? "grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]" : "flex flex-col gap-3"}
       data-testid="assistant-annotation-editor"
     >
       <div className="relative w-full">
@@ -201,6 +206,7 @@ export default function CreativeAnnotationEditor({
         )}
       </div>
 
+      <div data-testid="assistant-annotation-right-panel" className="flex flex-col gap-3">
       {draft ? (
         <div className="flex flex-col gap-2 rounded-lg border border-[var(--selection-border)] bg-[var(--surface-raised)] p-3">
           <label className="text-xs font-medium text-[var(--text-secondary)]">
@@ -317,6 +323,8 @@ export default function CreativeAnnotationEditor({
           ))}
         </ul>
       ) : null}
+      {sidePanel}
+      </div>
     </section>
   );
 }

@@ -30,6 +30,7 @@ export default function VoiceInputButton({ onTranscript, onBusyChange, disabled 
   const [state, setState] = useState<"idle" | "requesting" | "recording" | "transcribing" | "error">("idle");
   const [seconds, setSeconds] = useState(0);
   const [errorKey, setErrorKey] = useState<string | null>(null);
+  const [transcriptAdded, setTranscriptAdded] = useState(false);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -72,6 +73,7 @@ export default function VoiceInputButton({ onTranscript, onBusyChange, disabled 
       if (!mountedRef.current) return;
       onTranscript(body.text);
       setErrorKey(null);
+      setTranscriptAdded(true);
       setState("idle");
     } catch {
       if (!mountedRef.current) return;
@@ -87,6 +89,7 @@ export default function VoiceInputButton({ onTranscript, onBusyChange, disabled 
     try {
       setSeconds(0);
       setErrorKey(null);
+      setTranscriptAdded(false);
       chunksRef.current = [];
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       if (!mountedRef.current) {
@@ -130,7 +133,7 @@ export default function VoiceInputButton({ onTranscript, onBusyChange, disabled 
       {state === "recording" ? <Square aria-hidden="true" /> : <Mic aria-hidden="true" />}
       {state === "recording" ? t("recording", { seconds }) : state === "requesting" ? t("requesting") : t("start")}
     </Button>
-    <span aria-live="polite" className={state === "recording" || state === "requesting" ? "sr-only" : "text-xs text-[var(--text-muted)]"}>{state === "recording" ? t("recording", { seconds }) : state === "requesting" ? t("requesting") : state === "transcribing" ? t("transcribing") : null}</span>
+    <span aria-live="polite" className={state === "recording" || state === "requesting" ? "sr-only" : "text-xs text-[var(--text-muted)]"}>{state === "recording" ? t("recording", { seconds }) : state === "requesting" ? t("requesting") : state === "transcribing" ? t("transcribing") : transcriptAdded ? t("transcriptAdded") : null}</span>
     {errorKey ? <span role="alert" className="text-xs text-[var(--danger-text)]">{t(errorKey)}</span> : null}
   </div>;
 }

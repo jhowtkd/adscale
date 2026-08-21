@@ -1325,6 +1325,26 @@ describe("useCreativeComposer", () => {
     expect(mocks.reviseOutput.mock.calls[2][0].revisionKey).not.toBe(mocks.reviseOutput.mock.calls[0][0].revisionKey);
   });
 
+  it("single-flights concurrent identical revisions through one upload and mutation", async () => {
+    vi.useRealTimers();
+    mocks.work.mockReturnValue({ data: workDetail(), isLoading: false, isError: false });
+    const upload = deferred<{ assetId: string }>();
+    mocks.upload.mockReturnValue(upload.promise);
+    mocks.reviseOutput.mockResolvedValue({ output: { id: "output-v2" } });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+    const file = new File(["same"], "annotation.png", { type: "image/png" });
+
+    const first = result.current.reviseOutput("output-v1", "1. Ajustar CTA", file);
+    const second = result.current.reviseOutput("output-v1", "1. Ajustar CTA", file);
+    await waitFor(() => expect(mocks.upload).toHaveBeenCalledTimes(1));
+    expect(mocks.reviseOutput).not.toHaveBeenCalled();
+    upload.resolve({ assetId: "asset-1" });
+
+    await expect(Promise.all([first, second])).resolves.toEqual([true, true]);
+    expect(mocks.upload).toHaveBeenCalledTimes(1);
+    expect(mocks.reviseOutput).toHaveBeenCalledTimes(1);
+  });
+
   it.each([
     ["single", { targetFormats: [] }, { unitCount: 1, credits: 5 }],
     ["restyle", { targetFormats: [] }, { unitCount: 1, credits: 5 }],

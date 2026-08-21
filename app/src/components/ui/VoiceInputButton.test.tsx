@@ -41,6 +41,7 @@ describe("VoiceInputButton", () => {
     expect(await screen.findByRole("button", { name: "stop" })).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(screen.getByRole("button", { name: "stop" }));
     await waitFor(() => expect(onTranscript).toHaveBeenCalledWith("Texto ditado"));
+    expect(screen.getByText("transcriptAdded", { selector: "span" })).toHaveAttribute("aria-live", "polite");
     expect(apiFetch).toHaveBeenCalledTimes(1);
     expect(apiFetch.mock.calls[0][1]).toMatchObject({ method: "POST", timeoutMs: 60_000 });
     expect(apiFetch.mock.calls[0][1].body).toBeInstanceOf(FormData);

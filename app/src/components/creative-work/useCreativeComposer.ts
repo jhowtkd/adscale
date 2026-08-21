@@ -235,6 +235,7 @@ export function useCreativeComposer({
   const lifecycleRef = useRef(0);
   const persistOnUnmountRef = useRef<() => Promise<void>>(async () => undefined);
   const revisionAttemptsRef = useRef(new Map<string, { revisionKey: string; revisionAssetId: string | null }>());
+  const revisionInFlightRef = useRef(new Map<string, Promise<boolean>>());
 
   const detailQuery = useCreativeWork(workId);
   const brandFontsQuery = useBrandFonts(
@@ -1143,32 +1144,51 @@ export function useCreativeComposer({
     }
   }, [selectOutputMutation]);
 
-  const reviseOutput = useCallback(async (outputId: string, instruction: string, attachment: File | null): Promise<boolean> => {
-    if (!workIdRef.current || !instruction.trim()) return false;
-    try {
-      const attachmentFingerprint = attachment
-        ? Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", await attachment.arrayBuffer())), (byte) => byte.toString(16).padStart(2, "0")).join("")
-        : "";
-      const attemptKey = `${outputId}:${instruction.trim()}:${attachmentFingerprint}`;
-      let attempt = revisionAttemptsRef.current.get(attemptKey);
-      if (!attempt) {
-        const uploaded = attachment ? await uploadChatAttachment(attachment) : null;
-        attempt = { revisionKey: crypto.randomUUID(), revisionAssetId: uploaded?.assetId ?? null };
-        revisionAttemptsRef.current.set(attemptKey, attempt);
+  const reviseOutput = useCallback((outputId: string, instruction: string, attachment: File | null): Promise<boolean> => {
+    const trimmedInstruction = instruction.trim();
+    const workItemId = workIdRef.current;
+    if (!workItemId || !trimmedInstruction) return Promise.resolve(false);
+    return (async () => {
+      try {
+        const attachmentFingerprint = attachment
+          ? Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", await attachment.arrayBuffer())), (byte) => byte.toString(16).padStart(2, "0")).join("")
+          : "";
+        const attemptKey = `${outputId}:${trimmedInstruction}:${attachmentFingerprint}`;
+        const inFlight = revisionInFlightRef.current.get(attemptKey);
+        if (inFlight) return inFlight;
+
+        const execution = (async () => {
+          try {
+            let attempt = revisionAttemptsRef.current.get(attemptKey);
+            if (!attempt) {
+              const uploaded = attachment ? await uploadChatAttachment(attachment) : null;
+              attempt = { revisionKey: crypto.randomUUID(), revisionAssetId: uploaded?.assetId ?? null };
+              revisionAttemptsRef.current.set(attemptKey, attempt);
+            }
+            await reviseOutputMutation.mutateAsync({
+              workItemId,
+              outputId,
+              instruction: trimmedInstruction,
+              ...attempt,
+            });
+            revisionAttemptsRef.current.delete(attemptKey);
+            setAnnouncement("Nova variação em geração");
+            return true;
+          } catch (cause) {
+            setError(cause instanceof Error ? cause.message : "Falha ao gerar nova variação");
+            return false;
+          }
+        })();
+        revisionInFlightRef.current.set(attemptKey, execution);
+        void execution.finally(() => {
+          if (revisionInFlightRef.current.get(attemptKey) === execution) revisionInFlightRef.current.delete(attemptKey);
+        });
+        return execution;
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : "Falha ao gerar nova variação");
+        return false;
       }
-      await reviseOutputMutation.mutateAsync({
-        workItemId: workIdRef.current,
-        outputId,
-        instruction: instruction.trim(),
-        ...attempt,
-      });
-      revisionAttemptsRef.current.delete(attemptKey);
-      setAnnouncement("Nova versão em geração");
-      return true;
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Falha ao gerar nova versão");
-      return false;
-    }
+    })();
   }, [reviseOutputMutation]);
 
   const retryRevisionOutput = useCallback(async (output: CreativeWorkOutput) => {
