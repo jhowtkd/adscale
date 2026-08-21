@@ -158,7 +158,6 @@ export default function AssistantGoalWorkspace({
           </h3>
           <CreativeAnnotationEditor
             imageUrl={basePreviewUrl}
-            versionId={projection.selectedBaseVersionId}
             annotations={projection.annotations}
             isMobile={isMobile}
             onAdd={(annotation) => {

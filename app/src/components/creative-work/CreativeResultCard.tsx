@@ -12,6 +12,7 @@ import {
   getCreativeWorkSelectionPolicy,
 } from "@/lib/creative-work-selection-policy";
 import { ActionStatusIcon } from "@/components/animations/ActionStatusIcon";
+import VoiceInputButton, { appendTranscript } from "@/components/ui/VoiceInputButton";
 import {
   isLayerizationRetryableFailure,
   type LayerizationFailureCode,
@@ -28,7 +29,7 @@ type CreativeResultCardProps = {
   onRetryRevision?: (output: CreativeWorkOutput) => void | Promise<void>;
   onApprove: (outputId: string, confirmObjective?: boolean) => void;
   onDownload: (outputId: string) => void;
-  onRevise?: (outputId: string, instruction: string, attachment: File | null) => void | Promise<void>;
+  onRevise?: (outputId: string, instruction: string, attachment: File | null) => Promise<boolean>;
   isRetrying?: boolean;
   isApproving?: boolean;
   approvalError?: boolean;
@@ -84,6 +85,7 @@ export function CreativeResultCard({
   const [instruction, setInstruction] = useState("");
   const [attachment, setAttachment] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [voiceBusy, setVoiceBusy] = useState(false);
   const [confirmingSelection, setConfirmingSelection] = useState(false);
   const t = useTranslations("dashboard.home.composer.results");
   const layerizeRegionRef = useRef<HTMLDivElement>(null);
@@ -357,7 +359,7 @@ export function CreativeResultCard({
               className="space-y-3 rounded-[var(--radius-control)] bg-[var(--surface-raised)] p-3"
               onSubmit={async (event) => {
                 event.preventDefault();
-                if (submitting || isRevising) return;
+                if (submitting || isRevising || voiceBusy || !instruction.trim()) return;
                 setSubmitting(true);
                 try {
                   await onRevise(output.id, instruction.trim(), attachment);
@@ -373,9 +375,15 @@ export function CreativeResultCard({
                   value={instruction}
                   onChange={(event) => setInstruction(event.target.value)}
                   rows={3}
+                  maxLength={2_000}
                   className="mt-2 w-full rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] p-2 font-normal"
                 />
               </label>
+              <VoiceInputButton
+                disabled={submitting || isRevising}
+                onBusyChange={setVoiceBusy}
+                onTranscript={(text) => setInstruction((current) => appendTranscript(current, text, 2_000))}
+              />
               <label className="block text-sm text-[var(--text-secondary)]">
                 Anexo opcional
                 <input
@@ -386,8 +394,8 @@ export function CreativeResultCard({
                   className="mt-2 block w-full text-xs"
                 />
               </label>
-              <button type="submit" className={actionClass} disabled={!instruction.trim() || isRevising || submitting}>
-                Gerar nova versão
+              <button type="submit" className={actionClass} disabled={!instruction.trim() || voiceBusy || isRevising || submitting}>
+                Gerar nova versão · 5 créditos
               </button>
             </form>
           ) : null}

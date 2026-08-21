@@ -45,6 +45,10 @@ vi.mock("next-intl", () => ({
     visualNoConfidence: "Sem confiança mensurável",
   }[key] ?? key),
 }));
+vi.mock("@/components/ui/VoiceInputButton", () => ({
+  default: ({ onTranscript, onBusyChange }: { onTranscript: (text: string) => void; onBusyChange?: (busy: boolean) => void }) => <div><button type="button" onClick={() => onTranscript("Texto ditado")}>mock voice</button><button type="button" onClick={() => onBusyChange?.(true)}>mock busy</button><button type="button" onClick={() => onBusyChange?.(false)}>mock idle</button></div>,
+  appendTranscript: (current: string, text: string, max: number) => [current, text].filter(Boolean).join(" ").slice(0, max),
+}));
 
 import { CreativeResultCard } from "./CreativeResultCard";
 import type { CreativeWorkOutput } from "@/lib/hooks/use-creative-work";
@@ -150,10 +154,19 @@ describe("CreativeResultCard", () => {
     });
     const file = new File(["image"], "referencia.png", { type: "image/png" });
     fireEvent.change(screen.getByLabelText("Anexo opcional"), { target: { files: [file] } });
-    fireEvent.click(screen.getByRole("button", { name: "Gerar nova versão" }));
-    expect(screen.queryByText(/crédit/i)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Gerar nova versão · 5 créditos" }));
 
     expect(onRevise).toHaveBeenCalledWith("output-1", "Use mais contraste", file);
+  });
+
+  it("appends voice revision text and blocks the action while transcribing", () => {
+    render(<CreativeResultCard output={output()} label="Equilibrada" onRetry={vi.fn()} onApprove={vi.fn()} onDownload={vi.fn()} onRevise={vi.fn(async () => true)} />);
+    fireEvent.click(screen.getByRole("button", { name: "Editar" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "O que você quer mudar?" }), { target: { value: "Atual" } });
+    fireEvent.click(screen.getByRole("button", { name: "mock voice" }));
+    expect(screen.getByRole("textbox", { name: "O que você quer mudar?" })).toHaveValue("Atual Texto ditado");
+    fireEvent.click(screen.getByRole("button", { name: "mock busy" }));
+    expect(screen.getByRole("button", { name: "Gerar nova versão · 5 créditos" })).toBeDisabled();
   });
 
   it("keeps approval pending and success states coherent", () => {

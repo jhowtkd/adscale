@@ -8,22 +8,27 @@ import {
 } from "react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
-import type { AssistantGoalPresentation } from "@/lib/assistant/goal";
+import VoiceInputButton, { appendTranscript } from "@/components/ui/VoiceInputButton";
+
+export type CreativeAnnotationItem = {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  comment: string;
+  status: "draft" | "submitted" | "addressed";
+};
 
 export interface CreativeAnnotationEditorProps {
   imageUrl: string;
-  versionId: string;
-  annotations: AssistantGoalPresentation["annotations"];
-  onAdd: (annotation: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-    comment: string;
-  }) => void;
+  annotations: readonly CreativeAnnotationItem[];
+  onAdd: (annotation: Omit<CreativeAnnotationItem, "id" | "status">) => void;
   onRemove: (annotationId: string) => void;
   /** When true (mobile), renders the list + comment input but disables drawing. */
   isMobile?: boolean;
+  maxAnnotations?: number;
+  commentMaxLength?: number;
 }
 
 interface DraftRect {
@@ -47,12 +52,16 @@ export default function CreativeAnnotationEditor({
   onAdd,
   onRemove,
   isMobile = false,
+  maxAnnotations = Number.POSITIVE_INFINITY,
+  commentMaxLength = 1_000,
 }: CreativeAnnotationEditorProps) {
   const t = useTranslations("assistant.goal");
   const overlayRef = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState<DraftRect | null>(null);
   const [comment, setComment] = useState("");
+  const [voiceBusy, setVoiceBusy] = useState(false);
   const startRef = useRef<{ x: number; y: number } | null>(null);
+  const annotationLimitReached = annotations.filter((item) => item.status !== "addressed").length >= maxAnnotations;
 
   const toNormalized = (clientX: number, clientY: number) => {
     const bounds = overlayRef.current?.getBoundingClientRect();
@@ -64,14 +73,14 @@ export default function CreativeAnnotationEditor({
   };
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (isMobile) return;
+    if (isMobile || annotationLimitReached) return;
     event.preventDefault();
     startRef.current = toNormalized(event.clientX, event.clientY);
     setDraft({ ...startRef.current, width: 0, height: 0 });
   };
 
   const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (isMobile || !startRef.current) return;
+    if (isMobile || annotationLimitReached || !startRef.current) return;
     const end = toNormalized(event.clientX, event.clientY);
     const start = startRef.current;
     setDraft({
@@ -83,7 +92,7 @@ export default function CreativeAnnotationEditor({
   };
 
   const handlePointerUp = () => {
-    if (isMobile || !draft || !startRef.current) return;
+    if (isMobile || annotationLimitReached || !draft || !startRef.current) return;
     // Reject rectangles smaller than 1% of image width or height.
     if (draft.width < 0.01 || draft.height < 0.01) {
       setDraft(null);
@@ -142,6 +151,7 @@ export default function CreativeAnnotationEditor({
           <div
             ref={overlayRef}
             data-testid="assistant-annotation-overlay"
+            aria-disabled={annotationLimitReached}
             className="absolute inset-0 cursor-crosshair touch-none"
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
@@ -191,9 +201,14 @@ export default function CreativeAnnotationEditor({
             value={comment}
             onChange={(event) => setComment(event.target.value)}
             rows={2}
+            maxLength={commentMaxLength}
             className="block w-full resize-none rounded-md border border-[var(--border-dim)] bg-[var(--surface-inset)] px-2 py-1 text-sm text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             placeholder={t("annotationCommentPlaceholder")}
             autoFocus
+          />
+          <VoiceInputButton
+            onBusyChange={setVoiceBusy}
+            onTranscript={(text) => setComment((current) => appendTranscript(current, text, commentMaxLength))}
           />
           <div className="flex justify-end gap-2">
             <button
@@ -208,10 +223,10 @@ export default function CreativeAnnotationEditor({
               type="button"
               data-testid="assistant-annotation-save"
               onClick={handleSave}
-              disabled={!comment.trim()}
+              disabled={!comment.trim() || voiceBusy}
               className={cn(
                 "rounded-md px-3 py-1 text-xs font-medium",
-                comment.trim()
+                comment.trim() && !voiceBusy
                   ? "bg-[var(--action-primary-bg)] text-[var(--action-primary-text)]"
                   : "cursor-not-allowed bg-[var(--surface-inset)] text-[var(--text-muted)]"
               )}

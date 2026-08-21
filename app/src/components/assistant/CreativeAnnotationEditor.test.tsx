@@ -5,10 +5,13 @@ import CreativeAnnotationEditor from "./CreativeAnnotationEditor";
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
 }));
+vi.mock("@/components/ui/VoiceInputButton", () => ({
+  default: ({ onTranscript, onBusyChange }: { onTranscript: (text: string) => void; onBusyChange?: (busy: boolean) => void }) => <div><button type="button" onClick={() => onTranscript("Texto ditado")}>mock voice</button><button type="button" onClick={() => onBusyChange?.(true)}>mock busy</button><button type="button" onClick={() => onBusyChange?.(false)}>mock idle</button></div>,
+  appendTranscript: (current: string, text: string, max: number) => [current, text].filter(Boolean).join(" ").slice(0, max),
+}));
 
 const baseProps = {
   imageUrl: "https://cdn.test/base.png",
-  versionId: "00000000-0000-4000-8000-000000000021",
   annotations: [],
   onAdd: vi.fn(),
   onRemove: vi.fn(),
@@ -108,14 +111,12 @@ describe("CreativeAnnotationEditor", () => {
         annotations={[
           {
             id: "ann-1",
-            versionId: baseProps.versionId,
             x: 0.1,
             y: 0.1,
             width: 0.2,
             height: 0.2,
             comment: "Old note",
             status: "draft" as const,
-            addressedByVersionId: null,
           },
         ]}
         onRemove={onRemove}
@@ -135,14 +136,12 @@ describe("CreativeAnnotationEditor", () => {
         annotations={[
           {
             id: "ann-1",
-            versionId: baseProps.versionId,
             x: 0.1,
             y: 0.1,
             width: 0.2,
             height: 0.2,
             comment: "Old note",
             status: "draft" as const,
-            addressedByVersionId: null,
           },
         ]}
       />
@@ -174,5 +173,17 @@ describe("CreativeAnnotationEditor", () => {
     expect(
       screen.queryByTestId("assistant-annotation-overlay")
     ).not.toBeInTheDocument();
+  });
+
+  it("appends voice comments, blocks save while voice is busy, and honors active limits", () => {
+    const { container, rerender } = render(<CreativeAnnotationEditor {...baseProps} />);
+    drawRect(container, 0, 0, 100, 100);
+    fireEvent.change(screen.getByTestId("assistant-annotation-comment"), { target: { value: "Atual" } });
+    fireEvent.click(screen.getByRole("button", { name: "mock voice" }));
+    expect(screen.getByTestId("assistant-annotation-comment")).toHaveValue("Atual Texto ditado");
+    fireEvent.click(screen.getByRole("button", { name: "mock busy" }));
+    expect(screen.getByTestId("assistant-annotation-save")).toBeDisabled();
+    rerender(<CreativeAnnotationEditor {...baseProps} maxAnnotations={1} annotations={[{ id: "ann-1", x: 0.1, y: 0.1, width: 0.2, height: 0.2, comment: "Existing", status: "draft" }]} />);
+    expect(screen.getByTestId("assistant-annotation-overlay")).toHaveAttribute("aria-disabled", "true");
   });
 });
