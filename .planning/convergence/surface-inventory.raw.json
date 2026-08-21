@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-08-13T13:41:17.131Z",
+  "generatedAt": "2026-08-21T17:16:28.014Z",
   "schemaVersion": 2,
-  "fingerprint": "1951e52803ee8ac9a8cb358951015c17608967b31d6ae6c5ff04253d32f6593c",
+  "fingerprint": "61b5bd0ce6732eafeb9b2042528d469c1272a4e5ed986160734ec3516d20d66f",
   "counts": {
     "dashboardPages": 15,
     "apiRoutes": 170,
@@ -1779,7 +1779,7 @@
     {
       "id": "nav:app/src/components/layout/TopBar.tsx:290",
       "kind": "cta_navigation",
-      "destination": "/campaigns?new=1",
+      "destination": "/?compose=1",
       "file": "app/src/components/layout/TopBar.tsx",
       "line": 290,
       "evidence": "app/src/components/layout/TopBar.tsx:290",
