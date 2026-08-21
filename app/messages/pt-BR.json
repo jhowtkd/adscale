@@ -699,6 +699,8 @@
           "visualConfidence": "Confiança do modelo: {value}%",
           "visualNoConfidence": "Sem confiança mensurável",
           "downloadPsd": "Baixar PSD",
+          "annotationHelp": "Marque uma área e descreva a mudança. Todas as marcações gerarão uma única nova versão.",
+          "annotationPreparationError": "Não foi possível preparar as marcações. Tente novamente.",
           "failure": {
             "timeout": "A geração demorou demais e foi interrompida.",
             "invalid_context": "O pedido ou as fontes não tinham informação suficiente para gerar com fidelidade. Ajuste o pedido e tente de novo.",
@@ -3322,6 +3324,14 @@
     "submitting": "Enviando…",
     "submitSuccess": "Feedback enviado. Obrigado!",
     "submitError": "Não foi possível enviar o feedback. Tente novamente.",
+    "voice": {
+      "start": "Ditar por voz",
+      "stop": "Parar gravação",
+      "recording": "Gravando {seconds}s",
+      "transcribing": "Transcrevendo…",
+      "permissionError": "Permita o acesso ao microfone para usar a voz.",
+      "transcriptionError": "Não foi possível transcrever. Tente novamente."
+    },
     "types": {
       "bug": "Bug",
       "suggestion": "Sugestão",

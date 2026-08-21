@@ -663,6 +663,8 @@
           "visualConfidence": "Model confidence: {value}%",
           "visualNoConfidence": "No measurable confidence",
           "downloadPsd": "Download PSD",
+          "annotationHelp": "Mark an area and describe the change. All annotations will generate one new version.",
+          "annotationPreparationError": "Could not prepare the annotations. Try again.",
           "failure": {
             "timeout": "Generation took too long and was interrupted.",
             "invalid_context": "The request or sources didn't have enough information to generate faithfully. Adjust the request and try again.",
@@ -3293,6 +3295,14 @@
     "submitting": "Sending…",
     "submitSuccess": "Feedback sent. Thank you!",
     "submitError": "Could not send feedback. Try again.",
+    "voice": {
+      "start": "Dictate by voice",
+      "stop": "Stop recording",
+      "recording": "Recording {seconds}s",
+      "transcribing": "Transcribing…",
+      "permissionError": "Allow microphone access to use voice input.",
+      "transcriptionError": "Could not transcribe. Try again."
+    },
     "types": {
       "bug": "Bug",
       "suggestion": "Suggestion",
