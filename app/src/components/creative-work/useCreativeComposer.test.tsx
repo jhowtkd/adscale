@@ -1289,6 +1289,18 @@ describe("useCreativeComposer", () => {
     });
   });
 
+  it("returns true only after a revision is accepted and false while retaining a failed attempt", async () => {
+    mocks.work.mockReturnValue({ data: workDetail(), isLoading: false, isError: false });
+    mocks.reviseOutput.mockResolvedValue({ output: { id: "output-v2" } });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+    const file = new File(["png"], "output-output-v1-annotations.png", { type: "image/png" });
+    await expect(result.current.reviseOutput("output-v1", "1. Reduzir título", file)).resolves.toBe(true);
+    mocks.reviseOutput.mockRejectedValue(new Error("dispatch failed"));
+    await expect(result.current.reviseOutput("output-v1", "1. Diminuir título", file)).resolves.toBe(false);
+    await expect(result.current.reviseOutput("output-v1", "1. Diminuir título", file)).resolves.toBe(false);
+    expect(mocks.upload).toHaveBeenCalledTimes(2);
+  });
+
   it.each([
     ["single", { targetFormats: [] }, { unitCount: 1, credits: 5 }],
     ["restyle", { targetFormats: [] }, { unitCount: 1, credits: 5 }],

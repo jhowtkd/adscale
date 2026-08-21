@@ -2,7 +2,17 @@
 
 import { useState } from "react";
 import { Expand } from "lucide-react";
+import { useTranslations } from "next-intl";
+import CreativeAnnotationEditor from "@/components/assistant/CreativeAnnotationEditor";
 import { CreativeResultCard } from "@/components/creative-work/CreativeResultCard";
+import {
+  OUTPUT_ANNOTATION_COMMENT_MAX_LENGTH,
+  OUTPUT_ANNOTATION_MAX_COUNT,
+  compileOutputAnnotationInstruction,
+  renderAnnotatedOutputFile,
+  type OutputAnnotation,
+} from "@/components/creative-work/output-annotation";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogBody,
@@ -12,6 +22,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { CreativeWorkOutput } from "@/lib/hooks/use-creative-work";
+import { useIsMobile } from "@/lib/hooks/use-media-query";
 
 type CreativeProposalGridProps = {
   outputs: CreativeWorkOutput[];
@@ -21,7 +32,7 @@ type CreativeProposalGridProps = {
   /** Legacy wizard alias; remove with the wizard redirect. */
   onSave?: (outputId: string) => void;
   onDownload: (outputId: string) => void;
-  onRevise?: (outputId: string, instruction: string, attachment: File | null) => void | Promise<void>;
+  onRevise?: (outputId: string, instruction: string, attachment: File | null) => Promise<boolean>;
   isRetrying?: (outputId: string) => boolean;
   isApproving?: (outputId: string) => boolean;
   approvalErrorOutputId?: string | null;
@@ -83,7 +94,18 @@ export default function CreativeProposalGrid({
   const approve = onApprove ?? onSave ?? (() => undefined);
   const [selectedId, setSelectedId] = useState(visible[0]?.id);
   const [expanded, setExpanded] = useState(false);
+  const [annotationsByOutput, setAnnotationsByOutput] = useState<Record<string, OutputAnnotation[]>>({});
+  const [submittingAnnotations, setSubmittingAnnotations] = useState(false);
+  const [annotationError, setAnnotationError] = useState<string | null>(null);
+  const isMobile = useIsMobile();
+  const t = useTranslations("dashboard.home.composer.results");
   const selected = visible.find((output) => output.id === selectedId) ?? visible[0];
+  const selectedAnnotations = selected ? annotationsByOutput[selected.id] ?? [] : [];
+
+  const updateSelectedAnnotations = (next: OutputAnnotation[]) => {
+    if (!selected) return;
+    setAnnotationsByOutput((current) => ({ ...current, [selected.id]: next }));
+  };
 
   if (!selected) return null;
 
@@ -166,11 +188,51 @@ export default function CreativeProposalGrid({
             <DialogTitle>{label} · {format}</DialogTitle>
             <DialogDescription>Inspeção ampliada na proporção original, sem corte.</DialogDescription>
           </DialogHeader>
-          <DialogBody className="flex min-h-0 items-center justify-center bg-[var(--surface-inset)] p-2 sm:p-4">
-            {available ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={outputSource(selected)} alt={`Proposta ${label}, formato ${format}, ampliada`} className="max-h-full max-w-full object-contain" />
-            ) : null}
+          <DialogBody className="grid min-h-0 gap-4 overflow-y-auto lg:grid-cols-[minmax(0,1fr)_20rem]">
+            {available ? <CreativeAnnotationEditor
+              imageUrl={outputSource(selected)}
+              annotations={selectedAnnotations}
+              isMobile={isMobile}
+              maxAnnotations={OUTPUT_ANNOTATION_MAX_COUNT}
+              commentMaxLength={OUTPUT_ANNOTATION_COMMENT_MAX_LENGTH}
+              onAdd={(annotation) => updateSelectedAnnotations([
+                ...selectedAnnotations,
+                { id: crypto.randomUUID(), status: "draft", ...annotation },
+              ])}
+              onRemove={(annotationId) => updateSelectedAnnotations(selectedAnnotations.filter((annotation) => annotation.id !== annotationId))}
+            /> : null}
+            <aside className="flex flex-col gap-3">
+              <p className="text-sm text-[var(--text-secondary)]">{t("annotationHelp")}</p>
+              {annotationError ? <p role="alert" className="text-sm text-[var(--danger-text)]">{annotationError}</p> : null}
+              <Button
+                type="button"
+                disabled={!onRevise || selectedAnnotations.length === 0 || submittingAnnotations || isRevising?.(selected.id)}
+                onClick={async () => {
+                  if (!onRevise || selectedAnnotations.length === 0) return;
+                  setSubmittingAnnotations(true);
+                  setAnnotationError(null);
+                  try {
+                    const instruction = compileOutputAnnotationInstruction(selectedAnnotations);
+                    const file = await renderAnnotatedOutputFile({ outputId: selected.id, imageUrl: outputSource(selected), annotations: selectedAnnotations });
+                    const accepted = await onRevise(selected.id, instruction, file);
+                    if (accepted) {
+                      setAnnotationsByOutput((current) => {
+                        const next = { ...current };
+                        delete next[selected.id];
+                        return next;
+                      });
+                      setExpanded(false);
+                    }
+                  } catch {
+                    setAnnotationError(t("annotationPreparationError"));
+                  } finally {
+                    setSubmittingAnnotations(false);
+                  }
+                }}
+              >
+                Gerar nova versão · 5 créditos
+              </Button>
+            </aside>
           </DialogBody>
         </DialogContent>
       </Dialog>

@@ -1143,8 +1143,8 @@ export function useCreativeComposer({
     }
   }, [selectOutputMutation]);
 
-  const reviseOutput = useCallback(async (outputId: string, instruction: string, attachment: File | null) => {
-    if (!workIdRef.current || !instruction.trim()) return;
+  const reviseOutput = useCallback(async (outputId: string, instruction: string, attachment: File | null): Promise<boolean> => {
+    if (!workIdRef.current || !instruction.trim()) return false;
     const attemptKey = `${outputId}:${instruction.trim()}:${attachment?.name ?? ""}:${attachment?.size ?? 0}`;
     try {
       let attempt = revisionAttemptsRef.current.get(attemptKey);
@@ -1161,8 +1161,10 @@ export function useCreativeComposer({
       });
       revisionAttemptsRef.current.delete(attemptKey);
       setAnnouncement("Nova versão em geração");
+      return true;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Falha ao gerar nova versão");
+      return false;
     }
   }, [reviseOutputMutation]);
 
