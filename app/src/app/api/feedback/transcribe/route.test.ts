@@ -17,10 +17,10 @@ vi.mock("@/server/ai/utils", () => ({ getOpenAI: () => ({ audio: { transcription
 
 import { POST } from "./route";
 
-function requestWithFile(content: BlobPart = "audio", type = "audio/webm") {
+function requestWithFile(content: BlobPart = "audio", type = "audio/webm", headers?: HeadersInit) {
   const form = new FormData();
   form.set("file", new File([content], "feedback.webm", { type }));
-  return new Request("http://localhost/api/feedback/transcribe", { method: "POST", body: form });
+  return new Request("http://localhost/api/feedback/transcribe", { method: "POST", headers, body: form });
 }
 
 describe("POST /api/feedback/transcribe", () => {
@@ -46,6 +46,22 @@ describe("POST /api/feedback/transcribe", () => {
   it("rejects empty audio and payloads larger than 10 MB", async () => {
     expect((await POST(requestWithFile(""))).status).toBe(400);
     expect((await POST(requestWithFile(new Uint8Array(10 * 1024 * 1024 + 1)))).status).toBe(413);
+    expect(mocks.createTranscription).not.toHaveBeenCalled();
+  });
+
+  it("bounds the entire multipart body despite absent or misleading content lengths", async () => {
+    const oversizedBody = new Uint8Array(11 * 1024 * 1024 + 1);
+    expect((await POST(requestWithFile(oversizedBody))).status).toBe(413);
+    expect((await POST(requestWithFile(oversizedBody, "audio/webm", { "content-length": "1" }))).status).toBe(413);
+    expect((await POST(requestWithFile("audio", "audio/webm", { "content-length": String(12 * 1024 * 1024) }))).status).toBe(413);
+    expect(mocks.createTranscription).not.toHaveBeenCalled();
+  });
+
+  it("rejects extra multipart parts instead of ignoring them", async () => {
+    const form = new FormData();
+    form.set("file", new File(["audio"], "feedback.webm", { type: "audio/webm" }));
+    form.set("extra", "ignored before this boundary");
+    expect((await POST(new Request("http://localhost/api/feedback/transcribe", { method: "POST", body: form }))).status).toBe(400);
     expect(mocks.createTranscription).not.toHaveBeenCalled();
   });
 
