@@ -1,8 +1,12 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+const translations = vi.hoisted(() => ({ locale: "pt" }));
 
 vi.mock("next-intl", () => ({
-  useTranslations: () => (key: string) => ({
+  useTranslations: () => (key: string) => {
+    if (key === "revisionCta") return translations.locale === "en" ? "Generate variation · 5 credits" : "Gerar variação · 5 créditos";
+    return ({
     failedGeneration: "Falha na geração",
     reviewRecommended: "Revisão recomendada — a checagem automática ficou inconclusiva",
     objectiveFailed: "A checagem objetiva reprovou esta peça.",
@@ -43,7 +47,10 @@ vi.mock("next-intl", () => ({
     visualInconclusiveTitle: "Análise visual inconclusiva",
     visualConfidence: "Confiança do modelo: 64%",
     visualNoConfidence: "Sem confiança mensurável",
-  }[key] ?? key),
+    revisionCta: "Gerar variação · 5 créditos",
+      privacy: "Voice audio notice",
+    }[key] ?? key);
+  },
 }));
 vi.mock("@/components/ui/VoiceInputButton", () => ({
   default: ({ onTranscript, onBusyChange }: { onTranscript: (text: string) => void; onBusyChange?: (busy: boolean) => void }) => <div><button type="button" onClick={() => onTranscript("Texto ditado")}>mock voice</button><button type="button" onClick={() => onBusyChange?.(true)}>mock busy</button><button type="button" onClick={() => onBusyChange?.(false)}>mock idle</button></div>,
@@ -132,6 +139,7 @@ function layerization(status: PublicLayerizationState["status"], failureCode: Pu
 }
 
 describe("CreativeResultCard", () => {
+  afterEach(() => { translations.locale = "pt"; });
   it("shows completed imagery and approve, download, and inline edit actions", () => {
     const onRevise = vi.fn();
     render(
@@ -154,7 +162,7 @@ describe("CreativeResultCard", () => {
     });
     const file = new File(["image"], "referencia.png", { type: "image/png" });
     fireEvent.change(screen.getByLabelText("Anexo opcional"), { target: { files: [file] } });
-    fireEvent.click(screen.getByRole("button", { name: "Gerar nova versão · 5 créditos" }));
+    fireEvent.click(screen.getByRole("button", { name: "Gerar variação · 5 créditos" }));
 
     expect(onRevise).toHaveBeenCalledWith("output-1", "Use mais contraste", file);
   });
@@ -166,7 +174,15 @@ describe("CreativeResultCard", () => {
     fireEvent.click(screen.getByRole("button", { name: "mock voice" }));
     expect(screen.getByRole("textbox", { name: "O que você quer mudar?" })).toHaveValue("Atual Texto ditado");
     fireEvent.click(screen.getByRole("button", { name: "mock busy" }));
-    expect(screen.getByRole("button", { name: "Gerar nova versão · 5 créditos" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Gerar variação · 5 créditos" })).toBeDisabled();
+    expect(screen.getByText("Voice audio notice")).toBeVisible();
+  });
+
+  it("localizes the canonical revision credit cost", () => {
+    translations.locale = "en";
+    render(<CreativeResultCard output={output()} label="Balanced" onRetry={vi.fn()} onApprove={vi.fn()} onDownload={vi.fn()} onRevise={vi.fn(async () => true)} />);
+    fireEvent.click(screen.getByRole("button", { name: "Editar" }));
+    expect(screen.getByRole("button", { name: "Generate variation · 5 credits" })).toBeDisabled();
   });
 
   it("keeps approval pending and success states coherent", () => {

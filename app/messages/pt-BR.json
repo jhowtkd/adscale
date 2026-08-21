@@ -699,6 +699,7 @@
           "visualConfidence": "Confiança do modelo: {value}%",
           "visualNoConfidence": "Sem confiança mensurável",
           "downloadPsd": "Baixar PSD",
+          "revisionCta": "Gerar variação · {credits} créditos",
           "annotationHelp": "Marque uma área e descreva a mudança. Todas as marcações gerarão uma única nova versão.",
           "annotationPreparationError": "Não foi possível preparar as marcações. Tente novamente.",
           "failure": {
@@ -3225,6 +3226,8 @@
       "annotationDrawingDisabled": "Não é possível desenhar anotações no celular. Use o desktop para revisar com retângulos.",
       "annotationComment": "Comentário da região",
       "annotationCommentPlaceholder": "Descreva a mudança para esta região",
+      "annotationGeneralComment": "Feedback geral da variação",
+      "annotationGeneralCommentPlaceholder": "Descreva a mudança sem marcar uma área",
       "cancel": "Cancelar",
       "save": "Salvar",
       "addressed": "atendida",
@@ -3317,7 +3320,7 @@
     "message": "Mensagem",
     "messagePlaceholder": "O que aconteceu? O que você esperava?",
     "followUp": "Podem me contatar para acompanhar este reporte",
-    "privacyNote": "Capturamos rota, workspace e diagnósticos sanitizados. Capturas de tela e replay de sessão não são coletados.",
+    "privacyNote": "Capturamos rota, workspace e diagnósticos sanitizados. O áudio do microfone é enviado à OpenAI para transcrição e não é armazenado pela ADScale. Capturas de tela e replay de sessão não são coletados.",
     "routeContext": "Capturado em: {route}",
     "cancel": "Cancelar",
     "submit": "Enviar feedback",
@@ -3331,7 +3334,8 @@
       "recording": "Gravando {seconds}s",
       "transcribing": "Transcrevendo…",
       "permissionError": "Permita o acesso ao microfone para usar a voz.",
-      "transcriptionError": "Não foi possível transcrever. Tente novamente."
+      "transcriptionError": "Não foi possível transcrever. Tente novamente.",
+      "privacy": "O áudio do microfone é enviado à OpenAI para transcrição e não é armazenado pela ADScale."
     },
     "types": {
       "bug": "Bug",

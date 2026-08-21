@@ -13,6 +13,7 @@ import {
 } from "@/lib/creative-work-selection-policy";
 import { ActionStatusIcon } from "@/components/animations/ActionStatusIcon";
 import VoiceInputButton, { appendTranscript } from "@/components/ui/VoiceInputButton";
+import { GENERATION_CREDIT_COSTS } from "@/server/generation/canonical/types";
 import {
   isLayerizationRetryableFailure,
   type LayerizationFailureCode,
@@ -88,6 +89,7 @@ export function CreativeResultCard({
   const [voiceBusy, setVoiceBusy] = useState(false);
   const [confirmingSelection, setConfirmingSelection] = useState(false);
   const t = useTranslations("dashboard.home.composer.results");
+  const tVoice = useTranslations("feedback.voice");
   const layerizeRegionRef = useRef<HTMLDivElement>(null);
   const layerizationWasBusy = useRef(false);
   const isCompleted = output.status === "completed" && Boolean(output.outputKey);
@@ -384,6 +386,7 @@ export function CreativeResultCard({
                 onBusyChange={setVoiceBusy}
                 onTranscript={(text) => setInstruction((current) => appendTranscript(current, text, 2_000))}
               />
+              <p className="text-xs text-[var(--text-muted)]">{tVoice("privacy")}</p>
               <label className="block text-sm text-[var(--text-secondary)]">
                 Anexo opcional
                 <input
@@ -395,7 +398,7 @@ export function CreativeResultCard({
                 />
               </label>
               <button type="submit" className={actionClass} disabled={!instruction.trim() || voiceBusy || isRevising || submitting}>
-                Gerar nova versão · 5 créditos
+                {t("revisionCta", { credits: GENERATION_CREDIT_COSTS.creativeWorkOutput })}
               </button>
             </form>
           ) : null}

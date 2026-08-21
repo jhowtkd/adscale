@@ -663,6 +663,7 @@
           "visualConfidence": "Model confidence: {value}%",
           "visualNoConfidence": "No measurable confidence",
           "downloadPsd": "Download PSD",
+          "revisionCta": "Generate variation · {credits} credits",
           "annotationHelp": "Mark an area and describe the change. All annotations will generate one new version.",
           "annotationPreparationError": "Could not prepare the annotations. Try again.",
           "failure": {
@@ -3196,6 +3197,8 @@
       "annotationDrawingDisabled": "Cannot draw annotations on mobile. Use desktop for rectangle review.",
       "annotationComment": "Region comment",
       "annotationCommentPlaceholder": "Describe the change for this region",
+      "annotationGeneralComment": "General variation feedback",
+      "annotationGeneralCommentPlaceholder": "Describe the change without marking an area",
       "cancel": "Cancel",
       "save": "Save",
       "addressed": "addressed",
@@ -3288,7 +3291,7 @@
     "message": "Message",
     "messagePlaceholder": "What happened? What did you expect?",
     "followUp": "You may contact me for follow-up about this report",
-    "privacyNote": "We capture route, workspace, and sanitized diagnostics. Screenshots and session replay are not collected.",
+    "privacyNote": "We capture route, workspace, and sanitized diagnostics. Microphone audio is sent to OpenAI for transcription and is not stored by ADScale. Screenshots and session replay are not collected.",
     "routeContext": "Captured from: {route}",
     "cancel": "Cancel",
     "submit": "Send feedback",
@@ -3302,7 +3305,8 @@
       "recording": "Recording {seconds}s",
       "transcribing": "Transcribing…",
       "permissionError": "Allow microphone access to use voice input.",
-      "transcriptionError": "Could not transcribe. Try again."
+      "transcriptionError": "Could not transcribe. Try again.",
+      "privacy": "Microphone audio is sent to OpenAI for transcription and is not stored by ADScale."
     },
     "types": {
       "bug": "Bug",

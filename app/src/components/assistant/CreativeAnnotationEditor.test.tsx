@@ -175,13 +175,24 @@ describe("CreativeAnnotationEditor", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("lets mobile and keyboard users add general voice-editable feedback", () => {
+    const onAdd = vi.fn();
+    render(<CreativeAnnotationEditor {...baseProps} isMobile onAdd={onAdd} />);
+    fireEvent.change(screen.getByTestId("assistant-annotation-general-comment"), { target: { value: "Atual" } });
+    fireEvent.click(screen.getAllByRole("button", { name: "mock voice" })[0]);
+    expect(screen.getByTestId("assistant-annotation-general-comment")).toHaveValue("Atual Texto ditado");
+    fireEvent.click(screen.getByTestId("assistant-annotation-general-save"));
+    expect(onAdd).toHaveBeenCalledWith({ x: 0, y: 0, width: 1, height: 1, comment: "Atual Texto ditado" });
+    expect(screen.getAllByText("privacy")).toHaveLength(1);
+  });
+
   it("appends voice comments, blocks save while voice is busy, and honors active limits", () => {
     const { container, rerender } = render(<CreativeAnnotationEditor {...baseProps} />);
     drawRect(container, 0, 0, 100, 100);
     fireEvent.change(screen.getByTestId("assistant-annotation-comment"), { target: { value: "Atual" } });
-    fireEvent.click(screen.getByRole("button", { name: "mock voice" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "mock voice" })[0]);
     expect(screen.getByTestId("assistant-annotation-comment")).toHaveValue("Atual Texto ditado");
-    fireEvent.click(screen.getByRole("button", { name: "mock busy" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "mock busy" })[0]);
     expect(screen.getByTestId("assistant-annotation-save")).toBeDisabled();
     rerender(<CreativeAnnotationEditor {...baseProps} maxAnnotations={1} annotations={[{ id: "ann-1", x: 0.1, y: 0.1, width: 0.2, height: 0.2, comment: "Existing", status: "draft" }]} />);
     expect(screen.getByTestId("assistant-annotation-overlay")).toHaveAttribute("aria-disabled", "true");

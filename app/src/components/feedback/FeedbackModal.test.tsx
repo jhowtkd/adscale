@@ -16,7 +16,7 @@ vi.mock("next-intl", () => ({
       message: "Message",
       messagePlaceholder: "Details",
       followUp: "Follow up",
-      privacyNote: "Privacy",
+      privacyNote: "Voice audio notice",
       cancel: "Cancel",
       submit: "Submit",
       "types.suggestion": "Suggestion",
@@ -57,6 +57,7 @@ describe("FeedbackModal", () => {
     expect(
       screen.getByDisplayValue("Friction during credit friction")
     ).toBeInTheDocument();
+    expect(screen.getByText("Voice audio notice")).toBeVisible();
   });
 
   it("appends voice feedback and blocks submit while voice is busy", () => {

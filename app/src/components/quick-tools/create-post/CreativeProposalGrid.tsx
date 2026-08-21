@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import type { CreativeWorkOutput } from "@/lib/hooks/use-creative-work";
 import { useIsMobile } from "@/lib/hooks/use-media-query";
+import { GENERATION_CREDIT_COSTS } from "@/server/generation/canonical/types";
 
 type CreativeProposalGridProps = {
   outputs: CreativeWorkOutput[];
@@ -230,7 +231,7 @@ export default function CreativeProposalGrid({
                   }
                 }}
               >
-                Gerar nova versão · 5 créditos
+                {t("revisionCta", { credits: GENERATION_CREDIT_COSTS.creativeWorkOutput })}
               </Button>
             </aside>
           </DialogBody>

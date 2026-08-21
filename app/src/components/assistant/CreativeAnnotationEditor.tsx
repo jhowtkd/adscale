@@ -56,10 +56,13 @@ export default function CreativeAnnotationEditor({
   commentMaxLength = 1_000,
 }: CreativeAnnotationEditorProps) {
   const t = useTranslations("assistant.goal");
+  const tVoice = useTranslations("feedback.voice");
   const overlayRef = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState<DraftRect | null>(null);
   const [comment, setComment] = useState("");
   const [voiceBusy, setVoiceBusy] = useState(false);
+  const [generalComment, setGeneralComment] = useState("");
+  const [generalVoiceBusy, setGeneralVoiceBusy] = useState(false);
   const startRef = useRef<{ x: number; y: number } | null>(null);
   const annotationLimitReached = annotations.filter((item) => item.status !== "addressed").length >= maxAnnotations;
 
@@ -114,6 +117,13 @@ export default function CreativeAnnotationEditor({
   const handleCancel = () => {
     setDraft(null);
     setComment("");
+  };
+
+  const handleSaveGeneral = () => {
+    const trimmed = generalComment.trim();
+    if (!trimmed || annotationLimitReached) return;
+    onAdd({ x: 0, y: 0, width: 1, height: 1, comment: trimmed });
+    setGeneralComment("");
   };
 
   const handleItemKeyDown = (
@@ -210,6 +220,7 @@ export default function CreativeAnnotationEditor({
             onBusyChange={setVoiceBusy}
             onTranscript={(text) => setComment((current) => appendTranscript(current, text, commentMaxLength))}
           />
+          <p className="text-xs text-[var(--text-muted)]">{tVoice("privacy")}</p>
           <div className="flex justify-end gap-2">
             <button
               type="button"
@@ -236,6 +247,41 @@ export default function CreativeAnnotationEditor({
           </div>
         </div>
       ) : null}
+
+      <div className="flex flex-col gap-2 rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)] p-3">
+        <label className="text-xs font-medium text-[var(--text-secondary)]" htmlFor="assistant-annotation-general-comment">
+          {t("annotationGeneralComment")}
+        </label>
+        <textarea
+          id="assistant-annotation-general-comment"
+          data-testid="assistant-annotation-general-comment"
+          value={generalComment}
+          onChange={(event) => setGeneralComment(event.target.value)}
+          rows={2}
+          maxLength={commentMaxLength}
+          className="block w-full resize-none rounded-md border border-[var(--border-dim)] bg-[var(--surface-inset)] px-2 py-1 text-sm text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+          placeholder={t("annotationGeneralCommentPlaceholder")}
+        />
+        <VoiceInputButton
+          onBusyChange={setGeneralVoiceBusy}
+          onTranscript={(text) => setGeneralComment((current) => appendTranscript(current, text, commentMaxLength))}
+        />
+        <p className="text-xs text-[var(--text-muted)]">{tVoice("privacy")}</p>
+        <button
+          type="button"
+          data-testid="assistant-annotation-general-save"
+          onClick={handleSaveGeneral}
+          disabled={!generalComment.trim() || generalVoiceBusy || annotationLimitReached}
+          className={cn(
+            "self-end rounded-md px-3 py-1 text-xs font-medium",
+            generalComment.trim() && !generalVoiceBusy && !annotationLimitReached
+              ? "bg-[var(--action-primary-bg)] text-[var(--action-primary-text)]"
+              : "cursor-not-allowed bg-[var(--surface-inset)] text-[var(--text-muted)]"
+          )}
+        >
+          {t("save")}
+        </button>
+      </div>
 
       {annotations.length > 0 ? (
         <ul className="flex flex-col gap-1">
