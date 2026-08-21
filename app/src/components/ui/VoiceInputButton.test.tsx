@@ -71,7 +71,9 @@ describe("VoiceInputButton", () => {
     await act(() => vi.runAllTicks());
     fireEvent.click(screen.getByRole("button", { name: "start" }));
     await act(async () => undefined);
-    await act(() => vi.advanceTimersByTimeAsync(60_000));
+    await act(() => vi.advanceTimersByTimeAsync(1_000));
+    expect(screen.getByText("Recording 1", { selector: "span" })).toHaveAttribute("aria-live", "polite");
+    await act(() => vi.advanceTimersByTimeAsync(59_000));
     expect(apiFetch).toHaveBeenCalledTimes(1);
   });
 

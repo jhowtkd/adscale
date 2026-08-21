@@ -130,7 +130,7 @@ export default function VoiceInputButton({ onTranscript, onBusyChange, disabled 
       {state === "recording" ? <Square aria-hidden="true" /> : <Mic aria-hidden="true" />}
       {state === "recording" ? t("recording", { seconds }) : state === "requesting" ? t("requesting") : t("start")}
     </Button>
-    <span aria-live="polite" className="text-xs text-[var(--text-muted)]">{state === "recording" ? t("recording", { seconds }) : state === "requesting" ? t("requesting") : state === "transcribing" ? t("transcribing") : null}</span>
+    <span aria-live="polite" className={state === "recording" || state === "requesting" ? "sr-only" : "text-xs text-[var(--text-muted)]"}>{state === "recording" ? t("recording", { seconds }) : state === "requesting" ? t("requesting") : state === "transcribing" ? t("transcribing") : null}</span>
     {errorKey ? <span role="alert" className="text-xs text-[var(--danger-text)]">{t(errorKey)}</span> : null}
   </div>;
 }
