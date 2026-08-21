@@ -230,10 +230,11 @@ describe("CreativeProposalGrid", () => {
     expect(screen.getByTestId("annotation-editor")).toHaveAttribute("data-count", "1");
     fireEvent.click(screen.getByRole("button", { name: "Gerar nova versão · 5 créditos" }));
     await waitFor(() => expect(onRevise).toHaveBeenCalledWith("out-balanced", "1. Reduzir título", annotatedFile));
+    expect(onRevise).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("keeps annotations visible on preparation or command failure and isolates outputs", async () => {
+  it("keeps annotations isolated across a two-output round trip after command failure", async () => {
     const onRevise = vi.fn(async () => false);
     annotationMocks.render.mockResolvedValueOnce(new File(["png"], "output.png", { type: "image/png" }));
     render(<CreativeProposalGrid outputs={[conservativeCompleted, balancedCompleted]} onRetry={vi.fn()} onApprove={vi.fn()} onDownload={vi.fn()} onRevise={onRevise} />);
@@ -246,15 +247,32 @@ describe("CreativeProposalGrid", () => {
     fireEvent.click(screen.getByRole("button", { name: "Selecionar Equilibrada em 4:5" }));
     fireEvent.click(screen.getByRole("button", { name: "Ampliar Equilibrada em 4:5" }));
     expect(screen.getByTestId("annotation-editor")).toHaveAttribute("data-count", "0");
+    fireEvent.click(screen.getByRole("button", { name: "add annotation" }));
+    expect(screen.getByTestId("annotation-editor")).toHaveAttribute("data-count", "1");
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    fireEvent.click(screen.getByRole("button", { name: "Selecionar Conservadora em 4:5" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ampliar Conservadora em 4:5" }));
+    expect(screen.getByTestId("annotation-editor")).toHaveAttribute("data-count", "1");
   });
 
   it("retains the draft and reports an alert when image preparation fails", async () => {
     annotationMocks.render.mockRejectedValueOnce(new Error("canvas failed"));
-    render(<CreativeProposalGrid outputs={[balancedCompleted]} onRetry={vi.fn()} onApprove={vi.fn()} onDownload={vi.fn()} onRevise={vi.fn(async () => true)} />);
+    const onRevise = vi.fn(async () => true);
+    render(<CreativeProposalGrid outputs={[balancedCompleted]} onRetry={vi.fn()} onApprove={vi.fn()} onDownload={vi.fn()} onRevise={onRevise} />);
     fireEvent.click(screen.getByRole("button", { name: /Ampliar/ }));
     fireEvent.click(screen.getByRole("button", { name: "add annotation" }));
     fireEvent.click(screen.getByRole("button", { name: "Gerar nova versão · 5 créditos" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("annotationPreparationError");
+    expect(screen.getByRole("button", { name: "Gerar nova versão · 5 créditos" })).toBeEnabled();
+    expect(annotationMocks.render).toHaveBeenCalledTimes(1);
+    expect(onRevise).not.toHaveBeenCalled();
     expect(screen.getByTestId("annotation-editor")).toHaveAttribute("data-count", "1");
+  });
+
+  it("passes mobile mode to the annotation editor", () => {
+    annotationMocks.isMobile.mockReturnValue(true);
+    render(<CreativeProposalGrid outputs={[balancedCompleted]} onRetry={vi.fn()} onApprove={vi.fn()} onDownload={vi.fn()} onRevise={vi.fn(async () => true)} />);
+    fireEvent.click(screen.getByRole("button", { name: "Ampliar Equilibrada em 4:5" }));
+    expect(screen.getByTestId("annotation-editor")).toHaveAttribute("data-mobile", "true");
   });
 });

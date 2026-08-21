@@ -1301,6 +1301,30 @@ describe("useCreativeComposer", () => {
     expect(mocks.upload).toHaveBeenCalledTimes(2);
   });
 
+  it("keys failed attachment attempts by SHA-256 content, not name or size", async () => {
+    mocks.work.mockReturnValue({ data: workDetail(), isLoading: false, isError: false });
+    mocks.reviseOutput.mockRejectedValue(new Error("dispatch failed"));
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+    const sameBytes = new File(["same"], "annotation.png", { type: "image/png" });
+    const identicalBytes = new File(["same"], "annotation.png", { type: "image/png" });
+    const differentBytesSameSize = new File(["diff"], "annotation.png", { type: "image/png" });
+    vi.spyOn(globalThis.crypto, "randomUUID").mockReturnValueOnce("attempt-same").mockReturnValueOnce("attempt-different");
+
+    let results: boolean[] = [];
+    await act(async () => {
+      results = [
+        await result.current.reviseOutput("output-v1", "1. Ajustar CTA", sameBytes),
+        await result.current.reviseOutput("output-v1", "1. Ajustar CTA", identicalBytes),
+        await result.current.reviseOutput("output-v1", "1. Ajustar CTA", differentBytesSameSize),
+      ];
+    });
+
+    expect(results).toEqual([false, false, false]);
+    expect(mocks.upload).toHaveBeenCalledTimes(2);
+    expect(mocks.reviseOutput.mock.calls[0][0].revisionKey).toBe(mocks.reviseOutput.mock.calls[1][0].revisionKey);
+    expect(mocks.reviseOutput.mock.calls[2][0].revisionKey).not.toBe(mocks.reviseOutput.mock.calls[0][0].revisionKey);
+  });
+
   it.each([
     ["single", { targetFormats: [] }, { unitCount: 1, credits: 5 }],
     ["restyle", { targetFormats: [] }, { unitCount: 1, credits: 5 }],

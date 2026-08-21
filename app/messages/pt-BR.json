@@ -3326,6 +3326,7 @@
     "submitError": "Não foi possível enviar o feedback. Tente novamente.",
     "voice": {
       "start": "Ditar por voz",
+      "requesting": "Solicitando acesso ao microfone…",
       "stop": "Parar gravação",
       "recording": "Gravando {seconds}s",
       "transcribing": "Transcrevendo…",

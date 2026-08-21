@@ -27,14 +27,15 @@ function extensionFor(type: string) {
 export default function VoiceInputButton({ onTranscript, onBusyChange, disabled = false }: VoiceInputButtonProps) {
   const t = useTranslations("feedback.voice");
   const [supported, setSupported] = useState(false);
-  const [state, setState] = useState<"idle" | "recording" | "transcribing" | "error">("idle");
+  const [state, setState] = useState<"idle" | "requesting" | "recording" | "transcribing" | "error">("idle");
   const [seconds, setSeconds] = useState(0);
   const [errorKey, setErrorKey] = useState<string | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const mountedRef = useRef(true);
-  const busy = state === "recording" || state === "transcribing";
+  const requestingRef = useRef(false);
+  const busy = state === "requesting" || state === "recording" || state === "transcribing";
 
   useEffect(() => {
     queueMicrotask(() => setSupported(Boolean(globalThis.MediaRecorder && navigator.mediaDevices?.getUserMedia)));
@@ -80,6 +81,9 @@ export default function VoiceInputButton({ onTranscript, onBusyChange, disabled 
   }
 
   async function start() {
+    if (requestingRef.current) return;
+    requestingRef.current = true;
+    setState("requesting");
     try {
       setSeconds(0);
       setErrorKey(null);
@@ -112,19 +116,21 @@ export default function VoiceInputButton({ onTranscript, onBusyChange, disabled 
         setErrorKey("permissionError");
         setState("error");
       }
+    } finally {
+      requestingRef.current = false;
     }
   }
 
   if (!supported) return null;
   return <div className="flex items-center gap-2">
     <Button type="button" variant="outline" size="sm" aria-pressed={state === "recording"}
-      aria-label={t(state === "recording" ? "stop" : "start")}
-      disabled={(disabled && state !== "recording") || state === "transcribing"}
+      aria-label={t(state === "recording" ? "stop" : state === "requesting" ? "requesting" : "start")}
+      disabled={(disabled && state !== "recording") || state === "requesting" || state === "transcribing"}
       onClick={() => state === "recording" ? recorderRef.current?.stop() : void start()}>
       {state === "recording" ? <Square aria-hidden="true" /> : <Mic aria-hidden="true" />}
-      {state === "recording" ? t("recording", { seconds }) : t("start")}
+      {state === "recording" ? t("recording", { seconds }) : state === "requesting" ? t("requesting") : t("start")}
     </Button>
-    <span aria-live="polite" className="text-xs text-[var(--text-muted)]">{state === "transcribing" ? t("transcribing") : null}</span>
+    <span aria-live="polite" className="text-xs text-[var(--text-muted)]">{state === "recording" ? t("recording", { seconds }) : state === "requesting" ? t("requesting") : state === "transcribing" ? t("transcribing") : null}</span>
     {errorKey ? <span role="alert" className="text-xs text-[var(--danger-text)]">{t(errorKey)}</span> : null}
   </div>;
 }

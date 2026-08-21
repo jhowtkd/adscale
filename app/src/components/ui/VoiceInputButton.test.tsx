@@ -49,6 +49,22 @@ describe("VoiceInputButton", () => {
     expect(onBusyChange).toHaveBeenLastCalledWith(false);
   });
 
+  it("single-flights microphone permission and announces the pending timer state", async () => {
+    let resolveStream!: (stream: MediaStream) => void;
+    vi.mocked(navigator.mediaDevices.getUserMedia).mockReturnValueOnce(new Promise<MediaStream>((resolve) => { resolveStream = resolve; }));
+    const onBusyChange = vi.fn();
+    render(<VoiceInputButton onTranscript={vi.fn()} onBusyChange={onBusyChange} />);
+    const start = await screen.findByRole("button", { name: "start" });
+    fireEvent.click(start);
+    fireEvent.click(start);
+    expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledTimes(1);
+    expect(await screen.findByRole("button", { name: "requesting" })).toBeDisabled();
+    expect(screen.getByText("requesting", { selector: "span" })).toHaveAttribute("aria-live", "polite");
+    expect(onBusyChange).toHaveBeenCalledWith(true);
+    await act(async () => resolveStream({ getTracks: () => [{ stop: stopTrack }] } as unknown as MediaStream));
+    expect(await screen.findByRole("button", { name: "stop" })).toHaveAttribute("aria-pressed", "true");
+  });
+
   it("stops automatically after 60 seconds", async () => {
     vi.useFakeTimers();
     render(<VoiceInputButton onTranscript={vi.fn()} />);
@@ -66,6 +82,8 @@ describe("VoiceInputButton", () => {
     fireEvent.click(await screen.findByRole("button", { name: "start" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("permissionError");
     expect(onTranscript).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "start" }));
+    await waitFor(() => expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledTimes(2));
   });
 
   it("hides unsupported recording and cleans up mounted or late streams", async () => {

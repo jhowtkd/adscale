@@ -1145,8 +1145,11 @@ export function useCreativeComposer({
 
   const reviseOutput = useCallback(async (outputId: string, instruction: string, attachment: File | null): Promise<boolean> => {
     if (!workIdRef.current || !instruction.trim()) return false;
-    const attemptKey = `${outputId}:${instruction.trim()}:${attachment?.name ?? ""}:${attachment?.size ?? 0}`;
     try {
+      const attachmentFingerprint = attachment
+        ? Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", await attachment.arrayBuffer())), (byte) => byte.toString(16).padStart(2, "0")).join("")
+        : "";
+      const attemptKey = `${outputId}:${instruction.trim()}:${attachmentFingerprint}`;
       let attempt = revisionAttemptsRef.current.get(attemptKey);
       if (!attempt) {
         const uploaded = attachment ? await uploadChatAttachment(attachment) : null;
