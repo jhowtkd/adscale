@@ -4,13 +4,14 @@ const mocks = vi.hoisted(() => ({
   requireWorkspaceAccess: vi.fn(async () => ({ user: { id: "user-1" }, workspace: { id: "workspace-1" } })),
   checkRateLimit: vi.fn(async (): Promise<Response | null> => null),
   createTranscription: vi.fn(async () => ({ text: "  Texto ditado.  " })),
+  handleApiError: vi.fn(() => Response.json({ code: "internalError" }, { status: 500 })),
 }));
 
 vi.mock("@/server/auth/workspace", () => ({ requireWorkspaceAccess: mocks.requireWorkspaceAccess }));
 vi.mock("@/lib/with-rate-limit", () => ({ checkRateLimit: mocks.checkRateLimit }));
 vi.mock("@/lib/api-response", () => ({
   apiError: vi.fn((code: string, status: number) => Response.json({ code }, { status })),
-  handleApiError: vi.fn(() => Response.json({ code: "internalError" }, { status: 500 })),
+  handleApiError: mocks.handleApiError,
 }));
 vi.mock("@/server/ai/utils", () => ({ getOpenAI: () => ({ audio: { transcriptions: { create: mocks.createTranscription } } }) }));
 
@@ -53,11 +54,17 @@ describe("POST /api/feedback/transcribe", () => {
     expect((await POST(requestWithFile())).status).toBe(422);
   });
 
-  it("does not call the provider when rate limited and hides provider failures", async () => {
+  it("does not call the provider when rate limited", async () => {
     mocks.checkRateLimit.mockResolvedValueOnce(new Response(null, { status: 429 }));
     expect((await POST(requestWithFile())).status).toBe(429);
     expect(mocks.createTranscription).not.toHaveBeenCalled();
+  });
+
+  it("hides provider failures without serializing or logging them", async () => {
     mocks.createTranscription.mockRejectedValueOnce(new Error("provider secret"));
-    await expect((await POST(requestWithFile())).json()).resolves.toEqual({ code: "internalError" });
+    const response = await POST(requestWithFile());
+    expect(response.status).toBe(502);
+    await expect(response.json()).resolves.toEqual({ code: "internalError" });
+    expect(mocks.handleApiError).not.toHaveBeenCalled();
   });
 });

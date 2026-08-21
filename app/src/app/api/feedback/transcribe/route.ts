@@ -21,12 +21,17 @@ export async function POST(request: Request) {
     const baseType = file.type.toLowerCase().split(";", 1)[0];
     if (!ALLOWED_AUDIO_TYPES.has(baseType)) return apiError("unsupportedAudioType", 400);
 
-    const result = await getOpenAI().audio.transcriptions.create({
-      file,
-      model: "gpt-4o-mini-transcribe",
-      language: "pt",
-      response_format: "json",
-    });
+    let result;
+    try {
+      result = await getOpenAI().audio.transcriptions.create({
+        file,
+        model: "gpt-4o-mini-transcribe",
+        language: "pt",
+        response_format: "json",
+      });
+    } catch {
+      return apiError("internalError", 502);
+    }
     const text = result.text.trim().slice(0, 4_000);
     if (!text) return apiError("noSpeechRecognized", 422);
     return NextResponse.json({ text });
