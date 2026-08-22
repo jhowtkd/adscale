@@ -115,7 +115,7 @@ describe("useLayerEditor", () => {
     vi.useFakeTimers();
     const active = { ...editorDocument, regeneration: { id: "00000000-0000-4000-8000-000000000099", status: "reserved" as const, layerId: editorDocument.layers[0]!.id, instruction: "Change", candidateUrl: null, failureCode: null } };
     const refreshed = { ...active, layers: active.layers.map((layer) => ({ ...layer, imageUrl: "fresh-current", source: { ...layer.source, imageUrl: "fresh-source" } })) };
-    patch.mockImplementation(async (_work: string, body: { action: string }) => response(callsFor("openLayerEditor").length > 1 ? refreshed : active));
+    patch.mockImplementation(async () => response(callsFor("openLayerEditor").length > 1 ? refreshed : active));
     const hook = await openHook();
     await act(async () => { await vi.advanceTimersByTimeAsync(2_000); });
     expect(callsFor("openLayerEditor")).toHaveLength(2);
@@ -136,9 +136,10 @@ describe("useLayerEditor", () => {
     const assign = vi.fn();
     const close = vi.fn();
     vi.spyOn(window, "open").mockReturnValue({ location: { assign }, close } as unknown as Window);
-    patch.mockImplementation((_work: string, body: { action: string }) => body.action === "saveLayerEditor"
-      ? Promise.reject(new Error("save failed"))
-      : Promise.resolve(response()));
+    patch.mockImplementation((...params: unknown[]) => {
+      const body = params[1] as { action: string };
+      return body.action === "saveLayerEditor" ? Promise.reject(new Error("save failed")) : Promise.resolve(response());
+    });
     const hook = await openHook();
     act(() => hook.result.current.dispatch({ type: "rename", id: editorDocument.layers[0]!.id, name: "Changed" }));
     const exported = await hook.result.current.exportDraft("draft-png");
