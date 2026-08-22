@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { apiError, handleApiError } from "@/lib/api-response";
-import { resolveCreativeWorkOutputDownload } from "@/server/application/resolve-creative-work-output-download";
+import { resolveCreativeWorkOutputDownload, type CreativeWorkOutputDownloadFormat } from "@/server/application/resolve-creative-work-output-download";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { requirePlatformOwner } from "@/server/auth/require-platform-owner";
+import { getLayerEditorAccess } from "@/server/layer-editor/quota";
 
 /**
  * Signed download URL for a completed output — HTTP adapter only (Phase 5 / item 38).
@@ -23,16 +24,27 @@ export async function GET(
     const query = new URL(request.url).searchParams;
     const requestedFormat = query.get("format");
     const rawFormat = requestedFormat === "json" ? "original" : requestedFormat ?? "original";
-    if (rawFormat !== "original" && rawFormat !== "psd" && rawFormat !== "zip") {
+    if (!["original", "psd", "zip", "layer", "layer-candidate", "draft-png", "draft-psd"].includes(rawFormat)) {
       return apiError("invalidRequest", 400);
     }
-    if (rawFormat !== "original") await requirePlatformOwner(request);
+    const format = rawFormat as CreativeWorkOutputDownloadFormat;
+    if (format === "zip") await requirePlatformOwner(request);
+    if (format !== "original" && format !== "zip") {
+      const access = await getLayerEditorAccess(workspace.id, new Date());
+      if (!access.enabled) return apiError("layer_editor_not_available", 403);
+    }
+    const layerId = query.get("layerId");
+    const rawRevision = query.get("revision");
+    const revision = rawRevision ? Number(rawRevision) : undefined;
+    if ((format === "layer" && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(layerId ?? "")) || (rawRevision !== null && (!Number.isInteger(revision) || revision! <= 0))) return apiError("invalidRequest", 400);
 
     const result = await resolveCreativeWorkOutputDownload({
       workspaceId: workspace.id,
       workItemId: id,
       outputId,
-      ...(rawFormat !== "original" ? { format: rawFormat } : {}),
+      ...(format !== "original" ? { format } : {}),
+      ...(layerId ? { layerId } : {}),
+      ...(revision ? { revision } : {}),
     });
 
     if (!result.ok) {
