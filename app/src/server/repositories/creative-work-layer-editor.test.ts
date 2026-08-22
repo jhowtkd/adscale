@@ -107,6 +107,14 @@ describe("creative work layer editor regeneration repository", () => {
     expect(layerEditorFromOutput(store.row)?.regeneration).toMatchObject({ status: "reserved" });
   });
 
+  it("advances a reserved operation after its lease has been released", async () => {
+    store.row = { layerEditor: editorState({ lease: null, regeneration: { id: operationId, status: "reserved", layerId, instruction: "New color", requestedByUserId: "user-1", usageKey: "usage-1", candidateKey: null, providerRequestId: null, failureCode: null, createdAt: now.toISOString(), updatedAt: now.toISOString() } }) };
+
+    const processing = await markLayerRegenerationProcessing({ ...scope, operationId, now });
+
+    expect(layerEditorFromOutput(processing)).toMatchObject({ lease: null, regeneration: { status: "processing" } });
+  });
+
   it("marks only an expired processing operation submission_unknown without retrying it", async () => {
     store.row = { layerEditor: editorState({ regeneration: { id: operationId, status: "processing", layerId, instruction: "New color", requestedByUserId: "user-1", usageKey: "usage-1", candidateKey: null, providerRequestId: null, failureCode: null, createdAt: "2026-08-22T00:00:00.000Z", updatedAt: "2026-08-22T00:00:00.000Z" } }) };
 

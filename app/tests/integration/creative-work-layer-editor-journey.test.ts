@@ -30,6 +30,7 @@ import {
   layerEditorFromOutput,
 } from "@/server/repositories/creative-work-layer-editor";
 import { runCreativeWorkLayerRegeneration } from "@/server/jobs/creative-work-layer-regeneration";
+import { normalizeLayerCandidate } from "@/server/layer-editor/openai-provider";
 import { layerizationStateSchema } from "@/server/layerize/contracts";
 import { inngest } from "@/server/jobs/client";
 import { objectStorage } from "@/server/storage";
@@ -48,6 +49,12 @@ const createdUserIds: string[] = [];
 const storage = new InMemoryObjectStorage();
 const digest = (buffer: Buffer) => createHash("sha256").update(buffer).digest("hex");
 
+async function transparentCandidateFixture() {
+  const subject = await sharp({ create: { width: 2, height: 2, channels: 4, background: [30, 200, 80, 255] } }).png().toBuffer();
+  return sharp({ create: { width: 4, height: 4, channels: 4, background: [0, 0, 0, 0] } })
+    .composite([{ input: subject, left: 1, top: 1 }]).png().toBuffer();
+}
+
 describe("native layer editor journey fixture contract", () => {
   it("keeps the completed Layerize source strict-schema valid without a database", () => {
     expect(layerizationStateSchema.safeParse({
@@ -60,6 +67,13 @@ describe("native layer editor journey fixture contract", () => {
         { order: 1, isBase: false, name: "Product", description: "Synthetic product", x: 3, y: 2, width: 2, height: 2, normalizedBoundingBox: { x: 0.375, y: 0.25, width: 0.25, height: 0.25 }, storageKey: "fixture/product.png", sourceBytes: 1 },
       ], psdKey: "fixture/piece.psd", diagnosticZipKey: "fixture/piece.zip", fidelity: null, failureCode: null,
     }).success).toBe(true);
+  });
+
+  it("uses a transparent regeneration candidate accepted by the production normalizer", async () => {
+    const normalized = await normalizeLayerCandidate(await transparentCandidateFixture(), { width: 2, height: 2 });
+    const raw = await sharp(normalized).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    expect(raw.info.width).toBe(2);
+    expect([...raw.data].some((_, index) => index % raw.info.channels === 3 && raw.data[index]! < 255)).toBe(true);
   });
 });
 
@@ -215,7 +229,7 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work native layer edit
     })).resolves.toMatchObject({ ok: true, accepted: true });
     expect(dispatch).toHaveBeenCalledOnce();
 
-    const candidate = await sharp({ create: { width: 2, height: 2, channels: 4, background: [30, 200, 80, 255] } }).png().toBuffer();
+    const candidate = await transparentCandidateFixture();
     const provider = { regenerate: vi.fn(async () => ({ requestId: "fake-regeneration", buffer: candidate })) };
     await expect(runCreativeWorkLayerRegeneration({ ...scope, operationId }, provider)).resolves.toEqual({ status: "ready" });
     const ready = layerEditorFromOutput(await getCreativeWorkLayerEditorOutput(scope));

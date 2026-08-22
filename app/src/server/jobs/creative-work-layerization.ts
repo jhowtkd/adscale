@@ -142,7 +142,7 @@ function callbackDeadlinePassed(state: LayerizationState): boolean {
   return Date.parse(state.callbackDeadlineAt) <= Date.now();
 }
 
-async function failBeforeProvider(event: CreativeWorkLayerizationEvent, code: "no_longer_eligible" | "source_missing") {
+async function failBeforeProvider(event: CreativeWorkLayerizationEvent, code: "no_longer_eligible" | "source_missing" | "missing_configuration") {
   const failed = await failCreativeWorkLayerization({ workspaceId: event.workspaceId, workItemId: event.workItemId, outputId: event.outputId, code });
   const state = layerizationStateFromDatabase(failed?.layerization);
   if (state?.status === "failed" && state.failureCode === code && !state.providerRequestId) {
@@ -258,12 +258,10 @@ export async function runCreativeWorkLayerization(input: {
       const code = errorField(error, "code");
       const httpStatus = errorField(error, "httpStatus");
       if (code === "missing_configuration") {
-        await failCreativeWorkLayerization({
-          workspaceId: event.workspaceId,
-          workItemId: event.workItemId,
-          outputId: event.outputId,
-          code: "missing_configuration",
-        });
+        // Configuration is known before any provider submission. Compensate the
+        // exact idempotent quota claim; releaseLayerEditorQuota derives its
+        // accounting period from that claim rather than this failure timestamp.
+        await failBeforeProvider(event, "missing_configuration");
         return { status: "failed" };
       }
       if (code === "provider_error" && typeof httpStatus === "number" && httpStatus >= 400 && httpStatus < 500) {

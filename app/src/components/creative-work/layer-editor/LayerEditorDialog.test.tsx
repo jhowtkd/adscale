@@ -60,6 +60,7 @@ function editor(mode: "edit" | "inspect") {
     exportDraft: vi.fn(),
     publish: vi.fn(),
     discardLocalEdits: vi.fn(),
+    abandonLocalEdits: vi.fn(),
     saveStatus: "saved",
   };
 }

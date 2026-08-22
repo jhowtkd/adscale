@@ -3,7 +3,7 @@ import { and, eq, sql } from "drizzle-orm";
 
 import { db } from "@/server/db";
 import { usageEvents, user, workspaceEntitlements, workspaceMembers, workspaces } from "@/server/db/schema";
-import { claimLayerEditorQuota } from "@/server/layer-editor/quota";
+import { claimLayerEditorQuota, releaseLayerEditorQuota } from "@/server/layer-editor/quota";
 
 const configured = Boolean(process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL);
 const suffix = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
@@ -27,7 +27,7 @@ describe.skipIf(!configured)("layer editor regeneration quota", () => {
     const [workspace] = await db.insert(workspaces).values({ name: `Layer quota ${suffix}`, slug: `layer-quota-${suffix}` }).returning();
     workspaceId = workspace.id;
     await db.insert(workspaceMembers).values({ workspaceId, userId, role: "owner" });
-    await db.insert(workspaceEntitlements).values({ workspaceId, kind: "layer_editor_v1", status: "active", metadata: { layerizeMonthlyLimit: 1, regenerationMonthlyLimit: 1 }, startsAt: new Date(Date.now() - 60_000) });
+    await db.insert(workspaceEntitlements).values({ workspaceId, kind: "layer_editor_v1", status: "active", metadata: { layerizeMonthlyLimit: 5, regenerationMonthlyLimit: 1 }, startsAt: new Date(Date.now() - 60_000) });
 
     const base = { workspaceId, kind: "layer_regeneration_v1" as const, userId, workItemId: "work", outputId: "output" };
     const [left, right] = await Promise.all([
@@ -40,5 +40,21 @@ describe.skipIf(!configured)("layer editor regeneration quota", () => {
     expect(Number(rows[0]?.amount)).toBe(1);
     const winner = left.ok ? "00000000-0000-4000-8000-000000000101" : "00000000-0000-4000-8000-000000000102";
     await expect(claimLayerEditorQuota({ ...base, operationId: winner }, new Date())).resolves.toEqual({ ok: true, replay: true });
+  });
+
+  it("binds an operation replay to its original output and command", async () => {
+    const base = { workspaceId: workspaceId!, kind: "layerize_v1" as const, userId: userId!, workItemId: "work", outputId: "output", operationId: "00000000-0000-4000-8000-000000000103", commandFingerprint: "a".repeat(64) };
+    await expect(claimLayerEditorQuota(base, new Date())).resolves.toEqual({ ok: true, replay: false });
+    await expect(claimLayerEditorQuota({ ...base, outputId: "other-output" }, new Date())).resolves.toEqual({ ok: false, code: "operation_conflict" });
+    await expect(claimLayerEditorQuota({ ...base, commandFingerprint: "b".repeat(64) }, new Date())).resolves.toEqual({ ok: false, code: "operation_conflict" });
+  });
+
+  it("compensates the claim in its original period rather than the failure month", async () => {
+    const operationId = "00000000-0000-4000-8000-000000000104";
+    const input = { workspaceId: workspaceId!, kind: "layerize_v1" as const, userId: userId!, workItemId: "work", outputId: "period-output", operationId };
+    await expect(claimLayerEditorQuota(input, new Date())).resolves.toEqual({ ok: true, replay: false });
+    await expect(releaseLayerEditorQuota({ workspaceId: workspaceId!, kind: "layerize_v1", operationId }, new Date(Date.now() + 40 * 24 * 60 * 60 * 1000))).resolves.toEqual({ released: true });
+    const amounts = await db.select({ amount: sql<number>`coalesce(sum(${usageEvents.amount}), 0)` }).from(usageEvents).where(and(eq(usageEvents.workspaceId, workspaceId!), eq(usageEvents.idempotencyKey, `layer-editor:${workspaceId}:layerize_v1:${operationId}`)));
+    expect(Number(amounts[0]?.amount)).toBe(1);
   });
 });

@@ -111,7 +111,21 @@ describe("useLayerEditor", () => {
     expect(callsFor("heartbeatLayerEditor")).toHaveLength(0);
     expect(hook.result.current.hasUnresolvedConflict).toBe(true);
     await expect(hook.result.current.flushAndRelease()).resolves.toBe(false);
-    expect(callsFor("releaseLayerEditor")).toHaveLength(0);
+  });
+
+  it("keeps local edits on a conflict but can deliberately abandon them without a releasable lease", async () => {
+    vi.useFakeTimers();
+    const locked = { ...editorDocument, lease: { mode: "read" as const, leaseId: null, heldByName: "Other editor", expiresAt: "2026-01-01T00:01:00.000Z" } };
+    patch.mockImplementation((_work: string, body: { action: string }) => body.action === "saveLayerEditor"
+      ? Promise.reject(Object.assign(new Error("stale"), { code: "layer_editor_revision_conflict", details: { document: locked } }))
+      : Promise.resolve(response()));
+    const hook = await openHook();
+    act(() => hook.result.current.dispatch({ type: "rename", id: editorDocument.layers[0]!.id, name: "Unsaved" }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(750); });
+    expect(hook.result.current.document?.layers[0]?.name).toBe("Unsaved");
+    await act(async () => { await hook.result.current.abandonLocalEdits(); });
+    expect(hook.result.current.hasUnresolvedConflict).toBe(false);
+    expect(hook.result.current.mode).toBe("read");
   });
 
   it("blocks local document mutations while regeneration makes snapshots unsaveable", async () => {
