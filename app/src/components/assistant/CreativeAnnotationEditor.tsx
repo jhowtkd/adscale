@@ -123,7 +123,7 @@ export default function CreativeAnnotationEditor({
 
   const handleSave = () => {
     const trimmed = comment.trim();
-    if (!draft || !trimmed) return;
+    if (!draft || !trimmed || annotationLimitReached) return;
     onAdd({ ...draft, comment: trimmed });
     setDraft(null);
     setComment("");
@@ -250,10 +250,10 @@ export default function CreativeAnnotationEditor({
               type="button"
               data-testid="assistant-annotation-save"
               onClick={handleSave}
-              disabled={!comment.trim() || voiceBusy}
+              disabled={!comment.trim() || voiceBusy || annotationLimitReached}
               className={cn(
                 "rounded-md px-3 py-1 text-xs font-medium",
-                comment.trim() && !voiceBusy
+                comment.trim() && !voiceBusy && !annotationLimitReached
                   ? "bg-[var(--action-primary-bg)] text-[var(--action-primary-text)]"
                   : "cursor-not-allowed bg-[var(--surface-inset)] text-[var(--text-muted)]"
               )}

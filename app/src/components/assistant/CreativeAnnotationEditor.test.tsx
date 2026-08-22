@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import CreativeAnnotationEditor from "./CreativeAnnotationEditor";
 
@@ -219,5 +220,42 @@ describe("CreativeAnnotationEditor", () => {
     expect(screen.getByTestId("assistant-annotation-save")).toBeDisabled();
     rerender(<CreativeAnnotationEditor {...baseProps} maxAnnotations={1} annotations={[{ id: "ann-1", x: 0.1, y: 0.1, width: 0.2, height: 0.2, comment: "Existing", status: "draft" }]} />);
     expect(screen.getByTestId("assistant-annotation-overlay")).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("keeps a drafted rectangle cancellable when general feedback reaches the annotation limit", () => {
+    const onAdd = vi.fn();
+    const existing = Array.from({ length: 4 }, (_, index) => ({
+      id: `ann-${index}`,
+      x: 0.1,
+      y: 0.1,
+      width: 0.2,
+      height: 0.2,
+      comment: `Existing ${index}`,
+      status: "draft" as const,
+    }));
+    function EditorHarness() {
+      const [annotations, setAnnotations] = useState(existing);
+      return <CreativeAnnotationEditor
+        {...baseProps}
+        layout="split"
+        maxAnnotations={5}
+        annotations={annotations}
+        onAdd={(annotation) => {
+          onAdd(annotation);
+          setAnnotations((current) => [...current, { id: `ann-${current.length}`, status: "draft", ...annotation }]);
+        }}
+      />;
+    }
+    const { container } = render(<EditorHarness />);
+    drawRect(container, 0, 0, 100, 100);
+    fireEvent.change(screen.getByTestId("assistant-annotation-comment"), { target: { value: "Draft rectangle" } });
+    fireEvent.change(screen.getByTestId("assistant-annotation-general-comment"), { target: { value: "General fifth" } });
+    fireEvent.click(screen.getByTestId("assistant-annotation-general-save"));
+    const rectangleSave = screen.getByTestId("assistant-annotation-save");
+    expect(rectangleSave).toBeDisabled();
+    expect(screen.getByTestId("assistant-annotation-comment")).toBeInTheDocument();
+    fireEvent.click(rectangleSave);
+    expect(onAdd).toHaveBeenCalledTimes(1);
+    expect(onAdd).toHaveBeenCalledWith({ x: 0, y: 0, width: 1, height: 1, comment: "General fifth" });
   });
 });

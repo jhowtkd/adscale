@@ -65,6 +65,17 @@ describe("POST /api/feedback/transcribe", () => {
     expect(mocks.createTranscription).not.toHaveBeenCalled();
   });
 
+  it.each([
+    new Request("http://localhost/api/feedback/transcribe", { method: "POST", body: "not multipart" }),
+    new Request("http://localhost/api/feedback/transcribe", { method: "POST", headers: { "content-type": "multipart/form-data; boundary=broken" }, body: "--wrong-boundary--" }),
+  ])("rejects invalid multipart parsing without using the global handler", async (request) => {
+    const response = await POST(request);
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ code: "invalidAudio" });
+    expect(mocks.createTranscription).not.toHaveBeenCalled();
+    expect(mocks.handleApiError).not.toHaveBeenCalled();
+  });
+
   it("returns 422 when no speech is recognized", async () => {
     mocks.createTranscription.mockResolvedValueOnce({ text: "   " });
     expect((await POST(requestWithFile())).status).toBe(422);

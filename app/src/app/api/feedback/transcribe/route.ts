@@ -16,7 +16,12 @@ export async function POST(request: Request) {
     const limited = await checkRateLimit(request, { category: "ai", workspaceId: workspace.id });
     if (limited) return limited;
 
-    const formData = await readBoundedFormData(request);
+    let formData: FormData | null;
+    try {
+      formData = await readBoundedFormData(request);
+    } catch {
+      return apiError("invalidAudio", 400);
+    }
     if (!formData) return apiError("audioTooLarge", 413);
     const files = formData.getAll("file");
     if (files.length !== 1 || [...formData.keys()].some((key) => key !== "file")) return apiError("invalidAudio", 400);
