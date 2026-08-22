@@ -133,7 +133,7 @@ export async function requestCreativeWorkLayerization(input: {
   if (existing) {
     const cleared = await clearFailedCreativeWorkLayerizationForRetry(input);
     if (!cleared) {
-      if (!quota.replay) await releaseLayerEditorQuota({ workspaceId: input.workspaceId, kind: "layerize_v1", operationId: input.operationId }, new Date());
+      await releaseLayerEditorQuota({ workspaceId: input.workspaceId, kind: "layerize_v1", operationId: input.operationId }, new Date());
       const refreshed = await getCreativeWorkLayerizationOutput(input.workspaceId, input.workItemId, input.outputId);
       existing = layerizationStateFromDatabase(refreshed?.layerization);
       if (existing) return { ok: false, error: { code: "already_running", state: existing } };
@@ -154,9 +154,13 @@ export async function requestCreativeWorkLayerization(input: {
     state,
   });
   if (!claimed) {
-    if (!quota.replay) await releaseLayerEditorQuota({ workspaceId: input.workspaceId, kind: "layerize_v1", operationId: input.operationId }, new Date());
     const refreshed = await getCreativeWorkLayerizationOutput(input.workspaceId, input.workItemId, input.outputId);
     const refreshedState = layerizationStateFromDatabase(refreshed?.layerization);
+    if (!refreshedState || refreshedState.attemptId !== attemptId) {
+      // A quota claim alone is not authority to retain a unit. This covers a
+      // process crash or losing reservation CAS after a replayed claim.
+      await releaseLayerEditorQuota({ workspaceId: input.workspaceId, kind: "layerize_v1", operationId: input.operationId }, new Date());
+    }
     return refreshedState
       ? { ok: false, error: { code: "already_running", state: refreshedState } }
       : { ok: false, error: { code: "output_not_eligible" } };

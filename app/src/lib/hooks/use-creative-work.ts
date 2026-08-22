@@ -309,11 +309,16 @@ export function extractCreativeWorkBrandConflict(cause: unknown): CreativeWorkBr
   };
 }
 
-function fetchCreativeWork(workItemId: string, signal?: AbortSignal): Promise<CreativeWorkDetail> {
-  return apiFetch(`/api/creative-work/${workItemId}`, { signal }).then(async (res) => {
-    if (!res.ok) throw await readError(res);
-    const data = await res.json();
-    return {
+export function mapCreativeWorkDetail(data: {
+  work: CreativeWorkItem;
+  outputs: CreativeWorkOutput[];
+  sources?: CreativeWorkSource[];
+  inferredBriefing?: InferredBriefing | null;
+  briefingFactPack?: CreativeWorkFactPack | null;
+  canLayerize?: boolean;
+  layerEditorAccess?: LayerEditorAccessV1;
+}): CreativeWorkDetail {
+  return {
       work: {
         ...data.work,
         createdAt: new Date(data.work.createdAt),
@@ -331,8 +336,15 @@ function fetchCreativeWork(workItemId: string, signal?: AbortSignal): Promise<Cr
       })),
       inferredBriefing: (data.inferredBriefing as InferredBriefing | null | undefined) ?? null,
       briefingFactPack: (data.briefingFactPack as CreativeWorkFactPack | null | undefined) ?? null,
-      canLayerize: Boolean(data.canLayerize),
-    };
+    canLayerize: Boolean(data.canLayerize),
+    layerEditorAccess: data.layerEditorAccess,
+  };
+}
+
+function fetchCreativeWork(workItemId: string, signal?: AbortSignal): Promise<CreativeWorkDetail> {
+  return apiFetch(`/api/creative-work/${workItemId}`, { signal }).then(async (res) => {
+    if (!res.ok) throw await readError(res);
+    return mapCreativeWorkDetail(await res.json());
   });
 }
 

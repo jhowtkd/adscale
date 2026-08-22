@@ -87,6 +87,15 @@ describe("creative work layer editor regeneration repository", () => {
     expect(store.update).toBeNull();
   });
 
+  it.each(["failed", "submission_unknown"] as const)("allows a snapshot save after terminal %s evidence", async (status) => {
+    store.row = { layerEditor: editorState({ regeneration: { id: operationId, status, layerId, instruction: "New color", requestedByUserId: "user-1", usageKey: "usage-1", candidateKey: null, providerRequestId: null, failureCode: "provider_failure", createdAt: now.toISOString(), updatedAt: now.toISOString() } }) };
+    const snapshot = store.row.layerEditor.layers.map(({ id, order, name, visible, x, y, width, height }) => ({ id, order, name, visible, x, y, width, height, useSource: false }));
+
+    const updated = await saveCreativeWorkLayerEditorSnapshot({ ...mutation, snapshot: { layers: snapshot }, now });
+
+    expect(layerEditorFromOutput(updated)?.regeneration).toMatchObject({ status, failureCode: "provider_failure" });
+  });
+
   it("rolls back only its matching reserved operation", async () => {
     store.row = { layerEditor: editorState({ regeneration: { id: operationId, status: "reserved", layerId, instruction: "New color", requestedByUserId: "user-1", usageKey: "usage-1", candidateKey: null, providerRequestId: null, failureCode: null, createdAt: now.toISOString(), updatedAt: now.toISOString() } }) };
     const rolledBack = await rollbackReservedLayerRegeneration({ ...scope, operationId, now });

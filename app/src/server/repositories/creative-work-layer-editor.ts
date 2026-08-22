@@ -17,6 +17,13 @@ export type LayerEditorScope = { workspaceId: string; workItemId: string; output
 export type LayerEditorMutationScope = LayerEditorScope & { userId: string; leaseId: string; expectedRevision: number };
 export const LAYER_EDITOR_REGENERATION_PROCESSING_STALE_MS = 5 * 60 * 1000;
 
+/** Only an in-flight candidate blocks ordinary, non-provider editor work. */
+export function hasActiveLayerEditorRegeneration(state: LayerEditorStateV1 | null | undefined): boolean {
+  return state?.regeneration?.status === "reserved"
+    || state?.regeneration?.status === "processing"
+    || state?.regeneration?.status === "ready";
+}
+
 function scope(input: LayerEditorScope) {
   return and(eq(creativeWorkOutputs.workspaceId, input.workspaceId), eq(creativeWorkOutputs.workItemId, input.workItemId), eq(creativeWorkOutputs.id, input.outputId));
 }
@@ -105,10 +112,10 @@ function applySnapshot(state: LayerEditorStateV1, snapshot: LayerEditorMutableSn
 export async function saveCreativeWorkLayerEditorSnapshot(input: LayerEditorMutationScope & { snapshot: LayerEditorMutableSnapshotV1; now: Date }): Promise<Output | null> {
   const current = await getCreativeWorkLayerEditorOutput(input);
   const state = layerEditorStateFromDatabase(current?.layerEditor);
-  if (!state || state.regeneration || state.revision !== input.expectedRevision || state.lease?.id !== input.leaseId || state.lease.userId !== input.userId || Date.parse(state.lease.expiresAt) <= input.now.getTime()) return null;
+  if (!state || hasActiveLayerEditorRegeneration(state) || state.revision !== input.expectedRevision || state.lease?.id !== input.leaseId || state.lease.userId !== input.userId || Date.parse(state.lease.expiresAt) <= input.now.getTime()) return null;
   const next = applySnapshot(state, input.snapshot, input.now);
   if (!next) return null;
-  const [row] = await db.update(creativeWorkOutputs).set({ layerEditor: next, updatedAt: input.now }).where(and(scope(input), sql`${creativeWorkOutputs.layerEditor}->>'revision' = ${String(input.expectedRevision)}`, sql`${creativeWorkOutputs.layerEditor}->'lease'->>'id' = ${input.leaseId}`, sql`${creativeWorkOutputs.layerEditor}->'lease'->>'userId' = ${input.userId}`, sql`${creativeWorkOutputs.layerEditor}->'lease'->>'expiresAt' = ${state.lease.expiresAt}`, sql`${creativeWorkOutputs.layerEditor}->'regeneration' is null`)).returning();
+  const [row] = await db.update(creativeWorkOutputs).set({ layerEditor: next, updatedAt: input.now }).where(and(scope(input), sql`${creativeWorkOutputs.layerEditor}->>'revision' = ${String(input.expectedRevision)}`, sql`${creativeWorkOutputs.layerEditor}->'lease'->>'id' = ${input.leaseId}`, sql`${creativeWorkOutputs.layerEditor}->'lease'->>'userId' = ${input.userId}`, sql`${creativeWorkOutputs.layerEditor}->'lease'->>'expiresAt' = ${state.lease.expiresAt}`, sql`(${creativeWorkOutputs.layerEditor}->'regeneration' is null or ${creativeWorkOutputs.layerEditor}->'regeneration'->>'status' in ('failed', 'submission_unknown'))`)).returning();
   return row ?? null;
 }
 
@@ -171,7 +178,7 @@ export async function publishCreativeWorkLayerEditorVersion(input: LayerEditorMu
       scope({ ...input, outputId: input.parentOutputId }),
     )).for("update").limit(1);
     const state = layerEditorStateFromDatabase(parent?.layerEditor);
-    if (!parent || !state || state.revision !== input.expectedRevision || state.lease?.id !== input.leaseId || state.lease.userId !== input.userId || Date.parse(state.lease.expiresAt) <= input.now.getTime() || state.regeneration) return null;
+    if (!parent || !state || state.revision !== input.expectedRevision || state.lease?.id !== input.leaseId || state.lease.userId !== input.userId || Date.parse(state.lease.expiresAt) <= input.now.getTime() || hasActiveLayerEditorRegeneration(state)) return null;
 
     // The same client operation cannot publish through a different parent or
     // revision. This lock is deliberately wider than the parent-row lock.

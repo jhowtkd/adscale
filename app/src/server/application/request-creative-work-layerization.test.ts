@@ -96,6 +96,17 @@ describe("requestCreativeWorkLayerization", () => {
     expect(sendMock).toHaveBeenCalledOnce();
   });
 
+  it("compensates a replayed quota claim that loses layerization reservation", async () => {
+    quotaClaimMock.mockResolvedValue({ ok: true, replay: true });
+    claimMock.mockResolvedValue(null);
+    getOutputMock.mockResolvedValue({ layerization: null });
+
+    await expect(requestCreativeWorkLayerization(input)).resolves.toMatchObject({ ok: false, error: { code: "output_not_eligible" } });
+
+    expect(quotaReleaseMock).toHaveBeenCalledWith(expect.objectContaining({ kind: "layerize_v1", operationId: input.operationId }), expect.any(Date));
+    expect(sendMock).not.toHaveBeenCalled();
+  });
+
   it("does not retry a submission whose outcome is unknown", async () => {
     output.layerization = {
       status: "submission_unknown",

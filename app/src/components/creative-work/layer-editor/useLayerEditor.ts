@@ -11,6 +11,10 @@ export type LayerEditorSaveStatus = "idle" | "saving" | "saved" | "error" | "con
 type OpenResponse = { document: PublicLayerEditorDocumentV1; access: LayerEditorAccessV1 };
 type OpenFailureDetails = { document?: PublicLayerEditorDocumentV1 | null };
 
+function isActiveRegeneration(status: string | undefined) {
+  return status === "reserved" || status === "processing" || status === "ready";
+}
+
 function conflictDocument(error: unknown): PublicLayerEditorDocumentV1 | null {
   if (!error || typeof error !== "object") return null;
   const value = error as { document?: PublicLayerEditorDocumentV1 | null; details?: OpenFailureDetails };
@@ -225,19 +229,19 @@ export function useLayerEditor(input: LayerEditorInput) {
 
   const dispatch = useCallback((command: LayerEditorCommand) => {
     const current = sessionRef.current;
-    if (modeRef.current !== "edit" || !current || current.present.regeneration) return;
+    if (modeRef.current !== "edit" || !current || isActiveRegeneration(current.present.regeneration?.status)) return;
     commitSession(applyLayerEditorCommand(current, command));
   }, [commitSession]);
 
   const undo = useCallback(() => {
     const current = sessionRef.current;
-    if (modeRef.current !== "edit" || !current || current.present.regeneration) return;
+    if (modeRef.current !== "edit" || !current || isActiveRegeneration(current.present.regeneration?.status)) return;
     commitSession(undoLayerEditor(current));
   }, [commitSession]);
 
   const redo = useCallback(() => {
     const current = sessionRef.current;
-    if (modeRef.current !== "edit" || !current || current.present.regeneration) return;
+    if (modeRef.current !== "edit" || !current || isActiveRegeneration(current.present.regeneration?.status)) return;
     commitSession(redoLayerEditor(current));
   }, [commitSession]);
 
@@ -398,8 +402,8 @@ export function useLayerEditor(input: LayerEditorInput) {
     dispatch,
     open,
     flush,
-    canUndo: mode === "edit" && !document?.regeneration && Boolean(session?.past.length),
-    canRedo: mode === "edit" && !document?.regeneration && Boolean(session?.future.length),
+    canUndo: mode === "edit" && !isActiveRegeneration(document?.regeneration?.status) && Boolean(session?.past.length),
+    canRedo: mode === "edit" && !isActiveRegeneration(document?.regeneration?.status) && Boolean(session?.future.length),
     undo,
     redo,
     regenerate,

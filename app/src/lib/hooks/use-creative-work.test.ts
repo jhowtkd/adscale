@@ -7,6 +7,7 @@ import {
   getCreativeWorkObjectiveVerdict,
   isCreativeWorkRetryEligible,
   CreativeWorkRequestError,
+  mapCreativeWorkDetail,
 } from "./use-creative-work";
 
 describe("creativeWorkRefetchInterval (R-008: 202 + polling contract)", () => {
@@ -49,6 +50,18 @@ describe("creativeWorkRefetchInterval (R-008: 202 + polling contract)", () => {
       }),
     ).toBe(false);
     expect(creativeWorkRefetchInterval(undefined)).toBe(false);
+  });
+});
+
+describe("creative-work detail projection", () => {
+  it("retains the allowlisted Layer Editor quota access for Results before confirmation", () => {
+    const detail = mapCreativeWorkDetail({
+      work: { id: "work-1", createdAt: "2026-08-22T00:00:00.000Z", updatedAt: "2026-08-22T00:00:00.000Z" } as never,
+      outputs: [],
+      layerEditorAccess: { enabled: true, period: null, layerize: { limit: 5, used: 1, remaining: 4 }, regeneration: { limit: 5, used: 2, remaining: 3 } },
+    });
+
+    expect(detail.layerEditorAccess).toMatchObject({ enabled: true, layerize: { remaining: 4 }, regeneration: { remaining: 3 } });
   });
 });
 

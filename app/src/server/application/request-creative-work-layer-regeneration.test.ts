@@ -72,6 +72,18 @@ describe("requestCreativeWorkLayerRegeneration", () => {
     expect(send).toHaveBeenCalledOnce();
   });
 
+  it("compensates a replayed quota claim that loses reservation without dispatching", async () => {
+    claim.mockResolvedValue({ ok: true, replay: true });
+    getOutput.mockResolvedValue({ layerEditor: {} });
+    stateFromOutput.mockReturnValue({ revision: 1, regeneration: null });
+    reserve.mockResolvedValue(null);
+
+    await expect(requestCreativeWorkLayerRegeneration(input)).resolves.toEqual({ ok: false, code: "layer_editor_revision_conflict" });
+
+    expect(release).toHaveBeenCalledWith(expect.objectContaining({ kind: "layer_regeneration_v1", operationId: input.operationId }), expect.any(Date));
+    expect(send).not.toHaveBeenCalled();
+  });
+
   it("uses the revision returned by terminal cleanup when reserving a new operation", async () => {
     claim.mockResolvedValue({ ok: true, replay: false });
     getOutput.mockResolvedValue({ layerEditor: {} });
