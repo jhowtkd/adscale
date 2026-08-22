@@ -6,6 +6,8 @@ const clearFailedMock = vi.hoisted(() => vi.fn());
 const failQueuedMock = vi.hoisted(() => vi.fn());
 const getOutputMock = vi.hoisted(() => vi.fn());
 const sendMock = vi.hoisted(() => vi.fn());
+const quotaClaimMock = vi.hoisted(() => vi.fn());
+const quotaReleaseMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/repositories/creative-work", () => ({
   getCreativeWork: (...args: unknown[]) => getWorkMock(...args),
@@ -23,6 +25,10 @@ vi.mock("@/server/jobs/client", () => ({
 vi.mock("@/server/jobs/heavy-image-events", () => ({
   heavyImageEventName: (name: string) => name,
 }));
+vi.mock("@/server/layer-editor/quota", () => ({
+  claimLayerEditorQuota: (...args: unknown[]) => quotaClaimMock(...args),
+  releaseLayerEditorQuota: (...args: unknown[]) => quotaReleaseMock(...args),
+}));
 vi.mock("@/server/layerize/seedream-provider", () => ({
   SEEDREAM_LAYERIZE_MODEL_ID: "bytedance/seedream-v5.0-pro/layer-decomposition",
   SEEDREAM_PROVIDER_ENDPOINT: "https://api.atlascloud.ai/api/v1/model/generateImage",
@@ -36,6 +42,7 @@ const input = {
   workItemId: "work-1",
   outputId: "output-1",
   userId: "owner-1",
+  operationId: "00000000-0000-4000-8000-000000000001",
   callbackUrl: "https://app.example/api/creative-work/work-1",
 };
 
@@ -55,6 +62,8 @@ describe("requestCreativeWorkLayerization", () => {
     getWorkMock.mockImplementation(async () => ({ outputs: [output] }));
     claimMock.mockResolvedValue({ id: "output-1", layerization: null });
     sendMock.mockResolvedValue(undefined);
+    quotaClaimMock.mockResolvedValue({ ok: true, replay: false });
+    quotaReleaseMock.mockResolvedValue({ released: true });
   });
 
   afterEach(() => {

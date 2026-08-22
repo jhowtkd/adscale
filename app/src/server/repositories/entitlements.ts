@@ -1,4 +1,5 @@
-import { and, desc, eq, gt, isNull, or } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, lte, or } from "drizzle-orm";
+import { z } from "zod";
 
 import { db } from "../db";
 import {
@@ -10,6 +11,12 @@ export const BETA_ENTITLEMENT_KIND = "beta_tester" as const;
 export const TESTER_ENTITLEMENT_KIND = "tester" as const;
 export const ENTITLEMENT_STATUS_ACTIVE = "active" as const;
 export const ENTITLEMENT_STATUS_REVOKED = "revoked" as const;
+export const LAYER_EDITOR_ENTITLEMENT_KIND = "layer_editor_v1" as const;
+
+export const layerEditorEntitlementMetadataSchema = z.object({
+  layerizeMonthlyLimit: z.number().int().nonnegative(),
+  regenerationMonthlyLimit: z.number().int().nonnegative(),
+}).strict();
 
 export type TesterEntitlementMetadata = {
   notes?: string;
@@ -60,6 +67,22 @@ export async function getActiveTesterEntitlementByWorkspace(
     )
     .limit(1);
 
+  return rows[0] ?? null;
+}
+
+export async function getActiveLayerEditorEntitlementByWorkspace(
+  workspaceId: string,
+  now: Date,
+  tx?: DbOrTx,
+) {
+  const client = tx ?? db;
+  const rows = await client.select().from(workspaceEntitlements).where(and(
+    eq(workspaceEntitlements.workspaceId, workspaceId),
+    eq(workspaceEntitlements.kind, LAYER_EDITOR_ENTITLEMENT_KIND),
+    eq(workspaceEntitlements.status, ENTITLEMENT_STATUS_ACTIVE),
+    lte(workspaceEntitlements.startsAt, now),
+    or(isNull(workspaceEntitlements.expiresAt), gt(workspaceEntitlements.expiresAt, now)),
+  )).limit(1);
   return rows[0] ?? null;
 }
 

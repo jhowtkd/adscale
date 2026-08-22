@@ -18,6 +18,7 @@ import type {
   InferredBriefing,
 } from "@/server/creative-work/contracts";
 import type { PublicLayerizationState } from "@/server/layerize/contracts";
+import type { LayerEditorAccessV1, PublicLayerEditorSummaryV1 } from "@/server/layer-editor/contracts";
 
 export type CreativeWorkStatus =
   | "draft"
@@ -139,6 +140,7 @@ export interface CreativeWorkOutput {
   failureCode: string | null;
   quality: Record<string, unknown> | null;
   layerization: PublicLayerizationState | null;
+  layerEditor: PublicLayerEditorSummaryV1 | null;
   isSelected: boolean;
   directionId?: string | null;
   directionSnapshot?: { label: string; instruction: string; order: number } | null;
@@ -173,6 +175,7 @@ export interface CreativeWorkDetail {
   inferredBriefing?: InferredBriefing | null;
   briefingFactPack?: CreativeWorkFactPack | null;
   canLayerize?: boolean;
+  layerEditorAccess?: LayerEditorAccessV1;
 }
 
 export interface CreativeWorkCampaignOption {
@@ -661,10 +664,11 @@ export function useRetryOutput() {
 export function useLayerizeOutput() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ workItemId, outputId, retry }: { workItemId: string; outputId: string; retry?: boolean }) =>
+    mutationFn: ({ workItemId, outputId, operationId, retry }: { workItemId: string; outputId: string; operationId: string; retry?: boolean }) =>
       patchJson<{ state: PublicLayerizationState }>(`/api/creative-work/${workItemId}`, {
         action: "layerizeOutput",
         outputId,
+        operationId,
         ...(retry ? { retry: true } : {}),
       }),
     onSuccess: async (_data, variables) => {

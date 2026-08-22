@@ -16,7 +16,15 @@ import {
 } from "@/server/application/handle-creative-work-layerization-callback";
 import { recoverExpiredCreativeWorkLayerizations } from "@/server/application/recover-expired-creative-work-layerizations";
 import { toPublicLayerizationState } from "@/server/layerize/contracts";
-import { isPlatformOwnerEmail } from "@/server/auth/platform-owner";
+import { toPublicLayerEditorSummary } from "@/server/layer-editor/contracts";
+import { getLayerEditorAccess } from "@/server/layer-editor/quota";
+import {
+  heartbeatCreativeWorkLayerEditor,
+  openCreativeWorkLayerEditor,
+  releaseCreativeWorkLayerEditor,
+  saveCreativeWorkLayerEditor,
+} from "@/server/application/manage-creative-work-layer-editor";
+import { layerEditorMutableSnapshotSchema } from "@/server/layer-editor/contracts";
 import { projectCreativeWorkAsCanonicalWork } from "@/server/creative-work/projection/from-creative-work";
 import {
   CREATIVE_SOURCE_USAGES,
@@ -132,8 +140,13 @@ const resolveBrandConflictSchema = z.object({
 const layerizeOutputSchema = z.object({
   action: z.literal("layerizeOutput"),
   outputId: z.string().uuid(),
+  operationId: z.string().uuid(),
   retry: z.boolean().optional(),
 }).strict();
+const openLayerEditorSchema = z.object({ action: z.literal("openLayerEditor"), outputId: z.string().uuid(), mode: z.enum(["inspect", "edit"]) }).strict();
+const heartbeatLayerEditorSchema = z.object({ action: z.literal("heartbeatLayerEditor"), outputId: z.string().uuid(), leaseId: z.string().uuid() }).strict();
+const releaseLayerEditorSchema = z.object({ action: z.literal("releaseLayerEditor"), outputId: z.string().uuid(), leaseId: z.string().uuid() }).strict();
+const saveLayerEditorSchema = z.object({ action: z.literal("saveLayerEditor"), outputId: z.string().uuid(), leaseId: z.string().uuid(), expectedRevision: z.number().int().positive(), snapshot: layerEditorMutableSnapshotSchema }).strict();
 const linkCampaignSchema = z.object({ action: z.literal("linkCampaign"), campaignId: z.string().min(1).nullable() }).strict();
 const sourceUsageSchema = z.enum(CREATIVE_SOURCE_USAGES);
 const attachSourceSchema = z.union([
@@ -154,6 +167,7 @@ const patchCreativeWorkSchema = z.union([
   retrySourceSchema, removeSourceSchema, editSourceAnalysisSchema, confirmCreativeWorkSchema,
   linkCampaignSchema, resolveBrandConflictSchema,
   layerizeOutputSchema,
+  openLayerEditorSchema, heartbeatLayerEditorSchema, releaseLayerEditorSchema, saveLayerEditorSchema,
 ]);
 
 function dispatchSourceAnalysis(workspaceId: string, workItemId: string, sourceId: string) {
@@ -372,8 +386,9 @@ export async function GET(
     const inferredBriefing = result.work.toolKind === "single"
       ? resolveCreativeWorkInferredBriefing(result.work.inputSnapshot)
       : null;
-    const canLayerize = isPlatformOwnerEmail(user.email) && Boolean(env.ATLASCLOUD_API_KEY?.trim());
-    const recoveredLayerizations = canLayerize
+    const layerEditorAccess = await getLayerEditorAccess(workspace.id, new Date());
+    const canLayerize = layerEditorAccess.enabled && Boolean(env.ATLASCLOUD_API_KEY?.trim());
+    const recoveredLayerizations = layerEditorAccess.enabled
       ? await recoverExpiredCreativeWorkLayerizations({
         workspaceId: workspace.id,
         workItemId: id,
@@ -382,7 +397,8 @@ export async function GET(
       : new Map();
     const outputs = result.outputs.map((output) => ({
       ...output,
-      layerization: canLayerize ? toPublicLayerizationState(recoveredLayerizations.get(output.id) ?? output.layerization) : null,
+      layerization: layerEditorAccess.enabled ? toPublicLayerizationState(recoveredLayerizations.get(output.id) ?? output.layerization) : null,
+      layerEditor: toPublicLayerEditorSummary(output.layerEditor),
     }));
     return NextResponse.json({
       work: {
@@ -391,6 +407,7 @@ export async function GET(
       },
       outputs,
       canLayerize,
+      layerEditorAccess,
       sources,
       inferredBriefing,
       briefingFactPack: inferredBriefing ? resolveCreativeWorkFactPack(result.work.inputSnapshot) : null,
@@ -410,7 +427,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const [{ workspace }, { id }] = await Promise.all([
+    const [{ workspace, user }, { id }] = await Promise.all([
       requireWorkspaceAccess(request),
       params,
     ]);
@@ -421,7 +438,6 @@ export async function PATCH(
     }
 
     if ("action" in parsed.data && parsed.data.action === "layerizeOutput") {
-      const [{ user }] = await Promise.all([requirePlatformOwner(request)]);
       const callbackOrigin = env.APP_URL?.trim() || env.BETTER_AUTH_URL?.trim();
       const callbackUrl = new URL(callbackOrigin ? `/api/creative-work/${id}` : request.url, callbackOrigin ?? undefined);
       callbackUrl.search = "";
@@ -430,6 +446,7 @@ export async function PATCH(
         workItemId: id,
         outputId: parsed.data.outputId,
         userId: user.id,
+        operationId: parsed.data.operationId,
         callbackUrl: callbackUrl.toString(),
         retry: parsed.data.retry,
       });
@@ -450,6 +467,22 @@ export async function PATCH(
         accepted: result.accepted,
         replay: result.replay,
       }, { status: result.accepted ? 202 : 200 });
+    }
+
+    if ("action" in parsed.data && parsed.data.action === "openLayerEditor") {
+      const result = await openCreativeWorkLayerEditor({ workspaceId: workspace.id, workItemId: id, outputId: parsed.data.outputId, userId: user.id, userName: user.name ?? null, mode: parsed.data.mode });
+      return result.ok ? NextResponse.json({ document: result.document, access: result.access }) : NextResponse.json({ code: result.code, document: result.document ?? null }, { status: result.status });
+    }
+    if ("action" in parsed.data && parsed.data.action === "heartbeatLayerEditor") {
+      const result = await heartbeatCreativeWorkLayerEditor({ workspaceId: workspace.id, workItemId: id, outputId: parsed.data.outputId, userId: user.id, userName: user.name ?? null, leaseId: parsed.data.leaseId });
+      return result.ok ? NextResponse.json({ document: result.document, access: result.access }) : NextResponse.json({ code: result.code, document: result.document ?? null }, { status: result.status });
+    }
+    if ("action" in parsed.data && parsed.data.action === "saveLayerEditor") {
+      const result = await saveCreativeWorkLayerEditor({ workspaceId: workspace.id, workItemId: id, outputId: parsed.data.outputId, userId: user.id, userName: user.name ?? null, leaseId: parsed.data.leaseId, expectedRevision: parsed.data.expectedRevision, snapshot: parsed.data.snapshot });
+      return result.ok ? NextResponse.json({ document: result.document, access: result.access }) : NextResponse.json({ code: result.code, document: result.document ?? null }, { status: result.status });
+    }
+    if ("action" in parsed.data && parsed.data.action === "releaseLayerEditor") {
+      return NextResponse.json(await releaseCreativeWorkLayerEditor({ workspaceId: workspace.id, workItemId: id, outputId: parsed.data.outputId, userId: user.id, leaseId: parsed.data.leaseId }));
     }
 
     if ("action" in parsed.data && parsed.data.action === "autosave") {

@@ -1,0 +1,103 @@
+import "server-only";
+
+import { and, eq, isNull, or, sql } from "drizzle-orm";
+
+import { db } from "@/server/db";
+import { creativeWorkOutputs } from "@/server/db/schema";
+import {
+  LAYER_EDITOR_LEASE_MS,
+  layerEditorStateFromDatabase,
+  type LayerEditorMutableSnapshotV1,
+  type LayerEditorStateV1,
+} from "@/server/layer-editor/contracts";
+import { layerizationStateFromDatabase, type LayerizationState } from "@/server/layerize/contracts";
+
+type Output = typeof creativeWorkOutputs.$inferSelect;
+export type LayerEditorScope = { workspaceId: string; workItemId: string; outputId: string };
+export type LayerEditorMutationScope = LayerEditorScope & { userId: string; leaseId: string; expectedRevision: number };
+
+function scope(input: LayerEditorScope) {
+  return and(eq(creativeWorkOutputs.workspaceId, input.workspaceId), eq(creativeWorkOutputs.workItemId, input.workItemId), eq(creativeWorkOutputs.id, input.outputId));
+}
+
+function nextLease(userId: string, leaseId: string, now: Date): LayerEditorStateV1["lease"] {
+  return { id: leaseId, userId, acquiredAt: now.toISOString(), expiresAt: new Date(now.getTime() + LAYER_EDITOR_LEASE_MS).toISOString() };
+}
+
+export function seedLayerEditorState(layerization: LayerizationState, lease: LayerEditorStateV1["lease"], now: Date): LayerEditorStateV1 {
+  if (layerization.status !== "completed" || !layerization.baseWidth || !layerization.baseHeight || layerization.layers.length < 2 || layerization.layers.length > 17) throw new Error("Completed Layerize source with 2-17 layers is required");
+  const ordered = [...layerization.layers].sort((left, right) => left.order - right.order);
+  return {
+    schemaVersion: 1, revision: 1, sourceLayerizationAttemptId: layerization.attemptId,
+    canvas: { width: layerization.baseWidth, height: layerization.baseHeight },
+    layers: ordered.map((layer, index) => ({
+      id: crypto.randomUUID(), source: { order: ordered.length - 1 - index, name: layer.name, visible: true, x: layer.x, y: layer.y, width: layer.width, height: layer.height, key: layer.storageKey },
+      order: ordered.length - 1 - index, name: layer.name, visible: true, x: layer.x, y: layer.y, width: layer.width, height: layer.height,
+      currentKey: layer.storageKey, currentKind: "source" as const, restorableKey: null,
+    })),
+    lease, regeneration: null, publishedPsdKey: null, updatedAt: now.toISOString(),
+  };
+}
+
+export async function getCreativeWorkLayerEditorOutput(input: LayerEditorScope): Promise<Output | null> {
+  const [row] = await db.select().from(creativeWorkOutputs).where(scope(input)).limit(1);
+  return row ?? null;
+}
+
+export async function initializeCreativeWorkLayerEditor(input: LayerEditorScope & { state: LayerEditorStateV1 }): Promise<Output | null> {
+  const [row] = await db.update(creativeWorkOutputs).set({ layerEditor: input.state, updatedAt: new Date() }).where(and(scope(input), isNull(creativeWorkOutputs.layerEditor))).returning();
+  return row ?? null;
+}
+
+export async function acquireCreativeWorkLayerEditorLease(input: LayerEditorScope & { userId: string; leaseId: string; now: Date }): Promise<Output | null> {
+  const lease = nextLease(input.userId, input.leaseId, input.now);
+  const [row] = await db.update(creativeWorkOutputs).set({
+    layerEditor: sql`jsonb_set(${creativeWorkOutputs.layerEditor}, '{lease}', ${JSON.stringify(lease)}::jsonb)`, updatedAt: input.now,
+  }).where(and(scope(input), sql`(${creativeWorkOutputs.layerEditor}->'lease' is null or ${creativeWorkOutputs.layerEditor}->'lease'->>'userId' = ${input.userId} or (${creativeWorkOutputs.layerEditor}->'lease'->>'expiresAt')::timestamptz <= ${input.now.toISOString()}::timestamptz)`)).returning();
+  return row ?? null;
+}
+
+export async function heartbeatCreativeWorkLayerEditorLease(input: LayerEditorScope & { userId: string; leaseId: string; now: Date }): Promise<Output | null> {
+  const expiresAt = new Date(input.now.getTime() + LAYER_EDITOR_LEASE_MS).toISOString();
+  const [row] = await db.update(creativeWorkOutputs).set({
+    layerEditor: sql`jsonb_set(${creativeWorkOutputs.layerEditor}, '{lease,expiresAt}', ${JSON.stringify(expiresAt)}::jsonb)`, updatedAt: input.now,
+  }).where(and(scope(input), sql`${creativeWorkOutputs.layerEditor}->'lease'->>'id' = ${input.leaseId}`, sql`${creativeWorkOutputs.layerEditor}->'lease'->>'userId' = ${input.userId}`, sql`(${creativeWorkOutputs.layerEditor}->'lease'->>'expiresAt')::timestamptz > ${input.now.toISOString()}::timestamptz`)).returning();
+  return row ?? null;
+}
+
+function applySnapshot(state: LayerEditorStateV1, snapshot: LayerEditorMutableSnapshotV1, now: Date): LayerEditorStateV1 | null {
+  if (snapshot.layers.length !== state.layers.length || new Set(snapshot.layers.map((layer) => layer.id)).size !== state.layers.length) return null;
+  const byId = new Map(snapshot.layers.map((layer) => [layer.id, layer]));
+  if (state.layers.some((layer) => !byId.has(layer.id))) return null;
+  const next: LayerEditorStateV1 = {
+    ...state, revision: state.revision + 1, updatedAt: now.toISOString(),
+    layers: state.layers.map((layer) => {
+      const mutable = byId.get(layer.id)!;
+      const currentKey = mutable.useSource ? layer.source.key : (layer.restorableKey ?? layer.currentKey);
+      const restorableKey = mutable.useSource
+        ? (layer.currentKind === "regenerated" ? layer.currentKey : layer.restorableKey)
+        : layer.restorableKey;
+      return { ...layer, order: mutable.order, name: mutable.name, visible: mutable.visible, x: mutable.x, y: mutable.y, width: mutable.width, height: mutable.height,
+        currentKey, currentKind: mutable.useSource ? "source" as const : (currentKey === layer.source.key ? "source" as const : "regenerated" as const), restorableKey };
+    }),
+  };
+  return layerEditorStateFromDatabase(next);
+}
+
+export async function saveCreativeWorkLayerEditorSnapshot(input: LayerEditorMutationScope & { snapshot: LayerEditorMutableSnapshotV1; now: Date }): Promise<Output | null> {
+  const current = await getCreativeWorkLayerEditorOutput(input);
+  const state = layerEditorStateFromDatabase(current?.layerEditor);
+  if (!state || state.revision !== input.expectedRevision || state.lease?.id !== input.leaseId || state.lease.userId !== input.userId || Date.parse(state.lease.expiresAt) <= input.now.getTime()) return null;
+  const next = applySnapshot(state, input.snapshot, input.now);
+  if (!next) return null;
+  const [row] = await db.update(creativeWorkOutputs).set({ layerEditor: next, updatedAt: input.now }).where(and(scope(input), sql`${creativeWorkOutputs.layerEditor}->>'revision' = ${String(input.expectedRevision)}`, sql`${creativeWorkOutputs.layerEditor}->'lease'->>'id' = ${input.leaseId}`, sql`${creativeWorkOutputs.layerEditor}->'lease'->>'userId' = ${input.userId}`)).returning();
+  return row ?? null;
+}
+
+export async function releaseCreativeWorkLayerEditorLease(input: LayerEditorScope & { userId: string; leaseId: string; now?: Date }): Promise<boolean> {
+  const result = await db.update(creativeWorkOutputs).set({ layerEditor: sql`jsonb_set(${creativeWorkOutputs.layerEditor}, '{lease}', 'null'::jsonb)`, updatedAt: input.now ?? new Date() }).where(and(scope(input), sql`${creativeWorkOutputs.layerEditor}->'lease'->>'id' = ${input.leaseId}`, sql`${creativeWorkOutputs.layerEditor}->'lease'->>'userId' = ${input.userId}`)).returning({ id: creativeWorkOutputs.id });
+  return result.length > 0;
+}
+
+export function layerEditorFromOutput(output: Output | null): LayerEditorStateV1 | null { return layerEditorStateFromDatabase(output?.layerEditor); }
+export function layerizationFromOutput(output: Output | null): LayerizationState | null { return layerizationStateFromDatabase(output?.layerization); }

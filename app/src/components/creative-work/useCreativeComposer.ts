@@ -1120,7 +1120,7 @@ export function useCreativeComposer({
   const layerizeOutput = useCallback(async (outputId: string, retry = false) => {
     if (!workIdRef.current) return;
     try {
-      await layerizeOutputMutation.mutateAsync({ workItemId: workIdRef.current, outputId, ...(retry ? { retry: true } : {}) });
+      await layerizeOutputMutation.mutateAsync({ workItemId: workIdRef.current, outputId, operationId: crypto.randomUUID(), ...(retry ? { retry: true } : {}) });
       setAnnouncement(retry ? tResults("layerizeRestarted") : tResults("layerizeStarted"));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : tResults("layerizeRequestFailed"));
