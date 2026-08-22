@@ -23,9 +23,11 @@ import {
   acceptLayerRegenerationCandidate,
   discardLayerRegenerationCandidate,
   layerEditorFromOutput,
+  markLayerRegenerationProcessing,
   publishCreativeWorkLayerEditorVersion,
   rollbackReservedLayerRegeneration,
   reserveLayerRegeneration,
+  recoverStaleLayerRegeneration,
   saveCreativeWorkLayerEditorSnapshot,
 } from "./creative-work-layer-editor";
 
@@ -93,6 +95,26 @@ describe("creative work layer editor regeneration repository", () => {
 
     store.row = { layerEditor: editorState({ regeneration: { id: operationId, status: "processing", layerId, instruction: "New color", requestedByUserId: "user-1", usageKey: "usage-1", candidateKey: null, providerRequestId: null, failureCode: null, createdAt: now.toISOString(), updatedAt: now.toISOString() } }) };
     await expect(rollbackReservedLayerRegeneration({ ...scope, operationId, now })).resolves.toBeNull();
+  });
+
+  it("preserves the renewed lease and reserved state when a transition CAS loses", async () => {
+    const reserved = editorState({ regeneration: { id: operationId, status: "reserved", layerId, instruction: "New color", requestedByUserId: "user-1", usageKey: "usage-1", candidateKey: null, providerRequestId: null, failureCode: null, createdAt: now.toISOString(), updatedAt: now.toISOString() } });
+    store.row = { layerEditor: reserved };
+    store.casLoses = true;
+
+    await expect(markLayerRegenerationProcessing({ ...scope, operationId, now })).resolves.toBeNull();
+    expect(layerEditorFromOutput(store.row)?.lease).toEqual(reserved.lease);
+    expect(layerEditorFromOutput(store.row)?.regeneration).toMatchObject({ status: "reserved" });
+  });
+
+  it("marks only an expired processing operation submission_unknown without retrying it", async () => {
+    store.row = { layerEditor: editorState({ regeneration: { id: operationId, status: "processing", layerId, instruction: "New color", requestedByUserId: "user-1", usageKey: "usage-1", candidateKey: null, providerRequestId: null, failureCode: null, createdAt: "2026-08-22T00:00:00.000Z", updatedAt: "2026-08-22T00:00:00.000Z" } }) };
+
+    const recovered = await recoverStaleLayerRegeneration({ ...scope, now: new Date("2026-08-22T00:06:00.000Z") });
+
+    expect(layerEditorFromOutput(recovered)?.regeneration).toMatchObject({ status: "submission_unknown", failureCode: "layer_regeneration_submission_unknown" });
+    store.row = { layerEditor: editorState({ regeneration: { id: operationId, status: "processing", layerId, instruction: "New color", requestedByUserId: "user-1", usageKey: "usage-1", candidateKey: null, providerRequestId: null, failureCode: null, createdAt: "2026-08-22T00:05:59.000Z", updatedAt: "2026-08-22T00:05:59.000Z" } }) };
+    await expect(recoverStaleLayerRegeneration({ ...scope, now: new Date("2026-08-22T00:06:00.000Z") })).resolves.toBeNull();
   });
 
   it("accepts only the selected candidate layer and clears restoration for the immutable result", async () => {

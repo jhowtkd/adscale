@@ -5,6 +5,7 @@ const stateFromOutput = vi.hoisted(() => vi.fn());
 const markProcessing = vi.hoisted(() => vi.fn());
 const completeCandidate = vi.hoisted(() => vi.fn());
 const failRegeneration = vi.hoisted(() => vi.fn());
+const recoverStale = vi.hoisted(() => vi.fn());
 const getObject = vi.hoisted(() => vi.fn());
 const putObject = vi.hoisted(() => vi.fn());
 const deleteObject = vi.hoisted(() => vi.fn());
@@ -17,6 +18,7 @@ vi.mock("@/server/repositories/creative-work-layer-editor", () => ({
   markLayerRegenerationProcessing: markProcessing,
   completeLayerRegenerationCandidate: completeCandidate,
   failLayerRegeneration: failRegeneration,
+  recoverStaleLayerRegeneration: recoverStale,
 }));
 vi.mock("@/server/storage", () => ({ objectStorage: { get: getObject, put: putObject, delete: deleteObject } }));
 vi.mock("@/server/layer-editor/artifacts", () => ({ renderLayerEditorPng: render }));
@@ -80,6 +82,18 @@ describe("creativeWorkLayerRegenerationJob", () => {
     await expect(runCreativeWorkLayerRegeneration(input, provider)).resolves.toEqual({ status: "ready" });
     await expect(runCreativeWorkLayerRegeneration(input, provider)).resolves.toEqual({ status: "skipped" });
     expect(provider.regenerate).toHaveBeenCalledOnce();
+  });
+
+  it("conservatively recovers a stale processing operation without invoking the provider again", async () => {
+    markProcessing.mockResolvedValue(null);
+    stateFromOutput.mockReturnValue(null);
+    recoverStale.mockResolvedValue({ id: input.outputId });
+    const provider = { regenerate: vi.fn() };
+
+    await expect(runCreativeWorkLayerRegeneration(input, provider)).resolves.toEqual({ status: "skipped" });
+
+    expect(recoverStale).toHaveBeenCalledWith(expect.objectContaining(input));
+    expect(provider.regenerate).not.toHaveBeenCalled();
   });
 
   it("records submission_unknown for ambiguous provider timeout after invocation", async () => {

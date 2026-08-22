@@ -12,6 +12,7 @@ import {
   initializeCreativeWorkLayerEditor,
   layerizationFromOutput,
   releaseCreativeWorkLayerEditorLease,
+  recoverStaleLayerRegeneration,
   saveCreativeWorkLayerEditorSnapshot,
   seedLayerEditorState,
   type LayerEditorMutationScope,
@@ -68,6 +69,8 @@ export async function openCreativeWorkLayerEditor(input: OpenLayerEditorInput): 
     state = layerEditorStateFromDatabase(output?.layerEditor);
   }
   if (!state) return { ok: false, status: 409, code: "layer_editor_not_available" };
+  const recovered = await recoverStaleLayerRegeneration({ workspaceId: input.workspaceId, workItemId: input.workItemId, outputId: input.outputId, now: new Date() });
+  state = layerEditorStateFromDatabase(recovered?.layerEditor) ?? state;
   const hasLiveCallerLease = state.lease?.userId === input.userId && Date.parse(state.lease.expiresAt) > Date.now();
   if (input.mode === "edit" && !hasLiveCallerLease) {
     const leased = await acquireCreativeWorkLayerEditorLease({ ...input, leaseId: randomUUID(), now: new Date() });

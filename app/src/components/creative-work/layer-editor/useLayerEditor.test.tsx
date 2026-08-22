@@ -114,6 +114,59 @@ describe("useLayerEditor", () => {
     expect(callsFor("releaseLayerEditor")).toHaveLength(0);
   });
 
+  it("blocks local document mutations while regeneration makes snapshots unsaveable", async () => {
+    vi.useFakeTimers();
+    const reserved = { ...editorDocument, regeneration: { id: "00000000-0000-4000-8000-000000000099", status: "reserved" as const, layerId: editorDocument.layers[0]!.id, instruction: "Change", candidateUrl: null, failureCode: null } };
+    patch.mockResolvedValue(response(reserved));
+    const hook = await openHook();
+
+    act(() => hook.result.current.dispatch({ type: "rename", id: editorDocument.layers[0]!.id, name: "Blocked" }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(800); });
+
+    expect(hook.result.current.document?.layers[0]?.name).toBe("Layer");
+    expect(hook.result.current.canUndo).toBe(false);
+    expect(callsFor("saveLayerEditor")).toHaveLength(0);
+  });
+
+  it("reports saving, saved, and explicit conflict recovery states", async () => {
+    vi.useFakeTimers();
+    const saving = deferred<ReturnType<typeof response>>();
+    let opened = 0;
+    patch.mockImplementation((_work: string, body: { action: string }) => {
+      if (body.action === "openLayerEditor") return Promise.resolve(response(++opened > 1 ? { ...editorDocument, revision: 2 } : editorDocument));
+      if (body.action === "saveLayerEditor") return saving.promise;
+      return Promise.resolve(response());
+    });
+    const hook = await openHook();
+    act(() => hook.result.current.dispatch({ type: "rename", id: editorDocument.layers[0]!.id, name: "Changed" }));
+    expect(hook.result.current.saveStatus).toBe("idle");
+    await act(async () => { await vi.advanceTimersByTimeAsync(750); });
+    expect(hook.result.current.saveStatus).toBe("saving");
+    await act(async () => { saving.resolve(response({ ...editorDocument, revision: 2 })); await Promise.resolve(); });
+    expect(hook.result.current.saveStatus).toBe("saved");
+
+    patch.mockImplementation((_work: string, body: { action: string }) => body.action === "saveLayerEditor"
+      ? Promise.reject(Object.assign(new Error("stale"), { code: "layer_editor_revision_conflict" }))
+      : Promise.resolve(response({ ...editorDocument, revision: 3 })));
+    act(() => hook.result.current.dispatch({ type: "rename", id: editorDocument.layers[0]!.id, name: "Conflict" }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(750); });
+    expect(hook.result.current.saveStatus).toBe("conflict");
+    await act(async () => { await hook.result.current.discardLocalEdits(); });
+    expect(hook.result.current.hasUnresolvedConflict).toBe(false);
+    expect(hook.result.current.saveStatus).toBe("saved");
+  });
+
+  it("announces the same autosave lifecycle for a geometry transform", async () => {
+    vi.useFakeTimers();
+    patch.mockImplementation(async (_work: string, body: { action: string }) => response(body.action === "saveLayerEditor" ? { ...editorDocument, revision: 2 } : editorDocument));
+    const hook = await openHook();
+
+    act(() => hook.result.current.dispatch({ type: "transform", id: editorDocument.layers[0]!.id, x: 4, y: 5, width: 8, height: 9 }));
+    expect(hook.result.current.saveStatus).toBe("idle");
+    await act(async () => { await vi.advanceTimersByTimeAsync(750); });
+    expect(hook.result.current.saveStatus).toBe("saved");
+  });
+
   it("polls only active regeneration and refreshes signed document URLs", async () => {
     vi.useFakeTimers();
     const active = { ...editorDocument, regeneration: { id: "00000000-0000-4000-8000-000000000099", status: "reserved" as const, layerId: editorDocument.layers[0]!.id, instruction: "Change", candidateUrl: null, failureCode: null } };
