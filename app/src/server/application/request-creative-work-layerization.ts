@@ -22,7 +22,7 @@ import {
   SEEDREAM_PROVIDER_ENDPOINT,
 } from "@/server/layerize/seedream-provider";
 import { env } from "@/server/validation/env";
-import { claimLayerEditorQuota, isLayerEditorQuotaReleased, releaseLayerEditorQuota } from "@/server/layer-editor/quota";
+import { claimLayerEditorQuota, isLayerEditorQuotaReleased, releaseLayerEditorQuota, withLayerEditorOperationLock } from "@/server/layer-editor/quota";
 
 export type RequestCreativeWorkLayerizationError =
   | { code: "work_not_found" }
@@ -81,6 +81,18 @@ function newLayerizationState(input: {
 }
 
 export async function requestCreativeWorkLayerization(input: {
+  workspaceId: string;
+  workItemId: string;
+  outputId: string;
+  userId: string;
+  callbackUrl: string;
+  operationId: string;
+  retry?: boolean;
+}): Promise<RequestCreativeWorkLayerizationResult> {
+  return withLayerEditorOperationLock({ workspaceId: input.workspaceId, kind: "layerize_v1", operationId: input.operationId }, () => requestCreativeWorkLayerizationLocked(input));
+}
+
+async function requestCreativeWorkLayerizationLocked(input: {
   workspaceId: string;
   workItemId: string;
   outputId: string;
@@ -160,6 +172,14 @@ export async function requestCreativeWorkLayerization(input: {
       // A quota claim alone is not authority to retain a unit. This covers a
       // process crash or losing reservation CAS after a replayed claim.
       await releaseLayerEditorQuota({ workspaceId: input.workspaceId, kind: "layerize_v1", operationId: input.operationId }, new Date());
+    }
+    if (refreshedState?.status === "queued" && refreshedState.attemptId === attemptId) {
+      try {
+        await inngest.send({ id: `creative-work-layerize:${input.outputId}:${attemptId}`, name: heavyImageEventName("creative-work.layerize"), data: { workspaceId: input.workspaceId, workItemId: input.workItemId, outputId: input.outputId, attemptId } });
+        return { ok: true, accepted: false, replay: true, state: refreshedState };
+      } catch {
+        return { ok: false, error: { code: "dispatch_failed" } };
+      }
     }
     return refreshedState
       ? { ok: false, error: { code: "already_running", state: refreshedState } }

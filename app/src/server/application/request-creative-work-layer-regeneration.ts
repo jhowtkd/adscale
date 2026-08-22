@@ -1,11 +1,15 @@
 import "server-only";
 import { createHash } from "node:crypto";
-import { claimLayerEditorQuota, isLayerEditorQuotaReleased, releaseLayerEditorQuota } from "@/server/layer-editor/quota";
+import { claimLayerEditorQuota, isLayerEditorQuotaReleased, releaseLayerEditorQuota, withLayerEditorOperationLock } from "@/server/layer-editor/quota";
 import { clearTerminalLayerRegenerationForRetry, getCreativeWorkLayerEditorOutput, layerEditorFromOutput, reserveLayerRegeneration, rollbackReservedLayerRegeneration } from "@/server/repositories/creative-work-layer-editor";
 import { inngest } from "@/server/jobs/client";
 import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 
 export async function requestCreativeWorkLayerRegeneration(input: { workspaceId:string; workItemId:string; outputId:string; userId:string; leaseId:string; expectedRevision:number; operationId:string; layerId:string; instruction:string }) {
+  return withLayerEditorOperationLock({ workspaceId: input.workspaceId, kind: "layer_regeneration_v1", operationId: input.operationId }, () => requestCreativeWorkLayerRegenerationLocked(input));
+}
+
+async function requestCreativeWorkLayerRegenerationLocked(input: { workspaceId:string; workItemId:string; outputId:string; userId:string; leaseId:string; expectedRevision:number; operationId:string; layerId:string; instruction:string }) {
   const instruction=input.instruction.trim(); if(!instruction || instruction.length>2000)return {ok:false as const,code:"invalid_instruction" as const};
   const current = layerEditorFromOutput(await getCreativeWorkLayerEditorOutput(input));
   const commandFingerprint = createHash("sha256").update(`${input.layerId}\u0000${instruction}`).digest("hex");
@@ -37,7 +41,16 @@ export async function requestCreativeWorkLayerRegeneration(input: { workspaceId:
   const reserved=await reserveLayerRegeneration({...input,expectedRevision,instruction,usageKey:`layer-editor:${input.workspaceId}:regeneration:${input.operationId}`,now:new Date()});
   if(!reserved){
     const state=layerEditorFromOutput(await getCreativeWorkLayerEditorOutput(input));
-    if(state?.regeneration?.id===input.operationId)return {ok:true as const,accepted:false,replay:true};
+    if(state?.regeneration?.id===input.operationId) {
+      if (state.regeneration.status === "reserved") {
+        try {
+          await inngest.send({id:`creative-work-layer-regenerate:${input.outputId}:${input.operationId}`,name:heavyImageEventName("creative-work.layer-regenerate"),data:{workspaceId:input.workspaceId,workItemId:input.workItemId,outputId:input.outputId,operationId:input.operationId}});
+        } catch {
+          return { ok: false as const, code: "layer_regeneration_dispatch_failed" as const };
+        }
+      }
+      return {ok:true as const,accepted:false,replay:true};
+    }
     // A persisted claim without a matching reservation is a pre-provider
     // crash/lost-CAS state. Releasing is idempotent even for a replayed claim.
     await releaseLayerEditorQuota({workspaceId:input.workspaceId,kind:"layer_regeneration_v1",operationId:input.operationId},new Date());
