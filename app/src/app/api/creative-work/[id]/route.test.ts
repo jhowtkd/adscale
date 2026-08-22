@@ -319,6 +319,8 @@ describe("GET /api/creative-work/[id]", () => {
       updatedAt: "2026-08-22T00:00:00.000Z",
     });
     expect(JSON.stringify(body.outputs[0].layerEditor)).not.toContain("private/");
+    expect(JSON.stringify(body.outputs[0])).not.toMatch(/outputKey|operationKey|publishedPsdKey|private\//);
+    expect(body.outputs[0]).toMatchObject({ hasOutput: Boolean(outputs[0]!.outputKey), id: outputs[0]!.id });
   });
 
   it("keeps layerization disabled for an owner when ATLASCLOUD_API_KEY is absent", async () => {

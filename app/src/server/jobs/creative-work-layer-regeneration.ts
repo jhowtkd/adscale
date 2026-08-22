@@ -35,8 +35,12 @@ export async function runCreativeWorkLayerRegeneration(input:{workspaceId:string
    await failLayerRegeneration({...input,status:"failed",failureCode:"layer_regeneration_storage_failed",now:new Date()});
    return {status:"failed" as const};
  }
- let completed = await completeLayerRegenerationCandidate({...input,candidateKey:key,providerRequestId:result.requestId,now:new Date()});
- if (!completed) completed = await completeLayerRegenerationCandidate({...input,candidateKey:key,providerRequestId:result.requestId,now:new Date()});
+ // A heartbeat may race the DB transition, but never warrants a second
+ // provider submission. Retry only the idempotent processing -> ready CAS.
+ let completed = null;
+ for (let attempt = 0; attempt < 3 && !completed; attempt += 1) {
+   completed = await completeLayerRegenerationCandidate({...input,candidateKey:key,providerRequestId:result.requestId,now:new Date()});
+ }
  if (!completed) {
    return {status:"skipped" as const};
  }

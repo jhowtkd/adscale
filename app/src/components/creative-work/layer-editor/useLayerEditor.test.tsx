@@ -43,6 +43,17 @@ beforeEach(() => {
 });
 
 describe("useLayerEditor", () => {
+  it("opens a foreign lease as a clean read-only document that may close", async () => {
+    vi.useFakeTimers();
+    const locked = { ...editorDocument, lease: { mode: "read" as const, leaseId: null, heldByName: "Other editor", expiresAt: "2026-01-01T00:01:00.000Z" } };
+    patch.mockRejectedValue(Object.assign(new Error("locked"), { code: "layer_editor_locked", details: { document: locked } }));
+    const hook = await openHook();
+    expect(hook.result.current.mode).toBe("read");
+    expect(hook.result.current.document?.lease.heldByName).toBe("Other editor");
+    expect(hook.result.current.hasUnresolvedConflict).toBe(false);
+    await expect(hook.result.current.flushAndRelease()).resolves.toBe(true);
+  });
+
   it("debounces save until 750ms", async () => {
     vi.useFakeTimers();
     patch.mockImplementation(async (_work: string, body: { action: string }) => response(body.action === "saveLayerEditor" ? { ...editorDocument, revision: 2 } : editorDocument));

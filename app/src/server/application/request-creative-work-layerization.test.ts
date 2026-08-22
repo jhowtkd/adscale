@@ -164,6 +164,20 @@ describe("requestCreativeWorkLayerization", () => {
     expect(sendMock).toHaveBeenCalledOnce();
   });
 
+  it("does not clear a failed attempt before retry quota admission succeeds", async () => {
+    output.layerization = {
+      status: "failed", attemptId: "attempt-1", callbackTokenHash: "a".repeat(64), callbackConsumedAt: null, requestedByUserId: "owner-1",
+      createdAt: "2026-08-12T12:00:00.000Z", updatedAt: "2026-08-12T12:00:00.000Z", callbackDeadlineAt: "2026-08-12T14:00:00.000Z",
+      latencyMs: null, providerRequestId: null, providerModel: "model", providerEndpoint: "https://example.test", estimatedCostUsd: null,
+      baseWidth: null, baseHeight: null, layers: [], psdKey: null, diagnosticZipKey: null, fidelity: null, failureCode: "provider_error",
+    };
+    quotaClaimMock.mockResolvedValue({ ok: false, code: "quota_exhausted" });
+
+    await expect(requestCreativeWorkLayerization({ ...input, retry: true })).resolves.toMatchObject({ ok: false, error: { code: "layer_editor_quota_exhausted" } });
+    expect(clearFailedMock).not.toHaveBeenCalled();
+    expect(output.layerization).toMatchObject({ status: "failed", failureCode: "provider_error" });
+  });
+
   it("does not mark an already-advanced attempt failed when Inngest send is ambiguous", async () => {
     sendMock.mockRejectedValue(new Error("inngest response lost"));
     failQueuedMock.mockResolvedValue(null);

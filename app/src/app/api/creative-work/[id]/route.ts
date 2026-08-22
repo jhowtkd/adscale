@@ -404,7 +404,25 @@ export async function GET(
       })
       : new Map();
     const outputs = result.outputs.map((output) => ({
-      ...output,
+      id: output.id,
+      workItemId: output.workItemId,
+      creativeLevel: output.creativeLevel,
+      targetFormat: output.targetFormat,
+      versionNumber: output.versionNumber,
+      parentOutputId: output.parentOutputId,
+      revisionInstruction: output.revisionInstruction,
+      revisionAssetId: output.revisionAssetId,
+      retryCount: output.retryCount,
+      imageCallCount: output.imageCallCount,
+      status: output.status,
+      hasOutput: Boolean(output.outputKey),
+      failureCode: output.failureCode,
+      quality: output.quality,
+      isSelected: output.isSelected,
+      directionId: output.directionId,
+      directionSnapshot: output.directionSnapshot,
+      createdAt: output.createdAt,
+      updatedAt: output.updatedAt,
       layerization: layerEditorAccess.enabled ? toPublicLayerizationState(recoveredLayerizations.get(output.id) ?? output.layerization) : null,
       layerEditor: toPublicLayerEditorSummary(output.layerEditor),
     }));

@@ -9,11 +9,13 @@ const storageGet = vi.hoisted(() => vi.fn());
 const storagePut = vi.hoisted(() => vi.fn());
 const publishVersion = vi.hoisted(() => vi.fn());
 const editorAccess = vi.hoisted(() => vi.fn());
+const findPublication = vi.hoisted(() => vi.fn());
 const store = vi.hoisted(() => ({ existing: null as Record<string, unknown> | null, inserted: null as Record<string, unknown> | null, insertCount: 0, maxVersion: 2 }));
 
 vi.mock("@/server/repositories/creative-work-layer-editor", () => ({
   getCreativeWorkLayerEditorOutput: getEditorOutput,
   layerEditorFromOutput: stateFromOutput,
+  findCreativeWorkLayerEditorPublicationByOperation: findPublication,
   publishCreativeWorkLayerEditorVersion: publishVersion,
 }));
 vi.mock("@/server/layer-editor/artifacts", () => ({ materializeLayerEditorDraft: materialize }));
@@ -47,6 +49,7 @@ describe("publishCreativeWorkLayerEditor", () => {
     store.maxVersion = 2;
     getEditorOutput.mockResolvedValue(parent);
     editorAccess.mockResolvedValue({ enabled: true });
+    findPublication.mockResolvedValue(null);
     stateFromOutput.mockImplementation((row: { layerEditor?: LayerEditorStateV1 } | null) => row === parent ? state : row?.layerEditor ?? null);
     materialize.mockResolvedValue({ pngKey: "draft/piece.png", psdKey: "draft/piece.psd" });
     storageHead.mockResolvedValue({ size: 1 });
@@ -74,7 +77,7 @@ describe("publishCreativeWorkLayerEditor", () => {
 
     expect(result).toMatchObject({ ok: true, replay: false, output: { id: "child-1", parentOutputId: parent.id, isSelected: false, status: "completed" } });
     expect(JSON.stringify(result)).not.toMatch(/outputKey|layerEditor|publishedPsdKey|private\//);
-    const prefix = `creative-work/${input.workItemId}/layer-editor/${input.outputId}/published/${input.operationId}`;
+    const prefix = `creative-work/${input.workItemId}/layer-editor/${input.outputId}/published/${input.operationId}/revision-${state.revision}`;
     expect(storagePut).toHaveBeenNthCalledWith(1, `${prefix}/piece.png`, Buffer.from("draft/piece.png"), "image/png");
     expect(storagePut).toHaveBeenNthCalledWith(2, `${prefix}/piece.psd`, Buffer.from("draft/piece.psd"), "image/vnd.adobe.photoshop");
     expect(publishVersion).toHaveBeenCalledWith(expect.objectContaining({ parentOutputId: parent.id, outputKey: `${prefix}/piece.png`, psdKey: `${prefix}/piece.psd` }));
@@ -97,6 +100,22 @@ describe("publishCreativeWorkLayerEditor", () => {
     expect(first).toMatchObject({ ok: true, replay: false });
     expect(replay).toMatchObject({ ok: true, replay: true, output: { id: "child-1" } });
     expect(store.insertCount).toBe(1);
+  });
+
+  it("rejects a reused operation for a different revision before writing artifacts", async () => {
+    findPublication.mockResolvedValue({ id: "child-1", parentOutputId: parent.id, operationKey: `layer-editor-publish:${input.operationId}:${parent.id}:3`, status: "completed", isSelected: false, creativeLevel: "balanced", targetFormat: "4:5", versionNumber: 2 });
+
+    await expect(publishCreativeWorkLayerEditor(input)).resolves.toMatchObject({ ok: false, code: "layer_editor_publish_conflict" });
+    expect(storagePut).not.toHaveBeenCalled();
+    expect(materialize).not.toHaveBeenCalled();
+  });
+
+  it("replays a matching operation before materializing or overwriting artifacts", async () => {
+    findPublication.mockResolvedValue({ id: "child-1", parentOutputId: parent.id, operationKey: `layer-editor-publish:${input.operationId}:${parent.id}:4`, status: "completed", isSelected: false, creativeLevel: "balanced", targetFormat: "4:5", versionNumber: 2 });
+
+    await expect(publishCreativeWorkLayerEditor(input)).resolves.toMatchObject({ ok: true, replay: true, output: { id: "child-1" } });
+    expect(storagePut).not.toHaveBeenCalled();
+    expect(materialize).not.toHaveBeenCalled();
   });
 
   it("serializes concurrent duplicate operations into one child", async () => {
