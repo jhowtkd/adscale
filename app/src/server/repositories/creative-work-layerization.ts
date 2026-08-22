@@ -114,6 +114,7 @@ export async function claimCreativeWorkLayerizationProcessing(
   workspaceId: string,
   workItemId: string,
   outputId: string,
+  attemptId: string,
 ): Promise<LayerizationOutputRow | null> {
   const [claimed] = await db.update(creativeWorkOutputs).set({
     layerization: patchLayerizationStatus("processing"),
@@ -121,6 +122,7 @@ export async function claimCreativeWorkLayerizationProcessing(
   }).where(and(
     scope(workspaceId, workItemId, outputId),
     sql`${creativeWorkOutputs.layerization}->>'status' = 'queued'`,
+    sql`${creativeWorkOutputs.layerization}->>'attemptId' = ${attemptId}`,
   )).returning();
   return claimed ?? null;
 }
@@ -402,6 +404,28 @@ export async function failCreativeWorkLayerization(input: {
   }).where(and(
     scope(input.workspaceId, input.workItemId, input.outputId),
     sql`${creativeWorkOutputs.layerization}->>'status' in ('queued', 'processing', 'reconciling', 'finalizing')`,
+  )).returning();
+  if (updated) return updated;
+  return getCreativeWorkLayerizationOutput(input.workspaceId, input.workItemId, input.outputId, executor);
+}
+
+/** Terminal pre-provider failures are scoped to the delivered attempt only. */
+export async function failCreativeWorkLayerizationBeforeProvider(input: {
+  workspaceId: string;
+  workItemId: string;
+  outputId: string;
+  attemptId: string;
+  code: "no_longer_eligible" | "source_missing" | "missing_configuration" | "storage_error";
+}, executor: LayerizationExecutor = db): Promise<LayerizationOutputRow | null> {
+  const [updated] = await executor.update(creativeWorkOutputs).set({
+    layerization: patchLayerizationStatus("failed", input.code),
+    updatedAt: new Date(),
+  }).where(and(
+    scope(input.workspaceId, input.workItemId, input.outputId),
+    sql`${creativeWorkOutputs.layerization}->>'attemptId' = ${input.attemptId}`,
+    sql`${creativeWorkOutputs.layerization}->>'status' = 'processing'`,
+    sql`${creativeWorkOutputs.layerization}->>'providerRequestId' is null`,
+    sql`${creativeWorkOutputs.layerization}->>'callbackConsumedAt' is null`,
   )).returning();
   if (updated) return updated;
   return getCreativeWorkLayerizationOutput(input.workspaceId, input.workItemId, input.outputId, executor);

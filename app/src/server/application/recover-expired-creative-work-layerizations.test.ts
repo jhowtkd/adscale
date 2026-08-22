@@ -170,6 +170,30 @@ describe("expired creative work layerization recovery", () => {
     expect(releaseQuotaMock).not.toHaveBeenCalled();
   });
 
+  it("limits revoked-entitlement cleanup to stale queued attempts without dispatch", async () => {
+    const staleQueued = { ...state("queued"), providerRequestId: null };
+    const terminal = { ...state("submission_unknown"), providerRequestId: null, failureCode: "submission_unknown" as const };
+    const freshQueued = { ...staleQueued, callbackDeadlineAt: "2099-08-12T12:00:00.000Z" };
+    const processing = state("processing");
+    claimMock.mockResolvedValue({ id: "output-stale", layerization: terminal });
+
+    await recoverExpiredCreativeWorkLayerizations({
+      workspaceId: "workspace-1",
+      workItemId: "work-1",
+      cleanupOnly: true,
+      outputs: [
+        { id: "output-stale", layerization: staleQueued },
+        { id: "output-fresh", layerization: freshQueued },
+        { id: "output-processing", layerization: processing },
+      ],
+      now,
+    });
+
+    expect(claimMock).toHaveBeenCalledTimes(1);
+    expect(releaseQuotaMock).toHaveBeenCalledOnce();
+    expect(sendMock).not.toHaveBeenCalled();
+  });
+
   it("aborts the locked recovery when quota compensation cannot commit", async () => {
     const unknown = { ...state("submission_unknown"), providerRequestId: null, failureCode: "submission_unknown" as const };
     claimMock.mockResolvedValue({ id: "output-queued", layerization: unknown });

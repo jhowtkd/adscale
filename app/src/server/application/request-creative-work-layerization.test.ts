@@ -302,6 +302,22 @@ describe("requestCreativeWorkLayerization", () => {
     expect(sendMock).toHaveBeenCalledOnce();
   });
 
+  it("allows a fresh operation after a compensated pre-provider storage failure", async () => {
+    output.layerization = {
+      status: "failed", attemptId: "00000000-0000-4000-8000-000000000099", callbackTokenHash: "a".repeat(64), callbackConsumedAt: null, requestedByUserId: "owner-1",
+      createdAt: "2026-08-12T12:00:00.000Z", updatedAt: "2026-08-12T12:00:00.000Z", callbackDeadlineAt: "2026-08-12T14:00:00.000Z",
+      latencyMs: null, providerRequestId: null, providerModel: "model", providerEndpoint: "https://example.test", estimatedCostUsd: null,
+      baseWidth: null, baseHeight: null, layers: [], psdKey: null, diagnosticZipKey: null, fidelity: null, failureCode: "storage_error",
+    };
+    const freshOperationId = "00000000-0000-4000-8000-000000000123";
+
+    await expect(requestCreativeWorkLayerization({ ...input, operationId: freshOperationId, retry: true })).resolves.toMatchObject({ ok: true, accepted: true, replay: false });
+
+    expect(clearFailedMock).toHaveBeenCalledOnce();
+    expect(claimMock).toHaveBeenCalledWith(expect.objectContaining({ state: expect.objectContaining({ attemptId: freshOperationId }) }), expect.anything());
+    expect(sendMock).toHaveBeenCalledWith(expect.objectContaining({ id: `creative-work-layerize:output-1:${freshOperationId}` }));
+  });
+
   it.each(["provider failure", "compensated dispatch failure"])("does not clear or redispatch a terminal same-operation %s", async (label) => {
     void label;
     output.layerization = {

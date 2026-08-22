@@ -404,13 +404,12 @@ export async function GET(
       : null;
     const layerEditorAccess = await getLayerEditorAccess(workspace.id, new Date());
     const canLayerize = layerEditorAccess.enabled && Boolean(env.ATLASCLOUD_API_KEY?.trim());
-    const recoveredLayerizations = layerEditorAccess.enabled
-      ? await recoverExpiredCreativeWorkLayerizations({
-        workspaceId: workspace.id,
-        workItemId: id,
-        outputs: result.outputs,
-      })
-      : new Map();
+    const recoveredLayerizations = await recoverExpiredCreativeWorkLayerizations({
+      workspaceId: workspace.id,
+      workItemId: id,
+      outputs: result.outputs,
+      ...(!layerEditorAccess.enabled ? { cleanupOnly: true } : {}),
+    });
     const outputs = result.outputs.map((output) => ({
       id: output.id,
       workItemId: output.workItemId,

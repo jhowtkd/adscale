@@ -15,12 +15,14 @@ export async function recoverExpiredCreativeWorkLayerizations(input: {
   workItemId: string;
   outputs: Array<{ id: string; layerization: unknown }>;
   now?: Date;
+  /** Revoked entitlement permits only stale queued cleanup, never dispatch recovery. */
+  cleanupOnly?: boolean;
 }): Promise<Map<string, LayerizationState>> {
   const now = input.now ?? new Date();
   const recovered = new Map<string, LayerizationState>();
   for (const output of input.outputs) {
     const current = layerizationStateFromDatabase(output.layerization);
-    if (!current || !["queued", "processing", "reconciling", "finalizing"].includes(current.status)) continue;
+    if (!current || !(input.cleanupOnly ? ["queued"] : ["queued", "processing", "reconciling", "finalizing"]).includes(current.status)) continue;
     if (current.status !== "finalizing" && Date.parse(current.callbackDeadlineAt) > now.getTime()) continue;
     const claimed = await withLayerEditorPostDispatchLock({ workspaceId: input.workspaceId, kind: "layerize_v1", operationId: current.attemptId }, async (executor) => {
       const claimed = await claimExpiredCreativeWorkLayerizationRecovery({
@@ -43,7 +45,7 @@ export async function recoverExpiredCreativeWorkLayerizations(input: {
     const state = layerizationStateFromDatabase(claimed?.layerization);
     if (!state) continue;
     recovered.set(output.id, state);
-    if (!state.providerRequestId || !["reconciling", "finalizing"].includes(state.status)) continue;
+    if (input.cleanupOnly || !state.providerRequestId || !["reconciling", "finalizing"].includes(state.status)) continue;
     try {
       await inngest.send({
         id: `creative-work-layerize:${output.id}:${state.attemptId}:recovery:${state.updatedAt}`,
