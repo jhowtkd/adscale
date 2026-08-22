@@ -10,19 +10,23 @@ import { join } from "node:path";
 import { getCreativeWork } from "@/server/repositories/creative-work";
 import { objectStorage } from "@/server/storage";
 import { layerizationStateFromDatabase } from "@/server/layerize/contracts";
+import { layerEditorStateFromDatabase } from "@/server/layer-editor/contracts";
+import { materializeLayerEditorDraft } from "@/server/layer-editor/artifacts";
 import {
   layerizationArtifactKey,
   recomposeStoredLayers,
   writeLayerizationDiagnosticZipFile,
 } from "@/server/layerize/artifacts";
 
-export type CreativeWorkOutputDownloadFormat = "original" | "psd" | "zip";
+export type CreativeWorkOutputDownloadFormat = "original" | "psd" | "zip" | "layer" | "layer-candidate" | "draft-png" | "draft-psd";
 
 export type ResolveCreativeWorkOutputDownloadInput = {
   workspaceId: string;
   workItemId: string;
   outputId: string;
   format?: CreativeWorkOutputDownloadFormat;
+  layerId?: string;
+  revision?: number;
 };
 
 export type ResolveCreativeWorkOutputDownloadError =
@@ -108,13 +112,27 @@ export async function resolveCreativeWorkOutputDownload(
   }
 
   const format = input.format ?? "original";
+  const editor = layerEditorStateFromDatabase(output.layerEditor);
+  if (["layer", "layer-candidate", "draft-png", "draft-psd"].includes(format)) {
+    if (!editor) return { ok: false, error: { code: "output_not_ready", status: "layer_editor_not_started" } };
+    let outputKey: string | null = null;
+    if (format === "layer") outputKey = input.layerId ? editor.layers.find((layer) => layer.id === input.layerId)?.currentKey ?? null : null;
+    if (format === "layer-candidate") outputKey = editor.regeneration?.status === "ready" ? editor.regeneration.candidateKey : null;
+    if (format === "draft-png" || format === "draft-psd") {
+      if (input.revision !== editor.revision) return { ok: false, error: { code: "output_not_ready", status: "layer_editor_revision_conflict" } };
+      const draft = await materializeLayerEditorDraft({ workspaceId: input.workspaceId, workItemId: input.workItemId, outputId: input.outputId, revision: editor.revision });
+      outputKey = format === "draft-png" ? draft.pngKey : draft.psdKey;
+    }
+    if (!outputKey) return { ok: false, error: { code: "output_not_ready", status: "layer_editor_artifact_missing" } };
+    return { ok: true, value: { url: await objectStorage.signedDownloadUrl(outputKey), outputKey } };
+  }
   const state = layerizationStateFromDatabase(output.layerization);
   if (format !== "original") {
     if (state?.status !== "completed") {
       return { ok: false, error: { code: "output_not_ready", status: state?.status ?? "layerization_not_started" } };
     }
     const outputKey = format === "psd"
-      ? state.psdKey
+      ? (editor?.publishedPsdKey ?? state.psdKey)
       : await materializeDiagnosticZip({
         workItemId: input.workItemId,
         outputId: input.outputId,
