@@ -50,7 +50,7 @@ function outputLabel(output: CreativeWorkOutput) {
 }
 
 function outputSource(output: CreativeWorkOutput) {
-  if (output.outputKey?.startsWith("data:image/")) return output.outputKey;
+  if (output.status === "completed" && (output.hasOutput ?? Boolean(output.outputKey))) return `/api/creative-work/${output.workItemId}/outputs/${output.id}/download`;
   return `/api/creative-work/${output.workItemId}/outputs/${output.id}/download`;
 }
 
@@ -102,7 +102,7 @@ export default function CreativeProposalGrid({
 
   const label = outputLabel(selected);
   const format = selected.targetFormat ?? "4:5";
-  const available = selected.status === "completed" && Boolean(selected.outputKey);
+  const available = selected.status === "completed" && (selected.hasOutput ?? Boolean(selected.outputKey));
 
   return (
     <>
@@ -111,7 +111,7 @@ export default function CreativeProposalGrid({
           {visible.map((output) => {
             const outputFormat = output.targetFormat ?? "4:5";
             const outputName = outputLabel(output);
-            const completed = output.status === "completed" && Boolean(output.outputKey);
+            const completed = output.status === "completed" && (output.hasOutput ?? Boolean(output.outputKey));
             return (
               <button
                 key={output.id}

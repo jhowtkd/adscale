@@ -97,7 +97,7 @@ export function CreativeResultCard({
   const t = useTranslations("dashboard.home.composer.results");
   const layerizeRegionRef = useRef<HTMLDivElement>(null);
   const layerizationWasBusy = useRef(false);
-  const isCompleted = output.status === "completed" && Boolean(output.outputKey);
+  const isCompleted = output.status === "completed" && (output.hasOutput ?? Boolean(output.outputKey));
   const isRevision = Boolean(output.parentOutputId);
   // R-008: failure categories are stable and typed; the free retry exists
   // only while the durable image-call budget has a call (R-006).

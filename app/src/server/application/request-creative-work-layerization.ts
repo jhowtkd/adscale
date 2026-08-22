@@ -121,21 +121,24 @@ export async function requestCreativeWorkLayerization(input: {
   if (existing && !isLayerizationRetryableFailure(existing)) {
     return { ok: false, error: { code: "failed", state: existing } };
   }
-  if (existing) {
-    const cleared = await clearFailedCreativeWorkLayerizationForRetry(input);
-    if (!cleared) {
-      const refreshed = await getCreativeWorkLayerizationOutput(input.workspaceId, input.workItemId, input.outputId);
-      existing = layerizationStateFromDatabase(refreshed?.layerization);
-      if (existing) return { ok: false, error: { code: "already_running", state: existing } };
-    }
-  }
-
   const quota = await claimLayerEditorQuota({
     workspaceId: input.workspaceId, kind: "layerize_v1", operationId: input.operationId, userId: input.userId,
     workItemId: input.workItemId, outputId: input.outputId,
   }, new Date());
   if (!quota.ok) return { ok: false, error: { code: quota.code === "disabled" ? "layer_editor_not_available" : quota.code === "operation_conflict" ? "layerization_replay_conflict" : "layer_editor_quota_exhausted" } };
   if (quota.replay && await isLayerEditorQuotaReleased({ workspaceId: input.workspaceId, kind: "layerize_v1", operationId: input.operationId })) return { ok: false, error: { code: "layerization_replay_conflict" } };
+
+  // Retain the terminal evidence until entitlement/quota admission has
+  // succeeded. A rejected retry must not erase a diagnosable provider failure.
+  if (existing) {
+    const cleared = await clearFailedCreativeWorkLayerizationForRetry(input);
+    if (!cleared) {
+      if (!quota.replay) await releaseLayerEditorQuota({ workspaceId: input.workspaceId, kind: "layerize_v1", operationId: input.operationId }, new Date());
+      const refreshed = await getCreativeWorkLayerizationOutput(input.workspaceId, input.workItemId, input.outputId);
+      existing = layerizationStateFromDatabase(refreshed?.layerization);
+      if (existing) return { ok: false, error: { code: "already_running", state: existing } };
+    }
+  }
 
   const token = randomBytes(32).toString("hex");
   const attemptId = input.operationId;

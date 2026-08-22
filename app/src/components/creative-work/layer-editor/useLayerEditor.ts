@@ -152,7 +152,14 @@ export function useLayerEditor(input: LayerEditorInput) {
       leaseRef.current = null;
       setLeaseId(null);
       applyCanonicalDocument(document);
-      markConflict(document);
+      // Opening a live lease held by somebody else is an expected read-only
+      // view, not a failed local save. Keep it clean so close can succeed.
+      dirty.current = false;
+      unresolvedConflict.current = false;
+      canonicalConflict.current = null;
+      setHasUnresolvedConflict(false);
+      stop();
+      setSaveStatus("saved");
       setOpenError(error instanceof Error ? error.message : "Unable to open the layer editor");
       return;
     }
@@ -174,7 +181,7 @@ export function useLayerEditor(input: LayerEditorInput) {
     }
     setOpenError(null);
     if (discardLocal || !dirty.current) applyCanonicalDocument(response.document);
-  }, [applyCanonicalDocument, input.mode, input.outputId, input.workItemId, markConflict]);
+  }, [applyCanonicalDocument, input.mode, input.outputId, input.workItemId, stop]);
 
   useEffect(() => {
     const opening = setTimeout(() => {

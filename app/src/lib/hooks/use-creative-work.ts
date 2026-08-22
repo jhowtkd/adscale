@@ -122,7 +122,6 @@ export interface CreativeWorkItem {
 
 export interface CreativeWorkOutput {
   id: string;
-  workspaceId: string;
   workItemId: string;
   creativeLevel: CreativeLevel;
   targetFormat: "1:1" | "4:5" | "9:16";
@@ -133,10 +132,10 @@ export interface CreativeWorkOutput {
   retryCount: number;
   /** Durable provider-call authority (R-006) — retry eligibility derives from it. */
   imageCallCount?: number;
-  operationKey: string;
   status: CreativeWorkOutputStatus;
-  outputKey: string | null;
-  cost: number | null;
+  hasOutput?: boolean;
+  /** Present only for local optimistic drafts; GET never exposes storage keys. */
+  outputKey?: string | null;
   failureCode: string | null;
   quality: Record<string, unknown> | null;
   layerization: PublicLayerizationState | null;

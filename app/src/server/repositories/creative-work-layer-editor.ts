@@ -139,7 +139,12 @@ export async function clearTerminalLayerRegenerationForRetry(input: LayerEditorM
  const [updated]=await db.update(creativeWorkOutputs).set({layerEditor:next,updatedAt:input.now}).where(and(scope(input),sql`${creativeWorkOutputs.layerEditor}->>'revision' = ${String(input.expectedRevision)}`,sql`${creativeWorkOutputs.layerEditor}->'lease'->>'id' = ${input.leaseId}`,sql`${creativeWorkOutputs.layerEditor}->'lease'->>'userId' = ${input.userId}`,sql`${creativeWorkOutputs.layerEditor}->'lease'->>'expiresAt' = ${state.lease.expiresAt}`,sql`(${creativeWorkOutputs.layerEditor}->'lease'->>'expiresAt')::timestamptz > ${input.now.toISOString()}::timestamptz`,sql`${creativeWorkOutputs.layerEditor}->'regeneration'->>'id' = ${regeneration.id}`,sql`${creativeWorkOutputs.layerEditor}->'regeneration'->>'status' in ('failed', 'submission_unknown')`)).returning(); return updated??null;
 }
 async function regenerationState(input: LayerEditorScope & { operationId: string; fromStatus: "reserved" | "processing"; status: "processing" | "ready" | "failed" | "submission_unknown"; candidateKey?: string; providerRequestId?: string | null; failureCode?: string; now: Date }) {
- const row=await getCreativeWorkLayerEditorOutput(input); const state=layerEditorStateFromDatabase(row?.layerEditor); if(!state||state.regeneration?.id!==input.operationId||state.regeneration.status!==input.fromStatus)return null; const next={...state,revision:state.revision+1,regeneration:{...state.regeneration,status:input.status,candidateKey:input.candidateKey??state.regeneration.candidateKey,providerRequestId:input.providerRequestId??state.regeneration.providerRequestId,failureCode:input.failureCode??null,updatedAt:input.now.toISOString()},updatedAt:input.now.toISOString()}; const [updated]=await db.update(creativeWorkOutputs).set({layerEditor:next,updatedAt:input.now}).where(and(scope(input),sql`${creativeWorkOutputs.layerEditor}->>'revision' = ${String(state.revision)}`,...observedLeaseCas(state),sql`${creativeWorkOutputs.layerEditor}->'regeneration'->>'id' = ${input.operationId}`,sql`${creativeWorkOutputs.layerEditor}->'regeneration'->>'status' = ${input.fromStatus}`)).returning(); return updated??null;
+ const row=await getCreativeWorkLayerEditorOutput(input); const state=layerEditorStateFromDatabase(row?.layerEditor); if(!state||state.regeneration?.id!==input.operationId||state.regeneration.status!==input.fromStatus)return null;
+ const regeneration={...state.regeneration,status:input.status,candidateKey:input.candidateKey??state.regeneration.candidateKey,providerRequestId:input.providerRequestId??state.regeneration.providerRequestId,failureCode:input.failureCode??null,updatedAt:input.now.toISOString()};
+ // Do not rewrite the aggregate: heartbeat/release own the lease subtree and
+ // may safely advance it while a worker performs this DB-only transition.
+ const layerEditor = sql`jsonb_set(jsonb_set(jsonb_set(${creativeWorkOutputs.layerEditor}, '{revision}', ${JSON.stringify(state.revision + 1)}::jsonb), '{regeneration}', ${JSON.stringify(regeneration)}::jsonb), '{updatedAt}', ${JSON.stringify(input.now.toISOString())}::jsonb)`;
+ const [updated]=await db.update(creativeWorkOutputs).set({layerEditor,updatedAt:input.now}).where(and(scope(input),sql`${creativeWorkOutputs.layerEditor}->>'revision' = ${String(state.revision)}`,sql`${creativeWorkOutputs.layerEditor}->'regeneration'->>'id' = ${input.operationId}`,sql`${creativeWorkOutputs.layerEditor}->'regeneration'->>'status' = ${input.fromStatus}`)).returning(); return updated??null;
 }
 export const markLayerRegenerationProcessing=(input: LayerEditorScope & {operationId:string;now:Date})=>regenerationState({...input,fromStatus:"reserved",status:"processing"});
 export const completeLayerRegenerationCandidate=(input: LayerEditorScope & {operationId:string;candidateKey:string;providerRequestId:string|null;now:Date})=>regenerationState({...input,fromStatus:"processing",status:"ready",candidateKey:input.candidateKey,providerRequestId:input.providerRequestId});
@@ -160,7 +165,7 @@ export async function publishCreativeWorkLayerEditorVersion(input: LayerEditorMu
   rebasedEditor: LayerEditorStateV1;
   now: Date;
 }): Promise<{ output: Output; replay: boolean } | null> {
-  const operationKey = `layer-editor-publish:${input.operationId}`;
+  const operationKey = layerEditorPublicationOperationKey(input);
   return db.transaction(async (tx) => {
     const [parent] = await tx.select().from(creativeWorkOutputs).where(and(
       scope({ ...input, outputId: input.parentOutputId }),
@@ -195,4 +200,18 @@ export async function publishCreativeWorkLayerEditorVersion(input: LayerEditorMu
     }).returning();
     return output ? { output, replay: false } : null;
   });
+}
+
+export function layerEditorPublicationOperationKey(input: Pick<LayerEditorMutationScope, "expectedRevision"> & { parentOutputId: string; operationId: string }) {
+  return `layer-editor-publish:${input.operationId}:${input.parentOutputId}:${input.expectedRevision}`;
+}
+
+export async function findCreativeWorkLayerEditorPublicationByOperation(input: LayerEditorScope & { operationId: string }): Promise<Output | null> {
+  const prefix = `layer-editor-publish:${input.operationId}:`;
+  const [output] = await db.select().from(creativeWorkOutputs).where(and(
+    eq(creativeWorkOutputs.workspaceId, input.workspaceId),
+    eq(creativeWorkOutputs.workItemId, input.workItemId),
+    sql`${creativeWorkOutputs.operationKey} like ${`${prefix}%`}`,
+  )).limit(1);
+  return output ?? null;
 }
