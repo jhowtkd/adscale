@@ -12,6 +12,7 @@ const quotaReleasedMock = vi.hoisted(() => vi.fn());
 const quotaCommittedMock = vi.hoisted(() => vi.fn());
 const markCommittedMock = vi.hoisted(() => vi.fn());
 const operationLockMock = vi.hoisted(() => vi.fn(async (_input: unknown, run: (executor: unknown) => Promise<unknown>) => run({})));
+const dispatchLockMock = vi.hoisted(() => vi.fn(async (_input: unknown, run: (executor: unknown) => Promise<unknown>) => run({})));
 
 vi.mock("@/server/repositories/creative-work", () => ({
   getCreativeWork: (...args: unknown[]) => getWorkMock(...args),
@@ -36,6 +37,7 @@ vi.mock("@/server/layer-editor/quota", () => ({
   markLayerEditorQuotaReservationCommitted: (...args: unknown[]) => markCommittedMock(...args),
   releaseLayerEditorQuota: (...args: unknown[]) => quotaReleaseMock(...args),
   withLayerEditorOperationLock: (...args: unknown[]) => operationLockMock(...args),
+  withLayerEditorPostDispatchLock: (...args: unknown[]) => dispatchLockMock(...args),
 }));
 vi.mock("@/server/layerize/seedream-provider", () => ({
   SEEDREAM_LAYERIZE_MODEL_ID: "bytedance/seedream-v5.0-pro/layer-decomposition",
@@ -69,13 +71,21 @@ describe("requestCreativeWorkLayerization", () => {
       layerization: null,
     };
     getWorkMock.mockImplementation(async () => ({ outputs: [output] }));
-    claimMock.mockResolvedValue({ id: "output-1", layerization: null });
+    getOutputMock.mockImplementation(async () => output);
+    claimMock.mockImplementation(async (value: { state: Record<string, unknown> }) => {
+      output.layerization = value.state;
+      return { id: "output-1", layerization: value.state };
+    });
     sendMock.mockResolvedValue(undefined);
     quotaClaimMock.mockResolvedValue({ ok: true, replay: false });
     quotaReleaseMock.mockResolvedValue({ released: true });
     quotaReleasedMock.mockResolvedValue(false);
     quotaCommittedMock.mockResolvedValue(false);
     markCommittedMock.mockResolvedValue(true);
+    clearFailedMock.mockImplementation(async () => {
+      output.layerization = null;
+      return { id: "output-1", layerization: null };
+    });
   });
 
   afterEach(() => {
@@ -113,7 +123,10 @@ describe("requestCreativeWorkLayerization", () => {
 
   it("recovers a quota claim that exists before the layerization reservation", async () => {
     quotaClaimMock.mockResolvedValue({ ok: true, replay: true });
-    claimMock.mockResolvedValue({ id: "output-1" });
+    claimMock.mockImplementation(async (value: { state: Record<string, unknown> }) => {
+      output.layerization = value.state;
+      return { id: "output-1", layerization: value.state };
+    });
 
     await expect(requestCreativeWorkLayerization(input)).resolves.toMatchObject({ ok: true, accepted: true, replay: false });
     expect(claimMock).toHaveBeenCalledOnce();
@@ -256,10 +269,7 @@ describe("requestCreativeWorkLayerization", () => {
       expect(result.state.status).toBe("processing");
       expect(result.accepted).toBe(true);
     }
-    expect(failQueuedMock).toHaveBeenCalledWith(expect.objectContaining({
-      outputId: "output-1",
-      code: "dispatch_failed",
-    }), expect.anything());
+    expect(failQueuedMock).not.toHaveBeenCalled();
   });
 
   it.each([
