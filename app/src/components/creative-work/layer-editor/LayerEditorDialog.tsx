@@ -151,7 +151,7 @@ export function LayerEditorDialog({ open, workItemId, outputId, mode = "edit", o
           {editor.document ? <aside className="min-h-0 overflow-y-auto border-l bg-muted/20 max-md:border-t max-md:border-l-0">
             <LayerPanel document={editor.document} selectedLayerId={selected} onSelect={setSelected} mode={canMutate ? "edit" : "read"} dispatch={editor.dispatch} onInspectVisibilityChange={(id, visible) => setInspectVisibility((current) => ({ ...current, [id]: visible }))} />
             <div ref={regenerationPanelRef} tabIndex={-1}>
-              <LayerRegenerationPanel document={editor.document} selectedLayerId={selected} mode={editor.mode === "edit" ? "edit" : "read"} access={editor.access ?? { enabled: false, period: null, layerize: null, regeneration: null }} onRegenerate={(id, instruction) => act(regenerationAction(() => editor.regenerate(id, instruction)))} onAccept={() => act(regenerationAction(editor.acceptCandidate))} onDiscard={() => act(regenerationAction(editor.discardCandidate))} />
+              <LayerRegenerationPanel document={editor.document} selectedLayerId={selected} mode={editor.mode === "edit" ? "edit" : "read"} access={editor.access ?? { enabled: false, period: null, layerize: null, regeneration: null }} onRegenerate={(id, instruction) => act(regenerationAction(() => editor.regenerate(id, instruction)))} onRetryDispatch={() => act(regenerationAction(editor.retryRegeneration))} onAccept={() => act(regenerationAction(editor.acceptCandidate))} onDiscard={() => act(regenerationAction(editor.discardCandidate))} />
             </div>
           </aside> : null}
         </div>

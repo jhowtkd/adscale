@@ -698,6 +698,7 @@
           "editorExportPng": "Exportar PNG",
           "editorExportPsd": "Exportar PSD",
           "editorRegenerate": "Regenerar camada",
+          "editorRetryDispatch": "Tentar envio novamente",
           "editorAcceptCandidate": "Aceitar candidato",
           "editorDiscardCandidate": "Descartar candidato",
           "editorReadOnly": "Somente leitura",

@@ -662,6 +662,7 @@
           "editorExportPng": "Export PNG",
           "editorExportPsd": "Export PSD",
           "editorRegenerate": "Regenerate layer",
+          "editorRetryDispatch": "Retry dispatch",
           "editorAcceptCandidate": "Accept candidate",
           "editorDiscardCandidate": "Discard candidate",
           "editorReadOnly": "Read only",

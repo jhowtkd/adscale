@@ -1146,7 +1146,8 @@ export function useCreativeComposer({
       return "accepted";
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : tResults("layerizeRequestFailed"));
-      return isApiRequestUncertain(cause) ? "uncertain" : "terminal";
+      const code = typeof cause === "object" && cause && "code" in cause ? (cause as { code?: string }).code : null;
+      return isApiRequestUncertain(cause) || code === "creativeWorkLayerizationDispatchFailed" ? "uncertain" : "terminal";
     }
   }, [layerizeOutputMutation, tResults]);
 

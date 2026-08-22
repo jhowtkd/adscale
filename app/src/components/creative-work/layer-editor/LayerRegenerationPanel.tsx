@@ -14,9 +14,10 @@ type Props = {
   onRegenerate?: (id: string, instruction: string) => void;
   onAccept?: () => void;
   onDiscard?: () => void;
+  onRetryDispatch?: () => void;
 };
 
-export function LayerRegenerationPanel({ document, selectedLayerId, access, mode, onRegenerate, onAccept, onDiscard }: Props) {
+export function LayerRegenerationPanel({ document, selectedLayerId, access, mode, onRegenerate, onAccept, onDiscard, onRetryDispatch }: Props) {
   const t = useTranslations("dashboard.home.composer.results");
   const [instruction, setInstruction] = useState("");
   const [confirm, setConfirm] = useState(false);
@@ -30,6 +31,7 @@ export function LayerRegenerationPanel({ document, selectedLayerId, access, mode
     <label className="block text-sm font-medium">{t("editorInstruction")}<textarea className="mt-1 min-h-24 w-full rounded border bg-background p-2" value={instruction} maxLength={2000} disabled={mode !== "edit"} onChange={(event) => { setInstruction(event.target.value); setConfirm(false); }} /></label>
     <small className="block text-right text-muted-foreground">{instruction.length}/2000</small>
     <p role="status" className="text-sm">{regeneration?.status ?? t("editorNoActiveRegeneration")}</p>
+    {regeneration?.status === "reserved" ? <Button className="min-h-11 w-full" disabled={mode !== "edit"} onClick={onRetryDispatch}>{t("editorRetryDispatch")}</Button> : null}
     {regeneration?.status === "submission_unknown" ? <p role="alert" className="rounded border border-amber-500/50 bg-amber-50 p-2 text-sm text-amber-900">{t("editorSubmissionUnknown")}</p> : null}
     {regeneration?.status === "ready" && layer ? <div className="space-y-2"><div className="grid grid-cols-2 gap-2">
       {/* eslint-disable-next-line @next/next/no-img-element */}
