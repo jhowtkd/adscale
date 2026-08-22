@@ -68,7 +68,8 @@ export async function openCreativeWorkLayerEditor(input: OpenLayerEditorInput): 
     state = layerEditorStateFromDatabase(output?.layerEditor);
   }
   if (!state) return { ok: false, status: 409, code: "layer_editor_not_available" };
-  if (input.mode === "edit") {
+  const hasLiveCallerLease = state.lease?.userId === input.userId && Date.parse(state.lease.expiresAt) > Date.now();
+  if (input.mode === "edit" && !hasLiveCallerLease) {
     const leased = await acquireCreativeWorkLayerEditorLease({ ...input, leaseId: randomUUID(), now: new Date() });
     const leasedState = layerEditorStateFromDatabase(leased?.layerEditor);
     if (!leasedState || leasedState.lease?.userId !== input.userId) return { ok: false, status: 409, code: "layer_editor_locked", document: await project(state, input, "read") };

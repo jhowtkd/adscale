@@ -131,6 +131,43 @@ describe("useLayerEditor", () => {
     expect(callsFor("openLayerEditor")).toHaveLength(1);
   });
 
+  it("refreshes canonical state after regeneration and starts polling its reservation", async () => {
+    vi.useFakeTimers();
+    const reserved = { ...editorDocument, regeneration: { id: "00000000-0000-4000-8000-000000000099", status: "reserved" as const, layerId: editorDocument.layers[0]!.id, instruction: "Change", candidateUrl: null, failureCode: null } };
+    patch.mockImplementation((...params: unknown[]) => {
+      const body = params[1] as { action: string };
+      if (body.action === "regenerateLayer") return Promise.resolve({ ok: true, accepted: true, replay: false });
+      return Promise.resolve(response(callsFor("openLayerEditor").length > 1 ? reserved : editorDocument));
+    });
+    const hook = await openHook();
+
+    await act(async () => { await hook.result.current.regenerate(editorDocument.layers[0]!.id, "Change"); });
+    expect(hook.result.current.document?.regeneration).toMatchObject({ status: "reserved" });
+    expect(callsFor("openLayerEditor")).toHaveLength(2);
+    await act(async () => { await vi.advanceTimersByTimeAsync(2_000); });
+    expect(callsFor("openLayerEditor")).toHaveLength(3);
+  });
+
+  for (const [action, invoke] of [
+    ["acceptLayerCandidate", (hook: ReturnType<typeof renderHook<ReturnType<typeof useLayerEditor>, unknown>>) => hook.result.current.acceptCandidate()],
+    ["discardLayerCandidate", (hook: ReturnType<typeof renderHook<ReturnType<typeof useLayerEditor>, unknown>>) => hook.result.current.discardCandidate()],
+  ] as const) {
+    it(`refreshes canonical state after ${action}`, async () => {
+      vi.useFakeTimers();
+      const ready = { ...editorDocument, regeneration: { id: "00000000-0000-4000-8000-000000000099", status: "ready" as const, layerId: editorDocument.layers[0]!.id, instruction: "Change", candidateUrl: "candidate", failureCode: null } };
+      patch.mockImplementation((...params: unknown[]) => {
+        const body = params[1] as { action: string };
+        if (body.action === action) return Promise.resolve({ ok: true });
+        return Promise.resolve(response(callsFor("openLayerEditor").length > 1 ? editorDocument : ready));
+      });
+      const hook = await openHook();
+
+      await act(async () => { await invoke(hook); });
+      expect(hook.result.current.document?.regeneration).toBeNull();
+      expect(callsFor("openLayerEditor")).toHaveLength(2);
+    });
+  }
+
   it("uses a popup opened synchronously and closes it when export flush fails", async () => {
     vi.useFakeTimers();
     const assign = vi.fn();

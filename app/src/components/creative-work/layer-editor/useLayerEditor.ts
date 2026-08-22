@@ -223,15 +223,25 @@ export function useLayerEditor(input: LayerEditorInput) {
     }
   }, [flush, input.outputId, input.workItemId]);
 
-  const regenerate = useCallback((layerId: string, instruction: string) => command("regenerateLayer", { layerId, instruction }, `regenerate:${layerId}:${instruction}`), [command]);
-  const acceptCandidate = useCallback(() => {
+  const regenerate = useCallback(async (layerId: string, instruction: string) => {
+    const result = await command("regenerateLayer", { layerId, instruction }, `regenerate:${layerId}:${instruction}`);
+    if (result) await open();
+    return result;
+  }, [command, open]);
+  const acceptCandidate = useCallback(async () => {
     const operationId = sessionRef.current?.present.regeneration?.id;
-    return operationId ? command("acceptLayerCandidate", {}, "accept", operationId) : Promise.resolve(null);
-  }, [command]);
-  const discardCandidate = useCallback(() => {
+    if (!operationId) return null;
+    const result = await command("acceptLayerCandidate", {}, "accept", operationId);
+    if (result) await open();
+    return result;
+  }, [command, open]);
+  const discardCandidate = useCallback(async () => {
     const operationId = sessionRef.current?.present.regeneration?.id;
-    return operationId ? command("discardLayerCandidate", {}, "discard", operationId) : Promise.resolve(null);
-  }, [command]);
+    if (!operationId) return null;
+    const result = await command("discardLayerCandidate", {}, "discard", operationId);
+    if (result) await open();
+    return result;
+  }, [command, open]);
 
   const document = session?.present ?? null;
   const regenerationStatus = document?.regeneration?.status;

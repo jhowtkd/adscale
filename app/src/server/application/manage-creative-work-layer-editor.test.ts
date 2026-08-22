@@ -67,6 +67,16 @@ describe("openCreativeWorkLayerEditor lease holder projection", () => {
     expect(acquire).toHaveBeenCalledOnce();
   });
 
+  it("preserves an unexpired same-user lease across edit opens", async () => {
+    const live = { ...state, lease: { ...state.lease!, userId: "viewer", expiresAt: "2099-08-22T00:01:30.000Z" } };
+    output.mockResolvedValue({ layerEditor: live, status: "completed", isSelected: true });
+
+    const result = await openCreativeWorkLayerEditor({ workspaceId: "workspace-a", workItemId: "work", outputId: "output", userId: "viewer", userName: "Viewer", mode: "edit" });
+
+    expect(result).toMatchObject({ ok: true, document: { lease: { mode: "edit", leaseId: live.lease!.id } } });
+    expect(acquire).not.toHaveBeenCalled();
+  });
+
   it("denies deselected output even when the caller previously held its lease", async () => {
     output.mockResolvedValue({ layerEditor: { ...state, lease: { ...state.lease!, userId: "viewer", expiresAt: "2099-08-22T00:01:30.000Z" } }, status: "completed", isSelected: false });
     await expect(openCreativeWorkLayerEditor({ workspaceId: "workspace-a", workItemId: "work", outputId: "output", userId: "viewer", userName: "Viewer", mode: "edit" })).resolves.toMatchObject({ ok: false, status: 409 });

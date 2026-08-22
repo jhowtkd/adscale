@@ -72,13 +72,15 @@ describe("requestCreativeWorkLayerRegeneration", () => {
     await expect(requestCreativeWorkLayerRegeneration(input)).resolves.toMatchObject({ ok: false, code: "layer_editor_revision_conflict" });
   });
 
-  it("does not release quota when a concurrent job advanced the reservation", async () => {
+  it("treats a dispatch race as accepted when the job advanced the matching operation", async () => {
     claim.mockResolvedValue({ ok: true, replay: false });
     reserve.mockResolvedValue({ id: input.outputId });
     rollback.mockResolvedValue(null);
     send.mockRejectedValue(new Error("Inngest unavailable"));
+    getOutput.mockResolvedValue({ layerEditor: {} });
+    stateFromOutput.mockReturnValue({ regeneration: { id: input.operationId, status: "processing" } });
 
-    await expect(requestCreativeWorkLayerRegeneration(input)).resolves.toEqual({ ok: false, code: "layer_regeneration_dispatch_failed" });
+    await expect(requestCreativeWorkLayerRegeneration(input)).resolves.toEqual({ ok: true, accepted: true, replay: false });
 
     expect(release).not.toHaveBeenCalled();
   });

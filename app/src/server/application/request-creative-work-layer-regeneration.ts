@@ -21,6 +21,11 @@ export async function requestCreativeWorkLayerRegeneration(input: { workspaceId:
     const rolledBack = await rollbackReservedLayerRegeneration({ ...input, now });
     if (rolledBack) {
       await releaseLayerEditorQuota({ workspaceId: input.workspaceId, kind: "layer_regeneration_v1", operationId: input.operationId }, now);
+    } else {
+      const state = layerEditorFromOutput(await getCreativeWorkLayerEditorOutput(input));
+      if (state?.regeneration?.id === input.operationId && state.regeneration.status !== "reserved") {
+        return { ok: true as const, accepted: true, replay: false };
+      }
     }
     return { ok: false as const, code: "layer_regeneration_dispatch_failed" as const };
   }
