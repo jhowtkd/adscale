@@ -98,6 +98,7 @@ export default function CreativeProposalGrid({
   const [annotationsByOutput, setAnnotationsByOutput] = useState<Record<string, OutputAnnotation[]>>({});
   const [submittingAnnotations, setSubmittingAnnotations] = useState(false);
   const [annotationError, setAnnotationError] = useState<string | null>(null);
+  const [annotationVoiceBusy, setAnnotationVoiceBusy] = useState(false);
   const isMobile = useIsMobile();
   const t = useTranslations("dashboard.home.composer.results");
   const selected = visible.find((output) => output.id === selectedId) ?? visible[0];
@@ -183,7 +184,10 @@ export default function CreativeProposalGrid({
         </div>
       </div>
 
-      <Dialog open={expanded} onOpenChange={setExpanded}>
+      <Dialog open={expanded} onOpenChange={(open) => {
+        setExpanded(open);
+        if (!open) setAnnotationVoiceBusy(false);
+      }}>
         <DialogContent size="xl" className="h-[min(92dvh,900px)] max-h-[92dvh]">
           <DialogHeader>
             <DialogTitle>{label} · {format}</DialogTitle>
@@ -195,6 +199,7 @@ export default function CreativeProposalGrid({
               annotations={selectedAnnotations}
               isMobile={isMobile}
               layout="split"
+              onBusyChange={setAnnotationVoiceBusy}
               maxAnnotations={OUTPUT_ANNOTATION_MAX_COUNT}
               commentMaxLength={OUTPUT_ANNOTATION_COMMENT_MAX_LENGTH}
               onAdd={(annotation) => updateSelectedAnnotations([
@@ -207,9 +212,9 @@ export default function CreativeProposalGrid({
                 {annotationError ? <p role="alert" className="text-sm text-[var(--danger-text)]">{annotationError}</p> : null}
                 <Button
                   type="button"
-                  disabled={!onRevise || selectedAnnotations.length === 0 || submittingAnnotations || isRevising?.(selected.id)}
+                  disabled={!onRevise || selectedAnnotations.length === 0 || annotationVoiceBusy || submittingAnnotations || isRevising?.(selected.id)}
                   onClick={async () => {
-                    if (!onRevise || selectedAnnotations.length === 0) return;
+                    if (!onRevise || selectedAnnotations.length === 0 || annotationVoiceBusy) return;
                     setSubmittingAnnotations(true);
                     setAnnotationError(null);
                     try {

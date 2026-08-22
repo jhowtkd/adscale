@@ -76,6 +76,16 @@ describe("POST /api/feedback/transcribe", () => {
     expect(mocks.createTranscription).not.toHaveBeenCalled();
   });
 
+  it("keeps rejected workspace access at the shared auth error boundary", async () => {
+    const authError = new Error("workspace access denied");
+    mocks.requireWorkspaceAccess.mockRejectedValueOnce(authError);
+    const response = await POST(requestWithFile());
+    expect(response.status).toBe(500);
+    expect(mocks.handleApiError).toHaveBeenCalledWith(authError, "feedback.transcribe.POST");
+    expect(mocks.checkRateLimit).not.toHaveBeenCalled();
+    expect(mocks.createTranscription).not.toHaveBeenCalled();
+  });
+
   it("hides provider failures without serializing or logging them", async () => {
     mocks.createTranscription.mockRejectedValueOnce(new Error("provider secret"));
     const response = await POST(requestWithFile());

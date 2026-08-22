@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const apiFetch = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/api-client", () => ({ apiFetch }));
-vi.mock("next-intl", () => ({ useTranslations: () => (key: string, values?: { seconds?: number }) => key === "recording" ? `Recording ${values?.seconds ?? 0}` : key }));
+vi.mock("next-intl", () => ({ useTranslations: () => (key: string, values?: { seconds?: number }) => key === "recording" ? `Recording ${values?.seconds ?? 0}` : key === "transcriptionError" ? "Não foi possível transcrever." : key }));
 
 class FakeMediaRecorder {
   static isTypeSupported = vi.fn(() => true);
@@ -47,7 +47,7 @@ describe("VoiceInputButton", () => {
     expect(apiFetch.mock.calls[0][1].body).toBeInstanceOf(FormData);
     expect(stopTrack).toHaveBeenCalled();
     expect(onBusyChange).toHaveBeenCalledWith(true);
-    expect(onBusyChange).toHaveBeenLastCalledWith(false);
+    await waitFor(() => expect(onBusyChange).toHaveBeenLastCalledWith(false));
   });
 
   it("single-flights microphone permission and announces the pending timer state", async () => {
@@ -87,6 +87,19 @@ describe("VoiceInputButton", () => {
     expect(onTranscript).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "start" }));
     await waitFor(() => expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledTimes(2));
+  });
+
+  it("cleans up and reports a localized transcription HTTP failure", async () => {
+    apiFetch.mockResolvedValueOnce(new Response(null, { status: 502 }));
+    const onTranscript = vi.fn();
+    const onBusyChange = vi.fn();
+    render(<VoiceInputButton onTranscript={onTranscript} onBusyChange={onBusyChange} />);
+    fireEvent.click(await screen.findByRole("button", { name: "start" }));
+    fireEvent.click(await screen.findByRole("button", { name: "stop" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Não foi possível transcrever.");
+    expect(stopTrack).toHaveBeenCalled();
+    expect(onTranscript).not.toHaveBeenCalled();
+    expect(onBusyChange).toHaveBeenLastCalledWith(false);
   });
 
   it("hides unsupported recording and cleans up mounted or late streams", async () => {

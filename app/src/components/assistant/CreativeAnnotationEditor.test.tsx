@@ -175,15 +175,30 @@ describe("CreativeAnnotationEditor", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("lets mobile and keyboard users add general voice-editable feedback", () => {
+  it("keeps general feedback out of the default Goal Assistant layout", () => {
+    render(<CreativeAnnotationEditor {...baseProps} />);
+    expect(screen.queryByTestId("assistant-annotation-general-comment")).not.toBeInTheDocument();
+  });
+
+  it("lets mobile and keyboard users add general voice-editable Creative Work feedback", () => {
     const onAdd = vi.fn();
-    render(<CreativeAnnotationEditor {...baseProps} isMobile onAdd={onAdd} />);
+    render(<CreativeAnnotationEditor {...baseProps} isMobile layout="split" onAdd={onAdd} />);
     fireEvent.change(screen.getByTestId("assistant-annotation-general-comment"), { target: { value: "Atual" } });
     fireEvent.click(screen.getAllByRole("button", { name: "mock voice" })[0]);
     expect(screen.getByTestId("assistant-annotation-general-comment")).toHaveValue("Atual Texto ditado");
     fireEvent.click(screen.getByTestId("assistant-annotation-general-save"));
     expect(onAdd).toHaveBeenCalledWith({ x: 0, y: 0, width: 1, height: 1, comment: "Atual Texto ditado" });
     expect(screen.getAllByText("privacy")).toHaveLength(1);
+  });
+
+  it("reports aggregate voice busy state for both Creative Work inputs", () => {
+    const onBusyChange = vi.fn();
+    const { container } = render(<CreativeAnnotationEditor {...baseProps} layout="split" onBusyChange={onBusyChange} />);
+    drawRect(container, 0, 0, 100, 100);
+    fireEvent.click(screen.getAllByRole("button", { name: "mock busy" })[0]);
+    expect(onBusyChange).toHaveBeenLastCalledWith(true);
+    fireEvent.click(screen.getAllByRole("button", { name: "mock idle" })[0]);
+    expect(onBusyChange).toHaveBeenLastCalledWith(false);
   });
 
   it("moves the numbered comment list into the split right panel", () => {

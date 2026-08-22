@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next-intl", () => ({
@@ -8,7 +9,10 @@ vi.mock("next-intl", () => ({
 const annotationMocks = vi.hoisted(() => ({ compile: vi.fn(() => "1. Reduzir título"), render: vi.fn(), isMobile: vi.fn(() => false) }));
 vi.mock("@/lib/hooks/use-media-query", () => ({ useIsMobile: annotationMocks.isMobile }));
 vi.mock("@/components/assistant/CreativeAnnotationEditor", () => ({
-  default: ({ onAdd, annotations, isMobile, layout, sidePanel }: { onAdd: (item: { x: number; y: number; width: number; height: number; comment: string }) => void; annotations: unknown[]; isMobile: boolean; layout?: string; sidePanel?: React.ReactNode }) => <div data-testid="annotation-editor" data-layout={layout} data-mobile={String(isMobile)} data-count={annotations.length}><div data-testid="annotation-editor-preview"><button type="button" onClick={() => onAdd({ x: 0.1, y: 0.2, width: 0.3, height: 0.2, comment: "Reduzir título" })}>add annotation</button></div><aside data-testid="annotation-editor-right-panel">{annotations.length > 0 ? <ol data-testid="annotation-numbered-list"><li>1. Reduzir título</li></ol> : null}{sidePanel}</aside></div>,
+  default: function CreativeAnnotationEditorMock({ onAdd, annotations, isMobile, layout, sidePanel, onBusyChange }: { onAdd: (item: { x: number; y: number; width: number; height: number; comment: string }) => void; annotations: unknown[]; isMobile: boolean; layout?: string; sidePanel?: React.ReactNode; onBusyChange?: (busy: boolean) => void }) {
+    const [generalComment, setGeneralComment] = useState("");
+    return <div data-testid="annotation-editor" data-layout={layout} data-mobile={String(isMobile)} data-count={annotations.length}><div data-testid="annotation-editor-preview">{isMobile ? <div data-testid="annotation-mobile-drawing-disabled" /> : <button type="button" onClick={() => onAdd({ x: 0.1, y: 0.2, width: 0.3, height: 0.2, comment: "Reduzir título" })}>add annotation</button>}</div><aside data-testid="annotation-editor-right-panel">{isMobile ? <><textarea data-testid="annotation-general-comment" value={generalComment} onChange={(event) => setGeneralComment(event.target.value)} /><button type="button" disabled={!generalComment.trim()} onClick={() => onAdd({ x: 0, y: 0, width: 1, height: 1, comment: generalComment.trim() })}>save general feedback</button></> : null}<button type="button" onClick={() => onBusyChange?.(true)}>voice busy</button><button type="button" onClick={() => onBusyChange?.(false)}>voice idle</button>{annotations.length > 0 ? <ol data-testid="annotation-numbered-list"><li>1. Reduzir título</li></ol> : null}{sidePanel}</aside></div>;
+  },
 }));
 vi.mock("@/components/creative-work/output-annotation", () => ({
   OUTPUT_ANNOTATION_MAX_COUNT: 5,
@@ -235,6 +239,24 @@ describe("CreativeProposalGrid", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
+  it("blocks the paid annotation CTA while voice is busy, then submits once after idle", async () => {
+    const onRevise = vi.fn(async () => true);
+    const annotatedFile = new File(["png"], "output-out-balanced-annotations.png", { type: "image/png" });
+    annotationMocks.render.mockResolvedValueOnce(annotatedFile);
+    render(<CreativeProposalGrid outputs={[balancedCompleted]} onRetry={vi.fn()} onApprove={vi.fn()} onDownload={vi.fn()} onRevise={onRevise} />);
+    fireEvent.click(screen.getByRole("button", { name: /Ampliar/ }));
+    fireEvent.click(screen.getByRole("button", { name: "add annotation" }));
+    fireEvent.click(screen.getByRole("button", { name: "voice busy" }));
+    const revise = screen.getByRole("button", { name: "Gerar variação · 5 créditos" });
+    expect(revise).toBeDisabled();
+    fireEvent.click(revise);
+    expect(onRevise).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "voice idle" }));
+    fireEvent.click(screen.getByRole("button", { name: "Gerar variação · 5 créditos" }));
+    await waitFor(() => expect(onRevise).toHaveBeenCalledWith("out-balanced", "1. Reduzir título", annotatedFile));
+    expect(onRevise).toHaveBeenCalledTimes(1);
+  });
+
   it("places numbered comments and the revision control in the inspector right panel", () => {
     render(<CreativeProposalGrid outputs={[balancedCompleted]} onRetry={vi.fn()} onApprove={vi.fn()} onDownload={vi.fn()} onRevise={vi.fn(async () => true)} />);
     fireEvent.click(screen.getByRole("button", { name: "Ampliar Equilibrada em 4:5" }));
@@ -287,14 +309,18 @@ describe("CreativeProposalGrid", () => {
     expect(screen.getByTestId("annotation-editor")).toHaveAttribute("data-mobile", "true");
   });
 
-  it("submits mobile text feedback through the same single revision command", async () => {
+  it("submits mobile feedback through the same single revision command", async () => {
     annotationMocks.isMobile.mockReturnValue(true);
     const onRevise = vi.fn(async () => true);
     annotationMocks.render.mockResolvedValueOnce(new File(["png"], "output.png", { type: "image/png" }));
     render(<CreativeProposalGrid outputs={[balancedCompleted]} onRetry={vi.fn()} onApprove={vi.fn()} onDownload={vi.fn()} onRevise={onRevise} />);
     fireEvent.click(screen.getByRole("button", { name: "Ampliar Equilibrada em 4:5" }));
-    fireEvent.click(screen.getByRole("button", { name: "add annotation" }));
+    expect(screen.getByTestId("annotation-mobile-drawing-disabled")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "add annotation" })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByTestId("annotation-general-comment"), { target: { value: "Ajustar contraste" } });
+    fireEvent.click(screen.getByRole("button", { name: "save general feedback" }));
     fireEvent.click(screen.getByRole("button", { name: "Gerar variação · 5 créditos" }));
-    await waitFor(() => expect(onRevise).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(onRevise).toHaveBeenCalledWith("out-balanced", "1. Reduzir título", expect.any(File)));
+    expect(onRevise).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useEffect,
   useRef,
   useState,
   type KeyboardEvent,
@@ -32,6 +33,7 @@ export interface CreativeAnnotationEditorProps {
   commentMaxLength?: number;
   layout?: "stacked" | "split";
   sidePanel?: ReactNode;
+  onBusyChange?: (busy: boolean) => void;
 }
 
 interface DraftRect {
@@ -59,6 +61,7 @@ export default function CreativeAnnotationEditor({
   commentMaxLength = 1_000,
   layout = "stacked",
   sidePanel,
+  onBusyChange,
 }: CreativeAnnotationEditorProps) {
   const t = useTranslations("assistant.goal");
   const tVoice = useTranslations("feedback.voice");
@@ -70,6 +73,13 @@ export default function CreativeAnnotationEditor({
   const [generalVoiceBusy, setGeneralVoiceBusy] = useState(false);
   const startRef = useRef<{ x: number; y: number } | null>(null);
   const annotationLimitReached = annotations.filter((item) => item.status !== "addressed").length >= maxAnnotations;
+  const voiceBusyAny = voiceBusy || generalVoiceBusy;
+
+  useEffect(() => {
+    onBusyChange?.(voiceBusyAny);
+  }, [onBusyChange, voiceBusyAny]);
+
+  useEffect(() => () => onBusyChange?.(false), [onBusyChange]);
 
   const toNormalized = (clientX: number, clientY: number) => {
     const bounds = overlayRef.current?.getBoundingClientRect();
@@ -254,7 +264,7 @@ export default function CreativeAnnotationEditor({
         </div>
       ) : null}
 
-      <div className="flex flex-col gap-2 rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)] p-3">
+      {layout === "split" ? <div className="flex flex-col gap-2 rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)] p-3">
         <label className="text-xs font-medium text-[var(--text-secondary)]" htmlFor="assistant-annotation-general-comment">
           {t("annotationGeneralComment")}
         </label>
@@ -287,7 +297,7 @@ export default function CreativeAnnotationEditor({
         >
           {t("save")}
         </button>
-      </div>
+      </div> : null}
 
       {annotations.length > 0 ? (
         <ul className="flex flex-col gap-1">
