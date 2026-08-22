@@ -95,7 +95,10 @@ export async function requestCreativeWorkLayerization(input: {
       const current = await getCreativeWorkLayerizationOutput(input.workspaceId, input.workItemId, input.outputId, executor);
       const currentState = layerizationStateFromDatabase(current?.layerization);
       if (currentState?.attemptId !== decision.state.attemptId) return { ok: false, error: { code: "layerization_replay_conflict" } };
-      if (currentState.status !== "queued") return { ok: true, accepted: true, replay: false, state: currentState };
+      if (currentState.status !== "queued") {
+        if (currentState.status === "failed") return { ok: false, error: { code: "dispatch_failed" } };
+        return { ok: true, accepted: true, replay: false, state: currentState };
+      }
       try {
         await inngest.send({ id: `creative-work-layerize:${input.outputId}:${decision.state.attemptId}`, name: heavyImageEventName("creative-work.layerize"), data: { workspaceId: input.workspaceId, workItemId: input.workItemId, outputId: input.outputId, attemptId: decision.state.attemptId, ...(decision.callbackUrl ? { callbackUrl: decision.callbackUrl } : {}) } });
         return { ok: true, accepted: decision.accepted, replay: decision.replay, state: decision.state };

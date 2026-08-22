@@ -91,7 +91,7 @@ describe("requestCreativeWorkLayerRegeneration", () => {
     reserve.mockResolvedValue({ id: input.outputId });
     send.mockResolvedValue(undefined);
 
-    await expect(requestCreativeWorkLayerRegeneration(input)).resolves.toEqual({ ok: true, accepted: false, replay: true });
+    await expect(requestCreativeWorkLayerRegeneration(input)).resolves.toEqual({ ok: true, accepted: true, replay: false });
     expect(reserve).toHaveBeenCalledOnce();
     expect(send).toHaveBeenCalledOnce();
   });
@@ -120,7 +120,7 @@ describe("requestCreativeWorkLayerRegeneration", () => {
     expect(send).toHaveBeenCalledWith(expect.objectContaining({ id: `creative-work-layer-regenerate:${input.outputId}:${input.operationId}` }));
   });
 
-  it("redelivers the stable event after the reservation transaction commits", async () => {
+  it("serializes a replay behind definitive dispatch compensation", async () => {
     let active: { revision: number; regeneration: { id: string; status: "reserved" } | null } = { revision: 1, regeneration: null };
     let released = false;
     let tail = Promise.resolve();
@@ -128,6 +128,14 @@ describe("requestCreativeWorkLayerRegeneration", () => {
       const previous = tail;
       let unlock!: () => void;
       tail = new Promise<void>((resolve) => { unlock = resolve; });
+      await previous;
+      try { return await run({}); } finally { unlock(); }
+    });
+    let dispatchTail = Promise.resolve();
+    dispatchLock.mockImplementation(async (_input: unknown, run: (executor: unknown) => Promise<unknown>) => {
+      const previous = dispatchTail;
+      let unlock!: () => void;
+      dispatchTail = new Promise<void>((resolve) => { unlock = resolve; });
       await previous;
       try { return await run({}); } finally { unlock(); }
     });
@@ -145,14 +153,14 @@ describe("requestCreativeWorkLayerRegeneration", () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     const replay = requestCreativeWorkLayerRegeneration(input);
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(send).toHaveBeenCalledTimes(2);
+    expect(send).toHaveBeenCalledOnce();
     expect(reserve).toHaveBeenCalledOnce();
 
     rejectDispatch(new Error("dispatch failed"));
     await expect(winner).resolves.toMatchObject({ ok: false, code: "layer_regeneration_dispatch_failed" });
-    await expect(replay).resolves.toMatchObject({ ok: true, replay: true });
+    await expect(replay).resolves.toMatchObject({ ok: false, code: "layer_editor_revision_conflict" });
     expect(release).toHaveBeenCalledOnce();
-    expect(send).toHaveBeenCalledTimes(2);
+    expect(send).toHaveBeenCalledOnce();
   });
 
   it("uses the revision returned by terminal cleanup when reserving a new operation", async () => {
