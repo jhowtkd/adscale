@@ -82,7 +82,7 @@ test.describe("native layer editor", () => {
     await expect(page.getByRole("button", { name: "Editar camadas" })).toBeVisible();
   });
 
-  test("tablet keeps 44px controls and pointer editing", async ({ page }) => {
+  test("tablet keeps 44px controls and supports touch geometry and reorder gestures", async ({ page }) => {
     await page.setViewportSize({ width: 900, height: 1100 });
     const dialog = await openEditor(page);
     await page.getByRole("button", { name: /Product|Produto sintético/ }).click();
@@ -103,14 +103,29 @@ test.describe("native layer editor", () => {
       expect(box?.height).toBeGreaterThanOrEqual(44);
     }
 
+    const editorMutations: string[] = [];
+    page.on("request", (request) => {
+      if (request.method() !== "PATCH" || !request.url().includes("/api/creative-work/")) return;
+      const body = request.postData() ?? "";
+      if (body.includes("saveLayerEditor")) editorMutations.push(body);
+    });
+
     const selected = page.getByLabel("Camada selecionada");
     const before = await selected.boundingBox();
     if (!before) throw new Error("Selected layer box must be measurable");
-    await page.mouse.move(before.x + 5, before.y + 5);
-    await page.mouse.down();
-    await page.mouse.move(before.x + 25, before.y + 15);
-    await page.mouse.up();
+    await selected.dispatchEvent("pointerdown", { pointerId: 71, pointerType: "touch", clientX: before.x + 5, clientY: before.y + 5 });
+    await selected.dispatchEvent("pointermove", { pointerId: 71, pointerType: "touch", clientX: before.x + 25, clientY: before.y + 15 });
+    await selected.dispatchEvent("pointerup", { pointerId: 71, pointerType: "touch", clientX: before.x + 25, clientY: before.y + 15 });
     await page.waitForTimeout(800);
+
+    const reorderHandle = page.getByRole("button", { name: /^(Reordenar|Reorder) / });
+    const reorderTarget = page.locator("[data-layer-order]").nth(1);
+    const targetBox = await reorderTarget.boundingBox();
+    if (!targetBox) throw new Error("Layer reorder target must be measurable");
+    await reorderHandle.dispatchEvent("pointerdown", { pointerId: 72, pointerType: "touch", clientX: before.x + 5, clientY: before.y + 5 });
+    await reorderHandle.dispatchEvent("pointerup", { pointerId: 72, pointerType: "touch", clientX: targetBox.x + 8, clientY: targetBox.y + 8 });
+    await page.waitForTimeout(800);
+    expect(editorMutations.length).toBeGreaterThanOrEqual(2);
     await expect(dialog).toHaveScreenshot("layer-editor-tablet.png", { animations: "disabled" });
   });
 

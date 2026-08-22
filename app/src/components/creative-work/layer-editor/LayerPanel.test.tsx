@@ -13,12 +13,27 @@ const document: PublicLayerEditorDocumentV1 = {
 };
 
 describe("LayerPanel inspect visibility", () => {
+  it("keeps canvas resize hit targets at 44 CSS pixels across zoom levels and reserves touch actions for gestures", () => {
+    render(<LayerCanvas document={document} selectedLayerId={document.layers[0]!.id} onSelect={vi.fn()} mode="edit" dispatch={vi.fn()} />);
+
+    expect(screen.getByLabelText("editorSelectedLayer")).toHaveClass("touch-none");
+    for (const zoom of [25, 50, 75, 100]) {
+      fireEvent.click(screen.getByRole("button", { name: `${zoom}%` }));
+      for (const handle of screen.getAllByTestId(/layer-resize-handle-/)) {
+        const canvasUnits = Number.parseFloat(handle.getAttribute("style")?.match(/width:\s*([\d.]+)px/)?.[1] ?? "0");
+        expect(canvasUnits * (zoom / 100)).toBeGreaterThanOrEqual(44);
+      }
+    }
+  });
+
   it("keeps layer rows and visibility controls at the 44px touch target", () => {
     const dispatch = vi.fn();
     render(<LayerPanel document={document} selectedLayerId={document.layers[0]!.id} onSelect={vi.fn()} mode="edit" dispatch={dispatch} />);
 
     expect(screen.getByRole("button", { name: /Layer 0/ })).toHaveClass("min-h-11");
     expect(screen.getByRole("button", { name: "Ocultar Layer 0" })).toHaveClass("min-h-11", "min-w-11");
+    expect(screen.getByLabelText("editorReorder")).toHaveClass("touch-none");
+    expect(screen.getByLabelText("Camadas")).not.toHaveClass("touch-none");
   });
 
   it("projects temporary mobile visibility into the canvas without dispatching a mutation", () => {
