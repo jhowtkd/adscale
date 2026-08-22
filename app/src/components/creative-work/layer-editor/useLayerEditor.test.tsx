@@ -109,6 +109,9 @@ describe("useLayerEditor", () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(31_000); });
     expect(callsFor("saveLayerEditor")).toHaveLength(1);
     expect(callsFor("heartbeatLayerEditor")).toHaveLength(0);
+    expect(hook.result.current.hasUnresolvedConflict).toBe(true);
+    await expect(hook.result.current.flushAndRelease()).resolves.toBe(false);
+    expect(callsFor("releaseLayerEditor")).toHaveLength(0);
   });
 
   it("polls only active regeneration and refreshes signed document URLs", async () => {

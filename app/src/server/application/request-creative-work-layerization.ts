@@ -22,7 +22,7 @@ import {
   SEEDREAM_PROVIDER_ENDPOINT,
 } from "@/server/layerize/seedream-provider";
 import { env } from "@/server/validation/env";
-import { claimLayerEditorQuota, releaseLayerEditorQuota } from "@/server/layer-editor/quota";
+import { claimLayerEditorQuota, isLayerEditorQuotaReleased, releaseLayerEditorQuota } from "@/server/layer-editor/quota";
 
 export type RequestCreativeWorkLayerizationError =
   | { code: "work_not_found" }
@@ -127,7 +127,7 @@ export async function requestCreativeWorkLayerization(input: {
     workItemId: input.workItemId, outputId: input.outputId,
   }, new Date());
   if (!quota.ok) return { ok: false, error: { code: quota.code === "disabled" ? "layer_editor_not_available" : "layer_editor_quota_exhausted" } };
-  if (quota.replay) return { ok: false, error: { code: "layerization_replay_conflict" } };
+  if (quota.replay && await isLayerEditorQuotaReleased({ workspaceId: input.workspaceId, kind: "layerize_v1", operationId: input.operationId })) return { ok: false, error: { code: "layerization_replay_conflict" } };
 
   const token = randomBytes(32).toString("hex");
   const attemptId = input.operationId;
@@ -143,7 +143,7 @@ export async function requestCreativeWorkLayerization(input: {
     state,
   });
   if (!claimed) {
-    await releaseLayerEditorQuota({ workspaceId: input.workspaceId, kind: "layerize_v1", operationId: input.operationId }, new Date());
+    if (!quota.replay) await releaseLayerEditorQuota({ workspaceId: input.workspaceId, kind: "layerize_v1", operationId: input.operationId }, new Date());
     const refreshed = await getCreativeWorkLayerizationOutput(input.workspaceId, input.workItemId, input.outputId);
     const refreshedState = layerizationStateFromDatabase(refreshed?.layerization);
     return refreshedState

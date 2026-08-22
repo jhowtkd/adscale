@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
@@ -505,7 +506,7 @@ export async function PATCH(
       if(!state||!candidate||candidate.id!==parsed.data.operationId)return apiError("layer_editor_revision_conflict",409);
       if(parsed.data.action==="discardLayerCandidate") { const updated=await discardLayerRegenerationCandidate({...parsed.data,workspaceId:workspace.id,workItemId:id,userId:user.id,now:new Date()}); if(!updated)return apiError("layer_editor_revision_conflict",409); if(candidate.candidateKey) void objectStorage.delete(candidate.candidateKey).catch(() => undefined); return NextResponse.json({ok:true}); }
       if(candidate.status!=="ready"||!candidate.candidateKey)return apiError("layer_editor_revision_conflict",409);
-      const key=`creative-work/${id}/layer-editor/${parsed.data.outputId}/layers/${candidate.layerId}/revisions/${parsed.data.expectedRevision+1}.png`; await objectStorage.put(key,await objectStorage.get(candidate.candidateKey),"image/png"); const updated=await acceptLayerRegenerationCandidate({...parsed.data,workspaceId:workspace.id,workItemId:id,userId:user.id,immutableKey:key,now:new Date()}); if(!updated){void objectStorage.delete(key).catch(() => undefined);return apiError("layer_editor_revision_conflict",409);} void objectStorage.delete(candidate.candidateKey).catch(() => undefined); return NextResponse.json({ok:true});
+      const key=`creative-work/${id}/layer-editor/${parsed.data.outputId}/layers/${candidate.layerId}/revisions/${parsed.data.expectedRevision+1}/${randomUUID()}.png`; await objectStorage.put(key,await objectStorage.get(candidate.candidateKey),"image/png"); const updated=await acceptLayerRegenerationCandidate({...parsed.data,workspaceId:workspace.id,workItemId:id,userId:user.id,immutableKey:key,now:new Date()}); if(!updated){void objectStorage.delete(key).catch(() => undefined);return apiError("layer_editor_revision_conflict",409);} void objectStorage.delete(candidate.candidateKey).catch(() => undefined); return NextResponse.json({ok:true});
     }
     if ("action" in parsed.data && parsed.data.action === "publishLayerEditor") { const result=await publishCreativeWorkLayerEditor({...parsed.data,workspaceId:workspace.id,workItemId:id,userId:user.id}); return result.ok?NextResponse.json(result,{status:result.replay?200:201}):apiError(result.code,409); }
 

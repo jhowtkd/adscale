@@ -8,6 +8,7 @@ const getOutputMock = vi.hoisted(() => vi.fn());
 const sendMock = vi.hoisted(() => vi.fn());
 const quotaClaimMock = vi.hoisted(() => vi.fn());
 const quotaReleaseMock = vi.hoisted(() => vi.fn());
+const quotaReleasedMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/repositories/creative-work", () => ({
   getCreativeWork: (...args: unknown[]) => getWorkMock(...args),
@@ -27,6 +28,7 @@ vi.mock("@/server/jobs/heavy-image-events", () => ({
 }));
 vi.mock("@/server/layer-editor/quota", () => ({
   claimLayerEditorQuota: (...args: unknown[]) => quotaClaimMock(...args),
+  isLayerEditorQuotaReleased: (...args: unknown[]) => quotaReleasedMock(...args),
   releaseLayerEditorQuota: (...args: unknown[]) => quotaReleaseMock(...args),
 }));
 vi.mock("@/server/layerize/seedream-provider", () => ({
@@ -64,6 +66,7 @@ describe("requestCreativeWorkLayerization", () => {
     sendMock.mockResolvedValue(undefined);
     quotaClaimMock.mockResolvedValue({ ok: true, replay: false });
     quotaReleaseMock.mockResolvedValue({ released: true });
+    quotaReleasedMock.mockResolvedValue(false);
   });
 
   afterEach(() => {
@@ -81,6 +84,15 @@ describe("requestCreativeWorkLayerization", () => {
 
     expect(second.ok).toBe(false);
     if (!second.ok) expect(second.error.code).toBe("already_running");
+    expect(claimMock).toHaveBeenCalledOnce();
+    expect(sendMock).toHaveBeenCalledOnce();
+  });
+
+  it("recovers a quota claim that exists before the layerization reservation", async () => {
+    quotaClaimMock.mockResolvedValue({ ok: true, replay: true });
+    claimMock.mockResolvedValue({ id: "output-1" });
+
+    await expect(requestCreativeWorkLayerization(input)).resolves.toMatchObject({ ok: true, accepted: true, replay: false });
     expect(claimMock).toHaveBeenCalledOnce();
     expect(sendMock).toHaveBeenCalledOnce();
   });
@@ -187,6 +199,7 @@ describe("requestCreativeWorkLayerization", () => {
 
   it("rejects a compensated operation replay after retry state was cleared", async () => {
     quotaClaimMock.mockResolvedValue({ ok: true, replay: true });
+    quotaReleasedMock.mockResolvedValue(true);
     const result = await requestCreativeWorkLayerization({ ...input, retry: true });
     expect(result).toMatchObject({ ok: false, error: { code: "layerization_replay_conflict" } });
     expect(claimMock).not.toHaveBeenCalled();

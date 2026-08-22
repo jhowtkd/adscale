@@ -24,7 +24,9 @@ export function useLayerEditor(input: LayerEditorInput) {
   const saving = useRef(false);
   const savePromise = useRef<Promise<boolean> | null>(null);
   const dirty = useRef(false);
+  const unresolvedConflict = useRef(false);
   const stopped = useRef(false);
+  const [hasUnresolvedConflict, setHasUnresolvedConflict] = useState(false);
   const operations = useRef(new Map<string, string>());
 
   const replaceSession = useCallback((next: LayerEditorSessionState | null) => {
@@ -32,13 +34,20 @@ export function useLayerEditor(input: LayerEditorInput) {
     setSession(next);
   }, []);
 
-  const stop = useCallback(() => {
+  const stop = useCallback((preserveDirty = false) => {
     if (timer.current) clearTimeout(timer.current);
-    dirty.current = false;
+    if (!preserveDirty) dirty.current = false;
     stopped.current = true;
     modeRef.current = "read";
     setMode("read");
   }, []);
+
+  const markConflict = useCallback(() => {
+    dirty.current = true;
+    unresolvedConflict.current = true;
+    setHasUnresolvedConflict(true);
+    stop(true);
+  }, [stop]);
 
   const applyCanonicalDocument = useCallback((document: PublicLayerEditorDocumentV1) => {
     const current = sessionRef.current;
@@ -88,7 +97,7 @@ export function useLayerEditor(input: LayerEditorInput) {
           return true;
         } catch (error) {
           const code = typeof error === "object" && error && "code" in error ? (error as { code?: string }).code : null;
-          if (code === "layer_editor_locked" || code === "layer_editor_revision_conflict") stop();
+          if (code === "layer_editor_locked" || code === "layer_editor_revision_conflict") markConflict();
           return false;
         } finally {
           saving.current = false;
@@ -99,7 +108,7 @@ export function useLayerEditor(input: LayerEditorInput) {
       if (!await pending) return false;
     }
     return true;
-  }, [applyCanonicalDocument, input.outputId, input.workItemId, stop]);
+  }, [applyCanonicalDocument, input.outputId, input.workItemId, markConflict]);
 
   const scheduleSave = useCallback(() => {
     if (timer.current) clearTimeout(timer.current);
@@ -136,6 +145,8 @@ export function useLayerEditor(input: LayerEditorInput) {
     modeRef.current = nextMode;
     setMode(nextMode);
     stopped.current = nextMode !== "edit";
+    unresolvedConflict.current = false;
+    setHasUnresolvedConflict(false);
     setOpenError(null);
     if (!dirty.current) applyCanonicalDocument(response.document);
   }, [applyCanonicalDocument, input.mode, input.outputId, input.workItemId, stop]);
@@ -197,10 +208,14 @@ export function useLayerEditor(input: LayerEditorInput) {
         serverRevision.current = response.document.revision;
         setAccess(response.access);
         if (!dirty.current) applyCanonicalDocument(response.document);
-      }).catch(stop);
+      }).catch((error) => {
+        const code = typeof error === "object" && error && "code" in error ? (error as { code?: string }).code : null;
+        if (code === "layer_editor_locked" || code === "layer_editor_revision_conflict") markConflict();
+        else stop();
+      });
     }, LAYER_EDITOR_HEARTBEAT_MS);
     return () => clearInterval(heartbeat);
-  }, [applyCanonicalDocument, input.outputId, input.workItemId, leaseId, mode, stop]);
+  }, [applyCanonicalDocument, input.outputId, input.workItemId, leaseId, markConflict, mode, stop]);
 
   const command = useCallback(async (action: string, extra: Record<string, unknown> = {}, operationKey = action, operationId?: string) => {
     if (modeRef.current !== "edit" || !leaseRef.current) return null;
@@ -279,6 +294,7 @@ export function useLayerEditor(input: LayerEditorInput) {
   }, [command, input.outputId, input.workItemId, stop]);
 
   const flushAndRelease = useCallback(async () => {
+    if (unresolvedConflict.current) return false;
     if (!await flush()) return false;
     if (leaseRef.current) {
       try {
@@ -298,6 +314,7 @@ export function useLayerEditor(input: LayerEditorInput) {
     leaseId,
     mode,
     openError,
+    hasUnresolvedConflict,
     dispatch,
     open,
     flush,

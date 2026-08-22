@@ -30,6 +30,7 @@ import {
   layerEditorFromOutput,
 } from "@/server/repositories/creative-work-layer-editor";
 import { runCreativeWorkLayerRegeneration } from "@/server/jobs/creative-work-layer-regeneration";
+import { layerizationStateSchema } from "@/server/layerize/contracts";
 import { inngest } from "@/server/jobs/client";
 import { objectStorage } from "@/server/storage";
 import { InMemoryObjectStorage } from "@/server/storage/in-memory-object-storage";
@@ -46,6 +47,21 @@ const createdWorkspaceIds: string[] = [];
 const createdUserIds: string[] = [];
 const storage = new InMemoryObjectStorage();
 const digest = (buffer: Buffer) => createHash("sha256").update(buffer).digest("hex");
+
+describe("native layer editor journey fixture contract", () => {
+  it("keeps the completed Layerize source strict-schema valid without a database", () => {
+    expect(layerizationStateSchema.safeParse({
+      status: "completed", attemptId: "fixture", callbackTokenHash: "a".repeat(64), callbackConsumedAt: null, requestedByUserId: "fixture-user",
+      createdAt: "2026-08-22T00:00:00.000Z", updatedAt: "2026-08-22T00:00:00.000Z", callbackDeadlineAt: "2026-08-22T02:00:00.000Z",
+      latencyMs: 0, providerRequestId: "fixture", providerModel: "fixture", providerEndpoint: "https://fixture.example/layerize", estimatedCostUsd: 0,
+      baseWidth: 8, baseHeight: 8,
+      layers: [
+        { order: 0, isBase: true, name: "Base", description: "Synthetic base", x: 0, y: 0, width: 8, height: 8, normalizedBoundingBox: { x: 0, y: 0, width: 1, height: 1 }, storageKey: "fixture/base.png", sourceBytes: 1 },
+        { order: 1, isBase: false, name: "Product", description: "Synthetic product", x: 3, y: 2, width: 2, height: 2, normalizedBoundingBox: { x: 0.375, y: 0.25, width: 0.25, height: 0.25 }, storageKey: "fixture/product.png", sourceBytes: 1 },
+      ], psdKey: "fixture/piece.psd", diagnosticZipKey: "fixture/piece.zip", fidelity: null, failureCode: null,
+    }).success).toBe(true);
+  });
+});
 
 function bindStorage() {
   vi.spyOn(objectStorage, "put").mockImplementation((key, data, contentType) => storage.put(key, data, contentType));
@@ -138,12 +154,12 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work native layer edit
       quality: { schemaVersion: 1, objectiveVerdict: "pass" },
       layerization: {
         status: "completed", attemptId: `attempt-${runId}`, callbackTokenHash: "a".repeat(64), callbackConsumedAt: null,
-        requestedByUserId: memberA, createdAt: "2026-08-22T00:00:00.000Z", updatedAt: "2026-08-22T00:00:00.000Z", callbackDeadlineAt: null,
-        latencyMs: 0, providerRequestId: "fake-layerize", providerModel: "fake", providerEndpoint: "fake://provider", estimatedCostUsd: 0,
+        requestedByUserId: memberA, createdAt: "2026-08-22T00:00:00.000Z", updatedAt: "2026-08-22T00:00:00.000Z", callbackDeadlineAt: "2026-08-22T02:00:00.000Z",
+        latencyMs: 0, providerRequestId: "fake-layerize", providerModel: "fake", providerEndpoint: "https://fake.example/provider", estimatedCostUsd: 0,
         baseWidth: 8, baseHeight: 8,
         layers: [
-          { order: 0, isBase: true, name: "Base", description: null, x: 0, y: 0, width: 8, height: 8, normalizedBoundingBox: null, storageKey: baseKey, sourceBytes: 0 },
-          { order: 1, isBase: false, name: "Product", description: null, x: 3, y: 2, width: 2, height: 2, normalizedBoundingBox: null, storageKey: productKey, sourceBytes: 0 },
+          { order: 0, isBase: true, name: "Base", description: "Synthetic base", x: 0, y: 0, width: 8, height: 8, normalizedBoundingBox: { x: 0, y: 0, width: 1, height: 1 }, storageKey: baseKey, sourceBytes: 1 },
+          { order: 1, isBase: false, name: "Product", description: "Synthetic product", x: 3, y: 2, width: 2, height: 2, normalizedBoundingBox: { x: 0.375, y: 0.25, width: 0.25, height: 0.25 }, storageKey: productKey, sourceBytes: 1 },
         ],
         psdKey: "journey/private/source.psd", diagnosticZipKey: "journey/private/source.zip", fidelity: null, failureCode: null,
       },

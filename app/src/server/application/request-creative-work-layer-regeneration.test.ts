@@ -5,9 +5,11 @@ const reserve = vi.hoisted(() => vi.fn());
 const getOutput = vi.hoisted(() => vi.fn());
 const stateFromOutput = vi.hoisted(() => vi.fn());
 const rollback = vi.hoisted(() => vi.fn());
+const clearTerminal = vi.hoisted(() => vi.fn());
+const quotaReleased = vi.hoisted(() => vi.fn());
 const send = vi.hoisted(() => vi.fn());
-vi.mock("@/server/layer-editor/quota", () => ({ claimLayerEditorQuota: claim, releaseLayerEditorQuota: release }));
-vi.mock("@/server/repositories/creative-work-layer-editor", () => ({ reserveLayerRegeneration: reserve, rollbackReservedLayerRegeneration: rollback, getCreativeWorkLayerEditorOutput: getOutput, layerEditorFromOutput: stateFromOutput }));
+vi.mock("@/server/layer-editor/quota", () => ({ claimLayerEditorQuota: claim, isLayerEditorQuotaReleased: quotaReleased, releaseLayerEditorQuota: release }));
+vi.mock("@/server/repositories/creative-work-layer-editor", () => ({ clearTerminalLayerRegenerationForRetry: clearTerminal, reserveLayerRegeneration: reserve, rollbackReservedLayerRegeneration: rollback, getCreativeWorkLayerEditorOutput: getOutput, layerEditorFromOutput: stateFromOutput }));
 vi.mock("@/server/jobs/client", () => ({ inngest: { send } }));
 import { requestCreativeWorkLayerRegeneration } from "./request-creative-work-layer-regeneration";
 const input = { workspaceId: "w", workItemId: "i", outputId: "o", userId: "u", leaseId: "00000000-0000-4000-8000-000000000001", expectedRevision: 1, operationId: "00000000-0000-4000-8000-000000000002", layerId: "00000000-0000-4000-8000-000000000003", instruction: "x" };
@@ -17,6 +19,7 @@ describe("requestCreativeWorkLayerRegeneration", () => {
     vi.clearAllMocks();
     claim.mockResolvedValue({ ok: false, code: "quota_exhausted" });
     rollback.mockResolvedValue({ id: input.outputId });
+    quotaReleased.mockResolvedValue(false);
   });
 
   it("does not dispatch when quota is exhausted", async () => {
@@ -40,10 +43,34 @@ describe("requestCreativeWorkLayerRegeneration", () => {
     claim.mockResolvedValue({ ok: true, replay: true });
     getOutput.mockResolvedValue({ layerEditor: {} });
     stateFromOutput.mockReturnValue({ regeneration: null });
+    quotaReleased.mockResolvedValue(true);
 
     await expect(requestCreativeWorkLayerRegeneration(input)).resolves.toEqual({ ok: false, code: "layer_editor_revision_conflict" });
     expect(reserve).not.toHaveBeenCalled();
     expect(send).not.toHaveBeenCalled();
+  });
+
+  it("recovers an unreleased quota claim that crashed before reservation", async () => {
+    claim.mockResolvedValue({ ok: true, replay: true });
+    getOutput.mockResolvedValue({ layerEditor: {} });
+    stateFromOutput.mockReturnValue({ regeneration: null });
+    reserve.mockResolvedValue({ id: input.outputId });
+    send.mockResolvedValue(undefined);
+
+    await expect(requestCreativeWorkLayerRegeneration(input)).resolves.toEqual({ ok: true, accepted: true, replay: false });
+    expect(reserve).toHaveBeenCalledOnce();
+    expect(send).toHaveBeenCalledOnce();
+  });
+
+  it("clears a terminal prior operation only for an explicit new operation", async () => {
+    claim.mockResolvedValue({ ok: true, replay: false });
+    getOutput.mockResolvedValue({ layerEditor: {} });
+    stateFromOutput.mockReturnValue({ regeneration: { id: "previous-operation", status: "failed" } });
+    reserve.mockResolvedValue({ id: input.outputId });
+    send.mockResolvedValue(undefined);
+
+    await expect(requestCreativeWorkLayerRegeneration(input)).resolves.toMatchObject({ ok: true, accepted: true });
+    expect(clearTerminal).toHaveBeenCalledWith(expect.objectContaining({ operationId: input.operationId }));
   });
 
   it("releases a newly claimed unit when event dispatch is definitively rejected", async () => {
@@ -69,6 +96,7 @@ describe("requestCreativeWorkLayerRegeneration", () => {
 
     claim.mockResolvedValue({ ok: true, replay: true });
     stateFromOutput.mockReturnValue({ regeneration: null });
+    quotaReleased.mockResolvedValue(true);
     await expect(requestCreativeWorkLayerRegeneration(input)).resolves.toMatchObject({ ok: false, code: "layer_editor_revision_conflict" });
   });
 
