@@ -38,6 +38,7 @@ import {
   writeStoredLayerizationPsd,
 } from "@/server/layerize/artifacts";
 import { inngest } from "./client";
+import { releaseLayerEditorQuota } from "@/server/layer-editor/quota";
 
 export type CreativeWorkLayerizationEvent = {
   workspaceId: string;
@@ -141,6 +142,14 @@ function callbackDeadlinePassed(state: LayerizationState): boolean {
   return Date.parse(state.callbackDeadlineAt) <= Date.now();
 }
 
+async function failBeforeProvider(event: CreativeWorkLayerizationEvent, code: "no_longer_eligible" | "source_missing") {
+  const failed = await failCreativeWorkLayerization({ workspaceId: event.workspaceId, workItemId: event.workItemId, outputId: event.outputId, code });
+  const state = layerizationStateFromDatabase(failed?.layerization);
+  if (state?.status === "failed" && state.failureCode === code && !state.providerRequestId) {
+    await releaseLayerEditorQuota({ workspaceId: event.workspaceId, kind: "layerize_v1", operationId: event.attemptId }, new Date());
+  }
+}
+
 export async function runCreativeWorkLayerization(input: {
   event: CreativeWorkLayerizationEvent;
   provider?: SeedreamProvider;
@@ -171,21 +180,11 @@ export async function runCreativeWorkLayerization(input: {
   const aggregate = await getCreativeWork(event.workspaceId, event.workItemId);
   const output = aggregate?.outputs.find((candidate) => candidate.id === event.outputId);
   if (!state.providerRequestId && maySubmit && !isLayerizationSubmitEligible(output ?? {})) {
-    await failCreativeWorkLayerization({
-      workspaceId: event.workspaceId,
-      workItemId: event.workItemId,
-      outputId: event.outputId,
-      code: output?.outputKey ? "no_longer_eligible" : "source_missing",
-    });
+    await failBeforeProvider(event, output?.outputKey ? "no_longer_eligible" : "source_missing");
     return { status: "failed" };
   }
   if (!output?.outputKey) {
-    await failCreativeWorkLayerization({
-      workspaceId: event.workspaceId,
-      workItemId: event.workItemId,
-      outputId: event.outputId,
-      code: "source_missing",
-    });
+    await failBeforeProvider(event, "source_missing");
     return { status: "failed" };
   }
 
@@ -214,12 +213,7 @@ export async function runCreativeWorkLayerization(input: {
     const eligibilityCheckStartedAt = Date.now();
     try {
       if (!await isCreativeWorkOutputStillSelectedForLayerization(event)) {
-        await failCreativeWorkLayerization({
-          workspaceId: event.workspaceId,
-          workItemId: event.workItemId,
-          outputId: event.outputId,
-          code: "no_longer_eligible",
-        });
+        await failBeforeProvider(event, "no_longer_eligible");
         return { status: "failed" };
       }
     } catch (error) {

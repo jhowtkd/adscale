@@ -14,7 +14,15 @@ export async function requestCreativeWorkLayerRegeneration(input: { workspaceId:
   if(!quota.ok)return {ok:false as const,code:quota.code};
   if (quota.replay) {
     const state = layerEditorFromOutput(await getCreativeWorkLayerEditorOutput(input));
-    if (state?.regeneration?.id === input.operationId) return { ok: true as const, accepted: false, replay: true };
+    if (state?.regeneration?.id === input.operationId) {
+      if (state.regeneration.status !== "reserved") return { ok: true as const, accepted: false, replay: true };
+      try {
+        await inngest.send({ id: `creative-work-layer-regenerate:${input.outputId}:${input.operationId}`, name: heavyImageEventName("creative-work.layer-regenerate"), data: { workspaceId: input.workspaceId, workItemId: input.workItemId, outputId: input.outputId, operationId: input.operationId } });
+        return { ok: true as const, accepted: false, replay: true };
+      } catch {
+        return { ok: false as const, code: "layer_regeneration_dispatch_failed" as const };
+      }
+    }
     if (await isLayerEditorQuotaReleased({ workspaceId: input.workspaceId, kind: "layer_regeneration_v1", operationId: input.operationId })) return { ok: false as const, code: "layer_editor_revision_conflict" as const };
   }
   const reserved=await reserveLayerRegeneration({...input,instruction,usageKey:`layer-editor:${input.workspaceId}:regeneration:${input.operationId}`,now:new Date()});

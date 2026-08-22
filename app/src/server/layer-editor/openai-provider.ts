@@ -38,8 +38,12 @@ export async function normalizeLayerCandidate(buffer: Buffer, bounds: { width: n
   const metadata = await image.metadata();
   if (metadata.format !== "png" || !metadata.hasAlpha) throw new Error("Candidate must be transparent PNG");
   const raw = await image.ensureAlpha().raw().toBuffer({ resolveWithObject: true });
-  let hasAlpha = false; for (let index = 3; index < raw.data.length; index += raw.info.channels) if (raw.data[index]! > 0) { hasAlpha = true; break; }
-  if (!hasAlpha) throw new Error("Candidate alpha is empty");
+  let hasVisiblePixel = false; let hasTransparentPixel = false;
+  for (let index = 3; index < raw.data.length; index += raw.info.channels) {
+    if (raw.data[index]! > 0) hasVisiblePixel = true;
+    if (raw.data[index]! < 255) hasTransparentPixel = true;
+  }
+  if (!hasVisiblePixel || !hasTransparentPixel) throw new Error("Candidate must contain visible content and transparency");
   return sharp(buffer)
     .trim({ background: { r: 0, g: 0, b: 0, alpha: 0 } })
     .resize(bounds.width, bounds.height, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })

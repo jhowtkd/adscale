@@ -1374,6 +1374,14 @@ describe("PATCH /api/creative-work/[id]", () => {
     expect(response.status).toBe(status);
     expect(publishLayerEditorMock).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: "workspace-1", workItemId: "work-1", userId: "user-1" }));
   });
+
+  it("allowlists the published child DTO at the route boundary", async () => {
+    publishLayerEditorMock.mockResolvedValue({ ok: true, replay: false, output: { id: "child-1", parentOutputId: "parent-1", status: "completed", isSelected: false, creativeLevel: "balanced", targetFormat: "4:5", versionNumber: 2, outputKey: "private/piece.png", layerEditor: { publishedPsdKey: "private/piece.psd" } } });
+    const response = await requestPatch({ action: "publishLayerEditor", outputId: "00000000-0000-4000-8000-000000000111", leaseId: "00000000-0000-4000-8000-000000000112", expectedRevision: 4, operationId: "00000000-0000-4000-8000-000000000113" });
+    const payload = await response.json();
+    expect(response.status).toBe(201);
+    expect(JSON.stringify(payload)).not.toMatch(/outputKey|layerEditor|publishedPsdKey|private\//);
+  });
 });
 
 describe("POST /api/creative-work/[id] layerization callback", () => {

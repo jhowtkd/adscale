@@ -722,6 +722,7 @@
           "editorCloseSaveFailed": "Não foi possível salvar antes de fechar",
           "editorUndo": "Desfazer",
           "editorRedo": "Refazer",
+          "editorTools": "Ferramentas do editor",
           "editorLayerName": "Nome da camada",
           "editorPublished": "Nova versão criada",
           "editorCanvas": "Canvas de camadas",

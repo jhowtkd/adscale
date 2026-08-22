@@ -35,6 +35,7 @@ type CreativeProposalGridProps = {
   onDownloadLayerized?: (outputId: string, format: "psd" | "zip") => void;
   isLayerizing?: (outputId: string) => boolean;
   layerEditorAccess?: LayerEditorAccessV1;
+  onLayerEditorPublished?: () => void | Promise<void>;
 };
 
 const LEVEL_ORDER: CreativeWorkOutput["creativeLevel"][] = ["conservative", "balanced", "bold"];
@@ -71,6 +72,7 @@ export default function CreativeProposalGrid({
   onDownloadLayerized,
   isLayerizing,
   layerEditorAccess,
+  onLayerEditorPublished,
 }: CreativeProposalGridProps) {
   const latest = new Map<string, CreativeWorkOutput>();
   for (const output of outputs) {
@@ -202,6 +204,7 @@ export default function CreativeProposalGrid({
           onOpenChange={(open) => {
             if (!open) setLayerEditorOutputId(null);
           }}
+          onPublished={onLayerEditorPublished}
         />
       ) : null}
     </>

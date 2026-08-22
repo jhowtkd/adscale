@@ -10,7 +10,6 @@ import {
 import { analyzeCreativeWorkSource } from "@/server/application/analyze-creative-work-source";
 import { contentBriefSchema, styleBriefSchema } from "@/server/ai/image-analysis";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
-import { requirePlatformOwner } from "@/server/auth/require-platform-owner";
 import { requestCreativeWorkLayerization } from "@/server/application/request-creative-work-layerization";
 import {
   handleCreativeWorkLayerizationCallback,
@@ -236,7 +235,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const [{ workspace, user }, { id }] = await Promise.all([
+    const [{ workspace }, { id }] = await Promise.all([
       requireWorkspaceAccess(request),
       params,
     ]);
@@ -508,7 +507,7 @@ export async function PATCH(
       if(candidate.status!=="ready"||!candidate.candidateKey)return apiError("layer_editor_revision_conflict",409);
       const key=`creative-work/${id}/layer-editor/${parsed.data.outputId}/layers/${candidate.layerId}/revisions/${parsed.data.expectedRevision+1}/${randomUUID()}.png`; await objectStorage.put(key,await objectStorage.get(candidate.candidateKey),"image/png"); const updated=await acceptLayerRegenerationCandidate({...parsed.data,workspaceId:workspace.id,workItemId:id,userId:user.id,immutableKey:key,now:new Date()}); if(!updated){void objectStorage.delete(key).catch(() => undefined);return apiError("layer_editor_revision_conflict",409);} void objectStorage.delete(candidate.candidateKey).catch(() => undefined); return NextResponse.json({ok:true});
     }
-    if ("action" in parsed.data && parsed.data.action === "publishLayerEditor") { const result=await publishCreativeWorkLayerEditor({...parsed.data,workspaceId:workspace.id,workItemId:id,userId:user.id}); return result.ok?NextResponse.json(result,{status:result.replay?200:201}):apiError(result.code,409); }
+    if ("action" in parsed.data && parsed.data.action === "publishLayerEditor") { const result=await publishCreativeWorkLayerEditor({...parsed.data,workspaceId:workspace.id,workItemId:id,userId:user.id}); if(!result.ok)return apiError(result.code,409); const output=result.output; return NextResponse.json({ok:true,replay:result.replay,output:{id:output.id,parentOutputId:output.parentOutputId,status:output.status,isSelected:output.isSelected,creativeLevel:output.creativeLevel,targetFormat:output.targetFormat,versionNumber:output.versionNumber}},{status:result.replay?200:201}); }
 
     if ("action" in parsed.data && parsed.data.action === "autosave") {
       const aggregate = await getCreativeWork(workspace.id, id);
