@@ -104,7 +104,7 @@ describe("useLayerEditor", () => {
     const hook = await openHook();
     act(() => hook.result.current.dispatch({ type: "rename", id: editorDocument.layers[0]!.id, name: "Conflict" }));
     await act(async () => { await vi.advanceTimersByTimeAsync(750); });
-    expect(hook.result.current.mode).toBe("inspect");
+    expect(hook.result.current.mode).toBe("read");
     act(() => hook.result.current.dispatch({ type: "rename", id: editorDocument.layers[0]!.id, name: "Ignored" }));
     await act(async () => { await vi.advanceTimersByTimeAsync(31_000); });
     expect(callsFor("saveLayerEditor")).toHaveLength(1);
@@ -179,5 +179,24 @@ describe("useLayerEditor", () => {
     act(() => hook.result.current.dispatch({ type: "rename", id: editorDocument.layers[0]!.id, name: "Changed" }));
     await expect(hook.result.current.flushAndRelease()).resolves.toBe(false);
     expect(callsFor("releaseLayerEditor")).toHaveLength(0);
+  });
+
+  it("uses the active regeneration id for immutable candidate actions", async () => {
+    vi.useFakeTimers();
+    const regenerationId = "00000000-0000-4000-8000-000000000099";
+    patch.mockResolvedValue(response({ ...editorDocument, regeneration: { id: regenerationId, status: "ready", layerId: editorDocument.layers[0]!.id, instruction: "Change", candidateUrl: "candidate", failureCode: null } }));
+    const hook = await openHook();
+
+    await act(async () => { await hook.result.current.acceptCandidate(); });
+    expect(callsFor("acceptLayerCandidate")[0]?.[1]).toMatchObject({ operationId: regenerationId });
+  });
+
+  it("turns a failed initial open into semantic read mode without an unhandled rejection", async () => {
+    vi.useFakeTimers();
+    patch.mockRejectedValue(new Error("locked"));
+    const hook = renderHook(() => useLayerEditor({ workItemId: "work-1", outputId: "output-1", mode: "edit" }));
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(hook.result.current.mode).toBe("read");
   });
 });

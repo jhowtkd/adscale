@@ -50,7 +50,24 @@ export function applyLayerEditorCommand(session: LayerEditorSessionState, comman
     ordered.splice(Math.max(0, Math.min(ordered.length, command.order)), 0, moved);
     return changed(session, { ...session.present, layers: ordered.map((candidate, order) => ({ ...candidate, order })) });
   }
-  if (command.type === "restore") return changed(session, { ...session.present, layers: session.present.layers.map((candidate) => candidate.id === command.id ? { ...candidate, name: candidate.source.name, visible: candidate.source.visible, x: candidate.source.x, y: candidate.source.y, width: candidate.source.width, height: candidate.source.height, order: candidate.source.order, currentKind: "source", imageUrl: candidate.source.imageUrl } : candidate) });
+  if (command.type === "restore") {
+    const ordered = [...session.present.layers].sort((left, right) => left.order - right.order);
+    const index = ordered.findIndex((candidate) => candidate.id === command.id);
+    const [candidate] = ordered.splice(index, 1);
+    const restored = {
+      ...candidate,
+      name: candidate.source.name,
+      visible: candidate.source.visible,
+      x: candidate.source.x,
+      y: candidate.source.y,
+      width: candidate.source.width,
+      height: candidate.source.height,
+      currentKind: "source" as const,
+      imageUrl: candidate.source.imageUrl,
+    };
+    ordered.splice(Math.max(0, Math.min(ordered.length, candidate.source.order)), 0, restored);
+    return changed(session, { ...session.present, layers: ordered.map((item, order) => ({ ...item, order })) });
+  }
   return changed(session, { ...session.present, layers: session.present.layers.map((candidate) => ({ ...candidate, name: candidate.source.name, visible: candidate.source.visible, x: candidate.source.x, y: candidate.source.y, width: candidate.source.width, height: candidate.source.height, order: candidate.source.order, currentKind: "source", imageUrl: candidate.source.imageUrl })) });
 }
 

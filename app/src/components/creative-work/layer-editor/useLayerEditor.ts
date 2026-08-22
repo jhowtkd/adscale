@@ -6,13 +6,15 @@ import { patchCreativeWork } from "@/lib/hooks/use-creative-work";
 import { applyLayerEditorCommand, createLayerEditorSession, redoLayerEditor, undoLayerEditor, type LayerEditorCommand, type LayerEditorSessionState } from "./state";
 
 type LayerEditorInput = { workItemId: string; outputId: string; mode: "edit" | "inspect" };
+export type LayerEditorMode = "edit" | "inspect" | "read";
 type OpenResponse = { document: PublicLayerEditorDocumentV1; access: LayerEditorAccessV1 };
 
 export function useLayerEditor(input: LayerEditorInput) {
   const [session, setSession] = useState<LayerEditorSessionState | null>(null);
   const [leaseId, setLeaseId] = useState<string | null>(null);
-  const [mode, setMode] = useState(input.mode);
+  const [mode, setMode] = useState<LayerEditorMode>(input.mode);
   const [access, setAccess] = useState<LayerEditorAccessV1 | null>(null);
+  const [openError, setOpenError] = useState<string | null>(null);
   const sessionRef = useRef<LayerEditorSessionState | null>(null);
   const leaseRef = useRef<string | null>(null);
   const modeRef = useRef(mode);
@@ -22,7 +24,7 @@ export function useLayerEditor(input: LayerEditorInput) {
   const savePromise = useRef<Promise<boolean> | null>(null);
   const dirty = useRef(false);
   const stopped = useRef(false);
-  const operation = useRef<string | null>(null);
+  const operations = useRef(new Map<string, string>());
 
   const replaceSession = useCallback((next: LayerEditorSessionState | null) => {
     sessionRef.current = next;
@@ -33,8 +35,8 @@ export function useLayerEditor(input: LayerEditorInput) {
     if (timer.current) clearTimeout(timer.current);
     dirty.current = false;
     stopped.current = true;
-    modeRef.current = "inspect";
-    setMode("inspect");
+    modeRef.current = "read";
+    setMode("read");
   }, []);
 
   const applyCanonicalDocument = useCallback((document: PublicLayerEditorDocumentV1) => {
@@ -113,12 +115,22 @@ export function useLayerEditor(input: LayerEditorInput) {
     setAccess(response.access);
     leaseRef.current = response.document.lease.leaseId;
     setLeaseId(response.document.lease.leaseId);
+    const nextMode: LayerEditorMode = response.document.lease.mode === "edit"
+      ? "edit"
+      : input.mode === "inspect" ? "inspect" : "read";
+    modeRef.current = nextMode;
+    setMode(nextMode);
+    stopped.current = nextMode !== "edit";
+    setOpenError(null);
     if (!dirty.current) applyCanonicalDocument(response.document);
   }, [applyCanonicalDocument, input.mode, input.outputId, input.workItemId]);
 
   useEffect(() => {
     const opening = setTimeout(() => {
-      void open();
+      void open().catch((error) => {
+        setOpenError(error instanceof Error ? error.message : "Unable to open the layer editor");
+        stop();
+      });
     }, 0);
     return () => {
       clearTimeout(opening);
@@ -175,9 +187,10 @@ export function useLayerEditor(input: LayerEditorInput) {
     return () => clearInterval(heartbeat);
   }, [applyCanonicalDocument, input.outputId, input.workItemId, leaseId, mode, stop]);
 
-  const command = useCallback(async (action: string, extra: Record<string, unknown> = {}) => {
+  const command = useCallback(async (action: string, extra: Record<string, unknown> = {}, operationKey = action, operationId?: string) => {
     if (modeRef.current !== "edit" || !leaseRef.current) return null;
-    operation.current ??= crypto.randomUUID();
+    const stableOperationId = operationId ?? operations.current.get(operationKey) ?? crypto.randomUUID();
+    if (!operationId) operations.current.set(operationKey, stableOperationId);
     if (!await flush()) return null;
     try {
       const result = await patchCreativeWork(input.workItemId, {
@@ -185,19 +198,25 @@ export function useLayerEditor(input: LayerEditorInput) {
         outputId: input.outputId,
         leaseId: leaseRef.current,
         expectedRevision: serverRevision.current,
-        operationId: operation.current,
+        operationId: stableOperationId,
         ...extra,
       });
-      operation.current = null;
+      if (!operationId) operations.current.delete(operationKey);
       return result;
     } catch (error) {
       throw error;
     }
   }, [flush, input.outputId, input.workItemId]);
 
-  const regenerate = useCallback((layerId: string, instruction: string) => command("regenerateLayer", { layerId, instruction }), [command]);
-  const acceptCandidate = useCallback(() => command("acceptLayerCandidate"), [command]);
-  const discardCandidate = useCallback(() => command("discardLayerCandidate"), [command]);
+  const regenerate = useCallback((layerId: string, instruction: string) => command("regenerateLayer", { layerId, instruction }, `regenerate:${layerId}:${instruction}`), [command]);
+  const acceptCandidate = useCallback(() => {
+    const operationId = sessionRef.current?.present.regeneration?.id;
+    return operationId ? command("acceptLayerCandidate", {}, "accept", operationId) : Promise.resolve(null);
+  }, [command]);
+  const discardCandidate = useCallback(() => {
+    const operationId = sessionRef.current?.present.regeneration?.id;
+    return operationId ? command("discardLayerCandidate", {}, "discard", operationId) : Promise.resolve(null);
+  }, [command]);
 
   const document = session?.present ?? null;
 
@@ -251,6 +270,7 @@ export function useLayerEditor(input: LayerEditorInput) {
     access,
     leaseId,
     mode,
+    openError,
     dispatch,
     open,
     flush,

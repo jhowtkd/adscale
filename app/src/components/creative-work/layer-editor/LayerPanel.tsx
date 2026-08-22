@@ -8,22 +8,41 @@ type LayerPanelProps = {
   document: PublicLayerEditorDocumentV1;
   selectedLayerId: string | null;
   onSelect: (id: string) => void;
-  mode?: "edit" | "inspect";
+  mode?: "edit" | "inspect" | "read";
   dispatch?: (command: LayerEditorCommand) => void;
+  onInspectVisibilityChange?: (id: string, visible: boolean) => void;
 };
 
-export function LayerPanel({ document, selectedLayerId, onSelect, mode = "inspect", dispatch }: LayerPanelProps) {
+export function LayerPanel({ document, selectedLayerId, onSelect, mode = "inspect", dispatch, onInspectVisibilityChange }: LayerPanelProps) {
   const [inspectVisibility, setInspectVisibility] = useState<Record<string, boolean>>({});
+  const reorder = useRef<{ id: string; pointerId: number } | null>(null);
 
   const visible = (layer: PublicLayerEditorDocumentV1["layers"][number]) =>
-    mode === "inspect" ? (inspectVisibility[layer.id] ?? layer.visible) : layer.visible;
+    mode !== "edit" ? (inspectVisibility[layer.id] ?? layer.visible) : layer.visible;
 
   const toggleVisibility = (layer: PublicLayerEditorDocumentV1["layers"][number]) => {
     if (mode === "edit") {
       dispatch?.({ type: "visibility", id: layer.id, visible: !layer.visible });
       return;
     }
-    setInspectVisibility((current) => ({ ...current, [layer.id]: !visible(layer) }));
+    const next = !visible(layer);
+    setInspectVisibility((current) => ({ ...current, [layer.id]: next }));
+    onInspectVisibilityChange?.(layer.id, next);
+  };
+
+  const beginReorder = (event: React.PointerEvent<HTMLButtonElement>, layerId: string) => {
+    if (mode !== "edit" || !dispatch) return;
+    reorder.current = { id: layerId, pointerId: event.pointerId };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+  const finishReorder = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const active = reorder.current;
+    if (!active || active.pointerId !== event.pointerId || mode !== "edit") return;
+    reorder.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    const target = globalThis.document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>("[data-layer-order]");
+    const order = target?.dataset.layerOrder;
+    if (order !== undefined) dispatch?.({ type: "reorder", id: active.id, order: Number(order) });
   };
 
   return (
@@ -32,7 +51,7 @@ export function LayerPanel({ document, selectedLayerId, onSelect, mode = "inspec
         const isSelected = layer.id === selectedLayerId;
         const isVisible = visible(layer);
         return (
-          <div key={layer.id} className={isSelected ? "bg-muted p-2" : "p-2"}>
+          <div key={layer.id} data-layer-order={layer.order} className={isSelected ? "border-l-2 border-primary bg-muted p-2" : "p-2"}>
             <button
               type="button"
               onClick={() => onSelect(layer.id)}
@@ -50,12 +69,13 @@ export function LayerPanel({ document, selectedLayerId, onSelect, mode = "inspec
               <>
                 <LayerNameEditor key={`${layer.id}:${layer.name}`} layer={layer} dispatch={dispatch} />
                 <div className="mt-2 flex gap-2">
+                  <button type="button" className="min-h-11 min-w-11 cursor-grab" aria-label={`Reordenar ${layer.name}`} onPointerDown={(event) => beginReorder(event, layer.id)} onPointerUp={finishReorder}>↕</button>
                   <button type="button" className="min-h-11 min-w-11" aria-label={isVisible ? `Ocultar ${layer.name}` : `Mostrar ${layer.name}`} onClick={() => toggleVisibility(layer)}>{isVisible ? "Ocultar" : "Mostrar"}</button>
                   <button type="button" className="min-h-11 min-w-11" aria-label="Trazer para frente" onClick={() => dispatch?.({ type: "reorder", id: layer.id, order: 0 })}>Trazer para frente</button>
                   <button type="button" className="min-h-11 min-w-11" aria-label="Enviar para trás" onClick={() => dispatch?.({ type: "reorder", id: layer.id, order: document.layers.length - 1 })}>Enviar para trás</button>
                 </div>
               </>
-            ) : mode === "inspect" && isSelected ? (
+            ) : mode !== "edit" && isSelected ? (
               <button type="button" className="mt-2 min-h-11 min-w-11" aria-label={isVisible ? `Ocultar ${layer.name}` : `Mostrar ${layer.name}`} onClick={() => toggleVisibility(layer)}>{isVisible ? "Ocultar" : "Mostrar"}</button>
             ) : null}
           </div>
