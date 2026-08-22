@@ -9,6 +9,7 @@ const sendMock = vi.hoisted(() => vi.fn());
 const quotaClaimMock = vi.hoisted(() => vi.fn());
 const quotaReleaseMock = vi.hoisted(() => vi.fn());
 const quotaReleasedMock = vi.hoisted(() => vi.fn());
+const operationLockMock = vi.hoisted(() => vi.fn(async (_input: unknown, run: () => Promise<unknown>) => run()));
 
 vi.mock("@/server/repositories/creative-work", () => ({
   getCreativeWork: (...args: unknown[]) => getWorkMock(...args),
@@ -30,6 +31,7 @@ vi.mock("@/server/layer-editor/quota", () => ({
   claimLayerEditorQuota: (...args: unknown[]) => quotaClaimMock(...args),
   isLayerEditorQuotaReleased: (...args: unknown[]) => quotaReleasedMock(...args),
   releaseLayerEditorQuota: (...args: unknown[]) => quotaReleaseMock(...args),
+  withLayerEditorOperationLock: (...args: unknown[]) => operationLockMock(...args),
 }));
 vi.mock("@/server/layerize/seedream-provider", () => ({
   SEEDREAM_LAYERIZE_MODEL_ID: "bytedance/seedream-v5.0-pro/layer-decomposition",
@@ -53,6 +55,7 @@ describe("requestCreativeWorkLayerization", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    getOutputMock.mockReset();
     process.env.ATLASCLOUD_API_KEY = "test-key";
     output = {
       id: "output-1",
@@ -105,6 +108,16 @@ describe("requestCreativeWorkLayerization", () => {
 
     expect(quotaReleaseMock).toHaveBeenCalledWith(expect.objectContaining({ kind: "layerize_v1", operationId: input.operationId }), expect.any(Date));
     expect(sendMock).not.toHaveBeenCalled();
+  });
+
+  it("redelivers the stable event when a layerization claim CAS loser finds its queued attempt", async () => {
+    let queued: Record<string, unknown> | null = null;
+    claimMock.mockImplementation(async (value: { state: Record<string, unknown> }) => { queued = value.state; return null; });
+    getOutputMock.mockImplementation(async () => ({ layerization: queued }));
+
+    await expect(requestCreativeWorkLayerization(input)).resolves.toMatchObject({ ok: true, accepted: false, replay: true });
+
+    expect(sendMock).toHaveBeenCalledWith(expect.objectContaining({ id: `creative-work-layerize:${input.outputId}:${input.operationId}` }));
   });
 
   it("does not retry a submission whose outcome is unknown", async () => {

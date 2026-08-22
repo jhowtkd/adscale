@@ -12,6 +12,22 @@ import type { LayerEditorAccessV1, LayerEditorQuotaBucket } from "./contracts";
 export type LayerEditorQuotaKind = "layerize_v1" | "layer_regeneration_v1";
 type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
+/**
+ * Serialize the durable pre-provider decision for one operation. The quota
+ * month lock remains inside claim/release, so this lock must always be taken
+ * first by request paths to avoid an operation replay racing compensation.
+ */
+export async function withLayerEditorOperationLock<T>(input: {
+  workspaceId: string;
+  kind: LayerEditorQuotaKind;
+  operationId: string;
+}, run: () => Promise<T>): Promise<T> {
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`${input.workspaceId}:${input.kind}:${input.operationId}`}))`);
+    return run();
+  });
+}
+
 function monthWindow(now: Date) {
   const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
   const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));

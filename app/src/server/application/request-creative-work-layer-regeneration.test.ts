@@ -8,7 +8,8 @@ const rollback = vi.hoisted(() => vi.fn());
 const clearTerminal = vi.hoisted(() => vi.fn());
 const quotaReleased = vi.hoisted(() => vi.fn());
 const send = vi.hoisted(() => vi.fn());
-vi.mock("@/server/layer-editor/quota", () => ({ claimLayerEditorQuota: claim, isLayerEditorQuotaReleased: quotaReleased, releaseLayerEditorQuota: release }));
+const operationLock = vi.hoisted(() => vi.fn(async (_input: unknown, run: () => Promise<unknown>) => run()));
+vi.mock("@/server/layer-editor/quota", () => ({ claimLayerEditorQuota: claim, isLayerEditorQuotaReleased: quotaReleased, releaseLayerEditorQuota: release, withLayerEditorOperationLock: operationLock }));
 vi.mock("@/server/repositories/creative-work-layer-editor", () => ({ clearTerminalLayerRegenerationForRetry: clearTerminal, reserveLayerRegeneration: reserve, rollbackReservedLayerRegeneration: rollback, getCreativeWorkLayerEditorOutput: getOutput, layerEditorFromOutput: stateFromOutput }));
 vi.mock("@/server/jobs/client", () => ({ inngest: { send } }));
 import { requestCreativeWorkLayerRegeneration } from "./request-creative-work-layer-regeneration";
@@ -17,6 +18,11 @@ const input = { workspaceId: "w", workItemId: "i", outputId: "o", userId: "u", l
 describe("requestCreativeWorkLayerRegeneration", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    operationLock.mockReset();
+    operationLock.mockImplementation(async (_input: unknown, run: () => Promise<unknown>) => run());
+    stateFromOutput.mockReset();
+    reserve.mockReset();
+    getOutput.mockReset();
     claim.mockResolvedValue({ ok: false, code: "quota_exhausted" });
     rollback.mockResolvedValue({ id: input.outputId });
     quotaReleased.mockResolvedValue(false);
@@ -82,6 +88,53 @@ describe("requestCreativeWorkLayerRegeneration", () => {
 
     expect(release).toHaveBeenCalledWith(expect.objectContaining({ kind: "layer_regeneration_v1", operationId: input.operationId }), expect.any(Date));
     expect(send).not.toHaveBeenCalled();
+  });
+
+  it("redelivers the stable event when a reservation CAS loser finds the matching reserved operation", async () => {
+    claim.mockResolvedValue({ ok: true, replay: false });
+    reserve.mockResolvedValue(null);
+    getOutput.mockResolvedValue({ layerEditor: {} });
+    stateFromOutput.mockReturnValue({ regeneration: { id: input.operationId, status: "reserved" } });
+    send.mockResolvedValue(undefined);
+
+    await expect(requestCreativeWorkLayerRegeneration(input)).resolves.toEqual({ ok: true, accepted: false, replay: true });
+
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ id: `creative-work-layer-regenerate:${input.outputId}:${input.operationId}` }));
+  });
+
+  it("serializes a replay behind rollback compensation so it cannot dispatch on a zeroed claim", async () => {
+    let active: { revision: number; regeneration: { id: string; status: "reserved" } | null } = { revision: 1, regeneration: null };
+    let released = false;
+    let tail = Promise.resolve();
+    operationLock.mockImplementation(async (_input: unknown, run: () => Promise<unknown>) => {
+      const previous = tail;
+      let unlock!: () => void;
+      tail = new Promise<void>((resolve) => { unlock = resolve; });
+      await previous;
+      try { return await run(); } finally { unlock(); }
+    });
+    claim.mockImplementation(async () => ({ ok: true as const, replay: released }));
+    getOutput.mockResolvedValue({ layerEditor: {} });
+    stateFromOutput.mockImplementation(() => active);
+    reserve.mockImplementation(async () => { active = { revision: 2, regeneration: { id: input.operationId, status: "reserved" } }; return { id: input.outputId }; });
+    rollback.mockImplementation(async () => { active = { revision: 3, regeneration: null }; return { id: input.outputId }; });
+    release.mockImplementation(async () => { released = true; return { released: true }; });
+    quotaReleased.mockImplementation(async () => released);
+    let rejectDispatch!: (error: Error) => void;
+    send.mockImplementationOnce(() => new Promise<void>((_resolve, reject) => { rejectDispatch = reject; }));
+
+    const winner = requestCreativeWorkLayerRegeneration(input);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const replay = requestCreativeWorkLayerRegeneration(input);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(send).toHaveBeenCalledOnce();
+    expect(reserve).toHaveBeenCalledOnce();
+
+    rejectDispatch(new Error("dispatch failed"));
+    await expect(winner).resolves.toMatchObject({ ok: false, code: "layer_regeneration_dispatch_failed" });
+    await expect(replay).resolves.toMatchObject({ ok: false, code: "layer_editor_revision_conflict" });
+    expect(release).toHaveBeenCalledOnce();
+    expect(send).toHaveBeenCalledOnce();
   });
 
   it("uses the revision returned by terminal cleanup when reserving a new operation", async () => {

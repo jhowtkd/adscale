@@ -3,7 +3,7 @@ import { and, eq, sql } from "drizzle-orm";
 
 import { db } from "@/server/db";
 import { usageEvents, user, workspaceEntitlements, workspaceMembers, workspaces } from "@/server/db/schema";
-import { claimLayerEditorQuota, releaseLayerEditorQuota } from "@/server/layer-editor/quota";
+import { claimLayerEditorQuota, releaseLayerEditorQuota, withLayerEditorOperationLock } from "@/server/layer-editor/quota";
 
 const configured = Boolean(process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL);
 const suffix = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
@@ -56,5 +56,35 @@ describe.skipIf(!configured)("layer editor regeneration quota", () => {
     await expect(releaseLayerEditorQuota({ workspaceId: workspaceId!, kind: "layerize_v1", operationId }, new Date(Date.now() + 40 * 24 * 60 * 60 * 1000))).resolves.toEqual({ released: true });
     const amounts = await db.select({ amount: sql<number>`coalesce(sum(${usageEvents.amount}), 0)` }).from(usageEvents).where(and(eq(usageEvents.workspaceId, workspaceId!), eq(usageEvents.idempotencyKey, `layer-editor:${workspaceId}:layerize_v1:${operationId}`)));
     expect(Number(amounts[0]?.amount)).toBe(1);
+  });
+
+  it("holds a same-operation replay behind compensation at limit one", async () => {
+    const operationId = "00000000-0000-4000-8000-000000000105";
+    const input = { workspaceId: workspaceId!, kind: "layer_regeneration_v1" as const, userId: userId!, workItemId: "work", outputId: "serialized-output", operationId };
+    let releaseWinner!: () => void;
+    const winnerMayCompensate = new Promise<void>((resolve) => { releaseWinner = resolve; });
+    let replayEntered = false;
+
+    const winner = withLayerEditorOperationLock(input, async () => {
+      await expect(claimLayerEditorQuota(input, new Date())).resolves.toEqual({ ok: true, replay: false });
+      await winnerMayCompensate;
+      await expect(releaseLayerEditorQuota(input, new Date())).resolves.toEqual({ released: true });
+    });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    const replay = withLayerEditorOperationLock(input, async () => {
+      replayEntered = true;
+      return claimLayerEditorQuota(input, new Date());
+    });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(replayEntered).toBe(false);
+
+    releaseWinner();
+    await winner;
+    await expect(replay).resolves.toEqual({ ok: true, replay: true });
+    const rows = await db.select({ amount: sql<number>`coalesce(sum(${usageEvents.amount}), 0)` }).from(usageEvents).where(and(eq(usageEvents.workspaceId, workspaceId!), eq(usageEvents.type, "layer_regeneration_v1"), eq(usageEvents.idempotencyKey, `layer-editor:${workspaceId}:layer_regeneration_v1:${operationId}`)));
+    expect(Number(rows[0]?.amount)).toBe(1);
+    const releases = await db.select({ amount: usageEvents.amount }).from(usageEvents).where(and(eq(usageEvents.workspaceId, workspaceId!), eq(usageEvents.idempotencyKey, `layer-editor:${workspaceId}:layer_regeneration_v1:${operationId}:release`)));
+    expect(releases).toHaveLength(1);
+    expect(releases[0]?.amount).toBe(-1);
   });
 });
