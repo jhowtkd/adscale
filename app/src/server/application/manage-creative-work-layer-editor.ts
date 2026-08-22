@@ -6,6 +6,8 @@ import { LAYER_EDITOR_SIGNED_URL_TTL_SECONDS, layerEditorStateFromDatabase, type
 import { getLayerEditorAccess } from "@/server/layer-editor/quota";
 import {
   acquireCreativeWorkLayerEditorLease,
+  acceptLayerRegenerationCandidate,
+  discardLayerRegenerationCandidate,
   getCreativeWorkLayerEditorLeaseHolderName,
   getCreativeWorkLayerEditorOutput,
   heartbeatCreativeWorkLayerEditorLease,
@@ -103,5 +105,49 @@ export async function saveCreativeWorkLayerEditor(input: LayerEditorMutationScop
 
 export async function releaseCreativeWorkLayerEditor(input: LayerEditorScope & { userId: string; leaseId: string }): Promise<{ ok: true }> {
   await releaseCreativeWorkLayerEditorLease(input);
+  return { ok: true };
+}
+
+export type LayerRegenerationCandidateCommandResult =
+  | { ok: true }
+  | { ok: false; code: "layer_editor_not_available" | "layer_editor_revision_conflict" };
+
+type CandidateCommandInput = LayerEditorMutationScope & { operationId: string };
+
+/**
+ * Promotes the ready candidate behind the application boundary. The immutable
+ * object belongs to this request only: a losing CAS can delete just its own
+ * key and can never delete the winner's object.
+ */
+export async function acceptCreativeWorkLayerRegenerationCandidate(input: CandidateCommandInput): Promise<LayerRegenerationCandidateCommandResult> {
+  if (!(await accessOrUnavailable(input.workspaceId))) return { ok: false, code: "layer_editor_not_available" };
+  const state = layerEditorStateFromDatabase((await getCreativeWorkLayerEditorOutput(input))?.layerEditor);
+  const candidate = state?.regeneration;
+  if (!candidate || candidate.id !== input.operationId || candidate.status !== "ready" || !candidate.candidateKey) {
+    return { ok: false, code: "layer_editor_revision_conflict" };
+  }
+  const key = `creative-work/${input.workItemId}/layer-editor/${input.outputId}/layers/${candidate.layerId}/revisions/${input.expectedRevision + 1}/${randomUUID()}.png`;
+  try {
+    await objectStorage.put(key, await objectStorage.get(candidate.candidateKey), "image/png");
+  } catch {
+    return { ok: false, code: "layer_editor_revision_conflict" };
+  }
+  const updated = await acceptLayerRegenerationCandidate({ ...input, immutableKey: key, now: new Date() });
+  if (!updated) {
+    void objectStorage.delete(key).catch(() => undefined);
+    return { ok: false, code: "layer_editor_revision_conflict" };
+  }
+  void objectStorage.delete(candidate.candidateKey).catch(() => undefined);
+  return { ok: true };
+}
+
+export async function discardCreativeWorkLayerRegenerationCandidate(input: CandidateCommandInput): Promise<LayerRegenerationCandidateCommandResult> {
+  if (!(await accessOrUnavailable(input.workspaceId))) return { ok: false, code: "layer_editor_not_available" };
+  const state = layerEditorStateFromDatabase((await getCreativeWorkLayerEditorOutput(input))?.layerEditor);
+  const candidate = state?.regeneration;
+  if (!candidate || candidate.id !== input.operationId) return { ok: false, code: "layer_editor_revision_conflict" };
+  const updated = await discardLayerRegenerationCandidate({ ...input, now: new Date() });
+  if (!updated) return { ok: false, code: "layer_editor_revision_conflict" };
+  if (candidate.candidateKey) void objectStorage.delete(candidate.candidateKey).catch(() => undefined);
   return { ok: true };
 }

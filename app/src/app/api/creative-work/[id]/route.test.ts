@@ -22,13 +22,8 @@ const callbackHandlerMock = vi.hoisted(() => vi.fn());
 const recoverExpiredLayerizationsMock = vi.hoisted(() => vi.fn());
 const layerEditorAccessMock = vi.hoisted(() => vi.fn());
 const requestRegenerationMock = vi.hoisted(() => vi.fn());
-const getLayerEditorOutputMock = vi.hoisted(() => vi.fn());
-const layerEditorFromOutputMock = vi.hoisted(() => vi.fn());
-const acceptCandidateMock = vi.hoisted(() => vi.fn());
-const discardCandidateMock = vi.hoisted(() => vi.fn());
-const layerEditorStorageGetMock = vi.hoisted(() => vi.fn());
-const layerEditorStoragePutMock = vi.hoisted(() => vi.fn());
-const layerEditorStorageDeleteMock = vi.hoisted(() => vi.fn());
+const acceptCandidateCommandMock = vi.hoisted(() => vi.fn());
+const discardCandidateCommandMock = vi.hoisted(() => vi.fn());
 const publishLayerEditorMock = vi.hoisted(() => vi.fn());
 const openLayerEditorMock = vi.hoisted(() => vi.fn());
 
@@ -55,25 +50,14 @@ vi.mock("@/server/application/request-creative-work-layer-regeneration", () => (
 }));
 vi.mock("@/server/application/manage-creative-work-layer-editor", () => ({
   openCreativeWorkLayerEditor: (...args: unknown[]) => openLayerEditorMock(...args),
+  acceptCreativeWorkLayerRegenerationCandidate: (...args: unknown[]) => acceptCandidateCommandMock(...args),
+  discardCreativeWorkLayerRegenerationCandidate: (...args: unknown[]) => discardCandidateCommandMock(...args),
   heartbeatCreativeWorkLayerEditor: vi.fn(),
   saveCreativeWorkLayerEditor: vi.fn(),
   releaseCreativeWorkLayerEditor: vi.fn(),
 }));
 vi.mock("@/server/application/publish-creative-work-layer-editor", () => ({
   publishCreativeWorkLayerEditor: (...args: unknown[]) => publishLayerEditorMock(...args),
-}));
-vi.mock("@/server/repositories/creative-work-layer-editor", () => ({
-  getCreativeWorkLayerEditorOutput: (...args: unknown[]) => getLayerEditorOutputMock(...args),
-  layerEditorFromOutput: (...args: unknown[]) => layerEditorFromOutputMock(...args),
-  acceptLayerRegenerationCandidate: (...args: unknown[]) => acceptCandidateMock(...args),
-  discardLayerRegenerationCandidate: (...args: unknown[]) => discardCandidateMock(...args),
-}));
-vi.mock("@/server/storage", () => ({
-  objectStorage: {
-    get: (...args: unknown[]) => layerEditorStorageGetMock(...args),
-    put: (...args: unknown[]) => layerEditorStoragePutMock(...args),
-    delete: (...args: unknown[]) => layerEditorStorageDeleteMock(...args),
-  },
 }));
 
 const getWorkMock = vi.hoisted(() => vi.fn());
@@ -356,6 +340,8 @@ describe("GET /api/creative-work/[id]", () => {
     process.env.ATLASCLOUD_API_KEY = "test-atlas-key";
     isPlatformOwnerEmailMock.mockReturnValue(true);
     layerEditorAccessMock.mockResolvedValue({ enabled: true, period: null, layerize: null, regeneration: null });
+    acceptCandidateCommandMock.mockResolvedValue({ ok: true });
+    discardCandidateCommandMock.mockResolvedValue({ ok: true });
     const expired = layerizationState();
     const unknown = { ...expired, status: "submission_unknown" as const, failureCode: "submission_unknown" as const };
     getWorkMock.mockResolvedValue({
@@ -1282,90 +1268,19 @@ describe("PATCH /api/creative-work/[id]", () => {
     expect(response.status).toBe(403);
   });
 
-  it("deletes only the promoted immutable key when candidate acceptance loses its CAS", async () => {
-    const outputId = "00000000-0000-4000-8000-000000000111";
-    const operationId = "00000000-0000-4000-8000-000000000113";
-    const layerId = "00000000-0000-4000-8000-000000000114";
-    const candidateKey = "layer-editor-candidates/private/candidate.png";
-    getLayerEditorOutputMock.mockResolvedValue({ id: outputId });
-    layerEditorFromOutputMock.mockReturnValue({
-      regeneration: { id: operationId, status: "ready", layerId, candidateKey },
-    });
-    layerEditorStorageGetMock.mockResolvedValue(Buffer.from("candidate"));
-    layerEditorStoragePutMock.mockResolvedValue(undefined);
-    acceptCandidateMock.mockResolvedValue(null);
-    layerEditorStorageDeleteMock.mockResolvedValue(undefined);
-
-    const response = await requestPatch({
-      action: "acceptLayerCandidate",
-      outputId,
-      leaseId: "00000000-0000-4000-8000-000000000112",
-      expectedRevision: 4,
-      operationId,
-    });
-    await Promise.resolve();
-
-    expect(response.status).toBe(409);
-    const immutableKey = layerEditorStoragePutMock.mock.calls[0]?.[0];
-    expect(immutableKey).toMatch(new RegExp(`^creative-work/work-1/layer-editor/${outputId}/layers/${layerId}/revisions/5/[0-9a-f-]+\\.png$`));
-    expect(layerEditorStorageDeleteMock).toHaveBeenCalledWith(immutableKey);
-    expect(layerEditorStorageDeleteMock).not.toHaveBeenCalledWith(candidateKey);
-  });
-
-  it("never deletes the winning immutable asset when concurrent candidate accepts race", async () => {
-    const outputId = "00000000-0000-4000-8000-000000000111";
-    const operationId = "00000000-0000-4000-8000-000000000113";
-    const layerId = "00000000-0000-4000-8000-000000000114";
-    const candidateKey = "layer-editor-candidates/private/candidate.png";
-    getLayerEditorOutputMock.mockResolvedValue({ id: outputId });
-    layerEditorFromOutputMock.mockReturnValue({ regeneration: { id: operationId, status: "ready", layerId, candidateKey } });
-    layerEditorStorageGetMock.mockResolvedValue(Buffer.from("candidate"));
-    acceptCandidateMock.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: outputId });
-
-    const request = { action: "acceptLayerCandidate", outputId, leaseId: "00000000-0000-4000-8000-000000000112", expectedRevision: 4, operationId };
-    const [loser, winner] = await Promise.all([requestPatch(request), requestPatch(request)]);
-    await Promise.resolve();
-
-    expect([loser.status, winner.status].sort()).toEqual([200, 409]);
-    const [loserKey, winnerKey] = layerEditorStoragePutMock.mock.calls.map(([key]) => key);
-    expect(loserKey).not.toBe(winnerKey);
-    expect(layerEditorStorageDeleteMock).toHaveBeenCalledWith(loserKey);
-    expect(layerEditorStorageDeleteMock).not.toHaveBeenCalledWith(winnerKey);
-  });
-
-  it("discards the candidate storage object only after the discard transition succeeds", async () => {
-    const outputId = "00000000-0000-4000-8000-000000000111";
-    const operationId = "00000000-0000-4000-8000-000000000113";
-    const candidateKey = "layer-editor-candidates/private/candidate.png";
-    getLayerEditorOutputMock.mockResolvedValue({ id: outputId });
-    layerEditorFromOutputMock.mockReturnValue({ regeneration: { id: operationId, status: "ready", layerId: "00000000-0000-4000-8000-000000000114", candidateKey } });
-    discardCandidateMock.mockResolvedValue({ id: outputId });
-    layerEditorStorageDeleteMock.mockResolvedValue(undefined);
-
-    const response = await requestPatch({
-      action: "discardLayerCandidate",
-      outputId,
-      leaseId: "00000000-0000-4000-8000-000000000112",
-      expectedRevision: 4,
-      operationId,
-    });
-    await Promise.resolve();
-
+  it("adapts candidate commands without exposing storage or repository seams", async () => {
+    const request = { action: "acceptLayerCandidate", outputId: "00000000-0000-4000-8000-000000000111", leaseId: "00000000-0000-4000-8000-000000000112", expectedRevision: 4, operationId: "00000000-0000-4000-8000-000000000113" };
+    const response = await requestPatch(request);
     expect(response.status).toBe(200);
-    expect(layerEditorStorageDeleteMock).toHaveBeenCalledWith(candidateKey);
+    expect(acceptCandidateCommandMock).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: "workspace-1", workItemId: "work-1", userId: "user-1" }));
   });
 
-  it("requires an active layer-editor entitlement before accepting or discarding a candidate", async () => {
-    layerEditorAccessMock.mockResolvedValue({ enabled: false, period: null, layerize: null, regeneration: null });
-    const response = await requestPatch({
-      action: "discardLayerCandidate",
-      outputId: "00000000-0000-4000-8000-000000000111",
-      leaseId: "00000000-0000-4000-8000-000000000112",
-      expectedRevision: 4,
-      operationId: "00000000-0000-4000-8000-000000000113",
-    });
-    expect(response.status).toBe(403);
-    expect(discardCandidateMock).not.toHaveBeenCalled();
+  it("maps candidate entitlement and conflict errors from the application service", async () => {
+    discardCandidateCommandMock.mockResolvedValue({ ok: false, code: "layer_editor_not_available" });
+    const request = { action: "discardLayerCandidate", outputId: "00000000-0000-4000-8000-000000000111", leaseId: "00000000-0000-4000-8000-000000000112", expectedRevision: 4, operationId: "00000000-0000-4000-8000-000000000113" };
+    await expect(requestPatch(request)).resolves.toMatchObject({ status: 403 });
+    discardCandidateCommandMock.mockResolvedValue({ ok: false, code: "layer_editor_revision_conflict" });
+    await expect(requestPatch(request)).resolves.toMatchObject({ status: 409 });
   });
 
   it.each([
