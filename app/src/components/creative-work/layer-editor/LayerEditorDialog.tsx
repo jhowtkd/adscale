@@ -36,12 +36,13 @@ export function LayerEditorDialog({ open, workItemId, outputId, mode = "edit", o
   const alertRef = useRef<HTMLDivElement>(null);
   const regenerationPanelRef = useRef<HTMLDivElement>(null);
   const canMutate = editor.mode === "edit" && !["reserved", "processing", "ready"].includes(editor.document?.regeneration?.status ?? "");
+  const recoverableHeartbeatFailure = !editor.hasUnresolvedConflict && editor.mode === "read" && editor.saveStatus === "error" && Boolean(editor.document);
 
   useEffect(() => {
-    if (!(error || editor.hasUnresolvedConflict)) return;
+    if (!(error || editor.hasUnresolvedConflict || recoverableHeartbeatFailure)) return;
     const focusAlert = setTimeout(() => setTimeout(() => alertRef.current?.focus(), 0), 0);
     return () => clearTimeout(focusAlert);
-  }, [editor.hasUnresolvedConflict, error]);
+  }, [editor.hasUnresolvedConflict, error, recoverableHeartbeatFailure]);
 
   useEffect(() => {
     if (!open || editorMode !== "edit") return;
@@ -159,9 +160,9 @@ export function LayerEditorDialog({ open, workItemId, outputId, mode = "edit", o
             </div>
           </aside> : null}
         </div>
-        {editor.hasUnresolvedConflict ? <div ref={alertRef} role="alert" tabIndex={-1} className="flex flex-wrap items-center gap-2 border-t border-amber-500/40 bg-amber-50 px-4 py-3 text-sm text-amber-950"><p>{t("editorConflict")}</p><Button variant="outline" size="sm" className="min-h-11" onClick={() => act(editor.discardLocalEdits)}>{t("editorDiscardLocal")}</Button><Button variant="outline" size="sm" className="min-h-11" onClick={() => void discardAndClose()}>{t("editorDiscardAndClose")}</Button></div> : null}
+        {editor.hasUnresolvedConflict ? <div ref={alertRef} role="alert" tabIndex={-1} className="flex flex-wrap items-center gap-2 border-t border-amber-500/40 bg-amber-50 px-4 py-3 text-sm text-amber-950"><p>{t("editorConflict")}</p><Button variant="outline" size="sm" className="min-h-11" onClick={() => act(editor.discardLocalEdits)}>{t("editorDiscardLocal")}</Button><Button variant="outline" size="sm" className="min-h-11" onClick={() => void discardAndClose()}>{t("editorDiscardAndClose")}</Button></div> : recoverableHeartbeatFailure ? <div ref={alertRef} role="alert" tabIndex={-1} className="flex flex-wrap items-center gap-2 border-t border-amber-500/40 bg-amber-50 px-4 py-3 text-sm text-amber-950"><p>{t("editorSaveError")}</p><Button variant="outline" size="sm" className="min-h-11" onClick={() => act(editor.discardLocalEdits)}>{t("editorDiscardLocal")}</Button></div> : null}
         <div role="status" aria-live="polite" className="sr-only">{notice || editor.mode}</div>
-        <div ref={editor.hasUnresolvedConflict ? undefined : alertRef} role="alert" tabIndex={-1} className="sr-only">{error || (editor.hasUnresolvedConflict ? t("editorConflict") : "")}</div>
+        <div ref={editor.hasUnresolvedConflict || recoverableHeartbeatFailure ? undefined : alertRef} role="alert" tabIndex={-1} className="sr-only">{error || (editor.hasUnresolvedConflict ? t("editorConflict") : "")}</div>
       </DialogContent>
     </Dialog>
   );

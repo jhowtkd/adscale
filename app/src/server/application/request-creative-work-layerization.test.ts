@@ -114,7 +114,7 @@ describe("requestCreativeWorkLayerization", () => {
     expect(sendMock).not.toHaveBeenCalled();
   });
 
-  it("claims one attempt and redelivers the stable event for a queued replay", async () => {
+  it("claims one attempt and redelivers the stable event for a queued replay despite zero remaining quota", async () => {
     const first = await requestCreativeWorkLayerization(input);
     expect(first.ok).toBe(true);
     if (!first.ok) return;
@@ -125,6 +125,16 @@ describe("requestCreativeWorkLayerization", () => {
     expect(second).toMatchObject({ ok: true, accepted: false, replay: true });
     expect(claimMock).toHaveBeenCalledOnce();
     expect(sendMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not redeliver a queued operation after its entitlement is revoked", async () => {
+    const first = await requestCreativeWorkLayerization(input);
+    expect(first.ok).toBe(true);
+    quotaClaimMock.mockResolvedValue({ ok: false, code: "disabled" });
+
+    await expect(requestCreativeWorkLayerization(input)).resolves.toMatchObject({ ok: false, error: { code: "layer_editor_not_available" } });
+
+    expect(sendMock).toHaveBeenCalledOnce();
   });
 
   it("redelivers a queued replay after an ambiguous dispatch rejection", async () => {

@@ -94,6 +94,11 @@ export async function claimLayerEditorQuota(input: {
   const claimKey = `layer-editor:${input.workspaceId}:${input.kind}:${input.operationId}`;
   const claim = async (tx: LayerEditorOperationExecutor) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`${input.workspaceId}:${input.kind}:${window.key}`}))`);
+    // Replays keep their already-accounted unit, but must never outlive the
+    // active workspace entitlement that authorizes editor actions.
+    const entitlement = await getActiveLayerEditorEntitlementByWorkspace(input.workspaceId, now, tx);
+    const limit = entitlement ? quotaLimit(input.kind, entitlement.metadata) : null;
+    if (limit === null) return { ok: false as const, code: "disabled" as const };
     const existing = await tx.select({ id: usageEvents.id, metadata: usageEvents.metadata }).from(usageEvents).where(and(eq(usageEvents.workspaceId, input.workspaceId), eq(usageEvents.idempotencyKey, claimKey))).limit(1);
     if (existing[0]) {
       const metadata = existing[0].metadata as Record<string, unknown> | null;
@@ -103,9 +108,6 @@ export async function claimLayerEditorQuota(input: {
         && (input.commandFingerprint ? metadata.commandFingerprint === input.commandFingerprint : !metadata?.commandFingerprint);
       return matches ? { ok: true as const, replay: true } : { ok: false as const, code: "operation_conflict" as const };
     }
-    const entitlement = await getActiveLayerEditorEntitlementByWorkspace(input.workspaceId, now, tx);
-    const limit = entitlement ? quotaLimit(input.kind, entitlement.metadata) : null;
-    if (limit === null) return { ok: false as const, code: "disabled" as const };
     if (await usedInWindow(tx, input.workspaceId, input.kind, window.start, window.end) >= limit) return { ok: false as const, code: "quota_exhausted" as const };
     await tx.insert(usageEvents).values({ workspaceId: input.workspaceId, type: input.kind, amount: 1, idempotencyKey: claimKey, metadata: { operationId: input.operationId, userId: input.userId, workItemId: input.workItemId, outputId: input.outputId, commandFingerprint: input.commandFingerprint ?? null } });
     return { ok: true as const, replay: false };
