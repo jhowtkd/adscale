@@ -9,6 +9,7 @@ import { brandTrainingAnalyzeJob } from "@/server/jobs/brand-training";
 import { creativeWorkOutputJob } from "@/server/jobs/creative-work";
 import { creativeWorkSourceAnalyzeJob } from "@/server/jobs/creative-work-source";
 import { creativeWorkLayerizationJob } from "@/server/jobs/creative-work-layerization";
+import { creativeWorkLayerRegenerationJob } from "@/server/jobs/creative-work-layer-regeneration";
 
 /**
  * Security: refuse to run in "dev" mode (which disables signature
@@ -35,5 +36,6 @@ export const { GET, POST, PUT } = serve({
     creativeWorkOutputJob,
     creativeWorkSourceAnalyzeJob,
     creativeWorkLayerizationJob,
+    creativeWorkLayerRegenerationJob,
   ],
 });
