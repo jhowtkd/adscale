@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import DashboardV6View from "./DashboardV6View";
 import type { DashboardV6Labels, DashboardV6ViewModel } from "./dashboard-v6-types";
@@ -30,12 +30,90 @@ const view: DashboardV6ViewModel = {
 };
 
 describe("DashboardV6View motion values", () => {
+  it("keeps the greeting heading named while its visual skeleton loads", () => {
+    render(
+      <DashboardV6View
+        view={view}
+        labels={labels}
+        summary="Resumo"
+        isLoading
+      />,
+    );
+
+    expect(screen.getByRole("heading", { level: 1, name: "greeting" })).toBeInTheDocument();
+  });
+
+  it("offers a useful next action when there is no featured work", () => {
+    render(
+      <DashboardV6View
+        view={{ ...view, hero: null }}
+        labels={labels}
+        summary="Resumo"
+      />,
+    );
+
+    expect(screen.getByText("heroEmptyTitle")).toBeInTheDocument();
+    expect(screen.getByText("heroEmptyDescription")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "heroEmptyAction" })).toHaveAttribute("href", "/?compose=1");
+    expect(screen.getByRole("link", { name: "activityEmptyAction" })).toHaveAttribute("href", "/?compose=1");
+    expect(screen.getByRole("link", { name: "briefingEmptyAction" })).toHaveAttribute("href", "/?compose=1");
+  });
+
+  it("does not announce an empty featured work while works are loading", () => {
+    render(
+      <DashboardV6View
+        view={{ ...view, hero: null }}
+        labels={labels}
+        summary="Resumo"
+        isHeroLoading
+      />,
+    );
+
+    expect(screen.queryByText("heroEmptyTitle")).not.toBeInTheDocument();
+  });
+
+  it("keeps overview data visible when featured work fails", () => {
+    const retry = vi.fn();
+
+    render(
+      <DashboardV6View
+        view={{ ...view, hero: null }}
+        labels={labels}
+        summary="Resumo"
+        heroError={{ title: "Erro", description: "Tente novamente", retryLabel: "Repetir", retry }}
+      />,
+    );
+
+    expect(screen.getByText("60%")).toBeInTheDocument();
+    expect(screen.queryByText("heroEmptyTitle")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Repetir" }));
+    expect(retry).toHaveBeenCalledOnce();
+  });
+
   it("renders the final KPI and progress values immediately", () => {
     render(<DashboardV6View view={view} labels={labels} summary="Resumo" />);
 
     expect(screen.getByText("60%").closest("[data-motion-value]")).toHaveAttribute("data-motion-value", "60%");
     expect(screen.getByText("● 75%").closest("[data-motion-value]")).toHaveAttribute("data-motion-value", "● 75%");
     expect(screen.getAllByTestId("motion-value")).toHaveLength(4);
+  });
+
+  it("omits unavailable featured-work metadata instead of rendering dashes", () => {
+    render(
+      <DashboardV6View
+        view={{
+          ...view,
+          hero: { ...view.hero!, briefingProgress: null, approved: null },
+        }}
+        labels={labels}
+        summary="Resumo"
+      />,
+    );
+
+    expect(screen.queryByText("metaBriefing")).not.toBeInTheDocument();
+    expect(screen.queryByText("metaApproved")).not.toBeInTheDocument();
+    expect(screen.getByText("metaVariations")).toBeInTheDocument();
+    expect(screen.queryByText("—")).not.toBeInTheDocument();
   });
 
   it.each([
