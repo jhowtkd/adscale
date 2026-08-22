@@ -5,24 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
-import {
-  useBrandTrainingStatus,
-  type BrandTrainingStatus,
-} from "@/lib/hooks/use-brand-training";
-
-export function brandStatusKey(
-  activeClientProfileId: string | null,
-  training?: BrandTrainingStatus,
-) {
-  if (!activeClientProfileId) return "brandKitStatusSelect";
-  if (
-    training?.voice.reviewStatus === "pending_review" ||
-    training?.voice.reviewStatus === "changes_requested"
-  ) {
-    return "brandKitStatusReview";
-  }
-  return training?.trained ? "brandKitStatusReady" : "brandKitStatusSetup";
-}
+import { useBrandTrainingStatus, type BrandTrainingStatus } from "@/lib/hooks/use-brand-training";
 
 export default function SidebarBrandKitFeature() {
   const tNav = useTranslations("navigation");
@@ -35,7 +18,6 @@ export default function SidebarBrandKitFeature() {
     pathname.startsWith("/brand-kit") ||
     (pathname.startsWith("/settings") &&
       (settingsTab === "brandKit" || settingsTab === "brandTraining"));
-  const statusKey = brandStatusKey(activeClientProfileId, training);
 
   return (
     <Link
@@ -62,9 +44,23 @@ export default function SidebarBrandKitFeature() {
         <span className="text-[11px] text-[var(--text-muted)]">
           {isLoading
             ? tNav("brandKitStatusLoading")
-            : tNav(statusKey)}
+            : tNav(brandStatusKey(activeClientProfileId, training))}
         </span>
       </span>
     </Link>
   );
+}
+
+export function brandStatusKey(
+  activeClientProfileId: string | null,
+  training?: BrandTrainingStatus,
+) {
+  if (!activeClientProfileId) return "brandKitStatusSelect";
+  if (
+    training?.voice.reviewStatus === "pending_review" ||
+    training?.voice.reviewStatus === "changes_requested"
+  ) {
+    return "brandKitStatusReview";
+  }
+  return training?.trained ? "brandKitStatusReady" : "brandKitStatusSetup";
 }
