@@ -15,9 +15,11 @@ route-level generation and ranking can store multiple OpenAI candidates without
 changing downstream persistence contracts.
 
 Seedream 5 Pro Layerize is not a generator. It is an optional post-approval
-export of an already selected Peça, exclusive to the Dono da plataforma
-(`src/server/layerize/`, `creative-work.layerize`). That role is not the
-workspace owner. It must stay disabled when `FAL_KEY` is absent and must not
+export of an already selected Peça (`src/server/layerize/`,
+`creative-work.layerize`) available to workspace members only through an
+active `layer_editor_v1` entitlement, per the accepted 2026-08-21 native
+Layer Editor decision. Diagnostic ZIP remains platform-owner/ops-only. It
+must stay disabled when its provider configuration is absent and must not
 enter generation routing or fallback.
 
 ### Creative work (home composer)

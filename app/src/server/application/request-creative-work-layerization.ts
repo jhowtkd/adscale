@@ -22,7 +22,7 @@ import {
   SEEDREAM_PROVIDER_ENDPOINT,
 } from "@/server/layerize/seedream-provider";
 import { env } from "@/server/validation/env";
-import { claimLayerEditorQuota, isLayerEditorQuotaReleased, isLayerEditorQuotaReservationCommitted, markLayerEditorQuotaReservationCommitted, releaseLayerEditorQuota, withLayerEditorOperationLock, type LayerEditorOperationExecutor } from "@/server/layer-editor/quota";
+import { claimLayerEditorQuota, isLayerEditorQuotaReleased, isLayerEditorQuotaReservationCommitted, markLayerEditorQuotaReservationCommitted, releaseLayerEditorQuota, withLayerEditorOperationLock, withLayerEditorPostDispatchLock, type LayerEditorOperationExecutor } from "@/server/layer-editor/quota";
 
 export type RequestCreativeWorkLayerizationError =
   | { code: "work_not_found" }
@@ -91,11 +91,15 @@ export async function requestCreativeWorkLayerization(input: {
 }): Promise<RequestCreativeWorkLayerizationResult> {
   const decision = await withLayerEditorOperationLock({ workspaceId: input.workspaceId, kind: "layerize_v1", operationId: input.operationId }, (executor) => requestCreativeWorkLayerizationLocked(input, executor));
   if (decision.kind === "result") return decision.result;
-  try {
-    await inngest.send({ id: `creative-work-layerize:${input.outputId}:${decision.state.attemptId}`, name: heavyImageEventName("creative-work.layerize"), data: { workspaceId: input.workspaceId, workItemId: input.workItemId, outputId: input.outputId, attemptId: decision.state.attemptId, ...(decision.callbackUrl ? { callbackUrl: decision.callbackUrl } : {}) } });
-    return { ok: true, accepted: decision.accepted, replay: decision.replay, state: decision.state };
-  } catch {
-    return withLayerEditorOperationLock({ workspaceId: input.workspaceId, kind: "layerize_v1", operationId: input.operationId }, async (executor) => {
+  return withLayerEditorPostDispatchLock({ workspaceId: input.workspaceId, kind: "layerize_v1", operationId: input.operationId }, async (executor) => {
+      const current = await getCreativeWorkLayerizationOutput(input.workspaceId, input.workItemId, input.outputId, executor);
+      const currentState = layerizationStateFromDatabase(current?.layerization);
+      if (currentState?.attemptId !== decision.state.attemptId) return { ok: false, error: { code: "layerization_replay_conflict" } };
+      if (currentState.status !== "queued") return { ok: true, accepted: true, replay: false, state: currentState };
+      try {
+        await inngest.send({ id: `creative-work-layerize:${input.outputId}:${decision.state.attemptId}`, name: heavyImageEventName("creative-work.layerize"), data: { workspaceId: input.workspaceId, workItemId: input.workItemId, outputId: input.outputId, attemptId: decision.state.attemptId, ...(decision.callbackUrl ? { callbackUrl: decision.callbackUrl } : {}) } });
+        return { ok: true, accepted: decision.accepted, replay: decision.replay, state: decision.state };
+      } catch {
       const failed = await failQueuedCreativeWorkLayerization({ workspaceId: input.workspaceId, workItemId: input.workItemId, outputId: input.outputId, attemptId: decision.state.attemptId, code: "dispatch_failed" }, executor);
       if (failed) {
         await releaseLayerEditorQuota({ workspaceId: input.workspaceId, kind: "layerize_v1", operationId: input.operationId }, new Date(), executor);
@@ -105,8 +109,8 @@ export async function requestCreativeWorkLayerization(input: {
       const state = layerizationStateFromDatabase(refreshed?.layerization);
       if (state?.attemptId === decision.state.attemptId && state.status !== "failed") return { ok: true, accepted: true, replay: false, state };
       return { ok: false, error: { code: "dispatch_failed" } };
-    });
-  }
+      }
+  });
 }
 
 async function requestCreativeWorkLayerizationLocked(input: {

@@ -1,6 +1,6 @@
 import "server-only";
 import { createHash } from "node:crypto";
-import { claimLayerEditorQuota, isLayerEditorQuotaReleased, isLayerEditorQuotaReservationCommitted, markLayerEditorQuotaReservationCommitted, releaseLayerEditorQuota, withLayerEditorOperationLock, type LayerEditorOperationExecutor } from "@/server/layer-editor/quota";
+import { claimLayerEditorQuota, isLayerEditorQuotaReleased, isLayerEditorQuotaReservationCommitted, markLayerEditorQuotaReservationCommitted, releaseLayerEditorQuota, withLayerEditorOperationLock, withLayerEditorPostDispatchLock, type LayerEditorOperationExecutor } from "@/server/layer-editor/quota";
 import { clearTerminalLayerRegenerationForRetry, getCreativeWorkLayerEditorOutput, layerEditorFromOutput, reserveLayerRegeneration, rollbackReservedLayerRegeneration } from "@/server/repositories/creative-work-layer-editor";
 import { inngest } from "@/server/jobs/client";
 import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
@@ -8,18 +8,19 @@ import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 export async function requestCreativeWorkLayerRegeneration(input: { workspaceId:string; workItemId:string; outputId:string; userId:string; leaseId:string; expectedRevision:number; operationId:string; layerId:string; instruction:string }) {
   const decision = await withLayerEditorOperationLock({ workspaceId: input.workspaceId, kind: "layer_regeneration_v1", operationId: input.operationId }, (executor) => requestCreativeWorkLayerRegenerationLocked(input, executor));
   if (decision.kind !== "dispatch") return decision.result;
-  try {
-    await inngest.send({id:`creative-work-layer-regenerate:${input.outputId}:${input.operationId}`,name:heavyImageEventName("creative-work.layer-regenerate"),data:{workspaceId:input.workspaceId,workItemId:input.workItemId,outputId:input.outputId,operationId:input.operationId}});
-    return {ok:true as const,accepted:decision.accepted,replay:decision.replay};
-  } catch {
-    return withLayerEditorOperationLock({ workspaceId: input.workspaceId, kind: "layer_regeneration_v1", operationId: input.operationId }, async (executor) => {
+  return withLayerEditorPostDispatchLock({ workspaceId: input.workspaceId, kind: "layer_regeneration_v1", operationId: input.operationId }, async (executor) => {
       const state = layerEditorFromOutput(await getCreativeWorkLayerEditorOutput(input, executor));
-      if (state?.regeneration?.id === input.operationId && state.regeneration.status !== "reserved") return { ok: true as const, accepted: true, replay: false };
-      const rolledBack = await rollbackReservedLayerRegeneration({ ...input, now: new Date() }, executor);
-      if (rolledBack) await releaseLayerEditorQuota({ workspaceId: input.workspaceId, kind: "layer_regeneration_v1", operationId: input.operationId }, new Date(), executor);
-      return { ok: false as const, code: "layer_regeneration_dispatch_failed" as const };
-    });
-  }
+      if (state?.regeneration?.id !== input.operationId) return { ok: false as const, code: "layer_editor_revision_conflict" as const };
+      if (state.regeneration.status !== "reserved") return { ok: true as const, accepted: true, replay: false };
+      try {
+        await inngest.send({id:`creative-work-layer-regenerate:${input.outputId}:${input.operationId}`,name:heavyImageEventName("creative-work.layer-regenerate"),data:{workspaceId:input.workspaceId,workItemId:input.workItemId,outputId:input.outputId,operationId:input.operationId}});
+        return {ok:true as const,accepted:decision.accepted,replay:decision.replay};
+      } catch {
+        const rolledBack = await rollbackReservedLayerRegeneration({ ...input, now: new Date() }, executor);
+        if (rolledBack) await releaseLayerEditorQuota({ workspaceId: input.workspaceId, kind: "layer_regeneration_v1", operationId: input.operationId }, new Date(), executor);
+        return { ok: false as const, code: "layer_regeneration_dispatch_failed" as const };
+      }
+  });
 }
 
 async function requestCreativeWorkLayerRegenerationLocked(input: { workspaceId:string; workItemId:string; outputId:string; userId:string; leaseId:string; expectedRevision:number; operationId:string; layerId:string; instruction:string }, executor: LayerEditorOperationExecutor) {

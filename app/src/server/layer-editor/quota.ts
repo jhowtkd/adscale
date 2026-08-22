@@ -29,6 +29,23 @@ export async function withLayerEditorOperationLock<T>(input: {
   });
 }
 
+/**
+ * Serializes the committed dispatch/compensation phase. This deliberately
+ * uses a new transaction: reservation must be visible before an event can be
+ * delivered, while a same-operation replay must wait through send and any
+ * definitive compensation.
+ */
+export async function withLayerEditorPostDispatchLock<T>(input: {
+  workspaceId: string;
+  kind: LayerEditorQuotaKind;
+  operationId: string;
+}, run: (executor: LayerEditorOperationExecutor) => Promise<T>): Promise<T> {
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`${input.workspaceId}:${input.kind}:${input.operationId}:dispatch`}))`);
+    return run(tx);
+  });
+}
+
 function monthWindow(now: Date) {
   const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
   const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));

@@ -11,7 +11,8 @@ const quotaCommitted = vi.hoisted(() => vi.fn());
 const markCommitted = vi.hoisted(() => vi.fn());
 const send = vi.hoisted(() => vi.fn());
 const operationLock = vi.hoisted(() => vi.fn(async (_input: unknown, run: (executor: unknown) => Promise<unknown>) => run({})));
-vi.mock("@/server/layer-editor/quota", () => ({ claimLayerEditorQuota: claim, isLayerEditorQuotaReleased: quotaReleased, isLayerEditorQuotaReservationCommitted: quotaCommitted, markLayerEditorQuotaReservationCommitted: markCommitted, releaseLayerEditorQuota: release, withLayerEditorOperationLock: operationLock }));
+const dispatchLock = vi.hoisted(() => vi.fn(async (_input: unknown, run: (executor: unknown) => Promise<unknown>) => run({})));
+vi.mock("@/server/layer-editor/quota", () => ({ claimLayerEditorQuota: claim, isLayerEditorQuotaReleased: quotaReleased, isLayerEditorQuotaReservationCommitted: quotaCommitted, markLayerEditorQuotaReservationCommitted: markCommitted, releaseLayerEditorQuota: release, withLayerEditorOperationLock: operationLock, withLayerEditorPostDispatchLock: dispatchLock }));
 vi.mock("@/server/repositories/creative-work-layer-editor", () => ({ clearTerminalLayerRegenerationForRetry: clearTerminal, reserveLayerRegeneration: reserve, rollbackReservedLayerRegeneration: rollback, getCreativeWorkLayerEditorOutput: getOutput, layerEditorFromOutput: stateFromOutput }));
 vi.mock("@/server/jobs/client", () => ({ inngest: { send } }));
 import { requestCreativeWorkLayerRegeneration } from "./request-creative-work-layer-regeneration";
@@ -22,6 +23,7 @@ describe("requestCreativeWorkLayerRegeneration", () => {
     vi.clearAllMocks();
     operationLock.mockReset();
     operationLock.mockImplementation(async (_input: unknown, run: (executor: unknown) => Promise<unknown>) => run({}));
+    dispatchLock.mockImplementation(async (_input: unknown, run: (executor: unknown) => Promise<unknown>) => run({}));
     stateFromOutput.mockReset();
     reserve.mockReset();
     getOutput.mockReset();
@@ -30,6 +32,7 @@ describe("requestCreativeWorkLayerRegeneration", () => {
     quotaReleased.mockResolvedValue(false);
     quotaCommitted.mockResolvedValue(false);
     markCommitted.mockResolvedValue(true);
+    stateFromOutput.mockReturnValue({ regeneration: { id: input.operationId, status: "reserved" } });
   });
 
   it("does not dispatch when quota is exhausted", async () => {
@@ -84,11 +87,11 @@ describe("requestCreativeWorkLayerRegeneration", () => {
   it("recovers an unreleased quota claim that crashed before reservation", async () => {
     claim.mockResolvedValue({ ok: true, replay: true });
     getOutput.mockResolvedValue({ layerEditor: {} });
-    stateFromOutput.mockReturnValue({ regeneration: null });
+    stateFromOutput.mockReturnValueOnce({ regeneration: null }).mockReturnValueOnce({ regeneration: null }).mockReturnValue({ regeneration: { id: input.operationId, status: "reserved" } });
     reserve.mockResolvedValue({ id: input.outputId });
     send.mockResolvedValue(undefined);
 
-    await expect(requestCreativeWorkLayerRegeneration(input)).resolves.toEqual({ ok: true, accepted: true, replay: false });
+    await expect(requestCreativeWorkLayerRegeneration(input)).resolves.toEqual({ ok: true, accepted: false, replay: true });
     expect(reserve).toHaveBeenCalledOnce();
     expect(send).toHaveBeenCalledOnce();
   });
@@ -156,9 +159,14 @@ describe("requestCreativeWorkLayerRegeneration", () => {
     claim.mockResolvedValue({ ok: true, replay: false });
     getOutput.mockResolvedValue({ layerEditor: {} });
     clearTerminal.mockResolvedValue({ cleared: true });
-    stateFromOutput.mockImplementation((row) => row && "cleared" in (row as object)
-      ? { revision: 2, regeneration: null }
-      : { revision: 1, regeneration: { id: "previous-operation", status: "failed" } });
+    let stateReads = 0;
+    stateFromOutput.mockImplementation((row) => {
+      stateReads += 1;
+      if (stateReads >= 3) return { revision: 3, regeneration: { id: input.operationId, status: "reserved" } };
+      return row && "cleared" in (row as object)
+        ? { revision: 2, regeneration: null }
+        : { revision: 1, regeneration: { id: "previous-operation", status: "failed" } };
+    });
     reserve.mockResolvedValue({ id: input.outputId });
     send.mockResolvedValue(undefined);
 
