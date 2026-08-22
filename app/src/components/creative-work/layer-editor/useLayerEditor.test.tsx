@@ -350,6 +350,51 @@ describe("useLayerEditor", () => {
     expect(callsFor("releaseLayerEditor")).toHaveLength(1);
   });
 
+  it("keeps an autosave failure dirty through heartbeat and blocks stale export, publish, and close", async () => {
+    vi.useFakeTimers();
+    const assign = vi.fn();
+    const close = vi.fn();
+    vi.spyOn(window, "open").mockReturnValue({ location: { assign }, close } as unknown as Window);
+    const server = { ...editorDocument, revision: 2, layers: editorDocument.layers.map((layer) => ({ ...layer, name: "Server" })) };
+    const persisted = { ...server, revision: 3, layers: server.layers.map((layer) => ({ ...layer, name: "Unsaved" })) };
+    let failSave = true;
+    patch.mockImplementation((_work: string, body: { action: string }) => {
+      if (body.action === "saveLayerEditor") return failSave ? Promise.reject(new Error("save unavailable")) : Promise.resolve(response(persisted));
+      if (body.action === "heartbeatLayerEditor") return Promise.resolve(response(server));
+      if (body.action === "publishLayerEditor") return Promise.resolve({ ok: true, output: { id: "unexpected" } });
+      return Promise.resolve(response());
+    });
+    const hook = await openHook();
+    act(() => hook.result.current.dispatch({ type: "rename", id: editorDocument.layers[0]!.id, name: "Unsaved" }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(750); });
+    expect(hook.result.current.saveStatus).toBe("error");
+    expect(hook.result.current.document?.layers[0]?.name).toBe("Unsaved");
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(29_250); });
+    expect(callsFor("heartbeatLayerEditor")).toHaveLength(1);
+    expect(hook.result.current.document?.layers[0]?.name).toBe("Unsaved");
+
+    let exported: boolean | undefined;
+    let published: unknown;
+    let closed: boolean | undefined;
+    await act(async () => { exported = await hook.result.current.exportDraft("draft-png"); });
+    await act(async () => { published = await hook.result.current.publish(); });
+    await act(async () => { closed = await hook.result.current.flushAndRelease(); });
+    expect(exported).toBe(false);
+    expect(published).toBeNull();
+    expect(closed).toBe(false);
+    expect(assign).not.toHaveBeenCalled();
+    expect(close).toHaveBeenCalledOnce();
+    expect(callsFor("publishLayerEditor")).toHaveLength(0);
+    expect(callsFor("releaseLayerEditor")).toHaveLength(0);
+
+    failSave = false;
+    await act(async () => { closed = await hook.result.current.flushAndRelease(); });
+    expect(closed).toBe(true);
+    expect(hook.result.current.saveStatus).toBe("saved");
+    expect(callsFor("releaseLayerEditor")).toHaveLength(1);
+  });
+
   for (const [action, invoke] of [
     ["acceptLayerCandidate", (hook: ReturnType<typeof renderHook<ReturnType<typeof useLayerEditor>, unknown>>) => hook.result.current.acceptCandidate()],
     ["discardLayerCandidate", (hook: ReturnType<typeof renderHook<ReturnType<typeof useLayerEditor>, unknown>>) => hook.result.current.discardCandidate()],

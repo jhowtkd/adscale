@@ -134,11 +134,18 @@ export function useLayerEditor(input: LayerEditorInput) {
               })),
             },
           });
-          acceptServerDocument(response.document, response.access);
+          if (!acceptServerDocument(response.document, response.access)) {
+            dirty.current = true;
+            setSaveStatus("error");
+            return false;
+          }
           if (!dirty.current) setSaveStatus("saved");
           return true;
         } catch (error) {
           const code = typeof error === "object" && error && "code" in error ? (error as { code?: string }).code : null;
+          // We clear this optimistically while the request is in flight. A
+          // failure has no durable acknowledgement, so retain the local draft.
+          dirty.current = true;
           if (code === "layer_editor_locked" || code === "layer_editor_revision_conflict") markConflict(conflictDocument(error));
           else setSaveStatus("error");
           return false;
