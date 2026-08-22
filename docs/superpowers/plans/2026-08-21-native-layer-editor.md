@@ -18,7 +18,7 @@
 - Um lease dura 90 segundos; heartbeat ocorre a cada 30 segundos e não incrementa `revision`.
 - Autosave espera 750 ms sem mudança; undo/redo mantém no máximo 50 comandos apenas na sessão.
 - Desktop e tablet editam; celular usa `mode: "inspect"` e não persiste mutação.
-- Regeneração usa exatamente um `gpt-image-2`, qualidade `medium`, `input_fidelity: "high"`, PNG transparente, uma candidata e zero retries do SDK.
+- Regeneração usa exatamente um `gpt-image-2`, qualidade `medium`, alta fidelidade automática (sem enviar `input_fidelity`), PNG transparente, uma candidata e zero retries do SDK.
 - Layerize e regeneração não debitam créditos; cada nova tentativa externa consome uma unidade da cota mensal UTC do workspace.
 - `layerize_v1` e `layer_regeneration_v1` são os únicos tipos novos de `usage_events`; release pré-provider usa o mesmo tipo com `amount = -1`.
 - Não adicionar pacote de canvas, página de dashboard, árvore de API top-level, provider router, fallback automático, histórico persistente ou coedição.
@@ -710,14 +710,14 @@ git commit -m "feat: export saved layer editor revisions"
 
 Read [OpenAI Image generation guide](https://developers.openai.com/api/docs/guides/image-generation) and verify the installed type surface:
 
-Run: `cd app && rg -n "background\?:|input_fidelity\?:|output_format\?:" node_modules/openai/resources/images.d.ts`
+Run: `cd app && rg -n "background\?:|output_format\?:" node_modules/openai/resources/images.d.ts`
 
-Expected: official edit support plus installed fields for transparent background, high input fidelity and PNG output. If the capability is absent, stop this task and update the approved spec; do not silently change model or provider.
+Expected: official edit support plus installed fields for transparent background and PNG output. Confirm in the official guide that `gpt-image-2` always processes inputs at high fidelity and rejects `input_fidelity`, so the request must omit that parameter. If any capability is absent, stop this task and update the approved spec; do not silently change model or provider.
 
 - [ ] **Step 2: Write failing provider-contract tests**
 
 ```ts
-it("requests one transparent high-fidelity edit with selected layer first", async () => {
+it("requests one transparent automatically high-fidelity edit with selected layer first", async () => {
   await provider.regenerate({
     instruction: "Make the flower warmer",
     selectedLayer: rgbaLayer,
@@ -731,8 +731,8 @@ it("requests one transparent high-fidelity edit with selected layer first", asyn
     quality: "medium",
     background: "transparent",
     output_format: "png",
-    input_fidelity: "high",
   });
+  expect(editMock.mock.calls[0]?.[0]).not.toHaveProperty("input_fidelity");
   expect(openAIConstructorMock).toHaveBeenCalledWith(expect.objectContaining({ maxRetries: 0 }));
 });
 ```
@@ -778,7 +778,6 @@ const response = await openai.images.edit({
   quality: "medium",
   background: "transparent",
   output_format: "png",
-  input_fidelity: "high",
 }, { timeout: 180_000, maxRetries: 0 });
 ```
 

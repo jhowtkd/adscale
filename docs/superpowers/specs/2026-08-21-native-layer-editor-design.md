@@ -388,7 +388,7 @@ V1 usa `gpt-image-2` fixo, o SDK OpenAI já instalado e a chave server-only exis
 A documentação oficial consultada em 2026-08-21 informa que:
 
 - o Image API aceita edição de imagens;
-- `gpt-image-2` processa inputs em alta fidelidade;
+- `gpt-image-2` processa todos os inputs automaticamente em alta fidelidade e exige omitir `input_fidelity`;
 - background transparente está disponível em preview;
 - máscaras são orientação e podem não seguir a forma com precisão total.
 
