@@ -180,7 +180,7 @@ describe("LayerEditorDialog", () => {
     expect(onOpenChange).not.toHaveBeenCalled();
   });
 
-  it("offers explicit conflict recovery while disabling document mutation controls", () => {
+  it("offers explicit conflict recovery while disabling document mutation controls", async () => {
     const value = { ...editor("edit"), document: { ...document, regeneration: { id: "regen", status: "processing" as const, layerId: document.layers[0]!.id, instruction: "Change", candidateUrl: null, failureCode: null } }, hasUnresolvedConflict: true, saveStatus: "conflict" as const };
     mocks.useLayerEditor.mockReturnValue(value);
     render(<LayerEditorDialog open workItemId="work-8" outputId="output-8" onOpenChange={vi.fn()} />);
@@ -188,5 +188,6 @@ describe("LayerEditorDialog", () => {
     expect(screen.queryByRole("button", { name: "Criar nova versão" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Descartar alterações locais e recarregar" })).toBeInTheDocument();
     expect(screen.getAllByRole("alert")[0]).toHaveTextContent("As camadas foram alteradas por outra pessoa");
+    await waitFor(() => expect(window.document.activeElement).toHaveAttribute("role", "alert"));
   });
 });

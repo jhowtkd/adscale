@@ -24,6 +24,7 @@ describe("LayerRegenerationPanel retry dispatch", () => {
     expect(button).toHaveClass("min-h-11");
     fireEvent.click(button);
     expect(retry).toHaveBeenCalledOnce();
+    expect(screen.getByText("editorQuotaRemaining")).toHaveAttribute("aria-live", "polite");
   });
 
   it("disables retry in read mode and hides it outside reserved", () => {
