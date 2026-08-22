@@ -6,11 +6,19 @@ import { recoverCreativeWorkLayerEditorStaleRegeneration } from "@/server/applic
 import { objectStorage } from "@/server/storage";
 import { OpenAILayerRegenerationProvider, normalizeLayerCandidate, type LayerRegenerationProvider } from "@/server/layer-editor/openai-provider";
 import { renderLayerEditorPng } from "@/server/layer-editor/artifacts";
-import { releaseLayerEditorQuota } from "@/server/layer-editor/quota";
+import { releaseLayerEditorQuota, withLayerEditorOperationLock } from "@/server/layer-editor/quota";
 
 function isAmbiguousProviderFailure(error: unknown) {
   if (error instanceof OpenAI.APIConnectionError || error instanceof OpenAI.APIConnectionTimeoutError) return true;
   return error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError" || /(?:timeout|timed?\s*out|aborted?)/i.test(error.message));
+}
+
+async function failBeforeRegenerationProvider(input: {workspaceId:string;workItemId:string;outputId:string;operationId:string}, now: Date) {
+ return withLayerEditorOperationLock({ workspaceId: input.workspaceId, kind: "layer_regeneration_v1", operationId: input.operationId }, async (executor) => {
+   const failed = await failLayerRegeneration({ ...input, status: "failed", failureCode: "layer_regeneration_preparation_failed", now }, executor);
+   if (failed) await releaseLayerEditorQuota({ workspaceId: input.workspaceId, kind: "layer_regeneration_v1", operationId: input.operationId }, now, executor);
+   return failed;
+ });
 }
 
 export async function runCreativeWorkLayerRegeneration(input:{workspaceId:string;workItemId:string;outputId:string;operationId:string}, provider:LayerRegenerationProvider=new OpenAILayerRegenerationProvider()) {
@@ -21,8 +29,7 @@ export async function runCreativeWorkLayerRegeneration(input:{workspaceId:string
    selectedLayer = await objectStorage.get(layer.currentKey);
    composite = await renderLayerEditorPng({canvas:state.canvas,layers:state.layers,load:(key)=>objectStorage.get(key)});
  } catch {
-   const failed = await failLayerRegeneration({...input,status:"failed",failureCode:"layer_regeneration_preparation_failed",now:new Date()});
-   if (failed) await releaseLayerEditorQuota({ workspaceId: input.workspaceId, kind: "layer_regeneration_v1", operationId: input.operationId }, new Date());
+   await failBeforeRegenerationProvider(input, new Date());
    return {status:"failed" as const};
  }
  let result: { buffer: Buffer; requestId: string | null };

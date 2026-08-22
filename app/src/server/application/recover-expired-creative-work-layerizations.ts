@@ -8,6 +8,7 @@ import {
 } from "@/server/repositories/creative-work-layerization";
 import { inngest } from "@/server/jobs/client";
 import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
+import { withLayerEditorPostDispatchLock } from "@/server/layer-editor/quota";
 
 export async function recoverExpiredCreativeWorkLayerizations(input: {
   workspaceId: string;
@@ -21,12 +22,12 @@ export async function recoverExpiredCreativeWorkLayerizations(input: {
     const current = layerizationStateFromDatabase(output.layerization);
     if (!current || !["queued", "processing", "reconciling", "finalizing"].includes(current.status)) continue;
     if (current.status !== "finalizing" && Date.parse(current.callbackDeadlineAt) > now.getTime()) continue;
-    const claimed = await claimExpiredCreativeWorkLayerizationRecovery({
+    const claimed = await withLayerEditorPostDispatchLock({ workspaceId: input.workspaceId, kind: "layerize_v1", operationId: current.attemptId }, (executor) => claimExpiredCreativeWorkLayerizationRecovery({
       workspaceId: input.workspaceId,
       workItemId: input.workItemId,
       outputId: output.id,
       now,
-    });
+    }, executor));
     const state = layerizationStateFromDatabase(claimed?.layerization);
     if (!state) continue;
     recovered.set(output.id, state);

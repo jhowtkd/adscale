@@ -4,6 +4,7 @@ import type { LayerizationState } from "@/server/layerize/contracts";
 const claimMock = vi.hoisted(() => vi.fn());
 const releaseMock = vi.hoisted(() => vi.fn());
 const sendMock = vi.hoisted(() => vi.fn());
+const postDispatchLockMock = vi.hoisted(() => vi.fn(async (_input: unknown, run: (executor: unknown) => Promise<unknown>) => run({})));
 
 vi.mock("@/server/repositories/creative-work-layerization", () => ({
   claimExpiredCreativeWorkLayerizationRecovery: (...args: unknown[]) => claimMock(...args),
@@ -11,6 +12,9 @@ vi.mock("@/server/repositories/creative-work-layerization", () => ({
 }));
 vi.mock("@/server/jobs/client", () => ({
   inngest: { send: (...args: unknown[]) => sendMock(...args) },
+}));
+vi.mock("@/server/layer-editor/quota", () => ({
+  withLayerEditorPostDispatchLock: (...args: unknown[]) => postDispatchLockMock(...args),
 }));
 
 import { recoverExpiredCreativeWorkLayerizations } from "./recover-expired-creative-work-layerizations";
@@ -46,6 +50,7 @@ describe("expired creative work layerization recovery", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     releaseMock.mockResolvedValue(true);
+    postDispatchLockMock.mockImplementation(async (_input: unknown, run: (executor: unknown) => Promise<unknown>) => run({}));
   });
 
   it("releases the recovery lease when event dispatch fails", async () => {
@@ -107,7 +112,8 @@ describe("expired creative work layerization recovery", () => {
       workItemId: "work-1",
       outputId: "output-queued",
       now,
-    });
+    }, expect.anything());
+    expect(postDispatchLockMock).toHaveBeenCalledWith(expect.objectContaining({ kind: "layerize_v1", operationId: "attempt-1" }), expect.any(Function));
     expect(sendMock).not.toHaveBeenCalled();
   });
 });

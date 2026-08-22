@@ -169,7 +169,7 @@ async function regenerationState(input: LayerEditorScope & { operationId: string
 }
 export const markLayerRegenerationProcessing=(input: LayerEditorScope & {operationId:string;now:Date})=>regenerationState({...input,fromStatus:"reserved",status:"processing"});
 export const completeLayerRegenerationCandidate=(input: LayerEditorScope & {operationId:string;candidateKey:string;providerRequestId:string|null;now:Date})=>regenerationState({...input,fromStatus:"processing",status:"ready",candidateKey:input.candidateKey,providerRequestId:input.providerRequestId});
-export const failLayerRegeneration=(input: LayerEditorScope & {operationId:string;status:"failed"|"submission_unknown";failureCode:string;now:Date})=>regenerationState({...input,fromStatus:"processing"});
+export const failLayerRegeneration=(input: LayerEditorScope & {operationId:string;status:"failed"|"submission_unknown";failureCode:string;now:Date}, executor?: LayerEditorExecutor)=>regenerationState({...input,fromStatus:"processing"}, executor);
 export async function recoverStaleLayerRegeneration(input: LayerEditorScope & { now: Date }): Promise<Output | null> {
  const row = await getCreativeWorkLayerEditorOutput(input); const state = layerEditorStateFromDatabase(row?.layerEditor); const regeneration = state?.regeneration;
  if (!regeneration || regeneration.status !== "processing" || Date.parse(regeneration.updatedAt) > input.now.getTime() - LAYER_EDITOR_REGENERATION_PROCESSING_STALE_MS) return null;

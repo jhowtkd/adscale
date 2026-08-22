@@ -7,6 +7,7 @@ import {
   clearFailedCreativeWorkLayerizationForRetry,
   getCreativeWorkLayerizationOutput,
   hashLayerizationCallbackToken,
+  refreshQueuedCreativeWorkLayerizationDispatch,
 } from "@/server/repositories/creative-work-layerization";
 import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 import { inngest } from "@/server/jobs/client";
@@ -96,16 +97,25 @@ export async function requestCreativeWorkLayerization(input: {
       if (currentState?.attemptId !== decision.state.attemptId) return { ok: false, error: { code: "layerization_replay_conflict" } };
       if (currentState.status !== "queued") {
         if (currentState.status === "failed") return { ok: false, error: { code: "failed", state: currentState } };
+        if (currentState.status === "submission_unknown") return { ok: false, error: { code: "submission_unknown", state: currentState } };
         return { ok: true, accepted: true, replay: false, state: currentState };
       }
       if (await isLayerEditorQuotaDispatchCommitted({ workspaceId: input.workspaceId, kind: "layerize_v1", operationId: input.operationId }, executor)) return { ok: true, accepted: false, replay: true, state: currentState };
       try {
         await inngest.send({ id: `creative-work-layerize:${input.outputId}:${decision.state.attemptId}`, name: heavyImageEventName("creative-work.layerize"), data: { workspaceId: input.workspaceId, workItemId: input.workItemId, outputId: input.outputId, attemptId: decision.state.attemptId, ...(decision.callbackUrl ? { callbackUrl: decision.callbackUrl } : {}) } });
       } catch {
-      return { ok: false, error: { code: "dispatch_failed" } };
+        await refreshQueuedCreativeWorkLayerizationDispatch({ ...input, attemptId: decision.state.attemptId, now: new Date() }, executor);
+        return { ok: false, error: { code: "dispatch_failed" } };
+      }
+      const refreshed = await refreshQueuedCreativeWorkLayerizationDispatch({ ...input, attemptId: decision.state.attemptId, now: new Date() }, executor);
+      if (!refreshed) {
+        const latest = layerizationStateFromDatabase((await getCreativeWorkLayerizationOutput(input.workspaceId, input.workItemId, input.outputId, executor))?.layerization);
+        if (latest?.attemptId !== decision.state.attemptId || latest?.status === "failed" || latest?.status === "submission_unknown") {
+          return { ok: false, error: { code: "layerization_replay_conflict" } };
+        }
       }
       await markLayerEditorQuotaDispatchCommitted({ workspaceId: input.workspaceId, kind: "layerize_v1", operationId: input.operationId }, executor);
-      return { ok: true, accepted: decision.accepted, replay: decision.replay, state: decision.state };
+      return { ok: true, accepted: decision.accepted, replay: decision.replay, state: layerizationStateFromDatabase(refreshed?.layerization) ?? decision.state };
   });
 }
 
