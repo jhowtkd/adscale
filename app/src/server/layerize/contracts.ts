@@ -92,6 +92,7 @@ export type PublicLayerizationState = Pick<
   LayerizationState,
   "status" | "createdAt" | "updatedAt" | "latencyMs" | "baseWidth" | "baseHeight" | "fidelity" | "failureCode"
 > & {
+  operationId: string;
   layers: Array<Omit<LayerizationLayer, "storageKey" | "sourceBytes">>;
 };
 
@@ -99,6 +100,7 @@ export function toPublicLayerizationState(value: unknown): PublicLayerizationSta
   const state = layerizationStateFromDatabase(value);
   if (!state) return null;
   return {
+    operationId: state.attemptId,
     status: state.status, createdAt: state.createdAt, updatedAt: state.updatedAt, latencyMs: state.latencyMs,
     baseWidth: state.baseWidth, baseHeight: state.baseHeight, fidelity: state.fidelity, failureCode: state.failureCode,
     layers: state.layers.map(({ storageKey: _storageKey, sourceBytes: _sourceBytes, ...layer }) => {

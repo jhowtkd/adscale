@@ -283,15 +283,20 @@ export function useLayerEditor(input: LayerEditorInput) {
     } catch (error) {
       const code = typeof error === "object" && error && "code" in error ? (error as { code?: string }).code : null;
       if (code === "layer_editor_locked" || code === "layer_editor_revision_conflict") markConflict(conflictDocument(error));
-      // Dispatch rejection was compensated server-side. A deliberate retry
-      // must claim a fresh operation, unlike ambiguous transport outcomes.
-      if (action === "regenerateLayer" && code === "layer_regeneration_dispatch_failed" && !operationId) operations.current.delete(operationKey);
+      if (action === "regenerateLayer" && code === "layer_regeneration_dispatch_failed") await open();
       throw error;
     }
   }, [flush, input.outputId, input.workItemId, markConflict]);
 
   const regenerate = useCallback(async (layerId: string, instruction: string) => {
     const result = await command("regenerateLayer", { layerId, instruction }, `regenerate:${layerId}:${instruction}`);
+    if (result) await open();
+    return result;
+  }, [command, open]);
+  const retryRegeneration = useCallback(async () => {
+    const regeneration = sessionRef.current?.present.regeneration;
+    if (!regeneration || regeneration.status !== "reserved") return null;
+    const result = await command("regenerateLayer", { layerId: regeneration.layerId, instruction: regeneration.instruction }, `regenerate:${regeneration.layerId}:${regeneration.instruction}`, regeneration.id);
     if (result) await open();
     return result;
   }, [command, open]);
@@ -407,6 +412,7 @@ export function useLayerEditor(input: LayerEditorInput) {
     undo,
     redo,
     regenerate,
+    retryRegeneration,
     acceptCandidate,
     discardCandidate,
     flushAndRelease,
