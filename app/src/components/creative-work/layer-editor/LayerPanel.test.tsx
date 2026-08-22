@@ -13,6 +13,14 @@ const document: PublicLayerEditorDocumentV1 = {
 };
 
 describe("LayerPanel inspect visibility", () => {
+  it("keeps layer rows and visibility controls at the 44px touch target", () => {
+    const dispatch = vi.fn();
+    render(<LayerPanel document={document} selectedLayerId={document.layers[0]!.id} onSelect={vi.fn()} mode="edit" dispatch={dispatch} />);
+
+    expect(screen.getByRole("button", { name: /Layer 0/ })).toHaveClass("min-h-11");
+    expect(screen.getByRole("button", { name: "Ocultar Layer 0" })).toHaveClass("min-h-11", "min-w-11");
+  });
+
   it("projects temporary mobile visibility into the canvas without dispatching a mutation", () => {
     const dispatch = vi.fn();
     const onVisibility = vi.fn();

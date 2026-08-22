@@ -60,7 +60,7 @@ export function LayerPanel({ document, selectedLayerId, onSelect, mode = "inspec
               type="button"
               onClick={() => onSelect(layer.id)}
               aria-pressed={isSelected}
-              className="flex w-full gap-2"
+              className="flex min-h-11 w-full gap-2"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={layer.imageUrl} alt="" className="h-10 w-10 object-contain" />
@@ -128,7 +128,7 @@ function LayerNameEditor({
           event.currentTarget.blur();
         }
       }}
-      className="mt-2 w-full"
+      className="mt-2 min-h-11 w-full"
     />
   );
 }
