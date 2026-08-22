@@ -97,6 +97,17 @@ describe("useLayerEditor", () => {
     hook.unmount();
   });
 
+  it("ignores a stale heartbeat and an equal-revision lease regression", async () => {
+    vi.useFakeTimers();
+    const current = { ...editorDocument, revision: 3, lease: { ...editorDocument.lease, expiresAt: "2026-01-01T00:03:00.000Z" } };
+    const stale = { ...editorDocument, revision: 2, lease: { ...editorDocument.lease, expiresAt: "2026-01-01T00:01:00.000Z" } };
+    patch.mockImplementation((_work: string, body: { action: string }) => Promise.resolve(body.action === "openLayerEditor" ? response(current) : response(stale)));
+    const hook = await openHook();
+    await act(async () => { await vi.advanceTimersByTimeAsync(30_000); });
+    expect(hook.result.current.document?.revision).toBe(3);
+    expect(hook.result.current.document?.lease.expiresAt).toBe("2026-01-01T00:03:00.000Z");
+  });
+
   it("never saves or heartbeats in inspect mode", async () => {
     vi.useFakeTimers();
     patch.mockImplementation(async (_work: string, body: { action: string }) => response(body.action === "openLayerEditor" ? { ...editorDocument, lease: { ...editorDocument.lease, mode: "read", leaseId: null } } : editorDocument));
