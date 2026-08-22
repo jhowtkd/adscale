@@ -98,7 +98,7 @@ export function LayerEditorDialog({ open, workItemId, outputId, mode = "edit", o
           {editor.document ? <LayerCanvas document={editor.document} selectedLayerId={selected} onSelect={setSelected} mode={editor.mode === "edit" ? "edit" : "read"} dispatch={editor.dispatch} /> : <div>Carregando</div>}
           {editor.document ? <aside>
             <LayerPanel document={editor.document} selectedLayerId={selected} onSelect={setSelected} mode={editor.mode} dispatch={editor.dispatch} />
-            <LayerRegenerationPanel document={editor.document} selectedLayerId={selected} mode={editor.mode === "edit" ? "edit" : "read"} access={{ enabled: true, period: null, layerize: null, regeneration: { limit: 1, used: 0, remaining: 1 } }} onRegenerate={(id, instruction) => act(() => editor.regenerate(id, instruction))} onAccept={() => act(editor.acceptCandidate)} onDiscard={() => act(editor.discardCandidate)} />
+            <LayerRegenerationPanel document={editor.document} selectedLayerId={selected} mode={editor.mode === "edit" ? "edit" : "read"} access={editor.access ?? { enabled: false, period: null, layerize: null, regeneration: null }} onRegenerate={(id, instruction) => act(() => editor.regenerate(id, instruction))} onAccept={() => act(editor.acceptCandidate)} onDiscard={() => act(editor.discardCandidate)} />
           </aside> : null}
         </div>
         <div role="status" className="sr-only">{notice || editor.mode}</div>

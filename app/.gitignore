@@ -46,3 +46,4 @@ next-env.d.ts
 /tests/fixtures/phase6-uat.json
 /tests/fixtures/phase6-uat-storage.json
 /tests/fixtures/phase8-human.json
+/tests/fixtures/layer-editor-e2e.json
