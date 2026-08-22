@@ -11,7 +11,7 @@ export default function SidebarBrandKitFeature() {
   const tNav = useTranslations("navigation");
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { activeClientProfileId } = useActiveClientProfile();
+  const { activeClientProfileId, requiresSelection, isLoading: profilesLoading } = useActiveClientProfile();
   const { data: training, isLoading } = useBrandTrainingStatus(activeClientProfileId);
   const settingsTab = searchParams.get("tab");
   const isActive =
@@ -42,9 +42,9 @@ export default function SidebarBrandKitFeature() {
           </span>
         </span>
         <span className="text-[11px] text-[var(--text-muted)]">
-          {isLoading
+          {isLoading || profilesLoading
             ? tNav("brandKitStatusLoading")
-            : tNav(brandStatusKey(activeClientProfileId, training))}
+            : tNav(brandStatusKey(activeClientProfileId, training, requiresSelection))}
         </span>
       </span>
     </Link>
@@ -54,7 +54,9 @@ export default function SidebarBrandKitFeature() {
 export function brandStatusKey(
   activeClientProfileId: string | null,
   training?: BrandTrainingStatus,
+  requiresSelection = false,
 ) {
+  if (requiresSelection) return "brandKitStatusSetup";
   if (!activeClientProfileId) return "brandKitStatusSelect";
   if (training?.needsReview) return "brandKitStatusReview";
   return training?.trained ? "brandKitStatusReady" : "brandKitStatusSetup";

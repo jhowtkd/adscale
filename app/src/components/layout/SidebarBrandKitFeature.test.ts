@@ -16,6 +16,7 @@ const training = (overrides: Partial<BrandTrainingStatus>): BrandTrainingStatus 
 describe("brandStatusKey", () => {
   it("maps the available data to the four Brand states", () => {
     expect(brandStatusKey(null)).toBe("brandKitStatusSelect");
+    expect(brandStatusKey(null, undefined, true)).toBe("brandKitStatusSetup");
     expect(brandStatusKey("brand-1", training({}))).toBe("brandKitStatusSetup");
     expect(brandStatusKey("brand-1", training({ trained: true }))).toBe("brandKitStatusReady");
     expect(brandStatusKey("brand-1", training({ needsReview: true }))).toBe("brandKitStatusReview");
