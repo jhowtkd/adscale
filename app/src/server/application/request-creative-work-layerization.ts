@@ -1,6 +1,6 @@
 import "server-only";
 
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { getCreativeWork } from "@/server/repositories/creative-work";
 import {
   claimCreativeWorkLayerization,
@@ -22,6 +22,7 @@ import {
   SEEDREAM_PROVIDER_ENDPOINT,
 } from "@/server/layerize/seedream-provider";
 import { env } from "@/server/validation/env";
+import { claimLayerEditorQuota, releaseLayerEditorQuota } from "@/server/layer-editor/quota";
 
 export type RequestCreativeWorkLayerizationError =
   | { code: "work_not_found" }
@@ -82,6 +83,7 @@ export async function requestCreativeWorkLayerization(input: {
   outputId: string;
   userId: string;
   callbackUrl: string;
+  operationId: string;
   retry?: boolean;
 }): Promise<RequestCreativeWorkLayerizationResult> {
   if (!env.ATLASCLOUD_API_KEY?.trim()) {
@@ -117,8 +119,14 @@ export async function requestCreativeWorkLayerization(input: {
     }
   }
 
+  const quota = await claimLayerEditorQuota({
+    workspaceId: input.workspaceId, kind: "layerize_v1", operationId: input.operationId, userId: input.userId,
+    workItemId: input.workItemId, outputId: input.outputId,
+  }, new Date());
+  if (!quota.ok) return { ok: false, error: { code: "layerization_not_configured" } };
+
   const token = randomBytes(32).toString("hex");
-  const attemptId = randomUUID();
+  const attemptId = input.operationId;
   const state = newLayerizationState({
     userId: input.userId,
     attemptId,
@@ -131,6 +139,7 @@ export async function requestCreativeWorkLayerization(input: {
     state,
   });
   if (!claimed) {
+    await releaseLayerEditorQuota({ workspaceId: input.workspaceId, kind: "layerize_v1", operationId: input.operationId }, new Date());
     const refreshed = await getCreativeWorkLayerizationOutput(input.workspaceId, input.workItemId, input.outputId);
     const refreshedState = layerizationStateFromDatabase(refreshed?.layerization);
     return refreshedState
@@ -162,7 +171,10 @@ export async function requestCreativeWorkLayerization(input: {
       attemptId,
       code: "dispatch_failed",
     });
-    if (failed) return { ok: false, error: { code: "dispatch_failed" } };
+    if (failed) {
+      await releaseLayerEditorQuota({ workspaceId: input.workspaceId, kind: "layerize_v1", operationId: input.operationId }, new Date());
+      return { ok: false, error: { code: "dispatch_failed" } };
+    }
     const refreshed = await getCreativeWorkLayerizationOutput(input.workspaceId, input.workItemId, input.outputId);
     const refreshedState = layerizationStateFromDatabase(refreshed?.layerization);
     if (refreshedState && refreshedState.attemptId === attemptId && refreshedState.status !== "failed") {

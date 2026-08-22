@@ -20,6 +20,7 @@ const isPlatformOwnerEmailMock = vi.hoisted(() => vi.fn());
 const requestLayerizationMock = vi.hoisted(() => vi.fn());
 const callbackHandlerMock = vi.hoisted(() => vi.fn());
 const recoverExpiredLayerizationsMock = vi.hoisted(() => vi.fn());
+const layerEditorAccessMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/auth/require-platform-owner", () => ({
   requirePlatformOwner: (...args: unknown[]) => requirePlatformOwnerMock(...args),
@@ -35,6 +36,9 @@ vi.mock("@/server/application/handle-creative-work-layerization-callback", () =>
 }));
 vi.mock("@/server/application/recover-expired-creative-work-layerizations", () => ({
   recoverExpiredCreativeWorkLayerizations: (...args: unknown[]) => recoverExpiredLayerizationsMock(...args),
+}));
+vi.mock("@/server/layer-editor/quota", () => ({
+  getLayerEditorAccess: (...args: unknown[]) => layerEditorAccessMock(...args),
 }));
 
 const getWorkMock = vi.hoisted(() => vi.fn());
@@ -189,6 +193,7 @@ describe("GET /api/creative-work/[id]", () => {
     failStaleOutputsMock.mockResolvedValue([]);
     failStaleSourcesMock.mockResolvedValue([]);
     recordAggregateMock.mockResolvedValue(null);
+    layerEditorAccessMock.mockResolvedValue({ enabled: false, period: null, layerize: null, regeneration: null });
   });
   afterEach(() => {
     vi.restoreAllMocks();
@@ -266,6 +271,7 @@ describe("GET /api/creative-work/[id]", () => {
     const previous = process.env.ATLASCLOUD_API_KEY;
     process.env.ATLASCLOUD_API_KEY = "test-atlas-key";
     isPlatformOwnerEmailMock.mockReturnValue(true);
+    layerEditorAccessMock.mockResolvedValue({ enabled: true, period: null, layerize: null, regeneration: null });
     const expired = layerizationState();
     const unknown = { ...expired, status: "submission_unknown" as const, failureCode: "submission_unknown" as const };
     getWorkMock.mockResolvedValue({
@@ -297,6 +303,7 @@ describe("GET /api/creative-work/[id]", () => {
     const previous = process.env.ATLASCLOUD_API_KEY;
     process.env.ATLASCLOUD_API_KEY = "test-atlas-key";
     isPlatformOwnerEmailMock.mockReturnValue(true);
+    layerEditorAccessMock.mockResolvedValue({ enabled: true, period: null, layerize: null, regeneration: null });
     const expired = layerizationState("request-1");
     const recovered = { ...expired, updatedAt: "2026-08-12T15:00:00.000Z" };
     getWorkMock.mockResolvedValue({
@@ -622,6 +629,7 @@ describe("PATCH /api/creative-work/[id]", () => {
     inngestSendMock.mockResolvedValue(undefined);
     getTemplateMock.mockResolvedValue({ id: "template-1", workspaceId: "workspace-1", name: "Template", styleIntensity: "medium" });
     analyzeSourceMock.mockResolvedValue({ id: "source-1", status: "ready" });
+    layerEditorAccessMock.mockResolvedValue({ enabled: true, period: null, layerize: null, regeneration: null });
   });
   afterEach(() => {
     vi.restoreAllMocks();
@@ -649,30 +657,30 @@ describe("PATCH /api/creative-work/[id]", () => {
     expect(body.canonical.id).toBe("creative_work:work-1");
   });
 
-  it("accepts the owner-only layerization command through the existing Work seam", async () => {
+  it("accepts a member layerization command through the existing Work seam", async () => {
     requestLayerizationMock.mockResolvedValue({ ok: true, accepted: true, replay: false, state: null });
     const outputId = "00000000-0000-4000-8000-000000000099";
 
-    const res = await requestPatch({ action: "layerizeOutput", outputId });
+    const res = await requestPatch({ action: "layerizeOutput", outputId, operationId: "00000000-0000-4000-8000-000000000098" });
 
     expect(res.status).toBe(202);
-    expect(requirePlatformOwnerMock).toHaveBeenCalled();
+    expect(requirePlatformOwnerMock).not.toHaveBeenCalled();
     expect(requestLayerizationMock).toHaveBeenCalledWith(expect.objectContaining({
       workspaceId: "workspace-1",
       workItemId: "work-1",
       outputId,
-      userId: "owner-1",
+      userId: "user-1",
+      operationId: "00000000-0000-4000-8000-000000000098",
     }));
   });
 
-  it("does not dispatch layerization for a non-owner", async () => {
-    requirePlatformOwnerMock.mockRejectedValue(new WorkspaceAuthError(AUTH_ERROR_CODES.forbidden, "Forbidden"));
+  it("rejects a malformed layerization operation id", async () => {
     const res = await requestPatch({
       action: "layerizeOutput",
       outputId: "00000000-0000-4000-8000-000000000099",
     });
 
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(400);
     expect(requestLayerizationMock).not.toHaveBeenCalled();
   });
 
