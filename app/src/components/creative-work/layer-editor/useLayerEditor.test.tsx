@@ -252,6 +252,16 @@ describe("useLayerEditor", () => {
     expect(callsFor("openLayerEditor")).toHaveLength(3);
   });
 
+  it("redelivers a persisted reserved regeneration with its original operation id", async () => {
+    vi.useFakeTimers();
+    const reserved = { ...editorDocument, regeneration: { id: "00000000-0000-4000-8000-000000000099", status: "reserved" as const, layerId: editorDocument.layers[0]!.id, instruction: "Change", candidateUrl: null, failureCode: null } };
+    patch.mockImplementation(async (_work: string, body: { action: string }) => body.action === "openLayerEditor" ? response(reserved) : { ok: true, accepted: false, replay: true });
+    const hook = await openHook();
+    await act(async () => { await hook.result.current.retryRegeneration(); });
+    const body = callsFor("regenerateLayer")[0]?.[1] as Record<string, unknown>;
+    expect(body).toMatchObject({ operationId: reserved.regeneration.id, layerId: reserved.regeneration.layerId, instruction: reserved.regeneration.instruction, expectedRevision: reserved.revision, leaseId: reserved.lease.leaseId });
+  });
+
   it("retains the regeneration operation id after ambiguous dispatch failure", async () => {
     vi.useFakeTimers();
     patch.mockImplementation((...params: unknown[]) => {
