@@ -24,6 +24,9 @@ export function LayerCanvas({ document, selectedLayerId, onSelect, mode, dispatc
   const [preview, setPreview] = useState<Box | null>(null);
   const gesture = useRef<PointerGesture | null>(null);
   const selected = document.layers.find((layer) => layer.id === selectedLayerId);
+  // The canvas is scaled as a whole, so handles expand in canvas units at
+  // low zoom to retain a 44 CSS-pixel touch target.
+  const resizeHitTarget = Math.max(44, 44 / Math.max(zoom / 100, 0.01));
 
   const boxAtPointer = (current: PointerGesture, clientX: number, clientY: number): Box => {
     const deltaX = (clientX - current.startClientX) / (zoom / 100);
@@ -123,7 +126,7 @@ export function LayerCanvas({ document, selectedLayerId, onSelect, mode, dispatc
               onPointerMove={movePointerTransform}
               onPointerUp={(event) => finishPointerTransform(event, true)}
               onPointerCancel={(event) => finishPointerTransform(event, false)}
-              className={mode === "edit" ? "absolute z-[200] border-2 border-primary" : "absolute z-[200] border-2 border-muted"}
+              className={mode === "edit" ? "absolute z-[200] touch-none border-2 border-primary" : "absolute z-[200] border-2 border-muted"}
               style={{ left: preview?.x ?? selected.x, top: preview?.y ?? selected.y, width: preview?.width ?? selected.width, height: preview?.height ?? selected.height }}
             >
               {mode === "edit" && [
@@ -131,7 +134,7 @@ export function LayerCanvas({ document, selectedLayerId, onSelect, mode, dispatc
                 ["north-east", "top-0 right-0"],
                 ["south-west", "bottom-0 left-0"],
                 ["south-east", "bottom-0 right-0"],
-              ].map(([handle, position]) => <span key={handle} data-handle={handle} aria-label={t("editorResizeHandle", { handle })} className={`absolute z-10 flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center ${position}`}><span data-handle={handle} className="h-2 w-2 rounded-sm bg-primary" /></span>)}
+              ].map(([handle, position]) => <span key={handle} data-testid={`layer-resize-handle-${handle}`} data-handle={handle} aria-label={t("editorResizeHandle", { handle })} className={`absolute z-10 flex -translate-x-1/2 -translate-y-1/2 touch-none items-center justify-center ${position}`} style={{ width: resizeHitTarget, height: resizeHitTarget }}><span data-handle={handle} className="h-2 w-2 rounded-sm bg-primary" /></span>)}
             </div>
           ) : null}
         </div>
