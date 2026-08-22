@@ -1,7 +1,7 @@
 import "server-only";
 import { createHash } from "node:crypto";
 import { claimLayerEditorQuota, isLayerEditorQuotaDispatchCommitted, isLayerEditorQuotaReleased, isLayerEditorQuotaReservationCommitted, markLayerEditorQuotaDispatchCommitted, markLayerEditorQuotaReservationCommitted, releaseLayerEditorQuota, withLayerEditorOperationLock, withLayerEditorPostDispatchLock, type LayerEditorOperationExecutor } from "@/server/layer-editor/quota";
-import { clearTerminalLayerRegenerationForRetry, getCreativeWorkLayerEditorOutput, layerEditorFromOutput, reserveLayerRegeneration } from "@/server/repositories/creative-work-layer-editor";
+import { clearTerminalLayerRegenerationForRetry, getCreativeWorkLayerEditorOutput, layerEditorFromOutput, refreshReservedLayerRegenerationDispatch, reserveLayerRegeneration } from "@/server/repositories/creative-work-layer-editor";
 import { inngest } from "@/server/jobs/client";
 import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 
@@ -11,12 +11,19 @@ export async function requestCreativeWorkLayerRegeneration(input: { workspaceId:
   return withLayerEditorPostDispatchLock({ workspaceId: input.workspaceId, kind: "layer_regeneration_v1", operationId: input.operationId }, async (executor) => {
       const state = layerEditorFromOutput(await getCreativeWorkLayerEditorOutput(input, executor));
       if (state?.regeneration?.id !== input.operationId) return { ok: false as const, code: "layer_editor_revision_conflict" as const };
+      if (state.regeneration.status === "failed" || state.regeneration.status === "submission_unknown") return { ok: false as const, code: "layer_editor_revision_conflict" as const };
       if (state.regeneration.status !== "reserved") return { ok: true as const, accepted: true, replay: false };
       if (await isLayerEditorQuotaDispatchCommitted({ workspaceId: input.workspaceId, kind: "layer_regeneration_v1", operationId: input.operationId }, executor)) return { ok: true as const, accepted: false, replay: true };
       try {
         await inngest.send({id:`creative-work-layer-regenerate:${input.outputId}:${input.operationId}`,name:heavyImageEventName("creative-work.layer-regenerate"),data:{workspaceId:input.workspaceId,workItemId:input.workItemId,outputId:input.outputId,operationId:input.operationId}});
       } catch {
+        await refreshReservedLayerRegenerationDispatch({ ...input, now: new Date() }, executor);
         return { ok: false as const, code: "layer_regeneration_dispatch_failed" as const };
+      }
+      const refreshed = await refreshReservedLayerRegenerationDispatch({ ...input, now: new Date() }, executor);
+      if (!refreshed) {
+        const current = layerEditorFromOutput(await getCreativeWorkLayerEditorOutput(input, executor));
+        if (current?.regeneration?.id !== input.operationId || current.regeneration.status === "failed" || current.regeneration.status === "submission_unknown") return { ok: false as const, code: "layer_editor_revision_conflict" as const };
       }
       await markLayerEditorQuotaDispatchCommitted({ workspaceId: input.workspaceId, kind: "layer_regeneration_v1", operationId: input.operationId }, executor);
       return {ok:true as const,accepted:decision.accepted,replay:decision.replay};
@@ -35,6 +42,9 @@ async function requestCreativeWorkLayerRegenerationLocked(input: { workspaceId:s
       if (state.regeneration.status === "reserved") {
         await markLayerEditorQuotaReservationCommitted({ workspaceId: input.workspaceId, kind: "layer_regeneration_v1", operationId: input.operationId }, executor);
         return { kind:"dispatch" as const, accepted:false, replay:true };
+      }
+      if (state.regeneration.status === "failed" || state.regeneration.status === "submission_unknown") {
+        return { kind:"result" as const, result:{ ok: false as const, code: "layer_editor_revision_conflict" as const } };
       }
       return { kind:"result" as const, result:{ ok:true as const, accepted:false, replay:true } };
     }
