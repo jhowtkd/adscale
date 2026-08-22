@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import type { PublicLayerEditorDocumentV1 } from "@/server/layer-editor/contracts";
 import type { LayerEditorCommand } from "./state";
 
@@ -13,30 +13,7 @@ type LayerPanelProps = {
 };
 
 export function LayerPanel({ document, selectedLayerId, onSelect, mode = "inspect", dispatch }: LayerPanelProps) {
-  const selected = document.layers.find((layer) => layer.id === selectedLayerId) ?? null;
-  const [draftName, setDraftName] = useState("");
   const [inspectVisibility, setInspectVisibility] = useState<Record<string, boolean>>({});
-  const cancelled = useRef(false);
-
-  useEffect(() => {
-    setDraftName(selected?.name ?? "");
-  }, [selected?.id, selected?.name]);
-
-  useEffect(() => {
-    setInspectVisibility(Object.fromEntries(document.layers.map((layer) => [layer.id, layer.visible])));
-  }, [document]);
-
-  const commitRename = () => {
-    if (!selected || mode !== "edit" || !dispatch) return;
-    if (cancelled.current) {
-      cancelled.current = false;
-      setDraftName(selected.name);
-      return;
-    }
-    const name = draftName.trim().slice(0, 128);
-    if (name && name !== selected.name) dispatch({ type: "rename", id: selected.id, name });
-    if (!name) setDraftName(selected.name);
-  };
 
   const visible = (layer: PublicLayerEditorDocumentV1["layers"][number]) =>
     mode === "inspect" ? (inspectVisibility[layer.id] ?? layer.visible) : layer.visible;
@@ -69,26 +46,9 @@ export function LayerPanel({ document, selectedLayerId, onSelect, mode = "inspec
                 <small className="block">{layer.width} × {layer.height} · {isVisible ? "Visível" : "Oculta"}</small>
               </span>
             </button>
-            {mode === "edit" && isSelected ? (
+            {mode === "edit" && isSelected && dispatch ? (
               <>
-                <input
-                  aria-label="Nome da camada"
-                  value={draftName}
-                  maxLength={128}
-                  onChange={(event) => setDraftName(event.target.value)}
-                  onBlur={commitRename}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      event.currentTarget.blur();
-                    }
-                    if (event.key === "Escape") {
-                      cancelled.current = true;
-                      event.currentTarget.blur();
-                    }
-                  }}
-                  className="mt-2 w-full"
-                />
+                <LayerNameEditor key={`${layer.id}:${layer.name}`} layer={layer} dispatch={dispatch} />
                 <div className="mt-2 flex gap-2">
                   <button type="button" className="min-h-11 min-w-11" aria-label={isVisible ? `Ocultar ${layer.name}` : `Mostrar ${layer.name}`} onClick={() => toggleVisibility(layer)}>{isVisible ? "Ocultar" : "Mostrar"}</button>
                   <button type="button" className="min-h-11 min-w-11" aria-label="Trazer para frente" onClick={() => dispatch?.({ type: "reorder", id: layer.id, order: 0 })}>Trazer para frente</button>
@@ -102,5 +62,48 @@ export function LayerPanel({ document, selectedLayerId, onSelect, mode = "inspec
         );
       })}
     </aside>
+  );
+}
+
+function LayerNameEditor({
+  layer,
+  dispatch,
+}: {
+  layer: PublicLayerEditorDocumentV1["layers"][number];
+  dispatch: (command: LayerEditorCommand) => void;
+}) {
+  const [draftName, setDraftName] = useState(layer.name);
+  const cancelled = useRef(false);
+
+  const commitRename = () => {
+    if (cancelled.current) {
+      cancelled.current = false;
+      setDraftName(layer.name);
+      return;
+    }
+    const name = draftName.trim().slice(0, 128);
+    if (name && name !== layer.name) dispatch({ type: "rename", id: layer.id, name });
+    if (!name) setDraftName(layer.name);
+  };
+
+  return (
+    <input
+      aria-label="Nome da camada"
+      value={draftName}
+      maxLength={128}
+      onChange={(event) => setDraftName(event.target.value)}
+      onBlur={commitRename}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          event.currentTarget.blur();
+        }
+        if (event.key === "Escape") {
+          cancelled.current = true;
+          event.currentTarget.blur();
+        }
+      }}
+      className="mt-2 w-full"
+    />
   );
 }

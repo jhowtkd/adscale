@@ -97,3 +97,124 @@ application services, repositories, and Postgres. It still intercepts
 `layerizationJobHandler`, and delegates `objectStorage` to an in-process
 memory backend. fal HTTP is also fake. This does not prove Inngest
 registration, R2, deployment, paid generation, or semantic layer quality.
+
+## Native editor entitlement and monthly usage
+
+The native editor is workspace-scoped. The following is an **owner/ops SQL
+template**, not authorization to activate an entitlement. Replace the UUID
+placeholder only after the owner has explicitly authorized the target
+workspace and limits.
+
+```sql
+insert into adscale_app.workspace_entitlements (
+  workspace_id, kind, status, metadata, starts_at, expires_at, updated_at
+) values (
+  '<workspace_uuid>'::uuid,
+  'layer_editor_v1',
+  'active',
+  '{"layerizeMonthlyLimit":5,"regenerationMonthlyLimit":5}'::jsonb,
+  now(),
+  null,
+  now()
+)
+on conflict (workspace_id, kind) do update set
+  status = excluded.status,
+  metadata = excluded.metadata,
+  starts_at = excluded.starts_at,
+  expires_at = excluded.expires_at,
+  updated_at = now();
+```
+
+Verify the current UTC month before changing a limit or investigating a
+quota claim. A release is represented by a negative `amount`, so this query
+returns the net durable usage for both idempotent event families:
+
+```sql
+with month_window as (
+  select date_trunc('month', now() at time zone 'utc') as starts_at
+)
+select
+  ue.type,
+  coalesce(sum(ue.amount), 0)::integer as net_used,
+  count(*) as event_rows
+from adscale_app.usage_events ue
+cross join month_window mw
+where ue.workspace_id = '<workspace_uuid>'::uuid
+  and ue.type in ('layerize_v1', 'layer_regeneration_v1')
+  and ue.created_at >= mw.starts_at
+  and ue.created_at < mw.starts_at + interval '1 month'
+group by ue.type
+order by ue.type;
+```
+
+Do not run the upsert merely to make a test pass. This implementation does
+not authorize entitlement activation, paid calls, secret changes, or deploys.
+
+## Candidate retention, immutable promotion, and recovery
+
+- Regeneration candidates live under
+  `layer-editor-candidates/<workspace>/<work>/<output>/`. Ops must run a
+  prefix deletion for candidates older than 24 hours; candidates are
+  disposable and are never a published source of truth.
+- Accept and discard both attempt best-effort candidate deletion immediately.
+  A compare-and-set loser must also delete only the newly copied loser key;
+  never delete the candidate referenced by the durable winning revision.
+- Accepted layer revisions are immutable at
+  `creative-work/<work>/layer-editor/<output>/layers/<layer>/revisions/`.
+  Published PNG/PSD artifacts are immutable at
+  `creative-work/<work>/layer-editor/<output>/published/`. Do not delete
+  those prefixes as part of candidate cleanup.
+- An edit lease lasts 90 seconds and is refreshed by the visible-tab 30-second
+  heartbeat. A second member opens read-only while the lease is live. On a
+  lease or revision conflict, stop local autosave, preserve the unsaved local
+  view for the user, reload the signed document, and explicitly choose whether
+  to reapply edits; never overwrite a newer revision.
+- `submission_unknown` means the provider dispatch outcome cannot be proven.
+  Do not retry automatically, do not claim another quota unit, and require a
+  new user confirmation/operation id after reconciliation.
+
+## Local fake-provider validation
+
+The no-paid editor gate uses controlled Postgres/storage/provider fakes and
+only generated Sharp PNGs. It never calls OpenAI, Atlas, R2, or a customer
+asset:
+
+```bash
+cd app
+npm test -- tests/integration/creative-work-layer-editor-journey.test.ts
+npm test -- src/components/creative-work/layer-editor
+npm run typecheck
+```
+
+For the browser flow, prepare local database/object-storage configuration,
+then seed and run only the synthetic serial flow:
+
+```bash
+cd app
+npm run seed:layer-editor-e2e
+npm run test:e2e -- tests/e2e/layer-editor.spec.ts --project=serial-flows
+```
+
+The runtime fixture contains only IDs and a synthetic local login. It must
+not contain storage keys, signed URLs, provider data, customer media, or
+production credentials.
+
+## Separate release gates and paid boundary
+
+Keep these as distinct evidence records; passing one does not imply another:
+
+1. **Local tests:** focused server/client/integration/E2E-fake checks.
+2. **Deploy health:** deployed revision and public health endpoint only.
+3. **Authenticated app smoke:** an authorized user completes the in-app
+   workflow against the deployed application.
+4. **Paid provider evidence:** one explicitly authorized provider invocation
+   with its actual billed result.
+5. **Human PSD review:** a person opens the generated PSD and verifies visible
+   layer ordering, geometry, editability, and compositing.
+
+Any later paid smoke requires a new explicit authorization containing an
+economic cap. Use exactly one synthetic or ADScale-owned asset, one provider
+call, zero automatic retries, and record the observed billed cost rather than
+catalog pricing. Reconfirm provider contract and retention terms before any
+customer asset could leave ADScale. This runbook neither grants that authority
+nor substitutes local fake evidence for it.
