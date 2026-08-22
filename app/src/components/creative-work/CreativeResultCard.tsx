@@ -351,9 +351,12 @@ export function CreativeResultCard({
               ) : layerization.status === "completed" ? (
                 <p className="text-xs text-[var(--text-secondary)]">{t("layerizeCompleted")}</p>
               ) : (
-                <p className="text-xs text-[var(--text-secondary)]">
-                  {layerization.status === "queued" ? t("layerizeQueued") : layerization.status === "processing" ? t("layerizeProcessing") : layerization.status === "finalizing" ? t("layerizeFinalizing") : t("layerizeReconciling")}
-                </p>
+                <>
+                  <p className="text-xs text-[var(--text-secondary)]">
+                    {layerization.status === "queued" ? t("layerizeQueued") : layerization.status === "processing" ? t("layerizeProcessing") : layerization.status === "finalizing" ? t("layerizeFinalizing") : t("layerizeReconciling")}
+                  </p>
+                  {layerization.status === "queued" && layerization.operationId ? <button type="button" className={actionClass} disabled={isLayerizing || submittingLayerize} onClick={() => setLayerizeConfirmation({ operationId: layerization.operationId, retry: false })}>{t("editorRetryDispatch")}</button> : null}
+                </>
               )}
               {layerizeConfirmation ? <div role="dialog" aria-label={t("layerizeConfirmTitle")} className="rounded-[var(--radius-control)] border border-[var(--border-default)] p-3">
                 <p className="text-sm">{t("layerizeConfirmDescription")}</p>
