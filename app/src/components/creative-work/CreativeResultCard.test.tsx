@@ -633,6 +633,21 @@ describe("CreativeResultCard", () => {
     expect(onLayerize.mock.calls[1]).toEqual(["output-1", false, firstOperationId]);
   });
 
+  it("redelivers a persisted queued layerization with its operation id despite exhausted quota", async () => {
+    const onLayerize = vi.fn().mockResolvedValueOnce("uncertain").mockResolvedValueOnce("accepted");
+    const queued = { ...layerization("queued"), operationId: "persisted-op" } as never;
+    render(<CreativeResultCard output={output({ isSelected: true, layerization: queued })} label="Equilibrada" onRetry={vi.fn()} onApprove={vi.fn()} onDownload={vi.fn()} canLayerize onLayerize={onLayerize} layerEditorAccess={{ enabled: true, period: null, layerize: { limit: 1, used: 1, remaining: 0 }, regeneration: { limit: 1, used: 1, remaining: 0 } }} />);
+    const retry = screen.getByRole("button", { name: "editorRetryDispatch" });
+    expect(retry).toBeEnabled();
+    fireEvent.click(retry); fireEvent.click(screen.getByRole("button", { name: "Translate: confirm" }));
+    await waitFor(() => expect(onLayerize).toHaveBeenCalledWith("output-1", false, "persisted-op"));
+    expect(screen.getByRole("dialog", { name: "Translate: confirm separation" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Translate: confirm" }));
+    await waitFor(() => expect(onLayerize).toHaveBeenCalledTimes(2));
+    expect(onLayerize).toHaveBeenLastCalledWith("output-1", false, "persisted-op");
+    expect(screen.queryByRole("dialog", { name: "Translate: confirm separation" })).toBeNull();
+  });
+
   it("hides new Layerize initiation on mobile while retaining existing layer inspection", () => {
     const { rerender } = render(
       <CreativeResultCard
