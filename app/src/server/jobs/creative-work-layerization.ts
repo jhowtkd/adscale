@@ -8,6 +8,7 @@ import {
   claimCreativeWorkLayerizationFinalization,
   claimCreativeWorkLayerizationProcessing,
   completeCreativeWorkLayerization,
+  failCreativeWorkLayerizationBeforeProvider,
   failCreativeWorkLayerization,
   getCreativeWorkLayerizationOutput,
   isCreativeWorkOutputStillSelectedForLayerization,
@@ -142,11 +143,17 @@ function callbackDeadlinePassed(state: LayerizationState): boolean {
   return Date.parse(state.callbackDeadlineAt) <= Date.now();
 }
 
-async function failBeforeProvider(event: CreativeWorkLayerizationEvent, code: "no_longer_eligible" | "source_missing" | "missing_configuration") {
+async function failBeforeProvider(event: CreativeWorkLayerizationEvent, code: "no_longer_eligible" | "source_missing" | "missing_configuration" | "storage_error") {
   return withLayerEditorOperationLock({ workspaceId: event.workspaceId, kind: "layerize_v1", operationId: event.attemptId }, async (executor) => {
-    const failed = await failCreativeWorkLayerization({ workspaceId: event.workspaceId, workItemId: event.workItemId, outputId: event.outputId, code }, executor);
+    const failed = await failCreativeWorkLayerizationBeforeProvider({
+      workspaceId: event.workspaceId,
+      workItemId: event.workItemId,
+      outputId: event.outputId,
+      attemptId: event.attemptId,
+      code,
+    }, executor);
     const state = layerizationStateFromDatabase(failed?.layerization);
-    if (state?.status === "failed" && state.failureCode === code && !state.providerRequestId) {
+    if (state?.attemptId === event.attemptId && state.status === "failed" && state.failureCode === code && !state.providerRequestId) {
       await releaseLayerEditorQuota({ workspaceId: event.workspaceId, kind: "layerize_v1", operationId: event.attemptId }, new Date(), executor);
     }
     return failed;
@@ -167,7 +174,7 @@ export async function runCreativeWorkLayerization(input: {
 
   let maySubmit = false;
   if (state.status === "queued") {
-    const claimed = await claimCreativeWorkLayerizationProcessing(event.workspaceId, event.workItemId, event.outputId);
+    const claimed = await claimCreativeWorkLayerizationProcessing(event.workspaceId, event.workItemId, event.outputId, event.attemptId);
     if (!claimed) return { status: "skipped" };
     state = layerizationStateFromDatabase(claimed.layerization) ?? state;
     maySubmit = true;
@@ -180,7 +187,21 @@ export async function runCreativeWorkLayerization(input: {
     return { status: "reconciling" };
   }
 
-  const aggregate = await getCreativeWork(event.workspaceId, event.workItemId);
+  let aggregate: Awaited<ReturnType<typeof getCreativeWork>>;
+  const aggregateReadStartedAt = Date.now();
+  try {
+    aggregate = await getCreativeWork(event.workspaceId, event.workItemId);
+  } catch (error) {
+    logLayerizationSubmission({
+      event,
+      phase: "eligibility_check",
+      status: "failed",
+      startedAt: aggregateReadStartedAt,
+      error,
+    });
+    await failBeforeProvider(event, "storage_error");
+    return { status: "failed" };
+  }
   const output = aggregate?.outputs.find((candidate) => candidate.id === event.outputId);
   if (!state.providerRequestId && maySubmit && !isLayerizationSubmitEligible(output ?? {})) {
     await failBeforeProvider(event, output?.outputKey ? "no_longer_eligible" : "source_missing");
@@ -205,12 +226,8 @@ export async function runCreativeWorkLayerization(input: {
         startedAt: sourceUrlStartedAt,
         error,
       });
-      if (callbackDeadlinePassed(state)) {
-        await markCreativeWorkLayerizationSubmissionUnknown(event.workspaceId, event.workItemId, event.outputId);
-        return { status: "submission_unknown" };
-      }
-      await markCreativeWorkLayerizationReconciling(event.workspaceId, event.workItemId, event.outputId);
-      return { status: "reconciling" };
+      await failBeforeProvider(event, "storage_error");
+      return { status: "failed" };
     }
 
     const eligibilityCheckStartedAt = Date.now();
@@ -227,12 +244,8 @@ export async function runCreativeWorkLayerization(input: {
         startedAt: eligibilityCheckStartedAt,
         error,
       });
-      if (callbackDeadlinePassed(state)) {
-        await markCreativeWorkLayerizationSubmissionUnknown(event.workspaceId, event.workItemId, event.outputId);
-        return { status: "submission_unknown" };
-      }
-      await markCreativeWorkLayerizationReconciling(event.workspaceId, event.workItemId, event.outputId);
-      return { status: "reconciling" };
+      await failBeforeProvider(event, "storage_error");
+      return { status: "failed" };
     }
 
     const providerSubmitStartedAt = Date.now();

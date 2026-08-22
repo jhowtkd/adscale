@@ -300,6 +300,31 @@ describe("GET /api/creative-work/[id]", () => {
     expect(body.outputs[0].layerization).toBeNull();
   });
 
+  it("runs stale queued cleanup after entitlement revocation without enabling redelivery", async () => {
+    const queued = { ...layerizationState(), status: "queued" as const, providerRequestId: null };
+    const terminal = { ...queued, status: "submission_unknown" as const, failureCode: "submission_unknown" as const };
+    getWorkMock.mockResolvedValue({
+      work: workItem,
+      outputs: [{ ...outputs[0], layerization: queued }],
+      sources: [],
+    });
+    recoverExpiredLayerizationsMock.mockResolvedValue(new Map([["o1", terminal]]));
+
+    const res = await GET(new Request("http://localhost/api/creative-work/work-1"), { params: makeParams("work-1") });
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.canLayerize).toBe(false);
+    expect(body.outputs[0].layerization).toBeNull();
+    expect(recoverExpiredLayerizationsMock).toHaveBeenCalledWith({
+      workspaceId: "workspace-1",
+      workItemId: "work-1",
+      outputs: [{ ...outputs[0], layerization: queued }],
+      cleanupOnly: true,
+    });
+    expect(inngestSendMock).not.toHaveBeenCalled();
+  });
+
   it("projects only the allowlisted layer editor summary through the common GET", async () => {
     getWorkMock.mockResolvedValue({
       work: workItem,

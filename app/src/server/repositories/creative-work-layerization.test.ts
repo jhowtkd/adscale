@@ -38,6 +38,8 @@ import {
   acceptCreativeWorkLayerizationCallback,
   claimExpiredCreativeWorkLayerizationRecovery,
   claimCreativeWorkLayerizationFinalization,
+  claimCreativeWorkLayerizationProcessing,
+  failCreativeWorkLayerizationBeforeProvider,
   failCreativeWorkLayerization,
   failQueuedCreativeWorkLayerization,
   hashLayerizationCallbackToken,
@@ -219,6 +221,37 @@ describe("creative work layerization state transitions", () => {
     expect(failureWhere.sql).toContain("queued");
     expect(failureWhere.sql).toContain("attemptId");
     expect(failureWhere.params).toContain("attempt-1");
+  });
+
+  it("terminalizes a proven pre-provider failure only for its processing attempt", async () => {
+    mocks.updateResults.push([row(state({ status: "failed", failureCode: "storage_error" }))]);
+
+    await expect(failCreativeWorkLayerizationBeforeProvider({
+      workspaceId: "workspace-1",
+      workItemId: "work-1",
+      outputId: "output-1",
+      attemptId: "attempt-1",
+      code: "storage_error",
+    })).resolves.toMatchObject({ layerization: { status: "failed", failureCode: "storage_error" } });
+
+    const where = serialized(mocks.where.mock.calls.at(-1)?.[0]);
+    expect(where.sql).toContain("attemptId");
+    expect(where.sql).toContain("processing");
+    expect(where.sql).toContain("providerRequestId");
+    expect(where.params).toContain("attempt-1");
+  });
+
+  it("claims processing only for the delivered queued attempt", async () => {
+    mocks.updateResults.push([row(state({ status: "processing" }))]);
+
+    await expect(claimCreativeWorkLayerizationProcessing("workspace-1", "work-1", "output-1", "attempt-1")).resolves.toMatchObject({
+      layerization: { status: "processing" },
+    });
+
+    const where = serialized(mocks.where.mock.calls.at(-1)?.[0]);
+    expect(where.sql).toContain("queued");
+    expect(where.sql).toContain("attemptId");
+    expect(where.params).toContain("attempt-1");
   });
 
   it("rejects a callback for a different provider request", async () => {

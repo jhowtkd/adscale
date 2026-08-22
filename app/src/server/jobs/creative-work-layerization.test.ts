@@ -11,6 +11,7 @@ const claimFinalizationMock = vi.hoisted(() => vi.fn());
 const updateStateMock = vi.hoisted(() => vi.fn());
 const completeMock = vi.hoisted(() => vi.fn());
 const failMock = vi.hoisted(() => vi.fn());
+const failBeforeProviderMock = vi.hoisted(() => vi.fn());
 const markUnknownMock = vi.hoisted(() => vi.fn());
 const stillSelectedMock = vi.hoisted(() => vi.fn());
 const objectSignedUrlMock = vi.hoisted(() => vi.fn());
@@ -41,6 +42,7 @@ vi.mock("@/server/repositories/creative-work-layerization", () => ({
   updateCreativeWorkLayerizationState: (...args: unknown[]) => updateStateMock(...args),
   completeCreativeWorkLayerization: (...args: unknown[]) => completeMock(...args),
   failCreativeWorkLayerization: (...args: unknown[]) => failMock(...args),
+  failCreativeWorkLayerizationBeforeProvider: (...args: unknown[]) => failBeforeProviderMock(...args),
   markCreativeWorkLayerizationSubmissionUnknown: (...args: unknown[]) => markUnknownMock(...args),
   isCreativeWorkOutputStillSelectedForLayerization: (...args: unknown[]) => stillSelectedMock(...args),
 }));
@@ -237,18 +239,23 @@ describe("creative work layerization job", () => {
     }));
   });
 
-  it("logs signed source URL failures without submitting to the provider", async () => {
+  it("terminalizes and compensates signed source URL failures before provider claim", async () => {
     getOutputMock.mockResolvedValueOnce(row(state("queued")));
     claimProcessingMock.mockResolvedValueOnce(row(state("processing")));
     getCreativeWorkMock.mockResolvedValue({
       outputs: [{ id: event.outputId, status: "completed", isSelected: true, outputKey: "creative-work/original.png" }],
     });
     objectSignedUrlMock.mockRejectedValueOnce(new Error("R2 unavailable"));
-    markReconcilingMock.mockResolvedValue(row(state("reconciling")));
+    failBeforeProviderMock.mockResolvedValue(row({ ...state("failed"), failureCode: "storage_error", providerRequestId: null }));
 
-    await expect(runCreativeWorkLayerization({ event, provider })).resolves.toEqual({ status: "reconciling" });
+    await expect(runCreativeWorkLayerization({ event, provider })).resolves.toEqual({ status: "failed" });
 
     expect(provider.submit).not.toHaveBeenCalled();
+    expect(failBeforeProviderMock).toHaveBeenCalledWith(expect.objectContaining({
+      attemptId: event.attemptId,
+      code: "storage_error",
+    }), expect.anything());
+    expect(quotaReleaseMock).toHaveBeenCalledWith(expect.objectContaining({ kind: "layerize_v1", operationId: event.attemptId }), expect.any(Date), expect.anything());
     expect(loggerWarnMock).toHaveBeenCalledWith(expect.objectContaining({
       event: "creative_work_layerization_submission",
       stage: "source_url",
@@ -256,6 +263,63 @@ describe("creative work layerization job", () => {
       errorName: "Error",
       errorMessage: "R2 unavailable",
     }));
+
+    getOutputMock.mockResolvedValueOnce(row({ ...state("failed"), failureCode: "storage_error", providerRequestId: null }));
+    await expect(runCreativeWorkLayerization({ event, provider })).resolves.toEqual({ status: "failed" });
+    expect(provider.submit).not.toHaveBeenCalled();
+    expect(failBeforeProviderMock).toHaveBeenCalledOnce();
+    expect(quotaReleaseMock).toHaveBeenCalledOnce();
+  });
+
+  it("terminalizes and compensates an eligibility-read failure without provider submission", async () => {
+    getOutputMock.mockResolvedValueOnce(row(state("queued")));
+    claimProcessingMock.mockResolvedValueOnce(row(state("processing")));
+    getCreativeWorkMock.mockResolvedValue({
+      outputs: [{ id: event.outputId, status: "completed", isSelected: true, outputKey: "creative-work/original.png" }],
+    });
+    objectSignedUrlMock.mockResolvedValue("https://storage.example/original.png");
+    stillSelectedMock.mockRejectedValueOnce(new Error("selection read unavailable"));
+    failBeforeProviderMock.mockResolvedValue(row({ ...state("failed"), failureCode: "storage_error", providerRequestId: null }));
+
+    await expect(runCreativeWorkLayerization({ event, provider })).resolves.toEqual({ status: "failed" });
+
+    expect(provider.submit).not.toHaveBeenCalled();
+    expect(failBeforeProviderMock).toHaveBeenCalledWith(expect.objectContaining({
+      attemptId: event.attemptId,
+      code: "storage_error",
+    }), expect.anything());
+    expect(quotaReleaseMock).toHaveBeenCalledWith(expect.objectContaining({ kind: "layerize_v1", operationId: event.attemptId }), expect.any(Date), expect.anything());
+    expect(loggerWarnMock).toHaveBeenCalledWith(expect.objectContaining({
+      stage: "eligibility_check",
+      status: "failed",
+    }));
+  });
+
+  it("terminalizes and compensates an aggregate eligibility read failure before provider claim", async () => {
+    getOutputMock.mockResolvedValueOnce(row(state("queued")));
+    claimProcessingMock.mockResolvedValueOnce(row(state("processing")));
+    getCreativeWorkMock.mockRejectedValueOnce(new Error("aggregate read unavailable"));
+    failBeforeProviderMock.mockResolvedValue(row({ ...state("failed"), failureCode: "storage_error", providerRequestId: null }));
+
+    await expect(runCreativeWorkLayerization({ event, provider })).resolves.toEqual({ status: "failed" });
+
+    expect(provider.submit).not.toHaveBeenCalled();
+    expect(failBeforeProviderMock).toHaveBeenCalledWith(expect.objectContaining({
+      attemptId: event.attemptId,
+      code: "storage_error",
+    }), expect.anything());
+    expect(quotaReleaseMock).toHaveBeenCalledWith(expect.objectContaining({ kind: "layerize_v1", operationId: event.attemptId }), expect.any(Date), expect.anything());
+  });
+
+  it("skips a late queued delivery when its exact processing claim loses", async () => {
+    getOutputMock.mockResolvedValueOnce(row(state("queued")));
+    claimProcessingMock.mockResolvedValueOnce(null);
+
+    await expect(runCreativeWorkLayerization({ event, provider })).resolves.toEqual({ status: "skipped" });
+
+    expect(claimProcessingMock).toHaveBeenCalledWith(event.workspaceId, event.workItemId, event.outputId, event.attemptId);
+    expect(provider.submit).not.toHaveBeenCalled();
+    expect(quotaReleaseMock).not.toHaveBeenCalled();
   });
 
   it("logs provider submission failures without retrying an ambiguous request", async () => {
@@ -312,7 +376,7 @@ describe("creative work layerization job", () => {
     });
     objectSignedUrlMock.mockResolvedValue("https://storage.example/original.png");
     provider.submit.mockRejectedValueOnce(Object.assign(new Error("not configured"), { code: "missing_configuration" }));
-    failMock.mockResolvedValue(row({ ...state("failed"), failureCode: "missing_configuration", providerRequestId: null }));
+    failBeforeProviderMock.mockResolvedValue(row({ ...state("failed"), failureCode: "missing_configuration", providerRequestId: null }));
 
     await expect(runCreativeWorkLayerization({ event, provider })).resolves.toEqual({ status: "failed" });
 
@@ -364,11 +428,11 @@ describe("creative work layerization job", () => {
     getCreativeWorkMock.mockResolvedValue({
       outputs: [{ id: event.outputId, status: "completed", isSelected: false, outputKey: "creative-work/original.png" }],
     });
-    failMock.mockResolvedValue(row({ ...state("failed"), failureCode: "no_longer_eligible" }));
+    failBeforeProviderMock.mockResolvedValue(row({ ...state("failed"), failureCode: "no_longer_eligible", providerRequestId: null }));
 
     await expect(runCreativeWorkLayerization({ event, provider })).resolves.toEqual({ status: "failed" });
     expect(provider.submit).not.toHaveBeenCalled();
-    expect(failMock).toHaveBeenCalledWith(expect.objectContaining({ code: "no_longer_eligible" }), expect.anything());
+    expect(failBeforeProviderMock).toHaveBeenCalledWith(expect.objectContaining({ code: "no_longer_eligible", attemptId: event.attemptId }), expect.anything());
     expect(quotaReleaseMock).toHaveBeenCalledWith(expect.objectContaining({ kind: "layerize_v1", operationId: event.attemptId }), expect.any(Date), expect.anything());
   });
 
@@ -380,11 +444,12 @@ describe("creative work layerization job", () => {
     });
     objectSignedUrlMock.mockResolvedValue("https://storage.example/original.png");
     stillSelectedMock.mockResolvedValueOnce(false);
+    failBeforeProviderMock.mockResolvedValue(row({ ...state("failed"), failureCode: "no_longer_eligible", providerRequestId: null }));
 
     await expect(runCreativeWorkLayerization({ event, provider })).resolves.toEqual({ status: "failed" });
     expect(objectSignedUrlMock).toHaveBeenCalledOnce();
     expect(provider.submit).not.toHaveBeenCalled();
-    expect(failMock).toHaveBeenCalledWith(expect.objectContaining({ code: "no_longer_eligible" }), expect.anything());
+    expect(failBeforeProviderMock).toHaveBeenCalledWith(expect.objectContaining({ code: "no_longer_eligible", attemptId: event.attemptId }), expect.anything());
   });
 
   it("keeps a known provider request reconciling after the callback deadline", async () => {
