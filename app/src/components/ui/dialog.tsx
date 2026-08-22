@@ -65,6 +65,7 @@ const dialogContentVariants = cva(
         md: "sm:max-w-lg",
         lg: "sm:max-w-2xl",
         xl: "sm:max-w-4xl",
+        full: "inset-0 h-dvh max-h-dvh rounded-none sm:inset-4 sm:h-[calc(100dvh-2rem)] sm:max-h-none sm:max-w-none sm:translate-x-0 sm:translate-y-0 sm:rounded-[var(--radius-overlay)]",
       },
     },
     defaultVariants: {
