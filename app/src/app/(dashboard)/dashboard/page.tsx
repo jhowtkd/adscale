@@ -28,7 +28,7 @@ export default function DashboardDataPage() {
   const tKpi = useTranslations("dashboard.kpi");
   const tStatus = useTranslations("campaign.status");
   const tHome = useTranslations("dashboard.home");
-  const { data: userProfile } = useUserProfile();
+  const { data: userProfile, isPending: profilePending } = useUserProfile();
   const firstName = normalizeDashboardFirstName(userProfile?.firstName ?? "");
   const { data: stats, isLoading, isError, refetch } = useDashboardStats("month", "7");
   const { data: templates = [], isLoading: templatesLoading } = useTemplates();
@@ -87,7 +87,7 @@ export default function DashboardDataPage() {
     );
   }
 
-  const loading = isLoading || templatesLoading || !view;
+  const loading = isLoading || templatesLoading || profilePending || !view;
 
   const summary = view ? (
     <>
