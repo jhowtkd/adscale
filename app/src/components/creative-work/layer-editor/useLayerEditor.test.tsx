@@ -292,6 +292,58 @@ describe("useLayerEditor", () => {
     expect(ids[0]).toBe(ids[1]);
   });
 
+  it.each(["failed", "submission_unknown"] as const)("starts a new regeneration after canonical polling reaches terminal %s", async (status) => {
+    vi.useFakeTimers();
+    const fixedId = "00000000-0000-4000-8000-000000000111";
+    const freshId = "00000000-0000-4000-8000-000000000222";
+    vi.spyOn(crypto, "randomUUID").mockReturnValueOnce(fixedId).mockReturnValueOnce(freshId);
+    const reserved = { ...editorDocument, regeneration: { id: fixedId, status: "reserved" as const, layerId: editorDocument.layers[0]!.id, instruction: "Change", candidateUrl: null, failureCode: null } };
+    const terminal = { ...reserved, revision: 2, regeneration: { ...reserved.regeneration, status, failureCode: "provider_failure" } };
+    let opens = 0;
+    let regenerations = 0;
+    patch.mockImplementation(async (_work: string, body: { action: string }) => {
+      if (body.action === "openLayerEditor") {
+        opens += 1;
+        return response(opens === 1 ? editorDocument : opens === 2 ? reserved : terminal);
+      }
+      if (body.action === "regenerateLayer") {
+        regenerations += 1;
+        if (regenerations === 1) throw Object.assign(new Error("dispatch"), { code: "layer_regeneration_dispatch_failed" });
+        return { ok: true, accepted: true, replay: false };
+      }
+      return response();
+    });
+    const hook = await openHook();
+
+    await expect(hook.result.current.regenerate(editorDocument.layers[0]!.id, "Change")).rejects.toThrow("dispatch");
+    await act(async () => { await hook.result.current.open(); });
+    await act(async () => { await hook.result.current.regenerate(editorDocument.layers[0]!.id, "Change"); });
+
+    const ids = callsFor("regenerateLayer").map(([, body]) => (body as { operationId: string }).operationId);
+    expect(ids).toEqual([fixedId, freshId]);
+  });
+
+  it("preserves dirty edits and blocks release after a generic heartbeat failure", async () => {
+    vi.useFakeTimers();
+    patch.mockImplementation((_work: string, body: { action: string }) => {
+      if (body.action === "heartbeatLayerEditor") return Promise.reject(new Error("heartbeat unavailable"));
+      return Promise.resolve(response());
+    });
+    const hook = await openHook();
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(29_500); });
+    act(() => hook.result.current.dispatch({ type: "rename", id: editorDocument.layers[0]!.id, name: "Unsaved" }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(500); });
+
+    expect(hook.result.current.document?.layers[0]?.name).toBe("Unsaved");
+    expect(hook.result.current.mode).toBe("read");
+    expect(hook.result.current.saveStatus).toBe("error");
+    expect(callsFor("saveLayerEditor")).toHaveLength(0);
+    const releasesBeforeClose = callsFor("releaseLayerEditor").length;
+    await expect(hook.result.current.flushAndRelease()).resolves.toBe(false);
+    expect(callsFor("releaseLayerEditor")).toHaveLength(releasesBeforeClose);
+  });
+
   for (const [action, invoke] of [
     ["acceptLayerCandidate", (hook: ReturnType<typeof renderHook<ReturnType<typeof useLayerEditor>, unknown>>) => hook.result.current.acceptCandidate()],
     ["discardLayerCandidate", (hook: ReturnType<typeof renderHook<ReturnType<typeof useLayerEditor>, unknown>>) => hook.result.current.discardCandidate()],
@@ -350,6 +402,28 @@ describe("useLayerEditor", () => {
     await act(async () => { published = await hook.result.current.publish(); });
     expect(published).toMatchObject({ ok: true });
     expect(callsFor("releaseLayerEditor")).toHaveLength(releasesBeforePublish + 1);
+  });
+
+  it("retains the publication operation id until lease release succeeds", async () => {
+    vi.useFakeTimers();
+    let releases = 0;
+    patch.mockImplementation((_work: string, body: { action: string }) => {
+      if (body.action === "publishLayerEditor") return Promise.resolve({ ok: true, replay: false, output: { id: "child-1" } });
+      if (body.action === "releaseLayerEditor") {
+        releases += 1;
+        return releases === 1 ? Promise.reject(new Error("release unavailable")) : Promise.resolve({});
+      }
+      return Promise.resolve(response());
+    });
+    const hook = await openHook();
+
+    await expect(hook.result.current.publish()).rejects.toThrow("release unavailable");
+    await act(async () => { await hook.result.current.publish(); });
+
+    const ids = callsFor("publishLayerEditor").map(([, body]) => (body as { operationId: string }).operationId);
+    expect(ids).toHaveLength(2);
+    expect(ids[0]).toBe(ids[1]);
+    expect(callsFor("releaseLayerEditor")).toHaveLength(2);
   });
 
   it("returns false from flushAndRelease when save fails", async () => {

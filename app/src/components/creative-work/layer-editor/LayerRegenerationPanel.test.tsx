@@ -36,4 +36,23 @@ describe("LayerRegenerationPanel retry dispatch", () => {
       unmount();
     }
   });
+
+  it("focuses once when pending regeneration becomes terminal", () => {
+    const pending = { ...base, regeneration: { id: "op", status: "processing" as const, layerId: "layer", instruction: "Change", candidateUrl: null, failureCode: null } };
+    const { rerender } = render(<LayerRegenerationPanel document={pending} selectedLayerId="layer" access={access} mode="edit" />);
+    expect(window.document.activeElement).not.toHaveAttribute("aria-label", "editorRegenerate");
+    const terminal = { ...pending, regeneration: { ...pending.regeneration, status: "failed" as const, failureCode: "provider_failure" } };
+    rerender(<LayerRegenerationPanel document={terminal} selectedLayerId="layer" access={access} mode="edit" />);
+    expect(window.document.activeElement).toHaveAttribute("aria-label", "editorRegenerate");
+    const elsewhere = window.document.createElement("button"); window.document.body.append(elsewhere); elsewhere.focus();
+    rerender(<LayerRegenerationPanel document={terminal} selectedLayerId="layer" access={access} mode="edit" />);
+    expect(window.document.activeElement).toBe(elsewhere);
+    elsewhere.remove();
+  });
+
+  it("does not steal focus for an initially terminal regeneration", () => {
+    const initialTerminal = { ...base, regeneration: { id: "op", status: "ready" as const, layerId: "layer", instruction: "Change", candidateUrl: "candidate", failureCode: null } };
+    render(<LayerRegenerationPanel document={initialTerminal} selectedLayerId="layer" access={access} mode="edit" />);
+    expect(window.document.activeElement).not.toHaveAttribute("aria-label", "editorRegenerate");
+  });
 });
