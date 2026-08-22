@@ -330,6 +330,7 @@ describe("useLayerEditor", () => {
       return Promise.resolve(response());
     });
     const hook = await openHook();
+    patch.mockClear();
 
     await act(async () => { await vi.advanceTimersByTimeAsync(29_500); });
     act(() => hook.result.current.dispatch({ type: "rename", id: editorDocument.layers[0]!.id, name: "Unsaved" }));
@@ -339,9 +340,8 @@ describe("useLayerEditor", () => {
     expect(hook.result.current.mode).toBe("read");
     expect(hook.result.current.saveStatus).toBe("error");
     expect(callsFor("saveLayerEditor")).toHaveLength(0);
-    const releasesBeforeClose = callsFor("releaseLayerEditor").length;
     await expect(hook.result.current.flushAndRelease()).resolves.toBe(false);
-    expect(callsFor("releaseLayerEditor")).toHaveLength(releasesBeforeClose);
+    expect(callsFor("releaseLayerEditor")).toHaveLength(0);
   });
 
   for (const [action, invoke] of [
