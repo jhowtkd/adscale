@@ -1,7 +1,7 @@
 import "server-only";
 import { createHash } from "node:crypto";
 import { claimLayerEditorQuota, isLayerEditorQuotaDispatchCommitted, isLayerEditorQuotaReleased, isLayerEditorQuotaReservationCommitted, markLayerEditorQuotaDispatchCommitted, markLayerEditorQuotaReservationCommitted, releaseLayerEditorQuota, withLayerEditorOperationLock, withLayerEditorPostDispatchLock, type LayerEditorOperationExecutor } from "@/server/layer-editor/quota";
-import { clearTerminalLayerRegenerationForRetry, getCreativeWorkLayerEditorOutput, layerEditorFromOutput, reserveLayerRegeneration, rollbackReservedLayerRegeneration } from "@/server/repositories/creative-work-layer-editor";
+import { clearTerminalLayerRegenerationForRetry, getCreativeWorkLayerEditorOutput, layerEditorFromOutput, reserveLayerRegeneration } from "@/server/repositories/creative-work-layer-editor";
 import { inngest } from "@/server/jobs/client";
 import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 
@@ -16,8 +16,6 @@ export async function requestCreativeWorkLayerRegeneration(input: { workspaceId:
       try {
         await inngest.send({id:`creative-work-layer-regenerate:${input.outputId}:${input.operationId}`,name:heavyImageEventName("creative-work.layer-regenerate"),data:{workspaceId:input.workspaceId,workItemId:input.workItemId,outputId:input.outputId,operationId:input.operationId}});
       } catch {
-        const rolledBack = await rollbackReservedLayerRegeneration({ ...input, now: new Date() }, executor);
-        if (rolledBack) await releaseLayerEditorQuota({ workspaceId: input.workspaceId, kind: "layer_regeneration_v1", operationId: input.operationId }, new Date(), executor);
         return { ok: false as const, code: "layer_regeneration_dispatch_failed" as const };
       }
       await markLayerEditorQuotaDispatchCommitted({ workspaceId: input.workspaceId, kind: "layer_regeneration_v1", operationId: input.operationId }, executor);
