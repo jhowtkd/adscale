@@ -35,6 +35,8 @@ describe("brandStatusKey", () => {
         ptBR.navigation.brandKitStatusReview,
       ],
       noWorksMatch: ptBR.common.noWorksMatch,
+      noWorksYet: ptBR.common.noWorksYet,
+      errorLoadingWorks: ptBR.common.errorLoadingWorks,
     }).toEqual({
       home: "Início",
       works: "Trabalhos",
@@ -42,6 +44,8 @@ describe("brandStatusKey", () => {
       brand: "Marca",
       states: ["Não configurada", "Incompleta", "Pronta", "Precisa de revisão"],
       noWorksMatch: "Nenhum trabalho corresponde à sua busca",
+      noWorksYet: "Nenhum trabalho ainda",
+      errorLoadingWorks: "Erro ao carregar trabalhos",
     });
     expect({
       home: en.navigation.home,
@@ -55,6 +59,8 @@ describe("brandStatusKey", () => {
         en.navigation.brandKitStatusReview,
       ],
       noWorksMatch: en.common.noWorksMatch,
+      noWorksYet: en.common.noWorksYet,
+      errorLoadingWorks: en.common.errorLoadingWorks,
     }).toEqual({
       home: "Home",
       works: "Works",
@@ -62,6 +68,8 @@ describe("brandStatusKey", () => {
       brand: "Brand",
       states: ["Not configured", "Incomplete", "Ready", "Needs review"],
       noWorksMatch: "No work matches your search",
+      noWorksYet: "No work yet",
+      errorLoadingWorks: "Error loading work",
     });
   });
 });
