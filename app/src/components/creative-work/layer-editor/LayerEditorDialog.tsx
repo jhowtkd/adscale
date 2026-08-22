@@ -37,7 +37,11 @@ export function LayerEditorDialog({ open, workItemId, outputId, mode = "edit", o
   const regenerationPanelRef = useRef<HTMLDivElement>(null);
   const canMutate = editor.mode === "edit" && !["reserved", "processing", "ready"].includes(editor.document?.regeneration?.status ?? "");
 
-  useEffect(() => { if (error || editor.hasUnresolvedConflict) alertRef.current?.focus(); }, [editor.hasUnresolvedConflict, error]);
+  useEffect(() => {
+    if (!(error || editor.hasUnresolvedConflict)) return;
+    const focusAlert = setTimeout(() => setTimeout(() => alertRef.current?.focus(), 0), 0);
+    return () => clearTimeout(focusAlert);
+  }, [editor.hasUnresolvedConflict, error]);
 
   useEffect(() => {
     if (!open || editorMode !== "edit") return;
@@ -155,9 +159,9 @@ export function LayerEditorDialog({ open, workItemId, outputId, mode = "edit", o
             </div>
           </aside> : null}
         </div>
-        {editor.hasUnresolvedConflict ? <div role="alert" className="flex flex-wrap items-center gap-2 border-t border-amber-500/40 bg-amber-50 px-4 py-3 text-sm text-amber-950"><p>{t("editorConflict")}</p><Button variant="outline" size="sm" onClick={() => act(editor.discardLocalEdits)}>{t("editorDiscardLocal")}</Button><Button variant="outline" size="sm" onClick={() => void discardAndClose()}>{t("editorDiscardAndClose")}</Button></div> : null}
+        {editor.hasUnresolvedConflict ? <div ref={alertRef} role="alert" tabIndex={-1} className="flex flex-wrap items-center gap-2 border-t border-amber-500/40 bg-amber-50 px-4 py-3 text-sm text-amber-950"><p>{t("editorConflict")}</p><Button variant="outline" size="sm" onClick={() => act(editor.discardLocalEdits)}>{t("editorDiscardLocal")}</Button><Button variant="outline" size="sm" onClick={() => void discardAndClose()}>{t("editorDiscardAndClose")}</Button></div> : null}
         <div role="status" aria-live="polite" className="sr-only">{notice || editor.mode}</div>
-        <div ref={alertRef} role="alert" tabIndex={-1} className="sr-only">{error || (editor.hasUnresolvedConflict ? t("editorConflict") : "")}</div>
+        <div ref={editor.hasUnresolvedConflict ? undefined : alertRef} role="alert" tabIndex={-1} className="sr-only">{error || (editor.hasUnresolvedConflict ? t("editorConflict") : "")}</div>
       </DialogContent>
     </Dialog>
   );
