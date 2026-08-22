@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PublicLayerEditorDocumentV1 } from "@/server/layer-editor/contracts";
 
@@ -189,5 +189,16 @@ describe("LayerEditorDialog", () => {
     expect(screen.getByRole("button", { name: "Descartar alterações locais e recarregar" })).toBeInTheDocument();
     expect(screen.getAllByRole("alert")[0]).toHaveTextContent("As camadas foram alteradas por outra pessoa");
     await waitFor(() => expect(window.document.activeElement).toHaveAttribute("role", "alert"));
+  });
+
+  it("keeps close and history header controls at 44px", () => {
+    const value = editor("edit");
+    value.canUndo = true;
+    value.canRedo = true;
+    mocks.useLayerEditor.mockReturnValue(value);
+    render(<LayerEditorDialog open workItemId="work-9" outputId="output-9" onOpenChange={vi.fn()} />);
+    for (const name of ["Fechar editor", "Desfazer", "Refazer"]) {
+      expect(within(screen.getByRole("banner")).getByRole("button", { name })).toHaveClass("min-h-11", "min-w-11");
+    }
   });
 });
