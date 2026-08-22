@@ -5,7 +5,24 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
-import { useBrandTrainingStatus } from "@/lib/hooks/use-brand-training";
+import {
+  useBrandTrainingStatus,
+  type BrandTrainingStatus,
+} from "@/lib/hooks/use-brand-training";
+
+export function brandStatusKey(
+  activeClientProfileId: string | null,
+  training?: BrandTrainingStatus,
+) {
+  if (!activeClientProfileId) return "brandKitStatusSelect";
+  if (
+    training?.voice.reviewStatus === "pending_review" ||
+    training?.voice.reviewStatus === "changes_requested"
+  ) {
+    return "brandKitStatusReview";
+  }
+  return training?.trained ? "brandKitStatusReady" : "brandKitStatusSetup";
+}
 
 export default function SidebarBrandKitFeature() {
   const tNav = useTranslations("navigation");
@@ -18,6 +35,7 @@ export default function SidebarBrandKitFeature() {
     pathname.startsWith("/brand-kit") ||
     (pathname.startsWith("/settings") &&
       (settingsTab === "brandKit" || settingsTab === "brandTraining"));
+  const statusKey = brandStatusKey(activeClientProfileId, training);
 
   return (
     <Link
@@ -44,11 +62,7 @@ export default function SidebarBrandKitFeature() {
         <span className="text-[11px] text-[var(--text-muted)]">
           {isLoading
             ? tNav("brandKitStatusLoading")
-            : training?.trained
-              ? tNav("brandKitStatusReady")
-              : activeClientProfileId
-                ? tNav("brandKitStatusSetup")
-                : tNav("brandKitStatusSelect")}
+            : tNav(statusKey)}
         </span>
       </span>
     </Link>
