@@ -1907,4 +1907,14 @@ describe("useCreativeComposer", () => {
 
     expect(mocks.resolveBrandConflict).not.toHaveBeenCalled();
   });
+
+  it("treats typed Layerize dispatch rejection as uncertain without replacing the operation id", async () => {
+    mocks.work.mockReturnValue({ data: workDetail(), isLoading: false });
+    mocks.layerizeOutput.mockRejectedValue(Object.assign(new Error("dispatch"), { code: "creativeWorkLayerizationDispatchFailed" }));
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+    let outcome: unknown;
+    await act(async () => { outcome = await result.current.layerizeOutput("output-1", false, "persisted-op"); });
+    expect(outcome).toBe("uncertain");
+    expect(mocks.layerizeOutput).toHaveBeenCalledWith(expect.objectContaining({ workItemId: "work-1", outputId: "output-1", operationId: "persisted-op" }));
+  });
 });
