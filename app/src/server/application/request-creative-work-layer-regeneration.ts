@@ -1,6 +1,6 @@
 import "server-only";
 import { claimLayerEditorQuota, releaseLayerEditorQuota } from "@/server/layer-editor/quota";
-import { getCreativeWorkLayerEditorOutput, layerEditorFromOutput, reserveLayerRegeneration } from "@/server/repositories/creative-work-layer-editor";
+import { getCreativeWorkLayerEditorOutput, layerEditorFromOutput, reserveLayerRegeneration, rollbackReservedLayerRegeneration } from "@/server/repositories/creative-work-layer-editor";
 import { inngest } from "@/server/jobs/client";
 import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 
@@ -16,6 +16,13 @@ export async function requestCreativeWorkLayerRegeneration(input: { workspaceId:
   const reserved=await reserveLayerRegeneration({...input,instruction,usageKey:`layer-editor:${input.workspaceId}:regeneration:${input.operationId}`,now:new Date()});
   if(!reserved){ if(!quota.replay) await releaseLayerEditorQuota({workspaceId:input.workspaceId,kind:"layer_regeneration_v1",operationId:input.operationId},new Date()); return {ok:false as const,code:"layer_editor_revision_conflict" as const}; }
   try { await inngest.send({id:`creative-work-layer-regenerate:${input.outputId}:${input.operationId}`,name:heavyImageEventName("creative-work.layer-regenerate"),data:{workspaceId:input.workspaceId,workItemId:input.workItemId,outputId:input.outputId,operationId:input.operationId}}); }
-  catch { await releaseLayerEditorQuota({workspaceId:input.workspaceId,kind:"layer_regeneration_v1",operationId:input.operationId},new Date()); return {ok:false as const,code:"layer_regeneration_dispatch_failed" as const}; }
+  catch {
+    const now = new Date();
+    const rolledBack = await rollbackReservedLayerRegeneration({ ...input, now });
+    if (rolledBack) {
+      await releaseLayerEditorQuota({ workspaceId: input.workspaceId, kind: "layer_regeneration_v1", operationId: input.operationId }, now);
+    }
+    return { ok: false as const, code: "layer_regeneration_dispatch_failed" as const };
+  }
   return {ok:true as const,accepted:!quota.replay,replay:quota.replay};
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import type { PublicLayerEditorDocumentV1 } from "@/server/layer-editor/contracts";
 import type { LayerEditorCommand } from "./state";
 
@@ -18,6 +19,7 @@ type Handle = "move" | "north-west" | "north-east" | "south-west" | "south-east"
 type PointerGesture = { pointerId: number; layerId: string; handle: Handle; startClientX: number; startClientY: number; start: Box; current: Box };
 
 export function LayerCanvas({ document, selectedLayerId, onSelect, mode, dispatch, visibilityOverrides = {} }: LayerCanvasProps) {
+  const t = useTranslations("dashboard.home.composer.results");
   const [zoom, setZoom] = useState(100);
   const [preview, setPreview] = useState<Box | null>(null);
   const gesture = useRef<PointerGesture | null>(null);
@@ -97,10 +99,10 @@ export function LayerCanvas({ document, selectedLayerId, onSelect, mode, dispatc
   };
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col" aria-label="Canvas de camadas">
+    <section className="flex min-h-0 flex-1 flex-col" aria-label={t("editorCanvas")}>
       <div className="flex gap-1 p-2">
         {[25, 50, 75, 100, 150, 200].map((value) => (
-          <button key={value} type="button" aria-pressed={zoom === value} onClick={() => setZoom(value)}>{value}%</button>
+          <button key={value} type="button" className="min-h-11 min-w-11" aria-pressed={zoom === value} onClick={() => setZoom(value)}>{value}%</button>
         ))}
       </div>
       <div className="relative flex-1 overflow-auto bg-[linear-gradient(45deg,#ddd_25%,transparent_25%),linear-gradient(-45deg,#ddd_25%,transparent_25%)] bg-[size:16px_16px]">
@@ -114,14 +116,14 @@ export function LayerCanvas({ document, selectedLayerId, onSelect, mode, dispatc
           })}
           {selected ? (
             <div
-              aria-label="Camada selecionada"
+              aria-label={t("editorSelectedLayer")}
               tabIndex={mode === "edit" ? 0 : undefined}
               onKeyDown={transformFromKey}
               onPointerDown={beginPointerTransform}
               onPointerMove={movePointerTransform}
               onPointerUp={(event) => finishPointerTransform(event, true)}
               onPointerCancel={(event) => finishPointerTransform(event, false)}
-              className={mode === "edit" ? "absolute border-2 border-primary" : "absolute border-2 border-muted"}
+              className={mode === "edit" ? "absolute z-[200] border-2 border-primary" : "absolute z-[200] border-2 border-muted"}
               style={{ left: preview?.x ?? selected.x, top: preview?.y ?? selected.y, width: preview?.width ?? selected.width, height: preview?.height ?? selected.height }}
             >
               {mode === "edit" && [
@@ -129,7 +131,7 @@ export function LayerCanvas({ document, selectedLayerId, onSelect, mode, dispatc
                 ["north-east", "top-0 right-0"],
                 ["south-west", "bottom-0 left-0"],
                 ["south-east", "bottom-0 right-0"],
-              ].map(([handle, position]) => <span key={handle} data-handle={handle} aria-label={`Redimensionar ${handle}`} className={`absolute z-10 flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center ${position}`}><span data-handle={handle} className="h-2 w-2 rounded-sm bg-primary" /></span>)}
+              ].map(([handle, position]) => <span key={handle} data-handle={handle} aria-label={t("editorResizeHandle", { handle })} className={`absolute z-10 flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center ${position}`}><span data-handle={handle} className="h-2 w-2 rounded-sm bg-primary" /></span>)}
             </div>
           ) : null}
         </div>

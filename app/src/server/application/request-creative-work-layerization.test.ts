@@ -175,4 +175,21 @@ describe("requestCreativeWorkLayerization", () => {
       code: "dispatch_failed",
     }));
   });
+
+  it.each([
+    ["disabled", "layer_editor_not_available"],
+    ["quota_exhausted", "layer_editor_quota_exhausted"],
+  ] as const)("preserves the %s Layerize quota outcome", async (quotaCode, expectedCode) => {
+    quotaClaimMock.mockResolvedValue({ ok: false, code: quotaCode });
+    const result = await requestCreativeWorkLayerization(input);
+    expect(result).toMatchObject({ ok: false, error: { code: expectedCode } });
+  });
+
+  it("rejects a compensated operation replay after retry state was cleared", async () => {
+    quotaClaimMock.mockResolvedValue({ ok: true, replay: true });
+    const result = await requestCreativeWorkLayerization({ ...input, retry: true });
+    expect(result).toMatchObject({ ok: false, error: { code: "layerization_replay_conflict" } });
+    expect(claimMock).not.toHaveBeenCalled();
+    expect(sendMock).not.toHaveBeenCalled();
+  });
 });

@@ -72,6 +72,16 @@ describe("creativeWorkLayerRegenerationJob", () => {
     expect(failRegeneration).not.toHaveBeenCalled();
   });
 
+  it("skips a duplicate delivery once the reserved-to-processing claim is consumed", async () => {
+    markProcessing.mockResolvedValueOnce({ id: input.outputId }).mockResolvedValueOnce(null);
+    stateFromOutput.mockImplementation((row) => row ? state : null);
+    const provider = { regenerate: vi.fn().mockResolvedValue({ buffer: Buffer.from("candidate"), requestId: "request-1" }) };
+
+    await expect(runCreativeWorkLayerRegeneration(input, provider)).resolves.toEqual({ status: "ready" });
+    await expect(runCreativeWorkLayerRegeneration(input, provider)).resolves.toEqual({ status: "skipped" });
+    expect(provider.regenerate).toHaveBeenCalledOnce();
+  });
+
   it("records submission_unknown for ambiguous provider timeout after invocation", async () => {
     const provider = { regenerate: vi.fn().mockRejectedValue(Object.assign(new Error("timeout"), { name: "TimeoutError" })) };
 

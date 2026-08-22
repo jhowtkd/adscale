@@ -1,6 +1,9 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useTranslations } from "next-intl";
+import { BringToFront, Eye, EyeOff, GripVertical, SendToBack } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import type { PublicLayerEditorDocumentV1 } from "@/server/layer-editor/contracts";
 import type { LayerEditorCommand } from "./state";
 
@@ -14,6 +17,7 @@ type LayerPanelProps = {
 };
 
 export function LayerPanel({ document, selectedLayerId, onSelect, mode = "inspect", dispatch, onInspectVisibilityChange }: LayerPanelProps) {
+  const t = useTranslations("dashboard.home.composer.results");
   const [inspectVisibility, setInspectVisibility] = useState<Record<string, boolean>>({});
   const reorder = useRef<{ id: string; pointerId: number } | null>(null);
 
@@ -46,7 +50,7 @@ export function LayerPanel({ document, selectedLayerId, onSelect, mode = "inspec
   };
 
   return (
-    <aside aria-label="Camadas" className="overflow-y-auto">
+    <aside aria-label={t("editorLayers")} className="overflow-y-auto">
       {[...document.layers].sort((left, right) => left.order - right.order).map((layer) => {
         const isSelected = layer.id === selectedLayerId;
         const isVisible = visible(layer);
@@ -62,21 +66,21 @@ export function LayerPanel({ document, selectedLayerId, onSelect, mode = "inspec
               <img src={layer.imageUrl} alt="" className="h-10 w-10 object-contain" />
               <span className="text-left">
                 {mode === "edit" && isSelected ? null : <b>{layer.name}</b>}
-                <small className="block">{layer.width} × {layer.height} · {isVisible ? "Visível" : "Oculta"}</small>
+                <small className="block">{layer.width} × {layer.height} · {t("editorVisibility")}: {isVisible ? "✓" : "—"}</small>
               </span>
             </button>
             {mode === "edit" && isSelected && dispatch ? (
               <>
                 <LayerNameEditor key={`${layer.id}:${layer.name}`} layer={layer} dispatch={dispatch} />
-                <div className="mt-2 flex gap-2">
-                  <button type="button" className="min-h-11 min-w-11 cursor-grab" aria-label={`Reordenar ${layer.name}`} onPointerDown={(event) => beginReorder(event, layer.id)} onPointerUp={finishReorder}>↕</button>
-                  <button type="button" className="min-h-11 min-w-11" aria-label={isVisible ? `Ocultar ${layer.name}` : `Mostrar ${layer.name}`} onClick={() => toggleVisibility(layer)}>{isVisible ? "Ocultar" : "Mostrar"}</button>
-                  <button type="button" className="min-h-11 min-w-11" aria-label="Trazer para frente" onClick={() => dispatch?.({ type: "reorder", id: layer.id, order: 0 })}>Trazer para frente</button>
-                  <button type="button" className="min-h-11 min-w-11" aria-label="Enviar para trás" onClick={() => dispatch?.({ type: "reorder", id: layer.id, order: document.layers.length - 1 })}>Enviar para trás</button>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <Button type="button" variant="outline" size="icon" className="min-h-11 min-w-11 cursor-grab" aria-label={t("editorReorder", { name: layer.name })} title={t("editorReorder", { name: layer.name })} onPointerDown={(event) => beginReorder(event, layer.id)} onPointerUp={finishReorder}><GripVertical /></Button>
+                  <Button type="button" variant="outline" size="icon" className="min-h-11 min-w-11" aria-label={isVisible ? t("editorHide", { name: layer.name }) : t("editorShow", { name: layer.name })} title={isVisible ? t("editorHide", { name: layer.name }) : t("editorShow", { name: layer.name })} onClick={() => toggleVisibility(layer)}>{isVisible ? <EyeOff /> : <Eye />}</Button>
+                  <Button type="button" variant="outline" size="icon" className="min-h-11 min-w-11" aria-label={t("editorBringForward")} title={t("editorBringForward")} onClick={() => dispatch?.({ type: "reorder", id: layer.id, order: 0 })}><BringToFront /></Button>
+                  <Button type="button" variant="outline" size="icon" className="min-h-11 min-w-11" aria-label={t("editorSendBack")} title={t("editorSendBack")} onClick={() => dispatch?.({ type: "reorder", id: layer.id, order: document.layers.length - 1 })}><SendToBack /></Button>
                 </div>
               </>
             ) : mode !== "edit" && isSelected ? (
-              <button type="button" className="mt-2 min-h-11 min-w-11" aria-label={isVisible ? `Ocultar ${layer.name}` : `Mostrar ${layer.name}`} onClick={() => toggleVisibility(layer)}>{isVisible ? "Ocultar" : "Mostrar"}</button>
+              <Button type="button" variant="outline" size="icon" className="mt-2 min-h-11 min-w-11" aria-label={isVisible ? t("editorHide", { name: layer.name }) : t("editorShow", { name: layer.name })} title={isVisible ? t("editorHide", { name: layer.name }) : t("editorShow", { name: layer.name })} onClick={() => toggleVisibility(layer)}>{isVisible ? <EyeOff /> : <Eye />}</Button>
             ) : null}
           </div>
         );
@@ -92,6 +96,7 @@ function LayerNameEditor({
   layer: PublicLayerEditorDocumentV1["layers"][number];
   dispatch: (command: LayerEditorCommand) => void;
 }) {
+  const t = useTranslations("dashboard.home.composer.results");
   const [draftName, setDraftName] = useState(layer.name);
   const cancelled = useRef(false);
 
@@ -108,7 +113,7 @@ function LayerNameEditor({
 
   return (
     <input
-      aria-label="Nome da camada"
+      aria-label={t("editorLayerName")}
       value={draftName}
       maxLength={128}
       onChange={(event) => setDraftName(event.target.value)}

@@ -8,6 +8,7 @@ import { applyLayerEditorCommand, createLayerEditorSession, redoLayerEditor, und
 type LayerEditorInput = { workItemId: string; outputId: string; mode: "edit" | "inspect" };
 export type LayerEditorMode = "edit" | "inspect" | "read";
 type OpenResponse = { document: PublicLayerEditorDocumentV1; access: LayerEditorAccessV1 };
+type OpenFailureDetails = { document?: PublicLayerEditorDocumentV1 | null };
 
 export function useLayerEditor(input: LayerEditorInput) {
   const [session, setSession] = useState<LayerEditorSessionState | null>(null);
@@ -106,11 +107,25 @@ export function useLayerEditor(input: LayerEditorInput) {
   }, [flush]);
 
   const open = useCallback(async () => {
-    const response = await patchCreativeWork<OpenResponse>(input.workItemId, {
-      action: "openLayerEditor",
-      outputId: input.outputId,
-      mode: input.mode,
-    });
+    let response: OpenResponse;
+    try {
+      response = await patchCreativeWork<OpenResponse>(input.workItemId, {
+        action: "openLayerEditor",
+        outputId: input.outputId,
+        mode: input.mode,
+      });
+    } catch (error) {
+      const details = typeof error === "object" && error && "details" in error ? (error as { details?: OpenFailureDetails }).details : null;
+      const document = details?.document;
+      if (!document) throw error;
+      serverRevision.current = document.revision;
+      leaseRef.current = null;
+      setLeaseId(null);
+      applyCanonicalDocument(document);
+      stop();
+      setOpenError(error instanceof Error ? error.message : "Unable to open the layer editor");
+      return;
+    }
     serverRevision.current = response.document.revision;
     setAccess(response.access);
     leaseRef.current = response.document.lease.leaseId;
@@ -247,9 +262,10 @@ export function useLayerEditor(input: LayerEditorInput) {
       await patchCreativeWork(input.workItemId, { action: "releaseLayerEditor", outputId: input.outputId, leaseId: leaseRef.current });
       leaseRef.current = null;
       setLeaseId(null);
+      stop();
     }
     return result;
-  }, [command, input.outputId, input.workItemId]);
+  }, [command, input.outputId, input.workItemId, stop]);
 
   const flushAndRelease = useCallback(async () => {
     if (!await flush()) return false;

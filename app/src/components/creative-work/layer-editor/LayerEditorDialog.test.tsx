@@ -12,8 +12,8 @@ vi.mock("./useLayerEditor", () => ({
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => ({
     editorTitle: "Editor de camadas", editorReadOnly: "Somente leitura", editorSaveError: "Não foi possível salvar as alterações",
-    editorSaving: "Salvando alterações", editorSaved: "Alterações salvas", editorRestoreLayer: "Restaurar camada",
-    editorRestoreAll: "Restaurar tudo", editorExportPng: "Exportar PNG", editorExportPsd: "Exportar PSD", editorPublish: "Criar nova versão",
+    editorSaving: "Salvando alterações", editorSaved: "Alterações salvas", editorLayers: "Camadas", editorClose: "Fechar editor", editorLoading: "Carregando", editorLayerCount: "{count} camadas", editorCloseSaveFailed: "Não foi possível salvar antes de fechar", editorRegenerate: "Regenerar camada", editorInstruction: "Instrução", editorQuotaRemaining: "Cota restante: {count}", editorNoActiveRegeneration: "Sem regeneração ativa", editorSelectLayer: "Selecione uma camada", editorConfirmRegeneration: "Confirmar regeneração", editorRestoreLayer: "Restaurar camada",
+    editorRestoreAll: "Restaurar tudo", editorExportPng: "Exportar PNG", editorExportPsd: "Exportar PSD", editorPublish: "Criar nova versão", editorUndo: "Desfazer", editorRedo: "Refazer", editorLayerName: "Nome da camada", editorPublished: "Nova versão criada", editorCanvas: "Canvas de camadas", editorSelectedLayer: "Camada selecionada", editorResizeHandle: "Redimensionar {handle}",
   }[key] ?? key),
 }));
 
@@ -76,6 +76,8 @@ describe("LayerEditorDialog", () => {
     expect(screen.getByRole("region", { name: "Canvas de camadas" })).toBeInTheDocument();
     expect(screen.getByRole("complementary", { name: "Camadas" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Criar nova versão" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Produto/ }));
+    expect(screen.getByLabelText("Camada selecionada")).toHaveClass("z-[200]");
     expect(mocks.useLayerEditor).toHaveBeenCalledWith({ workItemId: "work-1", outputId: "output-1", mode: "edit" });
   });
 
@@ -131,7 +133,7 @@ describe("LayerEditorDialog", () => {
     expect(confirm).toHaveBeenCalledTimes(2);
     expect(value.dispatch).toHaveBeenNthCalledWith(1, { type: "restore", id: document.layers[0].id });
     expect(value.dispatch).toHaveBeenNthCalledWith(2, { type: "restoreAll" });
-    expect(screen.getAllByRole("status").at(-1)).toHaveTextContent("Restaurando alterações");
+    expect(screen.getAllByRole("status").at(-1)).toHaveTextContent("Salvando alterações");
   });
 
   it("does not restore when confirmation is cancelled", () => {
