@@ -10,6 +10,7 @@ const HEAVY_EVENT_BASES = [
   "workspace.asset.analyze",
   "brand.training.analyze",
   "creative-work.layerize",
+  "creative-work.layer-regenerate",
 ] as const;
 
 export type HeavyImageEventBase = (typeof HEAVY_EVENT_BASES)[number];

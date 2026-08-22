@@ -101,3 +101,16 @@ export async function releaseCreativeWorkLayerEditorLease(input: LayerEditorScop
 
 export function layerEditorFromOutput(output: Output | null): LayerEditorStateV1 | null { return layerEditorStateFromDatabase(output?.layerEditor); }
 export function layerizationFromOutput(output: Output | null): LayerizationState | null { return layerizationStateFromDatabase(output?.layerization); }
+
+export async function reserveLayerRegeneration(input: LayerEditorMutationScope & { operationId: string; layerId: string; instruction: string; usageKey: string; now: Date }): Promise<Output | null> {
+  const row = await getCreativeWorkLayerEditorOutput(input); const state = layerEditorStateFromDatabase(row?.layerEditor);
+  if (!state || state.revision !== input.expectedRevision || state.lease?.id !== input.leaseId || state.lease.userId !== input.userId || state.regeneration || !state.layers.some((layer) => layer.id === input.layerId)) return null;
+  const next = { ...state, regeneration: { id: input.operationId, status: "reserved" as const, layerId: input.layerId, instruction: input.instruction, requestedByUserId: input.userId, usageKey: input.usageKey, candidateKey: null, providerRequestId: null, failureCode: null, createdAt: input.now.toISOString(), updatedAt: input.now.toISOString() }, updatedAt: input.now.toISOString() };
+  const [updated] = await db.update(creativeWorkOutputs).set({ layerEditor: next, updatedAt: input.now }).where(and(scope(input), sql`${creativeWorkOutputs.layerEditor}->>'revision' = ${String(input.expectedRevision)}`, sql`${creativeWorkOutputs.layerEditor}->'lease'->>'id' = ${input.leaseId}`)).returning(); return updated ?? null;
+}
+async function regenerationState(input: LayerEditorScope & { operationId: string; status: "processing" | "ready" | "failed" | "submission_unknown"; candidateKey?: string; providerRequestId?: string | null; failureCode?: string; now: Date }) {
+ const row=await getCreativeWorkLayerEditorOutput(input); const state=layerEditorStateFromDatabase(row?.layerEditor); if(!state||state.regeneration?.id!==input.operationId)return null; const next={...state,regeneration:{...state.regeneration,status:input.status,candidateKey:input.candidateKey??state.regeneration.candidateKey,providerRequestId:input.providerRequestId??state.regeneration.providerRequestId,failureCode:input.failureCode??null,updatedAt:input.now.toISOString()},updatedAt:input.now.toISOString()}; const [updated]=await db.update(creativeWorkOutputs).set({layerEditor:next,updatedAt:input.now}).where(and(scope(input),sql`${creativeWorkOutputs.layerEditor}->'regeneration'->>'id' = ${input.operationId}`)).returning(); return updated??null;
+}
+export const markLayerRegenerationProcessing=(input: LayerEditorScope & {operationId:string;now:Date})=>regenerationState({...input,status:"processing"});
+export const completeLayerRegenerationCandidate=(input: LayerEditorScope & {operationId:string;candidateKey:string;providerRequestId:string|null;now:Date})=>regenerationState({...input,status:"ready",candidateKey:input.candidateKey,providerRequestId:input.providerRequestId});
+export const failLayerRegeneration=(input: LayerEditorScope & {operationId:string;status:"failed"|"submission_unknown";failureCode:string;now:Date})=>regenerationState(input);
