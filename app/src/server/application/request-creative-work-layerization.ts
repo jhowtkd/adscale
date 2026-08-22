@@ -22,7 +22,7 @@ import {
   SEEDREAM_PROVIDER_ENDPOINT,
 } from "@/server/layerize/seedream-provider";
 import { env } from "@/server/validation/env";
-import { claimLayerEditorQuota, isLayerEditorQuotaReleased, isLayerEditorQuotaReservationCommitted, markLayerEditorQuotaReservationCommitted, releaseLayerEditorQuota, withLayerEditorOperationLock, withLayerEditorPostDispatchLock, type LayerEditorOperationExecutor } from "@/server/layer-editor/quota";
+import { claimLayerEditorQuota, isLayerEditorQuotaDispatchCommitted, isLayerEditorQuotaReleased, isLayerEditorQuotaReservationCommitted, markLayerEditorQuotaDispatchCommitted, markLayerEditorQuotaReservationCommitted, releaseLayerEditorQuota, withLayerEditorOperationLock, withLayerEditorPostDispatchLock, type LayerEditorOperationExecutor } from "@/server/layer-editor/quota";
 
 export type RequestCreativeWorkLayerizationError =
   | { code: "work_not_found" }
@@ -99,8 +99,10 @@ export async function requestCreativeWorkLayerization(input: {
         if (currentState.status === "failed") return { ok: false, error: { code: "failed", state: currentState } };
         return { ok: true, accepted: true, replay: false, state: currentState };
       }
+      if (await isLayerEditorQuotaDispatchCommitted({ workspaceId: input.workspaceId, kind: "layerize_v1", operationId: input.operationId }, executor)) return { ok: true, accepted: false, replay: true, state: currentState };
       try {
         await inngest.send({ id: `creative-work-layerize:${input.outputId}:${decision.state.attemptId}`, name: heavyImageEventName("creative-work.layerize"), data: { workspaceId: input.workspaceId, workItemId: input.workItemId, outputId: input.outputId, attemptId: decision.state.attemptId, ...(decision.callbackUrl ? { callbackUrl: decision.callbackUrl } : {}) } });
+        await markLayerEditorQuotaDispatchCommitted({ workspaceId: input.workspaceId, kind: "layerize_v1", operationId: input.operationId }, executor);
         return { ok: true, accepted: decision.accepted, replay: decision.replay, state: decision.state };
       } catch {
       const failed = await failQueuedCreativeWorkLayerization({ workspaceId: input.workspaceId, workItemId: input.workItemId, outputId: input.outputId, attemptId: decision.state.attemptId, code: "dispatch_failed" }, executor);

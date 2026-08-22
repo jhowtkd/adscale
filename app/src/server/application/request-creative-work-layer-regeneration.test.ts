@@ -9,10 +9,12 @@ const clearTerminal = vi.hoisted(() => vi.fn());
 const quotaReleased = vi.hoisted(() => vi.fn());
 const quotaCommitted = vi.hoisted(() => vi.fn());
 const markCommitted = vi.hoisted(() => vi.fn());
+const dispatchCommitted = vi.hoisted(() => vi.fn());
+const markDispatchCommitted = vi.hoisted(() => vi.fn());
 const send = vi.hoisted(() => vi.fn());
 const operationLock = vi.hoisted(() => vi.fn(async (_input: unknown, run: (executor: unknown) => Promise<unknown>) => run({})));
 const dispatchLock = vi.hoisted(() => vi.fn(async (_input: unknown, run: (executor: unknown) => Promise<unknown>) => run({})));
-vi.mock("@/server/layer-editor/quota", () => ({ claimLayerEditorQuota: claim, isLayerEditorQuotaReleased: quotaReleased, isLayerEditorQuotaReservationCommitted: quotaCommitted, markLayerEditorQuotaReservationCommitted: markCommitted, releaseLayerEditorQuota: release, withLayerEditorOperationLock: operationLock, withLayerEditorPostDispatchLock: dispatchLock }));
+vi.mock("@/server/layer-editor/quota", () => ({ claimLayerEditorQuota: claim, isLayerEditorQuotaReleased: quotaReleased, isLayerEditorQuotaReservationCommitted: quotaCommitted, markLayerEditorQuotaReservationCommitted: markCommitted, isLayerEditorQuotaDispatchCommitted: dispatchCommitted, markLayerEditorQuotaDispatchCommitted: markDispatchCommitted, releaseLayerEditorQuota: release, withLayerEditorOperationLock: operationLock, withLayerEditorPostDispatchLock: dispatchLock }));
 vi.mock("@/server/repositories/creative-work-layer-editor", () => ({ clearTerminalLayerRegenerationForRetry: clearTerminal, reserveLayerRegeneration: reserve, rollbackReservedLayerRegeneration: rollback, getCreativeWorkLayerEditorOutput: getOutput, layerEditorFromOutput: stateFromOutput }));
 vi.mock("@/server/jobs/client", () => ({ inngest: { send } }));
 import { requestCreativeWorkLayerRegeneration } from "./request-creative-work-layer-regeneration";
@@ -32,6 +34,8 @@ describe("requestCreativeWorkLayerRegeneration", () => {
     quotaReleased.mockResolvedValue(false);
     quotaCommitted.mockResolvedValue(false);
     markCommitted.mockResolvedValue(true);
+    dispatchCommitted.mockResolvedValue(false);
+    markDispatchCommitted.mockResolvedValue(true);
     stateFromOutput.mockReturnValue({ regeneration: { id: input.operationId, status: "reserved" } });
   });
 
