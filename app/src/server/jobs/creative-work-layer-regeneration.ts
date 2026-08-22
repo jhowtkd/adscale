@@ -1,7 +1,7 @@
 import { type Inngest } from "inngest";
 import OpenAI from "openai";
 import { inngest } from "./client";
-import { layerEditorFromOutput, markLayerRegenerationProcessing, completeLayerRegenerationCandidate, failLayerRegeneration } from "@/server/repositories/creative-work-layer-editor";
+import { layerEditorFromOutput, markLayerRegenerationProcessing, completeLayerRegenerationCandidate, failLayerRegeneration, recoverStaleLayerRegeneration } from "@/server/repositories/creative-work-layer-editor";
 import { objectStorage } from "@/server/storage";
 import { OpenAILayerRegenerationProvider, normalizeLayerCandidate, type LayerRegenerationProvider } from "@/server/layer-editor/openai-provider";
 import { renderLayerEditorPng } from "@/server/layer-editor/artifacts";
@@ -12,7 +12,7 @@ function isAmbiguousProviderFailure(error: unknown) {
 }
 
 export async function runCreativeWorkLayerRegeneration(input:{workspaceId:string;workItemId:string;outputId:string;operationId:string}, provider:LayerRegenerationProvider=new OpenAILayerRegenerationProvider()) {
- const now=new Date(); const claimed=await markLayerRegenerationProcessing({...input,now}); const state=layerEditorFromOutput(claimed); const regen=state?.regeneration; if(!state||!regen||regen.id!==input.operationId)return {status:"skipped" as const}; const layer=state.layers.find((x)=>x.id===regen.layerId); if(!layer)return {status:"skipped" as const};
+ const now=new Date(); const claimed=await markLayerRegenerationProcessing({...input,now}); const state=layerEditorFromOutput(claimed); const regen=state?.regeneration; if(!state||!regen||regen.id!==input.operationId){ await recoverStaleLayerRegeneration({ ...input, now }); return {status:"skipped" as const}; } const layer=state.layers.find((x)=>x.id===regen.layerId); if(!layer)return {status:"skipped" as const};
  let result: { buffer: Buffer; requestId: string | null };
  try {
    result=await provider.regenerate({instruction:regen.instruction,selectedLayer:await objectStorage.get(layer.currentKey),composite:await renderLayerEditorPng({canvas:state.canvas,layers:state.layers,load:(key)=>objectStorage.get(key)}),bounds:{width:layer.source.width,height:layer.source.height}});

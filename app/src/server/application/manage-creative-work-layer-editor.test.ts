@@ -5,12 +5,14 @@ const access = vi.hoisted(() => vi.fn());
 const output = vi.hoisted(() => vi.fn());
 const holderName = vi.hoisted(() => vi.fn());
 const acquire = vi.hoisted(() => vi.fn());
+const recover = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/layer-editor/quota", () => ({ getLayerEditorAccess: access }));
 vi.mock("@/server/repositories/creative-work-layer-editor", () => ({
   getCreativeWorkLayerEditorOutput: output,
   getCreativeWorkLayerEditorLeaseHolderName: holderName,
   acquireCreativeWorkLayerEditorLease: acquire,
+  recoverStaleLayerRegeneration: recover,
   heartbeatCreativeWorkLayerEditorLease: vi.fn(),
   initializeCreativeWorkLayerEditor: vi.fn(),
   layerizationFromOutput: vi.fn(),
@@ -37,6 +39,7 @@ describe("openCreativeWorkLayerEditor lease holder projection", () => {
     vi.clearAllMocks();
     access.mockResolvedValue({ enabled: true, period: null, layerize: null, regeneration: null });
     output.mockResolvedValue({ layerEditor: state, status: "completed", isSelected: true });
+    recover.mockResolvedValue(null);
   });
 
   it("projects the workspace-scoped holder name, never the calling member name", async () => {
@@ -87,5 +90,17 @@ describe("openCreativeWorkLayerEditor lease holder projection", () => {
     output.mockResolvedValue({ layerEditor: { ...state, lease: { ...state.lease!, userId: "viewer", expiresAt: "2099-08-22T00:01:30.000Z" } }, status: "completed", isSelected: true });
     const result = await openCreativeWorkLayerEditor({ workspaceId: "workspace-a", workItemId: "work", outputId: "output", userId: "viewer", userName: "Viewer", mode: "inspect" });
     expect(result).toMatchObject({ ok: true, document: { lease: { mode: "read", leaseId: null } } });
+  });
+
+  it("projects a stale processing regeneration only after conservative terminal recovery", async () => {
+    const processing = { ...state, regeneration: { id: "00000000-0000-4000-8000-000000000099", status: "processing" as const, layerId: state.layers[0]!.id, instruction: "Change", requestedByUserId: "viewer", usageKey: "usage", candidateKey: null, providerRequestId: null, failureCode: null, createdAt: "2026-08-22T00:00:00.000Z", updatedAt: "2026-08-22T00:00:00.000Z" } };
+    const recovered = { ...processing, regeneration: { ...processing.regeneration, status: "submission_unknown" as const, failureCode: "layer_regeneration_submission_unknown" } };
+    output.mockResolvedValue({ layerEditor: processing, status: "completed", isSelected: true });
+    recover.mockResolvedValue({ layerEditor: recovered });
+
+    const result = await openCreativeWorkLayerEditor({ workspaceId: "workspace-a", workItemId: "work", outputId: "output", userId: "viewer", userName: "Viewer", mode: "inspect" });
+
+    expect(recover).toHaveBeenCalledWith(expect.objectContaining({ outputId: "output", now: expect.any(Date) }));
+    expect(result).toMatchObject({ ok: true, document: { regeneration: { status: "submission_unknown" } } });
   });
 });

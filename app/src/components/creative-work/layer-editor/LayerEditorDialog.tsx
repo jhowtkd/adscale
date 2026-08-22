@@ -34,6 +34,7 @@ export function LayerEditorDialog({ open, workItemId, outputId, mode = "edit", o
   const [exporting, setExporting] = useState(false);
   const [inspectVisibility, setInspectVisibility] = useState<Record<string, boolean>>({});
   const alertRef = useRef<HTMLDivElement>(null);
+  const canMutate = editor.mode === "edit" && !editor.document?.regeneration;
 
   useEffect(() => { if (error) alertRef.current?.focus(); }, [error]);
 
@@ -69,7 +70,7 @@ export function LayerEditorDialog({ open, workItemId, outputId, mode = "edit", o
     }
   };
   const restore = (all: boolean) => {
-    if (editor.mode !== "edit" || (!all && !selected)) return;
+    if (!canMutate || (!all && !selected)) return;
     if (!window.confirm(all ? t("editorRestoreAll") : t("editorRestoreLayer"))) return;
     try {
       editor.dispatch(all ? { type: "restoreAll" } : { type: "restore", id: selected! });
@@ -96,6 +97,24 @@ export function LayerEditorDialog({ open, workItemId, outputId, mode = "edit", o
       setExporting(false);
     }
   };
+  const discardAndClose = async () => {
+    try {
+      await editor.discardLocalEdits();
+      if (await editor.flushAndRelease()) onOpenChange(false);
+      else setError(t("editorCloseSaveFailed"));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : t("editorSaveError"));
+    }
+  };
+  const saveLabel = editor.saveStatus === "saving"
+    ? t("editorSaving")
+    : editor.saveStatus === "saved"
+      ? t("editorSaved")
+      : editor.saveStatus === "conflict"
+        ? t("editorConflict")
+        : editor.saveStatus === "error"
+          ? t("editorSaveError")
+          : t("editorPending");
 
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) void close(); else onOpenChange(next); }}>
@@ -104,8 +123,8 @@ export function LayerEditorDialog({ open, workItemId, outputId, mode = "edit", o
           <Button variant="ghost" size="icon" onClick={() => void close()} aria-label={t("editorClose")}><X /></Button>
           <div className="mr-auto min-w-36"><b className="block">{t("editorTitle")}</b><span className="text-xs text-muted-foreground">{editor.document ? `${editor.document.canvas.width}×${editor.document.canvas.height} · ${t("editorLayerCount", { count: editor.document.layers.length })}` : t("editorLoading")}</span></div>
           {editor.mode !== "edit" ? <span className="rounded bg-muted px-2 py-1 text-xs">{editor.document?.lease.heldByName ? `${t("editorReadOnly")}: ${editor.document.lease.heldByName}` : t("editorReadOnly")}</span> : null}
-          <span className="text-xs text-muted-foreground">{error ? t("editorSaveError") : exporting ? t("editorSaving") : t("editorSaved")}</span>
-          {editor.mode === "edit" ? <>
+          <span className="text-xs text-muted-foreground" aria-live="polite">{error ? t("editorSaveError") : exporting ? t("editorSaving") : saveLabel}</span>
+          {canMutate ? <>
             <Button variant="outline" size="icon" disabled={!editor.canUndo} onClick={editor.undo} aria-label={t("editorUndo")}><Undo2 /></Button>
             <Button variant="outline" size="icon" disabled={!editor.canRedo} onClick={editor.redo} aria-label={t("editorRedo")}><Redo2 /></Button>
             <Button variant="outline" size="sm" disabled={!selected} onClick={() => restore(false)}>{t("editorRestoreLayer")}</Button>
@@ -113,24 +132,24 @@ export function LayerEditorDialog({ open, workItemId, outputId, mode = "edit", o
           </> : null}
           <Button variant="outline" size="sm" disabled={!editor.document || exporting} onClick={() => void runExport("draft-png")}><Download />{t("editorExportPng")}</Button>
           <Button variant="outline" size="sm" disabled={!editor.document || exporting} onClick={() => void runExport("draft-psd")}><Download />{t("editorExportPsd")}</Button>
-          {editor.mode === "edit" && editor.document ? <Button size="sm" disabled={exporting} onClick={() => void publish()}><Upload />{t("editorPublish")}</Button> : null}
+          {canMutate && editor.document ? <Button size="sm" disabled={exporting} onClick={() => void publish()}><Upload />{t("editorPublish")}</Button> : null}
         </header>
         <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[minmax(0,1fr)_18rem] xl:grid-cols-[3.5rem_minmax(0,1fr)_22rem]">
           {editor.document ? <aside aria-label={t("editorTools")} className="hidden min-h-0 flex-col items-center gap-2 border-r bg-muted/20 px-1 py-3 xl:flex">
-            {editor.mode === "edit" ? <>
+            {canMutate ? <>
               <Button variant="ghost" size="icon" title={t("editorUndo")} aria-label={t("editorUndo")} disabled={!editor.canUndo} onClick={editor.undo}><Undo2 /></Button>
               <Button variant="ghost" size="icon" title={t("editorRedo")} aria-label={t("editorRedo")} disabled={!editor.canRedo} onClick={editor.redo}><Redo2 /></Button>
               <Button variant="ghost" size="icon" title={t("editorRestoreAll")} aria-label={t("editorRestoreAll")} onClick={() => restore(true)}><RotateCcw /></Button>
             </> : null}
             <Button variant="ghost" size="icon" title={t("editorExportPng")} aria-label={t("editorExportPng")} disabled={exporting} onClick={() => void runExport("draft-png")}><Download /></Button>
           </aside> : null}
-          {editor.document ? <LayerCanvas document={editor.document} selectedLayerId={selected} onSelect={setSelected} mode={editor.mode === "edit" ? "edit" : "read"} dispatch={editor.dispatch} visibilityOverrides={editor.mode === "edit" ? undefined : inspectVisibility} /> : <div role={editor.openError ? "alert" : undefined} className="grid place-items-center p-6">{editor.openError ?? t("editorLoading")}</div>}
+          {editor.document ? <LayerCanvas document={editor.document} selectedLayerId={selected} onSelect={setSelected} mode={canMutate ? "edit" : "read"} dispatch={editor.dispatch} visibilityOverrides={canMutate ? undefined : inspectVisibility} /> : <div role={editor.openError ? "alert" : undefined} className="grid place-items-center p-6">{editor.openError ?? t("editorLoading")}</div>}
           {editor.document ? <aside className="min-h-0 overflow-y-auto border-l bg-muted/20 max-md:border-t max-md:border-l-0">
-            <LayerPanel document={editor.document} selectedLayerId={selected} onSelect={setSelected} mode={editor.mode} dispatch={editor.dispatch} onInspectVisibilityChange={(id, visible) => setInspectVisibility((current) => ({ ...current, [id]: visible }))} />
+            <LayerPanel document={editor.document} selectedLayerId={selected} onSelect={setSelected} mode={canMutate ? "edit" : "read"} dispatch={editor.dispatch} onInspectVisibilityChange={(id, visible) => setInspectVisibility((current) => ({ ...current, [id]: visible }))} />
             <LayerRegenerationPanel document={editor.document} selectedLayerId={selected} mode={editor.mode === "edit" ? "edit" : "read"} access={editor.access ?? { enabled: false, period: null, layerize: null, regeneration: null }} onRegenerate={(id, instruction) => act(() => editor.regenerate(id, instruction))} onAccept={() => act(editor.acceptCandidate)} onDiscard={() => act(editor.discardCandidate)} />
           </aside> : null}
         </div>
-        {editor.hasUnresolvedConflict ? <p role="alert" className="border-t border-amber-500/40 bg-amber-50 px-4 py-3 text-sm text-amber-950">{t("editorConflict")}</p> : null}
+        {editor.hasUnresolvedConflict ? <div role="alert" className="flex flex-wrap items-center gap-2 border-t border-amber-500/40 bg-amber-50 px-4 py-3 text-sm text-amber-950"><p>{t("editorConflict")}</p><Button variant="outline" size="sm" onClick={() => act(editor.discardLocalEdits)}>{t("editorDiscardLocal")}</Button><Button variant="outline" size="sm" onClick={() => void discardAndClose()}>{t("editorDiscardAndClose")}</Button></div> : null}
         <div role="status" aria-live="polite" className="sr-only">{notice || editor.mode}</div>
         <div ref={alertRef} role="alert" tabIndex={-1} className="sr-only">{error || (editor.hasUnresolvedConflict ? t("editorConflict") : "")}</div>
       </DialogContent>

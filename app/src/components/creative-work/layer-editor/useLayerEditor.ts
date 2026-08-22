@@ -7,6 +7,7 @@ import { applyLayerEditorCommand, createLayerEditorSession, redoLayerEditor, und
 
 type LayerEditorInput = { workItemId: string; outputId: string; mode: "edit" | "inspect" };
 export type LayerEditorMode = "edit" | "inspect" | "read";
+export type LayerEditorSaveStatus = "idle" | "saving" | "saved" | "error" | "conflict";
 type OpenResponse = { document: PublicLayerEditorDocumentV1; access: LayerEditorAccessV1 };
 type OpenFailureDetails = { document?: PublicLayerEditorDocumentV1 | null };
 
@@ -27,6 +28,7 @@ export function useLayerEditor(input: LayerEditorInput) {
   const unresolvedConflict = useRef(false);
   const stopped = useRef(false);
   const [hasUnresolvedConflict, setHasUnresolvedConflict] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<LayerEditorSaveStatus>("idle");
   const operations = useRef(new Map<string, string>());
 
   const replaceSession = useCallback((next: LayerEditorSessionState | null) => {
@@ -46,6 +48,7 @@ export function useLayerEditor(input: LayerEditorInput) {
     dirty.current = true;
     unresolvedConflict.current = true;
     setHasUnresolvedConflict(true);
+    setSaveStatus("conflict");
     stop(true);
   }, [stop]);
 
@@ -69,6 +72,7 @@ export function useLayerEditor(input: LayerEditorInput) {
       if (!current || !activeLeaseId) return false;
       saving.current = true;
       dirty.current = false;
+      setSaveStatus("saving");
       const present = current.present;
       const pending = (async () => {
         try {
@@ -94,10 +98,12 @@ export function useLayerEditor(input: LayerEditorInput) {
           serverRevision.current = response.document.revision;
           setAccess(response.access);
           if (!dirty.current) applyCanonicalDocument(response.document);
+          if (!dirty.current) setSaveStatus("saved");
           return true;
         } catch (error) {
           const code = typeof error === "object" && error && "code" in error ? (error as { code?: string }).code : null;
           if (code === "layer_editor_locked" || code === "layer_editor_revision_conflict") markConflict();
+          else setSaveStatus("error");
           return false;
         } finally {
           saving.current = false;
@@ -115,7 +121,7 @@ export function useLayerEditor(input: LayerEditorInput) {
     timer.current = setTimeout(() => void flush(), LAYER_EDITOR_AUTOSAVE_MS);
   }, [flush]);
 
-  const open = useCallback(async () => {
+  const open = useCallback(async (discardLocal = false) => {
     let response: OpenResponse;
     try {
       response = await patchCreativeWork<OpenResponse>(input.workItemId, {
@@ -132,6 +138,7 @@ export function useLayerEditor(input: LayerEditorInput) {
       setLeaseId(null);
       applyCanonicalDocument(document);
       stop();
+      setSaveStatus("conflict");
       setOpenError(error instanceof Error ? error.message : "Unable to open the layer editor");
       return;
     }
@@ -145,10 +152,14 @@ export function useLayerEditor(input: LayerEditorInput) {
     modeRef.current = nextMode;
     setMode(nextMode);
     stopped.current = nextMode !== "edit";
-    unresolvedConflict.current = false;
-    setHasUnresolvedConflict(false);
+    if (discardLocal || !dirty.current) {
+      dirty.current = false;
+      unresolvedConflict.current = false;
+      setHasUnresolvedConflict(false);
+      setSaveStatus("saved");
+    }
     setOpenError(null);
-    if (!dirty.current) applyCanonicalDocument(response.document);
+    if (discardLocal || !dirty.current) applyCanonicalDocument(response.document);
   }, [applyCanonicalDocument, input.mode, input.outputId, input.workItemId, stop]);
 
   useEffect(() => {
@@ -175,24 +186,25 @@ export function useLayerEditor(input: LayerEditorInput) {
     if (next === sessionRef.current) return;
     replaceSession(next);
     dirty.current = true;
+    setSaveStatus("idle");
     scheduleSave();
   }, [replaceSession, scheduleSave]);
 
   const dispatch = useCallback((command: LayerEditorCommand) => {
     const current = sessionRef.current;
-    if (modeRef.current !== "edit" || !current) return;
+    if (modeRef.current !== "edit" || !current || current.present.regeneration) return;
     commitSession(applyLayerEditorCommand(current, command));
   }, [commitSession]);
 
   const undo = useCallback(() => {
     const current = sessionRef.current;
-    if (modeRef.current !== "edit" || !current) return;
+    if (modeRef.current !== "edit" || !current || current.present.regeneration) return;
     commitSession(undoLayerEditor(current));
   }, [commitSession]);
 
   const redo = useCallback(() => {
     const current = sessionRef.current;
-    if (modeRef.current !== "edit" || !current) return;
+    if (modeRef.current !== "edit" || !current || current.present.regeneration) return;
     commitSession(redoLayerEditor(current));
   }, [commitSession]);
 
@@ -211,7 +223,7 @@ export function useLayerEditor(input: LayerEditorInput) {
       }).catch((error) => {
         const code = typeof error === "object" && error && "code" in error ? (error as { code?: string }).code : null;
         if (code === "layer_editor_locked" || code === "layer_editor_revision_conflict") markConflict();
-        else stop();
+        else { setSaveStatus("error"); stop(); }
       });
     }, LAYER_EDITOR_HEARTBEAT_MS);
     return () => clearInterval(heartbeat);
@@ -308,6 +320,10 @@ export function useLayerEditor(input: LayerEditorInput) {
     return true;
   }, [flush, input.outputId, input.workItemId]);
 
+  const discardLocalEdits = useCallback(async () => {
+    await open(true);
+  }, [open]);
+
   return {
     document,
     access,
@@ -315,17 +331,19 @@ export function useLayerEditor(input: LayerEditorInput) {
     mode,
     openError,
     hasUnresolvedConflict,
+    saveStatus,
     dispatch,
     open,
     flush,
-    canUndo: mode === "edit" && Boolean(session?.past.length),
-    canRedo: mode === "edit" && Boolean(session?.future.length),
+    canUndo: mode === "edit" && !document?.regeneration && Boolean(session?.past.length),
+    canRedo: mode === "edit" && !document?.regeneration && Boolean(session?.future.length),
     undo,
     redo,
     regenerate,
     acceptCandidate,
     discardCandidate,
     flushAndRelease,
+    discardLocalEdits,
     exportDraft,
     publish,
   };

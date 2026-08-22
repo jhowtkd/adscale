@@ -72,15 +72,19 @@ describe("requestCreativeWorkLayerRegeneration", () => {
     expect(send).toHaveBeenCalledOnce();
   });
 
-  it("clears a terminal prior operation only for an explicit new operation", async () => {
+  it("uses the revision returned by terminal cleanup when reserving a new operation", async () => {
     claim.mockResolvedValue({ ok: true, replay: false });
     getOutput.mockResolvedValue({ layerEditor: {} });
-    stateFromOutput.mockReturnValue({ regeneration: { id: "previous-operation", status: "failed" } });
+    clearTerminal.mockResolvedValue({ cleared: true });
+    stateFromOutput.mockImplementation((row) => row && "cleared" in (row as object)
+      ? { revision: 2, regeneration: null }
+      : { revision: 1, regeneration: { id: "previous-operation", status: "failed" } });
     reserve.mockResolvedValue({ id: input.outputId });
     send.mockResolvedValue(undefined);
 
     await expect(requestCreativeWorkLayerRegeneration(input)).resolves.toMatchObject({ ok: true, accepted: true });
     expect(clearTerminal).toHaveBeenCalledWith(expect.objectContaining({ operationId: input.operationId }));
+    expect(reserve).toHaveBeenCalledWith(expect.objectContaining({ expectedRevision: 2 }));
   });
 
   it("releases a newly claimed unit when event dispatch is definitively rejected", async () => {

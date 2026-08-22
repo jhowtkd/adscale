@@ -251,9 +251,11 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work native layer edit
     });
     expect(publication).toMatchObject({ ok: true, replay: false, output: { parentOutputId: parent.id, isSelected: false, status: "completed" } });
     if (!publication.ok) throw new Error("Publication should succeed");
-    const childState = layerEditorFromOutput(publication.output);
+    const child = await getCreativeWorkLayerEditorOutput({ workspaceId: workspace.id, workItemId: work.id, outputId: publication.output.id });
+    if (!child) throw new Error("Published child row is required");
+    const childState = layerEditorFromOutput(child);
     expect(childState?.layers.find((layer) => layer.id === productLayer.id)).toMatchObject({ currentKind: "source", restorableKey: null, source: { key: immutableKey } });
-    const childPng = await objectStorage.get(publication.output.outputKey!);
+    const childPng = await objectStorage.get(child.outputKey!);
     if (!childState?.publishedPsdKey) throw new Error("Published child PSD is required");
     const childPsd = await objectStorage.get(childState.publishedPsdKey);
     await expect(sharp(childPng).metadata()).resolves.toMatchObject({ format: "png", width: 8, height: 8 });
