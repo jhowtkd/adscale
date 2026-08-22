@@ -96,6 +96,7 @@ export default function CreativeProposalGrid({
   const [selectedId, setSelectedId] = useState(visible[0]?.id);
   const [expanded, setExpanded] = useState(false);
   const [annotationsByOutput, setAnnotationsByOutput] = useState<Record<string, OutputAnnotation[]>>({});
+  const [generalCommentsByOutput, setGeneralCommentsByOutput] = useState<Record<string, string>>({});
   const [submittingAnnotations, setSubmittingAnnotations] = useState(false);
   const [annotationError, setAnnotationError] = useState<string | null>(null);
   const [annotationVoiceBusy, setAnnotationVoiceBusy] = useState(false);
@@ -103,10 +104,16 @@ export default function CreativeProposalGrid({
   const t = useTranslations("dashboard.home.composer.results");
   const selected = visible.find((output) => output.id === selectedId) ?? visible[0];
   const selectedAnnotations = selected ? annotationsByOutput[selected.id] ?? [] : [];
+  const selectedGeneralComment = selected ? generalCommentsByOutput[selected.id] ?? "" : "";
 
   const updateSelectedAnnotations = (next: OutputAnnotation[]) => {
     if (!selected) return;
     setAnnotationsByOutput((current) => ({ ...current, [selected.id]: next }));
+  };
+
+  const updateSelectedGeneralComment = (comment: string) => {
+    if (!selected) return;
+    setGeneralCommentsByOutput((current) => ({ ...current, [selected.id]: comment }));
   };
 
   if (!selected) return null;
@@ -200,6 +207,8 @@ export default function CreativeProposalGrid({
               isMobile={isMobile}
               layout="split"
               onBusyChange={setAnnotationVoiceBusy}
+              generalComment={selectedGeneralComment}
+              onGeneralCommentChange={updateSelectedGeneralComment}
               maxAnnotations={OUTPUT_ANNOTATION_MAX_COUNT}
               commentMaxLength={OUTPUT_ANNOTATION_COMMENT_MAX_LENGTH}
               onAdd={(annotation) => updateSelectedAnnotations([
@@ -212,17 +221,24 @@ export default function CreativeProposalGrid({
                 {annotationError ? <p role="alert" className="text-sm text-[var(--danger-text)]">{annotationError}</p> : null}
                 <Button
                   type="button"
-                  disabled={!onRevise || selectedAnnotations.length === 0 || annotationVoiceBusy || submittingAnnotations || isRevising?.(selected.id)}
+                  disabled={!onRevise || (!selectedGeneralComment.trim() && selectedAnnotations.length === 0) || annotationVoiceBusy || submittingAnnotations || isRevising?.(selected.id)}
                   onClick={async () => {
-                    if (!onRevise || selectedAnnotations.length === 0 || annotationVoiceBusy) return;
+                    if (!onRevise || (!selectedGeneralComment.trim() && selectedAnnotations.length === 0) || annotationVoiceBusy) return;
                     setSubmittingAnnotations(true);
                     setAnnotationError(null);
                     try {
-                      const instruction = compileOutputAnnotationInstruction(selectedAnnotations);
-                      const file = await renderAnnotatedOutputFile({ outputId: selected.id, imageUrl: outputSource(selected), annotations: selectedAnnotations });
+                      const instruction = compileOutputAnnotationInstruction(selectedAnnotations, selectedGeneralComment);
+                      const file = selectedAnnotations.length > 0
+                        ? await renderAnnotatedOutputFile({ outputId: selected.id, imageUrl: outputSource(selected), annotations: selectedAnnotations })
+                        : null;
                       const accepted = await onRevise(selected.id, instruction, file);
                       if (accepted) {
                         setAnnotationsByOutput((current) => {
+                          const next = { ...current };
+                          delete next[selected.id];
+                          return next;
+                        });
+                        setGeneralCommentsByOutput((current) => {
                           const next = { ...current };
                           delete next[selected.id];
                           return next;

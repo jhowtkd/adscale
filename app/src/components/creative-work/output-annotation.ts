@@ -22,9 +22,19 @@ function checked(annotations: readonly OutputAnnotation[]) {
   });
 }
 
-export function compileOutputAnnotationInstruction(annotations: readonly OutputAnnotation[]) {
-  const lines = checked(annotations).map((annotation, index) => `${index + 1}. ${annotation.comment}`);
-  return ["Aplique somente as alterações numeradas na imagem anotada.", "Mantenha os demais elementos da arte.", "", ...lines].join("\n");
+export function compileOutputAnnotationInstruction(annotations: readonly OutputAnnotation[], generalComment?: string) {
+  const general = generalComment?.trim() ?? "";
+  if (general.length > OUTPUT_ANNOTATION_COMMENT_MAX_LENGTH) throw new Error("annotation_comment");
+  if (!general && annotations.length === 0) throw new Error("annotation_count");
+  const lines = annotations.length > 0 ? checked(annotations).map((annotation, index) => `${index + 1}. ${annotation.comment}`) : [];
+  return [
+    lines.length > 0 ? "Aplique somente as alterações numeradas na imagem anotada." : "Aplique somente a alteração solicitada.",
+    "Mantenha os demais elementos da arte.",
+    "",
+    ...(general ? [general] : []),
+    ...(general && lines.length > 0 ? [""] : []),
+    ...lines,
+  ].join("\n");
 }
 
 export function drawOutputAnnotations(context: CanvasRenderingContext2D, width: number, height: number, annotations: readonly OutputAnnotation[]) {

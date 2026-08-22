@@ -1,5 +1,4 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import CreativeAnnotationEditor from "./CreativeAnnotationEditor";
 
@@ -198,8 +197,7 @@ describe("CreativeAnnotationEditor", () => {
     fireEvent.change(screen.getByTestId("assistant-annotation-general-comment"), { target: { value: "Atual" } });
     fireEvent.click(screen.getAllByRole("button", { name: "mock voice" })[0]);
     expect(screen.getByTestId("assistant-annotation-general-comment")).toHaveValue("Atual Texto ditado");
-    fireEvent.click(screen.getByTestId("assistant-annotation-general-save"));
-    expect(onAdd).toHaveBeenCalledWith({ x: 0, y: 0, width: 1, height: 1, comment: "Atual Texto ditado" });
+    expect(onAdd).not.toHaveBeenCalled();
     expect(screen.getAllByText("privacy")).toHaveLength(1);
   });
 
@@ -233,9 +231,9 @@ describe("CreativeAnnotationEditor", () => {
     expect(screen.getByTestId("assistant-annotation-overlay")).toHaveAttribute("aria-disabled", "true");
   });
 
-  it("keeps a drafted rectangle cancellable when general feedback reaches the annotation limit", () => {
+  it("keeps general feedback separate from the five-rectangle annotation limit", () => {
     const onAdd = vi.fn();
-    const existing = Array.from({ length: 4 }, (_, index) => ({
+    const existing = Array.from({ length: 5 }, (_, index) => ({
       id: `ann-${index}`,
       x: 0.1,
       y: 0.1,
@@ -244,29 +242,11 @@ describe("CreativeAnnotationEditor", () => {
       comment: `Existing ${index}`,
       status: "draft" as const,
     }));
-    function EditorHarness() {
-      const [annotations, setAnnotations] = useState(existing);
-      return <CreativeAnnotationEditor
-        {...baseProps}
-        layout="split"
-        maxAnnotations={5}
-        annotations={annotations}
-        onAdd={(annotation) => {
-          onAdd(annotation);
-          setAnnotations((current) => [...current, { id: `ann-${current.length}`, status: "draft", ...annotation }]);
-        }}
-      />;
-    }
-    const { container } = render(<EditorHarness />);
-    drawRect(container, 0, 0, 100, 100);
-    fireEvent.change(screen.getByTestId("assistant-annotation-comment"), { target: { value: "Draft rectangle" } });
+    render(<CreativeAnnotationEditor {...baseProps} layout="split" maxAnnotations={5} annotations={existing} onAdd={onAdd} />);
     fireEvent.change(screen.getByTestId("assistant-annotation-general-comment"), { target: { value: "General fifth" } });
-    fireEvent.click(screen.getByTestId("assistant-annotation-general-save"));
-    const rectangleSave = screen.getByTestId("assistant-annotation-save");
-    expect(rectangleSave).toBeDisabled();
-    expect(screen.getByTestId("assistant-annotation-comment")).toBeInTheDocument();
-    fireEvent.click(rectangleSave);
-    expect(onAdd).toHaveBeenCalledTimes(1);
-    expect(onAdd).toHaveBeenCalledWith({ x: 0, y: 0, width: 1, height: 1, comment: "General fifth" });
+    expect(screen.getByTestId("assistant-annotation-general-comment")).toHaveValue("General fifth");
+    expect(screen.getAllByTestId(/assistant-annotation-item-/)).toHaveLength(5);
+    expect(screen.queryByTestId("assistant-annotation-general-save")).not.toBeInTheDocument();
+    expect(onAdd).not.toHaveBeenCalled();
   });
 });

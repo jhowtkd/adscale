@@ -1,18 +1,14 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string, values?: { credits?: number }) => key === "revisionCta" ? `Gerar variação · ${values?.credits} créditos` : key,
 }));
 
-const annotationMocks = vi.hoisted(() => ({ compile: vi.fn(() => "1. Reduzir título"), render: vi.fn(), isMobile: vi.fn(() => false) }));
+const annotationMocks = vi.hoisted(() => ({ compile: vi.fn((annotations: Array<{ comment: string }>, generalComment?: string) => [generalComment?.trim(), ...annotations.map((annotation, index) => `${index + 1}. ${annotation.comment}`)].filter(Boolean).join("\n")), render: vi.fn(), isMobile: vi.fn(() => false) }));
 vi.mock("@/lib/hooks/use-media-query", () => ({ useIsMobile: annotationMocks.isMobile }));
 vi.mock("@/components/assistant/CreativeAnnotationEditor", () => ({
-  default: function CreativeAnnotationEditorMock({ onAdd, annotations, isMobile, layout, sidePanel, onBusyChange }: { onAdd: (item: { x: number; y: number; width: number; height: number; comment: string }) => void; annotations: unknown[]; isMobile: boolean; layout?: string; sidePanel?: React.ReactNode; onBusyChange?: (busy: boolean) => void }) {
-    const [generalComment, setGeneralComment] = useState("");
-    return <div data-testid="annotation-editor" data-layout={layout} data-mobile={String(isMobile)} data-count={annotations.length}><div data-testid="annotation-editor-preview">{isMobile ? <div data-testid="annotation-mobile-drawing-disabled" /> : <button type="button" onClick={() => onAdd({ x: 0.1, y: 0.2, width: 0.3, height: 0.2, comment: "Reduzir título" })}>add annotation</button>}</div><aside data-testid="annotation-editor-right-panel">{isMobile ? <><textarea data-testid="annotation-general-comment" value={generalComment} onChange={(event) => setGeneralComment(event.target.value)} /><button type="button" disabled={!generalComment.trim()} onClick={() => onAdd({ x: 0, y: 0, width: 1, height: 1, comment: generalComment.trim() })}>save general feedback</button></> : null}<button type="button" onClick={() => onBusyChange?.(true)}>voice busy</button><button type="button" onClick={() => onBusyChange?.(false)}>voice idle</button>{annotations.length > 0 ? <ol data-testid="annotation-numbered-list"><li>1. Reduzir título</li></ol> : null}{sidePanel}</aside></div>;
-  },
+  default: ({ onAdd, annotations, isMobile, layout, sidePanel, onBusyChange, generalComment = "", onGeneralCommentChange }: { onAdd: (item: { x: number; y: number; width: number; height: number; comment: string }) => void; annotations: Array<{ comment: string }>; isMobile: boolean; layout?: string; sidePanel?: React.ReactNode; onBusyChange?: (busy: boolean) => void; generalComment?: string; onGeneralCommentChange?: (comment: string) => void }) => <div data-testid="annotation-editor" data-layout={layout} data-mobile={String(isMobile)} data-count={annotations.length}><div data-testid="annotation-editor-preview">{isMobile ? <div data-testid="annotation-mobile-drawing-disabled" /> : <button type="button" onClick={() => onAdd({ x: 0.1, y: 0.2, width: 0.3, height: 0.2, comment: "Reduzir título" })}>add annotation</button>}</div><aside data-testid="annotation-editor-right-panel"><textarea data-testid="annotation-general-comment" value={generalComment} onChange={(event) => onGeneralCommentChange?.(event.target.value)} /><button type="button" onClick={() => onBusyChange?.(true)}>voice busy</button><button type="button" onClick={() => onBusyChange?.(false)}>voice idle</button>{annotations.length > 0 ? <ol data-testid="annotation-numbered-list"><li>1. Reduzir título</li></ol> : null}{sidePanel}</aside></div>,
 }));
 vi.mock("@/components/creative-work/output-annotation", () => ({
   OUTPUT_ANNOTATION_MAX_COUNT: 5,
@@ -239,6 +235,32 @@ describe("CreativeProposalGrid", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
+  it("submits general-only feedback once without an annotated upload and clears it on success", async () => {
+    const onRevise = vi.fn(async () => true);
+    render(<CreativeProposalGrid outputs={[balancedCompleted]} onRetry={vi.fn()} onApprove={vi.fn()} onDownload={vi.fn()} onRevise={onRevise} />);
+    fireEvent.click(screen.getByRole("button", { name: /Ampliar/ }));
+    fireEvent.change(screen.getByTestId("annotation-general-comment"), { target: { value: "  Ajustar contraste  " } });
+    fireEvent.click(screen.getByRole("button", { name: "Gerar variação · 5 créditos" }));
+    await waitFor(() => expect(onRevise).toHaveBeenCalledWith("out-balanced", "Ajustar contraste", null));
+    expect(onRevise).toHaveBeenCalledTimes(1);
+    expect(annotationMocks.render).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: /Ampliar/ }));
+    expect(screen.getByTestId("annotation-general-comment")).toHaveValue("");
+  });
+
+  it("submits general feedback and numbered rectangles in one annotated revision", async () => {
+    const onRevise = vi.fn(async () => true);
+    const annotatedFile = new File(["png"], "output.png", { type: "image/png" });
+    annotationMocks.render.mockResolvedValueOnce(annotatedFile);
+    render(<CreativeProposalGrid outputs={[balancedCompleted]} onRetry={vi.fn()} onApprove={vi.fn()} onDownload={vi.fn()} onRevise={onRevise} />);
+    fireEvent.click(screen.getByRole("button", { name: /Ampliar/ }));
+    fireEvent.change(screen.getByTestId("annotation-general-comment"), { target: { value: "Ajustar contraste" } });
+    fireEvent.click(screen.getByRole("button", { name: "add annotation" }));
+    fireEvent.click(screen.getByRole("button", { name: "Gerar variação · 5 créditos" }));
+    await waitFor(() => expect(onRevise).toHaveBeenCalledWith("out-balanced", "Ajustar contraste\n1. Reduzir título", annotatedFile));
+    expect(annotationMocks.render).toHaveBeenCalledTimes(1);
+  });
+
   it("blocks the paid annotation CTA while voice is busy, then submits once after idle", async () => {
     const onRevise = vi.fn(async () => true);
     const annotatedFile = new File(["png"], "output-out-balanced-annotations.png", { type: "image/png" });
@@ -267,25 +289,30 @@ describe("CreativeProposalGrid", () => {
     expect(screen.getByTestId("annotation-editor-preview")).not.toContainElement(screen.getByTestId("annotation-numbered-list"));
   });
 
-  it("keeps annotations isolated across a two-output round trip after command failure", async () => {
+  it("keeps rectangle and general drafts isolated across a two-output round trip after command failure", async () => {
     const onRevise = vi.fn(async () => false);
     annotationMocks.render.mockResolvedValueOnce(new File(["png"], "output.png", { type: "image/png" }));
     render(<CreativeProposalGrid outputs={[conservativeCompleted, balancedCompleted]} onRetry={vi.fn()} onApprove={vi.fn()} onDownload={vi.fn()} onRevise={onRevise} />);
     fireEvent.click(screen.getByRole("button", { name: "Ampliar Conservadora em 4:5" }));
     fireEvent.click(screen.getByRole("button", { name: "add annotation" }));
+    fireEvent.change(screen.getByTestId("annotation-general-comment"), { target: { value: "Primeiro" } });
     fireEvent.click(screen.getByRole("button", { name: "Gerar variação · 5 créditos" }));
     await waitFor(() => expect(onRevise).toHaveBeenCalledTimes(1));
     expect(screen.getByTestId("annotation-editor")).toHaveAttribute("data-count", "1");
+    expect(screen.getByTestId("annotation-general-comment")).toHaveValue("Primeiro");
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     fireEvent.click(screen.getByRole("button", { name: "Selecionar Equilibrada em 4:5" }));
     fireEvent.click(screen.getByRole("button", { name: "Ampliar Equilibrada em 4:5" }));
     expect(screen.getByTestId("annotation-editor")).toHaveAttribute("data-count", "0");
+    expect(screen.getByTestId("annotation-general-comment")).toHaveValue("");
+    fireEvent.change(screen.getByTestId("annotation-general-comment"), { target: { value: "Segundo" } });
     fireEvent.click(screen.getByRole("button", { name: "add annotation" }));
     expect(screen.getByTestId("annotation-editor")).toHaveAttribute("data-count", "1");
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     fireEvent.click(screen.getByRole("button", { name: "Selecionar Conservadora em 4:5" }));
     fireEvent.click(screen.getByRole("button", { name: "Ampliar Conservadora em 4:5" }));
     expect(screen.getByTestId("annotation-editor")).toHaveAttribute("data-count", "1");
+    expect(screen.getByTestId("annotation-general-comment")).toHaveValue("Primeiro");
   });
 
   it("retains the draft and reports an alert when image preparation fails", async () => {
@@ -294,12 +321,14 @@ describe("CreativeProposalGrid", () => {
     render(<CreativeProposalGrid outputs={[balancedCompleted]} onRetry={vi.fn()} onApprove={vi.fn()} onDownload={vi.fn()} onRevise={onRevise} />);
     fireEvent.click(screen.getByRole("button", { name: /Ampliar/ }));
     fireEvent.click(screen.getByRole("button", { name: "add annotation" }));
+    fireEvent.change(screen.getByTestId("annotation-general-comment"), { target: { value: "Manter este texto" } });
     fireEvent.click(screen.getByRole("button", { name: "Gerar variação · 5 créditos" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("annotationPreparationError");
     expect(screen.getByRole("button", { name: "Gerar variação · 5 créditos" })).toBeEnabled();
     expect(annotationMocks.render).toHaveBeenCalledTimes(1);
     expect(onRevise).not.toHaveBeenCalled();
     expect(screen.getByTestId("annotation-editor")).toHaveAttribute("data-count", "1");
+    expect(screen.getByTestId("annotation-general-comment")).toHaveValue("Manter este texto");
   });
 
   it("passes mobile mode to the annotation editor", () => {
@@ -312,15 +341,13 @@ describe("CreativeProposalGrid", () => {
   it("submits mobile feedback through the same single revision command", async () => {
     annotationMocks.isMobile.mockReturnValue(true);
     const onRevise = vi.fn(async () => true);
-    annotationMocks.render.mockResolvedValueOnce(new File(["png"], "output.png", { type: "image/png" }));
     render(<CreativeProposalGrid outputs={[balancedCompleted]} onRetry={vi.fn()} onApprove={vi.fn()} onDownload={vi.fn()} onRevise={onRevise} />);
     fireEvent.click(screen.getByRole("button", { name: "Ampliar Equilibrada em 4:5" }));
     expect(screen.getByTestId("annotation-mobile-drawing-disabled")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "add annotation" })).not.toBeInTheDocument();
     fireEvent.change(screen.getByTestId("annotation-general-comment"), { target: { value: "Ajustar contraste" } });
-    fireEvent.click(screen.getByRole("button", { name: "save general feedback" }));
     fireEvent.click(screen.getByRole("button", { name: "Gerar variação · 5 créditos" }));
-    await waitFor(() => expect(onRevise).toHaveBeenCalledWith("out-balanced", "1. Reduzir título", expect.any(File)));
+    await waitFor(() => expect(onRevise).toHaveBeenCalledWith("out-balanced", "Ajustar contraste", null));
     expect(onRevise).toHaveBeenCalledTimes(1);
   });
 });

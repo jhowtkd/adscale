@@ -34,6 +34,8 @@ export interface CreativeAnnotationEditorProps {
   layout?: "stacked" | "split";
   sidePanel?: ReactNode;
   onBusyChange?: (busy: boolean) => void;
+  generalComment?: string;
+  onGeneralCommentChange?: (comment: string) => void;
 }
 
 interface DraftRect {
@@ -62,6 +64,8 @@ export default function CreativeAnnotationEditor({
   layout = "stacked",
   sidePanel,
   onBusyChange,
+  generalComment: controlledGeneralComment,
+  onGeneralCommentChange,
 }: CreativeAnnotationEditorProps) {
   const t = useTranslations("assistant.goal");
   const tVoice = useTranslations("feedback.voice");
@@ -69,11 +73,13 @@ export default function CreativeAnnotationEditor({
   const [draft, setDraft] = useState<DraftRect | null>(null);
   const [comment, setComment] = useState("");
   const [voiceBusy, setVoiceBusy] = useState(false);
-  const [generalComment, setGeneralComment] = useState("");
+  const [uncontrolledGeneralComment, setUncontrolledGeneralComment] = useState("");
   const [generalVoiceBusy, setGeneralVoiceBusy] = useState(false);
   const startRef = useRef<{ x: number; y: number } | null>(null);
   const annotationLimitReached = annotations.filter((item) => item.status !== "addressed").length >= maxAnnotations;
   const voiceBusyAny = voiceBusy || generalVoiceBusy;
+  const generalComment = controlledGeneralComment ?? uncontrolledGeneralComment;
+  const setGeneralComment = onGeneralCommentChange ?? setUncontrolledGeneralComment;
 
   useEffect(() => {
     onBusyChange?.(voiceBusyAny);
@@ -132,13 +138,6 @@ export default function CreativeAnnotationEditor({
   const handleCancel = () => {
     setDraft(null);
     setComment("");
-  };
-
-  const handleSaveGeneral = () => {
-    const trimmed = generalComment.trim();
-    if (!trimmed || annotationLimitReached) return;
-    onAdd({ x: 0, y: 0, width: 1, height: 1, comment: trimmed });
-    setGeneralComment("");
   };
 
   const handleItemKeyDown = (
@@ -280,23 +279,9 @@ export default function CreativeAnnotationEditor({
         />
         <VoiceInputButton
           onBusyChange={setGeneralVoiceBusy}
-          onTranscript={(text) => setGeneralComment((current) => appendTranscript(current, text, commentMaxLength))}
+          onTranscript={(text) => setGeneralComment(appendTranscript(generalComment, text, commentMaxLength))}
         />
         <p className="text-xs text-[var(--text-muted)]">{tVoice("privacy")}</p>
-        <button
-          type="button"
-          data-testid="assistant-annotation-general-save"
-          onClick={handleSaveGeneral}
-          disabled={!generalComment.trim() || generalVoiceBusy || annotationLimitReached}
-          className={cn(
-            "self-end rounded-md px-3 py-1 text-xs font-medium",
-            generalComment.trim() && !generalVoiceBusy && !annotationLimitReached
-              ? "bg-[var(--action-primary-bg)] text-[var(--action-primary-text)]"
-              : "cursor-not-allowed bg-[var(--surface-inset)] text-[var(--text-muted)]"
-          )}
-        >
-          {t("save")}
-        </button>
       </div> : null}
 
       {annotations.length > 0 ? (

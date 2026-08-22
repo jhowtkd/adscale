@@ -16,6 +16,13 @@ describe("output annotations", () => {
     expect(() => compileOutputAnnotationInstruction([{ ...annotations[0], x: Number.NaN }])).toThrow("annotation_bounds");
   });
 
+  it("compiles trimmed general feedback separately from numbered rectangles", () => {
+    expect(compileOutputAnnotationInstruction([], "  Ajustar contraste  ")).toBe("Aplique somente a alteração solicitada.\nMantenha os demais elementos da arte.\n\nAjustar contraste");
+    expect(compileOutputAnnotationInstruction([annotations[0]], "  Ajustar contraste  ")).toBe("Aplique somente as alterações numeradas na imagem anotada.\nMantenha os demais elementos da arte.\n\nAjustar contraste\n\n1. Reduzir título");
+    expect(() => compileOutputAnnotationInstruction([], " ")).toThrow("annotation_count");
+    expect(() => compileOutputAnnotationInstruction([], "x".repeat(301))).toThrow("annotation_comment");
+  });
+
   it("scales normalized rectangles to source pixels", () => {
     const context = { save: vi.fn(), restore: vi.fn(), strokeRect: vi.fn(), beginPath: vi.fn(), arc: vi.fn(), fill: vi.fn(), fillText: vi.fn(), set strokeStyle(_value: string) {}, set fillStyle(_value: string) {}, set lineWidth(_value: number) {}, set font(_value: string) {}, set textAlign(_value: CanvasTextAlign) {}, set textBaseline(_value: CanvasTextBaseline) {} } as unknown as CanvasRenderingContext2D;
     drawOutputAnnotations(context, 1_000, 800, [annotations[0]]);

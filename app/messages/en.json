@@ -664,7 +664,7 @@
           "visualNoConfidence": "No measurable confidence",
           "downloadPsd": "Download PSD",
           "revisionCta": "Generate variation · {credits} credits",
-          "annotationHelp": "Mark an area and describe the change. All annotations will generate one new version.",
+          "annotationHelp": "Mark an area and describe the change. All annotations will generate one new variation.",
           "annotationPreparationError": "Could not prepare the annotations. Try again.",
           "failure": {
             "timeout": "Generation took too long and was interrupted.",
