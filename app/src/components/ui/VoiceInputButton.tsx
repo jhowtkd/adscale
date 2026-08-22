@@ -36,12 +36,16 @@ export default function VoiceInputButton({ onTranscript, onBusyChange, disabled 
   const chunksRef = useRef<Blob[]>([]);
   const mountedRef = useRef(true);
   const requestingRef = useRef(false);
+  const onBusyChangeRef = useRef(onBusyChange);
   const busy = state === "requesting" || state === "recording" || state === "transcribing";
 
   useEffect(() => {
     queueMicrotask(() => setSupported(Boolean(globalThis.MediaRecorder && navigator.mediaDevices?.getUserMedia)));
   }, []);
   useEffect(() => onBusyChange?.(busy), [busy, onBusyChange]);
+  useEffect(() => {
+    onBusyChangeRef.current = onBusyChange;
+  }, [onBusyChange]);
   useEffect(() => {
     if (state !== "recording") return;
     const interval = window.setInterval(() => setSeconds((value) => value + 1), 1_000);
@@ -60,6 +64,7 @@ export default function VoiceInputButton({ onTranscript, onBusyChange, disabled 
       streamRef.current?.getTracks().forEach((track) => track.stop());
     };
   }, []);
+  useEffect(() => () => onBusyChangeRef.current?.(false), []);
 
   async function transcribe(blob: Blob) {
     setState("transcribing");

@@ -91,14 +91,14 @@ export default function CreativeAnnotationEditor({
   };
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (isMobile || annotationLimitReached) return;
+    if (isMobile || annotationLimitReached || event.pointerType === "touch") return;
     event.preventDefault();
     startRef.current = toNormalized(event.clientX, event.clientY);
     setDraft({ ...startRef.current, width: 0, height: 0 });
   };
 
   const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (isMobile || annotationLimitReached || !startRef.current) return;
+    if (isMobile || annotationLimitReached || event.pointerType === "touch" || !startRef.current) return;
     const end = toNormalized(event.clientX, event.clientY);
     const start = startRef.current;
     setDraft({
@@ -109,8 +109,8 @@ export default function CreativeAnnotationEditor({
     });
   };
 
-  const handlePointerUp = () => {
-    if (isMobile || annotationLimitReached || !draft || !startRef.current) return;
+  const handlePointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (isMobile || annotationLimitReached || event.pointerType === "touch" || !draft || !startRef.current) return;
     // Reject rectangles smaller than 1% of image width or height.
     if (draft.width < 0.01 || draft.height < 0.01) {
       setDraft(null);

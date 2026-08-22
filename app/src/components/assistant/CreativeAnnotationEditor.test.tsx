@@ -79,6 +79,17 @@ describe("CreativeAnnotationEditor", () => {
     expect(onAdd).not.toHaveBeenCalled();
   });
 
+  it("does not start touch drawing even at a desktop viewport", () => {
+    const onAdd = vi.fn();
+    const { container } = render(<CreativeAnnotationEditor {...baseProps} onAdd={onAdd} />);
+    const overlay = screen.getByTestId("assistant-annotation-overlay");
+    fireEvent.pointerDown(overlay, { clientX: 0, clientY: 0, pointerType: "touch" });
+    fireEvent.pointerMove(overlay, { clientX: 100, clientY: 100, pointerType: "touch" });
+    fireEvent.pointerUp(overlay, { clientX: 100, clientY: 100, pointerType: "touch" });
+    expect(container.querySelector("[data-testid='assistant-annotation-comment']")).not.toBeInTheDocument();
+    expect(onAdd).not.toHaveBeenCalled();
+  });
+
   it("requires a non-empty comment before saving a rectangle", () => {
     const onAdd = vi.fn();
     const { container } = render(

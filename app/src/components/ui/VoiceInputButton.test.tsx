@@ -117,4 +117,14 @@ describe("VoiceInputButton", () => {
     expect(stopTrack).toHaveBeenCalled();
     expect(apiFetch).not.toHaveBeenCalled();
   });
+
+  it("reports idle and stops streams when a busy control unmounts", async () => {
+    const onBusyChange = vi.fn();
+    const view = render(<VoiceInputButton onTranscript={vi.fn()} onBusyChange={onBusyChange} />);
+    fireEvent.click(await screen.findByRole("button", { name: "start" }));
+    expect(await screen.findByRole("button", { name: "stop" })).toBeInTheDocument();
+    view.unmount();
+    expect(stopTrack).toHaveBeenCalled();
+    expect(onBusyChange).toHaveBeenLastCalledWith(false);
+  });
 });
