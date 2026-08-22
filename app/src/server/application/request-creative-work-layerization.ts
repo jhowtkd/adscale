@@ -140,17 +140,14 @@ async function requestCreativeWorkLayerizationLocked(input: {
   if (existing?.status === "failed" && existing.attemptId === input.operationId) {
     return result({ ok: false, error: { code: "failed", state: existing } });
   }
-  if (existing?.status === "queued" && existing.attemptId === input.operationId) {
-    await markLayerEditorQuotaReservationCommitted({ workspaceId: input.workspaceId, kind: "layerize_v1", operationId: input.operationId }, executor);
-    return { kind: "dispatch", state: existing, accepted: false, replay: true };
-  }
-  if (existing && existing.status !== "failed") {
+  const queuedReplay = existing?.status === "queued" && existing.attemptId === input.operationId;
+  if (existing && existing.status !== "failed" && !queuedReplay) {
     return result({ ok: false, error: { code: "already_running", state: existing } });
   }
-  if (existing && !input.retry) {
+  if (existing && !input.retry && !queuedReplay) {
     return result({ ok: false, error: { code: "failed", state: existing } });
   }
-  if (existing && !isLayerizationRetryableFailure(existing)) {
+  if (existing && !queuedReplay && !isLayerizationRetryableFailure(existing)) {
     return result({ ok: false, error: { code: "failed", state: existing } });
   }
   const quota = await claimLayerEditorQuota({
@@ -158,6 +155,10 @@ async function requestCreativeWorkLayerizationLocked(input: {
     workItemId: input.workItemId, outputId: input.outputId,
   }, new Date(), executor);
   if (!quota.ok) return result({ ok: false, error: { code: quota.code === "disabled" ? "layer_editor_not_available" : quota.code === "operation_conflict" ? "layerization_replay_conflict" : "layer_editor_quota_exhausted" } });
+  if (queuedReplay && existing) {
+    await markLayerEditorQuotaReservationCommitted({ workspaceId: input.workspaceId, kind: "layerize_v1", operationId: input.operationId }, executor);
+    return { kind: "dispatch", state: existing, accepted: false, replay: true };
+  }
   if (quota.replay && (await isLayerEditorQuotaReleased({ workspaceId: input.workspaceId, kind: "layerize_v1", operationId: input.operationId }, executor) || await isLayerEditorQuotaReservationCommitted({ workspaceId: input.workspaceId, kind: "layerize_v1", operationId: input.operationId }, executor))) return result({ ok: false, error: { code: "layerization_replay_conflict" } });
 
   // Retain the terminal evidence until entitlement/quota admission has

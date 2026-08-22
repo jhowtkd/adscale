@@ -191,6 +191,22 @@ describe("LayerEditorDialog", () => {
     await waitFor(() => expect(window.document.activeElement).toHaveAttribute("role", "alert"));
   });
 
+  it("offers explicit reload recovery after a generic heartbeat failure", async () => {
+    const value = { ...editor("edit"), mode: "read" as const, saveStatus: "error" as const };
+    const onOpenChange = vi.fn();
+    value.discardLocalEdits.mockResolvedValue(undefined);
+    value.flushAndRelease.mockResolvedValue(true);
+    mocks.useLayerEditor.mockReturnValue(value);
+    render(<LayerEditorDialog open workItemId="work-heartbeat" outputId="output-heartbeat" onOpenChange={onOpenChange} />);
+
+    const recover = screen.getByRole("button", { name: "Descartar alterações locais e recarregar" });
+    await waitFor(() => expect(window.document.activeElement).toHaveAttribute("role", "alert"));
+    fireEvent.click(recover);
+    await waitFor(() => expect(value.discardLocalEdits).toHaveBeenCalledOnce());
+    fireEvent.click(screen.getByRole("button", { name: "Fechar editor" }));
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
+  });
+
   it("keeps close and history header controls at 44px", () => {
     const value = editor("edit");
     value.canUndo = true;

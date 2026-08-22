@@ -49,6 +49,17 @@ describe.skipIf(!configured)("layer editor regeneration quota", () => {
     await expect(claimLayerEditorQuota({ ...base, commandFingerprint: "b".repeat(64) }, new Date())).resolves.toEqual({ ok: false, code: "operation_conflict" });
   });
 
+  it("requires an active entitlement for an existing operation replay", async () => {
+    const base = { workspaceId: workspaceId!, kind: "layer_regeneration_v1" as const, userId: userId!, workItemId: "work", outputId: "revoked-output", operationId: "00000000-0000-4000-8000-000000000106", commandFingerprint: "c".repeat(64) };
+    await expect(claimLayerEditorQuota(base, new Date())).resolves.toEqual({ ok: true, replay: false });
+    await db.update(workspaceEntitlements).set({ status: "revoked" }).where(eq(workspaceEntitlements.workspaceId, workspaceId!));
+    try {
+      await expect(claimLayerEditorQuota(base, new Date())).resolves.toEqual({ ok: false, code: "disabled" });
+    } finally {
+      await db.update(workspaceEntitlements).set({ status: "active" }).where(eq(workspaceEntitlements.workspaceId, workspaceId!));
+    }
+  });
+
   it("compensates the claim in its original period rather than the failure month", async () => {
     const operationId = "00000000-0000-4000-8000-000000000104";
     const input = { workspaceId: workspaceId!, kind: "layerize_v1" as const, userId: userId!, workItemId: "work", outputId: "period-output", operationId };

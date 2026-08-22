@@ -342,6 +342,12 @@ describe("useLayerEditor", () => {
     expect(callsFor("saveLayerEditor")).toHaveLength(0);
     await expect(hook.result.current.flushAndRelease()).resolves.toBe(false);
     expect(callsFor("releaseLayerEditor")).toHaveLength(0);
+
+    await act(async () => { await hook.result.current.discardLocalEdits(); });
+    expect(hook.result.current.document?.layers[0]?.name).toBe("Layer");
+    expect(hook.result.current.mode).toBe("edit");
+    await expect(hook.result.current.flushAndRelease()).resolves.toBe(true);
+    expect(callsFor("releaseLayerEditor")).toHaveLength(1);
   });
 
   for (const [action, invoke] of [
