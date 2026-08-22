@@ -245,4 +245,14 @@ describe("requestCreativeWorkLayerRegeneration", () => {
     await expect(requestCreativeWorkLayerRegeneration(input)).rejects.toThrow("marker");
     expect(rollback).not.toHaveBeenCalled(); expect(release).not.toHaveBeenCalled();
   });
+
+  it("preserves pending regeneration after marker failure then ambiguous replay", async () => {
+    claim.mockImplementation(async () => ({ ok: true as const, replay: send.mock.calls.length > 0 })); reserve.mockResolvedValue({ id: input.outputId });
+    getOutput.mockResolvedValue({ layerEditor: {} }); stateFromOutput.mockReturnValue({ regeneration: { id: input.operationId, status: "reserved" } });
+    send.mockReset(); send.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error("response lost"));
+    markDispatchCommitted.mockReset(); markDispatchCommitted.mockRejectedValueOnce(new Error("marker")).mockResolvedValueOnce(true);
+    await expect(requestCreativeWorkLayerRegeneration(input)).rejects.toThrow("marker");
+    await expect(requestCreativeWorkLayerRegeneration(input)).resolves.toEqual({ ok: false, code: "layer_regeneration_dispatch_failed" });
+    expect(send).toHaveBeenCalledTimes(2); expect(rollback).not.toHaveBeenCalled(); expect(release).not.toHaveBeenCalled();
+  });
 });

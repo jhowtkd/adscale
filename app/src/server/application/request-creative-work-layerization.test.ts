@@ -347,4 +347,13 @@ describe("requestCreativeWorkLayerization", () => {
     await expect(requestCreativeWorkLayerization(input)).rejects.toThrow("marker");
     expect(failQueuedMock).not.toHaveBeenCalled(); expect(quotaReleaseMock).not.toHaveBeenCalled();
   });
+
+  it("preserves pending Layerize after marker failure then ambiguous replay", async () => {
+    quotaClaimMock.mockImplementation(async () => ({ ok: true as const, replay: sendMock.mock.calls.length > 0 }));
+    sendMock.mockReset(); sendMock.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error("response lost"));
+    markDispatchCommittedMock.mockReset(); markDispatchCommittedMock.mockRejectedValueOnce(new Error("marker")).mockResolvedValueOnce(true);
+    await expect(requestCreativeWorkLayerization(input)).rejects.toThrow("marker");
+    await expect(requestCreativeWorkLayerization(input)).resolves.toMatchObject({ ok: false, error: { code: "dispatch_failed" } });
+    expect(sendMock).toHaveBeenCalledTimes(2); expect(failQueuedMock).not.toHaveBeenCalled(); expect(quotaReleaseMock).not.toHaveBeenCalled();
+  });
 });
