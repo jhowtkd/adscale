@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { GET, PATCH, POST } from "./route";
-import { AUTH_ERROR_CODES, WorkspaceAuthError } from "@/server/auth/errors";
 
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
@@ -320,6 +319,7 @@ describe("GET /api/creative-work/[id]", () => {
     });
     expect(JSON.stringify(body.outputs[0].layerEditor)).not.toContain("private/");
     expect(JSON.stringify(body.outputs[0])).not.toMatch(/outputKey|operationKey|publishedPsdKey|private\//);
+    expect(JSON.stringify(body.canonical)).not.toMatch(/outputKey|operationKey|publishedPsdKey|private\//);
     expect(body.outputs[0]).toMatchObject({ hasOutput: Boolean(outputs[0]!.outputKey), id: outputs[0]!.id });
   });
 
@@ -1268,6 +1268,14 @@ describe("PATCH /api/creative-work/[id]", () => {
       expectedRevision: 4, operationId: "00000000-0000-4000-8000-000000000113", layerId: "00000000-0000-4000-8000-000000000114", instruction: "Change only the product color",
     });
     expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({ code: "layer_editor_not_available" });
+  });
+
+  it("maps regeneration quota exhaustion to the public 429 code", async () => {
+    requestRegenerationMock.mockResolvedValue({ ok: false, code: "quota_exhausted" });
+    const response = await requestPatch({ action: "regenerateLayer", outputId: "00000000-0000-4000-8000-000000000111", leaseId: "00000000-0000-4000-8000-000000000112", expectedRevision: 4, operationId: "00000000-0000-4000-8000-000000000113", layerId: "00000000-0000-4000-8000-000000000114", instruction: "Change" });
+    expect(response.status).toBe(429);
+    await expect(response.json()).resolves.toMatchObject({ code: "layer_editor_quota_exhausted" });
   });
 
   it("adapts candidate commands without exposing storage or repository seams", async () => {

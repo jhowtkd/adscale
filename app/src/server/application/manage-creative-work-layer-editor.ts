@@ -145,7 +145,7 @@ export async function discardCreativeWorkLayerRegenerationCandidate(input: Candi
   if (!(await accessOrUnavailable(input.workspaceId))) return { ok: false, code: "layer_editor_not_available" };
   const state = layerEditorStateFromDatabase((await getCreativeWorkLayerEditorOutput(input))?.layerEditor);
   const candidate = state?.regeneration;
-  if (!candidate || candidate.id !== input.operationId) return { ok: false, code: "layer_editor_revision_conflict" };
+  if (!candidate || candidate.id !== input.operationId || candidate.status !== "ready" || !candidate.candidateKey) return { ok: false, code: "layer_editor_revision_conflict" };
   const updated = await discardLayerRegenerationCandidate({ ...input, now: new Date() });
   if (!updated) return { ok: false, code: "layer_editor_revision_conflict" };
   if (candidate.candidateKey) void objectStorage.delete(candidate.candidateKey).catch(() => undefined);
