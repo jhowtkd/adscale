@@ -2,7 +2,7 @@
 
 **Data:** 2026-08-21
 
-**Status:** direção aprovada; especificação aguardando revisão
+**Status:** aprovado para plano de implementação
 
 **Escopo:** Creative Work / Peça aprovada / Layerize
 **Referência visual:** editor full-screen em overlay, com canvas central e painel de camadas à direita
@@ -139,7 +139,16 @@ type LayerEditorStateV1 = {
   canvas: { width: number; height: number };
   layers: Array<{
     id: string;
-    sourceOrder: number;
+    source: {
+      order: number;
+      name: string;
+      visible: boolean;
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      key: string;
+    };
     order: number;
     name: string;
     visible: boolean;
@@ -147,9 +156,9 @@ type LayerEditorStateV1 = {
     y: number;
     width: number;
     height: number;
-    originalKey: string;
     currentKey: string;
     currentKind: "source" | "regenerated";
+    restorableKey: string | null;
   }>;
   lease: null | {
     id: string;
@@ -180,17 +189,17 @@ type LayerEditorStateV1 = {
 };
 ```
 
-`originalKey`, `currentKey`, `candidateKey`, `publishedPsdKey` e metadados do provedor nunca entram no DTO público.
+`source.key`, `currentKey`, `restorableKey`, `candidateKey`, `publishedPsdKey` e metadados do provedor nunca entram no DTO público. Os demais campos de `source` e URLs assinadas de source/current entram no DTO porque são necessários para a restauração local segura.
 
 ### Inicialização
 
-No primeiro `openLayerEditor` em modo `edit`:
+No primeiro `openLayerEditor` em modo `edit` — ou em `inspect` quando o documento ainda não existe:
 
 1. validar workspace, Trabalho, Peça concluída e Layerize concluído;
 2. criar ids aleatórios estáveis para as camadas;
 3. copiar canvas, nomes, ordem, bounding boxes e chaves para `layerEditor`;
-4. definir `originalKey === currentKey` e `currentKind = source`;
-5. adquirir o lease no mesmo compare-and-set.
+4. copiar todos os campos imutáveis de origem para `source`, definir `source.key === currentKey`, `currentKind = source` e `restorableKey = null`;
+5. em `edit`, adquirir o lease no mesmo compare-and-set; em `inspect`, manter `lease = null`.
 
 Repetir o comando devolve o documento existente; não cria outro rascunho. O modo `inspect` devolve o mesmo DTO seguro sem adquirir lease.
 
@@ -200,9 +209,10 @@ Repetir o comando devolve o documento existente; não cria outro rascunho. O mod
 
 O `layerEditor` copiado para a filha é rebased:
 
-- cada `currentKey` aceito torna-se `originalKey` da filha;
-- posição, tamanho, nome, ordem e visibilidade atuais tornam-se a fonte da filha;
+- cada `currentKey` aceito torna-se `source.key` da filha;
+- posição, tamanho, nome, ordem e visibilidade atuais substituem o snapshot `source` da filha;
 - `currentKind` volta para `source`;
+- `restorableKey` volta para `null`;
 - `lease` e `regeneration` voltam para `null`;
 - `revision` volta para `1`;
 - `publishedPsdKey` aponta para o PSD imutável da nova versão.
@@ -319,11 +329,11 @@ Autosave persiste o snapshot completo validado do documento. O servidor:
 1. valida Zod estrito;
 2. confirma lease e revisão;
 3. garante ids e chaves de camada idênticos ao estado persistido;
-4. aceita somente nome, ordem, visibilidade e bounding box;
+4. aceita somente nome, ordem, visibilidade, bounding box e `useSource` booleano;
 5. incrementa `revision` em um;
 6. devolve o documento canônico.
 
-O browser não pode escolher storage keys ou inserir/remover camadas.
+O browser não pode escolher storage keys ou inserir/remover camadas. Ao salvar `useSource = true`, o servidor move a chave regenerada atual para `restorableKey` e ativa `source.key`; saves seguintes já na origem preservam essa alternativa. Ao desfazer na mesma sessão com `useSource = false`, o servidor só pode reativar a própria `restorableKey`; saves seguintes já na regenerada não fazem nova troca. Aceitar outra candidata limpa essa alternativa. Assim, restore/undo atravessa autosave sem criar histórico persistente de rascunhos.
 
 Restaurar camada repõe imagem, nome, visibilidade, posição, tamanho e ordem daquela camada ao estado-fonte da versão. Restaurar documento repõe todas as camadas ao estado-fonte. Ambas entram no undo/redo e são reversíveis durante a sessão mesmo depois do autosave. Após recarregar, não há histórico persistente; o usuário pode restaurar novamente a fonte.
 
@@ -418,7 +428,7 @@ O encaixe nunca estica de forma não proporcional e nunca muda automaticamente o
 
 ### Aceite e descarte
 
-- `Aceitar`: valida lease/revisão/candidata, copia o asset para chave imutável da revisão, altera somente `currentKey/currentKind` da camada, limpa candidata e incrementa revisão.
+- `Aceitar`: valida lease/revisão/candidata, copia o asset para chave imutável da revisão, altera somente `currentKey/currentKind/restorableKey` da camada, limpa candidata e incrementa revisão.
 - `Descartar`: limpa candidata sem alterar camadas; a cota permanece consumida.
 - Nova regeneração só pode começar após aceitar ou descartar a anterior.
 
@@ -573,7 +583,7 @@ Playwright cobre desktop e tablet com screenshots e interação real:
 1. Reabrir reproduz exatamente a revisão salva.
 2. Um segundo membro não sobrescreve o editor ativo.
 3. Takeover só ocorre após expiração do lease.
-4. Regeneração aceita muda somente `currentKey/currentKind` da camada selecionada.
+4. Regeneração aceita muda somente `currentKey/currentKind/restorableKey` da camada selecionada.
 5. Descartar candidata não altera nenhuma camada.
 6. Cota não é ultrapassada por concorrência ou replay.
 7. PNG e PSD exportados representam a mesma revisão.
