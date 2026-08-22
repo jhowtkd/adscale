@@ -7,6 +7,7 @@ const completeCandidate = vi.hoisted(() => vi.fn());
 const failRegeneration = vi.hoisted(() => vi.fn());
 const getObject = vi.hoisted(() => vi.fn());
 const putObject = vi.hoisted(() => vi.fn());
+const deleteObject = vi.hoisted(() => vi.fn());
 const render = vi.hoisted(() => vi.fn());
 const normalize = vi.hoisted(() => vi.fn());
 
@@ -17,7 +18,7 @@ vi.mock("@/server/repositories/creative-work-layer-editor", () => ({
   completeLayerRegenerationCandidate: completeCandidate,
   failLayerRegeneration: failRegeneration,
 }));
-vi.mock("@/server/storage", () => ({ objectStorage: { get: getObject, put: putObject } }));
+vi.mock("@/server/storage", () => ({ objectStorage: { get: getObject, put: putObject, delete: deleteObject } }));
 vi.mock("@/server/layer-editor/artifacts", () => ({ renderLayerEditorPng: render }));
 vi.mock("@/server/layer-editor/openai-provider", () => ({
   OpenAILayerRegenerationProvider: class {},
@@ -71,12 +72,20 @@ describe("creativeWorkLayerRegenerationJob", () => {
     expect(failRegeneration).not.toHaveBeenCalled();
   });
 
-  it("records submission_unknown when provider invocation throws", async () => {
-    const provider = { regenerate: vi.fn().mockRejectedValue(new Error("provider timeout")) };
+  it("records submission_unknown for ambiguous provider timeout after invocation", async () => {
+    const provider = { regenerate: vi.fn().mockRejectedValue(Object.assign(new Error("timeout"), { name: "TimeoutError" })) };
 
     await expect(runCreativeWorkLayerRegeneration(input, provider)).resolves.toEqual({ status: "failed" });
 
     expect(failRegeneration).toHaveBeenCalledWith(expect.objectContaining({ ...input, status: "submission_unknown", failureCode: "layer_regeneration_submission_unknown" }));
+  });
+
+  it("records provider failure for a definitive provider response", async () => {
+    const provider = { regenerate: vi.fn().mockRejectedValue(new Error("OpenAI returned no layer candidate")) };
+
+    await expect(runCreativeWorkLayerRegeneration(input, provider)).resolves.toEqual({ status: "failed" });
+
+    expect(failRegeneration).toHaveBeenCalledWith(expect.objectContaining({ ...input, status: "failed", failureCode: "layer_regeneration_provider_failed" }));
   });
 
   it("records failed when a returned candidate is not transparent", async () => {
@@ -87,5 +96,22 @@ describe("creativeWorkLayerRegenerationJob", () => {
 
     expect(failRegeneration).toHaveBeenCalledWith(expect.objectContaining({ ...input, status: "failed", failureCode: "layer_regeneration_invalid_asset" }));
     expect(putObject).not.toHaveBeenCalled();
+  });
+
+  it("records storage failure separately from an invalid candidate", async () => {
+    putObject.mockRejectedValue(new Error("storage unavailable"));
+    const provider = { regenerate: vi.fn().mockResolvedValue({ buffer: Buffer.from("valid"), requestId: "request-1" }) };
+
+    await expect(runCreativeWorkLayerRegeneration(input, provider)).resolves.toEqual({ status: "failed" });
+
+    expect(failRegeneration).toHaveBeenCalledWith(expect.objectContaining({ ...input, status: "failed", failureCode: "layer_regeneration_storage_failed" }));
+  });
+
+  it("cleans a temporary candidate and skips when candidate completion loses CAS", async () => {
+    completeCandidate.mockResolvedValue(null);
+    const provider = { regenerate: vi.fn().mockResolvedValue({ buffer: Buffer.from("valid"), requestId: "request-1" }) };
+
+    await expect(runCreativeWorkLayerRegeneration(input, provider)).resolves.toEqual({ status: "skipped" });
+    expect(deleteObject).toHaveBeenCalledWith(`layer-editor-candidates/${input.workspaceId}/${input.workItemId}/${input.outputId}/${input.operationId}.png`);
   });
 });

@@ -495,7 +495,7 @@ export async function PATCH(
     }
     if ("action" in parsed.data && parsed.data.action === "regenerateLayer") {
       const result=await requestCreativeWorkLayerRegeneration({...parsed.data,workspaceId:workspace.id,workItemId:id,userId:user.id});
-      return result.ok?NextResponse.json(result,{status:result.accepted?202:200}):apiError(result.code, result.code==="layer_regeneration_dispatch_failed"?503:409);
+      return result.ok ? NextResponse.json(result, { status: result.accepted ? 202 : 200 }) : apiError(result.code, result.code === "disabled" ? 403 : result.code === "layer_regeneration_dispatch_failed" ? 503 : 409);
     }
     if ("action" in parsed.data && (parsed.data.action === "acceptLayerCandidate" || parsed.data.action === "discardLayerCandidate")) {
       const row=await getCreativeWorkLayerEditorOutput({workspaceId:workspace.id,workItemId:id,outputId:parsed.data.outputId}); const state=layerEditorFromOutput(row); const candidate=state?.regeneration;

@@ -1264,6 +1264,15 @@ describe("PATCH /api/creative-work/[id]", () => {
     expect(response.status).toBe(503);
   });
 
+  it("maps disabled regeneration entitlement to 403", async () => {
+    requestRegenerationMock.mockResolvedValue({ ok: false, code: "disabled" });
+    const response = await requestPatch({
+      action: "regenerateLayer", outputId: "00000000-0000-4000-8000-000000000111", leaseId: "00000000-0000-4000-8000-000000000112",
+      expectedRevision: 4, operationId: "00000000-0000-4000-8000-000000000113", layerId: "00000000-0000-4000-8000-000000000114", instruction: "Change only the product color",
+    });
+    expect(response.status).toBe(403);
+  });
+
   it("deletes only the promoted immutable key when candidate acceptance loses its CAS", async () => {
     const outputId = "00000000-0000-4000-8000-000000000111";
     const operationId = "00000000-0000-4000-8000-000000000113";
