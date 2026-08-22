@@ -369,6 +369,9 @@ function postJson<T>(url: string, body?: unknown, timeoutMs?: number): Promise<T
   });
 }
 
+export function patchCreativeWork<T>(workItemId: string, body: unknown, timeoutMs?: number): Promise<T> {
+  return patchJson<T>(`/api/creative-work/${workItemId}`, body, timeoutMs);
+}
 function patchJson<T>(url: string, body: unknown, timeoutMs?: number): Promise<T> {
   return apiFetch(url, {
     method: "PATCH",
