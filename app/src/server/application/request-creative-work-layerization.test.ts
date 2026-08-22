@@ -121,6 +121,41 @@ describe("requestCreativeWorkLayerization", () => {
     expect(sendMock).toHaveBeenCalledTimes(2);
   });
 
+  it("serializes a queued replay behind definitive dispatch compensation", async () => {
+    let queued: Record<string, unknown> | null = null;
+    claimMock.mockImplementation(async (value: { state: Record<string, unknown> }) => {
+      queued = value.state;
+      output.layerization = queued;
+      return { id: "output-1", layerization: queued };
+    });
+    let tail = Promise.resolve();
+    dispatchLockMock.mockImplementation(async (_input: unknown, run: (executor: unknown) => Promise<unknown>) => {
+      const previous = tail;
+      let unlock!: () => void;
+      tail = new Promise<void>((resolve) => { unlock = resolve; });
+      await previous;
+      try { return await run({}); } finally { unlock(); }
+    });
+    failQueuedMock.mockImplementation(async () => {
+      output.layerization = { ...queued!, status: "failed", failureCode: "dispatch_failed" };
+      return output;
+    });
+    let reject!: (error: Error) => void;
+    sendMock.mockImplementationOnce(() => new Promise<void>((_resolve, fail) => { reject = fail; }));
+
+    const winner = requestCreativeWorkLayerization(input);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const replay = requestCreativeWorkLayerization(input);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(sendMock).toHaveBeenCalledOnce();
+    reject(new Error("dispatch failed"));
+
+    await expect(winner).resolves.toMatchObject({ ok: false, error: { code: "dispatch_failed" } });
+    await expect(replay).resolves.toMatchObject({ ok: false, error: { code: "dispatch_failed" } });
+    expect(quotaReleaseMock).toHaveBeenCalledOnce();
+    expect(sendMock).toHaveBeenCalledOnce();
+  });
+
   it("recovers a quota claim that exists before the layerization reservation", async () => {
     quotaClaimMock.mockResolvedValue({ ok: true, replay: true });
     claimMock.mockImplementation(async (value: { state: Record<string, unknown> }) => {
