@@ -28,7 +28,9 @@ export function compileOutputAnnotationInstruction(annotations: readonly OutputA
   if (!general && annotations.length === 0) throw new Error("annotation_count");
   const lines = annotations.length > 0 ? checked(annotations).map((annotation, index) => `${index + 1}. ${annotation.comment}`) : [];
   return [
-    lines.length > 0 ? "Aplique somente as alterações numeradas na imagem anotada." : "Aplique somente a alteração solicitada.",
+    lines.length > 0 && general
+      ? "Aplique o feedback geral e as alterações numeradas na imagem anotada."
+      : lines.length > 0 ? "Aplique somente as alterações numeradas na imagem anotada." : "Aplique somente a alteração solicitada.",
     "Mantenha os demais elementos da arte.",
     "",
     ...(general ? [general] : []),

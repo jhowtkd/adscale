@@ -18,7 +18,7 @@ describe("output annotations", () => {
 
   it("compiles trimmed general feedback separately from numbered rectangles", () => {
     expect(compileOutputAnnotationInstruction([], "  Ajustar contraste  ")).toBe("Aplique somente a alteração solicitada.\nMantenha os demais elementos da arte.\n\nAjustar contraste");
-    expect(compileOutputAnnotationInstruction([annotations[0]], "  Ajustar contraste  ")).toBe("Aplique somente as alterações numeradas na imagem anotada.\nMantenha os demais elementos da arte.\n\nAjustar contraste\n\n1. Reduzir título");
+    expect(compileOutputAnnotationInstruction([annotations[0]], "  Ajustar contraste  ")).toBe("Aplique o feedback geral e as alterações numeradas na imagem anotada.\nMantenha os demais elementos da arte.\n\nAjustar contraste\n\n1. Reduzir título");
     expect(() => compileOutputAnnotationInstruction([], " ")).toThrow("annotation_count");
     expect(() => compileOutputAnnotationInstruction([], "x".repeat(301))).toThrow("annotation_comment");
   });

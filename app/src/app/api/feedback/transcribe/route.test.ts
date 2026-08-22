@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   checkRateLimit: vi.fn(async (): Promise<Response | null> => null),
   createTranscription: vi.fn(async () => ({ text: "  Texto ditado.  " })),
   handleApiError: vi.fn(() => Response.json({ code: "internalError" }, { status: 500 })),
+  loggerInfo: vi.fn(),
 }));
 
 vi.mock("@/server/auth/workspace", () => ({ requireWorkspaceAccess: mocks.requireWorkspaceAccess }));
@@ -13,6 +14,7 @@ vi.mock("@/lib/api-response", () => ({
   apiError: vi.fn((code: string, status: number) => Response.json({ code }, { status })),
   handleApiError: mocks.handleApiError,
 }));
+vi.mock("@/lib/logger", () => ({ logger: { info: mocks.loggerInfo } }));
 vi.mock("@/server/ai/utils", () => ({ getOpenAI: () => ({ audio: { transcriptions: { create: mocks.createTranscription } } }) }));
 
 import { POST } from "./route";
@@ -32,6 +34,7 @@ describe("POST /api/feedback/transcribe", () => {
     expect(mocks.checkRateLimit).toHaveBeenCalledWith(expect.any(Request), { category: "ai", workspaceId: "workspace-1" });
     expect(mocks.createTranscription).toHaveBeenCalledWith(expect.objectContaining({ model: "gpt-4o-mini-transcribe", language: "pt", response_format: "json" }));
     await expect(response.json()).resolves.toEqual({ text: "Texto ditado." });
+    expect(mocks.loggerInfo).toHaveBeenCalledWith({ event: "feedback.transcription.outcome", resultCode: "success", audioByteSize: 5, audioMimeType: "audio/webm" });
   });
 
   it("accepts browser codec parameters after normalizing the base MIME", async () => {
@@ -41,6 +44,7 @@ describe("POST /api/feedback/transcribe", () => {
   it.each(["text/plain", "application/octet-stream"])("rejects %s", async (type) => {
     expect((await POST(requestWithFile("not audio", type))).status).toBe(400);
     expect(mocks.createTranscription).not.toHaveBeenCalled();
+    expect(mocks.loggerInfo).toHaveBeenCalledWith({ event: "feedback.transcription.outcome", resultCode: "unsupportedAudioType", audioByteSize: 9, audioMimeType: type });
   });
 
   it("rejects empty audio and payloads larger than 10 MB", async () => {
@@ -74,11 +78,13 @@ describe("POST /api/feedback/transcribe", () => {
     await expect(response.json()).resolves.toEqual({ code: "invalidAudio" });
     expect(mocks.createTranscription).not.toHaveBeenCalled();
     expect(mocks.handleApiError).not.toHaveBeenCalled();
+    expect(mocks.loggerInfo).toHaveBeenLastCalledWith({ event: "feedback.transcription.outcome", resultCode: "invalidAudio", audioByteSize: null, audioMimeType: null });
   });
 
   it("returns 422 when no speech is recognized", async () => {
     mocks.createTranscription.mockResolvedValueOnce({ text: "   " });
     expect((await POST(requestWithFile())).status).toBe(422);
+    expect(mocks.loggerInfo).toHaveBeenCalledWith({ event: "feedback.transcription.outcome", resultCode: "noSpeechRecognized", audioByteSize: 5, audioMimeType: "audio/webm" });
   });
 
   it("does not call the provider when rate limited", async () => {
@@ -103,5 +109,9 @@ describe("POST /api/feedback/transcribe", () => {
     expect(response.status).toBe(502);
     await expect(response.json()).resolves.toEqual({ code: "internalError" });
     expect(mocks.handleApiError).not.toHaveBeenCalled();
+    expect(mocks.loggerInfo).toHaveBeenCalledWith({ event: "feedback.transcription.outcome", resultCode: "internalError", audioByteSize: 5, audioMimeType: "audio/webm" });
+    expect(JSON.stringify(mocks.loggerInfo.mock.calls)).not.toContain("provider secret");
+    expect(JSON.stringify(mocks.loggerInfo.mock.calls)).not.toContain("Texto ditado");
+    expect(JSON.stringify(mocks.loggerInfo.mock.calls)).not.toContain("feedback.webm");
   });
 });

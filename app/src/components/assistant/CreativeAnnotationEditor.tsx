@@ -7,6 +7,7 @@ import {
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
+  type SetStateAction,
 } from "react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
@@ -35,7 +36,7 @@ export interface CreativeAnnotationEditorProps {
   sidePanel?: ReactNode;
   onBusyChange?: (busy: boolean) => void;
   generalComment?: string;
-  onGeneralCommentChange?: (comment: string) => void;
+  onGeneralCommentChange?: (comment: SetStateAction<string>) => void;
 }
 
 interface DraftRect {
@@ -279,7 +280,7 @@ export default function CreativeAnnotationEditor({
         />
         <VoiceInputButton
           onBusyChange={setGeneralVoiceBusy}
-          onTranscript={(text) => setGeneralComment(appendTranscript(generalComment, text, commentMaxLength))}
+          onTranscript={(text) => setGeneralComment((current) => appendTranscript(current, text, commentMaxLength))}
         />
         <p className="text-xs text-[var(--text-muted)]">{tVoice("privacy")}</p>
       </div> : null}

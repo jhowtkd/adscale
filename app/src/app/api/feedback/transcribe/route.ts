@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { checkRateLimit } from "@/lib/with-rate-limit";
+import { logger } from "@/lib/logger";
 import { getOpenAI } from "@/server/ai/utils";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 
@@ -9,6 +10,15 @@ const MAX_MULTIPART_BYTES = MAX_AUDIO_BYTES + 1024 * 1024;
 const ALLOWED_AUDIO_TYPES = new Set([
   "audio/webm", "audio/mp4", "audio/mpeg", "audio/wav", "audio/x-wav", "audio/ogg",
 ]);
+
+function logTranscriptionOutcome(resultCode: string, file?: File) {
+  logger.info({
+    event: "feedback.transcription.outcome",
+    resultCode,
+    audioByteSize: file?.size ?? null,
+    audioMimeType: file?.type.toLowerCase().split(";", 1)[0] || null,
+  });
+}
 
 export async function POST(request: Request) {
   try {
@@ -20,16 +30,32 @@ export async function POST(request: Request) {
     try {
       formData = await readBoundedFormData(request);
     } catch {
+      logTranscriptionOutcome("invalidAudio");
       return apiError("invalidAudio", 400);
     }
-    if (!formData) return apiError("audioTooLarge", 413);
+    if (!formData) {
+      logTranscriptionOutcome("audioTooLarge");
+      return apiError("audioTooLarge", 413);
+    }
     const files = formData.getAll("file");
-    if (files.length !== 1 || [...formData.keys()].some((key) => key !== "file")) return apiError("invalidAudio", 400);
+    if (files.length !== 1 || [...formData.keys()].some((key) => key !== "file")) {
+      logTranscriptionOutcome("invalidAudio");
+      return apiError("invalidAudio", 400);
+    }
     const file = files[0];
-    if (!(file instanceof File) || file.size === 0) return apiError("invalidAudio", 400);
-    if (file.size > MAX_AUDIO_BYTES) return apiError("audioTooLarge", 413);
+    if (!(file instanceof File) || file.size === 0) {
+      logTranscriptionOutcome("invalidAudio", file instanceof File ? file : undefined);
+      return apiError("invalidAudio", 400);
+    }
+    if (file.size > MAX_AUDIO_BYTES) {
+      logTranscriptionOutcome("audioTooLarge", file);
+      return apiError("audioTooLarge", 413);
+    }
     const baseType = file.type.toLowerCase().split(";", 1)[0];
-    if (!ALLOWED_AUDIO_TYPES.has(baseType)) return apiError("unsupportedAudioType", 400);
+    if (!ALLOWED_AUDIO_TYPES.has(baseType)) {
+      logTranscriptionOutcome("unsupportedAudioType", file);
+      return apiError("unsupportedAudioType", 400);
+    }
 
     let result;
     try {
@@ -40,10 +66,15 @@ export async function POST(request: Request) {
         response_format: "json",
       });
     } catch {
+      logTranscriptionOutcome("internalError", file);
       return apiError("internalError", 502);
     }
     const text = result.text.trim().slice(0, 4_000);
-    if (!text) return apiError("noSpeechRecognized", 422);
+    if (!text) {
+      logTranscriptionOutcome("noSpeechRecognized", file);
+      return apiError("noSpeechRecognized", 422);
+    }
+    logTranscriptionOutcome("success", file);
     return NextResponse.json({ text });
   } catch (error) {
     return handleApiError(error, "feedback.transcribe.POST");

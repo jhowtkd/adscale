@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type SetStateAction } from "react";
 import { Expand } from "lucide-react";
 import { useTranslations } from "next-intl";
 import CreativeAnnotationEditor from "@/components/assistant/CreativeAnnotationEditor";
@@ -111,9 +111,13 @@ export default function CreativeProposalGrid({
     setAnnotationsByOutput((current) => ({ ...current, [selected.id]: next }));
   };
 
-  const updateSelectedGeneralComment = (comment: string) => {
-    if (!selected) return;
-    setGeneralCommentsByOutput((current) => ({ ...current, [selected.id]: comment }));
+  const updateSelectedGeneralComment = (update: SetStateAction<string>) => {
+    const outputId = selected?.id;
+    if (!outputId) return;
+    setGeneralCommentsByOutput((current) => ({
+      ...current,
+      [outputId]: typeof update === "function" ? update(current[outputId] ?? "") : update,
+    }));
   };
 
   if (!selected) return null;

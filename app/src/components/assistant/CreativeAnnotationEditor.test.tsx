@@ -1,12 +1,14 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import CreativeAnnotationEditor from "./CreativeAnnotationEditor";
 
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
 }));
+const voiceMocks = vi.hoisted(() => ({ capturedTranscript: undefined as ((text: string) => void) | undefined }));
 vi.mock("@/components/ui/VoiceInputButton", () => ({
-  default: ({ onTranscript, onBusyChange }: { onTranscript: (text: string) => void; onBusyChange?: (busy: boolean) => void }) => <div><button type="button" onClick={() => onTranscript("Texto ditado")}>mock voice</button><button type="button" onClick={() => onBusyChange?.(true)}>mock busy</button><button type="button" onClick={() => onBusyChange?.(false)}>mock idle</button></div>,
+  default: ({ onTranscript, onBusyChange }: { onTranscript: (text: string) => void; onBusyChange?: (busy: boolean) => void }) => <div><button type="button" onClick={() => onTranscript("Texto ditado")}>mock voice</button><button type="button" onClick={() => { voiceMocks.capturedTranscript = onTranscript; }}>capture voice</button><button type="button" onClick={() => voiceMocks.capturedTranscript?.("Texto ditado")}>deliver captured transcript</button><button type="button" onClick={() => onBusyChange?.(true)}>mock busy</button><button type="button" onClick={() => onBusyChange?.(false)}>mock idle</button></div>,
   appendTranscript: (current: string, text: string, max: number) => [current, text].filter(Boolean).join(" ").slice(0, max),
 }));
 
@@ -199,6 +201,19 @@ describe("CreativeAnnotationEditor", () => {
     expect(screen.getByTestId("assistant-annotation-general-comment")).toHaveValue("Atual Texto ditado");
     expect(onAdd).not.toHaveBeenCalled();
     expect(screen.getAllByText("privacy")).toHaveLength(1);
+  });
+
+  it("appends a captured general transcript to the latest controlled text", () => {
+    function ControlledEditor() {
+      const [generalComment, setGeneralComment] = useState("Inicial");
+      return <CreativeAnnotationEditor {...baseProps} layout="split" generalComment={generalComment} onGeneralCommentChange={setGeneralComment} />;
+    }
+    render(<ControlledEditor />);
+    fireEvent.click(screen.getByRole("button", { name: "capture voice" }));
+    fireEvent.change(screen.getByTestId("assistant-annotation-general-comment"), { target: { value: "Texto atualizado" } });
+    fireEvent.click(screen.getByRole("button", { name: "deliver captured transcript" }));
+    expect(screen.getByTestId("assistant-annotation-general-comment")).toHaveValue("Texto atualizado Texto ditado");
+    expect((screen.getByTestId("assistant-annotation-general-comment") as HTMLTextAreaElement).value.length).toBeLessThanOrEqual(300);
   });
 
   it("reports aggregate voice busy state for both Creative Work inputs", () => {
