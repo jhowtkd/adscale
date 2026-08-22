@@ -37,6 +37,7 @@ describe("brandStatusKey", () => {
       noWorksMatch: ptBR.common.noWorksMatch,
       noWorksYet: ptBR.common.noWorksYet,
       errorLoadingWorks: ptBR.common.errorLoadingWorks,
+      unavailable: ptBR.navigation.brandKitStatusUnavailable,
     }).toEqual({
       home: "Início",
       works: "Trabalhos",
@@ -46,6 +47,7 @@ describe("brandStatusKey", () => {
       noWorksMatch: "Nenhum trabalho corresponde à sua busca",
       noWorksYet: "Nenhum trabalho ainda",
       errorLoadingWorks: "Erro ao carregar trabalhos",
+      unavailable: "Estado indisponível",
     });
     expect({
       home: en.navigation.home,
@@ -61,6 +63,7 @@ describe("brandStatusKey", () => {
       noWorksMatch: en.common.noWorksMatch,
       noWorksYet: en.common.noWorksYet,
       errorLoadingWorks: en.common.errorLoadingWorks,
+      unavailable: en.navigation.brandKitStatusUnavailable,
     }).toEqual({
       home: "Home",
       works: "Works",
@@ -70,6 +73,7 @@ describe("brandStatusKey", () => {
       noWorksMatch: "No work matches your search",
       noWorksYet: "No work yet",
       errorLoadingWorks: "Error loading work",
+      unavailable: "Status unavailable",
     });
   });
 });

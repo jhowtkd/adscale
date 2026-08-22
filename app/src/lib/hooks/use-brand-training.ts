@@ -420,7 +420,10 @@ export function useReviewBrandKnowledgeClaim(clientProfileId: string | null) {
       if (!response.ok) throw new Error(await readError(response));
       return response.json();
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: brandKnowledgeKey(clientProfileId ?? "") }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: brandKnowledgeKey(clientProfileId ?? "") });
+      queryClient.invalidateQueries({ queryKey: ["brand-training-status", clientProfileId] });
+    },
   });
 }
 

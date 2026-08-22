@@ -11,8 +11,8 @@ export default function SidebarBrandKitFeature() {
   const tNav = useTranslations("navigation");
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { activeClientProfileId, requiresSelection, isLoading: profilesLoading } = useActiveClientProfile();
-  const { data: training, isLoading } = useBrandTrainingStatus(activeClientProfileId);
+  const { activeClientProfileId, requiresSelection, isLoading: profilesLoading, isError: profilesError } = useActiveClientProfile();
+  const { data: training, isLoading, isError: trainingError } = useBrandTrainingStatus(activeClientProfileId);
   const settingsTab = searchParams.get("tab");
   const isActive =
     pathname.startsWith("/brand-kit") ||
@@ -44,7 +44,9 @@ export default function SidebarBrandKitFeature() {
         <span className="text-[11px] text-[var(--text-muted)]">
           {isLoading || profilesLoading
             ? tNav("brandKitStatusLoading")
-            : tNav(brandStatusKey(activeClientProfileId, training, requiresSelection))}
+            : trainingError || profilesError
+              ? tNav("brandKitStatusUnavailable")
+              : tNav(brandStatusKey(activeClientProfileId, training, requiresSelection))}
         </span>
       </span>
     </Link>

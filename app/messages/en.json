@@ -34,6 +34,7 @@
     "brandKitStatusSetup": "Incomplete",
     "brandKitStatusSelect": "Not configured",
     "brandKitStatusReview": "Needs review",
+    "brandKitStatusUnavailable": "Status unavailable",
     "howToUse": "How to use",
     "works": "Works",
     "brands": "Brand",

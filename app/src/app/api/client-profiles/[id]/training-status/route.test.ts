@@ -35,6 +35,11 @@ vi.mock("@/server/repositories/client-profile-olhar-config", () => ({
     getOlharVoiceConfigByClientProfileId(...args),
 }));
 
+const listBrandKnowledgeClaims = vi.fn();
+vi.mock("@/server/repositories/brand-knowledge", () => ({
+  listBrandKnowledgeClaims: (...args: unknown[]) => listBrandKnowledgeClaims(...args),
+}));
+
 function mockProfile(overrides: Record<string, unknown> = {}) {
   return {
     id: PROFILE_ID,
@@ -49,6 +54,8 @@ describe("GET /api/client-profiles/[id]/training-status", () => {
     getClientReferences.mockReset();
     getBrandKit.mockReset();
     getOlharVoiceConfigByClientProfileId.mockReset();
+    listBrandKnowledgeClaims.mockReset();
+    listBrandKnowledgeClaims.mockResolvedValue([]);
   });
 
   it("returns 404 when the profile does not exist", async () => {
@@ -144,6 +151,21 @@ describe("GET /api/client-profiles/[id]/training-status", () => {
     getBrandKit.mockResolvedValue({ logoAssetKey: "ws/logo.png", brandColors: null, brandFonts: null });
     getClientReferences.mockResolvedValue([]);
     getOlharVoiceConfigByClientProfileId.mockResolvedValue(null);
+
+    const res = await GET(
+      new Request(`http://localhost/api/client-profiles/${PROFILE_ID}/training-status`),
+      { params: Promise.resolve({ id: PROFILE_ID }) },
+    );
+
+    expect((await res.json()).needsReview).toBe(true);
+  });
+
+  it("reports candidate knowledge claims as needing review", async () => {
+    getClientProfile.mockResolvedValue(mockProfile());
+    getBrandKit.mockResolvedValue({ logoAssetKey: "ws/logo.png", brandColors: null, brandFonts: null });
+    getClientReferences.mockResolvedValue([]);
+    getOlharVoiceConfigByClientProfileId.mockResolvedValue(null);
+    listBrandKnowledgeClaims.mockResolvedValue([{ status: "candidate" }]);
 
     const res = await GET(
       new Request(`http://localhost/api/client-profiles/${PROFILE_ID}/training-status`),
