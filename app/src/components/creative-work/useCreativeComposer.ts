@@ -30,6 +30,7 @@ import {
   type CreativeWorkItem,
   type CreativeWorkOutput,
   type CreativeWorkQuote,
+  type CreativeWorkSource,
 } from "@/lib/hooks/use-creative-work";
 import {
   createDefaultCreativeDirectionPool,
@@ -88,6 +89,24 @@ function writeStoredDraft(clientProfileId: string, intent: ComposerIntent, workI
 function clearStoredDraft(clientProfileId: string, intent: ComposerIntent): void {
   if (typeof window === "undefined" || typeof window.localStorage?.removeItem !== "function") return;
   window.localStorage.removeItem(draftStorageKey(clientProfileId, intent));
+}
+
+function reusableSourceForProtocol(
+  previous: ComposerIntent,
+  next: ComposerIntent,
+  sources: readonly CreativeWorkSource[],
+): DraftSource | null {
+  if (next === "single") return null;
+  const original = sources.find((source) =>
+    source.status === "ready"
+    && source.usageConfirmed
+    && source.usage !== "style"
+    && (previous !== "single" || source.usage === "content")
+    && Boolean(source.assetId || source.templateId)
+  );
+  if (!original) return null;
+  const identity = original.assetId ? { assetId: original.assetId } : { templateId: original.templateId! };
+  return { ...identity, usage: next === "restyle" ? "content" : "both" };
 }
 
 function canonicalQuote(
@@ -609,8 +628,10 @@ export function useCreativeComposer({
 
     const currentWork = detailQuery.data?.work;
     const currentWorkId = workIdRef.current;
-    const currentIsDraft = Boolean(currentWorkId && currentWork?.status === "draft");
+    const currentIsDraft = Boolean(currentWorkId && currentWork?.id === currentWorkId && currentWork.status === "draft");
+    const currentHasContext = currentIsDraft && Boolean(currentWork?.request.trim() || detailQuery.data?.sources.length);
     const profileId = currentWork?.clientProfileId ?? active.activeClientProfileId;
+    const reusableSource = reusableSourceForProtocol(previous, next, detailQuery.data?.sources ?? []);
 
     if (currentIsDraft) {
       try {
@@ -660,10 +681,11 @@ export function useCreativeComposer({
     else {
       draftKeyRef.current = crypto.randomUUID();
       exposeIntent(next);
+      if (reusableSource) await ensureDraft(reusableSource);
     }
-    setProtocolSwitchNotice(currentIsDraft ? { from: previous, to: next } : null);
+    setProtocolSwitchNotice(currentHasContext ? { from: previous, to: next } : null);
     if (next !== "restyle") requestAnimationFrame(() => composerRef.current?.focus());
-  }, [active.activeClientProfileId, detailQuery.data?.work, exposeIntent, exposeWorkId, flushAutosave]);
+  }, [active.activeClientProfileId, detailQuery.data, ensureDraft, exposeIntent, exposeWorkId, flushAutosave]);
 
   const selectIntent = useCallback((next: ComposerIntent) => {
     if (next === intentRef.current) return;
