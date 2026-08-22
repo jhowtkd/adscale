@@ -1,6 +1,6 @@
 # Runbook de separação da Peça em camadas
 
-Esta capacidade é exclusiva do **Dono da plataforma** e só opera sobre a Peça canônica
+Esta capacidade é disponível a membros do workspace com entitlement ativo `layer_editor_v1` e só opera sobre a Peça canônica
 selecionada após aprovação. Ela cria camadas PNG privadas e um PSD; o ZIP de
 diagnóstico é materializado somente quando solicitado. A saída original da Peça nunca é substituída e nenhum crédito
 ou lançamento de geração do ADScale é criado.
