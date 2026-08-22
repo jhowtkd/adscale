@@ -128,7 +128,7 @@ export function LayerEditorDialog({ open, workItemId, outputId, mode = "edit", o
     <Dialog open={open} onOpenChange={(next) => { if (!next) void close(); else onOpenChange(next); }}>
       <DialogContent size="full" showCloseButton={false} aria-label={t("editorTitle")}>
         <header className="sticky top-0 z-10 flex min-h-14 flex-wrap items-center gap-2 border-b bg-background/95 px-3 py-2 backdrop-blur">
-          <Button variant="ghost" size="icon" onClick={() => void close()} aria-label={t("editorClose")}><X /></Button>
+          <Button variant="ghost" size="icon" className="min-h-11 min-w-11" onClick={() => void close()} aria-label={t("editorClose")}><X /></Button>
           <div className="mr-auto min-w-36"><b className="block">{t("editorTitle")}</b><span className="text-xs text-muted-foreground">{editor.document ? `${editor.document.canvas.width}×${editor.document.canvas.height} · ${t("editorLayerCount", { count: editor.document.layers.length })}` : t("editorLoading")}</span></div>
           {editor.mode !== "edit" ? <span className="rounded bg-muted px-2 py-1 text-xs">{editor.document?.lease.heldByName ? `${t("editorReadOnly")}: ${editor.document.lease.heldByName}` : t("editorReadOnly")}</span> : null}
           <span className="text-xs text-muted-foreground" aria-live="polite">{error ? t("editorSaveError") : exporting ? t("editorSaving") : saveLabel}</span>
