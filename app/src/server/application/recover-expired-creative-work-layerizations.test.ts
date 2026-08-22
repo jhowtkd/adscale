@@ -3,6 +3,7 @@ import type { LayerizationState } from "@/server/layerize/contracts";
 
 const claimMock = vi.hoisted(() => vi.fn());
 const releaseMock = vi.hoisted(() => vi.fn());
+const releaseQuotaMock = vi.hoisted(() => vi.fn());
 const sendMock = vi.hoisted(() => vi.fn());
 const postDispatchLockMock = vi.hoisted(() => vi.fn(async (_input: unknown, run: (executor: unknown) => Promise<unknown>) => run({})));
 
@@ -14,6 +15,7 @@ vi.mock("@/server/jobs/client", () => ({
   inngest: { send: (...args: unknown[]) => sendMock(...args) },
 }));
 vi.mock("@/server/layer-editor/quota", () => ({
+  releaseLayerEditorQuota: (...args: unknown[]) => releaseQuotaMock(...args),
   withLayerEditorPostDispatchLock: (...args: unknown[]) => postDispatchLockMock(...args),
 }));
 
@@ -48,8 +50,13 @@ function state(status: LayerizationState["status"]): LayerizationState {
 
 describe("expired creative work layerization recovery", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    claimMock.mockReset();
+    releaseMock.mockReset();
+    releaseQuotaMock.mockReset();
+    sendMock.mockReset();
+    postDispatchLockMock.mockReset();
     releaseMock.mockResolvedValue(true);
+    releaseQuotaMock.mockResolvedValue({ released: true });
     postDispatchLockMock.mockImplementation(async (_input: unknown, run: (executor: unknown) => Promise<unknown>) => run({}));
   });
 
@@ -87,7 +94,7 @@ describe("expired creative work layerization recovery", () => {
     });
   });
 
-  it("claims an expired queued attempt so it can become submission_unknown", async () => {
+  it("atomically terminalizes and releases an expired queued attempt exactly once", async () => {
     const unknown = { ...state("submission_unknown"), providerRequestId: null, failureCode: "submission_unknown" as const };
     claimMock.mockResolvedValue({ id: "output-queued", layerization: unknown });
 
@@ -111,9 +118,73 @@ describe("expired creative work layerization recovery", () => {
       workspaceId: "workspace-1",
       workItemId: "work-1",
       outputId: "output-queued",
+      attemptId: "attempt-1",
       now,
     }, expect.anything());
     expect(postDispatchLockMock).toHaveBeenCalledWith(expect.objectContaining({ kind: "layerize_v1", operationId: "attempt-1" }), expect.any(Function));
+    expect(sendMock).not.toHaveBeenCalled();
+    expect(releaseQuotaMock).toHaveBeenCalledWith({
+      workspaceId: "workspace-1",
+      kind: "layerize_v1",
+      operationId: "attempt-1",
+    }, now, expect.anything());
+
+    claimMock.mockResolvedValueOnce(null);
+    await recoverExpiredCreativeWorkLayerizations({
+      workspaceId: "workspace-1",
+      workItemId: "work-1",
+      outputs: [{
+        id: "output-queued",
+        layerization: {
+          ...unknown,
+          status: "queued",
+          updatedAt: "2026-08-12T10:00:00.000Z",
+          callbackDeadlineAt: "2026-08-12T12:00:00.000Z",
+        },
+      }],
+      now,
+    });
+    expect(releaseQuotaMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not compensate fresh queued or provider-claimed processing attempts", async () => {
+    const fresh = {
+      ...state("queued"),
+      providerRequestId: null,
+      callbackDeadlineAt: "2099-08-12T12:00:00.000Z",
+    };
+    const processing = state("processing");
+    claimMock.mockResolvedValue({ id: "output-processing", layerization: { ...processing, status: "reconciling" } });
+
+    await recoverExpiredCreativeWorkLayerizations({
+      workspaceId: "workspace-1",
+      workItemId: "work-1",
+      outputs: [
+        { id: "output-fresh", layerization: fresh },
+        { id: "output-processing", layerization: processing },
+      ],
+      now,
+    });
+
+    expect(claimMock).toHaveBeenCalledTimes(1);
+    expect(releaseQuotaMock).not.toHaveBeenCalled();
+  });
+
+  it("aborts the locked recovery when quota compensation cannot commit", async () => {
+    const unknown = { ...state("submission_unknown"), providerRequestId: null, failureCode: "submission_unknown" as const };
+    claimMock.mockResolvedValue({ id: "output-queued", layerization: unknown });
+    releaseQuotaMock.mockRejectedValue(new Error("quota write failed"));
+
+    await expect(recoverExpiredCreativeWorkLayerizations({
+      workspaceId: "workspace-1",
+      workItemId: "work-1",
+      outputs: [{
+        id: "output-queued",
+        layerization: { ...unknown, status: "queued", callbackDeadlineAt: "2026-08-12T12:00:00.000Z" },
+      }],
+      now,
+    })).rejects.toThrow("quota write failed");
+
     expect(sendMock).not.toHaveBeenCalled();
   });
 });

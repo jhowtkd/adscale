@@ -147,6 +147,7 @@ describe("creative work layerization state transitions", () => {
       workspaceId: "workspace-1",
       workItemId: "work-1",
       outputId: "output-1",
+      attemptId: "attempt-1",
       now: new Date("2026-08-12T15:00:00.000Z"),
     })).resolves.toEqual(claimed);
 
@@ -154,8 +155,10 @@ describe("creative work layerization state transitions", () => {
     expect(recoveryWhere.sql).toContain("queued");
     expect(recoveryWhere.sql).toContain("finalizing");
     expect(recoveryWhere.sql).toContain("callbackDeadlineAt");
+    expect(recoveryWhere.sql).toContain("attemptId");
     expect(recoveryWhere.sql).toContain("updatedAt");
     expect(recoveryWhere.params).toContain("2026-08-12T14:55:00.000Z");
+    expect(recoveryWhere.params).toContain("attempt-1");
     const setValue = mocks.set.mock.calls.at(-1)?.[0] as { layerization?: unknown };
     const layerizationPatch = serialized(setValue.layerization);
     expect(layerizationPatch.sql).toContain("jsonb_build_object");

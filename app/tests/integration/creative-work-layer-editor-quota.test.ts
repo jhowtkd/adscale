@@ -2,8 +2,9 @@ import { afterAll, describe, expect, it } from "vitest";
 import { and, eq, sql } from "drizzle-orm";
 
 import { db } from "@/server/db";
-import { usageEvents, user, workspaceEntitlements, workspaceMembers, workspaces } from "@/server/db/schema";
+import { clientProfiles, creativeWorkItems, creativeWorkOutputs, usageEvents, user, workspaceEntitlements, workspaceMembers, workspaces } from "@/server/db/schema";
 import { claimLayerEditorQuota, releaseLayerEditorQuota, withLayerEditorOperationLock, withLayerEditorPostDispatchLock } from "@/server/layer-editor/quota";
+import { claimExpiredCreativeWorkLayerizationRecovery } from "@/server/repositories/creative-work-layerization";
 
 const configured = Boolean(process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL);
 const suffix = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
@@ -120,6 +121,46 @@ describe.skipIf(!configured)("layer editor regeneration quota", () => {
     releaseRecovery();
     await expect(recovery).resolves.toBe("terminalized");
     await expect(replay).resolves.toBe("rechecked");
+  });
+
+  it("rolls back expired queued terminalization and quota compensation together", async () => {
+    const operationId = "00000000-0000-4000-8000-000000000108";
+    const recoveryNow = new Date();
+    const [profile] = await db.insert(clientProfiles).values({ workspaceId: workspaceId!, name: `Quota profile ${suffix}` }).returning();
+    const [work] = await db.insert(creativeWorkItems).values({
+      workspaceId: workspaceId!, clientProfileId: profile.id, createdByUserId: userId!, toolKind: "social_post",
+      title: "Quota recovery", request: "Synthetic", brief: { theme: "Synthetic", objective: "Test", audience: "Test", offer: "None" },
+      format: "4:5", settings: { targetFormats: [] }, status: "completed",
+    }).returning();
+    const [output] = await db.insert(creativeWorkOutputs).values({
+      workspaceId: workspaceId!, workItemId: work.id, creativeLevel: "balanced", targetFormat: "4:5",
+      operationKey: `quota-recovery:${operationId}`, status: "completed", outputKey: `quota/${operationId}.png`, isSelected: true,
+      layerization: {
+        status: "queued", attemptId: operationId, callbackTokenHash: "a".repeat(64), callbackConsumedAt: null, requestedByUserId: userId!,
+        createdAt: "2026-08-12T10:00:00.000Z", updatedAt: "2026-08-12T10:00:00.000Z", callbackDeadlineAt: "2026-08-12T12:00:00.000Z",
+        latencyMs: null, providerRequestId: null, providerModel: "fixture", providerEndpoint: "https://fixture.example/layerize", estimatedCostUsd: null,
+        baseWidth: null, baseHeight: null, layers: [], psdKey: null, diagnosticZipKey: null, fidelity: null, failureCode: null,
+      },
+    }).returning();
+    const quota = { workspaceId: workspaceId!, kind: "layerize_v1" as const, operationId, userId: userId!, workItemId: work.id, outputId: output.id };
+    await expect(claimLayerEditorQuota(quota, recoveryNow)).resolves.toEqual({ ok: true, replay: false });
+
+    await expect(withLayerEditorPostDispatchLock({ workspaceId: workspaceId!, kind: "layerize_v1", operationId }, async (executor) => {
+      const claimed = await claimExpiredCreativeWorkLayerizationRecovery({
+        workspaceId: workspaceId!, workItemId: work.id, outputId: output.id, attemptId: operationId, now: recoveryNow,
+      }, executor);
+      expect((claimed?.layerization as { status?: string } | null)?.status).toBe("submission_unknown");
+      await releaseLayerEditorQuota({ workspaceId: workspaceId!, kind: "layerize_v1", operationId }, recoveryNow, executor);
+      throw new Error("abort recovery transaction");
+    })).rejects.toThrow("abort recovery transaction");
+
+    const [persisted] = await db.select({ layerization: creativeWorkOutputs.layerization }).from(creativeWorkOutputs).where(eq(creativeWorkOutputs.id, output.id));
+    expect((persisted?.layerization as { status?: string } | null)?.status).toBe("queued");
+    const releases = await db.select({ id: usageEvents.id }).from(usageEvents).where(and(
+      eq(usageEvents.workspaceId, workspaceId!),
+      eq(usageEvents.idempotencyKey, `layer-editor:${workspaceId}:layerize_v1:${operationId}:release`),
+    ));
+    expect(releases).toHaveLength(0);
   });
 
   it("completes more distinct locked operations than the pool size on their own transaction executor", async () => {
