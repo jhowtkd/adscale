@@ -47,9 +47,15 @@ export default function DashboardV6View({
   return (
     <div className="space-y-8" aria-busy={isLoading}>
       <header className="space-y-2" data-tour-step="1">
-        <h1 className="product-page-title text-[var(--text-primary)]">
+        <h1
+          className="product-page-title text-[var(--text-primary)]"
+          aria-label={isLoading ? labels.greeting : undefined}
+        >
           {isLoading ? (
-            <span className={cn("inline-block h-8 w-64 rounded bg-[var(--surface-raised)]", pulseClass)} />
+            <span
+              aria-hidden="true"
+              className={cn("inline-block h-8 w-64 rounded bg-[var(--surface-raised)]", pulseClass)}
+            />
           ) : (
             labels.greeting.replace("{firstName}", view.firstName)
           )}
@@ -135,24 +141,42 @@ export default function DashboardV6View({
               </div>
             </div>
             <dl className="min-w-[220px] space-y-2 rounded-[var(--radius-panel)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4">
-              <MetaRow
-                label={labels.metaBriefing}
-                value={view.hero.briefingProgress != null ? `● ${view.hero.briefingProgress}%` : "—"}
-                accent
-              />
+              {view.hero.briefingProgress != null ? (
+                <MetaRow
+                  label={labels.metaBriefing}
+                  value={`● ${view.hero.briefingProgress}%`}
+                  accent
+                />
+              ) : null}
               <MetaRow
                 label={labels.metaVariations}
                 value={`${view.hero.variationsDone} / ${view.hero.variationsTotal}`}
               />
-              <MetaRow
-                label={labels.metaApproved}
-                value={view.hero.approved == null ? "—" : String(view.hero.approved)}
-                accent
-              />
+              {view.hero.approved != null ? (
+                <MetaRow
+                  label={labels.metaApproved}
+                  value={String(view.hero.approved)}
+                  accent
+                />
+              ) : null}
             </dl>
           </div>
         </section>
-      ) : null}
+      ) : (
+        <section
+          className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)]"
+          aria-label={labels.heroProduction}
+          data-tour-step="2"
+        >
+          <SectionEmpty
+            title={labels.heroEmptyTitle}
+            description={labels.heroEmptyDescription}
+            actionLabel={labels.heroEmptyAction}
+            actionHref="/?compose=1"
+            interactive={interactive}
+          />
+        </section>
+      )}
 
       <ActivitySection
         view={view}
@@ -251,7 +275,7 @@ export default function DashboardV6View({
                 </ActionLink>
                 <ActionLink
                   interactive={interactive}
-                  href={view.hero?.href ?? "/campaigns?new=1"}
+                  href={view.hero?.href ?? "/?compose=1"}
                   className="flex-1 rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] py-2 text-center text-sm font-medium text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)]"
                 >
                   {labels.goToActions}
@@ -263,7 +287,7 @@ export default function DashboardV6View({
               title={labels.briefingEmptyTitle}
               description={labels.briefingEmptyDescription}
               actionLabel={labels.briefingEmptyAction}
-              actionHref="/campaigns?new=1"
+              actionHref="/?compose=1"
               interactive={interactive}
               className="mt-4"
             />
@@ -433,7 +457,7 @@ function ActivitySection({
             title={labels.activityEmptyTitle}
             description={labels.activityEmptyDescription}
             actionLabel={labels.activityEmptyAction}
-            actionHref="/campaigns?new=1"
+            actionHref="/?compose=1"
             interactive={interactive}
           />
         )}

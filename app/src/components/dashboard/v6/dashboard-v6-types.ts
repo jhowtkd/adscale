@@ -61,6 +61,9 @@ export type DashboardV6Labels = {
   greeting: string;
   kpisAria: string;
   heroProduction: string;
+  heroEmptyTitle: string;
+  heroEmptyDescription: string;
+  heroEmptyAction: string;
   openCampaign: string;
   viewBriefing: string;
   metaBriefing: string;

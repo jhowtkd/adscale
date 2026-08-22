@@ -201,7 +201,7 @@ function IconNavItem({
         aria-hidden="true"
         className={active ? "text-[var(--active-navigation-text)]" : "text-[var(--utility-icon)]"}
       />
-      <span className="max-w-full truncate text-center leading-tight">{label}</span>
+      <span className="flex min-h-6 max-w-full items-center text-center leading-tight">{label}</span>
       {count ? (
         <span className="absolute right-0.5 top-0.5 rounded border border-[var(--border-subtle)] bg-[var(--surface-base)] px-1 font-mono text-[8px] text-[var(--text-muted)]">
           {count}

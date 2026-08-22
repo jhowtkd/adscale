@@ -181,7 +181,7 @@ export function mapDashboardToV6View({
     subtitle: `${authorName} · ${formatRelativeTime(campaign.updatedAt, tRelative)}`,
     status: statusLabel(campaign.status, tStatus),
     statusClass: statusToClass(campaign.status),
-    platforms: formatCampaignPlatforms(campaign.platforms) ?? "—",
+    platforms: formatCampaignPlatforms(campaign.platforms) ?? tHero("platformUnavailable"),
     variations: `${campaign.approvedCount} / ${campaign.pieceCount}`,
     updated: formatRelativeTime(campaign.updatedAt, tRelative),
   }));
@@ -201,16 +201,16 @@ export function mapDashboardToV6View({
   const primaryTemplate = templates[0];
   const briefingRows = primaryTemplate
     ? [
-        { key: tBriefing("objective"), value: primaryTemplate.objective ?? "—" },
-        { key: tBriefing("audience"), value: primaryTemplate.audience ?? "—" },
-        { key: tBriefing("tone"), value: primaryTemplate.tone ?? "—" },
+        { key: tBriefing("objective"), value: primaryTemplate.objective },
+        { key: tBriefing("audience"), value: primaryTemplate.audience },
+        { key: tBriefing("tone"), value: primaryTemplate.tone },
         {
           key: tBriefing("platforms"),
-          value: primaryTemplate.platforms?.length ? primaryTemplate.platforms.join(", ") : "—",
+          value: primaryTemplate.platforms?.join(", "),
         },
-        { key: tBriefing("cta"), value: primaryTemplate.offer ?? "—" },
-        { key: tBriefing("constraints"), value: primaryTemplate.constraints ?? "—" },
-      ]
+        { key: tBriefing("cta"), value: primaryTemplate.offer },
+        { key: tBriefing("constraints"), value: primaryTemplate.constraints },
+      ].flatMap(({ key, value }) => value?.trim() ? [{ key, value: value.trim() }] : [])
     : [];
 
   return {

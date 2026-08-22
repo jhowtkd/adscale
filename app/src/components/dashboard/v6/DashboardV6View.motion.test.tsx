@@ -30,12 +30,59 @@ const view: DashboardV6ViewModel = {
 };
 
 describe("DashboardV6View motion values", () => {
+  it("keeps the greeting heading named while its visual skeleton loads", () => {
+    render(
+      <DashboardV6View
+        view={view}
+        labels={labels}
+        summary="Resumo"
+        isLoading
+      />,
+    );
+
+    expect(screen.getByRole("heading", { level: 1, name: "greeting" })).toBeInTheDocument();
+  });
+
+  it("offers a useful next action when there is no featured work", () => {
+    render(
+      <DashboardV6View
+        view={{ ...view, hero: null }}
+        labels={labels}
+        summary="Resumo"
+      />,
+    );
+
+    expect(screen.getByText("heroEmptyTitle")).toBeInTheDocument();
+    expect(screen.getByText("heroEmptyDescription")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "heroEmptyAction" })).toHaveAttribute("href", "/?compose=1");
+    expect(screen.getByRole("link", { name: "activityEmptyAction" })).toHaveAttribute("href", "/?compose=1");
+    expect(screen.getByRole("link", { name: "briefingEmptyAction" })).toHaveAttribute("href", "/?compose=1");
+  });
+
   it("renders the final KPI and progress values immediately", () => {
     render(<DashboardV6View view={view} labels={labels} summary="Resumo" />);
 
     expect(screen.getByText("60%").closest("[data-motion-value]")).toHaveAttribute("data-motion-value", "60%");
     expect(screen.getByText("● 75%").closest("[data-motion-value]")).toHaveAttribute("data-motion-value", "● 75%");
     expect(screen.getAllByTestId("motion-value")).toHaveLength(4);
+  });
+
+  it("omits unavailable featured-work metadata instead of rendering dashes", () => {
+    render(
+      <DashboardV6View
+        view={{
+          ...view,
+          hero: { ...view.hero!, briefingProgress: null, approved: null },
+        }}
+        labels={labels}
+        summary="Resumo"
+      />,
+    );
+
+    expect(screen.queryByText("metaBriefing")).not.toBeInTheDocument();
+    expect(screen.queryByText("metaApproved")).not.toBeInTheDocument();
+    expect(screen.getByText("metaVariations")).toBeInTheDocument();
+    expect(screen.queryByText("—")).not.toBeInTheDocument();
   });
 
   it.each([
