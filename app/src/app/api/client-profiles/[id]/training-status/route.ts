@@ -8,6 +8,7 @@ import {
   type ClientReferenceKind,
 } from "@/server/repositories/client-reference";
 import { getOlharVoiceConfigByClientProfileId } from "@/server/repositories/client-profile-olhar-config";
+import { listBrandKnowledgeClaims } from "@/server/repositories/brand-knowledge";
 import { resolveBrandProfileStatus } from "@/server/brand-profile/trained-status";
 
 /**
@@ -33,10 +34,11 @@ export async function GET(
       return apiError("clientProfileNotFound", 404);
     }
 
-    const [brandKit, references, voiceConfig] = await Promise.all([
+    const [brandKit, references, voiceConfig, knowledgeClaims] = await Promise.all([
       getBrandKit(workspace.id, id),
       getClientReferences(workspace.id, id),
       getOlharVoiceConfigByClientProfileId({ workspaceId: workspace.id, clientProfileId: id }),
+      listBrandKnowledgeClaims(workspace.id, id),
     ]);
 
     const status = resolveBrandProfileStatus(
@@ -56,6 +58,14 @@ export async function GET(
       profile: { id: profile.id, name: profile.name },
       trained: status.trained,
       missing: status.missing,
+      needsReview:
+        references.some((reference) => reference.reviewStatus === "pending_approval") ||
+        (profile.brandFontAssets ?? []).some(
+          (font) => "reviewStatus" in font && font.reviewStatus === "pending_approval",
+        ) ||
+        knowledgeClaims.some((claim) => claim.status === "candidate") ||
+        voiceConfig?.reviewStatus === "pending_review" ||
+        voiceConfig?.reviewStatus === "changes_requested",
       voice: {
         configured: Boolean(voiceConfig),
         reviewStatus: voiceConfig?.reviewStatus ?? null,

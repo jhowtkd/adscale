@@ -13,11 +13,12 @@ export type ActiveClientProfileState = {
   activeClientProfileId: string | null;
   requiresSelection: boolean;
   isLoading: boolean;
+  isError: boolean;
   selectProfile: (profileId: string) => void;
 };
 
 export function useActiveClientProfile(): ActiveClientProfileState {
-  const { data: profiles = [], isLoading, isSuccess } = useClientProfiles();
+  const { data: profiles = [], isLoading, isError, isSuccess } = useClientProfiles();
   const persistedId = useAppStore((state) => state.activeClientProfileId);
   const selectProfile = useAppStore((state) => state.setActiveClientProfileId);
   const validPersistedId = profiles.some((profile) => profile.id === persistedId)
@@ -38,6 +39,7 @@ export function useActiveClientProfile(): ActiveClientProfileState {
     activeClientProfileId,
     requiresSelection: !isLoading && profiles.length > 1 && !activeClientProfileId,
     isLoading,
+    isError,
     selectProfile,
   };
 }

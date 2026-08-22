@@ -35,6 +35,11 @@ vi.mock("@/server/repositories/client-profile-olhar-config", () => ({
     getOlharVoiceConfigByClientProfileId(...args),
 }));
 
+const listBrandKnowledgeClaims = vi.fn();
+vi.mock("@/server/repositories/brand-knowledge", () => ({
+  listBrandKnowledgeClaims: (...args: unknown[]) => listBrandKnowledgeClaims(...args),
+}));
+
 function mockProfile(overrides: Record<string, unknown> = {}) {
   return {
     id: PROFILE_ID,
@@ -49,6 +54,8 @@ describe("GET /api/client-profiles/[id]/training-status", () => {
     getClientReferences.mockReset();
     getBrandKit.mockReset();
     getOlharVoiceConfigByClientProfileId.mockReset();
+    listBrandKnowledgeClaims.mockReset();
+    listBrandKnowledgeClaims.mockResolvedValue([]);
   });
 
   it("returns 404 when the profile does not exist", async () => {
@@ -79,6 +86,7 @@ describe("GET /api/client-profiles/[id]/training-status", () => {
       profile: { id: PROFILE_ID, name: "Acme" },
       trained: false,
       missing: ["logo", "visual-signal"],
+      needsReview: false,
       voice: { configured: false, reviewStatus: null },
     });
   });
@@ -116,7 +124,55 @@ describe("GET /api/client-profiles/[id]/training-status", () => {
 
     const body = await res.json();
     expect(body.trained).toBe(true);
+    expect(body.needsReview).toBe(true);
     expect(body.voice).toEqual({ configured: true, reviewStatus: "pending_review" });
+  });
+
+  it("reports pending asset approvals as needing review", async () => {
+    getClientProfile.mockResolvedValue(mockProfile());
+    getBrandKit.mockResolvedValue({ logoAssetKey: "ws/logo.png", brandColors: null, brandFonts: null });
+    getClientReferences.mockResolvedValue([
+      { kind: "style", trainingCategory: "visual_reference", reviewStatus: "pending_approval" },
+    ]);
+    getOlharVoiceConfigByClientProfileId.mockResolvedValue(null);
+
+    const res = await GET(
+      new Request(`http://localhost/api/client-profiles/${PROFILE_ID}/training-status`),
+      { params: Promise.resolve({ id: PROFILE_ID }) },
+    );
+
+    expect((await res.json()).needsReview).toBe(true);
+  });
+
+  it("reports pending font approvals as needing review", async () => {
+    getClientProfile.mockResolvedValue(mockProfile({
+      brandFontAssets: [{ reviewStatus: "pending_approval" }],
+    }));
+    getBrandKit.mockResolvedValue({ logoAssetKey: "ws/logo.png", brandColors: null, brandFonts: null });
+    getClientReferences.mockResolvedValue([]);
+    getOlharVoiceConfigByClientProfileId.mockResolvedValue(null);
+
+    const res = await GET(
+      new Request(`http://localhost/api/client-profiles/${PROFILE_ID}/training-status`),
+      { params: Promise.resolve({ id: PROFILE_ID }) },
+    );
+
+    expect((await res.json()).needsReview).toBe(true);
+  });
+
+  it("reports candidate knowledge claims as needing review", async () => {
+    getClientProfile.mockResolvedValue(mockProfile());
+    getBrandKit.mockResolvedValue({ logoAssetKey: "ws/logo.png", brandColors: null, brandFonts: null });
+    getClientReferences.mockResolvedValue([]);
+    getOlharVoiceConfigByClientProfileId.mockResolvedValue(null);
+    listBrandKnowledgeClaims.mockResolvedValue([{ status: "candidate" }]);
+
+    const res = await GET(
+      new Request(`http://localhost/api/client-profiles/${PROFILE_ID}/training-status`),
+      { params: Promise.resolve({ id: PROFILE_ID }) },
+    );
+
+    expect((await res.json()).needsReview).toBe(true);
   });
 
   it("ignores pending_analysis trained references when computing readiness", async () => {

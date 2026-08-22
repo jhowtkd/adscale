@@ -20,7 +20,7 @@ export default function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
 
-  // Phase 6 / item 45: Home · Trabalhos · Biblioteca · Marcas · Mais (Config in More)
+  // Phase 6 / item 45: Home · Trabalhos · Biblioteca · Marca · Mais (Config in More)
   const moreActive =
     pathname.startsWith("/templates") ||
     pathname.startsWith("/assistant") ||
@@ -42,7 +42,7 @@ export default function AppShell({ children }: AppShellProps) {
           href="/"
           label={tNav("home")}
           icon={Home}
-          active={pathname === "/"}
+          active={pathname === "/" || pathname.startsWith("/quick-tools/")}
         />
         <MobileNavItem
           href="/campaigns"

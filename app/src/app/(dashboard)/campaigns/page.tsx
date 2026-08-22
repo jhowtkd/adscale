@@ -225,8 +225,8 @@ function CampaignsProductContent() {
         title={
           hasActiveFilters ||
           (isCanonicalMode && (originFilter !== "all" || searchInput))
-            ? tc("noCampaignsMatch")
-            : tc("noCampaignsYet")
+            ? tc(isCanonicalMode ? "noWorksMatch" : "noCampaignsMatch")
+            : tc(isCanonicalMode ? "noWorksYet" : "noCampaignsYet")
         }
         description={
           hasActiveFilters ||
@@ -259,7 +259,7 @@ function CampaignsProductContent() {
       <div className="py-8">
         <EmptyState
           icon={AlertCircle}
-          title={tc("errorLoading")}
+          title={tc(isCanonicalMode ? "errorLoadingWorks" : "errorLoading")}
           description={
             worksErrorObj instanceof Error
               ? worksErrorObj.message
