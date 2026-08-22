@@ -28,6 +28,8 @@ import {
   acceptLayerRegenerationCandidate,
   getCreativeWorkLayerEditorOutput,
   layerEditorFromOutput,
+  reserveLayerRegeneration,
+  rollbackReservedLayerRegeneration,
 } from "@/server/repositories/creative-work-layer-editor";
 import { runCreativeWorkLayerRegeneration } from "@/server/jobs/creative-work-layer-regeneration";
 import { normalizeLayerCandidate } from "@/server/layer-editor/openai-provider";
@@ -220,22 +222,38 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work native layer edit
     if (!saved.ok) throw new Error("Save should succeed under A's lease");
     expect(saved.document.lease.expiresAt).toBe(heartbeatBeforeSave.document.lease.expiresAt);
 
-    const operationId = randomUUID();
-    const dispatch = vi.spyOn(inngest, "send").mockResolvedValue({ ids: ["synthetic-regeneration"] } as never);
+    const rollbackOperationId = randomUUID();
     const heartbeatBeforeReserve = await heartbeatCreativeWorkLayerEditor({ ...scope, userId: memberA, userName: "Editor A", leaseId: openedByA.document.lease.leaseId! });
     expect(heartbeatBeforeReserve).toMatchObject({ ok: true });
     if (!heartbeatBeforeReserve.ok) throw new Error("Heartbeat should renew before reservation");
+    const reservedForRollback = layerEditorFromOutput(await reserveLayerRegeneration({
+      ...scope, userId: memberA, leaseId: openedByA.document.lease.leaseId!, expectedRevision: saved.document.revision,
+      operationId: rollbackOperationId, layerId: productLayer.id, instruction: "Rollback lease check", usageKey: `journey:${rollbackOperationId}`, now: new Date(),
+    }));
+    if (!reservedForRollback) throw new Error("Synthetic rollback reservation is required");
+    const heartbeatBeforeRollback = await heartbeatCreativeWorkLayerEditor({ ...scope, userId: memberA, userName: "Editor A", leaseId: openedByA.document.lease.leaseId! });
+    expect(heartbeatBeforeRollback).toMatchObject({ ok: true });
+    if (!heartbeatBeforeRollback.ok) throw new Error("Heartbeat should renew before rollback");
+    const rolledBack = layerEditorFromOutput(await rollbackReservedLayerRegeneration({
+      ...scope, userId: memberA, leaseId: openedByA.document.lease.leaseId!, expectedRevision: reservedForRollback.revision,
+      operationId: rollbackOperationId, now: new Date(),
+    }));
+    expect(rolledBack).toMatchObject({ regeneration: null, lease: { expiresAt: heartbeatBeforeRollback.document.lease.expiresAt } });
+    if (!rolledBack) throw new Error("Synthetic rollback should preserve the valid lease");
+
+    const operationId = randomUUID();
+    const dispatch = vi.spyOn(inngest, "send").mockResolvedValue({ ids: ["synthetic-regeneration"] } as never);
     await expect(requestCreativeWorkLayerRegeneration({
       ...scope,
       userId: memberA,
       leaseId: openedByA.document.lease.leaseId,
-      expectedRevision: saved.document.revision,
+      expectedRevision: rolledBack.revision,
       operationId,
       layerId: productLayer.id,
       instruction: "Change only the product color",
     })).resolves.toMatchObject({ ok: true, accepted: true });
     expect(dispatch).toHaveBeenCalledOnce();
-    expect(layerEditorFromOutput(await getCreativeWorkLayerEditorOutput(scope))?.lease?.expiresAt).toBe(heartbeatBeforeReserve.document.lease.expiresAt);
+    expect(layerEditorFromOutput(await getCreativeWorkLayerEditorOutput(scope))?.lease?.expiresAt).toBe(heartbeatBeforeRollback.document.lease.expiresAt);
 
     const candidate = await transparentCandidateFixture();
     const provider = { regenerate: vi.fn(async () => ({ requestId: "fake-regeneration", buffer: candidate })) };
