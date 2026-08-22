@@ -46,6 +46,13 @@ interface DraftRect {
   height: number;
 }
 
+const DRAFT_CONTROLS = [
+  { field: "x", label: "annotationX", min: 0 },
+  { field: "y", label: "annotationY", min: 0 },
+  { field: "width", label: "annotationWidth", min: 1 },
+  { field: "height", label: "annotationHeight", min: 1 },
+] as const;
+
 /**
  * Desktop rectangle annotation editor. The user draws rectangles with pointer
  * events over the source image; coordinates are stored normalized to [0,1]
@@ -141,6 +148,20 @@ export default function CreativeAnnotationEditor({
     setComment("");
   };
 
+  const setDraftPercent = (field: keyof DraftRect, rawValue: string) => {
+    const value = Number(rawValue) / 100;
+    if (!Number.isFinite(value)) return;
+    setDraft((current) => {
+      if (!current) return current;
+      const next = { ...current, [field]: value };
+      next.x = Math.min(Math.max(next.x, 0), 0.99);
+      next.y = Math.min(Math.max(next.y, 0), 0.99);
+      next.width = Math.min(Math.max(next.width, 0.01), 1 - next.x);
+      next.height = Math.min(Math.max(next.height, 0.01), 1 - next.y);
+      return next;
+    });
+  };
+
   const handleItemKeyDown = (
     event: KeyboardEvent<HTMLLIElement>,
     annotationId: string
@@ -217,27 +238,53 @@ export default function CreativeAnnotationEditor({
       </div>
 
       <div data-testid="assistant-annotation-right-panel" className="flex flex-col gap-3">
-      {draft ? (
-        <div className="flex flex-col gap-2 rounded-lg border border-[var(--selection-border)] bg-[var(--surface-raised)] p-3">
-          <label className="text-xs font-medium text-[var(--text-secondary)]">
-            {t("annotationComment")}
-          </label>
-          <textarea
-            data-testid="assistant-annotation-comment"
-            value={comment}
-            onChange={(event) => setComment(event.target.value)}
-            rows={2}
-            maxLength={commentMaxLength}
-            className="block w-full resize-none rounded-md border border-[var(--border-dim)] bg-[var(--surface-inset)] px-2 py-1 text-sm text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-            placeholder={t("annotationCommentPlaceholder")}
-            autoFocus
-          />
-          <VoiceInputButton
-            onBusyChange={setVoiceBusy}
-            onTranscript={(text) => setComment((current) => appendTranscript(current, text, commentMaxLength))}
-          />
-          <p className="text-xs text-[var(--text-muted)]">{tVoice("privacy")}</p>
-          <div className="flex justify-end gap-2">
+        {!isMobile && !draft ? (
+          <button
+            type="button"
+            disabled={annotationLimitReached}
+            onClick={() => setDraft({ x: 0.25, y: 0.25, width: 0.5, height: 0.5 })}
+            className="self-start rounded-md border border-[var(--border-dim)] px-3 py-1 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:text-[var(--text-muted)]"
+          >
+            {t("annotationKeyboardAdd")}
+          </button>
+        ) : null}
+        {draft ? (
+          <div className="flex flex-col gap-2 rounded-lg border border-[var(--selection-border)] bg-[var(--surface-raised)] p-3">
+            <div className="grid grid-cols-2 gap-2">
+              {DRAFT_CONTROLS.map(({ field, label, min }) => (
+                <label key={field} className="text-xs text-[var(--text-secondary)]">
+                  {t(label)}
+                  <input
+                    type="number"
+                    min={min}
+                    max={100}
+                    step={1}
+                    value={Math.round(draft[field] * 100)}
+                    onChange={(event) => setDraftPercent(field, event.target.value)}
+                    className="mt-1 block w-full rounded-md border border-[var(--border-dim)] bg-[var(--surface-inset)] px-2 py-1 text-sm text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                  />
+                </label>
+              ))}
+            </div>
+            <label className="text-xs font-medium text-[var(--text-secondary)]">
+              {t("annotationComment")}
+            </label>
+            <textarea
+              data-testid="assistant-annotation-comment"
+              value={comment}
+              onChange={(event) => setComment(event.target.value)}
+              rows={2}
+              maxLength={commentMaxLength}
+              className="block w-full resize-none rounded-md border border-[var(--border-dim)] bg-[var(--surface-inset)] px-2 py-1 text-sm text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+              placeholder={t("annotationCommentPlaceholder")}
+              autoFocus
+            />
+            <VoiceInputButton
+              onBusyChange={setVoiceBusy}
+              onTranscript={(text) => setComment((current) => appendTranscript(current, text, commentMaxLength))}
+            />
+            <p className="text-xs text-[var(--text-muted)]">{tVoice("privacy")}</p>
+            <div className="flex justify-end gap-2">
             <button
               type="button"
               data-testid="assistant-annotation-cancel"
@@ -260,9 +307,9 @@ export default function CreativeAnnotationEditor({
             >
               {t("save")}
             </button>
+            </div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
 
       {layout === "split" ? <div className="flex flex-col gap-2 rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)] p-3">
         <label className="text-xs font-medium text-[var(--text-secondary)]" htmlFor="assistant-annotation-general-comment">

@@ -1,0 +1,28 @@
+{
+  "format": "4:5",
+  "submittedAt": "2026-08-17T17:35:07.340667+00:00",
+  "httpStatus": 200,
+  "latencyMs": 2328,
+  "requestId": "2555ea2b9e1d41878012f00c8fd607bb",
+  "listedPriceUsd": 0.022,
+  "observedPriorPriceUsd": 0.1575,
+  "response": {
+    "code": 200,
+    "message": "",
+    "data": {
+      "id": "2555ea2b9e1d41878012f00c8fd607bb",
+      "model": "bytedance/seedream-v5.0-pro/layer-decomposition",
+      "urls": {
+        "get": "/api/v1/model/prediction/2555ea2b9e1d41878012f00c8fd607bb"
+      },
+      "has_nsfw_contents": null,
+      "status": "processing",
+      "created_at": "0001-01-01T00:00:00Z",
+      "error": "",
+      "executionTime": 0,
+      "timings": {
+        "inference": 0
+      }
+    }
+  }
+}

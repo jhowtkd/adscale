@@ -266,6 +266,8 @@ export default function CreativeProposalGrid({
                           return next;
                         });
                         setExpanded(false);
+                      } else {
+                        setAnnotationError(t("annotationRevisionError"));
                       }
                     } catch {
                       setAnnotationError(t("annotationPreparationError"));

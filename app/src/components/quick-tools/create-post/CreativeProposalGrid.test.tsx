@@ -341,6 +341,8 @@ describe("CreativeProposalGrid", () => {
     fireEvent.change(screen.getByTestId("annotation-general-comment"), { target: { value: "Primeiro" } });
     fireEvent.click(screen.getByRole("button", { name: "Gerar variação · 5 créditos" }));
     await waitFor(() => expect(onRevise).toHaveBeenCalledTimes(1));
+    expect(await screen.findByRole("alert")).toHaveTextContent("annotationRevisionError");
+    expect(screen.getByRole("button", { name: "Gerar variação · 5 créditos" })).toBeEnabled();
     expect(screen.getByTestId("annotation-editor")).toHaveAttribute("data-count", "1");
     expect(screen.getByTestId("annotation-general-comment")).toHaveValue("Primeiro");
     fireEvent.click(screen.getByRole("button", { name: "Close" }));

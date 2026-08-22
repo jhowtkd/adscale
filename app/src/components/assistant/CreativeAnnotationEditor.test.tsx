@@ -70,6 +70,23 @@ describe("CreativeAnnotationEditor", () => {
     expect(added.height).toBeCloseTo(0.1, 5);
   });
 
+  it("lets keyboard users create and position a rectangle", () => {
+    const onAdd = vi.fn();
+    render(<CreativeAnnotationEditor {...baseProps} onAdd={onAdd} />);
+
+    const add = screen.getByRole("button", { name: "annotationKeyboardAdd" });
+    add.focus();
+    fireEvent.click(add);
+    fireEvent.change(screen.getByRole("spinbutton", { name: "annotationX" }), { target: { value: "10" } });
+    fireEvent.change(screen.getByRole("spinbutton", { name: "annotationY" }), { target: { value: "20" } });
+    fireEvent.change(screen.getByRole("spinbutton", { name: "annotationWidth" }), { target: { value: "30" } });
+    fireEvent.change(screen.getByRole("spinbutton", { name: "annotationHeight" }), { target: { value: "40" } });
+    fireEvent.change(screen.getByTestId("assistant-annotation-comment"), { target: { value: "Move logo" } });
+    fireEvent.click(screen.getByTestId("assistant-annotation-save"));
+
+    expect(onAdd).toHaveBeenCalledWith({ x: 0.1, y: 0.2, width: 0.3, height: 0.4, comment: "Move logo" });
+  });
+
   it("rejects rectangles smaller than 1% of image width or height", () => {
     const onAdd = vi.fn();
     const { container } = render(

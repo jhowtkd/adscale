@@ -1,0 +1,136 @@
+[
+  {
+    "index": 0,
+    "file": "00-z0.png",
+    "bytes": 439685,
+    "layer": {
+      "z_index": 0
+    },
+    "host": "ark-acg-ap-southeast-1.tos-ap-southeast-1.volces.com"
+  },
+  {
+    "index": 1,
+    "file": "01-z1.png",
+    "bytes": 961574,
+    "layer": {
+      "z_index": 1,
+      "bounding_box": {
+        "absolute": [
+          0,
+          162,
+          1024,
+          1024
+        ],
+        "normalized": [
+          0,
+          158,
+          999,
+          999
+        ]
+      },
+      "name": "Full canvas dark navy base layer",
+      "description": "Solid dark navy full canvas base background, no other foreground elements included"
+    },
+    "host": "ark-acg-ap-southeast-1.tos-ap-southeast-1.volces.com"
+  },
+  {
+    "index": 2,
+    "file": "02-z2.png",
+    "bytes": 168902,
+    "layer": {
+      "z_index": 2,
+      "bounding_box": {
+        "absolute": [
+          183,
+          838,
+          840,
+          942
+        ],
+        "normalized": [
+          179,
+          818,
+          819,
+          919
+        ]
+      },
+      "name": "Bottom yellow horizontal bar",
+      "description": "Solid flat yellow horizontal bar positioned on the lower section of the canvas, no other elements included"
+    },
+    "host": "ark-acg-ap-southeast-1.tos-ap-southeast-1.volces.com"
+  },
+  {
+    "index": 3,
+    "file": "03-z3.png",
+    "bytes": 829384,
+    "layer": {
+      "z_index": 3,
+      "bounding_box": {
+        "absolute": [
+          531,
+          244,
+          942,
+          532
+        ],
+        "normalized": [
+          519,
+          238,
+          919,
+          519
+        ]
+      },
+      "name": "Right blue square rectangle",
+      "description": "Solid flat blue square rectangle positioned on the upper right side of the canvas, no other elements included"
+    },
+    "host": "ark-acg-ap-southeast-1.tos-ap-southeast-1.volces.com"
+  },
+  {
+    "index": 4,
+    "file": "04-z4.png",
+    "bytes": 642082,
+    "layer": {
+      "z_index": 4,
+      "bounding_box": {
+        "absolute": [
+          80,
+          244,
+          471,
+          778
+        ],
+        "normalized": [
+          78,
+          238,
+          459,
+          759
+        ]
+      },
+      "name": "Left off-white vertical rectangle",
+      "description": "Solid flat off-white vertical rectangle positioned on the left side of the canvas, no other elements included"
+    },
+    "host": "ark-acg-ap-southeast-1.tos-ap-southeast-1.volces.com"
+  },
+  {
+    "index": 5,
+    "file": "05-z5.png",
+    "bytes": 515539,
+    "layer": {
+      "z_index": 5,
+      "bounding_box": {
+        "absolute": [
+          0,
+          0,
+          1024,
+          164
+        ],
+        "normalized": [
+          0,
+          0,
+          999,
+          159
+        ]
+      },
+      "name": "Top red horizontal bar",
+      "description": "Solid flat red top horizontal rectangle bar, no other elements included"
+    },
+    "host": "ark-acg-ap-southeast-1.tos-ap-southeast-1.volces.com"
+  }
+]

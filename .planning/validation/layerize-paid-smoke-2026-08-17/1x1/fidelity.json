@@ -1,0 +1,91 @@
+{
+  "canvas": {
+    "width": 1024,
+    "height": 1024
+  },
+  "original": {
+    "width": 1024,
+    "height": 1024
+  },
+  "fidelity": {
+    "normalizedMae": 0.017799901962280273,
+    "rmse": 6.556665442643911,
+    "psnrDb": 31.797143126199735,
+    "gate": "passed"
+  },
+  "layers": [
+    {
+      "order": 0,
+      "isBase": true,
+      "name": "Base",
+      "x": 0,
+      "y": 0,
+      "width": 1024,
+      "height": 1024,
+      "srcW": 1024,
+      "srcH": 1024,
+      "file": "00-z0.png"
+    },
+    {
+      "order": 1,
+      "isBase": false,
+      "name": "Full canvas dark navy base layer",
+      "x": 0,
+      "y": 162,
+      "width": 1024,
+      "height": 862,
+      "srcW": 1024,
+      "srcH": 862,
+      "file": "01-z1.png"
+    },
+    {
+      "order": 2,
+      "isBase": false,
+      "name": "Bottom yellow horizontal bar",
+      "x": 183,
+      "y": 838,
+      "width": 657,
+      "height": 104,
+      "srcW": 1352,
+      "srcH": 214,
+      "file": "02-z2.png"
+    },
+    {
+      "order": 3,
+      "isBase": false,
+      "name": "Right blue square rectangle",
+      "x": 531,
+      "y": 244,
+      "width": 411,
+      "height": 288,
+      "srcW": 848,
+      "srcH": 595,
+      "file": "03-z3.png"
+    },
+    {
+      "order": 4,
+      "isBase": false,
+      "name": "Left off-white vertical rectangle",
+      "x": 80,
+      "y": 244,
+      "width": 391,
+      "height": 534,
+      "srcW": 630,
+      "srcH": 860,
+      "file": "04-z4.png"
+    },
+    {
+      "order": 5,
+      "isBase": false,
+      "name": "Top red horizontal bar",
+      "x": 0,
+      "y": 0,
+      "width": 1024,
+      "height": 164,
+      "srcW": 1840,
+      "srcH": 295,
+      "file": "05-z5.png"
+    }
+  ],
+  "allowlistNote": "provider media host volces.com is outside SEEDREAM_MEDIA_HOSTS"
+}
