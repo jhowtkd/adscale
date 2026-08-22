@@ -347,6 +347,16 @@ describe("projectCreativeWorkAsCanonicalWork (Criar Post fixture)", () => {
     expect(work.name).toBe("Campanha de matrículas");
   });
 
+  it("does not expose an internal id as the primary display name", () => {
+    const work = projectCreativeWorkAsCanonicalWork(creativeWorkFixture({
+      title: "",
+      brief: null,
+    }));
+
+    expect(work.name).toBe("Criar Post");
+    expect(work.name).not.toContain(WORK_ID.slice(0, 8));
+  });
+
   it("projects create-post fixture into the same contract", () => {
     const work = projectCreativeWorkAsCanonicalWork(
       creativeWorkFixture({

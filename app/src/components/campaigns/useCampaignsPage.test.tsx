@@ -97,6 +97,18 @@ describe("useCampaignsPage search sync", () => {
 
     expect(result.current.searchInput).toBe("legacy");
   });
+
+  it("preserves the selected work when search changes", () => {
+    const { result } = renderHook(() => useCampaignsPage(createSearchParams()));
+
+    act(() => {
+      result.current.toggleSelect("campaign-1", true);
+      result.current.handleSearchChange("aurora");
+      vi.advanceTimersByTime(300);
+    });
+
+    expect(result.current.selectedIds).toEqual(new Set(["campaign-1"]));
+  });
 });
 
 describe("useCampaignsPage legacy creation redirect", () => {
@@ -157,9 +169,9 @@ describe("useCampaignsPage legacy creation redirect", () => {
     expect(pushMock).toHaveBeenCalledWith("/?compose=1");
   });
 
-  it("opens Trabalhos in grid mode by default", () => {
+  it("opens Trabalhos in the approved visual queue", () => {
     const { result } = renderHook(() => useCampaignsPage(createSearchParams()));
 
-    expect(result.current.viewMode).toBe("grid");
+    expect(result.current.viewMode).toBe("list");
   });
 });

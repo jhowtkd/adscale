@@ -38,7 +38,7 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
   const deleteCampaigns = useDeleteCampaigns();
   const duplicateCampaign = useDuplicateCampaign();
 
-  const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [platformFilter, setPlatformFilter] = useState<PlatformFilter>("all");
   const [sortOption, setSortOption] = useState<SortOption>("newest");
@@ -128,7 +128,6 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
     const query = params.toString();
     router.replace(`/campaigns${query ? `?${query}` : ""}`, { scroll: false });
     setCurrentPage(1);
-    setSelectedIds(new Set());
   }, [router, searchParams]);
 
   const clearSearchQuery = useCallback(() => {
