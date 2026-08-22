@@ -1,5 +1,6 @@
 import { apiFetch } from "@/lib/api-client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 
 export interface BrandTrainingStatus {
   profile: { id: string; name: string };
@@ -220,6 +221,7 @@ export function useUploadBrandFont(clientProfileId: string | null) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: brandFontsKey(clientProfileId ?? "") });
+      queryClient.invalidateQueries({ queryKey: ["brand-training-status", clientProfileId] });
     },
   });
 }
@@ -245,6 +247,7 @@ export function useReviewBrandFont(clientProfileId: string | null) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: brandFontsKey(clientProfileId ?? "") });
+      queryClient.invalidateQueries({ queryKey: ["brand-training-status", clientProfileId] });
     },
   });
 }
@@ -298,7 +301,8 @@ export const brandTrainingAssetsKey = (clientProfileId: string) =>
   ["brand-training-assets", clientProfileId] as const;
 
 export function useBrandTrainingAssets(clientProfileId: string | null) {
-  return useQuery({
+  const queryClient = useQueryClient();
+  const query = useQuery({
     queryKey: brandTrainingAssetsKey(clientProfileId ?? ""),
     queryFn: async (): Promise<BrandTrainingAssetRecord[]> => {
       const res = await apiFetch(
@@ -320,6 +324,14 @@ export function useBrandTrainingAssets(clientProfileId: string | null) {
         : false;
     },
   });
+
+  useEffect(() => {
+    if (query.data?.some((asset) => asset.reviewStatus === "pending_approval")) {
+      void queryClient.invalidateQueries({ queryKey: ["brand-training-status", clientProfileId] });
+    }
+  }, [clientProfileId, query.data, queryClient]);
+
+  return query;
 }
 
 export function useUploadBrandTrainingAsset(clientProfileId: string | null) {
