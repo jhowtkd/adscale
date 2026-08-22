@@ -187,7 +187,7 @@ export function CreativeResultCard({
         </div>
       ) : null}
 
-      {selectionPolicy?.verdict === "fail" ? (
+      {selectionPolicy && !selectionPolicy.selectable ? (
         <div
           role="note"
           data-testid="objective-selection-blocked"
@@ -198,7 +198,7 @@ export function CreativeResultCard({
         </div>
       ) : null}
 
-      {selectionPolicy?.verdict === "legacy" ? (
+      {selectionPolicy?.verdict === "legacy" && selectionPolicy.selectable ? (
         <div role="note" data-testid="legacy-selection-review" className="rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-3 py-2 text-xs text-[var(--text-secondary)]">
           {t("legacyReviewRequired")}
         </div>

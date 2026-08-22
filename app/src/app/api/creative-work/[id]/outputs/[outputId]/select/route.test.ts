@@ -84,6 +84,21 @@ describe("POST /api/creative-work/[id]/outputs/[outputId]/select", () => {
     );
   });
 
+  it("passes explicit objective confirmation to the command", async () => {
+    await POST(
+      new Request("http://localhost/api/creative-work/work-1/outputs/output-1/select", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmObjective: true }),
+      }),
+      { params: makeParams("work-1", "output-1") }
+    );
+
+    expect(selectMock).toHaveBeenCalledWith(
+      expect.objectContaining({ confirmObjective: true })
+    );
+  });
+
   it("maps work_not_found to 404", async () => {
     selectMock.mockResolvedValue({
       ok: false,
@@ -136,6 +151,25 @@ describe("POST /api/creative-work/[id]/outputs/[outputId]/select", () => {
     );
 
     expect(res.status).toBe(409);
+  });
+
+  it.each([
+    ["objective_selection_blocked", { rationale: "objective_legacy_fail", nextStep: "generate_again" }],
+    ["objective_confirmation_required", { rationale: "objective_inconclusive", nextStep: "review_then_confirm" }],
+  ])("returns the domain policy for %s", async (code, policy) => {
+    selectMock.mockResolvedValue({ ok: false, error: { code, policy } });
+
+    const res = await POST(
+      new Request("http://localhost/api/creative-work/work-1/outputs/output-1/select", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      }),
+      { params: makeParams("work-1", "output-1") }
+    );
+
+    expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toEqual(expect.objectContaining({ details: policy }));
   });
 
   it("returns 400 when the body is invalid", async () => {

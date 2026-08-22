@@ -1556,6 +1556,22 @@ describe("creative-work repository", () => {
       expect(mocks.txUpdateMock).not.toHaveBeenCalled();
     });
 
+    it("keeps the previous selection for a locked legacy hard failure", async () => {
+      mocks.state.selectResults.push([
+        workOutput({
+          id: "output-2",
+          status: "completed",
+          outputKey: "creative-work/output-2/out.png",
+          quality: { qualityVerdict: "acceptable", hardFailures: [{ code: "wrong_brand" }] },
+        }),
+      ]);
+
+      await expect(
+        selectCreativeWorkOutput("ws-1", "work-1", "output-2", { confirmObjective: true })
+      ).resolves.toBeNull();
+      expect(mocks.txUpdateMock).not.toHaveBeenCalled();
+    });
+
     it("checks Layerize locks while holding the work outputs transaction lock", async () => {
       mocks.state.selectResults.push([
         workOutput({

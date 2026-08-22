@@ -5,7 +5,7 @@ export type CreativeWorkSelectionPolicy = {
   verdict: CreativeWorkSelectionVerdict;
   selectable: boolean;
   requiresConfirmation: boolean;
-  rationale: "objective_pass" | "objective_fail" | "objective_inconclusive" | "objective_legacy";
+  rationale: "objective_pass" | "objective_fail" | "objective_inconclusive" | "objective_legacy" | "objective_legacy_fail";
   nextStep: "approve" | "generate_again" | "review_then_confirm";
 };
 
@@ -40,6 +40,22 @@ export function getCreativeWorkSelectionPolicy(
       selectable: false,
       requiresConfirmation: false,
       rationale: "objective_fail",
+      nextStep: "generate_again",
+    };
+  }
+  const legacy = quality && typeof quality === "object" && !Array.isArray(quality)
+    ? quality as Record<string, unknown>
+    : null;
+  if (verdict === "legacy" && (
+    legacy?.qualityVerdict === "invalid"
+    || legacy?.verdict === "invalid"
+    || (Array.isArray(legacy?.hardFailures) && legacy.hardFailures.length > 0)
+  )) {
+    return {
+      verdict,
+      selectable: false,
+      requiresConfirmation: false,
+      rationale: "objective_legacy_fail",
       nextStep: "generate_again",
     };
   }

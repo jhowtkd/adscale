@@ -343,6 +343,23 @@ describe("CreativeResultCard", () => {
     expect(screen.getByTestId("objective-selection-blocked")).toBeVisible();
     expect(screen.queryByRole("button", { name: "Aprovar" })).not.toBeInTheDocument();
   });
+
+  it("blocks a legacy invalid output instead of offering human confirmation", () => {
+    render(
+      <CreativeResultCard
+        output={output({ quality: { qualityVerdict: "invalid", hardFailures: [{ code: "wrong_brand" }] } })}
+        label="Equilibrada"
+        onRetry={vi.fn()}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId("objective-selection-blocked")).toBeVisible();
+    expect(screen.queryByTestId("legacy-selection-review")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /aprovar/i })).not.toBeInTheDocument();
+  });
+
   it("shows owner-only layerization progress and exposes PSD first with PNG diagnostics second", () => {
     const onLayerize = vi.fn();
     const onDownloadLayerized = vi.fn();
