@@ -22,7 +22,7 @@ import {
   SEEDREAM_PROVIDER_ENDPOINT,
 } from "@/server/layerize/seedream-provider";
 import { env } from "@/server/validation/env";
-import { claimLayerEditorQuota, isLayerEditorQuotaReleased, releaseLayerEditorQuota, withLayerEditorOperationLock } from "@/server/layer-editor/quota";
+import { claimLayerEditorQuota, isLayerEditorQuotaReleased, releaseLayerEditorQuota, withLayerEditorOperationLock, type LayerEditorOperationExecutor } from "@/server/layer-editor/quota";
 
 export type RequestCreativeWorkLayerizationError =
   | { code: "work_not_found" }
@@ -89,7 +89,7 @@ export async function requestCreativeWorkLayerization(input: {
   operationId: string;
   retry?: boolean;
 }): Promise<RequestCreativeWorkLayerizationResult> {
-  return withLayerEditorOperationLock({ workspaceId: input.workspaceId, kind: "layerize_v1", operationId: input.operationId }, () => requestCreativeWorkLayerizationLocked(input));
+  return withLayerEditorOperationLock({ workspaceId: input.workspaceId, kind: "layerize_v1", operationId: input.operationId }, (executor) => requestCreativeWorkLayerizationLocked(input, executor));
 }
 
 async function requestCreativeWorkLayerizationLocked(input: {
@@ -100,11 +100,11 @@ async function requestCreativeWorkLayerizationLocked(input: {
   callbackUrl: string;
   operationId: string;
   retry?: boolean;
-}): Promise<RequestCreativeWorkLayerizationResult> {
+}, executor: LayerEditorOperationExecutor): Promise<RequestCreativeWorkLayerizationResult> {
   if (!env.ATLASCLOUD_API_KEY?.trim()) {
     return { ok: false, error: { code: "layerization_not_configured" } };
   }
-  const aggregate = await getCreativeWork(input.workspaceId, input.workItemId);
+  const aggregate = await getCreativeWork(input.workspaceId, input.workItemId, executor);
   if (!aggregate) return { ok: false, error: { code: "work_not_found" } };
   const output = aggregate.outputs.find((candidate) => candidate.id === input.outputId);
   if (!output) return { ok: false, error: { code: "output_not_found" } };
@@ -115,6 +115,12 @@ async function requestCreativeWorkLayerizationLocked(input: {
   let existing = layerizationStateFromDatabase(output.layerization);
   if (existing?.status === "submission_unknown") {
     return { ok: false, error: { code: "submission_unknown", state: existing } };
+  }
+  // A terminal attempt is immutable for its original operation id. Retrying
+  // with that id could reuse a compensated claim and issue a second provider
+  // submission without a net quota unit.
+  if (existing?.status === "failed" && existing.attemptId === input.operationId) {
+    return { ok: false, error: { code: "failed", state: existing } };
   }
   if (existing?.status === "queued" && existing.attemptId === input.operationId) {
     try {
@@ -136,17 +142,17 @@ async function requestCreativeWorkLayerizationLocked(input: {
   const quota = await claimLayerEditorQuota({
     workspaceId: input.workspaceId, kind: "layerize_v1", operationId: input.operationId, userId: input.userId,
     workItemId: input.workItemId, outputId: input.outputId,
-  }, new Date());
+  }, new Date(), executor);
   if (!quota.ok) return { ok: false, error: { code: quota.code === "disabled" ? "layer_editor_not_available" : quota.code === "operation_conflict" ? "layerization_replay_conflict" : "layer_editor_quota_exhausted" } };
-  if (quota.replay && await isLayerEditorQuotaReleased({ workspaceId: input.workspaceId, kind: "layerize_v1", operationId: input.operationId })) return { ok: false, error: { code: "layerization_replay_conflict" } };
+  if (quota.replay && await isLayerEditorQuotaReleased({ workspaceId: input.workspaceId, kind: "layerize_v1", operationId: input.operationId }, executor)) return { ok: false, error: { code: "layerization_replay_conflict" } };
 
   // Retain the terminal evidence until entitlement/quota admission has
   // succeeded. A rejected retry must not erase a diagnosable provider failure.
   if (existing) {
-    const cleared = await clearFailedCreativeWorkLayerizationForRetry(input);
+    const cleared = await clearFailedCreativeWorkLayerizationForRetry(input, executor);
     if (!cleared) {
-      await releaseLayerEditorQuota({ workspaceId: input.workspaceId, kind: "layerize_v1", operationId: input.operationId }, new Date());
-      const refreshed = await getCreativeWorkLayerizationOutput(input.workspaceId, input.workItemId, input.outputId);
+      await releaseLayerEditorQuota({ workspaceId: input.workspaceId, kind: "layerize_v1", operationId: input.operationId }, new Date(), executor);
+      const refreshed = await getCreativeWorkLayerizationOutput(input.workspaceId, input.workItemId, input.outputId, executor);
       existing = layerizationStateFromDatabase(refreshed?.layerization);
       if (existing) return { ok: false, error: { code: "already_running", state: existing } };
     }
@@ -164,14 +170,14 @@ async function requestCreativeWorkLayerizationLocked(input: {
     workItemId: input.workItemId,
     outputId: input.outputId,
     state,
-  });
+  }, executor);
   if (!claimed) {
-    const refreshed = await getCreativeWorkLayerizationOutput(input.workspaceId, input.workItemId, input.outputId);
+    const refreshed = await getCreativeWorkLayerizationOutput(input.workspaceId, input.workItemId, input.outputId, executor);
     const refreshedState = layerizationStateFromDatabase(refreshed?.layerization);
     if (!refreshedState || refreshedState.attemptId !== attemptId) {
       // A quota claim alone is not authority to retain a unit. This covers a
       // process crash or losing reservation CAS after a replayed claim.
-      await releaseLayerEditorQuota({ workspaceId: input.workspaceId, kind: "layerize_v1", operationId: input.operationId }, new Date());
+      await releaseLayerEditorQuota({ workspaceId: input.workspaceId, kind: "layerize_v1", operationId: input.operationId }, new Date(), executor);
     }
     if (refreshedState?.status === "queued" && refreshedState.attemptId === attemptId) {
       try {
@@ -209,12 +215,12 @@ async function requestCreativeWorkLayerizationLocked(input: {
       outputId: input.outputId,
       attemptId,
       code: "dispatch_failed",
-    });
+    }, executor);
     if (failed) {
-      await releaseLayerEditorQuota({ workspaceId: input.workspaceId, kind: "layerize_v1", operationId: input.operationId }, new Date());
+      await releaseLayerEditorQuota({ workspaceId: input.workspaceId, kind: "layerize_v1", operationId: input.operationId }, new Date(), executor);
       return { ok: false, error: { code: "dispatch_failed" } };
     }
-    const refreshed = await getCreativeWorkLayerizationOutput(input.workspaceId, input.workItemId, input.outputId);
+    const refreshed = await getCreativeWorkLayerizationOutput(input.workspaceId, input.workItemId, input.outputId, executor);
     const refreshedState = layerizationStateFromDatabase(refreshed?.layerization);
     if (refreshedState && refreshedState.attemptId === attemptId && refreshedState.status !== "failed") {
       return { ok: true, accepted: true, replay: false, state: refreshedState };

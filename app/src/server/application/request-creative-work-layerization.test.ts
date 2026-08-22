@@ -9,7 +9,7 @@ const sendMock = vi.hoisted(() => vi.fn());
 const quotaClaimMock = vi.hoisted(() => vi.fn());
 const quotaReleaseMock = vi.hoisted(() => vi.fn());
 const quotaReleasedMock = vi.hoisted(() => vi.fn());
-const operationLockMock = vi.hoisted(() => vi.fn(async (_input: unknown, run: () => Promise<unknown>) => run()));
+const operationLockMock = vi.hoisted(() => vi.fn(async (_input: unknown, run: (executor: unknown) => Promise<unknown>) => run({})));
 
 vi.mock("@/server/repositories/creative-work", () => ({
   getCreativeWork: (...args: unknown[]) => getWorkMock(...args),
@@ -106,7 +106,7 @@ describe("requestCreativeWorkLayerization", () => {
 
     await expect(requestCreativeWorkLayerization(input)).resolves.toMatchObject({ ok: false, error: { code: "output_not_eligible" } });
 
-    expect(quotaReleaseMock).toHaveBeenCalledWith(expect.objectContaining({ kind: "layerize_v1", operationId: input.operationId }), expect.any(Date));
+    expect(quotaReleaseMock).toHaveBeenCalledWith(expect.objectContaining({ kind: "layerize_v1", operationId: input.operationId }), expect.any(Date), expect.anything());
     expect(sendMock).not.toHaveBeenCalled();
   });
 
@@ -183,9 +183,25 @@ describe("requestCreativeWorkLayerization", () => {
       workspaceId: input.workspaceId,
       workItemId: input.workItemId,
       outputId: input.outputId,
-    }));
+    }), expect.anything());
     expect(claimMock).toHaveBeenCalledOnce();
     expect(sendMock).toHaveBeenCalledOnce();
+  });
+
+  it.each(["provider failure", "compensated dispatch failure"])("does not clear or redispatch a terminal same-operation %s", async (label) => {
+    void label;
+    output.layerization = {
+      status: "failed", attemptId: input.operationId, callbackTokenHash: "a".repeat(64), callbackConsumedAt: null, requestedByUserId: "owner-1",
+      createdAt: "2026-08-12T12:00:00.000Z", updatedAt: "2026-08-12T12:00:00.000Z", callbackDeadlineAt: "2026-08-12T14:00:00.000Z",
+      latencyMs: null, providerRequestId: null, providerModel: "model", providerEndpoint: "https://example.test", estimatedCostUsd: null,
+      baseWidth: null, baseHeight: null, layers: [], psdKey: null, diagnosticZipKey: null, fidelity: null, failureCode: "dispatch_failed",
+    };
+
+    await expect(requestCreativeWorkLayerization({ ...input, retry: true })).resolves.toMatchObject({ ok: false, error: { code: "failed" } });
+
+    expect(clearFailedMock).not.toHaveBeenCalled();
+    expect(quotaClaimMock).not.toHaveBeenCalled();
+    expect(sendMock).not.toHaveBeenCalled();
   });
 
   it("does not clear a failed attempt before retry quota admission succeeds", async () => {
@@ -222,7 +238,7 @@ describe("requestCreativeWorkLayerization", () => {
     expect(failQueuedMock).toHaveBeenCalledWith(expect.objectContaining({
       outputId: "output-1",
       code: "dispatch_failed",
-    }));
+    }), expect.anything());
   });
 
   it.each([

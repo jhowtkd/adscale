@@ -12,6 +12,7 @@ import {
 } from "@/server/layerize/contracts";
 
 type LayerizationOutputRow = typeof creativeWorkOutputs.$inferSelect;
+type LayerizationExecutor = Pick<typeof db, "select" | "update">;
 
 function scope(workspaceId: string, workItemId: string, outputId: string) {
   return and(
@@ -43,8 +44,9 @@ export async function getCreativeWorkLayerizationOutput(
   workspaceId: string,
   workItemId: string,
   outputId: string,
+  executor: Pick<LayerizationExecutor, "select"> = db,
 ): Promise<LayerizationOutputRow | null> {
-  const [row] = await db.select().from(creativeWorkOutputs).where(scope(workspaceId, workItemId, outputId)).limit(1);
+  const [row] = await executor.select().from(creativeWorkOutputs).where(scope(workspaceId, workItemId, outputId)).limit(1);
   return row ?? null;
 }
 
@@ -64,8 +66,8 @@ export async function claimCreativeWorkLayerization(input: {
   workItemId: string;
   outputId: string;
   state: LayerizationState;
-}): Promise<LayerizationOutputRow | null> {
-  const [row] = await db.update(creativeWorkOutputs).set({
+}, executor: Pick<LayerizationExecutor, "update"> = db): Promise<LayerizationOutputRow | null> {
+  const [row] = await executor.update(creativeWorkOutputs).set({
     layerization: input.state,
     updatedAt: new Date(),
   }).where(and(
@@ -82,8 +84,8 @@ export async function clearFailedCreativeWorkLayerizationForRetry(input: {
   workspaceId: string;
   workItemId: string;
   outputId: string;
-}): Promise<boolean> {
-  const result = await db.update(creativeWorkOutputs).set({
+}, executor: Pick<LayerizationExecutor, "update"> = db): Promise<boolean> {
+  const result = await executor.update(creativeWorkOutputs).set({
     layerization: null,
     updatedAt: new Date(),
   }).where(and(
@@ -352,8 +354,8 @@ export async function failQueuedCreativeWorkLayerization(input: {
   outputId: string;
   attemptId: string;
   code: LayerizationState["failureCode"];
-}): Promise<LayerizationOutputRow | null> {
-  const [updated] = await db.update(creativeWorkOutputs).set({
+}, executor: Pick<LayerizationExecutor, "update"> = db): Promise<LayerizationOutputRow | null> {
+  const [updated] = await executor.update(creativeWorkOutputs).set({
     layerization: patchLayerizationStatus("failed", input.code),
     updatedAt: new Date(),
   }).where(and(

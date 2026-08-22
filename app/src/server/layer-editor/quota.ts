@@ -11,6 +11,7 @@ import type { LayerEditorAccessV1, LayerEditorQuotaBucket } from "./contracts";
 
 export type LayerEditorQuotaKind = "layerize_v1" | "layer_regeneration_v1";
 type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+export type LayerEditorOperationExecutor = DbTx;
 
 /**
  * Serialize the durable pre-provider decision for one operation. The quota
@@ -21,10 +22,10 @@ export async function withLayerEditorOperationLock<T>(input: {
   workspaceId: string;
   kind: LayerEditorQuotaKind;
   operationId: string;
-}, run: () => Promise<T>): Promise<T> {
+}, run: (executor: LayerEditorOperationExecutor) => Promise<T>): Promise<T> {
   return db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`${input.workspaceId}:${input.kind}:${input.operationId}`}))`);
-    return run();
+    return run(tx);
   });
 }
 
@@ -71,10 +72,10 @@ export async function getLayerEditorAccess(workspaceId: string, now: Date): Prom
 
 export async function claimLayerEditorQuota(input: {
   workspaceId: string; kind: LayerEditorQuotaKind; operationId: string; userId: string; workItemId: string; outputId: string; commandFingerprint?: string;
-}, now: Date): Promise<{ ok: true; replay: boolean } | { ok: false; code: "disabled" | "quota_exhausted" | "operation_conflict" }> {
+}, now: Date, executor?: LayerEditorOperationExecutor): Promise<{ ok: true; replay: boolean } | { ok: false; code: "disabled" | "quota_exhausted" | "operation_conflict" }> {
   const window = monthWindow(now);
   const claimKey = `layer-editor:${input.workspaceId}:${input.kind}:${input.operationId}`;
-  return db.transaction(async (tx) => {
+  const claim = async (tx: LayerEditorOperationExecutor) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`${input.workspaceId}:${input.kind}:${window.key}`}))`);
     const existing = await tx.select({ id: usageEvents.id, metadata: usageEvents.metadata }).from(usageEvents).where(and(eq(usageEvents.workspaceId, input.workspaceId), eq(usageEvents.idempotencyKey, claimKey))).limit(1);
     if (existing[0]) {
@@ -91,16 +92,17 @@ export async function claimLayerEditorQuota(input: {
     if (await usedInWindow(tx, input.workspaceId, input.kind, window.start, window.end) >= limit) return { ok: false as const, code: "quota_exhausted" as const };
     await tx.insert(usageEvents).values({ workspaceId: input.workspaceId, type: input.kind, amount: 1, idempotencyKey: claimKey, metadata: { operationId: input.operationId, userId: input.userId, workItemId: input.workItemId, outputId: input.outputId, commandFingerprint: input.commandFingerprint ?? null } });
     return { ok: true as const, replay: false };
-  });
+  };
+  return executor ? claim(executor) : db.transaction(claim);
 }
 
-export async function releaseLayerEditorQuota(input: { workspaceId: string; kind: LayerEditorQuotaKind; operationId: string }, now: Date): Promise<{ released: boolean }> {
+export async function releaseLayerEditorQuota(input: { workspaceId: string; kind: LayerEditorQuotaKind; operationId: string }, now: Date, executor?: LayerEditorOperationExecutor): Promise<{ released: boolean }> {
   // Kept in the public seam for callers; the recorded claim, not the failure
   // clock, determines the accounting period of a compensation.
   void now;
   const claimKey = `layer-editor:${input.workspaceId}:${input.kind}:${input.operationId}`;
   const releaseKey = `${claimKey}:release`;
-  return db.transaction(async (tx) => {
+  const release = async (tx: LayerEditorOperationExecutor) => {
     const claim = await tx.select({ id: usageEvents.id, createdAt: usageEvents.createdAt }).from(usageEvents).where(and(eq(usageEvents.workspaceId, input.workspaceId), eq(usageEvents.idempotencyKey, claimKey))).limit(1);
     if (!claim[0]) return { released: false };
     const window = monthWindow(claim[0].createdAt);
@@ -109,13 +111,14 @@ export async function releaseLayerEditorQuota(input: { workspaceId: string; kind
     if (released[0]) return { released: false };
     await tx.insert(usageEvents).values({ workspaceId: input.workspaceId, type: input.kind, amount: -1, idempotencyKey: releaseKey, createdAt: claim[0].createdAt, metadata: { operationId: input.operationId, operation: "release" } });
     return { released: true };
-  });
+  };
+  return executor ? release(executor) : db.transaction(release);
 }
 
 /** A replay is recoverable only while its compensating release has not been recorded. */
-export async function isLayerEditorQuotaReleased(input: { workspaceId: string; kind: LayerEditorQuotaKind; operationId: string }): Promise<boolean> {
+export async function isLayerEditorQuotaReleased(input: { workspaceId: string; kind: LayerEditorQuotaKind; operationId: string }, executor: Pick<LayerEditorOperationExecutor, "select"> = db): Promise<boolean> {
   const claimKey = `layer-editor:${input.workspaceId}:${input.kind}:${input.operationId}:release`;
-  const [release] = await db.select({ id: usageEvents.id }).from(usageEvents).where(and(
+  const [release] = await executor.select({ id: usageEvents.id }).from(usageEvents).where(and(
     eq(usageEvents.workspaceId, input.workspaceId),
     eq(usageEvents.idempotencyKey, claimKey),
   )).limit(1);

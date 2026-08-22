@@ -5,6 +5,7 @@ import { layerEditorFromOutput, markLayerRegenerationProcessing, completeLayerRe
 import { objectStorage } from "@/server/storage";
 import { OpenAILayerRegenerationProvider, normalizeLayerCandidate, type LayerRegenerationProvider } from "@/server/layer-editor/openai-provider";
 import { renderLayerEditorPng } from "@/server/layer-editor/artifacts";
+import { releaseLayerEditorQuota } from "@/server/layer-editor/quota";
 
 function isAmbiguousProviderFailure(error: unknown) {
   if (error instanceof OpenAI.APIConnectionError || error instanceof OpenAI.APIConnectionTimeoutError) return true;
@@ -13,9 +14,19 @@ function isAmbiguousProviderFailure(error: unknown) {
 
 export async function runCreativeWorkLayerRegeneration(input:{workspaceId:string;workItemId:string;outputId:string;operationId:string}, provider:LayerRegenerationProvider=new OpenAILayerRegenerationProvider()) {
  const now=new Date(); const claimed=await markLayerRegenerationProcessing({...input,now}); const state=layerEditorFromOutput(claimed); const regen=state?.regeneration; if(!state||!regen||regen.id!==input.operationId){ await recoverStaleLayerRegeneration({ ...input, now }); return {status:"skipped" as const}; } const layer=state.layers.find((x)=>x.id===regen.layerId); if(!layer)return {status:"skipped" as const};
+ let selectedLayer: Buffer;
+ let composite: Buffer;
+ try {
+   selectedLayer = await objectStorage.get(layer.currentKey);
+   composite = await renderLayerEditorPng({canvas:state.canvas,layers:state.layers,load:(key)=>objectStorage.get(key)});
+ } catch {
+   const failed = await failLayerRegeneration({...input,status:"failed",failureCode:"layer_regeneration_preparation_failed",now:new Date()});
+   if (failed) await releaseLayerEditorQuota({ workspaceId: input.workspaceId, kind: "layer_regeneration_v1", operationId: input.operationId }, new Date());
+   return {status:"failed" as const};
+ }
  let result: { buffer: Buffer; requestId: string | null };
  try {
-   result=await provider.regenerate({instruction:regen.instruction,selectedLayer:await objectStorage.get(layer.currentKey),composite:await renderLayerEditorPng({canvas:state.canvas,layers:state.layers,load:(key)=>objectStorage.get(key)}),bounds:{width:layer.source.width,height:layer.source.height}});
+   result=await provider.regenerate({instruction:regen.instruction,selectedLayer,composite,bounds:{width:layer.source.width,height:layer.source.height}});
  } catch (error) {
    const unknown = isAmbiguousProviderFailure(error);
    await failLayerRegeneration({...input,status:unknown ? "submission_unknown" : "failed",failureCode:unknown ? "layer_regeneration_submission_unknown" : "layer_regeneration_provider_failed",now:new Date()});

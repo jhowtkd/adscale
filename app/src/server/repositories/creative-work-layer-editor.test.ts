@@ -30,6 +30,7 @@ import {
   recoverStaleLayerRegeneration,
   saveCreativeWorkLayerEditorSnapshot,
 } from "./creative-work-layer-editor";
+import { creativeWorkVersionLockScope } from "./creative-work";
 
 const scope = { workspaceId: "workspace-1", workItemId: "work-1", outputId: "output-1" };
 const layerId = "00000000-0000-4000-8000-000000000001";
@@ -177,6 +178,13 @@ describe("creative work layer editor regeneration repository", () => {
 });
 
 describe("creative work layer editor publication repository", () => {
+  it("uses the ordinary revision lock scope for the same version lane", () => {
+    expect(creativeWorkVersionLockScope({ workspaceId: scope.workspaceId, workItemId: scope.workItemId, creativeLevel: "balanced", targetFormat: "4:5", directionId: null }))
+      .toBe(`${scope.workspaceId}:${scope.workItemId}:balanced:4:5`);
+    expect(creativeWorkVersionLockScope({ workspaceId: scope.workspaceId, workItemId: scope.workItemId, creativeLevel: "balanced", targetFormat: "4:5", directionId: "direction-1" }))
+      .toBe(`${scope.workspaceId}:${scope.workItemId}:balanced:4:5:direction:direction-1`);
+  });
+
   it("creates one unselected child and replays it through the operation key", async () => {
     const parentState = editorState();
     const parent = { id: scope.outputId, workspaceId: scope.workspaceId, workItemId: scope.workItemId, creativeLevel: "balanced", targetFormat: "4:5", directionId: null, directionSnapshot: null, layerEditor: parentState };

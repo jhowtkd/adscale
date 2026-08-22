@@ -8,7 +8,7 @@ const rollback = vi.hoisted(() => vi.fn());
 const clearTerminal = vi.hoisted(() => vi.fn());
 const quotaReleased = vi.hoisted(() => vi.fn());
 const send = vi.hoisted(() => vi.fn());
-const operationLock = vi.hoisted(() => vi.fn(async (_input: unknown, run: () => Promise<unknown>) => run()));
+const operationLock = vi.hoisted(() => vi.fn(async (_input: unknown, run: (executor: unknown) => Promise<unknown>) => run({})));
 vi.mock("@/server/layer-editor/quota", () => ({ claimLayerEditorQuota: claim, isLayerEditorQuotaReleased: quotaReleased, releaseLayerEditorQuota: release, withLayerEditorOperationLock: operationLock }));
 vi.mock("@/server/repositories/creative-work-layer-editor", () => ({ clearTerminalLayerRegenerationForRetry: clearTerminal, reserveLayerRegeneration: reserve, rollbackReservedLayerRegeneration: rollback, getCreativeWorkLayerEditorOutput: getOutput, layerEditorFromOutput: stateFromOutput }));
 vi.mock("@/server/jobs/client", () => ({ inngest: { send } }));
@@ -19,7 +19,7 @@ describe("requestCreativeWorkLayerRegeneration", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     operationLock.mockReset();
-    operationLock.mockImplementation(async (_input: unknown, run: () => Promise<unknown>) => run());
+    operationLock.mockImplementation(async (_input: unknown, run: (executor: unknown) => Promise<unknown>) => run({}));
     stateFromOutput.mockReset();
     reserve.mockReset();
     getOutput.mockReset();
@@ -86,7 +86,7 @@ describe("requestCreativeWorkLayerRegeneration", () => {
 
     await expect(requestCreativeWorkLayerRegeneration(input)).resolves.toEqual({ ok: false, code: "layer_editor_revision_conflict" });
 
-    expect(release).toHaveBeenCalledWith(expect.objectContaining({ kind: "layer_regeneration_v1", operationId: input.operationId }), expect.any(Date));
+    expect(release).toHaveBeenCalledWith(expect.objectContaining({ kind: "layer_regeneration_v1", operationId: input.operationId }), expect.any(Date), expect.anything());
     expect(send).not.toHaveBeenCalled();
   });
 
@@ -106,12 +106,12 @@ describe("requestCreativeWorkLayerRegeneration", () => {
     let active: { revision: number; regeneration: { id: string; status: "reserved" } | null } = { revision: 1, regeneration: null };
     let released = false;
     let tail = Promise.resolve();
-    operationLock.mockImplementation(async (_input: unknown, run: () => Promise<unknown>) => {
+    operationLock.mockImplementation(async (_input: unknown, run: (executor: unknown) => Promise<unknown>) => {
       const previous = tail;
       let unlock!: () => void;
       tail = new Promise<void>((resolve) => { unlock = resolve; });
       await previous;
-      try { return await run(); } finally { unlock(); }
+      try { return await run({}); } finally { unlock(); }
     });
     claim.mockImplementation(async () => ({ ok: true as const, replay: released }));
     getOutput.mockResolvedValue({ layerEditor: {} });
@@ -148,8 +148,8 @@ describe("requestCreativeWorkLayerRegeneration", () => {
     send.mockResolvedValue(undefined);
 
     await expect(requestCreativeWorkLayerRegeneration(input)).resolves.toMatchObject({ ok: true, accepted: true });
-    expect(clearTerminal).toHaveBeenCalledWith(expect.objectContaining({ operationId: input.operationId }));
-    expect(reserve).toHaveBeenCalledWith(expect.objectContaining({ expectedRevision: 2 }));
+    expect(clearTerminal).toHaveBeenCalledWith(expect.objectContaining({ operationId: input.operationId }), expect.anything());
+    expect(reserve).toHaveBeenCalledWith(expect.objectContaining({ expectedRevision: 2 }), expect.anything());
   });
 
   it("releases a newly claimed unit when event dispatch is definitively rejected", async () => {
@@ -163,8 +163,8 @@ describe("requestCreativeWorkLayerRegeneration", () => {
       workspaceId: input.workspaceId,
       kind: "layer_regeneration_v1",
       operationId: input.operationId,
-    }), expect.any(Date));
-    expect(rollback).toHaveBeenCalledWith(expect.objectContaining({ ...input, operationId: input.operationId }));
+    }), expect.any(Date), expect.anything());
+    expect(rollback).toHaveBeenCalledWith(expect.objectContaining({ ...input, operationId: input.operationId }), expect.anything());
   });
 
   it("does not turn a compensated dispatch failure into a successful replay", async () => {

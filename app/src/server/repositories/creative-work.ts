@@ -302,6 +302,18 @@ export function withCreativeWorkPreparationLock<T>(
   });
 }
 
+export function creativeWorkVersionLockScope(input: {
+  workspaceId: string;
+  workItemId: string;
+  creativeLevel: string;
+  targetFormat: string;
+  directionId: string | null;
+}): string {
+  return input.directionId
+    ? `${input.workspaceId}:${input.workItemId}:${input.creativeLevel}:${input.targetFormat}:direction:${input.directionId}`
+    : `${input.workspaceId}:${input.workItemId}:${input.creativeLevel}:${input.targetFormat}`;
+}
+
 export async function getCreativeWork(
   workspaceId: string,
   workItemId: string,
@@ -775,9 +787,7 @@ export async function createCreativeWorkRevision(
     if (!asset?.type.startsWith("image/")) return null;
   }
   return db.transaction(async (tx) => {
-    const versionScope = parent.directionId
-      ? `${workspaceId}:${workItemId}:${parent.creativeLevel}:${parent.targetFormat}:direction:${parent.directionId}`
-      : `${workspaceId}:${workItemId}:${parent.creativeLevel}:${parent.targetFormat}`;
+    const versionScope = creativeWorkVersionLockScope({ workspaceId, workItemId, creativeLevel: parent.creativeLevel, targetFormat: parent.targetFormat, directionId: parent.directionId });
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${versionScope}))`);
 
     const [retry] = await tx.select().from(creativeWorkOutputs).where(and(
