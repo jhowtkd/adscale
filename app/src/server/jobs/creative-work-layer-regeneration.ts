@@ -35,9 +35,9 @@ export async function runCreativeWorkLayerRegeneration(input:{workspaceId:string
    await failLayerRegeneration({...input,status:"failed",failureCode:"layer_regeneration_storage_failed",now:new Date()});
    return {status:"failed" as const};
  }
- const completed = await completeLayerRegenerationCandidate({...input,candidateKey:key,providerRequestId:result.requestId,now:new Date()});
+ let completed = await completeLayerRegenerationCandidate({...input,candidateKey:key,providerRequestId:result.requestId,now:new Date()});
+ if (!completed) completed = await completeLayerRegenerationCandidate({...input,candidateKey:key,providerRequestId:result.requestId,now:new Date()});
  if (!completed) {
-   void Promise.resolve(objectStorage.delete(key)).catch(() => undefined);
    return {status:"skipped" as const};
  }
  return {status:"ready" as const};

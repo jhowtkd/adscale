@@ -134,7 +134,7 @@ export async function requestCreativeWorkLayerization(input: {
     workspaceId: input.workspaceId, kind: "layerize_v1", operationId: input.operationId, userId: input.userId,
     workItemId: input.workItemId, outputId: input.outputId,
   }, new Date());
-  if (!quota.ok) return { ok: false, error: { code: quota.code === "disabled" ? "layer_editor_not_available" : "layer_editor_quota_exhausted" } };
+  if (!quota.ok) return { ok: false, error: { code: quota.code === "disabled" ? "layer_editor_not_available" : quota.code === "operation_conflict" ? "layerization_replay_conflict" : "layer_editor_quota_exhausted" } };
   if (quota.replay && await isLayerEditorQuotaReleased({ workspaceId: input.workspaceId, kind: "layerize_v1", operationId: input.operationId })) return { ok: false, error: { code: "layerization_replay_conflict" } };
 
   const token = randomBytes(32).toString("hex");

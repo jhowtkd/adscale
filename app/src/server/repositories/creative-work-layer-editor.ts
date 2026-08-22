@@ -21,6 +21,12 @@ function scope(input: LayerEditorScope) {
   return and(eq(creativeWorkOutputs.workspaceId, input.workspaceId), eq(creativeWorkOutputs.workItemId, input.workItemId), eq(creativeWorkOutputs.id, input.outputId));
 }
 
+function observedLeaseCas(state: LayerEditorStateV1) {
+  return state.lease
+    ? [sql`${creativeWorkOutputs.layerEditor}->'lease'->>'id' = ${state.lease.id}`, sql`${creativeWorkOutputs.layerEditor}->'lease'->>'expiresAt' = ${state.lease.expiresAt}`]
+    : [sql`${creativeWorkOutputs.layerEditor}->'lease' is null`];
+}
+
 function nextLease(userId: string, leaseId: string, now: Date): LayerEditorStateV1["lease"] {
   return { id: leaseId, userId, acquiredAt: now.toISOString(), expiresAt: new Date(now.getTime() + LAYER_EDITOR_LEASE_MS).toISOString() };
 }
@@ -102,7 +108,7 @@ export async function saveCreativeWorkLayerEditorSnapshot(input: LayerEditorMuta
   if (!state || state.regeneration || state.revision !== input.expectedRevision || state.lease?.id !== input.leaseId || state.lease.userId !== input.userId || Date.parse(state.lease.expiresAt) <= input.now.getTime()) return null;
   const next = applySnapshot(state, input.snapshot, input.now);
   if (!next) return null;
-  const [row] = await db.update(creativeWorkOutputs).set({ layerEditor: next, updatedAt: input.now }).where(and(scope(input), sql`${creativeWorkOutputs.layerEditor}->>'revision' = ${String(input.expectedRevision)}`, sql`${creativeWorkOutputs.layerEditor}->'lease'->>'id' = ${input.leaseId}`, sql`${creativeWorkOutputs.layerEditor}->'lease'->>'userId' = ${input.userId}`, sql`${creativeWorkOutputs.layerEditor}->'regeneration' is null`)).returning();
+  const [row] = await db.update(creativeWorkOutputs).set({ layerEditor: next, updatedAt: input.now }).where(and(scope(input), sql`${creativeWorkOutputs.layerEditor}->>'revision' = ${String(input.expectedRevision)}`, sql`${creativeWorkOutputs.layerEditor}->'lease'->>'id' = ${input.leaseId}`, sql`${creativeWorkOutputs.layerEditor}->'lease'->>'userId' = ${input.userId}`, sql`${creativeWorkOutputs.layerEditor}->'lease'->>'expiresAt' = ${state.lease.expiresAt}`, sql`${creativeWorkOutputs.layerEditor}->'regeneration' is null`)).returning();
   return row ?? null;
 }
 
@@ -124,7 +130,7 @@ export async function rollbackReservedLayerRegeneration(input: LayerEditorScope 
  const row=await getCreativeWorkLayerEditorOutput(input); const state=layerEditorStateFromDatabase(row?.layerEditor);
  if(!state||state.regeneration?.id!==input.operationId||state.regeneration.status!=="reserved")return null;
  const next={...state,revision:state.revision+1,regeneration:null,updatedAt:input.now.toISOString()};
- const [updated]=await db.update(creativeWorkOutputs).set({layerEditor:next,updatedAt:input.now}).where(and(scope(input),sql`${creativeWorkOutputs.layerEditor}->>'revision' = ${String(state.revision)}`,sql`${creativeWorkOutputs.layerEditor}->'lease'->>'id' = ${state.lease?.id ?? ""}`,sql`${creativeWorkOutputs.layerEditor}->'lease'->>'expiresAt' = ${state.lease?.expiresAt ?? ""}`,sql`${creativeWorkOutputs.layerEditor}->'regeneration'->>'id' = ${input.operationId}`,sql`${creativeWorkOutputs.layerEditor}->'regeneration'->>'status' = 'reserved'`)).returning(); return updated??null;
+ const [updated]=await db.update(creativeWorkOutputs).set({layerEditor:next,updatedAt:input.now}).where(and(scope(input),sql`${creativeWorkOutputs.layerEditor}->>'revision' = ${String(state.revision)}`,...observedLeaseCas(state),sql`${creativeWorkOutputs.layerEditor}->'regeneration'->>'id' = ${input.operationId}`,sql`${creativeWorkOutputs.layerEditor}->'regeneration'->>'status' = 'reserved'`)).returning(); return updated??null;
 }
 export async function clearTerminalLayerRegenerationForRetry(input: LayerEditorMutationScope & { operationId: string; now: Date }): Promise<Output | null> {
  const row=await getCreativeWorkLayerEditorOutput(input); const state=layerEditorStateFromDatabase(row?.layerEditor); const regeneration=state?.regeneration;
@@ -133,7 +139,7 @@ export async function clearTerminalLayerRegenerationForRetry(input: LayerEditorM
  const [updated]=await db.update(creativeWorkOutputs).set({layerEditor:next,updatedAt:input.now}).where(and(scope(input),sql`${creativeWorkOutputs.layerEditor}->>'revision' = ${String(input.expectedRevision)}`,sql`${creativeWorkOutputs.layerEditor}->'lease'->>'id' = ${input.leaseId}`,sql`${creativeWorkOutputs.layerEditor}->'lease'->>'userId' = ${input.userId}`,sql`${creativeWorkOutputs.layerEditor}->'lease'->>'expiresAt' = ${state.lease.expiresAt}`,sql`(${creativeWorkOutputs.layerEditor}->'lease'->>'expiresAt')::timestamptz > ${input.now.toISOString()}::timestamptz`,sql`${creativeWorkOutputs.layerEditor}->'regeneration'->>'id' = ${regeneration.id}`,sql`${creativeWorkOutputs.layerEditor}->'regeneration'->>'status' in ('failed', 'submission_unknown')`)).returning(); return updated??null;
 }
 async function regenerationState(input: LayerEditorScope & { operationId: string; fromStatus: "reserved" | "processing"; status: "processing" | "ready" | "failed" | "submission_unknown"; candidateKey?: string; providerRequestId?: string | null; failureCode?: string; now: Date }) {
- const row=await getCreativeWorkLayerEditorOutput(input); const state=layerEditorStateFromDatabase(row?.layerEditor); if(!state||state.regeneration?.id!==input.operationId||state.regeneration.status!==input.fromStatus)return null; const next={...state,revision:state.revision+1,regeneration:{...state.regeneration,status:input.status,candidateKey:input.candidateKey??state.regeneration.candidateKey,providerRequestId:input.providerRequestId??state.regeneration.providerRequestId,failureCode:input.failureCode??null,updatedAt:input.now.toISOString()},updatedAt:input.now.toISOString()}; const [updated]=await db.update(creativeWorkOutputs).set({layerEditor:next,updatedAt:input.now}).where(and(scope(input),sql`${creativeWorkOutputs.layerEditor}->>'revision' = ${String(state.revision)}`,sql`${creativeWorkOutputs.layerEditor}->'lease'->>'id' = ${state.lease?.id ?? ""}`,sql`${creativeWorkOutputs.layerEditor}->'lease'->>'expiresAt' = ${state.lease?.expiresAt ?? ""}`,sql`${creativeWorkOutputs.layerEditor}->'regeneration'->>'id' = ${input.operationId}`,sql`${creativeWorkOutputs.layerEditor}->'regeneration'->>'status' = ${input.fromStatus}`)).returning(); return updated??null;
+ const row=await getCreativeWorkLayerEditorOutput(input); const state=layerEditorStateFromDatabase(row?.layerEditor); if(!state||state.regeneration?.id!==input.operationId||state.regeneration.status!==input.fromStatus)return null; const next={...state,revision:state.revision+1,regeneration:{...state.regeneration,status:input.status,candidateKey:input.candidateKey??state.regeneration.candidateKey,providerRequestId:input.providerRequestId??state.regeneration.providerRequestId,failureCode:input.failureCode??null,updatedAt:input.now.toISOString()},updatedAt:input.now.toISOString()}; const [updated]=await db.update(creativeWorkOutputs).set({layerEditor:next,updatedAt:input.now}).where(and(scope(input),sql`${creativeWorkOutputs.layerEditor}->>'revision' = ${String(state.revision)}`,...observedLeaseCas(state),sql`${creativeWorkOutputs.layerEditor}->'regeneration'->>'id' = ${input.operationId}`,sql`${creativeWorkOutputs.layerEditor}->'regeneration'->>'status' = ${input.fromStatus}`)).returning(); return updated??null;
 }
 export const markLayerRegenerationProcessing=(input: LayerEditorScope & {operationId:string;now:Date})=>regenerationState({...input,fromStatus:"reserved",status:"processing"});
 export const completeLayerRegenerationCandidate=(input: LayerEditorScope & {operationId:string;candidateKey:string;providerRequestId:string|null;now:Date})=>regenerationState({...input,fromStatus:"processing",status:"ready",candidateKey:input.candidateKey,providerRequestId:input.providerRequestId});

@@ -8,6 +8,7 @@ const storageHead = vi.hoisted(() => vi.fn());
 const storageGet = vi.hoisted(() => vi.fn());
 const storagePut = vi.hoisted(() => vi.fn());
 const publishVersion = vi.hoisted(() => vi.fn());
+const editorAccess = vi.hoisted(() => vi.fn());
 const store = vi.hoisted(() => ({ existing: null as Record<string, unknown> | null, inserted: null as Record<string, unknown> | null, insertCount: 0, maxVersion: 2 }));
 
 vi.mock("@/server/repositories/creative-work-layer-editor", () => ({
@@ -17,6 +18,7 @@ vi.mock("@/server/repositories/creative-work-layer-editor", () => ({
 }));
 vi.mock("@/server/layer-editor/artifacts", () => ({ materializeLayerEditorDraft: materialize }));
 vi.mock("@/server/storage", () => ({ objectStorage: { head: storageHead, get: storageGet, put: storagePut } }));
+vi.mock("@/server/layer-editor/quota", () => ({ getLayerEditorAccess: editorAccess }));
 
 import { publishCreativeWorkLayerEditor } from "./publish-creative-work-layer-editor";
 
@@ -44,6 +46,7 @@ describe("publishCreativeWorkLayerEditor", () => {
     store.insertCount = 0;
     store.maxVersion = 2;
     getEditorOutput.mockResolvedValue(parent);
+    editorAccess.mockResolvedValue({ enabled: true });
     stateFromOutput.mockImplementation((row: { layerEditor?: LayerEditorStateV1 } | null) => row === parent ? state : row?.layerEditor ?? null);
     materialize.mockResolvedValue({ pngKey: "draft/piece.png", psdKey: "draft/piece.psd" });
     storageHead.mockResolvedValue({ size: 1 });
@@ -125,5 +128,12 @@ describe("publishCreativeWorkLayerEditor", () => {
 
     await expect(publishCreativeWorkLayerEditor(input)).resolves.toEqual({ ok: false, code: "layer_editor_publish_conflict" });
     expect(store.insertCount).toBe(0);
+  });
+
+  it("requires an active layer editor entitlement before publishing", async () => {
+    editorAccess.mockResolvedValue({ enabled: false });
+
+    await expect(publishCreativeWorkLayerEditor(input)).resolves.toEqual({ ok: false, code: "layer_editor_not_available" });
+    expect(materialize).not.toHaveBeenCalled();
   });
 });

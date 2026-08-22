@@ -34,6 +34,7 @@ export function LayerEditorDialog({ open, workItemId, outputId, mode = "edit", o
   const [exporting, setExporting] = useState(false);
   const [inspectVisibility, setInspectVisibility] = useState<Record<string, boolean>>({});
   const alertRef = useRef<HTMLDivElement>(null);
+  const regenerationPanelRef = useRef<HTMLDivElement>(null);
   const canMutate = editor.mode === "edit" && !editor.document?.regeneration;
 
   useEffect(() => { if (error) alertRef.current?.focus(); }, [error]);
@@ -97,11 +98,14 @@ export function LayerEditorDialog({ open, workItemId, outputId, mode = "edit", o
       setExporting(false);
     }
   };
+  const regenerationAction = (fn: () => Promise<unknown>) => async () => {
+    await fn();
+    regenerationPanelRef.current?.focus();
+  };
   const discardAndClose = async () => {
     try {
-      await editor.discardLocalEdits();
-      if (await editor.flushAndRelease()) onOpenChange(false);
-      else setError(t("editorCloseSaveFailed"));
+      await editor.abandonLocalEdits();
+      onOpenChange(false);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : t("editorSaveError"));
     }
@@ -146,7 +150,9 @@ export function LayerEditorDialog({ open, workItemId, outputId, mode = "edit", o
           {editor.document ? <LayerCanvas document={editor.document} selectedLayerId={selected} onSelect={setSelected} mode={canMutate ? "edit" : "read"} dispatch={editor.dispatch} visibilityOverrides={canMutate ? undefined : inspectVisibility} /> : <div role={editor.openError ? "alert" : undefined} className="grid place-items-center p-6">{editor.openError ?? t("editorLoading")}</div>}
           {editor.document ? <aside className="min-h-0 overflow-y-auto border-l bg-muted/20 max-md:border-t max-md:border-l-0">
             <LayerPanel document={editor.document} selectedLayerId={selected} onSelect={setSelected} mode={canMutate ? "edit" : "read"} dispatch={editor.dispatch} onInspectVisibilityChange={(id, visible) => setInspectVisibility((current) => ({ ...current, [id]: visible }))} />
-            <LayerRegenerationPanel document={editor.document} selectedLayerId={selected} mode={editor.mode === "edit" ? "edit" : "read"} access={editor.access ?? { enabled: false, period: null, layerize: null, regeneration: null }} onRegenerate={(id, instruction) => act(() => editor.regenerate(id, instruction))} onAccept={() => act(editor.acceptCandidate)} onDiscard={() => act(editor.discardCandidate)} />
+            <div ref={regenerationPanelRef} tabIndex={-1}>
+              <LayerRegenerationPanel document={editor.document} selectedLayerId={selected} mode={editor.mode === "edit" ? "edit" : "read"} access={editor.access ?? { enabled: false, period: null, layerize: null, regeneration: null }} onRegenerate={(id, instruction) => act(regenerationAction(() => editor.regenerate(id, instruction)))} onAccept={() => act(regenerationAction(editor.acceptCandidate))} onDiscard={() => act(regenerationAction(editor.discardCandidate))} />
+            </div>
           </aside> : null}
         </div>
         {editor.hasUnresolvedConflict ? <div role="alert" className="flex flex-wrap items-center gap-2 border-t border-amber-500/40 bg-amber-50 px-4 py-3 text-sm text-amber-950"><p>{t("editorConflict")}</p><Button variant="outline" size="sm" onClick={() => act(editor.discardLocalEdits)}>{t("editorDiscardLocal")}</Button><Button variant="outline" size="sm" onClick={() => void discardAndClose()}>{t("editorDiscardAndClose")}</Button></div> : null}

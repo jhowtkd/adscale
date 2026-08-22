@@ -11,6 +11,12 @@ export type LayerEditorSaveStatus = "idle" | "saving" | "saved" | "error" | "con
 type OpenResponse = { document: PublicLayerEditorDocumentV1; access: LayerEditorAccessV1 };
 type OpenFailureDetails = { document?: PublicLayerEditorDocumentV1 | null };
 
+function conflictDocument(error: unknown): PublicLayerEditorDocumentV1 | null {
+  if (!error || typeof error !== "object") return null;
+  const value = error as { document?: PublicLayerEditorDocumentV1 | null; details?: OpenFailureDetails };
+  return value.details?.document ?? value.document ?? null;
+}
+
 export function useLayerEditor(input: LayerEditorInput) {
   const [session, setSession] = useState<LayerEditorSessionState | null>(null);
   const [leaseId, setLeaseId] = useState<string | null>(null);
@@ -26,6 +32,7 @@ export function useLayerEditor(input: LayerEditorInput) {
   const savePromise = useRef<Promise<boolean> | null>(null);
   const dirty = useRef(false);
   const unresolvedConflict = useRef(false);
+  const canonicalConflict = useRef<PublicLayerEditorDocumentV1 | null>(null);
   const stopped = useRef(false);
   const [hasUnresolvedConflict, setHasUnresolvedConflict] = useState(false);
   const [saveStatus, setSaveStatus] = useState<LayerEditorSaveStatus>("idle");
@@ -44,7 +51,16 @@ export function useLayerEditor(input: LayerEditorInput) {
     setMode("read");
   }, []);
 
-  const markConflict = useCallback(() => {
+  const markConflict = useCallback((document?: PublicLayerEditorDocumentV1 | null) => {
+    if (document) {
+      canonicalConflict.current = document;
+      // A conflict response can prove that another editor owns the lease. Do
+      // not later attempt a release with the stale local lease id.
+      if (document.lease.mode !== "edit") {
+        leaseRef.current = null;
+        setLeaseId(null);
+      }
+    }
     dirty.current = true;
     unresolvedConflict.current = true;
     setHasUnresolvedConflict(true);
@@ -102,7 +118,7 @@ export function useLayerEditor(input: LayerEditorInput) {
           return true;
         } catch (error) {
           const code = typeof error === "object" && error && "code" in error ? (error as { code?: string }).code : null;
-          if (code === "layer_editor_locked" || code === "layer_editor_revision_conflict") markConflict();
+          if (code === "layer_editor_locked" || code === "layer_editor_revision_conflict") markConflict(conflictDocument(error));
           else setSaveStatus("error");
           return false;
         } finally {
@@ -130,15 +146,13 @@ export function useLayerEditor(input: LayerEditorInput) {
         mode: input.mode,
       });
     } catch (error) {
-      const details = typeof error === "object" && error && "details" in error ? (error as { details?: OpenFailureDetails }).details : null;
-      const document = details?.document;
+      const document = conflictDocument(error);
       if (!document) throw error;
       serverRevision.current = document.revision;
       leaseRef.current = null;
       setLeaseId(null);
       applyCanonicalDocument(document);
-      stop();
-      setSaveStatus("conflict");
+      markConflict(document);
       setOpenError(error instanceof Error ? error.message : "Unable to open the layer editor");
       return;
     }
@@ -160,7 +174,7 @@ export function useLayerEditor(input: LayerEditorInput) {
     }
     setOpenError(null);
     if (discardLocal || !dirty.current) applyCanonicalDocument(response.document);
-  }, [applyCanonicalDocument, input.mode, input.outputId, input.workItemId, stop]);
+  }, [applyCanonicalDocument, input.mode, input.outputId, input.workItemId, markConflict]);
 
   useEffect(() => {
     const opening = setTimeout(() => {
@@ -222,7 +236,7 @@ export function useLayerEditor(input: LayerEditorInput) {
         if (!dirty.current) applyCanonicalDocument(response.document);
       }).catch((error) => {
         const code = typeof error === "object" && error && "code" in error ? (error as { code?: string }).code : null;
-        if (code === "layer_editor_locked" || code === "layer_editor_revision_conflict") markConflict();
+        if (code === "layer_editor_locked" || code === "layer_editor_revision_conflict") markConflict(conflictDocument(error));
         else { setSaveStatus("error"); stop(); }
       });
     }, LAYER_EDITOR_HEARTBEAT_MS);
@@ -246,9 +260,11 @@ export function useLayerEditor(input: LayerEditorInput) {
       if (!operationId) operations.current.delete(operationKey);
       return result;
     } catch (error) {
+      const code = typeof error === "object" && error && "code" in error ? (error as { code?: string }).code : null;
+      if (code === "layer_editor_locked" || code === "layer_editor_revision_conflict") markConflict(conflictDocument(error));
       throw error;
     }
-  }, [flush, input.outputId, input.workItemId]);
+  }, [flush, input.outputId, input.workItemId, markConflict]);
 
   const regenerate = useCallback(async (layerId: string, instruction: string) => {
     const result = await command("regenerateLayer", { layerId, instruction }, `regenerate:${layerId}:${instruction}`);
@@ -321,8 +337,35 @@ export function useLayerEditor(input: LayerEditorInput) {
   }, [flush, input.outputId, input.workItemId]);
 
   const discardLocalEdits = useCallback(async () => {
+    const canonical = canonicalConflict.current;
+    if (canonical) {
+      serverRevision.current = canonical.revision;
+      replaceSession(createLayerEditorSession(canonical));
+      dirty.current = false;
+      unresolvedConflict.current = false;
+      canonicalConflict.current = null;
+      setHasUnresolvedConflict(false);
+      setSaveStatus("saved");
+      return;
+    }
     await open(true);
-  }, [open]);
+  }, [open, replaceSession]);
+
+  const abandonLocalEdits = useCallback(async () => {
+    if (timer.current) clearTimeout(timer.current);
+    dirty.current = false;
+    unresolvedConflict.current = false;
+    canonicalConflict.current = null;
+    setHasUnresolvedConflict(false);
+    setSaveStatus("idle");
+    stop();
+    const activeLeaseId = leaseRef.current;
+    leaseRef.current = null;
+    setLeaseId(null);
+    if (activeLeaseId) {
+      await patchCreativeWork(input.workItemId, { action: "releaseLayerEditor", outputId: input.outputId, leaseId: activeLeaseId }).catch(() => undefined);
+    }
+  }, [input.outputId, input.workItemId, stop]);
 
   return {
     document,
@@ -344,6 +387,7 @@ export function useLayerEditor(input: LayerEditorInput) {
     discardCandidate,
     flushAndRelease,
     discardLocalEdits,
+    abandonLocalEdits,
     exportDraft,
     publish,
   };

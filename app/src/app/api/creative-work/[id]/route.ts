@@ -487,11 +487,11 @@ export async function PATCH(
     }
     if ("action" in parsed.data && parsed.data.action === "heartbeatLayerEditor") {
       const result = await heartbeatCreativeWorkLayerEditor({ workspaceId: workspace.id, workItemId: id, outputId: parsed.data.outputId, userId: user.id, userName: user.name ?? null, leaseId: parsed.data.leaseId });
-      return result.ok ? NextResponse.json({ document: result.document, access: result.access }) : NextResponse.json({ code: result.code, document: result.document ?? null }, { status: result.status });
+      return result.ok ? NextResponse.json({ document: result.document, access: result.access }) : NextResponse.json({ code: result.code, document: result.document ?? null, details: { document: result.document ?? null } }, { status: result.status });
     }
     if ("action" in parsed.data && parsed.data.action === "saveLayerEditor") {
       const result = await saveCreativeWorkLayerEditor({ workspaceId: workspace.id, workItemId: id, outputId: parsed.data.outputId, userId: user.id, userName: user.name ?? null, leaseId: parsed.data.leaseId, expectedRevision: parsed.data.expectedRevision, snapshot: parsed.data.snapshot });
-      return result.ok ? NextResponse.json({ document: result.document, access: result.access }) : NextResponse.json({ code: result.code, document: result.document ?? null }, { status: result.status });
+      return result.ok ? NextResponse.json({ document: result.document, access: result.access }) : NextResponse.json({ code: result.code, document: result.document ?? null, details: { document: result.document ?? null } }, { status: result.status });
     }
     if ("action" in parsed.data && parsed.data.action === "releaseLayerEditor") {
       return NextResponse.json(await releaseCreativeWorkLayerEditor({ workspaceId: workspace.id, workItemId: id, outputId: parsed.data.outputId, userId: user.id, leaseId: parsed.data.leaseId }));
@@ -501,13 +501,14 @@ export async function PATCH(
       return result.ok ? NextResponse.json(result, { status: result.accepted ? 202 : 200 }) : apiError(result.code, result.code === "disabled" ? 403 : result.code === "layer_regeneration_dispatch_failed" ? 503 : 409);
     }
     if ("action" in parsed.data && (parsed.data.action === "acceptLayerCandidate" || parsed.data.action === "discardLayerCandidate")) {
+      if (!(await getLayerEditorAccess(workspace.id, new Date())).enabled) return apiError("layer_editor_not_available", 403);
       const row=await getCreativeWorkLayerEditorOutput({workspaceId:workspace.id,workItemId:id,outputId:parsed.data.outputId}); const state=layerEditorFromOutput(row); const candidate=state?.regeneration;
       if(!state||!candidate||candidate.id!==parsed.data.operationId)return apiError("layer_editor_revision_conflict",409);
       if(parsed.data.action==="discardLayerCandidate") { const updated=await discardLayerRegenerationCandidate({...parsed.data,workspaceId:workspace.id,workItemId:id,userId:user.id,now:new Date()}); if(!updated)return apiError("layer_editor_revision_conflict",409); if(candidate.candidateKey) void objectStorage.delete(candidate.candidateKey).catch(() => undefined); return NextResponse.json({ok:true}); }
       if(candidate.status!=="ready"||!candidate.candidateKey)return apiError("layer_editor_revision_conflict",409);
       const key=`creative-work/${id}/layer-editor/${parsed.data.outputId}/layers/${candidate.layerId}/revisions/${parsed.data.expectedRevision+1}/${randomUUID()}.png`; await objectStorage.put(key,await objectStorage.get(candidate.candidateKey),"image/png"); const updated=await acceptLayerRegenerationCandidate({...parsed.data,workspaceId:workspace.id,workItemId:id,userId:user.id,immutableKey:key,now:new Date()}); if(!updated){void objectStorage.delete(key).catch(() => undefined);return apiError("layer_editor_revision_conflict",409);} void objectStorage.delete(candidate.candidateKey).catch(() => undefined); return NextResponse.json({ok:true});
     }
-    if ("action" in parsed.data && parsed.data.action === "publishLayerEditor") { const result=await publishCreativeWorkLayerEditor({...parsed.data,workspaceId:workspace.id,workItemId:id,userId:user.id}); if(!result.ok)return apiError(result.code,409); const output=result.output; return NextResponse.json({ok:true,replay:result.replay,output:{id:output.id,parentOutputId:output.parentOutputId,status:output.status,isSelected:output.isSelected,creativeLevel:output.creativeLevel,targetFormat:output.targetFormat,versionNumber:output.versionNumber}},{status:result.replay?200:201}); }
+    if ("action" in parsed.data && parsed.data.action === "publishLayerEditor") { const result=await publishCreativeWorkLayerEditor({...parsed.data,workspaceId:workspace.id,workItemId:id,userId:user.id}); if(!result.ok)return apiError(result.code,result.code === "layer_editor_not_available" ? 403 : 409); const output=result.output; return NextResponse.json({ok:true,replay:result.replay,output:{id:output.id,parentOutputId:output.parentOutputId,status:output.status,isSelected:output.isSelected,creativeLevel:output.creativeLevel,targetFormat:output.targetFormat,versionNumber:output.versionNumber}},{status:result.replay?200:201}); }
 
     if ("action" in parsed.data && parsed.data.action === "autosave") {
       const aggregate = await getCreativeWork(workspace.id, id);

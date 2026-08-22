@@ -131,11 +131,22 @@ describe("creativeWorkLayerRegenerationJob", () => {
     expect(failRegeneration).toHaveBeenCalledWith(expect.objectContaining({ ...input, status: "failed", failureCode: "layer_regeneration_storage_failed" }));
   });
 
-  it("cleans a temporary candidate and skips when candidate completion loses CAS", async () => {
+  it("retries only the DB candidate transition after a post-provider CAS loss", async () => {
+    completeCandidate.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: input.outputId });
+    const provider = { regenerate: vi.fn().mockResolvedValue({ buffer: Buffer.from("valid"), requestId: "request-1" }) };
+
+    await expect(runCreativeWorkLayerRegeneration(input, provider)).resolves.toEqual({ status: "ready" });
+    expect(provider.regenerate).toHaveBeenCalledOnce();
+    expect(completeCandidate).toHaveBeenCalledTimes(2);
+    expect(deleteObject).not.toHaveBeenCalled();
+  });
+
+  it("retains a candidate when both DB-only completion attempts lose CAS", async () => {
     completeCandidate.mockResolvedValue(null);
     const provider = { regenerate: vi.fn().mockResolvedValue({ buffer: Buffer.from("valid"), requestId: "request-1" }) };
 
     await expect(runCreativeWorkLayerRegeneration(input, provider)).resolves.toEqual({ status: "skipped" });
-    expect(deleteObject).toHaveBeenCalledWith(`layer-editor-candidates/${input.workspaceId}/${input.workItemId}/${input.outputId}/${input.operationId}.png`);
+    expect(provider.regenerate).toHaveBeenCalledOnce();
+    expect(deleteObject).not.toHaveBeenCalled();
   });
 });

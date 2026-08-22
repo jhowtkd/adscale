@@ -1,4 +1,5 @@
 import "server-only";
+import { createHash } from "node:crypto";
 import { claimLayerEditorQuota, isLayerEditorQuotaReleased, releaseLayerEditorQuota } from "@/server/layer-editor/quota";
 import { clearTerminalLayerRegenerationForRetry, getCreativeWorkLayerEditorOutput, layerEditorFromOutput, reserveLayerRegeneration, rollbackReservedLayerRegeneration } from "@/server/repositories/creative-work-layer-editor";
 import { inngest } from "@/server/jobs/client";
@@ -7,8 +8,9 @@ import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 export async function requestCreativeWorkLayerRegeneration(input: { workspaceId:string; workItemId:string; outputId:string; userId:string; leaseId:string; expectedRevision:number; operationId:string; layerId:string; instruction:string }) {
   const instruction=input.instruction.trim(); if(!instruction || instruction.length>2000)return {ok:false as const,code:"invalid_instruction" as const};
   const current = layerEditorFromOutput(await getCreativeWorkLayerEditorOutput(input));
-  const quota=await claimLayerEditorQuota({workspaceId:input.workspaceId,kind:"layer_regeneration_v1",operationId:input.operationId,userId:input.userId,workItemId:input.workItemId,outputId:input.outputId},new Date());
-  if(!quota.ok)return {ok:false as const,code:quota.code};
+  const commandFingerprint = createHash("sha256").update(`${input.layerId}\u0000${instruction}`).digest("hex");
+  const quota=await claimLayerEditorQuota({workspaceId:input.workspaceId,kind:"layer_regeneration_v1",operationId:input.operationId,userId:input.userId,workItemId:input.workItemId,outputId:input.outputId,commandFingerprint},new Date());
+  if(!quota.ok)return {ok:false as const,code:quota.code === "operation_conflict" ? "layer_editor_revision_conflict" as const : quota.code};
   if (quota.replay) {
     const state = layerEditorFromOutput(await getCreativeWorkLayerEditorOutput(input));
     if (state?.regeneration?.id === input.operationId) {

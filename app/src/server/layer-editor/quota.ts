@@ -54,34 +54,44 @@ export async function getLayerEditorAccess(workspaceId: string, now: Date): Prom
 }
 
 export async function claimLayerEditorQuota(input: {
-  workspaceId: string; kind: LayerEditorQuotaKind; operationId: string; userId: string; workItemId: string; outputId: string;
-}, now: Date): Promise<{ ok: true; replay: boolean } | { ok: false; code: "disabled" | "quota_exhausted" }> {
+  workspaceId: string; kind: LayerEditorQuotaKind; operationId: string; userId: string; workItemId: string; outputId: string; commandFingerprint?: string;
+}, now: Date): Promise<{ ok: true; replay: boolean } | { ok: false; code: "disabled" | "quota_exhausted" | "operation_conflict" }> {
   const window = monthWindow(now);
   const claimKey = `layer-editor:${input.workspaceId}:${input.kind}:${input.operationId}`;
   return db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`${input.workspaceId}:${input.kind}:${window.key}`}))`);
-    const existing = await tx.select({ id: usageEvents.id }).from(usageEvents).where(and(eq(usageEvents.workspaceId, input.workspaceId), eq(usageEvents.idempotencyKey, claimKey))).limit(1);
-    if (existing[0]) return { ok: true as const, replay: true };
+    const existing = await tx.select({ id: usageEvents.id, metadata: usageEvents.metadata }).from(usageEvents).where(and(eq(usageEvents.workspaceId, input.workspaceId), eq(usageEvents.idempotencyKey, claimKey))).limit(1);
+    if (existing[0]) {
+      const metadata = existing[0].metadata as Record<string, unknown> | null;
+      const matches = metadata?.userId === input.userId
+        && metadata.workItemId === input.workItemId
+        && metadata.outputId === input.outputId
+        && (input.commandFingerprint ? metadata.commandFingerprint === input.commandFingerprint : !metadata?.commandFingerprint);
+      return matches ? { ok: true as const, replay: true } : { ok: false as const, code: "operation_conflict" as const };
+    }
     const entitlement = await getActiveLayerEditorEntitlementByWorkspace(input.workspaceId, now, tx);
     const limit = entitlement ? quotaLimit(input.kind, entitlement.metadata) : null;
     if (limit === null) return { ok: false as const, code: "disabled" as const };
     if (await usedInWindow(tx, input.workspaceId, input.kind, window.start, window.end) >= limit) return { ok: false as const, code: "quota_exhausted" as const };
-    await tx.insert(usageEvents).values({ workspaceId: input.workspaceId, type: input.kind, amount: 1, idempotencyKey: claimKey, metadata: { operationId: input.operationId, userId: input.userId, workItemId: input.workItemId, outputId: input.outputId } });
+    await tx.insert(usageEvents).values({ workspaceId: input.workspaceId, type: input.kind, amount: 1, idempotencyKey: claimKey, metadata: { operationId: input.operationId, userId: input.userId, workItemId: input.workItemId, outputId: input.outputId, commandFingerprint: input.commandFingerprint ?? null } });
     return { ok: true as const, replay: false };
   });
 }
 
 export async function releaseLayerEditorQuota(input: { workspaceId: string; kind: LayerEditorQuotaKind; operationId: string }, now: Date): Promise<{ released: boolean }> {
-  const window = monthWindow(now);
+  // Kept in the public seam for callers; the recorded claim, not the failure
+  // clock, determines the accounting period of a compensation.
+  void now;
   const claimKey = `layer-editor:${input.workspaceId}:${input.kind}:${input.operationId}`;
   const releaseKey = `${claimKey}:release`;
   return db.transaction(async (tx) => {
-    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`${input.workspaceId}:${input.kind}:${window.key}`}))`);
-    const claim = await tx.select({ id: usageEvents.id }).from(usageEvents).where(and(eq(usageEvents.workspaceId, input.workspaceId), eq(usageEvents.idempotencyKey, claimKey))).limit(1);
+    const claim = await tx.select({ id: usageEvents.id, createdAt: usageEvents.createdAt }).from(usageEvents).where(and(eq(usageEvents.workspaceId, input.workspaceId), eq(usageEvents.idempotencyKey, claimKey))).limit(1);
     if (!claim[0]) return { released: false };
+    const window = monthWindow(claim[0].createdAt);
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`${input.workspaceId}:${input.kind}:${window.key}`}))`);
     const released = await tx.select({ id: usageEvents.id }).from(usageEvents).where(and(eq(usageEvents.workspaceId, input.workspaceId), eq(usageEvents.idempotencyKey, releaseKey))).limit(1);
     if (released[0]) return { released: false };
-    await tx.insert(usageEvents).values({ workspaceId: input.workspaceId, type: input.kind, amount: -1, idempotencyKey: releaseKey, metadata: { operationId: input.operationId, operation: "release" } });
+    await tx.insert(usageEvents).values({ workspaceId: input.workspaceId, type: input.kind, amount: -1, idempotencyKey: releaseKey, createdAt: claim[0].createdAt, metadata: { operationId: input.operationId, operation: "release" } });
     return { released: true };
   });
 }

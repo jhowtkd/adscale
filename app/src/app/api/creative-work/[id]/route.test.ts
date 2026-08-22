@@ -1355,11 +1355,25 @@ describe("PATCH /api/creative-work/[id]", () => {
     expect(layerEditorStorageDeleteMock).toHaveBeenCalledWith(candidateKey);
   });
 
+  it("requires an active layer-editor entitlement before accepting or discarding a candidate", async () => {
+    layerEditorAccessMock.mockResolvedValue({ enabled: false, period: null, layerize: null, regeneration: null });
+    const response = await requestPatch({
+      action: "discardLayerCandidate",
+      outputId: "00000000-0000-4000-8000-000000000111",
+      leaseId: "00000000-0000-4000-8000-000000000112",
+      expectedRevision: 4,
+      operationId: "00000000-0000-4000-8000-000000000113",
+    });
+    expect(response.status).toBe(403);
+    expect(discardCandidateMock).not.toHaveBeenCalled();
+  });
+
   it.each([
     ["a new child", { ok: true, replay: false, output: { id: "child-1", isSelected: false } }, 201],
     ["a replayed child", { ok: true, replay: true, output: { id: "child-1", isSelected: false } }, 200],
     ["a stale publication", { ok: false, code: "layer_editor_publish_conflict" }, 409],
     ["a missing artifact", { ok: false, code: "layer_editor_artifact_missing" }, 409],
+    ["an unavailable entitlement", { ok: false, code: "layer_editor_not_available" }, 403],
   ] as const)("maps publishLayerEditor %s to the contract status", async (_label, result, status) => {
     publishLayerEditorMock.mockResolvedValue(result);
 

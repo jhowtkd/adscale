@@ -302,6 +302,22 @@ describe("creative work layerization job", () => {
     expect(markReconcilingMock).not.toHaveBeenCalled();
   });
 
+  it("compensates quota for a proven pre-provider missing configuration failure", async () => {
+    getOutputMock.mockResolvedValueOnce(row(state("queued")));
+    claimProcessingMock.mockResolvedValueOnce(row(state("processing")));
+    getCreativeWorkMock.mockResolvedValue({
+      outputs: [{ id: event.outputId, status: "completed", isSelected: true, outputKey: "creative-work/original.png" }],
+    });
+    objectSignedUrlMock.mockResolvedValue("https://storage.example/original.png");
+    provider.submit.mockRejectedValueOnce(Object.assign(new Error("not configured"), { code: "missing_configuration" }));
+    failMock.mockResolvedValue(row({ ...state("failed"), failureCode: "missing_configuration", providerRequestId: null }));
+
+    await expect(runCreativeWorkLayerization({ event, provider })).resolves.toEqual({ status: "failed" });
+
+    expect(quotaReleaseMock).toHaveBeenCalledWith(expect.objectContaining({ kind: "layerize_v1", operationId: event.attemptId }), expect.any(Date));
+    expect(markReconcilingMock).not.toHaveBeenCalled();
+  });
+
   it("keeps a redelivered attempt without a request id reconciling instead of submitting again", async () => {
     getOutputMock.mockResolvedValue(row(state("processing")));
     markReconcilingMock.mockResolvedValue(row(state("reconciling")));
