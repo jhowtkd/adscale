@@ -27,7 +27,7 @@ export function LayerRegenerationPanel({ document, selectedLayerId, access, mode
 
   return <section aria-label={t("editorRegenerate")} className="space-y-3 border-t p-4">
     <div><h3 className="font-medium">{t("editorRegenerate")}</h3><p className="text-sm text-muted-foreground">{layer?.name ?? t("editorSelectLayer")}</p></div>
-    <p className="rounded bg-background px-3 py-2 text-sm">{t("editorQuotaRemaining", { count: access.regeneration?.remaining ?? 0 })}</p>
+    <p role="status" aria-live="polite" className="rounded bg-background px-3 py-2 text-sm">{t("editorQuotaRemaining", { count: access.regeneration?.remaining ?? 0 })}</p>
     <label className="block text-sm font-medium">{t("editorInstruction")}<textarea className="mt-1 min-h-24 w-full rounded border bg-background p-2" value={instruction} maxLength={2000} disabled={mode !== "edit"} onChange={(event) => { setInstruction(event.target.value); setConfirm(false); }} /></label>
     <small className="block text-right text-muted-foreground">{instruction.length}/2000</small>
     <p role="status" className="text-sm">{regeneration?.status ?? t("editorNoActiveRegeneration")}</p>

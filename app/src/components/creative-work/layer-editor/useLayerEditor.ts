@@ -296,8 +296,12 @@ export function useLayerEditor(input: LayerEditorInput) {
   const retryRegeneration = useCallback(async () => {
     const regeneration = sessionRef.current?.present.regeneration;
     if (!regeneration || regeneration.status !== "reserved") return null;
-    const result = await command("regenerateLayer", { layerId: regeneration.layerId, instruction: regeneration.instruction }, `regenerate:${regeneration.layerId}:${regeneration.instruction}`, regeneration.id);
-    if (result) await open();
+    const operationKey = `regenerate:${regeneration.layerId}:${regeneration.instruction}`;
+    const result = await command("regenerateLayer", { layerId: regeneration.layerId, instruction: regeneration.instruction }, operationKey, regeneration.id);
+    if (result) {
+      operations.current.delete(operationKey);
+      await open();
+    }
     return result;
   }, [command, open]);
   const acceptCandidate = useCallback(async () => {

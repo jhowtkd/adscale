@@ -37,7 +37,7 @@ export function LayerEditorDialog({ open, workItemId, outputId, mode = "edit", o
   const regenerationPanelRef = useRef<HTMLDivElement>(null);
   const canMutate = editor.mode === "edit" && !["reserved", "processing", "ready"].includes(editor.document?.regeneration?.status ?? "");
 
-  useEffect(() => { if (error) alertRef.current?.focus(); }, [error]);
+  useEffect(() => { if (error || editor.hasUnresolvedConflict) alertRef.current?.focus(); }, [editor.hasUnresolvedConflict, error]);
 
   useEffect(() => {
     if (!open || editorMode !== "edit") return;
