@@ -119,6 +119,9 @@ describe("creative work layer editor regeneration repository", () => {
 
     store.row = { layerEditor: editorState({ regeneration: ready }) };
     await expect(discardLayerRegenerationCandidate({ ...mutation, operationId })).resolves.toMatchObject({ layerEditor: { lease: { expiresAt: renewedExpiresAt } } });
+
+    store.row = { layerEditor: editorState({ regeneration: { ...ready, status: "reserved", candidateKey: null, providerRequestId: null } }) };
+    await expect(rollbackReservedLayerRegeneration({ ...mutation, operationId })).resolves.toMatchObject({ layerEditor: { lease: { expiresAt: renewedExpiresAt } } });
   });
 
   it.each([
@@ -141,12 +144,23 @@ describe("creative work layer editor regeneration repository", () => {
 
   it("rolls back only its matching reserved operation", async () => {
     store.row = { layerEditor: editorState({ regeneration: { id: operationId, status: "reserved", layerId, instruction: "New color", requestedByUserId: "user-1", usageKey: "usage-1", candidateKey: null, providerRequestId: null, failureCode: null, createdAt: now.toISOString(), updatedAt: now.toISOString() } }) };
-    const rolledBack = await rollbackReservedLayerRegeneration({ ...scope, operationId, now });
+    const rolledBack = await rollbackReservedLayerRegeneration({ ...mutation, operationId });
     expect(layerEditorFromOutput(rolledBack)?.regeneration).toBeNull();
     expect(layerEditorFromOutput(rolledBack)?.revision).toBe(5);
 
     store.row = { layerEditor: editorState({ regeneration: { id: operationId, status: "processing", layerId, instruction: "New color", requestedByUserId: "user-1", usageKey: "usage-1", candidateKey: null, providerRequestId: null, failureCode: null, createdAt: now.toISOString(), updatedAt: now.toISOString() } }) };
-    await expect(rollbackReservedLayerRegeneration({ ...scope, operationId, now })).resolves.toBeNull();
+    await expect(rollbackReservedLayerRegeneration({ ...mutation, operationId })).resolves.toBeNull();
+  });
+
+  it.each([
+    ["a released lease", { lease: null }, {}],
+    ["a replaced holder", { lease: { ...editorState().lease!, userId: "other-user" } }, {}],
+    ["an expired lease", { lease: { ...editorState().lease!, expiresAt: "2026-08-21T23:59:59.000Z" } }, {}],
+    ["a stale revision", {}, { expectedRevision: 3 }],
+  ])("does not roll back a reserved operation after %s", async (_label, stateOverride, inputOverride) => {
+    store.row = { layerEditor: editorState({ ...stateOverride, regeneration: { id: operationId, status: "reserved", layerId, instruction: "New color", requestedByUserId: "user-1", usageKey: "usage-1", candidateKey: null, providerRequestId: null, failureCode: null, createdAt: now.toISOString(), updatedAt: now.toISOString() } }) };
+    await expect(rollbackReservedLayerRegeneration({ ...mutation, ...inputOverride, operationId })).resolves.toBeNull();
+    expect(store.update).toBeNull();
   });
 
   it("preserves the renewed lease and reserved state when a transition CAS loses", async () => {
