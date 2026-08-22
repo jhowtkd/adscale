@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-08-22T22:20:17.555Z",
+  "generatedAt": "2026-08-22T22:42:14.326Z",
   "schemaVersion": 2,
-  "fingerprint": "6467f839bc8742967c7d75c35ce16c3aed427469a1690882d8df2969318829cf",
+  "fingerprint": "de3ae53ff07319acf2cb229c11f068e6bfad4433538882210153a9ae612dfcc1",
   "counts": {
     "dashboardPages": 15,
     "apiRoutes": 170,
@@ -1534,21 +1534,21 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/dashboard/v6/DashboardV6View.tsx:231",
+      "id": "nav:app/src/components/dashboard/v6/DashboardV6View.tsx:233",
       "kind": "cta_navigation",
       "destination": "/templates",
       "file": "app/src/components/dashboard/v6/DashboardV6View.tsx",
-      "line": 231,
-      "evidence": "app/src/components/dashboard/v6/DashboardV6View.tsx:231",
+      "line": 233,
+      "evidence": "app/src/components/dashboard/v6/DashboardV6View.tsx:233",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/dashboard/v6/DashboardV6View.tsx:398",
+      "id": "nav:app/src/components/dashboard/v6/DashboardV6View.tsx:400",
       "kind": "cta_navigation",
       "destination": "/campaigns",
       "file": "app/src/components/dashboard/v6/DashboardV6View.tsx",
-      "line": 398,
-      "evidence": "app/src/components/dashboard/v6/DashboardV6View.tsx:398",
+      "line": 400,
+      "evidence": "app/src/components/dashboard/v6/DashboardV6View.tsx:400",
       "requiresDecision": false
     },
     {

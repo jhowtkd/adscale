@@ -32,7 +32,12 @@ export default function DashboardDataPage() {
   const firstName = normalizeDashboardFirstName(userProfile?.firstName ?? "");
   const { data: stats, isLoading, isError, refetch } = useDashboardStats("month", "7");
   const { data: templates = [], isLoading: templatesLoading } = useTemplates();
-  const { data: canonicalWorks } = useCanonicalWorks();
+  const {
+    data: canonicalWorks,
+    isLoading: canonicalWorksLoading,
+    isError: canonicalWorksError,
+    refetch: refetchCanonicalWorks,
+  } = useCanonicalWorks();
 
   const labels = useMemo(
     () => ({
@@ -66,14 +71,14 @@ export default function DashboardDataPage() {
     });
   }, [stats, canonicalWorks, templates, firstName, tKpi, tStatus, tV6]);
 
-  if (isError && !stats) {
+  if ((isError && !stats) || (canonicalWorksError && !canonicalWorks)) {
     return (
       <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 px-4 text-center">
         <h1 className="text-lg font-semibold text-[var(--text-primary)]">{tHome("errorTitle")}</h1>
         <p className="text-sm text-[var(--text-muted)]">{tHome("errorDescription")}</p>
         <button
           type="button"
-          onClick={() => void refetch()}
+          onClick={() => void Promise.all([refetch(), refetchCanonicalWorks()])}
           className="rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-5 py-2.5 text-sm font-medium text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)]"
         >
           {tHome("retry")}
@@ -121,6 +126,7 @@ export default function DashboardDataPage() {
         labels={labels}
         summary={summary}
         isLoading={loading}
+        isHeroLoading={canonicalWorksLoading}
         interactive
       />
     </div>

@@ -59,6 +59,19 @@ describe("DashboardV6View motion values", () => {
     expect(screen.getByRole("link", { name: "briefingEmptyAction" })).toHaveAttribute("href", "/?compose=1");
   });
 
+  it("does not announce an empty featured work while works are loading", () => {
+    render(
+      <DashboardV6View
+        view={{ ...view, hero: null }}
+        labels={labels}
+        summary="Resumo"
+        isHeroLoading
+      />,
+    );
+
+    expect(screen.queryByText("heroEmptyTitle")).not.toBeInTheDocument();
+  });
+
   it("renders the final KPI and progress values immediately", () => {
     render(<DashboardV6View view={view} labels={labels} summary="Resumo" />);
 

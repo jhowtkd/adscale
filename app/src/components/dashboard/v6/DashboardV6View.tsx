@@ -14,6 +14,7 @@ type DashboardV6ViewProps = {
   labels: DashboardV6Labels;
   summary: ReactNode;
   isLoading?: boolean;
+  isHeroLoading?: boolean;
   interactive?: boolean;
 };
 
@@ -38,6 +39,7 @@ export default function DashboardV6View({
   labels,
   summary,
   isLoading = false,
+  isHeroLoading = false,
   interactive = true,
 }: DashboardV6ViewProps) {
   const reducedMotion = useReducedMotion();
@@ -107,7 +109,7 @@ export default function DashboardV6View({
         </ul>
       </section>
 
-      {isLoading ? (
+      {isLoading || isHeroLoading ? (
         <HeroSkeleton pulseClass={pulseClass} />
       ) : view.hero ? (
         <section
