@@ -151,7 +151,7 @@ describe("requestCreativeWorkLayerization", () => {
     reject(new Error("dispatch failed"));
 
     await expect(winner).resolves.toMatchObject({ ok: false, error: { code: "dispatch_failed" } });
-    await expect(replay).resolves.toMatchObject({ ok: false, error: { code: "dispatch_failed" } });
+    await expect(replay).resolves.toMatchObject({ ok: false, error: { code: "failed", state: { status: "failed", failureCode: "dispatch_failed" } } });
     expect(quotaReleaseMock).toHaveBeenCalledOnce();
     expect(sendMock).toHaveBeenCalledOnce();
   });

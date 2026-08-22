@@ -96,7 +96,7 @@ export async function requestCreativeWorkLayerization(input: {
       const currentState = layerizationStateFromDatabase(current?.layerization);
       if (currentState?.attemptId !== decision.state.attemptId) return { ok: false, error: { code: "layerization_replay_conflict" } };
       if (currentState.status !== "queued") {
-        if (currentState.status === "failed") return { ok: false, error: { code: "dispatch_failed" } };
+        if (currentState.status === "failed") return { ok: false, error: { code: "failed", state: currentState } };
         return { ok: true, accepted: true, replay: false, state: currentState };
       }
       try {
