@@ -1,8 +1,10 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("next-intl", () => ({
-  useTranslations: () => (key: string) => ({
+  useTranslations: () => (key: string, values?: { count?: number }) => {
+    if (key === "layerizeQuotaRemaining") return `Translate: ${values?.count ?? 0} remaining quota`;
+    return ({
     failedGeneration: "Falha na geração",
     reviewRecommended: "Revisão recomendada — a checagem automática ficou inconclusiva",
     objectiveFailed: "A checagem objetiva reprovou esta peça.",
@@ -28,6 +30,11 @@ vi.mock("next-intl", () => ({
     layerizeCompleted: "Translate: layers ready",
     layerizeFailed: "Translate: separation failed",
     downloadPsdWithLayers: "Translate: PSD with 2 layers",
+    layerizeConfirmTitle: "Translate: confirm separation",
+    layerizeConfirmDescription: "Translate: confirmation description",
+    layerizeConfirm: "Translate: confirm",
+    layerizeCancel: "Translate: cancel",
+    layerizeQuotaRemaining: "Translate: remaining quota",
     downloadPngs: "Translate: PNGs",
     "layerizeFailure.unknown": "Translate: unknown failure",
     "layerizeFailure.provider": "Translate: provider failure",
@@ -43,7 +50,8 @@ vi.mock("next-intl", () => ({
     visualInconclusiveTitle: "Análise visual inconclusiva",
     visualConfidence: "Confiança do modelo: 64%",
     visualNoConfidence: "Sem confiança mensurável",
-  }[key] ?? key),
+    }[key] ?? key);
+  },
 }));
 
 import { CreativeResultCard } from "./CreativeResultCard";
@@ -360,7 +368,7 @@ describe("CreativeResultCard", () => {
     expect(screen.queryByRole("button", { name: /aprovar/i })).not.toBeInTheDocument();
   });
 
-  it("shows owner-only layerization progress and exposes PSD first with PNG diagnostics second", () => {
+  it("shows member layerization progress and exposes PSD without the diagnostic ZIP", () => {
     const onLayerize = vi.fn();
     const onDownloadLayerized = vi.fn();
     const { rerender } = render(
@@ -408,9 +416,37 @@ describe("CreativeResultCard", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Translate: PSD with 2 layers" }));
-    fireEvent.click(screen.getByRole("button", { name: "Translate: PNGs" }));
-    expect(onDownloadLayerized).toHaveBeenNthCalledWith(1, "output-1", "psd");
-    expect(onDownloadLayerized).toHaveBeenNthCalledWith(2, "output-1", "zip");
+    expect(onDownloadLayerized).toHaveBeenCalledWith("output-1", "psd");
+    expect(screen.queryByRole("button", { name: "Translate: PNGs" })).not.toBeInTheDocument();
+  });
+
+  it("opens the editor for selected and unselected layerized outputs", () => {
+    const onOpenLayerEditor = vi.fn();
+    const { rerender } = render(
+      <CreativeResultCard
+        output={output({ isSelected: true, layerization: layerization("completed") })}
+        label="Equilibrada"
+        onRetry={vi.fn()}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+        onOpenLayerEditor={onOpenLayerEditor}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Editar camadas" }));
+    expect(onOpenLayerEditor).toHaveBeenLastCalledWith("output-1");
+
+    rerender(
+      <CreativeResultCard
+        output={output({ isSelected: false, layerization: layerization("completed") })}
+        label="Equilibrada"
+        onRetry={vi.fn()}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+        onOpenLayerEditor={onOpenLayerEditor}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Visualizar camadas" }));
+    expect(onOpenLayerEditor).toHaveBeenCalledTimes(2);
   });
 
   it("blocks retry after an unknown submission and states that a charge may have occurred", () => {
@@ -552,6 +588,83 @@ describe("CreativeResultCard", () => {
 
     expect(screen.getByText("Translate: provider failure")).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Translate: retry separation" }));
-    expect(onLayerize).toHaveBeenCalledWith("output-1", true);
+    fireEvent.click(screen.getByRole("button", { name: "Translate: confirm" }));
+    expect(onLayerize).toHaveBeenCalledWith("output-1", true, expect.any(String));
+  });
+
+  it("reuses the operation id after uncertain Layerize acceptance", async () => {
+    const onLayerize = vi.fn().mockResolvedValue("uncertain");
+    render(
+      <CreativeResultCard
+        output={output({ isSelected: true })}
+        label="Equilibrada"
+        onRetry={vi.fn()}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+        canLayerize
+        onLayerize={onLayerize}
+        layerEditorAccess={{ enabled: true, period: null, layerize: { limit: 3, used: 0, remaining: 3 }, regeneration: { limit: 3, used: 0, remaining: 3 } }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Translate: separate" }));
+    fireEvent.click(screen.getByRole("button", { name: "Translate: confirm" }));
+    await waitFor(() => expect(onLayerize).toHaveBeenCalledTimes(1));
+    const operationId = onLayerize.mock.calls[0][2];
+    fireEvent.click(screen.getByRole("button", { name: "Translate: confirm" }));
+    await waitFor(() => expect(onLayerize).toHaveBeenCalledTimes(2));
+    expect(onLayerize.mock.calls[1]).toEqual(["output-1", false, operationId]);
+  });
+
+  it("hides new Layerize initiation on mobile but keeps layer inspection", () => {
+    const { rerender } = render(
+      <CreativeResultCard
+        output={output({ isSelected: true })}
+        label="Equilibrada"
+        onRetry={vi.fn()}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+        canLayerize
+        onLayerize={vi.fn()}
+        isMobile
+      />,
+    );
+    expect(screen.queryByRole("button", { name: "Translate: separate" })).not.toBeInTheDocument();
+
+    rerender(
+      <CreativeResultCard
+        output={output({ isSelected: true, layerization: layerization("completed") })}
+        label="Equilibrada"
+        onRetry={vi.fn()}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+        onOpenLayerEditor={vi.fn()}
+        isMobile
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Editar camadas" })).toBeVisible();
+  });
+
+  it("disables only new Layerize when quota is exhausted", () => {
+    const access = {
+      enabled: true,
+      period: null,
+      layerize: { limit: 1, used: 1, remaining: 0 },
+      regeneration: { limit: 3, used: 0, remaining: 3 },
+    };
+    render(
+      <CreativeResultCard
+        output={output({ isSelected: true })}
+        label="Equilibrada"
+        onRetry={vi.fn()}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+        canLayerize
+        onLayerize={vi.fn()}
+        layerEditorAccess={access}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Translate: separate" })).toBeDisabled();
+    expect(screen.getByText("Translate: 0 remaining quota")).toBeVisible();
   });
 });

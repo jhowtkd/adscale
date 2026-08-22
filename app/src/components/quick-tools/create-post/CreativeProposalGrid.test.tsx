@@ -1,13 +1,37 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
 }));
 
+const layerEditorMocks = vi.hoisted(() => ({
+  isMobile: vi.fn(() => false),
+  render: vi.fn(),
+}));
+
+vi.mock("@/lib/hooks/use-media-query", () => ({ useIsMobile: layerEditorMocks.isMobile }));
+vi.mock("@/components/creative-work/layer-editor/LayerEditorDialog", () => ({
+  LayerEditorDialog: (props: { open: boolean; workItemId: string; outputId: string; mode: "edit" | "inspect" }) => {
+    layerEditorMocks.render(props);
+    return props.open ? (
+      <div
+        data-testid="layer-editor-dialog"
+        data-work-item-id={props.workItemId}
+        data-output-id={props.outputId}
+        data-mode={props.mode}
+      />
+    ) : null;
+  },
+}));
+
 import CreativeProposalGrid from "./CreativeProposalGrid";
 
 describe("CreativeProposalGrid", () => {
+  beforeEach(() => {
+    layerEditorMocks.isMobile.mockReturnValue(false);
+  });
+
   const conservativeCompleted = {
     id: "out-conservative",
     workspaceId: "ws-1",
@@ -205,5 +229,51 @@ describe("CreativeProposalGrid", () => {
 
     expect(screen.getByRole("dialog")).toBeVisible();
     expect(screen.getByRole("img", { name: /equilibrada.*9:16.*ampliada/i })).toHaveClass("object-contain");
+  });
+
+  it("opens edit mode for the selected layerized output", () => {
+    render(
+      <CreativeProposalGrid
+        outputs={[{
+          ...balancedCompleted,
+          isSelected: true,
+          layerization: { status: "completed" },
+          layerEditor: { revision: 2, layerCount: 3, regenerationStatus: null, updatedAt: "2026-08-22T00:00:00.000Z" },
+        }]}
+        onRetry={vi.fn()}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Editar camadas" }));
+    expect(screen.getByTestId("layer-editor-dialog")).toHaveAttribute("data-output-id", "out-balanced");
+    expect(screen.getByTestId("layer-editor-dialog")).toHaveAttribute("data-mode", "edit");
+  });
+
+  it("uses inspect mode for unselected and mobile layerized outputs", () => {
+    const inspectable = {
+      ...balancedCompleted,
+      layerization: { status: "completed" as const },
+      layerEditor: { revision: 2, layerCount: 3, regenerationStatus: null, updatedAt: "2026-08-22T00:00:00.000Z" },
+    };
+    const { unmount } = render(
+      <CreativeProposalGrid outputs={[inspectable]} onRetry={vi.fn()} onApprove={vi.fn()} onDownload={vi.fn()} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Visualizar camadas" }));
+    expect(screen.getByTestId("layer-editor-dialog")).toHaveAttribute("data-mode", "inspect");
+    unmount();
+
+    layerEditorMocks.isMobile.mockReturnValue(true);
+    render(
+      <CreativeProposalGrid
+        outputs={[{ ...inspectable, isSelected: true }]}
+        onRetry={vi.fn()}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Editar camadas" }));
+    expect(screen.getByTestId("layer-editor-dialog")).toHaveAttribute("data-mode", "inspect");
   });
 });

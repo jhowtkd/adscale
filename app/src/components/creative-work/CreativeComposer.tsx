@@ -689,6 +689,7 @@ export function CreativeComposer({ composer, composerRef }: {
             onApprove={composer.approveOutput}
             onDownload={composer.downloadOutput}
             canLayerize={composer.canLayerize}
+            layerEditorAccess={composer.layerEditorAccess}
             onLayerize={composer.layerizeOutput}
             onDownloadLayerized={composer.downloadLayerizedOutput}
             isLayerizing={composer.isLayerizingOutput}

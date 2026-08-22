@@ -176,6 +176,35 @@ function layerizationState(providerRequestId: string | null = null) {
   };
 }
 
+function layerEditorState() {
+  const layerId = "00000000-0000-4000-8000-000000000111";
+  const secondLayerId = "00000000-0000-4000-8000-000000000112";
+  return {
+    schemaVersion: 1 as const,
+    revision: 3,
+    sourceLayerizationAttemptId: "attempt-1",
+    canvas: { width: 100, height: 100 },
+    layers: [
+      {
+        id: layerId,
+        source: { order: 0, name: "Base", visible: true, x: 0, y: 0, width: 100, height: 100, key: "private/base.png" },
+        order: 0, name: "Base", visible: true, x: 0, y: 0, width: 100, height: 100,
+        currentKey: "private/current-base.png", currentKind: "source" as const, restorableKey: "private/base.png",
+      },
+      {
+        id: secondLayerId,
+        source: { order: 1, name: "Headline", visible: true, x: 10, y: 10, width: 50, height: 20, key: "private/headline.png" },
+        order: 1, name: "Headline", visible: true, x: 10, y: 10, width: 50, height: 20,
+        currentKey: "private/current-headline.png", currentKind: "regenerated" as const, restorableKey: "private/headline.png",
+      },
+    ],
+    lease: null,
+    regeneration: null,
+    publishedPsdKey: "private/published.psd",
+    updatedAt: "2026-08-22T00:00:00.000Z",
+  };
+}
+
 const confirmBody = {
   copy: {
     headline: "Headline",
@@ -251,6 +280,26 @@ describe("GET /api/creative-work/[id]", () => {
 
     expect(body.canLayerize).toBe(false);
     expect(body.outputs[0].layerization).toBeNull();
+  });
+
+  it("projects only the allowlisted layer editor summary through the common GET", async () => {
+    getWorkMock.mockResolvedValue({
+      work: workItem,
+      outputs: [{ ...outputs[0], layerEditor: layerEditorState() }],
+      sources: [],
+    });
+
+    const res = await GET(new Request("http://localhost/api/creative-work/work-1"), { params: makeParams("work-1") });
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.outputs[0].layerEditor).toEqual({
+      revision: 3,
+      layerCount: 2,
+      regenerationStatus: null,
+      updatedAt: "2026-08-22T00:00:00.000Z",
+    });
+    expect(JSON.stringify(body.outputs[0].layerEditor)).not.toContain("private/");
   });
 
   it("keeps layerization disabled for an owner when ATLASCLOUD_API_KEY is absent", async () => {
