@@ -127,7 +127,7 @@ describe("requestCreativeWorkLayerization", () => {
     expect(sendMock).toHaveBeenCalledTimes(2);
   });
 
-  it("serializes a queued replay behind definitive dispatch compensation", async () => {
+  it("redelivers a queued replay after an ambiguous dispatch rejection", async () => {
     let queued: Record<string, unknown> | null = null;
     claimMock.mockImplementation(async (value: { state: Record<string, unknown> }) => {
       queued = value.state;
@@ -157,9 +157,9 @@ describe("requestCreativeWorkLayerization", () => {
     reject(new Error("dispatch failed"));
 
     await expect(winner).resolves.toMatchObject({ ok: false, error: { code: "dispatch_failed" } });
-    await expect(replay).resolves.toMatchObject({ ok: false, error: { code: "failed", state: { status: "failed", failureCode: "dispatch_failed" } } });
-    expect(quotaReleaseMock).toHaveBeenCalledOnce();
-    expect(sendMock).toHaveBeenCalledOnce();
+    await expect(replay).resolves.toMatchObject({ ok: true, accepted: false, replay: true });
+    expect(quotaReleaseMock).not.toHaveBeenCalled();
+    expect(sendMock).toHaveBeenCalledTimes(2);
   });
 
   it("recovers a quota claim that exists before the layerization reservation", async () => {

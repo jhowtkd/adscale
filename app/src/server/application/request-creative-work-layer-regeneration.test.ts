@@ -124,7 +124,7 @@ describe("requestCreativeWorkLayerRegeneration", () => {
     expect(send).toHaveBeenCalledWith(expect.objectContaining({ id: `creative-work-layer-regenerate:${input.outputId}:${input.operationId}` }));
   });
 
-  it("serializes a replay behind definitive dispatch compensation", async () => {
+  it("redelivers a replay after an ambiguous dispatch rejection", async () => {
     let active: { revision: number; regeneration: { id: string; status: "reserved" } | null } = { revision: 1, regeneration: null };
     let released = false;
     let tail = Promise.resolve();
@@ -162,9 +162,9 @@ describe("requestCreativeWorkLayerRegeneration", () => {
 
     rejectDispatch(new Error("dispatch failed"));
     await expect(winner).resolves.toMatchObject({ ok: false, code: "layer_regeneration_dispatch_failed" });
-    await expect(replay).resolves.toMatchObject({ ok: false, code: "layer_editor_revision_conflict" });
-    expect(release).toHaveBeenCalledOnce();
-    expect(send).toHaveBeenCalledOnce();
+    await expect(replay).resolves.toMatchObject({ ok: true, accepted: false, replay: true });
+    expect(release).not.toHaveBeenCalled();
+    expect(send).toHaveBeenCalledTimes(2);
   });
 
   it("uses the revision returned by terminal cleanup when reserving a new operation", async () => {
@@ -187,19 +187,15 @@ describe("requestCreativeWorkLayerRegeneration", () => {
     expect(reserve).toHaveBeenCalledWith(expect.objectContaining({ expectedRevision: 2 }), expect.anything());
   });
 
-  it("releases a newly claimed unit when event dispatch is definitively rejected", async () => {
+  it("preserves a newly claimed unit when event dispatch acknowledgement is rejected", async () => {
     claim.mockResolvedValue({ ok: true, replay: false });
     reserve.mockResolvedValue({ id: input.outputId });
     send.mockRejectedValue(new Error("Inngest unavailable"));
 
     await expect(requestCreativeWorkLayerRegeneration(input)).resolves.toEqual({ ok: false, code: "layer_regeneration_dispatch_failed" });
 
-    expect(release).toHaveBeenCalledWith(expect.objectContaining({
-      workspaceId: input.workspaceId,
-      kind: "layer_regeneration_v1",
-      operationId: input.operationId,
-    }), expect.any(Date), expect.anything());
-    expect(rollback).toHaveBeenCalledWith(expect.objectContaining({ ...input, operationId: input.operationId }), expect.anything());
+    expect(release).not.toHaveBeenCalled();
+    expect(rollback).not.toHaveBeenCalled();
   });
 
   it("does not turn a compensated dispatch failure into a successful replay", async () => {
