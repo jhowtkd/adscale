@@ -155,7 +155,7 @@ export async function recoverStaleLayerRegeneration(input: LayerEditorScope & { 
  return regenerationState({ ...input, operationId: regeneration.id, fromStatus: "processing", status: "submission_unknown", failureCode: "layer_regeneration_submission_unknown", now: input.now });
 }
 export async function acceptLayerRegenerationCandidate(input: LayerEditorMutationScope & {operationId:string;immutableKey:string;now:Date}) { const row=await getCreativeWorkLayerEditorOutput(input); const state=layerEditorStateFromDatabase(row?.layerEditor); const regen=state?.regeneration; if(!state||!regen||state.lease?.id!==input.leaseId||state.lease.userId!==input.userId||Date.parse(state.lease.expiresAt)<=input.now.getTime()||regen.id!==input.operationId||regen.status!=="ready"||!regen.candidateKey)return null; const next={...state,revision:state.revision+1,layers:state.layers.map(l=>l.id===regen.layerId?{...l,currentKey:input.immutableKey,currentKind:"regenerated" as const,restorableKey:null}:l),regeneration:null,updatedAt:input.now.toISOString()}; const [updated]=await db.update(creativeWorkOutputs).set({layerEditor:next,updatedAt:input.now}).where(and(scope(input),sql`${creativeWorkOutputs.layerEditor}->>'revision' = ${String(input.expectedRevision)}`,sql`${creativeWorkOutputs.layerEditor}->'lease'->>'id' = ${input.leaseId}`,sql`${creativeWorkOutputs.layerEditor}->'lease'->>'userId' = ${input.userId}`,sql`${creativeWorkOutputs.layerEditor}->'lease'->>'expiresAt' = ${state.lease.expiresAt}`,sql`(${creativeWorkOutputs.layerEditor}->'lease'->>'expiresAt')::timestamptz > ${input.now.toISOString()}::timestamptz`,sql`${creativeWorkOutputs.layerEditor}->'regeneration'->>'id' = ${input.operationId}`)).returning(); return updated??null; }
-export async function discardLayerRegenerationCandidate(input: LayerEditorMutationScope & {operationId:string;now:Date}) { const row=await getCreativeWorkLayerEditorOutput(input); const state=layerEditorStateFromDatabase(row?.layerEditor); if(!state||state.lease?.id!==input.leaseId||state.lease.userId!==input.userId||Date.parse(state.lease.expiresAt)<=input.now.getTime()||state.regeneration?.id!==input.operationId)return null; const next={...state,revision:state.revision+1,regeneration:null,updatedAt:input.now.toISOString()}; const [updated]=await db.update(creativeWorkOutputs).set({layerEditor:next,updatedAt:input.now}).where(and(scope(input),sql`${creativeWorkOutputs.layerEditor}->>'revision' = ${String(input.expectedRevision)}`,sql`${creativeWorkOutputs.layerEditor}->'lease'->>'id' = ${input.leaseId}`,sql`${creativeWorkOutputs.layerEditor}->'lease'->>'userId' = ${input.userId}`,sql`${creativeWorkOutputs.layerEditor}->'lease'->>'expiresAt' = ${state.lease.expiresAt}`,sql`(${creativeWorkOutputs.layerEditor}->'lease'->>'expiresAt')::timestamptz > ${input.now.toISOString()}::timestamptz`,sql`${creativeWorkOutputs.layerEditor}->'regeneration'->>'id' = ${input.operationId}`)).returning(); return updated??null; }
+export async function discardLayerRegenerationCandidate(input: LayerEditorMutationScope & {operationId:string;now:Date}) { const row=await getCreativeWorkLayerEditorOutput(input); const state=layerEditorStateFromDatabase(row?.layerEditor); const regeneration=state?.regeneration; if(!state||state.lease?.id!==input.leaseId||state.lease.userId!==input.userId||Date.parse(state.lease.expiresAt)<=input.now.getTime()||regeneration?.id!==input.operationId||regeneration.status!=="ready"||!regeneration.candidateKey)return null; const next={...state,revision:state.revision+1,regeneration:null,updatedAt:input.now.toISOString()}; const [updated]=await db.update(creativeWorkOutputs).set({layerEditor:next,updatedAt:input.now}).where(and(scope(input),sql`${creativeWorkOutputs.layerEditor}->>'revision' = ${String(input.expectedRevision)}`,sql`${creativeWorkOutputs.layerEditor}->'lease'->>'id' = ${input.leaseId}`,sql`${creativeWorkOutputs.layerEditor}->'lease'->>'userId' = ${input.userId}`,sql`${creativeWorkOutputs.layerEditor}->'lease'->>'expiresAt' = ${state.lease.expiresAt}`,sql`(${creativeWorkOutputs.layerEditor}->'lease'->>'expiresAt')::timestamptz > ${input.now.toISOString()}::timestamptz`,sql`${creativeWorkOutputs.layerEditor}->'regeneration'->>'id' = ${input.operationId}`,sql`${creativeWorkOutputs.layerEditor}->'regeneration'->>'status' = 'ready'`,sql`${creativeWorkOutputs.layerEditor}->'regeneration'->>'candidateKey' is not null`)).returning(); return updated??null; }
 
 export async function publishCreativeWorkLayerEditorVersion(input: LayerEditorMutationScope & {
   parentOutputId: string;
@@ -172,6 +172,22 @@ export async function publishCreativeWorkLayerEditorVersion(input: LayerEditorMu
     )).for("update").limit(1);
     const state = layerEditorStateFromDatabase(parent?.layerEditor);
     if (!parent || !state || state.revision !== input.expectedRevision || state.lease?.id !== input.leaseId || state.lease.userId !== input.userId || Date.parse(state.lease.expiresAt) <= input.now.getTime() || state.regeneration) return null;
+
+    // The same client operation cannot publish through a different parent or
+    // revision. This lock is deliberately wider than the parent-row lock.
+    const operationScope = `${input.workspaceId}:${input.workItemId}:${input.operationId}`;
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${operationScope}))`);
+    const operationPrefix = `layer-editor-publish:${input.operationId}:`;
+    const [sameOperation] = await tx.select().from(creativeWorkOutputs).where(and(
+      eq(creativeWorkOutputs.workspaceId, input.workspaceId),
+      eq(creativeWorkOutputs.workItemId, input.workItemId),
+      sql`${creativeWorkOutputs.operationKey} like ${`${operationPrefix}%`}`,
+    )).limit(1);
+    if (sameOperation) {
+      return sameOperation.operationKey === operationKey && sameOperation.parentOutputId === parent.id && sameOperation.outputKey === input.outputKey
+        ? { output: sameOperation, replay: true }
+        : null;
+    }
 
     const versionScope = `${input.workspaceId}:${input.workItemId}:${parent.creativeLevel}:${parent.targetFormat}:${parent.directionId ?? "legacy"}`;
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${versionScope}))`);

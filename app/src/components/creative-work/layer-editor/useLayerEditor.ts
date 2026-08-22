@@ -28,6 +28,7 @@ export function useLayerEditor(input: LayerEditorInput) {
   const modeRef = useRef(mode);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const serverRevision = useRef(0);
+  const latestOpenRequest = useRef(0);
   const saving = useRef(false);
   const savePromise = useRef<Promise<boolean> | null>(null);
   const dirty = useRef(false);
@@ -73,6 +74,14 @@ export function useLayerEditor(input: LayerEditorInput) {
     replaceSession(current ? { ...current, present: document } : createLayerEditorSession(document));
   }, [replaceSession]);
 
+  const acceptServerDocument = useCallback((document: PublicLayerEditorDocumentV1, nextAccess?: LayerEditorAccessV1) => {
+    if (document.revision < serverRevision.current) return false;
+    serverRevision.current = document.revision;
+    if (nextAccess) setAccess(nextAccess);
+    if (!dirty.current) applyCanonicalDocument(document);
+    return true;
+  }, [applyCanonicalDocument]);
+
   const flush = useCallback(async (): Promise<boolean> => {
     if (modeRef.current !== "edit") return !dirty.current;
     if (timer.current) clearTimeout(timer.current);
@@ -111,9 +120,7 @@ export function useLayerEditor(input: LayerEditorInput) {
               })),
             },
           });
-          serverRevision.current = response.document.revision;
-          setAccess(response.access);
-          if (!dirty.current) applyCanonicalDocument(response.document);
+          acceptServerDocument(response.document, response.access);
           if (!dirty.current) setSaveStatus("saved");
           return true;
         } catch (error) {
@@ -130,7 +137,7 @@ export function useLayerEditor(input: LayerEditorInput) {
       if (!await pending) return false;
     }
     return true;
-  }, [applyCanonicalDocument, input.outputId, input.workItemId, markConflict]);
+  }, [acceptServerDocument, input.outputId, input.workItemId, markConflict]);
 
   const scheduleSave = useCallback(() => {
     if (timer.current) clearTimeout(timer.current);
@@ -138,6 +145,7 @@ export function useLayerEditor(input: LayerEditorInput) {
   }, [flush]);
 
   const open = useCallback(async (discardLocal = false) => {
+    const requestSequence = ++latestOpenRequest.current;
     let response: OpenResponse;
     try {
       response = await patchCreativeWork<OpenResponse>(input.workItemId, {
@@ -163,6 +171,7 @@ export function useLayerEditor(input: LayerEditorInput) {
       setOpenError(error instanceof Error ? error.message : "Unable to open the layer editor");
       return;
     }
+    if (requestSequence !== latestOpenRequest.current || response.document.revision < serverRevision.current) return;
     serverRevision.current = response.document.revision;
     setAccess(response.access);
     leaseRef.current = response.document.lease.leaseId;
@@ -239,8 +248,7 @@ export function useLayerEditor(input: LayerEditorInput) {
         leaseId,
       }).then((response) => {
         serverRevision.current = response.document.revision;
-        setAccess(response.access);
-        if (!dirty.current) applyCanonicalDocument(response.document);
+      acceptServerDocument(response.document, response.access);
       }).catch((error) => {
         const code = typeof error === "object" && error && "code" in error ? (error as { code?: string }).code : null;
         if (code === "layer_editor_locked" || code === "layer_editor_revision_conflict") markConflict(conflictDocument(error));
@@ -248,7 +256,7 @@ export function useLayerEditor(input: LayerEditorInput) {
       });
     }, LAYER_EDITOR_HEARTBEAT_MS);
     return () => clearInterval(heartbeat);
-  }, [applyCanonicalDocument, input.outputId, input.workItemId, leaseId, markConflict, mode, stop]);
+  }, [acceptServerDocument, input.outputId, input.workItemId, leaseId, markConflict, mode, stop]);
 
   const command = useCallback(async (action: string, extra: Record<string, unknown> = {}, operationKey = action, operationId?: string) => {
     if (modeRef.current !== "edit" || !leaseRef.current) return null;
@@ -269,6 +277,9 @@ export function useLayerEditor(input: LayerEditorInput) {
     } catch (error) {
       const code = typeof error === "object" && error && "code" in error ? (error as { code?: string }).code : null;
       if (code === "layer_editor_locked" || code === "layer_editor_revision_conflict") markConflict(conflictDocument(error));
+      // Dispatch rejection was compensated server-side. A deliberate retry
+      // must claim a fresh operation, unlike ambiguous transport outcomes.
+      if (action === "regenerateLayer" && code === "layer_regeneration_dispatch_failed" && !operationId) operations.current.delete(operationKey);
       throw error;
     }
   }, [flush, input.outputId, input.workItemId, markConflict]);

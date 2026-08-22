@@ -75,6 +75,14 @@ const QUEUED_GENERATION_LEASE_MS = 60 * 60 * 1000;
 const PROCESSING_GENERATION_LEASE_MS = 10 * 60 * 1000;
 const SOURCE_ANALYSIS_LEASE_MS = 5 * 60 * 1000;
 
+function withoutPrivateArtifactFields(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(withoutPrivateArtifactFields);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(Object.entries(value as Record<string, unknown>)
+    .filter(([key]) => !["outputKey", "operationKey", "publishedPsdKey", "candidateKey", "storageKey"].includes(key))
+    .map(([key, child]) => [key, withoutPrivateArtifactFields(child)]));
+}
+
 async function refundCreativeWorkOutputCompensatory(input: {
   workspaceId: string;
   workItemId: string;
@@ -386,10 +394,10 @@ export async function GET(
         }
       }
     }
-    const canonical = projectCreativeWorkAsCanonicalWork(
+    const canonical = withoutPrivateArtifactFields(projectCreativeWorkAsCanonicalWork(
       result.work,
       result.outputs
-    );
+    ));
     const sources = await Promise.all((result.sources ?? []).map((source) => projectSourceDto(workspace.id, source)));
     const inferredBriefing = result.work.toolKind === "single"
       ? resolveCreativeWorkInferredBriefing(result.work.inputSnapshot)
@@ -515,7 +523,10 @@ export async function PATCH(
     }
     if ("action" in parsed.data && parsed.data.action === "regenerateLayer") {
       const result=await requestCreativeWorkLayerRegeneration({...parsed.data,workspaceId:workspace.id,workItemId:id,userId:user.id});
-      return result.ok ? NextResponse.json(result, { status: result.accepted ? 202 : 200 }) : apiError(result.code, result.code === "disabled" ? 403 : result.code === "layer_regeneration_dispatch_failed" ? 503 : 409);
+      if (result.ok) return NextResponse.json(result, { status: result.accepted ? 202 : 200 });
+      if (result.code === "disabled") return apiError("layer_editor_not_available", 403);
+      if (result.code === "quota_exhausted") return apiError("layer_editor_quota_exhausted", 429);
+      return apiError(result.code, result.code === "layer_regeneration_dispatch_failed" ? 503 : 409);
     }
     if ("action" in parsed.data && (parsed.data.action === "acceptLayerCandidate" || parsed.data.action === "discardLayerCandidate")) {
       const command = parsed.data.action === "acceptLayerCandidate"

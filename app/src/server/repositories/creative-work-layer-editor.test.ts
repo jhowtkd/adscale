@@ -157,6 +157,14 @@ describe("creative work layer editor regeneration repository", () => {
     expect(state?.layers).toEqual(originalLayers);
     expect(state?.regeneration).toBeNull();
   });
+
+  it("does not discard failed or submission-unknown terminal evidence", async () => {
+    for (const status of ["failed", "submission_unknown"] as const) {
+      store.row = { layerEditor: editorState({ regeneration: { id: operationId, status, layerId, instruction: "New color", requestedByUserId: "user-1", usageKey: "usage-1", candidateKey: null, providerRequestId: null, failureCode: "failure", createdAt: now.toISOString(), updatedAt: now.toISOString() } }) };
+      await expect(discardLayerRegenerationCandidate({ ...mutation, operationId })).resolves.toBeNull();
+      expect(store.row.layerEditor.regeneration?.status).toBe(status);
+    }
+  });
 });
 
 describe("creative work layer editor publication repository", () => {

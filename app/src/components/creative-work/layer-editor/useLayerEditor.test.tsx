@@ -229,6 +229,21 @@ describe("useLayerEditor", () => {
     expect(callsFor("openLayerEditor")).toHaveLength(3);
   });
 
+  it("replaces only a definitively compensated regeneration operation id", async () => {
+    vi.useFakeTimers();
+    patch.mockImplementation((...params: unknown[]) => {
+      const body = params[1] as { action: string };
+      if (body.action === "regenerateLayer") return Promise.reject(Object.assign(new Error("dispatch"), { code: "layer_regeneration_dispatch_failed" }));
+      return Promise.resolve(response());
+    });
+    const hook = await openHook();
+    await expect(hook.result.current.regenerate(editorDocument.layers[0]!.id, "Change")).rejects.toThrow("dispatch");
+    await expect(hook.result.current.regenerate(editorDocument.layers[0]!.id, "Change")).rejects.toThrow("dispatch");
+    const ids = callsFor("regenerateLayer").map(([, body]) => (body as { operationId: string }).operationId);
+    expect(ids).toHaveLength(2);
+    expect(ids[0]).not.toBe(ids[1]);
+  });
+
   for (const [action, invoke] of [
     ["acceptLayerCandidate", (hook: ReturnType<typeof renderHook<ReturnType<typeof useLayerEditor>, unknown>>) => hook.result.current.acceptCandidate()],
     ["discardLayerCandidate", (hook: ReturnType<typeof renderHook<ReturnType<typeof useLayerEditor>, unknown>>) => hook.result.current.discardCandidate()],
