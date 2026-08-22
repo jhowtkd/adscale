@@ -102,8 +102,6 @@ export async function requestCreativeWorkLayerization(input: {
       if (await isLayerEditorQuotaDispatchCommitted({ workspaceId: input.workspaceId, kind: "layerize_v1", operationId: input.operationId }, executor)) return { ok: true, accepted: false, replay: true, state: currentState };
       try {
         await inngest.send({ id: `creative-work-layerize:${input.outputId}:${decision.state.attemptId}`, name: heavyImageEventName("creative-work.layerize"), data: { workspaceId: input.workspaceId, workItemId: input.workItemId, outputId: input.outputId, attemptId: decision.state.attemptId, ...(decision.callbackUrl ? { callbackUrl: decision.callbackUrl } : {}) } });
-        await markLayerEditorQuotaDispatchCommitted({ workspaceId: input.workspaceId, kind: "layerize_v1", operationId: input.operationId }, executor);
-        return { ok: true, accepted: decision.accepted, replay: decision.replay, state: decision.state };
       } catch {
       const failed = await failQueuedCreativeWorkLayerization({ workspaceId: input.workspaceId, workItemId: input.workItemId, outputId: input.outputId, attemptId: decision.state.attemptId, code: "dispatch_failed" }, executor);
       if (failed) {
@@ -115,6 +113,8 @@ export async function requestCreativeWorkLayerization(input: {
       if (state?.attemptId === decision.state.attemptId && state.status !== "failed") return { ok: true, accepted: true, replay: false, state };
       return { ok: false, error: { code: "dispatch_failed" } };
       }
+      await markLayerEditorQuotaDispatchCommitted({ workspaceId: input.workspaceId, kind: "layerize_v1", operationId: input.operationId }, executor);
+      return { ok: true, accepted: decision.accepted, replay: decision.replay, state: decision.state };
   });
 }
 

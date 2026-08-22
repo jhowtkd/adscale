@@ -15,13 +15,13 @@ export async function requestCreativeWorkLayerRegeneration(input: { workspaceId:
       if (await isLayerEditorQuotaDispatchCommitted({ workspaceId: input.workspaceId, kind: "layer_regeneration_v1", operationId: input.operationId }, executor)) return { ok: true as const, accepted: false, replay: true };
       try {
         await inngest.send({id:`creative-work-layer-regenerate:${input.outputId}:${input.operationId}`,name:heavyImageEventName("creative-work.layer-regenerate"),data:{workspaceId:input.workspaceId,workItemId:input.workItemId,outputId:input.outputId,operationId:input.operationId}});
-        await markLayerEditorQuotaDispatchCommitted({ workspaceId: input.workspaceId, kind: "layer_regeneration_v1", operationId: input.operationId }, executor);
-        return {ok:true as const,accepted:decision.accepted,replay:decision.replay};
       } catch {
         const rolledBack = await rollbackReservedLayerRegeneration({ ...input, now: new Date() }, executor);
         if (rolledBack) await releaseLayerEditorQuota({ workspaceId: input.workspaceId, kind: "layer_regeneration_v1", operationId: input.operationId }, new Date(), executor);
         return { ok: false as const, code: "layer_regeneration_dispatch_failed" as const };
       }
+      await markLayerEditorQuotaDispatchCommitted({ workspaceId: input.workspaceId, kind: "layer_regeneration_v1", operationId: input.operationId }, executor);
+      return {ok:true as const,accepted:decision.accepted,replay:decision.replay};
   });
 }
 
