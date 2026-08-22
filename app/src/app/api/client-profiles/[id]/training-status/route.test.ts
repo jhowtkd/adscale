@@ -137,6 +137,22 @@ describe("GET /api/client-profiles/[id]/training-status", () => {
     expect((await res.json()).needsReview).toBe(true);
   });
 
+  it("reports pending font approvals as needing review", async () => {
+    getClientProfile.mockResolvedValue(mockProfile({
+      brandFontAssets: [{ reviewStatus: "pending_approval" }],
+    }));
+    getBrandKit.mockResolvedValue({ logoAssetKey: "ws/logo.png", brandColors: null, brandFonts: null });
+    getClientReferences.mockResolvedValue([]);
+    getOlharVoiceConfigByClientProfileId.mockResolvedValue(null);
+
+    const res = await GET(
+      new Request(`http://localhost/api/client-profiles/${PROFILE_ID}/training-status`),
+      { params: Promise.resolve({ id: PROFILE_ID }) },
+    );
+
+    expect((await res.json()).needsReview).toBe(true);
+  });
+
   it("ignores pending_analysis trained references when computing readiness", async () => {
     // Pending-analysis assets must NOT satisfy the visual-signal gate,
     // otherwise the wizard would mark a brand trained before the LLM has

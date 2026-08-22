@@ -58,6 +58,9 @@ export async function GET(
       missing: status.missing,
       needsReview:
         references.some((reference) => reference.reviewStatus === "pending_approval") ||
+        (profile.brandFontAssets ?? []).some(
+          (font) => "reviewStatus" in font && font.reviewStatus === "pending_approval",
+        ) ||
         voiceConfig?.reviewStatus === "pending_review" ||
         voiceConfig?.reviewStatus === "changes_requested",
       voice: {

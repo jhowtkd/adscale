@@ -225,7 +225,7 @@ function CampaignsProductContent() {
         title={
           hasActiveFilters ||
           (isCanonicalMode && (originFilter !== "all" || searchInput))
-            ? tc("noCampaignsMatch")
+            ? tc(isCanonicalMode ? "noWorksMatch" : "noCampaignsMatch")
             : tc("noCampaignsYet")
         }
         description={

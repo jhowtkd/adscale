@@ -34,12 +34,14 @@ describe("brandStatusKey", () => {
         ptBR.navigation.brandKitStatusReady,
         ptBR.navigation.brandKitStatusReview,
       ],
+      noWorksMatch: ptBR.common.noWorksMatch,
     }).toEqual({
       home: "Início",
       works: "Trabalhos",
       overview: "Visão geral",
       brand: "Marca",
       states: ["Não configurada", "Incompleta", "Pronta", "Precisa de revisão"],
+      noWorksMatch: "Nenhum trabalho corresponde à sua busca",
     });
     expect({
       home: en.navigation.home,
@@ -52,12 +54,14 @@ describe("brandStatusKey", () => {
         en.navigation.brandKitStatusReady,
         en.navigation.brandKitStatusReview,
       ],
+      noWorksMatch: en.common.noWorksMatch,
     }).toEqual({
       home: "Home",
       works: "Works",
       overview: "Overview",
       brand: "Brand",
       states: ["Not configured", "Incomplete", "Ready", "Needs review"],
+      noWorksMatch: "No work matches your search",
     });
   });
 });
