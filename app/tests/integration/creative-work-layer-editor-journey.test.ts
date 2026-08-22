@@ -20,7 +20,7 @@ import {
   workspaceMembers,
   workspaces,
 } from "@/server/db/schema";
-import { openCreativeWorkLayerEditor, saveCreativeWorkLayerEditor } from "@/server/application/manage-creative-work-layer-editor";
+import { heartbeatCreativeWorkLayerEditor, openCreativeWorkLayerEditor, saveCreativeWorkLayerEditor } from "@/server/application/manage-creative-work-layer-editor";
 import { requestCreativeWorkLayerRegeneration } from "@/server/application/request-creative-work-layer-regeneration";
 import { publishCreativeWorkLayerEditor } from "@/server/application/publish-creative-work-layer-editor";
 import { selectCreativeWorkOutputCommand } from "@/server/application/select-creative-work-output";
@@ -195,6 +195,9 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work native layer edit
     const openedByA = await openCreativeWorkLayerEditor({ ...scope, userId: memberA, userName: "Editor A", mode: "edit" });
     expect(openedByA).toMatchObject({ ok: true, document: { lease: { mode: "edit" } } });
     if (!openedByA.ok) throw new Error("Member A should own the edit lease");
+    const heartbeatBeforeSave = await heartbeatCreativeWorkLayerEditor({ ...scope, userId: memberA, userName: "Editor A", leaseId: openedByA.document.lease.leaseId! });
+    expect(heartbeatBeforeSave).toMatchObject({ ok: true, document: { lease: { mode: "edit" } } });
+    if (!heartbeatBeforeSave.ok) throw new Error("Heartbeat should renew member A's lease");
     const openedByB = await openCreativeWorkLayerEditor({ ...scope, userId: memberB, userName: "Editor B", mode: "inspect" });
     expect(openedByB).toMatchObject({ ok: true, document: { lease: { mode: "read", leaseId: null } } });
     expect(JSON.stringify(openedByB)).not.toMatch(/currentKey|restorableKey|requestedByUserId|candidateKey/);
@@ -215,9 +218,13 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work native layer edit
     });
     expect(saved).toMatchObject({ ok: true, document: { revision: 2 } });
     if (!saved.ok) throw new Error("Save should succeed under A's lease");
+    expect(saved.document.lease.expiresAt).toBe(heartbeatBeforeSave.document.lease.expiresAt);
 
     const operationId = randomUUID();
     const dispatch = vi.spyOn(inngest, "send").mockResolvedValue({ ids: ["synthetic-regeneration"] } as never);
+    const heartbeatBeforeReserve = await heartbeatCreativeWorkLayerEditor({ ...scope, userId: memberA, userName: "Editor A", leaseId: openedByA.document.lease.leaseId! });
+    expect(heartbeatBeforeReserve).toMatchObject({ ok: true });
+    if (!heartbeatBeforeReserve.ok) throw new Error("Heartbeat should renew before reservation");
     await expect(requestCreativeWorkLayerRegeneration({
       ...scope,
       userId: memberA,
@@ -228,6 +235,7 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work native layer edit
       instruction: "Change only the product color",
     })).resolves.toMatchObject({ ok: true, accepted: true });
     expect(dispatch).toHaveBeenCalledOnce();
+    expect(layerEditorFromOutput(await getCreativeWorkLayerEditorOutput(scope))?.lease?.expiresAt).toBe(heartbeatBeforeReserve.document.lease.expiresAt);
 
     const candidate = await transparentCandidateFixture();
     const provider = { regenerate: vi.fn(async () => ({ requestId: "fake-regeneration", buffer: candidate })) };
@@ -235,6 +243,9 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work native layer edit
     const ready = layerEditorFromOutput(await getCreativeWorkLayerEditorOutput(scope));
     expect(ready?.regeneration).toMatchObject({ id: operationId, status: "ready", layerId: productLayer.id });
     if (!ready?.regeneration?.candidateKey) throw new Error("Fake provider candidate is required");
+    const heartbeatBeforeAccept = await heartbeatCreativeWorkLayerEditor({ ...scope, userId: memberA, userName: "Editor A", leaseId: openedByA.document.lease.leaseId! });
+    expect(heartbeatBeforeAccept).toMatchObject({ ok: true });
+    if (!heartbeatBeforeAccept.ok) throw new Error("Heartbeat should renew before accepting");
 
     const immutableKey = `journey/${work.id}/accepted/${operationId}.png`;
     await objectStorage.put(immutableKey, await objectStorage.get(ready.regeneration.candidateKey), "image/png");
@@ -248,6 +259,7 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work native layer edit
       now: new Date(),
     });
     const acceptedState = layerEditorFromOutput(accepted);
+    expect(acceptedState?.lease?.expiresAt).toBe(heartbeatBeforeAccept.document.lease.expiresAt);
     expect(acceptedState?.layers.find((layer) => layer.id === productLayer.id)).toMatchObject({ currentKey: immutableKey, currentKind: "regenerated", restorableKey: null });
     const untouched = acceptedState?.layers.find((layer) => layer.id !== productLayer.id);
     expect(untouched?.currentKey).toBe(baseKey);
