@@ -9,6 +9,8 @@ const sendMock = vi.hoisted(() => vi.fn());
 const quotaClaimMock = vi.hoisted(() => vi.fn());
 const quotaReleaseMock = vi.hoisted(() => vi.fn());
 const quotaReleasedMock = vi.hoisted(() => vi.fn());
+const quotaCommittedMock = vi.hoisted(() => vi.fn());
+const markCommittedMock = vi.hoisted(() => vi.fn());
 const operationLockMock = vi.hoisted(() => vi.fn(async (_input: unknown, run: (executor: unknown) => Promise<unknown>) => run({})));
 
 vi.mock("@/server/repositories/creative-work", () => ({
@@ -30,6 +32,8 @@ vi.mock("@/server/jobs/heavy-image-events", () => ({
 vi.mock("@/server/layer-editor/quota", () => ({
   claimLayerEditorQuota: (...args: unknown[]) => quotaClaimMock(...args),
   isLayerEditorQuotaReleased: (...args: unknown[]) => quotaReleasedMock(...args),
+  isLayerEditorQuotaReservationCommitted: (...args: unknown[]) => quotaCommittedMock(...args),
+  markLayerEditorQuotaReservationCommitted: (...args: unknown[]) => markCommittedMock(...args),
   releaseLayerEditorQuota: (...args: unknown[]) => quotaReleaseMock(...args),
   withLayerEditorOperationLock: (...args: unknown[]) => operationLockMock(...args),
 }));
@@ -70,11 +74,28 @@ describe("requestCreativeWorkLayerization", () => {
     quotaClaimMock.mockResolvedValue({ ok: true, replay: false });
     quotaReleaseMock.mockResolvedValue({ released: true });
     quotaReleasedMock.mockResolvedValue(false);
+    quotaCommittedMock.mockResolvedValue(false);
+    markCommittedMock.mockResolvedValue(true);
   });
 
   afterEach(() => {
     if (originalAtlasCloudKey === undefined) delete process.env.ATLASCLOUD_API_KEY;
     else process.env.ATLASCLOUD_API_KEY = originalAtlasCloudKey;
+  });
+
+  it("rejects a committed historical operation after a later failed attempt", async () => {
+    output.layerization = {
+      status: "failed", attemptId: "00000000-0000-4000-8000-000000000099", callbackTokenHash: "a".repeat(64), callbackConsumedAt: null, requestedByUserId: "owner-1",
+      createdAt: "2026-08-12T12:00:00.000Z", updatedAt: "2026-08-12T12:00:00.000Z", callbackDeadlineAt: "2026-08-12T14:00:00.000Z",
+      latencyMs: null, providerRequestId: null, providerModel: "model", providerEndpoint: "https://example.test", estimatedCostUsd: null,
+      baseWidth: null, baseHeight: null, layers: [], psdKey: null, diagnosticZipKey: null, fidelity: null, failureCode: "provider_error",
+    };
+    quotaClaimMock.mockResolvedValue({ ok: true, replay: true });
+    quotaCommittedMock.mockResolvedValue(true);
+
+    await expect(requestCreativeWorkLayerization({ ...input, retry: true })).resolves.toMatchObject({ ok: false, error: { code: "layerization_replay_conflict" } });
+    expect(clearFailedMock).not.toHaveBeenCalled();
+    expect(sendMock).not.toHaveBeenCalled();
   });
 
   it("claims one attempt and redelivers the stable event for a queued replay", async () => {
