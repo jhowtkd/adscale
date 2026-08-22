@@ -70,6 +70,7 @@ import { createDefaultCreativeDirectionPool } from "@/server/creative-work/contr
 const profileA = { id: "profile-a", name: "Marca A" };
 const profileB = { id: "profile-b", name: "Marca B" };
 const WORK_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+const TARGET_WORK_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const TEMPLATE_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 
 function active(overrides = {}) {
@@ -100,6 +101,16 @@ describe("useCreativeComposer", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
+    const stored = new Map<string, string>();
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: {
+        getItem: (key: string) => stored.get(key) ?? null,
+        setItem: (key: string, value: string) => stored.set(key, value),
+        removeItem: (key: string) => stored.delete(key),
+        clear: () => stored.clear(),
+      },
+    });
     window.history.replaceState({}, "", "/");
     if (typeof window.localStorage?.clear === "function") window.localStorage.clear();
     window.sessionStorage.clear();
@@ -524,6 +535,125 @@ describe("useCreativeComposer", () => {
     expect(result.current.request).toBe("");
     expect(window.location.search).toBe("?intent=restyle");
     expect(mocks.autosave).not.toHaveBeenCalled();
+  });
+
+  it("switches an empty protocol immediately", async () => {
+    const { result } = renderHook(() => useCreativeComposer());
+
+    act(() => result.current.selectIntent("restyle"));
+    await act(async () => Promise.resolve());
+
+    expect(result.current.intent).toBe("restyle");
+    expect(result.current.pendingProtocolSwitch).toBeNull();
+    expect(result.current.protocolSwitchNotice).toBeNull();
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+
+  it("preserves a draft, reuses its original safely, and returns to it", async () => {
+    const detail = {
+      ...workDetail({ id: WORK_ID }),
+      sources: [{
+        id: "source-1", assetId: "asset-1", templateId: null, status: "ready",
+        usage: "both", usageConfirmed: true,
+      }],
+    };
+    mocks.work.mockImplementation((id: string | null) => ({
+      data: id === WORK_ID ? detail : undefined,
+      isLoading: false,
+      isError: false,
+    }));
+    mocks.create.mockResolvedValueOnce({
+      work: workDetail({ id: TARGET_WORK_ID, request: "", toolKind: "restyle" }).work,
+      quote: { unitCount: 1, credits: 5 },
+    });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: WORK_ID }));
+    await act(async () => Promise.resolve());
+
+    await act(async () => result.current.selectIntent("restyle"));
+
+    expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({
+      request: "", intent: "restyle", assetId: "asset-1", usage: "content",
+    }));
+    expect(result.current.protocolSwitchNotice).toEqual({ from: "variations", to: "restyle" });
+    expect(result.current.workId).toBe(TARGET_WORK_ID);
+
+    await act(async () => result.current.returnToPreviousProtocol());
+
+    expect(result.current.intent).toBe("variations");
+    expect(result.current.workId).toBe(WORK_ID);
+    expect(mocks.create).toHaveBeenCalledOnce();
+  });
+
+  it("restores the current protocol draft from local storage on reload", async () => {
+    window.localStorage.setItem(`adscale:creative-draft:v1:${profileA.id}:variations`, WORK_ID);
+
+    const { result } = renderHook(() => useCreativeComposer());
+    await act(async () => Promise.resolve());
+
+    expect(result.current.workId).toBe(WORK_ID);
+    expect(window.location.search).toBe(`?workId=${WORK_ID}`);
+  });
+
+  it("does not reuse a style reference outside Restyle", async () => {
+    const detail = {
+      ...workDetail({ id: WORK_ID, toolKind: "restyle" }),
+      sources: [{
+        id: "source-1", assetId: "asset-style", templateId: null, status: "ready",
+        usage: "style", usageConfirmed: true,
+      }],
+    };
+    mocks.work.mockReturnValue({ data: detail, isLoading: false, isError: false });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: WORK_ID, initialIntent: "restyle" }));
+    await act(async () => Promise.resolve());
+
+    await act(async () => result.current.selectIntent("variations"));
+
+    expect(result.current.intent).toBe("variations");
+    expect(result.current.workId).toBeNull();
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+
+  it("asks before switching while an upload is pending", async () => {
+    const uploading = deferred<{ assetId: string; name: string }>();
+    mocks.upload.mockReturnValueOnce(uploading.promise);
+    const { result } = renderHook(() => useCreativeComposer());
+    const add = result.current.addFiles([new File(["image"], "arte.png", { type: "image/png" })]);
+    await act(async () => Promise.resolve());
+
+    act(() => result.current.selectIntent("restyle"));
+
+    expect(result.current.intent).toBe("variations");
+    expect(result.current.pendingProtocolSwitch).toBe("restyle");
+
+    await act(async () => {
+      uploading.resolve({ assetId: "asset-1", name: "arte.png" });
+      await add;
+    });
+  });
+
+  it("waits for an in-flight autosave before switching protocols", async () => {
+    const saving = deferred<{ work: { id: string } }>();
+    mocks.autosave.mockReturnValueOnce(saving.promise);
+    mocks.work.mockImplementation((id: string | null) => ({
+      data: id === WORK_ID ? workDetail({ id: WORK_ID }) : undefined,
+      isLoading: false,
+      isError: false,
+    }));
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: WORK_ID }));
+    await act(async () => Promise.resolve());
+
+    act(() => result.current.setRequest("Pedido mais recente"));
+    await act(() => vi.advanceTimersByTimeAsync(500));
+    act(() => result.current.selectIntent("restyle"));
+    act(() => result.current.confirmProtocolSwitch());
+    await act(async () => Promise.resolve());
+
+    expect(result.current.intent).toBe("variations");
+
+    await act(async () => saving.resolve({ work: { id: WORK_ID } }));
+
+    expect(mocks.autosave).toHaveBeenCalledWith(expect.objectContaining({ request: "Pedido mais recente" }));
+    expect(result.current.intent).toBe("restyle");
   });
 
   it("ignores a stale draft creation that finishes after switching protocols", async () => {
