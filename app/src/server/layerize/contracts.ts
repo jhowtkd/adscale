@@ -88,14 +88,24 @@ export const layerizationStateSchema = z.object({
 
 export type LayerizationState = z.infer<typeof layerizationStateSchema>;
 
-export type PublicLayerizationState = Omit<LayerizationState, "callbackTokenHash">;
+export type PublicLayerizationState = Pick<
+  LayerizationState,
+  "status" | "createdAt" | "updatedAt" | "latencyMs" | "baseWidth" | "baseHeight" | "fidelity" | "failureCode"
+> & {
+  layers: Array<Omit<LayerizationLayer, "storageKey" | "sourceBytes">>;
+};
 
 export function toPublicLayerizationState(value: unknown): PublicLayerizationState | null {
   const state = layerizationStateFromDatabase(value);
   if (!state) return null;
-  const { callbackTokenHash: _callbackTokenHash, ...publicState } = state;
-  void _callbackTokenHash;
-  return publicState;
+  return {
+    status: state.status, createdAt: state.createdAt, updatedAt: state.updatedAt, latencyMs: state.latencyMs,
+    baseWidth: state.baseWidth, baseHeight: state.baseHeight, fidelity: state.fidelity, failureCode: state.failureCode,
+    layers: state.layers.map(({ storageKey: _storageKey, sourceBytes: _sourceBytes, ...layer }) => {
+      void _storageKey; void _sourceBytes;
+      return { ...layer };
+    }),
+  };
 }
 
 export function isLayerizationRetryableFailure(
