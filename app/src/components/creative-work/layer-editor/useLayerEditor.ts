@@ -87,6 +87,10 @@ export function useLayerEditor(input: LayerEditorInput) {
       if ((current.lease.mode === "edit" && document.lease.mode !== "edit") || incomingExpiry < currentExpiry) return false;
     }
     serverRevision.current = document.revision;
+    const regeneration = document.regeneration;
+    if (regeneration && (regeneration.status === "failed" || regeneration.status === "submission_unknown")) {
+      operations.current.delete(`regenerate:${regeneration.layerId}:${regeneration.instruction}`);
+    }
     if (nextAccess) setAccess(nextAccess);
     if (!dirty.current) applyCanonicalDocument(document);
     return true;
@@ -258,7 +262,7 @@ export function useLayerEditor(input: LayerEditorInput) {
       }).catch((error) => {
         const code = typeof error === "object" && error && "code" in error ? (error as { code?: string }).code : null;
         if (code === "layer_editor_locked" || code === "layer_editor_revision_conflict") markConflict(conflictDocument(error));
-        else { setSaveStatus("error"); stop(); }
+        else { setSaveStatus("error"); stop(true); }
       });
     }, LAYER_EDITOR_HEARTBEAT_MS);
     return () => clearInterval(heartbeat);
@@ -278,7 +282,7 @@ export function useLayerEditor(input: LayerEditorInput) {
         operationId: stableOperationId,
         ...extra,
       });
-      if (!operationId) operations.current.delete(operationKey);
+      if (!operationId && action !== "publishLayerEditor") operations.current.delete(operationKey);
       return result;
     } catch (error) {
       const code = typeof error === "object" && error && "code" in error ? (error as { code?: string }).code : null;
@@ -347,6 +351,7 @@ export function useLayerEditor(input: LayerEditorInput) {
     const result = await command("publishLayerEditor");
     if (result && typeof result === "object" && "ok" in result && result.ok === true && leaseRef.current) {
       await patchCreativeWork(input.workItemId, { action: "releaseLayerEditor", outputId: input.outputId, leaseId: leaseRef.current });
+      operations.current.delete("publishLayerEditor");
       leaseRef.current = null;
       setLeaseId(null);
       stop();
