@@ -56,11 +56,6 @@ export function brandStatusKey(
   training?: BrandTrainingStatus,
 ) {
   if (!activeClientProfileId) return "brandKitStatusSelect";
-  if (
-    training?.voice.reviewStatus === "pending_review" ||
-    training?.voice.reviewStatus === "changes_requested"
-  ) {
-    return "brandKitStatusReview";
-  }
+  if (training?.needsReview) return "brandKitStatusReview";
   return training?.trained ? "brandKitStatusReady" : "brandKitStatusSetup";
 }

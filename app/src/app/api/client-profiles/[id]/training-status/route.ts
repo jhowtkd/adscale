@@ -56,6 +56,10 @@ export async function GET(
       profile: { id: profile.id, name: profile.name },
       trained: status.trained,
       missing: status.missing,
+      needsReview:
+        references.some((reference) => reference.reviewStatus === "pending_approval") ||
+        voiceConfig?.reviewStatus === "pending_review" ||
+        voiceConfig?.reviewStatus === "changes_requested",
       voice: {
         configured: Boolean(voiceConfig),
         reviewStatus: voiceConfig?.reviewStatus ?? null,

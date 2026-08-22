@@ -119,7 +119,7 @@
     "modified": "Modificado",
     "platforms": "Plataformas",
     "status": "Status",
-    "showingResults": "Mostrando {start}-{end} de {total} trabalhos",
+    "showingResults": "Mostrando {start}-{end} de {total} campanhas",
     "noCampaignsMatch": "Nenhum trabalho corresponde à sua busca",
     "adjustFilters": "Tente ajustar seus termos de busca ou filtros",
     "noCampaignsYet": "Nenhum trabalho ainda",

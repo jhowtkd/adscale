@@ -8,6 +8,7 @@ const training = (overrides: Partial<BrandTrainingStatus>): BrandTrainingStatus 
   profile: { id: "brand-1", name: "Acme" },
   trained: false,
   missing: ["logo"],
+  needsReview: false,
   voice: { configured: false, reviewStatus: null },
   ...overrides,
 });
@@ -17,9 +18,7 @@ describe("brandStatusKey", () => {
     expect(brandStatusKey(null)).toBe("brandKitStatusSelect");
     expect(brandStatusKey("brand-1", training({}))).toBe("brandKitStatusSetup");
     expect(brandStatusKey("brand-1", training({ trained: true }))).toBe("brandKitStatusReady");
-    expect(brandStatusKey("brand-1", training({
-      voice: { configured: true, reviewStatus: "pending_review" },
-    }))).toBe("brandKitStatusReview");
+    expect(brandStatusKey("brand-1", training({ needsReview: true }))).toBe("brandKitStatusReview");
   });
 
   it("keeps canonical navigation and Brand states aligned in PT and EN", () => {

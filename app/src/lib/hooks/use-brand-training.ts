@@ -5,6 +5,7 @@ export interface BrandTrainingStatus {
   profile: { id: string; name: string };
   trained: boolean;
   missing: string[];
+  needsReview: boolean;
   voice: {
     configured: boolean;
     reviewStatus: "pending_review" | "approved" | "changes_requested" | null;
