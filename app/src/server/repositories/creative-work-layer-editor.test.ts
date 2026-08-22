@@ -24,6 +24,7 @@ import {
   discardLayerRegenerationCandidate,
   layerEditorFromOutput,
   publishCreativeWorkLayerEditorVersion,
+  rollbackReservedLayerRegeneration,
   reserveLayerRegeneration,
 } from "./creative-work-layer-editor";
 
@@ -73,6 +74,15 @@ describe("creative work layer editor regeneration repository", () => {
     store.row = { layerEditor: editorState({ regeneration: { id: operationId, status: "ready", layerId, instruction: "Previous", requestedByUserId: "user-1", usageKey: "usage-old", candidateKey: "private/candidate.png", providerRequestId: "request-1", failureCode: null, createdAt: now.toISOString(), updatedAt: now.toISOString() } }) };
     await expect(reserveLayerRegeneration({ ...mutation, operationId: "00000000-0000-4000-8000-000000000005", layerId, instruction: "New color", usageKey: "usage-2" })).resolves.toBeNull();
     expect(store.update).toBeNull();
+  });
+
+  it("rolls back only its matching reserved operation", async () => {
+    store.row = { layerEditor: editorState({ regeneration: { id: operationId, status: "reserved", layerId, instruction: "New color", requestedByUserId: "user-1", usageKey: "usage-1", candidateKey: null, providerRequestId: null, failureCode: null, createdAt: now.toISOString(), updatedAt: now.toISOString() } }) };
+    const rolledBack = await rollbackReservedLayerRegeneration({ ...scope, operationId, now });
+    expect(layerEditorFromOutput(rolledBack)?.regeneration).toBeNull();
+
+    store.row = { layerEditor: editorState({ regeneration: { id: operationId, status: "processing", layerId, instruction: "New color", requestedByUserId: "user-1", usageKey: "usage-1", candidateKey: null, providerRequestId: null, failureCode: null, createdAt: now.toISOString(), updatedAt: now.toISOString() } }) };
+    await expect(rollbackReservedLayerRegeneration({ ...scope, operationId, now })).resolves.toBeNull();
   });
 
   it("accepts only the selected candidate layer and clears restoration for the immutable result", async () => {

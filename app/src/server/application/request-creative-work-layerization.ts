@@ -29,6 +29,9 @@ export type RequestCreativeWorkLayerizationError =
   | { code: "output_not_found" }
   | { code: "output_not_eligible" }
   | { code: "layerization_not_configured" }
+  | { code: "layer_editor_not_available" }
+  | { code: "layer_editor_quota_exhausted" }
+  | { code: "layerization_replay_conflict" }
   | { code: "already_running"; state: LayerizationState }
   | { code: "submission_unknown"; state: LayerizationState }
   | { code: "failed"; state: LayerizationState }
@@ -123,7 +126,8 @@ export async function requestCreativeWorkLayerization(input: {
     workspaceId: input.workspaceId, kind: "layerize_v1", operationId: input.operationId, userId: input.userId,
     workItemId: input.workItemId, outputId: input.outputId,
   }, new Date());
-  if (!quota.ok) return { ok: false, error: { code: "layerization_not_configured" } };
+  if (!quota.ok) return { ok: false, error: { code: quota.code === "disabled" ? "layer_editor_not_available" : "layer_editor_quota_exhausted" } };
+  if (quota.replay) return { ok: false, error: { code: "layerization_replay_conflict" } };
 
   const token = randomBytes(32).toString("hex");
   const attemptId = input.operationId;

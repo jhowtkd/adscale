@@ -199,4 +199,15 @@ describe("useLayerEditor", () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(0); });
     expect(hook.result.current.mode).toBe("read");
   });
+
+  it("keeps a locked open document available in read mode", async () => {
+    vi.useFakeTimers();
+    const readDocument = { ...editorDocument, lease: { mode: "read" as const, leaseId: null, heldByName: "Editor A", expiresAt: "2099-08-22T00:00:00.000Z" } };
+    patch.mockRejectedValue(Object.assign(new Error("locked"), { code: "layer_editor_locked", status: 409, details: { document: readDocument } }));
+    const hook = renderHook(() => useLayerEditor({ workItemId: "work-1", outputId: "output-1", mode: "edit" }));
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(hook.result.current.mode).toBe("read");
+    expect(hook.result.current.document).toMatchObject({ lease: { mode: "read", leaseId: null, heldByName: "Editor A" } });
+  });
 });

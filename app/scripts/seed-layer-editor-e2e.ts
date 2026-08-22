@@ -133,8 +133,8 @@ async function seedVariant(input: { workspaceId: string; userId: string; profile
       schemaVersion: 1, revision: 1, sourceLayerizationAttemptId: `layer-editor-e2e:${work.id}`,
       canvas: { width: 160, height: 100 },
       layers: [
-        { id: baseId, source: { order: 0, name: "Base", visible: true, x: 0, y: 0, width: 160, height: 100, key: baseKey }, order: 0, name: "Base", visible: true, x: 0, y: 0, width: 160, height: 100, currentKey: baseKey, currentKind: "source", restorableKey: null },
-        { id: productId, source: { order: 1, name: "Product", visible: true, x: 52, y: 36, width: 56, height: 28, key: productKey }, order: 1, name: "Product", visible: true, x: 52, y: 36, width: 56, height: 28, currentKey: productKey, currentKind: "source", restorableKey: null },
+        { id: baseId, source: { order: 1, name: "Base", visible: true, x: 0, y: 0, width: 160, height: 100, key: baseKey }, order: 1, name: "Base", visible: true, x: 0, y: 0, width: 160, height: 100, currentKey: baseKey, currentKind: "source", restorableKey: null },
+        { id: productId, source: { order: 0, name: "Product", visible: true, x: 52, y: 36, width: 56, height: 28, key: productKey }, order: 0, name: "Product", visible: true, x: 52, y: 36, width: 56, height: 28, currentKey: productKey, currentKind: "source", restorableKey: null },
       ],
       lease, regeneration, publishedPsdKey: null, updatedAt: now,
     },

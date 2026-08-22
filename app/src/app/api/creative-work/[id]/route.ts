@@ -465,6 +465,9 @@ export async function PATCH(
           case "output_not_found": return apiError("creativeWorkOutputNotFound", 404);
           case "output_not_eligible": return apiError("creativeWorkLayerizationNotEligible", 409);
           case "layerization_not_configured": return apiError("creativeWorkLayerizationNotConfigured", 409);
+          case "layer_editor_not_available": return apiError("layer_editor_not_available", 403);
+          case "layer_editor_quota_exhausted": return apiError("layer_editor_quota_exhausted", 429);
+          case "layerization_replay_conflict": return apiError("layer_editor_revision_conflict", 409);
           case "already_running": return NextResponse.json({ state: toPublicLayerizationState(result.error.state), replay: true }, { status: 200 });
           case "submission_unknown": return NextResponse.json({ state: toPublicLayerizationState(result.error.state), replay: true }, { status: 409 });
           case "failed": return NextResponse.json({ state: toPublicLayerizationState(result.error.state), replay: true }, { status: 409 });
@@ -480,7 +483,7 @@ export async function PATCH(
 
     if ("action" in parsed.data && parsed.data.action === "openLayerEditor") {
       const result = await openCreativeWorkLayerEditor({ workspaceId: workspace.id, workItemId: id, outputId: parsed.data.outputId, userId: user.id, userName: user.name ?? null, mode: parsed.data.mode });
-      return result.ok ? NextResponse.json({ document: result.document, access: result.access }) : NextResponse.json({ code: result.code, document: result.document ?? null }, { status: result.status });
+      return result.ok ? NextResponse.json({ document: result.document, access: result.access }) : NextResponse.json({ code: result.code, details: { document: result.document ?? null } }, { status: result.status });
     }
     if ("action" in parsed.data && parsed.data.action === "heartbeatLayerEditor") {
       const result = await heartbeatCreativeWorkLayerEditor({ workspaceId: workspace.id, workItemId: id, outputId: parsed.data.outputId, userId: user.id, userName: user.name ?? null, leaseId: parsed.data.leaseId });
@@ -500,9 +503,9 @@ export async function PATCH(
     if ("action" in parsed.data && (parsed.data.action === "acceptLayerCandidate" || parsed.data.action === "discardLayerCandidate")) {
       const row=await getCreativeWorkLayerEditorOutput({workspaceId:workspace.id,workItemId:id,outputId:parsed.data.outputId}); const state=layerEditorFromOutput(row); const candidate=state?.regeneration;
       if(!state||!candidate||candidate.id!==parsed.data.operationId)return apiError("layer_editor_revision_conflict",409);
-      if(parsed.data.action==="discardLayerCandidate") { const updated=await discardLayerRegenerationCandidate({...parsed.data,workspaceId:workspace.id,workItemId:id,userId:user.id,now:new Date()}); if(!updated)return apiError("layer_editor_revision_conflict",409); if(candidate.candidateKey) void objectStorage.delete(candidate.candidateKey); return NextResponse.json({ok:true}); }
+      if(parsed.data.action==="discardLayerCandidate") { const updated=await discardLayerRegenerationCandidate({...parsed.data,workspaceId:workspace.id,workItemId:id,userId:user.id,now:new Date()}); if(!updated)return apiError("layer_editor_revision_conflict",409); if(candidate.candidateKey) void objectStorage.delete(candidate.candidateKey).catch(() => undefined); return NextResponse.json({ok:true}); }
       if(candidate.status!=="ready"||!candidate.candidateKey)return apiError("layer_editor_revision_conflict",409);
-      const key=`creative-work/${id}/layer-editor/${parsed.data.outputId}/layers/${candidate.layerId}/revisions/${parsed.data.expectedRevision+1}.png`; await objectStorage.put(key,await objectStorage.get(candidate.candidateKey),"image/png"); const updated=await acceptLayerRegenerationCandidate({...parsed.data,workspaceId:workspace.id,workItemId:id,userId:user.id,immutableKey:key,now:new Date()}); if(!updated){void objectStorage.delete(key);return apiError("layer_editor_revision_conflict",409);} void objectStorage.delete(candidate.candidateKey); return NextResponse.json({ok:true});
+      const key=`creative-work/${id}/layer-editor/${parsed.data.outputId}/layers/${candidate.layerId}/revisions/${parsed.data.expectedRevision+1}.png`; await objectStorage.put(key,await objectStorage.get(candidate.candidateKey),"image/png"); const updated=await acceptLayerRegenerationCandidate({...parsed.data,workspaceId:workspace.id,workItemId:id,userId:user.id,immutableKey:key,now:new Date()}); if(!updated){void objectStorage.delete(key).catch(() => undefined);return apiError("layer_editor_revision_conflict",409);} void objectStorage.delete(candidate.candidateKey).catch(() => undefined); return NextResponse.json({ok:true});
     }
     if ("action" in parsed.data && parsed.data.action === "publishLayerEditor") { const result=await publishCreativeWorkLayerEditor({...parsed.data,workspaceId:workspace.id,workItemId:id,userId:user.id}); return result.ok?NextResponse.json(result,{status:result.replay?200:201}):apiError(result.code,409); }
 

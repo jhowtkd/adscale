@@ -30,6 +30,7 @@ const layerEditorStorageGetMock = vi.hoisted(() => vi.fn());
 const layerEditorStoragePutMock = vi.hoisted(() => vi.fn());
 const layerEditorStorageDeleteMock = vi.hoisted(() => vi.fn());
 const publishLayerEditorMock = vi.hoisted(() => vi.fn());
+const openLayerEditorMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/auth/require-platform-owner", () => ({
   requirePlatformOwner: (...args: unknown[]) => requirePlatformOwnerMock(...args),
@@ -53,7 +54,7 @@ vi.mock("@/server/application/request-creative-work-layer-regeneration", () => (
   requestCreativeWorkLayerRegeneration: (...args: unknown[]) => requestRegenerationMock(...args),
 }));
 vi.mock("@/server/application/manage-creative-work-layer-editor", () => ({
-  openCreativeWorkLayerEditor: vi.fn(),
+  openCreativeWorkLayerEditor: (...args: unknown[]) => openLayerEditorMock(...args),
   heartbeatCreativeWorkLayerEditor: vi.fn(),
   saveCreativeWorkLayerEditor: vi.fn(),
   releaseCreativeWorkLayerEditor: vi.fn(),
@@ -1262,6 +1263,14 @@ describe("PATCH /api/creative-work/[id]", () => {
     });
 
     expect(response.status).toBe(503);
+  });
+
+  it("keeps the public read-only document in 409 error details when opening a foreign lease", async () => {
+    const document = { schemaVersion: 1, revision: 1, canvas: { width: 10, height: 10 }, layers: [], lease: { mode: "read", leaseId: null, heldByName: "Editor A", expiresAt: "2099-08-22T00:00:00.000Z" }, regeneration: null, updatedAt: "2026-08-22T00:00:00.000Z" };
+    openLayerEditorMock.mockResolvedValue({ ok: false, status: 409, code: "layer_editor_locked", document });
+    const response = await requestPatch({ action: "openLayerEditor", outputId: "00000000-0000-4000-8000-000000000111", mode: "edit" });
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({ code: "layer_editor_locked", details: { document } });
   });
 
   it("maps disabled regeneration entitlement to 403", async () => {

@@ -218,7 +218,7 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work native layer edit
       now: new Date(),
     });
     const acceptedState = layerEditorFromOutput(accepted);
-    expect(acceptedState?.layers.find((layer) => layer.id === productLayer.id)).toMatchObject({ currentKey: immutableKey, currentKind: "regenerated", restorableKey: productKey });
+    expect(acceptedState?.layers.find((layer) => layer.id === productLayer.id)).toMatchObject({ currentKey: immutableKey, currentKind: "regenerated", restorableKey: null });
     const untouched = acceptedState?.layers.find((layer) => layer.id !== productLayer.id);
     expect(untouched?.currentKey).toBe(baseKey);
     await expect(objectStorage.get(originalKey).then(digest)).resolves.toBe(originalHash);

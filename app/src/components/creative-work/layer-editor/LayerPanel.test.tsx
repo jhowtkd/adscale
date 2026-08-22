@@ -4,6 +4,8 @@ import type { PublicLayerEditorDocumentV1 } from "@/server/layer-editor/contract
 import { LayerCanvas } from "./LayerCanvas";
 import { LayerPanel } from "./LayerPanel";
 
+vi.mock("next-intl", () => ({ useTranslations: () => (key: string, values?: { name?: string }) => key === "editorHide" ? `Ocultar ${values?.name}` : key === "editorShow" ? `Mostrar ${values?.name}` : key === "editorLayers" ? "Camadas" : key === "editorLayerName" ? "Nome da camada" : key }));
+
 const document: PublicLayerEditorDocumentV1 = {
   schemaVersion: 1, revision: 1, canvas: { width: 20, height: 20 }, updatedAt: "2026-08-22T00:00:00.000Z", regeneration: null,
   lease: { mode: "read", leaseId: null, heldByName: null, expiresAt: null },

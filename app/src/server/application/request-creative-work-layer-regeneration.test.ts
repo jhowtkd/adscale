@@ -4,9 +4,10 @@ const release = vi.hoisted(() => vi.fn());
 const reserve = vi.hoisted(() => vi.fn());
 const getOutput = vi.hoisted(() => vi.fn());
 const stateFromOutput = vi.hoisted(() => vi.fn());
+const rollback = vi.hoisted(() => vi.fn());
 const send = vi.hoisted(() => vi.fn());
 vi.mock("@/server/layer-editor/quota", () => ({ claimLayerEditorQuota: claim, releaseLayerEditorQuota: release }));
-vi.mock("@/server/repositories/creative-work-layer-editor", () => ({ reserveLayerRegeneration: reserve, getCreativeWorkLayerEditorOutput: getOutput, layerEditorFromOutput: stateFromOutput }));
+vi.mock("@/server/repositories/creative-work-layer-editor", () => ({ reserveLayerRegeneration: reserve, rollbackReservedLayerRegeneration: rollback, getCreativeWorkLayerEditorOutput: getOutput, layerEditorFromOutput: stateFromOutput }));
 vi.mock("@/server/jobs/client", () => ({ inngest: { send } }));
 import { requestCreativeWorkLayerRegeneration } from "./request-creative-work-layer-regeneration";
 const input = { workspaceId: "w", workItemId: "i", outputId: "o", userId: "u", leaseId: "00000000-0000-4000-8000-000000000001", expectedRevision: 1, operationId: "00000000-0000-4000-8000-000000000002", layerId: "00000000-0000-4000-8000-000000000003", instruction: "x" };
@@ -15,6 +16,7 @@ describe("requestCreativeWorkLayerRegeneration", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     claim.mockResolvedValue({ ok: false, code: "quota_exhausted" });
+    rollback.mockResolvedValue({ id: input.outputId });
   });
 
   it("does not dispatch when quota is exhausted", async () => {
@@ -56,5 +58,28 @@ describe("requestCreativeWorkLayerRegeneration", () => {
       kind: "layer_regeneration_v1",
       operationId: input.operationId,
     }), expect.any(Date));
+    expect(rollback).toHaveBeenCalledWith(expect.objectContaining({ ...input, operationId: input.operationId }));
+  });
+
+  it("does not turn a compensated dispatch failure into a successful replay", async () => {
+    claim.mockResolvedValue({ ok: true, replay: false });
+    reserve.mockResolvedValue({ id: input.outputId });
+    send.mockRejectedValue(new Error("Inngest unavailable"));
+    await expect(requestCreativeWorkLayerRegeneration(input)).resolves.toMatchObject({ ok: false, code: "layer_regeneration_dispatch_failed" });
+
+    claim.mockResolvedValue({ ok: true, replay: true });
+    stateFromOutput.mockReturnValue({ regeneration: null });
+    await expect(requestCreativeWorkLayerRegeneration(input)).resolves.toMatchObject({ ok: false, code: "layer_editor_revision_conflict" });
+  });
+
+  it("does not release quota when a concurrent job advanced the reservation", async () => {
+    claim.mockResolvedValue({ ok: true, replay: false });
+    reserve.mockResolvedValue({ id: input.outputId });
+    rollback.mockResolvedValue(null);
+    send.mockRejectedValue(new Error("Inngest unavailable"));
+
+    await expect(requestCreativeWorkLayerRegeneration(input)).resolves.toEqual({ ok: false, code: "layer_regeneration_dispatch_failed" });
+
+    expect(release).not.toHaveBeenCalled();
   });
 });

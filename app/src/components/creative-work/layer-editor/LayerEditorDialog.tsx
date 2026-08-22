@@ -55,26 +55,26 @@ export function LayerEditorDialog({ open, workItemId, outputId, mode = "edit", o
 
   const close = async () => {
     if (await editor.flushAndRelease()) onOpenChange(false);
-    else setError("Não foi possível salvar antes de fechar");
+    else setError(t("editorCloseSaveFailed"));
   };
-  const act = (fn: () => Promise<unknown>) => void fn().catch((reason) => setError(reason instanceof Error ? reason.message : "Falha"));
+  const act = (fn: () => Promise<unknown>) => void fn().catch((reason) => setError(reason instanceof Error ? reason.message : t("editorSaveError")));
   const runExport = async (format: "draft-png" | "draft-psd") => {
     setExporting(true);
     try {
-      if (!await editor.exportDraft(format)) setError(`Falha ao exportar ${format === "draft-png" ? "PNG" : "PSD"}`);
+      if (!await editor.exportDraft(format)) setError(t("editorSaveError"));
     } finally {
       setExporting(false);
     }
   };
   const restore = (all: boolean) => {
     if (editor.mode !== "edit" || (!all && !selected)) return;
-    if (!window.confirm(all ? "Restaurar todas as camadas para a versão original?" : "Restaurar esta camada para a versão original?")) return;
+    if (!window.confirm(all ? t("editorRestoreAll") : t("editorRestoreLayer"))) return;
     try {
       editor.dispatch(all ? { type: "restoreAll" } : { type: "restore", id: selected! });
       setError("");
-      setNotice("Restaurando alterações. Salvando alterações.");
+      setNotice(t("editorSaving"));
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Falha ao restaurar camadas");
+      setError(reason instanceof Error ? reason.message : t("editorSaveError"));
     }
   };
 
@@ -82,13 +82,13 @@ export function LayerEditorDialog({ open, workItemId, outputId, mode = "edit", o
     <Dialog open={open} onOpenChange={(next) => { if (!next) void close(); else onOpenChange(next); }}>
       <DialogContent size="full" showCloseButton={false} aria-label={t("editorTitle")}>
         <header className="sticky top-0 z-10 flex min-h-14 flex-wrap items-center gap-2 border-b bg-background/95 px-3 py-2 backdrop-blur">
-          <Button variant="ghost" size="icon" onClick={() => void close()} aria-label="Fechar editor"><X /></Button>
-          <div className="mr-auto min-w-36"><b className="block">{t("editorTitle")}</b><span className="text-xs text-muted-foreground">{editor.document ? `${editor.document.canvas.width}×${editor.document.canvas.height} · ${editor.document.layers.length} camadas` : "Carregando"}</span></div>
+          <Button variant="ghost" size="icon" onClick={() => void close()} aria-label={t("editorClose")}><X /></Button>
+          <div className="mr-auto min-w-36"><b className="block">{t("editorTitle")}</b><span className="text-xs text-muted-foreground">{editor.document ? `${editor.document.canvas.width}×${editor.document.canvas.height} · ${t("editorLayerCount", { count: editor.document.layers.length })}` : t("editorLoading")}</span></div>
           {editor.mode !== "edit" ? <span className="rounded bg-muted px-2 py-1 text-xs">{editor.document?.lease.heldByName ? `${t("editorReadOnly")}: ${editor.document.lease.heldByName}` : t("editorReadOnly")}</span> : null}
           <span className="text-xs text-muted-foreground">{error ? t("editorSaveError") : exporting ? t("editorSaving") : t("editorSaved")}</span>
           {editor.mode === "edit" ? <>
-            <Button variant="outline" size="icon" disabled={!editor.canUndo} onClick={editor.undo} aria-label="Desfazer"><Undo2 /></Button>
-            <Button variant="outline" size="icon" disabled={!editor.canRedo} onClick={editor.redo} aria-label="Refazer"><Redo2 /></Button>
+            <Button variant="outline" size="icon" disabled={!editor.canUndo} onClick={editor.undo} aria-label={t("editorUndo")}><Undo2 /></Button>
+            <Button variant="outline" size="icon" disabled={!editor.canRedo} onClick={editor.redo} aria-label={t("editorRedo")}><Redo2 /></Button>
             <Button variant="outline" size="sm" disabled={!selected} onClick={() => restore(false)}>{t("editorRestoreLayer")}</Button>
             <Button variant="outline" size="sm" onClick={() => restore(true)}>{t("editorRestoreAll")}</Button>
           </> : null}
@@ -98,16 +98,16 @@ export function LayerEditorDialog({ open, workItemId, outputId, mode = "edit", o
             setExporting(true);
             try {
               await editor.publish();
-              setNotice("Nova versão criada");
+              setNotice(t("editorPublished"));
             } catch (reason) {
-              setError(reason instanceof Error ? reason.message : "Falha ao publicar");
+              setError(reason instanceof Error ? reason.message : t("editorSaveError"));
             } finally {
               setExporting(false);
             }
           }}><Upload />{t("editorPublish")}</Button> : null}
         </header>
         <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[minmax(0,1fr)_18rem] xl:grid-cols-[minmax(0,1fr)_22rem]">
-          {editor.document ? <LayerCanvas document={editor.document} selectedLayerId={selected} onSelect={setSelected} mode={editor.mode === "edit" ? "edit" : "read"} dispatch={editor.dispatch} visibilityOverrides={editor.mode === "edit" ? undefined : inspectVisibility} /> : <div role={editor.openError ? "alert" : undefined} className="grid place-items-center p-6">{editor.openError ?? "Carregando"}</div>}
+          {editor.document ? <LayerCanvas document={editor.document} selectedLayerId={selected} onSelect={setSelected} mode={editor.mode === "edit" ? "edit" : "read"} dispatch={editor.dispatch} visibilityOverrides={editor.mode === "edit" ? undefined : inspectVisibility} /> : <div role={editor.openError ? "alert" : undefined} className="grid place-items-center p-6">{editor.openError ?? t("editorLoading")}</div>}
           {editor.document ? <aside className="min-h-0 overflow-y-auto border-l bg-muted/20 max-md:border-t max-md:border-l-0">
             <LayerPanel document={editor.document} selectedLayerId={selected} onSelect={setSelected} mode={editor.mode} dispatch={editor.dispatch} onInspectVisibilityChange={(id, visible) => setInspectVisibility((current) => ({ ...current, [id]: visible }))} />
             <LayerRegenerationPanel document={editor.document} selectedLayerId={selected} mode={editor.mode === "edit" ? "edit" : "read"} access={editor.access ?? { enabled: false, period: null, layerize: null, regeneration: null }} onRegenerate={(id, instruction) => act(() => editor.regenerate(id, instruction))} onAccept={() => act(editor.acceptCandidate)} onDiscard={() => act(editor.discardCandidate)} />

@@ -44,7 +44,7 @@ async function login(page: Page) {
 
 async function openEditor(page: Page, workItemId = fixture().workItemId) {
   await page.goto(`/?workId=${workItemId}`);
-  await page.getByRole("button", { name: /camadas/ }).click();
+  await page.getByRole("button", { name: /^(Editar|Visualizar) camadas$|^(Edit|View) layers$/ }).click();
   const dialog = page.getByRole("dialog", { name: "Editor de camadas" });
   await expect(dialog).toBeVisible();
   return dialog;

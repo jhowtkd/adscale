@@ -24,7 +24,7 @@ export type LayerEditorCommandResult =
   | { ok: true; document: PublicLayerEditorDocumentV1; access: LayerEditorAccessV1 }
   | { ok: false; status: 403 | 404 | 409; code: "layer_editor_not_available" | "layer_editor_locked" | "layer_editor_revision_conflict"; document?: PublicLayerEditorDocumentV1 };
 
-async function project(state: LayerEditorStateV1, input: { workspaceId: string; userId: string; userName: string | null }): Promise<PublicLayerEditorDocumentV1> {
+async function project(state: LayerEditorStateV1, input: { workspaceId: string; userId: string; userName: string | null }, requestedMode: "edit" | "inspect" | "read"): Promise<PublicLayerEditorDocumentV1> {
   const [layers, candidateUrl] = await Promise.all([
     Promise.all(state.layers.map(async (layer) => ({
       id: layer.id,
@@ -34,8 +34,8 @@ async function project(state: LayerEditorStateV1, input: { workspaceId: string; 
     }))),
     state.regeneration?.candidateKey ? objectStorage.signedDownloadUrl(state.regeneration.candidateKey, LAYER_EDITOR_SIGNED_URL_TTL_SECONDS) : Promise.resolve(null),
   ]);
-  const ownsLease = state.lease?.userId === input.userId;
-  const heldByName = state.lease && !ownsLease
+  const ownsLease = requestedMode === "edit" && state.lease?.userId === input.userId && Date.parse(state.lease.expiresAt) > Date.now();
+  const heldByName = state.lease && state.lease.userId !== input.userId
     ? await getCreativeWorkLayerEditorLeaseHolderName(input.workspaceId, state.lease.userId)
     : null;
   return {
@@ -56,11 +56,11 @@ export async function openCreativeWorkLayerEditor(input: OpenLayerEditorInput): 
   if (!access) return { ok: false, status: 403, code: "layer_editor_not_available" };
   let output = await getCreativeWorkLayerEditorOutput(input);
   if (!output) return { ok: false, status: 404, code: "layer_editor_not_available" };
+  if (input.mode === "edit" && (output.status !== "completed" || !output.isSelected)) return { ok: false, status: 409, code: "layer_editor_not_available" };
   let state = layerEditorStateFromDatabase(output.layerEditor);
   if (!state) {
     const source = layerizationFromOutput(output);
     if (!source) return { ok: false, status: 409, code: "layer_editor_not_available" };
-    if (input.mode === "edit" && (output.status !== "completed" || !output.isSelected)) return { ok: false, status: 409, code: "layer_editor_not_available" };
     const now = new Date();
     const lease = input.mode === "edit" ? { id: randomUUID(), userId: input.userId, acquiredAt: now.toISOString(), expiresAt: new Date(now.getTime() + 90_000).toISOString() } : null;
     const seeded = seedLayerEditorState(source, lease, now);
@@ -68,14 +68,13 @@ export async function openCreativeWorkLayerEditor(input: OpenLayerEditorInput): 
     state = layerEditorStateFromDatabase(output?.layerEditor);
   }
   if (!state) return { ok: false, status: 409, code: "layer_editor_not_available" };
-  if (input.mode === "edit" && state.lease?.userId !== input.userId) {
-    if (output?.status !== "completed" || !output.isSelected) return { ok: false, status: 409, code: "layer_editor_not_available", document: await project(state, input) };
+  if (input.mode === "edit") {
     const leased = await acquireCreativeWorkLayerEditorLease({ ...input, leaseId: randomUUID(), now: new Date() });
     const leasedState = layerEditorStateFromDatabase(leased?.layerEditor);
-    if (!leasedState || leasedState.lease?.userId !== input.userId) return { ok: false, status: 409, code: "layer_editor_locked", document: await project(state, input) };
+    if (!leasedState || leasedState.lease?.userId !== input.userId) return { ok: false, status: 409, code: "layer_editor_locked", document: await project(state, input, "read") };
     state = leasedState;
   }
-  return { ok: true, document: await project(state, input), access };
+  return { ok: true, document: await project(state, input, input.mode), access };
 }
 
 export async function heartbeatCreativeWorkLayerEditor(input: LayerEditorScope & { userId: string; userName: string | null; leaseId: string }): Promise<LayerEditorCommandResult> {
@@ -84,8 +83,8 @@ export async function heartbeatCreativeWorkLayerEditor(input: LayerEditorScope &
   const row = await heartbeatCreativeWorkLayerEditorLease({ ...input, now: new Date() });
   const state = layerEditorStateFromDatabase(row?.layerEditor) ?? layerEditorStateFromDatabase((await getCreativeWorkLayerEditorOutput(input))?.layerEditor);
   if (!state) return { ok: false, status: 404, code: "layer_editor_not_available" };
-  if (!row) return { ok: false, status: 409, code: "layer_editor_revision_conflict", document: await project(state, input) };
-  return { ok: true, document: await project(state, input), access };
+  if (!row) return { ok: false, status: 409, code: "layer_editor_revision_conflict", document: await project(state, input, "read") };
+  return { ok: true, document: await project(state, input, "edit"), access };
 }
 
 export async function saveCreativeWorkLayerEditor(input: LayerEditorMutationScope & { userName: string | null; snapshot: LayerEditorMutableSnapshotV1 }): Promise<LayerEditorCommandResult> {
@@ -94,8 +93,8 @@ export async function saveCreativeWorkLayerEditor(input: LayerEditorMutationScop
   const row = await saveCreativeWorkLayerEditorSnapshot({ ...input, now: new Date() });
   const state = layerEditorStateFromDatabase(row?.layerEditor) ?? layerEditorStateFromDatabase((await getCreativeWorkLayerEditorOutput(input))?.layerEditor);
   if (!state) return { ok: false, status: 404, code: "layer_editor_not_available" };
-  if (!row) return { ok: false, status: 409, code: "layer_editor_revision_conflict", document: await project(state, input) };
-  return { ok: true, document: await project(state, input), access };
+  if (!row) return { ok: false, status: 409, code: "layer_editor_revision_conflict", document: await project(state, input, "read") };
+  return { ok: true, document: await project(state, input, "edit"), access };
 }
 
 export async function releaseCreativeWorkLayerEditor(input: LayerEditorScope & { userId: string; leaseId: string }): Promise<{ ok: true }> {
