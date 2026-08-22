@@ -103,6 +103,34 @@ describe("publishCreativeWorkLayerEditor", () => {
     expect(store.insertCount).toBe(1);
   });
 
+  it("replays an already-published operation after its lease was released", async () => {
+    const first = await publishCreativeWorkLayerEditor(input);
+    const existing = {
+      id: "child-1", parentOutputId: parent.id, operationKey: `layer-editor-publish:${input.operationId}:${parent.id}:${input.expectedRevision}`,
+      status: "completed", isSelected: false, creativeLevel: "balanced", targetFormat: "4:5", versionNumber: 3,
+    };
+    findPublication.mockResolvedValue(existing);
+    stateFromOutput.mockReturnValue({ ...state, lease: null });
+
+    const replay = await publishCreativeWorkLayerEditor(input);
+
+    expect(first).toMatchObject({ ok: true, replay: false, output: { id: "child-1" } });
+    expect(replay).toEqual({ ok: true, replay: true, output: { id: "child-1", parentOutputId: parent.id, status: "completed", isSelected: false, creativeLevel: "balanced", targetFormat: "4:5", versionNumber: 3 } });
+    expect(store.insertCount).toBe(1);
+    expect(publishVersion).toHaveBeenCalledTimes(1);
+    expect(materialize).toHaveBeenCalledTimes(1);
+    expect(storagePut).toHaveBeenCalledTimes(2);
+  });
+
+  it("still requires a live lease for a new publication operation", async () => {
+    stateFromOutput.mockReturnValue({ ...state, lease: null });
+
+    await expect(publishCreativeWorkLayerEditor({ ...input, operationId: "00000000-0000-4000-8000-000000000099" })).resolves.toEqual({ ok: false, code: "layer_editor_publish_conflict" });
+
+    expect(materialize).not.toHaveBeenCalled();
+    expect(publishVersion).not.toHaveBeenCalled();
+  });
+
   it("rejects a reused operation for a different revision before writing artifacts", async () => {
     findPublication.mockResolvedValue({ id: "child-1", parentOutputId: parent.id, operationKey: `layer-editor-publish:${input.operationId}:${parent.id}:3`, status: "completed", isSelected: false, creativeLevel: "balanced", targetFormat: "4:5", versionNumber: 2 });
 

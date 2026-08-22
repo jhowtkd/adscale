@@ -135,21 +135,21 @@ export function LayerEditorDialog({ open, workItemId, outputId, mode = "edit", o
           {canMutate ? <>
             <Button variant="outline" size="icon" className="min-h-11 min-w-11" disabled={!editor.canUndo} onClick={editor.undo} aria-label={t("editorUndo")}><Undo2 /></Button>
             <Button variant="outline" size="icon" className="min-h-11 min-w-11" disabled={!editor.canRedo} onClick={editor.redo} aria-label={t("editorRedo")}><Redo2 /></Button>
-            <Button variant="outline" size="sm" disabled={!selected} onClick={() => restore(false)}>{t("editorRestoreLayer")}</Button>
-            <Button variant="outline" size="sm" onClick={() => restore(true)}>{t("editorRestoreAll")}</Button>
+            <Button variant="outline" size="sm" className="min-h-11" disabled={!selected} onClick={() => restore(false)}>{t("editorRestoreLayer")}</Button>
+            <Button variant="outline" size="sm" className="min-h-11" onClick={() => restore(true)}>{t("editorRestoreAll")}</Button>
           </> : null}
-          <Button variant="outline" size="sm" disabled={!editor.document || exporting} onClick={() => void runExport("draft-png")}><Download />{t("editorExportPng")}</Button>
-          <Button variant="outline" size="sm" disabled={!editor.document || exporting} onClick={() => void runExport("draft-psd")}><Download />{t("editorExportPsd")}</Button>
-          {canMutate && editor.document ? <Button size="sm" disabled={exporting} onClick={() => void publish()}><Upload />{t("editorPublish")}</Button> : null}
+          <Button variant="outline" size="sm" className="min-h-11" disabled={!editor.document || exporting} onClick={() => void runExport("draft-png")}><Download />{t("editorExportPng")}</Button>
+          <Button variant="outline" size="sm" className="min-h-11" disabled={!editor.document || exporting} onClick={() => void runExport("draft-psd")}><Download />{t("editorExportPsd")}</Button>
+          {canMutate && editor.document ? <Button size="sm" className="min-h-11" disabled={exporting} onClick={() => void publish()}><Upload />{t("editorPublish")}</Button> : null}
         </header>
         <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[minmax(0,1fr)_18rem] xl:grid-cols-[3.5rem_minmax(0,1fr)_22rem]">
           {editor.document ? <aside aria-label={t("editorTools")} className="hidden min-h-0 flex-col items-center gap-2 border-r bg-muted/20 px-1 py-3 xl:flex">
             {canMutate ? <>
-              <Button variant="ghost" size="icon" title={t("editorUndo")} aria-label={t("editorUndo")} disabled={!editor.canUndo} onClick={editor.undo}><Undo2 /></Button>
-              <Button variant="ghost" size="icon" title={t("editorRedo")} aria-label={t("editorRedo")} disabled={!editor.canRedo} onClick={editor.redo}><Redo2 /></Button>
-              <Button variant="ghost" size="icon" title={t("editorRestoreAll")} aria-label={t("editorRestoreAll")} onClick={() => restore(true)}><RotateCcw /></Button>
+              <Button variant="ghost" size="icon" className="min-h-11 min-w-11" title={t("editorUndo")} aria-label={t("editorUndo")} disabled={!editor.canUndo} onClick={editor.undo}><Undo2 /></Button>
+              <Button variant="ghost" size="icon" className="min-h-11 min-w-11" title={t("editorRedo")} aria-label={t("editorRedo")} disabled={!editor.canRedo} onClick={editor.redo}><Redo2 /></Button>
+              <Button variant="ghost" size="icon" className="min-h-11 min-w-11" title={t("editorRestoreAll")} aria-label={t("editorRestoreAll")} onClick={() => restore(true)}><RotateCcw /></Button>
             </> : null}
-            <Button variant="ghost" size="icon" title={t("editorExportPng")} aria-label={t("editorExportPng")} disabled={exporting} onClick={() => void runExport("draft-png")}><Download /></Button>
+            <Button variant="ghost" size="icon" className="min-h-11 min-w-11" title={t("editorExportPng")} aria-label={t("editorExportPng")} disabled={exporting} onClick={() => void runExport("draft-png")}><Download /></Button>
           </aside> : null}
           {editor.document ? <LayerCanvas document={editor.document} selectedLayerId={selected} onSelect={setSelected} mode={canMutate ? "edit" : "read"} dispatch={editor.dispatch} visibilityOverrides={canMutate ? undefined : inspectVisibility} /> : <div role={editor.openError ? "alert" : undefined} className="grid place-items-center p-6">{editor.openError ?? t("editorLoading")}</div>}
           {editor.document ? <aside className="min-h-0 overflow-y-auto border-l bg-muted/20 max-md:border-t max-md:border-l-0">
@@ -159,7 +159,7 @@ export function LayerEditorDialog({ open, workItemId, outputId, mode = "edit", o
             </div>
           </aside> : null}
         </div>
-        {editor.hasUnresolvedConflict ? <div ref={alertRef} role="alert" tabIndex={-1} className="flex flex-wrap items-center gap-2 border-t border-amber-500/40 bg-amber-50 px-4 py-3 text-sm text-amber-950"><p>{t("editorConflict")}</p><Button variant="outline" size="sm" onClick={() => act(editor.discardLocalEdits)}>{t("editorDiscardLocal")}</Button><Button variant="outline" size="sm" onClick={() => void discardAndClose()}>{t("editorDiscardAndClose")}</Button></div> : null}
+        {editor.hasUnresolvedConflict ? <div ref={alertRef} role="alert" tabIndex={-1} className="flex flex-wrap items-center gap-2 border-t border-amber-500/40 bg-amber-50 px-4 py-3 text-sm text-amber-950"><p>{t("editorConflict")}</p><Button variant="outline" size="sm" className="min-h-11" onClick={() => act(editor.discardLocalEdits)}>{t("editorDiscardLocal")}</Button><Button variant="outline" size="sm" className="min-h-11" onClick={() => void discardAndClose()}>{t("editorDiscardAndClose")}</Button></div> : null}
         <div role="status" aria-live="polite" className="sr-only">{notice || editor.mode}</div>
         <div ref={editor.hasUnresolvedConflict ? undefined : alertRef} role="alert" tabIndex={-1} className="sr-only">{error || (editor.hasUnresolvedConflict ? t("editorConflict") : "")}</div>
       </DialogContent>

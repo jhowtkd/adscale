@@ -86,10 +86,22 @@ test.describe("native layer editor", () => {
     await page.setViewportSize({ width: 900, height: 1100 });
     const dialog = await openEditor(page);
     await page.getByRole("button", { name: /Product|Produto sintético/ }).click();
-    const toggle = page.getByRole("button", { name: /Ocultar Product|Ocultar Produto sintético/ });
-    const box = await toggle.boundingBox();
-    expect(box?.width).toBeGreaterThanOrEqual(44);
-    expect(box?.height).toBeGreaterThanOrEqual(44);
+    const controls = [
+      page.getByRole("button", { name: "Desfazer" }),
+      page.getByRole("button", { name: "Refazer" }),
+      page.getByRole("button", { name: "Restaurar camada" }),
+      page.getByRole("button", { name: "Restaurar tudo" }),
+      page.getByRole("button", { name: "Exportar PNG" }).first(),
+      page.getByRole("button", { name: "Exportar PSD" }),
+      page.getByRole("button", { name: "Criar nova versão" }),
+      page.getByRole("button", { name: /Ocultar Product|Ocultar Produto sintético/ }),
+      page.getByRole("button", { name: /Product|Produto sintético/ }),
+    ];
+    for (const control of controls) {
+      const box = await control.boundingBox();
+      expect(box?.width).toBeGreaterThanOrEqual(44);
+      expect(box?.height).toBeGreaterThanOrEqual(44);
+    }
 
     const selected = page.getByLabel("Camada selecionada");
     const before = await selected.boundingBox();

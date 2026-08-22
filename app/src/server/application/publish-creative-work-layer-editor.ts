@@ -10,13 +10,14 @@ function toPublicPublishedChild(output: { id: string; parentOutputId: string | n
 
 export async function publishCreativeWorkLayerEditor(input:{workspaceId:string;workItemId:string;outputId:string;userId:string;leaseId:string;expectedRevision:number;operationId:string}) {
  if (!(await getLayerEditorAccess(input.workspaceId, new Date())).enabled) return {ok:false as const,code:"layer_editor_not_available" as const};
- const parent=await getCreativeWorkLayerEditorOutput(input); const state=layerEditorFromOutput(parent); if(!parent||!state||state.revision!==input.expectedRevision||state.lease?.id!==input.leaseId||state.lease.userId!==input.userId||Date.parse(state.lease.expiresAt)<=Date.now()||hasActiveLayerEditorRegeneration(state))return {ok:false as const,code:"layer_editor_publish_conflict" as const};
+ const parent=await getCreativeWorkLayerEditorOutput(input); const state=layerEditorFromOutput(parent); if(!parent||!state)return {ok:false as const,code:"layer_editor_publish_conflict" as const};
  const existing = await findCreativeWorkLayerEditorPublicationByOperation(input);
  if (existing) {
-   const expectedKey = `layer-editor-publish:${input.operationId}:${parent.id}:${state.revision}`;
+   const expectedKey = `layer-editor-publish:${input.operationId}:${parent.id}:${input.expectedRevision}`;
    if (existing.operationKey !== expectedKey) return {ok:false as const,code:"layer_editor_publish_conflict" as const};
    return {ok:true as const,replay:true as const,output:toPublicPublishedChild(existing)};
  }
+ if(state.revision!==input.expectedRevision||state.lease?.id!==input.leaseId||state.lease.userId!==input.userId||Date.parse(state.lease.expiresAt)<=Date.now()||hasActiveLayerEditorRegeneration(state))return {ok:false as const,code:"layer_editor_publish_conflict" as const};
  if ((await Promise.all(state.layers.map((layer) => objectStorage.head(layer.currentKey)))).some((artifact) => !artifact)) return {ok:false as const,code:"layer_editor_artifact_missing" as const};
  let draft: { pngKey: string; psdKey: string };
  try { draft=await materializeLayerEditorDraft({...input,revision:state.revision}); }

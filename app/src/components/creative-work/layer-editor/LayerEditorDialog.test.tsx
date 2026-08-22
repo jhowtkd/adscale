@@ -197,8 +197,12 @@ describe("LayerEditorDialog", () => {
     value.canRedo = true;
     mocks.useLayerEditor.mockReturnValue(value);
     render(<LayerEditorDialog open workItemId="work-9" outputId="output-9" onOpenChange={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: /Produto/ }));
     for (const name of ["Fechar editor", "Desfazer", "Refazer"]) {
       expect(within(screen.getByRole("banner")).getByRole("button", { name })).toHaveClass("min-h-11", "min-w-11");
+    }
+    for (const name of ["Restaurar camada", "Restaurar tudo", "Exportar PNG", "Exportar PSD", "Criar nova versão"]) {
+      expect(within(screen.getByRole("banner")).getByRole("button", { name })).toHaveClass("min-h-11");
     }
   });
 });
