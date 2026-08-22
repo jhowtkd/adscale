@@ -286,7 +286,7 @@ export function useLayerEditor(input: LayerEditorInput) {
       if (action === "regenerateLayer" && code === "layer_regeneration_dispatch_failed") await open();
       throw error;
     }
-  }, [flush, input.outputId, input.workItemId, markConflict]);
+  }, [flush, input.outputId, input.workItemId, markConflict, open]);
 
   const regenerate = useCallback(async (layerId: string, instruction: string) => {
     const result = await command("regenerateLayer", { layerId, instruction }, `regenerate:${layerId}:${instruction}`);
