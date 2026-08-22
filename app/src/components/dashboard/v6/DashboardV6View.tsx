@@ -15,6 +15,12 @@ type DashboardV6ViewProps = {
   summary: ReactNode;
   isLoading?: boolean;
   isHeroLoading?: boolean;
+  heroError?: {
+    title: string;
+    description: string;
+    retryLabel: string;
+    retry: () => void;
+  };
   interactive?: boolean;
 };
 
@@ -40,6 +46,7 @@ export default function DashboardV6View({
   summary,
   isLoading = false,
   isHeroLoading = false,
+  heroError,
   interactive = true,
 }: DashboardV6ViewProps) {
   const reducedMotion = useReducedMotion();
@@ -111,6 +118,27 @@ export default function DashboardV6View({
 
       {isLoading || isHeroLoading ? (
         <HeroSkeleton pulseClass={pulseClass} />
+      ) : heroError ? (
+        <section
+          className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-6"
+          aria-label={labels.heroProduction}
+          data-tour-step="2"
+        >
+          <div role="alert" className="space-y-3">
+            <div>
+              <p className="text-sm font-medium text-[var(--text-primary)]">{heroError.title}</p>
+              <p className="mt-1 text-sm text-[var(--text-secondary)]">{heroError.description}</p>
+            </div>
+            <button
+              type="button"
+              onClick={heroError.retry}
+              disabled={!interactive}
+              className="inline-flex min-h-[var(--control-touch)] items-center rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-4 py-2 text-sm font-medium text-[var(--action-primary-text)] transition-colors hover:bg-[var(--action-primary-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-default"
+            >
+              {heroError.retryLabel}
+            </button>
+          </div>
+        </section>
       ) : view.hero ? (
         <section
           className="relative overflow-hidden rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-6 sm:p-8"

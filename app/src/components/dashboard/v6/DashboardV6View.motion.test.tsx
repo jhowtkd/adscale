@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import DashboardV6View from "./DashboardV6View";
 import type { DashboardV6Labels, DashboardV6ViewModel } from "./dashboard-v6-types";
@@ -70,6 +70,24 @@ describe("DashboardV6View motion values", () => {
     );
 
     expect(screen.queryByText("heroEmptyTitle")).not.toBeInTheDocument();
+  });
+
+  it("keeps overview data visible when featured work fails", () => {
+    const retry = vi.fn();
+
+    render(
+      <DashboardV6View
+        view={{ ...view, hero: null }}
+        labels={labels}
+        summary="Resumo"
+        heroError={{ title: "Erro", description: "Tente novamente", retryLabel: "Repetir", retry }}
+      />,
+    );
+
+    expect(screen.getByText("60%")).toBeInTheDocument();
+    expect(screen.queryByText("heroEmptyTitle")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Repetir" }));
+    expect(retry).toHaveBeenCalledOnce();
   });
 
   it("renders the final KPI and progress values immediately", () => {
