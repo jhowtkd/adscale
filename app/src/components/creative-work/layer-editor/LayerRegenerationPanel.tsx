@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
@@ -21,11 +21,19 @@ export function LayerRegenerationPanel({ document, selectedLayerId, access, mode
   const t = useTranslations("dashboard.home.composer.results");
   const [instruction, setInstruction] = useState("");
   const [confirm, setConfirm] = useState(false);
+  const panelRef = useRef<HTMLElement>(null);
+  const previousStatus = useRef(document.regeneration?.status);
   const layer = document.layers.find((item) => item.id === selectedLayerId);
   const regeneration = document.regeneration;
   const blocked = mode !== "edit" || !layer || !instruction.trim() || (access.regeneration?.remaining ?? 0) < 1 || regeneration?.status === "reserved" || regeneration?.status === "processing";
+  useEffect(() => {
+    const wasPending = previousStatus.current === "reserved" || previousStatus.current === "processing";
+    const terminal = regeneration?.status === "ready" || regeneration?.status === "failed" || regeneration?.status === "submission_unknown";
+    if (wasPending && terminal) panelRef.current?.focus();
+    previousStatus.current = regeneration?.status;
+  }, [regeneration?.status]);
 
-  return <section aria-label={t("editorRegenerate")} className="space-y-3 border-t p-4">
+  return <section ref={panelRef} tabIndex={-1} aria-label={t("editorRegenerate")} className="space-y-3 border-t p-4">
     <div><h3 className="font-medium">{t("editorRegenerate")}</h3><p className="text-sm text-muted-foreground">{layer?.name ?? t("editorSelectLayer")}</p></div>
     <p role="status" aria-live="polite" className="rounded bg-background px-3 py-2 text-sm">{t("editorQuotaRemaining", { count: access.regeneration?.remaining ?? 0 })}</p>
     <label className="block text-sm font-medium">{t("editorInstruction")}<textarea className="mt-1 min-h-24 w-full rounded border bg-background p-2" value={instruction} maxLength={2000} disabled={mode !== "edit"} onChange={(event) => { setInstruction(event.target.value); setConfirm(false); }} /></label>
